@@ -29,10 +29,21 @@ import { NavigatorGlyph } from "./glyph";
 import { RunHistory } from "./run-history";
 import { RunPanel } from "./run-panel";
 
-const PLANNER_NOTE =
-  "Pattern-based planning. Set ANTHROPIC_API_KEY to enable language-model parsing in a future build.";
+const PLANNER_NOTES = {
+  deterministic:
+    "Pattern-based planning. Set ANTHROPIC_API_KEY in .env.local to let Claude translate freeform goals into the same typed plan.",
+  llm: "Claude translates your goal into the typed command grammar; the deterministic planner still decides every action, risk and approval. Falls back to pattern parsing if the API is unreachable.",
+} as const;
 
-export function NavigatorScreen({ slug }: { slug: string }) {
+export type PlannerModeProp = keyof typeof PLANNER_NOTES;
+
+export function NavigatorScreen({
+  slug,
+  plannerMode = "deterministic",
+}: {
+  slug: string;
+  plannerMode?: PlannerModeProp;
+}) {
   const { project, environments, findings, deployments, refresh } = useProjectData();
   const shell = useShell();
   const autonomy: AutonomyLevel = shell.boot?.settings.autonomy ?? "approve";
@@ -102,6 +113,7 @@ export function NavigatorScreen({ slug }: { slug: string }) {
         autonomy={autonomy}
         onAutonomyChanged={shell.refresh}
         loading={shell.loading && !shell.boot}
+        plannerMode={plannerMode}
       />
 
       <Advisories
@@ -148,10 +160,12 @@ function Header({
   autonomy,
   onAutonomyChanged,
   loading,
+  plannerMode,
 }: {
   autonomy: AutonomyLevel;
   onAutonomyChanged: () => void;
   loading: boolean;
+  plannerMode: PlannerModeProp;
 }) {
   return (
     <header className="space-y-4">
@@ -167,8 +181,10 @@ function Header({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-[20px] font-medium tracking-[-0.01em] text-ink">Navigator</h1>
-            <Tooltip label={PLANNER_NOTE}>
-              <Chip tone="neutral">deterministic planner</Chip>
+            <Tooltip label={PLANNER_NOTES[plannerMode]}>
+              <Chip tone={plannerMode === "llm" ? "nav" : "neutral"}>
+                {plannerMode === "llm" ? "language parsing · Claude" : "deterministic planner"}
+              </Chip>
             </Tooltip>
           </div>
           <p className="mt-0.5 max-w-[70ch] text-[13px] text-ink-mute">

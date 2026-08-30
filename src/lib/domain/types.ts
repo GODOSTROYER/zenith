@@ -166,7 +166,14 @@ export const emptyManifest = (): Manifest => ({
 export const EnvironmentClass = z.enum(["sandbox", "staging", "production"]);
 export type EnvironmentClass = z.infer<typeof EnvironmentClass>;
 
-export const ProviderId = z.enum(["sandbox", "aws", "kubernetes", "gcp", "azure"]);
+export const ProviderId = z.enum([
+  "sandbox",
+  "localstack",
+  "aws",
+  "kubernetes",
+  "gcp",
+  "azure",
+]);
 export type ProviderId = z.infer<typeof ProviderId>;
 
 export interface Workspace {

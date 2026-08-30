@@ -34,6 +34,7 @@ import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { getProvider, registerProvider } from "@/lib/providers/types";
 import type { EngineApi, StartDeploymentInput } from "@/lib/engine/types";
 import { sandboxProvider } from "@/lib/providers/sandbox";
+import { localstackProvider } from "@/lib/providers/localstack";
 import { awsProvider } from "@/lib/providers/aws";
 import { plannedProviders } from "@/lib/providers/planned";
 
@@ -134,6 +135,7 @@ export function ensureEngine(): void {
   const gl = g();
   if (!gl.__orreryProvidersReady) {
     registerProvider(sandboxProvider);
+    registerProvider(localstackProvider);
     registerProvider(awsProvider);
     for (const p of plannedProviders) registerProvider(p);
     gl.__orreryProvidersReady = true;

@@ -28,7 +28,7 @@ const fail = (err: unknown, fix: string): NavigatorReply => ({
 export async function createRunAction(projectId: string, goal: string): Promise<NavigatorReply> {
   await ensureBoot();
   try {
-    return { run: createRun(projectId, goal) };
+    return { run: await createRun(projectId, goal) };
   } catch (err) {
     return fail(err, "Check the goal and try again — planning changes nothing, so it is safe to retry.");
   }

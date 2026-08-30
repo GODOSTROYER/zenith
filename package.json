@@ -1,0 +1,39 @@
+{
+  "name": "orrery",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Orrery — a bring-your-own-cloud deployment and operations platform. Your infrastructure, in motion.",
+  "scripts": {
+    "dev": "next dev -p 3400",
+    "build": "next build",
+    "start": "next start -p 3400",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "seed": "tsx scripts/seed.ts",
+    "smoke": "tsx scripts/smoke.ts"
+  },
+  "dependencies": {
+    "@dagrejs/dagre": "^1.1.4",
+    "@xyflow/react": "^12.6.4",
+    "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
+    "js-yaml": "^4.1.0",
+    "lucide-react": "^0.511.0",
+    "motion": "^12.15.0",
+    "next": "15.3.3",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.7",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "tailwindcss": "^4.1.7",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.4"
+  }
+}

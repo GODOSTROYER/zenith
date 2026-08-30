@@ -1,0 +1,257 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Orrery design tokens — "observatory" theme.
+   Dark-first, with an equally considered light theme.
+   All component styling flows through these tokens; never hardcode
+   a color in a component. See docs/DESIGN.md.
+   ============================================================ */
+
+:root {
+  /* ---- dark (default) ---- */
+  --bg0: #0a0d13; /* page ground */
+  --bg1: #0f131c; /* app chrome */
+  --bg2: #141a26; /* raised surface */
+  --bg3: #1a2132; /* overlay surface */
+  --line: rgba(151, 165, 199, 0.14);
+  --line-strong: rgba(151, 165, 199, 0.26);
+
+  --ink: #e9edf5;
+  --ink-mute: #9aa5bd;
+  --ink-faint: #636e87;
+
+  /* brand */
+  --signal: #53e0be; /* primary accent — actions, focus, success-of-intent */
+  --signal-strong: #79f0d2;
+  --on-signal: #04241c;
+  --nav-accent: #929aff; /* Navigator (agent) identity — never used for anything else */
+  --on-nav: #101235;
+
+  /* semantic status — separate axis from brand */
+  --ok: #45d59b;
+  --warn: #e5b055;
+  --err: #ec7d72;
+  --info: #6fb9e8;
+  --prod: #e3a44e; /* production environments carry this ring */
+
+  --ok-dim: rgba(69, 213, 155, 0.14);
+  --warn-dim: rgba(229, 176, 85, 0.14);
+  --err-dim: rgba(236, 125, 114, 0.14);
+  --info-dim: rgba(111, 185, 232, 0.14);
+  --signal-dim: rgba(83, 224, 190, 0.12);
+  --nav-dim: rgba(146, 154, 255, 0.14);
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.28);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.5), 0 16px 48px rgba(0, 0, 0, 0.42);
+
+  --r-card: 12px;
+  --r-ctl: 8px;
+  --r-pill: 999px;
+
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg0: #f3f5f7;
+  --bg1: #f8f9fb;
+  --bg2: #ffffff;
+  --bg3: #ffffff;
+  --line: rgba(24, 35, 60, 0.12);
+  --line-strong: rgba(24, 35, 60, 0.22);
+
+  --ink: #191e2b;
+  --ink-mute: #5a6478;
+  --ink-faint: #8b94a8;
+
+  --signal: #0d9f83;
+  --signal-strong: #0b8a72;
+  --on-signal: #ffffff;
+  --nav-accent: #5a63e8;
+  --on-nav: #ffffff;
+
+  --ok: #148f60;
+  --warn: #b07817;
+  --err: #c8473c;
+  --info: #2a7fb8;
+  --prod: #b07817;
+
+  --ok-dim: rgba(20, 143, 96, 0.1);
+  --warn-dim: rgba(176, 120, 23, 0.12);
+  --err-dim: rgba(200, 71, 60, 0.1);
+  --info-dim: rgba(42, 127, 184, 0.1);
+  --signal-dim: rgba(13, 159, 131, 0.1);
+  --nav-dim: rgba(90, 99, 232, 0.1);
+
+  --shadow-1: 0 1px 2px rgba(20, 30, 55, 0.08), 0 4px 14px rgba(20, 30, 55, 0.07);
+  --shadow-2: 0 2px 8px rgba(20, 30, 55, 0.1), 0 18px 44px rgba(20, 30, 55, 0.14);
+
+  color-scheme: light;
+}
+
+@theme inline {
+  --color-bg0: var(--bg0);
+  --color-bg1: var(--bg1);
+  --color-bg2: var(--bg2);
+  --color-bg3: var(--bg3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-ink: var(--ink);
+  --color-ink-mute: var(--ink-mute);
+  --color-ink-faint: var(--ink-faint);
+  --color-signal: var(--signal);
+  --color-signal-strong: var(--signal-strong);
+  --color-on-signal: var(--on-signal);
+  --color-nav-accent: var(--nav-accent);
+  --color-on-nav: var(--on-nav);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-err: var(--err);
+  --color-info: var(--info);
+  --color-prod: var(--prod);
+  --color-ok-dim: var(--ok-dim);
+  --color-warn-dim: var(--warn-dim);
+  --color-err-dim: var(--err-dim);
+  --color-info-dim: var(--info-dim);
+  --color-signal-dim: var(--signal-dim);
+  --color-nav-dim: var(--nav-dim);
+
+  --font-sans: var(--font-grotesk), "Space Grotesk", system-ui, sans-serif;
+  --font-mono: var(--font-jbmono), "JetBrains Mono", ui-monospace, monospace;
+
+  --radius-card: var(--r-card);
+  --radius-ctl: var(--r-ctl);
+
+  --shadow-card: var(--shadow-1);
+  --shadow-overlay: var(--shadow-2);
+}
+
+/* ---------------------------------- base ---------------------------------- */
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--bg0);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* metrics, costs, ids: always tabular */
+.tnum,
+td.num,
+[data-tnum] {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--signal-dim);
+}
+
+:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* scrollbars that match the surface */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+/* ------------------------------ motion tokens ------------------------------ */
+
+:root {
+  --ease-swift: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ------------------------- shared micro-animations ------------------------- */
+
+@keyframes orrery-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+@keyframes orrery-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes orrery-dash {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+.animate-enter {
+  animation: orrery-enter var(--dur-base) var(--ease-swift) both;
+}
+
+.status-pulse {
+  animation: orrery-pulse 1.6s ease-in-out infinite;
+}
+
+/* live edges on the System Map */
+.edge-live {
+  stroke-dasharray: 6 10;
+  animation: orrery-dash 1.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edge-live {
+    animation: none;
+    stroke-dasharray: none;
+  }
+}
+
+/* xyflow overrides so the map engine inherits our surface language */
+.react-flow__attribution {
+  display: none;
+}
+.react-flow__edge-path {
+  stroke: var(--line-strong);
+}
+.react-flow__controls {
+  box-shadow: var(--shadow-1);
+  border-radius: var(--r-ctl);
+  overflow: hidden;
+  border: 1px solid var(--line);
+}
+.react-flow__controls-button {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--line);
+  fill: var(--ink-mute);
+}
+.react-flow__controls-button:hover {
+  background: var(--bg3);
+}

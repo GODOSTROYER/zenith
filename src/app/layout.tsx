@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { DM_Serif_Display, JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { Instrument_Sans, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const grotesk = Space_Grotesk({
+const grotesk = Instrument_Sans({
   subsets: ["latin"],
   variable: "--font-grotesk",
   display: "swap",
@@ -14,7 +14,7 @@ const jbmono = JetBrains_Mono({
   display: "swap",
 });
 
-const display = DM_Serif_Display({
+const display = Instrument_Serif({
   subsets: ["latin"],
   weight: "400",
   variable: "--font-dmserif",

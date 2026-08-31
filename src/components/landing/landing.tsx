@@ -17,7 +17,6 @@ import {
   Copy,
   Command,
   ShieldCheck,
-  Sparkles,
 } from "lucide-react";
 import { cx } from "@/lib/format";
 import { ThemeToggle } from "@/components/ui";
@@ -182,30 +181,23 @@ function Hero({ cta }: { cta: { href: string; label: string } }) {
       </div>
       <div className="relative mx-auto flex w-full max-w-[1180px] flex-1 flex-col justify-center px-6 pt-24 lg:pt-14">
         <div className="relative z-10 max-w-[620px]">
-          <div className="landing-eyebrow animate-enter">
-            <span className="landing-eyebrow-dot" />
-            <Sparkles className="h-3.5 w-3.5" aria-hidden />
-            The control plane for small teams
-          </div>
-          <h1 className="animate-enter text-balance text-[clamp(42px,7vw,84px)] font-bold leading-[0.98] tracking-[-0.025em] text-ink">
+          <h1 className="hero-title text-balance font-display text-[clamp(48px,7vw,92px)] leading-[0.91] tracking-[-0.04em] text-ink">
             See your whole stack.
             <span className="landing-gradient-text block">Ship with confidence.</span>
           </h1>
           <p
-            className="mt-6 max-w-[52ch] text-[16.5px] leading-[1.65] text-ink-mute animate-enter"
-            style={{ animationDelay: "120ms" }}
+            className="mt-7 max-w-[52ch] text-[16.5px] leading-[1.65] text-ink-mute"
           >
             Orrery is the calm control plane for your app. Map services, data, and
             connections in one place, preview cost and risk before you deploy,
             then watch the system go live.
           </p>
-          <div className="landing-hero-proof animate-enter" style={{ animationDelay: "170ms" }}>
+          <div className="landing-hero-proof">
             <span><ShieldCheck className="h-3.5 w-3.5 text-signal" aria-hidden /> plan before you apply</span>
             <span><span className="h-1 w-1 rounded-full bg-line-strong" /> real URLs, visible state</span>
           </div>
           <div
-            className="mt-9 flex flex-wrap items-center gap-3 animate-enter"
-            style={{ animationDelay: "220ms" }}
+            className="mt-9 flex flex-wrap items-center gap-3"
           >
             <Link
               href={cta.href}
@@ -230,8 +222,7 @@ function Hero({ cta }: { cta: { href: string; label: string } }) {
           </div>
           {/* live narration synced to the canvas */}
           <p
-            className="mt-10 flex items-center gap-2.5 font-mono text-[12.5px] text-ink-faint animate-enter"
-            style={{ animationDelay: "320ms" }}
+            className="mt-10 flex items-center gap-2.5 font-mono text-[12.5px] text-ink-faint"
             aria-live="polite"
           >
             <span
@@ -247,7 +238,7 @@ function Hero({ cta }: { cta: { href: string; label: string } }) {
               simulated
             </span>
           </p>
-          <div className="landing-storyline animate-enter" style={{ animationDelay: "400ms" }} role="group" aria-label="How Orrery works">
+          <div className="landing-storyline" role="group" aria-label="How Orrery works">
             <div className="landing-story-step landing-story-step-active">
               <span className="landing-story-index">01</span>
               <span><strong>Model</strong><small>your stack</small></span>

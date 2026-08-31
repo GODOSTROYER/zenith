@@ -250,6 +250,8 @@ td.num,
   min-height: max(720px, 100svh);
 }
 
+.hero-title { font-weight: 400; }
+
 .landing-hero-grid {
   position: absolute;
   inset: 0;
@@ -291,20 +293,7 @@ td.num,
 .landing-orbit-a { width: 820px; height: 320px; right: -220px; top: 25%; }
 .landing-orbit-b { width: 1080px; height: 460px; right: -300px; top: 16%; border-color: rgba(146,154,255,.08); transform: rotate(24deg); }
 
-.landing-eyebrow {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid rgba(83,224,190,.22);
-  border-radius: 999px;
-  padding: 7px 11px 7px 8px;
-  background: rgba(83,224,190,.07);
-  color: var(--signal);
-  font-family: var(--font-jbmono), monospace;
-  font-size: 11px;
-  letter-spacing: .02em;
-}
-.landing-eyebrow-dot, .landing-live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--signal); box-shadow: 0 0 14px var(--signal); }
+.landing-live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--signal); box-shadow: 0 0 14px var(--signal); }
 .landing-live-dot { display: inline-block; margin-right: 7px; }
 
 .landing-gradient-text {

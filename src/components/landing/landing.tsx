@@ -56,12 +56,19 @@ function Reveal({
   children,
   className,
   delay = 0,
+  rise = false,
 }: {
   children: React.ReactNode;
   className?: string;
   delay?: number;
+  /**
+   * The page's entrance motion belongs to the two display headlines only —
+   * the hero canvas is the authored moment. Everything else renders static.
+   */
+  rise?: boolean;
 }) {
   const { ref, shown } = useReveal<HTMLDivElement>();
+  if (!rise) return <div className={className}>{children}</div>;
   return (
     <div
       ref={ref}
@@ -230,7 +237,9 @@ function Hero({ cta }: { cta: { href: string; label: string } }) {
         </div>
       </div>
       <div className="relative mx-auto -mt-2 h-[340px] w-full max-w-[720px] px-4 lg:hidden">
-        <HeroCanvas align="center" className="h-full w-full" />
+        {/* The visible canvas owns the narration below lg; the hidden desktop
+            canvas pauses off-screen and stops phoning phases in. */}
+        <HeroCanvas onPhase={onPhase} align="center" className="h-full w-full" />
       </div>
     </section>
   );
@@ -306,13 +315,13 @@ function OneModel() {
               </g>
               <rect x="40" y="43" width="156" height="64" rx="12" fill="var(--bg2)" stroke="var(--line)" />
               <circle cx="182" cy="57" r="3.4" fill="var(--ok)" />
-              <text x="66" y="72" fill="var(--ink)" fontSize="14" fontWeight="600" fontFamily="var(--font-sans)">web</text>
-              <text x="66" y="92" fill="var(--ink-mute)" fontSize="11" fontFamily="var(--font-sans)">web · standard × 2</text>
+              <text x="66" y="72" fill="var(--ink)" fontSize="14" fontWeight="600" fontFamily="var(--font-grotesk), 'Space Grotesk', system-ui, sans-serif">web</text>
+              <text x="66" y="92" fill="var(--ink-mute)" fontSize="11" fontFamily="var(--font-grotesk), 'Space Grotesk', system-ui, sans-serif">web · standard × 2</text>
               <rect x="364" y="46" width="150" height="58" rx="12" fill="var(--bg2)" stroke="var(--line)" />
-              <text x="388" y="73" fill="var(--ink)" fontSize="14" fontWeight="600" fontFamily="var(--font-sans)">cache</text>
-              <text x="388" y="91" fill="var(--ink-mute)" fontSize="11" fontFamily="var(--font-sans)">redis · small</text>
+              <text x="388" y="73" fill="var(--ink)" fontSize="14" fontWeight="600" fontFamily="var(--font-grotesk), 'Space Grotesk', system-ui, sans-serif">cache</text>
+              <text x="388" y="91" fill="var(--ink-mute)" fontSize="11" fontFamily="var(--font-grotesk), 'Space Grotesk', system-ui, sans-serif">redis · small</text>
               <rect x="252" y="64" width="56" height="21" rx="10" fill="var(--bg2)" stroke="var(--line)" />
-              <text x="280" y="78" textAnchor="middle" fill="var(--ink-faint)" fontSize="10.5" fontFamily="var(--font-mono)">cache</text>
+              <text x="280" y="78" textAnchor="middle" fill="var(--ink-faint)" fontSize="10.5" fontFamily="var(--font-jbmono), 'JetBrains Mono', monospace">cache</text>
             </svg>
           )}
           {surface === "Source" && (
@@ -423,7 +432,7 @@ function LiveMoment({ cta }: { cta: { href: string; label: string } }) {
   return (
     <section className="mx-auto w-full max-w-[1180px] px-6 py-28 lg:py-36">
       <div className="mx-auto max-w-[760px] text-center">
-        <Reveal>
+        <Reveal rise>
           <h2 className="text-balance text-[clamp(40px,6vw,72px)] font-bold leading-[1] tracking-[-0.025em] text-ink">
             Every deploy ends with{" "}
             <span className="text-signal">Live.</span>
@@ -441,7 +450,7 @@ function LiveMoment({ cta }: { cta: { href: string; label: string } }) {
                 <p className="font-mono text-[12px] text-ink-faint">web</p>
                 <p className="mt-1 font-mono text-[14.5px] text-ink">https://app.atlas.orrery.app</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <CopyChip text="https://app.atlas.orrery.app" label="the demo URL" />
                 <Link
                   href={cta.href}
@@ -475,8 +484,7 @@ function NavigatorSection() {
       <div className="mx-auto w-full max-w-[1180px] px-6 py-28 lg:py-36">
         <div className="grid gap-12 lg:grid-cols-[1fr_1.15fr]">
           <Reveal>
-            <p className="font-mono text-[12.5px] text-nav-accent">the Navigator</p>
-            <h2 className="mt-3 max-w-[16ch] text-balance text-[clamp(28px,4vw,44px)] font-bold leading-[1.06] tracking-[-0.02em] text-ink">
+            <h2 className="max-w-[16ch] text-balance text-[clamp(28px,4vw,44px)] font-bold leading-[1.06] tracking-[-0.02em] text-ink">
               An agent with a permission system — not a chat box.
             </h2>
             <p className="mt-4 max-w-[52ch] text-[15.5px] leading-[1.65] text-ink-mute">
@@ -639,7 +647,7 @@ function Close({ cta }: { cta: { href: string; label: string } }) {
   return (
     <section className="mx-auto w-full max-w-[1180px] px-6 pb-16 pt-28 lg:pt-40">
       <div className="text-center">
-        <Reveal>
+        <Reveal rise>
           <h2 className="mx-auto max-w-[14ch] text-balance text-[clamp(36px,6vw,68px)] font-bold leading-[1.02] tracking-[-0.025em] text-ink">
             Ship something small tonight.
           </h2>

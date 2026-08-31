@@ -471,9 +471,20 @@ export function HeroCanvas({ onPhase, align = "right", className }: Props) {
           ctx.font = `600 15px ${fonts.sans}`;
           ctx.fillStyle = palette.ink;
           ctx.fillText(n.label, n.x + 44, n.y + 22);
+          // Sub label yields space to the right-aligned cost — never collide.
+          ctx.font = `11px ${fonts.mono}`;
+          const costW = n.cost ? ctx.measureText(n.cost).width + 10 : 0;
           ctx.font = `11.5px ${fonts.sans}`;
           ctx.fillStyle = palette.mute;
-          ctx.fillText(n.sub, n.x + 44, n.y + n.h - 20);
+          const maxSubW = n.w - 44 - 14 - costW;
+          let sub = n.sub;
+          if (ctx.measureText(sub).width > maxSubW) {
+            while (sub.length > 1 && ctx.measureText(`${sub}…`).width > maxSubW) {
+              sub = sub.slice(0, -1);
+            }
+            sub = `${sub.trimEnd()}…`;
+          }
+          ctx.fillText(sub, n.x + 44, n.y + n.h - 20);
 
           /* cost, arriving in the pricing beat */
           if (n.cost) {

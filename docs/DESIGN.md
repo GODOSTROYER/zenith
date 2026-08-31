@@ -17,6 +17,12 @@ agent activity is always recognizable. Equally considered light theme.
 
 12 label-caps (+2% tracking) · 13 secondary · 14 body · 16 emphasized · 20 section · 28 page title · 40 display (onboarding/success only).
 
+**Landing scale (marketing surface only):** display `clamp(42px, 7vw, 84px)`
+tracking −0.025em for the hero; `clamp(36–40px, 6vw, 68–72px)` for the two
+display closers; section headings `clamp(28px, 4vw, 44px)`. Entrance motion
+on the landing belongs to the two display closers only — the hero canvas is
+the page's single authored moment. Product surfaces keep the original scale.
+
 ## Motion
 
 Motion communicates state; nothing animates without meaning.

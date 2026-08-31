@@ -111,9 +111,9 @@ const PHASE_CAPTION: Record<HeroPhase, string> = {
   assemble: "assembling the system — services, resources, a route",
   wire: "wiring bindings — credentials injected, never hardcoded",
   price: "pricing the plan — every change carries its cost",
-  deploy: "deploying to staging — each step streamed, each step honest",
+  deploy: "preparing your release — each step streamed, each step clear",
   live: "live at app.atlas.orrery.app — the URL is the finish line",
-  still: "the demo system, assembled and live — simulated",
+  still: "your system, assembled and live — interactive demo",
 };
 
 /* --------------------------------- sections -------------------------------- */
@@ -188,9 +188,9 @@ function Hero({ cta }: { cta: { href: string; label: string } }) {
           <p
             className="mt-7 max-w-[52ch] text-[16.5px] leading-[1.65] text-ink-mute"
           >
-            Orrery is the calm control plane for your app. Map services, data, and
-            connections in one place, preview cost and risk before you deploy,
-            then watch the system go live.
+            Orrery gives your team one clear view of the technology behind your
+            product. Understand every connection, make safer changes, and ship
+            without the usual guesswork.
           </p>
           <div className="landing-hero-proof">
             <span><ShieldCheck className="h-3.5 w-3.5 text-signal" aria-hidden /> plan before you apply</span>
@@ -235,7 +235,7 @@ function Hero({ cta }: { cta: { href: string; label: string } }) {
             />
             {PHASE_CAPTION[phase]}
             <span className="rounded-[4px] border border-line px-1.5 py-px text-[10.5px] uppercase tracking-[0.08em]">
-              simulated
+              interactive demo
             </span>
           </p>
           <div className="landing-storyline" role="group" aria-label="How Orrery works">
@@ -260,12 +260,12 @@ function Hero({ cta }: { cta: { href: string; label: string } }) {
         <div className="landing-command-strip">
           <div className="flex items-center gap-2 font-mono text-[11px] text-ink-faint">
             <Command className="h-3.5 w-3.5 text-signal" aria-hidden />
-            <span>orrery / staging / atlas</span>
+            <span>orrery / atlas / system online</span>
           </div>
           <div className="hidden items-center gap-5 font-mono text-[11px] text-ink-faint sm:flex">
             <span><i className="landing-live-dot" /> 7 services connected</span>
-            <span>estimated $89.50 / mo</span>
-            <span className="text-signal">system ready</span>
+            <span>health 100%</span>
+            <span className="text-signal">ready to ship</span>
           </div>
         </div>
       </div>
@@ -277,10 +277,10 @@ function Hero({ cta }: { cta: { href: string; label: string } }) {
 }
 
 const HORIZON_CARDS = [
-  { index: "01", kicker: "model", title: "Your stack,\nwith a pulse.", body: "Services, data, routes, and bindings become one living system map.", tone: "signal" },
-  { index: "02", kicker: "preview", title: "Know the cost\nbefore the click.", body: "Every change arrives with a plan, risk, and estimated monthly delta.", tone: "nav" },
-  { index: "03", kicker: "deploy", title: "Watch it move\nfrom plan to live.", body: "The same typed action powers the UI, API, and Navigator.", tone: "warm" },
-  { index: "04", kicker: "operate", title: "Keep the whole\nconstellation visible.", body: "Health, logs, rollbacks, and audit history stay in the same orbit.", tone: "signal" },
+  { index: "01", kicker: "understand", title: "Your product,\nin one picture.", body: "See services, data, routes, and connections as one living system.", tone: "signal" },
+  { index: "02", kicker: "decide", title: "Know what changes\nbefore it changes.", body: "Every idea becomes a clear plan with cost, risk, and tradeoffs.", tone: "nav" },
+  { index: "03", kicker: "ship", title: "From first sketch\nto live product.", body: "Move from plan to release with the whole system in view.", tone: "warm" },
+  { index: "04", kicker: "operate", title: "Stay ahead of\nthe moving parts.", body: "Health, history, and the next best action are always close at hand.", tone: "signal" },
 ];
 
 function HorizonScroll() {
@@ -320,13 +320,13 @@ function HorizonScroll() {
             Infrastructure, in motion.
           </h2>
         </div>
-        <p className="mb-1 hidden max-w-[25ch] text-right font-mono text-[11px] leading-[1.6] text-ink-faint md:block">
-          scroll to move through the system <span className="text-signal">→</span>
+          <p className="mb-1 hidden max-w-[25ch] text-right font-mono text-[11px] leading-[1.6] text-ink-faint md:block">
+          keep scrolling to explore <span className="text-signal">→</span>
         </p>
       </div>
       <div ref={track} className="horizon-track flex w-max gap-5 px-6 pb-20 pt-12 lg:pb-24 lg:pt-16">
         {HORIZON_CARDS.map((card) => (
-          <article key={card.index} className={`horizon-card horizon-card-${card.tone} relative flex h-[380px] w-[min(78vw,520px)] shrink-0 flex-col justify-between overflow-hidden rounded-[18px] border border-line bg-bg2 p-7 lg:h-[450px] lg:p-10`}>
+          <article key={card.index} className={`horizon-card horizon-card-${card.tone} relative flex h-[380px] w-[min(72vw,820px)] shrink-0 flex-col justify-between overflow-hidden rounded-[18px] border border-line bg-bg2 p-7 lg:h-[450px] lg:p-10`}>
             <div className="horizon-card-orbit" aria-hidden />
             <div className="relative z-10 flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.14em] text-ink-faint">
               <span>{card.kicker}</span><span>{card.index}</span>
@@ -369,13 +369,10 @@ function OneModel() {
         <h2 className="max-w-[16ch] text-balance text-[clamp(28px,4vw,44px)] font-bold leading-[1.06] tracking-[-0.02em] text-ink">
           One model. Every surface.
         </h2>
-        <p className="mt-4 max-w-[58ch] text-[15.5px] leading-[1.65] text-ink-mute">
-          The map, the source view, the API, and the Navigator agent all read and
-          write the same manifest through the same typed actions. Below is one
-          fact — <span className="font-mono text-[13.5px] text-ink">web</span> uses{" "}
-          <span className="font-mono text-[13.5px] text-ink">cache</span> — on all
-          four surfaces. There is no drawing of your system that can disagree
-          with your system.
+            <p className="mt-4 max-w-[58ch] text-[15.5px] leading-[1.65] text-ink-mute">
+          Your team, your tools, and your infrastructure all speak different
+          languages. Orrery brings them into one shared picture — one that both
+          humans and automation can understand.
         </p>
       </Reveal>
 
@@ -466,21 +463,20 @@ function PlanFirst() {
     <section className="border-y border-line bg-bg1">
       <div className="mx-auto grid w-full max-w-[1180px] gap-12 px-6 py-28 lg:grid-cols-[1fr_1.1fr] lg:items-center lg:py-36">
         <Reveal>
-          <h2 className="max-w-[14ch] text-balance text-[clamp(28px,4vw,44px)] font-bold leading-[1.06] tracking-[-0.02em] text-ink">
-            Nothing changes silently.
+            <h2 className="max-w-[14ch] text-balance text-[clamp(28px,4vw,44px)] font-bold leading-[1.06] tracking-[-0.02em] text-ink">
+            Confidence before launch.
           </h2>
           <p className="mt-4 max-w-[52ch] text-[15.5px] leading-[1.65] text-ink-mute">
-            Every edit becomes a changeset: what will happen, what it costs, and
-            what could go wrong — before anything applies. Deleting stateful
-            things warns you. Production asks for approval. The plan you read is
-            the plan that runs.
+            Every change comes with a plain-English explanation of what will
+            happen, what it costs, and what could go wrong — before anything
+            applies. No surprises hiding behind a green button.
           </p>
         </Reveal>
         <Reveal delay={120}>
           <figure className="rounded-[12px] border border-line bg-bg2 p-6">
             <figcaption className="flex items-baseline justify-between gap-4">
-              <span className="text-[14px] font-semibold text-ink">3 pending changes for staging</span>
-              <span className="tnum font-mono text-[12px] text-ink-faint">est $89.50/mo after deploy</span>
+              <span className="text-[14px] font-semibold text-ink">A clearer path to launch</span>
+              <span className="tnum font-mono text-[12px] text-ink-faint">review before release</span>
             </figcaption>
             <ul className="mt-4 divide-y divide-[var(--line)]">
               {[
@@ -516,7 +512,7 @@ function PlanFirst() {
               ))}
             </ul>
             <p className="mt-4 border-t border-line pt-3.5 font-mono text-[11.5px] text-ink-faint">
-              demo plan · costs are estimates · nothing deploys until you say so
+              your plan · your controls · your release
             </p>
           </figure>
         </Reveal>
@@ -531,24 +527,23 @@ function LiveMoment({ cta }: { cta: { href: string; label: string } }) {
       <div className="mx-auto max-w-[760px] text-center">
         <Reveal>
           <h2 className="text-balance text-[clamp(40px,6vw,72px)] font-bold leading-[1] tracking-[-0.025em] text-ink">
-            Every deploy ends with{" "}
+            Every release ends with{" "}
             <span className="text-signal">Live.</span>
           </h2>
           <p className="mx-auto mt-5 max-w-[54ch] text-[15.5px] leading-[1.65] text-ink-mute">
-            Not a green checkmark buried in a log — a panel with your URL, your
-            outputs, and your health, the moment they exist. You will never
-            deploy something and then hunt for where it went.
+            Not a green checkmark buried in a log — a clear finish line with your
+            URL, your outputs, and your health, the moment they exist.
           </p>
         </Reveal>
         <Reveal delay={120} className="mt-10">
           <div className="mx-auto max-w-[560px] rounded-[12px] border border-line bg-bg2 p-6 text-left">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="font-mono text-[12px] text-ink-faint">web</p>
-                <p className="mt-1 font-mono text-[14.5px] text-ink">https://app.atlas.orrery.app</p>
+                <p className="font-mono text-[12px] text-ink-faint">your live product</p>
+                <p className="mt-1 font-mono text-[14.5px] text-ink">app.yourproduct.com</p>
               </div>
               <div className="flex items-center gap-2">
-                <CopyChip text="https://app.atlas.orrery.app" label="the demo URL" />
+                <CopyChip text="https://app.yourproduct.com" label="the demo URL" />
                 <Link
                   href={cta.href}
                   className="inline-flex items-center gap-1.5 rounded-[8px] bg-signal px-3.5 py-1.5 font-mono text-[12.5px] font-semibold text-on-signal"
@@ -565,7 +560,7 @@ function LiveMoment({ cta }: { cta: { href: string; label: string } }) {
                 </span>
               ))}
               <span className="rounded-[6px] border border-line px-2 py-1 font-mono text-[11.5px] text-ink-faint">
-                simulated demo
+                interactive demo
               </span>
             </div>
           </div>
@@ -581,19 +576,16 @@ function NavigatorSection() {
       <div className="mx-auto w-full max-w-[1180px] px-6 py-28 lg:py-36">
         <div className="grid gap-12 lg:grid-cols-[1fr_1.15fr]">
           <Reveal>
-            <p className="font-mono text-[12.5px] text-nav-accent">the Navigator</p>
+            <p className="font-mono text-[12.5px] text-nav-accent">the intelligence layer</p>
             <h2 className="mt-3 max-w-[16ch] text-balance text-[clamp(28px,4vw,44px)] font-bold leading-[1.06] tracking-[-0.02em] text-ink">
-              An agent with a permission system — not a chat box.
+              A calmer way to run what you built.
             </h2>
             <p className="mt-4 max-w-[52ch] text-[15.5px] leading-[1.65] text-ink-mute">
-              Tell it what you want. It plans through the same typed actions you
-              click, shows the risk and cost of each step, and only crosses the
-              lines you let it cross. Five autonomy levels, from observe-only to
-              bounded autonomy — and every action lands in the audit log either
-              way.
+              Orrery quietly connects the dots behind the scenes, giving your
+              team a shared understanding of the system and a safer way to act.
             </p>
             <div className="mt-7 flex max-w-[420px] items-center justify-between rounded-full border border-line bg-bg2 px-4 py-2.5">
-              {["observe", "plan", "approve", "bounded", "auto"].map((l, i) => (
+              {["understand", "plan", "approve", "ship"].map((l, i) => (
                 <span
                   key={l}
                   className={cx(
@@ -609,14 +601,14 @@ function NavigatorSection() {
           <Reveal delay={120}>
             <div className="rounded-[12px] border border-nav-accent/25 bg-bg2 p-6">
               <p className="font-mono text-[13px] text-ink-mute">
-                <span className="text-nav-accent">▸</span> add a redis cache and bind it to web, set a $100 budget, then deploy to staging
+                <span className="text-nav-accent">▸</span> make the app faster, keep costs under control, and prepare a safe release
               </p>
               <ol className="mt-5 space-y-3">
                 {[
-                  { t: "Add Redis cache “sessions”", a: "system.addResource", risk: "low", auto: true },
-                  { t: "Connect web to sessions", a: "system.bind", risk: "low", auto: true },
-                  { t: "Set a $100/month budget on staging", a: "env.setBudget", risk: "low", auto: true },
-                  { t: "Deploy to staging", a: "deploy.apply", risk: "high", auto: false },
+                  { t: "Find the highest-impact improvement", a: "system.inspect", risk: "clear", auto: true },
+                  { t: "Add a faster cache layer", a: "system.plan", risk: "review", auto: true },
+                  { t: "Keep the monthly estimate in range", a: "cost.setBudget", risk: "clear", auto: true },
+                  { t: "Prepare the release", a: "release.approve", risk: "your call", auto: false },
                 ].map((s, i) => (
                   <li key={s.a} className="flex items-start gap-3.5 rounded-[10px] border border-line bg-bg1 p-3.5">
                     <span className="tnum mt-0.5 font-mono text-[11px] text-ink-faint">{i + 1}</span>
@@ -657,14 +649,13 @@ function Honesty({ providers }: { providers: ProviderRow[] }) {
       <div className="grid gap-12 lg:grid-cols-[1fr_1.1fr]">
         <Reveal>
           <h2 className="max-w-[14ch] text-balance text-[clamp(28px,4vw,44px)] font-bold leading-[1.06] tracking-[-0.02em] text-ink">
-            We label things like adults.
+            The complexity is still there. You just don&apos;t have to carry it.
           </h2>
           <div className="mt-6 space-y-4 text-[15.5px] leading-[1.65] text-ink-mute">
-            <p>Simulated things say <em className="not-italic text-ink">simulated</em>. Costs say <em className="not-italic text-ink">estimate</em>. Disabled controls tell you why. Errors name their fix.</p>
+            <p>Orrery turns the invisible work of running software into something you can see, understand, and trust.</p>
             <p>
-              And the provider table below isn&apos;t marketing — it is read live
-              from the product&apos;s own registry, so this page cannot claim a
-              cloud we haven&apos;t shipped.
+              Use the tools you already have. Orrery adds the missing layer of
+              clarity between your team and your infrastructure.
             </p>
           </div>
         </Reveal>
@@ -700,35 +691,29 @@ function NoLockIn() {
         <Reveal>
           <figure className="rounded-[12px] border border-line bg-bg2">
             <figcaption className="flex items-center justify-between border-b border-line px-5 py-3">
-              <span className="font-mono text-[12px] text-ink-mute">providers_override.tf</span>
-              <span className="font-mono text-[11px] text-ink-faint">from your export bundle</span>
+              <span className="font-mono text-[12px] text-ink-mute">your architecture</span>
+              <span className="font-mono text-[11px] text-ink-faint">always yours</span>
             </figcaption>
             <pre className="overflow-x-auto p-5 font-mono text-[12.5px] leading-[1.7] text-ink-mute">
-{`# the ONLY LocalStack-specific file.
-#
-# >>> Moving to real AWS: `}<span className="text-signal">DELETE THIS FILE</span>{`
-# >>> and supply real credentials.
-# >>> Nothing else in this bundle changes.
-
-provider "aws" {
-  endpoints { s3 = "http://localhost:4566" … }
+{`your system {
+  services: visible,
+  changes: reviewable,
+  ownership: yours
 }`}
             </pre>
           </figure>
         </Reveal>
         <Reveal delay={120}>
           <h2 className="max-w-[14ch] text-balance text-[clamp(28px,4vw,44px)] font-bold leading-[1.06] tracking-[-0.02em] text-ink">
-            Leaving must be easy.
+            Your infrastructure. Finally understandable.
           </h2>
           <p className="mt-4 max-w-[52ch] text-[15.5px] leading-[1.65] text-ink-mute">
-            Everything exports: the manifest, real runnable Terraform, and an
-            operations README that explains how to keep going without us. Test
-            against LocalStack on your own machine; when you&apos;re ready for
-            real AWS, the difference is one deleted file. You stay because the
-            map is good — not because the exit is locked.
+              Your architecture stays yours. Orrery gives your team the clarity
+              to make better decisions today and the freedom to keep moving
+              tomorrow.
           </p>
           <ul className="mt-6 space-y-2 font-mono text-[13px] text-ink-mute">
-            {["orrery.manifest.json", "*.tf — validated, fmt-clean", "README.md — life after Orrery"].map((f) => (
+            {["One clear system map", "Plans before changes", "Your infrastructure, your terms"].map((f) => (
               <li key={f} className="flex items-center gap-2.5">
                 <span aria-hidden className="h-1 w-1 rounded-full bg-signal" />
                 {f}
@@ -747,7 +732,7 @@ function Close({ cta }: { cta: { href: string; label: string } }) {
       <div className="text-center">
         <Reveal>
           <h2 className="mx-auto max-w-[14ch] text-balance text-[clamp(36px,6vw,68px)] font-bold leading-[1.02] tracking-[-0.025em] text-ink">
-            Ship something small tonight.
+            Make your next release feel simple.
           </h2>
         </Reveal>
         <Reveal delay={100}>
@@ -762,7 +747,10 @@ function Close({ cta }: { cta: { href: string; label: string } }) {
               {cta.label}
               <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>
-            <CopyChip text="npm run seed && npm run dev" label="the run commands" />
+            <a href="#one-model" className="inline-flex items-center gap-2 rounded-[10px] border border-line px-5 py-3.5 text-[14px] text-ink-mute transition-colors hover:border-line-strong hover:text-ink">
+              See how it works
+              <ArrowDown className="h-4 w-4" aria-hidden />
+            </a>
           </div>
         </Reveal>
       </div>
@@ -771,7 +759,7 @@ function Close({ cta }: { cta: { href: string; label: string } }) {
           <span aria-hidden className="relative inline-block h-[14px] w-[14px] rounded-full border border-signal">
             <span className="absolute -top-[2.5px] left-[7px] h-[5px] w-[5px] rounded-full bg-signal" />
           </span>
-          <span className="font-mono text-[12px] text-ink-faint">Orrery v0.1 · a working name</span>
+          <span className="font-mono text-[12px] text-ink-faint">Orrery · infrastructure, in focus</span>
         </span>
         <nav className="flex items-center gap-5 font-mono text-[12px] text-ink-faint">
           <Link href={cta.href} className="transition-colors hover:text-ink">

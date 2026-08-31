@@ -13,6 +13,9 @@ import {
   ArrowUpRight,
   Check,
   Copy,
+  Command,
+  ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { cx } from "@/lib/format";
 import { ThemeToggle } from "@/components/ui";
@@ -125,8 +128,8 @@ function Header({ cta }: { cta: { href: string; label: string } }) {
   return (
     <header
       className={cx(
-        "fixed inset-x-0 top-0 z-40 transition-colors duration-[200ms]",
-        scrolled ? "border-b border-line bg-bg0/95" : "border-b border-transparent"
+        "landing-header fixed inset-x-0 top-0 z-40 transition-all duration-[200ms]",
+        scrolled ? "landing-header-scrolled" : "border-b border-transparent"
       )}
     >
       <div className="mx-auto flex h-14 w-full max-w-[1180px] items-center justify-between px-6">
@@ -164,25 +167,40 @@ function Hero({ cta }: { cta: { href: string; label: string } }) {
   const [phase, setPhase] = useState<HeroPhase>("assemble");
   const onPhase = useCallback((p: HeroPhase) => setPhase(p), []);
   return (
-    <section className="relative flex min-h-[100svh] flex-col overflow-hidden">
+    <section className="landing-hero relative flex min-h-[100svh] flex-col overflow-hidden">
+      <div className="landing-hero-noise" aria-hidden />
+      <div className="landing-hero-grid" aria-hidden />
+      <div className="landing-orb landing-orb-a" aria-hidden />
+      <div className="landing-orb landing-orb-b" aria-hidden />
+      <div className="landing-orbit landing-orbit-a" aria-hidden />
+      <div className="landing-orbit landing-orbit-b" aria-hidden />
       {/* canvas behind on desktop, below on small screens */}
       <div className="pointer-events-none absolute inset-0 hidden lg:block" aria-hidden="false">
         <HeroCanvas onPhase={onPhase} align="right" className="h-full w-full" />
       </div>
       <div className="relative mx-auto flex w-full max-w-[1180px] flex-1 flex-col justify-center px-6 pt-24 lg:pt-14">
-        <div className="max-w-[620px]">
+        <div className="relative z-10 max-w-[620px]">
+          <div className="landing-eyebrow animate-enter">
+            <span className="landing-eyebrow-dot" />
+            <Sparkles className="h-3.5 w-3.5" aria-hidden />
+            The control plane for small teams
+          </div>
           <h1 className="animate-enter text-balance text-[clamp(42px,7vw,84px)] font-bold leading-[0.98] tracking-[-0.025em] text-ink">
-            Your infrastructure, in&nbsp;motion.
+            See your whole stack.
+            <span className="landing-gradient-text block">Ship with confidence.</span>
           </h1>
           <p
             className="mt-6 max-w-[52ch] text-[16.5px] leading-[1.65] text-ink-mute animate-enter"
             style={{ animationDelay: "120ms" }}
           >
-            Orrery is a deployment platform for small teams that shows the whole
-            system — services, data, and the wiring between them — prices every
-            change before it applies, and ends every deploy with a URL you can
-            open.
+            Orrery is the calm control plane for your app. Map services, data, and
+            connections in one place, preview cost and risk before you deploy,
+            then watch the system go live.
           </p>
+          <div className="landing-hero-proof animate-enter" style={{ animationDelay: "170ms" }}>
+            <span><ShieldCheck className="h-3.5 w-3.5 text-signal" aria-hidden /> plan before you apply</span>
+            <span><span className="h-1 w-1 rounded-full bg-line-strong" /> real URLs, visible state</span>
+          </div>
           <div
             className="mt-9 flex flex-wrap items-center gap-3 animate-enter"
             style={{ animationDelay: "220ms" }}
@@ -227,6 +245,35 @@ function Hero({ cta }: { cta: { href: string; label: string } }) {
               simulated
             </span>
           </p>
+          <div className="landing-storyline animate-enter" style={{ animationDelay: "400ms" }} aria-label="How Orrery works">
+            <div className="landing-story-step landing-story-step-active">
+              <span className="landing-story-index">01</span>
+              <span><strong>Model</strong><small>your stack</small></span>
+            </div>
+            <span className="landing-story-connector" aria-hidden />
+            <div className="landing-story-step">
+              <span className="landing-story-index">02</span>
+              <span><strong>Preview</strong><small>cost + risk</small></span>
+            </div>
+            <span className="landing-story-connector" aria-hidden />
+            <div className="landing-story-step">
+              <span className="landing-story-index">03</span>
+              <span><strong>Go live</strong><small>with a URL</small></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="relative z-10 mx-auto mb-8 hidden w-full max-w-[1180px] px-6 lg:block">
+        <div className="landing-command-strip">
+          <div className="flex items-center gap-2 font-mono text-[11px] text-ink-faint">
+            <Command className="h-3.5 w-3.5 text-signal" aria-hidden />
+            <span>orrery / staging / atlas</span>
+          </div>
+          <div className="hidden items-center gap-5 font-mono text-[11px] text-ink-faint sm:flex">
+            <span><i className="landing-live-dot" /> 7 services connected</span>
+            <span>estimated $89.50 / mo</span>
+            <span className="text-signal">system ready</span>
+          </div>
         </div>
       </div>
       <div className="relative mx-auto -mt-2 h-[340px] w-full max-w-[720px] px-4 lg:hidden">
@@ -697,7 +744,7 @@ export function Landing({
     : { href: "/onboarding", label: "Begin" };
 
   return (
-    <div className="bg-bg0 text-ink">
+    <div className="landing-page bg-bg0 text-ink">
       <Header cta={cta} />
       <main>
         <Hero cta={cta} />

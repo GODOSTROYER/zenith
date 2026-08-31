@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { DM_Serif_Display, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
 const grotesk = Space_Grotesk({
@@ -11,6 +11,13 @@ const grotesk = Space_Grotesk({
 const jbmono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-jbmono",
+  display: "swap",
+});
+
+const display = DM_Serif_Display({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-dmserif",
   display: "swap",
 });
 
@@ -33,7 +40,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${grotesk.variable} ${jbmono.variable}`}>{children}</body>
+      <body className={`${grotesk.variable} ${jbmono.variable} ${display.variable}`}>{children}</body>
     </html>
   );
 }

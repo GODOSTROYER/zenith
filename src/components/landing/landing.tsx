@@ -6,7 +6,9 @@
  * and is labeled simulated. No invented commercial claims anywhere.
  */
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import {
   ArrowDown,
   ArrowRight,
@@ -278,6 +280,72 @@ function Hero({ cta }: { cta: { href: string; label: string } }) {
       </div>
       <div className="relative mx-auto -mt-2 h-[340px] w-full max-w-[720px] px-4 lg:hidden">
         <HeroCanvas align="center" className="h-full w-full" />
+      </div>
+    </section>
+  );
+}
+
+const HORIZON_CARDS = [
+  { index: "01", kicker: "model", title: "Your stack,\nwith a pulse.", body: "Services, data, routes, and bindings become one living system map.", tone: "signal" },
+  { index: "02", kicker: "preview", title: "Know the cost\nbefore the click.", body: "Every change arrives with a plan, risk, and estimated monthly delta.", tone: "nav" },
+  { index: "03", kicker: "deploy", title: "Watch it move\nfrom plan to live.", body: "The same typed action powers the UI, API, and Navigator.", tone: "warm" },
+  { index: "04", kicker: "operate", title: "Keep the whole\nconstellation visible.", body: "Health, logs, rollbacks, and audit history stay in the same orbit.", tone: "signal" },
+];
+
+function HorizonScroll() {
+  const section = useRef<HTMLElement>(null);
+  const track = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    gsap.registerPlugin(ScrollTrigger);
+    const root = section.current;
+    const rail = track.current;
+    if (!root || !rail || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const ctx = gsap.context(() => {
+      const getDistance = () => Math.max(0, rail.scrollWidth - window.innerWidth + 48);
+      gsap.to(rail, {
+        x: () => -getDistance(),
+        ease: "none",
+        scrollTrigger: {
+          trigger: root,
+          start: "top top",
+          end: () => `+=${getDistance()}`,
+          scrub: 1,
+          pin: true,
+          anticipatePin: 1,
+          invalidateOnRefresh: true,
+        },
+      });
+    }, root);
+    return () => ctx.revert();
+  }, []);
+
+  return (
+    <section ref={section} className="horizon-section border-y border-line bg-bg1" aria-label="The Orrery workflow">
+      <div className="horizon-heading mx-auto flex w-full max-w-[1180px] items-end justify-between gap-8 px-6 pt-20 lg:pt-24">
+        <div>
+          <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-signal">the horizon / 01—04</p>
+          <h2 className="mt-4 max-w-[11ch] text-balance text-[clamp(38px,6vw,76px)] font-bold leading-[.94] tracking-[-0.04em] text-ink">
+            Infrastructure, in motion.
+          </h2>
+        </div>
+        <p className="mb-1 hidden max-w-[25ch] text-right font-mono text-[11px] leading-[1.6] text-ink-faint md:block">
+          scroll to move through the system <span className="text-signal">→</span>
+        </p>
+      </div>
+      <div ref={track} className="horizon-track flex w-max gap-5 px-6 pb-20 pt-12 lg:pb-24 lg:pt-16">
+        {HORIZON_CARDS.map((card) => (
+          <article key={card.index} className={`horizon-card horizon-card-${card.tone} relative flex h-[380px] w-[min(78vw,520px)] shrink-0 flex-col justify-between overflow-hidden rounded-[18px] border border-line bg-bg2 p-7 lg:h-[450px] lg:p-10`}>
+            <div className="horizon-card-orbit" aria-hidden />
+            <div className="relative z-10 flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.14em] text-ink-faint">
+              <span>{card.kicker}</span><span>{card.index}</span>
+            </div>
+            <div className="relative z-10">
+              <h3 className="max-w-[10ch] whitespace-pre-line font-display text-[clamp(38px,5vw,64px)] leading-[.92] tracking-[-0.035em] text-ink">{card.title}</h3>
+              <p className="mt-5 max-w-[30ch] text-[14px] leading-[1.65] text-ink-mute">{card.body}</p>
+            </div>
+          </article>
+        ))}
       </div>
     </section>
   );
@@ -748,6 +816,7 @@ export function Landing({
       <Header cta={cta} />
       <main>
         <Hero cta={cta} />
+        <HorizonScroll />
         <OneModel />
         <PlanFirst />
         <LiveMoment cta={cta} />

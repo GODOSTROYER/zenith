@@ -128,7 +128,7 @@ function Header({ cta }: { cta: { href: string; label: string } }) {
   return (
     <header
       className={cx(
-        "landing-header fixed inset-x-0 top-0 z-40 transition-all duration-[200ms]",
+        "landing-header fixed inset-x-0 top-0 z-40 transition-[background-color,border-color,backdrop-filter] duration-[200ms]",
         scrolled ? "landing-header-scrolled" : "border-b border-transparent"
       )}
     >
@@ -245,7 +245,7 @@ function Hero({ cta }: { cta: { href: string; label: string } }) {
               simulated
             </span>
           </p>
-          <div className="landing-storyline animate-enter" style={{ animationDelay: "400ms" }} aria-label="How Orrery works">
+          <div className="landing-storyline animate-enter" style={{ animationDelay: "400ms" }} role="group" aria-label="How Orrery works">
             <div className="landing-story-step landing-story-step-active">
               <span className="landing-story-index">01</span>
               <span><strong>Model</strong><small>your stack</small></span>

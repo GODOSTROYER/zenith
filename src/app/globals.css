@@ -240,6 +240,7 @@ td.num,
 
 .landing-header-scrolled {
   border-bottom: 1px solid var(--line);
+  background: rgba(10, 13, 19, .92);
   background: color-mix(in srgb, var(--bg0) 82%, transparent);
   backdrop-filter: blur(18px) saturate(140%);
 }
@@ -254,6 +255,7 @@ td.num,
   opacity: .34;
   background-image: linear-gradient(rgba(151,165,199,.075) 1px, transparent 1px), linear-gradient(90deg, rgba(151,165,199,.075) 1px, transparent 1px);
   background-size: 72px 72px;
+  -webkit-mask-image: linear-gradient(to bottom, black, transparent 78%);
   mask-image: linear-gradient(to bottom, black, transparent 78%);
   pointer-events: none;
 }
@@ -358,6 +360,7 @@ td.num,
 @keyframes landing-drift { from { transform: translate3d(-12px, 4px, 0) scale(.98); } to { transform: translate3d(18px, -16px, 0) scale(1.04); } }
 
 [data-theme="light"] .landing-header { background: linear-gradient(to bottom, rgba(243,245,247,.82), transparent); }
+[data-theme="light"] .landing-header-scrolled { background: rgba(243,245,247,.94); background: color-mix(in srgb, var(--bg0) 82%, transparent); }
 [data-theme="light"] .landing-command-strip { background: rgba(255,255,255,.72); box-shadow: 0 20px 70px rgba(20,30,55,.09), inset 0 1px rgba(255,255,255,.9); }
 [data-theme="light"] .landing-storyline { background: rgba(255,255,255,.62); }
 

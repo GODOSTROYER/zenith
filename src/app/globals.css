@@ -61,7 +61,7 @@
 
   --ink: #191e2b;
   --ink-mute: #5a6478;
-  --ink-faint: #67718a; /* ≥4.5:1 on light surfaces */
+  --ink-faint: #636d86; /* ≥4.5:1 on every light surface, bg0 included */
 
   --signal: #0d9f83;
   --signal-strong: #0b8a72;

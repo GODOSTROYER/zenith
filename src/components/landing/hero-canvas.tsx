@@ -48,12 +48,12 @@ interface NodeSpec {
 
 const NODES: NodeSpec[] = [
   { id: "route", kind: "route", label: "app.atlas.orrery.app", sub: "", x: 60, y: 280, w: 252, h: 46, glyph: "globe" },
-  { id: "web", kind: "service", label: "web", sub: "web · standard × 2", cost: "$28.00/mo", x: 400, y: 176, w: 196, h: 68, glyph: "grid" },
-  { id: "worker", kind: "service", label: "worker", sub: "worker · small × 2", cost: "$14.00/mo", x: 400, y: 396, w: 196, h: 68, glyph: "gear" },
-  { id: "postgres", kind: "resource", label: "postgres", sub: "postgres · standard", cost: "$26.00/mo", x: 748, y: 84, w: 184, h: 60, glyph: "db" },
-  { id: "cache", kind: "resource", label: "cache", sub: "redis · small", cost: "$8.00/mo", x: 748, y: 232, w: 184, h: 60, glyph: "bolt" },
-  { id: "jobs", kind: "resource", label: "jobs", sub: "queue · small", cost: "$2.00/mo", x: 748, y: 380, w: 184, h: 60, glyph: "list" },
-  { id: "mail", kind: "resource", label: "mail", sub: "email · small", cost: "$3.00/mo", x: 748, y: 528, w: 184, h: 60, glyph: "mail" },
+  { id: "web", kind: "service", label: "web", sub: "web · standard × 2", cost: "$28.00/mo", x: 388, y: 176, w: 220, h: 68, glyph: "grid" },
+  { id: "worker", kind: "service", label: "worker", sub: "worker · small × 2", cost: "$14.00/mo", x: 388, y: 396, w: 220, h: 68, glyph: "gear" },
+  { id: "postgres", kind: "resource", label: "postgres", sub: "postgres · standard", cost: "$26.00/mo", x: 744, y: 84, w: 232, h: 60, glyph: "db" },
+  { id: "cache", kind: "resource", label: "cache", sub: "redis · small", cost: "$8.00/mo", x: 744, y: 232, w: 232, h: 60, glyph: "bolt" },
+  { id: "jobs", kind: "resource", label: "jobs", sub: "queue · small", cost: "$2.00/mo", x: 744, y: 380, w: 232, h: 60, glyph: "list" },
+  { id: "mail", kind: "resource", label: "mail", sub: "email · small", cost: "$3.00/mo", x: 744, y: 528, w: 232, h: 60, glyph: "mail" },
 ];
 
 interface EdgeSpec {

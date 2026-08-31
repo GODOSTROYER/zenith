@@ -54,7 +54,12 @@ const EMPTY: Database = {
   settings: {},
 };
 
-const DATA_DIR = process.env.ORRERY_DATA ?? path.join(process.cwd(), ".data");
+// Vercel's deployed function bundle lives under /var/task, which is read-only.
+// Keep the local JSON store for development, but use the function's writable
+// temporary directory in serverless deployments unless explicitly overridden.
+const DATA_DIR =
+  process.env.ORRERY_DATA ??
+  (process.env.VERCEL ? "/tmp/orrery-data" : path.join(process.cwd(), ".data"));
 const STATE = path.join(DATA_DIR, "state.json");
 const EVENTS = path.join(DATA_DIR, "events.jsonl");
 const AUDIT = path.join(DATA_DIR, "audit.jsonl");

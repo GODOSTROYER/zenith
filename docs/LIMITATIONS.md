@@ -6,7 +6,7 @@ Status legend: ✅ implemented · 🟡 partial · ⬜ not yet built
 - ✅ Canonical manifest, diffing/changesets, cost model, validation
 - ✅ Typed action registry with plan/execute/audit/idempotency + autonomy enforcement
 - ✅ Durable JSON/JSONL store (single-process ceiling by design; SQL swap is contained to `src/lib/db`)
-- 🟡 Multi-tenancy: single local demo user/workspace; RBAC roles exist on actions but there is no real authentication
+- 🟡 Multi-tenancy: optional Supabase auth (email/password, confirmation, reset; `/login`, `/signup`) gives real identity, and actions/audit carry the signed-in user; without keys it is still one local demo user. One workspace per install; `requiredRole` is declared on actions but not yet enforced
 - ⬜ Real network security, rate limiting, encryption at rest
 
 ## Providers

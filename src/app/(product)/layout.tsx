@@ -21,6 +21,37 @@ function WorkspaceChip() {
   );
 }
 
+/** Who's signed in, with the way out. Hidden entirely in demo mode. */
+function UserMenu() {
+  const { boot } = useShell();
+  if (!boot?.auth.configured) return null;
+  if (!boot.user) {
+    return (
+      <Link href="/login" className="text-[12.5px] text-ink-mute transition-colors hover:text-ink">
+        Sign in
+      </Link>
+    );
+  }
+  return (
+    <form action="/auth/signout" method="post" className="flex items-center gap-2">
+      <span
+        title={boot.user.email}
+        className="inline-flex max-w-[180px] items-center gap-1.5 truncate rounded-full border border-line bg-bg2 px-2.5 py-0.5 text-[12px] text-ink"
+      >
+        <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-signal" />
+        <span className="truncate">{boot.user.name}</span>
+      </span>
+      <button
+        type="submit"
+        className="rounded-[6px] px-2 py-1 text-[12.5px] text-ink-mute transition-colors hover:bg-bg2 hover:text-ink"
+        title={`Sign out ${boot.user.email}`}
+      >
+        Sign out
+      </button>
+    </form>
+  );
+}
+
 /** The product shell: one top bar, one toast queue, one notification home. */
 export default function ProductLayout({ children }: { children: ReactNode }) {
   return (
@@ -39,6 +70,7 @@ export default function ProductLayout({ children }: { children: ReactNode }) {
               <ActivityBell />
               <ThemeToggle />
               <WorkspaceChip />
+              <UserMenu />
             </div>
           </header>
           <main className="min-h-0 flex-1 bg-bg0">

@@ -4,7 +4,7 @@
  */
 import { z } from "zod";
 import { actionRegistry, runAction } from "@/lib/actions/core";
-import { ApiError, actorFromRequest, buildCtx, route } from "@/lib/server/context";
+import { ApiError, buildCtx, resolveActor, route } from "@/lib/server/context";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +33,6 @@ export const POST = route<{ actionId: string }>(async (req, { actionId }) => {
     );
 
   const { input, mode, scope, idempotencyKey } = body.data;
-  const ctx = buildCtx(scope, actorFromRequest(req));
+  const ctx = buildCtx(scope, await resolveActor(req));
   return runAction(actionId, ctx, input, { mode, idempotencyKey });
 });

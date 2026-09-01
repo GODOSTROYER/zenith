@@ -9,6 +9,8 @@ import { db } from "@/lib/db/store";
 import { ensureBoot } from "@/lib/server/boot";
 import { providerRegistry } from "@/lib/providers/types";
 import { Landing, type ProviderRow } from "@/components/landing/landing";
+import { getSessionUser } from "@/lib/auth/session";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export const metadata: Metadata = {
   title: "Orrery — your infrastructure, in motion",
@@ -35,6 +37,7 @@ provenance
 export default async function LandingPage() {
   await ensureBoot();
   const hasWorkspace = db().workspaces.length > 0;
+  const signedIn = isSupabaseConfigured() ? Boolean(await getSessionUser()) : null;
   const providers: ProviderRow[] = [...providerRegistry().values()].map((p) => ({
     id: p.id,
     displayName: p.displayName,
@@ -45,7 +48,7 @@ export default async function LandingPage() {
   return (
     <>
       <div hidden aria-hidden="true" dangerouslySetInnerHTML={{ __html: CONTRACT }} />
-      <Landing hasWorkspace={hasWorkspace} providers={providers} />
+      <Landing hasWorkspace={hasWorkspace} providers={providers} signedIn={signedIn} />
     </>
   );
 }

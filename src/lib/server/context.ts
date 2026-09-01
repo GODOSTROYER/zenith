@@ -7,9 +7,11 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import type { ActionContext } from "@/lib/actions/core";
-import { db } from "@/lib/db/store";
+import { db, save } from "@/lib/db/store";
 import { AutonomyLevel, type Actor, type Workspace } from "@/lib/domain/types";
 import { ensureBoot } from "@/lib/server/boot";
+import { sessionUserFromRequest } from "@/lib/supabase/route";
+import type { SessionUser } from "@/lib/auth/session";
 
 /* --------------------------------- actors --------------------------------- */
 
@@ -24,6 +26,44 @@ export const navigatorActor = (): Actor => ({
 /** True only for the Navigator's own calls; everything else is the local user. */
 export const actorFromRequest = (req: NextRequest): Actor =>
   req.headers.get("x-orrery-actor") === "navigator" ? navigatorActor() : demoActor();
+
+/**
+ * Identity-aware actor: the Navigator header wins; otherwise the signed-in
+ * Supabase user when auth is configured (verified via getClaims); otherwise
+ * the local demo user. Also keeps the workspace member list in sync so the
+ * audit log and revisions carry a real name.
+ */
+export async function resolveActor(req: NextRequest): Promise<Actor> {
+  if (req.headers.get("x-orrery-actor") === "navigator") return navigatorActor();
+  const user = await sessionUserFromRequest(req);
+  if (!user) return demoActor();
+  ensureMember(user);
+  return { type: "user", id: user.id, name: user.name };
+}
+
+/** Upsert the signed-in user into the workspace's member list (first user = admin). */
+export function ensureMember(user: SessionUser): void {
+  const d = db();
+  const ws = d.workspaces[0];
+  if (!ws) return;
+  const existing = d.members.find((m) => m.id === user.id || m.email === user.email);
+  if (existing) {
+    if (existing.name !== user.name || existing.id !== user.id) {
+      existing.name = user.name;
+      existing.id = user.id;
+      save();
+    }
+    return;
+  }
+  d.members.push({
+    id: user.id,
+    workspaceId: ws.id,
+    name: user.name,
+    email: user.email,
+    role: d.members.some((m) => m.workspaceId === ws.id && m.role === "admin") ? "editor" : "admin",
+  });
+  save();
+}
 
 /* -------------------------------- workspace ------------------------------- */
 

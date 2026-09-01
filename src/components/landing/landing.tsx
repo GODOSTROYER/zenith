@@ -696,13 +696,19 @@ function Close({ cta }: { cta: { href: string; label: string } }) {
 export function Landing({
   hasWorkspace,
   providers,
+  signedIn,
 }: {
   hasWorkspace: boolean;
   providers: ProviderRow[];
+  /** true/false when accounts are on; null in local demo mode (no auth) */
+  signedIn: boolean | null;
 }) {
-  const cta = hasWorkspace
-    ? { href: "/overview", label: "Open Orrery" }
-    : { href: "/onboarding", label: "Begin" };
+  const cta =
+    signedIn === false
+      ? { href: hasWorkspace ? "/login" : "/signup", label: hasWorkspace ? "Sign in" : "Create account" }
+      : hasWorkspace
+        ? { href: "/overview", label: "Open Orrery" }
+        : { href: "/onboarding", label: "Begin" };
 
   return (
     <div className="bg-bg0 text-ink">

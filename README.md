@@ -36,6 +36,43 @@ npm run smoke    # end-to-end: blueprint → deploy → URL, chaos failure → r
 | `AWS_ACCESS_KEY_ID` etc. | detected by the AWS preflight; **apply is disabled in Preview** either way | unset |
 | `ANTHROPIC_API_KEY` | optional Navigator LLM parsing; without it the deterministic planner runs (and says so) | unset |
 
+## Accounts (Supabase auth)
+
+Auth is optional. With no keys, Orrery runs in **local demo mode** (one local
+user, no sign-in). Add keys and the whole product requires a session.
+
+This repo is wired to a hosted Supabase project (`orrery`, ap-south-1). Put its
+keys in `.env.local` — never committed, see `.env.local.example` for the shape:
+
+```bash
+cp .env.local.example .env.local   # then paste URL + publishable key + secret key
+npm run seed:users                 # creates the shared test accounts (idempotent)
+npm run dev
+```
+
+Prefer to work offline? `npm run supabase:start` runs the same stack in Docker
+and prints local keys for the same three variables. Nothing else changes.
+
+Then `/login`, `/signup`, `/forgot-password` and `/reset-password` are live.
+Every product route and `/api/*` requires a session (enforced in middleware);
+the landing page and `/preview/*` stay public. On the hosted project, email
+confirmation is on, so a new sign-up gets a link that returns through
+`/auth/callback`; the seeded accounts below are pre-confirmed.
+
+**Test accounts** (dev only — created by `npm run seed:users`):
+
+| Email | Password | Role |
+| --- | --- | --- |
+| `tarun@orrery.test` | `orrery-owner-2026!` | admin |
+| `claude@orrery.test` | `orrery-claude-2026!` | editor |
+| `vedant@orrery.test` | `orrery-vedant-2026!` | editor |
+
+Identity flows into the product: actions, audit entries and revisions carry the
+signed-in user's name, and the header shows who you are with a way out. The
+first user to sign in becomes the workspace admin. Data still lives in the local
+JSON store — Supabase provides identity only, so there are no tables and no RLS
+surface yet.
+
 ## Provider honesty
 
 | Provider | Status | What that means |

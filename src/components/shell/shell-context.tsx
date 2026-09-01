@@ -6,6 +6,7 @@ import type {
   CloudConnection,
   Deployment,
   Environment,
+  Member,
   Project,
   Workspace,
 } from "@/lib/domain/types";
@@ -28,6 +29,10 @@ export interface Bootstrap {
   connections: CloudConnection[];
   providers: ProviderInfo[];
   settings: Record<string, unknown> & { autonomy?: AutonomyLevel };
+  /** signed-in user, or null in demo mode / signed out */
+  user: { id: string; email: string; name: string } | null;
+  auth: { configured: boolean };
+  members: Member[];
 }
 
 export interface ShellData {

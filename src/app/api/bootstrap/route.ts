@@ -1,13 +1,18 @@
 /** Single call the app shell hydrates from. */
 import { db } from "@/lib/db/store";
 import { providerRegistry } from "@/lib/providers/types";
-import { readAutonomy, requireWorkspace, route } from "@/lib/server/context";
+import { ensureMember, readAutonomy, requireWorkspace, route } from "@/lib/server/context";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { sessionUserFromRequest } from "@/lib/supabase/route";
 
 export const dynamic = "force-dynamic";
 
-export const GET = route(async () => {
+export const GET = route(async (req) => {
   const workspace = requireWorkspace();
   const d = db();
+  /** null = signed out (or auth not configured — see `auth.configured`) */
+  const user = await sessionUserFromRequest(req);
+  if (user) ensureMember(user);
   const projects = d.projects.filter((p) => p.workspaceId === workspace.id);
   const projectIds = new Set(projects.map((p) => p.id));
   const environments = d.environments.filter((e) => projectIds.has(e.projectId));
@@ -36,5 +41,8 @@ export const GET = route(async () => {
       regions: p.regions,
     })),
     settings: { ...d.settings, autonomy: readAutonomy() },
+    user,
+    auth: { configured: isSupabaseConfigured() },
+    members: d.members.filter((m) => m.workspaceId === workspace.id),
   };
 });

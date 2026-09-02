@@ -13,9 +13,18 @@
     "verify": "npm run typecheck && npm run lint && npm test && npm run smoke",
     "seed": "tsx scripts/seed.ts",
     "smoke": "tsx scripts/smoke.ts",
+    "screenshots": "tsx scripts/screenshots.ts",
     "seed:users": "tsx scripts/seed-users.ts",
     "supabase:start": "supabase start",
-    "supabase:stop": "supabase stop"
+    "supabase:stop": "supabase stop",
+    "setup": "tsx --env-file-if-exists=.env.local scripts/setup.ts",
+    "doctor": "tsx --env-file-if-exists=.env.local scripts/doctor.ts",
+    "localstack:up": "docker compose up -d localstack",
+    "localstack:down": "docker compose stop localstack",
+    "localstack:logs": "docker compose logs -f localstack",
+    "docker:build": "docker compose --profile app build",
+    "docker:up": "docker compose --profile app up -d",
+    "docker:down": "docker compose --profile app down"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",
@@ -45,6 +54,7 @@
     "eslint": "^9.29.0",
     "eslint-config-next": "15.3.3",
     "jsdom": "^30.0.1",
+    "playwright-core": "^1.56.1",
     "tailwindcss": "^4.1.7",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",

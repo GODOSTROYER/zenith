@@ -69,3 +69,25 @@ jobs:
 
       - name: Build (needs egress to fonts.googleapis.com)
         run: npm run build
+
+  # Proves the image still assembles: `output: "standalone"` is easy to break
+  # from the outside (a new asset that nothing traces, a dependency that needs
+  # a build tool the runner stage lacks) and nothing else in CI would notice.
+  # Nothing is pushed — the image is built and discarded.
+  #
+  # continue-on-error for the same reason as `build` above: it runs the same
+  # `next build` inside the image, so it needs egress to fonts.googleapis.com
+  # and a font outage must not make the four real gates look red.
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # No NEXT_PUBLIC_* build args: this builds the local-demo-mode image on
+      # purpose. Supplying Supabase keys here would only inline a project's
+      # public URL into an artifact CI then throws away.
+      - name: Build image (no push; needs egress to fonts.googleapis.com)
+        run: docker build -t orrery:ci .

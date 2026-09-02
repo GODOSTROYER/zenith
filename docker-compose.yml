@@ -1,0 +1,96 @@
+# Orrery — LocalStack for local development, plus the whole app in a container.
+#
+#   docker compose up localstack        LocalStack only (for `npm run dev` on the host)
+#   docker compose --profile app up     LocalStack + Orrery in containers
+#
+# `orrery` sits behind the `app` profile, so the bare `up` never starts it: the
+# common case is a host dev server talking to a containerised LocalStack.
+
+services:
+  localstack:
+    # Major-pinned rather than :latest — a LocalStack major has changed the
+    # shape of /_localstack/health before, and lib/providers/localstack reads
+    # it. Pin the exact minor (e.g. 4.0.3) if you need byte-identical runs.
+    image: localstack/localstack:4
+    container_name: orrery-localstack
+    restart: unless-stopped
+    environment:
+      # The only two services Orrery provisions for real. Everything else it
+      # deploys (RDS, ElastiCache, ECS, ALB) is a labeled local simulation,
+      # so enabling more here buys nothing.
+      SERVICES: s3,sqs
+      DEBUG: "0"
+    ports:
+      # Loopback-only: the app container reaches LocalStack over the compose
+      # network as localstack:4566 and needs no published port at all. This
+      # mapping exists purely so a host `npm run dev` can reach it.
+      - "127.0.0.1:4566:4566"
+    volumes:
+      # LocalStack's runtime/cache directory. Community edition does NOT
+      # persist bucket and queue contents across a container restart
+      # (PERSISTENCE is a Pro feature), so treat this as a warm cache, not as
+      # durable storage — a restart means re-deploying the environment.
+      - localstack-data:/var/lib/localstack
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  orrery:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # NEXT_PUBLIC_* must be baked in at build time (see Dockerfile). Compose
+      # interpolates these from the shell or from `.env` ONLY — it does not read
+      # `.env.local` for interpolation, so Supabase keys have to be in `.env`
+      # for the image build to pick them up. Unset builds local demo mode.
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: "${NEXT_PUBLIC_SUPABASE_URL:-}"
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:-}"
+        NEXT_PUBLIC_SUPABASE_OAUTH_PROVIDERS: "${NEXT_PUBLIC_SUPABASE_OAUTH_PROVIDERS:-}"
+        NEXT_PUBLIC_SITE_URL: "${NEXT_PUBLIC_SITE_URL:-}"
+    container_name: orrery-app
+    restart: unless-stopped
+    env_file:
+      # Both optional so a fresh clone can `up` without creating either. Later
+      # files win, so .env.local overrides .env when both exist.
+      - path: .env
+        required: false
+      - path: .env.local
+        required: false
+    environment:
+      # Explicit entries beat env_file, which is the point: a host .env.local
+      # that sets ORRERY_DATA to a Windows path must not leak into the container.
+      ORRERY_DATA: /data
+      ORRERY_LOCALSTACK_ENDPOINT: http://localstack:4566
+      PORT: "3400"
+      HOSTNAME: 0.0.0.0
+    ports:
+      # Override the host side when 3400 is already taken:
+      #   ORRERY_PORT=3500 docker compose --profile app up
+      - "${ORRERY_PORT:-3400}:3400"
+    volumes:
+      # The JSON snapshot, revisions, event and audit logs. Also where
+      # lib/data-lock writes .orrery.lock — one process per data directory, so
+      # never point a second container at this volume.
+      - orrery-data:/data
+    depends_on:
+      localstack:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3400/api/me').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  localstack-data:
+  orrery-data:

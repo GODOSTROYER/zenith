@@ -37,9 +37,9 @@ export const isOurs = (ref: string): boolean => ref.startsWith(OURS_PREFIX);
 
 /**
  * One fetch answers a whole surface. `workspaceId` is the server's own id, and
- * this server runs one workspace — passing it is how a caller says which one it
- * believed it was reading, and gets a 404 rather than someone else's list if it
- * was wrong.
+ * the server answers only for the caller's current workspace — passing it is how
+ * a caller says which one it believed it was reading, and gets a 404 rather than
+ * someone else's list if it was wrong.
  */
 export function useSecrets(workspaceId?: string) {
   const { data, error, loading, refresh } = useJson<SecretsView>(

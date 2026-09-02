@@ -8,7 +8,12 @@ import { defineAction, type ActionContext } from "@/lib/actions/core";
 import { db, q, save } from "@/lib/db/store";
 import { AutonomyLevel, type Workspace } from "@/lib/domain/types";
 
-export const AUTONOMY_MEANING: Record<z.infer<typeof AutonomyLevel>, string> = {
+/**
+ * The long form, for plan details and the result summary. The dial's short
+ * form is `AUTONOMY_MEANING` in `@/lib/navigator/shared` — different audience,
+ * different sentence, deliberately not shared.
+ */
+const AUTONOMY_PLAN_LINE: Record<z.infer<typeof AutonomyLevel>, string> = {
   observe: "Level 1 — Observe: the Navigator explains and suggests. It never plans or executes.",
   plan: "Level 2 — Plan: the Navigator writes plans you can read and run yourself. It never executes.",
   approve: "Level 3 — Approve: the Navigator executes each step only after you approve it.",
@@ -16,7 +21,7 @@ export const AUTONOMY_MEANING: Record<z.infer<typeof AutonomyLevel>, string> = {
   autonomous: "Level 5 — Autonomous: the Navigator executes its plan inside the environment, budget and risk limits you set.",
 };
 
-export const autonomyOf = (): z.infer<typeof AutonomyLevel> => {
+const autonomyOf = (): z.infer<typeof AutonomyLevel> => {
   const raw = db().settings.autonomy;
   const parsed = AutonomyLevel.safeParse(raw);
   return parsed.success ? parsed.data : "approve";
@@ -41,7 +46,7 @@ defineAction<SetAutonomy>({
         ? `Autonomy is already set to ${input.level}.`
         : `Change Navigator autonomy from ${current} to ${input.level}.`,
       details: [
-        AUTONOMY_MEANING[input.level],
+        AUTONOMY_PLAN_LINE[input.level],
         "Every Navigator step is audited, whatever the level.",
         "Deployments still obey each environment's approval policy — autonomy never overrides it.",
       ],
@@ -58,7 +63,7 @@ defineAction<SetAutonomy>({
     save();
     return {
       ok: true,
-      summary: `Navigator autonomy set to ${input.level}. ${AUTONOMY_MEANING[input.level]}`,
+      summary: `Navigator autonomy set to ${input.level}. ${AUTONOMY_PLAN_LINE[input.level]}`,
       data: { level: input.level },
     };
   },

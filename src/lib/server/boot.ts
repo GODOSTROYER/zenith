@@ -21,13 +21,6 @@ type G = typeof globalThis & { __orreryBoot?: Promise<void> };
 
 /* ------------------------- module accessors (typed) ------------------------ */
 
-interface EngineModule {
-  engine: typeof engine;
-  ensureEngine: typeof ensureEngine;
-}
-
-export const engineModule = async (): Promise<EngineModule> => ({ engine, ensureEngine });
-
 export interface SecurityModule {
   syncFindings?: (projectId: string) => SecurityFinding[] | void;
 }

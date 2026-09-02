@@ -43,6 +43,26 @@ edit them; never edit `package.json`** (list missing deps in your final report).
    records.
 10. **Times** render local with an ISO tooltip (`title` attr), one format everywhere
    (`@/lib/format` helpers from workstream C).
+11. **Money** renders through `fmtUsd` (`@/lib/format`) everywhere, action plan
+   text included. No second money formatter.
+
+## How to raise an error (one rule per layer)
+
+Invariant 5 says every error names its fix. *Where* the fix travels depends on
+who is listening, and there is exactly one answer per layer:
+
+| Layer | Shape | Built with |
+| --- | --- | --- |
+| API route (`src/app/api/**`) | `{ error: { message, fix? } }` + status | `throw new ApiError(msg, status, { fix })`, rendered by `errorResponse()` — both `@/lib/server/context`. `notFound(what, fix)` for 404s |
+| Action `execute` (`src/lib/actions/defs/**`) | `{ ok: false, summary, error }` | return it, or throw an `Error` whose message names the fix — `runAction` catches and converts, and audits either way. The `require*` helpers in `defs/_shared.ts` are the sanctioned throwers |
+| Action `plan` | `plan().blocked` — a sentence saying why, which disables the button | **return** `blocked`; never throw. `runAction` does *not* wrap `plan()`, so a throw escapes to the route as a generic 500 and the fix is lost (see docs/DEBT.md) |
+| Boot / module load (`env`, `data-lock`, `secrets`, `supabase/admin`) | thrown `Error` whose message contains a `Fix:` sentence | `throw new Error(...)`. This is the only layer that may throw at import or boot time |
+| Provider adapter | `PreflightReport` / `ProviderProbe` — `{ ok/reachable: false, detail, fix }` | return it. A provider reports; it does not decide the HTTP status |
+
+Two `ApiError` classes exist on purpose: `@/lib/server/context` (thrown by
+routes) and `@/lib/client/api` (raised by the browser after decoding the
+envelope above). They must not be merged — the client one is in a `"use client"`
+module and importing the server one would drag the store into the bundle.
 
 ## API conventions (workstream D implements)
 

@@ -162,9 +162,6 @@ export function secretStatus(workspaceId: string, ref: string): SecretStatus {
   return { ...meta, exists: true };
 }
 
-export const secretExists = (workspaceId: string, ref: string): boolean =>
-  secretStatus(workspaceId, ref).exists;
-
 /** Every reference this workspace has a value for, oldest first. Never values. */
 export function listSecrets(workspaceId: string): SecretMeta[] {
   const rows = Object.values(read().workspaces[workspaceId] ?? {});

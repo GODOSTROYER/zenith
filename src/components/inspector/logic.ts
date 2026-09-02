@@ -3,7 +3,17 @@
  * what it honestly cannot send, and how a request is keyed. All pure, so they
  * are tested directly instead of through a rendered form.
  */
-import type { Service } from "@/lib/domain/types";
+import type { Manifest, Service } from "@/lib/domain/types";
+
+/** What a node is called on any surface, whatever kind it is. */
+export function nodeLabel(m: Manifest, id: string): string {
+  return (
+    m.services.find((s) => s.id === id)?.name ??
+    m.resources.find((r) => r.id === id)?.name ??
+    m.routes.find((r) => r.id === id)?.host ??
+    id
+  );
+}
 
 /* ------------------------------ service draft ------------------------------ */
 

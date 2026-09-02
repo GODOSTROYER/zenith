@@ -19,7 +19,8 @@ import {
 } from "@/lib/domain/types";
 import { providerRegistry } from "@/lib/providers/types";
 import { slugify, uniqueName } from "@/lib/importers/types";
-import { requireEnvironment, requireProject, usd } from "./_shared";
+import { fmtUsd } from "@/lib/format";
+import { requireEnvironment, requireProject } from "./_shared";
 
 /* ------------------------------- connections ------------------------------ */
 
@@ -148,9 +149,9 @@ export function envPlanDetails(project: Project, env: Environment, conn: CloudCo
       ? `Approval required before anything is applied${env.class === "production" ? " — the default for production environments" : ""}. Change it in Settings → Environments.`
       : "Deploys apply as soon as they are started. Turn on approval in Settings → Environments if you want a gate.",
     env.policies.budgetUsdMonthly
-      ? `Budget ${usd(env.policies.budgetUsdMonthly)}/month; plans that exceed it are flagged before you deploy.`
+      ? `Budget ${fmtUsd(env.policies.budgetUsdMonthly)}/month; plans that exceed it are flagged before you deploy.`
       : "No budget set. Set one with env.setBudget to get warned before a plan gets expensive.",
-    `Creating an environment costs nothing on its own — the current system would cost ${usd(monthlyCostUsd(project.workingManifest))}/month once deployed (estimate).`,
+    `Creating an environment costs nothing on its own — the current system would cost ${fmtUsd(monthlyCostUsd(project.workingManifest))}/month once deployed (estimate).`,
   ];
 }
 
@@ -267,12 +268,12 @@ function budgetDetails(env: Environment, projectMonthly: number, budget: number 
       warnings: [],
     };
   const details = [
-    `Sets a ${usd(budget)}/month budget on ${env.name}.`,
-    `The current system is estimated at ${usd(projectMonthly)}/month, ${projectMonthly > budget ? "over" : "under"} that.`,
+    `Sets a ${fmtUsd(budget)}/month budget on ${env.name}.`,
+    `The current system is estimated at ${fmtUsd(projectMonthly)}/month, ${projectMonthly > budget ? "over" : "under"} that.`,
     "Budgets warn before a deploy; they never stop a running system or delete anything.",
   ];
   const warnings = projectMonthly > budget
-    ? [`The system already costs more than this budget (${usd(projectMonthly)} vs ${usd(budget)}). Every plan will be flagged until you resize or raise the budget.`]
+    ? [`The system already costs more than this budget (${fmtUsd(projectMonthly)} vs ${fmtUsd(budget)}). Every plan will be flagged until you resize or raise the budget.`]
     : [];
   return { details, warnings };
 }
@@ -290,7 +291,7 @@ defineAction<SetBudget>({
     const project = requireProject(ctx, env.projectId);
     const { details, warnings } = budgetDetails(env, monthlyCostUsd(project.workingManifest), input.budgetUsdMonthly);
     return {
-      summary: input.budgetUsdMonthly === null ? `Remove the budget on "${env.name}".` : `Set a ${usd(input.budgetUsdMonthly)}/month budget on "${env.name}".`,
+      summary: input.budgetUsdMonthly === null ? `Remove the budget on "${env.name}".` : `Set a ${fmtUsd(input.budgetUsdMonthly)}/month budget on "${env.name}".`,
       details,
       costDeltaUsd: 0,
       risk: "low",
@@ -307,7 +308,7 @@ defineAction<SetBudget>({
       summary:
         input.budgetUsdMonthly === null
           ? `Budget removed from "${env.name}".`
-          : `Budget for "${env.name}" set to ${usd(input.budgetUsdMonthly)}/month (estimates, checked at plan time).`,
+          : `Budget for "${env.name}" set to ${fmtUsd(input.budgetUsdMonthly)}/month (estimates, checked at plan time).`,
       data: { environmentId: env.id, budgetUsdMonthly: env.policies.budgetUsdMonthly ?? null },
     };
   },

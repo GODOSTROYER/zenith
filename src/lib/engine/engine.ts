@@ -95,16 +95,11 @@ const now = () => new Date().toISOString();
 
 /**
  * How long one provider step may take before the engine stops waiting.
- * Generous by default: the slowest honest step in the catalog is an ECR push
- * at 45s, and a real cloud can be slower than its own estimate. Without this
- * a hung adapter pins a deployment in `applying` forever, with no way out.
+ * Without this a hung adapter pins a deployment in `applying` forever, with no
+ * way out. The default and the validation live in `lib/env.ts` with every
+ * other ORRERY_* variable.
  */
-const DEFAULT_STEP_TIMEOUT_MS = 5 * 60_000;
-
-function stepTimeoutMs(): number {
-  const raw = Number(process.env.ORRERY_STEP_TIMEOUT_MS);
-  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_STEP_TIMEOUT_MS;
-}
+const stepTimeoutMs = (): number => env().ORRERY_STEP_TIMEOUT_MS;
 
 /**
  * Providers that invent their infrastructure rather than calling one. Used as

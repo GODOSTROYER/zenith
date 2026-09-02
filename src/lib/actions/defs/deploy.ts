@@ -19,7 +19,8 @@ import {
 } from "@/lib/domain/types";
 import { providerRegistry } from "@/lib/providers/types";
 import { getEngine } from "./_engine";
-import { clone, maxRisk, requireEnvironment, requireProject, usd } from "./_shared";
+import { fmtUsd } from "@/lib/format";
+import { clone, maxRisk, requireEnvironment, requireProject } from "./_shared";
 
 /* ---------------------------- provider honesty ---------------------------- */
 
@@ -106,7 +107,7 @@ function budgetWarnings(env: Environment, cs: Changeset): string[] {
   const budget = env.policies.budgetUsdMonthly;
   if (!budget || cs.projectedMonthlyUsd <= budget) return [];
   return [
-    `This plan puts ${env.name} at ${usd(cs.projectedMonthlyUsd)}/month, over its ${usd(budget)} budget (estimates). Resize something, or raise the budget in Settings → Environments.`,
+    `This plan puts ${env.name} at ${fmtUsd(cs.projectedMonthlyUsd)}/month, over its ${fmtUsd(budget)} budget (estimates). Resize something, or raise the budget in Settings → Environments.`,
   ];
 }
 
@@ -130,7 +131,7 @@ function deployPlan(env: Environment, project: Project): ActionPlan {
     details: [
       ...(blocked ? [blocked] : []),
       ...cs.items.map((i) => i.explanation),
-      `Projected monthly cost after this deploy: ${usd(cs.projectedMonthlyUsd)} (estimate).`,
+      `Projected monthly cost after this deploy: ${fmtUsd(cs.projectedMonthlyUsd)} (estimate).`,
       env.policies.approvalRequired
         ? `${env.name} requires approval: the deployment will wait at "awaiting approval" until someone approves it.`
         : `${env.name} applies without an approval step.`,
@@ -405,7 +406,7 @@ defineAction<RollbackInput>({
       details: [
         ...(blocked ? [blocked] : []),
         ...cs.items.map((i) => i.explanation),
-        `Projected monthly cost after rollback: ${usd(cs.projectedMonthlyUsd)} (estimate).`,
+        `Projected monthly cost after rollback: ${fmtUsd(cs.projectedMonthlyUsd)} (estimate).`,
         "Rollback runs as a normal deployment, with its own steps and logs.",
         env.policies.approvalRequired
           ? `${env.name} requires approval, and a rollback is a deployment: it will wait at "awaiting approval" until an admin approves it.`

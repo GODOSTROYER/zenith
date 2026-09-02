@@ -14,7 +14,7 @@ import {
 } from "@/components/ui";
 import { useProjectData } from "@/components/shell/project-context";
 import { useShell } from "@/components/shell/shell-context";
-import { roleShortfall } from "@/components/screens/shared";
+import { RoleChip, roleShortfall } from "@/components/screens/shared";
 import { ApiError, executeAction, planAction } from "@/lib/client/api";
 import type { ActionPlan, ActionResult } from "@/lib/actions/core";
 import { cx } from "@/lib/format";
@@ -179,14 +179,7 @@ export function PlanFirst({
                 approval required
               </Chip>
             )}
-            {plan.requiredRole && (
-              <Chip
-                tone={shortfall ? "err" : "neutral"}
-                title={shortfall ?? `Running this needs the ${plan.requiredRole} role.`}
-              >
-                needs {plan.requiredRole}
-              </Chip>
-            )}
+            {plan.requiredRole && <RoleChip required={plan.requiredRole} shortfall={shortfall} />}
             <RiskBadge level={plan.risk} />
           </div>
         </div>

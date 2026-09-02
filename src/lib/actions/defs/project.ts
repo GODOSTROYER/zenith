@@ -23,7 +23,8 @@ import { slugify, uniqueName } from "@/lib/importers/types";
 import { providerRegistry } from "@/lib/providers/types";
 import { buildEnvironment, envPlanDetails, inFlight, liveRevision } from "./env";
 import { getEngine } from "./_engine";
-import { clone, commit, planFromDiff, requireProject, usd } from "./_shared";
+import { fmtUsd } from "@/lib/format";
+import { clone, commit, planFromDiff, requireProject } from "./_shared";
 
 function newProject(ctx: ActionContext, name: string, slug: string | undefined, origin: Project["origin"], manifest: Manifest): Project {
   const taken = db().projects.map((p) => p.slug);
@@ -162,7 +163,7 @@ defineAction<ApplyBlueprint>({
       commit(existing, next);
       return {
         ok: true,
-        summary: `Applied the "${bp.name}" blueprint to ${existing.name}: ${manifestSummary(next)}, ${usd(monthlyCostUsd(next))}/month estimated. Deploy to apply it.`,
+        summary: `Applied the "${bp.name}" blueprint to ${existing.name}: ${manifestSummary(next)}, ${fmtUsd(monthlyCostUsd(next))}/month estimated. Deploy to apply it.`,
         data: { projectId: existing.id, blueprint: bp.id },
       };
     }
@@ -174,7 +175,7 @@ defineAction<ApplyBlueprint>({
     save();
     return {
       ok: true,
-      summary: `Created "${project.name}" from the "${bp.name}" blueprint: ${manifestSummary(project.workingManifest)}, ${usd(monthlyCostUsd(project.workingManifest))}/month estimated. Nothing is deployed yet.`,
+      summary: `Created "${project.name}" from the "${bp.name}" blueprint: ${manifestSummary(project.workingManifest)}, ${fmtUsd(monthlyCostUsd(project.workingManifest))}/month estimated. Nothing is deployed yet.`,
       data: { projectId: project.id, slug: project.slug, environmentId: env.id, blueprint: bp.id },
     };
   },

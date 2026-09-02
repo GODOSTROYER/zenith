@@ -1,4 +1,10 @@
 "use client";
+/**
+ * The system map. This file wires the pieces together and owns the selection:
+ * the graph itself is built in graph-model.ts, focus and Escape live in
+ * keyboard.ts, the chrome is toolbar.tsx and the right-click menu is
+ * node-menu.tsx.
+ */
 import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -10,59 +16,31 @@ import {
   useReactFlow,
   type Node,
 } from "@xyflow/react";
-import {
-  Boxes,
-  Database,
-  FileUp,
-  Globe,
-  Layers,
-  Link2,
-  Plus,
-  Search,
-  Sparkles,
-  Trash2,
-} from "lucide-react";
-import { Button, Chip, Dialog, EmptyState, Input, Kbd } from "@/components/ui";
+import { Boxes, FileUp } from "lucide-react";
+import { Button, Dialog, EmptyState } from "@/components/ui";
 import { useProjectData } from "@/components/shell/project-context";
 import { Inspector, type InspectorTarget } from "@/components/inspector/inspector";
 import { PlanFirst } from "@/components/inspector/plan-first";
 import { DeployDock } from "@/components/deploy/deploy-dock";
 import { useJson } from "@/lib/client/api";
-import { nodeMonthlyCostUsd } from "@/lib/cost/pricing";
 import { DRIFT_POLL_MS, type DriftResponse } from "@/lib/drift";
-import type { ChangeItem } from "@/lib/domain/types";
 import { BlueprintDialog, ImportDialog, type BlueprintCard } from "./dialogs";
-import { edgeTypes, type BindingEdge } from "./edges";
+import { type BindingEdge, edgeTypes } from "./edges";
+import {
+  buildGraph,
+  diffKey,
+  healthKey,
+  manifestKey,
+  type HealthPayload,
+} from "./graph-model";
+import { useMapKeyboard, useNodeFocus } from "./keyboard";
 import { NODE_SIZE, layoutGraph, type Stratum } from "./layout";
+import { NodeMenu } from "./node-menu";
 import { nodeTypes, type MapNodeData } from "./nodes";
-
-interface HealthPayload {
-  simulated: boolean;
-  services: Record<
-    string,
-    { status: "ok" | "degraded"; replicasReady: number; replicasDesired: number; latencyMs: number }
-  >;
-}
+import { MapToolbar, STRATA_ORDER } from "./toolbar";
 
 /** Half the visual size of an edge anchor, in graph units. */
 const HANDLE_R = 3;
-
-/** Bindings are edges, not nodes — they ghost as edges further down. */
-const STRATUM_OF: Record<ChangeItem["nodeType"], Stratum | null> = {
-  route: "route",
-  service: "service",
-  resource: "resource",
-  binding: null,
-};
-
-/** Keyboard order across the map: left column to right, top to bottom. */
-const STRATA_ORDER: Stratum[] = ["route", "service", "resource"];
-
-const STRATUM_LABEL: Record<Stratum, string> = {
-  route: "Routes",
-  service: "Services",
-  resource: "Resources",
-};
 
 export interface SystemMapProps {
   /** blueprint catalog metadata, read on the server */
@@ -137,29 +115,7 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
 
   useEffect(() => exitBind(), [selectedEnvId, exitBind]);
 
-  /** Bring a node into view without changing the zoom the user chose. */
-  const centerOn = useCallback(
-    (id: string) => {
-      const n = rf.getNode(id);
-      if (!n) return;
-      const w = n.width ?? n.measured?.width ?? 200;
-      const h = n.height ?? n.measured?.height ?? 80;
-      rf.setCenter(n.position.x + w / 2, n.position.y + h / 2, {
-        zoom: rf.getZoom(),
-        duration: 200,
-      });
-    },
-    [rf]
-  );
-
-  /** Escape out of the inspector puts the caret back where it came from. */
-  const focusNode = useCallback((id: string) => {
-    requestAnimationFrame(() => {
-      document
-        .querySelector<HTMLElement>(`[data-map-node][data-node-id="${CSS.escape(id)}"]`)
-        ?.focus();
-    });
-  }, []);
+  const { centerOn, focusNode } = useNodeFocus(rf);
 
   // Deep link: /p/<slug>?select=<nodeId> (Security findings link here).
   // Read once from location.search to avoid the useSearchParams Suspense
@@ -188,45 +144,29 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement | null;
-      const typing =
-        el instanceof HTMLElement &&
-        (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+  const closeMenu = useCallback(() => setMenu(null), []);
+  const closeTarget = useCallback(
+    (back: string | undefined) => {
+      setTarget(null);
+      if (back) {
+        setFocusedId(back);
+        focusNode(back);
+      }
+    },
+    [focusNode]
+  );
 
-      // "/" is the find shortcut everywhere else; it is here too.
-      if (e.key === "/" && !typing && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        search.current?.focus();
-        search.current?.select();
-        return;
-      }
-      if (e.key !== "Escape") return;
-      if (menu) {
-        const id = menu.nodeId;
-        setMenu(null);
-        focusNode(id);
-      } else if (binding) exitBind();
-      else if (target) {
-        // Focus came from a node, so it goes back to that node — not to the
-        // top of the document, which is where it landed before.
-        const back =
-          target.kind === "node"
-            ? target.nodeId
-            : target.kind === "binding"
-              ? m.bindings.find((b) => b.id === target.bindingId)?.from
-              : undefined;
-        setTarget(null);
-        if (back) {
-          setFocusedId(back);
-          focusNode(back);
-        }
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [binding, target, menu, exitBind, focusNode, m.bindings]);
+  useMapKeyboard({
+    searchRef: search,
+    menuNodeId: menu?.nodeId ?? null,
+    binding,
+    target,
+    bindings: m.bindings,
+    focusNode,
+    closeMenu,
+    exitBind,
+    closeTarget,
+  });
 
   const onNodeActivate = useCallback(
     (nodeId: string) => {
@@ -247,173 +187,17 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
   const selectedNodeId = target?.kind === "node" ? target.nodeId : null;
   const selectedBindingId = target?.kind === "binding" ? target.bindingId : null;
   const liveKey = liveTargets.join(",");
-  // Only what the map actually draws. Stringifying the whole manifest on every
-  // render also hashed env vars, secret refs and resource config — none of
-  // which the map reads — and the poll hands us a fresh object every 5s.
-  const manifestKey = [
-    ...m.routes.map((r) => `R${r.id}:${r.host}:${r.pathPrefix}:${r.tls}`),
-    ...m.services.map((s) => `S${s.id}:${s.name}:${s.kind}:${s.size}:${s.replicas}:${s.schedule ?? ""}:${s.ownership}`),
-    ...m.resources.map((r) => `D${r.id}:${r.name}:${r.kind}:${r.size}:${r.ownership}`),
-    ...m.bindings.map((b) => `B${b.id}:${b.from}>${b.to}:${b.capability}:${b.note ?? ""}`),
-  ].join("|");
-  const diffKey = JSON.stringify(changeset?.items.map((i) => [i.nodeId, i.op, i.nodeType, i.nodeName, i.costDeltaUsd]) ?? []);
-  // Status and replica counts only. latencyMs is reseeded every 10 seconds by
-  // the log simulator, and folding it in here re-laid-out the whole graph on
-  // that timer — visible jitter for a number that belongs on Observe.
-  const healthKey = Object.entries(health?.services ?? {})
-    .map(([id, h]) => `${id}:${h.status}:${h.replicasReady}/${h.replicasDesired}`)
-    .join("|");
+  const mKey = manifestKey(m);
+  const dKey = diffKey(changeset);
+  const hKey = healthKey(health);
 
   /* Structure and content of the graph: rebuilt only when the system, the
      changeset or health actually changes — never on selection or focus. */
-  const { allRaw, allEdges, empty } = useMemo(() => {
-    const diffOp = new Map<string, ChangeItem["op"]>();
-    for (const i of changeset?.items ?? []) diffOp.set(i.nodeId, i.op);
-
-    const healthFor = (serviceId: string): Pick<MapNodeData, "health" | "healthLabel"> => {
-      if (!deployed)
-        return { health: "idle", healthLabel: "Not deployed to this environment yet" };
-      const h = health?.services?.[serviceId];
-      if (!h) return { health: "idle", healthLabel: "Not running in this environment yet" };
-      return {
-        health: h.status === "ok" ? "ok" : "warn",
-        healthLabel: `${h.replicasReady}/${h.replicasDesired} ready — simulated health`,
-      };
-    };
-
-    const raw: { id: string; stratum: Stratum; data: MapNodeData }[] = [];
-
-    for (const r of m.routes) {
-      raw.push({
-        id: r.id,
-        stratum: "route",
-        data: {
-          name: r.host,
-          stratum: "route",
-          kind: "route",
-          costUsd: nodeMonthlyCostUsd(m, r.id),
-          tls: r.tls,
-          diff: diffOp.get(r.id),
-          live: liveTargets.includes(r.id),
-        },
-      });
-    }
-
-    for (const s of m.services) {
-      const sub =
-        s.kind === "cron"
-          ? (s.schedule ?? "no schedule")
-          : s.kind === "static"
-            ? "prebuilt files"
-            : `${s.size} × ${s.replicas}`;
-      raw.push({
-        id: s.id,
-        stratum: "service",
-        data: {
-          name: s.name,
-          stratum: "service",
-          kind: s.kind,
-          sub,
-          costUsd: nodeMonthlyCostUsd(m, s.id),
-          ownership: s.ownership,
-          diff: diffOp.get(s.id),
-          live: liveTargets.includes(s.id),
-          ...healthFor(s.id),
-        },
-      });
-    }
-
-    for (const r of m.resources) {
-      raw.push({
-        id: r.id,
-        stratum: "resource",
-        data: {
-          name: r.name,
-          stratum: "resource",
-          kind: r.kind,
-          sub: r.ownership === "managed" ? r.size : `${r.size} · ${r.ownership}`,
-          costUsd: nodeMonthlyCostUsd(m, r.id),
-          ownership: r.ownership,
-          diff: diffOp.get(r.id),
-          live: liveTargets.includes(r.id),
-        },
-      });
-    }
-
-    // Things this environment still runs that the working copy no longer has.
-    for (const item of changeset?.items ?? []) {
-      if (item.op !== "delete") continue;
-      const stratum = STRATUM_OF[item.nodeType];
-      if (!stratum) continue;
-      raw.push({
-        id: item.nodeId,
-        stratum,
-        data: {
-          name: item.nodeName,
-          stratum,
-          kind: item.nodeType,
-          sub: "removed on next deploy",
-          costUsd: -item.costDeltaUsd,
-          diff: "delete",
-        },
-      });
-    }
-
-    const known = new Set(raw.map((n) => n.id));
-    const edgeDefs: BindingEdge[] = m.bindings
-      .filter((b) => known.has(b.from) && known.has(b.to))
-      .map((b) => ({
-        id: b.id,
-        source: b.from,
-        target: b.to,
-        type: "binding" as const,
-        data: {
-          capability: b.capability,
-          note: b.note,
-          live: liveTargets.includes(b.to),
-          diff: diffOp.get(b.id) === "create" ? ("create" as const) : undefined,
-        },
-      }));
-
-    // A removed binding has to ghost too, or the map claims a connection is
-    // already gone while the Changes panel still lists it — the exact
-    // disagreement ARCHITECTURE ADR 5 forbids. The changeset carries a
-    // binding's endpoints only as its display name, "<from> → <to>", so resolve
-    // them against the nodes above (ghosts included).
-    const byName = new Map(raw.map((n) => [n.data.name, n.id]));
-    for (const item of changeset?.items ?? []) {
-      if (item.op !== "delete" || item.nodeType !== "binding") continue;
-      const [from, to] = item.nodeName.split(" → ");
-      const source = byName.get(from);
-      const target = byName.get(to);
-      if (!source || !target) continue;
-      edgeDefs.push({
-        id: item.nodeId,
-        source,
-        target,
-        type: "binding",
-        data: { capability: "removing", note: item.explanation, diff: "delete" },
-      });
-    }
-
-    // What each node is wired to, by name — the only way a screen reader can
-    // hear the bindings at all.
-    const nameOfNode = new Map(raw.map((n) => [n.id, n.data.name]));
-    for (const n of raw) {
-      const peers = edgeDefs
-        .filter((e) => e.source === n.id || e.target === n.id)
-        .map((e) => nameOfNode.get(e.source === n.id ? e.target : e.source))
-        .filter((x): x is string => Boolean(x));
-      n.data.connections = [...new Set(peers)];
-    }
-
-    return {
-      allRaw: raw,
-      allEdges: edgeDefs,
-      empty: m.services.length === 0 && m.resources.length === 0 && m.routes.length === 0,
-    };
+  const { allRaw, allEdges, empty } = useMemo(
+    () => buildGraph({ manifest: m, changeset, health, deployed, liveTargets }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [manifestKey, diffKey, healthKey, liveKey, deployed]);
+    [mKey, dKey, hKey, liveKey, deployed]
+  );
 
   /* Hiding a column is a view, not an edit — the nodes leave the drawing, the
      working system is untouched, and the toolbar says so out loud. */
@@ -563,7 +347,7 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
     binding,
     bindFrom,
     matches,
-    manifestKey,
+    mKey,
     driftByNode,
     onNodeActivate,
     centerOn,
@@ -678,173 +462,29 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
           </div>
         )}
 
-        {/* Toolbar — top-left, never under the toasts or the zoom controls.
-            Every group wraps on its own so a 375px screen stacks them instead
-            of pushing Connect off the edge. */}
-        <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex flex-wrap items-start gap-2">
-          <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-1 rounded-card border border-line bg-bg2 p-1 shadow-card">
-            {!binding && (
-              <>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  icon={<Plus className="h-3.5 w-3.5" aria-hidden="true" />}
-                  onClick={() => setTarget({ kind: "add-service" })}
-                >
-                  Service
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  icon={<Database className="h-3.5 w-3.5" aria-hidden="true" />}
-                  onClick={() => setTarget({ kind: "add-resource" })}
-                >
-                  Resource
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  icon={<Globe className="h-3.5 w-3.5" aria-hidden="true" />}
-                  onClick={() => setTarget({ kind: "add-route" })}
-                >
-                  Route
-                </Button>
-                <span aria-hidden="true" className="mx-0.5 h-4 w-px bg-line" />
-              </>
-            )}
-            <Button
-              size="sm"
-              variant={binding ? "primary" : "ghost"}
-              aria-pressed={binding}
-              icon={<Link2 className="h-3.5 w-3.5" aria-hidden="true" />}
-              disabled={!binding && m.services.length + m.resources.length + m.routes.length < 2}
-              disabledReason="Connecting needs two nodes — add another one first."
-              onClick={() => (binding ? exitBind() : setBinding(true))}
-            >
-              {binding ? "Cancel" : "Connect"}
-            </Button>
-            {/* Importing and blueprints used to exist only in the empty state,
-                so a project with one service had no way back to either. */}
-            {!binding && (
-              <>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  icon={<FileUp className="h-3.5 w-3.5" aria-hidden="true" />}
-                  onClick={() => setDialog("compose")}
-                >
-                  Import
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  icon={<Sparkles className="h-3.5 w-3.5" aria-hidden="true" />}
-                  onClick={() => setDialog("blueprint")}
-                >
-                  Blueprint
-                </Button>
-              </>
-            )}
-          </div>
-
-          {!empty && !binding && (
-            <>
-              <div className="pointer-events-auto w-44 max-w-[45vw]">
-                <Input
-                  ref={search}
-                  value={query}
-                  aria-label="Find a node by name"
-                  placeholder="Find a node"
-                  className="bg-bg2 shadow-card"
-                  prefix={<Search className="h-3.5 w-3.5" aria-hidden="true" />}
-                  suffix={query ? undefined : <Kbd>/</Kbd>}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      e.preventDefault();
-                      setQuery("");
-                      search.current?.blur();
-                      return;
-                    }
-                    if (e.key !== "Enter") return;
-                    e.preventDefault();
-                    const first = order.find((id) => matches?.has(id));
-                    if (first) pick(first);
-                  }}
-                />
-              </div>
-
-              <div
-                role="group"
-                aria-label="Show or hide columns"
-                className="pointer-events-auto flex flex-wrap items-center gap-1 rounded-card border border-line bg-bg2 p-1 shadow-card"
-              >
-                <Layers className="mx-1 h-3.5 w-3.5 shrink-0 text-ink-faint" aria-hidden="true" />
-                {STRATA_ORDER.map((s) => {
-                  const on = !hidden.includes(s);
-                  return (
-                    <Button
-                      key={s}
-                      size="sm"
-                      variant={on ? "ghost" : "quiet"}
-                      aria-pressed={on}
-                      title={on ? `Hide the ${STRATUM_LABEL[s]} column` : `Show the ${STRATUM_LABEL[s]} column`}
-                      onClick={() =>
-                        setHidden((h) => (h.includes(s) ? h.filter((x) => x !== s) : [...h, s]))
-                      }
-                      className={on ? undefined : "line-through opacity-70"}
-                    >
-                      {STRATUM_LABEL[s]}
-                    </Button>
-                  );
-                })}
-              </div>
-            </>
-          )}
-
-          {binding && (
-            <div
-              role="status"
-              className="animate-enter pointer-events-auto mx-auto flex items-center gap-3 rounded-full border border-signal/40 bg-bg3 px-4 py-1.5 shadow-overlay"
-            >
-              <span className="text-[12.5px] text-ink">
-                {bindFrom
-                  ? `From ${nameOf(bindFrom)} — now pick what it uses.`
-                  : "Pick a source, then a target."}
-              </span>
-              <span className="text-[12px] text-ink-faint">
-                <Kbd>Esc</Kbd> cancels
-              </span>
-            </div>
-          )}
-
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            {matches && (
-              <Chip
-                className="pointer-events-auto"
-                tone={matches.size === 0 ? "warn" : "signal"}
-              >
-                {matches.size === 0
-                  ? `nothing matches "${query.trim()}"`
-                  : `${matches.size} of ${nodeCount} match`}
-              </Chip>
-            )}
-            {hidden.length > 0 && (
-              <Chip
-                className="pointer-events-auto"
-                tone="warn"
-                title="Hidden columns are a view only — the working system still contains them, and the Changes panel still lists them."
-              >
-                {hidden.map((s) => STRATUM_LABEL[s].toLowerCase()).join(" and ")} hidden
-              </Chip>
-            )}
-            {deployed && health?.simulated && (
-              <Chip className="pointer-events-auto" title="Health here is computed by the sandbox provider, not measured against real infrastructure.">
-                simulated health
-              </Chip>
-            )}
-          </div>
-        </div>
+        <MapToolbar
+          empty={empty}
+          binding={binding}
+          bindFromName={bindFrom ? nameOf(bindFrom) : null}
+          nodeCount={nodeCount}
+          nodeTotal={m.services.length + m.resources.length + m.routes.length}
+          hidden={hidden}
+          query={query}
+          searchRef={search}
+          matchCount={matches ? matches.size : null}
+          simulatedHealth={Boolean(deployed && health?.simulated)}
+          onAdd={(kind) => setTarget({ kind })}
+          onOpenDialog={setDialog}
+          onToggleBinding={() => (binding ? exitBind() : setBinding(true))}
+          onQueryChange={setQuery}
+          onSearchSubmit={() => {
+            const first = order.find((id) => matches?.has(id));
+            if (first) pick(first);
+          }}
+          onToggleStratum={(s) =>
+            setHidden((h) => (h.includes(s) ? h.filter((x) => x !== s) : [...h, s]))
+          }
+        />
 
         {menu && (
           <NodeMenu
@@ -941,123 +581,5 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
         )}
       </Dialog>
     </div>
-  );
-}
-
-/**
- * The node's own menu. A positioned list, not a modal: it must not lock the
- * page or trap focus behind a three-item shortcut.
- */
-function NodeMenu({
-  x,
-  y,
-  name,
-  canRemove,
-  onInspect,
-  onConnect,
-  onRemove,
-  onClose,
-}: {
-  x: number;
-  y: number;
-  name: string;
-  canRemove: boolean;
-  onInspect: () => void;
-  onConnect: () => void;
-  onRemove: () => void;
-  onClose: () => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const close = useRef(onClose);
-  close.current = onClose;
-
-  // Focus lands on the first item once, on open — not on every re-render, which
-  // would drag it back off whichever item the user had arrowed to.
-  useEffect(() => {
-    ref.current?.querySelector("button")?.focus();
-    const onDown = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as globalThis.Node)) close.current();
-    };
-    document.addEventListener("pointerdown", onDown, true);
-    return () => document.removeEventListener("pointerdown", onDown, true);
-  }, []);
-
-  /** role="menu" promises arrow keys, so it has them. */
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-    e.preventDefault();
-    const items = [...(ref.current?.querySelectorAll<HTMLButtonElement>("button:not([disabled])") ?? [])];
-    if (items.length === 0) return;
-    const at = items.indexOf(document.activeElement as HTMLButtonElement);
-    const next = (at + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
-    items[next]?.focus();
-  };
-
-  // Keep it on screen: a right-click near the bottom edge would otherwise open
-  // a menu nobody can reach.
-  const left = Math.min(x, (typeof window === "undefined" ? 1200 : window.innerWidth) - 210);
-  const top = Math.min(y, (typeof window === "undefined" ? 800 : window.innerHeight) - 140);
-
-  return (
-    <div
-      ref={ref}
-      role="menu"
-      aria-label={`Actions for ${name}`}
-      onKeyDown={onKeyDown}
-      style={{ position: "fixed", left, top }}
-      className="animate-enter z-50 w-[200px] overflow-hidden rounded-card border border-line bg-bg3 py-1 shadow-overlay"
-    >
-      <MenuItem onClick={onInspect}>Inspect</MenuItem>
-      <MenuItem onClick={onConnect}>Connect from here</MenuItem>
-      <MenuItem
-        onClick={onRemove}
-        danger
-        disabled={!canRemove}
-        title={
-          canRemove
-            ? undefined
-            : `${name} is already staged for removal — it is in the Changes panel, waiting for a deploy.`
-        }
-        icon={<Trash2 className="h-3.5 w-3.5" aria-hidden="true" />}
-      >
-        Remove
-      </MenuItem>
-    </div>
-  );
-}
-
-function MenuItem({
-  children,
-  onClick,
-  danger,
-  disabled,
-  title,
-  icon,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  danger?: boolean;
-  disabled?: boolean;
-  title?: string;
-  icon?: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      role="menuitem"
-      disabled={disabled}
-      aria-disabled={disabled || undefined}
-      title={title}
-      onClick={onClick}
-      className={[
-        "flex w-full items-center gap-2 px-3 py-1.5 text-left text-[13px]",
-        "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]",
-        "disabled:cursor-not-allowed disabled:opacity-55",
-        danger ? "text-err hover:bg-err-dim" : "text-ink hover:bg-bg2",
-      ].join(" ")}
-    >
-      {icon}
-      {children}
-    </button>
   );
 }

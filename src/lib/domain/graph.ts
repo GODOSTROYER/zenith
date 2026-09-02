@@ -1,5 +1,9 @@
 /**
  * Manifest graph operations: validation, diffing, and derived facts.
+ *
+ * Pure functions over `./types` and nothing else — no store, no provider, no
+ * environment. Two manifests in, a Changeset out; that is what lets the same
+ * diff drive an action plan, the Changes drawer and the API.
  * SPINE FILE — owned by the integrator.
  */
 import {

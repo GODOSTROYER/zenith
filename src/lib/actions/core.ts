@@ -228,7 +228,29 @@ export async function runAction(
   const input = parsed.data;
 
   if (opts.mode === "plan") {
-    return { plan: withRoleBlock(ctx, action, await action.plan(ctx, input)) };
+    // A plan that cannot even be computed (a stale project id, an environment
+    // that no longer exists) is a refusal, not a server error: the require*
+    // helpers throw messages that already carry their fix, and the caller
+    // needs that sentence on a disabled button, not a generic 500.
+    let planned;
+    try {
+      planned = await action.plan(ctx, input);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        plan: {
+          summary: "This cannot be planned as things stand.",
+          details: [message],
+          costDeltaUsd: 0,
+          risk: "low",
+          warnings: [],
+          requiresApproval: false,
+          requiredRole: action.requiredRole,
+          blocked: message,
+        },
+      };
+    }
+    return { plan: withRoleBlock(ctx, action, planned) };
   }
 
   // Role enforcement: a human may only execute up to their workspace role.

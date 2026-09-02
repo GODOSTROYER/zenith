@@ -7,3 +7,6 @@ next-env.d.ts
 
 .devserver.log
 .data-smoke/
+
+# scratch data directories (smoke, screenshots)
+.data-*/

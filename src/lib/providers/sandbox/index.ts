@@ -7,15 +7,16 @@
  *
  * Workstream A.
  */
-import type {
-  CloudConnection,
-  Environment,
-  Manifest,
-  Resource,
-  ResourceKind,
-  Route,
-  Service,
-  ServiceSize,
+import {
+  fnv1a,
+  type CloudConnection,
+  type Environment,
+  type Manifest,
+  type Resource,
+  type ResourceKind,
+  type Route,
+  type Service,
+  type ServiceSize,
 } from "@/lib/domain/types";
 import { SIZE_SPECS } from "@/lib/cost/pricing";
 import { q } from "@/lib/db/store";
@@ -35,18 +36,9 @@ import {
 
 /* --------------------------- deterministic jitter -------------------------- */
 
-export function hash32(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
 /** Stable pseudo-jitter so `planSteps` stays pure across calls. */
 function jitter(seed: string, min: number, max: number): number {
-  return Math.round(min + ((hash32(seed) % 1000) / 1000) * (max - min));
+  return Math.round(min + ((fnv1a(seed) % 1000) / 1000) * (max - min));
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, Math.max(0, ms)));
@@ -258,7 +250,7 @@ async function executeStep(rt: StepRuntime): Promise<void> {
   }
 
   if (step.phase === "prepare" && service) {
-    const digest = `sha256:${hash32(`${service.id}:${rt.revision.id}`).toString(16).padStart(8, "0")}${hash32(service.name).toString(16).padStart(8, "0")}`;
+    const digest = `sha256:${fnv1a(`${service.id}:${rt.revision.id}`).toString(16).padStart(8, "0")}${fnv1a(service.name).toString(16).padStart(8, "0")}`;
     const seed = `${service.id}:${rt.revision.id}`;
     if (service.source.type === "image") {
       const layers = jitter(`layers:${seed}`, 4, 16);
@@ -396,7 +388,7 @@ async function executeStep(rt: StepRuntime): Promise<void> {
 
   if (step.phase === "verify" && service) {
     const path = service.healthPath ?? "/";
-    const latency = 8 + (hash32(`${service.id}:${rt.deployment.id}`) % 90);
+    const latency = 8 + (fnv1a(`${service.id}:${rt.deployment.id}`) % 90);
     await paced(rt, [
       [`probe GET ${path} → 200 in ${latency}ms`, "provider"],
       [`probe GET ${path} → 200 in ${latency + 3}ms`, "provider"],
@@ -495,7 +487,7 @@ const SIZES: ServiceSize[] = ["nano", "small", "standard", "performance"];
 
 /** Stable pick from a list — the same environment always drifts the same way. */
 function pick<T>(xs: T[], seed: string): T | undefined {
-  return xs.length ? xs[hash32(seed) % xs.length] : undefined;
+  return xs.length ? xs[fnv1a(seed) % xs.length] : undefined;
 }
 
 /** A value that plainly differs from the manifest's, without pretending to be data. */
@@ -566,7 +558,7 @@ const SIMULATED_FINDS: { kind: ResourceKind; base: string; note: string }[] = [
  */
 async function discover(conn: CloudConnection, region?: string): Promise<Discovery> {
   const where = region ?? conn.region;
-  const tag = hash32(`${conn.id}:${where}`).toString(36).slice(0, 5);
+  const tag = fnv1a(`${conn.id}:${where}`).toString(36).slice(0, 5);
   return {
     simulated: true,
     resources: SIMULATED_FINDS.map((f) => ({

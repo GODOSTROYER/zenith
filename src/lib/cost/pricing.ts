@@ -1,7 +1,11 @@
 /**
  * Cost model. Static estimate tables, clearly labeled as estimates in the UI.
- * SPINE FILE — owned by the integrator. The engine and UI both use these
- * numbers, so cost previews and post-deploy reporting always agree.
+ * The engine and UI both use these numbers, so cost previews and post-deploy
+ * reporting always agree.
+ *
+ * Knows nothing about providers or real billing: it prices a manifest, never
+ * an account. Formatting the number is `@/lib/format`'s job, not this one's.
+ * SPINE FILE — owned by the integrator.
  */
 import type { Manifest, ServiceSize } from "@/lib/domain/types";
 

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Rocket, ShieldAlert } from "lucide-react";
 import { Button, Callout, Chip, CostDelta, Input, RiskBadge, useToasts } from "@/components/ui";
 import { useProjectData } from "@/components/shell/project-context";
-import { ChangeRow } from "@/components/screens/shared";
+import { ChangeRow, SectionTitle } from "@/components/screens/shared";
 import { api, ApiError, executeAction, planAction } from "@/lib/client/api";
 import type { ActionPlan } from "@/lib/actions/core";
 import { cx, fmtDuration, fmtUsd } from "@/lib/format";
@@ -217,9 +217,9 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
           if (items.length === 0) return null;
           return (
             <div key={op} className="space-y-1.5">
-              <h3 className="text-[12px] font-medium tracking-[0.04em] text-ink-faint uppercase">
+              <SectionTitle>
                 {label} · {items.length}
-              </h3>
+              </SectionTitle>
               {/* Same row component as the revision diff: one explanation,
                   one field list, wherever a change is read. */}
               <ul className="overflow-hidden rounded-card border border-line bg-bg1">
@@ -317,9 +317,9 @@ function StepPreview({ plan }: { plan: StepPlan | undefined }) {
   return (
     <section className="space-y-3 border-t border-line pt-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="text-[12px] font-medium tracking-[0.04em] text-ink-faint uppercase">
+        <SectionTitle>
           What this deploy would do · {count} step{count === 1 ? "" : "s"}
-        </h3>
+        </SectionTitle>
         <span className="flex items-center gap-2 text-[11.5px] text-ink-faint">
           {plan.simulated && (
             <Chip title="The sandbox provider runs these steps in this process. Nothing reaches a real cloud and the addresses it hands back are local.">

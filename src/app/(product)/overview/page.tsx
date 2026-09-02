@@ -20,6 +20,10 @@ export const metadata: Metadata = { title: "Overview" };
 /** Rows in the activity panel. Small, because the trail screen is one click away. */
 const ACTIVITY_ROWS = 10;
 
+/** A Link that has to look like the primary Button; the kit has no `asChild`. */
+const PRIMARY_LINK =
+  "inline-flex h-8 items-center rounded-ctl bg-signal px-3 text-[13px] font-medium text-on-signal hover:brightness-110";
+
 export default async function OverviewPage() {
   // The workspace the browser is in — the same resolution /api uses, so this
   // screen and the shell above it can never be looking at different ones.
@@ -36,7 +40,7 @@ export default async function OverviewPage() {
           action={
             <Link
               href="/onboarding"
-              className="inline-flex h-8 items-center rounded-ctl bg-signal px-3 text-[13px] font-medium text-on-signal hover:brightness-110"
+              className={PRIMARY_LINK}
             >
               Set up Orrery
             </Link>
@@ -157,7 +161,7 @@ export default async function OverviewPage() {
           action={
             <Link
               href="/onboarding?step=3"
-              className="inline-flex h-8 items-center rounded-ctl bg-signal px-3 text-[13px] font-medium text-on-signal hover:brightness-110"
+              className={PRIMARY_LINK}
             >
               Create your first project
             </Link>

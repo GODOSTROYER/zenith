@@ -1,0 +1,29 @@
+# Keep the build context small and keep host state out of the image.
+# .data/ especially: it holds a .orrery.lock naming a pid on the host, and
+# baking it in would make the container fight a process that isn't there.
+node_modules
+.next
+.git
+.github
+
+.data
+.data-smoke
+.data-shots
+.devserver.log
+
+# Secrets never enter the build context. NEXT_PUBLIC_* values that must be
+# inlined at build time are passed as --build-arg instead (see Dockerfile).
+.env
+.env.local
+.env*.local
+
+*.tsbuildinfo
+.impeccable
+tests
+fixtures
+README.md
+PRODUCT.md
+docs
+Dockerfile
+docker-compose.yml
+.dockerignore

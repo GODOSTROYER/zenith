@@ -5,6 +5,22 @@ grounds, hairline structure, one mint-teal signal color used with restraint,
 and a second periwinkle accent reserved exclusively for the Navigator so
 agent activity is always recognizable. Equally considered light theme.
 
+## Where things live
+
+`src/components/ui` is the kit and the only source of primitives — import the
+barrel (`@/components/ui`), never a file inside it, and never hardcode a colour
+there. `src/components/screens` holds the screen-level pieces the kit cannot
+own because they know about actions and roles: `ActionConfirm`, `ErrorNote`,
+`SectionTitle`, `SimulatedChip`, `RoleChip`, `ChangeRow`, `ActorDot`, `EnvDot`.
+Everything else is one folder per area — `shell`, `map`, `inspector`, `deploy`,
+`navigator`, `auth`, `landing` — with one exported component per file, pure
+logic beside it in a plain `.ts`, and a `README.md` in every directory saying
+what belongs there. Under `src/app`, a route folder keeps only its own files: a
+`page.tsx` reads as data hooks → derived state → layout of sections, and
+anything a second route needs moves into `src/components/<area>/`. Ownership
+per path is in `docs/OWNERSHIP.md`; the deliberate exceptions are in
+`docs/DEBT.md`.
+
 ## Tokens (see globals.css — never hardcode)
 
 - Surfaces: `bg0` page · `bg1` chrome · `bg2` card · `bg3` overlay; 1px `line` hairlines; shadows only on raised/overlay surfaces.

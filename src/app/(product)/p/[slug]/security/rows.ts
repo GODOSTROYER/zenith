@@ -79,6 +79,13 @@ const RANK: Record<Role, number> = { viewer: 0, editor: 1, admin: 2 };
 export const roleReaches = (have: Role | null | undefined, need: Role | null | undefined): boolean =>
   !need || !have || RANK[have] >= RANK[need];
 
+/**
+ * Why a control on this screen is closed to a viewer. Same sentence wherever
+ * it appears — the filters bar, a row's buttons, and Reopen in History.
+ */
+export const viewerReason = (verb: string, role: Role | null): string =>
+  `${verb} needs the editor role and you are ${role ?? "a viewer"} in this workspace. Ask a workspace admin to raise your role in Settings → Members, or have them run it.`;
+
 export interface FixSplit {
   /** planned and not refused: exactly what "Fix all" will run */
   runnable: FixRow[];

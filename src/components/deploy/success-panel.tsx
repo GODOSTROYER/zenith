@@ -6,6 +6,7 @@ import { Button, Chip, CopyButton, StatusDot, type DotStatus } from "@/component
 import { OrbitMark } from "@/components/shell/wordmark";
 import { useProjectData } from "@/components/shell/project-context";
 import { useShell } from "@/components/shell/shell-context";
+import { SectionTitle } from "@/components/screens/shared";
 import { useJson } from "@/lib/client/api";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { cx, fmtUsd } from "@/lib/format";
@@ -226,7 +227,7 @@ export function SuccessPanel({
       </div>
 
       <div className="space-y-2 border-t border-line pt-4">
-        <h3 className="text-[12px] font-medium tracking-[0.04em] text-ink-faint uppercase">Next</h3>
+        <SectionTitle>Next</SectionTitle>
         <div className="flex flex-wrap items-center gap-2">
           <Button
             size="sm"

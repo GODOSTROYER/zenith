@@ -9,68 +9,24 @@
  * Search and the date range are the exceptions, and say so.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { Bot, Download, Search, ScrollText } from "lucide-react";
+import { Download, ScrollText } from "lucide-react";
 import { api, useJson } from "@/lib/client/api";
 import type { AuditEvent } from "@/lib/domain/types";
-import { cx } from "@/lib/format";
-import {
-  Button,
-  Card,
-  Chip,
-  EmptyState,
-  Input,
-  SegmentedControl,
-  Select,
-  Skeleton,
-  Table,
-  TimeAgo,
-  type ChipTone,
-  type TableColumn,
-} from "@/components/ui";
+import { Button, Card, EmptyState, Skeleton, Table } from "@/components/ui";
 import { useSelectedEnv } from "@/components/screens/project-data";
-import { ActorDot, ErrorNote } from "@/components/screens/shared";
-import { dedupe, groupByDay, inDateRange, objectLink, toCsv } from "./rows";
-
-type ActorFilter = "all" | "user" | "navigator" | "system";
-type ResultFilter = "all" | "ok" | "error" | "denied";
+import { downloadFile } from "@/components/screens/download-file";
+import { ErrorNote } from "@/components/screens/shared";
+import { ACTIVITY_COLUMNS } from "./columns";
+import {
+  ActivityFilters,
+  ACTOR_LABEL,
+  type ActorFilter,
+  type ResultFilter,
+} from "./filters-bar";
+import { dedupe, groupByDay, inDateRange, toCsv } from "./rows";
 
 const PAGE_SIZE = 50;
 const POLL_MS = 10_000;
-
-const RESULT_TONE: Record<AuditEvent["result"], ChipTone> = {
-  ok: "ok",
-  error: "err",
-  denied: "warn",
-};
-
-/** One vocabulary: the row chip reads like the filter that selects it. */
-const RESULT_LABEL: Record<AuditEvent["result"], string> = {
-  ok: "Succeeded",
-  error: "Failed",
-  denied: "Refused",
-};
-
-/** Action prefixes worth filtering by; the endpoint takes any `prefix.` form. */
-const ACTION_OPTIONS = [
-  { value: "all", label: "All actions" },
-  { value: "deploy.", label: "Deploys" },
-  { value: "system.", label: "System edits" },
-  { value: "project.", label: "Project" },
-  { value: "env.", label: "Environments" },
-  { value: "connection.", label: "Connections" },
-  { value: "security.", label: "Security" },
-  { value: "ops.", label: "Operations" },
-  { value: "workspace.", label: "Workspace" },
-  { value: "navigator.", label: "Navigator runs" },
-];
-
-const ACTOR_LABEL: Record<ActorFilter, string> = {
-  all: "everyone",
-  user: "people",
-  navigator: "the Navigator",
-  system: "the system",
-};
 
 interface AuditPage {
   events: AuditEvent[];
@@ -156,10 +112,10 @@ export default function ActivityPage() {
       const note =
         "The events matching these filters that were loaded in the browser at export time; load older pages first for a longer trail.";
       if (kind === "csv") {
-        download(`orrery-activity-${slug}-${stamp}.csv`, toCsv(shown), "text/csv");
+        downloadFile(`orrery-activity-${slug}-${stamp}.csv`, toCsv(shown), "text/csv");
         return;
       }
-      download(
+      downloadFile(
         `orrery-activity-${slug}-${stamp}.json`,
         JSON.stringify(
           {
@@ -230,99 +186,26 @@ export default function ActivityPage() {
         </span>
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Input
-          className="min-w-[220px] flex-1"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search loaded actions…"
-          aria-label="Search loaded actions"
-          prefix={<Search className="h-3.5 w-3.5" />}
-        />
-        <SegmentedControl<ActorFilter>
-          size="sm"
-          label="Filter by who acted"
-          value={actor}
-          onChange={setActor}
-          options={[
-            { value: "all", label: "Everyone" },
-            { value: "user", label: "People", title: "Actions a person ran" },
-            { value: "navigator", label: "Navigator", title: "Actions the agent ran" },
-            { value: "system", label: "System", title: "Actions the platform ran itself" },
-          ]}
-        />
-        <Select
-          className="w-[150px]"
-          aria-label="Filter by action"
-          value={action}
-          onChange={(e) => setAction(e.target.value)}
-          options={ACTION_OPTIONS}
-        />
-        <Select
-          className="w-[130px]"
-          aria-label="Filter by result"
-          value={result}
-          onChange={(e) => setResult(e.target.value as ResultFilter)}
-          options={[
-            { value: "all", label: "Any result" },
-            { value: "ok", label: "Succeeded" },
-            { value: "error", label: "Failed" },
-            { value: "denied", label: "Refused" },
-          ]}
-        />
-        {/* SEAM (T3): live once the audit route accepts `env=<environmentId>`. */}
-        <span title="Filtering by environment needs the audit endpoint to accept it — it does not yet, and filtering only the loaded page would quietly lie about the rest of the trail.">
-          <Select
-            className="w-[150px]"
-            aria-label="Filter by environment"
-            value="all"
-            disabled
-            onChange={() => undefined}
-            options={[
-              { value: "all", label: "Any environment" },
-              ...(data?.environments ?? []).map((e) => ({ value: e.id, label: e.name })),
-            ]}
-          />
-        </span>
-      </div>
-
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-[12.5px] text-ink-mute">
-        <span>Between</span>
-        <Input
-          type="date"
-          className="w-[150px]"
-          aria-label="Only actions on or after this date"
-          value={from}
-          max={to || undefined}
-          onChange={(e) => setFrom(e.target.value)}
-        />
-        <span>and</span>
-        <Input
-          type="date"
-          className="w-[150px]"
-          aria-label="Only actions on or before this date"
-          value={to}
-          min={from || undefined}
-          onChange={(e) => setTo(e.target.value)}
-        />
-        {(from || to) && (
-          <>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                setFrom("");
-                setTo("");
-              }}
-            >
-              Clear dates
-            </Button>
-            <span className="text-ink-faint">
-              Dates narrow the {events.length} actions loaded here, not the whole trail.
-            </span>
-          </>
-        )}
-      </div>
+      <ActivityFilters
+        query={query}
+        actor={actor}
+        action={action}
+        result={result}
+        from={from}
+        to={to}
+        environments={data?.environments ?? []}
+        loadedCount={events.length}
+        onQuery={setQuery}
+        onActor={setActor}
+        onAction={setAction}
+        onResult={setResult}
+        onFrom={setFrom}
+        onTo={setTo}
+        onClearDates={() => {
+          setFrom("");
+          setTo("");
+        }}
+      />
 
       {paused && (
         <div
@@ -419,116 +302,4 @@ export default function ActivityPage() {
       )}
     </div>
   );
-}
-
-/**
- * The three columns of the feed, built once per slug. Identical for every day
- * table, so the columns line up down the whole page rather than being
- * re-measured per group.
- */
-const ACTIVITY_COLUMNS = (slug: string): TableColumn<AuditEvent>[] => [
-  {
-    key: "actor",
-    header: "",
-    headerLabel: "Who",
-    width: 26,
-    render: (e) => <ActorDot actor={e.actor} />,
-  },
-  {
-    key: "action",
-    header: "Action",
-    render: (e) => <EventCell event={e} slug={slug} />,
-  },
-  {
-    key: "result",
-    header: "Result",
-    align: "right",
-    render: (e) => (
-      <Chip tone={RESULT_TONE[e.result]} className="shrink-0">
-        {RESULT_LABEL[e.result]}
-      </Chip>
-    ),
-  },
-];
-
-function EventCell({ event: e, slug }: { event: AuditEvent; slug: string }) {
-  const [open, setOpen] = useState(false);
-  const isAgent = e.actor.type === "navigator";
-  const link = objectLink(e);
-  const hasInput = e.input !== undefined && e.input !== null && JSON.stringify(e.input) !== "{}";
-
-  return (
-    <div className="min-w-0">
-        <p className="text-[13px] text-ink">{e.summary}</p>
-        {e.error && <p className="mt-0.5 text-[12.5px] text-err">{e.error}</p>}
-        <p className="mt-1 flex flex-wrap items-center gap-2 text-[11.5px] text-ink-faint">
-          <span className="font-mono">{e.actionId}</span>
-          <span>·</span>
-          <span
-            className={cx("inline-flex items-center gap-1", isAgent && "text-nav-accent")}
-          >
-            {/* Shape, not just colour: the Navigator's rows carry its mark. */}
-            {isAgent && <Bot className="h-3 w-3" aria-hidden="true" />}
-            {isAgent ? `${e.actor.name} (agent)` : e.actor.name}
-          </span>
-          <span>·</span>
-          <TimeAgo iso={e.ts} />
-          {link && (
-            <>
-              <span>·</span>
-              <Link href={`/p/${slug}${link.path}`} className="text-signal hover:underline">
-                {link.label}
-              </Link>
-            </>
-          )}
-          {e.result === "denied" && (
-            <>
-              <span>·</span>
-              <Link
-                href={`/p/${slug}/settings#members`}
-                className="text-signal hover:underline"
-                title="Roles are granted in the project's member list"
-              >
-                who can do this
-              </Link>
-            </>
-          )}
-          {hasInput && (
-            <>
-              <span>·</span>
-              <button
-                type="button"
-                aria-expanded={open}
-                onClick={() => setOpen((v) => !v)}
-                className="text-signal hover:underline"
-              >
-                {open ? "hide input" : "recorded input"}
-              </button>
-            </>
-          )}
-        </p>
-        {open && hasInput && (
-          <pre className="animate-enter mt-2 max-h-[280px] overflow-auto rounded-card border border-line bg-bg1 p-3 font-mono text-[11.5px] leading-relaxed text-ink-mute">
-            {JSON.stringify(e.input, null, 2)}
-          </pre>
-        )}
-        {open && (
-          <p className="mt-1 text-[11px] text-ink-faint">
-            Exactly what was recorded when the action ran, with secret-shaped keys redacted.
-          </p>
-        )}
-    </div>
-  );
-}
-
-/* --------------------------------- export --------------------------------- */
-
-/** Client-side file save; the audit trail never round-trips through a server. */
-function download(filename: string, body: string, type: string): void {
-  const url = URL.createObjectURL(new Blob([body], { type }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
 }

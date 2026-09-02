@@ -9,7 +9,7 @@ import { Ban } from "lucide-react";
 import type { ActionPlan, ActionResult, Role } from "@/lib/actions/core";
 import { ApiError, executeAction, planAction } from "@/lib/client/api";
 import type { Actor, ChangeItem, EnvironmentClass } from "@/lib/domain/types";
-import { cx, fmtUsd } from "@/lib/format";
+import { cx } from "@/lib/format";
 import { useShell } from "@/components/shell/shell-context";
 import {
   Button,
@@ -128,6 +128,22 @@ export function roleShortfall(
   );
 }
 
+/**
+ * "needs editor" — the role an action demands, toned red when the caller does
+ * not have it. Both plan previews (this file's dialog and the inspector's
+ * inline PlanFirst) show the same chip with the same tooltip.
+ */
+export function RoleChip({ required, shortfall }: { required: Role; shortfall?: string }) {
+  return (
+    <Chip
+      tone={shortfall ? "err" : "neutral"}
+      title={shortfall ?? `Running this needs the ${required} role.`}
+    >
+      needs {required}
+    </Chip>
+  );
+}
+
 /** The refusal, in the same shape everywhere: red, first, and never a warning. */
 function BlockedNote({ children }: { children: ReactNode }) {
   return (
@@ -137,7 +153,8 @@ function BlockedNote({ children }: { children: ReactNode }) {
   );
 }
 
-export function PlanBody({ plan }: { plan: ActionPlan }) {
+/** The plan itself, inside the confirm dialog below. Not used anywhere else. */
+function PlanBody({ plan }: { plan: ActionPlan }) {
   const { boot } = useShell();
   const shortfall = roleShortfall(plan.requiredRole, boot?.role);
   return (
@@ -151,14 +168,7 @@ export function PlanBody({ plan }: { plan: ActionPlan }) {
 
       <div className="flex flex-wrap items-center gap-2">
         <RiskBadge level={plan.risk} />
-        {plan.requiredRole && (
-          <Chip
-            tone={shortfall ? "err" : "neutral"}
-            title={shortfall ?? `Running this needs the ${plan.requiredRole} role.`}
-          >
-            needs {plan.requiredRole}
-          </Chip>
-        )}
+        {plan.requiredRole && <RoleChip required={plan.requiredRole} shortfall={shortfall} />}
         <Chip tone={plan.costDeltaUsd === 0 ? "neutral" : plan.costDeltaUsd > 0 ? "warn" : "ok"}>
           <CostDelta usd={plan.costDeltaUsd} bare /> est./mo
         </Chip>
@@ -348,6 +358,33 @@ export function ActionConfirm({
 
 /* ------------------------------- presenters ------------------------------- */
 
+/**
+ * The label above a group of fields inside a panel — inspector tabs, the
+ * deploy dock, the changes review. One markup, so a section heading never
+ * drifts a pixel between two panels that sit side by side.
+ */
+export function SectionTitle({ children }: { children: ReactNode }) {
+  return (
+    <h3 className="text-[12px] font-medium tracking-[0.04em] text-ink-faint uppercase">
+      {children}
+    </h3>
+  );
+}
+
+/**
+ * "This number was computed, not measured." One label for every surface that
+ * shows generated health, generated logs or an estimated cost, so the claim
+ * reads the same wherever it appears. `title` says what was simulated when the
+ * surface can be specific about it.
+ */
+export function SimulatedChip({ title }: { title?: string }) {
+  return (
+    <Chip tone="info" title={title}>
+      simulated
+    </Chip>
+  );
+}
+
 const ENV_TONE: Record<EnvironmentClass, ChipTone> = {
   sandbox: "info",
   staging: "signal",
@@ -422,9 +459,4 @@ export function ChangeRow({ item }: { item: ChangeItem }) {
       </div>
     </li>
   );
-}
-
-/** "$120.00" with tabular figures, used wherever a monthly estimate appears. */
-export function Money({ usd, className }: { usd: number; className?: string }) {
-  return <span className={cx("tnum", className)}>{fmtUsd(usd)}</span>;
 }

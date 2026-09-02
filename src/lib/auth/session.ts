@@ -1,6 +1,10 @@
 /**
  * Who is signed in, from the server's point of view.
  * Verified via getClaims() (JWT signature check) — never getSession().
+ *
+ * Identity only. What that person may *do* is a workspace membership question
+ * answered by `roleOf` (actions/core) and `workspaceRole` (server/context);
+ * this module never reads the store and never decides a permission.
  */
 import type { Role } from "@/lib/actions/core";
 import { isSupabaseConfigured } from "@/lib/supabase/env";

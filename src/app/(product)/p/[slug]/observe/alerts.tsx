@@ -39,7 +39,7 @@ import {
   TimeAgo,
   type ChipTone,
 } from "@/components/ui";
-import { ActionConfirm, ErrorNote } from "@/components/screens/shared";
+import { ActionConfirm, ErrorNote, SimulatedChip } from "@/components/screens/shared";
 
 const SEVERITY_TONE: Record<AlertEvent["severity"], ChipTone> = {
   high: "err",
@@ -185,9 +185,7 @@ export function AlertsCard({
       }
       actions={
         <>
-          <Chip tone="info" title="Every condition Orrery can evaluate today reads generated health or estimated cost.">
-            simulated
-          </Chip>
+          <SimulatedChip title="Every condition Orrery can evaluate today reads generated health or estimated cost." />
           {kinds && (
             <Button size="sm" variant="quiet" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setDialog({ kind: "create" })}>
               Add rule
@@ -441,9 +439,7 @@ function OpenEvents({
                   <Chip tone={SEVERITY_TONE[event.severity]}>{event.severity}</Chip>
                   <span className="text-[13px] text-ink">{event.summary}</span>
                   {event.simulated && (
-                    <Chip tone="info" title="This condition read generated health or estimated cost.">
-                      simulated
-                    </Chip>
+                    <SimulatedChip title="This condition read generated health or estimated cost." />
                   )}
                 </div>
                 <p className="mt-1 text-[11.5px] leading-relaxed text-ink-faint">

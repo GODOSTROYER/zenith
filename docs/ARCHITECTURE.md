@@ -44,6 +44,66 @@ flowchart LR
   ST --> CHG[change events] --> SSE
 ```
 
+## Repository shape
+
+`src/lib` is the server, listed below roughly in dependency order: the top of
+the list is imported by almost everything and imports almost nothing, and the
+bottom is the reverse. It is a gradient, not a strict layering — three pairs of
+directories point at each other (`domain/graph` prices a diff with `cost`,
+`providers/sandbox` uses `drift`'s expectation helper while `drift` takes only
+`providers/types`, and `supabase/route` resolves a user through `auth/session`
+while `auth` asks `supabase` whether it is configured). Every one of those
+resolves cleanly at file granularity: **there are no static import cycles in
+`src/`, and that is the invariant to preserve** — not a directory hierarchy.
+
+```
+src/lib/
+  domain/       types.ts  graph.ts        the manifest, its zod schemas, id()/fnv1a()/hash32(),
+                                          diffManifests. Pure. Imports nothing but zod.
+  cost/         pricing.ts                estimate tables. Prices a manifest, never an account.
+  format.ts                               fmtUsd / fmtDate / timeAgo / fmtDuration / cx. Presentation only.
+  env.ts                                  every validated ORRERY_* variable, in one place.
+  log.ts                                  one JSON object per line, request id via AsyncLocalStorage.
+  data-lock.ts                            refuse a second process against one data directory.
+
+  db/           store.ts                  the repository module. state.json (hot) + JSONL logs +
+                                          cold revision manifests. db() / save() / q.* / onChange.
+  secrets/      index.ts                  AES-256-GCM value store beside the snapshot. Never a route's business.
+  drift/        index.ts                  pure: deployed manifest vs a provider's LiveState.
+  security/     rules.ts                  findings derived from a manifest.
+  logsim/       index.ts                  deterministic synthetic logs + health for sandbox envs.
+  blueprints/   index.ts                  manifest factories.
+  importers/    index.ts (barrel)         compose / dockerfile / terraform → manifest + ImportReport.
+                types.ts                  shared vocabulary + the one slugify()/uniqueName().
+
+  providers/    types.ts                  the adapter contract + registry (the documented import).
+                sandbox/ localstack/ aws/ planned.ts    the four adapters.
+  engine/       types.ts  engine.ts       durable deployment state machine + 250ms ticker.
+  actions/      core.ts                   defineAction / runAction / roles / idempotency / audit.
+                defs/ (barrel + 13)       the catalog. Importing a def registers it as a side effect.
+  alerts/       index.ts channels.ts deliver.ts    rules, workspace channels, delivery with retry.
+  navigator/    shared.ts                 client-safe vocabulary (the browser imports only this).
+                planner.ts llm.ts run.ts server-actions.ts    deterministic planner + executor.
+
+  auth/         session.ts                who is signed in. Identity only, never a permission.
+  supabase/     env.ts client.ts server.ts route.ts middleware.ts admin.ts
+                                          one entry point per Next context. Deliberately not barrelled.
+  server/       boot.ts context.ts sse.ts route plumbing: ensureBoot, ApiError/route(), SSE.
+  client/       api.ts alerts.ts secrets.ts   "use client" — the only way UI code talks to the API.
+```
+
+**Barrels.** Only `actions/defs/` and `importers/` have one, because only they
+have a single public surface. Three directories deliberately do **not**:
+`supabase/` (a barrel would let a client component reach the service-role
+admin client), `navigator/` (a barrel would pull `run.ts` → the store →
+`node:fs` into the browser bundle, which is exactly what `shared.ts` exists to
+prevent), and `providers/` (`providers/types` is already the documented spine
+import; a barrel would make `@/lib/providers` ambiguous with it).
+
+`tests/` mirrors `src/`: `tests/<dir>` covers `src/lib/<dir>`, plus
+`tests/api` → `src/app/api`, and `tests/ui` / `tests/shell` / `tests/screens`
+→ the matching `src/components` and app screens.
+
 ## Deployment pipeline
 
 manifest (working copy) → `diffManifests` → **Changeset** (explanations, cost

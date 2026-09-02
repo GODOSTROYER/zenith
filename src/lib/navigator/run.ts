@@ -17,6 +17,7 @@ import {
 import { registerAllActions } from "@/lib/actions/defs";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { db, q, save } from "@/lib/db/store";
+import { env } from "@/lib/env";
 import { fmtUsd } from "@/lib/format";
 import {
   AutonomyLevel,
@@ -115,7 +116,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Follow a deployment the run started until it settles (or needs a human). */
 async function awaitDeployment(deploymentId: string): Promise<Deployment | undefined> {
-  const budgetMs = process.env.ORRERY_FAST === "1" ? 15_000 : 60_000;
+  const budgetMs = env().ORRERY_FAST ? 15_000 : 60_000;
   const deadline = Date.now() + budgetMs;
   for (;;) {
     const d = q.deployment(deploymentId);

@@ -4,16 +4,14 @@ import { X } from "lucide-react";
 import { Button, Chip, Drawer, EmptyState } from "@/components/ui";
 import { useProjectData } from "@/components/shell/project-context";
 import { ChangeRow } from "@/components/screens/shared";
-import {
-  AddResourceForm,
-  AddRouteForm,
-  AddServiceForm,
-  BindingEditor,
-  ResourceEditor,
-  RouteEditor,
-  ServiceEditor,
-  nodeLabel,
-} from "./editors";
+import { AddResourceForm } from "./add-resource-form";
+import { AddRouteForm } from "./add-route-form";
+import { AddServiceForm } from "./add-service-form";
+import { BindingEditor } from "./binding-editor";
+import { ResourceEditor } from "./resource-editor";
+import { RouteEditor } from "./route-editor";
+import { ServiceEditor } from "./service-editor";
+import { nodeLabel } from "./logic";
 
 export type InspectorTarget =
   | { kind: "node"; nodeId: string }

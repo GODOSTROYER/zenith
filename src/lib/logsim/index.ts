@@ -12,7 +12,7 @@
  * Workstream A.
  */
 import { db, q } from "@/lib/db/store";
-import type { Deployment, Manifest, Service } from "@/lib/domain/types";
+import { fnv1a, type Deployment, type Manifest, type Service } from "@/lib/domain/types";
 import { chaosFlag } from "@/lib/providers/sandbox";
 
 export interface AppLogLine {
@@ -54,15 +54,6 @@ function mulberry32(seed: number): () => number {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-function seedOf(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
 }
 
 const pick = <T,>(rng: () => number, xs: readonly T[]): T => xs[Math.floor(rng() * xs.length)];
@@ -110,7 +101,7 @@ function webLine(rng: () => number, c: Ctx, ts: Date): { line: string; stream: "
   const status = err ? (rng() < 0.5 ? 502 : 500) : path === "/api/checkout" && rng() < 0.1 ? 402 : 200;
   const ms = slow ? 400 + Math.floor(rng() * 1800) : 4 + Math.floor(rng() * 90);
   const ip = `10.0.${1 + Math.floor(rng() * 3)}.${10 + Math.floor(rng() * 200)}`;
-  const rid = seedOf(`${c.service.id}${ts.getTime()}`).toString(16).slice(0, 8);
+  const rid = fnv1a(`${c.service.id}${ts.getTime()}`).toString(16).slice(0, 8);
   if (err)
     return {
       stream: "stderr",
@@ -164,7 +155,7 @@ export function getServiceLogs(
   const out: AppLogLine[] = [];
 
   for (let seq = Math.max(first, afterSeq + 1); seq < total; seq++) {
-    const rng = mulberry32(seedOf(`${envId}:${serviceId}:${seq}`));
+    const rng = mulberry32(fnv1a(`${envId}:${serviceId}:${seq}`));
     const ts = new Date(c.since + seq * BUCKET_MS);
     const made =
       c.service.kind === "web"
@@ -270,7 +261,7 @@ export function health(envId: string, serviceId: string): ServiceHealth {
     };
 
   const desired = Math.max(1, c.service.replicas);
-  const rng = mulberry32(seedOf(`${envId}:${serviceId}:${Math.floor(Date.now() / 10000)}`));
+  const rng = mulberry32(fnv1a(`${envId}:${serviceId}:${Math.floor(Date.now() / 10000)}`));
   const latencyMs = 8 + Math.floor(rng() * (c.chaos === "degrade" ? 400 : 70));
   const history = healthHistory(envId, serviceId);
 

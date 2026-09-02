@@ -26,7 +26,7 @@ export const GET = route(async (req) => {
   const asked = req.nextUrl.searchParams.get("workspace");
   if (asked && asked !== workspace.id && asked !== workspace.slug)
     throw new ApiError(`No workspace "${asked}".`, 404, {
-      fix: `Your current workspace is "${workspace.slug}". Drop the parameter, or pass that id — secrets are read per workspace, and the one selected in the top bar is the one this server resolves for you.`,
+      fix: `The parameter must name the workspace you are currently in: "${workspace.slug}" (${workspace.id}). Drop it, or switch workspaces first with POST /api/workspace/select { "workspaceId": "<id>" } — GET /api/bootstrap lists the workspaces you belong to.`,
     });
 
   const state = secretStoreState();

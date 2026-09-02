@@ -63,6 +63,12 @@ const Schema = z.object({
   /** Lowest level `lib/log.ts` emits. */
   ORRERY_LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   /**
+   * How long the engine waits on one provider step before failing it. Default
+   * is generous (5 min): the slowest honest step in the catalog is a 45s ECR
+   * push, and a real cloud can be slower than its own estimate.
+   */
+  ORRERY_STEP_TIMEOUT_MS: z.coerce.number().int().positive().default(5 * 60_000),
+  /**
    * Optional. Encrypts the secret store (`lib/secrets`). Unset means Orrery
    * has nowhere to hold a secret value and says so instead of pretending.
    * Validated for shape only — the bytes never leave `decodeSecretKey`.
@@ -116,6 +122,7 @@ export function env(): OrreryEnv {
     ORRERY_LOCALSTACK_ENDPOINT: present("ORRERY_LOCALSTACK_ENDPOINT"),
     ORRERY_LLM_MODEL: present("ORRERY_LLM_MODEL"),
     ORRERY_LOG_LEVEL: present("ORRERY_LOG_LEVEL"),
+    ORRERY_STEP_TIMEOUT_MS: present("ORRERY_STEP_TIMEOUT_MS"),
     ORRERY_SECRET_KEY: present("ORRERY_SECRET_KEY"),
     ORRERY_SMTP_URL: present("ORRERY_SMTP_URL"),
     ORRERY_ALERT_FROM: present("ORRERY_ALERT_FROM"),

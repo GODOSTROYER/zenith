@@ -57,10 +57,6 @@ const isNavigator = (req: NextRequest): boolean =>
   req.headers.get("x-orrery-actor") === "navigator" &&
   req.headers.get("x-orrery-actor-key") === navigatorKey();
 
-/** True only for the Navigator's own calls; everything else is the local user. */
-export const actorFromRequest = (req: NextRequest): Actor =>
-  isNavigator(req) ? navigatorActor() : demoActor();
-
 /**
  * Identity-aware actor: a proven Navigator call wins; otherwise the signed-in
  * Supabase user when auth is configured (verified via getClaims); otherwise

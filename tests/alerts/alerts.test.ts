@@ -298,7 +298,11 @@ describe("actions", () => {
     const details = plan!.details.join(" ");
     expect(details).toContain("Watches");
     expect(details).toContain("Checked every 15 seconds");
-    expect(details).toMatch(/no email, Slack or webhook delivery/i);
+    // Where it shows is read from the workspace, not asserted: this store has
+    // no delivery channels, so the plan has to say the alert is on screen only.
+    // tests/alerts/delivery.test.ts covers the other half — a workspace with
+    // channels gets them named in the same line.
+    expect(details).toMatch(/no delivery channels/i);
   });
 
   it("refuses a threshold outside the useful range, naming the range", async () => {

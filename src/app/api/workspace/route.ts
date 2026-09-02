@@ -1,13 +1,21 @@
 /**
- * Workspace bootstrap — the one mutation that happens before any workspace
- * exists, so it cannot be an action. Creates the workspace and a healthy
- * sandbox connection in one atomic step.
+ * Workspace creation — the one mutation that happens before any membership
+ * exists, so it cannot be an action (`workspace.create` would have nobody to
+ * role-check). Creates the workspace, a healthy sandbox connection and the
+ * caller's admin seat in one atomic step, then selects it.
  * Integrator-owned exception inside api/ (see docs/OWNERSHIP.md).
  */
 import { z } from "zod";
 import { db, save } from "@/lib/db/store";
-import { id } from "@/lib/domain/types";
-import { ApiError, route } from "@/lib/server/context";
+import { id, type Member } from "@/lib/domain/types";
+import {
+  ApiError,
+  WORKSPACE_COOKIE,
+  currentRequest,
+  json,
+  route,
+} from "@/lib/server/context";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +26,15 @@ export const POST = route(async (req) => {
   if (!parsed.success)
     throw new ApiError("Workspace needs a name.", 400, { fix: "Send { name: string } (1–60 chars)." });
   const data = db();
-  if (data.workspaces.length > 0)
+
+  // Demo mode has one local user who is admin of everything, so a second
+  // workspace has no membership to separate it from the first — it would only
+  // be a second name for the same permissions. Say that rather than pretend.
+  if (!isSupabaseConfigured() && data.workspaces.length > 0)
     throw new ApiError(`A workspace already exists ("${data.workspaces[0].name}").`, 409, {
-      fix: "Orrery local runs one workspace. Use it, or reset with npm run seed.",
+      fix: "Orrery in demo mode runs one workspace. Configure Supabase auth (NEXT_PUBLIC_SUPABASE_URL + key) for real identities and multiple workspaces, or reset with `npm run seed`.",
     });
+
   const name = parsed.data.name;
   const slug =
     name
@@ -32,10 +45,23 @@ export const POST = route(async (req) => {
 
   const workspace = { id: id(), name, slug, createdAt: new Date().toISOString() };
   data.workspaces.push(workspace);
-  // No member is seeded. A placeholder "you@local" admin is an admin seat
-  // nobody can sign in as, and it demoted every real user to editor forever.
-  // The first real user to sign in becomes admin (ensureMember); with no
-  // Supabase keys the local demo actor is admin because there is nobody else.
+
+  // The creator owns what they created. With no signed-in user (demo mode's
+  // first workspace) no member is seeded: a placeholder "you@local" admin is a
+  // seat nobody can sign in as, and it demoted every real user to editor
+  // forever. The first real user to sign in becomes admin (ensureMember).
+  const user = currentRequest()?.user;
+  if (user) {
+    const member: Member = {
+      id: user.id,
+      workspaceId: workspace.id,
+      name: user.name,
+      email: user.email,
+      role: "admin",
+    };
+    data.members.push(member);
+  }
+
   data.connections.push({
     id: id(),
     workspaceId: workspace.id,
@@ -52,5 +78,16 @@ export const POST = route(async (req) => {
     lastCheckedAt: new Date().toISOString(),
   });
   save();
-  return { workspace };
+
+  // Creating a workspace is how you enter it; the browser should not have to
+  // make a second call to end up somewhere it did not ask to be.
+  const res = json({ workspace }, 201);
+  res.cookies.set(WORKSPACE_COOKIE, workspace.id, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 365 * 24 * 60 * 60,
+    secure: process.env.NODE_ENV === "production",
+  });
+  return res;
 });

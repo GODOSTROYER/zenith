@@ -474,6 +474,12 @@ export interface AlertRule {
   /** kind-specific number: percent of budget, or a minimum ready-replica count */
   threshold?: number;
   enabled: boolean;
+  /**
+   * Which delivery channels this rule pushes to. Unset means every enabled
+   * channel in the workspace; an empty array means none, which is how a rule is
+   * kept on screen only. A disabled channel is skipped either way.
+   */
+  channelIds?: string[];
   createdBy: Actor;
   createdAt: string;
 }
@@ -501,6 +507,54 @@ export interface AlertEvent {
   acknowledgedAt?: string;
   acknowledgedBy?: Actor;
   acknowledgedNote?: string;
+  /**
+   * What happened when this event was pushed to the workspace's channels — one
+   * entry per channel per transition (fired, then resolved). Absent on events
+   * recorded before channels existed, and empty when the workspace has none.
+   */
+  deliveries?: AlertDelivery[];
+}
+
+/** Where an alert goes besides the screen. Workspace-wide, not per project. */
+export const AlertChannelKind = z.enum([
+  "webhook", // POST JSON, optionally signed with HMAC-SHA256
+  "slack", // Slack incoming webhook (text + blocks)
+  "email", // SMTP, via ORRERY_SMTP_URL
+]);
+export type AlertChannelKind = z.infer<typeof AlertChannelKind>;
+
+export interface AlertChannel {
+  id: string;
+  workspaceId: string;
+  kind: AlertChannelKind;
+  /** what an operator calls it, e.g. "#ops in Slack" */
+  name: string;
+  /** the endpoint URL (webhook, slack) or the recipient address (email) */
+  target: string;
+  /**
+   * Webhook only: the key `X-Orrery-Signature` is computed with. Held in plain
+   * text in this server's store — no route returns it and the UI masks it.
+   */
+  secret?: string;
+  enabled: boolean;
+  createdBy: Actor;
+  createdAt: string;
+  /** the newest attempt at this channel, real or test — what Settings shows */
+  lastDelivery?: AlertDelivery;
+}
+
+/** One channel's outcome for one alert transition, after all retries. */
+export interface AlertDelivery {
+  channelId: string;
+  /** when the last attempt finished */
+  at: string;
+  ok: boolean;
+  /** HTTP status of the final attempt, when the channel speaks HTTP */
+  status?: number;
+  /** why it failed, in prose, with the fix — absent when it succeeded */
+  error?: string;
+  /** how many attempts were made (1–3) */
+  attempts?: number;
 }
 
 /* ------------------------------- navigator -------------------------------- */

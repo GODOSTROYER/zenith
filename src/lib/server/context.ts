@@ -7,8 +7,9 @@
  * The Navigator's in-process path (lib/navigator/run.ts) never goes through
  * HTTP at all, so nothing outside this server can claim its name.
  */
+import { AsyncLocalStorage } from "node:async_hooks";
 import { NextResponse, type NextRequest } from "next/server";
-import { roleOf, type ActionContext } from "@/lib/actions/core";
+import type { ActionContext, Role } from "@/lib/actions/core";
 import { db, save } from "@/lib/db/store";
 import {
   AutonomyLevel,
@@ -19,8 +20,9 @@ import {
 } from "@/lib/domain/types";
 import { ensureBoot } from "@/lib/server/boot";
 import { log, withRequestId, currentRequestId } from "@/lib/log";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { sessionUserFromRequest } from "@/lib/supabase/route";
-import type { SessionUser } from "@/lib/auth/session";
+import { getSessionUser, type SessionUser } from "@/lib/auth/session";
 
 /* --------------------------------- actors --------------------------------- */
 
@@ -62,12 +64,19 @@ export const actorFromRequest = (req: NextRequest): Actor =>
 /**
  * Identity-aware actor: a proven Navigator call wins; otherwise the signed-in
  * Supabase user when auth is configured (verified via getClaims); otherwise
- * the local demo user. Also keeps the workspace member list in sync so the
- * audit log and revisions carry a real name.
+ * the local demo user. Inside `route()` the answer was already computed once
+ * for the request, so the actor and the resolved workspace can never disagree.
  */
 export async function resolveActor(req: NextRequest): Promise<Actor> {
   if (isNavigator(req)) return navigatorActor();
-  const user = await sessionUserFromRequest(req);
+  const state = requestState.getStore();
+  if (state) {
+    if (!state.user) return demoActor();
+    if (state.member) return { type: "user", id: state.member.id, name: state.member.name };
+    if (state.denial)
+      throw new ApiError(state.denial.message, 403, { fix: state.denial.fix });
+  }
+  const user = state?.user ?? (await sessionUserFromRequest(req));
   if (!user) return demoActor();
   const outcome = ensureMember(user);
   if ("denied" in outcome)
@@ -75,13 +84,28 @@ export async function resolveActor(req: NextRequest): Promise<Actor> {
   return { type: "user", id: outcome.member.id, name: outcome.member.name };
 }
 
+/**
+ * The actor's role **in the resolved workspace**.
+ *
+ * `roleOf` (actions/core) finds a member row by id across every workspace, so
+ * for a user who belongs to two it answers with whichever sorted first. Every
+ * membership decision here is about one workspace, so it asks this instead.
+ */
+export function workspaceRole(actor: Actor): Role {
+  const here = db().members.filter((m) => m.workspaceId === requireWorkspace().id);
+  const mine = here.find((m) => m.id === actor.id);
+  if (mine) return mine.role;
+  // Demo mode ("local") and a brand-new workspace have nobody to defer to.
+  return actor.id === "local" || here.length === 0 ? "admin" : "viewer";
+}
+
 /** Every caller of a route that mutates membership passes through here. */
 export async function requireAdmin(req: NextRequest): Promise<Actor> {
   const actor = await resolveActor(req);
-  const role = roleOf(actor);
+  const role = workspaceRole(actor);
   if (role !== "admin")
     throw new ApiError(
-      `Managing members needs the admin role and you are ${role} in this workspace.`,
+      `Managing members needs the admin role and you are ${role} in ${requireWorkspace().name}.`,
       403,
       { fix: "Ask a workspace admin to make this change, or to give you the admin role." }
     );
@@ -113,22 +137,53 @@ export interface MemberDenial {
 }
 
 /**
- * Upsert the signed-in user into the workspace's member list.
+ * Which workspace this user's sign-in is about, when the caller has not said.
  *
- * Signing up is not joining. A real user joins only as the workspace's first
+ * Order matters. An invite is checked **before** the first-real-member rule:
+ * with two workspaces, someone invited to B must join B, not silently take the
+ * admin seat of an empty A that happens to sort first.
+ */
+function joinTarget(user: SessionUser): Workspace | undefined {
+  const d = db();
+  const email = user.email.toLowerCase();
+  const held = d.members.find((m) => m.id === user.id || m.email.toLowerCase() === email);
+  if (held) return d.workspaces.find((w) => w.id === held.workspaceId);
+
+  const invite = readInvites().find((i) => !i.acceptedAt && i.email.toLowerCase() === email);
+  const invited = invite && d.workspaces.find((w) => w.id === invite.workspaceId);
+  if (invited) return invited;
+
+  const empty = d.workspaces.find(
+    (w) => !d.members.some((m) => m.workspaceId === w.id && !isPlaceholder(m))
+  );
+  // An operator-granted app_metadata.role is install-wide, not per workspace,
+  // so it admits them to the one workspace there is — never picks between many.
+  return empty ?? (user.role && d.workspaces.length === 1 ? d.workspaces[0] : undefined);
+}
+
+/**
+ * Upsert the signed-in user into a workspace's member list.
+ *
+ * Signing up is not joining. A real user joins only as that workspace's first
  * real member, with a role the operator granted through `app_metadata.role`,
  * or by accepting an invite that names their email. Everyone else is refused
- * by name, with the admins who can invite them.
+ * by name, with the admins who can invite them. Every rule below is scoped to
+ * one workspace: being admin of A grants nothing in B.
  */
-export function ensureMember(user: SessionUser): { member: Member } | { denied: MemberDenial } {
+export function ensureMember(
+  user: SessionUser,
+  target?: Workspace
+): { member: Member } | { denied: MemberDenial } {
   const d = db();
-  const ws = d.workspaces[0];
+  const ws = target ?? joinTarget(user);
   if (!ws)
     return {
-      denied: {
-        message: "No workspace exists yet, so there is nothing to join.",
-        fix: "Complete onboarding at /onboarding, or run `npm run seed`.",
-      },
+      denied: d.workspaces.length
+        ? denial(user, d.workspaces)
+        : {
+            message: "No workspace exists yet, so there is nothing to join.",
+            fix: "Complete onboarding at /onboarding, or run `npm run seed`.",
+          },
     };
 
   const mine = (): Member[] => d.members.filter((m) => m.workspaceId === ws.id);
@@ -149,7 +204,7 @@ export function ensureMember(user: SessionUser): { member: Member } | { denied: 
     }
   } else {
     const role = user.role ?? joinRole(ws.id, email);
-    if (!role) return { denied: denial(user, ws.name, mine()) };
+    if (!role) return { denied: denial(user, [ws]) };
     member = { id: user.id, workspaceId: ws.id, name: user.name, email: user.email, role };
     d.members.push(member);
     dirty = true;
@@ -184,11 +239,22 @@ function joinRole(workspaceId: string, email: string): Member["role"] | undefine
   return invite.role;
 }
 
-function denial(user: SessionUser, workspaceName: string, members: Member[]): MemberDenial {
-  const admins = members.filter((m) => m.role === "admin" && !isPlaceholder(m));
+/** Refused by name, naming the admins of the workspace(s) who could let them in. */
+function denial(user: SessionUser, workspaces: Workspace[]): MemberDenial {
   const who = user.email || user.name;
+  // Naming the admins only works when there is one workspace to name them of:
+  // handing a stranger every admin address on the server is not a fix.
+  if (workspaces.length !== 1)
+    return {
+      message: `${who} is not a member of any of the ${workspaces.length} workspaces on this server.`,
+      fix: `Ask an admin of the workspace you should be in to invite ${who} from Settings → Members.`,
+    };
+  const ws = workspaces[0];
+  const admins = db().members.filter(
+    (m) => m.workspaceId === ws.id && m.role === "admin" && !isPlaceholder(m)
+  );
   return {
-    message: `${who} is not a member of ${workspaceName}.`,
+    message: `${who} is not a member of ${ws.name}.`,
     fix: admins.length
       ? `Ask ${admins.map((a) => `${a.name} (${a.email})`).join(" or ")} to invite ${who} from Settings → Members.`
       : `No admin exists who could invite you. The operator can grant a role by setting app_metadata.role on your Supabase user (see scripts/seed-users.ts).`,
@@ -197,14 +263,108 @@ function denial(user: SessionUser, workspaceName: string, members: Member[]): Me
 
 /* -------------------------------- workspace ------------------------------- */
 
-/** The demo runs a single workspace. Routes never create one implicitly. */
+/**
+ * The workspace this browser is currently in. httpOnly, so only the server
+ * writes it — and only `POST /api/workspace/select`, after checking that the
+ * caller is a member. It is a preference, never an authorisation: every read
+ * re-checks membership, so a stale cookie from a previous sign-in is ignored
+ * rather than obeyed.
+ */
+export const WORKSPACE_COOKIE = "orrery-workspace";
+
+export interface RequestState {
+  /** signed-in user, or null in demo mode / signed out */
+  user: SessionUser | null;
+  /** the workspace this request acts in */
+  workspace?: Workspace;
+  /** the caller's member row *in that workspace* */
+  member?: Member;
+  /** why the caller holds no membership, when that is why there is no workspace */
+  denial?: MemberDenial;
+}
+
+/** Resolved once per request by `route()`; every helper below reads it. */
+const requestState = new AsyncLocalStorage<RequestState>();
+
+/** What `route()` worked out about this request, if we are inside one. */
+export const currentRequest = (): RequestState | undefined => requestState.getStore();
+
+/**
+ * Workspaces this caller may act in. Demo mode (no Supabase keys) is one local
+ * user who is in all of them; a signed-in user is in the ones they belong to,
+ * matched by id or by the email an invite named before they first signed in.
+ */
+export function workspacesFor(user: SessionUser | null): Workspace[] {
+  const d = db();
+  if (!user) return isSupabaseConfigured() ? [] : d.workspaces;
+  const email = user.email.toLowerCase();
+  const mine = new Set(
+    d.members
+      .filter((m) => m.id === user.id || m.email.toLowerCase() === email)
+      .map((m) => m.workspaceId)
+  );
+  return d.workspaces.filter((w) => mine.has(w.id));
+}
+
+/** Cookie if it still names a workspace the caller belongs to, else their first. */
+const pickWorkspace = (cookie: string | undefined, user: SessionUser | null): Workspace | undefined => {
+  const allowed = workspacesFor(user);
+  return allowed.find((w) => w.id === cookie) ?? allowed[0];
+};
+
+const noWorkspace = (user: SessionUser | null): ApiError =>
+  db().workspaces.length === 0
+    ? new ApiError("No workspace exists yet.", 404, {
+        fix: "Complete onboarding at /onboarding, or run `npm run seed`.",
+      })
+    : new ApiError(`${user?.email || "You"} are not a member of any workspace here.`, 404, {
+        fix: "Ask an admin of the workspace you should be in to invite you from Settings → Members, or create your own at /onboarding.",
+      });
+
+/**
+ * The workspace this request acts in. Every scoped read and write goes through
+ * here, so there is one answer per request and no route can pick a different
+ * one. Routes never create a workspace implicitly.
+ */
 export function requireWorkspace(): Workspace {
+  const state = requestState.getStore();
+  if (state) {
+    if (state.workspace) return state.workspace;
+    // "Nothing exists yet" is a 404 for everybody; only once something does is
+    // being kept out of it a refusal, and then the denial names who can let
+    // this caller in.
+    if (state.denial && db().workspaces.length)
+      throw new ApiError(state.denial.message, 403, { fix: state.denial.fix });
+    throw noWorkspace(state.user);
+  }
+  // Outside a route handler: a script, a test, or a server component that
+  // should be calling `currentWorkspace()`. Demo mode is one local user in one
+  // workspace, so the first one is the only answer there is; with auth
+  // configured there is a real caller to resolve and guessing would leak.
   const w = db().workspaces[0];
-  if (!w)
-    throw new ApiError("No workspace exists yet.", 404, {
-      fix: "Run `npm run seed`, or complete onboarding at /onboarding.",
-    });
+  if (!w || isSupabaseConfigured()) throw noWorkspace(null);
   return w;
+}
+
+/**
+ * The same resolution for server components and server actions, which have
+ * `cookies()` instead of a NextRequest. `next/headers` is imported lazily: the
+ * /api layer and the tests import this module and must not drag it in.
+ */
+export async function currentWorkspace(): Promise<Workspace | undefined> {
+  const user = await getSessionUser();
+  if (user) ensureMember(user);
+  return pickWorkspace(await workspaceCookie(), user);
+}
+
+/** The selection cookie, or undefined outside a request scope (a unit test). */
+async function workspaceCookie(): Promise<string | undefined> {
+  try {
+    const { cookies } = await import("next/headers");
+    return (await cookies()).get(WORKSPACE_COOKIE)?.value;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Effective autonomy for the Navigator. Defaults to the safe level: approve. */
@@ -273,9 +433,38 @@ export function errorResponse(err: unknown): NextResponse {
 type RouteCtx<P> = { params: Promise<P> };
 
 /**
- * Boots the process, awaits Next 15's async `params`, JSON-encodes the return
- * value (a returned `Response` — e.g. SSE — passes through) and maps thrown
- * errors to `{ error: { message, fix? } }`.
+ * Who is calling and which workspace they are in — worked out once, before the
+ * handler runs, so `requireWorkspace()` stays a synchronous zero-argument call
+ * at every one of its call sites and cannot answer differently twice in a
+ * request. `ensureMember` runs first because signing in is where a user joins:
+ * resolving memberships before that would 404 the invited user's first visit.
+ */
+async function resolveRequest(req: NextRequest): Promise<RequestState> {
+  const cookie = req.cookies.get(WORKSPACE_COOKIE)?.value;
+  // The Navigator's own HTTP calls carry no session — they are trusted because
+  // the key never leaves this process — and act where the browser is.
+  if (isNavigator(req)) {
+    const all = db().workspaces;
+    return { user: null, workspace: all.find((w) => w.id === cookie) ?? all[0] };
+  }
+  const user = await sessionUserFromRequest(req);
+  let denial: MemberDenial | undefined;
+  if (user) {
+    const outcome = ensureMember(user);
+    if ("denied" in outcome) denial = outcome.denied;
+  }
+  const workspace = pickWorkspace(cookie, user);
+  const member =
+    user && workspace
+      ? db().members.find((m) => m.workspaceId === workspace.id && m.id === user.id)
+      : undefined;
+  return { user, workspace, member, denial };
+}
+
+/**
+ * Boots the process, resolves the caller and their workspace, awaits Next 15's
+ * async `params`, JSON-encodes the return value (a returned `Response` — e.g.
+ * SSE — passes through) and maps thrown errors to `{ error: { message, fix? } }`.
  */
 export function route<P extends Record<string, string> = Record<string, string>>(
   handler: (req: NextRequest, params: P) => Promise<unknown>
@@ -287,8 +476,11 @@ export function route<P extends Record<string, string> = Record<string, string>>
     return withRequestId(requestId, async () => {
       try {
         await ensureBoot();
-        const params = ctx?.params ? await ctx.params : ({} as P);
-        const out = await handler(req, params);
+        const state = await resolveRequest(req);
+        const out = await requestState.run(state, async () => {
+          const params = ctx?.params ? await ctx.params : ({} as P);
+          return handler(req, params);
+        });
         const res = out instanceof Response ? out : json(out);
         res.headers.set("x-request-id", requestId);
         return res;

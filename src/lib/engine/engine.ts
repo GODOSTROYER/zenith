@@ -154,7 +154,7 @@ function setStatus(d: StoredDeployment, status: DeploymentStatus): void {
   if (status === "applying" || status === "verifying") active().add(d.id);
   else active().delete(d.id);
   emit(d.id, { type: "status", status });
-  save();
+  save(d.projectId);
 }
 
 function stored(deploymentId: string): StoredDeployment | undefined {
@@ -244,7 +244,7 @@ async function runStep(d: StoredDeployment, step: DeploymentStep): Promise<void>
       step.status = "running";
       step.startedAt = now();
       emit(d.id, { type: "step", stepId: step.id, status: "running" });
-      save();
+      save(d.projectId);
     }
 
     // Deadline: a provider that never returns must not pin the deployment.
@@ -272,7 +272,7 @@ async function runStep(d: StoredDeployment, step: DeploymentStep): Promise<void>
         };
         d.outputs = [...d.outputs.filter((x) => x.key !== output.key), output];
         emit(d.id, { type: "output", output });
-        save();
+        save(d.projectId);
       },
     };
 
@@ -290,7 +290,7 @@ async function runStep(d: StoredDeployment, step: DeploymentStep): Promise<void>
     step.status = "done";
     step.endedAt = now();
     emit(d.id, { type: "step", stepId: step.id, status: "done" });
-    save();
+    save(d.projectId);
     if (!d.steps.some((s) => s.status === "pending" || s.status === "running"))
       finish(d);
   } catch (err) {
@@ -362,7 +362,7 @@ function finish(d: StoredDeployment): void {
     const origin = stored(d.rollbackOf);
     if (origin && !TERMINAL.includes(origin.status)) setStatus(origin, "rolled_back");
   }
-  save();
+  save(d.projectId);
 }
 
 /**
@@ -454,7 +454,7 @@ async function start(input: StartDeploymentInput): Promise<Deployment> {
 
   db().deployments.push(d);
   pruneDeployments(env.id);
-  save();
+  save(d.projectId);
   emit(d.id, { type: "status", status: "planning" });
 
   if (!input.approved && env.policies.approvalRequired) {
@@ -565,7 +565,7 @@ async function rollback(
 
   if (last) {
     d.rollbackOf = last.id;
-    save();
+    save(d.projectId);
   }
   return d;
 }

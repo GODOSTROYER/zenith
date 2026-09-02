@@ -10,11 +10,19 @@ import { defineAction, type ActionContext } from "@/lib/actions/core";
 import { getBlueprint, blueprints } from "@/lib/blueprints";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { db, q, save } from "@/lib/db/store";
-import { emptyManifest, id, type Manifest, type Project } from "@/lib/domain/types";
+import {
+  ResourceKind,
+  emptyManifest,
+  id,
+  type Manifest,
+  type Project,
+} from "@/lib/domain/types";
 import { importCompose } from "@/lib/importers/compose";
 import type { ImportReport } from "@/lib/importers/types";
 import { slugify, uniqueName } from "@/lib/importers/types";
+import { providerRegistry } from "@/lib/providers/types";
 import { buildEnvironment, envPlanDetails, inFlight, liveRevision } from "./env";
+import { getEngine } from "./_engine";
 import { clone, commit, planFromDiff, requireProject, usd } from "./_shared";
 
 function newProject(ctx: ActionContext, name: string, slug: string | undefined, origin: Project["origin"], manifest: Manifest): Project {
@@ -241,6 +249,157 @@ defineAction<ImportCompose>({
       ok: true,
       summary: `Created "${project.name}" from docker-compose: ${manifestSummary(manifest)} — ${tally}. Nothing is deployed yet.`,
       data: { projectId: project.id, slug: project.slug, environmentId: env.id, report },
+    };
+  },
+});
+
+/* -------------------------- project.importResources ------------------------ */
+
+/**
+ * Adopt resources that already exist in a connected account or endpoint.
+ *
+ * Two rules make this safe, and both are enforced here rather than trusted to
+ * the caller:
+ *
+ *  1. Everything imported is `referenced`, never `managed`. Orrery shows a
+ *     referenced resource on the map and lets services bind to it; it never
+ *     provisions, changes or deletes one, and it never bills for it.
+ *  2. The submitted list is a SELECTION, not data. Every entry is matched by
+ *     `externalRef` against a fresh `discover()` on the server, and the
+ *     provider's record is what lands in the manifest. A caller cannot write
+ *     an arbitrary external reference into a system by posting one.
+ */
+const ImportResources = z.object({
+  projectId: z.string().optional(),
+  connectionId: z.string().min(1, "say which connection to import from"),
+  region: z.string().optional(),
+  /** DiscoveredResource rows from GET /api/connections/:id/discover */
+  resources: z
+    .array(z.object({ externalRef: z.string().min(1) }).passthrough())
+    .min(1, "pick at least one resource to import"),
+});
+type ImportResources = z.infer<typeof ImportResources>;
+
+async function resolveImport(ctx: ActionContext, input: ImportResources) {
+  const project = requireProject(ctx, input.projectId);
+  const conn = q.connection(input.connectionId);
+  if (!conn || conn.workspaceId !== ctx.workspaceId)
+    throw new Error(
+      `Connection "${input.connectionId}" is not in this workspace. Pick one from Settings → Connections.`
+    );
+  if (!providerRegistry().has(conn.provider)) await getEngine();
+  const adapter = providerRegistry().get(conn.provider);
+  if (!adapter)
+    throw new Error(
+      `Provider "${conn.provider}" is not available in this build, so nothing can be imported from ${conn.label}.`
+    );
+  if (!adapter.discover)
+    throw new Error(
+      `${adapter.displayName} cannot list what already exists, so there is nothing here to import. Import from a Terraform file instead — the map's import dialog reads one.`
+    );
+
+  const found = await adapter.discover(conn, input.region ?? conn.region);
+  const byRef = new Map(found.resources.map((r) => [r.externalRef, r]));
+
+  const next = clone(project.workingManifest);
+  const taken = [...next.services.map((s) => s.name), ...next.resources.map((r) => r.name)];
+  const already = new Set(
+    next.resources.map((r) => r.externalRef).filter((x): x is string => !!x)
+  );
+
+  const added: { name: string; ref: string; kind: ResourceKind }[] = [];
+  const skipped: string[] = [];
+
+  for (const wanted of input.resources) {
+    const hit = byRef.get(wanted.externalRef);
+    if (!hit) {
+      skipped.push(
+        `${wanted.externalRef} was not imported: ${adapter.displayName} does not list it any more. Re-open the dialog to see what is there now.`
+      );
+      continue;
+    }
+    if (already.has(hit.externalRef)) {
+      skipped.push(`${hit.externalRef} was not imported: this project already references it.`);
+      continue;
+    }
+    already.add(hit.externalRef);
+    const name = uniqueName(slugify(hit.name, hit.kind.replace("_", "-")), taken);
+    taken.push(name);
+    next.resources.push({
+      id: id(),
+      name,
+      kind: hit.kind,
+      config: {},
+      size: "small",
+      ownership: "referenced",
+      externalRef: hit.externalRef,
+    });
+    added.push({ name, ref: hit.externalRef, kind: hit.kind });
+  }
+
+  return { project, conn, adapter, found, next, added, skipped };
+}
+
+const REFERENCED_NOTE =
+  "Imported resources are marked referenced: Orrery draws them on the map and lets services bind to them, but never provisions, changes or deletes them — and they add nothing to the cost estimate.";
+
+defineAction<ImportResources>({
+  id: "project.importResources",
+  title: "Import existing resources",
+  category: "project",
+  risk: "low",
+  requiredRole: "editor",
+  mutates: true,
+  input: ImportResources,
+  async plan(ctx, input) {
+    const { project, conn, adapter, found, next, added, skipped } = await resolveImport(ctx, input);
+    const warnings: string[] = [];
+    if (found.simulated)
+      warnings.push(
+        `${adapter.displayName} invented this list. It is a simulation of resource discovery, not a reading of a real account — the references it writes carry a "sim://" prefix so they stay recognisable in the manifest and in any export.`
+      );
+
+    const plan = planFromDiff(
+      project.workingManifest,
+      next,
+      `Reference ${added.length} existing resource${added.length === 1 ? "" : "s"} from ${conn.label}.`,
+      {
+        details: [
+          ...added.map((a) => `${a.ref} → referenced ${a.kind} "${a.name}".`),
+          REFERENCED_NOTE,
+          ...skipped,
+        ],
+        warnings,
+      }
+    );
+
+    return added.length
+      ? plan
+      : {
+          ...plan,
+          blocked: `Nothing here would be imported. ${skipped.join(" ")}`.trim(),
+        };
+  },
+  async execute(ctx, input) {
+    const { project, conn, next, added, skipped } = await resolveImport(ctx, input);
+    if (!added.length)
+      return {
+        ok: false,
+        summary: "Nothing was imported.",
+        error: `None of the selected resources could be imported. ${skipped.join(" ")}`.trim(),
+      };
+    commit(project, next);
+    return {
+      ok: true,
+      summary: `Referenced ${added.length} existing resource${added.length === 1 ? "" : "s"} from ${conn.label}: ${added
+        .map((a) => a.name)
+        .join(", ")}. ${REFERENCED_NOTE} They show as pending changes until you deploy, which records them in a revision without provisioning anything.`,
+      data: {
+        projectId: project.id,
+        connectionId: conn.id,
+        imported: added,
+        skipped,
+      },
     };
   },
 });

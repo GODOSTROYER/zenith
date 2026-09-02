@@ -19,6 +19,7 @@ import {
 import { cx } from "@/lib/format";
 import { ThemeToggle } from "@/components/ui";
 import { HeroCanvas, type HeroPhase } from "./hero-canvas";
+import { useCta, type Cta } from "./cta";
 
 export interface ProviderRow {
   id: string;
@@ -150,7 +151,7 @@ const PHASE_CAPTION: Record<HeroPhase, string> = {
 
 /* --------------------------------- sections -------------------------------- */
 
-function Header({ cta }: { cta: { href: string; label: string } }) {
+function Header({ cta }: { cta: Cta }) {
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const on = () => setScrolled(window.scrollY > 12);
@@ -190,7 +191,7 @@ function Header({ cta }: { cta: { href: string; label: string } }) {
   );
 }
 
-function Hero({ cta }: { cta: { href: string; label: string } }) {
+function Hero({ cta }: { cta: Cta }) {
   const [phase, setPhase] = useState<HeroPhase>("assemble");
   const onPhase = useCallback((p: HeroPhase) => setPhase(p), []);
   return (
@@ -535,7 +536,7 @@ function PlanFirst() {
   );
 }
 
-function LiveMoment({ cta }: { cta: { href: string; label: string } }) {
+function LiveMoment({ cta }: { cta: Cta }) {
   return (
     <section className="mx-auto w-full max-w-[1180px] px-6 py-28 lg:py-36">
       <div className="mx-auto max-w-[760px] text-center">
@@ -753,7 +754,7 @@ provider "aws" {
   );
 }
 
-function Close({ cta }: { cta: { href: string; label: string } }) {
+function Close({ cta }: { cta: Cta }) {
   return (
     <section className="mx-auto w-full max-w-[1180px] px-6 pb-16 pt-28 lg:pt-40">
       <div className="text-center">
@@ -812,22 +813,10 @@ function Close({ cta }: { cta: { href: string; label: string } }) {
 
 /* ---------------------------------- page ----------------------------------- */
 
-export function Landing({
-  hasWorkspace,
-  providers,
-  signedIn,
-}: {
-  hasWorkspace: boolean;
-  providers: ProviderRow[];
-  /** true/false when accounts are on; null in local demo mode (no auth) */
-  signedIn: boolean | null;
-}) {
-  const cta =
-    signedIn === false
-      ? { href: hasWorkspace ? "/login" : "/signup", label: hasWorkspace ? "Sign in" : "Create account" }
-      : hasWorkspace
-        ? { href: "/overview", label: "Open Orrery" }
-        : { href: "/onboarding", label: "Begin" };
+export function Landing({ providers }: { providers: ProviderRow[] }) {
+  // The only per-visitor thing on the page, and the only fetch: everything
+  // else here is prerendered. See cta.tsx for the no-flicker contract.
+  const cta = useCta();
 
   return (
     <div className="bg-bg0 text-ink">

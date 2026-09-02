@@ -37,6 +37,12 @@ export const NEEDS: Record<string, Role> = {
   "connection.disconnect": "admin",
   "project.delete": "admin",
   "system.rotateSecret": "editor",
+  // Channels are workspace-wide and hold a credential, so changing one is
+  // admin. Sending a test only proves an existing channel works.
+  "alerts.createChannel": "admin",
+  "alerts.updateChannel": "admin",
+  "alerts.deleteChannel": "admin",
+  "alerts.testChannel": "editor",
 };
 
 /**

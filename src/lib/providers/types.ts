@@ -16,6 +16,7 @@ import type {
   Manifest,
   Output,
   ProviderId,
+  ResourceKind,
   Revision,
 } from "@/lib/domain/types";
 
@@ -98,6 +99,55 @@ export interface ExportBundle {
   readme: string;
 }
 
+/* ------------------------------- live state ------------------------------- */
+
+/**
+ * One node as the provider actually found it.
+ *
+ * `attributes` holds ONLY what the provider genuinely inspected. Drift compares
+ * the intersection of these keys with what the manifest expects, so an adapter
+ * that cannot see a field never produces drift on it — silence is "not looked
+ * at", never "matches".
+ */
+export interface LiveResource {
+  /** manifest node id; "" when the provider found something the manifest does not know */
+  nodeId: string;
+  /** ResourceKind or ServiceKind, as a string — providers report both */
+  kind: string;
+  exists: boolean;
+  attributes: Record<string, string | number | boolean>;
+  observedAt: string;
+}
+
+/**
+ * What `observe` found. `simulated` is the honesty flag the UI renders: true
+ * means nothing outside Orrery was inspected and the numbers were generated.
+ */
+export interface LiveState {
+  simulated: boolean;
+  observedAt: string;
+  resources: LiveResource[];
+}
+
+/** Something present in the account/endpoint that the manifest does not own. */
+export interface DiscoveredResource {
+  /** provider-side identifier — the value stored on `Resource.externalRef` */
+  externalRef: string;
+  kind: ResourceKind;
+  name: string;
+  attributes: Record<string, string | number | boolean>;
+}
+
+/**
+ * What `discover` found. Wrapped rather than a bare array for the same reason
+ * as `LiveState`: the `simulated` flag belongs to the call, not to each row,
+ * and an empty result still has to be able to say which kind of nothing it is.
+ */
+export interface Discovery {
+  simulated: boolean;
+  resources: DiscoveredResource[];
+}
+
 export interface ProviderAdapter {
   id: ProviderId;
   displayName: string;
@@ -133,6 +183,24 @@ export interface ProviderAdapter {
    * may retry after a crash. Throw to fail the step.
    */
   executeStep(rt: StepRuntime): Promise<void>;
+
+  /**
+   * Read back what actually exists for this environment's nodes, so drift can
+   * be computed against the deployed revision. Read-only: an adapter must
+   * never create, mutate or delete anything here.
+   *
+   * Optional, and its absence is meaningful — it says this provider cannot see
+   * the environment at all, which is the honest answer for every Planned
+   * provider. AWS Preview implements it and *refuses*, because "no code path
+   * reads your account" is a different statement from "not built yet".
+   */
+  observe?(env: Environment, deployed: Manifest): Promise<LiveState>;
+
+  /**
+   * List resources present in the account/endpoint that the manifest does not
+   * know about, for reference-import. Read-only, same rule as `observe`.
+   */
+  discover?(conn: CloudConnection, region?: string): Promise<Discovery>;
 
   /** Generate the no-lock-in export bundle (Terraform/OpenTofu + docs). */
   exportBundle(env: Environment, manifest: Manifest): ExportBundle;

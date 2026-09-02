@@ -87,6 +87,20 @@ export function pollDelay(baseMs: number, idleTicks: number): number {
 const isHidden = () => typeof document !== "undefined" && document.visibilityState === "hidden";
 
 /**
+ * Poll interval for a screen that also has an SSE stream for the same data.
+ *
+ * `streaming` must mean *payloads are arriving*, not merely that the socket
+ * opened: a stream that connects and then says nothing — a buffering proxy, a
+ * route that throws after the first frame — would otherwise leave the screen
+ * frozen with no poll behind it. Anything short of a live stream (no
+ * EventSource in this browser, a connection that failed, one that has not
+ * delivered yet) falls back to `baseMs`, which is exactly the behaviour that
+ * existed before the stream.
+ */
+export const streamedPollMs = (streaming: boolean, baseMs: number): number =>
+  streaming ? 0 : baseMs;
+
+/**
  * Polling JSON hook. `refreshMs=0` disables polling (manual refresh only).
  *
  * Polling is honest about cost: it stops entirely while the tab is hidden and
@@ -188,7 +202,9 @@ export function useEventStream(
   doneCb.current = onDone;
 
   useEffect(() => {
-    if (!url) return;
+    // No EventSource (an old browser, a test renderer) is not an error: the
+    // caller keeps `connected: false` and whatever fallback it has.
+    if (!url || typeof EventSource === "undefined") return;
     let es: EventSource | null = null;
     let closed = false;
 

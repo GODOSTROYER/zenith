@@ -20,7 +20,7 @@ import {
 import { api } from "@/lib/client/api";
 import { diffManifests } from "@/lib/domain/graph";
 import type { ChangeItem, Environment, Revision } from "@/lib/domain/types";
-import { cx, fmtUsd } from "@/lib/format";
+import { fmtUsd } from "@/lib/format";
 import {
   Button,
   Card,
@@ -32,6 +32,7 @@ import {
   Input,
   Select,
   Skeleton,
+  Table,
   TimeAgo,
 } from "@/components/ui";
 import { useSelectedEnv, type RevisionMeta } from "@/components/screens/project-data";
@@ -287,51 +288,91 @@ export default function RevisionsPage() {
           </div>
 
           <Card padded={false}>
-            <ul>
-              {shown.map((r) => {
-                const envs = liveIn.get(r.id) ?? [];
-                const checked = picked.includes(r.id);
-                const liveHere = Boolean(env && envs.some((e) => e.id === env.id));
-                const previous = previousOf(revisions.indexOf(r));
-                return (
-                  <li
-                    key={r.id}
-                    className={cx(
-                      "flex items-start gap-3 border-b border-line px-4 py-3 last:border-b-0",
-                      checked && "bg-bg3"
-                    )}
-                  >
+            <Table<RevisionMeta>
+              caption={`${total} revision${total === 1 ? "" : "s"} of this project's system definition, newest first`}
+              rows={shown}
+              rowKey={(r) => r.id}
+              rowClassName={(r) => (picked.includes(r.id) ? "bg-bg3" : undefined)}
+              empty={
+                <Table.Empty>
+                  <p>
+                    No revision matches “{query.trim()}”
+                    {hasMore ? ` in the ${revisions.length} loaded so far` : ""}.
+                  </p>
+                  <Button size="sm" variant="quiet" onClick={() => setQuery("")}>
+                    Clear search
+                  </Button>
+                </Table.Empty>
+              }
+              columns={[
+                {
+                  key: "pick",
+                  header: "",
+                  headerLabel: "Select for comparison",
+                  width: 36,
+                  render: (r) => (
                     <input
                       type="checkbox"
-                      checked={checked}
+                      checked={picked.includes(r.id)}
                       onChange={() => toggle(r.id)}
                       aria-label={`Select revision ${r.number} for comparison`}
-                      className="mt-1.5 h-3.5 w-3.5 accent-[var(--signal)]"
+                      className="mt-1 h-3.5 w-3.5 accent-[var(--signal)]"
                     />
-                    <span className="tnum mt-0.5 w-9 shrink-0 font-mono text-[13px] text-ink">
-                      r{r.number}
-                    </span>
-                    <div className="min-w-0 flex-1">
+                  ),
+                },
+                {
+                  key: "number",
+                  header: "Rev",
+                  width: 64,
+                  render: (r) => (
+                    <span className="tnum font-mono text-[13px] text-ink">r{r.number}</span>
+                  ),
+                },
+                {
+                  key: "message",
+                  header: "Change",
+                  render: (r) => (
+                    <>
                       <p className="text-[13px] text-ink">{r.message}</p>
                       <p className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-ink-faint">
                         <ActorDot actor={r.author} />
                         {r.author.name} · <TimeAgo iso={r.createdAt} />
                       </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
+                    </>
+                  ),
+                },
+                {
+                  key: "live",
+                  header: "Live in",
+                  render: (r) => (
+                    <span className="flex flex-wrap items-center justify-end gap-2">
                       {/* Coloured by the environment's class, not by whether
                           its name happens to be the word "production". */}
-                      {envs.map((e) => (
+                      {(liveIn.get(r.id) ?? []).map((e) => (
                         <Chip key={e.id} tone={envTone(e.class)}>
                           live in {e.name}
                         </Chip>
                       ))}
-                      {/* One accessible group, so a screen reader announces
-                          which revision these five controls belong to. */}
+                    </span>
+                  ),
+                  align: "right",
+                },
+                {
+                  key: "actions",
+                  header: "",
+                  headerLabel: "Actions",
+                  align: "right",
+                  render: (r) => {
+                    const envs = liveIn.get(r.id) ?? [];
+                    const liveHere = Boolean(env && envs.some((e) => e.id === env.id));
+                    const previous = previousOf(revisions.indexOf(r));
+                    return (
+                      /* One accessible group, so a screen reader announces
+                         which revision these five controls belong to. */
                       <div
                         role="group"
                         aria-label={`Actions for revision ${r.number}`}
-                        className="flex items-center gap-0.5"
+                        className="flex items-center justify-end gap-0.5"
                       >
                         <Button
                           size="sm"
@@ -428,22 +469,11 @@ export default function RevisionsPage() {
                           className="text-ink-faint hover:text-err"
                         />
                       </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-            {shown.length === 0 && (
-              <div className="space-y-3 px-4 py-5 text-[13px] text-ink-mute">
-                <p>
-                  No revision matches “{query.trim()}”
-                  {hasMore ? ` in the ${revisions.length} loaded so far` : ""}.
-                </p>
-                <Button size="sm" variant="quiet" onClick={() => setQuery("")}>
-                  Clear search
-                </Button>
-              </div>
-            )}
+                    );
+                  },
+                },
+              ]}
+            />
             {hasMore && (
               <div className="border-t border-line px-4 py-3">
                 <Button size="sm" variant="quiet" busy={listLoading} onClick={loadMore}>

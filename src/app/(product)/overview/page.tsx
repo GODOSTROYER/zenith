@@ -6,6 +6,7 @@ import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { diffManifests } from "@/lib/domain/graph";
 import { emptyManifest, type Deployment, type Manifest } from "@/lib/domain/types";
 import { fmtUsd } from "@/lib/format";
+import { currentWorkspace } from "@/lib/server/context";
 import { Card, EmptyState, TimeAgo } from "@/components/ui";
 import { ActorDot } from "@/components/screens/shared";
 import { Greeting } from "./greeting";
@@ -19,9 +20,11 @@ export const metadata: Metadata = { title: "Overview" };
 /** Rows in the activity panel. Small, because the trail screen is one click away. */
 const ACTIVITY_ROWS = 10;
 
-export default function OverviewPage() {
+export default async function OverviewPage() {
+  // The workspace the browser is in — the same resolution /api uses, so this
+  // screen and the shell above it can never be looking at different ones.
+  const workspace = await currentWorkspace();
   const data = db();
-  const workspace = data.workspaces[0];
 
   if (!workspace)
     return (

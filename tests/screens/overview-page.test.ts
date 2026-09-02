@@ -84,7 +84,7 @@ function findTags(node: unknown, tag: string, out: AnyElement[] = []): AnyElemen
 let rows: ProjectRow[] = [];
 let tree: unknown;
 
-beforeAll(() => {
+beforeAll(async () => {
   resetDb({
     workspaces: [{ id: "ws", name: "Kepler Labs", slug: "kepler", createdAt: NOW }],
     projects: [
@@ -177,7 +177,8 @@ beforeAll(() => {
   });
   for (let n = 0; n < 25; n++) appendAudit(audit(n));
 
-  tree = OverviewPage();
+  // The page resolves the workspace this browser is in, so it is async now.
+  tree = await OverviewPage();
   rows = findProp<ProjectRow[]>(tree, "projects") ?? [];
 });
 

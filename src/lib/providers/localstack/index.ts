@@ -19,15 +19,20 @@
 import {
   CreateBucketCommand,
   HeadBucketCommand,
+  ListBucketsCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
-import { CreateQueueCommand, SQSClient } from "@aws-sdk/client-sqs";
+import { CreateQueueCommand, ListQueuesCommand, SQSClient } from "@aws-sdk/client-sqs";
 import { env } from "@/lib/env";
 import { log } from "@/lib/log";
 import type { CloudConnection, Environment, Manifest } from "@/lib/domain/types";
 import {
   stepBudgetMs,
+  type Discovery,
+  type DiscoveredResource,
   type ExportBundle,
+  type LiveResource,
+  type LiveState,
   type PreflightReport,
   type ProviderAdapter,
   type ProviderPlanStep,
@@ -417,6 +422,138 @@ async function executeStep(rt: StepRuntime): Promise<void> {
   if (step.phase === "verify") rt.log("outputs recorded — LocalStack deploy complete", "info");
 }
 
+/* ---------------------------- observe / discover --------------------------- */
+
+/**
+ * Everything LocalStack can actually be asked about, in two calls. Buckets and
+ * queues are the kinds this adapter provisions for real; the rest were labeled
+ * simulations at deploy time and there is nothing on the endpoint to read back.
+ */
+async function inventory(): Promise<{
+  buckets: { name: string; createdAt: string }[];
+  queues: { name: string; url: string }[];
+}> {
+  const [b, q] = await Promise.all([
+    s3().send(new ListBucketsCommand({})),
+    sqs().send(new ListQueuesCommand({})),
+  ]);
+  return {
+    buckets: (b.Buckets ?? [])
+      .filter((x) => x.Name)
+      .map((x) => ({ name: x.Name!, createdAt: x.CreationDate?.toISOString() ?? "" })),
+    queues: (q.QueueUrls ?? []).map((u) => ({ name: u.split("/").pop() ?? u, url: u })),
+  };
+}
+
+/** Both read paths need LocalStack up, and both must say so the same way. */
+async function requireHealthy(): Promise<void> {
+  const h = await health();
+  if (!h.ok)
+    throw new Error(
+      `${FAILURE_LABEL[h.kind]} at ${LOCALSTACK_ENDPOINT}. ${h.detail} ${h.fix}`
+    );
+}
+
+/**
+ * Real read-back. Reports on the buckets and queues this adapter provisions,
+ * by the names it provisions them under, plus anything else on the endpoint
+ * that this environment does not own.
+ *
+ * Kinds LocalStack Community cannot emulate are deliberately ABSENT rather
+ * than reported as present: drift treats a missing key as "not looked at", so
+ * omitting them is what stops this from claiming an RDS instance is healthy
+ * when no RDS instance was ever created.
+ *
+ * ponytail: "unowned" means unowned *by this environment*. Two Orrery
+ * environments sharing one LocalStack each list the other's buckets as extra
+ * drift. Scope the owned-set across the workspace's environments if that
+ * combination stops being a corner case.
+ */
+async function observe(env: Environment, deployed: Manifest): Promise<LiveState> {
+  await requireHealthy();
+  const inv = await inventory();
+  const observedAt = new Date().toISOString();
+  const resources: LiveResource[] = [];
+  const owned = new Set<string>();
+
+  for (const r of deployed.resources) {
+    if (r.ownership !== "managed") continue;
+    if (r.kind === "object_store") {
+      const name = bucketName(r.name, env);
+      owned.add(`s3:${name}`);
+      const hit = inv.buckets.find((b) => b.name === name);
+      resources.push({
+        nodeId: r.id,
+        kind: r.kind,
+        exists: !!hit,
+        attributes: hit
+          ? { externalRef: `s3://${hit.name}`, name: hit.name, createdAt: hit.createdAt }
+          : {},
+        observedAt,
+      });
+    } else if (r.kind === "queue") {
+      const name = queueName(r.name, env);
+      owned.add(`sqs:${name}`);
+      const hit = inv.queues.find((x) => x.name === name);
+      resources.push({
+        nodeId: r.id,
+        kind: r.kind,
+        exists: !!hit,
+        attributes: hit ? { externalRef: hit.url, name: hit.name } : {},
+        observedAt,
+      });
+    }
+  }
+
+  for (const b of inv.buckets)
+    if (!owned.has(`s3:${b.name}`))
+      resources.push({
+        nodeId: "",
+        kind: "object_store",
+        exists: true,
+        attributes: { externalRef: `s3://${b.name}`, name: b.name, createdAt: b.createdAt },
+        observedAt,
+      });
+
+  for (const x of inv.queues)
+    if (!owned.has(`sqs:${x.name}`))
+      resources.push({
+        nodeId: "",
+        kind: "queue",
+        exists: true,
+        attributes: { externalRef: x.url, name: x.name },
+        observedAt,
+      });
+
+  return { simulated: false, observedAt, resources };
+}
+
+/**
+ * Everything visible at the endpoint. The adapter has a connection, not a
+ * manifest, so it cannot know what is already imported — callers de-duplicate
+ * by `externalRef` (the discover route filters against a project's working
+ * copy, and `project.importResources` skips duplicates again).
+ */
+async function discover(_conn: CloudConnection, _region?: string): Promise<Discovery> {
+  await requireHealthy();
+  const inv = await inventory();
+  const resources: DiscoveredResource[] = [
+    ...inv.buckets.map((b) => ({
+      externalRef: `s3://${b.name}`,
+      kind: "object_store" as const,
+      name: b.name,
+      attributes: { endpoint: LOCALSTACK_ENDPOINT, createdAt: b.createdAt },
+    })),
+    ...inv.queues.map((x) => ({
+      externalRef: x.url,
+      kind: "queue" as const,
+      name: x.name,
+      attributes: { endpoint: LOCALSTACK_ENDPOINT },
+    })),
+  ];
+  return { simulated: false, resources };
+}
+
 /* --------------------------------- export ---------------------------------- */
 
 const OVERRIDE_FILE = `# providers_override.tf — the ONLY LocalStack-specific file.
@@ -485,5 +622,7 @@ export const localstackProvider: ProviderAdapter = {
   probe,
   planSteps,
   executeStep,
+  observe,
+  discover,
   exportBundle,
 };

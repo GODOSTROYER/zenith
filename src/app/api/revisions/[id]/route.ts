@@ -9,5 +9,8 @@ export const GET = route<{ id: string }>(async (_req, { id }) => {
   // Scoped by the owning project's workspace: an id alone is not a read grant.
   if (!revision || !inWorkspace(requireWorkspace().id, revision.projectId))
     throw notFound(`Revision "${id}"`, "Open the project's Revisions tab and pick an existing revision.");
-  return { revision };
+  // The manifest lives in cold storage and is a non-enumerable accessor on the
+  // revision, so a bare `{ revision }` would serialise without it. This route
+  // is the one place the manifest is meant to cross the wire — spell it out.
+  return { revision: { ...revision, manifest: q.revisionManifest(id) } };
 });

@@ -17,6 +17,10 @@ export const AUTH_ERROR_CODES: Record<string, string> = {
     "That link is missing its confirmation code. Open the most recent email, or request a fresh link below.",
   link_failed:
     "That link could not be completed. Request a fresh one below and open it in this browser.",
+  oauth_denied:
+    "That sign-in was cancelled before it finished. Try it again and approve the permission prompt, or sign in with your email and password below.",
+  oauth_unavailable:
+    "The provider could not complete that sign-in. Try again in a moment, or use your email and password below. If it keeps failing, that provider is probably not enabled on this project — an operator turns it on under Authentication → Providers in the Supabase dashboard.",
 };
 
 /** Shown for an `?error=` we do not recognise. Never includes the raw value. */
@@ -29,10 +33,24 @@ export function messageForErrorCode(raw: string | null | undefined): string | un
   return AUTH_ERROR_CODES[raw] ?? AUTH_ERROR_FALLBACK;
 }
 
-/** Supabase's callback error → a stable code, so no provider text enters the URL. */
+/**
+ * Supabase's callback error → a stable code, so no provider text enters the URL.
+ *
+ * The OAuth tests come first on purpose: a provider's `invalid_request` or
+ * `unauthorized_client` would otherwise be read as an expired email link and
+ * tell the user to request a fresh one that does not exist.
+ */
 export function callbackErrorCode(message: string | undefined): keyof typeof AUTH_ERROR_CODES {
   const m = (message ?? "").toLowerCase();
   if (m.includes("missing its confirmation code")) return "link_missing_code";
+  if (m.includes("denied") || m.includes("cancel")) return "oauth_denied";
+  if (
+    m.includes("provider") ||
+    m.includes("server_error") ||
+    m.includes("temporarily_unavailable") ||
+    m.includes("unauthorized_client")
+  )
+    return "oauth_unavailable";
   if (m.includes("expired") || m.includes("invalid") || m.includes("already")) return "link_expired";
   return "link_failed";
 }

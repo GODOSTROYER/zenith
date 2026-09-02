@@ -11,17 +11,27 @@
  *   import { useProjectAlerts } from "@/lib/client/alerts";
  *   const { open } = useProjectAlerts(projectId);   // AlertEvent[], newest first
  *
- * Delivery is in-product only — see `feed.delivery` on the wire and
- * docs/LIMITATIONS.md. This hook is the delivery channel.
+ * Delivery: the feed carries the workspace's channels and each event's delivery
+ * results. `feed.delivery` is the honest one-liner for this workspace — it says
+ * "in-product only" when there are no channels and names the count when there
+ * are, so no screen has to guess. See docs/LIMITATIONS.md for the boundary.
  */
 import { useJson, type Loadable } from "@/lib/client/api";
 // Type-only: erased at compile time, so no server module reaches the bundle.
-import type { AlertKindSpec } from "@/lib/alerts";
+import type { AlertKindSpec, PublicAlertChannel } from "@/lib/alerts";
 import type { AlertEvent, AlertKind, AlertRule } from "@/lib/domain/types";
+
+export type { PublicAlertChannel };
 
 /** Matches GET /api/projects/:id/alerts. */
 export interface AlertsFeed {
   rules: AlertRule[];
+  /**
+   * The workspace's delivery channels, as metadata: the signing secret is never
+   * sent and a webhook/Slack URL is masked past its host, because that URL is
+   * itself a credential.
+   */
+  channels: PublicAlertChannel[];
   /** the evaluator's own vocabulary, so UI copy cannot drift from it */
   kinds: Record<AlertKind, AlertKindSpec>;
   /** open alerts first, then the tail of history */
@@ -35,6 +45,11 @@ export interface AlertsFeed {
   evaluationIntervalMs: number;
   /** the honest sentence about where an alert does and does not go */
   delivery: string;
+  /**
+   * Why email channels cannot send on this server (naming the environment
+   * variables to set), or null when they can. Webhook and Slack are unaffected.
+   */
+  emailProblem: string | null;
 }
 
 /**
@@ -50,6 +65,8 @@ export interface ProjectAlerts extends Loadable<AlertsFeed> {
   /** open alerts nobody has acknowledged yet; what a bell should count */
   unacknowledged: AlertEvent[];
   rules: AlertRule[];
+  /** the workspace's delivery channels — empty while loading or on error */
+  channels: PublicAlertChannel[];
 }
 
 /**
@@ -71,6 +88,7 @@ export function useProjectAlerts(
     open,
     unacknowledged: open.filter((e) => !e.acknowledgedAt),
     rules: feed.data?.rules ?? [],
+    channels: feed.data?.channels ?? [],
   };
 }
 

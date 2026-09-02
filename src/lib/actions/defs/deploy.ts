@@ -79,10 +79,13 @@ function deployBlock(env: Environment, project: Project): string | undefined {
   return reasons.length ? reasons.join(" ") : undefined;
 }
 
-/** The manifest currently live in an environment (empty if never deployed). */
+/**
+ * The manifest currently live in an environment (empty if never deployed).
+ * Loaded from cold storage on demand — see `q.revisionManifest`.
+ */
 export function deployedManifest(env: Environment): Manifest {
-  const rev = env.deployedRevisionId ? q.revision(env.deployedRevisionId) : undefined;
-  return rev ? rev.manifest : emptyManifest();
+  const id = env.deployedRevisionId;
+  return (id ? q.revisionManifest(id) : undefined) ?? emptyManifest();
 }
 
 export function changesetFor(env: Environment, project: Project): Changeset {
@@ -249,7 +252,9 @@ defineAction<ApplyInput>({
       createdAt: new Date().toISOString(),
     };
     db().revisions.push(revision);
-    save();
+    // The save moves the manifest to cold storage; `revision.manifest` keeps
+    // reading it back through the store's accessor.
+    save(project.id);
 
     const engine = await getEngine();
     const deployment = await engine.start({

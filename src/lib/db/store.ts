@@ -5,12 +5,22 @@
  * deployment/audit events are append-only JSONL so a crash can never corrupt
  * history. A browser refresh or server restart resumes from disk.
  *
+ * Hot vs cold. `state.json` is rewritten in full on every save, so only what
+ * changes belongs in it: workspaces, projects, environments, deployments and
+ * revision *metadata*. Revision manifests — immutable, and the largest thing
+ * the store holds — live one file each under `revisions/` and load on demand
+ * (see "revision manifests" below). Events and audit rows are append-only.
+ *
+ * Every successful write emits a change event (`onChange`), which is how the
+ * project stream pushes instead of every open tab polling.
+ *
  * ponytail: single-process file store; swap for SQL behind this same module
  * if Orrery ever runs multi-process. The rest of the codebase only sees
  * `db()` and the append/read helpers.
  *
  * SPINE FILE — owned by the integrator.
  */
+import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
 import { env } from "@/lib/env";
@@ -22,6 +32,7 @@ import type {
   Deployment,
   DeploymentEvent,
   Environment,
+  Manifest,
   Member,
   NavigatorRun,
   Project,
@@ -67,6 +78,8 @@ const DATA_DIR = env().ORRERY_DATA;
 const STATE = path.join(DATA_DIR, "state.json");
 const EVENTS = path.join(DATA_DIR, "events.jsonl");
 const AUDIT = path.join(DATA_DIR, "audit.jsonl");
+/** Cold storage: one immutable manifest per revision, written once. */
+const MANIFESTS = path.join(DATA_DIR, "revisions");
 
 type G = typeof globalThis & { __orreryDb?: Database };
 
@@ -98,8 +111,165 @@ export function db(): Database {
     data = structuredClone(EMPTY);
   }
   g.__orreryDb = data;
+  // Baseline for the orphan sweep, set before the first write can happen: a
+  // project deleted by this process's very first save must still take its
+  // manifests with it.
+  revisionCount = data.revisions.length;
+  // Migrate a pre-split snapshot: manifests found inline move to the side
+  // store, then state.json is rewritten without them. Side files are written
+  // first, so an interrupted migration simply re-runs on the next boot.
+  if (sealManifests()) writeState();
   return data;
 }
+
+/* --------------------------- revision manifests ---------------------------- */
+
+/**
+ * Revision manifests are the cold half of the store: written once at deploy,
+ * read by one screen at a time, and — before this split — re-serialised in
+ * full on every save, forever. They now live in `<ORRERY_DATA>/revisions/`,
+ * one atomic file each, and `Revision.manifest` is a lazy accessor:
+ *
+ *  - `enumerable: false`, so `JSON.stringify(db())` never sees a manifest and
+ *    a save costs metadata only, whatever the deploy history looks like;
+ *  - a getter, so every existing reader (`revision.manifest`, in the engine,
+ *    the providers, the alert and log simulators, the security rules, the
+ *    server-rendered screens) keeps working untouched;
+ *  - a setter, so assigning a manifest writes it through.
+ *
+ * The one thing that changed for callers: a `Revision` no longer carries its
+ * manifest through `JSON.stringify`. A route that puts one in a response body
+ * must attach it explicitly — `q.revisionManifest(id)`.
+ */
+
+/** ponytail: LRU by insertion order; a Map is the stdlib's LRU. */
+const MANIFEST_CACHE_MAX = 32;
+
+type GM = typeof globalThis & { __orreryManifests?: Map<string, Manifest> };
+const manifestCache = (): Map<string, Manifest> =>
+  ((globalThis as GM).__orreryManifests ??= new Map());
+
+/** Ids come from `id()`, but an importer's id is untrusted: never a path. */
+const manifestFile = (id: string): string =>
+  path.join(MANIFESTS, `${encodeURIComponent(id)}.json`);
+
+function readManifest(id: string): Manifest {
+  const cache = manifestCache();
+  const hit = cache.get(id);
+  if (hit) {
+    cache.delete(id); // re-insert = most recently used
+    cache.set(id, hit);
+    return hit;
+  }
+  const file = manifestFile(id);
+  if (!fs.existsSync(file))
+    // Never substitute an empty manifest: a diff against one reads as "delete
+    // every service", which is exactly the plan a rollback would then apply.
+    throw new Error(
+      `Revision "${id}" has no stored manifest (${file}). The revision metadata is in state.json but its manifest file is missing — restore it from a backup, or delete the revision.`
+    );
+  return cachePut(id, JSON.parse(fs.readFileSync(file, "utf8")) as Manifest);
+}
+
+function cachePut(id: string, m: Manifest): Manifest {
+  const cache = manifestCache();
+  cache.delete(id);
+  cache.set(id, m);
+  if (cache.size > MANIFEST_CACHE_MAX) cache.delete(cache.keys().next().value as string);
+  return m;
+}
+
+function writeManifest(id: string, m: Manifest): void {
+  fs.mkdirSync(MANIFESTS, { recursive: true });
+  const file = manifestFile(id);
+  const tmp = `${file}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(m), "utf8");
+  fs.renameSync(tmp, file);
+  cachePut(id, m);
+}
+
+function attachManifest(r: Revision): void {
+  Object.defineProperty(r, "manifest", {
+    configurable: true,
+    enumerable: false, // ← what keeps manifests out of every save
+    get: () => readManifest(r.id),
+    set: (m: Manifest) => writeManifest(r.id, m),
+  });
+}
+
+/**
+ * Give every revision its lazy accessor, moving an inline manifest out to the
+ * side store first if it still has one. Runs on load — where a revision read
+ * back from `state.json` has no manifest property at all, and a pre-split one
+ * has it inline — and again before every write, for the revision the deploy
+ * action just pushed. Returns true when something moved and `state.json` is
+ * therefore stale.
+ */
+function sealManifests(): boolean {
+  let moved = false;
+  for (const r of db().revisions) {
+    const own = Object.getOwnPropertyDescriptor(r, "manifest");
+    if (own && !own.enumerable) continue; // already an accessor
+    if (own) {
+      writeManifest(r.id, r.manifest);
+      moved = true;
+    }
+    attachManifest(r);
+  }
+  return moved;
+}
+
+/**
+ * Drop side files with no revision left in state.json — a deleted project, a
+ * pruned history. Only worth a readdir when the revision count actually fell,
+ * so the normal save path never touches the directory.
+ */
+function dropOrphanManifests(): void {
+  if (!fs.existsSync(MANIFESTS)) return;
+  const live = new Set(db().revisions.map((r) => `${encodeURIComponent(r.id)}.json`));
+  for (const name of fs.readdirSync(MANIFESTS))
+    if (!live.has(name)) fs.rmSync(path.join(MANIFESTS, name), { force: true });
+}
+
+/* ------------------------------ change events ------------------------------ */
+
+export interface StoreChange {
+  /**
+   * Projects the coalesced saves in this window are known to have touched.
+   * **Empty means "unknown, assume any"** — not "nothing changed", since the
+   * event only fires after a write actually happened. Callers that know their
+   * project pass it to `save(projectId)`; the rest broadcast.
+   */
+  projectIds: string[];
+}
+
+type GC = typeof globalThis & {
+  __orreryChanges?: EventEmitter;
+  __orreryTouched?: { ids: Set<string>; all: boolean };
+};
+
+const changes = (): EventEmitter =>
+  ((globalThis as GC).__orreryChanges ??= new EventEmitter().setMaxListeners(0));
+
+const touched = () =>
+  ((globalThis as GC).__orreryTouched ??= { ids: new Set<string>(), all: false });
+
+/**
+ * Called after every successful write. Returns an unsubscribe function.
+ *
+ * In-process only — the same single-process ceiling as the store itself. It is
+ * what lets `/api/projects/:id/stream` push instead of every open tab polling.
+ */
+export function onChange(fn: (c: StoreChange) => void): () => void {
+  changes().on("change", fn);
+  return () => {
+    changes().off("change", fn);
+  };
+}
+
+/** True when a change event concerns this project (or names no project). */
+export const changed = (c: StoreChange, projectId: string): boolean =>
+  c.projectIds.length === 0 || c.projectIds.includes(projectId);
 
 /* --------------------------------- saving --------------------------------- */
 
@@ -111,19 +281,44 @@ type GS = typeof globalThis & {
 /** Coalescing window: a burst of step transitions costs one write, not twenty. */
 const SAVE_DEBOUNCE_MS = 50;
 
+/** Revisions at the last write, so an orphan sweep costs a readdir only when
+ *  history actually shrank. */
+let revisionCount = -1;
+
 function writeState(): void {
   ensureDir();
+  // Manifests go to their own files first: state.json must never be the only
+  // copy of one, and after this it serialises metadata alone.
+  sealManifests();
   const tmp = `${STATE}.tmp`;
   fs.writeFileSync(tmp, JSON.stringify(db()), "utf8");
   fs.renameSync(tmp, STATE);
+  const count = db().revisions.length;
+  if (count < revisionCount) dropOrphanManifests();
+  revisionCount = count;
+
+  const t = touched();
+  const change: StoreChange = { projectIds: t.all ? [] : [...t.ids] };
+  t.ids.clear();
+  t.all = false;
+  // Listener failures are the listener's problem; a save is already durable.
+  changes().emit("change", change);
 }
 
 /**
  * Persist. Writes are coalesced over a 50ms window and always atomic
  * (tmp + rename). `flush()` runs on process exit, so nothing is lost.
+ *
+ * `projectId` is a hint for the change event, not a filter on what is written
+ * — the whole database is saved either way. Omit it and the event says
+ * "something changed", which every subscriber has to handle regardless,
+ * because one coalesced write can carry several callers' mutations.
  */
-export function save(): void {
+export function save(projectId?: string): void {
   const g = globalThis as GS;
+  const t = touched();
+  if (projectId) t.ids.add(projectId);
+  else t.all = true;
   hookExit();
   if (g.__orrerySaveTimer) return; // a flush is already scheduled
   g.__orrerySaveTimer = setTimeout(() => {
@@ -172,6 +367,10 @@ export function resetDb(data?: Partial<Database>): Database {
   g.__orreryDb = { ...structuredClone(EMPTY), ...data };
   ensureDir();
   for (const f of [EVENTS, AUDIT]) if (fs.existsSync(f)) fs.unlinkSync(f);
+  // Cold storage too, and before the flush: `data` may carry inline manifests
+  // (the seed script does), and those are what the flush writes back out.
+  fs.rmSync(MANIFESTS, { recursive: true, force: true });
+  manifestCache().clear();
   flush();
   return g.__orreryDb;
 }
@@ -423,6 +622,15 @@ export const q = {
   environmentsOf: (projectId: string) =>
     db().environments.filter((e) => e.projectId === projectId),
   revision: (id: string) => db().revisions.find((r) => r.id === id),
+  /**
+   * A revision's manifest, loaded from cold storage on demand.
+   *
+   * `revision.manifest` returns the same object — the property is a lazy
+   * accessor. Use this accessor wherever the manifest has to survive
+   * serialisation (an API response body, a structuredClone), because the
+   * property is non-enumerable and `JSON.stringify` drops it.
+   */
+  revisionManifest: (id: string): Manifest | undefined => q.revision(id)?.manifest,
   revisionsOf: (projectId: string) =>
     db()
       .revisions.filter((r) => r.projectId === projectId)

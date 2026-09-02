@@ -3,10 +3,13 @@
  *
  * Honesty rules, in order of importance:
  *
- *  - **Delivery does not exist.** Nothing here emails, pages or posts to Slack.
- *    A rule that fires writes an AlertEvent; the Observe screen and the client
- *    hook in `@/lib/client/alerts` are the only places it surfaces. Every plan
- *    and empty state says so, and docs/LIMITATIONS.md keeps saying it.
+ *  - **Delivery is real, and only as real as it is.** A rule that fires writes
+ *    an AlertEvent, and `./deliver` pushes it to the workspace's channels —
+ *    webhook, Slack, and email when SMTP is configured. A workspace with no
+ *    channels is still in-product only, and the screens say which of the two it
+ *    is rather than implying delivery either way. Every attempt is recorded on
+ *    the event (`deliveries`), successes and failures alike; there is no paging
+ *    and no on-call rotation. docs/LIMITATIONS.md keeps the exact boundary.
  *  - **Same inputs as the screens.** Health comes from `@/lib/logsim` — exactly
  *    what the health cards render — cost from the price table, deploy outcomes
  *    from the durable deployment records. An alert can never disagree with the
@@ -39,6 +42,10 @@ import {
 } from "@/lib/domain/types";
 import { environmentHealth } from "@/lib/logsim";
 import { log } from "@/lib/log";
+import { queueDelivery } from "./deliver";
+
+export * from "./channels";
+export * from "./deliver";
 
 /**
  * The two collections were added after stores already existed on disk (and in
@@ -346,6 +353,9 @@ export function resolveOpen(ruleId: string, reason: string, at = Date.now()): bo
   if (!open) return false;
   open.resolvedAt = iso(at);
   open.resolvedReason = reason;
+  // Every close routes through here — condition cleared, rule turned off, rule
+  // deleted — so this is the one place a receiver's open alert gets closed too.
+  queueDelivery(open, "resolved");
   return true;
 }
 
@@ -356,7 +366,7 @@ function applyRule(rule: AlertRule, at: number): boolean {
   const open = openEventFor(rule.id);
 
   if (cond.firing && !open) {
-    tables().events.push({
+    const event: AlertEvent = {
       id: id(),
       ruleId: rule.id,
       projectId: rule.projectId,
@@ -366,8 +376,11 @@ function applyRule(rule: AlertRule, at: number): boolean {
       severity: cond.severity,
       detail: cond.detail,
       simulated: cond.simulated,
-    });
+    };
+    tables().events.push(event);
     log.info("alert fired", { scope: "alerts", ruleId: rule.id, kind: rule.kind });
+    // Queued, not awaited: the pass finishes and saves, then the queue drains.
+    queueDelivery(event, "fired");
     return true;
   }
   if (!cond.firing && open) return resolveOpen(rule.id, cond.summary, at);

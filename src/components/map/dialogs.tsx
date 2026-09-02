@@ -10,13 +10,28 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import { Button, Callout, Chip, Dialog, SegmentedControl } from "@/components/ui";
+import {
+  Button,
+  Callout,
+  Checkbox,
+  Chip,
+  Dialog,
+  EmptyState,
+  Field,
+  SegmentedControl,
+  Select,
+  Skeleton,
+} from "@/components/ui";
 import { PlanFirst } from "@/components/inspector/plan-first";
 import { useProjectData } from "@/components/shell/project-context";
+import { useShell } from "@/components/shell/shell-context";
+import { ErrorNote } from "@/components/screens/shared";
+import { useJson } from "@/lib/client/api";
 import { importDockerfile, importTerraform } from "@/lib/importers";
 import { uniqueName, type ImportReport } from "@/lib/importers/types";
 import { ImportReportView } from "@/components/screens/import-report";
 import type { Manifest } from "@/lib/domain/types";
+import type { DiscoveredResource } from "@/lib/providers/types";
 import { cx } from "@/lib/format";
 
 /** Blueprint catalog metadata, handed down from the server component. */
@@ -106,7 +121,7 @@ export function BlueprintDialog({
 
 /* --------------------------------- import --------------------------------- */
 
-type Format = "compose" | "terraform" | "dockerfile";
+type Format = "compose" | "terraform" | "dockerfile" | "live";
 
 const FORMATS: {
   value: Format;
@@ -190,6 +205,147 @@ export function mergeImport(
   };
 }
 
+/** Wire shape of GET /api/connections/:id/discover. */
+interface DiscoverResponse {
+  simulated: boolean;
+  resources: DiscoveredResource[];
+  /** hidden because this project already references them */
+  alreadyReferenced: number;
+  provider: { id: string; displayName: string; availability: string };
+  region: string;
+}
+
+const KIND_WORD: Record<string, string> = {
+  postgres: "database",
+  redis: "cache",
+  object_store: "bucket",
+  queue: "queue",
+  email: "email sender",
+};
+
+/**
+ * Adopt resources that already exist where a connection points.
+ *
+ * This is the one importer whose input is not a file the user pasted, so it
+ * carries an extra honesty burden: it says which account or endpoint it looked
+ * in, whether the answer was measured or invented, and — before anything is
+ * ticked — that adopting is referencing, not taking over. A provider that
+ * cannot look answers with a refusal, which is rendered rather than hidden.
+ */
+function LiveResourceImport({ onClose }: { onClose: () => void }) {
+  const { project, selectedEnv } = useProjectData();
+  const { boot } = useShell();
+  const connections = boot?.connections ?? [];
+  const [connectionId, setConnectionId] = useState(
+    selectedEnv?.connectionId ?? connections[0]?.id ?? ""
+  );
+  const [picked, setPicked] = useState<string[]>([]);
+
+  const found = useJson<DiscoverResponse>(
+    connectionId
+      ? `/api/connections/${connectionId}/discover?projectId=${encodeURIComponent(project.id)}`
+      : null
+  );
+
+  const resources = found.data?.resources ?? [];
+  // A tick left over from another connection simply does not match, so there is
+  // nothing to reset — and the action re-checks every reference server-side.
+  const selected = resources.filter((r) => picked.includes(r.externalRef));
+
+  const toggle = (ref: string, on: boolean) =>
+    setPicked((p) => (on ? [...p, ref] : p.filter((x) => x !== ref)));
+
+  if (!connections.length)
+    return (
+      <EmptyState
+        title="No connections yet"
+        body="Orrery looks for existing resources through a cloud connection. Add one in Settings → Connections, then come back."
+      />
+    );
+
+  return (
+    <div className="space-y-3">
+      {connections.length > 1 && (
+        <Field label="Look in">
+          <Select
+            value={connectionId}
+            onChange={(e) => {
+              setConnectionId(e.target.value);
+              setPicked([]);
+            }}
+            options={connections.map((c) => ({ value: c.id, label: `${c.label} (${c.region})` }))}
+          />
+        </Field>
+      )}
+
+      {found.error ? (
+        <ErrorNote error={found.error} />
+      ) : found.loading && !found.data ? (
+        <Skeleton height={96} />
+      ) : (
+        <>
+          {found.data && (
+            <Callout tone={found.data.simulated ? "info" : "ok"} compact>
+              {found.data.simulated
+                ? `${found.data.provider.displayName} has no real account to read, so this list is invented — a demonstration of what discovery looks like. Imported references carry a "sim://" prefix so they stay recognisable.`
+                : `Read from ${found.data.provider.displayName} in ${found.data.region}. These resources really exist.`}
+              {found.data.alreadyReferenced > 0 &&
+                ` ${found.data.alreadyReferenced} already referenced by this project ${found.data.alreadyReferenced === 1 ? "is" : "are"} not listed.`}
+            </Callout>
+          )}
+
+          {resources.length === 0 ? (
+            <EmptyState
+              title="Nothing new to import"
+              body={
+                found.data?.alreadyReferenced
+                  ? "Everything found here is already referenced by this project."
+                  : "Nothing was found where this connection points."
+              }
+            />
+          ) : (
+            <ul className="max-h-[260px] space-y-1.5 overflow-y-auto">
+              {resources.map((r) => (
+                <li key={r.externalRef}>
+                  <Checkbox
+                    checked={picked.includes(r.externalRef)}
+                    onChange={(on) => toggle(r.externalRef, on)}
+                    label={
+                      <span className="flex items-baseline gap-2">
+                        <span className="text-[13px] font-medium text-ink">{r.name}</span>
+                        <Chip tone="neutral">{KIND_WORD[r.kind] ?? r.kind}</Chip>
+                      </span>
+                    }
+                    help={<span className="font-mono text-[11.5px]">{r.externalRef}</span>}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+
+      <p className="text-[12.5px] leading-relaxed text-ink-mute">
+        Imported resources are marked <span className="text-ink">referenced</span>: Orrery draws
+        them on the map and lets services bind to them, but never provisions, changes or deletes
+        them — and they add nothing to the cost estimate.
+      </p>
+
+      <div className="border-t border-line pt-3">
+        <PlanFirst
+          actionId="project.importResources"
+          input={{ connectionId, resources: selected }}
+          label={`Preview import${selected.length ? ` (${selected.length})` : ""}`}
+          disabled={!selected.length}
+          disabledReason="Tick at least one resource to import."
+          onDone={onClose}
+          onCancel={onClose}
+        />
+      </div>
+    </div>
+  );
+}
+
 /**
  * Import from any of the shipped importers. Compose has its own action (it can
  * create a project); Terraform and Dockerfile produce a manifest that is merged
@@ -209,7 +365,8 @@ export function ImportDialog({
   const [fileName, setFileName] = useState<string>();
   const [report, setReport] = useState<ImportReport>();
 
-  const spec = FORMATS.find((f) => f.value === format)!;
+  // "live" has no file behind it, so it borrows a spec it never reads.
+  const spec = FORMATS.find((f) => f.value === format) ?? FORMATS[0];
 
   // Terraform and Dockerfile parse in the browser, so the dialog knows what the
   // file became before the plan is even requested. It used to re-parse and
@@ -289,8 +446,17 @@ export function ImportDialog({
             setFormat(f);
             reset();
           }}
-          options={FORMATS.map((f) => ({ value: f.value, label: f.label, title: f.title }))}
+          options={[
+            ...FORMATS.map((f) => ({ value: f.value, label: f.label, title: f.title })),
+            {
+              value: "live" as const,
+              label: "existing",
+              title:
+                "Resources that already exist where a connection points — imported as referenced, never taken over.",
+            },
+          ]}
         />
+        {format !== "live" && (
         <label className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-ctl border border-line px-2.5 text-[12.5px] text-ink-mute transition-colors duration-[120ms] hover:border-line-strong hover:text-ink">
           <Upload className="h-3.5 w-3.5" aria-hidden="true" />
           Choose a file
@@ -307,8 +473,15 @@ export function ImportDialog({
             }}
           />
         </label>
+        )}
       </div>
 
+      {format === "live" ? (
+        <div className="mt-3">
+          <LiveResourceImport onClose={close} />
+        </div>
+      ) : (
+        <>
       <p className="mt-2 text-[12.5px] leading-relaxed text-ink-mute">{spec.prompt}</p>
 
       <textarea
@@ -374,6 +547,8 @@ export function ImportDialog({
           />
         )}
       </div>
+        </>
+      )}
     </Dialog>
   );
 }

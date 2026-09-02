@@ -1,35 +1,50 @@
 /** Single call the app shell hydrates from. */
-import { roleOf, type Role } from "@/lib/actions/core";
+import type { Role } from "@/lib/actions/core";
 import { db } from "@/lib/db/store";
+import type { Workspace } from "@/lib/domain/types";
 import { providerRegistry } from "@/lib/providers/types";
 import {
-  ApiError,
+  currentRequest,
   demoActor,
-  ensureMember,
   readAutonomy,
   requireWorkspace,
   route,
+  workspaceRole,
+  workspacesFor,
 } from "@/lib/server/context";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import { sessionUserFromRequest } from "@/lib/supabase/route";
 
 export const dynamic = "force-dynamic";
 
-export const GET = route(async (req) => {
+/** One row of the shell's workspace switcher: what it is, and what you are in it. */
+interface WorkspaceRow extends Pick<Workspace, "id" | "name" | "slug"> {
+  role: Role;
+}
+
+export const GET = route(async () => {
+  const state = currentRequest();
+  const user = state?.user ?? null;
+  // A signed-in stranger is refused by name here (requireWorkspace throws the
+  // denial) rather than silently becoming an editor of whichever workspace
+  // sorted first.
   const workspace = requireWorkspace();
   const d = db();
-  /** null = signed out (or auth not configured — see `auth.configured`) */
-  const user = await sessionUserFromRequest(req);
-  /** the caller's own role — every role-gated control in the UI reads this */
-  let role: Role | null = isSupabaseConfigured() ? null : roleOf(demoActor());
-  if (user) {
-    const outcome = ensureMember(user);
-    // A signed-in stranger is refused by name here rather than silently
-    // becoming an editor of the only workspace.
-    if ("denied" in outcome)
-      throw new ApiError(outcome.denied.message, 403, { fix: outcome.denied.fix });
-    role = outcome.member.role;
-  }
+
+  /** the caller's own role *here* — every role-gated control in the UI reads this */
+  const role: Role | null =
+    isSupabaseConfigured() && !user
+      ? null
+      : (state?.member?.role ?? workspaceRole(demoActor()));
+
+  /** every workspace the caller can switch to, with their role in each */
+  const workspaces: WorkspaceRow[] = workspacesFor(user).map((w) => ({
+    id: w.id,
+    name: w.name,
+    slug: w.slug,
+    // Demo mode is one local user who is admin of the one workspace there is.
+    role: user ? (d.members.find((m) => m.workspaceId === w.id && m.id === user.id)?.role ?? "viewer") : "admin",
+  }));
+
   const projects = d.projects.filter((p) => p.workspaceId === workspace.id);
   const projectIds = new Set(projects.map((p) => p.id));
   const environments = d.environments.filter((e) => projectIds.has(e.projectId));
@@ -45,6 +60,7 @@ export const GET = route(async (req) => {
 
   return {
     workspace,
+    workspaces,
     projects,
     environments,
     deployments,

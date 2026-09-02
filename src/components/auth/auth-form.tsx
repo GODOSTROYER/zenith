@@ -10,6 +10,11 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Eye, EyeOff } from "lucide-react";
 import { Button, Field, Input, Skeleton } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
+import {
+  OAUTH_PROVIDER_LABEL,
+  SUPABASE_OAUTH_PROVIDERS,
+  type OAuthProvider,
+} from "@/lib/supabase/env";
 import { explain, isUnconfirmedEmail, messageForErrorCode } from "./messages";
 
 export type AuthMode = "login" | "signup" | "forgot" | "reset";
@@ -185,6 +190,34 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     }
   }
 
+  /**
+   * Hand off to the provider. Which providers exist is configuration
+   * (NEXT_PUBLIC_SUPABASE_OAUTH_PROVIDERS) matching what the operator enabled
+   * in the Supabase dashboard — this never offers a door the project cannot open.
+   */
+  async function oauth(provider: OAuthProvider) {
+    setBusy(true);
+    setError(undefined);
+    setUnconfirmed(false);
+    try {
+      const { error } = await createClient().auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+        },
+      });
+      if (error) throw error;
+      // Success navigates this tab to the provider; `busy` stays on so the
+      // page does not look idle during the hop.
+    } catch (err) {
+      fail(err);
+      setBusy(false);
+    }
+  }
+
+  /** Only sign-in and sign-up offer providers; the password pages are email-only. */
+  const providers = mode === "login" || mode === "signup" ? SUPABASE_OAUTH_PROVIDERS : [];
+
   const resendButton = email.trim() ? (
     <Button variant="quiet" size="sm" busy={busy} onClick={resend}>
       Send the confirmation email again
@@ -195,6 +228,26 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     <div className="rounded-[12px] border border-line bg-bg1 p-6 sm:p-7">
       <h1 className="text-[24px] font-bold leading-[1.1] tracking-[-0.02em] text-ink">{c.title}</h1>
       <p className="mt-1.5 text-[14px] text-ink-mute">{c.body}</p>
+
+      {/* Above the form, and only while the form is the thing on screen: once
+          `done` replaces it with "check your inbox", a provider button would be
+          offering a second way in beside an instruction to finish the first. */}
+      {providers.length > 0 && !done && (
+        <>
+          <div className="mt-6 space-y-2.5">
+            {providers.map((p) => (
+              <Button key={p} block busy={busy} onClick={() => oauth(p)}>
+                Continue with {OAUTH_PROVIDER_LABEL[p]}
+              </Button>
+            ))}
+          </div>
+          <div className="mt-5 flex items-center gap-3 text-[12px] text-ink-faint">
+            <span aria-hidden className="h-px flex-1 bg-line" />
+            or
+            <span aria-hidden className="h-px flex-1 bg-line" />
+          </div>
+        </>
+      )}
 
       {done ? (
         <div

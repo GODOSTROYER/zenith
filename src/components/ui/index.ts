@@ -37,6 +37,13 @@ export { Skeleton, type SkeletonProps } from "./skeleton";
 export { Sparkline, type SparklineProps } from "./sparkline";
 export { StatusDot, type DotStatus, type StatusDotProps } from "./status-dot";
 export { Switch, type SwitchProps } from "./switch";
+export {
+  Table,
+  type SortDirection,
+  type SortState,
+  type TableColumn,
+  type TableProps,
+} from "./table";
 export { Tabs, type TabItem, type TabsProps } from "./tabs";
 export { Textarea, type TextareaProps } from "./textarea";
 export { ThemeToggle, type Theme } from "./theme-toggle";

@@ -174,9 +174,10 @@ const RANK: Record<Role, number> = { viewer: 0, editor: 1, admin: 2 };
  * never sees a human — without this a viewer could execute `deploy.apply`
  * through the agent that they cannot execute from the System Map.
  */
-function roleBlock(steps: NavigatorStep[], human: Actor): string | undefined {
+function roleBlock(steps: NavigatorStep[], human: Actor, workspaceId: string): string | undefined {
   if (human.type !== "user") return undefined;
-  const role = roleOf(human);
+  // The run belongs to a project, and the project owns the workspace answer.
+  const role = roleOf(human, workspaceId);
   const registry = actionRegistry();
   for (const step of steps) {
     const action = registry.get(step.actionId);
@@ -253,14 +254,17 @@ export async function executeRun(
           s.status !== "done" &&
           (!s.needsApproval || approved.has(s.id))
       ),
-      human
+      human,
+      project.workspaceId
     );
     if (blocked) throw new Error(blocked);
   }
 
   const level = autonomy();
   const ctx: ActionContext = {
-    workspaceId: db().workspaces[0]?.id ?? "",
+    // The project the run belongs to owns the answer: the Navigator acts in the
+    // workspace the human was in when they planned it, not the first one here.
+    workspaceId: project.workspaceId,
     projectId: project.id,
     actor: NAVIGATOR,
     autonomy: level,

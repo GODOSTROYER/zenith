@@ -16,7 +16,6 @@ import type {
   DeploymentStatus,
   Output,
 } from "@/lib/domain/types";
-import { cx } from "@/lib/format";
 import {
   Button,
   Card,
@@ -30,6 +29,7 @@ import {
   SegmentedControl,
   Skeleton,
   StatusDot,
+  Table,
   TimeAgo,
   type DotStatus,
   type LogLine,
@@ -273,26 +273,32 @@ export default function DeploysPage() {
                   </Button>
                 </div>
               ) : (
-                <ul className="overflow-y-auto lg:max-h-[70vh]">
-                  {(shown ?? list).map((d) => (
-                    <li key={d.id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedId(d.id)}
-                        aria-current={selected?.id === d.id ? "true" : undefined}
-                        className={cx(
-                          "flex w-full gap-2.5 border-b border-line px-4 py-3 text-left transition-colors duration-[var(--dur-fast)] last:border-b-0",
-                          selected?.id === d.id ? "bg-bg3" : "hover:bg-bg1"
-                        )}
-                      >
-                        <span className="mt-1">
-                          <StatusDot
-                            status={STATUS_DOT[d.status]}
-                            pulse={isLive(d.status)}
-                            label={STATUS_LABEL[d.status]}
-                          />
-                        </span>
-                        <span className="min-w-0 flex-1">
+                <Table<Deployment>
+                  caption={`Deployments to ${env.name}, newest first — pick one to see its steps, logs and outputs`}
+                  wrapperClassName="overflow-y-auto lg:max-h-[70vh]"
+                  rows={shown ?? list}
+                  rowKey={(d) => d.id}
+                  selectedKey={selected?.id}
+                  onSelectRow={(d) => setSelectedId(d.id)}
+                  columns={[
+                    {
+                      key: "status",
+                      header: "",
+                      headerLabel: "Status",
+                      width: 26,
+                      render: (d) => (
+                        <StatusDot
+                          status={STATUS_DOT[d.status]}
+                          pulse={isLive(d.status)}
+                          label={STATUS_LABEL[d.status]}
+                        />
+                      ),
+                    },
+                    {
+                      key: "deployment",
+                      header: "Deployment",
+                      render: (d) => (
+                        <>
                           <span className="flex items-baseline gap-2">
                             <span className="tnum font-mono text-[12px] text-ink">
                               r{revisionNumbers.get(d.revisionId) ?? "?"}
@@ -305,11 +311,11 @@ export default function DeploysPage() {
                             <ActorDot actor={d.actor} />
                             {d.actor.name} · <TimeAgo iso={d.createdAt} />
                           </span>
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                        </>
+                      ),
+                    },
+                  ]}
+                />
               )}
               {list && cursor ? (
                 <div className="border-t border-line p-2">

@@ -23,8 +23,10 @@ import {
   SegmentedControl,
   Select,
   Skeleton,
+  Table,
   TimeAgo,
   type ChipTone,
+  type TableColumn,
 } from "@/components/ui";
 import { useSelectedEnv } from "@/components/screens/project-data";
 import { ActorDot, ErrorNote } from "@/components/screens/shared";
@@ -390,11 +392,16 @@ export default function ActivityPage() {
                 </span>
               </h3>
               <Card padded={false}>
-                <ul>
-                  {day.events.map((e) => (
-                    <EventRow key={e.id} event={e} slug={slug} />
-                  ))}
-                </ul>
+                {/* One table per day: a single table spanning the whole feed
+                    would put a day heading inside a row, which is a heading
+                    pretending to be data. The day is the caption. */}
+                <Table<AuditEvent>
+                  caption={`${day.label} — ${day.events.length} action${day.events.length === 1 ? "" : "s"}`}
+                  rows={day.events}
+                  rowKey={(e) => e.id}
+                  rowClassName={(e) => (e.actor.type === "navigator" ? "bg-nav-dim/30" : undefined)}
+                  columns={ACTIVITY_COLUMNS(slug)}
+                />
               </Card>
             </section>
           ))}
@@ -414,23 +421,44 @@ export default function ActivityPage() {
   );
 }
 
-function EventRow({ event: e, slug }: { event: AuditEvent; slug: string }) {
+/**
+ * The three columns of the feed, built once per slug. Identical for every day
+ * table, so the columns line up down the whole page rather than being
+ * re-measured per group.
+ */
+const ACTIVITY_COLUMNS = (slug: string): TableColumn<AuditEvent>[] => [
+  {
+    key: "actor",
+    header: "",
+    headerLabel: "Who",
+    width: 26,
+    render: (e) => <ActorDot actor={e.actor} />,
+  },
+  {
+    key: "action",
+    header: "Action",
+    render: (e) => <EventCell event={e} slug={slug} />,
+  },
+  {
+    key: "result",
+    header: "Result",
+    align: "right",
+    render: (e) => (
+      <Chip tone={RESULT_TONE[e.result]} className="shrink-0">
+        {RESULT_LABEL[e.result]}
+      </Chip>
+    ),
+  },
+];
+
+function EventCell({ event: e, slug }: { event: AuditEvent; slug: string }) {
   const [open, setOpen] = useState(false);
   const isAgent = e.actor.type === "navigator";
   const link = objectLink(e);
   const hasInput = e.input !== undefined && e.input !== null && JSON.stringify(e.input) !== "{}";
 
   return (
-    <li
-      className={cx(
-        "flex items-start gap-3 border-b border-line px-5 py-3 last:border-b-0",
-        isAgent && "bg-nav-dim/30"
-      )}
-    >
-      <span className="mt-1.5">
-        <ActorDot actor={e.actor} />
-      </span>
-      <div className="min-w-0 flex-1">
+    <div className="min-w-0">
         <p className="text-[13px] text-ink">{e.summary}</p>
         {e.error && <p className="mt-0.5 text-[12.5px] text-err">{e.error}</p>}
         <p className="mt-1 flex flex-wrap items-center gap-2 text-[11.5px] text-ink-faint">
@@ -489,11 +517,7 @@ function EventRow({ event: e, slug }: { event: AuditEvent; slug: string }) {
             Exactly what was recorded when the action ran, with secret-shaped keys redacted.
           </p>
         )}
-      </div>
-      <Chip tone={RESULT_TONE[e.result]} className="mt-0.5 shrink-0">
-        {RESULT_LABEL[e.result]}
-      </Chip>
-    </li>
+    </div>
   );
 }
 

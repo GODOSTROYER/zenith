@@ -34,6 +34,13 @@ export const SECRET_KEY_FIX =
   "Set ORRERY_SECRET_KEY in .env.local to a 32-byte key and restart the server — generate one with `openssl rand -base64 32` (hex is accepted too). Keep the same key: values written under an old one cannot be read back.";
 
 /**
+ * How to make email alert delivery work. One string, so the env validation
+ * error, the refused send and the channel's plan all say the same thing.
+ */
+export const SMTP_FIX =
+  "Set ORRERY_SMTP_URL in .env.local to smtp://user:pass@host:port (smtps:// for implicit TLS) and ORRERY_ALERT_FROM to the address the mail comes from, then restart the server. Webhook and Slack channels need neither.";
+
+/**
  * The 32 raw bytes of `ORRERY_SECRET_KEY`, or undefined if it is not a key.
  * Accepts base64 (with or without padding) and hex, because both are what the
  * usual one-liners print.
@@ -64,6 +71,26 @@ const Schema = z.object({
     .string()
     .refine((v) => decodeSecretKey(v) !== undefined, `must decode to exactly 32 bytes. ${SECRET_KEY_FIX}`)
     .optional(),
+  /**
+   * Optional. The SMTP server email alert channels send through. Unset means an
+   * email channel refuses to send and says so — webhook and Slack channels are
+   * unaffected. The password is in this string, so it never reaches a response.
+   */
+  ORRERY_SMTP_URL: z
+    .string()
+    .refine(
+      (v) => /^smtps?:\/\/.+/.test(v.trim()),
+      `must be an SMTP URL. ${SMTP_FIX}`
+    )
+    .optional(),
+  /** Optional. The From address on alert email. Required alongside ORRERY_SMTP_URL. */
+  ORRERY_ALERT_FROM: z
+    .string()
+    .refine(
+      (v) => /.+@.+\..+/.test(v.trim()),
+      'must contain an email address, e.g. "Orrery <orrery@example.com>" or "orrery@example.com".'
+    )
+    .optional(),
 });
 
 export type OrreryEnv = Omit<z.infer<typeof Schema>, "ORRERY_FAST"> & {
@@ -90,15 +117,19 @@ export function env(): OrreryEnv {
     ORRERY_LLM_MODEL: present("ORRERY_LLM_MODEL"),
     ORRERY_LOG_LEVEL: present("ORRERY_LOG_LEVEL"),
     ORRERY_SECRET_KEY: present("ORRERY_SECRET_KEY"),
+    ORRERY_SMTP_URL: present("ORRERY_SMTP_URL"),
+    ORRERY_ALERT_FROM: present("ORRERY_ALERT_FROM"),
   });
 
   if (!parsed.success) {
     const lines = parsed.error.issues.map((i) => {
       const key = String(i.path[0] ?? "(unknown)");
       const raw = process.env[key] ?? "";
-      // A rejected key is still key material — echoing it would put it in the
-      // boot log. Say how long it was; that is what makes the error actionable.
-      const shown = key === "ORRERY_SECRET_KEY" ? `(${raw.length} chars, hidden)` : JSON.stringify(raw);
+      // A rejected key is still key material, and a rejected SMTP URL still
+      // carries a password — echoing either would put it in the boot log. Say
+      // how long it was; that is what makes the error actionable.
+      const secretish = key === "ORRERY_SECRET_KEY" || key === "ORRERY_SMTP_URL";
+      const shown = secretish ? `(${raw.length} chars, hidden)` : JSON.stringify(raw);
       return `  ${key}=${shown} — ${i.message}`;
     });
     throw new Error(

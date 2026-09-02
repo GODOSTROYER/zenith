@@ -29,6 +29,7 @@ import { PlanFirst } from "@/components/inspector/plan-first";
 import { DeployDock } from "@/components/deploy/deploy-dock";
 import { useJson } from "@/lib/client/api";
 import { nodeMonthlyCostUsd } from "@/lib/cost/pricing";
+import { DRIFT_POLL_MS, type DriftResponse } from "@/lib/drift";
 import type { ChangeItem } from "@/lib/domain/types";
 import { BlueprintDialog, ImportDialog, type BlueprintCard } from "./dialogs";
 import { edgeTypes, type BindingEdge } from "./edges";
@@ -108,6 +109,26 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
     deployed ? `/api/health/${selectedEnvId}` : null,
     5000
   );
+
+  /* Drift, from the same route the Observe screen reads. Only asked for once
+     something is deployed — there is nothing to compare against otherwise —
+     and on a slow cadence, because drift is someone editing a console by hand.
+     A provider that cannot observe answers with an error here; the map simply
+     shows no chips, and Observe is where the refusal is explained in full. */
+  const { data: drift } = useJson<DriftResponse>(
+    deployed ? `/api/environments/${selectedEnvId}/drift` : null,
+    DRIFT_POLL_MS
+  );
+
+  /** Worst drift per node. `extra` rows have no node to sit on and are skipped. */
+  const driftByNode = useMemo(() => {
+    const byNode = new Map<string, MapNodeData["drift"]>();
+    // computeDrift returns highest severity first, so the first hit per node wins.
+    for (const it of drift?.items ?? [])
+      if (it.nodeId && !byNode.has(it.nodeId))
+        byNode.set(it.nodeId, { kind: it.kind, severity: it.severity, detail: it.detail });
+    return byNode;
+  }, [drift]);
 
   const exitBind = useCallback(() => {
     setBinding(false);
@@ -481,6 +502,10 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
         data: {
           ...n.data,
           selected: selectedNodeId === n.id,
+          // Presentational, and merged here rather than in the structural memo
+          // above on purpose: drift arrives on its own poll, and folding it in
+          // there would re-lay-out the whole graph every time it ticked.
+          drift: driftByNode.get(n.id),
           bindState: bindState(n.id),
           focused: n.id === roving,
           dimmed: matches ? !matches.has(n.id) : false,
@@ -539,6 +564,7 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
     bindFrom,
     matches,
     manifestKey,
+    driftByNode,
     onNodeActivate,
     centerOn,
   ]);
@@ -625,6 +651,18 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
             // the panel can never disagree about what is open.
             elementsSelectable={false}
             edgesFocusable={false}
+            // M10. Culling is safe here for a reason worth writing down: every
+            // node carries explicit `width`/`height` from NODE_SIZE before the
+            // first paint, so React Flow knows each rect without a measurement
+            // pass — the condition its own docs warn about. Ghost nodes and
+            // ghost edges go into the same `raw`/`edgeDefs` arrays with the
+            // same geometry and real endpoint ids, so they are culled by
+            // position exactly like anything else and never selectively.
+            //
+            // Guarded rather than always on: under ~60 nodes `fitView` already
+            // shows the whole graph, so the per-node viewport test on every pan
+            // frame would cost something and save nothing.
+            onlyRenderVisibleElements={nodeCount > 60}
             onEdgeClick={(_, edge) => setTarget({ kind: "binding", bindingId: edge.id })}
             onPaneClick={() => setMenu(null)}
             panOnScroll

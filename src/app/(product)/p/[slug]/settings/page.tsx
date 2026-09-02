@@ -20,6 +20,7 @@ import { useSelectedEnv } from "@/components/screens/project-data";
 import { ActionConfirm, ErrorNote } from "@/components/screens/shared";
 import { useShell } from "@/components/shell/shell-context";
 import { useGate } from "./access";
+import { AlertChannelsSection } from "./alerts";
 import { ConnectionsSection } from "./connections";
 import { EnvironmentsSection } from "./environments";
 import { MembersSection } from "./members";
@@ -32,6 +33,7 @@ const SECTIONS = [
   { id: "environments", label: "Environments" },
   { id: "connections", label: "Connections" },
   { id: "secrets", label: "Secrets" },
+  { id: "alerts", label: "Alerts" },
   { id: "export", label: "Export" },
   { id: "danger", label: "Danger zone" },
 ];
@@ -178,6 +180,15 @@ export default function SettingsPage() {
               role={role}
             />
           )}
+        </section>
+
+        {/* -------------------------------- alerts -------------------------- */}
+        <section id="alerts" className="scroll-mt-16 space-y-4">
+          <SectionHead
+            title="Alerts"
+            body="Where an alert goes once it exists. Channels are workspace-wide; the rules that use them live on Observe. Without a channel here, an alert is seen only by somebody who opens Orrery."
+          />
+          <AlertChannelsSection projectId={projectId} role={role} />
         </section>
 
         {/* -------------------------------- export -------------------------- */}

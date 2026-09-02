@@ -11,15 +11,22 @@ import type {
   CloudConnection,
   Environment,
   Manifest,
+  Resource,
+  ResourceKind,
   Route,
   Service,
+  ServiceSize,
 } from "@/lib/domain/types";
 import { SIZE_SPECS } from "@/lib/cost/pricing";
 import { q } from "@/lib/db/store";
+import { expectedAttributes } from "@/lib/drift";
 import { secretStatus, secretStoreState } from "@/lib/secrets";
 import {
   stepBudgetMs,
+  type Discovery,
   type ExportBundle,
+  type LiveResource,
+  type LiveState,
   type PreflightReport,
   type ProviderAdapter,
   type ProviderPlanStep,
@@ -482,6 +489,95 @@ with your own credentials, with or without Orrery.
   };
 }
 
+/* ---------------------------- observe / discover --------------------------- */
+
+const SIZES: ServiceSize[] = ["nano", "small", "standard", "performance"];
+
+/** Stable pick from a list — the same environment always drifts the same way. */
+function pick<T>(xs: T[], seed: string): T | undefined {
+  return xs.length ? xs[hash32(seed) % xs.length] : undefined;
+}
+
+/** A value that plainly differs from the manifest's, without pretending to be data. */
+function driftedValue(v: string): string {
+  const n = Number(v);
+  return Number.isFinite(n) && v.trim() !== "" ? String(n + 1) : `${v}-changed-outside-orrery`;
+}
+
+/**
+ * Simulated read-back.
+ *
+ * Everything managed is reported present with exactly the attributes the
+ * deployed revision asks for, then two seeded differences are introduced — one
+ * resource a size up, one plain env var altered — so the Drift screen has
+ * something true-to-shape to render. It is a demonstration of what drift looks
+ * like, not a measurement: `simulated: true` says so on the wire, and the UI
+ * repeats it in words.
+ *
+ * Deterministic: same environment and same revision, same drift, every call.
+ */
+async function observe(env: Environment, deployed: Manifest): Promise<LiveState> {
+  const observedAt = new Date().toISOString();
+  const managedResources = deployed.resources.filter((r) => r.ownership === "managed");
+  const managedServices = deployed.services.filter((s) => s.ownership === "managed");
+
+  const sizeVictim = pick(managedResources, `${env.id}:size`);
+  const envVictim = pick(
+    managedServices.filter((s) => s.env.some((e) => e.value !== undefined)),
+    `${env.id}:env`
+  );
+  const envKey = envVictim
+    ? pick(
+        envVictim.env.filter((e) => e.value !== undefined).map((e) => e.key),
+        `${env.id}:${envVictim.id}:key`
+      )
+    : undefined;
+
+  const report = (node: Resource | Service, kind: string): LiveResource => {
+    const attributes = expectedAttributes(node);
+    if (sizeVictim && node.id === sizeVictim.id)
+      attributes.size = SIZES[(SIZES.indexOf(node.size) + 1) % SIZES.length];
+    if (envVictim && envKey && node.id === envVictim.id)
+      attributes[`env:${envKey}`] = driftedValue(String(attributes[`env:${envKey}`] ?? ""));
+    return { nodeId: node.id, kind, exists: true, attributes, observedAt };
+  };
+
+  return {
+    simulated: true,
+    observedAt,
+    resources: [
+      ...managedServices.map((s) => report(s, s.kind)),
+      ...managedResources.map((r) => report(r, r.kind)),
+    ],
+  };
+}
+
+/** Shape of the invented findings. Named so they cannot be mistaken for real. */
+const SIMULATED_FINDS: { kind: ResourceKind; base: string; note: string }[] = [
+  { kind: "object_store", base: "legacy-uploads", note: "bucket, unmanaged" },
+  { kind: "queue", base: "billing-events", note: "queue, unmanaged" },
+  { kind: "postgres", base: "reporting-replica", note: "database, unmanaged" },
+];
+
+/**
+ * A small, stable, invented set. `simulated: true` and the `sim://` prefix on
+ * every `externalRef` mean an imported reference stays legible as a simulation
+ * for anyone who later reads the manifest.
+ */
+async function discover(conn: CloudConnection, region?: string): Promise<Discovery> {
+  const where = region ?? conn.region;
+  const tag = hash32(`${conn.id}:${where}`).toString(36).slice(0, 5);
+  return {
+    simulated: true,
+    resources: SIMULATED_FINDS.map((f) => ({
+      externalRef: `sim://${where}/${f.kind}/${f.base}-${tag}`,
+      kind: f.kind,
+      name: `${f.base}-${tag}`,
+      attributes: { region: where, detail: f.note, simulated: "yes" },
+    })),
+  };
+}
+
 /* -------------------------------- adapter --------------------------------- */
 
 export const sandboxProvider: ProviderAdapter = {
@@ -525,5 +621,7 @@ export const sandboxProvider: ProviderAdapter = {
 
   planSteps,
   executeStep,
+  observe,
+  discover,
   exportBundle,
 };

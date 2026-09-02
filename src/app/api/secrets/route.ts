@@ -26,7 +26,7 @@ export const GET = route(async (req) => {
   const asked = req.nextUrl.searchParams.get("workspace");
   if (asked && asked !== workspace.id && asked !== workspace.slug)
     throw new ApiError(`No workspace "${asked}".`, 404, {
-      fix: `This server runs one workspace, "${workspace.slug}". Drop the parameter, or pass that id.`,
+      fix: `Your current workspace is "${workspace.slug}". Drop the parameter, or pass that id — secrets are read per workspace, and the one selected in the top bar is the one this server resolves for you.`,
     });
 
   const state = secretStoreState();

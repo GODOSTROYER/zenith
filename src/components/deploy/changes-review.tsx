@@ -4,9 +4,9 @@ import { Rocket, ShieldAlert } from "lucide-react";
 import { Button, Callout, Chip, CostDelta, Input, RiskBadge, useToasts } from "@/components/ui";
 import { useProjectData } from "@/components/shell/project-context";
 import { ChangeRow } from "@/components/screens/shared";
-import { ApiError, executeAction, planAction } from "@/lib/client/api";
+import { api, ApiError, executeAction, planAction } from "@/lib/client/api";
 import type { ActionPlan } from "@/lib/actions/core";
-import { cx, fmtUsd } from "@/lib/format";
+import { cx, fmtDuration, fmtUsd } from "@/lib/format";
 import type { ChangeItem, Changeset } from "@/lib/domain/types";
 
 const GROUPS: { op: ChangeItem["op"]; label: string }[] = [
@@ -14,6 +14,16 @@ const GROUPS: { op: ChangeItem["op"]; label: string }[] = [
   { op: "update", label: "Changed" },
   { op: "delete", label: "Removed" },
 ];
+
+/** `POST /api/environments/:id/plan-steps` — the steps a deploy would run. */
+interface StepPlan {
+  phases: { name: string; steps: { title: string; estMs: number }[] }[];
+  /** true when the provider is the sandbox and none of this touches a real cloud */
+  simulated: boolean;
+  provider: string;
+  /** present instead of `phases` when this provider cannot plan */
+  blocked?: string;
+}
 
 
 /** djb2 — enough to key a changeset, not a security hash. */
@@ -40,6 +50,7 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
   const [busy, setBusy] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const [typed, setTyped] = useState("");
+  const [steps, setSteps] = useState<StepPlan>();
   const [error, setError] = useState<{ message: string; fix?: string } | null>(null);
 
   const scope = { projectId: project.id, environmentId: selectedEnvId };
@@ -59,6 +70,27 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
     // scope is derived from these two; changesetKey is the re-plan trigger
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id, selectedEnvId, changesetKey]);
+
+  // The would-be deployment's steps, from the provider's own planner. Keyed on
+  // the changeset's hash, not on the changeset: this is a POST, and re-posting
+  // it on every keystroke in the message field would be a request per letter.
+  const changesetHash = hash(changesetKey);
+  useEffect(() => {
+    if (!selectedEnvId) return;
+    let alive = true;
+    setSteps(undefined);
+    api<StepPlan>(`/api/environments/${selectedEnvId}/plan-steps`, {
+      method: "POST",
+      body: JSON.stringify({ revisionSource: "working" }),
+    })
+      .then((s) => alive && setSteps(s))
+      // A preview that cannot be fetched is not worth a banner — the deploy
+      // path is unaffected, and the blocking reasons above already speak.
+      .catch(() => alive && setSteps(undefined));
+    return () => {
+      alive = false;
+    };
+  }, [selectedEnvId, changesetHash]);
 
   // One authority for "this would be refused": the server's own plan, which
   // already folds in the provider, the connection, the caller's role and the
@@ -200,6 +232,8 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
         })}
       </div>
 
+      <StepPreview plan={steps} />
+
       {error && (
         <Callout tone="err">
           <p className="text-[13px] text-ink">{error.message}</p>
@@ -251,5 +285,81 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
         </Button>
       </div>
     </div>
+  );
+}
+
+/**
+ * What the deploy would actually do, phase by phase, before it does it.
+ *
+ * The same steps the deployment timeline will show once this is running — they
+ * come from the same `provider.planSteps` the engine calls — so the review and
+ * the deploy tell one story. Deliberately no progress bars: nothing has run,
+ * and an empty bar per phase would be four pieces of furniture saying nothing.
+ *
+ * Every number here is an estimate and says so once, at the top. A provider
+ * that cannot plan says that instead, in its own words.
+ */
+function StepPreview({ plan }: { plan: StepPlan | undefined }) {
+  if (!plan) return null;
+
+  if (plan.blocked)
+    return (
+      <p className="border-t border-line pt-3 text-[12.5px] text-ink-mute">{plan.blocked}</p>
+    );
+
+  const total = plan.phases.reduce(
+    (sum, p) => sum + p.steps.reduce((n, s) => n + s.estMs, 0),
+    0
+  );
+  const count = plan.phases.reduce((n, p) => n + p.steps.length, 0);
+  if (count === 0) return null;
+
+  return (
+    <section className="space-y-3 border-t border-line pt-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-[12px] font-medium tracking-[0.04em] text-ink-faint uppercase">
+          What this deploy would do · {count} step{count === 1 ? "" : "s"}
+        </h3>
+        <span className="flex items-center gap-2 text-[11.5px] text-ink-faint">
+          {plan.simulated && (
+            <Chip title="The sandbox provider runs these steps in this process. Nothing reaches a real cloud and the addresses it hands back are local.">
+              simulated
+            </Chip>
+          )}
+          <span title="Estimated by the provider from the plan. Real durations are recorded per step while the deploy runs.">
+            about <span className="tnum font-mono text-ink-mute">{fmtDuration(total)}</span>, estimated
+          </span>
+        </span>
+      </div>
+
+      <div className="space-y-3">
+        {plan.phases.map((phase) => (
+          <div key={phase.name} className="space-y-1">
+            <div className="text-[11px] font-medium tracking-[0.06em] text-ink-faint uppercase">
+              {phase.name}
+            </div>
+            <ul className="space-y-0.5">
+              {phase.steps.map((s, i) => (
+                <li
+                  key={`${phase.name}-${i}-${s.title}`}
+                  className="flex items-center gap-2.5 px-2 py-1"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="h-1.5 w-1.5 shrink-0 rounded-full bg-bg3 ring-1 ring-line"
+                  />
+                  <span className="min-w-0 flex-1 truncate text-[13px] text-ink-mute">
+                    {s.title}
+                  </span>
+                  <span className="tnum shrink-0 font-mono text-[11.5px] text-ink-faint">
+                    ~{fmtDuration(s.estMs)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }

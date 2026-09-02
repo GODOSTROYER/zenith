@@ -1,7 +1,12 @@
 /**
- * Auth callback: completes email confirmation, magic links and password
- * resets (and OAuth later). Handles both the PKCE `code` form and the
- * `token_hash` + `type` form Supabase uses in email templates.
+ * Auth callback: completes email confirmation, magic links, password resets
+ * and OAuth sign-in. Handles both the PKCE `code` form (email links and every
+ * OAuth provider) and the `token_hash` + `type` form Supabase uses in email
+ * templates.
+ *
+ * A refused or failed OAuth handshake arrives here with no code at all — just
+ * Supabase's `error*` params — so those are read first. Otherwise a user who
+ * pressed "Cancel" at GitHub would be told to request a fresh email link.
  */
 import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
@@ -21,8 +26,16 @@ export async function GET(request: NextRequest) {
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
 
+  /** What the provider/Supabase said went wrong. Mapped to a code, never rendered. */
+  const refused = ["error", "error_code", "error_description"]
+    .map((k) => searchParams.get(k))
+    .filter(Boolean)
+    .join(" ");
+
   let errorMessage: string | undefined;
-  if (code) {
+  if (refused) {
+    errorMessage = refused;
+  } else if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     errorMessage = error?.message;
   } else if (tokenHash && type) {

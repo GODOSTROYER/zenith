@@ -56,6 +56,8 @@ silently falling back.
 | `ORRERY_LLM_MODEL` | model id for the Navigator's optional language front-end. Pin an older snapshot or try a cheaper one; the default tracks the model the grammar prompt was tested against. | `claude-opus-5` |
 | `ORRERY_LOG_LEVEL` | lowest level `src/lib/log.ts` emits (`debug` \| `info` \| `warn` \| `error`) | `info` |
 | `ORRERY_SECRET_KEY` | 32 bytes (base64 or hex) encrypting the secret store at `<ORRERY_DATA>/secrets.json`. Generate with `openssl rand -base64 32`. Unset means Orrery holds no secret values: every write is refused, saying so, and a manifest can still reference a value you keep elsewhere. Values written under an old key cannot be read back. | unset |
+| `ORRERY_SMTP_URL` | SMTP server for **email** alert delivery channels, `smtp://user:pass@host:port` (`smtps://` for implicit TLS). Carries the password, so it is never echoed in an error, a response or a log line. Unset means an email channel records its refusal as the delivery failure, naming this variable; webhook and Slack channels need neither this nor `nodemailer`. | unset |
+| `ORRERY_ALERT_FROM` | From address on alert email, e.g. `Orrery <orrery@example.com>`. Required alongside `ORRERY_SMTP_URL` — without it every send is refused, saying so. | unset |
 | `AWS_ACCESS_KEY_ID` etc. | detected by the AWS preflight; **apply is disabled in Preview** either way | unset |
 | `ANTHROPIC_API_KEY` | optional Navigator LLM parsing; without it the deterministic planner runs (and says so) | unset |
 
@@ -86,6 +88,44 @@ the landing page and `/preview/*` stay public. On the hosted project, email
 confirmation is on, so a new sign-up gets a link that returns through
 `/auth/callback`; the seeded accounts below are pre-confirmed.
 
+### Sign in with GitHub or Google
+
+Optional, and off until you say otherwise. `/login` and `/signup` show a
+`Continue with …` button for each provider named in
+`NEXT_PUBLIC_SUPABASE_OAUTH_PROVIDERS` (comma-separated; known names are
+`github` and `google`). Unset — the default — means no buttons and no divider:
+the pages stay email-and-password only. An unknown name is ignored with a
+console warning rather than rendered, so a typo never becomes a button that
+dies at the provider.
+
+Enabling one takes three steps, in this order:
+
+1. **Supabase dashboard → Authentication → Providers →** the provider. Turn it
+   on and paste the client id and secret from the provider's own developer
+   console (GitHub: Settings → Developer settings → OAuth Apps; Google: Cloud
+   Console → APIs & Services → Credentials).
+2. **Register the redirect URL** the provider sends the user back to. In the
+   provider's console that is Supabase's own callback, shown on the same
+   dashboard page (`https://<project-ref>.supabase.co/auth/v1/callback`). In
+   Supabase, under **Authentication → URL Configuration**, add Orrery's
+   callback — `<site>/auth/callback`, i.e. `http://localhost:3400/auth/callback`
+   in development — to **Redirect URLs**, and set **Site URL** to `<site>`.
+3. **Name it in `.env.local`** — `NEXT_PUBLIC_SUPABASE_OAUTH_PROVIDERS=github,google`
+   — and restart the dev server. `NEXT_PUBLIC_*` is inlined at build time, so a
+   running server will not pick it up.
+
+Signing in with a provider is still not joining. An OAuth user lands on the
+same `/auth/callback`, becomes the same session, and meets the same rule below:
+first real member, an invite naming their email, or an operator-set
+`app_metadata.role`. Anyone else is refused by name, with the admins who can
+invite them — exactly as an email user is. Their display name comes from
+whatever the provider sent (`full_name`, then `name`, then `user_name`, then
+`preferred_username`), falling back to the email's local part.
+
+A refused or cancelled handshake comes back to `/login` as a *code*, never the
+provider's text, and is rendered from the fixed table in
+`src/components/auth/messages.ts`.
+
 **Test accounts** (dev only — created by `npm run seed:users`):
 
 | Email | Password | Role |
@@ -107,11 +147,16 @@ surface yet.
 
 ## Provider honesty
 
-| Provider | Status | What that means |
-| --- | --- | --- |
-| Sandbox | **Available** | Fully working *simulated* execution. Clearly labeled; URLs serve a local preview page. |
-| AWS | **Preview** | Real deployment planning and real Terraform/OpenTofu export. Applying from Orrery is disabled until credentials support ships. |
-| Kubernetes / GCP / Azure | **Planned** | Visible in the picker, not selectable. |
+| Provider | Status | Deploy | Drift & discovery | What that means |
+| --- | --- | --- | --- | --- |
+| Sandbox | **Available** | Simulated | Simulated, labeled | Fully working *simulated* execution. Clearly labeled; URLs serve a local preview page. Drift and discovery are deterministic simulations that show what those features look like — references it writes are prefixed `sim://` so they stay recognisable. |
+| LocalStack | **Available** | Real for S3 + SQS | **Real** | AWS emulated on your machine. Buckets and queues provision for real; kinds Community cannot emulate run as labeled local simulations. Drift genuinely reads the endpoint, and reports nothing at all about the kinds it only simulated. Requires Docker + LocalStack running. |
+| AWS | **Preview** | No — plan + export only | Refuses | Real deployment planning and real Terraform/OpenTofu export. Applying from Orrery is disabled until credentials support ships, and **no code path reads your account** — so drift and discovery refuse rather than return an empty, reassuring answer. Use `terraform plan` against the exported bundle. |
+| Kubernetes / GCP / Azure | **Planned** | No | No | Visible in the picker, not selectable. |
+
+Everything imported by live discovery lands as a **referenced** resource:
+Orrery shows it and binds to it, but never provisions, changes or deletes it,
+and it never appears in a cost estimate.
 
 ## Repository shape
 

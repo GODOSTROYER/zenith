@@ -18,6 +18,7 @@ import {
 import { Chip, StatusDot, type DotStatus } from "@/components/ui";
 import { cx, fmtUsd } from "@/lib/format";
 import type { Ownership } from "@/lib/domain/types";
+import type { DriftItem } from "@/lib/drift";
 import { NODE_SIZE, type Stratum } from "./layout";
 
 export interface MapNodeData extends Record<string, unknown> {
@@ -33,6 +34,13 @@ export interface MapNodeData extends Record<string, unknown> {
   healthLabel?: string;
   /** how this node differs from what the selected environment runs */
   diff?: "create" | "update" | "delete";
+  /**
+   * How this node differs from what the provider actually FOUND — the other
+   * direction entirely from `diff`, which is about what has not been deployed
+   * yet. Absent when nothing is deployed, when the provider cannot observe, or
+   * when the node matches.
+   */
+  drift?: Pick<DriftItem, "kind" | "severity" | "detail">;
   ownership?: Ownership;
   /** a deployment is touching this node right now */
   live?: boolean;
@@ -107,6 +115,12 @@ const DIFF_TITLE: Record<NonNullable<MapNodeData["diff"]>, string> = {
   delete: "Still running — the next deploy to this environment removes it.",
 };
 
+const DRIFT_TITLE: Record<DriftItem["kind"], string> = {
+  missing: "drift: deployed here, but the provider cannot find it",
+  changed: "drift: does not match the revision deployed here",
+  extra: "drift: present here, and nothing deployed owns it",
+};
+
 const BIND_LABEL: Record<NonNullable<MapNodeData["bindState"]>, string> = {
   source: "picked as the source of the new connection",
   candidate: "can be the target of the new connection",
@@ -124,6 +138,7 @@ function accessibleName(data: MapNodeData): string {
   if (data.stratum === "route") parts.push(data.tls ? "TLS on" : "no TLS");
   if (data.sub) parts.push(data.sub);
   if (data.diff) parts.push(DIFF_TITLE[data.diff]);
+  if (data.drift) parts.push(DRIFT_TITLE[data.drift.kind]);
   if (data.healthLabel) parts.push(data.healthLabel);
   // The bindings are the point of the map, and a screen reader could not hear
   // them at all: edges have no accessible presence of their own.
@@ -254,6 +269,20 @@ function DiffMark({ diff }: { diff?: MapNodeData["diff"] }) {
   return null;
 }
 
+/**
+ * Drift chip — deliberately the same visual grammar as DiffMark, because a
+ * reader is asking the same question of both: "is this node not what I think?"
+ * The tooltip carries the sentence; the chip only has room for the word.
+ */
+function DriftMark({ drift }: { drift?: MapNodeData["drift"] }) {
+  if (!drift) return null;
+  return (
+    <Chip tone={drift.severity === "high" ? "err" : "warn"} title={drift.detail}>
+      drift
+    </Chip>
+  );
+}
+
 function Cost({ usd }: { usd: number }) {
   return (
     <span className="tnum shrink-0 font-mono text-[11.5px] text-ink-faint" title="Estimated monthly cost at list prices.">
@@ -275,6 +304,7 @@ export function RouteNode({ id, data }: NodeProps<MapNode>) {
           <Lock className="h-3 w-3 shrink-0 text-ok" aria-label="TLS" />
         )}
         <DiffMark diff={data.diff} />
+        <DriftMark drift={data.drift} />
       </div>
     </NodeShell>
   );
@@ -290,6 +320,7 @@ export function ServiceNode({ id, data }: NodeProps<MapNode>) {
           {data.name}
         </span>
         <DiffMark diff={data.diff} />
+        <DriftMark drift={data.drift} />
         {data.health && <StatusDot status={data.health} label={data.healthLabel} />}
       </div>
       <div className="mt-1 flex items-baseline gap-2">
@@ -321,6 +352,7 @@ export function ResourceNode({ id, data }: NodeProps<MapNode>) {
           {data.name}
         </span>
         <DiffMark diff={data.diff} />
+        <DriftMark drift={data.drift} />
       </div>
       <div className="mt-1 flex items-baseline gap-2">
         <span

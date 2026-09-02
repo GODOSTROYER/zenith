@@ -113,8 +113,16 @@ const RANK: Record<Role, number> = { viewer: 0, editor: 1, admin: 2 };
  * seed script, the smoke run, tests) is admin because there is nobody else.
  * A user who is not a member gets the lowest role rather than the highest.
  */
-export function roleOf(actor: Actor): Role {
-  const members = db().members;
+/**
+ * The caller's role in ONE workspace. Membership is per workspace, so an
+ * admin of A is whatever their row in B says — or a viewer if they have none.
+ * Without a workspace id (legacy callers) the lookup spans every workspace;
+ * every enforcement path passes one.
+ */
+export function roleOf(actor: Actor, workspaceId?: string): Role {
+  const members = workspaceId
+    ? db().members.filter((m) => m.workspaceId === workspaceId)
+    : db().members;
   const member = members.find((m) => m.id === actor.id);
   if (member) return member.role;
   if (actor.id === "local" || members.length === 0) return "admin";
@@ -227,7 +235,7 @@ export async function runAction(
   // (Planning is read-only and stays open — you can always see what an action
   // would do before asking someone who is allowed to run it.)
   if (ctx.actor.type === "user") {
-    const role = roleOf(ctx.actor);
+    const role = roleOf(ctx.actor, ctx.workspaceId);
     if (RANK[role] < RANK[action.requiredRole]) {
       const denied: ActionResult = {
         ok: false,
@@ -305,7 +313,7 @@ function withRoleBlock(
   const out: ActionPlan = { requiredRole: action.requiredRole, ...plan };
   const needed = out.requiredRole ?? action.requiredRole;
   if (out.blocked || ctx.actor.type !== "user") return out;
-  const role = roleOf(ctx.actor);
+  const role = roleOf(ctx.actor, ctx.workspaceId);
   if (RANK[role] >= RANK[needed]) return out;
   out.blocked =
     `"${action.title}" needs the ${needed} role and you are ${role} in this workspace. ` +

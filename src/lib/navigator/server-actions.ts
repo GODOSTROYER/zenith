@@ -9,10 +9,9 @@
  */
 import { runAction } from "@/lib/actions/core";
 import { getSessionUser } from "@/lib/auth/session";
-import { db } from "@/lib/db/store";
 import type { Actor, AutonomyLevel, NavigatorRun } from "@/lib/domain/types";
 import { ensureBoot } from "@/lib/server/boot";
-import { ApiError, demoActor, ensureMember } from "@/lib/server/context";
+import { ApiError, currentWorkspace, demoActor, ensureMember } from "@/lib/server/context";
 import { plannerMode, plannerModel, type Parsing, type PlannerMode } from "./llm";
 import { cancelRun, createRun, executeRun } from "./run";
 
@@ -94,12 +93,17 @@ export interface AutonomyReply {
 export async function setAutonomyAction(level: AutonomyLevel): Promise<AutonomyReply> {
   await ensureBoot();
   try {
+    // Same resolution the API layer uses — the dial belongs to the workspace
+    // the person is actually looking at, not to whichever one sorted first.
+    const workspace = await currentWorkspace();
+    if (!workspace)
+      return {
+        error: "You are not in a workspace, so there is no autonomy dial to move.",
+        fix: "Pick a workspace from the workspace menu in the top bar, or create one at /onboarding.",
+      };
     const { result } = await runAction(
       "workspace.setAutonomy",
-      {
-        workspaceId: db().workspaces[0]?.id ?? "",
-        actor: await currentActor(),
-      },
+      { workspaceId: workspace.id, actor: await currentActor() },
       { level },
       { mode: "execute" }
     );

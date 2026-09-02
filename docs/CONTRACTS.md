@@ -11,7 +11,7 @@ edit them; never edit `package.json`** (list missing deps in your final report).
 | `@/lib/domain/types` | `Manifest`, `Service`, `Resource`, `Route`, `Binding`, `Environment`, `Project`, `Revision`, `Deployment`, `DeploymentStep`, `DeploymentEvent`, `Changeset`, `SecurityFinding`, `NavigatorRun`, `Actor`, `AutonomyLevel`, zod schemas + `id()` |
 | `@/lib/domain/graph` | `diffManifests(deployed, working)`, `validateManifest`, `bindingEnv`, `findNode`, `nodeName` |
 | `@/lib/cost/pricing` | `monthlyCostUsd(manifest)`, `nodeMonthlyCostUsd`, `SIZE_SPECS` |
-| `@/lib/db/store` | `db()`, `save()`, `resetDb()`, `q.*`, `appendEvent`, `readEvents`, `appendAudit`, `readAudit` |
+| `@/lib/db/store` | `db()`, `save(projectId?)`, `resetDb()`, `q.*` (incl. `q.revisionManifest(id)` — manifests are cold storage), `onChange(fn)`/`changed(c, projectId)` (post-save change events), `appendEvent`, `readEvents`, `appendAudit`, `readAudit` |
 | `@/lib/actions/core` | `defineAction`, `runAction`, `actionRegistry`, `ActionContext`, `ActionPlan`, `ActionResult` |
 | `@/lib/providers/types` | `ProviderAdapter`, `registerProvider`, `getProvider`, `providerRegistry`, `PreflightReport`, `ProviderProbe`, `StepRuntime`, `stepBudgetMs`, `ExportBundle` |
 | `@/lib/env` | `env()` — validated `ORRERY_*`; `configured()` — which optional keys are present |
@@ -48,15 +48,34 @@ edit them; never edit `package.json`** (list missing deps in your final report).
 
 Base: `/api`. JSON in/out. Errors: `{ error: { message, fix? } }` + proper status.
 
-- `GET  /api/bootstrap` → `{ workspace, projects, connections, providers, settings }` (single call the app shell hydrates from; providers include availability)
-- `GET  /api/projects/:id` → `{ project, environments, revisions, findings, workingIssues, changesets: { [envId]: Changeset } }`
+**Workspace resolution.** `route()` works out the caller and their current
+workspace once, before the handler runs, and stashes it for the request. Every
+scoped read calls `requireWorkspace()` — still synchronous and zero-argument —
+so a route cannot pick a different workspace than the one the request resolved
+to. The order is: the `orrery-workspace` cookie *if the caller is still a member
+of it* → their first membership → `workspaces[0]` in demo mode (no auth keys) →
+404 naming `/onboarding`. Server components and server actions call
+`await currentWorkspace()` for the same answer. `workspaceRole(actor)` gives the
+actor's role **in that workspace**; `roleOf` (actions/core) does not scope, see
+docs/LIMITATIONS.md.
+
+- `GET  /api/bootstrap` → `{ workspace, workspaces, projects, environments, deployments, connections, providers, settings, user, role, auth, members }` (single call the app shell hydrates from; providers include availability). `workspace` is the **resolved current workspace** and everything beside it is scoped to that one; `workspaces` is every workspace the caller belongs to as `{ id, name, slug, role }` — the switcher's list, and the only place the browser learns a workspace it is not in exists
+- `POST /api/workspace` body `{ name }` → 201 `{ workspace }` — creates a workspace, makes the caller its admin, and selects it (sets the cookie below). Not an action: it happens before the membership an action would role-check. In demo mode (no Supabase keys) a second workspace is refused with 409 — one local user is admin of everything, so a second one is only a second name for the same permissions
+- `POST /api/workspace/select` body `{ workspaceId }` → `{ workspace }` — sets the httpOnly `orrery-workspace` cookie. 403 when the caller is not a member (same answer for an id that does not exist, so ids stay non-enumerable), with a fix listing the workspaces they *are* in
+- `GET|POST /api/workspace/invites`, `DELETE /api/workspace/invites/:id`, `PATCH|DELETE /api/workspace/members/:id` — admin only, and scoped to the resolved workspace on both sides: `requireAdmin` reads the caller's role *in that workspace* (`workspaceRole`, not `roleOf`), and every read filters by it
+- `GET  /api/projects/:id` → `{ project, manifestHash, environments, revisions, findings, workingIssues, changesets: { [envId]: Changeset }, changesetsScopedTo? }`. `?env=<id>` computes only that environment's changeset; an unchanged payload answers `304` to `If-None-Match`. `revisions` is metadata only — manifests come one at a time from `/api/revisions/:id`
+- `GET  /api/projects/:id/stream?env=ID&after=SEQ` → **SSE** of the same payload, pushed. `event: project`, `data: { etag, ...the GET body }`, `id: <seq>`; sent on connect and again whenever the store reports the project changed, at most one message per poll tick (300ms) and never twice for the same hash. Heartbeat every 15s; `Last-Event-ID` (or `?after=`) resumes the id sequence, but a snapshot stream has nothing to replay — a reconnect always gets current state. Same workspace scoping and the same 404 as the GET. Clients keep the 5s poll behind it and fall back automatically when the stream is not delivering
+- `GET  /api/projects/:id/revisions?limit=50&cursor=` → `{ revisions, total, nextCursor? }` — paged revision metadata, newest first
+- `GET  /api/revisions/:id` → `{ revision }` **including its manifest** — the only route that serialises one, since manifests live in cold storage (see docs/ARCHITECTURE.md ADR 1)
 - `POST /api/actions/:actionId` body `{ input, mode: "plan" | "execute", scope: { projectId?, environmentId? }, idempotencyKey? }` → `{ plan? , result? }` — thin wrapper over `runAction`; actor derived from the demo session (single local user "you").
 - `GET  /api/deployments/:id` → deployment snapshot
 - `GET  /api/deployments/:id/events?after=SEQ` → **SSE** stream (replay then tail; heartbeat every 15s)
 - `GET  /api/projects/:id/audit?limit=50` → audit feed
-- `GET  /api/projects/:id/alerts?env=ID` → `{ rules, kinds, events, open, recent, simulated, generatedBy, evaluatedAt, evaluationIntervalMs, delivery }` — `events` is open alerts first then recent closed ones; `kinds` is the evaluator's own catalog (title, what it watches, threshold range) so UI copy cannot drift from what is evaluated. **Reading evaluates**: conditions are recomputed before the response, so the page never shows a stale answer. Idempotent — a burst of readers produces one record, not one each
+- `GET  /api/projects/:id/alerts?env=ID` → `{ rules, channels, kinds, events, open, recent, simulated, generatedBy, evaluatedAt, evaluationIntervalMs, delivery, emailProblem }` — `events` is open alerts first then recent closed ones, each carrying its own `deliveries: [{ channelId, at, ok, status?, error?, attempts? }]`; `kinds` is the evaluator's own catalog (title, what it watches, threshold range) so UI copy cannot drift from what is evaluated. `channels` is the **workspace's** delivery channels as metadata — the signing secret is never sent and a webhook/Slack URL is masked past its host, because that URL is itself a credential. There is deliberately no workspace-level channel route: channels ride here, so the screen that shows a delivery result can name the channel behind it. `delivery` is written from the channels that are actually enabled ("in-product only" vs. the count), and `emailProblem` is why email cannot send on this server, or `null`. **Reading evaluates**: conditions are recomputed before the response, so the page never shows a stale answer. Idempotent — a burst of readers produces one record, not one each
 - `GET  /api/projects/:id/alerts/events?limit=50&cursor=&env=ID` → `{ events, nextCursor?, simulated }` — alert history, newest first; does not evaluate
 - `GET  /api/environments/:id/export` → export bundle as JSON `{ files, readme }`
+- `GET  /api/environments/:id/drift` → `{ simulated, observedAt, items, provider, revision }` — the deployed revision against what the provider's `observe()` finds. Read-only in the strong sense: no store write, no audit row, no cached result. Refuses rather than returning an empty list when there is nothing honest to say: 409 when the environment has never been deployed, 501 when the provider cannot read back at all, 502 when an available provider was asked and failed (LocalStack stopped). `simulated` comes straight from the adapter
+- `GET  /api/connections/:id/discover?region=&projectId=` → `{ simulated, resources, alreadyReferenced, provider, region }` — resources that exist where the connection points and could be adopted. `projectId` drops what that project already references (`alreadyReferenced` counts them). Listing is not importing: nothing here touches a manifest
 - `GET  /api/logs/:environmentId/:serviceId?after=SEQ` → SSE of synthetic app logs (sandbox provider generates)
 - `GET  /api/preview/health/:deploymentId` → sandbox health summary
 - `GET  /api/secrets?workspace=ID` → secret-store metadata (never a value)
@@ -66,7 +85,7 @@ Base: `/api`. JSON in/out. Errors: `{ error: { message, fix? } }` + proper statu
 IDs are dot-namespaced, stable, and referenced by UI + Navigator:
 
 `project.create`, `project.importCompose`, `project.applyBlueprint`,
-`project.updateManifest`, `project.delete`,
+`project.updateManifest`, `project.importResources`, `project.delete`,
 `system.addService`, `system.updateService`, `system.removeService`,
 `system.addResource`, `system.updateResource`, `system.removeResource`,
 `system.addRoute`, `system.updateRoute`, `system.removeRoute`,
@@ -80,7 +99,8 @@ IDs are dot-namespaced, stable, and referenced by UI + Navigator:
 `security.resolveFinding`, `security.dismissFinding`, `security.reopenFinding`,
 `connection.create`, `connection.check`, `connection.disconnect`,
 `workspace.setAutonomy`, `workspace.rename`,
-`alerts.createRule`, `alerts.updateRule`, `alerts.deleteRule`, `alerts.acknowledge`.
+`alerts.createRule`, `alerts.updateRule`, `alerts.deleteRule`, `alerts.acknowledge`,
+`alerts.createChannel`, `alerts.updateChannel`, `alerts.deleteChannel`, `alerts.testChannel`.
 
 Rules: `deploy.apply` consults `env.policies.approvalRequired` → engine
 `awaiting_approval`; destructive manifest ops set risk accordingly; every
@@ -88,6 +108,18 @@ Rules: `deploy.apply` consults `env.policies.approvalRequired` → engine
 and `env.delete` refuse while a deployment is in flight (`plan().blocked`), and
 their plans say what keeps running afterwards: both delete Orrery's records,
 never the infrastructure those records describe.
+
+`project.importResources` (editor, plan-first) takes
+`{ connectionId, region?, resources: DiscoveredResource[] }` and adds each one
+to the working manifest as `ownership: "referenced"` with its `externalRef`,
+through the normal changeset flow — so imports show as pending changes like any
+other edit. Two rules are enforced in the action rather than trusted to the
+caller: nothing it writes is ever `managed`, and the submitted array is a
+**selection, not data** — every entry is matched by `externalRef` against a
+fresh `discover()` on the server, and the provider's record is what lands in
+the manifest. A reference the provider does not list is refused
+(`plan().blocked`), as is a connection outside the caller's workspace. The cost
+delta is always 0: a referenced resource is not Orrery's bill.
 
 ### Secrets
 
@@ -149,11 +181,58 @@ the durable record that it was true. Both live in `Database` (`alertRules`,
 - **Evaluated** every `EVALUATION_INTERVAL_MS` (15s) by an `unref`'d timer
   started in `boot()`, which returns immediately when no rules exist and saves
   only when the log changed; and again on every read of the alerts route.
-- **Delivery is in-product only.** There is no email, Slack or webhook path.
-  `useProjectAlerts` from `@/lib/client/alerts` is the delivery channel; every
-  plan and empty state says so. See docs/LIMITATIONS.md.
 - **Acknowledging is editor-level** and does not close an alert — it records
   that a named person has seen it, so the shared record says somebody is on it.
+
+#### Delivery channels (`src/lib/alerts/channels.ts`, `deliver.ts`)
+
+An `AlertChannel` is **per workspace**, stored additively on
+`db().settings.alertChannels` (`settings` is `Record<string, unknown>`, so no
+`Database` change):
+`{ id, workspaceId, kind: "webhook" | "slack" | "email", name, target, secret?,
+enabled, createdBy, createdAt, lastDelivery? }`. `AlertRule.channelIds?` selects
+them: **unset = every enabled channel**, `[]` = deliver nowhere (on screen
+only), and a disabled channel is skipped either way.
+
+- **webhook** — `POST` of
+  `{ source: "orrery", event: "alert.fired" | "alert.resolved" | "alert.test",
+  sentAt, text, alert: { id, ruleId, projectId, environmentId, severity,
+  simulated, summary, detail, firedAt, resolvedAt?, resolvedReason? } }`.
+  With a secret, `X-Orrery-Signature: sha256=<hex>` is an HMAC-SHA256 over the
+  **exact bytes posted** (the body is built once so the two can never diverge).
+  `X-Orrery-Event` carries the same event name.
+- **slack** — Slack's incoming-webhook payload: `text` (the notification line)
+  plus `blocks` — a `section` with mrkdwn, then a `context` line carrying
+  severity/close reason and the `simulated` note.
+- **email** — SMTP through `nodemailer`, `ORRERY_SMTP_URL` +
+  `ORRERY_ALERT_FROM`. The package is imported at send time through a
+  non-literal specifier, so `tsc` passes without it and a workspace with no
+  email channel never needs it; a missing package or variable is reported as
+  the delivery failure, naming `npm install` or the variable.
+- **Retry** — `DELIVERY_ATTEMPTS` (3) with backoff (1s, 4s; collapsed by
+  `ORRERY_FAST`), `DELIVERY_TIMEOUT_MS` (10s) per attempt via
+  `AbortSignal.timeout`. A 4xx that is not 429 is permanent and is not retried:
+  a wrong URL fails the same way three times.
+- **Recorded, never silent** — every result lands on `AlertEvent.deliveries`
+  and on `AlertChannel.lastDelivery`. `deliveries: []` means "Orrery tried and
+  had nowhere to send"; absent means the alert predates channels. The Observe
+  screen writes a different sentence for each, and for a failure it shows the
+  reason.
+- **Never blocking** — `queueDelivery` pushes the transition and returns; the
+  queue drains on a microtask, after the evaluator's `save()`. `resolveOpen` is
+  the single choke point for every close, so a rule that is disabled or deleted
+  still closes the alert at the receiver. `flushDeliveries()` is for tests and
+  scripts.
+- **Actions** — `alerts.createChannel` `{ kind, name, target, secret?, enabled? }`,
+  `alerts.updateChannel` `{ channelId, name?, target?, secret?, enabled? }`,
+  `alerts.deleteChannel` `{ channelId }` — all **admin**, because a channel is
+  workspace-wide and its target is where this server's alerts go; and
+  `alerts.testChannel` `{ channelId }` — **editor**, one labelled message down
+  the same path, result recorded either way. `alerts.createRule` /
+  `alerts.updateRule` take `channelIds` (update accepts `null` to go back to
+  every enabled channel). Every channel plan states exactly what will be sent
+  where and that the secret — or the Slack URL, which *is* the credential — is
+  held in plain text in this server's state file.
 
 ### `probe()` — optional reachability
 
@@ -186,6 +265,52 @@ Implemented today by LocalStack (`src/lib/providers/localstack/index.ts`),
 which reuses the same health check as `preflight` and distinguishes
 unreachable / timeout / unhealthy-HTTP / not-LocalStack rather than reporting
 all four as "not reachable".
+
+### `observe()` / `discover()` — reading back what is there
+
+Two optional, strictly read-only additions to `ProviderAdapter`. They are what
+drift and live-resource import are built on:
+
+```ts
+observe?(env: Environment, deployed: Manifest): Promise<LiveState>;
+discover?(conn: CloudConnection, region?: string): Promise<Discovery>;
+
+interface LiveResource { nodeId: string; kind: string; exists: boolean;
+                         attributes: Record<string, string|number|boolean>; observedAt: string }
+interface LiveState  { simulated: boolean; observedAt: string; resources: LiveResource[] }
+interface DiscoveredResource { externalRef: string; kind: ResourceKind; name: string;
+                               attributes: Record<string, string|number|boolean> }
+interface Discovery  { simulated: boolean; resources: DiscoveredResource[] }
+```
+
+Rules:
+
+- **`attributes` holds only what the provider actually inspected.** Drift
+  compares the *intersection* of observed keys with what the manifest expects,
+  so an adapter that cannot see a field never produces drift on it. Silence
+  means "not looked at", never "matches" — which is why LocalStack omits the
+  kinds it merely simulated rather than reporting them present and correct.
+- **`nodeId: ""` means "found, and the deployed revision does not own it"** →
+  an `extra` drift item.
+- **`simulated` belongs to the call, not the row.** That is why both results are
+  wrapped rather than bare arrays: an empty result still has to be able to say
+  which kind of nothing it is.
+- **Optional, and absence is meaningful** — the same rule as `probe()`. A
+  Planned provider omits both. AWS Preview *implements* both and refuses, because
+  "reading your account is deliberately not wired up" is a different statement
+  from "not built yet" (`AWS_NO_READ_MESSAGE`, `src/lib/providers/aws/index.ts`).
+- **Never mutate.** Neither method may create, change or delete anything.
+
+Drift itself is pure and lives in `src/lib/drift/`: `computeDrift(deployed,
+live)` returns `missing` / `changed` / `extra` items with a severity, worst
+first. Secret-backed env vars are never compared — Orrery does not hold the
+value it would compare against. Nodes that are not `managed` are skipped
+entirely: Orrery reads a referenced resource and never reconciles it.
+
+Implemented by: **sandbox** (deterministic seeded simulation — one resource a
+size up, one plain env var altered, the same every call for a given
+environment), **LocalStack** (real: `ListBuckets` + `ListQueues` against the
+edge endpoint, by the names the adapter provisions), **AWS Preview** (refuses).
 
 ## Engine contract (workstream A implements `src/lib/engine/engine.ts`)
 

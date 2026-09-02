@@ -8,7 +8,7 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 export interface SessionUser {
   id: string;
   email: string;
-  /** display name from user_metadata.full_name, else the email's local part */
+  /** display name from user_metadata (see NAME_KEYS), else the email's local part */
   name: string;
   /**
    * Workspace role granted by the operator through `app_metadata.role`.
@@ -19,6 +19,21 @@ export interface SessionUser {
 }
 
 const ROLES: readonly string[] = ["admin", "editor", "viewer"];
+
+/**
+ * Where a display name may live, best first. Email signup writes `full_name`;
+ * OAuth providers each pick their own — Google sends `full_name`/`name`,
+ * GitHub sends `user_name`/`preferred_username` and only sometimes a real name.
+ */
+const NAME_KEYS = ["full_name", "name", "user_name", "preferred_username"] as const;
+
+const nameFromMetadata = (meta: Record<string, unknown>): string => {
+  for (const key of NAME_KEYS) {
+    const value = meta[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return "";
+};
 
 /** Verified JWT claims → SessionUser. The one place claims are interpreted. */
 export function userFromClaims(claims: {
@@ -31,9 +46,9 @@ export function userFromClaims(claims: {
   const email = typeof claims.email === "string" ? claims.email : "";
   const meta = (claims.user_metadata ?? {}) as Record<string, unknown>;
   const app = (claims.app_metadata ?? {}) as Record<string, unknown>;
-  const fullName = typeof meta.full_name === "string" ? meta.full_name : "";
   const role = typeof app.role === "string" && ROLES.includes(app.role) ? (app.role as Role) : undefined;
-  return { id: claims.sub, email, name: fullName || email.split("@")[0] || "you", role };
+  const name = nameFromMetadata(meta) || email.split("@")[0] || "you";
+  return { id: claims.sub, email, name, role };
 }
 
 export async function getSessionUser(): Promise<SessionUser | null> {

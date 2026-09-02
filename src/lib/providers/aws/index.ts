@@ -184,6 +184,26 @@ async function executeStep(_rt: StepRuntime): Promise<void> {
   throw new Error(AWS_PREVIEW_MESSAGE);
 }
 
+/**
+ * The exact message the drift and discovery surfaces show for AWS.
+ *
+ * These two methods exist, and refuse, on purpose. Omitting them would say
+ * "not built yet", which is what a Planned provider says. The truth here is
+ * sharper and worth stating: reading an account is built — it is deliberately
+ * not wired to anything, because no credential path exists. So the refusal is
+ * the feature, and it names the tool that answers the question today.
+ */
+export const AWS_NO_READ_MESSAGE =
+  "Orrery does not read your AWS account. The AWS provider is Preview: it plans and exports Terraform, and no code path in Orrery calls AWS — so it cannot report drift or discover existing resources, and will not invent either. To see real drift today, export the bundle from Settings → Export and run `terraform plan` against it with your own credentials.";
+
+async function observe(): Promise<never> {
+  throw new Error(AWS_NO_READ_MESSAGE);
+}
+
+async function discover(): Promise<never> {
+  throw new Error(AWS_NO_READ_MESSAGE);
+}
+
 async function preflight(conn: CloudConnection): Promise<PreflightReport> {
   const hasCreds = configured().awsCredentials;
   const region = conn.region || "us-east-1";
@@ -286,5 +306,7 @@ export const awsProvider: ProviderAdapter = {
   preflight,
   planSteps,
   executeStep,
+  observe,
+  discover,
   exportBundle,
 };

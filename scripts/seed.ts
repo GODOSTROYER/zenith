@@ -29,12 +29,27 @@ const iso = (msAgo: number) => new Date(now - msAgo).toISOString();
 const HOUR = 3600_000;
 const DAY = 24 * HOUR;
 
+const SEEDED_WORKSPACE = "ws-kepler";
+
 async function main() {
+  // Seeding wipes the data directory, and now that an install can hold more
+  // than one workspace that could take somebody's real one with it. Re-seeding
+  // the seeded workspace is idempotent; anything else has to be asked for.
+  const others = db().workspaces.filter((w) => w.id !== SEEDED_WORKSPACE);
+  if (others.length && !process.env.ORRERY_SEED_FORCE) {
+    console.error(
+      `Refusing to seed: this data directory also holds ${others.length} other workspace(s) — ` +
+        `${others.map((w) => `"${w.name}"`).join(", ")}. Seeding would delete them.\n` +
+        `Fix: run ORRERY_SEED_FORCE=1 npm run seed to wipe anyway, or point ORRERY_DATA at a fresh directory.`
+    );
+    process.exit(1);
+  }
+
   resetDb();
   const data = db();
 
   const ws: Workspace = {
-    id: "ws-kepler",
+    id: SEEDED_WORKSPACE,
     name: "Kepler Labs",
     slug: "kepler-labs",
     createdAt: iso(30 * DAY),

@@ -20,9 +20,17 @@ export interface ProviderInfo {
   regions: { id: string; label: string }[];
 }
 
+/** One row of the workspace switcher — a workspace, and your role in it. */
+export interface WorkspaceRow extends Pick<Workspace, "id" | "name" | "slug"> {
+  role: Member["role"];
+}
+
 /** Exactly what GET /api/bootstrap returns. */
 export interface Bootstrap {
+  /** the workspace this browser is in — everything else here is scoped to it */
   workspace: Workspace;
+  /** every workspace the caller belongs to, for the switcher */
+  workspaces: WorkspaceRow[];
   projects: Project[];
   environments: Environment[];
   /** newest deployment per environment — the health source for map + overview */

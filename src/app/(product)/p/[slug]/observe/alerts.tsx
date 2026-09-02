@@ -3,20 +3,33 @@
  * Alerts on Observe: the banner above health, and the section that owns the
  * rules, the open alerts and the record of past ones.
  *
- * The honesty this screen has to carry: an alert here is a record and a
- * notification *inside Orrery*. It does not email, page or post anywhere. The
- * empty state says that before anyone creates their first rule, and the section
- * subtitle keeps saying it afterwards.
+ * The honesty this screen has to carry has two halves now that delivery exists:
+ *
+ *  - **Where an alert goes** is read from the workspace, never asserted. The
+ *    server writes `feed.delivery` from the channels that are actually enabled,
+ *    so a workspace with none is told it is on-screen only and one with two is
+ *    told which two. No copy on this screen guesses.
+ *  - **What actually happened** is shown per alert. `event.deliveries` is a
+ *    list of attempts: delivered, or failed with the reason and the fix. An
+ *    empty list means Orrery tried and had nowhere to send; a missing list
+ *    means the alert predates channels. Those are three different sentences and
+ *    this screen writes all three.
  */
 import { useState } from "react";
 import { BellRing, Check, Pencil, Plus, Trash2 } from "lucide-react";
 import type { AlertKindSpec } from "@/lib/alerts";
-import { useAlertHistory, type AlertsFeed, type ProjectAlerts } from "@/lib/client/alerts";
+import {
+  useAlertHistory,
+  type AlertsFeed,
+  type ProjectAlerts,
+  type PublicAlertChannel,
+} from "@/lib/client/alerts";
 import type { AlertEvent, AlertKind, AlertRule } from "@/lib/domain/types";
 import {
   Button,
   Callout,
   Card,
+  Checkbox,
   Chip,
   EmptyState,
   Field,
@@ -34,9 +47,13 @@ const SEVERITY_TONE: Record<AlertEvent["severity"], ChipTone> = {
   low: "info",
 };
 
-/** The one sentence this whole feature has to keep saying. */
-const DELIVERY =
-  "Alerts are in-product only: they show here and anywhere else in Orrery that reads them. There is no email, Slack or webhook delivery, so nothing reaches you while Orrery is closed.";
+/**
+ * The fallback delivery sentence, used only before the feed has answered. Once
+ * it has, `feed.delivery` — written by the server from this workspace's actual
+ * channels — replaces it everywhere.
+ */
+const DELIVERY_UNKNOWN =
+  "Alerts always show here. Whether they are also sent to a webhook, Slack or email depends on the delivery channels under Settings → Alerts.";
 
 type Kinds = AlertsFeed["kinds"];
 
@@ -102,11 +119,27 @@ export function AlertBanner({ open }: { open: AlertEvent[] }) {
           <a href="#alerts" className="underline underline-offset-2 hover:text-ink">
             Acknowledge or change these rules under Alerts
           </a>
-          . Nothing was emailed or posted anywhere — Orrery has no delivery channels.
+          . {bannerDelivery(open)}
         </p>
       </div>
     </Callout>
   );
+}
+
+/**
+ * What the banner can honestly say about delivery from the open alerts alone —
+ * it is rendered by a screen that does not pass the feed, so it reads the
+ * record instead of asserting anything.
+ */
+function bannerDelivery(open: AlertEvent[]): string {
+  const attempted = open.filter((e) => e.deliveries !== undefined);
+  if (attempted.length === 0) return "Delivery for these is not recorded.";
+  const failed = attempted.filter((e) => e.deliveries!.some((d) => !d.ok)).length;
+  const sent = attempted.filter((e) => e.deliveries!.some((d) => d.ok)).length;
+  if (failed > 0)
+    return `${failed} of these could not be delivered to a channel — each one below says why.`;
+  if (sent > 0) return "These were delivered to this workspace's channels.";
+  return "Not sent anywhere: this workspace has no delivery channels (Settings → Alerts).";
 }
 
 /* --------------------------------- section -------------------------------- */
@@ -132,6 +165,9 @@ export function AlertsCard({
   const kinds = alerts.data?.kinds;
   const rules = alerts.rules;
   const open = alerts.open;
+  const channels = alerts.channels;
+  /** Written by the server from this workspace's channels — never guessed here. */
+  const delivery = alerts.data?.delivery ?? DELIVERY_UNKNOWN;
   const scope = { projectId, environmentId };
   const done = () => {
     setDialog(null);
@@ -144,7 +180,7 @@ export function AlertsCard({
       title="Alerts"
       subtitle={
         alerts.data
-          ? `${environmentName} · checked every ${Math.round(alerts.data.evaluationIntervalMs / 1000)}s and whenever this page loads · in-product only, no email or Slack`
+          ? `${environmentName} · checked every ${Math.round(alerts.data.evaluationIntervalMs / 1000)}s and whenever this page loads · ${delivery}`
           : environmentName
       }
       actions={
@@ -172,7 +208,7 @@ export function AlertsCard({
             <>
               A rule watches one condition — a degraded service, a failed deployment, cost against
               the budget, replicas under a floor — and records it here when it becomes true, once,
-              until it clears. {DELIVERY}
+              until it clears. {delivery}
             </>
           }
           action={
@@ -187,14 +223,20 @@ export function AlertsCard({
             rules={rules}
             kinds={kinds}
             open={open}
+            channels={channels}
             onEdit={(rule) => setDialog({ kind: "edit", rule })}
             onDelete={(rule) => setDialog({ kind: "delete", rule })}
           />
-          <OpenEvents open={open} onAck={(event) => setDialog({ kind: "ack", event })} />
+          <OpenEvents
+            open={open}
+            channels={channels}
+            onAck={(event) => setDialog({ kind: "ack", event })}
+          />
           <History
             projectId={projectId}
             environmentId={environmentId}
             recent={alerts.data.recent}
+            channels={channels}
           />
         </div>
       )}
@@ -204,6 +246,8 @@ export function AlertsCard({
           kinds={kinds}
           scope={scope}
           environmentName={environmentName}
+          channels={channels}
+          delivery={delivery}
           onClose={() => setDialog(null)}
           onDone={done}
         />
@@ -213,6 +257,8 @@ export function AlertsCard({
           rule={dialog.rule}
           kinds={kinds}
           scope={scope}
+          channels={channels}
+          delivery={delivery}
           onClose={() => setDialog(null)}
           onDone={done}
         />
@@ -241,16 +287,83 @@ export function AlertsCard({
 
 /* --------------------------------- rules ---------------------------------- */
 
+/* -------------------------------- delivery -------------------------------- */
+
+/** Which channels this rule sends to, in the words the rule's own field means. */
+function ruleChannelLine(rule: AlertRule, channels: PublicAlertChannel[]): string {
+  const enabled = channels.filter((c) => c.enabled);
+  if (enabled.length === 0) return "Not sent anywhere: this workspace has no delivery channels.";
+  if (rule.channelIds === undefined)
+    return `Sent to every enabled channel (${enabled.map((c) => c.name).join(", ")}).`;
+  const picked = enabled.filter((c) => rule.channelIds!.includes(c.id));
+  return picked.length === 0
+    ? "Set to deliver nowhere: shown here and not sent."
+    : `Sent to ${picked.map((c) => c.name).join(", ")}.`;
+}
+
+/**
+ * What happened when this alert was pushed out. Three states, three sentences:
+ * nothing recorded (the alert predates channels), nowhere to send, or the
+ * per-channel results including the failures — a failure is shown with its
+ * reason, never hidden behind a count.
+ */
+function Deliveries({
+  event,
+  channels,
+}: {
+  event: AlertEvent;
+  channels: PublicAlertChannel[];
+}) {
+  const rows = event.deliveries;
+  if (rows === undefined)
+    return (
+      <p className="mt-1 text-[11.5px] text-ink-faint">
+        No delivery recorded for this alert — it fired before this workspace had channels.
+      </p>
+    );
+  if (rows.length === 0)
+    return (
+      <p className="mt-1 text-[11.5px] text-ink-faint">
+        Not sent anywhere: no delivery channel was enabled when it fired.
+      </p>
+    );
+
+  const nameOf = (id: string) => channels.find((c) => c.id === id)?.name ?? "a deleted channel";
+  return (
+    <ul className="mt-1 space-y-0.5">
+      {rows.map((d, i) => (
+        <li key={`${d.channelId}-${d.at}-${i}`} className="text-[11.5px] leading-relaxed">
+          {d.ok ? (
+            <span className="text-ok">
+              Delivered to {nameOf(d.channelId)} <TimeAgo iso={d.at} />
+              {d.status ? ` · HTTP ${d.status}` : ""}
+            </span>
+          ) : (
+            <span className="text-err">
+              Failed to reach {nameOf(d.channelId)} <TimeAgo iso={d.at} />
+              {d.error ? `: ${d.error}` : "."}
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/* ---------------------------------- rules --------------------------------- */
+
 function RuleList({
   rules,
   kinds,
   open,
+  channels,
   onEdit,
   onDelete,
 }: {
   rules: AlertRule[];
   kinds: Kinds;
   open: AlertEvent[];
+  channels: PublicAlertChannel[];
   onEdit: (rule: AlertRule) => void;
   onDelete: (rule: AlertRule) => void;
 }) {
@@ -280,8 +393,8 @@ function RuleList({
                 )}
               </div>
               <p className="mt-1 text-[11.5px] leading-relaxed text-ink-faint">
-                Watches {kinds[rule.kind]?.watches ?? rule.kind}. Added by{" "}
-                {rule.createdBy?.name ?? "someone"} <TimeAgo iso={rule.createdAt} />.
+                Watches {kinds[rule.kind]?.watches ?? rule.kind}. {ruleChannelLine(rule, channels)}{" "}
+                Added by {rule.createdBy?.name ?? "someone"} <TimeAgo iso={rule.createdAt} />.
               </p>
             </div>
             <span className="flex shrink-0 items-center">
@@ -301,7 +414,15 @@ function RuleList({
 
 /* --------------------------------- events --------------------------------- */
 
-function OpenEvents({ open, onAck }: { open: AlertEvent[]; onAck: (e: AlertEvent) => void }) {
+function OpenEvents({
+  open,
+  channels,
+  onAck,
+}: {
+  open: AlertEvent[];
+  channels: PublicAlertChannel[];
+  onAck: (e: AlertEvent) => void;
+}) {
   return (
     <div className="space-y-2 border-t border-line pt-4">
       <h4 className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">
@@ -328,6 +449,7 @@ function OpenEvents({ open, onAck }: { open: AlertEvent[]; onAck: (e: AlertEvent
                 <p className="mt-1 text-[11.5px] leading-relaxed text-ink-faint">
                   Fired <TimeAgo iso={event.firedAt} />. {event.detail}
                 </p>
+                <Deliveries event={event} channels={channels} />
                 {event.acknowledgedAt && (
                   <p className="mt-1 text-[11.5px] text-ink-mute">
                     Acknowledged by {event.acknowledgedBy?.name ?? "someone"}{" "}
@@ -357,14 +479,25 @@ function OpenEvents({ open, onAck }: { open: AlertEvent[]; onAck: (e: AlertEvent
 
 const FULL_HISTORY = 200;
 
+/** The channels this alert never reached, for the one-line history row. */
+function failedNames(event: AlertEvent, channels: PublicAlertChannel[]): string {
+  const failed = (event.deliveries ?? []).filter((d) => !d.ok);
+  if (failed.length === 0) return "";
+  return [
+    ...new Set(failed.map((d) => channels.find((c) => c.id === d.channelId)?.name ?? "a deleted channel")),
+  ].join(", ");
+}
+
 function History({
   projectId,
   environmentId,
   recent,
+  channels,
 }: {
   projectId: string | undefined;
   environmentId: string;
   recent: AlertEvent[];
+  channels: PublicAlertChannel[];
 }) {
   const [full, setFull] = useState(false);
   // Held off until asked for: `null` tells useJson not to fetch at all.
@@ -399,6 +532,11 @@ function History({
                 Closed {event.resolvedAt ? <TimeAgo iso={event.resolvedAt} /> : "—"}
                 {event.resolvedReason ? `: ${event.resolvedReason}` : "."}
               </span>
+              {/* Only the failures: a successful delivery on a closed alert is
+                  not news, an alert that never reached anyone is. */}
+              {failedNames(event, channels) && (
+                <span className="text-err"> Never reached {failedNames(event, channels)}.</span>
+              )}
             </li>
           ))}
         </ul>
@@ -416,16 +554,75 @@ function History({
 
 /* --------------------------------- dialogs -------------------------------- */
 
+/**
+ * Which channels a rule delivers to. "Every enabled channel" is the default and
+ * stays the default — picking channels explicitly writes `channelIds`, and
+ * unticking all of them writes `[]`, which is how a rule is kept on screen only.
+ */
+function ChannelPicker({
+  channels,
+  selected,
+  onChange,
+}: {
+  channels: PublicAlertChannel[];
+  /** undefined = every enabled channel */
+  selected: string[] | undefined;
+  onChange: (next: string[] | undefined) => void;
+}) {
+  const enabled = channels.filter((c) => c.enabled);
+  if (enabled.length === 0)
+    return (
+      <Field label="Delivery">
+        <p className="text-[12.5px] text-ink-mute">
+          This workspace has no enabled delivery channels, so this alert will only ever be on
+          screen. Add one under Settings → Alerts.
+        </p>
+      </Field>
+    );
+
+  return (
+    <Field
+      label="Delivery"
+      help="Every enabled channel by default. Pick channels to narrow it; untick them all to keep this rule on screen only."
+    >
+      <div className="space-y-1.5">
+        <Checkbox
+          checked={selected === undefined}
+          onChange={(all) => onChange(all ? undefined : enabled.map((c) => c.id))}
+          label="Every enabled channel"
+          help={`Right now: ${enabled.map((c) => c.name).join(", ")}. A channel added later is included automatically.`}
+        />
+        {selected !== undefined &&
+          enabled.map((c) => (
+            <Checkbox
+              key={c.id}
+              className="ml-5"
+              checked={selected.includes(c.id)}
+              onChange={(on) =>
+                onChange(on ? [...selected, c.id] : selected.filter((id) => id !== c.id))
+              }
+              label={`${c.name} (${c.kind})`}
+            />
+          ))}
+      </div>
+    </Field>
+  );
+}
+
 function CreateDialog({
   kinds,
   scope,
   environmentName,
+  channels,
+  delivery,
   onClose,
   onDone,
 }: {
   kinds: Kinds;
   scope: { projectId: string | undefined; environmentId: string };
   environmentName: string;
+  channels: PublicAlertChannel[];
+  delivery: string;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -433,6 +630,7 @@ function CreateDialog({
   const [kind, setKind] = useState<AlertKind>(entries[0][0]);
   const spec = kinds[kind];
   const [threshold, setThreshold] = useState<string>(String(spec.threshold?.default ?? ""));
+  const [channelIds, setChannelIds] = useState<string[] | undefined>(undefined);
 
   const pick = (next: AlertKind) => {
     setKind(next);
@@ -450,10 +648,11 @@ function CreateDialog({
         ...scope,
         kind,
         threshold: spec.threshold && usable ? value : undefined,
+        channelIds,
       }}
       scope={scope}
       title={`Watch ${environmentName}`}
-      description={DELIVERY}
+      description={delivery}
       confirmLabel="Create rule"
       onDone={onDone}
     >
@@ -465,6 +664,7 @@ function CreateDialog({
             options={entries.map(([id, s]) => ({ value: id, label: s.title }))}
           />
         </Field>
+        <ChannelPicker channels={channels} selected={channelIds} onChange={setChannelIds} />
         {spec.threshold && (
           <Field
             label={spec.threshold.label}
@@ -491,12 +691,16 @@ function EditDialog({
   rule,
   kinds,
   scope,
+  channels,
+  delivery,
   onClose,
   onDone,
 }: {
   rule: AlertRule;
   kinds: Kinds;
   scope: { projectId: string | undefined; environmentId: string };
+  channels: PublicAlertChannel[];
+  delivery: string;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -505,9 +709,12 @@ function EditDialog({
     String(effectiveThreshold(rule, kinds) ?? "")
   );
   const [enabled, setEnabled] = useState(rule.enabled);
+  const [channelIds, setChannelIds] = useState<string[] | undefined>(rule.channelIds);
   const value = Number(threshold);
   const usable = spec.threshold ? Number.isFinite(value) : true;
   const changedThreshold = spec.threshold && usable && value !== effectiveThreshold(rule, kinds);
+  const changedChannels =
+    JSON.stringify(channelIds ?? null) !== JSON.stringify(rule.channelIds ?? null);
 
   return (
     <ActionConfirm
@@ -517,11 +724,14 @@ function EditDialog({
       input={{
         ruleId: rule.id,
         threshold: changedThreshold ? value : undefined,
+        // null, not undefined: "back to every enabled channel" and "leave the
+        // selection alone" are different requests and the action reads both.
+        channelIds: changedChannels ? (channelIds ?? null) : undefined,
         enabled: enabled === rule.enabled ? undefined : enabled,
       }}
       scope={scope}
       title={`Edit "${ruleLabel(rule, kinds)}"`}
-      description={DELIVERY}
+      description={delivery}
       confirmLabel="Save rule"
       onDone={onDone}
     >
@@ -543,6 +753,7 @@ function EditDialog({
             />
           </Field>
         )}
+        <ChannelPicker channels={channels} selected={channelIds} onChange={setChannelIds} />
         <Field
           label="Evaluation"
           help="Turning a rule off stops it being checked and closes any alert it has open."

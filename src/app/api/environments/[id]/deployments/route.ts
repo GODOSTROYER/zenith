@@ -8,9 +8,9 @@
  *   ?cursor=<offset>     `nextCursor` from the previous page
  *   ?status=live         "live" | "terminal" | comma-separated DeploymentStatus
  */
-import { q } from "@/lib/db/store";
+import { inWorkspace, q } from "@/lib/db/store";
 import { DeploymentStatus } from "@/lib/domain/types";
-import { ApiError, intParam, notFound, route } from "@/lib/server/context";
+import { ApiError, intParam, notFound, requireWorkspace, route } from "@/lib/server/context";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +37,8 @@ function statusFilter(raw: string | null): Set<DeploymentStatus> | undefined {
 
 export const GET = route<{ id: string }>(async (req, { id }) => {
   const env = q.environment(id);
-  if (!env)
+  // Scoped by the owning project's workspace: an id alone is not a read grant.
+  if (!env || !inWorkspace(requireWorkspace().id, env.projectId))
     throw notFound(
       `Environment "${id}"`,
       "Pick an environment from the project's environment switcher, or create one in Settings → Environments."

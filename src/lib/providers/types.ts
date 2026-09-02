@@ -48,6 +48,8 @@ export interface ProviderPlanStep {
 }
 
 export interface StepRuntime {
+  /** aborted when the step's deadline expires; adapters should stop work and reject */
+  signal: AbortSignal;
   /** emit a human log line (info) or provider-native line (provider) */
   log: (line: string, stream?: "info" | "provider") => void;
   /** emit an output as soon as it is known (URLs appear the moment they exist) */
@@ -56,6 +58,33 @@ export interface StepRuntime {
   revision: Revision;
   deployment: Deployment;
   step: DeploymentStep;
+}
+
+/**
+ * How long the engine budgeted for this step.
+ *
+ * `ProviderPlanStep.estMs` is the estimate an adapter *asked* for; the engine
+ * stores the granted budget per step id on the deployment, after collapsing it
+ * for fast mode. Reading `step.estMs` gets you `undefined` — the engine never
+ * copies it onto the step — which is why this lives in one place.
+ */
+export function stepBudgetMs(rt: StepRuntime, fallback = 800): number {
+  const d = rt.deployment as Deployment & { estMs?: Record<string, number> };
+  return d.estMs?.[rt.step.id] ?? fallback;
+}
+
+/**
+ * Result of a provider's cheap liveness check. Distinct from `preflight`,
+ * which needs a connection and reports on permissions: a probe answers only
+ * "could a deploy to this provider start right now?", with no connection and
+ * no credentials.
+ */
+export interface ProviderProbe {
+  reachable: boolean;
+  /** one line for the UI: what was tried, and what came back */
+  detail: string;
+  /** what to do about it — present whenever `reachable` is false */
+  fix?: string;
 }
 
 export interface ExportFile {
@@ -82,6 +111,19 @@ export interface ProviderAdapter {
 
   /** Validate/inspect a connection. Sandbox always passes; AWS checks env creds. */
   preflight(conn: CloudConnection): Promise<PreflightReport>;
+
+  /**
+   * Cheap, connection-free reachability check, for surfaces that offer a
+   * provider before any connection exists — onboarding's "Available now" list
+   * above all. Must be safe to call on render: no writes, one request, its own
+   * short timeout.
+   *
+   * Optional, and its absence is meaningful: a provider omits it when nothing
+   * local can be down (the sandbox runs in-process; AWS Preview only plans and
+   * exports). `availability` still decides selectability — a probe only says
+   * whether an available provider can be used *right now*.
+   */
+  probe?(): Promise<ProviderProbe>;
 
   /** Turn a revision into ordered, estimated steps. Pure — no side effects. */
   planSteps(env: Environment, next: Manifest, previous?: Manifest): ProviderPlanStep[];

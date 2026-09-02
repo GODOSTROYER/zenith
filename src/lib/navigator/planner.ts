@@ -414,7 +414,7 @@ function parseFragment(frag: string, ctx: Ctx): Draft[] | null {
         title: `Create the "${name}" environment`,
         rationale:
           klass === "production"
-            ? "Production environments require approval before anything is applied — that default is set at creation and can be changed in Settings → Policies."
+            ? "Production environments require approval before anything is applied — that default is set at creation and can be changed in Settings → Environments."
             : `A ${klass} environment on the sandbox connection. Creating it costs nothing; nothing is deployed to it yet.`,
         input: { name, class: klass },
         production: klass === "production",

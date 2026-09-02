@@ -12,12 +12,39 @@ import { Landing, type ProviderRow } from "@/components/landing/landing";
 import { getSessionUser } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
+const TITLE = "Orrery — your infrastructure, in motion";
+const DESCRIPTION =
+  "A bring-your-own-cloud deployment platform that shows the whole system, prices every change before it applies, and ends every deploy with a URL.";
+
 export const metadata: Metadata = {
-  title: "Orrery — your infrastructure, in motion",
-  description:
-    "A bring-your-own-cloud deployment platform that shows the whole system, prices every change before it applies, and ends every deploy with a URL.",
+  title: TITLE,
+  description: DESCRIPTION,
+  // Absolute-URL base for the generated social card (see opengraph-image.tsx).
+  // Set NEXT_PUBLIC_SITE_URL wherever this is deployed.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3400"),
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    url: "/",
+    siteName: "Orrery",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: [{ url: "/og.png", width: 1200, height: 630, alt: TITLE }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: TITLE,
+    description: DESCRIPTION,
+    images: ["/og.png"],
+  },
 };
-/** session-aware (getSessionUser) — the CTA differs for signed-in visitors */
+/**
+ * Session-aware (getSessionUser) and workspace-aware (db()), and both feed the
+ * page's primary CTA — so the shell cannot be cached separately without either
+ * a lite session endpoint (none exists; /api/bootstrap reads the whole store)
+ * or a client fetch that would flicker the one control the page exists for.
+ * Kept dynamic deliberately; revisit if a `/api/bootstrap-lite` ever lands.
+ */
 export const dynamic = "force-dynamic";
 
 export default async function LandingPage() {

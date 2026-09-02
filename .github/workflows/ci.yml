@@ -1,0 +1,71 @@
+name: CI
+
+# The four gates that already existed in package.json and that nothing ran.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # Never let a gate touch a developer's .data/. Each step gets a fresh
+      # directory under the runner's temp dir, which the runner discards.
+      ORRERY_DATA: ${{ runner.temp }}/orrery-ci-data
+      ORRERY_FAST: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Smoke
+        # scripts/smoke.ts sets its own ORRERY_DATA (.data-smoke) and clears it
+        # on start, so this is end-to-end against a directory it owns.
+        run: npm run smoke
+
+  # Split out because it is the only job that needs the network for anything
+  # other than the registry: app/layout.tsx pulls its fonts from Google Fonts
+  # at build time, so `next build` fails on an air-gapped runner with a font
+  # fetch error rather than a code error. It runs here because GitHub-hosted
+  # runners do have egress; it is a separate job so a font outage cannot make
+  # the four real gates look red. Self-hosted runners without egress should
+  # either vendor the fonts with next/font/local or skip this job.
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build (needs egress to fonts.googleapis.com)
+        run: npm run build

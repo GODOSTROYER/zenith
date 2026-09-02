@@ -1,25 +1,15 @@
-import fs from "node:fs";
-import path from "node:path";
 import { Suspense } from "react";
 import { blueprints } from "@/lib/blueprints";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { OnboardingFlow, type BlueprintCard } from "@/components/screens/onboarding-flow";
+import { SAMPLE_COMPOSE } from "./sample-compose";
 
 /**
- * Server half of onboarding: blueprint costs and the sample compose file are
- * computed here so the browser never ships a pricing table or a fixture reader.
+ * Server half of onboarding: blueprint costs are computed here so the browser
+ * never ships a pricing table. The sample compose file is a module rather than
+ * an fs read — a read from process.cwd() is not traced into a standalone build
+ * and used to degrade, silently, to an empty box.
  */
-function sampleCompose(): string {
-  try {
-    return fs.readFileSync(
-      path.join(process.cwd(), "fixtures", "sample-app", "docker-compose.yml"),
-      "utf8"
-    );
-  } catch {
-    return "";
-  }
-}
-
 export default function OnboardingPage() {
   const cards: BlueprintCard[] = blueprints.map((b) => {
     const manifest = b.manifestFactory("demo");
@@ -38,7 +28,7 @@ export default function OnboardingPage() {
 
   return (
     <Suspense fallback={null}>
-      <OnboardingFlow blueprints={cards} sampleCompose={sampleCompose()} />
+      <OnboardingFlow blueprints={cards} sampleCompose={SAMPLE_COMPOSE} />
     </Suspense>
   );
 }

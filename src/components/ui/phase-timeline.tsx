@@ -46,6 +46,25 @@ function stepMs(s: DeploymentStep): number | undefined {
   return Number.isFinite(ms) && ms >= 0 ? ms : undefined;
 }
 
+const at = (iso: string | undefined): number | undefined => {
+  const t = iso ? new Date(iso).getTime() : NaN;
+  return Number.isFinite(t) ? t : undefined;
+};
+
+/**
+ * Wall-clock from the first step starting to the last one ending — not the sum
+ * of the steps, which would hide waiting. Only once nothing is still moving:
+ * a running total would tick, and this component renders on the server too.
+ */
+export function totalMs(steps: DeploymentStep[]): number | undefined {
+  if (steps.some((s) => s.status === "pending" || s.status === "running")) return undefined;
+  const starts = steps.map((s) => at(s.startedAt)).filter((n): n is number => n !== undefined);
+  const ends = steps.map((s) => at(s.endedAt)).filter((n): n is number => n !== undefined);
+  if (starts.length === 0 || ends.length === 0) return undefined;
+  const span = Math.max(...ends) - Math.min(...starts);
+  return span >= 0 ? span : undefined;
+}
+
 export interface PhaseTimelineProps {
   steps: DeploymentStep[];
   /** hide per-step rows and render only the four segments */
@@ -74,9 +93,19 @@ export function PhaseTimeline({
       .sort((a, b) => a.seq - b.seq),
   }));
 
+  const total = totalMs(steps);
+
   return (
     <div className={cx("space-y-5", className)}>
-      <div className="flex items-end gap-1.5">
+      <div className="space-y-1.5">
+        {total !== undefined && (
+          <p className="flex justify-end text-[11px] text-ink-faint">
+            <span title="From the first step starting to the last one ending.">
+              total <span className="tnum font-mono text-ink-mute">{fmtDuration(total)}</span>
+            </span>
+          </p>
+        )}
+        <div className="flex items-end gap-1.5">
         {byPhase.map((p) => {
           const state = phaseState(p.steps);
           const done = p.steps.filter((s) => s.status === "done").length;
@@ -125,6 +154,7 @@ export function PhaseTimeline({
             </div>
           );
         })}
+        </div>
       </div>
 
       {!compact && (

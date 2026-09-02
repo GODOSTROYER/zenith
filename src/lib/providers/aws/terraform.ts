@@ -61,6 +61,38 @@ const DB_STORAGE: Record<ServiceSize, number> = {
 const managed = <T extends { ownership: string }>(xs: T[]) =>
   xs.filter((x) => x.ownership === "managed");
 
+/**
+ * A `referenced` node exists in the customer's account and this bundle must
+ * never declare it as a resource. Its attributes come from variables the user
+ * fills instead, so the HCL still validates and still plans.
+ */
+const refVar = (nodeName: string, field: string) => `ref_${tf(nodeName)}_${field}`;
+
+/** SSM parameter names accept only these characters. */
+const ssmSafe = (s: string) => s.replace(/[^A-Za-z0-9_.-]/g, "-");
+
+/** A `variable` block the bundle must declare. */
+interface TfVariable {
+  name: string;
+  description: string;
+  /** HCL default. Omitted = the user must supply it. */
+  default?: string;
+}
+
+/**
+ * A SecureString parameter the bundle creates so the first `terraform apply`
+ * does not fail when ECS resolves the task definition's `secrets` block.
+ */
+interface SecretParam {
+  /** terraform resource label */
+  label: string;
+  /** name under /${var.name_prefix}/ */
+  path: string;
+  /** key into var.secret_values */
+  key: string;
+  description: string;
+}
+
 /** Route serving this service, if any. */
 function routeOf(m: Manifest, serviceId: string): Route | undefined {
   const b = m.bindings.find(
@@ -77,7 +109,9 @@ interface ContainerEnv {
   env: { name: string; expr: string }[];
   secrets: { name: string; expr: string }[];
   /** SSM parameters this service's bindings require us to create */
-  params: string[];
+  params: SecretParam[];
+  /** variables referenced (non-managed) targets require the user to fill */
+  vars: TfVariable[];
   /** IAM statements the service's task role needs */
   statements: string[];
   notes: string[];
@@ -89,7 +123,14 @@ interface ContainerEnv {
  * they resolve to real endpoints at apply time.
  */
 export function containerEnv(m: Manifest, s: Service, _env: Environment): ContainerEnv {
-  const out: ContainerEnv = { env: [], secrets: [], params: [], statements: [], notes: [] };
+  const out: ContainerEnv = {
+    env: [],
+    secrets: [],
+    params: [],
+    vars: [],
+    statements: [],
+    notes: [],
+  };
 
   if (s.port) out.env.push({ name: "PORT", expr: `"${s.port}"` });
 
@@ -98,12 +139,18 @@ export function containerEnv(m: Manifest, s: Service, _env: Environment): Contai
     if (e.value !== undefined) {
       out.env.push({ name: e.key, expr: JSON.stringify(e.value) });
     } else if (e.secretRef) {
-      out.secrets.push({
-        name: e.key,
-        expr: `"arn:aws:ssm:\${var.region}:\${data.aws_caller_identity.current.account_id}:parameter/\${var.name_prefix}/secrets/${e.secretRef}"`,
-      });
+      const p: SecretParam = {
+        label: `secret_${tf(e.secretRef)}`,
+        path: `secrets/${ssmSafe(e.secretRef)}`,
+        key: e.secretRef,
+        description: `Manifest secretRef "${e.secretRef}".`,
+      };
+      out.params.push(p);
+      // Point at the parameter this bundle creates, so ECS cannot start
+      // before it exists — a bare ARN string would fail at task start.
+      out.secrets.push({ name: e.key, expr: `aws_ssm_parameter.${p.label}.arn` });
       out.notes.push(
-        `${s.name}.${e.key} reads SSM parameter /<name_prefix>/secrets/${e.secretRef} — create it before the first apply.`
+        `${s.name}.${e.key} reads SSM parameter /<name_prefix>/${p.path}, which this bundle creates as a placeholder. Set the real value with \`aws ssm put-parameter --overwrite\` — the parameter ignores later value changes, so Terraform will not revert it.`
       );
     }
   }
@@ -114,6 +161,81 @@ export function containerEnv(m: Manifest, s: Service, _env: Environment): Contai
     const keys = bindingEnv(m, b).map((k) => k.key);
     const P = target.node.name.replace(/-/g, "_").toUpperCase();
     const t = tf(target.node.name);
+    const name = target.node.name;
+
+    // Referenced targets are not declared anywhere in this bundle, so every
+    // attribute has to come from a variable rather than a resource address.
+    if (target.node.ownership !== "managed" && b.capability !== "http") {
+      const ext = target.type === "resource" ? target.node.externalRef : undefined;
+      const v = (field: string, description: string, dflt?: string): string => {
+        const n = refVar(name, field);
+        out.vars.push({ name: n, description, default: dflt });
+        return `var.${n}`;
+      };
+      const secretParam = (field: string, description: string): SecretParam => {
+        const p: SecretParam = {
+          // tf() the whole label: a hyphen is legal in a block label but makes
+          // `aws_ssm_parameter.ref_x_smtp-password` parse as subtraction.
+          label: tf(`ref_${name}_${field}`),
+          path: `refs/${ssmSafe(name)}/${field}`,
+          key: `refs/${ssmSafe(name)}/${field}`,
+          description,
+        };
+        out.params.push(p);
+        return p;
+      };
+      const why = `Referenced ${target.node.kind} "${name}" — Orrery never provisions or mutates it`;
+
+      if (b.capability === "sql") {
+        out.env.push(
+          { name: `${P}_HOST`, expr: v("host", `${why}. Hostname of the database.`, ext) },
+          { name: `${P}_PORT`, expr: v("port", `${why}. Port.`, "5432") },
+          { name: `${P}_USER`, expr: v("user", `${why}. Login role for ${s.name}.`) },
+          { name: `${P}_DATABASE`, expr: v("database", `${why}. Database name.`, tf(name).toLowerCase()) }
+        );
+        const p = secretParam("password", `${why}. Password for ${s.name}'s login role.`);
+        out.secrets.push({ name: `${P}_PASSWORD`, expr: `aws_ssm_parameter.${p.label}.arn` });
+        const u = secretParam("url", `${why}. Full connection URL, if your app wants one.`);
+        out.secrets.push({ name: `${P}_URL`, expr: `aws_ssm_parameter.${u.label}.arn` });
+      } else if (b.capability === "cache") {
+        out.env.push({
+          name: `${P}_URL`,
+          expr: v("url", `${why}. Redis URL, e.g. "redis://host:6379".`, ext),
+        });
+      } else if (b.capability === "blob") {
+        const bucket = v("bucket", `${why}. Existing S3 bucket name.`, ext);
+        out.env.push(
+          { name: `${P}_BUCKET`, expr: bucket },
+          { name: `${P}_ENDPOINT`, expr: `"https://s3.\${var.region}.amazonaws.com"` }
+        );
+        out.statements.push(
+          `  statement {\n    actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListBucket"]\n    resources = ["arn:aws:s3:::\${${bucket}}", "arn:aws:s3:::\${${bucket}}/*"]\n  }`
+        );
+      } else if (b.capability === "queue_publish" || b.capability === "queue_consume") {
+        out.env.push({ name: `${P}_URL`, expr: v("queue_url", `${why}. Existing SQS queue URL.`, ext) });
+        const arn = v("queue_arn", `${why}. Existing SQS queue ARN, for the task role policy.`);
+        const actions =
+          b.capability === "queue_publish"
+            ? `["sqs:SendMessage", "sqs:GetQueueUrl", "sqs:GetQueueAttributes"]`
+            : `["sqs:ReceiveMessage", "sqs:DeleteMessage", "sqs:GetQueueUrl", "sqs:GetQueueAttributes"]`;
+        out.statements.push(
+          `  statement {\n    actions   = ${actions}\n    resources = [${arn}]\n  }`
+        );
+      } else if (b.capability === "smtp") {
+        out.env.push(
+          { name: `${P}_HOST`, expr: v("smtp_host", `${why}. SMTP hostname.`, ext) },
+          { name: `${P}_PORT`, expr: v("smtp_port", `${why}. SMTP port.`, "587") },
+          { name: `${P}_USER`, expr: v("smtp_user", `${why}. SMTP username.`) }
+        );
+        const p = secretParam("smtp-password", `${why}. SMTP password.`);
+        out.secrets.push({ name: `${P}_PASSWORD`, expr: `aws_ssm_parameter.${p.label}.arn` });
+      }
+
+      out.notes.push(
+        `${name} is referenced, not managed. This bundle declares no resource for it — fill \`${refVar(name, "…")}\` in terraform.tfvars and put its credentials in SSM (see secrets.tf). \`imports.tf\` shows how to hand it to Terraform later if you change your mind.`
+      );
+      continue;
+    }
 
     if (b.capability === "sql") {
       out.env.push(
@@ -178,6 +300,31 @@ export function containerEnv(m: Manifest, s: Service, _env: Environment): Contai
   return out;
 }
 
+/** Services that get a container. Static sites are S3, not ECS. */
+const containerServices = (m: Manifest) =>
+  managed(m.services).filter((s) => s.kind !== "static");
+
+/**
+ * Everything the manifest forces the bundle to declare beyond its own managed
+ * resources: variables for referenced targets, and SSM parameters for secrets.
+ * Collected once so `variables.tf`/`secrets.tf` and the task definitions can
+ * never drift apart — that drift is exactly what made the export fail
+ * `terraform validate`.
+ */
+function scaffold(m: Manifest, env: Environment): {
+  vars: TfVariable[];
+  secrets: SecretParam[];
+} {
+  const vars = new Map<string, TfVariable>();
+  const secrets = new Map<string, SecretParam>();
+  for (const s of containerServices(m)) {
+    const c = containerEnv(m, s, env);
+    for (const v of c.vars) if (!vars.has(v.name)) vars.set(v.name, v);
+    for (const p of c.params) if (!secrets.has(p.label)) secrets.set(p.label, p);
+  }
+  return { vars: [...vars.values()], secrets: [...secrets.values()] };
+}
+
 function envJson(c: ContainerEnv): string {
   const lines = c.env.map((e) => `        { name = "${e.name}", value = ${e.expr} }`);
   return lines.length ? `[\n${lines.join(",\n")}\n      ]` : "[]";
@@ -224,13 +371,44 @@ data "aws_caller_identity" "current" {}
 }
 
 function variablesTf(env: Environment, m: Manifest, hasRoutes: boolean, hasEmail: boolean): string {
-  const images = managed(m.services)
-    .filter((s) => s.kind !== "static")
+  // "" means "use the ECR repository this bundle creates for the service".
+  const images = containerServices(m)
     .map(
-      (s) =>
-        `    "${s.name}" = "${s.source.type === "image" ? s.source.image : `CHANGE_ME/${s.name}:latest`}"`
+      (s) => `    "${s.name}" = "${s.source.type === "image" ? s.source.image : ""}"`
     )
     .join("\n");
+
+  const { vars, secrets } = scaffold(m, env);
+
+  const refVars = vars
+    .map(
+      (v) => `
+variable "${v.name}" {
+  description = ${JSON.stringify(v.description)}
+  type        = string${v.default !== undefined ? `\n  default     = ${JSON.stringify(v.default)}` : ""}
+}
+`
+    )
+    .join("");
+
+  const secretVar = secrets.length
+    ? `
+# Placeholders only. Orrery never held these values, so it cannot put them here.
+# After the first apply, set each real value out-of-band:
+#   aws ssm put-parameter --overwrite --type SecureString \\
+#     --name "/<name_prefix>/<path>" --value "<value>"
+# The parameters ignore later value changes, so Terraform will not revert you.
+variable "secret_values" {
+  description = "Initial value per secret. Anything left as PLACEHOLDER must be set with aws ssm put-parameter before the service can start."
+  type        = map(string)
+  sensitive   = true
+
+  default = {
+${secrets.map((p) => `    ${JSON.stringify(p.key)} = "PLACEHOLDER"`).join("\n")}
+  }
+}
+`
+    : "";
 
   const zoneVar = hasRoutes
     ? `
@@ -277,7 +455,7 @@ ${
   images
     ? `
 variable "container_images" {
-  description = "Image reference per service. Point these at your own registry."
+  description = "Image reference per service. Leave a service empty to use the ECR repository this bundle creates for it (push a :latest tag there first)."
   type        = map(string)
 
   default = {
@@ -286,7 +464,98 @@ ${images}
 }
 `
     : ""
-}${zoneVar}${mailVar}`;
+}${zoneVar}${mailVar}${secretVar}${refVars}`;
+}
+
+/**
+ * SecureString parameters for every `secretRef` and every referenced-resource
+ * credential. Without these the first apply succeeds and then ECS fails at
+ * task start, unable to resolve the `secrets` block — the worst possible time
+ * to find out.
+ */
+function secretsTf(m: Manifest, env: Environment): string {
+  const { secrets } = scaffold(m, env);
+  if (!secrets.length) return "";
+  return (
+    `# Created empty on purpose: Orrery never holds secret values. Each parameter
+# starts at the placeholder in var.secret_values and then ignores value
+# changes, so \`aws ssm put-parameter --overwrite\` is the only writer.
+` +
+    secrets
+      .map(
+        (p) => `
+resource "aws_ssm_parameter" "${p.label}" {
+  name        = "/\${var.name_prefix}/${p.path}"
+  description = ${JSON.stringify(p.description)}
+  type        = "SecureString"
+  value       = lookup(var.secret_values, ${JSON.stringify(p.key)}, "PLACEHOLDER")
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
+`
+      )
+      .join("")
+  );
+}
+
+/**
+ * Referenced resources have no `resource` block by design. If the owner later
+ * wants Terraform to manage one, these are the import blocks to uncomment —
+ * commented so the bundle still validates as shipped.
+ */
+function importsTf(m: Manifest): string {
+  const refs = m.resources.filter((r) => r.ownership === "referenced");
+  if (!refs.length) return "";
+  const addr: Record<string, string> = {
+    postgres: "aws_db_instance",
+    redis: "aws_elasticache_cluster",
+    object_store: "aws_s3_bucket",
+    queue: "aws_sqs_queue",
+    email: "aws_ses_domain_identity",
+  };
+  return `# Referenced resources: this bundle reads them through variables and never
+# declares them. To hand one to Terraform, uncomment its import block, add a
+# matching \`resource\` block that describes the live settings, then run
+# \`terraform plan\` and reconcile until the plan is empty.
+#
+# Import is one-way in practice: once Terraform owns the resource, a
+# \`terraform destroy\` will delete it.
+${refs
+  .map(
+    (r) => `
+# ${r.name} (${r.kind})${r.externalRef ? ` — externalRef ${r.externalRef}` : " — no externalRef recorded in the manifest"}
+# import {
+#   to = ${addr[r.kind] ?? "aws_resource"}.${tf(r.name)}
+#   id = "${r.externalRef ?? "CHANGE_ME"}"
+# }
+`
+  )
+  .join("")}`;
+}
+
+/** Commented remote-state backend. Local state is the default; this is the fix. */
+function backendTf(env: Environment): string {
+  const prefix = `${projectSlug(env)}-${env.name}`;
+  const region = env.region.startsWith("sim-") ? "us-east-1" : env.region;
+  return `# State is on local disk until you move it. Before a second person touches
+# this bundle, create a versioned S3 bucket you own, uncomment the block below,
+# and run \`terraform init -migrate-state\`.
+#
+# \`use_lockfile\` needs Terraform >= 1.10 or OpenTofu >= 1.10. On older
+# versions drop it and add \`dynamodb_table = "your-lock-table"\` instead.
+#
+# terraform {
+#   backend "s3" {
+#     bucket       = "CHANGE_ME-terraform-state"
+#     key          = "${prefix}/terraform.tfstate"
+#     region       = "${region}"
+#     encrypt      = true
+#     use_lockfile = true
+#   }
+# }
+`;
 }
 
 function networkTf(m: Manifest, hasRoutes: boolean): string {
@@ -414,7 +683,7 @@ function awsCron(expr: string): string {
 }
 
 function ecsTf(m: Manifest, env: Environment): string {
-  const services = managed(m.services).filter((s) => s.kind !== "static");
+  const services = containerServices(m);
   if (!services.length) return "";
 
   const anySecrets = services.some((s) => containerEnv(m, s, env).secrets.length > 0);
@@ -479,6 +748,18 @@ resource "aws_iam_role_policy" "task_execution_secrets" {
     const route = routeOf(m, s.id);
 
     out += `
+# A registry per service, so \`container_images["${s.name}"] = ""\` resolves to
+# somewhere you can actually push. Deleting the repo deletes its images.
+resource "aws_ecr_repository" "${t}" {
+  name                 = "\${var.name_prefix}/${s.name}"
+  image_tag_mutability = "MUTABLE"
+  force_delete         = true
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+}
+
 resource "aws_cloudwatch_log_group" "${t}" {
   name              = "/ecs/\${var.name_prefix}/${s.name}"
   retention_in_days = 30
@@ -520,7 +801,7 @@ resource "aws_ecs_task_definition" "${t}" {
   container_definitions = jsonencode([
     {
       name      = "${s.name}"
-      image     = var.container_images["${s.name}"]
+      image     = coalesce(lookup(var.container_images, "${s.name}", ""), "\${aws_ecr_repository.${t}.repository_url}:latest")
       essential = true${portMappings}
       environment = ${envJson(c)}
       secrets = ${secretsJson(c)}
@@ -720,11 +1001,18 @@ function s3Tf(m: Manifest): string {
   const buckets = managed(m.resources).filter((r) => r.kind === "object_store");
   const sites = managed(m.services).filter((s) => s.kind === "static");
   if (!buckets.length && !sites.length) return "";
-  let out = "";
+  // S3 bucket names are global, so "<prefix>-uploads" collides with every other
+  // account that tried the same obvious name. The suffix is generated once and
+  // kept in state: it is stable across applies unless you taint this resource.
+  let out = `resource "random_id" "bucket_suffix" {
+  byte_length = 3
+}
+
+`;
   for (const r of buckets) {
     const t = tf(r.name);
     out += `resource "aws_s3_bucket" "${t}" {
-  bucket = "\${var.name_prefix}-${r.name}"
+  bucket = "\${var.name_prefix}-${r.name}-\${random_id.bucket_suffix.hex}"
 }
 
 resource "aws_s3_bucket_public_access_block" "${t}" {
@@ -759,8 +1047,12 @@ resource "aws_s3_bucket_versioning" "${t}" {
     const t = tf(s.name);
     out += `# Static site "${s.name}". Upload your build output here, then front it with
 # CloudFront if you need a custom domain and TLS.
+#
+# This bucket is deliberately world-readable: a website bucket with the default
+# private settings answers 403 to every visitor. Everything you put in it is
+# public. Do not upload anything you would not publish.
 resource "aws_s3_bucket" "site_${t}" {
-  bucket = "\${var.name_prefix}-${s.name}-site"
+  bucket = "\${var.name_prefix}-${s.name}-site-\${random_id.bucket_suffix.hex}"
 }
 
 resource "aws_s3_bucket_website_configuration" "site_${t}" {
@@ -773,6 +1065,34 @@ resource "aws_s3_bucket_website_configuration" "site_${t}" {
   error_document {
     key = "index.html"
   }
+}
+
+resource "aws_s3_bucket_public_access_block" "site_${t}" {
+  bucket                  = aws_s3_bucket.site_${t}.id
+  block_public_acls       = true
+  ignore_public_acls      = true
+  block_public_policy     = false
+  restrict_public_buckets = false
+}
+
+resource "aws_s3_bucket_policy" "site_${t}" {
+  bucket = aws_s3_bucket.site_${t}.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "PublicReadForWebsite"
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = "s3:GetObject"
+        Resource  = "\${aws_s3_bucket.site_${t}.arn}/*"
+      }
+    ]
+  })
+
+  # The access block must land first, or S3 rejects the policy.
+  depends_on = [aws_s3_bucket_public_access_block.site_${t}]
 }
 
 `;
@@ -1098,25 +1418,52 @@ ${[...new Set(rb.map((x) => `    "${x.route.tls ? "https" : "http"}://${x.route.
   value       = aws_sqs_queue.${t}.url
 }`);
   }
-  const svcs = managed(m.services).filter((s) => s.kind !== "static");
-  if (svcs.length)
+  for (const s of managed(m.services).filter((x) => x.kind === "static")) {
+    const t = tf(s.name);
+    parts.push(`output "${t}_site_endpoint" {
+  description = "Public website endpoint for ${s.name}. Upload your build output to the bucket in the value below."
+  value       = aws_s3_bucket_website_configuration.site_${t}.website_endpoint
+}
+
+output "${t}_site_bucket" {
+  description = "Bucket holding ${s.name}'s built files."
+  value       = aws_s3_bucket.site_${t}.bucket
+}`);
+  }
+  const svcs = containerServices(m);
+  if (svcs.length) {
     parts.push(`output "ecs_cluster" {
   description = "ECS cluster running the services."
   value       = aws_ecs_cluster.main.name
 }`);
+    parts.push(`output "ecr_repositories" {
+  description = "Push an image here for any service left empty in container_images, then apply again."
+  value = {
+${svcs.map((s) => `    "${s.name}" = aws_ecr_repository.${tf(s.name)}.repository_url`).join("\n")}
+  }
+}`);
+  }
   return parts.join("\n\n") + (parts.length ? "\n" : "");
 }
 
 function tfvarsExample(env: Environment, m: Manifest, hasRoutes: boolean, hasEmail: boolean): string {
-  const images = managed(m.services)
-    .filter((s) => s.kind !== "static")
+  const images = containerServices(m)
     .map(
       (s) =>
-        `  "${s.name}" = "${s.source.type === "image" ? s.source.image : `123456789012.dkr.ecr.us-east-1.amazonaws.com/${s.name}:latest`}"`
+        `  "${s.name}" = "${s.source.type === "image" ? s.source.image : ""}"${s.source.type === "image" ? "" : `  # empty = push to the ECR repo this bundle creates for ${s.name}`}`
     )
     .join("\n");
   const hosts = [...new Set(routeBindings(m).map((x) => x.route.host))];
   const guessZone = hosts[0]?.split(".").slice(-2).join(".") ?? "example.com";
+  const { vars } = scaffold(m, env);
+
+  const refBlock = vars.length
+    ? `
+# Referenced resources. Orrery never provisions or mutates these; fill in where
+# they already live. Anything left empty will fail at plan or at task start.
+${vars.map((v) => `${v.name} = ${JSON.stringify(v.default ?? "")}  # ${v.description}`).join("\n")}
+`
+    : "";
 
   return `# Copy to terraform.tfvars and edit before the first apply.
 region       = "${env.region.startsWith("sim-") ? "us-east-1" : env.region}"
@@ -1131,7 +1478,7 @@ ${images}
 }
 `
       : ""
-  }`;
+  }${refBlock}`;
 }
 
 /* ------------------------------ bundle assembly ---------------------------- */
@@ -1169,9 +1516,12 @@ export function terraformFiles(env: Environment, m: Manifest): ExportFile[] {
 
   const candidates: [string, string][] = [
     ["providers.tf", providersTf()],
+    ["backend.tf", backendTf(env)],
     ["variables.tf", variablesTf(env, m, hasRoutes, hasEmail)],
     ["network.tf", networkTf(m, hasRoutes)],
     ["ecs.tf", ecsTf(m, env)],
+    ["secrets.tf", secretsTf(m, env)],
+    ["imports.tf", importsTf(m)],
     ["rds.tf", rdsTf(m)],
     ["elasticache.tf", elasticacheTf(m)],
     ["s3.tf", s3Tf(m)],
@@ -1226,8 +1576,12 @@ ${managed(m.resources).length} managed resource(s), ${m.routes.length} route(s).
    SQS, SES, ELB, ACM and Route 53 resources. Administrator access is the
    simple answer; the least-privilege answer is the summary shown on the
    provider's connect screen.
-3. A container image per service, pushed somewhere ECS can pull from (ECR,
-   Docker Hub, GHCR). Set them in \`container_images\`.
+3. A container image per service. This bundle creates an ECR repository per
+   service; leave that service empty in \`container_images\` and push a
+   \`:latest\` tag there, or point the entry at any registry ECS can pull from
+   (Docker Hub, GHCR). A service with an empty entry and an empty repository
+   will start and then fail to pull — apply once, read
+   \`terraform output ecr_repositories\`, push, apply again.
 ${rb.length ? `4. A **public Route 53 hosted zone** you control, matching your route hostnames. ACM DNS validation writes records into it.\n` : ""}
 ## First apply
 
@@ -1244,19 +1598,10 @@ When it finishes, \`terraform output\` prints the load balancer DNS name${rb.len
 
 ### State
 
-State is local by default. Before more than one person touches this, move it
-to a remote backend:
-
-\`\`\`hcl
-terraform {
-  backend "s3" {
-    bucket       = "your-tf-state-bucket"
-    key          = "${prefix}/terraform.tfstate"
-    region       = "us-east-1"
-    use_lockfile = true
-  }
-}
-\`\`\`
+State is local by default. \`backend.tf\` ships the S3 backend block already
+filled in for this environment, commented out. Create a versioned bucket you
+own, uncomment it, and run \`terraform init -migrate-state\` before a second
+person touches this bundle.
 
 ## How Orrery's model maps onto AWS
 
@@ -1274,6 +1619,9 @@ terraform {
 | email | SES domain identity + SMTP IAM user |
 | route → service | ALB target group + listener rule + ACM cert + Route 53 alias |
 | binding | env vars / secrets on the task definition + IAM on the task role |
+| managed node | a \`resource\` block Terraform creates, updates and destroys |
+| referenced node | **no resource block** — a \`var.ref_*\` you fill, plus SSM for its credentials. See \`imports.tf\` to take one over. |
+| secretRef | \`aws_ssm_parameter\` (SecureString) created empty, in \`secrets.tf\` |
 
 ## Environment injection
 
@@ -1293,14 +1641,39 @@ ${
     ? `### Notes on this manifest\n\n${notes.map((n) => `- ${n}`).join("\n")}\n`
     : ""
 }
-Secrets referenced by \`secretRef\` in the manifest are **not** created for you —
-Orrery never held their values. Create them once, then apply:
+### Secrets
+
+Orrery never held your secret values, so it cannot put them here. What
+\`secrets.tf\` does instead is create every parameter the task definitions
+reference, holding the placeholder \`PLACEHOLDER\`. That is what stops the
+first apply from succeeding and then failing at task start, unable to resolve
+the \`secrets\` block.
+
+Set the real values once, after the first apply:
 
 \`\`\`sh
-aws ssm put-parameter --type SecureString \\
+aws ssm put-parameter --overwrite --type SecureString \\
   --name "/${prefix}/secrets/<ref>" --value "<value>"
 \`\`\`
 
+Each parameter carries \`ignore_changes = [value]\`, so a later
+\`terraform apply\` will not revert you. Restart the service (force a new
+deployment) to pick a changed value up.
+
+${
+  m.resources.some((r) => r.ownership === "referenced")
+    ? `### Referenced resources
+
+Resources marked *referenced* in Orrery already exist in your account, and
+this bundle declares none of them — that is the whole point of the
+distinction. Their hostnames and identifiers come from \`var.ref_*\` in
+\`terraform.tfvars\`, and their credentials from the SSM parameters above.
+\`imports.tf\` carries a commented \`import\` block per referenced resource for
+the day you decide Terraform should own one.
+
+`
+    : ""
+}
 ## Operating without Orrery
 
 - **Deploy a new version.** Push a new image tag, update \`container_images\`,
@@ -1327,8 +1700,13 @@ These are the corners this generator cuts, and what to do about each:
   Invert both once the database matters.
 - **No autoscaling.** \`desired_count\` is fixed. Add
   \`aws_appautoscaling_target\` + policy when you need it.
-- **Static sites are plain S3 buckets.** Add CloudFront + an ACM cert in
-  us-east-1 for a custom domain.
+- **Static sites are public S3 website buckets.** They carry a
+  \`s3:GetObject\` policy for \`Principal = "*"\` because a private website
+  bucket answers 403 to everyone. Everything you upload is public. Add
+  CloudFront + an ACM cert in us-east-1 for a custom domain and TLS.
+- **Bucket names carry a random suffix.** S3's namespace is global, so
+  \`<name_prefix>-uploads\` is almost certainly taken. The suffix lives in
+  state and is stable across applies.
 - **Service-to-service HTTP** relies on public routes. Add ECS Service Connect
   or an internal ALB for private traffic.
 - **ALB target group names** are \`<name_prefix>-<service>\` and AWS caps them

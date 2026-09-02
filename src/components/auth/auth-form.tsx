@@ -6,9 +6,11 @@
  */
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, type FormEvent } from "react";
-import { Button, Field, Input } from "@/components/ui";
+import { useEffect, useState, type FormEvent } from "react";
+import { Eye, EyeOff } from "lucide-react";
+import { Button, Field, Input, Skeleton } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
+import { explain, isUnconfirmedEmail, messageForErrorCode } from "./messages";
 
 export type AuthMode = "login" | "signup" | "forgot" | "reset";
 
@@ -31,43 +33,92 @@ const COPY: Record<AuthMode, { title: string; body: string; cta: string }> = {
   },
 };
 
-/** Translate Supabase auth errors into calm, fix-naming copy. */
-function explain(message: string): string {
-  const m = message.toLowerCase();
-  if (m.includes("invalid login credentials"))
-    return "That email and password do not match. Check both, or reset your password below.";
-  if (m.includes("email not confirmed"))
-    return "Confirm your email first — the link is in your inbox. Then sign in again.";
-  if (m.includes("already registered") || m.includes("already exists"))
-    return "An account with that email already exists. Sign in instead, or reset the password.";
-  if (m.includes("password") && m.includes("least"))
-    return "Password is too short — use at least 8 characters.";
-  if (m.includes("rate limit") || m.includes("too many"))
-    return "Too many attempts in a row. Wait a minute, then try again.";
-  if (m.includes("fetch") || m.includes("network"))
-    return "Could not reach the auth server. Is Supabase running? Check NEXT_PUBLIC_SUPABASE_URL and retry.";
-  return `${message}. If this keeps happening, check the Supabase logs.`;
+/** Placeholder while the client form (it reads the query string) hydrates. */
+export function AuthFormSkeleton() {
+  return (
+    <div className="rounded-[12px] border border-line bg-bg1 p-6 sm:p-7" aria-hidden="true">
+      <Skeleton height={26} width="60%" />
+      <div className="mt-3">
+        <Skeleton height={16} width="80%" />
+      </div>
+      <div className="mt-8 space-y-5">
+        <Skeleton height={44} />
+        <Skeleton height={44} />
+        <Skeleton height={32} />
+      </div>
+    </div>
+  );
+}
+
+/** Reveal toggle, parked in the input's trailing slot. */
+function RevealButton({ shown, onToggle }: { shown: boolean; onToggle: () => void }) {
+  const Icon = shown ? EyeOff : Eye;
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={shown}
+      aria-label={shown ? "Hide password" : "Show password"}
+      title={shown ? "Hide password" : "Show password"}
+      className="-mr-1 grid h-6 w-6 place-items-center rounded-[6px] text-ink-faint transition-colors duration-[120ms] hover:text-ink"
+    >
+      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+    </button>
+  );
 }
 
 export function AuthForm({ mode }: { mode: AuthMode }) {
   const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") || "/overview";
-  const initialError = params.get("error");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | undefined>(
-    initialError ? explain(initialError) : undefined
+  const [error, setError] = useState<string | undefined>(() =>
+    messageForErrorCode(params.get("error"))
   );
+  /** the account exists but was never confirmed — offer to send the link again */
+  const [unconfirmed, setUnconfirmed] = useState(false);
   const [done, setDone] = useState<string>();
+  /**
+   * /reset-password is only usable with the recovery session the emailed link
+   * establishes. Without one, updateUser would fail with a stranger's error.
+   */
+  const [recovery, setRecovery] = useState<"checking" | "ok" | "none">(
+    mode === "reset" ? "checking" : "ok"
+  );
   const c = COPY[mode];
+
+  useEffect(() => {
+    if (mode !== "reset") return;
+    let alive = true;
+    createClient()
+      .auth.getSession()
+      .then(({ data }) => alive && setRecovery(data.session ? "ok" : "none"))
+      .catch(() => alive && setRecovery("none"));
+    return () => {
+      alive = false;
+    };
+  }, [mode]);
+
+  const fail = (err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err);
+    setUnconfirmed(isUnconfirmedEmail(message));
+    setError(explain(message));
+  };
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (mode === "reset" && password !== confirm) {
+      setError("Those two passwords do not match. Retype the new password in both fields.");
+      return;
+    }
     setBusy(true);
     setError(undefined);
+    setUnconfirmed(false);
     const supabase = createClient();
     const origin = window.location.origin;
     try {
@@ -90,6 +141,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           router.replace("/overview");
           router.refresh();
         } else {
+          setUnconfirmed(true);
           setDone(
             "Check your inbox — we sent a confirmation link. Open it to finish creating your account."
           );
@@ -107,11 +159,37 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         router.refresh();
       }
     } catch (err) {
-      setError(explain(err instanceof Error ? err.message : String(err)));
+      fail(err);
     } finally {
       setBusy(false);
     }
   }
+
+  /** Send the confirmation email again — the same address, a fresh link. */
+  async function resend() {
+    setBusy(true);
+    setError(undefined);
+    try {
+      const { error } = await createClient().auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/overview` },
+      });
+      if (error) throw error;
+      setUnconfirmed(false);
+      setDone(`A fresh confirmation link is on its way to ${email}. It expires in an hour.`);
+    } catch (err) {
+      fail(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const resendButton = email.trim() ? (
+    <Button variant="quiet" size="sm" busy={busy} onClick={resend}>
+      Send the confirmation email again
+    </Button>
+  ) : null;
 
   return (
     <div className="rounded-[12px] border border-line bg-bg1 p-6 sm:p-7">
@@ -119,19 +197,47 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       <p className="mt-1.5 text-[14px] text-ink-mute">{c.body}</p>
 
       {done ? (
-        <div className="mt-6 rounded-[10px] border border-line bg-bg2 p-4 text-[14px] leading-[1.6] text-ink-mute">
+        <div
+          role="status"
+          className="mt-6 rounded-[10px] border border-line bg-bg2 p-4 text-[14px] leading-[1.6] text-ink-mute"
+        >
           {done}
+          {unconfirmed && resendButton && <div className="mt-3">{resendButton}</div>}
           <div className="mt-3">
             <Link href="/login" className="text-signal hover:underline">
               Back to sign in
             </Link>
           </div>
         </div>
+      ) : recovery === "checking" ? (
+        <div className="mt-6 space-y-3">
+          <Skeleton height={44} />
+          <Skeleton height={32} />
+        </div>
+      ) : recovery === "none" ? (
+        <div
+          role="status"
+          className="mt-6 rounded-[10px] border border-line bg-bg2 p-4 text-[14px] leading-[1.6] text-ink-mute"
+        >
+          Open the reset link from your email first. This page can only set a new password while
+          that link&apos;s session is active — it expires an hour after it is sent.
+          <div className="mt-3">
+            <Link href="/forgot-password" className="text-signal hover:underline">
+              Send me a new reset link
+            </Link>
+          </div>
+        </div>
       ) : (
-        <form onSubmit={submit} className="mt-6 space-y-4" noValidate>
+        <form onSubmit={submit} className="mt-6 space-y-4">
           {mode === "signup" && (
             <Field label="Name" help="Shown on your changes and in the audit log.">
-              <Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" required />
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete="name"
+                autoFocus
+                required
+              />
             </Field>
           )}
           {mode !== "reset" && (
@@ -141,6 +247,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
+                autoFocus={mode !== "signup"}
                 required
               />
             </Field>
@@ -151,20 +258,40 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
               help={mode === "signup" || mode === "reset" ? "At least 8 characters." : undefined}
             >
               <Input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete={mode === "login" ? "current-password" : "new-password"}
                 minLength={mode === "login" ? undefined : 8}
+                autoFocus={mode === "reset"}
+                required
+                suffix={
+                  <RevealButton
+                    shown={showPassword}
+                    onToggle={() => setShowPassword((s) => !s)}
+                  />
+                }
+              />
+            </Field>
+          )}
+          {mode === "reset" && (
+            <Field label="New password again" help="Both fields must match before it is saved.">
+              <Input
+                type={showPassword ? "text" : "password"}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                autoComplete="new-password"
+                minLength={8}
                 required
               />
             </Field>
           )}
 
           {error && (
-            <p role="alert" className="rounded-[8px] bg-err-dim px-3 py-2 text-[13px] leading-[1.5] text-err">
+            <div role="alert" className="rounded-[8px] bg-err-dim px-3 py-2 text-[13px] leading-[1.5] text-err">
               {error}
-            </p>
+              {unconfirmed && resendButton && <div className="mt-2">{resendButton}</div>}
+            </div>
           )}
 
           <Button type="submit" variant="primary" busy={busy} block>

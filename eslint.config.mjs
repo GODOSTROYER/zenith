@@ -9,7 +9,7 @@ const compat = new FlatCompat({ baseDirectory: dirname(fileURLToPath(import.meta
  * parameter that exists to satisfy an interface and is deliberately unused —
  * the provider adapters are full of them.
  */
-export default [
+const config = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
     rules: {
@@ -26,3 +26,6 @@ export default [
   },
   { ignores: [".next/**", ".data/**", ".data-smoke/**", "node_modules/**", "supabase/**"] },
 ];
+
+// Named, because `eslint .` lints this file too and flags an anonymous default.
+export default config;

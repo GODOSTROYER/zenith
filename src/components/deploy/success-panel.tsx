@@ -9,7 +9,8 @@ import { useShell } from "@/components/shell/shell-context";
 import { useJson } from "@/lib/client/api";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { cx, fmtUsd } from "@/lib/format";
-import type { Deployment, Output } from "@/lib/domain/types";
+import type { Deployment, Output, Revision } from "@/lib/domain/types";
+import { copyTarget, isSimulated, openLabel } from "./output-link";
 
 interface HealthPayload {
   simulated: boolean;
@@ -42,9 +43,17 @@ function claimFirstLiveEver(projectId: string): boolean {
   }
 }
 
-function OutputRow({ output, simulated }: { output: Output; simulated: boolean }) {
+function OutputRow({
+  output,
+  simulated: envSimulated,
+}: {
+  output: Output;
+  simulated: boolean | undefined;
+}) {
   const { name, pretty } = splitLabel(output.label);
   const isUrl = output.kind === "url";
+  const simulated = isSimulated(output, envSimulated);
+  const copy = copyTarget(output, simulated);
   return (
     <li className="flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-b-0">
       <Globe className="h-3.5 w-3.5 shrink-0 text-ink-faint" aria-hidden="true" />
@@ -54,15 +63,21 @@ function OutputRow({ output, simulated }: { output: Output; simulated: boolean }
           {pretty}
         </p>
       </div>
-      <CopyButton value={pretty} what="the address" label="Copy" />
+      <CopyButton value={copy.value} what={copy.what} label={simulated ? "Copy link" : "Copy"} />
       {isUrl && (
         <span className="flex shrink-0 items-center gap-1.5">
-          {/* the address above is a pretty fake; Open goes to a local preview */}
-          {simulated && (
+          {/* The address above is a pretty fake whenever the sandbox produced
+              it. Until the workspace payload says which provider that was, the
+              honest label is "checking" — never the unqualified "Open". */}
+          {simulated !== false && (
             <Chip
-              title={`${pretty} does not exist on the internet. Open shows a local preview of this service, served by the sandbox provider.`}
+              title={
+                simulated
+                  ? `${pretty} does not exist on the internet. Open shows a local preview of this service, served by the sandbox provider.`
+                  : "Checking which provider produced this address."
+              }
             >
-              simulated
+              {simulated ? "simulated" : "checking…"}
             </Chip>
           )}
           <a
@@ -75,7 +90,7 @@ function OutputRow({ output, simulated }: { output: Output; simulated: boolean }
               "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]"
             )}
           >
-            {simulated ? "Open preview" : "Open"}
+            {openLabel(simulated)}
             <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
           </a>
         </span>
@@ -91,7 +106,7 @@ export function SuccessPanel({
   deployment: Deployment;
   onAddRoute: () => void;
 }) {
-  const { project, selectedEnv, selectedEnvId } = useProjectData();
+  const { project, selectedEnv, changesets } = useProjectData();
   const { boot } = useShell();
   // Only ever flips on: StrictMode's second pass finds the flag already burned
   // and leaves the celebration that is currently on screen alone.
@@ -99,20 +114,36 @@ export function SuccessPanel({
   useEffect(() => {
     if (claimFirstLiveEver(project.id)) setCelebrate(true);
   }, [project.id]);
+  // Health is keyed on the environment, not on a revision id the project
+  // payload has not polled yet: this panel only renders after a deployment
+  // succeeded, so the first fetch can go out immediately.
   const { data: health } = useJson<HealthPayload>(
-    selectedEnv?.deployedRevisionId ? `/api/health/${selectedEnvId}` : null,
+    `/api/health/${deployment.environmentId}`,
     10_000
   );
 
+  // What this environment now runs — the deployed revision, not the working
+  // copy that may already have moved on.
+  const { data: deployed } = useJson<{ revision: Revision }>(
+    `/api/revisions/${deployment.revisionId}`
+  );
+
   // Only the sandbox provider hands out addresses that do not exist; a real
-  // provider's URL must never be labeled simulated.
-  const simulated =
-    boot?.connections.find((c) => c.id === selectedEnv?.connectionId)?.provider === "sandbox";
+  // provider's URL must never be labeled simulated. `undefined` until the
+  // workspace payload lands, so the panel never claims either way too early.
+  const simulated = boot
+    ? boot.connections.find((c) => c.id === selectedEnv?.connectionId)?.provider === "sandbox"
+    : undefined;
 
   const urls = deployment.outputs.filter((o) => o.kind === "url");
   const others = deployment.outputs.filter((o) => o.kind !== "url");
-  const est = monthlyCostUsd(project.workingManifest);
-  const services = project.workingManifest.services;
+  const liveCost = deployed ? monthlyCostUsd(deployed.revision.manifest) : undefined;
+  const pending = changesets[deployment.environmentId];
+  // Only once the project payload agrees this revision is the live one; until
+  // then its changeset still counts the changes this deployment just applied.
+  const settled = selectedEnv?.deployedRevisionId === deployment.revisionId;
+  const pendingCount = settled ? (pending?.items.length ?? 0) : 0;
+  const services = deployed?.revision.manifest.services ?? project.workingManifest.services;
 
   return (
     <div className="animate-enter space-y-5">
@@ -174,9 +205,23 @@ export function SuccessPanel({
               </Chip>
             );
           })}
-        <span className="tnum ml-auto font-mono text-[12.5px] text-ink-mute">
-          now {fmtUsd(est)}
-          <span className="text-ink-faint">/mo est.</span>
+        <span className="tnum ml-auto text-right font-mono text-[12.5px] text-ink-mute">
+          {liveCost === undefined ? (
+            <span className="text-ink-faint">pricing this revision…</span>
+          ) : (
+            <>
+              live {fmtUsd(liveCost)}
+              <span className="text-ink-faint">/mo est.</span>
+            </>
+          )}
+          {/* The working copy is a different system from the one that just
+              went live; its cost is never folded into the number above. */}
+          {pendingCount > 0 && (
+            <span className="block text-[11.5px] text-ink-faint">
+              working copy {fmtUsd(pending.totalCostDeltaUsd, { sign: true })}/mo in {pendingCount}{" "}
+              pending change{pendingCount === 1 ? "" : "s"}
+            </span>
+          )}
         </span>
       </div>
 

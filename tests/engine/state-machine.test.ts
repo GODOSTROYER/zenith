@@ -146,7 +146,8 @@ const start = (revisionId: string, changeSummary: string) =>
     revisionId,
     changeSummary,
     estCostDeltaUsd: 0,
-    actorName: "you",
+    actorName: "You",
+    actorId: "local",
     actorType: "user",
   });
 

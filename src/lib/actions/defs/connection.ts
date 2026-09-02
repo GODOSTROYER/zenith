@@ -116,9 +116,15 @@ defineAction<CreateConn>({
         data: { connectionId: conn.id, status: conn.status, checks: report.checks },
       };
     }
+    // Count what actually passed. `checks.length` counted warnings as passes,
+    // so a connection with three caveats reported "3 checks passed".
+    const passed = report.checks.filter((c) => c.status === "pass").length;
+    const warned = report.checks.filter((c) => c.status === "warn").length;
     return {
       ok: true,
-      summary: `Connected ${conn.label} (${adapter.availability}). ${report.checks.length} preflight check(s) passed.`,
+      summary:
+        `Connected ${conn.label} (${adapter.availability}). ${passed} of ${report.checks.length} preflight check(s) passed` +
+        (warned ? `, ${warned} with a caveat.` : "."),
       data: { connectionId: conn.id, status: conn.status, checks: report.checks, permissions: report.permissions },
     };
   },
@@ -167,10 +173,12 @@ defineAction<ConnRef>({
     conn.grantedPermissions = report.permissions;
     save();
     const failed = report.checks.filter((c) => c.status !== "pass");
+    const passed = report.checks.length - failed.length;
     return {
       ok: report.ok,
       summary: report.ok
-        ? `${conn.label} is healthy — ${report.checks.length} check(s) passed.`
+        ? `${conn.label} is healthy — ${passed} of ${report.checks.length} check(s) passed` +
+          (failed.length ? `, ${failed.length} with a caveat.` : ".")
         : `${conn.label} is ${conn.status}: ${failed.length} check(s) need attention.`,
       error: report.ok ? undefined : failed.map((c) => `${c.label}: ${c.fix ?? c.detail ?? "no detail"}`).join(" "),
       data: { connectionId: conn.id, status: conn.status, checks: report.checks, lines: checkLines(report) },

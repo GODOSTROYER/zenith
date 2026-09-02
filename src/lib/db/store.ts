@@ -13,6 +13,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { env } from "@/lib/env";
 import type {
   AuditEvent,
   CloudConnection,
@@ -54,7 +55,7 @@ const EMPTY: Database = {
   settings: {},
 };
 
-const DATA_DIR = process.env.ORRERY_DATA ?? path.join(process.cwd(), ".data");
+const DATA_DIR = env().ORRERY_DATA;
 const STATE = path.join(DATA_DIR, "state.json");
 const EVENTS = path.join(DATA_DIR, "events.jsonl");
 const AUDIT = path.join(DATA_DIR, "audit.jsonl");
@@ -260,6 +261,8 @@ export function appendAudit(e: AuditEvent): void {
 export interface AuditFilter {
   workspaceId?: string;
   projectId?: string;
+  /** only rows recorded against this environment */
+  environmentId?: string;
   /** max events to return (default 500) */
   limit?: number;
   /** "user" | "navigator" | "system" */
@@ -267,6 +270,10 @@ export interface AuditFilter {
   /** exact action id, or a prefix ending in "." (e.g. "deploy.") */
   actionId?: string;
   result?: AuditEvent["result"];
+  /** ISO timestamp, inclusive lower bound on `ts` */
+  from?: string;
+  /** ISO timestamp, inclusive upper bound on `ts` */
+  to?: string;
   /** opaque page cursor from a previous `readAuditPage` */
   cursor?: string;
 }
@@ -284,10 +291,49 @@ const AUDIT_CHUNK = 64 * 1024;
 const matches = (e: AuditEvent, f: AuditFilter): boolean =>
   (!f.workspaceId || e.workspaceId === f.workspaceId) &&
   (!f.projectId || e.projectId === f.projectId) &&
+  (!f.environmentId || e.environmentId === f.environmentId) &&
   (!f.actorType || e.actor?.type === f.actorType) &&
   (!f.result || e.result === f.result) &&
+  (!f.from || e.ts >= f.from) &&
+  (!f.to || e.ts <= f.to) &&
   (!f.actionId ||
     (f.actionId.endsWith(".") ? e.actionId.startsWith(f.actionId) : e.actionId === f.actionId));
+
+/**
+ * How many rows match, so the UI can say "50 of 214" instead of "50".
+ *
+ * Counting means reading, so it is bounded: the newest 4 MB of the log. Past
+ * that the count is a floor, and `exact: false` says so rather than letting a
+ * screen present a truncated number as the truth.
+ */
+const AUDIT_COUNT_BUDGET = 4 << 20;
+
+export function countAudit(filter: AuditFilter = {}): { total: number; exact: boolean } {
+  if (!fs.existsSync(AUDIT)) return { total: 0, exact: true };
+  const size = fs.statSync(AUDIT).size;
+  const start = Math.max(0, size - AUDIT_COUNT_BUDGET);
+  const fd = fs.openSync(AUDIT, "r");
+  let total = 0;
+  try {
+    const buf = Buffer.allocUnsafe(size - start);
+    fs.readSync(fd, buf, 0, buf.length, start);
+    const text = buf.toString("utf8");
+    // A partial first line (we may have cut mid-record) is dropped, not guessed.
+    const lines = text.split("\n");
+    if (start > 0) lines.shift();
+    for (const line of lines) {
+      if (!line) continue;
+      try {
+        if (matches(JSON.parse(line) as AuditEvent, filter)) total++;
+      } catch {
+        /* skip torn line */
+      }
+    }
+  } finally {
+    fs.closeSync(fd);
+  }
+  return { total, exact: start === 0 };
+}
 
 /**
  * Read the audit log backwards from the end (or from `cursor`), newest first.
@@ -374,3 +420,12 @@ export const q = {
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)),
   connection: (id: string) => db().connections.find((c) => c.id === id),
 };
+
+/**
+ * Tenancy guard for id-lookup routes. An object id is a bearer token: knowing
+ * one must not be enough to read it from another workspace. Every /api route
+ * that resolves an object by id checks this and 404s when it fails — 404, not
+ * 403, so the id space is not enumerable either.
+ */
+export const inWorkspace = (workspaceId: string, projectId: string): boolean =>
+  q.project(projectId)?.workspaceId === workspaceId;

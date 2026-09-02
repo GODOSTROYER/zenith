@@ -59,9 +59,13 @@ describe("providers refuse before anything is written", () => {
     const environmentId = envs.aws;
     const revisionsBefore = db().revisions.length;
 
+    // The refusal is a first-class field, not prose buried in `warnings`:
+    // a surface disables its confirm control on `blocked` alone.
     const preview = await plan("deploy.apply", {}, { projectId, environmentId });
-    expect(preview.warnings.some((w) => /Preview provider/.test(w))).toBe(true);
-    expect(preview.warnings.some((w) => /Terraform/.test(w))).toBe(true);
+    expect(preview.blocked).toMatch(/Preview provider/);
+    expect(preview.blocked).toMatch(/Terraform/);
+    // and warnings stay advisory — nothing in there stops the deploy
+    expect(preview.warnings.some((w) => /Blocks the deploy/.test(w))).toBe(false);
 
     const result = await exec("deploy.apply", {}, { projectId, environmentId });
     expect(result.ok).toBe(false);

@@ -117,8 +117,8 @@ export function envPlanDetails(project: Project, env: Environment, conn: CloudCo
     `Deploys through ${connectionLabel(conn)}.`,
     `Managed routes get hostnames under ${env.baseDomain}.`,
     env.policies.approvalRequired
-      ? `Approval required before anything is applied${env.class === "production" ? " — the default for production environments" : ""}. Change it in Settings → Policies.`
-      : "Deploys apply as soon as they are started. Turn on approval in Settings → Policies if you want a gate.",
+      ? `Approval required before anything is applied${env.class === "production" ? " — the default for production environments" : ""}. Change it in Settings → Environments.`
+      : "Deploys apply as soon as they are started. Turn on approval in Settings → Environments if you want a gate.",
     env.policies.budgetUsdMonthly
       ? `Budget ${usd(env.policies.budgetUsdMonthly)}/month; plans that exceed it are flagged before you deploy.`
       : "No budget set. Set one with env.setBudget to get warned before a plan gets expensive.",

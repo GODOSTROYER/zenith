@@ -6,6 +6,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { callbackErrorCode } from "@/components/auth/messages";
 
 export const dynamic = "force-dynamic";
 
@@ -32,8 +33,10 @@ export async function GET(request: NextRequest) {
   }
 
   if (errorMessage) {
+    // A code, never the provider's text: the sign-in page must not render
+    // anything an attacker can put in a link.
     const url = new URL("/login", origin);
-    url.searchParams.set("error", errorMessage);
+    url.searchParams.set("error", callbackErrorCode(errorMessage));
     return NextResponse.redirect(url);
   }
   return NextResponse.redirect(new URL(safeNext, origin));

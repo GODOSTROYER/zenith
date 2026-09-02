@@ -22,21 +22,24 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { CreateQueueCommand, SQSClient } from "@aws-sdk/client-sqs";
+import { env } from "@/lib/env";
+import { log } from "@/lib/log";
 import type { CloudConnection, Environment, Manifest } from "@/lib/domain/types";
-import type {
-  ExportBundle,
-  PreflightReport,
-  ProviderAdapter,
-  ProviderPlanStep,
-  StepRuntime,
+import {
+  stepBudgetMs,
+  type ExportBundle,
+  type PreflightReport,
+  type ProviderAdapter,
+  type ProviderPlanStep,
+  type ProviderProbe,
+  type StepRuntime,
 } from "@/lib/providers/types";
 import { terraformFiles, terraformReadme } from "@/lib/providers/aws/terraform";
 
-export const LOCALSTACK_ENDPOINT =
-  process.env.ORRERY_LOCALSTACK_ENDPOINT ?? "http://localhost:4566";
+export const LOCALSTACK_ENDPOINT = env().ORRERY_LOCALSTACK_ENDPOINT;
 
 const REGION = "us-east-1";
-const FAST = () => process.env.ORRERY_FAST === "1";
+const FAST = () => env().ORRERY_FAST;
 
 const PERMISSIONS = [
   `Talks only to LocalStack on this machine (${LOCALSTACK_ENDPOINT})`,
@@ -46,10 +49,18 @@ const PERMISSIONS = [
 
 /* -------------------------------- clients --------------------------------- */
 
+/**
+ * LocalStack is on loopback, so a call that has not answered in a few seconds
+ * is not slow — it is a container that died mid-deploy. Without these the SDK
+ * defaults apply (no request timeout, 3 attempts with backoff) and a step can
+ * hang the deployment indefinitely.
+ */
 const clientConfig = {
   region: REGION,
   endpoint: LOCALSTACK_ENDPOINT,
   credentials: { accessKeyId: "test", secretAccessKey: "test" },
+  maxAttempts: 3,
+  requestHandler: { connectionTimeout: 2_000, requestTimeout: 8_000 },
 };
 
 const s3 = () => new S3Client({ ...clientConfig, forcePathStyle: true });
@@ -77,31 +88,104 @@ interface LocalstackHealth {
   version?: string;
 }
 
-async function health(): Promise<LocalstackHealth | null> {
+/**
+ * Why the health check failed. "Not reachable" is one of four outcomes, and
+ * telling a user to start Docker when LocalStack answered with a 500 sends
+ * them down the wrong path entirely.
+ */
+type HealthFailure = "unreachable" | "timeout" | "http" | "malformed";
+
+type HealthResult =
+  | { ok: true; health: LocalstackHealth }
+  | { ok: false; kind: HealthFailure; detail: string; fix: string };
+
+const START_LOCALSTACK =
+  "Start Docker Desktop, then run `localstack start` (or `docker run --rm -p 4566:4566 localstack/localstack`).";
+
+async function health(): Promise<HealthResult> {
+  const url = `${LOCALSTACK_ENDPOINT}/_localstack/health`;
+  let res: Response;
   try {
-    const res = await fetch(`${LOCALSTACK_ENDPOINT}/_localstack/health`, {
-      signal: AbortSignal.timeout(2500),
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-    return (await res.json()) as LocalstackHealth;
+    res = await fetch(url, { signal: AbortSignal.timeout(2500), cache: "no-store" });
+  } catch (err) {
+    const timedOut = err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+    return timedOut
+      ? {
+          ok: false,
+          kind: "timeout",
+          detail: `${url} did not answer within 2.5s.`,
+          fix: "Something is listening but not responding — often a LocalStack container still starting up, or another process on this port. Wait a few seconds and re-check, or run `docker ps` to see what holds the port.",
+        }
+      : {
+          ok: false,
+          kind: "unreachable",
+          detail: `Nothing answered at ${url} (${err instanceof Error ? err.message : String(err)}).`,
+          fix: `${START_LOCALSTACK} Re-check here when it's up.`,
+        };
+  }
+
+  if (!res.ok)
+    return {
+      ok: false,
+      kind: "http",
+      detail: `${url} answered ${res.status} ${res.statusText}.`,
+      fix: "LocalStack is running but unhealthy. Check the container logs (`localstack logs` or `docker logs`), then restart it.",
+    };
+
+  try {
+    return { ok: true, health: (await res.json()) as LocalstackHealth };
   } catch {
-    return null;
+    return {
+      ok: false,
+      kind: "malformed",
+      detail: `${url} answered 200, but the body was not JSON.`,
+      fix: `Something other than LocalStack is serving ${LOCALSTACK_ENDPOINT}. Free the port, or point ORRERY_LOCALSTACK_ENDPOINT at the right one.`,
+    };
   }
 }
 
-async function preflight(_conn: CloudConnection): Promise<PreflightReport> {
+const FAILURE_LABEL: Record<HealthFailure, string> = {
+  unreachable: "LocalStack is not reachable",
+  timeout: "LocalStack did not answer in time",
+  http: "LocalStack answered, but is unhealthy",
+  malformed: "Something other than LocalStack is on this port",
+};
+
+/**
+ * Connection-free reachability check, exposed on the adapter as `probe` so
+ * surfaces that offer LocalStack before any connection exists — onboarding's
+ * "Available now" list — can ask whether it is actually up. One GET against
+ * the health endpoint with a 2.5s timeout; safe to call on render.
+ */
+async function probe(): Promise<ProviderProbe> {
   const h = await health();
-  if (!h) {
+  if (h.ok) {
+    const running = Object.values(h.health.services ?? {}).filter(
+      (s) => s === "running" || s === "available"
+    ).length;
+    return {
+      reachable: true,
+      detail: `LocalStack ${h.health.version ?? ""}${h.health.edition ? ` (${h.health.edition})` : ""} is up at ${LOCALSTACK_ENDPOINT} — ${running} service(s) available.`.replace(
+        /\s+/g,
+        " "
+      ),
+    };
+  }
+  return { reachable: false, detail: `${FAILURE_LABEL[h.kind]}. ${h.detail}`, fix: h.fix };
+}
+
+async function preflight(_conn: CloudConnection): Promise<PreflightReport> {
+  const result = await health();
+  if (!result.ok) {
     return {
       ok: false,
       checks: [
         {
           id: "localstack.reachable",
-          label: "LocalStack is not reachable",
+          label: FAILURE_LABEL[result.kind],
           status: "fail",
-          detail: `Nothing answered at ${LOCALSTACK_ENDPOINT}/_localstack/health.`,
-          fix: "Start Docker Desktop, then run `localstack start` (or `docker run --rm -p 4566:4566 localstack/localstack`). Re-check here when it's up.",
+          detail: result.detail,
+          fix: result.fix,
         },
         {
           id: "localstack.scope",
@@ -114,6 +198,7 @@ async function preflight(_conn: CloudConnection): Promise<PreflightReport> {
     };
   }
 
+  const h = result.health;
   const svc = h.services ?? {};
   const up = (name: string) => svc[name] === "running" || svc[name] === "available";
   const checks: PreflightReport["checks"] = [
@@ -231,15 +316,23 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, FAST() ? 15 : ms)
 async function executeStep(rt: StepRuntime): Promise<void> {
   const { step, env, revision } = rt;
   const m = revision.manifest;
-  const est = (step as { estMs?: number }).estMs ?? 1500;
+  const est = stepBudgetMs(rt, 1500);
 
   if (step.phase === "prepare") {
     rt.log(`GET ${LOCALSTACK_ENDPOINT}/_localstack/health`, "provider");
-    const h = await health();
-    if (!h)
+    const result = await health();
+    if (!result.ok) {
+      log.warn("localstack health check failed", {
+        kind: result.kind,
+        endpoint: LOCALSTACK_ENDPOINT,
+        deploymentId: rt.deployment.id,
+        detail: result.detail,
+      });
       throw new Error(
-        `LocalStack is not reachable at ${LOCALSTACK_ENDPOINT}. Start Docker Desktop and run \`localstack start\`, then deploy again.`
+        `${FAILURE_LABEL[result.kind]} at ${LOCALSTACK_ENDPOINT}. ${result.detail} ${result.fix} Then deploy again.`
       );
+    }
+    const h = result.health;
     rt.log(
       `LocalStack ${h.version ?? "(unknown version)"} up — ${Object.values(h.services ?? {}).filter((s) => s === "running" || s === "available").length} services available`,
       "info"
@@ -389,6 +482,7 @@ export const localstackProvider: ProviderAdapter = {
   }),
 
   preflight,
+  probe,
   planSteps,
   executeStep,
   exportBundle,

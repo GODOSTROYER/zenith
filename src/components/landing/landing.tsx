@@ -8,9 +8,9 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AlertTriangle,
   ArrowDown,
   ArrowRight,
-  ArrowUpRight,
   Check,
   Copy,
   Pause,
@@ -39,6 +39,9 @@ function useReveal<T extends HTMLElement>() {
       setShown(true);
       return;
     }
+    // A block taller than the viewport can never reach a ratio of 0.18, so the
+    // observer would never fire for it — those watch for first contact instead.
+    const tall = el.getBoundingClientRect().height > window.innerHeight * 0.7;
     const io = new IntersectionObserver(
       ([e]) => {
         if (e.isIntersecting) {
@@ -46,7 +49,7 @@ function useReveal<T extends HTMLElement>() {
           io.disconnect();
         }
       },
-      { threshold: 0.18 }
+      { threshold: tall ? 0 : 0.18 }
     );
     io.observe(el);
     return () => io.disconnect();
@@ -87,26 +90,50 @@ function Reveal({
 }
 
 function CopyChip({ text, label }: { text: string; label: string }) {
-  const [done, setDone] = useState(false);
+  const [state, setState] = useState<"idle" | "done" | "failed">("idle");
+  // The clipboard API is missing on non-secure origins and can be refused by
+  // permission policy, so the failure is shown rather than swallowed.
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setState("done");
+    } catch {
+      setState("failed");
+    }
+    setTimeout(() => setState("idle"), 2400);
+  };
   return (
-    <button
-      type="button"
-      onClick={() => {
-        navigator.clipboard?.writeText(text).then(() => {
-          setDone(true);
-          setTimeout(() => setDone(false), 1400);
-        });
-      }}
-      className={cx(
-        "inline-flex items-center gap-2 rounded-[8px] border border-line bg-bg2 px-3 py-1.5",
-        "font-mono text-[12.5px] text-ink-mute transition-colors duration-[120ms]",
-        "hover:border-line-strong hover:text-ink"
-      )}
-      aria-label={`Copy ${label}`}
-    >
-      {done ? <Check className="h-3.5 w-3.5 text-ok" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
-      {text}
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={copy}
+        title={
+          state === "failed"
+            ? "Copy blocked by the browser — select the text and press ⌘/Ctrl+C."
+            : `Copy ${label}`
+        }
+        className={cx(
+          "inline-flex items-center gap-2 rounded-[8px] border bg-bg2 px-3 py-1.5",
+          "font-mono text-[12.5px] transition-colors duration-[120ms]",
+          state === "failed"
+            ? "border-err/50 text-err"
+            : "border-line text-ink-mute hover:border-line-strong hover:text-ink"
+        )}
+        aria-label={`Copy ${label}`}
+      >
+        {state === "done" ? (
+          <Check className="h-3.5 w-3.5 text-ok" aria-hidden />
+        ) : state === "failed" ? (
+          <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+        ) : (
+          <Copy className="h-3.5 w-3.5" aria-hidden />
+        )}
+        {text}
+      </button>
+      <span aria-live="polite" className="sr-only">
+        {state === "done" ? "Copied" : state === "failed" ? "Copy blocked by the browser" : ""}
+      </span>
+    </>
   );
 }
 
@@ -313,10 +340,18 @@ function OneModel() {
                   aria-controls={panelId(s)}
                   tabIndex={surface === s ? 0 : -1}
                   onKeyDown={(e) => {
-                    const dir = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-                    if (!dir) return;
+                    const next =
+                      e.key === "ArrowRight"
+                        ? step(s, 1)
+                        : e.key === "ArrowLeft"
+                          ? step(s, -1)
+                          : e.key === "Home"
+                            ? SURFACES[0]
+                            : e.key === "End"
+                              ? SURFACES[SURFACES.length - 1]!
+                              : undefined;
+                    if (!next) return;
                     e.preventDefault();
-                    const next = step(s, dir);
                     pick(next);
                     document.getElementById(tabId(next))?.focus();
                   }}
@@ -357,6 +392,9 @@ function OneModel() {
           </div>
 
           <div className="mt-4 min-h-[240px] rounded-[12px] border border-line bg-bg1 p-6 lg:p-8">
+            <p className="mb-5 font-mono text-[11.5px] text-ink-faint">
+              the demo system, rendered four ways · simulated
+            </p>
             {SURFACES.map((s) => (
               <div
                 key={s}
@@ -521,12 +559,14 @@ function LiveMoment({ cta }: { cta: { href: string; label: string } }) {
               </div>
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <CopyChip text="https://app.atlas.orrery.app" label="the demo URL" />
+                {/* This goes into Orrery, not to the demo host — so it says so
+                    and wears the same arrow as every other CTA on the page. */}
                 <Link
                   href={cta.href}
                   className="inline-flex items-center gap-1.5 rounded-[8px] bg-signal px-3.5 py-1.5 font-mono text-[12.5px] font-semibold text-on-signal"
                 >
-                  Open
-                  <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
+                  {cta.label}
+                  <ArrowRight className="h-3.5 w-3.5" aria-hidden />
                 </Link>
               </div>
             </div>
@@ -564,7 +604,8 @@ function NavigatorSection() {
               way.
             </p>
             <div className="mt-7 flex max-w-[420px] items-center justify-between rounded-full border border-line bg-bg2 px-4 py-2.5">
-              {["observe", "plan", "approve", "bounded", "auto"].map((l, i) => (
+              {/* the product's five levels, spelled exactly as the product spells them */}
+              {["observe", "plan", "approve", "bounded", "autonomous"].map((l, i) => (
                 <span
                   key={l}
                   className={cx(
@@ -624,7 +665,7 @@ const AVAILABILITY_STYLE: Record<ProviderRow["availability"], string> = {
 
 function Honesty({ providers }: { providers: ProviderRow[] }) {
   return (
-    <section className="mx-auto w-full max-w-[1180px] px-6 py-28 lg:py-36">
+    <section id="honesty" className="mx-auto w-full max-w-[1180px] px-6 py-28 lg:py-36">
       <div className="grid gap-12 lg:grid-cols-[1fr_1.1fr]">
         <Reveal>
           <h2 className="max-w-[14ch] text-balance text-[clamp(28px,4vw,44px)] font-bold leading-[1.06] tracking-[-0.02em] text-ink">
@@ -642,7 +683,7 @@ function Honesty({ providers }: { providers: ProviderRow[] }) {
         <Reveal delay={120}>
           <ul className="divide-y divide-[var(--line)] rounded-[12px] border border-line bg-bg1">
             {providers.map((p) => (
-              <li key={p.id} className="flex items-start justify-between gap-4 p-4.5 px-5 py-4">
+              <li key={p.id} className="flex items-start justify-between gap-4 px-5 py-4">
                 <div className="min-w-0">
                   <p className="text-[14.5px] font-semibold text-ink">{p.displayName}</p>
                   <p className="mt-0.5 max-w-[46ch] text-[12.5px] leading-[1.55] text-ink-faint">{p.tagline}</p>
@@ -744,12 +785,27 @@ function Close({ cta }: { cta: { href: string; label: string } }) {
           </span>
           <span className="font-mono text-[12px] text-ink-faint">Orrery v0.1 · a working name</span>
         </span>
-        <nav className="flex items-center gap-5 font-mono text-[12px] text-ink-faint">
+        <nav className="flex flex-wrap items-center justify-center gap-5 font-mono text-[12px] text-ink-faint">
+          {/* Somewhere to read before clicking. There is no public docs site
+              yet, so these are the two places on this page that explain the
+              product, plus the repo paths the docs actually live at. */}
+          <a href="#one-model" className="transition-colors hover:text-ink">
+            How it works
+          </a>
+          <a href="#honesty" className="transition-colors hover:text-ink">
+            What ships today
+          </a>
           <Link href={cta.href} className="transition-colors hover:text-ink">
             {cta.label}
           </Link>
         </nav>
       </footer>
+      <p className="mt-5 text-center font-mono text-[11.5px] text-ink-faint">
+        The written docs ship with the source, not on a website:{" "}
+        <span className="text-ink-mute">docs/DESIGN.md</span>,{" "}
+        <span className="text-ink-mute">docs/CONTRACTS.md</span>,{" "}
+        <span className="text-ink-mute">docs/LIMITATIONS.md</span>.
+      </p>
     </section>
   );
 }
@@ -775,8 +831,17 @@ export function Landing({
 
   return (
     <div className="bg-bg0 text-ink">
+      <a
+        href="#main"
+        className={cx(
+          "sr-only rounded-[8px] bg-signal px-4 py-2 text-[13px] font-semibold text-on-signal",
+          "focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50"
+        )}
+      >
+        Skip to content
+      </a>
       <Header cta={cta} />
-      <main>
+      <main id="main">
         <Hero cta={cta} />
         <OneModel />
         <PlanFirst />

@@ -62,13 +62,47 @@ describe("system.* actions round-trip the working manifest", () => {
     expect(JSON.stringify(manifest())).toBe(before); // plan never mutates
   });
 
-  it("keeps secrets out of the manifest", async () => {
-    await exec("system.setSecret", { serviceId: "api", key: "STRIPE_SECRET", secretValue: "sk_live_do_not_store" }, pctx());
+  it("keeps secrets out of the manifest: records the reference, never the value", async () => {
+    await exec("system.setSecret", { serviceId: "api", key: "STRIPE_SECRET" }, pctx());
     const api = manifest().services.find((s) => s.name === "api")!;
     const entry = api.env.find((e) => e.key === "STRIPE_SECRET")!;
     expect(entry.secretRef).toBe("vault:STRIPE_SECRET");
     expect(entry.value).toBeUndefined();
+  });
+
+  it("refuses a secret VALUE rather than accepting and discarding it", async () => {
+    const { result } = await runAction(
+      "system.setSecret",
+      pctx(),
+      { serviceId: "api", key: "SENDGRID_KEY", secretValue: "sk_live_do_not_store" },
+      { mode: "execute" }
+    );
+    expect(result!.ok).toBe(false);
+    expect(result!.error).toMatch(/no secret store/i);
+    expect(result!.error).toMatch(/secretRef/);
     expect(JSON.stringify(manifest())).not.toContain("sk_live_do_not_store");
+    // and the plan says so up front, so the control is disabled not dead
+    const { plan } = await runAction(
+      "system.setSecret",
+      pctx(),
+      { serviceId: "api", key: "SENDGRID_KEY", secretValue: "sk_live_do_not_store" },
+      { mode: "plan" }
+    );
+    expect(plan!.blocked).toMatch(/no secret store/i);
+  });
+
+  it("never replaces an existing plaintext value with a reference — that would delete it", async () => {
+    await exec("system.setEnvVar", { serviceId: "api", key: "LEGACY_ENDPOINT", value: "https://issuer.test/t" }, pctx());
+    const { result } = await runAction(
+      "system.setSecret",
+      pctx(),
+      { serviceId: "api", key: "LEGACY_ENDPOINT" },
+      { mode: "execute" }
+    );
+    expect(result!.ok).toBe(false);
+    expect(result!.error).toMatch(/delete the only copy/i);
+    const api = manifest().services.find((s) => s.name === "api")!;
+    expect(api.env.find((e) => e.key === "LEGACY_ENDPOINT")!.value).toBe("https://issuer.test/t");
   });
 
   it("refuses a plain env var that looks like a secret, and names the fix", async () => {

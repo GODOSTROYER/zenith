@@ -6,7 +6,7 @@ Status legend: ✅ implemented · 🟡 partial · ⬜ not yet built
 - ✅ Canonical manifest, diffing/changesets, cost model, validation
 - ✅ Typed action registry with plan/execute/audit/idempotency + autonomy enforcement
 - ✅ Durable JSON/JSONL store (single-process ceiling by design; SQL swap is contained to `src/lib/db`)
-- 🟡 Multi-tenancy: optional Supabase auth (email/password, confirmation, reset; `/login`, `/signup`) gives real identity, and actions/audit carry the signed-in user; without keys it is still one local demo user. One workspace per install. `requiredRole` is enforced on execute against the member's role (planning stays open); the Navigator header is bound to a boot-time secret so audit attribution cannot be forged
+- 🟡 Multi-tenancy: optional Supabase auth (email/password, confirmation, reset; `/login`, `/signup`) gives real identity, and actions/audit carry the signed-in user; without keys it is still one local demo user. One workspace per install, and joining it requires an invite, an operator-set `app_metadata.role`, or being its first real member. `requiredRole` is enforced on execute against the member's role (planning stays open). The Navigator's own steps run as the Navigator actor, so `runAction` never role-checks a human there — the executor separately refuses a run whose steps outrank the person who pressed Run. The `x-orrery-actor` binding covers only the HTTP `/api` surface: server actions never carry those headers, so the in-process Navigator path is trusted because it is in-process, not because it is bound
 - ⬜ Real network security, rate limiting, encryption at rest
 
 ## Providers

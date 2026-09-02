@@ -31,6 +31,8 @@ export interface Bootstrap {
   settings: Record<string, unknown> & { autonomy?: AutonomyLevel };
   /** signed-in user, or null in demo mode / signed out */
   user: { id: string; email: string; name: string } | null;
+  /** the caller's own role — what every role-gated control should read */
+  role: "admin" | "editor" | "viewer" | null;
   auth: { configured: boolean };
   members: Member[];
 }

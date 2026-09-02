@@ -1,9 +1,8 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import {
   Boxes,
   CalendarClock,
-  CircleDashed,
   Cpu,
   Globe,
   Sparkles,
@@ -16,6 +15,7 @@ import { PlanFirst } from "@/components/inspector/plan-first";
 import { useProjectData } from "@/components/shell/project-context";
 import { importDockerfile, importTerraform } from "@/lib/importers";
 import { uniqueName, type ImportReport } from "@/lib/importers/types";
+import { ImportReportView } from "@/components/screens/import-report";
 import type { Manifest } from "@/lib/domain/types";
 import { cx } from "@/lib/format";
 
@@ -196,7 +196,7 @@ export function mergeImport(
  * into the working copy through project.updateManifest — the same plan-first,
  * audited path, and the same diff preview.
  */
-export function ImportComposeDialog({
+export function ImportDialog({
   open,
   onClose,
 }: {
@@ -212,14 +212,18 @@ export function ImportComposeDialog({
   const spec = FORMATS.find((f) => f.value === format)!;
 
   // Terraform and Dockerfile parse in the browser, so the dialog knows what the
-  // file became before the plan is even requested.
+  // file became before the plan is even requested. It used to re-parse and
+  // re-merge the whole manifest on every keystroke; deferring lets the textarea
+  // stay responsive while a paste of a real .tf file settles.
+  const deferredText = useDeferredValue(text);
+
   const parsed = useMemo(() => {
-    if (format === "compose" || !text.trim()) return undefined;
+    if (format === "compose" || !deferredText.trim()) return undefined;
     try {
       const out =
         format === "terraform"
-          ? importTerraform(text)
-          : importDockerfile(text, fileName?.replace(/\.[^.]+$/, "") || project.name);
+          ? importTerraform(deferredText)
+          : importDockerfile(deferredText, fileName?.replace(/\.[^.]+$/, "") || project.name);
       const { manifest, renamed } = mergeImport(project.workingManifest, out.manifest);
       return {
         manifest,
@@ -237,7 +241,7 @@ export function ImportComposeDialog({
     } catch (err) {
       return { error: err instanceof Error ? err.message : String(err) };
     }
-  }, [format, text, fileName, project.workingManifest, project.name]);
+  }, [format, deferredText, fileName, project.workingManifest, project.name]);
 
   const reset = () => {
     setText("");
@@ -362,65 +366,5 @@ export function ImportComposeDialog({
         )}
       </div>
     </Dialog>
-  );
-}
-
-/**
- * The import report, in dialog proportions. Onboarding shows the same three
- * lists at full width; the same import must explain itself in both places.
- */
-function ImportReportView({ report }: { report: ImportReport }) {
-  return (
-    <div className="space-y-3">
-      <ul className="space-y-1.5">
-        {report.mapped.map((m) => (
-          <li key={m.source} className="flex items-start gap-2.5">
-            <Chip tone={m.confidence === "exact" ? "ok" : "warn"} className="mt-0.5">
-              {m.confidence}
-            </Chip>
-            <div className="min-w-0">
-              <p className="font-mono text-[12.5px] text-ink">
-                {m.source} <span className="text-ink-faint">→</span> {m.result}
-              </p>
-              <p className="mt-0.5 text-[12.5px] leading-relaxed text-ink-mute">{m.note}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-
-      {report.unmapped.length > 0 && (
-        <div className="border-t border-line pt-3">
-          <h3 className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">
-            {report.unmapped.length} not imported
-          </h3>
-          <ul className="mt-2 space-y-1.5">
-            {report.unmapped.map((u) => (
-              <li key={u.source} className="flex items-start gap-2.5">
-                <CircleDashed className="mt-1 h-3.5 w-3.5 shrink-0 text-ink-faint" />
-                <div className="min-w-0">
-                  <p className="font-mono text-[12.5px] text-ink">{u.source}</p>
-                  <p className="mt-0.5 text-[12.5px] leading-relaxed text-ink-mute">{u.reason}</p>
-                  <p className="mt-0.5 text-[12.5px] leading-relaxed text-signal">{u.suggestion}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {report.warnings.length > 0 && (
-        <ul className="space-y-1.5 rounded-ctl border border-warn/30 bg-warn-dim px-3 py-2.5 text-[12.5px] text-ink">
-          {report.warnings.map((w) => (
-            <li key={w}>{w}</li>
-          ))}
-        </ul>
-      )}
-
-      {report.mapped.length === 0 && report.unmapped.length === 0 && (
-        <p className="text-[12.5px] text-ink-faint">
-          The importer produced no mapping detail for this file.
-        </p>
-      )}
-    </div>
   );
 }

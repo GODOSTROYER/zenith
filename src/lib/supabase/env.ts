@@ -24,11 +24,18 @@ export const PUBLIC_PATHS = [
   "/forgot-password",
   "/reset-password",
   "/auth",
-  "/preview",
 ] as const;
 
+/**
+ * The one public page under /preview: the sandbox activation page you land on
+ * from a deploy's URL. The whole prefix used to be public, so any future route
+ * under it would have been born unauthenticated.
+ */
+const PREVIEW_PAGE = /^\/preview\/[^/]+\/[^/]+$/;
+
 export function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATHS.some(
-    (p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`))
+  return (
+    PUBLIC_PATHS.some((p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`))) ||
+    PREVIEW_PAGE.test(pathname)
   );
 }

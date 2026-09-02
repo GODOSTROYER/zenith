@@ -15,12 +15,13 @@ import type {
   Service,
 } from "@/lib/domain/types";
 import { SIZE_SPECS } from "@/lib/cost/pricing";
-import type {
-  ExportBundle,
-  PreflightReport,
-  ProviderAdapter,
-  ProviderPlanStep,
-  StepRuntime,
+import {
+  stepBudgetMs,
+  type ExportBundle,
+  type PreflightReport,
+  type ProviderAdapter,
+  type ProviderPlanStep,
+  type StepRuntime,
 } from "@/lib/providers/types";
 
 /* --------------------------- deterministic jitter -------------------------- */
@@ -172,14 +173,8 @@ function planSteps(env: Environment, next: Manifest, previous?: Manifest): Provi
 
 /* -------------------------------- execution ------------------------------- */
 
-/** Duration budget the engine stored for this step (fast mode already applied). */
-function budget(rt: StepRuntime): number {
-  const d = rt.deployment as typeof rt.deployment & { estMs?: Record<string, number> };
-  return d.estMs?.[rt.step.id] ?? 800;
-}
-
 async function paced(rt: StepRuntime, lines: [string, "info" | "provider"][]): Promise<void> {
-  const slice = budget(rt) / Math.max(1, lines.length);
+  const slice = stepBudgetMs(rt) / Math.max(1, lines.length);
   for (const [line, stream] of lines) {
     await sleep(slice);
     rt.log(line, stream);
@@ -205,19 +200,24 @@ async function executeStep(rt: StepRuntime): Promise<void> {
 
   if (step.phase === "prepare" && service) {
     const digest = `sha256:${hash32(`${service.id}:${rt.revision.id}`).toString(16).padStart(8, "0")}${hash32(service.name).toString(16).padStart(8, "0")}`;
+    const seed = `${service.id}:${rt.revision.id}`;
     if (service.source.type === "image") {
+      const layers = jitter(`layers:${seed}`, 4, 16);
+      const cached = jitter(`cached:${seed}`, 0, layers);
+      const mb = (jitter(`bytes:${seed}`, 900, 240_000) / 1000).toFixed(1);
       await paced(rt, [
         [`pull ${service.source.image}`, "provider"],
-        [`layers: 7 cached, 2 downloaded (18.4 MB)`, "provider"],
+        [`layers: ${cached} cached, ${layers - cached} downloaded (${mb} MB)`, "provider"],
         [`digest ${digest}`, "provider"],
       ]);
     } else {
       const spec = SIZE_SPECS[service.size];
+      const total = jitter(`steps:${seed}`, 4, 9);
       await paced(rt, [
         [`builder: sandbox-buildkit v0.14 (${spec.vcpu} vCPU)`, "provider"],
-        [`step 1/5 detect runtime`, "provider"],
-        [`step 3/5 install dependencies`, "provider"],
-        [`step 5/5 export image`, "provider"],
+        [`step 1/${total} detect runtime`, "provider"],
+        [`step ${Math.max(2, Math.round(total / 2))}/${total} install dependencies`, "provider"],
+        [`step ${total}/${total} export image`, "provider"],
         [`digest ${digest}`, "provider"],
       ]);
     }
@@ -228,9 +228,16 @@ async function executeStep(rt: StepRuntime): Promise<void> {
   if (step.phase === "provision" && resource) {
     const endpoint = `${resource.name}.${env.name}.${env.baseDomain}`;
     if (resource.ownership !== "managed") {
+      // No probe happens: the sandbox holds no credentials and contacts
+      // nothing. Saying "reachable, credentials valid" here asserted the
+      // result of a check that was never performed.
       await paced(rt, [
-        [`probe ${resource.kind} ref=${resource.externalRef ?? "unset"}`, "provider"],
-        [`reachable, credentials valid, no changes made`, "provider"],
+        [`probe ${resource.kind} ref=${resource.externalRef ?? "unset"} — simulated`, "provider"],
+        [
+          `no check performed: the sandbox has no credentials for ${resource.name} and contacted nothing`,
+          "provider",
+        ],
+        [`no changes made — referenced resources are never mutated`, "provider"],
       ]);
       rt.log(
         `${resource.name} is referenced, not managed — Orrery reads it and never mutates it.`,
@@ -240,13 +247,19 @@ async function executeStep(rt: StepRuntime): Promise<void> {
     }
     const port =
       resource.kind === "postgres" ? 5432 : resource.kind === "redis" ? 6379 : 443;
+    const attempts = jitter(`attempts:${resource.id}:${rt.deployment.id}`, 1, 3);
     await paced(rt, [
       [`allocate ${resource.kind}/${resource.size} in ${region}`, "provider"],
-      [`waiting for endpoint (attempt 1)`, "provider"],
+      [
+        attempts === 1
+          ? `waiting for endpoint (ready on first attempt)`
+          : `waiting for endpoint (ready on attempt ${attempts} of ${attempts})`,
+        "provider",
+      ],
       [`endpoint ${endpoint}:${port} ready`, "provider"],
       [`snapshot policy: daily, 7 day retention (simulated)`, "provider"],
     ]);
-    rt.output({
+    rt.output({ simulated: true,
       key: `conn:${resource.id}`,
       label: `${resource.name} — ${endpoint}:${port}`,
       value: `${endpoint}:${port}`,
@@ -309,7 +322,7 @@ async function executeStep(rt: StepRuntime): Promise<void> {
 
     if (exposed(service)) {
       const host = sandboxHost(env, service, m);
-      rt.output({
+      rt.output({ simulated: true,
         key: `url:${service.id}`,
         label: `${service.name} — ${host}`,
         value: `/preview/${rt.deployment.id}/${service.id}`,

@@ -10,33 +10,33 @@
  */
 import { db, q, save } from "@/lib/db/store";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
-import type {
-  Environment,
-  Project,
-  SecurityFinding,
+import {
+  hash32,
+  type Environment,
+  type Manifest,
+  type Project,
+  type SecurityFinding,
 } from "@/lib/domain/types";
 
 const SECRETISH = /key|secret|token|password|passwd|credential/i;
 /** Values that are obviously not real secrets — placeholders and references. */
 const PLACEHOLDER = /^(|true|false|\d+|localhost|change_?me|todo|none|null|\$\{.*\}|\/.*)$/i;
 
-function hash32(s: string): string {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return (h >>> 0).toString(16).padStart(8, "0");
-}
-
 const stableId = (rule: string, target: string) => `sf_${rule}_${hash32(`${rule}:${target}`)}`;
 
 /**
- * Analyze a project's working manifest against its environments.
+ * Analyze a manifest against a project's environments.
  * Pure apart from the timestamp: pass the same inputs, get the same ids.
+ *
+ * `manifest` defaults to the working copy. Pass a deployed revision's manifest
+ * to ask the other question — what is true of what is actually running.
  */
-export function analyze(project: Project, environments: Environment[]): SecurityFinding[] {
-  const m = project.workingManifest;
+export function analyze(
+  project: Project,
+  environments: Environment[],
+  manifest?: Manifest
+): SecurityFinding[] {
+  const m = manifest ?? project.workingManifest;
   const createdAt = new Date().toISOString();
   const out: SecurityFinding[] = [];
   const prod = environments.filter((e) => e.class === "production");
@@ -126,7 +126,55 @@ export function analyze(project: Project, environments: Environment[]): Security
     });
   }
 
-  /* 5 — the smallest database size under production load. */
+  /* 5b — a secret-looking value in a resource's config block. */
+  for (const r of m.resources) {
+    for (const [k, v] of Object.entries(r.config)) {
+      if (typeof v !== "string" || !SECRETISH.test(k) || PLACEHOLDER.test(v.trim())) continue;
+      add({
+        id: stableId("plaintext_config_secret", `${r.id}:${k}`),
+        severity: "high",
+        title: `${r.name}.config.${k} is stored in plain text`,
+        detail: `${k} looks like a credential but its value sits in ${r.name}'s config, which means it is in every revision, every export and every audit snapshot of this project. Resource config is not redacted anywhere.`,
+        targetId: r.id,
+      });
+    }
+  }
+
+  /* 6 — production that applies without a human in the loop. */
+  for (const env of prod) {
+    if (env.policies.approvalRequired) continue;
+    add({
+      id: stableId("prod_no_approval", env.id),
+      environmentId: env.id,
+      severity: "high",
+      title: `${env.name} deploys to production with no approval step`,
+      detail: `Any editor — or the Navigator at bounded autonomy or above — can change ${env.name} the moment a plan exists. Nothing pauses for a second pair of eyes, and a rollback is a second deploy, not an undo.`,
+      fix: {
+        actionId: "env.updatePolicies",
+        input: { environmentId: env.id, approvalRequired: true },
+        label: "Require approval",
+      },
+    });
+  }
+
+  /* 7 — production allowed to destroy stateful resources. */
+  for (const env of prod) {
+    if (!env.policies.allowStatefulDeletion) continue;
+    add({
+      id: stableId("prod_stateful_deletion", env.id),
+      environmentId: env.id,
+      severity: "high",
+      title: `${env.name} allows deleting databases, caches and queues`,
+      detail: `With allowStatefulDeletion on, a plan that removes a stateful resource from ${env.name} will run. Deleting one destroys its data, and rollback restores the system definition, not the data.`,
+      fix: {
+        actionId: "env.updatePolicies",
+        input: { environmentId: env.id, allowStatefulDeletion: false },
+        label: "Block stateful deletion",
+      },
+    });
+  }
+
+  /* 8 — the smallest database size under production load. */
   if (primaryProd) {
     for (const r of m.resources) {
       if (r.kind !== "postgres" || r.ownership !== "managed" || r.size !== "nano") continue;
@@ -156,9 +204,41 @@ function inputHash(project: Project, environments: Environment[]): string {
   return hash32(
     JSON.stringify([
       project.workingManifest,
-      environments.map((e) => [e.id, e.name, e.class, e.policies.budgetUsdMonthly]),
+      environments.map((e) => [
+        e.id,
+        e.name,
+        e.class,
+        e.policies.budgetUsdMonthly,
+        e.policies.approvalRequired,
+        e.policies.allowStatefulDeletion,
+        // A deploy is what turns "fixed, pending deploy" into "resolved", so a
+        // new deployed revision must invalidate this cache too.
+        e.deployedRevisionId,
+      ]),
     ])
   );
+}
+
+/**
+ * Findings that are true of what is actually RUNNING, across every environment
+ * with a deployed revision. This is the evidence that closes a pending fix:
+ * the fix is only real once it is absent from everything that is live.
+ */
+function liveFindingIds(
+  project: Project,
+  environments: Environment[]
+): { ids: Set<string>; revisionId?: string } {
+  const ids = new Set<string>();
+  let best: { number: number; id: string } | undefined;
+  let deployedAny = false;
+  for (const env of environments) {
+    const rev = env.deployedRevisionId ? q.revision(env.deployedRevisionId) : undefined;
+    if (!rev) continue;
+    deployedAny = true;
+    for (const f of analyze(project, environments, rev.manifest)) ids.add(f.id);
+    if (!best || rev.number > best.number) best = { number: rev.number, id: rev.id };
+  }
+  return { ids, revisionId: deployedAny ? best?.id : undefined };
 }
 
 /**
@@ -182,13 +262,47 @@ export function syncFindings(projectId: string): SecurityFinding[] {
   const fresh = analyze(project, environments);
   const stored = db().findings.filter(mine);
   const existing = new Map(stored.map((f) => [f.id, f]));
+  const freshIds = new Set(fresh.map((f) => f.id));
 
-  const reconciled = fresh.map((f) => {
+  const reconciled: SecurityFinding[] = fresh.map((f) => {
     const prior = existing.get(f.id);
-    return prior
-      ? { ...f, status: prior.status === "dismissed" ? "dismissed" : f.status, createdAt: prior.createdAt }
-      : f;
+    if (!prior) return f;
+    // Still detected in the working copy. A dismissal sticks; a "fixed" one
+    // clearly is not fixed any more, so it goes back to open rather than
+    // reporting closed while the rule fires.
+    return {
+      ...f,
+      status: prior.status === "dismissed" ? "dismissed" : "open",
+      createdAt: prior.createdAt,
+      ...(prior.status === "dismissed"
+        ? {
+            resolvedAt: prior.resolvedAt,
+            resolvedBy: prior.resolvedBy,
+            resolvedReason: prior.resolvedReason,
+          }
+        : {}),
+    };
   });
+
+  // Findings the working copy no longer triggers but the environment might.
+  // These survive reconciliation — dropping them is how "fixed" used to mean
+  // "gone from the report" while production was still exposed.
+  const pending = stored.filter(
+    (f) =>
+      !freshIds.has(f.id) &&
+      (f.status === "fixed_pending_deploy" ||
+        (f.status === "resolved" && f.fixedInRevisionId))
+  );
+  if (pending.some((f) => f.status === "fixed_pending_deploy")) {
+    const live = liveFindingIds(project, environments);
+    for (const f of pending) {
+      if (f.status !== "fixed_pending_deploy") continue;
+      if (!live.revisionId || live.ids.has(f.id)) continue; // still live, or nothing deployed
+      f.status = "resolved";
+      f.fixedInRevisionId = live.revisionId;
+    }
+  }
+  reconciled.push(...pending);
 
   seen.set(project.id, hash);
   // A recompute that changes nothing must not touch the disk.

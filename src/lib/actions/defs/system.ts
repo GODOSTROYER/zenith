@@ -48,6 +48,12 @@ interface Built {
   details?: string[];
   warnings?: string[];
   data?: unknown;
+  /**
+   * Set when this edit must not be applied at all — the reason and the fix.
+   * Surfaces read it off the plan and disable their confirm control; execute
+   * refuses with the same words. Used where an edit would destroy data.
+   */
+  blocked?: string;
 }
 
 /**
@@ -73,15 +79,18 @@ export function manifestAction<I extends { projectId?: string }>(def: {
     plan(ctx: ActionContext, input: I) {
       const project = requireProject(ctx, input.projectId);
       const built = def.build(project, input);
-      return planFromDiff(project.workingManifest, built.next, built.what, {
+      const plan = planFromDiff(project.workingManifest, built.next, built.what, {
         details: built.details,
         warnings: built.warnings,
       });
+      return built.blocked ? { ...plan, blocked: built.blocked } : plan;
     },
     execute(ctx: ActionContext, input: I): ActionResult {
       const project = requireProject(ctx, input.projectId);
       const before = clone(project.workingManifest);
       const built = def.build(project, input);
+      if (built.blocked)
+        return { ok: false, summary: `${def.title} was not applied.`, error: built.blocked };
       commit(project, built.next);
       return { ok: true, summary: editSummary(before, built.next, built.what), data: built.data };
     },
@@ -171,11 +180,13 @@ manifestAction<AddService>({
 const UpdateService = z.object({
   projectId: z.string().optional(),
   serviceId: z.string().min(1),
-  name: z.string().optional(),
+  /** min(1): "" used to pass, then build() skipped it — an edit that did nothing */
+  name: z.string().min(1, "give the service a name, or leave the field out to keep the current one").optional(),
   kind: ServiceKind.optional(),
   size: ServiceSize.optional(),
   replicas: z.number().int().min(0).max(10).optional(),
-  port: z.number().int().min(1).max(65535).optional(),
+  /** absent = leave it alone; null = clear it (a worker does not need a port) */
+  port: z.number().int().min(1).max(65535).nullable().optional(),
   healthPath: z.string().optional(),
   schedule: z.string().optional(),
   image: z.string().optional(),
@@ -202,7 +213,13 @@ manifestAction<UpdateService>({
     if (input.kind) service.kind = input.kind;
     if (input.size) service.size = input.size;
     if (input.replicas !== undefined) service.replicas = input.replicas;
-    if (input.port !== undefined) service.port = input.port;
+    // Absent leaves the port alone; an explicit null clears it. Without the
+    // distinction there was no way to un-set a port at all.
+    if (input.port !== undefined) {
+      if (input.port === null && service.port !== undefined && service.kind === "web")
+        warnings.push(`Clearing the port on web service ${service.name} makes the system invalid — a web service must say what it listens on. Set a port, or change the kind to worker.`);
+      service.port = input.port ?? undefined;
+    }
     if (input.healthPath !== undefined) service.healthPath = input.healthPath;
     if (input.schedule !== undefined) service.schedule = input.schedule;
     if (input.image) service.source = { type: "image", image: input.image };
@@ -535,18 +552,15 @@ manifestAction<Bind>({
     if (fromId === toId) throw new Error("A node cannot be connected to itself. Pick two different nodes.");
 
     const existing = next.bindings.find((b) => b.from === fromId && b.to === toId);
-    if (existing)
-      return {
-        next,
-        what: `${nodeName(next, fromId)} is already connected to ${nodeName(next, toId)}`,
-        details: [`Nothing to change — the ${existing.capability} connection already exists.`],
-        data: { bindingId: existing.id },
-      };
 
     const target = findNode(next, toId);
     if (!target) throw new Error(`Routes cannot be a connection target. Bind a route to a service instead (from: the route, to: the service).`);
     const isRoute = next.routes.some((r) => r.id === fromId);
-    const capability = input.capability ?? (isRoute ? "http" : inferCapability(target.type === "resource" ? target.node.kind : "service"));
+    // An existing edge keeps its capability unless the caller names a new one.
+    const capability =
+      input.capability ??
+      existing?.capability ??
+      (isRoute ? "http" : inferCapability(target.type === "resource" ? target.node.kind : "service"));
 
     if (isRoute && capability !== "http")
       throw new Error("A route can only serve HTTP. Leave capability unset, or use 'http'.");
@@ -554,6 +568,35 @@ manifestAction<Bind>({
       throw new Error(`A route must point at a service. "${nodeName(next, toId)}" is a resource — put a service in front of it.`);
     if (target.type === "resource" && capability === "http")
       throw new Error(`"${nodeName(next, toId)}" is a ${target.node.kind}, which is not reached over HTTP. Leave capability unset and Orrery will pick the right one.`);
+
+    // Editing an existing edge in place. Previously this returned "already
+    // connected — nothing to change", so changing a capability meant an
+    // unbind/bind pair: two audit rows and a moment with no connection at all.
+    if (existing) {
+      const capChanged = existing.capability !== capability;
+      const noteChanged = input.note !== undefined && input.note !== existing.note;
+      const label = `${nodeName(next, fromId)} → ${nodeName(next, toId)}`;
+      if (!capChanged && !noteChanged)
+        return {
+          next,
+          what: `${nodeName(next, fromId)} is already connected to ${nodeName(next, toId)}`,
+          details: [`Nothing to change — the ${existing.capability} connection already exists.`],
+          data: { bindingId: existing.id },
+        };
+      const before = existing.capability;
+      existing.capability = capability;
+      if (input.note !== undefined) existing.note = input.note;
+      return {
+        next,
+        what: capChanged
+          ? `Changes ${label} from ${before} to ${capability}`
+          : `Updates the explanation on ${label}`,
+        warnings: capChanged
+          ? [`${nodeName(next, fromId)} loses the variables ${before} injected and gains the ${capability} ones. Redeploy it after this.`]
+          : [],
+        data: { bindingId: existing.id, capability },
+      };
+    }
 
     const binding: Binding = {
       id: id(),
@@ -653,14 +696,27 @@ const SetSecret = z.object({
   serviceId: z.string().min(1),
   key: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "use letters, digits and underscores, starting with a letter or underscore"),
   /**
-   * Accepted so one call can carry the value the UI collected, and
-   * deliberately never persisted. The field is named `secretValue` on
-   * purpose: core's audit redactor redacts by field name, so this never
-   * reaches the audit log either.
+   * The value, if a caller collected one. Orrery has nowhere to put it: there
+   * is no secret store yet. Rather than accepting it and dropping it on the
+   * floor, the action refuses and says where the value belongs. The field is
+   * named `secretValue` so core's audit redactor masks it by field name.
    */
   secretValue: z.string().optional(),
+  /** where the value already lives in your own secret manager, e.g. "vault:atlas/db" */
+  secretRef: z.string().min(1).optional(),
 });
 type SetSecret = z.infer<typeof SetSecret>;
+
+/**
+ * Orrery records a REFERENCE to a secret; it does not hold secrets.
+ *
+ * That is a real limitation, so this action refuses the two operations that
+ * would pretend otherwise: it will not accept a value it cannot store, and it
+ * will not replace an existing plaintext value with a reference — that would
+ * delete the only copy anyone has. Both refusals name where the value goes.
+ */
+const NO_SECRET_STORE =
+  "Orrery has no secret store yet, so it cannot hold this value — it records only a reference to one.";
 
 manifestAction<SetSecret>({
   id: "system.setSecret",
@@ -670,19 +726,38 @@ manifestAction<SetSecret>({
   build(project, input) {
     const next = clone(project.workingManifest);
     const service = requireService(next, input.serviceId);
-    const secretRef = `vault:${input.key}`;
+    const secretRef = input.secretRef ?? `vault:${input.key}`;
     const existing = service.env.find((e) => e.key === input.key);
-    if (existing) {
-      existing.secretRef = secretRef;
-      delete existing.value;
-    } else {
-      service.env.push({ key: input.key, secretRef });
-    }
+
+    if (input.secretValue !== undefined)
+      return {
+        next,
+        what: `Stores ${input.key} as a secret on ${service.name}`,
+        blocked:
+          `${NO_SECRET_STORE} Put the value in your provider's secret manager (AWS Secrets Manager, SSM Parameter Store, a Vault path), ` +
+          `then run this action again with secretRef set to where you put it — for example "${secretRef}". ` +
+          `Nothing was saved, and the value you typed was not stored or logged.`,
+      };
+
+    if (existing?.value !== undefined)
+      return {
+        next,
+        what: `Stores ${input.key} as a secret on ${service.name}`,
+        blocked:
+          `${input.key} currently holds a plaintext value on ${service.name}, and ${NO_SECRET_STORE.toLowerCase()} ` +
+          `Replacing it with ${secretRef} would delete the only copy Orrery has. ` +
+          `Copy the value into your provider's secret manager first, then remove it here with system.setEnvVar (value: null) and add the reference.`,
+      };
+
+    if (existing) existing.secretRef = secretRef;
+    else service.env.push({ key: input.key, secretRef });
+
     return {
       next,
-      what: `Stores ${input.key} as a secret on ${service.name}`,
+      what: `Points ${input.key} at the secret ${secretRef} on ${service.name}`,
       details: [
-        `The manifest records only the reference ${secretRef}. The value is never written to the manifest, the diff, the audit log or an export bundle.`,
+        `The manifest records only the reference ${secretRef}. No value is written to the manifest, the diff, the audit log or an export bundle.`,
+        `The value itself must already exist at ${secretRef} in your own secret manager — Orrery does not put it there and cannot read it.`,
       ],
       data: { serviceId: service.id, secretRef },
     };

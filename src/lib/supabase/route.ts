@@ -7,7 +7,7 @@
 import { createServerClient } from "@supabase/ssr";
 import type { NextRequest } from "next/server";
 import { SUPABASE_PUBLIC_KEY, SUPABASE_URL, isSupabaseConfigured } from "./env";
-import type { SessionUser } from "@/lib/auth/session";
+import { userFromClaims, type SessionUser } from "@/lib/auth/session";
 
 export async function sessionUserFromRequest(req: NextRequest): Promise<SessionUser | null> {
   if (!isSupabaseConfigured()) return null;
@@ -22,10 +22,5 @@ export async function sessionUserFromRequest(req: NextRequest): Promise<SessionU
     },
   });
   const { data } = await supabase.auth.getClaims();
-  const claims = data?.claims;
-  if (!claims?.sub) return null;
-  const email = typeof claims.email === "string" ? claims.email : "";
-  const meta = (claims.user_metadata ?? {}) as Record<string, unknown>;
-  const fullName = typeof meta.full_name === "string" ? meta.full_name : "";
-  return { id: claims.sub, email, name: fullName || email.split("@")[0] || "you" };
+  return data?.claims ? userFromClaims(data.claims) : null;
 }

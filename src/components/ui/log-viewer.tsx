@@ -68,6 +68,26 @@ function levelOf(line: string): Level | undefined {
   return raw as Level;
 }
 
+/**
+ * Split a line around every case-insensitive occurrence of `needle`, so the
+ * search can mark what it matched instead of leaving the reader to find it.
+ * Exported for its test; the empty needle returns the line untouched.
+ */
+export function splitMatches(line: string, needle: string): { text: string; hit: boolean }[] {
+  if (!needle) return [{ text: line, hit: false }];
+  const hay = line.toLowerCase();
+  const find = needle.toLowerCase();
+  const out: { text: string; hit: boolean }[] = [];
+  let at = 0;
+  for (let i = hay.indexOf(find); i !== -1; i = hay.indexOf(find, at)) {
+    if (i > at) out.push({ text: line.slice(at, i), hit: false });
+    out.push({ text: line.slice(i, i + needle.length), hit: true });
+    at = i + needle.length;
+  }
+  if (at < line.length) out.push({ text: line.slice(at), hit: false });
+  return out;
+}
+
 const localTime = (iso?: string) => {
   if (!iso) return "";
   const d = new Date(iso);
@@ -101,6 +121,7 @@ export function LogViewer({
   const [level, setLevel] = useState<"all" | Level>("all");
   const [query, setQuery] = useState("");
   const [follow, setFollow] = useState(true);
+  const [wrap, setWrap] = useState(true);
   const boxRef = useRef<HTMLDivElement>(null);
   const pinning = useRef(false);
 
@@ -221,6 +242,12 @@ export function LogViewer({
               Download
             </Button>
           )}
+          <span>Wrap</span>
+          <Switch
+            checked={wrap}
+            onChange={setWrap}
+            label="Wrap long log lines instead of scrolling sideways"
+          />
           <span>Follow</span>
           <Switch
             checked={follow}
@@ -275,7 +302,10 @@ export function LogViewer({
             {shown.map((l, i) => (
               <div
                 key={l.seq ?? `${i}-${l.line.slice(0, 12)}`}
-                className="flex items-baseline gap-2.5 whitespace-pre-wrap"
+                className={cx(
+                  "flex items-baseline gap-2.5",
+                  wrap ? "whitespace-pre-wrap" : "w-max whitespace-pre"
+                )}
               >
                 {l.ts && (
                   <span className="tnum shrink-0 text-ink-faint" title={l.ts} suppressHydrationWarning>
@@ -290,7 +320,17 @@ export function LogViewer({
                 >
                   {STREAMS[l.stream].label}
                 </span>
-                <span className="min-w-0 flex-1 break-words text-ink">{l.line}</span>
+                <span className={cx("min-w-0 flex-1 text-ink", wrap && "break-words")}>
+                  {splitMatches(l.line, query.trim()).map((part, p) =>
+                    part.hit ? (
+                      <mark key={p} className="rounded-[2px] bg-signal/25 text-ink">
+                        {part.text}
+                      </mark>
+                    ) : (
+                      <span key={p}>{part.text}</span>
+                    )
+                  )}
+                </span>
               </div>
             ))}
           </div>

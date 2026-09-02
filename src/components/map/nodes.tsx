@@ -43,11 +43,17 @@ export interface MapNodeData extends Record<string, unknown> {
   focused?: boolean;
   /** "3 of 7" — where this node sits in the keyboard order */
   posLabel?: string;
+  /** names of everything bound to or from this node, for the accessible name */
+  connections?: string[];
+  /** a filter is running and this node is not one of the matches */
+  dimmed?: boolean;
   onActivate?: () => void;
   /** the graph took focus here — usually via Tab or an arrow key */
   onFocus?: () => void;
   /** arrow keys walk the keyboard order: -1 back, +1 forward */
   onNav?: (delta: -1 | 1) => void;
+  /** right-click, or the context-menu key, in viewport coordinates */
+  onMenu?: (x: number, y: number) => void;
 }
 
 export type MapNode = Node<MapNodeData, "route" | "service" | "resource">;
@@ -119,18 +125,28 @@ function accessibleName(data: MapNodeData): string {
   if (data.sub) parts.push(data.sub);
   if (data.diff) parts.push(DIFF_TITLE[data.diff]);
   if (data.healthLabel) parts.push(data.healthLabel);
+  // The bindings are the point of the map, and a screen reader could not hear
+  // them at all: edges have no accessible presence of their own.
+  parts.push(
+    data.connections?.length
+      ? `connected to ${data.connections.join(", ")}`
+      : "not connected to anything"
+  );
   if (data.bindState) parts.push(BIND_LABEL[data.bindState]);
   if (data.selected) parts.push("open in the inspector");
+  if (data.dimmed) parts.push("does not match the current filter");
   if (data.posLabel) parts.push(data.posLabel);
   return parts.join(", ");
 }
 
 /** Shared chrome: diff treatment, ownership, focus, bind-mode affordances. */
 function NodeShell({
+  id,
   data,
   children,
   className,
 }: {
+  id: string;
   data: MapNodeData;
   children: React.ReactNode;
   className?: string;
@@ -153,7 +169,12 @@ function NodeShell({
   }, [data.focused]);
 
   return (
-    <div className="relative" style={{ width: size.width, height: size.height }}>
+    // Filtered-out nodes fade rather than disappear: the map must keep showing
+    // the whole system, or it stops agreeing with the Changes panel.
+    <div
+      className="relative transition-opacity duration-[200ms] [transition-timing-function:var(--ease-swift)]"
+      style={{ width: size.width, height: size.height, opacity: data.dimmed ? 0.28 : undefined }}
+    >
       {data.live && (
         <span
           aria-hidden="true"
@@ -164,12 +185,18 @@ function NodeShell({
       <div
         ref={ref}
         data-map-node="true"
+        data-node-id={id}
         role="button"
         tabIndex={data.focused ? 0 : -1}
         aria-label={accessibleName(data)}
         title={data.diff ? DIFF_TITLE[data.diff] : undefined}
         onClick={() => data.onActivate?.()}
         onFocus={() => data.onFocus?.()}
+        onContextMenu={(e) => {
+          if (!data.onMenu) return;
+          e.preventDefault();
+          data.onMenu(e.clientX, e.clientY);
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
@@ -180,6 +207,11 @@ function NodeShell({
           } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
             e.preventDefault();
             data.onNav?.(-1);
+          } else if (e.key === "ContextMenu" || (e.shiftKey && e.key === "F10")) {
+            // The same menu the mouse gets, opened at the node's own corner.
+            e.preventDefault();
+            const box = ref.current?.getBoundingClientRect();
+            if (box) data.onMenu?.(box.left + 12, box.bottom - 6);
           }
         }}
         className={cx(
@@ -231,9 +263,9 @@ function Cost({ usd }: { usd: number }) {
   );
 }
 
-export function RouteNode({ data }: NodeProps<MapNode>) {
+export function RouteNode({ id, data }: NodeProps<MapNode>) {
   return (
-    <NodeShell data={data}>
+    <NodeShell id={id} data={data}>
       <div className="flex items-center gap-2">
         <Globe className="h-3.5 w-3.5 shrink-0 text-ink-mute" aria-hidden="true" />
         <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-ink" title={data.name}>
@@ -248,20 +280,23 @@ export function RouteNode({ data }: NodeProps<MapNode>) {
   );
 }
 
-export function ServiceNode({ data }: NodeProps<MapNode>) {
+export function ServiceNode({ id, data }: NodeProps<MapNode>) {
   const Icon = iconFor(data);
   return (
-    <NodeShell data={data}>
+    <NodeShell id={id} data={data}>
       <div className="flex items-center gap-2">
         <Icon className="h-4 w-4 shrink-0 text-ink-mute" aria-hidden="true" />
-        <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-ink">
+        <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-ink" title={data.name}>
           {data.name}
         </span>
         <DiffMark diff={data.diff} />
         {data.health && <StatusDot status={data.health} label={data.healthLabel} />}
       </div>
       <div className="mt-1 flex items-baseline gap-2">
-        <span className="min-w-0 flex-1 truncate text-[11.5px] text-ink-mute">
+        <span
+          className="min-w-0 flex-1 truncate text-[11.5px] text-ink-mute"
+          title={`${KIND_LABEL[data.kind] ?? data.kind}${data.sub ? ` · ${data.sub}` : ""}`}
+        >
           {KIND_LABEL[data.kind] ?? data.kind}
           {data.sub ? ` · ${data.sub}` : ""}
         </span>
@@ -276,19 +311,22 @@ export function ServiceNode({ data }: NodeProps<MapNode>) {
   );
 }
 
-export function ResourceNode({ data }: NodeProps<MapNode>) {
+export function ResourceNode({ id, data }: NodeProps<MapNode>) {
   const Icon = iconFor(data);
   return (
-    <NodeShell data={data}>
+    <NodeShell id={id} data={data}>
       <div className="flex items-center gap-2">
         <Icon className="h-4 w-4 shrink-0 text-ink-mute" aria-hidden="true" />
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink">
+        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink" title={data.name}>
           {data.name}
         </span>
         <DiffMark diff={data.diff} />
       </div>
       <div className="mt-1 flex items-baseline gap-2">
-        <span className="min-w-0 flex-1 truncate text-[11.5px] text-ink-mute">
+        <span
+          className="min-w-0 flex-1 truncate text-[11.5px] text-ink-mute"
+          title={`${KIND_LABEL[data.kind] ?? data.kind}${data.sub ? ` · ${data.sub}` : ""}`}
+        >
           {KIND_LABEL[data.kind] ?? data.kind}
           {data.sub ? ` · ${data.sub}` : ""}
         </span>

@@ -14,7 +14,6 @@ import {
 } from "../src/lib/db/store";
 import {
   emptyManifest,
-  id,
   type Deployment,
   type DeploymentEvent,
   type Environment,
@@ -41,13 +40,11 @@ async function main() {
     createdAt: iso(30 * DAY),
   };
   data.workspaces.push(ws);
-  data.members.push({
-    id: "m-you",
-    workspaceId: ws.id,
-    name: "You",
-    email: "you@kepler.dev",
-    role: "admin",
-  });
+  // Deliberately no member row: a seeded "you@kepler.dev" admin is a seat
+  // nobody can sign in as, and it made every real signed-in user an editor
+  // forever. Demo mode is admin with an empty member list; the first real
+  // user to sign in claims the admin seat. (History below still carries the
+  // "You" actor stamps — that is what actually happened.)
 
   data.connections.push({
     id: "conn-sandbox",

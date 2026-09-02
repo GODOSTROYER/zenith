@@ -13,7 +13,10 @@ edit them; never edit `package.json`** (list missing deps in your final report).
 | `@/lib/cost/pricing` | `monthlyCostUsd(manifest)`, `nodeMonthlyCostUsd`, `SIZE_SPECS` |
 | `@/lib/db/store` | `db()`, `save()`, `resetDb()`, `q.*`, `appendEvent`, `readEvents`, `appendAudit`, `readAudit` |
 | `@/lib/actions/core` | `defineAction`, `runAction`, `actionRegistry`, `ActionContext`, `ActionPlan`, `ActionResult` |
-| `@/lib/providers/types` | `ProviderAdapter`, `registerProvider`, `getProvider`, `providerRegistry`, `PreflightReport`, `StepRuntime`, `ExportBundle` |
+| `@/lib/providers/types` | `ProviderAdapter`, `registerProvider`, `getProvider`, `providerRegistry`, `PreflightReport`, `ProviderProbe`, `StepRuntime`, `stepBudgetMs`, `ExportBundle` |
+| `@/lib/env` | `env()` — validated `ORRERY_*`; `configured()` — which optional keys are present |
+| `@/lib/log` | `log.{debug,info,warn,error}(message, fields)`, `withRequestId`, `currentRequestId` |
+| `@/lib/data-lock` | `claimDataDir(dir)` — refuse a second process against one data directory |
 | `@/lib/engine/types` | `EngineApi`, `StartDeploymentInput` |
 
 ## Global invariants (product law — violating these is a bug)
@@ -84,6 +87,38 @@ the audit trail with copy that names who can grant the role. Planning stays
 open to every member, so anyone can see what an action would do before asking
 for it. A provider that cannot really apply (AWS Preview, the Planned stubs)
 refuses at plan time, before a revision is written.
+
+### `probe()` — optional reachability
+
+`ProviderAdapter.probe?(): Promise<ProviderProbe>` answers one question:
+*could a deploy to this provider start right now?* It takes no connection and
+no credentials, so surfaces that offer a provider **before** a connection
+exists can call it — onboarding's "Available now" list above all, which today
+offers LocalStack whether or not Docker is running.
+
+```ts
+const probe = await getProvider("localstack").probe?.();
+// { reachable: false, detail: "LocalStack is not reachable. Nothing answered
+//   at http://localhost:4566/_localstack/health (…).", fix: "Start Docker
+//   Desktop, then run `localstack start`…" }
+```
+
+Rules:
+
+- **Safe to call on render.** No writes, one request, its own short timeout
+  (LocalStack: a single GET against the health endpoint, 2.5s).
+- **`fix` is present whenever `reachable` is false**, and names the command.
+- **Optional, and its absence is meaningful.** A provider omits `probe` when
+  nothing local can be down: the sandbox runs in-process, and AWS Preview only
+  plans and exports. `undefined` means "nothing to check", never "unknown".
+- **It does not override `availability`**, which remains the single source of
+  truth for whether a provider is *selectable*. A probe only reports whether an
+  already-available provider is usable at this moment.
+
+Implemented today by LocalStack (`src/lib/providers/localstack/index.ts`),
+which reuses the same health check as `preflight` and distinguishes
+unreachable / timeout / unhealthy-HTTP / not-LocalStack rather than reporting
+all four as "not reachable".
 
 ## Engine contract (workstream A implements `src/lib/engine/engine.ts`)
 

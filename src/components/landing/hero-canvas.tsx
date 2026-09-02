@@ -301,7 +301,8 @@ export function HeroCanvas({ onPhase, align = "right", className }: Props) {
 
     let raf = 0;
     let start = performance.now();
-    let visible = true;
+    /** resolved by the IntersectionObserver's first callback, never assumed */
+    let visible = false;
     let cssW = 0;
     let cssH = 0;
     let scale = 1;
@@ -309,6 +310,28 @@ export function HeroCanvas({ onPhase, align = "right", className }: Props) {
     let offY = 0;
 
     const nodeById = new Map(NODES.map((n) => [n.id, n]));
+
+    /**
+     * The dot grid is 345 fixed dots that only change with size or theme, so
+     * it is rasterised once and blitted rather than re-filled every frame.
+     */
+    let grid: HTMLCanvasElement | undefined;
+    const buildGrid = () => {
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const s = scale * dpr;
+      const c = grid ?? document.createElement("canvas");
+      c.width = Math.max(1, Math.round(SCENE_W * s));
+      c.height = Math.max(1, Math.round(SCENE_H * s));
+      const g = c.getContext("2d");
+      if (!g) return;
+      grid = c;
+      g.fillStyle = palette.grid;
+      for (let gx = 20; gx < SCENE_W; gx += 44) {
+        for (let gy = 20; gy < SCENE_H; gy += 44) {
+          g.fillRect(gx * s, gy * s, Math.max(1, 1.6 * s), Math.max(1, 1.6 * s));
+        }
+      }
+    };
 
     const resize = () => {
       const rect = canvas.getBoundingClientRect();
@@ -328,6 +351,7 @@ export function HeroCanvas({ onPhase, align = "right", className }: Props) {
         align === "right"
           ? Math.max(cssW * 0.55, cssW - SCENE_W * scale - 56)
           : (cssW - SCENE_W * scale) / 2;
+      buildGrid();
     };
 
     const setPhase = (p: HeroPhase) => {
@@ -350,13 +374,8 @@ export function HeroCanvas({ onPhase, align = "right", className }: Props) {
       ctx.translate(offX, offY);
       ctx.scale(scale, scale);
 
-      /* the product's own canvas dot grid */
-      ctx.fillStyle = palette.grid;
-      for (let gx = 20; gx < SCENE_W; gx += 44) {
-        for (let gy = 20; gy < SCENE_H; gy += 44) {
-          ctx.fillRect(gx, gy, 1.6, 1.6);
-        }
-      }
+      /* the product's own canvas dot grid, pre-rendered */
+      if (grid) ctx.drawImage(grid, 0, 0, SCENE_W, SCENE_H);
 
       /* edges */
       EDGES.forEach((e, i) => {
@@ -630,6 +649,8 @@ export function HeroCanvas({ onPhase, align = "right", className }: Props) {
 
     const mo = new MutationObserver(() => {
       palette = readPalette();
+      buildGrid();
+      if (reduced) draw(performance.now());
     });
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
@@ -638,9 +659,10 @@ export function HeroCanvas({ onPhase, align = "right", className }: Props) {
       resize();
       draw(performance.now());
       setPhase("still");
-    } else {
-      play();
     }
+    // Otherwise the loop starts from the IntersectionObserver's first callback:
+    // two of these mount (one per breakpoint) and the off-breakpoint one is
+    // display:none, so starting before visibility is known animates for nobody.
 
     return () => {
       stop();

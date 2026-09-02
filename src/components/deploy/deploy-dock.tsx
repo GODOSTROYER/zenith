@@ -1,6 +1,6 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronDown, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowUpRight, ChevronDown, X } from "lucide-react";
 import { Button, CostDelta, StatusDot } from "@/components/ui";
 import { useProjectData } from "@/components/shell/project-context";
 import { cx } from "@/lib/format";
@@ -19,8 +19,9 @@ export interface DeployDockProps {
   onAddRoute: () => void;
   /**
    * True while the Inspector panel occupies its 400px lane on the right.
-   * Above 1100px the dock keeps out of that lane; when the panel is closed
-   * it reclaims the space and centres over the map.
+   * Above 1400px — the width where the panel docks rather than going modal —
+   * the dock keeps out of that lane; when the panel is closed it reclaims the
+   * space and centres over the map.
    */
   inspectorOpen?: boolean;
 }
@@ -36,9 +37,26 @@ export function DeployDock({ onLiveTargets, onAddRoute, inspectorOpen = false }:
   const [landedId, setLandedId] = useState<string | null>(null);
   const autoOpened = useRef("");
   const shellRef = useRef<HTMLElement | null>(null);
+  const pillRef = useRef<HTMLButtonElement | null>(null);
+  // Only a click or Esc moves focus. An environment switch or a deployment
+  // starting elsewhere changes this dock too, and must not steal the caret.
+  const userToggled = useRef(false);
 
   const changeset = changesets[selectedEnvId];
   const pending = changeset?.items.length ?? 0;
+
+  const open = useCallback((next: View) => {
+    userToggled.current = true;
+    setView(next);
+  }, []);
+
+  /** What this environment is serving right now, for the resting chip. */
+  const liveUrl = useMemo(() => {
+    const latest = deployments.find((d) => d.environmentId === selectedEnvId);
+    if (!latest || latest.status !== "succeeded") return undefined;
+    const url = latest.outputs.find((o) => o.kind === "url");
+    return url && { href: url.value, label: url.label };
+  }, [deployments, selectedEnvId]);
 
   // Switching environment is switching subject: start from rest.
   useEffect(() => {
@@ -55,7 +73,10 @@ export function DeployDock({ onLiveTargets, onAddRoute, inspectorOpen = false }:
       setView({ at: "live", deploymentId: latest.id });
   }, [selectedEnvId, deployments]);
 
-  const close = useCallback(() => setView({ at: "closed" }), []);
+  const close = useCallback(() => {
+    userToggled.current = true;
+    setView({ at: "closed" });
+  }, []);
 
   useEffect(() => {
     if (view.at === "closed") return;
@@ -65,6 +86,17 @@ export function DeployDock({ onLiveTargets, onAddRoute, inspectorOpen = false }:
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [view.at, close]);
+
+  // Every view change destroys the control that was focused — expanding kills
+  // the pill, collapsing kills the panel, deploying kills the Deploy button.
+  // Without this, focus lands on <body> and the keyboard is lost mid-task.
+  // Only transitions the operator asked for move focus (`userToggled`); the
+  // dock re-opening itself for a running deployment must not steal it.
+  useEffect(() => {
+    if (!userToggled.current) return;
+    userToggled.current = false;
+    (view.at === "closed" ? pillRef.current : shellRef.current)?.focus();
+  }, [view]);
 
   // The dock owns a strip of the bottom edge; the toast stack sits above it.
   useEffect(() => {
@@ -92,17 +124,52 @@ export function DeployDock({ onLiveTargets, onAddRoute, inspectorOpen = false }:
 
   /**
    * Bottom-anchored and out of flow, so it has to reserve the lanes other
-   * chrome occupies: the 400px Inspector column on the right (it opens at
-   * 1100px, below that it is a modal drawer), and the map's own gutter.
+   * chrome occupies: the 400px Inspector column on the right (it docks at
+   * 1400px, below that it is a modal drawer), and the map's own gutter.
    */
   const shell = cx(
     "fixed bottom-4 right-6 left-6 z-40 mx-auto",
     // 400px panel + 24px gutter, but only while the panel is actually there.
-    inspectorOpen && "min-[1100px]:right-[424px]"
+    // 1400px is where the Inspector docks (useWideLayout); below it the panel
+    // is a modal drawer and there is no lane to keep out of.
+    inspectorOpen && "min-[1400px]:right-[424px]"
   );
 
   if (view.at === "closed") {
-    if (pending === 0) return null;
+    // Nothing pending and nothing running: say what this environment is
+    // serving, so the live address never disappears between deployments.
+    if (pending === 0) {
+      if (!liveUrl) return null;
+      const name = liveUrl.label.split(" — ")[0];
+      return (
+        <div
+          ref={(el) => {
+            shellRef.current = el;
+          }}
+          className={cx(shell, "flex max-w-[880px] justify-center")}
+        >
+          <a
+            href={liveUrl.href}
+            target="_blank"
+            rel="noreferrer"
+            title={`Open ${name} as ${selectedEnv?.name ?? "this environment"} runs it now`}
+            className={cx(
+              "animate-enter inline-flex items-center gap-2.5 rounded-full border border-line bg-bg2 py-1.5 pr-2.5 pl-3.5",
+              "text-[12.5px] text-ink-mute shadow-overlay transition-colors duration-[120ms]",
+              "[transition-timing-function:var(--ease-swift)] hover:border-line-strong hover:text-ink"
+            )}
+          >
+            <StatusDot status="ok" />
+            Live
+            <span aria-hidden="true" className="text-ink-faint">
+              ·
+            </span>
+            <span className="max-w-[220px] truncate font-mono text-ink">{name}</span>
+            <ArrowUpRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          </a>
+        </div>
+      );
+    }
     return (
       <div
         ref={(el) => {
@@ -112,7 +179,8 @@ export function DeployDock({ onLiveTargets, onAddRoute, inspectorOpen = false }:
       >
         <button
           type="button"
-          onClick={() => setView({ at: "review" })}
+          ref={pillRef}
+          onClick={() => open({ at: "review" })}
           className={cx(
             "animate-enter inline-flex items-center gap-3 rounded-full border border-line bg-bg2 py-2 pr-3 pl-4",
             "shadow-overlay transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]",
@@ -146,7 +214,9 @@ export function DeployDock({ onLiveTargets, onAddRoute, inspectorOpen = false }:
         shellRef.current = el;
       }}
       aria-label="Changes and deployment"
+      tabIndex={-1}
       className={cx(
+        "outline-none",
         shell,
         "animate-enter flex flex-col overflow-hidden rounded-card border bg-bg2 shadow-overlay",
         landed
@@ -161,7 +231,7 @@ export function DeployDock({ onLiveTargets, onAddRoute, inspectorOpen = false }:
         </h2>
         <div className="flex items-center gap-1">
           {view.at === "live" && pending > 0 && (
-            <Button size="sm" variant="ghost" onClick={() => setView({ at: "review" })}>
+            <Button size="sm" variant="ghost" onClick={() => open({ at: "review" })}>
               Pending changes ({pending})
             </Button>
           )}
@@ -187,7 +257,7 @@ export function DeployDock({ onLiveTargets, onAddRoute, inspectorOpen = false }:
           changeset && pending > 0 ? (
             <ChangesReview
               changeset={changeset}
-              onDeployed={(deploymentId) => setView({ at: "live", deploymentId })}
+              onDeployed={(deploymentId) => open({ at: "live", deploymentId })}
             />
           ) : (
             <p className="py-6 text-center text-[13px] text-ink-mute">
@@ -199,9 +269,12 @@ export function DeployDock({ onLiveTargets, onAddRoute, inspectorOpen = false }:
           <DeploymentView
             deploymentId={view.deploymentId}
             onLiveTargets={onLiveTargets}
-            onSwitch={(deploymentId) => setView({ at: "live", deploymentId })}
+            onSwitch={(deploymentId) => open({ at: "live", deploymentId })}
             onAddRoute={onAddRoute}
             onSucceeded={setLandedId}
+            // A retry is the same review, same changeset, same idempotency key
+            // family — not a second deployment started blind.
+            onRetry={pending > 0 ? () => open({ at: "review" }) : undefined}
           />
         )}
       </div>

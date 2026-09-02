@@ -24,6 +24,11 @@ export interface StartDeploymentInput {
   changeSummary: string;
   estCostDeltaUsd: number;
   actorName: string;
+  /**
+   * The acting user's real id. Recorded on the deployment so the Deploys
+   * screen can name who deployed instead of everyone being "you".
+   */
+  actorId: string;
   actorType: "user" | "navigator";
   /** skip awaiting_approval (policy already satisfied by caller) */
   approved?: boolean;
@@ -34,6 +39,10 @@ export interface EngineApi {
   approve(deploymentId: string): Promise<Deployment>;
   cancel(deploymentId: string): Promise<Deployment>;
   /** roll an environment back to its previous revision via a new deployment */
-  rollback(environmentId: string, toRevisionId?: string, actorName?: string): Promise<Deployment>;
+  rollback(
+    environmentId: string,
+    toRevisionId?: string,
+    actor?: { id: string; name: string }
+  ): Promise<Deployment>;
   resumeInFlight(): void;
 }

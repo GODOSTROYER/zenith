@@ -12,6 +12,9 @@ import { engine, ensureEngine } from "@/lib/engine/engine";
 import { registerAllActions } from "@/lib/actions/defs";
 import * as security from "@/lib/security/rules";
 import * as logsim from "@/lib/logsim";
+import { claimDataDir } from "@/lib/data-lock";
+import { env } from "@/lib/env";
+import { log } from "@/lib/log";
 
 type G = typeof globalThis & { __orreryBoot?: Promise<void> };
 
@@ -49,18 +52,25 @@ export const logsimModule = async (): Promise<LogsimModule> =>
 /* ---------------------------------- boot ---------------------------------- */
 
 async function boot(): Promise<void> {
+  // Refuse to share a data directory with another live process: the store
+  // rewrites state.json wholesale, so two writers silently lose each other's
+  // work. The thrown error names the pid, the directory and the way out.
+  claimDataDir(env().ORRERY_DATA);
   ensureEngine(); // also registers every provider adapter
   engine.resumeInFlight();
   registerAllActions();
   if (providerRegistry().size === 0)
-    console.warn("[orrery/boot] no providers registered — provider pickers will be empty.");
+    log.warn("no providers registered; provider pickers will be empty", { scope: "boot" });
 }
 
 /** Idempotent per process (and across Next HMR reloads). */
 export function ensureBoot(): Promise<void> {
   const g = globalThis as G;
   g.__orreryBoot ??= boot().catch((err) => {
-    console.error("[orrery/boot] failed", err);
+    log.error("boot failed", { scope: "boot", error: err });
+    // A failed boot must not be swallowed into a half-working app: every
+    // request that awaits boot sees the same error, with its fix attached.
+    throw err;
   });
   return g.__orreryBoot;
 }

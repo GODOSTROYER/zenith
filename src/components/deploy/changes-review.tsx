@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
 import { AlertTriangle, Rocket, ShieldAlert } from "lucide-react";
-import { Button, CostDelta, Input, RiskBadge, useToasts } from "@/components/ui";
+import { Button, Chip, CostDelta, Input, RiskBadge, useToasts } from "@/components/ui";
 import { useProjectData } from "@/components/shell/project-context";
+import { ChangeRow } from "@/components/screens/shared";
 import { ApiError, executeAction, planAction } from "@/lib/client/api";
 import type { ActionPlan } from "@/lib/actions/core";
 import { cx, fmtUsd } from "@/lib/format";
@@ -14,23 +15,6 @@ const GROUPS: { op: ChangeItem["op"]; label: string }[] = [
   { op: "delete", label: "Removed" },
 ];
 
-function ItemRow({ item }: { item: ChangeItem }) {
-  return (
-    <li className="flex items-start gap-3 border-b border-line px-4 py-2.5 last:border-b-0">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="truncate text-[13px] font-medium text-ink">{item.nodeName}</span>
-          <span className="shrink-0 text-[11.5px] text-ink-faint">{item.nodeType}</span>
-        </div>
-        <p className="mt-0.5 text-[12.5px] text-ink-mute">{item.explanation}</p>
-      </div>
-      <div className="flex shrink-0 items-center gap-2">
-        <CostDelta usd={item.costDeltaUsd} />
-        <RiskBadge level={item.risk} />
-      </div>
-    </li>
-  );
-}
 
 /** djb2 — enough to key a changeset, not a security hash. */
 function hash(s: string): string {
@@ -55,6 +39,7 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [typed, setTyped] = useState("");
   const [error, setError] = useState<{ message: string; fix?: string } | null>(null);
 
   const scope = { projectId: project.id, environmentId: selectedEnvId };
@@ -75,12 +60,23 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id, selectedEnvId, changesetKey]);
 
-  const blocking = workingIssues.filter((i) => i.level === "error");
-  const warnings = (plan?.warnings ?? changeset.warnings).filter(
-    (w) => !w.startsWith("Blocks the deploy:")
-  );
-  const needsApproval = selectedEnv?.policies.approvalRequired ?? false;
+  // One authority for "this would be refused": the server's own plan, which
+  // already folds in the provider, the connection, the caller's role and the
+  // manifest's own errors. Until it arrives, the locally computed errors stand
+  // in, so a broken working copy never renders an enabled Deploy button.
+  const blocking = plan
+    ? plan.blocked
+      ? [plan.blocked]
+      : []
+    : workingIssues
+        .filter((i) => i.level === "error")
+        .map((i) => `${i.message}${i.fix ? ` ${i.fix}` : ""}`);
+  const warnings = plan?.warnings ?? changeset.warnings;
+  const needsApproval = plan?.requiresApproval ?? selectedEnv?.policies.approvalRequired ?? false;
   const isProd = selectedEnv?.class === "production";
+  const envName = selectedEnv?.name ?? "";
+  // Production is typed out in full, exactly like a production delete.
+  const needsTyped = isProd && typed.trim() !== envName;
 
   const deploy = async () => {
     if (busy) return;
@@ -130,17 +126,39 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
         </span>
       </div>
 
+      {/* The plan the server just produced for this exact changeset. */}
+      {plan && (
+        <div className="flex flex-wrap items-center gap-2">
+          <RiskBadge level={plan.risk} />
+          <Chip
+            tone={plan.costDeltaUsd === 0 ? "neutral" : plan.costDeltaUsd > 0 ? "warn" : "ok"}
+            title="Estimated change to the monthly bill if this deploy succeeds."
+          >
+            <CostDelta usd={plan.costDeltaUsd} bare /> est./mo
+          </Chip>
+          {plan.requiresApproval && (
+            <Chip
+              tone="prod"
+              title={`${envName || "This environment"} requires a human to approve before anything is applied.`}
+            >
+              Approval required
+            </Chip>
+          )}
+        </div>
+      )}
+
       {blocking.length > 0 && (
         <div className="space-y-2 rounded-card border border-err/30 bg-err-dim p-3">
           <p className="flex items-center gap-2 text-[13px] font-medium text-ink">
             <ShieldAlert className="h-4 w-4 text-err" aria-hidden="true" />
-            {blocking.length} problem{blocking.length === 1 ? "" : "s"} to fix before this can deploy
+            {plan?.blocked
+              ? "This deploy would be refused"
+              : `${blocking.length} problem${blocking.length === 1 ? "" : "s"} to fix before this can deploy`}
           </p>
           <ul className="space-y-1.5">
-            {blocking.map((i, n) => (
-              <li key={n} className="text-[12.5px] text-ink">
-                {i.message}
-                {i.fix && <span className="text-ink-mute"> {i.fix}</span>}
+            {blocking.map((b) => (
+              <li key={b} className="text-[12.5px] text-ink">
+                {b}
               </li>
             ))}
           </ul>
@@ -167,9 +185,11 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
               <h3 className="text-[12px] font-medium tracking-[0.04em] text-ink-faint uppercase">
                 {label} · {items.length}
               </h3>
+              {/* Same row component as the revision diff: one explanation,
+                  one field list, wherever a change is read. */}
               <ul className="overflow-hidden rounded-card border border-line bg-bg1">
                 {items.map((i) => (
-                  <ItemRow key={`${i.op}-${i.nodeId}`} item={i} />
+                  <ChangeRow key={`${i.op}-${i.nodeId}`} item={i} />
                 ))}
               </ul>
             </div>
@@ -192,14 +212,31 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
             onChange={(e) => setMessage(e.target.value)}
           />
         </div>
+        {isProd && (
+          <label className="flex min-w-[220px] flex-1 items-center gap-2">
+            <span className="shrink-0 text-[12px] text-ink-mute">
+              Type <span className="font-mono text-ink">{envName}</span>
+            </span>
+            <Input
+              mono
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              placeholder={envName}
+              autoComplete="off"
+              aria-label={`Type ${envName} to confirm deploying to production`}
+            />
+          </label>
+        )}
         <Button
           variant={isProd ? "danger" : "primary"}
           busy={busy}
-          disabled={blocking.length > 0}
+          disabled={blocking.length > 0 || needsTyped}
           disabledReason={
             blocking.length > 0
-              ? "Fix the problems listed above first — each one says what to do."
-              : undefined
+              ? (plan?.blocked ?? "Fix the problems listed above first — each one says what to do.")
+              : needsTyped
+                ? `Type “${envName}” to confirm — this changes production.`
+                : undefined
           }
           icon={<Rocket className="h-3.5 w-3.5" aria-hidden="true" />}
           onClick={deploy}

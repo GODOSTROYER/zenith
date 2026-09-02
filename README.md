@@ -22,20 +22,45 @@ npm run dev      # http://localhost:3400
 Quality gates:
 
 ```bash
+npm run verify   # all four, in order — this is what CI runs
+
 npm run typecheck
 npm run lint
 npm test         # unit tests (engine, actions, roles, providers, store, importers)
 npm run smoke    # end-to-end: blueprint → deploy → URL, chaos failure → rollback
 ```
 
+All four gates run offline. **`npm run build` does not:** `app/layout.tsx`
+loads its fonts through `next/font/google`, which fetches from
+`fonts.googleapis.com` at build time, so a build on an air-gapped machine
+fails with a font error rather than a code error. `.github/workflows/ci.yml`
+therefore runs the build as a separate, non-blocking job. To make the build
+offline-capable, vendor the font files and switch to `next/font/local`.
+
+Point tests and scripts at a throwaway directory — `ORRERY_DATA=$(mktemp -d)` —
+so a run never touches your working `.data/`. Orrery holds the whole database
+in memory and rewrites it on save, so **one process per data directory**: a
+second one is refused at boot with a message naming the pid holding it.
+
 ## Environment variables
+
+Everything `ORRERY_*` is validated in one place, `src/lib/env.ts`; an invalid
+value fails at boot naming the variable and what it accepts, rather than
+silently falling back.
 
 | Var | Purpose | Default |
 | --- | --- | --- |
-| `ORRERY_DATA` | data directory (JSON snapshot + JSONL event/audit logs) | `.data/` |
-| `ORRERY_FAST` | `1` collapses sandbox step durations (tests) | off |
+| `ORRERY_DATA` | data directory (JSON snapshot + JSONL event/audit logs). Relative paths resolve against the working directory, so run from the repo root. | `.data/` |
+| `ORRERY_FAST` | `1` collapses simulated step durations (tests, smoke). Any other value is off. | `0` |
+| `ORRERY_LOCALSTACK_ENDPOINT` | LocalStack edge endpoint the LocalStack provider talks to | `http://localhost:4566` |
+| `ORRERY_LLM_MODEL` | model id for the Navigator's optional language front-end. Pin an older snapshot or try a cheaper one; the default tracks the model the grammar prompt was tested against. | `claude-opus-5` |
+| `ORRERY_LOG_LEVEL` | lowest level `src/lib/log.ts` emits (`debug` \| `info` \| `warn` \| `error`) | `info` |
 | `AWS_ACCESS_KEY_ID` etc. | detected by the AWS preflight; **apply is disabled in Preview** either way | unset |
 | `ANTHROPIC_API_KEY` | optional Navigator LLM parsing; without it the deterministic planner runs (and says so) | unset |
+
+`NEXT_PUBLIC_SUPABASE_*` are deliberately *not* in `env.ts`: Next inlines
+those into the client bundle by matching the literal `process.env.NEXT_PUBLIC_…`
+text, so they must stay written out in `src/lib/supabase/env.ts`.
 
 ## Accounts (Supabase auth)
 

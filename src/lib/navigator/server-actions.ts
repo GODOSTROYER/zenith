@@ -12,9 +12,9 @@ import { getSessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db/store";
 import type { Actor, AutonomyLevel, NavigatorRun } from "@/lib/domain/types";
 import { ensureBoot } from "@/lib/server/boot";
-import { demoActor, ensureMember } from "@/lib/server/context";
+import { ApiError, demoActor, ensureMember } from "@/lib/server/context";
 import { plannerMode, plannerModel, type Parsing, type PlannerMode } from "./llm";
-import { createRun, executeRun } from "./run";
+import { cancelRun, createRun, executeRun } from "./run";
 
 export interface NavigatorReply {
   run?: NavigatorRun;
@@ -32,35 +32,54 @@ export interface NavigatorReply {
 async function currentActor(): Promise<Actor> {
   const user = await getSessionUser();
   if (!user) return demoActor();
-  ensureMember(user);
-  return { type: "user", id: user.id, name: user.name };
+  const outcome = ensureMember(user);
+  if ("denied" in outcome)
+    throw new ApiError(outcome.denied.message, 403, { fix: outcome.denied.fix });
+  return { type: "user", id: outcome.member.id, name: outcome.member.name };
 }
 
+/** A refusal already names its own fix; the caller's is only the fallback. */
 const fail = (err: unknown, fix: string): NavigatorReply => ({
   error: err instanceof Error ? err.message : String(err),
-  fix,
+  fix: (err instanceof ApiError && err.fix) || fix,
 });
 
 /** Plan a goal. Planning never executes anything, at any autonomy level. */
 export async function createRunAction(projectId: string, goal: string): Promise<NavigatorReply> {
   await ensureBoot();
   try {
+    await currentActor(); // a non-member cannot spend the workspace's planning budget
     return await createRun(projectId, goal);
   } catch (err) {
     return fail(err, "Check the goal and try again — planning changes nothing, so it is safe to retry.");
   }
 }
 
-/** Execute the approved steps of a run, in order. */
+/**
+ * Execute the approved steps of a run, in order. The signed-in human is
+ * resolved first: autonomy is the Navigator's ceiling, their role is the floor.
+ */
 export async function executeRunAction(
   runId: string,
   stepApprovals: string[]
 ): Promise<NavigatorReply> {
   await ensureBoot();
   try {
-    return { run: await executeRun(runId, { stepApprovals }) };
+    const human = await currentActor();
+    return { run: await executeRun(runId, { stepApprovals, human }) };
   } catch (err) {
     return fail(err, "Reload the Navigator tab to see the run's current state before retrying.");
+  }
+}
+
+/** Stop a run. A step already in flight finishes; nothing after it starts. */
+export async function cancelRunAction(runId: string): Promise<NavigatorReply> {
+  await ensureBoot();
+  try {
+    await currentActor(); // membership check — cancelling is a workspace act
+    return { run: cancelRun(runId) };
+  } catch (err) {
+    return fail(err, "Reload the Navigator tab to see the run's current state.");
   }
 }
 

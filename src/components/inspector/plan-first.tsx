@@ -1,11 +1,21 @@
 "use client";
 import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
-import { Button, CostDelta, Field, Input, RiskBadge, useToasts, type ButtonVariant } from "@/components/ui";
+import {
+  Button,
+  Chip,
+  CostDelta,
+  Field,
+  Input,
+  RiskBadge,
+  useToasts,
+  type ButtonVariant,
+} from "@/components/ui";
 import { useProjectData } from "@/components/shell/project-context";
 import { ApiError, executeAction, planAction } from "@/lib/client/api";
 import type { ActionPlan, ActionResult } from "@/lib/actions/core";
 import { cx } from "@/lib/format";
+import { idempotencyKey, planIsInvalid } from "./logic";
 
 export interface PlanFirstProps {
   actionId: string;
@@ -19,6 +29,12 @@ export interface PlanFirstProps {
   disabledReason?: string;
   /** when set, the exact text must be typed before the action can run */
   confirmName?: string;
+  /**
+   * "high-risk" asks for the typed name only when the server's own plan comes
+   * back high risk — so the ceremony matches the actual consequence rather
+   * than a guess made before planning.
+   */
+  confirmWhen?: "always" | "high-risk";
   onDone?: (result: ActionResult) => void;
   onCancel?: () => void;
   className?: string;
@@ -45,6 +61,7 @@ export function PlanFirst({
   disabled = false,
   disabledReason,
   confirmName,
+  confirmWhen = "always",
   onDone,
   onCancel,
   className,
@@ -82,7 +99,11 @@ export function PlanFirst({
       const result = await executeAction(actionId, {
         input,
         scope: effScope,
-        idempotencyKey: `${actionId}-${Date.now()}`,
+        // Content-keyed, like the deploy dock: a double-click or a retried
+        // request replays the first result instead of applying twice. The
+        // working copy is part of the key, so re-running the same edit after
+        // the system moved is a new intent, not a replay.
+        idempotencyKey: idempotencyKey(actionId, { input, scope: effScope }, project.workingManifest),
       });
       if (!result.ok) {
         setStage({
@@ -120,13 +141,42 @@ export function PlanFirst({
   if (stage.at === "preview" || stage.at === "running") {
     const { plan } = stage;
     const running = stage.at === "running";
-    const needsTyping = Boolean(confirmName) && typed.trim() !== confirmName;
+    // The server rejected the values before it could plan anything. There is
+    // nothing to apply, so nothing offers to.
+    const invalid = planIsInvalid(plan);
+    const wantsTyping = Boolean(confirmName) && (confirmWhen === "always" || plan.risk === "high");
+    const needsTyping = wantsTyping && typed.trim() !== confirmName;
+
+    if (invalid)
+      return (
+        <div
+          role="alert"
+          className={cx("animate-enter space-y-2 rounded-card border border-err/30 bg-err-dim p-3", className)}
+        >
+          <p className="text-[13px] text-ink">These values cannot be applied.</p>
+          {plan.details.map((d, i) => (
+            <p key={i} className="text-[12.5px] text-ink-mute">
+              {d}
+            </p>
+          ))}
+          <Button size="sm" variant="quiet" onClick={() => setStage({ at: "idle" })}>
+            Back to the form
+          </Button>
+        </div>
+      );
 
     return (
       <div className={cx("animate-enter space-y-3 rounded-card border border-line bg-bg1 p-3", className)}>
         <div className="flex items-start justify-between gap-3">
           <p className="text-[13px] text-ink">{plan.summary}</p>
-          <RiskBadge level={plan.risk} />
+          <div className="flex shrink-0 items-center gap-1.5">
+            {plan.requiresApproval && (
+              <Chip tone="prod" title="Policy on this environment requires a human approval before it runs.">
+                approval required
+              </Chip>
+            )}
+            <RiskBadge level={plan.risk} />
+          </div>
         </div>
 
         {plan.details.length > 0 && (
@@ -159,7 +209,7 @@ export function PlanFirst({
           </span>
         </div>
 
-        {confirmName && (
+        {wantsTyping && (
           <Field
             label={`Type "${confirmName}" to confirm`}
             help="Destructive changes are typed out in full, on purpose."

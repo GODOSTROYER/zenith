@@ -3,8 +3,10 @@
  * Onboarding — three decisions, in order, with nothing hidden.
  *
  * Nothing is created until the last step's button: abandoning the flow leaves
- * no phantom project, no phantom environment. The workspace is the exception
- * and it says so — it is the account, not a resource.
+ * no phantom project, no phantom environment and no phantom cloud connection.
+ * The workspace is the exception and it says so — it is the account, not a
+ * resource. The connection has to exist before the first environment can point
+ * at it, so the last step creates the two together, in that order.
  */
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -12,7 +14,6 @@ import Link from "next/link";
 import {
   ArrowRight,
   Check,
-  CircleDashed,
   FileCode2,
   Layers,
   Lock,
@@ -22,20 +23,22 @@ import {
 } from "lucide-react";
 import { api, ApiError, executeAction, useJson } from "@/lib/client/api";
 import type { CloudConnection, Workspace } from "@/lib/domain/types";
+import { importDockerfile, importTerraform } from "@/lib/importers";
 import type { ImportReport } from "@/lib/importers/types";
 import { cx, fmtUsd } from "@/lib/format";
 import {
   Button,
   Card,
   Chip,
-  EmptyState,
   Field,
   Input,
+  SegmentedControl,
   Skeleton,
   ThemeToggle,
   type ChipTone,
 } from "@/components/ui";
 import { ErrorNote, useSafeToasts } from "./shared";
+import { ImportReportView } from "./import-report";
 
 export interface BlueprintCard {
   id: string;
@@ -81,6 +84,17 @@ const AVAILABILITY_NOTE: Record<ProviderInfo["availability"], string> = {
   planned: "Not implemented. Nothing would happen if you picked it.",
 };
 
+/**
+ * What a provider needs from the machine it runs against, when that is not
+ * Orrery itself. Availability says the adapter works; it cannot say your
+ * Docker is running — and nothing here probes it yet, so the card says so
+ * rather than implying it checked.
+ */
+const PROVIDER_PREREQUISITE: Record<string, string> = {
+  localstack:
+    "Needs LocalStack listening on localhost:4566 (Docker Desktop running, then `localstack start`). Orrery does not check that until it creates the connection on the last step — if it is down, that step tells you and creates nothing else.",
+};
+
 /** Why a provider cannot be picked. Only ever called for non-available ones. */
 function notSelectableReason(p: ProviderInfo): string {
   return p.availability === "preview"
@@ -102,6 +116,14 @@ const RAIL_LOCKED: Record<number, string> = {
 
 type Mode = "blueprint" | "import" | "blank";
 
+/** What step 2 settled on. Nothing is created there — this is a choice, not a record. */
+interface ProviderChoice {
+  providerId: string;
+  /** an existing connection for that provider, when the workspace already has one */
+  connectionId?: string;
+  displayName: string;
+}
+
 export function OnboardingFlow({
   blueprints,
   sampleCompose,
@@ -114,12 +136,16 @@ export function OnboardingFlow({
   const toasts = useSafeToasts();
   const boot = useJson<Bootstrap>("/api/bootstrap");
   const hasWorkspace = !!boot.data?.workspace;
+  // 404 is the ordinary first-run answer ("no workspace yet"), which step 1
+  // exists to fix. Anything else is a real failure and must not be papered
+  // over with a step the user cannot complete.
+  const bootFailed = boot.error && boot.error.status !== 404;
 
   const [step, setStep] = useState(1);
   const [settled, setSettled] = useState(false);
   const [redirect, setRedirect] = useState<string>();
-  /** the connection step 2 settled on; step 3 creates the environment against it */
-  const [connectionId, setConnectionId] = useState<string>();
+  /** what step 2 settled on; step 3 connects it and builds the environment */
+  const [choice, setChoice] = useState<ProviderChoice>();
 
   // `?step=` is honoured when it is reachable. A workspace that already exists
   // means step 1 is behind us, so the default without a parameter is step 3
@@ -162,52 +188,82 @@ export function OnboardingFlow({
             <h1 className="mt-2 text-[40px] leading-[1.1] font-medium tracking-[-0.02em] text-ink">
               {STEPS[step - 1].title}
             </h1>
+            {/* The rail is the progress indicator from md up; below it, this is. */}
+            <p className="mt-2 text-[12.5px] text-ink-faint md:hidden">
+              Step {step} of {STEPS.length} · {STEPS[step - 1].hint} · nothing is created until
+              step {STEPS.length}
+            </p>
           </div>
-          <ThemeToggle />
+          <div className="flex shrink-0 items-center gap-2">
+            {hasWorkspace && (
+              <Button variant="quiet" size="sm" onClick={() => router.push("/overview")}>
+                Leave setup
+              </Button>
+            )}
+            <ThemeToggle />
+          </div>
         </div>
 
         {redirect && (
-          <p className="mb-6 rounded-card border border-info/30 bg-info-dim px-4 py-2.5 text-[13px] text-ink">
+          <p
+            role="status"
+            className="mb-6 rounded-card border border-info/30 bg-info-dim px-4 py-2.5 text-[13px] text-ink"
+          >
             {redirect}
           </p>
         )}
 
-        {step === 1 && (
-          <StepWorkspace
-            existing={boot.data?.workspace}
-            loading={boot.loading}
-            onDone={() => {
-              boot.refresh();
-              setStep(2);
-            }}
-          />
-        )}
+        {bootFailed ? (
+          <div className="max-w-[620px] space-y-4">
+            <ErrorNote error={boot.error} />
+            <p className="text-[13px] text-ink-mute">
+              Onboarding reads your workspace, connections and providers from{" "}
+              <span className="font-mono text-[12.5px] text-ink">/api/bootstrap</span> before it
+              can show you a step it can actually finish.
+            </p>
+            <Button onClick={boot.refresh} icon={<ArrowRight className="h-3.5 w-3.5" />}>
+              Try again
+            </Button>
+          </div>
+        ) : (
+          <>
+            {step === 1 && (
+              <StepWorkspace
+                existing={boot.data?.workspace}
+                loading={boot.loading}
+                onDone={() => {
+                  boot.refresh();
+                  setStep(2);
+                }}
+              />
+            )}
 
-        {step === 2 && (
-          <StepProvider
-            providers={boot.data?.providers ?? []}
-            connections={boot.data?.connections ?? []}
-            loading={boot.loading}
-            onBack={() => setStep(1)}
-            onNext={(conn) => {
-              setConnectionId(conn);
-              boot.refresh();
-              setStep(3);
-            }}
-          />
-        )}
+            {step === 2 && (
+              <StepProvider
+                providers={boot.data?.providers ?? []}
+                connections={boot.data?.connections ?? []}
+                loading={boot.loading}
+                onBack={() => setStep(1)}
+                onNext={(next) => {
+                  setChoice(next);
+                  setStep(3);
+                }}
+              />
+            )}
 
-        {step === 3 && (
-          <StepSystem
-            blueprints={blueprints}
-            sampleCompose={sampleCompose}
-            connectionId={connectionId}
-            onBack={() => setStep(2)}
-            onCreated={(slug, message) => {
-              toasts.push({ kind: "ok", title: message });
-              router.push(`/p/${slug}`);
-            }}
-          />
+            {step === 3 && (
+              <StepSystem
+                blueprints={blueprints}
+                sampleCompose={sampleCompose}
+                choice={choice}
+                onBack={() => setStep(2)}
+                onCreated={(slug, message) => {
+                  toasts.push({ kind: "ok", title: message });
+                  router.push(`/p/${slug}`);
+                }}
+              />
+            )}
+          </>
         )}
       </main>
     </div>
@@ -272,8 +328,8 @@ function Rail({ step, onGo }: { step: number; onGo: (n: number) => void }) {
         })}
       </ol>
       <p className="mt-8 border-t border-line px-3 pt-5 text-[12px] leading-relaxed text-ink-faint">
-        Nothing is created until the last step. Leave at any point and no project, environment
-        or cost is left behind.
+        Nothing is created until the last step — not the project, not the environment, not the
+        cloud connection. Leave at any point and no cost is left behind.
       </p>
     </nav>
   );
@@ -395,8 +451,8 @@ function StepProvider({
   connections: CloudConnection[];
   loading: boolean;
   onBack: () => void;
-  /** the connection the project's first environment should deploy through */
-  onNext: (connectionId?: string) => void;
+  /** the provider the project's first environment should deploy through */
+  onNext: (choice: ProviderChoice) => void;
 }) {
   // Selectability comes from the adapter's own availability, never from a
   // hardcoded "sandbox is special" test — LocalStack reports available and is
@@ -405,35 +461,26 @@ function StepProvider({
   const rest = providers.filter((p) => p.availability !== "available");
 
   const [picked, setPicked] = useState<string>("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<unknown>();
 
-  const chosen = selectable.find((p) => p.id === picked) ?? selectable[0];
+  // The default is a real selection in state, not a render-time fallback, so
+  // the card that looks chosen is the one aria-checked reports and the one the
+  // Continue button names.
+  const firstId = selectable[0]?.id;
+  useEffect(() => {
+    if (!picked && firstId) setPicked(firstId);
+  }, [picked, firstId]);
+
+  const chosen = selectable.find((p) => p.id === picked);
   const existing = connections.find((c) => c.provider === chosen?.id);
 
-  const proceed = async () => {
-    if (!chosen) return;
-    // Already connected, or the sandbox (which the server provisions on demand)
-    // — nothing to create.
-    if (existing) return onNext(existing.id);
-    if (chosen.id === "sandbox") return onNext(undefined);
-
-    setBusy(true);
-    setError(undefined);
-    try {
-      const result = await executeAction("connection.create", {
-        input: { provider: chosen.id },
-      });
-      if (!result.ok) {
-        setError(new ApiError(result.summary, 400, result.error));
-        return;
-      }
-      onNext((result.data as { connectionId?: string } | undefined)?.connectionId);
-    } catch (e) {
-      setError(e);
-    } finally {
-      setBusy(false);
-    }
+  /** Arrow keys move the selection inside the group, as radios do. */
+  const move = (dir: 1 | -1) => {
+    if (selectable.length === 0) return;
+    const at = selectable.findIndex((p) => p.id === picked);
+    const next = selectable[(at + dir + selectable.length) % selectable.length];
+    if (!next) return;
+    setPicked(next.id);
+    document.querySelector<HTMLElement>(`[data-provider="${CSS.escape(next.id)}"]`)?.focus();
   };
 
   if (loading && providers.length === 0) return <Skeleton height={240} />;
@@ -446,18 +493,31 @@ function StepProvider({
       </p>
 
       <div className="space-y-3">
-        <h3 className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">
+        <h3 id="providers-available" className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">
           Available now — deploys run end to end
         </h3>
-        <div className="grid gap-3">
+        <div role="radiogroup" aria-labelledby="providers-available" className="grid gap-3">
           {selectable.map((p) => {
             const active = p.id === chosen?.id;
             const conn = connections.find((c) => c.provider === p.id);
+            const prerequisite = PROVIDER_PREREQUISITE[p.id];
             return (
               <button
                 key={p.id}
                 type="button"
-                aria-pressed={active}
+                role="radio"
+                data-provider={p.id}
+                aria-checked={active}
+                tabIndex={active ? 0 : -1}
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+                    e.preventDefault();
+                    move(1);
+                  } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
+                    e.preventDefault();
+                    move(-1);
+                  }
+                }}
                 onClick={() => setPicked(p.id)}
                 className={cx(
                   "block w-full rounded-card border p-5 text-left transition-colors duration-[var(--dur-fast)]",
@@ -475,10 +535,21 @@ function StepProvider({
                         ? `Already connected as “${conn.label}” (${conn.status}).`
                         : p.id === "sandbox"
                           ? "Nothing to connect — the sandbox runs inside Orrery."
-                          : `Continuing connects it and runs its preflight checks${
+                          : `Nothing is connected yet. The last step connects it and runs its preflight checks${
                               p.regions[0] ? ` in ${p.regions[0].label}` : ""
                             }.`}
                     </p>
+                    {conn && conn.status !== "healthy" && (
+                      <p className="mt-1.5 text-[12.5px] text-warn">
+                        That connection is {conn.status}. Re-check it in Settings → Connections
+                        before you deploy through it.
+                      </p>
+                    )}
+                    {prerequisite && (
+                      <p className="mt-1.5 max-w-[60ch] text-[12.5px] leading-relaxed text-ink-faint">
+                        {prerequisite}
+                      </p>
+                    )}
                   </div>
                   <Chip tone="ok" icon={<Check className="h-3 w-3" />}>
                     Available
@@ -539,17 +610,21 @@ function StepProvider({
         </div>
       )}
 
-      {error ? <ErrorNote error={error} /> : null}
-
       <div className="flex gap-2">
-        <Button variant="quiet" onClick={onBack} disabled={busy}>
+        <Button variant="quiet" onClick={onBack}>
           Back
         </Button>
         <Button
-          busy={busy}
           disabled={!chosen}
           disabledReason="No provider reports itself available in this build, so there is nothing to deploy through."
-          onClick={proceed}
+          onClick={() =>
+            chosen &&
+            onNext({
+              providerId: chosen.id,
+              connectionId: existing?.id,
+              displayName: chosen.displayName,
+            })
+          }
           icon={<ArrowRight className="h-3.5 w-3.5" />}
         >
           {chosen ? `Use ${chosen.displayName}` : "Continue"}
@@ -568,56 +643,175 @@ interface CreateResult {
   report?: ImportReport;
 }
 
+type Format = "compose" | "terraform" | "dockerfile";
+
+const FORMATS: {
+  value: Format;
+  label: string;
+  title: string;
+  accept: string;
+  /** what the box wants, and what it honestly does with it */
+  prompt: string;
+  placeholder: string;
+}[] = [
+  {
+    value: "compose",
+    label: "compose",
+    title: "docker-compose.yml — services, resources and the links between them.",
+    accept: ".yml,.yaml,text/yaml,application/x-yaml,text/plain",
+    prompt: "Services, images, ports and depends_on all translate. Volumes and build args do not.",
+    placeholder: 'version: "3.9"\nservices:\n  web:\n    image: my/app:latest\n    ports:\n      - "3000:3000"',
+  },
+  {
+    value: "terraform",
+    label: "terraform",
+    title: "A .tf file — recognised resources are imported as referenced, never provisioned.",
+    accept: ".tf,.hcl,text/plain",
+    prompt:
+      "A text scan, not an HCL parse: modules, variables and count/for_each are not evaluated. What it recognises is imported as “referenced” — read, never changed.",
+    placeholder: 'resource "aws_db_instance" "primary" {\n  engine = "postgres"\n}\n\nresource "aws_s3_bucket" "assets" {}',
+  },
+  {
+    value: "dockerfile",
+    label: "dockerfile",
+    title: "A Dockerfile — one image, so one web service.",
+    accept: "text/plain,.dockerfile",
+    prompt:
+      "One Dockerfile describes one image, so this produces exactly one web service. Build instructions stay in your Dockerfile.",
+    placeholder: 'FROM node:22-alpine\nEXPOSE 3000\nCMD ["node", "server.js"]',
+  },
+];
+
+/**
+ * Past this the input is a mistake, not a manifest — a 5 MB paste would parse
+ * on the main thread and freeze the tab with no explanation.
+ */
+const MAX_IMPORT_CHARS = 256 * 1024;
+const kb = (n: number) => Math.max(1, Math.round(n / 1024));
+const OVERSIZE_FIX = `Keep the file under ${kb(MAX_IMPORT_CHARS)} KB — trim it to the services you want, or import them a few at a time.`;
+
 function StepSystem({
   blueprints,
   sampleCompose,
-  connectionId,
+  choice,
   onBack,
   onCreated,
 }: {
   blueprints: BlueprintCard[];
   sampleCompose: string;
   /** what step 2 settled on; undefined means the default sandbox connection */
-  connectionId?: string;
+  choice?: ProviderChoice;
   onBack: () => void;
   onCreated: (slug: string, message: string) => void;
 }) {
   const [mode, setMode] = useState<Mode>("blueprint");
+  const [format, setFormat] = useState<Format>("compose");
   const [selected, setSelected] = useState<string>(blueprints[0]?.id ?? "");
-  const [compose, setCompose] = useState("");
-  const [composeFile, setComposeFile] = useState<string>();
+  const [source, setSource] = useState("");
+  const [sourceFile, setSourceFile] = useState<string>();
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>();
   const [review, setReview] = useState<{ report: ImportReport; slug: string; summary: string }>();
+  /** the usable connection, once this step has one */
+  const [connectionId, setConnectionId] = useState(choice?.connectionId);
+  /** created, but preflight did not pass — retrying re-checks it, never duplicates it */
+  const [unusableConnectionId, setUnusableConnectionId] = useState<string>();
 
   const chosen = useMemo(
     () => blueprints.find((b) => b.id === selected),
     [blueprints, selected]
   );
+  const spec = FORMATS.find((f) => f.value === format)!;
+  const oversize = source.length > MAX_IMPORT_CHARS;
 
   const projectName =
     name.trim() || (mode === "blueprint" ? (chosen?.name ?? "") : mode === "import" ? "Imported app" : "");
 
+  // Terraform and Dockerfile parse in the browser — the same importers the map
+  // dialog uses — so the file is understood before anything is created.
+  const parsed = useMemo(() => {
+    if (mode !== "import" || format === "compose" || !source.trim() || oversize) return undefined;
+    try {
+      const out =
+        format === "terraform"
+          ? importTerraform(source)
+          : importDockerfile(source, sourceFile?.replace(/\.[^.]+$/, "") || projectName || "app");
+      return { manifest: out.manifest, report: out.report, error: undefined };
+    } catch (err) {
+      return { error: err instanceof Error ? err.message : String(err) };
+    }
+  }, [mode, format, source, sourceFile, projectName, oversize]);
+
   const canCreate =
-    mode === "blueprint" ? !!chosen : mode === "import" ? compose.trim().length > 0 : !!name.trim();
+    mode === "blueprint"
+      ? !!chosen
+      : mode === "import"
+        ? source.trim().length > 0 &&
+          !oversize &&
+          (format === "compose" || !!parsed?.manifest)
+        : !!name.trim();
+
+  const readFile = async (file: File) => {
+    setError(undefined);
+    if (file.size > MAX_IMPORT_CHARS) {
+      setSourceFile(undefined);
+      setError(new ApiError(`${file.name} is ${kb(file.size)} KB.`, 413, OVERSIZE_FIX));
+      return;
+    }
+    try {
+      setSource(await file.text());
+      setSourceFile(file.name);
+    } catch (err) {
+      setSourceFile(undefined);
+      setError(err);
+    }
+  };
 
   const create = async () => {
     setBusy(true);
     setError(undefined);
     try {
+      // The connection has to exist before the environment can reference it,
+      // so it is created here — at the last step — and not a moment earlier.
+      let connId = connectionId;
+      if (!connId && choice && choice.providerId !== "sandbox") {
+        const conn = await executeAction(
+          unusableConnectionId ? "connection.check" : "connection.create",
+          {
+            input: unusableConnectionId
+              ? { connectionId: unusableConnectionId }
+              : { provider: choice.providerId },
+          }
+        );
+        const made = (conn.data as { connectionId?: string } | undefined)?.connectionId;
+        if (!conn.ok) {
+          // The connection row exists but its preflight did not pass. Fixing
+          // the cause and pressing again re-checks that one.
+          if (made) setUnusableConnectionId(made);
+          setError(new ApiError(conn.summary, 400, conn.error));
+          return;
+        }
+        connId = made;
+        setConnectionId(made);
+        setUnusableConnectionId(undefined);
+      }
+
+      // Compose creates the project in one action; Terraform and Dockerfile
+      // parse here, so they create the project and then write the manifest
+      // through the same audited action the Source view uses.
       const call =
         mode === "blueprint"
           ? {
               actionId: "project.applyBlueprint",
-              input: { blueprint: selected, name: projectName, connectionId },
+              input: { blueprint: selected, name: projectName, connectionId: connId },
             }
-          : mode === "import"
+          : mode === "import" && format === "compose"
             ? {
                 actionId: "project.importCompose",
-                input: { composeYaml: compose, name: projectName, connectionId },
+                input: { composeYaml: source, name: projectName, connectionId: connId },
               }
-            : { actionId: "project.create", input: { name: projectName, connectionId } };
+            : { actionId: "project.create", input: { name: projectName, connectionId: connId } };
 
       const result = await executeAction(call.actionId, { input: call.input });
       if (!result.ok) {
@@ -629,6 +823,30 @@ function StepSystem({
         setError(new ApiError(result.summary, 500, "The project was created but has no URL. Open it from the overview."));
         return;
       }
+
+      if (mode === "import" && format !== "compose" && parsed?.manifest) {
+        const applied = await executeAction("project.updateManifest", {
+          input: { projectId: data.projectId, manifest: parsed.manifest },
+          scope: { projectId: data.projectId },
+        });
+        if (!applied.ok) {
+          setError(
+            new ApiError(
+              `The project was created, but the ${spec.label} import did not apply: ${applied.summary}`,
+              400,
+              applied.error ?? `Open /p/${data.slug} and import the file again from the map.`
+            )
+          );
+          return;
+        }
+        setReview({
+          report: parsed.report,
+          slug: data.slug,
+          summary: `Imported your ${spec.label} file into “${projectName}”. Nothing is deployed yet — this is what Orrery made of it.`,
+        });
+        return;
+      }
+
       if (data.report) setReview({ report: data.report, slug: data.slug, summary: result.summary });
       else onCreated(data.slug, result.summary);
     } catch (e) {
@@ -640,18 +858,24 @@ function StepSystem({
 
   if (review)
     return (
-      <ImportReview
-        report={review.report}
-        summary={review.summary}
-        onFinish={() => onCreated(review.slug, "Import complete — every element is accounted for.")}
-      />
+      <div className="max-w-[860px] space-y-6 animate-enter">
+        <p className="text-[16px] leading-relaxed text-ink-mute">{review.summary}</p>
+        <ImportReportView report={review.report} />
+        <Button
+          onClick={() => onCreated(review.slug, "Import complete — every element is accounted for.")}
+          icon={<ArrowRight className="h-3.5 w-3.5" />}
+        >
+          Open the system map
+        </Button>
+      </div>
     );
 
   return (
     <div className="max-w-[860px] space-y-8 animate-enter">
       <p className="text-[16px] leading-relaxed text-ink-mute">
-        Start from a shape that already works, bring a compose file you already have, or begin
-        with nothing. All three end in the same editable system.
+        Start from a shape that already works, bring a file you already have, or begin with
+        nothing. All three end in the same editable system
+        {choice ? `, deploying through ${choice.displayName}` : ""}.
       </p>
 
       <div className="grid gap-3 sm:grid-cols-3">
@@ -664,8 +888,8 @@ function StepSystem({
         />
         <ModeCard
           icon={<FileCode2 className="h-4 w-4" />}
-          title="Import compose"
-          body="Bring a docker-compose.yml. Every element is mapped or explained."
+          title="Import a file"
+          body="compose, Terraform or a Dockerfile. Every element is mapped or explained."
           active={mode === "import"}
           onClick={() => setMode("import")}
         />
@@ -736,67 +960,83 @@ function StepSystem({
       {mode === "import" && (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <label htmlFor="compose" className="text-[13px] text-ink">
-              Paste your compose file, or choose it
-            </label>
+            <SegmentedControl<Format>
+              size="sm"
+              label="Import format"
+              value={format}
+              onChange={(f) => {
+                setFormat(f);
+                setSource("");
+                setSourceFile(undefined);
+                setError(undefined);
+              }}
+              options={FORMATS.map((f) => ({ value: f.value, label: f.label, title: f.title }))}
+            />
             <div className="flex items-center gap-2">
               <label className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-ctl border border-line px-2.5 text-[12.5px] text-ink-mute transition-colors duration-[var(--dur-fast)] hover:border-line-strong hover:text-ink">
                 <Upload className="h-3.5 w-3.5" aria-hidden="true" />
                 Choose a file
                 <input
                   type="file"
-                  accept=".yml,.yaml,text/yaml,application/x-yaml,text/plain"
+                  accept={spec.accept}
                   className="sr-only"
                   onChange={async (e) => {
                     const file = e.target.files?.[0];
                     e.target.value = ""; // let the same file be re-picked
-                    if (!file) return;
-                    setError(undefined);
-                    try {
-                      setCompose(await file.text());
-                      setComposeFile(file.name);
-                    } catch (err) {
-                      setComposeFile(undefined);
-                      setError(err);
-                    }
+                    if (file) await readFile(file);
                   }}
                 />
               </label>
-              <Button
-                variant="quiet"
-                size="sm"
-                icon={<Sparkles className="h-3.5 w-3.5" />}
-                disabled={!sampleCompose}
-                disabledReason="The sample app fixture is missing from this build."
-                onClick={() => {
-                  setCompose(sampleCompose);
-                  setComposeFile(undefined);
-                }}
-              >
-                Use sample app
-              </Button>
+              {format === "compose" && (
+                <Button
+                  variant="quiet"
+                  size="sm"
+                  icon={<Sparkles className="h-3.5 w-3.5" />}
+                  disabled={!sampleCompose}
+                  disabledReason="The sample app fixture is missing from this build."
+                  onClick={() => {
+                    setSource(sampleCompose);
+                    setSourceFile(undefined);
+                  }}
+                >
+                  Use sample app
+                </Button>
+              )}
             </div>
           </div>
-          {composeFile && (
+
+          <label htmlFor="import-source" className="block text-[13px] text-ink">
+            Paste your {spec.label} file, or choose it
+          </label>
+          <p className="text-[12.5px] leading-relaxed text-ink-mute">{spec.prompt}</p>
+
+          {sourceFile && (
             <p className="text-[12.5px] text-ink-mute">
-              Loaded <span className="font-mono text-ink">{composeFile}</span> — it is editable
+              Loaded <span className="font-mono text-ink">{sourceFile}</span> — it is editable
               below, and nothing is read from your disk again.
             </p>
           )}
           <textarea
-            id="compose"
-            value={compose}
+            id="import-source"
+            value={source}
             onChange={(e) => {
-              setCompose(e.target.value);
-              setComposeFile(undefined);
+              setSource(e.target.value);
+              setSourceFile(undefined);
             }}
             spellCheck={false}
-            placeholder={"version: \"3.9\"\nservices:\n  web:\n    image: my/app:latest\n    ports:\n      - \"3000:3000\""}
+            placeholder={spec.placeholder}
             className="h-[320px] w-full resize-y rounded-card border border-line bg-bg1 p-3 font-mono text-[13px] leading-[1.6] text-ink outline-none placeholder:text-ink-faint focus-visible:border-signal"
           />
-          <p className="text-[12.5px] text-ink-mute">
+          {oversize && (
+            <p className="text-[12.5px] text-err">
+              That is {kb(source.length)} KB of text. {OVERSIZE_FIX}
+            </p>
+          )}
+          {parsed?.error && <p className="text-[12.5px] text-err">{parsed.error}</p>}
+          <p className="text-[12.5px] leading-relaxed text-ink-mute">
             Nothing is silently dropped: anything Orrery cannot translate is listed with a reason
-            before you finish.
+            before you finish. The import itself deploys nothing, so it costs nothing — the map
+            prices every service and resource before your first deploy.
           </p>
         </div>
       )}
@@ -806,6 +1046,10 @@ function StepSystem({
           <p className="text-[13px] text-ink-mute">
             Creates the project and one sandbox environment. Nothing is deployed and nothing
             costs anything until you deploy.
+          </p>
+          <p className="tnum mt-2 text-[13px] text-ink">
+            {fmtUsd(0)}
+            <span className="text-ink-faint">/mo est. — an empty system prices at nothing, and the map prices each thing as you add it.</span>
           </p>
         </Card>
       )}
@@ -821,7 +1065,11 @@ function StepSystem({
           disabled={!canCreate}
           disabledReason={
             mode === "import"
-              ? "Paste a compose file, choose one from disk, or load the sample app."
+              ? !source.trim()
+                ? `Paste a ${spec.label} file, or choose one from disk.`
+                : oversize
+                  ? OVERSIZE_FIX
+                  : (parsed?.error ?? "That file could not be read — see the message above.")
               : mode === "blank"
                 ? "Give the project a name first."
                 : "Pick a blueprint."
@@ -863,91 +1111,5 @@ function ModeCard({
       <h4 className="mt-2 text-[14px] font-medium text-ink">{title}</h4>
       <p className="mt-1 text-[12.5px] leading-relaxed text-ink-mute">{body}</p>
     </button>
-  );
-}
-
-/* ----------------------------- import review ------------------------------ */
-
-function ImportReview({
-  report,
-  summary,
-  onFinish,
-}: {
-  report: ImportReport;
-  summary: string;
-  onFinish: () => void;
-}) {
-  return (
-    <div className="max-w-[860px] space-y-6 animate-enter">
-      <p className="text-[16px] leading-relaxed text-ink-mute">{summary}</p>
-
-      <Card
-        title={`${report.mapped.length} element${report.mapped.length === 1 ? "" : "s"} mapped`}
-        subtitle="Exact means a faithful translation. Assumed means Orrery had to guess — check those."
-        padded={false}
-      >
-        <ul>
-          {report.mapped.map((m) => (
-            <li
-              key={m.source}
-              className="flex items-start gap-3 border-b border-line px-5 py-3 last:border-b-0"
-            >
-              <Chip tone={m.confidence === "exact" ? "ok" : "warn"} className="mt-0.5">
-                {m.confidence}
-              </Chip>
-              <div className="min-w-0">
-                <p className="font-mono text-[12.5px] text-ink">
-                  {m.source} <span className="text-ink-faint">→</span> {m.result}
-                </p>
-                <p className="mt-0.5 text-[12.5px] text-ink-mute">{m.note}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </Card>
-
-      {report.unmapped.length > 0 && (
-        <Card
-          title={`${report.unmapped.length} not imported`}
-          subtitle="Each one says why, and what to do instead."
-          padded={false}
-        >
-          <ul>
-            {report.unmapped.map((u) => (
-              <li
-                key={u.source}
-                className="flex items-start gap-3 border-b border-line px-5 py-3 last:border-b-0"
-              >
-                <CircleDashed className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-faint" />
-                <div className="min-w-0">
-                  <p className="font-mono text-[12.5px] text-ink">{u.source}</p>
-                  <p className="mt-0.5 text-[12.5px] text-ink-mute">{u.reason}</p>
-                  <p className="mt-0.5 text-[12.5px] text-signal">{u.suggestion}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
-
-      {report.warnings.length > 0 && (
-        <ul className="space-y-1.5 rounded-card border border-warn/30 bg-warn-dim px-4 py-3 text-[13px] text-ink">
-          {report.warnings.map((w) => (
-            <li key={w}>{w}</li>
-          ))}
-        </ul>
-      )}
-
-      {report.mapped.length === 0 && report.unmapped.length === 0 && (
-        <EmptyState
-          title="Nothing to report"
-          body="The importer produced no mapping detail for this file."
-        />
-      )}
-
-      <Button onClick={onFinish} icon={<ArrowRight className="h-3.5 w-3.5" />}>
-        Open the system map
-      </Button>
-    </div>
   );
 }

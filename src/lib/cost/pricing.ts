@@ -30,7 +30,8 @@ export function nodeMonthlyCostUsd(m: Manifest, nodeId: string): number {
   if (s) {
     if (s.kind === "cron") return SERVICE_MONTHLY[s.size] * 0.15; // runs briefly
     if (s.kind === "static") return 1.5;
-    return SERVICE_MONTHLY[s.size] * Math.max(1, s.replicas);
+    // Zero replicas runs nothing and bills nothing; the estimate must say so.
+    return SERVICE_MONTHLY[s.size] * Math.max(0, s.replicas);
   }
   const r = m.resources.find((x) => x.id === nodeId);
   if (r) {

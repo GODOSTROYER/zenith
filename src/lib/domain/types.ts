@@ -16,6 +16,33 @@ import { z } from "zod";
 export const id = () =>
   `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 
+/* -------------------------------- hashing -------------------------------- */
+
+/** FNV-1a. Not cryptographic — a content fingerprint for caches and ETags. */
+export function hash32(s: string): string {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+
+/** Key order must not change the hash: two clients serialize differently. */
+function stable(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(stable);
+  if (v && typeof v === "object")
+    return Object.fromEntries(
+      Object.keys(v as object)
+        .sort()
+        .map((k) => [k, stable((v as Record<string, unknown>)[k])])
+    );
+  return v;
+}
+
+/** Content fingerprint of a manifest — the optimistic-concurrency token. */
+export const contentHash = (v: unknown): string => hash32(JSON.stringify(stable(v)));
+
 /* ------------------------------- vocabulary ------------------------------ */
 
 export const ServiceKind = z.enum(["web", "worker", "cron", "static"]);
@@ -191,6 +218,23 @@ export interface Member {
   role: "admin" | "editor" | "viewer";
 }
 
+/**
+ * An admin's standing offer for one email address to join the workspace.
+ * Signing up is not joining: without an invite (or being the first real user)
+ * a signed-in stranger is refused, not silently made an editor.
+ */
+export interface Invite {
+  id: string;
+  workspaceId: string;
+  email: string;
+  role: Member["role"];
+  /** member id of the admin who created it */
+  createdBy: string;
+  createdAt: string;
+  /** set the moment the invited email first signs in */
+  acceptedAt?: string;
+}
+
 export interface CloudConnection {
   id: string;
   workspaceId: string;
@@ -243,6 +287,11 @@ export interface Revision {
   message: string;
   author: Actor;
   createdAt: string;
+  /**
+   * Environment ids this revision was actually deployed to, appended when a
+   * deployment succeeds. Recorded, never reconstructed by matching names.
+   */
+  deployedTo?: string[];
 }
 
 /* ------------------------------- deployments ------------------------------ */
@@ -284,6 +333,12 @@ export interface Output {
   value: string;
   kind: "url" | "hostname" | "connection" | "text";
   targetId?: string;
+  /**
+   * True when nothing outside Orrery exists behind this value — the sandbox
+   * invented it. The UI must label a simulated output as such; an absent flag
+   * means the provider did not say, which is not the same as "real".
+   */
+  simulated?: boolean;
 }
 
 export interface Deployment {
@@ -378,8 +433,21 @@ export interface SecurityFinding {
   targetId?: string;
   /** action id + input that resolves this finding, if automatable */
   fix?: { actionId: string; input: unknown; label: string };
-  status: "open" | "resolved" | "dismissed";
+  /**
+   * `fixed_pending_deploy` is the honest middle state: the fix edited the
+   * working copy, so the environment is still exposed until a deploy lands it.
+   * It becomes `resolved` when a deployed revision no longer triggers the rule.
+   */
+  status: "open" | "fixed_pending_deploy" | "resolved" | "dismissed";
   createdAt: string;
+  /** when the finding left `open` (fixed, dismissed or marked resolved) */
+  resolvedAt?: string;
+  /** who moved it — the audit trail's counterpart on the finding itself */
+  resolvedBy?: Actor;
+  /** dismissal reason, or the fix that was run */
+  resolvedReason?: string;
+  /** the deployed revision that made the fix true; set on the pending → resolved step */
+  fixedInRevisionId?: string;
 }
 
 /* ------------------------------- navigator -------------------------------- */

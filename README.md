@@ -116,9 +116,9 @@ users.
 
 | Email | Password | Role |
 | --- | --- | --- |
-| `tarun@orrery.test` | `orrery-owner-2026!` | admin |
+| `arnav@orrery.test` | `orrery-owner-2026!` | admin |
 | `claude@orrery.test` | `orrery-claude-2026!` | editor |
-| `vedant@orrery.test` | `orrery-vedant-2026!` | editor |
+| `sai@orrery.test` | `orrery-sai-2026!` | editor |
 
 ---
 

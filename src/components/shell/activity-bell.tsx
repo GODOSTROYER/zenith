@@ -1,17 +1,41 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell } from "lucide-react";
 import { Button, StatusDot, TimeAgo, type DotStatus, type ToastRecord } from "@/components/ui";
+import { useModal } from "@/components/ui/use-modal";
 import { cx } from "@/lib/format";
 
 const KEEP = 20;
 
+/** Per-tab, so a reload keeps the buffer and a new tab starts clean. */
+const STORE_KEY = "orrery-activity";
+
 const DOT: Record<string, DotStatus> = { ok: "ok", warn: "warn", err: "err", info: "info" };
+
+function read(): ToastRecord[] {
+  try {
+    const raw = sessionStorage.getItem(STORE_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? (parsed as ToastRecord[]).slice(0, KEEP) : [];
+  } catch {
+    /* private mode or corrupt entry — an empty buffer is the honest fallback */
+    return [];
+  }
+}
+
+function write(items: ToastRecord[]): void {
+  try {
+    sessionStorage.setItem(STORE_KEY, JSON.stringify(items));
+  } catch {
+    /* the in-memory buffer still works for this page */
+  }
+}
 
 /**
  * Every toast also lands here, so a notification that auto-dismissed is never
- * simply gone. The durable record lives on the project's Activity tab; this is
- * the last few minutes, in reach from anywhere.
+ * simply gone — including across a refresh, which is exactly when someone
+ * looks for the one they missed. The durable record lives on the project's
+ * Activity tab; this is the last few minutes, in reach from anywhere.
  */
 export function ActivityBell() {
   const [items, setItems] = useState<ToastRecord[]>([]);
@@ -19,9 +43,19 @@ export function ActivityBell() {
   const [unseen, setUnseen] = useState(0);
   const box = useRef<HTMLDivElement>(null);
 
+  const close = useCallback(() => setOpen(false), []);
+  // Focus trap, ESC and focus restore, from the same primitive Dialog uses.
+  const { ref: panel, present } = useModal(open, close);
+
+  useEffect(() => setItems(read()), []);
+
   useEffect(() => {
     window.__orreryActivity = (toast) => {
-      setItems((list) => [toast, ...list].slice(0, KEEP));
+      setItems((list) => {
+        const next = [toast, ...list].slice(0, KEEP);
+        write(next);
+        return next;
+      });
       setUnseen((n) => Math.min(n + 1, 99));
     };
     return () => {
@@ -34,13 +68,8 @@ export function ActivityBell() {
     const onDown = (e: MouseEvent) => {
       if (!box.current?.contains(e.target as globalThis.Node)) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
+    return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
   return (
@@ -68,11 +97,13 @@ export function ActivityBell() {
         )}
       </Button>
 
-      {open && (
+      {present && (
         <div
+          ref={panel}
           role="dialog"
           aria-label="Recent notifications"
-          className="animate-enter absolute top-full right-0 z-50 mt-2 w-[340px] overflow-hidden rounded-card border border-line bg-bg3 shadow-overlay"
+          tabIndex={-1}
+          className="animate-enter absolute top-full right-0 z-50 mt-2 w-[340px] overflow-hidden rounded-card border border-line bg-bg3 shadow-overlay outline-none"
         >
           <header className="flex items-baseline justify-between border-b border-line px-3.5 py-2.5">
             <h2 className="text-[13px] font-medium text-ink">Recent</h2>

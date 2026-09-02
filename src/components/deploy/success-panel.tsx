@@ -1,10 +1,11 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, Gauge, Globe, ScrollText } from "lucide-react";
 import { Button, Chip, CopyButton, StatusDot, type DotStatus } from "@/components/ui";
 import { OrbitMark } from "@/components/shell/wordmark";
 import { useProjectData } from "@/components/shell/project-context";
+import { useShell } from "@/components/shell/shell-context";
 import { useJson } from "@/lib/client/api";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { cx, fmtUsd } from "@/lib/format";
@@ -25,7 +26,12 @@ function splitLabel(label: string): { name: string; pretty: string } {
   return { name: label.slice(0, at), pretty: label.slice(at + 3) };
 }
 
-function firstLiveEver(projectId: string): boolean {
+/**
+ * Claims the one-time celebration. Side effect — never call this while
+ * rendering: StrictMode double-invokes render, which would burn the flag
+ * before anything reached the screen. Effects only.
+ */
+function claimFirstLiveEver(projectId: string): boolean {
   const key = `orrery-first-live-${projectId}`;
   try {
     if (localStorage.getItem(key)) return false;
@@ -36,7 +42,7 @@ function firstLiveEver(projectId: string): boolean {
   }
 }
 
-function OutputRow({ output }: { output: Output }) {
+function OutputRow({ output, simulated }: { output: Output; simulated: boolean }) {
   const { name, pretty } = splitLabel(output.label);
   const isUrl = output.kind === "url";
   return (
@@ -50,19 +56,29 @@ function OutputRow({ output }: { output: Output }) {
       </div>
       <CopyButton value={pretty} what="the address" label="Copy" />
       {isUrl && (
-        <a
-          href={output.value}
-          target="_blank"
-          rel="noreferrer"
-          className={cx(
-            "inline-flex h-7 items-center gap-1.5 rounded-ctl border border-transparent bg-signal px-2.5",
-            "text-[12.5px] font-medium text-on-signal hover:bg-signal-strong",
-            "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]"
+        <span className="flex shrink-0 items-center gap-1.5">
+          {/* the address above is a pretty fake; Open goes to a local preview */}
+          {simulated && (
+            <Chip
+              title={`${pretty} does not exist on the internet. Open shows a local preview of this service, served by the sandbox provider.`}
+            >
+              simulated
+            </Chip>
           )}
-        >
-          Open
-          <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
-        </a>
+          <a
+            href={output.value}
+            target="_blank"
+            rel="noreferrer"
+            className={cx(
+              "inline-flex h-7 items-center gap-1.5 rounded-ctl border border-transparent bg-signal px-2.5",
+              "text-[12.5px] font-medium text-on-signal hover:bg-signal-strong",
+              "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]"
+            )}
+          >
+            {simulated ? "Open preview" : "Open"}
+            <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </a>
+        </span>
       )}
     </li>
   );
@@ -76,11 +92,22 @@ export function SuccessPanel({
   onAddRoute: () => void;
 }) {
   const { project, selectedEnv, selectedEnvId } = useProjectData();
-  const [celebrate] = useState(() => firstLiveEver(project.id));
+  const { boot } = useShell();
+  // Only ever flips on: StrictMode's second pass finds the flag already burned
+  // and leaves the celebration that is currently on screen alone.
+  const [celebrate, setCelebrate] = useState(false);
+  useEffect(() => {
+    if (claimFirstLiveEver(project.id)) setCelebrate(true);
+  }, [project.id]);
   const { data: health } = useJson<HealthPayload>(
     selectedEnv?.deployedRevisionId ? `/api/health/${selectedEnvId}` : null,
     10_000
   );
+
+  // Only the sandbox provider hands out addresses that do not exist; a real
+  // provider's URL must never be labeled simulated.
+  const simulated =
+    boot?.connections.find((c) => c.id === selectedEnv?.connectionId)?.provider === "sandbox";
 
   const urls = deployment.outputs.filter((o) => o.kind === "url");
   const others = deployment.outputs.filter((o) => o.kind !== "url");
@@ -97,10 +124,7 @@ export function SuccessPanel({
           </h2>
           <p className="mt-1.5 text-[13px] text-ink-mute">
             {deployment.changeSummary} on {selectedEnv?.name ?? "this environment"}
-            {selectedEnv?.class === "sandbox" || selectedEnv?.class === "staging"
-              ? " · simulated environment"
-              : ""}
-            .
+            {simulated ? " · simulated environment" : ""}.
           </p>
         </div>
       </div>
@@ -108,7 +132,7 @@ export function SuccessPanel({
       {urls.length > 0 ? (
         <ul className="overflow-hidden rounded-card border border-line bg-bg1">
           {urls.map((o) => (
-            <OutputRow key={o.key} output={o} />
+            <OutputRow key={o.key} output={o} simulated={simulated} />
           ))}
         </ul>
       ) : (

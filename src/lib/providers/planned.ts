@@ -61,10 +61,16 @@ const SPECS: PlannedSpec[] = [
   },
 ];
 
+/**
+ * Last-resort guard. The refusal a user actually sees comes from `deploy.plan`
+ * / `deploy.apply`, which read `availability` and refuse before a revision is
+ * snapshotted (src/lib/actions/defs/deploy.ts → providerBlock). Reaching one of
+ * these throws means something called the adapter directly.
+ */
 function unavailable(spec: PlannedSpec, what: string): Error {
   return new Error(
-    `${spec.displayName} is a planned provider, so Orrery cannot ${what} for it yet. ` +
-      `Deploy to a Sandbox environment to see the full flow, or use the AWS provider to export runnable Terraform.`
+    `${spec.displayName} is a Planned provider: Orrery cannot plan, apply or export for it yet, so it cannot ${what}. ` +
+      `Point the environment at a Sandbox connection to deploy now, or at AWS to export runnable Terraform.`
   );
 }
 

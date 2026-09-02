@@ -60,9 +60,11 @@ Base: `/api`. JSON in/out. Errors: `{ error: { message, fix? } }` + proper statu
 IDs are dot-namespaced, stable, and referenced by UI + Navigator:
 
 `project.create`, `project.importCompose`, `project.applyBlueprint`,
+`project.updateManifest`,
 `system.addService`, `system.updateService`, `system.removeService`,
 `system.addResource`, `system.updateResource`, `system.removeResource`,
-`system.addRoute`, `system.removeRoute`, `system.bind`, `system.unbind`,
+`system.addRoute`, `system.updateRoute`, `system.removeRoute`,
+`system.bind`, `system.unbind`,
 `system.setEnvVar`, `system.setSecret`,
 `env.create`, `env.updatePolicies`, `env.setBudget`,
 `deploy.plan` (read-only → returns Changeset), `deploy.apply`, `deploy.approve`,
@@ -70,11 +72,18 @@ IDs are dot-namespaced, stable, and referenced by UI + Navigator:
 `ops.restartService`, `ops.scaleService`,
 `security.resolveFinding`, `security.dismissFinding`,
 `connection.create`, `connection.check`, `connection.disconnect`,
-`workspace.setAutonomy`.
+`workspace.setAutonomy`, `workspace.rename`.
 
 Rules: `deploy.apply` consults `env.policies.approvalRequired` → engine
 `awaiting_approval`; destructive manifest ops set risk accordingly; every
 `plan()` returns real cost deltas via `diffManifests`/pricing.
+
+`requiredRole` is enforced on execute: `runAction` resolves the caller's
+workspace member role and refuses anything above it, writing a `denied` row to
+the audit trail with copy that names who can grant the role. Planning stays
+open to every member, so anyone can see what an action would do before asking
+for it. A provider that cannot really apply (AWS Preview, the Planned stubs)
+refuses at plan time, before a revision is written.
 
 ## Engine contract (workstream A implements `src/lib/engine/engine.ts`)
 

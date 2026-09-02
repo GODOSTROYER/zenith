@@ -20,28 +20,15 @@ import {
   Skeleton,
   useToasts,
   type ChipTone,
-  type ToastApi,
 } from "@/components/ui";
 
-const NOOP_TOASTS: ToastApi = {
-  toasts: [],
-  push: () => "",
-  dismiss: () => {},
-};
-
 /**
- * `useToasts()` throws without a provider. Screens render inside another
- * workstream's layout, so a missing provider must degrade to silence, never to
- * a white screen.
+ * Kept as a name because screens import it. `useToasts()` itself now degrades
+ * to a no-op outside a provider (see components/ui/toast.tsx), so this is a
+ * plain hook call — no try/catch, no conditional hook, no "rendered fewer
+ * hooks than expected" when a provider unmounts mid-tree.
  */
-export function useSafeToasts(): ToastApi {
-  try {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    return useToasts();
-  } catch {
-    return NOOP_TOASTS;
-  }
-}
+export const useSafeToasts = useToasts;
 
 export interface Scope {
   projectId?: string;

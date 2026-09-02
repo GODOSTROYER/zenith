@@ -55,6 +55,8 @@ export interface DeploymentViewProps {
   /** a rollback started a new deployment; follow it */
   onSwitch: (deploymentId: string) => void;
   onAddRoute: () => void;
+  /** it landed — the dock gives the activation moment the whole panel */
+  onSucceeded?: (deploymentId: string) => void;
 }
 
 /**
@@ -67,6 +69,7 @@ export function DeploymentView({
   onLiveTargets,
   onSwitch,
   onAddRoute,
+  onSucceeded,
 }: DeploymentViewProps) {
   const { project, selectedEnv } = useProjectData();
   const { data, refresh } = useJson<{ deployment: Deployment }>(
@@ -129,6 +132,11 @@ export function DeploymentView({
     onLiveTargets(liveTargets);
     return () => onLiveTargets([]);
   }, [liveTargets, onLiveTargets]);
+
+  const succeeded = deployment?.status === "succeeded";
+  useEffect(() => {
+    if (succeeded) onSucceeded?.(deploymentId);
+  }, [succeeded, deploymentId, onSucceeded]);
 
   if (!deployment)
     return (

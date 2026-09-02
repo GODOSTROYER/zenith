@@ -18,11 +18,16 @@ export type InspectorTarget =
   | { kind: "add-resource" }
   | { kind: "add-route" };
 
-/** Below this the map is too narrow to give up 400px, so the panel goes modal. */
+/**
+ * Below this the map is too narrow to give up the panel, so it goes modal.
+ * 1400px, not 1100: at 1100 the 400px panel clipped its own content, which is
+ * worse than a drawer — the panel exists so a change and its consequence are
+ * readable at once.
+ */
 export function useWideLayout(): boolean {
   const [wide, setWide] = useState(true);
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1100px)");
+    const mq = window.matchMedia("(min-width: 1400px)");
     const sync = () => setWide(mq.matches);
     sync();
     mq.addEventListener("change", sync);

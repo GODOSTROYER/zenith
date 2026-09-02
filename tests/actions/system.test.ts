@@ -10,7 +10,7 @@ const DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-test-"));
 process.env.ORRERY_DATA = DATA;
 
 const { runAction } = await import("@/lib/actions/core");
-const { readAudit, resetDb, q } = await import("@/lib/db/store");
+const { flush, readAudit, resetDb, q } = await import("@/lib/db/store");
 await import("@/lib/actions/defs");
 
 const ctx: ActionContext = {
@@ -115,10 +115,93 @@ describe("system.* actions round-trip the working manifest", () => {
   });
 
   it("survives a reload from disk", async () => {
+    // Saves are coalesced over a 50ms window, and this suite runs faster than
+    // that — flush so the assertion is about persistence, not about timing.
+    flush();
     const onDisk = JSON.parse(fs.readFileSync(path.join(DATA, "state.json"), "utf8")) as {
       projects: { id: string; workingManifest: { services: { name: string }[] } }[];
     };
     const persisted = onDisk.projects.find((p) => p.id === projectId)!;
     expect(persisted.workingManifest.services.map((s) => s.name)).toEqual(["api"]);
+  });
+});
+
+describe("system.updateRoute", () => {
+  const routeOf = (host: string) => manifest().routes.find((r) => r.host === host)!;
+
+  it("plans the TLS change in words, then applies it", async () => {
+    await exec("system.addRoute", { host: "shop.example.com", serviceId: "api", tls: false }, pctx());
+
+    const { plan } = await runAction(
+      "system.updateRoute",
+      pctx(),
+      { routeId: "shop.example.com", tls: true },
+      { mode: "plan" }
+    );
+    expect(plan!.summary).toMatch(/shop\.example\.com/);
+    expect(plan!.details.join(" ")).toMatch(/certificate/i);
+    expect(routeOf("shop.example.com").tls).toBe(false); // plan never mutates
+
+    await exec("system.updateRoute", { routeId: "shop.example.com", tls: true }, pctx());
+    expect(routeOf("shop.example.com").tls).toBe(true);
+  });
+
+  it("warns before it lets anyone turn TLS off", async () => {
+    const { plan } = await runAction(
+      "system.updateRoute",
+      pctx(),
+      { routeId: "shop.example.com", tls: false },
+      { mode: "plan" }
+    );
+    expect(plan!.warnings.join(" ")).toMatch(/plaintext/i);
+  });
+
+  it("normalises a path prefix and refuses one that is already published", async () => {
+    await exec("system.updateRoute", { routeId: "shop.example.com", pathPrefix: "api" }, pctx());
+    expect(routeOf("shop.example.com").pathPrefix).toBe("/api");
+
+    await exec("system.addRoute", { host: "shop.example.com", pathPrefix: "/admin" }, pctx());
+    const { result } = await runAction(
+      "system.updateRoute",
+      pctx(),
+      { routeId: routeOf("shop.example.com").id, pathPrefix: "/admin" },
+      { mode: "execute" }
+    );
+    expect(result!.ok).toBe(false);
+    expect(result!.error).toMatch(/already published/);
+  });
+
+  it("is what the route_no_tls security finding offers as its fix", async () => {
+    await exec("system.addRoute", { host: "plain.example.com", serviceId: "api", tls: false }, pctx());
+    const { analyze } = await import("@/lib/security/rules");
+    const finding = analyze(q.project(projectId)!, []).find((f) => f.id.includes("route_no_tls"))!;
+    expect(finding.fix?.actionId).toBe("system.updateRoute");
+
+    await exec("system.updateRoute", { ...(finding.fix!.input as object) }, pctx());
+    expect(routeOf("plain.example.com").tls).toBe(true);
+  });
+
+  it("rejects invalid input, and every error names the fix", async () => {
+    const missing = await runAction("system.updateRoute", pctx(), { tls: true }, { mode: "execute" });
+    expect(missing.result!.ok).toBe(false);
+    expect(missing.result!.error).toMatch(/routeId/);
+
+    const nothing = await runAction(
+      "system.updateRoute",
+      pctx(),
+      { routeId: "shop.example.com" },
+      { mode: "execute" }
+    );
+    expect(nothing.result!.ok).toBe(false);
+    expect(nothing.result!.error).toMatch(/system\.addRoute/);
+
+    const ghost = await runAction(
+      "system.updateRoute",
+      pctx(),
+      { routeId: "nope.example.com", tls: true },
+      { mode: "execute" }
+    );
+    expect(ghost.result!.ok).toBe(false);
+    expect(ghost.result!.error).toMatch(/Known routes/);
   });
 });

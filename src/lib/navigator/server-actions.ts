@@ -8,15 +8,32 @@
  * instead of exploding.
  */
 import { runAction } from "@/lib/actions/core";
+import { getSessionUser } from "@/lib/auth/session";
 import { db } from "@/lib/db/store";
-import type { AutonomyLevel, NavigatorRun } from "@/lib/domain/types";
+import type { Actor, AutonomyLevel, NavigatorRun } from "@/lib/domain/types";
 import { ensureBoot } from "@/lib/server/boot";
+import { demoActor, ensureMember } from "@/lib/server/context";
+import { plannerMode, plannerModel, type Parsing, type PlannerMode } from "./llm";
 import { createRun, executeRun } from "./run";
 
 export interface NavigatorReply {
   run?: NavigatorRun;
+  /** how this goal was actually read — the UI labels the run from this */
+  parsing?: Parsing;
   error?: string;
   fix?: string;
+}
+
+/**
+ * The signed-in user, or the local demo user when auth is not configured.
+ * Never a hardcoded id: role enforcement treats "local" as admin, so asserting
+ * it would let a signed-in viewer move the autonomy dial.
+ */
+async function currentActor(): Promise<Actor> {
+  const user = await getSessionUser();
+  if (!user) return demoActor();
+  ensureMember(user);
+  return { type: "user", id: user.id, name: user.name };
 }
 
 const fail = (err: unknown, fix: string): NavigatorReply => ({
@@ -28,7 +45,7 @@ const fail = (err: unknown, fix: string): NavigatorReply => ({
 export async function createRunAction(projectId: string, goal: string): Promise<NavigatorReply> {
   await ensureBoot();
   try {
-    return { run: await createRun(projectId, goal) };
+    return await createRun(projectId, goal);
   } catch (err) {
     return fail(err, "Check the goal and try again — planning changes nothing, so it is safe to retry.");
   }
@@ -62,7 +79,7 @@ export async function setAutonomyAction(level: AutonomyLevel): Promise<AutonomyR
       "workspace.setAutonomy",
       {
         workspaceId: db().workspaces[0]?.id ?? "",
-        actor: { type: "user", id: "local", name: "You" },
+        actor: await currentActor(),
       },
       { level },
       { mode: "execute" }
@@ -79,4 +96,15 @@ export async function setAutonomyAction(level: AutonomyLevel): Promise<AutonomyR
       fix: "Reload the page and try again.",
     };
   }
+}
+
+export interface PlannerInfo {
+  mode: PlannerMode;
+  /** the model that would run — env keys never reach the browser, this does */
+  model: string;
+}
+
+/** What the Navigator header may honestly claim about language parsing. */
+export async function plannerInfoAction(): Promise<PlannerInfo> {
+  return { mode: plannerMode(), model: plannerModel() };
 }

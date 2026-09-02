@@ -166,6 +166,11 @@ function planSteps(env: Environment, next: Manifest, previous?: Manifest): Provi
   return steps;
 }
 
+/**
+ * Last-resort guard. `deploy.plan` / `deploy.apply` read `availability` and
+ * refuse before a revision is snapshotted (actions/defs/deploy.ts →
+ * providerBlock), so in normal operation nothing reaches this.
+ */
 async function executeStep(_rt: StepRuntime): Promise<void> {
   throw new Error(AWS_PREVIEW_MESSAGE);
 }

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui";
 import { useSelectedEnv, type RevisionMeta } from "@/components/screens/project-data";
 import { ActionConfirm, ActorDot, ChangeRow, ErrorNote } from "@/components/screens/shared";
+import { revisionPairLabel } from "./pair-label";
 
 const OP_ORDER: ChangeItem["op"][] = ["create", "update", "delete"];
 const OP_TITLE: Record<ChangeItem["op"], string> = {
@@ -97,6 +98,7 @@ export default function RevisionsPage() {
               {revisions.map((r) => {
                 const envs = deployedIn.get(r.id) ?? [];
                 const checked = picked.includes(r.id);
+                const liveHere = Boolean(env && envs.includes(env.name));
                 return (
                   <li
                     key={r.id}
@@ -128,17 +130,29 @@ export default function RevisionsPage() {
                           live in {name}
                         </Chip>
                       ))}
+                      {/*
+                        Icon-only and quiet on purpose: twenty rows of a
+                        full-width destructive button reads as a wall, and a
+                        wall is what you stop reading. The confirm dialog
+                        (typed name in production) is unchanged.
+                      */}
                       <Button
                         size="sm"
                         variant="ghost"
                         icon={<Undo2 className="h-3.5 w-3.5" />}
-                        disabled={!env}
-                        disabledReason="Pick an environment in the header first."
+                        aria-label={
+                          env ? `Roll ${env.name} back to r${r.number}` : `Roll back to r${r.number}`
+                        }
+                        disabled={!env || liveHere}
+                        disabledReason={
+                          !env
+                            ? "Pick an environment in the header first."
+                            : `r${r.number} is already what ${env.name} runs — there is nothing to roll back to.`
+                        }
                         onClick={() => setRollbackTo(r)}
                         title={env ? `Roll ${env.name} back to r${r.number}` : undefined}
-                      >
-                        Roll back {env?.name ?? ""}
-                      </Button>
+                        className="text-ink-faint hover:text-err"
+                      />
                     </div>
                   </li>
                 );
@@ -177,8 +191,9 @@ export default function RevisionsPage() {
 
       {slug && revisions.length > 0 && (
         <p className="mt-4 text-[12.5px] text-ink-faint">
-          Revisions are append-only. Rolling back deploys an earlier definition; it never deletes
-          history and never restores data written since.
+          Revisions are append-only. The ↩ on a row rolls {env?.name ?? "the selected environment"}{" "}
+          back to it, after a confirmation that shows the plan first. Rolling back deploys an
+          earlier definition; it never deletes history and never restores data written since.
         </p>
       )}
     </div>
@@ -218,11 +233,10 @@ function CompareView({
     };
   }, [ids]);
 
-  const meta = ids.map((id) => revisions.find((r) => r.id === id));
-  const heading = meta
-    .map((m) => `r${m?.number ?? "?"}`)
-    .sort()
-    .join(" → ");
+  // Numeric, not lexicographic: r9 is older than r10, whatever `.sort()` thinks.
+  const heading = revisionPairLabel(
+    ids.map((id) => revisions.find((r) => r.id === id)?.number)
+  );
 
   const changeset = pair ? diffManifests(pair.older.manifest, pair.newer.manifest) : undefined;
   const grouped = OP_ORDER.map((op) => ({

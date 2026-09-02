@@ -18,6 +18,7 @@ import {
   Lock,
   PlusSquare,
   Sparkles,
+  Upload,
 } from "lucide-react";
 import { api, ApiError, executeAction, useJson } from "@/lib/client/api";
 import type { CloudConnection, Workspace } from "@/lib/domain/types";
@@ -73,18 +74,31 @@ const AVAILABILITY_LABEL: Record<ProviderInfo["availability"], string> = {
   planned: "Planned",
 };
 
-/** What each non-sandbox provider can honestly do today. */
+/** What a provider can honestly do today, straight off its adapter's availability. */
 const AVAILABILITY_NOTE: Record<ProviderInfo["availability"], string> = {
   available: "Deploys run end to end.",
   preview: "Plan and Terraform export only — Orrery does not apply changes to it yet.",
   planned: "Not implemented. Nothing would happen if you picked it.",
 };
 
+/** Why a provider cannot be picked. Only ever called for non-available ones. */
+function notSelectableReason(p: ProviderInfo): string {
+  return p.availability === "preview"
+    ? `${p.displayName} is Preview: Orrery plans and exports Terraform for it, but cannot apply changes yet. Pick a provider marked Available, then export.`
+    : `${p.displayName} is Planned, not implemented. Picking it would do nothing.`;
+}
+
 const STEPS = [
   { n: 1, title: "Name your workspace", hint: "Where your projects live" },
   { n: 2, title: "Where will you run?", hint: "Provider and exact access" },
   { n: 3, title: "Start your system", hint: "Blueprint, import, or blank" },
 ] as const;
+
+/** Why a rail step is not reachable yet — no disabled control is ever silent. */
+const RAIL_LOCKED: Record<number, string> = {
+  2: "Name your workspace first — the provider step needs somewhere to put the connection.",
+  3: "Pick where you will run first. Step 3 creates the project against that choice.",
+};
 
 type Mode = "blueprint" | "import" | "blank";
 
@@ -103,15 +117,38 @@ export function OnboardingFlow({
 
   const [step, setStep] = useState(1);
   const [settled, setSettled] = useState(false);
+  const [redirect, setRedirect] = useState<string>();
+  /** the connection step 2 settled on; step 3 creates the environment against it */
+  const [connectionId, setConnectionId] = useState<string>();
 
-  // A workspace that already exists means step 1 is behind us. `?step=3` (the
-  // overview's "New project" card) skips straight to the system picker.
+  // `?step=` is honoured when it is reachable. A workspace that already exists
+  // means step 1 is behind us, so the default without a parameter is step 3
+  // (the overview's "New project" card). A step that is not reachable yet is
+  // never silently swapped for another — the redirect says so.
   useEffect(() => {
     if (settled || boot.loading) return;
-    const wanted = Number(params.get("step"));
-    if (hasWorkspace) setStep(wanted === 2 ? 2 : 3);
-    else setStep(1);
     setSettled(true);
+    const raw = params.get("step");
+    const wanted = Number(raw);
+    const asked = raw !== null && Number.isInteger(wanted) && wanted >= 1 && wanted <= 3;
+
+    if (!hasWorkspace) {
+      setStep(1);
+      if (asked && wanted > 1)
+        setRedirect(
+          `You asked for step ${wanted}, but this workspace does not exist yet. Starting at step 1 — the rest needs a workspace to hang off.`
+        );
+      else if (raw !== null && !asked)
+        setRedirect(`There is no step "${raw}". Starting at step 1.`);
+      return;
+    }
+
+    if (asked) {
+      setStep(wanted);
+      return;
+    }
+    setStep(3);
+    if (raw !== null) setRedirect(`There is no step "${raw}". Showing the system picker.`);
   }, [settled, boot.loading, hasWorkspace, params]);
 
   return (
@@ -128,6 +165,12 @@ export function OnboardingFlow({
           </div>
           <ThemeToggle />
         </div>
+
+        {redirect && (
+          <p className="mb-6 rounded-card border border-info/30 bg-info-dim px-4 py-2.5 text-[13px] text-ink">
+            {redirect}
+          </p>
+        )}
 
         {step === 1 && (
           <StepWorkspace
@@ -146,7 +189,11 @@ export function OnboardingFlow({
             connections={boot.data?.connections ?? []}
             loading={boot.loading}
             onBack={() => setStep(1)}
-            onNext={() => setStep(3)}
+            onNext={(conn) => {
+              setConnectionId(conn);
+              boot.refresh();
+              setStep(3);
+            }}
           />
         )}
 
@@ -154,6 +201,7 @@ export function OnboardingFlow({
           <StepSystem
             blueprints={blueprints}
             sampleCompose={sampleCompose}
+            connectionId={connectionId}
             onBack={() => setStep(2)}
             onCreated={(slug, message) => {
               toasts.push({ kind: "ok", title: message });
@@ -174,12 +222,15 @@ function Rail({ step, onGo }: { step: number; onGo: (n: number) => void }) {
       <ol className="space-y-1">
         {STEPS.map((s) => {
           const state = s.n < step ? "done" : s.n === step ? "current" : "todo";
+          const locked = state === "todo" ? RAIL_LOCKED[s.n] : undefined;
           return (
             <li key={s.n}>
               <button
                 type="button"
                 onClick={() => onGo(s.n)}
                 disabled={state === "todo"}
+                title={locked ?? (state === "done" ? `Go back to: ${s.title}` : undefined)}
+                aria-describedby={locked ? `rail-locked-${s.n}` : undefined}
                 className={cx(
                   "flex w-full items-start gap-3 rounded-ctl px-3 py-2.5 text-left transition-colors duration-[var(--dur-fast)]",
                   state === "current" ? "bg-bg2" : "hover:bg-bg1",
@@ -206,6 +257,14 @@ function Rail({ step, onGo }: { step: number; onGo: (n: number) => void }) {
                     {s.title}
                   </span>
                   <span className="block text-[12px] text-ink-faint">{s.hint}</span>
+                  {locked && (
+                    <span
+                      id={`rail-locked-${s.n}`}
+                      className="mt-1 block text-[11.5px] leading-relaxed text-ink-faint"
+                    >
+                      {locked}
+                    </span>
+                  )}
                 </span>
               </button>
             </li>
@@ -336,50 +395,113 @@ function StepProvider({
   connections: CloudConnection[];
   loading: boolean;
   onBack: () => void;
-  onNext: () => void;
+  /** the connection the project's first environment should deploy through */
+  onNext: (connectionId?: string) => void;
 }) {
-  const sandboxConn = connections.find((c) => c.provider === "sandbox");
-  const sandbox = providers.find((p) => p.id === "sandbox");
-  const others = providers.filter((p) => p.id !== "sandbox");
+  // Selectability comes from the adapter's own availability, never from a
+  // hardcoded "sandbox is special" test — LocalStack reports available and is
+  // therefore choosable, exactly as the README says.
+  const selectable = providers.filter((p) => p.availability === "available");
+  const rest = providers.filter((p) => p.availability !== "available");
+
+  const [picked, setPicked] = useState<string>("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>();
+
+  const chosen = selectable.find((p) => p.id === picked) ?? selectable[0];
+  const existing = connections.find((c) => c.provider === chosen?.id);
+
+  const proceed = async () => {
+    if (!chosen) return;
+    // Already connected, or the sandbox (which the server provisions on demand)
+    // — nothing to create.
+    if (existing) return onNext(existing.id);
+    if (chosen.id === "sandbox") return onNext(undefined);
+
+    setBusy(true);
+    setError(undefined);
+    try {
+      const result = await executeAction("connection.create", {
+        input: { provider: chosen.id },
+      });
+      if (!result.ok) {
+        setError(new ApiError(result.summary, 400, result.error));
+        return;
+      }
+      onNext((result.data as { connectionId?: string } | undefined)?.connectionId);
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (loading && providers.length === 0) return <Skeleton height={240} />;
 
   return (
     <div className="max-w-[760px] space-y-8 animate-enter">
       <p className="text-[16px] leading-relaxed text-ink-mute">
-        Orrery deploys into your cloud, never ours. Today only the sandbox executes end to end —
-        the rest are labelled exactly as honestly as they behave.
+        Orrery deploys into your cloud, never ours. Every provider below is labelled exactly as
+        honestly as it behaves, and only the ones that really execute can be picked.
       </p>
 
-      {sandbox && (
-        <button
-          type="button"
-          onClick={onNext}
-          className="block w-full rounded-card border border-signal/50 bg-bg2 p-5 text-left ring-1 ring-signal/20 transition-colors duration-[var(--dur-fast)] hover:border-signal"
-        >
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-[16px] font-medium text-ink">{sandbox.displayName}</h2>
-              <p className="mt-1 max-w-[52ch] text-[13px] text-ink-mute">
-                Full simulated execution, no cloud account. Deployments, logs, health and cost
-                estimates all run inside Orrery.
-              </p>
-            </div>
-            <Chip tone="ok" icon={<Check className="h-3 w-3" />}>
-              Available
-            </Chip>
-          </div>
-        </button>
-      )}
+      <div className="space-y-3">
+        <h3 className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">
+          Available now — deploys run end to end
+        </h3>
+        <div className="grid gap-3">
+          {selectable.map((p) => {
+            const active = p.id === chosen?.id;
+            const conn = connections.find((c) => c.provider === p.id);
+            return (
+              <button
+                key={p.id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setPicked(p.id)}
+                className={cx(
+                  "block w-full rounded-card border p-5 text-left transition-colors duration-[var(--dur-fast)]",
+                  active
+                    ? "border-signal/50 bg-bg2 ring-1 ring-signal/20 hover:border-signal"
+                    : "border-line bg-bg1 hover:border-line-strong"
+                )}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <h2 className="text-[16px] font-medium text-ink">{p.displayName}</h2>
+                    <p className="mt-1 max-w-[52ch] text-[13px] text-ink-mute">{p.tagline}</p>
+                    <p className="mt-1.5 text-[12.5px] text-ink-faint">
+                      {conn
+                        ? `Already connected as “${conn.label}” (${conn.status}).`
+                        : p.id === "sandbox"
+                          ? "Nothing to connect — the sandbox runs inside Orrery."
+                          : `Continuing connects it and runs its preflight checks${
+                              p.regions[0] ? ` in ${p.regions[0].label}` : ""
+                            }.`}
+                    </p>
+                  </div>
+                  <Chip tone="ok" icon={<Check className="h-3 w-3" />}>
+                    Available
+                  </Chip>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       <Card
         title="Exact access this grants"
         subtitle="Every connection lists what it can touch, before you pick it."
       >
         <ul className="space-y-2 text-[13px] text-ink-mute">
-          {(sandboxConn?.grantedPermissions ?? [
-            "No cloud access — the sandbox runs inside Orrery and simulates deployments.",
-          ]).map((p) => (
+          {(existing?.grantedPermissions ??
+            (chosen?.id === "sandbox"
+              ? ["No cloud access — the sandbox runs inside Orrery and simulates deployments."]
+              : [
+                  `Not connected yet. ${chosen?.displayName ?? "This provider"} lists the exact permissions it takes on the connection screen, before anything is created.`,
+                ])
+          ).map((p) => (
             <li key={p} className="flex gap-2.5">
               <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-signal" />
               <span>{p}</span>
@@ -388,43 +510,49 @@ function StepProvider({
         </ul>
       </Card>
 
-      <div className="space-y-3">
-        <h3 className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">
-          Real clouds — not selectable yet
-        </h3>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {others.map((p) => (
-            <div
-              key={p.id}
-              title={
-                p.availability === "preview"
-                  ? `${p.displayName} is Preview: Orrery plans and exports Terraform for it, but cannot apply changes yet. Deploy to the sandbox, then export.`
-                  : `${p.displayName} is Planned. Picking it would do nothing.`
-              }
-              aria-disabled="true"
-              className="rounded-card border border-line bg-bg1 p-4 opacity-80"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <h4 className="text-[14px] text-ink">{p.displayName}</h4>
-                <Chip tone={AVAILABILITY_TONE[p.availability]}>
-                  {AVAILABILITY_LABEL[p.availability]}
-                </Chip>
+      {rest.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">
+            Not selectable yet
+          </h3>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {rest.map((p) => (
+              <div
+                key={p.id}
+                title={notSelectableReason(p)}
+                aria-disabled="true"
+                className="rounded-card border border-line bg-bg1 p-4 opacity-80"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <h4 className="text-[14px] text-ink">{p.displayName}</h4>
+                  <Chip tone={AVAILABILITY_TONE[p.availability]}>
+                    {AVAILABILITY_LABEL[p.availability]}
+                  </Chip>
+                </div>
+                <p className="mt-1.5 text-[12.5px] text-ink-mute">{p.tagline}</p>
+                <p className="mt-2 text-[12px] text-ink-faint">
+                  {AVAILABILITY_NOTE[p.availability]}
+                </p>
               </div>
-              <p className="mt-1.5 text-[12.5px] text-ink-mute">{p.tagline}</p>
-              <p className="mt-2 text-[12px] text-ink-faint">
-                {AVAILABILITY_NOTE[p.availability]}
-              </p>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {error ? <ErrorNote error={error} /> : null}
 
       <div className="flex gap-2">
-        <Button variant="quiet" onClick={onBack}>
+        <Button variant="quiet" onClick={onBack} disabled={busy}>
           Back
         </Button>
-        <Button onClick={onNext} icon={<ArrowRight className="h-3.5 w-3.5" />}>
-          Use the sandbox
+        <Button
+          busy={busy}
+          disabled={!chosen}
+          disabledReason="No provider reports itself available in this build, so there is nothing to deploy through."
+          onClick={proceed}
+          icon={<ArrowRight className="h-3.5 w-3.5" />}
+        >
+          {chosen ? `Use ${chosen.displayName}` : "Continue"}
         </Button>
       </div>
     </div>
@@ -443,17 +571,21 @@ interface CreateResult {
 function StepSystem({
   blueprints,
   sampleCompose,
+  connectionId,
   onBack,
   onCreated,
 }: {
   blueprints: BlueprintCard[];
   sampleCompose: string;
+  /** what step 2 settled on; undefined means the default sandbox connection */
+  connectionId?: string;
   onBack: () => void;
   onCreated: (slug: string, message: string) => void;
 }) {
   const [mode, setMode] = useState<Mode>("blueprint");
   const [selected, setSelected] = useState<string>(blueprints[0]?.id ?? "");
   const [compose, setCompose] = useState("");
+  const [composeFile, setComposeFile] = useState<string>();
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>();
@@ -476,10 +608,16 @@ function StepSystem({
     try {
       const call =
         mode === "blueprint"
-          ? { actionId: "project.applyBlueprint", input: { blueprint: selected, name: projectName } }
+          ? {
+              actionId: "project.applyBlueprint",
+              input: { blueprint: selected, name: projectName, connectionId },
+            }
           : mode === "import"
-            ? { actionId: "project.importCompose", input: { composeYaml: compose, name: projectName } }
-            : { actionId: "project.create", input: { name: projectName } };
+            ? {
+                actionId: "project.importCompose",
+                input: { composeYaml: compose, name: projectName, connectionId },
+              }
+            : { actionId: "project.create", input: { name: projectName, connectionId } };
 
       const result = await executeAction(call.actionId, { input: call.input });
       if (!result.ok) {
@@ -597,25 +735,61 @@ function StepSystem({
 
       {mode === "import" && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <label htmlFor="compose" className="text-[13px] text-ink">
-              Paste your compose file
+              Paste your compose file, or choose it
             </label>
-            <Button
-              variant="quiet"
-              size="sm"
-              icon={<Sparkles className="h-3.5 w-3.5" />}
-              disabled={!sampleCompose}
-              disabledReason="The sample app fixture is missing from this build."
-              onClick={() => setCompose(sampleCompose)}
-            >
-              Use sample app
-            </Button>
+            <div className="flex items-center gap-2">
+              <label className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-ctl border border-line px-2.5 text-[12.5px] text-ink-mute transition-colors duration-[var(--dur-fast)] hover:border-line-strong hover:text-ink">
+                <Upload className="h-3.5 w-3.5" aria-hidden="true" />
+                Choose a file
+                <input
+                  type="file"
+                  accept=".yml,.yaml,text/yaml,application/x-yaml,text/plain"
+                  className="sr-only"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = ""; // let the same file be re-picked
+                    if (!file) return;
+                    setError(undefined);
+                    try {
+                      setCompose(await file.text());
+                      setComposeFile(file.name);
+                    } catch (err) {
+                      setComposeFile(undefined);
+                      setError(err);
+                    }
+                  }}
+                />
+              </label>
+              <Button
+                variant="quiet"
+                size="sm"
+                icon={<Sparkles className="h-3.5 w-3.5" />}
+                disabled={!sampleCompose}
+                disabledReason="The sample app fixture is missing from this build."
+                onClick={() => {
+                  setCompose(sampleCompose);
+                  setComposeFile(undefined);
+                }}
+              >
+                Use sample app
+              </Button>
+            </div>
           </div>
+          {composeFile && (
+            <p className="text-[12.5px] text-ink-mute">
+              Loaded <span className="font-mono text-ink">{composeFile}</span> — it is editable
+              below, and nothing is read from your disk again.
+            </p>
+          )}
           <textarea
             id="compose"
             value={compose}
-            onChange={(e) => setCompose(e.target.value)}
+            onChange={(e) => {
+              setCompose(e.target.value);
+              setComposeFile(undefined);
+            }}
             spellCheck={false}
             placeholder={"version: \"3.9\"\nservices:\n  web:\n    image: my/app:latest\n    ports:\n      - \"3000:3000\""}
             className="h-[320px] w-full resize-y rounded-card border border-line bg-bg1 p-3 font-mono text-[13px] leading-[1.6] text-ink outline-none placeholder:text-ink-faint focus-visible:border-signal"
@@ -647,7 +821,7 @@ function StepSystem({
           disabled={!canCreate}
           disabledReason={
             mode === "import"
-              ? "Paste a compose file, or load the sample app."
+              ? "Paste a compose file, choose one from disk, or load the sample app."
               : mode === "blank"
                 ? "Give the project a name first."
                 : "Pick a blueprint."

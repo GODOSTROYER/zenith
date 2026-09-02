@@ -24,7 +24,7 @@ import {
   type LogLine,
 } from "@/components/ui";
 import { useSelectedEnv } from "@/components/screens/project-data";
-import { ErrorNote, useRunAction } from "@/components/screens/shared";
+import { ActionConfirm, ErrorNote } from "@/components/screens/shared";
 
 const LOG_EVENTS = ["log", "error"];
 
@@ -99,7 +99,8 @@ function HealthStrip({
     deployed ? `/api/health/${environmentId}` : null,
     5000
   );
-  const { run, busyId } = useRunAction(health.refresh);
+  /** Restart is a mutation, so it plans before it applies like every other one. */
+  const [restarting, setRestarting] = useState<{ id: string; name: string } | null>(null);
 
   if (!deployed)
     return (
@@ -150,16 +151,9 @@ function HealthStrip({
                   <Button
                     size="sm"
                     variant="ghost"
-                    busy={busyId === serviceId}
                     icon={<RotateCw className="h-3.5 w-3.5" />}
-                    title={`Restart ${name} in ${environmentName}`}
-                    onClick={() =>
-                      run(
-                        "ops.restartService",
-                        { input: { serviceId }, scope: { projectId, environmentId } },
-                        { busyKey: serviceId }
-                      )
-                    }
+                    title={`Preview and restart ${name} in ${environmentName}`}
+                    onClick={() => setRestarting({ id: serviceId, name })}
                   >
                     Restart
                   </Button>
@@ -178,6 +172,22 @@ function HealthStrip({
           })}
         </div>
       )}
+
+      {restarting && (
+        <ActionConfirm
+          open
+          onClose={() => setRestarting(null)}
+          actionId="ops.restartService"
+          input={{ serviceId: restarting.id }}
+          scope={{ projectId, environmentId }}
+          title={`Restart ${restarting.name} in ${environmentName}`}
+          confirmLabel="Restart"
+          onDone={() => {
+            setRestarting(null);
+            health.refresh();
+          }}
+        />
+      )}
     </Card>
   );
 }
@@ -195,6 +205,7 @@ function LogsPanel({
 }) {
   const services = manifest.services;
   const [serviceId, setServiceId] = useState(services[0]?.id ?? "");
+  const serviceName = services.find((s) => s.id === serviceId)?.name ?? "service";
   const [lines, setLines] = useState<LogLine[]>([]);
   const [streamError, setStreamError] = useState<string>();
 
@@ -209,10 +220,13 @@ function LogsPanel({
       setStreamError([e.message, e.fix].filter(Boolean).join(" "));
       return;
     }
-    const l = raw as { seq: number; ts: string; line: string };
-    // The viewer's two lanes are Orrery narration vs raw output; an app's
-    // stdout/stderr is raw output, so it all lands in the provider lane.
-    setLines((prev) => [...prev, { seq: l.seq, ts: l.ts, line: l.line, stream: "provider" }]);
+    const l = raw as { seq: number; ts: string; line: string; stream?: string };
+    // The generator says which handle a line came out of; keep that, so stderr
+    // stays visibly stderr and the viewer's stream filter has something to do.
+    setLines((prev) => [
+      ...prev,
+      { seq: l.seq, ts: l.ts, line: l.line, stream: l.stream === "stderr" ? "stderr" : "stdout" },
+    ]);
   }, []);
 
   const { connected } = useEventStream(
@@ -254,8 +268,16 @@ function LogsPanel({
           <LogViewer
             lines={lines}
             height={380}
+            label={`${serviceName} application logs`}
+            downloadName={`${serviceName}-logs.txt`}
             emptyMessage="Waiting for the next line — the sandbox emits one every couple of seconds."
           />
+          <p className="text-[11.5px] leading-relaxed text-ink-faint">
+            On connect the sandbox replays its last 200 lines (about seven minutes) and streams
+            from there; anything older than that was never stored. Search, level and stream
+            filters — and Download — work on the {lines.length} line
+            {lines.length === 1 ? "" : "s"} loaded here, not on the server.
+          </p>
         </div>
       )}
     </Card>
@@ -322,8 +344,10 @@ function CostCard({
         <h4 className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">Budget</h4>
         {budget ? (
           <div className="mt-2">
+            {/* The bar saturates at 100% — the percentage and the overage below
+                it are what stay true at 150% and at 400%. */}
             <Meter
-              value={Math.min(total, budget * 1.5)}
+              value={total}
               max={budget}
               tone={tone}
               label={`${environmentName} budget`}
@@ -332,8 +356,8 @@ function CostCard({
             {pct > 80 && (
               <p className={`mt-2 text-[12.5px] ${pct > 100 ? "text-err" : "text-warn"}`}>
                 {pct > 100
-                  ? "Over budget. Resize a node, or raise the budget in Settings → Environments."
-                  : "Close to the budget. A deploy that adds anything will be flagged."}
+                  ? `${fmtUsd(total - budget)} over the ${fmtUsd(budget)} budget — ${pct}% of it. Resize a node, or raise the budget in Settings → Environments.`
+                  : `${fmtUsd(budget - total)} left of the ${fmtUsd(budget)} budget. A deploy that adds anything will be flagged.`}
               </p>
             )}
           </div>

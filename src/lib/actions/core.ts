@@ -13,7 +13,7 @@
  * src/lib/actions/defs/ (workstream ownership).
  */
 import { z } from "zod";
-import { appendAudit, save } from "@/lib/db/store";
+import { appendAudit, db, save } from "@/lib/db/store";
 import { id, type Actor, type AutonomyLevel } from "@/lib/domain/types";
 
 export interface ActionContext {
@@ -93,13 +93,65 @@ export function getAction(actionId: string): ActionDef<unknown> {
   return a;
 }
 
+/* ---------------------------------- roles --------------------------------- */
+
+const RANK: Record<Role, number> = { viewer: 0, editor: 1, admin: 2 };
+
+/**
+ * The acting user's role in this workspace. The member record is the authority;
+ * the local demo actor (and any caller in a store with no members at all — the
+ * seed script, the smoke run, tests) is admin because there is nobody else.
+ * A user who is not a member gets the lowest role rather than the highest.
+ */
+export function roleOf(actor: Actor): Role {
+  const members = db().members;
+  const member = members.find((m) => m.id === actor.id);
+  if (member) return member.role;
+  if (actor.id === "local" || members.length === 0) return "admin";
+  return "viewer";
+}
+
 /* ------------------------------- idempotency ------------------------------- */
 
-type GI = typeof globalThis & { __orreryIdem?: Map<string, ActionResult> };
-function idemCache(): Map<string, ActionResult> {
+/**
+ * Bounded replay cache: a retried request inside the window gets the original
+ * result, and the map can never grow without limit.
+ */
+const IDEM_MAX = 500;
+const IDEM_TTL_MS = 10 * 60_000;
+
+interface IdemEntry {
+  at: number;
+  result: ActionResult;
+}
+
+type GI = typeof globalThis & { __orreryIdem?: Map<string, IdemEntry> };
+
+function idemCache(): Map<string, IdemEntry> {
   const g = globalThis as GI;
   if (!g.__orreryIdem) g.__orreryIdem = new Map();
   return g.__orreryIdem;
+}
+
+function idemGet(key: string): ActionResult | undefined {
+  const cache = idemCache();
+  const hit = cache.get(key);
+  if (!hit) return undefined;
+  if (Date.now() - hit.at > IDEM_TTL_MS) {
+    cache.delete(key);
+    return undefined;
+  }
+  return hit.result;
+}
+
+function idemSet(key: string, result: ActionResult): void {
+  const cache = idemCache();
+  cache.delete(key); // re-insert so Map iteration order is oldest-first
+  cache.set(key, { at: Date.now(), result });
+  for (const [k, v] of cache) {
+    if (cache.size <= IDEM_MAX && Date.now() - v.at <= IDEM_TTL_MS) break;
+    cache.delete(k);
+  }
 }
 
 /* -------------------------------- executor -------------------------------- */
@@ -145,6 +197,22 @@ export async function runAction(
     return { plan: await action.plan(ctx, input) };
   }
 
+  // Role enforcement: a human may only execute up to their workspace role.
+  // (Planning is read-only and stays open — you can always see what an action
+  // would do before asking someone who is allowed to run it.)
+  if (ctx.actor.type === "user") {
+    const role = roleOf(ctx.actor);
+    if (RANK[role] < RANK[action.requiredRole]) {
+      const denied: ActionResult = {
+        ok: false,
+        summary: `"${action.title}" needs the ${action.requiredRole} role and you are ${role} in this workspace.`,
+        error: `role_denied: ask a workspace admin to give ${ctx.actor.name} the ${action.requiredRole} role in Settings → Members, or have them run this action.`,
+      };
+      audit(ctx, action, input, "denied", denied.summary, denied.error);
+      return { result: denied };
+    }
+  }
+
   // Navigator autonomy enforcement: below "approve", the agent may never execute.
   if (ctx.actor.type === "navigator") {
     const level = ctx.autonomy ?? "observe";
@@ -169,7 +237,7 @@ export async function runAction(
   }
 
   if (opts.idempotencyKey) {
-    const cached = idemCache().get(`${actionId}:${opts.idempotencyKey}`);
+    const cached = idemGet(`${actionId}:${opts.idempotencyKey}`);
     if (cached) return { result: cached };
   }
 
@@ -177,8 +245,7 @@ export async function runAction(
     const result = await action.execute(ctx, input);
     if (action.mutates) save();
     audit(ctx, action, input, result.ok ? "ok" : "error", result.summary, result.error);
-    if (opts.idempotencyKey)
-      idemCache().set(`${actionId}:${opts.idempotencyKey}`, result);
+    if (opts.idempotencyKey) idemSet(`${actionId}:${opts.idempotencyKey}`, result);
     return { result };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

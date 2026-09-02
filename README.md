@@ -23,7 +23,8 @@ Quality gates:
 
 ```bash
 npm run typecheck
-npm test         # unit tests (engine state machine, actions, importers)
+npm run lint
+npm test         # unit tests (engine, actions, roles, providers, store, importers)
 npm run smoke    # end-to-end: blueprint → deploy → URL, chaos failure → rollback
 ```
 

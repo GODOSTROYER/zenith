@@ -32,6 +32,13 @@ function ItemRow({ item }: { item: ChangeItem }) {
   );
 }
 
+/** djb2 — enough to key a changeset, not a security hash. */
+function hash(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 33) ^ s.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+
 export interface ChangesReviewProps {
   changeset: Changeset;
   onDeployed: (deploymentId: string) => void;
@@ -47,9 +54,14 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
   const [plan, setPlan] = useState<ActionPlan | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [error, setError] = useState<{ message: string; fix?: string } | null>(null);
 
   const scope = { projectId: project.id, environmentId: selectedEnvId };
+
+  // The whole changeset, not its length: an edit that changes cost without
+  // changing the count must not leave a stale budget/warning banner on screen.
+  const changesetKey = JSON.stringify(changeset);
 
   useEffect(() => {
     let alive = true;
@@ -59,8 +71,9 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
     return () => {
       alive = false;
     };
+    // scope is derived from these two; changesetKey is the re-plan trigger
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedEnvId, changeset.items.length]);
+  }, [project.id, selectedEnvId, changesetKey]);
 
   const blocking = workingIssues.filter((i) => i.level === "error");
   const warnings = (plan?.warnings ?? changeset.warnings).filter(
@@ -70,16 +83,21 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
   const isProd = selectedEnv?.class === "production";
 
   const deploy = async () => {
+    if (busy) return;
     setBusy(true);
     setError(null);
     try {
       const result = await executeAction("deploy.apply", {
         input: message.trim() ? { message: message.trim() } : {},
         scope,
-        idempotencyKey: `deploy-${selectedEnvId}-${Date.now()}`,
+        // Keyed on what is being deployed, not on when the button was hit:
+        // two clicks on the same changeset are the same deployment. `attempt`
+        // only moves after a visible failure, so a retry is a real retry.
+        idempotencyKey: `deploy-${selectedEnvId}-${hash(`${changesetKey}|${message.trim()}`)}-${attempt}`,
       });
       if (!result.ok) {
         setError({ message: result.summary, fix: result.error });
+        setAttempt((n) => n + 1);
         return;
       }
       const id = (result.data as { deploymentId?: string } | undefined)?.deploymentId;
@@ -87,6 +105,7 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
       refresh();
       if (id) onDeployed(id);
     } catch (err) {
+      setAttempt((n) => n + 1);
       const e = err instanceof ApiError ? err : undefined;
       setError({
         message: e?.message ?? "The deploy could not be started.",

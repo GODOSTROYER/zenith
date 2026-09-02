@@ -2,8 +2,10 @@
  * Request context + JSON conventions for every /api route.
  *
  * Workstream D. One demo session = one local user ("You"); the Navigator
- * identifies itself with the `x-orrery-actor: navigator` header and is then
- * bound by the workspace autonomy level.
+ * identifies itself with `navigatorHeaders()` — the actor header plus a
+ * process-local key — and is then bound by the workspace autonomy level.
+ * The Navigator's in-process path (lib/navigator/run.ts) never goes through
+ * HTTP at all, so nothing outside this server can claim its name.
  */
 import { NextResponse, type NextRequest } from "next/server";
 import type { ActionContext } from "@/lib/actions/core";
@@ -23,18 +25,41 @@ export const navigatorActor = (): Actor => ({
   name: "Navigator",
 });
 
+/**
+ * Navigator attribution has to be earned, not asserted: the audit log is
+ * evidence, so a browser must not be able to sign its actions "Navigator".
+ * The Navigator's own server-side calls carry a secret minted at boot and
+ * never leaving this process; anything else is just the user.
+ */
+type GK = typeof globalThis & { __orreryNavKey?: string };
+
+const navigatorKey = (): string => {
+  const g = globalThis as GK;
+  return (g.__orreryNavKey ??= crypto.randomUUID());
+};
+
+/** Headers the Navigator's own HTTP calls must send to be attributed to it. */
+export const navigatorHeaders = (): Record<string, string> => ({
+  "x-orrery-actor": "navigator",
+  "x-orrery-actor-key": navigatorKey(),
+});
+
+const isNavigator = (req: NextRequest): boolean =>
+  req.headers.get("x-orrery-actor") === "navigator" &&
+  req.headers.get("x-orrery-actor-key") === navigatorKey();
+
 /** True only for the Navigator's own calls; everything else is the local user. */
 export const actorFromRequest = (req: NextRequest): Actor =>
-  req.headers.get("x-orrery-actor") === "navigator" ? navigatorActor() : demoActor();
+  isNavigator(req) ? navigatorActor() : demoActor();
 
 /**
- * Identity-aware actor: the Navigator header wins; otherwise the signed-in
+ * Identity-aware actor: a proven Navigator call wins; otherwise the signed-in
  * Supabase user when auth is configured (verified via getClaims); otherwise
  * the local demo user. Also keeps the workspace member list in sync so the
  * audit log and revisions carry a real name.
  */
 export async function resolveActor(req: NextRequest): Promise<Actor> {
-  if (req.headers.get("x-orrery-actor") === "navigator") return navigatorActor();
+  if (isNavigator(req)) return navigatorActor();
   const user = await sessionUserFromRequest(req);
   if (!user) return demoActor();
   ensureMember(user);

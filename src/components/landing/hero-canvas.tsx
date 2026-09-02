@@ -302,7 +302,6 @@ export function HeroCanvas({ onPhase, align = "right", className }: Props) {
     let raf = 0;
     let start = performance.now();
     let visible = true;
-    let running = true;
     let cssW = 0;
     let cssH = 0;
     let scale = 1;
@@ -586,25 +585,46 @@ export function HeroCanvas({ onPhase, align = "right", className }: Props) {
       // Self-heal stale geometry: fonts/layout settling after first paint can
       // change the element's size without a resize event we caught in time.
       if (canvas.clientWidth && Math.abs(canvas.clientWidth - cssW) > 1) resize();
-      if (running && visible) draw(now);
+      draw(now);
+      raf = requestAnimationFrame(frame);
+    };
+
+    /**
+     * The loop only exists while it is worth having: two HeroCanvas instances
+     * mount (one per breakpoint) and the off-breakpoint one is display:none,
+     * so an idle rAF here is a permanent background cost for nothing.
+     */
+    const stop = () => {
+      cancelAnimationFrame(raf);
+      raf = 0;
+    };
+    const play = () => {
+      if (raf || reduced || !visible || document.hidden) return;
+      resize(); // geometry is stale if we were hidden while the window changed
+      start = performance.now(); // scrolling back replays the story from the top
       raf = requestAnimationFrame(frame);
     };
 
     resize();
-    const ro = new ResizeObserver(resize);
+    const ro = new ResizeObserver(() => {
+      resize();
+      if (reduced) draw(performance.now()); // the static frame has no loop to redraw it
+    });
     ro.observe(canvas);
 
     const io = new IntersectionObserver(
       (entries) => {
         visible = entries[0]?.isIntersecting ?? true;
+        if (visible) play();
+        else stop();
       },
       { threshold: 0.05 }
     );
     io.observe(canvas);
 
     const onVis = () => {
-      running = !document.hidden;
-      if (running) start = performance.now() - (reduced ? 0 : 0);
+      if (document.hidden) stop();
+      else play();
     };
     document.addEventListener("visibilitychange", onVis);
 
@@ -614,16 +634,16 @@ export function HeroCanvas({ onPhase, align = "right", className }: Props) {
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
     if (reduced) {
-      // Single static frame of the assembled, live system.
+      // Single static frame of the assembled, live system. No loop, ever.
       resize();
       draw(performance.now());
       setPhase("still");
     } else {
-      raf = requestAnimationFrame(frame);
+      play();
     }
 
     return () => {
-      cancelAnimationFrame(raf);
+      stop();
       ro.disconnect();
       io.disconnect();
       mo.disconnect();

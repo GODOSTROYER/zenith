@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ExternalLink, Rocket } from "lucide-react";
-import { useEventStream } from "@/lib/client/api";
+import { api, useEventStream } from "@/lib/client/api";
 import type {
   Deployment,
   DeploymentEvent,
@@ -24,13 +24,13 @@ import {
   EmptyState,
   LogViewer,
   PhaseTimeline,
+  SegmentedControl,
   Skeleton,
   StatusDot,
   TimeAgo,
   type DotStatus,
   type LogLine,
 } from "@/components/ui";
-import { listDeployments } from "@/components/screens/deployments-server";
 import { useSelectedEnv } from "@/components/screens/project-data";
 import { ActionConfirm, ActorDot, ErrorNote } from "@/components/screens/shared";
 
@@ -64,29 +64,83 @@ const STATUS_LABEL: Record<DeploymentStatus, string> = {
 
 const isLive = (s: DeploymentStatus) => !TERMINAL.includes(s);
 
+/** One page of `GET /api/environments/:id/deployments`. */
+interface DeploymentPage {
+  deployments: Deployment[];
+  /** how many match the filter in total — so the count on screen is honest */
+  total: number;
+  nextCursor?: string;
+}
+
+/** The endpoint's own vocabulary, so the filter needs no translation table. */
+type StatusFilter = "all" | "live" | "terminal";
+
+const PAGE_SIZE = 50;
+
+const FILTER_LABEL: Record<StatusFilter, string> = {
+  all: "deployment",
+  live: "deployment in flight",
+  terminal: "finished deployment",
+};
+
 export default function DeploysPage() {
   const { data, env, projectId, refresh } = useSelectedEnv();
   const [list, setList] = useState<Deployment[]>();
+  const [total, setTotal] = useState(0);
+  const [cursor, setCursor] = useState<string>();
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [status, setStatus] = useState<StatusFilter>("all");
   const [error, setError] = useState<unknown>();
   const [selectedId, setSelectedId] = useState<string>();
+  const [reloadTick, setReloadTick] = useState(0);
 
   const envId = env?.id;
+  const base = envId
+    ? `/api/environments/${envId}/deployments?limit=${PAGE_SIZE}${status === "all" ? "" : `&status=${status}`}`
+    : null;
 
-  const reload = useCallback(() => {
-    if (!envId) return;
-    listDeployments(envId)
-      .then((d) => {
-        setList(d);
-        setError(undefined);
-      })
-      .catch(setError);
-  }, [envId]);
+  const reload = useCallback(() => setReloadTick((t) => t + 1), []);
+
+  // Only a different environment or filter drops the selection; a reload after
+  // a deploy settles must not yank the operator off the row they are reading.
+  useEffect(() => {
+    setSelectedId(undefined);
+  }, [base]);
 
   useEffect(() => {
+    if (!base) return;
+    let alive = true;
     setList(undefined);
-    setSelectedId(undefined);
-    reload();
-  }, [reload]);
+    setCursor(undefined);
+    api<DeploymentPage>(base)
+      .then((page) => {
+        if (!alive) return;
+        setList(page.deployments);
+        setTotal(page.total);
+        setCursor(page.nextCursor);
+        setError(undefined);
+      })
+      .catch((e: unknown) => alive && setError(e));
+    return () => {
+      alive = false;
+    };
+  }, [base, reloadTick]);
+
+  const loadOlder = async () => {
+    if (!base || !cursor) return;
+    setLoadingOlder(true);
+    try {
+      const page = await api<DeploymentPage>(`${base}&cursor=${encodeURIComponent(cursor)}`);
+      setList((prev) => [...(prev ?? []), ...page.deployments]);
+      setTotal(page.total);
+      setCursor(page.nextCursor);
+      setError(undefined);
+    } catch (e) {
+      setError(e);
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
 
   const selected = useMemo(
     () => list?.find((d) => d.id === selectedId) ?? list?.[0],
@@ -110,7 +164,7 @@ export default function DeploysPage() {
     <div className="mx-auto h-full w-full overflow-y-auto max-w-[1240px] px-6 py-6">
       {error ? <ErrorNote error={error} className="mb-4" /> : null}
 
-      {list && list.length === 0 ? (
+      {list && list.length === 0 && status === "all" ? (
         <EmptyState
           icon={<Rocket className="h-5 w-5" />}
           title="No deployments yet"
@@ -119,15 +173,41 @@ export default function DeploysPage() {
       ) : (
         <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
           <aside className="min-w-0">
-            <h2 className="mb-3 text-[12px] tracking-[0.02em] text-ink-mute uppercase">
-              {env.name} · {list?.length ?? 0} deployment{list?.length === 1 ? "" : "s"}
-            </h2>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">
+                {env.name} ·{" "}
+                {list
+                  ? `${list.length === total ? list.length : `${list.length} of ${total}`} ${FILTER_LABEL[status]}${total === 1 ? "" : "s"}`
+                  : "loading…"}
+              </h2>
+              <SegmentedControl<StatusFilter>
+                size="sm"
+                label="Filter deployments by status"
+                value={status}
+                onChange={setStatus}
+                options={[
+                  { value: "all", label: "All" },
+                  { value: "live", label: "In flight", title: "Planning, applying, verifying or awaiting approval" },
+                  { value: "terminal", label: "Finished", title: "Succeeded, failed, rolled back or cancelled" },
+                ]}
+              />
+            </div>
             <div className="overflow-hidden rounded-card border border-line bg-bg2">
               {!list ? (
                 <div className="space-y-2 p-4">
                   <Skeleton height={44} />
                   <Skeleton height={44} />
                   <Skeleton height={44} />
+                </div>
+              ) : list.length === 0 ? (
+                <div className="space-y-3 px-4 py-5 text-[13px] text-ink-mute">
+                  <p>
+                    No {FILTER_LABEL[status]}s in {env.name} right now
+                    {total === 0 && " — nothing matches this filter."}
+                  </p>
+                  <Button size="sm" variant="quiet" onClick={() => setStatus("all")}>
+                    Show all deployments
+                  </Button>
                 </div>
               ) : (
                 <ul className="max-h-[70vh] overflow-y-auto">
@@ -167,11 +247,25 @@ export default function DeploysPage() {
                   ))}
                 </ul>
               )}
+              {list && cursor ? (
+                <div className="border-t border-line p-2">
+                  <Button
+                    size="sm"
+                    variant="quiet"
+                    block
+                    busy={loadingOlder}
+                    onClick={loadOlder}
+                    title={`Fetch the next ${PAGE_SIZE} older deployments`}
+                  >
+                    Load older ({total - list.length} more)
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </aside>
 
           <section className="min-w-0">
-            {selected ? (
+            {list && list.length === 0 ? null : selected ? (
               <DeploymentDetail
                 key={selected.id}
                 snapshot={selected}

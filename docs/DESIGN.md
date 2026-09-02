@@ -26,7 +26,7 @@ the page's single authored moment. Product surfaces keep the original scale.
 ## Motion
 
 Motion communicates state; nothing animates without meaning.
-Durations 120/200/320ms, ease `--ease-swift`; springs (motion lib, stiffness ~260, damping ~28) for map nodes and drawers; `animate-enter` for list/panel entrances; `.status-pulse` only while something is genuinely in progress; `.edge-live` dash-flow on map edges only during active deployment of that binding's target. Respect `prefers-reduced-motion` (already global).
+Durations 120/200/320ms, ease `--ease-swift`; CSS transitions and keyframes only, no animation library; `animate-enter` for list/panel entrances; `.status-pulse` only while something is genuinely in progress; `.edge-live` dash-flow on map edges only during active deployment of that binding's target. Respect `prefers-reduced-motion` (already global).
 
 ## Voice
 

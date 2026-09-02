@@ -13,6 +13,8 @@ import {
   ArrowUpRight,
   Check,
   Copy,
+  Pause,
+  Play,
 } from "lucide-react";
 import { cx } from "@/lib/format";
 import { ThemeToggle } from "@/components/ui";
@@ -144,12 +146,6 @@ function Header({ cta }: { cta: { href: string; label: string } }) {
           <span className="text-[15px] font-semibold tracking-[-0.01em] text-ink">Orrery</span>
         </span>
         <nav className="flex items-center gap-2">
-          <a
-            href="https://github.com/GODOSTROYER/orrery"
-            className="hidden rounded-[8px] px-3 py-1.5 text-[13px] text-ink-mute transition-colors hover:text-ink sm:block"
-          >
-            GitHub
-          </a>
           <ThemeToggle />
           <Link
             href={cta.href}
@@ -215,11 +211,12 @@ function Hero({ cta }: { cta: { href: string; label: string } }) {
               <ArrowDown className="h-3.5 w-3.5" aria-hidden />
             </a>
           </div>
-          {/* live narration synced to the canvas */}
+          {/* Narration synced to the canvas. Not a live region: it changes six
+              times per loop, forever — the canvas aria-label carries the story
+              for screen readers instead. */}
           <p
             className="mt-10 flex items-center gap-2.5 font-mono text-[12.5px] text-ink-faint animate-enter"
             style={{ animationDelay: "320ms" }}
-            aria-live="polite"
           >
             <span
               aria-hidden
@@ -249,22 +246,35 @@ function Hero({ cta }: { cta: { href: string; label: string } }) {
 const SURFACES = ["System Map", "Source", "API", "Navigator"] as const;
 type Surface = (typeof SURFACES)[number];
 
+const slug = (s: Surface) => s.toLowerCase().replace(/\s+/g, "-");
+const tabId = (s: Surface) => `surface-tab-${slug(s)}`;
+const panelId = (s: Surface) => `surface-panel-${slug(s)}`;
+const step = (s: Surface, dir: 1 | -1) =>
+  SURFACES[(SURFACES.indexOf(s) + dir + SURFACES.length) % SURFACES.length]!;
+
 function OneModel() {
   const [surface, setSurface] = useState<Surface>("System Map");
-  const [touched, setTouched] = useState(false);
+  /** false once the visitor takes over, or when they press Pause */
+  const [playing, setPlaying] = useState(true);
+  /** rotation holds while the pointer or keyboard focus is inside the group */
+  const [held, setHeld] = useState(false);
+  const [reduced, setReduced] = useState(false);
   const { ref, shown } = useReveal<HTMLElement>();
 
   useEffect(() => {
-    if (touched || !shown) return;
-    const t = setInterval(
-      () =>
-        setSurface(
-          (s) => SURFACES[(SURFACES.indexOf(s) + 1) % SURFACES.length]
-        ),
-      3200
-    );
+    setReduced(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }, []);
+
+  useEffect(() => {
+    if (reduced || held || !playing || !shown) return;
+    const t = setInterval(() => setSurface((s) => step(s, 1)), 3200);
     return () => clearInterval(t);
-  }, [touched, shown]);
+  }, [reduced, held, playing, shown]);
+
+  const pick = (s: Surface) => {
+    setSurface(s);
+    setPlaying(false); // taking over stops the carousel — Play resumes it
+  };
 
   return (
     <section id="one-model" ref={ref} className="mx-auto w-full max-w-[1180px] px-6 py-28 lg:py-36">
@@ -283,49 +293,110 @@ function OneModel() {
       </Reveal>
 
       <Reveal delay={90} className="mt-10">
-        <div role="tablist" aria-label="Product surfaces" className="flex flex-wrap gap-1.5">
-          {SURFACES.map((s) => (
-            <button
-              key={s}
-              role="tab"
-              aria-selected={surface === s}
-              onClick={() => {
-                setSurface(s);
-                setTouched(true);
-              }}
-              className={cx(
-                "rounded-[8px] px-3.5 py-2 text-[13px] transition-colors duration-[120ms]",
-                surface === s
-                  ? s === "Navigator"
-                    ? "bg-nav-dim text-nav-accent"
-                    : "bg-signal-dim text-signal"
-                  : "text-ink-faint hover:text-ink-mute"
-              )}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
+        {/* Hover or keyboard focus inside the group holds the rotation; the
+            Pause control stops it outright (WCAG 2.2.2). */}
+        <div
+          onMouseEnter={() => setHeld(true)}
+          onMouseLeave={() => setHeld(false)}
+          onFocus={() => setHeld(true)}
+          onBlur={() => setHeld(false)}
+        >
+          <div className="flex flex-wrap items-center gap-1.5">
+            <div role="tablist" aria-label="Product surfaces" className="flex flex-wrap gap-1.5">
+              {SURFACES.map((s) => (
+                <button
+                  key={s}
+                  id={tabId(s)}
+                  type="button"
+                  role="tab"
+                  aria-selected={surface === s}
+                  aria-controls={panelId(s)}
+                  tabIndex={surface === s ? 0 : -1}
+                  onKeyDown={(e) => {
+                    const dir = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+                    if (!dir) return;
+                    e.preventDefault();
+                    const next = step(s, dir);
+                    pick(next);
+                    document.getElementById(tabId(next))?.focus();
+                  }}
+                  onClick={() => pick(s)}
+                  className={cx(
+                    "rounded-[8px] px-3.5 py-2 text-[13px] transition-colors duration-[120ms]",
+                    surface === s
+                      ? s === "Navigator"
+                        ? "bg-nav-dim text-nav-accent"
+                        : "bg-signal-dim text-signal"
+                      : "text-ink-faint hover:text-ink-mute"
+                  )}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+            {/* Nothing rotates under prefers-reduced-motion, so there is
+                nothing for this control to do — it isn't rendered. */}
+            {!reduced && (
+              <button
+                type="button"
+                onClick={() => setPlaying((p) => !p)}
+                className={cx(
+                  "ml-1 inline-flex items-center gap-1.5 rounded-[8px] px-2.5 py-2 text-[12px]",
+                  "text-ink-faint transition-colors duration-[120ms] hover:text-ink-mute"
+                )}
+              >
+                {playing ? (
+                  <Pause className="h-3 w-3" aria-hidden />
+                ) : (
+                  <Play className="h-3 w-3" aria-hidden />
+                )}
+                {playing ? "Pause" : "Play"}
+                <span className="sr-only"> the surface rotation</span>
+              </button>
+            )}
+          </div>
 
-        <div className="mt-4 min-h-[240px] rounded-[12px] border border-line bg-bg1 p-6 lg:p-8">
-          {surface === "System Map" && (
-            <svg viewBox="0 0 560 150" className="mx-auto block w-full max-w-[560px]" aria-label="web connected to cache on the System Map">
-              <g fill="none" stroke="var(--line-strong)" strokeWidth="1.3">
-                <path d="M 196 75 C 260 75, 300 75, 364 75" />
-              </g>
-              <rect x="40" y="43" width="156" height="64" rx="12" fill="var(--bg2)" stroke="var(--line)" />
-              <circle cx="182" cy="57" r="3.4" fill="var(--ok)" />
-              <text x="66" y="72" fill="var(--ink)" fontSize="14" fontWeight="600" fontFamily="var(--font-grotesk), 'Space Grotesk', system-ui, sans-serif">web</text>
-              <text x="66" y="92" fill="var(--ink-mute)" fontSize="11" fontFamily="var(--font-grotesk), 'Space Grotesk', system-ui, sans-serif">web · standard × 2</text>
-              <rect x="364" y="46" width="150" height="58" rx="12" fill="var(--bg2)" stroke="var(--line)" />
-              <text x="388" y="73" fill="var(--ink)" fontSize="14" fontWeight="600" fontFamily="var(--font-grotesk), 'Space Grotesk', system-ui, sans-serif">cache</text>
-              <text x="388" y="91" fill="var(--ink-mute)" fontSize="11" fontFamily="var(--font-grotesk), 'Space Grotesk', system-ui, sans-serif">redis · small</text>
-              <rect x="252" y="64" width="56" height="21" rx="10" fill="var(--bg2)" stroke="var(--line)" />
-              <text x="280" y="78" textAnchor="middle" fill="var(--ink-faint)" fontSize="10.5" fontFamily="var(--font-jbmono), 'JetBrains Mono', monospace">cache</text>
-            </svg>
-          )}
-          {surface === "Source" && (
-            <pre className="overflow-x-auto font-mono text-[13px] leading-[1.7] text-ink-mute">
+          <div className="mt-4 min-h-[240px] rounded-[12px] border border-line bg-bg1 p-6 lg:p-8">
+            {SURFACES.map((s) => (
+              <div
+                key={s}
+                id={panelId(s)}
+                role="tabpanel"
+                aria-labelledby={tabId(s)}
+                tabIndex={0}
+                hidden={surface !== s}
+              >
+                <SurfacePanel surface={s} />
+              </div>
+            ))}
+          </div>
+        </div>
+      </Reveal>
+    </section>
+  );
+}
+
+function SurfacePanel({ surface }: { surface: Surface }) {
+  return (
+    <>
+      {surface === "System Map" && (
+        <svg viewBox="0 0 560 150" className="mx-auto block w-full max-w-[560px]" aria-label="web connected to cache on the System Map">
+          <g fill="none" stroke="var(--line-strong)" strokeWidth="1.3">
+            <path d="M 196 75 C 260 75, 300 75, 364 75" />
+          </g>
+          <rect x="40" y="43" width="156" height="64" rx="12" fill="var(--bg2)" stroke="var(--line)" />
+          <circle cx="182" cy="57" r="3.4" fill="var(--ok)" />
+          <text x="66" y="72" fill="var(--ink)" fontSize="14" fontWeight="600" fontFamily="var(--font-grotesk), 'Space Grotesk', system-ui, sans-serif">web</text>
+          <text x="66" y="92" fill="var(--ink-mute)" fontSize="11" fontFamily="var(--font-grotesk), 'Space Grotesk', system-ui, sans-serif">web · standard × 2</text>
+          <rect x="364" y="46" width="150" height="58" rx="12" fill="var(--bg2)" stroke="var(--line)" />
+          <text x="388" y="73" fill="var(--ink)" fontSize="14" fontWeight="600" fontFamily="var(--font-grotesk), 'Space Grotesk', system-ui, sans-serif">cache</text>
+          <text x="388" y="91" fill="var(--ink-mute)" fontSize="11" fontFamily="var(--font-grotesk), 'Space Grotesk', system-ui, sans-serif">redis · small</text>
+          <rect x="252" y="64" width="56" height="21" rx="10" fill="var(--bg2)" stroke="var(--line)" />
+          <text x="280" y="78" textAnchor="middle" fill="var(--ink-faint)" fontSize="10.5" fontFamily="var(--font-jbmono), 'JetBrains Mono', monospace">cache</text>
+        </svg>
+      )}
+      {surface === "Source" && (
+        <pre className="overflow-x-auto font-mono text-[13px] leading-[1.7] text-ink-mute">
 {`"bindings": [
   {
     "from": "svc-web",
@@ -335,32 +406,30 @@ function OneModel() {
   }
 ]
 // injects `}<span className="text-ink">CACHE_URL</span>{` into web at runtime`}
-            </pre>
-          )}
-          {surface === "API" && (
-            <pre className="overflow-x-auto font-mono text-[13px] leading-[1.7] text-ink-mute">
+        </pre>
+      )}
+      {surface === "API" && (
+        <pre className="overflow-x-auto font-mono text-[13px] leading-[1.7] text-ink-mute">
 {`POST /api/actions/`}<span className="text-signal">system.bind</span>{`
 {
   "input": { "from": "web", "to": "cache" },
   "mode": "plan"   // preview first — cost, risk, injected env
 }
 → "Connects web to cache and injects CACHE_URL."`}
-            </pre>
-          )}
-          {surface === "Navigator" && (
-            <div className="mx-auto max-w-[560px] rounded-[12px] border border-nav-accent/25 bg-bg2 p-5">
-              <p className="font-mono text-[12px] text-nav-accent">step 2 · system.bind · low risk</p>
-              <p className="mt-2 text-[15px] font-semibold text-ink">Connect web to cache</p>
-              <p className="mt-1.5 text-[13.5px] leading-[1.6] text-ink-mute">
-                Orrery picks the capability from what cache is, injects the
-                connection config into web, and opens the network path. Recorded
-                as web → cache; audited like every other step.
-              </p>
-            </div>
-          )}
+        </pre>
+      )}
+      {surface === "Navigator" && (
+        <div className="mx-auto max-w-[560px] rounded-[12px] border border-nav-accent/25 bg-bg2 p-5">
+          <p className="font-mono text-[12px] text-nav-accent">step 2 · system.bind · low risk</p>
+          <p className="mt-2 text-[15px] font-semibold text-ink">Connect web to cache</p>
+          <p className="mt-1.5 text-[13.5px] leading-[1.6] text-ink-mute">
+            Orrery picks the capability from what cache is, injects the
+            connection config into web, and opens the network path. Recorded
+            as web → cache; audited like every other step.
+          </p>
         </div>
-      </Reveal>
-    </section>
+      )}
+    </>
   );
 }
 
@@ -679,12 +748,6 @@ function Close({ cta }: { cta: { href: string; label: string } }) {
           <Link href={cta.href} className="transition-colors hover:text-ink">
             {cta.label}
           </Link>
-          <a href="https://github.com/GODOSTROYER/orrery" className="transition-colors hover:text-ink">
-            GitHub
-          </a>
-          <a href="https://github.com/GODOSTROYER/orrery/tree/master/docs" className="transition-colors hover:text-ink">
-            Docs
-          </a>
         </nav>
       </footer>
     </section>

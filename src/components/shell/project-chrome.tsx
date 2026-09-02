@@ -1,9 +1,10 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { Chip, SegmentedControl, Skeleton } from "@/components/ui";
+import { Chip, SegmentedControl, Select, Skeleton } from "@/components/ui";
 import { useProjectData } from "@/components/shell/project-context";
+import { useShell } from "@/components/shell/shell-context";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { cx, fmtUsd } from "@/lib/format";
 import type { Environment } from "@/lib/domain/types";
@@ -19,6 +20,12 @@ const TABS: { seg: string; label: string }[] = [
   { seg: "navigator", label: "Navigator" },
   { seg: "settings", label: "Settings" },
 ];
+
+/** What a tab's trailing count actually counts — screen readers hear this. */
+const BADGE_LABEL: Record<string, (n: number) => string> = {
+  "": (n) => `${n} undeployed change${n === 1 ? "" : "s"} in this environment`,
+  security: (n) => `${n} open security finding${n === 1 ? "" : "s"}`,
+};
 
 /** Production is amber everywhere it appears — including in a picker. */
 function EnvLabel({ env }: { env: Environment }) {
@@ -38,6 +45,9 @@ export function ProjectChrome({ slug, children }: { slug: string; children: Reac
   const { project, environments, selectedEnv, selectedEnvId, setSelectedEnv, changesets, findings } =
     useProjectData();
   const pathname = usePathname();
+  const router = useRouter();
+  const { boot } = useShell();
+  const projects = boot?.projects ?? [];
 
   const base = `/p/${slug}`;
   const rest = pathname.startsWith(base) ? pathname.slice(base.length).replace(/^\//, "") : "";
@@ -52,7 +62,26 @@ export function ProjectChrome({ slug, children }: { slug: string; children: Reac
     <div className="flex h-full flex-col">
       <div className="shrink-0 border-b border-line bg-bg1 px-4 pt-2.5">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <h1 className="truncate text-[15px] font-medium text-ink">{project.name}</h1>
+          {projects.length > 1 ? (
+            <>
+              <h1 className="sr-only">{project.name}</h1>
+              <Select
+                aria-label="Project"
+                title="Switch to another project in this workspace."
+                className="w-[200px]"
+                value={project.slug}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  // The section you are on rarely exists in the same state
+                  // elsewhere, so a switch lands on the new project's map.
+                  if (next !== project.slug) router.push(`/p/${next}`);
+                }}
+                options={projects.map((p) => ({ value: p.slug, label: p.name }))}
+              />
+            </>
+          ) : (
+            <h1 className="truncate text-[15px] font-medium text-ink">{project.name}</h1>
+          )}
 
           {environments.length > 0 && (
             <SegmentedControl
@@ -112,7 +141,15 @@ export function ProjectChrome({ slug, children }: { slug: string; children: Reac
                   <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-nav-accent" />
                 )}
                 {t.label}
-                {badge != null && <span className="tnum text-[11.5px] text-ink-faint">{badge}</span>}
+                {badge != null && (
+                  <span
+                    className="tnum rounded-full bg-bg3 px-1.5 text-[11.5px] text-ink-mute"
+                    title={BADGE_LABEL[t.seg](badge)}
+                  >
+                    {badge}
+                    <span className="sr-only"> {BADGE_LABEL[t.seg](badge)}</span>
+                  </span>
+                )}
                 <span
                   aria-hidden="true"
                   className={cx(

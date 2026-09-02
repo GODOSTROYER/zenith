@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, ArrowRight } from "lucide-react";
 import {
+  Button,
   Chip,
   CostDelta,
   Field,
@@ -76,6 +77,77 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
     <h3 className="text-[12px] font-medium tracking-[0.04em] text-ink-faint uppercase">
       {children}
     </h3>
+  );
+}
+
+/* ----------------------- editing against a moving target -------------------- */
+
+/**
+ * The project payload polls every 5 seconds, so a Navigator run or a second
+ * tab can change an entity while its editor is open. A clean editor just
+ * follows the newer values; a dirty one must never submit the stale fields it
+ * still shows, so the caller is told and the user decides.
+ */
+function useUpstreamGuard<T extends { id: string }>(
+  entity: T,
+  dirty: boolean,
+  reset: () => void
+): { stale: boolean; reload: () => void; keepMine: () => void } {
+  const upstream = JSON.stringify(entity);
+  const [base, setBase] = useState(upstream);
+  const resetRef = useRef(reset);
+  resetRef.current = reset;
+
+  // A different node in the inspector always starts a fresh draft.
+  useEffect(() => {
+    resetRef.current();
+    setBase(JSON.stringify(entity));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entity.id]);
+
+  useEffect(() => {
+    if (dirty || upstream === base) return;
+    resetRef.current();
+    setBase(upstream);
+  }, [upstream, base, dirty]);
+
+  return {
+    stale: upstream !== base,
+    reload: () => {
+      resetRef.current();
+      setBase(upstream);
+    },
+    keepMine: () => setBase(upstream),
+  };
+}
+
+function StaleNotice({
+  name,
+  onReload,
+  onKeepMine,
+}: {
+  name: string;
+  onReload: () => void;
+  onKeepMine: () => void;
+}) {
+  return (
+    <div role="alert" className="space-y-2 rounded-card border border-warn/25 bg-warn-dim p-3">
+      <p className="flex gap-1.5 text-[13px] text-ink">
+        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn" aria-hidden="true" />
+        <span>
+          {name} changed somewhere else while you were editing — a Navigator run, or another tab.
+          Applying what is on screen now would put the older values back.
+        </span>
+      </p>
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="quiet" onClick={onReload}>
+          Load the new values
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onKeepMine}>
+          Keep mine
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -167,7 +239,9 @@ function EnvPanel({ service }: { service: Service }) {
                     )}
                   </span>
                 </div>
-                <div className="opacity-0 transition-opacity duration-[120ms] group-hover:opacity-100 focus-within:opacity-100">
+                {/* Quiet, never invisible — an opacity-0 control does not
+                    exist on a touch screen or to anyone scanning the list. */}
+                <div className="opacity-60 transition-opacity duration-[120ms] group-hover:opacity-100 focus-within:opacity-100">
                   <PlanFirst
                     actionId="system.setEnvVar"
                     input={{ serviceId: service.id, key: e.key, value: null }}
@@ -309,13 +383,12 @@ export function ServiceEditor({ service }: { service: Service }) {
   const [tab, setTab] = useState("config");
   const [draft, setDraft] = useState<ServiceDraft>(() => serviceDraft(service));
 
-  useEffect(() => setDraft(serviceDraft(service)), [service.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const set = <K extends keyof ServiceDraft>(k: K, v: ServiceDraft[K]) =>
     setDraft((d) => ({ ...d, [k]: v }));
 
   const input = serviceUpdateInput(service, draft);
   const dirty = Object.keys(input).length > 1;
+  const guard = useUpstreamGuard(service, dirty, () => setDraft(serviceDraft(service)));
 
   const { current, projected } = useMemo(() => {
     const m: Manifest = structuredClone(project.workingManifest);
@@ -351,6 +424,13 @@ export function ServiceEditor({ service }: { service: Service }) {
 
       {tab === "config" && (
         <div className="space-y-4">
+          {guard.stale && (
+            <StaleNotice
+              name={service.name}
+              onReload={guard.reload}
+              onKeepMine={guard.keepMine}
+            />
+          )}
           <Field label="Name" help="Lowercase letters, digits and dashes. Renaming changes injected env vars.">
             <Input value={draft.name} mono onChange={(e) => set("name", e.target.value)} />
           </Field>
@@ -453,8 +533,12 @@ export function ServiceEditor({ service }: { service: Service }) {
             actionId="system.updateService"
             input={input}
             label="Apply change"
-            disabled={!dirty}
-            disabledReason="Change a field first — there is nothing to apply yet."
+            disabled={!dirty || guard.stale}
+            disabledReason={
+              guard.stale
+                ? `${service.name} changed underneath this form. Load the new values, or keep yours, before applying.`
+                : "Change a field first — there is nothing to apply yet."
+            }
             onCancel={dirty ? () => setDraft(serviceDraft(service)) : undefined}
           />
         </div>
@@ -491,11 +575,6 @@ export function ResourceEditor({ resource }: { resource: Resource }) {
   const [name, setName] = useState(resource.name);
   const [size, setSize] = useState<ServiceSize>(resource.size);
 
-  useEffect(() => {
-    setName(resource.name);
-    setSize(resource.size);
-  }, [resource.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const managed = resource.ownership === "managed";
   const { current, projected } = useMemo(() => {
     const m: Manifest = structuredClone(project.workingManifest);
@@ -509,6 +588,10 @@ export function ResourceEditor({ resource }: { resource: Resource }) {
   if (name !== resource.name) input.name = name.trim();
   if (size !== resource.size) input.size = size;
   const dirty = Object.keys(input).length > 1;
+  const guard = useUpstreamGuard(resource, dirty, () => {
+    setName(resource.name);
+    setSize(resource.size);
+  });
 
   return (
     <div className="space-y-4">
@@ -531,6 +614,13 @@ export function ResourceEditor({ resource }: { resource: Resource }) {
 
       {tab === "config" && (
         <div className="space-y-4">
+          {guard.stale && (
+            <StaleNotice
+              name={resource.name}
+              onReload={guard.reload}
+              onKeepMine={guard.keepMine}
+            />
+          )}
           {!managed && (
             <p className="rounded-ctl border border-line bg-bg1 p-2.5 text-[12.5px] text-ink-mute">
               This {resource.kind} is <strong className="text-ink">{resource.ownership}</strong>:
@@ -567,8 +657,12 @@ export function ResourceEditor({ resource }: { resource: Resource }) {
             actionId="system.updateResource"
             input={input}
             label="Apply change"
-            disabled={!dirty}
-            disabledReason="Change a field first — there is nothing to apply yet."
+            disabled={!dirty || guard.stale}
+            disabledReason={
+              guard.stale
+                ? `${resource.name} changed underneath this form. Load the new values, or keep yours, before applying.`
+                : "Change a field first — there is nothing to apply yet."
+            }
             onCancel={
               dirty
                 ? () => {
@@ -610,6 +704,17 @@ export function ResourceEditor({ resource }: { resource: Resource }) {
 export function RouteEditor({ route }: { route: Route }) {
   const { project } = useProjectData();
   const [tab, setTab] = useState("config");
+  const [tls, setTls] = useState(route.tls);
+  const [pathPrefix, setPathPrefix] = useState(route.pathPrefix);
+
+  const input: Record<string, unknown> = { routeId: route.id };
+  if (tls !== route.tls) input.tls = tls;
+  if (pathPrefix !== route.pathPrefix) input.pathPrefix = pathPrefix.trim();
+  const dirty = Object.keys(input).length > 1;
+  const guard = useUpstreamGuard(route, dirty, () => {
+    setTls(route.tls);
+    setPathPrefix(route.pathPrefix);
+  });
 
   return (
     <div className="space-y-4">
@@ -630,12 +735,13 @@ export function RouteEditor({ route }: { route: Route }) {
       />
 
       {tab === "config" && (
-        <div className="space-y-3">
+        <div className="space-y-4">
+          {guard.stale && (
+            <StaleNotice name={route.host} onReload={guard.reload} onKeepMine={guard.keepMine} />
+          )}
           <Facts
             rows={[
               ["Host", <span key="h" className="font-mono">{route.host}</span>],
-              ["Path prefix", <span key="p" className="font-mono">{route.pathPrefix}</span>],
-              ["TLS", route.tls ? "on — certificate managed" : "off"],
               ["DNS", route.managedDns ? "Orrery-managed hostname" : "your own hostname (CNAME)"],
             ]}
           />
@@ -643,6 +749,47 @@ export function RouteEditor({ route }: { route: Route }) {
             A hostname is an identity, not a setting — to change it, publish a new route and remove
             this one, so the old address keeps working until you say otherwise.
           </p>
+
+          <div className="flex items-center justify-between gap-3 rounded-ctl border border-line px-3 py-2">
+            <div className="min-w-0">
+              <span className="text-[13px] text-ink">TLS</span>
+              <p className="text-[12px] text-ink-mute">
+                {tls
+                  ? route.managedDns
+                    ? "Certificate issued and renewed by Orrery."
+                    : "Certificate issues once the hostname resolves to this environment."
+                  : "Traffic travels as plaintext — anything on the path can read it."}
+              </p>
+            </div>
+            <Switch checked={tls} onChange={setTls} label="Serve over HTTPS" />
+          </div>
+
+          <Field
+            label="Path prefix"
+            help="Which requests on this hostname reach this route. Leading slash added if you leave it off."
+          >
+            <Input value={pathPrefix} mono onChange={(e) => setPathPrefix(e.target.value)} />
+          </Field>
+
+          <PlanFirst
+            actionId="system.updateRoute"
+            input={input}
+            label="Apply change"
+            disabled={!dirty || guard.stale}
+            disabledReason={
+              guard.stale
+                ? `${route.host} changed underneath this form. Load the new values, or keep yours, before applying.`
+                : "Change TLS or the path prefix first — there is nothing to apply yet."
+            }
+            onCancel={
+              dirty
+                ? () => {
+                    setTls(route.tls);
+                    setPathPrefix(route.pathPrefix);
+                  }
+                : undefined
+            }
+          />
         </div>
       )}
 

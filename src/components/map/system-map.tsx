@@ -7,7 +7,6 @@ import {
   Position,
   ReactFlow,
   ReactFlowProvider,
-  type Edge,
   type Node,
 } from "@xyflow/react";
 import { Boxes, Database, FileUp, Globe, Link2, Plus } from "lucide-react";
@@ -22,7 +21,7 @@ import type { ChangeItem } from "@/lib/domain/types";
 import { BlueprintDialog, ImportComposeDialog, type BlueprintCard } from "./dialogs";
 import { edgeTypes, type BindingEdge } from "./edges";
 import { NODE_SIZE, layoutGraph, type Stratum } from "./layout";
-import { nodeTypes, type MapNode, type MapNodeData } from "./nodes";
+import { nodeTypes, type MapNodeData } from "./nodes";
 
 interface HealthPayload {
   simulated: boolean;
@@ -35,12 +34,16 @@ interface HealthPayload {
 /** Half the visual size of an edge anchor, in graph units. */
 const HANDLE_R = 3;
 
+/** Bindings are edges, not nodes — they ghost as edges further down. */
 const STRATUM_OF: Record<ChangeItem["nodeType"], Stratum | null> = {
   route: "route",
   service: "service",
   resource: "resource",
   binding: null,
 };
+
+/** Keyboard order across the map: left column to right, top to bottom. */
+const STRATA_ORDER: Stratum[] = ["route", "service", "resource"];
 
 export interface SystemMapProps {
   /** blueprint catalog metadata, read on the server */
@@ -61,6 +64,8 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
   const [binding, setBinding] = useState(false);
   const [bindFrom, setBindFrom] = useState<string | null>(null);
   const [bindPair, setBindPair] = useState<{ from: string; to: string } | null>(null);
+  /** which node holds the graph's single tab stop */
+  const [focusedId, setFocusedId] = useState<string | null>(null);
   const [liveTargets, setLiveTargets] = useState<string[]>([]);
   const [dialog, setDialog] = useState<"blueprint" | "compose" | null>(null);
 
@@ -126,11 +131,26 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
 
   const selectedNodeId = target?.kind === "node" ? target.nodeId : null;
   const liveKey = liveTargets.join(",");
-  const manifestKey = JSON.stringify(m);
+  // Only what the map actually draws. Stringifying the whole manifest on every
+  // render also hashed env vars, secret refs and resource config — none of
+  // which the map reads — and the poll hands us a fresh object every 5s.
+  const manifestKey = [
+    ...m.routes.map((r) => `R${r.id}:${r.host}:${r.pathPrefix}:${r.tls}`),
+    ...m.services.map((s) => `S${s.id}:${s.name}:${s.kind}:${s.size}:${s.replicas}:${s.schedule ?? ""}:${s.ownership}`),
+    ...m.resources.map((r) => `D${r.id}:${r.name}:${r.kind}:${r.size}:${r.ownership}`),
+    ...m.bindings.map((b) => `B${b.id}:${b.from}>${b.to}:${b.capability}:${b.note ?? ""}`),
+  ].join("|");
   const diffKey = JSON.stringify(changeset?.items.map((i) => [i.nodeId, i.op, i.nodeType, i.nodeName, i.costDeltaUsd]) ?? []);
-  const healthKey = JSON.stringify(health?.services ?? null);
+  // Status and replica counts only. latencyMs is reseeded every 10 seconds by
+  // the log simulator, and folding it in here re-laid-out the whole graph on
+  // that timer — visible jitter for a number that belongs on Observe.
+  const healthKey = Object.entries(health?.services ?? {})
+    .map(([id, h]) => `${id}:${h.status}:${h.replicasReady}/${h.replicasDesired}`)
+    .join("|");
 
-  const { nodes, edges, empty } = useMemo(() => {
+  /* Structure and content of the graph: rebuilt only when the system, the
+     changeset or health actually changes — never on selection or focus. */
+  const { raw, edgeDefs, empty } = useMemo(() => {
     const diffOp = new Map<string, ChangeItem["op"]>();
     for (const i of changeset?.items ?? []) diffOp.set(i.nodeId, i.op);
 
@@ -141,12 +161,9 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
       if (!h) return { health: "idle", healthLabel: "Not running in this environment yet" };
       return {
         health: h.status === "ok" ? "ok" : "warn",
-        healthLabel: `${h.replicasReady}/${h.replicasDesired} ready · ${h.latencyMs}ms — simulated health`,
+        healthLabel: `${h.replicasReady}/${h.replicasDesired} ready — simulated health`,
       };
     };
-
-    const bindState = (id: string): MapNodeData["bindState"] =>
-      !binding ? undefined : bindFrom === id ? "source" : "candidate";
 
     const raw: { id: string; stratum: Stratum; data: MapNodeData }[] = [];
 
@@ -162,8 +179,6 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
           tls: r.tls,
           diff: diffOp.get(r.id),
           live: liveTargets.includes(r.id),
-          selected: selectedNodeId === r.id,
-          bindState: bindState(r.id),
         },
       });
     }
@@ -187,8 +202,6 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
           ownership: s.ownership,
           diff: diffOp.get(s.id),
           live: liveTargets.includes(s.id),
-          selected: selectedNodeId === s.id,
-          bindState: bindState(s.id),
           ...healthFor(s.id),
         },
       });
@@ -207,8 +220,6 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
           ownership: r.ownership,
           diff: diffOp.get(r.id),
           live: liveTargets.includes(r.id),
-          selected: selectedNodeId === r.id,
-          bindState: bindState(r.id),
         },
       });
     }
@@ -228,17 +239,104 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
           sub: "removed on next deploy",
           costUsd: -item.costDeltaUsd,
           diff: "delete",
-          selected: selectedNodeId === item.nodeId,
         },
       });
     }
 
     const known = new Set(raw.map((n) => n.id));
-    const bindings = m.bindings.filter((b) => known.has(b.from) && known.has(b.to));
-    const positions = layoutGraph(
-      raw.map((n) => ({ id: n.id, stratum: n.stratum })),
-      bindings.map((b) => ({ source: b.from, target: b.to }))
-    );
+    const edgeDefs: BindingEdge[] = m.bindings
+      .filter((b) => known.has(b.from) && known.has(b.to))
+      .map((b) => ({
+        id: b.id,
+        source: b.from,
+        target: b.to,
+        type: "binding" as const,
+        data: {
+          capability: b.capability,
+          note: b.note,
+          live: liveTargets.includes(b.to),
+          diff: diffOp.get(b.id) === "create" ? ("create" as const) : undefined,
+        },
+      }));
+
+    // A removed binding has to ghost too, or the map claims a connection is
+    // already gone while the Changes panel still lists it — the exact
+    // disagreement ARCHITECTURE §5 forbids. The changeset carries a binding's
+    // endpoints only as its display name, "<from> → <to>", so resolve them
+    // against the nodes above (ghosts included).
+    const byName = new Map(raw.map((n) => [n.data.name, n.id]));
+    for (const item of changeset?.items ?? []) {
+      if (item.op !== "delete" || item.nodeType !== "binding") continue;
+      const [from, to] = item.nodeName.split(" → ");
+      const source = byName.get(from);
+      const target = byName.get(to);
+      if (!source || !target) continue;
+      edgeDefs.push({
+        id: item.nodeId,
+        source,
+        target,
+        type: "binding",
+        data: { capability: "removing", note: item.explanation, diff: "delete" },
+      });
+    }
+
+    return {
+      raw,
+      edgeDefs,
+      empty: m.services.length === 0 && m.resources.length === 0 && m.routes.length === 0,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manifestKey, diffKey, healthKey, liveKey, deployed]);
+
+  /* Dagre runs only when the shape of the graph changes — not when a node is
+     renamed, resized, selected, focused or reports different health. */
+  const structureKey =
+    raw.map((n) => `${n.id}:${n.stratum}`).join("|") +
+    "//" +
+    edgeDefs.map((e) => `${e.source}>${e.target}`).join("|");
+
+  const positions = useMemo(
+    () =>
+      layoutGraph(
+        raw.map((n) => ({ id: n.id, stratum: n.stratum })),
+        edgeDefs.map((e) => ({ source: e.source, target: e.target }))
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [structureKey]
+  );
+
+  const { nodes, edges, nodeCount } = useMemo(() => {
+    // Keyboard order follows the drawing: column by column, top to bottom.
+    const order = [...raw]
+      .sort(
+        (a, b) =>
+          STRATA_ORDER.indexOf(a.stratum) - STRATA_ORDER.indexOf(b.stratum) ||
+          (positions[a.id]?.y ?? 0) - (positions[b.id]?.y ?? 0)
+      )
+      .map((n) => n.id);
+    const rank = new Map(order.map((id, i) => [id, i]));
+    const roving = focusedId && rank.has(focusedId) ? focusedId : order[0];
+    const nav = (id: string, delta: -1 | 1) => {
+      const at = rank.get(id) ?? 0;
+      const next = order[(at + delta + order.length) % order.length];
+      if (next) setFocusedId(next);
+    };
+
+    // Only offer what system.bind will actually accept: nothing may target a
+    // route, a route may only point at a service, and a ghost is not in the
+    // working manifest at all, so it cannot be bound to anything.
+    const routeIds = new Set(m.routes.map((r) => r.id));
+    const serviceIds = new Set(m.services.map((s) => s.id));
+    const liveIds = new Set([...m.services.map((s) => s.id), ...m.resources.map((r) => r.id), ...routeIds]);
+
+    const bindState = (id: string): MapNodeData["bindState"] => {
+      if (!binding || !liveIds.has(id)) return undefined;
+      if (bindFrom === id) return "source";
+      if (!bindFrom) return "candidate";
+      if (routeIds.has(id)) return undefined;
+      if (routeIds.has(bindFrom) && !serviceIds.has(id)) return undefined;
+      return "candidate";
+    };
 
     // Sizes and anchor points are known up front, so edges have real geometry
     // on the first paint rather than after a measurement pass.
@@ -248,7 +346,16 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
         id: n.id,
         type: n.stratum,
         position: positions[n.id] ?? { x: 0, y: 0 },
-        data: { ...n.data, onActivate: () => onNodeActivate(n.id) },
+        data: {
+          ...n.data,
+          selected: selectedNodeId === n.id,
+          bindState: bindState(n.id),
+          focused: n.id === roving,
+          posLabel: `${(rank.get(n.id) ?? 0) + 1} of ${order.length}`,
+          onActivate: () => onNodeActivate(n.id),
+          onFocus: () => setFocusedId(n.id),
+          onNav: (delta: -1 | 1) => nav(n.id, delta),
+        },
         width,
         height,
         handles: [
@@ -276,26 +383,9 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
       };
     });
 
-    const edges: Edge[] = bindings.map((b) => ({
-      id: b.id,
-      source: b.from,
-      target: b.to,
-      type: "binding",
-      data: {
-        capability: b.capability,
-        note: b.note,
-        live: liveTargets.includes(b.to),
-        diff: diffOp.get(b.id) === "create" ? "create" : undefined,
-      },
-    }));
-
-    return {
-      nodes,
-      edges,
-      empty: m.services.length === 0 && m.resources.length === 0 && m.routes.length === 0,
-    };
+    return { nodes, edges: edgeDefs, nodeCount: order.length };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [manifestKey, diffKey, healthKey, liveKey, selectedNodeId, binding, bindFrom, deployed, onNodeActivate]);
+  }, [raw, edgeDefs, positions, selectedNodeId, focusedId, binding, bindFrom, manifestKey, onNodeActivate]);
 
   const nameOf = (id: string) =>
     m.services.find((s) => s.id === id)?.name ??
@@ -322,7 +412,7 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
                     icon={<FileUp className="h-3.5 w-3.5" aria-hidden="true" />}
                     onClick={() => setDialog("compose")}
                   >
-                    Import docker-compose
+                    Import a file
                   </Button>
                   <Button variant="quiet" onClick={() => setTarget({ kind: "add-service" })}>
                     Add your first service
@@ -332,9 +422,16 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
             />
           </div>
         ) : (
+          // One tab stop for the whole graph: the nodes rove the tabIndex
+          // between themselves and arrow keys walk the drawn order.
+          <div
+            role="application"
+            aria-label={`System map for ${project.name}: ${nodeCount} node${nodeCount === 1 ? "" : "s"}. Arrow keys move between nodes; Enter opens one in the inspector.`}
+            className="h-full w-full"
+          >
           <ReactFlow
             nodes={nodes}
-            edges={edges as BindingEdge[]}
+            edges={edges}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             nodesDraggable={false}
@@ -351,6 +448,7 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
             <Background gap={22} size={1} color="var(--line)" />
             <Controls position="bottom-right" showInteractive={false} />
           </ReactFlow>
+          </div>
         )}
 
         {/* Toolbar — top-left, never under the toasts or the zoom controls. */}
@@ -431,6 +529,7 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
       <DeployDock
         onLiveTargets={setLiveTargets}
         onAddRoute={() => setTarget({ kind: "add-route" })}
+        inspectorOpen={target !== null}
       />
 
       <BlueprintDialog

@@ -20,7 +20,7 @@ import {
   type NavigatorStep,
 } from "@/lib/domain/types";
 import { environmentHealth } from "@/lib/logsim";
-import { normalizeGoal } from "./llm";
+import { normalizeGoal, type Parsing } from "./llm";
 import { parseGoal } from "./planner";
 import { INVESTIGATE, isExecutable } from "./shared";
 
@@ -37,7 +37,10 @@ export const findRun = (runId: string): NavigatorRun | undefined =>
 /* --------------------------------- create --------------------------------- */
 
 /** Plan a goal and persist it. Nothing executes here — planning is free. */
-export async function createRun(projectId: string, goal: string): Promise<NavigatorRun> {
+export async function createRun(
+  projectId: string,
+  goal: string
+): Promise<{ run: NavigatorRun; parsing: Parsing }> {
   registerAllActions();
   const project = q.project(projectId);
   if (!project)
@@ -53,7 +56,7 @@ export async function createRun(projectId: string, goal: string): Promise<Naviga
   // With an ANTHROPIC_API_KEY configured, a language model translates the
   // freeform goal into the canonical grammar. The typed planner below remains
   // the only planning authority either way.
-  const { text } = await normalizeGoal(trimmed, project, environments);
+  const { text, ...parsing } = await normalizeGoal(trimmed, project, environments);
   const steps = parseGoal(text, project, environments, findings);
 
   const run: NavigatorRun = {
@@ -66,7 +69,7 @@ export async function createRun(projectId: string, goal: string): Promise<Naviga
   };
   db().navigatorRuns.push(run);
   save();
-  return run;
+  return { run, parsing };
 }
 
 /* ------------------------------- investigate ------------------------------- */

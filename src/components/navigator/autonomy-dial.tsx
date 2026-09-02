@@ -9,6 +9,8 @@ export interface AutonomyDialProps {
   level: AutonomyLevel;
   /** called after the action lands, so the page can refetch */
   onChanged: (level: AutonomyLevel) => void;
+  /** whose setting this is — it is workspace-wide, not per-project */
+  workspaceName?: string;
 }
 
 const NOTCH: Record<AutonomyLevel, number> = {
@@ -23,11 +25,17 @@ const NOTCH: Record<AutonomyLevel, number> = {
  * The autonomy dial. Five notches, and the copy under it is the rule the
  * executor actually enforces — not a softer version of it.
  */
-export function AutonomyDial({ level, onChanged }: AutonomyDialProps) {
+export function AutonomyDial({ level, onChanged, workspaceName }: AutonomyDialProps) {
   const [optimistic, setOptimistic] = useState<AutonomyLevel | null>(null);
   const [error, setError] = useState<string>();
   const [pending, start] = useTransition();
   const shown = optimistic ?? level;
+
+  // The dial lives in a project view but writes a workspace setting. Say so at
+  // the control, not only in the docs.
+  const scopeNote = `This dial is a workspace setting${
+    workspaceName ? ` on ${workspaceName}` : ""
+  } — changing it changes the Navigator's autonomy in every project, not just this one.`;
 
   const change = (next: AutonomyLevel) => {
     if (next === shown) return;
@@ -51,6 +59,7 @@ export function AutonomyDial({ level, onChanged }: AutonomyDialProps) {
         <span className="text-[11.5px] font-medium tracking-[0.02em] text-ink-faint uppercase">
           Autonomy
         </span>
+        <Chip title={scopeNote}>{workspaceName ? `all of ${workspaceName}` : "whole workspace"}</Chip>
         <SegmentedControl<AutonomyLevel>
           size="sm"
           label="Navigator autonomy level"
@@ -72,6 +81,7 @@ export function AutonomyDial({ level, onChanged }: AutonomyDialProps) {
         {AUTONOMY_MEANING[shown]} Every step is audited whatever the level, and deployments
         still obey each environment&rsquo;s approval policy.
       </p>
+      <p className="mt-1 max-w-[62ch] text-[12px] text-ink-faint">{scopeNote}</p>
       {error && <p className="mt-1 text-[12.5px] text-err">{error}</p>}
     </div>
   );

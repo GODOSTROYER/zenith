@@ -51,7 +51,7 @@ interface Built {
 }
 
 /**
- * All twelve system.* actions are the same shape: build the next manifest
+ * Every system.* action is the same shape: build the next manifest
  * purely, preview it with a real diff, commit it on execute.
  */
 export function manifestAction<I extends { projectId?: string }>(def: {
@@ -418,6 +418,75 @@ manifestAction<AddRoute>({
   },
 });
 
+/** Routes are looked up by id or by hostname, like every other node ref. */
+function requireRoute(m: Manifest, routeId: string): Route {
+  const route = m.routes.find((r) => r.id === routeId || r.host === routeId);
+  if (!route)
+    throw new Error(
+      `No route "${routeId}". Known routes: ${m.routes.map((r) => r.host).join(", ") || "(none — publish one with system.addRoute)"}.`
+    );
+  return route;
+}
+
+const UpdateRoute = z.object({
+  projectId: z.string().optional(),
+  routeId: z.string().min(1),
+  tls: z.boolean().optional(),
+  pathPrefix: z.string().optional(),
+});
+type UpdateRoute = z.infer<typeof UpdateRoute>;
+
+manifestAction<UpdateRoute>({
+  id: "system.updateRoute",
+  title: "Update route",
+  risk: "medium",
+  requiredRole: "editor",
+  input: UpdateRoute,
+  build(project, input) {
+    const next = clone(project.workingManifest);
+    const route = requireRoute(next, input.routeId);
+    if (input.tls === undefined && input.pathPrefix === undefined)
+      throw new Error(
+        "Nothing to change — pass tls, pathPrefix, or both. A hostname is an identity, not a setting: publish the new one with system.addRoute and remove this route when you are ready."
+      );
+
+    const details: string[] = [];
+    const warnings: string[] = [];
+
+    if (input.pathPrefix !== undefined) {
+      const prefix = input.pathPrefix.startsWith("/") ? input.pathPrefix : `/${input.pathPrefix}`;
+      if (prefix !== route.pathPrefix) {
+        if (next.routes.some((r) => r.id !== route.id && r.host === route.host && r.pathPrefix === prefix))
+          throw new Error(`${route.host}${prefix} is already published by another route. Pick a different path prefix.`);
+        details.push(`${route.host}${route.pathPrefix} stops being served here; ${route.host}${prefix} takes over once this is deployed.`);
+        route.pathPrefix = prefix;
+      }
+    }
+
+    if (input.tls !== undefined && input.tls !== route.tls) {
+      route.tls = input.tls;
+      if (input.tls)
+        details.push(
+          route.managedDns
+            ? `${route.host} is Orrery-managed, so the certificate is issued and renewed for you.`
+            : `${route.host} is your own hostname: the certificate is issued after it resolves to this environment, so point the CNAME before deploying.`
+        );
+      else
+        warnings.push(
+          `${route.host} will serve plaintext HTTP. Anything on the network path can read or alter the traffic, including credentials and session cookies.`
+        );
+    }
+
+    return {
+      next,
+      what: `Updates route ${route.host}`,
+      details,
+      warnings,
+      data: { routeId: route.id, host: route.host },
+    };
+  },
+});
+
 const RemoveRoute = z.object({
   projectId: z.string().optional(),
   routeId: z.string().min(1),
@@ -431,9 +500,7 @@ manifestAction<RemoveRoute>({
   input: RemoveRoute,
   build(project, input) {
     const next = clone(project.workingManifest);
-    const route = next.routes.find((r) => r.id === input.routeId || r.host === input.routeId);
-    if (!route)
-      throw new Error(`No route "${input.routeId}". Known routes: ${next.routes.map((r) => r.host).join(", ") || "(none)"}.`);
+    const route = requireRoute(next, input.routeId);
     dropBindings(next, route.id);
     next.routes = next.routes.filter((r) => r.id !== route.id);
     return {

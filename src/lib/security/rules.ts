@@ -14,7 +14,6 @@ import type {
   Environment,
   Project,
   SecurityFinding,
-  Service,
 } from "@/lib/domain/types";
 
 const SECRETISH = /key|secret|token|password|passwd|credential/i;
@@ -55,6 +54,11 @@ export function analyze(project: Project, environments: Environment[]): Security
       title: `${route.host} serves traffic without TLS`,
       detail: `Requests to ${route.host} travel as plaintext, so anything on the path can read or alter them — including credentials and session cookies.`,
       targetId: route.id,
+      fix: {
+        actionId: "system.updateRoute",
+        input: { routeId: route.id, tls: true },
+        label: "Turn TLS on",
+      },
     });
   }
 
@@ -145,21 +149,39 @@ export function analyze(project: Project, environments: Environment[]): Security
   return out;
 }
 
+type G = typeof globalThis & { __orreryFindingsHash?: Map<string, string> };
+
+/** Everything `analyze` actually reads. Same hash in ⇒ same findings out. */
+function inputHash(project: Project, environments: Environment[]): string {
+  return hash32(
+    JSON.stringify([
+      project.workingManifest,
+      environments.map((e) => [e.id, e.name, e.class, e.policies.budgetUsdMonthly]),
+    ])
+  );
+}
+
 /**
  * Recompute findings for a project and reconcile them into the store.
  * Dismissals are keyed by the stable id, so a dismissed finding stays
  * dismissed across recomputation; anything no longer detected disappears.
+ * Recomputation is skipped entirely when nothing it reads has changed.
  */
 export function syncFindings(projectId: string): SecurityFinding[] {
   const project = q.project(projectId);
   if (!project) return [];
-  const fresh = analyze(project, q.environmentsOf(project.id));
+  const mine = (f: SecurityFinding) => f.projectId === project.id;
 
-  const existing = new Map(
-    db()
-      .findings.filter((f) => f.projectId === project.id)
-      .map((f) => [f.id, f])
-  );
+  // The project screen polls every 5s per open tab; only recompute when the
+  // manifest or the environments that findings depend on actually changed.
+  const environments = q.environmentsOf(project.id);
+  const hash = inputHash(project, environments);
+  const seen = ((globalThis as G).__orreryFindingsHash ??= new Map());
+  if (seen.get(project.id) === hash) return db().findings.filter(mine);
+
+  const fresh = analyze(project, environments);
+  const stored = db().findings.filter(mine);
+  const existing = new Map(stored.map((f) => [f.id, f]));
 
   const reconciled = fresh.map((f) => {
     const prior = existing.get(f.id);
@@ -168,10 +190,11 @@ export function syncFindings(projectId: string): SecurityFinding[] {
       : f;
   });
 
-  db().findings = [
-    ...db().findings.filter((f) => f.projectId !== project.id),
-    ...reconciled,
-  ];
+  seen.set(project.id, hash);
+  // A recompute that changes nothing must not touch the disk.
+  if (JSON.stringify(stored) === JSON.stringify(reconciled)) return stored;
+
+  db().findings = [...db().findings.filter((f) => !mine(f)), ...reconciled];
   save();
   return reconciled;
 }

@@ -5,7 +5,9 @@
  *                                       ↘ failed → rolling_back → rolled_back
  *
  * All state lives in `db()`. The 250ms ticker on `globalThis` only advances it,
- * one running step per deployment at a time, through the provider adapter.
+ * one running step per deployment at a time, through the provider adapter. It
+ * walks an active-deployment set, so a finished deployment costs nothing and an
+ * idle server ticks on an empty set.
  * Every transition is appended to the JSONL event log with a per-deployment
  * monotonic `seq`, so SSE clients replay from any cursor after a refresh.
  *
@@ -62,10 +64,15 @@ type EngineGlobals = typeof globalThis & {
   __orreryTicker?: ReturnType<typeof setInterval>;
   __orrerySeq?: Map<string, number>;
   __orreryInflight?: Set<string>;
+  /** deployments the ticker still has work for; finished ones are dropped */
+  __orreryActive?: Set<string>;
   __orreryProvidersReady?: boolean;
 };
 
 const g = () => globalThis as EngineGlobals;
+
+/** Deployments the ticker must look at. Empty = the ticker costs one compare. */
+const active = (): Set<string> => (g().__orreryActive ??= new Set());
 
 const TERMINAL: DeploymentStatus[] = [
   "succeeded",
@@ -113,6 +120,9 @@ function providerIdFor(env: Environment): ProviderId {
 function setStatus(d: StoredDeployment, status: DeploymentStatus): void {
   d.status = status;
   if (TERMINAL.includes(status)) d.endedAt = now();
+  // Only "applying"/"verifying" have steps for the ticker to advance.
+  if (status === "applying" || status === "verifying") active().add(d.id);
+  else active().delete(d.id);
   emit(d.id, { type: "status", status });
   save();
 }
@@ -151,10 +161,15 @@ export function ensureEngine(): void {
 /* --------------------------------- ticker --------------------------------- */
 
 function tick(): void {
+  const running = active();
+  if (running.size === 0) return; // nothing is deploying: the ticker costs nothing
   const inflight = g().__orreryInflight!;
-  for (const raw of db().deployments) {
-    const d = raw as StoredDeployment;
-    if (d.status !== "applying" && d.status !== "verifying") continue;
+  for (const deploymentId of running) {
+    const d = stored(deploymentId);
+    if (!d || (d.status !== "applying" && d.status !== "verifying")) {
+      running.delete(deploymentId);
+      continue;
+    }
     if (inflight.has(d.id)) continue;
     const step = d.steps.find(
       (s) => s.status === "pending" || s.status === "running"
@@ -442,6 +457,7 @@ function resumeInFlight(): void {
   for (const raw of db().deployments) {
     const d = raw as StoredDeployment;
     if (d.status !== "applying" && d.status !== "verifying") continue;
+    active().add(d.id); // the only full scan: once, at boot
     const running = d.steps.find((s) => s.status === "running");
     if (running)
       emit(d.id, {

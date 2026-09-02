@@ -7,7 +7,7 @@
  * changes, and replaces the working copy through project.updateManifest —
  * the same audited action pipeline the visual editor uses.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, FileJson, Info } from "lucide-react";
 import { useJson } from "@/lib/client/api";
 import { diffManifests, validateManifest, type ValidationIssue } from "@/lib/domain/graph";
@@ -28,13 +28,18 @@ import { EditorBoundary } from "@/components/screens/editor-boundary";
 import { ExportPanel } from "@/components/screens/export-panel";
 import { ActionConfirm, ChangeRow, ErrorNote } from "@/components/screens/shared";
 import { useSelectedEnv } from "@/components/screens/project-data";
+import { describeJsonError, type JsonErrorSite } from "./json-error";
 
 const SAVE_NOTE =
   "Save validates the text, previews the resulting changes with their cost, and only then replaces the working copy — through the same audited action every other editor uses.";
 
+/** Idle time before the editor checks the document on its own. */
+const VALIDATE_DEBOUNCE_MS = 400;
+
 type ParseState =
   | { kind: "idle" }
-  | { kind: "error"; message: string }
+  | { kind: "checking" }
+  | { kind: "error"; message: string; site?: JsonErrorSite }
   | { kind: "ok"; manifest: Manifest; issues: ValidationIssue[] };
 
 export default function SourcePage() {
@@ -94,6 +99,7 @@ export default function SourcePage() {
             error={deployed.error}
             neverDeployed={!env?.deployedRevisionId}
             envName={env?.name}
+            working={working}
           />
         )}
 
@@ -126,24 +132,22 @@ function WorkingTab({
   const [text, setText] = useState(json);
   const [parse, setParse] = useState<ParseState>({ kind: "idle" });
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const areaRef = useRef<HTMLTextAreaElement>(null);
+  const gutterRef = useRef<HTMLDivElement>(null);
 
   // The working copy can change under us (map edits, Navigator runs).
   useEffect(() => {
     setText(json);
-    setParse({ kind: "idle" });
   }, [json]);
 
   const dirty = text !== json;
 
-  const validate = () => {
+  const validate = useCallback((source: string) => {
     let raw: unknown;
     try {
-      raw = JSON.parse(text);
+      raw = JSON.parse(source);
     } catch (e) {
-      setParse({
-        kind: "error",
-        message: `${(e as Error).message}. Fix the JSON syntax — the manifest has to parse before anything can be checked.`,
-      });
+      setParse({ kind: "error", ...describeJsonError(source, e) });
       return;
     }
     const parsed = Manifest.safeParse(raw);
@@ -156,10 +160,41 @@ function WorkingTab({
       return;
     }
     setParse({ kind: "ok", manifest: parsed.data, issues: validateManifest(parsed.data) });
-  };
+  }, []);
+
+  // Validate while the operator is idle, so Save's state is usually already
+  // known by the time they reach for it. The button below is still explicit.
+  useEffect(() => {
+    setParse({ kind: "checking" });
+    const t = setTimeout(() => validate(text), VALIDATE_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [text, validate]);
 
   const changeset =
     parse.kind === "ok" ? diffManifests(manifest, parse.manifest) : undefined;
+  const blockingIssues =
+    parse.kind === "ok" && parse.issues.some((i) => i.level === "error");
+
+  /** Select the offending character and put its line on screen. */
+  const revealSite = (site: JsonErrorSite) => {
+    const area = areaRef.current;
+    if (!area) return;
+    area.focus();
+    area.setSelectionRange(site.offset, Math.min(site.offset + 1, area.value.length));
+    // Measured, not assumed: the gutter row is exactly the text row.
+    const row = gutterRef.current?.children[site.line - 1] as HTMLElement | undefined;
+    if (row) area.scrollTop = Math.max(0, row.offsetTop - area.clientHeight / 3);
+  };
+
+  const saveBlockedReason = !dirty
+    ? "Nothing to save — the text matches the working copy."
+    : parse.kind === "checking" || parse.kind === "idle"
+      ? "Checking the JSON — this settles in a moment."
+      : parse.kind === "error"
+        ? "The document does not parse — fix the error shown below."
+        : blockingIssues
+          ? "Fix the validation errors first; they would block the next deploy."
+          : undefined;
 
   return (
     <div className="space-y-4">
@@ -185,35 +220,57 @@ function WorkingTab({
         <EditorBoundary
           onRestore={() => {
             setText(json);
-            setParse({ kind: "idle" });
           }}
         >
           <div className="space-y-4">
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              spellCheck={false}
-              aria-label="Manifest JSON"
-              className="h-[520px] w-full resize-y rounded-card border border-line bg-bg1 p-3 font-mono text-[13px] leading-[1.65] text-ink outline-none focus-visible:border-signal"
-            />
+            {/*
+              A textarea with a line-number gutter — no editor dependency, on
+              purpose. The gutter is a plain column scrolled from the
+              textarea's own scroll event; `wrap="off"` is what keeps the two
+              in step, since a soft-wrapped line would take two rows in the
+              textarea and one in the gutter.
+            */}
+            <div className="flex h-[520px] overflow-hidden rounded-card border border-line bg-bg1 focus-within:border-signal">
+              <div
+                ref={gutterRef}
+                aria-hidden="true"
+                className="tnum shrink-0 overflow-hidden border-r border-line bg-bg1 py-3 pr-2 pl-3 text-right font-mono text-[13px] leading-[1.65] text-ink-faint select-none"
+              >
+                {Array.from({ length: text.split("\n").length }, (_, i) => (
+                  <div
+                    key={i}
+                    className={
+                      parse.kind === "error" && parse.site?.line === i + 1
+                        ? "font-medium text-err"
+                        : undefined
+                    }
+                  >
+                    {i + 1}
+                  </div>
+                ))}
+              </div>
+              <textarea
+                ref={areaRef}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onScroll={(e) => {
+                  if (gutterRef.current)
+                    gutterRef.current.scrollTop = e.currentTarget.scrollTop;
+                }}
+                spellCheck={false}
+                wrap="off"
+                aria-label="Manifest JSON"
+                className="h-full w-full resize-none bg-transparent p-3 font-mono text-[13px] leading-[1.65] text-ink outline-none"
+              />
+            </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="quiet" onClick={validate}>
+              <Button variant="quiet" onClick={() => validate(text)}>
                 Validate
               </Button>
               <Button
-                disabled={
-                  !dirty ||
-                  parse.kind !== "ok" ||
-                  parse.issues.some((i) => i.level === "error")
-                }
-                disabledReason={
-                  !dirty
-                    ? "Nothing to save — the text matches the working copy."
-                    : parse.kind !== "ok"
-                      ? "Validate first — Save only applies text that parses and passes checks."
-                      : "Fix the validation errors first; they would block the next deploy."
-                }
+                disabled={Boolean(saveBlockedReason)}
+                disabledReason={saveBlockedReason}
                 onClick={() => setConfirmOpen(true)}
               >
                 Save
@@ -222,14 +279,12 @@ function WorkingTab({
                 variant="ghost"
                 disabled={!dirty}
                 disabledReason="The text already matches the working copy."
-                onClick={() => {
-                  setText(json);
-                  setParse({ kind: "idle" });
-                }}
+                onClick={() => setText(json)}
               >
                 Revert
               </Button>
               {dirty && <Chip tone="warn">Unsaved text</Chip>}
+              <ParseStatus parse={parse} />
             </div>
 
             <div className="flex gap-2.5 rounded-card border border-line bg-bg1 px-4 py-3 text-[12.5px] text-ink-mute">
@@ -237,11 +292,14 @@ function WorkingTab({
               <p>{SAVE_NOTE}</p>
             </div>
 
-            {parse.kind === "error" && <ErrorNote error={new Error(parse.message)} />}
-
-            {parse.kind === "ok" && (
-              <IssueList issues={parse.issues} />
+            {parse.kind === "error" && (
+              <div className="space-y-2">
+                <ErrorNote error={new Error(parse.message)} />
+                {parse.site ? <GoToLine site={parse.site} onGo={revealSite} /> : null}
+              </div>
             )}
+
+            {parse.kind === "ok" && <IssueList issues={parse.issues} />}
 
             {changeset && (
               <Card
@@ -286,7 +344,6 @@ function WorkingTab({
                 if (result.ok) {
                   setConfirmOpen(false);
                   setMode("read");
-                  setParse({ kind: "idle" });
                   refresh();
                 }
               }}
@@ -295,6 +352,29 @@ function WorkingTab({
         </EditorBoundary>
       )}
     </div>
+  );
+}
+
+/** One quiet line so the debounced check is never a silent state change. */
+function ParseStatus({ parse }: { parse: ParseState }) {
+  if (parse.kind === "checking")
+    return <span className="text-[12.5px] text-ink-faint">Checking…</span>;
+  if (parse.kind === "ok" && !parse.issues.some((i) => i.level === "error"))
+    return <span className="text-[12.5px] text-ink-faint">Checked · parses</span>;
+  return null;
+}
+
+function GoToLine({
+  site,
+  onGo,
+}: {
+  site: JsonErrorSite;
+  onGo: (site: JsonErrorSite) => void;
+}) {
+  return (
+    <Button size="sm" variant="quiet" onClick={() => onGo(site)}>
+      Go to line {site.line}, column {site.column}
+    </Button>
   );
 }
 
@@ -341,13 +421,21 @@ function DeployedTab({
   error,
   neverDeployed,
   envName,
+  working,
 }: {
   revision: Revision | undefined;
   loading: boolean;
   error: unknown;
   neverDeployed: boolean;
   envName: string | undefined;
+  working: Manifest;
 }) {
+  // What the working copy would change if it were deployed here right now.
+  const drift = useMemo(
+    () => (revision ? diffManifests(revision.manifest, working) : undefined),
+    [revision, working]
+  );
+
   if (neverDeployed)
     return (
       <EmptyState
@@ -357,18 +445,44 @@ function DeployedTab({
       />
     );
   if (error) return <ErrorNote error={error} />;
-  if (loading || !revision) return <Skeleton height={360} />;
+  if (loading || !revision || !drift) return <Skeleton height={360} />;
+
+  const where = envName ?? "this environment";
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-ink-mute">
         <Chip tone="signal">r{revision.number}</Chip>
         <span>{revision.message}</span>
         <span className="text-ink-faint">· {revision.author.name}</span>
       </div>
+
+      <Card
+        title={
+          drift.items.length === 0
+            ? "The working copy matches what is running"
+            : `${drift.items.length} change${drift.items.length === 1 ? "" : "s"} in the working copy, not yet in ${where}`
+        }
+        subtitle={
+          drift.items.length === 0
+            ? `Nothing to deploy: r${revision.number} and the working copy describe the same system.`
+            : `Deploying the working copy to ${where} would apply these. Projected ${fmtUsd(drift.projectedMonthlyUsd)}/month afterwards (estimate).`
+        }
+        actions={drift.items.length > 0 ? <CostDelta usd={drift.totalCostDeltaUsd} /> : undefined}
+        padded={drift.items.length === 0}
+      >
+        {drift.items.length === 0 ? null : (
+          <ul className="-mx-1">
+            {drift.items.map((i) => (
+              <ChangeRow key={`${i.op}-${i.nodeId}`} item={i} />
+            ))}
+          </ul>
+        )}
+      </Card>
+
       <CodeBlock
         code={JSON.stringify(revision.manifest, null, 2)}
-        title={`r${revision.number} — live in ${envName ?? "this environment"}`}
+        title={`r${revision.number} — live in ${where}`}
         lineNumbers
         maxHeight={560}
       />

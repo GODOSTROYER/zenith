@@ -17,8 +17,33 @@ import {
   type Project,
   type Revision,
 } from "@/lib/domain/types";
+import { providerRegistry } from "@/lib/providers/types";
 import { getEngine } from "./_engine";
 import { clone, maxRisk, requireEnvironment, requireProject, usd } from "./_shared";
+
+/* ---------------------------- provider honesty ---------------------------- */
+
+/**
+ * What this environment's provider can really do, decided BEFORE anything is
+ * written. Previously the AWS adapter refused inside executeStep and the
+ * planned stubs threw out of planSteps — by then a revision was snapshotted and
+ * a deployment record existed, which is a lie about what happened.
+ */
+function providerBlock(env: Environment): string | undefined {
+  const providerId = q.connection(env.connectionId)?.provider ?? "sandbox";
+  const provider = providerRegistry().get(providerId);
+  // Not registered yet (engine not booted): the engine still refuses honestly.
+  if (!provider || provider.availability === "available") return undefined;
+  if (provider.availability === "preview")
+    return (
+      `${provider.displayName} is a Preview provider: Orrery plans this deployment and exports runnable Terraform for it, but it never applies changes to your account. ` +
+      `Export the Terraform from Environment → Export and run it with your own tooling, or point ${env.name} at a Sandbox connection to watch the full flow.`
+    );
+  return (
+    `${provider.displayName} is a Planned provider: Orrery cannot plan, apply or export for it yet. ` +
+    `Point ${env.name} at a Sandbox connection to deploy now, or at AWS to export runnable Terraform.`
+  );
+}
 
 /** The manifest currently live in an environment (empty if never deployed). */
 export function deployedManifest(env: Environment): Manifest {
@@ -56,14 +81,18 @@ function blockingIssues(m: Manifest): string[] {
 
 function deployPlan(env: Environment, project: Project): ActionPlan {
   const cs = changesetFor(env, project);
+  const blocked = providerBlock(env);
   const errors = blockingIssues(project.workingManifest);
   const warnings = validateManifest(project.workingManifest)
     .filter((i) => i.level === "warning")
     .map((i) => `${i.message}${i.fix ? ` ${i.fix}` : ""}`);
 
   return {
-    summary: `Deploy ${project.name} to ${env.name} — ${tally(cs)}.`,
+    summary: blocked
+      ? `${project.name} cannot be deployed to ${env.name} — ${tally(cs)} is what would change, but this provider cannot apply it.`
+      : `Deploy ${project.name} to ${env.name} — ${tally(cs)}.`,
     details: [
+      ...(blocked ? [blocked] : []),
       ...cs.items.map((i) => i.explanation),
       `Projected monthly cost after this deploy: ${usd(cs.projectedMonthlyUsd)} (estimate).`,
       env.policies.approvalRequired
@@ -73,6 +102,7 @@ function deployPlan(env: Environment, project: Project): ActionPlan {
     costDeltaUsd: cs.totalCostDeltaUsd,
     risk: maxRisk(cs.items.map((i) => i.risk)),
     warnings: [
+      ...(blocked ? [`Blocks the deploy: ${blocked}`] : []),
       ...errors.map((e) => `Blocks the deploy: ${e}`),
       ...cs.warnings,
       ...budgetWarnings(env, cs),
@@ -139,6 +169,15 @@ defineAction<ApplyInput>({
     const env = requireEnvironment(ctx, input.environmentId);
     const project = requireProject(ctx, input.projectId ?? env.projectId);
     const working = project.workingManifest;
+
+    // Refuse before a revision is snapshotted or a deployment record exists.
+    const blocked = providerBlock(env);
+    if (blocked)
+      return {
+        ok: false,
+        summary: `${env.name} cannot be deployed to by its provider.`,
+        error: blocked,
+      };
 
     const errors = blockingIssues(working);
     if (errors.length)
@@ -305,9 +344,13 @@ defineAction<RollbackInput>({
         requiresApproval: false,
       };
     const cs = diffManifests(current?.manifest ?? emptyManifest(), target.manifest);
+    const blocked = providerBlock(env);
     return {
-      summary: `Roll ${env.name} back to revision ${target.number}${current ? ` (from ${current.number})` : ""}.`,
+      summary: blocked
+        ? `${env.name} cannot be rolled back — this provider cannot apply changes.`
+        : `Roll ${env.name} back to revision ${target.number}${current ? ` (from ${current.number})` : ""}.`,
       details: [
+        ...(blocked ? [blocked] : []),
         ...cs.items.map((i) => i.explanation),
         `Projected monthly cost after rollback: ${usd(cs.projectedMonthlyUsd)} (estimate).`,
         "Rollback runs as a normal deployment, with its own steps and logs.",
@@ -315,6 +358,7 @@ defineAction<RollbackInput>({
       costDeltaUsd: cs.totalCostDeltaUsd,
       risk: "high",
       warnings: [
+        ...(blocked ? [`Blocks the rollback: ${blocked}`] : []),
         ...cs.warnings,
         "Rollback restores the system definition, not data written since the last deploy.",
       ],
@@ -323,6 +367,9 @@ defineAction<RollbackInput>({
   },
   async execute(ctx, input) {
     const env = requireEnvironment(ctx, input.environmentId);
+    const blocked = providerBlock(env);
+    if (blocked)
+      return { ok: false, summary: `${env.name} cannot be rolled back.`, error: blocked };
     const engine = await getEngine();
     const d = await engine.rollback(env.id, input.toRevisionId, ctx.actor.name);
     const target = q.revision(d.revisionId);

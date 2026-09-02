@@ -18,7 +18,6 @@ import { SIZE_SPECS } from "@/lib/cost/pricing";
 import type {
   Environment,
   Manifest,
-  Resource,
   Route,
   Service,
   ServiceSize,
@@ -89,7 +88,7 @@ interface ContainerEnv {
  * environment/secrets entries. The right-hand sides are HCL expressions, so
  * they resolve to real endpoints at apply time.
  */
-export function containerEnv(m: Manifest, s: Service, env: Environment): ContainerEnv {
+export function containerEnv(m: Manifest, s: Service, _env: Environment): ContainerEnv {
   const out: ContainerEnv = { env: [], secrets: [], params: [], statements: [], notes: [] };
 
   if (s.port) out.env.push({ name: "PORT", expr: `"${s.port}"` });

@@ -7,7 +7,12 @@
 import { useMemo, useState } from "react";
 import { Plug, Plus, Trash2 } from "lucide-react";
 import { useJson } from "@/lib/client/api";
-import type { CloudConnection, Environment, EnvironmentClass } from "@/lib/domain/types";
+import type {
+  CloudConnection,
+  Environment,
+  EnvironmentClass,
+  Workspace,
+} from "@/lib/domain/types";
 import { fmtUsd } from "@/lib/format";
 import {
   Button,
@@ -36,15 +41,47 @@ const CONN_DOT: Record<CloudConnection["status"], DotStatus> = {
 const DELETE_DISABLED_REASON =
   "There is no project.delete action in the catalog, so nothing here could actually remove the project. Delete the .data directory and re-seed to start over.";
 
+/** Shape of the pieces of `/api/bootstrap` this screen reads. */
+interface ProviderInfo {
+  id: CloudConnection["provider"];
+  displayName: string;
+  availability: "available" | "preview" | "planned";
+  tagline: string;
+  regions: { id: string; label: string }[];
+}
+
 interface Bootstrap {
+  workspace: Workspace;
   connections: CloudConnection[];
+  /** the registry's own answer — never a hardcoded provider name */
+  providers: ProviderInfo[];
 }
 
 type Pending =
   | { kind: "budget"; env: Environment; value: number | null }
   | { kind: "approval"; env: Environment; value: boolean }
   | { kind: "createEnv"; input: { name: string; class: EnvironmentClass; connectionId?: string } }
-  | { kind: "disconnect"; connection: CloudConnection };
+  | { kind: "disconnect"; connection: CloudConnection }
+  | { kind: "renameWorkspace"; from: string; name: string }
+  | { kind: "createConn"; provider: ProviderInfo; input: { provider: string; label?: string; region?: string } };
+
+/**
+ * Why a connection cannot be deployed through, or undefined when it can.
+ * Driven by the provider registry's availability, so a provider that becomes
+ * available becomes selectable without a code change here.
+ */
+function unusableReason(
+  connection: CloudConnection,
+  providerById: Map<string, ProviderInfo>
+): string | undefined {
+  const p = providerById.get(connection.provider);
+  if (!p)
+    return `this build has no ${connection.provider} adapter registered, so it cannot run a deployment`;
+  if (p.availability === "available") return undefined;
+  return p.availability === "preview"
+    ? `${p.displayName} is preview: Orrery plans and exports for it, but does not apply changes to it yet`
+    : `${p.displayName} is planned, not implemented`;
+}
 
 export default function SettingsPage() {
   const { data, env, projectId, refresh } = useSelectedEnv();
@@ -52,6 +89,8 @@ export default function SettingsPage() {
   const [pending, setPending] = useState<Pending | null>(null);
 
   const connections = useMemo(() => boot.data?.connections ?? [], [boot.data]);
+  const providers = useMemo(() => boot.data?.providers ?? [], [boot.data]);
+  const providerById = useMemo(() => new Map(providers.map((p) => [p.id, p])), [providers]);
   const connectionById = useMemo(
     () => new Map(connections.map((c) => [c.id, c])),
     [connections]
@@ -73,6 +112,24 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto h-full w-full overflow-y-auto max-w-[1040px] space-y-10 px-6 py-6">
+      {/* -------------------------------- workspace ------------------------ */}
+      <section className="space-y-4">
+        <SectionHead
+          title="Workspace"
+          body="The name in the top bar. Onboarding promised you could change it later; this is later."
+        />
+        {!boot.data ? (
+          <Skeleton height={120} />
+        ) : (
+          <WorkspaceCard
+            workspace={boot.data.workspace}
+            onRename={(name) =>
+              setPending({ kind: "renameWorkspace", from: boot.data!.workspace.name, name })
+            }
+          />
+        )}
+      </section>
+
       {/* ------------------------------ environments ----------------------- */}
       <section className="space-y-4">
         <SectionHead
@@ -93,6 +150,7 @@ export default function SettingsPage() {
         </div>
         <NewEnvironmentForm
           connections={connections}
+          providerById={providerById}
           onSubmit={(input) => setPending({ kind: "createEnv", input })}
         />
       </section>
@@ -106,23 +164,32 @@ export default function SettingsPage() {
         {boot.error ? <ErrorNote error={boot.error} /> : null}
         {!boot.data ? (
           <Skeleton height={120} />
-        ) : connections.length === 0 ? (
-          <Card>
-            <p className="text-[13px] text-ink-mute">
-              No connections in this workspace. Environments fall back to the built-in sandbox.
-            </p>
-          </Card>
         ) : (
-          <div className="grid gap-3">
-            {connections.map((c) => (
-              <ConnectionCard
-                key={c.id}
-                connection={c}
-                onChecked={boot.refresh}
-                onDisconnect={() => setPending({ kind: "disconnect", connection: c })}
-              />
-            ))}
-          </div>
+          <>
+            {connections.length === 0 ? (
+              <Card>
+                <p className="text-[13px] text-ink-mute">
+                  No connections in this workspace. Environments fall back to the built-in sandbox.
+                </p>
+              </Card>
+            ) : (
+              <div className="grid gap-3">
+                {connections.map((c) => (
+                  <ConnectionCard
+                    key={c.id}
+                    connection={c}
+                    unusable={unusableReason(c, providerById)}
+                    onChecked={boot.refresh}
+                    onDisconnect={() => setPending({ kind: "disconnect", connection: c })}
+                  />
+                ))}
+              </div>
+            )}
+            <NewConnectionForm
+              providers={providers}
+              onSubmit={(provider, input) => setPending({ kind: "createConn", provider, input })}
+            />
+          </>
         )}
       </section>
 
@@ -214,6 +281,32 @@ export default function SettingsPage() {
         />
       )}
 
+      {pending?.kind === "renameWorkspace" && (
+        <ActionConfirm
+          open
+          onClose={() => setPending(null)}
+          actionId="workspace.rename"
+          input={{ name: pending.name }}
+          title={`Rename “${pending.from}” to “${pending.name}”`}
+          confirmLabel="Rename workspace"
+          onDone={done}
+        />
+      )}
+
+      {pending?.kind === "createConn" && (
+        <ActionConfirm
+          open
+          onClose={() => setPending(null)}
+          actionId="connection.create"
+          input={pending.input}
+          scope={{ projectId }}
+          title={`Connect ${pending.provider.displayName}`}
+          description="The plan below lists the exact access this connection will hold — the same list the connection shows afterwards under Exact permissions."
+          confirmLabel="Connect"
+          onDone={done}
+        />
+      )}
+
       {pending?.kind === "disconnect" && (
         <ActionConfirm
           open
@@ -241,7 +334,58 @@ function SectionHead({ title, body }: { title: string; body: string }) {
   );
 }
 
+/* -------------------------------- workspace ------------------------------- */
+
+function WorkspaceCard({
+  workspace,
+  onRename,
+}: {
+  workspace: Workspace;
+  onRename: (name: string) => void;
+}) {
+  const [name, setName] = useState(workspace.name);
+  const trimmed = name.trim();
+  const tooShort = trimmed.length < 2;
+  const unchanged = trimmed === workspace.name;
+
+  return (
+    <Card
+      title={workspace.name}
+      subtitle={
+        <>
+          slug <span className="font-mono">{workspace.slug}</span> · renaming never changes the
+          slug, so links keep working
+        </>
+      }
+    >
+      <Field
+        label="Workspace name"
+        help="Shows in the top bar. Audit history is keyed to the workspace id, so nothing already written changes."
+        error={!tooShort || name === "" ? undefined : "Use at least 2 characters."}
+      >
+        <div className="flex gap-2">
+          <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />
+          <Button
+            variant="quiet"
+            disabled={tooShort || unchanged}
+            disabledReason={
+              tooShort
+                ? "A workspace name needs at least 2 characters."
+                : "This is already the workspace name."
+            }
+            onClick={() => onRename(trimmed)}
+          >
+            Preview and rename
+          </Button>
+        </div>
+      </Field>
+    </Card>
+  );
+}
+
 /* ------------------------------- environment ------------------------------ */
+
+const budgetText = (usd: number | undefined) => (usd ? String(usd) : "");
 
 function EnvironmentCard({
   env,
@@ -257,7 +401,21 @@ function EnvironmentCard({
   onApproval: (value: boolean) => void;
 }) {
   const current = env.policies.budgetUsdMonthly;
-  const [budget, setBudget] = useState(current ? String(current) : "");
+  const [budget, setBudget] = useState(budgetText(current));
+  const [seen, setSeen] = useState(current);
+  const [movedWhileTyping, setMovedWhileTyping] = useState(false);
+
+  // The budget can change under this form (another tab, the Navigator, another
+  // member). Adopt the new value when the field is untouched; when it is not,
+  // keep what is being typed and say what happened instead of silently losing
+  // either one.
+  if (seen !== current) {
+    const typing = budget !== budgetText(seen);
+    setSeen(current);
+    if (typing) setMovedWhileTyping(true);
+    else setBudget(budgetText(current));
+  }
+
   const parsed = budget.trim() === "" ? null : Number(budget);
   const invalid = parsed !== null && (!Number.isFinite(parsed) || parsed <= 0);
   const unchanged = (parsed ?? null) === (current ?? null);
@@ -319,6 +477,22 @@ function EnvironmentCard({
               {parsed === null ? "Remove" : "Set"}
             </Button>
           </div>
+          {movedWhileTyping && (
+            <p className="mt-1.5 text-[12px] text-warn">
+              This budget changed to {current ? fmtUsd(current) : "no budget"} somewhere else
+              while you were typing. Your text was kept.{" "}
+              <button
+                type="button"
+                className="underline underline-offset-2 hover:text-ink"
+                onClick={() => {
+                  setBudget(budgetText(current));
+                  setMovedWhileTyping(false);
+                }}
+              >
+                Use {current ? fmtUsd(current) : "no budget"}
+              </button>
+            </p>
+          )}
         </Field>
 
         <div>
@@ -353,17 +527,18 @@ function EnvironmentCard({
 
 function NewEnvironmentForm({
   connections,
+  providerById,
   onSubmit,
 }: {
   connections: CloudConnection[];
+  providerById: Map<string, ProviderInfo>;
   onSubmit: (input: { name: string; class: EnvironmentClass; connectionId?: string }) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [klass, setKlass] = useState<EnvironmentClass>("staging");
-  const [connectionId, setConnectionId] = useState(
-    connections.find((c) => c.provider === "sandbox")?.id ?? ""
-  );
+  const usable = connections.filter((c) => !unusableReason(c, providerById));
+  const [connectionId, setConnectionId] = useState(usable[0]?.id ?? "");
 
   if (!open)
     return (
@@ -389,16 +564,26 @@ function NewEnvironmentForm({
             ]}
           />
         </Field>
-        <Field label="Connection" help="Only the sandbox executes deployments today.">
+        <Field
+          label="Connection"
+          help={
+            usable.length === connections.length
+              ? "Leave it blank to use the built-in sandbox."
+              : `Leave it blank to use the built-in sandbox. ${connections.length - usable.length} connection(s) are listed but not selectable — their provider cannot execute a deployment in this build, and each option says why.`
+          }
+        >
           <Select
             value={connectionId}
             onChange={(e) => setConnectionId(e.target.value)}
             placeholder="Sandbox (default)"
-            options={connections.map((c) => ({
-              value: c.id,
-              label: `${c.label} · ${c.provider}`,
-              disabled: c.provider !== "sandbox",
-            }))}
+            options={connections.map((c) => {
+              const why = unusableReason(c, providerById);
+              return {
+                value: c.id,
+                label: why ? `${c.label} · ${c.provider} — ${why}` : `${c.label} · ${c.provider}`,
+                disabled: !!why,
+              };
+            })}
           />
         </Field>
       </div>
@@ -426,12 +611,111 @@ function NewEnvironmentForm({
 
 /* ------------------------------- connection ------------------------------- */
 
+function NewConnectionForm({
+  providers,
+  onSubmit,
+}: {
+  providers: ProviderInfo[];
+  onSubmit: (
+    provider: ProviderInfo,
+    input: { provider: string; label?: string; region?: string }
+  ) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const first = providers.find((p) => p.availability === "available") ?? providers[0];
+  const [providerId, setProviderId] = useState(first?.id ?? "");
+  const [label, setLabel] = useState("");
+  const [region, setRegion] = useState(first?.regions[0]?.id ?? "");
+
+  const provider = providers.find((p) => p.id === providerId);
+
+  // No adapters registered means nothing to connect — don't offer the button.
+  if (providers.length === 0) return null;
+
+  if (!open)
+    return (
+      <Button variant="quiet" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setOpen(true)}>
+        Connect a cloud
+      </Button>
+    );
+
+  return (
+    <Card
+      title="Connect a cloud"
+      subtitle="The preview lists the exact access the connection will hold before anything is saved."
+    >
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Field label="Provider" help={provider ? provider.tagline : "No provider adapters are registered in this build."}>
+          <Select
+            value={providerId}
+            onChange={(e) => {
+              const next = providers.find((p) => p.id === e.target.value);
+              setProviderId(e.target.value as ProviderInfo["id"]);
+              setRegion(next?.regions[0]?.id ?? "");
+            }}
+            options={providers.map((p) => ({
+              value: p.id,
+              label:
+                p.availability === "available"
+                  ? `${p.displayName} · available`
+                  : `${p.displayName} · ${p.availability}${p.availability === "planned" ? " — cannot be connected yet" : " — plans and exports only"}`,
+              disabled: p.availability === "planned",
+            }))}
+          />
+        </Field>
+        <Field label="Region" help={provider?.regions.length ? "Where this connection operates." : "This provider exposes no regions."}>
+          <Select
+            value={region}
+            onChange={(e) => setRegion(e.target.value)}
+            disabled={!provider?.regions.length}
+            placeholder="default"
+            options={(provider?.regions ?? []).map((r) => ({ value: r.id, label: `${r.id} · ${r.label}` }))}
+          />
+        </Field>
+        <Field label="Label" help="Optional. Defaults to the provider and region.">
+          <Input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder={provider ? `${provider.displayName} ${region || "default"}` : ""}
+          />
+        </Field>
+      </div>
+      <div className="mt-4 flex gap-2">
+        <Button
+          disabled={!provider || provider.availability === "planned"}
+          disabledReason={
+            !provider
+              ? "Pick a provider."
+              : `${provider.displayName} is planned, not implemented — connecting it would do nothing.`
+          }
+          onClick={() =>
+            provider &&
+            onSubmit(provider, {
+              provider: provider.id,
+              label: label.trim() || undefined,
+              region: region || undefined,
+            })
+          }
+        >
+          Preview and connect
+        </Button>
+        <Button variant="ghost" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 function ConnectionCard({
   connection,
+  unusable,
   onChecked,
   onDisconnect,
 }: {
   connection: CloudConnection;
+  /** why environments cannot deploy through it, when that is the case */
+  unusable: string | undefined;
   onChecked: () => void;
   onDisconnect: () => void;
 }) {
@@ -472,6 +756,11 @@ function ConnectionCard({
         </>
       }
     >
+      {unusable && (
+        <p className="mb-3 text-[12.5px] text-ink-mute">
+          Environments cannot deploy through this connection — {unusable}.
+        </p>
+      )}
       <details>
         <summary className="cursor-pointer text-[12.5px] text-ink-mute select-none hover:text-ink">
           Exact permissions ({connection.grantedPermissions.length})

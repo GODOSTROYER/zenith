@@ -4,9 +4,9 @@
  * only place the level is written.
  */
 import { z } from "zod";
-import { defineAction } from "@/lib/actions/core";
-import { db, save } from "@/lib/db/store";
-import { AutonomyLevel } from "@/lib/domain/types";
+import { defineAction, type ActionContext } from "@/lib/actions/core";
+import { db, q, save } from "@/lib/db/store";
+import { AutonomyLevel, type Workspace } from "@/lib/domain/types";
 
 export const AUTONOMY_MEANING: Record<z.infer<typeof AutonomyLevel>, string> = {
   observe: "Level 1 — Observe: the Navigator explains and suggests. It never plans or executes.",
@@ -60,6 +60,71 @@ defineAction<SetAutonomy>({
       ok: true,
       summary: `Navigator autonomy set to ${input.level}. ${AUTONOMY_MEANING[input.level]}`,
       data: { level: input.level },
+    };
+  },
+});
+
+/* ----------------------------- workspace.rename ---------------------------- */
+
+const Rename = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, "a workspace name needs at least 2 characters")
+    .max(60, "keep the workspace name under 60 characters"),
+});
+type Rename = z.infer<typeof Rename>;
+
+function workspaceOf(ctx: ActionContext): Workspace {
+  const ws = q.workspace(ctx.workspaceId);
+  if (!ws)
+    throw new Error(
+      `Workspace "${ctx.workspaceId}" was not found. Reload the page — the workspace may have been re-seeded.`
+    );
+  return ws;
+}
+
+defineAction<Rename>({
+  id: "workspace.rename",
+  title: "Rename workspace",
+  category: "project",
+  risk: "low",
+  requiredRole: "admin",
+  mutates: true,
+  input: Rename,
+  plan(ctx, input) {
+    const ws = workspaceOf(ctx);
+    const same = ws.name === input.name;
+    return {
+      summary: same
+        ? `This workspace is already called “${input.name}”.`
+        : `Rename the workspace “${ws.name}” to “${input.name}”.`,
+      details: [
+        `The URL slug stays “${ws.slug}”, so every link and bookmark keeps working.`,
+        "The name is what the top bar shows; projects, environments and connections are untouched.",
+        "Audit history is keyed to the workspace id, so nothing already written is rewritten.",
+      ],
+      costDeltaUsd: 0,
+      risk: "low",
+      warnings: same ? ["Nothing would change — the name is already this."] : [],
+      requiresApproval: false,
+    };
+  },
+  execute(ctx, input) {
+    const ws = workspaceOf(ctx);
+    const before = ws.name;
+    if (before === input.name)
+      return {
+        ok: true,
+        summary: `The workspace is already called “${input.name}”. Nothing changed.`,
+        data: { workspaceId: ws.id, name: ws.name },
+      };
+    ws.name = input.name;
+    save();
+    return {
+      ok: true,
+      summary: `Workspace renamed from “${before}” to “${ws.name}”. The slug is still ${ws.slug}.`,
+      data: { workspaceId: ws.id, name: ws.name, previousName: before },
     };
   },
 });

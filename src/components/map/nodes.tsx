@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useRef } from "react";
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import {
   Archive,
@@ -38,7 +39,15 @@ export interface MapNodeData extends Record<string, unknown> {
   tls?: boolean;
   bindState?: "source" | "candidate";
   selected?: boolean;
+  /** this node holds the graph's single tab stop (roving tabIndex) */
+  focused?: boolean;
+  /** "3 of 7" — where this node sits in the keyboard order */
+  posLabel?: string;
   onActivate?: () => void;
+  /** the graph took focus here — usually via Tab or an arrow key */
+  onFocus?: () => void;
+  /** arrow keys walk the keyboard order: -1 back, +1 forward */
+  onNav?: (delta: -1 | 1) => void;
 }
 
 export type MapNode = Node<MapNodeData, "route" | "service" | "resource">;
@@ -92,6 +101,30 @@ const DIFF_TITLE: Record<NonNullable<MapNodeData["diff"]>, string> = {
   delete: "Still running — the next deploy to this environment removes it.",
 };
 
+const BIND_LABEL: Record<NonNullable<MapNodeData["bindState"]>, string> = {
+  source: "picked as the source of the new connection",
+  candidate: "can be the target of the new connection",
+};
+
+/**
+ * What a screen reader says for a node: what it is, then how it differs from
+ * the deployed system, then its state — the same order the node reads visually.
+ */
+function accessibleName(data: MapNodeData): string {
+  const parts = [
+    data.name,
+    data.stratum === "route" ? "route" : (KIND_LABEL[data.kind] ?? data.kind),
+  ];
+  if (data.stratum === "route") parts.push(data.tls ? "TLS on" : "no TLS");
+  if (data.sub) parts.push(data.sub);
+  if (data.diff) parts.push(DIFF_TITLE[data.diff]);
+  if (data.healthLabel) parts.push(data.healthLabel);
+  if (data.bindState) parts.push(BIND_LABEL[data.bindState]);
+  if (data.selected) parts.push("open in the inspector");
+  if (data.posLabel) parts.push(data.posLabel);
+  return parts.join(", ");
+}
+
 /** Shared chrome: diff treatment, ownership, focus, bind-mode affordances. */
 function NodeShell({
   data,
@@ -106,6 +139,18 @@ function NodeShell({
   const size = NODE_SIZE[data.stratum];
   const ghost = data.diff === "delete";
   const referenced = data.ownership && data.ownership !== "managed";
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Roving focus: only the node the graph considers current is tabbable, so
+  // the whole map is one tab stop. When an arrow key moves that flag, the DOM
+  // focus has to follow it — but only if focus was already inside the graph,
+  // otherwise a background poll would steal it from wherever the user is.
+  useEffect(() => {
+    if (!data.focused) return;
+    const active = document.activeElement;
+    if (active === ref.current) return;
+    if (active instanceof HTMLElement && active.dataset.mapNode) ref.current?.focus();
+  }, [data.focused]);
 
   return (
     <div className="relative" style={{ width: size.width, height: size.height }}>
@@ -117,14 +162,24 @@ function NodeShell({
       )}
       <Handle type="target" position={Position.Left} isConnectable={false} style={HANDLE} />
       <div
+        ref={ref}
+        data-map-node="true"
         role="button"
-        tabIndex={0}
+        tabIndex={data.focused ? 0 : -1}
+        aria-label={accessibleName(data)}
         title={data.diff ? DIFF_TITLE[data.diff] : undefined}
         onClick={() => data.onActivate?.()}
+        onFocus={() => data.onFocus?.()}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
             data.onActivate?.();
+          } else if (e.key === "ArrowDown" || e.key === "ArrowRight") {
+            e.preventDefault();
+            data.onNav?.(1);
+          } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
+            e.preventDefault();
+            data.onNav?.(-1);
           }
         }}
         className={cx(

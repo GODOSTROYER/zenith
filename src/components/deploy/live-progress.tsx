@@ -4,6 +4,7 @@ import Link from "next/link";
 import { AlertTriangle, OctagonPause, ShieldCheck } from "lucide-react";
 import {
   Button,
+  Callout,
   Chip,
   LogViewer,
   PhaseTimeline,
@@ -16,7 +17,7 @@ import { useShell } from "@/components/shell/shell-context";
 import { PlanFirst } from "@/components/inspector/plan-first";
 import { useEventStream, useJson } from "@/lib/client/api";
 import { cx } from "@/lib/format";
-import { roleAllows, roleReason } from "./caller-role";
+import { roleAllows, roleReason, useRequiredRole } from "./caller-role";
 import type {
   Deployment,
   DeploymentEvent,
@@ -84,6 +85,7 @@ export function DeploymentView({
 }: DeploymentViewProps) {
   const { project, selectedEnv, revisions } = useProjectData();
   const { boot } = useShell();
+  const approveRole = useRequiredRole("deploy.approve", "admin");
   const { data, refresh } = useJson<{ deployment: Deployment }>(
     `/api/deployments/${deploymentId}`,
     1500
@@ -204,8 +206,8 @@ export function DeploymentView({
             scope={{ environmentId: deployment.environmentId }}
             label="Approve and apply"
             variant={isProd ? "danger" : "primary"}
-            disabled={!roleAllows(boot, "admin")}
-            disabledReason={roleReason(boot, "admin", "Approving a deployment")}
+            disabled={!roleAllows(boot, approveRole)}
+            disabledReason={roleReason(boot, approveRole, "Approving a deployment")}
             onDone={refresh}
           />
           <PlanFirst
@@ -233,18 +235,16 @@ export function DeploymentView({
 
     return (
       <div className="animate-enter space-y-4">
-        <div
-          className={cx(
-            "flex items-start gap-3 rounded-card border p-4",
-            cancelled ? "border-warn/30 bg-warn-dim" : "border-err/30 bg-err-dim"
-          )}
-        >
-          {cancelled ? (
-            <OctagonPause className="mt-0.5 h-5 w-5 shrink-0 text-warn" aria-hidden="true" />
-          ) : (
-            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-err" aria-hidden="true" />
-          )}
-          <div className="min-w-0 flex-1">
+        <Callout
+          tone={cancelled ? "warn" : "err"}
+          icon={
+            cancelled ? (
+              <OctagonPause className="mt-0.5 h-5 w-5 shrink-0 text-warn" aria-hidden="true" />
+            ) : (
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-err" aria-hidden="true" />
+            )
+          }
+          title={
             <h2 className="text-[16px] font-medium text-ink">
               {deployment.status === "failed"
                 ? `Stopped at "${failedStep?.title ?? "a step"}"`
@@ -252,25 +252,26 @@ export function DeploymentView({
                   ? "Cancelled"
                   : "Rolled back"}
             </h2>
-            <p className="mt-1 text-[13px] text-ink">
-              {failedStep?.error ??
-                deployment.error ??
-                (cancelled
-                  ? "Stopped on request — nothing further will be applied."
-                  : STATUS_COPY[deployment.status])}
-            </p>
-            <p className="mt-1 text-[12.5px] text-ink-mute">
-              {applied === 0
-                ? "No step had finished, so this environment is untouched."
-                : `${applied} step${applied === 1 ? "" : "s"} had already finished and stayed applied. ` +
-                  (!offerRollback
-                    ? `${selectedEnv?.name ?? "The environment"} now runs the previous revision.`
-                    : previousNumber
-                      ? `Rolling back returns ${selectedEnv?.name ?? "the environment"} to r${previousNumber}.`
-                      : "There is no earlier revision to return to — fix the working copy and deploy again.")}
-            </p>
-          </div>
-        </div>
+          }
+        >
+          <p className="text-[13px] text-ink">
+            {failedStep?.error ??
+              deployment.error ??
+              (cancelled
+                ? "Stopped on request — nothing further will be applied."
+                : STATUS_COPY[deployment.status])}
+          </p>
+          <p className="mt-1 text-[12.5px] text-ink-mute">
+            {applied === 0
+              ? "No step had finished, so this environment is untouched."
+              : `${applied} step${applied === 1 ? "" : "s"} had already finished and stayed applied. ` +
+                (!offerRollback
+                  ? `${selectedEnv?.name ?? "The environment"} now runs the previous revision.`
+                  : previousNumber
+                    ? `Rolling back returns ${selectedEnv?.name ?? "the environment"} to r${previousNumber}.`
+                    : "There is no earlier revision to return to — fix the working copy and deploy again.")}
+          </p>
+        </Callout>
 
         <div className="flex flex-wrap items-center gap-3">
           {offerRollback && (

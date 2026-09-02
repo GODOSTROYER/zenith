@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Play, Square } from "lucide-react";
-import { Button, Card, Chip, CostDelta, StatusDot } from "@/components/ui";
+import { Button, Callout, Card, Chip, CostDelta, StatusDot } from "@/components/ui";
 import { cx } from "@/lib/format";
 import type { AutonomyLevel, NavigatorRun } from "@/lib/domain/types";
 import {
@@ -195,9 +195,9 @@ export function RunPanel({
       </div>
 
       {error && (
-        <p className="rounded-ctl border border-err/30 bg-err-dim px-3 py-2 text-[12.5px] text-err">
+        <Callout tone="err" compact>
           {error}
-        </p>
+        </Callout>
       )}
 
       {/* final summary */}

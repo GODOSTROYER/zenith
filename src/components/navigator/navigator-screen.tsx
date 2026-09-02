@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ShieldCheck } from "lucide-react";
-import { Button, Card, Chip, Skeleton, Tooltip } from "@/components/ui";
+import { Button, Callout, Card, Chip, Skeleton, Tooltip } from "@/components/ui";
 import { useProjectData } from "@/components/shell/project-context";
 import { useShell } from "@/components/shell/shell-context";
 import { useJson } from "@/lib/client/api";
@@ -196,9 +196,9 @@ export function NavigatorScreen({
       />
 
       {error && (
-        <p className="rounded-ctl border border-err/30 bg-err-dim px-3 py-2 text-[12.5px] text-err">
+        <Callout tone="err" compact>
           {error}
-        </p>
+        </Callout>
       )}
 
       {shown && parsing && <ParsingNote parsing={parsing} />}

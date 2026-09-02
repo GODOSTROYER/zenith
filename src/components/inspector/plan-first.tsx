@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
-import { AlertTriangle, Ban } from "lucide-react";
+import { Ban } from "lucide-react";
 import {
   Button,
+  Callout,
   Chip,
   CostDelta,
   Field,
@@ -127,18 +128,23 @@ export function PlanFirst({
 
   if (stage.at === "error")
     return (
-      <div className={cx("space-y-2 rounded-card border border-err/30 bg-err-dim p-3", className)}>
+      <Callout
+        tone="err"
+        className={className}
+        actions={
+          <>
+            <Button size="sm" variant="quiet" onClick={startPlan}>
+              Try again
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setStage({ at: "idle" })}>
+              Dismiss
+            </Button>
+          </>
+        }
+      >
         <p className="text-[13px] text-ink">{stage.message}</p>
-        {stage.fix && <p className="text-[12.5px] text-ink-mute">{stage.fix}</p>}
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="quiet" onClick={startPlan}>
-            Try again
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => setStage({ at: "idle" })}>
-            Dismiss
-          </Button>
-        </div>
-      </div>
+        {stage.fix && <p className="mt-1 text-[12.5px] text-ink-mute">{stage.fix}</p>}
+      </Callout>
     );
 
   if (stage.at === "preview" || stage.at === "running") {
@@ -206,14 +212,13 @@ export function PlanFirst({
         )}
 
         {plan.warnings.length > 0 && (
-          <div className="space-y-1 rounded-ctl border border-warn/25 bg-warn-dim p-2.5">
-            {plan.warnings.map((w, i) => (
-              <p key={i} className="flex gap-1.5 text-[12.5px] text-ink">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn" aria-hidden="true" />
-                <span>{w}</span>
-              </p>
-            ))}
-          </div>
+          <Callout tone="warn" compact>
+            <ul className="space-y-1">
+              {plan.warnings.map((w, i) => (
+                <li key={i}>{w}</li>
+              ))}
+            </ul>
+          </Callout>
         )}
 
         <div className="flex items-center justify-between gap-3 border-t border-line pt-2.5">

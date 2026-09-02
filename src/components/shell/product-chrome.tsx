@@ -13,7 +13,7 @@ import { usePathname } from "next/navigation";
 import { LogOut, Settings, Users } from "lucide-react";
 import { MenuItem, MenuNote, Popover, ThemeToggle } from "@/components/ui";
 import { ActivityBell } from "@/components/shell/activity-bell";
-import { CommandPalette, type ActionEntry } from "@/components/shell/command-palette";
+import { CommandPalette } from "@/components/shell/command-palette";
 import { useShell } from "@/components/shell/shell-context";
 import { Wordmark } from "@/components/shell/wordmark";
 import { cx } from "@/lib/format";
@@ -154,7 +154,8 @@ function UserMenu() {
   );
 }
 
-export function ProductChrome({ catalog }: { catalog: ActionEntry[] }) {
+export function ProductChrome() {
+  const { catalog } = useShell();
   return (
     <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-line bg-bg1 px-4">
       <Link

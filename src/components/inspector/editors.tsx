@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, ExternalLink, Pencil } from "lucide-react";
+import { ArrowRight, ExternalLink, Pencil } from "lucide-react";
 import {
   Button,
+  Callout,
   Chip,
   CostDelta,
   CopyButton,
@@ -14,7 +15,7 @@ import {
   Tabs,
   TimeAgo,
 } from "@/components/ui";
-import { useJson } from "@/lib/client/api";
+import { useSecrets, type SecretRow, type SecretsView } from "@/lib/client/secrets";
 import { useProjectData } from "@/components/shell/project-context";
 import { PlanFirst } from "./plan-first";
 import {
@@ -179,23 +180,27 @@ function StaleNotice({
   onKeepMine: () => void;
 }) {
   return (
-    <div role="alert" className="space-y-2 rounded-card border border-warn/25 bg-warn-dim p-3">
-      <p className="flex gap-1.5 text-[13px] text-ink">
-        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn" aria-hidden="true" />
-        <span>
-          {name} changed somewhere else while you were editing — a Navigator run, or another tab.
-          Applying what is on screen now would put the older values back.
-        </span>
+    // An edit collision arrives while the operator is typing into this form, so
+    // it interrupts rather than waiting to be read.
+    <Callout
+      tone="warn"
+      live="alert"
+      actions={
+        <>
+          <Button size="sm" variant="quiet" onClick={onReload}>
+            Load the new values
+          </Button>
+          <Button size="sm" variant="ghost" onClick={onKeepMine}>
+            Keep mine
+          </Button>
+        </>
+      }
+    >
+      <p>
+        {name} changed somewhere else while you were editing — a Navigator run, or another tab.
+        Applying what is on screen now would put the older values back.
       </p>
-      <div className="flex items-center gap-2">
-        <Button size="sm" variant="quiet" onClick={onReload}>
-          Load the new values
-        </Button>
-        <Button size="sm" variant="ghost" onClick={onKeepMine}>
-          Keep mine
-        </Button>
-      </div>
-    </div>
+    </Callout>
   );
 }
 
@@ -264,12 +269,15 @@ export function BindingEditor({ binding }: { binding: Binding }) {
       />
 
       {removed ? (
-        <div role="alert" className="space-y-3 rounded-card border border-warn/25 bg-warn-dim p-3">
+        // Mid-way through a two-step redraw: the operator has to be told the
+        // system is in the in-between state, not left to notice it.
+        <Callout tone="warn" live="alert">
           <p className="text-[13px] text-ink">
             Step 2 of 2. The connection is out of the working copy right now — the Changes panel
             lists the removal. Draw it again with the new values, or leave it removed.
           </p>
           <PlanFirst
+            className="mt-3"
             actionId="system.bind"
             input={{
               from: binding.from,
@@ -283,7 +291,7 @@ export function BindingEditor({ binding }: { binding: Binding }) {
               setEditing(false);
             }}
           />
-        </div>
+        </Callout>
       ) : editing ? (
         <div className="space-y-3 rounded-card border border-line p-3">
           <p className="text-[12.5px] text-ink-mute">
@@ -414,35 +422,9 @@ function BindingList({
  * What the server's secret store holds, as metadata. `GET /api/secrets` never
  * returns a value and there is no route that does, so this is everything the
  * browser can know: which references have something behind them, which version
- * it is on, and when it last changed.
- *
- * Declared here rather than imported from `@/lib/secrets`: that module opens
- * files and does AES, and nothing in a client bundle should be one careless
- * `import type` → `import` away from pulling it in.
+ * it is on, and when it last changed. The shape and the fetch live in
+ * `lib/client/secrets`, shared with Settings → Secrets.
  */
-interface SecretRow {
-  ref: string;
-  createdAt: string;
-  createdBy: string;
-  updatedAt: string;
-  updatedBy: string;
-  version: number;
-  exists: true;
-}
-
-interface SecretsView {
-  configured: boolean;
-  /** why the store cannot be written to, and the fix — only when unconfigured */
-  reason?: string;
-  fix?: string;
-  secrets: SecretRow[];
-}
-
-/** Shared by the panel and every row in it, so one fetch answers the screen. */
-function useSecrets(): { store: SecretsView | undefined; refresh: () => void } {
-  const { data, refresh } = useJson<SecretsView>("/api/secrets");
-  return { store: data, refresh };
-}
 
 /** Where a variable's value actually is, in the words the panel uses. */
 function secretHome(store: SecretsView | undefined, ref: string): SecretRow | undefined {
@@ -456,14 +438,13 @@ function secretHome(store: SecretsView | undefined, ref: string): SecretRow | un
  */
 function StoreOffNotice({ store }: { store: SecretsView }) {
   return (
-    <p className="flex gap-1.5 rounded-ctl border border-warn/25 bg-warn-dim p-2.5 text-[12.5px] text-ink">
-      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn" aria-hidden="true" />
-      <span>
+    <Callout tone="warn" compact>
+      <p>
         {store.reason} {store.fix} Until then Orrery can record a{" "}
         <em className="not-italic text-ink-mute">reference</em> to a value you keep elsewhere, and
         your provider resolves it at deploy time.
-      </span>
-    </p>
+      </p>
+    </Callout>
   );
 }
 
@@ -1073,14 +1054,13 @@ export function ServiceEditor({
           )}
 
           {issues.length > 0 && (
-            <ul className="space-y-1.5 rounded-card border border-warn/25 bg-warn-dim p-3">
-              {issues.map((i) => (
-                <li key={i.field} className="flex gap-1.5 text-[12.5px] text-ink">
-                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn" aria-hidden="true" />
-                  <span>{i.reason}</span>
-                </li>
-              ))}
-            </ul>
+            <Callout tone="warn">
+              <ul className="space-y-1.5 text-[12.5px]">
+                {issues.map((i) => (
+                  <li key={i.field}>{i.reason}</li>
+                ))}
+              </ul>
+            </Callout>
           )}
 
           <PlanFirst

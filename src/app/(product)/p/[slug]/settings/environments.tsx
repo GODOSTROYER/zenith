@@ -33,7 +33,7 @@ import {
 } from "@/components/ui";
 import type { RevisionMeta } from "@/components/screens/project-data";
 import { ActionConfirm, envTone } from "@/components/screens/shared";
-import { gate } from "./access";
+import { useGate } from "./access";
 import { CONN_DOT, unusableReason, type ProviderInfo } from "./shared";
 
 /** `/api/health/:envId` — synthetic for every provider, and says so. */
@@ -274,6 +274,7 @@ function EnvironmentCard({
   role: Role | null | undefined;
   onPending: (p: Pending) => void;
 }) {
+  const gate = useGate();
   const current = env.policies.budgetUsdMonthly;
   const [budget, setBudget] = useState(budgetText(current));
   const [seen, setSeen] = useState(current);
@@ -835,6 +836,7 @@ function NewEnvironmentForm({
   role: Role | null | undefined;
   onSubmit: (input: { name: string; class: EnvironmentClass; connectionId?: string }) => void;
 }) {
+  const gate = useGate();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [klass, setKlass] = useState<EnvironmentClass>("staging");

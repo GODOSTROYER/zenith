@@ -5,7 +5,7 @@
  * dialog, and a couple of one-liner presenters.
  */
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { AlertTriangle, Ban } from "lucide-react";
+import { Ban } from "lucide-react";
 import type { ActionPlan, ActionResult, Role } from "@/lib/actions/core";
 import { ApiError, executeAction, planAction } from "@/lib/client/api";
 import type { Actor, ChangeItem, EnvironmentClass } from "@/lib/domain/types";
@@ -13,6 +13,7 @@ import { cx, fmtUsd } from "@/lib/format";
 import { useShell } from "@/components/shell/shell-context";
 import {
   Button,
+  Callout,
   Chip,
   CostDelta,
   Dialog,
@@ -96,18 +97,10 @@ export function ErrorNote({
 }) {
   const { message, fix } = errorText(error);
   return (
-    <div
-      className={cx(
-        "flex gap-2.5 rounded-card border border-err/30 bg-err-dim px-4 py-3 text-[13px]",
-        className
-      )}
-    >
-      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-err" />
-      <div className="min-w-0">
-        <p className="text-ink">{message}</p>
-        {fix && <p className="mt-1 text-ink-mute">{fix}</p>}
-      </div>
-    </div>
+    <Callout tone="err" className={className}>
+      <p className="text-ink">{message}</p>
+      {fix && <p className="mt-1 text-ink-mute">{fix}</p>}
+    </Callout>
   );
 }
 
@@ -138,13 +131,9 @@ export function roleShortfall(
 /** The refusal, in the same shape everywhere: red, first, and never a warning. */
 function BlockedNote({ children }: { children: ReactNode }) {
   return (
-    <div
-      role="alert"
-      className="flex gap-2.5 rounded-card border border-err/30 bg-err-dim px-4 py-3 text-[13px] text-ink"
-    >
-      <Ban className="mt-0.5 h-4 w-4 shrink-0 text-err" aria-hidden="true" />
-      <p className="min-w-0">{children}</p>
-    </div>
+    <Callout tone="err" icon={<Ban className="mt-0.5 h-4 w-4 shrink-0 text-err" aria-hidden="true" />}>
+      <p>{children}</p>
+    </Callout>
   );
 }
 
@@ -185,14 +174,13 @@ export function PlanBody({ plan }: { plan: ActionPlan }) {
       )}
 
       {plan.warnings.length > 0 && (
-        <ul className="space-y-1.5 rounded-card border border-warn/30 bg-warn-dim px-4 py-3 text-[13px] text-ink">
-          {plan.warnings.map((w, i) => (
-            <li key={i} className="flex gap-2">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn" />
-              <span>{w}</span>
-            </li>
-          ))}
-        </ul>
+        <Callout tone="warn">
+          <ul className="space-y-1.5">
+            {plan.warnings.map((w, i) => (
+              <li key={i}>{w}</li>
+            ))}
+          </ul>
+        </Callout>
       )}
     </div>
   );

@@ -38,11 +38,27 @@ export interface Bootstrap {
   members: Member[];
 }
 
+/**
+ * The serialisable half of an ActionDef — what a picker or a role check needs,
+ * nothing more. The (product) layout is a server component, so it can read the
+ * real registry and hand this down; no route serves it, and nothing in the
+ * browser should keep its own copy of who may run what.
+ */
+export interface ActionEntry {
+  id: string;
+  title: string;
+  category: string;
+  risk: "low" | "medium" | "high";
+  requiredRole: "viewer" | "editor" | "admin";
+}
+
 export interface ShellData {
   boot: Bootstrap | undefined;
   loading: boolean;
   error: ApiError | undefined;
   refresh: () => void;
+  /** the action registry, as the server sees it — the source for requiredRole */
+  catalog: ActionEntry[];
 }
 
 const ShellContext = createContext<ShellData | null>(null);
@@ -57,11 +73,31 @@ export function useShell(): ShellData {
   return ctx;
 }
 
-export function ShellProvider({ children }: { children: ReactNode }) {
+export function ShellProvider({
+  children,
+  catalog = [],
+}: {
+  children: ReactNode;
+  catalog?: ActionEntry[];
+}) {
   const { data, loading, error, refresh } = useJson<Bootstrap>("/api/bootstrap", 10_000);
   return (
-    <ShellContext.Provider value={{ boot: data, loading, error, refresh }}>
+    <ShellContext.Provider value={{ boot: data, loading, error, refresh, catalog }}>
       {children}
     </ShellContext.Provider>
   );
+}
+
+/**
+ * What the registry says this action needs, or `fallback` when the catalog has
+ * not been handed down (a provider rendered without it, or an id that is not in
+ * it). The server enforces the real answer either way; this is what lets a
+ * control refuse before it is pressed.
+ */
+export function requiredRoleOf(
+  catalog: ActionEntry[],
+  actionId: string,
+  fallback: ActionEntry["requiredRole"]
+): ActionEntry["requiredRole"] {
+  return catalog.find((a) => a.id === actionId)?.requiredRole ?? fallback;
 }

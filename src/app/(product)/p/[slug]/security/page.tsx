@@ -10,13 +10,14 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ShieldCheck, Wrench } from "lucide-react";
+import { ShieldCheck, Wrench } from "lucide-react";
 import type { Role } from "@/lib/actions/core";
 import { executeAction, planAction } from "@/lib/client/api";
 import type { SecurityFinding } from "@/lib/domain/types";
 import { cx } from "@/lib/format";
 import {
   Button,
+  Callout,
   Card,
   Chip,
   CostDelta,
@@ -330,10 +331,9 @@ export default function SecurityPage() {
                         )}
 
                         {blocked && (
-                          <p className="mt-1.5 flex max-w-[70ch] gap-2 rounded-card border border-warn/30 bg-warn-dim px-3 py-2 text-[12px] text-ink">
-                            <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn" />
-                            <span>{blocked}</span>
-                          </p>
+                          <Callout tone="warn" compact className="mt-1.5 max-w-[70ch]">
+                            {blocked}
+                          </Callout>
                         )}
 
                         <p className="mt-1.5 flex flex-wrap items-center gap-2 text-[11.5px] text-ink-faint">
@@ -769,11 +769,11 @@ function BulkFixDialog({
         {error ? <ErrorNote error={error} /> : null}
 
         {halted && (
-          <p className="rounded-card border border-warn/30 bg-warn-dim px-4 py-3 text-[13px] text-ink">
+          <Callout tone="warn">
             Stopped after {halted.ran} of {halted.of}. The remaining {halted.of - halted.ran}{" "}
             {halted.of - halted.ran === 1 ? "fix was" : "fixes were"} not run and{" "}
             {halted.of - halted.ran === 1 ? "its finding is" : "their findings are"} still open.
-          </p>
+          </Callout>
         )}
 
         {!shown ? (
@@ -833,14 +833,13 @@ function BulkFixDialog({
             )}
 
             {warnings.length > 0 && (
-              <ul className="space-y-1.5 rounded-card border border-warn/30 bg-warn-dim px-4 py-3 text-[13px] text-ink">
-                {[...new Set(warnings)].map((w, i) => (
-                  <li key={i} className="flex gap-2">
-                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn" />
-                    <span>{w}</span>
-                  </li>
-                ))}
-              </ul>
+              <Callout tone="warn">
+                <ul className="space-y-1.5">
+                  {[...new Set(warnings)].map((w, i) => (
+                    <li key={i}>{w}</li>
+                  ))}
+                </ul>
+              </Callout>
             )}
 
             <p className="max-w-[70ch] text-[12px] text-ink-faint">
@@ -920,9 +919,9 @@ function DismissDialog({
           below, which is permanent — reopening it later does not erase this.
         </p>
         {finding?.severity === "high" && (
-          <p className="rounded-card border border-warn/30 bg-warn-dim px-3 py-2 text-[12.5px] text-ink">
+          <Callout tone="warn" compact>
             This is a high-severity finding. Dismissing it does not make it safe.
-          </p>
+          </Callout>
         )}
         <label className="block space-y-1.5">
           <span className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">Reason</span>

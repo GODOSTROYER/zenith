@@ -10,7 +10,7 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import { Button, Chip, Dialog, SegmentedControl } from "@/components/ui";
+import { Button, Callout, Chip, Dialog, SegmentedControl } from "@/components/ui";
 import { PlanFirst } from "@/components/inspector/plan-first";
 import { useProjectData } from "@/components/shell/project-context";
 import { importDockerfile, importTerraform } from "@/lib/importers";
@@ -332,7 +332,11 @@ export function ImportDialog({
           Loaded <span className="font-mono text-ink">{fileName}</span> — editable above.
         </p>
       )}
-      {parsed?.error && <p className="mt-2 text-[12.5px] text-err">{parsed.error}</p>}
+      {parsed?.error && (
+        <Callout tone="err" compact className="mt-2">
+          {parsed.error}
+        </Callout>
+      )}
 
       <div className="mt-3 border-t border-line pt-3">
         {format === "compose" ? (

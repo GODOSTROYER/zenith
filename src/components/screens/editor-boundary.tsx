@@ -4,7 +4,7 @@
  * app down, and recovery is one button that restores the last good text.
  */
 import { Component, type ReactNode } from "react";
-import { Button } from "@/components/ui";
+import { Button, Callout } from "@/components/ui";
 
 interface Props {
   children: ReactNode;
@@ -26,22 +26,25 @@ export class EditorBoundary extends Component<Props, State> {
   render() {
     if (!this.state.error) return this.props.children;
     return (
-      <div className="rounded-card border border-err/30 bg-err-dim px-5 py-6">
-        <h3 className="text-[15px] font-medium text-ink">The editor stopped rendering.</h3>
-        <p className="mt-1 max-w-[60ch] text-[13px] text-ink-mute">
+      <Callout
+        tone="err"
+        title={<h3 className="text-[15px] font-medium text-ink">The editor stopped rendering.</h3>}
+        actions={
+          <Button
+            onClick={() => {
+              this.props.onRestore();
+              this.setState({ error: null });
+            }}
+          >
+            Restore last good text
+          </Button>
+        }
+      >
+        <p className="max-w-[60ch] text-[13px] text-ink-mute">
           Nothing was saved and the system is untouched. Restore the last good text to carry on.
         </p>
         <p className="mt-3 font-mono text-[12px] text-ink-faint">{this.state.error.message}</p>
-        <Button
-          className="mt-4"
-          onClick={() => {
-            this.props.onRestore();
-            this.setState({ error: null });
-          }}
-        >
-          Restore last good text
-        </Button>
-      </div>
+      </Callout>
     );
   }
 }

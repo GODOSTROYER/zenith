@@ -36,7 +36,7 @@ import {
 } from "@/components/ui";
 import { useProjectData } from "@/components/shell/project-context";
 import { useShell } from "@/components/shell/shell-context";
-import { roleAllows, roleReason } from "@/components/deploy/caller-role";
+import { roleAllows, roleReason, useRequiredRole } from "@/components/deploy/caller-role";
 import { copyTarget, isSimulated, openLabel } from "@/components/deploy/output-link";
 import { useSelectedEnv } from "@/components/screens/project-data";
 import { ActionConfirm, ActorDot, ErrorNote } from "@/components/screens/shared";
@@ -382,6 +382,7 @@ function DeploymentDetail({
   onChanged: () => void;
 }) {
   const { boot } = useShell();
+  const approveRole = useRequiredRole("deploy.approve", "admin");
   const [dep, setDep] = useState<Deployment>(snapshot);
   const [lines, setLines] = useState<LogLine[]>([]);
   const [confirm, setConfirm] = useState<null | "approve" | "cancel" | "rollback">(null);
@@ -500,8 +501,8 @@ function DeploymentDetail({
           <div className="flex gap-2">
             <Button
               onClick={() => setConfirm("approve")}
-              disabled={!roleAllows(boot, "admin")}
-              disabledReason={roleReason(boot, "admin", "Approving a deployment")}
+              disabled={!roleAllows(boot, approveRole)}
+              disabledReason={roleReason(boot, approveRole, "Approving a deployment")}
             >
               Approve and apply
             </Button>

@@ -95,8 +95,13 @@ confirmation is on, so a new sign-up gets a link that returns through
 | `vedant@orrery.test` | `orrery-vedant-2026!` | editor |
 
 Identity flows into the product: actions, audit entries and revisions carry the
-signed-in user's name, and the header shows who you are with a way out. The
-first user to sign in becomes the workspace admin. Data still lives in the local
+signed-in user's name, and the header shows who you are and your role with a
+way out. The first real user to sign in becomes the workspace admin. Nobody else
+can join by signing up: an admin invites them by email and role under
+Settings → Members (an invite is a standing permission, Orrery sends no mail),
+or an operator sets `app_metadata.role` on their Supabase user. Every action
+declares the role it needs and refuses below it; the interface disables those
+controls first and says who can raise the role. Data still lives in the local
 JSON store — Supabase provides identity only, so there are no tables and no RLS
 surface yet.
 

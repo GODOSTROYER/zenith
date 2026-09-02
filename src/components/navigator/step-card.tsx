@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, ChevronRight, HelpCircle, SearchCode } from "lucide-react";
 import Link from "next/link";
-import { Chip, CostDelta, RiskBadge, StatusDot } from "@/components/ui";
+import { Callout, Chip, CostDelta, RiskBadge, StatusDot } from "@/components/ui";
 import { useProjectData } from "@/components/shell/project-context";
 import { ApiError, planAction } from "@/lib/client/api";
 import type { ActionPlan } from "@/lib/actions/core";
@@ -310,11 +310,11 @@ export function StepCard({
           </p>
         )}
         {step.status === "failed" && (
-          <div className="mt-2.5 rounded-ctl border border-err/30 bg-err-dim px-3 py-2">
-            <p className="text-[12.5px] leading-relaxed text-err">
+          <Callout tone="err" compact className="mt-2.5">
+            <p className="leading-relaxed">
               {step.error ?? step.resultSummary ?? "This step failed without a recorded reason."}
             </p>
-          </div>
+          </Callout>
         )}
 
         {isDeploy && (step.status === "done" || step.status === "failed") && (

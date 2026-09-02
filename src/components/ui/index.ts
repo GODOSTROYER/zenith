@@ -3,6 +3,7 @@
  * Tokens only (see docs/DESIGN.md); no component here hardcodes a colour.
  */
 export { Button, type ButtonProps, type ButtonSize, type ButtonVariant } from "./button";
+export { Callout, type CalloutLive, type CalloutProps, type CalloutTone } from "./callout";
 export { Card, type CardProps } from "./card";
 export { Checkbox, type CheckboxProps } from "./checkbox";
 export { Chip, type ChipProps, type ChipTone } from "./chip";

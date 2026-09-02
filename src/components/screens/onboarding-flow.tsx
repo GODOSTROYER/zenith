@@ -28,6 +28,7 @@ import type { ImportReport } from "@/lib/importers/types";
 import { cx, fmtUsd } from "@/lib/format";
 import {
   Button,
+  Callout,
   Card,
   Chip,
   Field,
@@ -216,12 +217,10 @@ export function OnboardingFlow({
         </div>
 
         {redirect && (
-          <p
-            role="status"
-            className="mb-6 rounded-card border border-info/30 bg-info-dim px-4 py-2.5 text-[13px] text-ink"
-          >
+          // Arrives on navigation, after the page has been read: announced.
+          <Callout tone="info" live="status" className="mb-6">
             {redirect}
-          </p>
+          </Callout>
         )}
 
         {bootFailed ? (
@@ -423,7 +422,7 @@ function StepWorkspace({
       </Field>
 
       {conflict && (
-        <div className="rounded-card border border-info/30 bg-info-dim px-4 py-3 text-[13px]">
+        <Callout tone="info">
           <p className="text-ink">{conflict}</p>
           <p className="mt-1 text-ink-mute">
             Local Orrery runs a single workspace. Use the one you have, or reset with{" "}
@@ -432,7 +431,7 @@ function StepWorkspace({
           <Link href="/overview" className="mt-2 inline-block text-signal hover:underline">
             Open the workspace →
           </Link>
-        </div>
+        </Callout>
       )}
       {error ? <ErrorNote error={error} /> : null}
 

@@ -19,10 +19,11 @@ import { ExportPanel } from "@/components/screens/export-panel";
 import { useSelectedEnv } from "@/components/screens/project-data";
 import { ActionConfirm, ErrorNote } from "@/components/screens/shared";
 import { useShell } from "@/components/shell/shell-context";
-import { gate } from "./access";
+import { useGate } from "./access";
 import { ConnectionsSection } from "./connections";
 import { EnvironmentsSection } from "./environments";
 import { MembersSection } from "./members";
+import { SecretsSection } from "./secrets";
 import { providersOf } from "./shared";
 
 const SECTIONS = [
@@ -30,6 +31,7 @@ const SECTIONS = [
   { id: "members", label: "Members" },
   { id: "environments", label: "Environments" },
   { id: "connections", label: "Connections" },
+  { id: "secrets", label: "Secrets" },
   { id: "export", label: "Export" },
   { id: "danger", label: "Danger zone" },
 ];
@@ -39,6 +41,7 @@ type Pending = { kind: "renameWorkspace"; from: string; name: string } | { kind:
 export default function SettingsPage() {
   const { data, env, projectId, slug, refresh } = useSelectedEnv();
   const { boot, error: bootError, refresh: refreshShell } = useShell();
+  const gate = useGate();
   const router = useRouter();
   const [pending, setPending] = useState<Pending | null>(null);
   const [showBundle, setShowBundle] = useState(false);
@@ -155,6 +158,26 @@ export default function SettingsPage() {
             projectId={projectId}
             refresh={done}
           />
+        </section>
+
+        {/* -------------------------------- secrets ------------------------- */}
+        <section id="secrets" className="scroll-mt-16 space-y-4">
+          <SectionHead
+            title="Secrets"
+            body="What the store holds, as metadata. The value is never shown here, and no route returns one — only the reference reaches a manifest, a diff or an export."
+          />
+          {!boot ? (
+            <Skeleton height={180} />
+          ) : (
+            <SecretsSection
+              workspaceId={boot.workspace.id}
+              workspaceName={boot.workspace.name}
+              projectId={projectId}
+              slug={slug}
+              manifest={data.project.workingManifest}
+              role={role}
+            />
+          )}
         </section>
 
         {/* -------------------------------- export -------------------------- */}

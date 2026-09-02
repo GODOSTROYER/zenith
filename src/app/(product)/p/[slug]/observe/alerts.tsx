@@ -15,6 +15,7 @@ import { useAlertHistory, type AlertsFeed, type ProjectAlerts } from "@/lib/clie
 import type { AlertEvent, AlertKind, AlertRule } from "@/lib/domain/types";
 import {
   Button,
+  Callout,
   Card,
   Chip,
   EmptyState,
@@ -60,46 +61,51 @@ export function AlertBanner({ open }: { open: AlertEvent[] }) {
   if (open.length === 0) return null;
   const worst = open.some((e) => e.severity === "high") ? "err" : "warn";
   return (
-    <div
-      role="status"
-      className={`rounded-card border px-4 py-3 ${
-        worst === "err" ? "border-err/30 bg-err-dim" : "border-warn/30 bg-warn-dim"
-      }`}
+    // A banner that appears on a poll, not on an action the operator just took:
+    // it is announced politely even when the worst alert is an error.
+    <Callout
+      tone={worst}
+      live="status"
+      icon={
+        <BellRing
+          className={`mt-0.5 h-4 w-4 shrink-0 ${worst === "err" ? "text-err" : "text-warn"}`}
+          aria-hidden="true"
+        />
+      }
+      title={
+        <>
+          {open.length} open alert{open.length === 1 ? "" : "s"}
+        </>
+      }
     >
-      <div className="flex items-start gap-3">
-        <BellRing className={`mt-0.5 h-4 w-4 shrink-0 ${worst === "err" ? "text-err" : "text-warn"}`} />
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <p className="text-[13px] font-medium text-ink">
-            {open.length} open alert{open.length === 1 ? "" : "s"}
-          </p>
-          {open.slice(0, 3).map((e) => (
-            <p key={e.id} className="text-[12.5px] leading-relaxed text-ink">
+      <div className="space-y-1.5">
+        {open.slice(0, 3).map((e) => (
+          <p key={e.id} className="text-[12.5px] leading-relaxed text-ink">
+            <span className="text-ink-faint">
+              <TimeAgo iso={e.firedAt} /> ·{" "}
+            </span>
+            {e.summary}
+            {e.acknowledgedAt && (
               <span className="text-ink-faint">
-                <TimeAgo iso={e.firedAt} /> ·{" "}
+                {" "}
+                — acknowledged by {e.acknowledgedBy?.name ?? "someone"}
               </span>
-              {e.summary}
-              {e.acknowledgedAt && (
-                <span className="text-ink-faint">
-                  {" "}
-                  — acknowledged by {e.acknowledgedBy?.name ?? "someone"}
-                </span>
-              )}
-            </p>
-          ))}
-          {open.length > 3 && (
-            <p className="text-[12px] text-ink-faint">
-              and {open.length - 3} more, listed under Alerts.
-            </p>
-          )}
-          <p className="text-[11.5px] text-ink-faint">
-            <a href="#alerts" className="underline underline-offset-2 hover:text-ink">
-              Acknowledge or change these rules under Alerts
-            </a>
-            . Nothing was emailed or posted anywhere — Orrery has no delivery channels.
+            )}
           </p>
-        </div>
+        ))}
+        {open.length > 3 && (
+          <p className="text-[12px] text-ink-faint">
+            and {open.length - 3} more, listed under Alerts.
+          </p>
+        )}
+        <p className="text-[11.5px] text-ink-faint">
+          <a href="#alerts" className="underline underline-offset-2 hover:text-ink">
+            Acknowledge or change these rules under Alerts
+          </a>
+          . Nothing was emailed or posted anywhere — Orrery has no delivery channels.
+        </p>
       </div>
-    </div>
+    </Callout>
   );
 }
 

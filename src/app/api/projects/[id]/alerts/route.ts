@@ -24,8 +24,13 @@ import { ApiError, notFound, requireWorkspace, route } from "@/lib/server/contex
 
 export const dynamic = "force-dynamic";
 
-/** The delivery truth on the wire, so no client has to hardcode it. */
-export const DELIVERY_NOTE =
+/**
+ * The delivery truth on the wire, so no client has to hardcode it.
+ *
+ * Not exported: a route module may only export the HTTP verbs and Next's own
+ * config keys, and `tsc` fails the generated route type when it exports more.
+ */
+const DELIVERY_NOTE =
   "In-product only. Orrery has no email, Slack or webhook delivery: an alert is seen when somebody opens Orrery.";
 
 export const GET = route<{ id: string }>(async (req, { id }) => {

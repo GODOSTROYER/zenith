@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { AlertTriangle, Rocket, ShieldAlert } from "lucide-react";
-import { Button, Chip, CostDelta, Input, RiskBadge, useToasts } from "@/components/ui";
+import { Rocket, ShieldAlert } from "lucide-react";
+import { Button, Callout, Chip, CostDelta, Input, RiskBadge, useToasts } from "@/components/ui";
 import { useProjectData } from "@/components/shell/project-context";
 import { ChangeRow } from "@/components/screens/shared";
 import { ApiError, executeAction, planAction } from "@/lib/client/api";
@@ -148,13 +148,15 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
       )}
 
       {blocking.length > 0 && (
-        <div className="space-y-2 rounded-card border border-err/30 bg-err-dim p-3">
-          <p className="flex items-center gap-2 text-[13px] font-medium text-ink">
-            <ShieldAlert className="h-4 w-4 text-err" aria-hidden="true" />
-            {plan?.blocked
+        <Callout
+          tone="err"
+          icon={<ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-err" aria-hidden="true" />}
+          title={
+            plan?.blocked
               ? "This deploy would be refused"
-              : `${blocking.length} problem${blocking.length === 1 ? "" : "s"} to fix before this can deploy`}
-          </p>
+              : `${blocking.length} problem${blocking.length === 1 ? "" : "s"} to fix before this can deploy`
+          }
+        >
           <ul className="space-y-1.5">
             {blocking.map((b) => (
               <li key={b} className="text-[12.5px] text-ink">
@@ -162,18 +164,19 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
               </li>
             ))}
           </ul>
-        </div>
+        </Callout>
       )}
 
       {warnings.length > 0 && (
-        <div className="space-y-1.5 rounded-card border border-warn/25 bg-warn-dim p-3">
-          {warnings.map((w, n) => (
-            <p key={n} className="flex gap-2 text-[12.5px] text-ink">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn" aria-hidden="true" />
-              <span>{w}</span>
-            </p>
-          ))}
-        </div>
+        <Callout tone="warn">
+          <ul className="space-y-1.5">
+            {warnings.map((w, n) => (
+              <li key={n} className="text-[12.5px] text-ink">
+                {w}
+              </li>
+            ))}
+          </ul>
+        </Callout>
       )}
 
       <div className="space-y-3">
@@ -198,10 +201,10 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
       </div>
 
       {error && (
-        <div className="space-y-1 rounded-card border border-err/30 bg-err-dim p-3">
+        <Callout tone="err">
           <p className="text-[13px] text-ink">{error.message}</p>
-          {error.fix && <p className="text-[12.5px] text-ink-mute">{error.fix}</p>}
-        </div>
+          {error.fix && <p className="mt-1 text-[12.5px] text-ink-mute">{error.fix}</p>}
+        </Callout>
       )}
 
       <div className="flex flex-wrap items-center gap-3 border-t border-line pt-3">

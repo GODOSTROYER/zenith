@@ -8,11 +8,21 @@
  * `boot.role` is the caller's own role from `GET /api/bootstrap`, which is the
  * same `roleOf()` the action executor enforces.
  */
-import type { Bootstrap } from "@/components/shell/shell-context";
+import { requiredRoleOf, useShell, type Bootstrap } from "@/components/shell/shell-context";
 
 type Role = NonNullable<Bootstrap["role"]>;
 
 const RANK: Record<Role, number> = { viewer: 0, editor: 1, admin: 2 };
+
+/**
+ * Which role an action actually needs, from the registry the (product) layout
+ * handed the shell — the same `requiredRole` `runAction` enforces, rather than
+ * a literal repeated at each control. `fallback` covers the first paint, and
+ * the server refuses either way.
+ */
+export function useRequiredRole(actionId: string, fallback: Role): Role {
+  return requiredRoleOf(useShell().catalog, actionId, fallback);
+}
 
 /** Unresolved role counts as allowed: only a known-too-low role disables. */
 export function roleAllows(boot: Bootstrap | undefined, required: Role): boolean {

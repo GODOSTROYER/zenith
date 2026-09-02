@@ -2,16 +2,16 @@ import type { ReactNode } from "react";
 import { ToastProvider } from "@/components/ui";
 import { ErrorBoundary } from "@/components/shell/error-boundary";
 import { ProductChrome } from "@/components/shell/product-chrome";
-import { ShellProvider } from "@/components/shell/shell-context";
-import type { ActionEntry } from "@/components/shell/command-palette";
+import { ShellProvider, type ActionEntry } from "@/components/shell/shell-context";
 import { listActions } from "@/lib/actions/defs";
 
 /**
  * The product shell: one top bar, one toast queue, one notification home.
  *
- * A server component so the command palette can be handed the real action
- * registry rather than a hand-maintained copy of it — only the four fields a
- * picker needs cross to the client, and none of the handlers do.
+ * A server component so the browser can be handed the real action registry
+ * rather than a hand-maintained copy of it — only the five fields a picker or a
+ * role check needs cross over, and none of the handlers do. It goes into the
+ * shell context, so the palette and every role-gated control read one list.
  */
 export default function ProductLayout({ children }: { children: ReactNode }) {
   const catalog: ActionEntry[] = listActions().map((a) => ({
@@ -24,7 +24,7 @@ export default function ProductLayout({ children }: { children: ReactNode }) {
 
   return (
     <ToastProvider>
-      <ShellProvider>
+      <ShellProvider catalog={catalog}>
         <div className="flex h-dvh flex-col bg-bg0">
           {/* First tab stop on every product page: past the chrome, into the screen. */}
           <a
@@ -33,7 +33,7 @@ export default function ProductLayout({ children }: { children: ReactNode }) {
           >
             Skip to content
           </a>
-          <ProductChrome catalog={catalog} />
+          <ProductChrome />
           <main id="main" tabIndex={-1} className="min-h-0 flex-1 bg-bg0 outline-none">
             <ErrorBoundary what="This screen">{children}</ErrorBoundary>
           </main>

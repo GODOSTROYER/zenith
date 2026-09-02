@@ -19,17 +19,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { Kbd, RiskBadge } from "@/components/ui";
 import { useModal } from "@/components/ui/use-modal";
-import { useShell } from "@/components/shell/shell-context";
+import { useShell, type ActionEntry } from "@/components/shell/shell-context";
 import { cx } from "@/lib/format";
 
-/** The serialisable half of an ActionDef — what a picker needs, nothing more. */
-export interface ActionEntry {
-  id: string;
-  title: string;
-  category: string;
-  risk: "low" | "medium" | "high";
-  requiredRole: "viewer" | "editor" | "admin";
-}
+/** Lives with the rest of the shell's data contract; re-exported for callers. */
+export type { ActionEntry };
 
 type Role = ActionEntry["requiredRole"];
 const RANK: Record<Role, number> = { viewer: 0, editor: 1, admin: 2 };

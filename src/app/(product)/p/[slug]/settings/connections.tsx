@@ -18,7 +18,7 @@ import {
   TimeAgo,
 } from "@/components/ui";
 import { ActionConfirm, ErrorNote, useRunAction } from "@/components/screens/shared";
-import { gate } from "./access";
+import { useGate } from "./access";
 import { CONN_DOT, unusableReason, type ProviderInfo } from "./shared";
 
 type Pending =
@@ -130,6 +130,7 @@ function ConnectionCard({
   onChecked: () => void;
   onDisconnect: () => void;
 }) {
+  const gate = useGate();
   const { run, busy } = useRunAction(onChecked);
   const checkGate = gate(role, "connection.check");
   const disconnectGate = gate(role, "connection.disconnect");
@@ -208,6 +209,7 @@ function NewConnectionForm({
     input: { provider: string; label?: string; region?: string }
   ) => void;
 }) {
+  const gate = useGate();
   const [open, setOpen] = useState(false);
   const first = providers.find((p) => p.availability === "available") ?? providers[0];
   const [providerId, setProviderId] = useState(first?.id ?? "");

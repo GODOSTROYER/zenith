@@ -17,6 +17,7 @@ import { Manifest, type Revision } from "@/lib/domain/types";
 import { fmtUsd } from "@/lib/format";
 import {
   Button,
+  Callout,
   Card,
   Chip,
   CodeBlock,
@@ -351,21 +352,22 @@ function WorkingTab({
       </div>
 
       {movedWhileEditing && (
-        <div
-          role="status"
-          className="flex flex-wrap items-center gap-3 rounded-card border border-warn/30 bg-warn-dim px-4 py-3 text-[13px] text-ink"
+        <Callout
+          tone="warn"
+          actions={
+            <>
+              <Button size="sm" variant="quiet" onClick={loadTheirs}>
+                Discard mine, load theirs
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setMovedWhileEditing(false)}>
+                Keep editing
+              </Button>
+            </>
+          }
         >
-          <span className="min-w-0 flex-1">
-            The working copy changed while you were editing — a map edit, a Navigator run or
-            another tab. Your text is untouched; saving it replaces theirs.
-          </span>
-          <Button size="sm" variant="quiet" onClick={loadTheirs}>
-            Discard mine, load theirs
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => setMovedWhileEditing(false)}>
-            Keep editing
-          </Button>
-        </div>
+          The working copy changed while you were editing — a map edit, a Navigator run or
+          another tab. Your text is untouched; saving it replaces theirs.
+        </Callout>
       )}
 
       {mode === "read" ? (
@@ -652,9 +654,7 @@ function GoToLine({
 function IssueList({ issues, slug }: { issues: ValidationIssue[]; slug: string }) {
   if (issues.length === 0)
     return (
-      <div className="rounded-card border border-ok/30 bg-ok-dim px-4 py-3 text-[13px] text-ink">
-        Valid manifest — schema and structure both check out.
-      </div>
+      <Callout tone="ok">Valid manifest — schema and structure both check out.</Callout>
     );
   return (
     <Card title={`${issues.length} issue${issues.length === 1 ? "" : "s"}`} padded={false}>

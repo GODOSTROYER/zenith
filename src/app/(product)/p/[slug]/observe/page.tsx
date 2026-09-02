@@ -16,6 +16,7 @@ import { ServiceSize, type Manifest, type Revision, type Service } from "@/lib/d
 import { fmtUsd } from "@/lib/format";
 import {
   Button,
+  Callout,
   Card,
   Chip,
   EmptyState,
@@ -569,11 +570,11 @@ function LogsPanel({
             ))}
 
           {chosenIsUndeployed ? (
-            <p className="rounded-card border border-warn/30 bg-warn-dim px-4 py-3 text-[13px] text-ink">
+            <Callout tone="warn">
               {working.services.find((s) => s.id === serviceId)?.name} is in the working copy but
               not in r{running?.number ?? "?"}, so nothing is running to log. Deploy this
               environment to see its output.
-            </p>
+            </Callout>
           ) : (
             <>
               {streamError && <ErrorNote error={new Error(streamError)} />}

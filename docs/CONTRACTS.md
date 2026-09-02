@@ -76,7 +76,7 @@ IDs are dot-namespaced, stable, and referenced by UI + Navigator:
 `env.update` (rename + region), `env.clone`, `env.setConnection`, `env.delete`,
 `deploy.plan` (read-only → returns Changeset), `deploy.apply`, `deploy.approve`,
 `deploy.cancel`, `deploy.rollback`,
-`ops.restartService`, `ops.scaleService`,
+`ops.restartService`, `ops.scaleService`, `ops.investigate` (read-only, viewer),
 `security.resolveFinding`, `security.dismissFinding`, `security.reopenFinding`,
 `connection.create`, `connection.check`, `connection.disconnect`,
 `workspace.setAutonomy`, `workspace.rename`,

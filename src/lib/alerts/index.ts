@@ -41,6 +41,18 @@ import { environmentHealth } from "@/lib/logsim";
 import { log } from "@/lib/log";
 
 /**
+ * The two collections were added after stores already existed on disk (and in
+ * a running process's memory), so a snapshot loaded before them has no arrays.
+ * Backfill in place: the next save() persists them.
+ */
+function tables(): { rules: AlertRule[]; events: AlertEvent[] } {
+  const d = db() as ReturnType<typeof db> & { alertRules?: AlertRule[]; alertEvents?: AlertEvent[] };
+  d.alertRules ??= [];
+  d.alertEvents ??= [];
+  return { rules: d.alertRules, events: d.alertEvents };
+}
+
+/**
  * How often the background evaluator runs. Modest on purpose: the loop returns
  * immediately when the workspace has no rules, and one pass over every rule is
  * a health computation per environment — the same one the Observe page asks for
@@ -322,7 +334,7 @@ export function evaluateRule(rule: AlertRule): AlertCondition {
 /* --------------------------------- record --------------------------------- */
 
 export const openEventFor = (ruleId: string): AlertEvent | undefined =>
-  db().alertEvents.find((e) => e.ruleId === ruleId && !e.resolvedAt);
+  tables().events.find((e) => e.ruleId === ruleId && !e.resolvedAt);
 
 /**
  * Close a rule's open event, if it has one. Used when the condition clears and
@@ -344,7 +356,7 @@ function applyRule(rule: AlertRule, at: number): boolean {
   const open = openEventFor(rule.id);
 
   if (cond.firing && !open) {
-    db().alertEvents.push({
+    tables().events.push({
       id: id(),
       ruleId: rule.id,
       projectId: rule.projectId,
@@ -375,12 +387,12 @@ function evaluate(rules: AlertRule[], at = Date.now()): number {
 }
 
 /** Everything, for the background pass. */
-export const evaluateAll = (at = Date.now()): number => evaluate(db().alertRules, at);
+export const evaluateAll = (at = Date.now()): number => evaluate(tables().rules, at);
 
 /** One project, for a read of the alerts API — the page shows a fresh answer. */
 export const evaluateProject = (projectId: string, at = Date.now()): number =>
   evaluate(
-    db().alertRules.filter((r) => r.projectId === projectId),
+    tables().rules.filter((r) => r.projectId === projectId),
     at
   );
 
@@ -394,7 +406,7 @@ export const rulesOf = (projectId: string, environmentId?: string): AlertRule[] 
     .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
 
 export const requireRule = (ruleId: string): AlertRule => {
-  const rule = db().alertRules.find((r) => r.id === ruleId);
+  const rule = tables().rules.find((r) => r.id === ruleId);
   if (!rule)
     throw new Error(
       `Alert rule "${ruleId}" was not found. Reload Observe — someone may have deleted it.`
@@ -403,7 +415,7 @@ export const requireRule = (ruleId: string): AlertRule => {
 };
 
 export const requireEvent = (eventId: string): AlertEvent => {
-  const event = db().alertEvents.find((e) => e.id === eventId);
+  const event = tables().events.find((e) => e.id === eventId);
   if (!event)
     throw new Error(
       `Alert "${eventId}" was not found. Reload Observe — the alert list may have moved on.`
@@ -492,7 +504,7 @@ export function startAlertEvaluator(): void {
   if (g.__orreryAlertTimer) return;
   const pass = () => {
     try {
-      if (db().alertRules.length === 0) return;
+      if (tables().rules.length === 0) return;
       evaluateAll();
     } catch (err) {
       // A broken rule must not kill the timer for every other rule.

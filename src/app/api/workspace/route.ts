@@ -1,40 +1,40 @@
 /**
- * Workspace bootstrap — the one mutation that happens before any workspace
- * exists, so it cannot be an action. Creates the workspace, the local member,
- * and a healthy sandbox connection in one atomic step.
+ * Workspace creation — the one mutation that happens before any membership
+ * exists, so it cannot be an action (`workspace.create` would have nobody to
+ * role-check). Creates the workspace, a healthy sandbox connection and the
+ * caller's admin seat in one atomic step, then selects it.
  * Integrator-owned exception inside api/ (see docs/OWNERSHIP.md).
  */
-import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db, save } from "@/lib/db/store";
-import { id } from "@/lib/domain/types";
-import { ensureBoot } from "@/lib/server/boot";
+import { id, type Member } from "@/lib/domain/types";
+import {
+  ApiError,
+  WORKSPACE_COOKIE,
+  currentRequest,
+  json,
+  route,
+} from "@/lib/server/context";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export const dynamic = "force-dynamic";
 
 const Body = z.object({ name: z.string().trim().min(1).max(60) });
 
-export async function POST(req: NextRequest) {
-  await ensureBoot();
+export const POST = route(async (req) => {
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
-  if (!parsed.success) {
-    return NextResponse.json(
-      { error: { message: "Workspace needs a name.", fix: "Send { name: string } (1–60 chars)." } },
-      { status: 400 }
-    );
-  }
+  if (!parsed.success)
+    throw new ApiError("Workspace needs a name.", 400, { fix: "Send { name: string } (1–60 chars)." });
   const data = db();
-  if (data.workspaces.length > 0) {
-    return NextResponse.json(
-      {
-        error: {
-          message: `A workspace already exists ("${data.workspaces[0].name}").`,
-          fix: "Orrery local runs one workspace. Use it, or reset with npm run seed.",
-        },
-      },
-      { status: 409 }
-    );
-  }
+
+  // Demo mode has one local user who is admin of everything, so a second
+  // workspace has no membership to separate it from the first — it would only
+  // be a second name for the same permissions. Say that rather than pretend.
+  if (!isSupabaseConfigured() && data.workspaces.length > 0)
+    throw new ApiError(`A workspace already exists ("${data.workspaces[0].name}").`, 409, {
+      fix: "Orrery in demo mode runs one workspace. Configure Supabase auth (NEXT_PUBLIC_SUPABASE_URL + key) for real identities and multiple workspaces, or reset with `npm run seed`.",
+    });
+
   const name = parsed.data.name;
   const slug =
     name
@@ -45,13 +45,23 @@ export async function POST(req: NextRequest) {
 
   const workspace = { id: id(), name, slug, createdAt: new Date().toISOString() };
   data.workspaces.push(workspace);
-  data.members.push({
-    id: id(),
-    workspaceId: workspace.id,
-    name: "You",
-    email: "you@local",
-    role: "admin",
-  });
+
+  // The creator owns what they created. With no signed-in user (demo mode's
+  // first workspace) no member is seeded: a placeholder "you@local" admin is a
+  // seat nobody can sign in as, and it demoted every real user to editor
+  // forever. The first real user to sign in becomes admin (ensureMember).
+  const user = currentRequest()?.user;
+  if (user) {
+    const member: Member = {
+      id: user.id,
+      workspaceId: workspace.id,
+      name: user.name,
+      email: user.email,
+      role: "admin",
+    };
+    data.members.push(member);
+  }
+
   data.connections.push({
     id: id(),
     workspaceId: workspace.id,
@@ -68,5 +78,16 @@ export async function POST(req: NextRequest) {
     lastCheckedAt: new Date().toISOString(),
   });
   save();
-  return NextResponse.json({ workspace });
-}
+
+  // Creating a workspace is how you enter it; the browser should not have to
+  // make a second call to end up somewhere it did not ask to be.
+  const res = json({ workspace }, 201);
+  res.cookies.set(WORKSPACE_COOKIE, workspace.id, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 365 * 24 * 60 * 60,
+    secure: process.env.NODE_ENV === "production",
+  });
+  return res;
+});

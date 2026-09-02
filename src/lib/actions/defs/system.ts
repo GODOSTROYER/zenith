@@ -29,6 +29,12 @@ import {
 import { findNode, nodeName } from "@/lib/domain/graph";
 import { inferCapability, SECRET_KEY_RE, slugify, uniqueName } from "@/lib/importers/types";
 import {
+  putSecret,
+  removeSecret as removeStoredSecret,
+  secretStatus,
+  secretStoreState,
+} from "@/lib/secrets";
+import {
   clone,
   commit,
   editSummary,
@@ -48,10 +54,23 @@ interface Built {
   details?: string[];
   warnings?: string[];
   data?: unknown;
+  /**
+   * Set when this edit must not be applied at all — the reason and the fix.
+   * Surfaces read it off the plan and disable their confirm control; execute
+   * refuses with the same words. Used where an edit would destroy data.
+   */
+  blocked?: string;
+  /**
+   * Side effect outside the manifest, run on execute only — never on plan.
+   * The secret actions are the only users: the value goes into the store
+   * BEFORE the manifest is committed, so a failed write leaves the plaintext
+   * where it was rather than replacing it with a reference to nothing.
+   */
+  apply?: () => void;
 }
 
 /**
- * All twelve system.* actions are the same shape: build the next manifest
+ * Every system.* action is the same shape: build the next manifest
  * purely, preview it with a real diff, commit it on execute.
  */
 export function manifestAction<I extends { projectId?: string }>(def: {
@@ -60,7 +79,8 @@ export function manifestAction<I extends { projectId?: string }>(def: {
   risk: Risk;
   requiredRole?: Role;
   input: z.ZodType<I>;
-  build(project: Project, input: I): Built;
+  /** Pure apart from reads. `ctx` is here for the workspace-scoped secret store. */
+  build(project: Project, input: I, ctx: ActionContext): Built;
 }) {
   return defineAction<I>({
     id: def.id,
@@ -72,16 +92,21 @@ export function manifestAction<I extends { projectId?: string }>(def: {
     input: def.input,
     plan(ctx: ActionContext, input: I) {
       const project = requireProject(ctx, input.projectId);
-      const built = def.build(project, input);
-      return planFromDiff(project.workingManifest, built.next, built.what, {
+      const built = def.build(project, input, ctx);
+      const plan = planFromDiff(project.workingManifest, built.next, built.what, {
         details: built.details,
         warnings: built.warnings,
       });
+      return built.blocked ? { ...plan, blocked: built.blocked } : plan;
     },
     execute(ctx: ActionContext, input: I): ActionResult {
       const project = requireProject(ctx, input.projectId);
       const before = clone(project.workingManifest);
-      const built = def.build(project, input);
+      const built = def.build(project, input, ctx);
+      if (built.blocked)
+        return { ok: false, summary: `${def.title} was not applied.`, error: built.blocked };
+      // Store first, manifest second: if this throws, nothing is committed.
+      built.apply?.();
       commit(project, built.next);
       return { ok: true, summary: editSummary(before, built.next, built.what), data: built.data };
     },
@@ -171,11 +196,13 @@ manifestAction<AddService>({
 const UpdateService = z.object({
   projectId: z.string().optional(),
   serviceId: z.string().min(1),
-  name: z.string().optional(),
+  /** min(1): "" used to pass, then build() skipped it — an edit that did nothing */
+  name: z.string().min(1, "give the service a name, or leave the field out to keep the current one").optional(),
   kind: ServiceKind.optional(),
   size: ServiceSize.optional(),
   replicas: z.number().int().min(0).max(10).optional(),
-  port: z.number().int().min(1).max(65535).optional(),
+  /** absent = leave it alone; null = clear it (a worker does not need a port) */
+  port: z.number().int().min(1).max(65535).nullable().optional(),
   healthPath: z.string().optional(),
   schedule: z.string().optional(),
   image: z.string().optional(),
@@ -202,7 +229,13 @@ manifestAction<UpdateService>({
     if (input.kind) service.kind = input.kind;
     if (input.size) service.size = input.size;
     if (input.replicas !== undefined) service.replicas = input.replicas;
-    if (input.port !== undefined) service.port = input.port;
+    // Absent leaves the port alone; an explicit null clears it. Without the
+    // distinction there was no way to un-set a port at all.
+    if (input.port !== undefined) {
+      if (input.port === null && service.port !== undefined && service.kind === "web")
+        warnings.push(`Clearing the port on web service ${service.name} makes the system invalid — a web service must say what it listens on. Set a port, or change the kind to worker.`);
+      service.port = input.port ?? undefined;
+    }
     if (input.healthPath !== undefined) service.healthPath = input.healthPath;
     if (input.schedule !== undefined) service.schedule = input.schedule;
     if (input.image) service.source = { type: "image", image: input.image };
@@ -418,6 +451,75 @@ manifestAction<AddRoute>({
   },
 });
 
+/** Routes are looked up by id or by hostname, like every other node ref. */
+function requireRoute(m: Manifest, routeId: string): Route {
+  const route = m.routes.find((r) => r.id === routeId || r.host === routeId);
+  if (!route)
+    throw new Error(
+      `No route "${routeId}". Known routes: ${m.routes.map((r) => r.host).join(", ") || "(none — publish one with system.addRoute)"}.`
+    );
+  return route;
+}
+
+const UpdateRoute = z.object({
+  projectId: z.string().optional(),
+  routeId: z.string().min(1),
+  tls: z.boolean().optional(),
+  pathPrefix: z.string().optional(),
+});
+type UpdateRoute = z.infer<typeof UpdateRoute>;
+
+manifestAction<UpdateRoute>({
+  id: "system.updateRoute",
+  title: "Update route",
+  risk: "medium",
+  requiredRole: "editor",
+  input: UpdateRoute,
+  build(project, input) {
+    const next = clone(project.workingManifest);
+    const route = requireRoute(next, input.routeId);
+    if (input.tls === undefined && input.pathPrefix === undefined)
+      throw new Error(
+        "Nothing to change — pass tls, pathPrefix, or both. A hostname is an identity, not a setting: publish the new one with system.addRoute and remove this route when you are ready."
+      );
+
+    const details: string[] = [];
+    const warnings: string[] = [];
+
+    if (input.pathPrefix !== undefined) {
+      const prefix = input.pathPrefix.startsWith("/") ? input.pathPrefix : `/${input.pathPrefix}`;
+      if (prefix !== route.pathPrefix) {
+        if (next.routes.some((r) => r.id !== route.id && r.host === route.host && r.pathPrefix === prefix))
+          throw new Error(`${route.host}${prefix} is already published by another route. Pick a different path prefix.`);
+        details.push(`${route.host}${route.pathPrefix} stops being served here; ${route.host}${prefix} takes over once this is deployed.`);
+        route.pathPrefix = prefix;
+      }
+    }
+
+    if (input.tls !== undefined && input.tls !== route.tls) {
+      route.tls = input.tls;
+      if (input.tls)
+        details.push(
+          route.managedDns
+            ? `${route.host} is Orrery-managed, so the certificate is issued and renewed for you.`
+            : `${route.host} is your own hostname: the certificate is issued after it resolves to this environment, so point the CNAME before deploying.`
+        );
+      else
+        warnings.push(
+          `${route.host} will serve plaintext HTTP. Anything on the network path can read or alter the traffic, including credentials and session cookies.`
+        );
+    }
+
+    return {
+      next,
+      what: `Updates route ${route.host}`,
+      details,
+      warnings,
+      data: { routeId: route.id, host: route.host },
+    };
+  },
+});
+
 const RemoveRoute = z.object({
   projectId: z.string().optional(),
   routeId: z.string().min(1),
@@ -431,9 +533,7 @@ manifestAction<RemoveRoute>({
   input: RemoveRoute,
   build(project, input) {
     const next = clone(project.workingManifest);
-    const route = next.routes.find((r) => r.id === input.routeId || r.host === input.routeId);
-    if (!route)
-      throw new Error(`No route "${input.routeId}". Known routes: ${next.routes.map((r) => r.host).join(", ") || "(none)"}.`);
+    const route = requireRoute(next, input.routeId);
     dropBindings(next, route.id);
     next.routes = next.routes.filter((r) => r.id !== route.id);
     return {
@@ -468,18 +568,15 @@ manifestAction<Bind>({
     if (fromId === toId) throw new Error("A node cannot be connected to itself. Pick two different nodes.");
 
     const existing = next.bindings.find((b) => b.from === fromId && b.to === toId);
-    if (existing)
-      return {
-        next,
-        what: `${nodeName(next, fromId)} is already connected to ${nodeName(next, toId)}`,
-        details: [`Nothing to change — the ${existing.capability} connection already exists.`],
-        data: { bindingId: existing.id },
-      };
 
     const target = findNode(next, toId);
     if (!target) throw new Error(`Routes cannot be a connection target. Bind a route to a service instead (from: the route, to: the service).`);
     const isRoute = next.routes.some((r) => r.id === fromId);
-    const capability = input.capability ?? (isRoute ? "http" : inferCapability(target.type === "resource" ? target.node.kind : "service"));
+    // An existing edge keeps its capability unless the caller names a new one.
+    const capability =
+      input.capability ??
+      existing?.capability ??
+      (isRoute ? "http" : inferCapability(target.type === "resource" ? target.node.kind : "service"));
 
     if (isRoute && capability !== "http")
       throw new Error("A route can only serve HTTP. Leave capability unset, or use 'http'.");
@@ -487,6 +584,35 @@ manifestAction<Bind>({
       throw new Error(`A route must point at a service. "${nodeName(next, toId)}" is a resource — put a service in front of it.`);
     if (target.type === "resource" && capability === "http")
       throw new Error(`"${nodeName(next, toId)}" is a ${target.node.kind}, which is not reached over HTTP. Leave capability unset and Orrery will pick the right one.`);
+
+    // Editing an existing edge in place. Previously this returned "already
+    // connected — nothing to change", so changing a capability meant an
+    // unbind/bind pair: two audit rows and a moment with no connection at all.
+    if (existing) {
+      const capChanged = existing.capability !== capability;
+      const noteChanged = input.note !== undefined && input.note !== existing.note;
+      const label = `${nodeName(next, fromId)} → ${nodeName(next, toId)}`;
+      if (!capChanged && !noteChanged)
+        return {
+          next,
+          what: `${nodeName(next, fromId)} is already connected to ${nodeName(next, toId)}`,
+          details: [`Nothing to change — the ${existing.capability} connection already exists.`],
+          data: { bindingId: existing.id },
+        };
+      const before = existing.capability;
+      existing.capability = capability;
+      if (input.note !== undefined) existing.note = input.note;
+      return {
+        next,
+        what: capChanged
+          ? `Changes ${label} from ${before} to ${capability}`
+          : `Updates the explanation on ${label}`,
+        warnings: capChanged
+          ? [`${nodeName(next, fromId)} loses the variables ${before} injected and gains the ${capability} ones. Redeploy it after this.`]
+          : [],
+        data: { bindingId: existing.id, capability },
+      };
+    }
 
     const binding: Binding = {
       id: id(),
@@ -562,10 +688,22 @@ manifestAction<SetEnvVar>({
     const next = clone(project.workingManifest);
     const service = requireService(next, input.serviceId);
     if (input.value === null) {
-      if (!service.env.some((e) => e.key === input.key))
+      const doomed = service.env.find((e) => e.key === input.key);
+      if (!doomed)
         throw new Error(`${service.name} has no variable "${input.key}". Nothing to remove.`);
       service.env = service.env.filter((e) => e.key !== input.key);
-      return { next, what: `Removes ${input.key} from ${service.name}`, data: { serviceId: service.id } };
+      return {
+        next,
+        what: `Removes ${input.key} from ${service.name}`,
+        // Removing the reference does not remove what it points at. Saying so
+        // is the difference between a tidy store and an orphan nobody knows about.
+        warnings: doomed.secretRef
+          ? [
+              `This removes the reference ${doomed.secretRef} from the manifest. Any value stored under it stays in Orrery's secret store — use system.removeSecret to remove both at once.`,
+            ]
+          : [],
+        data: { serviceId: service.id },
+      };
     }
     if (SECRET_KEY_RE.test(input.key))
       throw new Error(`"${input.key}" looks like a secret, and manifests are exported, diffed and audited. Use system.setSecret instead — it stores a reference and keeps the value out of the manifest.`);
@@ -581,17 +719,59 @@ manifestAction<SetEnvVar>({
   },
 });
 
+
+/* --------------------------------- secrets --------------------------------- */
+
+/**
+ * Orrery holds secret VALUES, encrypted, in `lib/secrets` — and records only
+ * the REFERENCE (`vault:<KEY>`) in the manifest. So these three actions each
+ * touch two places, and every plan says which:
+ *
+ *   manifest  → the reference, which is diffed, revisioned, audited, exported
+ *   store     → the value, which is none of those things
+ *
+ * Without `ORRERY_SECRET_KEY` there is no store, and a write is refused with
+ * the variable's name and how to generate a key. It never half-works: a value
+ * is never accepted and dropped, and a plaintext value is never replaced by a
+ * reference to nothing.
+ */
+
+/** The reference a key uses by default. One rule, so every surface agrees. */
+const defaultRef = (key: string) => `vault:${key}`;
+
+/** True for references this Orrery is responsible for (as opposed to your Vault). */
+const isOurs = (ref: string) => ref.startsWith("vault:");
+
+/** How a plan describes what the store currently holds at a reference. */
+function heldLine(ctx: ActionContext, ref: string): string {
+  if (!isOurs(ref))
+    return `${ref} is not Orrery's to resolve — your provider reads it at deploy time. Orrery only records the name.`;
+  const held = secretStatus(ctx.workspaceId, ref);
+  return held.exists
+    ? `The store already holds a value for ${ref} (v${held.version}, updated ${held.updatedAt} by ${held.updatedBy}). Applying this points at it; the value itself is unchanged.`
+    : `Nothing is stored at ${ref} yet. Add the value in the same step, or with system.rotateSecret, before you deploy — a service whose secret is missing starts without it.`;
+}
+
+const REDEPLOY_NOTE =
+  "Services already running keep the copy they were given at deploy time. They pick this up on the next deploy, not now.";
+
 const SetSecret = z.object({
   projectId: z.string().optional(),
   serviceId: z.string().min(1),
   key: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/, "use letters, digits and underscores, starting with a letter or underscore"),
   /**
-   * Accepted so one call can carry the value the UI collected, and
-   * deliberately never persisted. The field is named `secretValue` on
-   * purpose: core's audit redactor redacts by field name, so this never
-   * reaches the audit log either.
+   * The value to store. Named `secretValue` so core's audit redactor masks it
+   * by field name — it must never reach the audit log, even on a refusal.
    */
-  secretValue: z.string().optional(),
+  secretValue: z.string().min(1).optional(),
+  /** Where the value lives. Defaults to `vault:<KEY>`, Orrery's own store. */
+  secretRef: z.string().min(1).optional(),
+  /**
+   * Take the plaintext value this key already has, put it in the store, and
+   * replace it with the reference — one action, so the value is never briefly
+   * nowhere. This is what the "Move to the secret store" security fix runs.
+   */
+  moveExistingValue: z.boolean().optional(),
 });
 type SetSecret = z.infer<typeof SetSecret>;
 
@@ -600,24 +780,299 @@ manifestAction<SetSecret>({
   title: "Set secret",
   risk: "low",
   input: SetSecret,
-  build(project, input) {
+  build(project, input, ctx) {
     const next = clone(project.workingManifest);
     const service = requireService(next, input.serviceId);
-    const secretRef = `vault:${input.key}`;
+    const ref = input.secretRef ?? defaultRef(input.key);
     const existing = service.env.find((e) => e.key === input.key);
-    if (existing) {
-      existing.secretRef = secretRef;
-      delete existing.value;
-    } else {
-      service.env.push({ key: input.key, secretRef });
+    const plaintext = existing?.value;
+    const store = secretStoreState();
+    const what = `Stores ${input.key} as a secret on ${service.name}`;
+
+    const point = (): void => {
+      if (existing) {
+        existing.secretRef = ref;
+        delete existing.value;
+      } else {
+        service.env.push({ key: input.key, secretRef: ref });
+      }
+    };
+
+    /* Move: the working copy's plaintext becomes the stored value. */
+    if (input.moveExistingValue) {
+      if (plaintext === undefined)
+        return {
+          next,
+          what,
+          blocked:
+            `${service.name}.${input.key} has no plaintext value to move${existing ? ` (it already reads from ${existing.secretRef})` : " — there is no such variable"}. ` +
+            `Nothing was changed. To store a new value, run this action with the value instead.`,
+        };
+      if (!isOurs(ref))
+        return {
+          next,
+          what,
+          blocked:
+            `Orrery can only move a value into its own store, and ${ref} is somewhere else. ` +
+            `Drop secretRef to use ${defaultRef(input.key)}, or copy the value into ${ref} yourself and then point at it.`,
+        };
+      if (!store.configured)
+        return {
+          next,
+          what,
+          blocked:
+            `${store.reason} ${service.name}.${input.key} still holds its plaintext value and was left exactly as it is — moving it now would delete the only copy. ${store.fix}`,
+        };
+      point();
+      return {
+        next,
+        what: `Moves ${input.key} on ${service.name} into the secret store`,
+        details: [
+          `The value moves from the manifest into Orrery's store under ${ref}, encrypted with this server's ORRERY_SECRET_KEY. The manifest keeps only the reference.`,
+          `The store is written first: if that fails, the plaintext stays where it is and nothing is committed.`,
+        ],
+        warnings: [
+          `Revisions already recorded still contain the plaintext — this cannot change the past. Rotate the credential at its source if it has been exposed.`,
+          REDEPLOY_NOTE,
+        ],
+        apply: () => putSecret(ctx.workspaceId, ref, plaintext, ctx.actor.name),
+        data: { serviceId: service.id, secretRef: ref },
+      };
     }
+
+    /* A value was supplied: store it, record the reference. */
+    if (input.secretValue !== undefined) {
+      if (!store.configured)
+        return {
+          next,
+          what,
+          blocked:
+            `${store.reason} ${store.fix} ` +
+            `Nothing was saved, and the value you typed was not written to the manifest, the store or the audit log. ` +
+            `Until then you can still record a reference to a value you keep elsewhere: run this action with secretRef and no value.`,
+        };
+      if (!isOurs(ref))
+        return {
+          next,
+          what,
+          blocked:
+            `${ref} is not Orrery's store, and Orrery cannot write into someone else's. ` +
+            `Drop secretRef to store the value at ${defaultRef(input.key)}, or put it in ${ref} yourself and run this action with secretRef and no value.`,
+        };
+
+      const held = secretStatus(ctx.workspaceId, ref);
+      const value = input.secretValue;
+      point();
+      return {
+        next,
+        what: held.exists ? `Replaces the stored value for ${input.key} on ${service.name}` : what,
+        details: [
+          `The value is encrypted with AES-256-GCM under this server's ORRERY_SECRET_KEY and written to the secret store as ${ref}${held.exists ? ` (v${held.version} → v${held.version + 1})` : " (v1)"}.`,
+          `The manifest records only ${ref}. No value reaches the manifest, the diff, a revision, the audit log or an export bundle.`,
+        ],
+        warnings: [
+          ...(plaintext !== undefined
+            ? [
+                `${input.key} currently holds a plaintext value on ${service.name}. Applying this replaces it with the reference — the value you typed is what gets stored, and the old one survives only in revisions already recorded.`,
+              ]
+            : []),
+          REDEPLOY_NOTE,
+        ],
+        apply: () => putSecret(ctx.workspaceId, ref, value, ctx.actor.name),
+        data: { serviceId: service.id, secretRef: ref },
+      };
+    }
+
+    /* Reference only: point at a value that already exists somewhere. */
+    if (plaintext !== undefined)
+      return {
+        next,
+        what,
+        blocked:
+          `${input.key} currently holds a plaintext value on ${service.name}, and replacing it with ${ref} would delete the only copy in the working manifest. ` +
+          (store.configured
+            ? `Run this action again with moveExistingValue: true to put that value in Orrery's store and swap in the reference in one step — nothing is lost.`
+            : `${store.reason} ${store.fix} Or copy the value into your own secret manager, remove it here with system.setEnvVar (value: null), and then add the reference.`),
+      };
+
+    point();
     return {
       next,
-      what: `Stores ${input.key} as a secret on ${service.name}`,
+      what: `Points ${input.key} at the secret ${ref} on ${service.name}`,
       details: [
-        `The manifest records only the reference ${secretRef}. The value is never written to the manifest, the diff, the audit log or an export bundle.`,
+        `The manifest records only the reference ${ref}. No value is written to the manifest, the diff, the audit log or an export bundle.`,
+        heldLine(ctx, ref),
       ],
-      data: { serviceId: service.id, secretRef },
+      data: { serviceId: service.id, secretRef: ref },
+    };
+  },
+});
+
+/* --------------------------- rotate: value only ---------------------------- */
+
+/**
+ * Which reference an input names: an explicit one, or the one the service's
+ * variable already points at. Throws with the fix when neither resolves.
+ */
+function requireRef(
+  project: Project,
+  input: { serviceId?: string; key?: string; secretRef?: string }
+): string {
+  if (input.secretRef) return input.secretRef;
+  if (!input.serviceId || !input.key)
+    throw new Error(
+      "Say which secret: pass secretRef, or both serviceId and key so Orrery can read the reference off the variable."
+    );
+  const service = requireService(project.workingManifest, input.serviceId);
+  const entry = service.env.find((e) => e.key === input.key);
+  if (!entry)
+    throw new Error(`${service.name} has no variable "${input.key}". Add it with system.setSecret first.`);
+  if (!entry.secretRef)
+    throw new Error(
+      `${service.name}.${input.key} holds a plaintext value, not a secret reference. Move it into the store with system.setSecret (moveExistingValue: true) before rotating it.`
+    );
+  return entry.secretRef;
+}
+
+const RotateSecret = z.object({
+  projectId: z.string().optional(),
+  /** name the secret directly… */
+  secretRef: z.string().min(1).optional(),
+  /** …or name the variable that points at it */
+  serviceId: z.string().optional(),
+  key: z.string().optional(),
+  secretValue: z.string().min(1),
+});
+type RotateSecret = z.infer<typeof RotateSecret>;
+
+/**
+ * A new value under the same reference. The manifest does not change at all —
+ * which is the point, and why this is not a manifestAction: there is no diff
+ * to preview, so the plan describes the store instead.
+ */
+defineAction<RotateSecret>({
+  id: "system.rotateSecret",
+  title: "Rotate secret",
+  category: "secrets",
+  risk: "medium",
+  requiredRole: "editor",
+  mutates: true,
+  input: RotateSecret,
+  plan(ctx, input) {
+    const project = requireProject(ctx, input.projectId);
+    const ref = requireRef(project, input);
+    const store = secretStoreState();
+    const base = {
+      summary: `Replaces the stored value for ${ref}.`,
+      details: [] as string[],
+      warnings: [] as string[],
+      costDeltaUsd: 0,
+      risk: "medium" as const,
+      requiresApproval: false,
+    };
+
+    if (!store.configured) return { ...base, blocked: `${store.reason} ${store.fix}` };
+    if (!isOurs(ref))
+      return {
+        ...base,
+        blocked:
+          `${ref} is not held by Orrery — it names a value in your own secret manager, which Orrery cannot write to. ` +
+          `Rotate it there, then redeploy so the services pick it up.`,
+      };
+    const held = secretStatus(ctx.workspaceId, ref);
+    if (!held.exists)
+      return {
+        ...base,
+        blocked:
+          `Nothing is stored at ${ref}, so there is nothing to rotate. ` +
+          `Set the first value with system.setSecret on the variable that references it.`,
+      };
+
+    return {
+      ...base,
+      details: [
+        `${ref} goes from v${held.version} to v${held.version + 1}. The new value is encrypted under this server's ORRERY_SECRET_KEY and replaces the old one, which is not recoverable afterwards.`,
+        `The manifest, the working copy and every revision are untouched — they hold the reference, never the value.`,
+      ],
+      warnings: [REDEPLOY_NOTE],
+    };
+  },
+  execute(ctx, input) {
+    const project = requireProject(ctx, input.projectId);
+    const ref = requireRef(project, input);
+    const store = secretStoreState();
+    if (!store.configured)
+      return { ok: false, summary: "The secret was not rotated.", error: `${store.reason} ${store.fix}` };
+    if (!isOurs(ref))
+      return {
+        ok: false,
+        summary: "The secret was not rotated.",
+        error: `${ref} lives in your own secret manager. Rotate it there, then redeploy.`,
+      };
+    if (!secretStatus(ctx.workspaceId, ref).exists)
+      return {
+        ok: false,
+        summary: "The secret was not rotated.",
+        error: `Nothing is stored at ${ref}. Set the first value with system.setSecret.`,
+      };
+
+    const meta = putSecret(ctx.workspaceId, ref, input.secretValue, ctx.actor.name);
+    return {
+      ok: true,
+      summary: `${ref} is now v${meta.version}. ${REDEPLOY_NOTE}`,
+      data: { secretRef: ref, version: meta.version },
+    };
+  },
+});
+
+/* ------------------------- remove: reference + value ------------------------ */
+
+const RemoveSecret = z.object({
+  projectId: z.string().optional(),
+  serviceId: z.string().min(1),
+  key: z.string().min(1),
+});
+type RemoveSecret = z.infer<typeof RemoveSecret>;
+
+manifestAction<RemoveSecret>({
+  id: "system.removeSecret",
+  title: "Remove secret",
+  risk: "medium",
+  input: RemoveSecret,
+  build(project, input, ctx) {
+    const next = clone(project.workingManifest);
+    const service = requireService(next, input.serviceId);
+    const entry = service.env.find((e) => e.key === input.key);
+    if (!entry)
+      throw new Error(
+        `${service.name} has no variable "${input.key}". It may already be gone — reload the service to see what it has.`
+      );
+    if (!entry.secretRef)
+      throw new Error(
+        `${service.name}.${input.key} is a plain value, not a secret. Remove it with system.setEnvVar (value: null).`
+      );
+
+    const ref = entry.secretRef;
+    const held = isOurs(ref) ? secretStatus(ctx.workspaceId, ref) : { exists: false as const, ref };
+    service.env = service.env.filter((e) => e.key !== input.key);
+
+    return {
+      next,
+      what: `Removes the secret ${input.key} from ${service.name}`,
+      details: [
+        `The reference ${ref} is removed from the manifest.`,
+        held.exists
+          ? `The stored value (v${held.version}) is deleted from Orrery's secret store. It cannot be recovered — Orrery keeps no copy and no backup of it.`
+          : isOurs(ref)
+            ? `Orrery's store holds no value for ${ref}, so only the reference goes.`
+            : `${ref} lives in your own secret manager; Orrery does not touch it. Remove it there if nothing else uses it.`,
+      ],
+      warnings: [
+        `${service.name} loses ${input.key} at the next deploy and will fail at runtime if it still reads it.`,
+        `Anything already running keeps the value it was given at deploy time until it is redeployed — removing it here does not pull it out of a live container.`,
+      ],
+      apply: isOurs(ref) ? () => void removeStoredSecret(ctx.workspaceId, ref) : undefined,
+      data: { serviceId: service.id, secretRef: ref },
     };
   },
 });

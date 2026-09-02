@@ -30,6 +30,30 @@ async function providerFor(env: Environment) {
 
 /* ----------------------------- restartService ----------------------------- */
 
+/**
+ * Every restart is simulated, on every provider.
+ *
+ * `ProviderAdapter` has no restart method — the contract is plan/execute/
+ * export — so there is no code path from this action to a running process on
+ * any adapter. The sandbox is honest about that by construction; LocalStack
+ * does not run your containers either (ECS is one of the kinds it simulates).
+ * These two helpers make the result say which of those it was, rather than
+ * reporting a success that touched nothing.
+ */
+function restartDetail(adapter: { id: string; displayName: string }): string {
+  if (adapter.id === "sandbox")
+    return "The sandbox marks the service restarting, then healthy again. No process exists to restart.";
+  if (adapter.id === "localstack")
+    return "LocalStack Community does not run your containers — ECS is one of the kinds it simulates — so no process was restarted.";
+  return `${adapter.displayName} has no live restart in Orrery: no provider adapter implements one, so nothing was restarted.`;
+}
+
+function restartWarning(adapter: { id: string; displayName: string }): string {
+  return adapter.id === "sandbox"
+    ? "Simulated: nothing is provisioned in the sandbox, so nothing is restarted."
+    : `Simulated: ${adapter.displayName} runs the deploy, but Orrery has no live restart for it. To replace the running copy, deploy the environment again.`;
+}
+
 const Restart = z.object({
   projectId: z.string().optional(),
   environmentId: z.string().optional(),
@@ -50,24 +74,19 @@ defineAction<Restart>({
     const project = requireProject(ctx, input.projectId ?? env.projectId);
     const service = requireService(project.workingManifest, input.serviceId);
     const { adapter } = await providerFor(env);
-    const simulated = adapter.availability !== "available" || adapter.id === "sandbox";
     return {
-      summary: `Restart ${service.name} in ${env.name}${adapter.id === "sandbox" ? " (simulated)" : ""}.`,
+      summary: `Restart ${service.name} in ${env.name} (simulated).`,
       details: [
         service.replicas > 1
-          ? `${service.replicas} replicas are replaced one at a time, so traffic keeps flowing.`
-          : `${service.name} runs a single replica, so there is a short gap while it comes back.`,
+          ? `${service.replicas} replicas would be replaced one at a time, so traffic keeps flowing.`
+          : `${service.name} runs a single replica, so there would be a short gap while it comes back.`,
         `Through ${adapter.displayName} (${adapter.availability}).`,
-        adapter.id === "sandbox"
-          ? "The sandbox simulates the restart: the service is marked restarting, then healthy again. No real process is touched."
-          : "This acts on the running environment.",
+        restartDetail(adapter),
         "Nothing about the system definition changes — no revision, no deployment.",
       ],
       costDeltaUsd: 0,
-      risk: service.replicas > 1 ? "low" : "medium",
-      warnings: simulated && adapter.id !== "sandbox"
-        ? [`${adapter.displayName} is ${adapter.availability}; restarts are not executed against real infrastructure yet.`]
-        : [],
+      risk: "low",
+      warnings: [restartWarning(adapter)],
       requiresApproval: false,
     };
   },
@@ -93,15 +112,15 @@ defineAction<Restart>({
 
     return {
       ok: true,
-      summary:
-        adapter.id === "sandbox"
-          ? `Rolling restart of ${service.name} in ${env.name} — sandbox restart (simulated), ${service.replicas} replica${service.replicas === 1 ? "" : "s"}.`
-          : `Rolling restart of ${service.name} in ${env.name} (${service.replicas} replica${service.replicas === 1 ? "" : "s"}).`,
+      summary: `Simulated restart of ${service.name} in ${env.name} (${service.replicas} replica${service.replicas === 1 ? "" : "s"}). ${restartDetail(adapter)}`,
       data: {
         serviceId: service.id,
         environmentId: env.id,
         replicas: service.replicas,
-        simulated: adapter.id === "sandbox",
+        // Always true: see restartDetail. Flip this the day an adapter grows a
+        // real restart, and only for that adapter.
+        simulated: true,
+        provider: adapter.id,
         at: new Date().toISOString(),
       },
     };

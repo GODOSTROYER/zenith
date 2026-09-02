@@ -7,39 +7,91 @@
  *
  * Workstream A.
  */
-import type {
-  CloudConnection,
-  Environment,
-  Manifest,
-  Route,
-  Service,
+import {
+  fnv1a,
+  type CloudConnection,
+  type Environment,
+  type Manifest,
+  type Resource,
+  type ResourceKind,
+  type Route,
+  type Service,
+  type ServiceSize,
 } from "@/lib/domain/types";
 import { SIZE_SPECS } from "@/lib/cost/pricing";
-import type {
-  ExportBundle,
-  PreflightReport,
-  ProviderAdapter,
-  ProviderPlanStep,
-  StepRuntime,
+import { q } from "@/lib/db/store";
+import { expectedAttributes } from "@/lib/drift";
+import { secretStatus, secretStoreState } from "@/lib/secrets";
+import {
+  stepBudgetMs,
+  type Discovery,
+  type ExportBundle,
+  type LiveResource,
+  type LiveState,
+  type PreflightReport,
+  type ProviderAdapter,
+  type ProviderPlanStep,
+  type StepRuntime,
 } from "@/lib/providers/types";
 
 /* --------------------------- deterministic jitter -------------------------- */
 
-export function hash32(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
 /** Stable pseudo-jitter so `planSteps` stays pure across calls. */
 function jitter(seed: string, min: number, max: number): number {
-  return Math.round(min + ((hash32(seed) % 1000) / 1000) * (max - min));
+  return Math.round(min + ((fnv1a(seed) % 1000) / 1000) * (max - min));
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, Math.max(0, ms)));
+
+/* -------------------------------- secrets --------------------------------- */
+
+/**
+ * Resolve each of a service's secret references at release time, and say what
+ * happened — by reference, never by value. The sandbox starts no container, so
+ * nothing actually receives these; the line says that too, because a log that
+ * reads like a real injection is exactly the kind of lie this adapter must not
+ * tell. What is real is the lookup: a reference with nothing behind it is
+ * reported here, which is the last place before a deploy where that is cheap
+ * to notice.
+ */
+function injectSecrets(rt: StepRuntime, service: Service): void {
+  const refs = service.env.filter((e) => e.secretRef !== undefined);
+  if (!refs.length) return;
+
+  const workspaceId = q.project(rt.env.projectId)?.workspaceId;
+  const store = secretStoreState();
+  const missing: string[] = [];
+
+  for (const e of refs) {
+    const ref = e.secretRef!;
+    if (!ref.startsWith("vault:")) {
+      rt.log(`inject ${e.key} ← ${ref} (your secret manager; Orrery does not resolve it)`, "provider");
+      continue;
+    }
+    if (!store.configured || !workspaceId) {
+      missing.push(e.key);
+      continue;
+    }
+    const held = secretStatus(workspaceId, ref);
+    if (held.exists)
+      rt.log(`inject ${e.key} ← ${ref} (v${held.version}, from the Orrery secret store)`, "provider");
+    else missing.push(e.key);
+  }
+
+  rt.log(
+    `${service.name}: secrets are resolved by reference and injected as environment at start — simulated, like the rest of this deployment. The sandbox runs no container, so no value left the server.`,
+    "info"
+  );
+
+  if (missing.length)
+    rt.log(
+      `${service.name} has no stored value for ${missing.join(", ")}. ` +
+        (store.configured
+          ? `Set it on the service's Variables panel (or with system.setSecret) before deploying somewhere real — a service that starts without its credential fails at first use, not at start.`
+          : `${store.reason} ${store.fix}`),
+      "info"
+    );
+}
 
 /* --------------------------------- naming --------------------------------- */
 
@@ -172,14 +224,8 @@ function planSteps(env: Environment, next: Manifest, previous?: Manifest): Provi
 
 /* -------------------------------- execution ------------------------------- */
 
-/** Duration budget the engine stored for this step (fast mode already applied). */
-function budget(rt: StepRuntime): number {
-  const d = rt.deployment as typeof rt.deployment & { estMs?: Record<string, number> };
-  return d.estMs?.[rt.step.id] ?? 800;
-}
-
 async function paced(rt: StepRuntime, lines: [string, "info" | "provider"][]): Promise<void> {
-  const slice = budget(rt) / Math.max(1, lines.length);
+  const slice = stepBudgetMs(rt) / Math.max(1, lines.length);
   for (const [line, stream] of lines) {
     await sleep(slice);
     rt.log(line, stream);
@@ -204,20 +250,25 @@ async function executeStep(rt: StepRuntime): Promise<void> {
   }
 
   if (step.phase === "prepare" && service) {
-    const digest = `sha256:${hash32(`${service.id}:${rt.revision.id}`).toString(16).padStart(8, "0")}${hash32(service.name).toString(16).padStart(8, "0")}`;
+    const digest = `sha256:${fnv1a(`${service.id}:${rt.revision.id}`).toString(16).padStart(8, "0")}${fnv1a(service.name).toString(16).padStart(8, "0")}`;
+    const seed = `${service.id}:${rt.revision.id}`;
     if (service.source.type === "image") {
+      const layers = jitter(`layers:${seed}`, 4, 16);
+      const cached = jitter(`cached:${seed}`, 0, layers);
+      const mb = (jitter(`bytes:${seed}`, 900, 240_000) / 1000).toFixed(1);
       await paced(rt, [
         [`pull ${service.source.image}`, "provider"],
-        [`layers: 7 cached, 2 downloaded (18.4 MB)`, "provider"],
+        [`layers: ${cached} cached, ${layers - cached} downloaded (${mb} MB)`, "provider"],
         [`digest ${digest}`, "provider"],
       ]);
     } else {
       const spec = SIZE_SPECS[service.size];
+      const total = jitter(`steps:${seed}`, 4, 9);
       await paced(rt, [
         [`builder: sandbox-buildkit v0.14 (${spec.vcpu} vCPU)`, "provider"],
-        [`step 1/5 detect runtime`, "provider"],
-        [`step 3/5 install dependencies`, "provider"],
-        [`step 5/5 export image`, "provider"],
+        [`step 1/${total} detect runtime`, "provider"],
+        [`step ${Math.max(2, Math.round(total / 2))}/${total} install dependencies`, "provider"],
+        [`step ${total}/${total} export image`, "provider"],
         [`digest ${digest}`, "provider"],
       ]);
     }
@@ -228,9 +279,16 @@ async function executeStep(rt: StepRuntime): Promise<void> {
   if (step.phase === "provision" && resource) {
     const endpoint = `${resource.name}.${env.name}.${env.baseDomain}`;
     if (resource.ownership !== "managed") {
+      // No probe happens: the sandbox holds no credentials and contacts
+      // nothing. Saying "reachable, credentials valid" here asserted the
+      // result of a check that was never performed.
       await paced(rt, [
-        [`probe ${resource.kind} ref=${resource.externalRef ?? "unset"}`, "provider"],
-        [`reachable, credentials valid, no changes made`, "provider"],
+        [`probe ${resource.kind} ref=${resource.externalRef ?? "unset"} — simulated`, "provider"],
+        [
+          `no check performed: the sandbox has no credentials for ${resource.name} and contacted nothing`,
+          "provider",
+        ],
+        [`no changes made — referenced resources are never mutated`, "provider"],
       ]);
       rt.log(
         `${resource.name} is referenced, not managed — Orrery reads it and never mutates it.`,
@@ -240,13 +298,19 @@ async function executeStep(rt: StepRuntime): Promise<void> {
     }
     const port =
       resource.kind === "postgres" ? 5432 : resource.kind === "redis" ? 6379 : 443;
+    const attempts = jitter(`attempts:${resource.id}:${rt.deployment.id}`, 1, 3);
     await paced(rt, [
       [`allocate ${resource.kind}/${resource.size} in ${region}`, "provider"],
-      [`waiting for endpoint (attempt 1)`, "provider"],
+      [
+        attempts === 1
+          ? `waiting for endpoint (ready on first attempt)`
+          : `waiting for endpoint (ready on attempt ${attempts} of ${attempts})`,
+        "provider",
+      ],
       [`endpoint ${endpoint}:${port} ready`, "provider"],
       [`snapshot policy: daily, 7 day retention (simulated)`, "provider"],
     ]);
-    rt.output({
+    rt.output({ simulated: true,
       key: `conn:${resource.id}`,
       label: `${resource.name} — ${endpoint}:${port}`,
       value: `${endpoint}:${port}`,
@@ -285,8 +349,9 @@ async function executeStep(rt: StepRuntime): Promise<void> {
         `scheduling ${service.replicas} replica(s) @ ${spec.vcpu} vCPU / ${spec.memoryMb} MB`,
         "provider",
       ],
-      [`replica 1/${Math.max(1, service.replicas)} started`, "provider"],
     ]);
+    injectSecrets(rt, service);
+    await paced(rt, [[`replica 1/${Math.max(1, service.replicas)} started`, "provider"]]);
 
     if (chaosFlag(service) === "fail_once") {
       const key = `${env.id}:${service.id}`;
@@ -309,7 +374,7 @@ async function executeStep(rt: StepRuntime): Promise<void> {
 
     if (exposed(service)) {
       const host = sandboxHost(env, service, m);
-      rt.output({
+      rt.output({ simulated: true,
         key: `url:${service.id}`,
         label: `${service.name} — ${host}`,
         value: `/preview/${rt.deployment.id}/${service.id}`,
@@ -323,7 +388,7 @@ async function executeStep(rt: StepRuntime): Promise<void> {
 
   if (step.phase === "verify" && service) {
     const path = service.healthPath ?? "/";
-    const latency = 8 + (hash32(`${service.id}:${rt.deployment.id}`) % 90);
+    const latency = 8 + (fnv1a(`${service.id}:${rt.deployment.id}`) % 90);
     await paced(rt, [
       [`probe GET ${path} → 200 in ${latency}ms`, "provider"],
       [`probe GET ${path} → 200 in ${latency + 3}ms`, "provider"],
@@ -416,6 +481,95 @@ with your own credentials, with or without Orrery.
   };
 }
 
+/* ---------------------------- observe / discover --------------------------- */
+
+const SIZES: ServiceSize[] = ["nano", "small", "standard", "performance"];
+
+/** Stable pick from a list — the same environment always drifts the same way. */
+function pick<T>(xs: T[], seed: string): T | undefined {
+  return xs.length ? xs[fnv1a(seed) % xs.length] : undefined;
+}
+
+/** A value that plainly differs from the manifest's, without pretending to be data. */
+function driftedValue(v: string): string {
+  const n = Number(v);
+  return Number.isFinite(n) && v.trim() !== "" ? String(n + 1) : `${v}-changed-outside-orrery`;
+}
+
+/**
+ * Simulated read-back.
+ *
+ * Everything managed is reported present with exactly the attributes the
+ * deployed revision asks for, then two seeded differences are introduced — one
+ * resource a size up, one plain env var altered — so the Drift screen has
+ * something true-to-shape to render. It is a demonstration of what drift looks
+ * like, not a measurement: `simulated: true` says so on the wire, and the UI
+ * repeats it in words.
+ *
+ * Deterministic: same environment and same revision, same drift, every call.
+ */
+async function observe(env: Environment, deployed: Manifest): Promise<LiveState> {
+  const observedAt = new Date().toISOString();
+  const managedResources = deployed.resources.filter((r) => r.ownership === "managed");
+  const managedServices = deployed.services.filter((s) => s.ownership === "managed");
+
+  const sizeVictim = pick(managedResources, `${env.id}:size`);
+  const envVictim = pick(
+    managedServices.filter((s) => s.env.some((e) => e.value !== undefined)),
+    `${env.id}:env`
+  );
+  const envKey = envVictim
+    ? pick(
+        envVictim.env.filter((e) => e.value !== undefined).map((e) => e.key),
+        `${env.id}:${envVictim.id}:key`
+      )
+    : undefined;
+
+  const report = (node: Resource | Service, kind: string): LiveResource => {
+    const attributes = expectedAttributes(node);
+    if (sizeVictim && node.id === sizeVictim.id)
+      attributes.size = SIZES[(SIZES.indexOf(node.size) + 1) % SIZES.length];
+    if (envVictim && envKey && node.id === envVictim.id)
+      attributes[`env:${envKey}`] = driftedValue(String(attributes[`env:${envKey}`] ?? ""));
+    return { nodeId: node.id, kind, exists: true, attributes, observedAt };
+  };
+
+  return {
+    simulated: true,
+    observedAt,
+    resources: [
+      ...managedServices.map((s) => report(s, s.kind)),
+      ...managedResources.map((r) => report(r, r.kind)),
+    ],
+  };
+}
+
+/** Shape of the invented findings. Named so they cannot be mistaken for real. */
+const SIMULATED_FINDS: { kind: ResourceKind; base: string; note: string }[] = [
+  { kind: "object_store", base: "legacy-uploads", note: "bucket, unmanaged" },
+  { kind: "queue", base: "billing-events", note: "queue, unmanaged" },
+  { kind: "postgres", base: "reporting-replica", note: "database, unmanaged" },
+];
+
+/**
+ * A small, stable, invented set. `simulated: true` and the `sim://` prefix on
+ * every `externalRef` mean an imported reference stays legible as a simulation
+ * for anyone who later reads the manifest.
+ */
+async function discover(conn: CloudConnection, region?: string): Promise<Discovery> {
+  const where = region ?? conn.region;
+  const tag = fnv1a(`${conn.id}:${where}`).toString(36).slice(0, 5);
+  return {
+    simulated: true,
+    resources: SIMULATED_FINDS.map((f) => ({
+      externalRef: `sim://${where}/${f.kind}/${f.base}-${tag}`,
+      kind: f.kind,
+      name: `${f.base}-${tag}`,
+      attributes: { region: where, detail: f.note, simulated: "yes" },
+    })),
+  };
+}
+
 /* -------------------------------- adapter --------------------------------- */
 
 export const sandboxProvider: ProviderAdapter = {
@@ -459,5 +613,7 @@ export const sandboxProvider: ProviderAdapter = {
 
   planSteps,
   executeStep,
+  observe,
+  discover,
   exportBundle,
 };

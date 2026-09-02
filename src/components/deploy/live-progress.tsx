@@ -1,9 +1,10 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ShieldCheck } from "lucide-react";
+import { AlertTriangle, OctagonPause, ShieldCheck } from "lucide-react";
 import {
   Button,
+  Callout,
   Chip,
   LogViewer,
   PhaseTimeline,
@@ -12,9 +13,11 @@ import {
   type LogLine,
 } from "@/components/ui";
 import { useProjectData } from "@/components/shell/project-context";
+import { useShell } from "@/components/shell/shell-context";
 import { PlanFirst } from "@/components/inspector/plan-first";
 import { useEventStream, useJson } from "@/lib/client/api";
 import { cx } from "@/lib/format";
+import { roleAllows, roleReason, useRequiredRole } from "./caller-role";
 import type {
   Deployment,
   DeploymentEvent,
@@ -25,6 +28,12 @@ import type {
 import { SuccessPanel } from "./success-panel";
 
 const TERMINAL: DeploymentStatus[] = ["succeeded", "failed", "rolled_back", "cancelled"];
+/**
+ * Terminal and not the activation moment. `cancelled` used to fall through to
+ * the running view, which put a "Deploying" heading and a live Cancel button
+ * on a deployment that had already stopped.
+ */
+const STOPPED: DeploymentStatus[] = ["failed", "rolled_back", "cancelled"];
 const EVENTS = ["status", "step", "log", "output"];
 
 const STATUS_COPY: Record<DeploymentStatus, string> = {
@@ -55,6 +64,10 @@ export interface DeploymentViewProps {
   /** a rollback started a new deployment; follow it */
   onSwitch: (deploymentId: string) => void;
   onAddRoute: () => void;
+  /** it landed — the dock gives the activation moment the whole panel */
+  onSucceeded?: (deploymentId: string) => void;
+  /** after a failure or a cancel: back to the review for the same changeset */
+  onRetry?: () => void;
 }
 
 /**
@@ -67,8 +80,12 @@ export function DeploymentView({
   onLiveTargets,
   onSwitch,
   onAddRoute,
+  onSucceeded,
+  onRetry,
 }: DeploymentViewProps) {
-  const { project, selectedEnv } = useProjectData();
+  const { project, selectedEnv, revisions } = useProjectData();
+  const { boot } = useShell();
+  const approveRole = useRequiredRole("deploy.approve", "admin");
   const { data, refresh } = useJson<{ deployment: Deployment }>(
     `/api/deployments/${deploymentId}`,
     1500
@@ -125,10 +142,19 @@ export function DeploymentView({
     [deployment]
   );
 
+  // Two effects on purpose. One effect with a clearing cleanup runs
+  // clear-then-set on every step transition, and the map flickers off between
+  // steps; the pulse should move, not blink. Only unmounting clears.
   useEffect(() => {
     onLiveTargets(liveTargets);
-    return () => onLiveTargets([]);
   }, [liveTargets, onLiveTargets]);
+
+  useEffect(() => () => onLiveTargets([]), [onLiveTargets]);
+
+  const succeeded = deployment?.status === "succeeded";
+  useEffect(() => {
+    if (succeeded) onSucceeded?.(deploymentId);
+  }, [succeeded, deploymentId, onSucceeded]);
 
   if (!deployment)
     return (
@@ -180,6 +206,8 @@ export function DeploymentView({
             scope={{ environmentId: deployment.environmentId }}
             label="Approve and apply"
             variant={isProd ? "danger" : "primary"}
+            disabled={!roleAllows(boot, approveRole)}
+            disabledReason={roleReason(boot, approveRole, "Approving a deployment")}
             onDone={refresh}
           />
           <PlanFirst
@@ -194,39 +222,82 @@ export function DeploymentView({
       </div>
     );
 
-  if (deployment.status === "failed" || deployment.status === "rolled_back")
+  if (STOPPED.includes(deployment.status)) {
+    const cancelled = deployment.status === "cancelled";
+    const applied = deployment.steps.filter((s) => s.status === "done").length;
+    // The revision this environment ran before this deployment — the only
+    // honest rollback target, and absent on a first-ever deploy.
+    const previousId = deployment.previousRevisionId;
+    const previousNumber = revisions.find((r) => r.id === previousId)?.number;
+    // Already rolled back: there is nothing left to undo, and offering it
+    // again would roll back the rollback.
+    const offerRollback = deployment.status !== "rolled_back";
+
     return (
       <div className="animate-enter space-y-4">
-        <div className="flex items-start gap-3 rounded-card border border-err/30 bg-err-dim p-4">
-          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-err" aria-hidden="true" />
-          <div className="min-w-0 flex-1">
+        <Callout
+          tone={cancelled ? "warn" : "err"}
+          icon={
+            cancelled ? (
+              <OctagonPause className="mt-0.5 h-5 w-5 shrink-0 text-warn" aria-hidden="true" />
+            ) : (
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-err" aria-hidden="true" />
+            )
+          }
+          title={
             <h2 className="text-[16px] font-medium text-ink">
               {deployment.status === "failed"
                 ? `Stopped at "${failedStep?.title ?? "a step"}"`
-                : "Rolled back"}
+                : cancelled
+                  ? "Cancelled"
+                  : "Rolled back"}
             </h2>
-            <p className="mt-1 text-[13px] text-ink">
-              {failedStep?.error ?? deployment.error ?? STATUS_COPY[deployment.status]}
-            </p>
-            <p className="mt-1 text-[12.5px] text-ink-mute">
-              Steps that finished before this stayed applied. Rolling back returns the environment
-              to the last revision it ran successfully.
-            </p>
-          </div>
-        </div>
+          }
+        >
+          <p className="text-[13px] text-ink">
+            {failedStep?.error ??
+              deployment.error ??
+              (cancelled
+                ? "Stopped on request — nothing further will be applied."
+                : STATUS_COPY[deployment.status])}
+          </p>
+          <p className="mt-1 text-[12.5px] text-ink-mute">
+            {applied === 0
+              ? "No step had finished, so this environment is untouched."
+              : `${applied} step${applied === 1 ? "" : "s"} had already finished and stayed applied. ` +
+                (!offerRollback
+                  ? `${selectedEnv?.name ?? "The environment"} now runs the previous revision.`
+                  : previousNumber
+                    ? `Rolling back returns ${selectedEnv?.name ?? "the environment"} to r${previousNumber}.`
+                    : "There is no earlier revision to return to — fix the working copy and deploy again.")}
+          </p>
+        </Callout>
 
         <div className="flex flex-wrap items-center gap-3">
-          <PlanFirst
-            actionId="deploy.rollback"
-            input={{ environmentId: deployment.environmentId }}
-            scope={{ environmentId: deployment.environmentId }}
-            label="Roll back to the last good revision"
-            variant="primary"
-            onDone={(r) => {
-              const next = (r.data as { deploymentId?: string } | undefined)?.deploymentId;
-              if (next) onSwitch(next);
-            }}
-          />
+          {offerRollback && (
+            <PlanFirst
+              actionId="deploy.rollback"
+              input={{ environmentId: deployment.environmentId, toRevisionId: previousId }}
+              scope={{ environmentId: deployment.environmentId }}
+              label={previousNumber ? `Roll back to r${previousNumber}` : "Roll back"}
+              variant="primary"
+              disabled={!previousId}
+              disabledReason={`This was the first deployment to ${selectedEnv?.name ?? "this environment"} — there is no earlier revision to return to. Fix the problem in the working copy and deploy again.`}
+              onDone={(r) => {
+                const next = (r.data as { deploymentId?: string } | undefined)?.deploymentId;
+                if (next) onSwitch(next);
+              }}
+            />
+          )}
+          {onRetry && deployment.status !== "rolled_back" && (
+            <Button
+              size="sm"
+              variant={offerRollback && previousId ? "quiet" : "primary"}
+              onClick={onRetry}
+            >
+              Review changes and deploy again
+            </Button>
+          )}
           <Link href={`/p/${project.slug}/observe`}>
             <Button size="sm" variant="quiet">
               View logs
@@ -238,6 +309,7 @@ export function DeploymentView({
         <LogViewer lines={patch.logs} height={200} />
       </div>
     );
+  }
 
   return (
     <div className="animate-enter space-y-4">

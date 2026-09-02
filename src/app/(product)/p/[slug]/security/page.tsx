@@ -3,41 +3,88 @@
  * Security — what the scanner found, what fixes it, and what someone decided
  * to live with. Fixes are ordinary actions, so they plan before they apply and
  * land in the audit trail like every other change.
+ *
+ * Every automatic fix is previewed once, for the whole screen (see
+ * use-fix-plans.ts): the row can say what its fix costs before you open
+ * anything, "Fix all" runs exactly the previews it showed, and a fix that
+ * would be refused is never offered.
  */
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
-import { executeAction } from "@/lib/client/api";
 import type { SecurityFinding } from "@/lib/domain/types";
-import {
-  Button,
-  Card,
-  Chip,
-  Dialog,
-  EmptyState,
-  Input,
-  RiskBadge,
-  Skeleton,
-  TimeAgo,
-} from "@/components/ui";
+import { Button, Card, EmptyState, Skeleton } from "@/components/ui";
 import { useSelectedEnv } from "@/components/screens/project-data";
-import { ActionConfirm, ErrorNote, useSafeToasts } from "@/components/screens/shared";
-
-const SEVERITY_ORDER: SecurityFinding["severity"][] = ["high", "medium", "low"];
-const SEVERITY_TITLE: Record<SecurityFinding["severity"], string> = {
-  high: "High severity",
-  medium: "Medium severity",
-  low: "Low severity",
-};
+import { useShell } from "@/components/shell/shell-context";
+import { downloadFile } from "@/components/screens/download-file";
+import { ActionConfirm, type Scope } from "@/components/screens/shared";
+import { BulkFixDialog } from "./bulk-fix-dialog";
+import { DismissDialog } from "./dismiss-dialog";
+import { FindingEnvChip } from "./finding-env-chip";
+import { FindingRow } from "./finding-row";
+import { FiltersBar } from "./filters-bar";
+import { HistorySection } from "./history-section";
+import { PendingSection } from "./pending-section";
+import { useFixPlans } from "./use-fix-plans";
+import {
+  excludedNote,
+  matches,
+  NO_FILTERS,
+  sortFindings,
+  splitFixes,
+  toCsv,
+  toJson,
+  type Filters,
+  type SortKey,
+} from "./rows";
 
 export default function SecurityPage() {
   const { data, env, projectId, slug, refresh } = useSelectedEnv();
+  const { boot } = useShell();
+  const role = boot?.role ?? null;
+  const canEdit = role !== "viewer";
+
   const [fixing, setFixing] = useState<SecurityFinding | null>(null);
   const [dismissing, setDismissing] = useState<SecurityFinding | null>(null);
+  const [reopening, setReopening] = useState<SecurityFinding | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [filters, setFilters] = useState<Filters>(NO_FILTERS);
+  const [sort, setSort] = useState<SortKey>("severity");
 
   const findings = useMemo(() => data?.findings ?? [], [data]);
-  const open = findings.filter((f) => f.status === "open");
-  const history = findings.filter((f) => f.status !== "open");
+  const environments = useMemo(() => data?.environments ?? [], [data]);
+  const revisions = useMemo(() => data?.revisions ?? [], [data]);
+
+  const open = useMemo(() => findings.filter((f) => f.status === "open"), [findings]);
+  const pending = useMemo(
+    () => findings.filter((f) => f.status === "fixed_pending_deploy"),
+    [findings]
+  );
+  const history = useMemo(
+    () => findings.filter((f) => f.status === "resolved" || f.status === "dismissed"),
+    [findings]
+  );
+  const autoFixable = useMemo(() => open.filter((f) => f.fix), [open]);
+  const manualOnly = open.length - autoFixable.length;
+
+  const scope = useMemo<Scope>(() => ({ projectId, environmentId: env?.id }), [projectId, env?.id]);
+  const plans = useFixPlans(autoFixable, scope);
+  const planOf = useMemo(
+    () => new Map((plans?.rows ?? []).map((r) => [r.finding.id, r])),
+    [plans]
+  );
+  const split = useMemo(() => splitFixes(plans?.rows ?? [], role), [plans, role]);
+  const excluded = excludedNote(split, role);
+
+  const envById = useMemo(() => new Map(environments.map((e) => [e.id, e])), [environments]);
+  const envName = useMemo(
+    () => Object.fromEntries(environments.map((e) => [e.id, e.name])),
+    [environments]
+  );
+
+  const visible = useMemo(
+    () => sortFindings(open.filter((f) => matches(f, filters)), sort),
+    [open, filters, sort]
+  );
 
   if (!data)
     return (
@@ -47,96 +94,124 @@ export default function SecurityPage() {
       </div>
     );
 
-  const scope = { projectId, environmentId: env?.id };
+  const save = (kind: "json" | "csv") => {
+    const at = new Date();
+    const stamp = at.toISOString().slice(0, 10);
+    if (kind === "csv")
+      downloadFile(`orrery-findings-${slug}-${stamp}.csv`, toCsv(findings, envName), "text/csv");
+    else
+      downloadFile(
+        `orrery-findings-${slug}-${stamp}.json`,
+        toJson(findings, { project: slug, at: at.toISOString(), envName }),
+        "application/json"
+      );
+  };
+
+  /** The environment chip a finding carries, filled in when the header has that environment selected. */
+  const envChip = (f: SecurityFinding) => (
+    <FindingEnvChip finding={f} envById={envById} selectedEnvId={env?.id} />
+  );
 
   return (
-    <div className="mx-auto h-full w-full overflow-y-auto max-w-[980px] space-y-6 px-6 py-6">
+    <div className="mx-auto h-full w-full max-w-[980px] space-y-6 overflow-y-auto px-6 py-6">
       {open.length === 0 ? (
         <div className="rounded-card border border-ok/30 bg-ok-dim">
           <EmptyState
             icon={<ShieldCheck className="h-5 w-5 text-ok" />}
             title="No open findings."
-            body="The scanner has nothing outstanding on this system. It re-runs every time the project loads."
+            body={
+              pending.length > 0
+                ? `The scanner has nothing outstanding in the working copy, but ${pending.length} fix${pending.length === 1 ? " is" : "es are"} still waiting on a deploy — see below.`
+                : "The scanner has nothing outstanding on this system. It re-runs every time the project loads."
+            }
+            secondaryAction={
+              findings.length > 0 ? (
+                <Button size="sm" variant="ghost" onClick={() => save("json")}>
+                  Export findings (JSON)
+                </Button>
+              ) : undefined
+            }
           />
         </div>
       ) : (
-        SEVERITY_ORDER.map((sev) => {
-          const group = open.filter((f) => f.severity === sev);
-          if (group.length === 0) return null;
-          return (
-            <section key={sev}>
-              <h2 className="mb-3 flex items-center gap-2 text-[12px] tracking-[0.02em] text-ink-mute uppercase">
-                {SEVERITY_TITLE[sev]}
-                <span className="tnum text-ink-faint">{group.length}</span>
-              </h2>
-              <Card padded={false}>
-                <ul>
-                  {group.map((f) => (
-                    <li
-                      key={f.id}
-                      className="flex items-start gap-4 border-b border-line px-5 py-4 last:border-b-0"
-                    >
-                      <RiskBadge level={f.severity} className="mt-0.5" />
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-[14px] text-ink">{f.title}</h3>
-                        <p className="mt-1 max-w-[70ch] text-[12.5px] leading-relaxed text-ink-mute">
-                          {f.detail}
-                        </p>
-                        <p className="mt-1.5 flex flex-wrap items-center gap-2 text-[11.5px] text-ink-faint">
-                          <TimeAgo iso={f.createdAt} prefix="found" />
-                          {f.targetId && slug && (
-                            <Link
-                              href={`/p/${slug}?select=${f.targetId}`}
-                              className="font-mono text-signal hover:underline"
-                            >
-                              show on map
-                            </Link>
-                          )}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <Button
-                          size="sm"
-                          disabled={!f.fix}
-                          disabledReason="This finding has no automatic fix — change the system, then dismiss it with a reason."
-                          onClick={() => setFixing(f)}
-                          title={f.fix?.label}
-                        >
-                          {f.fix ? "Fix" : "No auto-fix"}
-                        </Button>
-                        <Button size="sm" variant="quiet" onClick={() => setDismissing(f)}>
-                          Dismiss
-                        </Button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            </section>
-          );
-        })
+        <section className="space-y-3">
+          <FiltersBar
+            open={open}
+            autoFixable={autoFixable}
+            manualOnly={manualOnly}
+            environments={environments}
+            filters={filters}
+            sort={sort}
+            planned={!!plans}
+            split={split}
+            excluded={excluded}
+            canEdit={canEdit}
+            role={role}
+            exportCount={findings.length}
+            onFilters={setFilters}
+            onSort={setSort}
+            onSave={save}
+            onFixAll={() => setBulkOpen(true)}
+          />
+
+          <p className="text-[12px] text-ink-faint">
+            {visible.length === open.length
+              ? `${open.length} open finding${open.length === 1 ? "" : "s"}`
+              : `${visible.length} of ${open.length} open findings shown`}
+            {manualOnly > 0 &&
+              ` · ${manualOnly} ${manualOnly === 1 ? "has" : "have"} no automatic fix and ${manualOnly === 1 ? "is" : "are"} left out of “Fix all”`}
+          </p>
+          {excluded && <p className="text-[12px] text-ink-faint">{excluded}</p>}
+
+          {visible.length === 0 ? (
+            <Card>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-[13px] text-ink-mute">
+                  No open finding matches these filters. Widen them to see the other{" "}
+                  {open.length - visible.length}.
+                </p>
+                <Button size="sm" variant="quiet" onClick={() => setFilters(NO_FILTERS)}>
+                  Clear filters
+                </Button>
+              </div>
+            </Card>
+          ) : (
+            <Card padded={false}>
+              <ul>
+                {visible.map((f) => (
+                  <FindingRow
+                    key={f.id}
+                    finding={f}
+                    row={planOf.get(f.id)}
+                    here={!!f.environmentId && f.environmentId === env?.id}
+                    canEdit={canEdit}
+                    role={role}
+                    slug={slug}
+                    envChip={envChip(f)}
+                    onFix={() => setFixing(f)}
+                    onDismiss={() => setDismissing(f)}
+                  />
+                ))}
+              </ul>
+            </Card>
+          )}
+        </section>
+      )}
+
+      {pending.length > 0 && (
+        <PendingSection pending={pending} slug={slug} envChip={envChip} />
       )}
 
       {history.length > 0 && (
-        <details className="rounded-card border border-line bg-bg2">
-          <summary className="cursor-pointer px-5 py-3 text-[13px] text-ink-mute select-none hover:text-ink">
-            History — {history.length} resolved or dismissed
-          </summary>
-          <ul className="border-t border-line">
-            {history.map((f) => (
-              <li
-                key={f.id}
-                className="flex items-center gap-3 border-b border-line px-5 py-3 text-[12.5px] last:border-b-0"
-              >
-                <Chip tone={f.status === "resolved" ? "ok" : "neutral"}>{f.status}</Chip>
-                <span className="min-w-0 flex-1 truncate text-ink">{f.title}</span>
-                <span className="shrink-0 text-ink-faint">
-                  <TimeAgo iso={f.createdAt} />
-                </span>
-              </li>
-            ))}
-          </ul>
-        </details>
+        <HistorySection
+          history={history}
+          revisions={revisions}
+          slug={slug}
+          canEdit={canEdit}
+          role={role}
+          envChip={envChip}
+          onReopen={setReopening}
+        />
       )}
 
       <ActionConfirm
@@ -154,6 +229,37 @@ export default function SecurityPage() {
         }}
       />
 
+      <ActionConfirm
+        open={reopening !== null}
+        onClose={() => setReopening(null)}
+        actionId="security.reopenFinding"
+        input={{ findingId: reopening?.id }}
+        scope={scope}
+        title="Reopen this finding"
+        description={reopening?.title}
+        confirmLabel="Reopen"
+        onDone={() => {
+          setReopening(null);
+          refresh();
+        }}
+      />
+
+      {bulkOpen && (
+        <BulkFixDialog
+          rows={plans?.rows}
+          plannedAt={plans?.at}
+          split={split}
+          skipped={manualOnly}
+          role={role}
+          scope={scope}
+          onClose={() => setBulkOpen(false)}
+          onDone={() => {
+            setBulkOpen(false);
+            refresh();
+          }}
+        />
+      )}
+
       <DismissDialog
         finding={dismissing}
         scope={scope}
@@ -164,93 +270,5 @@ export default function SecurityPage() {
         }}
       />
     </div>
-  );
-}
-
-function DismissDialog({
-  finding,
-  scope,
-  onClose,
-  onDone,
-}: {
-  finding: SecurityFinding | null;
-  scope: { projectId?: string; environmentId?: string };
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const toasts = useSafeToasts();
-  const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<unknown>();
-
-  const submit = async () => {
-    if (!finding) return;
-    setBusy(true);
-    setError(undefined);
-    try {
-      const result = await executeAction("security.dismissFinding", {
-        input: { findingId: finding.id, reason: reason.trim() },
-        scope,
-      });
-      toasts.push({
-        kind: result.ok ? "ok" : "err",
-        title: result.summary,
-        body: result.ok ? undefined : result.error,
-      });
-      if (result.ok) {
-        setReason("");
-        onDone();
-      } else setError(new Error(result.error ?? result.summary));
-    } catch (e) {
-      setError(e);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Dialog
-      open={finding !== null}
-      onClose={onClose}
-      title="Dismiss this finding"
-      description={finding?.title}
-      footer={
-        <>
-          <Button variant="quiet" onClick={onClose} disabled={busy}>
-            Cancel
-          </Button>
-          <Button
-            busy={busy}
-            disabled={!reason.trim()}
-            disabledReason="Say why — the reason is written to the audit log."
-            onClick={submit}
-          >
-            Dismiss
-          </Button>
-        </>
-      }
-    >
-      <div className="space-y-3">
-        <p className="text-[13px] text-ink-mute">
-          Dismissing changes nothing about the system. The finding stays visible under History
-          and the reason is permanent.
-        </p>
-        {finding?.severity === "high" && (
-          <p className="rounded-card border border-warn/30 bg-warn-dim px-3 py-2 text-[12.5px] text-ink">
-            This is a high-severity finding. Dismissing it does not make it safe.
-          </p>
-        )}
-        <label className="block space-y-1.5">
-          <span className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">Reason</span>
-          <Input
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Accepted — internal-only service behind the VPN"
-            autoFocus
-          />
-        </label>
-        {error ? <ErrorNote error={error} /> : null}
-      </div>
-    </Dialog>
   );
 }

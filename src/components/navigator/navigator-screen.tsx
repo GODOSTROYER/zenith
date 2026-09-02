@@ -7,10 +7,10 @@
  * rest of the product uses. Nothing here can do anything you could not do
  * yourself from the System Map.
  */
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ShieldCheck } from "lucide-react";
-import { Button, Card, Chip, Skeleton, Tooltip } from "@/components/ui";
+import { Button, Callout, Card, Chip, Skeleton, Tooltip } from "@/components/ui";
 import { useProjectData } from "@/components/shell/project-context";
 import { useShell } from "@/components/shell/shell-context";
 import { useJson } from "@/lib/client/api";
@@ -22,7 +22,15 @@ import type {
   NavigatorRun,
   SecurityFinding,
 } from "@/lib/domain/types";
-import { createRunAction, executeRunAction } from "@/lib/navigator/server-actions";
+import type { Parsing } from "@/lib/navigator/llm";
+import {
+  cancelRunAction,
+  createRunAction,
+  executeRunAction,
+  plannerInfoAction,
+  type PlannerInfo,
+} from "@/lib/navigator/server-actions";
+import { planBlock, type WorkspaceRole } from "@/lib/navigator/shared";
 import { AutonomyDial } from "./autonomy-dial";
 import { CommandBar } from "./command-bar";
 import { NavigatorGlyph } from "./glyph";
@@ -32,10 +40,13 @@ import { RunPanel } from "./run-panel";
 const PLANNER_NOTES = {
   deterministic:
     "Pattern-based planning. Set ANTHROPIC_API_KEY in .env.local to let Claude translate freeform goals into the same typed plan.",
-  llm: "Claude translates your goal into the typed command grammar; the deterministic planner still decides every action, risk and approval. Falls back to pattern parsing if the API is unreachable.",
+  llm: "Claude translates your goal into the typed command grammar; the deterministic planner still decides every action, risk and approval. Each plan below says which of the two actually read it.",
 } as const;
 
 export type PlannerModeProp = keyof typeof PLANNER_NOTES;
+
+/** A run is still live if it is running, or paused waiting on an approval. */
+const isLive = (r: NavigatorRun) => r.status === "executing" || r.status === "awaiting_approval";
 
 export function NavigatorScreen({
   slug,
@@ -47,21 +58,51 @@ export function NavigatorScreen({
   const { project, environments, findings, deployments, refresh } = useProjectData();
   const shell = useShell();
   const autonomy: AutonomyLevel = shell.boot?.settings.autonomy ?? "approve";
+  // null in demo mode (no auth configured), where the local actor is admin.
+  const role = shell.boot?.role ?? null;
 
   const [goal, setGoal] = useState("");
   const [run, setRun] = useState<NavigatorRun>();
+  const [parsing, setParsing] = useState<Parsing>();
   const [approvals, setApprovals] = useState<Set<string>>(new Set());
   const [planning, setPlanning] = useState(false);
   const [running, setRunning] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string>();
+  const [planner, setPlanner] = useState<PlannerInfo>();
 
   const runs = useJson<{ runs: NavigatorRun[] }>(`/api/navigator/runs?projectId=${project.id}`);
+
+  // `executeRun` is one long server action: navigating away drops the panel but
+  // not the run. On arrival, adopt whatever is still live for this project so
+  // coming back shows it mid-flight rather than an empty screen.
+  const adopted = useRef(false);
+  useEffect(() => {
+    if (adopted.current || run || !runs.data) return;
+    adopted.current = true;
+    const active = runs.data.runs.find((r) => r.projectId === project.id && isLive(r));
+    if (!active) return;
+    setRun(active);
+    setRunning(active.status === "executing");
+  }, [runs.data, run, project.id]);
+
   // Follow the live run while it executes; the executor writes each step as it goes.
   const live = useJson<{ run: NavigatorRun }>(
     run && running ? `/api/navigator/runs/${run.id}` : null,
     800
   );
   const shown = (running && live.data?.run) || run;
+
+  // An adopted run finishes on the server, not in this tab's `execute` call.
+  useEffect(() => {
+    const followed = live.data?.run;
+    if (running && followed && followed.status !== "executing") setRunning(false);
+  }, [live.data, running]);
+
+  useEffect(() => {
+    if (plannerMode !== "llm") return;
+    void plannerInfoAction().then(setPlanner);
+  }, [plannerMode]);
 
   const prodEnvIds = useMemo(
     () => new Set(environments.filter((e) => e.class === "production").map((e) => e.id)),
@@ -79,6 +120,7 @@ export function NavigatorScreen({
       return;
     }
     setRun(res.run);
+    setParsing(res.parsing);
     setApprovals(new Set());
     runs.refresh();
   }, [project.id, goal, runs]);
@@ -98,6 +140,24 @@ export function NavigatorScreen({
     refresh(); // costs, findings and deployments all move when a run lands
   }, [run, approvals, runs, refresh]);
 
+  // Cancelling is its own request: `execute` is still awaiting the executor in
+  // this tab, and the executor sees the new status between steps.
+  const cancel = useCallback(async () => {
+    if (!shown) return;
+    setCancelling(true);
+    setError(undefined);
+    const res = await cancelRunAction(shown.id);
+    setCancelling(false);
+    if (res.error || !res.run) {
+      setError(`${res.error ?? "The run could not be cancelled."} ${res.fix ?? ""}`.trim());
+      return;
+    }
+    // A run that was only awaiting approval is finished now; one mid-flight is
+    // still writing its last step, and the poll above picks that up.
+    if (res.run.status !== "executing") setRun(res.run);
+    runs.refresh();
+  }, [shown, runs]);
+
   const toggleApprove = useCallback((stepId: string, on: boolean) => {
     setApprovals((prev) => {
       const next = new Set(prev);
@@ -114,6 +174,9 @@ export function NavigatorScreen({
         onAutonomyChanged={shell.refresh}
         loading={shell.loading && !shell.boot}
         plannerMode={plannerMode}
+        model={planner?.model}
+        workspaceName={shell.boot?.workspace.name}
+        role={role}
       />
 
       <Advisories
@@ -124,13 +187,21 @@ export function NavigatorScreen({
         onSuggest={setGoal}
       />
 
-      <CommandBar value={goal} onChange={setGoal} onSubmit={plan} busy={planning} />
+      <CommandBar
+        value={goal}
+        onChange={setGoal}
+        onSubmit={plan}
+        busy={planning}
+        disabledReason={planBlock(autonomy)}
+      />
 
       {error && (
-        <p className="rounded-ctl border border-err/30 bg-err-dim px-3 py-2 text-[12.5px] text-err">
+        <Callout tone="err" compact>
           {error}
-        </p>
+        </Callout>
       )}
+
+      {shown && parsing && <ParsingNote parsing={parsing} />}
 
       {shown && (
         <RunPanel
@@ -142,6 +213,9 @@ export function NavigatorScreen({
           onToggleApprove={toggleApprove}
           onRun={execute}
           running={running}
+          onCancel={cancel}
+          cancelling={cancelling}
+          role={role}
           onSuggest={setGoal}
           prodEnvIds={prodEnvIds}
         />
@@ -156,16 +230,47 @@ export function NavigatorScreen({
 
 /* --------------------------------- header --------------------------------- */
 
+/**
+ * What actually read this goal. The header says what the Navigator *can* do;
+ * this says what it *did* — a deterministic fallback never gets to wear the
+ * model's name.
+ */
+function ParsingNote({ parsing }: { parsing: Parsing }) {
+  if (parsing.usedLlm)
+    return (
+      <p className="flex flex-wrap items-center gap-2 text-[12.5px] text-ink-mute">
+        <Chip tone="nav" className="font-mono">
+          {parsing.model}
+        </Chip>
+        translated this goal into the typed grammar below. The deterministic planner still chose
+        every action, risk and approval.
+      </p>
+    );
+  return (
+    <p className="flex flex-wrap items-center gap-2 text-[12.5px] text-ink-mute">
+      <Chip tone="neutral">deterministic parser</Chip>
+      {parsing.fallbackReason ?? "This goal was read by pattern matching — no model was involved."}
+    </p>
+  );
+}
+
 function Header({
   autonomy,
   onAutonomyChanged,
   loading,
   plannerMode,
+  model,
+  workspaceName,
+  role,
 }: {
   autonomy: AutonomyLevel;
   onAutonomyChanged: () => void;
   loading: boolean;
   plannerMode: PlannerModeProp;
+  /** the model configured to translate goals, once the server has named it */
+  model?: string;
+  workspaceName?: string;
+  role: WorkspaceRole | null;
 }) {
   return (
     <header className="space-y-4">
@@ -181,9 +286,17 @@ function Header({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-[20px] font-medium tracking-[-0.01em] text-ink">Navigator</h1>
-            <Tooltip label={PLANNER_NOTES[plannerMode]}>
+            <Tooltip
+              label={
+                plannerMode === "llm" && model
+                  ? `${PLANNER_NOTES.llm} Model: ${model} (set ORRERY_LLM_MODEL to change it).`
+                  : PLANNER_NOTES[plannerMode]
+              }
+            >
               <Chip tone={plannerMode === "llm" ? "nav" : "neutral"}>
-                {plannerMode === "llm" ? "language parsing · Claude" : "deterministic planner"}
+                {plannerMode === "llm"
+                  ? `language parsing · ${model ?? "Claude"}`
+                  : "deterministic planner"}
               </Chip>
             </Tooltip>
           </div>
@@ -196,7 +309,12 @@ function Header({
       {loading ? (
         <Skeleton height={28} width="24rem" />
       ) : (
-        <AutonomyDial level={autonomy} onChanged={onAutonomyChanged} />
+        <AutonomyDial
+          level={autonomy}
+          onChanged={onAutonomyChanged}
+          workspaceName={workspaceName}
+          role={role}
+        />
       )}
     </header>
   );

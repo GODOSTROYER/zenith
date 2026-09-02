@@ -1,7 +1,10 @@
 /**
- * Formatting helpers shared by every surface. One format everywhere:
- * money is tabular USD, times render local with an ISO tooltip.
- * Owned by workstream C.
+ * Presentation formatting shared by every surface — the one place money,
+ * times and durations are turned into strings. Owned by workstream C.
+ *
+ * Knows nothing about the domain: no manifest, no store, no React. Naming
+ * (slugs for manifest node names) is a domain rule, not a format one, and
+ * lives in `@/lib/importers/types`.
  */
 import clsx from "clsx";
 
@@ -13,7 +16,7 @@ const THIN = " ";
 /** U+2212 MINUS SIGN — typographic minus, never a hyphen. */
 const MINUS = "−";
 
-export interface FmtUsdOptions {
+interface FmtUsdOptions {
   /** render a leading "+" for positive values (deltas) */
   sign?: boolean;
 }
@@ -65,17 +68,4 @@ export function fmtDuration(ms: number): string {
   if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
   const m = Math.floor(ms / 60_000);
   return `${m}m ${Math.round((ms % 60_000) / 1000)}s`;
-}
-
-/** URL-safe slug: `My API!` → `my-api`. Always non-empty. */
-export function slugify(name: string): string {
-  const s = name
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48)
-    .replace(/-+$/g, "");
-  return s || "untitled";
 }

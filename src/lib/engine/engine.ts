@@ -5,7 +5,9 @@
  *                                       ↘ failed → rolling_back → rolled_back
  *
  * All state lives in `db()`. The 250ms ticker on `globalThis` only advances it,
- * one running step per deployment at a time, through the provider adapter.
+ * one running step per deployment at a time, through the provider adapter. It
+ * walks an active-deployment set, so a finished deployment costs nothing and an
+ * idle server ticks on an empty set.
  * Every transition is appended to the JSONL event log with a per-deployment
  * monotonic `seq`, so SSE clients replay from any cursor after a refresh.
  *
@@ -31,7 +33,13 @@ import {
   type StepStatus,
 } from "@/lib/domain/types";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
-import { getProvider, registerProvider } from "@/lib/providers/types";
+import { env } from "@/lib/env";
+import {
+  getProvider,
+  registerProvider,
+  type ProviderPlanStep,
+  type StepRuntime,
+} from "@/lib/providers/types";
 import type { EngineApi, StartDeploymentInput } from "@/lib/engine/types";
 import { sandboxProvider } from "@/lib/providers/sandbox";
 import { localstackProvider } from "@/lib/providers/localstack";
@@ -62,10 +70,15 @@ type EngineGlobals = typeof globalThis & {
   __orreryTicker?: ReturnType<typeof setInterval>;
   __orrerySeq?: Map<string, number>;
   __orreryInflight?: Set<string>;
+  /** deployments the ticker still has work for; finished ones are dropped */
+  __orreryActive?: Set<string>;
   __orreryProvidersReady?: boolean;
 };
 
 const g = () => globalThis as EngineGlobals;
+
+/** Deployments the ticker must look at. Empty = the ticker costs one compare. */
+const active = (): Set<string> => (g().__orreryActive ??= new Set());
 
 const TERMINAL: DeploymentStatus[] = [
   "succeeded",
@@ -74,11 +87,30 @@ const TERMINAL: DeploymentStatus[] = [
   "rolled_back",
 ];
 
-const fast = () => process.env.ORRERY_FAST === "1";
+const fast = () => env().ORRERY_FAST;
 /** Fast mode collapses every estimate to ≤40ms so smoke tests finish instantly. */
 const collapse = (ms: number) => (fast() ? Math.min(ms, 40) : ms);
 
 const now = () => new Date().toISOString();
+
+/**
+ * How long one provider step may take before the engine stops waiting.
+ * Without this a hung adapter pins a deployment in `applying` forever, with no
+ * way out. The default and the validation live in `lib/env.ts` with every
+ * other ORRERY_* variable.
+ */
+const stepTimeoutMs = (): number => env().ORRERY_STEP_TIMEOUT_MS;
+
+/**
+ * Providers that invent their infrastructure rather than calling one. Used as
+ * the fallback when an adapter does not label its own Output — the flag is
+ * always present on the wire, so the UI never has to guess.
+ * The adapter setting `simulated` on the Output itself always wins.
+ */
+const SIMULATED_PROVIDERS = new Set<ProviderId>(["sandbox"]);
+
+/** Deployments kept per environment. Older terminal ones are dropped. */
+const KEEP_DEPLOYMENTS_PER_ENV = 200;
 
 /* ------------------------------ event stream ------------------------------ */
 
@@ -113,8 +145,11 @@ function providerIdFor(env: Environment): ProviderId {
 function setStatus(d: StoredDeployment, status: DeploymentStatus): void {
   d.status = status;
   if (TERMINAL.includes(status)) d.endedAt = now();
+  // Only "applying"/"verifying" have steps for the ticker to advance.
+  if (status === "applying" || status === "verifying") active().add(d.id);
+  else active().delete(d.id);
   emit(d.id, { type: "status", status });
-  save();
+  save(d.projectId);
 }
 
 function stored(deploymentId: string): StoredDeployment | undefined {
@@ -151,10 +186,15 @@ export function ensureEngine(): void {
 /* --------------------------------- ticker --------------------------------- */
 
 function tick(): void {
+  const running = active();
+  if (running.size === 0) return; // nothing is deploying: the ticker costs nothing
   const inflight = g().__orreryInflight!;
-  for (const raw of db().deployments) {
-    const d = raw as StoredDeployment;
-    if (d.status !== "applying" && d.status !== "verifying") continue;
+  for (const deploymentId of running) {
+    const d = stored(deploymentId);
+    if (!d || (d.status !== "applying" && d.status !== "verifying")) {
+      running.delete(deploymentId);
+      continue;
+    }
     if (inflight.has(d.id)) continue;
     const step = d.steps.find(
       (s) => s.status === "pending" || s.status === "running"
@@ -199,28 +239,53 @@ async function runStep(d: StoredDeployment, step: DeploymentStep): Promise<void>
       step.status = "running";
       step.startedAt = now();
       emit(d.id, { type: "step", stepId: step.id, status: "running" });
-      save();
+      save(d.projectId);
     }
 
-    await provider.executeStep({
+    // Deadline: a provider that never returns must not pin the deployment.
+    // The adapter is handed the signal so it can abort its own I/O; one that
+    // ignores it is simply abandoned, and its late writes are dropped below.
+    const budgetMs = stepTimeoutMs();
+    const abort = new AbortController();
+    let abandoned = false;
+    const timer = setTimeout(() => abort.abort(), budgetMs);
+
+    const runtime: StepRuntime & { signal: AbortSignal } = {
       env,
       revision,
       deployment: d,
       step,
-      log: (line, stream = "info") =>
-        emit(d.id, { type: "log", stepId: step.id, line, stream }),
-      output: (o) => {
-        d.outputs = [...d.outputs.filter((x) => x.key !== o.key), o];
-        emit(d.id, { type: "output", output: o });
-        save();
+      signal: abort.signal,
+      log: (line, stream = "info") => {
+        if (!abandoned) emit(d.id, { type: "log", stepId: step.id, line, stream });
       },
-    });
+      output: (o) => {
+        if (abandoned) return;
+        const output: Output = {
+          ...o,
+          simulated: o.simulated ?? SIMULATED_PROVIDERS.has(provider.id),
+        };
+        d.outputs = [...d.outputs.filter((x) => x.key !== output.key), output];
+        emit(d.id, { type: "output", output });
+        save(d.projectId);
+      },
+    };
+
+    try {
+      await Promise.race([
+        provider.executeStep(runtime),
+        deadline(abort.signal, provider.displayName, step.title, budgetMs),
+      ]);
+    } finally {
+      clearTimeout(timer);
+      abandoned = abort.signal.aborted;
+    }
 
     if (isTerminal(stored(d.id))) return; // cancelled while the step ran
     step.status = "done";
     step.endedAt = now();
     emit(d.id, { type: "step", stepId: step.id, status: "done" });
-    save();
+    save(d.projectId);
     if (!d.steps.some((s) => s.status === "pending" || s.status === "running"))
       finish(d);
   } catch (err) {
@@ -232,6 +297,29 @@ async function runStep(d: StoredDeployment, step: DeploymentStep): Promise<void>
     // not the pacing. Real pacing comes from the provider's own step duration.
     setTimeout(tick, 0);
   }
+}
+
+/** Rejects when the step's budget runs out, naming the provider and the fix. */
+function deadline(
+  signal: AbortSignal,
+  providerName: string,
+  stepTitle: string,
+  ms: number
+): Promise<never> {
+  return new Promise<never>((_, reject) => {
+    signal.addEventListener(
+      "abort",
+      () =>
+        reject(
+          new Error(
+            `${providerName} did not finish "${stepTitle}" within ${Math.round(ms / 1000)}s, so Orrery stopped waiting. ` +
+              `Anything ${providerName} already created is still there — check it for a half-finished resource, then deploy again. ` +
+              `If this provider is legitimately slower than that, raise ORRERY_STEP_TIMEOUT_MS (currently ${ms}) and restart the server.`
+          )
+        ),
+      { once: true }
+    );
+  });
 }
 
 function failStep(d: StoredDeployment, step: DeploymentStep, message: string): void {
@@ -258,13 +346,39 @@ function finish(d: StoredDeployment): void {
   const env = q.environment(d.environmentId);
   if (env) {
     env.deployedRevisionId = d.revisionId;
+    // Record where this revision ran, at the moment it ran. Reconstructing it
+    // later by matching environment names is a guess; this is evidence.
+    const revision = q.revision(d.revisionId);
+    if (revision && !revision.deployedTo?.includes(env.id))
+      revision.deployedTo = [...(revision.deployedTo ?? []), env.id];
   }
   setStatus(d, "succeeded");
   if (d.rollbackOf) {
     const origin = stored(d.rollbackOf);
     if (origin && !TERMINAL.includes(origin.status)) setStatus(origin, "rolled_back");
   }
-  save();
+  save(d.projectId);
+}
+
+/**
+ * Retention: a deployment record is a step list plus a log of what happened,
+ * and the whole database is re-serialized on every save. Keep the last 200 per
+ * environment (the Deploys page pages far below that) and drop older finished
+ * ones. A deployment that has not finished is never dropped, whatever its age.
+ * The event log is append-only and untouched — history stays on disk.
+ */
+function pruneDeployments(environmentId: string): void {
+  const all = db().deployments;
+  const mine = all.filter((d) => d.environmentId === environmentId);
+  if (mine.length <= KEEP_DEPLOYMENTS_PER_ENV) return;
+  const doomed = new Set(
+    mine
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+      .slice(KEEP_DEPLOYMENTS_PER_ENV)
+      .filter((d) => TERMINAL.includes(d.status))
+      .map((d) => d.id)
+  );
+  if (doomed.size) db().deployments = all.filter((d) => !doomed.has(d.id));
 }
 
 /* ------------------------------- engine api ------------------------------- */
@@ -286,11 +400,25 @@ async function start(input: StartDeploymentInput): Promise<Deployment> {
     ? q.revision(env.deployedRevisionId)
     : undefined;
   const provider = getProvider(providerIdFor(env));
-  const plan = provider.planSteps(env, revision.manifest, previous?.manifest);
+
+  // Planning is the provider's code too, and it can throw (the Planned
+  // adapters do). Fail here, before any record exists, with a message that
+  // names the provider and the way out.
+  let plan: ProviderPlanStep[];
+  try {
+    plan = provider.planSteps(env, revision.manifest, previous?.manifest);
+  } catch (err) {
+    throw new Error(
+      `${provider.displayName} could not plan a deployment for ${env.name}: ${err instanceof Error ? err.message : String(err)} ` +
+        `Point ${env.name} at a Sandbox connection in Settings → Environments to deploy now, or at AWS to export runnable Terraform.`
+    );
+  }
 
   const actor: Actor = {
     type: input.actorType,
-    id: input.actorType === "navigator" ? "navigator" : "you",
+    // The caller's real id. "you" was fine for one local demo user and wrong
+    // the moment a second person signs in — a deployment has to say who ran it.
+    id: input.actorType === "navigator" ? "navigator" : input.actorId,
     name: input.actorName,
   };
 
@@ -320,7 +448,8 @@ async function start(input: StartDeploymentInput): Promise<Deployment> {
   };
 
   db().deployments.push(d);
-  save();
+  pruneDeployments(env.id);
+  save(d.projectId);
   emit(d.id, { type: "status", status: "planning" });
 
   if (!input.approved && env.policies.approvalRequired) {
@@ -372,7 +501,7 @@ async function cancel(deploymentId: string): Promise<Deployment> {
 async function rollback(
   environmentId: string,
   toRevisionId?: string,
-  actorName = "you"
+  actor: { id: string; name: string } = { id: "local", name: "You" }
 ): Promise<Deployment> {
   ensureEngine();
   const env = q.environment(environmentId);
@@ -420,14 +549,18 @@ async function rollback(
     revisionId: target.id,
     changeSummary: `Roll back to r${target.number}`,
     estCostDeltaUsd: costDelta,
-    actorName,
+    actorName: actor.name,
+    actorId: actor.id,
     actorType: "user",
-    approved: true,
+    // A rollback is a deployment. An environment that gates deploys gates this
+    // one too — an approval policy that a rollback can walk around is not a
+    // policy. It waits at awaiting_approval exactly like start() does.
+    approved: !env.policies.approvalRequired,
   })) as StoredDeployment;
 
   if (last) {
     d.rollbackOf = last.id;
-    save();
+    save(d.projectId);
   }
   return d;
 }
@@ -442,6 +575,7 @@ function resumeInFlight(): void {
   for (const raw of db().deployments) {
     const d = raw as StoredDeployment;
     if (d.status !== "applying" && d.status !== "verifying") continue;
+    active().add(d.id); // the only full scan: once, at boot
     const running = d.steps.find((s) => s.status === "running");
     if (running)
       emit(d.id, {

@@ -8,42 +8,77 @@
  * instead of exploding.
  */
 import { runAction } from "@/lib/actions/core";
-import { db } from "@/lib/db/store";
-import type { AutonomyLevel, NavigatorRun } from "@/lib/domain/types";
+import { getSessionUser } from "@/lib/auth/session";
+import type { Actor, AutonomyLevel, NavigatorRun } from "@/lib/domain/types";
 import { ensureBoot } from "@/lib/server/boot";
-import { createRun, executeRun } from "./run";
+import { ApiError, currentWorkspace, demoActor, ensureMember } from "@/lib/server/context";
+import { plannerMode, plannerModel, type Parsing, type PlannerMode } from "./llm";
+import { cancelRun, createRun, executeRun } from "./run";
 
 export interface NavigatorReply {
   run?: NavigatorRun;
+  /** how this goal was actually read — the UI labels the run from this */
+  parsing?: Parsing;
   error?: string;
   fix?: string;
 }
 
+/**
+ * The signed-in user, or the local demo user when auth is not configured.
+ * Never a hardcoded id: role enforcement treats "local" as admin, so asserting
+ * it would let a signed-in viewer move the autonomy dial.
+ */
+async function currentActor(): Promise<Actor> {
+  const user = await getSessionUser();
+  if (!user) return demoActor();
+  const outcome = ensureMember(user);
+  if ("denied" in outcome)
+    throw new ApiError(outcome.denied.message, 403, { fix: outcome.denied.fix });
+  return { type: "user", id: outcome.member.id, name: outcome.member.name };
+}
+
+/** A refusal already names its own fix; the caller's is only the fallback. */
 const fail = (err: unknown, fix: string): NavigatorReply => ({
   error: err instanceof Error ? err.message : String(err),
-  fix,
+  fix: (err instanceof ApiError && err.fix) || fix,
 });
 
 /** Plan a goal. Planning never executes anything, at any autonomy level. */
 export async function createRunAction(projectId: string, goal: string): Promise<NavigatorReply> {
   await ensureBoot();
   try {
-    return { run: await createRun(projectId, goal) };
+    await currentActor(); // a non-member cannot spend the workspace's planning budget
+    return await createRun(projectId, goal);
   } catch (err) {
     return fail(err, "Check the goal and try again — planning changes nothing, so it is safe to retry.");
   }
 }
 
-/** Execute the approved steps of a run, in order. */
+/**
+ * Execute the approved steps of a run, in order. The signed-in human is
+ * resolved first: autonomy is the Navigator's ceiling, their role is the floor.
+ */
 export async function executeRunAction(
   runId: string,
   stepApprovals: string[]
 ): Promise<NavigatorReply> {
   await ensureBoot();
   try {
-    return { run: await executeRun(runId, { stepApprovals }) };
+    const human = await currentActor();
+    return { run: await executeRun(runId, { stepApprovals, human }) };
   } catch (err) {
     return fail(err, "Reload the Navigator tab to see the run's current state before retrying.");
+  }
+}
+
+/** Stop a run. A step already in flight finishes; nothing after it starts. */
+export async function cancelRunAction(runId: string): Promise<NavigatorReply> {
+  await ensureBoot();
+  try {
+    await currentActor(); // membership check — cancelling is a workspace act
+    return { run: cancelRun(runId) };
+  } catch (err) {
+    return fail(err, "Reload the Navigator tab to see the run's current state.");
   }
 }
 
@@ -58,12 +93,17 @@ export interface AutonomyReply {
 export async function setAutonomyAction(level: AutonomyLevel): Promise<AutonomyReply> {
   await ensureBoot();
   try {
+    // Same resolution the API layer uses — the dial belongs to the workspace
+    // the person is actually looking at, not to whichever one sorted first.
+    const workspace = await currentWorkspace();
+    if (!workspace)
+      return {
+        error: "You are not in a workspace, so there is no autonomy dial to move.",
+        fix: "Pick a workspace from the workspace menu in the top bar, or create one at /onboarding.",
+      };
     const { result } = await runAction(
       "workspace.setAutonomy",
-      {
-        workspaceId: db().workspaces[0]?.id ?? "",
-        actor: { type: "user", id: "local", name: "You" },
-      },
+      { workspaceId: workspace.id, actor: await currentActor() },
       { level },
       { mode: "execute" }
     );
@@ -79,4 +119,15 @@ export async function setAutonomyAction(level: AutonomyLevel): Promise<AutonomyR
       fix: "Reload the page and try again.",
     };
   }
+}
+
+export interface PlannerInfo {
+  mode: PlannerMode;
+  /** the model that would run — env keys never reach the browser, this does */
+  model: string;
+}
+
+/** What the Navigator header may honestly claim about language parsing. */
+export async function plannerInfoAction(): Promise<PlannerInfo> {
+  return { mode: plannerMode(), model: plannerModel() };
 }

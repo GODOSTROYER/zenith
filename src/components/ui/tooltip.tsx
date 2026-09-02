@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+"use client";
+import { cloneElement, isValidElement, useId, type ReactNode } from "react";
 import { cx } from "@/lib/format";
 
 export interface TooltipProps {
@@ -18,13 +19,31 @@ const SIDES: Record<NonNullable<TooltipProps["side"]>, string> = {
 
 /**
  * CSS-only tooltip (hover + keyboard focus, no JS, no dependency).
- * Content is also exposed to assistive tech via role="tooltip".
+ *
+ * The label is bound to the trigger with `aria-describedby`, so a screen
+ * reader announces it with the control instead of leaving a `role="tooltip"`
+ * floating in the tree with nothing pointing at it. When the child is a single
+ * element the attribute goes on that element; otherwise it falls back to the
+ * wrapper, which is still in the accessibility tree ahead of the label.
  */
 export function Tooltip({ label, side = "top", className, children }: TooltipProps) {
+  const id = useId();
+  const single = isValidElement<{ "aria-describedby"?: string }>(children);
+  const trigger = single
+    ? cloneElement(children, {
+        "aria-describedby":
+          [children.props["aria-describedby"], id].filter(Boolean).join(" ") || undefined,
+      })
+    : children;
+
   return (
-    <span className={cx("group/tip relative inline-flex", className)}>
-      {children}
+    <span
+      className={cx("group/tip relative inline-flex", className)}
+      aria-describedby={single ? undefined : id}
+    >
+      {trigger}
       <span
+        id={id}
         role="tooltip"
         className={cx(
           "pointer-events-none absolute z-50 w-max max-w-[260px] rounded-ctl border border-line bg-bg3 px-2.5 py-1.5",

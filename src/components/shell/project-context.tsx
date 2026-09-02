@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useJson, type ApiError } from "@/lib/client/api";
+import { streamedPollMs, useEventStream, useJson, type ApiError } from "@/lib/client/api";
 import type { ValidationIssue } from "@/lib/domain/graph";
 import type {
   Actor,
@@ -32,12 +32,21 @@ export interface RevisionMeta {
 /** Exactly what GET /api/projects/:idOrSlug returns. */
 export interface ProjectPayload {
   project: Project;
+  /**
+   * Optimistic-concurrency token for the working copy, from
+   * `GET /api/projects/:id`. Any surface that holds a manifest across time
+   * sends it back as `expectedHash` on project.updateManifest, so a save that
+   * raced another writer is refused instead of overwriting them.
+   */
+  manifestHash: string;
   environments: Environment[];
   revisions: RevisionMeta[];
   findings: SecurityFinding[];
   workingIssues: ValidationIssue[];
   /** keyed by environment id: working copy vs. what that environment runs */
   changesets: Record<string, Changeset>;
+  /** the payload's ETag — present on stream deliveries, absent on a poll */
+  etag?: string;
 }
 
 export interface ProjectData extends ProjectPayload {
@@ -68,6 +77,11 @@ export function useProjectData(): ProjectData {
 
 const envKey = (projectId: string) => `orrery-env-${projectId}`;
 
+/** Poll interval used whenever the stream is not delivering. Unchanged. */
+const POLL_MS = 5000;
+/** Stable identity: useEventStream re-subscribes when this list changes. */
+const PROJECT_EVENTS = ["project"];
+
 export interface ProjectProviderProps {
   slug: string;
   /** rendered with the loading/error surface when the project is not available */
@@ -77,20 +91,59 @@ export interface ProjectProviderProps {
 
 export function ProjectProvider({ slug, fallback, children }: ProjectProviderProps) {
   const { boot, refresh: refreshShell } = useShell();
-  const { data, error, loading, refresh: refreshProject } = useJson<ProjectPayload>(
-    `/api/projects/${encodeURIComponent(slug)}`,
-    5000
+  const url = `/api/projects/${encodeURIComponent(slug)}`;
+
+  /**
+   * Two transports, one payload. The stream pushes the same body the GET
+   * returns, so whichever spoke last wins and no screen can tell the
+   * difference. `live` is only true once a payload has actually arrived over
+   * the stream — until then, and again the moment it drops, the 5s poll is
+   * still running. A browser without EventSource never leaves that state.
+   */
+  const [data, setData] = useState<ProjectPayload>();
+  const [live, setLive] = useState(false);
+
+  const { data: polled, error, loading, refresh: refreshProject } = useJson<ProjectPayload>(
+    url,
+    streamedPollMs(live, POLL_MS)
   );
+  useEffect(() => {
+    if (polled) setData(polled);
+  }, [polled]);
+
+  const onPush = useCallback((_type: string, payload: unknown) => {
+    setData(payload as ProjectPayload);
+    setLive(true);
+  }, []);
+  const { connected } = useEventStream(`${url}/stream`, PROJECT_EVENTS, onPush);
+  useEffect(() => {
+    if (!connected) setLive(false); // errored or reconnecting: poll again
+  }, [connected]);
+
+  // A stream can be silently dead across a suspend or a laptop lid; a tab
+  // coming back to the front re-syncs once rather than trusting it.
+  useEffect(() => {
+    if (!live) return; // useJson does this itself while it is polling
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshProject();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [live, refreshProject]);
+
   const [envId, setEnvId] = useState<string>("");
 
   const environments = useMemo(() => data?.environments ?? [], [data]);
   const projectId = data?.project.id;
 
-  // Restore the last environment for this project; fall back to the first one.
+  // `?env=<id>` wins on arrival (that is what an overview link means), then the
+  // last environment used for this project, then the first one.
   useEffect(() => {
     if (!projectId || environments.length === 0) return;
     setEnvId((current) => {
       if (current && environments.some((e) => e.id === current)) return current;
+      const asked = new URLSearchParams(window.location.search).get("env");
+      if (asked && environments.some((e) => e.id === asked)) return asked;
       let saved: string | null = null;
       try {
         saved = localStorage.getItem(envKey(projectId));

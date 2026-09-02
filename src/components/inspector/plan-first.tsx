@@ -1,11 +1,24 @@
 "use client";
 import { useState } from "react";
-import { AlertTriangle } from "lucide-react";
-import { Button, CostDelta, Field, Input, RiskBadge, useToasts, type ButtonVariant } from "@/components/ui";
+import { Ban } from "lucide-react";
+import {
+  Button,
+  Callout,
+  Chip,
+  CostDelta,
+  Field,
+  Input,
+  RiskBadge,
+  useToasts,
+  type ButtonVariant,
+} from "@/components/ui";
 import { useProjectData } from "@/components/shell/project-context";
+import { useShell } from "@/components/shell/shell-context";
+import { RoleChip, roleShortfall } from "@/components/screens/shared";
 import { ApiError, executeAction, planAction } from "@/lib/client/api";
 import type { ActionPlan, ActionResult } from "@/lib/actions/core";
 import { cx } from "@/lib/format";
+import { idempotencyKey } from "./logic";
 
 export interface PlanFirstProps {
   actionId: string;
@@ -19,6 +32,12 @@ export interface PlanFirstProps {
   disabledReason?: string;
   /** when set, the exact text must be typed before the action can run */
   confirmName?: string;
+  /**
+   * "high-risk" asks for the typed name only when the server's own plan comes
+   * back high risk — so the ceremony matches the actual consequence rather
+   * than a guess made before planning.
+   */
+  confirmWhen?: "always" | "high-risk";
   onDone?: (result: ActionResult) => void;
   onCancel?: () => void;
   className?: string;
@@ -45,11 +64,13 @@ export function PlanFirst({
   disabled = false,
   disabledReason,
   confirmName,
+  confirmWhen = "always",
   onDone,
   onCancel,
   className,
 }: PlanFirstProps) {
   const { project, refresh } = useProjectData();
+  const { boot } = useShell();
   const toasts = useToasts();
   const [stage, setStage] = useState<Stage>({ at: "idle" });
   const [typed, setTyped] = useState("");
@@ -82,7 +103,11 @@ export function PlanFirst({
       const result = await executeAction(actionId, {
         input,
         scope: effScope,
-        idempotencyKey: `${actionId}-${Date.now()}`,
+        // Content-keyed, like the deploy dock: a double-click or a retried
+        // request replays the first result instead of applying twice. The
+        // working copy is part of the key, so re-running the same edit after
+        // the system moved is a new intent, not a replay.
+        idempotencyKey: idempotencyKey(actionId, { input, scope: effScope }, project.workingManifest),
       });
       if (!result.ok) {
         setStage({
@@ -103,31 +128,68 @@ export function PlanFirst({
 
   if (stage.at === "error")
     return (
-      <div className={cx("space-y-2 rounded-card border border-err/30 bg-err-dim p-3", className)}>
+      <Callout
+        tone="err"
+        className={className}
+        actions={
+          <>
+            <Button size="sm" variant="quiet" onClick={startPlan}>
+              Try again
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setStage({ at: "idle" })}>
+              Dismiss
+            </Button>
+          </>
+        }
+      >
         <p className="text-[13px] text-ink">{stage.message}</p>
-        {stage.fix && <p className="text-[12.5px] text-ink-mute">{stage.fix}</p>}
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="quiet" onClick={startPlan}>
-            Try again
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => setStage({ at: "idle" })}>
-            Dismiss
-          </Button>
-        </div>
-      </div>
+        {stage.fix && <p className="mt-1 text-[12.5px] text-ink-mute">{stage.fix}</p>}
+      </Callout>
     );
 
   if (stage.at === "preview" || stage.at === "running") {
     const { plan } = stage;
     const running = stage.at === "running";
-    const needsTyping = Boolean(confirmName) && typed.trim() !== confirmName;
+    const wantsTyping = Boolean(confirmName) && (confirmWhen === "always" || plan.risk === "high");
+    const needsTyping = wantsTyping && typed.trim() !== confirmName;
+    // The server says execute would refuse this exact input — bad values, a
+    // stale working copy, a role that is not enough. `blocked` carries the
+    // reason and the fix, so nothing here has to guess from the summary text.
+    const shortfall = roleShortfall(plan.requiredRole, boot?.role);
+    const blocked = plan.blocked ?? shortfall;
+    // Only a surface that sent a concurrency token can be refused for a stale
+    // one, and reloading is what fixes that.
+    // ponytail: shown for any refusal on a token-carrying input (a role block
+    // included) — narrow it if a reason code ever lands beside `blocked`.
+    const sentHash = typeof input.expectedHash === "string";
 
     return (
-      <div className={cx("animate-enter space-y-3 rounded-card border border-line bg-bg1 p-3", className)}>
+      <div
+        className={cx(
+          "animate-enter space-y-3 rounded-card border p-3",
+          blocked ? "border-err/30 bg-err-dim" : "border-line bg-bg1",
+          className
+        )}
+      >
         <div className="flex items-start justify-between gap-3">
           <p className="text-[13px] text-ink">{plan.summary}</p>
-          <RiskBadge level={plan.risk} />
+          <div className="flex shrink-0 items-center gap-1.5">
+            {plan.requiresApproval && (
+              <Chip tone="prod" title="Policy on this environment requires a human approval before it runs.">
+                approval required
+              </Chip>
+            )}
+            {plan.requiredRole && <RoleChip required={plan.requiredRole} shortfall={shortfall} />}
+            <RiskBadge level={plan.risk} />
+          </div>
         </div>
+
+        {blocked && (
+          <p role="alert" className="flex gap-1.5 text-[12.5px] text-ink">
+            <Ban className="mt-0.5 h-3.5 w-3.5 shrink-0 text-err" aria-hidden="true" />
+            <span>{blocked}</span>
+          </p>
+        )}
 
         {plan.details.length > 0 && (
           <ul className="space-y-1 text-[12.5px] text-ink-mute">
@@ -143,14 +205,13 @@ export function PlanFirst({
         )}
 
         {plan.warnings.length > 0 && (
-          <div className="space-y-1 rounded-ctl border border-warn/25 bg-warn-dim p-2.5">
-            {plan.warnings.map((w, i) => (
-              <p key={i} className="flex gap-1.5 text-[12.5px] text-ink">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn" aria-hidden="true" />
-                <span>{w}</span>
-              </p>
-            ))}
-          </div>
+          <Callout tone="warn" compact>
+            <ul className="space-y-1">
+              {plan.warnings.map((w, i) => (
+                <li key={i}>{w}</li>
+              ))}
+            </ul>
+          </Callout>
         )}
 
         <div className="flex items-center justify-between gap-3 border-t border-line pt-2.5">
@@ -159,7 +220,8 @@ export function PlanFirst({
           </span>
         </div>
 
-        {confirmName && (
+        {/* Typing a name to confirm something that cannot run is theatre. */}
+        {wantsTyping && !blocked && (
           <Field
             label={`Type "${confirmName}" to confirm`}
             help="Destructive changes are typed out in full, on purpose."
@@ -174,19 +236,35 @@ export function PlanFirst({
           </Field>
         )}
 
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant={plan.risk === "high" ? "danger" : "primary"}
-            busy={running}
-            disabled={needsTyping}
-            disabledReason={
-              needsTyping ? `Type "${confirmName}" above to confirm this change.` : undefined
-            }
-            onClick={() => apply(plan)}
-          >
-            {plan.risk === "high" ? "Apply anyway" : "Apply"}
-          </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Nothing to apply: the refusal above is the whole story. */}
+          {!blocked && (
+            <Button
+              size="sm"
+              variant={plan.risk === "high" ? "danger" : "primary"}
+              busy={running}
+              disabled={needsTyping}
+              disabledReason={
+                needsTyping ? `Type "${confirmName}" above to confirm this change.` : undefined
+              }
+              onClick={() => apply(plan)}
+            >
+              {plan.risk === "high" ? "Apply anyway" : "Apply"}
+            </Button>
+          )}
+          {blocked && sentHash && (
+            <Button
+              size="sm"
+              variant="quiet"
+              title="Re-reads the working copy this preview was built from, then plan again."
+              onClick={() => {
+                refresh();
+                setStage({ at: "idle" });
+              }}
+            >
+              Reload the working copy
+            </Button>
+          )}
           <Button
             size="sm"
             variant="ghost"
@@ -194,7 +272,7 @@ export function PlanFirst({
             disabledReason={running ? "The change is being applied." : undefined}
             onClick={() => setStage({ at: "idle" })}
           >
-            Back
+            {blocked ? "Back to the form" : "Back"}
           </Button>
         </div>
       </div>

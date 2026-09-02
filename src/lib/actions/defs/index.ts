@@ -13,9 +13,11 @@ import "./system";
 import "./env";
 import "./deploy";
 import "./ops";
+import "./navigator";
 import "./security";
 import "./connection";
 import "./workspace";
+import "./alerts";
 
 /** Idempotent: defineAction overwrites by id, so repeat calls are free. */
 export function registerAllActions(): Map<string, ActionDef<unknown>> {

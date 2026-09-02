@@ -38,14 +38,11 @@ export interface ActionCall {
   input?: unknown;
   scope?: { projectId?: string; environmentId?: string };
   idempotencyKey?: string;
-  /** send as the Navigator actor (agent surfaces only) */
-  asNavigator?: boolean;
 }
 
 export async function planAction(actionId: string, call: ActionCall): Promise<ActionPlan> {
   const { plan } = await api<{ plan: ActionPlan }>(`/api/actions/${actionId}`, {
     method: "POST",
-    headers: call.asNavigator ? { "x-orrery-actor": "navigator" } : undefined,
     body: JSON.stringify({ input: call.input ?? {}, mode: "plan", scope: call.scope }),
   });
   return plan;
@@ -54,7 +51,6 @@ export async function planAction(actionId: string, call: ActionCall): Promise<Ac
 export async function executeAction(actionId: string, call: ActionCall): Promise<ActionResult> {
   const { result } = await api<{ result: ActionResult }>(`/api/actions/${actionId}`, {
     method: "POST",
-    headers: call.asNavigator ? { "x-orrery-actor": "navigator" } : undefined,
     body: JSON.stringify({
       input: call.input ?? {},
       mode: "execute",
@@ -75,13 +71,59 @@ export interface Loadable<T> {
   refresh: () => void;
 }
 
-/** Polling JSON hook. `refreshMs=0` disables polling (manual refresh only). */
+/** How far polling backs off after consecutive unchanged responses. */
+export const MAX_IDLE_STEPS = 2;
+
+/**
+ * Poll interval for a hook that has seen `idleTicks` identical responses in a
+ * row: `base` while anything is moving, doubling to 4× base once it is not.
+ * A single changed payload (a deployment starting, say) resets it to `base`.
+ */
+export function pollDelay(baseMs: number, idleTicks: number): number {
+  const steps = Math.min(Math.max(idleTicks, 0), MAX_IDLE_STEPS);
+  return baseMs * 2 ** steps;
+}
+
+const isHidden = () => typeof document !== "undefined" && document.visibilityState === "hidden";
+
+/**
+ * Poll interval for a screen that also has an SSE stream for the same data.
+ *
+ * `streaming` must mean *payloads are arriving*, not merely that the socket
+ * opened: a stream that connects and then says nothing — a buffering proxy, a
+ * route that throws after the first frame — would otherwise leave the screen
+ * frozen with no poll behind it. Anything short of a live stream (no
+ * EventSource in this browser, a connection that failed, one that has not
+ * delivered yet) falls back to `baseMs`, which is exactly the behaviour that
+ * existed before the stream.
+ */
+export const streamedPollMs = (streaming: boolean, baseMs: number): number =>
+  streaming ? 0 : baseMs;
+
+/**
+ * Polling JSON hook. `refreshMs=0` disables polling (manual refresh only).
+ *
+ * Polling is honest about cost: it stops entirely while the tab is hidden and
+ * refetches immediately on return, and it backs off while responses keep
+ * coming back identical. Anything actually happening — a deployment moving
+ * through its phases — changes the payload and snaps the interval back to
+ * `refreshMs`.
+ */
 export function useJson<T>(url: string | null, refreshMs = 0): Loadable<T> {
   const [data, setData] = useState<T>();
   const [error, setError] = useState<ApiError>();
   const [loading, setLoading] = useState(!!url);
   const [tick, setTick] = useState(0);
   const refresh = useCallback(() => setTick((t) => t + 1), []);
+
+  // consecutive identical payloads, and the payload they were identical to
+  const idle = useRef(0);
+  const seen = useRef<string>("");
+
+  useEffect(() => {
+    idle.current = 0;
+    seen.current = "";
+  }, [url]);
 
   useEffect(() => {
     if (!url) return;
@@ -90,6 +132,12 @@ export function useJson<T>(url: string | null, refreshMs = 0): Loadable<T> {
     api<T>(url)
       .then((d) => {
         if (!alive) return;
+        const next = JSON.stringify(d);
+        if (next === seen.current) idle.current += 1;
+        else {
+          idle.current = 0;
+          seen.current = next;
+        }
         setData(d);
         setError(undefined);
       })
@@ -103,8 +151,33 @@ export function useJson<T>(url: string | null, refreshMs = 0): Loadable<T> {
 
   useEffect(() => {
     if (!url || !refreshMs) return;
-    const t = setInterval(refresh, refreshMs);
-    return () => clearInterval(t);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const schedule = (ms: number) => {
+      clearTimeout(timer);
+      timer = setTimeout(run, ms);
+    };
+    // A hidden tab schedules nothing; `onVisibility` restarts the loop.
+    function run() {
+      if (isHidden()) return;
+      refresh();
+      schedule(pollDelay(refreshMs, idle.current));
+    }
+
+    const onVisibility = () => {
+      clearTimeout(timer);
+      if (isHidden()) return;
+      idle.current = 0; // the tab was away; treat what it comes back to as new
+      refresh();
+      schedule(refreshMs);
+    };
+
+    if (!isHidden()) schedule(refreshMs);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [url, refreshMs, refresh]);
 
   return { data, error, loading, refresh };
@@ -129,7 +202,9 @@ export function useEventStream(
   doneCb.current = onDone;
 
   useEffect(() => {
-    if (!url) return;
+    // No EventSource (an old browser, a test renderer) is not an error: the
+    // caller keeps `connected: false` and whatever fallback it has.
+    if (!url || typeof EventSource === "undefined") return;
     let es: EventSource | null = null;
     let closed = false;
 

@@ -245,5 +245,3 @@ export const blueprints: Blueprint[] = [
 export function getBlueprint(blueprintId: string): Blueprint | undefined {
   return blueprints.find((b) => b.id === blueprintId);
 }
-
-export const blueprintIds = blueprints.map((b) => b.id);

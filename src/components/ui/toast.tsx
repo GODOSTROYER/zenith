@@ -53,16 +53,27 @@ interface ToastCtx extends ToastApi {
   resume: (id: string) => void;
 }
 
+/**
+ * Nullable by design: a missing provider must degrade to silence, never to a
+ * thrown hook (a throw here white-screens whatever tree the toast lives in).
+ */
+const NO_PROVIDER: ToastCtx = {
+  toasts: [],
+  push: () => "",
+  dismiss: () => {},
+  pause: () => {},
+  resume: () => {},
+};
+
 const ToastContext = createContext<ToastCtx | null>(null);
 
-/** Toast api. Must be used under `<ToastProvider>`. */
 function useToastCtx(): ToastCtx {
   const ctx = useContext(ToastContext);
-  if (!ctx)
-    throw new Error(
-      "useToasts() was called outside <ToastProvider>. Wrap the app shell (app/layout or the product shell) in <ToastProvider>."
+  if (!ctx && process.env.NODE_ENV !== "production")
+    console.warn(
+      "useToasts() was called outside <ToastProvider>; notifications are dropped. Wrap the app shell (app/layout or the product shell) in <ToastProvider>."
     );
-  return ctx;
+  return ctx ?? NO_PROVIDER;
 }
 
 /** Toast api: `push({ title, body?, kind, action? })`, `dismiss(id)`, `toasts`. */
@@ -81,30 +92,33 @@ export function ToastProvider({ children, renderToaster = true }: ToastProviderP
   const [toasts, setToasts] = useState<ToastRecord[]>([]);
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
-  const dismiss = useCallback((id: string) => {
+  /** the one place a timer dies — every removal path goes through here */
+  const clearTimer = useCallback((id: string) => {
     const t = timers.current.get(id);
     if (t) clearTimeout(t);
     timers.current.delete(id);
-    setToasts((list) => list.filter((x) => x.id !== id));
   }, []);
+
+  const dismiss = useCallback(
+    (id: string) => {
+      clearTimer(id);
+      setToasts((list) => list.filter((x) => x.id !== id));
+    },
+    [clearTimer]
+  );
 
   const arm = useCallback(
     (id: string) => {
-      const existing = timers.current.get(id);
-      if (existing) clearTimeout(existing);
+      clearTimer(id);
       timers.current.set(
         id,
         setTimeout(() => dismiss(id), DISMISS_MS)
       );
     },
-    [dismiss]
+    [clearTimer, dismiss]
   );
 
-  const pause = useCallback((id: string) => {
-    const t = timers.current.get(id);
-    if (t) clearTimeout(t);
-    timers.current.delete(id);
-  }, []);
+  const pause = clearTimer;
 
   const push = useCallback(
     (input: ToastInput) => {
@@ -114,7 +128,13 @@ export function ToastProvider({ children, renderToaster = true }: ToastProviderP
         id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`,
         ts: new Date().toISOString(),
       };
-      setToasts((list) => [...list, toast].slice(-MAX_VISIBLE));
+      setToasts((list) => {
+        const next = [...list, toast].slice(-MAX_VISIBLE);
+        // dropped by the overflow trim — they leave the screen, so their
+        // timers leave too (clearTimeout is idempotent under StrictMode)
+        for (const t of list) if (!next.includes(t)) clearTimer(t.id);
+        return next;
+      });
       arm(toast.id);
       try {
         window.__orreryActivity?.(toast);
@@ -123,7 +143,7 @@ export function ToastProvider({ children, renderToaster = true }: ToastProviderP
       }
       return toast.id;
     },
-    [arm]
+    [arm, clearTimer]
   );
 
   useEffect(() => {
@@ -164,6 +184,10 @@ const EDGE: Record<ToastKind, string> = {
 /**
  * The notification stack — fixed bottom-LEFT so it never covers the map
  * toolbar (bottom-right) or any header. Hover pauses auto-dismiss.
+ *
+ * The deploy dock also lives along the bottom edge; it publishes its height as
+ * `--orrery-dock-h` on <html> while mounted, and the stack sits above it, so
+ * the two never overlap at any width.
  */
 export function Toaster() {
   const { toasts, dismiss, pause, resume } = useToastCtx();
@@ -171,7 +195,10 @@ export function Toaster() {
 
   return (
     <div
-      className="pointer-events-none fixed bottom-4 left-4 z-[60] flex w-[340px] max-w-[calc(100vw-2rem)] flex-col-reverse gap-2"
+      className={cx(
+        "pointer-events-none fixed left-4 z-[60] flex w-[340px] max-w-[calc(100vw-2rem)] flex-col-reverse gap-2",
+        "bottom-[calc(1rem+var(--orrery-dock-h,0px))] transition-[bottom] duration-[160ms] [transition-timing-function:var(--ease-swift)]"
+      )}
       role="region"
       aria-label="Notifications"
     >

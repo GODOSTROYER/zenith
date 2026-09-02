@@ -10,6 +10,7 @@ import type { ActionContext, ActionPlan, Risk } from "@/lib/actions/core";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { q, save } from "@/lib/db/store";
 import { diffManifests } from "@/lib/domain/graph";
+import { fmtUsd } from "@/lib/format";
 import type {
   Environment,
   Manifest,
@@ -19,8 +20,6 @@ import type {
 } from "@/lib/domain/types";
 
 export const clone = <T>(v: T): T => structuredClone(v);
-
-export const usd = (n: number) => `$${(Math.round(n * 100) / 100).toFixed(2)}`;
 
 const RISK_ORDER: Record<Risk, number> = { low: 0, medium: 1, high: 2 };
 export const maxRisk = (risks: Risk[]): Risk =>
@@ -109,7 +108,7 @@ export function planFromDiff(
     details: [
       ...(extra.details ?? []),
       ...cs.items.map((i) => i.explanation),
-      `Projected monthly total after this change: ${usd(cs.projectedMonthlyUsd)} (estimate).`,
+      `Projected monthly total after this change: ${fmtUsd(cs.projectedMonthlyUsd)} (estimate).`,
       WORKING_COPY_NOTE,
     ],
     costDeltaUsd: cs.totalCostDeltaUsd,
@@ -129,9 +128,6 @@ export function commit(project: Project, next: Manifest): void {
 export function editSummary(before: Manifest, after: Manifest, what: string): string {
   const cs = diffManifests(before, after);
   const delta = cs.totalCostDeltaUsd;
-  const money =
-    delta === 0
-      ? "no cost change"
-      : `${delta > 0 ? "+" : "−"}${usd(Math.abs(delta))}/mo`;
-  return `${what} — ${money}, projected ${usd(monthlyCostUsd(after))}/mo (estimate). Deploy to apply it.`;
+  const money = delta === 0 ? "no cost change" : `${fmtUsd(delta, { sign: true })}/mo`;
+  return `${what} — ${money}, projected ${fmtUsd(monthlyCostUsd(after))}/mo (estimate). Deploy to apply it.`;
 }

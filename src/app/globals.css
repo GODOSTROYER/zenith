@@ -18,7 +18,7 @@
 
   --ink: #e9edf5;
   --ink-mute: #9aa5bd;
-  --ink-faint: #636e87;
+  --ink-faint: #7d87a0; /* ≥4.5:1 on bg0/bg2 — carries captions and metadata */
 
   /* brand */
   --signal: #53e0be; /* primary accent — actions, focus, success-of-intent */
@@ -61,7 +61,7 @@
 
   --ink: #191e2b;
   --ink-mute: #5a6478;
-  --ink-faint: #8b94a8;
+  --ink-faint: #636d86; /* ≥4.5:1 on every light surface, bg0 included */
 
   --signal: #0d9f83;
   --signal-strong: #0b8a72;
@@ -135,7 +135,9 @@ body {
 body {
   background: var(--bg0);
   color: var(--ink);
-  font-family: var(--font-sans);
+  /* NOTE: @theme inline does not emit --font-sans as a root custom property,
+     so reference the next/font variable directly (fixes system-stack fallback). */
+  font-family: var(--font-grotesk), "Space Grotesk", system-ui, sans-serif;
   font-size: 14px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;

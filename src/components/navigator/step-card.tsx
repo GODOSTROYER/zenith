@@ -2,7 +2,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, ChevronRight, HelpCircle, SearchCode } from "lucide-react";
 import Link from "next/link";
-import { Chip, CostDelta, RiskBadge, StatusDot } from "@/components/ui";
+import { Callout, Chip, CostDelta, RiskBadge, StatusDot } from "@/components/ui";
+import { useProjectData } from "@/components/shell/project-context";
 import { ApiError, planAction } from "@/lib/client/api";
 import type { ActionPlan } from "@/lib/actions/core";
 import { cx } from "@/lib/format";
@@ -28,8 +29,6 @@ export interface StepCardProps {
 
 const RAIL: Record<NavigatorStep["status"], string> = {
   proposed: "bg-nav-accent/45",
-  approved: "bg-nav-accent",
-  rejected: "bg-line-strong",
   running: "bg-nav-accent status-pulse",
   done: "bg-ok",
   failed: "bg-err",
@@ -55,14 +54,22 @@ export function StepCard({
   prodEnvIds,
   earlierPending,
 }: StepCardProps) {
+  const { selectedEnvId } = useProjectData();
   const [open, setOpen] = useState(false);
   const [plan, setPlan] = useState<ActionPlan>();
   const [planError, setPlanError] = useState<string>();
   const [loading, setLoading] = useState(false);
 
+  // The environment this step will actually run against: the one it names, or
+  // the one the project view is on. Without it `requireEnvironment` refuses to
+  // guess as soon as a project has two, and every preview fails for a reason
+  // that has nothing to do with the step.
+  const stepEnvId = (step.input as { environmentId?: string } | null)?.environmentId;
+  const scopeEnvId = stepEnvId ?? selectedEnvId;
+
   const executable = isExecutable(step.actionId);
-  const local = step.actionId === INVESTIGATE;
-  const previewable = executable && !local;
+  const readOnly = step.actionId === INVESTIGATE;
+  const previewable = executable;
   const blocked = step.actionId === BLOCKED || step.actionId === CLARIFY;
   const gate = autonomyBlock(autonomy, step.risk);
 
@@ -72,8 +79,7 @@ export function StepCard({
     try {
       const p = await planAction(step.actionId, {
         input: step.input,
-        scope: { projectId },
-        asNavigator: true,
+        scope: { projectId, environmentId: scopeEnvId || undefined },
       });
       setPlan(p);
       onPreview(step.id, p.costDeltaUsd);
@@ -83,7 +89,17 @@ export function StepCard({
     } finally {
       setLoading(false);
     }
-  }, [previewable, plan, loading, step.actionId, step.input, step.id, projectId, onPreview]);
+  }, [
+    previewable,
+    plan,
+    loading,
+    step.actionId,
+    step.input,
+    step.id,
+    projectId,
+    scopeEnvId,
+    onPreview,
+  ]);
 
   useEffect(() => {
     if (open) void loadPlan();
@@ -91,8 +107,7 @@ export function StepCard({
 
   const isDeploy = step.actionId.startsWith("deploy.");
   const statusText = STATUS_LABEL[step.status];
-  const targetEnvId = (step.input as { environmentId?: string } | null)?.environmentId;
-  const isProd = Boolean(targetEnvId && prodEnvIds.has(targetEnvId));
+  const isProd = Boolean(stepEnvId && prodEnvIds.has(stepEnvId));
 
   return (
     <li className="animate-enter relative flex gap-3">
@@ -131,7 +146,7 @@ export function StepCard({
             <div className="flex items-center gap-2">
               {step.status === "running" && <StatusDot status="running" label="Running" />}
               {blocked && <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warn" />}
-              {local && <SearchCode className="h-3.5 w-3.5 shrink-0 text-nav-accent" />}
+              {readOnly && <SearchCode className="h-3.5 w-3.5 shrink-0 text-nav-accent" />}
               <h3 className="truncate text-[14px] font-medium text-ink">{step.title}</h3>
               {statusText && (
                 <span
@@ -237,8 +252,9 @@ export function StepCard({
                   (earlierPending ? (
                     <>
                       <p className="text-[12.5px] leading-relaxed text-ink-mute">
-                        Not previewable yet — this step acts on something an earlier step in this
-                        plan creates. It will preview once those have run.
+                        This step could not be previewed. An earlier step in this plan has not run
+                        yet, so it may be waiting on something that step creates — but the exact
+                        reason is the one below.
                       </p>
                       <p className="mt-1 text-[12px] text-ink-faint">{planError}</p>
                     </>
@@ -281,7 +297,7 @@ export function StepCard({
           </div>
         )}
 
-        {local && editable && (
+        {readOnly && editable && (
           <p className="mt-2 text-[12px] text-ink-faint">
             Read-only — it inspects the last failure and writes a summary. Nothing changes.
           </p>
@@ -294,11 +310,11 @@ export function StepCard({
           </p>
         )}
         {step.status === "failed" && (
-          <div className="mt-2.5 rounded-ctl border border-err/30 bg-err-dim px-3 py-2">
-            <p className="text-[12.5px] leading-relaxed text-err">
+          <Callout tone="err" compact className="mt-2.5">
+            <p className="leading-relaxed">
               {step.error ?? step.resultSummary ?? "This step failed without a recorded reason."}
             </p>
-          </div>
+          </Callout>
         )}
 
         {isDeploy && (step.status === "done" || step.status === "failed") && (

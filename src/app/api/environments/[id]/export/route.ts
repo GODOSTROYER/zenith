@@ -3,15 +3,17 @@
  * Exports the deployed revision when there is one, otherwise the working copy
  * (labelled, so the caller never mistakes one for the other).
  */
-import { db, q } from "@/lib/db/store";
+import { db, inWorkspace, q } from "@/lib/db/store";
 import { getProvider, providerRegistry } from "@/lib/providers/types";
-import { ApiError, notFound, route } from "@/lib/server/context";
+import { ApiError, notFound, requireWorkspace, route } from "@/lib/server/context";
 
 export const dynamic = "force-dynamic";
 
 export const GET = route<{ id: string }>(async (_req, { id }) => {
   const env = q.environment(id);
-  if (!env) throw notFound(`Environment "${id}"`, "Open the project's Settings tab and pick an environment.");
+  // Scoped by the owning project's workspace: an id alone is not a read grant.
+  if (!env || !inWorkspace(requireWorkspace().id, env.projectId))
+    throw notFound(`Environment "${id}"`, "Open the project's Settings tab and pick an environment.");
 
   const connection = q.connection(env.connectionId);
   if (!connection)

@@ -5,13 +5,15 @@
  * dialog, and a couple of one-liner presenters.
  */
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { AlertTriangle } from "lucide-react";
-import type { ActionPlan, ActionResult } from "@/lib/actions/core";
+import { Ban } from "lucide-react";
+import type { ActionPlan, ActionResult, Role } from "@/lib/actions/core";
 import { ApiError, executeAction, planAction } from "@/lib/client/api";
 import type { Actor, ChangeItem, EnvironmentClass } from "@/lib/domain/types";
-import { cx, fmtUsd } from "@/lib/format";
+import { cx } from "@/lib/format";
+import { useShell } from "@/components/shell/shell-context";
 import {
   Button,
+  Callout,
   Chip,
   CostDelta,
   Dialog,
@@ -20,28 +22,15 @@ import {
   Skeleton,
   useToasts,
   type ChipTone,
-  type ToastApi,
 } from "@/components/ui";
 
-const NOOP_TOASTS: ToastApi = {
-  toasts: [],
-  push: () => "",
-  dismiss: () => {},
-};
-
 /**
- * `useToasts()` throws without a provider. Screens render inside another
- * workstream's layout, so a missing provider must degrade to silence, never to
- * a white screen.
+ * Kept as a name because screens import it. `useToasts()` itself now degrades
+ * to a no-op outside a provider (see components/ui/toast.tsx), so this is a
+ * plain hook call — no try/catch, no conditional hook, no "rendered fewer
+ * hooks than expected" when a provider unmounts mid-tree.
  */
-export function useSafeToasts(): ToastApi {
-  try {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    return useToasts();
-  } catch {
-    return NOOP_TOASTS;
-  }
-}
+export const useSafeToasts = useToasts;
 
 export interface Scope {
   projectId?: string;
@@ -108,30 +97,78 @@ export function ErrorNote({
 }) {
   const { message, fix } = errorText(error);
   return (
-    <div
-      className={cx(
-        "flex gap-2.5 rounded-card border border-err/30 bg-err-dim px-4 py-3 text-[13px]",
-        className
-      )}
-    >
-      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-err" />
-      <div className="min-w-0">
-        <p className="text-ink">{message}</p>
-        {fix && <p className="mt-1 text-ink-mute">{fix}</p>}
-      </div>
-    </div>
+    <Callout tone="err" className={className}>
+      <p className="text-ink">{message}</p>
+      {fix && <p className="mt-1 text-ink-mute">{fix}</p>}
+    </Callout>
   );
 }
 
 /* ------------------------------ plan preview ------------------------------ */
 
-export function PlanBody({ plan }: { plan: ActionPlan }) {
+const ROLE_RANK: Record<Role, number> = { viewer: 0, editor: 1, admin: 2 };
+
+/**
+ * One sentence when the caller's workspace role is below the role the plan says
+ * execute demands — so the preview says it before the button is pressed, even
+ * when the server did not set `blocked` (a plan blocked for some other reason
+ * first, or one planned on someone else's behalf).
+ *
+ * `null` caller role means "not signed in / demo mode": nothing to compare.
+ */
+export function roleShortfall(
+  required: Role | undefined,
+  caller: Role | null | undefined
+): string | undefined {
+  if (!required || !caller) return undefined;
+  if (ROLE_RANK[caller] >= ROLE_RANK[required]) return undefined;
+  return (
+    `This needs the ${required} role and you are ${caller} in this workspace. ` +
+    `Ask a workspace admin to raise your role in Settings → Members, or have them run it.`
+  );
+}
+
+/**
+ * "needs editor" — the role an action demands, toned red when the caller does
+ * not have it. Both plan previews (this file's dialog and the inspector's
+ * inline PlanFirst) show the same chip with the same tooltip.
+ */
+export function RoleChip({ required, shortfall }: { required: Role; shortfall?: string }) {
+  return (
+    <Chip
+      tone={shortfall ? "err" : "neutral"}
+      title={shortfall ?? `Running this needs the ${required} role.`}
+    >
+      needs {required}
+    </Chip>
+  );
+}
+
+/** The refusal, in the same shape everywhere: red, first, and never a warning. */
+function BlockedNote({ children }: { children: ReactNode }) {
+  return (
+    <Callout tone="err" icon={<Ban className="mt-0.5 h-4 w-4 shrink-0 text-err" aria-hidden="true" />}>
+      <p>{children}</p>
+    </Callout>
+  );
+}
+
+/** The plan itself, inside the confirm dialog below. Not used anywhere else. */
+function PlanBody({ plan }: { plan: ActionPlan }) {
+  const { boot } = useShell();
+  const shortfall = roleShortfall(plan.requiredRole, boot?.role);
   return (
     <div className="space-y-4">
       <p className="text-[14px] text-ink">{plan.summary}</p>
 
+      {/* `blocked` is the reason execute would refuse, plus the fix. It leads,
+          and it is never demoted into the advisory warnings list below. */}
+      {plan.blocked ? <BlockedNote>{plan.blocked}</BlockedNote> : null}
+      {!plan.blocked && shortfall ? <BlockedNote>{shortfall}</BlockedNote> : null}
+
       <div className="flex flex-wrap items-center gap-2">
         <RiskBadge level={plan.risk} />
+        {plan.requiredRole && <RoleChip required={plan.requiredRole} shortfall={shortfall} />}
         <Chip tone={plan.costDeltaUsd === 0 ? "neutral" : plan.costDeltaUsd > 0 ? "warn" : "ok"}>
           <CostDelta usd={plan.costDeltaUsd} bare /> est./mo
         </Chip>
@@ -147,14 +184,13 @@ export function PlanBody({ plan }: { plan: ActionPlan }) {
       )}
 
       {plan.warnings.length > 0 && (
-        <ul className="space-y-1.5 rounded-card border border-warn/30 bg-warn-dim px-4 py-3 text-[13px] text-ink">
-          {plan.warnings.map((w, i) => (
-            <li key={i} className="flex gap-2">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn" />
-              <span>{w}</span>
-            </li>
-          ))}
-        </ul>
+        <Callout tone="warn">
+          <ul className="space-y-1.5">
+            {plan.warnings.map((w, i) => (
+              <li key={i}>{w}</li>
+            ))}
+          </ul>
+        </Callout>
       )}
     </div>
   );
@@ -174,6 +210,12 @@ export interface ActionConfirmProps {
   typeToConfirm?: string;
   /** extra content between the description and the plan */
   children?: ReactNode;
+  /**
+   * Rendered under a refused plan (or a refused execute): the screen's own
+   * one-click way out, e.g. reload the current copy / discard my edits. The
+   * refusal already names the fix in prose; this makes it pressable.
+   */
+  blockedFix?: ReactNode;
   onDone?: (result: ActionResult) => void;
 }
 
@@ -193,6 +235,7 @@ export function ActionConfirm({
   danger,
   typeToConfirm,
   children,
+  blockedFix,
   onDone,
 }: ActionConfirmProps) {
   const toasts = useSafeToasts();
@@ -217,7 +260,10 @@ export function ActionConfirm({
     };
   }, [open, actionId, inputKey, scopeKey]);
 
-  const confirmBlocked = typeToConfirm ? typed.trim() !== typeToConfirm : false;
+  const needsTyping = typeToConfirm ? typed.trim() !== typeToConfirm : false;
+  /** The server already knows this input would be refused. Say so, don't offer it. */
+  const blocked = plan?.blocked;
+  const refused = Boolean(blocked) || error !== undefined;
 
   const confirm = async () => {
     setBusy(true);
@@ -259,13 +305,15 @@ export function ActionConfirm({
           <Button
             variant={danger ? "danger" : "primary"}
             busy={busy}
-            disabled={!plan || confirmBlocked}
+            disabled={!plan || Boolean(blocked) || needsTyping}
             disabledReason={
               !plan
                 ? "Waiting for the plan — the preview has to load before anything runs."
-                : confirmBlocked
-                  ? `Type “${typeToConfirm}” to confirm.`
-                  : undefined
+                : blocked
+                  ? blocked
+                  : needsTyping
+                    ? `Type “${typeToConfirm}” to confirm.`
+                    : undefined
             }
             onClick={confirm}
           >
@@ -285,7 +333,11 @@ export function ActionConfirm({
           </div>
         ) : null}
         {plan ? <PlanBody plan={plan} /> : null}
-        {typeToConfirm && plan ? (
+        {refused && blockedFix ? (
+          <div className="flex flex-wrap items-center gap-2">{blockedFix}</div>
+        ) : null}
+        {/* Typing a name to confirm something that cannot run is theatre. */}
+        {typeToConfirm && plan && !blocked ? (
           <label className="block space-y-1.5">
             <span className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">
               Type <span className="font-mono text-ink">{typeToConfirm}</span> to confirm
@@ -305,6 +357,33 @@ export function ActionConfirm({
 }
 
 /* ------------------------------- presenters ------------------------------- */
+
+/**
+ * The label above a group of fields inside a panel — inspector tabs, the
+ * deploy dock, the changes review. One markup, so a section heading never
+ * drifts a pixel between two panels that sit side by side.
+ */
+export function SectionTitle({ children }: { children: ReactNode }) {
+  return (
+    <h3 className="text-[12px] font-medium tracking-[0.04em] text-ink-faint uppercase">
+      {children}
+    </h3>
+  );
+}
+
+/**
+ * "This number was computed, not measured." One label for every surface that
+ * shows generated health, generated logs or an estimated cost, so the claim
+ * reads the same wherever it appears. `title` says what was simulated when the
+ * surface can be specific about it.
+ */
+export function SimulatedChip({ title }: { title?: string }) {
+  return (
+    <Chip tone="info" title={title}>
+      simulated
+    </Chip>
+  );
+}
 
 const ENV_TONE: Record<EnvironmentClass, ChipTone> = {
   sandbox: "info",
@@ -380,9 +459,4 @@ export function ChangeRow({ item }: { item: ChangeItem }) {
       </div>
     </li>
   );
-}
-
-/** "$120.00" with tabular figures, used wherever a monthly estimate appears. */
-export function Money({ usd, className }: { usd: number; className?: string }) {
-  return <span className={cx("tnum", className)}>{fmtUsd(usd)}</span>;
 }

@@ -4,9 +4,18 @@
  * catalog, audited like everything else.
  */
 import { z } from "zod";
-import { defineAction, runAction, type ActionContext } from "@/lib/actions/core";
+import { defineAction, getAction, runAction, type ActionContext } from "@/lib/actions/core";
 import { db, save } from "@/lib/db/store";
 import type { SecurityFinding } from "@/lib/domain/types";
+
+/**
+ * A fix that edits the working copy has not made the environment safe — it has
+ * queued a change. Reporting that as "resolved" closes a finding that is still
+ * live in production. `system.*` actions are exactly the manifest edits, so the
+ * registry decides this rather than a hand-kept list.
+ */
+const fixLandsOnDeploy = (actionId: string): boolean =>
+  getAction(actionId).category === "system";
 
 function requireFinding(findingId: string): SecurityFinding {
   const f = db().findings.find((x) => x.id === findingId);
@@ -49,13 +58,27 @@ defineAction<ResolveInput>({
       };
     const inner = await runAction(f.fix!.actionId, ctx, f.fix!.input, { mode: "plan" });
     const p = inner.plan!;
+    const pending = fixLandsOnDeploy(f.fix!.actionId);
     return {
       summary: `Fix "${f.title}" — ${f.fix!.label}.`,
-      details: [f.detail, `Runs ${f.fix!.actionId}:`, ...p.details],
+      details: [
+        f.detail,
+        `Runs ${f.fix!.actionId}:`,
+        ...p.details,
+        pending
+          ? "This edits the working copy. The finding stays open as \"fixed, pending deploy\" until a deployment lands it — the environment is exposed until then."
+          : "This takes effect immediately, so the finding closes as soon as it runs.",
+      ],
       costDeltaUsd: p.costDeltaUsd,
       risk: p.risk,
       warnings: p.warnings,
       requiresApproval: p.requiresApproval,
+      // A fix whose own action refuses is not a fix. Carry the reason up so the
+      // Security screen disables the button with it instead of failing on click.
+      blocked: p.blocked
+        ? `"${f.fix!.label}" cannot run: ${p.blocked}`
+        : undefined,
+      requiredRole: p.requiredRole,
     };
   },
   async execute(ctx, input) {
@@ -71,16 +94,26 @@ defineAction<ResolveInput>({
           summary: `Could not fix "${f.title}".`,
           error: result?.error ?? `${f.fix.actionId} did not complete. Apply the change by hand, then dismiss the finding with a reason.`,
         };
-      f.status = "resolved";
+      // Working-copy fixes are not yet true of the environment. Say so.
+      const pending = fixLandsOnDeploy(f.fix.actionId);
+      f.status = pending ? "fixed_pending_deploy" : "resolved";
+      f.resolvedAt = new Date().toISOString();
+      f.resolvedBy = ctx.actor;
+      f.resolvedReason = `Fixed via ${f.fix.actionId} (${f.fix.label}).`;
       save();
       return {
         ok: true,
-        summary: `Fixed "${f.title}" — ${result.summary}`,
+        summary: pending
+          ? `Fixed "${f.title}" in the working copy — ${result.summary} It stays open until a deploy lands it.`
+          : `Fixed "${f.title}" — ${result.summary}`,
         data: { findingId: f.id, status: f.status, via: f.fix.actionId },
       };
     }
 
     f.status = "resolved";
+    f.resolvedAt = new Date().toISOString();
+    f.resolvedBy = ctx.actor;
+    f.resolvedReason = "Marked resolved by hand; no action was run.";
     save();
     return {
       ok: true,
@@ -115,14 +148,81 @@ defineAction<DismissInput>({
       requiresApproval: false,
     };
   },
-  execute(_ctx, input) {
+  execute(ctx, input) {
     const f = requireFinding(input.findingId);
     f.status = "dismissed";
+    f.resolvedAt = new Date().toISOString();
+    f.resolvedBy = ctx.actor;
+    f.resolvedReason = input.reason;
     save();
     return {
       ok: true,
       summary: `Dismissed "${f.title}": ${input.reason}`,
       data: { findingId: f.id, status: f.status },
+    };
+  },
+});
+
+const ReopenInput = z.object({ findingId: z.string().min(1) });
+type ReopenInput = z.infer<typeof ReopenInput>;
+
+/**
+ * The way back out of a dismissal. Only a dismissal can be reopened: every
+ * other status is the scanner's to decide — anything it still detects is
+ * reported open on the next sync without asking anyone.
+ */
+defineAction<ReopenInput>({
+  id: "security.reopenFinding",
+  title: "Reopen finding",
+  category: "operations",
+  risk: "low",
+  requiredRole: "editor",
+  mutates: true,
+  input: ReopenInput,
+  plan(_ctx, input) {
+    const f = requireFinding(input.findingId);
+    const who = f.resolvedBy?.name ?? "someone";
+    return {
+      summary: `Reopen "${f.title}" (${f.severity}).`,
+      details: [
+        f.detail,
+        f.resolvedReason
+          ? `Dismissed by ${who}: “${f.resolvedReason}”.`
+          : `Dismissed by ${who}.`,
+        "The dismissal stays in the audit log. The finding counts as open again and its fix, if it has one, comes back.",
+      ],
+      costDeltaUsd: 0,
+      risk: "low",
+      warnings: [],
+      requiresApproval: false,
+      blocked:
+        f.status === "dismissed"
+          ? undefined
+          : `"${f.title}" is ${f.status}, not dismissed — there is no dismissal to undo. The scanner reopens anything it still detects on its own.`,
+    };
+  },
+  execute(ctx, input) {
+    const f = requireFinding(input.findingId);
+    if (f.status !== "dismissed")
+      return {
+        ok: false,
+        summary: `"${f.title}" is ${f.status}, not dismissed.`,
+        error:
+          "Only a dismissed finding can be reopened. Reload the Security page — the scanner reopens anything it still detects on its own.",
+      };
+    const reason = f.resolvedReason;
+    f.status = "open";
+    delete f.resolvedAt;
+    delete f.resolvedBy;
+    delete f.resolvedReason;
+    delete f.fixedInRevisionId;
+    save();
+    return {
+      ok: true,
+      summary: reason
+        ? `Reopened "${f.title}". The dismissal (“${reason}”) stays in the audit log.`
+        : `Reopened "${f.title}".`,
+      data: { findingId: f.id, status: f.status, reopenedBy: ctx.actor.id },
     };
   },
 });

@@ -9,13 +9,22 @@ import { z } from "zod";
 import { defineAction, type ActionContext } from "@/lib/actions/core";
 import { getBlueprint, blueprints } from "@/lib/blueprints";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
-import { db, save } from "@/lib/db/store";
-import { emptyManifest, id, type Manifest, type Project } from "@/lib/domain/types";
+import { db, q, save } from "@/lib/db/store";
+import {
+  ResourceKind,
+  emptyManifest,
+  id,
+  type Manifest,
+  type Project,
+} from "@/lib/domain/types";
 import { importCompose } from "@/lib/importers/compose";
 import type { ImportReport } from "@/lib/importers/types";
 import { slugify, uniqueName } from "@/lib/importers/types";
-import { buildEnvironment, envPlanDetails } from "./env";
-import { clone, commit, planFromDiff, requireProject, usd } from "./_shared";
+import { providerRegistry } from "@/lib/providers/types";
+import { buildEnvironment, envPlanDetails, inFlight, liveRevision } from "./env";
+import { getEngine } from "./_engine";
+import { fmtUsd } from "@/lib/format";
+import { clone, commit, planFromDiff, requireProject } from "./_shared";
 
 function newProject(ctx: ActionContext, name: string, slug: string | undefined, origin: Project["origin"], manifest: Manifest): Project {
   const taken = db().projects.map((p) => p.slug);
@@ -154,7 +163,7 @@ defineAction<ApplyBlueprint>({
       commit(existing, next);
       return {
         ok: true,
-        summary: `Applied the "${bp.name}" blueprint to ${existing.name}: ${manifestSummary(next)}, ${usd(monthlyCostUsd(next))}/month estimated. Deploy to apply it.`,
+        summary: `Applied the "${bp.name}" blueprint to ${existing.name}: ${manifestSummary(next)}, ${fmtUsd(monthlyCostUsd(next))}/month estimated. Deploy to apply it.`,
         data: { projectId: existing.id, blueprint: bp.id },
       };
     }
@@ -166,7 +175,7 @@ defineAction<ApplyBlueprint>({
     save();
     return {
       ok: true,
-      summary: `Created "${project.name}" from the "${bp.name}" blueprint: ${manifestSummary(project.workingManifest)}, ${usd(monthlyCostUsd(project.workingManifest))}/month estimated. Nothing is deployed yet.`,
+      summary: `Created "${project.name}" from the "${bp.name}" blueprint: ${manifestSummary(project.workingManifest)}, ${fmtUsd(monthlyCostUsd(project.workingManifest))}/month estimated. Nothing is deployed yet.`,
       data: { projectId: project.id, slug: project.slug, environmentId: env.id, blueprint: bp.id },
     };
   },
@@ -241,6 +250,247 @@ defineAction<ImportCompose>({
       ok: true,
       summary: `Created "${project.name}" from docker-compose: ${manifestSummary(manifest)} — ${tally}. Nothing is deployed yet.`,
       data: { projectId: project.id, slug: project.slug, environmentId: env.id, report },
+    };
+  },
+});
+
+/* -------------------------- project.importResources ------------------------ */
+
+/**
+ * Adopt resources that already exist in a connected account or endpoint.
+ *
+ * Two rules make this safe, and both are enforced here rather than trusted to
+ * the caller:
+ *
+ *  1. Everything imported is `referenced`, never `managed`. Orrery shows a
+ *     referenced resource on the map and lets services bind to it; it never
+ *     provisions, changes or deletes one, and it never bills for it.
+ *  2. The submitted list is a SELECTION, not data. Every entry is matched by
+ *     `externalRef` against a fresh `discover()` on the server, and the
+ *     provider's record is what lands in the manifest. A caller cannot write
+ *     an arbitrary external reference into a system by posting one.
+ */
+const ImportResources = z.object({
+  projectId: z.string().optional(),
+  connectionId: z.string().min(1, "say which connection to import from"),
+  region: z.string().optional(),
+  /** DiscoveredResource rows from GET /api/connections/:id/discover */
+  resources: z
+    .array(z.object({ externalRef: z.string().min(1) }).passthrough())
+    .min(1, "pick at least one resource to import"),
+});
+type ImportResources = z.infer<typeof ImportResources>;
+
+async function resolveImport(ctx: ActionContext, input: ImportResources) {
+  const project = requireProject(ctx, input.projectId);
+  const conn = q.connection(input.connectionId);
+  if (!conn || conn.workspaceId !== ctx.workspaceId)
+    throw new Error(
+      `Connection "${input.connectionId}" is not in this workspace. Pick one from Settings → Connections.`
+    );
+  if (!providerRegistry().has(conn.provider)) await getEngine();
+  const adapter = providerRegistry().get(conn.provider);
+  if (!adapter)
+    throw new Error(
+      `Provider "${conn.provider}" is not available in this build, so nothing can be imported from ${conn.label}.`
+    );
+  if (!adapter.discover)
+    throw new Error(
+      `${adapter.displayName} cannot list what already exists, so there is nothing here to import. Import from a Terraform file instead — the map's import dialog reads one.`
+    );
+
+  const found = await adapter.discover(conn, input.region ?? conn.region);
+  const byRef = new Map(found.resources.map((r) => [r.externalRef, r]));
+
+  const next = clone(project.workingManifest);
+  const taken = [...next.services.map((s) => s.name), ...next.resources.map((r) => r.name)];
+  const already = new Set(
+    next.resources.map((r) => r.externalRef).filter((x): x is string => !!x)
+  );
+
+  const added: { name: string; ref: string; kind: ResourceKind }[] = [];
+  const skipped: string[] = [];
+
+  for (const wanted of input.resources) {
+    const hit = byRef.get(wanted.externalRef);
+    if (!hit) {
+      skipped.push(
+        `${wanted.externalRef} was not imported: ${adapter.displayName} does not list it any more. Re-open the dialog to see what is there now.`
+      );
+      continue;
+    }
+    if (already.has(hit.externalRef)) {
+      skipped.push(`${hit.externalRef} was not imported: this project already references it.`);
+      continue;
+    }
+    already.add(hit.externalRef);
+    const name = uniqueName(slugify(hit.name, hit.kind.replace("_", "-")), taken);
+    taken.push(name);
+    next.resources.push({
+      id: id(),
+      name,
+      kind: hit.kind,
+      config: {},
+      size: "small",
+      ownership: "referenced",
+      externalRef: hit.externalRef,
+    });
+    added.push({ name, ref: hit.externalRef, kind: hit.kind });
+  }
+
+  return { project, conn, adapter, found, next, added, skipped };
+}
+
+const REFERENCED_NOTE =
+  "Imported resources are marked referenced: Orrery draws them on the map and lets services bind to them, but never provisions, changes or deletes them — and they add nothing to the cost estimate.";
+
+defineAction<ImportResources>({
+  id: "project.importResources",
+  title: "Import existing resources",
+  category: "project",
+  risk: "low",
+  requiredRole: "editor",
+  mutates: true,
+  input: ImportResources,
+  async plan(ctx, input) {
+    const { project, conn, adapter, found, next, added, skipped } = await resolveImport(ctx, input);
+    const warnings: string[] = [];
+    if (found.simulated)
+      warnings.push(
+        `${adapter.displayName} invented this list. It is a simulation of resource discovery, not a reading of a real account — the references it writes carry a "sim://" prefix so they stay recognisable in the manifest and in any export.`
+      );
+
+    const plan = planFromDiff(
+      project.workingManifest,
+      next,
+      `Reference ${added.length} existing resource${added.length === 1 ? "" : "s"} from ${conn.label}.`,
+      {
+        details: [
+          ...added.map((a) => `${a.ref} → referenced ${a.kind} "${a.name}".`),
+          REFERENCED_NOTE,
+          ...skipped,
+        ],
+        warnings,
+      }
+    );
+
+    return added.length
+      ? plan
+      : {
+          ...plan,
+          blocked: `Nothing here would be imported. ${skipped.join(" ")}`.trim(),
+        };
+  },
+  async execute(ctx, input) {
+    const { project, conn, next, added, skipped } = await resolveImport(ctx, input);
+    if (!added.length)
+      return {
+        ok: false,
+        summary: "Nothing was imported.",
+        error: `None of the selected resources could be imported. ${skipped.join(" ")}`.trim(),
+      };
+    commit(project, next);
+    return {
+      ok: true,
+      summary: `Referenced ${added.length} existing resource${added.length === 1 ? "" : "s"} from ${conn.label}: ${added
+        .map((a) => a.name)
+        .join(", ")}. ${REFERENCED_NOTE} They show as pending changes until you deploy, which records them in a revision without provisioning anything.`,
+      data: {
+        projectId: project.id,
+        connectionId: conn.id,
+        imported: added,
+        skipped,
+      },
+    };
+  },
+});
+
+/* ------------------------------ project.delete ---------------------------- */
+
+const DeleteProject = z.object({ projectId: z.string().optional() });
+type DeleteProject = z.infer<typeof DeleteProject>;
+
+/**
+ * One reading of the deletion, shared by plan and execute: what goes, what
+ * stays, and the one condition that refuses. A project whose environments are
+ * mid-deploy is not deletable — the engine would keep writing to records that
+ * no longer exist.
+ */
+function projectDelete(ctx: ActionContext, input: DeleteProject) {
+  const project = requireProject(ctx, input.projectId);
+  const envs = q.environmentsOf(project.id);
+  const revisions = q.revisionsOf(project.id);
+  const deployments = envs.flatMap((e) => q.deploymentsOf(e.id));
+  const findings = db().findings.filter((f) => f.projectId === project.id);
+  const runs = db().navigatorRuns.filter((r) => r.projectId === project.id);
+  const busy = envs.flatMap((e) => {
+    const dep = inFlight(e.id);
+    return dep ? [{ env: e, dep }] : [];
+  });
+  const live = envs.filter((e) => e.deployedRevisionId);
+
+  const blocked = busy.length
+    ? `${busy.map((b) => `${b.env.name} is ${b.dep.status}`).join(", ")}. Wait for that deployment to finish, or cancel it on the Deploys page, then delete the project.`
+    : undefined;
+
+  const details = [
+    `Removes ${project.name} and everything Orrery holds about it: ${envs.length} environment(s), ${revisions.length} revision(s), ${deployments.length} deployment record(s), ${findings.length} security finding(s), ${runs.length} Navigator run(s).`,
+    "Nothing in your cloud or in the sandbox is torn down. This deletes Orrery's records, not running infrastructure.",
+    `The URL /p/${project.slug} stops working, and the working copy goes with it — export the bundle from Source → Export first if you want the generated files.`,
+    "The audit log keeps every row already written, including this deletion. It is append-only.",
+  ];
+
+  const warnings = live.length
+    ? [
+        `${live.map((e) => `${e.name} is running ${liveRevision(e)}`).join("; ")}. Those keep running after the project is gone, and Orrery will have no way to reach them again — tear them down first if you want them stopped.`,
+      ]
+    : [];
+
+  return { project, envs, revisions, deployments, findings, runs, details, warnings, blocked };
+}
+
+defineAction<DeleteProject>({
+  id: "project.delete",
+  title: "Delete project",
+  category: "project",
+  risk: "high",
+  requiredRole: "admin",
+  mutates: true,
+  input: DeleteProject,
+  plan(ctx, input) {
+    const { project, details, warnings, blocked } = projectDelete(ctx, input);
+    return {
+      summary: `Delete the project "${project.name}".`,
+      details,
+      costDeltaUsd: 0,
+      risk: "high",
+      warnings,
+      requiresApproval: false,
+      blocked,
+    };
+  },
+  execute(ctx, input) {
+    const { project, envs, revisions, deployments, blocked } = projectDelete(ctx, input);
+    if (blocked) return { ok: false, summary: `"${project.name}" was not deleted.`, error: blocked };
+    const envIds = new Set(envs.map((e) => e.id));
+    const d = db();
+    d.projects = d.projects.filter((p) => p.id !== project.id);
+    d.environments = d.environments.filter((e) => !envIds.has(e.id));
+    d.revisions = d.revisions.filter((r) => r.projectId !== project.id);
+    d.deployments = d.deployments.filter((dep) => !envIds.has(dep.environmentId));
+    d.findings = d.findings.filter((f) => f.projectId !== project.id);
+    d.navigatorRuns = d.navigatorRuns.filter((r) => r.projectId !== project.id);
+    save();
+    return {
+      ok: true,
+      summary: `Deleted "${project.name}" — ${envs.length} environment(s), ${revisions.length} revision(s) and ${deployments.length} deployment record(s) went with it. Nothing running was torn down.`,
+      data: {
+        projectId: project.id,
+        slug: project.slug,
+        name: project.name,
+        environmentsRemoved: envs.length,
+        revisionsRemoved: revisions.length,
+      },
     };
   },
 });

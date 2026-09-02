@@ -3,7 +3,9 @@
  * Tokens only (see docs/DESIGN.md); no component here hardcodes a colour.
  */
 export { Button, type ButtonProps, type ButtonSize, type ButtonVariant } from "./button";
+export { Callout, type CalloutLive, type CalloutProps, type CalloutTone } from "./callout";
 export { Card, type CardProps } from "./card";
+export { Checkbox, type CheckboxProps } from "./checkbox";
 export { Chip, type ChipProps, type ChipTone } from "./chip";
 export { CodeBlock, type CodeBlockProps } from "./code-block";
 export { CopyButton, type CopyButtonProps } from "./copy-button";
@@ -17,6 +19,13 @@ export { Kbd } from "./kbd";
 export { LogViewer, type LogLine, type LogViewerProps } from "./log-viewer";
 export { Meter, type MeterProps, type MeterTone } from "./meter";
 export { PhaseTimeline, type PhaseTimelineProps } from "./phase-timeline";
+export {
+  MenuItem,
+  MenuNote,
+  Popover,
+  type MenuItemProps,
+  type PopoverProps,
+} from "./popover";
 export { RiskBadge, type RiskBadgeProps, type RiskLevel } from "./risk-badge";
 export {
   SegmentedControl,
@@ -28,7 +37,15 @@ export { Skeleton, type SkeletonProps } from "./skeleton";
 export { Sparkline, type SparklineProps } from "./sparkline";
 export { StatusDot, type DotStatus, type StatusDotProps } from "./status-dot";
 export { Switch, type SwitchProps } from "./switch";
+export {
+  Table,
+  type SortDirection,
+  type SortState,
+  type TableColumn,
+  type TableProps,
+} from "./table";
 export { Tabs, type TabItem, type TabsProps } from "./tabs";
+export { Textarea, type TextareaProps } from "./textarea";
 export { ThemeToggle, type Theme } from "./theme-toggle";
 export { TimeAgo, type TimeAgoProps } from "./time-ago";
 export {

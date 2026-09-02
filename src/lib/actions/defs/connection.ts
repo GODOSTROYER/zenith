@@ -116,9 +116,15 @@ defineAction<CreateConn>({
         data: { connectionId: conn.id, status: conn.status, checks: report.checks },
       };
     }
+    // Count what actually passed. `checks.length` counted warnings as passes,
+    // so a connection with three caveats reported "3 checks passed".
+    const passed = report.checks.filter((c) => c.status === "pass").length;
+    const warned = report.checks.filter((c) => c.status === "warn").length;
     return {
       ok: true,
-      summary: `Connected ${conn.label} (${adapter.availability}). ${report.checks.length} preflight check(s) passed.`,
+      summary:
+        `Connected ${conn.label} (${adapter.availability}). ${passed} of ${report.checks.length} preflight check(s) passed` +
+        (warned ? `, ${warned} with a caveat.` : "."),
       data: { connectionId: conn.id, status: conn.status, checks: report.checks, permissions: report.permissions },
     };
   },
@@ -167,10 +173,12 @@ defineAction<ConnRef>({
     conn.grantedPermissions = report.permissions;
     save();
     const failed = report.checks.filter((c) => c.status !== "pass");
+    const passed = report.checks.length - failed.length;
     return {
       ok: report.ok,
       summary: report.ok
-        ? `${conn.label} is healthy — ${report.checks.length} check(s) passed.`
+        ? `${conn.label} is healthy — ${passed} of ${report.checks.length} check(s) passed` +
+          (failed.length ? `, ${failed.length} with a caveat.` : ".")
         : `${conn.label} is ${conn.status}: ${failed.length} check(s) need attention.`,
       error: report.ok ? undefined : failed.map((c) => `${c.label}: ${c.fix ?? c.detail ?? "no detail"}`).join(" "),
       data: { connectionId: conn.id, status: conn.status, checks: report.checks, lines: checkLines(report) },
@@ -187,6 +195,11 @@ function usersOf(connectionId: string): { envName: string; projectName: string }
       envName: e.name,
       projectName: q.project(e.projectId)?.name ?? e.projectId,
     }));
+}
+
+/** The one refusal sentence, so plan.blocked and the execute error are the same. */
+function stillInUse(conn: CloudConnection, users: ReturnType<typeof usersOf>): string {
+  return `${users.map((u) => `${u.projectName}/${u.envName}`).join(", ")} still deploy through ${conn.label}. Point each one at another connection (Settings → Environments → Change), or delete them, then disconnect.`;
 }
 
 defineAction<ConnRef>({
@@ -213,10 +226,11 @@ defineAction<ConnRef>({
           ],
       costDeltaUsd: 0,
       risk: blocked ? "low" : "medium",
-      warnings: blocked
-        ? ["Move those environments to another connection, or delete them first."]
-        : [],
+      warnings: [],
       requiresApproval: false,
+      // Same sentence execute() would return, so the dialog disables Confirm
+      // instead of offering a button that fails one click later.
+      blocked: blocked ? stillInUse(conn, users) : undefined,
     };
   },
   execute(_ctx, input) {
@@ -226,7 +240,7 @@ defineAction<ConnRef>({
       return {
         ok: false,
         summary: `${conn.label} is still in use.`,
-        error: `${users.map((u) => `${u.projectName}/${u.envName}`).join(", ")} still deploy through ${conn.label}. Point those environments at another connection, or delete them, then disconnect again.`,
+        error: stillInUse(conn, users),
       };
     db().connections = db().connections.filter((c) => c.id !== conn.id);
     save();

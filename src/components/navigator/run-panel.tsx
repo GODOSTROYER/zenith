@@ -1,11 +1,17 @@
 "use client";
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Play } from "lucide-react";
-import { Button, Card, Chip, CostDelta, StatusDot } from "@/components/ui";
+import { Play, Square } from "lucide-react";
+import { Button, Callout, Card, Chip, CostDelta, StatusDot } from "@/components/ui";
 import { cx } from "@/lib/format";
 import type { AutonomyLevel, NavigatorRun } from "@/lib/domain/types";
-import { autonomyBlock, canExecuteAtAll, isExecutable } from "@/lib/navigator/shared";
+import {
+  autonomyBlock,
+  canExecuteAtAll,
+  isExecutable,
+  roleBlock,
+  type WorkspaceRole,
+} from "@/lib/navigator/shared";
 import { StepCard } from "./step-card";
 
 export interface RunPanelProps {
@@ -17,6 +23,11 @@ export interface RunPanelProps {
   onToggleApprove: (stepId: string, approved: boolean) => void;
   onRun: () => void;
   running: boolean;
+  /** stop the run before its next step */
+  onCancel: () => void;
+  cancelling: boolean;
+  /** the caller's own workspace role — the floor under every step in this plan */
+  role: WorkspaceRole | null;
   /** prefill the command bar with a follow-up goal */
   onSuggest: (goal: string) => void;
   error?: string;
@@ -41,6 +52,9 @@ export function RunPanel({
   onToggleApprove,
   onRun,
   running,
+  onCancel,
+  cancelling,
+  role,
   onSuggest,
   error,
   prodEnvIds,
@@ -65,15 +79,25 @@ export function RunPanel({
   const previewed = Object.values(costs);
   const previewTotal = previewed.reduce((a, b) => a + b, 0);
 
-  const disabledReason = !canExecuteAtAll(autonomy)
-    ? autonomy === "plan"
-      ? "Autonomy is set to plan — Navigator prepares but never executes. Raise the dial to approve to run this plan."
-      : "Autonomy is set to observe — Navigator explains and suggests, and never executes. Raise the dial to approve to run this plan."
-    : runnable.length === 0
-      ? run.steps.some((s) => isExecutable(s.actionId) && s.status === "proposed")
-        ? "Approve at least one step first — nothing here runs without your say-so."
-        : "Every step in this plan has already run."
-      : undefined;
+  // Your role is the floor under the whole plan: the Navigator executes with
+  // your permissions, not its own, so a step you could not run yourself stops
+  // the run server-side. Say it at the button instead of after the click.
+  const roleReason = roleBlock(runnable, role);
+
+  const disabledReason =
+    run.status === "cancelled"
+      ? "You cancelled this run, so it cannot be resumed — the steps that had not started were never applied. Plan the remaining work as a new run."
+      : !canExecuteAtAll(autonomy)
+        ? autonomy === "plan"
+          ? "Autonomy is set to plan — Navigator prepares but never executes. Raise the dial to approve to run this plan."
+          : "Autonomy is set to observe — Navigator explains and suggests, and never executes. Raise the dial to approve to run this plan."
+        : runnable.length === 0
+          ? run.steps.some((s) => isExecutable(s.actionId) && s.status === "proposed")
+            ? "Approve at least one step first — nothing here runs without your say-so."
+            : "Every step in this plan has already run."
+          : roleReason;
+
+  const cancellable = run.status === "executing" || run.status === "awaiting_approval";
 
   return (
     <section className="animate-enter space-y-4">
@@ -84,6 +108,11 @@ export function RunPanel({
         <div className="flex items-center gap-2">
           {run.status === "executing" && <StatusDot status="running" label="Executing" />}
           <Chip tone={RUN_TONE[run.status]}>{run.status.replace("_", " ")}</Chip>
+          {role && (
+            <Chip title="Every step runs with your workspace permissions, not the Navigator's own.">
+              you: {role}
+            </Chip>
+          )}
           <span className="tnum text-[12px] text-ink-faint">
             {run.steps.length} step{run.steps.length === 1 ? "" : "s"}
           </span>
@@ -137,6 +166,21 @@ export function RunPanel({
               {runnable.length} step{runnable.length === 1 ? "" : "s"} ready
             </span>
           )}
+          {cancellable && (
+            <Button
+              variant="quiet"
+              onClick={onCancel}
+              busy={cancelling}
+              icon={<Square className="h-3.5 w-3.5" />}
+              title={
+                run.status === "executing"
+                  ? "Stops the run before its next step. A step already in flight finishes and is recorded — the Navigator does not abandon a half-applied action."
+                  : "Abandons this plan. Nothing is running, so the steps that never started are marked not run."
+              }
+            >
+              Cancel
+            </Button>
+          )}
           <Button
             variant="primary"
             onClick={onRun}
@@ -151,16 +195,22 @@ export function RunPanel({
       </div>
 
       {error && (
-        <p className="rounded-ctl border border-err/30 bg-err-dim px-3 py-2 text-[12.5px] text-err">
+        <Callout tone="err" compact>
           {error}
-        </p>
+        </Callout>
       )}
 
       {/* final summary */}
-      {run.summary && (run.status === "done" || run.status === "failed") && (
+      {run.summary && run.status !== "executing" && run.status !== "awaiting_approval" && (
         <Card
           className={cx(run.status === "failed" && "ring-1 ring-err/35")}
-          title={run.status === "done" ? "What changed" : "The run stopped"}
+          title={
+            run.status === "done"
+              ? "What changed"
+              : run.status === "cancelled"
+                ? "You cancelled this run"
+                : "The run stopped"
+          }
           subtitle={run.status === "done" ? "Every step below is in the audit log." : undefined}
         >
           <p className="max-w-[80ch] text-[13px] leading-relaxed text-ink">{run.summary}</p>

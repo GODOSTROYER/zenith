@@ -12,7 +12,7 @@
  * Workstream A.
  */
 import { db, q } from "@/lib/db/store";
-import type { Deployment, Manifest, Service } from "@/lib/domain/types";
+import { fnv1a, type Deployment, type Manifest, type Service } from "@/lib/domain/types";
 import { chaosFlag } from "@/lib/providers/sandbox";
 
 export interface AppLogLine {
@@ -29,6 +29,17 @@ export interface ServiceHealth {
   latencyMs: number;
   /** why it looks the way it does — health is never asserted without a reason */
   reason: string;
+  /** state changes in the last hour, oldest first (see `healthHistory`) */
+  history: HealthEvent[];
+}
+
+/** A point where a service's simulated health changed, and what caused it. */
+export interface HealthEvent {
+  /** when the change happened — the deployment that caused it finished */
+  at: string;
+  status: "ok" | "degraded" | "absent";
+  reason: string;
+  revisionNumber: number;
 }
 
 /** One line every 2 seconds. */
@@ -43,15 +54,6 @@ function mulberry32(seed: number): () => number {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-}
-
-function seedOf(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
 }
 
 const pick = <T,>(rng: () => number, xs: readonly T[]): T => xs[Math.floor(rng() * xs.length)];
@@ -99,7 +101,7 @@ function webLine(rng: () => number, c: Ctx, ts: Date): { line: string; stream: "
   const status = err ? (rng() < 0.5 ? 502 : 500) : path === "/api/checkout" && rng() < 0.1 ? 402 : 200;
   const ms = slow ? 400 + Math.floor(rng() * 1800) : 4 + Math.floor(rng() * 90);
   const ip = `10.0.${1 + Math.floor(rng() * 3)}.${10 + Math.floor(rng() * 200)}`;
-  const rid = seedOf(`${c.service.id}${ts.getTime()}`).toString(16).slice(0, 8);
+  const rid = fnv1a(`${c.service.id}${ts.getTime()}`).toString(16).slice(0, 8);
   if (err)
     return {
       stream: "stderr",
@@ -153,7 +155,7 @@ export function getServiceLogs(
   const out: AppLogLine[] = [];
 
   for (let seq = Math.max(first, afterSeq + 1); seq < total; seq++) {
-    const rng = mulberry32(seedOf(`${envId}:${serviceId}:${seq}`));
+    const rng = mulberry32(fnv1a(`${envId}:${serviceId}:${seq}`));
     const ts = new Date(c.since + seq * BUCKET_MS);
     const made =
       c.service.kind === "web"
@@ -164,6 +166,82 @@ export function getServiceLogs(
     out.push({ seq, ts: ts.toISOString(), line: made.line, stream: made.stream });
   }
   return out;
+}
+
+/* -------------------------------- history --------------------------------- */
+
+const HISTORY_WINDOW_MS = 60 * 60 * 1000;
+const MAX_HISTORY = 12;
+
+/**
+ * What this service's health was under one revision.
+ *
+ * Same rule `health()` uses below, so history and the current state can never
+ * contradict each other: the chaos flag on the deployed service decides, and
+ * a service that is not in a revision was not running under it.
+ */
+function statusUnder(
+  revisionId: string,
+  serviceId: string
+): { status: HealthEvent["status"]; reason: string; revisionNumber: number } | undefined {
+  const revision = q.revision(revisionId);
+  if (!revision) return undefined;
+  const service = revision.manifest.services.find((s) => s.id === serviceId);
+  if (!service)
+    return {
+      status: "absent",
+      reason: `Not part of r${revision.number} — nothing was running.`,
+      revisionNumber: revision.number,
+    };
+  const desired = Math.max(1, service.replicas);
+  return chaosFlag(service) === "degrade"
+    ? {
+        status: "degraded",
+        reason: `r${revision.number} started ${service.name} with a replica that fails its health probe.`,
+        revisionNumber: revision.number,
+      }
+    : {
+        status: "ok",
+        reason: `r${revision.number} started ${desired} healthy replica(s).`,
+        revisionNumber: revision.number,
+      };
+}
+
+/**
+ * Health transitions for a service over the last hour, oldest first.
+ *
+ * Derived, not retained: simulated health only changes when a deployment
+ * changes what is running, and those are durable records — so re-reading this
+ * after a restart gives the same answer, with nothing stored in between. The
+ * state the window opened in is included, dated when it actually started.
+ */
+export function healthHistory(
+  envId: string,
+  serviceId: string,
+  now = Date.now(),
+  windowMs = HISTORY_WINDOW_MS
+): HealthEvent[] {
+  const deployments = db()
+    .deployments.filter((d) => d.environmentId === envId && d.status === "succeeded")
+    .sort((a, b) => ((a.endedAt ?? a.createdAt) < (b.endedAt ?? b.createdAt) ? -1 : 1));
+
+  const transitions: HealthEvent[] = [];
+  let previous: HealthEvent["status"] | undefined;
+  for (const d of deployments) {
+    const under = statusUnder(d.revisionId, serviceId);
+    if (!under || under.status === previous) continue;
+    // "absent" before the service has ever appeared is not a change worth
+    // reporting — history starts when the service first ran here.
+    if (previous === undefined && under.status === "absent") continue;
+    previous = under.status;
+    transitions.push({ at: d.endedAt ?? d.createdAt, ...under });
+  }
+
+  // Everything inside the window, plus the state it opened in.
+  const from = now - windowMs;
+  const inWindow = transitions.filter((t) => Date.parse(t.at) >= from);
+  const opening = [...transitions].reverse().find((t) => Date.parse(t.at) < from);
+  return [...(opening ? [opening] : []), ...inWindow].slice(-MAX_HISTORY);
 }
 
 /**
@@ -179,11 +257,13 @@ export function health(envId: string, serviceId: string): ServiceHealth {
       replicasDesired: 0,
       latencyMs: 0,
       reason: "Nothing has been deployed to this environment yet.",
+      history: [],
     };
 
   const desired = Math.max(1, c.service.replicas);
-  const rng = mulberry32(seedOf(`${envId}:${serviceId}:${Math.floor(Date.now() / 10000)}`));
+  const rng = mulberry32(fnv1a(`${envId}:${serviceId}:${Math.floor(Date.now() / 10000)}`));
   const latencyMs = 8 + Math.floor(rng() * (c.chaos === "degrade" ? 400 : 70));
+  const history = healthHistory(envId, serviceId);
 
   if (c.chaos === "degrade") {
     const ready = Math.max(0, desired - 1);
@@ -193,6 +273,7 @@ export function health(envId: string, serviceId: string): ServiceHealth {
       replicasDesired: desired,
       latencyMs,
       reason: `${desired - ready} of ${desired} replica(s) are failing their health probe.`,
+      history,
     };
   }
 
@@ -202,6 +283,7 @@ export function health(envId: string, serviceId: string): ServiceHealth {
     replicasDesired: desired,
     latencyMs,
     reason: `All ${desired} replica(s) passing health checks since the last successful deployment.`,
+    history,
   };
 }
 

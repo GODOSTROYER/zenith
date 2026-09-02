@@ -9,6 +9,7 @@ import { Download, FileCode2 } from "lucide-react";
 import { useJson } from "@/lib/client/api";
 import type { Manifest } from "@/lib/domain/types";
 import { Button, Card, Chip, CodeBlock, EmptyState, Skeleton } from "@/components/ui";
+import { useShell } from "@/components/shell/shell-context";
 import { ErrorNote } from "./shared";
 
 interface ExportFile {
@@ -23,6 +24,27 @@ interface ExportResponse {
   source:
     | { kind: "revision"; revisionId: string; number: number }
     | { kind: "working"; note: string };
+}
+
+/**
+ * Every generated file in one plain-text file. No zip dependency, and nothing
+ * to unpack blindly: the separators are readable and the paths are the real
+ * ones, so splitting it back up is a text operation.
+ */
+function bundleText(files: ExportFile[], readme: string, envName: string): string {
+  const rule = (path: string) => `\n\n${"=".repeat(72)}\n===== ${path}\n${"=".repeat(72)}\n\n`;
+  const head =
+    `Orrery export — ${envName}\n` +
+    `Generated ${new Date().toISOString()}\n` +
+    `${files.length} file${files.length === 1 ? "" : "s"}, concatenated. Each one starts at its\n` +
+    `"===== <path>" marker below; split on those markers to get the tree back.\n`;
+  return (
+    head +
+    rule("README.md") +
+    readme +
+    files.map((f) => rule(f.path) + f.content).join("") +
+    "\n"
+  );
 }
 
 /** Hand the browser a file without a zip dependency: one Blob per download. */
@@ -52,9 +74,11 @@ export function ExportPanel({
   const { data, error, loading } = useJson<ExportResponse>(
     environmentId ? `/api/environments/${environmentId}/export` : null
   );
+  const { boot } = useShell();
   const [open, setOpen] = useState<string | null>(null);
 
   const files = useMemo(() => data?.files ?? [], [data]);
+  const provider = boot?.providers.find((p) => p.id === data?.provider);
 
   if (!environmentId)
     return (
@@ -82,18 +106,50 @@ export function ExportPanel({
       ? `Describes revision r${data.source.number} — what is live in ${environmentName ?? "this environment"}.`
       : data.source.note;
 
+  const providerName = provider?.displayName ?? data.provider;
+  /** Whether Orrery can run these files itself, said plainly. */
+  const applicability = !provider
+    ? `Generated for "${data.provider}". This server did not report that provider's status, so whether Orrery can apply these files is unknown — running them yourself always works.`
+    : provider.availability === "available"
+      ? `${providerName} is available in Orrery: it applies these files itself when you deploy. Running them with your own tooling gets you the same system.`
+      : provider.availability === "preview"
+        ? `${providerName} is Preview in Orrery: it plans and generates these files but does not apply them. Run them yourself, with your own credentials.`
+        : `${providerName} is planned, not implemented. These files describe the system; nothing in Orrery applies them.`;
+
   return (
     <div className="space-y-4">
       <Card
         title="Take it with you"
         subtitle={sourceLabel}
-        actions={<Chip tone="neutral">{data.provider}</Chip>}
+        actions={
+          <>
+            <Chip tone="neutral">{providerName}</Chip>
+            {provider && provider.availability !== "available" && (
+              <Chip tone={provider.availability === "preview" ? "warn" : "neutral"}>
+                {provider.availability}
+              </Chip>
+            )}
+          </>
+        }
       >
         <p className="text-[13px] text-ink-mute">
           These are the real files for this system: run them with your own tooling and Orrery
           stops being required. Nothing here calls back to us.
         </p>
+        <p className="mt-2 text-[12.5px] text-ink-mute">{applicability}</p>
         <div className="mt-4 flex flex-wrap gap-2">
+          <Button
+            icon={<Download className="h-3.5 w-3.5" />}
+            title={`All ${files.length + 1} files in one text file, split by "===== <path>" markers`}
+            onClick={() =>
+              download(
+                `orrery-${(environmentName ?? "environment").toLowerCase().replace(/\s+/g, "-")}-bundle.txt`,
+                bundleText(files, data.readme, environmentName ?? "this environment")
+              )
+            }
+          >
+            Download all {files.length + 1} files
+          </Button>
           <Button
             variant="quiet"
             icon={<Download className="h-3.5 w-3.5" />}
@@ -113,6 +169,9 @@ export function ExportPanel({
             </Button>
           )}
         </div>
+        <p className="mt-2 text-[12px] text-ink-faint">
+          One file, concatenated — no zip, so there is nothing to unpack before you can read it.
+        </p>
       </Card>
 
       <CodeBlock code={data.readme} title="README.md" maxHeight={340} wrap />

@@ -1,5 +1,9 @@
 /**
  * Manifest graph operations: validation, diffing, and derived facts.
+ *
+ * Pure functions over `./types` and nothing else — no store, no provider, no
+ * environment. Two manifests in, a Changeset out; that is what lets the same
+ * diff drive an action plan, the Changes drawer and the API.
  * SPINE FILE — owned by the integrator.
  */
 import {
@@ -127,6 +131,77 @@ export function validateManifest(m: Manifest): ValidationIssue[] {
         fix: "Set a cron expression, e.g. */15 * * * *.",
       });
   }
+
+  /* Two routes claiming the same host + path. The second never gets traffic. */
+  const seenHosts = new Map<string, string>();
+  for (const r of m.routes) {
+    const key = `${r.host.toLowerCase()}${r.pathPrefix}`;
+    const first = seenHosts.get(key);
+    if (first)
+      issues.push({
+        level: "error",
+        nodeId: r.id,
+        message: `Two routes serve ${r.host}${r.pathPrefix === "/" ? "" : r.pathPrefix}.`,
+        fix: `Give this route a different host or path prefix, or delete it — ${first} already claims that address.`,
+      });
+    else seenHosts.set(key, r.id);
+  }
+
+  /* A web service nothing routes to is unreachable from outside. */
+  const routed = new Set(m.bindings.filter((b) => b.capability === "http").map((b) => b.to));
+  for (const s of m.services) {
+    if (s.kind !== "web" || routed.has(s.id)) continue;
+    issues.push({
+      level: "warning",
+      nodeId: s.id,
+      message: `Web service "${s.name}" has no route.`,
+      fix: "Add a route bound to it, or change its kind to worker — nothing outside the system can reach it as it stands.",
+    });
+  }
+
+  /* A hand-written env var whose key a binding also injects: which wins is undefined. */
+  for (const s of m.services) {
+    const injected = new Map<string, string>();
+    for (const b of m.bindings.filter((b) => b.from === s.id))
+      for (const e of bindingEnv(m, b)) injected.set(e.key, e.from);
+    for (const e of s.env) {
+      const from = injected.get(e.key);
+      if (!from) continue;
+      issues.push({
+        level: "error",
+        nodeId: s.id,
+        message: `"${s.name}" sets ${e.key} by hand, and its binding to ${from} injects the same key.`,
+        fix: `Rename or remove ${s.name}'s own ${e.key} — which value wins at deploy time is not defined.`,
+      });
+    }
+  }
+
+  /* Env vars with nothing behind them. */
+  for (const s of m.services)
+    for (const e of s.env) {
+      // `vault:` references are Orrery's own store, which this function cannot
+      // read: validation is pure and runs in the browser, and the store is a
+      // server file. Whether a value is actually there is answered where it
+      // can be — the Variables panel, the action's plan, and the deploy log.
+      // Anything else is somebody else's secret manager, and Orrery resolving
+      // it is exactly what does NOT happen.
+      if (e.secretRef) {
+        if (!e.secretRef.startsWith("vault:"))
+          issues.push({
+            level: "warning",
+            nodeId: s.id,
+            message: `"${s.name}" reads ${e.key} from ${e.secretRef}, which is not Orrery's secret store.`,
+            fix: `Orrery records the name and nothing else — the provider has to resolve ${e.secretRef} at deploy time. Set the value on the provider side, or store it in Orrery with system.setSecret and let it use vault:${e.key}.`,
+          });
+      } else if (e.value === undefined)
+        issues.push({
+          level: "error",
+          nodeId: s.id,
+          message: `"${s.name}" declares ${e.key} with neither a value nor a secret reference.`,
+          fix: `Give ${e.key} a value, point it at a secret, or remove it.`,
+        });
+    }
+
   return issues;
 }
 

@@ -16,7 +16,16 @@ import type {
   ProviderPlanStep,
   StepRuntime,
 } from "@/lib/providers/types";
+import { configured } from "@/lib/env";
 import { fargateSpec, terraformFiles, terraformReadme } from "@/lib/providers/aws/terraform";
+
+/**
+ * Terraform identifiers cannot hold a dash, so the exporter rewrites them.
+ * The plan must name the SAME address the export emits — "my-api" planning as
+ * `aws_ecs_service.my-api` and exporting as `aws_ecs_service.my_api` sends you
+ * looking for a resource that is not in the file. Same rule as terraform.ts.
+ */
+const tfName = (s: string) => s.replace(/[^A-Za-z0-9_]/g, "_").replace(/^(\d)/, "_$1");
 
 /** The exact message the Engine surfaces when someone tries to apply. */
 export const AWS_PREVIEW_MESSAGE =
@@ -59,14 +68,14 @@ function planSteps(env: Environment, next: Manifest, previous?: Manifest): Provi
       title: `Push image for ${s.name} to ECR`,
       targetId: s.id,
       estMs: 45000,
-      detail: `aws_ecr_repository.${s.name} + docker push`,
+      detail: `aws_ecr_repository.${tfName(s.name)} + docker push`,
     });
     steps.push({
       phase: "provision",
       title: `Register task definition for ${s.name} (${spec.cpu} CPU / ${spec.memory} MB)`,
       targetId: s.id,
       estMs: 4000,
-      detail: `aws_ecs_task_definition.${s.name}`,
+      detail: `aws_ecs_task_definition.${tfName(s.name)}`,
     });
   }
 
@@ -84,7 +93,7 @@ function planSteps(env: Environment, next: Manifest, previous?: Manifest): Provi
       title: `${had(r.id) ? "Update" : "Create"} ${info.label} for "${r.name}"`,
       targetId: r.id,
       estMs: info.ms,
-      detail: `${info.addr}.${r.name}`,
+      detail: `${info.addr}.${tfName(r.name)}`,
     });
   }
 
@@ -122,7 +131,7 @@ function planSteps(env: Environment, next: Manifest, previous?: Manifest): Provi
         title: `Sync ${s.name} to its S3 website bucket`,
         targetId: s.id,
         estMs: 15000,
-        detail: `aws s3 sync → aws_s3_bucket.site_${s.name}`,
+        detail: `aws s3 sync → aws_s3_bucket.site_${tfName(s.name)}`,
       });
       continue;
     }
@@ -132,7 +141,7 @@ function planSteps(env: Environment, next: Manifest, previous?: Manifest): Provi
         title: `Schedule ${s.name} on EventBridge`,
         targetId: s.id,
         estMs: 6000,
-        detail: `aws_cloudwatch_event_rule.${s.name}`,
+        detail: `aws_cloudwatch_event_rule.${tfName(s.name)}`,
       });
       continue;
     }
@@ -141,7 +150,7 @@ function planSteps(env: Environment, next: Manifest, previous?: Manifest): Provi
       title: `Roll out ${s.name} (${s.replicas} task${s.replicas === 1 ? "" : "s"})`,
       targetId: s.id,
       estMs: 120000,
-      detail: `aws_ecs_service.${s.name} — rolling update, minimumHealthyPercent 100`,
+      detail: `aws_ecs_service.${tfName(s.name)} — rolling update, minimumHealthyPercent 100`,
     });
   }
 
@@ -166,12 +175,37 @@ function planSteps(env: Environment, next: Manifest, previous?: Manifest): Provi
   return steps;
 }
 
+/**
+ * Last-resort guard. `deploy.plan` / `deploy.apply` read `availability` and
+ * refuse before a revision is snapshotted (actions/defs/deploy.ts →
+ * providerBlock), so in normal operation nothing reaches this.
+ */
 async function executeStep(_rt: StepRuntime): Promise<void> {
   throw new Error(AWS_PREVIEW_MESSAGE);
 }
 
+/**
+ * The exact message the drift and discovery surfaces show for AWS.
+ *
+ * These two methods exist, and refuse, on purpose. Omitting them would say
+ * "not built yet", which is what a Planned provider says. The truth here is
+ * sharper and worth stating: reading an account is built — it is deliberately
+ * not wired to anything, because no credential path exists. So the refusal is
+ * the feature, and it names the tool that answers the question today.
+ */
+export const AWS_NO_READ_MESSAGE =
+  "Orrery does not read your AWS account. The AWS provider is Preview: it plans and exports Terraform, and no code path in Orrery calls AWS — so it cannot report drift or discover existing resources, and will not invent either. To see real drift today, export the bundle from Settings → Export and run `terraform plan` against it with your own credentials.";
+
+async function observe(): Promise<never> {
+  throw new Error(AWS_NO_READ_MESSAGE);
+}
+
+async function discover(): Promise<never> {
+  throw new Error(AWS_NO_READ_MESSAGE);
+}
+
 async function preflight(conn: CloudConnection): Promise<PreflightReport> {
-  const hasCreds = !!process.env.AWS_ACCESS_KEY_ID;
+  const hasCreds = configured().awsCredentials;
   const region = conn.region || "us-east-1";
 
   if (hasCreds) {
@@ -179,10 +213,13 @@ async function preflight(conn: CloudConnection): Promise<PreflightReport> {
       ok: true,
       checks: [
         {
+          // Honest label: this checks that a variable is set, nothing more.
+          // Nothing here calls sts:GetCallerIdentity, so the key could be junk.
           id: "aws.credentials",
-          label: "Credentials detected",
-          status: "pass",
-          detail: `AWS_ACCESS_KEY_ID is present in this server's environment (region ${region}).`,
+          label: "AWS_ACCESS_KEY_ID is set on this server",
+          status: "warn",
+          detail: `A value is present in this server's environment (region ${region}). Orrery has not called AWS with it, so this says nothing about whether the key is valid or what it can reach.`,
+          fix: "Nothing to do — Preview never uses these credentials. Validation against sts:GetCallerIdentity arrives with apply support.",
         },
         {
           id: "aws.apply",
@@ -190,7 +227,7 @@ async function preflight(conn: CloudConnection): Promise<PreflightReport> {
           status: "warn",
           detail:
             "Credentials detected but apply is disabled in Preview. Orrery will plan and export, never mutate your account.",
-          fix: "Export the Terraform from Environment → Export and run `terraform apply` yourself.",
+          fix: "Export the Terraform from Source → Export and run `terraform apply` yourself.",
         },
         {
           id: "aws.export",
@@ -204,14 +241,21 @@ async function preflight(conn: CloudConnection): Promise<PreflightReport> {
   }
 
   return {
-    ok: false,
+    // Usable for everything this provider does in Preview — plan and export
+    // need no credentials. Reporting "not ok" implied a broken connection when
+    // nothing was broken, and pushed the connection to `degraded` for good.
+    ok: true,
     checks: [
       {
+        // Not a failure: AWS in Preview needs no credentials for anything it
+        // actually does. Saying "fail" implied a capability that unblocking it
+        // would unlock, and there is none — nothing in Orrery reads AWS today.
         id: "aws.credentials",
-        label: "No AWS credentials found",
-        status: "fail",
-        detail: "This server has no AWS_ACCESS_KEY_ID, so Orrery cannot read your account inventory.",
-        fix: "Export the Terraform from Environment → Export and run it with your own credentials — or set AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY on the Orrery server to enable read-only inventory.",
+        label: "No AWS credentials on this server",
+        status: "warn",
+        detail:
+          "Orrery never calls AWS in Preview, so nothing here needs credentials. Setting them would not unlock reads, plans or applies today.",
+        fix: "Export the Terraform from Settings → Export and run it with your own credentials. Setting AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY on the Orrery server changes nothing today: the AWS provider plans and exports only, and no code path reads your account.",
       },
       {
         id: "aws.apply",
@@ -262,5 +306,7 @@ export const awsProvider: ProviderAdapter = {
   preflight,
   planSteps,
   executeStep,
+  observe,
+  discover,
   exportBundle,
 };

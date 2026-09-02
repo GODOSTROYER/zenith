@@ -26,10 +26,14 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Apply saved theme before paint; dark is the default. */}
+        {/*
+          Apply the saved theme before paint. Dark is the default; "system"
+          resolves against prefers-color-scheme here so there is no flash
+          before ThemeToggle mounts.
+        */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var t=localStorage.getItem("orrery-theme");if(t==="light")document.documentElement.setAttribute("data-theme","light");}catch(e){}`,
+            __html: `try{var t=localStorage.getItem("orrery-theme");if(t==="light"||(t==="system"&&window.matchMedia("(prefers-color-scheme: light)").matches))document.documentElement.setAttribute("data-theme","light");}catch(e){}`,
           }}
         />
       </head>

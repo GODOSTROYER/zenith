@@ -22,8 +22,8 @@ export const GET = route<{ id: string }>(async (req, { id }) => {
   let cursor = intParam(req, "after", -1);
   let terminalSince: number | null = null;
 
-  // ponytail: readEvents rescans the JSONL each poll — fine at demo scale;
-  // keep a per-deployment file offset if the log ever gets large.
+  // readEvents keeps a byte cursor into the JSONL, so each poll parses only
+  // what was appended since the last one.
   return sseResponse(req.signal, () => {
     const events = readEvents(id, cursor);
     for (const e of events) cursor = Math.max(cursor, e.seq);

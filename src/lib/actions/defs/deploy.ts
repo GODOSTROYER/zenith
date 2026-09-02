@@ -17,13 +17,76 @@ import {
   type Project,
   type Revision,
 } from "@/lib/domain/types";
+import { providerRegistry } from "@/lib/providers/types";
 import { getEngine } from "./_engine";
-import { clone, maxRisk, requireEnvironment, requireProject, usd } from "./_shared";
+import { fmtUsd } from "@/lib/format";
+import { clone, maxRisk, requireEnvironment, requireProject } from "./_shared";
 
-/** The manifest currently live in an environment (empty if never deployed). */
+/* ---------------------------- provider honesty ---------------------------- */
+
+/**
+ * What this environment's provider can really do, decided BEFORE anything is
+ * written. Previously the AWS adapter refused inside executeStep and the
+ * planned stubs threw out of planSteps — by then a revision was snapshotted and
+ * a deployment record existed, which is a lie about what happened.
+ */
+function providerBlock(env: Environment): string | undefined {
+  const providerId = q.connection(env.connectionId)?.provider ?? "sandbox";
+  const provider = providerRegistry().get(providerId);
+  // Not registered yet (engine not booted): the engine still refuses honestly.
+  if (!provider || provider.availability === "available") return undefined;
+  if (provider.availability === "preview")
+    return (
+      `${provider.displayName} is a Preview provider: Orrery plans this deployment and exports runnable Terraform for it, but it never applies changes to your account. ` +
+      `Export the Terraform from Source → Export (or Settings → Export) and run it with your own tooling, or point ${env.name} at a Sandbox connection to watch the full flow.`
+    );
+  return (
+    `${provider.displayName} is a Planned provider: Orrery cannot plan, apply or export for it yet. ` +
+    `Point ${env.name} at a Sandbox connection to deploy now, or at AWS to export runnable Terraform.`
+  );
+}
+
+/**
+ * The connection's own health, which `availability` says nothing about: a
+ * LocalStack adapter is "available" whether or not Docker is running. Deploying
+ * through a dead connection used to write a revision and a deployment record,
+ * then die at the first step.
+ */
+function connectionBlock(env: Environment): string | undefined {
+  const conn = q.connection(env.connectionId);
+  if (!conn)
+    return (
+      `${env.name} is not pointed at a cloud connection, so there is nothing to deploy through. ` +
+      `Pick one for ${env.name} in Settings → Environments, or connect a cloud in Settings → Connections first.`
+    );
+  if (conn.status === "disconnected")
+    return (
+      `${conn.label} is disconnected, so ${env.name} cannot be deployed to. ` +
+      `Start the service behind it (LocalStack needs Docker running), re-run the check in Settings → Connections, or point ${env.name} at a healthy connection.`
+    );
+  return undefined;
+}
+
+/**
+ * Everything that makes `deploy.apply` refuse, decided once and rendered as
+ * `plan.blocked` so no surface has to infer it from warning prose.
+ */
+function deployBlock(env: Environment, project: Project): string | undefined {
+  const reasons = [
+    providerBlock(env),
+    connectionBlock(env),
+    ...blockingIssues(project.workingManifest),
+  ].filter((r): r is string => Boolean(r));
+  return reasons.length ? reasons.join(" ") : undefined;
+}
+
+/**
+ * The manifest currently live in an environment (empty if never deployed).
+ * Loaded from cold storage on demand — see `q.revisionManifest`.
+ */
 export function deployedManifest(env: Environment): Manifest {
-  const rev = env.deployedRevisionId ? q.revision(env.deployedRevisionId) : undefined;
-  return rev ? rev.manifest : emptyManifest();
+  const id = env.deployedRevisionId;
+  return (id ? q.revisionManifest(id) : undefined) ?? emptyManifest();
 }
 
 export function changesetFor(env: Environment, project: Project): Changeset {
@@ -44,7 +107,7 @@ function budgetWarnings(env: Environment, cs: Changeset): string[] {
   const budget = env.policies.budgetUsdMonthly;
   if (!budget || cs.projectedMonthlyUsd <= budget) return [];
   return [
-    `This plan puts ${env.name} at ${usd(cs.projectedMonthlyUsd)}/month, over its ${usd(budget)} budget (estimates). Resize something, or raise the budget in Settings → Policies.`,
+    `This plan puts ${env.name} at ${fmtUsd(cs.projectedMonthlyUsd)}/month, over its ${fmtUsd(budget)} budget (estimates). Resize something, or raise the budget in Settings → Environments.`,
   ];
 }
 
@@ -56,29 +119,36 @@ function blockingIssues(m: Manifest): string[] {
 
 function deployPlan(env: Environment, project: Project): ActionPlan {
   const cs = changesetFor(env, project);
-  const errors = blockingIssues(project.workingManifest);
+  const blocked = deployBlock(env, project);
   const warnings = validateManifest(project.workingManifest)
     .filter((i) => i.level === "warning")
     .map((i) => `${i.message}${i.fix ? ` ${i.fix}` : ""}`);
 
   return {
-    summary: `Deploy ${project.name} to ${env.name} — ${tally(cs)}.`,
+    summary: blocked
+      ? `${project.name} cannot be deployed to ${env.name} — ${tally(cs)} is what would change, but this deploy would be refused.`
+      : `Deploy ${project.name} to ${env.name} — ${tally(cs)}.`,
     details: [
+      ...(blocked ? [blocked] : []),
       ...cs.items.map((i) => i.explanation),
-      `Projected monthly cost after this deploy: ${usd(cs.projectedMonthlyUsd)} (estimate).`,
+      `Projected monthly cost after this deploy: ${fmtUsd(cs.projectedMonthlyUsd)} (estimate).`,
       env.policies.approvalRequired
         ? `${env.name} requires approval: the deployment will wait at "awaiting approval" until someone approves it.`
         : `${env.name} applies without an approval step.`,
     ],
     costDeltaUsd: cs.totalCostDeltaUsd,
     risk: maxRisk(cs.items.map((i) => i.risk)),
-    warnings: [
-      ...errors.map((e) => `Blocks the deploy: ${e}`),
-      ...cs.warnings,
-      ...budgetWarnings(env, cs),
-      ...warnings,
-    ],
+    // Warnings are advisory only. Anything that stops the deploy is in
+    // `blocked`, so a surface disables its button instead of parsing prose.
+    warnings: [...cs.warnings, ...budgetWarnings(env, cs), ...warnings],
     requiresApproval: env.policies.approvalRequired,
+    blocked,
+    /**
+     * Both deploy.plan (read-only) and deploy.apply render through here, and
+     * the button a user presses is deploy.apply. Say so, so a viewer sees a
+     * disabled Deploy with a reason instead of a refusal after the click.
+     */
+    requiredRole: "editor",
   };
 }
 
@@ -140,6 +210,15 @@ defineAction<ApplyInput>({
     const project = requireProject(ctx, input.projectId ?? env.projectId);
     const working = project.workingManifest;
 
+    // Refuse before a revision is snapshotted or a deployment record exists.
+    const providerRefusal = providerBlock(env) ?? connectionBlock(env);
+    if (providerRefusal)
+      return {
+        ok: false,
+        summary: `${env.name} cannot be deployed to right now.`,
+        error: providerRefusal,
+      };
+
     const errors = blockingIssues(working);
     if (errors.length)
       return {
@@ -174,7 +253,9 @@ defineAction<ApplyInput>({
       createdAt: new Date().toISOString(),
     };
     db().revisions.push(revision);
-    save();
+    // The save moves the manifest to cold storage; `revision.manifest` keeps
+    // reading it back through the store's accessor.
+    save(project.id);
 
     const engine = await getEngine();
     const deployment = await engine.start({
@@ -184,6 +265,7 @@ defineAction<ApplyInput>({
       changeSummary,
       estCostDeltaUsd: changeset.totalCostDeltaUsd,
       actorName: ctx.actor.name,
+      actorId: ctx.actor.id,
       actorType: ctx.actor.type === "navigator" ? "navigator" : "user",
       approved: !env.policies.approvalRequired,
     });
@@ -233,8 +315,12 @@ defineAction<DeploymentRef>({
       details: [d.changeSummary, `${d.steps.length} step(s) will run.`, "This starts changing the environment immediately."],
       costDeltaUsd: d.estCostDeltaUsd,
       risk: "high",
-      warnings: d.status === "awaiting_approval" ? [] : [`This deployment is ${d.status}, not awaiting approval.`],
+      warnings: [],
       requiresApproval: false,
+      blocked:
+        d.status === "awaiting_approval"
+          ? undefined
+          : `This deployment is ${d.status}, not awaiting approval, so there is nothing to approve. Start a new deployment from the Changes drawer instead.`,
     };
   },
   async execute(_ctx, input) {
@@ -255,6 +341,7 @@ defineAction<DeploymentRef>({
   plan(_ctx, input) {
     const d = requireDeployment(input.deploymentId);
     const done = d.steps.filter((s) => s.status === "done").length;
+    const finished = ["succeeded", "failed", "cancelled", "rolled_back"].includes(d.status);
     return {
       summary: "Cancel this deployment.",
       details: [
@@ -267,6 +354,9 @@ defineAction<DeploymentRef>({
       risk: done > 0 ? "medium" : "low",
       warnings: done > 0 ? ["The environment is left part-way between two revisions. Roll back or deploy again to make it consistent."] : [],
       requiresApproval: false,
+      blocked: finished
+        ? `This deployment already finished as ${d.status}; there is nothing to cancel. Deploy again to change the environment, or roll back to undo it.`
+        : undefined,
     };
   },
   async execute(_ctx, input) {
@@ -301,16 +391,26 @@ defineAction<RollbackInput>({
         details: ["Deploy at least one more revision, or pick a specific revision on the Revisions page."],
         costDeltaUsd: 0,
         risk: "low",
-        warnings: ["Nothing to roll back to."],
+        warnings: [],
         requiresApproval: false,
+        blocked:
+          `${env.name} has no earlier revision to roll back to. ` +
+          `Deploy at least one more revision, or pick a specific revision on the Revisions page.`,
       };
     const cs = diffManifests(current?.manifest ?? emptyManifest(), target.manifest);
+    const blocked = providerBlock(env) ?? connectionBlock(env);
     return {
-      summary: `Roll ${env.name} back to revision ${target.number}${current ? ` (from ${current.number})` : ""}.`,
+      summary: blocked
+        ? `${env.name} cannot be rolled back — this deploy would be refused.`
+        : `Roll ${env.name} back to revision ${target.number}${current ? ` (from ${current.number})` : ""}.`,
       details: [
+        ...(blocked ? [blocked] : []),
         ...cs.items.map((i) => i.explanation),
-        `Projected monthly cost after rollback: ${usd(cs.projectedMonthlyUsd)} (estimate).`,
+        `Projected monthly cost after rollback: ${fmtUsd(cs.projectedMonthlyUsd)} (estimate).`,
         "Rollback runs as a normal deployment, with its own steps and logs.",
+        env.policies.approvalRequired
+          ? `${env.name} requires approval, and a rollback is a deployment: it will wait at "awaiting approval" until an admin approves it.`
+          : `${env.name} applies without an approval step, so this starts immediately.`,
       ],
       costDeltaUsd: cs.totalCostDeltaUsd,
       risk: "high",
@@ -319,16 +419,26 @@ defineAction<RollbackInput>({
         "Rollback restores the system definition, not data written since the last deploy.",
       ],
       requiresApproval: env.policies.approvalRequired,
+      blocked,
     };
   },
   async execute(ctx, input) {
     const env = requireEnvironment(ctx, input.environmentId);
+    const blocked = providerBlock(env) ?? connectionBlock(env);
+    if (blocked)
+      return { ok: false, summary: `${env.name} cannot be rolled back.`, error: blocked };
     const engine = await getEngine();
-    const d = await engine.rollback(env.id, input.toRevisionId, ctx.actor.name);
+    const d = await engine.rollback(env.id, input.toRevisionId, {
+      id: ctx.actor.id,
+      name: ctx.actor.name,
+    });
     const target = q.revision(d.revisionId);
     return {
       ok: true,
-      summary: `Rolling ${env.name} back to revision ${target?.number ?? "?"}.`,
+      summary:
+        d.status === "awaiting_approval"
+          ? `Rollback to revision ${target?.number ?? "?"} is waiting for approval on ${env.name}.`
+          : `Rolling ${env.name} back to revision ${target?.number ?? "?"}.`,
       data: { deploymentId: d.id, status: d.status, revisionId: d.revisionId },
     };
   },

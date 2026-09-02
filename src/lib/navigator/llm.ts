@@ -11,11 +11,36 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import type { Environment, Project } from "@/lib/domain/types";
+import { configured, env as orreryEnv } from "@/lib/env";
 
 export type PlannerMode = "llm" | "deterministic";
 
+/**
+ * The model that translates goals. `ORRERY_LLM_MODEL` (validated in lib/env.ts,
+ * which also owns the default) pins an older snapshot or a cheaper one.
+ */
+export const plannerModel = (): string => orreryEnv().ORRERY_LLM_MODEL;
+
 export function plannerMode(): PlannerMode {
-  return process.env.ANTHROPIC_API_KEY ? "llm" : "deterministic";
+  return configured().anthropic ? "llm" : "deterministic";
+}
+
+/**
+ * Output budget. The translated command string is short, but a model that
+ * thinks before answering spends this same budget doing it — at 300 the answer
+ * could be cut off mid-clause, or never start. Truncation is handled below
+ * rather than trusted, so this only has to be generous, not exact.
+ */
+const MAX_TOKENS = 2048;
+
+/** How one goal was actually turned into clauses — reported to the UI verbatim. */
+export interface Parsing {
+  /** true only when a model's output was used */
+  usedLlm: boolean;
+  /** the model that ran, when one did */
+  model?: string;
+  /** why the deterministic parser was used instead, when the LLM was configured */
+  fallbackReason?: string;
 }
 
 const GRAMMAR = `Clauses are joined with ", then ". Allowed clause shapes (use node/env names EXACTLY as given):
@@ -36,13 +61,16 @@ const GRAMMAR = `Clauses are joined with ", then ". Allowed clause shapes (use n
 
 /**
  * Rewrite a freeform goal into canonical clauses. Falls back to the original
- * text on any error or timeout — the deterministic parser handles the rest.
+ * text on any error or timeout — the deterministic parser handles the rest,
+ * and the returned `Parsing` says so, so the UI never claims a model ran when
+ * one did not.
  */
 export async function normalizeGoal(
   goal: string,
   project: Project,
   environments: Environment[]
-): Promise<{ text: string; usedLlm: boolean }> {
+): Promise<{ text: string } & Parsing> {
+  const model = plannerModel();
   if (plannerMode() !== "llm") return { text: goal, usedLlm: false };
 
   const nodes = [
@@ -54,8 +82,8 @@ export async function normalizeGoal(
   try {
     const client = new Anthropic({ timeout: 12_000, maxRetries: 1 });
     const response = await client.messages.create({
-      model: "claude-opus-5",
-      max_tokens: 300,
+      model,
+      max_tokens: MAX_TOKENS,
       system: `You translate infrastructure requests into a strict command grammar for a deployment tool. Output ONLY the translated command string — no explanations, no quotes, no markdown. Preserve the user's intent exactly; do not add steps they did not ask for. If part of the request has no matching clause, carry that fragment through verbatim so the tool can flag it.\n\n${GRAMMAR}`,
       messages: [
         {
@@ -64,16 +92,41 @@ export async function normalizeGoal(
         },
       ],
     });
-    if ((response.stop_reason as string) === "refusal") return { text: goal, usedLlm: false };
+    if (response.stop_reason === "refusal")
+      return {
+        text: goal,
+        usedLlm: false,
+        fallbackReason: `${model} declined to translate this goal, so it was read by the deterministic parser instead.`,
+      };
+    // A truncated grammar string is not a shorter plan — it is a different one
+    // ("deploy to production" cut to "deploy to prod" still parses). Never
+    // hand a cut-off translation to the planner.
+    if (response.stop_reason === "max_tokens")
+      return {
+        text: goal,
+        usedLlm: false,
+        fallbackReason: `${model} hit the ${MAX_TOKENS}-token limit before it finished translating, so the truncated command was discarded and the goal was read by the deterministic parser instead.`,
+      };
     const text = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)
       .join(" ")
       .trim();
-    if (!text) return { text: goal, usedLlm: false };
-    return { text, usedLlm: true };
-  } catch {
-    // Network/auth/rate-limit — degrade silently to the deterministic path.
-    return { text: goal, usedLlm: false };
+    if (!text)
+      return {
+        text: goal,
+        usedLlm: false,
+        fallbackReason: `${model} returned nothing, so the goal was read by the deterministic parser instead.`,
+      };
+    return { text, usedLlm: true, model };
+  } catch (err) {
+    // Network/auth/rate-limit — degrade to the deterministic path, and say so.
+    return {
+      text: goal,
+      usedLlm: false,
+      fallbackReason: `${model} was unreachable (${
+        err instanceof Error ? err.message : String(err)
+      }), so the goal was read by the deterministic parser instead.`,
+    };
   }
 }

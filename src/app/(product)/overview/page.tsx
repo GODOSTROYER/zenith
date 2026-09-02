@@ -1,47 +1,23 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Boxes, Plus } from "lucide-react";
+import { Boxes } from "lucide-react";
 import { db, readAudit } from "@/lib/db/store";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
-import type { AuditEvent, Deployment, Environment, Project } from "@/lib/domain/types";
+import { diffManifests } from "@/lib/domain/graph";
+import { emptyManifest, type Deployment, type Manifest } from "@/lib/domain/types";
 import { fmtUsd } from "@/lib/format";
-import { Card, Chip, EmptyState, StatusDot, TimeAgo, type DotStatus } from "@/components/ui";
-import { ActorDot, EnvDot } from "@/components/screens/shared";
+import { Card, EmptyState, TimeAgo } from "@/components/ui";
+import { ActorDot } from "@/components/screens/shared";
 import { Greeting } from "./greeting";
+import { LiveRefresh } from "./live-refresh";
+import { ProjectGrid } from "./project-grid";
+import { envStatus, type EnvRow, type ProjectRow } from "./rows";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Overview" };
 
-function revisionNumber(env: Environment, numbers: Map<string, number>): string | null {
-  if (!env.deployedRevisionId) return null;
-  const n = numbers.get(env.deployedRevisionId);
-  return n ? `r${n}` : "deployed";
-}
-
-/**
- * What the environment chip says out loud. Colour is never the only carrier:
- * every state also has a word, and the dot carries an accessible label.
- */
-function envStatus(
-  env: Environment,
-  latest: Deployment | undefined
-): { dot: DotStatus; word: string } {
-  switch (latest?.status) {
-    case "applying":
-    case "verifying":
-      return { dot: "running", word: "deploying" };
-    case "rolling_back":
-      return { dot: "running", word: "rolling back" };
-    case "failed":
-      return { dot: "err", word: "deploy failed" };
-    case "awaiting_approval":
-      return { dot: "warn", word: "awaiting approval" };
-    default:
-      return env.deployedRevisionId
-        ? { dot: "ok", word: "live" }
-        : { dot: "idle", word: "not deployed" };
-  }
-}
+/** Rows in the activity panel. Small, because the trail screen is one click away. */
+const ACTIVITY_ROWS = 10;
 
 export default function OverviewPage() {
   const data = db();
@@ -67,37 +43,107 @@ export default function OverviewPage() {
     );
 
   const projects = data.projects.filter((p) => p.workspaceId === workspace.id);
-  const numbers = new Map(data.revisions.map((r) => [r.id, r.number]));
+  const revisions = new Map(data.revisions.map((r) => [r.id, r]));
 
   /** latest deployment per environment — drives the health dot on each chip */
   const latestDeploy = new Map<string, Deployment>();
+  /** latest *finished* deployment per environment — "last deployed" is not "last attempted" */
+  const lastSuccess = new Map<string, Deployment>();
   for (const dep of data.deployments) {
     const cur = latestDeploy.get(dep.environmentId);
     if (!cur || cur.createdAt < dep.createdAt) latestDeploy.set(dep.environmentId, dep);
+    if (dep.status !== "succeeded") continue;
+    const won = lastSuccess.get(dep.environmentId);
+    if (!won || (won.endedAt ?? won.createdAt) < (dep.endedAt ?? dep.createdAt))
+      lastSuccess.set(dep.environmentId, dep);
   }
 
+  const rows: ProjectRow[] = projects.map((p) => {
+    const envs = data.environments.filter((e) => e.projectId === p.id);
+    const working = monthlyCostUsd(p.workingManifest);
+    let deployedUsd = 0;
+    let lastDeployedAt: string | undefined;
+
+    const environments: EnvRow[] = envs.map((e) => {
+      const deployed: Manifest | undefined = e.deployedRevisionId
+        ? revisions.get(e.deployedRevisionId)?.manifest
+        : undefined;
+      if (deployed) deployedUsd += monthlyCostUsd(deployed);
+      // The same diff the project screen shows, against what this env runs.
+      const changeset = diffManifests(deployed ?? emptyManifest(), p.workingManifest);
+      const done = lastSuccess.get(e.id);
+      const at = done?.endedAt ?? done?.createdAt;
+      if (at && (!lastDeployedAt || lastDeployedAt < at)) lastDeployedAt = at;
+      const revision = e.deployedRevisionId
+        ? `r${revisions.get(e.deployedRevisionId)?.number ?? "?"}`
+        : null;
+      return {
+        id: e.id,
+        name: e.name,
+        klass: e.class,
+        region: e.region,
+        ...envStatus(e, latestDeploy.get(e.id)),
+        revision,
+        pending: changeset.items.length,
+        lastDeployedAt: at,
+        projectedUsd: changeset.projectedMonthlyUsd,
+        budgetUsd: e.policies.budgetUsdMonthly,
+      };
+    });
+
+    return {
+      id: p.id,
+      name: p.name,
+      slug: p.slug,
+      workingUsd: working,
+      deployedUsd: Math.round(deployedUsd * 100) / 100,
+      openFindings: data.findings.filter((f) => f.projectId === p.id && f.status === "open").length,
+      pending: environments.reduce((n, e) => Math.max(n, e.pending), 0),
+      environments,
+      lastDeployedAt,
+    };
+  });
+
+  const workspaceWorking = Math.round(rows.reduce((n, r) => n + r.workingUsd, 0) * 100) / 100;
+  const workspaceDeployed = Math.round(rows.reduce((n, r) => n + r.deployedUsd, 0) * 100) / 100;
+
   /**
-   * The panel shows one project's history, so it shows the one that moved
-   * last — and says whose history it is. Never "whichever project sorted
-   * first", which silently lies once there are two.
+   * The workspace trail, not one project's — every row says which project it
+   * belongs to, so "whichever project sorted first" is never implied.
    */
-  const workspaceAudit: AuditEvent[] = readAudit({ workspaceId: workspace.id });
-  const activeProject =
-    projects.find((p) => p.id === workspaceAudit.find((e) => e.projectId)?.projectId) ??
-    projects[0];
-  const audit = activeProject
-    ? workspaceAudit.filter((e) => e.projectId === activeProject.id).slice(0, 8)
-    : [];
+  const names = new Map(projects.map((p) => [p.id, p]));
+  const activity = readAudit({ workspaceId: workspace.id, limit: ACTIVITY_ROWS });
 
   return (
     <div className="mx-auto h-full w-full overflow-y-auto max-w-[1160px] px-8 py-10">
-      <header className="mb-9">
-        <h1 className="text-[28px] leading-tight font-medium tracking-[-0.015em] text-ink">
-          <Greeting />
-        </h1>
-        <p className="mt-1 text-[14px] text-ink-mute">
-          {workspace.name} — {projects.length} project{projects.length === 1 ? "" : "s"}
-        </p>
+      <LiveRefresh />
+      <header className="mb-9 flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
+        <div>
+          {/* The workspace is what this screen is about; the greeting is context. */}
+          <h1 className="text-[28px] leading-tight font-medium tracking-[-0.015em] text-ink">
+            {workspace.name}
+          </h1>
+          <p className="mt-1 text-[14px] text-ink-mute">
+            <Greeting /> — {projects.length} project{projects.length === 1 ? "" : "s"}
+          </p>
+        </div>
+        {projects.length > 0 && (
+          <div className="text-right">
+            <p
+              className="tnum text-[16px] text-ink"
+              title="Estimated monthly cost of every project's working system definition, at list prices."
+            >
+              {fmtUsd(workspaceWorking)}
+              <span className="text-[13px] text-ink-faint">/mo working</span>
+            </p>
+            <p
+              className="tnum mt-0.5 text-[12.5px] text-ink-faint"
+              title="Estimated monthly cost of what this workspace is actually running now."
+            >
+              {fmtUsd(workspaceDeployed)}/mo deployed
+            </p>
+          </div>
+        )}
       </header>
 
       {projects.length === 0 ? (
@@ -115,127 +161,55 @@ export default function OverviewPage() {
           }
         />
       ) : (
-        <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
-          <div className="grid gap-4 sm:grid-cols-2">
-            {projects.map((p) => (
-              <ProjectCard
-                key={p.id}
-                project={p}
-                environments={data.environments.filter((e) => e.projectId === p.id)}
-                numbers={numbers}
-                latestDeploy={latestDeploy}
-              />
-            ))}
-            <Link
-              href="/onboarding?step=3"
-              className="flex min-h-[148px] flex-col items-center justify-center gap-2 rounded-card border border-dashed border-line-strong bg-bg1 text-ink-mute transition-colors duration-[var(--dur-fast)] hover:border-signal hover:text-signal"
-            >
-              <Plus className="h-4 w-4" />
-              <span className="text-[13px]">New project</span>
-            </Link>
-          </div>
+        /* No 320px column is reserved when there is no aside to put in it. */
+        <div className={activity.length > 0 ? "grid gap-8 lg:grid-cols-[1fr_320px]" : ""}>
+          <ProjectGrid projects={rows} />
 
-          {activeProject && audit.length > 0 && (
+          {activity.length > 0 && (
             <aside>
               <h2 className="mb-3 text-[12px] tracking-[0.02em] text-ink-mute uppercase">
-                Recent activity — {activeProject.name}
+                Recent activity — this workspace
               </h2>
               <Card padded={false}>
                 <ul>
-                  {audit.map((e) => (
-                    <li
-                      key={e.id}
-                      className="flex items-start gap-2.5 border-b border-line px-4 py-2.5 last:border-b-0"
-                    >
-                      <span className="mt-1.5">
-                        <ActorDot actor={e.actor} />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[12.5px] text-ink" title={e.summary}>
-                          {e.summary}
-                        </p>
-                        <p className="mt-0.5 font-mono text-[11px] text-ink-faint">
-                          {e.actionId} · <TimeAgo iso={e.ts} />
-                        </p>
-                      </div>
-                    </li>
-                  ))}
+                  {activity.map((e) => {
+                    const project = e.projectId ? names.get(e.projectId) : undefined;
+                    return (
+                      <li
+                        key={e.id}
+                        className="flex items-start gap-2.5 border-b border-line px-4 py-2.5 last:border-b-0"
+                      >
+                        <span className="mt-1.5">
+                          <ActorDot actor={e.actor} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[12.5px] text-ink" title={e.summary}>
+                            {e.summary}
+                          </p>
+                          <p className="mt-0.5 truncate font-mono text-[11px] text-ink-faint">
+                            {project ? (
+                              <Link
+                                href={`/p/${project.slug}/activity`}
+                                title={`Full activity trail for ${project.name}`}
+                                className="text-signal hover:underline"
+                              >
+                                {project.name}
+                              </Link>
+                            ) : (
+                              "workspace"
+                            )}{" "}
+                            · {e.actionId} · <TimeAgo iso={e.ts} />
+                          </p>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               </Card>
-              <Link
-                href={`/p/${activeProject.slug}/activity`}
-                className="mt-3 inline-block text-[12.5px] text-signal hover:underline"
-              >
-                Full activity trail for {activeProject.name} →
-              </Link>
             </aside>
           )}
         </div>
       )}
     </div>
-  );
-}
-
-function ProjectCard({
-  project,
-  environments,
-  numbers,
-  latestDeploy,
-}: {
-  project: Project;
-  environments: Environment[];
-  numbers: Map<string, number>;
-  /** latest deployment per environment id */
-  latestDeploy: Map<string, Deployment>;
-}) {
-  const hasProd = environments.some((e) => e.class === "production");
-  return (
-    <Link href={`/p/${project.slug}`} className="group block">
-      <Card
-        prod={hasProd}
-        className="h-full transition-colors duration-[var(--dur-fast)] group-hover:border-line-strong"
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h3 className="truncate text-[16px] font-medium text-ink">{project.name}</h3>
-            <p className="mt-0.5 font-mono text-[11.5px] text-ink-faint">/p/{project.slug}</p>
-          </div>
-          <span className="tnum shrink-0 text-[13px] text-ink">
-            {fmtUsd(monthlyCostUsd(project.workingManifest))}
-            <span className="text-ink-faint">/mo est.</span>
-          </span>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-1.5">
-          {environments.length === 0 ? (
-            <span className="text-[12.5px] text-ink-faint">No environments yet</span>
-          ) : (
-            environments.map((e) => {
-              const { dot, word } = envStatus(e, latestDeploy.get(e.id));
-              const rev = revisionNumber(e, numbers);
-              return (
-                <Chip
-                  key={e.id}
-                  tone={e.class === "production" ? "prod" : "neutral"}
-                  icon={<EnvDot klass={e.class} />}
-                  title={`${e.name} — ${e.class} in ${e.region} · ${rev ? `${rev} ${word}` : word}`}
-                >
-                  {e.name}{" "}
-                  <span className="tnum text-ink-faint">
-                    {rev ? `${rev} ${word}` : word}
-                  </span>
-                  <StatusDot
-                    status={dot}
-                    size={6}
-                    label={`${e.name}: ${word}`}
-                    className="ml-0.5"
-                  />
-                </Chip>
-              );
-            })
-          )}
-        </div>
-      </Card>
-    </Link>
   );
 }

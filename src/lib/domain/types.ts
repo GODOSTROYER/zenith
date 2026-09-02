@@ -450,6 +450,59 @@ export interface SecurityFinding {
   fixedInRevisionId?: string;
 }
 
+/* --------------------------------- alerts --------------------------------- */
+
+/** What an alert rule watches. Each kind reads inputs that already exist. */
+export const AlertKind = z.enum([
+  "health_degraded", // any managed service reports degraded health
+  "deploy_failed", // the newest finished deployment failed
+  "budget_exceeded", // estimated monthly cost reached N% of the budget
+  "replicas_below", // a service has fewer ready replicas than the floor
+]);
+export type AlertKind = z.infer<typeof AlertKind>;
+
+/**
+ * A standing condition on one environment. Rules are evaluated on a timer and
+ * whenever the Alerts API is read; they deliver nowhere but in-product (see
+ * docs/LIMITATIONS.md — there is no email or Slack channel).
+ */
+export interface AlertRule {
+  id: string;
+  projectId: string;
+  environmentId: string;
+  kind: AlertKind;
+  /** kind-specific number: percent of budget, or a minimum ready-replica count */
+  threshold?: number;
+  enabled: boolean;
+  createdBy: Actor;
+  createdAt: string;
+}
+
+/**
+ * The record that a rule's condition was true. One open event per rule: it
+ * stays open until the condition clears, so a flapping service is one incident
+ * rather than a hundred rows.
+ */
+export interface AlertEvent {
+  id: string;
+  ruleId: string;
+  /** copied from the rule so the record outlives the rule that produced it */
+  projectId: string;
+  environmentId: string;
+  firedAt: string;
+  resolvedAt?: string;
+  /** why it closed: recovered, rule disabled, rule deleted */
+  resolvedReason?: string;
+  summary: string;
+  severity: "low" | "medium" | "high";
+  detail: string;
+  /** true when the condition read generated or estimated data, not a measurement */
+  simulated: boolean;
+  acknowledgedAt?: string;
+  acknowledgedBy?: Actor;
+  acknowledgedNote?: string;
+}
+
 /* ------------------------------- navigator -------------------------------- */
 
 /** Autonomy dial. Level semantics are enforced by the action executor. */
@@ -482,7 +535,14 @@ export interface NavigatorStep {
   input: unknown;
   risk: "low" | "medium" | "high";
   needsApproval: boolean;
-  status: "proposed" | "approved" | "rejected" | "running" | "done" | "failed" | "skipped";
+  /**
+   * The workspace role `runAction` will demand, copied from the registry at
+   * plan time so the UI can disable Run before the refusal. The registry stays
+   * the authority: the executor re-reads it.
+   */
+  requiredRole?: Member["role"];
+  /** Approval is a client-side selection until Run; there is no stored "approved". */
+  status: "proposed" | "running" | "done" | "failed" | "skipped";
   resultSummary?: string;
   error?: string;
 }

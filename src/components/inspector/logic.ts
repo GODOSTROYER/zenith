@@ -154,14 +154,3 @@ export function idempotencyKey(actionId: string, intent: unknown, base?: unknown
 
 /* ---------------------------------- plans ---------------------------------- */
 
-/**
- * `runAction` turns a schema rejection into a plan whose summary is exactly
- * this, with the reason in details — there is no structured signal yet, so the
- * string is the signal. Until the server sends `plan.blocked`, this is how the
- * preview knows there is nothing to apply.
- */
-export const INVALID_PLAN_SUMMARY = "Invalid input.";
-
-export function planIsInvalid(plan: { summary: string }): boolean {
-  return plan.summary === INVALID_PLAN_SUMMARY;
-}

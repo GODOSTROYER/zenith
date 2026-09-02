@@ -197,6 +197,11 @@ function usersOf(connectionId: string): { envName: string; projectName: string }
     }));
 }
 
+/** The one refusal sentence, so plan.blocked and the execute error are the same. */
+function stillInUse(conn: CloudConnection, users: ReturnType<typeof usersOf>): string {
+  return `${users.map((u) => `${u.projectName}/${u.envName}`).join(", ")} still deploy through ${conn.label}. Point each one at another connection (Settings → Environments → Change), or delete them, then disconnect.`;
+}
+
 defineAction<ConnRef>({
   id: "connection.disconnect",
   title: "Disconnect",
@@ -221,10 +226,11 @@ defineAction<ConnRef>({
           ],
       costDeltaUsd: 0,
       risk: blocked ? "low" : "medium",
-      warnings: blocked
-        ? ["Move those environments to another connection, or delete them first."]
-        : [],
+      warnings: [],
       requiresApproval: false,
+      // Same sentence execute() would return, so the dialog disables Confirm
+      // instead of offering a button that fails one click later.
+      blocked: blocked ? stillInUse(conn, users) : undefined,
     };
   },
   execute(_ctx, input) {
@@ -234,7 +240,7 @@ defineAction<ConnRef>({
       return {
         ok: false,
         summary: `${conn.label} is still in use.`,
-        error: `${users.map((u) => `${u.projectName}/${u.envName}`).join(", ")} still deploy through ${conn.label}. Point those environments at another connection, or delete them, then disconnect again.`,
+        error: stillInUse(conn, users),
       };
     db().connections = db().connections.filter((c) => c.id !== conn.id);
     save();

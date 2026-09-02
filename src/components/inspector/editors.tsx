@@ -12,7 +12,9 @@ import {
   Select,
   Switch,
   Tabs,
+  TimeAgo,
 } from "@/components/ui";
+import { useJson } from "@/lib/client/api";
 import { useProjectData } from "@/components/shell/project-context";
 import { PlanFirst } from "./plan-first";
 import {
@@ -409,16 +411,91 @@ function BindingList({
 /* ------------------------------ env & secrets ------------------------------ */
 
 /**
+ * What the server's secret store holds, as metadata. `GET /api/secrets` never
+ * returns a value and there is no route that does, so this is everything the
+ * browser can know: which references have something behind them, which version
+ * it is on, and when it last changed.
+ *
+ * Declared here rather than imported from `@/lib/secrets`: that module opens
+ * files and does AES, and nothing in a client bundle should be one careless
+ * `import type` → `import` away from pulling it in.
+ */
+interface SecretRow {
+  ref: string;
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+  updatedBy: string;
+  version: number;
+  exists: true;
+}
+
+interface SecretsView {
+  configured: boolean;
+  /** why the store cannot be written to, and the fix — only when unconfigured */
+  reason?: string;
+  fix?: string;
+  secrets: SecretRow[];
+}
+
+/** Shared by the panel and every row in it, so one fetch answers the screen. */
+function useSecrets(): { store: SecretsView | undefined; refresh: () => void } {
+  const { data, refresh } = useJson<SecretsView>("/api/secrets");
+  return { store: data, refresh };
+}
+
+/** Where a variable's value actually is, in the words the panel uses. */
+function secretHome(store: SecretsView | undefined, ref: string): SecretRow | undefined {
+  return store?.secrets.find((s) => s.ref === ref);
+}
+
+/**
+ * The store is off. Say it once, plainly, with the variable to set — not as an
+ * error (nothing is broken) and not as a shrug (the Value field really is
+ * unavailable until someone does this).
+ */
+function StoreOffNotice({ store }: { store: SecretsView }) {
+  return (
+    <p className="flex gap-1.5 rounded-ctl border border-warn/25 bg-warn-dim p-2.5 text-[12.5px] text-ink">
+      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warn" aria-hidden="true" />
+      <span>
+        {store.reason} {store.fix} Until then Orrery can record a{" "}
+        <em className="not-italic text-ink-mute">reference</em> to a value you keep elsewhere, and
+        your provider resolves it at deploy time.
+      </span>
+    </p>
+  );
+}
+
+/**
  * One variable, editable where it is listed. `system.setEnvVar` overwrites a
  * key that already exists, so editing is the same action as adding — there was
  * never a reason to make people remove and retype a value to change it.
+ *
+ * A secret row is a different thing: the value is not here to edit, so the row
+ * shows what the store knows about it instead — version, when, by whom — and
+ * offers the two operations that make sense on a value you cannot see.
  */
-function EnvRow({ serviceId, entry }: { serviceId: string; entry: Service["env"][number] }) {
+function EnvRow({
+  serviceId,
+  entry,
+  store,
+  onStoreChange,
+}: {
+  serviceId: string;
+  entry: Service["env"][number];
+  store: SecretsView | undefined;
+  onStoreChange: () => void;
+}) {
   const [editing, setEditing] = useState(false);
+  const [rotating, setRotating] = useState(false);
   const [value, setValue] = useState(entry.value ?? "");
+  const [nextSecret, setNextSecret] = useState("");
 
-  const secret = Boolean(entry.secretRef);
+  const ref = entry.secretRef;
   const changed = value !== (entry.value ?? "");
+  const held = ref ? secretHome(store, ref) : undefined;
+  const ours = Boolean(ref?.startsWith("vault:"));
 
   return (
     <li className="group space-y-1.5 px-3 py-2">
@@ -434,8 +511,8 @@ function EnvRow({ serviceId, entry }: { serviceId: string; entry: Service["env"]
           />
         ) : (
           <span className="min-w-0 flex-1 truncate text-right font-mono text-[12px] text-ink-mute">
-            {secret ? (
-              <span title={`Recorded as a reference (${entry.secretRef}); Orrery has no copy of the value.`}>
+            {ref ? (
+              <span title={`Stored under ${ref}. The value is never sent to the browser.`}>
                 •••••••• <span className="text-ink-faint">secret</span>
               </span>
             ) : (
@@ -444,40 +521,126 @@ function EnvRow({ serviceId, entry }: { serviceId: string; entry: Service["env"]
           </span>
         )}
       </div>
+
+      {/* Where this secret's value lives, and whether it is actually there. */}
+      {ref && !editing && (
+        <p className="font-mono text-[11.5px] text-ink-faint">
+          {ref}
+          {held ? (
+            <>
+              {" · "}v{held.version}
+              {" · "}
+              <TimeAgo iso={held.updatedAt} prefix="updated" className="font-mono" />
+              {" by "}
+              {held.updatedBy}
+            </>
+          ) : !ours ? (
+            <span className="text-ink-mute"> · your secret manager resolves this, not Orrery</span>
+          ) : store && !store.configured ? (
+            <span className="text-warn"> · the secret store is off on this server</span>
+          ) : store ? (
+            <span className="text-warn"> · no value stored — set one before deploying</span>
+          ) : null}
+        </p>
+      )}
+
       {/* Quiet, never invisible — an opacity-0 control does not
           exist on a touch screen or to anyone scanning the list. */}
       <div className="flex flex-wrap items-center gap-2 opacity-60 transition-opacity duration-[120ms] group-hover:opacity-100 focus-within:opacity-100">
-        {editing ? (
-          <PlanFirst
-            actionId="system.setEnvVar"
-            input={{ serviceId, key: entry.key, value }}
-            label="Save value"
-            variant="quiet"
-            disabled={!changed}
-            disabledReason="The value is unchanged — there is nothing to apply."
-            onDone={() => setEditing(false)}
-            onCancel={() => {
-              setValue(entry.value ?? "");
-              setEditing(false);
-            }}
-          />
+        {ref ? (
+          <>
+            {rotating ? (
+              <div className="w-full space-y-2">
+                <Field
+                  label={`New value for ${entry.key}`}
+                  help={
+                    ours
+                      ? "Stored encrypted on this Orrery server under the same reference, as the next version. Running services keep the old value until you redeploy."
+                      : `${ref} is not Orrery's to write. Rotate it in your own secret manager, then redeploy.`
+                  }
+                >
+                  <Input
+                    type="password"
+                    value={nextSecret}
+                    mono
+                    autoFocus
+                    autoComplete="off"
+                    placeholder="sk_live_…"
+                    onChange={(e) => setNextSecret(e.target.value)}
+                  />
+                </Field>
+                <PlanFirst
+                  actionId="system.rotateSecret"
+                  input={{ serviceId, key: entry.key, secretValue: nextSecret }}
+                  label="Rotate"
+                  variant="quiet"
+                  disabled={!nextSecret}
+                  disabledReason="Type the new value first — rotating to nothing is not a rotation."
+                  onDone={() => {
+                    setNextSecret("");
+                    setRotating(false);
+                    onStoreChange();
+                  }}
+                  onCancel={() => {
+                    setNextSecret("");
+                    setRotating(false);
+                  }}
+                />
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={!ours || (store && !store.configured)}
+                disabledReason={
+                  !ours
+                    ? `${ref} lives in your own secret manager. Rotate it there, then redeploy so services pick it up.`
+                    : store?.reason && store?.fix
+                      ? `${store.reason} ${store.fix}`
+                      : undefined
+                }
+                onClick={() => setRotating(true)}
+              >
+                Rotate
+              </Button>
+            )}
+            <PlanFirst
+              actionId="system.removeSecret"
+              input={{ serviceId, key: entry.key }}
+              label="Remove"
+              variant="ghost"
+              onDone={onStoreChange}
+            />
+          </>
         ) : (
-          <Button
-            size="sm"
-            variant="ghost"
-            disabled={secret}
-            disabledReason="A secret's value is not stored in Orrery, so there is nothing here to edit. Set it again under Add a secret to replace the reference."
-            onClick={() => setEditing(true)}
-          >
-            Edit
-          </Button>
+          <>
+            {editing ? (
+              <PlanFirst
+                actionId="system.setEnvVar"
+                input={{ serviceId, key: entry.key, value }}
+                label="Save value"
+                variant="quiet"
+                disabled={!changed}
+                disabledReason="The value is unchanged — there is nothing to apply."
+                onDone={() => setEditing(false)}
+                onCancel={() => {
+                  setValue(entry.value ?? "");
+                  setEditing(false);
+                }}
+              />
+            ) : (
+              <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+                Edit
+              </Button>
+            )}
+            <PlanFirst
+              actionId="system.setEnvVar"
+              input={{ serviceId, key: entry.key, value: null }}
+              label="Remove"
+              variant="ghost"
+            />
+          </>
         )}
-        <PlanFirst
-          actionId="system.setEnvVar"
-          input={{ serviceId, key: entry.key, value: null }}
-          label="Remove"
-          variant="ghost"
-        />
       </div>
     </li>
   );
@@ -488,6 +651,11 @@ function EnvPanel({ service }: { service: Service }) {
   const [value, setValue] = useState("");
   const [secretKey, setSecretKey] = useState("");
   const [secretValue, setSecretValue] = useState("");
+  const { store, refresh } = useSecrets();
+
+  // Until the fetch lands, neither state is known — so the form does not claim
+  // one. `off` is only true once the server has actually said so.
+  const off = store !== undefined && !store.configured;
 
   return (
     <div className="space-y-5">
@@ -501,7 +669,13 @@ function EnvPanel({ service }: { service: Service }) {
         ) : (
           <ul className="divide-y divide-line rounded-card border border-line">
             {service.env.map((e) => (
-              <EnvRow key={e.key} serviceId={service.id} entry={e} />
+              <EnvRow
+                key={e.key}
+                serviceId={service.id}
+                entry={e}
+                store={store}
+                onStoreChange={refresh}
+              />
             ))}
           </ul>
         )}
@@ -533,9 +707,10 @@ function EnvPanel({ service }: { service: Service }) {
       <div className="space-y-3 border-t border-line pt-4">
         <SectionTitle>Add a secret</SectionTitle>
         <p className="text-[12.5px] text-ink-mute">
-          The manifest records only a reference — the value never lands in the diff, the audit log
-          or an export bundle.
+          The manifest records only the reference <code className="font-mono">vault:KEY</code> — the
+          value never lands in the diff, a revision, the audit log or an export bundle.
         </p>
+        {off && store && <StoreOffNotice store={store} />}
         <div className="grid grid-cols-2 gap-2">
           <Field label="Key">
             <Input
@@ -547,34 +722,45 @@ function EnvPanel({ service }: { service: Service }) {
           </Field>
           <Field
             label="Value"
-            help="Not stored yet. Orrery has no secret store in this build: only the reference is written, and the value you type here is discarded. Put the real value in your provider's secret manager under that reference."
+            help={
+              off
+                ? "Unavailable: this server has no secret store, so a value typed here could only be discarded. Set ORRERY_SECRET_KEY (above) to turn it on."
+                : "Stored encrypted on this Orrery server; the manifest keeps only the reference."
+            }
           >
             <Input
               type="password"
               value={secretValue}
               mono
               autoComplete="off"
+              disabled={off}
               onChange={(e) => setSecretValue(e.target.value)}
-              placeholder="sk_live_…"
+              placeholder={off ? "unavailable" : "sk_live_…"}
             />
           </Field>
         </div>
         <PlanFirst
           actionId="system.setSecret"
-          input={{ serviceId: service.id, key: secretKey.trim(), secretValue }}
-          label="Write the reference"
+          // An empty string is "no value given" — that is the reference-only
+          // path, which stays available whether or not the store is on.
+          input={{
+            serviceId: service.id,
+            key: secretKey.trim(),
+            ...(secretValue ? { secretValue } : {}),
+          }}
+          label={secretValue ? "Store the secret" : "Write the reference"}
           disabled={!secretKey.trim()}
           disabledReason="Give the secret a name first."
           onDone={() => {
             setSecretKey("");
             setSecretValue("");
+            refresh();
           }}
         />
       </div>
     </div>
   );
 }
-
 /* -------------------------------- services -------------------------------- */
 
 const KIND_OPTIONS = [

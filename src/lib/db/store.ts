@@ -15,6 +15,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { env } from "@/lib/env";
 import type {
+  AlertEvent,
+  AlertRule,
   AuditEvent,
   CloudConnection,
   Deployment,
@@ -38,6 +40,10 @@ export interface Database {
   deployments: Deployment[];
   findings: SecurityFinding[];
   navigatorRuns: NavigatorRun[];
+  /** standing alert conditions, one per (environment, kind) */
+  alertRules: AlertRule[];
+  /** the durable record of every time a rule fired; outlives its rule */
+  alertEvents: AlertEvent[];
   /** per-workspace settings incl. autonomy level and user preferences */
   settings: Record<string, unknown>;
 }
@@ -52,6 +58,8 @@ const EMPTY: Database = {
   deployments: [],
   findings: [],
   navigatorRuns: [],
+  alertRules: [],
+  alertEvents: [],
   settings: {},
 };
 
@@ -74,7 +82,13 @@ export function db(): Database {
   let data: Database = EMPTY;
   if (fs.existsSync(STATE)) {
     try {
-      data = { ...EMPTY, ...(JSON.parse(fs.readFileSync(STATE, "utf8")) as Database) };
+      // structuredClone, not a bare spread: a key missing from disk — every new
+      // collection, on the first load after it is added — would otherwise alias
+      // EMPTY's own array, and the first push would corrupt the empty template.
+      data = {
+        ...structuredClone(EMPTY),
+        ...(JSON.parse(fs.readFileSync(STATE, "utf8")) as Database),
+      };
     } catch {
       // Corrupt snapshot: keep the file for forensics, start fresh.
       fs.copyFileSync(STATE, `${STATE}.corrupt-${Date.now()}`);

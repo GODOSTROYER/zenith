@@ -34,11 +34,7 @@ import {
   Skeleton,
   TimeAgo,
 } from "@/components/ui";
-import {
-  useSelectedEnv,
-  type ProjectPayload,
-  type RevisionMeta,
-} from "@/components/screens/project-data";
+import { useSelectedEnv, type RevisionMeta } from "@/components/screens/project-data";
 import {
   ActionConfirm,
   ActorDot,
@@ -56,13 +52,64 @@ const OP_TITLE: Record<ChangeItem["op"], string> = {
   delete: "Removed",
 };
 
+/** Rows per request. The route caps `limit` at 200; this is a screenful. */
+const PAGE = 25;
+
+interface RevisionsPage {
+  revisions: RevisionMeta[];
+  total: number;
+  nextCursor?: string;
+}
+
 /**
- * Where the list comes from. Today the project payload carries the whole
- * append-only history; when the cursor-paged revisions route lands, this
- * function is the only thing that changes.
+ * The append-only history, one page at a time, from the cursor-paged route —
+ * the project payload's inline copy grows without bound and is only used here
+ * as the signal that a deploy landed elsewhere.
+ *
+ * ponytail: a re-read drops back to the first page, so pages opened with "Load
+ * older" have to be re-opened after someone deploys. Append-preserving refetch
+ * if that ever annoys anyone.
  */
-function fetchRevisions(data: ProjectPayload): RevisionMeta[] {
-  return data.revisions;
+function useRevisions(projectId: string, historyDepth: number) {
+  const [loaded, setLoaded] = useState<RevisionMeta[]>([]);
+  const [total, setTotal] = useState(0);
+  const [cursor, setCursor] = useState<string>();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<unknown>();
+
+  const page = useCallback(
+    async (from?: string) => {
+      setLoading(true);
+      setError(undefined);
+      try {
+        const res = await api<RevisionsPage>(
+          `/api/projects/${encodeURIComponent(projectId)}/revisions?limit=${PAGE}` +
+            (from ? `&cursor=${encodeURIComponent(from)}` : "")
+        );
+        setLoaded((prev) => (from ? [...prev, ...res.revisions] : res.revisions));
+        setTotal(res.total);
+        setCursor(res.nextCursor);
+      } catch (e) {
+        setError(e);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [projectId]
+  );
+
+  // `historyDepth` is the payload's revision count: when it moves, a deploy
+  // landed and the newest page is re-read.
+  useEffect(() => void page(), [page, historyDepth]);
+
+  return {
+    revisions: loaded,
+    total,
+    error,
+    loading,
+    hasMore: cursor !== undefined,
+    loadMore: () => void page(cursor),
+  };
 }
 
 /** What a comparison is about: two revision ids and how to name the pair. */
@@ -80,13 +127,22 @@ export default function RevisionsPage() {
   const [query, setQuery] = useState("");
   const [rollbackTo, setRollbackTo] = useState<RevisionMeta>();
   const [promote, setPromote] = useState<{ revision: RevisionMeta; environmentId: string }>();
-  const [loadInto, setLoadInto] = useState<{ revision: RevisionMeta; manifest: unknown }>();
+  /** `hash` is the working-copy token this load was planned against. */
+  const [loadInto, setLoadInto] =
+    useState<{ revision: RevisionMeta; manifest: unknown; hash: string }>();
   const [viewing, setViewing] = useState<{ meta: RevisionMeta; revision: Revision }>();
   /** `<revisionId>:view` | `<revisionId>:load` — only that button spins. */
   const [fetching, setFetching] = useState<string>();
   const [rowError, setRowError] = useState<unknown>();
 
-  const revisions = data ? fetchRevisions(data) : [];
+  const {
+    revisions,
+    total,
+    loading: listLoading,
+    error: listError,
+    hasMore,
+    loadMore,
+  } = useRevisions(projectId, data?.revisions.length ?? 0);
   const environments = useMemo(() => data?.environments ?? [], [data]);
 
   /** Which environments run which revision, right now. */
@@ -168,7 +224,13 @@ export default function RevisionsPage() {
 
   return (
     <div className="mx-auto h-full w-full max-w-[1100px] overflow-y-auto px-6 py-6">
-      {revisions.length === 0 ? (
+      {listError ? <ErrorNote error={listError} className="mb-4" /> : null}
+      {revisions.length === 0 && listLoading ? (
+        <div className="space-y-3">
+          <Skeleton height={20} width="30%" />
+          <Skeleton height={280} />
+        </div>
+      ) : revisions.length === 0 ? (
         <EmptyState
           icon={<History className="h-5 w-5" />}
           title="No revisions yet"
@@ -184,10 +246,15 @@ export default function RevisionsPage() {
           {rowError ? <ErrorNote error={rowError} className="mb-4" /> : null}
 
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            {/* Honest about what is loaded: search only sees the rows below. */}
             <h2 className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">
               {needle
-                ? `${shown.length} of ${revisions.length} revisions match`
-                : `${revisions.length} revision${revisions.length === 1 ? "" : "s"}`}
+                ? `${shown.length} of ${revisions.length} loaded match${
+                    hasMore ? ` · ${total} in all` : ""
+                  }`
+                : hasMore
+                  ? `Showing ${revisions.length} of ${total} revisions`
+                  : `${total} revision${total === 1 ? "" : "s"}`}
             </h2>
             <div className="flex flex-wrap items-center gap-2">
               <div className="w-[200px]">
@@ -277,7 +344,11 @@ export default function RevisionsPage() {
                           }
                           title={previous ? `Diff r${previous.number} → r${r.number}` : undefined}
                           disabled={!previous}
-                          disabledReason={`r${r.number} is the first revision — there is nothing before it to compare with.`}
+                          disabledReason={
+                            hasMore
+                              ? `The revision before r${r.number} is not loaded yet — use “Load older” below.`
+                              : `r${r.number} is the first revision — there is nothing before it to compare with.`
+                          }
                           onClick={() => previous && setCompare({ ids: [previous.id, r.id] })}
                           className="text-ink-faint hover:text-ink"
                         />
@@ -302,7 +373,13 @@ export default function RevisionsPage() {
                           busy={fetching === `${r.id}:load`}
                           onClick={() =>
                             withManifest(r, "load", (revision) =>
-                              setLoadInto({ revision: r, manifest: revision.manifest })
+                              setLoadInto({
+                                revision: r,
+                                manifest: revision.manifest,
+                                // Pinned here, not read at render: a token that
+                                // drifts with the poll cannot catch a race.
+                                hash: data.manifestHash,
+                              })
                             )
                           }
                           className="text-ink-faint hover:text-ink"
@@ -358,9 +435,19 @@ export default function RevisionsPage() {
             </ul>
             {shown.length === 0 && (
               <div className="space-y-3 px-4 py-5 text-[13px] text-ink-mute">
-                <p>No revision matches “{query.trim()}”.</p>
+                <p>
+                  No revision matches “{query.trim()}”
+                  {hasMore ? ` in the ${revisions.length} loaded so far` : ""}.
+                </p>
                 <Button size="sm" variant="quiet" onClick={() => setQuery("")}>
                   Clear search
+                </Button>
+              </div>
+            )}
+            {hasMore && (
+              <div className="border-t border-line px-4 py-3">
+                <Button size="sm" variant="quiet" busy={listLoading} onClick={loadMore}>
+                  Load older ({total - revisions.length} more)
                 </Button>
               </div>
             )}
@@ -456,11 +543,25 @@ export default function RevisionsPage() {
           open
           onClose={() => setLoadInto(undefined)}
           actionId="project.updateManifest"
-          input={{ projectId, manifest: loadInto.manifest }}
+          /* The working copy this replaces is the one that was there when the
+             dialog opened; if someone saved since, the server refuses. */
+          input={{ projectId, manifest: loadInto.manifest, expectedHash: loadInto.hash }}
           scope={{ projectId }}
           title={`Load r${loadInto.revision.number} into the working copy`}
           description="Replaces the working copy with this revision. Nothing deploys — the changes show up in the Changes drawer for review first."
           confirmLabel="Load into working copy"
+          blockedFix={
+            loadInto.hash !== data.manifestHash ? (
+              <Button
+                size="sm"
+                variant="quiet"
+                title="Re-plans this load against the working copy that is there now."
+                onClick={() => setLoadInto({ ...loadInto, hash: data.manifestHash })}
+              >
+                Replace the newer copy anyway
+              </Button>
+            ) : undefined
+          }
           onDone={() => {
             setLoadInto(undefined);
             refresh();

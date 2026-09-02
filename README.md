@@ -55,6 +55,7 @@ silently falling back.
 | `ORRERY_LOCALSTACK_ENDPOINT` | LocalStack edge endpoint the LocalStack provider talks to | `http://localhost:4566` |
 | `ORRERY_LLM_MODEL` | model id for the Navigator's optional language front-end. Pin an older snapshot or try a cheaper one; the default tracks the model the grammar prompt was tested against. | `claude-opus-5` |
 | `ORRERY_LOG_LEVEL` | lowest level `src/lib/log.ts` emits (`debug` \| `info` \| `warn` \| `error`) | `info` |
+| `ORRERY_SECRET_KEY` | 32 bytes (base64 or hex) encrypting the secret store at `<ORRERY_DATA>/secrets.json`. Generate with `openssl rand -base64 32`. Unset means Orrery holds no secret values: every write is refused, saying so, and a manifest can still reference a value you keep elsewhere. Values written under an old key cannot be read back. | unset |
 | `AWS_ACCESS_KEY_ID` etc. | detected by the AWS preflight; **apply is disabled in Preview** either way | unset |
 | `ANTHROPIC_API_KEY` | optional Navigator LLM parsing; without it the deterministic planner runs (and says so) | unset |
 

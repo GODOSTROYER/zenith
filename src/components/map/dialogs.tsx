@@ -203,7 +203,7 @@ export function ImportDialog({
   open: boolean;
   onClose: () => void;
 }) {
-  const { project } = useProjectData();
+  const { project, manifestHash } = useProjectData();
   const [format, setFormat] = useState<Format>("compose");
   const [text, setText] = useState("");
   const [fileName, setFileName] = useState<string>();
@@ -352,7 +352,12 @@ export function ImportDialog({
         ) : (
           <PlanFirst
             actionId="project.updateManifest"
-            input={{ manifest: parsed?.manifest }}
+            /*
+             * The merge above was computed against this exact working copy. If
+             * someone saved in between, the import would silently drop their
+             * change — so send the token and let the server refuse instead.
+             */
+            input={{ manifest: parsed?.manifest, expectedHash: manifestHash }}
             label="Preview import"
             disabled={!text.trim() || !parsed?.manifest}
             disabledReason={

@@ -5,11 +5,12 @@
  * dialog, and a couple of one-liner presenters.
  */
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { AlertTriangle } from "lucide-react";
-import type { ActionPlan, ActionResult } from "@/lib/actions/core";
+import { AlertTriangle, Ban } from "lucide-react";
+import type { ActionPlan, ActionResult, Role } from "@/lib/actions/core";
 import { ApiError, executeAction, planAction } from "@/lib/client/api";
 import type { Actor, ChangeItem, EnvironmentClass } from "@/lib/domain/types";
 import { cx, fmtUsd } from "@/lib/format";
+import { useShell } from "@/components/shell/shell-context";
 import {
   Button,
   Chip,
@@ -112,13 +113,63 @@ export function ErrorNote({
 
 /* ------------------------------ plan preview ------------------------------ */
 
+const ROLE_RANK: Record<Role, number> = { viewer: 0, editor: 1, admin: 2 };
+
+/**
+ * One sentence when the caller's workspace role is below the role the plan says
+ * execute demands — so the preview says it before the button is pressed, even
+ * when the server did not set `blocked` (a plan blocked for some other reason
+ * first, or one planned on someone else's behalf).
+ *
+ * `null` caller role means "not signed in / demo mode": nothing to compare.
+ */
+export function roleShortfall(
+  required: Role | undefined,
+  caller: Role | null | undefined
+): string | undefined {
+  if (!required || !caller) return undefined;
+  if (ROLE_RANK[caller] >= ROLE_RANK[required]) return undefined;
+  return (
+    `This needs the ${required} role and you are ${caller} in this workspace. ` +
+    `Ask a workspace admin to raise your role in Settings → Members, or have them run it.`
+  );
+}
+
+/** The refusal, in the same shape everywhere: red, first, and never a warning. */
+function BlockedNote({ children }: { children: ReactNode }) {
+  return (
+    <div
+      role="alert"
+      className="flex gap-2.5 rounded-card border border-err/30 bg-err-dim px-4 py-3 text-[13px] text-ink"
+    >
+      <Ban className="mt-0.5 h-4 w-4 shrink-0 text-err" aria-hidden="true" />
+      <p className="min-w-0">{children}</p>
+    </div>
+  );
+}
+
 export function PlanBody({ plan }: { plan: ActionPlan }) {
+  const { boot } = useShell();
+  const shortfall = roleShortfall(plan.requiredRole, boot?.role);
   return (
     <div className="space-y-4">
       <p className="text-[14px] text-ink">{plan.summary}</p>
 
+      {/* `blocked` is the reason execute would refuse, plus the fix. It leads,
+          and it is never demoted into the advisory warnings list below. */}
+      {plan.blocked ? <BlockedNote>{plan.blocked}</BlockedNote> : null}
+      {!plan.blocked && shortfall ? <BlockedNote>{shortfall}</BlockedNote> : null}
+
       <div className="flex flex-wrap items-center gap-2">
         <RiskBadge level={plan.risk} />
+        {plan.requiredRole && (
+          <Chip
+            tone={shortfall ? "err" : "neutral"}
+            title={shortfall ?? `Running this needs the ${plan.requiredRole} role.`}
+          >
+            needs {plan.requiredRole}
+          </Chip>
+        )}
         <Chip tone={plan.costDeltaUsd === 0 ? "neutral" : plan.costDeltaUsd > 0 ? "warn" : "ok"}>
           <CostDelta usd={plan.costDeltaUsd} bare /> est./mo
         </Chip>
@@ -161,6 +212,12 @@ export interface ActionConfirmProps {
   typeToConfirm?: string;
   /** extra content between the description and the plan */
   children?: ReactNode;
+  /**
+   * Rendered under a refused plan (or a refused execute): the screen's own
+   * one-click way out, e.g. reload the current copy / discard my edits. The
+   * refusal already names the fix in prose; this makes it pressable.
+   */
+  blockedFix?: ReactNode;
   onDone?: (result: ActionResult) => void;
 }
 
@@ -180,6 +237,7 @@ export function ActionConfirm({
   danger,
   typeToConfirm,
   children,
+  blockedFix,
   onDone,
 }: ActionConfirmProps) {
   const toasts = useSafeToasts();
@@ -204,7 +262,10 @@ export function ActionConfirm({
     };
   }, [open, actionId, inputKey, scopeKey]);
 
-  const confirmBlocked = typeToConfirm ? typed.trim() !== typeToConfirm : false;
+  const needsTyping = typeToConfirm ? typed.trim() !== typeToConfirm : false;
+  /** The server already knows this input would be refused. Say so, don't offer it. */
+  const blocked = plan?.blocked;
+  const refused = Boolean(blocked) || error !== undefined;
 
   const confirm = async () => {
     setBusy(true);
@@ -246,13 +307,15 @@ export function ActionConfirm({
           <Button
             variant={danger ? "danger" : "primary"}
             busy={busy}
-            disabled={!plan || confirmBlocked}
+            disabled={!plan || Boolean(blocked) || needsTyping}
             disabledReason={
               !plan
                 ? "Waiting for the plan — the preview has to load before anything runs."
-                : confirmBlocked
-                  ? `Type “${typeToConfirm}” to confirm.`
-                  : undefined
+                : blocked
+                  ? blocked
+                  : needsTyping
+                    ? `Type “${typeToConfirm}” to confirm.`
+                    : undefined
             }
             onClick={confirm}
           >
@@ -272,7 +335,11 @@ export function ActionConfirm({
           </div>
         ) : null}
         {plan ? <PlanBody plan={plan} /> : null}
-        {typeToConfirm && plan ? (
+        {refused && blockedFix ? (
+          <div className="flex flex-wrap items-center gap-2">{blockedFix}</div>
+        ) : null}
+        {/* Typing a name to confirm something that cannot run is theatre. */}
+        {typeToConfirm && plan && !blocked ? (
           <label className="block space-y-1.5">
             <span className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">
               Type <span className="font-mono text-ink">{typeToConfirm}</span> to confirm

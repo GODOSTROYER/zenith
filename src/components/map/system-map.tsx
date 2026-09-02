@@ -143,8 +143,17 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
   // Deep link: /p/<slug>?select=<nodeId> (Security findings link here).
   // Read once from location.search to avoid the useSearchParams Suspense
   // requirement; strip the param afterwards so refresh doesn't re-force it.
+  // /p/<slug>?review=1 (Security's "review the pending changes") opens the
+  // deploy dock on the changes review; read once alongside ?select.
+  const [openReview, setOpenReview] = useState(false);
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    if (params.get("review")) {
+      setOpenReview(true);
+      params.delete("review");
+      const qs = params.toString();
+      window.history.replaceState(null, "", window.location.pathname + (qs ? `?${qs}` : ""));
+    }
     const wanted = params.get("select");
     if (!wanted) return;
     const exists =
@@ -837,6 +846,7 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
         onLiveTargets={setLiveTargets}
         onAddRoute={() => setTarget({ kind: "add-route" })}
         inspectorOpen={target !== null}
+        openReview={openReview}
       />
 
       <BlueprintDialog

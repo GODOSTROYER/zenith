@@ -101,11 +101,16 @@ const KIND_LABEL: Record<ResourceKind, string> = {
  * Goals arrive as one sentence of clauses. Split on the connectives people
  * actually type; a clause with no verb inherits the previous one's ("add a
  * worker and a queue").
+ *
+ * "and" and "then" must be surrounded by whitespace: a word boundary alone
+ * splits inside a node name, and "restart search-and-index" is one clause
+ * about one service, not two clauses about "search-" and "-index". A clause
+ * left starting with the connective (", and a queue") drops it below.
  */
 export function fragments(goal: string): string[] {
   return goal
-    .split(/\s*(?:;|,|\bthen\b|\band\b)\s*/i)
-    .map((f) => f.trim().replace(/^(?:also|please|now)\s+/i, ""))
+    .split(/\s*[;,]\s*|\s+(?:then|and)\s+/i)
+    .map((f) => f.trim().replace(/^(?:also|please|now|and|then)\s+/i, ""))
     .filter((f) => f.length > 0);
 }
 
@@ -135,7 +140,10 @@ function typeOf(name: string, ctx: Ctx): NodeType | undefined {
   return ctx.pending.find((p) => p.name === name)?.type;
 }
 
-/** Fuzzy node resolution: exact, then case-insensitive, then containment. */
+/**
+ * Confident node resolution: the same name, ignoring case, dashes and spaces.
+ * Anything looser is a guess and goes through `nearMatch` instead.
+ */
 function resolveNode(ref: string, ctx: Ctx): string | undefined {
   const raw = strip(ref);
   if (!raw) return undefined;
@@ -147,8 +155,16 @@ function resolveNode(ref: string, ctx: Ctx): string | undefined {
   return (
     known.find((n) => n === raw) ??
     known.find((n) => n.toLowerCase() === lower) ??
-    known.find((n) => n.toLowerCase().replace(/-/g, "") === lower.replace(/[- ]/g, "")) ??
-    known.find((n) => n.toLowerCase().includes(lower) || lower.includes(n.toLowerCase()))
+    known.find((n) => n.toLowerCase().replace(/-/g, "") === lower.replace(/[- ]/g, ""))
+  );
+}
+
+/** The node a loose reference probably meant — "api" in a system with "api-gateway". */
+function nearMatch(ref: string, ctx: Ctx): string | undefined {
+  const lower = strip(ref).toLowerCase();
+  if (!lower) return undefined;
+  return [...ctx.pending.map((p) => p.name), ...nodeNames(ctx.manifest)].find(
+    (n) => n.toLowerCase().includes(lower) || lower.includes(n.toLowerCase())
   );
 }
 
@@ -180,6 +196,31 @@ const knownList = (ctx: Ctx): string => {
   const names = [...nodeNames(ctx.manifest), ...ctx.pending.map((p) => p.name)];
   return names.length ? names.join(", ") : "(this system is empty)";
 };
+
+/**
+ * A reference the planner could not resolve exactly.
+ *
+ * When something merely *contains* what you typed it is a guess, and acting on
+ * the wrong node is not a guess worth making silently — the step becomes a
+ * CLARIFY that names the candidate and asks. With no candidate at all it is
+ * BLOCKED, as before.
+ */
+function unresolved(ref: string, ctx: Ctx, verb: string): Draft {
+  const name = strip(ref);
+  const near = nearMatch(ref, ctx);
+  if (!near)
+    return blocked(
+      `Cannot ${verb} "${name}"`,
+      `There is no node called "${name}" in this system. Known nodes: ${knownList(ctx)}.`
+    );
+  return {
+    actionId: CLARIFY,
+    title: `Did you mean "${near}"?`,
+    rationale: `This system has no node called "${name}". The closest one is "${near}", but that is not what you typed, and ${verb} on the wrong node is not something to guess at. Say "${near}" exactly and plan again. Known nodes: ${knownList(ctx)}.`,
+    input: {},
+    risk: "low",
+  };
+}
 
 /**
  * The name the manifest action will actually give this node. `system.add*`
@@ -294,8 +335,7 @@ function parseFragment(frag: string, ctx: Ctx): Draft[] | null {
   const restart = f.match(/\brestart\s+(?:the\s+)?([a-z0-9- ]+?)(?:\s+(?:in|on)\s+([a-z0-9-]+))?$/i);
   if (restart) {
     const name = resolveNode(restart[1], ctx);
-    if (!name)
-      return [blocked(`Cannot restart "${strip(restart[1])}"`, `There is no node called "${strip(restart[1])}" in this system. Known nodes: ${knownList(ctx)}.`)];
+    if (!name) return [unresolved(restart[1], ctx, "restart")];
     const env = resolveEnv(restart[2], ctx) ?? defaultEnv(ctx);
     if (!env) return [blocked("Cannot restart", `This project has no environments (known: ${envList(ctx)}).`)];
     return [
@@ -315,8 +355,7 @@ function parseFragment(frag: string, ctx: Ctx): Draft[] | null {
   if (scale || resize) {
     const ref = (scale ?? resize)![1];
     const name = resolveNode(ref, ctx);
-    if (!name)
-      return [blocked(`Cannot scale "${strip(ref)}"`, `There is no service called "${strip(ref)}" in this system. Known nodes: ${knownList(ctx)}.`)];
+    if (!name) return [unresolved(ref, ctx, "resize")];
     const replicas = scale ? Number(scale[2]) : undefined;
     const size = resize ? (resize[2].toLowerCase() as ServiceSize) : undefined;
     const what = replicas !== undefined ? `${replicas} replica${replicas === 1 ? "" : "s"}` : size!;
@@ -334,8 +373,7 @@ function parseFragment(frag: string, ctx: Ctx): Draft[] | null {
   const secret = f.match(/\bset\s+(?:the\s+)?secret\s+([A-Za-z_][A-Za-z0-9_]*)\s+on\s+([a-z0-9-]+)/i);
   if (secret) {
     const name = resolveNode(secret[2], ctx);
-    if (!name)
-      return [blocked(`Cannot set ${secret[1]}`, `There is no service called "${strip(secret[2])}". Known nodes: ${knownList(ctx)}.`)];
+    if (!name) return [unresolved(secret[2], ctx, `set ${secret[1]}`)];
     return [
       {
         actionId: "system.setSecret",
@@ -353,12 +391,12 @@ function parseFragment(frag: string, ctx: Ctx): Draft[] | null {
     const name = resolveNode(envVar[3] ?? "", ctx) ?? (ctx.manifest.services.length === 1 ? ctx.manifest.services[0].name : undefined);
     if (!name)
       return [
-        blocked(
-          `Cannot set ${envVar[1]}`,
-          envVar[3]
-            ? `There is no service called "${strip(envVar[3])}". Known nodes: ${knownList(ctx)}.`
-            : `Say which service to set ${envVar[1]} on — this system has more than one (${knownList(ctx)}).`
-        ),
+        envVar[3]
+          ? unresolved(envVar[3], ctx, `set ${envVar[1]}`)
+          : blocked(
+              `Cannot set ${envVar[1]}`,
+              `Say which service to set ${envVar[1]} on — this system has more than one (${knownList(ctx)}).`
+            ),
       ];
     const value = envVar[2].replace(/^"|"$/g, "");
     return [
@@ -427,15 +465,12 @@ function parseFragment(frag: string, ctx: Ctx): Draft[] | null {
   if (bind) {
     const from = resolveNode(bind[1], ctx);
     const to = resolveNode(bind[2], ctx);
-    if (!from || !to) {
-      const missing = [!from && strip(bind[1]), !to && strip(bind[2])].filter(Boolean).join(" and ");
-      return [
-        blocked(
-          `Cannot connect ${strip(bind[1])} to ${strip(bind[2])}`,
-          `I could not find ${missing} in this system. Known nodes: ${knownList(ctx)}. Add the missing node first, or use its exact name.`
-        ),
-      ];
-    }
+    // One step per unresolved end, so the plan still accounts for the whole
+    // clause and each half carries its own fix.
+    if (!from || !to)
+      return [!from ? bind[1] : "", !to ? bind[2] : ""]
+        .filter(Boolean)
+        .map((ref) => unresolved(ref, ctx, "connect"));
     // Orrery records a binding in the direction config flows: consumer → thing
     // consumed (route → service → resource). "bind the cache to web" means the
     // same edge as "bind web to the cache", so orient it rather than fail.
@@ -505,6 +540,16 @@ function parseFragment(frag: string, ctx: Ctx): Draft[] | null {
 function riskOf(actionId: string): Risk {
   registerAllActions();
   return actionRegistry().get(actionId)?.risk ?? "low";
+}
+
+/**
+ * The role `runAction` will demand of the human who presses Run. Recorded on
+ * the step so the run panel can disable Run and name the role before the
+ * refusal; the executor still re-reads the registry, which is the authority.
+ */
+function requiredRoleOf(actionId: string): NavigatorStep["requiredRole"] {
+  registerAllActions();
+  return actionRegistry().get(actionId)?.requiredRole;
 }
 
 const DESTRUCTIVE = /^system\.(remove|unbind)/;
@@ -581,6 +626,7 @@ export function parseGoal(
       actionId: d.actionId,
       input: d.input,
       risk,
+      requiredRole: requiredRoleOf(d.actionId),
       needsApproval: needsApprovalFor(d, risk),
       status: "proposed",
     };

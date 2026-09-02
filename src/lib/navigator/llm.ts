@@ -11,21 +11,27 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import type { Environment, Project } from "@/lib/domain/types";
+import { configured, env as orreryEnv } from "@/lib/env";
 
 export type PlannerMode = "llm" | "deterministic";
 
 /**
- * The model that translates goals. Override with ORRERY_LLM_MODEL to pin an
- * older snapshot or try a cheaper one; the default tracks the model this
- * grammar prompt was written and tested against.
+ * The model that translates goals. `ORRERY_LLM_MODEL` (validated in lib/env.ts,
+ * which also owns the default) pins an older snapshot or a cheaper one.
  */
-export const DEFAULT_LLM_MODEL = "claude-opus-5";
-
-export const plannerModel = (): string => process.env.ORRERY_LLM_MODEL || DEFAULT_LLM_MODEL;
+export const plannerModel = (): string => orreryEnv().ORRERY_LLM_MODEL;
 
 export function plannerMode(): PlannerMode {
-  return process.env.ANTHROPIC_API_KEY ? "llm" : "deterministic";
+  return configured().anthropic ? "llm" : "deterministic";
 }
+
+/**
+ * Output budget. The translated command string is short, but a model that
+ * thinks before answering spends this same budget doing it — at 300 the answer
+ * could be cut off mid-clause, or never start. Truncation is handled below
+ * rather than trusted, so this only has to be generous, not exact.
+ */
+const MAX_TOKENS = 2048;
 
 /** How one goal was actually turned into clauses — reported to the UI verbatim. */
 export interface Parsing {
@@ -77,7 +83,7 @@ export async function normalizeGoal(
     const client = new Anthropic({ timeout: 12_000, maxRetries: 1 });
     const response = await client.messages.create({
       model,
-      max_tokens: 300,
+      max_tokens: MAX_TOKENS,
       system: `You translate infrastructure requests into a strict command grammar for a deployment tool. Output ONLY the translated command string — no explanations, no quotes, no markdown. Preserve the user's intent exactly; do not add steps they did not ask for. If part of the request has no matching clause, carry that fragment through verbatim so the tool can flag it.\n\n${GRAMMAR}`,
       messages: [
         {
@@ -86,11 +92,20 @@ export async function normalizeGoal(
         },
       ],
     });
-    if ((response.stop_reason as string) === "refusal")
+    if (response.stop_reason === "refusal")
       return {
         text: goal,
         usedLlm: false,
         fallbackReason: `${model} declined to translate this goal, so it was read by the deterministic parser instead.`,
+      };
+    // A truncated grammar string is not a shorter plan — it is a different one
+    // ("deploy to production" cut to "deploy to prod" still parses). Never
+    // hand a cut-off translation to the planner.
+    if (response.stop_reason === "max_tokens")
+      return {
+        text: goal,
+        usedLlm: false,
+        fallbackReason: `${model} hit the ${MAX_TOKENS}-token limit before it finished translating, so the truncated command was discarded and the goal was read by the deterministic parser instead.`,
       };
     const text = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")

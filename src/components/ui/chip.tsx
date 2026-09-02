@@ -26,15 +26,25 @@ export interface ChipProps {
   tone?: ChipTone;
   icon?: ReactNode;
   title?: string;
+  /** set by `<Tooltip>` when a chip is its trigger; harmless otherwise */
+  "aria-describedby"?: string;
   className?: string;
   children: ReactNode;
 }
 
 /** Small labelled pill: environment class, provider availability, counts. */
-export function Chip({ tone = "neutral", icon, title, className, children }: ChipProps) {
+export function Chip({
+  tone = "neutral",
+  icon,
+  title,
+  className,
+  children,
+  "aria-describedby": describedBy,
+}: ChipProps) {
   return (
     <span
       title={title}
+      aria-describedby={describedBy}
       className={cx(
         "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5",
         "text-[11.5px] leading-5 font-medium tracking-[0.01em] whitespace-nowrap",

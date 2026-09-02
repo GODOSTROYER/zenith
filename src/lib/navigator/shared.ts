@@ -5,21 +5,23 @@
  * store, and therefore `node:fs`), so anything the browser needs to know about
  * a run lives here instead.
  */
-import type { AutonomyLevel } from "@/lib/domain/types";
+import type { AutonomyLevel, Member, NavigatorStep } from "@/lib/domain/types";
 import type { Risk } from "@/lib/actions/core";
 
 /* ------------------------------ pseudo actions ----------------------------- */
 
-/** Read-only analysis of the latest failure. Executed by the Navigator itself. */
-export const INVESTIGATE = "_investigate";
+/**
+ * Read-only analysis of the latest failure. A registered action like any
+ * other — the planner names it here so the approval rules can recognise it.
+ */
+export const INVESTIGATE = "ops.investigate";
 /** A step whose subject could not be resolved. Never executable. */
 export const BLOCKED = "_blocked";
 /** A fragment of the goal the planner did not understand. Never executable. */
 export const CLARIFY = "_clarify";
 
-/** True for steps that can actually run (registered actions + investigate). */
-export const isExecutable = (actionId: string): boolean =>
-  actionId === INVESTIGATE || !actionId.startsWith("_");
+/** True for steps that call a registered action; the `_` ids never can. */
+export const isExecutable = (actionId: string): boolean => !actionId.startsWith("_");
 
 /* ------------------------------- autonomy dial ----------------------------- */
 
@@ -58,3 +60,41 @@ export function autonomyBlock(level: AutonomyLevel, risk: Risk): string | undefi
 /** Nothing at all can run at these levels. */
 export const canExecuteAtAll = (level: AutonomyLevel): boolean =>
   level !== "observe" && level !== "plan";
+
+/**
+ * Why the Navigator may not turn a goal into a plan. Observe is the one notch
+ * whose promise is about planning rather than executing — "never plans" — so
+ * `createRun` refuses there and the command bar says this before you type.
+ */
+export function planBlock(level: AutonomyLevel): string | undefined {
+  return level === "observe"
+    ? "Autonomy is set to observe — the Navigator explains and suggests, and never plans. Raise the dial to plan and it will turn goals into steps you can read (it still executes nothing at that level)."
+    : undefined;
+}
+
+/* --------------------------------- roles ---------------------------------- */
+
+export type WorkspaceRole = Member["role"];
+
+const ROLE_RANK: Record<WorkspaceRole, number> = { viewer: 0, editor: 1, admin: 2 };
+
+export const hasRole = (role: WorkspaceRole, needed: WorkspaceRole): boolean =>
+  ROLE_RANK[role] >= ROLE_RANK[needed];
+
+/**
+ * Why this person's workspace role forbids running this plan — the same rule
+ * `executeRun` applies against the registry, said before the click instead of
+ * after it. `requiredRole` is recorded on the step at plan time; a step
+ * without one is left to the server, which is the authority either way.
+ */
+export function roleBlock(
+  steps: NavigatorStep[],
+  role: WorkspaceRole | null | undefined
+): string | undefined {
+  if (!role) return undefined;
+  for (const step of steps) {
+    if (!step.requiredRole || hasRole(role, step.requiredRole)) continue;
+    return `Step ${step.seq} — ${step.title} — needs the ${step.requiredRole} role and you are ${role} in this workspace. The Navigator runs with your permissions, not its own: ask an admin for the ${step.requiredRole} role, or leave that step unapproved and run the rest.`;
+  }
+  return undefined;
+}

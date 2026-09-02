@@ -34,6 +34,7 @@ import {
   Input,
   SegmentedControl,
   Skeleton,
+  Textarea,
   ThemeToggle,
   type ChipTone,
 } from "@/components/ui";
@@ -87,13 +88,23 @@ const AVAILABILITY_NOTE: Record<ProviderInfo["availability"], string> = {
 /**
  * What a provider needs from the machine it runs against, when that is not
  * Orrery itself. Availability says the adapter works; it cannot say your
- * Docker is running — and nothing here probes it yet, so the card says so
- * rather than implying it checked.
+ * Docker is running. Providers listed here are probed on render through
+ * GET /api/providers/:id/health, so the card reports what it found instead of
+ * promising an end-to-end deploy the machine cannot do.
  */
 const PROVIDER_PREREQUISITE: Record<string, string> = {
   localstack:
-    "Needs LocalStack listening on localhost:4566 (Docker Desktop running, then `localstack start`). Orrery does not check that until it creates the connection on the last step — if it is down, that step tells you and creates nothing else.",
+    "Needs LocalStack listening on localhost:4566 (Docker Desktop running, then `localstack start`).",
 };
+
+/** GET /api/providers/:id/health */
+interface ProviderHealth {
+  ok: boolean;
+  checks: { id: string; label: string; status: string; detail?: string; fix?: string }[];
+  probe?: { reachable: boolean; detail?: string; fix?: string };
+  availability: ProviderInfo["availability"];
+  displayName: string;
+}
 
 /** Why a provider cannot be picked. Only ever called for non-available ones. */
 function notSelectableReason(p: ProviderInfo): string {
@@ -460,24 +471,49 @@ function StepProvider({
   const selectable = providers.filter((p) => p.availability === "available");
   const rest = providers.filter((p) => p.availability !== "available");
 
+  // A provider with a prerequisite is probed before it can be picked, so
+  // "deploys run end to end" is a claim about this machine, not about the
+  // adapter. Only one provider has a prerequisite today, so one call does it.
+  const probeId = selectable.find((p) => PROVIDER_PREREQUISITE[p.id])?.id;
+  const health = useJson<ProviderHealth>(
+    probeId ? `/api/providers/${encodeURIComponent(probeId)}/health` : null
+  );
+  const probing = Boolean(probeId) && health.loading;
+  const reachable = Boolean(health.data?.ok);
+  /** null when the provider is fine (or has no prerequisite); a sentence otherwise. */
+  const unreachable = (id: string): string | null => {
+    if (id !== probeId || probing || reachable) return null;
+    const from =
+      health.data?.probe?.fix ??
+      health.data?.checks.find((c) => c.status !== "pass")?.fix ??
+      health.error?.fix;
+    return `Not reachable: ${from ?? PROVIDER_PREREQUISITE[id] ?? "start it and reload this page."}`;
+  };
+
   const [picked, setPicked] = useState<string>("");
+
+  /** Available, and — where that depends on this machine — actually up. */
+  const pickable = selectable.filter((p) => p.id !== probeId || (!probing && reachable));
 
   // The default is a real selection in state, not a render-time fallback, so
   // the card that looks chosen is the one aria-checked reports and the one the
-  // Continue button names.
-  const firstId = selectable[0]?.id;
+  // Continue button names. A provider that turns out to be down drops the
+  // selection rather than leaving a card that cannot be used looking chosen.
+  const firstId = pickable[0]?.id;
+  const pickedGone = picked !== "" && !pickable.some((p) => p.id === picked);
   useEffect(() => {
     if (!picked && firstId) setPicked(firstId);
-  }, [picked, firstId]);
+    else if (pickedGone) setPicked(firstId ?? "");
+  }, [picked, firstId, pickedGone]);
 
-  const chosen = selectable.find((p) => p.id === picked);
+  const chosen = pickable.find((p) => p.id === picked);
   const existing = connections.find((c) => c.provider === chosen?.id);
 
   /** Arrow keys move the selection inside the group, as radios do. */
   const move = (dir: 1 | -1) => {
-    if (selectable.length === 0) return;
-    const at = selectable.findIndex((p) => p.id === picked);
-    const next = selectable[(at + dir + selectable.length) % selectable.length];
+    if (pickable.length === 0) return;
+    const at = pickable.findIndex((p) => p.id === picked);
+    const next = pickable[(at + dir + pickable.length) % pickable.length];
     if (!next) return;
     setPicked(next.id);
     document.querySelector<HTMLElement>(`[data-provider="${CSS.escape(next.id)}"]`)?.focus();
@@ -501,6 +537,9 @@ function StepProvider({
             const active = p.id === chosen?.id;
             const conn = connections.find((c) => c.provider === p.id);
             const prerequisite = PROVIDER_PREREQUISITE[p.id];
+            const down = unreachable(p.id);
+            const checking = p.id === probeId && probing;
+            const off = Boolean(down) || checking;
             return (
               <button
                 key={p.id}
@@ -508,6 +547,9 @@ function StepProvider({
                 role="radio"
                 data-provider={p.id}
                 aria-checked={active}
+                aria-disabled={off || undefined}
+                disabled={off}
+                title={down ?? (checking ? "Checking whether it is reachable…" : undefined)}
                 tabIndex={active ? 0 : -1}
                 onKeyDown={(e) => {
                   if (e.key === "ArrowDown" || e.key === "ArrowRight") {
@@ -518,12 +560,13 @@ function StepProvider({
                     move(-1);
                   }
                 }}
-                onClick={() => setPicked(p.id)}
+                onClick={() => !off && setPicked(p.id)}
                 className={cx(
                   "block w-full rounded-card border p-5 text-left transition-colors duration-[var(--dur-fast)]",
                   active
                     ? "border-signal/50 bg-bg2 ring-1 ring-signal/20 hover:border-signal"
-                    : "border-line bg-bg1 hover:border-line-strong"
+                    : "border-line bg-bg1 hover:border-line-strong",
+                  off && "cursor-not-allowed opacity-70"
                 )}
               >
                 <div className="flex items-start justify-between gap-4">
@@ -546,13 +589,27 @@ function StepProvider({
                       </p>
                     )}
                     {prerequisite && (
-                      <p className="mt-1.5 max-w-[60ch] text-[12.5px] leading-relaxed text-ink-faint">
-                        {prerequisite}
+                      <p
+                        role={p.id === probeId ? "status" : undefined}
+                        className={cx(
+                          "mt-1.5 max-w-[60ch] text-[12.5px] leading-relaxed",
+                          down ? "text-err" : "text-ink-faint"
+                        )}
+                      >
+                        {checking ? `Checking ${p.displayName}…` : (down ?? prerequisite)}
                       </p>
                     )}
                   </div>
-                  <Chip tone="ok" icon={<Check className="h-3 w-3" />}>
-                    Available
+                  <Chip
+                    tone={checking ? "neutral" : down ? "err" : "ok"}
+                    icon={down || checking ? undefined : <Check className="h-3 w-3" />}
+                    title={
+                      p.id === probeId
+                        ? "Checked against this machine just now, not just against the adapter."
+                        : undefined
+                    }
+                  >
+                    {checking ? "Checking…" : down ? "Not reachable" : "Available"}
                   </Chip>
                 </div>
               </button>
@@ -616,7 +673,13 @@ function StepProvider({
         </Button>
         <Button
           disabled={!chosen}
-          disabledReason="No provider reports itself available in this build, so there is nothing to deploy through."
+          disabledReason={
+            probing
+              ? "Still checking whether the available provider is reachable from this machine."
+              : selectable.length > 0
+                ? "The provider that reports itself available is not reachable from this machine. Start it and reload, or pick another once one ships."
+                : "No provider reports itself available in this build, so there is nothing to deploy through."
+          }
           onClick={() =>
             chosen &&
             onNext({
@@ -1016,8 +1079,9 @@ function StepSystem({
               below, and nothing is read from your disk again.
             </p>
           )}
-          <textarea
+          <Textarea
             id="import-source"
+            mono
             value={source}
             onChange={(e) => {
               setSource(e.target.value);
@@ -1025,7 +1089,7 @@ function StepSystem({
             }}
             spellCheck={false}
             placeholder={spec.placeholder}
-            className="h-[320px] w-full resize-y rounded-card border border-line bg-bg1 p-3 font-mono text-[13px] leading-[1.6] text-ink outline-none placeholder:text-ink-faint focus-visible:border-signal"
+            className="h-[320px]"
           />
           {oversize && (
             <p className="text-[12.5px] text-err">

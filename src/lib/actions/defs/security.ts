@@ -162,3 +162,67 @@ defineAction<DismissInput>({
     };
   },
 });
+
+const ReopenInput = z.object({ findingId: z.string().min(1) });
+type ReopenInput = z.infer<typeof ReopenInput>;
+
+/**
+ * The way back out of a dismissal. Only a dismissal can be reopened: every
+ * other status is the scanner's to decide — anything it still detects is
+ * reported open on the next sync without asking anyone.
+ */
+defineAction<ReopenInput>({
+  id: "security.reopenFinding",
+  title: "Reopen finding",
+  category: "operations",
+  risk: "low",
+  requiredRole: "editor",
+  mutates: true,
+  input: ReopenInput,
+  plan(_ctx, input) {
+    const f = requireFinding(input.findingId);
+    const who = f.resolvedBy?.name ?? "someone";
+    return {
+      summary: `Reopen "${f.title}" (${f.severity}).`,
+      details: [
+        f.detail,
+        f.resolvedReason
+          ? `Dismissed by ${who}: “${f.resolvedReason}”.`
+          : `Dismissed by ${who}.`,
+        "The dismissal stays in the audit log. The finding counts as open again and its fix, if it has one, comes back.",
+      ],
+      costDeltaUsd: 0,
+      risk: "low",
+      warnings: [],
+      requiresApproval: false,
+      blocked:
+        f.status === "dismissed"
+          ? undefined
+          : `"${f.title}" is ${f.status}, not dismissed — there is no dismissal to undo. The scanner reopens anything it still detects on its own.`,
+    };
+  },
+  execute(ctx, input) {
+    const f = requireFinding(input.findingId);
+    if (f.status !== "dismissed")
+      return {
+        ok: false,
+        summary: `"${f.title}" is ${f.status}, not dismissed.`,
+        error:
+          "Only a dismissed finding can be reopened. Reload the Security page — the scanner reopens anything it still detects on its own.",
+      };
+    const reason = f.resolvedReason;
+    f.status = "open";
+    delete f.resolvedAt;
+    delete f.resolvedBy;
+    delete f.resolvedReason;
+    delete f.fixedInRevisionId;
+    save();
+    return {
+      ok: true,
+      summary: reason
+        ? `Reopened "${f.title}". The dismissal (“${reason}”) stays in the audit log.`
+        : `Reopened "${f.title}".`,
+      data: { findingId: f.id, status: f.status, reopenedBy: ctx.actor.id },
+    };
+  },
+});

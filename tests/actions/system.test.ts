@@ -8,6 +8,9 @@ import type { ActionContext } from "@/lib/actions/core";
 // scratch directory before anything pulls it in.
 const DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-test-"));
 process.env.ORRERY_DATA = DATA;
+// This suite is the UNCONFIGURED secret store: explicit, so a developer with
+// the variable exported in their shell gets the same run as CI.
+delete process.env.ORRERY_SECRET_KEY;
 
 const { runAction } = await import("@/lib/actions/core");
 const { flush, readAudit, resetDb, q } = await import("@/lib/db/store");
@@ -70,6 +73,13 @@ describe("system.* actions round-trip the working manifest", () => {
     expect(entry.value).toBeUndefined();
   });
 
+  /*
+   * This file runs with no ORRERY_SECRET_KEY (see the top), which is the
+   * unconfigured store — the state most installs start in. Its promise is that
+   * nothing half-works: a value is refused rather than accepted and dropped,
+   * the refusal names the variable and how to make a key, and no value is ever
+   * lost on the way. `tests/secrets/store.test.ts` is the configured half.
+   */
   it("refuses a secret VALUE rather than accepting and discarding it", async () => {
     const { result } = await runAction(
       "system.setSecret",
@@ -78,9 +88,13 @@ describe("system.* actions round-trip the working manifest", () => {
       { mode: "execute" }
     );
     expect(result!.ok).toBe(false);
-    expect(result!.error).toMatch(/no secret store/i);
-    expect(result!.error).toMatch(/secretRef/);
+    expect(result!.error).toMatch(/secret store is not configured/i);
+    // The refusal is only useful if it names the variable and how to make one.
+    expect(result!.error).toMatch(/ORRERY_SECRET_KEY/);
+    expect(result!.error).toMatch(/openssl rand -base64 32/);
+    expect(result!.error).toMatch(/secretRef/); // the path that still works
     expect(JSON.stringify(manifest())).not.toContain("sk_live_do_not_store");
+    expect(manifest().services.find((s) => s.name === "api")!.env.some((e) => e.key === "SENDGRID_KEY")).toBe(false);
     // and the plan says so up front, so the control is disabled not dead
     const { plan } = await runAction(
       "system.setSecret",
@@ -88,7 +102,8 @@ describe("system.* actions round-trip the working manifest", () => {
       { serviceId: "api", key: "SENDGRID_KEY", secretValue: "sk_live_do_not_store" },
       { mode: "plan" }
     );
-    expect(plan!.blocked).toMatch(/no secret store/i);
+    expect(plan!.blocked).toMatch(/secret store is not configured/i);
+    expect(JSON.stringify(plan)).not.toContain("sk_live_do_not_store");
   });
 
   it("never replaces an existing plaintext value with a reference — that would delete it", async () => {
@@ -103,6 +118,41 @@ describe("system.* actions round-trip the working manifest", () => {
     expect(result!.error).toMatch(/delete the only copy/i);
     const api = manifest().services.find((s) => s.name === "api")!;
     expect(api.env.find((e) => e.key === "LEGACY_ENDPOINT")!.value).toBe("https://issuer.test/t");
+  });
+
+  it("will not move a value into a store that does not exist, and leaves it untouched", async () => {
+    const { result } = await runAction(
+      "system.setSecret",
+      pctx(),
+      { serviceId: "api", key: "LEGACY_ENDPOINT", moveExistingValue: true },
+      { mode: "execute" }
+    );
+    expect(result!.ok).toBe(false);
+    expect(result!.error).toMatch(/secret store is not configured/i);
+    expect(result!.error).toMatch(/would delete the only copy/i);
+    expect(result!.error).toMatch(/ORRERY_SECRET_KEY/);
+    const api = manifest().services.find((s) => s.name === "api")!;
+    expect(api.env.find((e) => e.key === "LEGACY_ENDPOINT")!.value).toBe("https://issuer.test/t");
+  });
+
+  it("refuses to rotate when there is no store, naming the variable", async () => {
+    await exec("system.setSecret", { serviceId: "api", key: "MAILER_TOKEN" }, pctx());
+    const { result } = await runAction(
+      "system.rotateSecret",
+      pctx(),
+      { serviceId: "api", key: "MAILER_TOKEN", secretValue: "sk_live_rotate_nowhere" },
+      { mode: "execute" }
+    );
+    expect(result!.ok).toBe(false);
+    expect(result!.error).toMatch(/ORRERY_SECRET_KEY/);
+    const row = readAudit({ projectId }).find((r) => r.actionId === "system.rotateSecret")!;
+    expect(JSON.stringify(row.input)).not.toContain("sk_live_rotate_nowhere");
+  });
+
+  it("still removes a reference when the store is off", async () => {
+    await exec("system.removeSecret", { serviceId: "api", key: "MAILER_TOKEN" }, pctx());
+    const api = manifest().services.find((s) => s.name === "api")!;
+    expect(api.env.some((e) => e.key === "MAILER_TOKEN")).toBe(false);
   });
 
   it("refuses a plain env var that looks like a secret, and names the fix", async () => {

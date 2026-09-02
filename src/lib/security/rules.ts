@@ -93,14 +93,28 @@ export function analyze(
         id: stableId("plaintext_secret", `${s.id}:${e.key}`),
         severity: "high",
         title: `${s.name}.${e.key} is stored in plain text`,
-        detail: `${e.key} looks like a credential but its value lives in the manifest, which means it is in every revision, every export and every audit snapshot of this project.`,
+        detail:
+          `${e.key} looks like a credential but its value lives in the manifest, which means it is in every revision, every export and every audit snapshot of this project. ` +
+          `The fix moves the value into Orrery's secret store — encrypted, out of the manifest — and leaves the reference vault:${e.key} behind, in one action. ` +
+          `Revisions already written keep the old plaintext, so rotate the credential at its source if it may have been seen.`,
         targetId: s.id,
+        // `moveExistingValue` is what makes this real: the action reads the
+        // value currently in the working copy, stores it, and swaps in the
+        // reference — writing the store first, so a failure leaves the
+        // plaintext exactly where it is. When the store is unconfigured the
+        // plan comes back blocked, naming ORRERY_SECRET_KEY and how to make
+        // one; nothing is destroyed on any path.
+        //
+        // The rule engine deliberately does NOT ask whether the store is
+        // configured: `analyze` is pure and its output is cached by content
+        // hash, so an env-dependent answer here would go stale. The plan is
+        // computed on click and is always current.
         fix: {
           actionId: "system.setSecret",
           input: {
             serviceId: s.id,
             key: e.key,
-            secretRef: `${s.name}/${e.key.toLowerCase()}`,
+            moveExistingValue: true,
           },
           label: "Move to the secret store",
         },

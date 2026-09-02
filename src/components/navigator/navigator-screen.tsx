@@ -24,11 +24,13 @@ import type {
 } from "@/lib/domain/types";
 import type { Parsing } from "@/lib/navigator/llm";
 import {
+  cancelRunAction,
   createRunAction,
   executeRunAction,
   plannerInfoAction,
   type PlannerInfo,
 } from "@/lib/navigator/server-actions";
+import { planBlock, type WorkspaceRole } from "@/lib/navigator/shared";
 import { AutonomyDial } from "./autonomy-dial";
 import { CommandBar } from "./command-bar";
 import { NavigatorGlyph } from "./glyph";
@@ -56,6 +58,8 @@ export function NavigatorScreen({
   const { project, environments, findings, deployments, refresh } = useProjectData();
   const shell = useShell();
   const autonomy: AutonomyLevel = shell.boot?.settings.autonomy ?? "approve";
+  // null in demo mode (no auth configured), where the local actor is admin.
+  const role = shell.boot?.role ?? null;
 
   const [goal, setGoal] = useState("");
   const [run, setRun] = useState<NavigatorRun>();
@@ -63,6 +67,7 @@ export function NavigatorScreen({
   const [approvals, setApprovals] = useState<Set<string>>(new Set());
   const [planning, setPlanning] = useState(false);
   const [running, setRunning] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string>();
   const [planner, setPlanner] = useState<PlannerInfo>();
 
@@ -135,6 +140,24 @@ export function NavigatorScreen({
     refresh(); // costs, findings and deployments all move when a run lands
   }, [run, approvals, runs, refresh]);
 
+  // Cancelling is its own request: `execute` is still awaiting the executor in
+  // this tab, and the executor sees the new status between steps.
+  const cancel = useCallback(async () => {
+    if (!shown) return;
+    setCancelling(true);
+    setError(undefined);
+    const res = await cancelRunAction(shown.id);
+    setCancelling(false);
+    if (res.error || !res.run) {
+      setError(`${res.error ?? "The run could not be cancelled."} ${res.fix ?? ""}`.trim());
+      return;
+    }
+    // A run that was only awaiting approval is finished now; one mid-flight is
+    // still writing its last step, and the poll above picks that up.
+    if (res.run.status !== "executing") setRun(res.run);
+    runs.refresh();
+  }, [shown, runs]);
+
   const toggleApprove = useCallback((stepId: string, on: boolean) => {
     setApprovals((prev) => {
       const next = new Set(prev);
@@ -153,6 +176,7 @@ export function NavigatorScreen({
         plannerMode={plannerMode}
         model={planner?.model}
         workspaceName={shell.boot?.workspace.name}
+        role={role}
       />
 
       <Advisories
@@ -163,7 +187,13 @@ export function NavigatorScreen({
         onSuggest={setGoal}
       />
 
-      <CommandBar value={goal} onChange={setGoal} onSubmit={plan} busy={planning} />
+      <CommandBar
+        value={goal}
+        onChange={setGoal}
+        onSubmit={plan}
+        busy={planning}
+        disabledReason={planBlock(autonomy)}
+      />
 
       {error && (
         <p className="rounded-ctl border border-err/30 bg-err-dim px-3 py-2 text-[12.5px] text-err">
@@ -183,6 +213,9 @@ export function NavigatorScreen({
           onToggleApprove={toggleApprove}
           onRun={execute}
           running={running}
+          onCancel={cancel}
+          cancelling={cancelling}
+          role={role}
           onSuggest={setGoal}
           prodEnvIds={prodEnvIds}
         />
@@ -228,6 +261,7 @@ function Header({
   plannerMode,
   model,
   workspaceName,
+  role,
 }: {
   autonomy: AutonomyLevel;
   onAutonomyChanged: () => void;
@@ -236,6 +270,7 @@ function Header({
   /** the model configured to translate goals, once the server has named it */
   model?: string;
   workspaceName?: string;
+  role: WorkspaceRole | null;
 }) {
   return (
     <header className="space-y-4">
@@ -278,6 +313,7 @@ function Header({
           level={autonomy}
           onChanged={onAutonomyChanged}
           workspaceName={workspaceName}
+          role={role}
         />
       )}
     </header>

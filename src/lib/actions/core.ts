@@ -203,7 +203,7 @@ export async function runAction(
       return {
         plan: {
           // Summary text is load-bearing: components/inspector/logic.ts
-          // string-matches it (INVALID_PLAN_SUMMARY) until it reads `blocked`.
+          // reads `blocked` and shows the schema errors as the reason.
           summary: "Invalid input.",
           details: [msg],
           costDeltaUsd: 0,

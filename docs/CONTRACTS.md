@@ -54,32 +54,70 @@ Base: `/api`. JSON in/out. Errors: `{ error: { message, fix? } }` + proper statu
 - `GET  /api/deployments/:id` → deployment snapshot
 - `GET  /api/deployments/:id/events?after=SEQ` → **SSE** stream (replay then tail; heartbeat every 15s)
 - `GET  /api/projects/:id/audit?limit=50` → audit feed
+- `GET  /api/projects/:id/alerts?env=ID` → `{ rules, kinds, events, open, recent, simulated, generatedBy, evaluatedAt, evaluationIntervalMs, delivery }` — `events` is open alerts first then recent closed ones; `kinds` is the evaluator's own catalog (title, what it watches, threshold range) so UI copy cannot drift from what is evaluated. **Reading evaluates**: conditions are recomputed before the response, so the page never shows a stale answer. Idempotent — a burst of readers produces one record, not one each
+- `GET  /api/projects/:id/alerts/events?limit=50&cursor=&env=ID` → `{ events, nextCursor?, simulated }` — alert history, newest first; does not evaluate
 - `GET  /api/environments/:id/export` → export bundle as JSON `{ files, readme }`
 - `GET  /api/logs/:environmentId/:serviceId?after=SEQ` → SSE of synthetic app logs (sandbox provider generates)
 - `GET  /api/preview/health/:deploymentId` → sandbox health summary
+- `GET  /api/secrets?workspace=ID` → secret-store metadata (never a value)
 
 ## Action catalog (workstream B implements in `src/lib/actions/defs/`)
 
 IDs are dot-namespaced, stable, and referenced by UI + Navigator:
 
 `project.create`, `project.importCompose`, `project.applyBlueprint`,
-`project.updateManifest`,
+`project.updateManifest`, `project.delete`,
 `system.addService`, `system.updateService`, `system.removeService`,
 `system.addResource`, `system.updateResource`, `system.removeResource`,
 `system.addRoute`, `system.updateRoute`, `system.removeRoute`,
 `system.bind`, `system.unbind`,
-`system.setEnvVar`, `system.setSecret`,
+`system.setEnvVar`, `system.setSecret`, `system.rotateSecret`, `system.removeSecret`,
 `env.create`, `env.updatePolicies`, `env.setBudget`,
+`env.update` (rename + region), `env.clone`, `env.setConnection`, `env.delete`,
 `deploy.plan` (read-only → returns Changeset), `deploy.apply`, `deploy.approve`,
 `deploy.cancel`, `deploy.rollback`,
 `ops.restartService`, `ops.scaleService`,
-`security.resolveFinding`, `security.dismissFinding`,
+`security.resolveFinding`, `security.dismissFinding`, `security.reopenFinding`,
 `connection.create`, `connection.check`, `connection.disconnect`,
-`workspace.setAutonomy`, `workspace.rename`.
+`workspace.setAutonomy`, `workspace.rename`,
+`alerts.createRule`, `alerts.updateRule`, `alerts.deleteRule`, `alerts.acknowledge`.
 
 Rules: `deploy.apply` consults `env.policies.approvalRequired` → engine
 `awaiting_approval`; destructive manifest ops set risk accordingly; every
-`plan()` returns real cost deltas via `diffManifests`/pricing.
+`plan()` returns real cost deltas via `diffManifests`/pricing. `project.delete`
+and `env.delete` refuse while a deployment is in flight (`plan().blocked`), and
+their plans say what keeps running afterwards: both delete Orrery's records,
+never the infrastructure those records describe.
+
+### Secrets
+
+Orrery separates the two halves of a secret and never mixes them:
+
+| | where it lives | who sees it |
+| --- | --- | --- |
+| the reference (`vault:<KEY>`) | `service.env[].secretRef` in the manifest | diffs, revisions, audit, exports, the browser |
+| the value | `<ORRERY_DATA>/secrets.json`, AES-256-GCM under `ORRERY_SECRET_KEY` | this server process only |
+
+- `system.setSecret` (editor) — `{ serviceId, key, secretValue?, secretRef?, moveExistingValue? }`.
+  With `secretValue` it stores the value and writes only the reference. With
+  `moveExistingValue` it takes the key's current plaintext, stores it, and swaps
+  in the reference in one action — the store is written **before** the manifest
+  is committed, so a failure leaves the plaintext where it was. With neither, it
+  records a reference to a value you keep elsewhere.
+- `system.rotateSecret` (editor) — `{ secretRef } | { serviceId, key }` plus
+  `secretValue`. New value, same reference, `version + 1`. The manifest does not
+  change, so this is not a manifest action and its plan describes the store.
+- `system.removeSecret` (editor) — `{ serviceId, key }`. Removes the reference
+  **and** the stored value; the plan says the value is unrecoverable and that
+  running services keep their injected copy until redeploy.
+
+With no `ORRERY_SECRET_KEY` the store is *not configured*: every write is
+refused through `plan().blocked`, naming the variable and `openssl rand -base64
+32`. It never degrades to storing plaintext, and it never accepts a value it
+cannot keep. `GET /api/secrets?workspace=<id>` returns
+`{ configured, reason?, fix?, secrets: [{ ref, version, createdAt, createdBy,
+updatedAt, updatedBy, exists: true }] }` — metadata only. No route returns a
+value; the only reader of one is the deploy path, in-process.
 
 `requiredRole` is enforced on execute: `runAction` resolves the caller's
 workspace member role and refuses anything above it, writing a `denied` row to
@@ -87,6 +125,35 @@ the audit trail with copy that names who can grant the role. Planning stays
 open to every member, so anyone can see what an action would do before asking
 for it. A provider that cannot really apply (AWS Preview, the Planned stubs)
 refuses at plan time, before a revision is written.
+
+### Alerts (`src/lib/alerts/`)
+
+An `AlertRule` is a standing condition on one environment; an `AlertEvent` is
+the durable record that it was true. Both live in `Database` (`alertRules`,
+`alertEvents`) and are typed in `@/lib/domain/types`.
+
+- **Four kinds**, in `ALERT_KINDS` — that record is the only definition of what
+  a rule watches, its severity and its threshold range, and it ships on the
+  wire so the browser never keeps a second copy: `health_degraded`,
+  `deploy_failed`, `budget_exceeded` (threshold = percent of budget, default
+  100), `replicas_below` (threshold = minimum ready replicas, default 1).
+- **Same inputs as the screens.** Health and replicas come from `@/lib/logsim`,
+  cost from `@/lib/cost/pricing`, deployment outcomes from the durable
+  deployment records. An alert can never disagree with the health card above it.
+- **Derived, not remembered.** `evaluateRule` reads; only the event log is
+  stored, so a restart re-derives the same answer. No engine hook is needed —
+  a terminal deployment status is already a durable record.
+- **One open event per rule**, closed when the condition clears, when the rule
+  is disabled, or when it is deleted (with the reason on the event). Events
+  outlive their rule: deleting a rule keeps its history.
+- **Evaluated** every `EVALUATION_INTERVAL_MS` (15s) by an `unref`'d timer
+  started in `boot()`, which returns immediately when no rules exist and saves
+  only when the log changed; and again on every read of the alerts route.
+- **Delivery is in-product only.** There is no email, Slack or webhook path.
+  `useProjectAlerts` from `@/lib/client/alerts` is the delivery channel; every
+  plan and empty state says so. See docs/LIMITATIONS.md.
+- **Acknowledging is editor-level** and does not close an alert — it records
+  that a named person has seen it, so the shared record says somebody is on it.
 
 ### `probe()` — optional reachability
 

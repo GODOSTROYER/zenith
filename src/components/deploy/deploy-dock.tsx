@@ -24,6 +24,8 @@ export interface DeployDockProps {
    * space and centres over the map.
    */
   inspectorOpen?: boolean;
+  /** Deep link (?review=1): open on the changes review once, if anything is pending. */
+  openReview?: boolean;
 }
 
 /**
@@ -31,7 +33,12 @@ export interface DeployDockProps {
  * activation moment when it lands. One surface, so progress is never a toast
  * you can lose.
  */
-export function DeployDock({ onLiveTargets, onAddRoute, inspectorOpen = false }: DeployDockProps) {
+export function DeployDock({
+  onLiveTargets,
+  onAddRoute,
+  inspectorOpen = false,
+  openReview = false,
+}: DeployDockProps) {
   const { changesets, selectedEnvId, selectedEnv, deployments } = useProjectData();
   const [view, setView] = useState<View>({ at: "closed" });
   const [landedId, setLandedId] = useState<string | null>(null);
@@ -62,6 +69,15 @@ export function DeployDock({ onLiveTargets, onAddRoute, inspectorOpen = false }:
   useEffect(() => {
     setView({ at: "closed" });
   }, [selectedEnvId]);
+
+  // A deep link asked for the review: honour it once, only while there is
+  // something to review, and never over a running deployment.
+  const reviewOpened = useRef(false);
+  useEffect(() => {
+    if (!openReview || reviewOpened.current || pending === 0) return;
+    reviewOpened.current = true;
+    setView((v) => (v.at === "closed" ? { at: "review" } : v));
+  }, [openReview, pending]);
 
   // A deployment that is still running owns the dock, including after a refresh.
   useEffect(() => {

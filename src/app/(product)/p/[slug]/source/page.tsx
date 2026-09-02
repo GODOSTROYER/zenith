@@ -115,6 +115,7 @@ export default function SourcePage() {
             active={tab === "working"}
             json={workingJson}
             manifest={working}
+            manifestHash={data.manifestHash}
             projectId={projectId}
             slug={slug}
             onDirtyChange={setDirty}
@@ -149,6 +150,7 @@ function WorkingTab({
   active,
   json,
   manifest,
+  manifestHash,
   projectId,
   slug,
   onDirtyChange,
@@ -157,6 +159,8 @@ function WorkingTab({
   active: boolean;
   json: string;
   manifest: Manifest;
+  /** concurrency token for `json` — travels with it, never apart from it */
+  manifestHash: string;
   projectId: string;
   slug: string;
   onDirtyChange: (dirty: boolean) => void;
@@ -179,12 +183,31 @@ function WorkingTab({
   // keep what is typed and say so rather than silently losing either version.
   const [seen, setSeen] = useState(json);
   const [movedWhileEditing, setMovedWhileEditing] = useState(false);
+  /**
+   * The token for the copy `text` started from — deliberately NOT updated when
+   * the working copy moves under an edit, because that stale value is exactly
+   * what makes the server refuse the overwrite.
+   */
+  const [baseHash, setBaseHash] = useState(manifestHash);
   if (seen !== json) {
     const editing = text !== seen;
     setSeen(json);
     if (editing) setMovedWhileEditing(true);
-    else setText(json);
+    else {
+      setText(json);
+      setBaseHash(manifestHash);
+    }
   }
+
+  /** Take the saved copy as the new starting point — text and token together. */
+  const loadTheirs = useCallback(() => {
+    setText(json);
+    setBaseHash(manifestHash);
+    setMovedWhileEditing(false);
+  }, [json, manifestHash]);
+
+  /** This page knows the copy moved: reload/revert is the fix, not retrying. */
+  const staleSave = baseHash !== manifestHash;
 
   const dirty = text !== json;
   useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
@@ -291,7 +314,9 @@ function WorkingTab({
     try {
       setServerPlan(
         await planAction("project.updateManifest", {
-          input: { manifest: parse.manifest },
+          // Same token the save sends, so this preview is the real save's plan
+          // — including its refusal, if the copy moved under the editor.
+          input: { manifest: parse.manifest, expectedHash: baseHash },
           scope: { projectId },
         })
       );
@@ -334,14 +359,7 @@ function WorkingTab({
             The working copy changed while you were editing — a map edit, a Navigator run or
             another tab. Your text is untouched; saving it replaces theirs.
           </span>
-          <Button
-            size="sm"
-            variant="quiet"
-            onClick={() => {
-              setText(json);
-              setMovedWhileEditing(false);
-            }}
-          >
+          <Button size="sm" variant="quiet" onClick={loadTheirs}>
             Discard mine, load theirs
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setMovedWhileEditing(false)}>
@@ -353,11 +371,7 @@ function WorkingTab({
       {mode === "read" ? (
         <CodeBlock code={json} title="orrery.manifest.json" lineNumbers maxHeight={560} />
       ) : (
-        <EditorBoundary
-          onRestore={() => {
-            setText(json);
-          }}
-        >
+        <EditorBoundary onRestore={loadTheirs}>
           <div className="space-y-4">
             {/*
               A textarea with a line-number gutter — no editor dependency, on
@@ -429,7 +443,7 @@ function WorkingTab({
                 variant="ghost"
                 disabled={!dirty}
                 disabledReason="The text already matches the working copy."
-                onClick={() => setText(json)}
+                onClick={loadTheirs}
               >
                 Revert
               </Button>
@@ -498,7 +512,11 @@ function WorkingTab({
                   </Button>
                 </div>
                 {planError ? <ErrorNote error={planError} /> : null}
-                {serverPlan && (
+                {serverPlan?.blocked ? (
+                  <p role="alert" className="text-err">
+                    {serverPlan.blocked}
+                  </p>
+                ) : serverPlan ? (
                   <div role="status" className="space-y-1">
                     <p className={costDisagrees ? "text-warn" : "text-ink"}>
                       {costDisagrees
@@ -512,7 +530,7 @@ function WorkingTab({
                       </p>
                     ))}
                   </div>
-                )}
+                ) : null}
               </div>
             )}
 
@@ -521,25 +539,60 @@ function WorkingTab({
               onClose={() => setConfirmOpen(false)}
               actionId="project.updateManifest"
               /*
-               * SEAM (S2, next wave): once project.updateManifest accepts
-               * `expectedHash`, send the hash of the manifest this text was
-               * loaded from so a save that raced another writer is refused
-               * instead of overwriting them. The banner above already covers
-               * the case this page can see; the hash covers the one it cannot.
+               * The hash of the copy this text was loaded from. A save that
+               * raced another writer is refused instead of overwriting them —
+               * the banner above covers the case this page can see, the token
+               * covers the one it cannot.
                */
-              input={parse.kind === "ok" ? { manifest: parse.manifest } : undefined}
+              input={
+                parse.kind === "ok"
+                  ? { manifest: parse.manifest, expectedHash: baseHash }
+                  : undefined
+              }
               scope={{ projectId }}
               title="Save manifest source"
               description="Replaces the working copy. Nothing deploys until you review and apply the pending changes."
               confirmLabel="Save changes"
               danger={Boolean(changeset?.items.some((i) => i.risk === "high"))}
+              blockedFix={
+                staleSave ? (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="quiet"
+                      onClick={() => {
+                        setConfirmOpen(false);
+                        loadTheirs();
+                      }}
+                    >
+                      Discard my edits, load the saved copy
+                    </Button>
+                    {/* Rebasing the token re-plans this save against the copy
+                        that is there now — the preview above updates in place. */}
+                    <Button
+                      size="sm"
+                      variant="quiet"
+                      onClick={() => setBaseHash(manifestHash)}
+                    >
+                      Keep my text and overwrite it
+                    </Button>
+                  </>
+                ) : undefined
+              }
               onDone={(result) => {
-                if (result.ok) {
-                  setConfirmOpen(false);
-                  setMovedWhileEditing(false);
-                  setMode("read");
-                  refresh();
-                }
+                if (!result.ok || parse.kind !== "ok") return;
+                // The save is the new baseline: adopt the text just stored and
+                // the token the server handed back, so the next poll is not
+                // mistaken for someone else moving the copy underneath.
+                const saved = JSON.stringify(parse.manifest, null, 2);
+                const next = (result.data as { manifestHash?: string } | undefined)?.manifestHash;
+                setText(saved);
+                setSeen(saved);
+                if (next) setBaseHash(next);
+                setConfirmOpen(false);
+                setMovedWhileEditing(false);
+                setMode("read");
+                refresh();
               }}
             />
           </div>

@@ -16,7 +16,8 @@ export interface ProviderInfo {
   displayName: string;
   availability: "available" | "preview" | "planned";
   tagline: string;
-  regions: string[];
+  /** exactly what the bootstrap route sends — adapters carry id + label */
+  regions: { id: string; label: string }[];
 }
 
 /** Exactly what GET /api/bootstrap returns. */

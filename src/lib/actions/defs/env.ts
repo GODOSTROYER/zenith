@@ -6,13 +6,14 @@
  * one.
  */
 import { z } from "zod";
-import { defineAction } from "@/lib/actions/core";
+import { defineAction, type ActionContext } from "@/lib/actions/core";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { db, q, save } from "@/lib/db/store";
 import {
   EnvironmentClass,
   id,
   type CloudConnection,
+  type Deployment,
   type Environment,
   type Project,
 } from "@/lib/domain/types";
@@ -54,6 +55,33 @@ export function connectionLabel(conn: CloudConnection): string {
   const adapter = providerRegistry().get(conn.provider);
   if (!adapter) return `${conn.provider} (${conn.region})`;
   return `${adapter.displayName} (${conn.region}) — ${adapter.availability}: ${adapter.tagline.replace(/\.$/, "")}`;
+}
+
+/* ------------------------------ shared guards ----------------------------- */
+
+/** Statuses where the engine still owns the environment. */
+const IN_FLIGHT: Deployment["status"][] = [
+  "planning",
+  "awaiting_approval",
+  "applying",
+  "verifying",
+  "rolling_back",
+];
+
+/**
+ * The deployment currently occupying an environment, if any. Every action that
+ * changes what an environment *is* asks this first, so a rename or a delete
+ * can never land underneath a running deploy.
+ */
+export function inFlight(environmentId: string): Deployment | undefined {
+  return q.deploymentsOf(environmentId).find((d) => IN_FLIGHT.includes(d.status));
+}
+
+/** "revision 4" when an environment is running one, else undefined. */
+export function liveRevision(env: Environment): string | undefined {
+  if (!env.deployedRevisionId) return undefined;
+  const rev = q.revision(env.deployedRevisionId);
+  return rev ? `revision ${rev.number}` : "a revision Orrery no longer holds";
 }
 
 /* ------------------------------ env.create -------------------------------- */
@@ -281,6 +309,344 @@ defineAction<SetBudget>({
           ? `Budget removed from "${env.name}".`
           : `Budget for "${env.name}" set to ${usd(input.budgetUsdMonthly)}/month (estimates, checked at plan time).`,
       data: { environmentId: env.id, budgetUsdMonthly: env.policies.budgetUsdMonthly ?? null },
+    };
+  },
+});
+
+/* ------------------------------- env.update ------------------------------- */
+
+const UpdateEnv = z.object({
+  environmentId: z.string().optional(),
+  name: z.string().min(1).optional(),
+  region: z.string().optional(),
+});
+type UpdateEnv = z.infer<typeof UpdateEnv>;
+
+/**
+ * One reading of a rename/region change, shared by plan and execute so the
+ * refusal a plan shows is character-for-character the one execute would give.
+ */
+function envUpdate(ctx: ActionContext, input: UpdateEnv) {
+  const env = requireEnvironment(ctx, input.environmentId);
+  const project = requireProject(ctx, env.projectId);
+  const name = input.name?.trim();
+  const region = input.region?.trim();
+  const adapter = providerRegistry().get(q.connection(env.connectionId)?.provider ?? "sandbox");
+
+  const details: string[] = [];
+  const warnings: string[] = [];
+  let blocked: string | undefined;
+
+  const busy = inFlight(env.id);
+  if (busy)
+    blocked = `A deployment is ${busy.status} on ${env.name} right now. Wait for it to finish, or cancel it on the Deploys page, then try again.`;
+
+  if (name && name !== env.name) {
+    if (!blocked && q.environmentsOf(project.id).some((e) => e.id !== env.id && e.name === name))
+      blocked = `${project.name} already has an environment called "${name}". Pick another name.`;
+    const nextDomain = baseDomainFor(project, name, env.class);
+    details.push(`Renames "${env.name}" to "${name}".`);
+    if (nextDomain === env.baseDomain) {
+      details.push(
+        `Managed routes keep answering on ${env.baseDomain} — production hostnames follow the project slug, not the environment name.`
+      );
+    } else {
+      details.push(
+        `Managed routes move from ${env.baseDomain} to ${nextDomain} — at the next deploy, not now.`
+      );
+      if (env.deployedRevisionId)
+        warnings.push(
+          `${env.name} is running ${liveRevision(env)} and still answers on ${env.baseDomain}. The new hostnames exist only after you deploy again.`
+        );
+    }
+  }
+
+  if (region && region !== env.region) {
+    if (!blocked && adapter?.regions.length && !adapter.regions.some((r) => r.id === region))
+      blocked = `${adapter.displayName} has no region "${region}". Pick one of: ${adapter.regions.map((r) => r.id).join(", ")}.`;
+    details.push(`Changes the region from ${env.region} to ${region}.`);
+    warnings.push(
+      `Changing the region moves nothing that is already running. ${
+        env.deployedRevisionId
+          ? `${liveRevision(env)} stays where it was deployed until the next deploy.`
+          : "It applies from the next deploy."
+      }`
+    );
+  }
+
+  if (details.length === 0)
+    details.push("Nothing changes — the name and region sent are the ones already set.");
+  return { env, project, name, region, details, warnings, blocked };
+}
+
+defineAction<UpdateEnv>({
+  id: "env.update",
+  title: "Rename environment",
+  category: "environment",
+  risk: "medium",
+  requiredRole: "admin",
+  mutates: true,
+  input: UpdateEnv,
+  plan(ctx, input) {
+    const { env, details, warnings, blocked } = envUpdate(ctx, input);
+    return {
+      summary: `Update the "${env.name}" environment.`,
+      details,
+      costDeltaUsd: 0,
+      risk: "medium",
+      warnings,
+      requiresApproval: false,
+      blocked,
+    };
+  },
+  execute(ctx, input) {
+    const { env, project, name, region, blocked } = envUpdate(ctx, input);
+    if (blocked) return { ok: false, summary: `"${env.name}" was not changed.`, error: blocked };
+    const was = env.name;
+    if (name && name !== env.name) {
+      env.name = name;
+      env.baseDomain = baseDomainFor(project, name, env.class);
+    }
+    if (region) env.region = region;
+    save();
+    return {
+      ok: true,
+      summary:
+        name && name !== was
+          ? `Renamed "${was}" to "${env.name}". Managed routes use ${env.baseDomain} from the next deploy.`
+          : `Updated "${env.name}" — region ${env.region}, from the next deploy.`,
+      data: { environmentId: env.id, name: env.name, region: env.region, baseDomain: env.baseDomain },
+    };
+  },
+});
+
+/* -------------------------------- env.clone ------------------------------- */
+
+const CloneEnv = z.object({
+  environmentId: z.string().optional(),
+  name: z.string().min(1),
+});
+type CloneEnv = z.infer<typeof CloneEnv>;
+
+function envClone(ctx: ActionContext, input: CloneEnv) {
+  const src = requireEnvironment(ctx, input.environmentId);
+  const project = requireProject(ctx, src.projectId);
+  const name = slugify(input.name.trim(), src.class);
+  const connection = q.connection(src.connectionId);
+
+  let blocked: string | undefined;
+  if (q.environmentsOf(project.id).some((e) => e.name === name))
+    blocked = `${project.name} already has an environment called "${name}". Pick another name.`;
+  else if (!connection)
+    blocked = `${src.name} points at connection "${src.connectionId}", which no longer exists. Point it at another connection first, then clone it.`;
+
+  const env: Environment = {
+    id: id(),
+    projectId: project.id,
+    name,
+    class: src.class,
+    connectionId: src.connectionId,
+    region: src.region,
+    policies: { ...src.policies },
+    baseDomain: baseDomainFor(project, name, src.class),
+    createdAt: new Date().toISOString(),
+  };
+  return { src, project, env, connection, blocked };
+}
+
+defineAction<CloneEnv>({
+  id: "env.clone",
+  title: "Clone environment",
+  category: "environment",
+  risk: "low",
+  requiredRole: "editor",
+  mutates: true,
+  input: CloneEnv,
+  plan(ctx, input) {
+    const { src, project, env, connection, blocked } = envClone(ctx, input);
+    return {
+      summary: `Clone "${src.name}" into a new environment called "${env.name}".`,
+      details: [
+        `Copies ${src.name}: class, connection, region, budget and deploy policy — nothing else.`,
+        ...(connection ? envPlanDetails(project, env, connection) : []),
+        `Nothing is deployed to it. ${src.name} is running ${liveRevision(src) ?? "nothing"}; the clone stays empty until you deploy to it.`,
+      ],
+      costDeltaUsd: 0,
+      risk: "low",
+      warnings:
+        src.class === "production"
+          ? [
+              "The clone is a production environment: production defaults, production ring, real deploys. Create a staging environment instead if this is a rehearsal.",
+            ]
+          : [],
+      requiresApproval: false,
+      blocked,
+    };
+  },
+  execute(ctx, input) {
+    const { src, env, blocked } = envClone(ctx, input);
+    if (blocked) return { ok: false, summary: "Nothing was cloned.", error: blocked };
+    db().environments.push(env);
+    save();
+    return {
+      ok: true,
+      summary: `Cloned ${src.name} into "${env.name}" (${env.class}). Nothing is deployed to it yet.`,
+      data: { environmentId: env.id, name: env.name, baseDomain: env.baseDomain },
+    };
+  },
+});
+
+/* --------------------------- env.setConnection ---------------------------- */
+
+const SetConnection = z.object({
+  environmentId: z.string().optional(),
+  connectionId: z.string().min(1),
+});
+type SetConnection = z.infer<typeof SetConnection>;
+
+function envSetConnection(ctx: ActionContext, input: SetConnection) {
+  const env = requireEnvironment(ctx, input.environmentId);
+  const current = q.connection(env.connectionId);
+  const next = q.connection(input.connectionId);
+  const busy = inFlight(env.id);
+
+  let blocked: string | undefined;
+  if (!next || next.workspaceId !== ctx.workspaceId)
+    blocked = `Connection "${input.connectionId}" is not in this workspace. Pick one from Settings → Connections, or connect a cloud first.`;
+  else if (next.id === env.connectionId) blocked = `${env.name} already deploys through ${next.label}.`;
+  else if (busy)
+    blocked = `A deployment is ${busy.status} on ${env.name} right now. Wait for it to finish, or cancel it on the Deploys page, then move the environment.`;
+
+  const details: string[] = [];
+  const warnings: string[] = [];
+  if (next) {
+    const adapter = providerRegistry().get(next.provider);
+    details.push(
+      `${env.name} will deploy through ${connectionLabel(next)}.`,
+      `Anything already running through ${current?.label ?? "the previous connection"} keeps running. Orrery does not migrate it, copy it or delete it.`,
+      next.region === env.region
+        ? `The environment stays in ${env.region}.`
+        : `The environment's region stays ${env.region} while ${next.label} operates in ${next.region}. Change it with the rename form if they should match.`
+    );
+    if (adapter && adapter.availability !== "available")
+      warnings.push(
+        `${adapter.displayName} is ${adapter.availability}: Orrery plans and exports for it, but a deploy to ${env.name} will be refused until it is available.`
+      );
+    if (next.status !== "healthy")
+      warnings.push(
+        `${next.label} is ${next.status}. Deploys through it are refused until a check passes — run Check on the connection.`
+      );
+    if (env.deployedRevisionId)
+      warnings.push(
+        `${env.name} is running ${liveRevision(env)} through ${current?.label ?? "its old connection"}. The next deploy goes to ${next.label} and starts from nothing there.`
+      );
+  }
+  return { env, current, next, details, warnings, blocked };
+}
+
+defineAction<SetConnection>({
+  id: "env.setConnection",
+  title: "Move environment to another connection",
+  category: "environment",
+  risk: "medium",
+  requiredRole: "admin",
+  mutates: true,
+  input: SetConnection,
+  plan(ctx, input) {
+    const { env, next, details, warnings, blocked } = envSetConnection(ctx, input);
+    return {
+      summary: next
+        ? `Point "${env.name}" at ${next.label}.`
+        : `"${env.name}" cannot be pointed at that connection.`,
+      details,
+      costDeltaUsd: 0,
+      risk: "medium",
+      warnings,
+      requiresApproval: false,
+      blocked,
+    };
+  },
+  execute(ctx, input) {
+    const { env, next, blocked } = envSetConnection(ctx, input);
+    if (blocked || !next) return { ok: false, summary: `"${env.name}" was not moved.`, error: blocked };
+    env.connectionId = next.id;
+    save();
+    return {
+      ok: true,
+      summary: `${env.name} now deploys through ${next.label}. Nothing running was moved or deleted.`,
+      data: { environmentId: env.id, connectionId: next.id },
+    };
+  },
+});
+
+/* ------------------------------- env.delete ------------------------------- */
+
+const DeleteEnv = z.object({ environmentId: z.string().optional() });
+type DeleteEnv = z.infer<typeof DeleteEnv>;
+
+function envDelete(ctx: ActionContext, input: DeleteEnv) {
+  const env = requireEnvironment(ctx, input.environmentId);
+  const project = requireProject(ctx, env.projectId);
+  const siblings = q.environmentsOf(project.id).filter((e) => e.id !== env.id);
+  const deployments = q.deploymentsOf(env.id);
+  const live = liveRevision(env);
+  const busy = inFlight(env.id);
+
+  let blocked: string | undefined;
+  if (busy)
+    blocked = `A deployment is ${busy.status} on ${env.name}. Wait for it to finish, or cancel it on the Deploys page, then delete the environment.`;
+  else if (siblings.length === 0)
+    blocked = `${env.name} is the only environment in ${project.name}, and every project screen needs one. Create another environment first, or delete the whole project in Settings → Danger zone.`;
+
+  const details = [
+    `Removes the environment record, its budget and its deploy policy from ${project.name}.`,
+    `${deployments.length} deployment record(s) go with it. The revision history stays — revisions belong to the project, not to one environment.`,
+    "Nothing in your cloud or in the sandbox is torn down: this deletes Orrery's records, not running infrastructure.",
+    siblings.length
+      ? `${siblings.length} other environment(s) are untouched: ${siblings.map((e) => e.name).join(", ")}.`
+      : "",
+  ].filter(Boolean);
+
+  const warnings = live
+    ? [
+        `${env.name} is running ${live}. Deleting the environment does not stop it — Orrery simply stops watching it. Tear it down first if you want it gone.`,
+      ]
+    : [];
+
+  return { env, project, deployments, live, details, warnings, blocked };
+}
+
+defineAction<DeleteEnv>({
+  id: "env.delete",
+  title: "Delete environment",
+  category: "environment",
+  risk: "high",
+  requiredRole: "admin",
+  mutates: true,
+  input: DeleteEnv,
+  plan(ctx, input) {
+    const { env, live, details, warnings, blocked } = envDelete(ctx, input);
+    return {
+      summary: `Delete the "${env.name}" environment.`,
+      details,
+      costDeltaUsd: 0,
+      risk: live || env.class === "production" ? "high" : "medium",
+      warnings,
+      requiresApproval: false,
+      blocked,
+    };
+  },
+  execute(ctx, input) {
+    const { env, project, deployments, blocked } = envDelete(ctx, input);
+    if (blocked) return { ok: false, summary: `"${env.name}" was not deleted.`, error: blocked };
+    const d = db();
+    d.environments = d.environments.filter((e) => e.id !== env.id);
+    d.deployments = d.deployments.filter((dep) => dep.environmentId !== env.id);
+    save();
+    return {
+      ok: true,
+      summary: `Deleted "${env.name}" from ${project.name}, with ${deployments.length} deployment record(s). Nothing running was torn down.`,
+      data: { environmentId: env.id, name: env.name, deploymentsRemoved: deployments.length },
     };
   },
 });

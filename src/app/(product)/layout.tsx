@@ -1,79 +1,40 @@
-"use client";
-import Link from "next/link";
 import type { ReactNode } from "react";
-import { ThemeToggle, ToastProvider } from "@/components/ui";
-import { ActivityBell } from "@/components/shell/activity-bell";
+import { ToastProvider } from "@/components/ui";
 import { ErrorBoundary } from "@/components/shell/error-boundary";
-import { ShellProvider, useShell } from "@/components/shell/shell-context";
-import { Wordmark } from "@/components/shell/wordmark";
+import { ProductChrome } from "@/components/shell/product-chrome";
+import { ShellProvider } from "@/components/shell/shell-context";
+import type { ActionEntry } from "@/components/shell/command-palette";
+import { listActions } from "@/lib/actions/defs";
 
-function WorkspaceChip() {
-  const { boot } = useShell();
-  if (!boot?.workspace)
-    return <span className="h-6 w-24 animate-pulse rounded-full bg-bg2" aria-hidden="true" />;
-  return (
-    <span
-      title={`Workspace · ${boot.workspace.name}`}
-      className="inline-flex items-center gap-1.5 rounded-full border border-line bg-bg2 px-2.5 py-0.5 text-[12px] text-ink-mute"
-    >
-      {boot.workspace.name}
-    </span>
-  );
-}
-
-/** Who's signed in, with the way out. Hidden entirely in demo mode. */
-function UserMenu() {
-  const { boot } = useShell();
-  if (!boot?.auth.configured) return null;
-  if (!boot.user) {
-    return (
-      <Link href="/login" className="text-[12.5px] text-ink-mute transition-colors hover:text-ink">
-        Sign in
-      </Link>
-    );
-  }
-  return (
-    <form action="/auth/signout" method="post" className="flex items-center gap-2">
-      <span
-        title={boot.user.email}
-        className="inline-flex max-w-[180px] items-center gap-1.5 truncate rounded-full border border-line bg-bg2 px-2.5 py-0.5 text-[12px] text-ink"
-      >
-        <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-signal" />
-        <span className="truncate">{boot.user.name}</span>
-      </span>
-      <button
-        type="submit"
-        className="rounded-[6px] px-2 py-1 text-[12.5px] text-ink-mute transition-colors hover:bg-bg2 hover:text-ink"
-        title={`Sign out ${boot.user.email}`}
-      >
-        Sign out
-      </button>
-    </form>
-  );
-}
-
-/** The product shell: one top bar, one toast queue, one notification home. */
+/**
+ * The product shell: one top bar, one toast queue, one notification home.
+ *
+ * A server component so the command palette can be handed the real action
+ * registry rather than a hand-maintained copy of it — only the four fields a
+ * picker needs cross to the client, and none of the handlers do.
+ */
 export default function ProductLayout({ children }: { children: ReactNode }) {
+  const catalog: ActionEntry[] = listActions().map((a) => ({
+    id: a.id,
+    title: a.title,
+    category: a.category,
+    risk: a.risk,
+    requiredRole: a.requiredRole,
+  }));
+
   return (
     <ToastProvider>
       <ShellProvider>
         <div className="flex h-dvh flex-col bg-bg0">
-          <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-line bg-bg1 px-4">
-            <Link
-              href="/overview"
-              title="Workspace overview"
-              className="rounded-ctl px-1 py-0.5 transition-opacity duration-[120ms] [transition-timing-function:var(--ease-swift)] hover:opacity-80"
-            >
-              <Wordmark />
-            </Link>
-            <div className="flex items-center gap-2">
-              <ActivityBell />
-              <ThemeToggle />
-              <WorkspaceChip />
-              <UserMenu />
-            </div>
-          </header>
-          <main className="min-h-0 flex-1 bg-bg0">
+          {/* First tab stop on every product page: past the chrome, into the screen. */}
+          <a
+            href="#main"
+            className="sr-only rounded-ctl bg-signal px-3 py-2 text-[13px] font-medium text-on-signal focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[70]"
+          >
+            Skip to content
+          </a>
+          <ProductChrome catalog={catalog} />
+          <main id="main" tabIndex={-1} className="min-h-0 flex-1 bg-bg0 outline-none">
             <ErrorBoundary what="This screen">{children}</ErrorBoundary>
           </main>
         </div>

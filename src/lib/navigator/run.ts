@@ -26,10 +26,9 @@ import {
   type NavigatorRun,
   type NavigatorStep,
 } from "@/lib/domain/types";
-import { environmentHealth } from "@/lib/logsim";
 import { normalizeGoal, type Parsing } from "./llm";
 import { parseGoal } from "./planner";
-import { INVESTIGATE, isExecutable } from "./shared";
+import { isExecutable, planBlock } from "./shared";
 
 const NAVIGATOR: Actor = { type: "navigator", id: "navigator", name: "Navigator" };
 
@@ -54,6 +53,11 @@ export async function createRun(
   goal: string
 ): Promise<{ run: NavigatorRun; parsing: Parsing }> {
   registerAllActions();
+  // Observe is the one notch whose promise is about planning, not executing:
+  // "never plans". Enforce it here, where the plan would be persisted, rather
+  // than only dimming the button.
+  const blocked = planBlock(autonomy());
+  if (blocked) throw new Error(blocked);
   const project = q.project(projectId);
   if (!project)
     throw new Error(
@@ -102,54 +106,6 @@ function prune(projectId: string): void {
   );
   for (let i = all.length - 1; i >= 0; i--)
     if (all[i].projectId === projectId && !keep.has(all[i].id)) all.splice(i, 1);
-}
-
-/* ------------------------------- investigate ------------------------------- */
-
-/** Read-only: the last failure, its provider error and the environment's health. */
-function investigate(projectId: string, environmentId?: string): ActionResult {
-  const failed = db()
-    .deployments.filter(
-      (d) =>
-        d.projectId === projectId &&
-        (!environmentId || d.environmentId === environmentId) &&
-        (d.status === "failed" || d.status === "rolled_back")
-    )
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
-
-  if (!failed)
-    return {
-      ok: true,
-      summary:
-        "No failed deployment in this project's history — every deployment either succeeded, was cancelled, or is still running.",
-    };
-
-  const env = q.environment(failed.environmentId);
-  const revision = q.revision(failed.revisionId);
-  const step = failed.steps.find((s) => s.status === "failed");
-  const skipped = failed.steps.filter((s) => s.status === "skipped").length;
-  const health = env ? environmentHealth(env.id) : {};
-  const unhealthy = Object.entries(health).filter(
-    ([, h]) => (h as { status?: string }).status !== "ok"
-  );
-
-  const lines = [
-    `${env?.name ?? "An environment"} failed on revision ${revision?.number ?? "?"}: ${failed.changeSummary}.`,
-    step
-      ? `The ${step.phase} step "${step.title}" failed — ${(step.error ?? "no provider detail was recorded").replace(/\.$/, "")}.`
-      : "No individual step recorded a failure; the deployment failed as a whole.",
-    skipped ? `${skipped} later step(s) were skipped, so that revision is not fully applied.` : "",
-    unhealthy.length
-      ? `${unhealthy.length} service(s) in ${env?.name} are not fully healthy right now.`
-      : env?.deployedRevisionId
-        ? `${env.name} is still serving the revision that was live before this attempt, and it reads healthy.`
-        : `${env?.name ?? "That environment"} has nothing running.`,
-    failed.previousRevisionId
-      ? "There is an earlier revision to roll back to if you need the environment consistent."
-      : "There is no earlier revision to roll back to — fix the cause and deploy again.",
-  ].filter(Boolean);
-
-  return { ok: true, summary: lines.join(" "), data: { deploymentId: failed.id } };
 }
 
 /* ---------------------------- deployment awaiting --------------------------- */
@@ -249,7 +205,7 @@ export function cancelRun(runId: string): NavigatorRun {
   // While it is executing the executor owns the tail (summary, endedAt, and
   // skipping what never ran) — it sees this status before its next step.
   if (!executing) {
-    for (const s of run.steps) if (s.status === "proposed" || s.status === "approved") s.status = "skipped";
+    for (const s of run.steps) if (s.status === "proposed") s.status = "skipped";
     run.summary = [run.summary, "Cancelled before any of the remaining steps ran."]
       .filter(Boolean)
       .join(" ");
@@ -340,29 +296,24 @@ export async function executeRun(
 
     let result: ActionResult;
     try {
-      if (step.actionId === INVESTIGATE) {
-        const input = (step.input ?? {}) as { environmentId?: string };
-        result = investigate(run.projectId, input.environmentId);
-      } else {
-        const out = await runAction(step.actionId, ctx, step.input, {
-          mode: "execute",
-          idempotencyKey: `${run.id}:${step.seq}`,
-        });
-        result = out.result ?? { ok: false, summary: "The action returned nothing.", error: "empty_result" };
+      const out = await runAction(step.actionId, ctx, step.input, {
+        mode: "execute",
+        idempotencyKey: `${run.id}:${step.seq}`,
+      });
+      result = out.result ?? { ok: false, summary: "The action returned nothing.", error: "empty_result" };
 
-        // deploy.apply hands off to the engine — follow it to a real outcome.
-        const data = result.data as { deploymentId?: string } | undefined;
-        if (result.ok && step.actionId === "deploy.apply" && data?.deploymentId) {
-          const deployment = await awaitDeployment(data.deploymentId);
-          if (deployment) {
-            const outcome = deploymentOutcome(deployment);
-            result = {
-              ok: outcome.ok,
-              summary: outcome.summary,
-              data: { ...(result.data as object), status: deployment.status },
-              error: outcome.ok ? undefined : outcome.summary,
-            };
-          }
+      // deploy.apply hands off to the engine — follow it to a real outcome.
+      const data = result.data as { deploymentId?: string } | undefined;
+      if (result.ok && step.actionId === "deploy.apply" && data?.deploymentId) {
+        const deployment = await awaitDeployment(data.deploymentId);
+        if (deployment) {
+          const outcome = deploymentOutcome(deployment);
+          result = {
+            ok: outcome.ok,
+            summary: outcome.summary,
+            data: { ...(result.data as object), status: deployment.status },
+            error: outcome.ok ? undefined : outcome.summary,
+          };
         }
       }
     } catch (err) {
@@ -400,9 +351,7 @@ export async function executeRun(
   if (failure)
     for (const s of run.steps)
       if (s.seq > failure.seq && s.status === "proposed") s.status = "skipped";
-  if (cancelled)
-    for (const s of run.steps)
-      if (s.status === "proposed" || s.status === "approved") s.status = "skipped";
+  if (cancelled) for (const s of run.steps) if (s.status === "proposed") s.status = "skipped";
 
   const costAfter = monthlyCostUsd(q.project(run.projectId)!.workingManifest);
   run.summary = summarize(run, { done, pending, failure, deployed, costBefore, costAfter });

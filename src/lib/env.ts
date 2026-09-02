@@ -26,6 +26,24 @@ import { z } from "zod";
 /** The model that translates Navigator goals when a key is configured. */
 export const DEFAULT_LLM_MODEL = "claude-opus-5";
 
+/**
+ * How to produce a valid `ORRERY_SECRET_KEY`. One string, so the boot failure,
+ * every refused write and the inspector's banner all say the same thing.
+ */
+export const SECRET_KEY_FIX =
+  "Set ORRERY_SECRET_KEY in .env.local to a 32-byte key and restart the server — generate one with `openssl rand -base64 32` (hex is accepted too). Keep the same key: values written under an old one cannot be read back.";
+
+/**
+ * The 32 raw bytes of `ORRERY_SECRET_KEY`, or undefined if it is not a key.
+ * Accepts base64 (with or without padding) and hex, because both are what the
+ * usual one-liners print.
+ */
+export function decodeSecretKey(raw: string): Buffer | undefined {
+  const s = raw.trim();
+  const buf = /^[0-9a-fA-F]{64}$/.test(s) ? Buffer.from(s, "hex") : Buffer.from(s, "base64");
+  return buf.length === 32 ? buf : undefined;
+}
+
 const Schema = z.object({
   /** Data directory: JSON snapshot plus the event and audit logs. */
   ORRERY_DATA: z.string().min(1).default(path.join(process.cwd(), ".data")),
@@ -37,6 +55,15 @@ const Schema = z.object({
   ORRERY_LLM_MODEL: z.string().min(1).default(DEFAULT_LLM_MODEL),
   /** Lowest level `lib/log.ts` emits. */
   ORRERY_LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  /**
+   * Optional. Encrypts the secret store (`lib/secrets`). Unset means Orrery
+   * has nowhere to hold a secret value and says so instead of pretending.
+   * Validated for shape only — the bytes never leave `decodeSecretKey`.
+   */
+  ORRERY_SECRET_KEY: z
+    .string()
+    .refine((v) => decodeSecretKey(v) !== undefined, `must decode to exactly 32 bytes. ${SECRET_KEY_FIX}`)
+    .optional(),
 });
 
 export type OrreryEnv = Omit<z.infer<typeof Schema>, "ORRERY_FAST"> & {
@@ -62,12 +89,17 @@ export function env(): OrreryEnv {
     ORRERY_LOCALSTACK_ENDPOINT: present("ORRERY_LOCALSTACK_ENDPOINT"),
     ORRERY_LLM_MODEL: present("ORRERY_LLM_MODEL"),
     ORRERY_LOG_LEVEL: present("ORRERY_LOG_LEVEL"),
+    ORRERY_SECRET_KEY: present("ORRERY_SECRET_KEY"),
   });
 
   if (!parsed.success) {
     const lines = parsed.error.issues.map((i) => {
       const key = String(i.path[0] ?? "(unknown)");
-      return `  ${key}=${JSON.stringify(process.env[key] ?? "")} — ${i.message}`;
+      const raw = process.env[key] ?? "";
+      // A rejected key is still key material — echoing it would put it in the
+      // boot log. Say how long it was; that is what makes the error actionable.
+      const shown = key === "ORRERY_SECRET_KEY" ? `(${raw.length} chars, hidden)` : JSON.stringify(raw);
+      return `  ${key}=${shown} — ${i.message}`;
     });
     throw new Error(
       `Invalid environment:\n${lines.join("\n")}\n\nFix these in .env.local (see .env.local.example) or in the process environment, then start again.`

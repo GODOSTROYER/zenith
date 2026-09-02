@@ -32,6 +32,13 @@ export interface RevisionMeta {
 /** Exactly what GET /api/projects/:idOrSlug returns. */
 export interface ProjectPayload {
   project: Project;
+  /**
+   * Optimistic-concurrency token for the working copy, from
+   * `GET /api/projects/:id`. Any surface that holds a manifest across time
+   * sends it back as `expectedHash` on project.updateManifest, so a save that
+   * raced another writer is refused instead of overwriting them.
+   */
+  manifestHash: string;
   environments: Environment[];
   revisions: RevisionMeta[];
   findings: SecurityFinding[];
@@ -86,11 +93,14 @@ export function ProjectProvider({ slug, fallback, children }: ProjectProviderPro
   const environments = useMemo(() => data?.environments ?? [], [data]);
   const projectId = data?.project.id;
 
-  // Restore the last environment for this project; fall back to the first one.
+  // `?env=<id>` wins on arrival (that is what an overview link means), then the
+  // last environment used for this project, then the first one.
   useEffect(() => {
     if (!projectId || environments.length === 0) return;
     setEnvId((current) => {
       if (current && environments.some((e) => e.id === current)) return current;
+      const asked = new URLSearchParams(window.location.search).get("env");
+      if (asked && environments.some((e) => e.id === asked)) return asked;
       let saved: string | null = null;
       try {
         saved = localStorage.getItem(envKey(projectId));

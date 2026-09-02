@@ -33,6 +33,11 @@ export default defineConfig({
       },
     ],
   },
+  // Next compiles JSX with the automatic runtime (tsconfig says "preserve" and
+  // leaves it to the bundler). esbuild defaults to the classic one, which needs
+  // a `React` in scope no file in src/ imports — so without this every
+  // component test fails with "React is not defined" the moment it renders.
+  esbuild: { jsx: "automatic" },
   resolve: {
     alias: { "@": path.resolve(__dirname, "src") },
   },

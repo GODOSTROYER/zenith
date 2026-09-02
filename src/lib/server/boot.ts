@@ -10,6 +10,7 @@ import type { SecurityFinding } from "@/lib/domain/types";
 import { providerRegistry } from "@/lib/providers/types";
 import { engine, ensureEngine } from "@/lib/engine/engine";
 import { registerAllActions } from "@/lib/actions/defs";
+import { startAlertEvaluator } from "@/lib/alerts";
 import * as security from "@/lib/security/rules";
 import * as logsim from "@/lib/logsim";
 import { claimDataDir } from "@/lib/data-lock";
@@ -59,6 +60,10 @@ async function boot(): Promise<void> {
   ensureEngine(); // also registers every provider adapter
   engine.resumeInFlight();
   registerAllActions();
+  // Alert rules are re-derived from durable records, so this both catches up
+  // on anything that broke while the server was down and keeps watching after.
+  // Unref'd 15s timer; it returns immediately when no rules exist.
+  startAlertEvaluator();
   if (providerRegistry().size === 0)
     log.warn("no providers registered; provider pickers will be empty", { scope: "boot" });
 }

@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Activity, RotateCw, Scaling } from "lucide-react";
 import { api, useEventStream, useJson } from "@/lib/client/api";
+import { useProjectAlerts } from "@/lib/client/alerts";
 import { monthlyCostUsd, nodeMonthlyCostUsd } from "@/lib/cost/pricing";
 import { ServiceSize, type Manifest, type Revision, type Service } from "@/lib/domain/types";
 import { fmtUsd } from "@/lib/format";
@@ -30,6 +31,7 @@ import {
 import { useShell } from "@/components/shell/shell-context";
 import { useSelectedEnv, type RevisionMeta } from "@/components/screens/project-data";
 import { ActionConfirm, ErrorNote } from "@/components/screens/shared";
+import { AlertBanner, AlertsCard } from "./alerts";
 
 const LOG_EVENTS = ["log", "error"];
 const ALL_SERVICES = "__all__";
@@ -71,6 +73,11 @@ export default function ObservePage() {
   );
   const running = deployed.data?.revision;
 
+  /* Alert rules for this environment. One poll, shared by the banner and the
+     Alerts section — reading the route also re-evaluates, so what the banner
+     shows was computed for this request, not up to a timer tick ago. */
+  const alerts = useProjectAlerts(projectId, env?.id);
+
   const connection = boot?.connections.find((c) => c.id === env?.connectionId);
   const provider = boot?.providers.find((p) => p.id === connection?.provider);
   const providerName = provider?.displayName ?? connection?.provider ?? "this environment's provider";
@@ -85,6 +92,8 @@ export default function ObservePage() {
 
   return (
     <div className="mx-auto h-full w-full overflow-y-auto max-w-[1180px] space-y-6 px-6 py-6">
+      <AlertBanner open={alerts.open} />
+
       <HealthStrip
         environmentId={env.id}
         environmentName={env.name}
@@ -112,6 +121,13 @@ export default function ObservePage() {
           environmentName={env.name}
         />
       </div>
+
+      <AlertsCard
+        projectId={projectId}
+        environmentId={env.id}
+        environmentName={env.name}
+        alerts={alerts}
+      />
     </div>
   );
 }

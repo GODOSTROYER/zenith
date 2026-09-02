@@ -5,7 +5,6 @@
 import { describe, expect, it } from "vitest";
 import {
   idempotencyKey,
-  planIsInvalid,
   serviceDraft,
   serviceEditIssues,
   serviceUpdateInput,
@@ -141,12 +140,3 @@ describe("idempotencyKey", () => {
   });
 });
 
-describe("planIsInvalid", () => {
-  it("recognises the plan runAction returns for a schema rejection", () => {
-    expect(planIsInvalid({ summary: "Invalid input." })).toBe(true);
-  });
-
-  it("leaves a real plan alone", () => {
-    expect(planIsInvalid({ summary: "Updates service \"api\"" })).toBe(false);
-  });
-});

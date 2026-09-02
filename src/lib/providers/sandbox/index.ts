@@ -15,6 +15,8 @@ import type {
   Service,
 } from "@/lib/domain/types";
 import { SIZE_SPECS } from "@/lib/cost/pricing";
+import { q } from "@/lib/db/store";
+import { secretStatus, secretStoreState } from "@/lib/secrets";
 import {
   stepBudgetMs,
   type ExportBundle,
@@ -41,6 +43,56 @@ function jitter(seed: string, min: number, max: number): number {
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, Math.max(0, ms)));
+
+/* -------------------------------- secrets --------------------------------- */
+
+/**
+ * Resolve each of a service's secret references at release time, and say what
+ * happened — by reference, never by value. The sandbox starts no container, so
+ * nothing actually receives these; the line says that too, because a log that
+ * reads like a real injection is exactly the kind of lie this adapter must not
+ * tell. What is real is the lookup: a reference with nothing behind it is
+ * reported here, which is the last place before a deploy where that is cheap
+ * to notice.
+ */
+function injectSecrets(rt: StepRuntime, service: Service): void {
+  const refs = service.env.filter((e) => e.secretRef !== undefined);
+  if (!refs.length) return;
+
+  const workspaceId = q.project(rt.env.projectId)?.workspaceId;
+  const store = secretStoreState();
+  const missing: string[] = [];
+
+  for (const e of refs) {
+    const ref = e.secretRef!;
+    if (!ref.startsWith("vault:")) {
+      rt.log(`inject ${e.key} ← ${ref} (your secret manager; Orrery does not resolve it)`, "provider");
+      continue;
+    }
+    if (!store.configured || !workspaceId) {
+      missing.push(e.key);
+      continue;
+    }
+    const held = secretStatus(workspaceId, ref);
+    if (held.exists)
+      rt.log(`inject ${e.key} ← ${ref} (v${held.version}, from the Orrery secret store)`, "provider");
+    else missing.push(e.key);
+  }
+
+  rt.log(
+    `${service.name}: secrets are resolved by reference and injected as environment at start — simulated, like the rest of this deployment. The sandbox runs no container, so no value left the server.`,
+    "info"
+  );
+
+  if (missing.length)
+    rt.log(
+      `${service.name} has no stored value for ${missing.join(", ")}. ` +
+        (store.configured
+          ? `Set it on the service's Variables panel (or with system.setSecret) before deploying somewhere real — a service that starts without its credential fails at first use, not at start.`
+          : `${store.reason} ${store.fix}`),
+      "info"
+    );
+}
 
 /* --------------------------------- naming --------------------------------- */
 
@@ -298,8 +350,9 @@ async function executeStep(rt: StepRuntime): Promise<void> {
         `scheduling ${service.replicas} replica(s) @ ${spec.vcpu} vCPU / ${spec.memoryMb} MB`,
         "provider",
       ],
-      [`replica 1/${Math.max(1, service.replicas)} started`, "provider"],
     ]);
+    injectSecrets(rt, service);
+    await paced(rt, [[`replica 1/${Math.max(1, service.replicas)} started`, "provider"]]);
 
     if (chaosFlag(service) === "fail_once") {
       const key = `${env.id}:${service.id}`;

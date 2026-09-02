@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Ban } from "lucide-react";
 import {
   Button,
   Chip,
@@ -12,10 +12,12 @@ import {
   type ButtonVariant,
 } from "@/components/ui";
 import { useProjectData } from "@/components/shell/project-context";
+import { useShell } from "@/components/shell/shell-context";
+import { roleShortfall } from "@/components/screens/shared";
 import { ApiError, executeAction, planAction } from "@/lib/client/api";
 import type { ActionPlan, ActionResult } from "@/lib/actions/core";
 import { cx } from "@/lib/format";
-import { idempotencyKey, planIsInvalid } from "./logic";
+import { idempotencyKey } from "./logic";
 
 export interface PlanFirstProps {
   actionId: string;
@@ -67,6 +69,7 @@ export function PlanFirst({
   className,
 }: PlanFirstProps) {
   const { project, refresh } = useProjectData();
+  const { boot } = useShell();
   const toasts = useToasts();
   const [stage, setStage] = useState<Stage>({ at: "idle" });
   const [typed, setTyped] = useState("");
@@ -141,32 +144,27 @@ export function PlanFirst({
   if (stage.at === "preview" || stage.at === "running") {
     const { plan } = stage;
     const running = stage.at === "running";
-    // The server rejected the values before it could plan anything. There is
-    // nothing to apply, so nothing offers to.
-    const invalid = planIsInvalid(plan);
     const wantsTyping = Boolean(confirmName) && (confirmWhen === "always" || plan.risk === "high");
     const needsTyping = wantsTyping && typed.trim() !== confirmName;
-
-    if (invalid)
-      return (
-        <div
-          role="alert"
-          className={cx("animate-enter space-y-2 rounded-card border border-err/30 bg-err-dim p-3", className)}
-        >
-          <p className="text-[13px] text-ink">These values cannot be applied.</p>
-          {plan.details.map((d, i) => (
-            <p key={i} className="text-[12.5px] text-ink-mute">
-              {d}
-            </p>
-          ))}
-          <Button size="sm" variant="quiet" onClick={() => setStage({ at: "idle" })}>
-            Back to the form
-          </Button>
-        </div>
-      );
+    // The server says execute would refuse this exact input — bad values, a
+    // stale working copy, a role that is not enough. `blocked` carries the
+    // reason and the fix, so nothing here has to guess from the summary text.
+    const shortfall = roleShortfall(plan.requiredRole, boot?.role);
+    const blocked = plan.blocked ?? shortfall;
+    // Only a surface that sent a concurrency token can be refused for a stale
+    // one, and reloading is what fixes that.
+    // ponytail: shown for any refusal on a token-carrying input (a role block
+    // included) — narrow it if a reason code ever lands beside `blocked`.
+    const sentHash = typeof input.expectedHash === "string";
 
     return (
-      <div className={cx("animate-enter space-y-3 rounded-card border border-line bg-bg1 p-3", className)}>
+      <div
+        className={cx(
+          "animate-enter space-y-3 rounded-card border p-3",
+          blocked ? "border-err/30 bg-err-dim" : "border-line bg-bg1",
+          className
+        )}
+      >
         <div className="flex items-start justify-between gap-3">
           <p className="text-[13px] text-ink">{plan.summary}</p>
           <div className="flex shrink-0 items-center gap-1.5">
@@ -175,9 +173,24 @@ export function PlanFirst({
                 approval required
               </Chip>
             )}
+            {plan.requiredRole && (
+              <Chip
+                tone={shortfall ? "err" : "neutral"}
+                title={shortfall ?? `Running this needs the ${plan.requiredRole} role.`}
+              >
+                needs {plan.requiredRole}
+              </Chip>
+            )}
             <RiskBadge level={plan.risk} />
           </div>
         </div>
+
+        {blocked && (
+          <p role="alert" className="flex gap-1.5 text-[12.5px] text-ink">
+            <Ban className="mt-0.5 h-3.5 w-3.5 shrink-0 text-err" aria-hidden="true" />
+            <span>{blocked}</span>
+          </p>
+        )}
 
         {plan.details.length > 0 && (
           <ul className="space-y-1 text-[12.5px] text-ink-mute">
@@ -209,7 +222,8 @@ export function PlanFirst({
           </span>
         </div>
 
-        {wantsTyping && (
+        {/* Typing a name to confirm something that cannot run is theatre. */}
+        {wantsTyping && !blocked && (
           <Field
             label={`Type "${confirmName}" to confirm`}
             help="Destructive changes are typed out in full, on purpose."
@@ -224,19 +238,35 @@ export function PlanFirst({
           </Field>
         )}
 
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant={plan.risk === "high" ? "danger" : "primary"}
-            busy={running}
-            disabled={needsTyping}
-            disabledReason={
-              needsTyping ? `Type "${confirmName}" above to confirm this change.` : undefined
-            }
-            onClick={() => apply(plan)}
-          >
-            {plan.risk === "high" ? "Apply anyway" : "Apply"}
-          </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Nothing to apply: the refusal above is the whole story. */}
+          {!blocked && (
+            <Button
+              size="sm"
+              variant={plan.risk === "high" ? "danger" : "primary"}
+              busy={running}
+              disabled={needsTyping}
+              disabledReason={
+                needsTyping ? `Type "${confirmName}" above to confirm this change.` : undefined
+              }
+              onClick={() => apply(plan)}
+            >
+              {plan.risk === "high" ? "Apply anyway" : "Apply"}
+            </Button>
+          )}
+          {blocked && sentHash && (
+            <Button
+              size="sm"
+              variant="quiet"
+              title="Re-reads the working copy this preview was built from, then plan again."
+              onClick={() => {
+                refresh();
+                setStage({ at: "idle" });
+              }}
+            >
+              Reload the working copy
+            </Button>
+          )}
           <Button
             size="sm"
             variant="ghost"
@@ -244,7 +274,7 @@ export function PlanFirst({
             disabledReason={running ? "The change is being applied." : undefined}
             onClick={() => setStage({ at: "idle" })}
           >
-            Back
+            {blocked ? "Back to the form" : "Back"}
           </Button>
         </div>
       </div>

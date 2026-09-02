@@ -1643,11 +1643,19 @@ ${
 }
 ### Secrets
 
-Orrery never held your secret values, so it cannot put them here. What
-\`secrets.tf\` does instead is create every parameter the task definitions
-reference, holding the placeholder \`PLACEHOLDER\`. That is what stops the
-first apply from succeeding and then failing at task start, unable to resolve
-the \`secrets\` block.
+An Orrery server can hold secret values — encrypted at rest, under its own
+\`ORRERY_SECRET_KEY\` — but **an export never contains one**, whether or not
+the store has it. A bundle you can commit, mail or paste is the wrong place
+for a credential, and there is no flag to change that.
+
+So what \`secrets.tf\` does instead is create every parameter the task
+definitions reference, holding the placeholder \`PLACEHOLDER\`. That is what
+stops the first apply from succeeding and then failing at task start, unable
+to resolve the \`secrets\` block.
+
+The values are yours to move across, once, with the command below. Orrery's
+copy stays where it is and the two do not sync: after this, SSM is what the
+running tasks read, and rotating a secret in Orrery does not rotate it here.
 
 Set the real values once, after the first apply:
 

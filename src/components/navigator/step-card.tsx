@@ -29,8 +29,6 @@ export interface StepCardProps {
 
 const RAIL: Record<NavigatorStep["status"], string> = {
   proposed: "bg-nav-accent/45",
-  approved: "bg-nav-accent",
-  rejected: "bg-line-strong",
   running: "bg-nav-accent status-pulse",
   done: "bg-ok",
   failed: "bg-err",
@@ -70,8 +68,8 @@ export function StepCard({
   const scopeEnvId = stepEnvId ?? selectedEnvId;
 
   const executable = isExecutable(step.actionId);
-  const local = step.actionId === INVESTIGATE;
-  const previewable = executable && !local;
+  const readOnly = step.actionId === INVESTIGATE;
+  const previewable = executable;
   const blocked = step.actionId === BLOCKED || step.actionId === CLARIFY;
   const gate = autonomyBlock(autonomy, step.risk);
 
@@ -148,7 +146,7 @@ export function StepCard({
             <div className="flex items-center gap-2">
               {step.status === "running" && <StatusDot status="running" label="Running" />}
               {blocked && <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warn" />}
-              {local && <SearchCode className="h-3.5 w-3.5 shrink-0 text-nav-accent" />}
+              {readOnly && <SearchCode className="h-3.5 w-3.5 shrink-0 text-nav-accent" />}
               <h3 className="truncate text-[14px] font-medium text-ink">{step.title}</h3>
               {statusText && (
                 <span
@@ -299,7 +297,7 @@ export function StepCard({
           </div>
         )}
 
-        {local && editable && (
+        {readOnly && editable && (
           <p className="mt-2 text-[12px] text-ink-faint">
             Read-only — it inspects the last failure and writes a summary. Nothing changes.
           </p>

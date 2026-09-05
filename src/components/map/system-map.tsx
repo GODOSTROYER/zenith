@@ -15,6 +15,7 @@ import {
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
+  type NodeChange,
   type Node,
 } from "@xyflow/react";
 import { Boxes, FileUp } from "lucide-react";
@@ -93,6 +94,9 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
   const [dialog, setDialog] = useState<"blueprint" | "compose" | null>(null);
   const [query, setQuery] = useState("");
   const [hidden, setHidden] = useState<Stratum[]>([]);
+  // User placement is a view concern: retain it across health/drift refreshes,
+  // while the structural layout still supplies positions for new nodes.
+  const [manualPositions, setManualPositions] = useState<Record<string, { x: number; y: number }>>({});
   const [menu, setMenu] = useState<MenuState | null>(null);
   /** node the context menu offered to remove; the plan is shown in a dialog */
   const [removing, setRemoving] = useState<string | null>(null);
@@ -301,7 +305,7 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
       return {
         id: n.id,
         type: n.stratum,
-        position: positions[n.id] ?? { x: 0, y: 0 },
+        position: manualPositions[n.id] ?? positions[n.id] ?? { x: 0, y: 0 },
         data: {
           ...n.data,
           selected: selectedNodeId === n.id,
@@ -338,7 +342,7 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
             height: HANDLE_R * 2,
           },
         ],
-        draggable: false,
+        draggable: true,
         selectable: false,
         focusable: false,
         connectable: false,
@@ -368,6 +372,7 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
     matches,
     mKey,
     driftByNode,
+    manualPositions,
     onNodeActivate,
     centerOn,
   ]);
@@ -443,7 +448,7 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
             edges={edges}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
-            nodesDraggable={false}
+            nodesDraggable
             nodesConnectable={false}
             nodesFocusable={false}
             // Still false: React Flow's own selection state would fight the
@@ -468,7 +473,21 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
             onlyRenderVisibleElements={nodeCount > 60}
             onEdgeClick={(_, edge) => setTarget({ kind: "binding", bindingId: edge.id })}
             onPaneClick={() => setMenu(null)}
-            panOnScroll
+            zoomOnScroll
+            panOnDrag
+            panOnScroll={false}
+            onNodesChange={(changes: NodeChange[]) => {
+              const positionChanges = changes.filter(
+                (change): change is Extract<NodeChange, { type: "position" }> =>
+                  change.type === "position" && Boolean(change.position)
+              );
+              if (positionChanges.length === 0) return;
+              setManualPositions((current) => {
+                const next = { ...current };
+                for (const change of positionChanges) next[change.id] = change.position!;
+                return next;
+              });
+            }}
             minZoom={0.1}
             maxZoom={1.6}
             fitView

@@ -7,16 +7,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useEventStream } from "@/lib/client/api";
 import type { Manifest, Revision } from "@/lib/domain/types";
-import {
-  Callout,
-  Card,
-  Chip,
-  LogViewer,
-  Select,
-  Skeleton,
-  Sparkline,
-  type LogLine,
-} from "@/components/ui";
+import { Callout } from "@/components/ui/callout";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
+import { LogViewer, type LogLine } from "@/components/ui/log-viewer";
+import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Sparkline } from "@/components/ui/sparkline";
 import { ErrorNote } from "@/components/screens/shared";
 
 const LOG_EVENTS = ["log", "error"];

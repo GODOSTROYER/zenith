@@ -9,7 +9,7 @@ import Link from "next/link";
 import { Bot } from "lucide-react";
 import type { AuditEvent } from "@/lib/domain/types";
 import { cx } from "@/lib/format";
-import { TimeAgo } from "@/components/ui";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { objectLink } from "./rows";
 
 export interface EventCellProps {

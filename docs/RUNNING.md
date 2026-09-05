@@ -29,12 +29,45 @@ deployment path works against the built-in sandbox provider.
 
 | Command | What it does |
 | --- | --- |
-| `npm run dev` | Dev server on 3400 |
+| `npm run dev` | Turbopack dev server on 3400 |
+| `npm run dev:webpack` | Original webpack dev server as a compatibility fallback |
 | `npm run setup` | First-run setup, idempotent |
 | `npm run doctor` | Configuration and reachability report |
 | `npm run seed` | Reset to the demo workspace (**wipes the data directory**) |
 | `npm run verify` | typecheck + lint + tests + smoke, the four CI gates |
 | `npm run build && npm start` | Production build, then serve it on 3400 |
+
+Development routes compile on first use; production builds compile all routes
+ahead of time. `npm run dev` uses the stable development Turbopack support in
+Next 15.3.3. Production builds continue using webpack. Stop the current server
+before switching bundlers or running a production build: both use `.next`.
+
+The provider SDKs load as server-only Node dependencies rather than being
+bundled into every route. Tailwind scans `src`, and TypeScript excludes scratch
+data/app copies. Fonts are bundled locally with their licenses, so compilation
+does not fetch Google Fonts. JSON polling waits for each response to finish,
+shares pending reads, and backs off on unchanged data; a slow compile cannot
+build up overlapping polls.
+
+Screens import UI primitives directly from `components/ui/<component>` to keep
+unrelated client components out of each route's server graph. The action catalog
+travels with the existing bootstrap response; the product layout no longer
+imports execution handlers. Navigator loads its execution runtime on mutation,
+and its model name arrives with the page instead of a second server action.
+The 3D character and System Map render only in the browser; map inspectors,
+import dialogs and export panels load when requested. Loading boundaries reuse
+the existing skeleton primitives while the next route resolves.
+
+These changes reduce compilation work; they do not remove Next's first-use
+compilation in development. Compare cold routes with a stopped server and a
+fresh build directory, in the same order and with the same data. Warm navigation
+and production serving should be measured separately from cold development.
+
+On Windows, run production builds in the actual project directory. Do not build
+a scratch app whose `node_modules` is a junction to this project: Next 15.3.3
+can reproduce that junction in standalone output, then follow it while cleaning
+the output on a later build. Use separate installed dependencies for a scratch
+production build. The normal project uses a real `node_modules` directory.
 
 ---
 
@@ -98,13 +131,10 @@ profile, which is why a bare `docker compose up` starts only LocalStack.
 
 Four things worth knowing:
 
-- **The image build needs network access.** `src/app/layout.tsx` uses
-  `next/font/google`, and Next fetches Space Grotesk and JetBrains Mono from
-  `fonts.googleapis.com` during `next build`. On an air-gapped or
-  proxy-blocked builder the build fails with a font fetch error, not a code
-  error. The fonts are deliberately kept as-is; vendor them with
-  `next/font/local` if you need offline builds. The CI `build` and `docker`
-  jobs are `continue-on-error` for the same reason.
+- **Fonts are local.** Space Grotesk and JetBrains Mono ship in `public/fonts`
+  with their licenses. `next build` does not contact Google Fonts. Installing
+  npm dependencies and pulling base images still need network access unless
+  those inputs are already cached.
 
 - **`NEXT_PUBLIC_*` values are baked in at build time, and only from `.env`.**
   Next inlines them into the browser bundle when the image is built, so passing
@@ -334,13 +364,12 @@ Consequences, all contained:
   `npm start`.
 - `rm -rf .next` between builds if the duplicated copy bothers you.
 
-### `npm run build` fails fetching fonts
+### Older builds fail fetching fonts
 
-`next/font/google` needs egress to `fonts.googleapis.com` at build time. Behind
-a corporate proxy or on an air-gapped machine it fails with a font fetch error.
-Set `HTTPS_PROXY`, or vendor the two fonts with `next/font/local`. This is also
-why CI's `build` and `docker` jobs are `continue-on-error` — a font outage must
-not make the four real gates look red.
+The current app serves its fonts from `public/fonts` using `src/app/fonts.css`.
+If a build still reports a Google Fonts fetch error, check that it is building
+the current checkout. The existing optional CI build jobs keep their previous
+failure policy; font downloads are no longer part of compilation.
 
 ### Deployments fail at "Check LocalStack health"
 

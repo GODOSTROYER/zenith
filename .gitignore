@@ -10,3 +10,6 @@ next-env.d.ts
 
 # scratch data directories (smoke, screenshots)
 .data-*/
+
+# here.now credentials and claim tokens are local-only
+.herenow/state.json

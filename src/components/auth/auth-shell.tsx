@@ -1,7 +1,7 @@
 "use client";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { ToastProvider } from "@/components/ui";
+import { ToastProvider } from "@/components/ui/toast";
 
 /**
  * Shared frame for login / signup / password pages. When Supabase isn't

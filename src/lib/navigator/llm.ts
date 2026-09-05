@@ -9,21 +9,10 @@
  *
  * Integrator-owned (added on user direction).
  */
-import Anthropic from "@anthropic-ai/sdk";
+import type Anthropic from "@anthropic-ai/sdk";
 import type { Environment, Project } from "@/lib/domain/types";
-import { configured, env as orreryEnv } from "@/lib/env";
-
-export type PlannerMode = "llm" | "deterministic";
-
-/**
- * The model that translates goals. `ORRERY_LLM_MODEL` (validated in lib/env.ts,
- * which also owns the default) pins an older snapshot or a cheaper one.
- */
-export const plannerModel = (): string => orreryEnv().ORRERY_LLM_MODEL;
-
-export function plannerMode(): PlannerMode {
-  return configured().anthropic ? "llm" : "deterministic";
-}
+import { plannerMode, plannerModel } from "./config";
+export { plannerMode, plannerModel, type PlannerMode } from "./config";
 
 /**
  * Output budget. The translated command string is short, but a model that
@@ -80,6 +69,7 @@ export async function normalizeGoal(
   const envs = environments.map((e) => `${e.name} (${e.class})`).join(", ");
 
   try {
+    const { default: Anthropic } = await import("@anthropic-ai/sdk");
     const client = new Anthropic({ timeout: 12_000, maxRetries: 1 });
     const response = await client.messages.create({
       model,

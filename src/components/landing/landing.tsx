@@ -17,7 +17,7 @@ import {
   Play,
 } from "lucide-react";
 import { cx } from "@/lib/format";
-import { ThemeToggle } from "@/components/ui";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { HeroCanvas, type HeroPhase } from "./hero-canvas";
 import { useCta, type Cta } from "./cta";
 

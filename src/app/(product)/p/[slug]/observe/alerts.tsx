@@ -25,20 +25,17 @@ import {
   type PublicAlertChannel,
 } from "@/lib/client/alerts";
 import type { AlertEvent, AlertKind, AlertRule } from "@/lib/domain/types";
-import {
-  Button,
-  Callout,
-  Card,
-  Checkbox,
-  Chip,
-  EmptyState,
-  Field,
-  Input,
-  Select,
-  Skeleton,
-  TimeAgo,
-  type ChipTone,
-} from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Chip, type ChipTone } from "@/components/ui/chip";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { ActionConfirm, ErrorNote, SimulatedChip } from "@/components/screens/shared";
 
 const SEVERITY_TONE: Record<AlertEvent["severity"], ChipTone> = {

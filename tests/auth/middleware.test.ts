@@ -36,6 +36,13 @@ describe("middleware matcher", () => {
     for (const p of ["/overview", "/p/atlas/navigator", "/api/bootstrap"])
       expect(gated(p), p).toBe(true);
   });
+
+  it("serves the bundled fonts before sign-in without exempting app paths", () => {
+    expect(gated("/fonts/36966cca54120369-s.p.woff2")).toBe(false);
+    for (const p of ["/p/private.woff2", "/api/fonts/private.woff2", "/fonts/private", "/fonts/nested/private.woff2"]) {
+      expect(gated(p), p).toBe(true);
+    }
+  });
 });
 
 describe("public paths", () => {

@@ -1,11 +1,15 @@
 "use client";
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
-import { Chip, EmptyState, Skeleton, TimeAgo } from "@/components/ui";
+import { Chip } from "@/components/ui/chip";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { cx } from "@/lib/format";
 import type { NavigatorRun } from "@/lib/domain/types";
 import { isExecutable } from "@/lib/navigator/shared";
 import { NavigatorGlyph } from "./glyph";
+import { gimbalStateForRun } from "./gimbal-state";
 
 const TONE = {
   planning: "neutral",
@@ -65,6 +69,11 @@ function HistoryRow({ run }: { run: NavigatorRun }) {
         aria-expanded={open}
         className="flex w-full items-center gap-3 px-1 py-2.5 text-left transition-colors duration-[120ms] hover:bg-bg1"
       >
+        <NavigatorGlyph
+          size={20}
+          state={gimbalStateForRun(run)}
+          className="text-nav-accent"
+        />
         <ChevronRight
           className={cx(
             "h-3.5 w-3.5 shrink-0 text-ink-faint transition-transform duration-[200ms] [transition-timing-function:var(--ease-swift)]",

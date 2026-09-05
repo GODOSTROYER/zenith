@@ -1,0 +1,433 @@
+{
+  "name": "Gimbal",
+  "role": "Navigator",
+  "version": 1,
+  "provenance": "Original procedural geometry authored for Orrery; see scripts/gimbal-build.mjs.",
+  "coordinateSystem": {
+    "up": "+Y",
+    "front": "+Z",
+    "target": [
+      0,
+      0,
+      0
+    ],
+    "recommendedCamera": [
+      3,
+      1,
+      8
+    ],
+    "orthographicHeight": 4.2
+  },
+  "lods": [
+    {
+      "lod": 0,
+      "file": "/gimbal/gimbal.glb",
+      "triangles": 17506,
+      "primitiveTriangles": [
+        6312,
+        9022,
+        940,
+        1232
+      ],
+      "bytes": 319068
+    },
+    {
+      "lod": 1,
+      "file": "/gimbal/gimbal-lod1.glb",
+      "triangles": 7930,
+      "primitiveTriangles": [
+        2952,
+        3670,
+        660,
+        648
+      ],
+      "bytes": 235636
+    }
+  ],
+  "skeleton": {
+    "bones": 17,
+    "hierarchy": [
+      {
+        "name": "Root",
+        "parent": null,
+        "translation": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "name": "Torso",
+        "parent": "Root",
+        "translation": [
+          0,
+          -0.28,
+          0
+        ]
+      },
+      {
+        "name": "Head",
+        "parent": "Torso",
+        "translation": [
+          0,
+          1.06,
+          0.025
+        ]
+      },
+      {
+        "name": "LeftEye",
+        "parent": "Head",
+        "translation": [
+          -0.26,
+          0.015,
+          0.648
+        ]
+      },
+      {
+        "name": "RightEye",
+        "parent": "Head",
+        "translation": [
+          0.26,
+          0.015,
+          0.648
+        ]
+      },
+      {
+        "name": "LeftShoulder",
+        "parent": "Torso",
+        "translation": [
+          -0.58,
+          0.28,
+          0
+        ]
+      },
+      {
+        "name": "LeftElbow",
+        "parent": "LeftShoulder",
+        "translation": [
+          -0.22,
+          -0.36,
+          0.015
+        ]
+      },
+      {
+        "name": "LeftHand",
+        "parent": "LeftElbow",
+        "translation": [
+          -0.1,
+          -0.29,
+          0.06
+        ]
+      },
+      {
+        "name": "RightShoulder",
+        "parent": "Torso",
+        "translation": [
+          0.58,
+          0.28,
+          0
+        ]
+      },
+      {
+        "name": "RightElbow",
+        "parent": "RightShoulder",
+        "translation": [
+          0.22,
+          -0.36,
+          0.015
+        ]
+      },
+      {
+        "name": "RightHand",
+        "parent": "RightElbow",
+        "translation": [
+          0.1,
+          -0.29,
+          0.06
+        ]
+      },
+      {
+        "name": "LeftFoot",
+        "parent": "Root",
+        "translation": [
+          -0.32,
+          -1.05,
+          0.06
+        ]
+      },
+      {
+        "name": "RightFoot",
+        "parent": "Root",
+        "translation": [
+          0.32,
+          -1.05,
+          0.06
+        ]
+      },
+      {
+        "name": "RingInner",
+        "parent": "Root",
+        "translation": [
+          0,
+          0.08,
+          -0.39
+        ]
+      },
+      {
+        "name": "RingMiddle",
+        "parent": "Root",
+        "translation": [
+          0,
+          0.08,
+          -0.39
+        ]
+      },
+      {
+        "name": "RingOuter",
+        "parent": "Root",
+        "translation": [
+          0,
+          0.08,
+          -0.39
+        ]
+      },
+      {
+        "name": "ProgressMarker",
+        "parent": "RingOuter",
+        "translation": [
+          0,
+          0,
+          0
+        ]
+      }
+    ]
+  },
+  "materials": [
+    "Gimbal_Ceramic",
+    "Gimbal_Metal",
+    "Gimbal_Face",
+    "Gimbal_Accent"
+  ],
+  "drawCalls": 4,
+  "atlas": {
+    "width": 1024,
+    "height": 1024,
+    "encoding": "KTX2 Basis ETC1S",
+    "file": "/gimbal/atlas.ktx2",
+    "source": "/gimbal/atlas.png",
+    "shared": true
+  },
+  "compression": [
+    "EXT_meshopt_compression",
+    "KHR_texture_basisu"
+  ],
+  "basisTranscoderPath": "/gimbal/basis/",
+  "framesPerSecond": 30,
+  "shadows": "Baked analytic contact occlusion in COLOR_0; no real-time shadows required.",
+  "states": {
+    "planning": {
+      "label": "Planning",
+      "color": "#a78bfa",
+      "clip": "planning",
+      "duration": 2,
+      "loop": true,
+      "reducedMotionClip": "pose_planning",
+      "holdClip": "pose_planning",
+      "clampWhenFinished": true
+    },
+    "awaiting_approval": {
+      "label": "Awaiting approval",
+      "color": "#f4be62",
+      "clip": "awaiting_approval",
+      "duration": 0.03333333333333333,
+      "loop": false,
+      "reducedMotionClip": "pose_awaiting_approval",
+      "holdClip": "pose_awaiting_approval",
+      "clampWhenFinished": true
+    },
+    "applying": {
+      "label": "Applying",
+      "color": "#60a5fa",
+      "clip": "applying",
+      "duration": 1.2,
+      "loop": true,
+      "reducedMotionClip": "pose_applying",
+      "holdClip": "pose_applying",
+      "clampWhenFinished": true
+    },
+    "verified": {
+      "label": "Verified",
+      "color": "#6ed6a5",
+      "clip": "verified",
+      "duration": 0.7,
+      "loop": false,
+      "reducedMotionClip": "pose_verified",
+      "holdClip": "pose_verified",
+      "clampWhenFinished": true
+    },
+    "blocked": {
+      "label": "Blocked",
+      "color": "#f17f82",
+      "clip": "blocked",
+      "duration": 0.25,
+      "loop": false,
+      "reducedMotionClip": "pose_blocked",
+      "holdClip": "pose_blocked",
+      "clampWhenFinished": true
+    }
+  },
+  "transitions": [
+    {
+      "from": "planning",
+      "to": "awaiting_approval",
+      "clip": "transition_planning_to_awaiting_approval",
+      "duration": 0.2,
+      "loop": false
+    },
+    {
+      "from": "planning",
+      "to": "applying",
+      "clip": "transition_planning_to_applying",
+      "duration": 0.2,
+      "loop": false
+    },
+    {
+      "from": "planning",
+      "to": "verified",
+      "clip": "transition_planning_to_verified",
+      "duration": 0.2,
+      "loop": false
+    },
+    {
+      "from": "planning",
+      "to": "blocked",
+      "clip": "transition_planning_to_blocked",
+      "duration": 0.2,
+      "loop": false
+    },
+    {
+      "from": "awaiting_approval",
+      "to": "planning",
+      "clip": "transition_awaiting_approval_to_planning",
+      "duration": 0.2,
+      "loop": false
+    },
+    {
+      "from": "awaiting_approval",
+      "to": "applying",
+      "clip": "transition_awaiting_approval_to_applying",
+      "duration": 0.2,
+      "loop": false
+    },
+    {
+      "from": "awaiting_approval",
+      "to": "verified",
+      "clip": "transition_awaiting_approval_to_verified",
+      "duration": 0.2,
+      "loop": false
+    },
+    {
+      "from": "awaiting_approval",
+      "to": "blocked",
+      "clip": "transition_awaiting_approval_to_blocked",
+      "duration": 0.2,
+      "loop": false
+    },
+    {
+      "from": "applying",
+      "to": "planning",
+      "clip": "transition_applying_to_planning",
+      "duration": 0.2,
+      "loop": false
+    },
+    {
+      "from": "applying",
+      "to": "awaiting_approval",
+      "clip": "transition_applying_to_awaiting_approval",
+      "duration": 0.2,
+      "loop": false
+    },
+    {
+      "from": "applying",
+      "to": "verified",
+      "clip": "transition_applying_to_verified",
+      "duration": 0.2,
+      "loop": false
+    },
+    {
+      "from": "applying",
+      "to": "blocked",
+      "clip": "transition_applying_to_blocked",
+      "duration": 0.2,
+      "loop": false
+    },
+    {
+      "from": "verified",
+      "to": "planning",
+      "clip": "transition_verified_to_planning",
+      "duration": 0.2,
+      "loop": false
+    },
+    {
+      "from": "verified",
+      "to": "awaiting_approval",
+      "clip": "transition_verified_to_awaiting_approval",
+      "duration": 0.2,
+      "loop": false
+    },
+    {
+      "from": "verified",
+      "to": "applying",
+      "clip": "transition_verified_to_applying",
+      "duration": 0.2,
+      "loop": false
+    },
+    {
+      "from": "verified",
+      "to": "blocked",
+      "clip": "transition_verified_to_blocked",
+      "duration": 0.2,
+      "loop": false
+    },
+    {
+      "from": "blocked",
+      "to": "planning",
+      "clip": "transition_blocked_to_planning",
+      "duration": 0.2,
+      "loop": false
+    },
+    {
+      "from": "blocked",
+      "to": "awaiting_approval",
+      "clip": "transition_blocked_to_awaiting_approval",
+      "duration": 0.2,
+      "loop": false
+    },
+    {
+      "from": "blocked",
+      "to": "applying",
+      "clip": "transition_blocked_to_applying",
+      "duration": 0.2,
+      "loop": false
+    },
+    {
+      "from": "blocked",
+      "to": "verified",
+      "clip": "transition_blocked_to_verified",
+      "duration": 0.2,
+      "loop": false
+    }
+  ],
+  "fallbacks": {
+    "icon": "/gimbal/icon.svg",
+    "monochrome": "/gimbal/icon-monochrome.svg",
+    "avatar": "/gimbal/avatar-96.png",
+    "reducedMotion": "pose_<state>; render once",
+    "noWebGL": "icon and persistent state label"
+  },
+  "sheets": [
+    "/gimbal/model-views.png",
+    "/gimbal/production-sheet.png",
+    "/gimbal/state-poses.png"
+  ]
+}

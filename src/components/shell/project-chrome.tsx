@@ -9,7 +9,10 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-import { Chip, SegmentedControl, Select, Skeleton } from "@/components/ui";
+import { Chip } from "@/components/ui/chip";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useProjectData } from "@/components/shell/project-context";
 import { useShell } from "@/components/shell/shell-context";
 import { useProjectAlerts } from "@/lib/client/alerts";

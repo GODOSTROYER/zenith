@@ -11,7 +11,8 @@
  */
 import { useEffect, useState } from "react";
 import type { SecurityFinding } from "@/lib/domain/types";
-import { Callout, Input } from "@/components/ui";
+import { Callout } from "@/components/ui/callout";
+import { Input } from "@/components/ui/input";
 import { ActionConfirm, type Scope } from "@/components/screens/shared";
 
 /** How long the typed reason settles before it is planned. */

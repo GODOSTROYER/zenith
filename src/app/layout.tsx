@@ -1,18 +1,6 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import "./fonts.css";
 import "./globals.css";
-
-const grotesk = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-grotesk",
-  display: "swap",
-});
-
-const jbmono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-jbmono",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: { default: "Orrery", template: "%s · Orrery" },
@@ -26,6 +14,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <link rel="preload" href="/fonts/36966cca54120369-s.p.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/bb3ef058b751a6ad-s.p.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         {/*
           Apply the saved theme before paint. Dark is the default; "system"
           resolves against prefers-color-scheme here so there is no flash
@@ -37,7 +27,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${grotesk.variable} ${jbmono.variable}`}>{children}</body>
+      <body>{children}</body>
     </html>
   );
 }

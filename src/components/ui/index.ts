@@ -1,6 +1,8 @@
 /**
  * Orrery UI kit — the only place screens get primitives from.
  * Tokens only (see docs/DESIGN.md); no component here hardcodes a colour.
+ * This barrel documents the public kit. App code imports individual files
+ * (e.g. ui/button) so development builds do not traverse the entire kit.
  */
 export { Button, type ButtonProps, type ButtonSize, type ButtonVariant } from "./button";
 export { Callout, type CalloutLive, type CalloutProps, type CalloutTone } from "./callout";

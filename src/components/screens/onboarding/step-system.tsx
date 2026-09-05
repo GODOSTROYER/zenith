@@ -7,18 +7,17 @@
 import { useMemo, useState } from "react";
 import { ArrowRight, FileCode2, Layers, PlusSquare, Sparkles, Upload } from "lucide-react";
 import { ApiError, executeAction } from "@/lib/client/api";
-import { importDockerfile, importTerraform } from "@/lib/importers";
+import { importDockerfile } from "@/lib/importers/dockerfile";
+import { importTerraform } from "@/lib/importers/terraform";
 import type { ImportReport } from "@/lib/importers/types";
 import { cx, fmtUsd } from "@/lib/format";
-import {
-  Button,
-  Card,
-  Chip,
-  Field,
-  Input,
-  SegmentedControl,
-  Textarea,
-} from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Textarea } from "@/components/ui/textarea";
 import { ErrorNote } from "../shared";
 import { ImportReportView } from "../import-report";
 import type { BlueprintCard, ProviderChoice } from "./types";

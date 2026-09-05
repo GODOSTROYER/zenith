@@ -8,7 +8,12 @@ import { useMemo, useState } from "react";
 import { Download, FileCode2 } from "lucide-react";
 import { useJson } from "@/lib/client/api";
 import type { Manifest } from "@/lib/domain/types";
-import { Button, Card, Chip, CodeBlock, EmptyState, Skeleton } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
+import { CodeBlock } from "@/components/ui/code-block";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useShell } from "@/components/shell/shell-context";
 import { ErrorNote } from "./shared";
 

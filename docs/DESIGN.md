@@ -44,6 +44,32 @@ the page's single authored moment. Product surfaces keep the original scale.
 Motion communicates state; nothing animates without meaning.
 Durations 120/200/320ms, ease `--ease-swift`; CSS transitions and keyframes only, no animation library; `animate-enter` for list/panel entrances; `.status-pulse` only while something is genuinely in progress; `.edge-live` dash-flow on map edges only during active deployment of that binding's target. Respect `prefers-reduced-motion` (already global).
 
+**Gimbal exception.** Navigator's full 3D character plays authored GLB clips
+through native Three.js animation; the CSS motion rule above continues to
+govern UI. Exactly five workflow states — `planning`, `awaiting_approval`,
+`applying`, `verified`, `blocked` — come from typed application state, never
+assistant prose. Pose, motion, accent, icon, and HTML label consume that same
+state. Only planning and applying loop continuously; other workflow clips
+settle once. As a separate personality layer, occasional winks and waves occur
+at irregular intervals. Applying and Blocked use restrained blinks. Hover
+acknowledges with a glance; tap or keyboard activation greets with a cooldown.
+Workflow transitions interrupt expressions and keep their status meaning.
+
+The canvas is decorative and hidden from assistive technology; the overlaid
+"Say hello to Gimbal" button is keyboard accessible. Always pair
+it with an HTML status label and icon so meaning survives without motion,
+color, or WebGL. Render on demand only while the character and page are
+visible, with animation capped at 30 fps and no idle frame loop between gestures. Support low-power LOD, explicit
+still mode, and `prefers-reduced-motion` using authored static poses with idle
+and greeting animation disabled; retain
+actual-model image fallbacks while loading or when WebGL is unavailable.
+
+Ready, Plan complete, Completed, Simulation complete, and Cancelled are
+neutral lifecycle presentations, outside the five workflow states.
+**Verified requires authoritative, non-simulated provider evidence for the
+completed applied run.** Neutral outcomes must never borrow its success
+accent, checkmark, or acknowledgement motion.
+
 ## Voice
 
 Calm staff engineer. Explains during long operations, names the fix in every

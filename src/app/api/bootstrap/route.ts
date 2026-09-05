@@ -1,5 +1,6 @@
 /** Single call the app shell hydrates from. */
 import type { Role } from "@/lib/actions/core";
+import { actionRegistry } from "@/lib/actions/core";
 import { db } from "@/lib/db/store";
 import type { Workspace } from "@/lib/domain/types";
 import { providerRegistry } from "@/lib/providers/types";
@@ -50,16 +51,22 @@ export const GET = route(async () => {
   const environments = d.environments.filter((e) => projectIds.has(e.projectId));
 
   /** latest deployment per environment — the map/overview health source */
-  const deployments = environments
-    .map((env) =>
-      d.deployments
-        .filter((dep) => dep.environmentId === env.id)
-        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0]
-    )
-    .filter((dep) => dep !== undefined);
+  const environmentIds = new Set(environments.map((e) => e.id));
+  const latest = new Map<string, (typeof d.deployments)[number]>();
+  for (const deployment of d.deployments) {
+    if (!environmentIds.has(deployment.environmentId)) continue;
+    const previous = latest.get(deployment.environmentId);
+    if (!previous || previous.createdAt < deployment.createdAt) latest.set(deployment.environmentId, deployment);
+  }
+  const deployments = environments.map((e) => latest.get(e.id)).filter((dep) => dep !== undefined);
 
   return {
     workspace,
+    // Boot already registered these handlers. Serialize display fields only;
+    // page layouts never need to import the execution graph themselves.
+    catalog: [...actionRegistry().values()]
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map(({ id, title, category, risk, requiredRole }) => ({ id, title, category, risk, requiredRole })),
     workspaces,
     projects,
     environments,

@@ -9,28 +9,26 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { AlertTriangle, FileJson, Info } from "lucide-react";
 import type { ActionPlan } from "@/lib/actions/core";
 import { planAction, useJson } from "@/lib/client/api";
 import { diffManifests, validateManifest, type ValidationIssue } from "@/lib/domain/graph";
 import { Manifest, type Revision } from "@/lib/domain/types";
 import { fmtUsd } from "@/lib/format";
-import {
-  Button,
-  Callout,
-  Card,
-  Chip,
-  CodeBlock,
-  CostDelta,
-  EmptyState,
-  Kbd,
-  SegmentedControl,
-  Select,
-  Skeleton,
-  Tabs,
-} from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
+import { CodeBlock } from "@/components/ui/code-block";
+import { CostDelta } from "@/components/ui/cost-delta";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Kbd } from "@/components/ui/kbd";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs } from "@/components/ui/tabs";
 import { EditorBoundary } from "@/components/screens/editor-boundary";
-import { ExportPanel } from "@/components/screens/export-panel";
 import { ActionConfirm, ChangeRow, ErrorNote } from "@/components/screens/shared";
 import { useSelectedEnv, type RevisionMeta } from "@/components/screens/project-data";
 import { describeJsonError, type JsonErrorSite } from "./json-error";
@@ -40,6 +38,9 @@ const SAVE_NOTE =
 
 /** Idle time before the editor checks the document on its own. */
 const VALIDATE_DEBOUNCE_MS = 400;
+const ExportPanel = dynamic(() => import("@/components/screens/export-panel").then((m) => m.ExportPanel), {
+  loading: () => <Skeleton height={120} />,
+});
 
 /**
  * Line numbers stop being drawn past this. The gutter is decoration

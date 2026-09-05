@@ -576,6 +576,22 @@ export const AutonomyLevel = z.enum([
 ]);
 export type AutonomyLevel = z.infer<typeof AutonomyLevel>;
 
+/**
+ * Evidence for the whole Navigator run, recorded by an authoritative verifier
+ * after execution. A successful action or deployment status alone is not this
+ * evidence. Current provider execution does not emit this record; it must stay
+ * absent until a verifier checks the complete intended result.
+ */
+export interface NavigatorVerification {
+  scope: "run";
+  source: "provider";
+  status: "passed" | "failed";
+  simulated: boolean;
+  checkedAt: string;
+  /** Reference to the recorded provider observation/check, not explanatory prose. */
+  evidenceRef: string;
+}
+
 export interface NavigatorRun {
   id: string;
   projectId: string;
@@ -585,6 +601,7 @@ export interface NavigatorRun {
   createdAt: string;
   endedAt?: string;
   summary?: string;
+  verification?: NavigatorVerification;
 }
 
 export interface NavigatorStep {

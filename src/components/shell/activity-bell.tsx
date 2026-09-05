@@ -3,7 +3,11 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell } from "lucide-react";
-import { Button, Popover, StatusDot, TimeAgo, type DotStatus, type ToastRecord } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Popover } from "@/components/ui/popover";
+import { StatusDot, type DotStatus } from "@/components/ui/status-dot";
+import { TimeAgo } from "@/components/ui/time-ago";
+import { type ToastRecord } from "@/components/ui/toast";
 import { useShell } from "@/components/shell/shell-context";
 
 const KEEP = 20;

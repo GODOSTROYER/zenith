@@ -5,7 +5,11 @@ import Link from "next/link";
 import type { Role } from "@/lib/actions/core";
 import type { SecurityFinding } from "@/lib/domain/types";
 import { cx } from "@/lib/format";
-import { Button, Callout, CostDelta, RiskBadge, TimeAgo } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { CostDelta } from "@/components/ui/cost-delta";
+import { RiskBadge } from "@/components/ui/risk-badge";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { isEnvironmentPolicy, viewerReason, type FixRow } from "./rows";
 
 export interface FindingRowProps {

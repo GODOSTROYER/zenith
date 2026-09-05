@@ -18,7 +18,6 @@ import {
   type Member,
   type Workspace,
 } from "@/lib/domain/types";
-import { ensureBoot } from "@/lib/server/boot";
 import { log, withRequestId, currentRequestId } from "@/lib/log";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { sessionUserFromRequest } from "@/lib/supabase/route";
@@ -471,6 +470,9 @@ export function route<P extends Record<string, string> = Record<string, string>>
     const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID().slice(0, 8);
     return withRequestId(requestId, async () => {
       try {
+        // Server-rendered reads also use context helpers. Only API handling
+        // needs to load/resume the action and provider runtime.
+        const { ensureBoot } = await import("@/lib/server/boot");
         await ensureBoot();
         const state = await resolveRequest(req);
         const out = await requestState.run(state, async () => {

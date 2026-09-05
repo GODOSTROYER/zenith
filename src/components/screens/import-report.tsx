@@ -10,7 +10,9 @@
  * never truncates either list.
  */
 import { CircleDashed } from "lucide-react";
-import { Card, Chip, EmptyState } from "@/components/ui";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { ImportReport } from "@/lib/importers/types";
 
 export function ImportReportView({ report }: { report: ImportReport }) {

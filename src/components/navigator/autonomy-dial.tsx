@@ -1,6 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
-import { Chip, SegmentedControl } from "@/components/ui";
+import { Chip } from "@/components/ui/chip";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import type { AutonomyLevel } from "@/lib/domain/types";
 import { setAutonomyAction } from "@/lib/navigator/server-actions";
 import { AUTONOMY_LEVELS, AUTONOMY_MEANING, type WorkspaceRole } from "@/lib/navigator/shared";

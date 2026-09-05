@@ -6,7 +6,11 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { api, ApiError } from "@/lib/client/api";
 import type { Workspace } from "@/lib/domain/types";
-import { Button, Callout, Field, Input, Skeleton } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorNote } from "../shared";
 
 export interface StepWorkspaceProps {

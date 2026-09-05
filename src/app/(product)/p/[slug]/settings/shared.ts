@@ -1,5 +1,5 @@
 /** Pieces the Environments and Connections sections both read. */
-import type { DotStatus } from "@/components/ui";
+import type { DotStatus } from "@/components/ui/status-dot";
 import type { Bootstrap } from "@/components/shell/shell-context";
 import type { CloudConnection } from "@/lib/domain/types";
 

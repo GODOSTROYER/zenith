@@ -5,7 +5,9 @@ import Link from "next/link";
 import type { Role } from "@/lib/actions/core";
 import type { SecurityFinding } from "@/lib/domain/types";
 import type { RevisionMeta } from "@/components/screens/project-data";
-import { Button, Chip, TimeAgo } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { STATUS_LABEL, viewerReason } from "./rows";
 
 export interface HistorySectionProps {

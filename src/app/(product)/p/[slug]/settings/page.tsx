@@ -11,11 +11,15 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { FileCode2, Trash2 } from "lucide-react";
 import type { Workspace } from "@/lib/domain/types";
-import { Button, Card, Field, Input, Skeleton } from "@/components/ui";
-import { ExportPanel } from "@/components/screens/export-panel";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useSelectedEnv } from "@/components/screens/project-data";
 import { ActionConfirm, ErrorNote } from "@/components/screens/shared";
 import { useShell } from "@/components/shell/shell-context";
@@ -37,6 +41,9 @@ const SECTIONS = [
   { id: "export", label: "Export" },
   { id: "danger", label: "Danger zone" },
 ];
+const ExportPanel = dynamic(() => import("@/components/screens/export-panel").then((m) => m.ExportPanel), {
+  loading: () => <Skeleton height={120} />,
+});
 
 type Pending = { kind: "renameWorkspace"; from: string; name: string } | { kind: "deleteProject" };
 

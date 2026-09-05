@@ -1,7 +1,8 @@
 "use client";
 /** Everything one node is wired to, listed inside that node's editor. */
 import { ArrowRight } from "lucide-react";
-import { Button, Chip } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import { useProjectData } from "@/components/shell/project-context";
 import { PlanFirst } from "./plan-first";
 import { nodeLabel } from "./logic";

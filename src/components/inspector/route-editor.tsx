@@ -1,7 +1,11 @@
 "use client";
 /** One published route: where it answers, TLS, path prefix, connections. */
 import { useState } from "react";
-import { CopyButton, Field, Input, Switch, Tabs } from "@/components/ui";
+import { CopyButton } from "@/components/ui/copy-button";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Tabs } from "@/components/ui/tabs";
 import { SectionTitle } from "@/components/screens/shared";
 import { useProjectData } from "@/components/shell/project-context";
 import { PlanFirst } from "./plan-first";

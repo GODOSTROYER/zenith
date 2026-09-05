@@ -1,7 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Rocket, ShieldAlert } from "lucide-react";
-import { Button, Callout, Chip, CostDelta, Input, RiskBadge, useToasts } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Chip } from "@/components/ui/chip";
+import { CostDelta } from "@/components/ui/cost-delta";
+import { Input } from "@/components/ui/input";
+import { RiskBadge } from "@/components/ui/risk-badge";
+import { useToasts } from "@/components/ui/toast";
 import { useProjectData } from "@/components/shell/project-context";
 import { ChangeRow, SectionTitle } from "@/components/screens/shared";
 import { api, ApiError, executeAction, planAction } from "@/lib/client/api";

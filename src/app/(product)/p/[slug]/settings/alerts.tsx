@@ -22,18 +22,16 @@ import { Radio, Send, Trash2, Pencil, Plus } from "lucide-react";
 import type { Role } from "@/lib/actions/core";
 import type { AlertChannelKind } from "@/lib/domain/types";
 import { useProjectAlerts, type PublicAlertChannel } from "@/lib/client/alerts";
-import {
-  Button,
-  Callout,
-  Card,
-  Chip,
-  EmptyState,
-  Field,
-  Input,
-  Select,
-  Skeleton,
-  TimeAgo,
-} from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { ActionConfirm, ErrorNote } from "@/components/screens/shared";
 import { useGate } from "./access";
 

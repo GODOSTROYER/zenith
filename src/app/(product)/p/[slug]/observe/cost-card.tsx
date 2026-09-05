@@ -9,7 +9,10 @@ import { api } from "@/lib/client/api";
 import { monthlyCostUsd, nodeMonthlyCostUsd } from "@/lib/cost/pricing";
 import type { Manifest, Revision } from "@/lib/domain/types";
 import { fmtUsd } from "@/lib/format";
-import { Button, Card, Meter, Sparkline } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Meter } from "@/components/ui/meter";
+import { Sparkline } from "@/components/ui/sparkline";
 import type { RevisionMeta } from "@/components/screens/project-data";
 import { ErrorNote, SimulatedChip } from "@/components/screens/shared";
 

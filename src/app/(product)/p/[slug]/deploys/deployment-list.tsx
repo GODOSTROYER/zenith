@@ -7,15 +7,13 @@
  */
 import { Search } from "lucide-react";
 import type { Deployment } from "@/lib/domain/types";
-import {
-  Button,
-  Input,
-  SegmentedControl,
-  Skeleton,
-  StatusDot,
-  Table,
-  TimeAgo,
-} from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StatusDot } from "@/components/ui/status-dot";
+import { Table } from "@/components/ui/table";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { ActorDot } from "@/components/screens/shared";
 import { FILTER_LABEL, isLive, PAGE_SIZE, STATUS_DOT, STATUS_LABEL, type StatusFilter } from "./status";
 

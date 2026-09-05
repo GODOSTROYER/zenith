@@ -11,7 +11,11 @@
 import { Activity, RotateCw } from "lucide-react";
 import { useJson } from "@/lib/client/api";
 import { DRIFT_POLL_MS, type DriftItem, type DriftResponse } from "@/lib/drift";
-import { Button, Card, Chip, EmptyState, Skeleton } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorNote, SimulatedChip } from "@/components/screens/shared";
 
 const SEVERITY_TONE = { high: "err", medium: "warn", low: "info" } as const;

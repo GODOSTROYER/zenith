@@ -2,7 +2,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, Gauge, Globe, ScrollText } from "lucide-react";
-import { Button, Chip, CopyButton, StatusDot, type DotStatus } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
+import { CopyButton } from "@/components/ui/copy-button";
+import { StatusDot, type DotStatus } from "@/components/ui/status-dot";
 import { OrbitMark } from "@/components/shell/wordmark";
 import { useProjectData } from "@/components/shell/project-context";
 import { useShell } from "@/components/shell/shell-context";

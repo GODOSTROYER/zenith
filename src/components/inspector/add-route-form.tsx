@@ -1,7 +1,10 @@
 "use client";
 /** The "Publish a route" panel — a hostname pointed at a service. */
 import { useState } from "react";
-import { Field, Input, Select, Switch } from "@/components/ui";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useProjectData } from "@/components/shell/project-context";
 import { PlanFirst } from "./plan-first";
 

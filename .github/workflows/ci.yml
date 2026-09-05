@@ -45,13 +45,8 @@ jobs:
         # on start, so this is end-to-end against a directory it owns.
         run: npm run smoke
 
-  # Split out because it is the only job that needs the network for anything
-  # other than the registry: app/layout.tsx pulls its fonts from Google Fonts
-  # at build time, so `next build` fails on an air-gapped runner with a font
-  # fetch error rather than a code error. It runs here because GitHub-hosted
-  # runners do have egress; it is a separate job so a font outage cannot make
-  # the four real gates look red. Self-hosted runners without egress should
-  # either vendor the fonts with next/font/local or skip this job.
+  # Retain the existing optional build gate. Fonts now ship in public/fonts,
+  # so compilation no longer depends on reaching Google Fonts.
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -67,7 +62,7 @@ jobs:
 
       - run: npm ci
 
-      - name: Build (needs egress to fonts.googleapis.com)
+      - name: Build
         run: npm run build
 
   # Proves the image still assembles: `output: "standalone"` is easy to break
@@ -75,9 +70,7 @@ jobs:
   # a build tool the runner stage lacks) and nothing else in CI would notice.
   # Nothing is pushed — the image is built and discarded.
   #
-  # continue-on-error for the same reason as `build` above: it runs the same
-  # `next build` inside the image, so it needs egress to fonts.googleapis.com
-  # and a font outage must not make the four real gates look red.
+  # Retain the existing optional image-build gate, matching `build` above.
   docker:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -89,5 +82,5 @@ jobs:
       # No NEXT_PUBLIC_* build args: this builds the local-demo-mode image on
       # purpose. Supplying Supabase keys here would only inline a project's
       # public URL into an artifact CI then throws away.
-      - name: Build image (no push; needs egress to fonts.googleapis.com)
+      - name: Build image (no push)
         run: docker build -t orrery:ci .

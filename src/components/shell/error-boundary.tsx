@@ -1,7 +1,8 @@
 "use client";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { RotateCcw } from "lucide-react";
-import { Button, Callout } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
 
 interface Props {
   /** what broke, in the user's words: "the source editor" */

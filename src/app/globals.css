@@ -1,4 +1,6 @@
-@import "tailwindcss";
+/* Only application source supplies utility classes; generated assets and
+   scratch app copies must not expand Tailwind's scan/watch graph. */
+@import "tailwindcss" source("../");
 
 /* ============================================================
    Orrery design tokens — "observatory" theme.
@@ -26,6 +28,17 @@
   --on-signal: #04241c;
   --nav-accent: #929aff; /* Navigator (agent) identity — never used for anything else */
   --on-nav: #101235;
+
+  /* Gimbal — the Navigator character. Separate from semantic status colours. */
+  --gimbal-body: #111621;
+  --gimbal-metal: #3c4558;
+  --gimbal-edge-light: #c4c9dc;
+  --gimbal-edge-deep: #444b70;
+  --gimbal-core-light: #f0c181;
+  --gimbal-core: #c48c4f;
+  --gimbal-core-deep: #6e4727;
+  --gimbal-aperture: #5f3c21;
+  --gimbal-planning: #b48cff;
 
   /* semantic status — separate axis from brand */
   --ok: #45d59b;
@@ -68,6 +81,16 @@
   --on-signal: #ffffff;
   --nav-accent: #5a63e8;
   --on-nav: #ffffff;
+
+  --gimbal-body: #2d3342;
+  --gimbal-metal: #6d7588;
+  --gimbal-edge-light: #f1f3fa;
+  --gimbal-edge-deep: #555d88;
+  --gimbal-core-light: #f5cc8e;
+  --gimbal-core: #b67634;
+  --gimbal-core-deep: #76481d;
+  --gimbal-aperture: #4a2b12;
+  --gimbal-planning: #7c3aed;
 
   --ok: #148f60;
   --warn: #b07817;
@@ -114,6 +137,7 @@
   --color-info-dim: var(--info-dim);
   --color-signal-dim: var(--signal-dim);
   --color-nav-dim: var(--nav-dim);
+  --color-gimbal-core: var(--gimbal-core);
 
   --font-sans: var(--font-grotesk), "Space Grotesk", system-ui, sans-serif;
   --font-mono: var(--font-jbmono), "JetBrains Mono", ui-monospace, monospace;
@@ -213,6 +237,132 @@ td.num,
   to {
     stroke-dashoffset: -16;
   }
+}
+
+/* Gimbal's five workflow signals. Neutral is only the absence of an active run. */
+[data-gimbal-state] { --gimbal-accent: var(--nav-accent); }
+[data-gimbal-state="planning"] { --gimbal-accent: var(--gimbal-planning); }
+[data-gimbal-state="awaiting_approval"] { --gimbal-accent: var(--warn); }
+[data-gimbal-state="applying"] { --gimbal-accent: var(--info); }
+[data-gimbal-state="verified"] { --gimbal-accent: var(--ok); }
+[data-gimbal-state="blocked"] { --gimbal-accent: var(--err); }
+
+.gimbal-mark,
+.gimbal-status { color: var(--gimbal-accent); }
+
+/* Semantic accents are suitable for icons; small light-theme text needs more contrast. */
+[data-theme="light"] .gimbal-status {
+  color: color-mix(in srgb, var(--gimbal-accent) 75%, var(--ink));
+}
+
+.gimbal-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.gimbal-state-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.navigator-header {
+  display: grid;
+  position: relative;
+  align-items: start;
+  gap: 20px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--line);
+}
+
+.gimbal-stage {
+  position: absolute;
+  right: 0;
+  top: -8px;
+  width: 100px;
+  margin: 0;
+}
+
+.gimbal-character {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  isolation: isolate;
+  contain: layout paint;
+}
+
+.gimbal-character::before {
+  content: "";
+  position: absolute;
+  bottom: 8%;
+  left: 22%;
+  width: 56%;
+  height: 9%;
+  border-radius: 50%;
+  background: var(--line);
+  filter: blur(6px);
+}
+
+.gimbal-static,
+.gimbal-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.gimbal-canvas canvas { display: block; width: 100%; height: 100%; }
+.gimbal-character[data-renderer="static"] .gimbal-canvas { visibility: hidden; }
+.gimbal-greeting {
+  position: absolute;
+  inset: 5%;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.gimbal-greeting:focus-visible { outline: 2px solid var(--nav-accent); outline-offset: -2px; }
+.gimbal-caption { text-align: center; color: var(--ink-mute); font-size: 11px; }
+.gimbal-caption span { display: none; color: var(--ink-faint); }
+.navigator-heading > :first-child { padding-right: 102px; min-height: 105px; }
+.navigator-heading > :first-child > .gimbal-mark { display: none; }
+.navigator-header-compact .navigator-heading > :first-child { padding-right: 0; min-height: 0; }
+.navigator-live-status { padding: 11px 14px; border-radius: var(--r-ctl); background: var(--bg1); }
+.gimbal-state-guide { display: none; }
+.gimbal-guide-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: 6px; }
+.gimbal-guide-current { background: var(--bg2); }
+
+@media (min-width: 640px) {
+  .navigator-header { grid-template-columns: 150px minmax(0, 1fr); }
+  .gimbal-stage { position: relative; top: 0; width: 100%; align-self: center; }
+  .gimbal-caption span { display: inline; }
+  .navigator-heading > :first-child { padding-right: 0; min-height: 0; }
+  .navigator-heading > :first-child > .gimbal-mark { display: block; }
+  .navigator-header-compact { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (min-width: 1024px) {
+  .navigator-header { grid-template-columns: 210px minmax(0, 1fr); }
+  .navigator-header-compact { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (min-width: 1280px) {
+  .navigator-header { grid-template-columns: 210px minmax(0, 1fr) 215px; }
+  .navigator-header-compact { grid-template-columns: minmax(0, 1fr) 215px; }
+  .gimbal-state-guide { display: block; padding: 4px 0 0 18px; border-left: 1px solid var(--line); }
+}
+
+@media (forced-colors: active) {
+  .gimbal-status { color: CanvasText; }
+  .gimbal-state-dot { background: CanvasText; }
 }
 
 .animate-enter {

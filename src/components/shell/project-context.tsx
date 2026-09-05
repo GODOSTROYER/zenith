@@ -120,16 +120,8 @@ export function ProjectProvider({ slug, fallback, children }: ProjectProviderPro
     if (!connected) setLive(false); // errored or reconnecting: poll again
   }, [connected]);
 
-  // A stream can be silently dead across a suspend or a laptop lid; a tab
-  // coming back to the front re-syncs once rather than trusting it.
-  useEffect(() => {
-    if (!live) return; // useJson does this itself while it is polling
-    const onVisible = () => {
-      if (document.visibilityState === "visible") refreshProject();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [live, refreshProject]);
+  // useJson re-syncs on visibility even when SSE disables its polling timer.
+  // A second listener here would queue a duplicate request on every tab return.
 
   const [envId, setEnvId] = useState<string>("");
 

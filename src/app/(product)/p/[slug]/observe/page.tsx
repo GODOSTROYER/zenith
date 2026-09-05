@@ -13,7 +13,7 @@
 import { useJson } from "@/lib/client/api";
 import { useProjectAlerts } from "@/lib/client/alerts";
 import type { Revision } from "@/lib/domain/types";
-import { Skeleton } from "@/components/ui";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useShell } from "@/components/shell/shell-context";
 import { useSelectedEnv } from "@/components/screens/project-data";
 import { AlertBanner, AlertsCard } from "./alerts";

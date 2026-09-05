@@ -8,15 +8,13 @@ import { useState } from "react";
 import { Activity, RotateCw, Scaling } from "lucide-react";
 import { useJson } from "@/lib/client/api";
 import { ServiceSize, type Manifest, type Revision, type Service } from "@/lib/domain/types";
-import {
-  Button,
-  Card,
-  EmptyState,
-  Field,
-  Select,
-  Skeleton,
-  StatusDot,
-} from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Field } from "@/components/ui/field";
+import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StatusDot } from "@/components/ui/status-dot";
 import { ActionConfirm, ErrorNote, SimulatedChip } from "@/components/screens/shared";
 
 /** Health polls at this base rate; `useJson` slows down while nothing changes. */

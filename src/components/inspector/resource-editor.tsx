@@ -1,7 +1,9 @@
 "use client";
 /** One resource: config, connections, removal. */
 import { useMemo, useState } from "react";
-import { Field, Input, Tabs } from "@/components/ui";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Tabs } from "@/components/ui/tabs";
 import { useProjectData } from "@/components/shell/project-context";
 import { PlanFirst } from "./plan-first";
 import { BindingList } from "./binding-list";

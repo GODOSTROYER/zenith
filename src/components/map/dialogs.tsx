@@ -10,24 +10,23 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import {
-  Button,
-  Callout,
-  Checkbox,
-  Chip,
-  Dialog,
-  EmptyState,
-  Field,
-  SegmentedControl,
-  Select,
-  Skeleton,
-} from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Chip } from "@/components/ui/chip";
+import { Dialog } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Field } from "@/components/ui/field";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PlanFirst } from "@/components/inspector/plan-first";
 import { useProjectData } from "@/components/shell/project-context";
 import { useShell } from "@/components/shell/shell-context";
 import { ErrorNote } from "@/components/screens/shared";
 import { useJson } from "@/lib/client/api";
-import { importDockerfile, importTerraform } from "@/lib/importers";
+import { importDockerfile } from "@/lib/importers/dockerfile";
+import { importTerraform } from "@/lib/importers/terraform";
 import { uniqueName, type ImportReport } from "@/lib/importers/types";
 import { ImportReportView } from "@/components/screens/import-report";
 import type { Manifest } from "@/lib/domain/types";

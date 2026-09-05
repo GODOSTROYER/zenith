@@ -2,7 +2,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, ChevronRight, HelpCircle, SearchCode } from "lucide-react";
 import Link from "next/link";
-import { Callout, Chip, CostDelta, RiskBadge, StatusDot } from "@/components/ui";
+import { Callout } from "@/components/ui/callout";
+import { Chip } from "@/components/ui/chip";
+import { CostDelta } from "@/components/ui/cost-delta";
+import { RiskBadge } from "@/components/ui/risk-badge";
+import { StatusDot } from "@/components/ui/status-dot";
 import { useProjectData } from "@/components/shell/project-context";
 import { ApiError, planAction } from "@/lib/client/api";
 import type { ActionPlan } from "@/lib/actions/core";

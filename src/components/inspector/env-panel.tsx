@@ -9,7 +9,11 @@
  * `lib/client/secrets`, shared with Settings → Secrets.
  */
 import { useState } from "react";
-import { Button, Callout, Field, Input, TimeAgo } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { SectionTitle } from "@/components/screens/shared";
 import { useSecrets, type SecretRow, type SecretsView } from "@/lib/client/secrets";
 import { PlanFirst } from "./plan-first";

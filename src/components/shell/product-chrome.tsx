@@ -11,17 +11,13 @@ import { useCallback, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Check, LogOut, Plus, Settings, Users } from "lucide-react";
-import {
-  Button,
-  Callout,
-  Dialog,
-  Field,
-  Input,
-  MenuItem,
-  MenuNote,
-  Popover,
-  ThemeToggle,
-} from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Dialog } from "@/components/ui/dialog";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { MenuItem, MenuNote, Popover } from "@/components/ui/popover";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ActivityBell } from "@/components/shell/activity-bell";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { useShell } from "@/components/shell/shell-context";

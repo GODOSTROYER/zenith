@@ -13,7 +13,7 @@ operations README — mean there is no lock-in.
 
 | | |
 | --- | --- |
-| **Tests** | 519 across 56 files (`npm test`), plus an end-to-end smoke run |
+| **Tests** | 564 across 60 files (`npm test`), plus an end-to-end smoke run |
 | **Actions** | 52 typed actions in one registry — every surface calls these |
 | **Providers** | Sandbox and LocalStack available · AWS preview · Kubernetes, GCP, Azure planned |
 | **Stack** | Next.js 15.3.3 · React 19.1.0 · TypeScript strict · Tailwind v4 · optional Supabase auth |
@@ -236,6 +236,15 @@ half read the goal. Steps obey each environment's approval policy, land in the
 audit trail, and a run whose steps outrank the person who pressed Run is refused.
 Nothing here can do anything you could not do yourself from the map.
 
+Gimbal is the Navigator's quiet visual companion: a simplified face at the
+center of three independently animated rings, moving across all three axes like
+a small gyroscope. State changes ease into a slightly more energetic orbit and
+then settle; the face responds with tiny changes in focus or expression. Hover
+and tap interactions add a brief glance or wink. The renderer is procedural, so
+it needs no model, texture atlas or decoder download, pauses offscreen, respects
+reduced motion, and caps rendering at 30fps (20fps in low-power mode). Visit
+[`/gimbal`](http://localhost:3400/gimbal) for the interactive preview.
+
 ### Settings — `/p/<project>/settings`
 
 ![Settings screen with a section nav reading Workspace, Members, Environments, Connections, Secrets, Alerts, Export and Danger zone; the Workspace section offers a rename with a "Preview and rename" button, and the Members section lists one admin member with a role picker and a note about Supabase app_metadata role claims](docs/screenshots/settings.png)
@@ -371,7 +380,7 @@ accepts, never a silent default. Full table and build-time caveats in
 | `npm start` | Serve the production build on 3400 |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint over the repo |
-| `npm test` | Vitest: 519 tests, node and jsdom projects |
+| `npm test` | Vitest: 564 tests, node and jsdom projects |
 | `npm run verify` | typecheck + lint + test + smoke, in order — what CI runs |
 | `npm run smoke` | End-to-end: blueprint → deploy → URL, chaos failure → rollback |
 | `npm run setup` | First-run setup; idempotent |

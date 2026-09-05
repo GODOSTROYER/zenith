@@ -15,7 +15,8 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import { Chip, StatusDot, type DotStatus } from "@/components/ui";
+import { Chip } from "@/components/ui/chip";
+import { StatusDot, type DotStatus } from "@/components/ui/status-dot";
 import { cx, fmtUsd } from "@/lib/format";
 import type { Ownership } from "@/lib/domain/types";
 import type { DriftItem } from "@/lib/drift";

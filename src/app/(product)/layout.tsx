@@ -1,30 +1,19 @@
 import type { ReactNode } from "react";
-import { ToastProvider } from "@/components/ui";
+import { ToastProvider } from "@/components/ui/toast";
 import { ErrorBoundary } from "@/components/shell/error-boundary";
 import { ProductChrome } from "@/components/shell/product-chrome";
-import { ShellProvider, type ActionEntry } from "@/components/shell/shell-context";
-import { listActions } from "@/lib/actions/defs";
+import { ShellProvider } from "@/components/shell/shell-context";
 
 /**
  * The product shell: one top bar, one toast queue, one notification home.
  *
- * A server component so the browser can be handed the real action registry
- * rather than a hand-maintained copy of it — only the five fields a picker or a
- * role check needs cross over, and none of the handlers do. It goes into the
- * shell context, so the palette and every role-gated control read one list.
+ * The bootstrap response carries the real action catalog. Rendering the shell
+ * does not import deployment engines and action handlers just to list titles.
  */
 export default function ProductLayout({ children }: { children: ReactNode }) {
-  const catalog: ActionEntry[] = listActions().map((a) => ({
-    id: a.id,
-    title: a.title,
-    category: a.category,
-    risk: a.risk,
-    requiredRole: a.requiredRole,
-  }));
-
   return (
     <ToastProvider>
-      <ShellProvider catalog={catalog}>
+      <ShellProvider>
         <div className="flex h-dvh flex-col bg-bg0">
           {/* First tab stop on every product page: past the chrome, into the screen. */}
           <a

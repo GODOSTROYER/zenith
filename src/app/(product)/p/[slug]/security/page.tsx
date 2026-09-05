@@ -12,7 +12,10 @@
 import { useMemo, useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import type { SecurityFinding } from "@/lib/domain/types";
-import { Button, Card, EmptyState, Skeleton } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useSelectedEnv } from "@/components/screens/project-data";
 import { useShell } from "@/components/shell/shell-context";
 import { downloadFile } from "@/components/screens/download-file";

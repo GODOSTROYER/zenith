@@ -6,7 +6,9 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import type { SecurityFinding } from "@/lib/domain/types";
-import { Card, Chip, TimeAgo } from "@/components/ui";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { STATUS_LABEL } from "./rows";
 
 export interface PendingSectionProps {

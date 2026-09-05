@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SystemMap } from "@/components/map/system-map";
+import { SystemMapLoader } from "@/components/map/system-map-loader";
 import type { BlueprintCard } from "@/components/map/dialogs";
 import { blueprints } from "@/lib/blueprints";
 
@@ -18,5 +18,5 @@ export default function SystemMapPage() {
     icon: b.icon,
     highlights: b.highlights,
   }));
-  return <SystemMap blueprints={cards} />;
+  return <SystemMapLoader blueprints={cards} />;
 }

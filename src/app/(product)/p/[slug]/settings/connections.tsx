@@ -7,16 +7,14 @@ import { useState } from "react";
 import { Plug, Plus } from "lucide-react";
 import type { Role } from "@/lib/actions/core";
 import type { CloudConnection } from "@/lib/domain/types";
-import {
-  Button,
-  Card,
-  Field,
-  Input,
-  Select,
-  Skeleton,
-  StatusDot,
-  TimeAgo,
-} from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StatusDot } from "@/components/ui/status-dot";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { ActionConfirm, ErrorNote, useRunAction } from "@/components/screens/shared";
 import { useGate } from "./access";
 import { CONN_DOT, unusableReason, type ProviderInfo } from "./shared";

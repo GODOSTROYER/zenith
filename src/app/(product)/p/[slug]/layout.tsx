@@ -15,6 +15,7 @@ export default function ProjectLayout({
 
   return (
     <ProjectProvider
+      key={slug}
       slug={slug}
       fallback={({ loading, error }) => (
         <ProjectChromeFallback

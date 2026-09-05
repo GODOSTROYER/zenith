@@ -7,16 +7,14 @@
 import { useRef, useState } from "react";
 import type { Role } from "@/lib/actions/core";
 import { executeAction } from "@/lib/client/api";
-import {
-  Button,
-  Callout,
-  Chip,
-  CostDelta,
-  Dialog,
-  RiskBadge,
-  Skeleton,
-  TimeAgo,
-} from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Chip } from "@/components/ui/chip";
+import { CostDelta } from "@/components/ui/cost-delta";
+import { Dialog } from "@/components/ui/dialog";
+import { RiskBadge } from "@/components/ui/risk-badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TimeAgo } from "@/components/ui/time-ago";
 import {
   ErrorNote,
   errorText,

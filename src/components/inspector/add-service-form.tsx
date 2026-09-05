@@ -1,7 +1,9 @@
 "use client";
 /** The "Add a service" panel — priced before it exists. */
 import { useState } from "react";
-import { Field, Input, Select } from "@/components/ui";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { useProjectData } from "@/components/shell/project-context";
 import { PlanFirst } from "./plan-first";
 import { KIND_OPTIONS, SizeField } from "./editor-parts";

@@ -3,7 +3,7 @@
  * ⌘K / Ctrl-K — every screen and every registered action, in one list.
  *
  * The action rows come from the real `actionRegistry()`, serialised by the
- * product layout (a server component), so this list cannot drift from what the
+ * bootstrap endpoint, so this list cannot drift from what the
  * engine will accept: the title, risk and required role shown here are the ones
  * `runAction` enforces. A row the caller's role forbids is disabled and says
  * which role it needs and which one they have, rather than sending them
@@ -17,7 +17,8 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
 import { Search } from "lucide-react";
-import { Kbd, RiskBadge } from "@/components/ui";
+import { Kbd } from "@/components/ui/kbd";
+import { RiskBadge } from "@/components/ui/risk-badge";
 import { useModal } from "@/components/ui/use-modal";
 import { useShell, type ActionEntry } from "@/components/shell/shell-context";
 import { cx } from "@/lib/format";

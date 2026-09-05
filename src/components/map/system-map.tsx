@@ -5,7 +5,8 @@
  * keyboard.ts, the chrome is toolbar.tsx and the right-click menu is
  * node-menu.tsx.
  */
-import "@xyflow/react/dist/style.css";
+import "./react-flow.css";
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Background,
@@ -17,14 +18,17 @@ import {
   type Node,
 } from "@xyflow/react";
 import { Boxes, FileUp } from "lucide-react";
-import { Button, Dialog, EmptyState } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useProjectData } from "@/components/shell/project-context";
-import { Inspector, type InspectorTarget } from "@/components/inspector/inspector";
+import type { InspectorTarget } from "@/components/inspector/inspector";
 import { PlanFirst } from "@/components/inspector/plan-first";
 import { DeployDock } from "@/components/deploy/deploy-dock";
 import { useJson } from "@/lib/client/api";
 import { DRIFT_POLL_MS, type DriftResponse } from "@/lib/drift";
-import { BlueprintDialog, ImportDialog, type BlueprintCard } from "./dialogs";
+import type { BlueprintCard } from "./dialogs";
 import { type BindingEdge, edgeTypes } from "./edges";
 import {
   buildGraph,
@@ -41,6 +45,21 @@ import { MapToolbar, STRATA_ORDER } from "./toolbar";
 
 /** Half the visual size of an edge anchor, in graph units. */
 const HANDLE_R = 3;
+function LoadingTool({ label }: { label: string }) {
+  return <div role="status" className="fixed right-4 bottom-4 z-50 w-60 space-y-3 rounded-card border border-line bg-bg2 p-4 shadow-card">
+    <p className="text-[13px] text-ink">{label}</p>
+    <Skeleton height={12} width="75%" />
+  </div>;
+}
+const Inspector = dynamic(() => import("@/components/inspector/inspector").then((m) => m.Inspector), {
+  ssr: false, loading: () => <LoadingTool label="Opening editor…" />,
+});
+const BlueprintDialog = dynamic(() => import("./dialogs").then((m) => m.BlueprintDialog), {
+  ssr: false, loading: () => <LoadingTool label="Opening blueprints…" />,
+});
+const ImportDialog = dynamic(() => import("./dialogs").then((m) => m.ImportDialog), {
+  ssr: false, loading: () => <LoadingTool label="Opening import…" />,
+});
 
 export interface SystemMapProps {
   /** blueprint catalog metadata, read on the server */
@@ -514,11 +533,11 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
         )}
       </div>
 
-      <Inspector
+      {target && <Inspector
         target={target}
         onClose={() => setTarget(null)}
         onSelect={setTarget}
-      />
+      />}
 
       <DeployDock
         onLiveTargets={setLiveTargets}
@@ -527,12 +546,12 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
         openReview={openReview}
       />
 
-      <BlueprintDialog
+      {dialog === "blueprint" && <BlueprintDialog
         open={dialog === "blueprint"}
         onClose={() => setDialog(null)}
         blueprints={blueprints}
-      />
-      <ImportDialog open={dialog === "compose"} onClose={() => setDialog(null)} />
+      />}
+      {dialog === "compose" && <ImportDialog open onClose={() => setDialog(null)} />}
 
       <Dialog
         open={Boolean(bindPair)}

@@ -8,7 +8,10 @@
  */
 import type { RefObject } from "react";
 import { Database, FileUp, Globe, Layers, Link2, Plus, Search, Sparkles } from "lucide-react";
-import { Button, Chip, Input, Kbd } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
+import { Input } from "@/components/ui/input";
+import { Kbd } from "@/components/ui/kbd";
 import type { Stratum } from "./layout";
 
 /** Keyboard order across the map: left column to right, top to bottom. */

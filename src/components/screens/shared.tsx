@@ -11,18 +11,15 @@ import { ApiError, executeAction, planAction } from "@/lib/client/api";
 import type { Actor, ChangeItem, EnvironmentClass } from "@/lib/domain/types";
 import { cx } from "@/lib/format";
 import { useShell } from "@/components/shell/shell-context";
-import {
-  Button,
-  Callout,
-  Chip,
-  CostDelta,
-  Dialog,
-  Input,
-  RiskBadge,
-  Skeleton,
-  useToasts,
-  type ChipTone,
-} from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Chip, type ChipTone } from "@/components/ui/chip";
+import { CostDelta } from "@/components/ui/cost-delta";
+import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { RiskBadge } from "@/components/ui/risk-badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToasts } from "@/components/ui/toast";
 
 /**
  * Kept as a name because screens import it. `useToasts()` itself now degrades

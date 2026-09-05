@@ -3,7 +3,7 @@
  * called, which dot it gets, and which of them are still running. Pure — the
  * list, the detail header and the filter all read the same tables.
  */
-import type { DotStatus } from "@/components/ui";
+import type { DotStatus } from "@/components/ui/status-dot";
 import type { Deployment, DeploymentStatus } from "@/lib/domain/types";
 
 export const STREAM_EVENTS = ["status", "step", "log", "output"];

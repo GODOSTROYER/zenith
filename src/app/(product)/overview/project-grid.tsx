@@ -10,16 +10,14 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, Search } from "lucide-react";
-import {
-  Card,
-  Checkbox,
-  Chip,
-  Input,
-  Meter,
-  Select,
-  StatusDot,
-  TimeAgo,
-} from "@/components/ui";
+import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Chip } from "@/components/ui/chip";
+import { Input } from "@/components/ui/input";
+import { Meter } from "@/components/ui/meter";
+import { Select } from "@/components/ui/select";
+import { StatusDot } from "@/components/ui/status-dot";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { EnvDot } from "@/components/screens/shared";
 import { fmtUsd } from "@/lib/format";
 import {

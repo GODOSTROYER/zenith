@@ -2,7 +2,12 @@
 /** One connection, opened on its own from the map or from a node's list. */
 import { useState } from "react";
 import { ArrowRight, Pencil } from "lucide-react";
-import { Button, Callout, Chip, Field, Input, Select } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Chip } from "@/components/ui/chip";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { useProjectData } from "@/components/shell/project-context";
 import { PlanFirst } from "./plan-first";
 import { Facts } from "./editor-parts";

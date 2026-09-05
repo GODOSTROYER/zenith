@@ -8,7 +8,10 @@ import { ArrowRight, Check, Lock } from "lucide-react";
 import { useJson } from "@/lib/client/api";
 import type { CloudConnection } from "@/lib/domain/types";
 import { cx } from "@/lib/format";
-import { Button, Card, Chip, Skeleton, type ChipTone } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Chip, type ChipTone } from "@/components/ui/chip";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { ProviderChoice, ProviderInfo } from "./types";
 
 const AVAILABILITY_TONE: Record<ProviderInfo["availability"], ChipTone> = {

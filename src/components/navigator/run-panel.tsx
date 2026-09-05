@@ -2,7 +2,12 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Play, Square } from "lucide-react";
-import { Button, Callout, Card, Chip, CostDelta, StatusDot } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
+import { CostDelta } from "@/components/ui/cost-delta";
+import { StatusDot } from "@/components/ui/status-dot";
 import { cx } from "@/lib/format";
 import type { AutonomyLevel, NavigatorRun } from "@/lib/domain/types";
 import {

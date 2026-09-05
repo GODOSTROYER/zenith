@@ -24,7 +24,7 @@ const config = [
       ],
     },
   },
-  { ignores: [".next/**", ".data/**", ".data-smoke/**", "node_modules/**", "supabase/**"] },
+  { ignores: [".next/**", ".data/**", ".data-*/**", "node_modules/**", "supabase/**", "public/gimbal/basis/**"] },
 ];
 
 // Named, because `eslint .` lints this file too and flags an anonymous default.

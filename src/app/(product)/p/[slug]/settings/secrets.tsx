@@ -19,7 +19,13 @@ import { KeyRound } from "lucide-react";
 import type { Role } from "@/lib/actions/core";
 import type { Manifest } from "@/lib/domain/types";
 import { isOurs, useSecrets } from "@/lib/client/secrets";
-import { Button, Callout, Card, Field, Input, Skeleton, TimeAgo } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Card } from "@/components/ui/card";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { ActionConfirm, ErrorNote } from "@/components/screens/shared";
 import { useGate } from "./access";
 

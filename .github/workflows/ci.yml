@@ -16,13 +16,16 @@ jobs:
     timeout-minutes: 15
 
     env:
-      # Never let a gate touch a developer's .data/. Each step gets a fresh
-      # directory under the runner's temp dir, which the runner discards.
-      ORRERY_DATA: ${{ runner.temp }}/orrery-ci-data
       ORRERY_FAST: "1"
 
     steps:
       - uses: actions/checkout@v4
+
+      # The runner context is unavailable in job-level env. Set the shared
+      # scratch path after the runner starts, before any package scripts run.
+      - name: Isolate verification data
+        shell: bash
+        run: echo "ORRERY_DATA=$RUNNER_TEMP/orrery-ci-data" >> "$GITHUB_ENV"
 
       - uses: actions/setup-node@v4
         with:

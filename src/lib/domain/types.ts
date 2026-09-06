@@ -634,8 +634,8 @@ export type AutonomyLevel = z.infer<typeof AutonomyLevel>;
 /**
  * Evidence for the whole Navigator run, recorded by an authoritative verifier
  * after execution. A successful action or deployment status alone is not this
- * evidence. Current provider execution does not emit this record; it must stay
- * absent until a verifier checks the complete intended result.
+ * evidence. The run verifier records it only when provider checks cover the
+ * complete intended result; unsupported or incomplete observations stay neutral.
  */
 export interface NavigatorVerification {
   scope: "run";
@@ -645,6 +645,8 @@ export interface NavigatorVerification {
   checkedAt: string;
   /** Reference to the recorded provider observation/check, not explanatory prose. */
   evidenceRef: string;
+  /** Immutable observations retained with the run for inspection. */
+  checks?: { deploymentId: string; revisionId: string; provider: ProviderId; detail: string; passed: boolean }[];
 }
 
 export interface NavigatorRun {
@@ -657,6 +659,8 @@ export interface NavigatorRun {
   endedAt?: string;
   summary?: string;
   verification?: NavigatorVerification;
+  verificationPending?: boolean;
+  verificationNote?: string;
 }
 
 export interface NavigatorStep {
@@ -677,5 +681,7 @@ export interface NavigatorStep {
   /** Approval is a client-side selection until Run; there is no stored "approved". */
   status: "proposed" | "running" | "done" | "failed" | "skipped";
   resultSummary?: string;
+  /** Deployment created by this action, retained across approval/resume cycles. */
+  deploymentId?: string;
   error?: string;
 }

@@ -24,12 +24,12 @@ const VARIANTS: Record<ButtonVariant, string> = {
     "bg-bg2 text-ink border border-line hover:bg-bg3 hover:border-line-strong",
   ghost:
     "bg-transparent text-ink-mute border border-transparent hover:bg-bg2 hover:text-ink",
-  danger: "bg-err text-bg0 border border-transparent hover:brightness-110",
+  danger: "bg-err text-on-danger border border-transparent hover:brightness-110",
 };
 
 const SIZES: Record<ButtonSize, string> = {
-  sm: "h-7 px-2.5 text-[12.5px]",
-  md: "h-8 px-3 text-[13px]",
+  sm: "h-8 px-2.5 text-[12.5px]",
+  md: "h-9 px-3.5 text-[13px]",
 };
 
 const GAPS: Record<ButtonSize, string> = { sm: "gap-1.5", md: "gap-2" };
@@ -90,7 +90,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       aria-busy={busy || undefined}
       title={tip}
       className={cx(
-        "relative inline-flex items-center justify-center rounded-ctl font-medium whitespace-nowrap",
+        "ui-button relative inline-flex items-center justify-center rounded-ctl font-medium whitespace-nowrap",
         "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]",
         "disabled:opacity-55 disabled:cursor-not-allowed",
         SIZES[size],

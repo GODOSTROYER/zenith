@@ -30,6 +30,7 @@ import {
 import { normalizeGoal, type Parsing } from "./llm";
 import { parseGoal } from "./planner";
 import { isExecutable, planBlock } from "./shared";
+import { verifyRun } from "./verification";
 
 const NAVIGATOR: Actor = { type: "navigator", id: "navigator", name: "Navigator" };
 
@@ -278,6 +279,9 @@ export async function executeRun(
   let failure: NavigatorStep | undefined;
 
   run.status = "executing";
+  run.verification = undefined;
+  run.verificationNote = undefined;
+  run.verificationPending = false;
   save();
 
   for (const step of run.steps) {
@@ -310,6 +314,7 @@ export async function executeRun(
       // deploy.apply hands off to the engine — follow it to a real outcome.
       const data = result.data as { deploymentId?: string } | undefined;
       if (result.ok && step.actionId === "deploy.apply" && data?.deploymentId) {
+        step.deploymentId = data.deploymentId;
         const deployment = await awaitDeployment(data.deploymentId);
         if (deployment) {
           const outcome = deploymentOutcome(deployment);
@@ -349,6 +354,28 @@ export async function executeRun(
     save();
   }
 
+  if (!cancelRequested() && !failure && pending === 0 && run.steps.every((step) => step.status === "done")) {
+    run.verificationPending = true;
+    save();
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const checked = await Promise.race([
+        verifyRun(run),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error("Provider checks timed out. The completed steps remain recorded; verification is unavailable.")), 12_000);
+        }),
+      ]);
+      if (!cancelRequested()) {
+        run.verification = checked.verification;
+        run.verificationNote = checked.note;
+      }
+    } catch (error) {
+      if (!cancelRequested()) run.verificationNote = error instanceof Error ? error.message : "Provider verification is unavailable.";
+    } finally {
+      clearTimeout(timeout);
+      run.verificationPending = false;
+    }
+  }
   const cancelled = cancelRequested();
 
   // Anything after a failure (or a cancel) never ran; say so rather than

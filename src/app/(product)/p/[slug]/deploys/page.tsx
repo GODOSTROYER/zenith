@@ -8,6 +8,8 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Rocket } from "lucide-react";
+import Link from "next/link";
+import { PageHeading } from "@/components/screens/page-heading";
 import { api } from "@/lib/client/api";
 import type { Deployment } from "@/lib/domain/types";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -132,7 +134,8 @@ export default function DeploysPage() {
     );
 
   return (
-    <div className="mx-auto h-full w-full overflow-y-auto max-w-[1240px] px-6 py-6">
+    <div className="product-page mx-auto h-full w-full max-w-[1240px] overflow-y-auto">
+      <PageHeading title="Deploys" description={`Deployment history and outcomes for ${env.name}. Select a deployment to inspect its steps and outputs.`} />
       {error ? <ErrorNote error={error} className="mb-4" /> : null}
 
       {list && list.length === 0 && status === "all" ? (
@@ -140,9 +143,10 @@ export default function DeploysPage() {
           icon={<Rocket className="h-5 w-5" />}
           title="No deployments yet"
           body={`Nothing has been applied to ${env.name}. Review your pending changes on the System map, then deploy.`}
+          action={<Link href={`/p/${slug}?env=${encodeURIComponent(env.id)}`} className="ui-button inline-flex h-9 items-center rounded-ctl bg-signal px-3.5 text-[13px] font-medium text-on-signal hover:bg-signal-strong">Review changes on the map</Link>}
         />
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+        <div className="grid gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
           <DeploymentList
             envName={env.name}
             list={list}

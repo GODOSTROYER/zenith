@@ -92,7 +92,8 @@ describe("living gyroscope lifecycle", () => {
     advance(12_000);
     const calmStart = z(); advance(1000); const calmSpeed = Math.abs(z() - calmStart);
     expect(activeSpeed).toBeGreaterThan(calmSpeed * 1.15);
-    expect(activeSpeed).toBeLessThan(0.16);
+    // The new held approval pose has a larger journey back to free orbit.
+    expect(activeSpeed).toBeLessThan(0.6);
     expect(calmSpeed).toBeGreaterThan(0);
   });
 
@@ -125,6 +126,20 @@ describe("living gyroscope lifecycle", () => {
     expect(mocks.render.mock.calls.length).toBeLessThanOrEqual(20);
   });
 
+  it("changes power and motion settings without replacing the canvas or orbit", async () => {
+    await mount("planning"); advance(600);
+    const canvas = host.querySelector("canvas"), before = object("Orbit0").quaternion.clone();
+    runtime!.setLowPower(true);
+    expect(host.querySelector("canvas")).toBe(canvas);
+    expect(object("Orbit0").quaternion.angleTo(before)).toBeLessThan(0.000001);
+    mocks.render.mockClear(); advance(1000);
+    expect(mocks.render.mock.calls.length).toBeLessThanOrEqual(20);
+    const paused = object("Orbit0").quaternion.clone();
+    runtime!.setReducedMotion(true);
+    expect(object("Orbit0").quaternion.angleTo(paused)).toBeLessThan(0.000001);
+    expect(frames.size).toBe(0);
+  });
+
   it("answers a tap with a tiny wink and prevents repeated gesture restarts", async () => {
     await mount("verified"); runtime!.greet("tap"); advance(280);
     expect(host.dataset.gimbalGesture).toBe("wink");
@@ -133,6 +148,16 @@ describe("living gyroscope lifecycle", () => {
     runtime!.greet("tap"); expect(object("LeftEye").scale.y).toBe(before);
     advance(1000); expect(host.dataset.gimbalGesture).toBeUndefined();
     expect(object("LeftEye").scale.y).toBeCloseTo(object("RightEye").scale.y);
+  });
+
+  it("settles the current expression when paused mid-transition without moving the rings", async () => {
+    await mount("verified");
+    runtime!.setState("blocked");
+    const before = object("Orbit0").quaternion.clone();
+    runtime!.setReducedMotion(true);
+    expect(object("Mouth").scale.y).toBeLessThan(0);
+    expect(object("Orbit0").quaternion.angleTo(before)).toBeLessThan(0.000001);
+    expect(frames.size).toBe(0);
   });
 
   it("blinks during quiet work without changing state and suppresses gestures in still mode", async () => {

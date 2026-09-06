@@ -222,7 +222,7 @@ export default function RevisionsPage() {
   const previousOf = (index: number): RevisionMeta | undefined => revisions[index + 1];
 
   return (
-    <div className="mx-auto h-full w-full max-w-[1100px] overflow-y-auto px-6 py-6">
+    <div className="product-page mx-auto h-full w-full max-w-[1100px] overflow-y-auto">
       {listError ? <ErrorNote error={listError} className="mb-4" /> : null}
       {revisions.length === 0 && listLoading ? (
         <div className="space-y-3">

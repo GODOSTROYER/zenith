@@ -161,9 +161,9 @@ export default function ActivityPage() {
       }`;
 
   return (
-    <div className="mx-auto h-full w-full overflow-y-auto max-w-[980px] px-6 py-6">
+    <div className="product-page mx-auto h-full w-full max-w-[1100px] overflow-y-auto">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">{heading}</h2>
+        <h2 className="text-[24px] font-medium tracking-[-0.015em] text-ink">{heading}</h2>
         <span className="flex items-center gap-2">
           <Button
             size="sm"

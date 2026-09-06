@@ -441,7 +441,7 @@ function EnvironmentCard({
         />
       )}
 
-      <div className="mt-6 grid gap-6 sm:grid-cols-2">
+      <div className="mt-6 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6 sm:grid-cols-2">
         <Field
           label="Monthly budget"
           help={`Estimates only. Budgets warn before a deploy; they never stop a running system. $${BUDGET_MIN} to $${BUDGET_MAX.toLocaleString("en-US")}.`}
@@ -451,7 +451,7 @@ function EnvironmentCard({
               : undefined
           }
         >
-          <div className="flex gap-2">
+          <div className="flex min-w-0 flex-wrap gap-2">
             <Input
               value={budget}
               onChange={(e) => setBudget(e.target.value)}

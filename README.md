@@ -13,7 +13,7 @@ operations README — mean there is no lock-in.
 
 | | |
 | --- | --- |
-| **Tests** | 564 across 60 files (`npm test`), plus an end-to-end smoke run |
+| **Tests** | 889 across 79 files (`npm test`), plus an end-to-end smoke script |
 | **Actions** | 52 typed actions in one registry — every surface calls these |
 | **Providers** | Sandbox and LocalStack available · AWS preview · Kubernetes, GCP, Azure planned |
 | **Stack** | Next.js 15.3.3 · React 19.1.0 · TypeScript strict · Tailwind v4 · optional Supabase auth |
@@ -237,13 +237,24 @@ audit trail, and a run whose steps outrank the person who pressed Run is refused
 Nothing here can do anything you could not do yourself from the map.
 
 Gimbal is the Navigator's quiet visual companion: a simplified face at the
-center of three independently animated rings, moving across all three axes like
-a small gyroscope. State changes ease into a slightly more energetic orbit and
-then settle; the face responds with tiny changes in focus or expression. Hover
-and tap interactions add a brief glance or wink. The renderer is procedural, so
-it needs no model, texture atlas or decoder download, pauses offscreen, respects
-reduced motion, and caps rendering at 30fps (20fps in low-power mode). Visit
+center of three gyroscope rings. A surrounding glow communicates planning
+(purple), awaiting approval (yellow), applying (blue), verified (green), or
+blocked (red), alongside a plain-text status. The rings explore while planning,
+hold a concentric alignment for approval, coordinate while applying, and adopt
+an interrupted pose when blocked. Transitions preserve their orientation.
+Hover and tap add a glance or greeting, including in the SVG fallback.
+The procedural renderer pauses offscreen, respects reduced motion, and caps
+rendering at 30fps (20fps in low-power mode). Motion settings retain the canvas;
+a GPU failure gets one retry before keeping the functional fallback. Visit
 [`/gimbal`](http://localhost:3400/gimbal) for the interactive preview.
+
+Green requires recorded, fresh provider evidence, not merely successful actions.
+Whole-run verification currently covers deployment-only workflows (optionally
+with planning/investigation) targeting LocalStack's managed S3/SQS subset with
+default configuration and no services, routes, or bindings. Read-only checks
+confirm intended resource presence and removals, and remain available in run
+history. Sandbox simulations and unsupported or incomplete checks stay neutral;
+failed provider checks show blocked. This verifies local emulation, not real AWS.
 
 ### Settings — `/p/<project>/settings`
 
@@ -380,7 +391,7 @@ accepts, never a silent default. Full table and build-time caveats in
 | `npm start` | Serve the production build on 3400 |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint over the repo |
-| `npm test` | Vitest: 564 tests, node and jsdom projects |
+| `npm test` | Vitest: 889 tests, node and jsdom projects |
 | `npm run verify` | typecheck + lint + test + smoke, in order — what CI runs |
 | `npm run smoke` | End-to-end: blueprint → deploy → URL, chaos failure → rollback |
 | `npm run setup` | First-run setup; idempotent |
@@ -400,12 +411,9 @@ accepts, never a silent default. Full table and build-time caveats in
 ### Quality gates
 
 `npm run verify` runs the four gates in order, and they all run offline.
-**`npm run build` does not:** `src/app/layout.tsx` loads its fonts through
-`next/font/google`, which fetches from `fonts.googleapis.com` at build time, so
-an air-gapped build fails with a font error rather than a code error.
-`.github/workflows/ci.yml` therefore runs `build` and `docker` as separate
-`continue-on-error` jobs, so a font outage cannot make the four real gates look
-red. Point tests and scripts at a throwaway directory (`ORRERY_DATA=$(mktemp -d)`)
+Fonts are self-hosted, so `npm run build` no longer fetches Google Fonts.
+`.github/workflows/ci.yml` runs `build` and `docker` as separate
+`continue-on-error` jobs. Point tests and scripts at a throwaway directory (`ORRERY_DATA=$(mktemp -d)`)
 so a run never touches your working `.data/`.
 
 ### Screenshots

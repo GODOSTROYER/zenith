@@ -111,16 +111,16 @@ export function ProjectChrome({ slug, children }: { slug: string; children: Reac
   const openAlerts = unacknowledged.length;
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="shrink-0 border-b border-line bg-bg1 px-4 pt-2.5">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+    <div className="flex h-full min-w-0 flex-col">
+      <div className="shrink-0 border-b border-line bg-bg1 px-4 pt-4 sm:px-6">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3 pb-3">
           {projects.length > 1 ? (
             <>
               <h1 className="sr-only">{project.name}</h1>
               <Select
                 aria-label="Project"
                 title="Switch to another project in this workspace."
-                className="w-[200px]"
+                className="w-[220px] max-w-full"
                 value={project.slug}
                 onChange={(e) => {
                   const next = e.target.value;
@@ -132,7 +132,7 @@ export function ProjectChrome({ slug, children }: { slug: string; children: Reac
               />
             </>
           ) : (
-            <h1 className="truncate text-[15px] font-medium text-ink">{project.name}</h1>
+            <h1 className="truncate text-[18px] font-medium text-ink">{project.name}</h1>
           )}
 
           {environments.length > 0 && (
@@ -185,7 +185,7 @@ export function ProjectChrome({ slug, children }: { slug: string; children: Reac
             ref={strip}
             onScroll={measure}
             aria-label="Project sections"
-            className="-mb-px flex scroll-px-4 items-end gap-1 overflow-x-auto scroll-smooth"
+            className="project-navigation -mb-px flex scroll-px-4 items-end gap-1 overflow-x-auto scroll-smooth"
           >
           {TABS.map((t) => {
             const href = t.seg ? `${base}/${t.seg}` : base;
@@ -204,8 +204,9 @@ export function ProjectChrome({ slug, children }: { slug: string; children: Reac
                 href={href}
                 ref={active ? activeTab : undefined}
                 aria-current={active ? "page" : undefined}
+                data-section={t.seg || "system"}
                 className={cx(
-                  "relative flex h-9 shrink-0 items-center gap-1.5 px-3 text-[13px] font-medium",
+                  "relative flex h-10 shrink-0 items-center gap-1.5 rounded-t-ctl px-3 text-[13px] font-medium",
                   "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]",
                   active ? "text-ink" : "text-ink-mute hover:text-ink"
                 )}
@@ -227,7 +228,7 @@ export function ProjectChrome({ slug, children }: { slug: string; children: Reac
                   aria-hidden="true"
                   className={cx(
                     "absolute inset-x-2 bottom-0 h-0.5 rounded-full transition-opacity duration-[120ms]",
-                    active ? "bg-signal opacity-100" : "opacity-0"
+                    active ? (t.seg === "navigator" ? "bg-nav-accent opacity-100" : "bg-signal opacity-100") : "opacity-0"
                   )}
                 />
               </Link>

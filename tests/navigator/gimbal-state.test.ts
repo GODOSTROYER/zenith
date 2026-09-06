@@ -37,6 +37,13 @@ const run = (status: NavigatorRun["status"], overrides: Partial<NavigatorRun> = 
 });
 
 describe("Gimbal's authoritative workflow contract", () => {
+  it("explains the current step, approval, blocker and cancellation", () => {
+    expect(gimbalPresentationFor({ run: run("executing", { steps: [step({ status: "running" })] }) }).description).toContain("Applying step 1 of 1: Deploy to staging");
+    expect(gimbalPresentationFor({ run: run("awaiting_approval", { steps: [step({ status: "proposed" })] }) }).description).toContain("Waiting for your approval: Deploy to staging");
+    expect(gimbalPresentationFor({ run: run("failed", { steps: [step({ status: "failed", error: "Bucket access denied" })] }) }).description).toContain("Bucket access denied");
+    expect(gimbalPresentationFor({ cancelling: true, run: run("executing") }).description).toContain("Stopping after the current step");
+    expect(gimbalPresentationFor({ run: run("executing", { verificationPending: true }) }).description).toContain("Checking the completed deployment");
+  });
   it("has exactly five states with the required labels and distinct non-color cues", () => {
     expect(GIMBAL_STATES).toEqual(["planning", "awaiting_approval", "applying", "verified", "blocked"]);
     expect(GIMBAL_STATES.map((state) => GIMBAL_STATE[state].label)).toEqual([

@@ -9,10 +9,10 @@ import { GimbalStatus } from "./gimbal-status";
 
 const DESCRIPTION: Record<GimbalState, string> = {
   planning: "A focused gaze. The rings gently explore different orientations.",
-  awaiting_approval: "An open, attentive expression. A calm orbit while the decision is yours.",
-  applying: "A little more focus and momentum, with the same quiet rhythm.",
-  verified: "A small smile. The rings ease back into their unhurried orbit.",
-  blocked: "A thoughtful expression. The orbit softens while something needs attention.",
+  awaiting_approval: "A steady yellow halo. The rings settle into an attentive alignment while the decision is yours.",
+  applying: "A focused gaze and coordinated rotation, surrounded by a clear blue glow.",
+  verified: "One soft green pulse and a small smile. The rings ease back into their unhurried orbit.",
+  blocked: "A steady red halo and an interrupted alignment. Gimbal holds while something needs attention.",
 };
 
 /** Preview controls never create or modify a Navigator run. */
@@ -23,7 +23,7 @@ export function GimbalPreview() {
     <main className="mx-auto max-w-[960px] px-5 py-8 text-ink sm:px-8 sm:py-12">
       <header className="border-b border-line pb-6">
         <h1 className="text-[28px] font-semibold tracking-tight">Gimbal</h1>
-        <p className="mt-1 text-[14px] text-ink-mute">A quiet presence, always in orbit.</p>
+        <p className="mt-1 text-[14px] text-ink-mute">A quiet presence. A clear signal.</p>
       </header>
       <section aria-labelledby="gimbal-preview-title" className="py-7">
         <div className="flex flex-wrap items-center justify-between gap-4">

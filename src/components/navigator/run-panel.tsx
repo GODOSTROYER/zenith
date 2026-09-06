@@ -1,4 +1,5 @@
 "use client";
+import { ProviderChecks } from "./provider-checks";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Play, Square } from "lucide-react";
@@ -219,6 +220,7 @@ export function RunPanel({
           subtitle={run.status === "done" ? "Every step below is in the audit log." : undefined}
         >
           <p className="max-w-[80ch] text-[13px] leading-relaxed text-ink">{run.summary}</p>
+          <ProviderChecks run={run} />
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Link href={`/p/${slug}`}>
               <Button variant="quiet">Open the System Map</Button>

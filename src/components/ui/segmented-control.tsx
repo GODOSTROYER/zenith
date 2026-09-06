@@ -63,7 +63,7 @@ export function SegmentedControl<T extends string = string>({
       role="radiogroup"
       aria-label={label}
       className={cx(
-        "inline-flex items-center gap-0.5 rounded-ctl border border-line bg-bg1 p-0.5",
+        "ui-segments inline-flex max-w-full flex-wrap items-center gap-0.5 rounded-ctl border border-line bg-bg1 p-0.5",
         className
       )}
     >
@@ -92,11 +92,11 @@ export function SegmentedControl<T extends string = string>({
             className={cx(
               "rounded-[6px] font-medium whitespace-nowrap",
               "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]",
-              size === "sm" ? "h-6 px-2 text-[12px]" : "h-7 px-2.5 text-[12.5px]",
+              size === "sm" ? "h-7 px-2.5 text-[12px]" : "h-8 px-3 text-[12.5px]",
               o.disabled
                 ? "cursor-not-allowed text-ink-faint"
                 : active
-                  ? "bg-bg3 text-ink shadow-card"
+                  ? "bg-bg3 text-ink ring-1 ring-line-strong"
                   : "text-ink-mute hover:text-ink"
             )}
           >

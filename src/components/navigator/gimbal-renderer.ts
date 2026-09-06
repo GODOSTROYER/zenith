@@ -1,6 +1,6 @@
 import {
   ACESFilmicToneMapping, Color, DirectionalLight, Group, HemisphereLight,
-  Mesh, MeshStandardMaterial, OrthographicCamera, Scene, SphereGeometry,
+  Mesh, MeshStandardMaterial, OrthographicCamera, Scene, SphereGeometry, Euler, Quaternion,
   SRGBColorSpace, TorusGeometry, WebGLRenderer,
   type BufferGeometry, type Material,
 } from "three";
@@ -16,18 +16,19 @@ export interface GimbalRendererOptions {
 export interface GimbalRenderer {
   setState(state: GimbalState | null): void;
   setReducedMotion(reducedMotion: boolean): void;
+  setLowPower(lowPower: boolean): void;
   setVisible(visible: boolean): void;
   greet(source: "hover" | "tap"): void;
   dispose(): void;
 }
 
 const EXPRESSION = {
-  neutral: { eye: 1, smile: 0.22, focus: 0, speed: 0.09, tilt: 0 },
-  planning: { eye: 0.84, smile: 0.12, focus: 0.05, speed: 0.12, tilt: 0.08 },
-  awaiting_approval: { eye: 1, smile: 0.3, focus: 0, speed: 0.085, tilt: -0.06 },
-  applying: { eye: 0.72, smile: 0.06, focus: 0.035, speed: 0.14, tilt: 0.12 },
-  verified: { eye: 0.9, smile: 0.65, focus: 0, speed: 0.09, tilt: 0.02 },
-  blocked: { eye: 0.82, smile: -0.16, focus: -0.03, speed: 0.075, tilt: -0.1 },
+  neutral: { eye: 1, smile: 0.22, focus: 0, speed: 0.09, tilt: 0, hold: 0, align: 0, block: 0 },
+  planning: { eye: 0.84, smile: 0.12, focus: 0.05, speed: 0.12, tilt: 0.08, hold: 0, align: 0, block: 0 },
+  awaiting_approval: { eye: 1, smile: 0.3, focus: 0, speed: 0.025, tilt: -0.06, hold: 1, align: 0, block: 0 },
+  applying: { eye: 0.72, smile: 0.06, focus: 0.035, speed: 0.14, tilt: 0.12, hold: 0, align: 1, block: 0 },
+  verified: { eye: 0.9, smile: 0.65, focus: 0, speed: 0.09, tilt: 0.02, hold: 0, align: 0, block: 0 },
+  blocked: { eye: 0.82, smile: -0.16, focus: -0.03, speed: 0.018, tilt: -0.1, hold: 0, align: 0, block: 1 },
 };
 
 /** Procedural gyroscope: no model, texture, decoder or animation-clip downloads. */
@@ -91,20 +92,33 @@ export async function createGimbalRenderer(host: HTMLElement, options: GimbalRen
   let nextGreeting = 0;
   // Incommensurate frequencies never follow a short repeating clip.
   const seed = Math.random() * Math.PI * 2;
-  const interval = 1 / (options.lowPower ? 20 : 30);
+  let lowPower = options.lowPower;
+  let interval = 1 / (lowPower ? 20 : 30);
+  const poseEuler = new Euler();
+  const poseQuaternion = new Quaternion();
 
   function refreshAccent() {
     targetColor.set(getComputedStyle(host).getPropertyValue("--gimbal-accent").trim() || (state ? GIMBAL_STATE[state].color : "#a6a7cb"));
     if (reduced || !ready) { accent.color.copy(targetColor); accent.emissive.copy(targetColor); }
   }
-  function pose() {
+  function pose(dt = 0, preserveRings = false) {
     rings.forEach((ring, index) => {
       const p = orbit * (0.65 + index * 0.19);
-      ring.rotation.set(
-        [0.38, -0.65, 0.92][index] + Math.sin(p * 0.71 + seed + index * 2) * 0.32 + current.tilt,
-        [-0.5, 0.48, 0.2][index] + Math.sin(p * 0.93 + index * 1.7) * 0.48,
-        index * 1.08 + p * (index === 1 ? -0.72 : 0.6) + Math.sin(p * 0.47 + seed) * 0.12,
+      const free = 1 - current.hold - current.block;
+      const exploreX = [0.38, -0.65, 0.92][index] + Math.sin(p * 0.71 + seed + index * 2) * 0.32;
+      const exploreY = [-0.5, 0.48, 0.2][index] + Math.sin(p * 0.93 + index * 1.7) * 0.48;
+      poseEuler.set(
+        free * (exploreX * (1 - current.align) + (0.55 + index * 0.12) * current.align)
+          + current.hold * (0.48 + index * 0.07) + current.block * [0.18, 1.18, -0.2][index] + current.tilt,
+        free * (exploreY * (1 - current.align) + 0.32 * current.align)
+          + current.hold * -0.38 + current.block * [-0.45, 0.12, 0.65][index],
+        free * (index * 1.08 + p * (index === 1 ? -0.72 : 0.6) * (1 - current.align) + orbit * current.align)
+          + current.hold * (0.2 + index * 0.12) + current.block * [0.25, -0.65, 1.1][index],
       );
+      poseQuaternion.setFromEuler(poseEuler);
+      if (preserveRings) return;
+      if (!ready || reduced) ring.quaternion.copy(poseQuaternion);
+      else if (dt > 0) ring.quaternion.rotateTowards(poseQuaternion, dt * 0.28);
     });
     const t = gesture ? Math.min(gesture.time / (gesture.kind === "notice" ? 1.4 : 0.9), 1) : 0;
     const envelope = Math.sin(Math.PI * t) ** 2;
@@ -154,7 +168,7 @@ export async function createGimbalRenderer(host: HTMLElement, options: GimbalRen
         nextBlink = elapsed + 5 + Math.random() * 7;
       }
       if (gesture) gesture.time += dt;
-      pose(); render();
+      pose(dt); render();
     }
     request();
   }
@@ -166,7 +180,7 @@ export async function createGimbalRenderer(host: HTMLElement, options: GimbalRen
     const aspect = width / height, half = Math.max(1.96, 1.96 / aspect);
     camera.left = -half * aspect; camera.right = half * aspect; camera.top = half; camera.bottom = -half;
     camera.updateProjectionMatrix();
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, options.lowPower ? 1 : 1.5));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lowPower ? 1 : 1.5));
     renderer.setSize(width, height, false); render(); request();
   }
   function dispose() {
@@ -198,7 +212,13 @@ export async function createGimbalRenderer(host: HTMLElement, options: GimbalRen
     setReducedMotion(next) {
       if (disposed || reduced === next) return;
       reduced = next; stop(); gesture = null; delete host.dataset.gimbalGesture;
-      impulse = energy = 0; Object.assign(current, target); refreshAccent(); pose(); render(); request();
+      if (reduced) Object.assign(current, target);
+      impulse = energy = 0; refreshAccent(); pose(0, true); render(); request();
+    },
+    setLowPower(next) {
+      if (disposed || lowPower === next) return;
+      lowPower = next; interval = 1 / (lowPower ? 20 : 30);
+      stop(); resize();
     },
     setVisible(next) {
       if (disposed || visible === next) return;

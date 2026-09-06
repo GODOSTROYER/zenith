@@ -11,21 +11,22 @@
 
 :root {
   /* ---- dark (default) ---- */
-  --bg0: #0a0d13; /* page ground */
-  --bg1: #0f131c; /* app chrome */
-  --bg2: #141a26; /* raised surface */
-  --bg3: #1a2132; /* overlay surface */
-  --line: rgba(151, 165, 199, 0.14);
-  --line-strong: rgba(151, 165, 199, 0.26);
+  --bg0: #0b1020; /* page ground */
+  --bg1: #10182a; /* app chrome */
+  --bg2: #162136; /* raised surface */
+  --bg3: #1c2941; /* overlay surface */
+  --line: rgba(161, 181, 217, 0.17);
+  --line-strong: rgba(161, 181, 217, 0.36);
 
-  --ink: #e9edf5;
-  --ink-mute: #9aa5bd;
-  --ink-faint: #7d87a0; /* ≥4.5:1 on bg0/bg2 — carries captions and metadata */
+  --ink: #edf2ff;
+  --ink-mute: #adbad0;
+  --ink-faint: #90a1bd; /* readable metadata, including on overlays */
 
   /* brand */
-  --signal: #53e0be; /* primary accent — actions, focus, success-of-intent */
+  --signal: #55e6c1; /* primary accent — actions, focus, success-of-intent */
   --signal-strong: #79f0d2;
   --on-signal: #04241c;
+  --on-danger: #29110f;
   --nav-accent: #929aff; /* Navigator (agent) identity — never used for anything else */
   --on-nav: #101235;
 
@@ -76,9 +77,10 @@
   --ink-mute: #5a6478;
   --ink-faint: #636d86; /* ≥4.5:1 on every light surface, bg0 included */
 
-  --signal: #0d9f83;
-  --signal-strong: #0b8a72;
+  --signal: #087b66;
+  --signal-strong: #066b59;
   --on-signal: #ffffff;
+  --on-danger: #ffffff;
   --nav-accent: #5a63e8;
   --on-nav: #ffffff;
 
@@ -92,11 +94,11 @@
   --gimbal-aperture: #4a2b12;
   --gimbal-planning: #7c3aed;
 
-  --ok: #148f60;
-  --warn: #b07817;
-  --err: #c8473c;
-  --info: #2a7fb8;
-  --prod: #b07817;
+  --ok: #08784f;
+  --warn: #946113;
+  --err: #bc3b36;
+  --info: #246ba6;
+  --prod: #946113;
 
   --ok-dim: rgba(20, 143, 96, 0.1);
   --warn-dim: rgba(176, 120, 23, 0.12);
@@ -124,6 +126,7 @@
   --color-signal: var(--signal);
   --color-signal-strong: var(--signal-strong);
   --color-on-signal: var(--on-signal);
+  --color-on-danger: var(--on-danger);
   --color-nav-accent: var(--nav-accent);
   --color-on-nav: var(--on-nav);
   --color-ok: var(--ok);
@@ -176,7 +179,40 @@ td.num,
 }
 
 ::selection {
-  background: var(--signal-dim);
+  background: var(--signal);
+  color: var(--on-signal);
+}
+
+input, textarea { caret-color: var(--signal); }
+
+/* Product rhythm: comfortable controls, compact data, one consistent gutter. */
+.product-page { padding: 24px 20px 40px; }
+.product-chrome { display: flex; min-height: 60px; flex-shrink: 0; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 20px; padding: 10px 24px; border-bottom: 1px solid var(--line); background: var(--bg1); }
+.product-chrome-identity { display: flex; min-width: 0; align-items: center; gap: 20px; }
+.product-chrome-tools { display: flex; flex-shrink: 0; align-items: center; gap: 6px; }
+.product-chrome-tools > button { min-height: 36px; }
+.project-navigation a[aria-current="page"] { background: var(--signal-dim); color: var(--signal); }
+.project-navigation a[data-section="navigator"][aria-current="page"] { background: var(--nav-dim); color: var(--nav-accent); }
+.ui-input:focus-within { outline: 2px solid var(--signal); outline-offset: 2px; }
+.ui-input input:focus-visible { outline: none; }
+.ui-input:has(input:disabled) { cursor: not-allowed; }
+.ui-button:not(:disabled):active { transform: translateY(1px); }
+.project-card { transition: border-color var(--dur-base) var(--ease-swift); }
+.project-card:focus-within, .project-card:hover { border-color: var(--line-strong); }
+.settings-navigation a { min-height: 36px; display: inline-flex; align-items: center; white-space: nowrap; }
+.settings-navigation a[aria-current="location"] { background: var(--signal-dim); color: var(--signal); }
+@media (min-width: 640px) { .product-page { padding: 32px 32px 48px; } }
+@media (max-width: 639px) {
+  .product-chrome { padding: 10px 16px; gap: 10px; }
+  .product-chrome-identity { flex: 1 1 100%; justify-content: space-between; gap: 12px; }
+  .product-chrome-tools { width: 100%; justify-content: flex-end; }
+  .product-chrome-tools > :first-child { margin-right: auto; }
+  .ui-input input, .ui-select, .ui-textarea { font-size: 16px; }
+}
+@media (pointer: coarse) {
+  .ui-button, .ui-input, .ui-select, .ui-segments > button,
+  .product-chrome button, .project-navigation a, .settings-navigation a { min-height: 44px; }
+  .ui-button:has(> span:empty) { min-width: 44px; }
 }
 
 :focus-visible {
@@ -307,6 +343,68 @@ td.num,
   border-radius: 50%;
   background: var(--line);
   filter: blur(6px);
+}
+
+/* Two soft light fields keep the status visible at compact sizes. */
+@property --gimbal-light {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #929aff;
+}
+.gimbal-aura {
+  --gimbal-light: var(--gimbal-accent);
+  position: absolute;
+  inset: 3%;
+  pointer-events: none;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, color-mix(in srgb, var(--gimbal-light) 26%, transparent) 0%, color-mix(in srgb, var(--gimbal-light) 13%, transparent) 40%, transparent 72%);
+  transition: --gimbal-light 600ms ease;
+}
+.gimbal-aura::after {
+  content: "";
+  position: absolute;
+  inset: 24%;
+  border-radius: 50%;
+  box-shadow: 0 0 22px 4px color-mix(in srgb, var(--gimbal-accent) 24%, transparent);
+  transition: box-shadow 600ms ease;
+}
+@keyframes gimbal-breathe {
+  0%, 100% { opacity: 0.65; transform: scale(0.96); }
+  50% { opacity: 1; transform: scale(1.04); }
+}
+@keyframes gimbal-confirm {
+  from { transform: scale(0.6); opacity: 0.6; }
+  to { transform: scale(1.16); opacity: 0; }
+}
+.gimbal-character[data-gimbal-state="planning"] .gimbal-aura { animation: gimbal-breathe 3.4s ease-in-out infinite; }
+.gimbal-character[data-gimbal-state="applying"] .gimbal-aura::after { box-shadow: 0 0 26px 7px color-mix(in srgb, var(--gimbal-accent) 34%, transparent); }
+.gimbal-state-pulse { position: absolute; inset: 13%; border-radius: 50%; pointer-events: none; opacity: 0; }
+.gimbal-character[data-gimbal-state="verified"] .gimbal-state-pulse {
+  border: 1px solid color-mix(in srgb, var(--gimbal-accent) 60%, transparent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--gimbal-accent) 30%, transparent);
+  animation: gimbal-confirm 1200ms ease-out both;
+}
+.gimbal-character[data-active="false"] .gimbal-aura,
+.gimbal-character[data-active="false"] .gimbal-state-pulse { animation-play-state: paused; }
+.gimbal-character[data-motion="still"] .gimbal-aura,
+.gimbal-character[data-motion="still"] .gimbal-state-pulse,
+.gimbal-character[data-motion="low-power"] .gimbal-aura { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .gimbal-aura, .gimbal-state-pulse { animation: none !important; }
+}
+.gimbal-hello:not(.sr-only) {
+  position: absolute;
+  bottom: 3%;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-ctl);
+  padding: 3px 8px;
+  background: var(--bg1);
+  color: var(--ink);
+  font-size: 11px;
+  pointer-events: none;
 }
 
 .gimbal-static,

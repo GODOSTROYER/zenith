@@ -348,7 +348,7 @@ function Header({
     <header className={cx("navigator-header", !characterVisible && "navigator-header-compact")}>
       {characterVisible && (
         <figure className="gimbal-stage" data-gimbal-state={state ?? "neutral"}>
-          <GimbalCharacter key={motion} state={state} motion={motion} />
+          <GimbalCharacter state={state} motion={motion} />
           <figcaption className="gimbal-caption">Gimbal <span>· your Navigator</span></figcaption>
         </figure>
       )}

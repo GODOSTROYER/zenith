@@ -79,7 +79,34 @@ export interface GimbalPresentation extends GimbalStateInfo {
 /** Neutral lifecycle labels keep Ready/Completed/Cancelled out of the workflow enum. */
 export function gimbalPresentationFor(signals: GimbalSignals): GimbalPresentation {
   const state = gimbalStateFor(signals);
-  if (state) return { state, ...GIMBAL_STATE[state] };
+  if (state) {
+    const info = { state, ...GIMBAL_STATE[state] };
+    const run = signals.run;
+    if (signals.error) return { ...info, description: signals.error };
+    if (signals.planning) return info;
+    if (signals.cancelling && run?.status === "executing")
+      return { ...info, description: "Stopping after the current step. Completed changes will remain applied." };
+    if (!run) return info;
+    if (run.verificationPending)
+      return { ...info, description: "Checking the completed deployment against the provider. Waiting for evidence before confirming the result." };
+    if (state === "blocked") {
+      const blocked = run.steps.find((step) => step.status === "failed" || !isExecutable(step.actionId));
+      return { ...info, description: run.verification?.status === "failed"
+        ? run.verificationNote ?? "Provider verification failed. Inspect the recorded checks."
+        : blocked ? `${blocked.title}: ${blocked.error ?? blocked.rationale}` : run.summary ?? info.description };
+    }
+    if (state === "awaiting_approval") {
+      const next = run.steps.find((step) => step.status === "proposed" && step.needsApproval)
+        ?? run.steps.find((step) => step.status === "proposed");
+      return { ...info, description: next ? `Waiting for your approval: ${next.title}.` : info.description };
+    }
+    if (state === "applying" || state === "planning") {
+      const index = run.steps.findIndex((step) => step.status === "running");
+      if (index >= 0) return { ...info, description: `${state === "planning" ? "Reviewing" : "Applying"} step ${index + 1} of ${run.steps.length}: ${run.steps[index].title}.` };
+    }
+    if (state === "verified" && run.verificationNote) return { ...info, description: run.verificationNote };
+    return info;
+  }
   const neutral = { state: null, color: "#aab3d0", tone: "neutral", icon: "pause" } as const;
   const run = signals.run;
   if (run?.status === "cancelled")
@@ -101,7 +128,7 @@ export function gimbalPresentationFor(signals: GimbalSignals): GimbalPresentatio
       label: planOnly ? "Plan complete" : "Completed",
       description: planOnly
         ? "The plan was prepared. No provider changes were applied or verified."
-        : "The recorded steps completed. Provider verification is not available; inspect the recorded results.",
+        : run.verificationNote ?? "The recorded steps completed. Provider verification is not available; inspect the recorded results.",
     };
   }
   return {

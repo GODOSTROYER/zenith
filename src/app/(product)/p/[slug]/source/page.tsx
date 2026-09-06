@@ -91,7 +91,7 @@ export default function SourcePage() {
       : "Deployed (none)";
 
   return (
-    <div className="mx-auto h-full w-full overflow-y-auto max-w-[1100px] px-6 py-6">
+    <div className="product-page mx-auto h-full w-full max-w-[1100px] overflow-y-auto">
       <Tabs
         value={tab}
         onChange={setTab}

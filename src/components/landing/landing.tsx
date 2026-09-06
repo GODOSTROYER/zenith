@@ -203,16 +203,16 @@ function Hero({ cta }: { cta: Cta }) {
       <div className="relative mx-auto flex w-full max-w-[1180px] flex-1 flex-col justify-center px-6 pt-24 lg:pt-14">
         <div className="max-w-[620px]">
           <h1 className="animate-enter text-balance text-[clamp(42px,7vw,84px)] font-bold leading-[0.98] tracking-[-0.025em] text-ink">
-            Your infrastructure, in&nbsp;motion.
+            See your whole stack.
+            <span className="block text-signal">Ship with confidence.</span>
           </h1>
           <p
             className="mt-6 max-w-[52ch] text-[16.5px] leading-[1.65] text-ink-mute animate-enter"
             style={{ animationDelay: "120ms" }}
           >
-            Orrery is a deployment platform for small teams that shows the whole
-            system — services, data, and the wiring between them — prices every
-            change before it applies, and ends every deploy with a URL you can
-            open.
+            One clear view of the technology behind your product. Orrery shows
+            your services, data, and connections, previews the cost and risk of
+            each change, and keeps you in control of what applies.
           </p>
           <div
             className="mt-9 flex flex-wrap items-center gap-3 animate-enter"
@@ -760,7 +760,7 @@ function Close({ cta }: { cta: Cta }) {
       <div className="text-center">
         <Reveal rise>
           <h2 className="mx-auto max-w-[14ch] text-balance text-[clamp(36px,6vw,68px)] font-bold leading-[1.02] tracking-[-0.025em] text-ink">
-            Ship something small tonight.
+            Make your next release feel simple.
           </h2>
         </Reveal>
         <Reveal delay={100}>

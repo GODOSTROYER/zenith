@@ -12,7 +12,7 @@ export interface InputProps
   mono?: boolean;
 }
 
-/** 32px text input. Inside a `<Field>` it picks up the label and error wiring. */
+/** Comfortable text input. Inside a `<Field>` it picks up label and error wiring. */
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   { prefix, suffix, mono = false, className, id, ...rest },
   ref
@@ -21,7 +21,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   return (
     <div
       className={cx(
-        "flex h-8 items-center gap-2 rounded-ctl border bg-bg1 px-2.5",
+        "ui-input flex h-9 min-w-0 items-center gap-2 rounded-ctl border bg-bg1 px-3",
         "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]",
         f.invalid ? "border-err" : "border-line hover:border-line-strong",
         rest.disabled && "opacity-55",

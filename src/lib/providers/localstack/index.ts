@@ -50,6 +50,7 @@ import {
   type ProviderAdapter,
   type ProviderPlanStep,
   type ProviderProbe,
+  type ProviderVerification,
   type StepRuntime,
 } from "@/lib/providers/types";
 import { terraformFiles, terraformReadme } from "@/lib/providers/aws/terraform";
@@ -700,13 +701,55 @@ async function inventory(): Promise<{
   };
 }
 
-/** Both read paths need LocalStack up, and both must say so the same way. */
+/** Every read path needs LocalStack up and reports failure the same way. */
 async function requireHealthy(): Promise<void> {
   const h = await health();
   if (!h.ok)
     throw new Error(
       `${FAILURE_LABEL[h.kind]} at ${LOCALSTACK_ENDPOINT}. ${h.detail} ${h.fix}`
     );
+}
+
+/** Complete read-back for the subset this adapter actually provisions. */
+async function verify(env: Environment, deployed: Manifest, previous?: Manifest): Promise<ProviderVerification> {
+  const supported = (m: Manifest) => !m.services.length && !m.routes.length && !m.bindings.length &&
+    m.resources.every((r) => r.ownership === "managed" && REAL_KINDS.has(r.kind) && Object.keys(r.config).length === 0);
+  // This adapter only provisions names/presence for S3 and SQS. Configuration,
+  // routing, bindings and simulated kinds must never inherit an existence check.
+  if (!supported(deployed) || (previous && !supported(previous)))
+    return { status: "unavailable", simulated: false, checkedAt: new Date().toISOString(), checks: [],
+      detail: "LocalStack can fully verify only managed S3 buckets and SQS queues with default configuration, without services, routes or bindings. This deployment has incomplete verification coverage." };
+  const physicalName = (r: Manifest["resources"][number]) =>
+    `${r.kind}:${r.kind === "object_store" ? bucketName(r.name, env) : queueName(r.name, env)}`;
+  const kept = new Set(deployed.resources.map(physicalName));
+  const removed = (previous?.resources ?? []).filter((r) => !kept.has(physicalName(r)))
+    .map((r, i) => ({ ...r, id: `removed:${i}:${r.id}` }));
+  await requireHealthy();
+  // Direct reads avoid interpreting a truncated inventory page as absence.
+  const checks = await Promise.all([...deployed.resources, ...removed].map(async (r) => {
+    const shouldExist = kept.has(physicalName(r));
+    let exists = true;
+    const client = r.kind === "object_store" ? s3() : sqs();
+    try {
+      if (client instanceof S3Client) await client.send(new HeadBucketCommand({ Bucket: bucketName(r.name, env) }));
+      else {
+        const result = await client.send(new GetQueueUrlCommand({ QueueName: queueName(r.name, env) }));
+        if (!result.QueueUrl) throw new Error(`LocalStack did not return a queue URL for ${r.name}. Verification is unavailable.`);
+      }
+    } catch (error) {
+      if (!absent(error)) throw error;
+      exists = false;
+    } finally { client.destroy(); }
+    return { detail: `${physicalName(r)} — expected ${shouldExist ? "present" : "absent"}, observed ${exists ? "present" : "absent"}.`,
+      passed: exists === shouldExist };
+  }));
+  const checkedAt = new Date().toISOString();
+  if (!checks.length) return { status: "unavailable", simulated: false, checkedAt, checks,
+    detail: "There are no resource changes to verify." };
+  const passed = checks.every((check) => check.passed);
+  return { status: passed ? "passed" : "failed", simulated: false, checkedAt, checks,
+    detail: passed ? `Verified ${checks.length} resource presence/removal checks against LocalStack.`
+      : "LocalStack resource state does not match the deployment. Inspect the failed checks before deploying again." };
 }
 
 /**
@@ -878,6 +921,7 @@ export const localstackProvider: ProviderAdapter = {
   planSteps,
   executeStep,
   observe,
+  verify,
   discover,
   exportBundle,
 };

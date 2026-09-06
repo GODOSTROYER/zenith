@@ -9,16 +9,8 @@ import { cx } from "@/lib/format";
 import type { NavigatorRun } from "@/lib/domain/types";
 import { isExecutable } from "@/lib/navigator/shared";
 import { NavigatorGlyph } from "./glyph";
-import { gimbalStateForRun } from "./gimbal-state";
-
-const TONE = {
-  planning: "neutral",
-  awaiting_approval: "nav",
-  executing: "nav",
-  done: "ok",
-  failed: "err",
-  cancelled: "neutral",
-} as const;
+import { gimbalPresentationFor, gimbalStateForRun } from "./gimbal-state";
+import { ProviderChecks } from "./provider-checks";
 
 export interface RunHistoryProps {
   runs?: NavigatorRun[];
@@ -60,6 +52,7 @@ export function RunHistory({ runs, loading, activeRunId }: RunHistoryProps) {
 function HistoryRow({ run }: { run: NavigatorRun }) {
   const [open, setOpen] = useState(false);
   const ran = run.steps.filter((s) => s.status === "done").length;
+  const presentation = gimbalPresentationFor({ run });
 
   return (
     <li>
@@ -84,7 +77,7 @@ function HistoryRow({ run }: { run: NavigatorRun }) {
         <span className="tnum hidden text-[12px] text-ink-faint sm:inline">
           {ran}/{run.steps.length} done
         </span>
-        <Chip tone={TONE[run.status]}>{run.status.replace("_", " ")}</Chip>
+        <Chip tone={presentation.state === "applying" ? "info" : presentation.tone === "warm" ? "warn" : presentation.tone}>{presentation.label}</Chip>
         <TimeAgo iso={run.createdAt} className="text-[12px] text-ink-faint" />
       </button>
 
@@ -128,6 +121,7 @@ function HistoryRow({ run }: { run: NavigatorRun }) {
               </li>
             ))}
           </ol>
+          <ProviderChecks run={run} />
         </div>
       )}
     </li>

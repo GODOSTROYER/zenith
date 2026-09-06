@@ -160,5 +160,15 @@ describe("<ProjectGrid> controls", () => {
       input.dispatchEvent(new Event("input", { bubbles: true }));
     });
     expect(el.textContent).toContain("No project matches those filters");
+    const clear = [...el.querySelectorAll("button")].find((button) => button.textContent === "Clear filters")!;
+    act(() => clear.click());
+    expect(el.textContent).toContain("2 of 2");
+    expect(el.textContent).toContain("Atlas");
+    expect(el.textContent).toContain("Kepler");
+  });
+  it("puts the create action before project cards", () => {
+    const el = render([atlas, kepler]);
+    expect(links(el)[0].textContent).toContain("New project");
+    expect(links(el)[0].getAttribute("href")).toBe("/onboarding?step=3");
   });
 });

@@ -30,6 +30,8 @@ import { EnvironmentsSection } from "./environments";
 import { MembersSection } from "./members";
 import { SecretsSection } from "./secrets";
 import { providersOf } from "./shared";
+import { PageHeading } from "@/components/screens/page-heading";
+import { SectionNavigation } from "@/components/screens/section-navigation";
 
 const SECTIONS = [
   { id: "workspace", label: "Workspace" },
@@ -86,21 +88,9 @@ export default function SettingsPage() {
   const deleteGate = gate(role, "project.delete");
 
   return (
-    <div className="mx-auto h-full w-full max-w-[1040px] overflow-y-auto px-6 py-6">
-      <nav
-        aria-label="Settings sections"
-        className="sticky top-0 z-10 -mx-6 mb-8 flex flex-wrap items-center gap-1 border-b border-line bg-bg0/90 px-6 py-2 backdrop-blur"
-      >
-        {SECTIONS.map((s) => (
-          <a
-            key={s.id}
-            href={`#${s.id}`}
-            className="rounded-ctl px-2.5 py-1 text-[12.5px] text-ink-mute transition-colors hover:bg-bg2 hover:text-ink"
-          >
-            {s.label}
-          </a>
-        ))}
-      </nav>
+    <div className="product-page mx-auto h-full w-full max-w-[1040px] overflow-y-auto">
+      <PageHeading title="Settings" description="Manage your workspace, access, and environment policies. Changes are previewed before they apply." />
+      <SectionNavigation sections={SECTIONS} label="Settings sections" />
 
       <div className="space-y-10">
         {/* -------------------------------- workspace ----------------------- */}
@@ -351,11 +341,12 @@ function WorkspaceCard({
         help="Shows in the top bar. Audit history is keyed to the workspace id, so nothing already written changes."
         error={!tooShort || name === "" ? undefined : "Use at least 2 characters."}
       >
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-3">
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={60}
+            className="min-w-[180px] flex-1"
             disabled={!!disabledReason}
           />
           <Button

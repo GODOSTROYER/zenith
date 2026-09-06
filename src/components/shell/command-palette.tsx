@@ -206,8 +206,8 @@ export function CommandPalette({ catalog }: { catalog: ActionEntry[] }) {
         className="inline-flex h-7 items-center gap-2 rounded-ctl border border-line bg-bg2 px-2.5 text-[12.5px] text-ink-mute transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)] hover:border-line-strong hover:text-ink"
       >
         <Search className="h-3.5 w-3.5" aria-hidden="true" />
-        <span className="hidden sm:inline">Search</span>
-        <Kbd className="hidden sm:inline-flex">{mac ? "⌘K" : "Ctrl K"}</Kbd>
+        <span>Search</span>
+        <span className="hidden sm:inline-flex"><Kbd>{mac ? "⌘K" : "Ctrl K"}</Kbd></span>
       </button>
 
       {present &&

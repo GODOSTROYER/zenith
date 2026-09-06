@@ -14,6 +14,7 @@ import type { CloudConnection, Environment, Manifest } from "@/lib/domain/types"
 // inside them rather than being referenced from outside.
 vi.mock("@aws-sdk/client-s3", () => ({
   S3Client: class {
+    destroy() {}
     send = async () => ({
       Buckets: [
         { Name: "uploads-env1", CreationDate: new Date("2026-01-01T00:00:00.000Z") },
@@ -28,7 +29,9 @@ vi.mock("@aws-sdk/client-s3", () => ({
 
 vi.mock("@aws-sdk/client-sqs", () => ({
   SQSClient: class {
+    destroy() {}
     send = async () => ({
+      QueueUrl: "http://localhost:4566/000000000000/jobs-env1",
       QueueUrls: [
         "http://localhost:4566/000000000000/jobs-env1",
         "http://localhost:4566/000000000000/orphan",
@@ -36,6 +39,7 @@ vi.mock("@aws-sdk/client-sqs", () => ({
     });
   },
   ListQueuesCommand: class {},
+  GetQueueUrlCommand: class {},
   CreateQueueCommand: class {},
 }));
 
@@ -178,5 +182,28 @@ describe("localstack discover", () => {
   it("refuses when LocalStack is not running", async () => {
     down();
     await expect(localstackProvider.discover!(connection)).rejects.toThrow(/not reachable/i);
+  });
+});
+
+describe("complete LocalStack verification", () => {
+  const supported = (): Manifest => ({ ...manifest(), services: [], resources: manifest().resources.filter((r) => r.id === "res-uploads" || r.id === "res-jobs") });
+  it("verifies real bucket and queue presence", async () => {
+    healthy();
+    const result = await localstackProvider.verify!(environment, supported());
+    expect(result).toMatchObject({ status: "passed", simulated: false });
+    expect(result.checks).toHaveLength(2);
+  });
+  it("fails if a removed bucket still exists", async () => {
+    healthy();
+    const previous = supported(), next = { ...previous, resources: previous.resources.filter((r) => r.kind === "queue") };
+    const result = await localstackProvider.verify!(environment, next, previous);
+    expect(result.status).toBe("failed");
+    expect(result.checks.some((check) => !check.passed && check.detail.includes("expected absent"))).toBe(true);
+  });
+  it("does not verify simulated kinds or uninspected configuration", async () => {
+    healthy();
+    expect((await localstackProvider.verify!(environment, manifest())).status).toBe("unavailable");
+    const value = supported(); value.resources[0].config = { versioning: true };
+    expect((await localstackProvider.verify!(environment, value)).status).toBe("unavailable");
   });
 });

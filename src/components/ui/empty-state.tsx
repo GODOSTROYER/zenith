@@ -36,11 +36,11 @@ export function EmptyState({
         </span>
       )}
       <div className="space-y-1.5">
-        <h3 className="text-[15px] font-medium text-ink">{title}</h3>
-        {body && <p className="mx-auto max-w-[46ch] text-[13px] text-ink-mute">{body}</p>}
+        <h3 className="text-[18px] font-medium text-ink">{title}</h3>
+        {body && <p className="mx-auto max-w-[46ch] text-[14px] leading-relaxed text-ink-mute">{body}</p>}
       </div>
       {(action || secondaryAction) && (
-        <div className="mt-1 flex items-center gap-2">
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
           {action}
           {secondaryAction}
         </div>

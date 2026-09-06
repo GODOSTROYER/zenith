@@ -129,6 +129,15 @@ export interface LiveState {
   resources: LiveResource[];
 }
 
+/** A complete read-back, or an explicit refusal when the adapter has partial coverage. */
+export interface ProviderVerification {
+  status: "passed" | "failed" | "unavailable";
+  simulated: boolean;
+  checkedAt: string;
+  detail: string;
+  checks: { detail: string; passed: boolean }[];
+}
+
 /** Something present in the account/endpoint that the manifest does not own. */
 export interface DiscoveredResource {
   /** provider-side identifier — the value stored on `Resource.externalRef` */
@@ -195,6 +204,8 @@ export interface ProviderAdapter {
    * reads your account" is a different statement from "not built yet".
    */
   observe?(env: Environment, deployed: Manifest): Promise<LiveState>;
+  /** Verify the complete supported deployment, including removals. Read-only. */
+  verify?(env: Environment, deployed: Manifest, previous?: Manifest): Promise<ProviderVerification>;
 
   /**
    * List resources present in the account/endpoint that the manifest does not

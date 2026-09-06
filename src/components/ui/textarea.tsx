@@ -23,7 +23,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
       aria-describedby={f["aria-describedby"]}
       aria-invalid={f["aria-invalid"]}
       className={cx(
-        "w-full resize-y rounded-card border bg-bg1 p-3 text-[13px] leading-[1.6] text-ink outline-none",
+        "ui-textarea w-full resize-y rounded-card border bg-bg1 p-3 text-[13px] leading-[1.6] text-ink focus-visible:outline-2 focus-visible:outline-signal focus-visible:outline-offset-2",
         "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]",
         "placeholder:text-ink-faint disabled:cursor-not-allowed disabled:opacity-55",
         f.invalid ? "border-err" : "border-line hover:border-line-strong focus-visible:border-signal",

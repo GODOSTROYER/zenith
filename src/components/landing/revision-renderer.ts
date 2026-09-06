@@ -1,7 +1,7 @@
 import {
   ACESFilmicToneMapping, CanvasTexture, Color, CylinderGeometry, DirectionalLight,
   Group, HemisphereLight, Mesh, MeshBasicMaterial, MeshStandardMaterial,
-  OrthographicCamera, PCFSoftShadowMap, PlaneGeometry, Scene, ShadowMaterial,
+  OrthographicCamera, PCFShadowMap, PlaneGeometry, Scene, ShadowMaterial,
   SRGBColorSpace, WebGLRenderer,
   type BufferGeometry, type Material,
 } from "three";
@@ -33,7 +33,7 @@ export function createRevisionRenderer(host: HTMLElement, options: Options): Rev
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = .97;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = PCFSoftShadowMap;
+  renderer.shadowMap.type = PCFShadowMap;
   renderer.domElement.setAttribute("aria-hidden", "true");
   renderer.domElement.style.cssText = "display:block;width:100%;height:100%;pointer-events:none";
   host.appendChild(renderer.domElement);

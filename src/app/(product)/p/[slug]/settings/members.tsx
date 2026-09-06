@@ -39,14 +39,14 @@ const ROLE_WHAT: Record<Member["role"], string> = {
 
 /**
  * The removal caveat, stated wherever removal is offered. `ensureMember`
- * re-applies `app_metadata.role` on every sign-in, so an operator claim
+ * re-applies `app_metadata.role` on authenticated requests, so an operator claim
  * outranks this list.
  */
 const READMIT_NOTE =
-  "Removing someone here does not clear a Supabase app_metadata.role claim. If an operator set one for that user, their next sign-in adds them back with that role — clear the claim in Supabase to make a removal stick.";
+  "Removing someone here does not clear a Supabase app_metadata.role claim. A valid claim can add them back with that role on their next authenticated request, without another sign-in. Resolve the operator claim in Supabase before relying on removal to block access.";
 
 const SESSION_NOTE =
-  "A session they already hold is not ended: they are refused at their next request, not mid-page.";
+  "Removing membership does not end their existing session or close an open page. Their next request to this workspace is refused unless a role claim or another membership rule admits them again.";
 
 export function MembersSection({
   boot,
@@ -207,14 +207,14 @@ export function MembersSection({
                     method: "POST",
                     body: JSON.stringify({ email, role }),
                   }),
-                `${email} can join ${boot.workspace.name} as ${role} — they still have to sign in.`
+                `Invite recorded for ${email} to join ${boot.workspace.name} as ${role}.`
               )
             }
           />
 
           <Card
             title={`Pending invites (${open.length})`}
-            subtitle="An invite is a standing permission for one email address. Zenith.ai sends no mail — tell them to sign in, and they join with the role below."
+            subtitle="An invite lets this email join with the listed role unless an operator role claim overrides it. Zenith.ai sends no mail — share the sign-in link yourself."
             padded={false}
           >
             {invites.error ? (
@@ -223,7 +223,7 @@ export function MembersSection({
               </div>
             ) : open.length === 0 ? (
               <p className="px-5 py-4 text-[13px] text-ink-mute">
-                No open invites. Nobody outside the list above can join this workspace.
+                No open invites. Users with an operator role claim can still join this workspace.
               </p>
             ) : (
               <ul>
@@ -279,7 +279,7 @@ export function MembersSection({
         {removing && (
           <ul className="space-y-2 text-[13px] text-ink-mute">
             <li>
-              {removing.name} ({removing.email}) loses {removing.role} access to{" "}
+              This removes {removing.name}&rsquo;s ({removing.email}) {removing.role} membership from{" "}
               {boot.workspace.name}. Nothing they created is deleted, and the audit trail keeps
               every row with their name on it.
             </li>
@@ -287,10 +287,10 @@ export function MembersSection({
             <li>{READMIT_NOTE}</li>
             {boot.user?.id === removing.id && (
               <li className="text-warn">
-                This is you. You lose access to this workspace as soon as your next request lands.
+                This is you. Your next workspace request will be refused unless a role claim or another membership rule admits you again.
               </li>
             )}
-            <li>Re-inviting the same address puts them back.</li>
+            <li>Re-inviting the same address lets them join again on an authenticated request.</li>
           </ul>
         )}
       </Dialog>
@@ -316,7 +316,7 @@ function InviteForm({
   return (
     <Card
       title="Invite someone"
-      subtitle={`Without an invite, a signed-in stranger is refused by name rather than quietly added to ${workspaceName}.`}
+      subtitle={`New members need an invite or an operator role claim to join ${workspaceName}.`}
     >
       <div className="grid gap-4 sm:grid-cols-[1fr_240px]">
         <Field label="Email" help="Matched against the address they sign in with, case-insensitively.">
@@ -328,7 +328,7 @@ function InviteForm({
             autoComplete="off"
           />
         </Field>
-        <Field label="Role" help="Change it any time from the list above.">
+        <Field label="Role" help="An operator role claim overrides this choice and later changes in the member list.">
           <Select value={role} onChange={(e) => setRole(e.target.value)} options={ROLE_OPTIONS} />
         </Field>
       </div>

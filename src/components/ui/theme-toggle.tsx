@@ -27,11 +27,12 @@ function paint(theme: Theme): void {
 function stored(): Theme {
   try {
     const t = localStorage.getItem(KEY);
-    return t === "light" || t === "system" ? t : "dark";
+    if (t === "dark" || t === "light" || t === "system") return t;
   } catch {
-    /* private mode: dark is the default, and the toggle still works */
-    return "dark";
+    /* The displayed theme still identifies the choice when storage is unavailable. */
   }
+  // Client navigation can carry the landing's unsaved light theme into the app.
+  return document.documentElement.dataset.theme === "light" ? "light" : "dark";
 }
 
 const OPTIONS: { value: Theme; label: string; icon: typeof Sun; hint: string }[] = [

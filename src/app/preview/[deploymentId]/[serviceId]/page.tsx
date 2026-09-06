@@ -5,9 +5,8 @@ import { q } from "@/lib/db/store";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Simulated preview" };
 
-/** `web — https://web--staging.atlas.orrery.app` → the address half. */
-function prettyHost(label: string | undefined, fallback: string): string {
-  if (!label) return fallback;
+/** Use the provider's recorded label without inventing a published hostname. */
+function prettyHost(label: string): string {
   const at = label.indexOf(" — ");
   return at < 0 ? label : label.slice(at + 3);
 }
@@ -89,16 +88,37 @@ export default async function PreviewPage({
       />
     );
 
-  const output = deployment.outputs.find((o) => o.targetId === serviceId && o.kind === "url");
-  const host = prettyHost(output?.label, `https://${service.name}.${project.slug}.orrery.app`);
+  if (deployment.status !== "succeeded")
+    return (
+      <Missing
+        title="Preview unavailable"
+        fix={`This deployment is ${deployment.status.replaceAll("_", " ")}. A simulated preview is available only after a successful deployment. Open the project's Deploys tab to check its progress or outcome.`}
+      />
+    );
+
+  const output = deployment.outputs.find(
+    (o) =>
+      o.targetId === serviceId &&
+      o.kind === "url" &&
+      o.value === `/preview/${deploymentId}/${serviceId}`
+  );
+  if (!output)
+    return (
+      <Missing
+        title="No preview was published for this service"
+        fix="This deployment did not record a simulated preview address for this service. Open the project's Deploys tab to see its available outputs."
+      />
+    );
+
+  const host = prettyHost(output.label);
 
   return (
     <div className="min-h-dvh bg-bg0">
       <div className="border-b border-warn/25 bg-warn-dim">
         <div className="mx-auto flex max-w-[900px] flex-wrap items-center justify-between gap-3 px-6 py-2.5">
           <p className="text-[12.5px] text-ink">
-            <strong className="font-medium">Simulated preview</strong> — this is what your users
-            would see at <span className="font-mono">{host}</span>. Nothing real is being served.
+            <strong className="font-medium">Simulated preview</strong> — recorded output:{" "}
+            <span className="font-mono">{host}</span>. Nothing real is being served.
           </p>
           <Link
             href={`/p/${project.slug}`}
@@ -116,19 +136,12 @@ export default async function PreviewPage({
             {project.name} · {env?.name ?? "environment"}
           </p>
           <h1 className="mt-3 text-[40px] leading-tight font-medium tracking-[-0.02em] text-ink">
-            {service.name} is running
+            {service.name} · simulated preview
           </h1>
           <p className="mt-3 max-w-[52ch] text-[14px] text-ink-mute">
-            Your real application would be serving this request. Zenith.ai published{" "}
-            <span className="font-mono text-ink">{host}</span>, routed traffic to{" "}
-            <span className="font-mono text-ink">{service.name}</span>
-            {service.port ? (
-              <>
-                {" "}
-                on port <span className="font-mono text-ink tnum">{service.port}</span>
-              </>
-            ) : null}
-            , and verified it answered before calling the deployment done.
+            This deployment completed successfully and recorded a preview for{" "}
+            <span className="font-mono text-ink">{service.name}</span>. No real application is
+            served here, and this page does not check live service health.
           </p>
 
           <dl className="mt-8 grid grid-cols-2 gap-x-10 gap-y-3 rounded-card border border-line bg-bg2 px-6 py-4 text-left sm:grid-cols-4">

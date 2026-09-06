@@ -1,17 +1,29 @@
 # Zenith.ai — Design language
 
-**Identity:** “Your stack, clearly in view.” The shared wordmark uses an overhead
-point, open dome and observer. Gimbal's moving rings remain character-specific.
-Keep existing configuration and persisted names compatible; see `BRANDING.md`.
+**Identity:** “Your stack, clearly in view.” The authored Shift Register symbol
+uses two offset solid shapes and a diagonal seam. The lowercase zenith wordmark
+is custom vector lettering, with an optional visible `.ai` suffix. Shared
+geometry lives in `src/components/shell/brand-geometry.ts`; the compatible
+`OrbitMark` export now renders this symbol. Gimbal's moving rings remain
+character-specific. Keep existing configuration and persisted names compatible;
+see `BRANDING.md`.
 
-**Onboarding:** Workspace → Connection → Blueprint → Get oriented. Optional,
-resumable and revisitable from Guide. Completion cues reflect actual records,
-not page visits. AWS Preview never reads as a deployed environment.
+**Onboarding:** Workspace → choose how to start → blueprint → review your
+system. The workspace guide is optional and revisitable. Completion cues
+reflect actual records, not page visits. AWS Preview never reads as a
+deployed environment.
 
-**Feel:** an observatory at night. Calm, precise, alive. Deep blue-black
-grounds, hairline structure, one mint-teal signal color used with restraint,
-and a second periwinkle accent reserved exclusively for the Navigator so
-agent activity is always recognizable. Equally considered light theme.
+**Landing feel:** The Revision Object — the next change, made tangible.
+Porcelain infrastructure objects, ink, controlled vermilion, large editorial
+serif typography and precise ruled evidence. Existing service objects remain
+spatially anchored while a queue is proposed, simulated and recorded. The
+landing has intentional light and dark themes, with a consistently dark
+inspect/review chapter and closing signature. This replaces the previous
+observatory marketing direction.
+
+**Product feel:** the existing shared UI remains in use: layered navy grounds,
+mint actions, periwinkle Navigator identity and its considered light theme.
+The landing's scoped tokens and display scale do not restyle product workflows.
 
 ## Where things live
 
@@ -29,7 +41,7 @@ anything a second route needs moves into `src/components/<area>/`. Ownership
 per path is in `docs/OWNERSHIP.md`; the deliberate exceptions are in
 `docs/DEBT.md`.
 
-## Tokens (see globals.css — never hardcode)
+## Product tokens (see globals.css — never hardcode in shared primitives)
 
 - Surfaces: `bg0` page · `bg1` chrome · `bg2` card · `bg3` overlay; 1px `line` hairlines; shadows only on raised/overlay surfaces.
 - Ink: `ink` / `ink-mute` / `ink-faint`.
@@ -48,16 +60,70 @@ on desktop and at least 44px on coarse pointers; mobile inputs use 16px text.
 The navy surface ladder and all text/status tokens pass 4.5:1 contrast in both
 themes (see `tests/ui/theme-contrast.test.ts`). Cards are bordered, not shadowed.
 
-**Landing scale (marketing surface only):** display `clamp(42px, 7vw, 84px)`
-tracking −0.025em for the hero; `clamp(36–40px, 6vw, 68–72px)` for the two
-display closers; section headings `clamp(28px, 4vw, 44px)`. Entrance motion
-on the landing belongs to the two display closers only — the hero canvas is
-the page's single authored moment. Product surfaces keep the original scale.
+## Landing language and scope
+
+`src/components/landing/landing.css` scopes the `--zenith-*` tokens to
+`.zenith-landing`. Light uses porcelain `#f4f3ee`, ink `#20211f` and vermilion
+`#be3e25`; dark uses `#22241f`, warm ink `#f2f1e9` and the more luminous
+`#ff886c` accent. Rules, panels and muted text have separate values in each
+theme. The dark demonstration and closing chapter use their own deliberate
+ink grounds rather than mechanically inverting every section.
+
+Instrument Serif 400 roman/italic is the landing display face; Manrope variable
+is the landing body/control face; the existing JetBrains Mono supplies resource
+names, source, revisions and estimates. These are real self-hosted assets
+declared in `src/app/fonts.css`, with provenance and OFL notices under
+`public/fonts`. Space Grotesk retains its product UI role. The drawn brand
+wordmark is independent of all font files.
+
+The desktop hero uses `clamp(76px, 8.2vw, 132px)` at .92 leading and −.035em
+tracking, with responsive overrides. It begins directly with “See the change.
+Before you ship.” and includes the real runtime-aware CTA plus “Explore the
+change.” Editorial section type, thin rules, restrained control corners and
+substantial empty space provide hierarchy. Responsive layouts stack the model,
+inspector and plan rather than requiring an offscreen horizontal diagram.
+Product surfaces retain their original scale and shared primitives.
+
+One local demo state feeds the hero, dark inspector/review stage and all four
+model surfaces. The first view deliberately shows proposed revision 09 while
+the active baseline is 08. Atlas has `atlas-api` and `atlas-worker`; the proposal
+adds `atlas-jobs` and explicit publish/consume bindings. Static estimates are
+$14 → $15 (+$1), labeled synthetic configuration rather than a billing quote.
+The review checkbox and explicit Run simulation action are required before
+progress begins. No provider is contacted.
+
+Simulation records revision 09. Historical 08/09 views are read-only and leave
+the active revision and approval state unchanged. The separate restore action
+creates revision 10 using the 08 configuration, retaining 09 in the audit trail.
+Reviewing and running the queue again appends 11; subsequent restores/runs
+continue appending. Reset demonstration clears only the page's local example,
+returning to baseline 08 with proposal 09 visible. This demonstration is not
+persisted workspace history. Restoration means configuration, not deleted data.
+
+The four surfaces use the selected manifest and revision: System Map, Source,
+API and a scripted Navigator illustration. API examples send no request.
+Source uses reserved example image references. Provider content comes from the
+registry and states concrete current limits. Gimbal follows in a separate
+chapter, then providers/export and the closing CTA. See
+`zenith-reimagined-direction.md` for the selected direction and implementation
+reference; verification findings belong in the dedicated verification report.
 
 ## Motion
 
-Motion communicates state; nothing animates without meaning.
+Motion communicates state; nothing animates without meaning. The following
+CSS duration and primitive rules govern the shared product UI.
 Durations 120/200/320ms, ease `--ease-swift`; CSS transitions and keyframes only, no animation library; `animate-enter` for list/panel entrances; `.status-pulse` only while something is genuinely in progress; `.edge-live` dash-flow on map edges only during active deployment of that binding's target. Respect `prefers-reduced-motion` (already global).
+
+**Landing scene exception.** `RevisionScene` lazily loads the native Three.js
+renderer when visible, with an immediate authored SVG fallback. The scene is
+decorative; HTML labels and controls carry every interaction and meaning.
+Queue motion follows the shared demo phase, while existing service positions
+stay fixed. The proposed queue is vermilion; the recorded treatment settles
+into porcelain with a small vermilion revision tab. Restoration removes the
+queue without erasing the retained record. Reduced motion uses stable poses;
+rendering responds to visibility, system preference and low-power conditions.
+Scroll, hover and model inspection never execute the simulation. No continuous
+decorative spin or scroll-driven apply is part of this direction.
 
 **Gimbal exception.** Navigator's procedural 3D character blends ring poses
 through native Three.js animation; the CSS motion rule above continues to
@@ -105,3 +171,9 @@ editors have error boundaries with a "restore last good" action · destructive
 actions confirm with typed names and honest consequence text · production
 always visually distinct (prod ring/chip) · cancelled wizards leave no
 phantom records.
+
+The landing additionally uses a berry error token (`#932553` / `#ff8fbb`) in
+its state glossary, keeping Blocked distinguishable from the vermilion brand
+accent. Shared product status colors and behavioral contracts are unchanged.
+Critical landing WOFF2s are preloaded; measured local fallback metrics stabilize
+first paint, and WebGL initializes only after fonts settle and the text paints.

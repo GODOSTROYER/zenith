@@ -1,0 +1,207 @@
+{
+  "display": [
+    {
+      "text": "See the change.",
+      "style": "normal",
+      "target": 518.8999633789062,
+      "fallback": 681.396484375,
+      "sizeAdjust": 76.15242744536008
+    },
+    {
+      "text": "Before you ship.",
+      "style": "italic",
+      "target": 555.2999267578125,
+      "fallback": 721.728515625,
+      "sizeAdjust": 76.9402780596712
+    },
+    {
+      "text": "The difference is the point.",
+      "style": "normal",
+      "target": 901.599853515625,
+      "fallback": 1181.591796875,
+      "sizeAdjust": 76.30383486920948
+    },
+    {
+      "text": "One system. Four ways in.",
+      "style": "normal",
+      "target": 868.599853515625,
+      "fallback": 1156.0546875,
+      "sizeAdjust": 75.1348411893901
+    },
+    {
+      "text": "The next step. With Gimbal.",
+      "style": "normal",
+      "target": 928.7998657226562,
+      "fallback": 1238.916015625,
+      "sizeAdjust": 74.96875123162417
+    }
+  ],
+  "ui": [
+    {
+      "text": "Your application. Every service, resource and binding. Review a change before it becomes a deployment.",
+      "target": 4738.41650390625,
+      "fallback": 4654.541015625,
+      "sizeAdjust": 101.8020141620771
+    },
+    {
+      "text": "Create account Open Zenith.ai Start with Gimbal",
+      "target": 2219.69970703125,
+      "fallback": 2151.025390625,
+      "sizeAdjust": 103.19263160284203
+    },
+    {
+      "text": "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
+      "target": 3549.8662109375,
+      "fallback": 3590.234375,
+      "sizeAdjust": 98.87561201175062
+    },
+    {
+      "text": "Proposed queue atlas-jobs",
+      "target": 1242,
+      "fallback": 1189.697265625,
+      "sizeAdjust": 104.39630617689308
+    }
+  ],
+  "bounds": [
+    {
+      "width": 390,
+      "mode": "target",
+      "font": "58px",
+      "heading": {
+        "x": 22,
+        "y": 109,
+        "width": 346,
+        "height": 110.1875,
+        "top": 109,
+        "right": 368,
+        "bottom": 219.1875,
+        "left": 22
+      },
+      "italic": {
+        "x": 22,
+        "y": 154.09375,
+        "width": 294.234375,
+        "height": 75,
+        "top": 154.09375,
+        "right": 316.234375,
+        "bottom": 229.09375,
+        "left": 22
+      },
+      "description": {
+        "x": 22,
+        "y": 241.1875,
+        "width": 346,
+        "height": 73.5,
+        "top": 241.1875,
+        "right": 368,
+        "bottom": 314.6875,
+        "left": 22
+      }
+    },
+    {
+      "width": 390,
+      "mode": "fallback",
+      "font": "58px",
+      "heading": {
+        "x": 22,
+        "y": 109,
+        "width": 346,
+        "height": 110.1875,
+        "top": 109,
+        "right": 368,
+        "bottom": 219.1875,
+        "left": 22
+      },
+      "italic": {
+        "x": 22,
+        "y": 154.09375,
+        "width": 294.203125,
+        "height": 75,
+        "top": 154.09375,
+        "right": 316.203125,
+        "bottom": 229.09375,
+        "left": 22
+      },
+      "description": {
+        "x": 22,
+        "y": 241.1875,
+        "width": 346,
+        "height": 73.5,
+        "top": 241.1875,
+        "right": 368,
+        "bottom": 314.6875,
+        "left": 22
+      }
+    },
+    {
+      "width": 320,
+      "mode": "target",
+      "font": "58px",
+      "heading": {
+        "x": 16,
+        "y": 109,
+        "width": 294.234375,
+        "height": 110.1875,
+        "top": 109,
+        "right": 310.234375,
+        "bottom": 219.1875,
+        "left": 16
+      },
+      "italic": {
+        "x": 16,
+        "y": 154.09375,
+        "width": 294.234375,
+        "height": 75,
+        "top": 154.09375,
+        "right": 310.234375,
+        "bottom": 229.09375,
+        "left": 16
+      },
+      "description": {
+        "x": 16,
+        "y": 241.1875,
+        "width": 294.234375,
+        "height": 98,
+        "top": 241.1875,
+        "right": 310.234375,
+        "bottom": 339.1875,
+        "left": 16
+      }
+    },
+    {
+      "width": 320,
+      "mode": "fallback",
+      "font": "58px",
+      "heading": {
+        "x": 16,
+        "y": 109,
+        "width": 294.203125,
+        "height": 110.1875,
+        "top": 109,
+        "right": 310.203125,
+        "bottom": 219.1875,
+        "left": 16
+      },
+      "italic": {
+        "x": 16,
+        "y": 154.09375,
+        "width": 294.203125,
+        "height": 75,
+        "top": 154.09375,
+        "right": 310.203125,
+        "bottom": 229.09375,
+        "left": 16
+      },
+      "description": {
+        "x": 16,
+        "y": 241.1875,
+        "width": 294.203125,
+        "height": 98,
+        "top": 241.1875,
+        "right": 310.203125,
+        "bottom": 339.1875,
+        "left": 16
+      }
+    }
+  ]
+}

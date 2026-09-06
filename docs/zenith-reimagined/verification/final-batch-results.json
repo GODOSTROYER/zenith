@@ -1,0 +1,678 @@
+{
+  "url": "http://127.0.0.1:3401",
+  "startedAt": "2026-09-06T15:42:07.487Z",
+  "labOnly": true,
+  "checks": [
+    {
+      "name": "Actual simulation motion video",
+      "passed": true,
+      "durationMs": 19836,
+      "evidence": {
+        "video": "Z:\\Projects\\Spawned.ai\\orrery\\.data-zenith-review\\final-batch\\video\\3794adf0c13b632daeab625a49a222f7.webm",
+        "description": "Actual browser capture of explicit run, recording, restore and reset; normal motion."
+      }
+    },
+    {
+      "name": "Final scene bounds across revisions 320",
+      "passed": true,
+      "durationMs": 21414,
+      "evidence": {
+        "viewport": {
+          "width": 320,
+          "height": 844
+        },
+        "deviceScaleFactor": 1,
+        "samples": [
+          {
+            "state": "current08",
+            "x": 16,
+            "y": 1521.21875,
+            "width": 288,
+            "height": 280
+          },
+          {
+            "state": "proposed09",
+            "x": 16,
+            "y": 1521.21875,
+            "width": 288,
+            "height": 280
+          },
+          {
+            "state": "recorded09",
+            "x": 16,
+            "y": 1521.21875,
+            "width": 288,
+            "height": 280
+          },
+          {
+            "state": "historical08",
+            "x": 16,
+            "y": 1521.21875,
+            "width": 288,
+            "height": 280
+          },
+          {
+            "state": "historical09",
+            "x": 16,
+            "y": 1521.21875,
+            "width": 288,
+            "height": 280
+          },
+          {
+            "state": "restored10",
+            "x": 16,
+            "y": 1521.21875,
+            "width": 288,
+            "height": 280
+          }
+        ]
+      }
+    },
+    {
+      "name": "Final scene bounds across revisions 390",
+      "passed": true,
+      "durationMs": 11600,
+      "evidence": {
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "deviceScaleFactor": 1,
+        "samples": [
+          {
+            "state": "current08",
+            "x": 16,
+            "y": 1496.71875,
+            "width": 358,
+            "height": 280
+          },
+          {
+            "state": "proposed09",
+            "x": 16,
+            "y": 1496.71875,
+            "width": 358,
+            "height": 280
+          },
+          {
+            "state": "recorded09",
+            "x": 16,
+            "y": 1496.71875,
+            "width": 358,
+            "height": 280
+          },
+          {
+            "state": "historical08",
+            "x": 16,
+            "y": 1496.71875,
+            "width": 358,
+            "height": 280
+          },
+          {
+            "state": "historical09",
+            "x": 16,
+            "y": 1496.71875,
+            "width": 358,
+            "height": 280
+          },
+          {
+            "state": "restored10",
+            "x": 16,
+            "y": 1496.71875,
+            "width": 358,
+            "height": 280
+          }
+        ]
+      }
+    },
+    {
+      "name": "Final scene bounds across revisions 1440",
+      "passed": true,
+      "durationMs": 10572,
+      "evidence": {
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "deviceScaleFactor": 1,
+        "samples": [
+          {
+            "state": "current08",
+            "x": 60,
+            "y": 1457.3125,
+            "width": 719,
+            "height": 400
+          },
+          {
+            "state": "proposed09",
+            "x": 60,
+            "y": 1457.3125,
+            "width": 719,
+            "height": 400
+          },
+          {
+            "state": "recorded09",
+            "x": 60,
+            "y": 1457.3125,
+            "width": 719,
+            "height": 400
+          },
+          {
+            "state": "historical08",
+            "x": 60,
+            "y": 1457.3125,
+            "width": 719,
+            "height": 400
+          },
+          {
+            "state": "historical09",
+            "x": 60,
+            "y": 1457.3125,
+            "width": 719,
+            "height": 400
+          },
+          {
+            "state": "restored10",
+            "x": 60,
+            "y": 1457.3125,
+            "width": 719,
+            "height": 400
+          }
+        ]
+      }
+    },
+    {
+      "name": "Final no-WebGL opening screenshot",
+      "passed": true,
+      "durationMs": 3089,
+      "evidence": {
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "deviceScaleFactor": 1,
+        "renderer": "SVG"
+      }
+    },
+    {
+      "name": "Performance lab mobile-throttled",
+      "passed": true,
+      "durationMs": 17544,
+      "evidence": {
+        "lcp": [
+          {
+            "startTime": 3700,
+            "duration": 0,
+            "size": 38740
+          }
+        ],
+        "shifts": [
+          {
+            "startTime": 4624.5999999940395,
+            "duration": 0,
+            "value": 0.00011459115339692763,
+            "hadRecentInput": false,
+            "sources": [
+              {
+                "node": "A#.zenith-text-link",
+                "previousRect": {
+                  "x": 236.78125,
+                  "y": 347.6875,
+                  "width": 131.21875,
+                  "height": 36,
+                  "top": 347.6875,
+                  "right": 368,
+                  "bottom": 383.6875,
+                  "left": 236.78125
+                },
+                "currentRect": {
+                  "x": 233.46875,
+                  "y": 347.6875,
+                  "width": 134.53125,
+                  "height": 36,
+                  "top": 347.6875,
+                  "right": 368,
+                  "bottom": 383.6875,
+                  "left": 233.46875
+                }
+              },
+              {
+                "node": "svg#.",
+                "previousRect": {
+                  "x": 143.96875,
+                  "y": 356.6875,
+                  "width": 18,
+                  "height": 18,
+                  "top": 356.6875,
+                  "right": 161.96875,
+                  "bottom": 374.6875,
+                  "left": 143.96875
+                },
+                "currentRect": {
+                  "x": 149.984375,
+                  "y": 356.6875,
+                  "width": 18,
+                  "height": 18,
+                  "top": 356.6875,
+                  "right": 167.984375,
+                  "bottom": 374.6875,
+                  "left": 149.984375
+                }
+              }
+            ]
+          },
+          {
+            "startTime": 4677.5,
+            "duration": 0,
+            "value": 0.000025929157638947684,
+            "hadRecentInput": false,
+            "sources": [
+              {
+                "node": "SPAN#.",
+                "previousRect": {
+                  "x": 304.515625,
+                  "y": 466.28125,
+                  "width": 62.484375,
+                  "height": 16,
+                  "top": 466.28125,
+                  "right": 367,
+                  "bottom": 482.28125,
+                  "left": 304.515625
+                },
+                "currentRect": {
+                  "x": 300,
+                  "y": 466.28125,
+                  "width": 66,
+                  "height": 16,
+                  "top": 466.28125,
+                  "right": 366,
+                  "bottom": 482.28125,
+                  "left": 300
+                }
+              },
+              {
+                "node": "svg#.",
+                "previousRect": {
+                  "x": 301.984375,
+                  "y": 543.46875,
+                  "width": 13,
+                  "height": 13,
+                  "top": 543.46875,
+                  "right": 314.984375,
+                  "bottom": 556.46875,
+                  "left": 301.984375
+                },
+                "currentRect": {
+                  "x": 307,
+                  "y": 543.46875,
+                  "width": 13,
+                  "height": 13,
+                  "top": 543.46875,
+                  "right": 320,
+                  "bottom": 556.46875,
+                  "left": 307
+                }
+              }
+            ]
+          }
+        ],
+        "longTasks": [
+          {
+            "startTime": 1360.4000000059605,
+            "duration": 2053
+          },
+          {
+            "startTime": 3564.800000011921,
+            "duration": 302
+          },
+          {
+            "startTime": 4786.5999999940395,
+            "duration": 377
+          },
+          {
+            "startTime": 6281.800000011921,
+            "duration": 53
+          },
+          {
+            "startTime": 6875.9000000059605,
+            "duration": 110
+          },
+          {
+            "startTime": 7690.199999988079,
+            "duration": 1722
+          },
+          {
+            "startTime": 9506.699999988079,
+            "duration": 51
+          }
+        ],
+        "navigation": {
+          "name": "http://127.0.0.1:3401/",
+          "entryType": "navigation",
+          "startTime": 0,
+          "duration": 4633.300000011921,
+          "navigationId": 3161,
+          "initiatorType": "navigation",
+          "deliveryType": "",
+          "nextHopProtocol": "http/1.1",
+          "renderBlockingStatus": "non-blocking",
+          "contentType": "text/html",
+          "contentEncoding": "gzip",
+          "workerStart": 0,
+          "workerRouterEvaluationStart": 0,
+          "workerCacheLookupStart": 0,
+          "workerMatchedSourceType": "",
+          "workerFinalSourceType": "",
+          "redirectStart": 0,
+          "redirectEnd": 0,
+          "fetchStart": 0.800000011920929,
+          "domainLookupStart": 0.800000011920929,
+          "domainLookupEnd": 0.800000011920929,
+          "connectStart": 0.800000011920929,
+          "secureConnectionStart": 0,
+          "connectEnd": 0.800000011920929,
+          "requestStart": 233.90000000596046,
+          "responseStart": 314.40000000596046,
+          "firstInterimResponseStart": 0,
+          "finalResponseHeadersStart": 314.40000000596046,
+          "responseEnd": 615.1999999880791,
+          "transferSize": 21392,
+          "encodedBodySize": 21092,
+          "decodedBodySize": 105819,
+          "responseStatus": 200,
+          "serverTiming": [],
+          "unloadEventStart": 0,
+          "unloadEventEnd": 0,
+          "domInteractive": 1360.4000000059605,
+          "domContentLoadedEventStart": 1360.699999988079,
+          "domContentLoadedEventEnd": 1361.5,
+          "domComplete": 4633.300000011921,
+          "loadEventStart": 4633.300000011921,
+          "loadEventEnd": 4633.300000011921,
+          "type": "navigate",
+          "redirectCount": 0,
+          "activationStart": 0,
+          "criticalCHRestart": 0,
+          "notRestoredReasons": null,
+          "confidence": {
+            "randomizedTriggerRate": 0.4994798,
+            "value": "high"
+          }
+        },
+        "resources": [
+          {
+            "name": "http://127.0.0.1:3401/_next/static/css/80fb5ebf965b0859.css",
+            "transferSize": 13265,
+            "encodedBodySize": 12965,
+            "duration": 696.3000000119209
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/css/6460a55843ead977.css",
+            "transferSize": 8470,
+            "encodedBodySize": 8170,
+            "duration": 587.3000000119209
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/webpack-ef2a598903384935.js",
+            "transferSize": 2952,
+            "encodedBodySize": 2652,
+            "duration": 999.3000000119209
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/1255-7b4b5a04291b6a94.js",
+            "transferSize": 46516,
+            "encodedBodySize": 46216,
+            "duration": 1899.2999999821186
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js",
+            "transferSize": 54664,
+            "encodedBodySize": 54364,
+            "duration": 1929.2999999821186
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/main-app-e2e4cc08be997aa7.js",
+            "transferSize": 825,
+            "encodedBodySize": 525,
+            "duration": 1154.0999999940395
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/app/error-b784998511bebf17.js",
+            "transferSize": 3581,
+            "encodedBodySize": 3281,
+            "duration": 1275.4000000059605
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/app/global-error-7d427f07f7ee6f69.js",
+            "transferSize": 1470,
+            "encodedBodySize": 1170,
+            "duration": 1367.800000011921
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/2619-04bc32f026a0d946.js",
+            "transferSize": 3706,
+            "encodedBodySize": 3406,
+            "duration": 1474.300000011921
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/4879-d65fc89803669999.js",
+            "transferSize": 13186,
+            "encodedBodySize": 12886,
+            "duration": 1671.4000000059605
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/app/page-2f0f91cc24358293.js",
+            "transferSize": 22094,
+            "encodedBodySize": 21794,
+            "duration": 1838.7000000178814
+          },
+          {
+            "name": "http://127.0.0.1:3401/fonts/36966cca54120369-s.p.woff2",
+            "transferSize": 22620,
+            "encodedBodySize": 22320,
+            "duration": 968.1000000238419
+          },
+          {
+            "name": "http://127.0.0.1:3401/fonts/instrument-serif-latin.woff2",
+            "transferSize": 21332,
+            "encodedBodySize": 21032,
+            "duration": 921.6999999880791
+          },
+          {
+            "name": "http://127.0.0.1:3401/fonts/bb3ef058b751a6ad-s.p.woff2",
+            "transferSize": 40780,
+            "encodedBodySize": 40480,
+            "duration": 1245
+          },
+          {
+            "name": "http://127.0.0.1:3401/fonts/instrument-serif-italic-latin.woff2",
+            "transferSize": 22428,
+            "encodedBodySize": 22128,
+            "duration": 952.2999999821186
+          },
+          {
+            "name": "http://127.0.0.1:3401/fonts/manrope-latin-variable.woff2",
+            "transferSize": 25136,
+            "encodedBodySize": 24836,
+            "duration": 1245.0999999940395
+          },
+          {
+            "name": "http://127.0.0.1:3401/icon.svg?b665a6414a074f45",
+            "transferSize": 664,
+            "encodedBodySize": 364,
+            "duration": 1341.7000000178814
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/bd904a5c.b8d4f20cf513ac85.js",
+            "transferSize": 52924,
+            "encodedBodySize": 52624,
+            "duration": 2008.4000000059605
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/b536a0f1.4493c535fb7041a7.js",
+            "transferSize": 83631,
+            "encodedBodySize": 83331,
+            "duration": 2290.100000023842
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/3138.ac2c27ae7b671f72.js",
+            "transferSize": 5210,
+            "encodedBodySize": 4910,
+            "duration": 1760.800000011921
+          },
+          {
+            "name": "http://127.0.0.1:3401/api/me",
+            "transferSize": 357,
+            "encodedBodySize": 57,
+            "duration": 880
+          },
+          {
+            "name": "http://127.0.0.1:3401/login?_rsc=1p-R_iEY6bj0jY31",
+            "transferSize": 452,
+            "encodedBodySize": 152,
+            "duration": 1613.9000000059605
+          },
+          {
+            "name": "http://127.0.0.1:3401/signup?_rsc=1p-R_iEY6bj0jY31",
+            "transferSize": 452,
+            "encodedBodySize": 152,
+            "duration": 1629.800000011921
+          }
+        ],
+        "cls": 0.00014052031103587532,
+        "totalLayoutShift": 0.00014052031103587532,
+        "lcpMs": 3700,
+        "totalTransferBytes": 446715,
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "deviceScaleFactor": 1,
+        "conditions": "150 ms latency, 1.6 Mbps down, 0.75 Mbps up, 4× CPU"
+      }
+    },
+    {
+      "name": "Essential content with delayed fonts and renderer module 320",
+      "passed": true,
+      "durationMs": 11630,
+      "evidence": {
+        "initial": {
+          "headline": "See the change.Before you ship.",
+          "cta": "/signup",
+          "fallback": true,
+          "fontStatus": "loading",
+          "viewport": 320,
+          "headingBounds": {
+            "x": 16,
+            "y": 109,
+            "width": 294.203125,
+            "height": 110.1875,
+            "top": 109,
+            "right": 310.203125,
+            "bottom": 219.1875,
+            "left": 16
+          },
+          "italicBounds": {
+            "x": 16,
+            "y": 154.09375,
+            "width": 294.203125,
+            "height": 75,
+            "top": 154.09375,
+            "right": 310.203125,
+            "bottom": 229.09375,
+            "left": 16
+          }
+        },
+        "delayed": [
+          "http://127.0.0.1:3401/fonts/36966cca54120369-s.p.woff2",
+          "http://127.0.0.1:3401/fonts/bb3ef058b751a6ad-s.p.woff2",
+          "http://127.0.0.1:3401/fonts/instrument-serif-latin.woff2",
+          "http://127.0.0.1:3401/fonts/instrument-serif-italic-latin.woff2",
+          "http://127.0.0.1:3401/fonts/manrope-latin-variable.woff2",
+          "http://127.0.0.1:3401/_next/static/chunks/bd904a5c.b8d4f20cf513ac85.js",
+          "http://127.0.0.1:3401/_next/static/chunks/b536a0f1.4493c535fb7041a7.js",
+          "http://127.0.0.1:3401/_next/static/chunks/3138.ac2c27ae7b671f72.js"
+        ],
+        "note": "First-content assertion precedes font completion; screenshot may wait for fonts. Dynamic renderer chunks and fonts were deliberately delayed 6.5 seconds."
+      }
+    },
+    {
+      "name": "Essential content with delayed fonts and renderer module 390",
+      "passed": true,
+      "durationMs": 17923,
+      "evidence": {
+        "initial": {
+          "headline": "See the change.Before you ship.",
+          "cta": "/signup",
+          "fallback": true,
+          "fontStatus": "loading",
+          "viewport": 390,
+          "headingBounds": {
+            "x": 22,
+            "y": 109,
+            "width": 346,
+            "height": 110.1875,
+            "top": 109,
+            "right": 368,
+            "bottom": 219.1875,
+            "left": 22
+          },
+          "italicBounds": {
+            "x": 22,
+            "y": 154.09375,
+            "width": 294.203125,
+            "height": 75,
+            "top": 154.09375,
+            "right": 316.203125,
+            "bottom": 229.09375,
+            "left": 22
+          }
+        },
+        "delayed": [
+          "http://127.0.0.1:3401/fonts/36966cca54120369-s.p.woff2",
+          "http://127.0.0.1:3401/fonts/bb3ef058b751a6ad-s.p.woff2",
+          "http://127.0.0.1:3401/fonts/instrument-serif-latin.woff2",
+          "http://127.0.0.1:3401/fonts/instrument-serif-italic-latin.woff2",
+          "http://127.0.0.1:3401/fonts/manrope-latin-variable.woff2",
+          "http://127.0.0.1:3401/_next/static/chunks/bd904a5c.b8d4f20cf513ac85.js",
+          "http://127.0.0.1:3401/_next/static/chunks/b536a0f1.4493c535fb7041a7.js",
+          "http://127.0.0.1:3401/_next/static/chunks/3138.ac2c27ae7b671f72.js"
+        ],
+        "note": "First-content assertion precedes font completion; screenshot may wait for fonts. Dynamic renderer chunks and fonts were deliberately delayed 6.5 seconds."
+      }
+    }
+  ],
+  "errors": [
+    {
+      "kind": "console",
+      "message": "THREE.WebGLRenderer: THREE.WebGLRenderer: Error creating WebGL context.",
+      "expected": true
+    }
+  ],
+  "notes": [
+    "CTA identity is emulated only at /api/me; no account submissions.",
+    "Performance is a production browser lab observation, not field Core Web Vitals or INP."
+  ],
+  "reruns": [
+    {
+      "at": "2026-09-06T15:42:07.488Z",
+      "matching": [
+        "Performance lab mobile-throttled",
+        "Final scene bounds",
+        "Essential content",
+        "Final no-WebGL opening",
+        "Actual simulation motion video"
+      ]
+    }
+  ],
+  "environment": {
+    "browser": "Chrome",
+    "version": "152.0.7977.82",
+    "platform": "win32",
+    "os": "Windows 11 Home",
+    "release": "10.0.26200",
+    "defaultDeviceScaleFactor": 1
+  },
+  "finishedAt": "2026-09-06T15:44:05.590Z",
+  "unexpectedErrors": [],
+  "passed": true
+}

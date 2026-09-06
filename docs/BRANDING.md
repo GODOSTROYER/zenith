@@ -7,14 +7,29 @@ universal cloud control or production readiness.
 
 ## Identity
 
-The corporate mark is a point above a short sightline and observer, framed by
-an open dome. It is deliberately stable; Gimbal's moving rings belong to the
-Navigator character. The mark is native vector geometry, not a raster logo.
+The corporate symbol is the Shift Register: two authored solid vector shapes
+with offset edges and a diagonal seam. It accompanies original lowercase
+zenith vector lettering, not font outlines. The shared master geometry is in
+`src/components/shell/brand-geometry.ts`; the existing `OrbitMark` and
+`Wordmark` exports remain compatible with product callers. The visible `.ai`
+suffix and accessible Zenith.ai name preserve the product name. Monochrome,
+inverse and small symbol treatments share this identity. Gimbal's moving rings
+belong to the Navigator character and are not the corporate mark.
 
-Keep the existing accessible foundation: layered navy surfaces, mint actions,
-violet Navigator identity, self-hosted Space Grotesk and JetBrains Mono. Both
-themes remain available. Status colors retain their meaning independently of
-the brand: planning purple, approval yellow, applying blue, verified green,
+The landing direction is **The Revision Object**: porcelain, ink and controlled
+vermilion make the next infrastructure change tangible. Instrument Serif
+roman/italic supplies editorial display type, Manrope supplies body and controls,
+and the existing JetBrains Mono supplies technical evidence. All font files are
+self-hosted with their license notices. Both landing themes are intentionally
+composed; the dark inspect/review chapter and closing signature keep their ink
+ground in either theme. Proposed work earns the vermilion accent; a recorded
+queue settles into porcelain with a small revision tab.
+
+Product workflows retain the existing accessible shared UI foundation: layered
+navy surfaces, mint actions, violet Navigator identity, Space Grotesk and
+JetBrains Mono. The landing's scoped presentation does not replace those
+product tokens or primitives. Status colors retain their meaning independently
+of the brand: planning purple, approval yellow, applying blue, verified green,
 blocked red. Every state needs text and an icon; color alone is insufficient.
 
 Gimbal introduces itself neutrally and responds to a voluntary greeting. Its

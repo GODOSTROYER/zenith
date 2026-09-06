@@ -1,0 +1,665 @@
+{
+  "url": "http://127.0.0.1:3401",
+  "startedAt": "2026-09-06T16:02:18.149Z",
+  "labOnly": true,
+  "checks": [
+    {
+      "name": "Performance lab desktop-cold",
+      "passed": true,
+      "durationMs": 5425,
+      "evidence": {
+        "lcp": [
+          {
+            "startTime": 972,
+            "duration": 0,
+            "size": 156152,
+            "element": {
+              "tag": "H1",
+              "id": "zenith-title",
+              "className": "",
+              "text": "See the change.Before you ship."
+            }
+          }
+        ],
+        "shifts": [],
+        "longTasks": [
+          {
+            "startTime": 403.19999998807907,
+            "duration": 291
+          },
+          {
+            "startTime": 792.5999999940395,
+            "duration": 52
+          },
+          {
+            "startTime": 1275.5999999940395,
+            "duration": 779
+          }
+        ],
+        "navigation": {
+          "name": "http://127.0.0.1:3401/",
+          "entryType": "navigation",
+          "startTime": 0,
+          "duration": 869.1999999880791,
+          "navigationId": 2692,
+          "initiatorType": "navigation",
+          "deliveryType": "",
+          "nextHopProtocol": "http/1.1",
+          "renderBlockingStatus": "non-blocking",
+          "contentType": "text/html",
+          "contentEncoding": "gzip",
+          "workerStart": 0,
+          "workerRouterEvaluationStart": 0,
+          "workerCacheLookupStart": 0,
+          "workerMatchedSourceType": "",
+          "workerFinalSourceType": "",
+          "redirectStart": 0,
+          "redirectEnd": 0,
+          "fetchStart": 1.0999999940395355,
+          "domainLookupStart": 1.0999999940395355,
+          "domainLookupEnd": 1.0999999940395355,
+          "connectStart": 1.0999999940395355,
+          "secureConnectionStart": 0,
+          "connectEnd": 1.0999999940395355,
+          "requestStart": 12.400000005960464,
+          "responseStart": 336.09999999403954,
+          "firstInterimResponseStart": 0,
+          "finalResponseHeadersStart": 336.09999999403954,
+          "responseEnd": 344.90000000596046,
+          "transferSize": 21392,
+          "encodedBodySize": 21092,
+          "decodedBodySize": 105819,
+          "responseStatus": 200,
+          "serverTiming": [],
+          "unloadEventStart": 0,
+          "unloadEventEnd": 0,
+          "domInteractive": 403.19999998807907,
+          "domContentLoadedEventStart": 403.19999998807907,
+          "domContentLoadedEventEnd": 403.30000001192093,
+          "domComplete": 869.0999999940395,
+          "loadEventStart": 869.1999999880791,
+          "loadEventEnd": 869.1999999880791,
+          "type": "navigate",
+          "redirectCount": 0,
+          "activationStart": 0,
+          "criticalCHRestart": 0,
+          "notRestoredReasons": null,
+          "confidence": {
+            "randomizedTriggerRate": 0.4994798,
+            "value": "low"
+          }
+        },
+        "resources": [
+          {
+            "name": "http://127.0.0.1:3401/_next/static/css/80fb5ebf965b0859.css",
+            "transferSize": 13265,
+            "encodedBodySize": 12965,
+            "duration": 32.70000001788139
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/css/73b234fe7baf7328.css",
+            "transferSize": 8509,
+            "encodedBodySize": 8209,
+            "duration": 46.5
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/webpack-ef2a598903384935.js",
+            "transferSize": 2952,
+            "encodedBodySize": 2652,
+            "duration": 79.5
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js",
+            "transferSize": 54664,
+            "encodedBodySize": 54364,
+            "duration": 110.90000000596046
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/main-app-e2e4cc08be997aa7.js",
+            "transferSize": 825,
+            "encodedBodySize": 525,
+            "duration": 78.90000000596046
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/app/error-b784998511bebf17.js",
+            "transferSize": 3581,
+            "encodedBodySize": 3281,
+            "duration": 84.90000000596046
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/1255-7b4b5a04291b6a94.js",
+            "transferSize": 46516,
+            "encodedBodySize": 46216,
+            "duration": 105.40000000596046
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/app/global-error-7d427f07f7ee6f69.js",
+            "transferSize": 1470,
+            "encodedBodySize": 1170,
+            "duration": 85.59999999403954
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/2619-04bc32f026a0d946.js",
+            "transferSize": 3706,
+            "encodedBodySize": 3406,
+            "duration": 95.59999999403954
+          },
+          {
+            "name": "http://127.0.0.1:3401/fonts/36966cca54120369-s.p.woff2",
+            "transferSize": 22620,
+            "encodedBodySize": 22320,
+            "duration": 35.69999998807907
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/4879-d65fc89803669999.js",
+            "transferSize": 13186,
+            "encodedBodySize": 12886,
+            "duration": 103.19999998807907
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/app/page-822a9db07cf1414a.js",
+            "transferSize": 22211,
+            "encodedBodySize": 21911,
+            "duration": 113.80000001192093
+          },
+          {
+            "name": "http://127.0.0.1:3401/fonts/bb3ef058b751a6ad-s.p.woff2",
+            "transferSize": 40780,
+            "encodedBodySize": 40480,
+            "duration": 36.80000001192093
+          },
+          {
+            "name": "http://127.0.0.1:3401/fonts/instrument-serif-latin.woff2",
+            "transferSize": 21332,
+            "encodedBodySize": 21032,
+            "duration": 45.60000002384186
+          },
+          {
+            "name": "http://127.0.0.1:3401/fonts/instrument-serif-italic-latin.woff2",
+            "transferSize": 22428,
+            "encodedBodySize": 22128,
+            "duration": 44
+          },
+          {
+            "name": "http://127.0.0.1:3401/fonts/manrope-latin-variable.woff2",
+            "transferSize": 25136,
+            "encodedBodySize": 24836,
+            "duration": 47.900000005960464
+          },
+          {
+            "name": "http://127.0.0.1:3401/icon.svg?b665a6414a074f45",
+            "transferSize": 664,
+            "encodedBodySize": 364,
+            "duration": 332.60000002384186
+          },
+          {
+            "name": "http://127.0.0.1:3401/api/me",
+            "transferSize": 357,
+            "encodedBodySize": 57,
+            "duration": 91.5
+          },
+          {
+            "name": "http://127.0.0.1:3401/guide?_rsc=1p-R_iEY6bj0jY31",
+            "transferSize": 465,
+            "encodedBodySize": 165,
+            "duration": 194.30000001192093
+          },
+          {
+            "name": "http://127.0.0.1:3401/login?_rsc=1p-R_iEY6bj0jY31",
+            "transferSize": 450,
+            "encodedBodySize": 150,
+            "duration": 182.90000000596046
+          },
+          {
+            "name": "http://127.0.0.1:3401/signup?_rsc=1p-R_iEY6bj0jY31",
+            "transferSize": 451,
+            "encodedBodySize": 151,
+            "duration": 186.90000000596046
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/bd904a5c.b8d4f20cf513ac85.js",
+            "transferSize": 52924,
+            "encodedBodySize": 52624,
+            "duration": 258.59999999403954
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/b536a0f1.4493c535fb7041a7.js",
+            "transferSize": 83631,
+            "encodedBodySize": 83331,
+            "duration": 287.59999999403954
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/3138.ac2c27ae7b671f72.js",
+            "transferSize": 5210,
+            "encodedBodySize": 4910,
+            "duration": 213.40000000596046
+          }
+        ],
+        "cls": 0,
+        "totalLayoutShift": 0,
+        "lcpMs": 972,
+        "maxLongTaskMs": 779,
+        "totalTransferBytes": 447333,
+        "viewport": {
+          "width": 1440,
+          "height": 1000
+        },
+        "deviceScaleFactor": 1,
+        "conditions": "Cold browser cache; no network or CPU throttling"
+      }
+    },
+    {
+      "name": "Performance lab mobile-throttled",
+      "passed": true,
+      "durationMs": 15931,
+      "evidence": {
+        "lcp": [
+          {
+            "startTime": 2996,
+            "duration": 0,
+            "size": 38740,
+            "element": {
+              "tag": "H1",
+              "id": "zenith-title",
+              "className": "",
+              "text": "See the change.Before you ship."
+            }
+          }
+        ],
+        "shifts": [
+          {
+            "startTime": 3092,
+            "duration": 0,
+            "value": 0.000025929157638947684,
+            "hadRecentInput": false,
+            "sources": [
+              {
+                "node": "SPAN#.",
+                "previousRect": {
+                  "x": 304.515625,
+                  "y": 466.28125,
+                  "width": 62.484375,
+                  "height": 16,
+                  "top": 466.28125,
+                  "right": 367,
+                  "bottom": 482.28125,
+                  "left": 304.515625
+                },
+                "currentRect": {
+                  "x": 300,
+                  "y": 466.28125,
+                  "width": 66,
+                  "height": 16,
+                  "top": 466.28125,
+                  "right": 366,
+                  "bottom": 482.28125,
+                  "left": 300
+                }
+              },
+              {
+                "node": "svg#.[object SVGAnimatedString]",
+                "previousRect": {
+                  "x": 301.984375,
+                  "y": 543.46875,
+                  "width": 13,
+                  "height": 13,
+                  "top": 543.46875,
+                  "right": 314.984375,
+                  "bottom": 556.46875,
+                  "left": 301.984375
+                },
+                "currentRect": {
+                  "x": 307,
+                  "y": 543.46875,
+                  "width": 13,
+                  "height": 13,
+                  "top": 543.46875,
+                  "right": 320,
+                  "bottom": 556.46875,
+                  "left": 307
+                }
+              }
+            ]
+          }
+        ],
+        "longTasks": [
+          {
+            "startTime": 861,
+            "duration": 1387
+          },
+          {
+            "startTime": 2322.600000023842,
+            "duration": 231
+          },
+          {
+            "startTime": 2884.7000000178814,
+            "duration": 203
+          },
+          {
+            "startTime": 4809.700000017881,
+            "duration": 1571
+          }
+        ],
+        "navigation": {
+          "name": "http://127.0.0.1:3401/",
+          "entryType": "navigation",
+          "startTime": 0,
+          "duration": 2888.4000000059605,
+          "navigationId": 5784,
+          "initiatorType": "navigation",
+          "deliveryType": "",
+          "nextHopProtocol": "http/1.1",
+          "renderBlockingStatus": "non-blocking",
+          "contentType": "text/html",
+          "contentEncoding": "gzip",
+          "workerStart": 0,
+          "workerRouterEvaluationStart": 0,
+          "workerCacheLookupStart": 0,
+          "workerMatchedSourceType": "",
+          "workerFinalSourceType": "",
+          "redirectStart": 0,
+          "redirectEnd": 0,
+          "fetchStart": 3.5,
+          "domainLookupStart": 11.900000005960464,
+          "domainLookupEnd": 11.900000005960464,
+          "connectStart": 11.900000005960464,
+          "secureConnectionStart": 0,
+          "connectEnd": 59.30000001192093,
+          "requestStart": 60.20000001788139,
+          "responseStart": 145.80000001192093,
+          "firstInterimResponseStart": 0,
+          "finalResponseHeadersStart": 145.80000001192093,
+          "responseEnd": 350.10000002384186,
+          "transferSize": 21392,
+          "encodedBodySize": 21092,
+          "decodedBodySize": 105819,
+          "responseStatus": 200,
+          "serverTiming": [],
+          "unloadEventStart": 0,
+          "unloadEventEnd": 0,
+          "domInteractive": 861,
+          "domContentLoadedEventStart": 861,
+          "domContentLoadedEventEnd": 861.6000000238419,
+          "domComplete": 2888,
+          "loadEventStart": 2888.4000000059605,
+          "loadEventEnd": 2888.4000000059605,
+          "type": "navigate",
+          "redirectCount": 0,
+          "activationStart": 0,
+          "criticalCHRestart": 0,
+          "notRestoredReasons": null,
+          "confidence": {
+            "randomizedTriggerRate": 0.4994798,
+            "value": "high"
+          }
+        },
+        "resources": [
+          {
+            "name": "http://127.0.0.1:3401/_next/static/css/80fb5ebf965b0859.css",
+            "transferSize": 13265,
+            "encodedBodySize": 12965,
+            "duration": 492.80000001192093
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/css/73b234fe7baf7328.css",
+            "transferSize": 8509,
+            "encodedBodySize": 8209,
+            "duration": 412.7000000178814
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/webpack-ef2a598903384935.js",
+            "transferSize": 2952,
+            "encodedBodySize": 2652,
+            "duration": 819.8000000119209
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/4bd1b696-100b9d70ed4e49c1.js",
+            "transferSize": 54664,
+            "encodedBodySize": 54364,
+            "duration": 1807.7999999821186
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/1255-7b4b5a04291b6a94.js",
+            "transferSize": 46516,
+            "encodedBodySize": 46216,
+            "duration": 1776.199999988079
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/main-app-e2e4cc08be997aa7.js",
+            "transferSize": 825,
+            "encodedBodySize": 525,
+            "duration": 1040.0999999940395
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/app/error-b784998511bebf17.js",
+            "transferSize": 3581,
+            "encodedBodySize": 3281,
+            "duration": 1138.1000000238419
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/app/global-error-7d427f07f7ee6f69.js",
+            "transferSize": 1470,
+            "encodedBodySize": 1170,
+            "duration": 1242.9000000059605
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/2619-04bc32f026a0d946.js",
+            "transferSize": 3706,
+            "encodedBodySize": 3406,
+            "duration": 1336
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/4879-d65fc89803669999.js",
+            "transferSize": 13186,
+            "encodedBodySize": 12886,
+            "duration": 1556.800000011921
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/app/page-822a9db07cf1414a.js",
+            "transferSize": 22211,
+            "encodedBodySize": 21911,
+            "duration": 1700.7000000178814
+          },
+          {
+            "name": "http://127.0.0.1:3401/fonts/36966cca54120369-s.p.woff2",
+            "transferSize": 22620,
+            "encodedBodySize": 22320,
+            "duration": 845.7000000178814
+          },
+          {
+            "name": "http://127.0.0.1:3401/fonts/bb3ef058b751a6ad-s.p.woff2",
+            "transferSize": 40780,
+            "encodedBodySize": 40480,
+            "duration": 1130.0999999940395
+          },
+          {
+            "name": "http://127.0.0.1:3401/fonts/instrument-serif-latin.woff2",
+            "transferSize": 21332,
+            "encodedBodySize": 21032,
+            "duration": 829.9000000059605
+          },
+          {
+            "name": "http://127.0.0.1:3401/fonts/instrument-serif-italic-latin.woff2",
+            "transferSize": 22428,
+            "encodedBodySize": 22128,
+            "duration": 877
+          },
+          {
+            "name": "http://127.0.0.1:3401/fonts/manrope-latin-variable.woff2",
+            "transferSize": 25136,
+            "encodedBodySize": 24836,
+            "duration": 1098.1000000238419
+          },
+          {
+            "name": "http://127.0.0.1:3401/icon.svg?b665a6414a074f45",
+            "transferSize": 664,
+            "encodedBodySize": 364,
+            "duration": 734.0999999940395
+          },
+          {
+            "name": "http://127.0.0.1:3401/api/me",
+            "transferSize": 357,
+            "encodedBodySize": 57,
+            "duration": 421.7000000178814
+          },
+          {
+            "name": "http://127.0.0.1:3401/login?_rsc=1p-R_iEY6bj0jY31",
+            "transferSize": 450,
+            "encodedBodySize": 150,
+            "duration": 766.0999999940395
+          },
+          {
+            "name": "http://127.0.0.1:3401/signup?_rsc=1p-R_iEY6bj0jY31",
+            "transferSize": 451,
+            "encodedBodySize": 151,
+            "duration": 774.6999999880791
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/bd904a5c.b8d4f20cf513ac85.js",
+            "transferSize": 52924,
+            "encodedBodySize": 52624,
+            "duration": 1297.7000000178814
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/b536a0f1.4493c535fb7041a7.js",
+            "transferSize": 83631,
+            "encodedBodySize": 83331,
+            "duration": 1528
+          },
+          {
+            "name": "http://127.0.0.1:3401/_next/static/chunks/3138.ac2c27ae7b671f72.js",
+            "transferSize": 5210,
+            "encodedBodySize": 4910,
+            "duration": 831.5999999940395
+          }
+        ],
+        "cls": 0.000025929157638947684,
+        "totalLayoutShift": 0.000025929157638947684,
+        "lcpMs": 2996,
+        "maxLongTaskMs": 1571,
+        "totalTransferBytes": 446868,
+        "viewport": {
+          "width": 390,
+          "height": 844
+        },
+        "deviceScaleFactor": 1,
+        "conditions": "150 ms latency, 1.6 Mbps down, 0.75 Mbps up, 4× CPU"
+      }
+    },
+    {
+      "name": "Essential content with delayed fonts and renderer module 320",
+      "passed": true,
+      "durationMs": 9105,
+      "evidence": {
+        "initial": {
+          "headline": "See the change.Before you ship.",
+          "cta": "/signup",
+          "fallback": true,
+          "fontStatus": "loading",
+          "viewport": 320,
+          "headingBounds": {
+            "x": 16,
+            "y": 109,
+            "width": 294.203125,
+            "height": 110.1875,
+            "top": 109,
+            "right": 310.203125,
+            "bottom": 219.1875,
+            "left": 16
+          },
+          "italicBounds": {
+            "x": 16,
+            "y": 154.09375,
+            "width": 294.203125,
+            "height": 75,
+            "top": 154.09375,
+            "right": 310.203125,
+            "bottom": 229.09375,
+            "left": 16
+          }
+        },
+        "delayed": [
+          "http://127.0.0.1:3401/fonts/36966cca54120369-s.p.woff2",
+          "http://127.0.0.1:3401/fonts/bb3ef058b751a6ad-s.p.woff2",
+          "http://127.0.0.1:3401/fonts/instrument-serif-latin.woff2",
+          "http://127.0.0.1:3401/fonts/instrument-serif-italic-latin.woff2",
+          "http://127.0.0.1:3401/fonts/manrope-latin-variable.woff2",
+          "http://127.0.0.1:3401/_next/static/chunks/bd904a5c.b8d4f20cf513ac85.js",
+          "http://127.0.0.1:3401/_next/static/chunks/b536a0f1.4493c535fb7041a7.js",
+          "http://127.0.0.1:3401/_next/static/chunks/3138.ac2c27ae7b671f72.js"
+        ],
+        "note": "First-content assertion precedes font completion; screenshot may wait for fonts. Dynamic renderer chunks and fonts were deliberately delayed 6.5 seconds."
+      }
+    },
+    {
+      "name": "Essential content with delayed fonts and renderer module 390",
+      "passed": true,
+      "durationMs": 11483,
+      "evidence": {
+        "initial": {
+          "headline": "See the change.Before you ship.",
+          "cta": "/signup",
+          "fallback": true,
+          "fontStatus": "loading",
+          "viewport": 390,
+          "headingBounds": {
+            "x": 22,
+            "y": 109,
+            "width": 346,
+            "height": 110.1875,
+            "top": 109,
+            "right": 368,
+            "bottom": 219.1875,
+            "left": 22
+          },
+          "italicBounds": {
+            "x": 22,
+            "y": 154.09375,
+            "width": 294.203125,
+            "height": 75,
+            "top": 154.09375,
+            "right": 316.203125,
+            "bottom": 229.09375,
+            "left": 22
+          }
+        },
+        "delayed": [
+          "http://127.0.0.1:3401/fonts/36966cca54120369-s.p.woff2",
+          "http://127.0.0.1:3401/fonts/bb3ef058b751a6ad-s.p.woff2",
+          "http://127.0.0.1:3401/fonts/instrument-serif-latin.woff2",
+          "http://127.0.0.1:3401/fonts/instrument-serif-italic-latin.woff2",
+          "http://127.0.0.1:3401/fonts/manrope-latin-variable.woff2",
+          "http://127.0.0.1:3401/_next/static/chunks/bd904a5c.b8d4f20cf513ac85.js",
+          "http://127.0.0.1:3401/_next/static/chunks/b536a0f1.4493c535fb7041a7.js",
+          "http://127.0.0.1:3401/_next/static/chunks/3138.ac2c27ae7b671f72.js"
+        ],
+        "note": "First-content assertion precedes font completion; screenshot may wait for fonts. Dynamic renderer chunks and fonts were deliberately delayed 6.5 seconds."
+      }
+    }
+  ],
+  "errors": [],
+  "notes": [
+    "CTA identity is emulated only at /api/me; no account submissions.",
+    "Performance is a production browser lab observation, not field Core Web Vitals or INP."
+  ],
+  "reruns": [
+    {
+      "at": "2026-09-06T16:02:18.151Z",
+      "matching": [
+        "Performance lab",
+        "Essential content"
+      ]
+    }
+  ],
+  "environment": {
+    "browser": "Chrome",
+    "version": "152.0.7977.82",
+    "platform": "win32",
+    "os": "Windows 11 Home",
+    "release": "10.0.26200",
+    "defaultDeviceScaleFactor": 1
+  },
+  "finishedAt": "2026-09-06T16:03:06.369Z",
+  "unexpectedErrors": [],
+  "passed": true
+}

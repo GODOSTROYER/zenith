@@ -17,3 +17,59 @@
   --font-jbmono: "JetBrains Mono", "JetBrains Mono Fallback";
 }
 
+/* Official Latin WOFF2 subsets; OFL and source URLs: public/fonts/README.md.
+   These new roles are scoped to the landing. Product typography is retained. */
+@font-face {
+  font-family: "Instrument Serif";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/instrument-serif-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Instrument Serif";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/instrument-serif-italic-latin.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Manrope";
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+  src: url("/fonts/manrope-latin-variable.woff2") format("woff2");
+}
+/* Width and vertical metrics measured against the opening's actual copy.
+   Local faces keep the first frame stable while the licensed WOFF2s load. */
+@font-face {
+  font-family: "Zenith Display Fallback";
+  src: local("Georgia");
+  font-style: normal;
+  size-adjust: 76.1524%;
+  ascent-override: 130.0024%;
+  descent-override: 40.7078%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Zenith Display Fallback";
+  src: local("Georgia Italic");
+  font-style: italic;
+  size-adjust: 76.9403%;
+  ascent-override: 128.6712%;
+  descent-override: 40.2910%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Zenith UI Fallback";
+  src: local("Arial");
+  size-adjust: 101.8020%;
+  ascent-override: 104.7131%;
+  descent-override: 29.4690%;
+  line-gap-override: 0%;
+}
+:root {
+  --zenith-font-display: "Instrument Serif", "Zenith Display Fallback", Georgia, serif;
+  --zenith-font-ui: "Manrope", "Zenith UI Fallback", Arial, sans-serif;
+  --zenith-font-mono: "JetBrains Mono", ui-monospace, monospace;
+}

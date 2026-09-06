@@ -1,0 +1,55 @@
+[
+  {
+    "antipattern": "side-tab",
+    "name": "Side-tab accent border",
+    "description": "Thick colored border on one side of a card — the most recognizable tell of AI-generated UIs. Use a subtler accent or remove it entirely.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "Z:\\Projects\\Spawned.ai\\orrery\\src\\components\\landing\\model-surfaces.module.css",
+    "line": 13,
+    "snippet": "border-left: 3px solid var(--zenith-accent, #d73b20)",
+    "importedBy": [
+      "model-surfaces.tsx"
+    ]
+  },
+  {
+    "antipattern": "overused-font",
+    "name": "Overused font",
+    "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "Z:\\Projects\\Spawned.ai\\orrery\\src\\app\\fonts.css",
+    "line": 3,
+    "snippet": "font-family:Space Grotesk"
+  },
+  {
+    "antipattern": "overused-font",
+    "name": "Overused font",
+    "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "Z:\\Projects\\Spawned.ai\\orrery\\src\\app\\fonts.css",
+    "line": 6,
+    "snippet": "font-family:Space Grotesk"
+  },
+  {
+    "antipattern": "overused-font",
+    "name": "Overused font",
+    "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "Z:\\Projects\\Spawned.ai\\orrery\\src\\app\\fonts.css",
+    "line": 23,
+    "snippet": "font-family: \"Instrument Serif"
+  },
+  {
+    "antipattern": "overused-font",
+    "name": "Overused font",
+    "description": "Inter, Roboto, Fraunces, Geist, Plus Jakarta Sans, and Space Grotesk are used on so many sites they no longer feel distinctive. Each new wave of AI-generated UIs converges on the same handful of faces. Choose a face that gives your interface personality.",
+    "severity": "warning",
+    "category": "slop",
+    "file": "Z:\\Projects\\Spawned.ai\\orrery\\src\\app\\fonts.css",
+    "line": 30,
+    "snippet": "font-family: \"Instrument Serif"
+  }
+]

@@ -1,42 +1,52 @@
 "use client";
+
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowRight } from "lucide-react";
+import { ArrowUpRight, Circle, CirclePause, CircleX, LoaderCircle, ScanEye, Sparkles } from "lucide-react";
 import { GimbalCharacter, type GimbalMotion } from "@/components/navigator/gimbal-character";
+import { AUTONOMY_LEVELS, AUTONOMY_MEANING } from "@/lib/navigator/shared";
+import type { AutonomyLevel } from "@/lib/domain/types";
 
-/** A neutral greeting, never a simulated workflow or a success claim. */
+const STATES = [
+  { label: "Planning", description: "Preparing a typed plan.", icon: Sparkles, state: "planning" },
+  { label: "Awaiting approval", description: "Holding for your decision.", icon: CirclePause, state: "awaiting_approval" },
+  { label: "Applying", description: "Running an approved action.", icon: LoaderCircle, state: "applying" },
+  { label: "Verified", description: "Authoritative, non-simulated provider evidence confirms the result.", icon: ScanEye, state: "verified" },
+  { label: "Blocked", description: "A problem needs attention.", icon: CircleX, state: "blocked" },
+  { label: "Neutral", description: "Ready, plan complete, simulation complete, or cancelled.", icon: Circle, state: "neutral" },
+];
+
+/** Gimbal remains a neutral companion; its greeting is never evidence of a run. */
 export function GimbalIntroduction() {
   const [motion, setMotion] = useState<GimbalMotion>("low-power");
+  const [level, setLevel] = useState<AutonomyLevel>("approve");
   return (
-    <section id="meet-gimbal" aria-labelledby="meet-gimbal-title" className="scroll-mt-20 border-y border-line bg-bg1">
-      <div className="mx-auto grid max-w-[1180px] items-center gap-10 px-6 py-20 md:grid-cols-[280px_minmax(0,1fr)] lg:gap-20 lg:py-28">
-        <figure className="mx-auto w-full max-w-[280px]">
-          <GimbalCharacter state={null} motion={motion} className="h-[260px] w-full" />
-          <figcaption className="text-center text-[14px] text-ink-mute">Hello. I’m Gimbal.</figcaption>
-          <div className="mt-4 flex items-center justify-center gap-2 text-[12px] text-ink-faint">
-            <label htmlFor="landing-gimbal-motion">Motion</label>
-            <select id="landing-gimbal-motion" value={motion} onChange={(e) => setMotion(e.target.value as GimbalMotion)}
-              className="ui-select min-h-9 rounded-ctl border border-line bg-bg2 px-2 text-ink">
-              <option value="low-power">Low power</option><option value="still">Still poses</option><option value="auto">Follow system</option>
-            </select>
-          </div>
+    <section id="meet-gimbal" className="zenith-gimbal" aria-labelledby="meet-gimbal-title">
+      <div className="zenith-gimbal-main">
+        <figure className="zenith-gimbal-figure">
+          <div className="zenith-gimbal-orbit-caption"><span>GIMBAL</span><span>Ready to help</span></div>
+          <GimbalCharacter state={null} motion={motion} className="zenith-gimbal-character" />
+          <figcaption>Hello. I’m Gimbal.</figcaption>
+          <div className="zenith-motion-control"><label htmlFor="landing-gimbal-motion">Motion</label><select id="landing-gimbal-motion" value={motion} onChange={(event) => setMotion(event.target.value as GimbalMotion)}><option value="low-power">Low power</option><option value="still">Still poses</option><option value="auto">Follow system</option></select></div>
         </figure>
-        <div>
-          <h2 id="meet-gimbal-title" className="max-w-[22ch] text-balance text-[clamp(28px,4vw,44px)] font-bold leading-[1.08] tracking-[-0.02em]">Meet Gimbal, your Navigator.</h2>
-          <p className="mt-5 max-w-[60ch] text-[16px] leading-[1.7] text-ink-mute">Gimbal helps you turn an intent into a reviewable plan. It uses the same actions as the rest of Zenith.ai, shows the next step, and pauses where your approval is required.</p>
-          <p className="mt-4 max-w-[60ch] text-[14px] leading-[1.7] text-ink-mute">Start with a workspace, choose your connection, then build an editable system from a blueprint. Your guide stays available as you explore—no pop-up tour to remember.</p>
-          <dl className="mt-7 grid gap-x-6 gap-y-3 text-[13px] sm:grid-cols-2">
-            <div><dt className="font-medium text-nav-accent">Planning</dt><dd className="mt-0.5 text-ink-mute">Preparing the next steps.</dd></div>
-            <div><dt className="font-medium text-warn">Awaiting approval</dt><dd className="mt-0.5 text-ink-mute">Waiting for your decision.</dd></div>
-            <div><dt className="font-medium text-info">Applying</dt><dd className="mt-0.5 text-ink-mute">An approved action is running.</dd></div>
-            <div><dt className="font-medium text-ok">Verified</dt><dd className="mt-0.5 text-ink-mute">Supported provider checks confirm the result.</dd></div>
-            <div><dt className="font-medium text-err">Blocked</dt><dd className="mt-0.5 text-ink-mute">A problem needs attention.</dd></div>
-          </dl>
-          <p className="mt-4 text-[12px] leading-relaxed text-ink-faint">Color always comes with a label. A simulation or completed plan is not a verified deployment.</p>
-          <Link href="/onboarding?step=1" className="mt-7 inline-flex min-h-11 items-center gap-2 rounded-ctl bg-signal px-5 text-[14px] font-semibold text-on-signal">Start with Gimbal <ArrowRight aria-hidden="true" className="h-4 w-4" /></Link>
-          <Link href="/guide" className="ml-4 mt-4 inline-flex min-h-11 items-center text-[14px] text-ink-mute underline underline-offset-4 hover:text-ink">Open workspace guide</Link>
+        <div className="zenith-gimbal-copy">
+          <h2 id="meet-gimbal-title">An intent. A plan.<br /><em>Your decision.</em></h2>
+          <p>Navigator turns what you want into typed, reviewable actions. Gimbal is your companion along the way: a visible expression of what’s happening, and when it needs you.</p>
+          <p>Both use the same model you just explored. The same resources. The same approval boundaries. Every action leaves a record.</p>
+          <div className="zenith-gimbal-links"><Link href="/onboarding?step=1" className="zenith-text-link">Start with Gimbal <ArrowUpRight size={16} aria-hidden="true" /></Link><Link href="/guide" className="zenith-subtle-link">Open workspace guide</Link></div>
         </div>
       </div>
+      <div className="zenith-autonomy">
+        <div><h3>How much initiative?<br /><em>You set the boundary.</em></h3><p>Explore the five autonomy levels. Deployment approval policies and budgets still apply.</p></div>
+        <div className="zenith-autonomy-explorer">
+          <div className="zenith-autonomy-levels" role="group" aria-label="Explore Navigator autonomy levels">
+            {AUTONOMY_LEVELS.map((value, index) => <button type="button" key={value} aria-pressed={value === level} onClick={() => setLevel(value)}><span>{index + 1}</span>{value}</button>)}
+          </div>
+          <p aria-live="polite">{AUTONOMY_MEANING[level]}</p>
+          <span className="zenith-autonomy-note">Policy explanations · no workspace setting is changed</span>
+        </div>
+      </div>
+      <details className="zenith-state-guide"><summary>How Gimbal communicates state <span aria-hidden="true">+</span></summary><div className="zenith-state-grid">{STATES.map(({ label, description, icon: Icon, state }) => <div key={state} data-gimbal-state={state}><h4><Icon size={17} aria-hidden="true" />{label}</h4><p>{description}</p></div>)}</div><p>A simulation or completed plan is not a verified deployment. State always comes with a label and an icon.</p></details>
     </section>
   );
 }

@@ -1,6 +1,6 @@
 /**
  * The Zenith.ai landing page — the front door.
- * Direction: "The Map Assembles" — see docs/DESIGN.md.
+ * Direction: "The Revision Object" — see docs/zenith-reimagined-direction.md.
  * Product users pass straight through via the Open Zenith.ai CTA; the page
  * pulls its provider table live from the registry so it can never overclaim.
  */
@@ -9,9 +9,9 @@ import { ensureEngine } from "@/lib/engine/engine";
 import { providerRegistry } from "@/lib/providers/types";
 import { Landing, type ProviderRow } from "@/components/landing/landing";
 
-const TITLE = "Zenith.ai — your stack, clearly in view";
+const TITLE = "Zenith.ai — see the change before you ship";
 const DESCRIPTION =
-  "Map your application, review changes, and operate supported local infrastructure with Zenith.ai. AWS planning and Terraform export available in Preview.";
+  "Your next infrastructure change, made tangible. Inspect the system, review estimated cost and risk, and approve supported execution. Local-first, bring your own cloud.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -75,5 +75,10 @@ export default async function LandingPage() {
   // Roadmap presentation only: this is not a registered connection/provider.
   providers.push({ id: "oracle-coming-later", displayName: "Oracle Cloud", availability: "planned", tagline: "Coming later. Oracle connections and operations are not available yet." });
 
-  return <Landing providers={providers} />;
+  return <>
+    <link rel="preload" href="/fonts/instrument-serif-latin.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+    <link rel="preload" href="/fonts/instrument-serif-italic-latin.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+    <link rel="preload" href="/fonts/manrope-latin-variable.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+    <Landing providers={providers} />
+  </>;
 }

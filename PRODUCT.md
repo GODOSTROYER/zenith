@@ -32,12 +32,15 @@ them: hidden costs, dead controls, no URL after deploy).
 Never overclaims. Celebrates once, quietly.
 
 **Brand commitments.** Zenith.ai — “Your stack, clearly in view.”
-Wordmark: overhead point, sightline and observer framed by an open dome.
-Gimbal retains its own moving rings. Visual world: "observatory
-at night" per docs/DESIGN.md (authoritative): bg0 #0b1020 grounds, hairline
-structure, mint-teal `signal` accent, periwinkle `nav-accent` reserved for
-the Navigator, amber marks production, Space Grotesk + JetBrains Mono,
-dark-first with a considered light theme.
+Identity: the authored Shift Register symbol and custom zenith vector lettering.
+Gimbal retains its own moving rings. The landing's Revision Object direction
+makes the next change tangible through porcelain, ink and controlled vermilion,
+with self-hosted Instrument Serif display, Manrope UI and JetBrains Mono
+technical type in intentional light and dark themes. Product workflows retain
+the existing shared UI: layered navy, mint `signal`, periwinkle `nav-accent`
+reserved for Navigator, amber production identity, Space Grotesk and JetBrains
+Mono. docs/DESIGN.md remains authoritative; docs/BRANDING.md preserves identity
+and compatibility boundaries.
 
 **Platform.** Next.js 15 web app, local-first today (localhost:3400).
 No pricing, no customers, no testimonials yet — the landing page may NOT

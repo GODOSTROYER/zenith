@@ -238,9 +238,9 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   ) : null;
 
   return (
-    <div className="rounded-[12px] border border-line bg-bg1 p-6 sm:p-7">
-      <h1 className="text-[24px] font-bold leading-[1.1] tracking-[-0.02em] text-ink">{c.title}</h1>
-      <p className="mt-1.5 text-[14px] text-ink-mute">{c.body}</p>
+    <div className="rounded-card border border-line bg-bg2 p-6 sm:p-8">
+      <h1 className="app-page-title">{c.title}</h1>
+      <p className="mt-2 text-[14px] leading-relaxed text-ink-mute">{c.body}</p>
 
       {/* Above the form, and only while the form is the thing on screen: once
           `done` replaces it with "check your inbox", a provider button would be
@@ -265,7 +265,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       {done ? (
         <div
           role="status"
-          className="mt-6 rounded-[10px] border border-line bg-bg2 p-4 text-[14px] leading-[1.6] text-ink-mute"
+          className="mt-6 border-y border-line py-4 text-[14px] leading-[1.6] text-ink-mute"
         >
           {done}
           {unconfirmed && resendButton && <div className="mt-3">{resendButton}</div>}
@@ -283,7 +283,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       ) : recovery === "none" ? (
         <div
           role="status"
-          className="mt-6 rounded-[10px] border border-line bg-bg2 p-4 text-[14px] leading-[1.6] text-ink-mute"
+          className="mt-6 border-y border-line py-4 text-[14px] leading-[1.6] text-ink-mute"
         >
           Open the reset link from your email first. This page can only set a new password while
           that link&apos;s session is active — it expires an hour after it is sent.
@@ -354,7 +354,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           )}
 
           {displayedError && (
-            <div role="alert" className="rounded-[8px] bg-err-dim px-3 py-2 text-[13px] leading-[1.5] text-err">
+            <div role="alert" className="rounded-ctl border border-err/25 bg-err-dim px-3 py-2 text-[13px] leading-[1.5] text-err">
               {displayedError}
               {unconfirmed && resendButton && <div className="mt-2">{resendButton}</div>}
             </div>

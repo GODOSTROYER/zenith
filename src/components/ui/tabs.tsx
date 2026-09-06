@@ -1,5 +1,5 @@
 "use client";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { cx } from "@/lib/format";
 
 export interface TabItem {
@@ -23,16 +23,25 @@ export interface TabsProps {
 
 /** Underline tabs. Arrow keys move between tabs; the rule spans the row. */
 export function Tabs({ items, value, onChange, className, actions }: TabsProps) {
-  const move = (dir: 1 | -1) => {
+  const group = useRef<HTMLDivElement>(null);
+  const tabStop = items.some((item) => item.value === value && !item.disabled)
+    ? value : items.find((item) => !item.disabled)?.value;
+  const move = (key: string, from: string) => {
     const usable = items.filter((i) => !i.disabled);
-    const at = usable.findIndex((i) => i.value === value);
-    const next = usable[(at + dir + usable.length) % usable.length];
-    if (next) onChange(next.value);
+    if (!usable.length) return;
+    const at = usable.findIndex((i) => i.value === from);
+    const next = usable[key === "Home" ? 0 : key === "End" ? usable.length - 1 :
+      (at + (key === "ArrowRight" ? 1 : -1) + usable.length) % usable.length];
+    onChange(next.value);
+    const target = Array.from(group.current?.querySelectorAll<HTMLButtonElement>('[role="tab"]') ?? [])
+      .find((button) => button.dataset.value === next.value);
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   };
 
   return (
-    <div className={cx("flex items-end justify-between gap-4 border-b border-line", className)}>
-      <div role="tablist" className="flex items-end gap-1">
+    <div className={cx("flex min-w-0 flex-wrap items-end justify-between gap-x-4 border-b border-line", className)}>
+      <div ref={group} role="tablist" className="flex min-w-0 max-w-full items-end gap-1 overflow-x-auto overflow-y-hidden">
         {items.map((item) => {
           const active = item.value === value;
           return (
@@ -41,22 +50,20 @@ export function Tabs({ items, value, onChange, className, actions }: TabsProps) 
               role="tab"
               type="button"
               aria-selected={active}
-              tabIndex={active ? 0 : -1}
+              data-value={item.value}
+              tabIndex={item.value === tabStop ? 0 : -1}
               disabled={item.disabled}
               title={item.disabled ? (item.disabledReason ?? "Not available yet.") : undefined}
               onKeyDown={(e) => {
-                if (e.key === "ArrowRight") {
+                if (["ArrowRight", "ArrowLeft", "Home", "End"].includes(e.key)) {
                   e.preventDefault();
-                  move(1);
-                } else if (e.key === "ArrowLeft") {
-                  e.preventDefault();
-                  move(-1);
+                  move(e.key, item.value);
                 }
               }}
               onClick={() => !item.disabled && onChange(item.value)}
               className={cx(
-                "relative -mb-px flex h-9 items-center gap-2 px-3 text-[13px] font-medium",
-                "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]",
+                "relative flex h-9 shrink-0 items-center gap-2 whitespace-nowrap px-3 text-[13px] font-medium focus-visible:-outline-offset-2",
+                "transition-colors duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)]",
                 item.disabled
                   ? "cursor-not-allowed text-ink-faint"
                   : active
@@ -71,7 +78,7 @@ export function Tabs({ items, value, onChange, className, actions }: TabsProps) 
               <span
                 aria-hidden="true"
                 className={cx(
-                  "absolute inset-x-2 bottom-0 h-0.5 rounded-full transition-opacity duration-[120ms]",
+                  "absolute inset-x-2 bottom-0 h-0.5 rounded-full transition-opacity duration-[var(--dur-fast)]",
                   active ? "bg-signal opacity-100" : "opacity-0"
                 )}
               />

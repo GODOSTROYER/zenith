@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { AlertTriangle, FileJson, Info } from "lucide-react";
+import { AlertTriangle, Check, FileJson, Info } from "lucide-react";
 import type { ActionPlan } from "@/lib/actions/core";
 import { planAction, useJson } from "@/lib/client/api";
 import { diffManifests, validateManifest, type ValidationIssue } from "@/lib/domain/graph";
@@ -29,12 +29,13 @@ import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs } from "@/components/ui/tabs";
 import { EditorBoundary } from "@/components/screens/editor-boundary";
+import { PageHeading } from "@/components/screens/page-heading";
 import { ActionConfirm, ChangeRow, ErrorNote } from "@/components/screens/shared";
 import { useSelectedEnv, type RevisionMeta } from "@/components/screens/project-data";
 import { describeJsonError, type JsonErrorSite } from "./json-error";
 
 const SAVE_NOTE =
-  "Save validates the text, previews the resulting changes with their cost, and only then replaces the working copy — through the same audited action every other editor uses.";
+  "Review validates your source and estimates its changes before saving the working copy. Deploy separately from the System map.";
 
 /** Idle time before the editor checks the document on its own. */
 const VALIDATE_DEBOUNCE_MS = 400;
@@ -91,7 +92,8 @@ export default function SourcePage() {
       : "Deployed (none)";
 
   return (
-    <div className="product-page mx-auto h-full w-full max-w-[1100px] overflow-y-auto">
+    <div className="product-page h-full w-full overflow-y-auto">
+      <PageHeading title="Source" description="The same system, expressed as code. Edit the working definition, inspect a deployed snapshot, or export it." actions={<Chip tone={dirty ? "warn" : "neutral"}>{dirty ? "Unsaved changes" : "Working copy saved"}</Chip>} />
       <Tabs
         value={tab}
         onChange={setTab}
@@ -346,7 +348,7 @@ function WorkingTab({
             { value: "edit", label: "Edit", title: "Edit and validate before applying" },
           ]}
         />
-        <p className="tnum text-[12.5px] text-ink-faint">
+        <p className="tnum font-mono text-[12px] text-ink-mute">
           {readLines} lines · {manifest.services.length} services ·{" "}
           {manifest.resources.length} resources · {manifest.bindings.length} bindings
         </p>
@@ -366,8 +368,8 @@ function WorkingTab({
             </>
           }
         >
-          The working copy changed while you were editing — a map edit, a Navigator run or
-          another tab. Your text is untouched; saving it replaces theirs.
+          The saved working copy changed while you were editing. Your text is preserved.
+          Review both versions before choosing whether to replace the newer copy.
         </Callout>
       )}
 
@@ -383,15 +385,20 @@ function WorkingTab({
               since a soft-wrapped line would take two rows in the textarea and
               one in the gutter. Height follows the viewport (S14).
             */}
-            <div className="flex h-[clamp(320px,calc(100vh-360px),820px)] overflow-hidden rounded-card border border-line bg-bg1 focus-within:border-signal">
+            <div className="overflow-hidden rounded-card border border-line bg-bg2 focus-within:border-signal">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-bg1 px-4 py-2.5">
+                <span className="font-mono text-[12px] text-ink-mute">orrery.manifest.json</span>
+                <span role="status" className={`flex items-center gap-1.5 text-[12px] ${dirty ? "text-warn" : "text-ok"}`}>{dirty ? <><span aria-hidden="true">●</span> Unsaved text</> : <><Check className="h-3.5 w-3.5" aria-hidden="true" /> Saved working copy</>}</span>
+              </div>
+              <div className="flex h-[clamp(320px,calc(100dvh-350px),820px)]">
               <div
                 ref={gutterBoxRef}
                 aria-hidden="true"
-                className="shrink-0 overflow-hidden border-r border-line bg-bg1 py-3 pr-2 pl-3 select-none"
+                className="shrink-0 overflow-hidden border-r border-line bg-bg1 py-4 pr-3 pl-4 select-none"
               >
                 <pre
                   ref={gutterTextRef}
-                  className="tnum m-0 text-right font-mono text-[13px] leading-[1.65] text-ink-faint"
+                  className="tnum m-0 text-right font-mono text-[14px] leading-[1.75] text-ink-faint"
                 >
                   {gutter}
                 </pre>
@@ -407,8 +414,10 @@ function WorkingTab({
                 spellCheck={false}
                 wrap="off"
                 aria-label="Manifest JSON"
-                className="h-full w-full resize-none bg-transparent p-3 font-mono text-[13px] leading-[1.65] text-ink outline-none"
+                aria-invalid={parse.kind === "error" || Boolean(blockingIssues)}
+                className="h-full min-w-0 w-full resize-none bg-transparent p-4 font-mono text-[14px] leading-[1.75] text-ink outline-none"
               />
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -436,7 +445,7 @@ function WorkingTab({
                 title="Save (Ctrl/Cmd+S)"
                 onClick={() => setConfirmOpen(true)}
               >
-                Save
+                Review & save
               </Button>
               <span className="hidden items-center gap-1 text-ink-faint sm:flex">
                 <Kbd>Ctrl</Kbd>
@@ -450,7 +459,6 @@ function WorkingTab({
               >
                 Revert
               </Button>
-              {dirty && <Chip tone="warn">Unsaved text</Chip>}
               <ParseStatus parse={parse} />
             </div>
 
@@ -460,7 +468,7 @@ function WorkingTab({
               </p>
             )}
 
-            <div className="flex gap-2.5 rounded-card border border-line bg-bg1 px-4 py-3 text-[12.5px] text-ink-mute">
+            <div className="flex gap-2.5 border-t border-line py-3 text-[13px] text-ink-mute">
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-info" />
               <p>{SAVE_NOTE}</p>
             </div>
@@ -507,8 +515,7 @@ function WorkingTab({
               <div className="space-y-2 rounded-card border border-line bg-bg1 px-4 py-3 text-[12.5px] text-ink-mute">
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="min-w-0 flex-1">
-                    That list is this browser&apos;s reading of the text. The server plans the
-                    same save independently — and its plan is the one that applies.
+                    This comparison is calculated locally. Check it against the server&apos;s authoritative save plan.
                   </span>
                   <Button size="sm" variant="quiet" busy={planning} onClick={previewServerPlan}>
                     Compare with the server&apos;s plan

@@ -21,14 +21,12 @@ landing has intentional light and dark themes, with a consistently dark
 inspect/review chapter and closing signature. This replaces the previous
 observatory marketing direction.
 
-**Product feel:** the existing shared UI remains in use: layered navy grounds,
-mint actions, periwinkle Navigator identity and its considered light theme.
-The landing's scoped tokens and display scale do not restyle product workflows.
+**Product feel:** the Revision Object workbench. Warm porcelain and ink form a calm operational surface, with fine rules, precise alignment, vermilion proposed-change emphasis and a compact persistent navigation rail. See `zenith-app-design-contract.md` for the shared foundation, route ownership and signature interactions.
 
 ## Where things live
 
 `src/components/ui` is the kit and the only source of primitives — import the
-barrel (`@/components/ui`), never a file inside it, and never hardcode a colour
+direct primitive paths for development performance (the barrel remains compatible), and never hardcode a colour
 there. `src/components/screens` holds the screen-level pieces the kit cannot
 own because they know about actions and roles: `ActionConfirm`, `ErrorNote`,
 `SectionTitle`, `SimulatedChip`, `RoleChip`, `ChangeRow`, `ActorDot`, `EnvDot`.
@@ -47,18 +45,13 @@ per path is in `docs/OWNERSHIP.md`; the deliberate exceptions are in
 - Ink: `ink` / `ink-mute` / `ink-faint`.
 - Brand: `signal` (actions, focus, primary buttons), `nav-accent` (Navigator only).
 - Status axis (independent of brand): `ok` `warn` `err` `info`; `prod` amber identifies production environments (ring + chip) everywhere they appear.
-- Radii: cards 12, controls 8. Type: Space Grotesk (UI + display), JetBrains Mono (code, ids, logs, costs). Tabular numerals for all metrics (`.tnum`).
+- Radii: bounded panels 5, controls 3, chips 2. Type: Manrope UI, selective Instrument Serif page titles, JetBrains Mono code/IDs/logs/costs. Tabular numerals for all metrics (`.tnum`).
 
 ## Type scale
 
-12 metadata · 13 secondary · 14 body · 16 emphasized · 18 project/card title · 20 section · 24 product page title · 40 display (onboarding/success only). Prefer sentence case for table headers and task headings.
+12 metadata · 13 secondary · 14 body · 16 emphasized · 18 project/card title · 20 section · 34 product page title (30 mobile) · 44 onboarding display. Prefer sentence case for table headers and task headings.
 
-Product pages share responsive 20px/32px gutters. Workspace identity sits beside
-the wordmark; project and environment remain in project chrome. Primary actions
-belong beside their section heading, including New project. Controls are 32/36px
-on desktop and at least 44px on coarse pointers; mobile inputs use 16px text.
-The navy surface ladder and all text/status tokens pass 4.5:1 contrast in both
-themes (see `tests/ui/theme-contrast.test.ts`). Cards are bordered, not shadowed.
+Product pages share responsive 20px/28px gutters. A persistent collapsible 208px rail (60px compact) and 56px context bar replace stacked navigation. The selected workspace, project and environment remain visible; production is explicitly labeled. Controls are 32/36px on desktop and at least 44px on coarse pointers; mobile inputs use 16px text. Root-level tokens theme portals as well as screens. Ordinary sections use rules; elevation belongs to detached overlays. `tests/ui/theme-contrast.test.ts` checks base and tinted status surfaces in both themes.
 
 ## Landing language and scope
 
@@ -73,7 +66,7 @@ Instrument Serif 400 roman/italic is the landing display face; Manrope variable
 is the landing body/control face; the existing JetBrains Mono supplies resource
 names, source, revisions and estimates. These are real self-hosted assets
 declared in `src/app/fonts.css`, with provenance and OFL notices under
-`public/fonts`. Space Grotesk retains its product UI role. The drawn brand
+`public/fonts`. Space Grotesk assets retain their historical provenance; Manrope now supplies the product UI role. The drawn brand
 wordmark is independent of all font files.
 
 The desktop hero uses `clamp(76px, 8.2vw, 132px)` at .92 leading and −.035em
@@ -82,7 +75,7 @@ Before you ship.” and includes the real runtime-aware CTA plus “Explore the
 change.” Editorial section type, thin rules, restrained control corners and
 substantial empty space provide hierarchy. Responsive layouts stack the model,
 inspector and plan rather than requiring an offscreen horizontal diagram.
-Product surfaces retain their original scale and shared primitives.
+Product surfaces use their own restrained scale and shared primitives.
 
 One local demo state feeds the hero, dark inspector/review stage and all four
 model surfaces. The first view deliberately shows proposed revision 09 while
@@ -112,7 +105,7 @@ reference; verification findings belong in the dedicated verification report.
 
 Motion communicates state; nothing animates without meaning. The following
 CSS duration and primitive rules govern the shared product UI.
-Durations 120/200/320ms, ease `--ease-swift`; CSS transitions and keyframes only, no animation library; `animate-enter` for list/panel entrances; `.status-pulse` only while something is genuinely in progress; `.edge-live` dash-flow on map edges only during active deployment of that binding's target. Respect `prefers-reduced-motion` (already global).
+Durations 150/220/380ms, ease `--ease-swift`; CSS transitions and keyframes only, no animation library; `animate-enter` for list/panel entrances; `.status-pulse` only while something is genuinely in progress; `.edge-live` dash-flow on map edges only during active deployment of that binding's target. Respect `prefers-reduced-motion` (already global).
 
 **Landing scene exception.** `RevisionScene` lazily loads the native Three.js
 renderer when visible, with an immediate authored SVG fallback. The scene is
@@ -174,6 +167,6 @@ phantom records.
 
 The landing additionally uses a berry error token (`#932553` / `#ff8fbb`) in
 its state glossary, keeping Blocked distinguishable from the vermilion brand
-accent. Shared product status colors and behavioral contracts are unchanged.
+accent. Product errors use the same berry family; status meanings and behavioral contracts remain unchanged.
 Critical landing WOFF2s are preloaded; measured local fallback metrics stabilize
 first paint, and WebGL initializes only after fonts settle and the text paints.

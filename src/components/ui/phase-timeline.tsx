@@ -144,7 +144,7 @@ export function PhaseTimeline({
               >
                 <div
                   className={cx(
-                    "h-full rounded-full transition-[width] duration-[320ms] [transition-timing-function:var(--ease-swift)]",
+                    "h-full rounded-full transition-[width] duration-[var(--dur-base)] [transition-timing-function:var(--ease-swift)]",
                     BAR[state],
                     state === "running" && "status-pulse"
                   )}
@@ -179,7 +179,7 @@ export function PhaseTimeline({
                             : {})}
                           className={cx(
                             "flex w-full items-center gap-2.5 rounded-ctl px-2 py-1.5 text-left",
-                            "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]",
+                            "transition-colors duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)]",
                             selectable && "hover:bg-bg2",
                             selectedStepId === s.id && "bg-bg2",
                             s.status === "skipped" && "opacity-55"

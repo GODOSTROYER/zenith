@@ -907,7 +907,7 @@ export const localstackProvider: ProviderAdapter = {
   displayName: "LocalStack",
   availability: "available",
   tagline:
-    "Real S3 buckets and SQS queues against a reachable LocalStack endpoint. Application services, routes and unsupported resource configurations are blocked by deployment preflight. Requires Docker + LocalStack running.",
+    "Real S3 buckets and SQS queues against a reachable LocalStack endpoint. Application services, routes and other emulated behavior remain labeled simulations. Requires Docker + LocalStack running.",
   regions: [{ id: REGION, label: `${REGION} (emulated locally)` }],
 
   accessExplanation: () => ({

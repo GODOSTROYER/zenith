@@ -217,12 +217,19 @@ export function useEventStream(
 ): { connected: boolean } {
   const [connected, setConnected] = useState(false);
   const lastSeq = useRef(-1);
+  const cursorUrl = useRef<string | null>(null);
   const cb = useRef(onEvent);
   cb.current = onEvent;
   const doneCb = useRef(onDone);
   doneCb.current = onDone;
 
   useEffect(() => {
+    // Sequence numbers belong to one stream. A new deployment must replay
+    // from its beginning; reconnecting or changing listeners keeps its cursor.
+    if (cursorUrl.current !== url) {
+      cursorUrl.current = url;
+      lastSeq.current = -1;
+    }
     // No EventSource (an old browser, a test renderer) is not an error: the
     // caller keeps `connected: false` and whatever fallback it has.
     if (!url || typeof EventSource === "undefined") return;

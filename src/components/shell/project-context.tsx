@@ -6,8 +6,10 @@ import {
   useEffect,
   useMemo,
   useState,
+  Suspense,
   type ReactNode,
 } from "react";
+import { useSearchParams } from "next/navigation";
 import { streamedPollMs, useEventStream, useJson, type ApiError } from "@/lib/client/api";
 import type { ValidationIssue } from "@/lib/domain/graph";
 import type {
@@ -76,6 +78,14 @@ export function useProjectData(): ProjectData {
 }
 
 const envKey = (projectId: string) => `orrery-env-${projectId}`;
+
+/** Query-only navigation must reach the existing provider without remounting drafts. */
+function EnvironmentUrlSync({ select }: { select: (id: string) => void }) {
+  const params = useSearchParams();
+  const requested = params.get("env");
+  useEffect(() => { if (requested) select(requested); }, [requested, select]);
+  return null;
+}
 
 /** Poll interval used whenever the stream is not delivering. Unchanged. */
 const POLL_MS = 5000;
@@ -148,6 +158,7 @@ export function ProjectProvider({ slug, fallback, children }: ProjectProviderPro
 
   const setSelectedEnv = useCallback(
     (next: string) => {
+      if (!environments.some((environment) => environment.id === next)) return;
       setEnvId(next);
       if (!projectId) return;
       try {
@@ -155,8 +166,16 @@ export function ProjectProvider({ slug, fallback, children }: ProjectProviderPro
       } catch {
         /* preference only — selection still works for this session */
       }
+      // Keep shareable links and Back/Forward consistent with a manual pick.
+      // replaceState is supported by Next's history integration and preserves
+      // route, other filters and hash without a server navigation or remount.
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("env") !== next) {
+        url.searchParams.set("env", next);
+        window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+      }
     },
-    [projectId]
+    [projectId, environments]
   );
 
   const refresh = useCallback(() => {
@@ -178,5 +197,8 @@ export function ProjectProvider({ slug, fallback, children }: ProjectProviderPro
   }, [data, envId, boot, setSelectedEnv, refresh]);
 
   if (!value) return <>{fallback({ loading, error, slug })}</>;
-  return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>;
+  return <ProjectContext.Provider value={value}>
+    <Suspense fallback={null}><EnvironmentUrlSync select={setSelectedEnv} /></Suspense>
+    {children}
+  </ProjectContext.Provider>;
 }

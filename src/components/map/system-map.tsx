@@ -28,6 +28,7 @@ import type { InspectorTarget } from "@/components/inspector/inspector";
 import { PlanFirst } from "@/components/inspector/plan-first";
 import { DeployDock } from "@/components/deploy/deploy-dock";
 import { useJson } from "@/lib/client/api";
+import type { Revision } from "@/lib/domain/types";
 import { DRIFT_POLL_MS, type DriftResponse } from "@/lib/drift";
 import type { BlueprintCard } from "./dialogs";
 import { type BindingEdge, edgeTypes } from "./edges";
@@ -43,6 +44,7 @@ import { NODE_SIZE, layoutGraph, type Stratum } from "./layout";
 import { NodeMenu } from "./node-menu";
 import { nodeTypes, type MapNodeData } from "./nodes";
 import { MapToolbar, STRATA_ORDER } from "./toolbar";
+import { doubleClickViewport, MAP_MIN_ZOOM, MAP_MAX_ZOOM } from "./viewport";
 
 /** Half the visual size of an edge anchor, in graph units. */
 const HANDLE_R = 3;
@@ -105,6 +107,11 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
   const m = project.workingManifest;
   const changeset = changesets[selectedEnvId];
   const deployed = Boolean(selectedEnv?.deployedRevisionId);
+  const { data: deployedRevision, error: revisionError } = useJson<{ revision: Revision }>(
+    selectedEnv?.deployedRevisionId ? `/api/revisions/${selectedEnv.deployedRevisionId}` : null
+  );
+  const deployedManifest = deployedRevision && deployedRevision.revision.id === selectedEnv?.deployedRevisionId
+    ? deployedRevision.revision.manifest : undefined;
 
   const { data: health } = useJson<HealthPayload>(
     deployed ? `/api/health/${selectedEnvId}` : null,
@@ -217,9 +224,9 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
   /* Structure and content of the graph: rebuilt only when the system, the
      changeset or health actually changes — never on selection or focus. */
   const { allRaw, allEdges, empty } = useMemo(
-    () => buildGraph({ manifest: m, changeset, health, deployed, liveTargets }),
+    () => buildGraph({ manifest: m, deployedManifest, changeset, health, deployed, liveTargets }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [mKey, dKey, hKey, liveKey, deployed]
+    [mKey, dKey, hKey, liveKey, deployed, deployedManifest]
   );
 
   /* Hiding a column is a view, not an edit — the nodes leave the drawing, the
@@ -408,10 +415,16 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
   const menuSpec = menuNode ? removeSpec(menuNode) : null;
 
   return (
-    <div className="flex h-full min-h-0">
-      <div className="relative min-w-0 flex-1">
+    <div className="relative flex h-full min-h-0">
+      <div className="relative flex min-w-0 flex-1 flex-col">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-line bg-bg1 px-5 py-3">
+          <div className="flex items-baseline gap-3"><h1 className="text-[18px] font-semibold text-ink">System</h1><span className="text-[12px] text-ink-mute">Working configuration</span></div>
+          <p className="text-[12px] text-ink-mute">{m.services.length + m.resources.length + m.routes.length} resources <span aria-hidden="true">·</span> {bindingCount} bindings <span aria-hidden="true">·</span> Positions are view only</p>
+        </div>
+        {revisionError && <p role="status" className="border-b border-warn/30 bg-warn/8 px-5 py-2 text-[12px] text-warn">Deployed configuration unavailable. Removed bindings will appear when it reconnects.</p>}
+        <div className="relative flex min-h-0 flex-1 flex-col">
         {empty ? (
-          <div className="grid h-full place-items-center">
+          <div className="order-2 grid min-h-0 flex-1 place-items-center overflow-y-auto p-5">
             <EmptyState
               icon={<Boxes className="h-5 w-5" aria-hidden="true" />}
               title={`${project.name} has nothing in it yet`}
@@ -441,7 +454,20 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
           <div
             role="application"
             aria-label={`System map for ${project.name}: ${nodeCount} node${nodeCount === 1 ? "" : "s"} and ${bindingCount} connection${bindingCount === 1 ? "" : "s"}. Arrow keys move between nodes; Enter opens one in the inspector; each node names what it is connected to. Press slash to find a node by name.`}
-            className="h-full w-full"
+            className="order-2 min-h-0 w-full flex-1"
+            onDoubleClickCapture={(event) => {
+              if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+              if (event.ctrlKey || event.button > 1) return;
+              const hit = event.target;
+              if (!(hit instanceof Element) || !hit.closest(".react-flow__pane") || hit.closest(".nopan")) return;
+              // D3's built-in double-click animation has no React Flow
+              // duration prop. Intercept only reduced-motion gestures and
+              // apply the same pointer-anchored result immediately.
+              event.preventDefault();
+              event.stopPropagation();
+              const bounds = event.currentTarget.getBoundingClientRect();
+              void rf.setViewport(doubleClickViewport(rf.getViewport(), { x: event.clientX - bounds.left, y: event.clientY - bounds.top }, event.shiftKey), { duration: 0 });
+            }}
           >
           <ReactFlow
             nodes={nodes}
@@ -488,8 +514,8 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
                 return next;
               });
             }}
-            minZoom={0.1}
-            maxZoom={1.6}
+            minZoom={MAP_MIN_ZOOM}
+            maxZoom={MAP_MAX_ZOOM}
             fitView
             fitViewOptions={{ padding: 0.22, maxZoom: 1 }}
             proOptions={{ hideAttribution: true }}
@@ -550,11 +576,12 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
             }}
           />
         )}
+        </div>
       </div>
 
       {target && <Inspector
         target={target}
-        onClose={() => setTarget(null)}
+        onClose={() => closeTarget(target.kind === "node" ? target.nodeId : target.kind === "binding" ? m.bindings.find((b) => b.id === target.bindingId)?.from : undefined)}
         onSelect={setTarget}
       />}
 

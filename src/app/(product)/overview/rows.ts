@@ -14,6 +14,8 @@ export interface EnvRow {
   /** "production" | "staging" | … — drives the amber prod treatment */
   klass: Environment["class"];
   region: string;
+  /** Provider capability context, resolved from this environment's connection. */
+  providerLabel?: string;
   dot: DotStatus;
   /** the state in words, because colour is never the only carrier */
   word: string;

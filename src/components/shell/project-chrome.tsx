@@ -1,286 +1,67 @@
 "use client";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-  type RefObject,
-} from "react";
-import { Chip } from "@/components/ui/chip";
-import { SegmentedControl } from "@/components/ui/segmented-control";
+import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
+import { type ReactNode } from "react";
+import { ChevronRight, ShieldCheck } from "lucide-react";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useProjectData } from "@/components/shell/project-context";
-import { useShell } from "@/components/shell/shell-context";
-import { useProjectAlerts } from "@/lib/client/alerts";
+import { useProjectData } from "./project-context";
+import { useShell } from "./shell-context";
+import { useChromeSlot } from "./chrome-slot";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { cx, fmtUsd } from "@/lib/format";
-import type { Environment } from "@/lib/domain/types";
 
-const TABS: { seg: string; label: string }[] = [
-  { seg: "", label: "System" },
-  { seg: "source", label: "Source" },
-  { seg: "deploys", label: "Deploys" },
-  { seg: "revisions", label: "Revisions" },
-  { seg: "observe", label: "Observe" },
-  { seg: "security", label: "Security" },
-  { seg: "activity", label: "Activity" },
-  { seg: "navigator", label: "Navigator" },
-  { seg: "settings", label: "Settings" },
-];
-
-/** What a tab's trailing count actually counts — screen readers hear this. */
-const BADGE_LABEL: Record<string, (n: number) => string> = {
-  "": (n) => `${n} undeployed change${n === 1 ? "" : "s"} in this environment`,
-  security: (n) => `${n} open security finding${n === 1 ? "" : "s"}`,
-  observe: (n) => `${n} open alert${n === 1 ? "" : "s"} nobody has acknowledged`,
-};
-
-/**
- * Nine tabs do not fit a narrow window, and a strip that simply clips looks
- * like a strip with six tabs in it. This reports which way there is more to
- * scroll, so the fade edges only appear when something is actually hidden.
- */
-function useOverflow(ref: RefObject<HTMLElement | null>, deps: unknown[]) {
-  const [edges, setEdges] = useState({ left: false, right: false });
-
-  const measure = useCallback(() => {
-    const el = ref.current;
-    if (!el) return;
-    const max = el.scrollWidth - el.clientWidth;
-    setEdges({ left: el.scrollLeft > 1, right: el.scrollLeft < max - 1 });
-  }, [ref]);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [measure, ...deps]);
-
-  return { edges, measure };
-}
-
-/** Production is amber everywhere it appears — including in a picker. */
-function EnvLabel({ env }: { env: Environment }) {
-  const prod = env.class === "production";
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span
-        aria-hidden="true"
-        className={cx("h-1.5 w-1.5 rounded-full", prod ? "bg-prod" : "bg-ink-faint")}
-      />
-      {env.name}
-    </span>
-  );
-}
-
+/** Controls keep their project provider ancestry inside the single context bar. */
 export function ProjectChrome({ slug, children }: { slug: string; children: ReactNode }) {
-  const { project, environments, selectedEnv, selectedEnvId, setSelectedEnv, changesets, findings } =
-    useProjectData();
-  const pathname = usePathname();
-  const router = useRouter();
+  const { project, environments, selectedEnv, selectedEnvId, setSelectedEnv, changesets } = useProjectData();
   const { boot } = useShell();
+  const router = useRouter();
+  const slot = useChromeSlot();
   const projects = boot?.projects ?? [];
-
-  const base = `/p/${slug}`;
-  const rest = pathname.startsWith(base) ? pathname.slice(base.length).replace(/^\//, "") : "";
-  const activeSeg = TABS.find((t) => t.seg && rest.startsWith(t.seg))?.seg ?? "";
-
-  const strip = useRef<HTMLElement>(null);
-  const activeTab = useRef<HTMLAnchorElement>(null);
-  const { edges, measure } = useOverflow(strip, [activeSeg]);
-
-  // The tab you are on is the one that must be visible, whatever the width.
-  useEffect(() => {
-    activeTab.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [activeSeg]);
-
   const isProd = selectedEnv?.class === "production";
-  const est = monthlyCostUsd(project.workingManifest);
   const pending = changesets[selectedEnvId]?.items.length ?? 0;
-  const openFindings = findings.filter((f) => f.status === "open").length;
-  // In-product alerts: the count a bell would show. Same poll spine as everything else.
-  const { unacknowledged } = useProjectAlerts(project?.id ?? null, selectedEnvId || undefined);
-  const openAlerts = unacknowledged.length;
-
-  return (
-    <div className="flex h-full min-w-0 flex-col">
-      <div className="shrink-0 border-b border-line bg-bg1 px-4 pt-4 sm:px-6">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-3 pb-3">
-          {projects.length > 1 ? (
-            <>
-              <h1 className="sr-only">{project.name}</h1>
-              <Select
-                aria-label="Project"
-                title="Switch to another project in this workspace."
-                className="w-[220px] max-w-full"
-                value={project.slug}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  // The section you are on rarely exists in the same state
-                  // elsewhere, so a switch lands on the new project's map.
-                  if (next !== project.slug) router.push(`/p/${next}`);
-                }}
-                options={projects.map((p) => ({ value: p.slug, label: p.name }))}
-              />
-            </>
-          ) : (
-            <h1 className="truncate text-[18px] font-medium text-ink">{project.name}</h1>
-          )}
-
-          {environments.length > 0 && (
-            <SegmentedControl
-              size="sm"
-              label="Environment"
-              value={selectedEnvId}
-              onChange={setSelectedEnv}
-              options={environments.map((e) => ({
-                value: e.id,
-                label: <EnvLabel env={e} />,
-                title: `${e.class} · ${e.region}${
-                  e.deployedRevisionId ? "" : " · never deployed"
-                }`,
-              }))}
-            />
-          )}
-
-          {isProd && (
-            <Chip tone="prod" title="Changes here affect real users. Deploys need approval.">
-              production
-            </Chip>
-          )}
-
-          <div className="ml-auto flex items-center gap-3">
-            <span
-              className="tnum text-[12.5px] text-ink-mute"
-              title="Estimated monthly cost of the working system definition, at list prices."
-            >
-              <span className="font-mono">{fmtUsd(est)}</span>
-              <span className="text-ink-faint">/mo est.</span>
-            </span>
-          </div>
-        </div>
-
-        <div className="relative">
-          {edges.left && (
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-bg1 to-transparent"
-            />
-          )}
-          {edges.right && (
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-bg1 to-transparent"
-            />
-          )}
-          <nav
-            ref={strip}
-            onScroll={measure}
-            aria-label="Project sections"
-            className="project-navigation -mb-px flex scroll-px-4 items-end gap-1 overflow-x-auto scroll-smooth"
-          >
-          {TABS.map((t) => {
-            const href = t.seg ? `${base}/${t.seg}` : base;
-            const active = t.seg === activeSeg;
-            const badge =
-              t.seg === "" && pending > 0
-                ? pending
-                : t.seg === "security" && openFindings > 0
-                  ? openFindings
-                  : t.seg === "observe" && openAlerts > 0
-                    ? openAlerts
-                    : null;
-            return (
-              <Link
-                key={t.seg || "system"}
-                href={href}
-                ref={active ? activeTab : undefined}
-                aria-current={active ? "page" : undefined}
-                data-section={t.seg || "system"}
-                className={cx(
-                  "relative flex h-10 shrink-0 items-center gap-1.5 rounded-t-ctl px-3 text-[13px] font-medium",
-                  "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]",
-                  active ? "text-ink" : "text-ink-mute hover:text-ink"
-                )}
-              >
-                {t.seg === "navigator" && (
-                  <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-nav-accent" />
-                )}
-                {t.label}
-                {badge != null && (
-                  <span
-                    className="tnum rounded-full bg-bg3 px-1.5 text-[11.5px] text-ink-mute"
-                    title={BADGE_LABEL[t.seg](badge)}
-                  >
-                    {badge}
-                    <span className="sr-only"> {BADGE_LABEL[t.seg](badge)}</span>
-                  </span>
-                )}
-                <span
-                  aria-hidden="true"
-                  className={cx(
-                    "absolute inset-x-2 bottom-0 h-0.5 rounded-full transition-opacity duration-[120ms]",
-                    active ? (t.seg === "navigator" ? "bg-nav-accent opacity-100" : "bg-signal opacity-100") : "opacity-0"
-                  )}
-                />
-              </Link>
-            );
-          })}
-          </nav>
-        </div>
-      </div>
-
-      <div
-        className={cx(
-          "min-h-0 flex-1 bg-bg0",
-          isProd && "border-t border-prod/60"
-        )}
-      >
-        {children}
-      </div>
-    </div>
-  );
+  const controls = <div className="workbench-project-context" data-production={isProd}>
+    <h1 className="sr-only">{project.name}</h1>
+    {projects.length > 1 ? <Select
+      aria-label="Project" title={`Project: ${project.name}. Switch project.`}
+      className="workbench-project-select" value={project.slug}
+      onChange={(event) => { if (event.target.value !== slug) router.push(`/p/${event.target.value}`); }}
+      options={projects.map((entry) => ({ value: entry.slug, label: entry.name }))}
+    /> : <span className="workbench-project-name" title={project.name}>{project.name}</span>}
+    <ChevronRight size={13} className="workbench-context-divider" aria-hidden="true" />
+    {environments.length > 0 && <div className={cx("workbench-environment", isProd && "workbench-environment-production")}>
+      {isProd && <ShieldCheck size={14} aria-hidden="true" />}
+      <Select aria-label="Environment" title={`${selectedEnv?.name ?? "Environment"} · ${selectedEnv?.class ?? ""} · ${selectedEnv?.region ?? ""}`}
+        className="workbench-environment-select" value={selectedEnvId} onChange={(event) => setSelectedEnv(event.target.value)}
+        options={environments.map((environment) => ({ value: environment.id,
+          label: environment.class === "production" && !/production/i.test(environment.name)
+            ? `Production · ${environment.name}` : environment.name }))}
+      />
+    </div>}
+    <span className="workbench-context-evidence" title="Estimated monthly list-price cost of the working configuration.">
+      <span className="font-mono tnum">{fmtUsd(monthlyCostUsd(project.workingManifest))}</span><span>/mo est.</span>
+    </span>
+    {pending > 0 && <Link href={`/p/${slug}`} className="workbench-pending" title={`${pending} undeployed changes in ${selectedEnv?.name ?? "this environment"}`}>
+      <span className="tnum">{pending}</span><span>pending</span>
+    </Link>}
+  </div>;
+  return <div className="workbench-project-surface" data-production={isProd}>
+    {slot && createPortal(controls, slot)}
+    <div className="min-h-0 min-w-0 flex-1 bg-bg0">{children}</div>
+  </div>;
 }
 
-/** Shown while the project payload is in flight, and when it cannot be read. */
-export function ProjectChromeFallback({
-  loading,
-  message,
-  fix,
-}: {
-  loading: boolean;
-  message?: string;
-  fix?: string;
-}) {
-  if (loading)
-    return (
-      <div className="space-y-4 p-4">
-        <Skeleton className="h-6 w-56" />
-        <Skeleton className="h-9 w-full" />
-        <Skeleton className="h-64 w-full" />
-      </div>
-    );
-  return (
-    <div className="grid place-items-center p-10">
-      <div className="max-w-[520px] space-y-2 text-center">
-        <h1 className="text-[20px] font-medium text-ink">{message ?? "Project unavailable"}</h1>
-        <p className="text-[13px] text-ink-mute">
-          {fix ?? "Check the URL, or pick a project from the workspace overview."}
-        </p>
-        <p className="pt-2">
-          <Link href="/overview" className="text-[13px] text-signal hover:underline">
-            Go to the workspace overview
-          </Link>
-        </p>
-      </div>
+export function ProjectChromeFallback({ loading, message, fix }: { loading: boolean; message?: string; fix?: string }) {
+  if (loading) return <div className="space-y-5 p-7" role="status" aria-label="Loading project">
+    <Skeleton className="h-7 w-56" /><Skeleton className="h-12 w-full" /><Skeleton className="h-64 w-full" />
+  </div>;
+  return <div className="grid h-full place-items-center p-6">
+    <div className="max-w-[480px] border-t border-line pt-6">
+      <p className="mb-3 text-[12px] text-err">Project unavailable</p>
+      <h1 className="app-page-title">{message ?? "We couldn’t open this project"}</h1>
+      <p className="mt-3 text-[14px] leading-relaxed text-ink-mute">{fix ?? "Check the URL, or choose a project from your workspace overview."}</p>
+      <Link href="/overview" className="mt-6 inline-flex min-h-9 items-center text-[13px] font-medium text-signal hover:underline">Return to workspace overview →</Link>
     </div>
-  );
+  </div>;
 }

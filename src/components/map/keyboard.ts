@@ -30,7 +30,9 @@ export function useNodeFocus(rf: FlowApi): NodeFocus {
       const h = n.height ?? n.measured?.height ?? 80;
       rf.setCenter(n.position.x + w / 2, n.position.y + h / 2, {
         zoom: rf.getZoom(),
-        duration: 200,
+        // Read at activation so a changed OS preference takes effect without
+        // remounting the graph or resetting its selection and viewport.
+        duration: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 220,
       });
     },
     [rf]

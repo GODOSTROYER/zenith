@@ -29,6 +29,49 @@ async function mount() {
   await act(async () => { await vi.dynamicImportSettled(); });
 }
 describe("Gimbal component lifecycle", () => {
+  it.each(["offscreen", "hidden"])("defers GPU creation when %s during the renderer import", async (condition) => {
+    let observeVisibility: (entries: { isIntersecting: boolean }[]) => void = () => {};
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    vi.stubGlobal("IntersectionObserver", class {
+      constructor(callback: typeof observeVisibility) { observeVisibility = callback; }
+      observe() {
+        observeVisibility([{ isIntersecting: true }]);
+        // The import promise is now pending; make the view inactive before it resolves.
+        if (condition === "offscreen") observeVisibility([{ isIntersecting: false }]);
+        else {
+          visibility.mockReturnValue("hidden");
+          document.dispatchEvent(new Event("visibilitychange"));
+        }
+      }
+      disconnect() {}
+    });
+    try {
+      await mount();
+      expect(fake.create).not.toHaveBeenCalled();
+      expect(host.querySelector(".gimbal-character")?.getAttribute("data-renderer")).toBe("static");
+      await act(async () => {
+        visibility.mockReturnValue("visible");
+        observeVisibility([{ isIntersecting: true }]);
+        document.dispatchEvent(new Event("visibilitychange"));
+        await vi.dynamicImportSettled();
+      });
+      expect(fake.create).toHaveBeenCalledOnce();
+      expect(fake.runtime.setVisible).toHaveBeenLastCalledWith(true);
+      // Deferred imports must not exhaust the single context-loss recovery.
+      vi.useFakeTimers();
+      act(() => options.onError());
+      await act(async () => { await vi.advanceTimersByTimeAsync(1200); await vi.dynamicImportSettled(); });
+      expect(fake.create).toHaveBeenCalledTimes(2);
+    } finally { visibility.mockRestore(); }
+  });
+
+  it("passes the product material to both renderer and fallback", async () => {
+    await act(async () => { root.render(<GimbalCharacter state="planning" material="porcelain" />); });
+    await act(async () => { await vi.dynamicImportSettled(); });
+    expect(options.material).toBe("porcelain");
+    expect(host.querySelector('.gimbal-static ellipse[rx="42"]')?.getAttribute("fill")).toBe("#f4f3ee");
+  });
+
   it("keeps the same renderer when changing motion modes", async () => {
     await mount();
     await act(async () => { root.render(<GimbalCharacter state="planning" motion="still" />); });

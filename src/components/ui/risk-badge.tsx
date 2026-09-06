@@ -11,7 +11,7 @@ const STYLES: Record<RiskLevel, string> = {
 const EXPLAIN: Record<RiskLevel, string> = {
   low: "Low risk — additive or easily reversed.",
   medium: "Medium risk — changes or removes running infrastructure.",
-  high: "High risk — destroys stateful resources; rollback alone will not restore the data.",
+  high: "High risk — review potential downtime, destructive effects and recovery limits.",
 };
 
 export interface RiskBadgeProps {
@@ -25,7 +25,7 @@ export function RiskBadge({ level, className }: RiskBadgeProps) {
     <span
       title={EXPLAIN[level]}
       className={cx(
-        "inline-flex items-center rounded-full border px-2 py-0.5",
+        "inline-flex items-center rounded-[2px] border px-2 py-0.5",
         "text-[11px] font-medium tracking-[0.03em] uppercase",
         STYLES[level],
         className

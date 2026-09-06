@@ -24,7 +24,7 @@ export function Switch({
   id,
   className,
 }: SwitchProps) {
-  const f = useFieldProps(id);
+  const f = useFieldProps(id, { "aria-label": label });
   return (
     <button
       type="button"
@@ -33,13 +33,12 @@ export function Switch({
       aria-checked={checked}
       aria-label={label}
       aria-describedby={f["aria-describedby"]}
+      aria-labelledby={f["aria-labelledby"]}
       disabled={disabled}
       title={disabled ? (disabledReason ?? "Locked by policy.") : undefined}
       onClick={() => onChange(!checked)}
       className={cx(
-        "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border",
-        "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]",
-        checked ? "border-transparent bg-signal" : "border-line bg-bg3",
+        "relative inline-flex h-5 w-9 shrink-0 items-center justify-center rounded-ctl [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11",
         disabled && "cursor-not-allowed opacity-55",
         className
       )}
@@ -47,10 +46,15 @@ export function Switch({
       <span
         aria-hidden="true"
         className={cx(
-          "absolute h-3.5 w-3.5 rounded-full transition-transform duration-[120ms] [transition-timing-function:var(--ease-swift)]",
-          checked ? "translate-x-[18px] bg-on-signal" : "translate-x-[3px] bg-ink-mute"
+          "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)]",
+          checked ? "border-transparent bg-signal" : "border-line bg-bg3"
         )}
-      />
+      >
+        <span className={cx(
+          "absolute h-3.5 w-3.5 rounded-full transition-transform duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)]",
+          checked ? "translate-x-[18px] bg-on-signal" : "translate-x-[3px] bg-ink-mute"
+        )} />
+      </span>
     </button>
   );
 }

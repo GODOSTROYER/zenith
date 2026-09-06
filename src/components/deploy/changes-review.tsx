@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { Rocket, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
@@ -10,10 +11,15 @@ import { RiskBadge } from "@/components/ui/risk-badge";
 import { useToasts } from "@/components/ui/toast";
 import { useProjectData } from "@/components/shell/project-context";
 import { ChangeRow, SectionTitle } from "@/components/screens/shared";
-import { api, ApiError, executeAction, planAction } from "@/lib/client/api";
+import { api, ApiError, executeAction, planAction, useJson } from "@/lib/client/api";
 import type { ActionPlan } from "@/lib/actions/core";
 import { cx, fmtDuration, fmtUsd } from "@/lib/format";
-import type { ChangeItem, Changeset } from "@/lib/domain/types";
+import type { ChangeItem, Changeset, Revision } from "@/lib/domain/types";
+
+const ChangeRehearsal = dynamic(() => import("@/components/spatial/change-rehearsal").then((m) => m.ChangeRehearsal), {
+  ssr: false,
+  loading: () => <p role="status" className="border border-line bg-bg1 p-4 text-[13px] text-ink-mute">Preparing the change rehearsal…</p>,
+});
 
 const GROUPS: { op: ChangeItem["op"]; label: string }[] = [
   { op: "create", label: "Added" },
@@ -58,6 +64,11 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
   const [typed, setTyped] = useState("");
   const [steps, setSteps] = useState<StepPlan>();
   const [error, setError] = useState<{ message: string; fix?: string } | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const { data: current, error: currentError, refresh: retryCurrent } = useJson<{ revision: Revision }>(
+    selectedEnv?.deployedRevisionId ? `/api/revisions/${selectedEnv.deployedRevisionId}` : null
+  );
+  const currentManifest = current && current.revision.id === selectedEnv?.deployedRevisionId ? current.revision.manifest : null;
 
   const scope = { projectId: project.id, environmentId: selectedEnvId };
 
@@ -153,7 +164,7 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="text-[16px] font-medium text-ink">
+        <h2 className="text-[20px] font-semibold text-ink">
           {changeset.items.length} pending change{changeset.items.length === 1 ? "" : "s"} for{" "}
           {selectedEnv?.name ?? "this environment"}
         </h2>
@@ -163,6 +174,8 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
           <CostDelta usd={changeset.totalCostDeltaUsd} />
         </span>
       </div>
+      <p className="text-[13px] text-ink-mute">Rehearse the working configuration against {selectedEnv?.deployedRevisionId ? "the revision deployed here" : "this environment’s first deployment"}. Review each affected resource before anything runs.</p>
+      {isProd && <Chip tone="prod">Production · {envName}</Chip>}
 
       {/* The plan the server just produced for this exact changeset. */}
       {plan && (
@@ -217,6 +230,12 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
         </Callout>
       )}
 
+      {selectedEnv?.deployedRevisionId && !currentManifest ? (
+        <div role="status" className="border border-line bg-bg1 p-4 text-[13px] text-ink-mute">
+          {currentError ? <><p>The deployed configuration could not be loaded. The change list remains available below.</p><Button variant="quiet" size="sm" onClick={retryCurrent} className="mt-2">Retry comparison</Button></> : "Loading the deployed configuration for an exact comparison…"}
+        </div>
+      ) : <ChangeRehearsal currentManifest={currentManifest} proposedManifest={project.workingManifest} changeset={changeset} selectedId={selectedId} onSelect={setSelectedId} environmentName={envName || "This environment"} />}
+
       <div className="space-y-3">
         {GROUPS.map(({ op, label }) => {
           const items = changeset.items.filter((i) => i.op === op);
@@ -230,7 +249,7 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
                   one field list, wherever a change is read. */}
               <ul className="overflow-hidden rounded-card border border-line bg-bg1">
                 {items.map((i) => (
-                  <ChangeRow key={`${i.op}-${i.nodeId}`} item={i} />
+                  <ChangeRow key={`${i.op}-${i.nodeId}`} item={i} selected={selectedId === i.nodeId} onSelect={() => setSelectedId(i.nodeId)} />
                 ))}
               </ul>
             </div>
@@ -251,6 +270,7 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
         <div className="min-w-[220px] flex-1">
           <Input
             value={message}
+            aria-label="Revision message"
             placeholder="What changed? (optional — becomes the revision message)"
             onChange={(e) => setMessage(e.target.value)}
           />
@@ -354,7 +374,7 @@ function StepPreview({ plan }: { plan: StepPlan | undefined }) {
                     aria-hidden="true"
                     className="h-1.5 w-1.5 shrink-0 rounded-full bg-bg3 ring-1 ring-line"
                   />
-                  <span className="min-w-0 flex-1 truncate text-[13px] text-ink-mute">
+                  <span className="min-w-0 flex-1 break-words text-[13px] text-ink-mute">
                     {s.title}
                   </span>
                   <span className="tnum shrink-0 font-mono text-[11.5px] text-ink-faint">

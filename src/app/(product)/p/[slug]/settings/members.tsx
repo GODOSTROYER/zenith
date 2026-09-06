@@ -147,15 +147,15 @@ export function MembersSection({
                 className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-3.5 last:border-b-0"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] text-ink">
+                  <p className="break-words text-[13px] font-medium text-ink">
                     {m.name}
                     {you && <span className="ml-2 text-[12px] text-ink-faint">you</span>}
                   </p>
-                  <p className="truncate font-mono text-[12px] text-ink-mute">{m.email}</p>
+                  <p className="break-all font-mono text-[12px] text-ink-mute">{m.email}</p>
                 </div>
 
                 {admin ? (
-                  <div className="w-[190px] shrink-0">
+                  <div className="w-[112px] shrink-0">
                     <Select
                       value={m.role}
                       aria-label={`Role for ${m.name}`}
@@ -169,7 +169,7 @@ export function MembersSection({
                   <Chip tone={m.role === "admin" ? "signal" : "neutral"}>{m.role}</Chip>
                 )}
 
-                <span className="hidden w-[240px] shrink-0 text-[12px] text-ink-faint lg:block">
+                <span className="hidden w-[180px] shrink-0 text-[12px] text-ink-faint xl:block">
                   {ROLE_WHAT[m.role]}
                 </span>
 

@@ -19,33 +19,30 @@ export interface PendingSectionProps {
 
 export function PendingSection({ pending, slug, envChip }: PendingSectionProps) {
   return (
-    <section className="space-y-2">
-      <h2 className="text-[13px] text-ink">
-        Fixed in the working copy — deploy to make it true
+    <section className="space-y-3">
+      <h2 className="app-section-title">
+        Awaiting deployment <span className="ml-2 font-mono text-[13px] text-warn">{pending.length}</span>
       </h2>
       <p className="max-w-[80ch] text-[12.5px] text-ink-mute">
-        {pending.length === 1 ? "This fix" : "These fixes"} changed the system definition, not
-        the running environment. Until a deployment lands the change, the environment still has
-        the problem — so {pending.length === 1 ? "it stays" : "they stay"} on this page rather
-        than moving to History.
+        {pending.length === 1 ? "This fix is" : "These fixes are"} in the working configuration. Review and deploy the changes before considering the running environment resolved.
       </p>
       <Card padded={false} className="border-warn/30">
         <ul>
           {pending.map((f) => (
             <li key={f.id} className="border-b border-line px-5 py-4 last:border-b-0">
-              <div className="flex items-start gap-3">
+              <div className="flex flex-col items-start gap-3 sm:flex-row">
                 <Chip tone="warn" className="mt-0.5">
                   {STATUS_LABEL[f.status]}
                 </Chip>
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-[14px] text-ink">{f.title}</h3>
-                  <p className="mt-1 flex flex-wrap items-center gap-2 text-[11.5px] text-ink-faint">
+                  <h3 className="text-[14px] font-medium text-ink [overflow-wrap:anywhere]">{f.title}</h3>
+                  <p className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-ink-faint">
                     {f.resolvedAt && <TimeAgo iso={f.resolvedAt} prefix="fixed" />}
                     {f.resolvedBy && <span>by {f.resolvedBy.name}</span>}
                     {envChip(f)}
                     {slug && (
-                      <Link href={`/p/${slug}?review=1`} className="text-signal hover:underline">
-                        review the pending changes
+                      <Link href={`/p/${slug}?review=1${f.environmentId ? `&env=${encodeURIComponent(f.environmentId)}` : ""}`} className="text-signal hover:underline">
+                        Review pending changes →
                       </Link>
                     )}
                   </p>

@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, OctagonPause, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,11 @@ import type {
   StepStatus,
 } from "@/lib/domain/types";
 import { SuccessPanel } from "./success-panel";
+import { ConnectedDetail } from "@/components/screens/connected-detail";
+import { fmtUsd } from "@/lib/format";
+import type { DeploymentStep } from "@/lib/domain/types";
+import { reconcileDeployment } from "./deployment-state";
+import { downloadFile } from "@/components/screens/download-file";
 
 const TERMINAL: DeploymentStatus[] = ["succeeded", "failed", "rolled_back", "cancelled"];
 /**
@@ -80,28 +85,48 @@ export function DeploymentView({
   onSucceeded,
   onRetry,
 }: DeploymentViewProps) {
-  const { project, selectedEnv, revisions } = useProjectData();
+  const { project, environments, revisions } = useProjectData();
   const { boot } = useShell();
   const approveRole = useRequiredRole("deploy.approve", "admin");
-  const { data, refresh } = useJson<{ deployment: Deployment }>(
+  const { data, error: loadError, refresh } = useJson<{ deployment: Deployment }>(
     `/api/deployments/${deploymentId}`,
     1500
   );
   const [patch, setPatch] = useState<Patch>(EMPTY_PATCH);
+  const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
+  const queuedLogs = useRef<LogLine[]>([]);
+  const seenLogs = useRef(new Set<number>());
+  const flushTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  useEffect(() => setPatch(EMPTY_PATCH), [deploymentId]);
+  useEffect(() => {
+    setPatch(EMPTY_PATCH);
+    setSelectedStepId(null);
+    queuedLogs.current = [];
+    seenLogs.current = new Set();
+    return () => { clearTimeout(flushTimer.current); flushTimer.current = undefined; };
+  }, [deploymentId]);
 
   const onEvent = useCallback((type: string, payload: unknown) => {
     const e = payload as DeploymentEvent;
+    if (e.deploymentId !== deploymentId) return;
+    // Preserve the complete history while committing bursts once per frame
+    // window. Replayed SSE sequences must not duplicate the visible log.
+    if (type === "log" && e.type === "log") {
+      if (seenLogs.current.has(e.seq)) return;
+      seenLogs.current.add(e.seq);
+      queuedLogs.current.push({ seq: e.seq, stream: e.stream, line: e.line, ts: e.ts });
+      if (!flushTimer.current) flushTimer.current = setTimeout(() => {
+        const incoming = queuedLogs.current;
+        queuedLogs.current = [];
+        flushTimer.current = undefined;
+        setPatch((p) => ({ ...p, logs: [...p.logs, ...incoming] }));
+      }, 120);
+      return;
+    }
     setPatch((p) => {
       if (type === "status" && e.type === "status") return { ...p, status: e.status };
       if (type === "step" && e.type === "step")
         return { ...p, steps: { ...p.steps, [e.stepId]: { status: e.status, error: e.error } } };
-      if (type === "log" && e.type === "log")
-        return {
-          ...p,
-          logs: [...p.logs, { seq: e.seq, stream: e.stream, line: e.line, ts: e.ts }],
-        };
       if (type === "output" && e.type === "output")
         return {
           ...p,
@@ -109,7 +134,7 @@ export function DeploymentView({
         };
       return p;
     });
-  }, []);
+  }, [deploymentId]);
 
   const { connected } = useEventStream(
     `/api/deployments/${deploymentId}/events`,
@@ -120,16 +145,9 @@ export function DeploymentView({
 
   const deployment = useMemo<Deployment | undefined>(() => {
     const base = data?.deployment;
-    if (!base) return undefined;
-    const status = TERMINAL.includes(base.status) ? base.status : (patch.status ?? base.status);
-    const keys = new Set(base.outputs.map((o) => o.key));
-    return {
-      ...base,
-      status,
-      steps: base.steps.map((s) => (patch.steps[s.id] ? { ...s, ...patch.steps[s.id] } : s)),
-      outputs: [...base.outputs, ...patch.outputs.filter((o) => !keys.has(o.key))],
-    };
-  }, [data, patch]);
+    if (!base || base.id !== deploymentId) return undefined;
+    return reconcileDeployment(base, patch);
+  }, [data, patch, deploymentId]);
 
   const liveTargets = useMemo(
     () =>
@@ -153,6 +171,8 @@ export function DeploymentView({
     if (succeeded) onSucceeded?.(deploymentId);
   }, [succeeded, deploymentId, onSucceeded]);
 
+  if (!deployment && loadError) return <Callout tone="err" title="Deployment unavailable"><p>{loadError.message}</p>{loadError.fix && <p className="mt-1">{loadError.fix}</p>}<Button className="mt-3" variant="quiet" onClick={refresh}>Retry loading deployment</Button></Callout>;
+
   if (!deployment)
     return (
       <div className="space-y-3">
@@ -162,12 +182,24 @@ export function DeploymentView({
       </div>
     );
 
-  if (deployment.status === "succeeded")
-    return <SuccessPanel deployment={deployment} onAddRoute={onAddRoute} />;
-
   const failedStep = deployment.steps.find((s) => s.status === "failed");
+  const selectedEnv = environments.find((env) => env.id === deployment.environmentId);
+  const connection = boot?.connections.find((entry) => entry.id === selectedEnv?.connectionId);
+  // Provider identity comes from this deployment's environment connection,
+  // never from the environment's display name. Recorded output flags are
+  // explicit simulation evidence even before bootstrap finishes loading.
+  const simulated = connection?.provider === "sandbox" || deployment.outputs.some((output) => output.simulated === true);
+  const simulationBadge = simulated ? <Chip title="The Sandbox provider simulates these steps. No real infrastructure is changed or verified.">Simulation</Chip> : null;
   const running = !TERMINAL.includes(deployment.status);
   const isProd = selectedEnv?.class === "production";
+  const selectedStep = deployment.steps.find((s) => s.id === selectedStepId);
+  const timeline = <><PhaseTimeline steps={deployment.steps} selectedStepId={selectedStepId ?? undefined} onSelectStep={(step: DeploymentStep) => setSelectedStepId(step.id)} /><ConnectedDetail open={Boolean(selectedStep)} onClose={() => setSelectedStepId(null)} title={selectedStep?.title ?? "Deployment step"} resourceId={selectedStep?.targetId || undefined} environment={selectedEnv?.name} context={`${simulated ? "Simulation · " : ""}Deployment ${deployment.id}`}>
+    {selectedStep && <div className="space-y-4"><dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-3 text-[13px]"><dt className="text-ink-mute">Phase</dt><dd className="capitalize">{selectedStep.phase}</dd><dt className="text-ink-mute">State</dt><dd className="capitalize">{selectedStep.status}</dd><dt className="text-ink-mute">Scope</dt><dd>{selectedStep.targetId ? "Selected resource" : "Whole system"}</dd></dl>{selectedStep.detail && <pre className="whitespace-pre-wrap break-words border border-line bg-bg1 p-3 font-mono text-[12px]">{selectedStep.detail}</pre>}{selectedStep.error && <Callout tone="err">{selectedStep.error}</Callout>}<p className="text-[12px] text-ink-mute">Read-only evidence from this deployment. Resource configuration is edited in System.</p></div>}
+  </ConnectedDetail></>;
+  const context = <div className="space-y-2 border-b border-line pb-4"><p className="text-[14px] font-medium text-ink">{deployment.changeSummary}</p><div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[12px] text-ink-mute"><span>{deployment.id}</span><span>{revisions.find((r) => r.id === deployment.revisionId)?.number ? `r${revisions.find((r) => r.id === deployment.revisionId)!.number}` : deployment.revisionId}</span><span>{fmtUsd(deployment.estCostDeltaUsd, { sign: true })}/mo estimated change</span></div></div>;
+  const logs = <section className="space-y-2"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-[13px] font-medium text-ink">Deployment logs</h3>{patch.logs.length > 0 && <Button size="sm" variant="ghost" onClick={() => downloadFile(`orrery-deployment-${deployment.id}.log`, patch.logs.map((line) => `${line.ts ?? ""} ${line.stream} ${line.line}`).join("\n") + "\n", "text/plain")}>Download all {patch.logs.length} lines</Button>}</div><LogViewer lines={patch.logs} height={200} label="Deployment logs" /></section>;
+
+  if (deployment.status === "succeeded") return <div className="space-y-5">{simulationBadge}<SuccessPanel deployment={deployment} onAddRoute={onAddRoute} /><details className="border-t border-line pt-4" open={selectedStepId ? true : undefined}><summary className="cursor-pointer text-[13px] font-medium text-ink">Inspect completed steps and logs</summary><div className="mt-4 space-y-4">{context}{timeline}{logs}</div></details></div>;
 
   if (deployment.status === "awaiting_approval")
     return (
@@ -183,9 +215,10 @@ export function DeploymentView({
             aria-hidden="true"
           />
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-[16px] font-medium text-ink">Waiting for approval</h2>
               {isProd && <Chip tone="prod">production</Chip>}
+              {simulationBadge}
             </div>
             <p className="mt-1 text-[13px] text-ink-mute">
               {selectedEnv?.name ?? "This environment"} requires a human to approve before anything
@@ -194,7 +227,8 @@ export function DeploymentView({
           </div>
         </div>
 
-        <PhaseTimeline steps={deployment.steps} compact />
+        {context}
+        {timeline}
 
         <div className="flex flex-wrap items-center gap-3 border-t border-line pt-3">
           <PlanFirst
@@ -232,6 +266,7 @@ export function DeploymentView({
 
     return (
       <div className="animate-enter space-y-4">
+        {simulationBadge}
         <Callout
           tone={cancelled ? "warn" : "err"}
           icon={
@@ -260,7 +295,7 @@ export function DeploymentView({
           </p>
           <p className="mt-1 text-[12.5px] text-ink-mute">
             {applied === 0
-              ? "No step had finished, so this environment is untouched."
+              ? "No step reported completion. A failed or interrupted provider operation may still need inspection."
               : `${applied} step${applied === 1 ? "" : "s"} had already finished and stayed applied. ` +
                 (!offerRollback
                   ? `${selectedEnv?.name ?? "The environment"} now runs the previous revision.`
@@ -295,36 +330,39 @@ export function DeploymentView({
               Review changes and deploy again
             </Button>
           )}
-          <Link href={`/p/${project.slug}/observe`}>
-            <Button size="sm" variant="quiet">
-              View logs
-            </Button>
+          <Link href={`/p/${project.slug}/observe`} className="ui-button inline-flex h-8 items-center justify-center rounded-ctl border border-line bg-bg2 px-2.5 text-[12.5px] font-medium text-ink transition-colors duration-[var(--dur-fast)] hover:border-line-strong hover:bg-bg3">
+            View logs
           </Link>
         </div>
 
-        <PhaseTimeline steps={deployment.steps} />
-        <LogViewer lines={patch.logs} height={200} />
+        {context}
+        {timeline}
+        {logs}
       </div>
     );
   }
 
   return (
     <div className="animate-enter space-y-4">
-      <div className="flex items-center gap-2.5">
+      <div className="flex flex-wrap items-center gap-2.5">
         <StatusDot status={running ? "running" : "idle"} />
         <h2 className="text-[15px] font-medium text-ink">
           {deployment.status === "rolling_back" ? "Rolling back" : "Deploying"} to{" "}
           {selectedEnv?.name ?? "the environment"}
         </h2>
         {isProd && <Chip tone="prod">production</Chip>}
+        {simulationBadge}
         <span className="ml-auto text-[12px] text-ink-faint">
-          {connected ? "live" : "reconnecting…"}
+          {connected ? "Live updates" : "Reconnecting updates…"}
         </span>
       </div>
-      <p className="text-[13px] text-ink-mute">{STATUS_COPY[deployment.status]}</p>
+      <p role="status" className="text-[13px] text-ink-mute">{simulated && deployment.status === "verifying" ? "Running the Sandbox provider’s simulated checks." : STATUS_COPY[deployment.status]}</p>
+      {!connected && <Callout tone="warn">Live events are reconnecting. The deployment record continues to refresh; execution may still be running.</Callout>}
+      {loadError && <Callout tone="warn">The last deployment refresh failed. Showing the last available record. <Button variant="ghost" size="sm" onClick={refresh}>Refresh now</Button></Callout>}
+      {context}
 
-      <PhaseTimeline steps={deployment.steps} />
-      <LogViewer lines={patch.logs} height={200} />
+      {timeline}
+      {logs}
 
       <div className="border-t border-line pt-3">
         <PlanFirst

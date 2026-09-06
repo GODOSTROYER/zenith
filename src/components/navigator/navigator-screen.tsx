@@ -12,10 +12,8 @@ import Link from "next/link";
 import { AlertTriangle, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
-import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tooltip } from "@/components/ui/tooltip";
 import { useProjectData } from "@/components/shell/project-context";
 import { useShell } from "@/components/shell/shell-context";
 import { useJson } from "@/lib/client/api";
@@ -43,10 +41,11 @@ import { GimbalCharacter, type GimbalMotion } from "./gimbal-character";
 import { GimbalStatus } from "./gimbal-status";
 import { RunHistory } from "./run-history";
 import { RunPanel } from "./run-panel";
+import styles from "./navigator.module.css";
 
 const PLANNER_NOTES = {
   deterministic:
-    "Pattern-based planning. Set ANTHROPIC_API_KEY in .env.local to let Claude translate freeform goals into the same typed plan.",
+    "Pattern-based planning translates supported requests into a typed plan. Review every action before running it.",
   llm: "Claude translates your goal into the typed command grammar; the deterministic planner still decides every action, risk and approval. Each plan below says which of the two actually read it.",
 } as const;
 
@@ -221,69 +220,58 @@ export function NavigatorScreen({
   }, []);
 
   return (
-    <div className="mx-auto w-full max-w-[1180px] space-y-7 px-5 py-7 sm:px-6">
-      <Header
-        autonomy={autonomy}
-        onAutonomyChanged={shell.refresh}
-        loading={shell.loading && !shell.boot}
-        plannerMode={plannerMode}
-        model={plannerModel}
-        workspaceName={shell.boot?.workspace.name}
-        role={role}
-        presentation={presentation}
-        motion={motion}
-        onMotionChange={changeMotion}
-        characterVisible={characterVisible}
-        onToggleCharacter={toggleCharacter}
-      />
-
-      <div className={cx("space-y-7", characterVisible && "lg:ml-[230px]")}>
-        <Advisories
-          findings={findings}
-          deployments={deployments}
-          environments={environments}
-          slug={slug}
-          onSuggest={setGoal}
-        />
-
-        <CommandBar
-          value={goal}
-          onChange={setGoal}
-          onSubmit={plan}
-          busy={planning}
-          gimbalState={gimbalState}
-          disabledReason={planBlock(autonomy)}
-        />
-
-        {error && (
-          <Callout tone="err" compact>
-            {error}
-          </Callout>
-        )}
-
-        {shown && parsing && <ParsingNote parsing={parsing} />}
-
-        {shown && (
-          <RunPanel
-            run={shown}
-            projectId={project.id}
-            slug={slug}
-            autonomy={autonomy}
-            approvals={approvals}
-            onToggleApprove={toggleApprove}
-            onRun={execute}
-            running={running}
-            onCancel={cancel}
-            cancelling={cancelling}
-            role={role}
-            onSuggest={setGoal}
-            prodEnvIds={prodEnvIds}
-          />
-        )}
-
-        <Card title="Earlier runs" subtitle="Goals, steps and outcomes, kept for this project.">
-          <RunHistory runs={runs.data?.runs} loading={runs.loading} activeRunId={shown?.id} />
-        </Card>
+    <div className={styles.workspace}>
+      <header className={styles.pageHeader}>
+        <div>
+          <h1 className="app-page-title">Navigator</h1>
+          <p className="mt-2 text-[13px] text-ink-mute">Describe the change. Review its scope. Approve the next step.</p>
+        </div>
+        <div role="status" aria-live="polite" aria-atomic="true">
+          <GimbalStatus state={presentation.state} label={presentation.label} />
+        </div>
+      </header>
+      <div className={styles.layout}>
+        <div className={styles.task}>
+          <CommandBar value={goal} onChange={setGoal} onSubmit={plan} busy={planning}
+            gimbalState={gimbalState} disabledReason={planBlock(autonomy)} showExamples={!shown} />
+          {error && <Callout tone="err" compact>{error}</Callout>}
+          {live.error && running && (
+            <Callout tone="warn" compact>
+              Live updates are interrupted. The last recorded state remains below; execution may continue.
+              <button type="button" onClick={live.refresh} className="ml-2 underline">Refresh run status</button>
+            </Callout>
+          )}
+          {shown && parsing && <ParsingNote parsing={parsing} />}
+          {shown && (
+            <RunPanel run={shown} projectId={project.id} slug={slug} autonomy={autonomy}
+              approvals={approvals} onToggleApprove={toggleApprove} onRun={execute} running={running}
+              onCancel={cancel} cancelling={cancelling} role={role} onSuggest={setGoal} prodEnvIds={prodEnvIds} />
+          )}
+          {!shown && !planning && (
+            <div className={styles.emptyWorkflow}>
+              <NavigatorGlyph size={24} className="text-nav-accent" />
+              <div><h2 className="app-section-title">A plan before every change</h2>
+                <p className="mt-1 max-w-[60ch] text-[13px] text-ink-mute">Your request becomes a sequence of registered actions, with scope, risk and approval visible before execution.</p>
+              </div>
+            </div>
+          )}
+          <section className={styles.history} aria-labelledby="navigator-history-title">
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+              <h2 id="navigator-history-title" className="app-section-title">Run history</h2>
+              <span className="text-[12px] text-ink-faint">Recorded for this project</span>
+            </div>
+            {runs.error ? <Callout tone="err" compact>Run history is unavailable. <button type="button" onClick={runs.refresh} className="underline">Try again</button></Callout> :
+              <RunHistory runs={runs.data?.runs} deployments={deployments} loading={runs.loading} activeRunId={shown?.id} />}
+          </section>
+        </div>
+        <aside className={styles.context} aria-label="Navigator context">
+          <Header autonomy={autonomy} onAutonomyChanged={shell.refresh} loading={shell.loading && !shell.boot}
+            plannerMode={plannerMode} model={plannerModel} workspaceName={shell.boot?.workspace.name}
+            role={role} presentation={presentation} motion={motion} onMotionChange={changeMotion}
+            characterVisible={characterVisible} onToggleCharacter={toggleCharacter} />
+          <Advisories findings={findings} deployments={deployments} environments={environments}
+            slug={slug} onSuggest={setGoal} />
+        </aside>
       </div>
     </div>
   );
@@ -345,63 +333,42 @@ function Header({
 }) {
   const { state } = presentation;
   return (
-    <header className={cx("navigator-header", !characterVisible && "navigator-header-compact")}>
-      {characterVisible && (
-        <figure className="gimbal-stage" data-gimbal-state={state ?? "neutral"}>
-          <GimbalCharacter state={state} motion={motion} />
-          <figcaption className="gimbal-caption">Gimbal <span>· your Navigator</span></figcaption>
-        </figure>
-      )}
-
-      <div className="navigator-heading min-w-0 space-y-4">
-        <div className="flex items-start gap-3">
-          <NavigatorGlyph size={28} state={state} className="mt-1" />
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="text-[24px] font-medium tracking-[-0.02em] text-ink">Navigator</h1>
-              <Tooltip label={plannerMode === "llm" && model
-                ? `${PLANNER_NOTES.llm} Model: ${model} (set ORRERY_LLM_MODEL to change it).`
-                : PLANNER_NOTES[plannerMode]}>
-                <Chip tone={plannerMode === "llm" ? "nav" : "neutral"}>
-                  {plannerMode === "llm" ? `language parsing · ${model ?? "Claude"}` : "deterministic planner"}
-                </Chip>
-              </Tooltip>
-            </div>
-            <p className="mt-1 max-w-[65ch] text-[13px] text-ink-mute">
-              Set a course for your system. Review the plan, then approve each step.
-            </p>
-          </div>
-        </div>
-
-        <div className="navigator-live-status" role="status" aria-live="polite" aria-atomic="true">
-          <GimbalStatus state={state} label={presentation.label} />
-          <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-mute">{presentation.description}</p>
-        </div>
-
-        {loading ? <Skeleton height={28} width="100%" /> : (
-          <AutonomyDial level={autonomy} onChanged={onAutonomyChanged} workspaceName={workspaceName} role={role} />
-        )}
-
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <button type="button" onClick={onToggleCharacter} aria-pressed={characterVisible}
-            className="inline-flex min-h-8 items-center gap-1.5 text-[12px] text-ink-faint transition-colors hover:text-ink">
-            {characterVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-            {characterVisible ? "Hide Gimbal" : "Show Gimbal"}
-          </button>
-          <label className="inline-flex items-center gap-2 text-[12px] text-ink-faint">
-            Motion
-            <select aria-label="Gimbal motion" value={motion} onChange={(event) => onMotionChange(event.target.value as GimbalMotion)}
-              className="min-h-8 rounded-ctl border border-line bg-bg1 px-2 text-[12px] text-ink-mute">
-              <option value="auto">Follow system</option>
-              <option value="still">Still poses</option>
-              <option value="low-power">Low power</option>
-            </select>
-          </label>
+    <div className={styles.support}>
+      <div className={styles.companion}>
+        {characterVisible && <figure className={styles.figure} data-gimbal-state={state ?? "neutral"}>
+          <GimbalCharacter state={state} motion={motion} material="porcelain" />
+        </figure>}
+        <div className="min-w-0">
+          <h2 className="text-[14px] font-semibold text-ink">Gimbal</h2>
+          <p className="mt-1 text-[12px] leading-relaxed text-ink-mute">{presentation.description}</p>
         </div>
       </div>
-
-      <GimbalStateGuide current={state} />
-    </header>
+      <details className={styles.disclosure}>
+        <summary>Autonomy <Chip tone="nav">{autonomy}</Chip></summary>
+        <div className="pt-3">{loading ? <Skeleton height={28} width="100%" /> :
+          <AutonomyDial level={autonomy} onChanged={onAutonomyChanged} workspaceName={workspaceName} role={role} />}</div>
+      </details>
+      <details className={styles.disclosure}>
+        <summary>Companion &amp; planning</summary>
+        <div className="space-y-4 pt-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" onClick={onToggleCharacter} aria-pressed={characterVisible}
+              className="inline-flex min-h-9 items-center gap-1.5 text-[12px] text-ink-mute hover:text-ink">
+              {characterVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+              {characterVisible ? "Hide Gimbal" : "Show Gimbal"}
+            </button>
+            <label className="inline-flex items-center gap-2 text-[12px] text-ink-mute">Motion
+              <select aria-label="Gimbal motion" value={motion} onChange={(event) => onMotionChange(event.target.value as GimbalMotion)}
+                className="min-h-9 rounded-ctl border border-line bg-bg1 px-2 text-[12px] text-ink">
+                <option value="auto">Follow system</option><option value="still">Still poses</option><option value="low-power">Low power</option>
+              </select>
+            </label>
+          </div>
+          <p className="text-[12px] leading-relaxed text-ink-mute">{PLANNER_NOTES[plannerMode]}{plannerMode === "llm" && model ? ` Model: ${model}.` : ""}</p>
+          <GimbalStateGuide current={state} />
+        </div>
+      </details>
+    </div>
   );
 }
 
@@ -449,7 +416,7 @@ function Advisories({
   if (fixable.length === 0 && !failed) return null;
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="grid gap-3">
       {fixable.length > 0 && (
         <Advisory
           icon={<ShieldCheck className="h-4 w-4" />}
@@ -503,7 +470,7 @@ function Advisory({
   return (
     <div
       className={cx(
-        "animate-enter rounded-card border bg-bg2 px-4 py-3",
+        "border-t bg-bg2 px-4 py-3",
         tone === "warn" ? "border-warn/30" : "border-nav-accent/25"
       )}
     >

@@ -4,7 +4,6 @@ import {
   EdgeLabelRenderer,
   getBezierPath,
   getSmoothStepPath,
-  useStore,
   type Edge,
   type EdgeProps,
 } from "@xyflow/react";
@@ -22,14 +21,6 @@ export interface BindingEdgeData extends Record<string, unknown> {
 }
 
 export type BindingEdge = Edge<BindingEdgeData, "binding">;
-
-/**
- * Above this the map has room for every capability at once; below it the
- * labels would collide, so they wait for hover or selection. Hover was the
- * only way in before, which left the whole vocabulary of the map unreachable
- * by keyboard and touch.
- */
-const LABEL_ZOOM = 0.85;
 
 /** Same words the node chips use, so create/delete never reads as colour alone. */
 const DIFF_CHIP = {
@@ -52,7 +43,6 @@ export function BindingEdgeView({
   selected,
 }: EdgeProps<BindingEdge>) {
   const [hover, setHover] = useState(false);
-  const zoom = useStore((s) => s.transform[2]);
 
   // Columns are fixed by stratum, so a binding between two nodes in the same
   // column has its target to the LEFT of its source. A bezier drawn that way
@@ -81,7 +71,9 @@ export function BindingEdgeView({
           : "var(--line-strong)";
 
   const chip = data?.diff ? DIFF_CHIP[data.diff] : undefined;
-  const showCapability = Boolean(data?.capability) && (hover || selected || zoom >= LABEL_ZOOM);
+  // Dense graphs can put unrelated edge midpoints at precisely the same
+  // coordinate. Reveal one inspected binding, leaving all topology visible.
+  const showCapability = Boolean(data?.capability) && (hover || selected);
 
   return (
     <>
@@ -93,7 +85,7 @@ export function BindingEdgeView({
         strokeDasharray={data?.diff ? "5 5" : undefined}
         strokeOpacity={data?.dimmed ? 0.2 : data?.diff === "delete" ? 0.5 : 1}
         className={cx(data?.live && "edge-live")}
-        style={{ transition: "stroke 200ms var(--ease-swift)" }}
+        style={{ transition: "stroke var(--dur-fast) var(--ease-swift)" }}
       />
       <path
         d={path}
@@ -104,7 +96,7 @@ export function BindingEdgeView({
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
       />
-      {(showCapability || chip) && (
+      {showCapability && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -113,11 +105,10 @@ export function BindingEdgeView({
             }}
             className="pointer-events-none absolute z-10 flex items-center gap-1"
           >
-            {/* The word, not just the colour: red and mint are the same edge
-                to anyone who cannot tell them apart. */}
+            {/* Pending state stays explicit when inspecting a binding. */}
             {chip && <Chip tone={chip.tone}>{chip.text}</Chip>}
             {showCapability && (
-              <span className="rounded-full border border-line bg-bg3 px-2 py-0.5 font-mono text-[11px] text-ink-mute shadow-card">
+              <span className="rounded-ctl border border-line bg-bg3 px-2 py-1 font-mono text-[12px] text-ink shadow-card">
                 {data?.capability}
               </span>
             )}

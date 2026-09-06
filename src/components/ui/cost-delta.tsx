@@ -34,7 +34,7 @@ export function CostDelta({ usd, suffix = "/mo", bare = false, className }: Cost
             : `Estimated increase of ${fmtUsd(usd)} per month.`
       }
       className={cx(
-        "tnum inline-flex items-baseline gap-0.5 rounded-[6px] font-mono text-[12.5px]",
+        "tnum inline-flex items-baseline gap-0.5 rounded-ctl font-mono text-[12.5px]",
         notable && "bg-warn-dim px-1.5 py-0.5",
         zero ? "text-ink-faint" : saving ? "text-ok" : "text-ink",
         className

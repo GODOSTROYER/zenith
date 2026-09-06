@@ -176,7 +176,7 @@ export function AlertChannelsSection({
                 <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1.5">
                   <div className="min-w-0 flex-1">
                     <p className="flex flex-wrap items-center gap-2">
-                      <span className="truncate text-[13px] text-ink">{c.name}</span>
+                      <span className="break-words text-[13px] font-medium text-ink">{c.name}</span>
                       <Chip tone="neutral">{KIND_LABEL[c.kind]}</Chip>
                       {c.enabled ? (
                         <Chip tone="ok">on</Chip>
@@ -196,7 +196,7 @@ export function AlertChannelsSection({
                           </Chip>
                         ))}
                     </p>
-                    <p className="mt-0.5 truncate font-mono text-[12px] text-ink-mute" title={c.target}>
+                    <p className="mt-0.5 break-all font-mono text-[12px] text-ink-mute" title={c.target}>
                       {c.target}
                     </p>
                     <p className="mt-0.5 text-[11.5px] text-ink-faint">

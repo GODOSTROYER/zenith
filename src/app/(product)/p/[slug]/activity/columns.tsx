@@ -3,7 +3,7 @@
  * table, so the columns line up down the whole page rather than being
  * re-measured per group.
  */
-import type { AuditEvent } from "@/lib/domain/types";
+import type { AuditEvent, Environment } from "@/lib/domain/types";
 import { Chip, type ChipTone } from "@/components/ui/chip";
 import { type TableColumn } from "@/components/ui/table";
 import { ActorDot } from "@/components/screens/shared";
@@ -22,7 +22,11 @@ const RESULT_LABEL: Record<AuditEvent["result"], string> = {
   denied: "Refused",
 };
 
-export const ACTIVITY_COLUMNS = (slug: string): TableColumn<AuditEvent>[] => [
+export const ACTIVITY_COLUMNS = (
+  slug: string,
+  environments: Environment[],
+  onInspect: (event: AuditEvent) => void,
+): TableColumn<AuditEvent>[] => [
   {
     key: "actor",
     header: "",
@@ -33,11 +37,12 @@ export const ACTIVITY_COLUMNS = (slug: string): TableColumn<AuditEvent>[] => [
   {
     key: "action",
     header: "Action",
-    render: (e) => <EventCell event={e} slug={slug} />,
+    render: (e) => <EventCell event={e} slug={slug} environments={environments} onInspect={onInspect} />,
   },
   {
     key: "result",
     header: "Result",
+    width: 120,
     align: "right",
     render: (e) => (
       <Chip tone={RESULT_TONE[e.result]} className="shrink-0">

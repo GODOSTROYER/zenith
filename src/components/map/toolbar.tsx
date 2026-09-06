@@ -65,8 +65,8 @@ export function MapToolbar({
   onToggleStratum,
 }: MapToolbarProps) {
   return (
-    <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex flex-wrap items-start gap-2">
-      <div className="pointer-events-auto flex max-w-full flex-wrap items-center gap-1 rounded-card border border-line bg-bg2 p-1 shadow-card">
+    <div className="relative order-first z-10 flex shrink-0 flex-wrap items-center gap-2 border-b border-line bg-bg2 px-3 py-2">
+      <div className="flex max-w-full flex-wrap items-center gap-1">
         {!binding && (
           <>
             <Button
@@ -133,13 +133,13 @@ export function MapToolbar({
 
       {!empty && !binding && (
         <>
-          <div className="pointer-events-auto w-44 max-w-[45vw]">
+          <div className="w-44 max-w-[45vw]">
             <Input
               ref={searchRef}
               value={query}
               aria-label="Find a node by name"
               placeholder="Find a node"
-              className="bg-bg2 shadow-card"
+              className="bg-bg1"
               prefix={<Search className="h-3.5 w-3.5" aria-hidden="true" />}
               suffix={query ? undefined : <Kbd>/</Kbd>}
               onChange={(e) => onQueryChange(e.target.value)}
@@ -160,7 +160,7 @@ export function MapToolbar({
           <div
             role="group"
             aria-label="Show or hide columns"
-            className="pointer-events-auto flex flex-wrap items-center gap-1 rounded-card border border-line bg-bg2 p-1 shadow-card"
+            className="flex flex-wrap items-center gap-1 border-l border-line pl-2"
           >
             <Layers className="mx-1 h-3.5 w-3.5 shrink-0 text-ink-faint" aria-hidden="true" />
             {STRATA_ORDER.map((s) => {
@@ -186,7 +186,7 @@ export function MapToolbar({
       {binding && (
         <div
           role="status"
-          className="animate-enter pointer-events-auto mx-auto flex items-center gap-3 rounded-full border border-signal/40 bg-bg3 px-4 py-1.5 shadow-overlay"
+          className="animate-enter mx-auto flex items-center gap-3 rounded-ctl border border-signal/40 bg-bg1 px-3 py-2"
         >
           <span className="text-[12.5px] text-ink">
             {bindFromName

@@ -165,6 +165,9 @@ export function Table<T>({
 
   return (
     <div
+      role="region"
+      aria-label={caption}
+      tabIndex={0}
       className={cx("w-full overflow-x-auto", maxHeight !== undefined && "overflow-y-auto", wrapperClassName)}
       style={maxHeight !== undefined ? { maxHeight: px(maxHeight) } : undefined}
     >
@@ -200,7 +203,7 @@ export function Table<T>({
                       onClick={() => setSort(col.key)}
                       className={cx(
                         "inline-flex min-h-6 items-center gap-1.5 rounded-ctl",
-                        "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]",
+                        "transition-colors duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)]",
                         isActive ? "text-ink" : "hover:text-ink"
                       )}
                     >

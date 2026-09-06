@@ -16,10 +16,27 @@ function contrast(a: string, b: string) {
 }
 it.each(["dark", "light"])("keeps %s body, metadata and action labels readable", (theme) => {
   const tokens = { ...colors(root), ...(theme === "light" ? colors(light) : {}) };
-  for (const foreground of ["ink", "ink-mute", "ink-faint", "signal", "ok", "warn", "err", "info"])
+  for (const foreground of ["ink", "ink-mute", "ink-faint", "signal", "ok", "warn", "err", "info", "prod", "nav-accent"])
     for (const background of ["bg0", "bg1", "bg2", "bg3"])
       expect(contrast(tokens[foreground], tokens[background]), `${theme}: ${foreground} on ${background}`).toBeGreaterThanOrEqual(4.5);
   for (const background of ["signal", "signal-strong"])
     expect(contrast(tokens["on-signal"], tokens[background])).toBeGreaterThanOrEqual(4.5);
   expect(contrast(tokens["on-danger"], tokens.err)).toBeGreaterThanOrEqual(4.5);
+});
+
+function composite(color: string, background: string) {
+  if (color.startsWith("#")) return color;
+  const [r, g, b, alpha] = color.match(/[\d.]+/g)!.map(Number);
+  const base = background.slice(1).match(/../g)!.map((part) => parseInt(part, 16));
+  return "#" + [r, g, b].map((channel, i) => Math.round(channel * alpha + base[i] * (1 - alpha)).toString(16).padStart(2, "0")).join("");
+}
+
+it.each(["dark", "light"])("keeps %s status chips and selected labels readable on tinted surfaces", (theme) => {
+  const block = root + (theme === "light" ? light : "");
+  const values = Object.fromEntries([...block.matchAll(/--([\w-]+):\s*([^;]+);/g)].map((match) => [match[1], match[2].trim()]));
+  for (const [foreground, tint] of [["signal", "signal-dim"], ["ok", "ok-dim"], ["warn", "warn-dim"], ["err", "err-dim"], ["info", "info-dim"], ["nav-accent", "nav-dim"], ["prod", "warn-dim"]]) {
+    for (const surface of ["bg0", "bg1", "bg2", "bg3"]) {
+      expect(contrast(values[foreground], composite(values[tint], values[surface])), `${theme}: ${foreground} on ${tint}/${surface}`).toBeGreaterThanOrEqual(4.5);
+    }
+  }
 });

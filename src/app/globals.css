@@ -3,7 +3,7 @@
 @import "tailwindcss" source("../");
 
 /* ============================================================
-   Zenith.ai design tokens — "observatory" theme.
+   Zenith.ai application tokens — The Revision Object workbench.
    Dark-first, with an equally considered light theme.
    All component styling flows through these tokens; never hardcode
    a color in a component. See docs/DESIGN.md.
@@ -11,24 +11,24 @@
 
 :root {
   /* ---- dark (default) ---- */
-  --bg0: #0b1020; /* page ground */
-  --bg1: #10182a; /* app chrome */
-  --bg2: #162136; /* raised surface */
-  --bg3: #1c2941; /* overlay surface */
-  --line: rgba(161, 181, 217, 0.17);
-  --line-strong: rgba(161, 181, 217, 0.36);
+  --bg0: #22241f; /* page ground */
+  --bg1: #282b24; /* app chrome */
+  --bg2: #2c2f28; /* raised surface */
+  --bg3: #35382f; /* overlay surface */
+  --line: #494c42;
+  --line-strong: #818575;
 
-  --ink: #edf2ff;
-  --ink-mute: #adbad0;
-  --ink-faint: #90a1bd; /* readable metadata, including on overlays */
+  --ink: #f2f1e9;
+  --ink-mute: #b4b7ab;
+  --ink-faint: #afb2a5; /* readable metadata, including on overlays */
 
-  /* brand */
-  --signal: #55e6c1; /* primary accent — actions, focus, success-of-intent */
-  --signal-strong: #79f0d2;
-  --on-signal: #04241c;
-  --on-danger: #29110f;
-  --nav-accent: #929aff; /* Navigator (agent) identity — never used for anything else */
-  --on-nav: #101235;
+  /* Brand denotes an action or proposed change, never deployment success. */
+  --signal: #ff886c; /* primary accent — actions, focus, proposed changes */
+  --signal-strong: #ffa18b;
+  --on-signal: #22241f;
+  --on-danger: #22241f;
+  --nav-accent: #bca8ee; /* Navigator (agent) identity — never used for anything else */
+  --on-nav: #22241f;
 
   /* Gimbal — the Navigator character. Separate from semantic status colours. */
   --gimbal-body: #111621;
@@ -42,46 +42,46 @@
   --gimbal-planning: #b48cff;
 
   /* semantic status — separate axis from brand */
-  --ok: #45d59b;
-  --warn: #e5b055;
-  --err: #ec7d72;
-  --info: #6fb9e8;
-  --prod: #e3a44e; /* production environments carry this ring */
+  --ok: #84d5a5;
+  --warn: #efc26e;
+  --err: #ff8fbb;
+  --info: #88c7e4;
+  --prod: #efc26e; /* production environments carry this ring */
 
-  --ok-dim: rgba(69, 213, 155, 0.14);
-  --warn-dim: rgba(229, 176, 85, 0.14);
-  --err-dim: rgba(236, 125, 114, 0.14);
-  --info-dim: rgba(111, 185, 232, 0.14);
-  --signal-dim: rgba(83, 224, 190, 0.12);
-  --nav-dim: rgba(146, 154, 255, 0.14);
+  --ok-dim: rgba(132,213,165,0.09);
+  --warn-dim: rgba(239,194,110,0.09);
+  --err-dim: rgba(255,143,187,0.09);
+  --info-dim: rgba(136,199,228,0.09);
+  --signal-dim: rgba(255,136,108,0.08);
+  --nav-dim: rgba(188,168,238,0.09);
 
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.28);
-  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.5), 0 16px 48px rgba(0, 0, 0, 0.42);
+  --shadow-1: 0 2px 5px rgba(0,0,0,0.2), 0 10px 28px rgba(0,0,0,0.22);
+  --shadow-2: 0 8px 20px rgba(0,0,0,0.22), 0 24px 64px rgba(0,0,0,0.3);
 
-  --r-card: 12px;
-  --r-ctl: 8px;
-  --r-pill: 999px;
+  --r-card: 5px;
+  --r-ctl: 3px;
+  --r-pill: 2px;
 
   color-scheme: dark;
 }
 
 [data-theme="light"] {
-  --bg0: #f3f5f7;
-  --bg1: #f8f9fb;
-  --bg2: #ffffff;
+  --bg0: #f4f3ee;
+  --bg1: #eeeee6;
+  --bg2: #faf9f5;
   --bg3: #ffffff;
-  --line: rgba(24, 35, 60, 0.12);
-  --line-strong: rgba(24, 35, 60, 0.22);
+  --line: #cccec4;
+  --line-strong: #818575;
 
-  --ink: #191e2b;
-  --ink-mute: #5a6478;
-  --ink-faint: #636d86; /* ≥4.5:1 on every light surface, bg0 included */
+  --ink: #20211f;
+  --ink-mute: #606259;
+  --ink-faint: #686a60; /* ≥4.5:1 on every light surface, bg0 included */
 
-  --signal: #087b66;
-  --signal-strong: #066b59;
+  --signal: #be3e25;
+  --signal-strong: #a6321d;
   --on-signal: #ffffff;
   --on-danger: #ffffff;
-  --nav-accent: #5a63e8;
+  --nav-accent: #6552a0;
   --on-nav: #ffffff;
 
   --gimbal-body: #2d3342;
@@ -94,21 +94,21 @@
   --gimbal-aperture: #4a2b12;
   --gimbal-planning: #7c3aed;
 
-  --ok: #08784f;
-  --warn: #946113;
-  --err: #bc3b36;
-  --info: #246ba6;
-  --prod: #946113;
+  --ok: #287047;
+  --warn: #855c13;
+  --err: #932553;
+  --info: #286b88;
+  --prod: #855c13;
 
-  --ok-dim: rgba(20, 143, 96, 0.1);
-  --warn-dim: rgba(176, 120, 23, 0.12);
-  --err-dim: rgba(200, 71, 60, 0.1);
-  --info-dim: rgba(42, 127, 184, 0.1);
-  --signal-dim: rgba(13, 159, 131, 0.1);
-  --nav-dim: rgba(90, 99, 232, 0.1);
+  --ok-dim: rgba(40,112,71,0.06);
+  --warn-dim: rgba(133,92,19,0.06);
+  --err-dim: rgba(147,37,83,0.06);
+  --info-dim: rgba(40,107,136,0.06);
+  --signal-dim: #f8eae3;
+  --nav-dim: rgba(101,82,160,0.06);
 
-  --shadow-1: 0 1px 2px rgba(20, 30, 55, 0.08), 0 4px 14px rgba(20, 30, 55, 0.07);
-  --shadow-2: 0 2px 8px rgba(20, 30, 55, 0.1), 0 18px 44px rgba(20, 30, 55, 0.14);
+  --shadow-1: 0 2px 5px rgba(32,33,31,0.05), 0 10px 28px rgba(32,33,31,0.08);
+  --shadow-2: 0 8px 20px rgba(32,33,31,0.08), 0 24px 64px rgba(32,33,31,0.14);
 
   color-scheme: light;
 }
@@ -142,8 +142,9 @@
   --color-nav-dim: var(--nav-dim);
   --color-gimbal-core: var(--gimbal-core);
 
-  --font-sans: var(--font-grotesk), "Space Grotesk", system-ui, sans-serif;
+  --font-sans: var(--zenith-font-ui), system-ui, sans-serif;
   --font-mono: var(--font-jbmono), "JetBrains Mono", ui-monospace, monospace;
+  --font-display: var(--zenith-font-display), Georgia, serif;
 
   --radius-card: var(--r-card);
   --radius-ctl: var(--r-ctl);
@@ -164,7 +165,7 @@ body {
   color: var(--ink);
   /* NOTE: @theme inline does not emit --font-sans as a root custom property,
      so reference the next/font variable directly (fixes system-stack fallback). */
-  font-family: var(--font-grotesk), "Space Grotesk", system-ui, sans-serif;
+  font-family: var(--zenith-font-ui), system-ui, sans-serif;
   font-size: 14px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
@@ -186,7 +187,7 @@ td.num,
 input, textarea { caret-color: var(--signal); }
 
 /* Product rhythm: comfortable controls, compact data, one consistent gutter. */
-.product-page { padding: 24px 20px 40px; }
+.product-page { position: relative; padding: 24px 20px 40px; min-width: 0; }
 .product-chrome { display: flex; min-height: 60px; flex-shrink: 0; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 20px; padding: 10px 24px; border-bottom: 1px solid var(--line); background: var(--bg1); }
 .product-chrome-identity { display: flex; min-width: 0; align-items: center; gap: 20px; }
 .product-chrome-tools { display: flex; flex-shrink: 0; align-items: center; gap: 6px; }
@@ -201,7 +202,7 @@ input, textarea { caret-color: var(--signal); }
 .project-card:focus-within, .project-card:hover { border-color: var(--line-strong); }
 .settings-navigation a { min-height: 36px; display: inline-flex; align-items: center; white-space: nowrap; }
 .settings-navigation a[aria-current="location"] { background: var(--signal-dim); color: var(--signal); }
-@media (min-width: 640px) { .product-page { padding: 32px 32px 48px; } }
+@media (min-width: 640px) { .product-page { padding: 28px 28px 40px; } }
 @media (max-width: 639px) {
   .product-chrome { padding: 10px 16px; gap: 10px; }
   .product-chrome-identity { flex: 1 1 100%; justify-content: space-between; gap: 12px; }
@@ -211,7 +212,8 @@ input, textarea { caret-color: var(--signal); }
 }
 @media (pointer: coarse) {
   .ui-button, .ui-input, .ui-select, .ui-segments > button,
-  .product-chrome button, .project-navigation a, .settings-navigation a { min-height: 44px; }
+  .product-chrome button, .project-navigation a, .settings-navigation a,
+  [role="tab"], [role="menuitem"], th button { min-height: 44px; }
   .ui-button:has(> span:empty) { min-width: 44px; }
 }
 
@@ -229,11 +231,20 @@ input, textarea { caret-color: var(--signal); }
 
 /* ------------------------------ motion tokens ------------------------------ */
 
+.app-page-heading { display:flex; flex-wrap:wrap; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:28px; }
+.app-page-title { margin:0; font-family:var(--zenith-font-display),Georgia,serif; font-size:34px; font-weight:400; line-height:1.08; letter-spacing:-.02em; color:var(--ink); overflow-wrap:anywhere; }
+.app-section-title { font-family:var(--zenith-font-ui),sans-serif; font-size:16px; font-weight:650; line-height:1.4; letter-spacing:-.015em; }
+.app-rule-section { border-top:1px solid var(--line); padding-top:24px; margin-top:28px; }
+.app-facts { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:20px; }
+.app-facts dt { color:var(--ink-mute); font-size:12px; margin-bottom:6px; }
+.app-facts dd { color:var(--ink); font-family:var(--font-jbmono),monospace; font-size:14px; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+@media (max-width:639px) { .app-page-title { font-size:30px; } .app-page-heading { margin-bottom:24px; } }
+
 :root {
-  --ease-swift: cubic-bezier(0.22, 1, 0.36, 1);
-  --dur-fast: 120ms;
-  --dur-base: 200ms;
-  --dur-slow: 320ms;
+  --ease-swift: cubic-bezier(.2, .75, .25, 1);
+  --dur-fast: 150ms;
+  --dur-base: 220ms;
+  --dur-slow: 380ms;
 }
 
 @media (prefers-reduced-motion: reduce) {

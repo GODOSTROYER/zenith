@@ -177,7 +177,7 @@ export function AlertsCard({
       title="Alerts"
       subtitle={
         alerts.data
-          ? `${environmentName} · checked every ${Math.round(alerts.data.evaluationIntervalMs / 1000)}s and whenever this page loads · ${delivery}`
+          ? `${environmentName} · evaluates every ${Math.round(alerts.data.evaluationIntervalMs / 1000)}s · ${delivery}`
           : environmentName
       }
       actions={
@@ -190,6 +190,7 @@ export function AlertsCard({
           )}
         </>
       }
+      footer={alerts.data ? <span>Last evaluated <TimeAgo iso={alerts.data.evaluatedAt} /> · {rules.length} rule{rules.length === 1 ? "" : "s"} · {open.length} open alert{open.length === 1 ? "" : "s"}</span> : undefined}
     >
       {alerts.error ? (
         <ErrorNote error={alerts.error} />
@@ -201,9 +202,7 @@ export function AlertsCard({
           title={`No alert rules on ${environmentName}`}
           body={
             <>
-              A rule watches one condition — a degraded service, a failed deployment, cost against
-              the budget, replicas under a floor — and records it here when it becomes true, once,
-              until it clears. {delivery}
+              Watch service health, failed deployments, budget, or replica counts. When a condition is met, its alert stays open until it clears. {delivery}
             </>
           }
           action={
@@ -364,7 +363,7 @@ function RuleList({
 }) {
   return (
     <div className="space-y-2">
-      <h4 className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">
+      <h4 className="text-[13px] font-medium text-ink">
         Rules ({rules.length})
       </h4>
       {rules.map((rule) => {
@@ -372,7 +371,7 @@ function RuleList({
         return (
           <div
             key={rule.id}
-            className="flex flex-wrap items-start justify-between gap-3 rounded-card border border-line bg-bg1 px-4 py-3"
+            className="flex flex-wrap items-start justify-between gap-3 border-b border-line py-3 last:border-b-0"
           >
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -387,7 +386,7 @@ function RuleList({
                   <Chip tone="ok">clear</Chip>
                 )}
               </div>
-              <p className="mt-1 text-[11.5px] leading-relaxed text-ink-faint">
+              <p className="mt-1 text-[12px] leading-relaxed text-ink-mute">
                 Watches {kinds[rule.kind]?.watches ?? rule.kind}. {ruleChannelLine(rule, channels)}{" "}
                 Added by {rule.createdBy?.name ?? "someone"} <TimeAgo iso={rule.createdAt} />.
               </p>
@@ -420,7 +419,7 @@ function OpenEvents({
 }) {
   return (
     <div className="space-y-2 border-t border-line pt-4">
-      <h4 className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">
+      <h4 className="text-[13px] font-medium text-ink">
         Open ({open.length})
       </h4>
       {open.length === 0 ? (
@@ -429,7 +428,7 @@ function OpenEvents({
         </p>
       ) : (
         open.map((event) => (
-          <div key={event.id} className="rounded-card border border-line bg-bg1 px-4 py-3">
+          <div key={event.id} className="border-l-2 border-warn bg-bg1 px-4 py-3">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -500,7 +499,7 @@ function History({
   return (
     <div className="space-y-2 border-t border-line pt-4">
       <div className="flex items-center justify-between gap-3">
-        <h4 className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">Past alerts</h4>
+        <h4 className="text-[13px] font-medium text-ink">Past alerts</h4>
         {!full && recent.length > 0 && (
           <Button size="sm" variant="quiet" onClick={() => setFull(true)}>
             Load full history
@@ -514,9 +513,9 @@ function History({
           that were deleted afterwards.
         </p>
       ) : (
-        <ul className="space-y-1.5">
+        <ul className="divide-y divide-line">
           {rows.map((event) => (
-            <li key={event.id} className="text-[12.5px] leading-relaxed text-ink-mute">
+            <li key={event.id} className="py-3 text-[13px] leading-relaxed text-ink-mute">
               <span className="text-ink-faint">
                 <TimeAgo iso={event.firedAt} /> ·{" "}
               </span>

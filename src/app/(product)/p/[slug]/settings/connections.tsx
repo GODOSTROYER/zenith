@@ -136,9 +136,10 @@ function ConnectionCard({
   return (
     <Card
       title={
-        <span className="flex items-center gap-2.5">
+        <span className="flex flex-wrap items-center gap-2.5">
           <StatusDot status={CONN_DOT[connection.status]} label={connection.status} />
-          {connection.label}
+          <span className="break-words">{connection.label}</span>
+          <span className="text-[12px] font-normal text-ink-mute">{connection.status}</span>
         </span>
       }
       subtitle={
@@ -187,7 +188,7 @@ function ConnectionCard({
         </summary>
         <ul className="mt-2.5 space-y-1.5 border-l border-line pl-4 text-[12.5px] text-ink-mute">
           {(connection.declaredPermissions ?? connection.grantedPermissions).map((p) => (
-            <li key={p}>{p}</li>
+            <li key={p} className="break-all font-mono">{p}</li>
           ))}
         </ul>
       </details>

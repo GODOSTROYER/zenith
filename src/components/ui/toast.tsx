@@ -197,7 +197,7 @@ export function Toaster() {
     <div
       className={cx(
         "pointer-events-none fixed left-4 z-[60] flex w-[340px] max-w-[calc(100vw-2rem)] flex-col-reverse gap-2",
-        "bottom-[calc(1rem+var(--orrery-dock-h,0px))] transition-[bottom] duration-[160ms] [transition-timing-function:var(--ease-swift)]"
+        "bottom-[calc(1rem+var(--orrery-dock-h,0px))] transition-[bottom] duration-[var(--dur-base)] [transition-timing-function:var(--ease-swift)]"
       )}
       role="region"
       aria-label="Notifications"

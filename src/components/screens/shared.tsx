@@ -362,7 +362,7 @@ export function ActionConfirm({
  */
 export function SectionTitle({ children }: { children: ReactNode }) {
   return (
-    <h3 className="text-[12px] font-medium tracking-[0.04em] text-ink-faint uppercase">
+    <h3 className="text-[13px] font-semibold leading-snug text-ink-mute">
       {children}
     </h3>
   );
@@ -416,8 +416,8 @@ export function ActorDot({ actor }: { actor: Actor }) {
 }
 
 const OP_TONE: Record<ChangeItem["op"], ChipTone> = {
-  create: "ok",
-  update: "info",
+  create: "signal",
+  update: "signal",
   delete: "err",
 };
 
@@ -428,22 +428,22 @@ const OP_LABEL: Record<ChangeItem["op"], string> = {
 };
 
 /** One line of a changeset — same explanation strings everywhere. */
-export function ChangeRow({ item }: { item: ChangeItem }) {
+export function ChangeRow({ item, onSelect, selected = false }: { item: ChangeItem; onSelect?: () => void; selected?: boolean }) {
   return (
-    <li className="flex items-start gap-3 border-b border-line px-4 py-3 last:border-b-0">
+    <li className={cx("flex flex-wrap items-start gap-3 border-b border-line px-4 py-3 last:border-b-0 transition-colors duration-[var(--dur-fast)]", selected && "bg-signal-dim")}>
       <Chip tone={OP_TONE[item.op]} className="mt-0.5">
         {OP_LABEL[item.op]}
       </Chip>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-[140px] flex-1">
         <p className="text-[13px] text-ink">
-          <span className="font-mono">{item.nodeName}</span>{" "}
+          {onSelect ? <button type="button" onClick={onSelect} aria-pressed={selected} aria-label={`Inspect ${item.nodeName}`} className="break-all text-left font-mono underline decoration-line-strong underline-offset-4 hover:text-signal">{item.nodeName}</button> : <span className="break-all font-mono">{item.nodeName}</span>}{" "}
           <span className="text-ink-faint">{item.nodeType}</span>
         </p>
         <p className="mt-0.5 text-[12.5px] text-ink-mute">{item.explanation}</p>
         {item.fields && item.fields.length > 0 && (
           <ul className="mt-1.5 space-y-0.5 font-mono text-[11.5px] text-ink-faint">
             {item.fields.map((f) => (
-              <li key={f.field}>
+              <li key={f.field} className="break-all">
                 {f.field}: {JSON.stringify(f.before)} → {JSON.stringify(f.after)}
               </li>
             ))}

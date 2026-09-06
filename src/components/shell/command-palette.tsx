@@ -41,6 +41,38 @@ const CATEGORY_TAB: Record<string, { seg: string; label: string }> = {
   navigator: { seg: "navigator", label: "Navigator" },
 };
 
+type ActionDestination = { seg: string; label: string } | { href: string; label: string };
+
+/**
+ * Categories describe the registry, not UI ownership: "operations" includes
+ * graph operations, security, alert rules and delivery channels. Resolve
+ * existing action families first; retain the category fallback for new entries.
+ */
+function actionDestination(action: ActionEntry, hasProject: boolean): ActionDestination {
+  if (action.id === "project.create") return { href: "/onboarding?step=3", label: "Onboarding — Create project" };
+  if (action.id === "project.applyBlueprint" || action.id === "project.importCompose") {
+    return hasProject ? { seg: "", label: "System map" } : { href: "/onboarding?step=3", label: "Onboarding — Create project" };
+  }
+  if (action.id === "project.importResources") return { seg: "", label: "System map" };
+  if (action.id === "project.updateManifest") return { seg: "source", label: "Source" };
+  if (action.id === "project.delete") return { seg: "settings#danger", label: "Settings — Danger zone" };
+  if (action.id.startsWith("alerts.")) {
+    return /^alerts\.(create|update|delete|test)Channel$/.test(action.id)
+      ? { seg: "settings#alerts", label: "Settings — Alert delivery" }
+      : { seg: "observe#alerts", label: "Observe — Alerts" };
+  }
+  if (action.id.startsWith("security.")) return { seg: "security", label: "Security" };
+  if (action.id.startsWith("connection.")) {
+    return action.id === "connection.create" && !hasProject
+      ? { href: "/onboarding?step=2", label: "Onboarding — Connections" }
+      : { seg: "settings#connections", label: "Settings — Connections" };
+  }
+  if (action.id.startsWith("env.")) return { seg: "settings#environments", label: "Settings — Environments" };
+  if (action.id === "system.rotateSecret") return { seg: "settings#secrets", label: "Settings — Secrets" };
+  if (action.id === "ops.investigate") return { seg: "navigator", label: "Navigator" };
+  return CATEGORY_TAB[action.category] ?? { seg: "", label: "System map" };
+}
+
 const TABS: { seg: string; label: string }[] = [
   { seg: "", label: "System map" },
   { seg: "source", label: "Source" },
@@ -117,8 +149,9 @@ export function paletteRows(
 
   const project = projects[0];
   for (const a of catalog) {
-    const tab = CATEGORY_TAB[a.category] ?? { seg: "", label: "System map" };
-    const blocked = !project
+    const destination = actionDestination(a, !!project);
+    const standalone = "href" in destination;
+    const blocked = !project && !standalone
       ? "No project in this workspace yet — create one first."
       : role && RANK[role] < RANK[a.requiredRole]
         ? `Needs the ${a.requiredRole} role. You are ${role} in this workspace.`
@@ -126,8 +159,8 @@ export function paletteRows(
     rows.push({
       key: `action:${a.id}`,
       title: a.title,
-      where: project ? `${project.name} — ${tab.label}` : tab.label,
-      href: project ? `/p/${project.slug}${tab.seg ? `/${tab.seg}` : ""}` : undefined,
+      where: !standalone && project ? `${project.name} — ${destination.label}` : destination.label,
+      href: standalone ? destination.href : project ? `/p/${project.slug}${destination.seg ? `/${destination.seg}` : ""}` : undefined,
       group: "Actions",
       risk: a.risk,
       blocked,
@@ -207,11 +240,12 @@ export function CommandPalette({ catalog }: { catalog: ActionEntry[] }) {
     <>
       <button
         type="button"
+        aria-label="Search screens and actions"
         aria-haspopup="dialog"
         aria-expanded={open}
         title={`Search screens and actions (${hint}+K)`}
         onClick={() => setOpen(true)}
-        className="inline-flex h-7 items-center gap-2 rounded-ctl border border-line bg-bg2 px-2.5 text-[12.5px] text-ink-mute transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)] hover:border-line-strong hover:text-ink"
+        className="inline-flex h-9 items-center gap-2 rounded-ctl border border-line bg-bg2 px-2.5 text-[13px] text-ink-mute transition-colors duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)] hover:border-line-strong hover:text-ink"
       >
         <Search className="h-3.5 w-3.5" aria-hidden="true" />
         <span>Search</span>

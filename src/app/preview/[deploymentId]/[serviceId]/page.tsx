@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { q } from "@/lib/db/store";
+import { Wordmark } from "@/components/shell/wordmark";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Simulated preview" };
@@ -11,44 +13,13 @@ function prettyHost(label: string): string {
   return at < 0 ? label : label.slice(at + 3);
 }
 
-function Orbits() {
-  return (
-    <svg
-      viewBox="0 0 320 320"
-      aria-hidden="true"
-      className="h-[260px] w-[260px] text-signal opacity-70"
-    >
-      {[
-        { rx: 138, ry: 52, rot: -22 },
-        { rx: 106, ry: 40, rot: 18 },
-        { rx: 72, ry: 27, rot: 62 },
-      ].map((o, i) => (
-        <ellipse
-          key={i}
-          cx="160"
-          cy="160"
-          rx={o.rx}
-          ry={o.ry}
-          transform={`rotate(${o.rot} 160 160)`}
-          fill="none"
-          stroke="currentColor"
-          strokeOpacity={0.16 + i * 0.08}
-          strokeWidth="1.2"
-        />
-      ))}
-      <circle cx="160" cy="160" r="18" fill="currentColor" />
-      <circle cx="288" cy="108" r="5" fill="currentColor" opacity="0.8" />
-      <circle cx="62" cy="188" r="3.5" fill="currentColor" opacity="0.6" />
-    </svg>
-  );
-}
-
 function Missing({ title, fix }: { title: string; fix: string }) {
   return (
     <main className="grid min-h-dvh place-items-center bg-bg0 p-8">
-      <div className="max-w-[480px] space-y-2 text-center">
-        <h1 className="text-[20px] font-medium text-ink">{title}</h1>
-        <p className="text-[13px] text-ink-mute">{fix}</p>
+      <div className="max-w-[520px] space-y-4 border-y border-line py-8">
+        <Wordmark size={22} />
+        <h1 className="app-page-title">{title}</h1>
+        <p className="text-[14px] leading-relaxed text-ink-mute">{fix}</p>
         <p className="pt-2">
           <Link href="/overview" className="text-[13px] text-signal hover:underline">
             Back to Zenith.ai
@@ -114,11 +85,12 @@ export default async function PreviewPage({
 
   return (
     <div className="min-h-dvh bg-bg0">
+      <header className="mx-auto flex max-w-[1000px] items-center justify-between px-6 py-5"><Link href="/overview"><Wordmark size={22} /></Link><ThemeToggle /></header>
       <div className="border-b border-warn/25 bg-warn-dim">
-        <div className="mx-auto flex max-w-[900px] flex-wrap items-center justify-between gap-3 px-6 py-2.5">
+        <div className="mx-auto flex max-w-[1000px] flex-wrap items-center justify-between gap-3 px-6 py-3">
           <p className="text-[12.5px] text-ink">
             <strong className="font-medium">Simulated preview</strong> — recorded output:{" "}
-            <span className="font-mono">{host}</span>. Nothing real is being served.
+            <span className="break-all font-mono">{host}</span>. Nothing real is being served.
           </p>
           <Link
             href={`/p/${project.slug}`}
@@ -129,22 +101,19 @@ export default async function PreviewPage({
         </div>
       </div>
 
-      <main className="mx-auto grid min-h-[calc(100dvh-49px)] max-w-[900px] place-items-center px-6 py-16">
-        <div className="flex flex-col items-center text-center">
-          <Orbits />
-          <p className="mt-8 text-[12px] font-medium tracking-[0.14em] text-ink-faint uppercase">
-            {project.name} · {env?.name ?? "environment"}
-          </p>
-          <h1 className="mt-3 text-[40px] leading-tight font-medium tracking-[-0.02em] text-ink">
+      <main className="mx-auto max-w-[1000px] px-6 py-12 sm:py-16">
+        <div>
+          <h1 className="app-page-title break-words">
             {service.name} · simulated preview
           </h1>
-          <p className="mt-3 max-w-[52ch] text-[14px] text-ink-mute">
+          <p className="mt-3 break-words text-[13px] text-ink-mute">{project.name} · {env?.name ?? "environment"}{env?.class === "production" && <span className="ml-2 rounded-[var(--r-pill)] bg-warn-dim px-2 py-1 text-prod">Production</span>}</p>
+          <p className="mt-6 max-w-[65ch] text-[14px] leading-relaxed text-ink-mute">
             This deployment completed successfully and recorded a preview for{" "}
             <span className="font-mono text-ink">{service.name}</span>. No real application is
             served here, and this page does not check live service health.
           </p>
 
-          <dl className="mt-8 grid grid-cols-2 gap-x-10 gap-y-3 rounded-card border border-line bg-bg2 px-6 py-4 text-left sm:grid-cols-4">
+          <dl className="mt-8 grid grid-cols-2 gap-x-8 gap-y-6 border-y border-line bg-bg2 px-5 py-6 text-left sm:grid-cols-4">
             {[
               ["Revision", revision ? `r${revision.number}` : "—"],
               ["Kind", service.kind],
@@ -152,11 +121,12 @@ export default async function PreviewPage({
               ["Health path", service.healthPath ?? "—"],
             ].map(([k, v]) => (
               <div key={k}>
-                <dt className="text-[11px] tracking-[0.04em] text-ink-faint uppercase">{k}</dt>
-                <dd className="tnum mt-0.5 font-mono text-[13px] text-ink">{v}</dd>
+                <dt className="text-[12px] text-ink-faint">{k}</dt>
+                <dd className="tnum mt-2 break-all font-mono text-[13px] text-ink">{v}</dd>
               </div>
             ))}
           </dl>
+          <div className="mt-7 flex flex-wrap gap-4 text-[13px]"><Link href={`/p/${project.slug}/deploys?env=${encodeURIComponent(deployment.environmentId)}&deployment=${encodeURIComponent(deployment.id)}`} className="inline-flex min-h-9 items-center rounded-ctl bg-signal px-4 font-medium text-on-signal transition-colors hover:bg-signal-strong">Inspect deployment</Link><Link href={`/p/${project.slug}?env=${encodeURIComponent(deployment.environmentId)}`} className="inline-flex min-h-9 items-center text-ink-mute hover:text-ink">Open system</Link></div>
         </div>
       </main>
     </div>

@@ -15,6 +15,7 @@ import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusDot } from "@/components/ui/status-dot";
+import { Chip } from "@/components/ui/chip";
 import { ActionConfirm, ErrorNote, SimulatedChip } from "@/components/screens/shared";
 
 /** Health polls at this base rate; `useJson` slows down while nothing changes. */
@@ -90,16 +91,16 @@ export function HealthStrip({
 
   if (!deployed)
     return (
-      <Card title="Health">
+      <Card title="Service health">
         <EmptyState
           icon={<Activity className="h-5 w-5" />}
           title={`${environmentName} has never been deployed`}
-          body="Health appears once a revision is live here. Deploy from the System map to start."
+          body="Health becomes available after a supported deployment. Review and deploy from the System map to start."
         />
       </Card>
     );
 
-  if (health.error) return <ErrorNote error={health.error} />;
+  if (health.error) return <Card title="Service health" actions={<Chip tone="warn">{health.data ? "Last reading unavailable" : "Unavailable"}</Chip>}><ErrorNote error={health.error} />{health.error.status !== 501 && <Button size="sm" variant="quiet" className="mt-3" onClick={health.refresh}>Retry health check</Button>}</Card>;
 
   const entries = Object.entries(health.data?.services ?? {});
   /** Names come from the revision that is running — the working copy may have renamed it. */
@@ -107,8 +108,8 @@ export function HealthStrip({
 
   return (
     <Card
-      title="Health"
-      subtitle={`${environmentName}${running ? ` · r${running.number}` : ""} · checked every 5s while it changes, less often while it does not`}
+      title="Service health"
+      subtitle={`${environmentName}${running ? ` · deployed r${running.number}` : ""} · refreshes automatically while visible`}
       actions={health.data?.simulated ? <SimulatedChip /> : undefined}
     >
       {!health.data ? (
@@ -122,25 +123,33 @@ export function HealthStrip({
           The live revision has no managed services to report on.
         </p>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="divide-y divide-line">
           {entries.map(([serviceId, h]) => {
             const live = runningService(serviceId);
             const editable = working.services.find((s) => s.id === serviceId);
             const name = live?.name ?? editable?.name ?? serviceId;
             const renamed = editable && live && editable.name !== live.name;
             return (
-              <div key={serviceId} className="rounded-card border border-line bg-bg1 p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <span className="flex min-w-0 items-center gap-2">
+              <div key={serviceId} className="grid gap-3 py-4 first:pt-0 last:pb-0 lg:grid-cols-[minmax(0,1fr)_180px_180px] lg:gap-x-6">
+                <div className="min-w-0">
+                  <span className="flex min-w-0 items-start gap-2">
                     <StatusDot
                       status={h.status === "ok" ? "ok" : "warn"}
                       label={h.status === "ok" ? "Healthy" : "Degraded"}
                     />
-                    <span className="truncate font-mono text-[13px] text-ink" title={name}>
+                    <span className="break-all font-mono text-[13px] text-ink">
                       {name}
                     </span>
                   </span>
-                  <span className="flex shrink-0 items-center">
+                  <p className="mt-1 text-[12px] text-ink-mute">{h.status === "ok" ? "Healthy" : "Degraded"} · {h.reason}</p>
+                  {h.history && <p className="mt-1 text-[12px] leading-relaxed text-ink-faint" title={h.history.map((e) => `${e.at} — ${e.reason}`).join("\n")}>{historyLine(h.history)}</p>}
+                  {renamed && <p className="mt-1 break-words text-[12px] text-warn">Named {editable.name} in the working copy. Deploy to update this environment.</p>}
+                </div>
+                <dl className="tnum grid grid-cols-2 content-start gap-x-5 gap-y-1 text-[12px]">
+                  <div><dt className="text-ink-mute">Ready replicas</dt><dd className="mt-1 font-mono text-[16px] text-ink">{h.replicasReady}<span className="text-ink-faint">/{h.replicasDesired}</span></dd></div>
+                  <div><dt className="text-ink-mute">Latency</dt><dd className="mt-1 font-mono text-[16px] text-ink">{h.latencyMs}<span className="text-[12px] text-ink-faint"> ms</span></dd></div>
+                </dl>
+                  <span className="flex items-start lg:justify-end">
                     <Button
                       size="sm"
                       variant="ghost"
@@ -167,30 +176,6 @@ export function HealthStrip({
                       Restart
                     </Button>
                   </span>
-                </div>
-                <dl className="tnum mt-3 grid grid-cols-2 gap-y-1 text-[12.5px]">
-                  <dt className="text-ink-faint">replicas</dt>
-                  <dd className="text-right text-ink">
-                    {h.replicasReady}/{h.replicasDesired}
-                  </dd>
-                  <dt className="text-ink-faint">latency</dt>
-                  <dd className="text-right text-ink">{h.latencyMs} ms</dd>
-                </dl>
-                <p className="mt-2 text-[11.5px] leading-relaxed text-ink-faint">{h.reason}</p>
-                {h.history && (
-                  <p
-                    className="mt-1 text-[11.5px] leading-relaxed text-ink-faint"
-                    title={h.history.map((e) => `${localTime(e.at)} — ${e.reason}`).join("\n")}
-                  >
-                    {historyLine(h.history)}
-                  </p>
-                )}
-                {renamed && (
-                  <p className="mt-1 text-[11.5px] text-warn">
-                    Renamed to {editable.name} in the working copy — deploy to make that the name
-                    here.
-                  </p>
-                )}
               </div>
             );
           })}

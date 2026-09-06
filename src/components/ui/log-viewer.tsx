@@ -123,7 +123,6 @@ export function LogViewer({
   const [follow, setFollow] = useState(true);
   const [wrap, setWrap] = useState(true);
   const boxRef = useRef<HTMLDivElement>(null);
-  const pinning = useRef(false);
 
   const streamsPresent = useMemo(
     () => STREAM_ORDER.filter((s) => lines.some((l) => l.stream === s)),
@@ -151,18 +150,13 @@ export function LogViewer({
   useLayoutEffect(() => {
     const el = boxRef.current;
     if (!el || !follow) return;
-    pinning.current = true;
     el.scrollTop = el.scrollHeight;
-  }, [shown.length, follow, stream, level, query]);
+  }, [filtered, maxLines, follow, wrap]);
 
   useEffect(() => {
     const el = boxRef.current;
     if (!el) return;
     const onScroll = () => {
-      if (pinning.current) {
-        pinning.current = false;
-        return;
-      }
       const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
       setFollow(atBottom);
     };
@@ -254,7 +248,6 @@ export function LogViewer({
             onChange={(v) => {
               setFollow(v);
               if (v && boxRef.current) {
-                pinning.current = true;
                 boxRef.current.scrollTop = boxRef.current.scrollHeight;
               }
             }}
@@ -301,7 +294,7 @@ export function LogViewer({
             )}
             {shown.map((l, i) => (
               <div
-                key={l.seq ?? `${i}-${l.line.slice(0, 12)}`}
+                key={l.seq ?? `${dropped + i}-${l.ts ?? ""}-${l.line.slice(0, 12)}`}
                 className={cx(
                   "flex items-baseline gap-2.5",
                   wrap ? "whitespace-pre-wrap" : "w-max whitespace-pre"
@@ -314,7 +307,7 @@ export function LogViewer({
                 )}
                 <span
                   className={cx(
-                    "shrink-0 rounded-[4px] px-1 text-[10.5px] tracking-[0.04em] uppercase",
+                    "shrink-0 rounded-[2px] px-1 text-[10.5px] tracking-[0.04em] uppercase",
                     STREAMS[l.stream].badge
                   )}
                 >

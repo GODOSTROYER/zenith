@@ -21,7 +21,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
   { options, placeholder, className, id, ...rest },
   ref
 ) {
-  const f = useFieldProps(id);
+  const f = useFieldProps(id, rest);
   return (
     <div className={cx("relative min-w-0", className)}>
       <select
@@ -29,10 +29,12 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         ref={ref}
         id={f.id}
         aria-describedby={f["aria-describedby"]}
+        aria-labelledby={f["aria-labelledby"]}
         aria-invalid={f["aria-invalid"]}
+        aria-required={f["aria-required"]}
         className={cx(
           "ui-select h-9 w-full appearance-none rounded-ctl border bg-bg1 pr-8 pl-3 text-[13px] text-ink focus-visible:outline-2 focus-visible:outline-signal focus-visible:outline-offset-2",
-          "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]",
+          "transition-colors duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)]",
           f.invalid ? "border-err" : "border-line hover:border-line-strong focus:border-signal",
           rest.disabled && "cursor-not-allowed opacity-55"
         )}

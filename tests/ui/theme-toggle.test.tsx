@@ -37,7 +37,7 @@ function expectSelected(label: string) {
   const trigger = host.querySelector<HTMLButtonElement>('button[aria-haspopup="menu"]')!;
   expect(trigger.getAttribute("aria-label")).toBe(`Theme: ${label}`);
   act(() => trigger.click());
-  const selected = host.querySelector('[aria-label="current"]')?.closest('[role="menuitem"]');
+  const selected = document.querySelector('[aria-label="current"]')?.closest('[role="menuitem"]');
   expect(selected?.textContent).toContain(label);
 }
 

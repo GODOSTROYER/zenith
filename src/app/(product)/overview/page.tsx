@@ -7,7 +7,6 @@ import { diffManifests } from "@/lib/domain/graph";
 import { emptyManifest, type Deployment, type Manifest } from "@/lib/domain/types";
 import { fmtUsd } from "@/lib/format";
 import { currentWorkspace } from "@/lib/server/context";
-import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TimeAgo } from "@/components/ui/time-ago";
 import { ActorDot } from "@/components/screens/shared";
@@ -24,7 +23,7 @@ const ACTIVITY_ROWS = 10;
 
 /** A Link that has to look like the primary Button; the kit has no `asChild`. */
 const PRIMARY_LINK =
-  "inline-flex h-8 items-center rounded-ctl bg-signal px-3 text-[13px] font-medium text-on-signal hover:brightness-110";
+  "inline-flex h-9 items-center rounded-ctl bg-signal px-3.5 text-[13px] font-medium text-on-signal transition-colors hover:bg-signal-strong";
 
 export default async function OverviewPage() {
   // The workspace the browser is in — the same resolution /api uses, so this
@@ -74,6 +73,11 @@ export default async function OverviewPage() {
     let lastDeployedAt: string | undefined;
 
     const environments: EnvRow[] = envs.map((e) => {
+      const connection = data.connections.find((c) => c.id === e.connectionId);
+      const providerLabel = connection?.provider === "sandbox" ? "Sandbox · simulated"
+        : connection?.provider === "localstack" ? "LocalStack · may include simulation"
+        : connection?.provider === "aws" ? "AWS Preview · plan and export"
+        : connection?.provider ?? "Connection unavailable";
       const deployed: Manifest | undefined = e.deployedRevisionId
         ? revisions.get(e.deployedRevisionId)?.manifest
         : undefined;
@@ -91,6 +95,7 @@ export default async function OverviewPage() {
         name: e.name,
         klass: e.class,
         region: e.region,
+        providerLabel,
         ...envStatus(e, latestDeploy.get(e.id)),
         revision,
         pending: changeset.items.length,
@@ -126,10 +131,10 @@ export default async function OverviewPage() {
   return (
     <div className="product-page mx-auto h-full w-full max-w-[1320px] overflow-y-auto">
       <LiveRefresh />
-      <header className="mb-8 flex flex-wrap items-end justify-between gap-x-8 gap-y-4 border-b border-line pb-7">
+      <header className="mb-7 flex flex-wrap items-end justify-between gap-x-8 gap-y-4 border-b border-line pb-6">
         <div>
           {/* The workspace is what this screen is about; the greeting is context. */}
-          <h1 className="text-[28px] leading-tight font-medium tracking-[-0.015em] text-ink">
+          <h1 className="app-page-title break-words">
             {workspace.name}
           </h1>
           <p className="mt-1 text-[14px] text-ink-mute">
@@ -137,19 +142,20 @@ export default async function OverviewPage() {
           </p>
         </div>
         {projects.length > 0 && (
-          <div className="text-right">
+          <div className="flex flex-wrap gap-x-8 gap-y-3">
             <p
-              className="tnum text-[16px] text-ink"
+              className="tnum font-mono text-[18px] text-ink"
               title="Estimated monthly cost of every project's working system definition, at list prices."
             >
               {fmtUsd(workspaceWorking)}
-              <span className="text-[13px] text-ink-faint">/mo working</span>
+              <span className="mt-1 block font-sans text-[12px] text-ink-faint">Working / month · estimate</span>
             </p>
             <p
-              className="tnum mt-0.5 text-[12.5px] text-ink-faint"
+              className="tnum font-mono text-[18px] text-ink"
               title="Estimated monthly cost of what this workspace is actually running now."
             >
-              {fmtUsd(workspaceDeployed)}/mo deployed
+              {fmtUsd(workspaceDeployed)}
+              <span className="mt-1 block font-sans text-[12px] text-ink-faint">Deployed / month · estimate</span>
             </p>
           </div>
         )}
@@ -170,23 +176,21 @@ export default async function OverviewPage() {
           }
         />
       ) : (
-        /* No 320px column is reserved when there is no aside to put in it. */
-        <div className={activity.length > 0 ? "grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_300px]" : ""}>
+        <div className="space-y-9">
           <ProjectGrid projects={rows} />
 
           {activity.length > 0 && (
-            <aside>
-              <h2 className="mb-4 text-[18px] font-medium text-ink">
+            <aside aria-label="Recent workspace activity">
+              <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2"><h2 className="text-[18px] font-medium text-ink">
                 Recent activity
-              </h2>
-              <Card padded={false}>
-                <ul>
+              </h2><p className="text-[12px] text-ink-faint">Latest {activity.length} workspace events · open a project for its full trail</p></div>
+                <ul className="grid border-y border-line lg:grid-cols-2">
                   {activity.map((e) => {
                     const project = e.projectId ? names.get(e.projectId) : undefined;
                     return (
                       <li
                         key={e.id}
-                        className="flex items-start gap-2.5 border-b border-line px-4 py-2.5 last:border-b-0"
+                        className="flex min-w-0 items-start gap-2.5 border-b border-line py-3 pr-5 last:border-b-0 lg:even:border-l lg:even:pl-5 lg:[&:nth-last-child(2)]:border-b-0"
                       >
                         <span className="mt-1.5">
                           <ActorDot actor={e.actor} />
@@ -207,14 +211,13 @@ export default async function OverviewPage() {
                             ) : (
                               "workspace"
                             )}{" "}
-                            · {e.actionId} · <TimeAgo iso={e.ts} />
+                            · {e.actor.name} · <span className="font-mono">{e.actionId}</span> · <TimeAgo iso={e.ts} />
                           </p>
                         </div>
                       </li>
                     );
                   })}
                 </ul>
-              </Card>
             </aside>
           )}
         </div>

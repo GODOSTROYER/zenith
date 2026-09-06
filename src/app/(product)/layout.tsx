@@ -3,6 +3,7 @@ import { ToastProvider } from "@/components/ui/toast";
 import { ErrorBoundary } from "@/components/shell/error-boundary";
 import { ProductChrome } from "@/components/shell/product-chrome";
 import { ShellProvider } from "@/components/shell/shell-context";
+import "@/components/shell/workbench.css";
 
 /**
  * The product shell: one top bar, one toast queue, one notification home.
@@ -22,10 +23,11 @@ export default function ProductLayout({ children }: { children: ReactNode }) {
           >
             Skip to content
           </a>
-          <ProductChrome />
-          <main id="main" tabIndex={-1} className="min-h-0 flex-1 bg-bg0 outline-none">
-            <ErrorBoundary what="This screen">{children}</ErrorBoundary>
-          </main>
+          <ProductChrome>
+            <main id="main" tabIndex={-1} className="min-h-0 min-w-0 flex-1 bg-bg0 outline-none">
+              <ErrorBoundary what="This screen">{children}</ErrorBoundary>
+            </main>
+          </ProductChrome>
         </div>
       </ShellProvider>
     </ToastProvider>

@@ -3,15 +3,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cx } from "@/lib/format";
 import type { GimbalState } from "./gimbal-contract";
-import type { GimbalRenderer } from "./gimbal-renderer";
+import type { GimbalMaterial, GimbalRenderer } from "./gimbal-renderer";
 import { GimbalFallback } from "./gimbal-fallback";
 
 export type GimbalMotion = "auto" | "still" | "low-power";
 
 /** Visible-only gyroscope. Workflow information remains in adjacent HTML. */
-export function GimbalCharacter({ state, motion = "auto", className }: {
+export function GimbalCharacter({ state, motion = "auto", material = "alloy", className }: {
   state: GimbalState | null;
   motion?: GimbalMotion;
+  material?: GimbalMaterial;
   className?: string;
 }) {
   const host = useRef<HTMLDivElement>(null);
@@ -66,9 +67,13 @@ export function GimbalCharacter({ state, motion = "auto", className }: {
       if (typeof window === "undefined") return;
       void import("./gimbal-renderer").then(async ({ createGimbalRenderer }) => {
         if (disposed) return;
+        // Visibility can change while the module loads. Defer GPU creation until
+        // the next visible observation without consuming a recovery attempt.
+        if (!visible || document.visibilityState !== "visible") { starting = false; attempts -= 1; return; }
         let failed = false;
         const instance = await createGimbalRenderer(element, {
           state: latestState.current,
+          material,
           reducedMotion: reducedMotion(),
           lowPower: lowPower(),
           onReady: () => { if (!disposed) setReady(true); },
@@ -106,7 +111,7 @@ export function GimbalCharacter({ state, motion = "auto", className }: {
       renderer.current?.dispose();
       renderer.current = null;
     };
-  }, []);
+  }, [material]);
 
   useLayoutEffect(() => { renderer.current?.setState(state); }, [state]);
   useLayoutEffect(() => { syncSettings.current(); }, [motion]);
@@ -120,10 +125,10 @@ export function GimbalCharacter({ state, motion = "auto", className }: {
 
   return (
     <div className={cx("gimbal-character", className)} data-gimbal-state={state ?? "neutral"}
-      data-renderer={ready ? "3d" : "static"} data-motion={motion} data-active={active}>
+      data-renderer={ready ? "3d" : "static"} data-motion={motion} data-material={material} data-active={active}>
       <span className="gimbal-aura" aria-hidden="true" />
       <span key={state} className="gimbal-state-pulse" aria-hidden="true" />
-      <GimbalFallback state={state} hidden={ready} />
+      <GimbalFallback state={state} material={material} hidden={ready} />
       <div className="gimbal-canvas" ref={host} aria-hidden="true" />
       <button type="button" className="gimbal-greeting" aria-label="Say hello to Gimbal"
         title="Say hello to Gimbal"

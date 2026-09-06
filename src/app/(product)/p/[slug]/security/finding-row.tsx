@@ -24,6 +24,7 @@ export interface FindingRowProps {
   envChip: ReactNode;
   onFix: () => void;
   onDismiss: () => void;
+  onInspect: () => void;
 }
 
 export function FindingRow({
@@ -36,24 +37,27 @@ export function FindingRow({
   envChip,
   onFix,
   onDismiss,
+  onInspect,
 }: FindingRowProps) {
   const blocked = row?.plan?.blocked;
   return (
     <li
       className={cx(
-        "flex items-start gap-4 border-b border-line px-5 py-4 last:border-b-0",
-        here && "bg-signal/[0.045]"
+        "grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-3 border-b border-line px-4 py-5 last:border-b-0 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:gap-x-4 lg:px-5",
+        here && "bg-bg1/60"
       )}
     >
       <RiskBadge level={f.severity} className="mt-0.5" />
       <div className="min-w-0 flex-1">
-        <h3 className="text-[14px] text-ink">{f.title}</h3>
-        <p className="mt-1 max-w-[70ch] text-[12.5px] leading-relaxed text-ink-mute">
+        <h3 className="text-[14px] font-semibold text-ink">
+          <button type="button" onClick={onInspect} className="text-left [overflow-wrap:anywhere] underline-offset-4 hover:underline" aria-label={`Inspect finding: ${f.title}`}>{f.title}</button>
+        </h3>
+        <p className="mt-1.5 max-w-[78ch] text-[13px] leading-relaxed text-ink-mute [overflow-wrap:anywhere]">
           {f.detail}
         </p>
 
         {f.fix && (
-          <p className="mt-1.5 flex flex-wrap items-center gap-2 text-[11.5px] text-ink-faint">
+          <p className="mt-2 flex flex-wrap items-center gap-2 text-[12px] text-ink-faint">
             <span className="text-ink-mute">{f.fix.label}</span>
             {row?.plan ? (
               <>
@@ -63,9 +67,9 @@ export function FindingRow({
                 </span>
               </>
             ) : row?.error ? (
-              <span className="text-warn">could not be previewed</span>
+              <span className="text-warn">Preview unavailable — open Review fix to retry</span>
             ) : (
-              <span>working out what it would cost…</span>
+              <span>Estimating this fix…</span>
             )}
           </p>
         )}
@@ -76,15 +80,15 @@ export function FindingRow({
           </Callout>
         )}
 
-        <p className="mt-1.5 flex flex-wrap items-center gap-2 text-[11.5px] text-ink-faint">
+        <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-[12px] text-ink-faint">
           <TimeAgo iso={f.createdAt} prefix="found" />
           {envChip}
           {f.targetId && slug && (
             <Link
-              href={`/p/${slug}?select=${f.targetId}`}
+              href={`/p/${slug}?select=${encodeURIComponent(f.targetId)}${f.environmentId ? `&env=${encodeURIComponent(f.environmentId)}` : ""}`}
               className="font-mono text-signal hover:underline"
             >
-              show on map
+              Show on map
             </Link>
           )}
           {isEnvironmentPolicy(f) && slug && (
@@ -97,7 +101,7 @@ export function FindingRow({
           )}
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="col-start-2 flex flex-wrap items-center gap-2 lg:col-start-3">
         <Button
           size="sm"
           disabled={!f.fix || !canEdit || !!blocked}
@@ -111,7 +115,7 @@ export function FindingRow({
           onClick={onFix}
           title={f.fix?.label}
         >
-          {f.fix ? "Fix" : "No auto-fix"}
+          {f.fix ? "Review fix" : "Manual fix"}
         </Button>
         <Button
           size="sm"

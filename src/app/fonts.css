@@ -18,7 +18,8 @@
 }
 
 /* Official Latin WOFF2 subsets; OFL and source URLs: public/fonts/README.md.
-   These new roles are scoped to the landing. Product typography is retained. */
+   Manrope supplies application UI, Instrument Serif selective page titles,
+   and JetBrains Mono technical data. Historical Space Grotesk assets remain. */
 @font-face {
   font-family: "Instrument Serif";
   font-style: normal;

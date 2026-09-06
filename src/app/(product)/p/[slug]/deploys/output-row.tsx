@@ -27,17 +27,19 @@ export function OutputRow({ output, envSimulated }: OutputRowProps) {
   const copy = copyTarget(output, simulated);
 
   return (
-    <li className="flex items-center gap-3 border-b border-line px-5 py-3 last:border-b-0">
+    <li className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-3 last:border-b-0">
       <div className="min-w-0 flex-1">
-        <p className="truncate font-mono text-[12.5px] text-ink">{output.label}</p>
-        <p className="text-[11.5px] text-ink-faint">{output.kind}</p>
+        <p className="break-words font-mono text-[12.5px] text-ink">{output.label}</p>
+        <p className="text-[12px] text-ink-mute">{output.kind}</p>
       </div>
-      {isUrl && simulated !== false && (
+      {simulated !== false && (
         <Chip
           title={
-            simulated
+            simulated && isUrl
               ? `${pretty} does not exist on the internet. Open shows a local preview served by the sandbox provider.`
-              : "Checking which provider produced this address."
+              : simulated
+                ? "This is a simulated provider output. It does not identify verified live infrastructure."
+                : "Checking which provider produced this output."
           }
         >
           {simulated ? "simulated" : "checking…"}

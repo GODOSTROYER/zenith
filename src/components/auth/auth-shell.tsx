@@ -20,13 +20,20 @@ export function AuthShell({ configured, children }: { configured: boolean; child
           </Link>
           <ThemeToggle />
         </header>
-        <main className="flex flex-1 items-start justify-center px-6 pb-16 pt-10 sm:items-center sm:pt-0">
-          <div className="w-full max-w-[460px]">
+        <main className="mx-auto grid w-full max-w-[1120px] flex-1 items-center gap-10 px-6 py-10 sm:px-8 lg:grid-cols-[1fr_460px] lg:gap-20 lg:py-16">
+          <div className="max-w-[440px]">
+            <h2 className="font-display text-[42px] leading-[1.08] tracking-[-0.02em] text-ink sm:text-[52px]">Your stack,<br />clearly in view.</h2>
+            <p className="mt-5 max-w-[38ch] text-[14px] leading-relaxed text-ink-mute">A workspace for your infrastructure, from the first proposed change to the record it leaves behind.</p>
+            <ol className="mt-8 hidden border-y border-line lg:block">
+              {["Shape your system", "Review the change and its estimated cost", "Approve, execute, and inspect the result"].map((label, index) => <li key={label} className="flex items-baseline gap-4 border-b border-line py-4 text-[13px] text-ink-mute last:border-0"><span className="tnum font-mono text-[12px] text-signal">{index + 1}</span>{label}</li>)}
+            </ol>
+          </div>
+          <div className="w-full max-w-[460px] justify-self-center lg:justify-self-end">
             {configured ? (
               children
             ) : (
-              <div className="rounded-[12px] border border-line bg-bg1 p-6">
-                <h1 className="text-[20px] font-semibold tracking-[-0.01em]">Sign-in isn&apos;t configured yet</h1>
+              <div className="rounded-card border border-line bg-bg2 p-6 sm:p-8">
+                <h1 className="app-page-title">Sign-in isn&apos;t configured yet</h1>
                 <p className="mt-2 text-[14px] leading-[1.6] text-ink-mute">
                   Zenith.ai is running in local demo mode — one local user, no accounts. To turn on
                   accounts, add Supabase keys to{" "}
@@ -35,7 +42,7 @@ export function AuthShell({ configured, children }: { configured: boolean; child
                 </p>
                 <Link
                   href="/overview"
-                  className="mt-5 inline-flex items-center rounded-[8px] bg-signal px-4 py-2 text-[13.5px] font-semibold text-on-signal"
+                  className="mt-5 inline-flex min-h-9 items-center rounded-ctl bg-signal px-4 py-2 text-[13px] font-medium text-on-signal transition-colors hover:bg-signal-strong"
                 >
                   Continue in demo mode
                 </Link>

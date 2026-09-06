@@ -1,19 +1,17 @@
 "use client";
 /**
- * The product top bar: wordmark, palette, notifications, theme, and the two
- * chips that were static text until now.
- *
- * Both chips are menus, because both looked like controls. The user chip also
- * carries the caller's role — the value every role-gated control in the product
- * is supposed to read, and which nothing showed the person it applies to.
+ * Persistent navigation and one context bar. Workspace/account menus retain
+ * real membership and action semantics; the project supplies its controls
+ * through a DOM slot without lifting or duplicating the project data spine.
  */
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Check, ChevronDown, LogOut, Plus, Settings, Users } from "lucide-react";
+import { Check, ChevronDown, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Plus, Settings, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { Dialog } from "@/components/ui/dialog";
+import { Drawer } from "@/components/ui/drawer";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { MenuItem, MenuNote, Popover } from "@/components/ui/popover";
@@ -21,14 +19,16 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ActivityBell } from "@/components/shell/activity-bell";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { useShell } from "@/components/shell/shell-context";
-import { Wordmark } from "@/components/shell/wordmark";
+import { OrbitMark, Wordmark } from "@/components/shell/wordmark";
+import { ChromeSlotContext } from "./chrome-slot";
+import { ShellNavigation } from "./navigation";
 import { api, ApiError } from "@/lib/client/api";
 import { cx } from "@/lib/format";
 import type { Workspace } from "@/lib/domain/types";
 
 const CHIP =
-  "inline-flex min-h-9 items-center gap-2 rounded-ctl border border-line bg-bg2 px-3 py-1 text-[13px] " +
-  "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)] " +
+  "inline-flex min-h-9 items-center gap-2 rounded-ctl border border-transparent px-2 py-1 text-[13px] " +
+  "transition-colors duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)] " +
   "hover:border-line-strong focus-visible:border-signal";
 
 /** Where the workspace's own settings live — under whichever project is open. */
@@ -61,6 +61,7 @@ function CreateWorkspaceDialog({ open, onClose }: { open: boolean; onClose: () =
       setName("");
       onClose();
       refresh();
+      router.push("/overview");
       router.refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err : new ApiError(String(err), 0));
@@ -133,6 +134,7 @@ function WorkspaceChip() {
     try {
       await api("/api/workspace/select", { method: "POST", body: JSON.stringify({ workspaceId }) });
       refresh();
+      router.push("/overview");
       router.refresh();
     } catch (err) {
       setSwitchError(err instanceof ApiError ? (err.fix ?? err.message) : String(err));
@@ -163,7 +165,7 @@ function WorkspaceChip() {
             aria-expanded={open}
             title={`Workspace · ${boot.workspace.name}`}
             onClick={() => setOpen((o) => !o)}
-            className={cx(CHIP, "max-w-[200px] text-ink-mute hover:text-ink")}
+            className={cx(CHIP, "workbench-workspace-picker w-full min-w-0 justify-between text-ink-mute hover:text-ink")}
           >
             <span className="truncate">{boot.workspace.name}</span>
             <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-faint" aria-hidden="true" />
@@ -306,27 +308,75 @@ function UserMenu() {
   );
 }
 
-export function ProductChrome() {
-  const { catalog } = useShell();
+export function ProductChrome({ children }: { children: ReactNode }) {
+  const { catalog, boot } = useShell();
+  const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [slot, setSlot] = useState<HTMLDivElement | null>(null);
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
+  const routeSlug = /^\/p\/([^/]+)/.exec(pathname)?.[1];
+  const slug = routeSlug ?? boot?.projects[0]?.slug;
+  const projectName = boot?.projects.find((project) => project.slug === slug)?.name;
+  const title = pathname.startsWith("/guide") ? "Workspace guide" : "Workspace overview";
+
+  useEffect(() => {
+    try { setCollapsed(localStorage.getItem("orrery-shell-collapsed") === "true"); } catch { /* Optional preference. */ }
+  }, []);
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 900px)");
+    const onWide = () => { if (media.matches) setMobileOpen(false); };
+    media.addEventListener("change", onWide);
+    return () => media.removeEventListener("change", onWide);
+  }, []);
+  const toggleRail = () => setCollapsed((current) => {
+    const next = !current;
+    try { localStorage.setItem("orrery-shell-collapsed", String(next)); } catch { /* Session state remains usable. */ }
+    return next;
+  });
+
   return (
-    <header className="product-chrome">
-      <div className="product-chrome-identity">
-      <Link
-        href="/overview"
-        title="Workspace overview"
-        className="rounded-ctl px-1 py-0.5 transition-opacity duration-[120ms] [transition-timing-function:var(--ease-swift)] hover:opacity-80"
-      >
-        <Wordmark size={22} />
-      </Link>
-      <WorkspaceChip />
+    <ChromeSlotContext.Provider value={slot}>
+      <div className="workbench-frame" data-collapsed={collapsed}>
+        <aside className="workbench-rail" aria-label="Workspace navigation">
+          <Link href="/overview" className="workbench-brand" aria-label="Zenith workspace overview">
+            {collapsed ? <OrbitMark size={27} /> : <Wordmark size={26} />}
+          </Link>
+          {!collapsed && <div className="workbench-workspace"><WorkspaceChip /></div>}
+          {collapsed && <div className="workbench-workspace-compact"><WorkspaceChip /></div>}
+          <div className="workbench-nav-scroll"><ShellNavigation pathname={pathname} slug={slug} projectName={projectName} collapsed={collapsed} /></div>
+          <div className="workbench-rail-footer">
+            <button type="button" className="workbench-nav-link" onClick={toggleRail}
+              aria-label={collapsed ? "Expand navigation" : "Collapse navigation"} aria-expanded={!collapsed}>
+              {collapsed ? <PanelLeftOpen size={17} aria-hidden="true" /> : <PanelLeftClose size={17} aria-hidden="true" />}
+              <span className={collapsed ? "sr-only" : "workbench-nav-label"}>Collapse navigation</span>
+            </button>
+          </div>
+        </aside>
+        <div className="workbench-body">
+          <header className="workbench-context-bar">
+            <button type="button" className="workbench-mobile-menu" onClick={() => setMobileOpen(true)}
+              aria-label="Open navigation" aria-haspopup="dialog" aria-expanded={mobileOpen}>
+              <Menu size={20} aria-hidden="true" />
+            </button>
+            <div className="workbench-context" ref={setSlot} />
+            {!routeSlug && <div className="workbench-context-title">{title}</div>}
+            <div className="workbench-tools">
+              <CommandPalette catalog={catalog} />
+              <ActivityBell />
+              <span className="workbench-desktop-theme"><ThemeToggle /></span>
+              <span className="workbench-account"><UserMenu /></span>
+            </div>
+          </header>
+          {children}
+        </div>
+        <Drawer open={mobileOpen} onClose={closeMobile} title={<Wordmark size={24} />} description="Workspace and project navigation" width={420}>
+          <div className="workbench-mobile-workspace"><WorkspaceChip /></div>
+          <ShellNavigation pathname={pathname} slug={slug} projectName={projectName} onNavigate={closeMobile} />
+          <div className="workbench-mobile-footer"><ThemeToggle /><UserMenu /></div>
+        </Drawer>
       </div>
-      <div className="product-chrome-tools">
-        <Link href="/guide" className="inline-flex min-h-9 items-center rounded-ctl px-2 text-[13px] text-ink-mute hover:bg-bg2 hover:text-ink" title="Setup progress and help for every screen">Guide</Link>
-        <CommandPalette catalog={catalog} />
-        <ActivityBell />
-        <ThemeToggle />
-        <UserMenu />
-      </div>
-    </header>
+    </ChromeSlotContext.Provider>
   );
 }

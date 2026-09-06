@@ -54,7 +54,7 @@ export function SegmentedControl<T extends string = string>({
 
   // Nothing checked (a value outside the options) would leave the group
   // unreachable by Tab, so the first usable option holds the tab stop.
-  const checked = options.some((o) => o.value === value);
+  const checked = options.some((o) => o.value === value && !o.disabled);
   const tabStop = checked ? value : options.find((o) => !o.disabled)?.value;
 
   return (
@@ -90,8 +90,8 @@ export function SegmentedControl<T extends string = string>({
             }}
             onClick={() => !o.disabled && onChange(o.value)}
             className={cx(
-              "rounded-[6px] font-medium whitespace-nowrap",
-              "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]",
+              "rounded-ctl font-medium whitespace-nowrap",
+              "transition-colors duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)]",
               size === "sm" ? "h-7 px-2.5 text-[12px]" : "h-8 px-3 text-[12.5px]",
               o.disabled
                 ? "cursor-not-allowed text-ink-faint"

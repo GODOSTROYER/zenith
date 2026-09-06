@@ -48,7 +48,7 @@ export function Tooltip({ label, side = "top", className, children }: TooltipPro
         className={cx(
           "pointer-events-none absolute z-50 w-max max-w-[260px] rounded-ctl border border-line bg-bg3 px-2.5 py-1.5",
           "text-[12px] leading-snug text-ink shadow-overlay",
-          "opacity-0 transition-opacity duration-[120ms] [transition-timing-function:var(--ease-swift)]",
+          "opacity-0 transition-opacity duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)]",
           "group-hover/tip:opacity-100 group-focus-within/tip:opacity-100",
           SIDES[side]
         )}

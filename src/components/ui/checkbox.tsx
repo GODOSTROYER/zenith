@@ -46,7 +46,7 @@ export function Checkbox({
         disabled={disabled}
         aria-describedby={help ? helpId : undefined}
         onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 h-3.5 w-3.5 shrink-0 cursor-pointer rounded-[4px] border border-line bg-bg1 accent-signal disabled:cursor-not-allowed"
+        className="mt-0.5 h-3.5 w-3.5 shrink-0 cursor-pointer rounded-[2px] border border-line bg-bg1 accent-signal disabled:cursor-not-allowed"
       />
       <span className="min-w-0">
         <label

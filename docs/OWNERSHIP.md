@@ -35,8 +35,8 @@ exercises; whoever owns the module owns its tests.
 Every directory under `src/components` has a `README.md` saying what lives
 there and what must not; read that one before adding a file. The short version:
 
-- **`components/ui/`** — the kit, and the only source of primitives. Imported
-  as `@/components/ui` (the barrel), never file by file. Tokens only, no domain
+- **`components/ui/`** — the kit, and the only source of primitives. Prefer
+  direct primitive imports; the barrel remains compatible. Tokens only, no domain
   types, no knowledge of a project or an action.
 - **`components/screens/`** — what more than one screen needs and the kit
   cannot own because it knows about actions, roles and changesets: `shared.tsx`
@@ -60,3 +60,8 @@ there and what must not; read that one before adding a file. The short version:
 
 `"use client"` goes on the component that actually uses hooks or handlers;
 presentational components and pure modules carry no directive.
+
+
+## Application reimagining commission
+
+For `test/zenith-app-reimagined`, the nonoverlapping UI workstream assignments in [zenith-app-design-contract.md](zenith-app-design-contract.md) supersede the historical E1/E2 split. The integrator owns shared tokens, helpers, documentation and integration. Direct primitive imports follow the current UI index performance convention. Backend ownership and compatibility boundaries remain in force.

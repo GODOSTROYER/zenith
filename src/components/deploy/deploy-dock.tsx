@@ -64,7 +64,7 @@ export function DeployDock({
     const latest = deployments.find((d) => d.environmentId === selectedEnvId);
     if (!latest || latest.status !== "succeeded") return undefined;
     const url = latest.outputs.find((o) => o.kind === "url");
-    return url && { href: url.value, label: url.label };
+      return url && { href: url.value, label: url.label, simulated: url.simulated };
   }, [deployments, selectedEnvId]);
 
   // Switching environment is switching subject: start from rest.
@@ -146,7 +146,7 @@ export function DeployDock({
    * 1400px, below that it is a modal drawer), and the map's own gutter.
    */
   const shell = cx(
-    "fixed bottom-4 right-6 left-6 z-40 mx-auto",
+    "absolute bottom-3 right-3 left-3 z-40 mx-auto sm:bottom-4 sm:right-5 sm:left-5",
     // 400px panel + 24px gutter, but only while the panel is actually there.
     // 1400px is where the Inspector docks (useWideLayout); below it the panel
     // is a modal drawer and there is no lane to keep out of.
@@ -172,13 +172,13 @@ export function DeployDock({
             rel="noreferrer"
             title={`Open ${name} as ${selectedEnv?.name ?? "this environment"} runs it now`}
             className={cx(
-              "animate-enter inline-flex items-center gap-2.5 rounded-full border border-line bg-bg2 py-1.5 pr-2.5 pl-3.5",
+              "animate-enter inline-flex items-center gap-2.5 rounded-card border border-line bg-bg2 py-2 pr-3 pl-3.5",
               "text-[12.5px] text-ink-mute shadow-overlay transition-colors duration-[120ms]",
               "[transition-timing-function:var(--ease-swift)] hover:border-line-strong hover:text-ink"
             )}
           >
             <StatusDot status="ok" />
-            Live
+            {liveUrl.simulated ? "Simulated output" : "Deployment output"}
             <span aria-hidden="true" className="text-ink-faint">
               ·
             </span>
@@ -200,13 +200,14 @@ export function DeployDock({
           ref={pillRef}
           onClick={() => open({ at: "review" })}
           className={cx(
-            "animate-enter inline-flex items-center gap-3 rounded-full border border-line bg-bg2 py-2 pr-3 pl-4",
+            "animate-enter inline-flex max-w-full flex-wrap items-center justify-center gap-2 rounded-card border border-line bg-bg2 py-2 pr-3 pl-4 sm:gap-3",
             "shadow-overlay transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]",
             "hover:border-line-strong",
             selectedEnv?.class === "production" && "ring-1 ring-prod/45"
           )}
         >
           <StatusDot status="info" pulse={false} />
+          <span className={cx("text-[12px] font-medium", selectedEnv?.class === "production" ? "text-prod" : "text-ink-mute")}>{selectedEnv?.name}{selectedEnv?.class === "production" ? " · production" : ""}</span>
           <span className="tnum text-[13px] text-ink">
             {pending} pending change{pending === 1 ? "" : "s"}
           </span>
@@ -214,7 +215,7 @@ export function DeployDock({
             ·
           </span>
           <CostDelta usd={changeset?.totalCostDeltaUsd ?? 0} />
-          <span className="rounded-full bg-signal px-2.5 py-0.5 text-[12.5px] font-medium text-on-signal">
+          <span className="rounded-ctl bg-signal px-2.5 py-1 text-[12.5px] font-medium text-on-signal">
             Review
           </span>
         </button>
@@ -238,14 +239,14 @@ export function DeployDock({
         shell,
         "animate-enter flex flex-col overflow-hidden rounded-card border bg-bg2 shadow-overlay",
         landed
-          ? "max-h-[calc(100vh-2rem)] max-w-[880px] min-[1100px]:max-w-[1040px]"
-          : "max-h-[60vh] max-w-[880px]",
+          ? "max-h-[calc(100%-2rem)] max-w-[960px]"
+          : "max-h-[min(78vh,calc(100%-2rem))] max-w-[960px]",
         selectedEnv?.class === "production" ? "border-prod/50 ring-1 ring-prod/45" : "border-line"
       )}
     >
       <header className="flex shrink-0 items-center justify-between gap-3 border-b border-line px-4 py-2.5">
-        <h2 className="text-[12px] font-medium tracking-[0.04em] text-ink-faint uppercase">
-          {view.at === "review" ? "Review changes" : landed ? "Live" : "Deployment"}
+        <h2 className="text-[13px] font-semibold text-ink">
+          {view.at === "review" ? "Change review" : landed ? "Deployment complete" : "Deployment"}<span className="ml-2 font-normal text-ink-mute">{selectedEnv?.name}</span>
         </h2>
         <div className="flex items-center gap-1">
           {view.at === "live" && pending > 0 && (

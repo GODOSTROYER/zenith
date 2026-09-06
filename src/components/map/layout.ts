@@ -4,9 +4,9 @@ export type Stratum = "route" | "service" | "resource";
 
 /** Node footprints, shared by the layout engine and the node components. */
 export const NODE_SIZE: Record<Stratum, { width: number; height: number }> = {
-  route: { width: 220, height: 44 },
-  service: { width: 200, height: 84 },
-  resource: { width: 180, height: 72 },
+  route: { width: 280, height: 88 },
+  service: { width: 280, height: 120 },
+  resource: { width: 280, height: 120 },
 };
 
 /**
@@ -14,7 +14,7 @@ export const NODE_SIZE: Record<Stratum, { width: number; height: number }> = {
  * The map is a semantic diagram, not a canvas — a node's horizontal position
  * always means the same thing, so dagre only decides vertical order.
  */
-const COLUMN_X: Record<Stratum, number> = { route: 0, service: 320, resource: 640 };
+const COLUMN_X: Record<Stratum, number> = { route: 0, service: 420, resource: 840 };
 
 export interface LayoutInput {
   id: string;
@@ -26,7 +26,7 @@ export function layoutGraph(
   edges: { source: string; target: string }[]
 ): Record<string, { x: number; y: number }> {
   const g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: "LR", nodesep: 26, ranksep: 120, marginx: 32, marginy: 32 });
+  g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 140, marginx: 32, marginy: 32 });
   g.setDefaultEdgeLabel(() => ({}));
 
   const known = new Set(nodes.map((n) => n.id));
@@ -49,7 +49,7 @@ export function layoutGraph(
   // Snapping every node to its stratum's column can collide nodes dagre had
   // put in different ranks — an unconnected resource, most often. Keep dagre's
   // vertical order and push the overlaps apart.
-  const GAP = 26;
+  const GAP = 40;
   for (const stratum of ["route", "service", "resource"] as Stratum[]) {
     const column = nodes
       .filter((n) => n.stratum === stratum)

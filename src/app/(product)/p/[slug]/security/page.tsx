@@ -10,12 +10,13 @@
  * would be refused is never offered.
  */
 import { useMemo, useState } from "react";
-import { ShieldCheck } from "lucide-react";
+import { LockKeyhole, ShieldCheck } from "lucide-react";
 import type { SecurityFinding } from "@/lib/domain/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Callout } from "@/components/ui/callout";
 import { useSelectedEnv } from "@/components/screens/project-data";
 import { useShell } from "@/components/shell/shell-context";
 import { downloadFile } from "@/components/screens/download-file";
@@ -29,6 +30,7 @@ import { HistorySection } from "./history-section";
 import { PendingSection } from "./pending-section";
 import { useFixPlans } from "./use-fix-plans";
 import { PageHeading } from "@/components/screens/page-heading";
+import { FindingDetail } from "./finding-detail";
 import {
   excludedNote,
   matches,
@@ -53,6 +55,7 @@ export default function SecurityPage() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   const [sort, setSort] = useState<SortKey>("severity");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const findings = useMemo(() => data?.findings ?? [], [data]);
   const environments = useMemo(() => data?.environments ?? [], [data]);
@@ -89,6 +92,7 @@ export default function SecurityPage() {
     () => sortFindings(open.filter((f) => matches(f, filters)), sort),
     [open, filters, sort]
   );
+  const selected = findings.find((finding) => finding.id === selectedId);
 
   if (!data)
     return (
@@ -117,8 +121,27 @@ export default function SecurityPage() {
   );
 
   return (
-    <div className="product-page mx-auto h-full w-full max-w-[1040px] space-y-6 overflow-y-auto">
-      <PageHeading title="Security" description="Review findings, preview fixes, and track what still needs to be deployed. A clean working copy is not proof that the running environment is fixed." />
+    <div className="product-page mx-auto h-full w-full max-w-[1320px] space-y-6 overflow-y-auto">
+      <PageHeading title="Security" description="Review the system’s exposure. Preview a fix, record a decision, and follow the change into its environment." />
+      <dl className="grid grid-cols-2 divide-x divide-line border-y border-line sm:grid-cols-4">
+        {[
+          { label: "Open findings", value: open.length, detail: "Across this project", tone: "text-ink" },
+          { label: "High severity", value: open.filter((finding) => finding.severity === "high").length, detail: "Prioritize for review", tone: "text-err" },
+          { label: "Awaiting deployment", value: pending.length, detail: "Working copy changed", tone: "text-warn" },
+          { label: "Recorded decisions", value: history.length, detail: "Resolved or dismissed", tone: "text-ink" },
+        ].map((item) => (
+          <div key={item.label} className="px-4 py-4 first:pl-0 sm:py-5">
+            <dt className="text-[12px] font-medium text-ink-mute">{item.label}</dt>
+            <dd className={`mt-2 font-mono text-[28px] leading-none tnum ${item.tone}`}>{item.value}</dd>
+            <p className="mt-2 text-[12px] text-ink-faint">{item.detail}</p>
+          </div>
+        ))}
+      </dl>
+      {!canEdit && (
+        <Callout tone="info" icon={<LockKeyhole className="h-4 w-4" />}>
+          You have read-only access. Inspect findings and export this report; ask a workspace editor or admin to apply fixes or record dismissals.
+        </Callout>
+      )}
       {open.length === 0 ? (
         <div className="rounded-card border border-ok/30 bg-ok-dim">
           <EmptyState
@@ -127,7 +150,7 @@ export default function SecurityPage() {
             body={
               pending.length > 0
                 ? `The scanner has nothing outstanding in the working copy, but ${pending.length} fix${pending.length === 1 ? " is" : "es are"} still waiting on a deploy — see below.`
-                : "The scanner has nothing outstanding on this system. It re-runs every time the project loads."
+                : "The configuration scanner found no outstanding issues. This is a working-copy assessment, not a verification of live infrastructure."
             }
             secondaryAction={
               findings.length > 0 ? (
@@ -159,7 +182,7 @@ export default function SecurityPage() {
             onFixAll={() => setBulkOpen(true)}
           />
 
-          <p className="text-[12px] text-ink-faint">
+          <p aria-live="polite" className="text-[12px] text-ink-faint">
             {visible.length === open.length
               ? `${open.length} open finding${open.length === 1 ? "" : "s"}`
               : `${visible.length} of ${open.length} open findings shown`}
@@ -195,6 +218,7 @@ export default function SecurityPage() {
                     envChip={envChip(f)}
                     onFix={() => setFixing(f)}
                     onDismiss={() => setDismissing(f)}
+                    onInspect={() => setSelectedId(f.id)}
                   />
                 ))}
               </ul>
@@ -218,6 +242,18 @@ export default function SecurityPage() {
           onReopen={setReopening}
         />
       )}
+
+      <p className="border-t border-line pt-4 text-[12px] leading-relaxed text-ink-faint">
+        Assessment scope: the project’s working configuration and environment policies. A fix remains pending until its deployment is recorded. Findings are not a live vulnerability scan.
+      </p>
+
+      <FindingDetail
+        finding={selected}
+        row={selected ? planOf.get(selected.id) : undefined}
+        environment={selected?.environmentId ? envById.get(selected.environmentId) : undefined}
+        slug={slug}
+        onClose={() => setSelectedId(null)}
+      />
 
       <ActionConfirm
         open={fixing !== null}

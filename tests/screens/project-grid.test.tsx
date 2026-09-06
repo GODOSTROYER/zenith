@@ -84,7 +84,7 @@ describe("<ProjectGrid> card structure", () => {
     const el = render([project({ pending: 3, openFindings: 2 })]);
     const hrefs = links(el).map((a) => a.getAttribute("href"));
     expect(hrefs).toContain("/p/atlas/security");
-    expect(el.textContent).toContain("3 to deploy");
+    expect(el.textContent).toContain("Up to 3 pending");
     expect(el.textContent).toContain("2 open findings");
   });
 
@@ -96,8 +96,20 @@ describe("<ProjectGrid> card structure", () => {
 
   it("labels both costs rather than showing one bare number (V2)", () => {
     const el = render([project()]);
-    expect(el.textContent).toContain("/mo working");
-    expect(el.textContent).toContain("/mo deployed");
+    expect(el.textContent).toContain("working / month · estimate");
+    expect(el.textContent).toContain("deployed / month · estimate");
+  });
+
+  it("keeps simulation and production context beside the exact environment entry", () => {
+    const el = render([project({ environments: [env({
+      name: "Release", klass: "production", pending: 2, providerLabel: "Sandbox · simulated",
+    })] })]);
+    const entry = links(el).find((a) => a.getAttribute("href") === "/p/atlas?env=e1")!;
+    expect(entry.textContent).toContain("Production");
+    expect(entry.textContent).toContain("Sandbox · simulated");
+    expect(entry.textContent).toContain("deployed");
+    expect(entry.textContent).toContain("2 pending");
+    expect(entry.textContent).not.toContain("live");
   });
 
   it("shows a budget meter only for an environment that has a budget (V7)", () => {
@@ -106,7 +118,7 @@ describe("<ProjectGrid> card structure", () => {
     const el = render([project({ environments: [env({ budgetUsd: 200, projectedUsd: 190 })] })]);
     const meter = el.querySelector('[role="meter"]');
     expect(meter).not.toBeNull();
-    expect(el.textContent).toContain("staging budget");
+    expect(el.textContent).toContain("staging monthly budget");
   });
 });
 

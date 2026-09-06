@@ -3,7 +3,7 @@ import type { ProviderRow } from "./landing";
 
 const PROVIDER_COPY: Record<string, { title: string; copy: string; note: string }> = {
   sandbox: { title: "Sandbox", copy: "Explore the entire workflow.", note: "Simulated deployment and operations. No infrastructure is provisioned." },
-  localstack: { title: "LocalStack", copy: "Real local resources. On your machine.", note: "Supported S3 buckets and SQS queues with Docker + LocalStack. Application services, routes and unsupported configurations are blocked by preflight." },
+  localstack: { title: "LocalStack", copy: "Real local resources. On your machine.", note: "Supported S3 buckets and SQS queues with Docker + LocalStack. Application services, routes and other emulated behavior remain simulated." },
   aws: { title: "AWS Preview", copy: "Plan here. Apply with your own tools.", note: "Real Terraform export. No in-app AWS apply, account reads or live account verification." },
 };
 

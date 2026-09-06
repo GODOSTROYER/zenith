@@ -7,7 +7,8 @@
  * "an overlay is open" in the kit. What this adds is anchoring to a trigger,
  * outside-click dismissal, and menu semantics with arrow-key roving.
  */
-import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { cx } from "@/lib/format";
 import { useModal } from "./use-modal";
@@ -41,16 +42,61 @@ export function Popover({
   children,
 }: PopoverProps) {
   const box = useRef<HTMLDivElement>(null);
-  const { ref, present, shown } = useModal(open, onClose);
+  const { ref, present, shown, isTopmost } = useModal(open, onClose);
+
+  useLayoutEffect(() => {
+    const panel = ref.current;
+    const anchor = box.current;
+    if (!present || !panel || !anchor) return;
+    const position = () => {
+      const bounds = anchor.getBoundingClientRect();
+      const viewport = window.visualViewport;
+      const viewportWidth = viewport?.width ?? window.innerWidth;
+      const viewportHeight = viewport?.height ?? window.innerHeight;
+      const offsetLeft = viewport?.offsetLeft ?? 0;
+      const offsetTop = viewport?.offsetTop ?? 0;
+      const margin = 12;
+      panel.style.maxWidth = `${Math.max(0, viewportWidth - margin * 2)}px`;
+      const panelWidth = panel.getBoundingClientRect().width;
+      const desiredLeft = align === "end" ? bounds.right - panelWidth : bounds.left;
+      panel.style.left = `${Math.max(offsetLeft + margin, Math.min(desiredLeft, offsetLeft + viewportWidth - margin - panelWidth))}px`;
+      const below = offsetTop + viewportHeight - bounds.bottom - margin - 8;
+      const above = bounds.top - offsetTop - margin - 8;
+      const placeAbove = panel.scrollHeight > below && above > below;
+      panel.style.maxHeight = `${Math.max(0, placeAbove ? above : below)}px`;
+      const height = panel.getBoundingClientRect().height;
+      panel.style.top = `${Math.max(offsetTop + margin, placeAbove ? bounds.top - height - 8 : bounds.bottom + 8)}px`;
+    };
+    position();
+    // Modal scroll locking runs after layout; align once more after that can
+    // change the trigger's position through scrollbar removal.
+    const frame = requestAnimationFrame(position);
+    const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(position);
+    observer?.observe(anchor);
+    observer?.observe(panel);
+    window.addEventListener("resize", position);
+    window.addEventListener("scroll", position, true);
+    window.visualViewport?.addEventListener("resize", position);
+    window.visualViewport?.addEventListener("scroll", position);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener("resize", position);
+      window.removeEventListener("scroll", position, true);
+      window.visualViewport?.removeEventListener("resize", position);
+      window.visualViewport?.removeEventListener("scroll", position);
+    };
+  }, [present, align, width, ref]);
 
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (!box.current?.contains(e.target as globalThis.Node)) onClose();
+      const target = e.target as globalThis.Node;
+      if (isTopmost() && !box.current?.contains(target) && !ref.current?.contains(target)) onClose();
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
-  }, [open, onClose]);
+  }, [open, onClose, ref, isTopmost]);
 
   /** Up/Down/Home/End walk the items, exactly as a menu is expected to. */
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
@@ -75,24 +121,26 @@ export function Popover({
   return (
     <div ref={box} className="relative">
       {trigger}
-      {present && (
+      {present && createPortal(
         <div
           ref={ref}
+          inert={!open}
           role={role}
+          aria-modal={role === "dialog" ? true : undefined}
           aria-label={label}
           tabIndex={-1}
           style={width ? { width } : undefined}
           onKeyDown={onKeyDown}
           className={cx(
-            "absolute top-full z-50 mt-2 overflow-hidden rounded-card border border-line bg-bg3 shadow-overlay outline-none",
-            "transition-[opacity,transform] duration-[120ms] [transition-timing-function:var(--ease-swift)]",
+            "fixed z-50 overflow-y-auto overscroll-contain rounded-card border border-line bg-bg3 shadow-overlay outline-none",
+            "transition-[opacity,transform] duration-[var(--dur-base)] [transition-timing-function:var(--ease-swift)] motion-reduce:transition-none",
             shown ? "translate-y-0 opacity-100" : "-translate-y-0.5 opacity-0",
-            align === "end" ? "right-0" : "left-0",
             className
           )}
         >
           {children}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -117,7 +165,7 @@ export interface MenuItemProps {
 
 const ROW =
   "flex w-full items-center gap-2.5 px-3 py-2 text-left text-[13px] text-ink outline-none " +
-  "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)] " +
+  "transition-colors duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)] " +
   "hover:bg-bg2 focus-visible:bg-bg2";
 
 /** One row in a Popover menu. Disabled rows still say why, as the kit requires. */
@@ -137,7 +185,7 @@ export function MenuItem({
     <>
       {icon && <span className="shrink-0 text-ink-faint">{icon}</span>}
       <span className="min-w-0 flex-1">
-        <span className="block truncate">{children}</span>
+        <span className="block break-words">{children}</span>
         {description && (
           <span className="mt-0.5 block text-[11.5px] text-ink-faint">{description}</span>
         )}

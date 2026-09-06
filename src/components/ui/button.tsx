@@ -91,7 +91,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       title={tip}
       className={cx(
         "ui-button relative inline-flex items-center justify-center rounded-ctl font-medium whitespace-nowrap",
-        "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]",
+        "transition-colors duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)]",
         "disabled:opacity-55 disabled:cursor-not-allowed",
         SIZES[size],
         VARIANTS[variant],
@@ -99,7 +99,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         className
       )}
     >
-      <span className={cx("inline-flex items-center", GAPS[size], busy && "invisible")}>
+      <span className={cx("inline-flex items-center", GAPS[size], busy && "opacity-0")}>
         {icon}
         {children}
       </span>

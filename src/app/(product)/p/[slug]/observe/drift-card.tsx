@@ -17,6 +17,7 @@ import { Chip } from "@/components/ui/chip";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorNote, SimulatedChip } from "@/components/screens/shared";
+import { fmtDate } from "@/lib/format";
 
 const SEVERITY_TONE = { high: "err", medium: "warn", low: "info" } as const;
 
@@ -47,7 +48,7 @@ export function DriftCard({
 
   if (!deployed)
     return (
-      <Card title="Drift">
+      <Card title="Configuration drift">
         <EmptyState
           icon={<Activity className="h-5 w-5" />}
           title={`${environmentName} has never been deployed`}
@@ -80,40 +81,41 @@ export function DriftCard({
 
   if (drift.error)
     return (
-      <Card title="Drift" actions={actions}>
+      <Card title="Configuration drift" subtitle={cannotRead ? `${providerName} cannot read infrastructure state.` : "The provider could not return a current observation."} actions={actions}>
+        <p className="mb-3 text-[13px] text-warn">{cannotRead ? "Observation unavailable" : drift.data ? "Last observation is stale. Check again to confirm the current state." : "No current observation"}</p>
         <ErrorNote error={drift.error} />
       </Card>
     );
 
   if (!drift.data)
     return (
-      <Card title="Drift" actions={actions}>
+      <Card title="Configuration drift" actions={actions}>
         <Skeleton height={64} />
       </Card>
     );
 
   const { items, simulated, revision, observedAt } = drift.data;
   const subtitle = simulated
-    ? `Simulated: ${providerName} has nothing real to inspect, so these differences are generated to show what drift looks like. Compared against r${revision.number}.`
-    : `Read from ${providerName} against r${revision.number} — these differences are real. Checked ${new Date(observedAt).toLocaleTimeString()}.`;
+    ? `Generated comparison against r${revision.number}; no real infrastructure was inspected.`
+    : `${providerName} readback compared with deployed r${revision.number}.`;
 
   return (
-    <Card title="Drift" subtitle={subtitle} actions={actions}>
+    <Card title="Configuration drift" subtitle={subtitle} actions={actions} footer={<span>Observed <time dateTime={observedAt} title={observedAt}>{fmtDate(observedAt)}</time> · {items.length} difference{items.length === 1 ? "" : "s"}</span>}>
       {items.length === 0 ? (
         <p className="text-[13px] text-ink-mute">
           Everything {providerName} reports matches r{revision.number}.
           {simulated ? " In a simulation, that is a statement about the simulation." : ""}
         </p>
       ) : (
-        <ul className="space-y-2">
+        <ul className="divide-y divide-line">
           {items.map((it, i) => (
             <li
               key={`${it.kind}-${it.nodeId || it.externalRef || it.nodeName}-${i}`}
-              className="flex gap-3 rounded-md border border-line px-3 py-2"
+              className="flex flex-wrap items-start gap-3 py-3 first:pt-0 last:pb-0 sm:flex-nowrap"
             >
               <Chip tone={SEVERITY_TONE[it.severity]}>{KIND_LABEL[it.kind]}</Chip>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-medium text-ink">
+                <div className="break-all font-mono text-[13px] text-ink">
                   {it.nodeName}{" "}
                   <span className="font-normal text-ink-mute">({it.nodeKind})</span>
                 </div>

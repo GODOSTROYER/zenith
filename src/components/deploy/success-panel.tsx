@@ -59,11 +59,11 @@ function OutputRow({
   const simulated = isSimulated(output, envSimulated);
   const copy = copyTarget(output, simulated);
   return (
-    <li className="flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-b-0">
+    <li className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3 last:border-b-0">
       <Globe className="h-3.5 w-3.5 shrink-0 text-ink-faint" aria-hidden="true" />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] text-ink">{name}</p>
-        <p className="truncate font-mono text-[12px] text-ink-mute" title={pretty}>
+      <div className="min-w-[160px] flex-1">
+        <p className="break-words text-[13px] font-medium text-ink">{name}</p>
+        <p className="break-all font-mono text-[12px] text-ink-mute" title={pretty}>
           {pretty}
         </p>
       </div>
@@ -110,7 +110,8 @@ export function SuccessPanel({
   deployment: Deployment;
   onAddRoute: () => void;
 }) {
-  const { project, selectedEnv, changesets } = useProjectData();
+  const { project, environments, changesets } = useProjectData();
+  const selectedEnv = environments.find((env) => env.id === deployment.environmentId);
   const { boot } = useShell();
   // Only ever flips on: StrictMode's second pass finds the flag already burned
   // and leaves the celebration that is currently on screen alone.
@@ -121,7 +122,7 @@ export function SuccessPanel({
   // Health is keyed on the environment, not on a revision id the project
   // payload has not polled yet: this panel only renders after a deployment
   // succeeded, so the first fetch can go out immediately.
-  const { data: health } = useJson<HealthPayload>(
+  const { data: health, error: healthError } = useJson<HealthPayload>(
     `/api/health/${deployment.environmentId}`,
     10_000
   );
@@ -135,9 +136,8 @@ export function SuccessPanel({
   // Only the sandbox provider hands out addresses that do not exist; a real
   // provider's URL must never be labeled simulated. `undefined` until the
   // workspace payload lands, so the panel never claims either way too early.
-  const simulated = boot
-    ? boot.connections.find((c) => c.id === selectedEnv?.connectionId)?.provider === "sandbox"
-    : undefined;
+  const connection = boot?.connections.find((c) => c.id === selectedEnv?.connectionId);
+  const simulated = connection ? connection.provider === "sandbox" : undefined;
 
   const urls = deployment.outputs.filter((o) => o.kind === "url");
   const others = deployment.outputs.filter((o) => o.kind !== "url");
@@ -147,15 +147,15 @@ export function SuccessPanel({
   // then its changeset still counts the changes this deployment just applied.
   const settled = selectedEnv?.deployedRevisionId === deployment.revisionId;
   const pendingCount = settled ? (pending?.items.length ?? 0) : 0;
-  const services = deployed?.revision.manifest.services ?? project.workingManifest.services;
+  const services = deployed?.revision.manifest.services ?? [];
 
   return (
     <div className="animate-enter space-y-5">
       <div className="flex items-center gap-3">
         <OrbitMark size={36} draw={celebrate} className="text-signal" />
         <div>
-          <h2 className="text-[40px] leading-none font-medium tracking-[-0.02em] text-ink">
-            Live.
+          <h2 className="app-page-title">
+            {simulated ? "Simulation complete." : "Deployment complete."}
           </h2>
           <p className="mt-1.5 text-[13px] text-ink-mute">
             {deployment.changeSummary} on {selectedEnv?.name ?? "this environment"}
@@ -172,8 +172,7 @@ export function SuccessPanel({
         </ul>
       ) : (
         <p className="rounded-card border border-line bg-bg1 px-4 py-3 text-[13px] text-ink-mute">
-          Nothing in this system answers HTTP, so there is no address to open. Publish a route to
-          give it a public front door.
+          This deployment returned no web addresses. Inspect any provider outputs below, or open Observe for this environment’s available signals.
         </p>
       )}
 
@@ -184,9 +183,8 @@ export function SuccessPanel({
               key={o.key}
               className="flex items-center gap-3 border-b border-line px-4 py-2.5 last:border-b-0"
             >
-              <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-ink-mute">
-                {o.label}
-              </span>
+              <div className="min-w-0 flex-1"><p className="break-words text-[13px] font-medium text-ink">{splitLabel(o.label).name}</p><p className="mt-1 break-all font-mono text-[12px] text-ink-mute">{o.value}</p></div>
+              {isSimulated(o, simulated) && <Chip>simulated</Chip>}
               <CopyButton value={o.value} what="the value" label="Copy" />
             </li>
           ))}
@@ -194,6 +192,7 @@ export function SuccessPanel({
       )}
 
       <div className="flex flex-wrap items-center gap-2">
+        {healthError && <span className="text-[12px] text-ink-mute">Health unavailable · Open Observe for details.</span>}
         {health?.services &&
           Object.entries(health.services).map(([serviceId, h]) => {
             const name = services.find((s) => s.id === serviceId)?.name ?? serviceId;
@@ -203,9 +202,9 @@ export function SuccessPanel({
                 key={serviceId}
                 tone={h.status === "ok" ? "ok" : "warn"}
                 icon={<StatusDot status={dot} size={6} />}
-                title={`${h.replicasReady}/${h.replicasDesired} ready · ${h.latencyMs}ms — simulated health.`}
+                title={`${h.replicasReady}/${h.replicasDesired} ready · ${h.latencyMs}ms${health.simulated ? " — simulated health" : ""}.`}
               >
-                {name} {h.replicasReady}/{h.replicasDesired}
+                {name} {h.replicasReady}/{h.replicasDesired}{health.simulated ? " · simulated" : ""}
               </Chip>
             );
           })}
@@ -214,7 +213,7 @@ export function SuccessPanel({
             <span className="text-ink-faint">pricing this revision…</span>
           ) : (
             <>
-              live {fmtUsd(liveCost)}
+              deployed {fmtUsd(liveCost)}
               <span className="text-ink-faint">/mo est.</span>
             </>
           )}
@@ -240,25 +239,13 @@ export function SuccessPanel({
           >
             Add a custom domain
           </Button>
-          <Link href={`/p/${project.slug}/observe`}>
-            <Button
-              size="sm"
-              variant="quiet"
-              icon={<ScrollText className="h-3.5 w-3.5" aria-hidden="true" />}
-            >
-              Watch the logs
-            </Button>
+          <Link href={`/p/${project.slug}/observe`} className="ui-button inline-flex h-8 items-center justify-center gap-1.5 rounded-ctl border border-line bg-bg2 px-2.5 text-[12.5px] font-medium text-ink transition-colors duration-[var(--dur-fast)] hover:border-line-strong hover:bg-bg3">
+            <ScrollText className="h-3.5 w-3.5" aria-hidden="true" />
+            Watch the logs
           </Link>
-          <Link href={`/p/${project.slug}/settings`}>
-            <Button
-              size="sm"
-              variant="quiet"
-              icon={<Gauge className="h-3.5 w-3.5" aria-hidden="true" />}
-            >
-              {selectedEnv?.policies.budgetUsdMonthly
-                ? "Review the budget"
-                : "Set a monthly budget"}
-            </Button>
+          <Link href={`/p/${project.slug}/settings`} className="ui-button inline-flex h-8 items-center justify-center gap-1.5 rounded-ctl border border-line bg-bg2 px-2.5 text-[12.5px] font-medium text-ink transition-colors duration-[var(--dur-fast)] hover:border-line-strong hover:bg-bg3">
+            <Gauge className="h-3.5 w-3.5" aria-hidden="true" />
+            {selectedEnv?.policies.budgetUsdMonthly ? "Review the budget" : "Set a monthly budget"}
           </Link>
         </div>
       </div>

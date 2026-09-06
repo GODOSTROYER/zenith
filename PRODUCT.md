@@ -36,10 +36,7 @@ Identity: the authored Shift Register symbol and custom zenith vector lettering.
 Gimbal retains its own moving rings. The landing's Revision Object direction
 makes the next change tangible through porcelain, ink and controlled vermilion,
 with self-hosted Instrument Serif display, Manrope UI and JetBrains Mono
-technical type in intentional light and dark themes. Product workflows retain
-the existing shared UI: layered navy, mint `signal`, periwinkle `nav-accent`
-reserved for Navigator, amber production identity, Space Grotesk and JetBrains
-Mono. docs/DESIGN.md remains authoritative; docs/BRANDING.md preserves identity
+technical type in intentional light and dark themes. The same identity now extends into operational workspaces: warm layered surfaces, vermilion actions and proposed changes, selective Instrument Serif page titles, Manrope controls and JetBrains Mono technical data. Berry errors, amber production context and violet Navigator identity remain separate from brand emphasis. docs/DESIGN.md remains authoritative; docs/BRANDING.md preserves identity
 and compatibility boundaries.
 
 **Platform.** Next.js 15 web app, local-first today (localhost:3400).

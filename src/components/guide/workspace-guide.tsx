@@ -6,6 +6,7 @@ import { ArrowUpRight, Check, Circle } from "lucide-react";
 import { useShell, type Bootstrap } from "@/components/shell/shell-context";
 import { GimbalCharacter } from "@/components/navigator/gimbal-character";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { ErrorNote } from "@/components/screens/shared";
 import { guideProgress } from "./progress";
 
@@ -29,23 +30,21 @@ export function GuideContent({ boot, initialProjectId }: { boot: Bootstrap; init
   const projectHref = (path = "") => `${base}${path}${state.environment ? `?env=${encodeURIComponent(state.environment.id)}` : ""}`;
   const labels = ["Workspace selected", "Connection selected", "Services or resources added"];
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col items-start gap-5 rounded-card border border-line bg-bg1 p-5 sm:flex-row sm:items-center">
-        <div className="h-28 w-28 shrink-0"><GimbalCharacter state={null} className="h-full w-full" /></div>
-        <div><h2 className="text-xl font-medium text-ink">Your stack, clearly in view.</h2>
+    <div className="space-y-7">
+      <div className="flex items-center gap-4 border-b border-line pb-5">
+        <div className="h-16 w-16 shrink-0"><GimbalCharacter state={null} className="h-full w-full" /></div>
+        <div><h2 className="text-[18px] font-medium text-ink">Your stack, clearly in view.</h2>
           <p className="mt-2 text-sm leading-relaxed text-ink-mute">Pick up where you left off. Choose a project to see what’s ready and find your next step.</p></div>
       </div>
       {boot.projects.length > 0 && <label className="block text-sm text-ink-mute">Project
-        <select aria-label="Guide project" value={project?.id ?? ""} onChange={(e) => setSelected(e.target.value)} className="mt-2 block w-full rounded-ctl border border-line bg-bg1 p-3 text-ink">
-          {boot.projects.filter((p) => p.workspaceId === boot.workspace.id).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+        <Select aria-label="Guide project" value={project?.id ?? ""} onChange={(e) => setSelected(e.target.value)} className="mt-2 w-full sm:max-w-[420px]" options={boot.projects.filter((p) => p.workspaceId === boot.workspace.id).map((p) => ({ value: p.id, label: p.name }))} />
       </label>}
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-card border border-line p-5"><h3 className="text-sm font-medium text-ink">In {boot.workspace.name}</h3>
-          <ul className="mt-4 space-y-3">{labels.map((label, index) => <li key={label} className="flex items-center gap-3 text-sm text-ink-mute">{state.complete[index] ? <Check aria-label="Present" className="h-4 w-4 text-signal" /> : <Circle aria-label="Not yet" className="h-4 w-4 text-ink-faint" />}{label}</li>)}</ul>
+      <div className="grid gap-6 border-y border-line bg-bg2 px-5 py-6 lg:grid-cols-[1fr_1.3fr] lg:gap-8">
+        <div><h3 className="break-words text-sm font-medium text-ink">In {boot.workspace.name}</h3>
+          <ul className="mt-4 space-y-3">{labels.map((label, index) => <li key={label} className="flex items-center gap-3 text-sm text-ink-mute">{state.complete[index] ? <Check aria-label="Present" className="h-4 w-4 shrink-0 text-ok" /> : <Circle aria-label="Not yet" className="h-4 w-4 shrink-0 text-ink-faint" />}{label}</li>)}</ul>
           <p className="mt-4 text-xs text-ink-faint">Start blank or build from a blueprint. Review a plan before applying changes.</p>
         </div>
-        <div className="rounded-card border border-line bg-bg1 p-5"><p className="text-xs text-signal">{state.mode}</p><h3 className="mt-3 text-base text-ink">{state.next}</h3>
+        <div className="border-t border-line pt-5 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-8"><h3 className="text-base font-medium text-ink">{state.next}</h3><p className="mt-2 text-xs text-info">{state.mode}</p>
           <p className="mt-3 text-sm text-ink-mute">{state.connection ? `Environment: ${state.environment?.name}. Connection: ${state.connection.label}.` : "No cloud access is needed to explore this workspace."}</p>
           {state.connection && <p className="mt-2 text-xs text-ink-faint">Last check: {state.connection.status}{state.connection.lastCheckedAt ? ` · ${new Date(state.connection.lastCheckedAt).toLocaleString()}` : " · no check date available"}. Recheck in Settings.</p>}
           <Link className="mt-5 inline-flex min-h-11 items-center rounded-ctl bg-signal px-4 text-sm font-medium text-on-signal" href={base ? projectHref(!state.environment || !state.connection || state.connection.status !== "healthy" ? "/settings" : state.provider?.availability === "preview" ? "/source" : "") : "/onboarding?step=2"}>{!base ? "Open the optional starter" : !state.environment || !state.connection || state.connection.status !== "healthy" ? "Review connection settings" : state.provider?.availability === "preview" ? "Review Source and export" : "Review your system"} →</Link>
@@ -63,7 +62,7 @@ export function GuideContent({ boot, initialProjectId }: { boot: Bootstrap; init
 
 export function WorkspaceGuide() {
   const { boot, loading, error, refresh } = useShell();
-  return <section className="h-full overflow-y-auto"><div className="mx-auto max-w-6xl px-5 py-8 sm:px-8"><h1 className="mb-6 text-3xl font-medium text-ink">Get oriented with Gimbal</h1>
+  return <section className="product-page h-full overflow-y-auto"><div className="mx-auto max-w-[1080px]"><h1 className="app-page-title mb-6">Get oriented with Gimbal</h1>
     {error ? <div className="space-y-4"><ErrorNote error={error} /><Button onClick={refresh}>Try again</Button>{(error.status === 403 || error.status === 404) && <Link href="/onboarding?step=1" className="block text-sm text-signal underline">Choose or create a workspace →</Link>}</div> : loading && !boot ? <p role="status">Reading your workspace…</p> : boot ? <GuideContent boot={boot} /> : <Link href="/onboarding">Choose a workspace to begin →</Link>}
   </div></section>;
 }

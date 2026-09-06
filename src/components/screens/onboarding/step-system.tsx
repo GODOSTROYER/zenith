@@ -16,7 +16,6 @@ import type { ImportReport } from "@/lib/importers/types";
 import { cx, fmtUsd } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Chip } from "@/components/ui/chip";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -300,7 +299,7 @@ export function StepSystem({
   };
   if (review)
     return (
-      <div className="max-w-[860px] space-y-6 animate-enter">
+      <div className="max-w-[860px] space-y-6">
         <p className="text-[16px] leading-relaxed text-ink-mute">{review.summary}</p>
         <ImportReportView report={review.report} />
         <Button
@@ -313,13 +312,13 @@ export function StepSystem({
     );
 
   return (
-    <div className="max-w-[860px] space-y-8 animate-enter">
-      <p className="text-[16px] leading-relaxed text-ink-mute">
+    <div className="max-w-[860px] space-y-6">
+      <p className="text-[14px] leading-relaxed text-ink-mute">
         Start with a blueprint, import your configuration, or begin with an empty system.
         This creates an editable manifest and an environment using {choice.displayName}. Nothing is deployed.
       </p>
       {choice.providerId === "aws" && <p className="text-sm text-warn">AWS Preview supports plans and Terraform export only. Zenith.ai never calls or applies changes to AWS. No credentials or IAM setup are needed.</p>}
-      {choice.providerId === "localstack" && <p className="text-sm text-ink-mute">LocalStack supports real S3 buckets and SQS queues. The Local resources blueprint is a supported starting point; application services and routes are blocked by deployment preflight.</p>}
+      {choice.providerId === "localstack" && <p className="text-sm text-ink-mute">LocalStack supports real local S3 and SQS operations. The Local resources blueprint is a supported starting point. Application services, routes and other emulated behavior remain simulated; a successful connection check does not verify application support.</p>}
       {pendingProject?.slug && <div className="rounded-card border border-line bg-bg1 p-4 text-sm text-ink-mute"><p>Your project is already saved. Retrying an interrupted import uses this same project. If you refreshed, choose or paste the file again; its contents are never stored in browser storage.</p><Link href={`/p/${encodeURIComponent(pendingProject.slug)}`} className="mt-2 inline-block text-signal underline">Open the saved project</Link></div>}
       {uncertain && <div className="space-y-3 rounded-card border border-line bg-bg1 p-4 text-sm text-ink-mute"><p>The previous creation did not return a complete response. Check your projects before starting again, so you do not create duplicates.</p><Link href="/overview" className="block text-signal underline">Review projects in overview</Link><Button size="sm" variant="quiet" onClick={() => { clearRecovery(); setUncertain(false); }}>I checked — discard this saved attempt</Button><p className="text-xs text-ink-faint">This forgets starter progress only. It does not remove any saved project or connection.</p></div>}
 
@@ -381,7 +380,7 @@ export function StepSystem({
               className={cx(
                 "rounded-card border bg-bg2 p-4 text-left transition-colors duration-[var(--dur-fast)]",
                 b.id === selected
-                  ? "border-signal/60 ring-1 ring-signal/25"
+                  ? "border-signal bg-signal-dim"
                   : "border-line hover:border-line-strong"
               )}
             >
@@ -393,11 +392,7 @@ export function StepSystem({
                 </span>
               </div>
               <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-mute">{b.description}</p>
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {b.highlights.map((h) => (
-                  <Chip key={h}>{h}</Chip>
-                ))}
-              </div>
+              <p className="mt-3 text-[12px] leading-relaxed text-ink-mute">{b.highlights.join(" · ")}</p>
               <p className="tnum mt-3 text-[11.5px] text-ink-faint">
                 {b.nodes} nodes · {b.services} service{b.services === 1 ? "" : "s"} ·{" "}
                 {b.resources} resource{b.resources === 1 ? "" : "s"}
@@ -424,7 +419,7 @@ export function StepSystem({
               options={FORMATS.map((f) => ({ value: f.value, label: f.label, title: f.title }))}
             />
             <div className="flex items-center gap-2">
-              <label className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-ctl border border-line px-2.5 text-[12.5px] text-ink-mute transition-colors duration-[var(--dur-fast)] hover:border-line-strong hover:text-ink">
+              <label className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-ctl border border-line px-2.5 text-[12.5px] text-ink-mute transition-colors duration-[var(--dur-fast)] hover:border-line-strong hover:text-ink focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-signal">
                 <Upload className="h-3.5 w-3.5" aria-hidden="true" />
                 Choose a file
                 <input
@@ -558,7 +553,7 @@ function ModeCard({
       aria-pressed={active}
       className={cx(
         "rounded-card border bg-bg2 p-4 text-left transition-colors duration-[var(--dur-fast)]",
-        active ? "border-signal/60 ring-1 ring-signal/25" : "border-line hover:border-line-strong"
+        active ? "border-signal bg-signal-dim" : "border-line hover:border-line-strong"
       )}
     >
       <span className={cx("inline-flex", active ? "text-signal" : "text-ink-mute")}>{icon}</span>

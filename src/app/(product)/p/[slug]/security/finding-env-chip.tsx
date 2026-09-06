@@ -20,7 +20,7 @@ export function FindingEnvChip({ finding, envById, selectedEnvId }: FindingEnvCh
   const here = finding.environmentId === selectedEnvId;
   return (
     <Chip
-      tone={here ? envTone(klass) : "neutral"}
+      tone={here || klass === "production" ? envTone(klass) : "neutral"}
       icon={<EnvDot klass={klass} />}
       title={
         here
@@ -28,7 +28,7 @@ export function FindingEnvChip({ finding, envById, selectedEnvId }: FindingEnvCh
           : `This finding is about ${e?.name ?? finding.environmentId}, not the environment selected in the header.`
       }
     >
-      {e?.name ?? finding.environmentId}
+      {e?.name ?? finding.environmentId}{klass === "production" && e?.name.toLowerCase() !== "production" ? " · Production" : ""}
     </Chip>
   );
 }

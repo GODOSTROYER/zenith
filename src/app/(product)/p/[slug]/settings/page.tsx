@@ -9,7 +9,7 @@
  * through; and every mutation is plan-first, so what a button will do is
  * readable before it does it.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -31,7 +31,8 @@ import { MembersSection } from "./members";
 import { SecretsSection } from "./secrets";
 import { providersOf } from "./shared";
 import { PageHeading } from "@/components/screens/page-heading";
-import { SectionNavigation } from "@/components/screens/section-navigation";
+import { SettingsNavigation } from "./settings-navigation";
+import styles from "./settings.module.css";
 
 const SECTIONS = [
   { id: "workspace", label: "Workspace" },
@@ -56,6 +57,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const [pending, setPending] = useState<Pending | null>(null);
   const [showBundle, setShowBundle] = useState(false);
+  const scrollRoot = useRef<HTMLDivElement>(null);
 
   const role = boot?.role;
   const connections = useMemo(() => boot?.connections ?? [], [boot]);
@@ -88,16 +90,23 @@ export default function SettingsPage() {
   const deleteGate = gate(role, "project.delete");
 
   return (
-    <div className="product-page mx-auto h-full w-full max-w-[1040px] overflow-y-auto">
-      <PageHeading title="Settings" description="Manage your workspace, access, and environment policies. Changes are previewed before they apply." />
-      <SectionNavigation sections={SECTIONS} label="Settings sections" />
+    <div ref={scrollRoot} className={`product-page ${styles.page}`}>
+      <div className={styles.inner}>
+      <PageHeading title="Settings" description="Workspace access, environment safeguards, and the connections behind your system." />
+      <div className={styles.scope}>
+        <span>Workspace <strong>{boot?.workspace.name ?? "Loading…"}</strong></span>
+        <span>Project <strong>{data.project.name}</strong></span>
+        <span>Your access <strong>{role ?? "Loading…"}</strong></span>
+      </div>
+      <div className={styles.layout}>
+      <SettingsNavigation sections={SECTIONS} scrollRoot={scrollRoot} />
 
-      <div className="space-y-10">
+      <div className={styles.content}>
         {/* -------------------------------- workspace ----------------------- */}
-        <section id="workspace" className="scroll-mt-16 space-y-4">
+        <section id="workspace" tabIndex={-1} className="space-y-4">
           <SectionHead
             title="Workspace"
-            body="The name in the top bar. Onboarding promised you could change it later; this is later."
+            body="The shared identity for your projects, connections, and members."
           />
           {bootError ? <ErrorNote error={bootError} /> : null}
           {!boot ? (
@@ -114,19 +123,19 @@ export default function SettingsPage() {
         </section>
 
         {/* --------------------------------- members ------------------------ */}
-        <section id="members" className="scroll-mt-16 space-y-4">
+        <section id="members" tabIndex={-1} className="space-y-4">
           <SectionHead
             title="Members"
-            body="Who is in this workspace and what each role may do. Every refusal in the product points here."
+            body="Manage membership and permissions across this workspace. Every member can preview a plan; their role determines what they can apply."
           />
           <MembersSection boot={boot} refresh={refreshShell} />
         </section>
 
         {/* ------------------------------ environments ---------------------- */}
-        <section id="environments" className="scroll-mt-16 space-y-4">
+        <section id="environments" tabIndex={-1} className="space-y-4">
           <SectionHead
             title="Environments"
-            body="Where revisions run. Class decides the defaults; policy decides who can change them."
+            body="Review each environment’s deployed revision, connection, budget, and approval policy."
           />
           <EnvironmentsSection
             environments={data.environments}
@@ -142,10 +151,10 @@ export default function SettingsPage() {
         </section>
 
         {/* ------------------------------ connections ----------------------- */}
-        <section id="connections" className="scroll-mt-16 space-y-4">
+        <section id="connections" tabIndex={-1} className="space-y-4">
           <SectionHead
             title="Connections"
-            body="Every connection lists the exact access it holds. Zenith.ai never asks for more than it shows."
+            body="Provider connections shared by this workspace, with their last check and declared access."
           />
           <ConnectionsSection
             connections={connections}
@@ -160,10 +169,10 @@ export default function SettingsPage() {
         </section>
 
         {/* -------------------------------- secrets ------------------------- */}
-        <section id="secrets" className="scroll-mt-16 space-y-4">
+        <section id="secrets" tabIndex={-1} className="space-y-4">
           <SectionHead
             title="Secrets"
-            body="What the store holds, as metadata. The value is never shown here, and no route returns one — only the reference reaches a manifest, a diff or an export."
+            body="Inspect encrypted secret references and versions. Values stay on the server; only references appear in manifests, reviews, and exports."
           />
           {!boot ? (
             <Skeleton height={180} />
@@ -180,16 +189,16 @@ export default function SettingsPage() {
         </section>
 
         {/* -------------------------------- alerts -------------------------- */}
-        <section id="alerts" className="scroll-mt-16 space-y-4">
+        <section id="alerts" tabIndex={-1} className="space-y-4">
           <SectionHead
             title="Alerts"
-            body="Where an alert goes once it exists. Channels are workspace-wide; the rules that use them live on Observe. Without a channel here, an alert is seen only by somebody who opens Zenith.ai."
+            body="Choose where workspace alerts are delivered. Configure the rules in Observe; without a delivery channel, alerts remain available in the application."
           />
           <AlertChannelsSection projectId={projectId} role={role} />
         </section>
 
         {/* -------------------------------- export -------------------------- */}
-        <section id="export" className="scroll-mt-16 space-y-4">
+        <section id="export" tabIndex={-1} className="space-y-4">
           <SectionHead
             title="Export"
             body="Everything Zenith.ai generated for this environment, in files you can run yourself."
@@ -225,17 +234,17 @@ export default function SettingsPage() {
                 icon={<FileCode2 className="h-3.5 w-3.5" />}
                 onClick={() => setShowBundle(true)}
               >
-                Generate it here
+                Generate export bundle
               </Button>
             )}
           </Card>
         </section>
 
         {/* ------------------------------ danger zone ----------------------- */}
-        <section id="danger" className="scroll-mt-16 space-y-4">
+        <section id="danger" tabIndex={-1} className="space-y-4">
           <SectionHead
             title="Danger zone"
-            body="Irreversible things live here. Each one previews exactly what it removes — and what it does not."
+            body="Permanent record removal. Review the exact impact before confirming."
           />
           <Card className="border-err/25">
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -263,6 +272,8 @@ export default function SettingsPage() {
             Deleting a single environment lives on its card under Environments.
           </p>
         </section>
+      </div>
+      </div>
       </div>
 
       {/* ------------------------------ confirmations ---------------------- */}
@@ -302,8 +313,8 @@ export default function SettingsPage() {
 
 function SectionHead({ title, body }: { title: string; body: string }) {
   return (
-    <div>
-      <h2 className="text-[20px] font-medium tracking-[-0.01em] text-ink">{title}</h2>
+    <div className={styles.sectionHead}>
+      <h2 className="app-section-title">{title}</h2>
       <p className="mt-1 max-w-[70ch] text-[13px] text-ink-mute">{body}</p>
     </div>
   );
@@ -331,14 +342,13 @@ function WorkspaceCard({
       title={workspace.name}
       subtitle={
         <>
-          slug <span className="font-mono">{workspace.slug}</span> · renaming never changes the
-          slug, so links keep working
+          <span className="break-all font-mono">{workspace.slug}</span> · workspace links keep this slug when the name changes
         </>
       }
     >
       <Field
         label="Workspace name"
-        help="Shows in the top bar. Audit history is keyed to the workspace id, so nothing already written changes."
+        help="Shown in navigation and workspace switching. Existing links and audit history are preserved."
         error={!tooShort || name === "" ? undefined : "Use at least 2 characters."}
       >
         <div className="flex flex-wrap gap-3">

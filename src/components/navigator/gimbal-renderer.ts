@@ -6,7 +6,10 @@ import {
 } from "three";
 import { GIMBAL_STATE, type GimbalState } from "./gimbal-contract";
 
+export type GimbalMaterial = "alloy" | "porcelain";
+
 export interface GimbalRendererOptions {
+  material?: GimbalMaterial;
   state: GimbalState | null;
   reducedMotion: boolean;
   lowPower: boolean;
@@ -33,10 +36,11 @@ const EXPRESSION = {
 
 /** Procedural gyroscope: no model, texture, decoder or animation-clip downloads. */
 export async function createGimbalRenderer(host: HTMLElement, options: GimbalRendererOptions): Promise<GimbalRenderer> {
+  const porcelain = options.material === "porcelain";
   const renderer = new WebGLRenderer({ alpha: true, antialias: !options.lowPower, powerPreference: "low-power" });
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.2;
+  renderer.toneMappingExposure = porcelain ? 1.05 : 1.2;
   renderer.setClearColor(0, 0);
   renderer.domElement.setAttribute("aria-hidden", "true");
   renderer.domElement.style.cssText = "display:block;width:100%;height:100%;pointer-events:none";
@@ -44,10 +48,10 @@ export async function createGimbalRenderer(host: HTMLElement, options: GimbalRen
   const scene = new Scene();
   const camera = new OrthographicCamera(-2, 2, 2, -2, 0.1, 20);
   camera.position.set(0, 0, 8);
-  scene.add(new HemisphereLight(0xdde9ff, 0x182032, 2.3));
-  const key = new DirectionalLight(0xffeed7, 3.2);
+  scene.add(new HemisphereLight(porcelain ? 0xfffcf1 : 0xdde9ff, porcelain ? 0x56584b : 0x182032, porcelain ? 2 : 2.3));
+  const key = new DirectionalLight(porcelain ? 0xfff7e9 : 0xffeed7, porcelain ? 2.8 : 3.2);
   key.position.set(-3, 4, 5);
-  const rim = new DirectionalLight(0x9bbcff, 3);
+  const rim = new DirectionalLight(porcelain ? 0xe8ebdc : 0x9bbcff, porcelain ? 2 : 3);
   rim.position.set(3, -1, -3);
   scene.add(key, rim);
   const geometries = new Set<BufferGeometry>();
@@ -57,11 +61,19 @@ export async function createGimbalRenderer(host: HTMLElement, options: GimbalRen
     const object = new Mesh(geometry, material); object.name = name;
     return object;
   }
-  const metal = new MeshStandardMaterial({ color: 0x8e9db4, metalness: 0.72, roughness: 0.32 });
-  const shell = new MeshStandardMaterial({ color: 0x364154, metalness: 0.65, roughness: 0.32 });
-  const glass = new MeshStandardMaterial({ color: 0x080e19, metalness: 0.26, roughness: 0.23 });
-  const gold = new MeshStandardMaterial({ color: 0xffd69c, emissive: 0xd3a05c, emissiveIntensity: 0.7, roughness: 0.4 });
-  const accent = new MeshStandardMaterial({ color: 0xb89cff, emissive: 0xb89cff, emissiveIntensity: 0.38, metalness: 0.35, roughness: 0.4 });
+  const metal = new MeshStandardMaterial(porcelain
+    ? { color: 0x919487, metalness: 0.28, roughness: 0.5 }
+    : { color: 0x8e9db4, metalness: 0.72, roughness: 0.32 });
+  const shell = new MeshStandardMaterial(porcelain
+    ? { color: 0xf4f3ee, metalness: 0.06, roughness: 0.3 }
+    : { color: 0x364154, metalness: 0.65, roughness: 0.32 });
+  const glass = new MeshStandardMaterial(porcelain
+    ? { color: 0x20211f, metalness: 0.04, roughness: 0.38 }
+    : { color: 0x080e19, metalness: 0.26, roughness: 0.23 });
+  const gold = new MeshStandardMaterial(porcelain
+    ? { color: 0xf4f3ee, emissive: 0xe7e2ce, emissiveIntensity: 0.22, roughness: 0.46 }
+    : { color: 0xffd69c, emissive: 0xd3a05c, emissiveIntensity: 0.7, roughness: 0.4 });
+  const accent = new MeshStandardMaterial({ color: 0xb89cff, emissive: 0xb89cff, emissiveIntensity: porcelain ? 0.12 : 0.38, metalness: porcelain ? 0.08 : 0.35, roughness: porcelain ? 0.48 : 0.4 });
   const sphere = new SphereGeometry(1, options.lowPower ? 24 : 40, 24);
   const face = new Group(); face.name = "Face"; scene.add(face);
   const head = mesh(sphere, shell, "Head"); head.scale.set(0.65, 0.54, 0.39); face.add(head);

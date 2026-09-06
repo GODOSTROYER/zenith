@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusDot } from "@/components/ui/status-dot";
-import { Table } from "@/components/ui/table";
+
 import { TimeAgo } from "@/components/ui/time-ago";
 import { ActorDot } from "@/components/screens/shared";
 import { FILTER_LABEL, isLive, PAGE_SIZE, STATUS_DOT, STATUS_LABEL, type StatusFilter } from "./status";
@@ -55,9 +55,9 @@ export function DeploymentList({
   const needle = query.trim();
 
   return (
-    <aside className="min-w-0">
+    <aside className="min-w-0 lg:sticky lg:top-0 lg:flex lg:max-h-[calc(100dvh-190px)] lg:flex-col">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">
+        <h2 className="text-[13px] font-medium text-ink-mute">
           {envName} ·{" "}
           {!list
             ? "loading…"
@@ -86,7 +86,7 @@ export function DeploymentList({
           prefix={<Search className="h-3.5 w-3.5" aria-hidden="true" />}
         />
       </div>
-      <div className="overflow-hidden rounded-card border border-line bg-bg2">
+      <div className="min-h-0 max-h-[420px] overflow-y-auto rounded-card border border-line bg-bg2 lg:max-h-none">
         {!list ? (
           <div className="space-y-2 p-4">
             <Skeleton height={44} />
@@ -114,49 +114,26 @@ export function DeploymentList({
             </Button>
           </div>
         ) : (
-          <Table<Deployment>
-            caption={`Deployments to ${envName}, newest first — pick one to see its steps, logs and outputs`}
-            wrapperClassName="overflow-y-auto lg:max-h-[70vh]"
-            rows={shown ?? list}
-            rowKey={(d) => d.id}
-            selectedKey={selectedId}
-            onSelectRow={(d) => onSelect(d.id)}
-            columns={[
-              {
-                key: "status",
-                header: "",
-                headerLabel: "Status",
-                width: 26,
-                render: (d) => (
-                  <StatusDot
-                    status={STATUS_DOT[d.status]}
-                    pulse={isLive(d.status)}
-                    label={STATUS_LABEL[d.status]}
-                  />
-                ),
-              },
-              {
-                key: "deployment",
-                header: "Deployment",
-                render: (d) => (
-                  <>
-                    <span className="flex items-baseline gap-2">
-                      <span className="tnum font-mono text-[12px] text-ink">
-                        r{revisionNumbers.get(d.revisionId) ?? "?"}
-                      </span>
-                      <span className="truncate text-[13px] text-ink">
-                        {d.changeSummary}
-                      </span>
-                    </span>
-                    <span className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-ink-faint">
-                      <ActorDot actor={d.actor} />
-                      {d.actor.name} · <TimeAgo iso={d.createdAt} />
-                    </span>
-                  </>
-                ),
-              },
-            ]}
-          />
+          <ul aria-label={`Deployments to ${envName}, newest first`} className="divide-y divide-line">
+            {(shown ?? list).map((d) => (
+              <li key={d.id}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(d.id)}
+                  aria-pressed={selectedId === d.id}
+                  aria-label={`Inspect r${revisionNumbers.get(d.revisionId) ?? "?"}: ${d.changeSummary}, ${STATUS_LABEL[d.status]}`}
+                  className={`relative block w-full border-l-2 px-4 py-4 text-left transition-colors duration-[var(--dur-fast)] ${selectedId === d.id ? "border-l-signal bg-signal-dim" : "border-l-transparent hover:bg-bg1"}`}
+                >
+                  <span className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                    <span className="tnum font-mono text-[13px] font-medium text-ink">r{revisionNumbers.get(d.revisionId) ?? "?"}</span>
+                    <span className="flex items-center gap-1.5 text-[12px] text-ink-mute"><StatusDot status={STATUS_DOT[d.status]} pulse={isLive(d.status)} />{STATUS_LABEL[d.status]}</span>
+                  </span>
+                  <span className="block break-words text-[13px] font-medium leading-relaxed text-ink">{d.changeSummary}</span>
+                  <span className="mt-2 flex flex-wrap items-center gap-1.5 text-[12px] text-ink-mute"><ActorDot actor={d.actor} /><span className="break-words">{d.actor.name}</span><span aria-hidden="true">·</span><TimeAgo iso={d.createdAt} /></span>
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
         {list && cursor ? (
           <div className="border-t border-line p-2">

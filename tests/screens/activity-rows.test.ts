@@ -8,6 +8,7 @@ import {
   groupByDay,
   inDateRange,
   objectLink,
+  recordedResourceId,
   toCsv,
 } from "@/app/(product)/p/[slug]/activity/rows";
 import type { AuditEvent } from "@/lib/domain/types";
@@ -27,6 +28,19 @@ const at = (iso: string, over: Partial<AuditEvent> = {}): AuditEvent => ({
 
 /** Local noon, so the test does not straddle a day boundary in any timezone. */
 const noon = (day: number) => new Date(2026, 8, day, 12, 0, 0).toISOString();
+
+describe("recordedResourceId", () => {
+  it("keeps the resource identity shared by inspection and map navigation", () => {
+    const event = at(noon(1), { input: { resourceId: "queue/primary" } });
+    expect(recordedResourceId(event)).toBe("queue/primary");
+    expect(objectLink(event)?.path).toBe("?select=queue%2Fprimary");
+  });
+
+  it("does not invent a resource identity from a summary or deployment ID", () => {
+    expect(recordedResourceId(at(noon(1), { summary: "Updated api", input: { deploymentId: "dep-1" } }))).toBeUndefined();
+    expect(recordedResourceId(at(noon(1), { input: { resourceId: 42 } }))).toBeUndefined();
+  });
+});
 
 describe("groupByDay", () => {
   it("groups by calendar day whatever order the events arrive in", () => {

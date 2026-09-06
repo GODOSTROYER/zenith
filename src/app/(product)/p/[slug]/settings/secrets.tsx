@@ -125,7 +125,7 @@ export function SecretsSection({
                     <div className="min-w-0 flex-1">
                       <p className="flex items-center gap-2">
                         <KeyRound className="h-3.5 w-3.5 shrink-0 text-ink-faint" aria-hidden="true" />
-                        <span className="truncate font-mono text-[12.5px] text-ink">{s.ref}</span>
+                        <span className="break-all font-mono text-[12.5px] text-ink">{s.ref}</span>
                         <span className="tnum shrink-0 font-mono text-[12px] text-ink-mute">
                           v{s.version}
                         </span>

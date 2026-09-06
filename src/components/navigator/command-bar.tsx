@@ -20,6 +20,7 @@ export interface CommandBarProps {
   gimbalState?: GimbalState | null;
   /** set when the field cannot be submitted; becomes the button's tooltip */
   disabledReason?: string;
+  showExamples?: boolean;
 }
 
 /** The Navigator's one input. Enter plans; nothing here executes. */
@@ -30,6 +31,7 @@ export function CommandBar({
   busy,
   gimbalState = null,
   disabledReason,
+  showExamples = true,
 }: CommandBarProps) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -47,15 +49,17 @@ export function CommandBar({
 
   return (
     <div>
+      <label htmlFor="navigator-request" className="mb-2 block text-[13px] font-semibold text-ink">Your request</label>
       <div
         className={cx(
-          "flex items-start gap-3 rounded-card border border-line bg-bg2 px-4 py-3.5 shadow-card",
-          "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]",
+          "flex flex-wrap items-start gap-3 rounded-card border border-line-strong bg-bg2 px-4 py-4",
+          "transition-colors duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)]",
           "focus-within:border-nav-accent/60"
         )}
       >
         <NavigatorGlyph size={22} state={gimbalState} className="mt-[2px] text-nav-accent" />
         <textarea
+          id="navigator-request"
           ref={ref}
           rows={2}
           value={value}
@@ -65,7 +69,7 @@ export function CommandBar({
           placeholder="Tell the Navigator what you want…"
           aria-label="Goal for the Navigator"
           className={cx(
-            "min-w-0 flex-1 resize-none bg-transparent font-mono text-[13.5px] leading-6 text-ink outline-none",
+            "min-w-[160px] flex-1 resize-y bg-transparent font-sans text-[14px] leading-6 text-ink outline-none",
             "placeholder:font-sans placeholder:text-[14px] placeholder:text-ink-faint"
           )}
         />
@@ -88,23 +92,24 @@ export function CommandBar({
         </div>
       </div>
 
-      <div className="mt-2.5 flex flex-wrap items-center gap-2">
-        <span className="text-[12px] text-ink-faint">Try</span>
+      {showExamples && <details className="mt-3 text-[12px] text-ink-mute">
+        <summary className="min-h-8 cursor-pointer py-1">Example requests</summary>
+      <div className="mt-1 flex flex-col items-start gap-1">
         {EXAMPLE_GOALS.map((g) => (
           <button
             key={g}
             type="button"
             onClick={() => fill(g)}
             className={cx(
-              "rounded-full border border-line bg-bg1 px-2.5 py-1 text-left text-[12px] text-ink-mute",
-              "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]",
+              "min-h-8 border-l-2 border-line px-3 py-1 text-left text-[12px] text-ink-mute",
+              "transition-colors duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)]",
               "hover:border-nav-accent/40 hover:bg-nav-dim hover:text-ink"
             )}
           >
             {g}
           </button>
         ))}
-      </div>
+      </div></details>}
     </div>
   );
 }

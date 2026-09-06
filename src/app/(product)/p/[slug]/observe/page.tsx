@@ -14,6 +14,9 @@ import { useJson } from "@/lib/client/api";
 import { useProjectAlerts } from "@/lib/client/alerts";
 import type { Revision } from "@/lib/domain/types";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Chip } from "@/components/ui/chip";
+import { Button } from "@/components/ui/button";
+import { ErrorNote } from "@/components/screens/shared";
 import { useShell } from "@/components/shell/shell-context";
 import { useSelectedEnv } from "@/components/screens/project-data";
 import { AlertBanner, AlertsCard } from "./alerts";
@@ -52,11 +55,22 @@ export default function ObservePage() {
     );
 
   return (
-    <div className="product-page mx-auto h-full w-full max-w-[1240px] space-y-6 overflow-y-auto">
-      <PageHeading title="Observe" description={`Health, drift, logs, and estimated cost for ${env.name}. Provider observations and simulated results remain explicitly labeled.`} />
+    <div className="product-page h-full w-full space-y-6 overflow-y-auto">
+      <PageHeading title="Observe" description="The running system, its signals, and the cost of what comes next." actions={<a href="#alerts" className="text-[13px] text-ink-mute underline decoration-line underline-offset-4 hover:text-ink">Manage alert rules</a>} />
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 border-y border-line py-3 text-[13px]">
+        <span className="flex min-w-0 flex-wrap items-center gap-2"><span className="text-ink-mute">Environment</span><span className="break-all font-medium text-ink">{env.name}</span></span>
+        {env.class === "production" && <Chip tone="prod">Production</Chip>}
+        <span className="flex min-w-0 flex-wrap items-center gap-2"><span className="text-ink-mute">Provider</span><span className="text-ink">{providerName}</span></span>
+        <Chip tone={deployed.error ? "warn" : "neutral"}>
+          {!env.deployedRevisionId ? "Not deployed" : running ? `Deployed revision ${running.number}` : deployed.error ? "Revision unavailable" : "Loading deployed revision"}
+        </Chip>
+        <a href="#application-logs" className="text-ink-mute underline decoration-line underline-offset-4 hover:text-ink sm:ml-auto">Application logs</a>
+      </div>
+      {deployed.error && <div className="space-y-2"><ErrorNote error={deployed.error} /><Button size="sm" variant="quiet" onClick={deployed.refresh}>Retry deployed revision</Button></div>}
       <AlertBanner open={alerts.open} />
 
       <HealthStrip
+        key={`health-${env.id}`}
         environmentId={env.id}
         environmentName={env.name}
         projectId={projectId}
@@ -72,12 +86,13 @@ export default function ObservePage() {
         providerName={providerName}
       />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <LogsPanel
           environmentId={env.id}
           working={manifest}
           running={running}
           runningLoading={deployed.loading}
+          runningError={deployed.error}
           deployed={!!env.deployedRevisionId}
           providerName={providerName}
           providerIsSandbox={connection?.provider === "sandbox"}
@@ -88,10 +103,14 @@ export default function ObservePage() {
           revisions={data.revisions}
           budget={env.policies.budgetUsdMonthly}
           environmentName={env.name}
+          deployed={!!env.deployedRevisionId}
+          runningLoading={deployed.loading}
+          runningError={deployed.error}
         />
       </div>
 
       <AlertsCard
+        key={`alerts-${env.id}`}
         projectId={projectId}
         environmentId={env.id}
         environmentName={env.name}

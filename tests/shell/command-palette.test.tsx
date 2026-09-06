@@ -64,6 +64,9 @@ const CATALOG: ActionEntry[] = [
 const projects = [{ name: "Atlas", slug: "atlas" }];
 const find = (rows: ReturnType<typeof paletteRows>, key: string) =>
   rows.find((r) => r.key === key);
+const action = (id: string, category = "operations", requiredRole: ActionEntry["requiredRole"] = "editor"): ActionEntry => ({
+  id, title: id, category, requiredRole, risk: "low",
+});
 
 describe("paletteRows", () => {
   it("offers every screen of every project, plus the workspace entries", () => {
@@ -105,6 +108,51 @@ describe("paletteRows", () => {
     const rows = paletteRows(CATALOG, projects, "admin");
     expect(find(rows, "action:deploy.apply")?.risk).toBe("medium");
   });
+
+  it.each(["alerts.createRule", "alerts.updateRule", "alerts.deleteRule", "alerts.acknowledge"])("opens Observe's alert controls for %s", (id) => {
+    const row = find(paletteRows([action(id)], projects, "admin"), `action:${id}`);
+    expect(row?.href).toBe("/p/atlas/observe#alerts");
+    expect(row?.where).toBe("Atlas — Observe — Alerts");
+  });
+
+  it.each(["alerts.createChannel", "alerts.updateChannel", "alerts.deleteChannel", "alerts.testChannel"])("opens alert delivery settings for %s", (id) => {
+    const row = find(paletteRows([action(id)], projects, "admin"), `action:${id}`);
+    expect(row?.href).toBe("/p/atlas/settings#alerts");
+    expect(row?.where).toBe("Atlas — Settings — Alert delivery");
+  });
+
+  it("separates security and investigation from graph operations despite their shared category", () => {
+    const rows = paletteRows([action("security.resolveFinding"), action("security.dismissFinding"), action("security.reopenFinding"), action("ops.investigate"), action("ops.restartService")], projects, "admin");
+    for (const id of ["resolveFinding", "dismissFinding", "reopenFinding"]) expect(find(rows, `action:security.${id}`)?.href).toBe("/p/atlas/security");
+    expect(find(rows, "action:ops.investigate")?.href).toBe("/p/atlas/navigator");
+    expect(find(rows, "action:ops.restartService")?.href).toBe("/p/atlas");
+  });
+
+  it("routes project creation to onboarding while existing-project imports and blueprints open System", () => {
+    const rows = paletteRows([action("project.create", "project"), action("project.applyBlueprint", "project"), action("project.importCompose", "project"), action("project.importResources", "project"), action("project.updateManifest", "system")], projects, "editor");
+    expect(find(rows, "action:project.create")?.href).toBe("/onboarding?step=3");
+    expect(find(rows, "action:project.create")?.where).toBe("Onboarding — Create project");
+    for (const id of ["applyBlueprint", "importCompose", "importResources"]) expect(find(rows, `action:project.${id}`)?.href).toBe("/p/atlas");
+    expect(find(rows, "action:project.updateManifest")?.href).toBe("/p/atlas/source");
+  });
+
+  it("lets an empty workspace reach creation flows without bypassing registry role requirements", () => {
+    const catalog = [action("project.create", "project"), action("project.applyBlueprint", "project"), action("project.importCompose", "project"), action("connection.create", "connection", "admin")];
+    const admin = paletteRows(catalog, [], "admin");
+    for (const row of admin.filter((row) => row.group === "Actions")) expect(row.blocked).toBeUndefined();
+    expect(find(admin, "action:project.create")?.href).toBe("/onboarding?step=3");
+    expect(find(admin, "action:connection.create")?.href).toBe("/onboarding?step=2");
+    const editor = paletteRows(catalog, [], "editor");
+    expect(find(editor, "action:connection.create")?.blocked).toBe("Needs the admin role. You are editor in this workspace.");
+    expect(find(paletteRows(catalog, [], "viewer"), "action:project.create")?.blocked).toContain("Needs the editor role");
+  });
+
+  it.each(["connection.create", "connection.check", "connection.disconnect"])("opens existing connection management for %s", (id) => {
+    const row = find(paletteRows([action(id, "connection")], projects, "admin"), `action:${id}`);
+    expect(row?.href).toBe("/p/atlas/settings#connections");
+    expect(row?.where).toBe("Atlas — Settings — Connections");
+    if (id !== "connection.create") expect(find(paletteRows([action(id, "connection")], [], "admin"), `action:${id}`)?.blocked).toContain("No project");
+  });
 });
 
 describe("filterRows", () => {
@@ -143,11 +191,11 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function mount() {
+function mount(catalog = CATALOG) {
   host = document.createElement("div");
   document.body.appendChild(host);
   root = createRoot(host);
-  act(() => root!.render(createElement(CommandPalette, { catalog: CATALOG })));
+  act(() => root!.render(createElement(CommandPalette, { catalog })));
 }
 
 const press = (key: string, init: KeyboardEventInit = {}) =>
@@ -201,6 +249,21 @@ describe("<CommandPalette>", () => {
         r.textContent?.startsWith("Deploy")
       );
       expect(row?.textContent).toContain("Opens Borealis");
+    } finally {
+      pathname = "/overview";
+    }
+  });
+
+  it("opens the advertised alert destination for the active project when selected", () => {
+    pathname = "/p/borealis/security";
+    push.mockClear();
+    try {
+      mount([{ ...action("alerts.acknowledge"), title: "Acknowledge alert" }]);
+      press("k", { ctrlKey: true });
+      const row = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find((option) => option.textContent?.startsWith("Acknowledge alert"))!;
+      expect(row.textContent).toContain("Opens Borealis — Observe — Alerts");
+      act(() => row.click());
+      expect(push).toHaveBeenCalledWith("/p/borealis/observe#alerts");
     } finally {
       pathname = "/overview";
     }

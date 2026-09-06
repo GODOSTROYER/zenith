@@ -331,3 +331,52 @@
 .zenith-label-queue { top: 13%; right: 3%; width: 154px; }
 .zenith-label-queue::after { content: ""; position: absolute; height: 24px; width: 1px; background: currentColor; left: 16px; top: calc(100% + 7px); opacity: .6; }
 @media (max-width: 560px) { .zenith-label-queue { top: 10%; right: 0; width: 142px; }.zenith-label-queue::after { height: 18px; }.zenith-label-api { left: 18%; top: 13%; } }
+
+/* Keep approved landing-only inherited primitive tones and geometry stable. */
+.zenith-landing {
+  --bg3: #1c2941;
+  --ink-faint: #90a1bd;
+  --signal-strong: #79f0d2;
+  --on-signal: #04241c;
+  --on-danger: #29110f;
+  --nav-accent: #929aff;
+  --on-nav: #101235;
+  --ok: #45d59b;
+  --warn: #e5b055;
+  --err: #ec7d72;
+  --info: #6fb9e8;
+  --prod: #e3a44e;
+  --ok-dim: rgba(69, 213, 155, 0.14);
+  --warn-dim: rgba(229, 176, 85, 0.14);
+  --err-dim: rgba(236, 125, 114, 0.14);
+  --info-dim: rgba(111, 185, 232, 0.14);
+  --signal-dim: rgba(83, 224, 190, 0.12);
+  --nav-dim: rgba(146, 154, 255, 0.14);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.28);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.5), 0 16px 48px rgba(0, 0, 0, 0.42);
+  --r-card: 12px;
+  --r-ctl: 8px;
+  --r-pill: 999px;
+}
+[data-theme="light"] .zenith-landing {
+  --bg3: #ffffff;
+  --ink-faint: #636d86;
+  --signal-strong: #066b59;
+  --on-signal: #ffffff;
+  --on-danger: #ffffff;
+  --nav-accent: #5a63e8;
+  --on-nav: #ffffff;
+  --ok: #08784f;
+  --warn: #946113;
+  --err: #bc3b36;
+  --info: #246ba6;
+  --prod: #946113;
+  --ok-dim: rgba(20, 143, 96, 0.1);
+  --warn-dim: rgba(176, 120, 23, 0.12);
+  --err-dim: rgba(200, 71, 60, 0.1);
+  --info-dim: rgba(42, 127, 184, 0.1);
+  --signal-dim: rgba(13, 159, 131, 0.1);
+  --nav-dim: rgba(90, 99, 232, 0.1);
+  --shadow-1: 0 1px 2px rgba(20, 30, 55, 0.08), 0 4px 14px rgba(20, 30, 55, 0.07);
+  --shadow-2: 0 2px 8px rgba(20, 30, 55, 0.1), 0 18px 44px rgba(20, 30, 55, 0.14);
+}

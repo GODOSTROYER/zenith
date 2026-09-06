@@ -9,6 +9,7 @@ import Link from "next/link";
 import { GitCompare } from "lucide-react";
 import { useEventStream } from "@/lib/client/api";
 import type { Deployment, DeploymentEvent } from "@/lib/domain/types";
+import { fmtDuration } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
@@ -20,6 +21,7 @@ import { TimeAgo } from "@/components/ui/time-ago";
 import { useShell } from "@/components/shell/shell-context";
 import { roleAllows, roleReason, useRequiredRole } from "@/components/deploy/caller-role";
 import { ActionConfirm, ErrorNote } from "@/components/screens/shared";
+import { ConnectedDetail } from "@/components/screens/connected-detail";
 import { OutputRow } from "./output-row";
 import { isLive, STATUS_DOT, STATUS_LABEL, STREAM_EVENTS } from "./status";
 
@@ -54,6 +56,7 @@ export function DeploymentDetail({
   const [dep, setDep] = useState<Deployment>(snapshot);
   const [lines, setLines] = useState<LogLine[]>([]);
   const [confirm, setConfirm] = useState<null | "approve" | "cancel" | "rollback">(null);
+  const [selectedStepId, setSelectedStepId] = useState<string>();
 
   const revisionNumber = revisionNumbers.get(snapshot.revisionId);
 
@@ -97,6 +100,7 @@ export function DeploymentDetail({
 
   const scope = { projectId, environmentId };
   const live = isLive(dep.status);
+  const selectedStep = dep.steps.find((step) => step.id === selectedStepId);
   const previousNumber = dep.previousRevisionId
     ? revisionNumbers.get(dep.previousRevisionId)
     : undefined;
@@ -107,28 +111,29 @@ export function DeploymentDetail({
     : `/p/${slug}/revisions?view=${dep.revisionId}`;
   // Only the sandbox hands out addresses nothing answers on. `undefined` until
   // the workspace payload lands — unknown is not "real".
-  const envSimulated = boot
-    ? boot.connections.find((c) => c.id === connectionId)?.provider === "sandbox"
-    : undefined;
+  const connection = boot?.connections.find((c) => c.id === connectionId);
+  const envSimulated = connection ? connection.provider === "sandbox" : undefined;
+  const simulated = envSimulated === true || dep.outputs.some((output) => output.simulated === true);
 
   return (
     <div className="space-y-5">
       <Card
         prod={isProd}
         title={
-          <span className="flex items-center gap-2.5">
+          <span className="flex flex-wrap items-center gap-2.5">
             <StatusDot status={STATUS_DOT[dep.status]} pulse={live} />
             {STATUS_LABEL[dep.status]}
             <span className="tnum font-mono text-[13px] text-ink-mute">
               r{revisionNumber ?? "?"}
             </span>
+            {simulated && <Chip title="This deployment includes simulated execution or outputs. Simulated outcomes do not verify real infrastructure.">Simulation</Chip>}
           </span>
         }
         subtitle={
           <>
             {dep.changeSummary} · {envName} · <TimeAgo iso={dep.createdAt} /> ·{" "}
             <span title="Estimated change to the monthly bill this deployment carried.">
-              <CostDelta usd={dep.estCostDeltaUsd} /> est./mo
+              <CostDelta usd={dep.estCostDeltaUsd} /> estimated
             </span>
           </>
         }
@@ -140,24 +145,22 @@ export function DeploymentDetail({
                 {connected ? "streaming" : "reconnecting"}
               </Chip>
             )}
-            <Link href={changedHref}>
-              <Button
-                size="sm"
-                variant="quiet"
-                icon={<GitCompare className="h-3.5 w-3.5" aria-hidden="true" />}
+            <Link href={changedHref}
+                className="ui-button inline-flex h-8 items-center justify-center gap-1.5 rounded-ctl border border-line bg-bg2 px-3 text-[13px] font-medium text-ink hover:border-line-strong hover:bg-bg3"
                 title={
                   previousNumber
                     ? `Diff r${previousNumber} against r${revisionNumber ?? "?"}`
                     : `Show r${revisionNumber ?? "?"} — the first revision this environment ran`
                 }
               >
+                <GitCompare className="h-3.5 w-3.5" aria-hidden="true" />
                 {dep.previousRevisionId ? "What changed" : "View revision"}
-              </Button>
             </Link>
           </>
         }
       >
-        <PhaseTimeline steps={dep.steps} />
+        <p className="mb-5 break-all font-mono text-[12px] text-ink-mute">{dep.id}</p>
+        <PhaseTimeline steps={dep.steps} selectedStepId={selectedStepId} onSelectStep={(step) => setSelectedStepId(step.id)} />
       </Card>
 
       {dep.status === "awaiting_approval" && (
@@ -227,7 +230,7 @@ export function DeploymentDetail({
       {dep.outputs.length > 0 && (
         <Card
           title="Outputs"
-          subtitle="Live for this environment. They stay on the environment after the deployment ends."
+          subtitle="Values returned by this deployment. Historical addresses may have changed in a later deployment; simulated outputs remain labeled."
           padded={false}
         >
           <ul>
@@ -239,7 +242,7 @@ export function DeploymentDetail({
       )}
 
       <div>
-        <h3 className="mb-2 text-[12px] tracking-[0.02em] text-ink-mute uppercase">
+        <h3 className="mb-3 text-[14px] font-medium text-ink">
           Deployment log
         </h3>
         <LogViewer
@@ -254,6 +257,19 @@ export function DeploymentDetail({
           }
         />
       </div>
+
+      <ConnectedDetail open={Boolean(selectedStep)} onClose={() => setSelectedStepId(undefined)} title={selectedStep?.title ?? "Deployment step"} resourceId={selectedStep?.targetId || undefined} environment={envName} context={`r${revisionNumber ?? "?"} · deployment step`}>
+        {selectedStep && <div className="space-y-5">
+          <div className="flex flex-wrap items-center gap-2"><Chip>{selectedStep.phase}</Chip><Chip tone={selectedStep.status === "failed" ? "err" : selectedStep.status === "done" ? "ok" : "neutral"}>{selectedStep.status}</Chip></div>
+          <dl className="divide-y divide-line text-[13px]">
+            <div className="py-3"><dt className="text-ink-mute">Step identity</dt><dd className="mt-1 break-all font-mono text-ink">{selectedStep.id}</dd></div>
+            {selectedStep.startedAt && <div className="py-3"><dt className="text-ink-mute">Started</dt><dd className="mt-1 text-ink"><TimeAgo iso={selectedStep.startedAt} /></dd></div>}
+            {selectedStep.startedAt && selectedStep.endedAt && <div className="py-3"><dt className="text-ink-mute">Elapsed</dt><dd className="mt-1 font-mono text-ink">{fmtDuration(new Date(selectedStep.endedAt).getTime() - new Date(selectedStep.startedAt).getTime())}</dd></div>}
+          </dl>
+          {selectedStep.error && <ErrorNote error={new Error(selectedStep.error)} />}
+          <p className="text-[13px] text-ink-mute">This record belongs to the selected deployment. Step completion describes execution; environment verification remains a separate phase.</p>
+        </div>}
+      </ConnectedDetail>
 
       <ActionConfirm
         open={confirm === "approve"}

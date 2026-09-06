@@ -3,7 +3,7 @@
  * the tooltip binding that used to leave a `role="tooltip"` with nothing
  * pointing at it.
  */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, createElement as h, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { Chip, MenuItem, Popover, Tooltip } from "@/components/ui";
@@ -18,6 +18,7 @@ afterEach(() => {
   host?.remove();
   root = undefined;
   host = undefined;
+  vi.restoreAllMocks();
 });
 
 function render(node: ReactNode) {
@@ -25,7 +26,7 @@ function render(node: ReactNode) {
   document.body.appendChild(host);
   root = createRoot(host);
   act(() => root!.render(node));
-  return host;
+  return document.body;
 }
 
 const menu = (open: boolean, onClose = () => {}) =>
@@ -59,6 +60,27 @@ describe("<Popover>", () => {
     const el = render(menu(true));
     expect(el.querySelector('[role="menu"]')?.getAttribute("aria-label")).toBe("Account");
     expect(items(el)).toHaveLength(3);
+  });
+
+  it("portals outside clipping ancestors, clamps to the viewport, and opens upward when needed", () => {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      return (this.getAttribute("role") === "menu"
+        ? { width: 216, height: 160, top: 0, bottom: 160, left: 0, right: 216 }
+        : { width: 32, height: 32, top: 550, bottom: 582, left: 290, right: 322 }) as DOMRect;
+    });
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(160);
+    vi.stubGlobal("innerWidth", 320);
+    vi.stubGlobal("innerHeight", 640);
+    try {
+      render(menu(true));
+      const panel = document.querySelector<HTMLElement>('[role="menu"]')!;
+      expect(panel.parentElement).toBe(document.body);
+      expect(panel.style.left).toBe("92px");
+      expect(panel.style.top).toBe("382px");
+      expect(panel.style.maxWidth).toBe("296px");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("moves focus with the arrow keys and skips a disabled item", () => {
@@ -149,6 +171,6 @@ describe("<Tooltip>", () => {
   it("falls back to the wrapper when the child is not a single element", () => {
     const el = render(h(Tooltip, { label: "note", children: "plain text" }));
     const tip = el.querySelector('[role="tooltip"]')!;
-    expect(el.firstElementChild!.getAttribute("aria-describedby")).toBe(tip.id);
+    expect(tip.parentElement!.getAttribute("aria-describedby")).toBe(tip.id);
   });
 });

@@ -90,13 +90,14 @@ export function OnboardingFlow({ blueprints, sampleCompose }: OnboardingFlowProp
   const progress = guideProgress(boot.data, selectedProjectId);
   const editingAllowed = canEditGuide(boot.data);
   const go = (n: number) => { setMessage(undefined); lastStepParam.current = String(n); setStep(n); router.replace(`/onboarding?step=${n}`, { scroll: false }); };
-  return <div className="mx-auto flex min-h-screen w-full max-w-[1240px] gap-10 px-5 py-8 sm:px-8 lg:px-12 lg:py-12">
+  return <div className="mx-auto min-h-screen w-full max-w-[1240px] px-5 py-6 sm:px-8 lg:px-12">
+    <header className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-line pb-5"><Wordmark size={24} /><div className="flex items-center gap-2"><Link href={hasWorkspace ? "/overview" : "/"} className="inline-flex min-h-9 items-center px-2 text-sm text-ink-mute hover:text-ink">Leave setup</Link><ThemeToggle /></div></header>
+    <div className="flex flex-col gap-7 md:flex-row md:gap-10 lg:gap-14">
     <Rail step={step} complete={progress.complete} hasWorkspace={hasWorkspace} hasChoice={!!choice} onGo={go} />
     <main className="min-w-0 flex-1 pb-12">
-      <div className="mb-7 flex flex-wrap items-center justify-between gap-4"><Wordmark size={25} /><div className="flex items-center gap-2"><Link href={hasWorkspace ? "/overview" : "/"} className="px-2 text-sm text-ink-mute hover:text-ink">Leave setup</Link><ThemeToggle /></div></div>
-      <div className="mb-8 flex items-center gap-4">
-        {step !== 4 && <div className="h-20 w-20 shrink-0"><GimbalCharacter state={null} className="h-full w-full" /></div>}
-        <div><h1 className="text-3xl leading-tight font-medium tracking-tight text-ink sm:text-4xl">{STEPS[step - 1].title}</h1><p className="mt-3 text-sm text-ink-mute">Step {step} of {STEPS.length} · Optional starter · Return whenever you need</p></div>
+      <div className="mb-7 flex items-center justify-between gap-4 border-b border-line pb-6">
+        <div><h1 className="app-page-title">{STEPS[step - 1].title}</h1><p className="mt-3 text-[12px] text-ink-mute">Step {step} of {STEPS.length} · Optional starter · Return whenever you need</p></div>
+        {step !== 4 && <div className="h-16 w-16 shrink-0"><GimbalCharacter state={null} className="h-full w-full" /></div>}
       </div>
       {message && <Callout tone="info" live="status" className="mb-6">{message}</Callout>}
       {bootFailed ? <div className="space-y-4"><ErrorNote error={boot.error} /><Button onClick={() => { boot.refresh(); me.refresh(); }}>Try again</Button></div> : !ready ? <p role="status">Reading your workspace…</p> : <>
@@ -110,6 +111,6 @@ export function OnboardingFlow({ blueprints, sampleCompose }: OnboardingFlowProp
         {hasWorkspace && step !== 4 && <div className="mt-8 border-t border-line pt-5"><Button variant="ghost" onClick={() => go(4)}>Skip setup — I’ll explore with the guide</Button></div>}
         {step === 4 && <Button className="mt-5" variant="ghost" onClick={() => go(choice ? 3 : 2)}>Back to setup</Button>}
       </>}
-    </main>
+    </main></div>
   </div>;
 }

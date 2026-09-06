@@ -13,13 +13,13 @@ import { Download, ScrollText } from "lucide-react";
 import { api, useJson } from "@/lib/client/api";
 import type { AuditEvent } from "@/lib/domain/types";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table } from "@/components/ui/table";
 import { useSelectedEnv } from "@/components/screens/project-data";
 import { downloadFile } from "@/components/screens/download-file";
 import { ErrorNote } from "@/components/screens/shared";
+import { ActivityDetail } from "./activity-detail";
 import { ACTIVITY_COLUMNS } from "./columns";
 import {
   ActivityFilters,
@@ -47,6 +47,8 @@ export default function ActivityPage() {
   const [query, setQuery] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [selection, setSelection] = useState<{ projectId: string; event: AuditEvent }>();
+  const selectedEvent = selection?.projectId === projectId ? selection.event : undefined;
 
   /** Older pages are hand-loaded; polling the newest page would sit on top of them. */
   const [older, setOlder] = useState<{ events: AuditEvent[]; cursor?: string }>({ events: [] });
@@ -161,9 +163,12 @@ export default function ActivityPage() {
       }`;
 
   return (
-    <div className="product-page mx-auto h-full w-full max-w-[1100px] overflow-y-auto">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-[24px] font-medium tracking-[-0.015em] text-ink">{heading}</h2>
+    <div className="product-page h-full w-full overflow-y-auto">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4 border-b border-line pb-5">
+        <div className="min-w-0">
+          <h1 className="app-page-title">Activity</h1>
+          <p className="mt-2 max-w-[65ch] text-[13px] text-ink-mute">The project’s audit trail, across every environment. Inspect an action to see its recorded context.</p>
+        </div>
         <span className="flex items-center gap-2">
           <Button
             size="sm"
@@ -185,7 +190,7 @@ export default function ActivityPage() {
             onClick={() => save("json")}
             title={`Download the ${shown.length} actions listed here as JSON, built in your browser`}
           >
-            JSON {shown.length}
+            JSON
           </Button>
         </span>
       </div>
@@ -197,7 +202,6 @@ export default function ActivityPage() {
         result={result}
         from={from}
         to={to}
-        environments={data?.environments ?? []}
         loadedCount={events.length}
         onQuery={setQuery}
         onActor={setActor}
@@ -211,10 +215,18 @@ export default function ActivityPage() {
         }}
       />
 
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3 text-[12px] text-ink-mute">
+        <p aria-live="polite">{page.loading && !events.length ? "Loading the audit trail…" : page.error && !events.length ? "Audit trail unavailable" : heading}</p>
+        <span className="inline-flex items-center gap-2">
+          <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${paused || page.error ? "bg-warn" : "bg-info"}`} />
+          {paused ? "Updates paused" : page.error ? "Refresh unavailable" : "Updates automatically"}
+        </span>
+      </div>
+
       {paused && (
         <div
           role="status"
-          className="mb-3 flex flex-wrap items-center gap-3 rounded-card border border-line bg-bg1 px-4 py-2.5 text-[12.5px] text-ink-mute"
+          className="mb-3 flex flex-wrap items-center gap-3 border-y border-line bg-bg1 px-4 py-3 text-[13px] text-ink-mute"
         >
           <span className="min-w-0 flex-1">
             Live updates are paused while you read older actions — new ones will not appear until
@@ -250,6 +262,8 @@ export default function ActivityPage() {
           <Skeleton height={52} />
           <Skeleton height={52} />
         </div>
+      ) : page.error && events.length === 0 ? (
+        <EmptyState icon={<ScrollText className="h-5 w-5" />} title="The audit trail could not be loaded" body="Retry to retrieve the project’s recorded actions. Existing history has not been changed." action={<Button variant="quiet" onClick={page.refresh}>Retry audit trail</Button>} />
       ) : shown.length === 0 ? (
         <EmptyState
           icon={<ScrollText className="h-5 w-5" />}
@@ -267,18 +281,19 @@ export default function ActivityPage() {
                 ? "The filters query the full audit log, not just this page — so this really is empty. Widen a filter to see more."
                 : "Every action anyone runs on this project — you, the Navigator, or the system — is recorded here permanently."
           }
+          action={clientFiltered ? <Button variant="quiet" onClick={() => { setQuery(""); setFrom(""); setTo(""); }}>Clear search and dates</Button> : undefined}
         />
       ) : (
         <div className="space-y-5">
           {days.map((day) => (
             <section key={day.key}>
-              <h3 className="mb-2 flex items-baseline gap-2 text-[12px] tracking-[0.02em] text-ink-mute uppercase">
+              <h2 className="mb-3 flex items-baseline gap-3 text-[14px] font-medium text-ink">
                 {day.label}
                 <span className="tnum text-ink-faint normal-case">
                   {day.events.length} action{day.events.length === 1 ? "" : "s"}
                 </span>
-              </h3>
-              <Card padded={false}>
+              </h2>
+              <div className="border-y border-line">
                 {/* One table per day: a single table spanning the whole feed
                     would put a day heading inside a row, which is a heading
                     pretending to be data. The day is the caption. */}
@@ -286,24 +301,25 @@ export default function ActivityPage() {
                   caption={`${day.label} — ${day.events.length} action${day.events.length === 1 ? "" : "s"}`}
                   rows={day.events}
                   rowKey={(e) => e.id}
+                  selectedKey={selectedEvent?.id}
                   rowClassName={(e) => (e.actor.type === "navigator" ? "bg-nav-dim/30" : undefined)}
-                  columns={ACTIVITY_COLUMNS(slug)}
+                  columns={ACTIVITY_COLUMNS(slug, data?.environments ?? [], (event) => {
+                    if (projectId) setSelection({ projectId, event });
+                  })}
                 />
-              </Card>
+              </div>
             </section>
           ))}
 
-          {cursor ? (
-            <Button variant="quiet" block busy={loadingOlder} onClick={loadOlder}>
-              Load {PAGE_SIZE} older actions
-            </Button>
-          ) : (
+          {!cursor && (
             <p className="text-center text-[12.5px] text-ink-faint">
               The beginning of the trail{filterSentence ? ` ${filterSentence}` : ""}.
             </p>
           )}
         </div>
       )}
+      {cursor && <div className="mt-5"><Button variant="quiet" block busy={loadingOlder} onClick={loadOlder}>Load {PAGE_SIZE} older actions</Button></div>}
+      <ActivityDetail event={selectedEvent} environments={data?.environments ?? []} slug={slug} onClose={() => setSelection(undefined)} />
     </div>
   );
 }

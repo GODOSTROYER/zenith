@@ -120,7 +120,7 @@ export function BulkFixDialog({
       open
       onClose={onClose}
       title={`Fix ${shown ? runnable.length : "…"} finding${runnable.length === 1 ? "" : "s"}`}
-      description="Each one runs its own registered action, with its own plan and its own audit entry."
+      description="Review the estimated impact of each fix. Changes apply one at a time and remain recorded in Activity."
       width={620}
       footer={
         <>
@@ -180,10 +180,11 @@ export function BulkFixDialog({
           </div>
         ) : (
           <>
-            <div className="flex flex-wrap items-center gap-2">
-              <Chip tone={costDelta === 0 ? "neutral" : costDelta > 0 ? "warn" : "ok"}>
-                <CostDelta usd={costDelta} bare /> est./mo
-              </Chip>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-y border-line py-4">
+              <div>
+                <p className="mb-1 text-[12px] text-ink-mute">Combined monthly estimate change</p>
+                <CostDelta usd={costDelta} suffix="/mo est." />
+              </div>
               {skipped > 0 && (
                 <Chip tone="neutral">
                   {skipped} finding{skipped === 1 ? "" : "s"} with no fix left untouched
@@ -192,14 +193,14 @@ export function BulkFixDialog({
             </div>
 
             {runnable.length > 0 && (
-              <ul className="divide-y divide-line rounded-card border border-line">
+              <ul className="divide-y divide-line border-y border-line">
                 {runnable.map((r) => (
                   <li key={r.finding.id} className="space-y-1 px-4 py-3">
                     <div className="flex items-start gap-2.5">
                       <RiskBadge level={r.plan?.risk ?? r.finding.severity} className="mt-0.5" />
                       <div className="min-w-0 flex-1">
-                        <p className="text-[13px] text-ink">{r.finding.title}</p>
-                        <p className="mt-0.5 text-[12.5px] text-ink-mute">{r.plan?.summary}</p>
+                        <p className="text-[13px] font-medium text-ink [overflow-wrap:anywhere]">{r.finding.title}</p>
+                        <p className="mt-1 text-[13px] leading-relaxed text-ink-mute [overflow-wrap:anywhere]">{r.plan?.summary}</p>
                         {r.plan && r.plan.costDeltaUsd !== 0 && (
                           <p className="mt-0.5 text-[12px] text-ink-faint">
                             <CostDelta usd={r.plan.costDeltaUsd} suffix="/mo est." />

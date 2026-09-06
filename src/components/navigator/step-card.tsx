@@ -11,11 +11,15 @@ import { useProjectData } from "@/components/shell/project-context";
 import { ApiError, planAction } from "@/lib/client/api";
 import type { ActionPlan } from "@/lib/actions/core";
 import { cx } from "@/lib/format";
-import type { AutonomyLevel, NavigatorStep } from "@/lib/domain/types";
+import type { AutonomyLevel, NavigatorStep, NavigatorVerification } from "@/lib/domain/types";
 import { autonomyBlock, BLOCKED, CLARIFY, INVESTIGATE, isExecutable } from "@/lib/navigator/shared";
+
+import { StepReceipt } from "./recorded-receipt";
 
 export interface StepCardProps {
   step: NavigatorStep;
+  verification?: NavigatorVerification;
+  onInspect?: () => void;
   projectId: string;
   slug: string;
   autonomy: AutonomyLevel;
@@ -48,6 +52,8 @@ const STATUS_LABEL: Partial<Record<NavigatorStep["status"], string>> = {
 
 export function StepCard({
   step,
+  verification,
+  onInspect,
   projectId,
   slug,
   autonomy,
@@ -58,7 +64,7 @@ export function StepCard({
   prodEnvIds,
   earlierPending,
 }: StepCardProps) {
-  const { selectedEnvId } = useProjectData();
+  const { selectedEnvId, environments, deployments } = useProjectData();
   const [open, setOpen] = useState(false);
   const [plan, setPlan] = useState<ActionPlan>();
   const [planError, setPlanError] = useState<string>();
@@ -78,7 +84,7 @@ export function StepCard({
   const gate = autonomyBlock(autonomy, step.risk);
 
   const loadPlan = useCallback(async () => {
-    if (!previewable || plan || loading) return;
+    if (!previewable || plan || planError || loading) return;
     setLoading(true);
     try {
       const p = await planAction(step.actionId, {
@@ -96,6 +102,7 @@ export function StepCard({
   }, [
     previewable,
     plan,
+    planError,
     loading,
     step.actionId,
     step.input,
@@ -111,10 +118,13 @@ export function StepCard({
 
   const isDeploy = step.actionId.startsWith("deploy.");
   const statusText = STATUS_LABEL[step.status];
-  const isProd = Boolean(stepEnvId && prodEnvIds.has(stepEnvId));
+  const recordedEnvId = stepEnvId ?? deployments.find((deployment) => deployment.id === step.deploymentId)?.environmentId;
+  const isProd = Boolean(recordedEnvId && prodEnvIds.has(recordedEnvId));
+
+  const environment = environments.find((env) => env.id === recordedEnvId);
 
   return (
-    <li className="animate-enter relative flex gap-3">
+    <li className="relative flex gap-3">
       {/* the Navigator rail */}
       <div className="relative flex w-6 shrink-0 flex-col items-center">
         <span className={cx("absolute top-0 bottom-0 w-px", RAIL[step.status])} aria-hidden="true" />
@@ -138,7 +148,7 @@ export function StepCard({
 
       <div
         className={cx(
-          "min-w-0 flex-1 rounded-card border bg-bg2 px-4 py-3",
+          "min-w-0 flex-1 border-b bg-bg2 px-4 py-4",
           blocked ? "border-warn/30 bg-warn-dim/40" : "border-line",
           isProd && "ring-1 ring-prod/45",
           step.status === "failed" && "border-err/35",
@@ -146,12 +156,12 @@ export function StepCard({
         )}
       >
         <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 basis-full sm:min-w-[220px] sm:flex-1">
             <div className="flex items-center gap-2">
               {step.status === "running" && <StatusDot status="running" label="Running" />}
               {blocked && <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warn" />}
               {readOnly && <SearchCode className="h-3.5 w-3.5 shrink-0 text-nav-accent" />}
-              <h3 className="truncate text-[14px] font-medium text-ink">{step.title}</h3>
+              <h3 className="break-words text-[14px] font-semibold leading-relaxed text-ink">{step.title}</h3>
               {statusText && (
                 <span
                   className={cx(
@@ -174,7 +184,7 @@ export function StepCard({
             </p>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {isProd && (
               <Chip tone="prod" title="This step acts on a production environment.">
                 production
@@ -197,6 +207,10 @@ export function StepCard({
           </div>
         </div>
 
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
+          <span className={isProd ? "text-prod" : "text-ink-mute"}>{environment ? `${environment.name}${isProd ? " · production" : ""}` : recordedEnvId ?? "Project scope"}</span>
+          {onInspect && <button type="button" onClick={onInspect} className="min-h-8 text-signal hover:underline">Inspect step</button>}
+        </div>
         {/* approval */}
         {editable && executable && step.needsApproval && (
           <div className="mt-2.5">
@@ -224,7 +238,7 @@ export function StepCard({
         )}
         {editable && executable && !step.needsApproval && (
           <p className="mt-2 text-[12px] text-ink-faint">
-            Low risk and inside policy — runs without a separate approval.
+            {gate ?? "No separate step approval is required. This step starts when you choose Run approved steps."}
           </p>
         )}
 
@@ -237,12 +251,12 @@ export function StepCard({
               aria-expanded={open}
               className={cx(
                 "inline-flex items-center gap-1 text-[12.5px] text-ink-mute",
-                "transition-colors duration-[120ms] hover:text-ink"
+                "transition-colors duration-[var(--dur-fast)] hover:text-ink"
               )}
             >
               <ChevronRight
                 className={cx(
-                  "h-3.5 w-3.5 transition-transform duration-[200ms] [transition-timing-function:var(--ease-swift)]",
+                  "h-3.5 w-3.5 transition-transform duration-[var(--dur-base)] [transition-timing-function:var(--ease-swift)]",
                   open && "rotate-90"
                 )}
               />
@@ -265,6 +279,7 @@ export function StepCard({
                   ) : (
                     <p className="text-[12.5px] leading-relaxed text-err">{planError}</p>
                   ))}
+                {planError && <button type="button" onClick={() => setPlanError(undefined)} className="mt-2 min-h-8 text-[12px] text-signal underline">Retry preview</button>}
                 {plan && (
                   <>
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -309,9 +324,9 @@ export function StepCard({
 
         {/* outcome */}
         {step.resultSummary && step.status !== "failed" && (
-          <p className="mt-2.5 border-t border-line pt-2.5 text-[12.5px] leading-relaxed text-ink">
-            {step.resultSummary}
-          </p>
+          <div className="mt-2.5 border-t border-line pt-2.5 text-[12.5px] leading-relaxed text-ink">
+            <StepReceipt step={step} verification={verification} deployment={deployments.find(deployment => deployment.id === step.deploymentId)} />
+          </div>
         )}
         {step.status === "failed" && (
           <Callout tone="err" compact className="mt-2.5">

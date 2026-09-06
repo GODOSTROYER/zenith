@@ -25,12 +25,7 @@ composed; the dark inspect/review chapter and closing signature keep their ink
 ground in either theme. Proposed work earns the vermilion accent; a recorded
 queue settles into porcelain with a small revision tab.
 
-Product workflows retain the existing accessible shared UI foundation: layered
-navy surfaces, mint actions, violet Navigator identity, Space Grotesk and
-JetBrains Mono. The landing's scoped presentation does not replace those
-product tokens or primitives. Status colors retain their meaning independently
-of the brand: planning purple, approval yellow, applying blue, verified green,
-blocked red. Every state needs text and an icon; color alone is insufficient.
+Product workflows extend the approved Revision Object identity into a compact operational workbench: porcelain/ink surfaces, vermilion actions and proposed changes, selective Instrument Serif titles, Manrope controls and JetBrains Mono technical data. The landing keeps its own composition and display scale. Success is green, warnings and production identity amber, errors berry, information blue and Navigator violet. Every meaningful state needs text or an icon; color alone is insufficient.
 
 Gimbal introduces itself neutrally and responds to a voluntary greeting. Its
 landing appearance shares the product renderer, reduced-motion handling,

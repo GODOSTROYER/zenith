@@ -41,6 +41,8 @@ export interface GraphModel {
 
 export interface BuildGraphInput {
   manifest: Manifest;
+  /** Exact configuration currently deployed to this environment. */
+  deployedManifest?: Manifest | null;
   changeset: { items: ChangeItem[] } | undefined;
   health: HealthPayload | undefined;
   deployed: boolean;
@@ -75,7 +77,7 @@ export function diffKey(changeset: { items: ChangeItem[] } | undefined): string 
  * that timer — visible jitter for a number that belongs on Observe.
  */
 export function healthKey(health: HealthPayload | undefined): string {
-  return Object.entries(health?.services ?? {})
+  return `${health?.simulated ?? "unknown"}:` + Object.entries(health?.services ?? {})
     .map(([id, h]) => `${id}:${h.status}:${h.replicasReady}/${h.replicasDesired}`)
     .join("|");
 }
@@ -84,6 +86,7 @@ export function healthKey(health: HealthPayload | undefined): string {
 
 export function buildGraph({
   manifest: m,
+  deployedManifest,
   changeset,
   health,
   deployed,
@@ -99,7 +102,7 @@ export function buildGraph({
     if (!h) return { health: "idle", healthLabel: "Not running in this environment yet" };
     return {
       health: h.status === "ok" ? "ok" : "warn",
-      healthLabel: `${h.replicasReady}/${h.replicasDesired} ready — simulated health`,
+      healthLabel: `${h.replicasReady}/${h.replicasDesired} ready${health?.simulated ? " — simulated health" : ""}`,
     };
   };
 
@@ -197,24 +200,19 @@ export function buildGraph({
       },
     }));
 
-  // A removed binding has to ghost too, or the map claims a connection is
-  // already gone while the Changes panel still lists it — the exact
-  // disagreement ARCHITECTURE ADR 5 forbids. The changeset carries a
-  // binding's endpoints only as its display name, "<from> → <to>", so resolve
-  // them against the nodes above (ghosts included).
-  const byName = new Map(raw.map((n) => [n.data.name, n.id]));
+  // A display name is not an identity and may differ between revisions.
+  // Removed bindings retain their exact deployed endpoints.
+  const deployedBindings = new Map(deployedManifest?.bindings.map((b) => [b.id, b]));
   for (const item of changeset?.items ?? []) {
     if (item.op !== "delete" || item.nodeType !== "binding") continue;
-    const [from, to] = item.nodeName.split(" → ");
-    const source = byName.get(from);
-    const target = byName.get(to);
-    if (!source || !target) continue;
+    const binding = deployedBindings.get(item.nodeId);
+    if (!binding || !known.has(binding.from) || !known.has(binding.to)) continue;
     edgeDefs.push({
       id: item.nodeId,
-      source,
-      target,
+      source: binding.from,
+      target: binding.to,
       type: "binding",
-      data: { capability: "removing", note: item.explanation, diff: "delete" },
+      data: { capability: binding.capability, note: item.explanation, diff: "delete" },
     });
   }
 
@@ -232,6 +230,6 @@ export function buildGraph({
   return {
     allRaw: raw,
     allEdges: edgeDefs,
-    empty: m.services.length === 0 && m.resources.length === 0 && m.routes.length === 0,
+    empty: raw.length === 0,
   };
 }

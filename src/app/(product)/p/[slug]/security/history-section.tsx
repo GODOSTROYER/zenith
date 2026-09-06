@@ -30,9 +30,9 @@ export function HistorySection({
   onReopen,
 }: HistorySectionProps) {
   return (
-    <details className="rounded-card border border-line bg-bg2">
-      <summary className="cursor-pointer px-5 py-3 text-[13px] text-ink-mute select-none hover:text-ink">
-        History — {history.length} resolved or dismissed
+    <details className="group border-y border-line bg-bg2">
+      <summary className="cursor-pointer px-4 py-4 text-[14px] font-medium text-ink select-none hover:bg-bg1 sm:px-5">
+        Decision history <span className="ml-2 font-mono text-[12px] text-ink-mute">{history.length} resolved or dismissed</span>
       </summary>
       <ul className="border-t border-line">
         {history.map((f) => {
@@ -40,14 +40,14 @@ export function HistorySection({
           return (
             <li
               key={f.id}
-              className="flex items-start gap-3 border-b border-line px-5 py-3 text-[12.5px] last:border-b-0"
+              className="flex flex-wrap items-start gap-3 border-b border-line px-4 py-4 text-[13px] last:border-b-0 sm:px-5"
             >
               <Chip tone={f.status === "resolved" ? "ok" : "neutral"} className="mt-0.5">
                 {STATUS_LABEL[f.status]}
               </Chip>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-ink">{f.title}</p>
-                <p className="mt-0.5 flex flex-wrap items-center gap-2 text-[11.5px] text-ink-faint">
+                <p className="font-medium text-ink [overflow-wrap:anywhere]">{f.title}</p>
+                <p className="mt-1.5 flex flex-wrap items-center gap-2 text-[12px] text-ink-faint">
                   <TimeAgo
                     iso={f.resolvedAt ?? f.createdAt}
                     prefix={f.status === "resolved" ? "resolved" : "dismissed"}

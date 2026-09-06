@@ -53,6 +53,22 @@ describe("living gyroscope lifecycle", () => {
   const object = (name: string) => scene.getObjectByName(name)!;
   const accent = () => (object("Inlay0") as Mesh).material as MeshStandardMaterial;
 
+  it("offers porcelain and ink materials while retaining the approved default appearance", async () => {
+    await mount("planning", true);
+    const headMaterial = () => (object("Head") as Mesh).material as MeshStandardMaterial;
+    expect(headMaterial().color.getHexString()).toBe("364154");
+    runtime!.dispose();
+    runtime = await createGimbalRenderer(host, {
+      state: "planning", material: "porcelain", reducedMotion: true, lowPower: false,
+      onReady: vi.fn(), onError: vi.fn(),
+    });
+    expect(headMaterial().color.getHexString()).toBe("f4f3ee");
+    expect(headMaterial().metalness).toBeLessThan(0.1);
+    expect(((object("Visor") as Mesh).material as MeshStandardMaterial).color.getHexString()).toBe("20211f");
+    expect(accent().color.getHexString()).toBe(GIMBAL_STATE.planning.color.slice(1));
+    expect(frames.size).toBe(0);
+  });
+
   it("renders without asset requests and keeps every ring moving on three axes in calm states", async () => {
     await mount("verified");
     const before = [0, 1, 2].map((i) => object(`Orbit${i}`).rotation.clone());

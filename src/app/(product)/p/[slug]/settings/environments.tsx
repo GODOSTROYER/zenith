@@ -30,7 +30,7 @@ import { StatusDot } from "@/components/ui/status-dot";
 import { Switch } from "@/components/ui/switch";
 import { TimeAgo } from "@/components/ui/time-ago";
 import type { RevisionMeta } from "@/components/screens/project-data";
-import { ActionConfirm, envTone } from "@/components/screens/shared";
+import { ActionConfirm, ErrorNote, envTone } from "@/components/screens/shared";
 import { useGate } from "./access";
 import { CONN_DOT, unusableReason, type ProviderInfo } from "./shared";
 
@@ -305,14 +305,14 @@ function EnvironmentCard({
     <Card
       prod={isProd}
       title={
-        <span className="flex items-center gap-2.5">
-          {env.name}
+        <span className="flex flex-wrap items-center gap-2.5">
+          <span className="break-words">{env.name}</span>
           <Chip tone={envTone(env.class)}>{env.class}</Chip>
         </span>
       }
       subtitle={
         <>
-          {env.region} · routes under <span className="font-mono">{env.baseDomain}</span>
+          {env.region} · routes under <span className="break-all font-mono">{env.baseDomain}</span>
         </>
       }
       actions={
@@ -370,7 +370,7 @@ function EnvironmentCard({
         <DeployedState env={env} revision={revision} deployment={deployment} />
 
         <div>
-          <p className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">Deploys through</p>
+          <p className="text-[13px] font-medium text-ink-mute">Deploys through</p>
           {connection ? (
             <>
               <p className="mt-2 text-[13px] text-ink">
@@ -494,7 +494,7 @@ function EnvironmentCard({
         </Field>
 
         <div>
-          <p className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">Deploy policy</p>
+          <p className="text-[13px] font-medium text-ink-mute">Deploy policy</p>
 
           <div className="mt-2.5 flex items-start gap-3">
             <Switch
@@ -569,7 +569,7 @@ function DeployedState({
 
   return (
     <div>
-      <p className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">Deployed</p>
+      <p className="text-[13px] font-medium text-ink-mute">Deployed revision</p>
       {env.deployedRevisionId ? (
         <>
           <p className="mt-2 text-[13px] text-ink">
@@ -599,7 +599,12 @@ function DeployedState({
             ) : null}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            {health.loading && !health.data ? (
+            {health.error ? (
+              <div className="w-full space-y-2">
+                <ErrorNote error={health.error} />
+                <Button size="sm" variant="quiet" onClick={health.refresh}>Retry health check</Button>
+              </div>
+            ) : health.loading && !health.data ? (
               <Skeleton width={90} height={18} />
             ) : services.length ? (
               <>

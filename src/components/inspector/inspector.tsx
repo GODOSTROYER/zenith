@@ -141,7 +141,7 @@ export interface InspectorProps {
  */
 export function Inspector({ target, onClose, onSelect }: InspectorProps) {
   const wide = useWideLayout();
-  const { project, changesets, selectedEnvId } = useProjectData();
+  const { project, changesets, selectedEnvId, selectedEnv } = useProjectData();
   const heading = useRef<HTMLHeadingElement>(null);
 
   const targetKey = target
@@ -197,6 +197,10 @@ export function Inspector({ target, onClose, onSelect }: InspectorProps) {
 
   const body = (
     <>
+      <div className="mb-4 border-b border-line pb-3">
+        <p className="flex flex-wrap items-center gap-2 text-[12px] text-ink-mute"><span>Working configuration</span><span aria-hidden="true">→</span><span className={selectedEnv?.class === "production" ? "font-medium text-prod" : "text-ink"}>{selectedEnv?.name}{selectedEnv?.class === "production" ? " · production" : ""}</span></p>
+        {diffId && <p className="mt-1 break-all font-mono text-[11px] text-ink-faint">{diffId}</p>}
+      </div>
       {/* Field-level detail, rendered by the same component the Changes panel
           and the deploy review use — the inspector may never describe a change
           differently from the list you are about to deploy. */}
@@ -225,14 +229,14 @@ export function Inspector({ target, onClose, onSelect }: InspectorProps) {
   return (
     <aside
       aria-label="Inspector"
-      className="animate-enter flex w-[400px] shrink-0 flex-col border-l border-line bg-bg1"
+      className="animate-enter flex w-[400px] min-h-0 shrink-0 flex-col border-l border-line bg-bg2"
     >
       <header className="flex items-start justify-between gap-3 border-b border-line px-4 py-3">
         <div className="min-w-0">
           <h2
             ref={heading}
             tabIndex={-1}
-            className="truncate text-[15px] font-medium text-ink outline-none focus-visible:underline"
+            className="break-all text-[17px] leading-snug font-semibold text-ink outline-none focus-visible:underline"
             title={head.title}
           >
             {head.title}

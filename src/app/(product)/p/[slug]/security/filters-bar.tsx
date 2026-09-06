@@ -68,7 +68,10 @@ export function FiltersBar({
   const exportTitle = `All ${exportCount} finding${exportCount === 1 ? "" : "s"} on this project, every status included. Written in your browser from what this page already loaded.`;
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-end gap-3 border-b border-line pb-4">
+      <div className="w-full space-y-2">
+        <h2 className="app-section-title">Open findings</h2>
+        <div className="flex flex-wrap items-center gap-2">
       <SegmentedControl<SeverityFilter>
         size="sm"
         label="Filter by severity"
@@ -102,8 +105,10 @@ export function FiltersBar({
           },
         ]}
       />
+        </div>
+      </div>
       <Select
-        className="w-[190px]"
+        className="w-full sm:w-[210px]"
         aria-label="Filter by environment"
         value={filters.environmentId}
         onChange={(e) => onFilters((f) => ({ ...f, environmentId: e.target.value as EnvFilter }))}
@@ -120,13 +125,13 @@ export function FiltersBar({
         ]}
       />
       <Select
-        className="w-[190px]"
+        className="w-full sm:w-[210px]"
         aria-label="Sort findings"
         value={sort}
         onChange={(e) => onSort(e.target.value as SortKey)}
         options={SORTS}
       />
-      <div className="ml-auto flex items-center gap-2">
+      <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
         <div className="flex items-center gap-1">
           <Button size="sm" variant="quiet" title={exportTitle} onClick={() => onSave("json")}>
             Export JSON

@@ -43,6 +43,10 @@ import {
 } from "@/components/screens/shared";
 import { revisionPairLabel } from "./pair-label";
 import { pickPair } from "./pick-pair";
+import { useRevisions } from "./use-revisions";
+import { orderComparison } from "./order-comparison";
+import { PageHeading } from "@/components/screens/page-heading";
+import { ConnectedDetail } from "@/components/screens/connected-detail";
 
 const OP_ORDER: ChangeItem["op"][] = ["create", "update", "delete"];
 const OP_TITLE: Record<ChangeItem["op"], string> = {
@@ -50,66 +54,6 @@ const OP_TITLE: Record<ChangeItem["op"], string> = {
   update: "Changed",
   delete: "Removed",
 };
-
-/** Rows per request. The route caps `limit` at 200; this is a screenful. */
-const PAGE = 25;
-
-interface RevisionsPage {
-  revisions: RevisionMeta[];
-  total: number;
-  nextCursor?: string;
-}
-
-/**
- * The append-only history, one page at a time, from the cursor-paged route —
- * the project payload's inline copy grows without bound and is only used here
- * as the signal that a deploy landed elsewhere.
- *
- * ponytail: a re-read drops back to the first page, so pages opened with "Load
- * older" have to be re-opened after someone deploys. Append-preserving refetch
- * if that ever annoys anyone.
- */
-function useRevisions(projectId: string, historyDepth: number) {
-  const [loaded, setLoaded] = useState<RevisionMeta[]>([]);
-  const [total, setTotal] = useState(0);
-  const [cursor, setCursor] = useState<string>();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<unknown>();
-
-  const page = useCallback(
-    async (from?: string) => {
-      setLoading(true);
-      setError(undefined);
-      try {
-        const res = await api<RevisionsPage>(
-          `/api/projects/${encodeURIComponent(projectId)}/revisions?limit=${PAGE}` +
-            (from ? `&cursor=${encodeURIComponent(from)}` : "")
-        );
-        setLoaded((prev) => (from ? [...prev, ...res.revisions] : res.revisions));
-        setTotal(res.total);
-        setCursor(res.nextCursor);
-      } catch (e) {
-        setError(e);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [projectId]
-  );
-
-  // `historyDepth` is the payload's revision count: when it moves, a deploy
-  // landed and the newest page is re-read.
-  useEffect(() => void page(), [page, historyDepth]);
-
-  return {
-    revisions: loaded,
-    total,
-    error,
-    loading,
-    hasMore: cursor !== undefined,
-    loadMore: () => void page(cursor),
-  };
-}
 
 /** What a comparison is about: two revision ids and how to name the pair. */
 interface Compare {
@@ -141,6 +85,7 @@ export default function RevisionsPage() {
     error: listError,
     hasMore,
     loadMore,
+    retry,
   } = useRevisions(projectId, data?.revisions.length ?? 0);
   const environments = useMemo(() => data?.environments ?? [], [data]);
 
@@ -222,8 +167,9 @@ export default function RevisionsPage() {
   const previousOf = (index: number): RevisionMeta | undefined => revisions[index + 1];
 
   return (
-    <div className="product-page mx-auto h-full w-full max-w-[1100px] overflow-y-auto">
-      {listError ? <ErrorNote error={listError} className="mb-4" /> : null}
+    <div className="product-page h-full w-full overflow-y-auto">
+      <PageHeading title="Revisions" description="A precise record of your system. Compare definitions, inspect a snapshot, or review a configuration restore." actions={<Chip>{total} recorded</Chip>} />
+      {listError ? <div className="mb-4 space-y-2"><ErrorNote error={listError} /><Button size="sm" variant="quiet" onClick={retry}>Retry history</Button></div> : null}
       {revisions.length === 0 && listLoading ? (
         <div className="space-y-3">
           <Skeleton height={20} width="30%" />
@@ -246,7 +192,7 @@ export default function RevisionsPage() {
 
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             {/* Honest about what is loaded: search only sees the rows below. */}
-            <h2 className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">
+            <h2 className="text-[13px] font-medium text-ink-mute">
               {needle
                 ? `${shown.length} of ${revisions.length} loaded match${
                     hasMore ? ` · ${total} in all` : ""
@@ -290,7 +236,7 @@ export default function RevisionsPage() {
               caption={`${total} revision${total === 1 ? "" : "s"} of this project's system definition, newest first`}
               rows={shown}
               rowKey={(r) => r.id}
-              rowClassName={(r) => (picked.includes(r.id) ? "bg-bg3" : undefined)}
+              rowClassName={(r) => (picked.includes(r.id) ? "bg-signal-dim" : undefined)}
               empty={
                 <Table.Empty>
                   <p>
@@ -331,7 +277,7 @@ export default function RevisionsPage() {
                   header: "Change",
                   render: (r) => (
                     <>
-                      <p className="text-[13px] text-ink">{r.message}</p>
+                      <p className="min-w-[180px] break-words text-[13px] font-medium text-ink">{r.message}</p>
                       <p className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-ink-faint">
                         <ActorDot actor={r.author} />
                         {r.author.name} · <TimeAgo iso={r.createdAt} />
@@ -500,7 +446,7 @@ export default function RevisionsPage() {
           input={{ environmentId: env.id, toRevisionId: rollbackTo?.id }}
           scope={{ projectId, environmentId: env.id }}
           title={`Roll ${env.name} back to r${rollbackTo?.number ?? ""}`}
-          description="Rollback runs as a normal deployment, with its own steps and logs."
+          description="Restores this system definition through a new deployment, with its own steps and logs. History is preserved. Deleted or changed application data is not recovered."
           confirmLabel="Roll back"
           danger
           typeToConfirm={env.class === "production" ? env.name : undefined}
@@ -620,11 +566,9 @@ export default function RevisionsPage() {
       </Dialog>
 
       {slug && revisions.length > 0 && (
-        <p className="mt-4 text-[12.5px] text-ink-faint">
-          Revisions are append-only. The ↩ on a row rolls {env?.name ?? "the selected environment"}{" "}
-          back to it and the rocket deploys it to another environment; both show the plan first.
-          Deploying an earlier definition never deletes history and never restores data written
-          since.
+        <p className="mt-4 border-t border-line pt-4 text-[13px] text-ink-mute">
+          History is append-only. Restoring a revision deploys its configuration to {env?.name ?? "the selected environment"} after review.
+          It does not recover deleted data or undo application writes.
         </p>
       )}
     </div>
@@ -663,13 +607,13 @@ function EnvironmentCompare({
   const options = deployed.map((e) => ({ value: e.id, label: e.name }));
 
   return (
-    <div className="mb-5 flex flex-wrap items-end gap-3 rounded-card border border-line bg-bg1 px-4 py-3">
+    <div className="mb-6 flex flex-wrap items-end gap-4 border-y border-line py-4">
       <div className="min-w-0">
-        <p className="mb-1.5 text-[12px] tracking-[0.02em] text-ink-mute uppercase">
+        <p className="mb-2 text-[13px] font-medium text-ink">
           Compare environments
         </p>
-        <div className="flex items-center gap-2">
-          <div className="w-[160px]">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="w-[min(160px,35vw)]">
             <Select
               value={a}
               onChange={(e) => setA(e.target.value)}
@@ -680,7 +624,7 @@ function EnvironmentCompare({
           <span aria-hidden="true" className="text-ink-faint">
             →
           </span>
-          <div className="w-[160px]">
+          <div className="w-[min(160px,35vw)]">
             <Select
               value={b}
               onChange={(e) => setB(e.target.value)}
@@ -748,26 +692,25 @@ function CompareView({
 }) {
   const [pair, setPair] = useState<{ older: Revision; newer: Revision }>();
   const [error, setError] = useState<unknown>();
+  const [selectedChange, setSelectedChange] = useState<ChangeItem>();
   const panel = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let alive = true;
     setPair(undefined);
     setError(undefined);
+    setSelectedChange(undefined);
     Promise.all(ids.map((id) => api<{ revision: Revision }>(`/api/revisions/${id}`)))
       .then(([a, b]) => {
         if (!alive) return;
-        const [older, newer] =
-          a.revision.number <= b.revision.number
-            ? [a.revision, b.revision]
-            : [b.revision, a.revision];
+        const [older, newer] = orderComparison(a.revision, b.revision, Boolean(label));
         setPair({ older, newer });
       })
       .catch((e: unknown) => alive && setError(e));
     return () => {
       alive = false;
     };
-  }, [ids]);
+  }, [ids, label]);
 
   // The panel opens below the fold on a long history. Focusing it scrolls it
   // into view and puts the keyboard where the new content is.
@@ -786,9 +729,9 @@ function CompareView({
   })).filter((g) => g.items.length > 0);
 
   return (
-    <div ref={panel} tabIndex={-1} className="mt-6 animate-enter outline-none">
+    <div ref={panel} tabIndex={-1} className="mt-6 scroll-mt-6 outline-none">
       <Card
-        title={`Diff ${heading}`}
+        title={`Compare ${heading}`}
         subtitle={
           pair
             ? `From r${pair.older.number} “${pair.older.message}” to r${pair.newer.number} “${pair.newer.message}”.`
@@ -820,21 +763,25 @@ function CompareView({
           />
         ) : (
           <div>
+            {pair && <div className="grid gap-4 border-b border-line bg-bg1 p-4 sm:grid-cols-2">
+              <div><p className="text-[12px] text-ink-mute">Source revision</p><p className="mt-1 break-words text-[14px] text-ink"><span className="font-mono">r{pair.older.number}</span> · {pair.older.message}</p></div>
+              <div><p className="text-[12px] text-ink-mute">Target revision</p><p className="mt-1 break-words text-[14px] text-ink"><span className="font-mono">r{pair.newer.number}</span> · {pair.newer.message}</p></div>
+            </div>}
             {grouped.map((g) => (
               <div key={g.op}>
-                <h4 className="border-b border-line bg-bg1 px-4 py-2 text-[12px] tracking-[0.02em] text-ink-mute uppercase">
+                <h4 className="border-b border-line bg-bg1 px-4 py-2 text-[13px] font-medium text-ink-mute">
                   {OP_TITLE[g.op]} · {g.items.length}
                 </h4>
                 <ul>
                   {g.items.map((i) => (
-                    <ChangeRow key={`${i.op}-${i.nodeId}`} item={i} />
+                    <ChangeRow key={`${i.op}-${i.nodeId}`} item={i} selected={selectedChange?.nodeId === i.nodeId && selectedChange?.op === i.op} onSelect={() => setSelectedChange(i)} />
                   ))}
                 </ul>
               </div>
             ))}
             <div className="flex flex-wrap gap-4 border-t border-line px-4 py-3 text-[12.5px] text-ink-mute">
               <span>
-                Projected monthly at the newer revision:{" "}
+                Projected monthly at the target revision:{" "}
                 <span className="tnum text-ink">{fmtUsd(changeset.projectedMonthlyUsd)}</span> (est.)
               </span>
               {changeset.warnings.map((w) => (
@@ -846,6 +793,19 @@ function CompareView({
           </div>
         )}
       </Card>
+      <ConnectedDetail open={Boolean(selectedChange)} onClose={() => setSelectedChange(undefined)} title={selectedChange?.nodeName ?? "Revision change"} resourceId={selectedChange?.nodeId} context={pair ? `r${pair.older.number} → r${pair.newer.number} · immutable comparison` : "Revision comparison"}>
+        {selectedChange && <div className="space-y-5">
+          <div className="flex flex-wrap items-center gap-2"><Chip tone={selectedChange.op === "delete" ? "err" : selectedChange.op === "create" ? "ok" : "signal"}>{OP_TITLE[selectedChange.op]}</Chip><Chip tone={selectedChange.risk === "high" ? "warn" : "neutral"}>{selectedChange.risk} risk</Chip><CostDelta usd={selectedChange.costDeltaUsd} /></div>
+          <p className="text-[13px] text-ink-mute">{selectedChange.explanation}</p>
+          {pair && <><CodeBlock title={`Source · r${pair.older.number}`} code={JSON.stringify(changeDefinition(pair.older, selectedChange), null, 2)} maxHeight={280} /><CodeBlock title={`Target · r${pair.newer.number}`} code={JSON.stringify(changeDefinition(pair.newer, selectedChange), null, 2)} maxHeight={280} /></>}
+          <p className="text-[12px] text-ink-mute">Historical definitions are read-only. Review a restore from the revision history to change an environment.</p>
+        </div>}
+      </ConnectedDetail>
     </div>
   );
+}
+
+function changeDefinition(revision: Revision, change: ChangeItem) {
+  const manifest = revision.manifest;
+  return [...manifest.services, ...manifest.resources, ...manifest.routes, ...manifest.bindings].find((item) => item.id === change.nodeId) ?? null;
 }

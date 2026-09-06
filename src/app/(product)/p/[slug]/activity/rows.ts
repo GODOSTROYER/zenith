@@ -137,6 +137,15 @@ function str(input: unknown, key: string): string | undefined {
   return typeof v === "string" && v ? v : undefined;
 }
 
+/** Identity explicitly recorded by the action; never infer one from its prose. */
+export function recordedResourceId(event: AuditEvent): string | undefined {
+  for (const key of ID_KEYS) {
+    const id = str(event.input, key);
+    if (id) return id;
+  }
+  return undefined;
+}
+
 /**
  * Where the thing this action changed can be looked at, when the recorded
  * input names one. Only destinations that actually exist are returned — a
@@ -144,10 +153,8 @@ function str(input: unknown, key: string): string | undefined {
  */
 export function objectLink(event: AuditEvent): ObjectLink | undefined {
   const { input, actionId } = event;
-  for (const key of ID_KEYS) {
-    const id = str(input, key);
-    if (id) return { path: `?select=${encodeURIComponent(id)}`, label: "show on map" };
-  }
+  const resourceId = recordedResourceId(event);
+  if (resourceId) return { path: `?select=${encodeURIComponent(resourceId)}`, label: "show on map" };
   if (str(input, "deploymentId") || actionId.startsWith("deploy."))
     return { path: "/deploys", label: "open deploys" };
   if (str(input, "revisionId") || str(input, "toRevisionId"))

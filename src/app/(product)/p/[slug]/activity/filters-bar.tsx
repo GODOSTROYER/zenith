@@ -5,7 +5,6 @@
  * range only see what is loaded, and the copy under them says so.
  */
 import { Search } from "lucide-react";
-import type { Environment } from "@/lib/domain/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -42,7 +41,6 @@ export interface ActivityFiltersProps {
   result: ResultFilter;
   from: string;
   to: string;
-  environments: Environment[];
   /** how many actions are loaded — the date note is honest about its reach */
   loadedCount: number;
   onQuery: (value: string) => void;
@@ -61,7 +59,6 @@ export function ActivityFilters({
   result,
   from,
   to,
-  environments,
   loadedCount,
   onQuery,
   onActor,
@@ -72,10 +69,10 @@ export function ActivityFilters({
   onClearDates,
 }: ActivityFiltersProps) {
   return (
-    <>
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+    <section aria-label="Filter activity" className="mb-5 space-y-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Input
-          className="min-w-[220px] flex-1"
+          className="min-w-[180px] flex-1"
           value={query}
           onChange={(e) => onQuery(e.target.value)}
           placeholder="Search loaded actions…"
@@ -113,36 +110,22 @@ export function ActivityFilters({
             { value: "denied", label: "Refused" },
           ]}
         />
-        {/* SEAM (T3): live once the audit route accepts `env=<environmentId>`. */}
-        <span title="Filtering by environment needs the audit endpoint to accept it — it does not yet, and filtering only the loaded page would quietly lie about the rest of the trail.">
-          <Select
-            className="w-[150px]"
-            aria-label="Filter by environment"
-            value="all"
-            disabled
-            onChange={() => undefined}
-            options={[
-              { value: "all", label: "Any environment" },
-              ...environments.map((e) => ({ value: e.id, label: e.name })),
-            ]}
-          />
-        </span>
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-[12.5px] text-ink-mute">
-        <span>Between</span>
+      <div className="flex flex-wrap items-center gap-2 text-[12px] text-ink-mute">
+        <span className="mr-1">Loaded date range</span>
         <Input
           type="date"
-          className="w-[150px]"
+          className="w-[145px]"
           aria-label="Only actions on or after this date"
           value={from}
           max={to || undefined}
           onChange={(e) => onFrom(e.target.value)}
         />
-        <span>and</span>
+        <span>to</span>
         <Input
           type="date"
-          className="w-[150px]"
+          className="w-[145px]"
           aria-label="Only actions on or before this date"
           value={to}
           min={from || undefined}
@@ -159,6 +142,7 @@ export function ActivityFilters({
           </>
         )}
       </div>
-    </>
+      <p className="text-[12px] leading-relaxed text-ink-mute">Actor, action and result filters search the full trail. Search and dates narrow the {loadedCount} loaded actions. Environment filtering is not available.</p>
+    </section>
   );
 }

@@ -188,13 +188,13 @@ function NodeShell({
     // Filtered-out nodes fade rather than disappear: the map must keep showing
     // the whole system, or it stops agreeing with the Changes panel.
     <div
-      className="relative transition-opacity duration-[200ms] [transition-timing-function:var(--ease-swift)]"
+      className="relative transition-opacity duration-[var(--dur-base)] [transition-timing-function:var(--ease-swift)]"
       style={{ width: size.width, height: size.height, opacity: data.dimmed ? 0.28 : undefined }}
     >
       {data.live && (
         <span
           aria-hidden="true"
-          className="status-pulse pointer-events-none absolute -inset-1 rounded-[15px] ring-2 ring-signal/55"
+          className="pointer-events-none absolute -inset-1 rounded-card ring-2 ring-signal/55"
         />
       )}
       <Handle type="target" position={Position.Left} isConnectable={false} style={HANDLE} />
@@ -231,12 +231,11 @@ function NodeShell({
           }
         }}
         className={cx(
-          "relative flex h-full w-full flex-col justify-center overflow-hidden bg-bg2 px-3 text-left",
-          "transition-[border-color,box-shadow,opacity] duration-[200ms] [transition-timing-function:var(--ease-swift)]",
-          data.stratum === "route" ? "rounded-full" : "rounded-card",
-          "border shadow-card",
+          "relative flex h-full w-full flex-col justify-center overflow-hidden rounded-card bg-bg2 px-4 text-left",
+          "transition-[border-color,box-shadow,opacity] duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)]",
+          "border shadow-[0_2px_0_var(--line)]",
           ghost
-            ? "border-dashed border-err opacity-45"
+            ? "border-dashed border-err"
             : data.diff === "create"
               ? "border-dashed border-signal"
               : referenced
@@ -260,13 +259,7 @@ function DiffMark({ diff }: { diff?: MapNodeData["diff"] }) {
   if (diff === "create") return <Chip tone="signal">new</Chip>;
   if (diff === "delete") return <Chip tone="err">removing</Chip>;
   if (diff === "update")
-    return (
-      <span
-        title="Changed since the last deploy to this environment."
-        aria-label="changed"
-        className="h-1.5 w-1.5 shrink-0 rounded-full bg-signal"
-      />
-    );
+    return <Chip tone="signal">changed</Chip>;
   return null;
 }
 
@@ -298,7 +291,7 @@ export function RouteNode({ id, data }: NodeProps<MapNode>) {
     <NodeShell id={id} data={data}>
       <div className="flex items-center gap-2">
         <Globe className="h-3.5 w-3.5 shrink-0 text-ink-mute" aria-hidden="true" />
-        <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-ink" title={data.name}>
+        <span className="min-w-0 flex-1 break-all font-mono text-[12px] leading-[1.45] text-ink" title={data.name}>
           {data.name}
         </span>
         {data.tls && (
@@ -317,16 +310,16 @@ export function ServiceNode({ id, data }: NodeProps<MapNode>) {
     <NodeShell id={id} data={data}>
       <div className="flex items-center gap-2">
         <Icon className="h-4 w-4 shrink-0 text-ink-mute" aria-hidden="true" />
-        <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-ink" title={data.name}>
+        <span className="min-w-0 flex-1 line-clamp-2 break-all text-[14px] leading-[1.4] font-semibold text-ink" title={data.name}>
           {data.name}
         </span>
         <DiffMark diff={data.diff} />
         <DriftMark drift={data.drift} />
         {data.health && <StatusDot status={data.health} label={data.healthLabel} />}
       </div>
-      <div className="mt-1 flex items-baseline gap-2">
+      <div className="mt-3 flex items-baseline gap-2 border-t border-line pt-2">
         <span
-          className="min-w-0 flex-1 truncate text-[11.5px] text-ink-mute"
+          className="min-w-0 flex-1 text-[12px] leading-[1.4] text-ink-mute"
           title={`${KIND_LABEL[data.kind] ?? data.kind}${data.sub ? ` · ${data.sub}` : ""}`}
         >
           {KIND_LABEL[data.kind] ?? data.kind}
@@ -349,15 +342,15 @@ export function ResourceNode({ id, data }: NodeProps<MapNode>) {
     <NodeShell id={id} data={data}>
       <div className="flex items-center gap-2">
         <Icon className="h-4 w-4 shrink-0 text-ink-mute" aria-hidden="true" />
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ink" title={data.name}>
+        <span className="min-w-0 flex-1 line-clamp-2 break-all text-[14px] leading-[1.4] font-semibold text-ink" title={data.name}>
           {data.name}
         </span>
         <DiffMark diff={data.diff} />
         <DriftMark drift={data.drift} />
       </div>
-      <div className="mt-1 flex items-baseline gap-2">
+      <div className="mt-3 flex items-baseline gap-2 border-t border-line pt-2">
         <span
-          className="min-w-0 flex-1 truncate text-[11.5px] text-ink-mute"
+          className="min-w-0 flex-1 text-[12px] leading-[1.4] text-ink-mute"
           title={`${KIND_LABEL[data.kind] ?? data.kind}${data.sub ? ` · ${data.sub}` : ""}`}
         >
           {KIND_LABEL[data.kind] ?? data.kind}

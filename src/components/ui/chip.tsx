@@ -46,7 +46,7 @@ export function Chip({
       title={title}
       aria-describedby={describedBy}
       className={cx(
-        "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5",
+        "inline-flex items-center gap-1.5 rounded-[2px] border px-2 py-0.5",
         "text-[11.5px] leading-5 font-medium tracking-[0.01em] whitespace-nowrap",
         TONES[tone],
         className

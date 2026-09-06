@@ -36,14 +36,14 @@ export function StepWorkspace({ boot, loading, onDone }: {
     } finally { inFlight.current = false; setBusy(false); }
   };
   if (loading) return <Skeleton height={180} />;
-  return <div className="max-w-[680px] space-y-6 animate-enter">
-    <p className="text-base leading-relaxed text-ink-mute">A workspace holds your team’s projects, connections and history. Choose one you belong to, or create a space for a new team.</p>
+  return <div className="max-w-[680px] space-y-6">
+    <p className="text-sm leading-relaxed text-ink-mute">A workspace holds your team’s projects, connections and history. Choose one you belong to, or create a space for a new team.</p>
     {existing && boot && <div className="space-y-3">{(boot.workspaces.length ? boot.workspaces : [{ ...existing, role: boot.role }]).map((w) => <div key={w.id} className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-bg1 p-4">
-      <div><p className="text-ink">{w.name}</p><p className="mt-1 text-xs text-ink-faint">{w.role ?? "No role"}{w.id === existing.id ? " · Current workspace" : ""}</p></div>
+      <div className="min-w-0"><p className="break-words font-medium text-ink">{w.name}</p><p className="mt-1 text-xs text-ink-faint">{w.role ?? "No role"}{w.id === existing.id ? " · Current workspace" : ""}</p></div>
       <Button variant={w.id === existing.id ? "primary" : "quiet"} busy={busy} onClick={() => w.id === existing.id ? onDone() : submit(w.id)}>{w.id === existing.id ? "Continue here" : "Use workspace"}</Button>
     </div>)}</div>}
     {existing && boot?.auth.configured && !creating && <Button variant="quiet" onClick={() => setCreating(true)}>Create another workspace</Button>}
-    {(!existing || creating) && <div className="space-y-4 rounded-card border border-line p-5">
+    {(!existing || creating) && <div className="space-y-4 border-y border-line bg-bg2 p-5">
       <Field label="Workspace name" help="Creating a workspace also creates a local sandbox connection for optional simulation. It does not provision cloud resources."><Input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} placeholder="Your team" /></Field>
       <Button busy={busy} disabled={!name.trim() || uncertain} disabledReason={uncertain ? "Check your workspaces before attempting another creation." : "Give the workspace a name first."} onClick={() => submit()}>Create workspace</Button>
       {existing && <Button variant="quiet" disabled={busy} onClick={() => setCreating(false)}>Cancel</Button>}

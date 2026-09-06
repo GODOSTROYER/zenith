@@ -45,7 +45,7 @@ export function Meter({ value, max = 100, tone, label, hint, className }: MeterP
       >
         <div
           className={cx(
-            "h-full rounded-full transition-[width] duration-[320ms] [transition-timing-function:var(--ease-swift)]",
+            "h-full rounded-full transition-[width] duration-[var(--dur-base)] [transition-timing-function:var(--ease-swift)]",
             FILL[tone ?? auto]
           )}
           style={{ width: `${pct}%` }}

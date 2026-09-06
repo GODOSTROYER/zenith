@@ -21,7 +21,7 @@ export interface DrawerProps {
   children: ReactNode;
 }
 
-/** Right-side panel: focus-trapped, ESC or overlay closes, slides in 320ms. */
+/** Right-side panel: focus-trapped, ESC or overlay closes, shared panel motion. */
 export function Drawer({
   open,
   onClose,
@@ -41,12 +41,12 @@ export function Drawer({
   const w = Math.min(560, Math.max(420, width));
 
   return createPortal(
-    <div className="fixed inset-0 z-50">
+    <div inert={!open} className="fixed inset-0 z-50">
       <div
         onClick={onClose}
         aria-hidden="true"
         className={cx(
-          "absolute inset-0 bg-bg0/70 transition-opacity duration-200 [transition-timing-function:var(--ease-swift)]",
+          "absolute inset-0 bg-bg0/70 transition-opacity duration-[var(--dur-base)] [transition-timing-function:var(--ease-swift)]",
           shown ? "opacity-100" : "opacity-0"
         )}
       />
@@ -60,14 +60,14 @@ export function Drawer({
         style={{ width: w }}
         className={cx(
           "absolute inset-y-0 right-0 flex max-w-full flex-col border-l border-line bg-bg1 shadow-overlay outline-none",
-          "transition-transform duration-[320ms] [transition-timing-function:var(--ease-swift)]",
+          "transition-transform duration-[var(--dur-base)] [transition-timing-function:var(--ease-swift)]",
           shown ? "translate-x-0" : "translate-x-full",
           className
         )}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-line px-5 py-4">
+        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-line px-5 py-4">
           <div className="min-w-0">
-            <h2 id={titleId} className="truncate text-[16px] font-medium text-ink">
+            <h2 id={titleId} className="break-words text-[18px] font-semibold leading-snug text-ink">
               {title}
             </h2>
             {description && (
@@ -83,9 +83,9 @@ export function Drawer({
             </Button>
           </div>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5">{children}</div>
         {footer && (
-          <footer className="border-t border-line bg-bg2/60 px-5 py-3.5">{footer}</footer>
+          <footer className="shrink-0 border-t border-line bg-bg2 px-5 py-4">{footer}</footer>
         )}
       </div>
     </div>,

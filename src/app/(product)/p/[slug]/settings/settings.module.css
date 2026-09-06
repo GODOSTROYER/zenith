@@ -1,0 +1,90 @@
+.page {
+  height: 100%;
+  width: 100%;
+  min-width: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.inner {
+  width: 100%;
+  max-width: 1320px;
+  margin-inline: auto;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 176px minmax(0, 1fr);
+  align-items: start;
+  gap: 36px;
+}
+
+.navigation {
+  position: sticky;
+  top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-left: 1px solid var(--line);
+}
+
+.navigation a {
+  padding: 9px 14px;
+  border-left: 2px solid transparent;
+  margin-left: -1px;
+  font-size: 13px;
+  color: var(--ink-mute);
+  transition: color var(--dur-fast) var(--ease-swift), background var(--dur-fast) var(--ease-swift);
+  white-space: nowrap;
+}
+
+.navigation a:hover { background: var(--bg2); color: var(--ink); }
+.navigation a[aria-current="location"] {
+  border-color: var(--signal);
+  color: var(--signal);
+  background: var(--bg2);
+  font-weight: 650;
+}
+
+.content { min-width: 0; }
+.content > section {
+  padding-block: 28px;
+  border-top: 1px solid var(--line);
+  scroll-margin-top: 24px;
+}
+.content > section:first-child { padding-top: 0; border-top: 0; }
+.content > section:last-child { padding-bottom: 48px; }
+.sectionHead { margin-bottom: 18px; }
+.scope {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding-block: 12px;
+  margin-bottom: 28px;
+  border-block: 1px solid var(--line);
+  color: var(--ink-mute);
+  font-size: 12px;
+}
+.scope strong { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.scope span { min-width: 0; }
+.scope span + span { border-left: 1px solid var(--line); padding-left: 16px; }
+
+@media (max-width: 1050px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .navigation {
+    z-index: 10;
+    top: 0;
+    flex-direction: row;
+    overflow-x: auto;
+    border-left: 0;
+    border-bottom: 1px solid var(--line);
+    background: var(--bg0);
+    padding-block: 8px;
+  }
+  .navigation a { border-left: 0; border-bottom: 2px solid transparent; margin: 0; padding: 10px 12px; }
+  .content > section { scroll-margin-top: 76px; }
+}
+
+@media (pointer: coarse) { .navigation a { min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) { .navigation a { transition: none; } }

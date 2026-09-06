@@ -1,178 +1,115 @@
 "use client";
-/**
- * Onboarding — three decisions, in order, with nothing hidden.
- *
- * This file is the orchestrator only: which step is showing, what each step
- * handed the next, and where a finished flow goes. The steps themselves live
- * in ./onboarding/step-*.tsx and know nothing about each other.
- *
- * Nothing is created until the last step's button: abandoning the flow leaves
- * no phantom project, no phantom environment and no phantom cloud connection.
- * The workspace is the exception and it says so — it is the account, not a
- * resource. The connection has to exist before the first environment can point
- * at it, so the last step creates the two together, in that order.
- */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight } from "lucide-react";
 import { useJson } from "@/lib/client/api";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { ErrorNote, useSafeToasts } from "./shared";
+import { Wordmark } from "@/components/shell/wordmark";
+import { GimbalCharacter } from "@/components/navigator/gimbal-character";
+import { GuideContent } from "@/components/guide/workspace-guide";
+import { canEditGuide, choiceFromDraft, guideProgress, guideStorageKey, restoreGuide } from "@/components/guide/progress";
+import { ErrorNote } from "./shared";
 import { Rail } from "./onboarding/rail";
 import { StepProvider } from "./onboarding/step-provider";
 import { StepSystem } from "./onboarding/step-system";
 import { StepWorkspace } from "./onboarding/step-workspace";
-import {
-  STEPS,
-  type BlueprintCard,
-  type Bootstrap,
-  type ProviderChoice,
-} from "./onboarding/types";
-
-/** Re-exported: `app/onboarding/page.tsx` builds the catalog on the server. */
+import { STEPS, type BlueprintCard, type Bootstrap, type ProviderChoice } from "./onboarding/types";
 export type { BlueprintCard };
-
-export interface OnboardingFlowProps {
-  blueprints: BlueprintCard[];
-  sampleCompose: string;
-}
+export interface OnboardingFlowProps { blueprints: BlueprintCard[]; sampleCompose: string }
 
 export function OnboardingFlow({ blueprints, sampleCompose }: OnboardingFlowProps) {
   const router = useRouter();
   const params = useSearchParams();
-  const toasts = useSafeToasts();
   const boot = useJson<Bootstrap>("/api/bootstrap");
+  const me = useJson<{ signedIn: boolean; configured: boolean; hasWorkspace: boolean }>("/api/me");
   const hasWorkspace = !!boot.data?.workspace;
-  // 404 is the ordinary first-run answer ("no workspace yet"), which step 1
-  // exists to fix. Anything else is a real failure and must not be papered
-  // over with a step the user cannot complete.
-  const bootFailed = boot.error && boot.error.status !== 404;
-
+  const newAccount = me.data?.signedIn && !me.data.hasWorkspace;
+  const bootFailed = boot.error && boot.error.status !== 404 && !(boot.error.status === 403 && newAccount);
   const [step, setStep] = useState(1);
-  const [settled, setSettled] = useState(false);
-  const [redirect, setRedirect] = useState<string>();
-  /** what step 2 settled on; step 3 connects it and builds the environment */
   const [choice, setChoice] = useState<ProviderChoice>();
+  const [projectId, setProjectId] = useState<string>();
+  const [createdSlug, setCreatedSlug] = useState<string>();
+  const [message, setMessage] = useState<string>();
+  const [ready, setReady] = useState(false);
+  const [hydratedScope, setHydratedScope] = useState<string>();
+  const loadedScope = useRef<string | undefined>(undefined);
+  const lastStepParam = useRef<string | null>(null);
+  const navigation = useRef({ ready, hasWorkspace, hasChoice: !!choice });
+  navigation.current = { ready, hasWorkspace, hasChoice: !!choice };
+  const scope = boot.data ? `${boot.data.user?.id ?? "demo"}:${boot.data.workspace.id}` : undefined;
 
-  // `?step=` is honoured when it is reachable. A workspace that already exists
-  // means step 1 is behind us, so the default without a parameter is step 3
-  // (the overview's "New project" card). A step that is not reachable yet is
-  // never silently swapped for another — the redirect says so.
   useEffect(() => {
-    if (settled || boot.loading) return;
-    setSettled(true);
+    if (boot.loading || (bootFailed && me.loading)) return;
+    if (loadedScope.current === (scope ?? "no-workspace")) return;
+    loadedScope.current = scope ?? "no-workspace";
+    const data = boot.data;
+    let draft;
+    if (data) {
+      const key = guideStorageKey(data);
+      try { draft = restoreGuide(key ? localStorage.getItem(key) : null, data); } catch { /* storage may be disabled */ }
+    }
+    const restored = data ? choiceFromDraft(draft, data) : undefined;
+    setChoice(restored);
+    setProjectId(draft?.projectId);
     const raw = params.get("step");
-    const wanted = Number(raw);
-    const asked = raw !== null && Number.isInteger(wanted) && wanted >= 1 && wanted <= 3;
-
-    if (!hasWorkspace) {
-      setStep(1);
-      if (asked && wanted > 1)
-        setRedirect(
-          `You asked for step ${wanted}, but this workspace does not exist yet. Starting at step 1 — the rest needs a workspace to hang off.`
-        );
-      else if (raw !== null && !asked)
-        setRedirect(`There is no step "${raw}". Starting at step 1.`);
-      return;
+    lastStepParam.current = raw;
+    const requested = raw === null ? draft?.step ?? 1 : Number(raw);
+    let target = Number.isInteger(requested) && requested >= 1 && requested <= 4 ? requested : 1;
+    if (!data?.workspace) target = 1;
+    if (target === 3 && !restored) {
+      target = 2;
+      setMessage("Choose a connection explicitly before creating a project. You can also skip straight to the guide.");
     }
+    setStep(target);
+    setHydratedScope(scope);
+    setReady(true);
+  }, [boot.loading, boot.data, bootFailed, me.loading, scope, params]);
 
-    if (asked) {
-      setStep(wanted);
-      return;
-    }
-    setStep(3);
-    if (raw !== null) setRedirect(`There is no step "${raw}". Showing the system picker.`);
-  }, [settled, boot.loading, hasWorkspace, params]);
+  useEffect(() => {
+    if (!ready || !boot.data || hydratedScope !== scope) return;
+    const key = guideStorageKey(boot.data);
+    if (!key) return;
+    try { localStorage.setItem(key, JSON.stringify({
+      version: 1, workspaceId: boot.data.workspace.id, userId: boot.data.user!.id,
+      step, providerId: choice?.providerId, connectionId: choice?.connectionId, projectId,
+    })); } catch { /* resume remains available in this tab */ }
+  }, [ready, scope, hydratedScope, boot.data, step, choice, projectId]);
 
-  return (
-    <div className="mx-auto flex min-h-screen w-full max-w-[1160px] gap-14 px-8 py-12 lg:px-12">
-      <Rail step={step} onGo={(n) => (n < step || (n === 2 && hasWorkspace)) && setStep(n)} />
+  useEffect(() => {
+    const raw = params.get("step");
+    if (!navigation.current.ready || raw === lastStepParam.current) return;
+    lastStepParam.current = raw;
+    const n = Number(raw);
+    if (Number.isInteger(n) && n >= 1 && n <= 4)
+      setStep(!navigation.current.hasWorkspace ? 1 : n === 3 && !navigation.current.hasChoice ? 2 : n);
+  }, [params]);
 
-      <main className="min-w-0 flex-1 pb-16">
-        <div className="mb-10 flex items-start justify-between gap-6">
-          <div>
-            <p className="text-[12px] tracking-[0.08em] text-signal uppercase">Orrery</p>
-            <h1 className="mt-2 text-[40px] leading-[1.1] font-medium tracking-[-0.02em] text-ink">
-              {STEPS[step - 1].title}
-            </h1>
-            {/* The rail is the progress indicator from md up; below it, this is. */}
-            <p className="mt-2 text-[12.5px] text-ink-faint md:hidden">
-              Step {step} of {STEPS.length} · {STEPS[step - 1].hint} · nothing is created until
-              step {STEPS.length}
-            </p>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {hasWorkspace && (
-              <Button variant="quiet" size="sm" onClick={() => router.push("/overview")}>
-                Leave setup
-              </Button>
-            )}
-            <ThemeToggle />
-          </div>
-        </div>
-
-        {redirect && (
-          // Arrives on navigation, after the page has been read: announced.
-          <Callout tone="info" live="status" className="mb-6">
-            {redirect}
-          </Callout>
-        )}
-
-        {bootFailed ? (
-          <div className="max-w-[620px] space-y-4">
-            <ErrorNote error={boot.error} />
-            <p className="text-[13px] text-ink-mute">
-              Onboarding reads your workspace, connections and providers from{" "}
-              <span className="font-mono text-[12.5px] text-ink">/api/bootstrap</span> before it
-              can show you a step it can actually finish.
-            </p>
-            <Button onClick={boot.refresh} icon={<ArrowRight className="h-3.5 w-3.5" />}>
-              Try again
-            </Button>
-          </div>
-        ) : (
-          <>
-            {step === 1 && (
-              <StepWorkspace
-                existing={boot.data?.workspace}
-                loading={boot.loading}
-                onDone={() => {
-                  boot.refresh();
-                  setStep(2);
-                }}
-              />
-            )}
-
-            {step === 2 && (
-              <StepProvider
-                providers={boot.data?.providers ?? []}
-                connections={boot.data?.connections ?? []}
-                loading={boot.loading}
-                onBack={() => setStep(1)}
-                onNext={(next) => {
-                  setChoice(next);
-                  setStep(3);
-                }}
-              />
-            )}
-
-            {step === 3 && (
-              <StepSystem
-                blueprints={blueprints}
-                sampleCompose={sampleCompose}
-                choice={choice}
-                onBack={() => setStep(2)}
-                onCreated={(slug, message) => {
-                  toasts.push({ kind: "ok", title: message });
-                  router.push(`/p/${slug}`);
-                }}
-              />
-            )}
-          </>
-        )}
-      </main>
-    </div>
-  );
+  const selectedProjectId = boot.data?.projects.find((p) => p.slug === createdSlug)?.id ?? projectId;
+  const progress = guideProgress(boot.data, selectedProjectId);
+  const editingAllowed = canEditGuide(boot.data);
+  const go = (n: number) => { setMessage(undefined); lastStepParam.current = String(n); setStep(n); router.replace(`/onboarding?step=${n}`, { scroll: false }); };
+  return <div className="mx-auto flex min-h-screen w-full max-w-[1240px] gap-10 px-5 py-8 sm:px-8 lg:px-12 lg:py-12">
+    <Rail step={step} complete={progress.complete} hasWorkspace={hasWorkspace} hasChoice={!!choice} onGo={go} />
+    <main className="min-w-0 flex-1 pb-12">
+      <div className="mb-7 flex flex-wrap items-center justify-between gap-4"><Wordmark size={25} /><div className="flex items-center gap-2"><Link href={hasWorkspace ? "/overview" : "/"} className="px-2 text-sm text-ink-mute hover:text-ink">Leave setup</Link><ThemeToggle /></div></div>
+      <div className="mb-8 flex items-center gap-4">
+        {step !== 4 && <div className="h-20 w-20 shrink-0"><GimbalCharacter state={null} className="h-full w-full" /></div>}
+        <div><h1 className="text-3xl leading-tight font-medium tracking-tight text-ink sm:text-4xl">{STEPS[step - 1].title}</h1><p className="mt-3 text-sm text-ink-mute">Step {step} of {STEPS.length} · Optional starter · Return whenever you need</p></div>
+      </div>
+      {message && <Callout tone="info" live="status" className="mb-6">{message}</Callout>}
+      {bootFailed ? <div className="space-y-4"><ErrorNote error={boot.error} /><Button onClick={() => { boot.refresh(); me.refresh(); }}>Try again</Button></div> : !ready ? <p role="status">Reading your workspace…</p> : <>
+        {step === 1 && <StepWorkspace boot={boot.data} loading={boot.loading} onDone={() => { window.location.assign("/onboarding?step=2"); }} />}
+        {step === 2 && hasWorkspace && <StepProvider key={scope} providers={boot.data?.providers ?? []} connections={boot.data?.connections ?? []} loading={boot.loading} initialChoice={choice} onBack={() => go(1)} onNext={(next) => { setChoice(next); go(3); }} />}
+        {step === 3 && boot.data && choice && <div className="space-y-6">
+          {boot.data.projects.length > 0 && <div className="space-y-3 rounded-card border border-line bg-bg1 p-5"><h2 className="font-medium text-ink">Continue with an existing project</h2><p className="text-sm text-ink-mute">The starter never replaces an existing manifest. Select a project to get oriented, or create a separate one below.</p><div className="flex flex-wrap gap-2">{boot.data.projects.map((p) => <Button key={p.id} onClick={() => { setProjectId(p.id); go(4); }}>{p.name}</Button>)}</div></div>}
+          {editingAllowed ? <StepSystem key={`${scope}:${choice.providerId}:${choice.connectionId ?? "new"}`} blueprints={blueprints} sampleCompose={sampleCompose} choice={choice} boot={boot.data} onBack={() => go(2)} onCreated={(slug, summary, id) => { setProjectId(id); setCreatedSlug(slug); go(4); setMessage(summary); boot.refresh(); }} /> : <Callout tone="info">Your {boot.data.role ?? "unavailable"} role can explore projects. An editor or admin can create a project; an admin creates connections, and editors can recheck existing ones. You can skip to the guide.</Callout>}
+        </div>}
+        {step === 4 && boot.data && <><GuideContent key={selectedProjectId ?? scope} boot={boot.data} initialProjectId={selectedProjectId} /><Link href="/guide" className="mt-6 inline-flex text-sm text-signal hover:underline">Open the workspace guide anytime →</Link></>}
+        {hasWorkspace && step !== 4 && <div className="mt-8 border-t border-line pt-5"><Button variant="ghost" onClick={() => go(4)}>Skip setup — I’ll explore with the guide</Button></div>}
+        {step === 4 && <Button className="mt-5" variant="ghost" onClick={() => go(choice ? 3 : 2)}>Back to setup</Button>}
+      </>}
+    </main>
+  </div>;
 }

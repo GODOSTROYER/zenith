@@ -3,7 +3,7 @@
  * Observe — health, logs and cost for one environment.
  *
  * Sandbox health and logs are generated from the same facts, so what this page
- * shows is what Orrery actually computed. It is labelled simulated everywhere,
+ * shows is what Zenith.ai actually computed. It is labelled simulated everywhere,
  * and it reads the deployed revision rather than the working copy wherever the
  * question is "what is running": the two are not the same system.
  *

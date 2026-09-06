@@ -117,7 +117,7 @@ export function SecretsSection({
                 rotateGate ??
                 (ours
                   ? undefined
-                  : `${s.ref} is not held by Orrery — it names a value in your own secret manager, which Orrery cannot write to. Rotate it there, then redeploy so the services pick it up.`);
+                  : `${s.ref} is not held by Zenith.ai — it names a value in your own secret manager, which Zenith.ai cannot write to. Rotate it there, then redeploy so the services pick it up.`);
 
               return (
                 <li key={s.ref} className="border-b border-line px-5 py-3.5 last:border-b-0">

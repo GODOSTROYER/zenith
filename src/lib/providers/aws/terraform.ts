@@ -1,7 +1,7 @@
 /**
  * Manifest → real Terraform. This is the no-lock-in guarantee: the HCL this
  * module emits is meant to be run with `terraform apply` and your own
- * credentials, with or without Orrery in the picture.
+ * credentials, with or without Zenith.ai in the picture.
  *
  * Design choices that keep the bundle applyable into a fresh account:
  *  - the account's default VPC/subnets are read through data sources rather
@@ -16,6 +16,7 @@
 import { bindingEnv, findNode } from "@/lib/domain/graph";
 import { SIZE_SPECS } from "@/lib/cost/pricing";
 import type {
+  Binding,
   Environment,
   Manifest,
   Route,
@@ -239,7 +240,93 @@ const svcLabel = (m: Manifest, s: { id: string; name: string }): string =>
 const resLabel = (m: Manifest, r: { id: string; name: string }): string =>
   labelsFor(m).resources.get(r.id) ?? tf(r.name);
 
-const refVar = (nodeName: string, field: string) => tf(`ref_${nodeName}_${field}`);
+const REF_FIELDS: Partial<Record<Binding["capability"], string[]>> = {
+  sql: ["host", "port", "user", "database", "password", "url"],
+  cache: ["url"],
+  blob: ["bucket"],
+  queue_publish: ["queue_url", "queue_arn"],
+  queue_consume: ["queue_url", "queue_arn"],
+  smtp: ["smtp_host", "smtp_port", "smtp_user", "smtp-password"],
+};
+
+interface RefNames {
+  names: Map<string, string>;
+  paths: Map<string, string>;
+}
+
+/** Small deterministic token: identity-stable, unlike manifest-order suffixes. */
+function stableToken(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+export function allocateStableNames(
+  entries: { key: string; identity: string; natural: string }[]
+): Map<string, string> {
+  const groups = new Map<string, typeof entries>();
+  for (const entry of entries)
+    groups.set(entry.natural, [...(groups.get(entry.natural) ?? []), entry]);
+  const reserved = new Set(groups.keys());
+  const used = new Set<string>();
+  const result = new Map<string, string>();
+  for (const natural of [...groups.keys()].sort()) {
+    const group = groups.get(natural)!;
+    if (group.length === 1) {
+      result.set(group[0].key, natural);
+      used.add(natural);
+      continue;
+    }
+    for (const entry of [...group].sort((a, b) => a.identity.localeCompare(b.identity))) {
+      const base = `${natural}_${stableToken(entry.identity)}`;
+      let candidate = base;
+      for (let n = 2; reserved.has(candidate) || used.has(candidate); n++) candidate = `${base}_${n}`;
+      result.set(entry.key, candidate);
+      used.add(candidate);
+    }
+  }
+  return result;
+}
+
+/**
+ * Allocate all referenced inputs as a set. A unique natural key/path is kept
+ * byte-for-byte for compatibility. Every member of a genuinely ambiguous
+ * group gets an identity-derived suffix, so reordering the manifest cannot
+ * swap meanings. All natural keys are reserved before suffix allocation, so a
+ * generated name cannot steal another resource's already-valid natural key.
+ * This is intentionally recomputed: manifests are mutable working copies.
+ */
+function refNamesFor(m: Manifest): RefNames {
+  const entries: { key: string; identity: string; natural: string; path: string }[] = [];
+  for (const resource of m.resources) {
+    if (resource.ownership === "managed") continue;
+    const fields = new Set<string>();
+    for (const binding of m.bindings.filter((b) => b.to === resource.id)) {
+      for (const field of REF_FIELDS[binding.capability] ?? []) fields.add(field);
+    }
+    for (const field of fields) {
+      entries.push({
+        key: `${resource.id}\0${field}`,
+        identity: `${resource.id}\0${field}`,
+        natural: tf(`ref_${resource.name}_${field}`),
+        path: `refs/${ssmSafe(resource.name)}/${field}`,
+      });
+    }
+  }
+  return {
+    names: allocateStableNames(entries.map((e) => ({ ...e, natural: e.natural }))),
+    paths: allocateStableNames(entries.map((e) => ({ ...e, natural: e.path }))),
+  };
+}
+
+const refVar = (m: Manifest, node: { id: string; name: string }, field: string) =>
+  refNamesFor(m).names.get(`${node.id}\0${field}`) ?? tf(`ref_${node.name}_${field}`);
+
+const refPath = (m: Manifest, node: { id: string; name: string }, field: string) =>
+  refNamesFor(m).paths.get(`${node.id}\0${field}`) ?? `refs/${ssmSafe(node.name)}/${field}`;
 
 /** SSM parameter names accept only these characters. */
 const ssmSafe = (s: string) => s.replace(/[^A-Za-z0-9_.-]/g, "-");
@@ -276,7 +363,7 @@ function routeOf(m: Manifest, serviceId: string): Route | undefined {
 
 const projectSlug = (env: Environment) => String(env.baseDomain ?? "").split(".")[0] || "orrery";
 
-/** Sandbox regions are Orrery-internal; a real bundle needs a real region. */
+/** Sandbox regions are Zenith.ai-internal; a real bundle needs a real region. */
 const exportRegion = (env: Environment) => {
   const r = String(env.region ?? "");
   return r.startsWith("sim-") || r === "" ? "us-east-1" : r;
@@ -358,7 +445,10 @@ export function containerEnv(m: Manifest, s: Service, _env: Environment): Contai
     if (target.node.ownership !== "managed" && b.capability !== "http") {
       const ext = target.type === "resource" ? target.node.externalRef : undefined;
       const v = (field: string, description: string, dflt?: string): string => {
-        const n = refVar(name, field);
+        const n = refVar(m, target.node, field);
+        const old = tf(`ref_${name}_${field}`);
+        if (n !== old)
+          out.notes.push(`Referenced input ${old} was ambiguous; ${name}.${field} uses ${n}. Update this key in terraform.tfvars for this export.`);
         out.vars.push({ name: n, description, default: dflt });
         return `var.${n}`;
       };
@@ -366,15 +456,18 @@ export function containerEnv(m: Manifest, s: Service, _env: Environment): Contai
         const p: SecretParam = {
           // tf() the whole label: a hyphen is legal in a block label but makes
           // `aws_ssm_parameter.ref_x_smtp-password` parse as subtraction.
-          label: tf(`ref_${name}_${field}`),
-          path: `refs/${ssmSafe(name)}/${field}`,
-          key: `refs/${ssmSafe(name)}/${field}`,
+          label: refVar(m, target.node, field),
+          path: refPath(m, target.node, field),
+          key: refPath(m, target.node, field),
           description,
         };
         out.params.push(p);
+        const previousPath = `refs/${ssmSafe(name)}/${field}`;
+        if (p.path !== previousPath)
+          out.notes.push(`Referenced secret path ${previousPath} was ambiguous; ${name}.${field} now uses ${p.path}. Populate the replacement SSM parameter before applying this export.`);
         return p;
       };
-      const why = `Referenced ${target.node.kind} "${name}" — Orrery never provisions or mutates it`;
+      const why = `Referenced ${target.node.kind} "${name}" — Zenith.ai never provisions or mutates it`;
 
       if (b.capability === "sql") {
         out.env.push(
@@ -595,7 +688,7 @@ variable "${tf(v.name)}" {
 
   const secretVar = secrets.length
     ? `
-# Placeholders only. Orrery never held these values, so it cannot put them here.
+# Placeholders only. Zenith.ai never held these values, so it cannot put them here.
 # After the first apply, set each real value out-of-band:
 #   aws ssm put-parameter --overwrite --type SecureString \\
 #     --name "/<name_prefix>/<path>" --value "<value>"
@@ -679,7 +772,7 @@ function secretsTf(m: Manifest, env: Environment): string {
   const { secrets } = scaffold(m, env);
   if (!secrets.length) return "";
   return (
-    `# Created empty on purpose: Orrery never holds secret values. Each parameter
+    `# Created empty on purpose: Zenith.ai never holds secret values. Each parameter
 # starts at the placeholder in var.secret_values and then ignores value
 # changes, so \`aws ssm put-parameter --overwrite\` is the only writer.
 ` +
@@ -1545,7 +1638,7 @@ resource "aws_lb_listener_rule" "${t}" {
   if (plain.length)
     out += `
 # Routes exported without TLS (tls = false in the manifest) stay on the :80
-# listener. Turn TLS on in Orrery and re-export to move them behind ACM.
+# listener. Turn TLS on in Zenith.ai and re-export to move them behind ACM.
 `;
 
   return out;
@@ -1718,7 +1811,7 @@ function tfvarsExample(env: Environment, m: Manifest, hasRoutes: boolean, hasEma
 
   const refBlock = vars.length
     ? `
-# Referenced resources. Orrery never provisions or mutates these; fill in where
+# Referenced resources. Zenith.ai never provisions or mutates these; fill in where
 # they already live. Anything left empty will fail at plan or at task start.
 ${vars
   .map((v) => `${tf(v.name)} = ${hclString(v.default ?? "")}  # ${hclComment(v.description)}`)
@@ -1825,10 +1918,10 @@ export function terraformReadme(env: Environment, m: Manifest): string {
 
   return `# ${cell(projectSlug(env))} — ${cell(env.name)} infrastructure
 
-This is your infrastructure, not Orrery's. Everything here is standard
+This is your infrastructure, not Zenith.ai's. Everything here is standard
 Terraform against the \`hashicorp/aws\` provider (\`~> 5.0\`); OpenTofu works
-too. You can run it, read it, fork it, or delete Orrery entirely and keep
-operating. Nothing in this bundle calls back to Orrery.
+too. You can run it, read it, fork it, or delete Zenith.ai entirely and keep
+operating. Nothing in this bundle calls back to Zenith.ai.
 
 Generated from revision-level manifest: ${svcs.length} service(s),
 ${managed(m.resources).length} managed resource(s), ${m.routes.length} route(s).
@@ -1853,7 +1946,7 @@ ${rb.length ? `4. A **public Route 53 hosted zone** you control, matching your r
 cp terraform.tfvars.example terraform.tfvars
 # edit terraform.tfvars: region, name_prefix, images${rb.length ? ", route53_zone_name" : ""}
 terraform init
-terraform plan -out plan.tfplan   # read this. it is the same discipline as Orrery's Changes drawer
+terraform plan -out plan.tfplan   # read this. it is the same discipline as Zenith.ai's Changes drawer
 terraform apply plan.tfplan
 \`\`\`
 
@@ -1867,9 +1960,9 @@ filled in for this environment, commented out. Create a versioned bucket you
 own, uncomment it, and run \`terraform init -migrate-state\` before a second
 person touches this bundle.
 
-## How Orrery's model maps onto AWS
+## How Zenith.ai's model maps onto AWS
 
-| Orrery | AWS |
+| Zenith.ai | AWS |
 | --- | --- |
 | service (web / worker) | ECS Fargate task definition + service |
 | service (cron) | ECS task definition + EventBridge rule |
@@ -1907,7 +2000,7 @@ ${
 }
 ### Secrets
 
-An Orrery server can hold secret values — encrypted at rest, under its own
+An Zenith.ai server can hold secret values — encrypted at rest, under its own
 \`ORRERY_SECRET_KEY\` — but **an export never contains one**, whether or not
 the store has it. A bundle you can commit, mail or paste is the wrong place
 for a credential, and there is no flag to change that.
@@ -1917,9 +2010,9 @@ definitions reference, holding the placeholder \`PLACEHOLDER\`. That is what
 stops the first apply from succeeding and then failing at task start, unable
 to resolve the \`secrets\` block.
 
-The values are yours to move across, once, with the command below. Orrery's
+The values are yours to move across, once, with the command below. Zenith.ai's
 copy stays where it is and the two do not sync: after this, SSM is what the
-running tasks read, and rotating a secret in Orrery does not rotate it here.
+running tasks read, and rotating a secret in Zenith.ai does not rotate it here.
 
 Set the real values once, after the first apply:
 
@@ -1936,7 +2029,7 @@ ${
   m.resources.some((r) => r.ownership === "referenced")
     ? `### Referenced resources
 
-Resources marked *referenced* in Orrery already exist in your account, and
+Resources marked *referenced* in Zenith.ai already exist in your account, and
 this bundle declares none of them — that is the whole point of the
 distinction. Their hostnames and identifiers come from \`var.ref_*\` in
 \`terraform.tfvars\`, and their credentials from the SSM parameters above.
@@ -1946,7 +2039,7 @@ the day you decide Terraform should own one.
 `
     : ""
 }
-## Operating without Orrery
+## Operating without Zenith.ai
 
 - **Deploy a new version.** Push a new image tag, update \`container_images\`,
   \`terraform apply\`. ECS performs a rolling replacement.
@@ -1984,7 +2077,7 @@ These are the corners this generator cuts, and what to do about each:
 - **ALB target group names** are \`<name_prefix>-<service>\` and AWS caps them
   at 32 characters. Shorten \`name_prefix\` if a plan complains.
 
-Re-exporting from Orrery regenerates these files from the current manifest. If
+Re-exporting from Zenith.ai regenerates these files from the current manifest. If
 you have edited them by hand, diff before overwriting — your edits are yours.
 `;
 }

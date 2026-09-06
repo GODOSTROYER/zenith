@@ -1,4 +1,12 @@
-# Orrery — Design language
+# Zenith.ai — Design language
+
+**Identity:** “Your stack, clearly in view.” The shared wordmark uses an overhead
+point, open dome and observer. Gimbal's moving rings remain character-specific.
+Keep existing configuration and persisted names compatible; see `BRANDING.md`.
+
+**Onboarding:** Workspace → Connection → Blueprint → Get oriented. Optional,
+resumable and revisitable from Guide. Completion cues reflect actual records,
+not page visits. AWS Preview never reads as a deployed environment.
 
 **Feel:** an observatory at night. Calm, precise, alive. Deep blue-black
 grounds, hairline structure, one mint-teal signal color used with restraint,

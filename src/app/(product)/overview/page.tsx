@@ -38,13 +38,13 @@ export default async function OverviewPage() {
         <EmptyState
           icon={<Boxes className="h-5 w-5" />}
           title="No workspace yet"
-          body="Orrery needs a workspace before it can hold projects, connections and history."
+          body="Zenith.ai needs a workspace before it can hold projects, connections and history."
           action={
             <Link
               href="/onboarding"
               className={PRIMARY_LINK}
             >
-              Set up Orrery
+              Set up Zenith.ai
             </Link>
           }
         />

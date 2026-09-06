@@ -13,7 +13,7 @@
 import { describe, expect, it } from "vitest";
 import type { Environment, Manifest } from "@/lib/domain/types";
 import type { ExportFile } from "@/lib/providers/types";
-import { containerEnv, fargateSpec, terraformFiles, terraformReadme } from "@/lib/providers/aws/terraform";
+import { allocateStableNames, containerEnv, fargateSpec, terraformFiles, terraformReadme } from "@/lib/providers/aws/terraform";
 
 /* --------------------------------- fixtures -------------------------------- */
 
@@ -313,6 +313,76 @@ describe("managed vs referenced resources", () => {
     for (const line of imports.split("\n").filter((l) => l.includes("import {")))
       expect(line.trimStart().startsWith("#")).toBe(true);
   });
+
+  it("keeps legacy tfvars names unless field boundaries actually collide", () => {
+    const m = fullManifest();
+    m.resources.push(
+      { id: "res-a", name: "a", kind: "queue", config: {}, size: "small", ownership: "referenced" },
+      { id: "res-a-queue", name: "a-queue", kind: "redis", config: {}, size: "small", ownership: "referenced" }
+    );
+    m.bindings.push(
+      { id: "b-a", from: "svc-api", to: "res-a", capability: "queue_publish" },
+      { id: "b-a-queue", from: "svc-worker", to: "res-a-queue", capability: "cache" }
+    );
+    const files = terraformFiles(environment, m);
+    const vars = fileNamed(files, "variables.tf");
+    const tfvars = fileNamed(files, "terraform.tfvars.example");
+    expect(vars).toContain(`variable "ref_legacy_db_host"`);
+    const collided = [...vars.matchAll(/variable "(ref_a_queue_url_[a-z0-9]+)"/g)].map((x) => x[1]);
+    expect(collided).toHaveLength(2);
+    expect(new Set(collided).size).toBe(2);
+    expect(vars).not.toContain(`variable "ref_a_queue_url"`);
+    for (const name of collided) expect(tfvars).toMatch(new RegExp(`^${name}\\s*=`, "m"));
+    expect(undeclared(files)).toEqual([]);
+  });
+
+  it("assigns same-sanitized resources stable keys across manifest reorder and explains migration", () => {
+    const m = fullManifest();
+    m.resources.push(
+      { id: "res-dot", name: "alpha.cache", kind: "redis", config: {}, size: "small", ownership: "referenced" },
+      { id: "res-dash", name: "alpha-cache", kind: "redis", config: {}, size: "small", ownership: "referenced" }
+    );
+    m.bindings.push(
+      { id: "b-dot", from: "svc-api", to: "res-dot", capability: "cache" },
+      { id: "b-dash", from: "svc-api", to: "res-dash", capability: "cache" }
+    );
+    const assigned = (manifest: Manifest) => {
+      const c = containerEnv(manifest, manifest.services[0], environment);
+      return new Map(c.vars.filter((v) => /alpha[.-]cache/.test(v.description)).map((v) => [v.description, v.name]));
+    };
+    const before = assigned(m);
+    m.resources.reverse();
+    m.bindings.reverse();
+    expect(assigned(m)).toEqual(before);
+    const readme = terraformReadme(environment, m);
+    expect(readme).toMatch(/ref_alpha_cache_url was ambiguous/);
+    for (const name of before.values()) expect(readme).toContain(`uses ${name}`);
+  });
+
+  it("recomputes reference allocations after an in-place manifest mutation", () => {
+    const m = fullManifest();
+    expect(terraformFiles(environment, m).map((f) => f.content).join("\n")).toContain(`variable "ref_shared_cache_url"`);
+    m.resources.push({ id: "res-shared-dot", name: "shared.cache", kind: "redis", config: {}, size: "small", ownership: "referenced" });
+    m.bindings.push({ id: "b-shared-dot", from: "svc-api", to: "res-shared-dot", capability: "cache" });
+    const src = terraformFiles(environment, m).map((f) => f.content).join("\n");
+    expect(src).not.toContain(`variable "ref_shared_cache_url"`);
+    expect([...src.matchAll(/variable "(ref_shared_cache_url_[a-z0-9]+)"/g)]).toHaveLength(2);
+  });
+
+  it("reserves a natural key that resembles a generated collision suffix", () => {
+    const pair = [
+      { key: "a", identity: "resource-a", natural: "ref_shared_url" },
+      { key: "b", identity: "resource-b", natural: "ref_shared_url" },
+    ];
+    const generated = allocateStableNames(pair).get("a")!;
+    const withNatural = allocateStableNames([
+      ...pair,
+      { key: "natural", identity: "resource-natural", natural: generated },
+    ]);
+    expect(withNatural.get("natural")).toBe(generated);
+    expect(withNatural.get("a")).not.toBe(generated);
+    expect(new Set(withNatural.values()).size).toBe(3);
+  });
 });
 
 describe("secrets", () => {
@@ -323,7 +393,7 @@ describe("secrets", () => {
     expect(secrets).toContain(`resource "aws_ssm_parameter" "secret_vault_stripe"`);
     expect(secrets).toContain(`name        = "/\${var.name_prefix}/secrets/vault-stripe"`);
     expect(secrets).toContain(`type        = "SecureString"`);
-    // Orrery never held the value, and must not clobber the real one later.
+    // Zenith.ai never held the value, and must not clobber the real one later.
     expect(secrets).toContain("ignore_changes = [value]");
   });
 
@@ -342,6 +412,26 @@ describe("secrets", () => {
     // wherever the parameter is referenced.
     expect(secrets).toContain(`resource "aws_ssm_parameter" "ref_relay_smtp_password"`);
     expect(secrets).toContain(`name        = "/\${var.name_prefix}/refs/relay/smtp-password"`);
+  });
+
+  it("preserves the historical SSM path for a noncolliding hyphenated reference", () => {
+    const m = fullManifest();
+    m.resources.find((r) => r.id === "res-relay")!.name = "mail-relay";
+    const secrets = fileNamed(terraformFiles(environment, m), "secrets.tf");
+    expect(secrets).toContain(`name        = "/\${var.name_prefix}/refs/mail-relay/smtp-password"`);
+    expect(secrets).not.toContain(`/refs/mail_relay/smtp-password`);
+  });
+
+  it("documents replacement SSM paths when referenced secret names collide", () => {
+    const m = fullManifest();
+    const relay = m.resources.find((r) => r.id === "res-relay")!;
+    relay.name = "mail relay";
+    m.resources.push({ ...relay, id: "res-relay-2", name: "mail!relay" });
+    m.bindings.push({ id: "b-relay-2", from: "svc-worker", to: "res-relay-2", capability: "smtp" });
+    const files = terraformFiles(environment, m);
+    expect(terraformReadme(environment, m)).toContain("Referenced secret path refs/mail-relay/smtp-password was ambiguous");
+    const paths = [...fileNamed(files, "secrets.tf").matchAll(/refs\/mail-relay\/smtp-password_[a-z0-9_]+/g)].map((m) => m[0]);
+    expect(new Set(paths).size).toBe(2);
   });
 
   it("declares a sensitive placeholder map rather than inventing values", () => {

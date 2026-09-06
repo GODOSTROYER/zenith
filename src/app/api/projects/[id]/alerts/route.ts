@@ -39,7 +39,7 @@ export const dynamic = "force-dynamic";
  */
 const deliveryNote = (enabled: number): string =>
   enabled === 0
-    ? "In-product only. This workspace has no enabled delivery channels, so an alert is seen when somebody opens Orrery. Add one under Settings → Alerts."
+    ? "In-product only. This workspace has no enabled delivery channels, so an alert is seen when somebody opens Zenith.ai. Add one under Settings → Alerts."
     : `Shown in-product and delivered to ${enabled} enabled channel${enabled === 1 ? "" : "s"}. Each alert carries its own delivery results — a channel that failed says so rather than being left out.`;
 
 export const GET = route<{ id: string }>(async (req, { id }) => {
@@ -79,13 +79,13 @@ export const GET = route<{ id: string }>(async (req, { id }) => {
     open,
     recent,
     /**
-     * True: every condition Orrery can evaluate today reads generated health or
+     * True: every condition Zenith.ai can evaluate today reads generated health or
      * estimated cost. Individual events carry their own `simulated` flag — a
      * deployment failure on a real adapter is a real record.
      */
     simulated: true,
     generatedBy:
-      "Orrery's alert evaluator, over the log simulator's health and the price table's estimates",
+      "Zenith.ai's alert evaluator, over the log simulator's health and the price table's estimates",
     evaluatedAt: new Date().toISOString(),
     evaluationIntervalMs: EVALUATION_INTERVAL_MS,
     delivery: deliveryNote(channels.filter((c) => c.enabled).length),

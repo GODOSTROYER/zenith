@@ -1,6 +1,6 @@
-# Orrery — Architecture
+# Zenith.ai — Architecture
 
-**Thesis.** Orrery is a bring-your-own-cloud deployment and operations platform
+**Thesis.** Zenith.ai is a bring-your-own-cloud deployment and operations platform
 for small SaaS teams. One canonical application manifest — a typed graph of
 services, resources, routes, and explained bindings — is the single source of
 truth for every surface: the living System Map, the Source view, the REST API,

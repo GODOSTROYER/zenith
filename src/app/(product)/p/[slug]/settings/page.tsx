@@ -145,7 +145,7 @@ export default function SettingsPage() {
         <section id="connections" className="scroll-mt-16 space-y-4">
           <SectionHead
             title="Connections"
-            body="Every connection lists the exact access it holds. Orrery never asks for more than it shows."
+            body="Every connection lists the exact access it holds. Zenith.ai never asks for more than it shows."
           />
           <ConnectionsSection
             connections={connections}
@@ -183,7 +183,7 @@ export default function SettingsPage() {
         <section id="alerts" className="scroll-mt-16 space-y-4">
           <SectionHead
             title="Alerts"
-            body="Where an alert goes once it exists. Channels are workspace-wide; the rules that use them live on Observe. Without a channel here, an alert is seen only by somebody who opens Orrery."
+            body="Where an alert goes once it exists. Channels are workspace-wide; the rules that use them live on Observe. Without a channel here, an alert is seen only by somebody who opens Zenith.ai."
           />
           <AlertChannelsSection projectId={projectId} role={role} />
         </section>
@@ -192,7 +192,7 @@ export default function SettingsPage() {
         <section id="export" className="scroll-mt-16 space-y-4">
           <SectionHead
             title="Export"
-            body="Everything Orrery generated for this environment, in files you can run yourself."
+            body="Everything Zenith.ai generated for this environment, in files you can run yourself."
           />
           <Card>
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -243,8 +243,8 @@ export default function SettingsPage() {
                 <h3 className="text-[14px] text-ink">Delete this project</h3>
                 <p className="mt-1 max-w-[62ch] text-[12.5px] text-ink-mute">
                   Removes {data.project.name}, its environments, revisions, deployment records and
-                  findings from Orrery. Nothing in your cloud or in the sandbox is torn down: if an
-                  environment is running something, it keeps running and Orrery loses the way back
+                  findings from Zenith.ai. Nothing in your cloud or in the sandbox is torn down: if an
+                  environment is running something, it keeps running and Zenith.ai loses the way back
                   to it. The plan lists the exact counts before you confirm.
                 </p>
               </div>

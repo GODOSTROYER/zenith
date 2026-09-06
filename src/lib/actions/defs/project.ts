@@ -58,12 +58,12 @@ function checkPlannedConnection(ctx: ActionContext, connectionId: string | undef
  * reaching for a global match here is the very leak being closed. This only
  * chooses the slug for a project being created — no existing row is re-slugged.
  */
-function newProject(ctx: ActionContext, name: string, slug: string | undefined, origin: Project["origin"], manifest: Manifest): Project {
+function newProject(ctx: ActionContext, name: string, slug: string | undefined, origin: Project["origin"], manifest: Manifest, projectId = id()): Project {
   const taken = db()
     .projects.filter((p) => p.workspaceId === ctx.workspaceId)
     .map((p) => p.slug);
   return {
-    id: id(),
+    id: projectId,
     workspaceId: ctx.workspaceId,
     name: name.trim(),
     slug: uniqueName(slugify(slug ?? name, "project"), taken),
@@ -243,6 +243,19 @@ function reportDetails(report: ImportReport, m: Manifest): string[] {
   return details;
 }
 
+/** Keep references that may already own values when compose is re-imported. */
+function preserveSecretRefs(before: Manifest, incoming: Manifest): void {
+  for (const service of incoming.services) {
+    const previous = before.services.find((s) => s.name === service.name);
+    if (!previous) continue;
+    for (const entry of service.env) {
+      if (!entry.secretRef) continue;
+      const old = previous.env.find((e) => e.key === entry.key)?.secretRef;
+      if (old) entry.secretRef = old;
+    }
+  }
+}
+
 defineAction<ImportCompose>({
   id: "project.importCompose",
   title: "Import docker-compose",
@@ -252,8 +265,9 @@ defineAction<ImportCompose>({
   mutates: true,
   input: ImportCompose,
   plan(ctx, input) {
-    const { manifest, report } = importCompose(input.composeYaml);
     const existing = scopedProject(ctx, input.projectId);
+    const { manifest, report } = importCompose(input.composeYaml, existing?.id ?? id());
+    if (existing) preserveSecretRefs(existing.workingManifest, manifest);
     checkPlannedConnection(ctx, input.connectionId, !existing);
     const before = existing?.workingManifest ?? emptyManifest();
     const warnings = [...report.warnings];
@@ -267,12 +281,18 @@ defineAction<ImportCompose>({
     );
   },
   execute(ctx, input) {
-    const { manifest, report } = importCompose(input.composeYaml);
     const existing = scopedProject(ctx, input.projectId);
+    const projectId = existing?.id ?? id();
+    const { manifest, report } = importCompose(input.composeYaml, projectId);
     const origin = { type: "import", source: "compose" } as const;
     const tally = `${report.mapped.length} mapped, ${report.unmapped.length} not imported (each listed with a reason)`;
 
     if (existing) {
+      // Re-import must not strand a value behind an older reference. In
+      // particular, bare vault:KEY references may already hold real values.
+      // Keep the exact existing reference when the same service/key is still
+      // secret-looking; the importer has no authority to migrate the store.
+      preserveSecretRefs(existing.workingManifest, manifest);
       existing.origin = origin;
       commit(existing, manifest);
       return {
@@ -281,7 +301,7 @@ defineAction<ImportCompose>({
         data: { projectId: existing.id, report },
       };
     }
-    const project = newProject(ctx, input.name ?? "Imported app", undefined, origin, clone(manifest));
+    const project = newProject(ctx, input.name ?? "Imported app", undefined, origin, clone(manifest), projectId);
     // Connection first, then the writes: a refused id creates nothing at all.
     const { env } = buildEnvironment(project, { connectionId: input.connectionId }, ctx);
     db().projects.push(project);
@@ -303,7 +323,7 @@ defineAction<ImportCompose>({
  * Two rules make this safe, and both are enforced here rather than trusted to
  * the caller:
  *
- *  1. Everything imported is `referenced`, never `managed`. Orrery shows a
+ *  1. Everything imported is `referenced`, never `managed`. Zenith.ai shows a
  *     referenced resource on the map and lets services bind to it; it never
  *     provisions, changes or deletes one, and it never bills for it.
  *  2. The submitted list is a SELECTION, not data. Every entry is matched by
@@ -383,7 +403,7 @@ async function resolveImport(ctx: ActionContext, input: ImportResources) {
 }
 
 const REFERENCED_NOTE =
-  "Imported resources are marked referenced: Orrery draws them on the map and lets services bind to them, but never provisions, changes or deletes them — and they add nothing to the cost estimate.";
+  "Imported resources are marked referenced: Zenith.ai draws them on the map and lets services bind to them, but never provisions, changes or deletes them — and they add nothing to the cost estimate.";
 
 defineAction<ImportResources>({
   id: "project.importResources",
@@ -475,15 +495,15 @@ function projectDelete(ctx: ActionContext, input: DeleteProject) {
     : undefined;
 
   const details = [
-    `Removes ${project.name} and everything Orrery holds about it: ${envs.length} environment(s), ${revisions.length} revision(s), ${deployments.length} deployment record(s), ${findings.length} security finding(s), ${runs.length} Navigator run(s).`,
-    "Nothing in your cloud or in the sandbox is torn down. This deletes Orrery's records, not running infrastructure.",
+    `Removes ${project.name} and everything Zenith.ai holds about it: ${envs.length} environment(s), ${revisions.length} revision(s), ${deployments.length} deployment record(s), ${findings.length} security finding(s), ${runs.length} Navigator run(s).`,
+    "Nothing in your cloud or in the sandbox is torn down. This deletes Zenith.ai's records, not running infrastructure.",
     `The URL /p/${project.slug} stops working, and the working copy goes with it — export the bundle from Source → Export first if you want the generated files.`,
     "The audit log keeps every row already written, including this deletion. It is append-only.",
   ];
 
   const warnings = live.length
     ? [
-        `${live.map((e) => `${e.name} is running ${liveRevision(e)}`).join("; ")}. Those keep running after the project is gone, and Orrery will have no way to reach them again — tear them down first if you want them stopped.`,
+        `${live.map((e) => `${e.name} is running ${liveRevision(e)}`).join("; ")}. Those keep running after the project is gone, and Zenith.ai will have no way to reach them again — tear them down first if you want them stopped.`,
       ]
     : [];
 

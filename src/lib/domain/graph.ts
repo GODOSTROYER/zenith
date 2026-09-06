@@ -179,19 +179,19 @@ export function validateManifest(m: Manifest): ValidationIssue[] {
   /* Env vars with nothing behind them. */
   for (const s of m.services)
     for (const e of s.env) {
-      // `vault:` references are Orrery's own store, which this function cannot
+      // `vault:` references are Zenith.ai's own store, which this function cannot
       // read: validation is pure and runs in the browser, and the store is a
       // server file. Whether a value is actually there is answered where it
       // can be — the Variables panel, the action's plan, and the deploy log.
-      // Anything else is somebody else's secret manager, and Orrery resolving
+      // Anything else is somebody else's secret manager, and Zenith.ai resolving
       // it is exactly what does NOT happen.
       if (e.secretRef) {
         if (!e.secretRef.startsWith("vault:"))
           issues.push({
             level: "warning",
             nodeId: s.id,
-            message: `"${s.name}" reads ${e.key} from ${e.secretRef}, which is not Orrery's secret store.`,
-            fix: `Orrery records the name and nothing else — the provider has to resolve ${e.secretRef} at deploy time. Set the value on the provider side, or store it in Orrery with system.setSecret, which leaves a reference scoped to this service.`,
+            message: `"${s.name}" reads ${e.key} from ${e.secretRef}, which is not Zenith.ai's secret store.`,
+            fix: `Zenith.ai records the name and nothing else — the provider has to resolve ${e.secretRef} at deploy time. Set the value on the provider side, or store it in Zenith.ai with system.setSecret, which leaves a reference scoped to this service.`,
           });
       } else if (e.value === undefined)
         issues.push({

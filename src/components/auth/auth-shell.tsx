@@ -28,7 +28,7 @@ export function AuthShell({ configured, children }: { configured: boolean; child
               <div className="rounded-[12px] border border-line bg-bg1 p-6">
                 <h1 className="text-[20px] font-semibold tracking-[-0.01em]">Sign-in isn&apos;t configured yet</h1>
                 <p className="mt-2 text-[14px] leading-[1.6] text-ink-mute">
-                  Orrery is running in local demo mode — one local user, no accounts. To turn on
+                  Zenith.ai is running in local demo mode — one local user, no accounts. To turn on
                   accounts, add Supabase keys to{" "}
                   <span className="font-mono text-[12.5px] text-ink">.env.local</span> (see{" "}
                   <span className="font-mono text-[12.5px] text-ink">.env.local.example</span>) and restart.

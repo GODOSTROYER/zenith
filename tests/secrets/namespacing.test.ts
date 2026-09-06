@@ -219,7 +219,7 @@ describe("sharing one value is explicit, and removal never destroys it", () => {
     });
 
     const preview = await plan("system.removeSecret", { serviceId: "gateway", key: "DATABASE_URL" });
-    expect(preview.details.join(" ")).toMatch(/STAYS in Orrery's secret store/);
+    expect(preview.details.join(" ")).toMatch(/STAYS in Zenith.ai's secret store/);
     expect(preview.details.join(" ")).toContain("Atlas/worker.DATABASE_URL");
 
     const result = await ok("system.removeSecret", { serviceId: "gateway", key: "DATABASE_URL" });
@@ -281,7 +281,7 @@ describe("a bare vault:KEY from before namespacing keeps working", () => {
   const LEGACY = "vault:LEGACY_URL";
 
   it("resolves, and is not swapped for a namespaced reference behind your back", async () => {
-    // Exactly what an import (or any older Orrery) left behind: a bare
+    // Exactly what an import (or any older Zenith.ai) left behind: a bare
     // reference on the variable, and a value stored under it.
     q.project(projectId)!
       .workingManifest.services.find((s) => s.name === "legacy-svc")!
@@ -374,7 +374,7 @@ describe("a value a live revision still reads is kept, not deleted", () => {
     flush(); // moves the revision's manifest to its side file, as a deploy would
 
     const preview = await plan("system.removeSecret", { serviceId: "relay", key: "RELAY_TOKEN" });
-    expect(preview.details.join(" ")).toMatch(/STAYS in Orrery's secret store/);
+    expect(preview.details.join(" ")).toMatch(/STAYS in Zenith.ai's secret store/);
     expect(preview.details.join(" ")).toContain("live in staging");
     expect(preview.warnings.join(" ")).toMatch(/rollback or a redeploy/i);
 

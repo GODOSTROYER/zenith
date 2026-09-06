@@ -89,6 +89,16 @@ const manifest = (parts: {
 
 export const blueprints: Blueprint[] = [
   {
+    id: "local-resources",
+    name: "Local resources starter",
+    description: "A managed S3 bucket and SQS queue—the resources LocalStack can provision and read back here. No simulated app services or public routes.",
+    icon: "Boxes",
+    highlights: ["S3 bucket", "SQS queue", "LocalStack supported", "no public endpoint"],
+    manifestFactory() {
+      return manifest({ services: [], resources: [res("assets", "object_store"), res("jobs", "queue")], bindings: [] });
+    },
+  },
+  {
     id: "saas-standard",
     name: "Standard SaaS",
     description:

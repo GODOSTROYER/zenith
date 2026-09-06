@@ -4,7 +4,7 @@
  * The point of this adapter is the migration story: it shares the AWS
  * provider's plan shapes and Terraform generator, so "switch to real AWS
  * later" means deleting one override file and supplying real credentials —
- * nothing else in Orrery changes.
+ * nothing else in Zenith.ai changes.
  *
  * Honesty contract:
  *  - S3 buckets and SQS queues are created FOR REAL against LocalStack's
@@ -466,9 +466,9 @@ const ALLOW_IT =
   'turn on "Allow deleting databases and other stateful resources" for this environment in Settings → Environments';
 
 /**
- * Emptying policy, stated once: Orrery empties a bucket ONLY when the
+ * Emptying policy, stated once: Zenith.ai empties a bucket ONLY when the
  * environment sets `allowStatefulDeletion`. S3 refuses to delete a bucket that
- * still has objects in it, and Orrery will not quietly destroy data to get past
+ * still has objects in it, and Zenith.ai will not quietly destroy data to get past
  * that — so with the policy off the step FAILS and names both ways forward.
  *
  * Failing is the honest outcome: the deployment stops, the revision is not
@@ -493,7 +493,7 @@ async function deleteBucket(rt: StepRuntime, name: string): Promise<void> {
     if (objects.length === 0) break;
     if (!rt.env.policies.allowStatefulDeletion)
       throw new Error(
-        `Bucket "${name}" is no longer in this revision, but it still holds objects. Orrery does not destroy data to complete a removal, so this deployment stops here rather than reporting a convergence it did not reach — the bucket is still live in LocalStack. Empty it yourself (\`${EMPTY_IT_YOURSELF(name)}\`), or ${ALLOW_IT} and deploy again.`
+        `Bucket "${name}" is no longer in this revision, but it still holds objects. Zenith.ai does not destroy data to complete a removal, so this deployment stops here rather than reporting a convergence it did not reach — the bucket is still live in LocalStack. Empty it yourself (\`${EMPTY_IT_YOURSELF(name)}\`), or ${ALLOW_IT} and deploy again.`
       );
     rt.log(`s3:DeleteObjects ${name} (${objects.length})`, "provider");
     await client.send(
@@ -529,7 +529,7 @@ async function deleteQueue(rt: StepRuntime, name: string): Promise<void> {
   }
   if (!url)
     throw new Error(
-      `LocalStack answered sqs:GetQueueUrl for "${name}" without a queue URL, so Orrery cannot confirm the queue was deleted. Check the container (\`localstack logs\`) and deploy again.`
+      `LocalStack answered sqs:GetQueueUrl for "${name}" without a queue URL, so Zenith.ai cannot confirm the queue was deleted. Check the container (\`localstack logs\`) and deploy again.`
     );
 
   const attrs = await client.send(
@@ -544,7 +544,7 @@ async function deleteQueue(rt: StepRuntime, name: string): Promise<void> {
     n(attrs.Attributes?.ApproximateNumberOfMessagesNotVisible);
   if (held > 0 && !rt.env.policies.allowStatefulDeletion)
     throw new Error(
-      `Queue "${name}" is no longer in this revision, but it still holds roughly ${held} message(s). Orrery does not destroy data to complete a removal, so this deployment stops here rather than reporting a convergence it did not reach — the queue is still live in LocalStack. Drain it, or ${ALLOW_IT} and deploy again.`
+      `Queue "${name}" is no longer in this revision, but it still holds roughly ${held} message(s). Zenith.ai does not destroy data to complete a removal, so this deployment stops here rather than reporting a convergence it did not reach — the queue is still live in LocalStack. Drain it, or ${ALLOW_IT} and deploy again.`
     );
 
   await client.send(new DeleteQueueCommand({ QueueUrl: url }));
@@ -598,7 +598,7 @@ async function executeStep(rt: StepRuntime): Promise<void> {
   }
   if (looksLikeTeardown(step.title))
     throw new Error(
-      `Step "${step.title}" removes something from LocalStack but carries no provider detail naming it, so Orrery cannot delete it or confirm it is gone. Re-plan the deployment. Reporting success here would claim this revision converged while the resource is still live.`
+      `Step "${step.title}" removes something from LocalStack but carries no provider detail naming it, so Zenith.ai cannot delete it or confirm it is gone. Re-plan the deployment. Reporting success here would claim this revision converged while the resource is still live.`
     );
 
   const resource = m.resources.find((r) => r.id === step.targetId);
@@ -762,7 +762,7 @@ async function verify(env: Environment, deployed: Manifest, previous?: Manifest)
  * omitting them is what stops this from claiming an RDS instance is healthy
  * when no RDS instance was ever created.
  *
- * ponytail: "unowned" means unowned *by this environment*. Two Orrery
+ * ponytail: "unowned" means unowned *by this environment*. Two Zenith.ai
  * environments sharing one LocalStack each list the other's buckets as extra
  * drift. Scope the owned-set across the workspace's environments if that
  * combination stops being a corner case.
@@ -896,7 +896,7 @@ function exportBundle(env: Environment, manifest: Manifest): ExportBundle {
   files.unshift({ path: "providers_override.tf", content: OVERRIDE_FILE });
   const readme =
     terraformReadme(env, manifest) +
-    `\n\n## LocalStack mode\n\nThis bundle was exported from a LocalStack environment. \`providers_override.tf\` points the AWS provider at ${LOCALSTACK_ENDPOINT}; with LocalStack running, \`terraform init && terraform apply\` provisions against your machine (Community edition applies the S3/SQS subset; Pro covers more).\n\n**Switching to real AWS is one step: delete \`providers_override.tf\` and run with real AWS credentials.** Every resource definition is identical between the two targets — that is Orrery's migration guarantee.\n`;
+    `\n\n## LocalStack mode\n\nThis bundle was exported from a LocalStack environment. \`providers_override.tf\` points the AWS provider at ${LOCALSTACK_ENDPOINT}; with LocalStack running, \`terraform init && terraform apply\` provisions against your machine (Community edition applies the S3/SQS subset; Pro covers more).\n\n**Switching to real AWS is one step: delete \`providers_override.tf\` and run with real AWS credentials.** Every resource definition is identical between the two targets — that is Zenith.ai's migration guarantee.\n`;
   return { files, readme };
 }
 
@@ -907,12 +907,12 @@ export const localstackProvider: ProviderAdapter = {
   displayName: "LocalStack",
   availability: "available",
   tagline:
-    "AWS emulated on your machine. Buckets and queues provision for real against LocalStack; kinds Community can't emulate run as labeled local simulations. Requires Docker + LocalStack running.",
+    "Real S3 buckets and SQS queues against a reachable LocalStack endpoint. Application services, routes and unsupported resource configurations are blocked by deployment preflight. Requires Docker + LocalStack running.",
   regions: [{ id: REGION, label: `${REGION} (emulated locally)` }],
 
   accessExplanation: () => ({
     summary:
-      "Orrery talks to LocalStack's edge endpoint on this machine with LocalStack's throwaway test credentials. No real cloud account is touched, no traffic leaves localhost, and stopping the LocalStack container removes everything.",
+      "Zenith.ai uses throwaway test credentials against the configured LocalStack endpoint for supported S3 and SQS operations. This does not verify an AWS identity. Data persistence depends on how you configured LocalStack.",
     permissions: PERMISSIONS,
   }),
 

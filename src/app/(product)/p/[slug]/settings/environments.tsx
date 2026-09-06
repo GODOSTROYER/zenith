@@ -591,7 +591,7 @@ function DeployedState({
             ) : revision ? (
               <span
                 className="text-ink-faint"
-                title="Orrery no longer holds the deployment record that landed this revision, so this is when the revision was created."
+                title="Zenith.ai no longer holds the deployment record that landed this revision, so this is when the revision was created."
               >
                 {" · "}
                 <TimeAgo iso={revision.createdAt} prefix="revision cut" />

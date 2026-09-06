@@ -7,7 +7,7 @@
  *
  *  - A SecurityFinding carries a stored `fix`: an action id and its input,
  *    including that input's own projectId. `security.resolveFinding` runs it.
- *    A global finding lookup therefore makes Orrery a confused deputy — A's
+ *    A global finding lookup therefore makes Zenith.ai a confused deputy — A's
  *    session, A's role check, B's project mutated. So the proof here is not
  *    that an error was thrown: it is that B's manifest and B's findings are
  *    byte-identical after the refused execute to what they were before it.
@@ -478,7 +478,7 @@ describe("an admin of A cannot reach B's delivery channel by id", () => {
    * The worst consequence of the global lookup, stated as its own assertion:
    * `updateChannel` rewrites `target` and `secret`, so an unscoped resolve is a
    * single call that points another workspace's alerts — and the signature that
-   * proves they are Orrery's — at an endpoint the caller controls.
+   * proves they are Zenith.ai's — at an endpoint the caller controls.
    */
   it("updateChannel does not redirect B's alert deliveries", async () => {
     const targetBefore = channelB().target;

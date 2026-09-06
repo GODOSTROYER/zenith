@@ -1,6 +1,6 @@
 /**
  * Supabase configuration, read once. Auth is optional: with no keys present
- * Orrery runs in local demo mode exactly as before (single local "You"),
+ * Zenith.ai runs in local demo mode exactly as before (single local "You"),
  * and every auth surface says so honestly instead of breaking.
  *
  * Supports both the current publishable-key variable and the legacy anon-key
@@ -18,7 +18,7 @@ export const isSupabaseConfigured = (): boolean =>
 
 /* ---------------------------- OAuth providers ----------------------------- */
 
-/** The providers Orrery knows how to label. A name outside this list gets no button. */
+/** The providers Zenith.ai knows how to label. A name outside this list gets no button. */
 export const KNOWN_OAUTH_PROVIDERS = ["github", "google"] as const;
 export type OAuthProvider = (typeof KNOWN_OAUTH_PROVIDERS)[number];
 

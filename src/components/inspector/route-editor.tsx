@@ -74,7 +74,7 @@ export function RouteEditor({ route, onOpenBinding }: RouteEditorProps) {
           <Facts
             rows={[
               ["Host", <span key="h" className="font-mono">{route.host}</span>],
-              ["DNS", route.managedDns ? "Orrery-managed hostname" : "your own hostname (CNAME)"],
+              ["DNS", route.managedDns ? "Zenith.ai-managed hostname" : "your own hostname (CNAME)"],
             ]}
           />
 
@@ -112,7 +112,7 @@ export function RouteEditor({ route, onOpenBinding }: RouteEditorProps) {
               <p className="text-[12px] text-ink-mute">
                 {tls
                   ? route.managedDns
-                    ? "Certificate issued and renewed by Orrery."
+                    ? "Certificate issued and renewed by Zenith.ai."
                     : "Certificate issues once the hostname resolves to this environment."
                   : "Traffic travels as plaintext — anything on the path can read it."}
               </p>

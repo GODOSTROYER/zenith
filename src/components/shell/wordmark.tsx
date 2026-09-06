@@ -2,8 +2,8 @@
 import { useEffect, useState } from "react";
 import { cx } from "@/lib/format";
 
-/** Perimeter of the orbit path, generous enough to fully hide the stroke. */
-const ORBIT_LEN = 44;
+/** Dome length. The OrbitMark export stays compatible with existing callers. */
+const ORBIT_LEN = 26;
 
 export interface OrbitMarkProps {
   size?: number;
@@ -13,8 +13,8 @@ export interface OrbitMarkProps {
 }
 
 /**
- * The Orrery mark: a body, its orbit, and one satellite on the path.
- * Drawn rather than borrowed — it is the only glyph that is not a lucide icon.
+ * Zenith.ai: an observer, a sightline, and the point directly overhead.
+ * The stable corporate mark is distinct from Gimbal's moving rings.
  */
 export function OrbitMark({ size = 18, draw = false, className }: OrbitMarkProps) {
   const [hidden, setHidden] = useState(draw);
@@ -29,30 +29,27 @@ export function OrbitMark({ size = 18, draw = false, className }: OrbitMarkProps
     <svg
       width={size}
       height={size}
-      viewBox="0 0 20 20"
+      viewBox="0 0 24 24"
       aria-hidden="true"
       className={cx("shrink-0", className)}
     >
-      <ellipse
-        cx="10"
-        cy="10"
-        rx="8.2"
-        ry="4.4"
-        transform="rotate(-28 10 10)"
+      <path
+        d="M4 17a8 8 0 0 1 16 0"
         fill="none"
         stroke="currentColor"
         strokeOpacity="0.55"
-        strokeWidth="1.1"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeDasharray={ORBIT_LEN}
         strokeDashoffset={hidden ? ORBIT_LEN : 0}
         style={{ transition: "stroke-dashoffset 600ms var(--ease-swift)" }}
       />
-      <circle cx="10" cy="10" r="2.7" fill="currentColor" />
+      <path d="M12 10v7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="12" cy="19.5" r="1.3" fill="currentColor" />
       <circle
-        cx="17.2"
-        cy="6.2"
-        r="1.6"
+        cx="12"
+        cy="4.5"
+        r="2"
         fill="currentColor"
         style={{
           opacity: hidden ? 0 : 1,
@@ -75,10 +72,10 @@ export function Wordmark({ size = 18, draw = false, className }: WordmarkProps) 
     <span className={cx("inline-flex items-center gap-2 text-ink", className)}>
       <OrbitMark size={size} draw={draw} className="text-signal" />
       <span
-        className="font-medium tracking-[0.01em]"
+        className="font-semibold tracking-[-0.02em]"
         style={{ fontSize: Math.round(size * 0.85) }}
       >
-        Orrery
+        Zenith<span className="font-normal">.ai</span>
       </span>
     </span>
   );

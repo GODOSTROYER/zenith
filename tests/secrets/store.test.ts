@@ -1,5 +1,5 @@
 /**
- * The secret store, and the promise it makes: Orrery holds the value, and
+ * The secret store, and the promise it makes: Zenith.ai holds the value, and
  * nothing that leaves the server holds the value.
  *
  * The refusal side — what happens with no `ORRERY_SECRET_KEY` — is in
@@ -179,7 +179,7 @@ describe("system.setSecret stores the value and records only the reference", () 
       secretValue: "sk_live_not_ours",
     });
     expect(result.ok).toBe(false);
-    expect(result.error).toMatch(/not Orrery's store/i);
+    expect(result.error).toMatch(/not Zenith.ai's store/i);
     expect(api().env.some((e) => e.key === "ELSEWHERE")).toBe(false);
   });
 
@@ -226,7 +226,7 @@ describe("system.rotateSecret sets a new value under the same reference", () => 
     expect(status.updatedAt >= status.createdAt).toBe(true);
   });
 
-  it("refuses a reference with nothing behind it, and one Orrery does not own", async () => {
+  it("refuses a reference with nothing behind it, and one Zenith.ai does not own", async () => {
     const empty = await exec("system.rotateSecret", {
       secretRef: "vault:NEVER_SET",
       secretValue: "x",
@@ -251,7 +251,7 @@ describe("system.removeSecret removes the reference and the value together", () 
     expect(secretStatus(WS, ref("DOOMED_KEY")).exists).toBe(true);
 
     const preview = await plan("system.removeSecret", { serviceId: "api", key: "DOOMED_KEY" });
-    expect(preview.details.join(" ")).toMatch(/deleted from Orrery's secret store/i);
+    expect(preview.details.join(" ")).toMatch(/deleted from Zenith.ai's secret store/i);
     expect(preview.warnings.join(" ")).toMatch(/until it is redeployed/i);
 
     await ok("system.removeSecret", { serviceId: "api", key: "DOOMED_KEY" });

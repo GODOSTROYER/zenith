@@ -79,6 +79,14 @@ export function paletteRows(
 ): PaletteRow[] {
   const rows: PaletteRow[] = [
     {
+      key: "screen:guide",
+      title: "Workspace guide",
+      where: "Gimbal's setup and screen guide",
+      href: "/guide",
+      group: "Screens",
+      search: "guide help onboarding setup gimbal getting started",
+    },
+    {
       key: "screen:overview",
       title: "Workspace overview",
       where: "the workspace overview",

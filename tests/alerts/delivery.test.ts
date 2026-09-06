@@ -1,7 +1,7 @@
 /**
  * Alert delivery: the part that leaves the browser.
  *
- * `fetch` is stubbed throughout — these tests prove the bytes Orrery would put
+ * `fetch` is stubbed throughout — these tests prove the bytes Zenith.ai would put
  * on the wire and what it does with the answer, not that a webhook endpoint
  * exists. The two things a reviewer should be able to check here are the
  * signature (computed over the exact posted body, independently recomputed in
@@ -241,7 +241,7 @@ describe("what goes on the wire", () => {
 
     const body = JSON.parse(calls[0].init.body as string) as ReturnType<typeof slackBody>;
     expect(body).toEqual(slackBody(msg));
-    expect(body.text).toContain("[Orrery]");
+    expect(body.text).toContain("[Zenith.ai]");
     expect(body.text).toContain(msg.title);
     const blocks = body.blocks as { type: string; text?: { type: string; text: string } }[];
     expect(blocks[0].type).toBe("section");
@@ -390,7 +390,7 @@ describe("the delivery log on the event", () => {
 
     evaluateAll(NOW);
     await flushDeliveries();
-    // `[]` is "Orrery tried and had nowhere to send"; `undefined` would be
+    // `[]` is "Zenith.ai tried and had nowhere to send"; `undefined` would be
     // "this alert predates channels". The Observe screen says different things.
     expect(db().alertEvents[0].deliveries).toEqual([]);
   });
@@ -581,7 +581,7 @@ describe("email", () => {
 
   it("sends through the transport when one is available", async () => {
     process.env.ORRERY_SMTP_URL = "smtp://user:pass@smtp.example.test:587";
-    process.env.ORRERY_ALERT_FROM = "Orrery <orrery@example.test>";
+    process.env.ORRERY_ALERT_FROM = "Zenith.ai <orrery@example.test>";
     const sent: Record<string, string>[] = [];
     // A stand-in for the package, resolved through the same seam a test uses to
     // prove the missing-package path. `vi.mock` cannot intercept a specifier
@@ -596,7 +596,7 @@ describe("email", () => {
     expect(result.ok).toBe(true);
     expect(sent).toHaveLength(1);
     expect(sent[0].to).toBe("ops@example.test");
-    expect(sent[0].from).toBe("Orrery <orrery@example.test>");
+    expect(sent[0].from).toBe("Zenith.ai <orrery@example.test>");
     expect(sent[0].subject).toContain(msg.title);
     expect(sent[0].text).toContain(msg.body);
   });

@@ -1,7 +1,7 @@
 /**
- * docker-compose.yml → Orrery manifest.
+ * docker-compose.yml → Zenith.ai manifest.
  *
- * Two passes: classify every compose service as an Orrery service or a
+ * Two passes: classify every compose service as an Zenith.ai service or a
  * managed resource, then wire bindings from depends_on and from env values
  * that name another service. Every compose key we do not translate is
  * reported in `unmapped` with a reason and a fix — nothing is dropped
@@ -9,6 +9,7 @@
  */
 import { load } from "js-yaml";
 import { id } from "@/lib/domain/types";
+import { vaultRef } from "@/lib/secrets/refs";
 import type {
   Binding,
   Manifest,
@@ -33,12 +34,12 @@ export interface ComposeImport {
 
 /** image name → managed resource kind. First match wins, order matters. */
 const RESOURCE_IMAGES: { re: RegExp; kind: ResourceKind; exact: boolean; note: string }[] = [
-  { re: /(^|\/)(postgres|postgis|timescale)/i, kind: "postgres", exact: true, note: "PostgreSQL image mapped to a managed Orrery database." },
-  { re: /(^|\/)(mysql|mariadb|percona)/i, kind: "postgres", exact: false, note: "Orrery does not manage MySQL yet — mapped to a managed PostgreSQL. Check your SQL dialect before deploying, or keep MySQL in your own cloud and mark it 'referenced'." },
+  { re: /(^|\/)(postgres|postgis|timescale)/i, kind: "postgres", exact: true, note: "PostgreSQL image mapped to a managed Zenith.ai database." },
+  { re: /(^|\/)(mysql|mariadb|percona)/i, kind: "postgres", exact: false, note: "Zenith.ai does not manage MySQL yet — mapped to a managed PostgreSQL. Check your SQL dialect before deploying, or keep MySQL in your own cloud and mark it 'referenced'." },
   { re: /(^|\/)(redis|valkey)/i, kind: "redis", exact: true, note: "Redis image mapped to a managed cache." },
   { re: /(^|\/)(minio|localstack|seaweedfs)/i, kind: "object_store", exact: false, note: "S3-compatible container mapped to a managed object store; bucket names are not carried over." },
   { re: /(^|\/)(rabbitmq|nats)/i, kind: "queue", exact: true, note: "Message broker mapped to a managed queue." },
-  { re: /(^|\/)(kafka|redpanda|pulsar)/i, kind: "queue", exact: false, note: "Streaming platform mapped to a managed queue — Orrery queues are not a log/streaming substitute. Verify your consumer semantics." },
+  { re: /(^|\/)(kafka|redpanda|pulsar)/i, kind: "queue", exact: false, note: "Streaming platform mapped to a managed queue — Zenith.ai queues are not a log/streaming substitute. Verify your consumer semantics." },
   { re: /(^|\/)(mailhog|mailpit|maildev|inbucket|mailcatcher)/i, kind: "email", exact: false, note: "Local mail catcher mapped to a managed email sender. In a real environment this delivers mail — point it at a test inbox first." },
 ];
 
@@ -49,40 +50,41 @@ const HANDLED_ON_RESOURCE = new Set(["image", "environment", "depends_on"]);
 
 const IGNORE_REASONS_ON_RESOURCE: Record<string, { reason: string; suggestion: string }> = {
   ports: {
-    reason: "Managed resources are reachable only through bindings — Orrery does not publish them on a host port.",
+    reason: "Managed resources are reachable only through bindings — Zenith.ai does not publish them on a host port.",
     suggestion: "Bind the services that need it; connection details are injected as env vars.",
   },
   healthcheck: {
-    reason: "Orrery health-checks managed resources itself.",
+    reason: "Zenith.ai health-checks managed resources itself.",
     suggestion: "Nothing to do — health appears in Observe.",
   },
   build: {
-    reason: "This entry was imported as a managed resource, so Orrery runs its own build of it.",
+    reason: "This entry was imported as a managed resource, so Zenith.ai runs its own build of it.",
     suggestion: "If you meant to run your own image here, change the node to a service after import.",
   },
 };
 
 const IGNORE_REASONS: Record<string, { reason: string; suggestion: string }> = {
-  volumes: { reason: "Bind mounts and named volumes have no Orrery equivalent — managed resources carry their own storage.", suggestion: "For data, use a managed resource. For code mounts, they are a dev-only convenience and can be deleted." },
+  volumes: { reason: "Bind mounts and named volumes have no Zenith.ai equivalent — managed resources carry their own storage.", suggestion: "For data, use a managed resource. For code mounts, they are a dev-only convenience and can be deleted." },
   volumes_from: { reason: "Volume sharing between containers is not modelled.", suggestion: "Share data through a managed resource instead." },
-  networks: { reason: "Orrery derives connectivity from bindings, not networks — a service can only reach what it is bound to.", suggestion: "Confirm each connection appears as an edge on the System Map; add missing ones with system.bind." },
+  networks: { reason: "Zenith.ai derives connectivity from bindings, not networks — a service can only reach what it is bound to.", suggestion: "Confirm each connection appears as an edge on the System Map; add missing ones with system.bind." },
   env_file: { reason: "The referenced file was not read (only the YAML was provided).", suggestion: "Add the values with system.setEnvVar, and anything sensitive with system.setSecret." },
-  command: { reason: "Orrery runs the image's own entrypoint.", suggestion: "Bake the command into your Dockerfile CMD, or keep it in the image you build." },
-  entrypoint: { reason: "Orrery runs the image's own entrypoint.", suggestion: "Bake it into your Dockerfile ENTRYPOINT." },
-  deploy: { reason: "Compose deploy/placement settings do not map to Orrery sizing.", suggestion: "Set size and replicas on the service in the Inspector — costs update live." },
-  restart: { reason: "Orrery restarts failed replicas automatically.", suggestion: "Nothing to do." },
+  command: { reason: "Zenith.ai runs the image's own entrypoint.", suggestion: "Bake the command into your Dockerfile CMD, or keep it in the image you build." },
+  entrypoint: { reason: "Zenith.ai runs the image's own entrypoint.", suggestion: "Bake it into your Dockerfile ENTRYPOINT." },
+  deploy: { reason: "Compose deploy/placement settings do not map to Zenith.ai sizing.", suggestion: "Set size and replicas on the service in the Inspector — costs update live." },
+  restart: { reason: "Zenith.ai restarts failed replicas automatically.", suggestion: "Nothing to do." },
   container_name: { reason: "Instance names are assigned per environment.", suggestion: "Nothing to do." },
-  labels: { reason: "Container labels are not part of the Orrery model.", suggestion: "Nothing to do, unless a tool of yours reads them." },
-  logging: { reason: "Logs are collected by Orrery and shown in Observe.", suggestion: "Nothing to do." },
+  labels: { reason: "Container labels are not part of the Zenith.ai model.", suggestion: "Nothing to do, unless a tool of yours reads them." },
+  logging: { reason: "Logs are collected by Zenith.ai and shown in Observe.", suggestion: "Nothing to do." },
   privileged: { reason: "Privileged containers are not supported.", suggestion: "Remove the privilege requirement, or keep this workload in your own cloud." },
   cap_add: { reason: "Extra Linux capabilities are not supported.", suggestion: "Remove the requirement, or run this workload yourself and reference it." },
   extra_hosts: { reason: "Custom host entries are not modelled.", suggestion: "Address other services through their binding-injected URLs." },
-  profiles: { reason: "Compose profiles are a local-dev switch.", suggestion: "Use separate Orrery environments instead." },
+  profiles: { reason: "Compose profiles are a local-dev switch.", suggestion: "Use separate Zenith.ai environments instead." },
 };
 
-export function importCompose(yamlText: string): ComposeImport {
+export function importCompose(yamlText: string, projectId?: string): ComposeImport {
   const report = emptyReport();
   const manifest: Manifest = { version: 1, services: [], resources: [], routes: [], bindings: [] };
+  const secretProjectId = projectId ?? id();
 
   let doc: unknown;
   try {
@@ -109,7 +111,7 @@ export function importCompose(yamlText: string): ComposeImport {
         source: key,
         result: "not carried over",
         confidence: "exact",
-        note: "Compose file metadata; Orrery manifests carry their own version and the project name is set on import.",
+        note: "Compose file metadata; Zenith.ai manifests carry their own version and the project name is set on import.",
       });
     } else if (key === "volumes") {
       report.unmapped.push({ source: "volumes", ...IGNORE_REASONS.volumes });
@@ -118,7 +120,7 @@ export function importCompose(yamlText: string): ComposeImport {
     } else {
       report.unmapped.push({
         source: key,
-        reason: `Top-level compose key "${key}" has no Orrery equivalent.`,
+        reason: `Top-level compose key "${key}" has no Zenith.ai equivalent.`,
         suggestion: "Review it by hand — nothing from it was imported.",
       });
     }
@@ -196,7 +198,7 @@ export function importCompose(yamlText: string): ComposeImport {
     if (ports.length > 1) {
       report.unmapped.push({
         source: `services.${composeName}.ports[1..]`,
-        reason: `An Orrery service listens on one port; ${ports.length} were declared.`,
+        reason: `An Zenith.ai service listens on one port; ${ports.length} were declared.`,
         suggestion: `Kept ${ports[0]}. If another port matters, split it into its own service.`,
       });
     }
@@ -241,7 +243,7 @@ export function importCompose(yamlText: string): ComposeImport {
       if (!service) {
         report.unmapped.push({
           source: `services.${composeName}.environment.${key}`,
-          reason: "Managed resources are configured by Orrery; container env vars are not carried over.",
+          reason: "Managed resources are configured by Zenith.ai; container env vars are not carried over.",
           suggestion: "If this changed database behaviour, set it in the resource config after import.",
         });
         continue;
@@ -255,10 +257,11 @@ export function importCompose(yamlText: string): ComposeImport {
         continue;
       }
       if (SECRET_KEY_RE.test(key)) {
-        service.env.push({ key, secretRef: `vault:${key}` });
+        const secretRef = vaultRef(secretProjectId, service.id, key);
+        service.env.push({ key, secretRef });
         report.mapped.push({
           source: `services.${composeName}.environment.${key}`,
-          result: `secret reference vault:${key} on ${self.name}`,
+          result: `secret reference ${secretRef} on ${self.name}`,
           confidence: "exact",
           note: "Looks like a secret, so the value was NOT imported — only a reference. Secrets never live in a manifest.",
         });
@@ -293,7 +296,7 @@ export function importCompose(yamlText: string): ComposeImport {
         report.unmapped.push({
           source: `services.${composeName}.depends_on.${dep}`,
           reason: `${composeName} was imported as a managed resource, and resources do not connect outward.`,
-          suggestion: "No action needed — Orrery operates the resource for you.",
+          suggestion: "No action needed — Zenith.ai operates the resource for you.",
         });
         continue;
       }
@@ -309,7 +312,7 @@ export function importCompose(yamlText: string): ComposeImport {
         : IGNORE_REASONS_ON_RESOURCE[key] ?? IGNORE_REASONS[key];
       report.unmapped.push({
         source: `services.${composeName}.${key}`,
-        reason: known?.reason ?? `Compose key "${key}" has no Orrery equivalent.`,
+        reason: known?.reason ?? `Compose key "${key}" has no Zenith.ai equivalent.`,
         suggestion: known?.suggestion ?? "Review it by hand — nothing from it was imported.",
       });
     }
@@ -365,7 +368,7 @@ function sourceOf(
   if (build !== undefined) {
     return {
       source: { type: "git", repo: context, ref: "main", dockerfile },
-      sourceNote: `Built from local context "${context}" — that is not a repository Orrery can fetch.`,
+      sourceNote: `Built from local context "${context}" — that is not a repository Zenith.ai can fetch.`,
       sourceWarning: `${composeName}: set a git repository (or a published image) on this service before deploying; the imported source is the local build context "${context}".`,
     };
   }

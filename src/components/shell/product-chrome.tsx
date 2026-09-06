@@ -209,7 +209,7 @@ function WorkspaceChip() {
             setCreating(true);
           }}
           disabled={!canCreate}
-          disabledReason="Orrery in demo mode runs one workspace. Configure Supabase auth for real identities and multiple workspaces."
+          disabledReason="Zenith.ai in demo mode runs one workspace. Configure Supabase auth for real identities and multiple workspaces."
         >
           Create workspace…
         </MenuItem>
@@ -321,6 +321,7 @@ export function ProductChrome() {
       <WorkspaceChip />
       </div>
       <div className="product-chrome-tools">
+        <Link href="/guide" className="inline-flex min-h-9 items-center rounded-ctl px-2 text-[13px] text-ink-mute hover:bg-bg2 hover:text-ink" title="Setup progress and help for every screen">Guide</Link>
         <CommandPalette catalog={catalog} />
         <ActivityBell />
         <ThemeToggle />

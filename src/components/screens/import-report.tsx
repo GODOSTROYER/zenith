@@ -22,7 +22,7 @@ export function ImportReportView({ report }: { report: ImportReport }) {
       {report.mapped.length > 0 && (
         <Card
           title={`${report.mapped.length} element${report.mapped.length === 1 ? "" : "s"} mapped`}
-          subtitle="Exact means a faithful translation. Assumed means Orrery had to guess — check those."
+          subtitle="Exact means a faithful translation. Assumed means Zenith.ai had to guess — check those."
           padded={false}
         >
           <ul>

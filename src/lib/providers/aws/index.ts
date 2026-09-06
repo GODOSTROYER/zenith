@@ -1,7 +1,7 @@
 /**
  * AWS provider — Preview.
  *
- * What "preview" honestly means here: Orrery produces a real ECS/Fargate-shaped
+ * What "preview" honestly means here: Zenith.ai produces a real ECS/Fargate-shaped
  * plan and generates genuinely runnable Terraform for the whole system, both
  * from your manifest alone. It never calls AWS — it cannot apply the plan, and
  * it cannot read your account either. `executeStep`, `observe` and `discover`
@@ -31,14 +31,14 @@ const tfName = (s: string) => s.replace(/[^A-Za-z0-9_]/g, "_").replace(/^(\d)/, 
 
 /** The exact message the Engine surfaces when someone tries to apply. */
 export const AWS_PREVIEW_MESSAGE =
-  "AWS execution requires credentials. Orrery Preview generates and exports the full Terraform for this system — run it with your own tooling, or connect credentials in a later release.";
+  "AWS execution requires credentials. Zenith.ai Preview generates and exports the full Terraform for this system — run it with your own tooling, or connect credentials in a later release.";
 
 /**
  * What this connection can actually do — derived from the code below, not from
  * the capability we intend to build.
  *
  * There used to be an IAM role here: create a cross-account role, trust
- * Orrery's principal with an ExternalId, and Orrery would assume it for
+ * Zenith.ai's principal with an ExternalId, and Zenith.ai would assume it for
  * read-only inventory and cost. Not one line of that was implemented.
  * `preflight` reads `process.env.AWS_ACCESS_KEY_ID` and makes no AWS call;
  * `observe` and `discover` refuse by design; `executeStep` throws. So the
@@ -50,8 +50,8 @@ export const AWS_PREVIEW_MESSAGE =
  * added here in the same change — never before it.
  */
 const PREVIEW_ACCESS = [
-  "No AWS access at all. No role to create, no key to grant, no trust to extend — Orrery makes no AWS API call in Preview",
-  "No credentials are stored or transmitted. AWS_ACCESS_KEY_ID on the Orrery server, if set, is reported as present and is never used to call AWS",
+  "No AWS access at all. No role to create, no key to grant, no trust to extend — Zenith.ai makes no AWS API call in Preview",
+  "No credentials are stored or transmitted. AWS_ACCESS_KEY_ID on the Zenith.ai server, if set, is reported as present and is never used to call AWS",
   "Reads nothing from your account: no inventory, no cost, no drift, no discovery — those surfaces refuse rather than invent an answer",
   "Writes nothing to your account: Preview never applies. Changes reach AWS only through the Terraform you export and run yourself",
   "Generates that Terraform on this server, from your manifest",
@@ -65,7 +65,7 @@ function planSteps(env: Environment, next: Manifest, previous?: Manifest): Provi
     !!previous && [...previous.services, ...previous.resources].some((n) => n.id === nodeId);
 
   // The plan describes what `terraform apply` does when YOU run the export, so
-  // it names no role for Orrery to assume: there is no cross-account trust in
+  // it names no role for Zenith.ai to assume: there is no cross-account trust in
   // this provider, and a step called "assume deployment role" implied one.
   steps.push({
     phase: "prepare",
@@ -216,7 +216,7 @@ async function executeStep(_rt: StepRuntime): Promise<void> {
  * the feature, and it names the tool that answers the question today.
  */
 export const AWS_NO_READ_MESSAGE =
-  "Orrery does not read your AWS account. The AWS provider is Preview: it plans and exports Terraform, and no code path in Orrery calls AWS — so it cannot report drift or discover existing resources, and will not invent either. To see real drift today, export the bundle from Settings → Export and run `terraform plan` against it with your own credentials.";
+  "Zenith.ai does not read your AWS account. The AWS provider is Preview: it plans and exports Terraform, and no code path in Zenith.ai calls AWS — so it cannot report drift or discover existing resources, and will not invent either. To see real drift today, export the bundle from Settings → Export and run `terraform plan` against it with your own credentials.";
 
 async function observe(): Promise<never> {
   throw new Error(AWS_NO_READ_MESSAGE);
@@ -240,7 +240,7 @@ async function preflight(conn: CloudConnection): Promise<PreflightReport> {
           id: "aws.credentials",
           label: "AWS_ACCESS_KEY_ID is set on this server",
           status: "warn",
-          detail: `A value is present in this server's environment (region ${region}). Orrery has not called AWS with it, so this says nothing about whether the key is valid or what it can reach.`,
+          detail: `A value is present in this server's environment (region ${region}). Zenith.ai has not called AWS with it, so this says nothing about whether the key is valid or what it can reach.`,
           fix: "Nothing to do — Preview never uses these credentials. Validation against sts:GetCallerIdentity arrives with apply support.",
         },
         {
@@ -248,7 +248,7 @@ async function preflight(conn: CloudConnection): Promise<PreflightReport> {
           label: "Apply is disabled in Preview",
           status: "warn",
           detail:
-            "Credentials detected but apply is disabled in Preview. Orrery will plan and export, never mutate your account.",
+            "Credentials detected but apply is disabled in Preview. Zenith.ai will plan and export, never mutate your account.",
           fix: "Export the Terraform from Source → Export and run `terraform apply` yourself.",
         },
         {
@@ -271,13 +271,13 @@ async function preflight(conn: CloudConnection): Promise<PreflightReport> {
       {
         // Not a failure: AWS in Preview needs no credentials for anything it
         // actually does. Saying "fail" implied a capability that unblocking it
-        // would unlock, and there is none — nothing in Orrery reads AWS today.
+        // would unlock, and there is none — nothing in Zenith.ai reads AWS today.
         id: "aws.credentials",
         label: "No AWS credentials on this server",
         status: "warn",
         detail:
-          "Orrery never calls AWS in Preview, so nothing here needs credentials. Setting them would not unlock reads, plans or applies today.",
-        fix: "Export the Terraform from Settings → Export and run it with your own credentials. Setting AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY on the Orrery server changes nothing today: the AWS provider plans and exports only, and no code path reads your account.",
+          "Zenith.ai never calls AWS in Preview, so nothing here needs credentials. Setting them would not unlock reads, plans or applies today.",
+        fix: "Export the Terraform from Settings → Export and run it with your own credentials. Setting AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY on the Zenith.ai server changes nothing today: the AWS provider plans and exports only, and no code path reads your account.",
       },
       {
         id: "aws.apply",
@@ -309,7 +309,7 @@ export const awsProvider: ProviderAdapter = {
   displayName: "Amazon Web Services",
   availability: "preview",
   tagline:
-    "Preview: Orrery plans your system as ECS/Fargate and exports real, runnable Terraform. It does not apply changes to your account yet.",
+    "Preview: Zenith.ai plans your system as ECS/Fargate and exports real, runnable Terraform. It does not apply changes to your account yet.",
   regions: [
     { id: "us-east-1", label: "US East (N. Virginia)" },
     { id: "us-west-2", label: "US West (Oregon)" },
@@ -321,7 +321,7 @@ export const awsProvider: ProviderAdapter = {
 
   accessExplanation: () => ({
     summary:
-      "This connection grants Orrery no access to your AWS account, because Orrery does not call AWS in Preview. Create no IAM role and extend no trust: there is nothing here to use it. Orrery plans your system and generates real Terraform from your manifest, on this server; you run that Terraform with your own credentials, and that is the only way anything reaches your account. When a read path exists, the exact permission it needs will be listed here — and not one line before it works.",
+      "This connection grants Zenith.ai no access to your AWS account, because Zenith.ai does not call AWS in Preview. Create no IAM role and extend no trust: there is nothing here to use it. Zenith.ai plans your system and generates real Terraform from your manifest, on this server; you run that Terraform with your own credentials, and that is the only way anything reaches your account. When a read path exists, the exact permission it needs will be listed here — and not one line before it works.",
     permissions: PREVIEW_ACCESS,
   }),
 

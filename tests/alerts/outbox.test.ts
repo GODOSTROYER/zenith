@@ -2,7 +2,7 @@
  * The alert outbox: the part that survives the process.
  *
  * `tests/alerts/delivery.test.ts` proves the bytes on the wire. This file
- * proves the thing a webhook receiver cannot see — that Orrery does not lose a
+ * proves the thing a webhook receiver cannot see — that Zenith.ai does not lose a
  * notification when it dies, and does not silently send one twice.
  *
  * Every crash here is simulated the only honest way: the state file is captured
@@ -279,7 +279,7 @@ describe("intent is durable before anything is sent", () => {
     flush();
     // No row: there is nothing to deliver, so nothing may be replayed later.
     expect(onDisk().alertOutbox).toEqual([]);
-    // `[]` — "Orrery tried and had nowhere to send" — not `undefined`.
+    // `[]` — "Zenith.ai tried and had nowhere to send" — not `undefined`.
     expect(onDisk().alertEvents[0].deliveries).toEqual([]);
 
     await flushDeliveries();

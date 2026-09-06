@@ -2,7 +2,7 @@
  * The shapes the three onboarding steps hand each other, and the step list the
  * rail and the header both read. No component here — see step-*.tsx.
  */
-import type { CloudConnection, Workspace } from "@/lib/domain/types";
+export type { Bootstrap } from "@/components/shell/shell-context";
 
 export interface BlueprintCard {
   id: string;
@@ -24,11 +24,6 @@ export interface ProviderInfo {
 }
 
 /** GET /api/bootstrap */
-export interface Bootstrap {
-  workspace: Workspace;
-  connections: CloudConnection[];
-  providers: ProviderInfo[];
-}
 
 /** What step 2 settled on. Nothing is created there — this is a choice, not a record. */
 export interface ProviderChoice {
@@ -39,7 +34,8 @@ export interface ProviderChoice {
 }
 
 export const STEPS = [
-  { n: 1, title: "Name your workspace", hint: "Where your projects live" },
-  { n: 2, title: "Where will you run?", hint: "Provider and exact access" },
-  { n: 3, title: "Start your system", hint: "Blueprint, import, or blank" },
+  { n: 1, title: "Choose your workspace", hint: "Your team and projects" },
+  { n: 2, title: "Choose how to start", hint: "Local, preview, or simulation" },
+  { n: 3, title: "Shape your blueprint", hint: "An editable system, not a deployment" },
+  { n: 4, title: "Get oriented", hint: "Explore at your own pace" },
 ] as const;

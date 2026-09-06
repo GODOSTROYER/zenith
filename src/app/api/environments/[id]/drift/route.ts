@@ -54,7 +54,7 @@ export const GET = route<{ id: string }>(async (_req, { id }) => {
 
   if (!adapter.observe)
     throw new ApiError(
-      `${adapter.displayName} cannot read back what it deployed, so Orrery has no way to tell whether ${env.name} has drifted.`,
+      `${adapter.displayName} cannot read back what it deployed, so Zenith.ai has no way to tell whether ${env.name} has drifted.`,
       501,
       { fix: `Deploy this system to a sandbox or LocalStack environment to see drift.` }
     );

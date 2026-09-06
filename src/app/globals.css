@@ -3,7 +3,7 @@
 @import "tailwindcss" source("../");
 
 /* ============================================================
-   Orrery design tokens — "observatory" theme.
+   Zenith.ai design tokens — "observatory" theme.
    Dark-first, with an equally considered light theme.
    All component styling flows through these tokens; never hardcode
    a color in a component. See docs/DESIGN.md.

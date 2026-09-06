@@ -33,7 +33,7 @@ export function AddRouteForm({ onCreated }: AddRouteFormProps) {
         help={
           host.trim()
             ? "Your own hostname: point a CNAME at the environment before deploying."
-            : "Leave blank for an Orrery-managed hostname with DNS and TLS handled for you."
+            : "Leave blank for an Zenith.ai-managed hostname with DNS and TLS handled for you."
         }
       >
         <Input

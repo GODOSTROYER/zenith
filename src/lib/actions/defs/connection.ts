@@ -68,13 +68,13 @@ defineAction<CreateConn>({
         access.summary,
         ...access.permissions.map((p) => `Grants: ${p}`),
         adapter.availability === "preview"
-          ? "Preview means Orrery plans and exports for this provider, but does not apply changes to it."
+          ? "Preview means Zenith.ai plans and exports for this provider, but does not apply changes to it."
           : "",
       ].filter(Boolean),
       costDeltaUsd: 0,
       risk: planned ? "low" : "medium",
       warnings: planned
-        ? [`${adapter.displayName} is planned, not implemented. Use the sandbox to try Orrery end to end, or connect a provider marked available.`]
+        ? [`${adapter.displayName} is planned, not implemented. Use the sandbox to try Zenith.ai end to end, or connect a provider marked available.`]
         : [],
       requiresApproval: false,
     };
@@ -226,7 +226,7 @@ defineAction<ConnRef>({
         ? users.map((u) => `${u.projectName} → ${u.envName} deploys through this connection.`)
         : [
             "Removes the connection from this workspace.",
-            "Nothing in your cloud is deleted or changed — Orrery only forgets how to reach it.",
+            "Nothing in your cloud is deleted or changed — Zenith.ai only forgets how to reach it.",
           ],
       costDeltaUsd: 0,
       risk: blocked ? "low" : "medium",

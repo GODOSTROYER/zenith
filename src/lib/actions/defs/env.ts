@@ -41,7 +41,7 @@ export function ensureSandboxConnection(workspaceId: string, persist = true): Cl
     label: "Sandbox",
     region: "local",
     status: "healthy",
-    grantedPermissions: ["No cloud access — the sandbox runs inside Orrery and simulates deployments."],
+    grantedPermissions: ["No cloud access — the sandbox runs inside Zenith.ai and simulates deployments."],
     createdAt: new Date().toISOString(),
   };
   if (persist) {
@@ -82,7 +82,7 @@ export function inFlight(environmentId: string): Deployment | undefined {
 export function liveRevision(env: Environment): string | undefined {
   if (!env.deployedRevisionId) return undefined;
   const rev = q.revision(env.deployedRevisionId);
-  return rev ? `revision ${rev.number}` : "a revision Orrery no longer holds";
+  return rev ? `revision ${rev.number}` : "a revision Zenith.ai no longer holds";
 }
 
 /* ------------------------------ env.create -------------------------------- */
@@ -533,14 +533,14 @@ function envSetConnection(ctx: ActionContext, input: SetConnection) {
     const adapter = providerRegistry().get(next.provider);
     details.push(
       `${env.name} will deploy through ${connectionLabel(next)}.`,
-      `Anything already running through ${current?.label ?? "the previous connection"} keeps running. Orrery does not migrate it, copy it or delete it.`,
+      `Anything already running through ${current?.label ?? "the previous connection"} keeps running. Zenith.ai does not migrate it, copy it or delete it.`,
       next.region === env.region
         ? `The environment stays in ${env.region}.`
         : `The environment's region stays ${env.region} while ${next.label} operates in ${next.region}. Change it with the rename form if they should match.`
     );
     if (adapter && adapter.availability !== "available")
       warnings.push(
-        `${adapter.displayName} is ${adapter.availability}: Orrery plans and exports for it, but a deploy to ${env.name} will be refused until it is available.`
+        `${adapter.displayName} is ${adapter.availability}: Zenith.ai plans and exports for it, but a deploy to ${env.name} will be refused until it is available.`
       );
     if (next.status !== "healthy")
       warnings.push(
@@ -611,7 +611,7 @@ function envDelete(ctx: ActionContext, input: DeleteEnv) {
   const details = [
     `Removes the environment record, its budget and its deploy policy from ${project.name}.`,
     `${deployments.length} deployment record(s) go with it. The revision history stays — revisions belong to the project, not to one environment.`,
-    "Nothing in your cloud or in the sandbox is torn down: this deletes Orrery's records, not running infrastructure.",
+    "Nothing in your cloud or in the sandbox is torn down: this deletes Zenith.ai's records, not running infrastructure.",
     siblings.length
       ? `${siblings.length} other environment(s) are untouched: ${siblings.map((e) => e.name).join(", ")}.`
       : "",
@@ -619,7 +619,7 @@ function envDelete(ctx: ActionContext, input: DeleteEnv) {
 
   const warnings = live
     ? [
-        `${env.name} is running ${live}. Deleting the environment does not stop it — Orrery simply stops watching it. Tear it down first if you want it gone.`,
+        `${env.name} is running ${live}. Deleting the environment does not stop it — Zenith.ai simply stops watching it. Tear it down first if you want it gone.`,
       ]
     : [];
 

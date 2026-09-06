@@ -1,6 +1,6 @@
 "use client";
 /**
- * The one table in Orrery.
+ * The one table in Zenith.ai.
  *
  * A real `<table>`, because a list of records read down a column is a table and
  * screen readers, "find in page" and browser zoom all know what to do with one.

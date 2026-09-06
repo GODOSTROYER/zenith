@@ -32,7 +32,7 @@ export const POST = route(async (req) => {
   // be a second name for the same permissions. Say that rather than pretend.
   if (!isSupabaseConfigured() && data.workspaces.length > 0)
     throw new ApiError(`A workspace already exists ("${data.workspaces[0].name}").`, 409, {
-      fix: "Orrery in demo mode runs one workspace. Configure Supabase auth (NEXT_PUBLIC_SUPABASE_URL + key) for real identities and multiple workspaces, or reset with `npm run seed`.",
+      fix: "Zenith.ai in demo mode runs one workspace. Open the existing workspace, or configure Supabase auth (NEXT_PUBLIC_SUPABASE_URL + key) for real identities and multiple workspaces.",
     });
 
   const name = parsed.data.name;
@@ -66,7 +66,7 @@ export const POST = route(async (req) => {
     id: id(),
     workspaceId: workspace.id,
     provider: "sandbox",
-    label: "Orrery Sandbox",
+    label: "Zenith.ai Sandbox",
     region: "local-1",
     status: "healthy",
     grantedPermissions: [

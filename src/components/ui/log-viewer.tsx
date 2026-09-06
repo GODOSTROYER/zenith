@@ -13,7 +13,7 @@ export interface LogLine {
   /** engine sequence number, when the line came from the event log */
   seq?: number;
   /**
-   * Which lane the line came out of. `info`/`provider` are Orrery's own
+   * Which lane the line came out of. `info`/`provider` are Zenith.ai's own
    * narration vs. raw provider output during a deployment; `stdout`/`stderr`
    * are what a running service actually wrote.
    */
@@ -44,7 +44,7 @@ interface StreamMeta {
 }
 
 const STREAMS: Record<LogLine["stream"], StreamMeta> = {
-  info: { label: "orrery", badge: "bg-info-dim text-info", title: "Orrery's own narration" },
+  info: { label: "Zenith.ai", badge: "bg-info-dim text-info", title: "Zenith.ai's own narration" },
   provider: { label: "provider", badge: "bg-bg3 text-ink-faint", title: "Raw provider output" },
   stdout: { label: "stdout", badge: "bg-bg3 text-ink-faint", title: "The service's standard output" },
   stderr: { label: "stderr", badge: "bg-err-dim text-err", title: "The service's error output" },
@@ -194,7 +194,7 @@ export function LogViewer({
               { value: "all", label: "All", title: "Every line" },
               ...streamsPresent.map((s) => ({
                 value: s,
-                label: STREAMS[s].label === "orrery" ? "Orrery" : STREAMS[s].label,
+                label: STREAMS[s].label,
                 title: STREAMS[s].title,
               })),
             ]}

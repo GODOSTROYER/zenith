@@ -116,10 +116,18 @@ export const GET = route(async () => {
     projects,
     environments,
     deployments,
-    // Safe whole: a CloudConnection stores no credential — `grantedPermissions`
-    // is the permission summary written for this screen to display, and the
-    // provider credentials themselves never enter the store.
-    connections: d.connections.filter((c) => c.workspaceId === workspace.id),
+    // Preserve grantedPermissions as the last preflight snapshot. The UI also
+    // needs today's provider declaration, but deriving it here is metadata-only
+    // and must never be presented as if a live cloud check just ran.
+    connections: d.connections
+      .filter((c) => c.workspaceId === workspace.id)
+      .map((c) => ({
+        ...c,
+        // Presentation alias only. Do not rename stored/user-defined connections.
+        label: c.provider === "sandbox" && c.label === "Orrery Sandbox" ? "Zenith.ai Sandbox" : c.label,
+        declaredPermissions:
+          providerRegistry().get(c.provider)?.accessExplanation().permissions ?? c.grantedPermissions,
+      })),
     /** availability drives every label in the UI — never presented as available */
     providers: [...providerRegistry().values()].map((p) => ({
       id: p.id,

@@ -1,2 +1,2 @@
-/* Keep Orrery's theme overrides above the lazily loaded library stylesheet. */
+/* Keep Zenith.ai's theme overrides above the lazily loaded library stylesheet. */
 @import "@xyflow/react/dist/style.css" layer(components);

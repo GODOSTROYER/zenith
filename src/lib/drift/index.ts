@@ -63,7 +63,7 @@ const STATEFUL = new Set(["postgres", "redis", "object_store", "queue"]);
 
 /**
  * What the manifest says a node should look like, in the same key vocabulary
- * adapters report. Secret-backed env vars are deliberately absent: Orrery does
+ * adapters report. Secret-backed env vars are deliberately absent: Zenith.ai does
  * not hold those values, so it cannot claim they match or differ.
  */
 export function expectedAttributes(
@@ -101,7 +101,7 @@ export function computeDrift(deployed: Manifest, live: LiveState): DriftItem[] {
   ];
 
   for (const { node, kind, stateful } of nodes) {
-    // Referenced and external nodes are not Orrery's to reconcile: it reads
+    // Referenced and external nodes are not Zenith.ai's to reconcile: it reads
     // them and never provisions them, so "it changed" is not a defect.
     if (node.ownership !== "managed") continue;
 
@@ -116,7 +116,7 @@ export function computeDrift(deployed: Manifest, live: LiveState): DriftItem[] {
         nodeKind: kind,
         severity: stateful ? "high" : "medium",
         detail: stateful
-          ? `${node.name} is in the deployed revision, but the provider cannot find it. If it was deleted outside Orrery, its data is gone — deploying again creates an empty one.`
+          ? `${node.name} is in the deployed revision, but the provider cannot find it. If it was deleted outside Zenith.ai, its data is gone — deploying again creates an empty one.`
           : `${node.name} is in the deployed revision, but the provider cannot find it. Deploy this environment again to put it back.`,
       });
       continue;
@@ -157,7 +157,7 @@ export function computeDrift(deployed: Manifest, live: LiveState): DriftItem[] {
       nodeName: name,
       nodeKind: r.kind,
       severity: "low",
-      detail: `${name} exists where this environment deploys, and no node in the deployed revision owns it. Orrery will not touch it. Import it as a referenced resource if your system depends on it.`,
+      detail: `${name} exists where this environment deploys, and no node in the deployed revision owns it. Zenith.ai will not touch it. Import it as a referenced resource if your system depends on it.`,
       externalRef,
     });
   }

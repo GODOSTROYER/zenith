@@ -43,10 +43,10 @@ const KIND_LABEL: Record<AlertChannelKind, string> = {
 
 const KIND_HELP: Record<AlertChannelKind, string> = {
   webhook:
-    "A POST of JSON to your endpoint. With a secret, each request carries X-Orrery-Signature (HMAC-SHA256 over the exact body) so the receiver can prove Orrery sent it. " +
+    "A POST of JSON to your endpoint. With a secret, each request carries X-Orrery-Signature (HMAC-SHA256 over the exact body) so the receiver can prove Zenith.ai sent it. " +
     "Delivery is retried, so the same alert can arrive more than once: dedupe on X-Orrery-Idempotency-Key, which is stable across retries — the body is not, since it carries the send time.",
   slack:
-    "Slack's incoming-webhook payload — text plus blocks. Copy the URL from the incoming-webhook app; that URL is the credential, so Orrery masks it everywhere after you save it.",
+    "Slack's incoming-webhook payload — text plus blocks. Copy the URL from the incoming-webhook app; that URL is the credential, so Zenith.ai masks it everywhere after you save it.",
   email:
     "One recipient address, sent over SMTP. Needs ORRERY_SMTP_URL and ORRERY_ALERT_FROM on this server — the password lives there, never on the channel.",
 };
@@ -151,7 +151,7 @@ export function AlertChannelsSection({
             <EmptyState
               icon={<Radio className="h-5 w-5" />}
               title="No delivery channels"
-              body="Alerts are recorded and shown under Observe → Alerts, and nowhere else: if nobody opens Orrery, nobody is told. A channel sends each alert — and each one that closes — to a webhook, a Slack channel or an email address. There is no paging and no on-call rotation."
+              body="Alerts are recorded and shown under Observe → Alerts, and nowhere else: if nobody opens Zenith.ai, nobody is told. A channel sends each alert — and each one that closes — to a webhook, a Slack channel or an email address. There is no paging and no on-call rotation."
               action={
                 <Button
                   size="sm"
@@ -191,7 +191,7 @@ export function AlertChannelsSection({
                             signed
                           </Chip>
                         ) : (
-                          <Chip tone="warn" title="No signing secret: the receiver cannot prove Orrery sent the request.">
+                          <Chip tone="warn" title="No signing secret: the receiver cannot prove Zenith.ai sent the request.">
                             unsigned
                           </Chip>
                         ))}
@@ -346,7 +346,7 @@ function LastDelivery({ channel }: { channel: PublicAlertChannel }) {
   const last = channel.lastDelivery;
   if (!last)
     return (
-      <span title="Orrery has not tried to send anything here yet — creating a channel does not test it.">
+      <span title="Zenith.ai has not tried to send anything here yet — creating a channel does not test it.">
         nothing sent yet
       </span>
     );
@@ -433,7 +433,7 @@ function ChannelForm({
           label={TARGET_LABEL[draft.kind]}
           help={
             editing
-              ? `Leave empty to keep the current one — Orrery masks it (${editing.target}) rather than sending it back to the browser.`
+              ? `Leave empty to keep the current one — Zenith.ai masks it (${editing.target}) rather than sending it back to the browser.`
               : draft.kind === "email"
                 ? "One address per channel. Add a second channel for a second recipient."
                 : "The full URL, starting with https://."
@@ -450,7 +450,7 @@ function ChannelForm({
         {draft.kind === "webhook" && (
           <Field
             label="Signing secret (optional)"
-            help={`Orrery signs the exact body with HMAC-SHA256 and sends X-Orrery-Signature. The secret is stored in plain text in this server's state file. ${editing ? "Leave empty to keep the current one." : "Leave empty to send unsigned requests."}`}
+            help={`Zenith.ai signs the exact body with HMAC-SHA256 and sends X-Orrery-Signature. The secret is stored in plain text in this server's state file. ${editing ? "Leave empty to keep the current one." : "Leave empty to send unsigned requests."}`}
           >
             <Input
               type="password"

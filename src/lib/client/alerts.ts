@@ -38,7 +38,7 @@ export interface AlertsFeed {
   events: AlertEvent[];
   open: AlertEvent[];
   recent: AlertEvent[];
-  /** true: every condition Orrery evaluates today reads generated or estimated data */
+  /** true: every condition Zenith.ai evaluates today reads generated or estimated data */
   simulated: boolean;
   generatedBy: string;
   evaluatedAt: string;

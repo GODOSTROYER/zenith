@@ -52,7 +52,7 @@ function Missing({ title, fix }: { title: string; fix: string }) {
         <p className="text-[13px] text-ink-mute">{fix}</p>
         <p className="pt-2">
           <Link href="/overview" className="text-[13px] text-signal hover:underline">
-            Back to Orrery
+            Back to Zenith.ai
           </Link>
         </p>
       </div>
@@ -85,7 +85,7 @@ export default async function PreviewPage({
     return (
       <Missing
         title="That service is not part of this deployment"
-        fix="The address may be from an older revision. Open the deployment in Orrery to see what it actually published."
+        fix="The address may be from an older revision. Open the deployment in Zenith.ai to see what it actually published."
       />
     );
 
@@ -119,7 +119,7 @@ export default async function PreviewPage({
             {service.name} is running
           </h1>
           <p className="mt-3 max-w-[52ch] text-[14px] text-ink-mute">
-            Your real application would be serving this request. Orrery published{" "}
+            Your real application would be serving this request. Zenith.ai published{" "}
             <span className="font-mono text-ink">{host}</span>, routed traffic to{" "}
             <span className="font-mono text-ink">{service.name}</span>
             {service.port ? (

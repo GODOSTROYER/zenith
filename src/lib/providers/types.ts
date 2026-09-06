@@ -95,7 +95,7 @@ export interface ExportFile {
 
 export interface ExportBundle {
   files: ExportFile[];
-  /** how to keep operating without Orrery — the no-lock-in document */
+  /** how to keep operating without Zenith.ai — the no-lock-in document */
   readme: string;
 }
 
@@ -121,7 +121,7 @@ export interface LiveResource {
 
 /**
  * What `observe` found. `simulated` is the honesty flag the UI renders: true
- * means nothing outside Orrery was inspected and the numbers were generated.
+ * means nothing outside Zenith.ai was inspected and the numbers were generated.
  */
 export interface LiveState {
   simulated: boolean;

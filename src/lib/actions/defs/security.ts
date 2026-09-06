@@ -25,7 +25,7 @@ const fixLandsOnDeploy = (actionId: string): boolean =>
  * carries a stored `fix` — an action id and its input, including that input's
  * OWN projectId — and `security.resolveFinding` runs it. A global finder makes
  * the resolver a confused deputy: workspace A's session quotes one of B's
- * finding ids and Orrery runs B's fix against B's project, with A's role check
+ * finding ids and Zenith.ai runs B's fix against B's project, with A's role check
  * as the only thing that was ever consulted.
  *
  * So the finding is resolved through the project that owns it, under the

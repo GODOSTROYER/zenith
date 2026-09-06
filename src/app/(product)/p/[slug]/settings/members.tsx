@@ -5,7 +5,7 @@
  * Roles are the member record; the API enforces them and protects the last
  * admin in both directions. What this screen adds is honesty about the two
  * places membership leaks: an operator-set Supabase claim outranks anything
- * changed here, and Orrery sends no mail, so an invite is a permission, not a
+ * changed here, and Zenith.ai sends no mail, so an invite is a permission, not a
  * message.
  */
 import { useState } from "react";
@@ -214,7 +214,7 @@ export function MembersSection({
 
           <Card
             title={`Pending invites (${open.length})`}
-            subtitle="An invite is a standing permission for one email address. Orrery sends no mail — tell them to sign in, and they join with the role below."
+            subtitle="An invite is a standing permission for one email address. Zenith.ai sends no mail — tell them to sign in, and they join with the role below."
             padded={false}
           >
             {invites.error ? (

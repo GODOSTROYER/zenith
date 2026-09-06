@@ -1,5 +1,5 @@
 /**
- * Orrery's secret store — the smallest thing that is honestly a store.
+ * Zenith.ai's secret store — the smallest thing that is honestly a store.
  *
  * What it is: one file beside the snapshot (`<ORRERY_DATA>/secrets.json`,
  * mode 0600) holding, per workspace, one row per reference: the metadata
@@ -58,11 +58,10 @@ const EMPTY: StoreFile = { version: 1, workspaces: {} };
 
 /* -------------------------------- references ------------------------------- */
 
-/** Marks a reference Orrery resolves itself, as opposed to your own manager. */
-export const VAULT_PREFIX = "vault:";
+/** Marks a reference Zenith.ai resolves itself, as opposed to your own manager. */
+export { VAULT_PREFIX, isVaultRef, parseVaultRef, vaultRef, type VaultRefParts } from "./refs";
 
-/** True for references this Orrery is responsible for. */
-export const isVaultRef = (ref: string): boolean => ref.startsWith(VAULT_PREFIX);
+/** True for references this Zenith.ai is responsible for. */
 
 /**
  * THE SHAPE OF A GENERATED REFERENCE
@@ -85,45 +84,19 @@ export const isVaultRef = (ref: string): boolean => ref.startsWith(VAULT_PREFIX)
  * Ids, never names: services and projects get renamed, and a rename must not
  * strand a stored value or silently point a variable at a different one.
  *
- * LEGACY — `vault:<KEY>`, with no identity in it, is what Orrery wrote before
- * this and what the importers still write. Those references stay exactly as
+ * LEGACY — `vault:<KEY>`, with no identity in it, is what Zenith.ai wrote before
+ * this and what older imports wrote. Those references stay exactly as
  * they are: they resolve, rotate and deploy unchanged, and a variable that
  * already points at one keeps it rather than being re-pointed at a new empty
  * reference (which would orphan the value it has). Nothing is migrated, so
  * nothing is lost; `parseVaultRef` tells the two apart for anything that wants
  * to say so.
  */
-export function vaultRef(projectId: string, serviceId: string, key: string): string {
-  return `${VAULT_PREFIX}${projectId}/${serviceId}/${key}`;
-}
-
-export interface VaultRefParts {
-  /** the variable name at the end of the reference */
-  key: string;
-  /** absent on a legacy reference — it carries no identity */
-  projectId?: string;
-  serviceId?: string;
-  /** true for a bare `vault:<KEY>` written before references were namespaced */
-  legacy: boolean;
-}
-
-/** Pull a reference apart for display and diagnostics. Undefined = not ours. */
-export function parseVaultRef(ref: string): VaultRefParts | undefined {
-  if (!isVaultRef(ref)) return undefined;
-  const parts = ref.slice(VAULT_PREFIX.length).split("/");
-  if (parts.length === 1) return { key: parts[0], legacy: true };
-  if (parts.length === 3)
-    return { projectId: parts[0], serviceId: parts[1], key: parts[2], legacy: false };
-  // A shape Orrery never generates — someone wrote it by hand. The tail is the
-  // best guess at the variable name; nothing here refuses it, because the store
-  // holds whatever reference a manifest actually points at.
-  return { key: parts[parts.length - 1], legacy: false };
-}
 
 /* ------------------------------- configuration ----------------------------- */
 
 export const SECRET_STORE_UNCONFIGURED =
-  "Orrery's secret store is not configured on this server, so there is nowhere to put the value.";
+  "Zenith.ai's secret store is not configured on this server, so there is nowhere to put the value.";
 
 export interface StoreState {
   configured: boolean;
@@ -194,9 +167,9 @@ function read(): StoreFile {
     return { ...EMPTY, ...parsed, workspaces: parsed.workspaces ?? {} };
   } catch {
     // Never start fresh here: that would silently discard every value. Refuse
-    // loudly instead — the file is the only copy Orrery has.
+    // loudly instead — the file is the only copy Zenith.ai has.
     throw new Error(
-      `${file} is not readable JSON, so Orrery cannot tell whether it holds your secrets. ` +
+      `${file} is not readable JSON, so Zenith.ai cannot tell whether it holds your secrets. ` +
         `Restore it from a backup before writing anything else; nothing was changed.`
     );
   }

@@ -6,7 +6,7 @@ import { importCompose } from "@/lib/importers/compose";
 
 const FIXTURE = path.join(process.cwd(), "fixtures", "sample-app", "docker-compose.yml");
 const yamlText = fs.readFileSync(FIXTURE, "utf8");
-const { manifest, report } = importCompose(yamlText);
+const { manifest, report } = importCompose(yamlText, "project-compose");
 
 const kindOf = (name: string) => manifest.resources.find((r) => r.name === name)?.kind;
 
@@ -46,11 +46,22 @@ describe("compose importer", () => {
   it("never puts a secret-looking value in the manifest", () => {
     const web = manifest.services.find((s) => s.name === "web")!;
     const secret = web.env.find((e) => e.key === "SESSION_SECRET")!;
-    expect(secret.secretRef).toBe("vault:SESSION_SECRET");
+    expect(secret.secretRef).toBe(`vault:project-compose/${web.id}/SESSION_SECRET`);
     expect(secret.value).toBeUndefined();
     expect(JSON.stringify(manifest)).not.toContain("dev-only-not-a-real-secret");
     expect(JSON.stringify(manifest)).not.toContain("dev-only-not-a-real-key");
     expect(web.env.find((e) => e.key === "NODE_ENV")!.value).toBe("production");
+  });
+
+  it("isolates equal secret keys by project and service identity", () => {
+    const yaml = `services:\n  one:\n    image: node\n    environment:\n      API_KEY: one\n  two:\n    image: node\n    environment:\n      API_KEY: two`;
+    const a = importCompose(yaml, "project-a").manifest;
+    const b = importCompose(yaml, "project-b").manifest;
+    const refs = (m: typeof a) => m.services.map((s) => s.env[0].secretRef);
+    expect(new Set(refs(a)).size).toBe(2);
+    expect(refs(a).every((ref) => ref?.startsWith("vault:project-a/"))).toBe(true);
+    expect(refs(b).every((ref) => ref?.startsWith("vault:project-b/"))).toBe(true);
+    expect(refs(a)).not.toEqual(refs(b));
   });
 
   it("drops nothing silently: every compose key is mapped or explained", () => {

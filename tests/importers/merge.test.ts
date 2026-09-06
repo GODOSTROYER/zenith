@@ -60,4 +60,13 @@ describe("mergeImport", () => {
     expect(manifest.bindings).toEqual([]);
     expect(manifest.version).toBe(1);
   });
+
+  it("namespaces Dockerfile secrets to the owning project and service", () => {
+    const source = `${DOCKERFILE}\nENV API_TOKEN=do-not-import`;
+    const a = importDockerfile(source, "app", "project-a").manifest.services[0];
+    const b = importDockerfile(source, "app", "project-b").manifest.services[0];
+    expect(a.env[0].secretRef).toBe(`vault:project-a/${a.id}/API_TOKEN`);
+    expect(b.env[0].secretRef).toBe(`vault:project-b/${b.id}/API_TOKEN`);
+    expect(a.env[0].secretRef).not.toBe(b.env[0].secretRef);
+  });
 });

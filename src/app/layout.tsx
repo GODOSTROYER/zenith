@@ -3,9 +3,9 @@ import "./fonts.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "Orrery", template: "%s · Orrery" },
+  title: { default: "Zenith.ai", template: "%s · Zenith.ai" },
   description:
-    "Orrery — a bring-your-own-cloud deployment and operations platform. Your infrastructure, in motion.",
+    "Your stack, clearly in view. Map your application and review each change with Zenith.ai. LocalStack execution and AWS Terraform export are supported.",
 };
 
 export default function RootLayout({

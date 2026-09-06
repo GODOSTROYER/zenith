@@ -12,7 +12,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Download, ScrollText } from "lucide-react";
 import { api, useJson } from "@/lib/client/api";
 import type { AuditEvent } from "@/lib/domain/types";
-import { Button, Card, EmptyState, Skeleton, Table } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table } from "@/components/ui/table";
 import { useSelectedEnv } from "@/components/screens/project-data";
 import { downloadFile } from "@/components/screens/download-file";
 import { ErrorNote } from "@/components/screens/shared";
@@ -157,9 +161,9 @@ export default function ActivityPage() {
       }`;
 
   return (
-    <div className="mx-auto h-full w-full overflow-y-auto max-w-[980px] px-6 py-6">
+    <div className="product-page mx-auto h-full w-full max-w-[1100px] overflow-y-auto">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">{heading}</h2>
+        <h2 className="text-[24px] font-medium tracking-[-0.015em] text-ink">{heading}</h2>
         <span className="flex items-center gap-2">
           <Button
             size="sm"

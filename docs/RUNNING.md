@@ -1,4 +1,4 @@
-# Running Orrery
+# Running Zenith.ai
 
 Three ways, in increasing order of setup: **local dev** (no Docker), **local dev
 plus LocalStack** (real S3 and SQS), and **everything in containers**.
@@ -23,18 +23,51 @@ requiring), copies `.env.local.example` to `.env.local` if you do not have one,
 seeds the "Kepler Labs" demo workspace when the data directory is empty, and
 prints the commands that make sense for *your* machine.
 
-With no keys configured, Orrery runs in **local demo mode**: one local user who
+With no keys configured, Zenith.ai runs in **local demo mode**: one local user who
 is admin of everything, no sign-in. That is a complete, working install — every
 deployment path works against the built-in sandbox provider.
 
 | Command | What it does |
 | --- | --- |
-| `npm run dev` | Dev server on 3400 |
+| `npm run dev` | Turbopack dev server on 3400 |
+| `npm run dev:webpack` | Original webpack dev server as a compatibility fallback |
 | `npm run setup` | First-run setup, idempotent |
 | `npm run doctor` | Configuration and reachability report |
 | `npm run seed` | Reset to the demo workspace (**wipes the data directory**) |
 | `npm run verify` | typecheck + lint + tests + smoke, the four CI gates |
 | `npm run build && npm start` | Production build, then serve it on 3400 |
+
+Development routes compile on first use; production builds compile all routes
+ahead of time. `npm run dev` uses the stable development Turbopack support in
+Next 15.5.24. Production builds continue using webpack. Stop the current server
+before switching bundlers or running a production build: both use `.next`.
+
+The provider SDKs load as server-only Node dependencies rather than being
+bundled into every route. Tailwind scans `src`, and TypeScript excludes scratch
+data/app copies. Fonts are bundled locally with their licenses, so compilation
+does not fetch Google Fonts. JSON polling waits for each response to finish,
+shares pending reads, and backs off on unchanged data; a slow compile cannot
+build up overlapping polls.
+
+Screens import UI primitives directly from `components/ui/<component>` to keep
+unrelated client components out of each route's server graph. The action catalog
+travels with the existing bootstrap response; the product layout no longer
+imports execution handlers. Navigator loads its execution runtime on mutation,
+and its model name arrives with the page instead of a second server action.
+The 3D character and System Map render only in the browser; map inspectors,
+import dialogs and export panels load when requested. Loading boundaries reuse
+the existing skeleton primitives while the next route resolves.
+
+These changes reduce compilation work; they do not remove Next's first-use
+compilation in development. Compare cold routes with a stopped server and a
+fresh build directory, in the same order and with the same data. Warm navigation
+and production serving should be measured separately from cold development.
+
+On Windows, run production builds in the actual project directory. Do not build
+a scratch app whose `node_modules` is a junction to this project: Next 15.3.3
+can reproduce that junction in standalone output, then follow it while cleaning
+the output on a later build. Use separate installed dependencies for a scratch
+production build. The normal project uses a real `node_modules` directory.
 
 ---
 
@@ -48,7 +81,7 @@ npm run localstack:up     # docker compose up -d localstack
 npm run dev
 ```
 
-Then in Orrery, create a connection with the **LocalStack** provider and deploy
+Then in Zenith.ai, create a connection with the **LocalStack** provider and deploy
 to it.
 
 `npm run localstack:down` stops the container (`localstack:up` restarts it in
@@ -56,13 +89,13 @@ seconds); `npm run localstack:logs` tails it.
 
 ### What LocalStack actually exercises
 
-Be precise about this, because Orrery is:
+Be precise about this, because Zenith.ai is:
 
 | Resource kind | On LocalStack |
 | --- | --- |
-| Object store (S3 bucket) | **Real.** `s3:CreateBucket`, verified with `HeadBucket`, listed back by drift detection |
-| Queue (SQS) | **Real.** `sqs:CreateQueue`, real queue URL recorded as an output |
-| Postgres, Redis, containers, load balancers, DNS, email | **Simulated locally.** LocalStack Community has no RDS/ElastiCache/ECS/ALB, so those steps run as *labeled* local simulations — the step title says so, and drift reports them as "not looked at" rather than claiming they are healthy |
+| Object store (S3 bucket) | **Real.** `s3:CreateBucket`, verified with `HeadBucket`, listed back by drift detection. Removing it from the manifest really runs `s3:DeleteBucket` — and refuses if the bucket still holds objects, unless the environment allows stateful deletion |
+| Queue (SQS) | **Real.** `sqs:CreateQueue`, real queue URL recorded as an output. Removing it really runs `sqs:DeleteQueue` — and refuses while messages are still in the queue, unless the environment allows stateful deletion |
+| Postgres, Redis, containers, load balancers, DNS, email | **Simulated locally.** LocalStack Community has no RDS/ElastiCache/ECS/ALB, so those steps run as *labeled* local simulations — the step title says so, and drift reports them as "not looked at" rather than claiming they are healthy. Removing one is labelled the same way: the step says nothing was created to delete |
 
 The exported Terraform bundle provisions all of it for real on AWS. Switching
 targets is one step: delete `providers_override.tf` and supply real credentials.
@@ -91,20 +124,17 @@ docker compose --profile app up --build
 
 Or via npm: `npm run docker:build`, `npm run docker:up`, `npm run docker:down`.
 
-This starts LocalStack **and** Orrery, with the app on
+This starts LocalStack **and** Zenith.ai, with the app on
 <http://localhost:3400>, wired to LocalStack over the compose network, and its
 data directory on a named volume at `/data`. `orrery` sits behind the `app`
 profile, which is why a bare `docker compose up` starts only LocalStack.
 
 Four things worth knowing:
 
-- **The image build needs network access.** `src/app/layout.tsx` uses
-  `next/font/google`, and Next fetches Space Grotesk and JetBrains Mono from
-  `fonts.googleapis.com` during `next build`. On an air-gapped or
-  proxy-blocked builder the build fails with a font fetch error, not a code
-  error. The fonts are deliberately kept as-is; vendor them with
-  `next/font/local` if you need offline builds. The CI `build` and `docker`
-  jobs are `continue-on-error` for the same reason.
+- **Fonts are local.** Space Grotesk and JetBrains Mono ship in `public/fonts`
+  with their licenses. `next build` does not contact Google Fonts. Installing
+  npm dependencies and pulling base images still need network access unless
+  those inputs are already cached.
 
 - **`NEXT_PUBLIC_*` values are baked in at build time, and only from `.env`.**
   Next inlines them into the browser bundle when the image is built, so passing
@@ -148,7 +178,7 @@ image on every push.
 
 ## Supabase auth and test accounts
 
-Optional. Without it, Orrery is a single local admin user and every auth surface
+Optional. Without it, Zenith.ai is a single local admin user and every auth surface
 says so rather than breaking.
 
 1. Put the project URL and publishable key in `.env.local`:
@@ -211,7 +241,7 @@ received and what it accepts — never a silent default.
 | `ORRERY_LLM_MODEL` | `claude-opus-5` | Model for the Navigator's language front-end. Only used when `ANTHROPIC_API_KEY` is set |
 | `ORRERY_SECRET_KEY` | *(unset)* | 32 bytes, base64 or hex (`openssl rand -base64 32`). Encrypts the secret store. Unset means every secret write is refused, saying so. **Keep the same key** — values written under an old one cannot be read back, and there is no recovery |
 | `ORRERY_SMTP_URL` | *(unset)* | `smtp://user:pass@host:port` (`smtps://` for implicit TLS). Email alert delivery. Webhook and Slack channels need neither this nor the next |
-| `ORRERY_ALERT_FROM` | *(unset)* | From address on alert email, e.g. `Orrery <orrery@example.com>`. Required alongside `ORRERY_SMTP_URL` |
+| `ORRERY_ALERT_FROM` | *(unset)* | From address on alert email, e.g. `Zenith.ai <orrery@example.com>`. Required alongside `ORRERY_SMTP_URL` |
 | `NEXT_PUBLIC_SUPABASE_URL` | *(unset)* | Supabase project URL. **Build-time** |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | *(unset)* | Publishable key; `NEXT_PUBLIC_SUPABASE_ANON_KEY` also accepted. **Build-time** |
 | `NEXT_PUBLIC_SUPABASE_OAUTH_PROVIDERS` | *(empty)* | Comma-separated: `github`, `google`. Unknown names are dropped with a console warning. **Build-time** |
@@ -252,9 +282,9 @@ six seconds is reported as a wedged daemon with this fix attached, rather than
 hanging the way the CLI does. Nothing except LocalStack and the container run
 needs Docker — `npm run dev` is unaffected.
 
-### "Another Orrery process is already using the data directory"
+### "Another Zenith.ai process is already using the data directory"
 
-Exactly what it says: something else holds `<ORRERY_DATA>/.orrery.lock`. Orrery
+Exactly what it says: something else holds `<ORRERY_DATA>/.orrery.lock`. Zenith.ai
 keeps the whole database in memory and rewrites it on save, so a second process
 would silently overwrite the first one's writes — hence the refusal instead of a
 corrupt database.
@@ -273,7 +303,7 @@ corrupt database.
 
 ### Port already in use
 
-Orrery uses **3400**. `npm run dev`, `npm start` and the container all bind it.
+Zenith.ai uses **3400**. `npm run dev`, `npm start` and the container all bind it.
 
 - Host: `next dev -p 3401` (or change the `dev` script). Note that this repo's
   screenshot tooling parks a production server on **3401**, so pick another port
@@ -288,7 +318,7 @@ Orrery uses **3400**. `npm run dev`, `npm start` and the container all bind it.
 
 It is, on this machine — first paint of a route can take tens of seconds while
 the dev compiler works, and the Navigator and graph screens are the worst of
-them. That is `next dev`, not Orrery.
+them. That is `next dev`, not Zenith.ai.
 
 **For a demo, use the production build:**
 
@@ -334,17 +364,16 @@ Consequences, all contained:
   `npm start`.
 - `rm -rf .next` between builds if the duplicated copy bothers you.
 
-### `npm run build` fails fetching fonts
+### Older builds fail fetching fonts
 
-`next/font/google` needs egress to `fonts.googleapis.com` at build time. Behind
-a corporate proxy or on an air-gapped machine it fails with a font fetch error.
-Set `HTTPS_PROXY`, or vendor the two fonts with `next/font/local`. This is also
-why CI's `build` and `docker` jobs are `continue-on-error` — a font outage must
-not make the four real gates look red.
+The current app serves its fonts from `public/fonts` using `src/app/fonts.css`.
+If a build still reports a Google Fonts fetch error, check that it is building
+the current checkout. The existing optional CI build jobs keep their previous
+failure policy; font downloads are no longer part of compilation.
 
 ### Deployments fail at "Check LocalStack health"
 
-LocalStack is not running, or not where Orrery is looking. `npm run doctor`
+LocalStack is not running, or not where Zenith.ai is looking. `npm run doctor`
 reports the endpoint it checked and whether `s3` and `sqs` are available.
 `npm run localstack:up` starts it; `npm run localstack:logs` shows why it is
 unhealthy if it started but is not answering.

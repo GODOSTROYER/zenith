@@ -9,19 +9,18 @@
  * session" is all a front door needs to know, and a public, uncached endpoint
  * should hand back the least it can.
  */
-import { db } from "@/lib/db/store";
-import { route } from "@/lib/server/context";
-import { getSessionUser } from "@/lib/auth/session";
+import { currentRequest, route, workspacesFor } from "@/lib/server/context";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export const dynamic = "force-dynamic";
 
 export const GET = route(async () => {
   const configured = isSupabaseConfigured();
+  const user = currentRequest()?.user ?? null;
   return {
     /** Auth off (local demo mode) is reported as `configured: false`, not as a session. */
     configured,
-    signedIn: configured ? Boolean(await getSessionUser()) : false,
-    hasWorkspace: db().workspaces.length > 0,
+    signedIn: configured && Boolean(user),
+    hasWorkspace: workspacesFor(user).length > 0,
   };
 });

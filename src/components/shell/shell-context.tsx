@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useJson, type ApiError } from "@/lib/client/api";
 import type {
   AutonomyLevel,
@@ -27,6 +27,7 @@ export interface WorkspaceRow extends Pick<Workspace, "id" | "name" | "slug"> {
 
 /** Exactly what GET /api/bootstrap returns. */
 export interface Bootstrap {
+  catalog: ActionEntry[];
   /** the workspace this browser is in — everything else here is scoped to it */
   workspace: Workspace;
   /** every workspace the caller belongs to, for the switcher */
@@ -48,9 +49,8 @@ export interface Bootstrap {
 
 /**
  * The serialisable half of an ActionDef — what a picker or a role check needs,
- * nothing more. The (product) layout is a server component, so it can read the
- * real registry and hand this down; no route serves it, and nothing in the
- * browser should keep its own copy of who may run what.
+ * nothing more. Bootstrap reads the real registry on the server; the browser
+ * never keeps a second definition of who may run what.
  */
 export interface ActionEntry {
   id: string;
@@ -70,6 +70,7 @@ export interface ShellData {
 }
 
 const ShellContext = createContext<ShellData | null>(null);
+const EMPTY_CATALOG: ActionEntry[] = [];
 
 /** Workspace-wide data, hydrated once by the product shell. */
 export function useShell(): ShellData {
@@ -83,14 +84,17 @@ export function useShell(): ShellData {
 
 export function ShellProvider({
   children,
-  catalog = [],
+  catalog = EMPTY_CATALOG,
 }: {
   children: ReactNode;
   catalog?: ActionEntry[];
 }) {
   const { data, loading, error, refresh } = useJson<Bootstrap>("/api/bootstrap", 10_000);
+  const value = useMemo(() => ({
+    boot: data, loading, error, refresh, catalog: data?.catalog ?? catalog,
+  }), [data, loading, error, refresh, catalog]);
   return (
-    <ShellContext.Provider value={{ boot: data, loading, error, refresh, catalog }}>
+    <ShellContext.Provider value={value}>
       {children}
     </ShellContext.Provider>
   );

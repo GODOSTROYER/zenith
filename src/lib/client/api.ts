@@ -86,6 +86,18 @@ export function pollDelay(baseMs: number, idleTicks: number): number {
 
 const isHidden = () => typeof document !== "undefined" && document.visibilityState === "hidden";
 
+// Share pending reads only, never cached responses or mutations. In particular,
+// React Strict Mode's effect replay should not send a second identical request.
+const pendingReads = new Map<string, Promise<unknown>>();
+function readJson<T>(url: string): Promise<T> {
+  let pending = pendingReads.get(url);
+  if (!pending) {
+    pending = api<unknown>(url).finally(() => pendingReads.delete(url));
+    pendingReads.set(url, pending);
+  }
+  return pending as Promise<T>;
+}
+
 /**
  * Poll interval for a screen that also has an SSE stream for the same data.
  *
@@ -113,72 +125,81 @@ export function useJson<T>(url: string | null, refreshMs = 0): Loadable<T> {
   const [data, setData] = useState<T>();
   const [error, setError] = useState<ApiError>();
   const [loading, setLoading] = useState(!!url);
-  const [tick, setTick] = useState(0);
-  const refresh = useCallback(() => setTick((t) => t + 1), []);
-
-  // consecutive identical payloads, and the payload they were identical to
-  const idle = useRef(0);
-  const seen = useRef<string>("");
-
-  useEffect(() => {
-    idle.current = 0;
-    seen.current = "";
-  }, [url]);
+  const refreshRef = useRef<() => void>(() => {});
+  const scheduleRef = useRef<() => void>(() => {});
+  const intervalMs = useRef(refreshMs);
+  intervalMs.current = refreshMs;
+  const refresh = useCallback(() => refreshRef.current(), []);
 
   useEffect(() => {
-    if (!url) return;
     let alive = true;
-    setLoading((prev) => (data === undefined ? true : prev));
-    api<T>(url)
-      .then((d) => {
-        if (!alive) return;
-        const next = JSON.stringify(d);
-        if (next === seen.current) idle.current += 1;
-        else {
-          idle.current = 0;
-          seen.current = next;
-        }
-        setData(d);
-        setError(undefined);
-      })
-      .catch((e: ApiError) => alive && setError(e))
-      .finally(() => alive && setLoading(false));
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, tick]);
-
-  useEffect(() => {
-    if (!url || !refreshMs) return;
+    let requesting = false;
+    let queued = false;
+    let idle = 0;
+    let seen: string | undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    setData(undefined);
+    setError(undefined);
+    setLoading(!!url);
 
-    const schedule = (ms: number) => {
+    function schedule() {
       clearTimeout(timer);
-      timer = setTimeout(run, ms);
-    };
-    // A hidden tab schedules nothing; `onVisibility` restarts the loop.
-    function run() {
-      if (isHidden()) return;
-      refresh();
-      schedule(pollDelay(refreshMs, idle.current));
+      if (alive && url && intervalMs.current && !requesting && !isHidden()) {
+        timer = setTimeout(run, pollDelay(intervalMs.current, idle));
+      }
+    }
+    scheduleRef.current = schedule;
+
+    // Wait for completion before scheduling another poll. A cold route compile
+    // can take longer than the interval; overlapping it only adds a backlog.
+    async function run() {
+      if (!alive || !url || isHidden()) return;
+      if (requesting) { queued = true; return; }
+      clearTimeout(timer);
+      requesting = true;
+      queued = false;
+      try {
+        const result = await readJson<T>(url);
+        if (!alive) return;
+        const serialized = JSON.stringify(result);
+        if (serialized === seen) idle += 1;
+        else {
+          idle = 0;
+          seen = serialized;
+          setData(result);
+        }
+        setError(undefined);
+      } catch (cause) {
+        if (alive) setError(cause as ApiError);
+      } finally {
+        requesting = false;
+        if (alive) {
+          setLoading(false);
+          // Explicit refresh during a request (e.g. after a mutation) gets one
+          // fresh read afterwards, so the pending response cannot swallow it.
+          if (queued && !isHidden()) void run();
+          else schedule();
+        }
+      }
     }
 
+    refreshRef.current = () => { idle = 0; void run(); };
     const onVisibility = () => {
       clearTimeout(timer);
-      if (isHidden()) return;
-      idle.current = 0; // the tab was away; treat what it comes back to as new
-      refresh();
-      schedule(refreshMs);
+      if (!isHidden()) { idle = 0; void run(); }
     };
-
-    if (!isHidden()) schedule(refreshMs);
+    void run();
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
+      alive = false;
       clearTimeout(timer);
+      refreshRef.current = () => {};
+      scheduleRef.current = () => {};
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [url, refreshMs, refresh]);
+  }, [url]);
+
+  useEffect(() => scheduleRef.current(), [refreshMs]);
 
   return { data, error, loading, refresh };
 }

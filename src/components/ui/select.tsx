@@ -16,14 +16,14 @@ export interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   placeholder?: string;
 }
 
-/** 32px native select — keyboard and screen-reader behaviour for free. */
+/** Native select — keyboard and screen-reader behaviour for free. */
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
   { options, placeholder, className, id, ...rest },
   ref
 ) {
   const f = useFieldProps(id);
   return (
-    <div className={cx("relative", className)}>
+    <div className={cx("relative min-w-0", className)}>
       <select
         {...rest}
         ref={ref}
@@ -31,7 +31,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         aria-describedby={f["aria-describedby"]}
         aria-invalid={f["aria-invalid"]}
         className={cx(
-          "h-8 w-full appearance-none rounded-ctl border bg-bg1 pr-8 pl-2.5 text-[13px] text-ink outline-none",
+          "ui-select h-9 w-full appearance-none rounded-ctl border bg-bg1 pr-8 pl-3 text-[13px] text-ink focus-visible:outline-2 focus-visible:outline-signal focus-visible:outline-offset-2",
           "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]",
           f.invalid ? "border-err" : "border-line hover:border-line-strong focus:border-signal",
           rest.disabled && "cursor-not-allowed opacity-55"

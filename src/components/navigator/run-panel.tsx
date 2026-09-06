@@ -1,8 +1,14 @@
 "use client";
+import { ProviderChecks } from "./provider-checks";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Play, Square } from "lucide-react";
-import { Button, Callout, Card, Chip, CostDelta, StatusDot } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
+import { CostDelta } from "@/components/ui/cost-delta";
+import { StatusDot } from "@/components/ui/status-dot";
 import { cx } from "@/lib/format";
 import type { AutonomyLevel, NavigatorRun } from "@/lib/domain/types";
 import {
@@ -214,6 +220,7 @@ export function RunPanel({
           subtitle={run.status === "done" ? "Every step below is in the audit log." : undefined}
         >
           <p className="max-w-[80ch] text-[13px] leading-relaxed text-ink">{run.summary}</p>
+          <ProviderChecks run={run} />
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Link href={`/p/${slug}`}>
               <Button variant="quiet">Open the System Map</Button>

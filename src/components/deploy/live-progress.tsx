@@ -2,16 +2,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, OctagonPause, ShieldCheck } from "lucide-react";
-import {
-  Button,
-  Callout,
-  Chip,
-  LogViewer,
-  PhaseTimeline,
-  Skeleton,
-  StatusDot,
-  type LogLine,
-} from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Chip } from "@/components/ui/chip";
+import { LogViewer, type LogLine } from "@/components/ui/log-viewer";
+import { PhaseTimeline } from "@/components/ui/phase-timeline";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StatusDot } from "@/components/ui/status-dot";
 import { useProjectData } from "@/components/shell/project-context";
 import { useShell } from "@/components/shell/shell-context";
 import { PlanFirst } from "@/components/inspector/plan-first";

@@ -3,7 +3,7 @@
  *
  * The silences are the load-bearing part. A node the provider did not report
  * on must produce nothing (not "fine"), and a secret-backed env var must never
- * be compared at all, because Orrery does not hold the value it would compare
+ * be compared at all, because Zenith.ai does not hold the value it would compare
  * against. Both are cases where the tempting behaviour is to reassure.
  */
 import { describe, expect, it } from "vitest";
@@ -134,7 +134,7 @@ describe("computeDrift", () => {
           nodeId: "svc-api",
           kind: "web",
           exists: true,
-          // A value for the secret, and a field Orrery has no opinion about.
+          // A value for the secret, and a field Zenith.ai has no opinion about.
           attributes: { "env:DB_PASSWORD": "hunter2", uptimeSeconds: 900 },
           observedAt: at,
         },

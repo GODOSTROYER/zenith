@@ -69,7 +69,10 @@ describe("system.* actions round-trip the working manifest", () => {
     await exec("system.setSecret", { serviceId: "api", key: "STRIPE_SECRET" }, pctx());
     const api = manifest().services.find((s) => s.name === "api")!;
     const entry = api.env.find((e) => e.key === "STRIPE_SECRET")!;
-    expect(entry.secretRef).toBe("vault:STRIPE_SECRET");
+    // A generated reference carries the project and the service that asked for
+    // it, so two services that both read STRIPE_SECRET do not share one stored
+    // value. tests/secrets/namespacing.test.ts is that promise in full.
+    expect(entry.secretRef).toBe(`vault:${projectId}/${api.id}/STRIPE_SECRET`);
     expect(entry.value).toBeUndefined();
   });
 

@@ -378,7 +378,7 @@ function parseFragment(frag: string, ctx: Ctx): Draft[] | null {
       {
         actionId: "system.setSecret",
         title: `Store ${secret[1]} as a secret on ${name}`,
-        rationale: `The manifest records only the reference vault:${secret[1]}; the value never reaches the manifest, the diff, the audit log or an export. Set the value on the service's Secrets panel.`,
+        rationale: `The manifest records only a reference scoped to this service; the value never reaches the manifest, the diff, the audit log or an export. Set the value on the service's Secrets panel.`,
         input: { serviceId: name, key: secret[1] },
       },
     ];
@@ -471,7 +471,7 @@ function parseFragment(frag: string, ctx: Ctx): Draft[] | null {
       return [!from ? bind[1] : "", !to ? bind[2] : ""]
         .filter(Boolean)
         .map((ref) => unresolved(ref, ctx, "connect"));
-    // Orrery records a binding in the direction config flows: consumer → thing
+    // Zenith.ai records a binding in the direction config flows: consumer → thing
     // consumed (route → service → resource). "bind the cache to web" means the
     // same edge as "bind web to the cache", so orient it rather than fail.
     const [ft, tt] = [typeOf(from, ctx), typeOf(to, ctx)];
@@ -482,7 +482,7 @@ function parseFragment(frag: string, ctx: Ctx): Draft[] | null {
       {
         actionId: "system.bind",
         title: `Connect ${consumer} to ${provider}`,
-        rationale: `Orrery picks the capability from what ${provider} is, injects the connection config into ${consumer}, and opens the network path.${
+        rationale: `Zenith.ai picks the capability from what ${provider} is, injects the connection config into ${consumer}, and opens the network path.${
           flipped ? ` Recorded as ${consumer} → ${provider}, the direction configuration flows.` : ""
         } Deploy to apply it.`,
         input: { from: consumer, to: provider },
@@ -525,7 +525,7 @@ function parseFragment(frag: string, ctx: Ctx): Draft[] | null {
             ? `Runs ${image} as a ${kind} service in the working copy.`
             : repo
               ? `Builds ${repo} and runs it as a ${kind} service in the working copy.`
-              : `Adds a ${kind} service to the working copy. No image or repository was given, so it points at the Orrery sample image until you set a real source.`,
+              : `Adds a ${kind} service to the working copy. No image or repository was given, so it points at the Zenith.ai sample image until you set a real source.`,
           input: { name, kind, image, repo, size },
         },
       ];

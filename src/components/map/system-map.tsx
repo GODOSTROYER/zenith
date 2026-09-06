@@ -5,7 +5,8 @@
  * keyboard.ts, the chrome is toolbar.tsx and the right-click menu is
  * node-menu.tsx.
  */
-import "@xyflow/react/dist/style.css";
+import "./react-flow.css";
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Background,
@@ -14,17 +15,21 @@ import {
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
+  type NodeChange,
   type Node,
 } from "@xyflow/react";
 import { Boxes, FileUp } from "lucide-react";
-import { Button, Dialog, EmptyState } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useProjectData } from "@/components/shell/project-context";
-import { Inspector, type InspectorTarget } from "@/components/inspector/inspector";
+import type { InspectorTarget } from "@/components/inspector/inspector";
 import { PlanFirst } from "@/components/inspector/plan-first";
 import { DeployDock } from "@/components/deploy/deploy-dock";
 import { useJson } from "@/lib/client/api";
 import { DRIFT_POLL_MS, type DriftResponse } from "@/lib/drift";
-import { BlueprintDialog, ImportDialog, type BlueprintCard } from "./dialogs";
+import type { BlueprintCard } from "./dialogs";
 import { type BindingEdge, edgeTypes } from "./edges";
 import {
   buildGraph,
@@ -41,6 +46,21 @@ import { MapToolbar, STRATA_ORDER } from "./toolbar";
 
 /** Half the visual size of an edge anchor, in graph units. */
 const HANDLE_R = 3;
+function LoadingTool({ label }: { label: string }) {
+  return <div role="status" className="fixed right-4 bottom-4 z-50 w-60 space-y-3 rounded-card border border-line bg-bg2 p-4 shadow-card">
+    <p className="text-[13px] text-ink">{label}</p>
+    <Skeleton height={12} width="75%" />
+  </div>;
+}
+const Inspector = dynamic(() => import("@/components/inspector/inspector").then((m) => m.Inspector), {
+  ssr: false, loading: () => <LoadingTool label="Opening editor…" />,
+});
+const BlueprintDialog = dynamic(() => import("./dialogs").then((m) => m.BlueprintDialog), {
+  ssr: false, loading: () => <LoadingTool label="Opening blueprints…" />,
+});
+const ImportDialog = dynamic(() => import("./dialogs").then((m) => m.ImportDialog), {
+  ssr: false, loading: () => <LoadingTool label="Opening import…" />,
+});
 
 export interface SystemMapProps {
   /** blueprint catalog metadata, read on the server */
@@ -74,6 +94,9 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
   const [dialog, setDialog] = useState<"blueprint" | "compose" | null>(null);
   const [query, setQuery] = useState("");
   const [hidden, setHidden] = useState<Stratum[]>([]);
+  // User placement is a view concern: retain it across health/drift refreshes,
+  // while the structural layout still supplies positions for new nodes.
+  const [manualPositions, setManualPositions] = useState<Record<string, { x: number; y: number }>>({});
   const [menu, setMenu] = useState<MenuState | null>(null);
   /** node the context menu offered to remove; the plan is shown in a dialog */
   const [removing, setRemoving] = useState<string | null>(null);
@@ -282,7 +305,7 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
       return {
         id: n.id,
         type: n.stratum,
-        position: positions[n.id] ?? { x: 0, y: 0 },
+        position: manualPositions[n.id] ?? positions[n.id] ?? { x: 0, y: 0 },
         data: {
           ...n.data,
           selected: selectedNodeId === n.id,
@@ -319,7 +342,7 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
             height: HANDLE_R * 2,
           },
         ],
-        draggable: false,
+        draggable: true,
         selectable: false,
         focusable: false,
         connectable: false,
@@ -349,6 +372,7 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
     matches,
     mKey,
     driftByNode,
+    manualPositions,
     onNodeActivate,
     centerOn,
   ]);
@@ -424,7 +448,7 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
             edges={edges}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
-            nodesDraggable={false}
+            nodesDraggable
             nodesConnectable={false}
             nodesFocusable={false}
             // Still false: React Flow's own selection state would fight the
@@ -449,7 +473,21 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
             onlyRenderVisibleElements={nodeCount > 60}
             onEdgeClick={(_, edge) => setTarget({ kind: "binding", bindingId: edge.id })}
             onPaneClick={() => setMenu(null)}
-            panOnScroll
+            zoomOnScroll
+            panOnDrag
+            panOnScroll={false}
+            onNodesChange={(changes: NodeChange[]) => {
+              const positionChanges = changes.filter(
+                (change): change is Extract<NodeChange, { type: "position" }> =>
+                  change.type === "position" && Boolean(change.position)
+              );
+              if (positionChanges.length === 0) return;
+              setManualPositions((current) => {
+                const next = { ...current };
+                for (const change of positionChanges) next[change.id] = change.position!;
+                return next;
+              });
+            }}
             minZoom={0.1}
             maxZoom={1.6}
             fitView
@@ -514,11 +552,11 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
         )}
       </div>
 
-      <Inspector
+      {target && <Inspector
         target={target}
         onClose={() => setTarget(null)}
         onSelect={setTarget}
-      />
+      />}
 
       <DeployDock
         onLiveTargets={setLiveTargets}
@@ -527,12 +565,12 @@ function SystemMapInner({ blueprints }: SystemMapProps) {
         openReview={openReview}
       />
 
-      <BlueprintDialog
+      {dialog === "blueprint" && <BlueprintDialog
         open={dialog === "blueprint"}
         onClose={() => setDialog(null)}
         blueprints={blueprints}
-      />
-      <ImportDialog open={dialog === "compose"} onClose={() => setDialog(null)} />
+      />}
+      {dialog === "compose" && <ImportDialog open onClose={() => setDialog(null)} />}
 
       <Dialog
         open={Boolean(bindPair)}

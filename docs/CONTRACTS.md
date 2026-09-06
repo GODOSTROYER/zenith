@@ -1,4 +1,4 @@
-# Orrery — Implementation contracts (READ FIRST)
+# Zenith.ai — Implementation contracts (READ FIRST)
 
 Every workstream reads this file plus `docs/OWNERSHIP.md` before writing code.
 The spine files listed below are the source of truth. **Import from them; never
@@ -126,7 +126,7 @@ Rules: `deploy.apply` consults `env.policies.approvalRequired` → engine
 `awaiting_approval`; destructive manifest ops set risk accordingly; every
 `plan()` returns real cost deltas via `diffManifests`/pricing. `project.delete`
 and `env.delete` refuse while a deployment is in flight (`plan().blocked`), and
-their plans say what keeps running afterwards: both delete Orrery's records,
+their plans say what keeps running afterwards: both delete Zenith.ai's records,
 never the infrastructure those records describe.
 
 `project.importResources` (editor, plan-first) takes
@@ -139,11 +139,11 @@ caller: nothing it writes is ever `managed`, and the submitted array is a
 fresh `discover()` on the server, and the provider's record is what lands in
 the manifest. A reference the provider does not list is refused
 (`plan().blocked`), as is a connection outside the caller's workspace. The cost
-delta is always 0: a referenced resource is not Orrery's bill.
+delta is always 0: a referenced resource is not Zenith.ai's bill.
 
 ### Secrets
 
-Orrery separates the two halves of a secret and never mixes them:
+Zenith.ai separates the two halves of a secret and never mixes them:
 
 | | where it lives | who sees it |
 | --- | --- | --- |
@@ -220,7 +220,13 @@ only), and a disabled channel is skipped either way.
   simulated, summary, detail, firedAt, resolvedAt?, resolvedReason? } }`.
   With a secret, `X-Orrery-Signature: sha256=<hex>` is an HMAC-SHA256 over the
   **exact bytes posted** (the body is built once so the two can never diverge).
-  `X-Orrery-Event` carries the same event name.
+  `X-Orrery-Event` carries the same event name, and
+  `X-Orrery-Idempotency-Key` carries `orrery-<transition>-<eventId>-<channelId>`
+  — **stable across every retry of that transition to that channel**, including
+  a retry after this server restarted mid-send. The body is not: `sentAt`
+  changes per attempt, and so therefore does the signature. A receiver that
+  stores the key can drop the duplicate; one that does not may see the same
+  notification twice after a crash.
 - **slack** — Slack's incoming-webhook payload: `text` (the notification line)
   plus `blocks` — a `section` with mrkdwn, then a `context` line carrying
   severity/close reason and the `simulated` note.
@@ -234,14 +240,24 @@ only), and a disabled channel is skipped either way.
   `AbortSignal.timeout`. A 4xx that is not 429 is permanent and is not retried:
   a wrong URL fails the same way three times.
 - **Recorded, never silent** — every result lands on `AlertEvent.deliveries`
-  and on `AlertChannel.lastDelivery`. `deliveries: []` means "Orrery tried and
+  and on `AlertChannel.lastDelivery`. `deliveries: []` means "Zenith.ai tried and
   had nowhere to send"; absent means the alert predates channels. The Observe
   screen writes a different sentence for each, and for a failure it shows the
   reason.
-- **Never blocking** — `queueDelivery` pushes the transition and returns; the
-  queue drains on a microtask, after the evaluator's `save()`. `resolveOpen` is
-  the single choke point for every close, so a rule that is disabled or deleted
-  still closes the alert at the receiver. `flushDeliveries()` is for tests and
+- **Durable, and never blocking** — `queueDelivery` writes one
+  `AlertOutboxEntry` per selected channel into `db().alertOutbox` **in the same
+  save as the event transition**, then returns; the outbox drains on a
+  microtask. A row is claimed (`pending` → `sending`, `claimedAt`, flushed to
+  disk) *before* the network call and settled (`delivered` / `failed`,
+  `settledAt`, `attempts`, `error`/`httpStatus`, flushed) after it, so a crash
+  loses nothing: `boot()` schedules `replayOutbox()` right after
+  `claimDataDir()` — unref'd, never awaited — which reclaims rows left
+  `sending` by the dead process (`OUTBOX_LEASE_MS`, and everything at boot,
+  where the data-dir claim proves no other writer exists) and drains what is
+  still pending. Every terminal outcome also lands on `AlertEvent.deliveries`,
+  once, so the screens keep telling the truth. `resolveOpen` is the single
+  choke point for every close, so a rule that is disabled or deleted still
+  closes the alert at the receiver. `flushDeliveries()` is for tests and
   scripts.
 - **Actions** — `alerts.createChannel` `{ kind, name, target, secret?, enabled? }`,
   `alerts.updateChannel` `{ channelId, name?, target?, secret?, enabled? }`,
@@ -323,9 +339,9 @@ Rules:
 
 Drift itself is pure and lives in `src/lib/drift/`: `computeDrift(deployed,
 live)` returns `missing` / `changed` / `extra` items with a severity, worst
-first. Secret-backed env vars are never compared — Orrery does not hold the
+first. Secret-backed env vars are never compared — Zenith.ai does not hold the
 value it would compare against. Nodes that are not `managed` are skipped
-entirely: Orrery reads a referenced resource and never reconciles it.
+entirely: Zenith.ai reads a referenced resource and never reconciles it.
 
 Implemented by: **sandbox** (deterministic seeded simulation — one resource a
 size up, one plain env var altered, the same every call for a given
@@ -361,13 +377,13 @@ step on the first attempt (used by the failure-recovery path).
 
 Availability `preview`. `planSteps` returns a real, honest plan (ECS/Fargate-
 shaped) but `executeStep` throws
-`"AWS execution requires credentials. Orrery Preview generates and exports the
+`"AWS execution requires credentials. Zenith.ai Preview generates and exports the
 full Terraform for this system — run it with your own tooling, or connect
 credentials in a later release."`
 `exportBundle` generates REAL, valid Terraform/OpenTofu HCL: VPC-referencing
 variables, ECS services, RDS, S3, SQS, ALB + Route53 + ACM per manifest, plus
 `terraform.tfvars.example` and a README explaining how to operate without
-Orrery. This is the no-lock-in guarantee and must be genuinely usable.
+Zenith.ai. This is the no-lock-in guarantee and must be genuinely usable.
 
 ## UI kit (workstream C, `src/components/ui/`)
 

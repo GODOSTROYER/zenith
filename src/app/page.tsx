@@ -1,7 +1,7 @@
 /**
- * The Orrery landing page — the front door.
+ * The Zenith.ai landing page — the front door.
  * Direction: "The Map Assembles" — see docs/DESIGN.md.
- * Product users pass straight through via the Open Orrery CTA; the page
+ * Product users pass straight through via the Open Zenith.ai CTA; the page
  * pulls its provider table live from the registry so it can never overclaim.
  */
 import type { Metadata } from "next";
@@ -9,9 +9,9 @@ import { ensureEngine } from "@/lib/engine/engine";
 import { providerRegistry } from "@/lib/providers/types";
 import { Landing, type ProviderRow } from "@/components/landing/landing";
 
-const TITLE = "Orrery — your infrastructure, in motion";
+const TITLE = "Zenith.ai — your stack, clearly in view";
 const DESCRIPTION =
-  "A bring-your-own-cloud deployment platform that shows the whole system, prices every change before it applies, and ends every deploy with a URL.";
+  "Map your application, review changes, and operate supported local infrastructure with Zenith.ai. AWS planning and Terraform export available in Preview.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     url: "/",
-    siteName: "Orrery",
+    siteName: "Zenith.ai",
     title: TITLE,
     description: DESCRIPTION,
     images: [{ url: "/og.png", width: 1200, height: 630, alt: TITLE }],
@@ -72,6 +72,8 @@ export default async function LandingPage() {
     availability: p.availability,
     tagline: p.tagline,
   }));
+  // Roadmap presentation only: this is not a registered connection/provider.
+  providers.push({ id: "oracle-coming-later", displayName: "Oracle Cloud", availability: "planned", tagline: "Coming later. Oracle connections and operations are not available yet." });
 
   return <Landing providers={providers} />;
 }

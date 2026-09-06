@@ -1,7 +1,9 @@
 "use client";
 /** The "Add a service" panel — priced before it exists. */
 import { useState } from "react";
-import { Field, Input, Select } from "@/components/ui";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { useProjectData } from "@/components/shell/project-context";
 import { PlanFirst } from "./plan-first";
 import { KIND_OPTIONS, SizeField } from "./editor-parts";
@@ -64,7 +66,7 @@ export function AddServiceForm({ onCreated }: AddServiceFormProps) {
           onChange={(e) => setKind(e.target.value as Service["kind"])}
         />
       </Field>
-      <Field label="Source" help="Leave the image blank to start from the Orrery sample image.">
+      <Field label="Source" help="Leave the image blank to start from the Zenith.ai sample image.">
         <Select
           options={[
             { value: "image", label: "Container image" },

@@ -9,7 +9,11 @@
  * `lib/client/secrets`, shared with Settings → Secrets.
  */
 import { useState } from "react";
-import { Button, Callout, Field, Input, TimeAgo } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { SectionTitle } from "@/components/screens/shared";
 import { useSecrets, type SecretRow, type SecretsView } from "@/lib/client/secrets";
 import { PlanFirst } from "./plan-first";
@@ -29,7 +33,7 @@ function StoreOffNotice({ store }: { store: SecretsView }) {
   return (
     <Callout tone="warn" compact>
       <p>
-        {store.reason} {store.fix} Until then Orrery can record a{" "}
+        {store.reason} {store.fix} Until then Zenith.ai can record a{" "}
         <em className="not-italic text-ink-mute">reference</em> to a value you keep elsewhere, and
         your provider resolves it at deploy time.
       </p>
@@ -105,7 +109,7 @@ function EnvRow({
               {held.updatedBy}
             </>
           ) : !ours ? (
-            <span className="text-ink-mute"> · your secret manager resolves this, not Orrery</span>
+            <span className="text-ink-mute"> · your secret manager resolves this, not Zenith.ai</span>
           ) : store && !store.configured ? (
             <span className="text-warn"> · the secret store is off on this server</span>
           ) : store ? (
@@ -125,8 +129,8 @@ function EnvRow({
                   label={`New value for ${entry.key}`}
                   help={
                     ours
-                      ? "Stored encrypted on this Orrery server under the same reference, as the next version. Running services keep the old value until you redeploy."
-                      : `${ref} is not Orrery's to write. Rotate it in your own secret manager, then redeploy.`
+                      ? "Stored encrypted on this Zenith.ai server under the same reference, as the next version. Running services keep the old value until you redeploy."
+                      : `${ref} is not Zenith.ai's to write. Rotate it in your own secret manager, then redeploy.`
                   }
                 >
                   <Input
@@ -299,7 +303,7 @@ export function EnvPanel({ service }: EnvPanelProps) {
             help={
               off
                 ? "Unavailable: this server has no secret store, so a value typed here could only be discarded. Set ORRERY_SECRET_KEY (above) to turn it on."
-                : "Stored encrypted on this Orrery server; the manifest keeps only the reference."
+                : "Stored encrypted on this Zenith.ai server; the manifest keeps only the reference."
             }
           >
             <Input

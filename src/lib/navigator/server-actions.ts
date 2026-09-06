@@ -10,10 +10,16 @@
 import { runAction } from "@/lib/actions/core";
 import { getSessionUser } from "@/lib/auth/session";
 import type { Actor, AutonomyLevel, NavigatorRun } from "@/lib/domain/types";
-import { ensureBoot } from "@/lib/server/boot";
 import { ApiError, currentWorkspace, demoActor, ensureMember } from "@/lib/server/context";
-import { plannerMode, plannerModel, type Parsing, type PlannerMode } from "./llm";
-import { cancelRun, createRun, executeRun } from "./run";
+import { plannerMode, plannerModel, type PlannerMode } from "./config";
+import type { Parsing } from "./llm";
+
+// Reading a Navigator page must not eagerly compile its execution runtime.
+// Every mutation still awaits the same process boot before doing any work.
+async function ensureBoot() {
+  const runtime = await import("@/lib/server/boot");
+  await runtime.ensureBoot();
+}
 
 export interface NavigatorReply {
   run?: NavigatorRun;
@@ -48,6 +54,7 @@ export async function createRunAction(projectId: string, goal: string): Promise<
   await ensureBoot();
   try {
     await currentActor(); // a non-member cannot spend the workspace's planning budget
+    const { createRun } = await import("./run");
     return await createRun(projectId, goal);
   } catch (err) {
     return fail(err, "Check the goal and try again — planning changes nothing, so it is safe to retry.");
@@ -65,6 +72,7 @@ export async function executeRunAction(
   await ensureBoot();
   try {
     const human = await currentActor();
+    const { executeRun } = await import("./run");
     return { run: await executeRun(runId, { stepApprovals, human }) };
   } catch (err) {
     return fail(err, "Reload the Navigator tab to see the run's current state before retrying.");
@@ -76,6 +84,7 @@ export async function cancelRunAction(runId: string): Promise<NavigatorReply> {
   await ensureBoot();
   try {
     await currentActor(); // membership check — cancelling is a workspace act
+    const { cancelRun } = await import("./run");
     return { run: cancelRun(runId) };
   } catch (err) {
     return fail(err, "Reload the Navigator tab to see the run's current state.");

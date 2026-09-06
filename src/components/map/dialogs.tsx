@@ -10,24 +10,23 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import {
-  Button,
-  Callout,
-  Checkbox,
-  Chip,
-  Dialog,
-  EmptyState,
-  Field,
-  SegmentedControl,
-  Select,
-  Skeleton,
-} from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Chip } from "@/components/ui/chip";
+import { Dialog } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Field } from "@/components/ui/field";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PlanFirst } from "@/components/inspector/plan-first";
 import { useProjectData } from "@/components/shell/project-context";
 import { useShell } from "@/components/shell/shell-context";
 import { ErrorNote } from "@/components/screens/shared";
 import { useJson } from "@/lib/client/api";
-import { importDockerfile, importTerraform } from "@/lib/importers";
+import { importDockerfile } from "@/lib/importers/dockerfile";
+import { importTerraform } from "@/lib/importers/terraform";
 import { uniqueName, type ImportReport } from "@/lib/importers/types";
 import { ImportReportView } from "@/components/screens/import-report";
 import type { Manifest } from "@/lib/domain/types";
@@ -259,7 +258,7 @@ function LiveResourceImport({ onClose }: { onClose: () => void }) {
     return (
       <EmptyState
         title="No connections yet"
-        body="Orrery looks for existing resources through a cloud connection. Add one in Settings → Connections, then come back."
+        body="Zenith.ai looks for existing resources through a cloud connection. Add one in Settings → Connections, then come back."
       />
     );
 
@@ -326,7 +325,7 @@ function LiveResourceImport({ onClose }: { onClose: () => void }) {
       )}
 
       <p className="text-[12.5px] leading-relaxed text-ink-mute">
-        Imported resources are marked <span className="text-ink">referenced</span>: Orrery draws
+        Imported resources are marked <span className="text-ink">referenced</span>: Zenith.ai draws
         them on the map and lets services bind to them, but never provisions, changes or deletes
         them — and they add nothing to the cost estimate.
       </p>
@@ -380,7 +379,7 @@ export function ImportDialog({
       const out =
         format === "terraform"
           ? importTerraform(deferredText)
-          : importDockerfile(deferredText, fileName?.replace(/\.[^.]+$/, "") || project.name);
+          : importDockerfile(deferredText, fileName?.replace(/\.[^.]+$/, "") || project.name, project.id);
       const { manifest, renamed } = mergeImport(project.workingManifest, out.manifest);
       return {
         manifest,
@@ -398,7 +397,7 @@ export function ImportDialog({
     } catch (err) {
       return { error: err instanceof Error ? err.message : String(err) };
     }
-  }, [format, deferredText, fileName, project.workingManifest, project.name]);
+  }, [format, deferredText, fileName, project.workingManifest, project.name, project.id]);
 
   const reset = () => {
     setText("");
@@ -418,7 +417,7 @@ export function ImportDialog({
         onClose={close}
         width={620}
         title="What was imported"
-        description="Exact means a faithful translation. Assumed means Orrery had to guess — check those."
+        description="Exact means a faithful translation. Assumed means Zenith.ai had to guess — check those."
       >
         <ImportReportView report={report} />
         <div className="mt-4 border-t border-line pt-3">
@@ -435,7 +434,7 @@ export function ImportDialog({
       onClose={close}
       width={620}
       title="Import into this system"
-      description="Everything Orrery cannot map is listed with a reason, never dropped silently."
+      description="Everything Zenith.ai cannot map is listed with a reason, never dropped silently."
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SegmentedControl<Format>

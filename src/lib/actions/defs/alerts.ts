@@ -12,6 +12,14 @@
  * Channel mutations are admin, because a channel is workspace-wide and its
  * target is where this server's alerts go. Test-sending is editor: it proves a
  * channel works without being able to change where anything is sent.
+ *
+ * Admin of WHICH workspace is the other half of that sentence, so every rule,
+ * alert and channel here is resolved with `scopedRule` / `scopedEvent` /
+ * `scopedChannel` (see @/lib/alerts) rather than a global finder: `runAction`
+ * only ever checks the caller's role in `ctx.workspaceId`, so a lookup that
+ * reads the whole store would let an admin of one workspace point another
+ * workspace's channel at an endpoint of their choosing. A foreign id is refused
+ * with the same sentence as an id that never existed.
  */
 import { z } from "zod";
 import { defineAction, type ActionContext } from "@/lib/actions/core";
@@ -30,11 +38,11 @@ import {
   maskTarget,
   messageText,
   openEventFor,
-  requireChannel,
-  requireEvent,
-  requireRule,
   resolveOpen,
   rulesOf,
+  scopedChannel,
+  scopedEvent,
+  scopedRule,
   thresholdOf,
   type AlertMessage,
 } from "@/lib/alerts";
@@ -63,7 +71,7 @@ function whereItShows(ctx: ActionContext, channelIds?: string[]): string {
   const enabled = channelsOf(ctx.workspaceId).filter((c) => c.enabled);
   const selected = channelIds === undefined ? enabled : enabled.filter((c) => channelIds.includes(c.id));
   if (enabled.length === 0)
-    return "In-product only: Observe → Alerts, and anywhere else that reads the alerts feed. This workspace has no delivery channels, so if nobody opens Orrery, nobody is told — add one under Settings → Alerts.";
+    return "In-product only: Observe → Alerts, and anywhere else that reads the alerts feed. This workspace has no delivery channels, so if nobody opens Zenith.ai, nobody is told — add one under Settings → Alerts.";
   if (selected.length === 0)
     return `In-product only: this rule is set to deliver nowhere, even though the workspace has ${plural(enabled.length, "enabled channel")}. It shows under Observe → Alerts and nowhere else.`;
   return `Shows under Observe → Alerts, and is delivered to ${plural(selected.length, "channel")}: ${selected.map(channelLabel).join(", ")}. Every attempt is recorded on the alert, successes and failures alike.`;
@@ -225,7 +233,7 @@ defineAction<Update>({
   mutates: true,
   input: Update,
   plan(ctx, input) {
-    const rule = requireRule(input.ruleId);
+    const rule = scopedRule(ctx.workspaceId, input.ruleId);
     const env = envName(rule);
     const next = { kind: rule.kind, threshold: input.threshold ?? rule.threshold };
     const enabled = input.enabled ?? rule.enabled;
@@ -265,7 +273,7 @@ defineAction<Update>({
     };
   },
   execute(ctx, input) {
-    const rule = requireRule(input.ruleId);
+    const rule = scopedRule(ctx.workspaceId, input.ruleId);
     const problem =
       thresholdProblem({ kind: rule.kind, threshold: input.threshold }) ??
       channelProblem(ctx, input.channelIds ?? undefined);
@@ -305,8 +313,8 @@ defineAction<Delete>({
   requiredRole: "editor",
   mutates: true,
   input: Delete,
-  plan(_ctx, input) {
-    const rule = requireRule(input.ruleId);
+  plan(ctx, input) {
+    const rule = scopedRule(ctx.workspaceId, input.ruleId);
     const fired = db().alertEvents.filter((e) => e.ruleId === rule.id).length;
     const open = openEventFor(rule.id);
     return {
@@ -328,8 +336,8 @@ defineAction<Delete>({
       requiresApproval: false,
     };
   },
-  execute(_ctx, input) {
-    const rule = requireRule(input.ruleId);
+  execute(ctx, input) {
+    const rule = scopedRule(ctx.workspaceId, input.ruleId);
     resolveOpen(rule.id, "The rule was deleted.");
     db().alertRules = db().alertRules.filter((r) => r.id !== rule.id);
     save();
@@ -363,7 +371,7 @@ defineAction<Ack>({
   mutates: true,
   input: Ack,
   plan(ctx, input) {
-    const event = requireEvent(input.eventId);
+    const event = scopedEvent(ctx.workspaceId, input.eventId);
     return {
       summary: `Acknowledge "${event.summary}".`,
       details: [
@@ -385,7 +393,7 @@ defineAction<Ack>({
     };
   },
   execute(ctx, input) {
-    const event = requireEvent(input.eventId);
+    const event = scopedEvent(ctx.workspaceId, input.eventId);
     if (event.resolvedAt)
       return {
         ok: false,
@@ -437,10 +445,10 @@ function whereTheSecretLives(kind: AlertChannel["kind"], hasSecret: boolean): st
   if (kind === "email")
     return `The SMTP password lives in ORRERY_SMTP_URL in this server's environment, not in this channel — the channel holds only the recipient address.`;
   if (kind === "slack")
-    return `A Slack incoming-webhook URL is itself the credential: anyone holding it can post to that channel. It is stored in plain text in ${STATE_FILE} and masked everywhere Orrery shows it, but anyone who can read this server's disk can read it.`;
+    return `A Slack incoming-webhook URL is itself the credential: anyone holding it can post to that channel. It is stored in plain text in ${STATE_FILE} and masked everywhere Zenith.ai shows it, but anyone who can read this server's disk can read it.`;
   return hasSecret
     ? `Each request carries ${SIGNATURE_HEADER}: sha256=… , an HMAC over the exact bytes of the body. That signing secret is stored in plain text in ${STATE_FILE} — no route returns it and the UI masks it, but anyone who can read this server's disk can read it.`
-    : `No signing secret: requests go out unsigned and the receiver cannot prove Orrery sent them. Set one to have Orrery send ${SIGNATURE_HEADER}.`;
+    : `No signing secret: requests go out unsigned and the receiver cannot prove Zenith.ai sent them. Set one to have Zenith.ai send ${SIGNATURE_HEADER}.`;
 }
 
 /** A target that cannot work, with the fix. Blocking, not advisory. */
@@ -458,7 +466,7 @@ function targetProblem(kind: AlertChannel["kind"], target: string): string | und
     return `"${t}" is not a URL. Paste the full endpoint, starting with https://.`;
   }
   if (url.protocol !== "https:" && url.protocol !== "http:")
-    return `Orrery can only POST over http or https, and "${url.protocol}" is neither. Paste the endpoint's https:// URL.`;
+    return `Zenith.ai can only POST over http or https, and "${url.protocol}" is neither. Paste the endpoint's https:// URL.`;
   return undefined;
 }
 
@@ -485,11 +493,11 @@ function targetWarnings(kind: AlertChannel["kind"], target: string, hasSecret: b
     );
   if (kind === "slack" && url.hostname !== "hooks.slack.com")
     out.push(
-      `${url.hostname} is not hooks.slack.com. Orrery will still send Slack's payload shape there, which is what Mattermost and Discord-compatible receivers expect — but if you meant Slack, copy the URL from the incoming-webhook app again.`
+      `${url.hostname} is not hooks.slack.com. Zenith.ai will still send Slack's payload shape there, which is what Mattermost and Discord-compatible receivers expect — but if you meant Slack, copy the URL from the incoming-webhook app again.`
     );
   if (kind === "webhook" && !hasSecret)
     out.push(
-      "Without a secret the receiver has no way to tell an Orrery alert from anything else that can reach that URL."
+      "Without a secret the receiver has no way to tell an Zenith.ai alert from anything else that can reach that URL."
     );
   return out;
 }
@@ -547,7 +555,7 @@ defineAction<CreateChannel>({
             ? `${plural(using.all, "enabled rule")} in this workspace deliver to every channel, so this one starts receiving their alerts on the next evaluation — including any alert that is open right now, when it closes.`
             : "No rule delivers to every channel yet, so nothing reaches this until a rule is created or an existing one is pointed at it."
           : "Created switched off: it receives nothing until it is enabled.",
-        "Use Test on the channel afterwards to send one labelled message and see the result — Orrery does not test it as part of creating it.",
+        "Use Test on the channel afterwards to send one labelled message and see the result — Zenith.ai does not test it as part of creating it.",
       ],
       costDeltaUsd: 0,
       risk: "medium",
@@ -607,8 +615,8 @@ defineAction<UpdateChannel>({
   requiredRole: "admin",
   mutates: true,
   input: UpdateChannel,
-  plan(_ctx, input) {
-    const channel = requireChannel(input.channelId);
+  plan(ctx, input) {
+    const channel = scopedChannel(ctx.workspaceId, input.channelId);
     const target = input.target?.trim() ?? channel.target;
     const enabled = input.enabled ?? channel.enabled;
     const hasSecret =
@@ -656,8 +664,8 @@ defineAction<UpdateChannel>({
           : undefined),
     };
   },
-  execute(_ctx, input) {
-    const channel = requireChannel(input.channelId);
+  execute(ctx, input) {
+    const channel = scopedChannel(ctx.workspaceId, input.channelId);
     if (input.target !== undefined) {
       const problem = targetProblem(channel.kind, input.target);
       if (problem) return { ok: false, summary: "That target cannot be used.", error: problem };
@@ -690,7 +698,7 @@ defineAction<DeleteChannel>({
   mutates: true,
   input: DeleteChannel,
   plan(ctx, input) {
-    const channel = requireChannel(input.channelId);
+    const channel = scopedChannel(ctx.workspaceId, input.channelId);
     const using = rulesUsing(ctx.workspaceId, channel.id);
     const orphaned = using.named.filter((r) => (r.channelIds ?? []).length === 1);
     const remaining = channelsOf(ctx.workspaceId).filter(
@@ -729,8 +737,8 @@ defineAction<DeleteChannel>({
       requiresApproval: false,
     };
   },
-  execute(_ctx, input) {
-    const channel = requireChannel(input.channelId);
+  execute(ctx, input) {
+    const channel = scopedChannel(ctx.workspaceId, input.channelId);
     const table = channelTable();
     const at = table.findIndex((c) => c.id === channel.id);
     if (at >= 0) table.splice(at, 1);
@@ -767,7 +775,7 @@ defineAction<TestChannel>({
   mutates: true,
   input: TestChannel,
   plan(ctx, input) {
-    const channel = requireChannel(input.channelId);
+    const channel = scopedChannel(ctx.workspaceId, input.channelId);
     const msg = testMessage(ctx.actor.name);
     return {
       summary: `Send one test message to ${channelLabel(channel)}.`,
@@ -793,7 +801,7 @@ defineAction<TestChannel>({
     };
   },
   async execute(ctx, input) {
-    const channel = requireChannel(input.channelId);
+    const channel = scopedChannel(ctx.workspaceId, input.channelId);
     const delivery = await deliverToChannel(channel, testMessage(ctx.actor.name));
     save();
     return {
@@ -810,7 +818,7 @@ defineAction<TestChannel>({
 /** The one message a test sends. Labelled, so nobody mistakes it for an alert. */
 const testMessage = (actorName: string): AlertMessage => ({
   phase: "test",
-  title: "Test message from Orrery",
+  title: "Test message from Zenith.ai",
   body: `${actorName} sent this from Settings → Alerts to check that this channel works. No alert rule fired, and nothing is wrong.`,
   severity: "low",
   simulated: false,

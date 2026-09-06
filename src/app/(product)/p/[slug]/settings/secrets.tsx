@@ -19,7 +19,13 @@ import { KeyRound } from "lucide-react";
 import type { Role } from "@/lib/actions/core";
 import type { Manifest } from "@/lib/domain/types";
 import { isOurs, useSecrets } from "@/lib/client/secrets";
-import { Button, Callout, Card, Field, Input, Skeleton, TimeAgo } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Card } from "@/components/ui/card";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { ActionConfirm, ErrorNote } from "@/components/screens/shared";
 import { useGate } from "./access";
 
@@ -111,7 +117,7 @@ export function SecretsSection({
                 rotateGate ??
                 (ours
                   ? undefined
-                  : `${s.ref} is not held by Orrery — it names a value in your own secret manager, which Orrery cannot write to. Rotate it there, then redeploy so the services pick it up.`);
+                  : `${s.ref} is not held by Zenith.ai — it names a value in your own secret manager, which Zenith.ai cannot write to. Rotate it there, then redeploy so the services pick it up.`);
 
               return (
                 <li key={s.ref} className="border-b border-line px-5 py-3.5 last:border-b-0">

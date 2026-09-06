@@ -2,7 +2,12 @@
 /** One connection, opened on its own from the map or from a node's list. */
 import { useState } from "react";
 import { ArrowRight, Pencil } from "lucide-react";
-import { Button, Callout, Chip, Field, Input, Select } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Chip } from "@/components/ui/chip";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { useProjectData } from "@/components/shell/project-context";
 import { PlanFirst } from "./plan-first";
 import { Facts } from "./editor-parts";
@@ -93,7 +98,7 @@ export function BindingEditor({ binding }: BindingEditorProps) {
       ) : editing ? (
         <div className="space-y-3 rounded-card border border-line p-3">
           <p className="text-[12.5px] text-ink-mute">
-            Orrery has no action that edits a connection in place, so this is two changes: the
+            Zenith.ai has no action that edits a connection in place, so this is two changes: the
             connection is removed, then drawn again with the values below. Both are previewed
             before anything happens, and neither touches a running environment until you deploy.
           </p>

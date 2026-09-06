@@ -9,6 +9,7 @@ import { db, q, save } from "@/lib/db/store";
 import { id, ProviderId, type CloudConnection } from "@/lib/domain/types";
 import { getProvider, providerRegistry, type ProviderAdapter, type PreflightReport } from "@/lib/providers/types";
 import { getEngine } from "./_engine";
+import { requireConnection } from "./_shared";
 
 /** Provider adapters register themselves with the engine; make sure that ran. */
 async function adapterFor(provider: ProviderId): Promise<ProviderAdapter> {
@@ -67,13 +68,13 @@ defineAction<CreateConn>({
         access.summary,
         ...access.permissions.map((p) => `Grants: ${p}`),
         adapter.availability === "preview"
-          ? "Preview means Orrery plans and exports for this provider, but does not apply changes to it."
+          ? "Preview means Zenith.ai plans and exports for this provider, but does not apply changes to it."
           : "",
       ].filter(Boolean),
       costDeltaUsd: 0,
       risk: planned ? "low" : "medium",
       warnings: planned
-        ? [`${adapter.displayName} is planned, not implemented. Use the sandbox to try Orrery end to end, or connect a provider marked available.`]
+        ? [`${adapter.displayName} is planned, not implemented. Use the sandbox to try Zenith.ai end to end, or connect a provider marked available.`]
         : [],
       requiresApproval: false,
     };
@@ -135,12 +136,15 @@ defineAction<CreateConn>({
 const ConnRef = z.object({ connectionId: z.string().min(1) });
 type ConnRef = z.infer<typeof ConnRef>;
 
-function requireConnection(connectionId: string): CloudConnection {
-  const c = q.connection(connectionId);
-  if (!c)
-    throw new Error(`Connection "${connectionId}" was not found. Pick one in Settings → Connections.`);
-  return c;
-}
+/*
+ * Every handler below resolves through the shared `requireConnection`, which
+ * constrains the lookup to `ctx.workspaceId`. A connectionId is a bearer token
+ * otherwise: this file's own resolver read the whole store, so an admin of one
+ * workspace could delete another's connection with `connection.disconnect`, or
+ * read its checks and granted permissions with `connection.check`. The shared
+ * resolver also gives a foreign id the same sentence as a fabricated one, so
+ * the refusal never confirms that someone else's connection exists.
+ */
 
 defineAction<ConnRef>({
   id: "connection.check",
@@ -150,8 +154,8 @@ defineAction<ConnRef>({
   requiredRole: "editor",
   mutates: true,
   input: ConnRef,
-  plan(_ctx, input) {
-    const conn = requireConnection(input.connectionId);
+  plan(ctx, input) {
+    const conn = requireConnection(ctx, input.connectionId);
     return {
       summary: `Re-run preflight for ${conn.label}.`,
       details: [
@@ -164,8 +168,8 @@ defineAction<ConnRef>({
       requiresApproval: false,
     };
   },
-  async execute(_ctx, input) {
-    const conn = requireConnection(input.connectionId);
+  async execute(ctx, input) {
+    const conn = requireConnection(ctx, input.connectionId);
     const adapter = await adapterFor(conn.provider);
     const report = await adapter.preflight(conn);
     conn.status = statusFrom(report);
@@ -210,8 +214,8 @@ defineAction<ConnRef>({
   requiredRole: "admin",
   mutates: true,
   input: ConnRef,
-  plan(_ctx, input) {
-    const conn = requireConnection(input.connectionId);
+  plan(ctx, input) {
+    const conn = requireConnection(ctx, input.connectionId);
     const users = usersOf(conn.id);
     const blocked = users.length > 0;
     return {
@@ -222,7 +226,7 @@ defineAction<ConnRef>({
         ? users.map((u) => `${u.projectName} → ${u.envName} deploys through this connection.`)
         : [
             "Removes the connection from this workspace.",
-            "Nothing in your cloud is deleted or changed — Orrery only forgets how to reach it.",
+            "Nothing in your cloud is deleted or changed — Zenith.ai only forgets how to reach it.",
           ],
       costDeltaUsd: 0,
       risk: blocked ? "low" : "medium",
@@ -233,8 +237,8 @@ defineAction<ConnRef>({
       blocked: blocked ? stillInUse(conn, users) : undefined,
     };
   },
-  execute(_ctx, input) {
-    const conn = requireConnection(input.connectionId);
+  execute(ctx, input) {
+    const conn = requireConnection(ctx, input.connectionId);
     const users = usersOf(conn.id);
     if (users.length)
       return {

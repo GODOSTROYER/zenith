@@ -8,7 +8,8 @@
  */
 import { ExternalLink } from "lucide-react";
 import type { Output } from "@/lib/domain/types";
-import { Chip, CopyButton } from "@/components/ui";
+import { Chip } from "@/components/ui/chip";
+import { CopyButton } from "@/components/ui/copy-button";
 import { copyTarget, isSimulated, openLabel } from "@/components/deploy/output-link";
 
 export interface OutputRowProps {

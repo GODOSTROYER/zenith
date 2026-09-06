@@ -21,20 +21,18 @@ import { api } from "@/lib/client/api";
 import { diffManifests } from "@/lib/domain/graph";
 import type { ChangeItem, Environment, Revision } from "@/lib/domain/types";
 import { fmtUsd } from "@/lib/format";
-import {
-  Button,
-  Card,
-  Chip,
-  CodeBlock,
-  CostDelta,
-  Dialog,
-  EmptyState,
-  Input,
-  Select,
-  Skeleton,
-  Table,
-  TimeAgo,
-} from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
+import { CodeBlock } from "@/components/ui/code-block";
+import { CostDelta } from "@/components/ui/cost-delta";
+import { Dialog } from "@/components/ui/dialog";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table } from "@/components/ui/table";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { useSelectedEnv, type RevisionMeta } from "@/components/screens/project-data";
 import {
   ActionConfirm,
@@ -224,7 +222,7 @@ export default function RevisionsPage() {
   const previousOf = (index: number): RevisionMeta | undefined => revisions[index + 1];
 
   return (
-    <div className="mx-auto h-full w-full max-w-[1100px] overflow-y-auto px-6 py-6">
+    <div className="product-page mx-auto h-full w-full max-w-[1100px] overflow-y-auto">
       {listError ? <ErrorNote error={listError} className="mb-4" /> : null}
       {revisions.length === 0 && listLoading ? (
         <div className="space-y-3">

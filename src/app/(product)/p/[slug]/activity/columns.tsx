@@ -4,7 +4,8 @@
  * re-measured per group.
  */
 import type { AuditEvent } from "@/lib/domain/types";
-import { Chip, type ChipTone, type TableColumn } from "@/components/ui";
+import { Chip, type ChipTone } from "@/components/ui/chip";
+import { type TableColumn } from "@/components/ui/table";
 import { ActorDot } from "@/components/screens/shared";
 import { EventCell } from "./event-cell";
 

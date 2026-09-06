@@ -4,7 +4,8 @@
  * app down, and recovery is one button that restores the last good text.
  */
 import { Component, type ReactNode } from "react";
-import { Button, Callout } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
 
 interface Props {
   children: ReactNode;

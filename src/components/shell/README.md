@@ -10,3 +10,9 @@ contexts — `shell-context.tsx` (workspace bootstrap, role) and
 it through `screens/project-data.ts`, never directly. `error-boundary.tsx`
 wraps anything that can throw mid-edit. Nothing here knows about a specific
 screen's layout.
+
+The action catalog arrives with `/api/bootstrap`, projected from the live
+server registry. Product layouts do not import execution handlers to render
+navigation. The shell context keeps its identity when its inputs do not change.
+Route `loading.tsx` boundaries reuse `ScreenLoading` so the existing chrome
+remains interactive while the next screen loads.

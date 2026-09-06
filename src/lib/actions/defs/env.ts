@@ -20,7 +20,7 @@ import {
 import { providerRegistry } from "@/lib/providers/types";
 import { slugify, uniqueName } from "@/lib/importers/types";
 import { fmtUsd } from "@/lib/format";
-import { requireEnvironment, requireProject } from "./_shared";
+import { requireConnection, requireEnvironment, requireProject } from "./_shared";
 
 /* ------------------------------- connections ------------------------------ */
 
@@ -41,7 +41,7 @@ export function ensureSandboxConnection(workspaceId: string, persist = true): Cl
     label: "Sandbox",
     region: "local",
     status: "healthy",
-    grantedPermissions: ["No cloud access — the sandbox runs inside Orrery and simulates deployments."],
+    grantedPermissions: ["No cloud access — the sandbox runs inside Zenith.ai and simulates deployments."],
     createdAt: new Date().toISOString(),
   };
   if (persist) {
@@ -82,7 +82,7 @@ export function inFlight(environmentId: string): Deployment | undefined {
 export function liveRevision(env: Environment): string | undefined {
   if (!env.deployedRevisionId) return undefined;
   const rev = q.revision(env.deployedRevisionId);
-  return rev ? `revision ${rev.number}` : "a revision Orrery no longer holds";
+  return rev ? `revision ${rev.number}` : "a revision Zenith.ai no longer holds";
 }
 
 /* ------------------------------ env.create -------------------------------- */
@@ -104,21 +104,30 @@ const CreateEnv = z.object({
 });
 type CreateEnv = z.infer<typeof CreateEnv>;
 
-/** Shared by env.create and project.create. Allocates the record; the caller stores it. */
+/**
+ * Shared by env.create, project.create, project.applyBlueprint and
+ * project.importCompose. Allocates the record; the caller stores it.
+ *
+ * It takes the whole ActionContext rather than a bare workspaceId because the
+ * connection has to be resolved *inside* the caller's tenant. Reading
+ * `input.connectionId` out of the whole store let a caller create an
+ * environment in their own workspace that deploys through someone else's cloud
+ * account — the environment looked ordinary, and every later deploy went to a
+ * stranger's connection. `requireConnection` scopes the lookup, and gives a
+ * foreign id the same sentence as an id that was never real.
+ */
 export function buildEnvironment(
   project: Project,
   input: CreateEnv,
-  workspaceId: string,
+  ctx: ActionContext,
   persist = true
 ): { env: Environment; connection: CloudConnection } {
   const klass = input.class ?? "sandbox";
   const taken = q.environmentsOf(project.id).map((e) => e.name);
   const name = uniqueName(slugify(input.name ?? klass, klass), taken);
   const conn = input.connectionId
-    ? q.connection(input.connectionId)
-    : ensureSandboxConnection(workspaceId, persist);
-  if (!conn)
-    throw new Error(`Connection "${input.connectionId}" does not exist. Pick one in Settings → Connections, or leave it blank to use the sandbox.`);
+    ? requireConnection(ctx, input.connectionId)
+    : ensureSandboxConnection(ctx.workspaceId, persist);
 
   return {
     connection: conn,
@@ -165,7 +174,7 @@ defineAction<CreateEnv>({
   input: CreateEnv,
   plan(ctx, input) {
     const project = requireProject(ctx, input.projectId);
-    const { env, connection } = buildEnvironment(project, input, ctx.workspaceId, false);
+    const { env, connection } = buildEnvironment(project, input, ctx, false);
     return {
       summary: `Create the "${env.name}" environment for ${project.name}.`,
       details: envPlanDetails(project, env, connection),
@@ -177,7 +186,7 @@ defineAction<CreateEnv>({
   },
   execute(ctx, input) {
     const project = requireProject(ctx, input.projectId);
-    const { env } = buildEnvironment(project, input, ctx.workspaceId);
+    const { env } = buildEnvironment(project, input, ctx);
     db().environments.push(env);
     save();
     return {
@@ -524,14 +533,14 @@ function envSetConnection(ctx: ActionContext, input: SetConnection) {
     const adapter = providerRegistry().get(next.provider);
     details.push(
       `${env.name} will deploy through ${connectionLabel(next)}.`,
-      `Anything already running through ${current?.label ?? "the previous connection"} keeps running. Orrery does not migrate it, copy it or delete it.`,
+      `Anything already running through ${current?.label ?? "the previous connection"} keeps running. Zenith.ai does not migrate it, copy it or delete it.`,
       next.region === env.region
         ? `The environment stays in ${env.region}.`
         : `The environment's region stays ${env.region} while ${next.label} operates in ${next.region}. Change it with the rename form if they should match.`
     );
     if (adapter && adapter.availability !== "available")
       warnings.push(
-        `${adapter.displayName} is ${adapter.availability}: Orrery plans and exports for it, but a deploy to ${env.name} will be refused until it is available.`
+        `${adapter.displayName} is ${adapter.availability}: Zenith.ai plans and exports for it, but a deploy to ${env.name} will be refused until it is available.`
       );
     if (next.status !== "healthy")
       warnings.push(
@@ -602,7 +611,7 @@ function envDelete(ctx: ActionContext, input: DeleteEnv) {
   const details = [
     `Removes the environment record, its budget and its deploy policy from ${project.name}.`,
     `${deployments.length} deployment record(s) go with it. The revision history stays — revisions belong to the project, not to one environment.`,
-    "Nothing in your cloud or in the sandbox is torn down: this deletes Orrery's records, not running infrastructure.",
+    "Nothing in your cloud or in the sandbox is torn down: this deletes Zenith.ai's records, not running infrastructure.",
     siblings.length
       ? `${siblings.length} other environment(s) are untouched: ${siblings.map((e) => e.name).join(", ")}.`
       : "",
@@ -610,7 +619,7 @@ function envDelete(ctx: ActionContext, input: DeleteEnv) {
 
   const warnings = live
     ? [
-        `${env.name} is running ${live}. Deleting the environment does not stop it — Orrery simply stops watching it. Tear it down first if you want it gone.`,
+        `${env.name} is running ${live}. Deleting the environment does not stop it — Zenith.ai simply stops watching it. Tear it down first if you want it gone.`,
       ]
     : [];
 

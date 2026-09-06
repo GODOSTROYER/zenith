@@ -16,7 +16,7 @@ import path from "node:path";
 import { chromium, type Page } from "playwright-core";
 
 const BASE = process.env.ORRERY_URL ?? "http://localhost:3400";
-const EMAIL = process.env.ORRERY_SHOT_EMAIL ?? "tarun@orrery.test";
+const EMAIL = process.env.ORRERY_SHOT_EMAIL ?? "arnav@orrery.test";
 const PASSWORD = process.env.ORRERY_SHOT_PASSWORD ?? "orrery-owner-2026!";
 const SLUG = process.env.ORRERY_SHOT_PROJECT ?? "atlas";
 const OUT = path.resolve(process.cwd(), "docs/screenshots");

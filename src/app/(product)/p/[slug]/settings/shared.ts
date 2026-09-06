@@ -1,5 +1,5 @@
 /** Pieces the Environments and Connections sections both read. */
-import type { DotStatus } from "@/components/ui";
+import type { DotStatus } from "@/components/ui/status-dot";
 import type { Bootstrap } from "@/components/shell/shell-context";
 import type { CloudConnection } from "@/lib/domain/types";
 
@@ -42,7 +42,7 @@ export function unusableReason(
   if (!p)
     return `this build has no ${connection.provider} adapter registered, so it cannot run a deployment`;
   if (p.availability === "preview")
-    return `${p.displayName} is preview: Orrery plans and exports for it, but does not apply changes to it yet`;
+    return `${p.displayName} is preview: Zenith.ai plans and exports for it, but does not apply changes to it yet`;
   if (p.availability === "planned") return `${p.displayName} is planned, not implemented`;
   if (connection.status === "connecting")
     return "its first preflight check has not finished — run Check under Connections";

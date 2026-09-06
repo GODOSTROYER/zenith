@@ -22,7 +22,7 @@ export interface Me {
 }
 
 /** Every label the CTA can take. The box is always as wide as the widest. */
-const LABELS = ["Create account", "Sign in", "Open Orrery", "Begin"] as const;
+const LABELS = ["Create account", "Open Zenith.ai", "Start with Gimbal"] as const;
 type Label = (typeof LABELS)[number];
 
 /** The default until `/api/me` answers: signed out, no workspace. */
@@ -37,12 +37,10 @@ export interface Cta {
 export function ctaFor(me: Me): { href: string; text: Label } {
   // Demo mode (no accounts configured) has no signed-out state at all.
   if (me.configured && !me.signedIn)
-    return me.hasWorkspace
-      ? { href: "/login", text: "Sign in" }
-      : { href: "/signup", text: "Create account" };
+    return { href: "/signup", text: "Create account" };
   return me.hasWorkspace
-    ? { href: "/overview", text: "Open Orrery" }
-    : { href: "/onboarding", text: "Begin" };
+    ? { href: "/overview", text: "Open Zenith.ai" }
+    : { href: "/onboarding", text: "Start with Gimbal" };
 }
 
 /**

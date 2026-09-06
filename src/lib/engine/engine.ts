@@ -1,5 +1,5 @@
 /**
- * Orrery deployment engine — durable state machine over the store.
+ * Zenith.ai deployment engine — durable state machine over the store.
  *
  *   planning → awaiting_approval? → applying → verifying → succeeded
  *                                       ↘ failed → rolling_back → rolled_back
@@ -72,6 +72,8 @@ type EngineGlobals = typeof globalThis & {
   __orreryInflight?: Set<string>;
   /** deployments the ticker still has work for; finished ones are dropped */
   __orreryActive?: Set<string>;
+  /** abort handle for the provider step each deployment has in flight right now */
+  __orreryAborts?: Map<string, AbortController>;
   __orreryProvidersReady?: boolean;
 };
 
@@ -79,6 +81,12 @@ const g = () => globalThis as EngineGlobals;
 
 /** Deployments the ticker must look at. Empty = the ticker costs one compare. */
 const active = (): Set<string> => (g().__orreryActive ??= new Set());
+
+/**
+ * The abort handle of whatever provider call each deployment is inside, so a
+ * takeover can tell the adapter to stop instead of only refusing its results.
+ */
+const aborts = (): Map<string, AbortController> => (g().__orreryAborts ??= new Map());
 
 const TERMINAL: DeploymentStatus[] = [
   "succeeded",
@@ -144,7 +152,12 @@ function providerIdFor(env: Environment): ProviderId {
 
 function setStatus(d: StoredDeployment, status: DeploymentStatus): void {
   d.status = status;
-  if (TERMINAL.includes(status)) d.endedAt = now();
+  if (TERMINAL.includes(status)) {
+    d.endedAt = now();
+    // The lease dies with its holder: an environment is never left leased to a
+    // deployment that has finished.
+    releaseLease(d);
+  }
   // Only "applying"/"verifying" have steps for the ticker to advance.
   if (status === "applying" || status === "verifying") active().add(d.id);
   else active().delete(d.id);
@@ -159,6 +172,101 @@ function stored(deploymentId: string): StoredDeployment | undefined {
 function isTerminal(d: StoredDeployment | undefined): boolean {
   return !d || TERMINAL.includes(d.status);
 }
+
+/* ---------------------------- environment lease --------------------------- */
+
+/**
+ * One environment, one writer.
+ *
+ * `Environment.activeDeploymentId` is a durable lease: the deployment that
+ * claimed it last is the only one allowed to move `deployedRevisionId` or to
+ * keep calling the provider. Without it, a rollback and the deployment it
+ * replaced both kept running — `rolling_back` is not a terminal status — and
+ * whichever finished last decided what the environment was, which could
+ * publish the very revision the operator had just abandoned.
+ *
+ * Claimed when a deployment starts applying, compared against the deployment's
+ * own id before every write, released the moment its holder reaches a terminal
+ * status. A lease left behind by a killed process is reconciled on the first
+ * touch after a restart (`resumeInFlight`), so an environment is never leased
+ * to a ghost.
+ */
+function claimLease(env: Environment, d: StoredDeployment): void {
+  if (env.activeDeploymentId === d.id) return;
+  const prior = env.activeDeploymentId ? stored(env.activeDeploymentId) : undefined;
+  if (prior) recordSuperseded(prior, d.id);
+  env.activeDeploymentId = d.id;
+  save(d.projectId);
+}
+
+/** True while this deployment is still the environment's writer. */
+function holdsLease(d: StoredDeployment): boolean {
+  return q.environment(d.environmentId)?.activeDeploymentId === d.id;
+}
+
+/** Hand the environment back. Only the holder can, and only once it is done. */
+function releaseLease(d: StoredDeployment): void {
+  const env = q.environment(d.environmentId);
+  if (env?.activeDeploymentId === d.id) delete env.activeDeploymentId;
+}
+
+/**
+ * May this runner still write? False once it has finished, once it is being
+ * rolled back, and — the case the lease exists for — once another deployment
+ * has taken the environment. Every write a provider step leads to is behind
+ * this check, including the ones that arrive long after the takeover.
+ */
+function mayCommit(d: StoredDeployment): boolean {
+  const cur = stored(d.id);
+  if (!cur || TERMINAL.includes(cur.status) || cur.status === "rolling_back") return false;
+  return holdsLease(d);
+}
+
+/**
+ * Take a running deployment off the board: stop the ticker advancing it, abort
+ * the provider call it has in flight, skip whatever it never reached, and drop
+ * its lease. It keeps its record and its logs — it simply may not write again.
+ * The terminal status is the caller's to choose, because a rollback wants
+ * `rolling_back` and a plain takeover wants `cancelled`.
+ */
+function stopRunner(d: StoredDeployment): void {
+  active().delete(d.id);
+  aborts().get(d.id)?.abort();
+  for (const s of d.steps) {
+    if (s.status === "pending" || s.status === "running") {
+      s.status = "skipped";
+      emit(d.id, { type: "step", stepId: s.id, status: "skipped" });
+    }
+  }
+  releaseLease(d);
+  save(d.projectId);
+}
+
+/**
+ * A runner that lost the environment. It stops where it is and says so:
+ * finishing quietly as `succeeded` would claim credit for an environment
+ * somebody else now owns. One already in `rolling_back` keeps that status —
+ * the rollback that displaced it marks it `rolled_back` when it lands.
+ */
+function recordSuperseded(d: StoredDeployment, byId: string | undefined): void {
+  stopRunner(d);
+  if (TERMINAL.includes(d.status) || d.status === "rolling_back") return;
+  const env = q.environment(d.environmentId);
+  if (!env) {
+    d.error = MISSING_ENVIRONMENT;
+    setStatus(d, "failed");
+    return;
+  }
+  d.error =
+    `${byId ? `Deployment ${byId}` : "Another deployment"} took over ${env.name} while this one was still running, ` +
+    `so it stopped without publishing r${q.revision(d.revisionId)?.number ?? "?"}. ` +
+    `Anything it had already created is still there — open the deployment that replaced it to see what ${env.name} runs now.`;
+  setStatus(d, "cancelled");
+}
+
+const MISSING_ENVIRONMENT =
+  "The environment this deployment targets no longer exists, so nothing was published. " +
+  "Re-create it in Settings → Environments, then deploy again.";
 
 /* ------------------------------ provider setup ---------------------------- */
 
@@ -221,6 +329,12 @@ async function runStep(d: StoredDeployment, step: DeploymentStep): Promise<void>
       );
       return;
     }
+    // One writer per environment. If the lease moved while this step waited
+    // its turn, this runner must not call the provider again.
+    if (!mayCommit(d)) {
+      recordSuperseded(d, env.activeDeploymentId);
+      return;
+    }
     const provider = getProvider(providerIdFor(env));
 
     const phaseStatus: DeploymentStatus =
@@ -245,8 +359,11 @@ async function runStep(d: StoredDeployment, step: DeploymentStep): Promise<void>
     // Deadline: a provider that never returns must not pin the deployment.
     // The adapter is handed the signal so it can abort its own I/O; one that
     // ignores it is simply abandoned, and its late writes are dropped below.
+    // The same signal is how a rollback interrupts this step: `stopRunner`
+    // aborts whatever handle is registered here.
     const budgetMs = stepTimeoutMs();
     const abort = new AbortController();
+    aborts().set(d.id, abort);
     let abandoned = false;
     const timer = setTimeout(() => abort.abort(), budgetMs);
 
@@ -278,10 +395,16 @@ async function runStep(d: StoredDeployment, step: DeploymentStep): Promise<void>
       ]);
     } finally {
       clearTimeout(timer);
+      aborts().delete(d.id);
       abandoned = abort.signal.aborted;
     }
 
-    if (isTerminal(stored(d.id))) return; // cancelled while the step ran
+    // Cancelled, rolled back or superseded while the step ran. A result nobody
+    // is waiting for is not a result to publish.
+    if (!mayCommit(d)) {
+      recordSuperseded(d, q.environment(d.environmentId)?.activeDeploymentId);
+      return;
+    }
     step.status = "done";
     step.endedAt = now();
     emit(d.id, { type: "step", stepId: step.id, status: "done" });
@@ -289,7 +412,12 @@ async function runStep(d: StoredDeployment, step: DeploymentStep): Promise<void>
     if (!d.steps.some((s) => s.status === "pending" || s.status === "running"))
       finish(d);
   } catch (err) {
-    if (isTerminal(stored(d.id))) return;
+    // A superseded runner's failure is the takeover's doing (its step was
+    // aborted), so it is recorded as what it is, not as a provider fault.
+    if (!mayCommit(d)) {
+      recordSuperseded(d, q.environment(d.environmentId)?.activeDeploymentId);
+      return;
+    }
     failStep(d, step, err instanceof Error ? err.message : String(err));
   } finally {
     inflight.delete(d.id);
@@ -312,7 +440,7 @@ function deadline(
       () =>
         reject(
           new Error(
-            `${providerName} did not finish "${stepTitle}" within ${Math.round(ms / 1000)}s, so Orrery stopped waiting. ` +
+            `${providerName} did not finish "${stepTitle}" within ${Math.round(ms / 1000)}s, so Zenith.ai stopped waiting. ` +
               `Anything ${providerName} already created is still there — check it for a half-finished resource, then deploy again. ` +
               `If this provider is legitimately slower than that, raise ORRERY_STEP_TIMEOUT_MS (currently ${ms}) and restart the server.`
           )
@@ -344,15 +472,25 @@ function failStep(d: StoredDeployment, step: DeploymentStep, message: string): v
 
 function finish(d: StoredDeployment): void {
   const env = q.environment(d.environmentId);
-  if (env) {
-    env.deployedRevisionId = d.revisionId;
-    // Record where this revision ran, at the moment it ran. Reconstructing it
-    // later by matching environment names is a guess; this is evidence.
-    const revision = q.revision(d.revisionId);
-    if (revision && !revision.deployedTo?.includes(env.id))
-      revision.deployedTo = [...(revision.deployedTo ?? []), env.id];
+  if (!env) {
+    d.error = MISSING_ENVIRONMENT;
+    setStatus(d, "failed");
+    return;
   }
-  setStatus(d, "succeeded");
+  // Compare and swap on the lease. A superseded runner reaches this line too —
+  // the provider call it still had outstanding finally returned — and must not
+  // overwrite the deployment that replaced it.
+  if (env.activeDeploymentId !== d.id) {
+    recordSuperseded(d, env.activeDeploymentId);
+    return;
+  }
+  env.deployedRevisionId = d.revisionId;
+  // Record where this revision ran, at the moment it ran. Reconstructing it
+  // later by matching environment names is a guess; this is evidence.
+  const revision = q.revision(d.revisionId);
+  if (revision && !revision.deployedTo?.includes(env.id))
+    revision.deployedTo = [...(revision.deployedTo ?? []), env.id];
+  setStatus(d, "succeeded"); // terminal: releases the lease
   if (d.rollbackOf) {
     const origin = stored(d.rollbackOf);
     if (origin && !TERMINAL.includes(origin.status)) setStatus(origin, "rolled_back");
@@ -453,9 +591,12 @@ async function start(input: StartDeploymentInput): Promise<Deployment> {
   emit(d.id, { type: "status", status: "planning" });
 
   if (!input.approved && env.policies.approvalRequired) {
+    // Nothing is in flight yet, so it takes no lease: a deployment parked at
+    // the approval gate must not stop the environment being deployed to.
     setStatus(d, "awaiting_approval");
   } else {
     d.startedAt = now();
+    claimLease(env, d); // from here on, this deployment owns the environment
     setStatus(d, "applying");
   }
   return d;
@@ -473,6 +614,10 @@ async function approve(deploymentId: string): Promise<Deployment> {
       `This deployment is ${d.status}, not awaiting approval. Start a new deployment from the Changes drawer instead.`
     );
   d.startedAt = d.startedAt ?? now();
+  // Approval is where a gated deployment actually starts, so the lease is
+  // claimed here rather than when it was parked.
+  const env = q.environment(d.environmentId);
+  if (env) claimLease(env, d);
   setStatus(d, "applying");
   return d;
 }
@@ -488,12 +633,9 @@ async function cancel(deploymentId: string): Promise<Deployment> {
     throw new Error(
       `This deployment already finished as ${d.status}; there is nothing to cancel. Deploy again to change the environment.`
     );
-  for (const s of d.steps) {
-    if (s.status === "pending" || s.status === "running") {
-      s.status = "skipped";
-      emit(d.id, { type: "step", stepId: s.id, status: "skipped" });
-    }
-  }
+  // Aborts the step it is inside, skips the rest and gives the environment
+  // back, so a late provider callback cannot publish a cancelled deployment.
+  stopRunner(d);
   setStatus(d, "cancelled");
   return d;
 }
@@ -535,9 +677,14 @@ async function rollback(
     ) / 100;
 
   if (last && !TERMINAL.includes(last.status)) {
-    // in-flight deployment: stop it before replacing it
-    for (const s of last.steps)
-      if (s.status === "pending" || s.status === "running") s.status = "skipped";
+    // An in-flight deployment is aborted and taken off the board *before* the
+    // replacement starts, not merely relabelled: `rolling_back` is not a
+    // terminal status, so without this its runner kept going and the two of
+    // them raced to commit the environment. `stopRunner` aborts the provider
+    // call it is inside, skips its remaining steps, drops it from the ticker's
+    // active set and releases its lease — so whatever it does return is
+    // refused by the compare-and-swap in `finish`.
+    stopRunner(last);
     setStatus(last, "rolling_back");
   } else if (last && (last.status === "failed" || last.status === "succeeded")) {
     setStatus(last, "rolling_back");
@@ -569,12 +716,46 @@ async function rollback(
  * Called on the first server touch after a restart. Deployments stuck mid-step
  * are simply left `running` — the ticker re-executes that step, and provider
  * steps are idempotent. `planning` / `awaiting_approval` need no repair.
+ *
+ * Leases are reconciled first. A killed process leaves `activeDeploymentId`
+ * pointing at a runner that no longer exists, and a lease nobody can release
+ * would lock that environment out of deploying forever. So: a lease naming a
+ * deployment that has finished, or that is no longer in the store at all, is
+ * dropped, and a deployment that really is still mid-flight takes the lease
+ * back. The environment ends up leased to the one runner about to resume, or
+ * to nobody.
  */
 function resumeInFlight(): void {
   ensureEngine();
+  let dirty = false;
+
+  for (const env of db().environments) {
+    if (!env.activeDeploymentId) continue;
+    const holder = stored(env.activeDeploymentId);
+    // Gone, or finished without ever releasing it: the lease is stale.
+    if (isTerminal(holder)) {
+      delete env.activeDeploymentId;
+      dirty = true;
+    }
+  }
+
   for (const raw of db().deployments) {
     const d = raw as StoredDeployment;
     if (d.status !== "applying" && d.status !== "verifying") continue;
+    const env = q.environment(d.environmentId);
+    if (env && !env.activeDeploymentId) {
+      // Nothing holds the environment and this deployment is still running it:
+      // it is the rightful holder (also the migration path for deployments
+      // that predate the lease).
+      env.activeDeploymentId = d.id;
+      dirty = true;
+    }
+    if (env && env.activeDeploymentId !== d.id) {
+      // Two runners for one environment across a restart. The lease decides,
+      // exactly as it does at runtime.
+      recordSuperseded(d, env.activeDeploymentId);
+      continue;
+    }
     active().add(d.id); // the only full scan: once, at boot
     const running = d.steps.find((s) => s.status === "running");
     if (running)
@@ -585,6 +766,7 @@ function resumeInFlight(): void {
         stream: "info",
       });
   }
+  if (dirty) save();
 }
 
 export const engine: EngineApi = {

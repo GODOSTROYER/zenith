@@ -1,17 +1,14 @@
 "use client";
 import { useState } from "react";
 import { Ban } from "lucide-react";
-import {
-  Button,
-  Callout,
-  Chip,
-  CostDelta,
-  Field,
-  Input,
-  RiskBadge,
-  useToasts,
-  type ButtonVariant,
-} from "@/components/ui";
+import { Button, type ButtonVariant } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Chip } from "@/components/ui/chip";
+import { CostDelta } from "@/components/ui/cost-delta";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { RiskBadge } from "@/components/ui/risk-badge";
+import { useToasts } from "@/components/ui/toast";
 import { useProjectData } from "@/components/shell/project-context";
 import { useShell } from "@/components/shell/shell-context";
 import { RoleChip, roleShortfall } from "@/components/screens/shared";

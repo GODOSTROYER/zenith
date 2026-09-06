@@ -12,6 +12,6 @@ export const config = {
   // string literal drops it, the dot matches any character, and every path
   // ending in "-png" / "_svg" / "xico" (e.g. /p/design-png) skipped the gate.
   matcher: [
-    "/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|fonts/[^/]+\\.woff2$|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

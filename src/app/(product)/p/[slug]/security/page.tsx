@@ -12,7 +12,10 @@
 import { useMemo, useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import type { SecurityFinding } from "@/lib/domain/types";
-import { Button, Card, EmptyState, Skeleton } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useSelectedEnv } from "@/components/screens/project-data";
 import { useShell } from "@/components/shell/shell-context";
 import { downloadFile } from "@/components/screens/download-file";
@@ -25,6 +28,7 @@ import { FiltersBar } from "./filters-bar";
 import { HistorySection } from "./history-section";
 import { PendingSection } from "./pending-section";
 import { useFixPlans } from "./use-fix-plans";
+import { PageHeading } from "@/components/screens/page-heading";
 import {
   excludedNote,
   matches,
@@ -113,7 +117,8 @@ export default function SecurityPage() {
   );
 
   return (
-    <div className="mx-auto h-full w-full max-w-[980px] space-y-6 overflow-y-auto px-6 py-6">
+    <div className="product-page mx-auto h-full w-full max-w-[1040px] space-y-6 overflow-y-auto">
+      <PageHeading title="Security" description="Review findings, preview fixes, and track what still needs to be deployed. A clean working copy is not proof that the running environment is fixed." />
       {open.length === 0 ? (
         <div className="rounded-card border border-ok/30 bg-ok-dim">
           <EmptyState

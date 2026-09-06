@@ -1,6 +1,6 @@
 "use client";
 /**
- * Orrery landing — "The Map Assembles".
+ * Zenith.ai landing — "The Map Assembles".
  * One authored motion moment (the hero canvas); everything after it is
  * composed, quiet, and true. All demo material is the real "atlas" system
  * and is labeled simulated. No invented commercial claims anywhere.
@@ -17,9 +17,11 @@ import {
   Play,
 } from "lucide-react";
 import { cx } from "@/lib/format";
-import { ThemeToggle } from "@/components/ui";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { HeroCanvas, type HeroPhase } from "./hero-canvas";
 import { useCta, type Cta } from "./cta";
+import { Wordmark } from "@/components/shell/wordmark";
+import { GimbalIntroduction } from "./gimbal-introduction";
 
 export interface ProviderRow {
   id: string;
@@ -145,7 +147,7 @@ const PHASE_CAPTION: Record<HeroPhase, string> = {
   wire: "wiring bindings — credentials injected, never hardcoded",
   price: "pricing the plan — every change carries its cost",
   deploy: "deploying to staging — each step streamed, each step honest",
-  live: "live at app.atlas.orrery.app — the URL is the finish line",
+  live: "live at app.atlas.example.com — the URL is the finish line",
   still: "the demo system, assembled and live — simulated",
 };
 
@@ -167,18 +169,16 @@ function Header({ cta }: { cta: Cta }) {
       )}
     >
       <div className="mx-auto flex h-14 w-full max-w-[1180px] items-center justify-between px-6">
-        <span className="flex items-center gap-2.5">
-          <span aria-hidden className="relative inline-block h-[18px] w-[18px] rounded-full border-[1.5px] border-signal">
-            <span className="absolute -top-[3px] left-[9px] h-[6px] w-[6px] rounded-full bg-signal" />
-          </span>
-          <span className="text-[15px] font-semibold tracking-[-0.01em] text-ink">Orrery</span>
-        </span>
-        <nav className="flex items-center gap-2">
+        <Link href="/" aria-label="Zenith.ai home"><Wordmark size={24} /></Link>
+        <nav aria-label="Main navigation" className="flex items-center gap-2">
+          <a href="#meet-gimbal" className="hidden min-h-11 items-center px-3 text-[13px] text-ink-mute hover:text-ink sm:inline-flex">Meet Gimbal</a>
+          <a href="#honesty" className="hidden min-h-11 items-center px-3 text-[13px] text-ink-mute hover:text-ink md:inline-flex">Providers</a>
           <ThemeToggle />
+          <Link href="/login" className="inline-flex min-h-11 shrink-0 items-center whitespace-nowrap px-2 text-[13px] text-ink-mute hover:text-ink">Sign in</Link>
           <Link
             href={cta.href}
             className={cx(
-              "inline-flex items-center gap-1.5 rounded-[8px] bg-signal px-3.5 py-1.5",
+              "hidden items-center gap-1.5 rounded-[8px] bg-signal px-3.5 py-1.5 sm:inline-flex",
               "text-[13px] font-semibold text-on-signal transition-transform duration-[120ms] hover:scale-[1.03]"
             )}
           >
@@ -203,16 +203,16 @@ function Hero({ cta }: { cta: Cta }) {
       <div className="relative mx-auto flex w-full max-w-[1180px] flex-1 flex-col justify-center px-6 pt-24 lg:pt-14">
         <div className="max-w-[620px]">
           <h1 className="animate-enter text-balance text-[clamp(42px,7vw,84px)] font-bold leading-[0.98] tracking-[-0.025em] text-ink">
-            Your infrastructure, in&nbsp;motion.
+            Your stack,
+            <span className="block text-signal">clearly in view.</span>
           </h1>
           <p
             className="mt-6 max-w-[52ch] text-[16.5px] leading-[1.65] text-ink-mute animate-enter"
             style={{ animationDelay: "120ms" }}
           >
-            Orrery is a deployment platform for small teams that shows the whole
-            system — services, data, and the wiring between them — prices every
-            change before it applies, and ends every deploy with a URL you can
-            open.
+            Map your services, understand their connections, and review each
+            change before you act. Start locally with LocalStack, or prepare
+            an AWS plan and Terraform export.
           </p>
           <div
             className="mt-9 flex flex-wrap items-center gap-3 animate-enter"
@@ -235,7 +235,7 @@ function Hero({ cta }: { cta: Cta }) {
                 "transition-colors duration-[120ms] hover:border-line-strong hover:text-ink"
               )}
             >
-              How it works
+              See how it works
               <ArrowDown className="h-3.5 w-3.5" aria-hidden />
             </a>
           </div>
@@ -462,7 +462,7 @@ function SurfacePanel({ surface }: { surface: Surface }) {
           <p className="font-mono text-[12px] text-nav-accent">step 2 · system.bind · low risk</p>
           <p className="mt-2 text-[15px] font-semibold text-ink">Connect web to cache</p>
           <p className="mt-1.5 text-[13.5px] leading-[1.6] text-ink-mute">
-            Orrery picks the capability from what cache is, injects the
+            Zenith.ai picks the capability from what cache is, injects the
             connection config into web, and opens the network path. Recorded
             as web → cache; audited like every other step.
           </p>
@@ -542,13 +542,13 @@ function LiveMoment({ cta }: { cta: Cta }) {
       <div className="mx-auto max-w-[760px] text-center">
         <Reveal rise>
           <h2 className="text-balance text-[clamp(40px,6vw,72px)] font-bold leading-[1] tracking-[-0.025em] text-ink">
-            Every deploy ends with{" "}
-            <span className="text-signal">Live.</span>
+            See what changed.{" "}
+            <span className="text-signal">Know what’s live.</span>
           </h2>
           <p className="mx-auto mt-5 max-w-[54ch] text-[15.5px] leading-[1.65] text-ink-mute">
-            Not a green checkmark buried in a log — a panel with your URL, your
-            outputs, and your health, the moment they exist. You will never
-            deploy something and then hunt for where it went.
+            Follow progress, then inspect the outputs and checks your provider
+            actually returned. Published services include their URLs; resource-only
+            systems show resource outputs. Simulated results stay labeled.
           </p>
         </Reveal>
         <Reveal delay={120} className="mt-10">
@@ -556,11 +556,11 @@ function LiveMoment({ cta }: { cta: Cta }) {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="font-mono text-[12px] text-ink-faint">web</p>
-                <p className="mt-1 font-mono text-[14.5px] text-ink">https://app.atlas.orrery.app</p>
+                <p className="mt-1 font-mono text-[14.5px] text-ink">https://app.atlas.example.com</p>
               </div>
               <div className="flex min-w-0 flex-wrap items-center gap-2">
-                <CopyChip text="https://app.atlas.orrery.app" label="the demo URL" />
-                {/* This goes into Orrery, not to the demo host — so it says so
+                <CopyChip text="https://app.atlas.example.com" label="the demo URL" />
+                {/* This goes into Zenith.ai, not to the demo host — so it says so
                     and wears the same arrow as every other CTA on the page. */}
                 <Link
                   href={cta.href}
@@ -595,7 +595,7 @@ function NavigatorSection() {
         <div className="grid gap-12 lg:grid-cols-[1fr_1.15fr]">
           <Reveal>
             <h2 className="max-w-[16ch] text-balance text-[clamp(28px,4vw,44px)] font-bold leading-[1.06] tracking-[-0.02em] text-ink">
-              An agent with a permission system — not a chat box.
+              A plan you can inspect. Control you keep.
             </h2>
             <p className="mt-4 max-w-[52ch] text-[15.5px] leading-[1.65] text-ink-mute">
               Tell it what you want. It plans through the same typed actions you
@@ -670,14 +670,14 @@ function Honesty({ providers }: { providers: ProviderRow[] }) {
       <div className="grid gap-12 lg:grid-cols-[1fr_1.1fr]">
         <Reveal>
           <h2 className="max-w-[14ch] text-balance text-[clamp(28px,4vw,44px)] font-bold leading-[1.06] tracking-[-0.02em] text-ink">
-            We label things like adults.
+            Choose how you start.
           </h2>
           <div className="mt-6 space-y-4 text-[15.5px] leading-[1.65] text-ink-mute">
             <p>Simulated things say <em className="not-italic text-ink">simulated</em>. Costs say <em className="not-italic text-ink">estimate</em>. Disabled controls tell you why. Errors name their fix.</p>
             <p>
-              And the provider table below isn&apos;t marketing — it is read live
-              from the product&apos;s own registry, so this page cannot claim a
-              cloud we haven&apos;t shipped.
+              LocalStack runs supported resources on your machine. AWS Preview
+              prepares Terraform for you to run with your own tooling; it does
+              not apply changes to your account. Azure and Oracle are coming later.
             </p>
           </div>
         </Reveal>
@@ -695,7 +695,7 @@ function Honesty({ providers }: { providers: ProviderRow[] }) {
                     AVAILABILITY_STYLE[p.availability]
                   )}
                 >
-                  {p.availability}
+                  {p.availability === "planned" ? "Coming later" : p.availability}
                 </span>
               </li>
             ))}
@@ -710,9 +710,9 @@ function NoLockIn() {
   return (
     <section className="border-y border-line bg-bg1">
       <div className="mx-auto grid w-full max-w-[1180px] gap-12 px-6 py-28 lg:grid-cols-[1.1fr_1fr] lg:items-center lg:py-36">
-        <Reveal>
+        <Reveal className="min-w-0">
           <figure className="rounded-[12px] border border-line bg-bg2">
-            <figcaption className="flex items-center justify-between border-b border-line px-5 py-3">
+            <figcaption className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-5 py-3">
               <span className="font-mono text-[12px] text-ink-mute">providers_override.tf</span>
               <span className="font-mono text-[11px] text-ink-faint">from your export bundle</span>
             </figcaption>
@@ -729,19 +729,18 @@ provider "aws" {
             </pre>
           </figure>
         </Reveal>
-        <Reveal delay={120}>
+        <Reveal delay={120} className="min-w-0">
           <h2 className="max-w-[14ch] text-balance text-[clamp(28px,4vw,44px)] font-bold leading-[1.06] tracking-[-0.02em] text-ink">
-            Leaving must be easy.
+            Your system stays yours.
           </h2>
           <p className="mt-4 max-w-[52ch] text-[15.5px] leading-[1.65] text-ink-mute">
             Everything exports: the manifest, real runnable Terraform, and an
-            operations README that explains how to keep going without us. Test
-            against LocalStack on your own machine; when you&apos;re ready for
-            real AWS, the difference is one deleted file. You stay because the
-            map is good — not because the exit is locked.
+            operations README that explains how to keep going with your own
+            tooling. Test supported resources against LocalStack, then review
+            the exported configuration before running it with your AWS credentials.
           </p>
           <ul className="mt-6 space-y-2 font-mono text-[13px] text-ink-mute">
-            {["orrery.manifest.json", "*.tf — validated, fmt-clean", "README.md — life after Orrery"].map((f) => (
+            {["orrery.manifest.json", "*.tf — validated, fmt-clean", "README.md — life after Zenith.ai"].map((f) => (
               <li key={f} className="flex items-center gap-2.5">
                 <span aria-hidden className="h-1 w-1 rounded-full bg-signal" />
                 {f}
@@ -760,7 +759,7 @@ function Close({ cta }: { cta: Cta }) {
       <div className="text-center">
         <Reveal rise>
           <h2 className="mx-auto max-w-[14ch] text-balance text-[clamp(36px,6vw,68px)] font-bold leading-[1.02] tracking-[-0.025em] text-ink">
-            Ship something small tonight.
+            Bring your next change into view.
           </h2>
         </Reveal>
         <Reveal delay={100}>
@@ -775,17 +774,12 @@ function Close({ cta }: { cta: Cta }) {
               {cta.label}
               <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>
-            <CopyChip text="npm run seed && npm run dev" label="the run commands" />
+            <Link href="/guide" className="inline-flex min-h-11 items-center px-4 text-[14px] text-ink-mute underline underline-offset-4">Explore the workspace guide</Link>
           </div>
         </Reveal>
       </div>
       <footer className="mt-24 flex flex-col items-center justify-between gap-4 border-t border-line pt-8 sm:flex-row">
-        <span className="flex items-center gap-2.5">
-          <span aria-hidden className="relative inline-block h-[14px] w-[14px] rounded-full border border-signal">
-            <span className="absolute -top-[2.5px] left-[7px] h-[5px] w-[5px] rounded-full bg-signal" />
-          </span>
-          <span className="font-mono text-[12px] text-ink-faint">Orrery v0.1 · a working name</span>
-        </span>
+        <Wordmark size={22} />
         <nav className="flex flex-wrap items-center justify-center gap-5 font-mono text-[12px] text-ink-faint">
           {/* Somewhere to read before clicking. There is no public docs site
               yet, so these are the two places on this page that explain the
@@ -832,6 +826,7 @@ export function Landing({ providers }: { providers: ProviderRow[] }) {
       <Header cta={cta} />
       <main id="main">
         <Hero cta={cta} />
+        <GimbalIntroduction />
         <OneModel />
         <PlanFirst />
         <LiveMoment cta={cta} />

@@ -7,16 +7,14 @@ import { useState } from "react";
 import { Plug, Plus } from "lucide-react";
 import type { Role } from "@/lib/actions/core";
 import type { CloudConnection } from "@/lib/domain/types";
-import {
-  Button,
-  Card,
-  Field,
-  Input,
-  Select,
-  Skeleton,
-  StatusDot,
-  TimeAgo,
-} from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StatusDot } from "@/components/ui/status-dot";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { ActionConfirm, ErrorNote, useRunAction } from "@/components/screens/shared";
 import { useGate } from "./access";
 import { CONN_DOT, unusableReason, type ProviderInfo } from "./shared";
@@ -106,7 +104,7 @@ export function ConnectionsSection({
           title={`Disconnect ${pending.connection.label}`}
           // The plan says whether this can happen at all and what it costs;
           // this line only states the part that is true either way.
-          description="Orrery forgets how to reach this cloud. Nothing inside it is created, changed or deleted."
+          description="Zenith.ai forgets how to reach this cloud. Nothing inside it is created, changed or deleted."
           confirmLabel="Disconnect"
           danger
           onDone={done}
@@ -185,10 +183,10 @@ function ConnectionCard({
       )}
       <details>
         <summary className="cursor-pointer text-[12.5px] text-ink-mute select-none hover:text-ink">
-          Exact permissions ({connection.grantedPermissions.length})
+          Declared access ({(connection.declaredPermissions ?? connection.grantedPermissions).length})
         </summary>
         <ul className="mt-2.5 space-y-1.5 border-l border-line pl-4 text-[12.5px] text-ink-mute">
-          {connection.grantedPermissions.map((p) => (
+          {(connection.declaredPermissions ?? connection.grantedPermissions).map((p) => (
             <li key={p}>{p}</li>
           ))}
         </ul>

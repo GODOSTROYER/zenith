@@ -47,7 +47,7 @@ interface NodeSpec {
 }
 
 const NODES: NodeSpec[] = [
-  { id: "route", kind: "route", label: "app.atlas.orrery.app", sub: "", x: 60, y: 280, w: 252, h: 46, glyph: "globe" },
+  { id: "route", kind: "route", label: "app.atlas.example.com", sub: "", x: 60, y: 280, w: 252, h: 46, glyph: "globe" },
   { id: "web", kind: "service", label: "web", sub: "web · standard × 2", cost: "$28.00/mo", x: 388, y: 176, w: 220, h: 68, glyph: "grid" },
   { id: "worker", kind: "service", label: "worker", sub: "worker · small × 2", cost: "$14.00/mo", x: 388, y: 396, w: 220, h: 68, glyph: "gear" },
   { id: "postgres", kind: "resource", label: "postgres", sub: "postgres · standard", cost: "$26.00/mo", x: 744, y: 84, w: 232, h: 60, glyph: "db" },
@@ -568,7 +568,7 @@ export function HeroCanvas({ onPhase, align = "right", className }: Props) {
         const e = easeOut(liveP);
         ctx.save();
         ctx.globalAlpha *= e;
-        const label = "Live · https://app.atlas.orrery.app";
+        const label = "Live · https://app.atlas.example.com";
         ctx.font = `600 12.5px ${fonts.mono}`;
         const tw = ctx.measureText(label).width;
         const px = 58;
@@ -678,7 +678,7 @@ export function HeroCanvas({ onPhase, align = "right", className }: Props) {
       ref={canvasRef}
       className={className}
       role="img"
-      aria-label="The Orrery system map assembling itself: services and resources appear, bindings wire them together, the plan is priced, a deploy runs, and the system goes live at app.atlas.orrery.app. Simulated demonstration."
+      aria-label="The Zenith.ai system map assembling itself: services and resources appear, bindings wire them together, the plan is priced, a deploy runs, and the system goes live at app.atlas.example.com. Simulated demonstration."
     />
   );
 }

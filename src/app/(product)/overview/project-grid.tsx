@@ -9,17 +9,16 @@
  */
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Search } from "lucide-react";
-import {
-  Card,
-  Checkbox,
-  Chip,
-  Input,
-  Meter,
-  Select,
-  StatusDot,
-  TimeAgo,
-} from "@/components/ui";
+import { ArrowUpRight, Plus, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Chip } from "@/components/ui/chip";
+import { Input } from "@/components/ui/input";
+import { Meter } from "@/components/ui/meter";
+import { Select } from "@/components/ui/select";
+import { StatusDot } from "@/components/ui/status-dot";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { EnvDot } from "@/components/screens/shared";
 import { fmtUsd } from "@/lib/format";
 import {
@@ -45,6 +44,12 @@ export function ProjectGrid({ projects }: { projects: ProjectRow[] }) {
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-[20px] font-medium text-ink">Projects <span className="ml-1 text-[14px] text-ink-faint">{projects.length}</span></h2>
+        <Link href="/onboarding?step=3" className="ui-button inline-flex h-9 items-center gap-2 rounded-ctl bg-signal px-3.5 text-[13px] font-medium text-on-signal transition-colors hover:bg-signal-strong">
+          <Plus className="h-4 w-4" aria-hidden="true" /> New project
+        </Link>
+      </div>
       {projects.length > 1 && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
           <Input
@@ -53,7 +58,7 @@ export function ProjectGrid({ projects }: { projects: ProjectRow[] }) {
             aria-label="Filter projects"
             placeholder="Filter by project or environment"
             prefix={<Search className="h-3.5 w-3.5" aria-hidden="true" />}
-            className="w-[280px]"
+            className="w-full sm:w-[280px]"
           />
           <Select
             aria-label="Sort projects"
@@ -76,22 +81,16 @@ export function ProjectGrid({ projects }: { projects: ProjectRow[] }) {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 min-[760px]:grid-cols-2">
         {shown.map((p) => (
           <ProjectCard key={p.id} project={p} />
         ))}
         {shown.length === 0 && (
-          <p className="text-[13px] text-ink-mute sm:col-span-2">
-            No project matches those filters. Clear the filter, or turn off “only what needs me”.
-          </p>
+          <div className="space-y-3 rounded-card border border-line px-5 py-8 min-[760px]:col-span-2">
+            <p className="text-[14px] text-ink-mute">No project matches those filters.</p>
+            <Button onClick={() => { setQuery(""); setOnlyAttention(false); }}>Clear filters</Button>
+          </div>
         )}
-        <Link
-          href="/onboarding?step=3"
-          className="flex min-h-[148px] flex-col items-center justify-center gap-2 rounded-card border border-dashed border-line-strong bg-bg1 text-ink-mute transition-colors duration-[var(--dur-fast)] hover:border-signal hover:text-signal"
-        >
-          <Plus className="h-4 w-4" />
-          <span className="text-[13px]">New project</span>
-        </Link>
       </div>
     </div>
   );
@@ -102,10 +101,10 @@ function ProjectCard({ project: p }: { project: ProjectRow }) {
   const budgeted = p.environments.filter((e) => e.budgetUsd !== undefined);
 
   return (
-    <Card prod={hasProd} className="h-full">
-      <div className="flex items-start justify-between gap-3">
+    <Card prod={hasProd} className="project-card h-full">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-3">
         <div className="min-w-0">
-          <h3 className="truncate text-[16px] font-medium text-ink">
+          <h3 className="truncate text-[18px] font-medium text-ink">
             <Link
               href={`/p/${p.slug}`}
               className="rounded-ctl transition-colors duration-[var(--dur-fast)] hover:text-signal"
@@ -113,10 +112,10 @@ function ProjectCard({ project: p }: { project: ProjectRow }) {
               {p.name}
             </Link>
           </h3>
-          <p className="mt-0.5 font-mono text-[11.5px] text-ink-faint">/p/{p.slug}</p>
+          <p className="mt-1 truncate font-mono text-[12px] text-ink-faint">/p/{p.slug}</p>
         </div>
         {/* Two numbers, because they are two different claims. */}
-        <div className="shrink-0 text-right">
+        <div className="shrink-0 text-left">
           <p
             className="tnum text-[13px] text-ink"
             title="Estimated monthly cost of the working system definition, at list prices. Nothing is running at this number until you deploy."
@@ -160,7 +159,7 @@ function ProjectCard({ project: p }: { project: ProjectRow }) {
         </div>
       )}
 
-      <div className="mt-4 flex flex-wrap gap-1.5">
+      <div className="mt-5 flex flex-col gap-2 border-t border-line pt-4">
         {p.environments.length === 0 ? (
           <span className="text-[12.5px] text-ink-faint">No environments yet</span>
         ) : (
@@ -197,7 +196,7 @@ function EnvChip({ slug, env: e }: { slug: string; env: EnvRow }) {
   return (
     <Link
       href={`/p/${slug}?env=${encodeURIComponent(e.id)}`}
-      className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-signal"
+      className="flex min-h-10 items-center justify-between gap-2 rounded-ctl px-1 py-1 transition-colors hover:bg-bg3 focus-visible:ring-2 focus-visible:ring-signal"
     >
       <Chip
         tone={e.klass === "production" ? "prod" : "neutral"}
@@ -216,6 +215,7 @@ function EnvChip({ slug, env: e }: { slug: string; env: EnvRow }) {
         )}
         <StatusDot status={e.dot} size={6} label={`${e.name}: ${e.word}`} className="ml-0.5" />
       </Chip>
+      <ArrowUpRight className="h-4 w-4 shrink-0 text-ink-faint" aria-hidden="true" />
     </Link>
   );
 }

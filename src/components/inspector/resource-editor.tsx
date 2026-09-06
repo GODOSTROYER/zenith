@@ -1,7 +1,9 @@
 "use client";
 /** One resource: config, connections, removal. */
 import { useMemo, useState } from "react";
-import { Field, Input, Tabs } from "@/components/ui";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Tabs } from "@/components/ui/tabs";
 import { useProjectData } from "@/components/shell/project-context";
 import { PlanFirst } from "./plan-first";
 import { BindingList } from "./binding-list";
@@ -70,7 +72,7 @@ export function ResourceEditor({ resource, onOpenBinding }: ResourceEditorProps)
           {!managed && (
             <p className="rounded-ctl border border-line bg-bg1 p-2.5 text-[12.5px] text-ink-mute">
               This {resource.kind} is <strong className="text-ink">{resource.ownership}</strong>:
-              Orrery reads it and connects to it, but never provisions, resizes or deletes it — and
+              Zenith.ai reads it and connects to it, but never provisions, resizes or deletes it — and
               it is not part of the cost estimate.
             </p>
           )}

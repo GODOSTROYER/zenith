@@ -9,8 +9,13 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ShieldCheck } from "lucide-react";
-import { Button, Callout, Card, Chip, Skeleton, Tooltip } from "@/components/ui";
+import { AlertTriangle, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip } from "@/components/ui/tooltip";
 import { useProjectData } from "@/components/shell/project-context";
 import { useShell } from "@/components/shell/shell-context";
 import { useJson } from "@/lib/client/api";
@@ -27,13 +32,15 @@ import {
   cancelRunAction,
   createRunAction,
   executeRunAction,
-  plannerInfoAction,
-  type PlannerInfo,
 } from "@/lib/navigator/server-actions";
 import { planBlock, type WorkspaceRole } from "@/lib/navigator/shared";
 import { AutonomyDial } from "./autonomy-dial";
 import { CommandBar } from "./command-bar";
-import { NavigatorGlyph } from "./glyph";
+import { NavigatorGlyph, type GimbalState } from "./glyph";
+import { GIMBAL_STATES } from "./gimbal-contract";
+import { gimbalPresentationFor, type GimbalPresentation } from "./gimbal-state";
+import { GimbalCharacter, type GimbalMotion } from "./gimbal-character";
+import { GimbalStatus } from "./gimbal-status";
 import { RunHistory } from "./run-history";
 import { RunPanel } from "./run-panel";
 
@@ -51,9 +58,11 @@ const isLive = (r: NavigatorRun) => r.status === "executing" || r.status === "aw
 export function NavigatorScreen({
   slug,
   plannerMode = "deterministic",
+  plannerModel,
 }: {
   slug: string;
   plannerMode?: PlannerModeProp;
+  plannerModel?: string;
 }) {
   const { project, environments, findings, deployments, refresh } = useProjectData();
   const shell = useShell();
@@ -69,7 +78,8 @@ export function NavigatorScreen({
   const [running, setRunning] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string>();
-  const [planner, setPlanner] = useState<PlannerInfo>();
+  const [characterVisible, setCharacterVisible] = useState(true);
+  const [motion, setMotion] = useState<GimbalMotion>("auto");
 
   const runs = useJson<{ runs: NavigatorRun[] }>(`/api/navigator/runs?projectId=${project.id}`);
 
@@ -91,18 +101,46 @@ export function NavigatorScreen({
     run && running ? `/api/navigator/runs/${run.id}` : null,
     800
   );
-  const shown = (running && live.data?.run) || run;
+  const liveRun = live.data?.run;
+  const shown = (running && liveRun && liveRun.id === run?.id && liveRun) || run;
+  const presentation = gimbalPresentationFor({ planning, running, cancelling, error, run: shown });
+  const gimbalState = presentation.state;
+
+  useEffect(() => {
+    try {
+      setCharacterVisible(localStorage.getItem("orrery-gimbal-visible") !== "false");
+      const savedMotion = localStorage.getItem("orrery-gimbal-motion");
+      if (savedMotion === "still" || savedMotion === "low-power") setMotion(savedMotion);
+    } catch {
+      // Storage may be unavailable; visible is the safe, reversible default.
+    }
+  }, []);
+
+  const toggleCharacter = useCallback(() => {
+    setCharacterVisible((visible) => {
+      const next = !visible;
+      try {
+        localStorage.setItem("orrery-gimbal-visible", String(next));
+      } catch {
+        // The preference is optional; the control still works for this session.
+      }
+      return next;
+    });
+  }, []);
+
+  const changeMotion = (value: GimbalMotion) => {
+    setMotion(value);
+    try { localStorage.setItem("orrery-gimbal-motion", value); } catch { /* Session preference still works. */ }
+  };
 
   // An adopted run finishes on the server, not in this tab's `execute` call.
   useEffect(() => {
     const followed = live.data?.run;
-    if (running && followed && followed.status !== "executing") setRunning(false);
-  }, [live.data, running]);
-
-  useEffect(() => {
-    if (plannerMode !== "llm") return;
-    void plannerInfoAction().then(setPlanner);
-  }, [plannerMode]);
+    if (running && followed && followed.id === run?.id && followed.status !== "executing") {
+      setRun(followed);
+      setRunning(false);
+    }
+  }, [live.data, running, run?.id]);
 
   const prodEnvIds = useMemo(
     () => new Set(environments.filter((e) => e.class === "production").map((e) => e.id)),
@@ -113,31 +151,41 @@ export function NavigatorScreen({
     if (!goal.trim()) return;
     setPlanning(true);
     setError(undefined);
-    const res = await createRunAction(project.id, goal);
-    setPlanning(false);
-    if (res.error || !res.run) {
-      setError(`${res.error ?? "The Navigator could not plan that."} ${res.fix ?? ""}`.trim());
-      return;
+    try {
+      const res = await createRunAction(project.id, goal);
+      if (res.error || !res.run) {
+        setError(`${res.error ?? "The Navigator could not plan that."} ${res.fix ?? ""}`.trim());
+        return;
+      }
+      setRun(res.run);
+      setParsing(res.parsing);
+      setApprovals(new Set());
+      runs.refresh();
+    } catch {
+      setError("Navigator could not reach the planner. Check your connection, then try planning again.");
+    } finally {
+      setPlanning(false);
     }
-    setRun(res.run);
-    setParsing(res.parsing);
-    setApprovals(new Set());
-    runs.refresh();
   }, [project.id, goal, runs]);
 
   const execute = useCallback(async () => {
     if (!run) return;
     setRunning(true);
     setError(undefined);
-    const res = await executeRunAction(run.id, [...approvals]);
-    setRunning(false);
-    if (res.error || !res.run) {
-      setError(`${res.error ?? "The run could not be executed."} ${res.fix ?? ""}`.trim());
-      return;
+    try {
+      const res = await executeRunAction(run.id, [...approvals]);
+      if (res.error || !res.run) {
+        setError(`${res.error ?? "The run could not be executed."} ${res.fix ?? ""}`.trim());
+        return;
+      }
+      setRun(res.run);
+      runs.refresh();
+      refresh(); // costs, findings and deployments all move when a run lands
+    } catch {
+      setError("The connection to this run was interrupted. Inspect its recorded status before retrying; actions may still be running.");
+    } finally {
+      setRunning(false);
     }
-    setRun(res.run);
-    runs.refresh();
-    refresh(); // costs, findings and deployments all move when a run lands
   }, [run, approvals, runs, refresh]);
 
   // Cancelling is its own request: `execute` is still awaiting the executor in
@@ -146,16 +194,21 @@ export function NavigatorScreen({
     if (!shown) return;
     setCancelling(true);
     setError(undefined);
-    const res = await cancelRunAction(shown.id);
-    setCancelling(false);
-    if (res.error || !res.run) {
-      setError(`${res.error ?? "The run could not be cancelled."} ${res.fix ?? ""}`.trim());
-      return;
+    try {
+      const res = await cancelRunAction(shown.id);
+      if (res.error || !res.run) {
+        setError(`${res.error ?? "The run could not be cancelled."} ${res.fix ?? ""}`.trim());
+        return;
+      }
+      // A run that was only awaiting approval is finished now; one mid-flight is
+      // still writing its last step, and the poll above picks that up.
+      if (res.run.status !== "executing") setRun(res.run);
+      runs.refresh();
+    } catch {
+      setError("Cancellation could not be confirmed. Check the recorded run status before trying again.");
+    } finally {
+      setCancelling(false);
     }
-    // A run that was only awaiting approval is finished now; one mid-flight is
-    // still writing its last step, and the poll above picks that up.
-    if (res.run.status !== "executing") setRun(res.run);
-    runs.refresh();
   }, [shown, runs]);
 
   const toggleApprove = useCallback((stepId: string, on: boolean) => {
@@ -168,62 +221,70 @@ export function NavigatorScreen({
   }, []);
 
   return (
-    <div className="mx-auto w-full max-w-[980px] space-y-7 px-6 py-7">
+    <div className="mx-auto w-full max-w-[1180px] space-y-7 px-5 py-7 sm:px-6">
       <Header
         autonomy={autonomy}
         onAutonomyChanged={shell.refresh}
         loading={shell.loading && !shell.boot}
         plannerMode={plannerMode}
-        model={planner?.model}
+        model={plannerModel}
         workspaceName={shell.boot?.workspace.name}
         role={role}
+        presentation={presentation}
+        motion={motion}
+        onMotionChange={changeMotion}
+        characterVisible={characterVisible}
+        onToggleCharacter={toggleCharacter}
       />
 
-      <Advisories
-        findings={findings}
-        deployments={deployments}
-        environments={environments}
-        slug={slug}
-        onSuggest={setGoal}
-      />
-
-      <CommandBar
-        value={goal}
-        onChange={setGoal}
-        onSubmit={plan}
-        busy={planning}
-        disabledReason={planBlock(autonomy)}
-      />
-
-      {error && (
-        <Callout tone="err" compact>
-          {error}
-        </Callout>
-      )}
-
-      {shown && parsing && <ParsingNote parsing={parsing} />}
-
-      {shown && (
-        <RunPanel
-          run={shown}
-          projectId={project.id}
+      <div className={cx("space-y-7", characterVisible && "lg:ml-[230px]")}>
+        <Advisories
+          findings={findings}
+          deployments={deployments}
+          environments={environments}
           slug={slug}
-          autonomy={autonomy}
-          approvals={approvals}
-          onToggleApprove={toggleApprove}
-          onRun={execute}
-          running={running}
-          onCancel={cancel}
-          cancelling={cancelling}
-          role={role}
           onSuggest={setGoal}
-          prodEnvIds={prodEnvIds}
         />
-      )}
 
-      <Card title="Earlier runs" subtitle="Goals, steps and outcomes, kept for this project.">
-        <RunHistory runs={runs.data?.runs} loading={runs.loading} activeRunId={shown?.id} />
-      </Card>
+        <CommandBar
+          value={goal}
+          onChange={setGoal}
+          onSubmit={plan}
+          busy={planning}
+          gimbalState={gimbalState}
+          disabledReason={planBlock(autonomy)}
+        />
+
+        {error && (
+          <Callout tone="err" compact>
+            {error}
+          </Callout>
+        )}
+
+        {shown && parsing && <ParsingNote parsing={parsing} />}
+
+        {shown && (
+          <RunPanel
+            run={shown}
+            projectId={project.id}
+            slug={slug}
+            autonomy={autonomy}
+            approvals={approvals}
+            onToggleApprove={toggleApprove}
+            onRun={execute}
+            running={running}
+            onCancel={cancel}
+            cancelling={cancelling}
+            role={role}
+            onSuggest={setGoal}
+            prodEnvIds={prodEnvIds}
+          />
+        )}
+
+        <Card title="Earlier runs" subtitle="Goals, steps and outcomes, kept for this project.">
+          <RunHistory runs={runs.data?.runs} loading={runs.loading} activeRunId={shown?.id} />
+        </Card>
+      </div>
     </div>
   );
 }
@@ -262,6 +323,11 @@ function Header({
   model,
   workspaceName,
   role,
+  presentation,
+  motion,
+  onMotionChange,
+  characterVisible,
+  onToggleCharacter,
 }: {
   autonomy: AutonomyLevel;
   onAutonomyChanged: () => void;
@@ -271,52 +337,88 @@ function Header({
   model?: string;
   workspaceName?: string;
   role: WorkspaceRole | null;
+  presentation: GimbalPresentation;
+  motion: GimbalMotion;
+  onMotionChange: (value: GimbalMotion) => void;
+  characterVisible: boolean;
+  onToggleCharacter: () => void;
 }) {
+  const { state } = presentation;
   return (
-    <header className="space-y-4">
-      <div className="flex items-start gap-3">
-        <span
-          className={cx(
-            "mt-0.5 grid h-9 w-9 place-items-center rounded-card border border-nav-accent/30",
-            "bg-nav-dim text-nav-accent"
-          )}
-        >
-          <NavigatorGlyph size={20} />
-        </span>
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-[20px] font-medium tracking-[-0.01em] text-ink">Navigator</h1>
-            <Tooltip
-              label={
-                plannerMode === "llm" && model
-                  ? `${PLANNER_NOTES.llm} Model: ${model} (set ORRERY_LLM_MODEL to change it).`
-                  : PLANNER_NOTES[plannerMode]
-              }
-            >
-              <Chip tone={plannerMode === "llm" ? "nav" : "neutral"}>
-                {plannerMode === "llm"
-                  ? `language parsing · ${model ?? "Claude"}`
-                  : "deterministic planner"}
-              </Chip>
-            </Tooltip>
+    <header className={cx("navigator-header", !characterVisible && "navigator-header-compact")}>
+      {characterVisible && (
+        <figure className="gimbal-stage" data-gimbal-state={state ?? "neutral"}>
+          <GimbalCharacter state={state} motion={motion} />
+          <figcaption className="gimbal-caption">Gimbal <span>· your Navigator</span></figcaption>
+        </figure>
+      )}
+
+      <div className="navigator-heading min-w-0 space-y-4">
+        <div className="flex items-start gap-3">
+          <NavigatorGlyph size={28} state={state} className="mt-1" />
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-[24px] font-medium tracking-[-0.02em] text-ink">Navigator</h1>
+              <Tooltip label={plannerMode === "llm" && model
+                ? `${PLANNER_NOTES.llm} Model: ${model} (set ORRERY_LLM_MODEL to change it).`
+                : PLANNER_NOTES[plannerMode]}>
+                <Chip tone={plannerMode === "llm" ? "nav" : "neutral"}>
+                  {plannerMode === "llm" ? `language parsing · ${model ?? "Claude"}` : "deterministic planner"}
+                </Chip>
+              </Tooltip>
+            </div>
+            <p className="mt-1 max-w-[65ch] text-[13px] text-ink-mute">
+              Set a course for your system. Review the plan, then approve each step.
+            </p>
           </div>
-          <p className="mt-0.5 max-w-[70ch] text-[13px] text-ink-mute">
-            Plans and operates this system through the same typed actions you use. Every step is
-            audited.
-          </p>
+        </div>
+
+        <div className="navigator-live-status" role="status" aria-live="polite" aria-atomic="true">
+          <GimbalStatus state={state} label={presentation.label} />
+          <p className="mt-1.5 text-[12.5px] leading-relaxed text-ink-mute">{presentation.description}</p>
+        </div>
+
+        {loading ? <Skeleton height={28} width="100%" /> : (
+          <AutonomyDial level={autonomy} onChanged={onAutonomyChanged} workspaceName={workspaceName} role={role} />
+        )}
+
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <button type="button" onClick={onToggleCharacter} aria-pressed={characterVisible}
+            className="inline-flex min-h-8 items-center gap-1.5 text-[12px] text-ink-faint transition-colors hover:text-ink">
+            {characterVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            {characterVisible ? "Hide Gimbal" : "Show Gimbal"}
+          </button>
+          <label className="inline-flex items-center gap-2 text-[12px] text-ink-faint">
+            Motion
+            <select aria-label="Gimbal motion" value={motion} onChange={(event) => onMotionChange(event.target.value as GimbalMotion)}
+              className="min-h-8 rounded-ctl border border-line bg-bg1 px-2 text-[12px] text-ink-mute">
+              <option value="auto">Follow system</option>
+              <option value="still">Still poses</option>
+              <option value="low-power">Low power</option>
+            </select>
+          </label>
         </div>
       </div>
-      {loading ? (
-        <Skeleton height={28} width="24rem" />
-      ) : (
-        <AutonomyDial
-          level={autonomy}
-          onChanged={onAutonomyChanged}
-          workspaceName={workspaceName}
-          role={role}
-        />
-      )}
+
+      <GimbalStateGuide current={state} />
     </header>
+  );
+}
+
+function GimbalStateGuide({ current }: { current: GimbalState | null }) {
+  return (
+    <aside className="gimbal-state-guide" aria-label="Gimbal state guide">
+      <p className="mb-2 text-[12px] font-medium text-ink-mute">A clear signal at every step</p>
+      <ul className="space-y-1">
+        {GIMBAL_STATES.map((state) => (
+          <li key={state} className={cx("gimbal-guide-row", state === current && "gimbal-guide-current")}>
+            <GimbalStatus state={state} />
+            {state === current && <span className="sr-only">current</span>}
+          </li>
+        ))}
+      </ul>
+      <p className="mt-3 text-[11.5px] leading-relaxed text-ink-faint">You set the course. Every action is audited.</p>
+    </aside>
   );
 }
 

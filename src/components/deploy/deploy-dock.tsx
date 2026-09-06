@@ -1,7 +1,9 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, ChevronDown, X } from "lucide-react";
-import { Button, CostDelta, StatusDot } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { CostDelta } from "@/components/ui/cost-delta";
+import { StatusDot } from "@/components/ui/status-dot";
 import { useProjectData } from "@/components/shell/project-context";
 import { cx } from "@/lib/format";
 import type { DeploymentStatus } from "@/lib/domain/types";

@@ -1,307 +1,81 @@
 "use client";
-/**
- * Step 2 — where this project will run. Nothing is created here: the choice is
- * handed to step 3, which builds the connection and the environment together.
- */
-import { useEffect, useState } from "react";
-import { ArrowRight, Check, Lock } from "lucide-react";
-import { useJson } from "@/lib/client/api";
+import { useState } from "react";
+import { ArrowRight, Lock, RefreshCw } from "lucide-react";
+import { api, useJson } from "@/lib/client/api";
 import type { CloudConnection } from "@/lib/domain/types";
 import { cx } from "@/lib/format";
-import { Button, Card, Chip, Skeleton, type ChipTone } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { ProviderChoice, ProviderInfo } from "./types";
 
-const AVAILABILITY_TONE: Record<ProviderInfo["availability"], ChipTone> = {
-  available: "ok",
-  preview: "warn",
-  planned: "neutral",
-};
-
-const AVAILABILITY_LABEL: Record<ProviderInfo["availability"], string> = {
-  available: "Available",
-  preview: "Preview",
-  planned: "Planned",
-};
-
-/** What a provider can honestly do today, straight off its adapter's availability. */
-const AVAILABILITY_NOTE: Record<ProviderInfo["availability"], string> = {
-  available: "Deploys run end to end.",
-  preview: "Plan and Terraform export only — Orrery does not apply changes to it yet.",
-  planned: "Not implemented. Nothing would happen if you picked it.",
-};
-
-/**
- * What a provider needs from the machine it runs against, when that is not
- * Orrery itself. Availability says the adapter works; it cannot say your
- * Docker is running. Providers listed here are probed on render through
- * GET /api/providers/:id/health, so the card reports what it found instead of
- * promising an end-to-end deploy the machine cannot do.
- */
-const PROVIDER_PREREQUISITE: Record<string, string> = {
-  localstack:
-    "Needs LocalStack listening on localhost:4566 (Docker Desktop running, then `localstack start`).",
-};
-
-/** GET /api/providers/:id/health */
 interface ProviderHealth {
   ok: boolean;
   checks: { id: string; label: string; status: string; detail?: string; fix?: string }[];
   probe?: { reachable: boolean; detail?: string; fix?: string };
-  availability: ProviderInfo["availability"];
-  displayName: string;
 }
-
-/** Why a provider cannot be picked. Only ever called for non-available ones. */
-function notSelectableReason(p: ProviderInfo): string {
-  return p.availability === "preview"
-    ? `${p.displayName} is Preview: Orrery plans and exports Terraform for it, but cannot apply changes yet. Pick a provider marked Available, then export.`
-    : `${p.displayName} is Planned, not implemented. Picking it would do nothing.`;
-}
-
 export interface StepProviderProps {
-  providers: ProviderInfo[];
-  connections: CloudConnection[];
-  loading: boolean;
-  onBack: () => void;
-  /** the provider the project's first environment should deploy through */
-  onNext: (choice: ProviderChoice) => void;
+  providers: ProviderInfo[]; connections: CloudConnection[]; loading: boolean;
+  initialChoice?: ProviderChoice; onBack: () => void; onNext: (choice: ProviderChoice) => void;
 }
-
-export function StepProvider({
-  providers,
-  connections,
-  loading,
-  onBack,
-  onNext,
-}: StepProviderProps) {
-  // Selectability comes from the adapter's own availability, never from a
-  // hardcoded "sandbox is special" test — LocalStack reports available and is
-  // therefore choosable, exactly as the README says.
-  const selectable = providers.filter((p) => p.availability === "available");
-  const rest = providers.filter((p) => p.availability !== "available");
-
-  // A provider with a prerequisite is probed before it can be picked, so
-  // "deploys run end to end" is a claim about this machine, not about the
-  // adapter. Only one provider has a prerequisite today, so one call does it.
-  const probeId = selectable.find((p) => PROVIDER_PREREQUISITE[p.id])?.id;
-  const health = useJson<ProviderHealth>(
-    probeId ? `/api/providers/${encodeURIComponent(probeId)}/health` : null
-  );
-  const probing = Boolean(probeId) && health.loading;
-  const reachable = Boolean(health.data?.ok);
-  /** null when the provider is fine (or has no prerequisite); a sentence otherwise. */
-  const unreachable = (id: string): string | null => {
-    if (id !== probeId || probing || reachable) return null;
-    const from =
-      health.data?.probe?.fix ??
-      health.data?.checks.find((c) => c.status !== "pass")?.fix ??
-      health.error?.fix;
-    return `Not reachable: ${from ?? PROVIDER_PREREQUISITE[id] ?? "start it and reload this page."}`;
+export function StepProvider({ providers, connections, loading, initialChoice, onBack, onNext }: StepProviderProps) {
+  const [picked, setPicked] = useState(initialChoice?.providerId ?? "");
+  const health = useJson<ProviderHealth>(providers.some((p) => p.id === "localstack") ? "/api/providers/localstack/health" : null);
+  const [rechecking, setRechecking] = useState(false);
+  const [rechecked, setRechecked] = useState<ProviderHealth>();
+  const [recheckError, setRecheckError] = useState<string>();
+  const currentHealth = rechecked ?? health.data;
+  const probing = health.loading || rechecking;
+  const reachable = !probing && !recheckError && !!currentHealth?.ok;
+  const selectable = providers.filter((p) => p.availability === "available" || p.id === "aws" && p.availability === "preview");
+  const future = [
+    ...providers.filter((p) => !selectable.some((s) => s.id === p.id)),
+    ...[{ id: "azure", displayName: "Azure" }, { id: "oracle", displayName: "Oracle Cloud" }].filter((p) => !providers.some((s) => s.id === p.id)).map((p) => ({ ...p, availability: "planned" as const, tagline: "Provider support is not implemented.", regions: [] })),
+  ];
+  const chosen = selectable.find((p) => p.id === picked);
+  const existing = connections.find((c) => c.id === initialChoice?.connectionId && c.provider === chosen?.id)
+    ?? connections.find((c) => c.provider === chosen?.id && c.status === "healthy")
+    ?? connections.find((c) => c.provider === chosen?.id);
+  const blocked = !chosen || chosen.id === "localstack" && !reachable;
+  const recheck = async () => {
+    if (rechecking) return;
+    setRechecking(true);
+    setRecheckError(undefined);
+    try { setRechecked(await api<ProviderHealth>("/api/providers/localstack/health")); }
+    catch (error) { setRechecked(undefined); setRecheckError(error instanceof Error ? error.message : "The probe failed."); }
+    finally { setRechecking(false); }
   };
-
-  const [picked, setPicked] = useState<string>("");
-
-  /** Available, and — where that depends on this machine — actually up. */
-  const pickable = selectable.filter((p) => p.id !== probeId || (!probing && reachable));
-
-  // The default is a real selection in state, not a render-time fallback, so
-  // the card that looks chosen is the one aria-checked reports and the one the
-  // Continue button names. A provider that turns out to be down drops the
-  // selection rather than leaving a card that cannot be used looking chosen.
-  const firstId = pickable[0]?.id;
-  const pickedGone = picked !== "" && !pickable.some((p) => p.id === picked);
-  useEffect(() => {
-    if (!picked && firstId) setPicked(firstId);
-    else if (pickedGone) setPicked(firstId ?? "");
-  }, [picked, firstId, pickedGone]);
-
-  const chosen = pickable.find((p) => p.id === picked);
-  const existing = connections.find((c) => c.provider === chosen?.id);
-
-  /** Arrow keys move the selection inside the group, as radios do. */
-  const move = (dir: 1 | -1) => {
-    if (pickable.length === 0) return;
-    const at = pickable.findIndex((p) => p.id === picked);
-    const next = pickable[(at + dir + pickable.length) % pickable.length];
-    if (!next) return;
-    setPicked(next.id);
-    document.querySelector<HTMLElement>(`[data-provider="${CSS.escape(next.id)}"]`)?.focus();
-  };
-
-  if (loading && providers.length === 0) return <Skeleton height={240} />;
-
-  return (
-    <div className="max-w-[760px] space-y-8 animate-enter">
-      <p className="text-[16px] leading-relaxed text-ink-mute">
-        Orrery deploys into your cloud, never ours. Every provider below is labelled exactly as
-        honestly as it behaves, and only the ones that really execute can be picked.
-      </p>
-
-      <div className="space-y-3">
-        <h3 id="providers-available" className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">
-          Available now — deploys run end to end
-        </h3>
-        <div role="radiogroup" aria-labelledby="providers-available" className="grid gap-3">
-          {selectable.map((p) => {
-            const active = p.id === chosen?.id;
-            const conn = connections.find((c) => c.provider === p.id);
-            const prerequisite = PROVIDER_PREREQUISITE[p.id];
-            const down = unreachable(p.id);
-            const checking = p.id === probeId && probing;
-            const off = Boolean(down) || checking;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                role="radio"
-                data-provider={p.id}
-                aria-checked={active}
-                aria-disabled={off || undefined}
-                disabled={off}
-                title={down ?? (checking ? "Checking whether it is reachable…" : undefined)}
-                tabIndex={active ? 0 : -1}
-                onKeyDown={(e) => {
-                  if (e.key === "ArrowDown" || e.key === "ArrowRight") {
-                    e.preventDefault();
-                    move(1);
-                  } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
-                    e.preventDefault();
-                    move(-1);
-                  }
-                }}
-                onClick={() => !off && setPicked(p.id)}
-                className={cx(
-                  "block w-full rounded-card border p-5 text-left transition-colors duration-[var(--dur-fast)]",
-                  active
-                    ? "border-signal/50 bg-bg2 ring-1 ring-signal/20 hover:border-signal"
-                    : "border-line bg-bg1 hover:border-line-strong",
-                  off && "cursor-not-allowed opacity-70"
-                )}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <h2 className="text-[16px] font-medium text-ink">{p.displayName}</h2>
-                    <p className="mt-1 max-w-[52ch] text-[13px] text-ink-mute">{p.tagline}</p>
-                    <p className="mt-1.5 text-[12.5px] text-ink-faint">
-                      {conn
-                        ? `Already connected as “${conn.label}” (${conn.status}).`
-                        : p.id === "sandbox"
-                          ? "Nothing to connect — the sandbox runs inside Orrery."
-                          : `Nothing is connected yet. The last step connects it and runs its preflight checks${
-                              p.regions[0] ? ` in ${p.regions[0].label}` : ""
-                            }.`}
-                    </p>
-                    {conn && conn.status !== "healthy" && (
-                      <p className="mt-1.5 text-[12.5px] text-warn">
-                        That connection is {conn.status}. Re-check it in Settings → Connections
-                        before you deploy through it.
-                      </p>
-                    )}
-                    {prerequisite && (
-                      <p
-                        role={p.id === probeId ? "status" : undefined}
-                        className={cx(
-                          "mt-1.5 max-w-[60ch] text-[12.5px] leading-relaxed",
-                          down ? "text-err" : "text-ink-faint"
-                        )}
-                      >
-                        {checking ? `Checking ${p.displayName}…` : (down ?? prerequisite)}
-                      </p>
-                    )}
-                  </div>
-                  <Chip
-                    tone={checking ? "neutral" : down ? "err" : "ok"}
-                    icon={down || checking ? undefined : <Check className="h-3 w-3" />}
-                    title={
-                      p.id === probeId
-                        ? "Checked against this machine just now, not just against the adapter."
-                        : undefined
-                    }
-                  >
-                    {checking ? "Checking…" : down ? "Not reachable" : "Available"}
-                  </Chip>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <Card
-        title="Exact access this grants"
-        subtitle="Every connection lists what it can touch, before you pick it."
-      >
-        <ul className="space-y-2 text-[13px] text-ink-mute">
-          {(existing?.grantedPermissions ??
-            (chosen?.id === "sandbox"
-              ? ["No cloud access — the sandbox runs inside Orrery and simulates deployments."]
-              : [
-                  `Not connected yet. ${chosen?.displayName ?? "This provider"} lists the exact permissions it takes on the connection screen, before anything is created.`,
-                ])
-          ).map((p) => (
-            <li key={p} className="flex gap-2.5">
-              <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-signal" />
-              <span>{p}</span>
-            </li>
-          ))}
-        </ul>
-      </Card>
-
-      {rest.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-[12px] tracking-[0.02em] text-ink-mute uppercase">
-            Not selectable yet
-          </h3>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {rest.map((p) => (
-              <div
-                key={p.id}
-                title={notSelectableReason(p)}
-                aria-disabled="true"
-                className="rounded-card border border-line bg-bg1 p-4 opacity-80"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <h4 className="text-[14px] text-ink">{p.displayName}</h4>
-                  <Chip tone={AVAILABILITY_TONE[p.availability]}>
-                    {AVAILABILITY_LABEL[p.availability]}
-                  </Chip>
-                </div>
-                <p className="mt-1.5 text-[12.5px] text-ink-mute">{p.tagline}</p>
-                <p className="mt-2 text-[12px] text-ink-faint">
-                  {AVAILABILITY_NOTE[p.availability]}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="flex gap-2">
-        <Button variant="quiet" onClick={onBack}>
-          Back
-        </Button>
-        <Button
-          disabled={!chosen}
-          disabledReason={
-            probing
-              ? "Still checking whether the available provider is reachable from this machine."
-              : selectable.length > 0
-                ? "The provider that reports itself available is not reachable from this machine. Start it and reload, or pick another once one ships."
-                : "No provider reports itself available in this build, so there is nothing to deploy through."
-          }
-          onClick={() =>
-            chosen &&
-            onNext({
-              providerId: chosen.id,
-              connectionId: existing?.id,
-              displayName: chosen.displayName,
-            })
-          }
-          icon={<ArrowRight className="h-3.5 w-3.5" />}
-        >
-          {chosen ? `Use ${chosen.displayName}` : "Continue"}
-        </Button>
-      </div>
+  const permissions = existing?.declaredPermissions ?? existing?.grantedPermissions ?? (
+    chosen?.id === "aws" ? ["No credentials or IAM permissions are needed. The AWS adapter does not call AWS or apply changes.", "Preview a plan and export Terraform; any external use of that export is a separate workflow."]
+    : chosen?.id === "localstack" ? ["Calls the configured local LocalStack endpoint for supported S3 buckets and SQS queues.", "App services, routes and unsupported resources are blocked by deployment preflight."]
+    : chosen?.id === "sandbox" ? ["No cloud access. Services, resources, deploys and observations are simulated."]
+    : ["Select a provider to see its access and execution limits."]);
+  if (loading && !providers.length) return <Skeleton height={240} />;
+  return <div className="max-w-[760px] space-y-7 animate-enter">
+    <p className="text-base leading-relaxed text-ink-mute">Choose what this project should use. Gimbal will keep the distinction between a local emulator, an AWS preview and a simulation visible throughout your workspace.</p>
+    <div role="radiogroup" aria-label="Provider choices" className="space-y-3">
+      {selectable.map((p) => <button type="button" key={p.id} role="radio" aria-checked={picked === p.id} onClick={() => setPicked(p.id)}
+        onKeyDown={(e) => {
+          if (!["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft"].includes(e.key)) return;
+          e.preventDefault();
+          const at = selectable.findIndex((item) => item.id === p.id);
+          const next = selectable[(at + (e.key === "ArrowDown" || e.key === "ArrowRight" ? 1 : -1) + selectable.length) % selectable.length];
+          setPicked(next.id);
+          document.getElementById(`guide-provider-${next.id}`)?.focus();
+        }}
+        id={`guide-provider-${p.id}`} tabIndex={picked ? (picked === p.id ? 0 : -1) : p.id === selectable[0]?.id ? 0 : -1}
+        className={cx("block w-full rounded-card border p-5 text-left transition-colors", picked === p.id ? "border-signal bg-bg2" : "border-line bg-bg1 hover:border-line-strong")}>
+        <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-medium text-ink">{p.id === "localstack" ? "Build locally" : p.id === "aws" ? "Prepare for AWS" : p.id === "sandbox" ? "Explore a simulation" : p.displayName}</h2><Chip tone={p.id === "aws" ? "warn" : "neutral"}>{p.id === "aws" ? "Preview · no apply" : p.id === "sandbox" ? "Simulation" : "Local emulator"}</Chip></div>
+        <p className="mt-1 text-xs text-ink-faint">{p.displayName}</p>
+        <p className="mt-2 text-sm leading-relaxed text-ink-mute">{p.id === "aws" ? "Plan and export Terraform. Zenith.ai does not call AWS or deploy to it. No credentials or IAM setup required." : p.id === "localstack" ? "Real S3 and SQS operations against LocalStack on your machine. Needs a reachable local endpoint; full application deploys are not supported." : p.id === "sandbox" ? "Explore the complete workflow with simulated infrastructure. No cloud account or billable execution." : p.tagline}</p>
+        {p.id === "localstack" && <p className={cx("mt-3 text-xs", reachable ? "text-signal" : "text-warn")}>{probing ? "Checking LocalStack…" : reachable ? "Local endpoint responded to the latest probe. Connection preflight still runs before creation." : recheckError ?? currentHealth?.probe?.fix ?? currentHealth?.checks.find((c) => c.status !== "pass")?.fix ?? "LocalStack is not reachable. Start the configured endpoint (usually localhost:4566), then recheck below."}</p>}
+      </button>)}
     </div>
-  );
+    {providers.some((p) => p.id === "localstack") && <Button variant="quiet" size="sm" busy={rechecking} onClick={recheck} icon={<RefreshCw className="h-3.5 w-3.5" />}>Recheck LocalStack</Button>}
+    <div className="border-y border-line py-5"><h3 className="text-sm font-medium text-ink">Access and limits</h3><ul className="mt-3 space-y-2 text-sm text-ink-mute">{permissions.map((permission) => <li key={permission} className="flex gap-2"><Lock className="mt-1 h-3.5 w-3.5 shrink-0 text-signal" /><span>{permission}</span></li>)}</ul>
+      {existing && <p className="mt-3 text-xs text-ink-faint">Existing connection: {existing.label} · {existing.status}. These are declared permissions; this screen does not grant access or recheck the saved connection.</p>}
+    </div>
+    <div><h3 className="text-sm text-ink-mute">Coming later</h3><div className="mt-3 grid gap-3 sm:grid-cols-2">{future.map((p) => <button type="button" disabled key={p.id} className="rounded-card border border-line p-4 text-left opacity-70" title="This provider is not implemented."><span className="text-sm text-ink">{p.displayName}</span><span className="ml-3 text-xs text-ink-faint">Coming later</span></button>)}</div></div>
+    <div className="flex flex-wrap gap-2"><Button variant="quiet" onClick={onBack}>Back</Button><Button variant="primary" disabled={blocked} disabledReason={!chosen ? "Choose a provider explicitly." : "Start LocalStack and use Recheck LocalStack before continuing."} onClick={() => chosen && !blocked && onNext({ providerId: chosen.id, connectionId: existing?.id, displayName: chosen.displayName })} icon={<ArrowRight className="h-3.5 w-3.5" />}>{chosen ? `Continue with ${chosen.displayName}` : "Choose a provider"}</Button></div>
+  </div>;
 }

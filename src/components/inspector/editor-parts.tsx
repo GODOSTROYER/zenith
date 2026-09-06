@@ -8,7 +8,11 @@
  * imports what it needs from here.
  */
 import { useEffect, useRef, useState } from "react";
-import { Button, Callout, CostDelta, Field, Select } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { CostDelta } from "@/components/ui/cost-delta";
+import { Field } from "@/components/ui/field";
+import { Select } from "@/components/ui/select";
 import { SIZE_SPECS, nodeMonthlyCostUsd } from "@/lib/cost/pricing";
 import type { Manifest, Resource, Service, ServiceSize } from "@/lib/domain/types";
 import { fmtUsd } from "@/lib/format";

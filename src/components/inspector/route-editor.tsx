@@ -1,7 +1,11 @@
 "use client";
 /** One published route: where it answers, TLS, path prefix, connections. */
 import { useState } from "react";
-import { CopyButton, Field, Input, Switch, Tabs } from "@/components/ui";
+import { CopyButton } from "@/components/ui/copy-button";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Tabs } from "@/components/ui/tabs";
 import { SectionTitle } from "@/components/screens/shared";
 import { useProjectData } from "@/components/shell/project-context";
 import { PlanFirst } from "./plan-first";
@@ -70,7 +74,7 @@ export function RouteEditor({ route, onOpenBinding }: RouteEditorProps) {
           <Facts
             rows={[
               ["Host", <span key="h" className="font-mono">{route.host}</span>],
-              ["DNS", route.managedDns ? "Orrery-managed hostname" : "your own hostname (CNAME)"],
+              ["DNS", route.managedDns ? "Zenith.ai-managed hostname" : "your own hostname (CNAME)"],
             ]}
           />
 
@@ -108,7 +112,7 @@ export function RouteEditor({ route, onOpenBinding }: RouteEditorProps) {
               <p className="text-[12px] text-ink-mute">
                 {tls
                   ? route.managedDns
-                    ? "Certificate issued and renewed by Orrery."
+                    ? "Certificate issued and renewed by Zenith.ai."
                     : "Certificate issues once the hostname resolves to this environment."
                   : "Traffic travels as plaintext — anything on the path can read it."}
               </p>

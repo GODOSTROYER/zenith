@@ -8,7 +8,7 @@ import {
   type Edge,
   type EdgeProps,
 } from "@xyflow/react";
-import { Chip } from "@/components/ui";
+import { Chip } from "@/components/ui/chip";
 import { cx } from "@/lib/format";
 
 export interface BindingEdgeData extends Record<string, unknown> {

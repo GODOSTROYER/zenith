@@ -220,6 +220,17 @@ describe("<Table>", () => {
     expect(headers(el)).toHaveLength(3);
   });
 
+  it("does not steal arrow keys from an input inside a selectable row", () => {
+    const el = render({ onSelectRow: () => undefined,
+      columns: [{ key: "name", header: "Name", render: (row) => <input aria-label={row.name} defaultValue={row.name} /> }] });
+    const input = el.querySelector("input")!;
+    act(() => input.focus());
+    const event = new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true });
+    act(() => input.dispatchEvent(event));
+    expect(event.defaultPrevented).toBe(false);
+    expect(document.activeElement).toBe(input);
+  });
+
   it("scrolls sideways inside its own wrapper", () => {
     // The page must never scroll horizontally because one table is wide.
     expect(render().firstElementChild?.className).toContain("overflow-x-auto");

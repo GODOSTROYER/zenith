@@ -1,4 +1,4 @@
-# PRODUCT.md — Orrery
+# PRODUCT.md — Zenith.ai
 
 **What it is.** A bring-your-own-cloud deployment and operations platform for
 small SaaS teams and solo builders. One canonical application manifest — a
@@ -23,17 +23,18 @@ them: hidden costs, dead controls, no URL after deploy).
 - Navigator: agent control through the same typed, audited actions, with a
   5-level autonomy dial and approval boundaries.
 - Honest provider labels: Sandbox & LocalStack **Available**, AWS **Preview**
-  (real Terraform export; apply disabled without credentials), K8s/GCP/Azure
-  **Planned**. Simulated things say simulated; costs say estimate.
+  (real Terraform export; no AWS API calls or in-app apply), K8s/GCP/Azure
+  **Planned**, Oracle **Coming later**. Simulated things say simulated; costs say estimate.
 - No lock-in: manifest + real Terraform + operations README export;
   LocalStack → real AWS is one deleted override file.
 
 **Voice.** Calm staff-level platform engineer. Errors name their fix.
 Never overclaims. Celebrates once, quietly.
 
-**Brand commitments.** Name "Orrery" (placeholder, user may rename later).
-Working wordmark: orbital ring + satellite dot. Visual world: "observatory
-at night" per docs/DESIGN.md (authoritative): bg0 #0a0d13 grounds, hairline
+**Brand commitments.** Zenith.ai — “Your stack, clearly in view.”
+Wordmark: overhead point, sightline and observer framed by an open dome.
+Gimbal retains its own moving rings. Visual world: "observatory
+at night" per docs/DESIGN.md (authoritative): bg0 #0b1020 grounds, hairline
 structure, mint-teal `signal` accent, periwinkle `nav-accent` reserved for
 the Navigator, amber marks production, Space Grotesk + JetBrains Mono,
 dark-first with a considered light theme.
@@ -44,5 +45,8 @@ invent commercial claims; it demonstrates the product with real product
 vocabulary and clearly synthetic demo data ("atlas" system).
 
 **Uninventable facts:** prices, customers, benchmarks, hosted availability.
-CTA reality: "Open Orrery" → /overview when a workspace exists, else
-"Begin" → /onboarding. Secondary: GitHub repo (private), docs in-repo.
+CTA reality: "Create account" → /signup for signed-out visitors when auth is
+configured; "Open Zenith.ai" → /overview for workspace members, otherwise
+"Start with Gimbal" → /onboarding. The optional starter and /guide remain
+revisitable. Setup progress reflects actual scoped records, not visited pages.
+See docs/BRANDING.md for the identity and compatibility boundary.

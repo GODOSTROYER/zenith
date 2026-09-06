@@ -1,7 +1,10 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
-import { Button, Chip, Drawer, EmptyState } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
+import { Drawer } from "@/components/ui/drawer";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useProjectData } from "@/components/shell/project-context";
 import { ChangeRow } from "@/components/screens/shared";
 import { AddResourceForm } from "./add-resource-form";

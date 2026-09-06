@@ -3,7 +3,7 @@
  * Observe — health, logs and cost for one environment.
  *
  * Sandbox health and logs are generated from the same facts, so what this page
- * shows is what Orrery actually computed. It is labelled simulated everywhere,
+ * shows is what Zenith.ai actually computed. It is labelled simulated everywhere,
  * and it reads the deployed revision rather than the working copy wherever the
  * question is "what is running": the two are not the same system.
  *
@@ -13,7 +13,7 @@
 import { useJson } from "@/lib/client/api";
 import { useProjectAlerts } from "@/lib/client/alerts";
 import type { Revision } from "@/lib/domain/types";
-import { Skeleton } from "@/components/ui";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useShell } from "@/components/shell/shell-context";
 import { useSelectedEnv } from "@/components/screens/project-data";
 import { AlertBanner, AlertsCard } from "./alerts";
@@ -21,6 +21,7 @@ import { CostCard } from "./cost-card";
 import { DriftCard } from "./drift-card";
 import { HealthStrip } from "./health-strip";
 import { LogsPanel } from "./logs-panel";
+import { PageHeading } from "@/components/screens/page-heading";
 
 export default function ObservePage() {
   const { data, env, projectId } = useSelectedEnv();
@@ -51,7 +52,8 @@ export default function ObservePage() {
     );
 
   return (
-    <div className="mx-auto h-full w-full overflow-y-auto max-w-[1180px] space-y-6 px-6 py-6">
+    <div className="product-page mx-auto h-full w-full max-w-[1240px] space-y-6 overflow-y-auto">
+      <PageHeading title="Observe" description={`Health, drift, logs, and estimated cost for ${env.name}. Provider observations and simulated results remain explicitly labeled.`} />
       <AlertBanner open={alerts.open} />
 
       <HealthStrip
@@ -70,7 +72,7 @@ export default function ObservePage() {
         providerName={providerName}
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <LogsPanel
           environmentId={env.id}
           working={manifest}

@@ -4,7 +4,7 @@
  * chip would imply the finding belongs to what you are looking at.
  */
 import type { Environment, SecurityFinding } from "@/lib/domain/types";
-import { Chip } from "@/components/ui";
+import { Chip } from "@/components/ui/chip";
 import { EnvDot, envTone } from "@/components/screens/shared";
 
 export interface FindingEnvChipProps {

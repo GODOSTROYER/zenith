@@ -10,7 +10,7 @@ import { z } from "zod";
 import { defineAction, type ActionResult } from "@/lib/actions/core";
 import { db, q } from "@/lib/db/store";
 import { environmentHealth } from "@/lib/logsim";
-import { requireProject } from "./_shared";
+import { requireEnvironment, requireProject } from "./_shared";
 
 const Investigate = z.object({
   projectId: z.string().optional(),
@@ -41,6 +41,9 @@ function report(projectId: string, environmentId?: string): ActionResult {
         "No failed deployment in this project's history — every deployment either succeeded, was cancelled, or is still running.",
     };
 
+  // Unscoped lookups, deliberately: both ids come off a deployment that was
+  // already filtered to the caller's own project, so they are that project's
+  // own environment and revision. Nothing caller-supplied reaches this far.
   const env = q.environment(failed.environmentId);
   const revision = q.revision(failed.revisionId);
   const step = failed.steps.find((s) => s.status === "failed");
@@ -79,12 +82,25 @@ defineAction<Investigate>({
   input: Investigate,
   plan(ctx, input) {
     const project = requireProject(ctx, input.projectId);
-    const env = input.environmentId ? q.environment(input.environmentId) : undefined;
+    /*
+     * TENANCY. `q.environment` read the whole store, and the summary below puts
+     * `env.name` in front of the caller — so a read-only action anyone with the
+     * viewer role could run turned an environment id from another workspace
+     * into that environment's name. A plan that renders is already the leak,
+     * whether or not execute would go on to refuse, so the scoped lookup goes
+     * here as well as in execute.
+     *
+     * Resolution stays optional: investigating a whole project (no
+     * environmentId) is the common case and must keep working. The id is
+     * scoped when there is one, and `requireEnvironment` refuses a foreign one
+     * with the same sentence a fabricated one gets.
+     */
+    const env = input.environmentId ? requireEnvironment(ctx, input.environmentId) : undefined;
     return {
       summary: `Read the most recent failed deployment in ${env?.name ?? project.name}.`,
       details: [
         "Reads the failed deployment, the step that failed and the provider error it recorded.",
-        "Reports the environment's health, which is simulated in Orrery.",
+        "Reports the environment's health, which is simulated in Zenith.ai.",
         "Changes nothing: no revision, no deployment, no manifest edit.",
       ],
       costDeltaUsd: 0,
@@ -95,6 +111,10 @@ defineAction<Investigate>({
   },
   execute(ctx, input) {
     const project = requireProject(ctx, input.projectId);
-    return report(project.id, input.environmentId);
+    // Scoped the same way as the plan, and the report reads the resolved
+    // environment's id rather than the raw input — nothing unscoped reaches
+    // the deployment filter.
+    const env = input.environmentId ? requireEnvironment(ctx, input.environmentId) : undefined;
+    return report(project.id, env?.id);
   },
 });

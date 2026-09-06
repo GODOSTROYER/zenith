@@ -19,18 +19,16 @@ import type {
   EnvironmentClass,
 } from "@/lib/domain/types";
 import { fmtUsd } from "@/lib/format";
-import {
-  Button,
-  Card,
-  Chip,
-  Field,
-  Input,
-  Select,
-  Skeleton,
-  StatusDot,
-  Switch,
-  TimeAgo,
-} from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StatusDot } from "@/components/ui/status-dot";
+import { Switch } from "@/components/ui/switch";
+import { TimeAgo } from "@/components/ui/time-ago";
 import type { RevisionMeta } from "@/components/screens/project-data";
 import { ActionConfirm, envTone } from "@/components/screens/shared";
 import { useGate } from "./access";
@@ -443,7 +441,7 @@ function EnvironmentCard({
         />
       )}
 
-      <div className="mt-6 grid gap-6 sm:grid-cols-2">
+      <div className="mt-6 grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6 sm:grid-cols-2">
         <Field
           label="Monthly budget"
           help={`Estimates only. Budgets warn before a deploy; they never stop a running system. $${BUDGET_MIN} to $${BUDGET_MAX.toLocaleString("en-US")}.`}
@@ -453,7 +451,7 @@ function EnvironmentCard({
               : undefined
           }
         >
-          <div className="flex gap-2">
+          <div className="flex min-w-0 flex-wrap gap-2">
             <Input
               value={budget}
               onChange={(e) => setBudget(e.target.value)}
@@ -593,7 +591,7 @@ function DeployedState({
             ) : revision ? (
               <span
                 className="text-ink-faint"
-                title="Orrery no longer holds the deployment record that landed this revision, so this is when the revision was created."
+                title="Zenith.ai no longer holds the deployment record that landed this revision, so this is when the revision was created."
               >
                 {" · "}
                 <TimeAgo iso={revision.createdAt} prefix="revision cut" />

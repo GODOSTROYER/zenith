@@ -3,7 +3,7 @@
  * ⌘K / Ctrl-K — every screen and every registered action, in one list.
  *
  * The action rows come from the real `actionRegistry()`, serialised by the
- * product layout (a server component), so this list cannot drift from what the
+ * bootstrap endpoint, so this list cannot drift from what the
  * engine will accept: the title, risk and required role shown here are the ones
  * `runAction` enforces. A row the caller's role forbids is disabled and says
  * which role it needs and which one they have, rather than sending them
@@ -17,7 +17,8 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter } from "next/navigation";
 import { Search } from "lucide-react";
-import { Kbd, RiskBadge } from "@/components/ui";
+import { Kbd } from "@/components/ui/kbd";
+import { RiskBadge } from "@/components/ui/risk-badge";
 import { useModal } from "@/components/ui/use-modal";
 import { useShell, type ActionEntry } from "@/components/shell/shell-context";
 import { cx } from "@/lib/format";
@@ -77,6 +78,14 @@ export function paletteRows(
   role: Role | null
 ): PaletteRow[] {
   const rows: PaletteRow[] = [
+    {
+      key: "screen:guide",
+      title: "Workspace guide",
+      where: "Gimbal's setup and screen guide",
+      href: "/guide",
+      group: "Screens",
+      search: "guide help onboarding setup gimbal getting started",
+    },
     {
       key: "screen:overview",
       title: "Workspace overview",
@@ -205,8 +214,8 @@ export function CommandPalette({ catalog }: { catalog: ActionEntry[] }) {
         className="inline-flex h-7 items-center gap-2 rounded-ctl border border-line bg-bg2 px-2.5 text-[12.5px] text-ink-mute transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)] hover:border-line-strong hover:text-ink"
       >
         <Search className="h-3.5 w-3.5" aria-hidden="true" />
-        <span className="hidden sm:inline">Search</span>
-        <Kbd className="hidden sm:inline-flex">{mac ? "⌘K" : "Ctrl K"}</Kbd>
+        <span>Search</span>
+        <span className="hidden sm:inline-flex"><Kbd>{mac ? "⌘K" : "Ctrl K"}</Kbd></span>
       </button>
 
       {present &&

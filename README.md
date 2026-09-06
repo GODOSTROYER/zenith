@@ -1,9 +1,8 @@
-# Orrery
+# Zenith.ai
 
-**A bring-your-own-cloud deployment and operations platform for small SaaS
-teams. Your infrastructure, in motion.**
+**Your stack, clearly in view.**
 
-Orrery turns an application into a living, explained system: services,
+Zenith.ai turns an application into a living, explained system: services,
 resources, routes, and typed **bindings** in one canonical manifest that the
 visual **System Map**, the **Source** view, the REST API, and the **Navigator**
 agent all share. Every change becomes a readable plan with a cost delta before
@@ -13,22 +12,37 @@ operations README — mean there is no lock-in.
 
 | | |
 | --- | --- |
-| **Tests** | 519 across 56 files (`npm test`), plus an end-to-end smoke run |
+| **Tests** | 932 across 88 files (`npm test`), plus an end-to-end smoke script |
 | **Actions** | 52 typed actions in one registry — every surface calls these |
-| **Providers** | Sandbox and LocalStack available · AWS preview · Kubernetes, GCP, Azure planned |
-| **Stack** | Next.js 15.3.3 · React 19.1.0 · TypeScript strict · Tailwind v4 · optional Supabase auth |
+| **Providers** | Sandbox and LocalStack available · AWS preview · Kubernetes, GCP, Azure planned · Oracle coming later |
+| **Stack** | Next.js 15.5.24 · React 19.1.0 · TypeScript strict · Tailwind v4 · optional Supabase auth |
 | **Runs at** | `http://localhost:3400` — one process, one data directory |
 | **License** | No license file yet |
 
-![Orrery landing page: the headline "Your infrastructure, in motion." over a dark background, with a Sign in button and a diagram on the right showing a route node feeding a web and worker service, wired to postgres, cache, jobs and mail nodes](docs/screenshots/landing.png)
+The platform is now Zenith.ai; Gimbal remains its Navigator character. Existing
+`ORRERY_*` configuration, storage namespaces and export filenames remain compatible.
+See [the identity and compatibility notes](docs/BRANDING.md).
+
+## Start with Gimbal
+
+New accounts enter the optional starter at `/onboarding`: create or choose a
+workspace, select a connection, then create an editable blueprint project or
+import a file. LocalStack offers a supported S3/SQS starter; AWS is explicitly
+plan/export Preview. Nothing is deployed by completing setup.
+
+Returning members can resume setup or open **Guide** in the application header
+or command palette. `/guide` explains the product screens using actual workspace
+records. Reading a guide never marks infrastructure verified. Resume records
+are scoped to the signed-in user and workspace; import contents and credentials
+are not saved in browser storage.
 
 ---
 
 ## What it is
 
-Orrery is one place to describe a small SaaS system, price a change before you
+Zenith.ai is one place to describe a small SaaS system, price a change before you
 make it, ship it, and then watch it. You draw services, databases, queues and
-routes on a map; Orrery keeps them in a single typed manifest and derives
+routes on a map; Zenith.ai keeps them in a single typed manifest and derives
 everything else from it — the JSON you can edit by hand, the REST API, the cost
 estimate, the security findings, and the plan for the next deploy. Nothing
 mutates that manifest except a registered action, so a button, a `curl`, and
@@ -36,22 +50,22 @@ the Navigator agent all take the same audited path. Every deploy runs as a
 durable state machine that streams its steps, survives a refresh, and ends in a
 live URL with a rollback point behind it. And you can leave at any time: the
 export bundle is your manifest plus real Terraform plus a README for operating
-the system without Orrery.
+the system without Zenith.ai.
 
 ## What it is not
 
 - **The sandbox provider is simulated.** Deploys, logs, health and cost against
   it are generated — realistic, deterministic, labeled `simulated` on every
   screen that shows them. No container starts.
-- **AWS is Preview: plan and export only.** Orrery generates real, usable
-  Terraform/OpenTofu for your manifest, but applying from Orrery is disabled and
+- **AWS is Preview: plan and export only.** Zenith.ai generates real, usable
+  Terraform/OpenTofu for your manifest, but applying from Zenith.ai is disabled and
   **no code path reads your AWS account** — so drift and discovery refuse rather
   than return a reassuring empty answer.
 - **LocalStack exercises S3 and SQS, and only those.** Buckets and queues really
   are provisioned and read back; Postgres, Redis, containers, load balancers, DNS
   and email run as labeled local simulations, because LocalStack Community cannot
   emulate them.
-- **It is not multi-process**, and there is no hosted Orrery, no pricing and no
+- **It is not multi-process**, and there is no hosted Zenith.ai, no pricing and no
   customers. This is a repo you run locally, one process at a time.
 
 ---
@@ -72,7 +86,7 @@ Open <http://localhost:3400>. `npm run setup` is idempotent: it checks Node and
 Docker (reporting, never requiring), copies `.env.local.example` to `.env.local`
 if you have none, seeds the "Kepler Labs" demo workspace when the data directory
 is empty, and prints the commands that make sense for your machine. With no keys
-configured Orrery runs in **local demo mode** — one local user who is admin of
+configured Zenith.ai runs in **local demo mode** — one local user who is admin of
 everything, no sign-in — and that is a complete install: every deployment path
 works against the sandbox provider.
 
@@ -102,7 +116,7 @@ cp .env.local .env
 docker compose --profile app up --build
 ```
 
-This starts LocalStack **and** Orrery, app on <http://localhost:3400>, data on a
+This starts LocalStack **and** Zenith.ai, app on <http://localhost:3400>, data on a
 named volume at `/data`. `npm run docker:build` / `docker:up` / `docker:down`
 wrap the same thing. Two things to know: `NEXT_PUBLIC_*` values are baked in at
 build time and Compose reads them from `.env` only, so auth keys mean a rebuild;
@@ -128,7 +142,7 @@ users.
 
 ![Overview screen for the Kepler Labs workspace: an Atlas project card showing $115.50/mo working against $89.50/mo deployed, chips for 18 to deploy and 1 open finding, staging and production environment chips, a staging budget bar showing $115.50 projected of $100.00, and a recent activity column on the right](docs/screenshots/overview.png)
 
-The workspace home. Each project card carries two numbers Orrery refuses to
+The workspace home. Each project card carries two numbers Zenith.ai refuses to
 conflate — what the working copy would cost and what the deployed revision costs
 — plus waiting changes, open findings, and a chip per environment showing its
 live revision and pending count. The budget meter turns red when the projection
@@ -236,6 +250,26 @@ half read the goal. Steps obey each environment's approval policy, land in the
 audit trail, and a run whose steps outrank the person who pressed Run is refused.
 Nothing here can do anything you could not do yourself from the map.
 
+Gimbal is the Navigator's quiet visual companion: a simplified face at the
+center of three gyroscope rings. A surrounding glow communicates planning
+(purple), awaiting approval (yellow), applying (blue), verified (green), or
+blocked (red), alongside a plain-text status. The rings explore while planning,
+hold a concentric alignment for approval, coordinate while applying, and adopt
+an interrupted pose when blocked. Transitions preserve their orientation.
+Hover and tap add a glance or greeting, including in the SVG fallback.
+The procedural renderer pauses offscreen, respects reduced motion, and caps
+rendering at 30fps (20fps in low-power mode). Motion settings retain the canvas;
+a GPU failure gets one retry before keeping the functional fallback. Visit
+[`/gimbal`](http://localhost:3400/gimbal) for the interactive preview.
+
+Green requires recorded, fresh provider evidence, not merely successful actions.
+Whole-run verification currently covers deployment-only workflows (optionally
+with planning/investigation) targeting LocalStack's managed S3/SQS subset with
+default configuration and no services, routes, or bindings. Read-only checks
+confirm intended resource presence and removals, and remain available in run
+history. Sandbox simulations and unsupported or incomplete checks stay neutral;
+failed provider checks show blocked. This verifies local emulation, not real AWS.
+
 ### Settings — `/p/<project>/settings`
 
 ![Settings screen with a section nav reading Workspace, Members, Environments, Connections, Secrets, Alerts, Export and Danger zone; the Workspace section offers a rename with a "Preview and rename" button, and the Members section lists one admin member with a role picker and a note about Supabase app_metadata role claims](docs/screenshots/settings.png)
@@ -277,7 +311,7 @@ outputs, a live URL, a recorded revision and a rollback point.
 per user, resolved from an httpOnly cookie re-checked against membership on every
 read. Roles are `viewer`, `editor`, `admin`; planning stays open to every member
 so anyone can see what an action would do before asking for it. Auth is optional:
-with no Supabase keys Orrery is one local admin user, and says so.
+with no Supabase keys Zenith.ai is one local admin user, and says so.
 
 **Secrets.** The manifest holds only `vault:<KEY>`; the value lives in
 `<ORRERY_DATA>/secrets.json` under AES-256-GCM, and reaches no diff, revision,
@@ -323,7 +357,7 @@ the invariants, [docs/DESIGN.md](docs/DESIGN.md) for the product laws.
 | **AWS** | Preview | No — plan only; applying is deliberately disabled until credentials support ships | Refuses. No code path reads your account, so it will not invent an answer | **Real Terraform/OpenTofu** |
 | **Kubernetes / GCP / Azure** | Planned | No — visible in the picker, not selectable, and refused at plan time before any revision is written | No | No |
 
-Everything imported by live discovery lands as a **referenced** resource: Orrery
+Everything imported by live discovery lands as a **referenced** resource: Zenith.ai
 draws it and lets services bind to it, but never provisions, changes or deletes
 it, and it adds nothing to the cost estimate. There is no path from discovery to
 `managed` — adoption cannot become ownership by accident.
@@ -371,7 +405,7 @@ accepts, never a silent default. Full table and build-time caveats in
 | `npm start` | Serve the production build on 3400 |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint over the repo |
-| `npm test` | Vitest: 519 tests, node and jsdom projects |
+| `npm test` | Vitest: 889 tests, node and jsdom projects |
 | `npm run verify` | typecheck + lint + test + smoke, in order — what CI runs |
 | `npm run smoke` | End-to-end: blueprint → deploy → URL, chaos failure → rollback |
 | `npm run setup` | First-run setup; idempotent |
@@ -385,18 +419,15 @@ accepts, never a silent default. Full table and build-time caveats in
 | `npm run localstack:down` | Stop the LocalStack container |
 | `npm run localstack:logs` | Tail LocalStack |
 | `npm run docker:build` | Build the app image (`--profile app`) |
-| `npm run docker:up` | Start LocalStack + Orrery detached |
+| `npm run docker:up` | Start LocalStack + Zenith.ai detached |
 | `npm run docker:down` | Stop and remove them |
 
 ### Quality gates
 
 `npm run verify` runs the four gates in order, and they all run offline.
-**`npm run build` does not:** `src/app/layout.tsx` loads its fonts through
-`next/font/google`, which fetches from `fonts.googleapis.com` at build time, so
-an air-gapped build fails with a font error rather than a code error.
-`.github/workflows/ci.yml` therefore runs `build` and `docker` as separate
-`continue-on-error` jobs, so a font outage cannot make the four real gates look
-red. Point tests and scripts at a throwaway directory (`ORRERY_DATA=$(mktemp -d)`)
+Fonts are self-hosted, so `npm run build` no longer fetches Google Fonts.
+`.github/workflows/ci.yml` runs `build` and `docker` as separate
+`continue-on-error` jobs. Point tests and scripts at a throwaway directory (`ORRERY_DATA=$(mktemp -d)`)
 so a run never touches your working `.data/`.
 
 ### Screenshots
@@ -462,7 +493,7 @@ tests/          mirrors src/: tests/<dir> covers src/lib/<dir>
 
 ## Honesty
 
-Orrery's product law is that a screen never claims more than it knows; the same
+Zenith.ai's product law is that a screen never claims more than it knows; the same
 applies here. **[docs/LIMITATIONS.md](docs/LIMITATIONS.md) is the complete list**,
 maintained as features land, and the file to trust over this one. The five
 ceilings that matter most:

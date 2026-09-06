@@ -29,11 +29,15 @@ import {
 import { findNode, nodeName } from "@/lib/domain/graph";
 import { inferCapability, SECRET_KEY_RE, slugify, uniqueName } from "@/lib/importers/types";
 import {
+  isVaultRef,
+  parseVaultRef,
   putSecret,
   removeSecret as removeStoredSecret,
   secretStatus,
   secretStoreState,
+  vaultRef,
 } from "@/lib/secrets";
+import { db, q } from "@/lib/db/store";
 import {
   clone,
   commit,
@@ -161,7 +165,7 @@ manifestAction<AddService>({
     else if (input.repo) source = { type: "git", repo: input.repo, ref: input.ref ?? "main", dockerfile: input.dockerfile };
     else {
       source = { type: "image", image: PLACEHOLDER_IMAGE };
-      warnings.push(`No image or repository given, so ${name} points at the Orrery sample image (${PLACEHOLDER_IMAGE}). Set a real source with system.updateService before deploying anything you care about.`);
+      warnings.push(`No image or repository given, so ${name} points at the Zenith.ai sample image (${PLACEHOLDER_IMAGE}). Set a real source with system.updateService before deploying anything you care about.`);
     }
 
     let port = input.port;
@@ -298,7 +302,7 @@ manifestAction<AddResource>({
     const next = clone(project.workingManifest);
     const ownership = input.ownership ?? "managed";
     if (ownership === "referenced" && !input.externalRef)
-      throw new Error("A referenced resource needs the identifier it already has in your cloud. Pass externalRef (e.g. aws_db_instance.main), or leave ownership as 'managed' to let Orrery provision it.");
+      throw new Error("A referenced resource needs the identifier it already has in your cloud. Pass externalRef (e.g. aws_db_instance.main), or leave ownership as 'managed' to let Zenith.ai provision it.");
 
     const name = uniqueName(slugify(input.name, input.kind.replace("_", "-")), takenNames(next));
     const resource: Resource = {
@@ -314,7 +318,7 @@ manifestAction<AddResource>({
 
     const details: string[] = [];
     if (ownership !== "managed")
-      details.push(`Marked "${ownership}": Orrery reads it and binds to it, but never provisions or deletes it — and it does not appear in the Orrery cost estimate.`);
+      details.push(`Marked "${ownership}": Zenith.ai reads it and binds to it, but never provisions or deletes it — and it does not appear in the Zenith.ai cost estimate.`);
 
     if (input.bindTo) {
       const fromId = resolveNodeId(next, input.bindTo);
@@ -428,7 +432,7 @@ manifestAction<AddRoute>({
 
     const details: string[] = [];
     const warnings: string[] = [];
-    if (managedDns) details.push(`${host} is an Orrery-managed hostname — DNS and the TLS certificate are handled for you.`);
+    if (managedDns) details.push(`${host} is an Zenith.ai-managed hostname — DNS and the TLS certificate are handled for you.`);
     else details.push(`${host} is your own hostname: point a CNAME at the environment before deploying, or the certificate will not issue.`);
 
     if (input.serviceId) {
@@ -501,7 +505,7 @@ manifestAction<UpdateRoute>({
       if (input.tls)
         details.push(
           route.managedDns
-            ? `${route.host} is Orrery-managed, so the certificate is issued and renewed for you.`
+            ? `${route.host} is Zenith.ai-managed, so the certificate is issued and renewed for you.`
             : `${route.host} is your own hostname: the certificate is issued after it resolves to this environment, so point the CNAME before deploying.`
         );
       else
@@ -583,7 +587,7 @@ manifestAction<Bind>({
     if (isRoute && target.type !== "service")
       throw new Error(`A route must point at a service. "${nodeName(next, toId)}" is a resource — put a service in front of it.`);
     if (target.type === "resource" && capability === "http")
-      throw new Error(`"${nodeName(next, toId)}" is a ${target.node.kind}, which is not reached over HTTP. Leave capability unset and Orrery will pick the right one.`);
+      throw new Error(`"${nodeName(next, toId)}" is a ${target.node.kind}, which is not reached over HTTP. Leave capability unset and Zenith.ai will pick the right one.`);
 
     // Editing an existing edge in place. Previously this returned "already
     // connected — nothing to change", so changing a capability meant an
@@ -699,7 +703,7 @@ manifestAction<SetEnvVar>({
         // is the difference between a tidy store and an orphan nobody knows about.
         warnings: doomed.secretRef
           ? [
-              `This removes the reference ${doomed.secretRef} from the manifest. Any value stored under it stays in Orrery's secret store — use system.removeSecret to remove both at once.`,
+              `This removes the reference ${doomed.secretRef} from the manifest. Any value stored under it stays in Zenith.ai's secret store — use system.removeSecret to take the reference and the value together, which also checks first that nothing else still reads it.`,
             ]
           : [],
         data: { serviceId: service.id },
@@ -723,9 +727,9 @@ manifestAction<SetEnvVar>({
 /* --------------------------------- secrets --------------------------------- */
 
 /**
- * Orrery holds secret VALUES, encrypted, in `lib/secrets` — and records only
- * the REFERENCE (`vault:<KEY>`) in the manifest. So these three actions each
- * touch two places, and every plan says which:
+ * Zenith.ai holds secret VALUES, encrypted, in `lib/secrets` — and records only
+ * the REFERENCE (`vault:<projectId>/<serviceId>/<KEY>`) in the manifest. So
+ * these three actions each touch two places, and every plan says which:
  *
  *   manifest  → the reference, which is diffed, revisioned, audited, exported
  *   store     → the value, which is none of those things
@@ -734,18 +738,149 @@ manifestAction<SetEnvVar>({
  * the variable's name and how to generate a key. It never half-works: a value
  * is never accepted and dropped, and a plaintext value is never replaced by a
  * reference to nothing.
+ *
+ * IDENTITY — a generated reference names the service that asked for it, so two
+ * services that both read DATABASE_URL get two values, not one shared row that
+ * a rotation on either would overwrite. `lib/secrets` owns the shape and the
+ * reasoning; the rules THESE actions add on top are:
+ *
+ *   - an explicit `secretRef` always wins, which is how two services are
+ *     deliberately pointed at one value;
+ *   - a variable that already reads from Zenith.ai's store keeps the reference it
+ *     has — including a legacy bare `vault:<KEY>` — because re-pointing it at
+ *     a namespaced reference would leave the stored value behind with nothing
+ *     naming it;
+ *   - nothing deletes a stored value while anything else still references it.
  */
 
-/** The reference a key uses by default. One rule, so every surface agrees. */
-const defaultRef = (key: string) => `vault:${key}`;
+/** True for references this Zenith.ai is responsible for (as opposed to your Vault). */
+const isOurs = isVaultRef;
 
-/** True for references this Orrery is responsible for (as opposed to your Vault). */
-const isOurs = (ref: string) => ref.startsWith("vault:");
+/**
+ * The reference a variable writes to, and where that came from — the plan says
+ * so, because "this is scoped to this service" and "this is the reference you
+ * asked for" are different promises.
+ */
+function resolveRef(
+  project: Project,
+  service: Service,
+  key: string,
+  explicit: string | undefined
+): { ref: string; source: "explicit" | "existing" | "generated" } {
+  if (explicit) return { ref: explicit, source: "explicit" };
+  const current = service.env.find((e) => e.key === key)?.secretRef;
+  // Only inherit one of ours: an external ref (aws:…) is a value Zenith.ai cannot
+  // write, so a set-with-value there must still fall through to the default and
+  // be refused by name rather than silently retargeted.
+  if (current && isOurs(current)) return { ref: current, source: "existing" };
+  return { ref: vaultRef(project.id, service.id, key), source: "generated" };
+}
+
+/** One variable, somewhere in the workspace, that reads from a reference. */
+interface RefConsumer {
+  projectId: string;
+  /** absent only when a live revision's manifest could not be read */
+  serviceId?: string;
+  key?: string;
+  /** "atlas/api.DATABASE_URL", or the same with "(live in staging)" */
+  label: string;
+  /** true when this consumer is a deployed revision, not the working copy */
+  live: boolean;
+}
+
+/** Is this consumer the very variable an action is editing? */
+const isSelf = (c: RefConsumer, projectId: string, serviceId: string, key: string): boolean =>
+  c.projectId === projectId && c.serviceId === serviceId && c.key === key;
+
+const envHits = (m: Manifest, ref: string) =>
+  m.services.flatMap((s) => s.env.filter((e) => e.secretRef === ref).map((e) => ({ s, e })));
+
+/**
+ * Everything in this workspace that still points at `ref`. The reverse index
+ * the store deliberately does not keep: manifests are the truth about who reads
+ * what, so this reads them rather than maintaining a second copy that can drift.
+ *
+ * Two sources, both honest about a value that is still needed:
+ *   - the working manifest of every project in the workspace (the current
+ *     project's is supplied by the caller, so an edit in progress counts);
+ *   - the manifest of each environment's LIVE revision — a redeploy or a
+ *     rollback of what is running reads the value again.
+ *
+ * Cost: one pass over the working manifests already in memory, plus one cold
+ * manifest per deployed environment (bounded by environments, not by history).
+ */
+function refConsumers(
+  ctx: ActionContext,
+  ref: string,
+  view: { projectId: string; manifest: Manifest }
+): RefConsumer[] {
+  const out: RefConsumer[] = [];
+  const seen = new Set<string>();
+  const push = (c: RefConsumer) => {
+    if (seen.has(c.label)) return;
+    seen.add(c.label);
+    out.push(c);
+  };
+
+  for (const p of db().projects) {
+    if (p.workspaceId !== ctx.workspaceId) continue;
+    const working = p.id === view.projectId ? view.manifest : p.workingManifest;
+    for (const { s, e } of envHits(working, ref))
+      push({
+        projectId: p.id,
+        serviceId: s.id,
+        key: e.key,
+        label: `${p.name}/${s.name}.${e.key}`,
+        live: false,
+      });
+
+    for (const environment of q.environmentsOf(p.id)) {
+      const revisionId = environment.deployedRevisionId;
+      if (!revisionId) continue;
+      let deployed: Manifest | undefined;
+      // A missing side file throws rather than pretending the revision is
+      // empty. Not knowing is not a reason to delete somebody's credential, so
+      // treat it as "cannot rule out a consumer" and say so.
+      try {
+        deployed = q.revisionManifest(revisionId);
+      } catch {
+        push({
+          projectId: p.id,
+          label: `${p.name}/${environment.name} (live revision unreadable)`,
+          live: true,
+        });
+        continue;
+      }
+      if (!deployed) continue;
+      for (const { s, e } of envHits(deployed, ref))
+        push({
+          projectId: p.id,
+          serviceId: s.id,
+          key: e.key,
+          label: `${p.name}/${s.name}.${e.key} (live in ${environment.name})`,
+          live: true,
+        });
+    }
+  }
+  return out;
+}
+
+/** "a/api.DB_URL, b/worker.DB_URL and 2 more" — a list a person can act on. */
+function listConsumers(consumers: RefConsumer[], max = 4): string {
+  const shown = consumers.slice(0, max).map((c) => c.label);
+  const rest = consumers.length - shown.length;
+  return rest > 0 ? `${shown.join(", ")} and ${rest} more` : shown.join(", ");
+}
+
+/** How a generated reference explains itself, once, in the same words. */
+const SCOPED_NOTE =
+  "It is scoped to this service, so another service's variable of the same name is a different secret. " +
+  "To share one value between services, pass that service's secretRef explicitly instead of letting Zenith.ai generate one.";
 
 /** How a plan describes what the store currently holds at a reference. */
 function heldLine(ctx: ActionContext, ref: string): string {
   if (!isOurs(ref))
-    return `${ref} is not Orrery's to resolve — your provider reads it at deploy time. Orrery only records the name.`;
+    return `${ref} is not Zenith.ai's to resolve — your provider reads it at deploy time. Zenith.ai only records the name.`;
   const held = secretStatus(ctx.workspaceId, ref);
   return held.exists
     ? `The store already holds a value for ${ref} (v${held.version}, updated ${held.updatedAt} by ${held.updatedBy}). Applying this points at it; the value itself is unchanged.`
@@ -764,7 +899,13 @@ const SetSecret = z.object({
    * by field name — it must never reach the audit log, even on a refusal.
    */
   secretValue: z.string().min(1).optional(),
-  /** Where the value lives. Defaults to `vault:<KEY>`, Orrery's own store. */
+  /**
+   * Where the value lives. Left out, it is Zenith.ai's own store under a
+   * reference scoped to this project and service —
+   * `vault:<projectId>/<serviceId>/<KEY>` — unless the variable already reads
+   * from a reference of Zenith.ai's, which it keeps. Pass one explicitly to point
+   * this variable at a value another service already uses.
+   */
   secretRef: z.string().min(1).optional(),
   /**
    * Take the plaintext value this key already has, put it in the store, and
@@ -783,11 +924,32 @@ manifestAction<SetSecret>({
   build(project, input, ctx) {
     const next = clone(project.workingManifest);
     const service = requireService(next, input.serviceId);
-    const ref = input.secretRef ?? defaultRef(input.key);
+    const { ref, source } = resolveRef(project, service, input.key, input.secretRef);
+    /** what dropping secretRef would give you — named in every refusal below */
+    const generated = vaultRef(project.id, service.id, input.key);
     const existing = service.env.find((e) => e.key === input.key);
     const plaintext = existing?.value;
     const store = secretStoreState();
     const what = `Stores ${input.key} as a secret on ${service.name}`;
+
+    /** Who else reads this reference once this edit lands — sharing, out loud. */
+    const others = (): RefConsumer[] =>
+      refConsumers(ctx, ref, { projectId: project.id, manifest: next }).filter(
+        (c) => !isSelf(c, project.id, service.id, input.key)
+      );
+
+    /** The line that says which reference this is and why it is that one. */
+    const refLine = (): string => {
+      if (source === "generated")
+        return `The reference ${ref} was generated from this project and service. ${SCOPED_NOTE}`;
+      if (source === "existing")
+        return (
+          `${service.name}.${input.key} already reads from ${ref}` +
+          `${parseVaultRef(ref)?.legacy ? ", a reference from before Zenith.ai scoped them to one service" : ""}, ` +
+          `so that is where this goes — Zenith.ai does not re-point a variable at a new reference, which would leave the value it has behind with nothing naming it.`
+        );
+      return `${ref} is the reference you named. Anything else pointing at it reads the same value — that is what sharing a secret between services means here.`;
+    };
 
     const point = (): void => {
       if (existing) {
@@ -813,8 +975,8 @@ manifestAction<SetSecret>({
           next,
           what,
           blocked:
-            `Orrery can only move a value into its own store, and ${ref} is somewhere else. ` +
-            `Drop secretRef to use ${defaultRef(input.key)}, or copy the value into ${ref} yourself and then point at it.`,
+            `Zenith.ai can only move a value into its own store, and ${ref} is somewhere else. ` +
+            `Drop secretRef to use ${generated}, or copy the value into ${ref} yourself and then point at it.`,
         };
       if (!store.configured)
         return {
@@ -824,14 +986,21 @@ manifestAction<SetSecret>({
             `${store.reason} ${service.name}.${input.key} still holds its plaintext value and was left exactly as it is — moving it now would delete the only copy. ${store.fix}`,
         };
       point();
+      const shared = others();
       return {
         next,
         what: `Moves ${input.key} on ${service.name} into the secret store`,
         details: [
-          `The value moves from the manifest into Orrery's store under ${ref}, encrypted with this server's ORRERY_SECRET_KEY. The manifest keeps only the reference.`,
+          `The value moves from the manifest into Zenith.ai's store under ${ref}, encrypted with this server's ORRERY_SECRET_KEY. The manifest keeps only the reference.`,
+          refLine(),
           `The store is written first: if that fails, the plaintext stays where it is and nothing is committed.`,
         ],
         warnings: [
+          ...(shared.length
+            ? [
+                `${listConsumers(shared)} also read ${ref}. This writes the value they will get on their next deploy — check that is the credential you mean for all of them.`,
+              ]
+            : []),
           `Revisions already recorded still contain the plaintext — this cannot change the past. Rotate the credential at its source if it has been exposed.`,
           REDEPLOY_NOTE,
         ],
@@ -856,21 +1025,28 @@ manifestAction<SetSecret>({
           next,
           what,
           blocked:
-            `${ref} is not Orrery's store, and Orrery cannot write into someone else's. ` +
-            `Drop secretRef to store the value at ${defaultRef(input.key)}, or put it in ${ref} yourself and run this action with secretRef and no value.`,
+            `${ref} is not Zenith.ai's store, and Zenith.ai cannot write into someone else's. ` +
+            `Drop secretRef to store the value at ${generated}, or put it in ${ref} yourself and run this action with secretRef and no value.`,
         };
 
       const held = secretStatus(ctx.workspaceId, ref);
       const value = input.secretValue;
       point();
+      const shared = others();
       return {
         next,
         what: held.exists ? `Replaces the stored value for ${input.key} on ${service.name}` : what,
         details: [
           `The value is encrypted with AES-256-GCM under this server's ORRERY_SECRET_KEY and written to the secret store as ${ref}${held.exists ? ` (v${held.version} → v${held.version + 1})` : " (v1)"}.`,
           `The manifest records only ${ref}. No value reaches the manifest, the diff, a revision, the audit log or an export bundle.`,
+          refLine(),
         ],
         warnings: [
+          ...(shared.length
+            ? [
+                `${listConsumers(shared)} also read ${ref}, so this replaces the value for ${shared.length === 1 ? "it" : "them"} too, at their next deploy. Store it under a reference of its own instead if that is not what you mean.`,
+              ]
+            : []),
           ...(plaintext !== undefined
             ? [
                 `${input.key} currently holds a plaintext value on ${service.name}. Applying this replaces it with the reference — the value you typed is what gets stored, and the old one survives only in revisions already recorded.`,
@@ -891,17 +1067,24 @@ manifestAction<SetSecret>({
         blocked:
           `${input.key} currently holds a plaintext value on ${service.name}, and replacing it with ${ref} would delete the only copy in the working manifest. ` +
           (store.configured
-            ? `Run this action again with moveExistingValue: true to put that value in Orrery's store and swap in the reference in one step — nothing is lost.`
+            ? `Run this action again with moveExistingValue: true to put that value in Zenith.ai's store and swap in the reference in one step — nothing is lost.`
             : `${store.reason} ${store.fix} Or copy the value into your own secret manager, remove it here with system.setEnvVar (value: null), and then add the reference.`),
       };
 
     point();
+    const shared = others();
     return {
       next,
       what: `Points ${input.key} at the secret ${ref} on ${service.name}`,
       details: [
         `The manifest records only the reference ${ref}. No value is written to the manifest, the diff, the audit log or an export bundle.`,
+        refLine(),
         heldLine(ctx, ref),
+        ...(shared.length
+          ? [
+              `${listConsumers(shared)} read the same reference, so ${service.name}.${input.key} shares one value with ${shared.length === 1 ? "it" : "them"} — rotating it changes what they all read.`,
+            ]
+          : []),
       ],
       data: { serviceId: service.id, secretRef: ref },
     };
@@ -921,7 +1104,7 @@ function requireRef(
   if (input.secretRef) return input.secretRef;
   if (!input.serviceId || !input.key)
     throw new Error(
-      "Say which secret: pass secretRef, or both serviceId and key so Orrery can read the reference off the variable."
+      "Say which secret: pass secretRef, or both serviceId and key so Zenith.ai can read the reference off the variable."
     );
   const service = requireService(project.workingManifest, input.serviceId);
   const entry = service.env.find((e) => e.key === input.key);
@@ -976,7 +1159,7 @@ defineAction<RotateSecret>({
       return {
         ...base,
         blocked:
-          `${ref} is not held by Orrery — it names a value in your own secret manager, which Orrery cannot write to. ` +
+          `${ref} is not held by Zenith.ai — it names a value in your own secret manager, which Zenith.ai cannot write to. ` +
           `Rotate it there, then redeploy so the services pick it up.`,
       };
     const held = secretStatus(ctx.workspaceId, ref);
@@ -988,13 +1171,32 @@ defineAction<RotateSecret>({
           `Set the first value with system.setSecret on the variable that references it.`,
       };
 
+    // Everything that reads this reference gets the new value. Usually that is
+    // one variable — a generated reference names one service — but a shared
+    // reference, or a legacy `vault:<KEY>` from before references carried
+    // identity, can be several, and a rotation is the moment to say so.
+    const readers = refConsumers(ctx, ref, {
+      projectId: project.id,
+      manifest: project.workingManifest,
+    });
+
     return {
       ...base,
       details: [
         `${ref} goes from v${held.version} to v${held.version + 1}. The new value is encrypted under this server's ORRERY_SECRET_KEY and replaces the old one, which is not recoverable afterwards.`,
         `The manifest, the working copy and every revision are untouched — they hold the reference, never the value.`,
+        readers.length <= 1
+          ? `${readers.length === 1 ? readers[0].label : "Nothing in this workspace"} reads ${ref}, so nothing else changes.`
+          : `${readers.length} variables read ${ref} and all of them get the new value: ${listConsumers(readers)}.`,
       ],
-      warnings: [REDEPLOY_NOTE],
+      warnings: [
+        ...(readers.length > 1
+          ? [
+              `${ref} is shared. Rotating it re-credentials ${listConsumers(readers)} together — if only one of them should change, give that one its own reference with system.setSecret first.`,
+            ]
+          : []),
+        REDEPLOY_NOTE,
+      ],
     };
   },
   execute(ctx, input) {
@@ -1056,23 +1258,60 @@ manifestAction<RemoveSecret>({
     const held = isOurs(ref) ? secretStatus(ctx.workspaceId, ref) : { exists: false as const, ref };
     service.env = service.env.filter((e) => e.key !== input.key);
 
+    /*
+     * WHO ELSE STILL NEEDS THIS VALUE.
+     *
+     * `next` already has this variable removed, so what comes back is exactly
+     * who would be left reading the stored value after this edit lands: other
+     * services and other projects in the workspace, and the live revisions a
+     * rollback would replay. The variable being removed counts only through a
+     * live revision — that copy is still deployed and would be read again.
+     *
+     * Policy when there IS someone left: remove the reference, KEEP the value.
+     *
+     * Refusing the whole edit was the alternative and it is the worse one. The
+     * manifest half is per-service and reversible (every revision has it); the
+     * store half is shared and unrecoverable, so those two halves do not
+     * deserve the same answer. A refusal would also be theatre: `setEnvVar
+     * (value: null)` already drops the same reference and leaves the value, so
+     * blocking here would only push people onto a path that says less. What is
+     * never allowed is the destructive half — a value another service is still
+     * declared to read is not deleted here on any path.
+     */
+    const remaining = isOurs(ref)
+      ? refConsumers(ctx, ref, { projectId: project.id, manifest: next }).filter(
+          (c) => c.live || !isSelf(c, project.id, service.id, input.key)
+        )
+      : [];
+    const keepsValue = remaining.length > 0;
+
     return {
       next,
-      what: `Removes the secret ${input.key} from ${service.name}`,
+      what: keepsValue
+        ? `Removes ${input.key} from ${service.name} and keeps the value ${remaining.length === 1 ? "its other reader" : "its other readers"} still need`
+        : `Removes the secret ${input.key} from ${service.name}`,
       details: [
         `The reference ${ref} is removed from the manifest.`,
-        held.exists
-          ? `The stored value (v${held.version}) is deleted from Orrery's secret store. It cannot be recovered — Orrery keeps no copy and no backup of it.`
-          : isOurs(ref)
-            ? `Orrery's store holds no value for ${ref}, so only the reference goes.`
-            : `${ref} lives in your own secret manager; Orrery does not touch it. Remove it there if nothing else uses it.`,
+        held.exists && keepsValue
+          ? `The stored value (v${held.version}) STAYS in Zenith.ai's secret store: ${listConsumers(remaining)} still read ${ref}, and deleting it would take the credential out from under ${remaining.length === 1 ? "it" : "them"} with no copy to restore. It is deleted by whichever removal takes the last reference to it.`
+          : held.exists
+            ? `Nothing else in this workspace references ${ref}, so the stored value (v${held.version}) is deleted from Zenith.ai's secret store too. It cannot be recovered — Zenith.ai keeps no copy and no backup of it.`
+            : isOurs(ref)
+              ? `Zenith.ai's store holds no value for ${ref}, so only the reference goes.`
+              : `${ref} lives in your own secret manager; Zenith.ai does not touch it. Remove it there if nothing else uses it.`,
       ],
       warnings: [
         `${service.name} loses ${input.key} at the next deploy and will fail at runtime if it still reads it.`,
         `Anything already running keeps the value it was given at deploy time until it is redeployed — removing it here does not pull it out of a live container.`,
+        ...(held.exists && keepsValue && remaining.every((c) => c.live)
+          ? [
+              `The only thing left reading ${ref} is a revision that is still deployed (${listConsumers(remaining)}). The value is kept so a rollback or a redeploy of it still works; to delete it once that revision is gone, point a variable at ${ref} with system.setSecret and remove that.`,
+            ]
+          : []),
       ],
-      apply: isOurs(ref) ? () => void removeStoredSecret(ctx.workspaceId, ref) : undefined,
-      data: { serviceId: service.id, secretRef: ref },
+      apply:
+        isOurs(ref) && !keepsValue ? () => void removeStoredSecret(ctx.workspaceId, ref) : undefined,
+      data: { serviceId: service.id, secretRef: ref, valueKept: keepsValue },
     };
   },
 });

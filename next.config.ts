@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
   // in docs/RUNNING.md keeps working.
   output: "standalone",
 
+  // These Node-only SDKs are pulled in by the provider/action registry. Let
+  // Node load their published builds instead of bundling them into each route.
+  serverExternalPackages: ["@aws-sdk/client-s3", "@aws-sdk/client-sqs", "@anthropic-ai/sdk"],
+
   // `env.ts` defaults ORRERY_DATA to path.join(process.cwd(), ".data"), which
   // the tracer resolves to a real directory — so without this, 32 route traces
   // pull the whole data directory into .next/standalone/.data, state.json,

@@ -5,7 +5,7 @@
  * Kept out of the page component so the sorting and the "needs attention"
  * rule are testable without rendering anything.
  */
-import type { DotStatus } from "@/components/ui";
+import type { DotStatus } from "@/components/ui/status-dot";
 import type { Deployment, Environment } from "@/lib/domain/types";
 
 export interface EnvRow {

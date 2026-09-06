@@ -10,18 +10,14 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Check, LogOut, Plus, Settings, Users } from "lucide-react";
-import {
-  Button,
-  Callout,
-  Dialog,
-  Field,
-  Input,
-  MenuItem,
-  MenuNote,
-  Popover,
-  ThemeToggle,
-} from "@/components/ui";
+import { Check, ChevronDown, LogOut, Plus, Settings, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Callout } from "@/components/ui/callout";
+import { Dialog } from "@/components/ui/dialog";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { MenuItem, MenuNote, Popover } from "@/components/ui/popover";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ActivityBell } from "@/components/shell/activity-bell";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { useShell } from "@/components/shell/shell-context";
@@ -31,7 +27,7 @@ import { cx } from "@/lib/format";
 import type { Workspace } from "@/lib/domain/types";
 
 const CHIP =
-  "inline-flex items-center gap-1.5 rounded-full border border-line bg-bg2 px-2.5 py-0.5 text-[12px] " +
+  "inline-flex min-h-9 items-center gap-2 rounded-ctl border border-line bg-bg2 px-3 py-1 text-[13px] " +
   "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)] " +
   "hover:border-line-strong focus-visible:border-signal";
 
@@ -167,9 +163,10 @@ function WorkspaceChip() {
             aria-expanded={open}
             title={`Workspace · ${boot.workspace.name}`}
             onClick={() => setOpen((o) => !o)}
-            className={cx(CHIP, "max-w-[180px] text-ink-mute hover:text-ink")}
+            className={cx(CHIP, "max-w-[200px] text-ink-mute hover:text-ink")}
           >
             <span className="truncate">{boot.workspace.name}</span>
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ink-faint" aria-hidden="true" />
           </button>
         }
       >
@@ -212,7 +209,7 @@ function WorkspaceChip() {
             setCreating(true);
           }}
           disabled={!canCreate}
-          disabledReason="Orrery in demo mode runs one workspace. Configure Supabase auth for real identities and multiple workspaces."
+          disabledReason="Zenith.ai in demo mode runs one workspace. Configure Supabase auth for real identities and multiple workspaces."
         >
           Create workspace…
         </MenuItem>
@@ -270,14 +267,15 @@ function UserMenu() {
           type="button"
           aria-haspopup="menu"
           aria-expanded={open}
+          aria-label={`Account: ${boot.user.name}, ${boot.role ?? "member"}`}
           title={boot.user.email}
           onClick={() => setOpen((o) => !o)}
-          className={cx(CHIP, "max-w-[220px] text-ink")}
+          className={cx(CHIP, "max-w-[200px] text-ink")}
         >
           <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-signal" />
           <span className="truncate">{boot.user.name}</span>
           {boot.role && (
-            <span className="shrink-0 text-ink-faint">
+            <span className="hidden shrink-0 text-ink-faint md:inline">
               <span aria-hidden="true"> · </span>
               <span className="sr-only">, role </span>
               {boot.role}
@@ -311,19 +309,22 @@ function UserMenu() {
 export function ProductChrome() {
   const { catalog } = useShell();
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-line bg-bg1 px-4">
+    <header className="product-chrome">
+      <div className="product-chrome-identity">
       <Link
         href="/overview"
         title="Workspace overview"
         className="rounded-ctl px-1 py-0.5 transition-opacity duration-[120ms] [transition-timing-function:var(--ease-swift)] hover:opacity-80"
       >
-        <Wordmark />
+        <Wordmark size={22} />
       </Link>
-      <div className="flex items-center gap-2">
+      <WorkspaceChip />
+      </div>
+      <div className="product-chrome-tools">
+        <Link href="/guide" className="inline-flex min-h-9 items-center rounded-ctl px-2 text-[13px] text-ink-mute hover:bg-bg2 hover:text-ink" title="Setup progress and help for every screen">Guide</Link>
         <CommandPalette catalog={catalog} />
         <ActivityBell />
         <ThemeToggle />
-        <WorkspaceChip />
         <UserMenu />
       </div>
     </header>

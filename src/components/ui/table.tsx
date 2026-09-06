@@ -1,6 +1,6 @@
 "use client";
 /**
- * The one table in Orrery.
+ * The one table in Zenith.ai.
  *
  * A real `<table>`, because a list of records read down a column is a table and
  * screen readers, "find in page" and browser zoom all know what to do with one.
@@ -14,6 +14,7 @@
  * instead of pushing the page sideways.
  */
 import { useState, type KeyboardEvent, type ReactNode } from "react";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { cx } from "@/lib/format";
 
 export type SortDirection = "asc" | "desc";
@@ -140,6 +141,8 @@ export function Table<T>({
   const tabRow = selectedKey && ordered.some((r) => rowKey(r) === selectedKey) ? selectedKey : ordered[0] ? rowKey(ordered[0]) : undefined;
 
   const onRowKeyDown = (e: KeyboardEvent<HTMLTableRowElement>, row: T, index: number) => {
+    // Inputs, selects and links inside a row own their keyboard interaction.
+    if (e.target !== e.currentTarget) return;
     const move = (to: number) => {
       const target = e.currentTarget.parentElement?.children[to];
       if (target instanceof HTMLElement) {
@@ -186,7 +189,7 @@ export function Table<T>({
                   aria-sort={col.sortable ? (isActive ? ARIA_SORT[active.dir] : "none") : undefined}
                   style={col.width !== undefined ? { width: px(col.width) } : undefined}
                   className={cx(
-                    "border-b border-line bg-bg1 px-4 py-2 text-[11.5px] font-medium tracking-[0.04em] text-ink-mute uppercase",
+                    "border-b border-line bg-bg1 px-4 py-3 text-[12px] font-medium text-ink-mute",
                     ALIGN[col.align ?? "left"],
                     col.className
                   )}
@@ -196,16 +199,17 @@ export function Table<T>({
                       type="button"
                       onClick={() => setSort(col.key)}
                       className={cx(
-                        "inline-flex items-center gap-1 rounded-ctl uppercase",
+                        "inline-flex min-h-6 items-center gap-1.5 rounded-ctl",
                         "transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)]",
                         isActive ? "text-ink" : "hover:text-ink"
                       )}
                     >
                       {col.header}
                       {col.headerLabel && <span className="sr-only">{col.headerLabel}</span>}
-                      <span aria-hidden="true" className={cx("text-[9px]", !isActive && "opacity-0")}>
-                        {isActive && active.dir === "desc" ? "▼" : "▲"}
-                      </span>
+                      {isActive ? active.dir === "desc"
+                        ? <ArrowDown className="h-3.5 w-3.5 text-signal" aria-hidden="true" />
+                        : <ArrowUp className="h-3.5 w-3.5 text-signal" aria-hidden="true" />
+                        : <ArrowUpDown className="h-3.5 w-3.5 text-ink-faint" aria-hidden="true" />}
                     </button>
                   ) : (
                     <>
@@ -238,7 +242,7 @@ export function Table<T>({
                     "border-b border-line last:border-b-0",
                     selectable &&
                       "cursor-pointer outline-none transition-colors duration-[var(--dur-fast)] focus-visible:ring-1 focus-visible:ring-signal focus-visible:ring-inset",
-                    current ? "bg-bg3" : selectable && "hover:bg-bg1",
+                    current ? "bg-signal-dim" : selectable && "hover:bg-bg1",
                     rowClassName?.(row)
                   )}
                 >

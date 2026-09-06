@@ -1,20 +1,16 @@
 "use client";
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
-import { Chip, EmptyState, Skeleton, TimeAgo } from "@/components/ui";
+import { Chip } from "@/components/ui/chip";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { cx } from "@/lib/format";
 import type { NavigatorRun } from "@/lib/domain/types";
 import { isExecutable } from "@/lib/navigator/shared";
 import { NavigatorGlyph } from "./glyph";
-
-const TONE = {
-  planning: "neutral",
-  awaiting_approval: "nav",
-  executing: "nav",
-  done: "ok",
-  failed: "err",
-  cancelled: "neutral",
-} as const;
+import { gimbalPresentationFor, gimbalStateForRun } from "./gimbal-state";
+import { ProviderChecks } from "./provider-checks";
 
 export interface RunHistoryProps {
   runs?: NavigatorRun[];
@@ -56,6 +52,7 @@ export function RunHistory({ runs, loading, activeRunId }: RunHistoryProps) {
 function HistoryRow({ run }: { run: NavigatorRun }) {
   const [open, setOpen] = useState(false);
   const ran = run.steps.filter((s) => s.status === "done").length;
+  const presentation = gimbalPresentationFor({ run });
 
   return (
     <li>
@@ -65,6 +62,11 @@ function HistoryRow({ run }: { run: NavigatorRun }) {
         aria-expanded={open}
         className="flex w-full items-center gap-3 px-1 py-2.5 text-left transition-colors duration-[120ms] hover:bg-bg1"
       >
+        <NavigatorGlyph
+          size={20}
+          state={gimbalStateForRun(run)}
+          className="text-nav-accent"
+        />
         <ChevronRight
           className={cx(
             "h-3.5 w-3.5 shrink-0 text-ink-faint transition-transform duration-[200ms] [transition-timing-function:var(--ease-swift)]",
@@ -75,7 +77,7 @@ function HistoryRow({ run }: { run: NavigatorRun }) {
         <span className="tnum hidden text-[12px] text-ink-faint sm:inline">
           {ran}/{run.steps.length} done
         </span>
-        <Chip tone={TONE[run.status]}>{run.status.replace("_", " ")}</Chip>
+        <Chip tone={presentation.state === "applying" ? "info" : presentation.tone === "warm" ? "warn" : presentation.tone}>{presentation.label}</Chip>
         <TimeAgo iso={run.createdAt} className="text-[12px] text-ink-faint" />
       </button>
 
@@ -119,6 +121,7 @@ function HistoryRow({ run }: { run: NavigatorRun }) {
               </li>
             ))}
           </ol>
+          <ProviderChecks run={run} />
         </div>
       )}
     </li>

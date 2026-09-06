@@ -5,24 +5,22 @@
  * Roles are the member record; the API enforces them and protects the last
  * admin in both directions. What this screen adds is honesty about the two
  * places membership leaks: an operator-set Supabase claim outranks anything
- * changed here, and Orrery sends no mail, so an invite is a permission, not a
+ * changed here, and Zenith.ai sends no mail, so an invite is a permission, not a
  * message.
  */
 import { useState } from "react";
 import { Trash2, UserPlus } from "lucide-react";
 import { api, useJson } from "@/lib/client/api";
 import type { Invite, Member } from "@/lib/domain/types";
-import {
-  Button,
-  Card,
-  Chip,
-  Dialog,
-  Field,
-  Input,
-  Select,
-  Skeleton,
-  TimeAgo,
-} from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
+import { Dialog } from "@/components/ui/dialog";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { ErrorNote, errorText, useSafeToasts } from "@/components/screens/shared";
 import type { Bootstrap } from "@/components/shell/shell-context";
 
@@ -216,7 +214,7 @@ export function MembersSection({
 
           <Card
             title={`Pending invites (${open.length})`}
-            subtitle="An invite is a standing permission for one email address. Orrery sends no mail — tell them to sign in, and they join with the role below."
+            subtitle="An invite is a standing permission for one email address. Zenith.ai sends no mail — tell them to sign in, and they join with the role below."
             padded={false}
           >
             {invites.error ? (

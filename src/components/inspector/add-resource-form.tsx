@@ -1,7 +1,9 @@
 "use client";
 /** The "Add a resource" panel — priced before it exists, optionally connected. */
 import { useState } from "react";
-import { Field, Input, Select } from "@/components/ui";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { useProjectData } from "@/components/shell/project-context";
 import { PlanFirst } from "./plan-first";
 import { SizeField } from "./editor-parts";

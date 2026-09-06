@@ -7,7 +7,9 @@ import { diffManifests } from "@/lib/domain/graph";
 import { emptyManifest, type Deployment, type Manifest } from "@/lib/domain/types";
 import { fmtUsd } from "@/lib/format";
 import { currentWorkspace } from "@/lib/server/context";
-import { Card, EmptyState, TimeAgo } from "@/components/ui";
+import { Card } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { ActorDot } from "@/components/screens/shared";
 import { Greeting } from "./greeting";
 import { LiveRefresh } from "./live-refresh";
@@ -36,13 +38,13 @@ export default async function OverviewPage() {
         <EmptyState
           icon={<Boxes className="h-5 w-5" />}
           title="No workspace yet"
-          body="Orrery needs a workspace before it can hold projects, connections and history."
+          body="Zenith.ai needs a workspace before it can hold projects, connections and history."
           action={
             <Link
               href="/onboarding"
               className={PRIMARY_LINK}
             >
-              Set up Orrery
+              Set up Zenith.ai
             </Link>
           }
         />
@@ -122,9 +124,9 @@ export default async function OverviewPage() {
   const activity = readAudit({ workspaceId: workspace.id, limit: ACTIVITY_ROWS });
 
   return (
-    <div className="mx-auto h-full w-full overflow-y-auto max-w-[1160px] px-8 py-10">
+    <div className="product-page mx-auto h-full w-full max-w-[1320px] overflow-y-auto">
       <LiveRefresh />
-      <header className="mb-9 flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
+      <header className="mb-8 flex flex-wrap items-end justify-between gap-x-8 gap-y-4 border-b border-line pb-7">
         <div>
           {/* The workspace is what this screen is about; the greeting is context. */}
           <h1 className="text-[28px] leading-tight font-medium tracking-[-0.015em] text-ink">
@@ -169,13 +171,13 @@ export default async function OverviewPage() {
         />
       ) : (
         /* No 320px column is reserved when there is no aside to put in it. */
-        <div className={activity.length > 0 ? "grid gap-8 lg:grid-cols-[1fr_320px]" : ""}>
+        <div className={activity.length > 0 ? "grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_300px]" : ""}>
           <ProjectGrid projects={rows} />
 
           {activity.length > 0 && (
             <aside>
-              <h2 className="mb-3 text-[12px] tracking-[0.02em] text-ink-mute uppercase">
-                Recent activity — this workspace
+              <h2 className="mb-4 text-[18px] font-medium text-ink">
+                Recent activity
               </h2>
               <Card padded={false}>
                 <ul>
@@ -190,10 +192,10 @@ export default async function OverviewPage() {
                           <ActorDot actor={e.actor} />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[12.5px] text-ink" title={e.summary}>
+                          <p className="line-clamp-2 text-[13px] leading-relaxed text-ink" title={e.summary}>
                             {e.summary}
                           </p>
-                          <p className="mt-0.5 truncate font-mono text-[11px] text-ink-faint">
+                          <p className="mt-1 break-words text-[12px] text-ink-faint">
                             {project ? (
                               <Link
                                 href={`/p/${project.slug}/activity`}

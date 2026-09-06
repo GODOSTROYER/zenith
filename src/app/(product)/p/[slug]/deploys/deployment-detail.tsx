@@ -9,17 +9,14 @@ import Link from "next/link";
 import { GitCompare } from "lucide-react";
 import { useEventStream } from "@/lib/client/api";
 import type { Deployment, DeploymentEvent } from "@/lib/domain/types";
-import {
-  Button,
-  Card,
-  Chip,
-  CostDelta,
-  LogViewer,
-  PhaseTimeline,
-  StatusDot,
-  TimeAgo,
-  type LogLine,
-} from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
+import { CostDelta } from "@/components/ui/cost-delta";
+import { LogViewer, type LogLine } from "@/components/ui/log-viewer";
+import { PhaseTimeline } from "@/components/ui/phase-timeline";
+import { StatusDot } from "@/components/ui/status-dot";
+import { TimeAgo } from "@/components/ui/time-ago";
 import { useShell } from "@/components/shell/shell-context";
 import { roleAllows, roleReason, useRequiredRole } from "@/components/deploy/caller-role";
 import { ActionConfirm, ErrorNote } from "@/components/screens/shared";

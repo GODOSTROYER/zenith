@@ -6,7 +6,7 @@
  * check never sees a human, and without this check a viewer could execute
  * through the agent what they cannot execute from the System Map.
  */
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -20,6 +20,7 @@ const { defineAction, runAction } = await import("@/lib/actions/core");
 await import("@/lib/actions/defs");
 const { db, resetDb, save } = await import("@/lib/db/store");
 const { cancelRun, createRun, executeRun, findRun } = await import("@/lib/navigator/run");
+const verification = await import("@/lib/navigator/verification");
 
 const WS = "ws-nav";
 let projectId = "";
@@ -192,5 +193,42 @@ describe("goal length", () => {
     await createRun(projectId, "a".repeat(2001)).catch((e: Error) => {
       expect(e.message).toMatch(/Shorten it/);
     });
+  });
+});
+
+describe("verification handoff", () => {
+  const evidence = () => ({ scope: "run" as const, source: "provider" as const, status: "passed" as const,
+    simulated: false, checkedAt: new Date().toISOString(), evidenceRef: "test-provider-readback" });
+  it("persists returned evidence only after the executor completes the checks", async () => {
+    const verify = vi.spyOn(verification, "verifyRun").mockImplementation(async (run) => {
+      expect(run.status).toBe("executing"); expect(run.verificationPending).toBe(true);
+      return { verification: evidence(), note: "Provider checks passed" };
+    });
+    try {
+      const run = makeRun([step({ actionId: "system.addService", input: { name: "verified-worker", kind: "worker", image: "busybox:1" } })]);
+      const result = await executeRun(run.id);
+      expect(verify).toHaveBeenCalledOnce();
+      expect(result).toMatchObject({ status: "done", verificationPending: false, verification: { evidenceRef: "test-provider-readback" } });
+    } finally { verify.mockRestore(); }
+  });
+  it("does not attach successful evidence if cancelled during provider checks", async () => {
+    const verify = vi.spyOn(verification, "verifyRun").mockImplementation(async (run) => {
+      cancelRun(run.id); return { verification: evidence(), note: "Provider checks passed" };
+    });
+    try {
+      const run = makeRun([step({ actionId: "system.addService", input: { name: "cancel-worker", kind: "worker", image: "busybox:1" } })]);
+      const result = await executeRun(run.id);
+      expect(result.status).toBe("cancelled"); expect(result.verification).toBeUndefined();
+      expect(result.verificationPending).toBe(false);
+    } finally { verify.mockRestore(); }
+  });
+  it("keeps completed work recorded when the provider check is unavailable", async () => {
+    const verify = vi.spyOn(verification, "verifyRun").mockRejectedValue(new Error("Provider is unreachable"));
+    try {
+      const run = makeRun([step({ actionId: "system.addService", input: { name: "offline-worker", kind: "worker", image: "busybox:1" } })]);
+      const result = await executeRun(run.id);
+      expect(result).toMatchObject({ status: "done", verificationPending: false, verificationNote: "Provider is unreachable" });
+      expect(result.verification).toBeUndefined();
+    } finally { verify.mockRestore(); }
   });
 });

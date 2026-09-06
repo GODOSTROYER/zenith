@@ -3,7 +3,11 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
-import { Callout, Field, Input, Select, Tabs } from "@/components/ui";
+import { Callout } from "@/components/ui/callout";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Tabs } from "@/components/ui/tabs";
 import { SectionTitle } from "@/components/screens/shared";
 import { useProjectData } from "@/components/shell/project-context";
 import { PlanFirst } from "./plan-first";

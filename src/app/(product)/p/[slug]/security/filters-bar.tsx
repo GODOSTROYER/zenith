@@ -6,7 +6,9 @@
 import { Wrench } from "lucide-react";
 import type { Role } from "@/lib/actions/core";
 import type { Environment, SecurityFinding } from "@/lib/domain/types";
-import { Button, SegmentedControl, Select } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Select } from "@/components/ui/select";
 import {
   SEVERITY_ORDER,
   viewerReason,

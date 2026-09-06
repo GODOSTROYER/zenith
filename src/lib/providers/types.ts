@@ -95,7 +95,7 @@ export interface ExportFile {
 
 export interface ExportBundle {
   files: ExportFile[];
-  /** how to keep operating without Orrery — the no-lock-in document */
+  /** how to keep operating without Zenith.ai — the no-lock-in document */
   readme: string;
 }
 
@@ -121,12 +121,21 @@ export interface LiveResource {
 
 /**
  * What `observe` found. `simulated` is the honesty flag the UI renders: true
- * means nothing outside Orrery was inspected and the numbers were generated.
+ * means nothing outside Zenith.ai was inspected and the numbers were generated.
  */
 export interface LiveState {
   simulated: boolean;
   observedAt: string;
   resources: LiveResource[];
+}
+
+/** A complete read-back, or an explicit refusal when the adapter has partial coverage. */
+export interface ProviderVerification {
+  status: "passed" | "failed" | "unavailable";
+  simulated: boolean;
+  checkedAt: string;
+  detail: string;
+  checks: { detail: string; passed: boolean }[];
 }
 
 /** Something present in the account/endpoint that the manifest does not own. */
@@ -195,6 +204,8 @@ export interface ProviderAdapter {
    * reads your account" is a different statement from "not built yet".
    */
   observe?(env: Environment, deployed: Manifest): Promise<LiveState>;
+  /** Verify the complete supported deployment, including removals. Read-only. */
+  verify?(env: Environment, deployed: Manifest, previous?: Manifest): Promise<ProviderVerification>;
 
   /**
    * List resources present in the account/endpoint that the manifest does not

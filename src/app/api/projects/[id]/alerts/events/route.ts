@@ -10,15 +10,13 @@
  * read, not recomputed.
  */
 import { eventPage } from "@/lib/alerts";
-import { inWorkspace, q } from "@/lib/db/store";
-import { ApiError, intParam, notFound, requireWorkspace, route } from "@/lib/server/context";
+import { q } from "@/lib/db/store";
+import { ApiError, intParam, route, scopedProject } from "@/lib/server/context";
 
 export const dynamic = "force-dynamic";
 
 export const GET = route<{ id: string }>(async (req, { id }) => {
-  const project = q.project(id);
-  if (!project || !inWorkspace(requireWorkspace().id, project.id))
-    throw notFound(`Project "${id}"`, "Check the URL, or pick a project from the overview.");
+  const project = scopedProject(id);
 
   const environmentId = req.nextUrl.searchParams.get("env")?.trim() || undefined;
   if (environmentId && q.environment(environmentId)?.projectId !== project.id)

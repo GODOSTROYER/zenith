@@ -3,11 +3,12 @@
  *
  * A Dockerfile describes how to build one image, so the honest result is one
  * service. Anything about the build (RUN/COPY/WORKDIR) stays in the
- * Dockerfile — Orrery builds it, it does not re-model it.
+ * Dockerfile — Zenith.ai builds it, it does not re-model it.
  */
 import { id } from "@/lib/domain/types";
 import type { Manifest, Service } from "@/lib/domain/types";
 import { emptyReport, SECRET_KEY_RE, slugify, type ImportReport } from "./types";
+import { vaultRef } from "@/lib/secrets/refs";
 
 export interface DockerfileImport {
   manifest: Manifest;
@@ -16,8 +17,9 @@ export interface DockerfileImport {
 
 const DEFAULT_PORT = 3000;
 
-export function importDockerfile(text: string, name = "app"): DockerfileImport {
+export function importDockerfile(text: string, name = "app", projectId?: string): DockerfileImport {
   const report = emptyReport();
+  const secretProjectId = projectId ?? id();
   const lines = text
     .split(/\r?\n/)
     .map((l) => l.trim())
@@ -53,7 +55,7 @@ export function importDockerfile(text: string, name = "app"): DockerfileImport {
     if (!m) continue;
     for (const { key, value } of parseEnv(m[1])) {
       if (SECRET_KEY_RE.test(key)) {
-        service.env.push({ key, secretRef: `vault:${key}` });
+        service.env.push({ key, secretRef: vaultRef(secretProjectId, service.id, key) });
         report.warnings.push(`${key} looks like a secret, so only a reference was imported. Set its value with system.setSecret.`);
       } else {
         service.env.push({ key, value });
@@ -72,7 +74,7 @@ export function importDockerfile(text: string, name = "app"): DockerfileImport {
   if (exposed.length > 1) {
     report.unmapped.push({
       source: "Dockerfile EXPOSE (extra ports)",
-      reason: `An Orrery service listens on one port; ${exposed.length} were exposed.`,
+      reason: `An Zenith.ai service listens on one port; ${exposed.length} were exposed.`,
       suggestion: `Kept ${port}. If another port matters, add a second service.`,
     });
   }
@@ -80,7 +82,7 @@ export function importDockerfile(text: string, name = "app"): DockerfileImport {
     source: "Dockerfile build instructions",
     result: "kept in your Dockerfile",
     confidence: "exact",
-    note: "FROM/RUN/COPY/WORKDIR/CMD are build-time and stay where they are — Orrery builds the image from this file.",
+    note: "FROM/RUN/COPY/WORKDIR/CMD are build-time and stay where they are — Zenith.ai builds the image from this file.",
   });
   report.unmapped.push({
     source: "Dockerfile",

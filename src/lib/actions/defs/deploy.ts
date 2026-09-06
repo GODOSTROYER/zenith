@@ -5,9 +5,9 @@
  * engine's state machine.
  */
 import { z } from "zod";
-import { defineAction, type ActionPlan } from "@/lib/actions/core";
+import { defineAction, type ActionContext, type ActionPlan } from "@/lib/actions/core";
 import { db, q, save } from "@/lib/db/store";
-import { diffManifests, validateManifest } from "@/lib/domain/graph";
+import { diffManifests, isStatefulKind, validateManifest } from "@/lib/domain/graph";
 import {
   emptyManifest,
   id,
@@ -20,7 +20,14 @@ import {
 import { providerRegistry } from "@/lib/providers/types";
 import { getEngine } from "./_engine";
 import { fmtUsd } from "@/lib/format";
-import { clone, maxRisk, requireEnvironment, requireProject } from "./_shared";
+import {
+  clone,
+  maxRisk,
+  requireDeployment,
+  requireEnvironment,
+  requireProject,
+  requireRevision,
+} from "./_shared";
 
 /* ---------------------------- provider honesty ---------------------------- */
 
@@ -37,11 +44,11 @@ function providerBlock(env: Environment): string | undefined {
   if (!provider || provider.availability === "available") return undefined;
   if (provider.availability === "preview")
     return (
-      `${provider.displayName} is a Preview provider: Orrery plans this deployment and exports runnable Terraform for it, but it never applies changes to your account. ` +
+      `${provider.displayName} is a Preview provider: Zenith.ai plans this deployment and exports runnable Terraform for it, but it never applies changes to your account. ` +
       `Export the Terraform from Source → Export (or Settings → Export) and run it with your own tooling, or point ${env.name} at a Sandbox connection to watch the full flow.`
     );
   return (
-    `${provider.displayName} is a Planned provider: Orrery cannot plan, apply or export for it yet. ` +
+    `${provider.displayName} is a Planned provider: Zenith.ai cannot plan, apply or export for it yet. ` +
     `Point ${env.name} at a Sandbox connection to deploy now, or at AWS to export runnable Terraform.`
   );
 }
@@ -71,13 +78,44 @@ function connectionBlock(env: Environment): string | undefined {
  * Everything that makes `deploy.apply` refuse, decided once and rendered as
  * `plan.blocked` so no surface has to infer it from warning prose.
  */
-function deployBlock(env: Environment, project: Project): string | undefined {
+function deployBlock(env: Environment, project: Project, cs: Changeset): string | undefined {
   const reasons = [
     providerBlock(env),
     connectionBlock(env),
+    statefulDeletionBlock(env, cs),
     ...blockingIssues(project.workingManifest),
   ].filter((r): r is string => Boolean(r));
   return reasons.length ? reasons.join(" ") : undefined;
+}
+
+/**
+ * The environment's `allowStatefulDeletion` policy, enforced where Settings
+ * says it is enforced: "a plan that would destroy a database, cache, queue or
+ * bucket here is blocked before it starts".
+ *
+ * Before this, the toggle changed a label and a security finding but nothing
+ * else — the only thing standing between a removed resource and its data was
+ * whatever the provider happened to do mid-deploy. Deciding it here keeps the
+ * promise the switch makes, and keeps it plan-first: the button is disabled
+ * with a reason, rather than the deployment failing halfway through.
+ *
+ * Only *managed* resources count. A referenced one was never provisioned by
+ * Zenith.ai, so dropping it from the manifest forgets it rather than deleting it.
+ */
+function statefulDeletionBlock(env: Environment, cs: Changeset): string | undefined {
+  if (env.policies.allowStatefulDeletion) return undefined;
+  const deployed = deployedManifest(env);
+  const doomed = cs.items
+    .filter((i) => i.op === "delete" && i.nodeType === "resource")
+    .map((i) => deployed.resources.find((r) => r.id === i.nodeId))
+    .filter((r): r is NonNullable<typeof r> => !!r && r.ownership === "managed" && isStatefulKind(r.kind));
+  if (!doomed.length) return undefined;
+  const names = doomed.map((r) => `"${r.name}" (${r.kind})`).join(", ");
+  return (
+    `This plan removes ${names} from ${env.name}, which destroys the data in ${doomed.length > 1 ? "them" : "it"} — ` +
+    `and a rollback restores the system definition, not the data. ` +
+    `Put ${doomed.length > 1 ? "them" : "it"} back in the editor, or turn on "Allow stateful deletion" for ${env.name} in Settings → Environments if you mean to lose the data.`
+  );
 }
 
 /**
@@ -119,7 +157,7 @@ function blockingIssues(m: Manifest): string[] {
 
 function deployPlan(env: Environment, project: Project): ActionPlan {
   const cs = changesetFor(env, project);
-  const blocked = deployBlock(env, project);
+  const blocked = deployBlock(env, project, cs);
   const warnings = validateManifest(project.workingManifest)
     .filter((i) => i.level === "warning")
     .map((i) => `${i.message}${i.fix ? ` ${i.fix}` : ""}`);
@@ -241,6 +279,18 @@ defineAction<ApplyInput>({
         error: "Nothing has changed since the last deploy. Edit the system, or restart a service with ops.restartService.",
       };
 
+    // The same gate the plan renders as `blocked`, enforced again here. A plan
+    // is a courtesy, not a checkpoint: `runAction` can be called straight in
+    // execute mode, so a refusal that only exists in plan mode is advice, not a
+    // policy. This is the wall.
+    const statefulRefusal = statefulDeletionBlock(env, changeset);
+    if (statefulRefusal)
+      return {
+        ok: false,
+        summary: `${env.name} does not allow removing a resource that holds data.`,
+        error: statefulRefusal,
+      };
+
     const number = q.revisionsOf(project.id).reduce((max, r) => Math.max(max, r.number), 0) + 1;
     const changeSummary = tally(changeset);
     const revision: Revision = {
@@ -292,12 +342,17 @@ defineAction<ApplyInput>({
 const DeploymentRef = z.object({ deploymentId: z.string().min(1) });
 type DeploymentRef = z.infer<typeof DeploymentRef>;
 
-function requireDeployment(deploymentId: string) {
-  const d = q.deployment(deploymentId);
-  if (!d)
-    throw new Error(`Deployment "${deploymentId}" was not found. Pick one from the Deploys page.`);
-  return d;
-}
+/*
+ * These three take an id and nothing else, which is exactly the shape that used
+ * to walk out of the tenant. A local resolver read `q.deployment` across the
+ * whole store, and the execute paths did not resolve at all — they handed the
+ * caller's raw string to the engine, which is authoritative and asks no
+ * questions. `requireDeployment` / `requireRevision` from ./_shared scope every
+ * one of them to ctx.workspaceId, and a foreign id comes back with the same
+ * sentence as an id that was never real. Plan and execute both, always: a plan
+ * that renders someone else's changeSummary is a disclosure even if the execute
+ * refuses, and an execute that runs is the whole estate.
+ */
 
 defineAction<DeploymentRef>({
   id: "deploy.approve",
@@ -307,8 +362,8 @@ defineAction<DeploymentRef>({
   requiredRole: "admin",
   mutates: true,
   input: DeploymentRef,
-  plan(_ctx, input) {
-    const d = requireDeployment(input.deploymentId);
+  plan(ctx, input) {
+    const d = requireDeployment(ctx, input.deploymentId);
     const env = q.environment(d.environmentId);
     return {
       summary: `Approve and apply this deployment to ${env?.name ?? "its environment"}.`,
@@ -323,9 +378,12 @@ defineAction<DeploymentRef>({
           : `This deployment is ${d.status}, not awaiting approval, so there is nothing to approve. Start a new deployment from the Changes drawer instead.`,
     };
   },
-  async execute(_ctx, input) {
+  async execute(ctx, input) {
+    // Resolve first. The engine approves and immediately starts applying, so an
+    // unresolved id here is a deployment running in someone else's account.
+    const deployment = requireDeployment(ctx, input.deploymentId);
     const engine = await getEngine();
-    const d = await engine.approve(input.deploymentId);
+    const d = await engine.approve(deployment.id);
     return { ok: true, summary: `Approved. Applying ${d.changeSummary}.`, data: { deploymentId: d.id, status: d.status } };
   },
 });
@@ -338,8 +396,8 @@ defineAction<DeploymentRef>({
   requiredRole: "editor",
   mutates: true,
   input: DeploymentRef,
-  plan(_ctx, input) {
-    const d = requireDeployment(input.deploymentId);
+  plan(ctx, input) {
+    const d = requireDeployment(ctx, input.deploymentId);
     const done = d.steps.filter((s) => s.status === "done").length;
     const finished = ["succeeded", "failed", "cancelled", "rolled_back"].includes(d.status);
     return {
@@ -359,9 +417,12 @@ defineAction<DeploymentRef>({
         : undefined,
     };
   },
-  async execute(_ctx, input) {
+  async execute(ctx, input) {
+    // Cancelling someone else's in-flight deployment leaves their environment
+    // stranded between two revisions. Resolve inside the tenant first.
+    const deployment = requireDeployment(ctx, input.deploymentId);
     const engine = await getEngine();
-    const d = await engine.cancel(input.deploymentId);
+    const d = await engine.cancel(deployment.id);
     return { ok: true, summary: `Deployment cancelled after ${d.steps.filter((s) => s.status === "done").length} completed step(s).`, data: { deploymentId: d.id, status: d.status } };
   },
 });
@@ -371,6 +432,67 @@ const RollbackInput = z.object({
   toRevisionId: z.string().optional(),
 });
 type RollbackInput = z.infer<typeof RollbackInput>;
+
+/**
+ * The revision a rollback would deploy — resolved, never taken on trust.
+ *
+ * Two checks, because there are two different wrongs. `requireRevision` keeps a
+ * stranger's revision out: the plan diffs the target into `details`, so a global
+ * lookup renders another tenant's entire system to whoever asks, and the execute
+ * then deploys that manifest into our live infrastructure. And `projectId` has
+ * to match the environment's, because a revision of a *different* project — even
+ * one we own — describes a system that was never here. The diff against it is a
+ * fiction and the deploy would be real.
+ *
+ * The caller's own project is named in that second message on purpose: it is
+ * theirs, so saying so leaks nothing. A revision belonging to another workspace
+ * never reaches it — `requireRevision` has already refused with the same
+ * sentence an invented id gets.
+ */
+function requireRollbackTarget(
+  ctx: ActionContext,
+  env: Environment,
+  revisionId: string
+): Revision {
+  const rev = requireRevision(ctx, revisionId);
+  if (rev.projectId !== env.projectId)
+    throw new Error(
+      `Revision "${revisionId}" belongs to a different project, so ${env.name} cannot be rolled back to it. Pick one from this project's history.`
+    );
+  return rev;
+}
+
+/** A refusal carried as a sentence, so plan can render it as `blocked`. */
+type RollbackTarget = { revision: Revision } | { refusal: string };
+
+const noEarlierRevision = (env: Environment) =>
+  `${env.name} has no earlier revision to roll back to. ` +
+  `Deploy at least one more revision, or pick a specific revision on the Revisions page.`;
+
+/**
+ * Explicit target: resolved in the caller's workspace, refusal text and all.
+ * Implicit target: read off this environment's own deployment history, which is
+ * already inside the tenant — if it no longer resolves there is simply nothing
+ * to roll back to, which is the message that branch has always given.
+ */
+function rollbackTarget(
+  ctx: ActionContext,
+  env: Environment,
+  toRevisionId?: string
+): RollbackTarget {
+  if (toRevisionId) {
+    try {
+      return { revision: requireRollbackTarget(ctx, env, toRevisionId) };
+    } catch (err) {
+      return { refusal: err instanceof Error ? err.message : String(err) };
+    }
+  }
+  const previousId = q.deploymentsOf(env.id)[0]?.previousRevisionId;
+  const previous = previousId ? q.revision(previousId) : undefined;
+  if (!previous || previous.projectId !== env.projectId)
+    return { refusal: noEarlierRevision(env) };
+  return { revision: previous };
+}
 
 defineAction<RollbackInput>({
   id: "deploy.rollback",
@@ -382,21 +504,21 @@ defineAction<RollbackInput>({
   input: RollbackInput,
   plan(ctx, input) {
     const env = requireEnvironment(ctx, input.environmentId);
-    const targetId = input.toRevisionId ?? q.deploymentsOf(env.id)[0]?.previousRevisionId;
-    const target = targetId ? q.revision(targetId) : undefined;
+    const resolved = rollbackTarget(ctx, env, input.toRevisionId);
     const current = env.deployedRevisionId ? q.revision(env.deployedRevisionId) : undefined;
-    if (!target)
+    // Nothing of the target is read — not its number, not its manifest — until
+    // it has been resolved inside this workspace and this project.
+    if ("refusal" in resolved)
       return {
-        summary: `${env.name} has no earlier revision to roll back to.`,
-        details: ["Deploy at least one more revision, or pick a specific revision on the Revisions page."],
+        summary: `${env.name} cannot be rolled back.`,
+        details: [resolved.refusal],
         costDeltaUsd: 0,
         risk: "low",
         warnings: [],
         requiresApproval: false,
-        blocked:
-          `${env.name} has no earlier revision to roll back to. ` +
-          `Deploy at least one more revision, or pick a specific revision on the Revisions page.`,
+        blocked: resolved.refusal,
       };
+    const target = resolved.revision;
     const cs = diffManifests(current?.manifest ?? emptyManifest(), target.manifest);
     const blocked = providerBlock(env) ?? connectionBlock(env);
     return {
@@ -424,11 +546,30 @@ defineAction<RollbackInput>({
   },
   async execute(ctx, input) {
     const env = requireEnvironment(ctx, input.environmentId);
+    const refuse = (error: string) => ({
+      ok: false as const,
+      summary: `${env.name} cannot be rolled back.`,
+      error,
+    });
+
+    const resolved = rollbackTarget(ctx, env, input.toRevisionId);
+    // Order matters here, and each step earns its place. A target the caller
+    // NAMED is a tenancy question, so it comes first: a revision from outside
+    // this project must never reach the engine, whatever this environment's
+    // provider happens to support. Provider honesty comes next — it speaks only
+    // about this environment, which is already the caller's own, so it discloses
+    // nothing about the target. Last is "no earlier revision", which is derived
+    // from this environment's own history and is not a tenancy matter at all;
+    // an environment that cannot be deployed to should say so before it starts
+    // discussing what it might roll back to.
+    if (input.toRevisionId && "refusal" in resolved) return refuse(resolved.refusal);
     const blocked = providerBlock(env) ?? connectionBlock(env);
-    if (blocked)
-      return { ok: false, summary: `${env.name} cannot be rolled back.`, error: blocked };
+    if (blocked) return refuse(blocked);
+    if ("refusal" in resolved) return refuse(resolved.refusal);
     const engine = await getEngine();
-    const d = await engine.rollback(env.id, input.toRevisionId, {
+    // The resolved id, never the caller's string: `engine.rollback` deploys
+    // whatever revision it is handed straight into this environment.
+    const d = await engine.rollback(env.id, resolved.revision.id, {
       id: ctx.actor.id,
       name: ctx.actor.name,
     });

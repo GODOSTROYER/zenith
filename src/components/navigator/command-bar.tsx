@@ -1,9 +1,10 @@
 "use client";
 import { useRef, type KeyboardEvent } from "react";
 import { CornerDownLeft } from "lucide-react";
-import { Button, Kbd } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
 import { cx } from "@/lib/format";
-import { NavigatorGlyph } from "./glyph";
+import { NavigatorGlyph, type GimbalState } from "./glyph";
 
 export const EXAMPLE_GOALS = [
   "Add a redis cache and bind it to web, then deploy to staging",
@@ -16,18 +17,26 @@ export interface CommandBarProps {
   onChange: (value: string) => void;
   onSubmit: () => void;
   busy?: boolean;
+  gimbalState?: GimbalState | null;
   /** set when the field cannot be submitted; becomes the button's tooltip */
   disabledReason?: string;
 }
 
 /** The Navigator's one input. Enter plans; nothing here executes. */
-export function CommandBar({ value, onChange, onSubmit, busy, disabledReason }: CommandBarProps) {
+export function CommandBar({
+  value,
+  onChange,
+  onSubmit,
+  busy,
+  gimbalState = null,
+  disabledReason,
+}: CommandBarProps) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
   const keyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      if (value.trim() && !disabledReason) onSubmit();
+      if (value.trim() && !disabledReason && !busy) onSubmit();
     }
   };
 
@@ -45,7 +54,7 @@ export function CommandBar({ value, onChange, onSubmit, busy, disabledReason }: 
           "focus-within:border-nav-accent/60"
         )}
       >
-        <NavigatorGlyph size={18} className="mt-[3px] text-nav-accent" />
+        <NavigatorGlyph size={22} state={gimbalState} className="mt-[2px] text-nav-accent" />
         <textarea
           ref={ref}
           rows={2}

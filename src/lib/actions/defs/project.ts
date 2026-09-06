@@ -24,12 +24,46 @@ import { providerRegistry } from "@/lib/providers/types";
 import { buildEnvironment, envPlanDetails, inFlight, liveRevision } from "./env";
 import { getEngine } from "./_engine";
 import { fmtUsd } from "@/lib/format";
-import { clone, commit, planFromDiff, requireProject } from "./_shared";
+import { clone, commit, planFromDiff, requireConnection, requireProject } from "./_shared";
 
-function newProject(ctx: ActionContext, name: string, slug: string | undefined, origin: Project["origin"], manifest: Manifest): Project {
-  const taken = db().projects.map((p) => p.slug);
+/**
+ * Both create-a-project-from-something actions build their first environment
+ * in `execute` only — their `plan` never touches `buildEnvironment`, so a
+ * foreign or fabricated connectionId sailed through the preview and was
+ * refused one click later, on an enabled confirm button. Plan and execute have
+ * to refuse the same input for the same reason, so the plan resolves the id
+ * the execute will use. Nothing is kept: this is called for its refusal.
+ */
+function checkPlannedConnection(ctx: ActionContext, connectionId: string | undefined, creating: boolean): void {
+  if (creating && connectionId) requireConnection(ctx, connectionId);
+}
+
+/**
+ * A new project record, slugged uniquely WITHIN THE WORKSPACE.
+ *
+ * Uniqueness used to be computed across every project in the store, which made
+ * the slug allocator an oracle: create "Acme" in your own empty workspace, get
+ * back `acme-2`, and you have learned that a stranger's workspace holds `acme`.
+ * One project creation per guess enumerates other tenants' names. Two
+ * workspaces may now hold the same slug, which the action layer already reads
+ * correctly: `_shared.requireProject` puts the workspace predicate inside the
+ * find, so a slug resolves within the caller's own tenant. The HTTP layer does
+ * NOT yet — `q.project` matches id-or-slug across the whole store and several
+ * /api/projects routes resolve globally before checking tenancy, which answers
+ * the second holder of a slug with a 404 on their own project. Scoping those
+ * lookups is the companion change to this one.
+ *
+ * The filter matches on `workspaceId` alone and deliberately does not go
+ * through `q.project`, which resolves an id OR a slug across the whole store:
+ * reaching for a global match here is the very leak being closed. This only
+ * chooses the slug for a project being created — no existing row is re-slugged.
+ */
+function newProject(ctx: ActionContext, name: string, slug: string | undefined, origin: Project["origin"], manifest: Manifest, projectId = id()): Project {
+  const taken = db()
+    .projects.filter((p) => p.workspaceId === ctx.workspaceId)
+    .map((p) => p.slug);
   return {
-    id: id(),
+    id: projectId,
     workspaceId: ctx.workspaceId,
     name: name.trim(),
     slug: uniqueName(slugify(slug ?? name, "project"), taken),
@@ -78,7 +112,7 @@ defineAction<CreateProject>({
     const project = newProject(ctx, input.name, input.slug, { type: "blank" }, emptyManifest());
     const details = [`URL slug: /p/${project.slug}.`, "The system starts empty — add services and resources, or apply a blueprint."];
     if (input.withEnvironment !== false) {
-      const { env, connection } = buildEnvironment(project, { connectionId: input.connectionId }, ctx.workspaceId, false);
+      const { env, connection } = buildEnvironment(project, { connectionId: input.connectionId }, ctx, false);
       details.push(`Also creates the "${env.name}" environment.`, ...envPlanDetails(project, env, connection));
     }
     return {
@@ -92,13 +126,16 @@ defineAction<CreateProject>({
   },
   execute(ctx, input) {
     const project = newProject(ctx, input.name, input.slug, { type: "blank" }, emptyManifest());
+    // Resolve the connection BEFORE anything is written. A refused
+    // connectionId must leave no half-created project behind — the store is
+    // mutated only once every id in the request has been accepted.
+    const built =
+      input.withEnvironment !== false
+        ? buildEnvironment(project, { connectionId: input.connectionId }, ctx)
+        : undefined;
     db().projects.push(project);
-    let environmentId: string | undefined;
-    if (input.withEnvironment !== false) {
-      const { env } = buildEnvironment(project, { connectionId: input.connectionId }, ctx.workspaceId);
-      db().environments.push(env);
-      environmentId = env.id;
-    }
+    if (built) db().environments.push(built.env);
+    const environmentId = built?.env.id;
     save();
     return {
       ok: true,
@@ -139,6 +176,7 @@ defineAction<ApplyBlueprint>({
   plan(ctx, input) {
     const bp = resolveBlueprint(input.blueprint);
     const existing = scopedProject(ctx, input.projectId);
+    checkPlannedConnection(ctx, input.connectionId, !existing);
     const slug = existing?.slug ?? slugify(input.name ?? bp.name, "project");
     const next = bp.manifestFactory(slug);
     const before = existing?.workingManifest ?? emptyManifest();
@@ -169,8 +207,9 @@ defineAction<ApplyBlueprint>({
     }
     const project = newProject(ctx, input.name ?? bp.name, undefined, { type: "blueprint", blueprint: bp.id }, emptyManifest());
     project.workingManifest = bp.manifestFactory(project.slug);
+    // Connection first, then the writes: a refused id creates nothing at all.
+    const { env } = buildEnvironment(project, { connectionId: input.connectionId }, ctx);
     db().projects.push(project);
-    const { env } = buildEnvironment(project, { connectionId: input.connectionId }, ctx.workspaceId);
     db().environments.push(env);
     save();
     return {
@@ -204,6 +243,19 @@ function reportDetails(report: ImportReport, m: Manifest): string[] {
   return details;
 }
 
+/** Keep references that may already own values when compose is re-imported. */
+function preserveSecretRefs(before: Manifest, incoming: Manifest): void {
+  for (const service of incoming.services) {
+    const previous = before.services.find((s) => s.name === service.name);
+    if (!previous) continue;
+    for (const entry of service.env) {
+      if (!entry.secretRef) continue;
+      const old = previous.env.find((e) => e.key === entry.key)?.secretRef;
+      if (old) entry.secretRef = old;
+    }
+  }
+}
+
 defineAction<ImportCompose>({
   id: "project.importCompose",
   title: "Import docker-compose",
@@ -213,8 +265,10 @@ defineAction<ImportCompose>({
   mutates: true,
   input: ImportCompose,
   plan(ctx, input) {
-    const { manifest, report } = importCompose(input.composeYaml);
     const existing = scopedProject(ctx, input.projectId);
+    const { manifest, report } = importCompose(input.composeYaml, existing?.id ?? id());
+    if (existing) preserveSecretRefs(existing.workingManifest, manifest);
+    checkPlannedConnection(ctx, input.connectionId, !existing);
     const before = existing?.workingManifest ?? emptyManifest();
     const warnings = [...report.warnings];
     if (existing && (before.services.length || before.resources.length))
@@ -227,12 +281,18 @@ defineAction<ImportCompose>({
     );
   },
   execute(ctx, input) {
-    const { manifest, report } = importCompose(input.composeYaml);
     const existing = scopedProject(ctx, input.projectId);
+    const projectId = existing?.id ?? id();
+    const { manifest, report } = importCompose(input.composeYaml, projectId);
     const origin = { type: "import", source: "compose" } as const;
     const tally = `${report.mapped.length} mapped, ${report.unmapped.length} not imported (each listed with a reason)`;
 
     if (existing) {
+      // Re-import must not strand a value behind an older reference. In
+      // particular, bare vault:KEY references may already hold real values.
+      // Keep the exact existing reference when the same service/key is still
+      // secret-looking; the importer has no authority to migrate the store.
+      preserveSecretRefs(existing.workingManifest, manifest);
       existing.origin = origin;
       commit(existing, manifest);
       return {
@@ -241,9 +301,10 @@ defineAction<ImportCompose>({
         data: { projectId: existing.id, report },
       };
     }
-    const project = newProject(ctx, input.name ?? "Imported app", undefined, origin, clone(manifest));
+    const project = newProject(ctx, input.name ?? "Imported app", undefined, origin, clone(manifest), projectId);
+    // Connection first, then the writes: a refused id creates nothing at all.
+    const { env } = buildEnvironment(project, { connectionId: input.connectionId }, ctx);
     db().projects.push(project);
-    const { env } = buildEnvironment(project, { connectionId: input.connectionId }, ctx.workspaceId);
     db().environments.push(env);
     save();
     return {
@@ -262,7 +323,7 @@ defineAction<ImportCompose>({
  * Two rules make this safe, and both are enforced here rather than trusted to
  * the caller:
  *
- *  1. Everything imported is `referenced`, never `managed`. Orrery shows a
+ *  1. Everything imported is `referenced`, never `managed`. Zenith.ai shows a
  *     referenced resource on the map and lets services bind to it; it never
  *     provisions, changes or deletes one, and it never bills for it.
  *  2. The submitted list is a SELECTION, not data. Every entry is matched by
@@ -342,7 +403,7 @@ async function resolveImport(ctx: ActionContext, input: ImportResources) {
 }
 
 const REFERENCED_NOTE =
-  "Imported resources are marked referenced: Orrery draws them on the map and lets services bind to them, but never provisions, changes or deletes them — and they add nothing to the cost estimate.";
+  "Imported resources are marked referenced: Zenith.ai draws them on the map and lets services bind to them, but never provisions, changes or deletes them — and they add nothing to the cost estimate.";
 
 defineAction<ImportResources>({
   id: "project.importResources",
@@ -434,15 +495,15 @@ function projectDelete(ctx: ActionContext, input: DeleteProject) {
     : undefined;
 
   const details = [
-    `Removes ${project.name} and everything Orrery holds about it: ${envs.length} environment(s), ${revisions.length} revision(s), ${deployments.length} deployment record(s), ${findings.length} security finding(s), ${runs.length} Navigator run(s).`,
-    "Nothing in your cloud or in the sandbox is torn down. This deletes Orrery's records, not running infrastructure.",
+    `Removes ${project.name} and everything Zenith.ai holds about it: ${envs.length} environment(s), ${revisions.length} revision(s), ${deployments.length} deployment record(s), ${findings.length} security finding(s), ${runs.length} Navigator run(s).`,
+    "Nothing in your cloud or in the sandbox is torn down. This deletes Zenith.ai's records, not running infrastructure.",
     `The URL /p/${project.slug} stops working, and the working copy goes with it — export the bundle from Source → Export first if you want the generated files.`,
     "The audit log keeps every row already written, including this deletion. It is append-only.",
   ];
 
   const warnings = live.length
     ? [
-        `${live.map((e) => `${e.name} is running ${liveRevision(e)}`).join("; ")}. Those keep running after the project is gone, and Orrery will have no way to reach them again — tear them down first if you want them stopped.`,
+        `${live.map((e) => `${e.name} is running ${liveRevision(e)}`).join("; ")}. Those keep running after the project is gone, and Zenith.ai will have no way to reach them again — tear them down first if you want them stopped.`,
       ]
     : [];
 

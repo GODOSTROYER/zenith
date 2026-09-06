@@ -1,5 +1,5 @@
 /**
- * The secret store, and the promise it makes: Orrery holds the value, and
+ * The secret store, and the promise it makes: Zenith.ai holds the value, and
  * nothing that leaves the server holds the value.
  *
  * The refusal side — what happens with no `ORRERY_SECRET_KEY` — is in
@@ -42,6 +42,16 @@ let projectId = "";
 const pctx = () => ({ ...ctx, projectId });
 const manifest = () => q.project(projectId)!.workingManifest;
 const api = () => manifest().services.find((s) => s.name === "api")!;
+
+/**
+ * The reference `system.setSecret` generates for a variable on `api`. It names
+ * the project and the service, not just the key, so two services that both read
+ * DATABASE_URL do not land on one stored value — tests/secrets/namespacing.test.ts
+ * is that promise on its own. Written as a helper here so these tests keep
+ * asserting what they were written to assert: where the value goes, and that it
+ * never travels with it.
+ */
+const ref = (key: string) => `vault:${projectId}/${api().id}/${key}`;
 
 const exec = (actionId: string, input: unknown) =>
   runAction(actionId, pctx(), input, { mode: "execute" }).then((r) => r.result!);
@@ -108,12 +118,12 @@ describe("system.setSecret stores the value and records only the reference", () 
       key: "STRIPE_KEY",
       secretValue: "sk_live_stripe_value",
     });
-    expect(result.data).toMatchObject({ secretRef: "vault:STRIPE_KEY" });
+    expect(result.data).toMatchObject({ secretRef: ref("STRIPE_KEY") });
 
     const entry = api().env.find((e) => e.key === "STRIPE_KEY")!;
-    expect(entry.secretRef).toBe("vault:STRIPE_KEY");
+    expect(entry.secretRef).toBe(ref("STRIPE_KEY"));
     expect(entry.value).toBeUndefined();
-    expect(readSecretValue(WS, "vault:STRIPE_KEY")).toBe("sk_live_stripe_value");
+    expect(readSecretValue(WS, ref("STRIPE_KEY"))).toBe("sk_live_stripe_value");
   });
 
   it("keeps the value out of the manifest, the state file, the audit log and the export", async () => {
@@ -144,7 +154,7 @@ describe("system.setSecret stores the value and records only the reference", () 
     );
     const exported = JSON.stringify(bundle);
     expect(exported).not.toContain(VALUE);
-    expect(exported).toContain("vault:STRIPE_KEY"); // the reference travels, the value does not
+    expect(exported).toContain(ref("STRIPE_KEY")); // the reference travels, the value does not
   });
 
   it("says what is stored where before it does it", async () => {
@@ -156,7 +166,7 @@ describe("system.setSecret stores the value and records only the reference", () 
     expect(preview.blocked).toBeUndefined();
     const text = preview.details.join(" ");
     expect(text).toMatch(/AES-256-GCM/);
-    expect(text).toMatch(/secret store as vault:PLANNED_KEY/);
+    expect(text).toContain(`secret store as ${ref("PLANNED_KEY")}`);
     expect(text).toMatch(/manifest records only/i);
     expect(JSON.stringify(preview)).not.toContain("sk_live_planned");
   });
@@ -169,16 +179,16 @@ describe("system.setSecret stores the value and records only the reference", () 
       secretValue: "sk_live_not_ours",
     });
     expect(result.ok).toBe(false);
-    expect(result.error).toMatch(/not Orrery's store/i);
+    expect(result.error).toMatch(/not Zenith.ai's store/i);
     expect(api().env.some((e) => e.key === "ELSEWHERE")).toBe(false);
   });
 
   it("still records a bare reference, and says nothing is behind it yet", async () => {
     const preview = await plan("system.setSecret", { serviceId: "api", key: "LATER_KEY" });
-    expect(preview.details.join(" ")).toMatch(/Nothing is stored at vault:LATER_KEY yet/);
+    expect(preview.details.join(" ")).toContain(`Nothing is stored at ${ref("LATER_KEY")} yet`);
     await ok("system.setSecret", { serviceId: "api", key: "LATER_KEY" });
-    expect(api().env.find((e) => e.key === "LATER_KEY")!.secretRef).toBe("vault:LATER_KEY");
-    expect(secretStatus(WS, "vault:LATER_KEY").exists).toBe(false);
+    expect(api().env.find((e) => e.key === "LATER_KEY")!.secretRef).toBe(ref("LATER_KEY"));
+    expect(secretStatus(WS, ref("LATER_KEY")).exists).toBe(false);
   });
 });
 
@@ -201,8 +211,8 @@ describe("system.rotateSecret sets a new value under the same reference", () => 
       secretValue: "sk_live_rotated",
     });
     expect(result.data).toMatchObject({ version: 2 });
-    expect(readSecretValue(WS, "vault:STRIPE_KEY")).toBe("sk_live_rotated");
-    expect(secretStatus(WS, "vault:STRIPE_KEY")).toMatchObject({ version: 2, updatedBy: "Alice" });
+    expect(readSecretValue(WS, ref("STRIPE_KEY"))).toBe("sk_live_rotated");
+    expect(secretStatus(WS, ref("STRIPE_KEY"))).toMatchObject({ version: 2, updatedBy: "Alice" });
     expect(JSON.stringify(manifest())).toBe(before); // a rotation is not a manifest edit
 
     const row = readAudit({ projectId }).find((r) => r.actionId === "system.rotateSecret")!;
@@ -210,13 +220,13 @@ describe("system.rotateSecret sets a new value under the same reference", () => 
   });
 
   it("keeps createdAt/createdBy and moves updatedAt", () => {
-    const status = secretStatus(WS, "vault:STRIPE_KEY");
+    const status = secretStatus(WS, ref("STRIPE_KEY"));
     if (!status.exists) throw new Error("expected a stored secret");
     expect(status.createdBy).toBe("Alice");
     expect(status.updatedAt >= status.createdAt).toBe(true);
   });
 
-  it("refuses a reference with nothing behind it, and one Orrery does not own", async () => {
+  it("refuses a reference with nothing behind it, and one Zenith.ai does not own", async () => {
     const empty = await exec("system.rotateSecret", {
       secretRef: "vault:NEVER_SET",
       secretValue: "x",
@@ -238,17 +248,17 @@ describe("system.rotateSecret sets a new value under the same reference", () => 
 describe("system.removeSecret removes the reference and the value together", () => {
   it("takes both, and warns that running services keep their copy", async () => {
     await ok("system.setSecret", { serviceId: "api", key: "DOOMED_KEY", secretValue: "sk_live_doomed" });
-    expect(secretStatus(WS, "vault:DOOMED_KEY").exists).toBe(true);
+    expect(secretStatus(WS, ref("DOOMED_KEY")).exists).toBe(true);
 
     const preview = await plan("system.removeSecret", { serviceId: "api", key: "DOOMED_KEY" });
-    expect(preview.details.join(" ")).toMatch(/deleted from Orrery's secret store/i);
+    expect(preview.details.join(" ")).toMatch(/deleted from Zenith.ai's secret store/i);
     expect(preview.warnings.join(" ")).toMatch(/until it is redeployed/i);
 
     await ok("system.removeSecret", { serviceId: "api", key: "DOOMED_KEY" });
     expect(api().env.some((e) => e.key === "DOOMED_KEY")).toBe(false);
-    expect(secretStatus(WS, "vault:DOOMED_KEY").exists).toBe(false);
-    expect(readSecretValue(WS, "vault:DOOMED_KEY")).toBeUndefined();
-    expect(listSecrets(WS).map((s) => s.ref)).not.toContain("vault:DOOMED_KEY");
+    expect(secretStatus(WS, ref("DOOMED_KEY")).exists).toBe(false);
+    expect(readSecretValue(WS, ref("DOOMED_KEY"))).toBeUndefined();
+    expect(listSecrets(WS).map((s) => s.ref)).not.toContain(ref("DOOMED_KEY"));
   });
 
   it("refuses on a plain variable, and names the action that does remove it", async () => {
@@ -290,10 +300,10 @@ describe("the plaintext-secret finding's fix moves the value without losing it",
     expect(result.summary).toMatch(/secret store/i);
 
     const entry = api().env.find((e) => e.key === "SESSION_SECRET")!;
-    expect(entry.secretRef).toBe("vault:SESSION_SECRET");
+    expect(entry.secretRef).toBe(ref("SESSION_SECRET"));
     expect(entry.value).toBeUndefined();
     // The value moved — it was not destroyed, and it is not in the manifest.
-    expect(readSecretValue(WS, "vault:SESSION_SECRET")).toBe(PLAINTEXT);
+    expect(readSecretValue(WS, ref("SESSION_SECRET"))).toBe(PLAINTEXT);
     expect(JSON.stringify(manifest())).not.toContain(PLAINTEXT);
 
     expect(syncFindings(projectId).some((f) => f.id.startsWith("sf_plaintext_secret"))).toBe(false);
@@ -307,7 +317,7 @@ describe("the plaintext-secret finding's fix moves the value without losing it",
     });
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/no plaintext value to move/i);
-    expect(api().env.find((e) => e.key === "SESSION_SECRET")!.secretRef).toBe("vault:SESSION_SECRET");
+    expect(api().env.find((e) => e.key === "SESSION_SECRET")!.secretRef).toBe(ref("SESSION_SECRET"));
   });
 });
 
@@ -317,7 +327,7 @@ describe("listing is metadata, scoped to one workspace", () => {
   it("returns every reference with a value, and no values", () => {
     const rows = listSecrets(WS);
     expect(rows.map((r) => r.ref)).toEqual(
-      expect.arrayContaining(["vault:STRIPE_KEY", "vault:SESSION_SECRET"])
+      expect.arrayContaining([ref("STRIPE_KEY"), ref("SESSION_SECRET")])
     );
     expect(JSON.stringify(rows)).not.toContain("sk_live");
     expect(rows.every((r) => r.version >= 1 && r.createdBy && r.updatedAt)).toBe(true);

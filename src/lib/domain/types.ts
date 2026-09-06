@@ -1,5 +1,5 @@
 /**
- * Orrery canonical domain model.
+ * Zenith.ai canonical domain model.
  *
  * The Manifest is the single source of truth for an application:
  * the System Map, the Source view, the REST API, and the Navigator agent
@@ -64,10 +64,10 @@ export const ResourceKind = z.enum([
 ]);
 export type ResourceKind = z.infer<typeof ResourceKind>;
 
-/** How Orrery relates to a node. Progressive adoption depends on this. */
+/** How Zenith.ai relates to a node. Progressive adoption depends on this. */
 export const Ownership = z.enum([
-  "managed", // Orrery provisions and operates it
-  "referenced", // exists in the customer cloud; Orrery reads state, never mutates
+  "managed", // Zenith.ai provisions and operates it
+  "referenced", // exists in the customer cloud; Zenith.ai reads state, never mutates
   "external", // documented only (e.g. a third-party API); no cloud presence
 ]);
 export type Ownership = z.infer<typeof Ownership>;
@@ -141,13 +141,30 @@ export const Resource = z.object({
 });
 export type Resource = z.infer<typeof Resource>;
 
+/**
+ * A DNS hostname and nothing else. Strict on purpose: these strings are
+ * interpolated into generated Terraform, Docker Compose and provider calls,
+ * so a quote, a newline or a `${` here would be someone else's syntax. The
+ * exporter escapes as well — this is the first of the two walls, not the only
+ * one. Labels are 1-63 chars, alphanumeric with inner hyphens.
+ */
+const HOSTNAME = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/i;
+/** A URL path: leading slash, then unreserved characters only. */
+const PATH_PREFIX = /^\/[A-Za-z0-9\-._~/]*$/;
+
 export const Route = z.object({
   id: z.string(),
   /** hostname, e.g. app.example.com or auto-assigned sandbox host */
-  host: z.string().min(1),
-  pathPrefix: z.string().default("/"),
+  host: z
+    .string()
+    .min(1)
+    .regex(HOSTNAME, "Host must be a hostname like app.example.com — letters, digits, dots and hyphens only."),
+  pathPrefix: z
+    .string()
+    .regex(PATH_PREFIX, "Path prefix must start with / and use letters, digits, - . _ ~ only.")
+    .default("/"),
   tls: z.boolean().default(true),
-  /** auto = Orrery-assigned host on the environment's base domain */
+  /** auto = Zenith.ai-assigned host on the environment's base domain */
   managedDns: z.boolean().default(true),
 });
 export type Route = z.infer<typeof Route>;
@@ -251,6 +268,8 @@ export interface CloudConnection {
   status: "connecting" | "healthy" | "degraded" | "disconnected";
   /** exact permission summary shown to the user */
   grantedPermissions: string[];
+  /** Current provider-declared access; presenting this does not imply a live check. */
+  declaredPermissions?: string[];
   createdAt: string;
   lastCheckedAt?: string;
 }
@@ -282,6 +301,13 @@ export interface Environment {
   policies: ManifestPolicies;
   /** base domain for managed routes, e.g. "atlas.orrery.test" */
   baseDomain: string;
+  /**
+   * The deployment that currently owns this environment — the lease. Only the
+   * holder may commit `deployedRevisionId`, so a rollback that supersedes an
+   * in-flight deploy cannot have its result overwritten by the runner it
+   * replaced, whichever finishes last. Undefined when nothing is in flight.
+   */
+  activeDeploymentId?: string;
   createdAt: string;
 }
 
@@ -341,7 +367,7 @@ export interface Output {
   kind: "url" | "hostname" | "connection" | "text";
   targetId?: string;
   /**
-   * True when nothing outside Orrery exists behind this value — the sandbox
+   * True when nothing outside Zenith.ai exists behind this value — the sandbox
    * invented it. The UI must label a simulated output as such; an absent flag
    * means the provider did not say, which is not the same as "real".
    */
@@ -564,6 +590,37 @@ export interface AlertDelivery {
   attempts?: number;
 }
 
+/**
+ * One durable intent to deliver one alert transition to one channel.
+ *
+ * Written in the same save as the event that caused it, so a crash can never
+ * leave an open alert nobody was told about. Claimed before the send and
+ * settled after it, so a crash mid-flight is retried rather than lost — and
+ * `idempotencyKey` is stable across those retries, so a receiver that already
+ * saw the first attempt can recognise the duplicate.
+ */
+export interface AlertOutboxEntry {
+  id: string;
+  workspaceId: string;
+  channelId: string;
+  eventId: string;
+  /** which transition this is: the alert opening, or clearing */
+  transition: "fired" | "resolved" | "test";
+  /** stable across retries of this exact transition on this exact channel */
+  idempotencyKey: string;
+  status: "pending" | "sending" | "delivered" | "failed";
+  attempts: number;
+  createdAt: string;
+  /** set while a runner holds it; a stale claim is reclaimable after the lease */
+  claimedAt?: string;
+  /** when it reached a terminal status */
+  settledAt?: string;
+  /** the last failure, in prose with its fix */
+  error?: string;
+  /** HTTP status of the last attempt, when the channel speaks HTTP */
+  httpStatus?: number;
+}
+
 /* ------------------------------- navigator -------------------------------- */
 
 /** Autonomy dial. Level semantics are enforced by the action executor. */
@@ -576,6 +633,24 @@ export const AutonomyLevel = z.enum([
 ]);
 export type AutonomyLevel = z.infer<typeof AutonomyLevel>;
 
+/**
+ * Evidence for the whole Navigator run, recorded by an authoritative verifier
+ * after execution. A successful action or deployment status alone is not this
+ * evidence. The run verifier records it only when provider checks cover the
+ * complete intended result; unsupported or incomplete observations stay neutral.
+ */
+export interface NavigatorVerification {
+  scope: "run";
+  source: "provider";
+  status: "passed" | "failed";
+  simulated: boolean;
+  checkedAt: string;
+  /** Reference to the recorded provider observation/check, not explanatory prose. */
+  evidenceRef: string;
+  /** Immutable observations retained with the run for inspection. */
+  checks?: { deploymentId: string; revisionId: string; provider: ProviderId; detail: string; passed: boolean }[];
+}
+
 export interface NavigatorRun {
   id: string;
   projectId: string;
@@ -585,6 +660,9 @@ export interface NavigatorRun {
   createdAt: string;
   endedAt?: string;
   summary?: string;
+  verification?: NavigatorVerification;
+  verificationPending?: boolean;
+  verificationNote?: string;
 }
 
 export interface NavigatorStep {
@@ -605,5 +683,7 @@ export interface NavigatorStep {
   /** Approval is a client-side selection until Run; there is no stored "approved". */
   status: "proposed" | "running" | "done" | "failed" | "skipped";
   resultSummary?: string;
+  /** Deployment created by this action, retained across approval/resume cycles. */
+  deploymentId?: string;
   error?: string;
 }

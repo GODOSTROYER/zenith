@@ -19,9 +19,9 @@
  * `totalIsExact` is false when the log is longer than that, so a screen can say
  * "1000+" rather than presenting a floor as a fact.
  */
-import { countAudit, inWorkspace, q, readAuditPage } from "@/lib/db/store";
+import { countAudit, q, readAuditPage } from "@/lib/db/store";
 import type { AuditEvent } from "@/lib/domain/types";
-import { ApiError, intParam, notFound, requireWorkspace, route } from "@/lib/server/context";
+import { ApiError, intParam, route, scopedProject } from "@/lib/server/context";
 
 export const dynamic = "force-dynamic";
 
@@ -51,22 +51,22 @@ function isoBound(raw: string | null, param: string, endOfDay: boolean): string 
     : value;
   const at = new Date(full);
   if (Number.isNaN(at.getTime()))
-    throw new ApiError(`"${value}" is not a date Orrery can read for ?${param}.`, 400, {
+    throw new ApiError(`"${value}" is not a date Zenith.ai can read for ?${param}.`, 400, {
       fix: 'Use an ISO timestamp like 2026-09-02T14:00:00Z, or a plain date like 2026-09-02.',
     });
   return at.toISOString();
 }
 
 export const GET = route<{ id: string }>(async (req, { id }) => {
-  const project = q.project(id);
-  // Scoped by workspace: an id alone is not a read grant.
-  if (!project || !inWorkspace(requireWorkspace().id, project.id))
-    throw notFound(`Project "${id}"`, "Check the URL, or pick a project from the overview.");
+  const project = scopedProject(id);
   const sp = req.nextUrl.searchParams;
 
   const envId = sp.get("env")?.trim() || undefined;
-  if (envId && !q.environment(envId))
-    throw new ApiError(`Unknown environment "${envId}".`, 400, {
+  // Bound to *this* project, not merely to some project: resolving globally
+  // would answer "does this id exist?" for another tenant — a foreign id would
+  // return an empty 200 where a made-up one returns 400. Same refusal for both.
+  if (envId && q.environment(envId)?.projectId !== project.id)
+    throw new ApiError(`Unknown environment "${envId}" for this project.`, 400, {
       fix: "Use an environment id from this project, or drop ?env= to see every environment.",
     });
 

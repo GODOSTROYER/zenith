@@ -6,7 +6,8 @@
  */
 import { useEffect } from "react";
 import { RotateCcw } from "lucide-react";
-import { Button, Card } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 export default function Error({
   error,

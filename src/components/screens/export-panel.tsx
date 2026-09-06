@@ -1,6 +1,6 @@
 "use client";
 /**
- * The no-lock-in surface: everything Orrery generated for an environment, as
+ * The no-lock-in surface: everything Zenith.ai generated for an environment, as
  * files you can read, copy and take with you. Rendered on Source → Export and
  * again on Settings → Export.
  */
@@ -8,7 +8,12 @@ import { useMemo, useState } from "react";
 import { Download, FileCode2 } from "lucide-react";
 import { useJson } from "@/lib/client/api";
 import type { Manifest } from "@/lib/domain/types";
-import { Button, Card, Chip, CodeBlock, EmptyState, Skeleton } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
+import { CodeBlock } from "@/components/ui/code-block";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useShell } from "@/components/shell/shell-context";
 import { ErrorNote } from "./shared";
 
@@ -34,7 +39,7 @@ interface ExportResponse {
 function bundleText(files: ExportFile[], readme: string, envName: string): string {
   const rule = (path: string) => `\n\n${"=".repeat(72)}\n===== ${path}\n${"=".repeat(72)}\n\n`;
   const head =
-    `Orrery export — ${envName}\n` +
+    `Zenith.ai export — ${envName}\n` +
     `Generated ${new Date().toISOString()}\n` +
     `${files.length} file${files.length === 1 ? "" : "s"}, concatenated. Each one starts at its\n` +
     `"===== <path>" marker below; split on those markers to get the tree back.\n`;
@@ -107,14 +112,14 @@ export function ExportPanel({
       : data.source.note;
 
   const providerName = provider?.displayName ?? data.provider;
-  /** Whether Orrery can run these files itself, said plainly. */
+  /** Whether Zenith.ai can run these files itself, said plainly. */
   const applicability = !provider
-    ? `Generated for "${data.provider}". This server did not report that provider's status, so whether Orrery can apply these files is unknown — running them yourself always works.`
+    ? `Generated for "${data.provider}". This server did not report that provider's status, so whether Zenith.ai can apply these files is unknown — running them yourself always works.`
     : provider.availability === "available"
-      ? `${providerName} is available in Orrery: it applies these files itself when you deploy. Running them with your own tooling gets you the same system.`
+      ? `${providerName} is available in Zenith.ai: it applies these files itself when you deploy. Running them with your own tooling gets you the same system.`
       : provider.availability === "preview"
-        ? `${providerName} is Preview in Orrery: it plans and generates these files but does not apply them. Run them yourself, with your own credentials.`
-        : `${providerName} is planned, not implemented. These files describe the system; nothing in Orrery applies them.`;
+        ? `${providerName} is Preview in Zenith.ai: it plans and generates these files but does not apply them. Run them yourself, with your own credentials.`
+        : `${providerName} is planned, not implemented. These files describe the system; nothing in Zenith.ai applies them.`;
 
   return (
     <div className="space-y-4">
@@ -133,7 +138,7 @@ export function ExportPanel({
         }
       >
         <p className="text-[13px] text-ink-mute">
-          These are the real files for this system: run them with your own tooling and Orrery
+          These are the real files for this system: run them with your own tooling and Zenith.ai
           stops being required. Nothing here calls back to us.
         </p>
         <p className="mt-2 text-[12.5px] text-ink-mute">{applicability}</p>

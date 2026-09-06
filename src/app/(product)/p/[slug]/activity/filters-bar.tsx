@@ -6,7 +6,10 @@
  */
 import { Search } from "lucide-react";
 import type { Environment } from "@/lib/domain/types";
-import { Button, Input, SegmentedControl, Select } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Select } from "@/components/ui/select";
 
 export type ActorFilter = "all" | "user" | "navigator" | "system";
 export type ResultFilter = "all" | "ok" | "error" | "denied";

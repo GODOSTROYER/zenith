@@ -1,7 +1,8 @@
 "use client";
 /** Everything one node is wired to, listed inside that node's editor. */
 import { ArrowRight } from "lucide-react";
-import { Button, Chip } from "@/components/ui";
+import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import { useProjectData } from "@/components/shell/project-context";
 import { PlanFirst } from "./plan-first";
 import { nodeLabel } from "./logic";
@@ -25,7 +26,7 @@ export function BindingList({ nodeId, onOpen }: BindingListProps) {
     return (
       <p className="text-[13px] text-ink-mute">
         Nothing is connected here yet. Use <strong className="font-medium text-ink">Connect</strong>{" "}
-        on the map toolbar to draw a connection, and Orrery injects the configuration for you.
+        on the map toolbar to draw a connection, and Zenith.ai injects the configuration for you.
       </p>
     );
 

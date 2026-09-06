@@ -11,11 +11,15 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { FileCode2, Trash2 } from "lucide-react";
 import type { Workspace } from "@/lib/domain/types";
-import { Button, Card, Field, Input, Skeleton } from "@/components/ui";
-import { ExportPanel } from "@/components/screens/export-panel";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useSelectedEnv } from "@/components/screens/project-data";
 import { ActionConfirm, ErrorNote } from "@/components/screens/shared";
 import { useShell } from "@/components/shell/shell-context";
@@ -26,6 +30,8 @@ import { EnvironmentsSection } from "./environments";
 import { MembersSection } from "./members";
 import { SecretsSection } from "./secrets";
 import { providersOf } from "./shared";
+import { PageHeading } from "@/components/screens/page-heading";
+import { SectionNavigation } from "@/components/screens/section-navigation";
 
 const SECTIONS = [
   { id: "workspace", label: "Workspace" },
@@ -37,6 +43,9 @@ const SECTIONS = [
   { id: "export", label: "Export" },
   { id: "danger", label: "Danger zone" },
 ];
+const ExportPanel = dynamic(() => import("@/components/screens/export-panel").then((m) => m.ExportPanel), {
+  loading: () => <Skeleton height={120} />,
+});
 
 type Pending = { kind: "renameWorkspace"; from: string; name: string } | { kind: "deleteProject" };
 
@@ -79,21 +88,9 @@ export default function SettingsPage() {
   const deleteGate = gate(role, "project.delete");
 
   return (
-    <div className="mx-auto h-full w-full max-w-[1040px] overflow-y-auto px-6 py-6">
-      <nav
-        aria-label="Settings sections"
-        className="sticky top-0 z-10 -mx-6 mb-8 flex flex-wrap items-center gap-1 border-b border-line bg-bg0/90 px-6 py-2 backdrop-blur"
-      >
-        {SECTIONS.map((s) => (
-          <a
-            key={s.id}
-            href={`#${s.id}`}
-            className="rounded-ctl px-2.5 py-1 text-[12.5px] text-ink-mute transition-colors hover:bg-bg2 hover:text-ink"
-          >
-            {s.label}
-          </a>
-        ))}
-      </nav>
+    <div className="product-page mx-auto h-full w-full max-w-[1040px] overflow-y-auto">
+      <PageHeading title="Settings" description="Manage your workspace, access, and environment policies. Changes are previewed before they apply." />
+      <SectionNavigation sections={SECTIONS} label="Settings sections" />
 
       <div className="space-y-10">
         {/* -------------------------------- workspace ----------------------- */}
@@ -148,7 +145,7 @@ export default function SettingsPage() {
         <section id="connections" className="scroll-mt-16 space-y-4">
           <SectionHead
             title="Connections"
-            body="Every connection lists the exact access it holds. Orrery never asks for more than it shows."
+            body="Every connection lists the exact access it holds. Zenith.ai never asks for more than it shows."
           />
           <ConnectionsSection
             connections={connections}
@@ -186,7 +183,7 @@ export default function SettingsPage() {
         <section id="alerts" className="scroll-mt-16 space-y-4">
           <SectionHead
             title="Alerts"
-            body="Where an alert goes once it exists. Channels are workspace-wide; the rules that use them live on Observe. Without a channel here, an alert is seen only by somebody who opens Orrery."
+            body="Where an alert goes once it exists. Channels are workspace-wide; the rules that use them live on Observe. Without a channel here, an alert is seen only by somebody who opens Zenith.ai."
           />
           <AlertChannelsSection projectId={projectId} role={role} />
         </section>
@@ -195,7 +192,7 @@ export default function SettingsPage() {
         <section id="export" className="scroll-mt-16 space-y-4">
           <SectionHead
             title="Export"
-            body="Everything Orrery generated for this environment, in files you can run yourself."
+            body="Everything Zenith.ai generated for this environment, in files you can run yourself."
           />
           <Card>
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -246,8 +243,8 @@ export default function SettingsPage() {
                 <h3 className="text-[14px] text-ink">Delete this project</h3>
                 <p className="mt-1 max-w-[62ch] text-[12.5px] text-ink-mute">
                   Removes {data.project.name}, its environments, revisions, deployment records and
-                  findings from Orrery. Nothing in your cloud or in the sandbox is torn down: if an
-                  environment is running something, it keeps running and Orrery loses the way back
+                  findings from Zenith.ai. Nothing in your cloud or in the sandbox is torn down: if an
+                  environment is running something, it keeps running and Zenith.ai loses the way back
                   to it. The plan lists the exact counts before you confirm.
                 </p>
               </div>
@@ -344,11 +341,12 @@ function WorkspaceCard({
         help="Shows in the top bar. Audit history is keyed to the workspace id, so nothing already written changes."
         error={!tooShort || name === "" ? undefined : "Use at least 2 characters."}
       >
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-3">
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={60}
+            className="min-w-[180px] flex-1"
             disabled={!!disabledReason}
           />
           <Button

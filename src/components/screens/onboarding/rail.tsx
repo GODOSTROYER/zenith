@@ -14,6 +14,6 @@ export function Rail({ step, complete, hasWorkspace, hasChoice, onGo }: {
         <span><span className="block text-sm text-ink">{s.title}</span><span className="mt-1 block text-xs text-ink-faint">{s.hint}</span>{locked && <span className="mt-1 block text-xs text-ink-faint">{locked}</span>}</span>
       </button></li>;
     })}</ol>
-    <p className="mt-6 border-t border-line px-3 pt-5 text-xs leading-relaxed text-ink-faint">This starter is optional. Checkmarks reflect workspace records, not pages visited. Create only when you are ready; nothing here deploys your system.</p>
+    <p className="mt-6 border-t border-line px-3 pt-5 text-xs leading-relaxed text-ink-faint">Set up at your own pace, or skip ahead to the guide. You can return whenever you need. Nothing is deployed during setup.</p>
   </nav>;
 }

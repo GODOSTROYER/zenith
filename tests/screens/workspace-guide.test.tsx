@@ -37,6 +37,8 @@ describe("anytime workspace guide", () => {
     render(<GuideContent boot={boot} />);
     expect(host.textContent).toContain("Preview · plan and export only");
     expect([...host.querySelectorAll("a")].find((a) => a.textContent?.includes("Review Source and export"))?.getAttribute("href")).toBe("/p/project/source?env=e1");
-    expect(host.textContent).toContain("visiting a screen never marks infrastructure deployed or verified");
+    expect(host.textContent).toContain("Choose a project to see what’s ready and find your next step");
+    expect(host.textContent).toContain("Review a plan before applying changes");
+    expect(host.textContent).not.toContain("workspace records");
   });
 });

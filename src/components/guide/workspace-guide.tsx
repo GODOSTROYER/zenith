@@ -27,13 +27,13 @@ export function GuideContent({ boot, initialProjectId }: { boot: Bootstrap; init
   const project = state.project;
   const base = project ? `/p/${encodeURIComponent(project.slug)}` : undefined;
   const projectHref = (path = "") => `${base}${path}${state.environment ? `?env=${encodeURIComponent(state.environment.id)}` : ""}`;
-  const labels = ["Workspace exists", "Environment has a connection", "Editable system has nodes"];
+  const labels = ["Workspace selected", "Connection selected", "Services or resources added"];
   return (
     <div className="space-y-8">
       <div className="flex flex-col items-start gap-5 rounded-card border border-line bg-bg1 p-5 sm:flex-row sm:items-center">
         <div className="h-28 w-28 shrink-0"><GimbalCharacter state={null} className="h-full w-full" /></div>
         <div><h2 className="text-xl font-medium text-ink">Your stack, clearly in view.</h2>
-          <p className="mt-2 text-sm leading-relaxed text-ink-mute">Pick up wherever you are. This guide reads your workspace records; visiting a screen never marks infrastructure deployed or verified.</p></div>
+          <p className="mt-2 text-sm leading-relaxed text-ink-mute">Pick up where you left off. Choose a project to see what’s ready and find your next step.</p></div>
       </div>
       {boot.projects.length > 0 && <label className="block text-sm text-ink-mute">Project
         <select aria-label="Guide project" value={project?.id ?? ""} onChange={(e) => setSelected(e.target.value)} className="mt-2 block w-full rounded-ctl border border-line bg-bg1 p-3 text-ink">
@@ -43,11 +43,11 @@ export function GuideContent({ boot, initialProjectId }: { boot: Bootstrap; init
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-card border border-line p-5"><h3 className="text-sm font-medium text-ink">In {boot.workspace.name}</h3>
           <ul className="mt-4 space-y-3">{labels.map((label, index) => <li key={label} className="flex items-center gap-3 text-sm text-ink-mute">{state.complete[index] ? <Check aria-label="Present" className="h-4 w-4 text-signal" /> : <Circle aria-label="Not yet" className="h-4 w-4 text-ink-faint" />}{label}</li>)}</ul>
-          <p className="mt-4 text-xs text-ink-faint">A blank project is a valid starting point. Deployment readiness requires a separate plan and checks.</p>
+          <p className="mt-4 text-xs text-ink-faint">Start blank or build from a blueprint. Review a plan before applying changes.</p>
         </div>
         <div className="rounded-card border border-line bg-bg1 p-5"><p className="text-xs text-signal">{state.mode}</p><h3 className="mt-3 text-base text-ink">{state.next}</h3>
-          <p className="mt-3 text-sm text-ink-mute">{state.connection ? `Environment: ${state.environment?.name}. Connection: ${state.connection.label} · last recorded status: ${state.connection.status}.` : "No cloud access is needed to explore this workspace."}</p>
-          {state.connection?.lastCheckedAt && <p className="mt-2 text-xs text-ink-faint">Last check: {new Date(state.connection.lastCheckedAt).toLocaleString()}. Open Settings for a fresh check.</p>}
+          <p className="mt-3 text-sm text-ink-mute">{state.connection ? `Environment: ${state.environment?.name}. Connection: ${state.connection.label}.` : "No cloud access is needed to explore this workspace."}</p>
+          {state.connection && <p className="mt-2 text-xs text-ink-faint">Last check: {state.connection.status}{state.connection.lastCheckedAt ? ` · ${new Date(state.connection.lastCheckedAt).toLocaleString()}` : " · no check date available"}. Recheck in Settings.</p>}
           <Link className="mt-5 inline-flex min-h-11 items-center rounded-ctl bg-signal px-4 text-sm font-medium text-on-signal" href={base ? projectHref(!state.environment || !state.connection || state.connection.status !== "healthy" ? "/settings" : state.provider?.availability === "preview" ? "/source" : "") : "/onboarding?step=2"}>{!base ? "Open the optional starter" : !state.environment || !state.connection || state.connection.status !== "healthy" ? "Review connection settings" : state.provider?.availability === "preview" ? "Review Source and export" : "Review your system"} →</Link>
         </div>
       </div>

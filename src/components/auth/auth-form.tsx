@@ -79,6 +79,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") || "/overview";
+  const redirectError = params.get("error");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -86,7 +87,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>(() =>
-    messageForErrorCode(params.get("error"))
+    messageForErrorCode(redirectError)
   );
   /** the account exists but was never confirmed — offer to send the link again */
   const [unconfirmed, setUnconfirmed] = useState(false);
@@ -99,6 +100,15 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     mode === "reset" ? "checking" : "ok"
   );
   const c = COPY[mode];
+  // Keep a server verification failure visible after a retry returns to the
+  // same URL; that navigation does not necessarily change the query parameter.
+  const displayedError = error ?? (!busy ? messageForErrorCode(redirectError) : undefined);
+
+  // A rejected server verification can return to this already mounted form.
+  // Only a changed error parameter should replace a local submission error.
+  useEffect(() => {
+    setError(messageForErrorCode(redirectError));
+  }, [redirectError]);
 
   useEffect(() => {
     if (mode !== "reset") return;
@@ -127,9 +137,9 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     setBusy(true);
     setError(undefined);
     setUnconfirmed(false);
-    const supabase = createClient();
-    const origin = window.location.origin;
     try {
+      const supabase = createClient();
+      const origin = window.location.origin;
       if (mode === "login") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -343,9 +353,9 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
             </Field>
           )}
 
-          {error && (
+          {displayedError && (
             <div role="alert" className="rounded-[8px] bg-err-dim px-3 py-2 text-[13px] leading-[1.5] text-err">
-              {error}
+              {displayedError}
               {unconfirmed && resendButton && <div className="mt-2">{resendButton}</div>}
             </div>
           )}

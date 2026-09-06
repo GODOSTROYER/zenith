@@ -9,8 +9,10 @@
  *    fixed sentence.
  */
 
-/** Codes `/auth/callback` may put in `?error=`. Nothing else is honoured. */
+/** Codes auth redirects may put in `?error=`. Nothing else is honoured. */
 export const AUTH_ERROR_CODES: Record<string, string> = {
+  auth_unavailable:
+    "The app server could not verify your session because the authentication service is unavailable. Try again; if it continues, check the service and the server’s network access.",
   link_expired:
     "That link has expired or was already used. Request a fresh one below — links last an hour.",
   link_missing_code:
@@ -30,7 +32,7 @@ export const AUTH_ERROR_FALLBACK =
 /** `?error=` → copy. Unknown codes get fixed copy; the param is never rendered. */
 export function messageForErrorCode(raw: string | null | undefined): string | undefined {
   if (!raw) return undefined;
-  return AUTH_ERROR_CODES[raw] ?? AUTH_ERROR_FALLBACK;
+  return Object.hasOwn(AUTH_ERROR_CODES, raw) ? AUTH_ERROR_CODES[raw] : AUTH_ERROR_FALLBACK;
 }
 
 /**

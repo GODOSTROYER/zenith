@@ -45,12 +45,20 @@ describe("messageForErrorCode", () => {
     expect(messageForErrorCode("link_expired")).not.toContain("link_expired");
   });
 
+  it("explains server verification outages without blaming the password", () => {
+    expect(messageForErrorCode("auth_unavailable")).toBe(AUTH_ERROR_CODES.auth_unavailable);
+    expect(messageForErrorCode("auth_unavailable")).toContain("check the service and the server’s network access");
+  });
+
   it("never echoes an unknown parameter back into the page", () => {
     const hostile = [
       "<img src=x onerror=alert(1)>",
       "Your account was suspended — call +1 555 0100 to restore it",
       "https://evil.example/steal",
       "link_expired__",
+      "__proto__",
+      "constructor",
+      "toString",
     ];
     for (const raw of hostile) {
       const shown = messageForErrorCode(raw);

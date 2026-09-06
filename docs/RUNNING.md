@@ -314,6 +314,22 @@ Zenith.ai uses **3400**. `npm run dev`, `npm start` and the container all bind i
   adapter detects a non-LocalStack service on that port and says so specifically
   rather than telling you to start Docker.
 
+### Sign in returns to the login page
+
+Password sign-in happens in the browser, but the Next.js server must also verify
+the resulting session with Supabase. The browser can succeed while the server's
+outbound network access is blocked. Server logs then show `[auth] Session
+verification failed` with `AuthRetryableFetchError` and status `0`; the login page
+explains that verification is unavailable.
+
+Check connectivity to the configured Supabase host **from the process running
+Next.js**, including its sandbox, firewall and proxy permissions. Restart that
+server in a terminal with the required network access, then reload the page. A
+still-valid browser session can open the workspace without another password
+submission. Stop the existing server first so two processes never share the
+data directory. Keep authentication configured; removing its keys does not fix
+session verification.
+
 ### The dev server is slow to compile
 
 It is, on this machine — first paint of a route can take tens of seconds while

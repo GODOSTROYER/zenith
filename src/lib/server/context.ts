@@ -10,15 +10,19 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { NextResponse, type NextRequest } from "next/server";
 import type { ActionContext, Role } from "@/lib/actions/core";
-import { db, save } from "@/lib/db/store";
+import { db, inWorkspace, q, save } from "@/lib/db/store";
 import {
   AutonomyLevel,
   type Actor,
+  type Deployment,
+  type Environment,
   type Invite,
   type Member,
+  type Project,
   type Workspace,
 } from "@/lib/domain/types";
 import { log, withRequestId, currentRequestId } from "@/lib/log";
+import type { SseGuard } from "@/lib/server/sse";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { sessionUserFromRequest } from "@/lib/supabase/route";
 import { getSessionUser, type SessionUser } from "@/lib/auth/session";
@@ -342,6 +346,37 @@ export function requireWorkspace(): Workspace {
 }
 
 /**
+ * A membership answer that keeps answering, for requests that outlive `route()`.
+ *
+ * `requireWorkspace()` resolves once, before the handler runs. That is the
+ * whole truth for a request measured in milliseconds and a lie for an SSE
+ * connection held open for hours: without this, removing someone from a
+ * workspace would stop their next request while their live stream kept
+ * delivering payloads until they chose to disconnect. So every stream carries
+ * one of these and `sseResponse` re-asks it on every push and heartbeat.
+ *
+ * The closure captures who and where at connect and re-reads the member table
+ * each time — it never touches the request scope, so it is safe to call long
+ * after the handler returned. It reuses `workspacesFor` rather than restating
+ * the membership rule, at the cost of one filter per poll; that is cheaper than
+ * two copies of the rule drifting apart.
+ */
+export function membershipCheck(): SseGuard {
+  const workspace = requireWorkspace();
+  const user = currentRequest()?.user ?? null;
+  // Demo mode and the Navigator have no member row to lose: one local user, in
+  // every workspace, for as long as the process runs.
+  if (!user) return () => undefined;
+  return () =>
+    workspacesFor(user).some((w) => w.id === workspace.id)
+      ? undefined
+      : {
+          message: `Your membership in ${workspace.name} ended, so this stream stopped.`,
+          fix: `Ask an admin of ${workspace.name} to invite you back, then reload the page.`,
+        };
+}
+
+/**
  * The same resolution for server components and server actions, which have
  * `cookies()` instead of a NextRequest. `next/headers` is imported lazily: the
  * /api layer and the tests import this module and must not drag it in.
@@ -421,6 +456,54 @@ export function errorResponse(err: unknown): NextResponse {
     },
     500
   );
+}
+
+/* ------------------------------ scoped lookups ---------------------------- */
+
+/**
+ * Workspace-bound id resolvers — the only way an /api route should turn a
+ * caller-supplied id into an object.
+ *
+ * An object id is a bearer token, and knowing one must not be enough to read it
+ * from another tenant. Each of these resolves through the owning project's
+ * workspace and answers a foreign id **exactly** as it answers a missing one:
+ * the same 404, the same sentence, so the id space is not enumerable across
+ * workspaces. Every check lives here rather than being retyped per route,
+ * because the one route that forgets to retype it is the whole hole.
+ */
+export function scopedProject(id: string): Project {
+  // Search *within* the workspace rather than resolving globally and then
+  // checking. `id` may be a slug, and slugs are only unique per workspace, so a
+  // global match would hand back whichever workspace sorted first — and answer
+  // 404 to the other workspace's member asking for their own project.
+  const ws = requireWorkspace().id;
+  const project = db().projects.find((p) => (p.id === id || p.slug === id) && p.workspaceId === ws);
+  if (!project)
+    throw notFound(
+      `Project "${id}"`,
+      "Check the URL, or pick a project from the workspace overview."
+    );
+  return project;
+}
+
+export function scopedEnvironment(id: string): Environment {
+  const env = q.environment(id);
+  if (!env || !inWorkspace(requireWorkspace().id, env.projectId))
+    throw notFound(
+      `Environment "${id}"`,
+      "Pick an environment from the project's Observe tab."
+    );
+  return env;
+}
+
+export function scopedDeployment(id: string): Deployment {
+  const deployment = q.deployment(id);
+  if (!deployment || !inWorkspace(requireWorkspace().id, deployment.projectId))
+    throw notFound(
+      `Deployment "${id}"`,
+      "Open the project's Deploys tab to see deployments that exist."
+    );
+  return deployment;
 }
 
 /* -------------------------------- wrapper --------------------------------- */

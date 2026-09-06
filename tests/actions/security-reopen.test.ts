@@ -10,7 +10,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { ActionContext } from "@/lib/actions/core";
-import type { Actor, SecurityFinding } from "@/lib/domain/types";
+import type { Actor, Project, SecurityFinding } from "@/lib/domain/types";
 
 process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-reopen-"));
 process.env.ORRERY_FAST = "1";
@@ -41,6 +41,22 @@ const FINDING: SecurityFinding = {
 const eli = actor("u-editor", "Eli");
 const vic = actor("u-viewer", "Vic");
 
+/**
+ * The project the finding is about. A finding is resolved through it — that is
+ * what scopes a finding id to one workspace (see the tenancy note in
+ * actions/defs/security) — so the store has to hold the row the scanner would
+ * have produced this finding from.
+ */
+const PROJECT: Project = {
+  id: "p1",
+  workspaceId: WS,
+  name: "Reopen",
+  slug: "reopen",
+  workingManifest: { version: 1, services: [], resources: [], routes: [], bindings: [] },
+  origin: { type: "blank" },
+  createdAt: "2026-09-01T00:00:00.000Z",
+};
+
 beforeEach(() => {
   resetDb({
     workspaces: [{ id: WS, name: "Reopen", slug: "reopen", createdAt: new Date().toISOString() }],
@@ -48,6 +64,7 @@ beforeEach(() => {
       { id: "u-editor", workspaceId: WS, name: "Eli", email: "eli@x.dev", role: "editor" },
       { id: "u-viewer", workspaceId: WS, name: "Vic", email: "vic@x.dev", role: "viewer" },
     ],
+    projects: [structuredClone(PROJECT)],
     findings: [structuredClone(FINDING)],
   });
 });

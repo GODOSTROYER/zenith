@@ -7,6 +7,7 @@ import { z } from "zod";
 import { defineAction, getAction, runAction, type ActionContext } from "@/lib/actions/core";
 import { db, save } from "@/lib/db/store";
 import type { SecurityFinding } from "@/lib/domain/types";
+import { requireProject } from "./_shared";
 
 /**
  * A fix that edits the working copy has not made the environment safe — it has
@@ -17,10 +18,37 @@ import type { SecurityFinding } from "@/lib/domain/types";
 const fixLandsOnDeploy = (actionId: string): boolean =>
   getAction(actionId).category === "system";
 
-function requireFinding(findingId: string): SecurityFinding {
+/*
+ * TENANCY — why this lookup takes a context.
+ *
+ * A finding id is a bearer token, and this one is sharper than most: a finding
+ * carries a stored `fix` — an action id and its input, including that input's
+ * OWN projectId — and `security.resolveFinding` runs it. A global finder makes
+ * the resolver a confused deputy: workspace A's session quotes one of B's
+ * finding ids and Orrery runs B's fix against B's project, with A's role check
+ * as the only thing that was ever consulted.
+ *
+ * So the finding is resolved through the project that owns it, under the
+ * caller's own workspace. A foreign id gets the SAME sentence as an id that was
+ * never real — "you don't have access to that" would confirm the finding exists
+ * and make the id space enumerable across tenants.
+ */
+const noFinding = (ref: string) =>
+  new Error(`Finding "${ref}" was not found. Reload the Security page — it may already be resolved.`);
+
+function requireFinding(ctx: ActionContext, findingId: string): SecurityFinding {
   const f = db().findings.find((x) => x.id === findingId);
-  if (!f)
-    throw new Error(`Finding "${findingId}" was not found. Reload the Security page — it may already be resolved.`);
+  if (!f) throw noFinding(findingId);
+  try {
+    // `requireProject` resolves inside ctx.workspaceId, and it also matches a
+    // slug — which is user-chosen, so a project slugged with another tenant's
+    // project id must not resolve their finding. `f.projectId` is an id: demand
+    // the id back. Anything that does not resolve — foreign project, deleted
+    // project, no workspace in scope — is a finding this caller cannot see.
+    if (requireProject(ctx, f.projectId).id !== f.projectId) throw noFinding(findingId);
+  } catch {
+    throw noFinding(findingId);
+  }
   return f;
 }
 
@@ -40,7 +68,7 @@ defineAction<ResolveInput>({
   mutates: true,
   input: ResolveInput,
   async plan(ctx: ActionContext, input) {
-    const f = requireFinding(input.findingId);
+    const f = requireFinding(ctx, input.findingId);
     const willFix = f.fix && input.applyFix !== false;
     if (!willFix)
       return {
@@ -82,7 +110,7 @@ defineAction<ResolveInput>({
     };
   },
   async execute(ctx, input) {
-    const f = requireFinding(input.findingId);
+    const f = requireFinding(ctx, input.findingId);
     if (f.status !== "open")
       return { ok: true, summary: `"${f.title}" was already ${f.status}.`, data: { findingId: f.id, status: f.status } };
 
@@ -137,8 +165,8 @@ defineAction<DismissInput>({
   requiredRole: "editor",
   mutates: true,
   input: DismissInput,
-  plan(_ctx, input) {
-    const f = requireFinding(input.findingId);
+  plan(ctx, input) {
+    const f = requireFinding(ctx, input.findingId);
     return {
       summary: `Dismiss "${f.title}" (${f.severity}).`,
       details: [f.detail, `Reason recorded: "${input.reason}".`, "The finding stays visible under Dismissed, and the reason is in the audit log."],
@@ -149,7 +177,7 @@ defineAction<DismissInput>({
     };
   },
   execute(ctx, input) {
-    const f = requireFinding(input.findingId);
+    const f = requireFinding(ctx, input.findingId);
     f.status = "dismissed";
     f.resolvedAt = new Date().toISOString();
     f.resolvedBy = ctx.actor;
@@ -179,8 +207,8 @@ defineAction<ReopenInput>({
   requiredRole: "editor",
   mutates: true,
   input: ReopenInput,
-  plan(_ctx, input) {
-    const f = requireFinding(input.findingId);
+  plan(ctx, input) {
+    const f = requireFinding(ctx, input.findingId);
     const who = f.resolvedBy?.name ?? "someone";
     return {
       summary: `Reopen "${f.title}" (${f.severity}).`,
@@ -202,7 +230,7 @@ defineAction<ReopenInput>({
     };
   },
   execute(ctx, input) {
-    const f = requireFinding(input.findingId);
+    const f = requireFinding(ctx, input.findingId);
     if (f.status !== "dismissed")
       return {
         ok: false,

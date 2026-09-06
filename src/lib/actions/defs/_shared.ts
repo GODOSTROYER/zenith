@@ -8,14 +8,17 @@
  */
 import type { ActionContext, ActionPlan, Risk } from "@/lib/actions/core";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
-import { q, save } from "@/lib/db/store";
+import { db, q, save } from "@/lib/db/store";
 import { diffManifests } from "@/lib/domain/graph";
 import { fmtUsd } from "@/lib/format";
 import type {
+  CloudConnection,
+  Deployment,
   Environment,
   Manifest,
   Project,
   Resource,
+  Revision,
   Service,
 } from "@/lib/domain/types";
 
@@ -27,22 +30,86 @@ export const maxRisk = (risks: Risk[]): Risk =>
 
 /* --------------------------------- lookups -------------------------------- */
 
+/**
+ * TENANCY — the rule every lookup below enforces.
+ *
+ * An object id is a bearer token. `runAction` checks the caller's role in
+ * `ctx.workspaceId` and nothing else, so a lookup that reads the whole store
+ * lets an admin of workspace A plan or execute against workspace B just by
+ * passing one of B's ids — deployments and deletions included. Authorization
+ * is only as narrow as the resolution that feeds it.
+ *
+ * So: every resolver here constrains to `ctx.workspaceId`, transitively where
+ * the object carries no workspace of its own (Environment → Project →
+ * workspace; likewise Revision and Deployment).
+ *
+ * And a foreign id gets the SAME message as an absent one. "You don't have
+ * access to that" confirms the object exists, which makes the id space
+ * enumerable across tenants — a slow read of someone else's estate. Not-found
+ * says nothing, so both cases share one message factory below.
+ *
+ * Note the lookups resolve *within* the workspace rather than resolving
+ * globally and then checking. `q.project` matches on id OR slug, and two
+ * workspaces may both have a project slugged "atlas": a global resolve would
+ * return the stranger's row and then refuse it, hiding your own project behind
+ * their slug. Scoping the search fixes the leak without inventing that bug.
+ */
+
+/** The tenant every lookup is scoped to. No workspace = resolve nothing. */
+function scopeOf(ctx: ActionContext): string {
+  if (!ctx.workspaceId)
+    throw new Error(
+      "No workspace in scope, so nothing can be looked up safely. Pass workspaceId in the action context — the UI and the API both take it from the current workspace."
+    );
+  return ctx.workspaceId;
+}
+
+/**
+ * Does this workspace own that project? Matches on id ONLY — unlike
+ * `q.project` and store's `inWorkspace`, which also accept a slug. Every
+ * stored `projectId` is an id, and a slug that happens to shadow one must
+ * never be what decides tenancy.
+ */
+const ownsProject = (workspaceId: string, projectId: string): boolean =>
+  db().projects.some((p) => p.id === projectId && p.workspaceId === workspaceId);
+
+/* Absent and foreign resolve to the same sentence. Each one names its fix. */
+const noProject = (ref: string) =>
+  new Error(`Project "${ref}" does not exist. Pick one from the workspace overview.`);
+const noEnvironment = (ref: string) =>
+  new Error(
+    `Environment "${ref}" does not exist. Pick one from the project's environment switcher.`
+  );
+const noRevision = (ref: string) =>
+  new Error(`Revision "${ref}" does not exist. Pick one from the project's history.`);
+const noDeployment = (ref: string) =>
+  new Error(
+    `Deployment "${ref}" does not exist. Pick one from the environment's deployment history.`
+  );
+const noConnection = (ref: string) =>
+  new Error(
+    `Cloud connection "${ref}" does not exist. Pick one in Settings → Connections, or connect an account there.`
+  );
+
 export function requireProject(ctx: ActionContext, projectId?: string): Project {
+  const ws = scopeOf(ctx);
   const pid = projectId ?? ctx.projectId;
   if (!pid)
     throw new Error("No project in scope. Open a project first, or pass a projectId with the request.");
-  const project = q.project(pid);
-  if (!project)
-    throw new Error(`Project "${pid}" does not exist. Pick one from the workspace overview.`);
+  const project = db().projects.find(
+    (p) => (p.id === pid || p.slug === pid) && p.workspaceId === ws
+  );
+  if (!project) throw noProject(pid);
   return project;
 }
 
 export function requireEnvironment(ctx: ActionContext, environmentId?: string): Environment {
+  const ws = scopeOf(ctx);
   const eid = environmentId ?? ctx.environmentId;
   if (eid) {
     const env = q.environment(eid);
-    if (!env)
-      throw new Error(`Environment "${eid}" does not exist. Pick one from the project's environment switcher.`);
+    // An Environment carries no workspaceId; its project is what decides.
+    if (!env || !ownsProject(ws, env.projectId)) throw noEnvironment(eid);
     return env;
   }
   const project = requireProject(ctx);
@@ -54,6 +121,37 @@ export function requireEnvironment(ctx: ActionContext, environmentId?: string): 
     `This project has ${envs.length} environments (${envs.map((e) => e.name).join(", ")}). Say which one — pass environmentId.`
   );
 }
+
+/** A revision, scoped through the project that owns it. */
+export function requireRevision(ctx: ActionContext, revisionId: string): Revision {
+  const ws = scopeOf(ctx);
+  const rev = q.revision(revisionId);
+  if (!rev || !ownsProject(ws, rev.projectId)) throw noRevision(revisionId);
+  return rev;
+}
+
+/** A deployment, scoped through the project that owns it. */
+export function requireDeployment(ctx: ActionContext, deploymentId: string): Deployment {
+  const ws = scopeOf(ctx);
+  const dep = q.deployment(deploymentId);
+  if (!dep || !ownsProject(ws, dep.projectId)) throw noDeployment(deploymentId);
+  return dep;
+}
+
+/** A cloud connection. This one carries its own workspaceId — no hop needed. */
+export function requireConnection(ctx: ActionContext, connectionId: string): CloudConnection {
+  const ws = scopeOf(ctx);
+  const conn = q.connection(connectionId);
+  if (!conn || conn.workspaceId !== ws) throw noConnection(connectionId);
+  return conn;
+}
+
+/*
+ * The helpers below take a Manifest, not an id, and a Manifest only ever
+ * reaches them from a Project or Revision that the resolvers above already
+ * scoped. There is no store lookup to constrain, so a service or node id is
+ * meaningful inside that one system and nowhere else. They stay as they are.
+ */
 
 export function requireService(m: Manifest, serviceId: string): Service {
   const s = m.services.find((x) => x.id === serviceId || x.name === serviceId);

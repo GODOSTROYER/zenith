@@ -20,7 +20,7 @@ import {
 import { providerRegistry } from "@/lib/providers/types";
 import { slugify, uniqueName } from "@/lib/importers/types";
 import { fmtUsd } from "@/lib/format";
-import { requireEnvironment, requireProject } from "./_shared";
+import { requireConnection, requireEnvironment, requireProject } from "./_shared";
 
 /* ------------------------------- connections ------------------------------ */
 
@@ -104,21 +104,30 @@ const CreateEnv = z.object({
 });
 type CreateEnv = z.infer<typeof CreateEnv>;
 
-/** Shared by env.create and project.create. Allocates the record; the caller stores it. */
+/**
+ * Shared by env.create, project.create, project.applyBlueprint and
+ * project.importCompose. Allocates the record; the caller stores it.
+ *
+ * It takes the whole ActionContext rather than a bare workspaceId because the
+ * connection has to be resolved *inside* the caller's tenant. Reading
+ * `input.connectionId` out of the whole store let a caller create an
+ * environment in their own workspace that deploys through someone else's cloud
+ * account — the environment looked ordinary, and every later deploy went to a
+ * stranger's connection. `requireConnection` scopes the lookup, and gives a
+ * foreign id the same sentence as an id that was never real.
+ */
 export function buildEnvironment(
   project: Project,
   input: CreateEnv,
-  workspaceId: string,
+  ctx: ActionContext,
   persist = true
 ): { env: Environment; connection: CloudConnection } {
   const klass = input.class ?? "sandbox";
   const taken = q.environmentsOf(project.id).map((e) => e.name);
   const name = uniqueName(slugify(input.name ?? klass, klass), taken);
   const conn = input.connectionId
-    ? q.connection(input.connectionId)
-    : ensureSandboxConnection(workspaceId, persist);
-  if (!conn)
-    throw new Error(`Connection "${input.connectionId}" does not exist. Pick one in Settings → Connections, or leave it blank to use the sandbox.`);
+    ? requireConnection(ctx, input.connectionId)
+    : ensureSandboxConnection(ctx.workspaceId, persist);
 
   return {
     connection: conn,
@@ -165,7 +174,7 @@ defineAction<CreateEnv>({
   input: CreateEnv,
   plan(ctx, input) {
     const project = requireProject(ctx, input.projectId);
-    const { env, connection } = buildEnvironment(project, input, ctx.workspaceId, false);
+    const { env, connection } = buildEnvironment(project, input, ctx, false);
     return {
       summary: `Create the "${env.name}" environment for ${project.name}.`,
       details: envPlanDetails(project, env, connection),
@@ -177,7 +186,7 @@ defineAction<CreateEnv>({
   },
   execute(ctx, input) {
     const project = requireProject(ctx, input.projectId);
-    const { env } = buildEnvironment(project, input, ctx.workspaceId);
+    const { env } = buildEnvironment(project, input, ctx);
     db().environments.push(env);
     save();
     return {

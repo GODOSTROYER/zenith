@@ -4,8 +4,9 @@
  * What it is: one file beside the snapshot (`<ORRERY_DATA>/secrets.json`,
  * mode 0600) holding, per workspace, one row per reference: the metadata
  * anybody may read, and the value sealed with AES-256-GCM under the server's
- * `ORRERY_SECRET_KEY`. The reference — `vault:<KEY>` — is the only part that
- * ever reaches a manifest, a revision, a diff, the audit log or an export.
+ * `ORRERY_SECRET_KEY`. The reference — `vault:<projectId>/<serviceId>/<KEY>`,
+ * see `vaultRef` below — is the only part that ever reaches a manifest, a
+ * revision, a diff, the audit log or an export.
  *
  * What it is not: a KMS. There is one key for the whole server, it lives in
  * the environment, there is no per-user access control and no way to export a
@@ -28,7 +29,7 @@ import { decodeSecretKey, env, SECRET_KEY_FIX } from "@/lib/env";
 
 /** Everything about a stored secret except the value. Safe to send anywhere. */
 export interface SecretMeta {
-  /** e.g. "vault:STRIPE_API_KEY" */
+  /** e.g. "vault:kq3f9a2b1c/kq3f9axyz0/STRIPE_API_KEY" — see `vaultRef` */
   ref: string;
   createdAt: string;
   /** display name of the actor who first stored a value here */
@@ -54,6 +55,70 @@ interface StoreFile {
 }
 
 const EMPTY: StoreFile = { version: 1, workspaces: {} };
+
+/* -------------------------------- references ------------------------------- */
+
+/** Marks a reference Orrery resolves itself, as opposed to your own manager. */
+export const VAULT_PREFIX = "vault:";
+
+/** True for references this Orrery is responsible for. */
+export const isVaultRef = (ref: string): boolean => ref.startsWith(VAULT_PREFIX);
+
+/**
+ * THE SHAPE OF A GENERATED REFERENCE
+ *
+ *     vault:<projectId>/<serviceId>/<KEY>
+ *
+ * Four dimensions decide which value a variable reads, and all four are in
+ * play: the workspace is applied by the store itself — rows are filed under it
+ * and it is authenticated alongside the value (see `aad`) — so it is the one
+ * that does not repeat in the string; project, service and key are here.
+ *
+ * Why: `vault:DATABASE_URL` is not a name, it is a collision. Two unrelated
+ * services that both read DATABASE_URL would land on one row, so rotating one
+ * would rewrite the other's credential and removing one would delete the value
+ * the other still needs. Scoping the generated reference to the service that
+ * asked for it makes the common case — same name, different value — separate
+ * by default. Sharing is still possible and is now a thing you say out loud,
+ * by passing an existing `secretRef` to `system.setSecret`.
+ *
+ * Ids, never names: services and projects get renamed, and a rename must not
+ * strand a stored value or silently point a variable at a different one.
+ *
+ * LEGACY — `vault:<KEY>`, with no identity in it, is what Orrery wrote before
+ * this and what the importers still write. Those references stay exactly as
+ * they are: they resolve, rotate and deploy unchanged, and a variable that
+ * already points at one keeps it rather than being re-pointed at a new empty
+ * reference (which would orphan the value it has). Nothing is migrated, so
+ * nothing is lost; `parseVaultRef` tells the two apart for anything that wants
+ * to say so.
+ */
+export function vaultRef(projectId: string, serviceId: string, key: string): string {
+  return `${VAULT_PREFIX}${projectId}/${serviceId}/${key}`;
+}
+
+export interface VaultRefParts {
+  /** the variable name at the end of the reference */
+  key: string;
+  /** absent on a legacy reference — it carries no identity */
+  projectId?: string;
+  serviceId?: string;
+  /** true for a bare `vault:<KEY>` written before references were namespaced */
+  legacy: boolean;
+}
+
+/** Pull a reference apart for display and diagnostics. Undefined = not ours. */
+export function parseVaultRef(ref: string): VaultRefParts | undefined {
+  if (!isVaultRef(ref)) return undefined;
+  const parts = ref.slice(VAULT_PREFIX.length).split("/");
+  if (parts.length === 1) return { key: parts[0], legacy: true };
+  if (parts.length === 3)
+    return { projectId: parts[0], serviceId: parts[1], key: parts[2], legacy: false };
+  // A shape Orrery never generates — someone wrote it by hand. The tail is the
+  // best guess at the variable name; nothing here refuses it, because the store
+  // holds whatever reference a manifest actually points at.
+  return { key: parts[parts.length - 1], legacy: false };
+}
 
 /* ------------------------------- configuration ----------------------------- */
 

@@ -1,10 +1,12 @@
 /**
  * AWS provider — Preview.
  *
- * What "preview" honestly means here: Orrery can read your account posture,
- * produce a real ECS/Fargate-shaped plan, and generate genuinely runnable
- * Terraform for the whole system. It cannot apply that plan for you yet.
- * `executeStep` therefore refuses, loudly and with the alternative named.
+ * What "preview" honestly means here: Orrery produces a real ECS/Fargate-shaped
+ * plan and generates genuinely runnable Terraform for the whole system, both
+ * from your manifest alone. It never calls AWS — it cannot apply the plan, and
+ * it cannot read your account either. `executeStep`, `observe` and `discover`
+ * therefore refuse, loudly and with the alternative named, and the access this
+ * connection asks for is nothing at all (`PREVIEW_ACCESS`).
  *
  * Workstream A.
  */
@@ -31,11 +33,28 @@ const tfName = (s: string) => s.replace(/[^A-Za-z0-9_]/g, "_").replace(/^(\d)/, 
 export const AWS_PREVIEW_MESSAGE =
   "AWS execution requires credentials. Orrery Preview generates and exports the full Terraform for this system — run it with your own tooling, or connect credentials in a later release.";
 
-const IAM_PERMISSIONS = [
-  "sts:AssumeRole on a role in YOUR account that YOU create (cross-account trust to Orrery's principal, guarded by a unique ExternalId)",
-  "Read-only inventory: ecs:Describe*/List*, rds:Describe*, elasticache:Describe*, s3:ListAllMyBuckets, s3:GetBucketLocation, sqs:ListQueues, elasticloadbalancing:Describe*, route53:List*, acm:List*",
-  "Cost visibility: ce:GetCostAndUsage (account totals only, no line-item export)",
-  "Identity: sts:GetCallerIdentity, iam:GetRole on the assumed role itself",
+/**
+ * What this connection can actually do — derived from the code below, not from
+ * the capability we intend to build.
+ *
+ * There used to be an IAM role here: create a cross-account role, trust
+ * Orrery's principal with an ExternalId, and Orrery would assume it for
+ * read-only inventory and cost. Not one line of that was implemented.
+ * `preflight` reads `process.env.AWS_ACCESS_KEY_ID` and makes no AWS call;
+ * `observe` and `discover` refuse by design; `executeStep` throws. So the
+ * guidance asked for standing trust in the user's account that bought them
+ * nothing — a permanent grant against a promise.
+ *
+ * The rule this list now follows: every line must be true of what runs today.
+ * When a read path is implemented and verified, the permission it needs gets
+ * added here in the same change — never before it.
+ */
+const PREVIEW_ACCESS = [
+  "No AWS access at all. No role to create, no key to grant, no trust to extend — Orrery makes no AWS API call in Preview",
+  "No credentials are stored or transmitted. AWS_ACCESS_KEY_ID on the Orrery server, if set, is reported as present and is never used to call AWS",
+  "Reads nothing from your account: no inventory, no cost, no drift, no discovery — those surfaces refuse rather than invent an answer",
+  "Writes nothing to your account: Preview never applies. Changes reach AWS only through the Terraform you export and run yourself",
+  "Generates that Terraform on this server, from your manifest",
 ];
 
 function planSteps(env: Environment, next: Manifest, previous?: Manifest): ProviderPlanStep[] {
@@ -45,12 +64,15 @@ function planSteps(env: Environment, next: Manifest, previous?: Manifest): Provi
   const had = (nodeId: string) =>
     !!previous && [...previous.services, ...previous.resources].some((n) => n.id === nodeId);
 
+  // The plan describes what `terraform apply` does when YOU run the export, so
+  // it names no role for Orrery to assume: there is no cross-account trust in
+  // this provider, and a step called "assume deployment role" implied one.
   steps.push({
     phase: "prepare",
-    title: "Assume deployment role and read account inventory",
+    title: "Read account inventory with your own credentials",
     targetId: "",
     estMs: 4000,
-    detail: "sts:AssumeRole + ecs:ListClusters, rds:DescribeDBInstances",
+    detail: "ecs:ListClusters, rds:DescribeDBInstances",
   });
   steps.push({
     phase: "prepare",
@@ -236,7 +258,7 @@ async function preflight(conn: CloudConnection): Promise<PreflightReport> {
           detail: "The full system exports as runnable HCL, including variables and a tfvars example.",
         },
       ],
-      permissions: IAM_PERMISSIONS,
+      permissions: PREVIEW_ACCESS,
     };
   }
 
@@ -271,7 +293,7 @@ async function preflight(conn: CloudConnection): Promise<PreflightReport> {
         detail: "Export works without credentials — it is generated from your manifest.",
       },
     ],
-    permissions: IAM_PERMISSIONS,
+    permissions: PREVIEW_ACCESS,
   };
 }
 
@@ -299,8 +321,8 @@ export const awsProvider: ProviderAdapter = {
 
   accessExplanation: () => ({
     summary:
-      "You create an IAM role in your own account and trust Orrery's principal with a unique ExternalId. Orrery assumes it for short-lived STS sessions (1 hour, no stored keys) and, in Preview, only ever reads. There is no policy here that can create, modify or delete a resource — the Terraform export is how changes reach your account, run by you.",
-    permissions: IAM_PERMISSIONS,
+      "This connection grants Orrery no access to your AWS account, because Orrery does not call AWS in Preview. Create no IAM role and extend no trust: there is nothing here to use it. Orrery plans your system and generates real Terraform from your manifest, on this server; you run that Terraform with your own credentials, and that is the only way anything reaches your account. When a read path exists, the exact permission it needs will be listed here — and not one line before it works.",
+    permissions: PREVIEW_ACCESS,
   }),
 
   preflight,

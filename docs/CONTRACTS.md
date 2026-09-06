@@ -220,7 +220,13 @@ only), and a disabled channel is skipped either way.
   simulated, summary, detail, firedAt, resolvedAt?, resolvedReason? } }`.
   With a secret, `X-Orrery-Signature: sha256=<hex>` is an HMAC-SHA256 over the
   **exact bytes posted** (the body is built once so the two can never diverge).
-  `X-Orrery-Event` carries the same event name.
+  `X-Orrery-Event` carries the same event name, and
+  `X-Orrery-Idempotency-Key` carries `orrery-<transition>-<eventId>-<channelId>`
+  — **stable across every retry of that transition to that channel**, including
+  a retry after this server restarted mid-send. The body is not: `sentAt`
+  changes per attempt, and so therefore does the signature. A receiver that
+  stores the key can drop the duplicate; one that does not may see the same
+  notification twice after a crash.
 - **slack** — Slack's incoming-webhook payload: `text` (the notification line)
   plus `blocks` — a `section` with mrkdwn, then a `context` line carrying
   severity/close reason and the `simulated` note.
@@ -238,10 +244,20 @@ only), and a disabled channel is skipped either way.
   had nowhere to send"; absent means the alert predates channels. The Observe
   screen writes a different sentence for each, and for a failure it shows the
   reason.
-- **Never blocking** — `queueDelivery` pushes the transition and returns; the
-  queue drains on a microtask, after the evaluator's `save()`. `resolveOpen` is
-  the single choke point for every close, so a rule that is disabled or deleted
-  still closes the alert at the receiver. `flushDeliveries()` is for tests and
+- **Durable, and never blocking** — `queueDelivery` writes one
+  `AlertOutboxEntry` per selected channel into `db().alertOutbox` **in the same
+  save as the event transition**, then returns; the outbox drains on a
+  microtask. A row is claimed (`pending` → `sending`, `claimedAt`, flushed to
+  disk) *before* the network call and settled (`delivered` / `failed`,
+  `settledAt`, `attempts`, `error`/`httpStatus`, flushed) after it, so a crash
+  loses nothing: `boot()` schedules `replayOutbox()` right after
+  `claimDataDir()` — unref'd, never awaited — which reclaims rows left
+  `sending` by the dead process (`OUTBOX_LEASE_MS`, and everything at boot,
+  where the data-dir claim proves no other writer exists) and drains what is
+  still pending. Every terminal outcome also lands on `AlertEvent.deliveries`,
+  once, so the screens keep telling the truth. `resolveOpen` is the single
+  choke point for every close, so a rule that is disabled or deleted still
+  closes the alert at the receiver. `flushDeliveries()` is for tests and
   scripts.
 - **Actions** — `alerts.createChannel` `{ kind, name, target, secret?, enabled? }`,
   `alerts.updateChannel` `{ channelId, name?, target?, secret?, enabled? }`,

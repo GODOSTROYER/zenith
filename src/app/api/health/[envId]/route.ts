@@ -10,13 +10,14 @@
 import { q } from "@/lib/db/store";
 import { getProvider, providerRegistry } from "@/lib/providers/types";
 import { logsimModule } from "@/lib/server/boot";
-import { notFound, route } from "@/lib/server/context";
+import { route, scopedEnvironment } from "@/lib/server/context";
 
 export const dynamic = "force-dynamic";
 
 export const GET = route<{ envId: string }>(async (_req, { envId }) => {
-  const env = q.environment(envId);
-  if (!env) throw notFound(`Environment "${envId}"`, "Pick an environment from the project's Observe tab.");
+  // Bound to the caller's workspace through the owning project. An environment
+  // id from another tenant answers the same 404 as one that never existed.
+  const env = scopedEnvironment(envId);
 
   const providerId = q.connection(env.connectionId)?.provider ?? "sandbox";
   const provider = providerRegistry().has(providerId) ? getProvider(providerId) : undefined;

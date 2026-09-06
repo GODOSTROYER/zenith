@@ -4,12 +4,14 @@
  * Honesty rules, in order of importance:
  *
  *  - **Delivery is real, and only as real as it is.** A rule that fires writes
- *    an AlertEvent, and `./deliver` pushes it to the workspace's channels —
- *    webhook, Slack, and email when SMTP is configured. A workspace with no
- *    channels is still in-product only, and the screens say which of the two it
- *    is rather than implying delivery either way. Every attempt is recorded on
- *    the event (`deliveries`), successes and failures alike; there is no paging
- *    and no on-call rotation. docs/LIMITATIONS.md keeps the exact boundary.
+ *    an AlertEvent *and* one outbox row per selected channel, in the same save,
+ *    and `./deliver` pushes it to the workspace's channels — webhook, Slack,
+ *    and email when SMTP is configured. A workspace with no channels is still
+ *    in-product only, and the screens say which of the two it is rather than
+ *    implying delivery either way. Every attempt is recorded on the event
+ *    (`deliveries`), successes and failures alike; a crash between the event
+ *    and the send is replayed at the next boot rather than lost. There is no
+ *    paging and no on-call rotation. docs/LIMITATIONS.md keeps the boundary.
  *  - **Same inputs as the screens.** Health comes from `@/lib/logsim` — exactly
  *    what the health cards render — cost from the price table, deploy outcomes
  *    from the durable deployment records. An alert can never disagree with the
@@ -33,6 +35,7 @@ import { db, q, save } from "@/lib/db/store";
 import {
   id,
   type Actor,
+  type AlertChannel,
   type AlertEvent,
   type AlertKind,
   type AlertRule,
@@ -42,6 +45,7 @@ import {
 } from "@/lib/domain/types";
 import { environmentHealth } from "@/lib/logsim";
 import { log } from "@/lib/log";
+import { findChannel } from "./channels";
 import { queueDelivery } from "./deliver";
 
 export * from "./channels";
@@ -355,6 +359,9 @@ export function resolveOpen(ruleId: string, reason: string, at = Date.now()): bo
   open.resolvedReason = reason;
   // Every close routes through here — condition cleared, rule turned off, rule
   // deleted — so this is the one place a receiver's open alert gets closed too.
+  // The outbox row is written now, in the same save as `resolvedAt`: an alert
+  // that is closed in the record must never stay open at the receiver because
+  // the process died between the two.
   queueDelivery(open, "resolved");
   return true;
 }
@@ -379,7 +386,10 @@ function applyRule(rule: AlertRule, at: number): boolean {
     };
     tables().events.push(event);
     log.info("alert fired", { scope: "alerts", ruleId: rule.id, kind: rule.kind });
-    // Queued, not awaited: the pass finishes and saves, then the queue drains.
+    // Queued, not awaited — but *durably* queued: one outbox row per selected
+    // channel is written here, so the pass's own save() carries the event and
+    // the intent to deliver it in the same atomic write. The send itself
+    // happens on a microtask after that, and survives a crash either way.
     queueDelivery(event, "fired");
     return true;
   }
@@ -418,23 +428,84 @@ export const rulesOf = (projectId: string, environmentId?: string): AlertRule[] 
     )
     .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
 
+/*
+ * TENANCY — the three lookups below, and why two shapes of them exist.
+ *
+ * A rule id, an alert id and a channel id are all bearer tokens: `runAction`
+ * checks the caller's role in `ctx.workspaceId` and nothing else, so a finder
+ * that reads the whole store lets an admin of workspace A act on workspace B by
+ * quoting one of B's ids. On a channel that is not a read — `alerts.updateChannel`
+ * rewrites `target` and `secret`, which is where a workspace's alerts go and
+ * what signs them, so a global finder there is a redirect of someone else's
+ * deliveries to an endpoint of the caller's choosing.
+ *
+ * So every caller that has a workspace uses the `scoped*` pair below. A rule and
+ * an event carry no workspace of their own and scope transitively through their
+ * project (Rule/Event → Project → workspace); a channel carries its own
+ * `workspaceId` and needs no hop.
+ *
+ * The `require*` finders stay for the internal callers that have already scoped
+ * the id (`acknowledge` re-reads an event `scopedEvent` just resolved) and for
+ * the evaluator, which is not acting for anybody. Nothing that takes an id from
+ * a request may use them.
+ *
+ * A foreign id gets the SAME sentence as an absent one — one factory each, used
+ * by both shapes, so the two can never drift apart. Anything else ("you don't
+ * have access to that") confirms the object exists and makes the id space
+ * enumerable across tenants.
+ */
+
+const noRule = (ref: string) =>
+  new Error(`Alert rule "${ref}" was not found. Reload Observe — someone may have deleted it.`);
+const noEvent = (ref: string) =>
+  new Error(`Alert "${ref}" was not found. Reload Observe — the alert list may have moved on.`);
+/** Byte-identical to the sentence `requireChannel` in ./channels throws. */
+const noChannel = (ref: string) =>
+  new Error(
+    `Delivery channel "${ref}" was not found. Reload Settings → Alerts — someone may have deleted it.`
+  );
+
+/**
+ * Does this workspace own that project? Matches on id ONLY — `q.project` and
+ * `workspaceOfRule` also accept a slug, and a slug is user-chosen: a project
+ * slugged with another tenant's project id must never be what decides tenancy.
+ * An empty workspace matches no project, so it resolves nothing.
+ */
+const ownsProject = (workspaceId: string, projectId: string): boolean =>
+  db().projects.some((p) => p.id === projectId && p.workspaceId === workspaceId);
+
 export const requireRule = (ruleId: string): AlertRule => {
   const rule = tables().rules.find((r) => r.id === ruleId);
-  if (!rule)
-    throw new Error(
-      `Alert rule "${ruleId}" was not found. Reload Observe — someone may have deleted it.`
-    );
+  if (!rule) throw noRule(ruleId);
   return rule;
 };
 
 export const requireEvent = (eventId: string): AlertEvent => {
   const event = tables().events.find((e) => e.id === eventId);
-  if (!event)
-    throw new Error(
-      `Alert "${eventId}" was not found. Reload Observe — the alert list may have moved on.`
-    );
+  if (!event) throw noEvent(eventId);
   return event;
 };
+
+/** A rule, scoped through the project that owns it. */
+export function scopedRule(workspaceId: string, ruleId: string): AlertRule {
+  const rule = tables().rules.find((r) => r.id === ruleId);
+  if (!rule || !ownsProject(workspaceId, rule.projectId)) throw noRule(ruleId);
+  return rule;
+}
+
+/** An alert, scoped through the project that owns it. */
+export function scopedEvent(workspaceId: string, eventId: string): AlertEvent {
+  const event = tables().events.find((e) => e.id === eventId);
+  if (!event || !ownsProject(workspaceId, event.projectId)) throw noEvent(eventId);
+  return event;
+}
+
+/** A delivery channel. This one carries its own workspaceId — no hop needed. */
+export function scopedChannel(workspaceId: string, channelId: string): AlertChannel {
+  const channel = findChannel(channelId);
+  if (!channel || !workspaceId || channel.workspaceId !== workspaceId) throw noChannel(channelId);
+  return channel;
+}
 
 /** Newest first, open events ahead of resolved ones. */
 const byRecency = (a: AlertEvent, b: AlertEvent) => (a.firedAt < b.firedAt ? 1 : -1);

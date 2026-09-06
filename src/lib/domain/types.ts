@@ -141,11 +141,28 @@ export const Resource = z.object({
 });
 export type Resource = z.infer<typeof Resource>;
 
+/**
+ * A DNS hostname and nothing else. Strict on purpose: these strings are
+ * interpolated into generated Terraform, Docker Compose and provider calls,
+ * so a quote, a newline or a `${` here would be someone else's syntax. The
+ * exporter escapes as well — this is the first of the two walls, not the only
+ * one. Labels are 1-63 chars, alphanumeric with inner hyphens.
+ */
+const HOSTNAME = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/i;
+/** A URL path: leading slash, then unreserved characters only. */
+const PATH_PREFIX = /^\/[A-Za-z0-9\-._~/]*$/;
+
 export const Route = z.object({
   id: z.string(),
   /** hostname, e.g. app.example.com or auto-assigned sandbox host */
-  host: z.string().min(1),
-  pathPrefix: z.string().default("/"),
+  host: z
+    .string()
+    .min(1)
+    .regex(HOSTNAME, "Host must be a hostname like app.example.com — letters, digits, dots and hyphens only."),
+  pathPrefix: z
+    .string()
+    .regex(PATH_PREFIX, "Path prefix must start with / and use letters, digits, - . _ ~ only.")
+    .default("/"),
   tls: z.boolean().default(true),
   /** auto = Orrery-assigned host on the environment's base domain */
   managedDns: z.boolean().default(true),
@@ -282,6 +299,13 @@ export interface Environment {
   policies: ManifestPolicies;
   /** base domain for managed routes, e.g. "atlas.orrery.test" */
   baseDomain: string;
+  /**
+   * The deployment that currently owns this environment — the lease. Only the
+   * holder may commit `deployedRevisionId`, so a rollback that supersedes an
+   * in-flight deploy cannot have its result overwritten by the runner it
+   * replaced, whichever finishes last. Undefined when nothing is in flight.
+   */
+  activeDeploymentId?: string;
   createdAt: string;
 }
 
@@ -562,6 +586,37 @@ export interface AlertDelivery {
   error?: string;
   /** how many attempts were made (1–3) */
   attempts?: number;
+}
+
+/**
+ * One durable intent to deliver one alert transition to one channel.
+ *
+ * Written in the same save as the event that caused it, so a crash can never
+ * leave an open alert nobody was told about. Claimed before the send and
+ * settled after it, so a crash mid-flight is retried rather than lost — and
+ * `idempotencyKey` is stable across those retries, so a receiver that already
+ * saw the first attempt can recognise the duplicate.
+ */
+export interface AlertOutboxEntry {
+  id: string;
+  workspaceId: string;
+  channelId: string;
+  eventId: string;
+  /** which transition this is: the alert opening, or clearing */
+  transition: "fired" | "resolved" | "test";
+  /** stable across retries of this exact transition on this exact channel */
+  idempotencyKey: string;
+  status: "pending" | "sending" | "delivered" | "failed";
+  attempts: number;
+  createdAt: string;
+  /** set while a runner holds it; a stale claim is reclaimable after the lease */
+  claimedAt?: string;
+  /** when it reached a terminal status */
+  settledAt?: string;
+  /** the last failure, in prose with its fix */
+  error?: string;
+  /** HTTP status of the last attempt, when the channel speaks HTTP */
+  httpStatus?: number;
 }
 
 /* ------------------------------- navigator -------------------------------- */

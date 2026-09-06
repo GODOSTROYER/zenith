@@ -11,6 +11,9 @@
  *    edge endpoint (http://localhost:4566) with the AWS SDK.
  *  - Kinds LocalStack Community cannot emulate (RDS, ElastiCache, ECS, ALB)
  *    are locally simulated, and every such step's title says so.
+ *  - Removing a bucket or queue from your system DELETES it in LocalStack, in
+ *    the same deployment, or the deployment fails. It never reports a
+ *    convergence it did not reach (see `teardownSteps`).
  *  - Preflight talks to the real health endpoint and names the fix when
  *    Docker or LocalStack isn't running.
  *
@@ -18,11 +21,21 @@
  */
 import {
   CreateBucketCommand,
+  DeleteBucketCommand,
+  DeleteObjectsCommand,
   HeadBucketCommand,
   ListBucketsCommand,
+  ListObjectsV2Command,
   S3Client,
 } from "@aws-sdk/client-s3";
-import { CreateQueueCommand, ListQueuesCommand, SQSClient } from "@aws-sdk/client-sqs";
+import {
+  CreateQueueCommand,
+  DeleteQueueCommand,
+  GetQueueAttributesCommand,
+  GetQueueUrlCommand,
+  ListQueuesCommand,
+  SQSClient,
+} from "@aws-sdk/client-sqs";
 import { env } from "@/lib/env";
 import { log } from "@/lib/log";
 import type { CloudConnection, Environment, Manifest } from "@/lib/domain/types";
@@ -49,6 +62,8 @@ const FAST = () => env().ORRERY_FAST;
 const PERMISSIONS = [
   `Talks only to LocalStack on this machine (${LOCALSTACK_ENDPOINT})`,
   'Uses the throwaway credentials "test"/"test" that LocalStack accepts',
+  "Creates and reads S3 buckets and SQS queues for the environments you deploy",
+  "Deletes a bucket or queue it created once you remove it from your system — and refuses, rather than destroying data, when the bucket still holds objects or the queue still holds messages, unless the environment allows stateful deletion",
   "Never contacts a real AWS account or the internet",
 ];
 
@@ -238,6 +253,115 @@ async function preflight(_conn: CloudConnection): Promise<PreflightReport> {
   return { ok: true, checks, permissions: PERMISSIONS };
 }
 
+/* -------------------------------- teardown --------------------------------- */
+
+/**
+ * The plan/execute contract for a teardown step, in one place because it is the
+ * one thing here that crosses a process boundary.
+ *
+ * `executeStep` resolves its target inside `revision.manifest` — the NEXT
+ * manifest, which by definition no longer holds the node being torn down. Of a
+ * `ProviderPlanStep` the engine copies only `phase`, `title`, `targetId` and
+ * `detail` onto the step it later hands back, so the provider-native `detail`
+ * line IS the instruction: it carries the concrete LocalStack name to delete.
+ *
+ * Keep both sides in sync. A step that reads as a teardown but no longer parses
+ * must fail loudly rather than no-op — silently doing nothing is precisely the
+ * bug this section exists to remove.
+ */
+const DELETE_BUCKET = "s3:DeleteBucket";
+const DELETE_QUEUE = "sqs:DeleteQueue";
+const NO_CALL = "No LocalStack call —";
+const TEARDOWN_CALL = new RegExp(`^(${DELETE_BUCKET}|${DELETE_QUEUE}) (\\S+)`);
+
+export type TeardownIntent =
+  | { kind: "bucket" | "queue"; name: string }
+  | { kind: "simulated"; name: null };
+
+export function teardownIntent(detail: string | undefined): TeardownIntent | null {
+  if (!detail) return null;
+  const call = TEARDOWN_CALL.exec(detail);
+  if (call) return { kind: call[1] === DELETE_BUCKET ? "bucket" : "queue", name: call[2] };
+  return detail.startsWith(NO_CALL) ? { kind: "simulated", name: null } : null;
+}
+
+/** Titles this file gives teardown steps, so a lost `detail` is detectable. */
+const looksLikeTeardown = (title: string) => title.startsWith("Delete ") || title.startsWith("Forget ");
+
+/**
+ * Nothing was ever created for this kind, so nothing is deleted — and the step
+ * says that outright instead of miming a teardown it did not perform.
+ */
+const forgetStep = (targetId: string, what: string): ProviderPlanStep => ({
+  phase: "release",
+  title: `Forget ${what} — nothing was created in LocalStack to delete`,
+  targetId,
+  estMs: 600,
+  detail: `${NO_CALL} ${what} ran as a labeled local simulation, so there is nothing at ${LOCALSTACK_ENDPOINT} to delete. The exported Terraform destroys the real thing on AWS.`,
+});
+
+/**
+ * Steps for everything the PREVIOUS revision managed and the next one drops.
+ *
+ * Planning used to iterate only the next manifest, which meant a bucket or
+ * queue you deleted from your system stayed live at the endpoint while the
+ * deployment reported success: the revision said "gone", `observe` said
+ * "there", and drift flagged it as extra seconds later. A deployment must never
+ * claim it converged to a revision it contradicts — so removal is planned, and
+ * a removal that cannot be carried out fails the deployment instead.
+ *
+ * Ordering is the reverse of creation — routes, then services, then the
+ * resources they were using — so nothing is deleted while something still
+ * points at it, and the whole block sits AFTER every create/update step for the
+ * revision and BEFORE `verify`. (`DeploymentStep.phase` has no "teardown"
+ * member and that type is not this file's to change; `release` is the last
+ * mutating phase, so the timeline's phase grouping renders these in the order
+ * they actually run.)
+ */
+function teardownSteps(env: Environment, next: Manifest, previous?: Manifest): ProviderPlanStep[] {
+  if (!previous) return [];
+  const kept = new Set([
+    ...next.services.map((s) => s.id),
+    ...next.resources.map((r) => r.id),
+    ...next.routes.map((r) => r.id),
+  ]);
+  const steps: ProviderPlanStep[] = [];
+
+  for (const route of previous.routes)
+    if (!kept.has(route.id)) steps.push(forgetStep(route.id, `routing for ${route.host}`));
+
+  for (const s of previous.services)
+    if (s.ownership === "managed" && !kept.has(s.id))
+      steps.push(forgetStep(s.id, `${s.kind === "cron" ? "schedule" : "rollout"} of ${s.name}`));
+
+  for (const r of previous.resources) {
+    if (r.ownership !== "managed" || kept.has(r.id)) continue;
+    if (r.kind === "object_store") {
+      const name = bucketName(r.name, env);
+      steps.push({
+        phase: "release",
+        title: `Delete S3 bucket "${name}" from LocalStack — "${r.name}" is not in this revision`,
+        targetId: r.id,
+        estMs: 2500,
+        detail: `${DELETE_BUCKET} ${name} via ${LOCALSTACK_ENDPOINT} — objects are emptied first only when this environment allows stateful deletion, otherwise the step refuses`,
+      });
+    } else if (r.kind === "queue") {
+      const name = queueName(r.name, env);
+      steps.push({
+        phase: "release",
+        title: `Delete SQS queue "${name}" from LocalStack — "${r.name}" is not in this revision`,
+        targetId: r.id,
+        estMs: 2000,
+        detail: `${DELETE_QUEUE} ${name} via ${LOCALSTACK_ENDPOINT} — refused while the queue still holds messages, unless this environment allows stateful deletion`,
+      });
+    } else {
+      steps.push(forgetStep(r.id, `simulated ${r.kind} "${r.name}"`));
+    }
+  }
+
+  return steps;
+}
+
 /* ---------------------------------- plan ----------------------------------- */
 
 function planSteps(env: Environment, next: Manifest, previous?: Manifest): ProviderPlanStep[] {
@@ -303,6 +427,10 @@ function planSteps(env: Environment, next: Manifest, previous?: Manifest): Provi
     });
   }
 
+  // Everything the previous revision managed and this one drops — last of the
+  // mutating work, so a removal never races a create that still needs it.
+  steps.push(...teardownSteps(env, next, previous));
+
   steps.push({
     phase: "verify",
     title: "Verify LocalStack resources and record outputs",
@@ -317,6 +445,115 @@ function planSteps(env: Environment, next: Manifest, previous?: Manifest): Provi
 /* --------------------------------- execute --------------------------------- */
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, FAST() ? 15 : ms));
+
+/** Already gone. Deleting twice is success, not failure — steps get retried. */
+const ABSENT = new Set([
+  "NoSuchBucket",
+  "NotFound",
+  "QueueDoesNotExist",
+  "AWS.SimpleQueueService.NonExistentQueue",
+]);
+function absent(err: unknown): boolean {
+  const e = err as { name?: string; Code?: string; $metadata?: { httpStatusCode?: number } };
+  return ABSENT.has(e?.name ?? "") || ABSENT.has(e?.Code ?? "") || e?.$metadata?.httpStatusCode === 404;
+}
+
+const EMPTY_IT_YOURSELF = (name: string) =>
+  `aws --endpoint-url ${LOCALSTACK_ENDPOINT} s3 rm s3://${name} --recursive`;
+
+const ALLOW_IT =
+  'turn on "Allow deleting databases and other stateful resources" for this environment in Settings → Environments';
+
+/**
+ * Emptying policy, stated once: Orrery empties a bucket ONLY when the
+ * environment sets `allowStatefulDeletion`. S3 refuses to delete a bucket that
+ * still has objects in it, and Orrery will not quietly destroy data to get past
+ * that — so with the policy off the step FAILS and names both ways forward.
+ *
+ * Failing is the honest outcome: the deployment stops, the revision is not
+ * marked converged, and drift keeps reporting the bucket. The alternative —
+ * skipping the delete and reporting success — is the bug.
+ */
+async function deleteBucket(rt: StepRuntime, name: string): Promise<void> {
+  const client = s3();
+  rt.log(`${DELETE_BUCKET} ${name}`, "provider");
+
+  let removed = 0;
+  for (let pass = 0; pass < 100; pass++) {
+    let page;
+    try {
+      page = await client.send(new ListObjectsV2Command({ Bucket: name, MaxKeys: 1000 }));
+    } catch (err) {
+      if (!absent(err)) throw err;
+      rt.log(`bucket ${name} is already gone — nothing to delete`, "info");
+      return;
+    }
+    const objects = (page.Contents ?? []).flatMap((o) => (o.Key ? [{ Key: o.Key }] : []));
+    if (objects.length === 0) break;
+    if (!rt.env.policies.allowStatefulDeletion)
+      throw new Error(
+        `Bucket "${name}" is no longer in this revision, but it still holds objects. Orrery does not destroy data to complete a removal, so this deployment stops here rather than reporting a convergence it did not reach — the bucket is still live in LocalStack. Empty it yourself (\`${EMPTY_IT_YOURSELF(name)}\`), or ${ALLOW_IT} and deploy again.`
+      );
+    rt.log(`s3:DeleteObjects ${name} (${objects.length})`, "provider");
+    await client.send(
+      new DeleteObjectsCommand({ Bucket: name, Delete: { Objects: objects, Quiet: true } })
+    );
+    removed += objects.length;
+  }
+  if (removed)
+    rt.log(`emptied ${name} — ${removed} object(s) destroyed (this environment allows stateful deletion)`, "info");
+
+  try {
+    await client.send(new DeleteBucketCommand({ Bucket: name }));
+  } catch (err) {
+    if (!absent(err)) throw err;
+    rt.log(`bucket ${name} was already gone`, "info");
+    return;
+  }
+  rt.log(`bucket ${name} deleted — LocalStack now matches this revision`, "info");
+}
+
+/** Same policy for queues: undelivered messages are data. */
+async function deleteQueue(rt: StepRuntime, name: string): Promise<void> {
+  const client = sqs();
+  rt.log(`${DELETE_QUEUE} ${name}`, "provider");
+
+  let url: string | undefined;
+  try {
+    url = (await client.send(new GetQueueUrlCommand({ QueueName: name }))).QueueUrl;
+  } catch (err) {
+    if (!absent(err)) throw err;
+    rt.log(`queue ${name} is already gone — nothing to delete`, "info");
+    return;
+  }
+  if (!url)
+    throw new Error(
+      `LocalStack answered sqs:GetQueueUrl for "${name}" without a queue URL, so Orrery cannot confirm the queue was deleted. Check the container (\`localstack logs\`) and deploy again.`
+    );
+
+  const attrs = await client.send(
+    new GetQueueAttributesCommand({
+      QueueUrl: url,
+      AttributeNames: ["ApproximateNumberOfMessages", "ApproximateNumberOfMessagesNotVisible"],
+    })
+  );
+  const n = (v?: string) => Number(v ?? 0) || 0;
+  const held =
+    n(attrs.Attributes?.ApproximateNumberOfMessages) +
+    n(attrs.Attributes?.ApproximateNumberOfMessagesNotVisible);
+  if (held > 0 && !rt.env.policies.allowStatefulDeletion)
+    throw new Error(
+      `Queue "${name}" is no longer in this revision, but it still holds roughly ${held} message(s). Orrery does not destroy data to complete a removal, so this deployment stops here rather than reporting a convergence it did not reach — the queue is still live in LocalStack. Drain it, or ${ALLOW_IT} and deploy again.`
+    );
+
+  await client.send(new DeleteQueueCommand({ QueueUrl: url }));
+  rt.log(
+    held > 0
+      ? `queue ${name} deleted — roughly ${held} message(s) destroyed (this environment allows stateful deletion)`
+      : `queue ${name} deleted — LocalStack now matches this revision`,
+    "info"
+  );
+}
 
 async function executeStep(rt: StepRuntime): Promise<void> {
   const { step, env, revision } = rt;
@@ -344,6 +581,24 @@ async function executeStep(rt: StepRuntime): Promise<void> {
     );
     return;
   }
+
+  // Teardown first: the node is NOT in `m` — that is what makes it a teardown —
+  // so the lookups below would miss it and the tail would sleep and report
+  // success while the bucket or queue stayed live. The step's detail names what
+  // to delete; a step that reads as a teardown but no longer parses fails.
+  const detail = step.detail ?? "";
+  const intent = teardownIntent(detail);
+  if (intent?.kind === "bucket") return deleteBucket(rt, intent.name);
+  if (intent?.kind === "queue") return deleteQueue(rt, intent.name);
+  if (intent?.kind === "simulated") {
+    rt.log(detail, "info");
+    await sleep(Math.min(est, 600));
+    return;
+  }
+  if (looksLikeTeardown(step.title))
+    throw new Error(
+      `Step "${step.title}" removes something from LocalStack but carries no provider detail naming it, so Orrery cannot delete it or confirm it is gone. Re-plan the deployment. Reporting success here would claim this revision converged while the resource is still live.`
+    );
 
   const resource = m.resources.find((r) => r.id === step.targetId);
   const service = m.services.find((s) => s.id === step.targetId);

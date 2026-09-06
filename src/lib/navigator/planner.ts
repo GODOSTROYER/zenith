@@ -378,7 +378,7 @@ function parseFragment(frag: string, ctx: Ctx): Draft[] | null {
       {
         actionId: "system.setSecret",
         title: `Store ${secret[1]} as a secret on ${name}`,
-        rationale: `The manifest records only the reference vault:${secret[1]}; the value never reaches the manifest, the diff, the audit log or an export. Set the value on the service's Secrets panel.`,
+        rationale: `The manifest records only a reference scoped to this service; the value never reaches the manifest, the diff, the audit log or an export. Set the value on the service's Secrets panel.`,
         input: { serviceId: name, key: secret[1] },
       },
     ];

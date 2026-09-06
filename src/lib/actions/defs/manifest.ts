@@ -6,10 +6,11 @@
  * Integrator-owned addition (post wave 1); registered via defs/index.ts.
  */
 import { z } from "zod";
-import { defineAction } from "@/lib/actions/core";
+import { defineAction, type ActionPlan } from "@/lib/actions/core";
 import { diffManifests, validateManifest } from "@/lib/domain/graph";
 import { contentHash, Manifest, type Project } from "@/lib/domain/types";
-import { q, save } from "@/lib/db/store";
+import { save } from "@/lib/db/store";
+import { requireProject } from "./_shared";
 
 /**
  * The optimistic-concurrency token for a working copy.
@@ -46,6 +47,31 @@ function staleWrite(project: Project, expectedHash?: string): string | undefined
   );
 }
 
+/**
+ * A lookup that refused is a blocked plan here, not an exception: the Source
+ * view renders the preview and disables Save with this sentence on it, and it
+ * has done so since before the tenancy fix. What changed is where the sentence
+ * comes from — it is now `requireProject`'s own, which is identical for an id
+ * that never existed and for one that exists in another workspace. So the
+ * preview cannot be used to test whether an id is real anywhere, and it never
+ * names the object or the tenant that holds it.
+ *
+ * The shape matches what `runAction` builds when a plan throws, so a refusal
+ * reads the same whichever action produced it.
+ */
+function blockedPlan(err: unknown): ActionPlan {
+  const message = err instanceof Error ? err.message : String(err);
+  return {
+    summary: "This cannot be planned as things stand.",
+    details: [message],
+    costDeltaUsd: 0,
+    risk: "low",
+    warnings: [],
+    requiresApproval: false,
+    blocked: message,
+  };
+}
+
 function parseManifest(raw: unknown): { manifest?: Manifest; errors: string[] } {
   const parsed = Manifest.safeParse(raw);
   if (!parsed.success) {
@@ -73,17 +99,27 @@ defineAction<Input>({
   mutates: true,
   input: Input,
   plan(ctx, input) {
-    const project = q.project(input.projectId ?? ctx.projectId ?? "");
-    if (!project)
-      return {
-        summary: "Project not found.",
-        details: ["Pass a valid projectId, or open the project first."],
-        costDeltaUsd: 0,
-        risk: "low",
-        warnings: [],
-        requiresApproval: false,
-        blocked: "Project not found. Pass a valid projectId, or open the project first.",
-      };
+    /*
+     * TENANCY. This action replaces an entire system definition, so the
+     * project it resolves decides whose system gets overwritten. It used to
+     * resolve `input.projectId ?? ctx.projectId` through `q.project`, which
+     * reads the whole store and matches on id OR slug: an admin of one
+     * workspace who passed another's project id — or merely shared its slug,
+     * since two tenants may both call a project "atlas" — planned and then
+     * saved over a stranger's manifest.
+     *
+     * `requireProject` searches inside `ctx.workspaceId` only. It also owns the
+     * `?? ctx.projectId` fallback, which matters because the context id is
+     * caller-influenced too: a forged `ctx.projectId` now resolves through the
+     * same scoped search as a forged `input.projectId`, and is refused with the
+     * same sentence rather than becoming the way around the check.
+     */
+    let project: Project;
+    try {
+      project = requireProject(ctx, input.projectId);
+    } catch (err) {
+      return blockedPlan(err);
+    }
     const { manifest, errors } = parseManifest(input.manifest);
     if (!manifest)
       return {
@@ -124,13 +160,13 @@ defineAction<Input>({
     };
   },
   execute(ctx, input) {
-    const project = q.project(input.projectId ?? ctx.projectId ?? "");
-    if (!project)
-      return {
-        ok: false,
-        summary: "Project not found.",
-        error: "Pass a valid projectId, or open the project first.",
-      };
+    /*
+     * The same scoped resolution as `plan`. Refusing only in the preview would
+     * be no defence at all — the write is what lands, and any caller can post
+     * straight to execute. `requireProject` throws, and `runAction` turns that
+     * into `{ ok: false, error }` carrying the identical not-found sentence.
+     */
+    const project = requireProject(ctx, input.projectId);
     const { manifest, errors } = parseManifest(input.manifest);
     if (!manifest)
       return {

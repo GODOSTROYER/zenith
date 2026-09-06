@@ -14,22 +14,35 @@
  *    no email channel never needs it installed, and one that does gets an error
  *    naming `npm install nodemailer` instead of a crash at import.
  *
- * Delivery never blocks evaluation. A transition is queued, the evaluator saves
- * and returns, and the queue is drained on a microtask; each result is appended
- * to `event.deliveries` and stamped on the channel as `lastDelivery`, then
- * saved. A failure is recorded, not thrown — the Observe screen shows it.
+ * Delivery never blocks evaluation, and it is not held in memory either. A
+ * transition writes one **outbox row per selected channel** into
+ * `db().alertOutbox`, in the same save as the event that caused it: once the
+ * evaluator returns, the *intent* is on disk even if the process dies before a
+ * byte leaves. The rows are then claimed (`sending`, durably) before the
+ * network call and settled (`delivered` / `failed`) after it, so a crash
+ * mid-flight is retried at the next boot rather than lost. Each row carries a
+ * stable `idempotencyKey` — sent as `X-Orrery-Idempotency-Key` — so a receiver
+ * that already saw the first attempt can recognise the retry as the same
+ * message. Every terminal outcome is appended to `event.deliveries` and stamped
+ * on the channel as `lastDelivery`: a failure is recorded, not thrown.
  *
  * ponytail: no dead-lettering and no per-channel circuit breaker. Three
- * attempts with backoff, then the failure is a row on the event and the
- * operator retries with Test on the channel. Add a queue on disk if a delivery
- * that outlives a restart ever matters.
+ * attempts with backoff, then the row is `failed` with its reason on the event
+ * and the operator retries with Test on the channel. A `failed` row is never
+ * re-driven on its own; that is what a dead-letter screen would add.
  */
 import { createHmac } from "node:crypto";
-import { db, q, save } from "@/lib/db/store";
-import type { AlertChannel, AlertDelivery, AlertEvent } from "@/lib/domain/types";
+import { db, flush, q, save } from "@/lib/db/store";
+import {
+  id,
+  type AlertChannel,
+  type AlertDelivery,
+  type AlertEvent,
+  type AlertOutboxEntry,
+} from "@/lib/domain/types";
 import { env, SMTP_FIX } from "@/lib/env";
 import { log } from "@/lib/log";
-import { channelsForRule, channelsOf } from "./channels";
+import { channelsForRule, channelsOf, findChannel } from "./channels";
 
 /** Per attempt, not per delivery: three attempts can take 30s in the worst case. */
 export const DELIVERY_TIMEOUT_MS = 10_000;
@@ -42,6 +55,13 @@ const BACKOFF_MS = [1_000, 4_000];
 
 /** The header a receiver verifies. */
 export const SIGNATURE_HEADER = "X-Orrery-Signature";
+
+/**
+ * The header a receiver de-duplicates on. Stable across every retry of one
+ * transition to one channel — including a retry after this server restarted
+ * mid-send — so a receiver that stores the key can drop the second copy.
+ */
+export const IDEMPOTENCY_HEADER = "X-Orrery-Idempotency-Key";
 
 /** What a channel is asked to send. `test` is a human pressing Test in Settings. */
 export type AlertPhase = "fired" | "resolved" | "test";
@@ -267,20 +287,25 @@ async function post(url: string, body: string, headers: Record<string, string>):
 }
 
 /** One attempt at one channel. Returns the HTTP status when there is one. */
-async function attempt(channel: AlertChannel, msg: AlertMessage): Promise<number | undefined> {
+async function attempt(
+  channel: AlertChannel,
+  msg: AlertMessage,
+  idempotencyKey: string
+): Promise<number | undefined> {
   if (channel.kind === "email") {
     await sendEmail(channel, msg);
     return undefined;
   }
   if (channel.kind === "slack") return post(channel.target, JSON.stringify(slackBody(msg)), {});
   const body = webhookBody(msg);
-  return post(
-    channel.target,
-    body,
-    channel.secret
-      ? { [SIGNATURE_HEADER]: sign(body, channel.secret), "X-Orrery-Event": eventName(msg.phase) }
-      : { "X-Orrery-Event": eventName(msg.phase) }
-  );
+  // The signature covers the body, which carries a fresh `sentAt` per attempt;
+  // the idempotency key does not change, so it — not the bytes — is what tells
+  // a receiver that attempt 2 is the same notification as attempt 1.
+  return post(channel.target, body, {
+    "X-Orrery-Event": eventName(msg.phase),
+    [IDEMPOTENCY_HEADER]: idempotencyKey,
+    ...(channel.secret ? { [SIGNATURE_HEADER]: sign(body, channel.secret) } : {}),
+  });
 }
 
 /** Backoff, collapsed by ORRERY_FAST the same way simulated step durations are. */
@@ -295,15 +320,21 @@ const wait = (ms: number) =>
 /**
  * Deliver one message to one channel, with retries. Never throws: the outcome
  * is the return value, and it is stamped on the channel as `lastDelivery`.
+ *
+ * `idempotencyKey` comes from the outbox row when this is a queued transition,
+ * so a replay after a crash reuses the key the receiver already saw. A caller
+ * with no row — `alerts.testChannel`, which sends inline and shows the answer —
+ * gets a fresh key per press, because pressing Test twice *is* two messages.
  */
 export async function deliverToChannel(
   channel: AlertChannel,
-  msg: AlertMessage
+  msg: AlertMessage,
+  idempotencyKey = idempotencyKeyFor(msg.eventId ?? id(), msg.phase, channel.id)
 ): Promise<AlertDelivery> {
   let last = "";
   for (let n = 1; n <= DELIVERY_ATTEMPTS; n++) {
     try {
-      const status = await attempt(channel, msg);
+      const status = await attempt(channel, msg, idempotencyKey);
       return record(channel, { channelId: channel.id, at: iso(), ok: true, status, attempts: n });
     } catch (err) {
       const permanent = err instanceof Permanent;
@@ -375,54 +406,188 @@ export function messageForEvent(event: AlertEvent, phase: "fired" | "resolved"):
 }
 
 /**
- * Every channel this event should reach. The rule decides; a rule that was
- * deleted in the same pass that closed its event falls back to every enabled
- * channel in the workspace, because the receiver still has an open alert.
+ * Every channel this event should reach, and the workspace it belongs to. The
+ * rule decides; a rule that was deleted in the same pass that closed its event
+ * falls back to every enabled channel in the workspace, because the receiver
+ * still has an open alert.
  */
-function channelsForEvent(event: AlertEvent): AlertChannel[] {
+function targetsFor(event: AlertEvent): { workspaceId: string; channels: AlertChannel[] } {
   const workspaceId = q.project(event.projectId)?.workspaceId;
-  if (!workspaceId) return [];
+  if (!workspaceId) return { workspaceId: "", channels: [] };
   const rule = db().alertRules.find((r) => r.id === event.ruleId);
-  return rule ? channelsForRule(rule, workspaceId) : channelsOf(workspaceId).filter((c) => c.enabled);
+  return {
+    workspaceId,
+    channels: rule
+      ? channelsForRule(rule, workspaceId)
+      : channelsOf(workspaceId).filter((c) => c.enabled),
+  };
 }
 
-/** Deliver one transition to every selected channel and record what happened. */
-export async function deliverEvent(
+/* --------------------------------- outbox ---------------------------------- */
+
+/**
+ * The durable queue, backfilled in place — the same trick as `tables()` in
+ * ./index, for a snapshot written before the collection existed.
+ */
+function outbox(): AlertOutboxEntry[] {
+  const d = db() as ReturnType<typeof db> & { alertOutbox?: AlertOutboxEntry[] };
+  d.alertOutbox ??= [];
+  return d.alertOutbox;
+}
+
+/**
+ * How long a claim is trusted before another runner may take the row back.
+ * Comfortably longer than the worst case one row can legitimately take —
+ * 3 × 10s of timeout plus 1s + 4s of backoff — so a live send is never stolen
+ * from underneath itself.
+ */
+export const OUTBOX_LEASE_MS = 120_000;
+
+/**
+ * The key a receiver de-duplicates on: one transition, one channel, forever.
+ * Derived rather than random, so a row rebuilt from disk after a crash produces
+ * the identical key without having to trust anything but the row's own fields.
+ */
+export const idempotencyKeyFor = (
+  eventId: string,
+  transition: AlertPhase,
+  channelId: string
+): string => `orrery-${transition}-${eventId}-${channelId}`;
+
+/**
+ * Write the intent to deliver one transition to every selected channel.
+ *
+ * Synchronous and store-only: the rows land in `db()` next to the event the
+ * caller just opened or closed, and the `save()` here coalesces with the
+ * caller's own into a single atomic write of `state.json`. After it returns,
+ * a crash can no longer lose the notification — only delay it to the next boot.
+ */
+export function enqueueDeliveries(
   event: AlertEvent,
-  phase: "fired" | "resolved"
-): Promise<AlertDelivery[]> {
-  const channels = channelsForEvent(event);
+  transition: "fired" | "resolved"
+): AlertOutboxEntry[] {
+  const { workspaceId, channels } = targetsFor(event);
   if (channels.length === 0) {
     // An empty array is a fact: Orrery tried and there was nowhere to send.
     // That is a different thing from `undefined` — an event recorded before
     // channels existed — and the Observe screen says which one it is looking at.
     event.deliveries ??= [];
-    save();
+    save(event.projectId);
     return [];
   }
-  const msg = messageForEvent(event, phase);
-  const results = await Promise.all(channels.map((c) => deliverToChannel(c, msg)));
-  event.deliveries = [...(event.deliveries ?? []), ...results];
-  save();
-  return results;
+  const rows = outbox();
+  const created: AlertOutboxEntry[] = [];
+  const at = iso();
+  for (const channel of channels) {
+    const idempotencyKey = idempotencyKeyFor(event.id, transition, channel.id);
+    // One intent per (event, channel, transition). A second call for the same
+    // transition — a re-entrant close, a replayed evaluation — must not become
+    // a second notification.
+    if (rows.some((r) => r.idempotencyKey === idempotencyKey)) continue;
+    const row: AlertOutboxEntry = {
+      id: id(),
+      workspaceId,
+      channelId: channel.id,
+      eventId: event.id,
+      transition,
+      idempotencyKey,
+      status: "pending",
+      attempts: 0,
+      createdAt: at,
+    };
+    rows.push(row);
+    created.push(row);
+  }
+  save(event.projectId);
+  return created;
 }
 
-type Pending = { event: AlertEvent; phase: "fired" | "resolved" };
+/**
+ * Take every pending row, mark it `sending`, and make that durable *before* the
+ * first byte leaves. A crash from here on leaves a claimed row this process no
+ * longer owns, which the next boot reclaims — the send is retried with the same
+ * idempotency key rather than dropped.
+ */
+function claimPending(): AlertOutboxEntry[] {
+  const batch = outbox().filter((r) => r.status === "pending");
+  if (batch.length === 0) return [];
+  const at = iso();
+  for (const row of batch) {
+    row.status = "sending";
+    row.claimedAt = at;
+  }
+  save();
+  flush(); // the whole batch costs one write, not one per row
+  return batch;
+}
+
+/**
+ * Record the terminal outcome, on the row and on the event the UI reads.
+ * Flushed, not just queued: an outcome that only lives in memory is exactly the
+ * duplicate the receiver would see after a crash.
+ */
+function settle(row: AlertOutboxEntry, delivery: AlertDelivery): void {
+  row.status = delivery.ok ? "delivered" : "failed";
+  row.attempts = delivery.attempts ?? row.attempts;
+  row.settledAt = delivery.at;
+  delete row.claimedAt;
+  if (delivery.error) row.error = delivery.error;
+  else delete row.error;
+  if (delivery.status !== undefined) row.httpStatus = delivery.status;
+  else delete row.httpStatus;
+  // The honest per-event log: one entry per terminal outcome, never per attempt.
+  const event = db().alertEvents.find((e) => e.id === row.eventId);
+  if (event) event.deliveries = [...(event.deliveries ?? []), delivery];
+  save(event?.projectId);
+  flush();
+}
+
+/** Send one claimed row, then settle it. Never throws. */
+async function deliverEntry(row: AlertOutboxEntry): Promise<void> {
+  const fail = (error: string): void =>
+    settle(row, {
+      channelId: row.channelId,
+      at: iso(),
+      ok: false,
+      error,
+      attempts: row.attempts,
+    });
+
+  const channel = findChannel(row.channelId);
+  if (!channel)
+    return fail(
+      `The delivery channel "${row.channelId}" was deleted before this alert could be sent, so it never went out. Recreate the channel under Settings → Alerts if this workspace still needs it.`
+    );
+  if (row.transition === "test")
+    return fail(
+      "A test message is sent inline from Settings → Alerts and is never queued, so this row cannot be replayed. Press Test on the channel again."
+    );
+  const event = db().alertEvents.find((e) => e.id === row.eventId);
+  if (!event)
+    return fail(
+      `The alert "${row.eventId}" is no longer in the event log, so there is nothing left to send about it.`
+    );
+
+  const msg = messageForEvent(event, row.transition);
+  settle(row, await deliverToChannel(channel, msg, row.idempotencyKey));
+}
+
+/* ---------------------------------- queue ---------------------------------- */
 
 type G = typeof globalThis & {
-  __orreryDeliveryQueue?: Pending[];
   __orreryDeliveryInFlight?: Promise<void>;
   __orreryDeliveryScheduled?: boolean;
 };
 const g = globalThis as G;
 
 /**
- * Queue a transition. The caller keeps going: the queue is drained on a
- * microtask, which is after the evaluator's own `save()` and after the request
- * that triggered a read-time evaluation has its response.
+ * Queue a transition. The caller keeps going: the row is written here, in the
+ * caller's own save, and the outbox is drained on a microtask — after the
+ * evaluator's `save()` and after the request that triggered a read-time
+ * evaluation has its response.
  */
 export function queueDelivery(event: AlertEvent, phase: "fired" | "resolved"): void {
-  (g.__orreryDeliveryQueue ??= []).push({ event, phase });
+  enqueueDeliveries(event, phase);
   if (g.__orreryDeliveryScheduled) return;
   g.__orreryDeliveryScheduled = true;
   queueMicrotask(() => {
@@ -432,25 +597,80 @@ export function queueDelivery(event: AlertEvent, phase: "fired" | "resolved"): v
 }
 
 function drain(): void {
-  const batch = (g.__orreryDeliveryQueue ??= []).splice(0);
+  const batch = claimPending();
   if (batch.length === 0) return;
   g.__orreryDeliveryInFlight = (g.__orreryDeliveryInFlight ?? Promise.resolve())
-    .then(() => Promise.all(batch.map((p) => deliverEvent(p.event, p.phase))))
+    .then(() => Promise.all(batch.map((row) => deliverEntry(row))))
     .then(
       () => undefined,
       (err) => {
-        // deliverToChannel never throws, so this is a bug rather than a bad
+        // deliverEntry never throws, so this is a bug rather than a bad
         // endpoint. It must not become an unhandled rejection either way.
         log.error("alert delivery batch failed", { scope: "alerts", error: err });
       }
     );
 }
 
-/** Tests and scripts: run what is queued and wait for everything in flight. */
+/**
+ * Deliver one transition now and answer with what happened. Scripts and the
+ * odd caller that wants the result; the evaluator uses `queueDelivery`.
+ */
+export async function deliverEvent(
+  event: AlertEvent,
+  phase: "fired" | "resolved"
+): Promise<AlertDelivery[]> {
+  const before = event.deliveries?.length ?? 0;
+  enqueueDeliveries(event, phase);
+  await flushDeliveries();
+  return (event.deliveries ?? []).slice(before);
+}
+
+/**
+ * Hand back rows a dead process was holding. A claim older than the lease
+ * cannot still be in flight — nothing legitimately takes that long — so the row
+ * goes back to `pending` and is sent again under its original key.
+ */
+export function reclaimStale(leaseMs = OUTBOX_LEASE_MS, now = Date.now()): number {
+  let reclaimed = 0;
+  for (const row of outbox()) {
+    if (row.status !== "sending") continue;
+    const claimed = row.claimedAt ? Date.parse(row.claimedAt) : 0;
+    // An unparseable or missing claim stamp is treated as expired: a row nobody
+    // can prove is in flight is a row nobody is sending.
+    if (Number.isFinite(claimed) && claimed > now - leaseMs) continue;
+    row.status = "pending";
+    delete row.claimedAt;
+    reclaimed++;
+  }
+  if (reclaimed) {
+    save();
+    flush();
+  }
+  return reclaimed;
+}
+
+/**
+ * Boot: pick up whatever the last process left behind.
+ *
+ * The default lease of 0 reclaims *every* row still marked `sending`, which is
+ * correct precisely here — `claimDataDir()` has just proved this process is the
+ * only writer of this data directory, so no live runner can be holding one.
+ * Pass a real lease to reclaim only rows abandoned longer ago than that.
+ */
+export async function replayOutbox(leaseMs = 0): Promise<number> {
+  const reclaimed = reclaimStale(leaseMs);
+  const pending = outbox().filter((r) => r.status === "pending").length;
+  if (pending === 0) return 0;
+  log.info("replaying alert outbox", { scope: "alerts", pending, reclaimed });
+  await flushDeliveries();
+  return pending;
+}
+
+/** Tests and scripts: drain what is queued and wait for everything in flight. */
 export async function flushDeliveries(): Promise<void> {
   for (let i = 0; i < 5; i++) {
     drain();
     await g.__orreryDeliveryInFlight;
-    if ((g.__orreryDeliveryQueue ?? []).length === 0) return;
+    if (!outbox().some((r) => r.status === "pending")) return;
   }
 }

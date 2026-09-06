@@ -43,7 +43,8 @@ const KIND_LABEL: Record<AlertChannelKind, string> = {
 
 const KIND_HELP: Record<AlertChannelKind, string> = {
   webhook:
-    "A POST of JSON to your endpoint. With a secret, each request carries X-Orrery-Signature (HMAC-SHA256 over the exact body) so the receiver can prove Orrery sent it.",
+    "A POST of JSON to your endpoint. With a secret, each request carries X-Orrery-Signature (HMAC-SHA256 over the exact body) so the receiver can prove Orrery sent it. " +
+    "Delivery is retried, so the same alert can arrive more than once: dedupe on X-Orrery-Idempotency-Key, which is stable across retries — the body is not, since it carries the send time.",
   slack:
     "Slack's incoming-webhook payload — text plus blocks. Copy the URL from the incoming-webhook app; that URL is the credential, so Orrery masks it everywhere after you save it.",
   email:

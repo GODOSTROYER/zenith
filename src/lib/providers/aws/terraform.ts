@@ -24,14 +24,131 @@ import type {
 } from "@/lib/domain/types";
 import type { ExportFile } from "@/lib/providers/types";
 
+/* ------------------------------- HCL encoding ------------------------------ */
+
+/**
+ * Everything below exists because a manifest is untrusted input and this file
+ * writes a program. The domain schema constrains route hosts and path
+ * prefixes, but the exporter cannot lean on that: manifests also arrive from
+ * importers, from stored revisions written before a schema tightened, and via
+ * fields that are still free text (service and resource names, env keys and
+ * values, health paths, image refs, schedules, externalRefs, region and
+ * environment names). So every manifest-derived value is encoded here, at the
+ * moment it is spliced into HCL, rather than trusted on the way in.
+ *
+ * There are exactly three shapes a value can take in the output, and each has
+ * its own encoder:
+ *
+ *  - inside a double-quoted string  → `hclBody` / `hclString`
+ *  - inside a `#` comment           → `hclComment`
+ *  - as an identifier or address    → `tf` (constrained, never escaped)
+ */
+
+/**
+ * C0/C1 controls plus the two Unicode line separators. None of them belong
+ * in a .tf file, and a newline is the whole attack: it ends a `#` comment,
+ * or turns one quoted string into two lines of configuration.
+ */
+const isControl = (ch: string): boolean => {
+  const c = ch.codePointAt(0)!;
+  return c < 0x20 || (c >= 0x7f && c <= 0x9f) || c === 0x2028 || c === 0x2029;
+};
+
+/**
+ * The *body* of an HCL2 double-quoted string: escaped, without the quotes, so
+ * it can be spliced next to interpolations this module writes itself (e.g.
+ * `"/${var.name_prefix}/${hclBody(path)}"`).
+ *
+ * Beyond the obvious backslash/quote/newline work, the load-bearing line is
+ * the last one. In HCL a quoted string is a *template*: `${…}` opens an
+ * interpolation and `%{…}` a directive, so a value carrying either is
+ * executable configuration rather than data — the difference between a
+ * hostname and a call to `file("~/.aws/credentials")`. HCL's own literal form
+ * for them is to double the sigil, and doubling only the sigil that actually
+ * precedes a `{` is what makes the encoding stable: an input that already
+ * reads `$${` comes out as `$$${`, which HCL renders back as the literal
+ * `$${` instead of re-arming the interpolation.
+ */
+export function hclBody(value: unknown): string {
+  const s = value === undefined || value === null ? "" : String(value);
+  let out = "";
+  for (const ch of s) {
+    if (ch === "\\") out += "\\\\";
+    else if (ch === '"') out += '\\"';
+    else if (ch === "\n") out += "\\n";
+    else if (ch === "\r") out += "\\r";
+    else if (ch === "\t") out += "\\t";
+    else if (isControl(ch)) out += `\\u${ch.codePointAt(0)!.toString(16).padStart(4, "0")}`;
+    else out += ch;
+  }
+  out = out.replace(/([$%])\{/g, (_m, sigil: string) => `${sigil}${sigil}{`);
+  // A body is spliced into a larger literal, so a trailing sigil could pair up
+  // with a `{` the caller writes next and re-open the hole from outside the
+  // value. `$$`/`%%` are only escapes in front of a brace, so the fix is the
+  // numeric escape: it survives the template scanner as a plain character.
+  return out.replace(/\$$/, "\\u0024").replace(/%$/, "\\u0025");
+}
+
+/** A complete HCL2 double-quoted string literal, quotes included. */
+export const hclString = (value: unknown): string => `"${hclBody(value)}"`;
+
+/**
+ * Text destined for a `#` comment. A comment ends at the first newline, so a
+ * value carrying one does not stay a comment — the remainder lands in the
+ * parser as configuration. Control characters therefore collapse to a space.
+ * Quotes and `${` are inert inside a comment and are left readable.
+ */
+export function hclComment(value: unknown): string {
+  const s = value === undefined || value === null ? "" : String(value);
+  let out = "";
+  for (const ch of s) out += isControl(ch) ? " " : ch;
+  return out.replace(/  +/g, " ").trim();
+}
+
+/**
+ * A whole number for an unquoted attribute. Unquoted positions cannot be
+ * escaped at all — whatever is written there is HCL — so a value that is not
+ * a finite number is replaced rather than encoded.
+ */
+export function hclNum(value: unknown, fallback: number): number {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? Math.trunc(n) : fallback;
+}
+
+/**
+ * A port safe to write unquoted, or nothing at all. Shared by the security
+ * group, the task definition and the target group so a port the manifest
+ * cannot justify is dropped from all three rather than one.
+ */
+const validPort = (value: unknown): number | undefined => {
+  const n = hclNum(value, 0);
+  return n >= 1 && n <= 65535 ? n : undefined;
+};
+
 /* --------------------------------- helpers -------------------------------- */
 
-/** A safe Terraform block label. */
-const tf = (s: string) => s.replace(/[^A-Za-z0-9_]/g, "_").replace(/^(\d)/, "_$1");
+/**
+ * A safe Terraform block label, and the one segment of an address that a
+ * manifest can influence. Identifiers are not quoted, so they cannot be
+ * escaped the way strings are — they are constrained instead: anything
+ * outside `[A-Za-z0-9_]` collapses to `_`, a leading digit gains a `_`, and
+ * an empty result becomes `_`. The empty case matters: an address is what
+ * both the declaration and every reference to it are built from, and a blank
+ * one emits `aws_s3_bucket..arn`, which does not parse.
+ */
+const tf = (s: string): string => {
+  const out = String(s ?? "")
+    .replace(/[^A-Za-z0-9_]/g, "_")
+    .replace(/^(\d)/, "_$1");
+  return out.length > 0 ? out : "_";
+};
 
 /** Fargate only accepts a fixed CPU/memory lattice; clamp SIZE_SPECS onto it. */
 export function fargateSpec(size: ServiceSize): { cpu: number; memory: number } {
-  const { vcpu, memoryMb } = SIZE_SPECS[size];
+  // `size` is typed but not guaranteed: a stored revision predating a
+  // vocabulary change reaches here with a value that is not in the enum, and
+  // destructuring `undefined` would take the whole export down.
+  const { vcpu, memoryMb } = SIZE_SPECS[size] ?? SIZE_SPECS.small;
   const cpu = Math.max(256, Math.round(vcpu * 1024));
   const floor: Record<number, number> = { 256: 512, 512: 1024, 1024: 2048, 2048: 4096 };
   return { cpu, memory: Math.max(memoryMb, floor[cpu] ?? 512) };
@@ -66,7 +183,63 @@ const managed = <T extends { ownership: string }>(xs: T[]) =>
  * never declare it as a resource. Its attributes come from variables the user
  * fills instead, so the HCL still validates and still plans.
  */
-const refVar = (nodeName: string, field: string) => `ref_${tf(nodeName)}_${field}`;
+/**
+ * A Terraform block label unique within `seen`. Sanitising is lossy, so two
+ * different names arrive here as one label; duplicate labels do not parse, so
+ * the second occurrence takes a numeric suffix. Deterministic.
+ */
+function uniqueLabel(seen: Set<string>, base: string): string {
+  let label = base;
+  for (let n = 2; seen.has(label); n++) label = `${base}_${n}`;
+  seen.add(label);
+  return label;
+}
+
+/**
+ * One Terraform label per node, decided once for the whole bundle.
+ *
+ * `tf()` is many-to-one — "api.v1" and "api-v1" both sanitise to "api_v1" — and
+ * a service's name is reused as the label of five or six blocks (ECR repo, log
+ * group, task role, task definition, ECS service, target group). Deciding the
+ * label independently at each site therefore emitted duplicate block labels,
+ * which is a *parse* error: the bundle would not plan at all. Deciding it once,
+ * per node id, keeps every emitter agreeing on one name and every name unique.
+ *
+ * Services and resources are numbered separately because they never share a
+ * Terraform resource *type*, and a benign manifest must keep emitting exactly
+ * the HCL it emitted before. Labels follow manifest order, so re-exporting an
+ * unchanged manifest is byte-identical.
+ */
+interface NodeLabels {
+  services: Map<string, string>;
+  resources: Map<string, string>;
+}
+
+const LABELS = new WeakMap<Manifest, NodeLabels>();
+
+function labelsFor(m: Manifest): NodeLabels {
+  const hit = LABELS.get(m);
+  if (hit) return hit;
+  const services = new Map<string, string>();
+  const resources = new Map<string, string>();
+  const svcSeen = new Set<string>();
+  const resSeen = new Set<string>();
+  for (const x of m.services) services.set(x.id, uniqueLabel(svcSeen, tf(x.name)));
+  for (const x of m.resources) resources.set(x.id, uniqueLabel(resSeen, tf(x.name)));
+  const built = { services, resources };
+  LABELS.set(m, built);
+  return built;
+}
+
+/** The label for a service; falls back to the raw sanitised name off-manifest. */
+const svcLabel = (m: Manifest, s: { id: string; name: string }): string =>
+  labelsFor(m).services.get(s.id) ?? tf(s.name);
+
+/** The label for a resource; falls back to the raw sanitised name off-manifest. */
+const resLabel = (m: Manifest, r: { id: string; name: string }): string =>
+  labelsFor(m).resources.get(r.id) ?? tf(r.name);
+
+const refVar = (nodeName: string, field: string) => tf(`ref_${nodeName}_${field}`);
 
 /** SSM parameter names accept only these characters. */
 const ssmSafe = (s: string) => s.replace(/[^A-Za-z0-9_.-]/g, "-");
@@ -101,7 +274,16 @@ function routeOf(m: Manifest, serviceId: string): Route | undefined {
   return b ? m.routes.find((r) => r.id === b.from) : undefined;
 }
 
-const projectSlug = (env: Environment) => env.baseDomain.split(".")[0] || "orrery";
+const projectSlug = (env: Environment) => String(env.baseDomain ?? "").split(".")[0] || "orrery";
+
+/** Sandbox regions are Orrery-internal; a real bundle needs a real region. */
+const exportRegion = (env: Environment) => {
+  const r = String(env.region ?? "");
+  return r.startsWith("sim-") || r === "" ? "us-east-1" : r;
+};
+
+/** `<project>-<environment>`, the default for `var.name_prefix`. */
+const namePrefix = (env: Environment) => `${projectSlug(env)}-${String(env.name ?? "")}`;
 
 /* ------------------------- container env derivation ------------------------ */
 
@@ -132,15 +314,17 @@ export function containerEnv(m: Manifest, s: Service, _env: Environment): Contai
     notes: [],
   };
 
-  if (s.port) out.env.push({ name: "PORT", expr: `"${s.port}"` });
+  if (s.port) out.env.push({ name: "PORT", expr: hclString(s.port) });
 
   for (const e of s.env) {
     if (e.key === "ORRERY_CHAOS") continue; // sandbox-only failure injection
     if (e.value !== undefined) {
-      out.env.push({ name: e.key, expr: JSON.stringify(e.value) });
+      // Not JSON.stringify: JSON has no opinion about `${`, so it would hand
+      // the value straight through as a live HCL interpolation.
+      out.env.push({ name: e.key, expr: hclString(e.value) });
     } else if (e.secretRef) {
       const p: SecretParam = {
-        label: `secret_${tf(e.secretRef)}`,
+        label: tf(`secret_${e.secretRef}`),
         path: `secrets/${ssmSafe(e.secretRef)}`,
         key: e.secretRef,
         description: `Manifest secretRef "${e.secretRef}".`,
@@ -160,7 +344,13 @@ export function containerEnv(m: Manifest, s: Service, _env: Environment): Contai
     if (!target) continue;
     const keys = bindingEnv(m, b).map((k) => k.key);
     const P = target.node.name.replace(/-/g, "_").toUpperCase();
-    const t = tf(target.node.name);
+    // The *declared* label, not a fresh tf() of the name: those differ whenever
+    // two node names sanitise alike, and a reference that disagrees with the
+    // declaration points at a resource the bundle never declares.
+    const t =
+      target.type === "resource"
+        ? resLabel(m, target.node)
+        : svcLabel(m, target.node);
     const name = target.node.name;
 
     // Referenced targets are not declared anywhere in this bundle, so every
@@ -232,7 +422,7 @@ export function containerEnv(m: Manifest, s: Service, _env: Environment): Contai
       }
 
       out.notes.push(
-        `${name} is referenced, not managed. This bundle declares no resource for it — fill \`${refVar(name, "…")}\` in terraform.tfvars and put its credentials in SSM (see secrets.tf). \`imports.tf\` shows how to hand it to Terraform later if you change your mind.`
+        `${name} is referenced, not managed. This bundle declares no resource for it — fill \`${tf(`ref_${name}`)}_*\` in terraform.tfvars and put its credentials in SSM (see secrets.tf). \`imports.tf\` shows how to hand it to Terraform later if you change your mind.`
       );
       continue;
     }
@@ -288,7 +478,10 @@ export function containerEnv(m: Manifest, s: Service, _env: Environment): Contai
       const peer = m.services.find((x) => x.id === b.to);
       const r = peer ? routeOf(m, peer.id) : undefined;
       if (r) {
-        out.env.push({ name: `${P}_URL`, expr: `"${r.tls ? "https" : "http"}://${r.host}"` });
+        out.env.push({
+          name: `${P}_URL`,
+          expr: hclString(`${r.tls ? "https" : "http"}://${r.host}`),
+        });
       } else if (peer) {
         out.notes.push(
           `${s.name} → ${peer.name} is an internal HTTP binding. ${P}_URL is not injected because ${peer.name} has no public route; add ECS Service Connect (or a private ALB) and set ${P}_URL yourself.`
@@ -325,13 +518,21 @@ function scaffold(m: Manifest, env: Environment): {
   return { vars: [...vars.values()], secrets: [...secrets.values()] };
 }
 
+/**
+ * `name` comes from the manifest and is encoded here. `expr` is generator-owned
+ * HCL — a resource address, a `var.` reference, or a literal that was already
+ * put through `hclString` where it was built — and is emitted verbatim on
+ * purpose, because escaping it would break the reference it is.
+ */
 function envJson(c: ContainerEnv): string {
-  const lines = c.env.map((e) => `        { name = "${e.name}", value = ${e.expr} }`);
+  const lines = c.env.map((e) => `        { name = ${hclString(e.name)}, value = ${e.expr} }`);
   return lines.length ? `[\n${lines.join(",\n")}\n      ]` : "[]";
 }
 
 function secretsJson(c: ContainerEnv): string {
-  const lines = c.secrets.map((e) => `        { name = "${e.name}", valueFrom = ${e.expr} }`);
+  const lines = c.secrets.map(
+    (e) => `        { name = ${hclString(e.name)}, valueFrom = ${e.expr} }`
+  );
   return lines.length ? `[\n${lines.join(",\n")}\n      ]` : "[]";
 }
 
@@ -374,7 +575,8 @@ function variablesTf(env: Environment, m: Manifest, hasRoutes: boolean, hasEmail
   // "" means "use the ECR repository this bundle creates for the service".
   const images = containerServices(m)
     .map(
-      (s) => `    "${s.name}" = "${s.source.type === "image" ? s.source.image : ""}"`
+      (s) =>
+        `    ${hclString(s.name)} = ${hclString(s.source.type === "image" ? s.source.image : "")}`
     )
     .join("\n");
 
@@ -383,9 +585,9 @@ function variablesTf(env: Environment, m: Manifest, hasRoutes: boolean, hasEmail
   const refVars = vars
     .map(
       (v) => `
-variable "${v.name}" {
-  description = ${JSON.stringify(v.description)}
-  type        = string${v.default !== undefined ? `\n  default     = ${JSON.stringify(v.default)}` : ""}
+variable "${tf(v.name)}" {
+  description = ${hclString(v.description)}
+  type        = string${v.default !== undefined ? `\n  default     = ${hclString(v.default)}` : ""}
 }
 `
     )
@@ -404,7 +606,7 @@ variable "secret_values" {
   sensitive   = true
 
   default = {
-${secrets.map((p) => `    ${JSON.stringify(p.key)} = "PLACEHOLDER"`).join("\n")}
+${secrets.map((p) => `    ${hclString(p.key)} = "PLACEHOLDER"`).join("\n")}
   }
 }
 `
@@ -431,25 +633,25 @@ variable "mail_domain" {
   return `variable "region" {
   description = "AWS region to deploy into."
   type        = string
-  default     = "${env.region.startsWith("sim-") ? "us-east-1" : env.region}"
+  default     = ${hclString(exportRegion(env))}
 }
 
 variable "project_name" {
   description = "Project name, used for tagging."
   type        = string
-  default     = "${projectSlug(env)}"
+  default     = ${hclString(projectSlug(env))}
 }
 
 variable "environment" {
   description = "Environment name, used for tagging."
   type        = string
-  default     = "${env.name}"
+  default     = ${hclString(env.name)}
 }
 
 variable "name_prefix" {
   description = "Prefix for every resource name. Keep it short: ALB target group names cap at 32 characters."
   type        = string
-  default     = "${projectSlug(env)}-${env.name}"
+  default     = ${hclString(namePrefix(env))}
 }
 ${
   images
@@ -484,11 +686,11 @@ function secretsTf(m: Manifest, env: Environment): string {
     secrets
       .map(
         (p) => `
-resource "aws_ssm_parameter" "${p.label}" {
-  name        = "/\${var.name_prefix}/${p.path}"
-  description = ${JSON.stringify(p.description)}
+resource "aws_ssm_parameter" "${tf(p.label)}" {
+  name        = "/\${var.name_prefix}/${hclBody(p.path)}"
+  description = ${hclString(p.description)}
   type        = "SecureString"
-  value       = lookup(var.secret_values, ${JSON.stringify(p.key)}, "PLACEHOLDER")
+  value       = lookup(var.secret_values, ${hclString(p.key)}, "PLACEHOLDER")
 
   lifecycle {
     ignore_changes = [value]
@@ -525,10 +727,10 @@ function importsTf(m: Manifest): string {
 ${refs
   .map(
     (r) => `
-# ${r.name} (${r.kind})${r.externalRef ? ` — externalRef ${r.externalRef}` : " — no externalRef recorded in the manifest"}
+# ${hclComment(`${r.name} (${r.kind})${r.externalRef ? ` — externalRef ${r.externalRef}` : " — no externalRef recorded in the manifest"}`)}
 # import {
-#   to = ${addr[r.kind] ?? "aws_resource"}.${tf(r.name)}
-#   id = "${r.externalRef ?? "CHANGE_ME"}"
+#   to = ${addr[r.kind] ?? "aws_resource"}.${resLabel(m, r)}
+#   id = ${hclString(r.externalRef ?? "CHANGE_ME")}
 # }
 `
   )
@@ -537,8 +739,10 @@ ${refs
 
 /** Commented remote-state backend. Local state is the default; this is the fix. */
 function backendTf(env: Environment): string {
-  const prefix = `${projectSlug(env)}-${env.name}`;
-  const region = env.region.startsWith("sim-") ? "us-east-1" : env.region;
+  // Both sit inside a quoted string inside a comment: escaping keeps them on
+  // one line, which is what keeps the block commented.
+  const prefix = hclBody(namePrefix(env));
+  const region = hclBody(exportRegion(env));
   return `# State is on local disk until you move it. Before a second person touches
 # this bundle, create a versioned S3 bucket you own, uncomment the block below,
 # and run \`terraform init -migrate-state\`.
@@ -559,8 +763,14 @@ function backendTf(env: Environment): string {
 }
 
 function networkTf(m: Manifest, hasRoutes: boolean): string {
+  // Ports land in unquoted attributes, where nothing can be escaped, so a
+  // non-numeric one is dropped rather than written out.
   const ports = [
-    ...new Set(managed(m.services).map((s) => s.port).filter((p): p is number => !!p)),
+    ...new Set(
+      managed(m.services)
+        .map((s) => validPort(s.port))
+        .filter((p): p is number => p !== undefined)
+    ),
   ];
   const albSg = hasRoutes
     ? `
@@ -673,10 +883,21 @@ ${serviceIngress}
 ${dataSg}`;
 }
 
-/** AWS EventBridge cron wants six fields and rejects `*` in both day slots. */
+/** The alphabet of a cron field. Anything else is not a schedule. */
+const CRON_FIELD = /^[0-9*?,/#LW-]+$/;
+
+/**
+ * AWS EventBridge cron wants six fields and rejects `*` in both day slots.
+ *
+ * The field check is not politeness: `schedule` is free text in the manifest,
+ * and a field like `*"` would otherwise close the quoted
+ * `schedule_expression` and leave the rest of the value as configuration. An
+ * unparseable schedule falls back to hourly, which is what a missing one
+ * already did.
+ */
 function awsCron(expr: string): string {
-  const f = expr.trim().split(/\s+/);
-  if (f.length !== 5) return `cron(0 * * * ? *)`;
+  const f = String(expr ?? "").trim().split(/\s+/);
+  if (f.length !== 5 || !f.every((x) => CRON_FIELD.test(x))) return `cron(0 * * * ? *)`;
   const [min, hour, dom, month, dow] = f;
   const useDow = dow !== "*";
   return `cron(${min} ${hour} ${useDow ? "?" : dom} ${month} ${useDow ? dow : "?"} *)`;
@@ -742,16 +963,21 @@ resource "aws_iam_role_policy" "task_execution_secrets" {
 `;
 
   for (const s of services) {
-    const t = tf(s.name);
+    const t = svcLabel(m, s);
+    // `n` is the escaped body, for the names that splice the service name next
+    // to an interpolation this file writes; `nq` is the standalone literal.
+    const n = hclBody(s.name);
+    const nq = hclString(s.name);
     const c = containerEnv(m, s, env);
     const spec = fargateSpec(s.size);
     const route = routeOf(m, s.id);
+    const port = validPort(s.port);
 
     out += `
-# A registry per service, so \`container_images["${s.name}"] = ""\` resolves to
-# somewhere you can actually push. Deleting the repo deletes its images.
+# A registry per service, so \`container_images[${hclComment(nq)}] = ""\` resolves
+# to somewhere you can actually push. Deleting the repo deletes its images.
 resource "aws_ecr_repository" "${t}" {
-  name                 = "\${var.name_prefix}/${s.name}"
+  name                 = "\${var.name_prefix}/${n}"
   image_tag_mutability = "MUTABLE"
   force_delete         = true
 
@@ -761,12 +987,12 @@ resource "aws_ecr_repository" "${t}" {
 }
 
 resource "aws_cloudwatch_log_group" "${t}" {
-  name              = "/ecs/\${var.name_prefix}/${s.name}"
+  name              = "/ecs/\${var.name_prefix}/${n}"
   retention_in_days = 30
 }
 
 resource "aws_iam_role" "task_${t}" {
-  name               = "\${var.name_prefix}-${s.name}-task"
+  name               = "\${var.name_prefix}-${n}-task"
   assume_role_policy = data.aws_iam_policy_document.ecs_assume.json
 }
 `;
@@ -778,30 +1004,31 @@ ${c.statements.join("\n\n")}
 }
 
 resource "aws_iam_role_policy" "task_${t}" {
-  name   = "\${var.name_prefix}-${s.name}"
+  name   = "\${var.name_prefix}-${n}"
   role   = aws_iam_role.task_${t}.id
   policy = data.aws_iam_policy_document.task_${t}.json
 }
 `;
 
-    const portMappings = s.port
-      ? `\n      portMappings = [\n        { containerPort = ${s.port}, hostPort = ${s.port}, protocol = "tcp" }\n      ]`
-      : "";
+    const portMappings =
+      port !== undefined
+        ? `\n      portMappings = [\n        { containerPort = ${port}, hostPort = ${port}, protocol = "tcp" }\n      ]`
+        : "";
 
     out += `
 resource "aws_ecs_task_definition" "${t}" {
-  family                   = "\${var.name_prefix}-${s.name}"
+  family                   = "\${var.name_prefix}-${n}"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = "${spec.cpu}"
-  memory                   = "${spec.memory}"
+  cpu                      = "${hclNum(spec.cpu, 256)}"
+  memory                   = "${hclNum(spec.memory, 512)}"
   execution_role_arn       = aws_iam_role.task_execution.arn
   task_role_arn            = aws_iam_role.task_${t}.arn
 
   container_definitions = jsonencode([
     {
-      name      = "${s.name}"
-      image     = coalesce(lookup(var.container_images, "${s.name}", ""), "\${aws_ecr_repository.${t}.repository_url}:latest")
+      name      = ${nq}
+      image     = coalesce(lookup(var.container_images, ${nq}, ""), "\${aws_ecr_repository.${t}.repository_url}:latest")
       essential = true${portMappings}
       environment = ${envJson(c)}
       secrets = ${secretsJson(c)}
@@ -810,7 +1037,7 @@ resource "aws_ecs_task_definition" "${t}" {
         options = {
           awslogs-group         = aws_cloudwatch_log_group.${t}.name
           awslogs-region        = var.region
-          awslogs-stream-prefix = "${s.name}"
+          awslogs-stream-prefix = ${nq}
         }
       }
     }
@@ -820,9 +1047,9 @@ resource "aws_ecs_task_definition" "${t}" {
 
     if (s.kind === "cron") {
       out += `
-# ${s.name} runs on a schedule instead of staying up.
+# ${hclComment(s.name)} runs on a schedule instead of staying up.
 resource "aws_iam_role" "events_${t}" {
-  name = "\${var.name_prefix}-${s.name}-events"
+  name = "\${var.name_prefix}-${n}-events"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -839,7 +1066,7 @@ resource "aws_iam_role" "events_${t}" {
 }
 
 resource "aws_iam_role_policy" "events_${t}" {
-  name = "\${var.name_prefix}-${s.name}-events"
+  name = "\${var.name_prefix}-${n}-events"
   role = aws_iam_role.events_${t}.id
 
   policy = jsonencode({
@@ -860,9 +1087,9 @@ resource "aws_iam_role_policy" "events_${t}" {
 }
 
 resource "aws_cloudwatch_event_rule" "${t}" {
-  name                = "\${var.name_prefix}-${s.name}"
-  description         = "Schedule for ${s.name} (manifest: ${s.schedule ?? "unset"})"
-  schedule_expression = "${awsCron(s.schedule ?? "0 * * * *")}"
+  name                = "\${var.name_prefix}-${n}"
+  description         = ${hclString(`Schedule for ${s.name} (manifest: ${s.schedule ?? "unset"})`)}
+  schedule_expression = ${hclString(awsCron(s.schedule ?? "0 * * * *"))}
 }
 
 resource "aws_cloudwatch_event_target" "${t}" {
@@ -890,8 +1117,8 @@ resource "aws_cloudwatch_event_target" "${t}" {
       ? `
   load_balancer {
     target_group_arn = aws_lb_target_group.${t}.arn
-    container_name   = "${s.name}"
-    container_port   = ${s.port ?? 80}
+    container_name   = ${nq}
+    container_port   = ${port ?? 80}
   }
 
   depends_on = [aws_lb_listener.${route.tls ? "https" : "http"}]
@@ -900,10 +1127,10 @@ resource "aws_cloudwatch_event_target" "${t}" {
 
     out += `
 resource "aws_ecs_service" "${t}" {
-  name            = "\${var.name_prefix}-${s.name}"
+  name            = "\${var.name_prefix}-${n}"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.${t}.arn
-  desired_count   = ${s.replicas}
+  desired_count   = ${hclNum(s.replicas, 1)}
   launch_type     = "FARGATE"
 
   network_configuration {
@@ -926,7 +1153,8 @@ function rdsTf(m: Manifest): string {
 }
 `;
   for (const r of dbs) {
-    const t = tf(r.name);
+    const t = resLabel(m, r);
+    const n = hclBody(r.name);
     const dbName = tf(r.name).toLowerCase();
     out += `
 resource "random_password" "${t}" {
@@ -935,14 +1163,14 @@ resource "random_password" "${t}" {
 }
 
 resource "aws_db_instance" "${t}" {
-  identifier                  = "\${var.name_prefix}-${r.name}"
+  identifier                  = "\${var.name_prefix}-${n}"
   engine                      = "postgres"
-  engine_version              = "${String(r.config.version ?? "16")}"
-  instance_class              = "${DB_CLASS[r.size]}"
-  allocated_storage           = ${DB_STORAGE[r.size]}
+  engine_version              = ${hclString(r.config.version ?? "16")}
+  instance_class              = ${hclString(DB_CLASS[r.size] ?? DB_CLASS.small)}
+  allocated_storage           = ${hclNum(DB_STORAGE[r.size], 20)}
   storage_type                = "gp3"
   storage_encrypted           = true
-  db_name                     = "${dbName}"
+  db_name                     = ${hclString(dbName)}
   username                    = "orrery"
   password                    = random_password.${t}.result
   db_subnet_group_name        = aws_db_subnet_group.main.name
@@ -955,13 +1183,13 @@ resource "aws_db_instance" "${t}" {
 }
 
 resource "aws_ssm_parameter" "${t}_password" {
-  name  = "/\${var.name_prefix}/${r.name}/password"
+  name  = "/\${var.name_prefix}/${n}/password"
   type  = "SecureString"
   value = random_password.${t}.result
 }
 
 resource "aws_ssm_parameter" "${t}_url" {
-  name  = "/\${var.name_prefix}/${r.name}/url"
+  name  = "/\${var.name_prefix}/${n}/url"
   type  = "SecureString"
   value = "postgres://\${aws_db_instance.${t}.username}:\${random_password.${t}.result}@\${aws_db_instance.${t}.endpoint}/\${aws_db_instance.${t}.db_name}"
 }
@@ -979,13 +1207,13 @@ function elasticacheTf(m: Manifest): string {
 }
 `;
   for (const r of caches) {
-    const t = tf(r.name);
+    const t = resLabel(m, r);
     out += `
 resource "aws_elasticache_cluster" "${t}" {
-  cluster_id           = "\${var.name_prefix}-${r.name}"
+  cluster_id           = "\${var.name_prefix}-${hclBody(r.name)}"
   engine               = "redis"
   engine_version       = "7.1"
-  node_type            = "${CACHE_CLASS[r.size]}"
+  node_type            = ${hclString(CACHE_CLASS[r.size] ?? CACHE_CLASS.small)}
   num_cache_nodes      = 1
   parameter_group_name = "default.redis7"
   port                 = 6379
@@ -1010,9 +1238,9 @@ function s3Tf(m: Manifest): string {
 
 `;
   for (const r of buckets) {
-    const t = tf(r.name);
+    const t = resLabel(m, r);
     out += `resource "aws_s3_bucket" "${t}" {
-  bucket = "\${var.name_prefix}-${r.name}-\${random_id.bucket_suffix.hex}"
+  bucket = "\${var.name_prefix}-${hclBody(r.name)}-\${random_id.bucket_suffix.hex}"
 }
 
 resource "aws_s3_bucket_public_access_block" "${t}" {
@@ -1044,15 +1272,15 @@ resource "aws_s3_bucket_versioning" "${t}" {
 `;
   }
   for (const s of sites) {
-    const t = tf(s.name);
-    out += `# Static site "${s.name}". Upload your build output here, then front it with
+    const t = svcLabel(m, s);
+    out += `# Static site "${hclComment(s.name)}". Upload your build output here, then front it with
 # CloudFront if you need a custom domain and TLS.
 #
 # This bucket is deliberately world-readable: a website bucket with the default
 # private settings answers 403 to every visitor. Everything you put in it is
 # public. Do not upload anything you would not publish.
 resource "aws_s3_bucket" "site_${t}" {
-  bucket = "\${var.name_prefix}-${s.name}-site-\${random_id.bucket_suffix.hex}"
+  bucket = "\${var.name_prefix}-${hclBody(s.name)}-site-\${random_id.bucket_suffix.hex}"
 }
 
 resource "aws_s3_bucket_website_configuration" "site_${t}" {
@@ -1105,15 +1333,16 @@ function sqsTf(m: Manifest): string {
   if (!queues.length) return "";
   return queues
     .map((r) => {
-      const t = tf(r.name);
+      const t = resLabel(m, r);
+      const n = hclBody(r.name);
       return `resource "aws_sqs_queue" "${t}_dlq" {
-  name                      = "\${var.name_prefix}-${r.name}-dlq"
+  name                      = "\${var.name_prefix}-${n}-dlq"
   message_retention_seconds = 1209600
 }
 
 resource "aws_sqs_queue" "${t}" {
-  name                       = "\${var.name_prefix}-${r.name}"
-  visibility_timeout_seconds = ${Number(r.config.visibilityTimeout ?? 30)}
+  name                       = "\${var.name_prefix}-${n}"
+  visibility_timeout_seconds = ${hclNum(r.config.visibilityTimeout, 30)}
   message_retention_seconds  = 345600
   sqs_managed_sse_enabled    = true
 
@@ -1201,21 +1430,25 @@ function albTf(m: Manifest): string {
 }
 `;
 
-  const seen = new Set<string>();
+  // Two distinct services can sanitise to one label ("api.v1" and "api-v1" both
+  // become "api_v1"). Skipping the second used to look like deduplication, but
+  // it silently pointed both routes at the *first* service's target group. Keep
+  // one target group per service, keyed by id, and disambiguate the label.
+  const emitted = new Set<string>();
   for (const { service } of rb) {
-    const t = tf(service.name);
-    if (seen.has(t)) continue;
-    seen.add(t);
+    if (emitted.has(service.id)) continue; // several routes, one service
+    emitted.add(service.id);
+    const t = svcLabel(m, service);
     out += `
 resource "aws_lb_target_group" "${t}" {
-  name        = "\${var.name_prefix}-${service.name}"
-  port        = ${service.port ?? 80}
+  name        = "\${var.name_prefix}-${hclBody(service.name)}"
+  port        = ${validPort(service.port) ?? 80}
   protocol    = "HTTP"
   vpc_id      = data.aws_vpc.default.id
   target_type = "ip"
 
   health_check {
-    path                = "${service.healthPath ?? "/"}"
+    path                = ${hclString(service.healthPath ?? "/")}
     matcher             = "200-399"
     interval            = 30
     timeout             = 5
@@ -1275,8 +1508,12 @@ resource "aws_lb_listener" "https" {
 }
 `;
 
+  const ruleSeen = new Set<string>();
   rb.forEach(({ route, service }, i) => {
-    const t = tf(`${route.host}_${route.pathPrefix}`);
+    // Host+path sanitise many-to-one too ("/x.y" and "/x-y" both become
+    // "_x_y"), and duplicate block labels are a Terraform *parse* error — the
+    // export would not even plan.
+    const t = uniqueLabel(ruleSeen, tf(`${route.host}_${route.pathPrefix}`));
     const listener = route.tls ? "https" : "http";
     out += `
 resource "aws_lb_listener_rule" "${t}" {
@@ -1285,18 +1522,20 @@ resource "aws_lb_listener_rule" "${t}" {
 
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.${tf(service.name)}.arn
+    target_group_arn = aws_lb_target_group.${svcLabel(m, service)}.arn
   }
 
   condition {
     host_header {
-      values = ["${route.host}"]
+      values = [${hclString(route.host)}]
     }
   }
 
   condition {
     path_pattern {
-      values = ["${route.pathPrefix === "/" ? "/*" : `${route.pathPrefix.replace(/\/$/, "")}/*`}"]
+      values = [${hclString(
+        route.pathPrefix === "/" ? "/*" : `${String(route.pathPrefix ?? "/").replace(/\/+$/, "")}/*`
+      )}]
     }
   }
 }
@@ -1319,8 +1558,8 @@ function acmTf(m: Manifest): string {
   const [primary, ...sans] = hosts;
 
   return `resource "aws_acm_certificate" "main" {
-  domain_name               = "${primary}"
-  subject_alternative_names = [${sans.map((h) => `"${h}"`).join(", ")}]
+  domain_name               = ${hclString(primary)}
+  subject_alternative_names = [${sans.map((h) => hclString(h)).join(", ")}]
   validation_method         = "DNS"
 
   lifecycle {
@@ -1365,7 +1604,7 @@ ${hosts
     (h) => `
 resource "aws_route53_record" "${tf(h)}" {
   zone_id = data.aws_route53_zone.main.zone_id
-  name    = "${h}"
+  name    = ${hclString(h)}
   type    = "A"
 
   alias {
@@ -1391,42 +1630,57 @@ function outputsTf(m: Manifest): string {
 output "urls" {
   description = "Public URL per route."
   value = [
-${[...new Set(rb.map((x) => `    "${x.route.tls ? "https" : "http"}://${x.route.host}${x.route.pathPrefix === "/" ? "" : x.route.pathPrefix}"`))].join(",\n")}
+${[
+  ...new Set(
+    rb.map(
+      (x) =>
+        `    ${hclString(
+          `${x.route.tls ? "https" : "http"}://${x.route.host}${
+            x.route.pathPrefix === "/" ? "" : x.route.pathPrefix
+          }`
+        )}`
+    )
+  ),
+].join(",\n")}
   ]
 }`);
   }
   for (const r of managed(m.resources)) {
-    const t = tf(r.name);
+    const t = resLabel(m, r);
     if (r.kind === "postgres")
       parts.push(`output "${t}_endpoint" {
-  description = "Endpoint for ${r.name}. The password lives in SSM at /<name_prefix>/${r.name}/password."
+  description = ${hclString(
+    `Endpoint for ${r.name}. The password lives in SSM at /<name_prefix>/${r.name}/password.`
+  )}
   value       = aws_db_instance.${t}.endpoint
 }`);
     if (r.kind === "redis")
       parts.push(`output "${t}_endpoint" {
-  description = "Primary node address for ${r.name}."
+  description = ${hclString(`Primary node address for ${r.name}.`)}
   value       = aws_elasticache_cluster.${t}.cache_nodes[0].address
 }`);
     if (r.kind === "object_store")
       parts.push(`output "${t}_bucket" {
-  description = "Bucket name for ${r.name}."
+  description = ${hclString(`Bucket name for ${r.name}.`)}
   value       = aws_s3_bucket.${t}.bucket
 }`);
     if (r.kind === "queue")
       parts.push(`output "${t}_queue_url" {
-  description = "Queue URL for ${r.name}."
+  description = ${hclString(`Queue URL for ${r.name}.`)}
   value       = aws_sqs_queue.${t}.url
 }`);
   }
   for (const s of managed(m.services).filter((x) => x.kind === "static")) {
-    const t = tf(s.name);
+    const t = svcLabel(m, s);
     parts.push(`output "${t}_site_endpoint" {
-  description = "Public website endpoint for ${s.name}. Upload your build output to the bucket in the value below."
+  description = ${hclString(
+    `Public website endpoint for ${s.name}. Upload your build output to the bucket in the value below.`
+  )}
   value       = aws_s3_bucket_website_configuration.site_${t}.website_endpoint
 }
 
 output "${t}_site_bucket" {
-  description = "Bucket holding ${s.name}'s built files."
+  description = ${hclString(`Bucket holding ${s.name}'s built files.`)}
   value       = aws_s3_bucket.site_${t}.bucket
 }`);
   }
@@ -1439,7 +1693,9 @@ output "${t}_site_bucket" {
     parts.push(`output "ecr_repositories" {
   description = "Push an image here for any service left empty in container_images, then apply again."
   value = {
-${svcs.map((s) => `    "${s.name}" = aws_ecr_repository.${tf(s.name)}.repository_url`).join("\n")}
+${svcs
+  .map((s) => `    ${hclString(s.name)} = aws_ecr_repository.${svcLabel(m, s)}.repository_url`)
+  .join("\n")}
   }
 }`);
   }
@@ -1447,30 +1703,35 @@ ${svcs.map((s) => `    "${s.name}" = aws_ecr_repository.${tf(s.name)}.repository
 }
 
 function tfvarsExample(env: Environment, m: Manifest, hasRoutes: boolean, hasEmail: boolean): string {
+  // terraform.tfvars is loaded and executed like any other HCL, so it gets the
+  // same encoding as the .tf files — including the trailing `#` comments,
+  // where a newline would turn the rest of a description into an assignment.
   const images = containerServices(m)
     .map(
       (s) =>
-        `  "${s.name}" = "${s.source.type === "image" ? s.source.image : ""}"${s.source.type === "image" ? "" : `  # empty = push to the ECR repo this bundle creates for ${s.name}`}`
+        `  ${hclString(s.name)} = ${hclString(s.source.type === "image" ? s.source.image : "")}${s.source.type === "image" ? "" : `  # empty = push to the ECR repo this bundle creates for ${hclComment(s.name)}`}`
     )
     .join("\n");
   const hosts = [...new Set(routeBindings(m).map((x) => x.route.host))];
-  const guessZone = hosts[0]?.split(".").slice(-2).join(".") ?? "example.com";
+  const guessZone = String(hosts[0] ?? "").split(".").slice(-2).join(".") || "example.com";
   const { vars } = scaffold(m, env);
 
   const refBlock = vars.length
     ? `
 # Referenced resources. Orrery never provisions or mutates these; fill in where
 # they already live. Anything left empty will fail at plan or at task start.
-${vars.map((v) => `${v.name} = ${JSON.stringify(v.default ?? "")}  # ${v.description}`).join("\n")}
+${vars
+  .map((v) => `${tf(v.name)} = ${hclString(v.default ?? "")}  # ${hclComment(v.description)}`)
+  .join("\n")}
 `
     : "";
 
   return `# Copy to terraform.tfvars and edit before the first apply.
-region       = "${env.region.startsWith("sim-") ? "us-east-1" : env.region}"
-project_name = "${projectSlug(env)}"
-environment  = "${env.name}"
-name_prefix  = "${projectSlug(env)}-${env.name}"
-${hasRoutes ? `\n# Must be an existing public hosted zone you control.\nroute53_zone_name = "${guessZone}"\n` : ""}${hasEmail ? `\nmail_domain = "${guessZone}"\n` : ""}${
+region       = ${hclString(exportRegion(env))}
+project_name = ${hclString(projectSlug(env))}
+environment  = ${hclString(env.name)}
+name_prefix  = ${hclString(namePrefix(env))}
+${hasRoutes ? `\n# Must be an existing public hosted zone you control.\nroute53_zone_name = ${hclString(guessZone)}\n` : ""}${hasEmail ? `\nmail_domain = ${hclString(guessZone)}\n` : ""}${
     images
       ? `
 container_images = {
@@ -1544,22 +1805,25 @@ export function terraformFiles(env: Environment, m: Manifest): ExportFile[] {
 export function terraformReadme(env: Environment, m: Manifest): string {
   const rb = routeBindings(m);
   const svcs = managed(m.services);
+  // Markdown is not executed, but a newline still wrecks a table row and a
+  // pipe still splits a cell, so manifest text is flattened here too.
+  const cell = (s: unknown) => hclComment(s).replace(/\|/g, "\\|");
   const notes = [
-    ...new Set(svcs.flatMap((s) => containerEnv(m, s, env).notes)),
+    ...new Set(svcs.flatMap((s) => containerEnv(m, s, env).notes.map((n) => hclComment(n)))),
   ];
   const bindingTable = m.bindings
     .filter((b) => m.services.some((s) => s.id === b.from))
     .map((b) => {
       const from = m.services.find((s) => s.id === b.from)!;
       const to = findNode(m, b.to);
-      const keys = bindingEnv(m, b).map((k) => `\`${k.key}\``).join(", ");
-      return `| ${from.name} | ${to?.node.name ?? b.to} | ${b.capability} | ${keys || "—"} |`;
+      const keys = bindingEnv(m, b).map((k) => `\`${cell(k.key)}\``).join(", ");
+      return `| ${cell(from.name)} | ${cell(to?.node.name ?? b.to)} | ${cell(b.capability)} | ${keys || "—"} |`;
     })
     .join("\n");
 
-  const prefix = `${projectSlug(env)}-${env.name}`;
+  const prefix = hclComment(namePrefix(env));
 
-  return `# ${projectSlug(env)} — ${env.name} infrastructure
+  return `# ${cell(projectSlug(env))} — ${cell(env.name)} infrastructure
 
 This is your infrastructure, not Orrery's. Everything here is standard
 Terraform against the \`hashicorp/aws\` provider (\`~> 5.0\`); OpenTofu works

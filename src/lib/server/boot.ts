@@ -1,16 +1,17 @@
 /**
  * Per-process boot. Every API route calls `ensureBoot()` first.
  *
- * Registers actions + providers and resumes any deployment that was in flight
- * when the server restarted (durable operations: a restart never strands a
- * deployment). All workstream modules have landed, so imports are literal and
- * verified at build time.
+ * Registers actions + providers, resumes any deployment that was in flight when
+ * the server restarted, and replays the alert outbox (durable operations: a
+ * restart never strands a deployment, and never silently drops a notification
+ * for an alert that is already open). All workstream modules have landed, so
+ * imports are literal and verified at build time.
  */
 import type { SecurityFinding } from "@/lib/domain/types";
 import { providerRegistry } from "@/lib/providers/types";
 import { engine, ensureEngine } from "@/lib/engine/engine";
 import { registerAllActions } from "@/lib/actions/defs";
-import { startAlertEvaluator } from "@/lib/alerts";
+import { replayOutbox, startAlertEvaluator } from "@/lib/alerts";
 import * as security from "@/lib/security/rules";
 import * as logsim from "@/lib/logsim";
 import { claimDataDir } from "@/lib/data-lock";
@@ -50,6 +51,18 @@ async function boot(): Promise<void> {
   // rewrites state.json wholesale, so two writers silently lose each other's
   // work. The thrown error names the pid, the directory and the way out.
   claimDataDir(env().ORRERY_DATA);
+  // Alert deliveries the last process had queued — or was mid-send when it
+  // died — are reclaimed and drained. Safe to reclaim every claimed row here
+  // because the line above just proved no other process owns this data
+  // directory. Scheduled rather than awaited, and `unref`'d like the evaluator
+  // timer: a webhook that never answers must not hold up boot, keep the process
+  // alive, or make the first request wait 30s for a retry ladder to finish.
+  const replay = setTimeout(() => {
+    void replayOutbox().catch((err) =>
+      log.error("alert outbox replay failed", { scope: "alerts", error: err })
+    );
+  }, 0);
+  (replay as { unref?: () => void }).unref?.();
   ensureEngine(); // also registers every provider adapter
   engine.resumeInFlight();
   registerAllActions();

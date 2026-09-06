@@ -8,16 +8,13 @@
  *   ?limit=50            1..200 (default 50)
  *   ?cursor=<offset>     `nextCursor` from the previous page
  */
-import { inWorkspace, q } from "@/lib/db/store";
-import { intParam, notFound, requireWorkspace, route } from "@/lib/server/context";
+import { q } from "@/lib/db/store";
+import { intParam, route, scopedProject } from "@/lib/server/context";
 
 export const dynamic = "force-dynamic";
 
 export const GET = route<{ id: string }>(async (req, { id }) => {
-  const project = q.project(id);
-  // Scoped by workspace: an id alone is not a read grant.
-  if (!project || !inWorkspace(requireWorkspace().id, project.id))
-    throw notFound(`Project "${id}"`, "Check the URL, or pick a project from the workspace overview.");
+  const project = scopedProject(id);
 
   const all = q.revisionsOf(project.id);
   const limit = Math.min(Math.max(intParam(req, "limit", 50), 1), 200);

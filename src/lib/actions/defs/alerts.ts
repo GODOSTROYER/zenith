@@ -12,6 +12,14 @@
  * Channel mutations are admin, because a channel is workspace-wide and its
  * target is where this server's alerts go. Test-sending is editor: it proves a
  * channel works without being able to change where anything is sent.
+ *
+ * Admin of WHICH workspace is the other half of that sentence, so every rule,
+ * alert and channel here is resolved with `scopedRule` / `scopedEvent` /
+ * `scopedChannel` (see @/lib/alerts) rather than a global finder: `runAction`
+ * only ever checks the caller's role in `ctx.workspaceId`, so a lookup that
+ * reads the whole store would let an admin of one workspace point another
+ * workspace's channel at an endpoint of their choosing. A foreign id is refused
+ * with the same sentence as an id that never existed.
  */
 import { z } from "zod";
 import { defineAction, type ActionContext } from "@/lib/actions/core";
@@ -30,11 +38,11 @@ import {
   maskTarget,
   messageText,
   openEventFor,
-  requireChannel,
-  requireEvent,
-  requireRule,
   resolveOpen,
   rulesOf,
+  scopedChannel,
+  scopedEvent,
+  scopedRule,
   thresholdOf,
   type AlertMessage,
 } from "@/lib/alerts";
@@ -225,7 +233,7 @@ defineAction<Update>({
   mutates: true,
   input: Update,
   plan(ctx, input) {
-    const rule = requireRule(input.ruleId);
+    const rule = scopedRule(ctx.workspaceId, input.ruleId);
     const env = envName(rule);
     const next = { kind: rule.kind, threshold: input.threshold ?? rule.threshold };
     const enabled = input.enabled ?? rule.enabled;
@@ -265,7 +273,7 @@ defineAction<Update>({
     };
   },
   execute(ctx, input) {
-    const rule = requireRule(input.ruleId);
+    const rule = scopedRule(ctx.workspaceId, input.ruleId);
     const problem =
       thresholdProblem({ kind: rule.kind, threshold: input.threshold }) ??
       channelProblem(ctx, input.channelIds ?? undefined);
@@ -305,8 +313,8 @@ defineAction<Delete>({
   requiredRole: "editor",
   mutates: true,
   input: Delete,
-  plan(_ctx, input) {
-    const rule = requireRule(input.ruleId);
+  plan(ctx, input) {
+    const rule = scopedRule(ctx.workspaceId, input.ruleId);
     const fired = db().alertEvents.filter((e) => e.ruleId === rule.id).length;
     const open = openEventFor(rule.id);
     return {
@@ -328,8 +336,8 @@ defineAction<Delete>({
       requiresApproval: false,
     };
   },
-  execute(_ctx, input) {
-    const rule = requireRule(input.ruleId);
+  execute(ctx, input) {
+    const rule = scopedRule(ctx.workspaceId, input.ruleId);
     resolveOpen(rule.id, "The rule was deleted.");
     db().alertRules = db().alertRules.filter((r) => r.id !== rule.id);
     save();
@@ -363,7 +371,7 @@ defineAction<Ack>({
   mutates: true,
   input: Ack,
   plan(ctx, input) {
-    const event = requireEvent(input.eventId);
+    const event = scopedEvent(ctx.workspaceId, input.eventId);
     return {
       summary: `Acknowledge "${event.summary}".`,
       details: [
@@ -385,7 +393,7 @@ defineAction<Ack>({
     };
   },
   execute(ctx, input) {
-    const event = requireEvent(input.eventId);
+    const event = scopedEvent(ctx.workspaceId, input.eventId);
     if (event.resolvedAt)
       return {
         ok: false,
@@ -607,8 +615,8 @@ defineAction<UpdateChannel>({
   requiredRole: "admin",
   mutates: true,
   input: UpdateChannel,
-  plan(_ctx, input) {
-    const channel = requireChannel(input.channelId);
+  plan(ctx, input) {
+    const channel = scopedChannel(ctx.workspaceId, input.channelId);
     const target = input.target?.trim() ?? channel.target;
     const enabled = input.enabled ?? channel.enabled;
     const hasSecret =
@@ -656,8 +664,8 @@ defineAction<UpdateChannel>({
           : undefined),
     };
   },
-  execute(_ctx, input) {
-    const channel = requireChannel(input.channelId);
+  execute(ctx, input) {
+    const channel = scopedChannel(ctx.workspaceId, input.channelId);
     if (input.target !== undefined) {
       const problem = targetProblem(channel.kind, input.target);
       if (problem) return { ok: false, summary: "That target cannot be used.", error: problem };
@@ -690,7 +698,7 @@ defineAction<DeleteChannel>({
   mutates: true,
   input: DeleteChannel,
   plan(ctx, input) {
-    const channel = requireChannel(input.channelId);
+    const channel = scopedChannel(ctx.workspaceId, input.channelId);
     const using = rulesUsing(ctx.workspaceId, channel.id);
     const orphaned = using.named.filter((r) => (r.channelIds ?? []).length === 1);
     const remaining = channelsOf(ctx.workspaceId).filter(
@@ -729,8 +737,8 @@ defineAction<DeleteChannel>({
       requiresApproval: false,
     };
   },
-  execute(_ctx, input) {
-    const channel = requireChannel(input.channelId);
+  execute(ctx, input) {
+    const channel = scopedChannel(ctx.workspaceId, input.channelId);
     const table = channelTable();
     const at = table.findIndex((c) => c.id === channel.id);
     if (at >= 0) table.splice(at, 1);
@@ -767,7 +775,7 @@ defineAction<TestChannel>({
   mutates: true,
   input: TestChannel,
   plan(ctx, input) {
-    const channel = requireChannel(input.channelId);
+    const channel = scopedChannel(ctx.workspaceId, input.channelId);
     const msg = testMessage(ctx.actor.name);
     return {
       summary: `Send one test message to ${channelLabel(channel)}.`,
@@ -793,7 +801,7 @@ defineAction<TestChannel>({
     };
   },
   async execute(ctx, input) {
-    const channel = requireChannel(input.channelId);
+    const channel = scopedChannel(ctx.workspaceId, input.channelId);
     const delivery = await deliverToChannel(channel, testMessage(ctx.actor.name));
     save();
     return {

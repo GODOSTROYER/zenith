@@ -93,9 +93,9 @@ Be precise about this, because Orrery is:
 
 | Resource kind | On LocalStack |
 | --- | --- |
-| Object store (S3 bucket) | **Real.** `s3:CreateBucket`, verified with `HeadBucket`, listed back by drift detection |
-| Queue (SQS) | **Real.** `sqs:CreateQueue`, real queue URL recorded as an output |
-| Postgres, Redis, containers, load balancers, DNS, email | **Simulated locally.** LocalStack Community has no RDS/ElastiCache/ECS/ALB, so those steps run as *labeled* local simulations — the step title says so, and drift reports them as "not looked at" rather than claiming they are healthy |
+| Object store (S3 bucket) | **Real.** `s3:CreateBucket`, verified with `HeadBucket`, listed back by drift detection. Removing it from the manifest really runs `s3:DeleteBucket` — and refuses if the bucket still holds objects, unless the environment allows stateful deletion |
+| Queue (SQS) | **Real.** `sqs:CreateQueue`, real queue URL recorded as an output. Removing it really runs `sqs:DeleteQueue` — and refuses while messages are still in the queue, unless the environment allows stateful deletion |
+| Postgres, Redis, containers, load balancers, DNS, email | **Simulated locally.** LocalStack Community has no RDS/ElastiCache/ECS/ALB, so those steps run as *labeled* local simulations — the step title says so, and drift reports them as "not looked at" rather than claiming they are healthy. Removing one is labelled the same way: the step says nothing was created to delete |
 
 The exported Terraform bundle provisions all of it for real on AWS. Switching
 targets is one step: delete `providers_override.tf` and supply real credentials.

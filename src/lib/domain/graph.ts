@@ -191,7 +191,7 @@ export function validateManifest(m: Manifest): ValidationIssue[] {
             level: "warning",
             nodeId: s.id,
             message: `"${s.name}" reads ${e.key} from ${e.secretRef}, which is not Orrery's secret store.`,
-            fix: `Orrery records the name and nothing else — the provider has to resolve ${e.secretRef} at deploy time. Set the value on the provider side, or store it in Orrery with system.setSecret and let it use vault:${e.key}.`,
+            fix: `Orrery records the name and nothing else — the provider has to resolve ${e.secretRef} at deploy time. Set the value on the provider side, or store it in Orrery with system.setSecret, which leaves a reference scoped to this service.`,
           });
       } else if (e.value === undefined)
         issues.push({
@@ -231,6 +231,13 @@ function riskFor(op: "create" | "update" | "delete", nodeType: string, stateful:
 }
 
 const STATEFUL: string[] = ["postgres", "redis", "object_store", "queue"];
+
+/**
+ * Does destroying this resource destroy data? Exported so the deploy gate and
+ * the diff agree on one list — an environment's `allowStatefulDeletion` policy
+ * is meaningless if the gate and the risk label disagree about what counts.
+ */
+export const isStatefulKind = (kind: string | undefined): boolean => STATEFUL.includes(kind ?? "");
 
 /**
  * Compute the changeset between the deployed manifest and the working copy.

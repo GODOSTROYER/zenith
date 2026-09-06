@@ -5,6 +5,13 @@
  * `pull` replays from the store, so a refresh or a dropped connection never
  * loses deployment history. Heartbeat comments every 15s keep proxies from
  * closing an idle stream; aborting the request tears everything down.
+ *
+ * Authorisation contract: a route authorises once, at connect, and then holds
+ * the connection open for hours. That is a hole — someone removed from a
+ * workspace would keep receiving payloads until they chose to disconnect — so
+ * `sseResponse` takes a `guard` alongside `pull` and re-asks it on every poll,
+ * which is every push and every heartbeat. It is a required argument rather
+ * than an option precisely so a stream added later cannot quietly skip it.
  */
 
 export interface SseEvent {
@@ -18,13 +25,20 @@ export interface SseEvent {
 /** Return the next batch, or `null` to end the stream (an `done` event is sent). */
 export type SsePull = () => SseEvent[] | null | Promise<SseEvent[] | null>;
 
+/**
+ * Re-asked before every write: `undefined` while the caller may still read,
+ * otherwise why they may not — in the same `{ message, fix }` shape as every
+ * error body, because it is delivered as one before the stream closes.
+ */
+export type SseGuard = () => { message: string; fix: string } | undefined;
+
 const POLL_MS = 300;
 const HEARTBEAT_MS = 15_000;
 
 const frame = (e: SseEvent): string =>
   `${e.id === undefined ? "" : `id: ${e.id}\n`}${e.event ? `event: ${e.event}\n` : ""}data: ${JSON.stringify(e.data)}\n\n`;
 
-export function sseResponse(signal: AbortSignal, pull: SsePull): Response {
+export function sseResponse(signal: AbortSignal, guard: SseGuard, pull: SsePull): Response {
   const enc = new TextEncoder();
   let timer: ReturnType<typeof setInterval> | undefined;
 
@@ -51,6 +65,21 @@ export function sseResponse(signal: AbortSignal, pull: SsePull): Response {
         }
       };
 
+      /**
+       * True once the caller may no longer read — by which point they have been
+       * told why and the stream is closed. Asked before `pull` and again after
+       * it, because membership can end while an async `pull` is awaiting and a
+       * payload computed under the old answer must not still go out.
+       */
+      const revoked = (): boolean => {
+        if (closed) return true;
+        const denial = guard();
+        if (!denial) return false;
+        write(frame({ event: "error", data: denial }));
+        close();
+        return true;
+      };
+
       if (signal.aborted) return close();
       signal.addEventListener("abort", close);
       write(": open\n\n");
@@ -59,8 +88,9 @@ export function sseResponse(signal: AbortSignal, pull: SsePull): Response {
         if (closed || busy) return;
         busy = true;
         try {
+          if (revoked()) return;
           const batch = await pull();
-          if (closed) return;
+          if (revoked()) return;
           if (batch === null) {
             write("event: done\ndata: {}\n\n");
             close();

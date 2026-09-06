@@ -26,6 +26,7 @@ import path from "node:path";
 import { env } from "@/lib/env";
 import type {
   AlertEvent,
+  AlertOutboxEntry,
   AlertRule,
   AuditEvent,
   CloudConnection,
@@ -55,7 +56,17 @@ export interface Database {
   alertRules: AlertRule[];
   /** the durable record of every time a rule fired; outlives its rule */
   alertEvents: AlertEvent[];
-  /** per-workspace settings incl. autonomy level and user preferences */
+  /** delivery intent, written with the event it belongs to; drained by the sender */
+  alertOutbox: AlertOutboxEntry[];
+  /**
+   * Install-wide settings bag. NOT per-workspace despite the name: `autonomy`
+   * is a single install-global level (the dial says so on screen), and
+   * `alertChannels`/`invites` are flat lists that carry their own
+   * `workspaceId` and must be filtered by the reader. Nothing here is safe
+   * to serialize wholesale — channels hold HMAC secrets and webhook URLs,
+   * invites hold email addresses — so responses build an allowlisted DTO
+   * (see /api/bootstrap) rather than spreading this object.
+   */
   settings: Record<string, unknown>;
 }
 
@@ -71,6 +82,7 @@ const EMPTY: Database = {
   navigatorRuns: [],
   alertRules: [],
   alertEvents: [],
+  alertOutbox: [],
   settings: {},
 };
 
@@ -102,10 +114,21 @@ export function db(): Database {
         ...structuredClone(EMPTY),
         ...(JSON.parse(fs.readFileSync(STATE, "utf8")) as Database),
       };
-    } catch {
-      // Corrupt snapshot: keep the file for forensics, start fresh.
-      fs.copyFileSync(STATE, `${STATE}.corrupt-${Date.now()}`);
-      data = structuredClone(EMPTY);
+    } catch (err) {
+      // A corrupt snapshot must never become an empty *writable* install: the
+      // next save would overwrite the only copy of the real data, turning a
+      // recoverable parse error into total loss. Keep the file, refuse to
+      // boot, and name the way back.
+      const kept = `${STATE}.corrupt-${Date.now()}`;
+      fs.copyFileSync(STATE, kept);
+      throw new Error(
+        `The Orrery state file at ${STATE} could not be parsed, so the server will not start: ` +
+          `continuing would serve an empty workspace and the next write would overwrite your data. ` +
+          `A copy is preserved at ${kept}. ` +
+          `Fix: restore a good copy over ${STATE} (a .corrupt-* file or your own backup), ` +
+          `or delete ${STATE} to start over deliberately with an empty install. ` +
+          `Parse error: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
   } else {
     data = structuredClone(EMPTY);

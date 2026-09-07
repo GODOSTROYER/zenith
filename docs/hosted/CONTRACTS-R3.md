@@ -76,8 +76,11 @@ hosted checks. Bodies JSON; errors `{ error: { code, message, fix?, details? } }
 ## App host surface (gateway, W6: `src/app/hosted-gateway/[host]/[[...path]]/route.ts`)
 
 Middleware rewrites any request whose Host matches `*.${ZENITH_APP_DOMAIN}` to
-`/hosted-gateway/<host>/<path>` and stamps `x-zenith-gateway: <process key>`;
-a direct request without the stamp is `unknown_host` 404. Admission order:
+`/hosted-gateway/<host>/<path>`; the Host header travels with the rewrite. The
+handler requires the Host header to equal the route's `host` segment
+(case-insensitive) *and* to resolve to an app, so a direct control-origin
+request to `/hosted-gateway/...` (Host `localhost:3400`) is `unknown_host`
+404 without any stamp. Admission order:
 host → app (404) → state (423) → quota (429) → reserved routes → session
 cookie (401 → sign-in page on the app host, which links to the control
 launch) → live grant (403) → then, and only then, artifact or broker.

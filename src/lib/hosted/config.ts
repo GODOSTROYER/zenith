@@ -38,6 +38,14 @@ const Schema = z.object({
   ZENITH_BACKUP_S3_ENDPOINT: z.string().url().optional(),
   ZENITH_CF_ACCOUNT_ID: z.string().regex(/^[0-9a-f]{32}$/).optional(),
   ZENITH_CF_NAMESPACE: z.string().regex(/^[a-z0-9-]{1,63}$/).optional(),
+  /** Candidate probe URL template for the Cloudflare runtime; `{script}` and `{slug}` placeholders. */
+  ZENITH_CF_PROBE_URL: z
+    .string()
+    .url()
+    .refine((v) => v.includes("{script}") || v.includes("{slug}"), "must contain a {script} or {slug} placeholder")
+    .optional(),
+  /** Path to the bundled broker worker module the Cloudflare runtime uploads. */
+  ZENITH_CF_BROKER_MODULE: z.string().min(1).optional(),
   /** Monthly envelope the 50/75/90 % spending alerts are measured against. */
   ZENITH_SPEND_ENVELOPE_USD: z.coerce.number().nonnegative().default(0),
   /** Comma-separated subjects excluded from activation metrics as founder/test actors. */

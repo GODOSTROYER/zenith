@@ -1,0 +1,23 @@
+// Typechecks workstream W3's paths (src/lib/hosted/data + tests/hosted/data)
+// and only those, by making them the program roots — TypeScript pulls in the
+// contracts, config and env modules they import on its own.
+//
+// Why it exists: `tsc --noEmit` over the whole repository suppresses every
+// semantic diagnostic as soon as any file anywhere has a *syntax* error, so a
+// sibling workstream mid-edit hides W3's own type errors. Run:
+//
+//   npx tsc --noEmit --project tests/hosted/data/tsconfig.w3check.json
+//
+// The repository-wide `npm run typecheck` stays the authority once the tree
+// parses. Delete this file when the per-workstream split is no longer useful.
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "../../..",
+    "paths": { "@/*": ["./src/*"] },
+    "incremental": false,
+    "noEmit": true
+  },
+  "include": ["./**/*.ts", "../_fixtures.ts", "../../../src/lib/hosted/data/**/*.ts"],
+  "exclude": []
+}

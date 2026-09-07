@@ -62,6 +62,18 @@ RUN mkdir .next && chown orrery:nodejs .next
 COPY --from=builder --chown=orrery:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=orrery:nodejs /app/.next/static ./.next/static
 
+# Hosted build recipe (src/lib/hosted/build). The worker is spawned by path,
+# so output tracing never sees it; it and its shared config must sit at the
+# same relative location as in the source tree. The pinned Vite toolchain is
+# NOT traced into standalone/ either: with the default runner (`none`) that
+# is fine, and the isolated runners (`docker`, `e2b`) carry their own copy
+# (docker/recipe/Dockerfile). Only the opt-in same-host runner needs it here,
+# so it is installed only when ZENITH_RECIPE_LOCAL=1 is passed at build time.
+COPY --from=builder --chown=orrery:nodejs /app/src/lib/hosted/build/recipe-worker.mjs ./src/lib/hosted/build/recipe-worker.mjs
+COPY --from=builder --chown=orrery:nodejs /app/src/lib/hosted/build/recipe-config.mjs ./src/lib/hosted/build/recipe-config.mjs
+ARG ZENITH_RECIPE_LOCAL=0
+RUN if [ "$ZENITH_RECIPE_LOCAL" = "1" ]; then       npm install --no-save --no-audit --no-fund --ignore-scripts vite@7.3.6 @vitejs/plugin-react@5.1.4 react@19.1.0 react-dom@19.1.0       && chown -R orrery:nodejs node_modules;     fi
+
 # Docker seeds a fresh named volume from the image directory at the mount
 # point, ownership included. Creating /data as orrery here is what makes the
 # volume writable by a non-root process; without it the first save fails EACCES.

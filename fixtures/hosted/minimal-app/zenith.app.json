@@ -1,0 +1,6 @@
+{
+  "contract": 1,
+  "name": "Minimal app",
+  "schema": 1,
+  "entry": "index.html"
+}

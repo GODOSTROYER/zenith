@@ -18,7 +18,7 @@ import { isolatedDataDir, removeDir } from "../_fixtures";
 
 const dataDir = isolatedDataDir("zenith-authority-backup-");
 
-const { backupAuthority, closeAuthority, openAuthority } = await import("@/lib/hosted/authority");
+const { MIGRATIONS, backupAuthority, closeAuthority, openAuthority } = await import("@/lib/hosted/authority");
 const { seedApp } = await import("./_helpers");
 
 const a = openAuthority();
@@ -103,7 +103,7 @@ describe("backupAuthority", () => {
     expect(copy.quickCheck).toMatchObject({ quick_check: "ok" });
     expect(copy.foreignKeys).toEqual([]);
     expect(copy.apps).toMatchObject({ n: 1 });
-    expect(copy.migrations).toMatchObject({ n: 1 });
+    expect(copy.migrations).toMatchObject({ n: MIGRATIONS.length });
 
     // A prefix of what was committed: every row up to some point, no gaps, and
     // nothing that was never written.

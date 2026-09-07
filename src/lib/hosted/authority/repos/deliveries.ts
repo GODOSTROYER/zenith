@@ -46,7 +46,7 @@ export interface ClaimedDelivery {
 
 /** What a settled delivery records. */
 export interface DeliverySettlement {
-  transport?: "smtp" | "log";
+  transport?: "smtp" | "log" | "none";
   providerMessageId?: string;
   /** Required in spirit for `failed`: a failure with no reason cannot be acted on. */
   error?: string;

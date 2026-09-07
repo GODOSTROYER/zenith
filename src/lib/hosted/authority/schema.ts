@@ -297,8 +297,39 @@ CREATE INDEX hosted_events_app ON hosted_events(app_id, ts);
  * until then a down-migration is untested code that would be trusted in
  * exactly the worst moment.
  */
+/**
+ * v2: an invitation delivery may settle with `transport = 'none'` — no email
+ * transport is configured and the owner shares the link by hand. Visible on
+ * the row, not a NULL that could mean anything. SQLite cannot alter a CHECK,
+ * so the table is rebuilt; the copy keeps every row and both indexes.
+ */
+const V2 = `
+CREATE TABLE invite_deliveries_v2 (
+  id                  TEXT    NOT NULL PRIMARY KEY,
+  invite_id           TEXT    NOT NULL REFERENCES app_invites(id),
+  state               TEXT    NOT NULL CHECK (state IN ('pending','sending','sent','failed')),
+  attempts            INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+  created_at          TEXT    NOT NULL,
+  claimed_at          TEXT,
+  settled_at          TEXT,
+  transport           TEXT    CHECK (transport IS NULL OR transport IN ('smtp','log','none')),
+  provider_message_id TEXT,
+  error               TEXT,
+  sealed_payload      BLOB
+);
+INSERT INTO invite_deliveries_v2
+  SELECT id, invite_id, state, attempts, created_at, claimed_at, settled_at, transport,
+         provider_message_id, error, sealed_payload
+  FROM invite_deliveries;
+DROP TABLE invite_deliveries;
+ALTER TABLE invite_deliveries_v2 RENAME TO invite_deliveries;
+CREATE INDEX invite_deliveries_invite ON invite_deliveries(invite_id);
+CREATE INDEX invite_deliveries_state ON invite_deliveries(state, created_at);
+`;
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: "control-authority-v1", sql: V1 },
+  { version: 2, name: "invite-delivery-transport-none", sql: V2 },
 ];
 
 const MIGRATIONS_TABLE = `

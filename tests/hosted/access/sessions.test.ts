@@ -97,7 +97,8 @@ describe("minting an exchange code", () => {
     const row = a.db.prepare("SELECT * FROM app_exchanges WHERE code_hash = ?").get(sha256Hex(code));
     expect(JSON.stringify(row)).not.toContain(code);
     const ttl = Date.parse(stored!.expiresAt) - Date.parse(stored!.createdAt);
-    expect(ttl).toBeLessThanOrEqual(EXCHANGE_TTL_MS);
+    // The exchange stamps its own clock after the test read `now`, so allow a second of skew.
+    expect(ttl).toBeLessThanOrEqual(EXCHANGE_TTL_MS + 1_000);
     expect(ttl).toBeGreaterThan(EXCHANGE_TTL_MS - 5_000);
   });
 
@@ -140,7 +141,8 @@ describe("redeeming an exchange code", () => {
     expect(redeemed.session.id).toBe(sha256Hex(redeemed.cookieValue));
 
     const ttl = Date.parse(redeemed.session.expiresAt) - Date.parse(redeemed.session.createdAt);
-    expect(ttl).toBeLessThanOrEqual(APP_SESSION_TTL_MS);
+    // Same skew allowance as the exchange: the session clock reads after `now`.
+    expect(ttl).toBeLessThanOrEqual(APP_SESSION_TTL_MS + 1_000);
     expect(ttl).toBeGreaterThan(APP_SESSION_TTL_MS - 5_000);
     // The exchange now names the session it produced.
     expect(a.repos.exchanges.get(sha256Hex(code))?.sessionId).toBe(redeemed.session.id);

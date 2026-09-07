@@ -9,8 +9,8 @@
  * app code):
  *
  *   GET    /_zenith/session
- *   GET    /_zenith/data/v1/requests?limit=&cursor=&status=&category=
- *   GET    /_zenith/data/v1/requests/:id
+ *   GET    /_zenith/data/v1/requests?limit=&cursor=&status=&category=  → 200 ListRequestsResult
+ *   GET    /_zenith/data/v1/requests/:id         → 200 { record } | 404 not_found
  *   POST   /_zenith/data/v1/requests            { writeId, record }        → 201 { record }
  *   PATCH  /_zenith/data/v1/requests/:id        { writeId, expectedVersion, patch } → 200 { record } | 409 stale_version
  *
@@ -129,6 +129,8 @@ export interface SessionInfo {
   email: string;
   role: "owner" | "editor" | "viewer";
   app: { id: string; slug: string; name: string };
+  /** where the recipient came from and where a revoked/expired session can send them back */
+  controlOrigin: string;
   releaseId: string;
   schemaVersion: typeof TRACKER_SCHEMA_VERSION;
   limits: { listMax: number; bodyBytes: number };

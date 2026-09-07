@@ -21,3 +21,7 @@ The CI corrections and existing Navigator workspace-isolation correction are ind
 The inspection harness uses an isolated script-level contract derived only from explicit attachment constraints: two distinct app keys, release names, broker names and D1 IDs; immutable Cloudflare API origin; GET-only calls; strict binding allowlists; bounded/redacted responses and errors. It cannot mark app access, network isolation, candidate health, build execution or D02/D08 compliance as passed. Report mapping stays provisional. Operator configuration names resources; credentials stay in the CLI process environment and are never written to evidence.
 
 Only the integrator may change shared types, dependency manifests/lockfile, configuration or permission authority. Use isolated test directories. Do not run smoke or recovery commands against developer state. Every implementation handoff includes changed files, actual check results and missing evidence.
+
+## Revision 3 (2026-09-07, branch `zenith/hosted-r3`, integrator: Claude)
+
+The Revision 2 preparation table above is historical. Revision 3 ownership is the workstream table in [PLAN-R3.md](PLAN-R3.md) section 2: each of W1–W11 writes only inside its exclusive paths; the integrator (W0) owns the contracts, configuration, edge/middleware and boot wiring, navigation, `package.json`, the Dockerfile and the documents not listed under W11. Requested edits outside a workstream's paths are handed to the integrator in that workstream's final report and applied by the integrator alone.

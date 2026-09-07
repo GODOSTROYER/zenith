@@ -69,3 +69,7 @@ For `test/zenith-app-reimagined`, the nonoverlapping UI workstream assignments i
 ## Hosted Revision 2 preparation
 
 For `codex/zenith-hosted-r2`, the integrator's exact assignments in [hosted/OWNERSHIP.md](hosted/OWNERSHIP.md) supersede the historical table for the listed paths only. The completed UI remains the base. The report-derived hosted contracts and coordinated permission-store migration are pending the missing Revision 2 report; independent CI and existing workspace-isolation corrections are recorded separately.
+
+## Hosted Revision 3
+
+For `zenith/hosted-r3`, the workstream table in [hosted/PLAN-R3.md](hosted/PLAN-R3.md) section 2 is the ownership record: W0 (integrator) owns `src/lib/hosted/contracts/**`, `src/lib/hosted/config.ts`, `src/lib/hosted/edge.ts`, `src/lib/hosted/index.ts`, `tests/hosted/_fixtures.ts`, `tests/hosted/edge.test.ts`, `tests/auth/hosted-membership.test.ts` and every shared file; W1–W11 own the exclusive paths listed there. `hosted/OWNERSHIP.md` carries the same table for the hosted directory.

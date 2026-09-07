@@ -12,3 +12,4 @@ export * from "./types";
 export * from "./tracker-v1";
 export * from "./source-v1";
 export * from "./interfaces";
+export * from "./hosts";

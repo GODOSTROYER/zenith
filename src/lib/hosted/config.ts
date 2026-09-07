@@ -123,15 +123,4 @@ export function appOrigin(slug: string): string {
   return `${cfg.ZENITH_APP_SCHEME}://${appHostname(slug)}${port}`;
 }
 
-/**
- * The slug an incoming Host header names, or null when the host is not an app
- * host. Pure string work so the edge middleware can use it.
- */
-export function slugFromHost(host: string | null | undefined, appDomain: string): string | null {
-  if (!host) return null;
-  const bare = host.toLowerCase().replace(/:\d+$/, "");
-  const suffix = `.${appDomain.toLowerCase()}`;
-  if (!bare.endsWith(suffix)) return null;
-  const slug = bare.slice(0, -suffix.length);
-  return /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?$/.test(slug) && !slug.includes(".") ? slug : null;
-}
+export { slugFromHost, isValidAppSlug, gatewayPath, GATEWAY_PREFIX } from "@/lib/hosted/contracts/hosts";

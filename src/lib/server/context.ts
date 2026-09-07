@@ -24,6 +24,7 @@ import {
 import { log, withRequestId, currentRequestId } from "@/lib/log";
 import type { SseGuard } from "@/lib/server/sse";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { hostedMode } from "@/lib/hosted/config";
 import { sessionUserFromRequest } from "@/lib/supabase/route";
 import { getSessionUser, type SessionUser } from "@/lib/auth/session";
 
@@ -95,7 +96,9 @@ export function workspaceRole(actor: Actor): Role {
   const mine = here.find((m) => m.id === actor.id);
   if (mine) return mine.role;
   // Demo mode ("local") and a brand-new workspace have nobody to defer to.
-  return actor.id === "local" || here.length === 0 ? "admin" : "viewer";
+  // Hosted mode never infers admin from an empty member list: the workspace
+  // creator is written as a member explicitly by POST /api/workspace.
+  return actor.id === "local" || (here.length === 0 && !hostedMode()) ? "admin" : "viewer";
 }
 
 /** Every caller of a route that mutates membership passes through here. */
@@ -152,6 +155,10 @@ function joinTarget(user: SessionUser): Workspace | undefined {
   const invited = invite && d.workspaces.find((w) => w.id === invite.workspaceId);
   if (invited) return invited;
 
+  // Hosted mode admits by membership or invite only: no taking over an empty
+  // workspace, no install-wide role claim. A revoked person must stay out
+  // until an admin invites them again, whatever their token still says.
+  if (hostedMode()) return undefined;
   const empty = d.workspaces.find(
     (w) => !d.members.some((m) => m.workspaceId === w.id && !isPlaceholder(m))
   );
@@ -197,12 +204,14 @@ export function ensureMember(
       member.name = user.name;
       dirty = true;
     }
-    if (user.role && member.role !== user.role) {
+    // A claim never rewrites a stored role in hosted mode: the member table is
+    // the only authority there, so a demotion or removal sticks.
+    if (!hostedMode() && user.role && member.role !== user.role) {
       member.role = user.role;
       dirty = true;
     }
   } else {
-    const role = user.role ?? joinRole(ws.id, email);
+    const role = (hostedMode() ? undefined : user.role) ?? joinRole(ws.id, email);
     if (!role) return { denied: denial(user, [ws]) };
     member = { id: user.id, workspaceId: ws.id, name: user.name, email: user.email, role };
     d.members.push(member);
@@ -226,7 +235,10 @@ export function ensureMember(
 /** The role a never-seen user may join with, or undefined to refuse them. */
 function joinRole(workspaceId: string, email: string): Member["role"] | undefined {
   const real = db().members.filter((m) => m.workspaceId === workspaceId && !isPlaceholder(m));
-  if (real.length === 0) return "admin"; // the first real user owns the workspace
+  // The first real user owns the workspace — outside hosted mode. Hosted
+  // workspaces are created by their admin through POST /api/workspace, so an
+  // empty one is never a seat to be taken by whoever signs in next.
+  if (real.length === 0 && !hostedMode()) return "admin";
 
   const invites = readInvites();
   const invite = invites.find(
@@ -256,7 +268,9 @@ function denial(user: SessionUser, workspaces: Workspace[]): MemberDenial {
     message: `${who} is not a member of ${ws.name}.`,
     fix: admins.length
       ? `Ask ${admins.map((a) => `${a.name} (${a.email})`).join(" or ")} to invite ${who} from Settings → Members.`
-      : `No admin exists who could invite you. The operator can grant a role by setting app_metadata.role on your Supabase user (see scripts/seed-users.ts).`,
+      : hostedMode()
+        ? `No admin exists who could invite you. In hosted mode role claims are not honoured: the workspace admin must sign in and invite ${who} from Settings → Members.`
+        : `No admin exists who could invite you. The operator can grant a role by setting app_metadata.role on your Supabase user (see scripts/seed-users.ts).`,
   };
 }
 

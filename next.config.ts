@@ -12,7 +12,16 @@ const nextConfig: NextConfig = {
 
   // These Node-only SDKs are pulled in by the provider/action registry. Let
   // Node load their published builds instead of bundling them into each route.
-  serverExternalPackages: ["@aws-sdk/client-s3", "@aws-sdk/client-sqs", "@anthropic-ai/sdk"],
+  serverExternalPackages: [
+    "@aws-sdk/client-s3",
+    "@aws-sdk/client-sqs",
+    "@anthropic-ai/sdk",
+    // The hosted build recipe and the E2B build runner are Node-only and spawn
+    // or import at run time; bundling them into a route would break both.
+    "vite",
+    "@vitejs/plugin-react",
+    "e2b",
+  ],
 
   // `env.ts` defaults ORRERY_DATA to path.join(process.cwd(), ".data"), which
   // the tracer resolves to a real directory — so without this, 32 route traces

@@ -14,10 +14,18 @@ process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-mw-"));
 
 const { config } = await import("@/middleware");
 const { isPublicPath } = await import("@/lib/supabase/env");
+const { isPlatformStaticPath } = await import("@/lib/hosted/edge");
 
-/** Next compiles each matcher string to a path regex; this is that regex. */
-const gated = (pathname: string): boolean =>
+/**
+ * The gate is two stages since hosted R3: Next compiles each matcher string
+ * to a path regex (stage one, so app-host asset requests reach the
+ * middleware at all), and `isPlatformStaticPath` skips the session check for
+ * the platform's own static files (stage two, what the matcher exclusion used
+ * to do). A path is gated when it passes both.
+ */
+const matched = (pathname: string): boolean =>
   config.matcher.some((m) => new RegExp(`^${m}$`).test(pathname));
+const gated = (pathname: string): boolean => matched(pathname) && !isPlatformStaticPath(pathname);
 
 describe("middleware matcher", () => {
   it("gates a page whose slug merely ends in an image extension", () => {
@@ -30,6 +38,12 @@ describe("middleware matcher", () => {
   it("still skips real static assets and image optimization", () => {
     for (const p of ["/_next/static/chunks/x.png", "/_next/image", "/favicon.ico", "/logo.svg"])
       expect(gated(p), p).toBe(false);
+  });
+
+  it("lets image paths reach the middleware so an app host can gate them", () => {
+    // Stage one must match; stage two is what skips them on the control host.
+    for (const p of ["/favicon.ico", "/logo.svg", "/assets/app-3f2a.png"]) expect(matched(p), p).toBe(true);
+    expect(matched("/_next/static/chunks/x.png")).toBe(false);
   });
 
   it("gates ordinary product and API paths", () => {

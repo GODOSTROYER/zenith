@@ -1,9 +1,16 @@
 /**
  * Zenith.ai persistence: embedded JSON snapshot + JSONL append-only logs.
  *
- * Durability contract: every mutation is written atomically (tmp + rename);
- * deployment/audit events are append-only JSONL so a crash can never corrupt
- * history. A browser refresh or server restart resumes from disk.
+ * Durability contract, stated exactly: every snapshot write is atomic on the
+ * filesystem (tmp + rename), and deployment/audit events are append-only
+ * JSONL, so an interrupted write cannot leave a half-written snapshot behind.
+ * That is the whole guarantee. `save()` returns *before* its coalesced write
+ * runs (see SAVE_DEBOUNCE_MS), nothing here calls fsync, and a torn trailing
+ * JSONL line is skipped on read rather than repaired — so an abrupt process
+ * or host failure can lose the last ~50 ms of acknowledged mutations. A
+ * graceful restart resumes from disk. Anything that needs commit-before-
+ * acknowledgement (hosted app grants, sessions, jobs) lives in the SQLite
+ * authority under src/lib/hosted/authority, not here.
  *
  * Hot vs cold. `state.json` is rewritten in full on every save, so only what
  * changes belongs in it: workspaces, projects, environments, deployments and
@@ -330,7 +337,10 @@ function writeState(): void {
 
 /**
  * Persist. Writes are coalesced over a 50ms window and always atomic
- * (tmp + rename). `flush()` runs on process exit, so nothing is lost.
+ * (tmp + rename). `flush()` runs on a graceful exit (signal or `exit`), which
+ * covers an orderly shutdown only: a crash, a kill -9 or a power loss inside
+ * the window loses that window's mutations. Callers that need an
+ * acknowledged write to survive that must use the hosted SQLite authority.
  *
  * `projectId` is a hint for the change event, not a filter on what is written
  * — the whole database is saved either way. Omit it and the event says

@@ -15,6 +15,7 @@
 import { z } from "zod";
 import { appendAudit, db, save } from "@/lib/db/store";
 import { id, type Actor, type AutonomyLevel } from "@/lib/domain/types";
+import { hostedMode } from "@/lib/hosted/config";
 
 export interface ActionContext {
   workspaceId: string;
@@ -125,7 +126,9 @@ export function roleOf(actor: Actor, workspaceId?: string): Role {
     : db().members;
   const member = members.find((m) => m.id === actor.id);
   if (member) return member.role;
-  if (actor.id === "local" || members.length === 0) return "admin";
+  // An empty member table means "nobody to defer to" only outside hosted
+  // mode; there a workspace always has the admin who created it.
+  if (actor.id === "local" || (members.length === 0 && !hostedMode())) return "admin";
   return "viewer";
 }
 

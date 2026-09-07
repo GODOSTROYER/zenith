@@ -19,6 +19,7 @@
 import { admitJob, authority, nowIso } from "@/lib/hosted/authority";
 import { HostedError, type HostedApp, type HostedJob, type Subject } from "@/lib/hosted/contracts";
 import { setAppState } from "./apps";
+import { releaseDeps } from "./deps";
 import { stateIntent } from "./intent";
 import {
   advanceTo,
@@ -101,7 +102,7 @@ function admitStateChange(
 export const SUSPEND_DEFAULT_REASON =
   "Suspended by an operator. Data, grants, releases and artifacts were kept; the app refuses requests until it is resumed.";
 
-/** Move an app to `suspended`. Sessions are left alone; the gateway refuses on the state. */
+/** Move an app to `suspended` and end its live app sessions; the gateway also refuses on the state. */
 export async function runSuspend(run: JobRun): Promise<void> {
   await runStateChange(run, "suspend");
 }
@@ -125,6 +126,13 @@ async function runStateChange(run: JobRun, kind: "suspend" | "resume"): Promise<
     data.state = updated.state;
     data.previousState = app.state;
     appendLog(data, `${app.slug} is now ${updated.state}${reason ? `: ${reason}` : ""}`);
+    if (kind === "suspend") {
+      // Cut recipients off now, not at their next cookie expiry: a suspended
+      // app must stop serving, and a resumed one must be re-entered from Zenith.
+      const ended = releaseDeps.terminateAppSessions(app.id, "operator");
+      data.sessionsEnded = ended;
+      appendLog(data, `${ended} app session${ended === 1 ? "" : "s"} ended`);
+    }
     emit({
       event: kind === "suspend" ? "app.suspended" : "app.resumed",
       workspaceId: run.job.workspaceId,

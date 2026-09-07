@@ -15,7 +15,7 @@
  * SPINE FILE — owned by the integrator.
  */
 import { registerAccessOutboxHandlers } from "@/lib/hosted/access";
-import { openAuthority, replayOutbox } from "@/lib/hosted/authority";
+import { authorityOpen, openAuthority, replayOutbox } from "@/lib/hosted/authority";
 import { startHostedJobRunner } from "@/lib/hosted/release";
 import { registerOpsOutboxHandlers } from "@/lib/hosted/usage";
 import { hostedConfig, hostedMode } from "@/lib/hosted/config";
@@ -69,6 +69,8 @@ export function ensureHosted(): void {
   // append) are reclaimed and drained — after this tick, so a slow transport
   // never holds boot, and unref'd so it never holds the process open.
   const replay = setTimeout(() => {
+    // A test that closed the authority before this tick fired has nothing to replay.
+    if (!authorityOpen()) return;
     void replayOutbox().catch((err) =>
       log.error("hosted outbox replay failed", { scope: "hosted", error: err })
     );

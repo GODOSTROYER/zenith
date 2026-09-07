@@ -24,7 +24,7 @@ import type {
   Subject,
   UsageEntry,
 } from "@/lib/hosted/contracts";
-import { activeGrant, requireAppRole } from "@/lib/hosted/access";
+import { activeGrant, requireAppRole, terminateAppSessionsForApp } from "@/lib/hosted/access";
 import { FsArtifactStore } from "@/lib/hosted/artifacts";
 import { selectedBuildRunner } from "@/lib/hosted/build";
 import { openAppData } from "@/lib/hosted/data";
@@ -42,6 +42,8 @@ export interface ReleaseDeps {
   /** The caller's active grant at or above `min`, or `forbidden`. */
   requireAppRole(appId: string, subject: Subject, min: AppRole): AppGrant;
   activeGrant(appId: string, subject: Subject): AppGrant | null;
+  /** End every live app session of an app (suspension); returns how many ended. */
+  terminateAppSessions(appId: string, reason: "operator" | "restored"): number;
   recordUsage(entry: Omit<UsageEntry, "id" | "at"> & { at?: string }): UsageEntry;
   buildsPaused(workspaceId: string): { paused: boolean; reason?: string };
   recordEvent(input: RecordEventInput): boolean;
@@ -55,6 +57,7 @@ const DEFAULTS: ReleaseDeps = {
   artifactStore: () => new FsArtifactStore(),
   requireAppRole: (appId, subject, min) => requireAppRole(appId, subject, min),
   activeGrant: (appId, subject) => activeGrant(appId, subject),
+  terminateAppSessions: (appId, reason) => terminateAppSessionsForApp(appId, reason),
   recordUsage: (entry) => recordUsage(entry),
   buildsPaused: (workspaceId) => buildsPaused(workspaceId),
   recordEvent: (input) => recordEvent(input),

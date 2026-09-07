@@ -68,6 +68,9 @@ export const PUBLIC_PATHS = [
   "/auth",
   // The landing call to action asks who is here; it must answer signed-out too.
   "/api/me",
+  // The hosted edge worker's admission call: authenticated by a shared
+  // bearer secret inside the handler, never by a browser session.
+  "/api/hosted/policy",
 ] as const;
 
 /**

@@ -75,4 +75,10 @@ describe("public paths", () => {
     for (const p of ["/overview", "/api/bootstrap", "/p/atlas"])
       expect(isPublicPath(p), p).toBe(false);
   });
+
+  it("opens the hosted policy endpoint to the edge worker, which authenticates with its own secret", () => {
+    expect(isPublicPath("/api/hosted/policy/admit")).toBe(true);
+    for (const p of ["/api/hosted", "/api/hosted/apps", "/api/hosted/policyx"])
+      expect(isPublicPath(p), p).toBe(false);
+  });
 });

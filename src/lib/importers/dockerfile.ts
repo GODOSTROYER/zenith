@@ -3,7 +3,9 @@
  *
  * A Dockerfile describes how to build one image, so the honest result is one
  * service. Anything about the build (RUN/COPY/WORKDIR) stays in the
- * Dockerfile — Zenith.ai builds it, it does not re-model it.
+ * Dockerfile: Zenith.ai reads those instructions to shape the service and
+ * retains them for a supported external or future build. Zenith.ai builds no
+ * image itself, and it does not re-model the build.
  */
 import { id } from "@/lib/domain/types";
 import type { Manifest, Service } from "@/lib/domain/types";
@@ -82,7 +84,7 @@ export function importDockerfile(text: string, name = "app", projectId?: string)
     source: "Dockerfile build instructions",
     result: "kept in your Dockerfile",
     confidence: "exact",
-    note: "FROM/RUN/COPY/WORKDIR/CMD are build-time and stay where they are — Zenith.ai builds the image from this file.",
+    note: "FROM/RUN/COPY/WORKDIR/CMD are build-time and stay where they are. Zenith.ai builds no image from this file: the build instructions are retained unchanged for a supported external or future build.",
   });
   report.unmapped.push({
     source: "Dockerfile",

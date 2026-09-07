@@ -40,6 +40,8 @@ services:
 
   orrery:
     profiles: ["app"]
+    # Exactly one replica per /data volume: the store is single-writer and the
+    # hosted SQLite authority is single-process. See docs/hosted/RUNBOOK-DEPLOY.md.
     build:
       context: .
       dockerfile: Dockerfile

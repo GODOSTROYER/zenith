@@ -117,6 +117,8 @@ container gets `http://localstack:4566` automatically over the compose network.
 
 ## 3. Everything in containers
 
+> `docker-compose.yml` is the **development** topology (LocalStack + one app container). The hosted control topology — one persistent process per `/data` volume, wildcard app domain, backups — is `docs/hosted/RUNBOOK-DEPLOY.md`. The latest GitHub CI run built the image even though the local Docker daemon on the development machine is unavailable.
+
 ```bash
 cp .env.local .env          # or start from .env.local.example
 docker compose --profile app up --build

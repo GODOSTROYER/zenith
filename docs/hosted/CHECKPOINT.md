@@ -1,4 +1,126 @@
-# Hosted Revision 2 — checkpoint
+# Hosted — checkpoint log
+
+Newest revision first. Nothing below is deleted when a revision supersedes it;
+superseded statements are marked historical in place.
+
+## Revision 3 — 2026-09-07 (Claude integrator)
+
+Baseline: `ffb2753` (the Gimbal full-quality commit). Working branch:
+`zenith/hosted-r3`. Plan: [PLAN-R3.md](PLAN-R3.md). Shared contracts:
+[CONTRACTS-R3.md](CONTRACTS-R3.md). Normative input: the 45-row gap register
+and the full gap analysis of 2026-09-07.
+
+### Normative input — the Revision 2 blocker is resolved, with one caveat
+
+The "[Missing normative input](#missing-normative-input)" section further down
+is **historical**. The Codex session of 2026-09-07 received the 47-page YC W27
+execution plan, SHA-256
+`00f43faa7c7fccfcf1caf29d8bb5fc4859b1be61020e2d46d9686c5d347c8159`, read all
+47 pages and produced the gap analysis and the 45-row register that Revision 3
+works from.
+
+The caveat is exact and matters for every page number in this repository: **the
+Claude session that wrote the Revision 3 documents did not receive that PDF.**
+The file attached to it was an unrelated handwritten answer booklet, SHA-256
+`aad69f82…`. So every page mapping in [PLAN-R3.md](PLAN-R3.md),
+[requirements.md](requirements.md) and [requirements.json](requirements.json)
+is **inherited from the gap analysis, not re-read**. A page reference is a
+pointer into that analysis, not an independent citation. `ATT-BASE-02` stays
+`blocked` for that reason.
+
+### Fresh baseline recorded in this session
+
+Recorded by the integrator on this machine at `ffb2753`, before the Revision 3
+workstreams began. Windows, Node 24.19.0.
+
+| Check | Result |
+| --- | --- |
+| `npm run typecheck` | Passed |
+| Full vitest run | Passed: **119 files, 1,216 tests** |
+| `node:sqlite` under Next 15.5 turbopack dev | Loads; `DatabaseSync` usable in the dev server process (SQLite 3.53.3 on Node 24.19.0) |
+| Build toolchain pinned in `package.json` | `vite@7.3.6`, `@vitejs/plugin-react@5.1.4`, `e2b@2.46.1` |
+
+Two limits on that table. The vitest and typecheck numbers are the
+integrator's; W11 re-ran only `tests/importers` (2 files, 14 tests, passing
+before and after its wording change) and re-read the pinned versions directly
+from `package.json`. And a `node:sqlite` load under the dev server is a
+feasibility observation, not the authority: no application state has been
+migrated, and the crash, busy-writer and reopen contract in
+[CONTRACTS-R3.md](CONTRACTS-R3.md) is W1's to prove.
+
+CI and Docker still declare Node 22; this local Node 24 run does not certify
+them. The Revision 2 evidence directory
+`.data-hosted-baseline-20260907/evidence/` remains the record for the earlier
+baseline and is not superseded by these numbers.
+
+### Revision 3 workstreams
+
+Assignment and exclusive paths are [PLAN-R3.md](PLAN-R3.md) §2; this table is
+the status view. **In progress** means the workstream is running against those
+paths in this wave — it is not a claim that any requirement is implemented,
+and no `requirements.json` status was changed by it.
+
+| WS | Agent | Wave | Status |
+| --- | --- | --- | --- |
+| W0 | integrator (plan, contracts, env/boot/middleware wiring, `package.json`) | 0 | In progress |
+| W1 | authority (`src/lib/hosted/authority/**`) | 1 | In progress |
+| W2 | build (`source/**`, `build/**`, `artifacts/**`, `fixtures/hosted/**`) | 1 | In progress |
+| W3 | broker (`src/lib/hosted/data/**`) | 1 | In progress |
+| W4 | tracker-app (`fixtures/tracker-app/**`) | 1 | In progress |
+| W11 | docs (this file, DECISIONS, requirements, runbook/providers/threat model/lifecycle/operator access, `evidence/**`, importer wording) | 1 | In progress |
+| W5 | access (`src/lib/hosted/access/**`, grants/invites/launch/session routes) | 2 | In progress |
+| W6 | gateway (`gateway/**`, `runtime/**`, `src/app/hosted-gateway/**`, `workers/**`) | 2 | In progress |
+| W7 | release (`release/**`, hosted actions, publish/rollback/suspend routes) | 2 | In progress |
+| W8 | ops (`backup/export/quota/usage/events/health`, `scripts/hosted/**`) | 2 | In progress |
+| W9 | ux (`src/app/(product)/apps/**`, `src/components/apps/**`) | 2 | In progress |
+| W10 | verify (`tests/hosted/acceptance/**`, `scripts/hosted-acceptance.ts`, CI job) | 3 | In progress |
+
+Dependency order: W0 → {W1, W2, W3, W4, W11} → {W5, W6, W7, W8, W9} → W10 →
+integration. At the time this section was written the repository contained
+`src/lib/hosted/config.ts` and `src/lib/hosted/contracts/**` only; every other
+hosted module is being written concurrently and is not evidence until it lands
+with its tests.
+
+### What remains blocked after this wave
+
+Copied from [PLAN-R3.md](PLAN-R3.md) §4, unchanged:
+
+- Live Cloudflare/D1 execution.
+- E2B or Docker isolated builds.
+- External email delivery.
+- A real control host with a persistent volume.
+- Off-host S3 outside LocalStack.
+- Customer discovery, activation, payment.
+- Independent security assessment, legal commitments and the YC packet.
+
+Each has a real code path or a filled-in template whose only missing input is
+named in [PROVIDERS.md](PROVIDERS.md) and [evidence/](evidence/).
+
+### Revision 3 documentation produced by W11
+
+| File | Purpose | Register rows |
+| --- | --- | --- |
+| [RUNBOOK-DEPLOY.md](RUNBOOK-DEPLOY.md) | Target topology, env, reverse proxy, fail-closed behaviour, backup/restore outline | G33 |
+| [PROVIDERS.md](PROVIDERS.md) | Capability → variables → verified/unverified → approval → cost decision record | G34 |
+| [THREAT-MODEL.md](THREAT-MODEL.md) | Threat family → control → proving test → residual risk | page-47 families, G15, G25, G26, G35 |
+| [DATA-LIFECYCLE.md](DATA-LIFECYCLE.md) | Provider/region/exposure map, retention, deletion, export, subprocessors | G27, G36 |
+| [OPERATOR-ACCESS.md](OPERATOR-ACCESS.md) | MFA, least privilege, scoped credentials, support logging, compromise drill | G26 |
+| [evidence/](evidence/) | Nine unfilled templates: discovery, activation, payment, capacity, YC claims, release governance, security review, privacy, acceptance record | G35–G41, G45, G32 |
+
+Every value in those documents that is not verifiable from this repository is
+written `unknown` or `not verified`. Provider costs carry an "unverified"
+label unless the gap analysis cites a dated official source.
+
+### Release gates, Revision 3
+
+Unchanged from Revision 2 and restated so no reader has to infer it:
+**supervised real-data hosted pilot: no-go. Commercial hosted rollout: no-go.**
+Zero of the twelve integrated hosted acceptance gates have been demonstrated.
+Documentation, contracts and plans are not capabilities.
+
+---
+
+## Revision 2 — 2026-09-07 (Codex integrator; preserved below)
 
 Date: 2026-09-07. Integrator: Codex. All five delegated audit workers use `gpt-6-astra` with high reasoning.
 
@@ -11,6 +133,11 @@ Date: 2026-09-07. Integrator: Codex. All five delegated audit workers use `gpt-6
 - Existing work, application data, active development server and authentication configuration are preserved.
 
 ## Missing normative input
+
+> **Historical (superseded 2026-09-07, Revision 3).** The report was supplied to
+> the Codex session that produced the gap analysis; see "Normative input" at the
+> top of this file for what was and was not read, and by whom. The paragraph
+> below is kept as written at the time.
 
 The only supplied attachment is the implementation instruction `pasted-text.txt`. The referenced Revision 2 execution report is missing. No PDF was found in that attachment directory or repository; its path/link was requested from the user. Sections 01–25, P1–P10, A01–A09, D01–D09 and the page-47 addendum have **not** been read or mapped.
 

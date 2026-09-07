@@ -2,6 +2,9 @@
   "name": "orrery",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.16"
+  },
   "description": "Orrery — a bring-your-own-cloud deployment and operations platform. Your infrastructure, in motion.",
   "scripts": {
     "dev": "next dev --turbopack -p 3400",

@@ -1,4 +1,74 @@
-# Hosted Revision 2 — integration decisions and unresolved gates
+# Hosted — integration decisions and unresolved gates
+
+Newest revision first. Revision 2's record is preserved below in full; where
+Revision 3 supersedes one of its statements, the row here says so.
+
+## Revision 3 decisions — 2026-09-07 (Claude integrator)
+
+Fourteen decisions, `R3-01` … `R3-14`, are stated once in
+[PLAN-R3.md](PLAN-R3.md) §0 with their reasons and register rows. They are not
+repeated here. This section records only what each one does to the gates
+Revision 2 left open, and what stays open regardless.
+
+Two standing rules apply to every row below:
+
+- A decision is a commitment about how the code will behave. It is not
+  evidence that the code behaves that way. Nothing here moves a
+  `requirements.json` status.
+- The 47-page plan was read by the Codex session that produced the gap
+  analysis, not by the session that wrote this file. Page-derived statements
+  are inherited. `R3-13` is the one decision that is explicitly *provisional*
+  for that reason.
+
+### What each decision closes, narrows or leaves open
+
+| R3 | Older gate it acts on | Effect |
+| --- | --- | --- |
+| R3-01 | "Driver and runtime gate" (below): driver unselected, Node line unpinned | **Closes the selection.** `node:sqlite` `DatabaseSync`, minimum Node 22.16, no native module. **Still open:** power-loss, disk-full and abrupt-kill behaviour on a real volume; a singleton is not HA. |
+| R3-02 | "Control authority: required cutover boundary": two competing authorities | **Narrows it.** App access moves to SQLite; the legacy JSON store keeps the infrastructure product; hosted mode stops `app_metadata.role` re-grant and never promotes a stranger. **Still open:** workspace membership itself stays in JSON, so the no-second-authority claim rests on the hosted-mode rule and an uncached `workspaceRole()` read — W5's tests, not this decision, settle it. The cross-workspace `roleOf` defect recorded in `docs/LIMITATIONS.md` is untouched. |
+| R3-03 | All seven Cloudflare feasibility gates (below) | **Closes none of them.** It makes the journey provable on one host with real durability while the Cloudflare adapter stays gated on credentials and reports *blocked* naming the missing input. Binding isolation, outbound policy, private assets, release immutability, D1 transactions, request quotas and the physical storage cap all remain open. |
+| R3-04 | "Which source is supported" — never decided in Revision 2 | **Closes the contract.** React + Vite frontend only, built by the platform's pinned recipe; submitted `vite.config.*`, scripts, extra dependencies and lockfiles are rejected, never executed. **Still open:** anything outside that contract, and the editable-backend scope deliberately deferred to a fallback wave. |
+| R3-05 | "Builds, artifacts and activation": no isolated build service; E2B unapproved | **Narrows it.** Three runners with an explicit boundary each; hosted mode refuses to build when none is configured; `recipe-local` is labelled *not a hostile-code sandbox*. **Still open:** E2B terms and pricing approval, and a Docker daemon that works on this machine. |
+| R3-06 | Artifact integrity: FNV display digest could be mistaken for evidence | **Closes the design.** SHA-256 over bytes, create-only store, provenance manifest, separate publisher verification. The Sandbox FNV value keeps its simulated label. **Still open:** provider-side overwrite protection, which depends on R3-03. |
+| R3-07 | "Release immutability" and stale-worker activation | **Narrows it.** Durable job, lease plus fence token, candidate probes on a separate test database, compare-and-swap activation, rollback without touching data. **Still open:** the same guarantees read back from a real provider. |
+| R3-08 | Gap analysis §4.5 "Unresolved contract": no machine-readable tracker schema | **Closes the contract.** `contracts/tracker-v1.ts` freezes fields, limits, enums, list bounds, conflict payload and 30-day write-id retention. **Still open:** the concurrency and idempotency behaviour it specifies (W3). |
+| R3-09 | `MISSING-DOMAINS-IDENTITY`: no separate registrable domains or callbacks | **Narrows it.** Control origin and `<slug>.<app-domain>` are decided, app hosts never receive platform cookies, the app session is an opaque `__Host-` cookie, and launch uses a 60-second single-use exchange. **Still open:** the actual registrable public domains, wildcard DNS and TLS — `apps.localhost` is a local convenience, not a deployment. See [RUNBOOK-DEPLOY.md](RUNBOOK-DEPLOY.md). |
+| R3-10 | "Supabase logout and token validity are distinct" | **Narrows it.** Grant-sensitive endpoints verify with `auth.getUser()`; sign-out terminates app sessions before responding; revoking a grant terminates its sessions in the same transaction. **Still open:** the integration test against the deployed Auth version using a token issued before sign-out. A method choice is not that test. |
+| R3-11 | "Recovery and release assessment": no off-host backup, no key recovery, restores can resurrect revoked grants | **Narrows it.** WAL-safe `sqlite.backup`, AES-256-GCM under a `ZENITH_BACKUP_KEY` distinct from `ORRERY_SECRET_KEY`, a filesystem or S3-compatible target, and an off-host revocation ledger reconciled on restore with `needs_reapproval` as the fail-closed default. **Still open:** a real off-host bucket (LocalStack is local), a clean-host drill, key-recovery rehearsal and measured RPO/RTO. |
+| R3-12 | "Quota semantics and implementation schema remain open" | **Closes the contract, honestly.** Requests/day counts every request resolving to a known app host, resets 00:00 UTC, is persisted and atomic; body limit 1 MB; storage is *logical bytes*, disclosed as such; CPU 50 ms and 5 subrequests are shown as provider limits **not enforced here**. **Still open:** any physical database cap, and provider billing lag. |
+| R3-13 | Report event vocabulary (p. 36) | **Leaves it open on purpose.** The envelope is implemented as the gap analysis describes it; the exact eleven event names could not be read, so the set in `contracts/types.ts` is marked provisional and must be reconciled when the PDF is available to an editing session. |
+| R3-14 | Founder and commercial rows | **Closes nothing; states the truth.** G26, G35–G41 and G45 are not closable by code. This wave ships templates, ledgers and scorecard queries with every value `unknown`. |
+
+### Gates that no Revision 3 decision touches
+
+These were open in Revision 2 and are open now, unchanged:
+
+- Every live Cloudflare/D1 behaviour: isolation, egress, private assets,
+  script-upload immutability, D1 transaction semantics, native rate limiting,
+  physical storage caps.
+- E2B's terms for customer-code execution and adversarial testing, and its
+  current pricing under an approved budget.
+- A durable control host with a persistent volume, and the region it runs in.
+- Off-host encrypted storage outside LocalStack, and a rehearsed key recovery.
+- Independent external security assessment and applicable ASVS scope.
+- Privacy, subprocessor, region, deletion and incident commitments.
+- Customer discovery, activation, payment and the YC evidence packet.
+
+`PREP-04` below — do not freeze report-dependent interfaces before reading the
+report — is **superseded** for everything except `R3-13`: the gap analysis
+supplies the normative content, and the contracts are frozen against it.
+`PREP-01`, `PREP-02` and `PREP-03` stand as written; their branch and baseline
+names are historical (Revision 3 works from `ffb2753` on
+`zenith/hosted-r3`).
+
+### Release gates
+
+Unchanged. **Supervised real-data hosted pilot: no-go. Commercial hosted
+rollout: no-go.**
+
+---
+
+## Revision 2 — 2026-09-07 (Codex integrator; preserved below)
 
 Prepared 2026-09-07 against `4231dda67fb5a0f57c4bd87117fa5af3c4c083de`. These are local audit records, **not** the missing report's A01–A09 decisions. No report decision or diagram has been reconstructed from its name.
 

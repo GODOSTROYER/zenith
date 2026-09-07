@@ -169,7 +169,23 @@
       },
       "status": "locally verified",
       "status_reason": "Preparation-only fulfillment: actual checkout, scripts/tools and pre-existing-change preservation were inspected and recorded. This status does not certify any hosted capability.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G42"
+      ],
+      "gap_pdf_pages": {
+        "G42": "43-46 plus newer source"
+      },
+      "revision3_workstream": "W0",
+      "revision3_plan": {
+        "workstream": "W0",
+        "closes_or_narrows": [
+          "G42: reconcile CHECKPOINT/DECISIONS/requirements; wording fixes (owner W11+W0)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-BASE-02",
@@ -219,7 +235,26 @@
       },
       "status": "blocked",
       "status_reason": "Required report, provider selection, external approval or independent evidence is unavailable; see requirement and missing_inputs.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G42",
+        "G44"
+      ],
+      "gap_pdf_pages": {
+        "G42": "43-46 plus newer source",
+        "G44": "Entire PDF"
+      },
+      "revision3_workstream": "W0",
+      "revision3_plan": {
+        "workstream": "W0",
+        "closes_or_narrows": [
+          "G42: reconcile CHECKPOINT/DECISIONS/requirements; wording fixes (owner W11+W0)",
+          "G44: reconcile CHECKPOINT/DECISIONS/requirements; wording fixes (owner W11+W0)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-BASE-03",
@@ -269,7 +304,29 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G42",
+        "G43",
+        "G44"
+      ],
+      "gap_pdf_pages": {
+        "G42": "43-46 plus newer source",
+        "G43": "4, 12, 18",
+        "G44": "Entire PDF"
+      },
+      "revision3_workstream": "W0",
+      "revision3_plan": {
+        "workstream": "W0",
+        "closes_or_narrows": [
+          "G42: reconcile CHECKPOINT/DECISIONS/requirements; wording fixes (owner W11+W0)",
+          "G43: reconcile CHECKPOINT/DECISIONS/requirements; wording fixes (owner W11+W0)",
+          "G44: reconcile CHECKPOINT/DECISIONS/requirements; wording fixes (owner W11+W0)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-BASE-04",
@@ -333,7 +390,26 @@
       },
       "status": "locally verified",
       "status_reason": "Preparation-only fulfillment: fresh available baseline checks and known limitations were recorded, including the failed archive fixture run and its verified resolution. Docker remains unavailable; no hosted/provider/browser acceptance follows.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G32",
+        "G42"
+      ],
+      "gap_pdf_pages": {
+        "G32": "20-21, 33, 42, 47",
+        "G42": "43-46 plus newer source"
+      },
+      "revision3_workstream": "W10",
+      "revision3_plan": {
+        "workstream": "W10",
+        "closes_or_narrows": [
+          "G32: twelve-gate local acceptance suite + adversarial suites + CI job (owner W10)",
+          "G42: reconcile CHECKPOINT/DECISIONS/requirements; wording fixes (owner W11+W0)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-TRACE-01",
@@ -385,7 +461,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G42",
+        "G44"
+      ],
+      "gap_pdf_pages": {
+        "G42": "43-46 plus newer source",
+        "G44": "Entire PDF"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G42: reconcile CHECKPOINT/DECISIONS/requirements; wording fixes (owner W11+W0)",
+          "G44: reconcile CHECKPOINT/DECISIONS/requirements; wording fixes (owner W11+W0)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-TRACE-02",
@@ -432,7 +527,44 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G35",
+        "G36",
+        "G37",
+        "G38",
+        "G39",
+        "G40",
+        "G41",
+        "G45"
+      ],
+      "gap_pdf_pages": {
+        "G35": "47",
+        "G36": "47",
+        "G37": "5, 32, 37",
+        "G38": "6, 35-37",
+        "G39": "35-38",
+        "G40": "2, 14, 31, 38",
+        "G41": "39-40, 42",
+        "G45": "32, 42, 47"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G35: evidence templates, claim ledger, scorecard with unknowns (owner W11)",
+          "G36: evidence templates, claim ledger, scorecard with unknowns (owner W11)",
+          "G37: evidence templates, claim ledger, scorecard with unknowns (owner W11)",
+          "G38: evidence templates, claim ledger, scorecard with unknowns (owner W11)",
+          "G39: evidence templates, claim ledger, scorecard with unknowns (owner W11)",
+          "G40: evidence templates, claim ledger, scorecard with unknowns (owner W11)",
+          "G41: evidence templates, claim ledger, scorecard with unknowns (owner W11)",
+          "G45: branch-protection checklist + release evidence template (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-TRACE-03",
@@ -485,7 +617,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G30",
+        "G32"
+      ],
+      "gap_pdf_pages": {
+        "G30": "6, 19, 33",
+        "G32": "20-21, 33, 42, 47"
+      },
+      "revision3_workstream": "W10",
+      "revision3_plan": {
+        "workstream": "W10",
+        "closes_or_narrows": [
+          "G30: recipient journey: sign in on app host, save, reload, conflict, denied (owner W4+W6)",
+          "G32: twelve-gate local acceptance suite + adversarial suites + CI job (owner W10)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-SCOPE-01",
@@ -549,7 +700,16 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [],
+      "gap_pdf_pages": {},
+      "revision3_workstream": "W0",
+      "revision3_plan": {
+        "workstream": "W0",
+        "note": "Scope/retention or deliberate-exclusion instruction; the gap analysis carries no register row for it.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-SCOPE-02",
@@ -601,7 +761,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G01"
+      ],
+      "gap_pdf_pages": {
+        "G01": "6-8, 16, 32"
+      },
+      "revision3_workstream": "W0",
+      "revision3_plan": {
+        "workstream": "W0",
+        "closes_or_narrows": [
+          "G01: contracts/tracker-v1.ts, contracts/source-v1.ts, fixture fixtures/tracker-app (owner W0)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-SCOPE-03",
@@ -653,7 +829,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G01",
+        "G05"
+      ],
+      "gap_pdf_pages": {
+        "G01": "6-8, 16, 32",
+        "G05": "7, 13, 18"
+      },
+      "revision3_workstream": "W2",
+      "revision3_plan": {
+        "workstream": "W2",
+        "closes_or_narrows": [
+          "G01: contracts/tracker-v1.ts, contracts/source-v1.ts, fixture fixtures/tracker-app (owner W0)",
+          "G05: tar intake with traversal/symlink/size/bomb/unsupported checks; pinned source digest (owner W2)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-SCOPE-04",
@@ -703,7 +898,16 @@
       },
       "status": "not started",
       "status_reason": "Excluded by supplied instructions. Status deferred-by-report cannot be asserted until the report is read.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [],
+      "gap_pdf_pages": {},
+      "revision3_workstream": "W0",
+      "revision3_plan": {
+        "workstream": "W0",
+        "note": "Scope/retention or deliberate-exclusion instruction; the gap analysis carries no register row for it.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-ARCH-01",
@@ -755,7 +959,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G03",
+        "G33"
+      ],
+      "gap_pdf_pages": {
+        "G03": "12, 17, 23",
+        "G33": "12, 17, 25"
+      },
+      "revision3_workstream": "W1",
+      "revision3_plan": {
+        "workstream": "W1",
+        "closes_or_narrows": [
+          "G03: SQLite authority, commit-before-ACK transaction helper (owner W1)",
+          "G33: deployment runbook (compose + persistent volume, fail-closed) (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-ARCH-02",
@@ -803,7 +1026,26 @@
       },
       "status": "blocked",
       "status_reason": "Required report, provider selection, external approval or independent evidence is unavailable; see requirement and missing_inputs.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G33",
+        "G34"
+      ],
+      "gap_pdf_pages": {
+        "G33": "12, 17, 25",
+        "G34": "10, 13, 16, 25"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G33: deployment runbook (compose + persistent volume, fail-closed) (owner W11)",
+          "G34: provider configuration decision record + env matrix (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-ARCH-03",
@@ -853,7 +1095,29 @@
       },
       "status": "blocked",
       "status_reason": "Required report, provider selection, external approval or independent evidence is unavailable; see requirement and missing_inputs.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G02",
+        "G16",
+        "G34"
+      ],
+      "gap_pdf_pages": {
+        "G02": "9, 17, 22-25",
+        "G16": "11, 23-24, 29",
+        "G34": "10, 13, 16, 25"
+      },
+      "revision3_workstream": "W6",
+      "revision3_plan": {
+        "workstream": "W6",
+        "closes_or_narrows": [
+          "G02: runtime/local (real), runtime/cloudflare (real API, gated) (owner W6)",
+          "G16: fixed per-app broker, per-app DB, reserved /_zenith/data/* (owner W3+W6)",
+          "G34: provider configuration decision record + env matrix (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-ARCH-04",
@@ -903,7 +1167,26 @@
       },
       "status": "blocked",
       "status_reason": "Required report, provider selection, external approval or independent evidence is unavailable; see requirement and missing_inputs.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G06",
+        "G34"
+      ],
+      "gap_pdf_pages": {
+        "G06": "13, 18, 20",
+        "G34": "10, 13, 16, 25"
+      },
+      "revision3_workstream": "W2",
+      "revision3_plan": {
+        "workstream": "W2",
+        "closes_or_narrows": [
+          "G06: recipe-local/e2b/docker runners, no submitted script execution (owner W2)",
+          "G34: provider configuration decision record + env matrix (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-ARCH-05",
@@ -950,7 +1233,29 @@
       },
       "status": "blocked",
       "status_reason": "Required report, provider selection, external approval or independent evidence is unavailable; see requirement and missing_inputs.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G07",
+        "G22",
+        "G34"
+      ],
+      "gap_pdf_pages": {
+        "G07": "18, 26",
+        "G22": "12, 21, 30, 47",
+        "G34": "10, 13, 16, 25"
+      },
+      "revision3_workstream": "W8",
+      "revision3_plan": {
+        "workstream": "W8",
+        "closes_or_narrows": [
+          "G07: content-addressed immutable artifact store + publisher verification (owner W2)",
+          "G22: encrypted WAL-safe backup, key recovery doc, restore script (owner W8)",
+          "G34: provider configuration decision record + env matrix (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-ARCH-06",
@@ -1021,7 +1326,26 @@
       },
       "status": "not started",
       "status_reason": "Bounded progress exists, but the complete required feasibility spike is not implemented or verified. A standalone GET-only binding/settings inspection harness is preparation, not actual package execution, private routing, isolation or build proof.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G02",
+        "G32"
+      ],
+      "gap_pdf_pages": {
+        "G02": "9, 17, 22-25",
+        "G32": "20-21, 33, 42, 47"
+      },
+      "revision3_workstream": "W10",
+      "revision3_plan": {
+        "workstream": "W10",
+        "closes_or_narrows": [
+          "G02: runtime/local (real), runtime/cloudflare (real API, gated) (owner W6)",
+          "G32: twelve-gate local acceptance suite + adversarial suites + CI job (owner W10)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-ARCH-07",
@@ -1074,7 +1398,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G34"
+      ],
+      "gap_pdf_pages": {
+        "G34": "10, 13, 16, 25"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G34: provider configuration decision record + env matrix (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-ARCH-08",
@@ -1120,7 +1460,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G34",
+        "G40"
+      ],
+      "gap_pdf_pages": {
+        "G34": "10, 13, 16, 25",
+        "G40": "2, 14, 31, 38"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G34: provider configuration decision record + env matrix (owner W11)",
+          "G40: evidence templates, claim ledger, scorecard with unknowns (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-TEAM-01",
@@ -1172,7 +1531,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G01",
+        "G44"
+      ],
+      "gap_pdf_pages": {
+        "G01": "6-8, 16, 32",
+        "G44": "Entire PDF"
+      },
+      "revision3_workstream": "W0",
+      "revision3_plan": {
+        "workstream": "W0",
+        "closes_or_narrows": [
+          "G01: contracts/tracker-v1.ts, contracts/source-v1.ts, fixture fixtures/tracker-app (owner W0)",
+          "G44: reconcile CHECKPOINT/DECISIONS/requirements; wording fixes (owner W11+W0)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-TEAM-02",
@@ -1224,7 +1602,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G45"
+      ],
+      "gap_pdf_pages": {
+        "G45": "32, 42, 47"
+      },
+      "revision3_workstream": "W0",
+      "revision3_plan": {
+        "workstream": "W0",
+        "closes_or_narrows": [
+          "G45: branch-protection checklist + release evidence template (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-TEAM-03",
@@ -1273,7 +1667,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G35",
+        "G45"
+      ],
+      "gap_pdf_pages": {
+        "G35": "47",
+        "G45": "32, 42, 47"
+      },
+      "revision3_workstream": "W0",
+      "revision3_plan": {
+        "workstream": "W0",
+        "closes_or_narrows": [
+          "G35: evidence templates, claim ledger, scorecard with unknowns (owner W11)",
+          "G45: branch-protection checklist + release evidence template (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-TEAM-04",
@@ -1326,7 +1739,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G32"
+      ],
+      "gap_pdf_pages": {
+        "G32": "20-21, 33, 42, 47"
+      },
+      "revision3_workstream": "W0",
+      "revision3_plan": {
+        "workstream": "W0",
+        "closes_or_narrows": [
+          "G32: twelve-gate local acceptance suite + adversarial suites + CI job (owner W10)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-STATE-01",
@@ -1386,7 +1815,29 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G03",
+        "G04",
+        "G08"
+      ],
+      "gap_pdf_pages": {
+        "G03": "12, 17, 23",
+        "G04": "12, 18, 26",
+        "G08": "18, 26, 34"
+      },
+      "revision3_workstream": "W1",
+      "revision3_plan": {
+        "workstream": "W1",
+        "closes_or_narrows": [
+          "G03: SQLite authority, commit-before-ACK transaction helper (owner W1)",
+          "G04: hosted_jobs + outbox + leases + reconciliation (owner W1+W7)",
+          "G08: single-flight per app, fence token, CAS activation (owner W7)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-STATE-02",
@@ -1452,7 +1903,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G03",
+        "G13"
+      ],
+      "gap_pdf_pages": {
+        "G03": "12, 17, 23",
+        "G13": "10, 19, 28"
+      },
+      "revision3_workstream": "W1",
+      "revision3_plan": {
+        "workstream": "W1",
+        "closes_or_narrows": [
+          "G03: SQLite authority, commit-before-ACK transaction helper (owner W1)",
+          "G13: getUser() session authority, sign-out terminates app sessions (owner W5)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-STATE-03",
@@ -1504,7 +1974,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G03",
+        "G22"
+      ],
+      "gap_pdf_pages": {
+        "G03": "12, 17, 23",
+        "G22": "12, 21, 30, 47"
+      },
+      "revision3_workstream": "W1",
+      "revision3_plan": {
+        "workstream": "W1",
+        "closes_or_narrows": [
+          "G03: SQLite authority, commit-before-ACK transaction helper (owner W1)",
+          "G22: encrypted WAL-safe backup, key recovery doc, restore script (owner W8)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-STATE-04",
@@ -1583,7 +2072,26 @@
       },
       "status": "not started",
       "status_reason": "Eight real SQLite primitive checks passed on Node 24.19.0; broad driver/runtime/deployment durability selection remains incomplete. Driver not selected, no permission migration, no production volume or power-loss proof. Node 22 evidence is pending integrator confirmation; the independent worker's earlier attempt was blocked.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G03",
+        "G33"
+      ],
+      "gap_pdf_pages": {
+        "G03": "12, 17, 23",
+        "G33": "12, 17, 25"
+      },
+      "revision3_workstream": "W1",
+      "revision3_plan": {
+        "workstream": "W1",
+        "closes_or_narrows": [
+          "G03: SQLite authority, commit-before-ACK transaction helper (owner W1)",
+          "G33: deployment runbook (compose + persistent volume, fail-closed) (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-STATE-05",
@@ -1635,7 +2143,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G03",
+        "G04"
+      ],
+      "gap_pdf_pages": {
+        "G03": "12, 17, 23",
+        "G04": "12, 18, 26"
+      },
+      "revision3_workstream": "W1",
+      "revision3_plan": {
+        "workstream": "W1",
+        "closes_or_narrows": [
+          "G03: SQLite authority, commit-before-ACK transaction helper (owner W1)",
+          "G04: hosted_jobs + outbox + leases + reconciliation (owner W1+W7)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-STATE-06",
@@ -1687,7 +2214,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G04"
+      ],
+      "gap_pdf_pages": {
+        "G04": "12, 18, 26"
+      },
+      "revision3_workstream": "W1",
+      "revision3_plan": {
+        "workstream": "W1",
+        "closes_or_narrows": [
+          "G04: hosted_jobs + outbox + leases + reconciliation (owner W1+W7)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-STATE-07",
@@ -1738,7 +2281,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G04",
+        "G08"
+      ],
+      "gap_pdf_pages": {
+        "G04": "12, 18, 26",
+        "G08": "18, 26, 34"
+      },
+      "revision3_workstream": "W7",
+      "revision3_plan": {
+        "workstream": "W7",
+        "closes_or_narrows": [
+          "G04: hosted_jobs + outbox + leases + reconciliation (owner W1+W7)",
+          "G08: single-flight per app, fence token, CAS activation (owner W7)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-STATE-08",
@@ -1788,7 +2350,29 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G04",
+        "G08",
+        "G24"
+      ],
+      "gap_pdf_pages": {
+        "G04": "12, 18, 26",
+        "G08": "18, 26, 34",
+        "G24": "18, 21, 30"
+      },
+      "revision3_workstream": "W7",
+      "revision3_plan": {
+        "workstream": "W7",
+        "closes_or_narrows": [
+          "G04: hosted_jobs + outbox + leases + reconciliation (owner W1+W7)",
+          "G08: single-flight per app, fence token, CAS activation (owner W7)",
+          "G24: rollback distinct from restore; schema compatibility check (owner W7)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-STATE-09",
@@ -1841,7 +2425,29 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G03",
+        "G04",
+        "G10"
+      ],
+      "gap_pdf_pages": {
+        "G03": "12, 17, 23",
+        "G04": "12, 18, 26",
+        "G10": "19, 27"
+      },
+      "revision3_workstream": "W7",
+      "revision3_plan": {
+        "workstream": "W7",
+        "closes_or_narrows": [
+          "G03: SQLite authority, commit-before-ACK transaction helper (owner W1)",
+          "G04: hosted_jobs + outbox + leases + reconciliation (owner W1+W7)",
+          "G10: app grants owner/editor/viewer, last-owner protection, publish needs workspace role (owner W5)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-ACCESS-01",
@@ -1901,7 +2507,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G10"
+      ],
+      "gap_pdf_pages": {
+        "G10": "19, 27"
+      },
+      "revision3_workstream": "W5",
+      "revision3_plan": {
+        "workstream": "W5",
+        "closes_or_narrows": [
+          "G10: app grants owner/editor/viewer, last-owner protection, publish needs workspace role (owner W5)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-ACCESS-02",
@@ -1953,7 +2575,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G10"
+      ],
+      "gap_pdf_pages": {
+        "G10": "19, 27"
+      },
+      "revision3_workstream": "W5",
+      "revision3_plan": {
+        "workstream": "W5",
+        "closes_or_narrows": [
+          "G10: app grants owner/editor/viewer, last-owner protection, publish needs workspace role (owner W5)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-ACCESS-03",
@@ -2020,7 +2658,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G11"
+      ],
+      "gap_pdf_pages": {
+        "G11": "19, 27, 33"
+      },
+      "revision3_workstream": "W5",
+      "revision3_plan": {
+        "workstream": "W5",
+        "closes_or_narrows": [
+          "G11: hashed 48 h single-use tokens, resend invalidation, encrypted delivery payload, transactional outbox (owner W5)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-ACCESS-04",
@@ -2081,7 +2735,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G11"
+      ],
+      "gap_pdf_pages": {
+        "G11": "19, 27, 33"
+      },
+      "revision3_workstream": "W5",
+      "revision3_plan": {
+        "workstream": "W5",
+        "closes_or_narrows": [
+          "G11: hashed 48 h single-use tokens, resend invalidation, encrypted delivery payload, transactional outbox (owner W5)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-ACCESS-05",
@@ -2133,7 +2803,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G12",
+        "G34"
+      ],
+      "gap_pdf_pages": {
+        "G12": "10, 17, 27",
+        "G34": "10, 13, 16, 25"
+      },
+      "revision3_workstream": "W5",
+      "revision3_plan": {
+        "workstream": "W5",
+        "closes_or_narrows": [
+          "G12: exchange + __Host- app session, atomic redemption (owner W5+W6)",
+          "G34: provider configuration decision record + env matrix (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-ACCESS-06",
@@ -2185,7 +2874,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G12"
+      ],
+      "gap_pdf_pages": {
+        "G12": "10, 17, 27"
+      },
+      "revision3_workstream": "W5",
+      "revision3_plan": {
+        "workstream": "W5",
+        "closes_or_narrows": [
+          "G12: exchange + __Host- app session, atomic redemption (owner W5+W6)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-ACCESS-07",
@@ -2251,7 +2956,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G13"
+      ],
+      "gap_pdf_pages": {
+        "G13": "10, 19, 28"
+      },
+      "revision3_workstream": "W5",
+      "revision3_plan": {
+        "workstream": "W5",
+        "closes_or_narrows": [
+          "G13: getUser() session authority, sign-out terminates app sessions (owner W5)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-ACCESS-08",
@@ -2311,7 +3032,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G12",
+        "G15"
+      ],
+      "gap_pdf_pages": {
+        "G12": "10, 17, 27",
+        "G15": "15, 17, 20, 47"
+      },
+      "revision3_workstream": "W6",
+      "revision3_plan": {
+        "workstream": "W6",
+        "closes_or_narrows": [
+          "G12: exchange + __Host- app session, atomic redemption (owner W5+W6)",
+          "G15: credential stripping, response guard, CSRF/Origin, CSP, egress policy doc (owner W6)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-ACCESS-09",
@@ -2373,7 +3113,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G13",
+        "G14"
+      ],
+      "gap_pdf_pages": {
+        "G13": "10, 19, 28",
+        "G14": "15, 20, 24"
+      },
+      "revision3_workstream": "W6",
+      "revision3_plan": {
+        "workstream": "W6",
+        "closes_or_narrows": [
+          "G13: getUser() session authority, sign-out terminates app sessions (owner W5)",
+          "G14: gateway admission before any artifact/broker invocation, incl. HEAD/range/assets (owner W6)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-ACCESS-10",
@@ -2433,7 +3192,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G15"
+      ],
+      "gap_pdf_pages": {
+        "G15": "15, 17, 20, 47"
+      },
+      "revision3_workstream": "W6",
+      "revision3_plan": {
+        "workstream": "W6",
+        "closes_or_narrows": [
+          "G15: credential stripping, response guard, CSRF/Origin, CSP, egress policy doc (owner W6)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-ACCESS-11",
@@ -2499,7 +3274,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G13",
+        "G14"
+      ],
+      "gap_pdf_pages": {
+        "G13": "10, 19, 28",
+        "G14": "15, 20, 24"
+      },
+      "revision3_workstream": "W5",
+      "revision3_plan": {
+        "workstream": "W5",
+        "closes_or_narrows": [
+          "G13: getUser() session authority, sign-out terminates app sessions (owner W5)",
+          "G14: gateway admission before any artifact/broker invocation, incl. HEAD/range/assets (owner W6)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-GATE-01",
@@ -2550,7 +3344,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G14",
+        "G16"
+      ],
+      "gap_pdf_pages": {
+        "G14": "15, 20, 24",
+        "G16": "11, 23-24, 29"
+      },
+      "revision3_workstream": "W6",
+      "revision3_plan": {
+        "workstream": "W6",
+        "closes_or_narrows": [
+          "G14: gateway admission before any artifact/broker invocation, incl. HEAD/range/assets (owner W6)",
+          "G16: fixed per-app broker, per-app DB, reserved /_zenith/data/* (owner W3+W6)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-GATE-02",
@@ -2601,7 +3414,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G14",
+        "G16"
+      ],
+      "gap_pdf_pages": {
+        "G14": "15, 20, 24",
+        "G16": "11, 23-24, 29"
+      },
+      "revision3_workstream": "W6",
+      "revision3_plan": {
+        "workstream": "W6",
+        "closes_or_narrows": [
+          "G14: gateway admission before any artifact/broker invocation, incl. HEAD/range/assets (owner W6)",
+          "G16: fixed per-app broker, per-app DB, reserved /_zenith/data/* (owner W3+W6)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-GATE-03",
@@ -2652,7 +3484,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G16"
+      ],
+      "gap_pdf_pages": {
+        "G16": "11, 23-24, 29"
+      },
+      "revision3_workstream": "W6",
+      "revision3_plan": {
+        "workstream": "W6",
+        "closes_or_narrows": [
+          "G16: fixed per-app broker, per-app DB, reserved /_zenith/data/* (owner W3+W6)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-GATE-04",
@@ -2702,7 +3550,29 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G15",
+        "G16",
+        "G25"
+      ],
+      "gap_pdf_pages": {
+        "G15": "15, 17, 20, 47",
+        "G16": "11, 23-24, 29",
+        "G25": "15, 18, 21, 47"
+      },
+      "revision3_workstream": "W6",
+      "revision3_plan": {
+        "workstream": "W6",
+        "closes_or_narrows": [
+          "G15: credential stripping, response guard, CSRF/Origin, CSP, egress policy doc (owner W6)",
+          "G16: fixed per-app broker, per-app DB, reserved /_zenith/data/* (owner W3+W6)",
+          "G25: scoped tokens per role (publisher/build/runtime), no platform secrets in builds (owner W2+W6)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-GATE-05",
@@ -2753,7 +3623,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G15"
+      ],
+      "gap_pdf_pages": {
+        "G15": "15, 17, 20, 47"
+      },
+      "revision3_workstream": "W6",
+      "revision3_plan": {
+        "workstream": "W6",
+        "closes_or_narrows": [
+          "G15: credential stripping, response guard, CSRF/Origin, CSP, egress policy doc (owner W6)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-GATE-06",
@@ -2811,7 +3697,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G14",
+        "G28"
+      ],
+      "gap_pdf_pages": {
+        "G14": "15, 20, 24",
+        "G28": "4, 34, 36"
+      },
+      "revision3_workstream": "W6",
+      "revision3_plan": {
+        "workstream": "W6",
+        "closes_or_narrows": [
+          "G14: gateway admission before any artifact/broker invocation, incl. HEAD/range/assets (owner W6)",
+          "G28: real health/log probes with release attribution; synthetic stays labelled (owner W8)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-GATE-07",
@@ -2861,7 +3766,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G15"
+      ],
+      "gap_pdf_pages": {
+        "G15": "15, 17, 20, 47"
+      },
+      "revision3_workstream": "W6",
+      "revision3_plan": {
+        "workstream": "W6",
+        "closes_or_narrows": [
+          "G15: credential stripping, response guard, CSRF/Origin, CSP, egress policy doc (owner W6)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-GATE-08",
@@ -2912,7 +3833,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G15"
+      ],
+      "gap_pdf_pages": {
+        "G15": "15, 17, 20, 47"
+      },
+      "revision3_workstream": "W6",
+      "revision3_plan": {
+        "workstream": "W6",
+        "closes_or_narrows": [
+          "G15: credential stripping, response guard, CSRF/Origin, CSP, egress policy doc (owner W6)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-GATE-09",
@@ -2963,7 +3900,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G14",
+        "G19"
+      ],
+      "gap_pdf_pages": {
+        "G14": "15, 20, 24",
+        "G19": "20, 35"
+      },
+      "revision3_workstream": "W6",
+      "revision3_plan": {
+        "workstream": "W6",
+        "closes_or_narrows": [
+          "G14: gateway admission before any artifact/broker invocation, incl. HEAD/range/assets (owner W6)",
+          "G19: quota counters, body cap, storage bytes, suspension (owner W8)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-UX-01",
@@ -3017,7 +3973,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G29"
+      ],
+      "gap_pdf_pages": {
+        "G29": "6-7, 18, 32"
+      },
+      "revision3_workstream": "W9",
+      "revision3_plan": {
+        "workstream": "W9",
+        "closes_or_narrows": [
+          "G29: publish UX: source -> build -> private URL, actionable failures, timings (owner W9)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-UX-02",
@@ -3068,7 +4040,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G28",
+        "G29"
+      ],
+      "gap_pdf_pages": {
+        "G28": "4, 34, 36",
+        "G29": "6-7, 18, 32"
+      },
+      "revision3_workstream": "W9",
+      "revision3_plan": {
+        "workstream": "W9",
+        "closes_or_narrows": [
+          "G28: real health/log probes with release attribution; synthetic stays labelled (owner W8)",
+          "G29: publish UX: source -> build -> private URL, actionable failures, timings (owner W9)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-UX-03",
@@ -3119,7 +4110,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G30"
+      ],
+      "gap_pdf_pages": {
+        "G30": "6, 19, 33"
+      },
+      "revision3_workstream": "W9",
+      "revision3_plan": {
+        "workstream": "W9",
+        "closes_or_narrows": [
+          "G30: recipient journey: sign in on app host, save, reload, conflict, denied (owner W4+W6)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-UX-04",
@@ -3171,7 +4178,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G29"
+      ],
+      "gap_pdf_pages": {
+        "G29": "6-7, 18, 32"
+      },
+      "revision3_workstream": "W9",
+      "revision3_plan": {
+        "workstream": "W9",
+        "closes_or_narrows": [
+          "G29: publish UX: source -> build -> private URL, actionable failures, timings (owner W9)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-OPS-01",
@@ -3222,7 +4245,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G19"
+      ],
+      "gap_pdf_pages": {
+        "G19": "20, 35"
+      },
+      "revision3_workstream": "W8",
+      "revision3_plan": {
+        "workstream": "W8",
+        "closes_or_narrows": [
+          "G19: quota counters, body cap, storage bytes, suspension (owner W8)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-OPS-02",
@@ -3272,7 +4311,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G19"
+      ],
+      "gap_pdf_pages": {
+        "G19": "20, 35"
+      },
+      "revision3_workstream": "W8",
+      "revision3_plan": {
+        "workstream": "W8",
+        "closes_or_narrows": [
+          "G19: quota counters, body cap, storage bytes, suspension (owner W8)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-OPS-03",
@@ -3322,7 +4377,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G19"
+      ],
+      "gap_pdf_pages": {
+        "G19": "20, 35"
+      },
+      "revision3_workstream": "W8",
+      "revision3_plan": {
+        "workstream": "W8",
+        "closes_or_narrows": [
+          "G19: quota counters, body cap, storage bytes, suspension (owner W8)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-OPS-04",
@@ -3372,7 +4443,29 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G21",
+        "G22",
+        "G24"
+      ],
+      "gap_pdf_pages": {
+        "G21": "21, 30, 33-34",
+        "G22": "12, 21, 30, 47",
+        "G24": "18, 21, 30"
+      },
+      "revision3_workstream": "W8",
+      "revision3_plan": {
+        "workstream": "W8",
+        "closes_or_narrows": [
+          "G21: app export/import bundle, restore with counts/content checks (owner W8)",
+          "G22: encrypted WAL-safe backup, key recovery doc, restore script (owner W8)",
+          "G24: rollback distinct from restore; schema compatibility check (owner W7)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-OPS-05",
@@ -3422,7 +4515,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G22",
+        "G33"
+      ],
+      "gap_pdf_pages": {
+        "G22": "12, 21, 30, 47",
+        "G33": "12, 17, 25"
+      },
+      "revision3_workstream": "W8",
+      "revision3_plan": {
+        "workstream": "W8",
+        "closes_or_narrows": [
+          "G22: encrypted WAL-safe backup, key recovery doc, restore script (owner W8)",
+          "G33: deployment runbook (compose + persistent volume, fail-closed) (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-OPS-06",
@@ -3472,7 +4584,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G21",
+        "G23"
+      ],
+      "gap_pdf_pages": {
+        "G21": "21, 30, 33-34",
+        "G23": "21, 28, 30, 47"
+      },
+      "revision3_workstream": "W8",
+      "revision3_plan": {
+        "workstream": "W8",
+        "closes_or_narrows": [
+          "G21: app export/import bundle, restore with counts/content checks (owner W8)",
+          "G23: revocation ledger + reconciliation on restore (owner W8)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-OPS-07",
@@ -3524,7 +4655,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G23"
+      ],
+      "gap_pdf_pages": {
+        "G23": "21, 28, 30, 47"
+      },
+      "revision3_workstream": "W8",
+      "revision3_plan": {
+        "workstream": "W8",
+        "closes_or_narrows": [
+          "G23: revocation ledger + reconciliation on restore (owner W8)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-METRIC-01",
@@ -3574,7 +4721,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G31"
+      ],
+      "gap_pdf_pages": {
+        "G31": "36"
+      },
+      "revision3_workstream": "W8",
+      "revision3_plan": {
+        "workstream": "W8",
+        "closes_or_narrows": [
+          "G31: events table, dedupe, cohorts, scorecard excluding founder/test (owner W8)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-METRIC-02",
@@ -3623,7 +4786,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G31",
+        "G38"
+      ],
+      "gap_pdf_pages": {
+        "G31": "36",
+        "G38": "6, 35-37"
+      },
+      "revision3_workstream": "W8",
+      "revision3_plan": {
+        "workstream": "W8",
+        "closes_or_narrows": [
+          "G31: events table, dedupe, cohorts, scorecard excluding founder/test (owner W8)",
+          "G38: evidence templates, claim ledger, scorecard with unknowns (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-METRIC-03",
@@ -3672,7 +4854,29 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G31",
+        "G38",
+        "G39"
+      ],
+      "gap_pdf_pages": {
+        "G31": "36",
+        "G38": "6, 35-37",
+        "G39": "35-38"
+      },
+      "revision3_workstream": "W8",
+      "revision3_plan": {
+        "workstream": "W8",
+        "closes_or_narrows": [
+          "G31: events table, dedupe, cohorts, scorecard excluding founder/test (owner W8)",
+          "G38: evidence templates, claim ledger, scorecard with unknowns (owner W11)",
+          "G39: evidence templates, claim ledger, scorecard with unknowns (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-TRUST-01",
@@ -3721,7 +4925,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G26"
+      ],
+      "gap_pdf_pages": {
+        "G26": "47"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G26: operator access policy + drill checklist (template) (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-TRUST-02",
@@ -3771,7 +4991,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G23",
+        "G26"
+      ],
+      "gap_pdf_pages": {
+        "G23": "21, 28, 30, 47",
+        "G26": "47"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G23: revocation ledger + reconciliation on restore (owner W8)",
+          "G26: operator access policy + drill checklist (template) (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-TRUST-03",
@@ -3821,7 +5060,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G27",
+        "G36"
+      ],
+      "gap_pdf_pages": {
+        "G27": "14, 21, 47",
+        "G36": "47"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G27: export/import + data lifecycle doc (owner W8)",
+          "G36: evidence templates, claim ledger, scorecard with unknowns (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-TRUST-04",
@@ -3871,7 +5129,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G27",
+        "G36"
+      ],
+      "gap_pdf_pages": {
+        "G27": "14, 21, 47",
+        "G36": "47"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G27: export/import + data lifecycle doc (owner W8)",
+          "G36: evidence templates, claim ledger, scorecard with unknowns (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-TRUST-05",
@@ -3920,7 +5197,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G35",
+        "G36"
+      ],
+      "gap_pdf_pages": {
+        "G35": "47",
+        "G36": "47"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G35: evidence templates, claim ledger, scorecard with unknowns (owner W11)",
+          "G36: evidence templates, claim ledger, scorecard with unknowns (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-BIZ-01",
@@ -3969,7 +5265,32 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G37",
+        "G38",
+        "G39",
+        "G41"
+      ],
+      "gap_pdf_pages": {
+        "G37": "5, 32, 37",
+        "G38": "6, 35-37",
+        "G39": "35-38",
+        "G41": "39-40, 42"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G37: evidence templates, claim ledger, scorecard with unknowns (owner W11)",
+          "G38: evidence templates, claim ledger, scorecard with unknowns (owner W11)",
+          "G39: evidence templates, claim ledger, scorecard with unknowns (owner W11)",
+          "G41: evidence templates, claim ledger, scorecard with unknowns (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-BUILD-01",
@@ -4021,7 +5342,35 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G05",
+        "G06",
+        "G07",
+        "G08",
+        "G09"
+      ],
+      "gap_pdf_pages": {
+        "G05": "7, 13, 18",
+        "G06": "13, 18, 20",
+        "G07": "18, 26",
+        "G08": "18, 26, 34",
+        "G09": "18, 26, 34"
+      },
+      "revision3_workstream": "W2",
+      "revision3_plan": {
+        "workstream": "W2",
+        "closes_or_narrows": [
+          "G05: tar intake with traversal/symlink/size/bomb/unsupported checks; pinned source digest (owner W2)",
+          "G06: recipe-local/e2b/docker runners, no submitted script execution (owner W2)",
+          "G07: content-addressed immutable artifact store + publisher verification (owner W2)",
+          "G08: single-flight per app, fence token, CAS activation (owner W7)",
+          "G09: candidate probes on separate test DB; read-only prod schema check (owner W7)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-BUILD-02",
@@ -4071,7 +5420,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G05"
+      ],
+      "gap_pdf_pages": {
+        "G05": "7, 13, 18"
+      },
+      "revision3_workstream": "W2",
+      "revision3_plan": {
+        "workstream": "W2",
+        "closes_or_narrows": [
+          "G05: tar intake with traversal/symlink/size/bomb/unsupported checks; pinned source digest (owner W2)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-BUILD-03",
@@ -4121,7 +5486,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G06",
+        "G25"
+      ],
+      "gap_pdf_pages": {
+        "G06": "13, 18, 20",
+        "G25": "15, 18, 21, 47"
+      },
+      "revision3_workstream": "W2",
+      "revision3_plan": {
+        "workstream": "W2",
+        "closes_or_narrows": [
+          "G06: recipe-local/e2b/docker runners, no submitted script execution (owner W2)",
+          "G25: scoped tokens per role (publisher/build/runtime), no platform secrets in builds (owner W2+W6)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-BUILD-04",
@@ -4171,7 +5555,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G06",
+        "G25"
+      ],
+      "gap_pdf_pages": {
+        "G06": "13, 18, 20",
+        "G25": "15, 18, 21, 47"
+      },
+      "revision3_workstream": "W2",
+      "revision3_plan": {
+        "workstream": "W2",
+        "closes_or_narrows": [
+          "G06: recipe-local/e2b/docker runners, no submitted script execution (owner W2)",
+          "G25: scoped tokens per role (publisher/build/runtime), no platform secrets in builds (owner W2+W6)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-BUILD-05",
@@ -4221,7 +5624,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G07",
+        "G25"
+      ],
+      "gap_pdf_pages": {
+        "G07": "18, 26",
+        "G25": "15, 18, 21, 47"
+      },
+      "revision3_workstream": "W2",
+      "revision3_plan": {
+        "workstream": "W2",
+        "closes_or_narrows": [
+          "G07: content-addressed immutable artifact store + publisher verification (owner W2)",
+          "G25: scoped tokens per role (publisher/build/runtime), no platform secrets in builds (owner W2+W6)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-BUILD-06",
@@ -4272,7 +5694,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G07"
+      ],
+      "gap_pdf_pages": {
+        "G07": "18, 26"
+      },
+      "revision3_workstream": "W2",
+      "revision3_plan": {
+        "workstream": "W2",
+        "closes_or_narrows": [
+          "G07: content-addressed immutable artifact store + publisher verification (owner W2)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-BUILD-07",
@@ -4323,7 +5761,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G08",
+        "G09"
+      ],
+      "gap_pdf_pages": {
+        "G08": "18, 26, 34",
+        "G09": "18, 26, 34"
+      },
+      "revision3_workstream": "W7",
+      "revision3_plan": {
+        "workstream": "W7",
+        "closes_or_narrows": [
+          "G08: single-flight per app, fence token, CAS activation (owner W7)",
+          "G09: candidate probes on separate test DB; read-only prod schema check (owner W7)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-BUILD-08",
@@ -4373,7 +5830,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G24"
+      ],
+      "gap_pdf_pages": {
+        "G24": "18, 21, 30"
+      },
+      "revision3_workstream": "W7",
+      "revision3_plan": {
+        "workstream": "W7",
+        "closes_or_narrows": [
+          "G24: rollback distinct from restore; schema compatibility check (owner W7)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-BUILD-09",
@@ -4424,7 +5897,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G21",
+        "G24"
+      ],
+      "gap_pdf_pages": {
+        "G21": "21, 30, 33-34",
+        "G24": "18, 21, 30"
+      },
+      "revision3_workstream": "W7",
+      "revision3_plan": {
+        "workstream": "W7",
+        "closes_or_narrows": [
+          "G21: app export/import bundle, restore with counts/content checks (owner W8)",
+          "G24: rollback distinct from restore; schema compatibility check (owner W7)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-DATA-01",
@@ -4474,7 +5966,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G16",
+        "G17"
+      ],
+      "gap_pdf_pages": {
+        "G16": "11, 23-24, 29",
+        "G17": "7, 11, 29"
+      },
+      "revision3_workstream": "W3",
+      "revision3_plan": {
+        "workstream": "W3",
+        "closes_or_narrows": [
+          "G16: fixed per-app broker, per-app DB, reserved /_zenith/data/* (owner W3+W6)",
+          "G17: tracker CRUD, validation, bounded reads, durable SQLite (owner W3)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-DATA-02",
@@ -4523,7 +6034,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G18"
+      ],
+      "gap_pdf_pages": {
+        "G18": "6, 21, 29"
+      },
+      "revision3_workstream": "W3",
+      "revision3_plan": {
+        "workstream": "W3",
+        "closes_or_narrows": [
+          "G18: record versions, 409 conflict payload, in-transaction write ids (owner W3)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-DATA-03",
@@ -4573,7 +6100,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G04",
+        "G18"
+      ],
+      "gap_pdf_pages": {
+        "G04": "12, 18, 26",
+        "G18": "6, 21, 29"
+      },
+      "revision3_workstream": "W3",
+      "revision3_plan": {
+        "workstream": "W3",
+        "closes_or_narrows": [
+          "G04: hosted_jobs + outbox + leases + reconciliation (owner W1+W7)",
+          "G18: record versions, 409 conflict payload, in-transaction write ids (owner W3)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-DATA-04",
@@ -4625,7 +6171,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G18",
+        "G29"
+      ],
+      "gap_pdf_pages": {
+        "G18": "6, 21, 29",
+        "G29": "6-7, 18, 32"
+      },
+      "revision3_workstream": "W9",
+      "revision3_plan": {
+        "workstream": "W9",
+        "closes_or_narrows": [
+          "G18: record versions, 409 conflict payload, in-transaction write ids (owner W3)",
+          "G29: publish UX: source -> build -> private URL, actionable failures, timings (owner W9)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-DATA-05",
@@ -4675,7 +6240,29 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G17",
+        "G24",
+        "G30"
+      ],
+      "gap_pdf_pages": {
+        "G17": "7, 11, 29",
+        "G24": "18, 21, 30",
+        "G30": "6, 19, 33"
+      },
+      "revision3_workstream": "W10",
+      "revision3_plan": {
+        "workstream": "W10",
+        "closes_or_narrows": [
+          "G17: tracker CRUD, validation, bounded reads, durable SQLite (owner W3)",
+          "G24: rollback distinct from restore; schema compatibility check (owner W7)",
+          "G30: recipient journey: sign in on app host, save, reload, conflict, denied (owner W4+W6)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-DATA-06",
@@ -4725,7 +6312,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G01",
+        "G16"
+      ],
+      "gap_pdf_pages": {
+        "G01": "6-8, 16, 32",
+        "G16": "11, 23-24, 29"
+      },
+      "revision3_workstream": "W4",
+      "revision3_plan": {
+        "workstream": "W4",
+        "closes_or_narrows": [
+          "G01: contracts/tracker-v1.ts, contracts/source-v1.ts, fixture fixtures/tracker-app (owner W0)",
+          "G16: fixed per-app broker, per-app DB, reserved /_zenith/data/* (owner W3+W6)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-DATA-07",
@@ -4776,7 +6382,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G21",
+        "G27"
+      ],
+      "gap_pdf_pages": {
+        "G21": "21, 30, 33-34",
+        "G27": "14, 21, 47"
+      },
+      "revision3_workstream": "W8",
+      "revision3_plan": {
+        "workstream": "W8",
+        "closes_or_narrows": [
+          "G21: app export/import bundle, restore with counts/content checks (owner W8)",
+          "G27: export/import + data lifecycle doc (owner W8)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-BUDGET-01",
@@ -4825,7 +6450,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G20"
+      ],
+      "gap_pdf_pages": {
+        "G20": "20, 38"
+      },
+      "revision3_workstream": "W8",
+      "revision3_plan": {
+        "workstream": "W8",
+        "closes_or_narrows": [
+          "G20: usage ledger, 50/75/90 % alerts, build pause (owner W8)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-BUDGET-02",
@@ -4871,7 +6512,26 @@
       },
       "status": "blocked",
       "status_reason": "Required report, provider selection, external approval or independent evidence is unavailable; see requirement and missing_inputs.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G20",
+        "G40"
+      ],
+      "gap_pdf_pages": {
+        "G20": "20, 38",
+        "G40": "2, 14, 31, 38"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G20: usage ledger, 50/75/90 % alerts, build pause (owner W8)",
+          "G40: evidence templates, claim ledger, scorecard with unknowns (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-OPS-08",
@@ -4920,7 +6580,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G22",
+        "G33"
+      ],
+      "gap_pdf_pages": {
+        "G22": "12, 21, 30, 47",
+        "G33": "12, 17, 25"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G22: encrypted WAL-safe backup, key recovery doc, restore script (owner W8)",
+          "G33: deployment runbook (compose + persistent volume, fail-closed) (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-OPS-09",
@@ -4968,7 +6647,23 @@
       },
       "status": "blocked",
       "status_reason": "Required report, provider selection, external approval or independent evidence is unavailable; see requirement and missing_inputs.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G33"
+      ],
+      "gap_pdf_pages": {
+        "G33": "12, 17, 25"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G33: deployment runbook (compose + persistent volume, fail-closed) (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-TRUST-06",
@@ -5017,7 +6712,23 @@
       },
       "status": "blocked",
       "status_reason": "Required report, provider selection, external approval or independent evidence is unavailable; see requirement and missing_inputs.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G35"
+      ],
+      "gap_pdf_pages": {
+        "G35": "47"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G35: evidence templates, claim ledger, scorecard with unknowns (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-BIZ-02",
@@ -5065,7 +6776,29 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G37",
+        "G39",
+        "G41"
+      ],
+      "gap_pdf_pages": {
+        "G37": "5, 32, 37",
+        "G39": "35-38",
+        "G41": "39-40, 42"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G37: evidence templates, claim ledger, scorecard with unknowns (owner W11)",
+          "G39: evidence templates, claim ledger, scorecard with unknowns (owner W11)",
+          "G41: evidence templates, claim ledger, scorecard with unknowns (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-BIZ-03",
@@ -5114,7 +6847,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G38",
+        "G39"
+      ],
+      "gap_pdf_pages": {
+        "G38": "6, 35-37",
+        "G39": "35-38"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G38: evidence templates, claim ledger, scorecard with unknowns (owner W11)",
+          "G39: evidence templates, claim ledger, scorecard with unknowns (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-VERIFY-01",
@@ -5163,7 +6915,23 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G32"
+      ],
+      "gap_pdf_pages": {
+        "G32": "20-21, 33, 42, 47"
+      },
+      "revision3_workstream": "W10",
+      "revision3_plan": {
+        "workstream": "W10",
+        "closes_or_narrows": [
+          "G32: twelve-gate local acceptance suite + adversarial suites + CI job (owner W10)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-VERIFY-02",
@@ -5234,7 +7002,26 @@
       },
       "status": "not started",
       "status_reason": "Bounded existing Navigator workspace/permission corrections and regression cases are preparation progress only. The requested two-hosted-app grants, non-workspace recipient, dual publish permissions and hosted fail-closed suite remain unimplemented/unverified.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G10",
+        "G32"
+      ],
+      "gap_pdf_pages": {
+        "G10": "19, 27",
+        "G32": "20-21, 33, 42, 47"
+      },
+      "revision3_workstream": "W10",
+      "revision3_plan": {
+        "workstream": "W10",
+        "closes_or_narrows": [
+          "G10: app grants owner/editor/viewer, last-owner protection, publish needs workspace role (owner W5)",
+          "G32: twelve-gate local acceptance suite + adversarial suites + CI job (owner W10)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-VERIFY-03",
@@ -5285,7 +7072,32 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G11",
+        "G12",
+        "G13",
+        "G32"
+      ],
+      "gap_pdf_pages": {
+        "G11": "19, 27, 33",
+        "G12": "10, 17, 27",
+        "G13": "10, 19, 28",
+        "G32": "20-21, 33, 42, 47"
+      },
+      "revision3_workstream": "W10",
+      "revision3_plan": {
+        "workstream": "W10",
+        "closes_or_narrows": [
+          "G11: hashed 48 h single-use tokens, resend invalidation, encrypted delivery payload, transactional outbox (owner W5)",
+          "G12: exchange + __Host- app session, atomic redemption (owner W5+W6)",
+          "G13: getUser() session authority, sign-out terminates app sessions (owner W5)",
+          "G32: twelve-gate local acceptance suite + adversarial suites + CI job (owner W10)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-VERIFY-04",
@@ -5336,7 +7148,29 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G14",
+        "G15",
+        "G32"
+      ],
+      "gap_pdf_pages": {
+        "G14": "15, 20, 24",
+        "G15": "15, 17, 20, 47",
+        "G32": "20-21, 33, 42, 47"
+      },
+      "revision3_workstream": "W10",
+      "revision3_plan": {
+        "workstream": "W10",
+        "closes_or_narrows": [
+          "G14: gateway admission before any artifact/broker invocation, incl. HEAD/range/assets (owner W6)",
+          "G15: credential stripping, response guard, CSRF/Origin, CSP, egress policy doc (owner W6)",
+          "G32: twelve-gate local acceptance suite + adversarial suites + CI job (owner W10)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-VERIFY-05",
@@ -5387,7 +7221,29 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G17",
+        "G18",
+        "G32"
+      ],
+      "gap_pdf_pages": {
+        "G17": "7, 11, 29",
+        "G18": "6, 21, 29",
+        "G32": "20-21, 33, 42, 47"
+      },
+      "revision3_workstream": "W10",
+      "revision3_plan": {
+        "workstream": "W10",
+        "closes_or_narrows": [
+          "G17: tracker CRUD, validation, bounded reads, durable SQLite (owner W3)",
+          "G18: record versions, 409 conflict payload, in-transaction write ids (owner W3)",
+          "G32: twelve-gate local acceptance suite + adversarial suites + CI job (owner W10)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-VERIFY-06",
@@ -5438,7 +7294,32 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G05",
+        "G06",
+        "G25",
+        "G32"
+      ],
+      "gap_pdf_pages": {
+        "G05": "7, 13, 18",
+        "G06": "13, 18, 20",
+        "G25": "15, 18, 21, 47",
+        "G32": "20-21, 33, 42, 47"
+      },
+      "revision3_workstream": "W10",
+      "revision3_plan": {
+        "workstream": "W10",
+        "closes_or_narrows": [
+          "G05: tar intake with traversal/symlink/size/bomb/unsupported checks; pinned source digest (owner W2)",
+          "G06: recipe-local/e2b/docker runners, no submitted script execution (owner W2)",
+          "G25: scoped tokens per role (publisher/build/runtime), no platform secrets in builds (owner W2+W6)",
+          "G32: twelve-gate local acceptance suite + adversarial suites + CI job (owner W10)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-VERIFY-07",
@@ -5489,7 +7370,35 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G07",
+        "G08",
+        "G09",
+        "G24",
+        "G32"
+      ],
+      "gap_pdf_pages": {
+        "G07": "18, 26",
+        "G08": "18, 26, 34",
+        "G09": "18, 26, 34",
+        "G24": "18, 21, 30",
+        "G32": "20-21, 33, 42, 47"
+      },
+      "revision3_workstream": "W10",
+      "revision3_plan": {
+        "workstream": "W10",
+        "closes_or_narrows": [
+          "G07: content-addressed immutable artifact store + publisher verification (owner W2)",
+          "G08: single-flight per app, fence token, CAS activation (owner W7)",
+          "G09: candidate probes on separate test DB; read-only prod schema check (owner W7)",
+          "G24: rollback distinct from restore; schema compatibility check (owner W7)",
+          "G32: twelve-gate local acceptance suite + adversarial suites + CI job (owner W10)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-VERIFY-08",
@@ -5541,7 +7450,35 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G03",
+        "G19",
+        "G22",
+        "G23",
+        "G32"
+      ],
+      "gap_pdf_pages": {
+        "G03": "12, 17, 23",
+        "G19": "20, 35",
+        "G22": "12, 21, 30, 47",
+        "G23": "21, 28, 30, 47",
+        "G32": "20-21, 33, 42, 47"
+      },
+      "revision3_workstream": "W10",
+      "revision3_plan": {
+        "workstream": "W10",
+        "closes_or_narrows": [
+          "G03: SQLite authority, commit-before-ACK transaction helper (owner W1)",
+          "G19: quota counters, body cap, storage bytes, suspension (owner W8)",
+          "G22: encrypted WAL-safe backup, key recovery doc, restore script (owner W8)",
+          "G23: revocation ledger + reconciliation on restore (owner W8)",
+          "G32: twelve-gate local acceptance suite + adversarial suites + CI job (owner W10)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-VERIFY-09",
@@ -5592,7 +7529,29 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G29",
+        "G30",
+        "G32"
+      ],
+      "gap_pdf_pages": {
+        "G29": "6-7, 18, 32",
+        "G30": "6, 19, 33",
+        "G32": "20-21, 33, 42, 47"
+      },
+      "revision3_workstream": "W10",
+      "revision3_plan": {
+        "workstream": "W10",
+        "closes_or_narrows": [
+          "G29: publish UX: source -> build -> private URL, actionable failures, timings (owner W9)",
+          "G30: recipient journey: sign in on app host, save, reload, conflict, denied (owner W4+W6)",
+          "G32: twelve-gate local acceptance suite + adversarial suites + CI job (owner W10)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-VERIFY-10",
@@ -5668,7 +7627,26 @@
       },
       "status": "not started",
       "status_reason": "Existing local baseline checks and CI source hardening are evidenced, but the complete combined requirement remains incomplete: actual GitHub workflow/Docker execution and hosted security/integration/browser gates are not verified. Final integrated local counts belong to CHECKPOINT.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G32",
+        "G45"
+      ],
+      "gap_pdf_pages": {
+        "G32": "20-21, 33, 42, 47",
+        "G45": "32, 42, 47"
+      },
+      "revision3_workstream": "W10",
+      "revision3_plan": {
+        "workstream": "W10",
+        "closes_or_narrows": [
+          "G32: twelve-gate local acceptance suite + adversarial suites + CI job (owner W10)",
+          "G45: branch-protection checklist + release evidence template (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-VERIFY-11",
@@ -5717,7 +7695,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G32",
+        "G45"
+      ],
+      "gap_pdf_pages": {
+        "G32": "20-21, 33, 42, 47",
+        "G45": "32, 42, 47"
+      },
+      "revision3_workstream": "W10",
+      "revision3_plan": {
+        "workstream": "W10",
+        "closes_or_narrows": [
+          "G32: twelve-gate local acceptance suite + adversarial suites + CI job (owner W10)",
+          "G45: branch-protection checklist + release evidence template (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-VERIFY-12",
@@ -5793,7 +7790,26 @@
       },
       "status": "not started",
       "status_reason": "Read-only CI token, disabled persisted checkout credentials, full action SHA pins and Docker context exclusions are implemented and locally policy-tested. Broader approved live-cloud job separation, all dependency pin/review obligations, bounded live costs and test-resource cleanup remain unverified; no actual GitHub or live job claimed.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G25",
+        "G45"
+      ],
+      "gap_pdf_pages": {
+        "G25": "15, 18, 21, 47",
+        "G45": "32, 42, 47"
+      },
+      "revision3_workstream": "W10",
+      "revision3_plan": {
+        "workstream": "W10",
+        "closes_or_narrows": [
+          "G25: scoped tokens per role (publisher/build/runtime), no platform secrets in builds (owner W2+W6)",
+          "G45: branch-protection checklist + release evidence template (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-VERIFY-13",
@@ -5843,7 +7859,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G32",
+        "G44"
+      ],
+      "gap_pdf_pages": {
+        "G32": "20-21, 33, 42, 47",
+        "G44": "Entire PDF"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G32: twelve-gate local acceptance suite + adversarial suites + CI job (owner W10)",
+          "G44: reconcile CHECKPOINT/DECISIONS/requirements; wording fixes (owner W11+W0)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-VERIFY-14",
@@ -5894,7 +7929,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G32",
+        "G35"
+      ],
+      "gap_pdf_pages": {
+        "G32": "20-21, 33, 42, 47",
+        "G35": "47"
+      },
+      "revision3_workstream": "W10",
+      "revision3_plan": {
+        "workstream": "W10",
+        "closes_or_narrows": [
+          "G32: twelve-gate local acceptance suite + adversarial suites + CI job (owner W10)",
+          "G35: evidence templates, claim ledger, scorecard with unknowns (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-HANDOFF-01",
@@ -5946,7 +8000,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G33",
+        "G34"
+      ],
+      "gap_pdf_pages": {
+        "G33": "12, 17, 25",
+        "G34": "10, 13, 16, 25"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G33: deployment runbook (compose + persistent volume, fail-closed) (owner W11)",
+          "G34: provider configuration decision record + env matrix (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-HANDOFF-02",
@@ -5992,7 +8065,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G34",
+        "G40"
+      ],
+      "gap_pdf_pages": {
+        "G34": "10, 13, 16, 25",
+        "G40": "2, 14, 31, 38"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G34: provider configuration decision record + env matrix (owner W11)",
+          "G40: evidence templates, claim ledger, scorecard with unknowns (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-HANDOFF-03",
@@ -6042,7 +8134,26 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G42",
+        "G45"
+      ],
+      "gap_pdf_pages": {
+        "G42": "43-46 plus newer source",
+        "G45": "32, 42, 47"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G42: reconcile CHECKPOINT/DECISIONS/requirements; wording fixes (owner W11+W0)",
+          "G45: branch-protection checklist + release evidence template (owner W11)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     },
     {
       "requirement_id": "ATT-HANDOFF-04",
@@ -6095,7 +8206,909 @@
       },
       "status": "not started",
       "status_reason": "Provisional requirement extraction only. Baseline evidence is not fulfillment; implementation/evidence status requires integrator reconciliation.",
-      "missing_report_mapping": true
+      "missing_report_mapping": true,
+      "gap": [
+        "G42",
+        "G44"
+      ],
+      "gap_pdf_pages": {
+        "G42": "43-46 plus newer source",
+        "G44": "Entire PDF"
+      },
+      "revision3_workstream": "W11",
+      "revision3_plan": {
+        "workstream": "W11",
+        "closes_or_narrows": [
+          "G42: reconcile CHECKPOINT/DECISIONS/requirements; wording fixes (owner W11+W0)",
+          "G44: reconcile CHECKPOINT/DECISIONS/requirements; wording fixes (owner W11+W0)"
+        ],
+        "note": "Planned in docs/hosted/PLAN-R3.md. Status unchanged by this pass; the integrator updates it only after an acceptance run.",
+        "status_unchanged": true,
+        "pdf_page_source": "inherited"
+      }
     }
-  ]
+  ],
+  "revision3": {
+    "prepared_at": "2026-09-07",
+    "prepared_by": "W11 (docs) under the Revision 3 integrator",
+    "baseline_sha": "ffb2753",
+    "branch": "zenith/hosted-r3",
+    "plan": "docs/hosted/PLAN-R3.md",
+    "contracts": "docs/hosted/CONTRACTS-R3.md",
+    "gap_analysis": "C:/Users/user/.codex/outputs/zenith-gap-analysis-2026-09-07/zenith-gap-analysis.md",
+    "gap_register": "C:/Users/user/.codex/outputs/zenith-gap-analysis-2026-09-07/zenith-gap-register.json",
+    "pdf_caveat": "Page numbers are inherited from the 2026-09-07 gap analysis, which read the 47-page PDF (SHA-256 00f43faa7c7fccfcf1caf29d8bb5fc4859b1be61020e2d46d9686c5d347c8159). The Claude session that wrote this field did not receive that PDF and did not re-read any page.",
+    "status_policy": "No row status was changed by this pass. Statuses move only when the integrator records an acceptance run against docs/hosted/evidence/acceptance-record-template.md.",
+    "fields_added": [
+      "gap",
+      "gap_pdf_pages",
+      "revision3_workstream",
+      "revision3_plan"
+    ],
+    "gap_reference": {
+      "G01": {
+        "id": "G01",
+        "priority": "P0",
+        "gap_analysis_status": "Decision",
+        "gap": "Freeze reviewed tracker source/API/schema contract",
+        "pdf_pages": "6-8, 16, 32",
+        "proposed_owner": "B1+B2",
+        "minimum_closure_evidence": "Versioned schema, fixture, supported/rejected package paths and acceptance inputs",
+        "revision3_workstream": "W0",
+        "revision3_closure": "contracts/tracker-v1.ts, contracts/source-v1.ts, fixture fixtures/tracker-app",
+        "revision3_evidence": "contract tests accept the fixture, reject unsupported inputs"
+      },
+      "G02": {
+        "id": "G02",
+        "priority": "P0",
+        "gap_analysis_status": "Missing",
+        "gap": "Real hosted adapter and runtime journey",
+        "pdf_pages": "9, 17, 22-25",
+        "proposed_owner": "B1",
+        "minimum_closure_evidence": "Two actual isolated apps; registered accurate capability; useful request executes",
+        "revision3_workstream": "W6",
+        "revision3_closure": "runtime/local (real), runtime/cloudflare (real API, gated)",
+        "revision3_evidence": "two apps served on distinct hosts locally; CF adapter blocked-with-reason"
+      },
+      "G03": {
+        "id": "G03",
+        "priority": "P0",
+        "gap_analysis_status": "Partial",
+        "gap": "Transactional sole permission/control authority",
+        "pdf_pages": "12, 17, 23",
+        "proposed_owner": "B1",
+        "minimum_closure_evidence": "Migrate all relevant readers/writers; commit-before-ACK; failure tests",
+        "revision3_workstream": "W1",
+        "revision3_closure": "SQLite authority, commit-before-ACK transaction helper",
+        "revision3_evidence": "crash/lost-ACK tests, busy writer test, reopen test"
+      },
+      "G04": {
+        "id": "G04",
+        "priority": "P0",
+        "gap_analysis_status": "Partial",
+        "gap": "Durable idempotency, job outbox and reconciliation",
+        "pdf_pages": "12, 18, 26",
+        "proposed_owner": "B1",
+        "minimum_closure_evidence": "Restart/lost-ACK retry without duplicate side effect; changed intent rejected",
+        "revision3_workstream": "W1+W7",
+        "revision3_closure": "hosted_jobs + outbox + leases + reconciliation",
+        "revision3_evidence": "restart-and-retry same intent -> one effect; changed intent -> 409"
+      },
+      "G05": {
+        "id": "G05",
+        "priority": "P0",
+        "gap_analysis_status": "Partial",
+        "gap": "Safe pinned supported-source intake",
+        "pdf_pages": "7, 13, 18",
+        "proposed_owner": "B1",
+        "minimum_closure_evidence": "Traversal/oversize/unsupported input rejected; pinned source retained",
+        "revision3_workstream": "W2",
+        "revision3_closure": "tar intake with traversal/symlink/size/bomb/unsupported checks; pinned source digest",
+        "revision3_evidence": "hostile fixture suite"
+      },
+      "G06": {
+        "id": "G06",
+        "priority": "P0",
+        "gap_analysis_status": "Missing",
+        "gap": "Isolated build service with bounded lifecycle",
+        "pdf_pages": "13, 18, 20",
+        "proposed_owner": "B1",
+        "minimum_closure_evidence": "Real build; malicious install denied privileged access; timeout/cleanup proof",
+        "revision3_workstream": "W2",
+        "revision3_closure": "recipe-local/e2b/docker runners, no submitted script execution",
+        "revision3_evidence": "runner boundary tests; e2b adapter contract test with injected SDK double"
+      },
+      "G07": {
+        "id": "G07",
+        "priority": "P0",
+        "gap_analysis_status": "Missing",
+        "gap": "Immutable artifacts and trusted byte/provenance verification",
+        "pdf_pages": "18, 26",
+        "proposed_owner": "B1",
+        "minimum_closure_evidence": "Real SHA-256 and metadata match; tampering and overwrite rejected",
+        "revision3_workstream": "W2",
+        "revision3_closure": "content-addressed immutable artifact store + publisher verification",
+        "revision3_evidence": "tamper and overwrite rejected"
+      },
+      "G08": {
+        "id": "G08",
+        "priority": "P0",
+        "gap_analysis_status": "Partial",
+        "gap": "App release selection, single-flight and fencing",
+        "pdf_pages": "18, 26, 34",
+        "proposed_owner": "B1",
+        "minimum_closure_evidence": "Race/stale-worker tests; restart keeps selected healthy release",
+        "revision3_workstream": "W7",
+        "revision3_closure": "single-flight per app, fence token, CAS activation",
+        "revision3_evidence": "concurrent publish race test; stale worker cannot activate"
+      },
+      "G09": {
+        "id": "G09",
+        "priority": "P0",
+        "gap_analysis_status": "Missing",
+        "gap": "Private candidate health/data verification",
+        "pdf_pages": "18, 26, 34",
+        "proposed_owner": "B1",
+        "minimum_closure_evidence": "Separate test DB; read-only production checks; unhealthy candidate never active",
+        "revision3_workstream": "W7",
+        "revision3_closure": "candidate probes on separate test DB; read-only prod schema check",
+        "revision3_evidence": "unhealthy candidate never active"
+      },
+      "G10": {
+        "id": "G10",
+        "priority": "P0",
+        "gap_analysis_status": "Missing",
+        "gap": "App owner/editor/viewer grants separate from workspace roles",
+        "pdf_pages": "19, 27",
+        "proposed_owner": "B2",
+        "minimum_closure_evidence": "Full role matrix; recipient needs no workspace access; owner publish also workspace-authorized",
+        "revision3_workstream": "W5",
+        "revision3_closure": "app grants owner/editor/viewer, last-owner protection, publish needs workspace role",
+        "revision3_evidence": "full role matrix"
+      },
+      "G11": {
+        "id": "G11",
+        "priority": "P0",
+        "gap_analysis_status": "Partial",
+        "gap": "Expiring app invites, secure acceptance and delivery outbox",
+        "pdf_pages": "19, 27, 33",
+        "proposed_owner": "B2",
+        "minimum_closure_evidence": "Matching verified email; replay/expiry/resend tests; real external receipt evidence",
+        "revision3_workstream": "W5",
+        "revision3_closure": "hashed 48 h single-use tokens, resend invalidation, encrypted delivery payload, transactional outbox",
+        "revision3_evidence": "replay/expiry/resend tests; SMTP sent vs delivered distinction"
+      },
+      "G12": {
+        "id": "G12",
+        "priority": "P0",
+        "gap_analysis_status": "Missing",
+        "gap": "Cross-domain app exchange and host-only sessions",
+        "pdf_pages": "10, 17, 27",
+        "proposed_owner": "B2",
+        "minimum_closure_evidence": "State/origin/app binding; atomic single-use redemption; no credential forwarding",
+        "revision3_workstream": "W5+W6",
+        "revision3_closure": "exchange + __Host- app session, atomic redemption",
+        "revision3_evidence": "state/origin/app binding tests; concurrent redemption"
+      },
+      "G13": {
+        "id": "G13",
+        "priority": "P0",
+        "gap_analysis_status": "Partial",
+        "gap": "Authoritative identity-session termination and fresh grants",
+        "pdf_pages": "10, 19, 28",
+        "proposed_owner": "B2",
+        "minimum_closure_evidence": "Previously valid token denied after relevant session termination or grant revoke",
+        "revision3_workstream": "W5",
+        "revision3_closure": "getUser() session authority, sign-out terminates app sessions",
+        "revision3_evidence": "old session denied after termination/revoke"
+      },
+      "G14": {
+        "id": "G14",
+        "priority": "P0",
+        "gap_analysis_status": "Missing",
+        "gap": "Gateway admission on pages/assets/API and alternate origins",
+        "pdf_pages": "15, 20, 24",
+        "proposed_owner": "B1+B2",
+        "minimum_closure_evidence": "Unauthorized HEAD/range/static/direct-origin requests denied before invocation",
+        "revision3_workstream": "W6",
+        "revision3_closure": "gateway admission before any artifact/broker invocation, incl. HEAD/range/assets",
+        "revision3_evidence": "invocation sentinel tests"
+      },
+      "G15": {
+        "id": "G15",
+        "priority": "P0",
+        "gap_analysis_status": "Missing",
+        "gap": "Credential stripping, response guard, CSRF, CSP and egress",
+        "pdf_pages": "15, 17, 20, 47",
+        "proposed_owner": "B1+B2",
+        "minimum_closure_evidence": "Spoofed context/sibling app mutations denied; forbidden bindings/network paths absent",
+        "revision3_workstream": "W6",
+        "revision3_closure": "credential stripping, response guard, CSRF/Origin, CSP, egress policy doc",
+        "revision3_evidence": "spoofed context/sibling app tests"
+      },
+      "G16": {
+        "id": "G16",
+        "priority": "P0",
+        "gap_analysis_status": "Missing",
+        "gap": "Trusted fixed per-app broker and D1 binding",
+        "pdf_pages": "11, 23-24, 29",
+        "proposed_owner": "B1+B2",
+        "minimum_closure_evidence": "Broker A cannot reach B; editable code receives no data capability",
+        "revision3_workstream": "W3+W6",
+        "revision3_closure": "fixed per-app broker, per-app DB, reserved /_zenith/data/*",
+        "revision3_evidence": "broker A cannot open DB B"
+      },
+      "G17": {
+        "id": "G17",
+        "priority": "P0",
+        "gap_analysis_status": "Missing",
+        "gap": "Durable bounded tracker data/schema operations",
+        "pdf_pages": "7, 11, 29",
+        "proposed_owner": "B1+B2",
+        "minimum_closure_evidence": "Real role-checked CRUD; validated fields; bounded reads; restart persistence",
+        "revision3_workstream": "W3",
+        "revision3_closure": "tracker CRUD, validation, bounded reads, durable SQLite",
+        "revision3_evidence": "restart persistence test"
+      },
+      "G18": {
+        "id": "G18",
+        "priority": "P0",
+        "gap_analysis_status": "Missing",
+        "gap": "Record versions and idempotent concurrent writes",
+        "pdf_pages": "6, 21, 29",
+        "proposed_owner": "B1",
+        "minimum_closure_evidence": "Two-editor stale update conflict; safe retry; Saved only after committed result",
+        "revision3_workstream": "W3",
+        "revision3_closure": "record versions, 409 conflict payload, in-transaction write ids",
+        "revision3_evidence": "two-editor conflict, lost-ACK replay"
+      },
+      "G19": {
+        "id": "G19",
+        "priority": "P0",
+        "gap_analysis_status": "Missing",
+        "gap": "Enforced CPU/build/request/body/storage limits and suspension",
+        "pdf_pages": "20, 35",
+        "proposed_owner": "B1",
+        "minimum_closure_evidence": "Boundary and concurrent quota tests; defined byte/counter semantics; data retained",
+        "revision3_workstream": "W8",
+        "revision3_closure": "quota counters, body cap, storage bytes, suspension",
+        "revision3_evidence": "boundary and race tests"
+      },
+      "G20": {
+        "id": "G20",
+        "priority": "P1",
+        "gap_analysis_status": "Partial",
+        "gap": "Real usage/spending alerts and new-build pause",
+        "pdf_pages": "20, 38",
+        "proposed_owner": "B1+F",
+        "minimum_closure_evidence": "Actual usage ledger; threshold tests; billing-lag disclosure",
+        "revision3_workstream": "W8",
+        "revision3_closure": "usage ledger, 50/75/90 % alerts, build pause",
+        "revision3_evidence": "threshold tests"
+      },
+      "G21": {
+        "id": "G21",
+        "priority": "P0",
+        "gap_analysis_status": "Missing",
+        "gap": "App-data export and recovery",
+        "pdf_pages": "21, 30, 33-34",
+        "proposed_owner": "B1",
+        "minimum_closure_evidence": "Restore checks counts/content; approved cutoff; preserves current export",
+        "revision3_workstream": "W8",
+        "revision3_closure": "app export/import bundle, restore with counts/content checks",
+        "revision3_evidence": "round-trip test"
+      },
+      "G22": {
+        "id": "G22",
+        "priority": "P0",
+        "gap_analysis_status": "Partial",
+        "gap": "Encrypted off-host control backup and clean-host restore",
+        "pdf_pages": "12, 21, 30, 47",
+        "proposed_owner": "B1",
+        "minimum_closure_evidence": "WAL-safe backup, key recovery, measured RPO/RTO on real topology",
+        "revision3_workstream": "W8",
+        "revision3_closure": "encrypted WAL-safe backup, key recovery doc, restore script",
+        "revision3_evidence": "backup under concurrent writes"
+      },
+      "G23": {
+        "id": "G23",
+        "priority": "P0",
+        "gap_analysis_status": "Missing",
+        "gap": "Restore without resurrecting revoked access",
+        "pdf_pages": "21, 28, 30, 47",
+        "proposed_owner": "B1+B2",
+        "minimum_closure_evidence": "Newer revocations reconciled or restored grants invalidated; denial before reopening",
+        "revision3_workstream": "W8",
+        "revision3_closure": "revocation ledger + reconciliation on restore",
+        "revision3_evidence": "restored older snapshot keeps revoked user denied"
+      },
+      "G24": {
+        "id": "G24",
+        "priority": "P0",
+        "gap_analysis_status": "Partial",
+        "gap": "Compatible release rollback distinct from data restore",
+        "pdf_pages": "18, 21, 30",
+        "proposed_owner": "B1",
+        "minimum_closure_evidence": "Failed update keeps old release; code rollback retains records; destructive schema rejected",
+        "revision3_workstream": "W7",
+        "revision3_closure": "rollback distinct from restore; schema compatibility check",
+        "revision3_evidence": "failed candidate keeps old release"
+      },
+      "G25": {
+        "id": "G25",
+        "priority": "P0",
+        "gap_analysis_status": "Partial",
+        "gap": "Hosted secret/publisher/build/recovery scopes",
+        "pdf_pages": "15, 18, 21, 47",
+        "proposed_owner": "B1",
+        "minimum_closure_evidence": "No platform secrets in builds/app code; scoped tokens and recoverable key lifecycle",
+        "revision3_workstream": "W2+W6",
+        "revision3_closure": "scoped tokens per role (publisher/build/runtime), no platform secrets in builds",
+        "revision3_evidence": "build env inspection test"
+      },
+      "G26": {
+        "id": "G26",
+        "priority": "P2",
+        "gap_analysis_status": "Unverified",
+        "gap": "MFA, privileged support access and tamper-resistant audit",
+        "pdf_pages": "47",
+        "proposed_owner": "F+B1",
+        "minimum_closure_evidence": "Operator policy, access logs, role review, credential-compromise drill",
+        "revision3_workstream": "W11",
+        "revision3_closure": "operator access policy + drill checklist (template)",
+        "revision3_evidence": "manual"
+      },
+      "G27": {
+        "id": "G27",
+        "priority": "P1",
+        "gap_analysis_status": "Partial",
+        "gap": "Worker/D1 export/import and complete data lifecycle",
+        "pdf_pages": "14, 21, 47",
+        "proposed_owner": "B1+B2",
+        "minimum_closure_evidence": "App runs elsewhere with data/access tests; delete/retention behavior documented",
+        "revision3_workstream": "W8",
+        "revision3_closure": "export/import + data lifecycle doc",
+        "revision3_evidence": "import into clean data dir"
+      },
+      "G28": {
+        "id": "G28",
+        "priority": "P1",
+        "gap_analysis_status": "Partial",
+        "gap": "Real application health/logs and release attribution",
+        "pdf_pages": "4, 34, 36",
+        "proposed_owner": "B1+B2",
+        "minimum_closure_evidence": "Actual endpoint/runtime/broker outcomes shown; synthetic results remain distinct",
+        "revision3_workstream": "W8",
+        "revision3_closure": "real health/log probes with release attribution; synthetic stays labelled",
+        "revision3_evidence": "health route tests"
+      },
+      "G29": {
+        "id": "G29",
+        "priority": "P1",
+        "gap_analysis_status": "Partial",
+        "gap": "Builder publish/release experience",
+        "pdf_pages": "6-7, 18, 32",
+        "proposed_owner": "B2",
+        "minimum_closure_evidence": "Supported source to real private URL; failures actionable; attempts timed",
+        "revision3_workstream": "W9",
+        "revision3_closure": "publish UX: source -> build -> private URL, actionable failures, timings",
+        "revision3_evidence": "screen tests"
+      },
+      "G30": {
+        "id": "G30",
+        "priority": "P0",
+        "gap_analysis_status": "Missing",
+        "gap": "Independent recipient useful-action experience",
+        "pdf_pages": "6, 19, 33",
+        "proposed_owner": "B2",
+        "minimum_closure_evidence": "Colleague signs in without dashboard membership, saves, reloads, handles conflict/denial",
+        "revision3_workstream": "W4+W6",
+        "revision3_closure": "recipient journey: sign in on app host, save, reload, conflict, denied",
+        "revision3_evidence": "acceptance journey"
+      },
+      "G31": {
+        "id": "G31",
+        "priority": "P1",
+        "gap_analysis_status": "Missing",
+        "gap": "Activation/cohort/assistance event model and reporting",
+        "pdf_pages": "36",
+        "proposed_owner": "B2+F",
+        "minimum_closure_evidence": "Defined events, deduplication, failed attempts and eligible cohort denominators",
+        "revision3_workstream": "W8",
+        "revision3_closure": "events table, dedupe, cohorts, scorecard excluding founder/test",
+        "revision3_evidence": "fixture cohort tests"
+      },
+      "G32": {
+        "id": "G32",
+        "priority": "P0",
+        "gap_analysis_status": "Partial",
+        "gap": "Hosted integration/adversarial acceptance suite",
+        "pdf_pages": "20-21, 33, 42, 47",
+        "proposed_owner": "Both",
+        "minimum_closure_evidence": "Two-app/multi-identity live evidence for all twelve acceptance gates",
+        "revision3_workstream": "W10",
+        "revision3_closure": "twelve-gate local acceptance suite + adversarial suites + CI job",
+        "revision3_evidence": "tests/hosted/acceptance/**"
+      },
+      "G33": {
+        "id": "G33",
+        "priority": "P0",
+        "gap_analysis_status": "Unverified",
+        "gap": "Persistent hosted control deployment and operational recovery",
+        "pdf_pages": "12, 17, 25",
+        "proposed_owner": "B1",
+        "minimum_closure_evidence": "Exact runtime/volume/region, fail-closed outage handling, clean-start and recovery proof",
+        "revision3_workstream": "W11",
+        "revision3_closure": "deployment runbook (compose + persistent volume, fail-closed)",
+        "revision3_evidence": "manual until a host exists"
+      },
+      "G34": {
+        "id": "G34",
+        "priority": "P0",
+        "gap_analysis_status": "Decision",
+        "gap": "Runtime/build/storage/domain/SMTP provider configuration",
+        "pdf_pages": "10, 13, 16, 25",
+        "proposed_owner": "F+B1+B2",
+        "minimum_closure_evidence": "Selected accounts/scopes/hosts/callbacks/providers; live evidence and approved budget",
+        "revision3_workstream": "W11",
+        "revision3_closure": "provider configuration decision record + env matrix",
+        "revision3_evidence": "manual"
+      },
+      "G35": {
+        "id": "G35",
+        "priority": "P2",
+        "gap_analysis_status": "Unverified",
+        "gap": "Independent commercial security and applicable ASVS verification",
+        "pdf_pages": "47",
+        "proposed_owner": "F+reviewer",
+        "minimum_closure_evidence": "Scoped assessment, reproducible evidence and release-blocking issues closed",
+        "revision3_workstream": "W11",
+        "revision3_closure": "evidence templates, claim ledger, scorecard with unknowns",
+        "revision3_evidence": "manual"
+      },
+      "G36": {
+        "id": "G36",
+        "priority": "P2",
+        "gap_analysis_status": "Unverified",
+        "gap": "Privacy, subprocessors, regions, deletion and incident commitments",
+        "pdf_pages": "47",
+        "proposed_owner": "F",
+        "minimum_closure_evidence": "Actual service inventory, published applicable policies and accountable support",
+        "revision3_workstream": "W11",
+        "revision3_closure": "evidence templates, claim ledger, scorecard with unknowns",
+        "revision3_evidence": "manual"
+      },
+      "G37": {
+        "id": "G37",
+        "priority": "P0",
+        "gap_analysis_status": "Unverified",
+        "gap": "Specific buyer pain, qualified discovery and named pilot candidates",
+        "pdf_pages": "5, 32, 37",
+        "proposed_owner": "F",
+        "minimum_closure_evidence": "Workflow observations and repeated switching pain; counts recorded honestly",
+        "revision3_workstream": "W11",
+        "revision3_closure": "evidence templates, claim ledger, scorecard with unknowns",
+        "revision3_evidence": "manual"
+      },
+      "G38": {
+        "id": "G38",
+        "priority": "P1",
+        "gap_analysis_status": "Unverified",
+        "gap": "External activation and mature repeat-use evidence",
+        "pdf_pages": "6, 35-37",
+        "proposed_owner": "F",
+        "minimum_closure_evidence": "Actual team/recipient actions and dates; founder/test actors excluded",
+        "revision3_workstream": "W11",
+        "revision3_closure": "evidence templates, claim ledger, scorecard with unknowns",
+        "revision3_evidence": "manual"
+      },
+      "G39": {
+        "id": "G39",
+        "priority": "P1",
+        "gap_analysis_status": "Unverified",
+        "gap": "Paid-pilot acceptance, invoices and collected revenue",
+        "pdf_pages": "35-38",
+        "proposed_owner": "F",
+        "minimum_closure_evidence": "Separate actual agreement/invoice/payment records; no invented MRR",
+        "revision3_workstream": "W11",
+        "revision3_closure": "evidence templates, claim ledger, scorecard with unknowns",
+        "revision3_evidence": "manual"
+      },
+      "G40": {
+        "id": "G40",
+        "priority": "P1",
+        "gap_analysis_status": "Decision",
+        "gap": "Actual capacity, operating budget and measured economics",
+        "pdf_pages": "2, 14, 31, 38",
+        "proposed_owner": "F+B1",
+        "minimum_closure_evidence": "Named owners/hours; provider plan fit; attributable costs and support time",
+        "revision3_workstream": "W11",
+        "revision3_closure": "evidence templates, claim ledger, scorecard with unknowns",
+        "revision3_evidence": "manual"
+      },
+      "G41": {
+        "id": "G41",
+        "priority": "P2",
+        "gap_analysis_status": "Unverified",
+        "gap": "YC founder facts, evidence packet, demo/video and submission",
+        "pdf_pages": "39-40, 42",
+        "proposed_owner": "F",
+        "minimum_closure_evidence": "Verified founder facts, claim ledger, true demo and submission receipt",
+        "revision3_workstream": "W11",
+        "revision3_closure": "evidence templates, claim ledger, scorecard with unknowns",
+        "revision3_evidence": "manual"
+      },
+      "G42": {
+        "id": "G42",
+        "priority": "P1",
+        "gap_analysis_status": "Partial",
+        "gap": "Stale preparation documentation",
+        "pdf_pages": "43-46 plus newer source",
+        "proposed_owner": "Integrator",
+        "minimum_closure_evidence": "Mark PDF received; update commit/CI/push evidence without rewriting history",
+        "revision3_workstream": "W11+W0",
+        "revision3_closure": "reconcile CHECKPOINT/DECISIONS/requirements; wording fixes",
+        "revision3_evidence": "docs"
+      },
+      "G43": {
+        "id": "G43",
+        "priority": "P1",
+        "gap_analysis_status": "Partial",
+        "gap": "Build and durability wording overstates some behavior",
+        "pdf_pages": "4, 12, 18",
+        "proposed_owner": "B2+Integrator",
+        "minimum_closure_evidence": "Import reports say mapping, not actual builds; durability comments state true boundary",
+        "revision3_workstream": "W11+W0",
+        "revision3_closure": "reconcile CHECKPOINT/DECISIONS/requirements; wording fixes",
+        "revision3_evidence": "docs"
+      },
+      "G44": {
+        "id": "G44",
+        "priority": "P1",
+        "gap_analysis_status": "Partial",
+        "gap": "PDF traceability in provisional 113-row inventory",
+        "pdf_pages": "Entire PDF",
+        "proposed_owner": "Integrator",
+        "minimum_closure_evidence": "Reconcile exact page/workstream mapping; distinguish targets/deferred/manual requirements",
+        "revision3_workstream": "W11+W0",
+        "revision3_closure": "reconcile CHECKPOINT/DECISIONS/requirements; wording fixes",
+        "revision3_evidence": "docs"
+      },
+      "G45": {
+        "id": "G45",
+        "priority": "P1",
+        "gap_analysis_status": "Unverified",
+        "gap": "Repository protection and hosted release governance",
+        "pdf_pages": "32, 42, 47",
+        "proposed_owner": "F+B1",
+        "minimum_closure_evidence": "Confirm required checks/review policy; separate deploy approvals and reproducible release evidence",
+        "revision3_workstream": "W11",
+        "revision3_closure": "branch-protection checklist + release evidence template",
+        "revision3_evidence": "manual"
+      }
+    },
+    "unmapped_rows_reason": "A row with an empty gap array is a scope/retention or deliberate-exclusion instruction with no counterpart in the 45-row register; it is not an unassessed requirement.",
+    "coverage": {
+      "rows_total": 113,
+      "rows_with_gap_ids": 111,
+      "rows_without_gap_ids": 2,
+      "gap_rows_total": 45,
+      "gap_rows_with_no_att_row": [],
+      "gap_to_requirements": {
+        "G01": [
+          "ATT-SCOPE-02",
+          "ATT-SCOPE-03",
+          "ATT-TEAM-01",
+          "ATT-DATA-06"
+        ],
+        "G02": [
+          "ATT-ARCH-03",
+          "ATT-ARCH-06"
+        ],
+        "G03": [
+          "ATT-ARCH-01",
+          "ATT-STATE-01",
+          "ATT-STATE-02",
+          "ATT-STATE-03",
+          "ATT-STATE-04",
+          "ATT-STATE-05",
+          "ATT-STATE-09",
+          "ATT-VERIFY-08"
+        ],
+        "G04": [
+          "ATT-STATE-01",
+          "ATT-STATE-05",
+          "ATT-STATE-06",
+          "ATT-STATE-07",
+          "ATT-STATE-08",
+          "ATT-STATE-09",
+          "ATT-DATA-03"
+        ],
+        "G05": [
+          "ATT-SCOPE-03",
+          "ATT-BUILD-01",
+          "ATT-BUILD-02",
+          "ATT-VERIFY-06"
+        ],
+        "G06": [
+          "ATT-ARCH-04",
+          "ATT-BUILD-01",
+          "ATT-BUILD-03",
+          "ATT-BUILD-04",
+          "ATT-VERIFY-06"
+        ],
+        "G07": [
+          "ATT-ARCH-05",
+          "ATT-BUILD-01",
+          "ATT-BUILD-05",
+          "ATT-BUILD-06",
+          "ATT-VERIFY-07"
+        ],
+        "G08": [
+          "ATT-STATE-01",
+          "ATT-STATE-07",
+          "ATT-STATE-08",
+          "ATT-BUILD-01",
+          "ATT-BUILD-07",
+          "ATT-VERIFY-07"
+        ],
+        "G09": [
+          "ATT-BUILD-01",
+          "ATT-BUILD-07",
+          "ATT-VERIFY-07"
+        ],
+        "G10": [
+          "ATT-STATE-09",
+          "ATT-ACCESS-01",
+          "ATT-ACCESS-02",
+          "ATT-VERIFY-02"
+        ],
+        "G11": [
+          "ATT-ACCESS-03",
+          "ATT-ACCESS-04",
+          "ATT-VERIFY-03"
+        ],
+        "G12": [
+          "ATT-ACCESS-05",
+          "ATT-ACCESS-06",
+          "ATT-ACCESS-08",
+          "ATT-VERIFY-03"
+        ],
+        "G13": [
+          "ATT-STATE-02",
+          "ATT-ACCESS-07",
+          "ATT-ACCESS-09",
+          "ATT-ACCESS-11",
+          "ATT-VERIFY-03"
+        ],
+        "G14": [
+          "ATT-ACCESS-09",
+          "ATT-ACCESS-11",
+          "ATT-GATE-01",
+          "ATT-GATE-02",
+          "ATT-GATE-06",
+          "ATT-GATE-09",
+          "ATT-VERIFY-04"
+        ],
+        "G15": [
+          "ATT-ACCESS-08",
+          "ATT-ACCESS-10",
+          "ATT-GATE-04",
+          "ATT-GATE-05",
+          "ATT-GATE-07",
+          "ATT-GATE-08",
+          "ATT-VERIFY-04"
+        ],
+        "G16": [
+          "ATT-ARCH-03",
+          "ATT-GATE-01",
+          "ATT-GATE-02",
+          "ATT-GATE-03",
+          "ATT-GATE-04",
+          "ATT-DATA-01",
+          "ATT-DATA-06"
+        ],
+        "G17": [
+          "ATT-DATA-01",
+          "ATT-DATA-05",
+          "ATT-VERIFY-05"
+        ],
+        "G18": [
+          "ATT-DATA-02",
+          "ATT-DATA-03",
+          "ATT-DATA-04",
+          "ATT-VERIFY-05"
+        ],
+        "G19": [
+          "ATT-GATE-09",
+          "ATT-OPS-01",
+          "ATT-OPS-02",
+          "ATT-OPS-03",
+          "ATT-VERIFY-08"
+        ],
+        "G20": [
+          "ATT-BUDGET-01",
+          "ATT-BUDGET-02"
+        ],
+        "G21": [
+          "ATT-OPS-04",
+          "ATT-OPS-06",
+          "ATT-BUILD-09",
+          "ATT-DATA-07"
+        ],
+        "G22": [
+          "ATT-ARCH-05",
+          "ATT-STATE-03",
+          "ATT-OPS-04",
+          "ATT-OPS-05",
+          "ATT-OPS-08",
+          "ATT-VERIFY-08"
+        ],
+        "G23": [
+          "ATT-OPS-06",
+          "ATT-OPS-07",
+          "ATT-TRUST-02",
+          "ATT-VERIFY-08"
+        ],
+        "G24": [
+          "ATT-STATE-08",
+          "ATT-OPS-04",
+          "ATT-BUILD-08",
+          "ATT-BUILD-09",
+          "ATT-DATA-05",
+          "ATT-VERIFY-07"
+        ],
+        "G25": [
+          "ATT-GATE-04",
+          "ATT-BUILD-03",
+          "ATT-BUILD-04",
+          "ATT-BUILD-05",
+          "ATT-VERIFY-06",
+          "ATT-VERIFY-12"
+        ],
+        "G26": [
+          "ATT-TRUST-01",
+          "ATT-TRUST-02"
+        ],
+        "G27": [
+          "ATT-TRUST-03",
+          "ATT-TRUST-04",
+          "ATT-DATA-07"
+        ],
+        "G28": [
+          "ATT-GATE-06",
+          "ATT-UX-02"
+        ],
+        "G29": [
+          "ATT-UX-01",
+          "ATT-UX-02",
+          "ATT-UX-04",
+          "ATT-DATA-04",
+          "ATT-VERIFY-09"
+        ],
+        "G30": [
+          "ATT-TRACE-03",
+          "ATT-UX-03",
+          "ATT-DATA-05",
+          "ATT-VERIFY-09"
+        ],
+        "G31": [
+          "ATT-METRIC-01",
+          "ATT-METRIC-02",
+          "ATT-METRIC-03"
+        ],
+        "G32": [
+          "ATT-BASE-04",
+          "ATT-TRACE-03",
+          "ATT-ARCH-06",
+          "ATT-TEAM-04",
+          "ATT-VERIFY-01",
+          "ATT-VERIFY-02",
+          "ATT-VERIFY-03",
+          "ATT-VERIFY-04",
+          "ATT-VERIFY-05",
+          "ATT-VERIFY-06",
+          "ATT-VERIFY-07",
+          "ATT-VERIFY-08",
+          "ATT-VERIFY-09",
+          "ATT-VERIFY-10",
+          "ATT-VERIFY-11",
+          "ATT-VERIFY-13",
+          "ATT-VERIFY-14"
+        ],
+        "G33": [
+          "ATT-ARCH-01",
+          "ATT-ARCH-02",
+          "ATT-STATE-04",
+          "ATT-OPS-05",
+          "ATT-OPS-08",
+          "ATT-OPS-09",
+          "ATT-HANDOFF-01"
+        ],
+        "G34": [
+          "ATT-ARCH-02",
+          "ATT-ARCH-03",
+          "ATT-ARCH-04",
+          "ATT-ARCH-05",
+          "ATT-ARCH-07",
+          "ATT-ARCH-08",
+          "ATT-ACCESS-05",
+          "ATT-HANDOFF-01",
+          "ATT-HANDOFF-02"
+        ],
+        "G35": [
+          "ATT-TRACE-02",
+          "ATT-TEAM-03",
+          "ATT-TRUST-05",
+          "ATT-TRUST-06",
+          "ATT-VERIFY-14"
+        ],
+        "G36": [
+          "ATT-TRACE-02",
+          "ATT-TRUST-03",
+          "ATT-TRUST-04",
+          "ATT-TRUST-05"
+        ],
+        "G37": [
+          "ATT-TRACE-02",
+          "ATT-BIZ-01",
+          "ATT-BIZ-02"
+        ],
+        "G38": [
+          "ATT-TRACE-02",
+          "ATT-METRIC-02",
+          "ATT-METRIC-03",
+          "ATT-BIZ-01",
+          "ATT-BIZ-03"
+        ],
+        "G39": [
+          "ATT-TRACE-02",
+          "ATT-METRIC-03",
+          "ATT-BIZ-01",
+          "ATT-BIZ-02",
+          "ATT-BIZ-03"
+        ],
+        "G40": [
+          "ATT-TRACE-02",
+          "ATT-ARCH-08",
+          "ATT-BUDGET-02",
+          "ATT-HANDOFF-02"
+        ],
+        "G41": [
+          "ATT-TRACE-02",
+          "ATT-BIZ-01",
+          "ATT-BIZ-02"
+        ],
+        "G42": [
+          "ATT-BASE-01",
+          "ATT-BASE-02",
+          "ATT-BASE-03",
+          "ATT-BASE-04",
+          "ATT-TRACE-01",
+          "ATT-HANDOFF-03",
+          "ATT-HANDOFF-04"
+        ],
+        "G43": [
+          "ATT-BASE-03"
+        ],
+        "G44": [
+          "ATT-BASE-02",
+          "ATT-BASE-03",
+          "ATT-TRACE-01",
+          "ATT-TEAM-01",
+          "ATT-VERIFY-13",
+          "ATT-HANDOFF-04"
+        ],
+        "G45": [
+          "ATT-TRACE-02",
+          "ATT-TEAM-02",
+          "ATT-TEAM-03",
+          "ATT-VERIFY-10",
+          "ATT-VERIFY-11",
+          "ATT-VERIFY-12",
+          "ATT-HANDOFF-03"
+        ]
+      }
+    }
+  }
 }

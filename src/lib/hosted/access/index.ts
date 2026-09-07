@@ -1,103 +1,102 @@
 /**
  * App access — grants, invitations, exchanges and app sessions.
  *
- * STUB written by the integrator so sibling workstreams compile against the
- * agreed signatures. Workstream W5 replaces this file; every function below
- * must keep its signature. Until then each call refuses with
- * `policy_unavailable`, never a pass.
+ * The barrel every other workstream imports (`@/lib/hosted/access`). The
+ * signatures here are the ones the integrator's stub published and W6, W7 and
+ * the boot path already code against; this file may gain exports, never change
+ * one.
+ *
+ * What lives behind it:
+ *
+ *   grants.ts    — the only authority on who may open an app (R3-02, G10)
+ *   invites.ts   — hashed single-use links, sealed delivery, the outbox handler (G11)
+ *   sessions.ts  — exchange codes, opaque app sessions, the `__Host-` cookie (R3-09, G12)
+ *   identity.ts  — the live `getUser()` check; unavailable is never a pass (R3-10, G13)
+ *   seal.ts      — AES-256-GCM over the one value that cannot be stored in clear
+ *   mail.ts      — the nodemailer seam, and honesty about "sent"
+ *
+ * `http.ts` (the /api layer for these routes) is intentionally not re-exported:
+ * the gateway and the job runner import this barrel and have no business
+ * pulling the request layer in behind it.
+ *
+ * Workstream W5 (hosted R3).
  */
-import type { NextRequest } from "next/server";
-import {
-  HostedError,
-  type AppGrant,
-  type AppRole,
-  type AppSession,
-  type Subject,
-  type VerifiedIdentity,
-} from "@/lib/hosted/contracts";
 
-const pending = (): never => {
-  throw new HostedError("policy_unavailable", "App access is not available in this build.", {
-    fix: "Workstream W5 (src/lib/hosted/access) has not landed; do not serve private apps from this build.",
-  });
-};
+export {
+  activeGrant,
+  changeGrantRole,
+  grantDirect,
+  listGrants,
+  requireAppRole,
+  revokeGrant,
+  type DirectGrant,
+  type GrantScope,
+  type RevokedGrant,
+} from "./grants";
 
-/** The caller's active grant at or above `min`, or `forbidden`. */
-export function requireAppRole(appId: string, subject: Subject, min: AppRole): AppGrant {
-  void appId;
-  void subject;
-  void min;
-  return pending();
-}
+export {
+  INVITE_EMAIL_KIND,
+  acceptInvite,
+  createInvite,
+  inviteAcceptUrl,
+  listInvites,
+  registerAccessOutboxHandlers,
+  resendInvite,
+  revokeInvite,
+  scheduleInviteDelivery,
+  type AcceptedInvite,
+  type InviteScope,
+  type IssuedInvite,
+  type NewInviteInput,
+} from "./invites";
 
-export function activeGrant(appId: string, subject: Subject): AppGrant | null {
-  void appId;
-  void subject;
-  return pending();
-}
+export {
+  EXCHANGE_STATE_MAX,
+  EXCHANGE_STATE_MIN,
+  appSessionCookie,
+  clearAppSessionCookie,
+  createExchange,
+  redeemExchange,
+  resolveAppSession,
+  resolveAppSessionDetailed,
+  terminateAppSession,
+  terminateAppSessionsForApp,
+  terminateAppSessionsForSubject,
+  type AppSessionDenial,
+  type ExchangeRedirect,
+  type RedeemOptions,
+  type RedeemedExchange,
+  type ResolvedAppSession,
+} from "./sessions";
 
-/** Live session + live grant for a cookie value on this app, or null. Never cached. */
-export function resolveAppSession(
-  cookieValue: string,
-  appId: string
-): { session: AppSession; grant: AppGrant } | null {
-  void cookieValue;
-  void appId;
-  return pending();
-}
+export {
+  NO_IDENTITY_PROVIDER,
+  sessionAuthority,
+  setSessionAuthorityForTests,
+  supabaseSessionAuthority,
+  verifyRequestIdentity,
+  type IdentityClient,
+  type IdentityClientFactory,
+  type ProviderError,
+  type ProviderUser,
+  type RequestIdentityAuthority,
+} from "./identity";
 
-/** Atomic single-use redemption; throws `sign_in_required`/`forbidden`. */
-export function redeemExchange(
-  code: string,
-  opts: { appId: string; state: string }
-): { cookieValue: string; session: AppSession; grant: AppGrant } {
-  void code;
-  void opts;
-  return pending();
-}
+export {
+  NO_SECRET_KEY,
+  sealInvite,
+  sealingConfigured,
+  unsealInvite,
+  type SealedInvite,
+} from "./seal";
 
-/** Control side: mint a single-use code for an active grant; returns the app-host callback URL. */
-export function createExchange(appId: string, subject: Subject, state: string): { redirect: string } {
-  void appId;
-  void subject;
-  void state;
-  return pending();
-}
-
-export function terminateAppSession(
-  cookieValue: string,
-  reason: NonNullable<AppSession["terminatedReason"]>
-): boolean {
-  void cookieValue;
-  void reason;
-  return pending();
-}
-
-export function terminateAppSessionsForSubject(
-  subject: Subject,
-  reason: NonNullable<AppSession["terminatedReason"]>
-): number {
-  void subject;
-  void reason;
-  return pending();
-}
-
-/** `Set-Cookie` header value for the `__Host-zenith_app` cookie. */
-export function appSessionCookie(value: string, expiresAt: string): string {
-  void value;
-  void expiresAt;
-  return pending();
-}
-
-export function clearAppSessionCookie(): string {
-  return pending();
-}
-
-/** Live identity check against the provider (getUser), never a bare claim read. */
-export async function verifyRequestIdentity(req: NextRequest): Promise<VerifiedIdentity> {
-  void req;
-  return pending();
-}
-
-/** Registers the `invite_email` outbox handler. Called by `ensureHosted()`. */
-export function registerAccessOutboxHandlers(): void {}
+export {
+  INVITE_SEND_TIMEOUT_MS,
+  INVITE_TTL_HOURS,
+  MISSING_NODEMAILER,
+  NODEMAILER,
+  inviteEmailProblem,
+  inviteFrom,
+  inviteMessage,
+  sendInviteEmail,
+} from "./mail";

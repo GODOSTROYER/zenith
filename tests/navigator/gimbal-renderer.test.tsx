@@ -3,10 +3,11 @@ import { Mesh, MeshStandardMaterial, type Scene } from "three";
 import { GIMBAL_STATE } from "@/components/navigator/gimbal-contract";
 import { createGimbalRenderer, type GimbalRenderer } from "@/components/navigator/gimbal-renderer";
 
-const mocks = vi.hoisted(() => ({ render: vi.fn(), dispose: vi.fn(), pixelRatio: vi.fn() }));
+const mocks = vi.hoisted(() => ({ render: vi.fn(), dispose: vi.fn(), pixelRatio: vi.fn(), context: vi.fn() }));
 vi.mock("three", async (importOriginal) => ({
   ...await importOriginal<typeof import("three")>(),
   WebGLRenderer: class {
+    constructor(options: unknown) { mocks.context(options); }
     domElement = document.createElement("canvas");
     render = mocks.render;
     dispose = mocks.dispose;
@@ -44,9 +45,9 @@ describe("living gyroscope lifecycle", () => {
       pending.forEach((callback) => callback(time));
     }
   }
-  async function mount(state: Parameters<typeof createGimbalRenderer>[1]["state"] = null, reducedMotion = false, lowPower = false) {
+  async function mount(state: Parameters<typeof createGimbalRenderer>[1]["state"] = null, reducedMotion = false) {
     const onReady = vi.fn(), onError = vi.fn();
-    runtime = await createGimbalRenderer(host, { state, reducedMotion, lowPower, onReady, onError });
+    runtime = await createGimbalRenderer(host, { state, reducedMotion, onReady, onError });
     expect(onReady).toHaveBeenCalledOnce(); expect(onError).not.toHaveBeenCalled();
     return { onReady, onError };
   }
@@ -59,7 +60,7 @@ describe("living gyroscope lifecycle", () => {
     expect(headMaterial().color.getHexString()).toBe("364154");
     runtime!.dispose();
     runtime = await createGimbalRenderer(host, {
-      state: "planning", material: "porcelain", reducedMotion: true, lowPower: false,
+      state: "planning", material: "porcelain", reducedMotion: true,
       onReady: vi.fn(), onError: vi.fn(),
     });
     expect(headMaterial().color.getHexString()).toBe("f4f3ee");
@@ -73,8 +74,8 @@ describe("living gyroscope lifecycle", () => {
     await mount("verified");
     const before = [0, 1, 2].map((i) => object(`Orbit${i}`).rotation.clone());
     mocks.render.mockClear(); advance(1000);
-    expect(mocks.render.mock.calls.length).toBeGreaterThanOrEqual(27);
-    expect(mocks.render.mock.calls.length).toBeLessThanOrEqual(30);
+    expect(mocks.render.mock.calls.length).toBeGreaterThanOrEqual(55);
+    expect(mocks.render.mock.calls.length).toBeLessThanOrEqual(60);
     before.forEach((rotation, i) => {
       const after = object(`Orbit${i}`).rotation;
       for (const axis of ["x", "y", "z"] as const) expect(Math.abs(after[axis] - rotation[axis])).toBeGreaterThan(0.0001);
@@ -124,36 +125,33 @@ describe("living gyroscope lifecycle", () => {
   });
 
   it("keeps reduced motion still while expressions and state accents remain accurate", async () => {
-    await mount("planning", true, true);
+    await mount("planning", true);
     expect(frames.size).toBe(0); runtime!.setState("blocked");
     expect(accent().color.getHexString()).toBe(GIMBAL_STATE.blocked.color.slice(1));
     expect(object("Mouth").scale.y).toBeLessThan(0);
     runtime!.greet("tap"); advance(10_000);
     expect(host.dataset.gimbalGesture).toBeUndefined();
     expect(frames.size).toBe(0);
-    expect(mocks.pixelRatio).toHaveBeenLastCalledWith(1);
+    expect(mocks.pixelRatio).toHaveBeenLastCalledWith(2);
     runtime!.setReducedMotion(false); expect(frames.size).toBe(1);
     runtime!.setReducedMotion(true); expect(frames.size).toBe(0);
   });
 
-  it("limits low power to 20 rendered frames per second", async () => {
-    await mount(null, false, true); mocks.render.mockClear(); advance(1000);
-    expect(mocks.render.mock.calls.length).toBeGreaterThanOrEqual(18);
-    expect(mocks.render.mock.calls.length).toBeLessThanOrEqual(20);
+  it("always requests antialiasing and supersamples standard-density screens", async () => {
+    await mount();
+    expect(mocks.context).toHaveBeenCalledWith({ alpha: true, antialias: true, powerPreference: "high-performance" });
+    expect(mocks.pixelRatio).toHaveBeenLastCalledWith(2);
   });
 
-  it("changes power and motion settings without replacing the canvas or orbit", async () => {
-    await mount("planning"); advance(600);
-    const canvas = host.querySelector("canvas"), before = object("Orbit0").quaternion.clone();
-    runtime!.setLowPower(true);
-    expect(host.querySelector("canvas")).toBe(canvas);
-    expect(object("Orbit0").quaternion.angleTo(before)).toBeLessThan(0.000001);
-    mocks.render.mockClear(); advance(1000);
-    expect(mocks.render.mock.calls.length).toBeLessThanOrEqual(20);
-    const paused = object("Orbit0").quaternion.clone();
-    runtime!.setReducedMotion(true);
-    expect(object("Orbit0").quaternion.angleTo(paused)).toBeLessThan(0.000001);
-    expect(frames.size).toBe(0);
+  it("retains 3x display detail and bounds oversized drawing buffers", async () => {
+    vi.stubGlobal("devicePixelRatio", 3);
+    await mount();
+    expect(mocks.pixelRatio).toHaveBeenLastCalledWith(3);
+    runtime!.dispose();
+    const largeHost = document.createElement("div");
+    Object.defineProperties(largeHost, { clientWidth: { value: 2000 }, clientHeight: { value: 1000 } });
+    runtime = await createGimbalRenderer(largeHost, { state: null, reducedMotion: true, onReady: vi.fn(), onError: vi.fn() });
+    expect(mocks.pixelRatio).toHaveBeenLastCalledWith(4096 / 2000);
   });
 
   it("answers a tap with a tiny wink and prevents repeated gesture restarts", async () => {

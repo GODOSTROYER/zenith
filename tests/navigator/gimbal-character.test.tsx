@@ -5,7 +5,7 @@ import { GimbalCharacter } from "@/components/navigator/gimbal-character";
 import type { GimbalRendererOptions } from "@/components/navigator/gimbal-renderer";
 
 const fake = vi.hoisted(() => ({ create: vi.fn(), runtime: {
-  setState: vi.fn(), setReducedMotion: vi.fn(), setVisible: vi.fn(), setLowPower: vi.fn(), greet: vi.fn(), dispose: vi.fn(),
+  setState: vi.fn(), setReducedMotion: vi.fn(), setVisible: vi.fn(), greet: vi.fn(), dispose: vi.fn(),
 } }));
 vi.mock("@/components/navigator/gimbal-renderer", () => ({ createGimbalRenderer: fake.create }));
 let root: Root, host: HTMLDivElement, options: GimbalRendererOptions;
@@ -72,15 +72,17 @@ describe("Gimbal component lifecycle", () => {
     expect(host.querySelector('.gimbal-static ellipse[rx="42"]')?.getAttribute("fill")).toBe("#f4f3ee");
   });
 
-  it("keeps the same renderer when changing motion modes", async () => {
+  it("follows system reduced motion without replacing the renderer", async () => {
+    let onChange = () => {};
+    const preference = { matches: false, addEventListener: (_: string, callback: () => void) => { onChange = callback; }, removeEventListener() {} };
+    vi.stubGlobal("matchMedia", () => preference);
     await mount();
-    await act(async () => { root.render(<GimbalCharacter state="planning" motion="still" />); });
+    preference.matches = true;
+    act(() => onChange());
+    expect(fake.runtime.setReducedMotion).toHaveBeenLastCalledWith(true);
     expect(fake.create).toHaveBeenCalledOnce();
     expect(fake.runtime.dispose).not.toHaveBeenCalled();
-    expect(fake.runtime.setReducedMotion).toHaveBeenLastCalledWith(true);
-    await act(async () => { root.render(<GimbalCharacter state="planning" motion="low-power" />); });
-    expect(fake.runtime.setLowPower).toHaveBeenLastCalledWith(true);
-    expect(fake.create).toHaveBeenCalledOnce();
+    expect(host.querySelector('[data-quality="max"]')).not.toBeNull();
   });
   it("acknowledges greetings even when WebGL fails", async () => {
     fake.create.mockRejectedValue(new Error("WebGL unavailable"));

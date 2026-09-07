@@ -48,13 +48,14 @@ Material choice never changes workflow state or verification eligibility.
 The renderer creates its own geometry and materials; it downloads no GLB,
 texture atlas or decoder. The earlier full-body assets remain in `public/gimbal`
 as an archive, documented in `docs/gimbal-assets.md`. The SVG fallback matches
-the new face-and-rings silhouette. Rendering is capped at 30fps, or 20fps with
-lower geometry resolution and pixel ratio in low power. Reduced motion and
-Still stop frames; offscreen and hidden views pause without catching up.
+the new face-and-rings silhouette. Rendering uses antialiasing, smooth geometry, 60fps motion and 2–3x pixel density
+(with a 4096px drawing-buffer dimension limit). There are no quality or motion
+selectors. System reduced motion stops frames without lowering visual quality;
+offscreen and hidden views pause without catching up.
 Visibility is checked again after the lazy renderer import; a tab or scene that
 became hidden does not initialize GPU resources or consume its recovery retry.
-All geometry/materials are disposed once on unmount or context loss. Saved hide,
-motion and low-power preferences keep their existing `orrery-gimbal-*` keys.
+All geometry/materials are disposed once on unmount or context loss. The saved hide preference retains its `orrery-gimbal-visible` key. The retired
+`orrery-gimbal-motion` value is left untouched but no longer read or written.
 
 Completion alone is not verification. After all steps finish successfully,
 `src/lib/navigator/run.ts` calls `verifyRun` from `verification.ts`, persists the

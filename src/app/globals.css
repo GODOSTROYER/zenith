@@ -397,9 +397,6 @@ input, textarea { caret-color: var(--signal); }
 }
 .gimbal-character[data-active="false"] .gimbal-aura,
 .gimbal-character[data-active="false"] .gimbal-state-pulse { animation-play-state: paused; }
-.gimbal-character[data-motion="still"] .gimbal-aura,
-.gimbal-character[data-motion="still"] .gimbal-state-pulse,
-.gimbal-character[data-motion="low-power"] .gimbal-aura { animation: none; }
 @media (prefers-reduced-motion: reduce) {
   .gimbal-aura, .gimbal-state-pulse { animation: none !important; }
 }

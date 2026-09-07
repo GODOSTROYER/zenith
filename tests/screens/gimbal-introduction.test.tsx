@@ -15,13 +15,11 @@ function render() {
 }
 afterEach(() => { act(() => root?.unmount()); host?.remove(); });
 describe("public Gimbal introduction", () => {
-  it("starts neutral and low-power, with a still-mode control", () => {
+  it("starts neutral without quality or motion selectors", () => {
     render();
     expect(host.querySelector('[data-testid="gimbal"]')?.getAttribute("data-state")).toBe("neutral");
-    expect(host.querySelector('[data-testid="gimbal"]')?.getAttribute("data-motion")).toBe("low-power");
-    const select = host.querySelector("select")!;
-    act(() => { select.value = "still"; select.dispatchEvent(new Event("change", { bubbles: true })); });
-    expect(host.querySelector('[data-testid="gimbal"]')?.getAttribute("data-motion")).toBe("still");
+    expect(host.querySelector("select")).toBeNull();
+    expect(host.textContent).not.toContain("Low power");
   });
   it("offers real setup/help links and distinguishes simulation from verification", () => {
     render();

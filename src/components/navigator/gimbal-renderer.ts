@@ -12,14 +12,12 @@ export interface GimbalRendererOptions {
   material?: GimbalMaterial;
   state: GimbalState | null;
   reducedMotion: boolean;
-  lowPower: boolean;
   onReady: () => void;
   onError: () => void;
 }
 export interface GimbalRenderer {
   setState(state: GimbalState | null): void;
   setReducedMotion(reducedMotion: boolean): void;
-  setLowPower(lowPower: boolean): void;
   setVisible(visible: boolean): void;
   greet(source: "hover" | "tap"): void;
   dispose(): void;
@@ -37,7 +35,7 @@ const EXPRESSION = {
 /** Procedural gyroscope: no model, texture, decoder or animation-clip downloads. */
 export async function createGimbalRenderer(host: HTMLElement, options: GimbalRendererOptions): Promise<GimbalRenderer> {
   const porcelain = options.material === "porcelain";
-  const renderer = new WebGLRenderer({ alpha: true, antialias: !options.lowPower, powerPreference: "low-power" });
+  const renderer = new WebGLRenderer({ alpha: true, antialias: true, powerPreference: "high-performance" });
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = porcelain ? 1.05 : 1.2;
@@ -74,7 +72,7 @@ export async function createGimbalRenderer(host: HTMLElement, options: GimbalRen
     ? { color: 0xf4f3ee, emissive: 0xe7e2ce, emissiveIntensity: 0.22, roughness: 0.46 }
     : { color: 0xffd69c, emissive: 0xd3a05c, emissiveIntensity: 0.7, roughness: 0.4 });
   const accent = new MeshStandardMaterial({ color: 0xb89cff, emissive: 0xb89cff, emissiveIntensity: porcelain ? 0.12 : 0.38, metalness: porcelain ? 0.08 : 0.35, roughness: porcelain ? 0.48 : 0.4 });
-  const sphere = new SphereGeometry(1, options.lowPower ? 24 : 40, 24);
+  const sphere = new SphereGeometry(1, 96, 64);
   const face = new Group(); face.name = "Face"; scene.add(face);
   const head = mesh(sphere, shell, "Head"); head.scale.set(0.65, 0.54, 0.39); face.add(head);
   const visor = mesh(sphere, glass, "Visor"); visor.scale.set(0.58, 0.44, 0.23); visor.position.z = 0.25; face.add(visor);
@@ -82,13 +80,13 @@ export async function createGimbalRenderer(host: HTMLElement, options: GimbalRen
     const eye = mesh(sphere, gold, index === 0 ? "LeftEye" : "RightEye");
     eye.position.set(side * 0.205, 0.055, 0.473); eye.scale.set(0.066, 0.112, 0.025); face.add(eye); return eye;
   });
-  const mouth = mesh(new TorusGeometry(0.112, 0.013, 6, 24, Math.PI), gold, "Mouth");
+  const mouth = mesh(new TorusGeometry(0.112, 0.013, 16, 96, Math.PI), gold, "Mouth");
   mouth.rotation.z = Math.PI; mouth.position.set(0, -0.14, 0.48); face.add(mouth);
   const rings = [1.02, 1.36, 1.69].map((radius, index) => {
     const pivot = new Group(); pivot.name = `Orbit${index}`;
-    pivot.add(mesh(new TorusGeometry(radius, index === 1 ? 0.025 : 0.021, 8, options.lowPower ? 64 : 112), metal, `Ring${index}`));
+    pivot.add(mesh(new TorusGeometry(radius, index === 1 ? 0.025 : 0.021, 20, 256), metal, `Ring${index}`));
     // Inlaid arcs make axial rotation legible without bright particles or trails.
-    pivot.add(mesh(new TorusGeometry(radius, 0.025, 6, 20, 0.38), accent, `Inlay${index}`));
+    pivot.add(mesh(new TorusGeometry(radius, 0.025, 16, 48, 0.38), accent, `Inlay${index}`));
     scene.add(pivot); return pivot;
   });
   let state = options.state;
@@ -104,8 +102,7 @@ export async function createGimbalRenderer(host: HTMLElement, options: GimbalRen
   let nextGreeting = 0;
   // Incommensurate frequencies never follow a short repeating clip.
   const seed = Math.random() * Math.PI * 2;
-  let lowPower = options.lowPower;
-  let interval = 1 / (lowPower ? 20 : 30);
+  const interval = 1 / 60;
   const poseEuler = new Euler();
   const poseQuaternion = new Quaternion();
 
@@ -192,7 +189,10 @@ export async function createGimbalRenderer(host: HTMLElement, options: GimbalRen
     const aspect = width / height, half = Math.max(1.96, 1.96 / aspect);
     camera.left = -half * aspect; camera.right = half * aspect; camera.top = half; camera.bottom = -half;
     camera.updateProjectionMatrix();
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lowPower ? 1 : 1.5));
+    // Supersample even on 1x screens; retain native detail through 3x displays.
+    // A bounded buffer protects against oversized embeds without quality tiers.
+    const ratio = Math.max(2, Math.min(window.devicePixelRatio || 1, 3));
+    renderer.setPixelRatio(Math.min(ratio, 4096 / Math.max(width, height)));
     renderer.setSize(width, height, false); render(); request();
   }
   function dispose() {
@@ -226,11 +226,6 @@ export async function createGimbalRenderer(host: HTMLElement, options: GimbalRen
       reduced = next; stop(); gesture = null; delete host.dataset.gimbalGesture;
       if (reduced) Object.assign(current, target);
       impulse = energy = 0; refreshAccent(); pose(0, true); render(); request();
-    },
-    setLowPower(next) {
-      if (disposed || lowPower === next) return;
-      lowPower = next; interval = 1 / (lowPower ? 20 : 30);
-      stop(); resize();
     },
     setVisible(next) {
       if (disposed || visible === next) return;

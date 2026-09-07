@@ -37,7 +37,7 @@ import { CommandBar } from "./command-bar";
 import { NavigatorGlyph, type GimbalState } from "./glyph";
 import { GIMBAL_STATES } from "./gimbal-contract";
 import { gimbalPresentationFor, type GimbalPresentation } from "./gimbal-state";
-import { GimbalCharacter, type GimbalMotion } from "./gimbal-character";
+import { GimbalCharacter } from "./gimbal-character";
 import { GimbalStatus } from "./gimbal-status";
 import { RunHistory } from "./run-history";
 import { RunPanel } from "./run-panel";
@@ -78,7 +78,6 @@ export function NavigatorScreen({
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string>();
   const [characterVisible, setCharacterVisible] = useState(true);
-  const [motion, setMotion] = useState<GimbalMotion>("auto");
 
   const runs = useJson<{ runs: NavigatorRun[] }>(`/api/navigator/runs?projectId=${project.id}`);
 
@@ -108,8 +107,6 @@ export function NavigatorScreen({
   useEffect(() => {
     try {
       setCharacterVisible(localStorage.getItem("orrery-gimbal-visible") !== "false");
-      const savedMotion = localStorage.getItem("orrery-gimbal-motion");
-      if (savedMotion === "still" || savedMotion === "low-power") setMotion(savedMotion);
     } catch {
       // Storage may be unavailable; visible is the safe, reversible default.
     }
@@ -126,11 +123,6 @@ export function NavigatorScreen({
       return next;
     });
   }, []);
-
-  const changeMotion = (value: GimbalMotion) => {
-    setMotion(value);
-    try { localStorage.setItem("orrery-gimbal-motion", value); } catch { /* Session preference still works. */ }
-  };
 
   // An adopted run finishes on the server, not in this tab's `execute` call.
   useEffect(() => {
@@ -267,7 +259,7 @@ export function NavigatorScreen({
         <aside className={styles.context} aria-label="Navigator context">
           <Header autonomy={autonomy} onAutonomyChanged={shell.refresh} loading={shell.loading && !shell.boot}
             plannerMode={plannerMode} model={plannerModel} workspaceName={shell.boot?.workspace.name}
-            role={role} presentation={presentation} motion={motion} onMotionChange={changeMotion}
+            role={role} presentation={presentation}
             characterVisible={characterVisible} onToggleCharacter={toggleCharacter} />
           <Advisories findings={findings} deployments={deployments} environments={environments}
             slug={slug} onSuggest={setGoal} />
@@ -312,8 +304,6 @@ function Header({
   workspaceName,
   role,
   presentation,
-  motion,
-  onMotionChange,
   characterVisible,
   onToggleCharacter,
 }: {
@@ -326,8 +316,6 @@ function Header({
   workspaceName?: string;
   role: WorkspaceRole | null;
   presentation: GimbalPresentation;
-  motion: GimbalMotion;
-  onMotionChange: (value: GimbalMotion) => void;
   characterVisible: boolean;
   onToggleCharacter: () => void;
 }) {
@@ -336,7 +324,7 @@ function Header({
     <div className={styles.support}>
       <div className={styles.companion}>
         {characterVisible && <figure className={styles.figure} data-gimbal-state={state ?? "neutral"}>
-          <GimbalCharacter state={state} motion={motion} material="porcelain" />
+          <GimbalCharacter state={state} material="porcelain" />
         </figure>}
         <div className="min-w-0">
           <h2 className="text-[14px] font-semibold text-ink">Gimbal</h2>
@@ -357,12 +345,6 @@ function Header({
               {characterVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
               {characterVisible ? "Hide Gimbal" : "Show Gimbal"}
             </button>
-            <label className="inline-flex items-center gap-2 text-[12px] text-ink-mute">Motion
-              <select aria-label="Gimbal motion" value={motion} onChange={(event) => onMotionChange(event.target.value as GimbalMotion)}
-                className="min-h-9 rounded-ctl border border-line bg-bg1 px-2 text-[12px] text-ink">
-                <option value="auto">Follow system</option><option value="still">Still poses</option><option value="low-power">Low power</option>
-              </select>
-            </label>
           </div>
           <p className="text-[12px] leading-relaxed text-ink-mute">{PLANNER_NOTES[plannerMode]}{plannerMode === "llm" && model ? ` Model: ${model}.` : ""}</p>
           <GimbalStateGuide current={state} />

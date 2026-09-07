@@ -6,26 +6,21 @@ import type { GimbalState } from "./gimbal-contract";
 import type { GimbalMaterial, GimbalRenderer } from "./gimbal-renderer";
 import { GimbalFallback } from "./gimbal-fallback";
 
-export type GimbalMotion = "auto" | "still" | "low-power";
-
 /** Visible-only gyroscope. Workflow information remains in adjacent HTML. */
-export function GimbalCharacter({ state, motion = "auto", material = "alloy", className }: {
+export function GimbalCharacter({ state, material = "alloy", className }: {
   state: GimbalState | null;
-  motion?: GimbalMotion;
   material?: GimbalMaterial;
   className?: string;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const renderer = useRef<GimbalRenderer | null>(null);
   const latestState = useRef(state);
-  const latestMotion = useRef(motion);
   const syncSettings = useRef<() => void>(() => {});
   const greetingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hello, setHello] = useState(false);
   const [active, setActive] = useState(false);
   const [ready, setReady] = useState(false);
   latestState.current = state;
-  latestMotion.current = motion;
 
   useEffect(() => {
     const element = host.current;
@@ -37,12 +32,9 @@ export function GimbalCharacter({ state, motion = "auto", material = "alloy", cl
     let attempts = 0;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     const preference = matchMedia("(prefers-reduced-motion: reduce)");
-    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
-    const lowPower = () => latestMotion.current === "low-power" || connection?.saveData === true || navigator.hardwareConcurrency <= 4;
-    const reducedMotion = () => latestMotion.current === "still" || preference.matches;
+    const reducedMotion = () => preference.matches;
     syncSettings.current = () => {
       renderer.current?.setReducedMotion(reducedMotion());
-      renderer.current?.setLowPower(lowPower());
     };
 
     const recover = () => {
@@ -75,7 +67,6 @@ export function GimbalCharacter({ state, motion = "auto", material = "alloy", cl
           state: latestState.current,
           material,
           reducedMotion: reducedMotion(),
-          lowPower: lowPower(),
           onReady: () => { if (!disposed) setReady(true); },
           onError: () => { failed = true; recover(); },
         });
@@ -114,7 +105,6 @@ export function GimbalCharacter({ state, motion = "auto", material = "alloy", cl
   }, [material]);
 
   useLayoutEffect(() => { renderer.current?.setState(state); }, [state]);
-  useLayoutEffect(() => { syncSettings.current(); }, [motion]);
 
   const greet = () => {
     if (greetingTimer.current) return;
@@ -125,7 +115,7 @@ export function GimbalCharacter({ state, motion = "auto", material = "alloy", cl
 
   return (
     <div className={cx("gimbal-character", className)} data-gimbal-state={state ?? "neutral"}
-      data-renderer={ready ? "3d" : "static"} data-motion={motion} data-material={material} data-active={active}>
+      data-renderer={ready ? "3d" : "static"} data-quality="max" data-material={material} data-active={active}>
       <span className="gimbal-aura" aria-hidden="true" />
       <span key={state} className="gimbal-state-pulse" aria-hidden="true" />
       <GimbalFallback state={state} material={material} hidden={ready} />

@@ -104,9 +104,6 @@
 .zenith-gimbal-character { width: 100%; height: 350px; }
 .zenith-gimbal-character .gimbal-aura { display: none; }
 .zenith-gimbal-figure figcaption { text-align: center; font-family: var(--zenith-font-display); font-size: 30px; }
-.zenith-motion-control { display: flex; gap: 10px; align-items: center; justify-content: center; color: var(--zenith-muted); font-size: 12px; margin-top: 12px; }
-.zenith-motion-control select { min-height: 44px; background: transparent; border: 0; border-bottom: 1px solid var(--zenith-rule); border-radius: 0; padding: 6px 22px 6px 6px; color: var(--zenith-ink); }
-.zenith-motion-control select option { background: var(--zenith-paper); }
 .zenith-gimbal-copy h2, .zenith-section-heading h2 { font: 400 clamp(56px, 6.2vw, 92px)/.98 var(--zenith-font-display); letter-spacing: -.03em; margin: 0 0 30px; }
 .zenith-gimbal-copy > p { max-width: 485px; font-size: 16px; line-height: 1.75; color: var(--zenith-muted); margin: 18px 0; }
 .zenith-gimbal-links { display: flex; align-items: center; flex-wrap: wrap; gap: 16px 28px; margin-top: 24px; }

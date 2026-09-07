@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowUpRight, Circle, CirclePause, CircleX, LoaderCircle, ScanEye, Sparkles } from "lucide-react";
-import { GimbalCharacter, type GimbalMotion } from "@/components/navigator/gimbal-character";
+import { GimbalCharacter } from "@/components/navigator/gimbal-character";
 import { AUTONOMY_LEVELS, AUTONOMY_MEANING } from "@/lib/navigator/shared";
 import type { AutonomyLevel } from "@/lib/domain/types";
 
@@ -18,16 +18,14 @@ const STATES = [
 
 /** Gimbal remains a neutral companion; its greeting is never evidence of a run. */
 export function GimbalIntroduction() {
-  const [motion, setMotion] = useState<GimbalMotion>("low-power");
   const [level, setLevel] = useState<AutonomyLevel>("approve");
   return (
     <section id="meet-gimbal" className="zenith-gimbal" aria-labelledby="meet-gimbal-title">
       <div className="zenith-gimbal-main">
         <figure className="zenith-gimbal-figure">
           <div className="zenith-gimbal-orbit-caption"><span>GIMBAL</span><span>Ready to help</span></div>
-          <GimbalCharacter state={null} motion={motion} className="zenith-gimbal-character" />
+          <GimbalCharacter state={null} className="zenith-gimbal-character" />
           <figcaption>Hello. I’m Gimbal.</figcaption>
-          <div className="zenith-motion-control"><label htmlFor="landing-gimbal-motion">Motion</label><select id="landing-gimbal-motion" value={motion} onChange={(event) => setMotion(event.target.value as GimbalMotion)}><option value="low-power">Low power</option><option value="still">Still poses</option><option value="auto">Follow system</option></select></div>
         </figure>
         <div className="zenith-gimbal-copy">
           <h2 id="meet-gimbal-title">An intent. A plan.<br /><em>Your decision.</em></h2>

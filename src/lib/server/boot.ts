@@ -15,6 +15,7 @@ import { replayOutbox, startAlertEvaluator } from "@/lib/alerts";
 import * as security from "@/lib/security/rules";
 import * as logsim from "@/lib/logsim";
 import { claimDataDir } from "@/lib/data-lock";
+import { ensureHosted } from "@/lib/hosted";
 import { env } from "@/lib/env";
 import { log } from "@/lib/log";
 
@@ -51,6 +52,10 @@ async function boot(): Promise<void> {
   // rewrites state.json wholesale, so two writers silently lose each other's
   // work. The thrown error names the pid, the directory and the way out.
   claimDataDir(env().ORRERY_DATA);
+  // The hosted control authority (SQLite) opens right after the data-dir
+  // claim, before anything can read hosted state, and refuses to boot in
+  // hosted mode without the inputs it needs. See src/lib/hosted/index.ts.
+  ensureHosted();
   // Alert deliveries the last process had queued — or was mid-send when it
   // died — are reclaimed and drained. Safe to reclaim every claimed row here
   // because the line above just proved no other process owns this data

@@ -72,7 +72,8 @@ export interface ActionDef<I = unknown> {
     | "connection"
     | "secrets"
     | "operations"
-    | "navigator";
+    | "navigator"
+    | "hosted";
   risk: Risk;
   requiredRole: Role;
   /** true when the action mutates cloud/system state (vs. read-only helpers) */

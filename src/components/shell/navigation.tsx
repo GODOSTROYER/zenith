@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { Activity, BookOpen, Boxes, Code2, GitCompareArrows, LayoutDashboard, Plus, Radar, Rocket, Settings, ShieldCheck, Sparkles } from "lucide-react";
+import { Activity, AppWindow, BookOpen, Boxes, Code2, GitCompareArrows, LayoutDashboard, Plus, Radar, Rocket, Settings, ShieldCheck, Sparkles } from "lucide-react";
 import { cx } from "@/lib/format";
 
 export const PROJECT_DESTINATIONS = [
@@ -39,6 +39,7 @@ export function ShellNavigation({ pathname, slug, projectName, collapsed = false
   return (
     <nav aria-label="Main navigation" className="workbench-navigation" data-collapsed={collapsed}>
       {item("/overview", "Overview", LayoutDashboard)}
+      {item("/apps", "Apps", AppWindow)}
       {slug && <div className="workbench-nav-group" aria-label="Project sections">
         {!collapsed && <p className="workbench-nav-caption" title={projectName}>{projectName ?? "Project"}</p>}
         {PROJECT_DESTINATIONS.map(({ seg, label, icon }) => item(`/p/${slug}${seg ? `/${seg}` : ""}`, label, icon, !seg, seg === "navigator"))}

@@ -98,7 +98,8 @@ export interface InviteDelivery {
   createdAt: string;
   claimedAt?: string;
   settledAt?: string;
-  transport?: "smtp" | "log";
+  /** `none` = no transport configured: the owner must share the link by hand */
+  transport?: "smtp" | "log" | "none";
   providerMessageId?: string;
   error?: string;
 }
@@ -357,6 +358,12 @@ export const HOSTED_EVENTS = [
   "grant.revoked",
   "export.completed",
   "restore.completed",
+  "backup.completed",
+  "app.suspended",
+  "app.resumed",
+  "session.terminated",
+  "spend.threshold",
+  "build.paused",
 ] as const;
 
 export type HostedEventName = (typeof HOSTED_EVENTS)[number];

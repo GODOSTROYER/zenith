@@ -119,6 +119,14 @@ export function paletteRows(
       search: "guide help onboarding setup gimbal getting started",
     },
     {
+      key: "screen:apps",
+      title: "Hosted apps",
+      where: "private apps published from this workspace",
+      href: "/apps",
+      group: "Screens",
+      search: "apps hosted publish tracker invite private app",
+    },
+    {
       key: "screen:overview",
       title: "Workspace overview",
       where: "the workspace overview",

@@ -1,0 +1,88 @@
+/**
+ * The seam every cross-workstream call in this directory goes through.
+ *
+ * The publish pipeline is the one place where five other workstreams meet: the
+ * runtime that stages and activates (W6), the build runner and artifact store
+ * (W2), the grant check (W5), the usage ledger and the event log (W8). Calling
+ * those modules directly from the pipeline would make this directory
+ * untestable until every one of them has landed — and untestable in the exact
+ * scenarios that matter most, because "the probe fails" and "the fence moved
+ * under us" are states a real runtime will not produce on demand.
+ *
+ * So production code reads its collaborators from this one object, whose
+ * defaults are the real modules, and a test swaps in a double for the call it
+ * needs to steer. Nothing here decides policy; it only decides *who is asked*.
+ *
+ * Workstream W7 (hosted R3).
+ */
+import type {
+  AppGrant,
+  AppRole,
+  ArtifactStore,
+  BuildRunner,
+  HostedRuntime,
+  Subject,
+  UsageEntry,
+} from "@/lib/hosted/contracts";
+import { activeGrant, requireAppRole } from "@/lib/hosted/access";
+import { FsArtifactStore } from "@/lib/hosted/artifacts";
+import { selectedBuildRunner } from "@/lib/hosted/build";
+import { openAppData } from "@/lib/hosted/data";
+import { recordEvent, type RecordEventInput } from "@/lib/hosted/events";
+import { selectedHostedRuntime } from "@/lib/hosted/runtime";
+import { buildsPaused, recordUsage } from "@/lib/hosted/usage";
+
+/** Everything outside `src/lib/hosted/release` that the pipeline calls. */
+export interface ReleaseDeps {
+  /** The runtime `ZENITH_RUNTIME` selects. Throws `runtime_unavailable` when it cannot run. */
+  runtime(): HostedRuntime;
+  /** The runner `ZENITH_BUILD_RUNNER` selects, or null when this install has not chosen one. */
+  buildRunner(): BuildRunner | null;
+  artifactStore(): ArtifactStore;
+  /** The caller's active grant at or above `min`, or `forbidden`. */
+  requireAppRole(appId: string, subject: Subject, min: AppRole): AppGrant;
+  activeGrant(appId: string, subject: Subject): AppGrant | null;
+  recordUsage(entry: Omit<UsageEntry, "id" | "at"> & { at?: string }): UsageEntry;
+  buildsPaused(workspaceId: string): { paused: boolean; reason?: string };
+  recordEvent(input: RecordEventInput): boolean;
+  /** The data schema an app's records are stored under; a rollback target must match it. */
+  appSchemaVersion(appId: string): Promise<number>;
+}
+
+const DEFAULTS: ReleaseDeps = {
+  runtime: () => selectedHostedRuntime(),
+  buildRunner: () => selectedBuildRunner(),
+  artifactStore: () => new FsArtifactStore(),
+  requireAppRole: (appId, subject, min) => requireAppRole(appId, subject, min),
+  activeGrant: (appId, subject) => activeGrant(appId, subject),
+  recordUsage: (entry) => recordUsage(entry),
+  buildsPaused: (workspaceId) => buildsPaused(workspaceId),
+  recordEvent: (input) => recordEvent(input),
+  appSchemaVersion: (appId) => openAppData(appId).store.schemaVersion(appId),
+};
+
+/**
+ * The live collaborators. Production never writes to this object; only
+ * `setReleaseDepsForTests` and `resetReleaseDeps` do.
+ */
+export const releaseDeps: ReleaseDeps = { ...DEFAULTS };
+
+/**
+ * Swap in doubles for the duration of a test. Returns the undo, so a test that
+ * forgets `resetReleaseDeps()` still cannot leak a double into the next one:
+ *
+ *     const restore = setReleaseDepsForTests({ runtime: () => probeFails });
+ *     try { … } finally { restore(); }
+ */
+export function setReleaseDepsForTests(patch: Partial<ReleaseDeps>): () => void {
+  const before: ReleaseDeps = { ...releaseDeps };
+  Object.assign(releaseDeps, patch);
+  return () => {
+    Object.assign(releaseDeps, before);
+  };
+}
+
+/** Put every collaborator back to the real module. Tests call it in `afterEach`. */
+export function resetReleaseDeps(): void {
+  Object.assign(releaseDeps, DEFAULTS);
+}

@@ -35,8 +35,7 @@ export const POST = hostedRoute<{ appId: string }>(async (req, { appId }) => {
   const result = await executeHosted(
     "app.suspend",
     buildCtx({}, actor),
-    { appId, jobId: body.jobId, reason: body.reason },
-    { idempotencyKey: body.jobId }
+    { appId, jobId: body.jobId, reason: body.reason }
   );
   const data = result.data as { job: unknown; jobId: string; created: boolean };
   return accepted({ job: data.job, jobId: data.jobId, created: data.created });

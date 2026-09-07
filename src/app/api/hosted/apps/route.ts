@@ -13,6 +13,7 @@
 import { z } from "zod";
 import "@/lib/actions/defs/hosted";
 import { buildRunnerStatus } from "@/lib/hosted/build";
+import { hostedConfig } from "@/lib/hosted/config";
 import { appSummary, listApps } from "@/lib/hosted/release";
 import {
   actorOf,
@@ -37,12 +38,17 @@ export const GET = hostedRoute(async (req) => {
   requireWorkspaceRole(actor, "viewer");
   const workspace = requireWorkspace();
   const runtime = await runtimeStatus();
+  const config = hostedConfig();
   return {
     apps: listApps(workspace.id).map((app) => appSummary(app.id)),
     limits: limitsBlock(),
     enforcement: runtime.enforcement,
     runtime: { id: runtime.id, label: runtime.label, availability: runtime.availability },
     builder: await buildRunnerStatus(),
+    // So a workspace with no apps yet can still show the address the first one
+    // will have, instead of reading it back off an app that does not exist.
+    appDomain: config.ZENITH_APP_DOMAIN,
+    appScheme: config.ZENITH_APP_SCHEME,
   };
 });
 

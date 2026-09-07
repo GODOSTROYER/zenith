@@ -151,6 +151,10 @@ export interface AppSummary {
   recentJobs: HostedJob[];
   hostname: string;
   origin: string;
+  /** Active grants, so a list card can say who has access without an owner-only read. */
+  grantCount: number;
+  /** Pending invitations. */
+  inviteCount: number;
 }
 
 /**
@@ -174,6 +178,8 @@ export function appSummary(appId: string, opts: { jobs?: number; releases?: numb
     recentJobs: a.repos.jobs.listByApp(app.id, { limit: opts.jobs ?? 20 }),
     hostname: appHostname(app.slug),
     origin: appOrigin(app.slug),
+    grantCount: a.repos.grants.listByApp(app.id, { activeOnly: true }).length,
+    inviteCount: a.repos.invites.listByApp(app.id, { state: "pending" }).length,
   };
 }
 

@@ -12,7 +12,8 @@
  */
 import { z } from "zod";
 import "@/lib/actions/defs/hosted";
-import { buildRunnerStatus } from "@/lib/hosted/build";
+import { NO_RUNNER_REASON, buildRunnerStatus, selectedBuildRunner } from "@/lib/hosted/build";
+import { buildsPaused } from "@/lib/hosted/usage";
 import { hostedConfig } from "@/lib/hosted/config";
 import { appSummary, listApps } from "@/lib/hosted/release";
 import {
@@ -45,6 +46,13 @@ export const GET = hostedRoute(async (req) => {
     enforcement: runtime.enforcement,
     runtime: { id: runtime.id, label: runtime.label, availability: runtime.availability },
     builder: await buildRunnerStatus(),
+    // Which runner ZENITH_BUILD_RUNNER actually selected — null with the
+    // reason when none — so a screen never has to infer it from the list.
+    selectedBuilder: selectedBuildRunner()?.id ?? null,
+    selectedBuilderReason: selectedBuildRunner() ? null : NO_RUNNER_REASON,
+    // The spending pause applies to everyone who can publish, not only to the
+    // admin who can read the spending screen.
+    buildsPaused: buildsPaused(workspace.id),
     // So a workspace with no apps yet can still show the address the first one
     // will have, instead of reading it back off an app that does not exist.
     appDomain: config.ZENITH_APP_DOMAIN,

@@ -5,6 +5,52 @@ superseded statements are marked historical in place.
 
 ## Revision 3 — 2026-09-07 (Claude integrator)
 
+### Outcome (integrator, end of the Revision 3 build, source `08e5bfa` + this commit)
+
+Every workstream W0–W11 landed on `zenith/hosted-r3`. Final verification on
+Windows 11 / Node 24.19.0 / SQLite 3.53.3:
+
+| Check | Result |
+| --- | --- |
+| `npx tsc --noEmit` | 0 errors |
+| `npx eslint .` | clean |
+| `npx vitest run` (whole suite) | **205 files, 2,153 tests passed** (baseline 119 / 1,216) |
+| `npx vitest run tests/hosted` | 77 files, 930 tests passed |
+| `npx vitest run tests/hosted/acceptance tests/ci` | 13 files, 124 tests passed — all twelve gates, no `DEFECT` markers |
+| `npx tsx scripts/hosted-acceptance.ts` | PASS, 22 checks |
+| `npx tsx scripts/hosted-browser.ts` | 24/24 steps in Chrome 152 (desktop + 375 px) |
+| `npm run smoke`, `npm run gimbal:verify` | pass |
+| `npx next build` (Turbopack, dev server stopped) | pass; one cosmetic warning (`createRequire` runtime argument in `src/lib/hosted/build/recipe.ts`) |
+| CI job `hosted` | added to `.github/workflows/ci.yml`; not yet observed on GitHub (no push in this session) |
+
+Register rows by outcome (details in `ACCEPTANCE-R3.md`, `PLAN-R3.md` §1):
+
+- **Closed with executable evidence on the local runtime:** G01, G03, G04, G05,
+  G07, G08, G09, G10, G11 (delivery to SMTP-acceptance only), G12, G13
+  (against an injected identity authority), G14, G15 (CSP/CSRF/credential
+  stripping; egress is `not_enforced` locally and says so), G16, G17, G18,
+  G19, G20 (estimates), G21, G22 (filesystem target; S3 with a client double),
+  G23, G24, G28, G29, G30, G31, G32 (local twelve-gate suite), G42, G43, G44.
+- **Real code path, gated on an input this machine does not have:** G02
+  (Cloudflare runtime: `ZENITH_CF_*`), G06 (E2B / Docker runners: `E2B_API_KEY`
+  or a daemon), G25 (scoped provider tokens), G27 (S3 target live), G33 (a host
+  with a persistent volume; runbook written), G34 (provider decision record
+  written, accounts not chosen).
+- **Founder / commercial, templates only:** G26, G35, G36, G37, G38, G39, G40,
+  G41, G45 — every value `unknown`, nothing fabricated.
+
+Two operational notes. (1) `next build` shares `.next` with `next dev` in this
+Next version; building while the dev server runs breaks the dev server — stop
+it first (the runbook says so). (2) The development server on :3400 was
+restarted by the integrator after that mistake; it must be started again with
+`npm run dev` after this session ends.
+
+**Gates unchanged:** supervised real-data hosted pilot — **no-go** until a
+live runtime, an isolated build service, off-host recovery storage and an
+identity-provider round trip have been exercised on a real host; commercial
+rollout — **no-go**. The local journey is proven; the hosted one is ready to
+be proven.
+
 Baseline: `ffb2753` (the Gimbal full-quality commit). Working branch:
 `zenith/hosted-r3`. Plan: [PLAN-R3.md](PLAN-R3.md). Shared contracts:
 [CONTRACTS-R3.md](CONTRACTS-R3.md). Normative input: the 45-row gap register

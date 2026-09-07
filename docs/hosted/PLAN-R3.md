@@ -94,7 +94,7 @@ list) are integrator-only; agents list needed edits in their final report.
 | W7 | release | `src/lib/hosted/release/**`, `src/lib/actions/defs/hosted.ts`, `src/app/api/hosted/apps/route.ts`, `src/app/api/hosted/apps/[appId]/route.ts`, `src/app/api/hosted/apps/[appId]/{releases,jobs,publish,rollback,suspend}/**`, `tests/hosted/release/**`, `tests/actions/hosted.test.ts` | 2 |
 | W8 | ops | `src/lib/hosted/{backup,export,quota,usage,events,health}/**`, `scripts/hosted/**`, `src/app/api/hosted/apps/[appId]/{export,health,usage,events}/**`, `src/app/api/hosted/ops/**`, `tests/hosted/{backup,export,quota,usage,events,health}/**` | 2 |
 | W9 | ux | `src/app/(product)/apps/**`, `src/components/apps/**`, `src/lib/client/hosted.ts`, `tests/screens/apps/**` | 2 |
-| W10 | verify | `tests/hosted/acceptance/**`, `scripts/hosted-acceptance.ts`, `docs/hosted/ACCEPTANCE-R3.md`, `.github/workflows/ci.yml` (add job only) | 3 |
+| W10 | verify | `tests/hosted/acceptance/**`, `scripts/hosted-acceptance.ts`, `scripts/hosted-browser.ts`, `docs/hosted/ACCEPTANCE-R3.md`, `.github/workflows/ci.yml` (add job only), `tests/ci/release-gates.test.ts` | 3 |
 
 Dependency DAG: W0 → {W1, W2, W3, W4, W11} → {W5, W6, W7, W8, W9} → W10 →
 integration (W0). W5–W9 import W1's authority and W2/W3's modules through the

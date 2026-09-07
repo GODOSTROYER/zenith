@@ -35,7 +35,9 @@
     "hosted:restore": "tsx --env-file-if-exists=.env.local scripts/hosted/restore.ts",
     "hosted:reopen": "tsx --env-file-if-exists=.env.local scripts/hosted/reopen.ts",
     "hosted:scorecard": "tsx --env-file-if-exists=.env.local scripts/hosted/scorecard.ts",
-    "hosted:backup-live-check": "tsx --env-file-if-exists=.env.local scripts/hosted/backup-live-check.ts"
+    "hosted:backup-live-check": "tsx --env-file-if-exists=.env.local scripts/hosted/backup-live-check.ts",
+    "hosted:acceptance": "tsx scripts/hosted-acceptance.ts",
+    "hosted:browser": "tsx scripts/hosted-browser.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",

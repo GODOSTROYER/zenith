@@ -17,8 +17,9 @@ export const metadata: Metadata = {
   title: TITLE,
   description: DESCRIPTION,
   // Absolute-URL base for the generated social card (see opengraph-image.tsx).
-  // Set NEXT_PUBLIC_SITE_URL wherever this is deployed.
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3400"),
+  // Docker's optional build argument is an empty string when not supplied.
+  // Treat blank and unset alike; an invalid nonblank URL still fails visibly.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL?.trim() || "http://localhost:3400"),
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",

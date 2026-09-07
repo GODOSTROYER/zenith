@@ -1,12 +1,8 @@
 # Orrery — production image, built on Next's `output: "standalone"` tracing.
 #
-# THE BUILD NEEDS NETWORK ACCESS. `src/app/layout.tsx` uses `next/font/google`
-# (Space Grotesk, JetBrains Mono), and Next fetches those files from
-# fonts.googleapis.com at build time. On an air-gapped or proxy-blocked builder
-# `npm run build` fails with a font fetch error rather than a code error. The
-# fonts are deliberately kept as-is; vendor them with `next/font/local` if you
-# need an offline build. Same reason the CI `build` and `docker` jobs are
-# `continue-on-error`.
+# Installing dependencies and pulling base images require network access.
+# Fonts are self-hosted in public/fonts; Next compilation does not fetch them.
+# Both production and Docker builds are mandatory CI gates.
 #
 # Layout follows the official Next standalone example:
 # https://github.com/vercel/next.js/tree/canary/examples/with-docker
@@ -40,9 +36,7 @@ ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL \
     NEXT_TELEMETRY_DISABLED=1
 
-# The repo has no public/ directory today. The runner stage still copies one,
-# per Next's standalone docs, so creating it here keeps that COPY valid whether
-# or not the repo grows real static assets later.
+# Compile with the public brand/font assets included in the build context.
 RUN mkdir -p public && npm run build
 
 # ---------------------------------- runner ----------------------------------

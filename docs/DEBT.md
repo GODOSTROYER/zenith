@@ -302,3 +302,33 @@ would produce 15-line files and one more import per call site:
 | `map/nodes.tsx` | 3 | One renderer per stratum, registered together in `nodeTypes`. |
 | `shell/wordmark.tsx` | 2 | `Wordmark` + `OrbitMark`, the same mark at two sizes. |
 | `auth/auth-form.tsx`, `map/dialogs.tsx`, `shell/project-chrome.tsx`, `observe/alerts.tsx` | 2 each | Pre-existing; outside this pass. `observe/alerts.tsx` is the one worth splitting (see 7.1). |
+
+## 8. Hosted apps (Revision 3) — `ponytail:` markers
+
+Added on branch `zenith/hosted-r3`. Each names the ceiling it accepts and the
+upgrade path; none is a bug. Counts: **21 markers under `src/lib/hosted`**,
+0 `TODO`/`FIXME`.
+
+| Where | Ceiling |
+| --- | --- |
+| `src/lib/hosted/access/identity.ts:21` | Every grant-sensitive request costs one live identity-provider round trip (`getUser`). Deliberate: a cached pass would outlive a terminated session. |
+| `src/lib/hosted/access/sessions.ts:28` | Expired exchange and session rows are not swept; they are denied on read. Add a purge to the job ticker. |
+| `src/lib/hosted/authority/outbox.ts:18` | No dead-letter queue: five attempts, then `failed` is recorded and visible. |
+| `src/lib/hosted/authority/schema.ts:293` | Migrations are forward-only; rollback is a backup restore. |
+| `src/lib/hosted/backup/create.ts:36` | A bundle is assembled in memory before sealing — right for a pilot, wrong at gigabyte scale. |
+| `src/lib/hosted/build/recipe-config.mjs:21` | React alias list is exact (`react`, `react-dom`, client entry); `react-dom/server` etc. resolve-fail. |
+| `src/lib/hosted/build/recipe.ts:45` | The platform root is found by walking up from `process.cwd()`; a server started elsewhere passes it explicitly. |
+| `src/lib/hosted/build/runner-recipe-local.ts:43` | Windows `CreateProcess` adds `SYSTEMROOT`/`TEMP`/`USERPROFILE` to a child regardless; the test asserts no secret prefixes leak. |
+| `src/lib/hosted/data/backend.ts:216`, `:311`, `:320` | D1's HTTP API is async and has no interactive transaction: mutations are single conditional statements judged by `changes`; the replay payload and the 409 body still need a read. Unverified against real D1. |
+| `src/lib/hosted/data/store.ts:138` | The write-id ledger grows until `purgeExpiredWrites()` runs; nothing schedules it yet. |
+| `src/lib/hosted/data/store.ts:164`, `:169` | Status/category filters scan the ordering index; same-millisecond rows order by id, not insertion. |
+| `src/lib/hosted/data/store.ts:371` | A replay returns the record JSON exactly as recorded, not re-read. |
+| `src/lib/hosted/data/store.ts:534` | The page cursor is opaque but unsigned; it carries no privileges. |
+| `src/lib/hosted/release/apps.ts:163` | The hostname comes from `ZENITH_APP_DOMAIN`, not the runtime, so a summary renders when the runtime is unavailable. |
+| `src/lib/hosted/release/publish.ts:593`, `shared.ts:108`, `shared.ts:150` | Raw SQL for the release runtime ref, queued-job phase data and lease renewal; the authority repos lack those three methods. |
+| `src/lib/hosted/usage/index.ts:368` | Spending alerts reach the server log only; reaching workspace alert channels would couple the hosted path to the legacy store. |
+
+Boundaries stated in code rather than as markers: the same-host `recipe-local`
+runner is a process boundary, not a hostile-code sandbox (its `boundary`
+string says so); the Cloudflare runtime, E2B and Docker runners and the S3
+backup target are real request shapes proven only against injected doubles.

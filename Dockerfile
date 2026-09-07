@@ -71,6 +71,9 @@ COPY --from=builder --chown=orrery:nodejs /app/.next/static ./.next/static
 # so it is installed only when ZENITH_RECIPE_LOCAL=1 is passed at build time.
 COPY --from=builder --chown=orrery:nodejs /app/src/lib/hosted/build/recipe-worker.mjs ./src/lib/hosted/build/recipe-worker.mjs
 COPY --from=builder --chown=orrery:nodejs /app/src/lib/hosted/build/recipe-config.mjs ./src/lib/hosted/build/recipe-config.mjs
+# The two reference source packages a publish may name by fixture id
+# (src/lib/hosted/release/intent.ts FIXTURES). Plain source files, no build.
+COPY --from=builder --chown=orrery:nodejs /app/fixtures ./fixtures
 ARG ZENITH_RECIPE_LOCAL=0
 RUN if [ "$ZENITH_RECIPE_LOCAL" = "1" ]; then       npm install --no-save --no-audit --no-fund --ignore-scripts vite@7.3.6 @vitejs/plugin-react@5.1.4 react@19.1.0 react-dom@19.1.0       && chown -R orrery:nodejs node_modules;     fi
 

@@ -20,8 +20,11 @@ node_modules
 
 *.tsbuildinfo
 .impeccable
-tests
-fixtures
+# tests/ and fixtures/ stay in the context: the production type-check covers
+# scripts/hosted-*.ts, which share the loopback gateway adapter with the
+# acceptance suite, and the runner image ships fixtures/ so the reference
+# apps can be published from a container. Neither reaches the final image
+# except fixtures/, copied explicitly in the runner stage.
 README.md
 PRODUCT.md
 docs

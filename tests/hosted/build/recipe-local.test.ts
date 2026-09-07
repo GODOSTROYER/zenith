@@ -53,11 +53,19 @@ function request(overrides: Partial<import("@/lib/hosted/contracts").BuildReques
 
 describe("RecipeLocalRunner availability", () => {
   it("refuses when ZENITH_BUILD_RUNNER is unset, naming the variable and the isolated options", async () => {
-    const availability = await new build.RecipeLocalRunner().availability();
-    expect(availability.available).toBe(false);
-    expect(availability.reason).toContain("ZENITH_BUILD_RUNNER");
-    expect(availability.fix).toContain("ZENITH_BUILD_RUNNER=e2b");
-    expect(availability.fix).toContain("ZENITH_BUILD_RUNNER=docker");
+    // CI's hosted job exports ZENITH_BUILD_RUNNER for the whole process, so
+    // "unset" has to be made true here rather than assumed.
+    const had = process.env.ZENITH_BUILD_RUNNER;
+    delete process.env.ZENITH_BUILD_RUNNER;
+    try {
+      const availability = await new build.RecipeLocalRunner().availability();
+      expect(availability.available).toBe(false);
+      expect(availability.reason).toContain("ZENITH_BUILD_RUNNER");
+      expect(availability.fix).toContain("ZENITH_BUILD_RUNNER=e2b");
+      expect(availability.fix).toContain("ZENITH_BUILD_RUNNER=docker");
+    } finally {
+      if (had !== undefined) process.env.ZENITH_BUILD_RUNNER = had;
+    }
   });
 
   it("refuses when another runner is selected", async () => {
@@ -133,15 +141,27 @@ describe("RecipeLocalRunner building the minimal app for real", () => {
 
   it("leaves no materialized source behind", async () => {
     process.env.ZENITH_BUILD_RUNNER = "recipe-local";
-    const before = fs
-      .readdirSync(fs.realpathSync(os.tmpdir()))
-      .filter((name) => name.startsWith(source.MATERIALIZE_PREFIX)).length;
-    const result = await new build.RecipeLocalRunner().run(request(), new AbortController().signal);
-    if (result.outputDir) outputs.push(result.outputDir);
-    const after = fs
-      .readdirSync(fs.realpathSync(os.tmpdir()))
-      .filter((name) => name.startsWith(source.MATERIALIZE_PREFIX)).length;
-    expect(after).toBeLessThanOrEqual(before);
+    // Other test files materialize into the shared temp directory at the same
+    // time, so count in a temp directory only this test owns: `os.tmpdir()`
+    // follows TMPDIR (POSIX) and TEMP/TMP (Windows) at call time.
+    const own = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "zenith-recipe-tmp-"));
+    const saved = { TMPDIR: process.env.TMPDIR, TEMP: process.env.TEMP, TMP: process.env.TMP };
+    process.env.TMPDIR = own;
+    process.env.TEMP = own;
+    process.env.TMP = own;
+    try {
+      const result = await new build.RecipeLocalRunner().run(request(), new AbortController().signal);
+      if (result.outputDir) outputs.push(result.outputDir);
+      expect(result.ok).toBe(true);
+      const left = fs.readdirSync(own).filter((name) => name.startsWith(source.MATERIALIZE_PREFIX));
+      expect(left).toEqual([]);
+    } finally {
+      for (const [key, value] of Object.entries(saved)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+      fs.rmSync(own, { recursive: true, force: true });
+    }
   }, 180_000);
 });
 

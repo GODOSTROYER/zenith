@@ -38,6 +38,12 @@ const requiredCommands: Record<string, string[]> = {
   verify: ['"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml', "npm ci", "npm run typecheck", "npm run lint", "npm test", "npm run smoke", "npm run gimbal:verify"],
   build: ["npm ci", "npm run build"],
   docker: ["docker build -t orrery:ci ."],
+  hosted: [
+    "npm ci",
+    "npx vitest run tests/hosted",
+    "npx tsx scripts/hosted-acceptance.ts",
+    "npx tsx scripts/hosted-browser.ts",
+  ],
 };
 
 describe("release gate policy", () => {
@@ -100,5 +106,66 @@ describe("release gate policy", () => {
 
   it("isolates CI data using a context that is valid at job scope", () => {
     expect(workflow.jobs.verify.env?.ORRERY_DATA).toBe("${{ github.workspace }}/.data-ci");
+  });
+
+  /*
+   * The hosted job (W10). It exists because the hosted release gates run real
+   * builds and a real browser, which `verify` has no business requiring — and
+   * because a hosted gate that is allowed to fail is not a gate.
+   */
+  describe("the hosted acceptance job", () => {
+    const hosted = (): Job => workflow.jobs.hosted;
+
+    it("runs unconditionally, and its failure fails CI", () => {
+      expect(hosted(), "the workflow must define a `hosted` job").toBeDefined();
+      expect(hosted().if, "the job must not be conditional").toBeUndefined();
+      expect(hosted()["continue-on-error"] ?? false).toBe(false);
+      for (const step of hosted().steps)
+        expect(
+          step["continue-on-error"] ?? false,
+          `step ${step.name ?? step.run ?? step.uses} must not continue on error`
+        ).toBe(false);
+    });
+
+    it("gets its own data directory, and never the developer's", () => {
+      expect(hosted().env?.ORRERY_DATA).toBe("${{ github.workspace }}/.data-ci-hosted");
+      expect(hosted().env?.ORRERY_DATA).not.toBe(workflow.jobs.verify.env?.ORRERY_DATA);
+    });
+
+    it("builds for real, because a hosted gate that cannot build proves nothing", () => {
+      expect(hosted().env?.ZENITH_BUILD_RUNNER).toBe("recipe-local");
+      expect(hosted().env?.ZENITH_RUNTIME).toBe("local");
+    });
+
+    it("runs gate 12 with no condition, so a missing browser is a failure and not a skip", () => {
+      const step = hosted().steps.find((one) => one.run === "npx tsx scripts/hosted-browser.ts");
+      expect(step, "the browser step must be present").toBeDefined();
+      expect(step?.if, "and must not be gated on a browser being detected").toBeUndefined();
+      expect(step?.["continue-on-error"] ?? false).toBe(false);
+
+      // The detection step is allowed to pass when there is no browser — it is
+      // a report, not a gate — but it must not decide whether gate 12 runs.
+      const report = hosted().steps.find((one) => one.name === "Report the installed browser");
+      expect(report?.run, "the report step names the browsers it looks for").toContain(
+        "google-chrome --version"
+      );
+      expect(report?.run).toContain("microsoft-edge --version");
+      expect(
+        hosted().steps.some((one) => typeof one.if === "string" && /browser/i.test(one.if)),
+        "no step may be conditional on the browser report"
+      ).toBe(false);
+    });
+
+    it("runs the hosted suites before the journey, and the journey before the browser", () => {
+      const order = hosted().steps.map((one) => one.run ?? "");
+      const at = (command: string): number => order.findIndex((run) => run.trim() === command);
+      expect(at("npx vitest run tests/hosted")).toBeGreaterThan(at("npm ci"));
+      expect(at("npx tsx scripts/hosted-acceptance.ts")).toBeGreaterThan(
+        at("npx vitest run tests/hosted")
+      );
+      expect(at("npx tsx scripts/hosted-browser.ts")).toBeGreaterThan(
+        at("npx tsx scripts/hosted-acceptance.ts")
+      );
+    });
   });
 });

@@ -66,6 +66,59 @@ jobs:
       - name: Verify Gimbal assets
         run: npm run gimbal:verify
 
+  # The hosted-apps path: every hosted suite, the twelve-gate acceptance
+  # record, and the end-to-end journey script. Kept out of `verify` because it
+  # runs real Vite builds through the recipe-local runner and needs its own
+  # data directory; a failure here is a hosted release gate, not a flake.
+  hosted:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      # Its own ignored directory in the disposable CI checkout. Every hosted
+      # suite and both scripts pin ORRERY_DATA themselves; this is the backstop
+      # that keeps anything which forgot to from reaching .data.
+      ORRERY_DATA: ${{ github.workspace }}/.data-ci-hosted
+      ORRERY_FAST: "1"
+      # Real builds, real runtime. Without these the pipeline refuses to build
+      # at all, which would turn every gate into a skipped one.
+      ZENITH_BUILD_RUNNER: recipe-local
+      ZENITH_RUNTIME: local
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Hosted suites
+        run: npx vitest run tests/hosted
+
+      - name: Hosted acceptance journey
+        # scripts/hosted-acceptance.ts sets its own ORRERY_DATA
+        # (.data-hosted-acceptance) and clears it on start.
+        run: npx tsx scripts/hosted-acceptance.ts
+
+      - name: Report the installed browser
+        # Informational only, so it never fails the job: the gate-12 step below
+        # is what decides, and it fails with its own message when no browser is
+        # installed. Never `continue-on-error` — a skipped gate 12 would be a
+        # green run that verified nothing in a rendering engine.
+        shell: bash
+        run: |
+          set -uo pipefail
+          google-chrome --version || microsoft-edge --version || echo "no Chrome or Edge on this runner; gate 12 will fail with exit 2"
+          exit 0
+
+      - name: Gate 12 - recipient journey in a real browser
+        run: npx tsx scripts/hosted-browser.ts
+
   # Fonts ship in public/fonts, so this gate has no Google Fonts dependency.
   build:
     runs-on: ubuntu-latest

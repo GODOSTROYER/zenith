@@ -1,10 +1,14 @@
 name: CI
 
-# The four gates that already existed in package.json and that nothing ran.
+# Required verification, production build and image assembly gates.
 on:
   push:
     branches: ["**"]
   pull_request:
+
+# All jobs only read source; none publish artifacts or change the repository.
+permissions:
+  contents: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -16,15 +20,29 @@ jobs:
     timeout-minutes: 15
 
     env:
-      # Never let a gate touch a developer's .data/. Each step gets a fresh
-      # directory under the runner's temp dir, which the runner discards.
-      ORRERY_DATA: ${{ runner.temp }}/orrery-ci-data
+      # Use an ignored directory in the disposable CI checkout. github.workspace
+      # is available in job env; runner.temp is only available in later contexts.
+      ORRERY_DATA: ${{ github.workspace }}/.data-ci
       ORRERY_FAST: "1"
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - name: Install pinned workflow validator
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          curl --fail --silent --show-error --location --retry 3 --connect-timeout 15 --max-time 120 --output actionlint.tar.gz https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz
+          printf '%s  %s\n' '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8' 'actionlint.tar.gz' | sha256sum --check --strict
+          tar -xzf actionlint.tar.gz -C "$RUNNER_TEMP" actionlint
+
+      - name: Validate workflow syntax
+        run: '"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml'
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -45,17 +63,20 @@ jobs:
         # on start, so this is end-to-end against a directory it owns.
         run: npm run smoke
 
-  # Retain the existing optional build gate. Fonts now ship in public/fonts,
-  # so compilation no longer depends on reaching Google Fonts.
+      - name: Verify Gimbal assets
+        run: npm run gimbal:verify
+
+  # Fonts ship in public/fonts, so this gate has no Google Fonts dependency.
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    continue-on-error: true
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -69,15 +90,14 @@ jobs:
   # from the outside (a new asset that nothing traces, a dependency that needs
   # a build tool the runner stage lacks) and nothing else in CI would notice.
   # Nothing is pushed — the image is built and discarded.
-  #
-  # Retain the existing optional image-build gate, matching `build` above.
   docker:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    continue-on-error: true
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
 
       # No NEXT_PUBLIC_* build args: this builds the local-demo-mode image on
       # purpose. Supplying Supabase keys here would only inline a project's

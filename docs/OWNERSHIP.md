@@ -65,3 +65,7 @@ presentational components and pure modules carry no directive.
 ## Application reimagining commission
 
 For `test/zenith-app-reimagined`, the nonoverlapping UI workstream assignments in [zenith-app-design-contract.md](zenith-app-design-contract.md) supersede the historical E1/E2 split. The integrator owns shared tokens, helpers, documentation and integration. Direct primitive imports follow the current UI index performance convention. Backend ownership and compatibility boundaries remain in force.
+
+## Hosted Revision 2 preparation
+
+For `codex/zenith-hosted-r2`, the integrator's exact assignments in [hosted/OWNERSHIP.md](hosted/OWNERSHIP.md) supersede the historical table for the listed paths only. The completed UI remains the base. The report-derived hosted contracts and coordinated permission-store migration are pending the missing Revision 2 report; independent CI and existing workspace-isolation corrections are recorded separately.

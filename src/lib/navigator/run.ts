@@ -19,6 +19,7 @@ import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { db, q, save } from "@/lib/db/store";
 import { env } from "@/lib/env";
 import { fmtUsd } from "@/lib/format";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import {
   AutonomyLevel,
   id,
@@ -52,7 +53,9 @@ export const findRun = (runId: string): NavigatorRun | undefined =>
 /** Plan a goal and persist it. Nothing executes here — planning is free. */
 export async function createRun(
   projectId: string,
-  goal: string
+  goal: string,
+  /** Server actions recheck access after the model yields, before persistence. */
+  authorize?: () => void
 ): Promise<{ run: NavigatorRun; parsing: Parsing }> {
   registerAllActions();
   // Observe is the one notch whose promise is about planning, not executing:
@@ -60,7 +63,7 @@ export async function createRun(
   // than only dimming the button.
   const blocked = planBlock(autonomy());
   if (blocked) throw new Error(blocked);
-  const project = q.project(projectId);
+  const project = db().projects.find((candidate) => candidate.id === projectId);
   if (!project)
     throw new Error(
       `Project "${projectId}" does not exist. Pick one from the workspace overview.`
@@ -78,7 +81,9 @@ export async function createRun(
   // With an ANTHROPIC_API_KEY configured, a language model translates the
   // freeform goal into the canonical grammar. The typed planner below remains
   // the only planning authority either way.
+  authorize?.();
   const { text, ...parsing } = await normalizeGoal(trimmed, project, environments);
+  authorize?.();
   const steps = parseGoal(text, project, environments, findings);
 
   const run: NavigatorRun = {
@@ -178,6 +183,9 @@ const RANK: Record<Role, number> = { viewer: 0, editor: 1, admin: 2 };
  */
 function roleBlock(steps: NavigatorStep[], human: Actor, workspaceId: string): string | undefined {
   if (human.type !== "user") return undefined;
+  const demo = human.id === "local" && !isSupabaseConfigured();
+  if (!demo && !db().members.some((member) => member.workspaceId === workspaceId && member.id === human.id))
+    return `You are no longer a member of this workspace. Ask a workspace admin to invite you from Settings → Members before running the Navigator again.`;
   // The run belongs to a project, and the project owns the workspace answer.
   const role = roleOf(human, workspaceId);
   const registry = actionRegistry();
@@ -238,7 +246,7 @@ export async function executeRun(
       "This run was cancelled, so it cannot be resumed. Start a new run from the Navigator tab to pick the goal back up."
     );
 
-  const project = q.project(run.projectId);
+  const project = db().projects.find((candidate) => candidate.id === run.projectId);
   if (!project)
     throw new Error(`Project "${run.projectId}" no longer exists, so this run cannot be executed.`);
 
@@ -297,6 +305,18 @@ export async function executeRun(
       step.status = "proposed";
       pending += 1;
       continue;
+    }
+
+    // A previous step may have awaited a provider while an admin removed or
+    // demoted the human. Read membership again; never bootstrap it here.
+    const blocked = human && roleBlock([step], human, project.workspaceId);
+    if (blocked) {
+      step.status = "failed";
+      step.error = blocked;
+      step.resultSummary = "Permission changed before this step could start.";
+      failure = step;
+      save();
+      break;
     }
 
     step.status = "running";
@@ -385,7 +405,7 @@ export async function executeRun(
       if (s.seq > failure.seq && s.status === "proposed") s.status = "skipped";
   if (cancelled) for (const s of run.steps) if (s.status === "proposed") s.status = "skipped";
 
-  const costAfter = monthlyCostUsd(q.project(run.projectId)!.workingManifest);
+  const costAfter = monthlyCostUsd(db().projects.find((candidate) => candidate.id === run.projectId)!.workingManifest);
   run.summary = summarize(run, { done, pending, failure, deployed, costBefore, costAfter });
   if (cancelled)
     run.summary = `${run.summary} You cancelled the run — the steps that had not started were skipped.`;

@@ -34,7 +34,7 @@ deployment path works against the built-in sandbox provider.
 | `npm run setup` | First-run setup, idempotent |
 | `npm run doctor` | Configuration and reachability report |
 | `npm run seed` | Reset to the demo workspace (**wipes the data directory**) |
-| `npm run verify` | typecheck + lint + tests + smoke, the four CI gates |
+| `npm run verify` | typecheck + lint + tests + smoke + Gimbal asset verification |
 | `npm run build && npm start` | Production build, then serve it on 3400 |
 
 Development routes compile on first use; production builds compile all routes
@@ -384,8 +384,10 @@ Consequences, all contained:
 
 The current app serves its fonts from `public/fonts` using `src/app/fonts.css`.
 If a build still reports a Google Fonts fetch error, check that it is building
-the current checkout. The existing optional CI build jobs keep their previous
-failure policy; font downloads are no longer part of compilation.
+the current checkout. CI treats verification, Next production build and Docker
+image assembly failures as blocking workflow failures; font downloads are no
+longer part of compilation. Repository rules must separately require these
+checks before merging. See `hosted/CHECKPOINT.md` for current local evidence.
 
 ### Deployments fail at "Check LocalStack health"
 

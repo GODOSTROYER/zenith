@@ -9,8 +9,10 @@
  */
 import { runAction } from "@/lib/actions/core";
 import { getSessionUser } from "@/lib/auth/session";
+import { db } from "@/lib/db/store";
 import type { Actor, AutonomyLevel, NavigatorRun } from "@/lib/domain/types";
 import { ApiError, currentWorkspace, demoActor, ensureMember } from "@/lib/server/context";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { plannerMode, plannerModel, type PlannerMode } from "./config";
 import type { Parsing } from "./llm";
 
@@ -34,13 +36,52 @@ export interface NavigatorReply {
  * Never a hardcoded id: role enforcement treats "local" as admin, so asserting
  * it would let a signed-in viewer move the autonomy dial.
  */
-async function currentActor(): Promise<Actor> {
+async function currentScope(): Promise<{ workspaceId: string; actor: Actor }> {
   const user = await getSessionUser();
-  if (!user) return demoActor();
-  const outcome = ensureMember(user);
+  if (!user && isSupabaseConfigured())
+    throw new ApiError("Sign in to use the Navigator.", 401, { fix: "Open /login, then retry." });
+  // Resolve the selection independently of the project/run supplied by the
+  // browser. Even a member of two workspaces acts only in the selected one.
+  const workspace = await currentWorkspace();
+  if (!workspace)
+    throw new ApiError("You are not in a workspace.", 403, {
+      fix: "Pick a workspace from the workspace menu, or create one at /onboarding.",
+    });
+  if (!user) return { workspaceId: workspace.id, actor: demoActor() };
+  // Preserve normalization of an invited email's member id in the selected
+  // workspace. Never use a caller-supplied project's workspace as this target.
+  const outcome = ensureMember(user, workspace);
   if ("denied" in outcome)
     throw new ApiError(outcome.denied.message, 403, { fix: outcome.denied.fix });
-  return { type: "user", id: outcome.member.id, name: outcome.member.name };
+  return { workspaceId: workspace.id, actor: { type: "user", id: outcome.member.id, name: outcome.member.name } };
+}
+
+type NavigatorScope = Awaited<ReturnType<typeof currentScope>>;
+
+function requireProjectAccess(scope: NavigatorScope, projectId: string): void {
+  const demo = scope.actor.id === "local" && !isSupabaseConfigured();
+  const member = demo || db().members.some((m) => m.workspaceId === scope.workspaceId && m.id === scope.actor.id);
+  const project = db().projects.some((p) => p.id === projectId && p.workspaceId === scope.workspaceId);
+  if (!member || !project)
+    throw new ApiError("Project was not found in the selected workspace.", 404, {
+      fix: "Pick a project from the selected workspace overview, then retry.",
+    });
+}
+
+function requireRunAccess(scope: NavigatorScope, runId: string): void {
+  const run = db().navigatorRuns.find((candidate) => candidate.id === runId);
+  if (run) {
+    try {
+      requireProjectAccess(scope, run.projectId);
+      return;
+    } catch (error) {
+      if (!(error instanceof ApiError)) throw error;
+    }
+  }
+  // Do not disclose a foreign run's status, goal, or owning project.
+  throw new ApiError("Navigator run was not found in the selected workspace.", 404, {
+    fix: "Open a project in the selected workspace and choose a run from its Navigator tab.",
+  });
 }
 
 /** A refusal already names its own fix; the caller's is only the fallback. */
@@ -53,9 +94,11 @@ const fail = (err: unknown, fix: string): NavigatorReply => ({
 export async function createRunAction(projectId: string, goal: string): Promise<NavigatorReply> {
   await ensureBoot();
   try {
-    await currentActor(); // a non-member cannot spend the workspace's planning budget
     const { createRun } = await import("./run");
-    return await createRun(projectId, goal);
+    const scope = await currentScope();
+    const authorize = () => requireProjectAccess(scope, projectId);
+    authorize();
+    return await createRun(projectId, goal, authorize);
   } catch (err) {
     return fail(err, "Check the goal and try again — planning changes nothing, so it is safe to retry.");
   }
@@ -71,9 +114,12 @@ export async function executeRunAction(
 ): Promise<NavigatorReply> {
   await ensureBoot();
   try {
-    const human = await currentActor();
     const { executeRun } = await import("./run");
-    return { run: await executeRun(runId, { stepApprovals, human }) };
+    const scope = await currentScope();
+    requireRunAccess(scope, runId);
+    const run = await executeRun(runId, { stepApprovals, human: scope.actor });
+    requireRunAccess(scope, runId); // a revoked caller cannot receive the completed run
+    return { run };
   } catch (err) {
     return fail(err, "Reload the Navigator tab to see the run's current state before retrying.");
   }
@@ -83,8 +129,9 @@ export async function executeRunAction(
 export async function cancelRunAction(runId: string): Promise<NavigatorReply> {
   await ensureBoot();
   try {
-    await currentActor(); // membership check — cancelling is a workspace act
     const { cancelRun } = await import("./run");
+    const scope = await currentScope();
+    requireRunAccess(scope, runId);
     return { run: cancelRun(runId) };
   } catch (err) {
     return fail(err, "Reload the Navigator tab to see the run's current state.");
@@ -104,15 +151,10 @@ export async function setAutonomyAction(level: AutonomyLevel): Promise<AutonomyR
   try {
     // Same resolution the API layer uses — the dial belongs to the workspace
     // the person is actually looking at, not to whichever one sorted first.
-    const workspace = await currentWorkspace();
-    if (!workspace)
-      return {
-        error: "You are not in a workspace, so there is no autonomy dial to move.",
-        fix: "Pick a workspace from the workspace menu in the top bar, or create one at /onboarding.",
-      };
+    const scope = await currentScope();
     const { result } = await runAction(
       "workspace.setAutonomy",
-      { workspaceId: workspace.id, actor: await currentActor() },
+      scope,
       { level },
       { mode: "execute" }
     );

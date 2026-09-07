@@ -30,7 +30,12 @@
     "localstack:logs": "docker compose logs -f localstack",
     "docker:build": "docker compose --profile app build",
     "docker:up": "docker compose --profile app up -d",
-    "docker:down": "docker compose --profile app down"
+    "docker:down": "docker compose --profile app down",
+    "hosted:backup": "tsx --env-file-if-exists=.env.local scripts/hosted/backup.ts",
+    "hosted:restore": "tsx --env-file-if-exists=.env.local scripts/hosted/restore.ts",
+    "hosted:reopen": "tsx --env-file-if-exists=.env.local scripts/hosted/reopen.ts",
+    "hosted:scorecard": "tsx --env-file-if-exists=.env.local scripts/hosted/scorecard.ts",
+    "hosted:backup-live-check": "tsx --env-file-if-exists=.env.local scripts/hosted/backup-live-check.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",

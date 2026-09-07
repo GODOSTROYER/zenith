@@ -48,8 +48,10 @@ const Schema = z.object({
   ZENITH_CF_BROKER_MODULE: z.string().min(1).optional(),
   /** Monthly envelope the 50/75/90 % spending alerts are measured against. */
   ZENITH_SPEND_ENVELOPE_USD: z.coerce.number().nonnegative().default(0),
-  /** Comma-separated subjects excluded from activation metrics as founder/test actors. */
+  /** Comma-separated subjects excluded from activation metrics as founder actors. */
   ZENITH_FOUNDER_SUBJECTS: z.string().default(""),
+  /** Comma-separated subjects classified as test actors (read by `@/lib/hosted/events`). */
+  ZENITH_TEST_SUBJECTS: z.string().default(""),
   /** From address for app invitations; falls back to ORRERY_ALERT_FROM. */
   ZENITH_INVITE_FROM: z.string().optional(),
 });

@@ -21,7 +21,7 @@ Windows 11 / Node 24.19.0 / SQLite 3.53.3:
 | `npx tsx scripts/hosted-browser.ts` | 24/24 steps in Chrome 152 (desktop + 375 px) |
 | `npm run smoke`, `npm run gimbal:verify` | pass |
 | `npx next build` (Turbopack, dev server stopped) | pass; one cosmetic warning (`createRequire` runtime argument in `src/lib/hosted/build/recipe.ts`) |
-| CI job `hosted` | added to `.github/workflows/ci.yml`; not yet observed on GitHub (no push in this session) |
+| GitHub Actions run [34135885031](https://github.com/GODOSTROYER/zenith/actions/runs/34135885031) at `bbd1487` | **verify, build, docker and the new `hosted` job all passed** on ubuntu-latest / Node 22, including the real-Chrome gate 12. The first run (`0448322`) failed on two non-hermetic tests and a Docker type-check; fixed in `bbd1487`. |
 
 Register rows by outcome (details in `ACCEPTANCE-R3.md`, `PLAN-R3.md` §1):
 

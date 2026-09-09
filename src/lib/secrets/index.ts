@@ -1,5 +1,5 @@
 /**
- * Zenith.ai's secret store — the smallest thing that is honestly a store.
+ * Zenith's secret store — the smallest thing that is honestly a store.
  *
  * What it is: one file beside the snapshot (`<ORRERY_DATA>/secrets.json`,
  * mode 0600) holding, per workspace, one row per reference: the metadata
@@ -58,10 +58,10 @@ const EMPTY: StoreFile = { version: 1, workspaces: {} };
 
 /* -------------------------------- references ------------------------------- */
 
-/** Marks a reference Zenith.ai resolves itself, as opposed to your own manager. */
+/** Marks a reference Zenith resolves itself, as opposed to your own manager. */
 export { VAULT_PREFIX, isVaultRef, parseVaultRef, vaultRef, type VaultRefParts } from "./refs";
 
-/** True for references this Zenith.ai is responsible for. */
+/** True for references this Zenith is responsible for. */
 
 /**
  * THE SHAPE OF A GENERATED REFERENCE
@@ -84,7 +84,7 @@ export { VAULT_PREFIX, isVaultRef, parseVaultRef, vaultRef, type VaultRefParts }
  * Ids, never names: services and projects get renamed, and a rename must not
  * strand a stored value or silently point a variable at a different one.
  *
- * LEGACY — `vault:<KEY>`, with no identity in it, is what Zenith.ai wrote before
+ * LEGACY — `vault:<KEY>`, with no identity in it, is what Zenith wrote before
  * this and what older imports wrote. Those references stay exactly as
  * they are: they resolve, rotate and deploy unchanged, and a variable that
  * already points at one keeps it rather than being re-pointed at a new empty
@@ -96,7 +96,7 @@ export { VAULT_PREFIX, isVaultRef, parseVaultRef, vaultRef, type VaultRefParts }
 /* ------------------------------- configuration ----------------------------- */
 
 export const SECRET_STORE_UNCONFIGURED =
-  "Zenith.ai's secret store is not configured on this server, so there is nowhere to put the value.";
+  "Zenith's secret store is not configured on this server, so there is nowhere to put the value.";
 
 export interface StoreState {
   configured: boolean;
@@ -167,9 +167,9 @@ function read(): StoreFile {
     return { ...EMPTY, ...parsed, workspaces: parsed.workspaces ?? {} };
   } catch {
     // Never start fresh here: that would silently discard every value. Refuse
-    // loudly instead — the file is the only copy Zenith.ai has.
+    // loudly instead — the file is the only copy Zenith has.
     throw new Error(
-      `${file} is not readable JSON, so Zenith.ai cannot tell whether it holds your secrets. ` +
+      `${file} is not readable JSON, so Zenith cannot tell whether it holds your secrets. ` +
         `Restore it from a backup before writing anything else; nothing was changed.`
     );
   }

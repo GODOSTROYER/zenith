@@ -211,7 +211,7 @@ function WorkspaceChip() {
             setCreating(true);
           }}
           disabled={!canCreate}
-          disabledReason="Zenith.ai in demo mode runs one workspace. Configure Supabase auth for real identities and multiple workspaces."
+          disabledReason="Zenith in demo mode runs one workspace. Configure Supabase auth for real identities and multiple workspaces."
         >
           Create workspace…
         </MenuItem>

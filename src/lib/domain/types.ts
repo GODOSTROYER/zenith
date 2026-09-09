@@ -1,5 +1,5 @@
 /**
- * Zenith.ai canonical domain model.
+ * Zenith canonical domain model.
  *
  * The Manifest is the single source of truth for an application:
  * the System Map, the Source view, the REST API, and the Navigator agent
@@ -64,10 +64,10 @@ export const ResourceKind = z.enum([
 ]);
 export type ResourceKind = z.infer<typeof ResourceKind>;
 
-/** How Zenith.ai relates to a node. Progressive adoption depends on this. */
+/** How Zenith relates to a node. Progressive adoption depends on this. */
 export const Ownership = z.enum([
-  "managed", // Zenith.ai provisions and operates it
-  "referenced", // exists in the customer cloud; Zenith.ai reads state, never mutates
+  "managed", // Zenith provisions and operates it
+  "referenced", // exists in the customer cloud; Zenith reads state, never mutates
   "external", // documented only (e.g. a third-party API); no cloud presence
 ]);
 export type Ownership = z.infer<typeof Ownership>;
@@ -164,7 +164,7 @@ export const Route = z.object({
     .regex(PATH_PREFIX, "Path prefix must start with / and use letters, digits, - . _ ~ only.")
     .default("/"),
   tls: z.boolean().default(true),
-  /** auto = Zenith.ai-assigned host on the environment's base domain */
+  /** auto = Zenith-assigned host on the environment's base domain */
   managedDns: z.boolean().default(true),
 });
 export type Route = z.infer<typeof Route>;
@@ -367,7 +367,7 @@ export interface Output {
   kind: "url" | "hostname" | "connection" | "text";
   targetId?: string;
   /**
-   * True when nothing outside Zenith.ai exists behind this value — the sandbox
+   * True when nothing outside Zenith exists behind this value — the sandbox
    * invented it. The UI must label a simulated output as such; an absent flag
    * means the provider did not say, which is not the same as "real".
    */

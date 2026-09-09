@@ -26,7 +26,7 @@ export function BindingList({ nodeId, onOpen }: BindingListProps) {
     return (
       <p className="text-[13px] text-ink-mute">
         Nothing is connected here yet. Use <strong className="font-medium text-ink">Connect</strong>{" "}
-        on the map toolbar to draw a connection, and Zenith.ai injects the configuration for you.
+        on the map toolbar to draw a connection, and Zenith injects the configuration for you.
       </p>
     );
 

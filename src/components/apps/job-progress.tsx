@@ -132,7 +132,7 @@ export function JobProgress({
   const reasons = jobFailureReasons(job, data?.logs ?? []);
   const elapsed = fmtDuration(jobElapsedMs(job));
   // Every line here was written by Zenith's own job runner, so the viewer's
-  // "Zenith.ai" lane is the honest one to put them in.
+  // "Zenith" lane is the honest one to put them in.
   const logs: LogLine[] = (data?.logs ?? []).map((raw) => ({
     ...parseJobLogLine(raw),
     stream: "info" as const,

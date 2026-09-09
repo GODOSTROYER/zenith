@@ -69,7 +69,7 @@ afterAll(() => {
 
 const withSmtp = (): void => {
   process.env.ORRERY_SMTP_URL = "smtp://user:pass@smtp.example.test:587";
-  process.env.ORRERY_ALERT_FROM = "Zenith.ai <zenith@example.test>";
+  process.env.ORRERY_ALERT_FROM = "Zenith <zenith@example.test>";
 };
 
 const app = (slug: string) => {
@@ -136,7 +136,7 @@ describe("with a transport that accepts", () => {
     const sent = (globalThis as MailGlobal).__orreryFakeMail ?? [];
     expect(sent).toHaveLength(1);
     expect(sent[0].to).toBe(IDENTITIES.stranger.email);
-    expect(sent[0].from).toBe("Zenith.ai <zenith@example.test>");
+    expect(sent[0].from).toBe("Zenith <zenith@example.test>");
     expect(sent[0].subject).toContain(target.name);
     expect(sent[0].text).toContain(issued.acceptUrl);
     expect(sent[0].text).toContain("48 hours");

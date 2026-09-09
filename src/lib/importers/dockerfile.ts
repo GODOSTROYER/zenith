@@ -3,8 +3,8 @@
  *
  * A Dockerfile describes how to build one image, so the honest result is one
  * service. Anything about the build (RUN/COPY/WORKDIR) stays in the
- * Dockerfile: Zenith.ai reads those instructions to shape the service and
- * retains them for a supported external or future build. Zenith.ai builds no
+ * Dockerfile: Zenith reads those instructions to shape the service and
+ * retains them for a supported external or future build. Zenith builds no
  * image itself, and it does not re-model the build.
  */
 import { id } from "@/lib/domain/types";
@@ -76,7 +76,7 @@ export function importDockerfile(text: string, name = "app", projectId?: string)
   if (exposed.length > 1) {
     report.unmapped.push({
       source: "Dockerfile EXPOSE (extra ports)",
-      reason: `An Zenith.ai service listens on one port; ${exposed.length} were exposed.`,
+      reason: `A Zenith service listens on one port; ${exposed.length} were exposed.`,
       suggestion: `Kept ${port}. If another port matters, add a second service.`,
     });
   }
@@ -84,7 +84,7 @@ export function importDockerfile(text: string, name = "app", projectId?: string)
     source: "Dockerfile build instructions",
     result: "kept in your Dockerfile",
     confidence: "exact",
-    note: "FROM/RUN/COPY/WORKDIR/CMD are build-time and stay where they are. Zenith.ai builds no image from this file: the build instructions are retained unchanged for a supported external or future build.",
+    note: "FROM/RUN/COPY/WORKDIR/CMD are build-time and stay where they are. Zenith builds no image from this file: the build instructions are retained unchanged for a supported external or future build.",
   });
   report.unmapped.push({
     source: "Dockerfile",

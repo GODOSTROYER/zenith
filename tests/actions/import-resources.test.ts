@@ -80,7 +80,7 @@ describe("project.importResources", () => {
     expect(p.warnings.join(" ")).toMatch(/invented this list/);
   });
 
-  it("costs nothing — a referenced resource is not Zenith.ai's bill", async () => {
+  it("costs nothing — a referenced resource is not Zenith's bill", async () => {
     const p = await plan(
       "project.importResources",
       { connectionId, resources: refs.map((externalRef) => ({ externalRef })) },

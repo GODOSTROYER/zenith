@@ -5,7 +5,7 @@
  *
  *  - **webhook** — a POST of JSON. When the channel has a secret, the exact
  *    bytes of the body are signed with HMAC-SHA256 and sent as
- *    `X-Orrery-Signature: sha256=<hex>`, so a receiver can prove Zenith.ai sent it.
+ *    `X-Orrery-Signature: sha256=<hex>`, so a receiver can prove Zenith sent it.
  *    Without a secret the request is unsigned and the UI says so.
  *  - **slack** — the same alert as a Slack incoming-webhook payload (`text`
  *    plus `blocks`). The URL *is* the credential, so it is masked everywhere.
@@ -95,7 +95,7 @@ const eventName = (phase: AlertPhase) => `alert.${phase}`;
 export function messageText(msg: AlertMessage): string {
   const lead =
     msg.phase === "resolved" ? "Resolved" : msg.phase === "test" ? "Test" : msg.severity.toUpperCase();
-  return `[Zenith.ai] ${lead}: ${msg.title}`;
+  return `[Zenith] ${lead}: ${msg.title}`;
 }
 
 /**
@@ -138,7 +138,7 @@ export function slackBody(msg: AlertMessage): Record<string, unknown> {
         ? "Test message from Settings → Alerts."
         : `Severity ${msg.severity}.`,
     msg.simulated ? `Simulated — ${SIMULATED_SUFFIX}` : "",
-    "Sent by Zenith.ai.",
+    "Sent by Zenith.",
   ]
     .filter(Boolean)
     .join(" ");
@@ -159,7 +159,7 @@ export const emailBody = (msg: AlertMessage): { subject: string; text: string } 
     msg.body,
     msg.simulated ? `\nSimulated: ${SIMULATED_SUFFIX}` : "",
     msg.phase === "resolved" && msg.resolvedReason ? `\nClosed: ${msg.resolvedReason}` : "",
-    "\nSent by Zenith.ai. Reply-to is not monitored — acknowledge the alert in Observe → Alerts.",
+    "\nSent by Zenith. Reply-to is not monitored — acknowledge the alert in Observe → Alerts.",
   ]
     .filter(Boolean)
     .join("\n"),
@@ -176,7 +176,7 @@ interface NodemailerLike {
 }
 
 export const MISSING_NODEMAILER =
-  "The nodemailer package is not installed, so email alerts cannot be sent. Run `npm install` in the Zenith.ai repo (nodemailer is in package.json) and restart the server. Webhook and Slack channels do not need it.";
+  "The nodemailer package is not installed, so email alerts cannot be sent. Run `npm install` in the Zenith repo (nodemailer is in package.json) and restart the server. Webhook and Slack channels do not need it.";
 
 /**
  * The module specifier, in an object so a test can point it at something that
@@ -468,7 +468,7 @@ export function enqueueDeliveries(
 ): AlertOutboxEntry[] {
   const { workspaceId, channels } = targetsFor(event);
   if (channels.length === 0) {
-    // An empty array is a fact: Zenith.ai tried and there was nowhere to send.
+    // An empty array is a fact: Zenith tried and there was nowhere to send.
     // That is a different thing from `undefined` — an event recorded before
     // channels existed — and the Observe screen says which one it is looking at.
     event.deliveries ??= [];

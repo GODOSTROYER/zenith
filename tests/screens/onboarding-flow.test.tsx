@@ -14,7 +14,7 @@ vi.mock("next/link", () => ({ default: ({ href, children, ...rest }: { href: str
 vi.mock("@/lib/client/api", async (original) => ({ ...await original<typeof import("@/lib/client/api")>(), useJson: (url: string) => url === "/api/me" ? { data: state.me, loading: false, refresh: state.refresh } : { data: state.boot, error: state.error, loading: false, refresh: state.refresh } }));
 vi.mock("@/components/navigator/gimbal-character", () => ({ GimbalCharacter: () => null }));
 vi.mock("@/components/ui/theme-toggle", () => ({ ThemeToggle: () => null }));
-vi.mock("@/components/shell/wordmark", () => ({ Wordmark: () => <span>Zenith.ai</span> }));
+vi.mock("@/components/shell/wordmark", () => ({ Wordmark: () => <span>Zenith</span> }));
 vi.mock("@/components/guide/workspace-guide", () => ({ GuideContent: ({ initialProjectId }: { initialProjectId?: string }) => <div>Guide project: {initialProjectId ?? "none"}</div> }));
 vi.mock("@/components/screens/onboarding/step-provider", () => ({ StepProvider: ({ onNext }: { onNext: (choice: { providerId: string; displayName: string }) => void }) => <button onClick={() => onNext({ providerId: "aws", displayName: "AWS" })}>Choose AWS Preview</button> }));
 vi.mock("@/components/screens/onboarding/step-system", () => ({ StepSystem: ({ onCreated }: { onCreated: (slug: string, summary: string, id: string) => void }) => <button onClick={() => { state.boot!.projects.push({ ...starterProject(), id: "p2", slug: "second" }); onCreated("second", "Manifest saved; nothing deployed", "p2"); }}>Save second project</button> }));

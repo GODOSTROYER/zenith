@@ -51,7 +51,7 @@ function isoBound(raw: string | null, param: string, endOfDay: boolean): string 
     : value;
   const at = new Date(full);
   if (Number.isNaN(at.getTime()))
-    throw new ApiError(`"${value}" is not a date Zenith.ai can read for ?${param}.`, 400, {
+    throw new ApiError(`"${value}" is not a date Zenith can read for ?${param}.`, 400, {
       fix: 'Use an ISO timestamp like 2026-09-02T14:00:00Z, or a plain date like 2026-09-02.',
     });
   return at.toISOString();

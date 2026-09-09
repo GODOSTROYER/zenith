@@ -1,6 +1,6 @@
 "use client";
 /**
- * The no-lock-in surface: everything Zenith.ai generated for an environment, as
+ * The no-lock-in surface: everything Zenith generated for an environment, as
  * files you can read, copy and take with you. Rendered on Source → Export and
  * again on Settings → Export.
  */
@@ -39,7 +39,7 @@ interface ExportResponse {
 function bundleText(files: ExportFile[], readme: string, envName: string): string {
   const rule = (path: string) => `\n\n${"=".repeat(72)}\n===== ${path}\n${"=".repeat(72)}\n\n`;
   const head =
-    `Zenith.ai export — ${envName}\n` +
+    `Zenith export — ${envName}\n` +
     `Generated ${new Date().toISOString()}\n` +
     `${files.length} file${files.length === 1 ? "" : "s"}, concatenated. Each one starts at its\n` +
     `"===== <path>" marker below; split on those markers to get the tree back.\n`;
@@ -112,14 +112,14 @@ export function ExportPanel({
       : data.source.note;
 
   const providerName = provider?.displayName ?? data.provider;
-  /** Whether Zenith.ai can run these files itself, said plainly. */
+  /** Whether Zenith can run these files itself, said plainly. */
   const applicability = !provider
-    ? `Generated for "${data.provider}". This server did not report that provider's status, so whether Zenith.ai can apply these files is unknown — running them yourself always works.`
+    ? `Generated for "${data.provider}". This server did not report that provider's status, so whether Zenith can apply these files is unknown — running them yourself always works.`
     : provider.availability === "available"
-      ? `${providerName} is available in Zenith.ai: it applies these files itself when you deploy. Running them with your own tooling gets you the same system.`
+      ? `${providerName} is available in Zenith: it applies these files itself when you deploy. Running them with your own tooling gets you the same system.`
       : provider.availability === "preview"
-        ? `${providerName} is Preview in Zenith.ai: it plans and generates these files but does not apply them. Run them yourself, with your own credentials.`
-        : `${providerName} is planned, not implemented. These files describe the system; nothing in Zenith.ai applies them.`;
+        ? `${providerName} is Preview in Zenith: it plans and generates these files but does not apply them. Run them yourself, with your own credentials.`
+        : `${providerName} is planned, not implemented. These files describe the system; nothing in Zenith applies them.`;
 
   return (
     <div className="space-y-4">
@@ -138,7 +138,7 @@ export function ExportPanel({
         }
       >
         <p className="text-[13px] text-ink-mute">
-          These are the real files for this system: run them with your own tooling and Zenith.ai
+          These are the real files for this system: run them with your own tooling and Zenith
           stops being required. Nothing here calls back to us.
         </p>
         <p className="mt-2 text-[12.5px] text-ink-mute">{applicability}</p>

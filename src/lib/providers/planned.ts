@@ -1,7 +1,7 @@
 /**
  * Providers that do not exist yet. They are registered so the UI can show them
  * honestly — greyed out, with a tagline that says what is missing — rather
- * than implying capability Zenith.ai does not have.
+ * than implying capability Zenith does not have.
  *
  * Every method fails loudly and names the alternative. Nothing here pretends.
  *
@@ -30,10 +30,10 @@ const SPECS: PlannedSpec[] = [
     id: "kubernetes",
     displayName: "Kubernetes",
     tagline:
-      "Planned: deploy into a cluster you already run. Not built yet — Zenith.ai cannot connect to a cluster today.",
+      "Planned: deploy into a cluster you already run. Not built yet — Zenith cannot connect to a cluster today.",
     regions: [{ id: "in-cluster", label: "Your cluster" }],
     access:
-      "A kubeconfig or service-account token scoped to one namespace, so Zenith.ai could apply Deployments, Services and Ingresses there.",
+      "A kubeconfig or service-account token scoped to one namespace, so Zenith could apply Deployments, Services and Ingresses there.",
   },
   {
     id: "gcp",
@@ -69,7 +69,7 @@ const SPECS: PlannedSpec[] = [
  */
 function unavailable(spec: PlannedSpec, what: string): Error {
   return new Error(
-    `${spec.displayName} is a Planned provider: Zenith.ai cannot plan, apply or export for it yet, so it cannot ${what}. ` +
+    `${spec.displayName} is a Planned provider: Zenith cannot plan, apply or export for it yet, so it cannot ${what}. ` +
       `Point the environment at a Sandbox connection to deploy now, or at AWS to export runnable Terraform.`
   );
 }

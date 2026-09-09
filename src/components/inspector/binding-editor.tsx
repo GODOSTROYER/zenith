@@ -98,7 +98,7 @@ export function BindingEditor({ binding }: BindingEditorProps) {
       ) : editing ? (
         <div className="space-y-3 rounded-card border border-line p-3">
           <p className="text-[12.5px] text-ink-mute">
-            Zenith.ai has no action that edits a connection in place, so this is two changes: the
+            Zenith has no action that edits a connection in place, so this is two changes: the
             connection is removed, then drawn again with the values below. Both are previewed
             before anything happens, and neither touches a running environment until you deploy.
           </p>

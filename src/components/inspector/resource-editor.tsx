@@ -72,7 +72,7 @@ export function ResourceEditor({ resource, onOpenBinding }: ResourceEditorProps)
           {!managed && (
             <p className="rounded-ctl border border-line bg-bg1 p-2.5 text-[12.5px] text-ink-mute">
               This {resource.kind} is <strong className="text-ink">{resource.ownership}</strong>:
-              Zenith.ai reads it and connects to it, but never provisions, resizes or deletes it — and
+              Zenith reads it and connects to it, but never provisions, resizes or deletes it — and
               it is not part of the cost estimate.
             </p>
           )}

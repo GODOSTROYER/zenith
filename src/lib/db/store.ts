@@ -1,5 +1,5 @@
 /**
- * Zenith.ai persistence: embedded JSON snapshot + JSONL append-only logs.
+ * Zenith persistence: embedded JSON snapshot + JSONL append-only logs.
  *
  * Durability contract, stated exactly: every snapshot write is atomic on the
  * filesystem (tmp + rename), and deployment/audit events are append-only
@@ -22,7 +22,7 @@
  * project stream pushes instead of every open tab polling.
  *
  * ponytail: single-process file store; swap for SQL behind this same module
- * if Zenith.ai ever runs multi-process. The rest of the codebase only sees
+ * if Zenith ever runs multi-process. The rest of the codebase only sees
  * `db()` and the append/read helpers.
  *
  * SPINE FILE — owned by the integrator.
@@ -129,7 +129,7 @@ export function db(): Database {
       const kept = `${STATE}.corrupt-${Date.now()}`;
       fs.copyFileSync(STATE, kept);
       throw new Error(
-        `The Zenith.ai state file at ${STATE} could not be parsed, so the server will not start: ` +
+        `The Zenith state file at ${STATE} could not be parsed, so the server will not start: ` +
           `continuing would serve an empty workspace and the next write would overwrite your data. ` +
           `A copy is preserved at ${kept}. ` +
           `Fix: restore a good copy over ${STATE} (a .corrupt-* file or your own backup), ` +

@@ -323,7 +323,7 @@ defineAction<ImportCompose>({
  * Two rules make this safe, and both are enforced here rather than trusted to
  * the caller:
  *
- *  1. Everything imported is `referenced`, never `managed`. Zenith.ai shows a
+ *  1. Everything imported is `referenced`, never `managed`. Zenith shows a
  *     referenced resource on the map and lets services bind to it; it never
  *     provisions, changes or deletes one, and it never bills for it.
  *  2. The submitted list is a SELECTION, not data. Every entry is matched by
@@ -403,7 +403,7 @@ async function resolveImport(ctx: ActionContext, input: ImportResources) {
 }
 
 const REFERENCED_NOTE =
-  "Imported resources are marked referenced: Zenith.ai draws them on the map and lets services bind to them, but never provisions, changes or deletes them — and they add nothing to the cost estimate.";
+  "Imported resources are marked referenced: Zenith draws them on the map and lets services bind to them, but never provisions, changes or deletes them — and they add nothing to the cost estimate.";
 
 defineAction<ImportResources>({
   id: "project.importResources",
@@ -495,15 +495,15 @@ function projectDelete(ctx: ActionContext, input: DeleteProject) {
     : undefined;
 
   const details = [
-    `Removes ${project.name} and everything Zenith.ai holds about it: ${envs.length} environment(s), ${revisions.length} revision(s), ${deployments.length} deployment record(s), ${findings.length} security finding(s), ${runs.length} Navigator run(s).`,
-    "Nothing in your cloud or in the sandbox is torn down. This deletes Zenith.ai's records, not running infrastructure.",
+    `Removes ${project.name} and everything Zenith holds about it: ${envs.length} environment(s), ${revisions.length} revision(s), ${deployments.length} deployment record(s), ${findings.length} security finding(s), ${runs.length} Navigator run(s).`,
+    "Nothing in your cloud or in the sandbox is torn down. This deletes Zenith's records, not running infrastructure.",
     `The URL /p/${project.slug} stops working, and the working copy goes with it — export the bundle from Source → Export first if you want the generated files.`,
     "The audit log keeps every row already written, including this deletion. It is append-only.",
   ];
 
   const warnings = live.length
     ? [
-        `${live.map((e) => `${e.name} is running ${liveRevision(e)}`).join("; ")}. Those keep running after the project is gone, and Zenith.ai will have no way to reach them again — tear them down first if you want them stopped.`,
+        `${live.map((e) => `${e.name} is running ${liveRevision(e)}`).join("; ")}. Those keep running after the project is gone, and Zenith will have no way to reach them again — tear them down first if you want them stopped.`,
       ]
     : [];
 

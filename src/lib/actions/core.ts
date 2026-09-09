@@ -1,5 +1,5 @@
 /**
- * The typed action registry — Zenith.ai's backbone.
+ * The typed action registry — Zenith's backbone.
  *
  * Every meaningful mutation in the product is an Action: the UI calls
  * actions, the REST API calls actions, and the Navigator agent calls the

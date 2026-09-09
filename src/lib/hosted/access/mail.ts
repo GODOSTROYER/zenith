@@ -34,7 +34,7 @@ interface NodemailerLike {
 }
 
 export const MISSING_NODEMAILER =
-  "The nodemailer package is not installed, so invitation email cannot be sent. Run `npm install` in the Zenith.ai repo (nodemailer is in package.json) and restart the server. The invitation itself was created — copy its link and send it by hand.";
+  "The nodemailer package is not installed, so invitation email cannot be sent. Run `npm install` in the Zenith repo (nodemailer is in package.json) and restart the server. The invitation itself was created — copy its link and send it by hand.";
 
 /**
  * The module specifier, in an object so a test can point it at a stand-in and
@@ -87,7 +87,7 @@ export const INVITE_TTL_HOURS = Math.round(INVITE_TTL_MS / 3_600_000);
 /** The plain-text invitation. One link, one deadline, nothing to click but the link. */
 export function inviteMessage(payload: SealedInvite): { subject: string; text: string } {
   return {
-    subject: `You have been invited to ${payload.appName} on Zenith.ai`,
+    subject: `You have been invited to ${payload.appName} on Zenith`,
     text: [
       `You have been invited to ${payload.appName}.`,
       "",
@@ -97,7 +97,7 @@ export function inviteMessage(payload: SealedInvite): { subject: string; text: s
       `The link works once and expires ${INVITE_TTL_HOURS} hours after it was sent.`,
       `It only works for ${payload.email} — signing in as anyone else will refuse it.`,
       "",
-      "Sent by Zenith.ai. If you were not expecting this, ignore it; nothing happens until the link is opened.",
+      "Sent by Zenith. If you were not expecting this, ignore it; nothing happens until the link is opened.",
     ].join("\n"),
   };
 }

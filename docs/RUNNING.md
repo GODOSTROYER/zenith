@@ -1,4 +1,4 @@
-# Running Zenith.ai
+# Running Zenith
 
 Three ways, in increasing order of setup: **local dev** (no Docker), **local dev
 plus LocalStack** (real S3 and SQS), and **everything in containers**.
@@ -23,7 +23,7 @@ requiring), copies `.env.local.example` to `.env.local` if you do not have one,
 seeds the "Kepler Labs" demo workspace when the data directory is empty, and
 prints the commands that make sense for *your* machine.
 
-With no keys configured, Zenith.ai runs in **local demo mode**: one local user who
+With no keys configured, Zenith runs in **local demo mode**: one local user who
 is admin of everything, no sign-in. That is a complete, working install — every
 deployment path works against the built-in sandbox provider.
 
@@ -81,7 +81,7 @@ npm run localstack:up     # docker compose up -d localstack
 npm run dev
 ```
 
-Then in Zenith.ai, create a connection with the **LocalStack** provider and deploy
+Then in Zenith, create a connection with the **LocalStack** provider and deploy
 to it.
 
 `npm run localstack:down` stops the container (`localstack:up` restarts it in
@@ -89,7 +89,7 @@ seconds); `npm run localstack:logs` tails it.
 
 ### What LocalStack actually exercises
 
-Be precise about this, because Zenith.ai is:
+Be precise about this, because Zenith is:
 
 | Resource kind | On LocalStack |
 | --- | --- |
@@ -126,7 +126,7 @@ docker compose --profile app up --build
 
 Or via npm: `npm run docker:build`, `npm run docker:up`, `npm run docker:down`.
 
-This starts LocalStack **and** Zenith.ai, with the app on
+This starts LocalStack **and** Zenith, with the app on
 <http://localhost:3400>, wired to LocalStack over the compose network, and its
 data directory on a named volume at `/data`. `orrery` sits behind the `app`
 profile, which is why a bare `docker compose up` starts only LocalStack.
@@ -180,7 +180,7 @@ image on every push.
 
 ## Supabase auth and test accounts
 
-Optional. Without it, Zenith.ai is a single local admin user and every auth surface
+Optional. Without it, Zenith is a single local admin user and every auth surface
 says so rather than breaking.
 
 1. Put the project URL and publishable key in `.env.local`:
@@ -243,7 +243,7 @@ received and what it accepts — never a silent default.
 | `ORRERY_LLM_MODEL` | `claude-opus-5` | Model for the Navigator's language front-end. Only used when `ANTHROPIC_API_KEY` is set |
 | `ORRERY_SECRET_KEY` | *(unset)* | 32 bytes, base64 or hex (`openssl rand -base64 32`). Encrypts the secret store. Unset means every secret write is refused, saying so. **Keep the same key** — values written under an old one cannot be read back, and there is no recovery |
 | `ORRERY_SMTP_URL` | *(unset)* | `smtp://user:pass@host:port` (`smtps://` for implicit TLS). Email alert delivery. Webhook and Slack channels need neither this nor the next |
-| `ORRERY_ALERT_FROM` | *(unset)* | From address on alert email, e.g. `Zenith.ai <orrery@example.com>`. Required alongside `ORRERY_SMTP_URL` |
+| `ORRERY_ALERT_FROM` | *(unset)* | From address on alert email, e.g. `Zenith <orrery@example.com>`. Required alongside `ORRERY_SMTP_URL` |
 | `NEXT_PUBLIC_SUPABASE_URL` | *(unset)* | Supabase project URL. **Build-time** |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | *(unset)* | Publishable key; `NEXT_PUBLIC_SUPABASE_ANON_KEY` also accepted. **Build-time** |
 | `NEXT_PUBLIC_SUPABASE_OAUTH_PROVIDERS` | *(empty)* | Comma-separated: `github`, `google`. Unknown names are dropped with a console warning. **Build-time** |
@@ -284,9 +284,9 @@ six seconds is reported as a wedged daemon with this fix attached, rather than
 hanging the way the CLI does. Nothing except LocalStack and the container run
 needs Docker — `npm run dev` is unaffected.
 
-### "Another Zenith.ai process is already using the data directory"
+### "Another Zenith process is already using the data directory"
 
-Exactly what it says: something else holds `<ORRERY_DATA>/.orrery.lock`. Zenith.ai
+Exactly what it says: something else holds `<ORRERY_DATA>/.orrery.lock`. Zenith
 keeps the whole database in memory and rewrites it on save, so a second process
 would silently overwrite the first one's writes — hence the refusal instead of a
 corrupt database.
@@ -305,7 +305,7 @@ corrupt database.
 
 ### Port already in use
 
-Zenith.ai uses **3400**. `npm run dev`, `npm start` and the container all bind it.
+Zenith uses **3400**. `npm run dev`, `npm start` and the container all bind it.
 
 - Host: `next dev -p 3401` (or change the `dev` script). Note that this repo's
   screenshot tooling parks a production server on **3401**, so pick another port
@@ -336,7 +336,7 @@ session verification.
 
 It is, on this machine — first paint of a route can take tens of seconds while
 the dev compiler works, and the Navigator and graph screens are the worst of
-them. That is `next dev`, not Zenith.ai.
+them. That is `next dev`, not Zenith.
 
 **For a demo, use the production build:**
 
@@ -393,7 +393,7 @@ checks before merging. See `hosted/CHECKPOINT.md` for current local evidence.
 
 ### Deployments fail at "Check LocalStack health"
 
-LocalStack is not running, or not where Zenith.ai is looking. `npm run doctor`
+LocalStack is not running, or not where Zenith is looking. `npm run doctor`
 reports the endpoint it checked and whether `s3` and `sqs` are available.
 `npm run localstack:up` starts it; `npm run localstack:logs` shows why it is
 unhealthy if it started but is not answering.

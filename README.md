@@ -1,8 +1,8 @@
-# Zenith.ai
+# Zenith
 
 **Your stack, clearly in view.**
 
-Zenith.ai turns an application into a living, explained system: services,
+Zenith turns an application into a living, explained system: services,
 resources, routes, and typed **bindings** in one canonical manifest that the
 visual **System Map**, the **Source** view, the REST API, and the **Navigator**
 agent all share. Every change becomes a readable plan with a cost delta before
@@ -19,7 +19,7 @@ operations README — mean there is no lock-in.
 | **Runs at** | `http://localhost:3400` — one process, one data directory |
 | **License** | No license file yet |
 
-The platform is now Zenith.ai; Gimbal remains its Navigator character. Existing
+The platform is now Zenith; Gimbal remains its Navigator character. Existing
 `ORRERY_*` configuration, storage namespaces and export filenames remain compatible.
 See [the identity and compatibility notes](docs/BRANDING.md).
 
@@ -40,9 +40,9 @@ are not saved in browser storage.
 
 ## What it is
 
-Zenith.ai is one place to describe a small SaaS system, price a change before you
+Zenith is one place to describe a small SaaS system, price a change before you
 make it, ship it, and then watch it. You draw services, databases, queues and
-routes on a map; Zenith.ai keeps them in a single typed manifest and derives
+routes on a map; Zenith keeps them in a single typed manifest and derives
 everything else from it — the JSON you can edit by hand, the REST API, the cost
 estimate, the security findings, and the plan for the next deploy. Nothing
 mutates that manifest except a registered action, so a button, a `curl`, and
@@ -50,22 +50,22 @@ the Navigator agent all take the same audited path. Every deploy runs as a
 durable state machine that streams its steps, survives a refresh, and ends in a
 live URL with a rollback point behind it. And you can leave at any time: the
 export bundle is your manifest plus real Terraform plus a README for operating
-the system without Zenith.ai.
+the system without Zenith.
 
 ## What it is not
 
 - **The sandbox provider is simulated.** Deploys, logs, health and cost against
   it are generated — realistic, deterministic, labeled `simulated` on every
   screen that shows them. No container starts.
-- **AWS is Preview: plan and export only.** Zenith.ai generates real, usable
-  Terraform/OpenTofu for your manifest, but applying from Zenith.ai is disabled and
+- **AWS is Preview: plan and export only.** Zenith generates real, usable
+  Terraform/OpenTofu for your manifest, but applying from Zenith is disabled and
   **no code path reads your AWS account** — so drift and discovery refuse rather
   than return a reassuring empty answer.
 - **LocalStack exercises S3 and SQS, and only those.** Buckets and queues really
   are provisioned and read back; Postgres, Redis, containers, load balancers, DNS
   and email run as labeled local simulations, because LocalStack Community cannot
   emulate them.
-- **It is not multi-process**, and there is no hosted Zenith.ai, no pricing and no
+- **It is not multi-process**, and there is no hosted Zenith, no pricing and no
   customers. This is a repo you run locally, one process at a time.
 
 ---
@@ -86,7 +86,7 @@ Open <http://localhost:3400>. `npm run setup` is idempotent: it checks Node and
 Docker (reporting, never requiring), copies `.env.local.example` to `.env.local`
 if you have none, seeds the "Kepler Labs" demo workspace when the data directory
 is empty, and prints the commands that make sense for your machine. With no keys
-configured Zenith.ai runs in **local demo mode** — one local user who is admin of
+configured Zenith runs in **local demo mode** — one local user who is admin of
 everything, no sign-in — and that is a complete install: every deployment path
 works against the sandbox provider.
 
@@ -116,7 +116,7 @@ cp .env.local .env
 docker compose --profile app up --build
 ```
 
-This starts LocalStack **and** Zenith.ai, app on <http://localhost:3400>, data on a
+This starts LocalStack **and** Zenith, app on <http://localhost:3400>, data on a
 named volume at `/data`. `npm run docker:build` / `docker:up` / `docker:down`
 wrap the same thing. Two things to know: `NEXT_PUBLIC_*` values are baked in at
 build time and Compose reads them from `.env` only, so auth keys mean a rebuild;
@@ -142,7 +142,7 @@ users.
 
 ![Overview screen for the Kepler Labs workspace: an Atlas project card showing $115.50/mo working against $89.50/mo deployed, chips for 18 to deploy and 1 open finding, staging and production environment chips, a staging budget bar showing $115.50 projected of $100.00, and a recent activity column on the right](docs/screenshots/overview.png)
 
-The workspace home. Each project card carries two numbers Zenith.ai refuses to
+The workspace home. Each project card carries two numbers Zenith refuses to
 conflate — what the working copy would cost and what the deployed revision costs
 — plus waiting changes, open findings, and a chip per environment showing its
 live revision and pending count. The budget meter turns red when the projection
@@ -311,7 +311,7 @@ outputs, a live URL, a recorded revision and a rollback point.
 per user, resolved from an httpOnly cookie re-checked against membership on every
 read. Roles are `viewer`, `editor`, `admin`; planning stays open to every member
 so anyone can see what an action would do before asking for it. Auth is optional:
-with no Supabase keys Zenith.ai is one local admin user, and says so.
+with no Supabase keys Zenith is one local admin user, and says so.
 
 **Secrets.** The manifest holds only `vault:<KEY>`; the value lives in
 `<ORRERY_DATA>/secrets.json` under AES-256-GCM, and reaches no diff, revision,
@@ -357,7 +357,7 @@ the invariants, [docs/DESIGN.md](docs/DESIGN.md) for the product laws.
 | **AWS** | Preview | No — plan only; applying is deliberately disabled until credentials support ships | Refuses. No code path reads your account, so it will not invent an answer | **Real Terraform/OpenTofu** |
 | **Kubernetes / GCP / Azure** | Planned | No — visible in the picker, not selectable, and refused at plan time before any revision is written | No | No |
 
-Everything imported by live discovery lands as a **referenced** resource: Zenith.ai
+Everything imported by live discovery lands as a **referenced** resource: Zenith
 draws it and lets services bind to it, but never provisions, changes or deletes
 it, and it adds nothing to the cost estimate. There is no path from discovery to
 `managed` — adoption cannot become ownership by accident.
@@ -419,7 +419,7 @@ accepts, never a silent default. Full table and build-time caveats in
 | `npm run localstack:down` | Stop the LocalStack container |
 | `npm run localstack:logs` | Tail LocalStack |
 | `npm run docker:build` | Build the app image (`--profile app`) |
-| `npm run docker:up` | Start LocalStack + Zenith.ai detached |
+| `npm run docker:up` | Start LocalStack + Zenith detached |
 | `npm run docker:down` | Stop and remove them |
 
 ### Quality gates
@@ -493,7 +493,7 @@ tests/          mirrors src/: tests/<dir> covers src/lib/<dir>
 
 ## Honesty
 
-Zenith.ai's product law is that a screen never claims more than it knows; the same
+Zenith's product law is that a screen never claims more than it knows; the same
 applies here. **[docs/LIMITATIONS.md](docs/LIMITATIONS.md) is the complete list**,
 maintained as features land, and the file to trust over this one. The five
 ceilings that matter most:

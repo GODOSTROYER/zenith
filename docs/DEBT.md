@@ -1,4 +1,4 @@
-# Zenith.ai — known debt
+# Zenith — known debt
 
 A map, not a backlog. Everything here is deliberate or measured; nothing is a
 vague worry. Snapshot taken while polishing `src/lib` (see the report at the
@@ -25,7 +25,7 @@ Each names the ceiling it accepts and the upgrade path. In `src/lib`:
 | `src/lib/alerts/deliver.ts:22` | No dead-lettering, no per-channel circuit breaker. Three attempts, then the failure is recorded and dropped. |
 | `src/lib/alerts/deliver.ts` | The delivery timeout races the send rather than aborting the socket. Delivery itself is durable (outbox rows are claimed before the send and settled after), so a timeout costs a retry, not a lost alert. |
 | `src/lib/secrets/index.ts:18` | Read-through file access, no cache. Deliberate: a cache is a correctness bug the moment two processes hold the data directory. |
-| `src/lib/providers/localstack/index.ts:722` | "Unowned" means unowned *by this environment*; two Zenith.ai environments against one LocalStack see each other's resources as extra. |
+| `src/lib/providers/localstack/index.ts:722` | "Unowned" means unowned *by this environment*; two Zenith environments against one LocalStack see each other's resources as extra. |
 
 Outside `src/lib` (owned by the UI workstreams, listed so this file is the one
 place to look): `app/(product)/p/[slug]/revisions/page.tsx:70`,

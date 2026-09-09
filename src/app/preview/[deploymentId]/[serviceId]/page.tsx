@@ -22,7 +22,7 @@ function Missing({ title, fix }: { title: string; fix: string }) {
         <p className="text-[14px] leading-relaxed text-ink-mute">{fix}</p>
         <p className="pt-2">
           <Link href="/overview" className="text-[13px] text-signal hover:underline">
-            Back to Zenith.ai
+            Back to Zenith
           </Link>
         </p>
       </div>
@@ -55,7 +55,7 @@ export default async function PreviewPage({
     return (
       <Missing
         title="That service is not part of this deployment"
-        fix="The address may be from an older revision. Open the deployment in Zenith.ai to see what it actually published."
+        fix="The address may be from an older revision. Open the deployment in Zenith to see what it actually published."
       />
     );
 

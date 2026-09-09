@@ -31,7 +31,7 @@ export interface SecretsView {
   secrets: SecretRow[];
 }
 
-/** References Zenith.ai itself holds, as opposed to a value in your own manager. */
+/** References Zenith itself holds, as opposed to a value in your own manager. */
 export const OURS_PREFIX = "vault:";
 export const isOurs = (ref: string): boolean => ref.startsWith(OURS_PREFIX);
 

@@ -393,7 +393,7 @@ describe("secrets", () => {
     expect(secrets).toContain(`resource "aws_ssm_parameter" "secret_vault_stripe"`);
     expect(secrets).toContain(`name        = "/\${var.name_prefix}/secrets/vault-stripe"`);
     expect(secrets).toContain(`type        = "SecureString"`);
-    // Zenith.ai never held the value, and must not clobber the real one later.
+    // Zenith never held the value, and must not clobber the real one later.
     expect(secrets).toContain("ignore_changes = [value]");
   });
 

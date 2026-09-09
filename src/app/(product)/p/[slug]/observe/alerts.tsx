@@ -11,7 +11,7 @@
  *    told which two. No copy on this screen guesses.
  *  - **What actually happened** is shown per alert. `event.deliveries` is a
  *    list of attempts: delivered, or failed with the reason and the fix. An
- *    empty list means Zenith.ai tried and had nowhere to send; a missing list
+ *    empty list means Zenith tried and had nowhere to send; a missing list
  *    means the alert predates channels. Those are three different sentences and
  *    this screen writes all three.
  */
@@ -182,7 +182,7 @@ export function AlertsCard({
       }
       actions={
         <>
-          <SimulatedChip title="Every condition Zenith.ai can evaluate today reads generated health or estimated cost." />
+          <SimulatedChip title="Every condition Zenith can evaluate today reads generated health or estimated cost." />
           {kinds && (
             <Button size="sm" variant="quiet" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => setDialog({ kind: "create" })}>
               Add rule

@@ -27,7 +27,7 @@ export interface WordmarkProps { size?: number; draw?: boolean; className?: stri
 
 export function Wordmark({ size = 18, draw = false, className }: WordmarkProps) {
   return (
-    <span className={cx("zenith-wordmark inline-flex items-center gap-2", className)} role="img" aria-label="Zenith.ai">
+    <span className={cx("zenith-wordmark inline-flex items-center gap-2", className)} role="img" aria-label="Zenith">
       <OrbitMark size={size} draw={draw} />
       <svg width={size * 3.65} height={size} viewBox="0 0 256 66" fill="currentColor" aria-hidden="true">
         {ZENITH_LETTER_PATHS.map((d) => <path key={d} d={d} fillRule="evenodd" />)}

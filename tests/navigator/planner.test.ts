@@ -91,7 +91,7 @@ describe("parseGoal", () => {
       "deploy.plan",
       "deploy.apply",
     ]);
-    // "bind it to web" names the same edge as "bind web to it" — Zenith.ai records
+    // "bind it to web" names the same edge as "bind web to it" — Zenith records
     // bindings consumer → provider, so the planner orients it that way
     expect(steps[1].input).toMatchObject({ from: "web", to: "cache" });
   });

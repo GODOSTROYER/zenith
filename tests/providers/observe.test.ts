@@ -3,7 +3,7 @@
  *
  * The sandbox must produce the SAME simulated drift every time it is asked —
  * a demo that reshuffles on every poll is noise, and worse, it would look like
- * infrastructure actually changing. AWS Preview must refuse, because Zenith.ai
+ * infrastructure actually changing. AWS Preview must refuse, because Zenith
  * reads no AWS account and an empty drift list would read as "no drift".
  */
 import fs from "node:fs";

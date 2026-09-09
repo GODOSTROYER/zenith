@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic";
 
 export const GET = route(async (req) => {
   // Reading the list is reading configuration, not a secret — but it still
-  // needs a caller Zenith.ai recognises, and this is what refuses a signed-out
+  // needs a caller Zenith recognises, and this is what refuses a signed-out
   // one (and keeps the member list in sync).
   await resolveActor(req);
   const workspace = requireWorkspace();

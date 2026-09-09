@@ -42,7 +42,7 @@ export function LandingHeader({ cta }: { cta: Cta }) {
   return (
     <header className="zenith-header">
       <div className="zenith-header-inner">
-        <a href="#main" aria-label="Zenith.ai home" className="zenith-home"><Wordmark size={29} /></a>
+        <a href="#main" aria-label="Zenith home" className="zenith-home"><Wordmark size={29} /></a>
         <nav className="zenith-desktop-nav" aria-label="Main navigation">
           {LINKS.map((link) => <a key={link.href} href={link.href}>{link.label}</a>)}
           <Link href="/guide">Guide <ArrowUpRight size={12} aria-hidden="true" /></Link>

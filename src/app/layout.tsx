@@ -3,9 +3,9 @@ import "./fonts.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "Zenith.ai", template: "%s · Zenith.ai" },
+  title: { default: "Zenith", template: "%s · Zenith" },
   description:
-    "Your stack, clearly in view. Map your application and review each change with Zenith.ai. LocalStack execution and AWS Terraform export are supported.",
+    "Your stack, clearly in view. Map your application and review each change with Zenith. LocalStack execution and AWS Terraform export are supported.",
 };
 
 export default function RootLayout({

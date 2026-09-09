@@ -41,7 +41,7 @@ creates 10 and retains 09. Repeating appends later revisions; reset/reload reset
 only this in-memory demonstration. Restore does not recover deleted data.
 
 The original shared `/api/me` CTA hook is unchanged. Signed-out/configured users
-see Create account → `/signup`; workspace users see Open Zenith.ai → `/overview`;
+see Create account → `/signup`; workspace users see Open Zenith → `/overview`;
 otherwise Start with Gimbal → `/onboarding`. One shared request resolves all
 primary CTA instances with stable widths. Sign-in, guide and onboarding paths
 remain available. With configured authentication, guide/onboarding retain the

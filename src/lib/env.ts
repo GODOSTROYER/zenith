@@ -69,7 +69,7 @@ const Schema = z.object({
    */
   ORRERY_STEP_TIMEOUT_MS: z.coerce.number().int().positive().default(5 * 60_000),
   /**
-   * Optional. Encrypts the secret store (`lib/secrets`). Unset means Zenith.ai
+   * Optional. Encrypts the secret store (`lib/secrets`). Unset means Zenith
    * has nowhere to hold a secret value and says so instead of pretending.
    * Validated for shape only — the bytes never leave `decodeSecretKey`.
    */
@@ -94,7 +94,7 @@ const Schema = z.object({
     .string()
     .refine(
       (v) => /.+@.+\..+/.test(v.trim()),
-      'must contain an email address, e.g. "Zenith.ai <orrery@example.com>" or "orrery@example.com".'
+      'must contain an email address, e.g. "Zenith <orrery@example.com>" or "orrery@example.com".'
     )
     .optional(),
 });

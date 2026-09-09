@@ -5,11 +5,11 @@ primary_target: "src/app/page.tsx"
 related_targets: ["src/components/landing/landing.tsx","src/components/landing/revision-scene.tsx","src/components/landing/change-demo.tsx","src/components/landing/model-surfaces.tsx"]
 ---
 
-# Surface brief — Zenith.ai landing (/)
+# Surface brief — Zenith landing (/)
 
 Scope: the marketing front door at `/` (src/app/page.tsx + src/components/landing/*). Mode: Persuade.
 
-Audience: founders, solo developers and small teams who need to understand infrastructure before changing it. Job: understand Zenith.ai, inspect a concrete proposal, and enter the product through the real runtime-aware CTA. Proof: the interactive synthetic Atlas example. No invented customers, commercial claims, live cloud availability or pricing plan. Provider rows come from the registry and state exact current limits.
+Audience: founders, solo developers and small teams who need to understand infrastructure before changing it. Job: understand Zenith, inspect a concrete proposal, and enter the product through the real runtime-aware CTA. Proof: the interactive synthetic Atlas example. No invented customers, commercial claims, live cloud availability or pricing plan. Provider rows come from the registry and state exact current limits.
 
 Chosen direction: **The Revision Object — the next change, made tangible.** Selected from three internally argued directions under the user's explicit aesthetic brief. Porcelain/ink/vermilion, Instrument Serif roman/italic display, Manrope UI and existing JetBrains Mono technical evidence. Custom authored Shift Register symbol and zenith vector wordmark. Intentional light and dark landing themes; shared product UI remains unchanged in its roles.
 

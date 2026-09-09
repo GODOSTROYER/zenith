@@ -66,7 +66,7 @@ export function AddServiceForm({ onCreated }: AddServiceFormProps) {
           onChange={(e) => setKind(e.target.value as Service["kind"])}
         />
       </Field>
-      <Field label="Source" help="Leave the image blank to start from the Zenith.ai sample image.">
+      <Field label="Source" help="Leave the image blank to start from the Zenith sample image.">
         <Select
           options={[
             { value: "image", label: "Container image" },

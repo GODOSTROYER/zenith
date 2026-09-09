@@ -1,4 +1,4 @@
-# Zenith.ai design
+# Zenith design
 
 The authoritative design language is [docs/DESIGN.md](docs/DESIGN.md).
 It covers the Revision Object landing, shared product UI, themes, typography,

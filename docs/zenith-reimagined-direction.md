@@ -53,7 +53,7 @@ The sticky masthead provides the authored identity, real navigation, theme contr
 
 Supporting copy: **Your application. Its infrastructure. The next change. Zenith is a local-first deployment and operations platform that puts the plan in your hands.**
 
-The hero includes the real runtime-aware CTA directly, plus **Explore the change** linking to the demonstration. CTA routing remains conditional: configured signed-out visitors create an account, workspace members open Zenith.ai, and unconfigured/local entry starts with Gimbal. The adjacent line is **Bring your own cloud. Keep your model.**
+The hero includes the real runtime-aware CTA directly, plus **Explore the change** linking to the demonstration. CTA routing remains conditional: configured signed-out visitors create an account, workspace members open Zenith, and unconfigured/local entry starts with Gimbal. The adjacent line is **Bring your own cloud. Keep your model.**
 
 The object is labeled **Interactive simulation**, **ATLAS / R09** initially and **Synthetic example**. Its HTML service labels select the relevant resource and navigate to the inspector. The footer sentence is **One queue. Two bindings. A readable plan.** The hero consumes the same current/viewed revision state as the lower demo, so later records and history views update it too.
 

@@ -21,7 +21,7 @@ const signedOut = { configured: true, signedIn: false, hasWorkspace: false };
 const cases = [
   ['signed-out', signedOut, 'Create account', '/signup'],
   ['new-member', { configured: true, signedIn: true, hasWorkspace: false }, 'Start with Gimbal', '/onboarding'],
-  ['member', { configured: true, signedIn: true, hasWorkspace: true }, 'Open Zenith.ai', '/overview'],
+  ['member', { configured: true, signedIn: true, hasWorkspace: true }, 'Open Zenith', '/overview'],
 ];
 async function check(name, run) {
   if (only && !only.some(filter=>name.includes(filter))) return;
@@ -108,7 +108,7 @@ try {
     const t = await fresh({ me: cases[2][1], delay: 4500, fail }); try {
       await open(t.page); await t.page.evaluate(() => document.fonts.ready);
       const before = await t.page.locator('[data-zenith-cta]').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().width));
-      await hydrated(t.page); await ctaEvidence(t.page, fail ? 'Create account' : 'Open Zenith.ai', fail ? '/signup' : '/overview');
+      await hydrated(t.page); await ctaEvidence(t.page, fail ? 'Create account' : 'Open Zenith', fail ? '/signup' : '/overview');
       const after = await t.page.locator('[data-zenith-cta]').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().width));
       assert.equal(before.length, after.length); before.forEach((width, index) => assert.ok(Math.abs(width - after[index]) <= 1, `CTA ${index} shifted ${width} → ${after[index]}`)); assert.equal(t.requests(), 1); return { before, after, requests: t.requests() };
     } finally { await t.ctx.close(); }

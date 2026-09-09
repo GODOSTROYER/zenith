@@ -1,9 +1,9 @@
 /**
- * Terraform → Zenith.ai manifest. PREVIEW-QUALITY, and it says so.
+ * Terraform → Zenith manifest. PREVIEW-QUALITY, and it says so.
  *
  * This is a regex-level scan of `resource "type" "name"` blocks, not an HCL
  * parse: modules, variables, count/for_each, locals and interpolation are not
- * evaluated. What it recognises is imported as `referenced` — Zenith.ai reads
+ * evaluated. What it recognises is imported as `referenced` — Zenith reads
  * those resources, never provisions or mutates them — so a wrong guess here
  * cannot touch your cloud.
  */
@@ -29,7 +29,7 @@ const RESOURCE_RE = /resource\s+"([A-Za-z0-9_]+)"\s+"([A-Za-z0-9_-]+)"/g;
 const BLOCK_RE = /^\s*(module|variable|output|locals|provider|data|terraform)\s/gm;
 
 export const TERRAFORM_IMPORTER_LABEL =
-  "Preview-quality importer: a text scan, not an HCL parse. Imported resources are marked 'referenced' — Zenith.ai reads them and never changes them.";
+  "Preview-quality importer: a text scan, not an HCL parse. Imported resources are marked 'referenced' — Zenith reads them and never changes them.";
 
 export function importTerraform(text: string): TerraformImport {
   const report = emptyReport();
@@ -47,11 +47,11 @@ export function importTerraform(text: string): TerraformImport {
     if (!known) {
       report.unmapped.push({
         source: address,
-        reason: `Zenith.ai has no model for ${type} yet.`,
+        reason: `Zenith has no model for ${type} yet.`,
         suggestion:
           type.startsWith("aws_iam") || type.startsWith("aws_security_group") || type.startsWith("aws_vpc")
-            ? "Networking and IAM stay yours — Zenith.ai deploys into the account you connect and does not manage them."
-            : "Leave it in Terraform. Zenith.ai only needs the resources your services talk to.",
+            ? "Networking and IAM stay yours — Zenith deploys into the account you connect and does not manage them."
+            : "Leave it in Terraform. Zenith only needs the resources your services talk to.",
       });
       continue;
     }
@@ -71,7 +71,7 @@ export function importTerraform(text: string): TerraformImport {
       source: address,
       result: `referenced resource ${name} (${known.kind})`,
       confidence: "assumed",
-      note: `${known.label} recognised by name. Marked 'referenced': Zenith.ai shows it on the map and binds services to it, but never provisions or deletes it — and it does not appear in your Zenith.ai cost estimate.`,
+      note: `${known.label} recognised by name. Marked 'referenced': Zenith shows it on the map and binds services to it, but never provisions or deletes it — and it does not appear in your Zenith cost estimate.`,
     });
   }
 

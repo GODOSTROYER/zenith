@@ -1,8 +1,8 @@
-# Zenith.ai and Gimbal acceptance
+# Zenith and Gimbal acceptance
 
 ## Delivered
 
-- Zenith.ai identity across the app, metadata and product documentation, with
+- Zenith identity across the app, metadata and product documentation, with
   a shared vector mark and a neutral, voluntary Gimbal landing introduction.
 - Optional journey: workspace ownership → outcome-led start mode → appropriate
   blueprint → review the actual system. No credential collection or automatic

@@ -1,7 +1,7 @@
 /**
  * Terraform block labels must be unique, because duplicate labels are a *parse*
  * error — an export that emits them cannot even `terraform plan`, so the bundle
- * Zenith.ai hands you is worthless at the moment you need it.
+ * Zenith hands you is worthless at the moment you need it.
  *
  * Sanitising is lossy: `tf()` maps every character outside [A-Za-z0-9_] to `_`,
  * so "api.v1" and "api-v1" both become "api_v1", and the paths "/x.y" and

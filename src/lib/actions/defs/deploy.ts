@@ -44,11 +44,11 @@ function providerBlock(env: Environment): string | undefined {
   if (!provider || provider.availability === "available") return undefined;
   if (provider.availability === "preview")
     return (
-      `${provider.displayName} is a Preview provider: Zenith.ai plans this deployment and exports runnable Terraform for it, but it never applies changes to your account. ` +
+      `${provider.displayName} is a Preview provider: Zenith plans this deployment and exports runnable Terraform for it, but it never applies changes to your account. ` +
       `Export the Terraform from Source → Export (or Settings → Export) and run it with your own tooling, or point ${env.name} at a Sandbox connection to watch the full flow.`
     );
   return (
-    `${provider.displayName} is a Planned provider: Zenith.ai cannot plan, apply or export for it yet. ` +
+    `${provider.displayName} is a Planned provider: Zenith cannot plan, apply or export for it yet. ` +
     `Point ${env.name} at a Sandbox connection to deploy now, or at AWS to export runnable Terraform.`
   );
 }
@@ -100,7 +100,7 @@ function deployBlock(env: Environment, project: Project, cs: Changeset): string 
  * with a reason, rather than the deployment failing halfway through.
  *
  * Only *managed* resources count. A referenced one was never provisioned by
- * Zenith.ai, so dropping it from the manifest forgets it rather than deleting it.
+ * Zenith, so dropping it from the manifest forgets it rather than deleting it.
  */
 function statefulDeletionBlock(env: Environment, cs: Changeset): string | undefined {
   if (env.policies.allowStatefulDeletion) return undefined;

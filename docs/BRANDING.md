@@ -1,6 +1,6 @@
-# Zenith.ai identity and compatibility
+# Zenith identity and compatibility
 
-Zenith.ai means the point directly above the observer. The product promise is
+Zenith means the point directly above the observer. The product promise is
 **Your stack, clearly in view.** Visibility means understanding the current
 system, the next change, and the evidence behind an outcome—not claiming
 universal cloud control or production readiness.
@@ -12,7 +12,7 @@ with offset edges and a diagonal seam. It accompanies original lowercase
 zenith vector lettering, not font outlines. The shared master geometry is in
 `src/components/shell/brand-geometry.ts`; the existing `OrbitMark` and
 `Wordmark` exports remain compatible with product callers. The visible `.ai`
-suffix and accessible Zenith.ai name preserve the product name. Monochrome,
+suffix and accessible Zenith name preserve the product name. Monochrome,
 inverse and small symbol treatments share this identity. Gimbal's moving rings
 belong to the Navigator character and are not the corporate mark.
 
@@ -33,7 +33,7 @@ low-power mode and WebGL fallback. A greeting is never a Verified event.
 
 ## Product language
 
-- Zenith.ai is the platform; Gimbal is its mascot; Navigator is its planning
+- Zenith is the platform; Gimbal is its mascot; Navigator is its planning
   and execution surface.
 - A workspace holds projects, connections and membership. A project holds an
   editable system; an environment selects where a revision runs.
@@ -53,10 +53,10 @@ namespaces, cookies, package identity, API/action/provider IDs, persisted
 workspace/project IDs, user-defined names and domains, Terraform tags/addresses,
 and `orrery.manifest.json`/archive names compatible. Existing audit history and
 Gimbal asset provenance remain historical records. Human-readable explanations
-can say Zenith.ai while showing those literal configuration keys and filenames.
+can say Zenith while showing those literal configuration keys and filenames.
 
 Illustrations use reserved example domains; existing project domains are not
-rewritten. The Zenith.ai name does not establish ownership of that internet
+rewritten. The Zenith name does not establish ownership of that internet
 domain, and this work does not configure or publish to it.
 
 ## First useful outcome

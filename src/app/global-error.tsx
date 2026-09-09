@@ -43,7 +43,7 @@ export default function GlobalError({
             padding: 24,
           }}
         >
-          <h1 style={{ margin: 0, fontSize: 17, fontWeight: 600 }}>Zenith.ai could not start</h1>
+          <h1 style={{ margin: 0, fontSize: 17, fontWeight: 600 }}>Zenith could not start</h1>
           <p style={{ marginTop: 12, fontSize: 13, lineHeight: 1.6, color: "#9aa5bd" }}>
             The application shell itself failed to render, so no screen can load. Nothing
             was changed by this: your system definition, revisions and deployment history

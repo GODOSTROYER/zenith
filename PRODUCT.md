@@ -1,4 +1,4 @@
-# PRODUCT.md — Zenith.ai
+# PRODUCT.md — Zenith
 
 **What it is.** A bring-your-own-cloud deployment and operations platform for
 small SaaS teams and solo builders. One canonical application manifest — a
@@ -31,7 +31,7 @@ them: hidden costs, dead controls, no URL after deploy).
 **Voice.** Calm staff-level platform engineer. Errors name their fix.
 Never overclaims. Celebrates once, quietly.
 
-**Brand commitments.** Zenith.ai — “Your stack, clearly in view.”
+**Brand commitments.** Zenith — “Your stack, clearly in view.”
 Identity: the authored Shift Register symbol and custom zenith vector lettering.
 Gimbal retains its own moving rings. The landing's Revision Object direction
 makes the next change tangible through porcelain, ink and controlled vermilion,
@@ -46,7 +46,7 @@ vocabulary and clearly synthetic demo data ("atlas" system).
 
 **Uninventable facts:** prices, customers, benchmarks, hosted availability.
 CTA reality: "Create account" → /signup for signed-out visitors when auth is
-configured; "Open Zenith.ai" → /overview for workspace members, otherwise
+configured; "Open Zenith" → /overview for workspace members, otherwise
 "Start with Gimbal" → /onboarding. The optional starter and /guide remain
 revisitable. Setup progress reflects actual scoped records, not visited pages.
 See docs/BRANDING.md for the identity and compatibility boundary.

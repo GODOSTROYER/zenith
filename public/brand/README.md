@@ -27,6 +27,6 @@ may share the sculpture's controlled offset. Do not use the mark as a status
 icon: semantic warnings, errors, approval and provider verification retain
 independent labels, icons and colors.
 
-The formal product name remains **Zenith.ai**. The visual wordmark emphasizes
+The formal product name remains **Zenith**. The visual wordmark emphasizes
 Zenith; the small `.ai` suffix in the app is supporting product nomenclature.
 No trademark registration or domain ownership is implied.

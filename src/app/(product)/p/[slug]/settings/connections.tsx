@@ -104,7 +104,7 @@ export function ConnectionsSection({
           title={`Disconnect ${pending.connection.label}`}
           // The plan says whether this can happen at all and what it costs;
           // this line only states the part that is true either way.
-          description="Zenith.ai forgets how to reach this cloud. Nothing inside it is created, changed or deleted."
+          description="Zenith forgets how to reach this cloud. Nothing inside it is created, changed or deleted."
           confirmLabel="Disconnect"
           danger
           onDone={done}

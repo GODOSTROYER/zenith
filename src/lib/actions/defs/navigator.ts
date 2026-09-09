@@ -100,7 +100,7 @@ defineAction<Investigate>({
       summary: `Read the most recent failed deployment in ${env?.name ?? project.name}.`,
       details: [
         "Reads the failed deployment, the step that failed and the provider error it recorded.",
-        "Reports the environment's health, which is simulated in Zenith.ai.",
+        "Reports the environment's health, which is simulated in Zenith.",
         "Changes nothing: no revision, no deployment, no manifest edit.",
       ],
       costDeltaUsd: 0,

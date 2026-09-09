@@ -3,7 +3,7 @@
 @import "tailwindcss" source("../");
 
 /* ============================================================
-   Zenith.ai application tokens — The Revision Object workbench.
+   Zenith application tokens — The Revision Object workbench.
    Dark-first, with an equally considered light theme.
    All component styling flows through these tokens; never hardcode
    a color in a component. See docs/DESIGN.md.

@@ -35,7 +35,7 @@ export function AuthShell({ configured, children }: { configured: boolean; child
               <div className="rounded-card border border-line bg-bg2 p-6 sm:p-8">
                 <h1 className="app-page-title">Sign-in isn&apos;t configured yet</h1>
                 <p className="mt-2 text-[14px] leading-[1.6] text-ink-mute">
-                  Zenith.ai is running in local demo mode — one local user, no accounts. To turn on
+                  Zenith is running in local demo mode — one local user, no accounts. To turn on
                   accounts, add Supabase keys to{" "}
                   <span className="font-mono text-[12.5px] text-ink">.env.local</span> (see{" "}
                   <span className="font-mono text-[12.5px] text-ink">.env.local.example</span>) and restart.

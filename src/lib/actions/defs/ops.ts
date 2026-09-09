@@ -45,13 +45,13 @@ function restartDetail(adapter: { id: string; displayName: string }): string {
     return "The sandbox marks the service restarting, then healthy again. No process exists to restart.";
   if (adapter.id === "localstack")
     return "LocalStack Community does not run your containers — ECS is one of the kinds it simulates — so no process was restarted.";
-  return `${adapter.displayName} has no live restart in Zenith.ai: no provider adapter implements one, so nothing was restarted.`;
+  return `${adapter.displayName} has no live restart in Zenith: no provider adapter implements one, so nothing was restarted.`;
 }
 
 function restartWarning(adapter: { id: string; displayName: string }): string {
   return adapter.id === "sandbox"
     ? "Simulated: nothing is provisioned in the sandbox, so nothing is restarted."
-    : `Simulated: ${adapter.displayName} runs the deploy, but Zenith.ai has no live restart for it. To replace the running copy, deploy the environment again.`;
+    : `Simulated: ${adapter.displayName} runs the deploy, but Zenith has no live restart for it. To replace the running copy, deploy the environment again.`;
 }
 
 const Restart = z.object({
@@ -107,7 +107,7 @@ defineAction<Restart>({
       return {
         ok: false,
         summary: `${adapter.displayName} cannot restart services yet.`,
-        error: `${adapter.displayName} is ${adapter.availability} in Zenith.ai: it plans and exports, but does not operate live infrastructure. Restart ${service.name} with your own tooling, or deploy this environment to the sandbox.`,
+        error: `${adapter.displayName} is ${adapter.availability} in Zenith: it plans and exports, but does not operate live infrastructure. Restart ${service.name} with your own tooling, or deploy this environment to the sandbox.`,
       };
 
     return {

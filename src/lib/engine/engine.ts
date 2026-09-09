@@ -1,5 +1,5 @@
 /**
- * Zenith.ai deployment engine — durable state machine over the store.
+ * Zenith deployment engine — durable state machine over the store.
  *
  *   planning → awaiting_approval? → applying → verifying → succeeded
  *                                       ↘ failed → rolling_back → rolled_back
@@ -440,7 +440,7 @@ function deadline(
       () =>
         reject(
           new Error(
-            `${providerName} did not finish "${stepTitle}" within ${Math.round(ms / 1000)}s, so Zenith.ai stopped waiting. ` +
+            `${providerName} did not finish "${stepTitle}" within ${Math.round(ms / 1000)}s, so Zenith stopped waiting. ` +
               `Anything ${providerName} already created is still there — check it for a half-finished resource, then deploy again. ` +
               `If this provider is legitimately slower than that, raise ORRERY_STEP_TIMEOUT_MS (currently ${ms}) and restart the server.`
           )

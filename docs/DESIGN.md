@@ -1,4 +1,4 @@
-# Zenith.ai — Design language
+# Zenith — Design language
 
 **Identity:** “Your stack, clearly in view.” The authored Shift Register symbol
 uses two offset solid shapes and a diagonal seam. The lowercase zenith wordmark

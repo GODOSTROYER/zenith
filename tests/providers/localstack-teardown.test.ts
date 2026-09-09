@@ -149,7 +149,7 @@ const environment: Environment = {
 
 /**
  * One of everything that can be removed: a real bucket, a real queue, a kind
- * LocalStack only simulates, a resource Zenith.ai does not own, a service and a
+ * LocalStack only simulates, a resource Zenith does not own, a service and a
  * route.
  */
 const base = (): Manifest => ({
@@ -266,8 +266,8 @@ describe("localstack teardown planning", () => {
     expect(teardowns(plan(without("res-uploads", "res-jobs")))).toHaveLength(0);
   });
 
-  it("never deletes a resource Zenith.ai does not own", () => {
-    // `referenced` means it exists in the cloud and Zenith.ai only reads it.
+  it("never deletes a resource Zenith does not own", () => {
+    // `referenced` means it exists in the cloud and Zenith only reads it.
     // Dropping it from the manifest stops tracking it; it does not destroy it.
     const steps = plan(without("res-adopted"), base());
     expect(teardowns(steps)).toHaveLength(0);
@@ -424,7 +424,7 @@ describe("aws preview access copy", () => {
 
     // No standing trust is asked for: there is no role, no ExternalId, no STS.
     expect(copy).not.toMatch(/AssumeRole|ExternalId|short-lived STS/i);
-    expect(copy).not.toMatch(/You create an IAM role|trust Zenith.ai's principal/i);
+    expect(copy).not.toMatch(/You create an IAM role|trust Zenith's principal/i);
     // No read it cannot perform.
     expect(copy).not.toMatch(/GetCostAndUsage|GetCallerIdentity|ListAllMyBuckets|Describe\*|Read-only inventory/i);
     // and it says plainly that there is nothing to grant. (Telling the user to
@@ -432,7 +432,7 @@ describe("aws preview access copy", () => {
     expect(copy).toMatch(/no AWS access/i);
     expect(copy).toMatch(/Reads nothing from your account/i);
 
-    // The plan preview must not imply a role Zenith.ai assumes either.
+    // The plan preview must not imply a role Zenith assumes either.
     const steps = awsProvider.planSteps(environment, base());
     expect(steps.some((s) => /assume/i.test(s.title) || /sts:/i.test(s.detail ?? ""))).toBe(false);
   });

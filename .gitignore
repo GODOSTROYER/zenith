@@ -15,3 +15,6 @@ next-env.d.ts
 .herenow/state.json
 
 .vercel
+
+# graphify knowledge-graph cache and outputs
+graphify-out/

@@ -201,7 +201,7 @@ export default function SettingsPage() {
         <section id="export" tabIndex={-1} className="space-y-4">
           <SectionHead
             title="Export"
-            body="Everything Zenith.ai generated for this environment, in files you can run yourself."
+            body="Everything Zenith generated for this environment, in files you can run yourself."
           />
           <Card>
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -252,8 +252,8 @@ export default function SettingsPage() {
                 <h3 className="text-[14px] text-ink">Delete this project</h3>
                 <p className="mt-1 max-w-[62ch] text-[12.5px] text-ink-mute">
                   Removes {data.project.name}, its environments, revisions, deployment records and
-                  findings from Zenith.ai. Nothing in your cloud or in the sandbox is torn down: if an
-                  environment is running something, it keeps running and Zenith.ai loses the way back
+                  findings from Zenith. Nothing in your cloud or in the sandbox is torn down: if an
+                  environment is running something, it keeps running and Zenith loses the way back
                   to it. The plan lists the exact counts before you confirm.
                 </p>
               </div>

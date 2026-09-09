@@ -63,8 +63,8 @@ export function claimDataDir(dataDir: string): void {
   const held = read(file);
   if (held && held.pid !== process.pid && alive(held.pid)) {
     throw new Error(
-      `Another Zenith.ai process (pid ${held.pid}, started ${held.startedAt}) is already using the data directory ${dir}. ` +
-        `Zenith.ai keeps the whole database in memory and rewrites it on save, so a second process would silently overwrite the first one's writes. ` +
+      `Another Zenith process (pid ${held.pid}, started ${held.startedAt}) is already using the data directory ${dir}. ` +
+        `Zenith keeps the whole database in memory and rewrites it on save, so a second process would silently overwrite the first one's writes. ` +
         `Fix: stop that process, or give this one its own directory with ORRERY_DATA=<path>. ` +
         `If pid ${held.pid} is gone, delete ${file} and start again.` +
         (held.cwd !== process.cwd()

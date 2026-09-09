@@ -95,7 +95,7 @@ export function analyze(
         title: `${s.name}.${e.key} is stored in plain text`,
         detail:
           `${e.key} looks like a credential but its value lives in the manifest, which means it is in every revision, every export and every audit snapshot of this project. ` +
-          `The fix moves the value into Zenith.ai's secret store — encrypted, out of the manifest — and leaves a reference to it behind, scoped to this service, in one action. ` +
+          `The fix moves the value into Zenith's secret store — encrypted, out of the manifest — and leaves a reference to it behind, scoped to this service, in one action. ` +
           `Revisions already written keep the old plaintext, so rotate the credential at its source if it may have been seen.`,
         targetId: s.id,
         // `moveExistingValue` is what makes this real: the action reads the

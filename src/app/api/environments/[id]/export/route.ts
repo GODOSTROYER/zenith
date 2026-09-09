@@ -29,7 +29,7 @@ export const GET = route<{ id: string }>(async (_req, { id }) => {
 
   if (provider.availability === "planned")
     throw new ApiError(
-      `${provider.displayName} is planned, not implemented — Zenith.ai cannot generate an export bundle for it yet.`,
+      `${provider.displayName} is planned, not implemented — Zenith cannot generate an export bundle for it yet.`,
       400,
       { fix: "Export from a Sandbox or AWS (Preview) environment; both emit runnable infrastructure code." }
     );

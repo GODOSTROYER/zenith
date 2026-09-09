@@ -258,7 +258,7 @@ function LiveResourceImport({ onClose }: { onClose: () => void }) {
     return (
       <EmptyState
         title="No connections yet"
-        body="Zenith.ai looks for existing resources through a cloud connection. Add one in Settings → Connections, then come back."
+        body="Zenith looks for existing resources through a cloud connection. Add one in Settings → Connections, then come back."
       />
     );
 
@@ -325,7 +325,7 @@ function LiveResourceImport({ onClose }: { onClose: () => void }) {
       )}
 
       <p className="text-[12.5px] leading-relaxed text-ink-mute">
-        Imported resources are marked <span className="text-ink">referenced</span>: Zenith.ai draws
+        Imported resources are marked <span className="text-ink">referenced</span>: Zenith draws
         them on the map and lets services bind to them, but never provisions, changes or deletes
         them — and they add nothing to the cost estimate.
       </p>
@@ -417,7 +417,7 @@ export function ImportDialog({
         onClose={close}
         width={620}
         title="What was imported"
-        description="Exact means a faithful translation. Assumed means Zenith.ai had to guess — check those."
+        description="Exact means a faithful translation. Assumed means Zenith had to guess — check those."
       >
         <ImportReportView report={report} />
         <div className="mt-4 border-t border-line pt-3">
@@ -434,7 +434,7 @@ export function ImportDialog({
       onClose={close}
       width={620}
       title="Import into this system"
-      description="Everything Zenith.ai cannot map is listed with a reason, never dropped silently."
+      description="Everything Zenith cannot map is listed with a reason, never dropped silently."
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SegmentedControl<Format>

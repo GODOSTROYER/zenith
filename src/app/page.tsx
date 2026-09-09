@@ -1,7 +1,7 @@
 /**
- * The Zenith.ai landing page — the front door.
+ * The Zenith landing page — the front door.
  * Direction: "The Revision Object" — see docs/zenith-reimagined-direction.md.
- * Product users pass straight through via the Open Zenith.ai CTA; the page
+ * Product users pass straight through via the Open Zenith CTA; the page
  * pulls its provider table live from the registry so it can never overclaim.
  */
 import type { Metadata } from "next";
@@ -9,7 +9,7 @@ import { ensureEngine } from "@/lib/engine/engine";
 import { providerRegistry } from "@/lib/providers/types";
 import { Landing, type ProviderRow } from "@/components/landing/landing";
 
-const TITLE = "Zenith.ai — see the change before you ship";
+const TITLE = "Zenith — see the change before you ship";
 const DESCRIPTION =
   "Your next infrastructure change, made tangible. Inspect the system, review estimated cost and risk, and approve supported execution. Local-first, bring your own cloud.";
 
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     url: "/",
-    siteName: "Zenith.ai",
+    siteName: "Zenith",
     title: TITLE,
     description: DESCRIPTION,
     images: [{ url: "/og.png", width: 1200, height: 630, alt: TITLE }],

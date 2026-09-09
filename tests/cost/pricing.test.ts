@@ -114,7 +114,7 @@ describe("resource cost", () => {
       }
   });
 
-  it("charges nothing for a resource Zenith.ai does not manage", () => {
+  it("charges nothing for a resource Zenith does not manage", () => {
     for (const ownership of ["referenced", "external"] as const) {
       const m = manifest({
         resources: [resource({ id: "r", kind: "postgres", size: "performance", ownership })],

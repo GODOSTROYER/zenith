@@ -103,6 +103,9 @@ function testSubjects(): Set<string> {
  * Exported because the scorecard has to hash an app's `createdBy` subject to
  * ask "was this write by someone other than the person who built the app?" —
  * the events themselves hold only hashes.
+ *
+ * Not `subjectHashUnchecked` from `@/lib/hosted/access/internal`: that one
+ * always returns a hash, salted or not; this one refuses and warns.
  */
 export function subjectHash(subject: Subject): string | undefined {
   const salt = eventsSalt();

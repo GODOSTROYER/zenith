@@ -17,13 +17,13 @@
  *
  * Workstream W7 (hosted R3).
  */
-import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { z } from "zod";
 import { hashIntent } from "@/lib/hosted/authority";
 import { platformRoot } from "@/lib/hosted/build";
 import { HostedError, SOURCE_LIMITS, type Subject } from "@/lib/hosted/contracts";
+import { sha256 } from "@/lib/hosted/digest";
 
 /** Every fixture a publish may name, and where it lives relative to the repository root. */
 export const FIXTURES: Record<string, string> = {
@@ -56,7 +56,7 @@ export type PublishSource = z.infer<typeof PublishSource>;
 const FIXTURE_FIX = `Send { "kind": "fixture", "name": "<one of ${Object.keys(FIXTURES).join(", ")}>" }, or submit your own source as { "kind": "tarball", "base64": "…" }.`;
 
 /** SHA-256 hex over a buffer. The tarball's identity inside an intent. */
-export const sha256 = (bytes: Buffer): string => createHash("sha256").update(bytes).digest("hex");
+export { sha256 };
 
 /**
  * The directory a named fixture resolves to.

@@ -10,8 +10,7 @@
  *
  * Pure — no React. Workstream W9 (hosted R3)
  */
-import type { Availability } from "@/lib/hosted/contracts/interfaces";
-import type { AppState } from "@/lib/hosted/contracts/types";
+import type { AppState, Availability } from "@/lib/hosted/contracts";
 import type { BuilderInfo } from "@/lib/client/hosted";
 
 export type WorkspaceRole = "admin" | "editor" | "viewer" | null;

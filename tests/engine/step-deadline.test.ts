@@ -4,14 +4,11 @@
  * names the provider and the way out, and hands the adapter an abort signal.
  */
 import { afterAll, beforeAll, expect, test } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import type { Deployment, ProviderId } from "@/lib/domain/types";
 import type { ProviderAdapter, StepRuntime } from "@/lib/providers/types";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-deadline-"));
-process.env.ORRERY_FAST = "1";
+tempDataDir("orrery-deadline-", { fast: true });
 // Short enough to assert in a test; the product default is five minutes.
 process.env.ORRERY_STEP_TIMEOUT_MS = "300";
 

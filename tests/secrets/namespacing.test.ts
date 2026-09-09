@@ -26,13 +26,12 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import type { ActionContext } from "@/lib/actions/core";
 import type { Manifest, Revision } from "@/lib/domain/types";
+import { tempDataDir } from "../_support/data-dir";
 
-const DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-ns-"));
-process.env.ORRERY_DATA = DATA;
+const DATA = tempDataDir("orrery-ns-");
 process.env.ORRERY_SECRET_KEY = crypto.randomBytes(32).toString("base64");
 
 const { runAction } = await import("@/lib/actions/core");

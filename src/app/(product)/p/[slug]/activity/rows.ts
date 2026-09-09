@@ -4,6 +4,7 @@
  * component so it can be tested directly — see tests/screens/activity-rows.test.ts.
  */
 import type { AuditEvent } from "@/lib/domain/types";
+import { csv } from "@/components/screens/download-file";
 
 export interface Day {
   key: string;
@@ -93,19 +94,10 @@ const CSV_COLUMNS = [
   "error",
 ] as const;
 
-/**
- * A cell, quoted. A leading =, +, - or @ is prefixed with an apostrophe:
- * spreadsheets treat those as formulas, and summaries carry names people chose.
- */
-function cell(value: unknown): string {
-  const s = value === undefined || value === null ? "" : String(value);
-  const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
-  return `"${safe.replace(/"/g, '""')}"`;
-}
-
 export function toCsv(events: AuditEvent[]): string {
-  const rows = events.map((e) =>
-    [
+  return csv(
+    [...CSV_COLUMNS],
+    events.map((e) => [
       e.ts,
       e.actor.type,
       e.actor.name,
@@ -114,11 +106,8 @@ export function toCsv(events: AuditEvent[]): string {
       e.environmentId,
       e.summary,
       e.error,
-    ]
-      .map(cell)
-      .join(",")
+    ])
   );
-  return [CSV_COLUMNS.join(","), ...rows].join("\r\n") + "\r\n";
 }
 
 /* ------------------------------ object links ------------------------------ */

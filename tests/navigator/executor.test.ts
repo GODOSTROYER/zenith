@@ -7,15 +7,11 @@
  * through the agent what they cannot execute from the System Map.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { z } from "zod";
 import type { Actor, NavigatorRun, NavigatorStep } from "@/lib/domain/types";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-nav-exec-"));
-process.env.ORRERY_FAST = "1";
-
+tempDataDir("orrery-nav-exec-", { fast: true });
 const { defineAction, runAction } = await import("@/lib/actions/core");
 await import("@/lib/actions/defs");
 const { db, resetDb, save } = await import("@/lib/db/store");

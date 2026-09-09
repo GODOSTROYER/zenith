@@ -157,14 +157,44 @@ function unseal(workspaceId: string, ref: string, cipher: string): string {
 
 /* ---------------------------------- file ---------------------------------- */
 
-const storePath = () => path.join(env().ORRERY_DATA, "secrets.json");
+/**
+ * `ORRERY_DATA` is read live (scripts and tests set it at runtime), but the
+ * join only has to happen when it actually moves.
+ */
+let pathCache: { dir: string; file: string } | undefined;
+
+const storePath = (): string => {
+  const dir = env().ORRERY_DATA;
+  if (pathCache?.dir !== dir) pathCache = { dir, file: path.join(dir, "secrets.json") };
+  return pathCache.file;
+};
+
+/**
+ * The last parse of the store, and the stat that produced it. Every accessor
+ * calls `read()`, so without this a screen listing ten references parsed (and
+ * re-decoded) the whole file ten times. `mtimeMs` + `size` is the invalidation:
+ * `write()` clears it outright, and an edit from outside this process moves
+ * both. A stale cache can therefore only survive a change that keeps the size
+ * AND the mtime, which the atomic rename in `write()` never does.
+ */
+let fileCache: { file: string; mtimeMs: number; size: number; data: StoreFile } | undefined;
 
 function read(): StoreFile {
   const file = storePath();
-  if (!fs.existsSync(file)) return structuredClone(EMPTY);
+  const stat = fs.statSync(file, { throwIfNoEntry: false });
+  if (!stat) return structuredClone(EMPTY);
+  if (
+    fileCache &&
+    fileCache.file === file &&
+    fileCache.mtimeMs === stat.mtimeMs &&
+    fileCache.size === stat.size
+  )
+    return fileCache.data;
   try {
     const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as StoreFile;
-    return { ...EMPTY, ...parsed, workspaces: parsed.workspaces ?? {} };
+    const data: StoreFile = { ...EMPTY, ...parsed, workspaces: parsed.workspaces ?? {} };
+    fileCache = { file, mtimeMs: stat.mtimeMs, size: stat.size, data };
+    return data;
   } catch {
     // Never start fresh here: that would silently discard every value. Refuse
     // loudly instead — the file is the only copy Zenith has.
@@ -176,6 +206,10 @@ function read(): StoreFile {
 }
 
 function write(data: StoreFile): void {
+  // Drop the cache before touching the file, not after: both writers mutate
+  // the object `read()` handed them, so the cached copy is already stale, and
+  // a throw part-way through must not leave that copy readable.
+  fileCache = undefined;
   const file = storePath();
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.tmp`;

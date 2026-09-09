@@ -13,7 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { isolatedDataDir, removeDir, uuid } from "../_fixtures";
-import { entriesFromDirectory, writeTar } from "../source/tar-writer";
+import { entriesFromDirectory, writeTar } from "../../_support/tar";
 
 const DATA = isolatedDataDir("zenith-w2-pipeline-");
 const FIXTURE = path.join(process.cwd(), "fixtures", "hosted", "minimal-app");

@@ -15,7 +15,7 @@ before apply.
 | `contracts/tracker-v1.ts` | equipment-request schema, limits, request/response bodies, conflict payload, `canonicalWriteIntent()` |
 | `contracts/source-v1.ts` | supported source: manifest, allowed paths/extensions/deps, limits, `RECIPE_V1`, `ValidatedSource` |
 | `contracts/interfaces.ts` | `BuildRunner`, `ArtifactStore`, `AppDataStore`, `HostedRuntime`, `BackupTarget`, `SessionAuthority` |
-| `config.ts` | `hostedConfig()`, `hostedMode()`, `hostedConfigured()`, `controlDatabasePath()`, `appDataDir()`, `appHostname()`, `appOrigin()`, `slugFromHost()` |
+| `config.ts` | `hostedConfig()`, `hostedMode()`, `controlDatabasePath()`, `appDataDir()`, `appHostname()`, `appOrigin()`, `slugFromHost()` |
 
 ## Environment (all optional; defaults are the local single-host profile)
 

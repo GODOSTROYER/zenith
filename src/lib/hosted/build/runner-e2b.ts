@@ -26,6 +26,7 @@ import { hostedConfig } from "@/lib/hosted/config";
 import { log } from "@/lib/log";
 import { RECIPE_INSTALL_ARGS, recipeWorkerPath, type RecipeWorkerResult } from "./recipe";
 import { removeMaterialized } from "@/lib/hosted/source";
+import { LogSink, buildResult } from "./runner-support";
 
 /** Where the recipe lives inside the sandbox. Absolute, so no cwd assumption. */
 export const SANDBOX_ROOT = "/home/user/zenith";
@@ -117,25 +118,9 @@ export class E2bRunner implements BuildRunner {
 
   async run(req: BuildRequest, signal: AbortSignal): Promise<BuildResult> {
     const started = Date.now();
-    const logs: BuildLogLine[] = [];
-    let logBytes = 0;
-    const note = (stream: BuildLogLine["stream"], text: string): void => {
-      for (const raw of text.split(/\r?\n/)) {
-        const line = raw.trimEnd();
-        if (line === "") continue;
-        const size = Buffer.byteLength(line, "utf8") + 1;
-        if (logBytes + size > req.limits.maxLogBytes) return;
-        logBytes += size;
-        logs.push({ ts: new Date().toISOString(), stream, line });
-      }
-    };
-    const done = (partial: { ok: boolean; outputDir?: string; error?: string }): BuildResult => ({
-      ...partial,
-      logs,
-      durationMs: Date.now() - started,
-      runner: this.id,
-      boundary: this.boundary,
-    });
+    const sink = new LogSink(req.limits.maxLogBytes);
+    const note = (stream: BuildLogLine["stream"], text: string): void => sink.push(stream, `${text}\n`);
+    const done = buildResult(sink, this.id, this.boundary, started);
 
     const availability = await this.availability();
     if (!availability.available)

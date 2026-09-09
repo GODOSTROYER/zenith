@@ -16,6 +16,7 @@ import { z } from "zod";
 import { appendAudit, db, save } from "@/lib/db/store";
 import { id, type Actor, type AutonomyLevel } from "@/lib/domain/types";
 import { hostedMode } from "@/lib/hosted/config";
+import { WORKSPACE_ROLE_RANK, type WorkspaceRole } from "@/lib/domain/roles";
 
 export interface ActionContext {
   workspaceId: string;
@@ -27,7 +28,9 @@ export interface ActionContext {
 }
 
 export type Risk = "low" | "medium" | "high";
-export type Role = "viewer" | "editor" | "admin";
+/** Re-exported from the shared, browser-safe rank table. */
+export type Role = WorkspaceRole;
+export { WORKSPACE_ROLE_RANK, roleReaches, roleShortfall } from "@/lib/domain/roles";
 
 export interface ActionPlan {
   /** one-sentence, human-readable statement of what will happen */
@@ -107,7 +110,6 @@ export function getAction(actionId: string): ActionDef<unknown> {
 
 /* ---------------------------------- roles --------------------------------- */
 
-const RANK: Record<Role, number> = { viewer: 0, editor: 1, admin: 2 };
 
 /**
  * The acting user's role in this workspace. The member record is the authority;
@@ -262,7 +264,7 @@ export async function runAction(
   // would do before asking someone who is allowed to run it.)
   if (ctx.actor.type === "user") {
     const role = roleOf(ctx.actor, ctx.workspaceId);
-    if (RANK[role] < RANK[action.requiredRole]) {
+    if (WORKSPACE_ROLE_RANK[role] < WORKSPACE_ROLE_RANK[action.requiredRole]) {
       const denied: ActionResult = {
         ok: false,
         summary: `"${action.title}" needs the ${action.requiredRole} role and you are ${role} in this workspace.`,
@@ -340,7 +342,7 @@ function withRoleBlock(
   const needed = out.requiredRole ?? action.requiredRole;
   if (out.blocked || ctx.actor.type !== "user") return out;
   const role = roleOf(ctx.actor, ctx.workspaceId);
-  if (RANK[role] >= RANK[needed]) return out;
+  if (WORKSPACE_ROLE_RANK[role] >= WORKSPACE_ROLE_RANK[needed]) return out;
   out.blocked =
     `"${action.title}" needs the ${needed} role and you are ${role} in this workspace. ` +
     `Ask a workspace admin to raise your role in Settings → Members, or have them run it.`;

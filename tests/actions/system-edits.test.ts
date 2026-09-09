@@ -4,13 +4,10 @@
  * without tearing the connection down first.
  */
 import { beforeAll, describe, expect, it } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import type { ActionContext } from "@/lib/actions/core";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-edits-"));
-
+tempDataDir("orrery-edits-");
 const { runAction } = await import("@/lib/actions/core");
 const { q, resetDb } = await import("@/lib/db/store");
 await import("@/lib/actions/defs");

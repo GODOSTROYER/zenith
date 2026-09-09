@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { ReactNode } from "react";
-import { DEFAULT_LIMITS } from "@/lib/hosted/contracts/types";
+import { DEFAULT_LIMITS } from "@/lib/hosted/contracts";
 import { ToastProvider } from "@/components/ui/toast";
 import { HealthPanel } from "@/components/apps/health-panel";
 import { LimitsTable } from "@/components/apps/limits-table";

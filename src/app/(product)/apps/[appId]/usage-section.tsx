@@ -22,7 +22,7 @@ import { fmtUsd } from "@/lib/format";
 import { LimitsTable } from "@/components/apps/limits-table";
 import { fmtBytes, fmtCount } from "@/components/apps/limits";
 import { useHostedUsage, useSpending } from "@/lib/client/hosted";
-import type { HostedLimits, LimitEnforcement } from "@/lib/hosted/contracts/types";
+import type { HostedLimits, LimitEnforcement } from "@/lib/hosted/contracts";
 
 export interface UsageSectionProps {
   appId: string;

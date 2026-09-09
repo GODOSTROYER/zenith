@@ -1,13 +1,9 @@
 import { describe, expect, it, beforeAll } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import type { ActionContext } from "@/lib/actions/core";
 import type { Changeset, Deployment } from "@/lib/domain/types";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-deploy-"));
-process.env.ORRERY_FAST = "1";
-
+tempDataDir("orrery-deploy-", { fast: true });
 const { runAction } = await import("@/lib/actions/core");
 const { resetDb, q } = await import("@/lib/db/store");
 await import("@/lib/actions/defs");

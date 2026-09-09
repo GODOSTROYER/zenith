@@ -78,7 +78,3 @@ export function ensureHosted(): void {
   (replay as { unref?: () => void }).unref?.();
 }
 
-/** Tests: forget the boot marker so a fresh data directory boots again. */
-export function resetHostedBoot(): void {
-  delete (globalThis as G).__zenithHostedBooted;
-}

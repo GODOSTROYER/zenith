@@ -10,7 +10,7 @@ isolatedDataDir("zenith-edge-");
 
 const { hostedRewrite, isPlatformStaticPath, edgeAppDomain } = await import("@/lib/hosted/edge");
 const { slugFromHost, gatewayPath, isValidAppSlug, GATEWAY_PREFIX } = await import(
-  "@/lib/hosted/contracts/hosts"
+  "@/lib/hosted/contracts"
 );
 
 afterEach(() => {

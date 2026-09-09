@@ -32,6 +32,8 @@ import {
   type ArtifactStore,
 } from "@/lib/hosted/contracts";
 import { hostedConfig } from "@/lib/hosted/config";
+import { byPath, sha256, treeDigest } from "@/lib/hosted/digest";
+import { removeQuietly } from "@/lib/hosted/fs";
 
 /**
  * Content types an artifact may carry, by extension.
@@ -68,10 +70,6 @@ const extensionOf = (p: string): string => {
   return dot <= 0 ? "" : base.slice(dot).toLowerCase();
 };
 
-/** Byte-wise path order, so a digest never depends on a locale collation. */
-const byPath = (a: { path: string }, b: { path: string }): number =>
-  Buffer.compare(Buffer.from(a.path, "utf8"), Buffer.from(b.path, "utf8"));
-
 /**
  * The artifact identity.
  *
@@ -84,9 +82,7 @@ const byPath = (a: { path: string }, b: { path: string }): number =>
  * and neither is affected by timestamps, permissions or directory order.
  */
 export function artifactDigest(files: { path: string; sha256: string }[]): string {
-  const outer = crypto.createHash("sha256");
-  for (const file of [...files].sort(byPath)) outer.update(`${file.path}\u0000${file.sha256}\n`, "utf8");
-  return outer.digest("hex");
+  return treeDigest(files);
 }
 
 /** What `manifest.json` holds: the record, and the file table the record covers. */
@@ -153,23 +149,6 @@ export function artifactContentType(relative: string): string {
       fix: `Publishable extensions are ${Object.keys(ARTIFACT_CONTENT_TYPES).join(" ")}. Remove the file or give it one of them.`,
     });
   return type;
-}
-
-const sha256 = (bytes: Buffer): string => crypto.createHash("sha256").update(bytes).digest("hex");
-
-/** Best-effort recursive removal; used for scratch directories only. */
-function removeQuietly(dir: string): void {
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      fs.rmSync(dir, { recursive: true, force: true });
-      return;
-    } catch {
-      const until = Date.now() + 50;
-      while (Date.now() < until) {
-        /* spin */
-      }
-    }
-  }
 }
 
 export class FsArtifactStore implements ArtifactStore {

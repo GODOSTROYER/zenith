@@ -24,9 +24,6 @@
  * something being broken rather than from tenancy would show up as a failure.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import type { ActionContext } from "@/lib/actions/core";
 import type {
   Actor,
@@ -39,13 +36,12 @@ import type {
   Revision,
   Workspace,
 } from "@/lib/domain/types";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-manifest-nav-isolation-"));
-process.env.ORRERY_FAST = "1";
-
+tempDataDir("orrery-manifest-nav-isolation-", { fast: true });
 const { runAction } = await import("@/lib/actions/core");
 const { db, resetDb } = await import("@/lib/db/store");
-const { manifestHash } = await import("@/lib/actions/defs/manifest");
+const { manifestHash } = await import("@/lib/actions/defs/project-manifest");
 await import("@/lib/actions/defs");
 
 const AT = "2026-09-01T10:00:00.000Z";

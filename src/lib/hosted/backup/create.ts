@@ -50,6 +50,7 @@ import { HostedError, type Artifact, type BackupManifest, type BackupTarget } fr
 import { authority, backupAuthority } from "@/lib/hosted/authority";
 import { appDataPath } from "@/lib/hosted/data";
 import { hostedConfig } from "@/lib/hosted/config";
+import { removeQuietly } from "@/lib/hosted/fs";
 import { INSTALL_WORKSPACE, recordEvent } from "@/lib/hosted/events";
 import { log } from "@/lib/log";
 import { packBundle, sha256, type BundleFile } from "./bundle";
@@ -252,17 +253,3 @@ export async function snapshotSqlite(source: string, dest: string): Promise<void
   }
 }
 
-/** Best-effort recursive removal; Windows keeps SQLite handles for a moment. */
-function removeQuietly(dir: string): void {
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      fs.rmSync(dir, { recursive: true, force: true });
-      return;
-    } catch {
-      const until = Date.now() + 50;
-      while (Date.now() < until) {
-        /* spin */
-      }
-    }
-  }
-}

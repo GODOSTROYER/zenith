@@ -19,9 +19,6 @@
  * resolution, no re-implementation of either.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { NextRequest } from "next/server";
 import type {
   Deployment,
@@ -32,8 +29,9 @@ import type {
   Workspace,
 } from "@/lib/domain/types";
 import type { SessionUser } from "@/lib/auth/session";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-observe-"));
+tempDataDir("orrery-observe-");
 // Tenancy only exists once auth does: in demo mode there is one local user who
 // is in every workspace, and nothing here would have anything to isolate.
 process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";

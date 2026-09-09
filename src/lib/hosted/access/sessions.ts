@@ -54,7 +54,7 @@ import {
   requireAppActive,
   secretValue,
   sha256Hex,
-  subjectHash,
+  subjectHashUnchecked,
 } from "./internal";
 
 /* -------------------------------- exchanges ------------------------------- */
@@ -324,7 +324,7 @@ export function terminateAppSessionsForSubject(
     // any column, and a logical id built from the raw subject would put one
     // there — see the note in `authority/repos/events.ts`. Hashing changes
     // nothing about dedupe, which is all this id is for.
-    const who = subjectHash(subject);
+    const who = subjectHashUnchecked(subject);
     const list = [...workspaces];
     for (const workspaceId of list)
       appendAccessEvent({

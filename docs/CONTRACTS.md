@@ -1,12 +1,15 @@
-# Zenith — Implementation contracts (READ FIRST)
+# Zenith — Contracts (READ FIRST)
 
-Every workstream reads this file plus `docs/OWNERSHIP.md` before writing code.
-The spine files listed below are the source of truth. **Import from them; never
-edit them; never edit `package.json`** (list missing deps in your final report).
+What the codebase agrees on: the spine modules other code imports, the product
+invariants, and the shape of each subsystem as it stands. Read it with
+`docs/OWNERSHIP.md` (who owns which path) and
+[docs/MODULE-MAP.md](MODULE-MAP.md) (what may import what). The spine files
+listed below are the source of truth — import from them rather than
+redefining what they already export.
 
-## Spine (already implemented — import, don't redefine)
+## Spine — import, don't redefine
 
-| Module | Exports you build on |
+| Module | The exports other code builds on |
 | --- | --- |
 | `@/lib/domain/types` | `Manifest`, `Service`, `Resource`, `Route`, `Binding`, `Environment`, `Project`, `Revision`, `Deployment`, `DeploymentStep`, `DeploymentEvent`, `Changeset`, `SecurityFinding`, `NavigatorRun`, `Actor`, `AutonomyLevel`, zod schemas + `id()` |
 | `@/lib/domain/graph` | `diffManifests(deployed, working)`, `validateManifest`, `bindingEnv`, `findNode`, `nodeName` |
@@ -42,7 +45,7 @@ edit them; never edit `package.json`** (list missing deps in your final report).
 9. **Cancelled flows clean up.** Abandoning a wizard never leaves phantom
    records.
 10. **Times** render local with an ISO tooltip (`title` attr), one format everywhere
-   (`@/lib/format` helpers from workstream C).
+   (`@/lib/format` helpers).
 11. **Money** renders through `fmtUsd` (`@/lib/format`) everywhere, action plan
    text included. No second money formatter.
 
@@ -64,7 +67,7 @@ routes) and `@/lib/client/api` (raised by the browser after decoding the
 envelope above). They must not be merged — the client one is in a `"use client"`
 module and importing the server one would drag the store into the bundle.
 
-## API conventions (workstream D implements)
+## API conventions — `src/app/api/**`
 
 Base: `/api`. JSON in/out. Errors: `{ error: { message, fix? } }` + proper status.
 
@@ -100,9 +103,9 @@ docs/LIMITATIONS.md.
 - `GET  /api/preview/health/:deploymentId` → sandbox health summary
 - `GET  /api/secrets?workspace=ID` → secret-store metadata (never a value)
 
-## Action catalog (workstream B implements in `src/lib/actions/defs/`)
+## Action catalog — `src/lib/actions/defs/`
 
-IDs are dot-namespaced, stable, and referenced by UI + Navigator:
+IDs are dot-namespaced, stable, and referenced by the UI and the Navigator:
 
 `project.create`, `project.importCompose`, `project.applyBlueprint`,
 `project.updateManifest`, `project.importResources`, `project.delete`,
@@ -348,7 +351,7 @@ size up, one plain env var altered, the same every call for a given
 environment), **LocalStack** (real: `ListBuckets` + `ListQueues` against the
 edge endpoint, by the names the adapter provisions), **AWS Preview** (refuses).
 
-## Engine contract (workstream A implements `src/lib/engine/engine.ts`)
+## Engine contract — `src/lib/engine/engine.ts`
 
 Implements `EngineApi` from `@/lib/engine/types`, exported as `engine`.
 Ticker: `setInterval` 250ms held on `globalThis`, started lazily; each tick
@@ -361,7 +364,7 @@ health shown = health computed). On step failure: deployment → `failed`,
 remaining steps → `skipped`, and if the environment had a previous revision,
 offer rollback (the UI + `deploy.rollback` action do the rest).
 
-## Sandbox provider (workstream A, `src/lib/providers/sandbox/`)
+## Sandbox provider — `src/lib/providers/sandbox/`
 
 Availability `available`, tagline says simulated. Realistic step plans per
 node kind (prepare → provision → release → verify), jittered durations
@@ -373,7 +376,7 @@ must be a real clickable local path: `/preview/{deploymentId}/{serviceId}`
 injection: any service with env var `ORRERY_CHAOS=fail_once` fails its release
 step on the first attempt (used by the failure-recovery path).
 
-## AWS provider (workstream A, `src/lib/providers/aws/`)
+## AWS provider — `src/lib/providers/aws/`
 
 Availability `preview`. `planSteps` returns a real, honest plan (ECS/Fargate-
 shaped) but `executeStep` throws
@@ -385,9 +388,10 @@ variables, ECS services, RDS, S3, SQS, ALB + Route53 + ACM per manifest, plus
 `terraform.tfvars.example` and a README explaining how to operate without
 Zenith. This is the no-lock-in guarantee and must be genuinely usable.
 
-## UI kit (workstream C, `src/components/ui/`)
+## UI kit — `src/components/ui/`
 
-Export from individual files, named exports, client components where needed:
+Exported from individual files as named exports, client components where
+needed:
 `Button` (variants: primary/quiet/ghost/danger; sizes sm/md; `busy` prop),
 `Chip`, `StatusDot` (status: ok/warn/err/info/idle/running; `pulse`),
 `Card`, `Drawer` (right side, focus-trapped, ESC), `Dialog`, `Tabs`,
@@ -402,7 +406,7 @@ Export from individual files, named exports, client components where needed:
 Also `src/lib/format.ts`: `fmtUsd`, `fmtDate`, `timeAgo`, `cx` (clsx re-export).
 Style: tokens only, refined hairlines, generous spacing, no glassmorphism.
 
-## Screens (workstream E, wave 2 — `src/app/(product)/`)
+## Screens — `src/app/(product)/`
 
 Routes:
 - `/` product entry → redirects to `/overview` when a workspace exists, else onboarding
@@ -416,7 +420,7 @@ Routes:
 - `/p/[slug]/security` findings with one-click fixes
 - `/p/[slug]/activity` audit feed
 - `/p/[slug]/settings` environments, policies, budgets, export, danger zone
-- `/p/[slug]/navigator` (workstream F) — agent surface
+- `/p/[slug]/navigator` — agent surface
 - `/preview/[deploymentId]/[serviceId]` sandbox "your app is live" page
 
 System Map: computed strata layout (Edge → Services → Data, left to right,
@@ -428,7 +432,7 @@ pill (top center) opening the Changes drawer: items, explanations, cost
 delta, projected monthly, warnings, then Deploy → live progress → success
 panel with URL (the activation moment).
 
-## Navigator (workstream F, wave 2 — `src/lib/navigator/` + `src/components/navigator/`)
+## Navigator — `src/lib/navigator/` + `src/components/navigator/`
 
 Deterministic planner v1 (no LLM dependency; if `ANTHROPIC_API_KEY` exists a
 `llm` mode may enhance parsing, else label "deterministic planner"). Parses

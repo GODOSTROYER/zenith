@@ -7,7 +7,7 @@
  *
  * Workstream W9 (hosted R3)
  */
-import { APP_SLUG_RE, RESERVED_SLUGS, isValidAppSlug } from "@/lib/hosted/contracts/hosts";
+import { APP_SLUG_RE, RESERVED_SLUGS } from "@/lib/hosted/contracts";
 
 export const SLUG_MIN = 3;
 export const SLUG_MAX = 40;
@@ -50,6 +50,3 @@ export function slugProblem(slug: string): string | undefined {
     return `“${slug}” is reserved for the platform's own hosts. Pick a different URL name.`;
   return undefined;
 }
-
-/** True when the contract would accept this URL name. */
-export const slugAccepted = (slug: string): boolean => isValidAppSlug(slug);

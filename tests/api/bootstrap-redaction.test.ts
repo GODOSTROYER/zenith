@@ -14,13 +14,11 @@
  * payload, including a field nobody thought to look at.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { NextRequest } from "next/server";
 import type { AlertChannel, Invite, Workspace } from "@/lib/domain/types";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-bootstrap-redaction-"));
+tempDataDir("orrery-bootstrap-redaction-");
 const { db, resetDb } = await import("@/lib/db/store");
 const { GET } = await import("@/app/api/bootstrap/route");
 

@@ -7,7 +7,7 @@
  */
 import { StatusDot, type DotStatus } from "@/components/ui/status-dot";
 import { Table } from "@/components/ui/table";
-import type { HostedLimits, LimitEnforcement } from "@/lib/hosted/contracts/types";
+import type { HostedLimits, LimitEnforcement } from "@/lib/hosted/contracts";
 import type { EnforcementKey } from "@/lib/client/hosted";
 import { ENFORCEMENT_TEXT, limitRows, type LimitRow } from "./limits";
 

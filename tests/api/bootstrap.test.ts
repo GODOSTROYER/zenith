@@ -1,11 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { NextRequest } from "next/server";
 import type { CloudConnection, Deployment, Environment, Project, Workspace } from "@/lib/domain/types";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-bootstrap-"));
+tempDataDir("orrery-bootstrap-");
 const { resetDb } = await import("@/lib/db/store");
 const { emptyManifest } = await import("@/lib/domain/types");
 const { actionRegistry } = await import("@/lib/actions/core");

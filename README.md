@@ -65,8 +65,14 @@ the system without Zenith.
   are provisioned and read back; Postgres, Redis, containers, load balancers, DNS
   and email run as labeled local simulations, because LocalStack Community cannot
   emulate them.
-- **It is not multi-process**, and there is no hosted Zenith, no pricing and no
-  customers. This is a repo you run locally, one process at a time.
+- **It is not multi-process.** Both stores — `.data/state.json` and
+  `.data/control.sqlite` — assume one writer, so this is a repo you run
+  locally, one process at a time. There is no pricing and there are no
+  customers.
+- **The hosted-apps subsystem is in the repository, not in the world.**
+  `src/lib/hosted` really does serve private apps on `<slug>.<ZENITH_APP_DOMAIN>`
+  behind a grant list, off `ZENITH_HOSTED_MODE=1` by default — but it runs on
+  the host you start it on. Nobody operates a hosted Zenith for you.
 
 ---
 
@@ -443,38 +449,18 @@ never costs the others. See [scripts/screenshots.ts](scripts/screenshots.ts).
 
 ### Repository layout
 
-`src/lib` is the server, roughly in dependency order — the top imports almost
-nothing, the bottom imports almost everything. **There are no static import
-cycles in `src/`, and that is the invariant to preserve** — not a directory
-hierarchy.
+Two documents, kept in one place each so they cannot disagree with this one:
 
-```
-src/lib/
-  domain/      the manifest, its zod schemas, diffManifests. Pure.
-  cost/        estimate tables. Prices a manifest, never an account.
-  env log format data-lock   validated config · JSON logging · fmtUsd/timeAgo ·
-               the one-process-per-data-directory guard
-  db/          the repository module: state.json + JSONL logs + cold revisions
-  secrets/     AES-256-GCM value store beside the snapshot
-  drift/       pure: deployed manifest vs a provider's LiveState
-  security/    findings derived from a manifest
-  logsim/      deterministic synthetic logs + health for sandbox envs
-  blueprints/  manifest factories
-  importers/   compose / dockerfile / terraform → manifest + ImportReport
-  providers/   the adapter contract + sandbox, localstack, aws, planned
-  engine/      durable deployment state machine + 250ms ticker
-  actions/     defineAction / runAction / roles / idempotency / audit + catalog
-  alerts/      rules, workspace channels, delivery with retry
-  navigator/   deterministic planner + executor (browser imports shared.ts only)
-  auth/ supabase/   who is signed in; one entry point per Next context
-  server/ client/   ensureBoot, ApiError/route(), SSE; and the "use client"
-               modules that are the only way UI code talks to the API
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — the annotated `src/lib`
+  tree in dependency order, including the `hosted/` subsystem, plus the
+  pipeline diagram and the ADRs.
+- **[docs/MODULE-MAP.md](docs/MODULE-MAP.md)** — one line per directory: what
+  it owns and what it may import, the invariants, the import cycles that are
+  currently open, and a "where to look first" table.
 
-src/app/        Next.js routes: (auth), (product), api, onboarding, preview
-src/components/ ui (the kit) · screens · shell · map · inspector · deploy ·
-                navigator · auth · landing — each with its own README.md
-tests/          mirrors src/: tests/<dir> covers src/lib/<dir>
-```
+The short version: `src/lib` is the server, `src/app` the Next.js routes,
+`src/components` the UI (each directory with its own `README.md`), and `tests/`
+mirrors `src/`.
 
 ### Where to read next
 

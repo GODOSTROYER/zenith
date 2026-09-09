@@ -7,7 +7,7 @@
  *
  * Workstream W9 (hosted R3)
  */
-import type { HostedJob, JobStatus } from "@/lib/hosted/contracts/types";
+import type { HostedJob, JobStatus } from "@/lib/hosted/contracts";
 
 export interface PublishPhase {
   id: string;

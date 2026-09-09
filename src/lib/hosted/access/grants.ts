@@ -34,7 +34,7 @@ import {
   requireApp,
   requireEmail,
   roleAtLeast,
-  subjectHash,
+  subjectHashUnchecked,
   uuid,
 } from "./internal";
 
@@ -174,7 +174,7 @@ export function changeGrantRole(
     appId: grant.appId,
     grantId,
     role,
-    byHash: subjectHash(by),
+    byHash: subjectHashUnchecked(by),
   });
   return grant;
 }

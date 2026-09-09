@@ -6,12 +6,9 @@
  * than an error anyone would see.
  */
 import { describe, expect, it } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-mw-"));
-
+tempDataDir("orrery-mw-");
 const { config } = await import("@/middleware");
 const { isPublicPath } = await import("@/lib/supabase/env");
 const { isPlatformStaticPath } = await import("@/lib/hosted/edge");

@@ -17,7 +17,6 @@
  *
  * Workstream W2 (hosted R3).
  */
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -33,6 +32,7 @@ import {
   type SourceFile,
   type ValidatedSource,
 } from "@/lib/hosted/contracts";
+import { byPath, sha256, treeDigest } from "@/lib/hosted/digest";
 import { SOURCE_FIX, safeEntryPath, scanTar, type TarScan } from "./tar";
 
 /** What `validateSource` accepts: an uploaded archive, or a directory on this host. */
@@ -131,10 +131,6 @@ const extensionOf = (p: string): string => {
   return dot <= 0 ? "" : base.slice(dot).toLowerCase();
 };
 
-/** Byte-wise path order, so the digest never depends on a locale collation. */
-const byPath = (a: { path: string }, b: { path: string }): number =>
-  Buffer.compare(Buffer.from(a.path, "utf8"), Buffer.from(b.path, "utf8"));
-
 /**
  * The pinned source identity.
  *
@@ -148,12 +144,7 @@ const byPath = (a: { path: string }, b: { path: string }): number =>
  * same tree, whatever produced them.
  */
 export function sourceDigest(files: SourceFile[]): string {
-  const outer = crypto.createHash("sha256");
-  for (const file of [...files].sort(byPath)) {
-    const inner = crypto.createHash("sha256").update(file.bytes).digest("hex");
-    outer.update(`${file.path}\u0000${inner}\n`, "utf8");
-  }
-  return outer.digest("hex");
+  return treeDigest(files.map((file) => ({ path: file.path, sha256: sha256(file.bytes) })));
 }
 
 function checkPackageJson(raw: Buffer, reasons: string[]): void {

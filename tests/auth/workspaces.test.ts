@@ -9,14 +9,11 @@
  * for one workspace only.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import type { AuditEvent, Environment, Invite, Member, Project, Workspace } from "@/lib/domain/types";
 import type { SessionUser } from "@/lib/auth/session";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-workspaces-"));
-
+tempDataDir("orrery-workspaces-");
 const { ensureMember, readInvites, workspacesFor } = await import("@/lib/server/context");
 const { appendAudit, db, inWorkspace, readAudit, resetDb } = await import("@/lib/db/store");
 const { emptyManifest } = await import("@/lib/domain/types");

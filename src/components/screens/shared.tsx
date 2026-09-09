@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Ban } from "lucide-react";
 import type { ActionPlan, ActionResult, Role } from "@/lib/actions/core";
+import { roleShortfall } from "@/lib/domain/roles";
 import { ApiError, executeAction, planAction } from "@/lib/client/api";
 import type { Actor, ChangeItem, EnvironmentClass } from "@/lib/domain/types";
 import { cx } from "@/lib/format";
@@ -103,27 +104,11 @@ export function ErrorNote({
 
 /* ------------------------------ plan preview ------------------------------ */
 
-const ROLE_RANK: Record<Role, number> = { viewer: 0, editor: 1, admin: 2 };
-
 /**
- * One sentence when the caller's workspace role is below the role the plan says
- * execute demands — so the preview says it before the button is pressed, even
- * when the server did not set `blocked` (a plan blocked for some other reason
- * first, or one planned on someone else's behalf).
- *
- * `null` caller role means "not signed in / demo mode": nothing to compare.
+ * The shared shortfall sentence, re-exported here so screen modules keep one
+ * import for everything this file gives them.
  */
-export function roleShortfall(
-  required: Role | undefined,
-  caller: Role | null | undefined
-): string | undefined {
-  if (!required || !caller) return undefined;
-  if (ROLE_RANK[caller] >= ROLE_RANK[required]) return undefined;
-  return (
-    `This needs the ${required} role and you are ${caller} in this workspace. ` +
-    `Ask a workspace admin to raise your role in Settings → Members, or have them run it.`
-  );
-}
+export { roleShortfall };
 
 /**
  * "needs editor" — the role an action demands, toned red when the caller does

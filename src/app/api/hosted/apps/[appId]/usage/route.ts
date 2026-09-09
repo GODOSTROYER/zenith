@@ -15,8 +15,8 @@ import { authority } from "@/lib/hosted/authority";
 import { hostedConfig } from "@/lib/hosted/config";
 import { ENFORCEMENT_LABELS, enforcementFor, quotaSummary } from "@/lib/hosted/quota";
 import { RATE_TABLE, SPEND_DISCLOSURE, usageSummary } from "@/lib/hosted/usage";
-import { route } from "@/lib/server/context";
-import { hosted, intQuery, requireAppOwner } from "@/app/api/hosted/ops/_http";
+import { intParam, route } from "@/lib/server/context";
+import { hosted, requireAppOwner } from "@/app/api/hosted/ops/_http";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +30,7 @@ export const GET = route<{ appId: string }>(async (req, { appId }) =>
       });
 
     const url = new URL(req.url);
-    const days = intQuery(url, "days", 30, 1, 365);
+    const days = intParam(url, "days", 30, { min: 1, max: 365 });
     const since = new Date(Date.now() - days * 24 * 60 * 60_000).toISOString();
 
     return {

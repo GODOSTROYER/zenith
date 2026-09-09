@@ -13,7 +13,6 @@ import { db } from "@/lib/db/store";
 import type { Actor, AutonomyLevel, NavigatorRun } from "@/lib/domain/types";
 import { ApiError, currentWorkspace, demoActor, ensureMember } from "@/lib/server/context";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
-import { plannerMode, plannerModel, type PlannerMode } from "./config";
 import type { Parsing } from "./llm";
 
 // Reading a Navigator page must not eagerly compile its execution runtime.
@@ -170,15 +169,4 @@ export async function setAutonomyAction(level: AutonomyLevel): Promise<AutonomyR
       fix: "Reload the page and try again.",
     };
   }
-}
-
-export interface PlannerInfo {
-  mode: PlannerMode;
-  /** the model that would run — env keys never reach the browser, this does */
-  model: string;
-}
-
-/** What the Navigator header may honestly claim about language parsing. */
-export async function plannerInfoAction(): Promise<PlannerInfo> {
-  return { mode: plannerMode(), model: plannerModel() };
 }

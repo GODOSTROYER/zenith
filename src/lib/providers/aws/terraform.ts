@@ -180,6 +180,21 @@ const managed = <T extends { ownership: string }>(xs: T[]) =>
   xs.filter((x) => x.ownership === "managed");
 
 /**
+ * Two questions several emitters ask of the same manifest. They used to be
+ * answered once in `terraformFiles` and threaded down as bare booleans, which
+ * made `variablesTf(env, m, true, false)` unreadable at the call site and
+ * unverifiable inside it. Asking here instead costs a linear scan and says
+ * what it means.
+ */
+
+/** Does anything route public HTTP? Decides the ALB, its SG rules and the zone. */
+const hasRoutes = (m: Manifest): boolean => routeBindings(m).length > 0;
+
+/** Is Zenith creating an SES identity? Decides the mail domain variable. */
+const hasEmail = (m: Manifest): boolean =>
+  managed(m.resources).some((r) => r.kind === "email");
+
+/**
  * A `referenced` node exists in the customer's account and this bundle must
  * never declare it as a resource. Its attributes come from variables the user
  * fills instead, so the HCL still validates and still plans.
@@ -664,7 +679,7 @@ data "aws_caller_identity" "current" {}
 `;
 }
 
-function variablesTf(env: Environment, m: Manifest, hasRoutes: boolean, hasEmail: boolean): string {
+function variablesTf(env: Environment, m: Manifest): string {
   // "" means "use the ECR repository this bundle creates for the service".
   const images = containerServices(m)
     .map(
@@ -705,7 +720,7 @@ ${secrets.map((p) => `    ${hclString(p.key)} = "PLACEHOLDER"`).join("\n")}
 `
     : "";
 
-  const zoneVar = hasRoutes
+  const zoneVar = hasRoutes(m)
     ? `
 variable "route53_zone_name" {
   description = "Public hosted zone that owns the route hostnames, e.g. \\"example.com\\". Must already exist."
@@ -714,7 +729,7 @@ variable "route53_zone_name" {
 `
     : "";
 
-  const mailVar = hasEmail
+  const mailVar = hasEmail(m)
     ? `
 variable "mail_domain" {
   description = "Domain to verify with SES for outbound mail."
@@ -855,7 +870,7 @@ function backendTf(env: Environment): string {
 `;
 }
 
-function networkTf(m: Manifest, hasRoutes: boolean): string {
+function networkTf(m: Manifest): string {
   // Ports land in unquoted attributes, where nothing can be escaped, so a
   // non-numeric one is dropped rather than written out.
   const ports = [
@@ -865,7 +880,7 @@ function networkTf(m: Manifest, hasRoutes: boolean): string {
         .filter((p): p is number => p !== undefined)
     ),
   ];
-  const albSg = hasRoutes
+  const albSg = hasRoutes(m)
     ? `
 resource "aws_security_group" "alb" {
   name        = "\${var.name_prefix}-alb"
@@ -898,7 +913,7 @@ resource "aws_security_group" "alb" {
 `
     : "";
 
-  const serviceIngress = hasRoutes
+  const serviceIngress = hasRoutes(m)
     ? ports
         .map(
           (p) => `
@@ -1795,7 +1810,7 @@ ${svcs
   return parts.join("\n\n") + (parts.length ? "\n" : "");
 }
 
-function tfvarsExample(env: Environment, m: Manifest, hasRoutes: boolean, hasEmail: boolean): string {
+function tfvarsExample(env: Environment, m: Manifest): string {
   // terraform.tfvars is loaded and executed like any other HCL, so it gets the
   // same encoding as the .tf files — including the trailing `#` comments,
   // where a newline would turn the rest of a description into an assignment.
@@ -1824,7 +1839,7 @@ region       = ${hclString(exportRegion(env))}
 project_name = ${hclString(projectSlug(env))}
 environment  = ${hclString(env.name)}
 name_prefix  = ${hclString(namePrefix(env))}
-${hasRoutes ? `\n# Must be an existing public hosted zone you control.\nroute53_zone_name = ${hclString(guessZone)}\n` : ""}${hasEmail ? `\nmail_domain = ${hclString(guessZone)}\n` : ""}${
+${hasRoutes(m) ? `\n# Must be an existing public hosted zone you control.\nroute53_zone_name = ${hclString(guessZone)}\n` : ""}${hasEmail(m) ? `\nmail_domain = ${hclString(guessZone)}\n` : ""}${
     images
       ? `
 container_images = {
@@ -1865,14 +1880,11 @@ function alignEq(src: string): string {
 }
 
 export function terraformFiles(env: Environment, m: Manifest): ExportFile[] {
-  const hasRoutes = routeBindings(m).length > 0;
-  const hasEmail = managed(m.resources).some((r) => r.kind === "email");
-
   const candidates: [string, string][] = [
     ["providers.tf", providersTf()],
     ["backend.tf", backendTf(env)],
-    ["variables.tf", variablesTf(env, m, hasRoutes, hasEmail)],
-    ["network.tf", networkTf(m, hasRoutes)],
+    ["variables.tf", variablesTf(env, m)],
+    ["network.tf", networkTf(m)],
     ["ecs.tf", ecsTf(m, env)],
     ["secrets.tf", secretsTf(m, env)],
     ["imports.tf", importsTf(m)],
@@ -1885,7 +1897,7 @@ export function terraformFiles(env: Environment, m: Manifest): ExportFile[] {
     ["acm.tf", acmTf(m)],
     ["route53.tf", route53Tf(m)],
     ["outputs.tf", outputsTf(m)],
-    ["terraform.tfvars.example", tfvarsExample(env, m, hasRoutes, hasEmail)],
+    ["terraform.tfvars.example", tfvarsExample(env, m)],
   ];
 
   return candidates

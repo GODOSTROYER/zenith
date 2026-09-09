@@ -7,6 +7,7 @@
  */
 import type { AutonomyLevel, Member, NavigatorStep } from "@/lib/domain/types";
 import type { Risk } from "@/lib/actions/core";
+import { roleReaches } from "@/lib/domain/roles";
 
 /* ------------------------------ pseudo actions ----------------------------- */
 
@@ -76,10 +77,8 @@ export function planBlock(level: AutonomyLevel): string | undefined {
 
 export type WorkspaceRole = Member["role"];
 
-const ROLE_RANK: Record<WorkspaceRole, number> = { viewer: 0, editor: 1, admin: 2 };
-
 export const hasRole = (role: WorkspaceRole, needed: WorkspaceRole): boolean =>
-  ROLE_RANK[role] >= ROLE_RANK[needed];
+  roleReaches(role, needed);
 
 /**
  * Why this person's workspace role forbids running this plan — the same rule

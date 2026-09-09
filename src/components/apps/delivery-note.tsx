@@ -12,7 +12,7 @@
 import { Callout } from "@/components/ui/callout";
 import { CopyButton } from "@/components/ui/copy-button";
 import { StatusDot, type DotStatus } from "@/components/ui/status-dot";
-import type { DeliveryState, InviteDelivery } from "@/lib/hosted/contracts/types";
+import type { DeliveryState, InviteDelivery } from "@/lib/hosted/contracts";
 import { DELIVERY_STATE, TRANSPORT_NOTE } from "./labels";
 
 /** The sentence is long on purpose, so it reads as text rather than a badge. */

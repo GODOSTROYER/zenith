@@ -474,12 +474,6 @@ const noChannel = (ref: string) =>
 const ownsProject = (workspaceId: string, projectId: string): boolean =>
   db().projects.some((p) => p.id === projectId && p.workspaceId === workspaceId);
 
-export const requireRule = (ruleId: string): AlertRule => {
-  const rule = tables().rules.find((r) => r.id === ruleId);
-  if (!rule) throw noRule(ruleId);
-  return rule;
-};
-
 export const requireEvent = (eventId: string): AlertEvent => {
   const event = tables().events.find((e) => e.id === eventId);
   if (!event) throw noEvent(eventId);

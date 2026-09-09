@@ -9,10 +9,9 @@
  * same `roleOf()` the action executor enforces.
  */
 import { requiredRoleOf, useShell, type Bootstrap } from "@/components/shell/shell-context";
+import { roleReaches } from "@/lib/domain/roles";
 
 type Role = NonNullable<Bootstrap["role"]>;
-
-const RANK: Record<Role, number> = { viewer: 0, editor: 1, admin: 2 };
 
 /**
  * Which role an action actually needs, from the registry the (product) layout
@@ -26,8 +25,7 @@ export function useRequiredRole(actionId: string, fallback: Role): Role {
 
 /** Unresolved role counts as allowed: only a known-too-low role disables. */
 export function roleAllows(boot: Bootstrap | undefined, required: Role): boolean {
-  const role = boot?.role;
-  return !role || RANK[role] >= RANK[required];
+  return roleReaches(boot?.role, required);
 }
 
 /** The sentence a disabled control shows. Names who can grant the role. */

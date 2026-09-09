@@ -17,6 +17,7 @@
 import { INVITE_TTL_MS } from "@/lib/hosted/contracts";
 import { hostedConfig } from "@/lib/hosted/config";
 import { SECRET_KEY_FIX, SMTP_FIX, env } from "@/lib/env";
+import { withTimeout } from "@/lib/timeout";
 import { NO_SECRET_KEY, sealingConfigured, type SealedInvite } from "./seal";
 
 interface MailTransport {
@@ -102,13 +103,6 @@ export function inviteMessage(payload: SealedInvite): { subject: string; text: s
   };
 }
 
-function withTimeout<T>(work: Promise<T>, message: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(message)), INVITE_SEND_TIMEOUT_MS);
-    work.then(resolve, reject).finally(() => clearTimeout(timer));
-  });
-}
-
 /**
  * Hand the message to the configured SMTP server and answer with the provider's
  * message id when it gave one. Throws with a reason that names the variable to
@@ -125,6 +119,7 @@ export async function sendInviteEmail(payload: SealedInvite): Promise<string | u
   try {
     const result = await withTimeout(
       transport.sendMail({ from, to: payload.email, subject, text }),
+      INVITE_SEND_TIMEOUT_MS,
       `The SMTP server did not accept the invitation within ${INVITE_SEND_TIMEOUT_MS / 1000}s. Check ORRERY_SMTP_URL — a wrong port is the usual cause.`
     );
     const id = (result as { messageId?: unknown })?.messageId;

@@ -16,7 +16,7 @@ import { Card } from "@/components/ui/card";
 import { TimeAgo } from "@/components/ui/time-ago";
 import { errorText, useSafeToasts } from "@/components/screens/shared";
 import { exportHostedApp } from "@/lib/client/hosted";
-import type { AppState } from "@/lib/hosted/contracts/types";
+import type { AppState } from "@/lib/hosted/contracts";
 
 export interface ExportSectionProps {
   appId: string;

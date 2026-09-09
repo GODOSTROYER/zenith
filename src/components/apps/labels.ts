@@ -13,7 +13,7 @@ import type {
   GrantState,
   InviteState,
   ReleaseStatus,
-} from "@/lib/hosted/contracts/types";
+} from "@/lib/hosted/contracts";
 
 export interface Label {
   text: string;

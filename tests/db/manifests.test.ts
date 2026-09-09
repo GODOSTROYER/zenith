@@ -1,12 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import type { Manifest, Revision } from "@/lib/domain/types";
+import { tempDataDir } from "../_support/data-dir";
 
-const DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-manifests-"));
-process.env.ORRERY_DATA = DATA;
-
+const DATA = tempDataDir("orrery-manifests-");
 const { db, flush, onChange, q, resetDb, save } = await import("@/lib/db/store");
 
 const STATE = path.join(DATA, "state.json");

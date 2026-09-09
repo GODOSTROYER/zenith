@@ -23,9 +23,6 @@
  * nonsense in place of the id, and the two sentences have to match.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import type { ActionContext } from "@/lib/actions/core";
 import type {
   Actor,
@@ -40,10 +37,9 @@ import type {
   SecurityFinding,
   Workspace,
 } from "@/lib/domain/types";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-sec-alerts-isolation-"));
-process.env.ORRERY_FAST = "1";
-
+tempDataDir("orrery-sec-alerts-isolation-", { fast: true });
 const { runAction } = await import("@/lib/actions/core");
 const { db, resetDb } = await import("@/lib/db/store");
 const { channelTable, scopedChannel, scopedEvent, scopedRule } = await import("@/lib/alerts");

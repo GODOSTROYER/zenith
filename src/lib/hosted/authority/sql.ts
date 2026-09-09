@@ -179,5 +179,3 @@ export function isUniqueViolation(err: unknown): boolean {
   return code === 2067 || code === 1555;
 }
 
-/** True when the file SQLite was pointed at is not a SQLite database (SQLITE_NOTADB, 26). */
-export const isNotADatabase = (err: unknown): boolean => (sqliteErrorCode(err) ?? 0) === 26;

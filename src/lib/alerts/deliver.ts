@@ -42,6 +42,7 @@ import {
 } from "@/lib/domain/types";
 import { env, SMTP_FIX } from "@/lib/env";
 import { log } from "@/lib/log";
+import { withTimeout } from "@/lib/timeout";
 import { channelsForRule, channelsOf, findChannel } from "./channels";
 
 /** Per attempt, not per delivery: three attempts can take 30s in the worst case. */
@@ -226,18 +227,12 @@ async function sendEmail(channel: AlertChannel, msg: AlertMessage): Promise<void
     // connection ever needs to be closed rather than abandoned.
     await withTimeout(
       transport.sendMail({ from: e.ORRERY_ALERT_FROM!, to: channel.target, subject, text }),
+      DELIVERY_TIMEOUT_MS,
       `The SMTP server did not accept the message within ${DELIVERY_TIMEOUT_MS / 1000}s. Check ORRERY_SMTP_URL — a wrong port is the usual cause.`
     );
   } finally {
     transport.close?.();
   }
-}
-
-function withTimeout<T>(work: Promise<T>, message: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(message)), DELIVERY_TIMEOUT_MS);
-    work.then(resolve, reject).finally(() => clearTimeout(timer));
-  });
 }
 
 /* ---------------------------------- send ----------------------------------- */

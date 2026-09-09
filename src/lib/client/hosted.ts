@@ -18,12 +18,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { api, useJson, type Loadable } from "@/lib/client/api";
 import { downloadFile } from "@/components/screens/download-file";
-import type { Availability } from "@/lib/hosted/contracts/interfaces";
 import type {
   AppGrant,
   AppInvite,
   AppRole,
   AppState,
+  Availability,
   BuildRunnerId,
   HostedApp,
   HostedJob,
@@ -35,7 +35,7 @@ import type {
   Release,
   RuntimeId,
   UsageEntry,
-} from "@/lib/hosted/contracts/types";
+} from "@/lib/hosted/contracts";
 
 /* ------------------------------ wire shapes ------------------------------- */
 
@@ -495,13 +495,6 @@ export const resumeHostedApp = (
   input: { jobId: string; reason?: string }
 ): Promise<JobAccepted> =>
   post<JobAccepted>(`/api/hosted/apps/${encodeURIComponent(appId)}/resume`, input);
-
-/** Direct grants are for people who already signed in here, so a subject is required. */
-export const createGrant = (
-  appId: string,
-  input: { subject: string; email: string; role: AppRole }
-): Promise<{ grant: AppGrant }> =>
-  post<{ grant: AppGrant }>(`/api/hosted/apps/${encodeURIComponent(appId)}/grants`, input);
 
 export const changeGrantRole = (
   appId: string,

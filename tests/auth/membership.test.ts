@@ -6,14 +6,11 @@
  * role claim is read from app_metadata only — user_metadata is user-writable.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import type { Invite, Member } from "@/lib/domain/types";
 import type { SessionUser } from "@/lib/auth/session";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-members-"));
-
+tempDataDir("orrery-members-");
 const { ensureMember, readInvites } = await import("@/lib/server/context");
 const { userFromClaims } = await import("@/lib/auth/session");
 const { db, resetDb } = await import("@/lib/db/store");

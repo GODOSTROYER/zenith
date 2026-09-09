@@ -15,16 +15,14 @@
  * Workstream W7 (hosted R3).
  */
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { ActionContext } from "@/lib/actions/core";
 import type { Actor, Member, Workspace } from "@/lib/domain/types";
 import type { Availability, BuildRunner, HostedRuntime } from "@/lib/hosted/contracts";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "zenith-w7-actions-"));
-process.env.ORRERY_FAST = "1";
-const DATA = process.env.ORRERY_DATA;
+const DATA = tempDataDir("zenith-w7-actions-", { fast: true });
 
 const { runAction } = await import("@/lib/actions/core");
 const { resetDb } = await import("@/lib/db/store");

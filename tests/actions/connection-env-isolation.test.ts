@@ -29,9 +29,6 @@
  * it, so none of these tests can pass by everything being broken.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import type { ActionContext } from "@/lib/actions/core";
 import type {
   Actor,
@@ -42,10 +39,9 @@ import type {
   Project,
   Workspace,
 } from "@/lib/domain/types";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-conn-env-isolation-"));
-process.env.ORRERY_FAST = "1";
-
+tempDataDir("orrery-conn-env-isolation-", { fast: true });
 const { runAction } = await import("@/lib/actions/core");
 const { db, resetDb } = await import("@/lib/db/store");
 await import("@/lib/actions/defs");

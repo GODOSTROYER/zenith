@@ -25,7 +25,7 @@ import {
   type InviteDelivery,
   type LimitEnforcement,
   type Release,
-} from "@/lib/hosted/contracts/types";
+} from "@/lib/hosted/contracts";
 
 export const ISO = "2026-09-07T09:00:00.000Z";
 

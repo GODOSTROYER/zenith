@@ -1,10 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { z } from "zod";
 import type { SessionUser } from "@/lib/auth/session";
 import type { NavigatorRun, Project } from "@/lib/domain/types";
+import { tempDataDir } from "../_support/data-dir";
 
 const session = vi.hoisted(() => ({
   user: null as SessionUser | null,
@@ -23,7 +21,7 @@ vi.mock("@/lib/server/boot", () => ({ ensureBoot: async () => undefined }));
 vi.mock("@/lib/navigator/llm", () => ({ normalizeGoal: session.normalize }));
 vi.mock("@/lib/navigator/verification", () => ({ verifyRun: async () => ({ note: "No provider checks in this fixture." }) }));
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-nav-boundary-"));
+tempDataDir("orrery-nav-boundary-");
 const { db, resetDb } = await import("@/lib/db/store");
 const { emptyManifest } = await import("@/lib/domain/types");
 const { defineAction } = await import("@/lib/actions/core");

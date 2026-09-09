@@ -6,6 +6,8 @@
  */
 import type { ActionPlan, Role } from "@/lib/actions/core";
 import type { SecurityFinding } from "@/lib/domain/types";
+import { roleReaches } from "@/lib/domain/roles";
+import { csv } from "@/components/screens/download-file";
 
 /* --------------------------------- status --------------------------------- */
 
@@ -70,14 +72,8 @@ export interface FixRow {
   error?: string;
 }
 
-const RANK: Record<Role, number> = { viewer: 0, editor: 1, admin: 2 };
-
-/**
- * Does `have` reach `need`? An unknown role — demo mode, or a store with no
- * members — reaches everything, which is what the server does too.
- */
-export const roleReaches = (have: Role | null | undefined, need: Role | null | undefined): boolean =>
-  !need || !have || RANK[have] >= RANK[need];
+/** Re-exported so this screen's modules keep one import for their logic. */
+export { roleReaches };
 
 /**
  * Why a control on this screen is closed to a viewer. Same sentence wherever
@@ -161,24 +157,13 @@ export const CSV_COLUMNS = [
   "fixedInRevisionId",
 ] as const;
 
-/**
- * A cell, quoted. A leading =, +, - or @ is prefixed with an apostrophe:
- * spreadsheets treat those as formulas, and findings quote names and reasons
- * people typed. (Same guard as the Activity export — kept local rather than
- * reaching across screens for a five-line private helper.)
- */
-function cell(value: unknown): string {
-  const s = value === undefined || value === null ? "" : String(value);
-  const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
-  return `"${safe.replace(/"/g, '""')}"`;
-}
-
 export const EXPORT_NOTE =
   "Every finding this project has right now, whatever its status. The scanner recomputes findings from the working copy each time the project loads, so this is a snapshot rather than a log — and “fixed, not deployed” means the working copy is fixed while the environment still is not.";
 
 export function toCsv(findings: SecurityFinding[], envName: Record<string, string>): string {
-  const rows = findings.map((f) =>
-    [
+  return csv(
+    [...CSV_COLUMNS],
+    findings.map((f) => [
       f.id,
       f.severity,
       STATUS_LABEL[f.status],
@@ -192,11 +177,8 @@ export function toCsv(findings: SecurityFinding[], envName: Record<string, strin
       f.resolvedBy?.name,
       f.resolvedReason,
       f.fixedInRevisionId,
-    ]
-      .map(cell)
-      .join(",")
+    ])
   );
-  return [CSV_COLUMNS.join(","), ...rows].join("\r\n") + "\r\n";
 }
 
 export function toJson(

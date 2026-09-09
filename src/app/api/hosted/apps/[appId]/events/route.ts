@@ -11,8 +11,8 @@
  */
 import { appLogs } from "@/lib/hosted/health";
 import { listEvents } from "@/lib/hosted/events";
-import { route } from "@/lib/server/context";
-import { hosted, intQuery, requireAppOwner } from "@/app/api/hosted/ops/_http";
+import { intParam, route } from "@/lib/server/context";
+import { hosted, requireAppOwner } from "@/app/api/hosted/ops/_http";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +20,7 @@ export const GET = route<{ appId: string }>(async (req, { appId }) =>
   hosted(async () => {
     requireAppOwner(appId);
     const url = new URL(req.url);
-    const limit = intQuery(url, "limit", 100, 1, 1000);
+    const limit = intParam(url, "limit", 100, { min: 1, max: 1000 });
     const since = url.searchParams.get("since") ?? undefined;
     const logs = appLogs(appId, { limit, since });
     return {

@@ -22,12 +22,13 @@ import { RiskBadge } from "@/components/ui/risk-badge";
 import { useModal } from "@/components/ui/use-modal";
 import { useShell, type ActionEntry } from "@/components/shell/shell-context";
 import { cx } from "@/lib/format";
+import { roleReaches } from "@/lib/domain/roles";
 
 /** Lives with the rest of the shell's data contract; re-exported for callers. */
 export type { ActionEntry };
 
 type Role = ActionEntry["requiredRole"];
-const RANK: Record<Role, number> = { viewer: 0, editor: 1, admin: 2 };
+
 
 /** The project tab that owns each action category — where its row navigates. */
 const CATEGORY_TAB: Record<string, { seg: string; label: string }> = {
@@ -161,7 +162,7 @@ export function paletteRows(
     const standalone = "href" in destination;
     const blocked = !project && !standalone
       ? "No project in this workspace yet — create one first."
-      : role && RANK[role] < RANK[a.requiredRole]
+      : role && !roleReaches(role, a.requiredRole)
         ? `Needs the ${a.requiredRole} role. You are ${role} in this workspace.`
         : undefined;
     rows.push({

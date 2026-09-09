@@ -11,7 +11,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { ToastProvider } from "@/components/ui/toast";
 import { ReleasesTable } from "@/components/apps/releases-table";
 import { ISO, release } from "./fixtures";
-import type { Release } from "@/lib/hosted/contracts/types";
+import type { Release } from "@/lib/hosted/contracts";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

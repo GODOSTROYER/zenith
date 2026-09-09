@@ -115,8 +115,3 @@ export interface ValidatedSource {
   totalBytes: number;
 }
 
-export interface SourceRejection {
-  code: "unsupported_source";
-  /** every reason, so the builder fixes them all at once */
-  reasons: string[];
-}

@@ -50,7 +50,7 @@ import {
   requireEmail,
   secretValue,
   sha256Hex,
-  subjectHash,
+  subjectHashUnchecked,
   uuid,
 } from "./internal";
 import { inviteEmailProblem, sendInviteEmail } from "./mail";
@@ -161,7 +161,7 @@ export function revokeInvite(inviteId: string, by: Subject, scope: InviteScope =
     scope: "hosted.access",
     appId: invite.appId,
     inviteId,
-    byHash: subjectHash(by),
+    byHash: subjectHashUnchecked(by),
   });
   return invite;
 }

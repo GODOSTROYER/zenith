@@ -5,14 +5,11 @@
  * test rather than a re-implementation of them.
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { NextRequest } from "next/server";
 import type { Environment, Manifest, Project, Workspace } from "@/lib/domain/types";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-stream-"));
-
+tempDataDir("orrery-stream-");
 const { db, flush, resetDb } = await import("@/lib/db/store");
 const { GET: streamGet } = await import("@/app/api/projects/[id]/stream/route");
 const { GET: projectGet } = await import("@/app/api/projects/[id]/route");

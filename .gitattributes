@@ -1,0 +1,16 @@
+# Line endings are LF in the working tree, everywhere.
+#
+# Without this, a Windows clone with the default core.autocrlf=true checks text
+# files out with CRLF. That is invisible for source — the toolchain does not
+# care — but the fixtures under fixtures/ are compared byte-for-byte, so a
+# rewritten index.html fails a test that passes on every other machine.
+* text=auto eol=lf
+
+# Binaries must never be touched. Marking them explicitly is cheaper than
+# trusting content detection on a file that happens to start with ASCII.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.webm  binary
+*.woff2 binary
+*.ico   binary

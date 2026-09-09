@@ -16,9 +16,11 @@
  *    their single call site, so this module never becomes somewhere a secret
  *    can be read from by accident.
  *
- * Parsed on every call rather than memoised: the scripts and the test suite
+ * Read on every call rather than memoised: the scripts and the test suite
  * both set `ORRERY_DATA` at runtime before importing anything, and a cached
- * snapshot would silently ignore them.
+ * snapshot would silently ignore them. The nine raw values ARE re-read every
+ * time; only the zod parse of an unchanged set of them is reused, so a
+ * mid-process change is still picked up on the very next call.
  */
 import path from "node:path";
 import { z } from "zod";
@@ -99,7 +101,7 @@ const Schema = z.object({
     .optional(),
 });
 
-export type OrreryEnv = Omit<z.infer<typeof Schema>, "ORRERY_FAST"> & {
+export type ZenithEnv = Omit<z.infer<typeof Schema>, "ORRERY_FAST"> & {
   /** True only when ORRERY_FAST is exactly "1". */
   ORRERY_FAST: boolean;
 };
@@ -110,41 +112,68 @@ const present = (key: string): string | undefined => {
   return v === undefined || v.trim() === "" ? undefined : v;
 };
 
+/** Exactly the variables `Schema` describes, in one place: read, then parse. */
+const RAW_KEYS = [
+  "ORRERY_DATA",
+  "ORRERY_FAST",
+  "ORRERY_LOCALSTACK_ENDPOINT",
+  "ORRERY_LLM_MODEL",
+  "ORRERY_LOG_LEVEL",
+  "ORRERY_STEP_TIMEOUT_MS",
+  "ORRERY_SECRET_KEY",
+  "ORRERY_SMTP_URL",
+  "ORRERY_ALERT_FROM",
+] as const;
+
+/**
+ * The last successful parse, and the exact raw input that produced it. Values
+ * are read fresh every call; this only saves re-running zod when nothing the
+ * schema looks at has moved. A failed parse is never cached, so a broken
+ * environment throws the same error every time it is asked.
+ */
+let memo: { fingerprint: string; data: z.infer<typeof Schema> } | undefined;
+
 /**
  * Validated view of the environment. Throws with the offending variable, what
  * it received and what it accepts — the failure a misconfigured deployment
  * should get at boot, instead of a confusing default three screens later.
  */
-export function env(): OrreryEnv {
-  const parsed = Schema.safeParse({
-    ORRERY_DATA: present("ORRERY_DATA"),
-    ORRERY_FAST: present("ORRERY_FAST"),
-    ORRERY_LOCALSTACK_ENDPOINT: present("ORRERY_LOCALSTACK_ENDPOINT"),
-    ORRERY_LLM_MODEL: present("ORRERY_LLM_MODEL"),
-    ORRERY_LOG_LEVEL: present("ORRERY_LOG_LEVEL"),
-    ORRERY_STEP_TIMEOUT_MS: present("ORRERY_STEP_TIMEOUT_MS"),
-    ORRERY_SECRET_KEY: present("ORRERY_SECRET_KEY"),
-    ORRERY_SMTP_URL: present("ORRERY_SMTP_URL"),
-    ORRERY_ALERT_FROM: present("ORRERY_ALERT_FROM"),
-  });
-
-  if (!parsed.success) {
-    const lines = parsed.error.issues.map((i) => {
-      const key = String(i.path[0] ?? "(unknown)");
-      const raw = process.env[key] ?? "";
-      // A rejected key is still key material, and a rejected SMTP URL still
-      // carries a password — echoing either would put it in the boot log. Say
-      // how long it was; that is what makes the error actionable.
-      const secretish = key === "ORRERY_SECRET_KEY" || key === "ORRERY_SMTP_URL";
-      const shown = secretish ? `(${raw.length} chars, hidden)` : JSON.stringify(raw);
-      return `  ${key}=${shown} — ${i.message}`;
-    });
-    throw new Error(
-      `Invalid environment:\n${lines.join("\n")}\n\nFix these in .env.local (see .env.local.example) or in the process environment, then start again.`
-    );
+export function env(): ZenithEnv {
+  const raw: Record<string, string | undefined> = {};
+  // `cwd` is part of the input: an unset ORRERY_DATA defaults to `.data` under
+  // it, and the scripts chdir.
+  let fingerprint = process.cwd();
+  for (const key of RAW_KEYS) {
+    const value = present(key);
+    raw[key] = value;
+    // Length-prefixed so no value can forge the boundary between two of them.
+    // `present()` collapses unset and empty, so "" is unambiguous here.
+    fingerprint += `|${key}:${value === undefined ? -1 : value.length}:${value ?? ""}`;
   }
 
-  return { ...parsed.data, ORRERY_FAST: parsed.data.ORRERY_FAST === "1" };
+  if (memo?.fingerprint !== fingerprint) {
+    const parsed = Schema.safeParse(raw);
+
+    if (!parsed.success) {
+      const lines = parsed.error.issues.map((i) => {
+        const key = String(i.path[0] ?? "(unknown)");
+        const rawValue = process.env[key] ?? "";
+        // A rejected key is still key material, and a rejected SMTP URL still
+        // carries a password — echoing either would put it in the boot log. Say
+        // how long it was; that is what makes the error actionable.
+        const secretish = key === "ORRERY_SECRET_KEY" || key === "ORRERY_SMTP_URL";
+        const shown = secretish ? `(${rawValue.length} chars, hidden)` : JSON.stringify(rawValue);
+        return `  ${key}=${shown} — ${i.message}`;
+      });
+      throw new Error(
+        `Invalid environment:\n${lines.join("\n")}\n\nFix these in .env.local (see .env.local.example) or in the process environment, then start again.`
+      );
+    }
+
+    memo = { fingerprint, data: parsed.data };
+  }
+
+  return { ...memo.data, ORRERY_FAST: memo.data.ORRERY_FAST === "1" };
 }
 
 /** Which optional integrations this process has keys for. Never the values. */

@@ -28,9 +28,6 @@
  * action would pass this whole file by refusing everything.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import type { ActionContext } from "@/lib/actions/core";
 import type {
   Actor,
@@ -43,10 +40,9 @@ import type {
   Revision,
   Workspace,
 } from "@/lib/domain/types";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-deploy-isolation-"));
-process.env.ORRERY_FAST = "1";
-
+tempDataDir("orrery-deploy-isolation-", { fast: true });
 const { runAction } = await import("@/lib/actions/core");
 const { db, q, resetDb } = await import("@/lib/db/store");
 await import("@/lib/actions/defs");

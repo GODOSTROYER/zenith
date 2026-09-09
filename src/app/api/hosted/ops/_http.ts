@@ -68,9 +68,3 @@ export async function hosted(handler: () => Promise<unknown>): Promise<Response>
   }
 }
 
-/** A bounded integer query parameter. */
-export function intQuery(url: URL, key: string, fallback: number, min: number, max: number): number {
-  const raw = url.searchParams.get(key);
-  const parsed = raw === null ? NaN : Math.trunc(Number(raw));
-  return Math.min(max, Math.max(min, Number.isFinite(parsed) ? parsed : fallback));
-}

@@ -13,15 +13,8 @@ import { createHmac } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type {
-  AlertChannel,
-  Deployment,
-  Environment,
-  Manifest,
-  Project,
-  Revision,
-  Workspace,
-} from "@/lib/domain/types";
+import type { AlertChannel } from "@/lib/domain/types";
+import * as fixtures from "./_fixtures";
 
 process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-delivery-"));
 // Collapses the delivery backoff, the same knob that collapses step durations.
@@ -49,113 +42,23 @@ const { registerAllActions } = await import("@/lib/actions/defs");
 
 registerAllActions();
 
-const NOW = Date.parse("2026-09-02T12:00:00.000Z");
-const ago = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
+const { NOW, ago, seedData } = fixtures;
 
 const ctx = {
   workspaceId: "ws1",
   projectId: "p1",
   environmentId: "env1",
-  actor: { type: "user" as const, id: "local", name: "You" },
+  actor: fixtures.ACTOR,
 };
-
-const manifest = (chaos?: string): Manifest => ({
-  version: 1,
-  services: [
-    {
-      id: "svc-api",
-      name: "api",
-      kind: "web",
-      source: { type: "image", image: "nginx" },
-      size: "small",
-      replicas: 2,
-      port: 3000,
-      env: chaos ? [{ key: "ORRERY_CHAOS", value: chaos }] : [],
-      ownership: "managed",
-    },
-  ],
-  resources: [],
-  routes: [],
-  bindings: [],
-});
 
 /** A workspace with one project, one environment and one deployed revision. */
 function seed(chaos?: string) {
-  const m = manifest(chaos);
-  resetDb({
-    workspaces: [
-      { id: "ws1", name: "Atlas", slug: "atlas", createdAt: ago(500) } as unknown as Workspace,
-    ],
-    projects: [
-      {
-        id: "p1",
-        workspaceId: "ws1",
-        name: "atlas",
-        slug: "atlas",
-        workingManifest: m,
-        createdAt: ago(500),
-        origin: { type: "blank" },
-      } as Project,
-    ],
-    environments: [
-      {
-        id: "env1",
-        projectId: "p1",
-        name: "sandbox",
-        class: "sandbox",
-        connectionId: "c1",
-        region: "local",
-        deployedRevisionId: "rev1",
-        policies: { approvalRequired: false, allowStatefulDeletion: false },
-        baseDomain: "test",
-        createdAt: ago(500),
-      } as unknown as Environment,
-    ],
-    revisions: [
-      {
-        id: "rev1",
-        projectId: "p1",
-        number: 1,
-        manifest: m,
-        message: "r1",
-        author: ctx.actor,
-        createdAt: ago(30),
-      } as Revision,
-    ],
-    // Health is derived from the last deployment as well as the manifest, so a
-    // store without one reads as degraded and every rule fires.
-    deployments: [
-      {
-        id: "dep1",
-        projectId: "p1",
-        environmentId: "env1",
-        revisionId: "rev1",
-        status: "succeeded",
-        steps: [],
-        outputs: [],
-        changeSummary: "first deploy",
-        estCostDeltaUsd: 0,
-        actor: ctx.actor,
-        createdAt: ago(20),
-        endedAt: ago(20),
-      } as unknown as Deployment,
-    ],
-  });
+  resetDb(seedData(chaos));
 }
 
 /** A channel straight in the store — the action path is tested separately. */
 function channel(over: Partial<AlertChannel> = {}): AlertChannel {
-  const c: AlertChannel = {
-    id: over.id ?? "ch1",
-    workspaceId: "ws1",
-    kind: "webhook",
-    name: "ops endpoint",
-    target: "https://example.test/hooks/orrery",
-    enabled: true,
-    createdBy: ctx.actor,
-    createdAt: ago(60),
-    ...over,
-  };
+  const c = fixtures.channelData(over);
   channelTable().push(c);
   return c;
 }

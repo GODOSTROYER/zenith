@@ -30,7 +30,7 @@ import {
   useHostedInvites,
   type IssuedInvite,
 } from "@/lib/client/hosted";
-import type { AppGrant, AppInvite, AppRole } from "@/lib/hosted/contracts/types";
+import type { AppGrant, AppInvite, AppRole } from "@/lib/hosted/contracts";
 import { APP_ROLE_OPTIONS, APP_ROLE_TEXT, GRANT_STATE, INVITE_STATE } from "./labels";
 import { DeliveryNote } from "./delivery-note";
 import { InviteForm } from "./invite-form";

@@ -7,7 +7,7 @@
  * Pure — no React. Workstream W9 (hosted R3)
  */
 import { fmtDuration } from "@/lib/format";
-import type { HostedLimits, LimitEnforcement } from "@/lib/hosted/contracts/types";
+import type { HostedLimits, LimitEnforcement } from "@/lib/hosted/contracts";
 
 /** Binary units, because the limits themselves are written in them. */
 export function fmtBytes(n: number): string {

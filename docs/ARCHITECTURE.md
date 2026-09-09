@@ -11,6 +11,14 @@ with a readable plan, a visible cost delta, streamed durable execution, an
 unmistakable activation moment, and a rollback point. No lock-in: the manifest,
 real Terraform, and an operations README export at any time.
 
+Alongside it, and in the same process, sits the **hosted-apps subsystem**
+(`src/lib/hosted`): private apps served on `<slug>.<ZENITH_APP_DOMAIN>` from a
+pinned build, behind a grant list that is the only authority on who may open
+them. It keeps its own store and is mapped below.
+
+> One page for "where does this live and what may it import?" —
+> [docs/MODULE-MAP.md](MODULE-MAP.md). This file is the prose behind it.
+
 ```mermaid
 flowchart LR
   subgraph Surfaces
@@ -53,8 +61,23 @@ directories point at each other (`domain/graph` prices a diff with `cost`,
 `providers/sandbox` uses `drift`'s expectation helper while `drift` takes only
 `providers/types`, and `supabase/route` resolves a user through `auth/session`
 while `auth` asks `supabase` whether it is configured). Every one of those
-resolves cleanly at file granularity: **there are no static import cycles in
-`src/`, and that is the invariant to preserve** — not a directory hierarchy.
+resolves cleanly at file granularity: **a static import cycle in `src/` is the
+thing to avoid, and that is the invariant to preserve** — not a directory
+hierarchy.
+
+Three edges break it today, all of them the same shape — a `src/lib/hosted`
+module carrying its own HTTP layer that reaches back into the request edge:
+`hosted/access/http.ts` → `server/context`, `hosted/release/http.ts` →
+`server/context`, and `hosted/release/http.ts` → `actions/core`. Neither
+barrel re-exports its `http.ts`, so the fix is to move those two files out to
+the server layer and nothing else moves. Two nearby edges are *not* cycles and
+are fine: `actions/core.ts` → `hosted/config` (reading `hostedMode()`), and
+`actions/defs/hosted.ts` → `hosted/config` + `server/context`. See
+[docs/MODULE-MAP.md](MODULE-MAP.md), "Known violations".
+
+One rule that does hold without exception: **`src/lib` and `src/components`
+contain no imports from `@/app`.** Routes and screens depend on the library;
+the library never depends on them.
 
 ```
 src/lib/
@@ -89,8 +112,74 @@ src/lib/
   supabase/     env.ts client.ts server.ts route.ts middleware.ts admin.ts
                                           one entry point per Next context. Deliberately not barrelled.
   server/       boot.ts context.ts sse.ts route plumbing: ensureBoot, ApiError/route(), SSE.
-  client/       api.ts alerts.ts secrets.ts   "use client" — the only way UI code talks to the API.
+  client/       api.ts alerts.ts secrets.ts hosted.ts   "use client" — the only way UI code
+                                          talks to the API.
+
+  hosted/       103 files, ~22% of src — the second product, in the same process.
+                contracts/  (barrel)      types, zod schemas, error codes, host rules, the
+                                          tracker and source contracts. Pure: no node:, no env,
+                                          so the edge and the browser share it.
+                config.ts                 every validated ZENITH_* variable, and appHostname().
+                                          Secrets are presence-only, read at one call site each.
+                digest.ts                 the one SHA-256 / treeDigest rule; identities cannot drift.
+                edge.ts                   the host split run inside src/middleware.ts: an app host
+                                          is rewritten to the gateway and never sees the platform
+                                          session logic.
+                authority/                the control authority — one control.sqlite, one
+                                          connection, one tx() rule. Apps, grants, invitations,
+                                          sessions, exchanges, jobs, releases, quotas, usage,
+                                          revocations, backups and events live here and nowhere
+                                          else. Commit before ACK; anything leaving the process
+                                          is an outbox row in the same transaction.
+                access/                   who may open an app: grants (the only authority), hashed
+                                          single-use invitations, the 60s exchange code, the opaque
+                                          app session, and the live getUser() check where a valid
+                                          JWT is not enough.
+                gateway/                  the app host's front door. Admission in contract order —
+                                          host, app, state, quota, authority, reserved route,
+                                          session, release — before a byte of artifact or a row of
+                                          app data is touched.
+                artifacts/                immutable, content-addressed build outputs, and the
+                                          trusted re-hash a release must pass before it activates.
+                source/                   the untrusted-input boundary: bounded tar reading, the
+                                          supported-source contract, materialisation. Nothing
+                                          submitted is executed or installed from.
+                build/                    one pinned recipe, three boundaries (local child process,
+                                          E2B, Docker). The only place a submission is compiled.
+                release/                  apps, publish jobs, releases, rollback, suspension and the
+                                          250ms job runner. A healthy app keeps serving until a
+                                          candidate is built, stored, re-verified and probed.
+                runtime/                  local (this process) and cloudflare (Workers for
+                                          Platforms) behind one interface. ZENITH_CF_API_TOKEN is
+                                          read on one line here and nowhere else in src/.
+                data/                     the per-app customer data layer — the fixed broker's
+                                          storage side, on SQLite or D1.
+                quota/                    requests per app per UTC day, body limits, and the honest
+                                          enforcement table. The count lives in SQLite, never in
+                                          this process.
+                usage/                    the usage ledger, the spending estimate, the 50/75/90%
+                                          alerts and the build pause. Every dollar is an estimate
+                                          and says so.
+                events/                   activation and lifecycle events: subjects stored only as
+                                          an HMAC, deduped per logical operation, and never able to
+                                          break a request.
+                health/                   real health and real logs for one app, attributed to the
+                                          release that served them. Nothing here is simulated.
+                backup/                   encrypted off-host backup and clean-host restore, with
+                                          revocation reconciliation so a restore cannot re-admit
+                                          somebody removed since the snapshot.
+                export/                   the "you can leave" file: records and access *intent*,
+                                          with everything it cannot carry named in `limitations`.
 ```
+
+**The hosted subsystem has its own documentation set**, because it has its own
+threat model, its own contracts and its own runbook:
+[docs/hosted/](hosted/) holds `CONTRACTS-R3.md` (the control HTTP surface and
+the app-host admission order), `THREAT-MODEL.md`, `DECISIONS.md` (the R3-\*
+decisions this code cites by number), `DATA-LIFECYCLE.md`, `OPERATOR-ACCESS.md`,
+`PROVIDERS.md`, `RUNBOOK-DEPLOY.md` and the acceptance evidence. Each hosted
+subdirectory also carries a `README.md` giving one line per file. Start at
+[src/lib/hosted/README.md](../src/lib/hosted/README.md).
 
 **Barrels.** Only `actions/defs/` and `importers/` have one, because only they
 have a single public surface. Three directories deliberately do **not**:

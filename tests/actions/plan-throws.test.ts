@@ -3,12 +3,10 @@
  * blocked plan carrying the fix, not escape the runner as a 500.
  */
 import { beforeAll, describe, expect, it } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import type { ActionContext } from "@/lib/actions/core";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-plan-throws-"));
+tempDataDir("orrery-plan-throws-");
 const { runAction } = await import("@/lib/actions/core");
 const { resetDb } = await import("@/lib/db/store");
 await import("@/lib/actions/defs");

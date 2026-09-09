@@ -17,14 +17,12 @@
  * tests/api/observe-isolation.test.ts.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { NextRequest } from "next/server";
 import type { Environment, Manifest, Member, Project, Workspace } from "@/lib/domain/types";
 import type { SessionUser } from "@/lib/auth/session";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-slug-"));
+tempDataDir("orrery-slug-");
 // Tenancy only exists once auth does: demo mode has one local user in every
 // workspace, so there would be nothing to isolate.
 process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";

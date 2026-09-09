@@ -18,11 +18,12 @@ import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { Availability, BuildLogLine, BuildRequest, BuildResult, BuildRunner, BuildRunnerId } from "@/lib/hosted/contracts";
+import type { Availability, BuildRequest, BuildResult, BuildRunner, BuildRunnerId } from "@/lib/hosted/contracts";
 import { hostedConfig } from "@/lib/hosted/config";
 import { materializeSource, removeMaterialized } from "@/lib/hosted/source";
 import { log } from "@/lib/log";
 import { missingRecipePackages, platformRoot, recipeJob, recipeWorkerPath, type RecipeWorkerResult } from "./recipe";
+import { LogSink, buildResult } from "./runner-support";
 
 /**
  * Environment name prefixes that must never reach a build. The runner checks
@@ -75,47 +76,6 @@ export function killTree(child: ChildProcess): void {
   }
 }
 
-/** Splits a byte stream into log lines and stops at a byte ceiling. */
-class LogSink {
-  readonly lines: BuildLogLine[] = [];
-  private bytes = 0;
-  private truncated = false;
-  private readonly partial = new Map<BuildLogLine["stream"], string>();
-
-  constructor(private readonly maxBytes: number) {}
-
-  push(stream: BuildLogLine["stream"], chunk: string): void {
-    const carried = (this.partial.get(stream) ?? "") + chunk;
-    const parts = carried.split(/\r?\n/);
-    this.partial.set(stream, parts.pop() ?? "");
-    for (const line of parts) this.line(stream, line);
-  }
-
-  /** Flush whatever a stream ended on without a newline. */
-  end(): void {
-    for (const [stream, rest] of this.partial) if (rest !== "") this.line(stream, rest);
-    this.partial.clear();
-  }
-
-  line(stream: BuildLogLine["stream"], raw: string): void {
-    if (this.truncated) return;
-    const line = raw.replace(/\u001b\[[0-9;]*m/g, "").trimEnd();
-    if (line === "") return;
-    const size = Buffer.byteLength(line, "utf8") + 1;
-    if (this.bytes + size > this.maxBytes) {
-      this.truncated = true;
-      this.lines.push({
-        ts: new Date().toISOString(),
-        stream: "info",
-        line: `Log truncated at ${this.maxBytes} bytes. Shorten the build output to see the rest.`,
-      });
-      return;
-    }
-    this.bytes += size;
-    this.lines.push({ ts: new Date().toISOString(), stream, line });
-  }
-}
-
 /** Construction options; the defaults are what production uses. */
 export interface RecipeLocalOptions {
   /** absolute path of the worker script — tests point this at a double */
@@ -165,13 +125,7 @@ export class RecipeLocalRunner implements BuildRunner {
   async run(req: BuildRequest, signal: AbortSignal): Promise<BuildResult> {
     const started = Date.now();
     const sink = new LogSink(req.limits.maxLogBytes);
-    const done = (partial: Omit<BuildResult, "logs" | "durationMs" | "runner" | "boundary">): BuildResult => ({
-      ...partial,
-      logs: sink.lines,
-      durationMs: Date.now() - started,
-      runner: this.id,
-      boundary: this.boundary,
-    });
+    const done = buildResult(sink, this.id, this.boundary, started);
 
     const availability = await this.availability();
     if (!availability.available)

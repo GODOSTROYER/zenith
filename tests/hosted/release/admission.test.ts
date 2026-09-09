@@ -20,7 +20,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { IDENTITIES, WORKSPACES, isolatedDataDir, removeDir, uuid } from "../_fixtures";
-import { entriesFromDirectory, gzip, writeTar } from "./_tar";
+import { entriesFromDirectory, gzip, writeTar } from "../../_support/tar";
 import { harness, makeApp, wire, type Harness } from "./_helpers";
 
 const DATA = isolatedDataDir("zenith-w7-admission-");

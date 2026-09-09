@@ -4,12 +4,10 @@
  * workspace the action runs in — never the first row it finds anywhere.
  */
 import { beforeAll, describe, expect, it } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import type { Actor } from "@/lib/domain/types";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-roles-ws-"));
+tempDataDir("orrery-roles-ws-");
 const { roleOf } = await import("@/lib/actions/core");
 const { resetDb } = await import("@/lib/db/store");
 

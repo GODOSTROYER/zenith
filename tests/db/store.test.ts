@@ -1,12 +1,10 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import type { AuditEvent, DeploymentEvent } from "@/lib/domain/types";
+import { tempDataDir } from "../_support/data-dir";
 
-const DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-store-"));
-process.env.ORRERY_DATA = DATA;
-
+const DATA = tempDataDir("orrery-store-");
 const { appendAudit, appendEvent, db, flush, readAudit, readAuditPage, readEvents, resetDb, save } =
   await import("@/lib/db/store");
 

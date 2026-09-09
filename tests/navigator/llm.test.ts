@@ -8,12 +8,10 @@
  * has to say which parser actually read the goal, too — the UI prints it.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { emptyManifest, type Project } from "@/lib/domain/types";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-nav-llm-"));
+tempDataDir("orrery-nav-llm-");
 process.env.ANTHROPIC_API_KEY = "test-key-not-used";
 process.env.ORRERY_LLM_MODEL = "claude-test-model";
 

@@ -6,7 +6,9 @@
  * `ZENITH_BACKUP_KEY` and `ZENITH_POLICY_SHARED_SECRET` are read by exactly
  * one call site each, never through this module.
  *
- * Parsed on every call, not memoised: tests set variables before importing.
+ * Memoised on a fingerprint of the raw values, not on first call: a test that
+ * sets a ZENITH_* variable after the module loaded still gets a fresh parse,
+ * while the hot paths that call this per request stop re-running zod.
  *
  * SPINE FILE — owned by the integrator.
  */
@@ -68,10 +70,17 @@ const present = (key: string): string | undefined => {
   return v === undefined || v.trim() === "" ? undefined : v;
 };
 
+/** The last parse and the fingerprint of the raw values it was made from. */
+let memo: { key: string; config: HostedConfig } | undefined;
+
 export function hostedConfig(): HostedConfig {
-  const parsed = Schema.safeParse(
-    Object.fromEntries(Object.keys(Schema.shape).map((k) => [k, present(k)]))
-  );
+  const raw = Object.fromEntries(Object.keys(Schema.shape).map((k) => [k, present(k)]));
+  const data = env().ORRERY_DATA;
+  // `data` is in the key because artifactDir and backupDir are derived from it.
+  const key = JSON.stringify([raw, data]);
+  if (memo && memo.key === key) return memo.config;
+
+  const parsed = Schema.safeParse(raw);
   if (!parsed.success) {
     const lines = parsed.error.issues.map(
       (i) => `  ${String(i.path[0])}=${JSON.stringify(process.env[String(i.path[0])] ?? "")} — ${i.message}`
@@ -79,8 +88,7 @@ export function hostedConfig(): HostedConfig {
     throw new Error(`Invalid hosted environment:\n${lines.join("\n")}\n\nFix these in .env.local, then start again.`);
   }
   const d = parsed.data;
-  const data = env().ORRERY_DATA;
-  return {
+  const config: HostedConfig = {
     ...d,
     hostedMode: d.ZENITH_HOSTED_MODE === "1",
     artifactDir: d.ZENITH_ARTIFACT_DIR ?? path.join(data, "artifacts"),
@@ -91,27 +99,13 @@ export function hostedConfig(): HostedConfig {
         .filter(Boolean)
     ),
   };
+  memo = { key, config };
+  return config;
 }
 
 /** True when hosted admission rules apply to this process. Safe anywhere. */
 export const hostedMode = (): boolean => present("ZENITH_HOSTED_MODE") === "1";
 
-/** Which hosted integrations this process has secrets for. Never the values. */
-export function hostedConfigured(): {
-  cloudflare: boolean;
-  e2b: boolean;
-  backupKey: boolean;
-  policySecret: boolean;
-  smtp: boolean;
-} {
-  return {
-    cloudflare: !!present("ZENITH_CF_API_TOKEN") && !!present("ZENITH_CF_ACCOUNT_ID") && !!present("ZENITH_CF_NAMESPACE"),
-    e2b: !!present("E2B_API_KEY"),
-    backupKey: !!present("ZENITH_BACKUP_KEY"),
-    policySecret: !!present("ZENITH_POLICY_SHARED_SECRET"),
-    smtp: !!present("ORRERY_SMTP_URL"),
-  };
-}
 
 /** Absolute path of the control authority database. */
 export const controlDatabasePath = (): string => path.join(env().ORRERY_DATA, "control.sqlite");

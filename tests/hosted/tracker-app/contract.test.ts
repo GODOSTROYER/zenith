@@ -19,7 +19,7 @@ import {
   SOURCE_LIMITS,
   SourceManifest,
   SourcePackageJson,
-} from "@/lib/hosted/contracts/source-v1";
+} from "@/lib/hosted/contracts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "../../..", "fixtures", "tracker-app");

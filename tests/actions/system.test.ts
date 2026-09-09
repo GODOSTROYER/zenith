@@ -1,13 +1,12 @@
 import { describe, expect, it, beforeAll } from "vitest";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import type { ActionContext } from "@/lib/actions/core";
+import { tempDataDir } from "../_support/data-dir";
 
 // The store reads ORRERY_DATA when it is first imported, so point it at a
 // scratch directory before anything pulls it in.
-const DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-test-"));
-process.env.ORRERY_DATA = DATA;
+const DATA = tempDataDir("orrery-test-");
 // This suite is the UNCONFIGURED secret store: explicit, so a developer with
 // the variable exported in their shell gets the same run as CI.
 delete process.env.ORRERY_SECRET_KEY;

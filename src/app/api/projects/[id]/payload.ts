@@ -19,7 +19,7 @@ import {
   type Project,
 } from "@/lib/domain/types";
 import { diffManifests, validateManifest } from "@/lib/domain/graph";
-import { manifestHash } from "@/lib/actions/defs/manifest";
+import { manifestHash } from "@/lib/actions/defs/project-manifest";
 import { log } from "@/lib/log";
 import { securityModule } from "@/lib/server/boot";
 

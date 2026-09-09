@@ -10,12 +10,12 @@
  *    apart would answer "does this person have a grant on this app?" for
  *    whoever asked, which is exactly the question a denial must not answer.
  *  - **Nothing here ever writes a subject into an event.** `hosted_events`
- *    stores `subject_hash`; `subjectHash()` is the only way this module
+ *    stores `subject_hash`; `subjectHashUnchecked()` is the only way this module
  *    produces one.
  *
  * Workstream W5 (hosted R3).
  */
-import { createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import {
   APP_ROLE_RANK,
   HostedError,
@@ -27,13 +27,13 @@ import {
 } from "@/lib/hosted/contracts";
 import { authority, nowIso } from "@/lib/hosted/authority";
 import { hostedConfig } from "@/lib/hosted/config";
+import { sha256Hex } from "@/lib/hosted/digest";
 
 /** A fresh identifier, the shape every id in the control authority uses. */
 export const uuid = (): string => randomUUID();
 
 /** SHA-256 hex — what the token, code and session columns store instead of the value. */
-export const sha256Hex = (value: string): string =>
-  createHash("sha256").update(value, "utf8").digest("hex");
+export { sha256Hex };
 
 /**
  * 32 bytes of CSPRNG output as base64url: the invitation token, the exchange
@@ -135,8 +135,11 @@ export function requireAppActive(app: HostedApp): void {
  * salt configured this is still a one-way hash of the subject — never the
  * subject itself — so an install that forgot the salt records a pseudonym
  * rather than an identifier.
+ *
+ * Not `subjectHash` from `@/lib/hosted/events`: that one returns undefined and
+ * warns when the salt is missing, this one always returns a hash.
  */
-export const subjectHash = (subject: Subject): string =>
+export const subjectHashUnchecked = (subject: Subject): string =>
   createHmac("sha256", process.env.ZENITH_EVENTS_SALT ?? "").update(subject, "utf8").digest("hex");
 
 /** Founder/test subjects are excluded from activation metrics; everyone else is external. */
@@ -164,7 +167,7 @@ export function appendAccessEvent(input: AccessEvent): void {
     event: input.event,
     workspaceId: input.workspaceId,
     appId: input.appId,
-    subjectHash: input.subject ? subjectHash(input.subject) : undefined,
+    subjectHash: input.subject ? subjectHashUnchecked(input.subject) : undefined,
     outcome: input.outcome ?? "ok",
     logicalId: input.logicalId,
     assisted: false,

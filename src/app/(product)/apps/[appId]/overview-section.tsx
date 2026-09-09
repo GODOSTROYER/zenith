@@ -23,7 +23,7 @@ import { RoleChip, errorText, roleShortfall, useSafeToasts } from "@/components/
 import { APP_STATE } from "@/components/apps/labels";
 import { newJobId, resumeHostedApp, suspendHostedApp } from "@/lib/client/hosted";
 import type { HostedAppSummary } from "@/lib/client/hosted";
-import type { Release } from "@/lib/hosted/contracts/types";
+import type { Release } from "@/lib/hosted/contracts";
 
 export interface OverviewSectionProps {
   app: HostedAppSummary;

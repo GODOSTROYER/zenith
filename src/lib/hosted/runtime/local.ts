@@ -17,7 +17,6 @@
  */
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
-import path from "node:path";
 import { authority } from "@/lib/hosted/authority";
 import { appDataDir, appHostname } from "@/lib/hosted/config";
 import {
@@ -338,9 +337,3 @@ export class LocalRuntime implements HostedRuntime, SelectableRuntime {
 const messageOf = (err: unknown): string =>
   err instanceof Error ? err.message : "The check did not complete.";
 
-/** Where an app's data lives on this runtime, for a report that has to name it. */
-export const localAppPaths = (appId: string): { dataDir: string; data: string; test: string } => ({
-  dataDir: appDataDir(appId),
-  data: path.join(appDataDir(appId), "data.sqlite"),
-  test: appDataPath(appId, "test"),
-});

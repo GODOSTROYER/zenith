@@ -591,16 +591,20 @@ export function route<P extends Record<string, string> = Record<string, string>>
 /**
  * Integer query parameter, clamped. A forgotten clamp is an unbounded
  * response, so the bounds live here: default 0..1000, callers narrow them.
+ *
+ * Takes a request or a bare `URL`, because some handlers have already parsed
+ * the one out of the other and there is no second rule for those.
  */
 export const intParam = (
-  req: NextRequest,
+  from: NextRequest | URL,
   key: string,
   fallback: number,
   bounds: { min?: number; max?: number } = {}
 ): number => {
   const min = bounds.min ?? 0;
   const max = bounds.max ?? 1000;
-  const raw = req.nextUrl.searchParams.get(key);
+  const params = from instanceof URL ? from.searchParams : from.nextUrl.searchParams;
+  const raw = params.get(key);
   const n = raw === null ? NaN : Math.trunc(Number(raw));
   const value = Number.isFinite(n) ? n : fallback;
   return Math.min(max, Math.max(min, value));

@@ -17,7 +17,7 @@ import { Table } from "@/components/ui/table";
 import { TimeAgo } from "@/components/ui/time-ago";
 import { errorText, useSafeToasts } from "@/components/screens/shared";
 import { newJobId, rollbackHostedApp } from "@/lib/client/hosted";
-import type { Release } from "@/lib/hosted/contracts/types";
+import type { Release } from "@/lib/hosted/contracts";
 import { RELEASE_STATUS } from "./labels";
 
 export interface ReleasesTableProps {

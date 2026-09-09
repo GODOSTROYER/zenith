@@ -29,8 +29,8 @@
  *
  * Workstream W8 (hosted R3).
  */
-import crypto from "node:crypto";
 import { HostedError, type BackupManifest } from "@/lib/hosted/contracts";
+import { sha256 } from "@/lib/hosted/digest";
 
 const MAGIC = Buffer.from("ZBK1", "ascii");
 const VERSION = 1;
@@ -45,7 +45,7 @@ export interface BundleFile {
 export type DraftManifest = Omit<BackupManifest, "digest" | "byteSize">;
 
 /** SHA-256 hex of a buffer — the per-file checksum and the payload digest. */
-export const sha256 = (bytes: Buffer): string => crypto.createHash("sha256").update(bytes).digest("hex");
+export { sha256 };
 
 /** Names are relative, slash separated and free of traversal. Enforced on both sides. */
 const NAME_RE = /^(?!\/)(?!.*\/\/)(?!.*(?:^|\/)\.\.(?:\/|$))[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$/;

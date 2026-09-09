@@ -8,7 +8,7 @@
 import { actionRegistry, type ActionDef } from "@/lib/actions/core";
 
 import "./project";
-import "./manifest";
+import "./project-manifest";
 import "./system";
 import "./env";
 import "./deploy";

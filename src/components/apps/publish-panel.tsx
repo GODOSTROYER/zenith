@@ -19,7 +19,7 @@ import {
   readTarballBase64,
   type PublishSource,
 } from "@/lib/client/hosted";
-import type { Release } from "@/lib/hosted/contracts/types";
+import type { Release } from "@/lib/hosted/contracts";
 import { JobProgress } from "./job-progress";
 import { SourcePicker, archiveProblem, type SourceChoice } from "./source-picker";
 

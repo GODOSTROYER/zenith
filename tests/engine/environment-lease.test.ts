@@ -12,15 +12,11 @@
  * step budget; the held step is held by the gate, never by a timer.
  */
 import { afterAll, beforeAll, beforeEach, expect, test } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import type { Deployment, Environment, ProviderId } from "@/lib/domain/types";
 import type { ProviderAdapter, StepRuntime } from "@/lib/providers/types";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-lease-"));
-process.env.ORRERY_FAST = "1";
-
+tempDataDir("orrery-lease-", { fast: true });
 const { db, q, resetDb, save } = await import("@/lib/db/store");
 const { engine, ensureEngine } = await import("@/lib/engine/engine");
 const { getProvider, registerProvider } = await import("@/lib/providers/types");

@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { ErrorNote } from "@/components/screens/shared";
 import { createInvite, type IssuedInvite } from "@/lib/client/hosted";
-import type { AppRole } from "@/lib/hosted/contracts/types";
+import type { AppRole } from "@/lib/hosted/contracts";
 import { APP_ROLE_OPTIONS, APP_ROLE_TEXT } from "./labels";
 import { DeliveryNote } from "./delivery-note";
 

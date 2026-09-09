@@ -35,7 +35,7 @@ import { randomUUID } from "node:crypto";
 import { AddressInfo } from "node:net";
 import { NextRequest } from "next/server";
 import { APP_SESSION_COOKIE, type HostedApp, type HostedJob } from "@/lib/hosted/contracts";
-import { entriesFromDirectory, gzip, writeTar, type TarEntry } from "../source/tar-writer";
+import { entriesFromDirectory, gzip, writeTar, type TarEntry } from "../../_support/tar";
 
 /* ------------------------------ the modules ------------------------------ */
 

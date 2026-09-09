@@ -1,12 +1,8 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import type { ActionContext } from "@/lib/actions/core";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-honesty-"));
-process.env.ORRERY_FAST = "1";
-
+tempDataDir("orrery-honesty-", { fast: true });
 const { runAction } = await import("@/lib/actions/core");
 const { db, q, resetDb } = await import("@/lib/db/store");
 const { ensureEngine } = await import("@/lib/engine/engine");

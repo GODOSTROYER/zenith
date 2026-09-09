@@ -4,37 +4,67 @@ A map, not a backlog. Everything here is deliberate or measured; nothing is a
 vague worry. Snapshot taken while polishing `src/lib` (see the report at the
 bottom for what was fixed in that pass).
 
-Counts: **18 `ponytail:` markers** (11 in `src/lib`), **0 `TODO`/`FIXME`**,
-**1 remaining dead export**, **4 removed**, **3 duplicate helpers unified**.
+Counts, recounted 2026-09-10 over `src/**/*.{ts,tsx,mjs}`: **37 `ponytail:`
+markers** — 32 in `src/lib` (21 of them in `src/lib/hosted`, 11 elsewhere), 3 in
+`src/app`, 2 in `src/components`. **0 `TODO`/`FIXME`.** One dead export kept on
+purpose; fourteen removed (four in the `src/lib` polish pass, ten on
+2026-09-10). **3 duplicate helpers unified.**
+
+Recount before quoting a number here — `grep -rn 'ponytail:' src` and this
+file's own tables are the two things most likely to drift apart:
+
+```bash
+grep -rn 'ponytail:' src --include='*.ts' --include='*.tsx' --include='*.mjs' | wc -l
+```
 
 ---
 
 ## 1. `ponytail:` markers — deliberate ceilings
 
-Each names the ceiling it accepts and the upgrade path. In `src/lib`:
+Each names the ceiling it accepts and the upgrade path. In `src/lib`, outside
+`hosted/`:
 
 | Where | Ceiling |
 | --- | --- |
-| `src/lib/db/store.ts:17` | Single-process JSON/JSONL file store. Swap for SQL behind this same module. **This is the root ceiling the next four inherit.** |
-| `src/lib/db/store.ts:145` | Revision-manifest LRU is a `Map` in insertion order, 32 entries. |
-| `src/lib/db/store.ts:400` | In-memory event tail is capped; older reads fall back to a file scan. |
+| `src/lib/db/store.ts:24` | Single-process JSON/JSONL file store. Swap for SQL behind this same module. **This is the root ceiling the next four inherit.** |
+| `src/lib/db/store.ts:175` | Revision-manifest LRU is a `Map` in insertion order, 32 entries. |
+| `src/lib/db/store.ts:433` | In-memory event tail is capped; older reads fall back to a file scan. |
 | `src/lib/data-lock.ts:14` | A pid file, not a real lock. Two containers sharing a volume (different pid namespaces) defeat it. Upgrade: exclusive open of the state file, or stop rewriting it whole. |
-| `src/lib/actions/core.ts:140` | Idempotency replay window is in-process. A retry that crosses a restart applies twice; `IDEM_WINDOW_NOTE` says so on the wire. |
-| `src/lib/server/context.ts:114` | Invites live in `settings`, not a `Database` column. |
-| `src/lib/alerts/index.ts:26` | One global 15s evaluation interval — no per-rule schedule, no hysteresis. |
-| `src/lib/alerts/deliver.ts:22` | No dead-lettering, no per-channel circuit breaker. Three attempts, then the failure is recorded and dropped. |
-| `src/lib/alerts/deliver.ts` | The delivery timeout races the send rather than aborting the socket. Delivery itself is durable (outbox rows are claimed before the send and settled after), so a timeout costs a retry, not a lost alert. |
-| `src/lib/secrets/index.ts:18` | Read-through file access, no cache. Deliberate: a cache is a correctness bug the moment two processes hold the data directory. |
-| `src/lib/providers/localstack/index.ts:722` | "Unowned" means unowned *by this environment*; two Zenith environments against one LocalStack see each other's resources as extra. |
+| `src/lib/actions/core.ts:146` | Idempotency replay window is in-process. A retry that crosses a restart applies twice; `IDEM_WINDOW_NOTE` says so on the wire. |
+| `src/lib/server/context.ts:120` | Invites live in `settings`, not a `Database` column. |
+| `src/lib/alerts/index.ts:28` | One global 15s evaluation interval — no per-rule schedule, no hysteresis. |
+| `src/lib/alerts/deliver.ts:29` | No dead-lettering, no per-channel circuit breaker. Three attempts, then the failure is recorded and dropped. |
+| `src/lib/alerts/deliver.ts:224` | The delivery timeout races the send rather than aborting the socket. Delivery itself is durable (outbox rows are claimed before the send and settled after), so a timeout costs a retry, not a lost alert. |
+| `src/lib/secrets/index.ts:19` | Read-through file access, no cache. Deliberate: a cache is a correctness bug the moment two processes hold the data directory. |
+| `src/lib/providers/localstack/index.ts:765` | "Unowned" means unowned *by this environment*; two Zenith environments against one LocalStack see each other's resources as extra. |
 
-Outside `src/lib` (owned by the UI workstreams, listed so this file is the one
-place to look): `app/(product)/p/[slug]/revisions/page.tsx:70`,
-`app/(product)/p/[slug]/security/page.tsx:563` and `:872`,
-`app/(product)/p/[slug]/security/dismiss-dialog.tsx:9`,
+Eleven markers, and none of them is in `src/lib/hosted`.
+
+### `src/lib/hosted` — 21 markers
+
+The hosted subsystem's ceilings are listed per marker in **[section 8](#8-hosted-apps-revision-3--ponytail-markers)** rather than repeated here, because they belong to one subsystem with one set of decisions behind it (docs/hosted/DECISIONS.md). By directory, and what each group is about:
+
+| Directory | Markers | The shape of the ceiling |
+| --- | --- | --- |
+| `hosted/data/` | 8 | D1's HTTP API has no interactive transaction, and the tracker store's filters, cursors and write-id ledger are pilot-shaped. |
+| `hosted/release/` | 4 | Three are raw SQL standing in for repository methods that do not exist yet (runtime ref, queued phase data, lease renewal); one is a hostname read from config rather than the runtime. |
+| `hosted/build/` | 3 | An exact React alias list, a platform root found by walking up from `cwd()`, and what Windows' `CreateProcess` adds to a child regardless. |
+| `hosted/access/` | 2 | One identity round trip per grant-sensitive request (deliberate), and no sweep of expired exchange/session rows. |
+| `hosted/authority/` | 2 | No dead-letter queue on the outbox; migrations are forward-only. |
+| `hosted/backup/` | 1 | A bundle is assembled in memory before sealing. |
+| `hosted/usage/` | 1 | Spending alerts reach the server log and nothing else. |
+
+### Outside `src/lib` — 5 markers
+
+Owned by the UI and API workstreams, listed so this file is the one place to
+look: `app/(product)/p/[slug]/security/dismiss-dialog.tsx:9`,
 `app/(product)/p/[slug]/security/use-fix-plans.ts:7`,
-`components/inspector/plan-first.tsx:162`, `components/ui/log-viewer.tsx:269`.
-The last two pairs are the same marker text in two files — the screen split
-copied it, and one of each pair should go when that refactor settles.
+`app/api/hosted/ops/_http.ts:12`, `components/inspector/plan-first.tsx:159` and
+`components/ui/log-viewer.tsx:262`. The markers this file used to list in
+`revisions/page.tsx` and `security/page.tsx` are gone — those screens were
+split. `plan-first.tsx` and `log-viewer.tsx` still carry marker text copied
+from a sibling during a split; one of each pair should go when that refactor
+settles.
 
 ## 2. `TODO` / `FIXME`
 
@@ -43,9 +73,24 @@ ceiling instead, which is the convention to keep.
 
 ## 3. Dead exports
 
-Four were removed in this pass (`blueprintIds`, `secrets.secretExists`,
-`boot.engineModule`, `context.actorFromRequest` — each had zero references
-anywhere, including its own file). One is deliberately kept:
+Four were removed in the `src/lib` polish pass (`blueprintIds`,
+`secrets.secretExists`, `boot.engineModule`, `context.actorFromRequest` — each
+had zero references anywhere, including its own file).
+
+**Ten more were removed 2026-09-10**, in the sweep across `src/lib/hosted` and
+the action defs: `deliverEvent`, `requireRule`,
+`slugAccepted`, `createGrant`, `isNotADatabase`,
+`hostedConfigured`, `SourceRejection`, `resetHostedBoot`, `localAppPaths`
+(hosted), and `plannerInfoAction` (navigator). Each had no importer outside its
+own file. Two action-def files are being renamed in the same sweep:
+`defs/manifest.ts` → `defs/project-manifest.ts` (landed) and `defs/env.ts` →
+`defs/environments.ts` (still `defs/env.ts` on disk at the 2026-09-10 recount).
+A line elsewhere in this document that names an old path is stale, not a second
+file. Recount
+before trusting any number here; that is why each claim carries its date rather
+than asserting a permanent zero.
+
+One export is deliberately kept:
 
 - **`navigatorHeaders`** (`src/lib/server/context.ts:51`) — no caller. It mints
   the header pair that `isNavigator()` checks, so deleting only the minter would
@@ -58,11 +103,12 @@ mostly correct: an exported type that names an exported function's signature
 (`OrreryEnv`, `LogFields`, `AuditFilter`, `SecretMeta`, `SsePull`, `DriftKind`…)
 belongs in the public surface even with no importer today. The ones that are
 genuinely just internal helpers wearing an `export` — `round2` (domain/graph),
-`baseDomainFor` / `connectionLabel` (actions/defs/env), `findChannel` /
-`workspaceOfRule` (alerts/channels), `emailBody` / `messageForEvent` /
-`deliverEvent` (alerts/deliver), `sandboxHost` (providers/sandbox) — were left
-alone in this pass: de-exporting them is churn across files two other agents
-are editing right now. Do it in one sweep when the tree is quiet.
+`baseDomainFor` / `connectionLabel` (`actions/defs/env`, being renamed to
+`defs/environments`), `findChannel` / `workspaceOfRule` (alerts/channels), `emailBody` /
+`messageForEvent` (alerts/deliver), `sandboxHost` (providers/sandbox) — were
+left alone in that pass; the 2026-09-10 sweep took `deliverEvent` out of the
+same list. The rest is churn across files other agents are editing; do it in
+one sweep when the tree is quiet.
 
 **Used only by `tests/` or `scripts/` (18 symbols).** All legitimate seams —
 `resetDb` (29 test callers), `flushDeliveries`, `evaluateAll`, `pollDelay`,
@@ -145,7 +191,9 @@ this pass's ownership.
 
 Snapshot after the UI organisation pass. Counts: **5 `ponytail:` markers**,
 **0 in-scope files over 600 lines**, **7 duplicate groups unified**,
-**2 dead exports removed**, **10 directory READMEs added**.
+**2 dead exports removed**, **10 directory READMEs added**. Three of those five
+markers survive today; see "Outside `src/lib`" in section 1 for the current
+list.
 
 ### 7.1 Oversized files
 
@@ -306,8 +354,9 @@ would produce 15-line files and one more import per call site:
 ## 8. Hosted apps (Revision 3) — `ponytail:` markers
 
 Added on branch `zenith/hosted-r3`. Each names the ceiling it accepts and the
-upgrade path; none is a bug. Counts: **21 markers under `src/lib/hosted`**,
-0 `TODO`/`FIXME`.
+upgrade path; none is a bug. Counts, recounted 2026-09-10: **21 markers under
+`src/lib/hosted`**, 0 `TODO`/`FIXME`. Line numbers below were current at that
+recount.
 
 | Where | Ceiling |
 | --- | --- |

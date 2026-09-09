@@ -4,6 +4,7 @@
  * are tested directly instead of through a rendered form.
  */
 import type { Manifest, Service } from "@/lib/domain/types";
+import { fnv1a } from "@/lib/domain/hash";
 
 /** What a node is called on any surface, whatever kind it is. */
 export function nodeLabel(m: Manifest, id: string): string {
@@ -142,16 +143,6 @@ function canonical(v: unknown): string {
     .join(",")}}`;
 }
 
-/** FNV-1a. Not a checksum — just a short stable label for one intent. */
-function fnv1a(s: string): string {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return (h >>> 0).toString(36);
-}
-
 /**
  * A retry of the same apply must replay, not apply twice — which a Date.now()
  * key never did. The base state is part of the identity on purpose: the same
@@ -159,7 +150,7 @@ function fnv1a(s: string): string {
  * again instead of replaying a stale result.
  */
 export function idempotencyKey(actionId: string, intent: unknown, base?: unknown): string {
-  return `${actionId}-${fnv1a(canonical({ intent, base }))}`;
+  return `${actionId}-${fnv1a(canonical({ intent, base })).toString(36)}`;
 }
 
 /* ---------------------------------- plans ---------------------------------- */

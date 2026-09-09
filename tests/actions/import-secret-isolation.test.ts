@@ -1,11 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import type { ActionContext } from "@/lib/actions/core";
 import type { Project } from "@/lib/domain/types";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-import-secret-isolation-"));
+tempDataDir("orrery-import-secret-isolation-");
 const { runAction } = await import("@/lib/actions/core");
 const { q, resetDb } = await import("@/lib/db/store");
 await import("@/lib/actions/defs");

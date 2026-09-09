@@ -10,7 +10,6 @@
  * Workstream W7 (hosted R3).
  */
 import { z } from "zod";
-import "@/lib/actions/defs/hosted";
 import { PublishSource } from "@/lib/hosted/release";
 import {
   accepted,

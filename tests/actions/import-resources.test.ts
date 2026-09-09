@@ -11,15 +11,11 @@
  * manifest just because someone posted it.
  */
 import { describe, expect, it, beforeAll } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import type { ActionContext } from "@/lib/actions/core";
 import type { Manifest } from "@/lib/domain/types";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-import-res-"));
-process.env.ORRERY_FAST = "1";
-
+tempDataDir("orrery-import-res-", { fast: true });
 const { runAction } = await import("@/lib/actions/core");
 const { db, q, resetDb, save } = await import("@/lib/db/store");
 const { sandboxProvider } = await import("@/lib/providers/sandbox");

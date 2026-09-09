@@ -7,13 +7,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type {
-  Deployment,
-  Environment,
-  Manifest,
-  Project,
-  Revision,
-} from "@/lib/domain/types";
+import type { Deployment, Environment, Manifest, Project, Revision } from "@/lib/domain/types";
+import * as fixtures from "./_fixtures";
 
 process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-alerts-"));
 
@@ -27,35 +22,14 @@ const { registerAllActions } = await import("@/lib/actions/defs");
 
 registerAllActions();
 
-const NOW = Date.parse("2026-09-02T12:00:00.000Z");
-const ago = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
+const { NOW, ago, manifest } = fixtures;
 
 const ctx = {
   workspaceId: "ws1",
   projectId: "p1",
   environmentId: "env1",
-  actor: { type: "user" as const, id: "local", name: "You" },
+  actor: fixtures.ACTOR,
 };
-
-const service = (chaos?: string) => ({
-  id: "svc-api",
-  name: "api",
-  kind: "web" as const,
-  source: { type: "image" as const, image: "nginx" },
-  size: "small" as const,
-  replicas: 2,
-  port: 3000,
-  env: chaos ? [{ key: "ORRERY_CHAOS", value: chaos }] : [],
-  ownership: "managed" as const,
-});
-
-const manifest = (chaos?: string): Manifest => ({
-  version: 1,
-  services: [service(chaos)],
-  resources: [],
-  routes: [],
-  bindings: [],
-});
 
 const revision = (m: Manifest): Revision => ({
   id: "rev1",

@@ -23,7 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StatusDot } from "@/components/ui/status-dot";
 import { ErrorNote } from "@/components/screens/shared";
 import { isTerminalJob, useHostedJob } from "@/lib/client/hosted";
-import type { Release } from "@/lib/hosted/contracts/types";
+import type { Release } from "@/lib/hosted/contracts";
 import {
   JOB_STATUS_TEXT,
   jobElapsedMs,

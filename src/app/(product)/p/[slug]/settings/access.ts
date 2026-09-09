@@ -14,8 +14,7 @@
  */
 import type { Role } from "@/lib/actions/core";
 import { requiredRoleOf, useShell } from "@/components/shell/shell-context";
-
-const RANK: Record<Role, number> = { viewer: 0, editor: 1, admin: 2 };
+import { roleReaches } from "@/lib/domain/roles";
 
 /**
  * Fallback only, for the moment before the catalog arrives (or an id that is
@@ -56,7 +55,7 @@ export function gate(
 ): string | undefined {
   if (role === undefined) return "Still loading your role in this workspace.";
   if (role === null) return "Sign in to change anything in this workspace.";
-  if (RANK[role] >= RANK[needed]) return undefined;
+  if (roleReaches(role, needed)) return undefined;
   return `This needs the ${needed} role and you are ${role} in this workspace. A workspace admin can raise your role under Members on this page.`;
 }
 

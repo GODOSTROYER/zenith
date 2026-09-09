@@ -8,34 +8,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { Deployment, Environment, Manifest, Revision } from "@/lib/domain/types";
+import * as fixtures from "../alerts/_fixtures";
 
 process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-logsim-"));
 
 const { resetDb } = await import("@/lib/db/store");
 const { healthHistory } = await import("@/lib/logsim");
 
-const NOW = Date.parse("2026-09-02T12:00:00.000Z");
-const ago = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
-
-const service = (chaos?: string) => ({
-  id: "svc-api",
-  name: "api",
-  kind: "web" as const,
-  source: { type: "image" as const, image: "nginx" },
-  size: "small" as const,
-  replicas: 2,
-  port: 3000,
-  env: chaos ? [{ key: "ORRERY_CHAOS", value: chaos }] : [],
-  ownership: "managed" as const,
-});
-
-const manifest = (chaos?: string, withService = true): Manifest => ({
-  version: 1,
-  services: withService ? [service(chaos)] : [],
-  resources: [],
-  routes: [],
-  bindings: [],
-});
+const { NOW, ago, manifest } = fixtures;
 
 const revision = (n: number, m: Manifest): Revision => ({
   id: `rev${n}`,

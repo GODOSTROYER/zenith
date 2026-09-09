@@ -11,7 +11,7 @@
 import { FileArchive } from "lucide-react";
 import { cx } from "@/lib/format";
 import { Callout } from "@/components/ui/callout";
-import { RECIPE_V1, SOURCE_LIMITS } from "@/lib/hosted/contracts/source-v1";
+import { RECIPE_V1, SOURCE_LIMITS } from "@/lib/hosted/contracts";
 import type { FixtureName } from "@/lib/client/hosted";
 import { fmtBytes } from "./limits";
 

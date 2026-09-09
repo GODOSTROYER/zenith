@@ -7,15 +7,11 @@
  * they drift the button becomes a dead control again.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import type { ActionContext } from "@/lib/actions/core";
 import { emptyManifest, type CloudConnection, type Deployment } from "@/lib/domain/types";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-envlife-"));
-process.env.ORRERY_FAST = "1";
-
+tempDataDir("orrery-envlife-", { fast: true });
 const { runAction } = await import("@/lib/actions/core");
 const { db, resetDb, q, save } = await import("@/lib/db/store");
 await import("@/lib/actions/defs");

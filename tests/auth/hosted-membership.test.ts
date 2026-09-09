@@ -5,13 +5,11 @@
  * work exactly as before.
  */
 import { beforeEach, describe, expect, it } from "vitest";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import type { Invite, Member } from "@/lib/domain/types";
 import type { SessionUser } from "@/lib/auth/session";
+import { tempDataDir } from "../_support/data-dir";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-hosted-members-"));
+tempDataDir("orrery-hosted-members-");
 process.env.ZENITH_HOSTED_MODE = "1";
 
 const { ensureMember, readInvites } = await import("@/lib/server/context");

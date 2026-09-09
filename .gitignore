@@ -13,3 +13,5 @@ next-env.d.ts
 
 # here.now credentials and claim tokens are local-only
 .herenow/state.json
+
+.vercel

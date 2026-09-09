@@ -1,0 +1,25 @@
+# Vercel CLI does not consult .gitignore when it builds the upload for
+# `vercel deploy` from a working tree (it only reads this file plus a small
+# built-in list), so the exclusions live here too. Mirrors .dockerignore but
+# keeps docs/ and tests/ - they do not affect the build.
+node_modules
+.next
+.git
+.github
+.vercel
+
+# Local data directories: JSON snapshot, sqlite, event/audit logs, pid lock.
+.data
+.data-*
+
+# Local-only credentials and state.
+.herenow
+.env
+.env*
+**/.env*
+supabase/.temp
+
+# Scratch output.
+.devserver.log
+*.tsbuildinfo
+.impeccable

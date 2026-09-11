@@ -7,23 +7,26 @@
  * selector plus one delegating export per name, so the ~113 files that import
  * `@/lib/db/store` are unchanged and unaware of which implementation answers.
  *
- *   ./types.ts       the `Store` contract and its record types
- *   ./file-store.ts  the only implementation: JSON snapshot + JSONL logs
- *   this file        chooses one (ZENITH_STORE) and re-exports it
+ *   ./types.ts          the `Store` contract and its record types
+ *   ./file-store.ts     JSON snapshot + JSONL logs; the default
+ *   ./postgres-store.ts Supabase Postgres, with a request-scoped snapshot
+ *   this file           chooses one (ZENITH_STORE) and re-exports it
  *
- * `ZENITH_STORE` is `"file"` (the default and, today, the only build) or
- * `"postgres"`, which is validated by `lib/env.ts` and refused here with a
- * sentence saying so: the flag exists end to end before the implementation
- * does, so the first Postgres commit adds a file and changes one line.
+ * `ZENITH_STORE` is `"file"` (the default) or `"postgres"`. The Postgres store
+ * owns the organisational slice — workspaces, members, invites, connections,
+ * projects, environments, settings — and *delegates the rest to the file store*
+ * until Phase 3. That hybrid is documented at the top of `./postgres-store.ts`
+ * and in docs/ARCHITECTURE.md (ADR 1); it is real debt, stated rather than
+ * hidden.
  *
  * The durability contract, the hot/cold split and the change-event semantics
- * are documented where they are implemented — see `./file-store.ts`.
- *
- * TODO(ceiling): single-process file store. `ZENITH_STORE` is the seam.
+ * are documented where they are implemented — see `./file-store.ts` and
+ * `./postgres-store.ts`.
  */
 import { env } from "@/lib/env";
 import type { AuditEvent, DeploymentEvent, Manifest } from "@/lib/domain/types";
 import { FileStore } from "./file-store";
+import { PostgresStore } from "./postgres-store";
 import type {
   AuditCountResult,
   AuditFilter,
@@ -47,14 +50,15 @@ export type {
 type GStore = typeof globalThis & { __zenithStore?: Store };
 
 function selectStore(kind: StoreKind): Store {
-  if (kind === "postgres")
-    throw new Error(
-      "ZENITH_STORE=postgres is not available yet in this build: no Postgres store is implemented, " +
-        "and starting on the file store under a postgres flag would write the data somewhere you did " +
-        "not ask for. Fix: unset ZENITH_STORE (or set it to `file`) in .env.local and start again."
-    );
-  return FileStore;
+  return kind === "postgres" ? PostgresStore : FileStore;
 }
+
+/**
+ * True when this process is answering out of Postgres. The request edge asks,
+ * because a Postgres write is a network round trip that must complete before
+ * the response leaves — see `flushMutation` in `server/request.ts`.
+ */
+export const isPostgres = (): boolean => env().ZENITH_STORE === "postgres";
 
 /**
  * The store this process uses. Chosen once — the selection reads the
@@ -79,6 +83,19 @@ export const flush = (): void => currentStore().flush();
 
 /** Write a *scheduled* save immediately, and say whether there was one. */
 export const flushPending = (): boolean => currentStore().flushPending();
+
+/**
+ * The same, but awaitable — the only honest shape over a network store.
+ *
+ * The file store answers synchronously and this resolves immediately; the
+ * Postgres store returns once its writes have actually landed. `route()` awaits
+ * this after every mutating handler, which is what makes "commit before ACK"
+ * true on both implementations.
+ */
+export const flushPendingAsync = async (): Promise<boolean> => {
+  const store = currentStore() as Store & { flushAsync?: () => Promise<boolean> };
+  return store.flushAsync ? store.flushAsync() : store.flushPending();
+};
 
 /** Reset everything (used by seed script). */
 export const resetDb = (data?: Partial<Database>): Database => currentStore().reset(data);

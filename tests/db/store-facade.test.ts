@@ -1,12 +1,15 @@
 /**
  * The façade: `src/lib/db/store.ts` selects an implementation and re-exports
  * it under the historical names. Two things are worth pinning down — that the
- * `ZENITH_STORE` flag exists end to end (and says the honest thing for the
- * implementation that does not exist yet), and that the exported functions are
- * the file store's and not a second copy of its state.
+ * `ZENITH_STORE` flag reaches the selection end to end, and that the exported
+ * functions are the selected store's and not a second copy of its state.
  *
- * The postgres case runs first *by design*: the selection is cached on
- * `globalThis` the first time it succeeds, and a refusal caches nothing.
+ * The flag test only asks what the *selector* would answer (`isPostgres()`);
+ * it must not call `db()` under the postgres flag, because the selection is
+ * cached on `globalThis` the first time it runs and would strand this file's
+ * remaining tests on a store pointed at nothing. The Postgres store's own
+ * behaviour is covered by tests/api/postgres-request-boundary.test.ts and by
+ * the contract suite.
  */
 import { describe, expect, it } from "vitest";
 import { tempDataDir } from "../_support/data-dir";
@@ -31,11 +34,12 @@ function withStoreFlag<T>(value: string | undefined, fn: () => T): T {
 }
 
 describe("ZENITH_STORE", () => {
-  it("refuses postgres with a sentence that names the way out", () => {
+  it("selects the Postgres store on the flag, and says so", () => {
     withStoreFlag("postgres", () => {
-      expect(() => store.db()).toThrow(/not available yet in this build/);
-      expect(() => store.db()).toThrow(/unset ZENITH_STORE/);
+      expect(store.isPostgres()).toBe(true);
     });
+    // …and the default is still the file store, with no Supabase anything.
+    expect(withStoreFlag(undefined, () => store.isPostgres())).toBe(false);
   });
 
   it("defaults to file and rejects anything else", () => {

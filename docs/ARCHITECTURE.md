@@ -222,10 +222,7 @@ idempotently → events appended (replayable) → verify phase (honest health) �
    `readAudit`/`countAudit`, `onChange`/`changed`, `q.*`, `inWorkspace`). The
    ~113 modules that import `@/lib/db/store` are unchanged and cannot tell
    which implementation answers. `ZENITH_STORE` selects it: `file` (the
-   default, and the only one this build ships) or `postgres`, which validates
-   in `lib/env.ts` so the flag exists end to end and is refused by the façade
-   with a sentence saying it is not available yet — the seam is real before
-   the implementation is. `tests/db/contract/` is the table that keeps it
+   default) or `postgres`. `tests/db/contract/` is the table that keeps it
    honest: one ordered scenario — workspace → member → project → environment →
    revision (manifest reachable, accessor non-enumerable, absent from
    `JSON.stringify(db())`) → deployment → events → audit → `onChange` →
@@ -235,6 +232,51 @@ idempotently → events appended (replayable) → verify phase (honest health) �
    is; where Postgres will need a promise the interface says so in a comment
    rather than churning the call sites for an implementation that does not
    exist.
+
+   **The Postgres store (`src/lib/db/postgres-store.ts`).** Supabase over
+   PostgREST, under the same synchronous façade, which is only possible because
+   the read happens *before* the caller does. `route()` prefetches the caller's
+   workspace slice into `RequestState.snapshot` — members by id **or**
+   `lower(email)` (an invite names an address and the id only exists once that
+   person signs in), then the workspaces those rows name, then everything keyed
+   by those ids, plus the install-global settings row and the change-feed
+   versions — and the handler then reads and mutates a graph already in memory.
+   One snapshot per request is also what stops two concurrent requests sharing
+   one mutable object. Outside a request (a script, the seed, a test) there is a
+   process-global snapshot instead, primed explicitly.
+
+   *Writes are row-level optimistic concurrency.* Every table carries
+   `version bigint`; a flush diffs the snapshot against the baseline captured at
+   load, writes only the rows that actually moved, and guards each update with
+   `.eq("version", loadedVersion)`. **Zero rows updated is a 409** —
+   `ApiError("Someone else changed this workspace; reload and retry", 409)` —
+   never a silent overwrite, because last-writer-wins is how two admins editing
+   one member list quietly lose an edit. Rows the snapshot loaded and no longer
+   holds are deleted, scoped to the workspaces that snapshot actually loaded.
+   `route()` awaits the flush after **every** mutating request on every host,
+   not only serverless: a deferred network write is not a coalescing window, and
+   the next request can land on another instance and read the row before the
+   write arrives.
+
+   *The change feed is a table, not an emitter.* `onChange` cannot be an
+   in-process `EventEmitter` once more than one instance serves the app, so each
+   flush bumps `workspace_versions` for the workspaces it touched and records
+   which projects moved; listeners poll that one narrow table at the SSE tick
+   (300 ms), at most once per window, and only while a listener exists.
+
+   *It is a hybrid, and that is Phase 3 debt.* Phase 2 moved the organisational
+   slice — workspaces, members, invites, connections, projects, environments,
+   settings, `workspace_versions`. Revisions and their manifests, deployments,
+   deployment events, the audit log, findings, navigator runs, alert
+   rules/events/outbox and secrets still delegate to `FileStore` verbatim. Their
+   tables exist in `supabase/migrations/0001_system_of_record.sql` and are empty.
+   This makes `ZENITH_STORE=postgres` usable end to end today rather than after
+   the whole store lands — and it means a serverless deployment on `postgres`
+   still keeps that half in its own `/tmp`. Two schema deviations are recorded in
+   the migration itself: `Database.settings` is install-global rather than
+   per-workspace (one reserved row, `workspace_id = '__install__'`), and invites
+   get a real table because they are looked up by address on the sign-in path,
+   projected back into `settings.invites` on hydration so no caller changes.
 
    **Hot and cold.** `state.json` is rewritten in full on every save, so only
    what changes belongs in it. Revision manifests — immutable once written, and

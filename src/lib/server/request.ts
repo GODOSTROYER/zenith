@@ -30,6 +30,20 @@ export interface RequestState {
   member?: Member;
   /** why the caller holds no membership, when that is why there is no workspace */
   denial?: MemberDenial;
+  /**
+   * This request's view of the Postgres store, loaded **before** the handler
+   * runs (`ZENITH_STORE=postgres` only; undefined on the file store).
+   *
+   * `Store.db()` is synchronous and ~113 files depend on that, so the round
+   * trip cannot happen inside a handler — it happens here, once, and the
+   * handler then reads and mutates a graph that is already in memory. One
+   * snapshot per request is also what keeps two concurrent requests from
+   * sharing one mutable object.
+   *
+   * Typed loosely on purpose: naming `Snapshot` here would make every module
+   * that imports the request scope import the Postgres store as well.
+   */
+  snapshot?: unknown;
 }
 
 /** Resolved once per request by `route()`; every helper in this directory reads it. */
@@ -59,10 +73,41 @@ const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
  */
 async function flushMutation(req: NextRequest): Promise<void> {
   if (READ_METHODS.has(req.method.toUpperCase())) return;
+  const { flushPendingAsync, isPostgres } = await import("@/lib/db/store");
+  // Postgres flushes on every host, not only serverless. A deferred network
+  // write is not a coalescing window: the very next request can land on another
+  // instance and read the row before this one's write arrives, which has
+  // nothing to do with freezing. So the write-through is unconditional there.
+  if (isPostgres()) {
+    await flushPendingAsync();
+    return;
+  }
   const { isServerless } = await import("@/lib/serverless");
   if (!isServerless()) return;
-  const { flushPending } = await import("@/lib/db/store");
-  flushPending();
+  await flushPendingAsync();
+}
+
+/**
+ * Load this request's store snapshot before the handler runs.
+ *
+ * Only on Postgres, and only once per request. The prefetch is the caller's
+ * workspace slice in three rounds — members (by id **or** lower(email), which
+ * is how an invited user is found before they have ever signed in), then the
+ * workspaces those rows name, then everything keyed by those workspace ids —
+ * plus the install-global settings row and the change-feed versions. Handlers
+ * then read entirely from memory.
+ */
+async function prefetch(req: NextRequest): Promise<unknown> {
+  const { isPostgres } = await import("@/lib/db/store");
+  if (!isPostgres()) return undefined;
+  // The session is read here rather than taken from `resolveRequest`, because
+  // that function is itself a `db()` reader: membership, the workspace cookie
+  // and the member row all come out of the snapshot this call is loading. The
+  // JWT read is local (no round trip), so asking twice costs nothing.
+  const { sessionUserFromRequest } = await import("@/lib/supabase/route");
+  const user = await sessionUserFromRequest(req).catch(() => null);
+  const { loadSnapshot, pgClient } = await import("@/lib/db/postgres-store");
+  return loadSnapshot(pgClient(), user ? { id: user.id, email: user.email } : null);
 }
 
 /** The permission a route needs, stated once instead of re-typed per handler. */
@@ -122,18 +167,27 @@ export function route<P extends Record<string, string> = Record<string, string>>
         // needs to load/resume the action and provider runtime.
         const { ensureBoot } = await import("@/lib/server/boot");
         await ensureBoot();
-        const { resolveRequest, routeGrant } = await import("@/lib/server/actor");
-        const state = await resolveRequest(req);
-        const out = await requestState.run(state, async () => {
-          const params = ctx?.params ? await ctx.params : ({} as P);
-          // A route that demands nothing must not resolve an actor: the
-          // invitation routes answer callers `resolveActor()` would refuse.
-          const grant = options.workspaceRole
-            ? await routeGrant(req, options.workspaceRole)
-            : (undefined as unknown as RouteGrant);
-          return handler(req, params, grant);
+        // BEFORE the actor is resolved, and therefore before the handler: on
+        // Postgres, `resolveRequest` is itself a store read.
+        const snapshot = await prefetch(req);
+        const { runWithSnapshot } = await import("@/lib/db/request-snapshot");
+        const out = await runWithSnapshot(snapshot, async () => {
+          const { resolveRequest, routeGrant } = await import("@/lib/server/actor");
+          const state: RequestState = { ...(await resolveRequest(req)), snapshot };
+          const result = await requestState.run(state, async () => {
+            const params = ctx?.params ? await ctx.params : ({} as P);
+            // A route that demands nothing must not resolve an actor: the
+            // invitation routes answer callers `resolveActor()` would refuse.
+            const grant = options.workspaceRole
+              ? await routeGrant(req, options.workspaceRole)
+              : (undefined as unknown as RouteGrant);
+            return handler(req, params, grant);
+          });
+          // Inside the snapshot scope, deliberately: the flush writes *this*
+          // request's snapshot, and outside it would find the process-global one.
+          await flushMutation(req);
+          return result;
         });
-        await flushMutation(req);
         const res = out instanceof Response ? out : json(out);
         res.headers.set("x-request-id", requestId);
         return res;

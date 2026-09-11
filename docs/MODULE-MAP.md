@@ -9,8 +9,14 @@ Two products share one repository and one process:
 
 - **A — infrastructure.** Manifest, actions, engine, providers. Persists to
   `.data/state.json` + JSONL logs through `src/lib/db/store.ts`, which since
-  the `Store` split is a façade over `src/lib/db/file-store.ts` — the one
-  implementation `ZENITH_STORE` can select today.
+  the `Store` split is a façade over two implementations `ZENITH_STORE`
+  selects: `src/lib/db/file-store.ts` (the default) and
+  `src/lib/db/postgres-store.ts` (Supabase Postgres, request-scoped snapshot).
+  The Postgres one is a **hybrid**: it owns workspaces, members, invites,
+  connections, projects, environments and settings, and delegates revisions,
+  deployments, deployment events, the audit log, findings, navigator runs,
+  alerts and secrets straight back to `FileStore` until Phase 3. That boundary
+  is stated in full at the top of `postgres-store.ts`.
 - **B — hosted apps.** Private apps served on `<slug>.<ZENITH_APP_DOMAIN>`.
   Persists to `.data/control.sqlite` through `src/lib/hosted/authority/`.
 
@@ -62,8 +68,10 @@ The only layer that opens a file or a database.
 | Path | Owns | May import |
 | --- | --- | --- |
 | `src/lib/db/types.ts` | The `Store` contract plus `Database`, `StoreChange`, `AuditFilter`, `AuditPage`, `StoreKind`. Types only — no `node:`, no env (it sits at L2 by ownership, not by capability) | L0 |
-| `src/lib/db/file-store.ts` | The only implementation of `Store`: `state.json` (hot) + JSONL logs + cold revision manifests, the 50 ms save coalescer, tmp+rename writes, the manifest LRU and the event tail | L0–L1, `db/types` |
-| `src/lib/db/store.ts` | Product A's repository **façade**: picks the implementation from `ZENITH_STORE` (`file` today; `postgres` is refused with a sentence) and re-exports it as `db()` / `save()` / `q.*` / `onChange`. Every importer still says `@/lib/db/store` | L0–L1, `db/{types,file-store}` |
+| `src/lib/db/file-store.ts` | The file implementation of `Store`: `state.json` (hot) + JSONL logs + cold revision manifests, the 50 ms save coalescer, tmp+rename writes, the manifest LRU and the event tail | L0–L1, `db/types` |
+| `src/lib/db/postgres-store.ts` | The second implementation of `Store`: Supabase/PostgREST over a **request-scoped snapshot** (`route()` prefetches the caller's workspace slice before the handler runs), row-level optimistic concurrency (`version` guard; 0 rows updated → `ApiError` 409 "Someone else changed this workspace; reload and retry"), and a `workspace_versions` poll (300 ms) in place of the in-process change emitter. **Hybrid**: Phase-3 collections delegate to `FileStore` verbatim | L0–L1, `db/{types,file-store,request-snapshot}`, `supabase/admin` |
+| `src/lib/db/request-snapshot.ts` | One `AsyncLocalStorage` holding the current request's snapshot. Its only import is `node:async_hooks`, so the Postgres store can find the request scope without pulling `next/server` into scripts and tests | none |
+| `src/lib/db/store.ts` | Product A's repository **façade**: picks the implementation from `ZENITH_STORE` (`file` \| `postgres`) and re-exports it as `db()` / `save()` / `q.*` / `onChange`, plus `isPostgres()` and the awaitable `flushPendingAsync()`. Every importer still says `@/lib/db/store` | L0–L1, `db/{types,file-store,postgres-store}` |
 | `src/lib/secrets/` | AES-256-GCM value store beside the snapshot | L0–L1 |
 | `src/lib/hosted/authority/**` | Product B's control authority: one SQLite file, one connection, `tx()`, the repositories, the outbox | L0–L1 |
 | `src/lib/hosted/artifacts/` | Content-addressed artifact store and the trusted pre-release verification | L0–L1, `hosted/digest` |

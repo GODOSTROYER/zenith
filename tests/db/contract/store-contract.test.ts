@@ -9,7 +9,7 @@
  * what `readEvents(afterSeq)` promises, that a manifest is reachable but never
  * serialised, and that a save announces the project it touched.
  */
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import type {
   Deployment,
   DeploymentEvent,
@@ -22,7 +22,7 @@ import type {
 } from "@/lib/domain/types";
 import type { Store } from "@/lib/db/types";
 import { tempDataDir } from "../../_support/data-dir";
-import { loadStores } from "./factories";
+import { CONTRACT_PREFIX, cleanupPostgresContract, loadStores } from "./factories";
 
 // MUST precede every application import: the file store pins ZENITH_DATA the
 // moment it is loaded.
@@ -30,7 +30,11 @@ tempDataDir("zenith-store-contract-");
 
 const stores = await loadStores();
 
-const WS = "ws-contract";
+// Every row this suite writes is filed under one prefixed workspace id, so the
+// Postgres factory can delete exactly what the run created — it runs against a
+// real project, and "delete the test data" has to mean something narrower than
+// "delete the data".
+const WS = `${CONTRACT_PREFIX}-ws`;
 const PROJ = "proj-contract";
 const ENV = "env-contract";
 const REV = "rev-contract";
@@ -341,6 +345,14 @@ const SCENARIO: Step[] = [
   },
 ];
 
+afterAll(cleanupPostgresContract);
+
 describe.each(stores)("store contract — $name", ({ store }) => {
-  for (const step of SCENARIO) it(step.name, () => step.run(store));
+  for (const step of SCENARIO)
+    it(step.name, async () => {
+      step.run(store);
+      // The file store's writes are already on disk; the Postgres store's are a
+      // round trip, and the next step must not start before they land.
+      await (store as { flushAsync?: () => Promise<boolean> }).flushAsync?.();
+    });
 });

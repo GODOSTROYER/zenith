@@ -77,6 +77,10 @@ function rowsFor(collection: PgCollection): Record<string, unknown>[] {
         return [toRow("environments", e, workspaceId)];
       });
     }
+    // The registry is open (src/lib/db/pg/registry.ts), so `PgCollection` is no
+    // longer a closed union; this script still imports exactly `ORDER` above.
+    default:
+      return [];
   }
 }
 

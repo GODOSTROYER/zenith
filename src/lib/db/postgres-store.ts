@@ -43,29 +43,41 @@
  *     workspaces · members · invites · connections · projects · environments
  *     settings   · workspace_versions
  *
+ * …and it holds none of that knowledge itself: each of those collections is an
+ * adapter in `./pg/registry.ts` (registered by `./pg/core.ts`), and everything
+ * here iterates the registry.
+ *
  * Everything else — revisions and their manifests, deployments, deployment
  * events, the audit log, findings, navigator runs, alert rules/events/outbox,
- * secrets — still goes to `FileStore`, unchanged, through plain delegation
- * below. The tables for them exist (supabase/migrations/0001_system_of_record.sql)
+ * secrets — still goes to `FileStore`, unchanged, through the delegate groups
+ * in `./pg/delegates.ts` (`setDelegate("audit", …)` replaces one without
+ * touching this file). The tables for them exist (supabase/migrations/0001_system_of_record.sql)
  * and are empty. That is deliberate: it makes `ZENITH_STORE=postgres` usable end
  * to end today instead of after the whole store lands, and it is real debt —
  * a serverless instance still keeps that half in its own `/tmp`. Phase 3 closes
  * it. Tracked in docs/MODULE-MAP.md and docs/ARCHITECTURE.md (ADR 1).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type {
-  AuditEvent,
-  CloudConnection,
-  DeploymentEvent,
-  Environment,
-  Invite,
-  Manifest,
-  Member,
-  Project,
-  Workspace,
-} from "@/lib/domain/types";
+import type { AuditEvent, DeploymentEvent, Manifest } from "@/lib/domain/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { FileStore } from "./file-store";
+import "./pg/core"; // registers the Phase-2 collections
+import { delegates } from "./pg/delegates";
+import {
+  adapterFor,
+  adapters,
+  INSTALL_SETTINGS_ID,
+  keyScope,
+  type CollectionAdapter,
+  type PgCollection,
+  type PgRow as Row,
+  type PrefetchContext,
+  rowAdapters,
+  runPrefetch,
+  setTenant,
+  storeError,
+  tenantOf,
+} from "./pg/registry";
 import { requestSnapshot } from "./request-snapshot";
 import type {
   AuditCountResult,
@@ -101,104 +113,15 @@ export function resetPgClient(client?: SupabaseClient): void {
 
 /* ------------------------------ the row shape ------------------------------ */
 
-/** The install-global settings bag's reserved row id. See the migration. */
-export const INSTALL_SETTINGS_ID = "__install__";
-
-/** Collections this store actually owns. Everything else delegates to FileStore. */
-export type PgCollection =
-  | "workspaces"
-  | "members"
-  | "invites"
-  | "connections"
-  | "projects"
-  | "environments";
-
-interface Spec<T extends { id: string }> {
-  table: string;
-  /** Columns promoted out of `data`, in the order the migration declares them. */
-  promote: (row: T) => Record<string, unknown>;
-  /** The primary key, as PostgREST filters. `members` is (workspace_id, id). */
-  key: (row: { id: string; workspaceId: string }) => Record<string, string>;
-}
-
-const iso = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
-
 /**
- * Hydration is `{ ...row.data, ...promoted }` for every table, so an object
- * read back here is indistinguishable from the one the file store hands out.
- * The promoted columns win on purpose: they are the copy the database indexes,
- * so a divergence must resolve towards what queries would have found.
+ * Every per-collection fact — table, promoted columns, key, tenant, hydration
+ * and prefetch round — now lives in `./pg/registry.ts`, registered by
+ * `./pg/core.ts`. This file iterates that registry and knows nothing about any
+ * particular table. Re-exported here because the migration script and the
+ * contract tests import them from the store.
  */
-const SPECS: {
-  workspaces: Spec<Workspace>;
-  members: Spec<Member>;
-  invites: Spec<Invite>;
-  connections: Spec<CloudConnection>;
-  projects: Spec<Project>;
-  environments: Spec<Environment>;
-} = {
-  workspaces: {
-    table: "workspaces",
-    promote: (w) => ({ slug: w.slug, name: w.name, created_at: iso(w.createdAt) }),
-    key: (r) => ({ id: r.id }),
-  },
-  members: {
-    table: "members",
-    promote: (m) => ({ email: m.email ?? "", role: m.role }),
-    key: (r) => ({ workspace_id: r.workspaceId, id: r.id }),
-  },
-  invites: {
-    table: "invites",
-    promote: (i) => ({
-      email: i.email,
-      role: i.role,
-      accepted_at: iso(i.acceptedAt),
-      created_at: iso(i.createdAt),
-    }),
-    key: (r) => ({ id: r.id }),
-  },
-  connections: {
-    table: "connections",
-    promote: (c) => ({ provider: c.provider, status: c.status, created_at: iso(c.createdAt) }),
-    key: (r) => ({ id: r.id }),
-  },
-  projects: {
-    table: "projects",
-    promote: (p) => ({ slug: p.slug, name: p.name, created_at: iso(p.createdAt) }),
-    key: (r) => ({ id: r.id }),
-  },
-  environments: {
-    table: "environments",
-    promote: (e) => ({
-      project_id: e.projectId,
-      class: e.class,
-      connection_id: e.connectionId ?? null,
-      deployed_revision_id: e.deployedRevisionId ?? null,
-      active_deployment_id: e.activeDeploymentId ?? null,
-      created_at: iso(e.createdAt),
-    }),
-    key: (r) => ({ id: r.id }),
-  },
-};
-
-/**
- * `Environment` carries no `workspaceId` in the domain model — it reaches its
- * tenant through its project. The column is not optional in the database
- * (uniform shape, and the prefetch filters on it), so the store carries it on
- * the object as a non-enumerable property: invisible to `JSON.stringify`, so no
- * response body or snapshot gains a field, and readable by the flush.
- */
-const TENANT = Symbol.for("zenith.workspaceId");
-
-type Tenanted = { [TENANT]?: string };
-
-export const tenantOf = (row: object, fallback = ""): string =>
-  (row as Tenanted)[TENANT] ?? (row as { workspaceId?: string }).workspaceId ?? fallback;
-
-const setTenant = (row: object, workspaceId: string): void => {
-  if ((row as { workspaceId?: string }).workspaceId) return;
-  Object.defineProperty(row, TENANT, { value: workspaceId, enumerable: false, writable: true });
-};
+export { INSTALL_SETTINGS_ID, tenantOf };
+export type { PgCollection };
 
 /* -------------------------------- snapshots -------------------------------- */
 
@@ -244,69 +167,6 @@ const emptySnapshot = (data: Database): Snapshot => ({
 
 /* --------------------------------- loading -------------------------------- */
 
-interface Row {
-  id?: string;
-  workspace_id?: string;
-  data?: Record<string, unknown>;
-  version?: number;
-  [column: string]: unknown;
-}
-
-/** `{ ...row.data, ...promoted }`, with the promoted columns renamed back. */
-function hydrate<T>(row: Row, rename: Record<string, string>): T {
-  const out: Record<string, unknown> = { ...(row.data ?? {}) };
-  out.id = row.id;
-  for (const [column, field] of Object.entries(rename)) {
-    const value = row[column];
-    // A null promoted column means "absent", never `field: null`: the domain
-    // types use optional properties and a null would serialise into responses
-    // the file store never produces.
-    if (value === null || value === undefined) delete out[field];
-    else out[field] = column.endsWith("_at") ? String(value) : value;
-  }
-  return out as T;
-}
-
-const RENAME: Record<PgCollection, Record<string, string>> = {
-  workspaces: { slug: "slug", name: "name", created_at: "createdAt" },
-  members: { workspace_id: "workspaceId", email: "email", role: "role" },
-  invites: {
-    workspace_id: "workspaceId",
-    email: "email",
-    role: "role",
-    accepted_at: "acceptedAt",
-    created_at: "createdAt",
-  },
-  connections: {
-    workspace_id: "workspaceId",
-    provider: "provider",
-    status: "status",
-    created_at: "createdAt",
-  },
-  projects: {
-    workspace_id: "workspaceId",
-    slug: "slug",
-    name: "name",
-    created_at: "createdAt",
-  },
-  environments: {
-    project_id: "projectId",
-    class: "class",
-    connection_id: "connectionId",
-    deployed_revision_id: "deployedRevisionId",
-    active_deployment_id: "activeDeploymentId",
-    created_at: "createdAt",
-  },
-};
-
-/** Timestamps are stored as `timestamptz` and read back in Postgres' format. */
-const normaliseTimestamps = (row: Record<string, unknown>, fields: string[]): void => {
-  for (const f of fields) {
-    const v = row[f];
-    if (typeof v === "string") row[f] = new Date(v).toISOString();
-  }
-};
-
 async function selectRows(
   client: SupabaseClient,
   table: string,
@@ -322,22 +182,15 @@ async function selectRows(
   return (data ?? []) as Row[];
 }
 
-function storeError(table: string, op: string, message: string): Error {
-  return new Error(
-    `Postgres store could not ${op} "${table}": ${message}. ` +
-      `Fix: check that supabase/migrations/0001_system_of_record.sql has been applied to the project ` +
-      `named by NEXT_PUBLIC_SUPABASE_URL, and that SUPABASE_SERVICE_ROLE_KEY belongs to it.`
-  );
-}
-
 /**
  * Load one workspace slice.
  *
- * Order is the point: members answer "which workspaces is this caller in"
- * (by id **or** by the email an invite named before they first signed in — the
- * same rule `workspacesFor` applies), and every other table is then fetched by
- * those ids in one round each. `null` for `user` loads everything, which is
- * what a script, a migration or a test wants.
+ * Order is the point, and the registry declares it: round 1 answers "which
+ * workspaces is this caller in" (by id **or** by the email an invite named
+ * before they first signed in — the same rule `workspacesFor` applies), round 2
+ * fetches everything keyed by those ids, round 3 everything keyed by what round
+ * 2 loaded. `null` for `user` loads everything, which is what a script, a
+ * migration or a test wants.
  */
 export async function loadSnapshot(
   client: SupabaseClient,
@@ -346,62 +199,42 @@ export async function loadSnapshot(
   const base = FileStore.db();
   const snap = emptySnapshot(base);
 
-  // 1. members — the membership answer, and the filter for everything after it.
-  const memberRows = user
-    ? await memberRowsFor(client, user)
-    : await selectRows(client, "members");
-  const ids = [...new Set(memberRows.map((r) => String(r.workspace_id)))];
+  const ctx: PrefetchContext = { client, user, workspaceIds: [], projectIds: [] };
+  const rows = new Map<PgCollection, Row[]>();
+  for (const round of [1, 2, 3] as const) {
+    const group = adapters().filter((a) => a.prefetch.round === round);
+    const results = await Promise.all(group.map((a) => runPrefetch(a, ctx)));
+    group.forEach((a, i) => {
+      rows.set(a.collection, results[i]);
+      // Rounds feed each other: members hand on the workspace ids, projects the
+      // project ids. Nothing else in this loop knows a collection by name.
+      a.prefetch.provides?.(results[i], ctx);
+    });
+  }
 
-  // 2. workspaces, then everything keyed by workspace_id.
-  const scope = user ? { column: "workspace_id", values: ids } : undefined;
-  const [workspaceRows, inviteRows, connectionRows, projectRows] = await Promise.all([
-    selectRows(client, "workspaces", user ? { column: "id", values: ids } : undefined),
-    selectRows(client, "invites", scope),
-    selectRows(client, "connections", scope),
-    selectRows(client, "projects", scope),
-  ]);
-  const projectIds = projectRows.map((r) => String(r.id));
+  const feedRows = await selectRows(
+    client,
+    "workspace_versions",
+    user ? { column: "workspace_id", values: ctx.workspaceIds } : undefined
+  );
 
-  // 3. environments hang off projects, and settings/versions off the workspaces.
-  const [environmentRows, settingsRows, feedRows] = await Promise.all([
-    selectRows(
-      client,
-      "environments",
-      user ? { column: "project_id", values: projectIds } : undefined
-    ),
-    selectRows(client, "settings", { column: "workspace_id", values: [INSTALL_SETTINGS_ID] }),
-    selectRows(
-      client,
-      "workspace_versions",
-      user ? { column: "workspace_id", values: ids } : undefined
-    ),
-  ]);
-
-  adopt(snap, "workspaces", workspaceRows, base.workspaces as unknown as { id: string }[]);
-  adopt(snap, "members", memberRows, base.members as unknown as { id: string }[]);
-  adopt(snap, "connections", connectionRows, base.connections as unknown as { id: string }[]);
-  adopt(snap, "projects", projectRows, base.projects as unknown as { id: string }[]);
-  adopt(snap, "environments", environmentRows, base.environments as unknown as { id: string }[]);
-
-  // Invites are the one collection with no home in `Database`: they live in the
-  // install-global settings bag (src/lib/server/membership.ts). They are their
-  // own table because they are looked up by address on the sign-in path, and
-  // they are projected back into the bag so no caller changes.
-  const invites: Invite[] = [];
-  adopt(snap, "invites", inviteRows, invites as unknown as { id: string }[]);
-
-  const settingsRow = settingsRows[0];
+  // Settings first: `invites` live inside the bag (see the invites adapter), so
+  // the array they are adopted into has to exist before the adopt loop runs.
+  const settingsRow = (rows.get("settings") ?? [])[0];
   snap.settingsVersion = Number(settingsRow?.version ?? 0);
   const settings = { ...((settingsRow?.data ?? {}) as Record<string, unknown>) };
-  settings.invites = invites;
+  settings.invites = [];
   base.settings = settings;
   snap.baseline.set(
     bkey("settings", INSTALL_SETTINGS_ID),
     { version: snap.settingsVersion, json: canonical(withoutInvites(settings)) }
   );
 
-  for (const id of ids) snap.scope.add(id);
-  for (const r of workspaceRows) snap.scope.add(String(r.id));
+  for (const adapter of rowAdapters())
+    adopt(snap, adapter, rows.get(adapter.collection) ?? [], adapter.rows!(base));
+
+  for (const id of ctx.workspaceIds) snap.scope.add(id);
+  for (const r of rows.get("workspaces") ?? []) snap.scope.add(String(r.id));
   for (const r of feedRows) snap.feed.set(String(r.workspace_id), Number(r.version ?? 0));
 
   return snap;
@@ -412,55 +245,25 @@ const withoutInvites = (settings: Record<string, unknown>): Record<string, unkno
   return rest;
 };
 
-/**
- * A member row is found by id **or** by lower(email): an invite names an address
- * and the id only exists once that person signs in, so matching on id alone
- * would refuse the very first request of every invited user.
- */
-async function memberRowsFor(
-  client: SupabaseClient,
-  user: { id: string; email: string }
-): Promise<Row[]> {
-  const email = (user.email ?? "").toLowerCase();
-  const { data, error } = await client
-    .from("members")
-    .select("*")
-    .or(`id.eq.${user.id},email.eq.${email}`);
-  if (error) throw storeError("members", "read", error.message);
-  return ((data ?? []) as Row[]).filter(
-    (r) => r.id === user.id || String(r.email ?? "").toLowerCase() === email
-  );
-}
-
 /** Hydrate rows into the live array the callers mutate, and record the baseline. */
 function adopt(
   snap: Snapshot,
-  collection: PgCollection,
+  adapter: CollectionAdapter<never>,
   rows: Row[],
   target: { id: string }[]
 ): void {
   target.length = 0;
   for (const row of rows) {
-    const obj = hydrate<{ id: string; workspaceId?: string }>(row, RENAME[collection]);
-    normaliseTimestamps(obj as Record<string, unknown>, [
-      "createdAt",
-      "acceptedAt",
-      "lastCheckedAt",
-    ]);
-    const workspaceId =
-      collection === "workspaces" ? obj.id : String(row.workspace_id ?? obj.workspaceId ?? "");
+    const obj = adapter.hydrate(row) as { id: string };
+    const workspaceId = adapter.tenant(obj as never, { row });
     setTenant(obj, workspaceId);
-    target.push(obj as { id: string });
-    snap.baseline.set(bkey(collection, obj.id, keyScope(collection, workspaceId)), {
+    target.push(obj);
+    snap.baseline.set(bkey(adapter.collection, obj.id, keyScope(adapter.collection, workspaceId)), {
       version: Number(row.version ?? 1),
       json: canonical(obj),
     });
   }
 }
-
-/** Only `members` is keyed by (workspace_id, id); the rest are keyed by id alone. */
-const keyScope = (collection: PgCollection, workspaceId: string): string =>
-  collection === "members" ? workspaceId : "";
 
 /* ------------------------------- the snapshot ------------------------------ */
 
@@ -520,21 +323,11 @@ interface Change {
 function diff(snap: Snapshot): { writes: Change[]; deletes: Change[] } {
   const writes: Change[] = [];
   const seen = new Set<string>();
-  const invites = Array.isArray(snap.data.settings.invites)
-    ? (snap.data.settings.invites as Invite[])
-    : [];
-  const collections: [PgCollection, { id: string }[]][] = [
-    ["workspaces", snap.data.workspaces as unknown as { id: string }[]],
-    ["members", snap.data.members as unknown as { id: string }[]],
-    ["invites", invites as unknown as { id: string }[]],
-    ["connections", snap.data.connections as unknown as { id: string }[]],
-    ["projects", snap.data.projects as unknown as { id: string }[]],
-    ["environments", snap.data.environments as unknown as { id: string }[]],
-  ];
 
-  for (const [collection, rows] of collections) {
-    for (const row of rows) {
-      const workspaceId = workspaceOf(collection, row, snap);
+  for (const adapter of rowAdapters()) {
+    const collection = adapter.collection;
+    for (const row of adapter.rows!(snap.data)) {
+      const workspaceId = adapter.tenant(row as never, { db: snap.data });
       const key = bkey(collection, row.id, keyScope(collection, workspaceId));
       seen.add(key);
       const baseline = snap.baseline.get(key);
@@ -560,18 +353,6 @@ function diff(snap: Snapshot): { writes: Change[]; deletes: Change[] } {
   return { writes, deletes };
 }
 
-function workspaceOf(collection: PgCollection, row: { id: string }, snap: Snapshot): string {
-  if (collection === "workspaces") return row.id;
-  const own = (row as { workspaceId?: string }).workspaceId;
-  if (own) return own;
-  if (collection === "environments") {
-    const { projectId } = row as unknown as Environment;
-    const project = snap.data.projects.find((p) => p.id === projectId);
-    if (project) return project.workspaceId;
-  }
-  return tenantOf(row);
-}
-
 /** A 409 the caller can act on, rather than a silently lost edit. */
 async function conflict(): Promise<never> {
   const { ApiError } = await import("@/lib/server/errors");
@@ -581,7 +362,7 @@ async function conflict(): Promise<never> {
 }
 
 async function writeRow(client: SupabaseClient, change: Change): Promise<void> {
-  const spec = SPECS[change.collection] as Spec<never>;
+  const spec = adapterFor(change.collection);
   const row = change.row as never;
   const promoted = spec.promote(row);
   const data = stripPromoted(change.row, change.collection);
@@ -614,7 +395,7 @@ async function writeRow(client: SupabaseClient, change: Change): Promise<void> {
 }
 
 async function deleteRow(client: SupabaseClient, change: Change): Promise<void> {
-  const spec = SPECS[change.collection] as Spec<never>;
+  const spec = adapterFor(change.collection);
   let query = client.from(spec.table).delete();
   for (const [column, value] of Object.entries(
     spec.key({ id: change.row.id, workspaceId: change.workspaceId })
@@ -634,7 +415,7 @@ export function toRow(
   row: { id: string },
   workspaceId: string
 ): Record<string, unknown> {
-  const spec = SPECS[collection] as Spec<never>;
+  const spec = adapterFor(collection);
   return {
     id: row.id,
     workspace_id: workspaceId,
@@ -646,13 +427,13 @@ export function toRow(
 }
 
 /** The table one collection writes to. */
-export const tableOf = (collection: PgCollection): string => SPECS[collection].table;
+export const tableOf = (collection: PgCollection): string => adapterFor(collection).table;
 
 /** Everything that is not a promoted column, so `data` never duplicates one. */
 function stripPromoted(row: { id: string }, collection: PgCollection): Record<string, unknown> {
   const out: Record<string, unknown> = { ...(row as Record<string, unknown>) };
   delete out.id;
-  for (const field of Object.values(RENAME[collection])) delete out[field];
+  for (const field of Object.values(adapterFor(collection).rename)) delete out[field];
   return out;
 }
 
@@ -703,15 +484,9 @@ async function flushSnapshot(snap: Snapshot): Promise<void> {
   const { writes, deletes } = diff(snap);
   const touchedWorkspaces = new Set<string>();
 
-  // FK order: a workspace before its members, a project before its environments.
-  const ORDER: PgCollection[] = [
-    "workspaces",
-    "members",
-    "invites",
-    "connections",
-    "projects",
-    "environments",
-  ];
+  // FK order: a workspace before its members, a project before its
+  // environments — which is registration order, by the registry's contract.
+  const ORDER = rowAdapters().map((a) => a.collection);
   for (const collection of ORDER)
     for (const change of writes.filter((c) => c.collection === collection)) {
       await writeRow(client, change);
@@ -737,21 +512,10 @@ async function flushSnapshot(snap: Snapshot): Promise<void> {
 /** After a successful flush the snapshot *is* the database. Say so. */
 function rebaseline(snap: Snapshot): void {
   const next = new Map<string, Baseline>();
-  const invites = Array.isArray(snap.data.settings.invites)
-    ? (snap.data.settings.invites as Invite[])
-    : [];
-  const collections: [PgCollection, { id: string }[]][] = [
-    ["workspaces", snap.data.workspaces as unknown as { id: string }[]],
-    ["members", snap.data.members as unknown as { id: string }[]],
-    ["invites", invites as unknown as { id: string }[]],
-    ["connections", snap.data.connections as unknown as { id: string }[]],
-    ["projects", snap.data.projects as unknown as { id: string }[]],
-    ["environments", snap.data.environments as unknown as { id: string }[]],
-  ];
-  for (const [collection, rows] of collections)
-    for (const row of rows) {
-      const workspaceId = workspaceOf(collection, row, snap);
-      const key = bkey(collection, row.id, keyScope(collection, workspaceId));
+  for (const adapter of rowAdapters())
+    for (const row of adapter.rows!(snap.data)) {
+      const workspaceId = adapter.tenant(row as never, { db: snap.data });
+      const key = bkey(adapter.collection, row.id, keyScope(adapter.collection, workspaceId));
       const previous = snap.baseline.get(key);
       next.set(key, {
         version: previous ? previous.version + (previous.json === canonical(row) ? 0 : 1) : 1,
@@ -836,16 +600,8 @@ function onChange(fn: (c: StoreChange) => void): () => void {
 
 /* ------------------------------ the interface ------------------------------ */
 
-/** Everything this store owns is Phase 2; the rest is `FileStore`, verbatim. */
-const ALL: (PgCollection | "settings")[] = [
-  "workspaces",
-  "members",
-  "invites",
-  "connections",
-  "projects",
-  "environments",
-  "settings",
-];
+/** Every registered collection, settings included; the rest is `FileStore`. */
+const ALL = (): PgCollection[] => adapters().map((a) => a.collection);
 
 type GPending = typeof globalThis & { __zenithPgPending?: Promise<void> };
 
@@ -884,7 +640,7 @@ export const PostgresStore: Store & {
     const snap = currentSnapshot();
     if (projectId) snap.touched.ids.add(projectId);
     else snap.touched.all = true;
-    for (const c of ALL) snap.dirty.add(c);
+    for (const c of ALL()) snap.dirty.add(c);
     snap.scheduled = true;
     // The Phase-3 half of the graph lives in the file store, and its own
     // coalescer is what persists it. Dropping this would lose every deployment.
@@ -931,22 +687,22 @@ export const PostgresStore: Store & {
     const base = FileStore.reset(data);
     snap.data = base;
     snap.data.settings.invites ??= [];
-    snap.dirty = new Set(ALL);
+    snap.dirty = new Set(ALL());
     snap.touched = { ids: new Set(), all: true };
     snap.scheduled = true;
     void schedule(snap).catch(() => undefined);
     return snap.data;
   },
 
-  /* -------- Phase 3 debt: delegated verbatim to the file store -------- */
-  appendEvent: (e: DeploymentEvent) => FileStore.appendEvent(e),
+  /* ---- Phase 3 debt: delegated, file store by default (./pg/delegates) ---- */
+  appendEvent: (e: DeploymentEvent) => delegates.events.appendEvent(e),
   readEvents: (deploymentId: string, afterSeq?: number) =>
-    FileStore.readEvents(deploymentId, afterSeq),
-  appendAudit: (e: AuditEvent) => FileStore.appendAudit(e),
-  readAuditPage: (filter?: AuditFilter): AuditPage => FileStore.readAuditPage(filter),
-  readAudit: (filter?: AuditFilter): AuditEvent[] => FileStore.readAudit(filter),
-  countAudit: (filter?: AuditFilter): AuditCountResult => FileStore.countAudit(filter),
-  revisionManifest: (id: string): Manifest | undefined => FileStore.revisionManifest(id),
+    delegates.events.readEvents(deploymentId, afterSeq),
+  appendAudit: (e: AuditEvent) => delegates.audit.appendAudit(e),
+  readAuditPage: (filter?: AuditFilter): AuditPage => delegates.audit.readAuditPage(filter),
+  readAudit: (filter?: AuditFilter): AuditEvent[] => delegates.audit.readAudit(filter),
+  countAudit: (filter?: AuditFilter): AuditCountResult => delegates.audit.countAudit(filter),
+  revisionManifest: (id: string): Manifest | undefined => delegates.manifests.revisionManifest(id),
 
   onChange,
   changed: (c: StoreChange, projectId: string): boolean =>

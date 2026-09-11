@@ -29,7 +29,8 @@ import type {
   UsageEntry,
 } from "@/lib/hosted/contracts";
 import { activeGrant, requireAppRole } from "@/lib/hosted/access";
-import { FsArtifactStore } from "@/lib/hosted/artifacts";
+import { FsArtifactStore, StorageArtifactStore } from "@/lib/hosted/artifacts";
+import { hostedStoreKind } from "@/lib/hosted/config";
 import { selectedBuildRunner } from "@/lib/hosted/build";
 import { openAppData } from "@/lib/hosted/data";
 import { selectedHostedRuntime } from "@/lib/hosted/runtime";
@@ -51,10 +52,28 @@ export interface ReleaseDeps {
   appSchemaVersion(appId: string): Promise<number>;
 }
 
+/**
+ * The store this install publishes to.
+ *
+ * A hosted install (`ZENITH_HOSTED_STORE=postgres`) writes artifacts to the
+ * object-storage bucket, so every node serving the gateway reads the same
+ * bytes; anything else — local development and the whole test suite — writes
+ * them under the artifact directory. The storage store is kept rather than
+ * rebuilt per call, because it holds the manifest cache its read path depends
+ * on; the filesystem one reads its root from config on construction, which a
+ * test moves between cases.
+ */
+let storageStore: StorageArtifactStore | undefined;
+
+function defaultArtifactStore(): ArtifactStore {
+  if (hostedStoreKind() !== "postgres") return new FsArtifactStore();
+  return (storageStore ??= new StorageArtifactStore());
+}
+
 const DEFAULTS: ReleaseDeps = {
   runtime: () => selectedHostedRuntime(),
   buildRunner: () => selectedBuildRunner(),
-  artifactStore: () => new FsArtifactStore(),
+  artifactStore: defaultArtifactStore,
   requireAppRole: async (appId, subject, min) => requireAppRole(appId, subject, min),
   activeGrant: async (appId, subject) => activeGrant(appId, subject),
   recordUsage: async (entry) => recordUsage(entry),

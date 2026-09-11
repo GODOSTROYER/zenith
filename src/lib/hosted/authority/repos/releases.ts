@@ -65,6 +65,16 @@ export interface ReleasesRepo {
   /** Record a candidate probe result. Verification status is set separately. */
   setProbe(id: string, probe: CandidateProbeResult): boolean;
   /**
+   * Record the runtime's own identifiers for this release — the deployment id,
+   * the preview hostname, whatever the runtime hands back when it stages a
+   * candidate.
+   *
+   * Opaque to this repository: it is stored as JSON and never interpreted here.
+   * Written at staging, read at activation and rollback, which is why it has to
+   * survive on the row rather than in the job's phase data.
+   */
+  setRuntimeRef(id: string, runtimeRef: Record<string, unknown>): boolean;
+  /**
    * Mark every currently active release of an app superseded except `exceptId`
    * — the tidy-up that follows a successful activation. Returns how many moved.
    */
@@ -168,6 +178,14 @@ export function createReleasesRepo(db: DatabaseSync): ReleasesRepo {
 
     setProbe(id, probe) {
       const result = sql("UPDATE releases SET probe = ? WHERE id = ?").run(writeJson(probe), id);
+      return changeCount(result) === 1;
+    },
+
+    setRuntimeRef(id, runtimeRef) {
+      const result = sql("UPDATE releases SET runtime_ref = ? WHERE id = ?").run(
+        writeJson(runtimeRef),
+        id
+      );
       return changeCount(result) === 1;
     },
 

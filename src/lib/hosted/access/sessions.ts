@@ -41,7 +41,7 @@ import {
   type AppSession,
   type Subject,
 } from "@/lib/hosted/contracts";
-import { authority, sqliteConnection } from "@/lib/hosted/authority";
+import { authority } from "@/lib/hosted/authority";
 import { appOrigin } from "@/lib/hosted/config";
 import {
   accessDenied,
@@ -175,13 +175,7 @@ export async function redeemExchange(code: string, opts: RedeemOptions): Promise
     // The exchange records which session it produced. It cannot be set by
     // `consume`: `session_id` references `app_sessions(id)` and foreign keys are
     // immediate, so the session has to exist first.
-    // TODO(postgres): the repositories carry no statement for this link, so it
-    // is still written against the SQLite connection the open transaction is
-    // running on. It needs an `exchanges.linkSession(codeHash, sessionId)`
-    // before a second authority implementation can serve this path.
-    sqliteConnection(a)
-      .prepare("UPDATE app_exchanges SET session_id = ? WHERE code_hash = ?")
-      .run(session.id, exchange.codeHash);
+    await repos.exchanges.linkSession(exchange.codeHash, session.id);
     await appendAccessEvent(repos, {
       event: "app.opened",
       workspaceId: app.workspaceId,
@@ -312,18 +306,9 @@ export async function terminateAppSessionsForSubject(
   return a.tx(async (repos) => {
     // Which workspaces are affected has to be read before the update, because
     // afterwards there are no live rows left to read it from.
-    //
-    // TODO(postgres): `sessions` has no "which apps is this person live on"
-    // read, so this one still goes to the SQLite connection the open
-    // transaction is running on. It needs a repository method before a second
-    // authority implementation can serve platform sign-out.
-    const rows = sqliteConnection(a)
-      .prepare("SELECT DISTINCT app_id FROM app_sessions WHERE subject = ? AND terminated_at IS NULL")
-      .all(subject);
     const workspaces = new Set<string>();
-    for (const row of rows) {
-      const appId = typeof row.app_id === "string" ? row.app_id : undefined;
-      const app = appId ? await repos.apps.get(appId) : null;
+    for (const appId of await repos.sessions.appIdsForSubject(subject)) {
+      const app = await repos.apps.get(appId);
       if (app) workspaces.add(app.workspaceId);
     }
 

@@ -76,6 +76,29 @@ export interface JobsRepo {
   claim(id: string, owner: string, leaseMs: number, now?: string): ClaimedJob | null;
   /** Record progress. False when the fence is stale or the job is no longer running. */
   advance(id: string, fence: number, phase: string, phaseData?: Record<string, unknown>, now?: string): boolean;
+  /**
+   * Write the phase data a job is *admitted* with, before anyone claims it.
+   *
+   * Admission learns things the caller cannot pass to `insert` — which release
+   * a rollback names, where a tarball was stored — and a queued job has no
+   * fence to advance against, so this is conditioned on `status = 'queued'`
+   * instead. That condition is the guard: once a worker has claimed the job,
+   * `advance` (fenced) is the only way its phase data moves, and a late seed
+   * cannot overwrite a running job's state. False when the job is missing or
+   * already claimed.
+   */
+  setPhaseData(id: string, phaseData: Record<string, unknown>, now?: string): boolean;
+  /**
+   * Push a claim's lease forward without recording progress.
+   *
+   * `advance` deliberately does not touch `lease_until` — it records progress,
+   * not liveness — and a five-minute build inside a sixty-second lease would
+   * otherwise be reclaimed halfway through. Conditioned on the same fence every
+   * other write is, so a worker that already lost the job cannot extend a lease
+   * it no longer holds. `until` is an ISO-8601 timestamp, which is what makes
+   * the caller state the deadline rather than this guessing at one.
+   */
+  renewLease(id: string, fence: number, until: string, now?: string): boolean;
   finish(id: string, fence: number, result?: Record<string, unknown>, now?: string): boolean;
   fail(id: string, fence: number, error: string, now?: string): boolean;
   /** Cancel a job that has not finished. No fence: an operator outranks a worker. */
@@ -231,6 +254,21 @@ export function createJobsRepo(db: DatabaseSync): JobsRepo {
         "UPDATE hosted_jobs SET phase = ?, phase_data = COALESCE(?, phase_data), updated_at = ? " +
           "WHERE id = ? AND fence_token = ? AND status = 'running'"
       ).run(phase, writeOptionalJson(phaseData), now, id, fence);
+      return changeCount(result) === 1;
+    },
+
+    setPhaseData(id, phaseData, now = nowIso()) {
+      const result = sql(
+        "UPDATE hosted_jobs SET phase_data = ?, updated_at = ? WHERE id = ? AND status = 'queued'"
+      ).run(writeJson(phaseData), now, id);
+      return changeCount(result) === 1;
+    },
+
+    renewLease(id, fence, until, now = nowIso()) {
+      const result = sql(
+        "UPDATE hosted_jobs SET lease_until = ?, updated_at = ? " +
+          "WHERE id = ? AND fence_token = ? AND status = 'running'"
+      ).run(until, now, id, fence);
       return changeCount(result) === 1;
     },
 

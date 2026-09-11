@@ -17,7 +17,7 @@
  *    behaviour: the new owner will report the outcome.
  */
 import path from "node:path";
-import { authority, nowIso, sqliteConnection, type Repos } from "@/lib/hosted/authority";
+import { authority, nowIso, type Repos } from "@/lib/hosted/authority";
 import { HostedError, type HostedApp, type HostedJob } from "@/lib/hosted/contracts";
 import { env } from "@/lib/env";
 import { recordEvent, type RecordEventInput } from "@/lib/hosted/events";
@@ -112,20 +112,12 @@ export const phaseDataOf = (job: HostedJob): PhaseData => ({ ...job.phaseData })
  * tarball was stored — is written straight to the row. Inside `tx()`, so it is
  * durable before the caller is told the job exists.
  *
- * TODO(ceiling): raw SQL for one column, so it reaches the connection rather
- * than a repository. Move to `admitJob({ …, phaseData })`, or to
- * `repos.jobs.setPhaseData(jobId, seed)`, the moment the authority offers
- * either — that is what removes the `sqliteConnection` call from this file.
+ * `setPhaseData` is conditioned on `status = 'queued'`, which is the guard that
+ * makes a seed safe: once a worker has claimed the job, `advance` (fenced) is
+ * the only way its phase data moves.
  */
 export async function seedPhaseData(jobId: string, seed: PhaseData): Promise<void> {
-  const db = sqliteConnection(authority());
-  await authority().tx(async () => {
-    db.prepare("UPDATE hosted_jobs SET phase_data = ?, updated_at = ? WHERE id = ?").run(
-      JSON.stringify(seed),
-      nowIso(),
-      jobId
-    );
-  });
+  await authority().tx((repos) => repos.jobs.setPhaseData(jobId, seed));
 }
 
 /**
@@ -158,22 +150,20 @@ export async function persist(run: JobRun, data: PhaseData): Promise<void> {
  * The statement is conditioned on the same fence every other write is, so a
  * worker that already lost the job cannot extend a lease it no longer holds.
  *
- * Synchronous on purpose: the heartbeat runs from a `setInterval`, which has
- * nowhere to await a promise and no business queueing behind a long
- * transaction just to say "still here".
- *
- * TODO(ceiling): raw SQL because the repository has no lease renewal yet, so
- * this is the one place the release directory reaches the connection. Move it
- * to `repos.jobs.renewLease(id, fence, leaseMs)` when the authority adds one.
+ * **Never rejects.** The heartbeat runs from a `setInterval` with nowhere to
+ * catch anything, so a database that was busy for this one tick answers
+ * `false` — the next tick is a second away, and the lease has not expired yet.
+ * A rejection escaping a timer callback would take the process down over a
+ * heartbeat.
  */
-export function renewLease(run: JobRun, leaseMs: number = JOB_LEASE_MS): boolean {
+export async function renewLease(run: JobRun, leaseMs: number = JOB_LEASE_MS): Promise<boolean> {
   const now = nowIso();
-  const result = sqliteConnection(authority())
-    .prepare(
-      "UPDATE hosted_jobs SET lease_until = ?, updated_at = ? WHERE id = ? AND fence_token = ? AND status = 'running'"
-    )
-    .run(nowIso(Date.parse(now) + leaseMs), now, run.job.id, run.fence);
-  return Number(result.changes) === 1;
+  const until = nowIso(Date.parse(now) + leaseMs);
+  try {
+    return await authority().repos.jobs.renewLease(run.job.id, run.fence, until, now);
+  } catch {
+    return false;
+  }
 }
 
 /* ----------------------------------- logs --------------------------------- */

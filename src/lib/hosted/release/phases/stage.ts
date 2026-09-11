@@ -6,7 +6,7 @@
  * worker decided "this release supersedes what is live now" — and compared at
  * activation, which may be minutes later.
  */
-import { authority, sqliteConnection } from "@/lib/hosted/authority";
+import { authority } from "@/lib/hosted/authority";
 import { HostedError, type Release } from "@/lib/hosted/contracts";
 import { releaseDeps } from "../deps";
 import { LeaseLost, appendLog, requireApp, type JobRun, type PhaseData } from "../shared";
@@ -58,17 +58,10 @@ export async function stage(run: JobRun, data: PhaseData): Promise<string> {
 
   const candidate = await releaseDeps.runtime().stageCandidate(app, release, artifact);
   data.candidateRef = candidate as unknown as Record<string, unknown>;
-  // TODO(ceiling): `ReleasesRepo` has no runtime-ref setter, so the staged
-  // identifiers are written through the connection rather than a repository —
-  // the one thing this directory is not supposed to reach for. Move to
-  // `releases.setRuntimeRef(id, ref)` the moment the authority adds one.
-  const db = sqliteConnection(a);
-  await a.tx(async () => {
-    db.prepare("UPDATE releases SET runtime_ref = ? WHERE id = ?").run(
-      JSON.stringify(candidate.ref ?? {}),
-      release.id
-    );
-  });
+  // The runtime's own identifiers for the staged candidate, durable on the row:
+  // activation and rollback read them minutes later, long after this job's
+  // phase data stopped being the thing anyone consults.
+  await a.tx((repos) => repos.releases.setRuntimeRef(release.id, candidate.ref ?? {}));
   appendLog(data, `release ${release.number} staged as a candidate on ${app.runtime}`);
   return release.id;
 }

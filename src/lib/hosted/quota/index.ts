@@ -31,7 +31,7 @@ import {
   type QuotaCounter,
   type RuntimeId,
 } from "@/lib/hosted/contracts";
-import { authority, sqliteConnection, utcDay } from "@/lib/hosted/authority";
+import { authority, utcDay } from "@/lib/hosted/authority";
 
 /** What `admitRequest` answers with: the decision, the committed counter, the ceiling used. */
 export interface QuotaDecision {
@@ -283,20 +283,7 @@ export async function quotaSummary(
  * from a request path is not a quota.
  */
 export async function resetDayForTests(appId: string, day?: string): Promise<number> {
-  const a = authority();
-  // The connection rather than a repository: deleting a counter is a fixture's
-  // privilege, not part of the quota repository's surface. `sqliteConnection`
-  // is the sanctioned way for test tooling to reach it and refuses anything
-  // that is not SQLite.
-  const db = sqliteConnection(a);
-  return a.tx(async () => {
-    const statement =
-      day === undefined
-        ? db.prepare("DELETE FROM quota_counters WHERE app_id = ?")
-        : db.prepare("DELETE FROM quota_counters WHERE app_id = ? AND day = ?");
-    const result = day === undefined ? statement.run(appId) : statement.run(appId, day);
-    return Number(result.changes);
-  });
+  return authority().tx((repos) => repos.quotas.resetDay(appId, day));
 }
 
 export { utcDay };

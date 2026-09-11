@@ -23,6 +23,7 @@ import {
   type RequestStatus,
   type StaleVersionDetails,
 } from "@/lib/hosted/contracts";
+import { LOGICAL_BYTES_DISCLOSURE } from "./bytes";
 
 /** How a request row comes back from SQL. Snake case, exactly the stored columns. */
 export interface RequestRow {
@@ -177,6 +178,56 @@ export function staleVersion(expectedVersion: number, current: EquipmentRequest)
       fix: "Reload the request, apply your change on top of the current version and send it again with a new writeId.",
       details,
     }
+  );
+}
+
+/**
+ * The refusal at the storage ceiling, with the disclosure that says what a
+ * logical byte is. Lives here rather than in a store so that every store over
+ * every backend refuses in the same words — the SQLite one and the Postgres one
+ * are the same contract, and a caller must not be able to tell them apart.
+ */
+export function quotaExceeded(used: number, limitBytes: number, required: number): HostedError {
+  return new HostedError(
+    "quota_exceeded",
+    `This app has used ${used} of its ${limitBytes} logical bytes and this change needs ${required} more. ` +
+      `${LOGICAL_BYTES_DISCLOSURE} Nothing was deleted — every request already stored is retained.`,
+    {
+      fix: "Free space by shortening or removing details on requests that are finished, or ask Zenith to raise this app's storage limit.",
+      details: {
+        usedLogicalBytes: used,
+        limitLogicalBytes: limitBytes,
+        requiredLogicalBytes: required,
+      },
+    }
+  );
+}
+
+/** A store bound to one app was handed a context naming a different app. */
+export function appMismatch(storeAppId: string, requestedAppId: string): HostedError {
+  return new HostedError(
+    "forbidden",
+    `This data store serves app ${storeAppId}, but the request named app ${requestedAppId}.`,
+    { fix: "Open the other app's store with openAppData(appId); one store never reaches another app's database." }
+  );
+}
+
+/** The caller carries a role this app does not grant at all. */
+export function roleNotGranted(role: string): HostedError {
+  return new HostedError(
+    "forbidden",
+    `"${String(role)}" is not a role this app grants, so it cannot read this app's requests.`,
+    { fix: "Ask an owner of this app to invite you as a viewer, editor or owner." }
+  );
+}
+
+/** The caller may read but not write. `role` is already known to this app when `known`. */
+export function notEditor(role: string, known: boolean, verb: "create" | "update"): HostedError {
+  const described = known ? role : `"${String(role)}", which is not a role this app grants`;
+  return new HostedError(
+    "forbidden",
+    `Your role on this app is ${described}; viewers can read equipment requests but cannot ${verb} them.`,
+    { fix: "Ask an owner of this app to change your role to editor, then try again." }
   );
 }
 

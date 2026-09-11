@@ -5,7 +5,8 @@
  * What is worth pinning down is the same as for product A's `ZENITH_STORE`:
  * the default, that an unknown value is refused at parse time rather than
  * silently meaning the default, and that the flag reaches the selection point
- * — `assertHostedPreconditions()`, which refuses "postgres" in this build.
+ * — `assertHostedPreconditions()`, which is where a Postgres install with no
+ * `SUPABASE_DB_URL` is refused by name.
  *
  * `SUPABASE_DB_URL` carries a password, so the last test asserts the thing
  * that matters about it: a rejected value never appears in the error text.
@@ -44,11 +45,23 @@ describe("ZENITH_HOSTED_STORE", () => {
     expect(() => hostedConfig()).toThrow(/ZENITH_HOSTED_STORE/);
   });
 
-  it("is refused at boot while no Postgres authority exists", async () => {
+  it("is refused at boot when it names Postgres and no database URL is set", async () => {
+    // The selection point. Both implementations exist now, so what boot refuses
+    // is not the choice but the missing half of it, and the message names the
+    // variable to set rather than the build's limitations.
     process.env.ZENITH_HOSTED_STORE = "postgres";
     expect(() => assertHostedPreconditions()).toThrow(
-      "ZENITH_HOSTED_STORE=postgres is not available in this build yet"
+      "ZENITH_HOSTED_STORE=postgres needs a database to connect to"
     );
+    expect(() => assertHostedPreconditions()).toThrow(/SUPABASE_DB_URL/);
+  });
+
+  it("passes the store check once SUPABASE_DB_URL is set", async () => {
+    process.env.ZENITH_HOSTED_STORE = "postgres";
+    process.env.SUPABASE_DB_URL = "postgresql://u:p@db.example.test:6543/postgres";
+    // Nothing connects here: the check is a configuration fact. Hosted mode is
+    // off in this suite, so the function returns after it.
+    expect(() => assertHostedPreconditions()).not.toThrow();
   });
 });
 

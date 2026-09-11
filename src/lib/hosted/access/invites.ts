@@ -17,7 +17,6 @@
  * invitation is durable before the first byte moves, and a crash mid-send
  * leaves a claimable row rather than an invitation nobody knows was half sent.
  */
-import type { DatabaseSync } from "node:sqlite";
 import {
   HostedError,
   INVITE_TTL_MS,
@@ -35,7 +34,6 @@ import {
   authority,
   drainOutbox,
   registerOutboxHandler,
-  sqliteConnection,
   type Authority,
   type Repos,
 } from "@/lib/hosted/authority";
@@ -287,7 +285,11 @@ async function deliverInviteEmail(entry: HostedOutboxEntry): Promise<void> {
   const deliveryId = stringField(entry, "deliveryId");
   const a = authority();
 
-  const claim = await a.tx(async () => claimDelivery(a, deliveryId));
+  // Targeted rather than `claimPending`, which claims the whole queue: this
+  // handler is invoked once per outbox row and must own exactly the row that
+  // row names. A `failed` row is claimable again — that is what makes the
+  // outbox's retries reach the transport — while a `sent` row never is.
+  const claim = await a.tx((repos) => repos.deliveries.claim(deliveryId, OUTBOX_LEASE_MS));
   if (claim.kind === "sent") return;
   if (claim.kind === "missing")
     throw new Error(
@@ -409,8 +411,12 @@ async function issueInvite(
     let delivery = queued;
     if (problem) {
       // Nothing to attempt, so the row is settled here rather than queued for
-      // an effect this install cannot perform. The owner still has the link.
-      markUndeliverable(a, deliveryId, problem);
+      // an effect this install cannot perform. `transport: "none"` says that on
+      // the row — "no transport configured: the owner must share the link by
+      // hand" — rather than leaving a NULL that could mean anything. The reason,
+      // naming the variable to set, is on the row either way. The owner still
+      // has the link.
+      await repos.deliveries.settlePending(deliveryId, { transport: "none", error: problem });
       delivery = (await repos.deliveries.get(deliveryId)) ?? queued;
     } else {
       await repos.outbox.enqueue({
@@ -463,90 +469,8 @@ function stringField(entry: HostedOutboxEntry, key: string): string {
   return value;
 }
 
-type DeliveryClaim =
-  | { kind: "claimed"; sealedPayload: Uint8Array | null }
-  | { kind: "sent" }
-  | { kind: "busy" }
-  | { kind: "missing" };
-
-/**
- * Take one delivery row, by id, and make the claim durable before anything is
- * sent.
- *
- * Targeted rather than `claimPending`, which claims the whole queue: this
- * handler is invoked once per outbox row and must own exactly the row that row
- * names. A `failed` row is claimable again — that is what makes the outbox's
- * retries reach the transport — while a `sent` row never is.
- *
- * TODO(postgres): `deliveries` has no targeted claim — `claimPending` takes the
- * whole queue — so this still runs against the SQLite connection the open
- * transaction is holding. It needs a `deliveries.claim(id, leaseMs)` before a
- * second authority implementation can send an invitation.
- */
-function claimDelivery(a: Authority, deliveryId: string): DeliveryClaim {
-  const db: DatabaseSync = sqliteConnection(a);
-  const at = nowIso();
-  const staleBefore = nowIso(Date.parse(at) - OUTBOX_LEASE_MS);
-  const rows = db
-    .prepare(
-      "UPDATE invite_deliveries SET state = 'sending', claimed_at = ?, attempts = attempts + 1 " +
-        "WHERE id = ? AND (state IN ('pending','failed') " +
-        "OR (state = 'sending' AND (claimed_at IS NULL OR claimed_at <= ?))) " +
-        "RETURNING sealed_payload"
-    )
-    .all(at, deliveryId, staleBefore);
-  if (rows.length === 1) {
-    const raw = rows[0].sealed_payload;
-    return { kind: "claimed", sealedPayload: raw instanceof Uint8Array ? raw : null };
-  }
-  const existing = db
-    .prepare("SELECT state FROM invite_deliveries WHERE id = ?")
-    .get(deliveryId);
-  if (!existing) return { kind: "missing" };
-  return existing.state === "sent" ? { kind: "sent" } : { kind: "busy" };
-}
-
 /** Settle a claimed row `failed`, with the reason on the row. Its own transaction. */
 async function settleFailed(a: Authority, deliveryId: string, error: string): Promise<void> {
   await a.tx((repos) => repos.deliveries.settle(deliveryId, "failed", { error: error.slice(0, 2000) }));
 }
 
-/**
- * Record a delivery that was never attempted because this install has no
- * transport.
- *
- * Written as SQL rather than through `deliveries.settle` for two reasons: the
- * row is `pending` (settle only moves a `sending` row), and the contract's
- * `transport: "none"` — "no transport configured: the owner must share the link
- * by hand" — is a value the v1 CHECK constraint on that column does not list.
- * Until the migration requested of the integrator lands, the column is left
- * NULL on a settled row, which says the same thing: no transport was used. The
- * reason, naming the variable to set, is always on the row either way.
- *
- * TODO(postgres): same as `claimDelivery` — until `deliveries` can settle a
- * `pending` row, this writes on the SQLite connection the open transaction is
- * holding.
- */
-function markUndeliverable(a: Authority, deliveryId: string, reason: string): void {
-  const db: DatabaseSync = sqliteConnection(a);
-  db.prepare(
-    "UPDATE invite_deliveries SET state = 'failed', settled_at = ?, claimed_at = NULL, " +
-      "transport = ?, error = ? WHERE id = ? AND state = 'pending'"
-  ).run(nowIso(), noTransportValue(db), reason.slice(0, 2000), deliveryId);
-}
-
-const noneSupported = new WeakMap<DatabaseSync, boolean>();
-
-/** `"none"` where the schema accepts it, SQL NULL where it does not. */
-function noTransportValue(db: DatabaseSync): string | null {
-  let supported = noneSupported.get(db);
-  if (supported === undefined) {
-    const row = db
-      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'invite_deliveries'")
-      .get();
-    const ddl = typeof row?.sql === "string" ? row.sql : "";
-    supported = /transport[\s\S]*?'none'/.test(ddl);
-    noneSupported.set(db, supported);
-  }
-  return supported ? "none" : null;
-}

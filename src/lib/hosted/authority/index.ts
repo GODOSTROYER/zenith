@@ -35,6 +35,7 @@ export {
   authorityOpen,
   backupAuthority,
   closeAuthority,
+  installAuthority,
   openAuthority,
   type OpenAuthorityOptions,
 } from "./lifecycle";
@@ -42,6 +43,14 @@ export {
 export type { Authority } from "./types";
 
 export { sqliteConnection, type SqliteAuthority } from "./sqlite";
+
+export {
+  createPostgresAuthority,
+  type PostgresAuthority,
+  type PostgresAuthorityOptions,
+} from "./pg";
+
+export { createPgAuthorityClient, closePgAuthorityClient, pgIdentity, type Sql } from "./pg/client";
 
 export {
   transact,
@@ -104,7 +113,15 @@ export type {
 export type { AppPatch, NewApp } from "./repos/apps";
 export type { NewArtifact } from "./repos/artifacts";
 export type { NewBackupManifest } from "./repos/backups";
-export type { ClaimedDelivery, DeliverySettlement, NewDelivery } from "./repos/deliveries";
+export { DELIVERY_TRANSPORTS } from "./repos/deliveries";
+export type {
+  ClaimedDelivery,
+  DeliverySettlement,
+  DeliveryTransport,
+  NewDelivery,
+  PendingSettlement,
+  TargetedClaim,
+} from "./repos/deliveries";
 export type { EventQuery, NewHostedEvent } from "./repos/events";
 export type { NewExchange } from "./repos/exchanges";
 export type { NewGrant } from "./repos/grants";

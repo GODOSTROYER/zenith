@@ -45,6 +45,16 @@ export interface SessionsRepo {
   /** Look a session up by the hash of the presented cookie. */
   get(idHash: string): AppSession | null;
   listByApp(appId: string, opts?: { liveOnly?: boolean; now?: string }): AppSession[];
+  /**
+   * The distinct apps this person currently has a live session on.
+   *
+   * What platform sign-out reads *before* it terminates, because afterwards
+   * there are no live rows left to read it from and the events it has to write
+   * need one workspace each. "Live" is `terminated_at IS NULL`, the same
+   * condition `terminateBySubject` acts on, so the two never disagree about
+   * which rows are in scope.
+   */
+  appIdsForSubject(subject: Subject): string[];
   terminate(id: string, reason: TerminationReason, now?: string): boolean;
   /** Every live session this person holds, on every app. Returns how many ended. */
   terminateBySubject(subject: Subject, reason: TerminationReason, now?: string): number;
@@ -137,6 +147,14 @@ export function createSessionsRepo(db: DatabaseSync): SessionsRepo {
       )
         .all(appId, opts.now ?? nowIso())
         .map(map);
+    },
+
+    appIdsForSubject(subject) {
+      return sql(
+        "SELECT DISTINCT app_id FROM app_sessions WHERE subject = ? AND terminated_at IS NULL ORDER BY app_id"
+      )
+        .all(subject)
+        .map((row) => readText(row, "app_id"));
     },
 
     terminate(id, reason, now = nowIso()) {

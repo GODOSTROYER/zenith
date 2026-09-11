@@ -13,10 +13,17 @@
  * a dead process are drained by the right handler.
  */
 import { registerAccessOutboxHandlers } from "@/lib/hosted/access";
-import { authorityOpen, openAuthority, replayOutbox } from "@/lib/hosted/authority";
+import {
+  authorityOpen,
+  createPostgresAuthority,
+  installAuthority,
+  openAuthority,
+  replayOutbox,
+} from "@/lib/hosted/authority";
 import { startHostedJobRunner } from "@/lib/hosted/release";
 import { registerOpsOutboxHandlers } from "@/lib/hosted/usage";
 import { hostedConfig, hostedMode, hostedStoreKind } from "@/lib/hosted/config";
+import { env } from "@/lib/env";
 import { log } from "@/lib/log";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
@@ -34,14 +41,13 @@ export function nodeMeetsFloor(version: string = process.versions.node): boolean
  */
 export function assertHostedPreconditions(): void {
   hostedConfig(); // validates every ZENITH_* variable, throwing with the offender
-  // The authority implementation is chosen here, before `openAuthority()`.
-  // Only the SQLite authority exists in this build; the flag parses end to end,
-  // so a deployment that asks for Postgres is told at boot instead of finding
-  // out from a half-open authority later.
-  if (hostedStoreKind() === "postgres")
+  // Postgres needs somewhere to connect. Checked here, before anything opens,
+  // so a deployment that asks for Postgres and gave no URL is told which
+  // variable to set rather than finding out from a half-open authority later.
+  if (hostedStoreKind() === "postgres" && !env().SUPABASE_DB_URL)
     throw new Error(
-      "ZENITH_HOSTED_STORE=postgres is not available in this build yet. " +
-        "Fix: unset ZENITH_HOSTED_STORE (or set it to sqlite) to use the embedded control authority."
+      "ZENITH_HOSTED_STORE=postgres needs a database to connect to, and SUPABASE_DB_URL is not set. " +
+        "Fix: set SUPABASE_DB_URL to the Supavisor transaction-mode pooler URI (port 6543) from the Supabase dashboard, or set ZENITH_HOSTED_STORE=sqlite for the embedded control authority."
     );
   if (!hostedMode()) return;
   if (!isSupabaseConfigured())
@@ -67,7 +73,16 @@ export function ensureHosted(): void {
   const g = globalThis as G;
   if (g.__zenithHostedBooted) return;
   assertHostedPreconditions();
-  openAuthority();
+  // The one place the implementation is chosen. Everything downstream — every
+  // route, every repository call, every `tx()` — is written against `Authority`
+  // and cannot tell which it got.
+  //
+  // Both are synchronous to build, which is what lets this function stay
+  // synchronous so `boot()` cannot proceed with the authority half-open. SQLite
+  // opens the file and migrates it here; Postgres starts its schema check in
+  // the background and every later call awaits it (see `authority/pg/index.ts`).
+  if (hostedStoreKind() === "postgres") installAuthority(createPostgresAuthority());
+  else openAuthority();
   g.__zenithHostedBooted = true;
   registerAccessOutboxHandlers();
   registerOpsOutboxHandlers();

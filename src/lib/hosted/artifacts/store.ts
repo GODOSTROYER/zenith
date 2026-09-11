@@ -105,8 +105,14 @@ export function artifactPath(raw: string): string | null {
   return segments.length === 0 ? null : segments.join("/");
 }
 
-/** Walk a built output tree without following links, into `path`-sorted files. */
-function walkOutput(root: string): { path: string; bytes: Buffer }[] {
+/**
+ * Walk a built output tree without following links, into `path`-sorted files.
+ *
+ * Exported because `StorageArtifactStore` must accept exactly the same trees
+ * this one does — a link or a special file is refused identically whichever
+ * store the install selected.
+ */
+export function walkOutput(root: string): { path: string; bytes: Buffer }[] {
   const out: { path: string; bytes: Buffer }[] = [];
   const visit = (absolute: string, relative: string): void => {
     for (const entry of fs.readdirSync(absolute, { withFileTypes: true })) {

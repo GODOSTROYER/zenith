@@ -20,8 +20,8 @@ import {
   resolveAppSession,
   terminateAppSession,
 } from "@/lib/hosted/access";
-import { FsArtifactStore } from "@/lib/hosted/artifacts";
-import { hostedConfig } from "@/lib/hosted/config";
+import { FsArtifactStore, StorageArtifactStore } from "@/lib/hosted/artifacts";
+import { hostedConfig, hostedStoreKind } from "@/lib/hosted/config";
 import type { ArtifactStore } from "@/lib/hosted/contracts";
 import { openAppData } from "@/lib/hosted/data";
 import { recordEvent } from "@/lib/hosted/events";
@@ -43,18 +43,29 @@ export interface GatewayDeps {
 }
 
 /**
- * One store per artifact root, so a request does not build a new one — and so
- * a test that points `ZENITH_ARTIFACT_DIR` somewhere else gets its own rather
- * than silently reusing the previous root.
+ * One store per artifact root (or bucket), so a request does not build a new
+ * one — and so a test that points `ZENITH_ARTIFACT_DIR` somewhere else gets its
+ * own rather than silently reusing the previous root. Caching matters for both
+ * kinds: each holds the manifest cache the read path depends on.
  */
 const stores = new Map<string, ArtifactStore>();
 
+/**
+ * The store this install publishes to. A hosted install (`ZENITH_HOSTED_STORE=
+ * postgres`) keeps its artifacts in the object-storage bucket, where every node
+ * serving the gateway can read them; anything else — local development and the
+ * whole test suite — keeps them on disk.
+ */
 function defaultArtifactStore(): ArtifactStore {
-  const root = hostedConfig().artifactDir;
-  const existing = stores.get(root);
+  const config = hostedConfig();
+  const storage = hostedStoreKind() === "postgres";
+  const key = storage ? `storage:${config.ZENITH_ARTIFACT_BUCKET}` : `fs:${config.artifactDir}`;
+  const existing = stores.get(key);
   if (existing) return existing;
-  const created = new FsArtifactStore(root);
-  stores.set(root, created);
+  const created = storage
+    ? new StorageArtifactStore({ bucket: config.ZENITH_ARTIFACT_BUCKET })
+    : new FsArtifactStore(config.artifactDir);
+  stores.set(key, created);
   return created;
 }
 

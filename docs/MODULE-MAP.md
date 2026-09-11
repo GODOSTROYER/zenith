@@ -80,7 +80,7 @@ The only layer that opens a file or a database.
 | `src/lib/db/request-snapshot.ts` | One `AsyncLocalStorage` holding the current request's snapshot. Its only import is `node:async_hooks`, so the Postgres store can find the request scope without pulling `next/server` into scripts and tests | none |
 | `src/lib/db/store.ts` | Product A's repository **façade**: picks the implementation from `ZENITH_STORE` (`file` \| `postgres`) and re-exports it as `db()` / `save()` / `q.*` / `onChange`, plus `isPostgres()` and the awaitable `flushPendingAsync()`. Every importer still says `@/lib/db/store` | L0–L1, `db/{types,file-store,postgres-store}` |
 | `src/lib/secrets/` | AES-256-GCM value store beside the snapshot | L0–L1 |
-| `src/lib/hosted/authority/**` | Product B's control authority: one SQLite file, one connection, `tx()`, the repositories, the outbox | L0–L1 |
+| `src/lib/hosted/authority/**` | Product B's control authority: one store, one connection, `tx()`, the repositories, the outbox. `ZENITH_HOSTED_STORE` picks SQLite (`.data/control.sqlite`, migrated in process) or Postgres (`authority/pg/**`, Supabase, schema applied by hand from `supabase/migrations/0002_hosted_authority.sql`) | L0–L1 |
 | `src/lib/hosted/artifacts/` | Content-addressed artifact store and the trusted pre-release verification | L0–L1, `hosted/digest` |
 | `src/lib/hosted/data/**` | The per-app customer data layer (the fixed broker's storage side) | L0–L1 |
 
@@ -214,7 +214,7 @@ Two edges people expect to find here and which are **not** cycles:
 | How is a hosted app served? | `src/lib/hosted/gateway/handle.ts` → `admission.ts` → `artifacts.ts` or `broker.ts` |
 | How does a deploy run? | `src/lib/engine/engine.ts` → `src/lib/providers/<id>/index.ts` |
 | What does the process do on start-up? | `src/lib/server/boot.ts` → `src/lib/hosted/index.ts` |
-| Where is this table? | `src/lib/hosted/authority/schema.ts`, then `repos/<table>.ts` |
+| Where is this table? | `src/lib/hosted/authority/schema.ts`, then `repos/<table>.ts` (and `supabase/migrations/0002_hosted_authority.sql` + `authority/pg/repos/<table>.ts` for the Postgres side) |
 | Why is this ceiling here? | `grep -rn 'TODO(ceiling):' src`, then [docs/DEBT.md](DEBT.md) |
 | What runs between requests on Vercel? | `src/lib/server/cron.ts`, then `.github/workflows/tick.yml` and `vercel.json` |
 | How do I move a data directory into Postgres? | `scripts/migrate-to-postgres.ts`, then [docs/RUNNING.md](RUNNING.md) § "Running on Vercel with Postgres" |

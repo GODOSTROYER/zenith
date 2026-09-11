@@ -51,6 +51,16 @@ export interface ExchangesRepo {
    * equal to `now` counts as expired).
    */
   consume(codeHash: string, now: string, sessionId?: string): AppExchange | null;
+  /**
+   * Record which session a redeemed code produced.
+   *
+   * Separate from `consume` because `session_id` references `app_sessions(id)`
+   * and foreign keys are immediate: the session has to exist before the
+   * exchange can point at it, so redemption consumes the code, inserts the
+   * session and then links the two — all inside one transaction. False when
+   * the code is unknown.
+   */
+  linkSession(codeHash: string, sessionId: string): boolean;
   /** Mark unconsumed codes past their expiry, and delete what is settled. Returns rows removed. */
   purgeExpired(now?: string): number;
 }
@@ -116,6 +126,14 @@ export function createExchangesRepo(db: DatabaseSync): ExchangesRepo {
           `RETURNING ${COLUMNS}`
       ).all(now, writeOptional(sessionId), codeHash, now);
       return rows.length === 1 ? map(rows[0]) : null;
+    },
+
+    linkSession(codeHash, sessionId) {
+      const result = sql("UPDATE app_exchanges SET session_id = ? WHERE code_hash = ?").run(
+        sessionId,
+        codeHash
+      );
+      return changeCount(result) === 1;
     },
 
     purgeExpired(now = nowIso()) {

@@ -46,13 +46,40 @@ type AuthorityGlobal = typeof globalThis & { __zenithAuthority?: Authority };
 const held = (): Authority | undefined => {
   const existing = (globalThis as AuthorityGlobal).__zenithAuthority;
   // A connection closed behind our back (a test that called db.close(), a
-  // half-finished teardown) must not be handed out as if it were live.
-  if (existing && !sqliteConnection(existing).isOpen) {
+  // half-finished teardown) must not be handed out as if it were live. Only
+  // SQLite can be asked: a Postgres client has no single socket whose state
+  // answers this, and a pool that dropped a connection reopens one.
+  if (existing && existing.kind === "sqlite" && !sqliteConnection(existing).isOpen) {
     delete (globalThis as AuthorityGlobal).__zenithAuthority;
     return undefined;
   }
   return existing;
 };
+
+/**
+ * Hold an authority this module did not open — the Postgres one, which
+ * `createPostgresAuthority()` builds and which has no file to open.
+ *
+ * The same "one per process, on `globalThis`" rule and the same refusal to
+ * silently replace one: asking for a second authority while one is held is a
+ * mistake rather than two authorities, and says so.
+ */
+export function installAuthority(a: Authority): Authority {
+  const existing = held();
+  if (existing) {
+    if (existing !== a && existing.path !== a.path)
+      throw new HostedError(
+        "internal",
+        `The hosted control authority is already open at ${existing.path}, so it cannot also be opened at ${a.path}.`,
+        {
+          fix: "Call closeAuthority() before opening a different authority, or give this process its own data directory with ZENITH_DATA=<path>.",
+        }
+      );
+    return existing;
+  }
+  (globalThis as AuthorityGlobal).__zenithAuthority = a;
+  return a;
+}
 
 /**
  * Open the control authority, or return the one this process already has.
@@ -142,6 +169,14 @@ export function closeAuthority(): void {
   const existing = (globalThis as AuthorityGlobal).__zenithAuthority;
   delete (globalThis as AuthorityGlobal).__zenithAuthority;
   if (!existing) return;
+  if (existing.kind !== "sqlite") {
+    // Postgres closes over the network, which cannot be done synchronously.
+    // Nothing is lost by not waiting: `close()` ends idle connections, and
+    // every transaction has already committed or rolled back by the time
+    // anyone calls this. A rejection here would be an unhandled one.
+    void existing.close().catch(() => {});
+    return;
+  }
   const db = sqliteConnection(existing);
   try {
     if (db.isOpen) db.close();

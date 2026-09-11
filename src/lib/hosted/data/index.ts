@@ -33,6 +33,14 @@ export {
 } from "./bytes";
 export { stableStringify, writeIntentHash } from "./intent";
 export {
+  HOSTED_SCHEMA,
+  type HostedPgClient,
+  PgDataBackend,
+  type PgDataBackendOptions,
+  PgTrackerStore,
+  hostedPgClient,
+} from "./pg-backend";
+export {
   APP_DATA_FILENAMES,
   type AppDataFile,
   appDataPath,
@@ -62,12 +70,16 @@ export {
 export {
   type CursorPayload,
   type RequestRow,
+  appMismatch,
   cursorRejected,
   decodeCursor,
   encodeCursor,
   insertColumns,
+  notEditor,
   notFound,
   parseOrThrow,
+  quotaExceeded,
+  roleNotGranted,
   roleRank,
   staleVersion,
   toRecord,

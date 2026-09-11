@@ -33,7 +33,7 @@ import {
   UpdateRequestBody,
 } from "@/lib/hosted/contracts";
 import type { DataBackend } from "./backend";
-import { LOGICAL_BYTES_DISCLOSURE, logicalBytes } from "./bytes";
+import { logicalBytes } from "./bytes";
 import { writeIntentHash } from "./intent";
 import { readSchemaVersion } from "./schema";
 import {
@@ -49,11 +49,15 @@ import {
 } from "./sql";
 import {
   type RequestRow,
+  appMismatch,
   decodeCursor,
   encodeCursor,
   insertColumns,
+  notEditor,
   notFound,
   parseOrThrow,
+  quotaExceeded,
+  roleNotGranted,
   roleRank,
   staleVersion,
   toRecord,
@@ -394,48 +398,22 @@ export class TrackerDataStore implements AppDataStore {
   }
 
   private quotaExceeded(required: number): HostedError {
-    const used = this.currentStorageBytes();
-    return new HostedError(
-      "quota_exceeded",
-      `This app has used ${used} of its ${this.storageLimitBytes} logical bytes and this change needs ${required} more. ` +
-        `${LOGICAL_BYTES_DISCLOSURE} Nothing was deleted — every request already stored is retained.`,
-      {
-        fix: "Free space by shortening or removing details on requests that are finished, or ask Zenith to raise this app's storage limit.",
-        details: {
-          usedLogicalBytes: used,
-          limitLogicalBytes: this.storageLimitBytes,
-          requiredLogicalBytes: required,
-        },
-      }
-    );
+    return quotaExceeded(this.currentStorageBytes(), this.storageLimitBytes, required);
   }
 
   private assertApp(appId: string): void {
     if (appId === this.appId) return;
-    throw new HostedError(
-      "forbidden",
-      `This data store serves app ${this.appId}, but the request named app ${appId}.`,
-      { fix: "Open the other app's store with openAppData(appId); one store never reaches another app's database." }
-    );
+    throw appMismatch(this.appId, appId);
   }
 
   private assertGranted(ctx: DataContext): void {
     if (roleRank(ctx.role) !== undefined) return;
-    throw new HostedError(
-      "forbidden",
-      `"${String(ctx.role)}" is not a role this app grants, so it cannot read this app's requests.`,
-      { fix: "Ask an owner of this app to invite you as a viewer, editor or owner." }
-    );
+    throw roleNotGranted(ctx.role);
   }
 
   private assertEditor(ctx: DataContext, verb: "create" | "update"): void {
     const rank = roleRank(ctx.role);
     if (rank !== undefined && rank >= APP_ROLE_RANK.editor) return;
-    const role = rank === undefined ? `"${String(ctx.role)}", which is not a role this app grants` : ctx.role;
-    throw new HostedError(
-      "forbidden",
-      `Your role on this app is ${role}; viewers can read equipment requests but cannot ${verb} them.`,
-      { fix: "Ask an owner of this app to change your role to editor, then try again." }
-    );
+    throw notEditor(ctx.role, rank !== undefined, verb);
   }
 }

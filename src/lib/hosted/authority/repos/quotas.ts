@@ -13,7 +13,7 @@
  */
 import type { DatabaseSync } from "node:sqlite";
 import type { QuotaCounter } from "@/lib/hosted/contracts";
-import { nowIso, readNumber, readText, statements, type Prepare, type SqlRow } from "../sql";
+import { changeCount, nowIso, readNumber, readText, statements, type Prepare, type SqlRow } from "../sql";
 
 /** Reads and writes of the `quota_counters` table. */
 export interface QuotasRepo {
@@ -26,6 +26,16 @@ export interface QuotasRepo {
   get(appId: string, day: string): QuotaCounter;
   /** Counters for an app, newest day first. */
   listByApp(appId: string, opts?: { sinceDay?: string; limit?: number }): QuotaCounter[];
+  /**
+   * Forget an app's counters, so a fixture can replay a day. With no `day`,
+   * every counter for the app goes. Returns how many rows were removed.
+   *
+   * Tests and tooling only, and it is on the repository rather than reached for
+   * through a connection because "delete a counter" has to mean the same thing
+   * on both stores. Nothing in the product calls it — a quota that could be
+   * reset from a request path is not a quota.
+   */
+  resetDay(appId: string, day?: string): number;
 }
 
 /** The UTC day a timestamp falls in, as `YYYY-MM-DD`. The quota day boundary. */
@@ -77,6 +87,14 @@ export function createQuotasRepo(db: DatabaseSync): QuotasRepo {
       )
         .all(appId, limit)
         .map(map);
+    },
+
+    resetDay(appId, day) {
+      const result =
+        day === undefined
+          ? sql("DELETE FROM quota_counters WHERE app_id = ?").run(appId)
+          : sql("DELETE FROM quota_counters WHERE app_id = ? AND day = ?").run(appId, day);
+      return changeCount(result);
     },
   };
 }

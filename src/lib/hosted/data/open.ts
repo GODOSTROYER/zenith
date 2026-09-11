@@ -18,9 +18,10 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { appDataDir } from "@/lib/hosted/config";
+import { appDataDir, hostedStoreKind } from "@/lib/hosted/config";
 import { DEFAULT_LIMITS, HostedError } from "@/lib/hosted/contracts";
 import { SqliteBackend, type SqliteBackendOptions } from "./backend";
+import { PgDataBackend, PgTrackerStore } from "./pg-backend";
 import { applyTrackerMigrations } from "./schema";
 import { TrackerDataStore } from "./tracker-store";
 
@@ -48,10 +49,18 @@ export interface OpenAppDataOptions {
   backend?: SqliteBackendOptions;
 }
 
-/** An open, migrated app database and the store over it. */
+/**
+ * An open, migrated app database and the store over it.
+ *
+ * `store` is a union rather than one class because the two stores are the same
+ * contract over two very different databases — `TrackerDataStore` over this
+ * app's own SQLite file, `PgTrackerStore` over its rows in `hosted.app_records`.
+ * Their public methods are signature-for-signature identical, so a caller that
+ * only uses the store never has to know which it got, which is the point.
+ */
 export interface OpenAppData {
   backend: SqliteBackend;
-  store: TrackerDataStore;
+  store: TrackerDataStore | PgTrackerStore;
   /** Absolute path of the database file. */
   path: string;
 }
@@ -59,6 +68,51 @@ export interface OpenAppData {
 interface CacheEntry extends OpenAppData {
   appId: string;
   file: AppDataFile;
+}
+
+/**
+ * The stand-in for `backend` when an app's data lives in Postgres.
+ *
+ * TODO(ceiling): `OpenAppData.backend` is a *synchronous* SQLite connection, and
+ * three callers use it directly for things only SQLite can do — `PRAGMA
+ * quick_check` (`hosted/health`, `hosted/backup/reopen`) and a synchronous
+ * import transaction (`hosted/export`). None of those has a Postgres equivalent
+ * yet, and none of them is in this wave's scope, so in postgres mode this object
+ * takes the field and refuses every call by name rather than answering something
+ * plausible and wrong. The `store` — which is what the gateway, the broker and
+ * the release runner actually use — is fully backed.
+ *
+ * The cast is deliberate and contained: `SqliteBackend` has private fields, so
+ * nothing can structurally satisfy it, and widening the field to a union would
+ * break the three call sites above at compile time without giving them anything
+ * to do instead.
+ */
+function postgresModeBackend(appId: string): SqliteBackend {
+  const refuse = (): never => {
+    throw new HostedError(
+      "internal",
+      `App ${appId} keeps its data in Postgres, so it has no SQLite connection to run this against.`,
+      {
+        fix: "Reach this app's data through openAppData(appId).store, which is backed on both stores. Integrity checks (PRAGMA quick_check) and the synchronous export/import path are SQLite-only and still have to be given Postgres equivalents.",
+      }
+    );
+  };
+  const shim = {
+    path: `postgres:hosted.app_records?app_id=${appId}`,
+    busyTimeoutMs: 0,
+    isClosed: false,
+    inTransaction: false,
+    pragmas: refuse,
+    run: refuse,
+    get: refuse,
+    all: refuse,
+    transaction: refuse,
+    exec: refuse,
+    close: () => {
+      /* nothing is held open */
+    },
+  };
+  return shim as unknown as SqliteBackend;
 }
 
 const CACHE_KEY = Symbol.for("zenith.hosted.data.openAppData");
@@ -96,6 +150,8 @@ export function openAppData(appId: string, options: OpenAppDataOptions = {}): Op
   const hit = cache().get(filePath);
   if (hit && !hit.backend.isClosed) return { backend: hit.backend, store: hit.store, path: hit.path };
 
+  if (hostedStoreKind() === "postgres") return openPostgres(id, file, filePath, options);
+
   fs.mkdirSync(directory, { recursive: true });
   const backend = new SqliteBackend(filePath, options.backend ?? {});
   try {
@@ -114,6 +170,44 @@ export function openAppData(appId: string, options: OpenAppDataOptions = {}): Op
   const entry: CacheEntry = { appId: id, file, backend, store, path: filePath };
   cache().set(filePath, entry);
   return { backend, store, path: filePath };
+}
+
+/**
+ * The postgres branch of {@link openAppData}: no file, no migration, one
+ * `PgDataBackend` bound to this app and the store over it.
+ *
+ * The cache is still keyed by the path the SQLite branch would have used, so
+ * `closeAppData`/`closeAllAppData` reach these entries by app id exactly as they
+ * reach SQLite ones, and `path` keeps naming the same thing for the callers that
+ * only report it.
+ *
+ * The disposable probe database (decision R3-07) becomes an app-id namespace
+ * rather than a second file: `<appId>::test` shares the tables but not a single
+ * row with `<appId>`, because `app_id` is the first column of every hosted
+ * primary key and a control-authority app id never contains `::`.
+ */
+function openPostgres(
+  appId: string,
+  file: AppDataFile,
+  filePath: string,
+  options: OpenAppDataOptions
+): OpenAppData {
+  const scope = file === "test" ? `${appId}::test` : appId;
+  const backend = new PgDataBackend({ appId: scope });
+  const store = new PgTrackerStore({
+    backend,
+    appId,
+    limits: { storageBytes: options.storageBytes ?? DEFAULT_LIMITS.storageBytes },
+  });
+  const entry: CacheEntry = {
+    appId,
+    file,
+    backend: postgresModeBackend(scope),
+    store,
+    path: filePath,
+  };
+  cache().set(filePath, entry);
+  return { backend: entry.backend, store, path: filePath };
 }
 
 /**
@@ -161,6 +255,22 @@ export function closeAllAppData(): number {
 export function resetTestDatabase(appId: string, options: Omit<OpenAppDataOptions, "file"> = {}): OpenAppData {
   const id = assertAppId(appId);
   const directory = options.dir ?? appDataDir(id);
+  if (hostedStoreKind() === "postgres") {
+    // TODO(ceiling): throwing away the probe namespace is a DELETE over
+    // `hosted.app_records`/`app_writes`/`app_storage` for `<appId>::test`, and
+    // that is a network round trip — this function is synchronous and every
+    // caller expects a ready database on return. Refusing by name is the honest
+    // answer until the release runner's probe path is made async; answering with
+    // a namespace that still holds the last probe's rows would make a candidate
+    // pass on stale data.
+    throw new HostedError(
+      "internal",
+      `App ${id} keeps its data in Postgres, where the disposable probe database cannot be replaced synchronously.`,
+      {
+        fix: "Probe this candidate with ZENITH_HOSTED_STORE=sqlite, or make the release runner's probe path await an async reset of the <appId>::test namespace. Production rows were not touched.",
+      }
+    );
+  }
   closeAppData(id, "test");
 
   const base = path.join(directory, APP_DATA_FILENAMES.test);

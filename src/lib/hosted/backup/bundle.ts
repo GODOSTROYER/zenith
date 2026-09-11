@@ -26,8 +26,6 @@
  * authentication tag. Both checks run on restore: the tag proves the bundle is
  * the one that was sealed, the per-file hashes prove the reader assembled it
  * back correctly.
- *
- * Workstream W8 (hosted R3).
  */
 import { HostedError, type BackupManifest } from "@/lib/hosted/contracts";
 import { sha256 } from "@/lib/hosted/digest";

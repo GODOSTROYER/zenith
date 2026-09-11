@@ -6,8 +6,8 @@
  * all read and write THIS structure through typed actions. There is no
  * second model — a visual state can never diverge from the deployed truth.
  *
- * SPINE FILE — owned by the integrator. Agents import from here and must
- * not edit. Additions go through the integrator.
+ * Everything downstream imports these shapes, so this file adds types rather
+ * than changing the meaning of an existing one.
  */
 import { z } from "zod";
 

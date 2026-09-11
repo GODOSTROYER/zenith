@@ -27,8 +27,6 @@
  * `none` is not a target. `selectedBackupTarget()` answers with `target: null`
  * and an availability that names `ZENITH_BACKUP_TARGET`, so a caller reports a
  * missing backup rather than pretending one happened.
- *
- * Workstream W8 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

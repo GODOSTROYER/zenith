@@ -5,8 +5,6 @@
  * takes a live product away from the people using it. Data, grants,
  * invitations, releases and artifacts are all kept, and resume puts the app
  * back exactly where it was.
- *
- * Workstream W7 (hosted R3).
  */
 import { z } from "zod";
 import type { JobAccepted } from "@/lib/hosted/contracts";

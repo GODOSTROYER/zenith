@@ -5,8 +5,6 @@
  * survives recomputation, which is what lets "dismissed" stick. Every finding
  * says what is wrong and, where the fix is automatable, carries the action
  * that fixes it.
- *
- * Workstream A.
  */
 import { db, q, save } from "@/lib/db/store";
 import { monthlyCostUsd } from "@/lib/cost/pricing";

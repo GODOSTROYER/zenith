@@ -22,8 +22,6 @@
  * itself when its output is already recorded, so resuming does not rebuild
  * what a previous attempt already produced. `finish` is not a phase — it is
  * the job's terminal write.
- *
- * Workstream W7 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

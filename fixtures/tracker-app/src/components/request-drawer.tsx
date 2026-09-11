@@ -5,8 +5,6 @@
  * It is also where a conflict is settled. When the host refuses a stale write
  * the draft is left exactly as it was typed, the fields somebody else changed
  * are listed beside it, and the person chooses which version wins.
- *
- * Workstream W4 (hosted R3)
  */
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import {

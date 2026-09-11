@@ -6,8 +6,6 @@
  * Publishing needs two different things — the editor role in the workspace and
  * the owner role on this app — so both are shown as their own chip. One chip
  * saying "you can't" would leave a builder guessing which of the two to ask for.
- *
- * Workstream W9 (hosted R3)
  */
 import { useState } from "react";
 import { ExternalLink, PauseCircle, PlayCircle } from "lucide-react";

@@ -4,8 +4,6 @@
  * The token is read on the server so the panel never has to wait for a
  * client-side search-param read, and the whole screen is one narrow column:
  * whoever arrives here was invited to an app, not to the product.
- *
- * Workstream W9 (hosted R3)
  */
 import type { Metadata } from "next";
 import { PageHeading } from "@/components/screens/page-heading";

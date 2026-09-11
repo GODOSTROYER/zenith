@@ -1,11 +1,10 @@
 /**
- * The seam every cross-workstream call in this directory goes through.
+ * The seam every call out of this directory goes through.
  *
- * The publish pipeline is the one place where five other workstreams meet: the
- * runtime that stages and activates (W6), the build runner and artifact store
- * (W2), the grant check (W5), the usage ledger and the event log (W8). Calling
- * those modules directly from the pipeline would make this directory
- * untestable until every one of them has landed — and untestable in the exact
+ * The publish pipeline is the one place where five other modules meet: the
+ * runtime that stages and activates, the build runner and artifact store, the
+ * grant check, the usage ledger and the event log. Calling those modules
+ * directly from the pipeline would make this directory untestable in the exact
  * scenarios that matter most, because "the probe fails" and "the fence moved
  * under us" are states a real runtime will not produce on demand.
  *
@@ -19,8 +18,6 @@
  * (`@/lib/hosted/events`) — so they are imported at their one call site each,
  * in `suspend.ts` and `shared.ts`, where a reader and a code-graph tool can
  * see the edge. Add a member back the moment a test needs to steer it.
- *
- * Workstream W7 (hosted R3).
  */
 import type {
   AppGrant,

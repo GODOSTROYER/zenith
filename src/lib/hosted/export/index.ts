@@ -23,8 +23,6 @@
  * real caller. An owner has to re-grant each of them to a real identity.
  * "Everyone who had access has access again" is exactly the claim this refuses
  * to make.
- *
- * Workstream W8 (hosted R3).
  */
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -290,7 +288,7 @@ export const importedSubject = (origin: "grant" | "invite", email: string): stri
  *
  * The app row and the owner grant are written through the control authority
  * directly — an import is not a publish, and it never asks the release
- * workstream for a job. Records go into the new app's own database through the
+ * module for a job. Records go into the new app's own database through the
  * same quota-checked insert the broker uses, keeping their original ids,
  * versions and timestamps.
  */

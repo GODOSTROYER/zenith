@@ -19,8 +19,6 @@
  * This script does **not** open this process's control authority — the restore
  * works on its own connection to the restored file, so running it on a machine
  * that also serves an install cannot disturb that install.
- *
- * Workstream W8 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

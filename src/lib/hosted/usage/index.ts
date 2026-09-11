@@ -21,8 +21,6 @@
  * outbox row's idempotency key is `spend:<workspace>:<YYYY-MM>:<threshold>`,
  * so a restart mid-alert re-sends rather than duplicates, and a month that
  * hovers around 75 % does not send an alert per request.
- *
- * Workstream W8 (hosted R3).
  */
 import { randomUUID } from "node:crypto";
 import { HostedError, type HostedOutboxEntry, type UsageEntry } from "@/lib/hosted/contracts";
@@ -365,7 +363,7 @@ export function registerOpsOutboxHandlers(): void {
 /**
  * Deliver a spending alert.
  *
- * ponytail: this writes a warning to the server log and nothing else. The
+ * TODO(ceiling): this writes a warning to the server log and nothing else. The
  * workspace alert channels (`db().settings.alertChannels`, with their webhook
  * URLs and SMTP transport) live in the legacy JSON store, and reaching them
  * from here would import that store into the hosted path — pinning

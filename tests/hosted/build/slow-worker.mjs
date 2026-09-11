@@ -6,7 +6,7 @@
  * before the kill, and it keeps a timer alive so the process only ends when it
  * is killed.
  *
- * Test support only. Workstream W2 (hosted R3).
+ * Test support only.
  */
 process.stdout.write("slow worker: started, will not finish\n");
 setInterval(() => {

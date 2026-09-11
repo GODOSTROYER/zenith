@@ -11,8 +11,6 @@
  * a rollback target, the release already serving is not one either, and a
  * target built for a different data schema is refused with both versions
  * named rather than attempted.
- *
- * Workstream W7 (hosted R3).
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { IDENTITIES, WORKSPACES, isolatedDataDir, removeDir, uuid } from "../_fixtures";

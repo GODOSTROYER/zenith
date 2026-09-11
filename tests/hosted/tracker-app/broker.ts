@@ -8,8 +8,6 @@
  * refused here exactly as the contract says it would be.
  *
  * Not a test file: helper for app.test.tsx.
- *
- * Workstream W4 (hosted R3)
  */
 import type {
   EquipmentRequest,

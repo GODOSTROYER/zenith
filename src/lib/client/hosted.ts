@@ -12,8 +12,6 @@
  *
  * Job ids are the client's: one UUID per user intent, kept in component state,
  * so a retry replays the same intent instead of starting a second one.
- *
- * Workstream W9 (hosted R3)
  */
 import { useEffect, useMemo, useState } from "react";
 import { api, useJson, type Loadable } from "@/lib/client/api";

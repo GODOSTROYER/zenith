@@ -7,8 +7,6 @@
  * about, so with no target configured the entry has to **fail, visibly, with
  * the variable named** — never settle `done` because there was nowhere to put
  * it.
- *
- * Workstream W8 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

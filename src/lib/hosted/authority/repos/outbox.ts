@@ -11,8 +11,6 @@
  * that retries — a replayed request, a resumed job phase — writes one row, not
  * two. The key is the receiver's dedupe handle as well, which is what makes
  * "at least once delivery" safe to build on.
- *
- * Workstream W1 (hosted R3).
  */
 import type { DatabaseSync } from "node:sqlite";
 import type { HostedOutboxEntry, OutboxState } from "@/lib/hosted/contracts";

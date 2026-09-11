@@ -8,8 +8,6 @@
  * redacted, so a runner that echoes its environment does not publish a token
  * through the job log. Redaction is a net rather than a proof — no platform
  * secret should reach a build at all — but a net is worth having under it.
- *
- * Workstream W7 (hosted R3).
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { IDENTITIES, WORKSPACES, isolatedDataDir, removeDir, uuid } from "../_fixtures";

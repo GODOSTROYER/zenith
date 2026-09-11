@@ -10,8 +10,6 @@
  * The tree is written into a fresh `mkdtemp` directory under the OS temp
  * directory, never inside `ORRERY_DATA` and never inside the repository: it is
  * scratch space for one build and the caller removes it when the build ends.
- *
- * Workstream W2 (hosted R3).
  */
 import fs from "node:fs";
 import os from "node:os";

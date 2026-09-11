@@ -6,8 +6,6 @@
  * the process never comes back to settle it — rather than by a handler that
  * throws, which is a different failure with a different outcome. Both are
  * asserted separately.
- *
- * Workstream W1 (hosted R3).
  */
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { isolatedDataDir, removeDir } from "../_fixtures";

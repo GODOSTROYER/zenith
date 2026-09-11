@@ -18,8 +18,6 @@
  *    the looseness stops at the database boundary.
  *  - **Timestamps are ISO-8601 UTC TEXT** so range predicates are plain string
  *    comparisons — see `sql.ts`.
- *
- * Workstream W1 (hosted R3).
  */
 import type { DatabaseSync } from "node:sqlite";
 import { HostedError } from "@/lib/hosted/contracts";
@@ -290,7 +288,7 @@ CREATE INDEX hosted_events_app ON hosted_events(app_id, ts);
 /**
  * Every schema version, in order. Append only.
  *
- * ponytail: migrations are forward-only — there is no `down`. Rolling a hosted
+ * TODO(ceiling): migrations are forward-only — there is no `down`. Rolling a hosted
  * install back a version means restoring the backup taken before the upgrade
  * (`backupAuthority`). Reversible migrations become worth writing when a
  * second operator runs upgrades on a host this project does not have yet;

@@ -10,8 +10,6 @@
  * Two outcomes are asserted. A hold shorter than the timeout costs a wait and
  * then commits. A hold longer than it surfaces a `HostedError` naming the
  * cause and the fix, rather than hanging or half-writing.
- *
- * Workstream W1 (hosted R3).
  */
 import { Worker } from "node:worker_threads";
 import { afterAll, describe, expect, it } from "vitest";

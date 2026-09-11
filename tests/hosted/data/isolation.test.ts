@@ -1,8 +1,6 @@
 /**
  * Isolation between apps, durability across a restart, hostile strings, and the
  * disposable test database candidate probes use.
- *
- * Workstream W3 (hosted R3).
  */
 import fs from "node:fs";
 import { afterAll, describe, expect, it } from "vitest";

@@ -5,8 +5,6 @@
  * a request is admitted or refused on is a number that *committed*, so two
  * writers cannot both see the same value and both be let through, and a
  * restart cannot forget what today already used.
- *
- * Workstream W8 (hosted R3).
  */
 import { DatabaseSync } from "node:sqlite";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";

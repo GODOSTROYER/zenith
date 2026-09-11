@@ -5,8 +5,6 @@
  * refused is visible in the test rather than hidden in a committed binary. The
  * happy path builds its archive from `fixtures/hosted/minimal-app`, which is
  * the same tree the real build test compiles.
- *
- * Workstream W2 (hosted R3).
  */
 import fs from "node:fs";
 import os from "node:os";

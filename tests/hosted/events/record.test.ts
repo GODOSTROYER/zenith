@@ -1,8 +1,6 @@
 /**
  * Recording an event: pseudonymous, classified, deduplicated, and unable to
  * break the request it was recorded from.
- *
- * Workstream W8 (hosted R3).
  */
 import { createHmac } from "node:crypto";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";

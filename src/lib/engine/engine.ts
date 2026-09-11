@@ -11,7 +11,7 @@
  * Every transition is appended to the JSONL event log with a per-deployment
  * monotonic `seq`, so SSE clients replay from any cursor after a refresh.
  *
- * Workstream A. Import `engine` (EngineApi) and `ensureEngine()`.
+ * Import `engine` (EngineApi) and `ensureEngine()`.
  */
 import {
   appendEvent,

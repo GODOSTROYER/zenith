@@ -16,8 +16,6 @@
  * PLAN-R3 R3-13: the event vocabulary is provisional — `HOSTED_EVENTS` in the
  * contracts is marked as such pending the page-36 list — so the column carries
  * no CHECK constraint. `HostedEventName` still narrows it in TypeScript.
- *
- * Workstream W1 (hosted R3).
  */
 import type { DatabaseSync } from "node:sqlite";
 import type { ActorClass, HostedEvent, HostedEventName } from "@/lib/hosted/contracts";

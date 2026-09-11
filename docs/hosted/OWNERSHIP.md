@@ -1,8 +1,14 @@
-# Hosted Revision 2 implementation ownership
+# Hosted apps — ownership
+
+Current ownership of the hosted paths is the table in [PLAN-R3.md](PLAN-R3.md) section 2; read it there rather than here. The Revision 2 preparation record that used to open this file is kept below as history and describes nothing that is in force today.
+
+## Historical — Revision 2 preparation wave (superseded)
+
+Superseded by PLAN-R3.md section 2. Nothing in this section describes who owns a path today.
 
 Starting point: `4231dda67fb5a0f57c4bd87117fa5af3c4c083de`, preserving the completed UI work. Feature branch: `codex/zenith-hosted-r2`. Existing unrelated changes remain untouched. No push, merge, provisioning, customer messages or destructive recovery is authorized.
 
-The supplied implementation instruction refers to a separate Revision 2 report (sections 01–25, A01–A09, D01–D09 and page 47). That report is not present in the supplied attachment or repository. Its location has been requested. Do not invent page/workstream mappings or freeze report-dependent security contracts before it is read.
+The supplied implementation instruction refers to a separate Revision 2 report (sections 01–25, A01–A09, D01–D09 and page 47). That report was never supplied with the attachment or the repository.
 
 This scoped assignment supersedes the historical repository table only for the paths listed below. Unlisted paths retain existing ownership. All workers use gpt-6-astra with high reasoning.
 

@@ -10,8 +10,6 @@
  * oversized body must all be refused with `brokerInvoked` still at zero — the
  * store enforces the same role rule independently, and this file is what shows
  * which of the two actually fired.
- *
- * Workstream W6 (hosted R3).
  */
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { IDENTITIES, isolatedDataDir, removeDir, uuid } from "../_fixtures";

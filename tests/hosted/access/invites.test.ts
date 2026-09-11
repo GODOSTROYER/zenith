@@ -10,8 +10,6 @@
  * Email delivery is a separate file; here the install has no SMTP, which is
  * exactly the case where `acceptUrl` in the response is the only copy the owner
  * gets.
- *
- * Workstream W5 (hosted R3).
  */
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { isolatedDataDir, removeDir } from "../_fixtures";

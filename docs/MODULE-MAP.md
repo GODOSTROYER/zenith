@@ -192,4 +192,4 @@ Two edges people expect to find here and which are **not** cycles:
 | How does a deploy run? | `src/lib/engine/engine.ts` → `src/lib/providers/<id>/index.ts` |
 | What does the process do on start-up? | `src/lib/server/boot.ts` → `src/lib/hosted/index.ts` |
 | Where is this table? | `src/lib/hosted/authority/schema.ts`, then `repos/<table>.ts` |
-| Why is this ceiling here? | `grep -rn 'ponytail:' src`, then [docs/DEBT.md](DEBT.md) |
+| Why is this ceiling here? | `grep -rn 'TODO(ceiling):' src`, then [docs/DEBT.md](DEBT.md) |

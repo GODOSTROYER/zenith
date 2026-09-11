@@ -5,8 +5,6 @@
  * app's own database, the artifact's bytes re-hashed from disk, the event
  * table, today's quota counter. `simulated` is always `false` here — a probe
  * that could not run answers `ok: false` with the reason.
- *
- * Workstream W8 (hosted R3).
  */
 import type { HostedHealthWire } from "@/lib/hosted/contracts";
 import { appHealth } from "@/lib/hosted/health";

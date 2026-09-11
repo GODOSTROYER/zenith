@@ -4,8 +4,6 @@
  * and derives a first guess from the app's name.
  *
  * Pure — no React, no fetch — so the new-app screen and its test share it.
- *
- * Workstream W9 (hosted R3)
  */
 import { APP_SLUG_RE, RESERVED_SLUGS } from "@/lib/hosted/contracts";
 

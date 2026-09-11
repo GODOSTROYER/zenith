@@ -5,8 +5,6 @@
  * Reopening an app that came back from a backup is an operator action, not a
  * button — the whole point of the recovery state is that the platform will not
  * let a screen wave it through.
- *
- * Workstream W9 (hosted R3)
  */
 import { useState } from "react";
 import { Download } from "lucide-react";

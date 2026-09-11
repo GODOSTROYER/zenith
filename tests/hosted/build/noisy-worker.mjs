@@ -2,7 +2,7 @@
  * A worker double that prints far more than the log ceiling allows, so the
  * truncation notice is checked against a real stream rather than a string.
  *
- * Test support only. Workstream W2 (hosted R3).
+ * Test support only.
  */
 import fs from "node:fs";
 

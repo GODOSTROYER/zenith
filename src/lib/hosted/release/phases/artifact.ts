@@ -5,8 +5,6 @@
  * Content addressing means an identical build is the *same* artifact, whoever
  * produced it, so this phase records whether the job created the bytes or
  * joined bytes an earlier job stored; `verify_artifact` checks accordingly.
- *
- * Workstream W7 (hosted R3).
  */
 import fs from "node:fs";
 import { authority, nowIso } from "@/lib/hosted/authority";

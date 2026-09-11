@@ -4,8 +4,6 @@
  *
  * The release is live by the time this runs, so a failure here is logged and
  * swallowed: a candidate left behind costs disk, not correctness.
- *
- * Workstream W7 (hosted R3).
  */
 import { removeMaterialized } from "@/lib/hosted/source";
 import { retainedReleases } from "../apps";

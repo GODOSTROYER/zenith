@@ -15,8 +15,6 @@
  *    the same release, so `advanceTo` throws `LeaseLost`, `runJob` swallows it,
  *    and the job belongs to whoever holds it now. Silence is the correct
  *    behaviour: the new owner will report the outcome.
- *
- * Workstream W7 (hosted R3).
  */
 import path from "node:path";
 import { authority, nowIso } from "@/lib/hosted/authority";
@@ -104,7 +102,7 @@ export const phaseDataOf = (job: HostedJob): PhaseData => ({ ...job.phaseData })
  * tarball was stored — is written straight to the row. Inside `tx()`, so it is
  * durable before the caller is told the job exists.
  *
- * ponytail: raw SQL for one column. Move to `admitJob({ …, phaseData })` if
+ * TODO(ceiling): raw SQL for one column. Move to `admitJob({ …, phaseData })` if
  * W1 adds the argument.
  */
 export function seedPhaseData(jobId: string, seed: PhaseData): void {
@@ -146,7 +144,7 @@ export function persist(run: JobRun, data: PhaseData): void {
  * The statement is conditioned on the same fence every other write is, so a
  * worker that already lost the job cannot extend a lease it no longer holds.
  *
- * ponytail: raw SQL because the repository has no lease renewal yet. Move this
+ * TODO(ceiling): raw SQL because the repository has no lease renewal yet. Move this
  * to `repos.jobs.renewLease(id, fence, leaseMs)` when W1 adds one.
  */
 export function renewLease(run: JobRun, leaseMs: number = JOB_LEASE_MS): boolean {

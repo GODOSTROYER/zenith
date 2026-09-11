@@ -5,8 +5,6 @@
  * Every case here is a refusal, so every case also asserts the invocation
  * sentinel: a request that was turned away must not have opened an artifact or
  * called the broker, whatever else it did.
- *
- * Workstream W6 (hosted R3).
  */
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { isolatedDataDir, removeDir } from "../_fixtures";

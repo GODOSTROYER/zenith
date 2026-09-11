@@ -4,7 +4,7 @@
  * Registers actions + providers, resumes any deployment that was in flight when
  * the server restarted, and replays the alert outbox (durable operations: a
  * restart never strands a deployment, and never silently drops a notification
- * for an alert that is already open). All workstream modules have landed, so
+ * for an alert that is already open). Every module it wires is present, so
  * imports are literal and verified at build time.
  */
 import type { SecurityFinding } from "@/lib/domain/types";

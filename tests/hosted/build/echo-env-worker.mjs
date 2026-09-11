@@ -7,7 +7,7 @@
  * value) on stdout, where the runner captures them as build log lines, and then
  * fails honestly: it compiled nothing.
  *
- * Test support only. Workstream W2 (hosted R3).
+ * Test support only.
  */
 import fs from "node:fs";
 

@@ -15,8 +15,6 @@
  * so showing them to an app owner discloses nothing about what their
  * colleagues wrote. Each line carries the release that served the request,
  * which is what makes "it broke after the update" answerable.
- *
- * Workstream W8 (hosted R3).
  */
 import {
   DEFAULT_LIMITS,

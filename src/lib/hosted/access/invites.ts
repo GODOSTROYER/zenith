@@ -16,8 +16,6 @@
  * The email leaves through the outbox, never inside the transaction: the
  * invitation is durable before the first byte moves, and a crash mid-send
  * leaves a claimable row rather than an invitation nobody knows was half sent.
- *
- * Workstream W5 (hosted R3).
  */
 import type { DatabaseSync } from "node:sqlite";
 import {

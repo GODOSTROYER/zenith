@@ -24,8 +24,6 @@
  * it has no data or an immature cohort. Founder and test actors are excluded
  * from the human-behaviour measures; each metric states its own exclusion rule
  * in `definition`, because they are not the same rule.
- *
- * Workstream W8 (hosted R3).
  */
 import { createHmac, randomUUID } from "node:crypto";
 import {

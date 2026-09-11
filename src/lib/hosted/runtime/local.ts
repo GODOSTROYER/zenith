@@ -12,8 +12,6 @@
  *
  * Every method below does the thing it says. Nothing is stubbed, and no probe
  * reports a check it did not run.
- *
- * Workstream W6 (hosted R3).
  */
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";

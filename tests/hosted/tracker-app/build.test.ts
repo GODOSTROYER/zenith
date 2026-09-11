@@ -6,8 +6,6 @@
  * What it proves: the package a builder would upload compiles as submitted,
  * emits hashed immutable assets and an entry HTML with no inline script, and
  * stays small enough to serve from an app host.
- *
- * Workstream W4 (hosted R3)
  */
 import fs from "node:fs";
 import os from "node:os";

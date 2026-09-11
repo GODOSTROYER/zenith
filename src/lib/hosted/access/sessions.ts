@@ -25,14 +25,12 @@
  *    prefix a browser enforces as host-only, which is what keeps one app's
  *    session off every other app host under the same registrable domain.
  *
- * ponytail: nothing here sweeps expired exchange and session rows. Neither is
+ * TODO(ceiling): nothing here sweeps expired exchange and session rows. Neither is
  * an admission question — an expired row is already refused, by `expires_at`
  * rather than by its absence — so this is disk, not correctness, and the
  * repositories already carry `purgeExpired` for whoever owns housekeeping.
  * Worth wiring to the ops ticker once an install has been running long enough
  * for the row count to be interesting.
- *
- * Workstream W5 (hosted R3).
  */
 import {
   APP_SESSION_COOKIE,

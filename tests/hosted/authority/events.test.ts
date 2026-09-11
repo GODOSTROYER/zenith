@@ -5,8 +5,6 @@
  * The dedupe test is the one that matters: every hosted operation is safe to
  * retry, so an analytics table that counted attempts would report activity
  * that never happened.
- *
- * Workstream W1 (hosted R3).
  */
 import { afterAll, describe, expect, it } from "vitest";
 import { isolatedDataDir, removeDir } from "../_fixtures";

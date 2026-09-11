@@ -5,8 +5,6 @@
  * the releases: the durable choice of what is live is one column guarded by a
  * fence, and a list that worked it out by scanning for a status could disagree
  * with the gateway for as long as a write was in flight.
- *
- * Workstream W7 (hosted R3).
  */
 import { authority } from "@/lib/hosted/authority";
 import type { ReleasesWire } from "@/lib/hosted/contracts";

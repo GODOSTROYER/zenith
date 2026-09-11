@@ -10,15 +10,13 @@
  * `configFile: false` and `envFile: false` mean Vite is forbidden from reading
  * a `vite.config.*` or a `.env` out of the source root, and `plugins` holds
  * exactly the platform's React plugin.
- *
- * Workstream W2 (hosted R3).
  */
 import path from "node:path";
 
 /**
  * Bare specifiers the recipe pins to the platform's own copies.
  *
- * ponytail: an exact list, not a subpath pattern. A submission that imports
+ * TODO(ceiling): an exact list, not a subpath pattern. A submission that imports
  * something else from React (`react-dom/server`, `react/compiler-runtime`) gets
  * a plain "failed to resolve import" from Vite rather than a silent fallback —
  * honest, but narrow. Upgrade: a capture-group alias, once one of these is a

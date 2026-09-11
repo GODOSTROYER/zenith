@@ -1,8 +1,6 @@
 /**
  * The storage quota: the logical-byte measure itself, the counter that tracks
  * it, and what a refusal at the ceiling says and leaves behind.
- *
- * Workstream W3 (hosted R3).
  */
 import { afterAll, describe, expect, it } from "vitest";
 import { DEFAULT_LIMITS, HostedError, type EquipmentRequest } from "@/lib/hosted/contracts";

@@ -9,11 +9,9 @@
  *   guard.ts       the one exit every response passes through
  *   errors.ts      refusals: JSON for programs, a page for people
  *   telemetry.ts   the invocation sentinel a denial test reads
- *   deps.ts        the seam a test injects sibling-workstream doubles through
+ *   deps.ts        the seam a test injects sibling-module doubles through
  *
  * Import from here, not from a file inside.
- *
- * Workstream W6 (hosted R3).
  */
 export { handleGateway, type GatewayParams } from "./handle";
 export {

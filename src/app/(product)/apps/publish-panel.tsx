@@ -5,8 +5,6 @@
  * The job id is generated once per intent and kept here, so Retry replays the
  * same publish rather than starting a second one, and a reload that lands on a
  * job already running picks it back up instead of offering to start another.
- *
- * Workstream W9 (hosted R3)
  */
 import { useCallback, useState } from "react";
 import { UploadCloud } from "lucide-react";

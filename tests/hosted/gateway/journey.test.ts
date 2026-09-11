@@ -2,7 +2,7 @@
  * The recipient's journey, end to end, with **no doubles at all**.
  *
  * Every other file in this directory injects stand-ins for the sibling
- * workstreams so the gateway's own decisions can be exercised in isolation.
+ * modules so the gateway's own decisions can be exercised in isolation.
  * This one does the opposite: the real access module mints the exchange, the
  * real quota module counts the requests, the real events module records them,
  * the real artifact store holds the bytes and the real tracker store holds the
@@ -12,8 +12,6 @@
  * The journey: launch → callback → session → read the app → write a record →
  * a viewer is refused → the grant is revoked → the same cookie stops working →
  * sign out.
- *
- * Workstream W6 (hosted R3).
  */
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";

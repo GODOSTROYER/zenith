@@ -7,8 +7,6 @@
  * states a real runner will not produce on demand. The build's machine time is
  * recorded whether or not it produced anything: a ledger that only counts
  * successes understates exactly the spending a runaway build causes.
- *
- * Workstream W7 (hosted R3).
  */
 import { NO_RUNNER_REASON } from "@/lib/hosted/build";
 import { DEFAULT_LIMITS, HostedError, RECIPE_V1 } from "@/lib/hosted/contracts";

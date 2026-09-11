@@ -8,8 +8,6 @@
  * as. A duplicate slug has to be a 409 and a missing owner grant a 403; both
  * would be a 500 if the route lost the error's code on the way out of the
  * action.
- *
- * Workstream W7 (hosted R3).
  */
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";

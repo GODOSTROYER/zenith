@@ -9,8 +9,6 @@
  *
  * A mismatch is refused with a sentence naming which field disagreed. Nothing
  * here trusts a runner's word for anything.
- *
- * Workstream W2 (hosted R3).
  */
 import type { Artifact, ArtifactStore, RecipeSpec } from "@/lib/hosted/contracts";
 import { FsArtifactStore } from "./store";

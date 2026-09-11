@@ -9,8 +9,6 @@
  * Who is calling comes from the identity provider, live: the invitation is
  * bound to a verified address, and a claim read out of a cookie is not evidence
  * that the address is still theirs.
- *
- * Workstream W5 (hosted R3).
  */
 import { z } from "zod";
 import { acceptInvite } from "@/lib/hosted/access";

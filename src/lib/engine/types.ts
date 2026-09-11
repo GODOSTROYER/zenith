@@ -1,6 +1,6 @@
 /**
  * Deployment engine contract. Implementation lives in src/lib/engine/engine.ts
- * (workstream A1). The engine is a durable state machine:
+ * The engine is a durable state machine:
  *
  *   planning → awaiting_approval? → applying → verifying → succeeded
  *                                       ↘ failed → rolling_back → rolled_back
@@ -12,8 +12,6 @@
  *    so SSE clients can replay from any cursor after refresh.
  *  - `resumeInFlight()` is called lazily on first server touch after a
  *    restart and must move orphaned running steps to their correct state.
- *
- * SPINE FILE — owned by the integrator.
  */
 import type { Deployment } from "@/lib/domain/types";
 

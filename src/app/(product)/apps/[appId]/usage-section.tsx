@@ -8,8 +8,6 @@
  * *estimate*: nobody has been billed for these numbers. Neither word is
  * decoration, and both disclosures come from the API rather than from this
  * screen's imagination.
- *
- * Workstream W9 (hosted R3)
  */
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";

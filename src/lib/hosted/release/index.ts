@@ -3,7 +3,7 @@
  * turns a source package into a private running app without ever losing the
  * healthy one.
  *
- *   deps.ts      the seam every cross-workstream call goes through
+ *   deps.ts      the seam every call out of this directory goes through
  *   shared.ts    phases, leases, bounded logs, the two refusals a worker owes
  *   apps.ts      creating and reading apps (app + owner grant in one tx)
  *   intent.ts    what a publish is, canonically, and how it is hashed
@@ -15,8 +15,6 @@
  *   runner.ts    the ticker, the claim policy and the lease heartbeat
  *
  * The job runner is started by `ensureHosted()`.
- *
- * Workstream W7 (hosted R3).
  */
 export {
   RETAINED_RELEASES,

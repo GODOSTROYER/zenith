@@ -1,8 +1,6 @@
 /**
  * Migrations, durability pragmas and the database's own CHECK constraints —
  * the second line of defence behind the zod contract.
- *
- * Workstream W3 (hosted R3).
  */
 import { afterAll, describe, expect, it } from "vitest";
 import { TRACKER_SCHEMA_VERSION } from "@/lib/hosted/contracts";

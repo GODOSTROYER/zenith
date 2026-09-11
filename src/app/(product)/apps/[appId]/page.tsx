@@ -7,8 +7,6 @@
  * Every refusal on this screen names both halves of the rule it enforces —
  * publishing needs the editor role in the workspace *and* the owner role on the
  * app — so nobody has to press a button to find out which one they are missing.
- *
- * Workstream W9 (hosted R3)
  */
 import { use, useState } from "react";
 import Link from "next/link";

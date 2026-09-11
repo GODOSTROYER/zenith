@@ -17,8 +17,6 @@
  *  - Preflight talks to the real health endpoint and names the fix when
  *    Docker or LocalStack isn't running.
  *
- * Integrator-owned (added on user direction, post wave 2).
- *
  * The adapter object only; its parts live in the sibling modules.
  */
 import type { ProviderAdapter } from "@/lib/providers/types";

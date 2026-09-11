@@ -2,8 +2,6 @@
  * The list. Newest first, one row per request, each row a single button so a
  * keyboard reaches it in one tab stop and the drawer knows what to return
  * focus to.
- *
- * Workstream W4 (hosted R3)
  */
 import type { EquipmentRequest } from "../api";
 import { categoryLabel, formatDay, formatMoment } from "../state";

@@ -7,8 +7,6 @@
  * pointing a live hostname at a release that was superseded while it was gone.
  * `setActiveRelease` is therefore a compare-and-swap on `active_fence`, and a
  * worker holding a stale token gets `false` rather than a silent overwrite.
- *
- * Workstream W1 (hosted R3).
  */
 import type { DatabaseSync } from "node:sqlite";
 import type { AppState, HostedApp, RuntimeId, Subject } from "@/lib/hosted/contracts";

@@ -21,11 +21,9 @@
  * Every successful write emits a change event (`onChange`), which is how the
  * project stream pushes instead of every open tab polling.
  *
- * ponytail: single-process file store; swap for SQL behind this same module
+ * TODO(ceiling): single-process file store; swap for SQL behind this same module
  * if Zenith ever runs multi-process. The rest of the codebase only sees
  * `db()` and the append/read helpers.
- *
- * SPINE FILE — owned by the integrator.
  */
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
@@ -172,7 +170,7 @@ export function db(): Database {
  * must attach it explicitly — `q.revisionManifest(id)`.
  */
 
-/** ponytail: LRU by insertion order; a Map is the stdlib's LRU. */
+/** TODO(ceiling): LRU by insertion order; a Map is the stdlib's LRU. */
 const MANIFEST_CACHE_MAX = 32;
 
 type GM = typeof globalThis & { __orreryManifests?: Map<string, Manifest> };
@@ -447,7 +445,7 @@ const emptyTail = (): EventTail => ({
   evicted: false,
 });
 
-/** ponytail: cap the in-memory tail; older reads fall back to a file scan. */
+/** TODO(ceiling): cap the in-memory tail; older reads fall back to a file scan. */
 const TAIL_MAX = 5_000;
 
 type GE = typeof globalThis & { __orreryEventTail?: EventTail };
@@ -596,7 +594,7 @@ interface AuditCount {
   exact: boolean;
 }
 
-/** ponytail: one entry per distinct filter; LRU by insertion order. */
+/** TODO(ceiling): one entry per distinct filter; LRU by insertion order. */
 const AUDIT_COUNT_CACHE_MAX = 64;
 
 type GAC = typeof globalThis & { __orreryAuditCounts?: Map<string, AuditCount> };

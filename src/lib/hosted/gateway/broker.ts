@@ -16,8 +16,6 @@
  *     line, and `gatewayTelemetry.brokerInvoked` proves which one fired.
  *  3. **Size.** The body is read through the quota module's bounded reader, so
  *     a 40 MB paste is a 413 rather than 40 MB of resident memory.
- *
- * Workstream W6 (hosted R3).
  */
 import type { NextRequest } from "next/server";
 import { hostedConfig } from "@/lib/hosted/config";

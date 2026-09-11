@@ -25,7 +25,7 @@
  * thing stored is the event log — one open event per rule, closed when the
  * condition clears.
  *
- * ponytail: no per-rule schedule and no hysteresis. A rule is evaluated on the
+ * TODO(ceiling): no per-rule schedule and no hysteresis. A rule is evaluated on the
  * one 15s timer and on read; a condition that flaps faster than that produces
  * one event per flap. Add a "for N consecutive evaluations" field to AlertRule
  * if that ever gets noisy.

@@ -102,7 +102,7 @@ export async function verify(env: Environment, deployed: Manifest, previous?: Ma
  * omitting them is what stops this from claiming an RDS instance is healthy
  * when no RDS instance was ever created.
  *
- * ponytail: "unowned" means unowned *by this environment*. Two Zenith
+ * TODO(ceiling): "unowned" means unowned *by this environment*. Two Zenith
  * environments sharing one LocalStack each list the other's buckets as extra
  * drift. Scope the owned-set across the workspace's environments if that
  * combination stops being a corner case.

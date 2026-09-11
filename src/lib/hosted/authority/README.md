@@ -27,7 +27,7 @@ inside it.
 | `schema.ts` | The ordered migration list. Every enum a CHECK, every relationship a FOREIGN KEY | Edit the SQL of a version that has shipped — add a version, never change one. (Forward-only: there is no `down`.) |
 | `repos.ts` | The repository set: one object holding every repository bound to one connection | Reach for the global authority — a repository takes its `DatabaseSync`, which is what lets any combination run inside one `tx()` |
 | `jobs.ts` | Job admission and the idempotency rule: same UUID + same intent hash is a retry; same UUID + different intent is `idempotency_conflict` (409) | Silently resolve a conflicting retry to either operation |
-| `outbox.ts` | Draining the outbox: claim durably, perform, settle. Five attempts inside one claim | Claim a row whose kind has no registered handler — it stays `pending` and visible. `failed` is terminal (`ponytail:` — no dead-letter queue yet) |
+| `outbox.ts` | Draining the outbox: claim durably, perform, settle. Five attempts inside one claim | Claim a row whose kind has no registered handler — it stays `pending` and visible. `failed` is terminal (`TODO(ceiling):` — no dead-letter queue yet) |
 
 ## Repositories — `repos/`
 

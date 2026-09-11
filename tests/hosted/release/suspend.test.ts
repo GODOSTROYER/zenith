@@ -6,8 +6,6 @@
  * grant, the artifact. Suspension is a state on one row, so resuming is one
  * word rather than a recovery — and this test would fail loudly if it ever
  * started deleting on the way out.
- *
- * Workstream W7 (hosted R3).
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { IDENTITIES, WORKSPACES, isolatedDataDir, removeDir, uuid } from "../_fixtures";

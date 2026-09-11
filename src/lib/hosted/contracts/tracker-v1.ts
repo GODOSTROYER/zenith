@@ -18,7 +18,7 @@
  * viewer gets `forbidden` on every mutation regardless of HTTP verb. There is no
  * delete in v1 — decline the request instead.
  *
- * SPINE FILE — owned by the integrator. Import from `@/lib/hosted/contracts`.
+ * Import from `@/lib/hosted/contracts`.
  */
 import { z } from "zod";
 

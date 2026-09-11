@@ -6,8 +6,6 @@
  * Everything that can go wrong is a visible state rather than a silent
  * failure: loading, denied, signed out, unavailable, or a refusal this version
  * does not recognise.
- *
- * Workstream W4 (hosted R3)
  */
 import { useState } from "react";
 import type { EquipmentRequest } from "./api";

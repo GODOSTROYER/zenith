@@ -13,8 +13,6 @@
  * These are jobs rather than direct writes for one reason: they are operations
  * an operator retries, and a retry with the same job id has to be the same
  * operation.
- *
- * Workstream W7 (hosted R3).
  */
 import { terminateAppSessionsForApp } from "@/lib/hosted/access";
 import { admitJob, authority, nowIso } from "@/lib/hosted/authority";

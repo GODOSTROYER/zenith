@@ -13,8 +13,6 @@
  * The activation is the same compare-and-swap the publish pipeline uses, for
  * the same reason: two operators clicking at once must produce one winner and
  * one honest refusal, not two pointer writes.
- *
- * Workstream W7 (hosted R3).
  */
 import { admitJob, authority, nowIso } from "@/lib/hosted/authority";
 import {

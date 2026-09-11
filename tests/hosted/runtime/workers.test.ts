@@ -8,8 +8,6 @@
  * Two invariants are worth more than the behaviour tests: the response guard
  * constants and the broker's SQL are copies, and a copy that drifts is worse
  * than no copy at all — so both are compared against their originals here.
- *
- * Workstream W6 (hosted R3).
  */
 import { describe, expect, it } from "vitest";
 import { isolatedDataDir } from "../_fixtures";

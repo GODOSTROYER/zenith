@@ -8,8 +8,6 @@
  * key order that does not depend on how the caller happened to build the
  * object. Two requests that mean the same write hash the same; anything else
  * does not.
- *
- * Workstream W3 (hosted R3).
  */
 import { createHash } from "node:crypto";
 import { canonicalWriteIntent } from "@/lib/hosted/contracts";

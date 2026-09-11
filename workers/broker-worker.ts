@@ -22,8 +22,6 @@
  * against real D1.
  *
  * NOT VERIFIED LIVE. See README.md in this directory.
- *
- * Workstream W6 (hosted R3).
  */
 
 /* ------------------------- SQL copied from sql.ts ------------------------- */

@@ -3,8 +3,6 @@
  * the contract constants and nothing else. W2 is building the intake validator
  * at the same time; if this test imported it, the two could agree with each
  * other and both be wrong about the rules.
- *
- * Workstream W4 (hosted R3)
  */
 import fs from "node:fs";
 import path from "node:path";

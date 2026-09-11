@@ -15,14 +15,12 @@
  *    `pending` and visible in `listPending()`. Failing rows because the module
  *    that handles them has not booted yet would destroy real intentions to
  *    make a counter look tidy.
- *  - **`failed` is terminal.** ponytail: no dead-letter queue and no
+ *  - **`failed` is terminal.** TODO(ceiling): no dead-letter queue and no
  *    per-kind circuit breaker — five attempts inside one claim, then the row
  *    keeps its error and stops. The upgrade path is a dead-letter view an
  *    operator can re-drive from, which is worth building when someone is
  *    watching these rows; today the failure is recorded with its reason rather
  *    than retried forever.
- *
- * Workstream W1 (hosted R3).
  */
 import type { HostedOutboxEntry } from "@/lib/hosted/contracts";
 import { env } from "@/lib/env";

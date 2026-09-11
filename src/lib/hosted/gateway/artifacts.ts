@@ -7,8 +7,6 @@
  * careless gateway leaks content to someone it already decided to refuse, so
  * all three are implemented on this side of the fence and the invocation
  * sentinel counts every one of them.
- *
- * Workstream W6 (hosted R3).
  */
 import type { NextRequest } from "next/server";
 import { HostedError, type ArtifactFile } from "@/lib/hosted/contracts";

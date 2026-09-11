@@ -24,8 +24,6 @@
  * Not a test file: vitest only collects `*.test.ts`. It also deliberately does
  * not import `vitest`, so `scripts/hosted-browser.ts` can use the server
  * adapter without dragging a test runner into a script.
- *
- * Workstream W10 (hosted R3).
  */
 import fs from "node:fs";
 import http from "node:http";
@@ -188,7 +186,7 @@ export function environmentNote(sqliteVersion: string): Record<string, string> {
  * one stranger every other suite uses. Gate 2 needs somebody who is not in that
  * cast at all — no workspace membership, no grant, nothing but an invitation —
  * so the recipient is declared here rather than appended to a shared fixture
- * this workstream does not own.
+ * the rest of the hosted suites depend on.
  */
 export const RECIPIENT = {
   subject: "55555555-5555-4555-8555-555555555555",

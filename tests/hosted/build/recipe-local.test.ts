@@ -6,8 +6,6 @@
  * checks the things that make the runner honest: it refuses to run unless the
  * install said it may, it hands the child no platform secret, it kills a build
  * that overruns or is cancelled, and it bounds the log it keeps.
- *
- * Workstream W2 (hosted R3).
  */
 import fs from "node:fs";
 import os from "node:os";

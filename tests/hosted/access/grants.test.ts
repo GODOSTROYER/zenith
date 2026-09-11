@@ -11,8 +11,6 @@
  *  3. Does a revoke land whole? State, sessions, ledger, outbox row and event
  *     commit together — proved both ways, by reading them after a success and
  *     by making one of them fail and finding nothing written.
- *
- * Workstream W5 (hosted R3).
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { isolatedDataDir, removeDir } from "../_fixtures";

@@ -5,8 +5,6 @@
  * clear anywhere, so it cannot be shown again; when this install has no SMTP
  * configured it is the only way the owner has to pass the invitation on, and
  * the delivery row in the same response says so in as many words.
- *
- * Workstream W5 (hosted R3).
  */
 import { z } from "zod";
 import { createInvite, listInvites, scheduleInviteDelivery } from "@/lib/hosted/access";

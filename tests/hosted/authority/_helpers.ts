@@ -5,8 +5,6 @@
  *
  * Nothing here mocks SQLite. Every helper writes through the real repositories
  * inside a real transaction against a real file.
- *
- * Workstream W1 (hosted R3).
  */
 import { createHash, randomUUID } from "node:crypto";
 import { RECIPE_V1, type ArtifactProvenance } from "@/lib/hosted/contracts";

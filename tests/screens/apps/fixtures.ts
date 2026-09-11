@@ -3,8 +3,6 @@
  * surface W5, W7 and W8 built, and flattened through the client module's own
  * mapper so a change there breaks these too. Not a test file — vitest only
  * picks up `*.test.tsx` here.
- *
- * Workstream W9 (hosted R3)
  */
 import {
   flattenApp,

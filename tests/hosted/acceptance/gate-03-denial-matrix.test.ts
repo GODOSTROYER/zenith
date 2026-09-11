@@ -16,8 +16,6 @@
  * The last case is the control origin itself. A request that reaches
  * `/hosted-gateway/...` carrying `Host: localhost:3400` is not an app request
  * however it got there, and it is answered 404 with no stamp of any kind.
- *
- * Workstream W10 (hosted R3).
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ArtifactStore, HostedApp } from "@/lib/hosted/contracts";

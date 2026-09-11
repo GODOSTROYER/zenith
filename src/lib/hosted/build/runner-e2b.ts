@@ -15,8 +15,6 @@
  * Honest limitation: nothing here has been run against the live service from
  * this repository. Network egress policy, sandbox teardown and artifact
  * extraction are provider behaviours, and they are **unverified live**.
- *
- * Workstream W2 (hosted R3).
  */
 import fs from "node:fs";
 import os from "node:os";

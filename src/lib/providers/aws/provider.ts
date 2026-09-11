@@ -7,8 +7,6 @@
  * it cannot read your account either. `executeStep`, `observe` and `discover`
  * therefore refuse, loudly and with the alternative named, and the access this
  * connection asks for is nothing at all (`PREVIEW_ACCESS`).
- *
- * Workstream A.
  */
 import type { CloudConnection, Environment, Manifest } from "@/lib/domain/types";
 import type {

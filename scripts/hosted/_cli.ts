@@ -5,8 +5,6 @@
  * A hosted refusal carries a fix, and a script that swallowed it into a stack
  * trace would throw away the only actionable part. So `fail()` prints the
  * message and the fix, on stderr, and exits non-zero.
- *
- * Workstream W8 (hosted R3).
  */
 import { HostedError } from "@/lib/hosted/contracts";
 

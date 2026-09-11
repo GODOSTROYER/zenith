@@ -11,8 +11,6 @@
  * The broker worker is the opposite case and is deliberately not here: it is
  * platform code, bundled from `workers/broker-worker.ts` and read from the
  * path `ZENITH_CF_BROKER_MODULE` names, never generated.
- *
- * Workstream W6 (hosted R3).
  */
 
 /** Compatibility date every uploaded script is pinned to. Pinned, never "today". */

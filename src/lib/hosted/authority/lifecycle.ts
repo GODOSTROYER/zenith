@@ -1,7 +1,7 @@
 /**
  * Opening, holding and closing the one control-authority connection.
  *
- * Re-exported by `./index`, which is the barrel every other workstream
+ * Re-exported by `./index`, which is the barrel every other module
  * imports. It lives in its own file only so that `jobs.ts` and `outbox.ts` can
  * depend on it without the barrel depending on them — `src/` keeps no static
  * import cycles (docs/OWNERSHIP.md).
@@ -16,8 +16,6 @@
  * open copies it aside and refuses to start. Continuing would serve an install
  * with no apps and no grants, and the next write would make that permanent —
  * exactly the failure `src/lib/db/store.ts` refuses for `state.json`.
- *
- * Workstream W1 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

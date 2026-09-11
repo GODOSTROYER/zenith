@@ -6,8 +6,6 @@
  * own bytes with provenance, and the trusted publisher really recomputes those
  * bytes before a release could reference them. A hostile submission is refused
  * at the first step and never reaches a runner.
- *
- * Workstream W2 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

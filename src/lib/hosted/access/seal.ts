@@ -14,8 +14,6 @@
  * somebody else's token. This mirrors `src/lib/secrets/index.ts` (workspace +
  * ref as AAD) deliberately, and does not import it: that store is a JSON file
  * of workspace secrets and has no business being reachable from app access.
- *
- * Workstream W5 (hosted R3).
  */
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { HostedError } from "@/lib/hosted/contracts";

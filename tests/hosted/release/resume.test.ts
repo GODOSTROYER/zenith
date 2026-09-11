@@ -13,8 +13,6 @@
  * reclaim the expired lease, claim the job, and carry on. The assertion that
  * matters is the negative one — the build runner is not asked a second time,
  * and the release the first attempt inserted is reused rather than duplicated.
- *
- * Workstream W7 (hosted R3).
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { IDENTITIES, WORKSPACES, isolatedDataDir, removeDir, uuid } from "../_fixtures";

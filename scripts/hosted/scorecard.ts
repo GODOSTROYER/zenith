@@ -9,8 +9,6 @@
  * `n`, and `unknown: true` with a reason wherever there is not enough data —
  * the point of this file is that a number in it can be quoted, and a missing
  * number cannot be mistaken for a zero.
- *
- * Workstream W8 (hosted R3).
  */
 import { closeAuthority, openAuthority } from "@/lib/hosted/authority";
 import { scorecard } from "@/lib/hosted/events";

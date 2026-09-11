@@ -16,8 +16,6 @@
  *    revocation-ledger append, outbox row and event commit together or not at
  *    all. Anything else can leave a grant marked revoked whose sessions are
  *    still serving pages.
- *
- * Workstream W5 (hosted R3).
  */
 import {
   HostedError,

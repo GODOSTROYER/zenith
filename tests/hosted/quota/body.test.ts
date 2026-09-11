@@ -5,8 +5,6 @@
  * is too big, and a chunked body that declares nothing and only turns out to
  * be too big while it is being read. The second is the one that matters —
  * anyone can omit a header.
- *
- * Workstream W8 (hosted R3).
  */
 import { describe, expect, it } from "vitest";
 import { isolatedDataDir, removeDir } from "../_fixtures";

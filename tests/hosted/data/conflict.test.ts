@@ -2,8 +2,6 @@
  * Two editors on one record: the version check, the compare-and-swap that
  * enforces it, and what happens when the two writers are two connections to the
  * same file.
- *
- * Workstream W3 (hosted R3).
  */
 import { afterAll, describe, expect, it } from "vitest";
 import { HostedError, type EquipmentRequest, type StaleVersionDetails } from "@/lib/hosted/contracts";

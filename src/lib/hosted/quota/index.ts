@@ -23,8 +23,6 @@
  * **What this module does not do**: decide who the caller is, whether the app
  * is suspended, or whether the host is known. Admission order is the gateway's
  * (W6); this is one step in it.
- *
- * Workstream W8 (hosted R3).
  */
 import {
   DEFAULT_LIMITS,

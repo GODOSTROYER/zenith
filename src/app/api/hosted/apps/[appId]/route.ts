@@ -7,8 +7,6 @@
  * makes a shared workspace usable — but who has access to a private app is the
  * owner's business, and a viewer reading the recipient list would be a leak
  * dressed as a convenience. So the owner check here is a question, not a gate.
- *
- * Workstream W7 (hosted R3).
  */
 import type { AppSummaryWire } from "@/lib/hosted/contracts";
 import { appSummary, requireOwnedApp } from "@/lib/hosted/release";

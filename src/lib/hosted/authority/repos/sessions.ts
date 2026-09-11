@@ -12,8 +12,6 @@
  * platform terminates by subject, revoking a grant terminates by grant, and
  * suspending an app terminates by app — each one statement, so the count they
  * return is the count that actually committed.
- *
- * Workstream W1 (hosted R3).
  */
 import type { DatabaseSync } from "node:sqlite";
 import type { AppSession, Subject } from "@/lib/hosted/contracts";

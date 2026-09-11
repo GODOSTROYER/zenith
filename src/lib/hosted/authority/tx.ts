@@ -26,8 +26,6 @@
  * instead of a second `BEGIN`, so an inner failure rolls back only the inner
  * work and the outer transaction stays intact. Retry is disabled while a
  * savepoint is active: only the outermost frame owns the decision to replay.
- *
- * Workstream W1 (hosted R3).
  */
 import type { DatabaseSync } from "node:sqlite";
 import { HostedError } from "@/lib/hosted/contracts";

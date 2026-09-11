@@ -10,8 +10,6 @@
  *
  * `ZENITH_CF_API_TOKEN` is read on exactly one line in this file, and nowhere
  * else in `src/`.
- *
- * Workstream W6 (hosted R3).
  */
 import { hostedConfig } from "@/lib/hosted/config";
 import { HostedError, type HostedRuntime, type RuntimeId } from "@/lib/hosted/contracts";

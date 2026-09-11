@@ -10,8 +10,6 @@
  *
  * A runtime that answers `null` may still fail later; what it promises is only
  * that nothing is missing before it starts.
- *
- * Workstream W6 (hosted R3).
  */
 import type { HostedRuntime } from "@/lib/hosted/contracts";
 

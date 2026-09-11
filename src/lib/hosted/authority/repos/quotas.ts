@@ -10,8 +10,6 @@
  * PLAN-R3 R3-12: every request that resolves to a known app host counts,
  * whatever its outcome, and the day rolls at 00:00 UTC. Callers pass the day
  * so the boundary is theirs to state and to test.
- *
- * Workstream W1 (hosted R3).
  */
 import type { DatabaseSync } from "node:sqlite";
 import type { QuotaCounter } from "@/lib/hosted/contracts";

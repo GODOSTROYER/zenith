@@ -9,8 +9,7 @@
  * Agentic control is therefore architected from day one; the agent surface
  * ships last, but it will have nothing to learn that the UI doesn't already do.
  *
- * SPINE FILE — owned by the integrator. Concrete actions live in
- * src/lib/actions/defs/ (workstream ownership).
+ * Concrete actions live in src/lib/actions/defs/.
  */
 import { z } from "zod";
 import { appendAudit, db, save } from "@/lib/db/store";
@@ -143,7 +142,7 @@ export function roleOf(actor: Actor, workspaceId: string): Role {
  * actor, so two people deploying the same changeset are two actions with two
  * audit rows — not one silently swallowed by the other's replay.
  *
- * ponytail: in-process only. A restart clears the window, so a retry that
+ * TODO(ceiling): in-process only. A restart clears the window, so a retry that
  * crosses a restart applies twice. `IDEM_WINDOW_NOTE` states that out loud;
  * persist the map beside state.json if that stops being acceptable.
  */

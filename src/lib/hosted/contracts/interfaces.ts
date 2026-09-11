@@ -1,15 +1,15 @@
 /**
- * Interfaces between hosted workstreams. Implementations live in their owning
+ * Interfaces between the hosted modules. Implementations live in their owning
  * module; consumers depend on these types only.
  *
- *   BuildRunner    — src/lib/hosted/build      (W2)
- *   ArtifactStore  — src/lib/hosted/artifacts  (W2)
- *   AppDataStore   — src/lib/hosted/data       (W3)
- *   HostedRuntime  — src/lib/hosted/runtime    (W6)
- *   BackupTarget   — src/lib/hosted/backup     (W8)
- *   SessionAuthority — src/lib/hosted/access   (W5)
+ *   BuildRunner      — src/lib/hosted/build
+ *   ArtifactStore    — src/lib/hosted/artifacts
+ *   AppDataStore     — src/lib/hosted/data
+ *   HostedRuntime    — src/lib/hosted/runtime
+ *   BackupTarget     — src/lib/hosted/backup
+ *   SessionAuthority — src/lib/hosted/access
  *
- * SPINE FILE — owned by the integrator. Import from `@/lib/hosted/contracts`.
+ * Import from `@/lib/hosted/contracts`.
  */
 import type {
   AppRole,

@@ -16,7 +16,7 @@
  * refused, naming the variable and how to generate one. It never degrades to
  * writing plaintext.
  *
- * ponytail: read-through file access, no cache — the file is small and written
+ * TODO(ceiling): read-through file access, no cache — the file is small and written
  * rarely, and a cache is a correctness bug the moment two things hold the data
  * directory. Move it behind the same interface if that stops being true.
  */

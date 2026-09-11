@@ -23,8 +23,6 @@
  *
  * This is the only barrel in the directory. Import from
  * `@/lib/hosted/authority`, never from a file inside it.
- *
- * Workstream W1 (hosted R3).
  */
 export {
   authority,

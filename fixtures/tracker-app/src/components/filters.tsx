@@ -1,8 +1,6 @@
 /**
  * Status and category filters. Both are plain selects, both reset the list,
  * and "Any" is a real option rather than a cleared field.
- *
- * Workstream W4 (hosted R3)
  */
 import {
   REQUEST_CATEGORIES,

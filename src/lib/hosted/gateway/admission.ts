@@ -12,8 +12,6 @@
  * same decisions are made twice: once by `handle.ts` for the local runtime,
  * and once by `/api/hosted/policy/admit` for an edge worker that has no access
  * to the authority at all.
- *
- * Workstream W6 (hosted R3).
  */
 import { authority, utcDay } from "@/lib/hosted/authority";
 import { hostedConfig, slugFromHost } from "@/lib/hosted/config";

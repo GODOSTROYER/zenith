@@ -19,8 +19,6 @@
  *
  * `fetch` is injectable, which is how the runtime tests assert the exact shape
  * of every request without a Cloudflare account existing.
- *
- * Workstream W6 (hosted R3).
  */
 import { HostedError } from "@/lib/hosted/contracts";
 

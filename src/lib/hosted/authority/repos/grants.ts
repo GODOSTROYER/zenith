@@ -11,8 +11,6 @@
  * Revoked rows are kept, not deleted: the history is what a restore reconciles
  * against (`revocations.ts`), and a deleted row cannot prove a person was ever
  * removed.
- *
- * Workstream W1 (hosted R3).
  */
 import type { DatabaseSync } from "node:sqlite";
 import type { AppGrant, AppRole, GrantState, Subject } from "@/lib/hosted/contracts";

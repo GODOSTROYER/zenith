@@ -6,8 +6,6 @@
  * No Cloudflare credentials exist on this machine and no live D1 database was
  * contacted (decision R3-03). This proves the request the adapter builds and
  * the way it reads a reply — it does not prove D1 accepts either.
- *
- * Workstream W3 (hosted R3).
  */
 import { afterAll, describe, expect, it } from "vitest";
 import { HostedError } from "@/lib/hosted/contracts";

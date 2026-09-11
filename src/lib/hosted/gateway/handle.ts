@@ -21,8 +21,6 @@
  *
  * A denial never reaches steps 9 or 10's payload: `gatewayTelemetry` counts
  * artifact reads and broker calls, and the denial tests assert both are zero.
- *
- * Workstream W6 (hosted R3).
  */
 import type { NextRequest } from "next/server";
 import type { HostedApp } from "@/lib/hosted/contracts";

@@ -1,6 +1,6 @@
 "use client";
 /**
- * The single point where workstream E2 touches workstream E1's project shell.
+ * The single point where the screens touch the project shell.
  * Every screen reads the project through `useSelectedEnv()`, so if the shell
  * moves or changes shape there is exactly one file to repoint.
  */

@@ -11,8 +11,6 @@
  * Two sections are explicitly NOT portable and say so: the connection pragmas
  * (local SQLite connection setup, never sent to D1) and the transaction control
  * statements (D1's HTTP API has no interactive transactions — it batches).
- *
- * Workstream W3 (hosted R3).
  */
 
 /* ------------------------- local SQLite connection ------------------------ */

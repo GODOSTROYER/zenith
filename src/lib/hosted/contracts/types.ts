@@ -1,12 +1,12 @@
 /**
  * Records held by the hosted control authority (SQLite, `@/lib/hosted/authority`)
- * and the vocabulary every hosted workstream shares.
+ * and the vocabulary every hosted module shares.
  *
  * These shapes are the wire and storage truth for hosted apps. Workspace,
  * Member and Project stay in `@/lib/domain/types` and the legacy JSON store;
  * nothing below is ever written there.
  *
- * SPINE FILE — owned by the integrator. Import from `@/lib/hosted/contracts`.
+ * Import from `@/lib/hosted/contracts`.
  */
 
 /** Supabase user id (`sub` claim). Never an email: emails change, subjects do not. */

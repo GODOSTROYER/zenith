@@ -1,7 +1,7 @@
 /**
  * The per-app customer data layer — the fixed broker's storage side.
  *
- * The one import for wave-2 consumers:
+ * The one import for consumers:
  *
  *   import { openAppData, TrackerDataStore } from "@/lib/hosted/data";
  *
@@ -10,8 +10,6 @@
  * session. Everything else here exists for the release runner (test database
  * reset, schema version), ops (storage bytes, write-ledger purge) and the
  * Cloudflare runtime (the D1 backend).
- *
- * Workstream W3 (hosted R3).
  */
 export {
   type AsyncDataBackend,

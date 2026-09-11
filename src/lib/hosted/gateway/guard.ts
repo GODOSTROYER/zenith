@@ -21,8 +21,6 @@
  * comes back from the artifact store or from app code can forge the marker,
  * because the store never produces headers at all — the marker is added by the
  * constructors below and by nothing else.
- *
- * Workstream W6 (hosted R3).
  */
 
 /**

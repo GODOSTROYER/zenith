@@ -5,8 +5,6 @@
  * Honesty rule (non-negotiable, from the category audit): a provider's
  * `availability` drives every label in the UI. Never present "planned"
  * as available.
- *
- * SPINE FILE — owned by the integrator.
  */
 import type {
   CloudConnection,

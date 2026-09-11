@@ -6,8 +6,6 @@
  * exchange callback — are the only doors into a private app, so they get the
  * most attention here: the page must render with no script under the gateway's
  * own CSP, and a failed redemption must bounce with a code and nothing else.
- *
- * Workstream W6 (hosted R3).
  */
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { IDENTITIES, isolatedDataDir, removeDir } from "../_fixtures";

@@ -472,7 +472,7 @@ mirrors `src/`.
 | [docs/CONTRACTS.md](docs/CONTRACTS.md) | The spine modules, global invariants, API conventions, the action catalog |
 | [docs/DESIGN.md](docs/DESIGN.md) | Design language, tokens, motion, voice, the interaction law |
 | [docs/LIMITATIONS.md](docs/LIMITATIONS.md) | What is real, partial, and not yet built — updated at each phase |
-| [docs/DEBT.md](docs/DEBT.md) | Every deliberate ceiling and its upgrade path; the `ponytail:` markers |
+| [docs/DEBT.md](docs/DEBT.md) | Every deliberate ceiling and its upgrade path; the `TODO(ceiling):` markers |
 | [docs/OWNERSHIP.md](docs/OWNERSHIP.md) | Which paths belong to which workstream, and where a UI change goes |
 
 ---

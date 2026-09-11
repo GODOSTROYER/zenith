@@ -1,11 +1,10 @@
 /**
  * The gateway's one seam.
  *
- * The gateway sits on top of four sibling workstreams — access (W5), quota and
- * events (W8), artifacts (W2) and data (W3). Production code calls those
- * modules directly through this object, which is initialised from the real
- * imports; a test replaces individual members with doubles so the admission
- * pipeline can be exercised before every sibling has landed.
+ * The gateway sits on top of four sibling modules — access, quota and events,
+ * artifacts and data. Production code calls those modules directly through this
+ * object, which is initialised from the real imports; a test replaces individual
+ * members with doubles so the admission pipeline can be exercised in isolation.
  *
  * Two rules keep this honest:
  *
@@ -13,8 +12,6 @@
  *     way anything else gets in, and nothing in `src/` calls it.
  *  2. Replacing a dependency never replaces a *decision*. Every refusal in
  *     `handle.ts` is decided there; the doubles only supply data.
- *
- * Workstream W6 (hosted R3).
  */
 import {
   appSessionCookie,

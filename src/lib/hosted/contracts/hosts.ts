@@ -2,7 +2,7 @@
  * App-host naming — pure string rules shared by the edge middleware, the
  * gateway and the control API. No imports, so the edge runtime can use it.
  *
- * SPINE FILE — owned by the integrator. Import from `@/lib/hosted/contracts`.
+ * Import from `@/lib/hosted/contracts`.
  */
 
 /** Slug rule: lowercase, 3–40 chars, starts and ends alphanumeric, hyphens inside. */

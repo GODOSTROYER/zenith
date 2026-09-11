@@ -3,8 +3,6 @@
  *
  *   store.ts      FsArtifactStore: create-only, sha256-keyed, re-checkable
  *   publisher.ts  the trusted check a release must pass before it may activate
- *
- * Workstream W2 (hosted R3).
  */
 export {
   ARTIFACT_CONTENT_TYPES,

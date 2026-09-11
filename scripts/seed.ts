@@ -209,7 +209,7 @@ async function main() {
     const sec = await import("../src/lib/security/rules");
     (sec as { syncFindings?: (p: string) => void }).syncFindings?.(project.id);
   } catch {
-    /* module arrives with workstream A */
+    /* the security module is optional for a seed run */
   }
 
   const cost = monthlyCostUsd(manifest);

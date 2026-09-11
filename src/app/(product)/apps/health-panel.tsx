@@ -5,8 +5,6 @@
  * The `simulated` label appears when — and only when — the payload says the
  * result was generated rather than measured. A screen that shows a green tick
  * for a check nobody ran is the failure mode this panel exists to prevent.
- *
- * Workstream W9 (hosted R3)
  */
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";

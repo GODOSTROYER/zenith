@@ -19,8 +19,6 @@
  * so this run pins `ZENITH_ARTIFACT_DIR` to one directory both installs read —
  * which is what an operator restoring onto separate object storage would do.
  * That is a modelled arrangement, not a proven one; ACCEPTANCE-R3.md says so.
- *
- * Workstream W10 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

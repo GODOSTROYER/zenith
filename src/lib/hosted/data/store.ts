@@ -7,8 +7,6 @@
  *
  * This file is a re-export so existing `@/lib/hosted/data/store` imports keep
  * resolving. New code should import from `@/lib/hosted/data` (the barrel).
- *
- * Workstream W3 (hosted R3).
  */
 export {
   TrackerDataStore,

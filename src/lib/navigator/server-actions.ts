@@ -1,7 +1,7 @@
 "use server";
 /**
- * The Navigator's write path. The GET routes under /api/navigator are read-only
- * (workstream D), so creating and running a plan happens here as server actions
+ * The Navigator's write path. The GET routes under /api/navigator are read-only,
+ * so creating and running a plan happens here as server actions
  * — same process, same store, same audit log.
  *
  * Errors come back as data (`{ error, fix }`) so the UI can always name the fix

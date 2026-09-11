@@ -15,8 +15,6 @@
  * into the hash. The guarantee is the same either way; the difference is that
  * the refusal can say *which* thing changed, which is what makes a 409
  * actionable instead of mysterious.
- *
- * Workstream W1 (hosted R3).
  */
 import { createHash } from "node:crypto";
 import { HostedError, type HostedJob, type JobKind, type Subject } from "@/lib/hosted/contracts";

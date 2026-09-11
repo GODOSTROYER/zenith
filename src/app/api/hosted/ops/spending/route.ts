@@ -13,8 +13,6 @@
  * enqueues at most one alert per workspace per month. It is not the *primary*
  * trigger: `checkSpendThresholds()` is called after usage is recorded, so an
  * alert does not wait for somebody to open this page.
- *
- * Workstream W8 (hosted R3).
  */
 import { HostedError, type HostedSpendingPayload } from "@/lib/hosted/contracts";
 import { RATE_TABLE, SPEND_DISCLOSURE, checkSpendThresholds } from "@/lib/hosted/usage";

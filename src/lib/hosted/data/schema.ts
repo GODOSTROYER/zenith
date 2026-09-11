@@ -7,8 +7,6 @@
  * change is rejected at publish intake, not applied here.
  *
  * Every statement lives in `sql.ts` so a D1 backend runs the same DDL.
- *
- * Workstream W3 (hosted R3).
  */
 import { TRACKER_SCHEMA_VERSION } from "@/lib/hosted/contracts";
 import type { DataBackend } from "./backend";

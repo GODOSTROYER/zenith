@@ -1,8 +1,6 @@
 /**
  * Job admission, single flight, leases and fencing — the four properties that
  * make "retry the publish" a safe instruction.
- *
- * Workstream W1 (hosted R3).
  */
 import { afterAll, describe, expect, it } from "vitest";
 import { isolatedDataDir, removeDir } from "../_fixtures";

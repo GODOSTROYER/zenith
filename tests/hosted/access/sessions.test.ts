@@ -11,8 +11,6 @@
  * The session tests are the other half of R3-10: a live session has to stop
  * being live the moment the grant behind it, the app in front of it, or the
  * person's platform session goes away — with no cache in between.
- *
- * Workstream W5 (hosted R3).
  */
 import { afterAll, describe, expect, it } from "vitest";
 import { isolatedDataDir, removeDir, type TestIdentity } from "../_fixtures";

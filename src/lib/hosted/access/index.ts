@@ -1,10 +1,9 @@
 /**
  * App access — grants, invitations, exchanges and app sessions.
  *
- * The barrel every other workstream imports (`@/lib/hosted/access`). The
- * signatures here are the ones the integrator's stub published and W6, W7 and
- * the boot path already code against; this file may gain exports, never change
- * one.
+ * The barrel every other module imports (`@/lib/hosted/access`). The gateway,
+ * the release pipeline and the boot path already code against these
+ * signatures; this file may gain exports, never change one.
  *
  * What lives behind it:
  *
@@ -18,8 +17,6 @@
  * `http.ts` (the /api layer for these routes) is intentionally not re-exported:
  * the gateway and the job runner import this barrel and have no business
  * pulling the request layer in behind it.
- *
- * Workstream W5 (hosted R3).
  */
 
 export {

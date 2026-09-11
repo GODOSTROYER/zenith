@@ -10,8 +10,6 @@
  * Nothing a builder submitted is executed, loaded as configuration or installed
  * from. The recipe compiles the source with esbuild/rollup transforms and the
  * platform's own React plugin, and that is all.
- *
- * Workstream W2 (hosted R3).
  */
 import fs from "node:fs";
 import { createRequire } from "node:module";
@@ -42,7 +40,7 @@ export const RECIPE_WORKER_RELATIVE = path.posix.join("src", "lib", "hosted", "b
 /**
  * The directory that owns the `node_modules` holding the pinned toolchain.
  *
- * ponytail: discovered by walking up from `process.cwd()`, because that is the
+ * TODO(ceiling): discovered by walking up from `process.cwd()`, because that is the
  * one anchor that behaves the same under `next`, `vitest`, `tsx` and the
  * container image. A deployment that starts the server from somewhere else must
  * pass `platformRoot` explicitly to the runner; `availability()` says so rather

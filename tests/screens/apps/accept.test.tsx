@@ -2,8 +2,6 @@
  * Accepting an invitation — the recipient's only Zenith page. Success ends in
  * the app; every refusal names the three things that break an invitation and
  * shows the address the person is actually signed in as.
- *
- * Workstream W9 (hosted R3)
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";

@@ -7,7 +7,7 @@
  * unavailable 503, quota 429, suspended 423. Sensitive responses are
  * `cache-control: no-store`. A denial never invokes app code or the broker.
  *
- * SPINE FILE — owned by the integrator. Import from `@/lib/hosted/contracts`.
+ * Import from `@/lib/hosted/contracts`.
  */
 
 export type HostedErrorCode =

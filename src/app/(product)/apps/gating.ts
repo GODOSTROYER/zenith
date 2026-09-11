@@ -8,7 +8,7 @@
  * running. The server enforces all of it; this is what lets a button refuse
  * before it is pressed.
  *
- * Pure — no React. Workstream W9 (hosted R3)
+ * Pure — no React.
  */
 import type { AppState, Availability } from "@/lib/hosted/contracts";
 import type { BuilderInfo } from "@/lib/client/hosted";

@@ -2,8 +2,6 @@
  * The app screen end to end: every section renders from one payload, the two
  * roles publishing needs are both named, and a recovering app says that
  * reopening it is an operator's job.
- *
- * Workstream W9 (hosted R3)
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Suspense, act } from "react";

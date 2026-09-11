@@ -5,8 +5,6 @@
  * The rules under the upload option are the supported-source contract said in
  * plain words, with its real numbers — a builder should learn why an archive
  * was refused before uploading it, not after.
- *
- * Workstream W9 (hosted R3)
  */
 import { FileArchive } from "lucide-react";
 import { cx } from "@/lib/format";

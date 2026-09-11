@@ -12,8 +12,6 @@
  * assert against.
  *
  * Not a test file — vitest only collects `*.test.ts`.
- *
- * Workstream W7 (hosted R3).
  */
 import fs from "node:fs";
 import os from "node:os";

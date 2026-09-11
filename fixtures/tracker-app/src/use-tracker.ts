@@ -7,8 +7,6 @@
  *   - a write id survives a retry of the same bytes and is replaced the moment
  *     the bytes change, which is what re-basing after a conflict does;
  *   - a refusal becomes a state, never a thrown error the screen has to catch.
- *
- * Workstream W4 (hosted R3)
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import {

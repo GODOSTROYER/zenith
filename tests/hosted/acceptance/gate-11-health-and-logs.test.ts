@@ -18,8 +18,6 @@
  * the two modules rather than by calling the legacy route, which needs a
  * signed-in workspace request this suite does not build. That limitation is in
  * ACCEPTANCE-R3.md.
- *
- * Workstream W10 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

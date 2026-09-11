@@ -4,7 +4,7 @@
  * and open to every role, so this is also how a row knows a fix would be
  * refused before anyone clicks it.
  *
- * ponytail: one request per fixable finding, in parallel. A batch plan
+ * TODO(ceiling): one request per fixable finding, in parallel. A batch plan
  * endpoint if a project ever carries enough findings for that to matter.
  */
 import { useEffect, useRef, useState } from "react";

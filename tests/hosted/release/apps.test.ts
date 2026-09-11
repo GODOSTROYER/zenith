@@ -6,8 +6,6 @@
  * cannot exist is for both writes to be one commit. The runtime is asked
  * afterwards, outside the transaction, and a runtime that refuses leaves a
  * real app carrying the reason rather than a creation that half-happened.
- *
- * Workstream W7 (hosted R3).
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { APPS, IDENTITIES, WORKSPACES, isolatedDataDir, removeDir } from "../_fixtures";

@@ -2,8 +2,6 @@
  * The banner every state uses, and the polite live region that announces a
  * save. One shape, so "saved", "denied" and "the host is not answering" all
  * read the same way and none of them can be mistaken for the others.
- *
- * Workstream W4 (hosted R3)
  */
 import type { ReactNode } from "react";
 

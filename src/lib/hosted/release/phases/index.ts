@@ -10,8 +10,6 @@
  * only to its own records, and is safe to re-enter: each skips itself when its
  * output is already recorded, because a resumed job re-runs the phase that was
  * in flight when the last worker stopped.
- *
- * Workstream W7 (hosted R3).
  */
 import type { PublishPhase } from "../publish";
 import type { JobRun, PhaseData } from "../shared";

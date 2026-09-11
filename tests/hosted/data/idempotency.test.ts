@@ -1,8 +1,6 @@
 /**
  * Write ids: replaying a retried mutation, refusing a reused id that carries a
  * different intent, surviving a restart, and the retention sweep.
- *
- * Workstream W3 (hosted R3).
  */
 import { afterAll, describe, expect, it } from "vitest";
 import { HostedError, TRACKER_LIMITS } from "@/lib/hosted/contracts";

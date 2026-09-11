@@ -6,8 +6,6 @@
  * at the restored directory, and try to reopen. Reopening has to refuse twice
  * for two different reasons before it succeeds once: grants that a human has
  * to look at, and checks that no human may wave through.
- *
- * Workstream W8 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

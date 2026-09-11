@@ -5,8 +5,6 @@
  * month per threshold however many times the check runs, builds pause at 90 %
  * and nothing else does, and a workspace with no envelope is never paused —
  * because zero is "nobody has approved a budget", not "the budget is nothing".
- *
- * Workstream W8 (hosted R3).
  */
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { isolatedDataDir, removeDir } from "../_fixtures";

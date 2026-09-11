@@ -14,7 +14,7 @@ import { membershipPolicy } from "@/lib/auth/policy";
 import type { SessionUser } from "@/lib/auth/session";
 
 /** Invites in the settings bag: the store's `Database` shape is a spine file. */
-// ponytail: settings.invites; move to a Database column when the store gains one
+// TODO(ceiling): settings.invites; move to a Database column when the store gains one
 export const readInvites = (): Invite[] => {
   const raw = db().settings.invites;
   return Array.isArray(raw) ? (raw as Invite[]) : [];

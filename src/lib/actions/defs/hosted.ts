@@ -15,8 +15,6 @@
  * configured, spending past the pause threshold, a suspended app, a missing
  * owner grant. A plan with `blocked` set is what makes the confirm control
  * disabled instead of dead.
- *
- * Workstream W7 (hosted R3).
  */
 import { z } from "zod";
 import { defineAction, type ActionContext, type ActionResult } from "@/lib/actions/core";

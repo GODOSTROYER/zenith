@@ -2,8 +2,6 @@
  * Limits say where they are enforced, and health says whether anyone actually
  * measured it. Both are the difference between a screen that informs and a
  * screen that reassures.
- *
- * Workstream W9 (hosted R3)
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";

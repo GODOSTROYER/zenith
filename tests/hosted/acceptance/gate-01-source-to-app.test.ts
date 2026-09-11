@@ -18,8 +18,6 @@
  * The last case is what makes the digest mean something. A byte of a stored
  * artifact is changed after the release is live, and both the store's own
  * `verify()` and `appHealth` have to notice.
- *
- * Workstream W10 (hosted R3).
  */
 import fs from "node:fs";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";

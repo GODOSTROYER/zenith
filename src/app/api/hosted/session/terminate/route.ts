@@ -9,8 +9,6 @@
  * grant-adjacent call where the session may already be gone by the time it
  * runs, and it only ever removes access — a caller who somehow reached it can
  * end their own sessions and nobody else's.
- *
- * Workstream W5 (hosted R3).
  */
 import { terminateAppSessionsForSubject } from "@/lib/hosted/access";
 import type { SessionsTerminatedWire } from "@/lib/hosted/contracts";

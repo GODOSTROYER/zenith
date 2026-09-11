@@ -12,8 +12,6 @@
  * truth and the runtime is derived from it, so the honest outcome is an app
  * that says on its face why it is not ready yet (`stateReason`) rather than a
  * creation that half-happened and reported success.
- *
- * Workstream W7 (hosted R3).
  */
 import { authority, nowIso } from "@/lib/hosted/authority";
 import { appHostname, appOrigin, hostedConfig } from "@/lib/hosted/config";
@@ -160,7 +158,7 @@ export interface AppSummary {
 /**
  * App, active release, history and running job in one read.
  *
- * ponytail: the hostname comes from `ZENITH_APP_DOMAIN` rather than from
+ * TODO(ceiling): the hostname comes from `ZENITH_APP_DOMAIN` rather than from
  * `HostedRuntime.hostname(app)`. The two agree for both runtimes today (the
  * naming rule is the contract, not a runtime detail), and reading it from
  * config means a summary still renders when the runtime is unavailable —

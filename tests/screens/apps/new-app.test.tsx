@@ -1,8 +1,6 @@
 /**
  * Creating an app: the URL name rule has to be readable before the button is
  * pressed, and a reserved name has to say it is reserved.
- *
- * Workstream W9 (hosted R3)
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";

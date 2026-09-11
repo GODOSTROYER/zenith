@@ -1,8 +1,6 @@
 /**
  * A publish while it runs: phases in order, every reason on a failure, and no
  * claim that anything is live until the server has said `succeeded`.
- *
- * Workstream W9 (hosted R3)
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";

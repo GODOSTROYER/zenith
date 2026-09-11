@@ -7,8 +7,6 @@
  * same record. Access comes back as *intent*: everyone on the manifest arrives
  * held for re-approval under a placeholder subject, because a grant is bound
  * to an identity-provider subject and those do not travel.
- *
- * Workstream W8 (hosted R3).
  */
 import { afterAll, describe, expect, it } from "vitest";
 import { isolatedDataDir, removeDir } from "../_fixtures";

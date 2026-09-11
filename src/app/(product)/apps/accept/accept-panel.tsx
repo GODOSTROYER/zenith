@@ -6,8 +6,6 @@
  * success the only control is the app itself; on refusal the three reasons an
  * invitation stops working are spelled out, together with the address the
  * person is actually signed in as, because that is usually the mismatch.
- *
- * Workstream W9 (hosted R3)
  */
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";

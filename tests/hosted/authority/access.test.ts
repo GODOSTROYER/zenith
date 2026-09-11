@@ -5,8 +5,6 @@
  * Each of them is one conditional UPDATE, and each test here is really the
  * same question asked three ways — what happens when the same thing is
  * redeemed twice, and what happens exactly on the deadline.
- *
- * Workstream W1 (hosted R3).
  */
 import { afterAll, describe, expect, it } from "vitest";
 import { isolatedDataDir, removeDir } from "../_fixtures";

@@ -3,8 +3,6 @@
  *
  * A candidate that does not pass here is never activated, and the message on
  * the release is the probe's own words.
- *
- * Workstream W7 (hosted R3).
  */
 import { authority } from "@/lib/hosted/authority";
 import {

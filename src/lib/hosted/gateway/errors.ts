@@ -7,8 +7,6 @@
  *
  * Nothing here reads app state or app code: `respondWithError` is reachable
  * from the very first line of the pipeline, before the host is even known.
- *
- * Workstream W6 (hosted R3).
  */
 import { HostedError, hostedErrorBody, type HostedErrorBody } from "@/lib/hosted/contracts";
 import { gatewayHtml, gatewayJson } from "./guard";

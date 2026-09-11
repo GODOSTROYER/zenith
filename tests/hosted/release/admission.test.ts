@@ -13,8 +13,6 @@
  * the one refusal that has to happen later, inside the job, because reading it
  * is what proves it hostile — so the job fails with every reason listed and the
  * app keeps serving whatever it was serving.
- *
- * Workstream W7 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

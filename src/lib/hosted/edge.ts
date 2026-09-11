@@ -9,8 +9,6 @@
  *
  * Edge runtime: no `node:` imports, no store, no config module — only
  * `process.env` and the pure host rules from the contracts.
- *
- * SPINE FILE — owned by the integrator.
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { gatewayPath, slugFromHost } from "@/lib/hosted/contracts/hosts";

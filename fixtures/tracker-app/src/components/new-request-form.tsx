@@ -1,8 +1,6 @@
 /**
  * The "new request" form. It owns the draft, checks the same limits the host
  * checks, and refuses to call anything saved until the host says so.
- *
- * Workstream W4 (hosted R3)
  */
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {

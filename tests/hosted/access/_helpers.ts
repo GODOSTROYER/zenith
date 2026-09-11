@@ -5,8 +5,6 @@
  * Nothing here stubs the authority. Every helper writes through the real
  * repositories, inside a real transaction, against a real SQLite file in an
  * isolated data directory.
- *
- * Workstream W5 (hosted R3).
  */
 import { createHash, randomUUID } from "node:crypto";
 import type { AppRole, VerifiedIdentity } from "@/lib/hosted/contracts";

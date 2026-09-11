@@ -1,8 +1,6 @@
 /**
  * The Apps list: what a card is allowed to claim, and what the banner above it
  * has to repeat word for word from the API.
- *
- * Workstream W9 (hosted R3)
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";

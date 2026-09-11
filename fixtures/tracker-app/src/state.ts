@@ -5,8 +5,6 @@
  *
  * Nothing here touches React or the network, so every rule below can be read
  * and tested on its own.
- *
- * Workstream W4 (hosted R3)
  */
 import {
   isApiError,

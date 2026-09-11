@@ -7,8 +7,6 @@
  * with the rate table (an estimate, labelled), and the limit table with the
  * honest enforcement column — `not_enforced` for the CPU and subrequest
  * ceilings that belong to Cloudflare and are not measured on this runtime.
- *
- * Workstream W8 (hosted R3).
  */
 import { DEFAULT_LIMITS, HostedError, type HostedUsage } from "@/lib/hosted/contracts";
 import { authority } from "@/lib/hosted/authority";

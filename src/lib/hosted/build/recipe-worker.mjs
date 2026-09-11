@@ -15,8 +15,6 @@
  *
  * It never loads a submitted `vite.config`, never runs a submitted script,
  * never installs anything, and reads no environment variable of its own.
- *
- * Workstream W2 (hosted R3).
  */
 import fs from "node:fs";
 import { createRequire } from "node:module";

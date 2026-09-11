@@ -7,8 +7,6 @@
  * The result panel is deliberately unglamorous — it reports what the mail
  * server did, not what we hope happened, and hands over the link when nothing
  * was sent.
- *
- * Workstream W9 (hosted R3)
  */
 import { useState } from "react";
 import { UserPlus } from "lucide-react";

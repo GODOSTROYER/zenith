@@ -16,9 +16,7 @@
  *
  * The middleware's session gate must treat `/api/hosted/policy` as public
  * (`isPublicPath`): the caller is a worker holding a shared secret, not a
- * signed-in browser. See this workstream's report.
- *
- * Workstream W6 (hosted R3).
+ * signed-in browser.
  */
 import crypto from "node:crypto";
 import type { NextRequest } from "next/server";

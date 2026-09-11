@@ -4,7 +4,7 @@
  * says so on its own row — a table that renders every limit as if it were
  * enforced is the dishonest version of this screen.
  *
- * Pure — no React. Workstream W9 (hosted R3)
+ * Pure — no React.
  */
 import { fmtDuration } from "@/lib/format";
 import type { HostedLimits, LimitEnforcement } from "@/lib/hosted/contracts";

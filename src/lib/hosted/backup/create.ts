@@ -33,13 +33,11 @@
  * contains. It is the number a restore compares against the off-host ledger to
  * learn which revocations postdate the file it just wrote (G23).
  *
- * ponytail: the whole bundle is assembled in memory before it is sealed, so
+ * TODO(ceiling): the whole bundle is assembled in memory before it is sealed, so
  * peak memory is roughly the size of the databases. That is right for a pilot
  * measured in megabytes and wrong for an install measured in gigabytes; a
  * streaming container is the upgrade, and it needs a streaming AEAD rather
  * than one `createCipheriv` pass.
- *
- * Workstream W8 (hosted R3).
  */
 import fs from "node:fs";
 import os from "node:os";

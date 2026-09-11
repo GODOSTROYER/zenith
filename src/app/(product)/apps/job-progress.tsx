@@ -8,8 +8,6 @@
  * authority recorded; a failure shows every reason at once so a builder fixes
  * them in one pass, and Retry replays the same job id, which is what makes it
  * safe to press twice.
- *
- * Workstream W9 (hosted R3)
  */
 import { useEffect, useRef, useState } from "react";
 import { Check, ExternalLink, RotateCcw, X } from "lucide-react";

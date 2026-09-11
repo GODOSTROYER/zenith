@@ -7,8 +7,6 @@
  * release number when there is a release, a running publish when a job is
  * actually moving. The banner above them says what serves these apps and what
  * could build the next version, in the runtime's and the runners' own words.
- *
- * Workstream W9 (hosted R3)
  */
 import { useState } from "react";
 import Link from "next/link";

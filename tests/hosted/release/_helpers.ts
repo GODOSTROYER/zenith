@@ -8,8 +8,6 @@
  * top of a test file would pin the developer's real `.data` directory.
  *
  * Not a test file — vitest only collects `*.test.ts`.
- *
- * Workstream W7 (hosted R3).
  */
 import path from "node:path";
 import type { ArtifactStore, HostedApp } from "@/lib/hosted/contracts";
@@ -57,7 +55,7 @@ export interface WiringOptions extends Omit<RuntimeDoubleOptions, "store"> {
 /**
  * Point the release module at doubles and return them, plus the undo.
  *
- * Everything that reaches outside this workstream is replaced: the runtime,
+ * Everything that reaches outside the release module is replaced: the runtime,
  * the build runner, the grant check, the usage ledger. What is *not* replaced
  * is the authority, the artifact store, the source validator and the release
  * pipeline itself — those are what the tests are about.

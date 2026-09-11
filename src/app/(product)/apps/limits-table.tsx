@@ -2,8 +2,6 @@
  * The limits this app runs under, and — the column that matters — whether the
  * thing serving it actually enforces each one. A limit the local runtime cannot
  * enforce says so on its own row instead of implying a guarantee nobody made.
- *
- * Workstream W9 (hosted R3)
  */
 import { StatusDot, type DotStatus } from "@/components/ui/status-dot";
 import { Table } from "@/components/ui/table";

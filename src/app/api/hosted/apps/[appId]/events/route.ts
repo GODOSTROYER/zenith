@@ -6,8 +6,6 @@
  * contents and never a person's id or email. That is what makes it safe to
  * show an owner what their colleagues have been doing *at the level of "a
  * request was updated"* without showing them the request.
- *
- * Workstream W8 (hosted R3).
  */
 import type { AppEventsWire } from "@/lib/hosted/contracts";
 import { appLogs } from "@/lib/hosted/health";

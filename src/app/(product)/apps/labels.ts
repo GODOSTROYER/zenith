@@ -3,7 +3,7 @@
  * reads instead. One map per vocabulary, so a state never reads two ways on
  * two screens — and so `superseded` never reaches a person.
  *
- * Pure — no React. Workstream W9 (hosted R3)
+ * Pure — no React.
  */
 import type { ChipTone } from "@/components/ui/chip";
 import type {
@@ -91,7 +91,7 @@ export const APP_ROLE_OPTIONS = (["owner", "editor", "viewer"] as const).map((ro
 }));
 
 /**
- * Probe ids the release workstream names, in words. An id this map does not
+ * Probe ids the release pipeline names, in words. An id this map does not
  * know is spaced and capitalised rather than shown as `data_round_trip`.
  */
 export const HEALTH_CHECK_TITLE: Record<string, string> = {

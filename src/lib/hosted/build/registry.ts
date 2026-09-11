@@ -5,8 +5,6 @@
  * `ZENITH_BUILD_RUNNER` is the single switch. Its default (`none`) selects no
  * runner at all, so a hosted install that has not decided where builds happen
  * refuses to build rather than quietly falling back to the control host.
- *
- * Workstream W2 (hosted R3).
  */
 import type { Availability, BuildRunner, BuildRunnerId } from "@/lib/hosted/contracts";
 import { hostedConfig } from "@/lib/hosted/config";

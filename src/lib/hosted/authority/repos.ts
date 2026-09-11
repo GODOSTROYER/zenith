@@ -6,8 +6,6 @@
  * authority, which is what lets any combination of them run inside one
  * `tx()` — the grant revoke, the session terminations, the ledger append and
  * the outbox row are one transaction because they are one connection.
- *
- * Workstream W1 (hosted R3).
  */
 import type { DatabaseSync } from "node:sqlite";
 import { createAppsRepo, type AppsRepo } from "./repos/apps";

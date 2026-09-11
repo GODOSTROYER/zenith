@@ -6,8 +6,6 @@
  * fire before any of them. They establish nothing about Cloudflare — no
  * account was contacted, and the seven feasibility gates in DECISIONS.md are
  * untouched by a green run here.
- *
- * Workstream W6 (hosted R3).
  */
 import { afterAll, describe, expect, it } from "vitest";
 import type { HostedError as HostedErrorType } from "@/lib/hosted/contracts";

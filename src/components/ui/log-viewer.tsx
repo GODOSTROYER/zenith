@@ -259,7 +259,7 @@ export function LogViewer({
       {/*
        * role="log" + aria-relevant="additions" announces new lines only, never
        * the whole buffer, and never the old lines dropped off the top.
-       * ponytail: politeness is tied to Follow — turning Follow off silences the
+       * TODO(ceiling): politeness is tied to Follow — turning Follow off silences the
        * region, which is the same gesture that stops the visual firehose. A
        * per-line rate limiter would need a buffer; add one if a provider ever
        * bursts thousands of lines at once.

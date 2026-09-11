@@ -11,8 +11,6 @@
  * what the plan says, whether the plan is blocked, and whether execute agrees
  * with the plan. A plan that says "go" and an execute that refuses would be a
  * worse bug than either refusing on its own.
- *
- * Workstream W7 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

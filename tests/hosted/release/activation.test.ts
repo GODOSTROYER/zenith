@@ -12,8 +12,6 @@
  *
  * The first publish in each case is a real, successful one, so what is being
  * protected is a healthy release rather than an empty pointer.
- *
- * Workstream W7 (hosted R3).
  */
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { IDENTITIES, WORKSPACES, isolatedDataDir, removeDir, uuid } from "../_fixtures";

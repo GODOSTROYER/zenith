@@ -4,8 +4,6 @@
  * than implying capability Zenith does not have.
  *
  * Every method fails loudly and names the alternative. Nothing here pretends.
- *
- * Workstream A.
  */
 import type { CloudConnection, Environment, Manifest, ProviderId } from "@/lib/domain/types";
 import type {

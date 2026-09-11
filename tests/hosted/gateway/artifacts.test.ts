@@ -5,8 +5,6 @@
  * `HEAD`, `Range` and a conditional request are all implemented on the far
  * side of admission, so each of them is tested twice here: once admitted (it
  * works) and once not (it is a 401 with the sentinel at zero).
- *
- * Workstream W6 (hosted R3).
  */
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { IDENTITIES, isolatedDataDir, removeDir } from "../_fixtures";

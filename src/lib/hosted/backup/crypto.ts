@@ -22,8 +22,6 @@
  * The key id is a *label*, not a check value: eight hex characters of the key's
  * own hash, enough to tell "the wrong key" from "the wrong file" in an error
  * message, far too little to help anyone recover the key.
- *
- * Workstream W8 (hosted R3).
  */
 import crypto from "node:crypto";
 import { HostedError } from "@/lib/hosted/contracts";

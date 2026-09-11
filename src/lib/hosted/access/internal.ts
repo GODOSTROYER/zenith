@@ -12,8 +12,6 @@
  *  - **Nothing here ever writes a subject into an event.** `hosted_events`
  *    stores `subject_hash`; `subjectHashUnchecked()` is the only way this module
  *    produces one.
- *
- * Workstream W5 (hosted R3).
  */
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import {

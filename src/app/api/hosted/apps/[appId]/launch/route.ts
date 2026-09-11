@@ -10,8 +10,6 @@
  *
  * `POST` answers `{ redirect }` for a page that will `location.assign` it;
  * `GET ?state=` answers a 303 to the same URL, so a plain link works too.
- *
- * Workstream W5 (hosted R3).
  */
 import { NextResponse } from "next/server";
 import { z } from "zod";

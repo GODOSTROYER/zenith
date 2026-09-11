@@ -14,8 +14,6 @@
  *
  * Nothing here executes submitted code; the only thing that ever runs is the
  * platform's own recipe, and it never reads a submitted config or script.
- *
- * Workstream W2 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

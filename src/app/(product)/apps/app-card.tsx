@@ -2,8 +2,6 @@
  * One app on the Apps list: what it is called, where it lives, whether anything
  * is happening to it right now, and the two things a builder does from here —
  * open it, or copy its address for someone who was invited.
- *
- * Workstream W9 (hosted R3)
  */
 import Link from "next/link";
 import { ExternalLink, Users } from "lucide-react";

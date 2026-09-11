@@ -2,8 +2,6 @@
  * Releases: what each version's health check found, and when rolling back is
  * offered — a release that never passed cannot be made live, and the button
  * says that instead of failing on the server.
- *
- * Workstream W9 (hosted R3)
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";

@@ -5,7 +5,7 @@
  *
  *  - Nothing here is a mock of the thing under test. The artifact store, the
  *    authority and the tracker data store are all real; only the sibling
- *    workstreams the gateway *calls* (access W5, quota and events W8) are
+ *    modules the gateway *calls* (access, quota and events) are
  *    doubled, through the seam the gateway owns.
  *  - Every double behaves like the contract it stands in for, including its
  *    refusals — a `readJsonBody` that never throws `body_too_large` would make
@@ -13,8 +13,6 @@
  *
  * This module imports only `next/server` and the pure contracts, so it is safe
  * to import statically above a test's `isolatedDataDir()` call.
- *
- * Workstream W6 (hosted R3).
  */
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
@@ -225,7 +223,7 @@ export interface Doubles {
 }
 
 /**
- * Doubles for the sibling workstreams the gateway calls.
+ * Doubles for the sibling modules the gateway calls.
  *
  * They are not permissive stand-ins: `resolveAppSession` answers null for a
  * cookie minted against another app (which is exactly the case the sibling-app

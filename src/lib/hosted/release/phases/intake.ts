@@ -5,8 +5,6 @@
  * The first phase of the publish pipeline (see `../publish.ts`). Nothing here
  * executes anything a builder submitted: the source is read, bounded, hashed
  * and materialized, and that is all.
- *
- * Workstream W7 (hosted R3).
  */
 import fs from "node:fs";
 import { HostedError, type HostedJob, type ValidatedSource } from "@/lib/hosted/contracts";

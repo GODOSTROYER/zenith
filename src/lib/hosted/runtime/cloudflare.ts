@@ -22,8 +22,6 @@
  * Immutability is enforced by name *and* by readback: a script that already
  * exists under a candidate's name must carry that candidate's digest in its
  * tags, or staging refuses rather than replacing it.
- *
- * Workstream W6 (hosted R3).
  */
 import fs from "node:fs";
 import { FsArtifactStore } from "@/lib/hosted/artifacts";

@@ -16,8 +16,6 @@
  * The third changes `index.html`, so the artifact digest really does move. In
  * both cases every equipment request written under the previous release is
  * still there, at the version it had, readable through the new one.
- *
- * Workstream W10 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

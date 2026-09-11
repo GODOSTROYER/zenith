@@ -13,8 +13,6 @@
  * identical bytes, so it lands on the artifact the first job stored: the
  * release history grows, the pointer moves, and the platform does not rebuild
  * or re-store what it already has.
- *
- * Workstream W7 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

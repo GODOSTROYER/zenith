@@ -9,8 +9,6 @@
  *
  * A revoke ends that grant's app sessions in the same transaction, so "removed"
  * is true for the next request rather than for the next sign-in.
- *
- * Workstream W5 (hosted R3).
  */
 import { z } from "zod";
 import { changeGrantRole, revokeGrant } from "@/lib/hosted/access";

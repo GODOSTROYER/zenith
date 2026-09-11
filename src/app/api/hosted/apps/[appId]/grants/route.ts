@@ -5,8 +5,6 @@
  * grants nothing here. The read is happy with the resolved session; the write
  * asks the identity provider who is calling and uses *its* answer as the
  * granter, because a signed-out session must not be able to hand out access.
- *
- * Workstream W5 (hosted R3).
  */
 import { z } from "zod";
 import { grantDirect, listGrants } from "@/lib/hosted/access";

@@ -1,6 +1,6 @@
 /**
  * Presentation formatting shared by every surface — the one place money,
- * times and durations are turned into strings. Owned by workstream C.
+ * times and durations are turned into strings.
  *
  * Knows nothing about the domain: no manifest, no store, no React. Naming
  * (slugs for manifest node names) is a domain rule, not a format one, and

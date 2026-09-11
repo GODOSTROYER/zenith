@@ -9,8 +9,6 @@
  *   reopen.ts   the deliberate second step, with real checks
  *
  * The one import for consumers: `@/lib/hosted/backup`.
- *
- * Workstream W8 (hosted R3).
  */
 export {
   FilesystemTarget,

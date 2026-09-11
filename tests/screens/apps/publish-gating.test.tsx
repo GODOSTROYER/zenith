@@ -2,8 +2,6 @@
  * Publishing is refused for four different reasons and each one has to say
  * which it is — a builder who cannot publish should never have to guess whether
  * it is their role, the machine, the money or a job already running.
- *
- * Workstream W9 (hosted R3)
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";

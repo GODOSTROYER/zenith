@@ -6,8 +6,6 @@
  * E2B runner makes (including that the sandbox is killed even when the build
  * fails), the exact `docker run` argument vector (the flags *are* the boundary),
  * and the availability answers that keep either from pretending it can run.
- *
- * Workstream W2 (hosted R3).
  */
 import { EventEmitter } from "node:events";
 import fs from "node:fs";

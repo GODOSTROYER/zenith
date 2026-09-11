@@ -12,8 +12,6 @@
  *   runner-e2b.ts          disposable remote sandbox (unverified live)
  *   runner-docker.ts       throwaway container (unverified live)
  *   registry.ts            which runner this install selected, and its status
- *
- * Workstream W2 (hosted R3).
  */
 export {
   RECIPE_ALIAS_SPECIFIERS,

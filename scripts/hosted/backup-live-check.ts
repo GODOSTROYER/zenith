@@ -29,8 +29,6 @@
  * processes appending at once would lose a revocation. LocalStack Community
  * has historically been inconsistent here, which is exactly why the answer is
  * measured rather than assumed.
- *
- * Workstream W8 (hosted R3).
  */
 import { randomUUID } from "node:crypto";
 import { S3Target } from "@/lib/hosted/backup";

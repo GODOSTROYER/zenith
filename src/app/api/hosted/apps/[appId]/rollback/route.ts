@@ -5,8 +5,6 @@
  * changes which artifact serves and touches no record any user wrote. The
  * compatibility check between the target release's schema and the app's data
  * happens inside the job, before the pointer moves.
- *
- * Workstream W7 (hosted R3).
  */
 import { z } from "zod";
 import type { JobAccepted } from "@/lib/hosted/contracts";

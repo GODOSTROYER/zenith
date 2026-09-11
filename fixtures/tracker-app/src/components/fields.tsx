@@ -2,8 +2,6 @@
  * Form controls. Every one has a real <label>, an id that ties the two
  * together, and room for an error and a hint that screen readers reach through
  * aria-describedby. Bounded fields say how much room is left as you type.
- *
- * Workstream W4 (hosted R3)
  */
 import type { ReactNode, Ref } from "react";
 

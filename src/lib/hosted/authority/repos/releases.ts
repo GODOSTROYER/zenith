@@ -12,8 +12,6 @@
  * `nextNumber` is a read-then-write and is only race-free inside the caller's
  * transaction. Call it inside `tx()`; the `UNIQUE (app_id, number)` constraint
  * is the backstop if someone does not.
- *
- * Workstream W1 (hosted R3).
  */
 import type { DatabaseSync } from "node:sqlite";
 import type { CandidateProbeResult, Release, ReleaseStatus, RuntimeId } from "@/lib/hosted/contracts";

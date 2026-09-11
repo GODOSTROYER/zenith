@@ -5,8 +5,6 @@
  * This is the re-verification the publish property depends on: a healthy app
  * is only replaced by a candidate whose bytes have been read back and hashed
  * again, from the store, by the publisher.
- *
- * Workstream W7 (hosted R3).
  */
 import { authority } from "@/lib/hosted/authority";
 import { verifyForRelease } from "@/lib/hosted/artifacts";

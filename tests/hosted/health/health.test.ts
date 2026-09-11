@@ -6,8 +6,6 @@
  * this file guards more than any other is that `simulated` is never true — the
  * infrastructure product has a labelled simulated health surface, and a hosted
  * app's health must never be confused with it.
- *
- * Workstream W8 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

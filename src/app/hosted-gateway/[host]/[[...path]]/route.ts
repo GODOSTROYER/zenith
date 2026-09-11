@@ -11,8 +11,6 @@
  * The gateway never emits an `access-control-*` header, so a cross-origin
  * caller is told the truth (nothing here is available to it) rather than being
  * handed a preflight that promises otherwise.
- *
- * Workstream W6 (hosted R3).
  */
 import type { NextRequest } from "next/server";
 import { handleGateway } from "@/lib/hosted/gateway";

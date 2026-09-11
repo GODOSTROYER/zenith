@@ -9,8 +9,6 @@
  * The owner check is sequenced rather than declared: the app has to be found
  * inside this workspace first, so an app id from another workspace answers
  * "not found" instead of "you are not its owner".
- *
- * Workstream W7 (hosted R3).
  */
 import { authority } from "@/lib/hosted/authority";
 import { HostedError, type HostedJobPayload } from "@/lib/hosted/contracts";

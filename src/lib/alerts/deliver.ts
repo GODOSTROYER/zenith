@@ -26,7 +26,7 @@
  * message. Every terminal outcome is appended to `event.deliveries` and stamped
  * on the channel as `lastDelivery`: a failure is recorded, not thrown.
  *
- * ponytail: no dead-lettering and no per-channel circuit breaker. Three
+ * TODO(ceiling): no dead-lettering and no per-channel circuit breaker. Three
  * attempts with backoff, then the row is `failed` with its reason on the event
  * and the operator retries with Test on the channel. A `failed` row is never
  * re-driven on its own; that is what a dead-letter screen would add.
@@ -221,7 +221,7 @@ async function sendEmail(channel: AlertChannel, msg: AlertMessage): Promise<void
   const transport = nodemailer.createTransport(e.ORRERY_SMTP_URL!);
   const { subject, text } = emailBody(msg);
   try {
-    // ponytail: the timeout races the send rather than aborting the socket —
+    // TODO(ceiling): the timeout races the send rather than aborting the socket —
     // nodemailer's own connectionTimeout/socketTimeout would need the URL taken
     // apart. Pass them as query params on ORRERY_SMTP_URL if a hung SMTP
     // connection ever needs to be closed rather than abandoned.

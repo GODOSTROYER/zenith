@@ -12,8 +12,6 @@
  *     provider double here is the *real* `supabaseSessionAuthority` over a fake
  *     client, so the classification under test is the shipping one: a provider
  *     that cannot be reached becomes 503, never an admitted request.
- *
- * Workstream W5 (hosted R3).
  */
 import { afterEach, beforeEach, afterAll, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";

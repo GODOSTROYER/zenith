@@ -12,8 +12,6 @@
  *
  * Nothing here does I/O or knows about an account: it is pure, so the readback
  * rules can be read, and tested, without a Cloudflare token.
- *
- * Workstream W6 (hosted R3).
  */
 import { cfRefusal } from "./cf-api";
 

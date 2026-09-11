@@ -14,8 +14,6 @@
  * resolves. That is the point — a `{ kind: "fixture", name }` source is a path
  * on the control host, and the only safe way to accept one from a request is
  * to never take the path from the request at all.
- *
- * Workstream W7 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

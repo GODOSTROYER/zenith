@@ -12,8 +12,6 @@
  * `INSERT_REQUEST_WITHIN_QUOTA`, in column order, exported so the export
  * writer builds its rows from the same list rather than from a second copy
  * that drifts.
- *
- * Workstream W3 (hosted R3).
  */
 import { z } from "zod";
 import {
@@ -131,7 +129,7 @@ export type CursorPayload = z.infer<typeof CursorPayload>;
 /**
  * The opaque page cursor: base64url of the last row's ordering key.
  *
- * ponytail: the cursor is opaque but unauthenticated — it carries no
+ * TODO(ceiling): the cursor is opaque but unauthenticated — it carries no
  * privileges, only a position inside rows the caller may already read, so the
  * worst a tampered cursor can do to its own sender is skip or repeat their own
  * app's rows. Signing it would need a key this module deliberately does not

@@ -8,8 +8,6 @@
  *
  * No testing library: react-dom/client, act, and the DOM the app really
  * renders.
- *
- * Workstream W4 (hosted R3)
  */
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";

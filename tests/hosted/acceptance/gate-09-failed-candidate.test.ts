@@ -13,8 +13,6 @@
  * written *after* release 2 went live, the app is rolled back to release 1, and
  * those records are still there. A rollback that reached for a snapshot would
  * lose exactly them.
- *
- * Workstream W10 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

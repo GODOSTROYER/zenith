@@ -14,8 +14,6 @@
  * `--acknowledge-reapproval` states that an operator has seen the grants that
  * the restore held. It does not re-approve them: those people still cannot
  * open the app until an owner grants each of them again.
- *
- * Workstream W8 (hosted R3).
  */
 import { closeAuthority, openAuthority } from "@/lib/hosted/authority";
 import { reopenApp } from "@/lib/hosted/backup";

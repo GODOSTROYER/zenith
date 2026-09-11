@@ -5,8 +5,6 @@
  *
  * Rolling back is not restoring. The confirmation says so in those words,
  * because they are the two things a builder must not confuse under pressure.
- *
- * Workstream W9 (hosted R3)
  */
 import { useState } from "react";
 import { Undo2 } from "lucide-react";

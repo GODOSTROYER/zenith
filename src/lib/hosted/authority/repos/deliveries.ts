@@ -11,8 +11,6 @@
  * email — this module stores bytes and nothing else. It is erased with
  * `clearSealedPayload` once the row settles, which is what bounds how long a
  * working invitation link exists inside the database.
- *
- * Workstream W1 (hosted R3).
  */
 import type { DatabaseSync } from "node:sqlite";
 import type { DeliveryState, InviteDelivery } from "@/lib/hosted/contracts";

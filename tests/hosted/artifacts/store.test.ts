@@ -6,8 +6,6 @@
  * on disk afterwards is detected and named, a traversal path is refused rather
  * than resolved, a referenced artifact cannot be removed, and provenance that
  * disagrees with the release is refused field by field.
- *
- * Workstream W2 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

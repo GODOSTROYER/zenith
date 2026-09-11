@@ -6,8 +6,6 @@
  * as trustworthy as the record they sum. A ledger whose rows can be edited can
  * be made to say anything; one that can only grow can be re-summed by anyone
  * who doubts the total.
- *
- * Workstream W1 (hosted R3).
  */
 import type { DatabaseSync } from "node:sqlite";
 import type { UsageEntry } from "@/lib/hosted/contracts";

@@ -7,8 +7,6 @@
  * control says so before it is pressed rather than after a 409. And revoking
  * is explained in terms of what the person will experience, because that is the
  * thing the owner is actually deciding.
- *
- * Workstream W9 (hosted R3)
  */
 import { useState } from "react";
 import { Trash2 } from "lucide-react";

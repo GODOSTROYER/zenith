@@ -9,8 +9,6 @@
  *
  * It lives under `tests/hosted/backup/` because that is inside W8's exclusive
  * paths; the other W8 suites import it from here.
- *
- * Workstream W8 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

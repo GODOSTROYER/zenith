@@ -1,8 +1,6 @@
 /**
  * Small labels that carry meaning. Every one is text first: colour is the
  * second signal, never the only one.
- *
- * Workstream W4 (hosted R3)
  */
 import type { RequestPriority, RequestStatus, SessionRole } from "../api";
 import { priorityLabel, statusLabel } from "../state";

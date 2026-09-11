@@ -16,8 +16,6 @@
  * `_zenith/`, so the artifact really does hold a competing file. It does: the
  * source submitted here carries `public/_zenith/session.json`, which the build
  * emits at `_zenith/session.json` — and which the gateway never serves.
- *
- * Workstream W10 (hosted R3).
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ArtifactStore, HostedApp, SessionInfo } from "@/lib/hosted/contracts";

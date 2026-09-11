@@ -9,8 +9,6 @@
  *
  * Rejections are collected rather than thrown one at a time, so a builder sees
  * every problem in one answer (`unsupported_source` with `details.reasons`).
- *
- * Workstream W2 (hosted R3).
  */
 import zlib from "node:zlib";
 import { HostedError, SOURCE_LIMITS, type SourceFile } from "@/lib/hosted/contracts";

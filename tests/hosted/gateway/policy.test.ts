@@ -6,8 +6,6 @@
  * otherwise 401 an unauthenticated POST before it ran. That gate needs
  * `/api/hosted/policy` added to `isPublicPath`; the endpoint's own bearer check
  * is what actually protects it, and these tests are what pin that down.
- *
- * Workstream W6 (hosted R3).
  */
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";

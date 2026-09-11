@@ -8,8 +8,6 @@
  * Two of them — the sign-in page and the exchange callback — are reachable
  * without a session, because they are how a session begins. Everything else
  * here is behind the same admission as an artifact.
- *
- * Workstream W6 (hosted R3).
  */
 import type { NextRequest } from "next/server";
 import { hostedConfig } from "@/lib/hosted/config";

@@ -12,8 +12,6 @@
  * Moving it to L5 is what removes this file's two cycles (`→ server/context`
  * and `→ actions/core`): calling L4 from the request edge is the normal
  * direction. This file stays as the import path it always was.
- *
- * Workstream W7 (hosted R3).
  */
 export {
   accepted,

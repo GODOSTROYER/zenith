@@ -29,8 +29,6 @@
  *   8. does all of it at 1280px and again at 375px, collecting console errors.
  *
  * Exit codes: 0 every step passed; 1 a step failed; 2 no browser to run in.
- *
- * Workstream W10 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

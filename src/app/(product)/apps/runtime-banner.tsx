@@ -9,8 +9,6 @@
  * The API lists every runner it knows about rather than the one it would pick,
  * so this panel reports availability per runner and refuses to imply a build
  * will work when none of them can run.
- *
- * Workstream W9 (hosted R3)
  */
 import type { ReactNode } from "react";
 import { Card } from "@/components/ui/card";

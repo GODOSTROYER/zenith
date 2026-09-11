@@ -13,8 +13,6 @@
  * `apps`, because the ledger has to be readable against a snapshot in which
  * the app row does not exist yet; and there is no update or delete here at
  * all.
- *
- * Workstream W1 (hosted R3).
  */
 import type { DatabaseSync } from "node:sqlite";
 import type { RevocationLedgerEntry, Subject } from "@/lib/hosted/contracts";

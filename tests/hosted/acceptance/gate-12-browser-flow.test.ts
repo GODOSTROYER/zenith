@@ -18,8 +18,6 @@
  * What this file does **not** establish is stated plainly in ACCEPTANCE-R3.md:
  * no JavaScript is executed here, no layout happens, and a passing run of this
  * file is not a passing run of gate 12.
- *
- * Workstream W10 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

@@ -14,8 +14,6 @@
  * Honest limitation: the image has not been built and no container has been run
  * from this repository. The argv, the mount modes and the availability probe are
  * tested; the runtime behaviour is **unverified live**.
- *
- * Workstream W2 (hosted R3).
  */
 import { spawn as nodeSpawn, type ChildProcess, type SpawnOptions } from "node:child_process";
 import fs from "node:fs";

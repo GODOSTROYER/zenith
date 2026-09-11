@@ -1,8 +1,6 @@
 /**
  * Shared helpers for the W3 data tests. Not a test file — vitest only collects
  * `*.test.ts`.
- *
- * Workstream W3 (hosted R3).
  */
 import type { DataContext, EquipmentRequestInput } from "@/lib/hosted/contracts";
 import { IDENTITIES, type TestIdentity } from "../_fixtures";

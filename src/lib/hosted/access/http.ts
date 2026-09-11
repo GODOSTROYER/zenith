@@ -11,8 +11,6 @@
  * **not** re-exported from `access/index.ts`: the gateway and the job runner
  * import that barrel, and neither should be dragging the /api request layer in
  * behind it.
- *
- * Workstream W5 (hosted R3).
  */
 export {
   RoleSchema,

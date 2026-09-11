@@ -10,8 +10,6 @@
  * Both names are content-addressed on purpose. A release script carries the
  * artifact digest, so two different builds can never contend for one name and
  * a name can never be quietly reused for different bytes.
- *
- * Workstream W6 (hosted R3).
  */
 
 /** `zenith-<slug>-r<number>-<first 12 of digest>` — one script per set of bytes. */

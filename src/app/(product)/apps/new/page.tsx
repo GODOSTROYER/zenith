@@ -3,8 +3,6 @@
  * Create an app: a name for people, and a URL name that becomes the first part
  * of its address. The address is shown while it is being typed, because it is
  * the part that cannot be changed later without changing every link.
- *
- * Workstream W9 (hosted R3)
  */
 import { useState } from "react";
 import Link from "next/link";

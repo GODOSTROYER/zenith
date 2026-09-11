@@ -9,8 +9,6 @@
  *
  * These are process-wide numbers, not per-request state: they exist for tests
  * and for a health probe to read, never for admission decisions.
- *
- * Workstream W6 (hosted R3).
  */
 
 /** What the gateway has actually invoked in this process. */

@@ -5,8 +5,6 @@
  * candidate off a live hostname, so the tests here check that it passes on a
  * healthy fixture *and* that each individual check can actually fail — a probe
  * that cannot fail is a probe that proves nothing.
- *
- * Workstream W6 (hosted R3).
  */
 import { afterAll, describe, expect, it } from "vitest";
 import fs from "node:fs";

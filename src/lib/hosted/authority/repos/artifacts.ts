@@ -11,8 +11,6 @@
  * `verified_at` is set by the trusted publisher only after recomputing the
  * digest over the stored bytes. A release may reference an unverified digest;
  * activating one is W7's refusal to make, with this column as the evidence.
- *
- * Workstream W1 (hosted R3).
  */
 import type { DatabaseSync } from "node:sqlite";
 import type { Artifact, ArtifactProvenance } from "@/lib/hosted/contracts";

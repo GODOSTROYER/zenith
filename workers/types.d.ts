@@ -2,8 +2,8 @@
  * The Cloudflare runtime shapes these workers use, declared here rather than
  * pulled from `@cloudflare/workers-types`.
  *
- * Two reasons. This wave adds no dependency (`npm install` is out of scope for
- * every workstream), and these files are not part of the Next build — they are
+ * Two reasons. The workers add no dependency to this repository, and these
+ * files are not part of the Next build — they are
  * sources an operator bundles separately — so the only thing that must
  * typecheck them is the repository's own `tsc --noEmit`. Declaring the four
  * shapes we actually use keeps that honest and keeps the surface visible: if a
@@ -11,8 +11,6 @@
  *
  * These are structural declarations, not a compatibility claim: nothing below
  * has been run on Cloudflare. See README.md in this directory.
- *
- * Workstream W6 (hosted R3).
  */
 
 /** One D1 statement's outcome. `changes` is what a conditional write is judged by. */

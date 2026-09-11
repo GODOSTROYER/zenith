@@ -7,8 +7,6 @@
  * store ever grew a header path — and checks what survives. The end-to-end
  * half walks every status the gateway can produce and asserts the same set of
  * headers on all of them.
- *
- * Workstream W6 (hosted R3).
  */
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { IDENTITIES, isolatedDataDir, removeDir } from "../_fixtures";

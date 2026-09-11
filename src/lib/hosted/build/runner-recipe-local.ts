@@ -11,8 +11,6 @@
  *
  * It is allowed to run only when `ZENITH_BUILD_RUNNER=recipe-local`; otherwise
  * `availability()` names the variable and points at the isolated runners.
- *
- * Workstream W2 (hosted R3).
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
@@ -41,7 +39,7 @@ export const secretEnvKeys = (keys: readonly string[]): string[] =>
  * spawns, and an empty `NODE_OPTIONS` so an inherited `--require` cannot inject
  * code. Nothing else is passed.
  *
- * ponytail: Windows' `CreateProcess` adds `SYSTEMROOT`, `TEMP`, `USERPROFILE`
+ * TODO(ceiling): Windows' `CreateProcess` adds `SYSTEMROOT`, `TEMP`, `USERPROFILE`
  * and friends whatever the parent supplies, so the child's own view of its
  * environment is a little wider than this object on that platform. None of
  * those names can carry a platform secret, and the build tests assert the

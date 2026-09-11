@@ -1,8 +1,6 @@
 /**
  * The role matrix, contract validation, and reading: create → get → list,
  * ordering, keyset pagination and filters.
- *
- * Workstream W3 (hosted R3).
  */
 import { afterAll, describe, expect, it } from "vitest";
 import {

@@ -11,7 +11,7 @@
  * someone else holds it. The error names the running pid, the directory both
  * processes resolved to, and the way out.
  *
- * ponytail: a pid file, not a real lock. It cannot survive a machine with two
+ * TODO(ceiling): a pid file, not a real lock. It cannot survive a machine with two
  * containers sharing a volume (different pid namespaces, same directory).
  * Upgrade path is an exclusive open of the state file itself, or moving off
  * whole-file rewrites — both bigger than this problem is today.

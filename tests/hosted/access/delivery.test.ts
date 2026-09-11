@@ -15,8 +15,6 @@
  *
  * The seal itself is checked directly: opened with the right invitation id,
  * refused with any other, and never containing the token in clear.
- *
- * Workstream W5 (hosted R3).
  */
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { isolatedDataDir, removeDir } from "../_fixtures";

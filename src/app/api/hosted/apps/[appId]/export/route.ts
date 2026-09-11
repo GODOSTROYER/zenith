@@ -5,8 +5,6 @@
  * headers and `no-store`: this document holds every equipment request in the
  * app, so it must not sit in a shared cache, and it should land in the user's
  * downloads rather than render in a tab.
- *
- * Workstream W8 (hosted R3).
  */
 import { NextResponse } from "next/server";
 import { exportApp } from "@/lib/hosted/export";

@@ -11,8 +11,6 @@
  *
  * "Sent" here means one thing only: the SMTP server accepted the message.
  * Nothing in this file ever claims a mailbox received it.
- *
- * Workstream W5 (hosted R3).
  */
 import { INVITE_TTL_MS } from "@/lib/hosted/contracts";
 import { hostedConfig } from "@/lib/hosted/config";

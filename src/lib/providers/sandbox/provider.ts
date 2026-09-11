@@ -4,8 +4,6 @@
  * Honesty rule: everything this adapter produces is labeled simulated. The log
  * stream is invented-but-credible Zenith Sandbox output; it never impersonates
  * AWS or any other vendor. Health reported is health computed.
- *
- * Workstream A.
  */
 import {
   fnv1a,

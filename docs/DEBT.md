@@ -4,25 +4,27 @@ A map, not a backlog. Everything here is deliberate or measured; nothing is a
 vague worry. Snapshot taken while polishing `src/lib` (see the report at the
 bottom for what was fixed in that pass).
 
-Counts, recounted 2026-09-10 over `src/**/*.{ts,tsx,mjs}`: **37 `ponytail:`
-markers** — 32 in `src/lib` (21 of them in `src/lib/hosted`, 11 elsewhere), 3 in
-`src/app`, 2 in `src/components`. **0 `TODO`/`FIXME`.** One dead export kept on
-purpose; fourteen removed (four in the `src/lib` polish pass, ten on
-2026-09-10). **3 duplicate helpers unified.**
+Counts, recounted 2026-09-11 over `src/**/*.{ts,tsx,mjs}`: **39
+`TODO(ceiling):` markers** — 35 in `src/lib` (22 of them in `src/lib/hosted`, 13
+elsewhere), 2 in `src/app`, 2 in `src/components`. **0 plain `TODO`/`FIXME`.**
+One dead export kept on purpose; fourteen removed (four in the `src/lib` polish
+pass, ten on 2026-09-10). **3 duplicate helpers unified.**
 
-Recount before quoting a number here — `grep -rn 'ponytail:' src` and this
-file's own tables are the two things most likely to drift apart:
+Recount before quoting a number here — the grep below and this file's own
+tables are the two things most likely to drift apart:
 
 ```bash
-grep -rn 'ponytail:' src --include='*.ts' --include='*.tsx' --include='*.mjs' | wc -l
+grep -rn 'TODO(ceiling):' src --include='*.ts' --include='*.tsx' --include='*.mjs' | wc -l
 ```
 
 ---
 
-## 1. `ponytail:` markers — deliberate ceilings
+## 1. `TODO(ceiling):` markers — deliberate ceilings
 
-Each names the ceiling it accepts and the upgrade path. In `src/lib`, outside
-`hosted/`:
+A `TODO(ceiling):` marker is not an unfinished task. It names a limit the code
+accepts on purpose, together with the upgrade path out of it, in the standard
+`TODO(<context>):` spelling that editors, linters and `grep` already
+understand. In `src/lib`, outside `hosted/`:
 
 | Where | Ceiling |
 | --- | --- |
@@ -31,18 +33,18 @@ Each names the ceiling it accepts and the upgrade path. In `src/lib`, outside
 | `src/lib/db/store.ts:433` | In-memory event tail is capped; older reads fall back to a file scan. |
 | `src/lib/data-lock.ts:14` | A pid file, not a real lock. Two containers sharing a volume (different pid namespaces) defeat it. Upgrade: exclusive open of the state file, or stop rewriting it whole. |
 | `src/lib/actions/core.ts:146` | Idempotency replay window is in-process. A retry that crosses a restart applies twice; `IDEM_WINDOW_NOTE` says so on the wire. |
-| `src/lib/server/context.ts:120` | Invites live in `settings`, not a `Database` column. |
+| `src/lib/server/membership.ts:17` | Invites live in `settings`, not a `Database` column. |
 | `src/lib/alerts/index.ts:28` | One global 15s evaluation interval — no per-rule schedule, no hysteresis. |
 | `src/lib/alerts/deliver.ts:29` | No dead-lettering, no per-channel circuit breaker. Three attempts, then the failure is recorded and dropped. |
 | `src/lib/alerts/deliver.ts:224` | The delivery timeout races the send rather than aborting the socket. Delivery itself is durable (outbox rows are claimed before the send and settled after), so a timeout costs a retry, not a lost alert. |
 | `src/lib/secrets/index.ts:19` | Read-through file access, no cache. Deliberate: a cache is a correctness bug the moment two processes hold the data directory. |
-| `src/lib/providers/localstack/index.ts:765` | "Unowned" means unowned *by this environment*; two Zenith environments against one LocalStack see each other's resources as extra. |
+| `src/lib/providers/localstack/observe.ts:105` | "Unowned" means unowned *by this environment*; two Zenith environments against one LocalStack see each other's resources as extra. |
 
 Eleven markers, and none of them is in `src/lib/hosted`.
 
 ### `src/lib/hosted` — 21 markers
 
-The hosted subsystem's ceilings are listed per marker in **[section 8](#8-hosted-apps-revision-3--ponytail-markers)** rather than repeated here, because they belong to one subsystem with one set of decisions behind it (docs/hosted/DECISIONS.md). By directory, and what each group is about:
+The hosted subsystem's ceilings are listed per marker in **[section 8](#8-hosted-apps-revision-3--todoceiling-markers)** rather than repeated here, because they belong to one subsystem with one set of decisions behind it (docs/hosted/DECISIONS.md). By directory, and what each group is about:
 
 | Directory | Markers | The shape of the ceiling |
 | --- | --- | --- |
@@ -56,10 +58,10 @@ The hosted subsystem's ceilings are listed per marker in **[section 8](#8-hosted
 
 ### Outside `src/lib` — 5 markers
 
-Owned by the UI and API workstreams, listed so this file is the one place to
+Owned by the UI and the API layer, listed so this file is the one place to
 look: `app/(product)/p/[slug]/security/dismiss-dialog.tsx:9`,
 `app/(product)/p/[slug]/security/use-fix-plans.ts:7`,
-`app/api/hosted/ops/_http.ts:12`, `components/inspector/plan-first.tsx:159` and
+`components/inspector/plan-first.tsx:159` and
 `components/ui/log-viewer.tsx:262`. The markers this file used to list in
 `revisions/page.tsx` and `security/page.tsx` are gone — those screens were
 split. `plan-first.tsx` and `log-viewer.tsx` still carry marker text copied
@@ -68,8 +70,9 @@ settles.
 
 ## 2. `TODO` / `FIXME`
 
-None. The codebase states its compromises as `ponytail:` markers with a named
-ceiling instead, which is the convention to keep.
+No bare `TODO` or `FIXME`. The codebase states its compromises as
+`TODO(ceiling):` markers with a named ceiling and an upgrade path instead,
+which is the convention to keep.
 
 ## 3. Dead exports
 
@@ -92,7 +95,7 @@ than asserting a permanent zero.
 
 One export is deliberately kept:
 
-- **`navigatorHeaders`** (`src/lib/server/context.ts:51`) — no caller. It mints
+- **`navigatorHeaders`** (`src/lib/server/actor.ts:50`) — no caller. It mints
   the header pair that `isNavigator()` checks, so deleting only the minter would
   leave a security guard that can never pass. The Navigator runs in-process
   today (`lib/navigator/run.ts` never goes over HTTP), so the pair is unused but
@@ -189,7 +192,7 @@ this pass's ownership.
 
 ## 7. UI — `src/components` and `src/app` (excluding `src/app/api`)
 
-Snapshot after the UI organisation pass. Counts: **5 `ponytail:` markers**,
+Snapshot after the UI organisation pass. Counts: **5 `TODO(ceiling):` markers**,
 **0 in-scope files over 600 lines**, **7 duplicate groups unified**,
 **2 dead exports removed**, **10 directory READMEs added**. Three of those five
 markers survive today; see "Outside `src/lib`" in section 1 for the current
@@ -325,7 +328,7 @@ now named so it no longer collides with the kit export).
 `app/global-error.tsx` uses inline styles on purpose — the root boundary must
 render without the CSS bundle. **Leave that one alone.**
 
-### 7.6 `ponytail:` markers under `src/components` and `src/app`
+### 7.6 `TODO(ceiling):` markers under `src/components` and `src/app`
 
 | Where | Ceiling |
 | --- | --- |
@@ -351,12 +354,13 @@ would produce 15-line files and one more import per call site:
 | `shell/wordmark.tsx` | 2 | `Wordmark` + `OrbitMark`, the same mark at two sizes. |
 | `auth/auth-form.tsx`, `map/dialogs.tsx`, `shell/project-chrome.tsx`, `observe/alerts.tsx` | 2 each | Pre-existing; outside this pass. `observe/alerts.tsx` is the one worth splitting (see 7.1). |
 
-## 8. Hosted apps (Revision 3) — `ponytail:` markers
+## 8. Hosted apps (Revision 3) — `TODO(ceiling):` markers
 
 Added on branch `zenith/hosted-r3`. Each names the ceiling it accepts and the
-upgrade path; none is a bug. Counts, recounted 2026-09-10: **21 markers under
-`src/lib/hosted`**, 0 `TODO`/`FIXME`. Line numbers below were current at that
-recount.
+upgrade path; none is a bug. Counts, recounted 2026-09-11: **22 markers under
+`src/lib/hosted`**, 0 bare `TODO`/`FIXME`. Line numbers below were current at
+the 2026-09-10 recount and have since drifted; the grep at the top of this file
+is the authority.
 
 | Where | Ceiling |
 | --- | --- |
@@ -369,10 +373,10 @@ recount.
 | `src/lib/hosted/build/recipe.ts:45` | The platform root is found by walking up from `process.cwd()`; a server started elsewhere passes it explicitly. |
 | `src/lib/hosted/build/runner-recipe-local.ts:43` | Windows `CreateProcess` adds `SYSTEMROOT`/`TEMP`/`USERPROFILE` to a child regardless; the test asserts no secret prefixes leak. |
 | `src/lib/hosted/data/backend.ts:216`, `:311`, `:320` | D1's HTTP API is async and has no interactive transaction: mutations are single conditional statements judged by `changes`; the replay payload and the 409 body still need a read. Unverified against real D1. |
-| `src/lib/hosted/data/store.ts:138` | The write-id ledger grows until `purgeExpiredWrites()` runs; nothing schedules it yet. |
-| `src/lib/hosted/data/store.ts:164`, `:169` | Status/category filters scan the ordering index; same-millisecond rows order by id, not insertion. |
-| `src/lib/hosted/data/store.ts:371` | A replay returns the record JSON exactly as recorded, not re-read. |
-| `src/lib/hosted/data/store.ts:534` | The page cursor is opaque but unsigned; it carries no privileges. |
+| `src/lib/hosted/data/tracker-store.ts:114` | The write-id ledger grows until `purgeExpiredWrites()` runs; nothing schedules it yet. |
+| `src/lib/hosted/data/tracker-store.ts:140`, `:145` | Status/category filters scan the ordering index; same-millisecond rows order by id, not insertion. |
+| `src/lib/hosted/data/tracker-store.ts:347` | A replay returns the record JSON exactly as recorded, not re-read. |
+| `src/lib/hosted/data/tracker-rows.ts:132` | The page cursor is opaque but unsigned; it carries no privileges. |
 | `src/lib/hosted/release/apps.ts:163` | The hostname comes from `ZENITH_APP_DOMAIN`, not the runtime, so a summary renders when the runtime is unavailable. |
 | `src/lib/hosted/release/publish.ts:593`, `shared.ts:108`, `shared.ts:150` | Raw SQL for the release runtime ref, queued-job phase data and lease renewal; the authority repos lack those three methods. |
 | `src/lib/hosted/usage/index.ts:368` | Spending alerts reach the server log only; reaching workspace alert channels would couple the hosted path to the legacy store. |

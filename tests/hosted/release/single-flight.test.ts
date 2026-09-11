@@ -10,8 +10,6 @@
  *    `DEFAULT_LIMITS.buildsPilotWide`, which is exactly why it is worth a
  *    test: a third app's publish stays queued while two others run, and moves
  *    the moment a slot frees.
- *
- * Workstream W7 (hosted R3).
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { IDENTITIES, WORKSPACES, isolatedDataDir, removeDir, uuid } from "../_fixtures";

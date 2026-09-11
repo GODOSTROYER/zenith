@@ -16,8 +16,6 @@
  * One instance serves exactly one app's database. There is no statement in
  * `sql.ts` that names an app, so the only way to reach another app's data is to
  * open that app's file with `openAppData()`.
- *
- * Workstream W3 (hosted R3).
  */
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -113,7 +111,7 @@ export interface TrackerDataStoreOptions {
 /**
  * The fixed broker's `AppDataStore` over one app's SQL database.
  *
- * ponytail: the write-id ledger grows until `purgeExpiredWrites()` is called;
+ * TODO(ceiling): the write-id ledger grows until `purgeExpiredWrites()` is called;
  * nothing in this class schedules that sweep. The release ticker (W7) or an ops
  * job has to run it, otherwise the ledger keeps every write id for the life of
  * the app rather than for the contract's 30 days.
@@ -139,12 +137,12 @@ export class TrackerDataStore implements AppDataStore {
    * record created while the caller pages does not shift the window and make it
    * skip or repeat a row. `nextCursor` is present only when another page exists.
    *
-   * ponytail: `status` and `category` are filtered by scanning the ordering
+   * TODO(ceiling): `status` and `category` are filtered by scanning the ordering
    * index, because a filtered index would have to be chosen per query and the
    * pilot's row counts do not justify it. A very large app would want an index
    * per filter combination, or a covering index on `(status, created_at, id)`.
    *
-   * ponytail: two requests created in the same millisecond share a `created_at`
+   * TODO(ceiling): two requests created in the same millisecond share a `created_at`
    * and are ordered by id, not by which was written first. The order is still
    * total and stable — pagination is correct — but "newest first" is only
    * millisecond-accurate. Fixing it needs either a monotonic sequence column or
@@ -346,7 +344,7 @@ export class TrackerDataStore implements AppDataStore {
   /**
    * The stored result for a write id, or null when this id is new.
    *
-   * ponytail: a replay returns the record JSON exactly as it was recorded at
+   * TODO(ceiling): a replay returns the record JSON exactly as it was recorded at
    * the time of the original write. After an additive migration adds a nullable
    * column, a replay of a write made before it still answers the pre-migration
    * shape, until that write id ages out of the retention window. Re-reading the

@@ -1,11 +1,9 @@
 /**
  * What a publish is doing, and how far it got. The phase ids are the release
- * workstream's (`intake → build → artifact → verify_artifact → stage → probe →
+ * pipeline's (`intake → build → artifact → verify_artifact → stage → probe →
  * activate → cleanup`); the labels are what a builder reads.
  *
  * Pure — the job panel and its test share these without rendering anything.
- *
- * Workstream W9 (hosted R3)
  */
 import type { HostedJob, JobStatus } from "@/lib/hosted/contracts";
 

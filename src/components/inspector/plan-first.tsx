@@ -156,7 +156,7 @@ export function PlanFirst({
     const blocked = plan.blocked ?? shortfall;
     // Only a surface that sent a concurrency token can be refused for a stale
     // one, and reloading is what fixes that.
-    // ponytail: shown for any refusal on a token-carrying input (a role block
+    // TODO(ceiling): shown for any refusal on a token-carrying input (a role block
     // included) — narrow it if a reason code ever lands beside `blocked`.
     const sentHash = typeof input.expectedHash === "string";
 

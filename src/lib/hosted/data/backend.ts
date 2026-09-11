@@ -6,8 +6,6 @@
  * Why a seam at all: the local runtime and the Cloudflare runtime run the same
  * policy code (decision R3-03), and `sql.ts` holds statements both accept. What
  * they cannot share is the transaction model — see `D1HttpBackend` below.
- *
- * Workstream W3 (hosted R3).
  */
 import { DatabaseSync, type StatementSync } from "node:sqlite";
 import { HostedError } from "@/lib/hosted/contracts";
@@ -213,7 +211,7 @@ export class SqliteBackend implements DataBackend {
 /**
  * The `DataBackend` operations lifted to promises.
  *
- * ponytail: HTTP cannot be synchronous in Node, so `D1HttpBackend` cannot
+ * TODO(ceiling): HTTP cannot be synchronous in Node, so `D1HttpBackend` cannot
  * implement `DataBackend` itself. The two interfaces are kept
  * method-for-method identical so the store's operations — which are already
  * `Promise`-returning at the `AppDataStore` boundary — can be lifted
@@ -308,7 +306,7 @@ const CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4";
  * `INSERT_REQUEST_WITHIN_QUOTA` and the version check rides inside
  * `UPDATE_REQUEST_CAS`, so success is judged by `changes` rather than by a read.
  *
- * ponytail: the batch is sent as one request whose `sql` is the queued
+ * TODO(ceiling): the batch is sent as one request whose `sql` is the queued
  * statements joined with `;` and whose `params` is their bound values
  * concatenated. That is the only batching shape the documented REST body
  * (`{ sql, params }`) allows, and it has NOT been exercised against a live D1
@@ -317,7 +315,7 @@ const CLOUDFLARE_API_BASE = "https://api.cloudflare.com/client/v4";
  * rolls the batch back, in the Cloudflare spike before enabling the cloudflare
  * runtime. Until then this class is exercised only with an injected fetch.
  *
- * ponytail: the store still reads inside its transaction to build the replayed
+ * TODO(ceiling): the store still reads inside its transaction to build the replayed
  * result and the `stale_version` payload. On D1 those reads have to become a
  * second round trip after the batch, because the batch cannot read its own
  * uncommitted rows. The decisions are already conditional statements; only the

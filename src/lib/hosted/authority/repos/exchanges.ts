@@ -13,8 +13,6 @@
  * `status` column. Overwriting `state` with `'consumed'` — the obvious shape,
  * copied from every other table here — would destroy the one value redemption
  * exists to return.
- *
- * Workstream W1 (hosted R3).
  */
 import type { DatabaseSync } from "node:sqlite";
 import type { AppExchange, Subject } from "@/lib/hosted/contracts";

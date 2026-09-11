@@ -6,8 +6,6 @@
  * Resend is the answer, and it supersedes the previous invitation in the same
  * transaction that writes the replacement, so exactly one link is live at a
  * time.
- *
- * Workstream W5 (hosted R3).
  */
 import { resendInvite, scheduleInviteDelivery } from "@/lib/hosted/access";
 import type { IssuedInviteWire } from "@/lib/hosted/contracts";

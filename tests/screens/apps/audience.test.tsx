@@ -1,8 +1,6 @@
 /**
  * The audience: the last owner cannot be removed and the control says so before
  * it is pressed, and an invitation that was never sent hands over the link.
- *
- * Workstream W9 (hosted R3)
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";

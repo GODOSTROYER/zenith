@@ -4,8 +4,6 @@
  * It starts serving the release it was serving before, from the same artifact
  * bytes, to the same people: suspension took nothing away, so resuming does
  * not have to put anything back.
- *
- * Workstream W7 (hosted R3).
  */
 import { z } from "zod";
 import type { JobAccepted } from "@/lib/hosted/contracts";

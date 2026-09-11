@@ -40,8 +40,6 @@
  * agreeing. The consequence is deliberate and self-healing: the next backup
  * still records the old `revocationSeq`, so a future restore re-applies the
  * same entries — and re-revoking an already revoked grant does nothing.
- *
- * Workstream W8 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

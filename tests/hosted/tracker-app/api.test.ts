@@ -5,8 +5,6 @@
  * discover from corrupted data: a write id that survives a retry, a conflict
  * that carries the record it lost to, a 401 that leaves rather than loops, and
  * an error envelope decoded rather than guessed.
- *
- * Workstream W4 (hosted R3)
  */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {

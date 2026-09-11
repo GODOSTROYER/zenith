@@ -9,8 +9,6 @@
  * analysis is explicit that no provider demonstrates a strict physical cap
  * before a write, so the hosted contract enforces this logical figure instead
  * and says so wherever the number is shown.
- *
- * Workstream W3 (hosted R3).
  */
 import type { EquipmentRequest } from "@/lib/hosted/contracts";
 

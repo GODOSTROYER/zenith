@@ -13,8 +13,6 @@
  * Suspension is the opposite kind of claim: that nothing is lost. Records,
  * grants, releases and the artifact are all counted and compared before and
  * after, the app is resumed, and it serves the same release again.
- *
- * Workstream W10 (hosted R3).
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";

@@ -11,8 +11,6 @@
  * (invitation email, revocation ledger, spending alerts); their registration
  * functions are called here before the boot replay so rows left `sending` by
  * a dead process are drained by the right handler.
- *
- * SPINE FILE — owned by the integrator.
  */
 import { registerAccessOutboxHandlers } from "@/lib/hosted/access";
 import { authorityOpen, openAuthority, replayOutbox } from "@/lib/hosted/authority";

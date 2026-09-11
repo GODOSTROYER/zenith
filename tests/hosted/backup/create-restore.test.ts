@@ -6,8 +6,6 @@
  * trustworthy at all: a changed byte, the wrong key and a directory that
  * already holds something. Each has to be refused with a sentence an operator
  * can act on, and none of them may half-write anything.
- *
- * Workstream W8 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

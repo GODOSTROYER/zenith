@@ -12,8 +12,6 @@
  * link over once, `acceptInvite` refuses an unverified or mismatched address,
  * `createExchange` mints the single-use code, and the app host's callback is
  * what sets the cookie the browser then carries.
- *
- * Workstream W10 (hosted R3).
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { HostedApp, SessionInfo } from "@/lib/hosted/contracts";

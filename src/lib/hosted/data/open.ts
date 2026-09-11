@@ -15,8 +15,6 @@
  * The cache lives on `globalThis` so Next's module reloading in development
  * cannot end up with two connections to one file — which under WAL would be
  * correct but would double the write locks for no reason.
- *
- * Workstream W3 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

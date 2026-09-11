@@ -9,8 +9,6 @@
  * that answers it is `scripts/hosted/backup-live-check.ts` against a running
  * one. There is deliberately no auto-skipping LocalStack test: a suite that
  * goes green when nothing ran is worse than no suite.
- *
- * Workstream W8 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

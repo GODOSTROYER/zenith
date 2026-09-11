@@ -6,8 +6,6 @@
  * Visibility is checked from a *second connection to the same file*, because
  * "the same connection can see its own uncommitted writes" would prove
  * nothing about what an acknowledgement means.
- *
- * Workstream W1 (hosted R3).
  */
 import { DatabaseSync } from "node:sqlite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";

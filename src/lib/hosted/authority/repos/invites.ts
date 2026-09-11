@@ -10,8 +10,6 @@
  * The expiry boundary is strict: an invitation whose `expires_at` equals the
  * instant of acceptance is *not* accepted. A boundary that admits its own
  * deadline is a boundary that has to be re-argued every time someone reads it.
- *
- * Workstream W1 (hosted R3).
  */
 import type { DatabaseSync } from "node:sqlite";
 import type { AppInvite, AppRole, InviteState, Subject } from "@/lib/hosted/contracts";

@@ -7,8 +7,6 @@
  * `backupAuthority`, and the copy that comes out is internally consistent,
  * referentially intact, and holds a *prefix* of the committed rows rather than
  * an arbitrary subset of them.
- *
- * Workstream W1 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

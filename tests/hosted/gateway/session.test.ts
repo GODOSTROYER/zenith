@@ -6,8 +6,6 @@
  * this file pins down: a browser is sent to the page that explains how to get
  * in, a program gets a code it can branch on, and a session belonging to
  * another app is indistinguishable from no session at all.
- *
- * Workstream W6 (hosted R3).
  */
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { IDENTITIES, isolatedDataDir, removeDir } from "../_fixtures";

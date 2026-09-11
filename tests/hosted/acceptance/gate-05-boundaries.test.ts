@@ -16,8 +16,6 @@
  * have is a CSP that stops a *page* from reaching another origin, and an
  * enforcement table that says which ceilings are real here. Both are asserted;
  * neither is described as more than it is.
- *
- * Workstream W10 (hosted R3).
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ArtifactStore, HostedApp } from "@/lib/hosted/contracts";

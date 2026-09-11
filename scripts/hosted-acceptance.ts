@@ -23,8 +23,6 @@
  * silently re-admitting somebody who was removed.
  *
  * Exit 0 when every check passed, 1 otherwise. Nothing is skipped.
- *
- * Workstream W10 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

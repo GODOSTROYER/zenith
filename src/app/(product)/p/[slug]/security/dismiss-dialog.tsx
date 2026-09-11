@@ -6,7 +6,7 @@
  * and an empty one is refused by the action's own schema rather than by a
  * disabled button this screen invented.
  *
- * ponytail: the reason is debounced before planning, so the plan on screen can
+ * TODO(ceiling): the reason is debounced before planning, so the plan on screen can
  * be up to 250ms behind the keystrokes. It is always the input that executes.
  */
 import { useEffect, useState } from "react";

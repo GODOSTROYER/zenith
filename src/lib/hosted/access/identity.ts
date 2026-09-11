@@ -18,14 +18,12 @@
  * a signed-in caller" answers `sign_in_required` (401). There is no branch in
  * this file that returns an identity it did not get from the provider.
  *
- * ponytail: every grant-sensitive request costs one provider round trip, and
+ * TODO(ceiling): every grant-sensitive request costs one provider round trip, and
  * none of them is cached. That is the correct default — the whole point is that
  * a terminated session stops working immediately — and the upgrade path, if the
  * latency ever matters, is a very short positive cache keyed on the access
  * token with a ceiling in single-digit seconds. A negative answer must never be
  * cached at all.
- *
- * Workstream W5 (hosted R3).
  */
 import { createServerClient } from "@supabase/ssr";
 import type { NextRequest } from "next/server";

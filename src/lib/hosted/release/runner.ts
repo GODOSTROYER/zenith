@@ -18,8 +18,6 @@
  *  - **claims through `jobs.claim`**, which bumps the fence token every write
  *    after it is conditioned on. A worker that comes back from a long sleep
  *    finds its writes refused rather than trampling the worker that took over.
- *
- * Workstream W7 (hosted R3).
  */
 import { authority, authorityOpen, nowIso } from "@/lib/hosted/authority";
 import { HostedError, type HostedJob } from "@/lib/hosted/contracts";

@@ -7,8 +7,6 @@
  * what it names), the ledger is gone (close everything), and the ledger is
  * behind its own backup (also close everything, because a ledger that stops
  * before the snapshot cannot say what happened after it).
- *
- * Workstream W8 (hosted R3).
  */
 import fs from "node:fs";
 import path from "node:path";

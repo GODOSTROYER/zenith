@@ -5,8 +5,6 @@
  * the candidate is being built to replace is read *here* — at the moment the
  * worker decided "this release supersedes what is live now" — and compared at
  * activation, which may be minutes later.
- *
- * Workstream W7 (hosted R3).
  */
 import { authority } from "@/lib/hosted/authority";
 import { HostedError, type Release } from "@/lib/hosted/contracts";
@@ -58,7 +56,7 @@ export async function stage(run: JobRun, data: PhaseData): Promise<string> {
 
   const candidate = await releaseDeps.runtime().stageCandidate(app, release, artifact);
   data.candidateRef = candidate as unknown as Record<string, unknown>;
-  // ponytail: `ReleasesRepo` has no runtime-ref setter, so the staged
+  // TODO(ceiling): `ReleasesRepo` has no runtime-ref setter, so the staged
   // identifiers are written here. Move to `releases.setRuntimeRef` when W1
   // adds one.
   a.tx((db) => {

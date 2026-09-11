@@ -7,8 +7,6 @@
  * reconciliation possible — the last revocation sequence number included. A
  * restore compares that number against the off-host ledger and knows exactly
  * which revocations postdate the snapshot it just wrote.
- *
- * Workstream W1 (hosted R3).
  */
 import type { DatabaseSync } from "node:sqlite";
 import type { BackupManifest } from "@/lib/hosted/contracts";

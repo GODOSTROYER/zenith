@@ -3,7 +3,7 @@
  * The whole-document counterpart to the per-field system.* actions: same
  * validation, same diff-driven preview, same audit trail.
  *
- * Integrator-owned addition (post wave 1); registered via defs/index.ts.
+ * Registered via defs/index.ts.
  */
 import { z } from "zod";
 import { defineAction, type ActionPlan } from "@/lib/actions/core";

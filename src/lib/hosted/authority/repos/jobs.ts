@@ -16,8 +16,6 @@
  *    asleep while its lease expired and the job was re-claimed gets `false`
  *    from `advance`/`finish`/`fail` instead of overwriting the new owner's
  *    work. The same token guards activation (`apps.setActiveRelease`).
- *
- * Workstream W1 (hosted R3).
  */
 import type { DatabaseSync } from "node:sqlite";
 import { HostedError, type HostedJob, type JobKind, type JobStatus, type Subject } from "@/lib/hosted/contracts";

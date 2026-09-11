@@ -9,8 +9,6 @@
  * Memoised on a fingerprint of the raw values, not on first call: a test that
  * sets a ZENITH_* variable after the module loaded still gets a fresh parse,
  * while the hot paths that call this per request stop re-running zod.
- *
- * SPINE FILE — owned by the integrator.
  */
 import path from "node:path";
 import { z } from "zod";

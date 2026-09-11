@@ -17,8 +17,6 @@
  *
  * A caveat this file states rather than hides: closing a database is not a
  * crash and a crash is not power loss. See ACCEPTANCE-R3.md.
- *
- * Workstream W10 (hosted R3).
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DatabaseSync } from "node:sqlite";

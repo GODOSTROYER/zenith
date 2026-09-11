@@ -18,8 +18,6 @@
  *
  *     <root>/sha256/<digest>/manifest.json
  *     <root>/sha256/<digest>/files/<path>
- *
- * Workstream W2 (hosted R3).
  */
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -161,7 +159,7 @@ export function artifactContentType(relative: string): string {
  * manifest with a timestamp, and `remove`, which deletes it — update this
  * cache themselves rather than leaving it to a timeout.
  *
- * ponytail: LRU by insertion order; a Map is the stdlib's LRU.
+ * TODO(ceiling): LRU by insertion order; a Map is the stdlib's LRU.
  */
 const MANIFEST_CACHE_MAX = 64;
 

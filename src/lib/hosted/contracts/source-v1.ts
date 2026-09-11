@@ -6,7 +6,7 @@
  * `scripts`, no `vite.config.*`, no lockfile, no extra dependencies. Optional
  * editable backend handlers are deferred; the fixed broker is the only backend.
  *
- * SPINE FILE — owned by the integrator. Import from `@/lib/hosted/contracts`.
+ * Import from `@/lib/hosted/contracts`.
  */
 import { z } from "zod";
 import type { RecipeSpec } from "./types";

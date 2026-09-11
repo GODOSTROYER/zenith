@@ -5,8 +5,6 @@
  *
  * `conflict` is deliberately absent: it needs the two versions side by side,
  * so the drawer renders it itself.
- *
- * Workstream W4 (hosted R3)
  */
 import { SIGN_IN_PATH } from "../api";
 import type { LoadState, SaveState } from "../state";

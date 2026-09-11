@@ -10,11 +10,9 @@
  * Prints the manifest as JSON on success — that JSON is the evidence a backup
  * happened, and its `digest` is the SHA-256 of the sealed object as stored.
  *
- * ponytail: nothing schedules this. It is a command an operator or a cron
+ * TODO(ceiling): nothing schedules this. It is a command an operator or a cron
  * entry runs; RUNBOOK-DEPLOY proposes every six hours plus one before every
  * activation, and neither is implemented as a job.
- *
- * Workstream W8 (hosted R3).
  */
 import { closeAuthority, openAuthority } from "@/lib/hosted/authority";
 import { createBackup } from "@/lib/hosted/backup";

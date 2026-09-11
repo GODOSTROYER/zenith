@@ -9,8 +9,6 @@
  *   tar.ts          bounded ustar/GNU reader over a (gzipped) buffer
  *   validate.ts     the supported-source contract, for tarballs and directories
  *   materialize.ts  write a validated source into a scratch directory
- *
- * Workstream W2 (hosted R3).
  */
 export { SOURCE_FIX, readTar, safeEntryPath, scanTar, type SafePath, type TarScan } from "./tar";
 export { scanDirectory, sourceDigest, validateSource, type SourceInput } from "./validate";

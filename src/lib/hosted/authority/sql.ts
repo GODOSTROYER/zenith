@@ -14,8 +14,6 @@
  *    refuse a column that is missing or of the wrong storage class rather than
  *    coercing it, because a silent `undefined` in a grant or a fence token is
  *    the kind of bug that only shows up as a wrongly admitted request.
- *
- * Workstream W1 (hosted R3).
  */
 import type { DatabaseSync, SQLOutputValue, StatementSync } from "node:sqlite";
 import { HostedError } from "@/lib/hosted/contracts";

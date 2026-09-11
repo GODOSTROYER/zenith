@@ -11,8 +11,6 @@
  *      message, fix, details } }` is decoded into a typed `ApiError`.
  *   3. Only requests that are safe to repeat are repeated — a dropped
  *      connection or a 503 — and only three times.
- *
- * Workstream W4 (hosted R3)
  */
 
 /* ------------------------------------------------------------------ paths */

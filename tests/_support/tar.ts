@@ -8,7 +8,7 @@
  * truncated stream, a corrupt checksum, a pax record the platform does not
  * model, a GNU long name.
  *
- * Workstream W2 (hosted R3) — test support only; nothing here ships.
+ * Test support only; nothing here ships.
  */
 import fs from "node:fs";
 import path from "node:path";

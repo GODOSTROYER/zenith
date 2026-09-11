@@ -9,8 +9,6 @@
  * the meantime — a concurrent publish, a rollback, an operator — the swap
  * fails and this job reports that rather than quietly putting an older
  * candidate in front of users.
- *
- * Workstream W7 (hosted R3).
  */
 import { authority, nowIso } from "@/lib/hosted/authority";
 import { HostedError } from "@/lib/hosted/contracts";

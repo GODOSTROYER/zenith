@@ -5,8 +5,6 @@
  * set of values for the same tokens. Nothing here loads a font, an icon set or
  * an image from anywhere - the system stack and one inline SVG favicon are the
  * whole visual budget.
- *
- * Workstream W4 (hosted R3)
  */
 
 :root {

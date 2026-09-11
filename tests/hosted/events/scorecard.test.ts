@@ -6,8 +6,6 @@
  * work, a builder who writes in their own app, a colleague who converts and
  * comes back in days 7-13, a newcomer whose cohort is too young to judge, and
  * someone who accepted an invitation and never wrote anything.
- *
- * Workstream W8 (hosted R3).
  */
 import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, it } from "vitest";

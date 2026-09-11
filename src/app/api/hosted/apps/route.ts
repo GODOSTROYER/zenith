@@ -7,8 +7,6 @@
  * availability come back with the apps — including, and especially, when they
  * are unavailable. An empty list with no builder status would be a screen with
  * a dead button on it.
- *
- * Workstream W7 (hosted R3).
  */
 import { z } from "zod";
 import { NO_RUNNER_REASON, buildRunnerStatus, selectedBuildRunner } from "@/lib/hosted/build";

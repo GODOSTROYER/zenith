@@ -1,8 +1,8 @@
 "use client";
 /**
  * Client data layer — the ONLY way UI code talks to the API.
- * SPINE FILE — owned by the integrator. Screens and the Navigator UI import
- * from here; nobody hand-rolls fetch calls, so conventions can't drift.
+ * Screens and the Navigator UI import from here; nobody hand-rolls fetch
+ * calls, so conventions can't drift.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ActionPlan, ActionResult } from "@/lib/actions/core";
@@ -95,7 +95,7 @@ const isHidden = () => typeof document !== "undefined" && document.visibilitySta
  * second reader of the same URL safe: a 304 hands back the body held here, not
  * nothing.
  *
- * ponytail: bounded, LRU by insertion order. A route with no ETag never gets
+ * TODO(ceiling): bounded, LRU by insertion order. A route with no ETag never gets
  * an entry and behaves exactly as before.
  */
 const ETAG_CACHE_MAX = 64;

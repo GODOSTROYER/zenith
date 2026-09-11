@@ -6,8 +6,6 @@
  * arrived, and this component never says it did. When the API hands back an
  * acceptance link, that link is shown once: copying it is the owner's only way
  * to pass the invitation on by hand.
- *
- * Workstream W9 (hosted R3)
  */
 import { Callout } from "@/components/ui/callout";
 import { CopyButton } from "@/components/ui/copy-button";

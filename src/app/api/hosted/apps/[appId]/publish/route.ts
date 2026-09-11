@@ -6,8 +6,6 @@
  * the same publish — and the same id with different content is refused rather
  * than joined to it. Both answers come from the job admission in the authority,
  * not from anything this route remembers.
- *
- * Workstream W7 (hosted R3).
  */
 import { z } from "zod";
 import type { JobAccepted } from "@/lib/hosted/contracts";

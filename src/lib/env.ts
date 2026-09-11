@@ -18,7 +18,7 @@
  *
  * Read on every call rather than memoised: the scripts and the test suite
  * both set `ZENITH_DATA` at runtime before importing anything, and a cached
- * snapshot would silently ignore them. The nine raw values ARE re-read every
+ * snapshot would silently ignore them. The ten raw values ARE re-read every
  * time; only the zod parse of an unchanged set of them is reused, so a
  * mid-process change is still picked up on the very next call.
  */
@@ -58,6 +58,13 @@ const Schema = z.object({
   ZENITH_DATA: z.string().min(1).default(path.join(process.cwd(), ".data")),
   /** "1" collapses simulated step durations. Anything else is off. */
   ZENITH_FAST: z.enum(["0", "1"]).default("0"),
+  /**
+   * Which implementation backs product A's store (`src/lib/db/store.ts`).
+   * "file" is the embedded JSON snapshot + JSONL logs and the only one this
+   * build ships; "postgres" parses here — the flag exists end to end — and is
+   * refused by the store itself, saying so.
+   */
+  ZENITH_STORE: z.enum(["file", "postgres"]).default("file"),
   /** LocalStack's edge endpoint. */
   ZENITH_LOCALSTACK_ENDPOINT: z.string().url().default("http://localhost:4566"),
   /** Model id for the Navigator's optional language front-end. */
@@ -116,6 +123,7 @@ const present = (key: string): string | undefined => {
 const RAW_KEYS = [
   "ZENITH_DATA",
   "ZENITH_FAST",
+  "ZENITH_STORE",
   "ZENITH_LOCALSTACK_ENDPOINT",
   "ZENITH_LLM_MODEL",
   "ZENITH_LOG_LEVEL",

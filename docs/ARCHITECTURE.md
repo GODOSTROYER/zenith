@@ -89,8 +89,11 @@ src/lib/
   log.ts                                  one JSON object per line, request id via AsyncLocalStorage.
   data-lock.ts                            refuse a second process against one data directory.
 
-  db/           store.ts                  the repository module. state.json (hot) + JSONL logs +
-                                          cold revision manifests. db() / save() / q.* / onChange.
+  db/           types.ts                  the Store contract: Database, StoreChange, AuditFilter/Page.
+                file-store.ts             the one implementation. state.json (hot) + JSONL logs +
+                                          cold revision manifests.
+                store.ts                  the façade. Picks an implementation (ZENITH_STORE) and
+                                          re-exports it: db() / save() / q.* / onChange.
   secrets/      index.ts                  AES-256-GCM value store beside the snapshot. Never a route's business.
   drift/        index.ts                  pure: deployed manifest vs a provider's LiveState.
   security/     rules.ts                  findings derived from a manifest.
@@ -206,8 +209,32 @@ idempotently → events appended (replayable) → verify phase (honest health) �
 1. **Embedded JSON/JSONL store** behind a repository module instead of SQLite:
    zero native-module risk on the local Windows toolchain; atomic snapshot
    writes + append-only logs give the durability the product needs at demo
-   scale. Swappable behind `src/lib/db/store.ts`. *(Known ceiling: single
-   process.)*
+   scale. *(Known ceiling: single process.)*
+
+   **Swappable, and now literally so.** `src/lib/db/store.ts` is a *façade*:
+   the contract lives in `src/lib/db/types.ts` (`Store`, `Database`,
+   `StoreChange`, `AuditFilter`/`AuditPage`), the behaviour described in the
+   rest of this decision lives in `src/lib/db/file-store.ts` as the single
+   implementation `FileStore`, and the façade picks one — cached on
+   `globalThis`, since the implementations keep process-wide state there — and
+   re-exports it under the same names (`db`, `save`, `flush`, `flushPending`,
+   `resetDb`, `appendEvent`/`readEvents`, `appendAudit`/`readAuditPage`/
+   `readAudit`/`countAudit`, `onChange`/`changed`, `q.*`, `inWorkspace`). The
+   ~113 modules that import `@/lib/db/store` are unchanged and cannot tell
+   which implementation answers. `ZENITH_STORE` selects it: `file` (the
+   default, and the only one this build ships) or `postgres`, which validates
+   in `lib/env.ts` so the flag exists end to end and is refused by the façade
+   with a sentence saying it is not available yet — the seam is real before
+   the implementation is. `tests/db/contract/` is the table that keeps it
+   honest: one ordered scenario — workspace → member → project → environment →
+   revision (manifest reachable, accessor non-enumerable, absent from
+   `JSON.stringify(db())`) → deployment → events → audit → `onChange` →
+   `save`/`flush` → `reset` — run with `describe.each` over a factory list
+   that has one row today and takes a second without a line changing here.
+   Every method in `Store` is synchronous, because every method in `FileStore`
+   is; where Postgres will need a promise the interface says so in a comment
+   rather than churning the call sites for an implementation that does not
+   exist.
 
    **Hot and cold.** `state.json` is rewritten in full on every save, so only
    what changes belongs in it. Revision manifests — immutable once written, and

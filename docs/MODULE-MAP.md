@@ -8,7 +8,9 @@ is [docs/OWNERSHIP.md](OWNERSHIP.md).
 Two products share one repository and one process:
 
 - **A — infrastructure.** Manifest, actions, engine, providers. Persists to
-  `.data/state.json` + JSONL logs through `src/lib/db/store.ts`.
+  `.data/state.json` + JSONL logs through `src/lib/db/store.ts`, which since
+  the `Store` split is a façade over `src/lib/db/file-store.ts` — the one
+  implementation `ZENITH_STORE` can select today.
 - **B — hosted apps.** Private apps served on `<slug>.<ZENITH_APP_DOMAIN>`.
   Persists to `.data/control.sqlite` through `src/lib/hosted/authority/`.
 
@@ -59,7 +61,9 @@ The only layer that opens a file or a database.
 
 | Path | Owns | May import |
 | --- | --- | --- |
-| `src/lib/db/store.ts` | Product A's repository module: `state.json` (hot) + JSONL logs + cold revision manifests. `db()` / `save()` / `q.*` / `onChange` | L0–L1 |
+| `src/lib/db/types.ts` | The `Store` contract plus `Database`, `StoreChange`, `AuditFilter`, `AuditPage`, `StoreKind`. Types only — no `node:`, no env (it sits at L2 by ownership, not by capability) | L0 |
+| `src/lib/db/file-store.ts` | The only implementation of `Store`: `state.json` (hot) + JSONL logs + cold revision manifests, the 50 ms save coalescer, tmp+rename writes, the manifest LRU and the event tail | L0–L1, `db/types` |
+| `src/lib/db/store.ts` | Product A's repository **façade**: picks the implementation from `ZENITH_STORE` (`file` today; `postgres` is refused with a sentence) and re-exports it as `db()` / `save()` / `q.*` / `onChange`. Every importer still says `@/lib/db/store` | L0–L1, `db/{types,file-store}` |
 | `src/lib/secrets/` | AES-256-GCM value store beside the snapshot | L0–L1 |
 | `src/lib/hosted/authority/**` | Product B's control authority: one SQLite file, one connection, `tx()`, the repositories, the outbox | L0–L1 |
 | `src/lib/hosted/artifacts/` | Content-addressed artifact store and the trusted pre-release verification | L0–L1, `hosted/digest` |
@@ -140,7 +144,7 @@ Business rules over the stores. No `Request`, no `Response`, no route knowledge.
 2. **`src/lib` and `src/components` never import from `@/app`.** Verified: zero
    matches for `from "@/app` in either tree. The dependency runs one way, so a
    route can be deleted without touching a library.
-3. **Two stores, never crossed.** `db/store.ts` owns `.data/state.json`;
+3. **Two stores, never crossed.** `db/store.ts` (through `db/file-store.ts`) owns `.data/state.json`;
    `hosted/authority` owns `.data/control.sqlite`. Nothing in the authority
    directory writes to the JSON store.
 4. **One validated place per env prefix.** `ZENITH_*` in `src/lib/env.ts`,

@@ -1,0 +1,731 @@
+/**
+ * The file-backed `Store`: an embedded JSON snapshot + JSONL append-only logs.
+ *
+ * This is the implementation that used to *be* `src/lib/db/store.ts`; it was
+ * moved here unchanged when the store gained an interface (`./types`). The
+ * façade at `./store.ts` selects it and re-exports it under the historical
+ * names, so nothing that imports `@/lib/db/store` moved.
+ *
+ * Durability contract, stated exactly: every snapshot write is atomic on the
+ * filesystem (tmp + rename), and deployment/audit events are append-only
+ * JSONL, so an interrupted write cannot leave a half-written snapshot behind.
+ * That is the whole guarantee. `save()` returns *before* its coalesced write
+ * runs (see SAVE_DEBOUNCE_MS), nothing here calls fsync, and a torn trailing
+ * JSONL line is skipped on read rather than repaired — so an abrupt process
+ * or host failure can lose the last ~50 ms of acknowledged mutations. A
+ * graceful restart resumes from disk. Anything that needs commit-before-
+ * acknowledgement (hosted app grants, sessions, jobs) lives in the SQLite
+ * authority under src/lib/hosted/authority, not here.
+ *
+ * Hot vs cold. `state.json` is rewritten in full on every save, so only what
+ * changes belongs in it: workspaces, projects, environments, deployments and
+ * revision *metadata*. Revision manifests — immutable, and the largest thing
+ * the store holds — live one file each under `revisions/` and load on demand
+ * (see "revision manifests" below). Events and audit rows are append-only.
+ *
+ * Every successful write emits a change event (`onChange`), which is how the
+ * project stream pushes instead of every open tab polling.
+ *
+ * TODO(ceiling): single-process file store; `ZENITH_STORE=postgres` is the
+ * seam where a multi-process implementation arrives. The rest of the codebase
+ * only sees `db()` and the append/read helpers.
+ */
+import { EventEmitter } from "node:events";
+import fs from "node:fs";
+import path from "node:path";
+import { env } from "@/lib/env";
+import type {
+  AuditEvent,
+  DeploymentEvent,
+  Manifest,
+  Revision,
+} from "@/lib/domain/types";
+import type {
+  AuditCountResult,
+  AuditFilter,
+  AuditPage,
+  Database,
+  Store,
+  StoreChange,
+} from "./types";
+
+const EMPTY: Database = {
+  workspaces: [],
+  members: [],
+  connections: [],
+  projects: [],
+  environments: [],
+  revisions: [],
+  deployments: [],
+  findings: [],
+  navigatorRuns: [],
+  alertRules: [],
+  alertEvents: [],
+  alertOutbox: [],
+  settings: {},
+};
+
+// Pinned at module load, exactly as before the split: the scripts and the test
+// suite set ZENITH_DATA before importing the store, and a per-call read here
+// would let a mid-process change move the snapshot out from under an open
+// database.
+const DATA_DIR = env().ZENITH_DATA;
+const STATE = path.join(DATA_DIR, "state.json");
+const EVENTS = path.join(DATA_DIR, "events.jsonl");
+const AUDIT = path.join(DATA_DIR, "audit.jsonl");
+/** Cold storage: one immutable manifest per revision, written once. */
+const MANIFESTS = path.join(DATA_DIR, "revisions");
+
+type G = typeof globalThis & { __zenithDb?: Database };
+
+function ensureDir() {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+/** Load (once per process; survives Next.js HMR via globalThis). */
+function db(): Database {
+  const g = globalThis as G;
+  if (g.__zenithDb) return g.__zenithDb;
+  ensureDir();
+  let data: Database = EMPTY;
+  if (fs.existsSync(STATE)) {
+    try {
+      // structuredClone, not a bare spread: a key missing from disk — every new
+      // collection, on the first load after it is added — would otherwise alias
+      // EMPTY's own array, and the first push would corrupt the empty template.
+      data = {
+        ...structuredClone(EMPTY),
+        ...(JSON.parse(fs.readFileSync(STATE, "utf8")) as Database),
+      };
+    } catch (err) {
+      // A corrupt snapshot must never become an empty *writable* install: the
+      // next save would overwrite the only copy of the real data, turning a
+      // recoverable parse error into total loss. Keep the file, refuse to
+      // boot, and name the way back.
+      const kept = `${STATE}.corrupt-${Date.now()}`;
+      fs.copyFileSync(STATE, kept);
+      throw new Error(
+        `The Zenith state file at ${STATE} could not be parsed, so the server will not start: ` +
+          `continuing would serve an empty workspace and the next write would overwrite your data. ` +
+          `A copy is preserved at ${kept}. ` +
+          `Fix: restore a good copy over ${STATE} (a .corrupt-* file or your own backup), ` +
+          `or delete ${STATE} to start over deliberately with an empty install. ` +
+          `Parse error: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  } else {
+    data = structuredClone(EMPTY);
+  }
+  g.__zenithDb = data;
+  // Baseline for the orphan sweep, set before the first write can happen: a
+  // project deleted by this process's very first save must still take its
+  // manifests with it.
+  revisionCount = data.revisions.length;
+  // Migrate a pre-split snapshot: manifests found inline move to the side
+  // store, then state.json is rewritten without them. Side files are written
+  // first, so an interrupted migration simply re-runs on the next boot.
+  if (sealManifests()) writeState();
+  return data;
+}
+
+/* --------------------------- revision manifests ---------------------------- */
+
+/**
+ * Revision manifests are the cold half of the store: written once at deploy,
+ * read by one screen at a time, and — before this split — re-serialised in
+ * full on every save, forever. They now live in `<ZENITH_DATA>/revisions/`,
+ * one atomic file each, and `Revision.manifest` is a lazy accessor:
+ *
+ *  - `enumerable: false`, so `JSON.stringify(db())` never sees a manifest and
+ *    a save costs metadata only, whatever the deploy history looks like;
+ *  - a getter, so every existing reader (`revision.manifest`, in the engine,
+ *    the providers, the alert and log simulators, the security rules, the
+ *    server-rendered screens) keeps working untouched;
+ *  - a setter, so assigning a manifest writes it through.
+ *
+ * The one thing that changed for callers: a `Revision` no longer carries its
+ * manifest through `JSON.stringify`. A route that puts one in a response body
+ * must attach it explicitly — `q.revisionManifest(id)`.
+ */
+
+/** TODO(ceiling): LRU by insertion order; a Map is the stdlib's LRU. */
+const MANIFEST_CACHE_MAX = 32;
+
+type GM = typeof globalThis & { __zenithManifests?: Map<string, Manifest> };
+const manifestCache = (): Map<string, Manifest> =>
+  ((globalThis as GM).__zenithManifests ??= new Map());
+
+/** Ids come from `id()`, but an importer's id is untrusted: never a path. */
+const manifestFile = (id: string): string =>
+  path.join(MANIFESTS, `${encodeURIComponent(id)}.json`);
+
+function readManifest(id: string): Manifest {
+  const cache = manifestCache();
+  const hit = cache.get(id);
+  if (hit) {
+    cache.delete(id); // re-insert = most recently used
+    cache.set(id, hit);
+    return hit;
+  }
+  const file = manifestFile(id);
+  if (!fs.existsSync(file))
+    // Never substitute an empty manifest: a diff against one reads as "delete
+    // every service", which is exactly the plan a rollback would then apply.
+    throw new Error(
+      `Revision "${id}" has no stored manifest (${file}). The revision metadata is in state.json but its manifest file is missing — restore it from a backup, or delete the revision.`
+    );
+  return cachePut(id, JSON.parse(fs.readFileSync(file, "utf8")) as Manifest);
+}
+
+function cachePut(id: string, m: Manifest): Manifest {
+  const cache = manifestCache();
+  cache.delete(id);
+  cache.set(id, m);
+  if (cache.size > MANIFEST_CACHE_MAX) cache.delete(cache.keys().next().value as string);
+  return m;
+}
+
+function writeManifest(id: string, m: Manifest): void {
+  fs.mkdirSync(MANIFESTS, { recursive: true });
+  const file = manifestFile(id);
+  const tmp = `${file}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(m), "utf8");
+  fs.renameSync(tmp, file);
+  cachePut(id, m);
+}
+
+function attachManifest(r: Revision): void {
+  Object.defineProperty(r, "manifest", {
+    configurable: true,
+    enumerable: false, // ← what keeps manifests out of every save
+    get: () => readManifest(r.id),
+    set: (m: Manifest) => writeManifest(r.id, m),
+  });
+}
+
+/**
+ * Give every revision its lazy accessor, moving an inline manifest out to the
+ * side store first if it still has one. Runs on load — where a revision read
+ * back from `state.json` has no manifest property at all, and a pre-split one
+ * has it inline — and again before every write, for the revision the deploy
+ * action just pushed. Returns true when something moved and `state.json` is
+ * therefore stale.
+ */
+function sealManifests(): boolean {
+  let moved = false;
+  for (const r of db().revisions) {
+    const own = Object.getOwnPropertyDescriptor(r, "manifest");
+    if (own && !own.enumerable) continue; // already an accessor
+    if (own) {
+      writeManifest(r.id, r.manifest);
+      moved = true;
+    }
+    attachManifest(r);
+  }
+  return moved;
+}
+
+/**
+ * Drop side files with no revision left in state.json — a deleted project, a
+ * pruned history. Only worth a readdir when the revision count actually fell,
+ * so the normal save path never touches the directory.
+ */
+function dropOrphanManifests(): void {
+  if (!fs.existsSync(MANIFESTS)) return;
+  const live = new Set(db().revisions.map((r) => `${encodeURIComponent(r.id)}.json`));
+  for (const name of fs.readdirSync(MANIFESTS))
+    if (!live.has(name)) fs.rmSync(path.join(MANIFESTS, name), { force: true });
+}
+
+/* ------------------------------ change events ------------------------------ */
+
+type GC = typeof globalThis & {
+  __zenithChanges?: EventEmitter;
+  __zenithTouched?: { ids: Set<string>; all: boolean };
+};
+
+const changes = (): EventEmitter =>
+  ((globalThis as GC).__zenithChanges ??= new EventEmitter().setMaxListeners(0));
+
+const touched = () =>
+  ((globalThis as GC).__zenithTouched ??= { ids: new Set<string>(), all: false });
+
+/**
+ * Called after every successful write. Returns an unsubscribe function.
+ *
+ * In-process only — the same single-process ceiling as the store itself. It is
+ * what lets `/api/projects/:id/stream` push instead of every open tab polling.
+ */
+function onChange(fn: (c: StoreChange) => void): () => void {
+  changes().on("change", fn);
+  return () => {
+    changes().off("change", fn);
+  };
+}
+
+/** True when a change event concerns this project (or names no project). */
+const changed = (c: StoreChange, projectId: string): boolean =>
+  c.projectIds.length === 0 || c.projectIds.includes(projectId);
+
+/* --------------------------------- saving --------------------------------- */
+
+type GS = typeof globalThis & {
+  __zenithSaveTimer?: ReturnType<typeof setTimeout>;
+  __zenithExitHooked?: boolean;
+};
+
+/** Coalescing window: a burst of step transitions costs one write, not twenty. */
+const SAVE_DEBOUNCE_MS = 50;
+
+/** Revisions at the last write, so an orphan sweep costs a readdir only when
+ *  history actually shrank. */
+let revisionCount = -1;
+
+function writeState(): void {
+  ensureDir();
+  // Manifests go to their own files first: state.json must never be the only
+  // copy of one, and after this it serialises metadata alone.
+  sealManifests();
+  const tmp = `${STATE}.tmp`;
+  fs.writeFileSync(tmp, JSON.stringify(db()), "utf8");
+  fs.renameSync(tmp, STATE);
+  const count = db().revisions.length;
+  if (count < revisionCount) dropOrphanManifests();
+  revisionCount = count;
+
+  const t = touched();
+  const change: StoreChange = { projectIds: t.all ? [] : [...t.ids] };
+  t.ids.clear();
+  t.all = false;
+  // Listener failures are the listener's problem; a save is already durable.
+  changes().emit("change", change);
+}
+
+/**
+ * Persist. Writes are coalesced over a 50ms window and always atomic
+ * (tmp + rename). `flush()` runs on a graceful exit (signal or `exit`), which
+ * covers an orderly shutdown only: a crash, a kill -9 or a power loss inside
+ * the window loses that window's mutations. Callers that need an
+ * acknowledged write to survive that must use the hosted SQLite authority.
+ *
+ * `projectId` is a hint for the change event, not a filter on what is written
+ * — the whole database is saved either way. Omit it and the event says
+ * "something changed", which every subscriber has to handle regardless,
+ * because one coalesced write can carry several callers' mutations.
+ */
+function save(projectId?: string): void {
+  const g = globalThis as GS;
+  const t = touched();
+  if (projectId) t.ids.add(projectId);
+  else t.all = true;
+  hookExit();
+  if (g.__zenithSaveTimer) return; // a flush is already scheduled
+  g.__zenithSaveTimer = setTimeout(() => {
+    g.__zenithSaveTimer = undefined;
+    writeState();
+  }, SAVE_DEBOUNCE_MS);
+  // Never hold the process open for a pending save; the exit hook flushes it.
+  (g.__zenithSaveTimer as { unref?: () => void }).unref?.();
+}
+
+/**
+ * Write a *scheduled* save immediately, and say whether there was one.
+ *
+ * `flush()` writes unconditionally, which is right for shutdown and wrong for
+ * a request edge: a serverless instance must close the coalescing window
+ * before it answers (it can be frozen the moment it does, and the 50ms timer
+ * would never fire), but a request that mutated nothing must not pay for a
+ * snapshot write to say so.
+ */
+function flushPending(): boolean {
+  if (!(globalThis as GS).__zenithSaveTimer) return false;
+  flush();
+  return true;
+}
+
+/** Write any pending save immediately. Idempotent. */
+function flush(): void {
+  const g = globalThis as GS;
+  if (g.__zenithSaveTimer) {
+    clearTimeout(g.__zenithSaveTimer);
+    g.__zenithSaveTimer = undefined;
+  }
+  writeState();
+}
+
+const SIGNALS: NodeJS.Signals[] = ["SIGINT", "SIGTERM"];
+
+function onSignal(sig: NodeJS.Signals): void {
+  flush();
+  // Re-raise only when nothing else handles this signal — otherwise the host
+  // (next dev, a test runner) owns shutdown and we must not cut it short.
+  if (process.listenerCount(sig) <= 1) {
+    process.removeListener(sig, onSignal);
+    process.kill(process.pid, sig);
+  }
+}
+
+function hookExit(): void {
+  const g = globalThis as GS;
+  if (g.__zenithExitHooked) return;
+  g.__zenithExitHooked = true;
+  process.on("exit", () => {
+    if ((globalThis as GS).__zenithSaveTimer) flush();
+  });
+  for (const sig of SIGNALS) process.on(sig, onSignal);
+}
+
+/** Reset everything (used by seed script). */
+function resetDb(data?: Partial<Database>): Database {
+  const g = globalThis as G;
+  g.__zenithDb = { ...structuredClone(EMPTY), ...data };
+  ensureDir();
+  for (const f of [EVENTS, AUDIT]) if (fs.existsSync(f)) fs.unlinkSync(f);
+  auditCounts().clear();
+  // Cold storage too, and before the flush: `data` may carry inline manifests
+  // (the seed script does), and those are what the flush writes back out.
+  fs.rmSync(MANIFESTS, { recursive: true, force: true });
+  manifestCache().clear();
+  flush();
+  return g.__zenithDb;
+}
+
+/* ------------------------------ event streams ------------------------------ */
+
+function appendEvent(e: DeploymentEvent): void {
+  ensureDir();
+  fs.appendFileSync(EVENTS, JSON.stringify(e) + "\n", "utf8");
+}
+
+/**
+ * Incremental view of events.jsonl: each read consumes only the bytes appended
+ * since the last one. The SSE route polls this per client every 300ms, so a
+ * full rescan per poll was the whole cost of watching a deployment.
+ */
+interface EventTail {
+  /** bytes of EVENTS already parsed into `events` */
+  pos: number;
+  events: DeploymentEvent[];
+  /**
+   * The same events, bucketed by deployment. The SSE route polls per client
+   * every 300ms and only ever wants one deployment, so a reader takes its own
+   * bucket instead of filtering the whole 5,000-event tail each tick. Kept in
+   * step with `events`: appended in the same loop, rebuilt when the tail is
+   * sliced.
+   */
+  byDeployment: Map<string, DeploymentEvent[]>;
+  /** trailing bytes that are not yet a complete line */
+  carry: Buffer;
+  /** true once old events have been evicted from `events` */
+  evicted: boolean;
+}
+
+const emptyTail = (): EventTail => ({
+  pos: 0,
+  events: [],
+  byDeployment: new Map(),
+  carry: Buffer.alloc(0),
+  evicted: false,
+});
+
+/** TODO(ceiling): cap the in-memory tail; older reads fall back to a file scan. */
+const TAIL_MAX = 5_000;
+
+type GE = typeof globalThis & { __zenithEventTail?: EventTail };
+
+function eventTail(): EventTail {
+  const g = globalThis as GE;
+  const t = (g.__zenithEventTail ??= emptyTail());
+  if (!fs.existsSync(EVENTS)) {
+    if (t.pos) Object.assign(t, emptyTail());
+    return t;
+  }
+  const size = fs.statSync(EVENTS).size;
+  if (size < t.pos) Object.assign(t, emptyTail());
+  if (size === t.pos) return t;
+
+  const fd = fs.openSync(EVENTS, "r");
+  try {
+    const buf = Buffer.allocUnsafe(size - t.pos);
+    fs.readSync(fd, buf, 0, buf.length, t.pos);
+    t.pos = size;
+    const chunk = Buffer.concat([t.carry, buf]);
+    const lastNl = chunk.lastIndexOf(10);
+    if (lastNl < 0) {
+      t.carry = chunk;
+      return t;
+    }
+    t.carry = chunk.subarray(lastNl + 1);
+    for (const line of chunk.subarray(0, lastNl).toString("utf8").split("\n")) {
+      if (!line) continue;
+      try {
+        const e = JSON.parse(line) as DeploymentEvent;
+        t.events.push(e);
+        const bucket = t.byDeployment.get(e.deploymentId);
+        if (bucket) bucket.push(e);
+        else t.byDeployment.set(e.deploymentId, [e]);
+      } catch {
+        /* skip torn line */
+      }
+    }
+  } finally {
+    fs.closeSync(fd);
+  }
+  if (t.events.length > TAIL_MAX) {
+    t.events = t.events.slice(-TAIL_MAX);
+    t.evicted = true;
+    // Rebuild the buckets from what survived: a deployment whose events all
+    // aged out must lose its bucket too, or the index would outgrow the tail.
+    t.byDeployment = new Map();
+    for (const e of t.events) {
+      const bucket = t.byDeployment.get(e.deploymentId);
+      if (bucket) bucket.push(e);
+      else t.byDeployment.set(e.deploymentId, [e]);
+    }
+  }
+  return t;
+}
+
+function scanEvents(deploymentId: string, afterSeq: number): DeploymentEvent[] {
+  if (!fs.existsSync(EVENTS)) return [];
+  const out: DeploymentEvent[] = [];
+  for (const line of fs.readFileSync(EVENTS, "utf8").split("\n")) {
+    if (!line) continue;
+    try {
+      const e = JSON.parse(line) as DeploymentEvent;
+      if (e.deploymentId === deploymentId && e.seq > afterSeq) out.push(e);
+    } catch {
+      /* skip torn line */
+    }
+  }
+  return out;
+}
+
+function readEvents(deploymentId: string, afterSeq = -1): DeploymentEvent[] {
+  const t = eventTail();
+  const hit = (t.byDeployment.get(deploymentId) ?? []).filter((e) => e.seq > afterSeq);
+  // The tail answers everything unless events older than the cursor were evicted.
+  if (!t.evicted || (hit.length > 0 && hit[0].seq === afterSeq + 1)) return hit;
+  return scanEvents(deploymentId, afterSeq);
+}
+
+function appendAudit(e: AuditEvent): void {
+  ensureDir();
+  fs.appendFileSync(AUDIT, JSON.stringify(e) + "\n", "utf8");
+}
+
+/** Bytes scanned per call before we stop and hand back a cursor. */
+const AUDIT_SCAN_BUDGET = 1 << 20;
+const AUDIT_CHUNK = 64 * 1024;
+
+const matches = (e: AuditEvent, f: AuditFilter): boolean =>
+  (!f.workspaceId || e.workspaceId === f.workspaceId) &&
+  (!f.projectId || e.projectId === f.projectId) &&
+  (!f.environmentId || e.environmentId === f.environmentId) &&
+  (!f.actorType || e.actor?.type === f.actorType) &&
+  (!f.result || e.result === f.result) &&
+  (!f.from || e.ts >= f.from) &&
+  (!f.to || e.ts <= f.to) &&
+  (!f.actionId ||
+    (f.actionId.endsWith(".") ? e.actionId.startsWith(f.actionId) : e.actionId === f.actionId));
+
+/**
+ * How many rows match, so the UI can say "50 of 214" instead of "50".
+ *
+ * Counting means reading, so it is bounded: the newest 4 MB of the log. Past
+ * that the count is a floor, and `exact: false` says so rather than letting a
+ * screen present a truncated number as the truth.
+ */
+const AUDIT_COUNT_BUDGET = 4 << 20;
+
+/**
+ * What a previous count of one filter saw, so the next one does not re-read
+ * the log. The activity screen polls every 10s per tab and the log only ever
+ * grows, so the honest incremental answer is: nothing appended → the same
+ * number; bytes appended → count those bytes and add the delta.
+ */
+interface AuditCount {
+  /** bytes of AUDIT already counted — always the end of a complete line */
+  counted: number;
+  total: number;
+  exact: boolean;
+}
+
+/** TODO(ceiling): one entry per distinct filter; LRU by insertion order. */
+const AUDIT_COUNT_CACHE_MAX = 64;
+
+type GAC = typeof globalThis & { __zenithAuditCounts?: Map<string, AuditCount> };
+const auditCounts = (): Map<string, AuditCount> =>
+  ((globalThis as GAC).__zenithAuditCounts ??= new Map());
+
+function rememberCount(key: string, c: AuditCount): AuditCountResult {
+  const cache = auditCounts();
+  cache.delete(key);
+  cache.set(key, c);
+  if (cache.size > AUDIT_COUNT_CACHE_MAX) cache.delete(cache.keys().next().value as string);
+  return { total: c.total, exact: c.exact };
+}
+
+/**
+ * Count matching rows in `[start, end)`. Only whole lines are counted and
+ * `consumed` reports where the last one ended — a record still being appended
+ * is left for the next call, which is what makes `consumed` safe to cache.
+ */
+function countRange(
+  fd: number,
+  start: number,
+  end: number,
+  filter: AuditFilter,
+  dropFirst: boolean
+): { total: number; consumed: number } {
+  if (end <= start) return { total: 0, consumed: start };
+  const buf = Buffer.allocUnsafe(end - start);
+  fs.readSync(fd, buf, 0, buf.length, start);
+  const lastNl = buf.lastIndexOf(10);
+  if (lastNl < 0) return { total: 0, consumed: start };
+  const lines = buf.subarray(0, lastNl).toString("utf8").split("\n");
+  // A partial first line (we may have cut mid-record) is dropped, not guessed.
+  if (dropFirst) lines.shift();
+  let total = 0;
+  for (const line of lines) {
+    if (!line) continue;
+    try {
+      if (matches(JSON.parse(line) as AuditEvent, filter)) total++;
+    } catch {
+      /* skip torn line */
+    }
+  }
+  return { total, consumed: start + lastNl + 1 };
+}
+
+function countAudit(filter: AuditFilter = {}): AuditCountResult {
+  const key = JSON.stringify(filter);
+  if (!fs.existsSync(AUDIT)) {
+    auditCounts().delete(key);
+    return { total: 0, exact: true };
+  }
+  const size = fs.statSync(AUDIT).size;
+  const hit = auditCounts().get(key);
+  // Same bytes as last time, so the same answer — no read at all.
+  if (hit && hit.counted === size) return { total: hit.total, exact: hit.exact };
+
+  const fd = fs.openSync(AUDIT, "r");
+  try {
+    // Grew, and the whole log still fits the budget: count the appended bytes
+    // and add the delta. Past the budget the 4 MB window slides, so rows leave
+    // it from the front too and only a full rescan can stay honest.
+    if (hit && hit.exact && size > hit.counted && size <= AUDIT_COUNT_BUDGET) {
+      const added = countRange(fd, hit.counted, size, filter, false);
+      return rememberCount(key, {
+        counted: added.consumed,
+        total: hit.total + added.total,
+        exact: true,
+      });
+    }
+    const start = Math.max(0, size - AUDIT_COUNT_BUDGET);
+    const scan = countRange(fd, start, size, filter, start > 0);
+    return rememberCount(key, {
+      counted: scan.consumed,
+      total: scan.total,
+      exact: start === 0,
+    });
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+/**
+ * Read the audit log backwards from the end (or from `cursor`), newest first.
+ * Filtering happens here so callers never pull a window they then throw away.
+ */
+function readAuditPage(filter: AuditFilter = {}): AuditPage {
+  if (!fs.existsSync(AUDIT)) return { events: [] };
+  const size = fs.statSync(AUDIT).size;
+  const want = Math.max(1, filter.limit ?? 500);
+  const start = Number(filter.cursor);
+  let pos = Number.isFinite(start) ? Math.min(Math.max(start, 0), size) : size;
+  if (pos === 0) return { events: [] };
+
+  const events: AuditEvent[] = [];
+  let carry = Buffer.alloc(0);
+  let scanned = 0;
+  const fd = fs.openSync(AUDIT, "r");
+  try {
+    while (pos > 0) {
+      const len = Math.min(AUDIT_CHUNK, pos);
+      pos -= len;
+      scanned += len;
+      const buf = Buffer.allocUnsafe(len);
+      fs.readSync(fd, buf, 0, len, pos);
+      // Concatenate as bytes, not strings: a chunk boundary can split a UTF-8 char.
+      const chunk = Buffer.concat([buf, carry]);
+      const nl = pos === 0 ? -1 : chunk.indexOf(10);
+      if (nl < 0 && pos > 0) {
+        carry = chunk;
+        continue;
+      }
+      carry = nl < 0 ? Buffer.alloc(0) : chunk.subarray(0, nl);
+      const body = nl < 0 ? chunk : chunk.subarray(nl + 1);
+      const lines = body.toString("utf8").split("\n");
+      // absolute byte offset of each line's first character
+      let off = pos + carry.length + (nl < 0 ? 0 : 1);
+      const starts = lines.map((l) => {
+        const s = off;
+        off += Buffer.byteLength(l) + 1;
+        return s;
+      });
+      for (let i = lines.length - 1; i >= 0; i--) {
+        if (lines[i]) {
+          try {
+            const e = JSON.parse(lines[i]) as AuditEvent;
+            if (matches(e, filter)) events.push(e);
+          } catch {
+            /* skip torn line */
+          }
+        }
+        if (events.length >= want) return { events, nextCursor: String(starts[i]) };
+      }
+      // starts[0] is a real line start (anything before it lives in `carry`).
+      if (scanned >= AUDIT_SCAN_BUDGET && pos > 0)
+        return { events, nextCursor: String(starts[0]) };
+    }
+  } finally {
+    fs.closeSync(fd);
+  }
+  return { events };
+}
+
+/** Back-compatible reader: newest first, no cursor. */
+const readAudit = (filter: AuditFilter = {}): AuditEvent[] => readAuditPage(filter).events;
+
+/**
+ * A revision's manifest, loaded from cold storage on demand. Reads through the
+ * same non-enumerable accessor every other reader uses.
+ */
+const revisionManifest = (id: string): Manifest | undefined =>
+  db().revisions.find((r) => r.id === id)?.manifest;
+
+/* ------------------------------ the interface ------------------------------ */
+
+/**
+ * The one implementation of `Store` that exists today. A module object rather
+ * than a class: the state it owns lives on `globalThis` (so it survives
+ * Next.js HMR) and there is exactly one of it per process, which an
+ * instantiable class would only make it possible to get wrong.
+ */
+export const FileStore: Store = {
+  db,
+  save,
+  flush,
+  flushPending,
+  reset: resetDb,
+  appendEvent,
+  readEvents,
+  appendAudit,
+  readAuditPage,
+  readAudit,
+  countAudit,
+  revisionManifest,
+  onChange,
+  changed,
+};

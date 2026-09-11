@@ -293,6 +293,14 @@ function UserMenu() {
           ? `${boot.role} in ${boot.workspace?.name ?? "this workspace"} — what every permission check reads.`
           : "No role in this workspace yet."}
       </MenuNote>
+      <MenuItem
+        href="/account"
+        icon={<Settings className="h-3.5 w-3.5" aria-hidden="true" />}
+        description="Name, password, sessions, your data"
+        onClick={close}
+      >
+        Account settings
+      </MenuItem>
       {/* A POST form, so signing out works with or without JavaScript.
           role="none" keeps the menu's children menuitems as far as AT sees. */}
       <form action="/auth/signout" method="post" role="none">

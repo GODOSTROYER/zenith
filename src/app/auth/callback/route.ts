@@ -11,15 +11,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { destinationAfterAuth } from "@/lib/server/workspace";
 import { callbackErrorCode } from "@/components/auth/messages";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
-  const next = searchParams.get("next") ?? "/overview";
-  // Only ever redirect within this origin.
-  const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/overview";
+  const next = searchParams.get("next");
   const supabase = await createClient();
 
   const code = searchParams.get("code");
@@ -52,5 +51,8 @@ export async function GET(request: NextRequest) {
     url.searchParams.set("error", callbackErrorCode(errorMessage));
     return NextResponse.redirect(url);
   }
-  return NextResponse.redirect(new URL(safeNext, origin));
+  // Asked after the session exists, never before: the answer depends on the
+  // membership this exchange just established (an invite becomes a membership
+  // inside `ensureMember`).
+  return NextResponse.redirect(new URL(await destinationAfterAuth(next), origin));
 }

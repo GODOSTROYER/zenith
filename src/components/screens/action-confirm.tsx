@@ -17,7 +17,12 @@ import { Input } from "@/components/ui/input";
 import { RiskBadge } from "@/components/ui/risk-badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RoleChip, roleShortfall } from "@/components/screens/role-chip";
-import { errorText, useSafeToasts, type Scope } from "@/components/screens/use-run-action";
+import {
+  errorText,
+  useRefreshAfterAction,
+  useSafeToasts,
+  type Scope,
+} from "@/components/screens/use-run-action";
 
 /* ----------------------------- error surfaces ----------------------------- */
 
@@ -111,6 +116,11 @@ export interface ActionConfirmProps {
    * refusal already names the fix in prose; this makes it pressable.
    */
   blockedFix?: ReactNode;
+  /**
+   * Presentation only: the dialog has already refetched the shell (and the
+   * project, inside one) by the time this runs. Use it to move the screen on —
+   * clear a draft, select the thing that was just made — not to re-read data.
+   */
   onDone?: (result: ActionResult) => void;
 }
 
@@ -134,6 +144,7 @@ export function ActionConfirm({
   onDone,
 }: ActionConfirmProps) {
   const toasts = useSafeToasts();
+  const refresh = useRefreshAfterAction();
   const [plan, setPlan] = useState<ActionPlan>();
   const [error, setError] = useState<unknown>();
   const [busy, setBusy] = useState(false);
@@ -170,6 +181,10 @@ export function ActionConfirm({
         body: result.ok ? undefined : result.error,
       });
       if (result.ok) {
+        // The thing on screen behind this dialog is now out of date. Refetch
+        // before handing control back, so `onDone` is free to be about the
+        // screen and never about reloading it.
+        refresh();
         onDone?.(result);
         onClose();
       } else {

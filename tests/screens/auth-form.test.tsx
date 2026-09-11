@@ -11,6 +11,8 @@ const calls = vi.hoisted(() => ({
   replace: vi.fn(),
   refresh: vi.fn(),
   search: "",
+  /** what GET /api/me answers — the only thing that decides where sign-in lands */
+  hasWorkspace: true,
 }));
 vi.mock("@/lib/supabase/client", () => ({ createClient: calls.createClient }));
 vi.mock("@/lib/supabase/env", () => ({ SUPABASE_OAUTH_PROVIDERS: [], OAUTH_PROVIDER_LABEL: {} }));
@@ -25,6 +27,15 @@ let host: HTMLDivElement;
 beforeEach(async () => {
   vi.resetAllMocks();
   calls.search = "next=%2Fp%2Fdemo%2Factivity";
+  calls.hasWorkspace = true;
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (String(url).startsWith("/api/me"))
+      return new Response(
+        JSON.stringify({ configured: true, signedIn: true, hasWorkspace: calls.hasWorkspace }),
+        { headers: { "content-type": "application/json" } }
+      );
+    throw new Error(`unexpected fetch ${url}`);
+  }));
   calls.createClient.mockImplementation(() => ({ auth: { signInWithPassword: calls.signIn } }));
   host = document.createElement("div");
   document.body.append(host);
@@ -42,6 +53,7 @@ beforeEach(async () => {
 afterEach(() => {
   act(() => root.unmount());
   host.remove();
+  vi.unstubAllGlobals();
 });
 
 const submitButton = () => host.querySelector<HTMLButtonElement>('button[type="submit"]')!;
@@ -117,4 +129,32 @@ it("keeps repeated server verification failures visible when the redirect URL is
   await act(async () => root.render(<AuthForm mode="login" />));
   expect(host.querySelector('[role="alert"]')?.textContent).toContain("verify your session");
   expect(submitButton().disabled).toBe(false);
+});
+
+it("sends a fresh account with no workspace to onboarding, never to overview", async () => {
+  // The bug: a new user landed on /overview, the screen that is empty because
+  // the account is new. Membership is the signal, and /api/me publishes it.
+  calls.hasWorkspace = false;
+  calls.signIn.mockResolvedValue({ error: null });
+  await submit();
+  expect(calls.replace).toHaveBeenCalledWith("/onboarding");
+  expect(calls.replace).not.toHaveBeenCalledWith("/p/demo/activity");
+  expect(calls.replace).not.toHaveBeenCalledWith("/overview");
+});
+
+it("keeps an invitation link for an account that has no workspace yet", async () => {
+  calls.hasWorkspace = false;
+  calls.search = "next=%2Fapps%2Faccept%3Ftoken%3Dabc";
+  await act(async () => root.render(<AuthForm mode="login" />));
+  calls.signIn.mockResolvedValue({ error: null });
+  await submit();
+  expect(calls.replace).toHaveBeenCalledWith("/apps/accept?token=abc");
+});
+
+it("falls back to the requested page when /api/me cannot answer", async () => {
+  // Unknown is not "new": a failed probe must not shove a returning user into setup.
+  vi.stubGlobal("fetch", vi.fn(async () => new Response("nope", { status: 500 })));
+  calls.signIn.mockResolvedValue({ error: null });
+  await submit();
+  expect(calls.replace).toHaveBeenCalledWith("/p/demo/activity");
 });

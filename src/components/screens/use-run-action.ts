@@ -6,6 +6,8 @@
 import { useCallback, useState } from "react";
 import type { ActionResult } from "@/lib/actions/core";
 import { ApiError, executeAction } from "@/lib/client/api";
+import { useProjectDataOptional } from "@/components/shell/project-context";
+import { useShellOptional } from "@/components/shell/shell-context";
 import { useToasts } from "@/components/ui/toast";
 
 /**
@@ -29,11 +31,38 @@ export function errorText(e: unknown): { message: string; fix?: string } {
 }
 
 /**
+ * Refetch whatever this screen is looking at, after something changed it.
+ *
+ * An action that succeeded has already changed the system; a screen that then
+ * shows the old answer is simply wrong, and making that refetch a prop each
+ * caller may forget is how it stayed wrong. Both contexts are read through
+ * their nullable accessors, so this is safe on a screen outside a project
+ * route and outside the product shell (a dialog under test, say).
+ *
+ * `ProjectProvider.refresh` already refetches the workspace bootstrap with the
+ * project, so inside one that single call is the whole refresh — calling both
+ * would only queue a second bootstrap read.
+ */
+export function useRefreshAfterAction(): () => void {
+  const refreshProject = useProjectDataOptional()?.refresh;
+  const refreshShell = useShellOptional()?.refresh;
+  return useCallback(() => {
+    if (refreshProject) refreshProject();
+    else refreshShell?.();
+  }, [refreshProject, refreshShell]);
+}
+
+/**
  * Execute an action, toast the outcome, hand back the result.
  * Returns `undefined` when the call failed, so callers can `if (!r) return`.
+ *
+ * A successful run refetches the shell (and the project, inside one) on its
+ * own. `onSettled` is still called exactly when it always was — after every
+ * settled run, succeeded or refused — for callers with something else to do.
  */
 export function useRunAction(onSettled?: () => void) {
   const toasts = useSafeToasts();
+  const refresh = useRefreshAfterAction();
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const run = useCallback(
@@ -51,8 +80,9 @@ export function useRunAction(onSettled?: () => void) {
             title: result.summary,
             body: result.error ?? "The action did not complete.",
           });
-        } else if (!opts.silent) {
-          toasts.push({ kind: "ok", title: result.summary });
+        } else {
+          if (!opts.silent) toasts.push({ kind: "ok", title: result.summary });
+          refresh();
         }
         onSettled?.();
         return result.ok ? result : undefined;
@@ -64,7 +94,7 @@ export function useRunAction(onSettled?: () => void) {
         setBusyId(null);
       }
     },
-    [toasts, onSettled]
+    [toasts, refresh, onSettled]
   );
 
   return { run, busyId, busy: busyId !== null };

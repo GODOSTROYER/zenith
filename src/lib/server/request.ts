@@ -40,6 +40,31 @@ export const currentRequest = (): RequestState | undefined => requestState.getSt
 
 type RouteCtx<P> = { params: Promise<P> };
 
+/** Methods that are allowed to have changed nothing, so never need the flush. */
+const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/**
+ * Close the store's 50ms coalescing window before this request is answered,
+ * on serverless only.
+ *
+ * `save()` defers the snapshot write behind an unref'd timer, which is exactly
+ * right for a long-lived process: a burst of mutations costs one write and the
+ * exit hook covers shutdown. A serverless instance has neither property — it
+ * can be frozen the instant the response leaves, and then the timer fires on
+ * the next request, or on no request at all. So a mutating route there waits
+ * for the write, and "commit before ACK" means the same thing on both hosts.
+ *
+ * One place, so every mutating route is covered without remembering to. Local
+ * `next dev` is untouched: `isServerless()` is false and nothing is awaited.
+ */
+async function flushMutation(req: NextRequest): Promise<void> {
+  if (READ_METHODS.has(req.method.toUpperCase())) return;
+  const { isServerless } = await import("@/lib/serverless");
+  if (!isServerless()) return;
+  const { flushPending } = await import("@/lib/db/store");
+  flushPending();
+}
+
 /** The permission a route needs, stated once instead of re-typed per handler. */
 export interface RouteOptions {
   /**
@@ -108,6 +133,7 @@ export function route<P extends Record<string, string> = Record<string, string>>
             : (undefined as unknown as RouteGrant);
           return handler(req, params, grant);
         });
+        await flushMutation(req);
         const res = out instanceof Response ? out : json(out);
         res.headers.set("x-request-id", requestId);
         return res;

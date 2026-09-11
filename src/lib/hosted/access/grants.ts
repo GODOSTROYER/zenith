@@ -40,6 +40,15 @@ import {
 export interface GrantScope {
   /** When given, the grant must belong to this app or the call answers `not_found`. */
   appId?: string;
+  /**
+   * Permit revoking an app's only owner. Set at exactly one call site —
+   * deleting the owner's own account — where the guard would protect nothing:
+   * the alternative is an app whose sole owner is a subject that can no longer
+   * sign in, which is an app with no reachable owner *and* a live grant. An
+   * admin of the app's workspace grants a replacement owner from the app's
+   * access panel. Never set this on a route one person can aim at another.
+   */
+  lastOwnerOk?: boolean;
 }
 
 /** What a completed revoke wrote, all of it committed together. */
@@ -200,7 +209,7 @@ export function revokeGrant(
         fix: "Nothing more to do — the person's sessions ended when it was revoked. Reload the access panel to see the current list.",
         details: { grantId, revokedAt: current.revokedAt },
       });
-    refuseLastOwnerChange(current, null);
+    if (!scope.lastOwnerOk) refuseLastOwnerChange(current, null);
 
     const app = requireApp(current.appId);
     const grant = a.repos.grants.revoke(grantId, by, why);

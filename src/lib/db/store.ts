@@ -360,6 +360,21 @@ export function save(projectId?: string): void {
   (g.__zenithSaveTimer as { unref?: () => void }).unref?.();
 }
 
+/**
+ * Write a *scheduled* save immediately, and say whether there was one.
+ *
+ * `flush()` writes unconditionally, which is right for shutdown and wrong for
+ * a request edge: a serverless instance must close the coalescing window
+ * before it answers (it can be frozen the moment it does, and the 50ms timer
+ * would never fire), but a request that mutated nothing must not pay for a
+ * snapshot write to say so.
+ */
+export function flushPending(): boolean {
+  if (!(globalThis as GS).__zenithSaveTimer) return false;
+  flush();
+  return true;
+}
+
 /** Write any pending save immediately. Idempotent. */
 export function flush(): void {
   const g = globalThis as GS;

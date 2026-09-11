@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { destinationAfterSignIn } from "@/lib/auth/destination";
 import { createClient } from "@/lib/supabase/client";
 import {
   OAUTH_PROVIDER_LABEL,
@@ -78,7 +79,7 @@ function RevealButton({ shown, onToggle }: { shown: boolean; onToggle: () => voi
 export function AuthForm({ mode }: { mode: AuthMode }) {
   const router = useRouter();
   const params = useSearchParams();
-  const next = params.get("next") || "/overview";
+  const next = params.get("next");
   const redirectError = params.get("error");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -143,20 +144,22 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       if (mode === "login") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        router.replace(next);
+        router.replace(await destinationAfterSignIn(next));
         router.refresh();
       } else if (mode === "signup") {
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            emailRedirectTo: `${origin}/auth/callback?next=/overview`,
+            emailRedirectTo: `${origin}/auth/callback`,
             data: { full_name: name.trim() },
           },
         });
         if (error) throw error;
         if (data.session) {
-          router.replace("/overview");
+          // Confirmation is off, so this account exists now — and a brand-new
+          // account has no workspace, which is what decides where it lands.
+          router.replace(await destinationAfterSignIn(next));
           router.refresh();
         } else {
           setUnconfirmed(true);
@@ -173,7 +176,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       } else {
         const { error } = await supabase.auth.updateUser({ password });
         if (error) throw error;
-        router.replace("/overview");
+        router.replace(await destinationAfterSignIn(next));
         router.refresh();
       }
     } catch (err) {
@@ -191,7 +194,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       const { error } = await createClient().auth.resend({
         type: "signup",
         email,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/overview` },
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
       });
       if (error) throw error;
       setUnconfirmed(false);
@@ -216,7 +219,9 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       const { error } = await createClient().auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
+          redirectTo: next
+            ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
+            : `${window.location.origin}/auth/callback`,
         },
       });
       if (error) throw error;

@@ -31,6 +31,7 @@ export {
 export {
   WORKSPACE_COOKIE,
   currentWorkspace,
+  destinationAfterAuth,
   membershipCheck,
   requireWorkspace,
   workspacesFor,
@@ -38,7 +39,9 @@ export {
 
 export {
   ensureMember,
+  isLastAdmin,
   readInvites,
+  soleAdminWorkspaces,
   writeInvites,
   type MemberDenial,
 } from "@/lib/server/membership";

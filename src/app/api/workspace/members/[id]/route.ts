@@ -9,7 +9,7 @@
 import { z } from "zod";
 import { db, save } from "@/lib/db/store";
 import type { Member } from "@/lib/domain/types";
-import { ApiError, requireWorkspace, route } from "@/lib/server/context";
+import { ApiError, isLastAdmin, requireWorkspace, route } from "@/lib/server/context";
 
 export const dynamic = "force-dynamic";
 
@@ -23,11 +23,6 @@ function find(memberId: string, workspaceId: string): Member {
     });
   return member;
 }
-
-/** True when this member is the only thing standing between us and no admin. */
-const isLastAdmin = (member: Member): boolean =>
-  member.role === "admin" &&
-  !db().members.some((m) => m.workspaceId === member.workspaceId && m.role === "admin" && m !== member);
 
 export const PATCH = route<{ id: string }>({ workspaceRole: "admin" }, async (req, { id }) => {
   const ws = requireWorkspace();

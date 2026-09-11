@@ -58,16 +58,24 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
     }
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.searchParams.set("next", pathname);
+    url.search = "";
+    // The query is part of where they were going: `/apps/accept?token=…` is
+    // nothing without its token, so the whole path+query comes back as `next`.
+    url.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
     if (unavailable) url.searchParams.set("error", "auth_unavailable");
     return withSessionCookies(NextResponse.redirect(url));
   }
 
-  // Signed-in users skip the auth pages.
+  // Signed-in users skip the auth pages. Where they go instead depends on
+  // whether they belong to a workspace, and the member table is not readable
+  // from the edge — so this hands the question to /auth/continue rather than
+  // assuming /overview, which is the empty screen for a brand-new account.
   if (signedIn && ["/login", "/signup"].includes(pathname)) {
+    const requested = request.nextUrl.searchParams.get("next");
     const url = request.nextUrl.clone();
-    url.pathname = "/overview";
+    url.pathname = "/auth/continue";
     url.search = "";
+    if (requested) url.searchParams.set("next", requested);
     return withSessionCookies(NextResponse.redirect(url));
   }
 

@@ -78,9 +78,13 @@ export const MAX_IDLE_STEPS = 2;
  * Poll interval for a hook that has seen `idleTicks` identical responses in a
  * row: `base` while anything is moving, doubling to 4× base once it is not.
  * A single changed payload (a deployment starting, say) resets it to `base`.
+ *
+ * `maxSteps` lowers that ceiling for a URL where lateness costs more than the
+ * request does — `0` means no backoff at all, and the interval stays `base`.
  */
-export function pollDelay(baseMs: number, idleTicks: number): number {
-  const steps = Math.min(Math.max(idleTicks, 0), MAX_IDLE_STEPS);
+export function pollDelay(baseMs: number, idleTicks: number, maxSteps = MAX_IDLE_STEPS): number {
+  const ceiling = Math.min(Math.max(maxSteps, 0), MAX_IDLE_STEPS);
+  const steps = Math.min(Math.max(idleTicks, 0), ceiling);
   return baseMs * 2 ** steps;
 }
 
@@ -169,6 +173,16 @@ function readJson<T>(url: string): Promise<{ data: T; unchanged: boolean }> {
 export const streamedPollMs = (streaming: boolean, baseMs: number): number =>
   streaming ? 0 : baseMs;
 
+export interface UseJsonOptions {
+  /**
+   * How far this URL may back off while its responses are identical, in
+   * doublings. Defaults to `MAX_IDLE_STEPS` (4× the base interval); `0` keeps
+   * the base interval no matter how long nothing changes, for a URL whose
+   * whole job is to notice something that happened somewhere else.
+   */
+  maxIdleSteps?: number;
+}
+
 /**
  * Polling JSON hook. `refreshMs=0` disables polling (manual refresh only).
  *
@@ -178,7 +192,11 @@ export const streamedPollMs = (streaming: boolean, baseMs: number): number =>
  * through its phases — changes the payload and snaps the interval back to
  * `refreshMs`.
  */
-export function useJson<T>(url: string | null, refreshMs = 0): Loadable<T> {
+export function useJson<T>(
+  url: string | null,
+  refreshMs = 0,
+  options: UseJsonOptions = {}
+): Loadable<T> {
   const [data, setData] = useState<T>();
   const [error, setError] = useState<ApiError>();
   const [loading, setLoading] = useState(!!url);
@@ -186,6 +204,10 @@ export function useJson<T>(url: string | null, refreshMs = 0): Loadable<T> {
   const scheduleRef = useRef<() => void>(() => {});
   const intervalMs = useRef(refreshMs);
   intervalMs.current = refreshMs;
+  // Read through a ref, like the interval: an options object is a new literal
+  // on every render and must not re-run the effect that owns the timer.
+  const maxIdleSteps = useRef(options.maxIdleSteps);
+  maxIdleSteps.current = options.maxIdleSteps;
   const refresh = useCallback(() => refreshRef.current(), []);
 
   useEffect(() => {
@@ -202,7 +224,10 @@ export function useJson<T>(url: string | null, refreshMs = 0): Loadable<T> {
     function schedule() {
       clearTimeout(timer);
       if (alive && url && intervalMs.current && !requesting && !isHidden()) {
-        timer = setTimeout(run, pollDelay(intervalMs.current, idle));
+        timer = setTimeout(
+          run,
+          pollDelay(intervalMs.current, idle, maxIdleSteps.current ?? MAX_IDLE_STEPS)
+        );
       }
     }
     scheduleRef.current = schedule;

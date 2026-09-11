@@ -27,4 +27,14 @@ describe("pollDelay", () => {
   it("never goes below the base interval, whatever it is handed", () => {
     expect(pollDelay(5000, -3)).toBe(5000);
   });
+
+  it("honours a lower ceiling for a URL that must not go quiet", () => {
+    expect(pollDelay(10_000, 5, 0)).toBe(10_000);
+    expect(pollDelay(10_000, 5, 1)).toBe(20_000);
+    expect(pollDelay(10_000, 5, -1)).toBe(10_000);
+  });
+
+  it("cannot be raised past the shared ceiling", () => {
+    expect(pollDelay(10_000, 99, 99)).toBe(pollDelay(10_000, 99, MAX_IDLE_STEPS));
+  });
 });

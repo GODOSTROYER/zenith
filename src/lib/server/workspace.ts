@@ -10,6 +10,7 @@
  */
 import { db } from "@/lib/db/store";
 import type { Workspace } from "@/lib/domain/types";
+import { postAuthDestination } from "@/lib/auth/destination";
 import { getSessionUser, type SessionUser } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { ApiError } from "@/lib/server/errors";
@@ -119,6 +120,20 @@ export async function currentWorkspace(): Promise<Workspace | undefined> {
   const user = await getSessionUser();
   if (user) ensureMember(user);
   return pickWorkspace(await workspaceCookie(), user);
+}
+
+/**
+ * Where the caller goes once they are signed in.
+ *
+ * The rule itself is `postAuthDestination` (pure, shared with the browser);
+ * this supplies the one fact only the server can answer. It resolves through
+ * `currentWorkspace()` deliberately: that runs `ensureMember`, which is where a
+ * pending invite becomes a membership — so an invited person is a member by the
+ * time the question is asked and is never sent to onboarding.
+ */
+export async function destinationAfterAuth(next?: string | null): Promise<string> {
+  const workspace = await currentWorkspace();
+  return postAuthDestination({ hasWorkspace: Boolean(workspace), next });
 }
 
 /** The selection cookie, or undefined outside a request scope (a unit test). */

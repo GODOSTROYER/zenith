@@ -74,12 +74,21 @@ const EMPTY_CATALOG: ActionEntry[] = [];
 
 /** Workspace-wide data, hydrated once by the product shell. */
 export function useShell(): ShellData {
-  const ctx = useContext(ShellContext);
+  const ctx = useShellOptional();
   if (!ctx)
     throw new Error(
       "useShell() was called outside the product shell. Render the screen under src/app/(product)/."
     );
   return ctx;
+}
+
+/**
+ * The same data, or `null` outside the shell. For code that wants to refresh
+ * the workspace *if there is one* — a shared hook, a dialog rendered by a test
+ * — and must not turn "no provider here" into a thrown render.
+ */
+export function useShellOptional(): ShellData | null {
+  return useContext(ShellContext);
 }
 
 export function ShellProvider({
@@ -89,7 +98,14 @@ export function ShellProvider({
   children: ReactNode;
   catalog?: ActionEntry[];
 }) {
-  const { data, loading, error, refresh } = useJson<Bootstrap>("/api/bootstrap", 10_000);
+  // No idle backoff here. Bootstrap is how this tab learns about work done
+  // somewhere else — a workspace joined, a project created in another tab — so
+  // an unchanged answer is the normal case, not a reason to ask less often;
+  // with the default 4× ceiling that news arrived up to 40s late. The route
+  // answers 304 with an ETag, so a quiet tab still costs a header exchange.
+  const { data, loading, error, refresh } = useJson<Bootstrap>("/api/bootstrap", 10_000, {
+    maxIdleSteps: 0,
+  });
   const value = useMemo(() => ({
     boot: data, loading, error, refresh, catalog: data?.catalog ?? catalog,
   }), [data, loading, error, refresh, catalog]);

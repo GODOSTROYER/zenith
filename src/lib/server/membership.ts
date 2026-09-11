@@ -101,6 +101,17 @@ export function ensureMember(
       member.name = user.name;
       dirty = true;
     }
+    // A confirmed email change arrives as a claim on the first request after
+    // the confirmation link is opened — `userFromClaims` reads it, and this is
+    // the one place the stored copy follows. The member row is what every
+    // member list, export and denial sentence reads, so it must not keep
+    // showing the address the person no longer has. Pending invites are keyed
+    // by the address they named and are deliberately untouched: an invite is a
+    // standing offer to an email, not to a person.
+    if (user.email && member.email !== user.email) {
+      member.email = user.email;
+      dirty = true;
+    }
     // Where claims do not grant roles, one never rewrites a stored role
     // either: the member table is the only authority, so a demotion or a
     // removal sticks.
@@ -128,6 +139,37 @@ export function ensureMember(
 
   if (dirty) save();
   return { member };
+}
+
+/* ------------------------------- last admin ------------------------------- */
+
+/**
+ * True when this member is the only thing standing between us and no admin.
+ *
+ * A workspace with no admin is a workspace where members, budgets, policies
+ * and connections can never be changed again by anybody, so both the member
+ * routes and account deletion refuse to create one. Both read this, so there
+ * is one rule rather than two that can drift.
+ */
+export const isLastAdmin = (member: Member): boolean =>
+  member.role === "admin" &&
+  !db().members.some(
+    (m) => m.workspaceId === member.workspaceId && m.role === "admin" && m !== member
+  );
+
+/**
+ * The workspaces this user is the sole admin of — the reason to refuse a
+ * deletion, named so the refusal can say which one and where to fix it.
+ */
+export function soleAdminWorkspaces(userId: string): Workspace[] {
+  const d = db();
+  const out: Workspace[] = [];
+  for (const member of d.members) {
+    if (member.id !== userId || !isLastAdmin(member)) continue;
+    const ws = d.workspaces.find((w) => w.id === member.workspaceId);
+    if (ws) out.push(ws);
+  }
+  return out;
 }
 
 /** The role a never-seen user may join with, or undefined to refuse them. */

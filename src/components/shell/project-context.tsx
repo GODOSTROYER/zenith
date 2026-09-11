@@ -69,12 +69,22 @@ const ProjectContext = createContext<ProjectData | null>(null);
  * environment, one refresh — so no two tabs can disagree about the system.
  */
 export function useProjectData(): ProjectData {
-  const ctx = useContext(ProjectContext);
+  const ctx = useProjectDataOptional();
   if (!ctx)
     throw new Error(
       "useProjectData() was called outside a project route. Render the screen under src/app/(product)/p/[slug]/."
     );
   return ctx;
+}
+
+/**
+ * The same project, or `null` when this screen is not inside one. Shared code
+ * that wants to refresh a project *if there is one* — the action runner, the
+ * confirm dialog — reads it through here, because "no project route" is an
+ * ordinary answer for those and never a thrown render.
+ */
+export function useProjectDataOptional(): ProjectData | null {
+  return useContext(ProjectContext);
 }
 
 const envKey = (projectId: string) => `zenith-env-${projectId}`;

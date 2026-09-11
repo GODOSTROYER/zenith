@@ -33,6 +33,7 @@ No `node:` imports, no env, no store. Safe in the browser and at the edge.
 | `src/lib/domain/types.ts` | `Manifest` and every record type, their zod schemas, `id()`, `fnv1a()`, `hash32()` | zod |
 | `src/lib/domain/graph.ts` | `diffManifests`, `validateManifest`, `bindingEnv`, `findNode` | `domain/types`, `cost/pricing` |
 | `src/lib/domain/roles.ts` | `WorkspaceRole`, `WORKSPACE_ROLE_RANK`, `roleReaches` | nothing |
+| `src/lib/auth/destination.ts` | `postAuthDestination` / `safeNextPath` — the one post-authentication destination rule, shared by the callback, the auth forms and `/auth/continue` | nothing |
 | `src/lib/cost/pricing.ts` | Estimate tables. Prices a manifest, never an account | `domain/types` |
 | `src/lib/format.ts` | `fmtUsd` / `fmtDate` / `timeAgo` / `fmtDuration` / `cx` | nothing |
 | `src/lib/importers/types.ts` | Importer vocabulary and the one `slugify()` / `uniqueName()` | `domain/types` |
@@ -110,8 +111,9 @@ Business rules over the stores. No `Request`, no `Response`, no route knowledge.
 | `src/lib/server/context.ts` | Barrel over the six modules below; every existing importer still resolves here | — |
 | `src/lib/server/errors.ts` | `ApiError`, `notFound`, `json`, `errorResponse` | L0–L1 |
 | `src/lib/server/request.ts` | `RequestState`, `currentRequest`, `route({ workspaceRole? }, handler)`, `intParam` | L0–L4 |
-| `src/lib/server/workspace.ts` | `requireWorkspace`, `workspacesFor`, `currentWorkspace`, `membershipCheck` | L0–L4 |
+| `src/lib/server/workspace.ts` | `requireWorkspace`, `workspacesFor`, `currentWorkspace`, `membershipCheck`, `destinationAfterAuth` | L0–L4 |
 | `src/lib/server/membership.ts` | invites, `ensureMember`, join target/role, the denial sentence (policy from `auth/policy.ts`) | L0–L4 |
+| `src/lib/server/account.ts` | what a person does to their own sign-in: `requireAccountUser`, the export they can take with them, the rows their deletion removes. Not in the `context.ts` barrel — the four `/api/account` routes import it directly | L0–L4 |
 | `src/lib/server/actor.ts` | demo/navigator actors, `resolveActor`, `workspaceRole`, `requireAdmin` | L0–L4 |
 | `src/lib/server/scope.ts` | `scopedProject/Environment/Deployment`, `buildCtx` | L0–L4 |
 | `src/lib/server/hosted.ts` | The hosted request edge: one `hostedRoute({ workspaceRole?, appRole?, verify? })`, `readJsonBody`, `requireAppOwner`; `hosted/{access,release}/http.ts` are barrels over it | L0–L4 |

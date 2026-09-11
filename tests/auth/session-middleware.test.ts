@@ -43,6 +43,28 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("session middleware", () => {
+  it("hands an already signed-in visitor of an auth page to the resolver, not to overview", async () => {
+    // Overview is the wrong guess for a brand-new account, and the edge cannot
+    // read the member table — so the destination is decided behind /auth/continue.
+    mocks.getClaims.mockResolvedValue({ data: { claims: { sub: "test-user" } }, error: null });
+    const response = await updateSession(
+      new NextRequest("http://localhost:3400/login?next=%2Fapps%2Faccept%3Ftoken%3Dabc")
+    );
+    const redirect = new URL(response.headers.get("location")!);
+    expect(redirect.pathname).toBe("/auth/continue");
+    expect(redirect.searchParams.get("next")).toBe("/apps/accept?token=abc");
+  });
+
+  it("keeps the query of the page a signed-out visitor was trying to open", async () => {
+    // /apps/accept?token=… is nothing without its token.
+    const response = await updateSession(
+      new NextRequest("http://localhost:3400/apps/accept?token=abc")
+    );
+    const redirect = new URL(response.headers.get("location")!);
+    expect(redirect.pathname).toBe("/login");
+    expect(redirect.searchParams.get("next")).toBe("/apps/accept?token=abc");
+  });
+
   it.each([0, 503])("explains transient verification failures (status %i) without exposing error details", async (status) => {
     mocks.getClaims.mockResolvedValue({
       data: null,
@@ -81,8 +103,8 @@ describe("session middleware", () => {
 
   it.each([
     { path: "/overview", signedIn: true, status: 200, location: null },
-    { path: "/login", signedIn: true, status: 307, location: "/overview" },
-    { path: "/signup", signedIn: true, status: 307, location: "/overview" },
+    { path: "/login", signedIn: true, status: 307, location: "/auth/continue" },
+    { path: "/signup", signedIn: true, status: 307, location: "/auth/continue" },
     { path: "/overview", signedIn: false, status: 307, location: "/login" },
     { path: "/api/bootstrap", signedIn: false, status: 401, location: null },
     { path: "/login", signedIn: false, status: 200, location: null },

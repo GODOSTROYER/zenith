@@ -28,13 +28,13 @@
  * check is remembered, not retried into a storm: the same rejection is handed
  * to every caller until the process restarts.
  *
- * ## What is here and what is not
+ * ## What is here
  *
- * Package P1a implements the repositories the boot path and the outbox/jobs
- * helpers need to start — `jobs` and `outbox`. The others are named stubs
- * (`repos/stubs.ts`). `createPostgresAuthority()` type-checks as a whole
- * `Authority` either way, which is what lets the boot path be exercised against
- * a real database before the last repository is written.
+ * Every repository of the control authority has a Postgres implementation
+ * under `repos/`, each a statement-for-statement twin of its SQLite
+ * counterpart. `createPostgresAuthority()` is a whole `Authority`; the
+ * cross-store contract suites under `tests/hosted/authority/contract/` are
+ * what hold the two implementations to the same answers.
  */
 import { HostedError } from "@/lib/hosted/contracts";
 import { MIGRATIONS } from "../schema";

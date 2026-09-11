@@ -255,8 +255,10 @@ export class LocalRuntime implements HostedRuntime, SelectableRuntime {
   /** The create → get → update → stale-update round trip, on `test.sqlite`. */
   private async probeDataRoundTrip(app: HostedApp, candidate: RuntimeCandidateRef): Promise<Check> {
     try {
-      resetTestDatabase(app.id);
-      const { store } = openAppData(app.id, { file: "test" });
+      // Awaited: on Postgres the probe database is the `<appId>::test`
+      // namespace and emptying it is a round trip. The candidate must not be
+      // probed against the last probe's rows.
+      const { store } = await resetTestDatabase(app.id);
       const ctx: DataContext = {
         appId: app.id,
         subject: "zenith-candidate-probe",

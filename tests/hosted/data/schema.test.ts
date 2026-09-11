@@ -17,8 +17,23 @@ const {
   closeAllAppData,
   openAppData,
   readSchemaVersion,
+  sqliteBackendOf,
   trackerSql,
 } = await import("@/lib/hosted/data");
+
+/**
+ * `openAppData` with its backend narrowed to the SQLite connection.
+ *
+ * `OpenAppData.backend` is a union of the two backends this build ships, and
+ * this file runs in the default `sqlite` store and asserts on statements only a
+ * SQLite connection can run. `sqliteBackendOf` is the one escape hatch that
+ * says so; narrowing once here keeps the assertions readable.
+ */
+const openSqlite = (appId: string, options: Parameters<typeof openAppData>[1] = {}) => {
+  const opened = openAppData(appId, options);
+  return { ...opened, backend: sqliteBackendOf(opened) };
+};
+
 
 afterAll(async () => {
   closeAllAppData();
@@ -72,7 +87,7 @@ function insertParams(overrides: Partial<Record<string, string | number | null>>
 
 describe("tracker migrations", () => {
   it("reports schema version 1 and matches the frozen contract version", async () => {
-    const { backend, store } = openAppData(APP_A);
+    const { backend, store } = openSqlite(APP_A);
     expect(readSchemaVersion(backend)).toBe(1);
     expect(LATEST_TRACKER_SCHEMA_VERSION).toBe(TRACKER_SCHEMA_VERSION);
     expect(Math.max(...TRACKER_MIGRATIONS.map((m) => m.version))).toBe(LATEST_TRACKER_SCHEMA_VERSION);
@@ -80,7 +95,7 @@ describe("tracker migrations", () => {
   });
 
   it("is idempotent: re-applying changes neither the version nor the data", async () => {
-    const { backend } = openAppData(APP_A);
+    const { backend } = openSqlite(APP_A);
     backend.run(trackerSql.INSERT_REQUEST_WITHIN_QUOTA, insertParams({ id: "keep-me" }));
     const before = backend.get<{ total: number }>(trackerSql.COUNT_REQUESTS)?.total;
 
@@ -93,7 +108,7 @@ describe("tracker migrations", () => {
   });
 
   it("opens with the hosted durability pragmas", async () => {
-    const { backend } = openAppData(APP_A);
+    const { backend } = openSqlite(APP_A);
     const pragmas = backend.pragmas();
     expect(pragmas.journalMode).toBe("wal");
     expect(pragmas.synchronous).toBe(2); // FULL
@@ -120,7 +135,7 @@ describe("CHECK constraints (second line of defence behind zod)", () => {
 
   for (const { name, overrides } of cases) {
     it(`rejects ${name} at the database, even when validation is bypassed`, async () => {
-      const { backend } = openAppData(APP_A);
+      const { backend } = openSqlite(APP_A);
       expect(() => backend.run(trackerSql.INSERT_REQUEST_WITHIN_QUOTA, insertParams(overrides))).toThrow(
         /CHECK constraint failed/i
       );
@@ -128,7 +143,7 @@ describe("CHECK constraints (second line of defence behind zod)", () => {
   }
 
   it("accepts a null needed_by and every valid enum value", async () => {
-    const { backend } = openAppData(APP_A);
+    const { backend } = openSqlite(APP_A);
     for (const category of ["laptop", "monitor", "peripheral", "software", "furniture", "other"]) {
       const result = backend.run(
         trackerSql.INSERT_REQUEST_WITHIN_QUOTA,
@@ -149,7 +164,7 @@ describe("CHECK constraints (second line of defence behind zod)", () => {
   });
 
   it("refuses a second storage row, so the counter cannot fork", async () => {
-    const { backend } = openAppData(APP_A);
+    const { backend } = openSqlite(APP_A);
     expect(() => backend.run("INSERT INTO storage (id, logical_bytes) VALUES (2, 0)")).toThrow(
       /CHECK constraint failed/i
     );

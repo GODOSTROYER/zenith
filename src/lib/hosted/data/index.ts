@@ -12,6 +12,16 @@
  * Cloudflare runtime (the D1 backend).
  */
 export {
+  type AppDataOps,
+  type ImportOutcome,
+  type ImportRecordsOptions,
+  type ImportSkip,
+  type IntegrityKind,
+  type IntegrityVerdict,
+  postgresOps,
+  sqliteOps,
+} from "./app-ops";
+export {
   type AsyncDataBackend,
   type D1BatchOutcome,
   type D1BatchStatement,
@@ -37,11 +47,18 @@ export {
   type HostedPgClient,
   PgDataBackend,
   type PgDataBackendOptions,
+  type PgCreateInput,
+  type PgCreateOutcome,
+  type PgNamespacePurge,
   PgTrackerStore,
+  type PgUpdateInput,
+  type PgUpdateOutcome,
+  TEST_NAMESPACE_SUFFIX,
   hostedPgClient,
 } from "./pg-backend";
 export {
   APP_DATA_FILENAMES,
+  type AppDataBackend,
   type AppDataFile,
   appDataPath,
   closeAllAppData,
@@ -50,6 +67,7 @@ export {
   type OpenAppDataOptions,
   openAppData,
   resetTestDatabase,
+  sqliteBackendOf,
 } from "./open";
 export {
   LATEST_TRACKER_SCHEMA_VERSION,

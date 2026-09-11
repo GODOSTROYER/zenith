@@ -9,9 +9,23 @@ import { ctx, input } from "./_helpers";
 
 const DATA_DIR = isolatedDataDir("zenith-data-quota-");
 
-const { ROW_OVERHEAD_BYTES, closeAllAppData, logicalBytes, openAppData, trackerSql } = await import(
+const { ROW_OVERHEAD_BYTES, closeAllAppData, logicalBytes, openAppData, sqliteBackendOf, trackerSql } = await import(
   "@/lib/hosted/data"
 );
+
+/**
+ * `openAppData` with its backend narrowed to the SQLite connection.
+ *
+ * `OpenAppData.backend` is a union of the two backends this build ships, and
+ * this file runs in the default `sqlite` store and asserts on statements only a
+ * SQLite connection can run. `sqliteBackendOf` is the one escape hatch that
+ * says so; narrowing once here keeps the assertions readable.
+ */
+const openSqlite = (appId: string, options: Parameters<typeof openAppData>[1] = {}) => {
+  const opened = openAppData(appId, options);
+  return { ...opened, backend: sqliteBackendOf(opened) };
+};
+
 
 afterAll(async () => {
   closeAllAppData();
@@ -100,7 +114,7 @@ describe("the logical-byte measure", () => {
 describe("the counter", () => {
   it("equals the sum of the stored rows and defaults to the pilot limit", async () => {
     const appId = freshApp();
-    const { backend, store } = openAppData(appId);
+    const { backend, store } = openSqlite(appId);
     const editor = ctx("editor", IDENTITIES.editor, appId);
     expect(store.storageLimitBytes).toBe(DEFAULT_LIMITS.storageBytes);
 
@@ -115,7 +129,7 @@ describe("the counter", () => {
 
   it("follows an update up and back down", async () => {
     const appId = freshApp();
-    const { backend, store } = openAppData(appId);
+    const { backend, store } = openSqlite(appId);
     const editor = ctx("editor", IDENTITIES.editor, appId);
 
     const created = await store.create(editor, { writeId: uuid(), record: input({ details: "short" }) });
@@ -142,7 +156,7 @@ describe("the counter", () => {
 describe("at the ceiling", () => {
   it("creates until the quota refuses, and the refusal discloses the measure", async () => {
     const measureApp = freshApp();
-    const measure = openAppData(measureApp).store;
+    const measure = openSqlite(measureApp).store;
     const probe = await measure.create(ctx("editor", IDENTITIES.editor, measureApp), {
       writeId: uuid(),
       record: input(),
@@ -151,7 +165,7 @@ describe("at the ceiling", () => {
 
     // Room for three records of that size and not a byte more.
     const appId = freshApp();
-    const { backend, store } = openAppData(appId, { storageBytes: perRecord * 3 });
+    const { backend, store } = openSqlite(appId, { storageBytes: perRecord * 3 });
     const editor = ctx("editor", IDENTITIES.editor, appId);
 
     for (let i = 0; i < 3; i += 1) {
@@ -181,7 +195,7 @@ describe("at the ceiling", () => {
 
   it("allows an update that shrinks a record even when the app is full", async () => {
     const appId = freshApp();
-    const { store } = openAppData(appId, { storageBytes: 1_400 });
+    const { store } = openSqlite(appId, { storageBytes: 1_400 });
     const editor = ctx("editor", IDENTITIES.editor, appId);
 
     const created = await store.create(editor, { writeId: uuid(), record: input({ details: "d".repeat(600) }) });
@@ -218,7 +232,7 @@ describe("at the ceiling", () => {
 
   it("accepts a record that lands exactly on the limit and refuses one byte more", async () => {
     const measureApp = freshApp();
-    const measure = openAppData(measureApp).store;
+    const measure = openSqlite(measureApp).store;
     const probe = await measure.create(ctx("editor", IDENTITIES.editor, measureApp), {
       writeId: uuid(),
       record: input({ details: "boundary" }),
@@ -226,7 +240,7 @@ describe("at the ceiling", () => {
     const exact = logicalBytes(probe.record);
 
     const appId = freshApp();
-    const { store } = openAppData(appId, { storageBytes: exact });
+    const { store } = openSqlite(appId, { storageBytes: exact });
     const editor = ctx("editor", IDENTITIES.editor, appId);
 
     const fits = await store.create(editor, { writeId: uuid(), record: input({ details: "boundary" }) });
@@ -241,7 +255,7 @@ describe("at the ceiling", () => {
 
   it("refuses a single record larger than the whole allowance", async () => {
     const appId = freshApp();
-    const { store } = openAppData(appId, { storageBytes: 100 });
+    const { store } = openSqlite(appId, { storageBytes: 100 });
     const editor = ctx("editor", IDENTITIES.editor, appId);
     const denied = await refusal(() => store.create(editor, { writeId: uuid(), record: input() }));
     expect(denied.code).toBe("quota_exceeded");

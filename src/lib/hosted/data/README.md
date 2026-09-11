@@ -27,6 +27,7 @@ files carry its name.
 | `index.ts` | The barrel. Wave-2 consumers import `openAppData` and `TrackerDataStore` from here | — |
 | `backend.ts` | The two ways a database is spoken to: `SqliteBackend` (local, synchronous, with pragma readback) and `D1HttpBackend` (Cloudflare, batched) behind one `DataBackend` | Let a caller branch on which backend it got |
 | `pg-backend.ts` | `PgDataBackend`: the same statements against Supabase Postgres over PostgREST, and `PgTrackerStore`, the tracker's store over it. Selected by `ZENITH_HOSTED_STORE=postgres` | Reach a table without `app_id = eq.<this app>`, or approximate a statement it has no mapping for |
+| `app-ops.ts` | `AppDataOps`: the three whole-database operations that are not reads or writes of one record — integrity check, record count, bulk import — implemented once per store (`sqliteOps`, `postgresOps`). What `hosted/health`, `hosted/backup/reopen` and `hosted/export` use through `OpenAppData.ops` | Take an app id per call; a request-time read or write (those belong on `store`) |
 | `open.ts` | Opening, caching and closing one app's database, and the disposable test database a candidate is probed against | Hand out a store bound to a different app than the one asked for |
 | `schema.ts` | The tracker migrations and the recorded schema version. A rollback target is compared against it | Apply a migration that is not additive — older code has to still read the data |
 | `sql.ts` | Every statement, with the CHECK constraints that make the enum casts in `tracker-rows.ts` safe | Name an app in a statement |
@@ -67,7 +68,9 @@ approximating it.
 | --- | --- | --- |
 | `SELECT_REQUEST_BY_ID` | `GET app_records?app_id=eq.A&record_id=eq.<id>&limit=1` | row → `RequestRow` from `body` plus the promoted columns |
 | `SELECT_REQUESTS_PAGE` | `GET app_records` with `body->>status`, `body->>category`, `or=(created_at.lt.X,and(created_at.eq.X,record_id.lt.Y))`, `order=created_at.desc,record_id.desc`, `limit` | the same keyset order, so a cursor means the same position on both stores |
-| `INSERT_REQUEST_WITHIN_QUOTA` | `POST rpc/app_record_insert_within_quota` | returns 1 accepted / 0 refused; the comparison, the insert and the counter are one statement under one row lock |
+| `INSERT_REQUEST_WITHIN_QUOTA` | `POST rpc/app_record_insert_within_quota` | the import path only. Returns 1 accepted / 0 refused; the comparison, the insert and the counter are one statement under one row lock |
+| create (`INSERT_REQUEST_WITHIN_QUOTA` + `INSERT_WRITE` + `UPDATE_STORAGE_ADD`) | `POST rpc/app_record_create_atomic` | migration 0004. Quota compare, write-id reservation, record insert and counter move in one transaction, returning an outcome envelope (`ok`, `quota_exceeded`, `write_id_taken`, `record_exists`) so a refusal needs no second read |
+| update (`UPDATE_REQUEST_CAS` + `INSERT_WRITE` + `UPDATE_STORAGE_ADD`) | `POST rpc/app_record_update_atomic` | migration 0004. Row lock, version guard, quota on growth only, write-id reservation, row write and counter delta in one transaction; `stale_version` carries the stored record back |
 | `UPDATE_REQUEST_CAS` | `PATCH app_records?app_id=eq.A&record_id=eq.<id>&version=eq.<expected>` | the version guard is in the request, so 0 rows means `stale_version`. Reads the current `body` first — PostgREST cannot merge keys into jsonb |
 | `UPDATE_STORAGE_ADD` | `POST rpc/app_storage_add` | PostgREST cannot express `logical_bytes = logical_bytes + ?`. An accepted **create** does not issue it — the admission function already moved the counter under the same lock; only an update's byte delta goes through it |
 | `SELECT_STORAGE_BYTES` | `GET app_storage?app_id=eq.A` | absent row reads as 0 |
@@ -78,7 +81,9 @@ approximating it.
 
 ### Applying it
 
-1. Run `supabase/migrations/0003_hosted_app_data.sql` against the project.
+1. Run `supabase/migrations/0003_hosted_app_data.sql` and then
+   `0004_hosted_app_data_atomic.sql` against the project. Until 0004 is applied,
+   create and update answer `runtime_unavailable` naming it.
 2. Add `hosted` to the project's **exposed schemas** (Settings → API). PostgREST
    serves no schema it has not been told about; without this every request
    answers `PGRST106`, which `PgDataBackend` turns into a `runtime_unavailable`
@@ -86,13 +91,16 @@ approximating it.
 3. Set `ZENITH_HOSTED_STORE=postgres`, with `NEXT_PUBLIC_SUPABASE_URL` and
    `SUPABASE_SERVICE_ROLE_KEY` in the server environment.
 
-### Ceilings in postgres mode
+### What differs in postgres mode
 
-- `OpenAppData.backend` is a SQLite-only handle. In postgres mode it refuses
-  every call by name: `PRAGMA quick_check` (`hosted/health`,
-  `hosted/backup/reopen`) and the synchronous import transaction
-  (`hosted/export`) have no Postgres equivalent yet.
-- `resetTestDatabase()` refuses: the probe namespace is `<appId>::test` and
-  emptying it is a round trip, which a synchronous function cannot await.
-- The record, the counter and the ledger row no longer commit together — see the
-  `TODO(ceiling)` at the top of `pg-backend.ts`.
+- **Integrity is logical, not physical.** There is no file to `PRAGMA
+  quick_check`; `postgresOps.integrity()` reads the app's rows back and checks
+  that `hosted.app_storage` equals `sum(logical_bytes)` of its records. The
+  verdict says so in `kind: "logical"`; check ids are the same on both stores.
+- **Import is not one transaction.** PostgREST offers none, so the bundle's
+  total bytes are checked against the app's headroom before anything is
+  written. A concurrent writer filling the app mid-import can leave the
+  already-written prefix in place; on SQLite the import is all or nothing.
+- **The probe namespace** (`<appId>::test`) is emptied by
+  `PgDataBackend.purgeTestNamespace()`, which refuses any id that does not end
+  in `::test`.

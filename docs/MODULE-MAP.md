@@ -24,7 +24,13 @@ Two products share one repository and one process:
   registered is still answered by a delegate, and that boundary is stated in
   full at the top of `postgres-store.ts`.
 - **B — hosted apps.** Private apps served on `<slug>.<ZENITH_APP_DOMAIN>`.
-  Persists to `.data/control.sqlite` through `src/lib/hosted/authority/`.
+  Persists through `src/lib/hosted/authority/` to whichever store
+  `ZENITH_HOSTED_STORE` selects: `.data/control.sqlite` (the default, migrated
+  in process) or the `hosted.*` schema of a Supabase Postgres project
+  (`authority/pg/**`, every one of the fifteen repositories implemented, schema
+  applied by hand). The same flag moves the per-app data plane and the artifact
+  store; the whole picture, including the operational steps, is
+  [docs/HOSTED-POSTGRES.md](HOSTED-POSTGRES.md).
 
 They are deliberately separate stores. Nothing in `src/lib/hosted/authority`
 writes to the JSON store, and nothing in `src/lib/db` knows the authority
@@ -80,9 +86,9 @@ The only layer that opens a file or a database.
 | `src/lib/db/request-snapshot.ts` | One `AsyncLocalStorage` holding the current request's snapshot. Its only import is `node:async_hooks`, so the Postgres store can find the request scope without pulling `next/server` into scripts and tests | none |
 | `src/lib/db/store.ts` | Product A's repository **façade**: picks the implementation from `ZENITH_STORE` (`file` \| `postgres`) and re-exports it as `db()` / `save()` / `q.*` / `onChange`, plus `isPostgres()` and the awaitable `flushPendingAsync()`. Every importer still says `@/lib/db/store` | L0–L1, `db/{types,file-store,postgres-store}` |
 | `src/lib/secrets/` | AES-256-GCM value store beside the snapshot | L0–L1 |
-| `src/lib/hosted/authority/**` | Product B's control authority: one store, one connection, `tx()`, the repositories, the outbox. `ZENITH_HOSTED_STORE` picks SQLite (`.data/control.sqlite`, migrated in process) or Postgres (`authority/pg/**`, Supabase, schema applied by hand from `supabase/migrations/0002_hosted_authority.sql`) | L0–L1 |
-| `src/lib/hosted/artifacts/` | Content-addressed artifact store and the trusted pre-release verification | L0–L1, `hosted/digest` |
-| `src/lib/hosted/data/**` | The per-app customer data layer (the fixed broker's storage side) | L0–L1 |
+| `src/lib/hosted/authority/**` | Product B's control authority: one store, one connection, `tx()`, the repositories, the outbox. `ZENITH_HOSTED_STORE` picks SQLite (`.data/control.sqlite`, migrated in process) or Postgres (`authority/pg/**`, Supabase, schema applied by hand from `supabase/migrations/0002_hosted_authority.sql` — see [docs/HOSTED-POSTGRES.md](HOSTED-POSTGRES.md)). All fifteen repositories exist on both stores; the contract suite runs the same scenarios against each | L0–L1 |
+| `src/lib/hosted/artifacts/` | Content-addressed artifact store and the trusted pre-release verification. `FsArtifactStore` on disk, `StorageArtifactStore` in the `ZENITH_ARTIFACT_BUCKET` Supabase Storage bucket when the hosted store is Postgres | L0–L1, `hosted/digest` |
+| `src/lib/hosted/data/**` | The per-app customer data layer (the fixed broker's storage side): one SQLite file per app, or the `hosted.app_*` tables over PostgREST when the hosted store is Postgres | L0–L1 |
 
 ### L3 — domain services
 
@@ -162,8 +168,10 @@ Business rules over the stores. No `Request`, no `Response`, no route knowledge.
    matches for `from "@/app` in either tree. The dependency runs one way, so a
    route can be deleted without touching a library.
 3. **Two stores, never crossed.** `db/store.ts` (through `db/file-store.ts`) owns `.data/state.json`;
-   `hosted/authority` owns `.data/control.sqlite`. Nothing in the authority
-   directory writes to the JSON store.
+   `hosted/authority` owns `.data/control.sqlite`, or the `hosted` schema when
+   `ZENITH_HOSTED_STORE=postgres`. Nothing in the authority directory writes to
+   the JSON store, and nothing in `src/lib/db` touches `hosted.*` — they share a
+   Postgres project, never a table.
 4. **One validated place per env prefix.** `ZENITH_*` in `src/lib/env.ts`,
    `ZENITH_*` in `src/lib/hosted/config.ts`. Secrets are presence-only in both
    and are read at exactly one call site each.

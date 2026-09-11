@@ -16,8 +16,23 @@ const {
   closeAppData,
   openAppData,
   resetTestDatabase,
+  sqliteBackendOf,
   trackerSql,
 } = await import("@/lib/hosted/data");
+
+/**
+ * `openAppData` with its backend narrowed to the SQLite connection.
+ *
+ * `OpenAppData.backend` is a union of the two backends this build ships, and
+ * this file runs in the default `sqlite` store and asserts on statements only a
+ * SQLite connection can run. `sqliteBackendOf` is the one escape hatch that
+ * says so; narrowing once here keeps the assertions readable.
+ */
+const openSqlite = (appId: string, options: Parameters<typeof openAppData>[1] = {}) => {
+  const opened = openAppData(appId, options);
+  return { ...opened, backend: sqliteBackendOf(opened) };
+};
+
 
 afterAll(async () => {
   closeAllAppData();
@@ -26,8 +41,8 @@ afterAll(async () => {
 
 describe("app isolation", () => {
   it("gives each app its own file and never lets a record cross", async () => {
-    const alpha = openAppData(APP_A);
-    const beta = openAppData(APP_B);
+    const alpha = openSqlite(APP_A);
+    const beta = openSqlite(APP_B);
     expect(alpha.path).not.toBe(beta.path);
     expect(alpha.path).toContain(APP_A);
     expect(beta.path).toContain(APP_B);
@@ -54,8 +69,8 @@ describe("app isolation", () => {
   });
 
   it("shares nothing between the two apps' write ledgers or counters", async () => {
-    const alpha = openAppData(APP_A);
-    const beta = openAppData(APP_B);
+    const alpha = openSqlite(APP_A);
+    const beta = openSqlite(APP_B);
     const writeId = uuid();
 
     const first = await alpha.store.create(ctx("editor", IDENTITIES.editor, APP_A), {
@@ -82,12 +97,12 @@ describe("app isolation", () => {
   });
 
   it("hands back the same handle for the same app and file", async () => {
-    const first = openAppData(APP_A);
-    const second = openAppData(APP_A);
+    const first = openSqlite(APP_A);
+    const second = openSqlite(APP_A);
     expect(second.backend).toBe(first.backend);
     expect(second.store).toBe(first.store);
 
-    const test = openAppData(APP_A, { file: "test" });
+    const test = openSqlite(APP_A, { file: "test" });
     expect(test.backend).not.toBe(first.backend);
     expect(test.path).not.toBe(first.path);
   });
@@ -97,7 +112,7 @@ describe("restart persistence", () => {
   it("keeps records, write ids and the counter across close and reopen", async () => {
     const appId = "restart-app";
     const editor = ctx("editor", IDENTITIES.editor, appId);
-    const before = openAppData(appId);
+    const before = openSqlite(appId);
 
     const titles = ["First", "Second", "Third"];
     const ids: string[] = [];
@@ -116,7 +131,7 @@ describe("restart persistence", () => {
     expect(closeAppData(appId)).toBe(1);
     expect(before.backend.isClosed).toBe(true);
 
-    const after = openAppData(appId);
+    const after = openSqlite(appId);
     expect(after.backend).not.toBe(before.backend);
     expect(after.path).toBe(before.path);
 
@@ -130,7 +145,7 @@ describe("restart persistence", () => {
 
   it("refuses to use a closed connection instead of silently reopening one", async () => {
     const appId = "closed-app";
-    const opened = openAppData(appId);
+    const opened = openSqlite(appId);
     closeAppData(appId);
     expect(() => opened.backend.get(trackerSql.COUNT_REQUESTS)).toThrow(/already closed/i);
   });
@@ -150,7 +165,7 @@ describe("hostile strings", () => {
   for (const value of hostile) {
     it(`stores and returns ${JSON.stringify(value.slice(0, 28))} verbatim`, async () => {
       const appId = "hostile-app";
-      const { backend, store } = openAppData(appId);
+      const { backend, store } = openSqlite(appId);
       const editor = ctx("editor", IDENTITIES.editor, appId);
 
       const created = await store.create(editor, {
@@ -172,7 +187,7 @@ describe("hostile strings", () => {
 
   it("treats a hostile string as a value in every filter and cursor position", async () => {
     const appId = "hostile-app";
-    const { store } = openAppData(appId);
+    const { store } = openSqlite(appId);
     const editor = ctx("editor", IDENTITIES.editor, appId);
 
     // A hostile id is a miss, not a syntax error.
@@ -195,11 +210,11 @@ describe("the disposable test database", () => {
     const appId = "probe-app";
     const editor = ctx("editor", IDENTITIES.editor, appId);
 
-    const production = openAppData(appId);
+    const production = openSqlite(appId);
     const kept = await production.store.create(editor, { writeId: uuid(), record: input({ title: "Customer data" }) });
     const productionBytes = await production.store.storageBytes(appId);
 
-    const probe = openAppData(appId, { file: "test" });
+    const probe = openSqlite(appId, { file: "test" });
     expect(probe.path).toContain(APP_DATA_FILENAMES.test);
     expect(probe.path).not.toBe(production.path);
     const throwaway = await probe.store.create(editor, { writeId: uuid(), record: input({ title: "Probe data" }) });
@@ -210,7 +225,7 @@ describe("the disposable test database", () => {
     expect(productionPath).toBe(production.path);
     const beforeBytes = fs.readFileSync(productionPath);
 
-    const reset = resetTestDatabase(appId);
+    const reset = await resetTestDatabase(appId);
 
     // The test database is empty and freshly migrated …
     expect(reset.path).toBe(probe.path);
@@ -228,12 +243,12 @@ describe("the disposable test database", () => {
 
   it("can be reset before the test database has ever been opened", async () => {
     const appId = "never-probed-app";
-    const production = openAppData(appId);
+    const production = openSqlite(appId);
     const editor = ctx("editor", IDENTITIES.editor, appId);
     await production.store.create(editor, { writeId: uuid(), record: input() });
 
     expect(fs.existsSync(appDataPath(appId, "test"))).toBe(false);
-    const reset = resetTestDatabase(appId);
+    const reset = await resetTestDatabase(appId);
     expect(fs.existsSync(reset.path)).toBe(true);
     expect((await reset.store.list(editor, { limit: 25 })).items).toEqual([]);
     expect((await production.store.list(editor, { limit: 25 })).items.length).toBe(1);

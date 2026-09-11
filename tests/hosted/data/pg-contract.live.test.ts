@@ -13,6 +13,13 @@
  * tables are not reachable the preflight below fails with that instruction
  * rather than with a wall of PostgREST errors, so a red run says what to do.
  *
+ * The create and update suite additionally needs
+ * `supabase/migrations/0004_hosted_app_data_atomic.sql`, which is what makes a
+ * mutation one transaction. It is probed for once, with a call that cannot
+ * write anything, and the suite skips with an instruction when it is absent —
+ * an unapplied migration should read as "apply this", not as a dozen failures.
+ * The whole-app suite at the bottom needs only 0003 and always runs.
+ *
  * Why it exists: `pg-backend.test.ts` pins the requests `PgDataBackend` builds,
  * which is the half a double can check. Whether *Postgres* agrees — that
  * `version = eq.<expected>` really refuses the second writer, that the quota
@@ -24,11 +31,11 @@
  */
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type DataContext, HostedError } from "@/lib/hosted/contracts";
+import { type DataContext, type EquipmentRequest, HostedError } from "@/lib/hosted/contracts";
 import { IDENTITIES } from "../_fixtures";
 import { RELEASE_ID, input } from "./_helpers";
 
-const { PgDataBackend, PgTrackerStore, hostedPgClient, logicalBytes } = await import(
+const { PgDataBackend, PgTrackerStore, hostedPgClient, logicalBytes, postgresOps } = await import(
   "@/lib/hosted/data"
 );
 
@@ -40,7 +47,50 @@ const enabled =
 /** Ids are minted per run, so two runs in parallel cannot collide. */
 const APP_A = `contract-${randomUUID()}`;
 const APP_B = `contract-${randomUUID()}`;
-const MINTED = [APP_A, APP_B];
+const APP_C = `contract-${randomUUID()}`;
+const MINTED = [APP_A, APP_B, APP_C];
+
+/**
+ * Is migration 0004 applied?
+ *
+ * Probed with a real call that cannot write anything: `app_record_update_atomic`
+ * against a record id that does not exist returns `{"outcome":"not_found"}`
+ * before it touches a table. A function that is not there answers PGRST202
+ * instead, and the create/update suite below skips with an instruction rather
+ * than failing every test with a schema-cache error.
+ */
+async function atomicFunctionsApplied(): Promise<boolean> {
+  try {
+    const { error } = await hostedPgClient().rpc("app_record_update_atomic", {
+      p_app_id: APP_C,
+      p_record_id: `probe-${randomUUID()}`,
+      p_expected_version: 1,
+      p_logical_bytes: 0,
+      p_body: {},
+      p_updated_at: new Date().toISOString(),
+      p_limit_bytes: 0,
+      p_subject: "migration-probe",
+      p_write_id: `probe-${randomUUID()}`,
+      p_intent_hash: "probe",
+      p_status_code: 200,
+      p_result: {},
+      p_at: new Date().toISOString(),
+    });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
+const atomicReady = enabled ? await atomicFunctionsApplied() : false;
+
+if (enabled && !atomicReady) {
+  console.warn(
+    "[pg-contract.live] Skipping the create and update suite: supabase/migrations/0004_hosted_app_data_atomic.sql " +
+      "is not applied to this project. Apply it in the Supabase SQL editor and re-run. The suites that only need " +
+      "0003 (integrity, import, probe reset) still run."
+  );
+}
 
 function ctx(role: DataContext["role"], appId: string): DataContext {
   return {
@@ -60,6 +110,22 @@ function storeFor(appId: string, storageBytes = 100_000) {
   });
 }
 
+/**
+ * Everything this file wrote, and nothing else: the ids were minted above and
+ * every one of them starts with `contract-`, including their `::test` probe
+ * namespaces. Both suites run it, because either can be the one that ran.
+ */
+async function cleanUpMintedRows(): Promise<void> {
+  if (!enabled) return;
+  const client = hostedPgClient();
+  for (const appId of [...MINTED, ...MINTED.map((id) => `${id}::test`)]) {
+    expect(appId.startsWith("contract-")).toBe(true);
+    await client.from("app_writes").delete().eq("app_id", appId);
+    await client.from("app_records").delete().eq("app_id", appId);
+    await client.from("app_storage").delete().eq("app_id", appId);
+  }
+}
+
 async function refusal(fn: () => Promise<unknown>): Promise<HostedError> {
   try {
     await fn();
@@ -70,7 +136,7 @@ async function refusal(fn: () => Promise<unknown>): Promise<HostedError> {
   throw new Error("expected a HostedError, but the call succeeded");
 }
 
-describe.skipIf(!enabled)("the tracker contract against real Postgres tables", () => {
+describe.skipIf(!enabled || !atomicReady)("the tracker contract against real Postgres tables", () => {
   beforeAll(async () => {
     // Preflight: one read that proves the schema is applied AND exposed.
     const probe = await storeFor(APP_A)
@@ -84,18 +150,7 @@ describe.skipIf(!enabled)("the tracker contract against real Postgres tables", (
     }
   });
 
-  afterAll(async () => {
-    if (!enabled) return;
-    // Everything this file wrote, and nothing else: the ids were minted above
-    // and every one of them starts with `contract-`.
-    const client = hostedPgClient();
-    for (const appId of [...MINTED, ...MINTED.map((id) => `${id}::test`)]) {
-      expect(appId.startsWith("contract-")).toBe(true);
-      await client.from("app_writes").delete().eq("app_id", appId);
-      await client.from("app_records").delete().eq("app_id", appId);
-      await client.from("app_storage").delete().eq("app_id", appId);
-    }
-  });
+  afterAll(cleanUpMintedRows);
 
   it("creates, reads back and pages the records it stored", async () => {
     const store = storeFor(APP_A);
@@ -208,5 +263,162 @@ describe.skipIf(!enabled)("the tracker contract against real Postgres tables", (
     });
 
     expect(await store.storageBytes(APP_A)).toBe(before + logicalBytes(created.record));
+  });
+
+  it("commits the record, the counter and the ledger row together", async () => {
+    const store = storeFor(APP_C);
+    const writeId = randomUUID();
+    const before = await store.storageBytes(APP_C);
+
+    const created = await store.create(ctx("editor", APP_C), {
+      writeId,
+      record: input({ title: "Atomic", category: "laptop" }),
+    });
+
+    // All three, read straight off the tables rather than through the store.
+    const client = hostedPgClient();
+    const record = await client
+      .from("app_records")
+      .select("record_id,version,logical_bytes")
+      .eq("app_id", APP_C)
+      .eq("record_id", created.record.id);
+    const ledger = await client
+      .from("app_writes")
+      .select("write_id,op,record_id,status_code")
+      .eq("app_id", APP_C)
+      .eq("write_id", writeId);
+    const counter = await client.from("app_storage").select("logical_bytes").eq("app_id", APP_C);
+
+    expect(record.data).toHaveLength(1);
+    expect(ledger.data).toHaveLength(1);
+    expect((ledger.data as { op: string; record_id: string; status_code: number }[])[0]).toMatchObject({
+      op: "create",
+      record_id: created.record.id,
+      status_code: 201,
+    });
+    expect(Number((counter.data as { logical_bytes: number }[])[0].logical_bytes)).toBe(
+      before + logicalBytes(created.record)
+    );
+
+    // …and the same again for an update: one transaction, one ledger row.
+    const updateId = randomUUID();
+    const updated = await store.update(ctx("editor", APP_C), created.record.id, {
+      writeId: updateId,
+      expectedVersion: 1,
+      patch: { status: "approved", details: "y".repeat(120) },
+    });
+    const afterLedger = await client
+      .from("app_writes")
+      .select("write_id,op")
+      .eq("app_id", APP_C)
+      .eq("write_id", updateId);
+    expect(afterLedger.data).toHaveLength(1);
+    expect(await store.storageBytes(APP_C)).toBe(before + logicalBytes(updated.record));
+
+    // The ledger row is what makes the retry a replay rather than a second
+    // write, which is the whole point of them committing together.
+    const replay = await store.update(ctx("editor", APP_C), created.record.id, {
+      writeId: updateId,
+      expectedVersion: 1,
+      patch: { status: "approved", details: "y".repeat(120) },
+    });
+    expect(replay.replayed).toBe(true);
+    expect(replay.record).toEqual(updated.record);
+  });
+});
+
+/* ---------------------- what 0003 alone already backs ---------------------- */
+
+/**
+ * The paths that do not go through migration 0004's functions: the integrity
+ * probe health and reopen ask for, the bulk import an export bundle is read
+ * back through (it admits records one at a time through 0003's
+ * `app_record_insert_within_quota`), and emptying a probe namespace. These run
+ * whether or not 0004 is applied.
+ */
+describe.skipIf(!enabled)("the whole-app operations against real Postgres tables", () => {
+  afterAll(cleanUpMintedRows);
+
+  /** A stored record with the server-assigned fields an import carries. */
+  const imported = (n: number): EquipmentRequest => ({
+    id: `contract-import-${n}-${randomUUID()}`,
+    ...input({ title: `Imported ${n}` }),
+    version: 1,
+    createdBy: IDENTITIES.editor.subject,
+    createdByEmail: IDENTITIES.editor.email,
+    createdAt: `2026-09-07T10:00:0${n}.000Z`,
+    updatedBy: IDENTITIES.editor.subject,
+    updatedByEmail: IDENTITIES.editor.email,
+    updatedAt: `2026-09-07T10:00:0${n}.000Z`,
+  });
+
+  it("imports a bundle, skips ids already stored, and keeps the counter true", async () => {
+    const backend = new PgDataBackend({ appId: APP_B });
+    const store = new PgTrackerStore({ backend, appId: APP_B, limits: { storageBytes: 100_000 } });
+    const ops = postgresOps(backend, store);
+    const records = [imported(1), imported(2)];
+    const quotaRefusal = (count: number): HostedError =>
+      new HostedError("quota_exceeded", `would not fit (${count} imported)`, { fix: "raise the limit" });
+
+    const before = await store.storageBytes(APP_B);
+    const first = await ops.importRecords(records, { quotaRefusal });
+    expect(first).toEqual({ imported: 2, skipped: [] });
+
+    const expected = records.reduce((sum, record) => sum + logicalBytes(record), 0);
+    expect(await store.storageBytes(APP_B)).toBe(before + expected);
+
+    // Re-importing the same bundle writes nothing and reports why.
+    const again = await ops.importRecords(records, { quotaRefusal });
+    expect(again.imported).toBe(0);
+    expect(again.skipped.map((skip) => skip.id).sort()).toEqual(records.map((r) => r.id).sort());
+    expect(await store.storageBytes(APP_B)).toBe(before + expected);
+
+    // …and the records came back as the records that went in.
+    const read = await store.get(ctx("viewer", APP_B), records[0].id);
+    expect(read).toEqual(records[0]);
+  });
+
+  it("reports the logical integrity check, and it passes on rows it just wrote", async () => {
+    const backend = new PgDataBackend({ appId: APP_B });
+    const store = new PgTrackerStore({ backend, appId: APP_B, limits: { storageBytes: 100_000 } });
+    const verdict = await postgresOps(backend, store).integrity();
+
+    expect(verdict.kind).toBe("logical");
+    expect(verdict.ok).toBe(true);
+    expect(verdict.detail).toContain("Logical check");
+    expect(await postgresOps(backend, store).countRecords()).toBeGreaterThan(0);
+  });
+
+  it("empties the probe namespace and leaves the app's own rows alone", async () => {
+    const probeBackend = new PgDataBackend({ appId: `${APP_B}::test` });
+    const probeStore = new PgTrackerStore({ backend: probeBackend, appId: APP_B });
+    const probeOps = postgresOps(probeBackend, probeStore);
+
+    const seeded = await probeOps.importRecords([imported(3)], {
+      quotaRefusal: () => new HostedError("quota_exceeded", "would not fit", { fix: "raise the limit" }),
+    });
+    expect(seeded.imported).toBe(1);
+    expect(await probeOps.countRecords()).toBe(1);
+
+    const appRecordsBefore = await postgresOps(
+      new PgDataBackend({ appId: APP_B }),
+      new PgTrackerStore({ backend: new PgDataBackend({ appId: APP_B }), appId: APP_B })
+    ).countRecords();
+
+    const purged = await probeBackend.purgeTestNamespace();
+    expect(purged.records).toBe(1);
+    expect(await probeOps.countRecords()).toBe(0);
+
+    // The app's own namespace is a different set of rows and was not touched.
+    const after = await postgresOps(
+      new PgDataBackend({ appId: APP_B }),
+      new PgTrackerStore({ backend: new PgDataBackend({ appId: APP_B }), appId: APP_B })
+    ).countRecords();
+    expect(after).toBe(appRecordsBefore);
+  });
+
+  it("refuses to empty anything that is not a probe namespace", async () => {
+    const error = await refusal(() => new PgDataBackend({ appId: APP_B }).purgeTestNamespace());
+    expect(error.code).toBe("forbidden");
   });
 });

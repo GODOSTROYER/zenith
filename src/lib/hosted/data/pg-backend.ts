@@ -28,27 +28,33 @@
  * {@link PgDataBackend.execute}. An unrecognised statement is refused loudly
  * rather than approximated: a silent no-op here would look like an empty table.
  *
- * ## What is atomic and what is not
+ * ## What is atomic
  *
- * The two decisions that must not come apart from their effect stay together:
+ * At the statement seam, the two decisions that must not come apart from their
+ * effect stay together:
  *
  *  - **quota admission** is one round trip — the plpgsql function
  *    `hosted.app_record_insert_within_quota` compares, inserts and moves the
  *    counter under one row lock, the counterpart of
  *    `INSERT_REQUEST_WITHIN_QUOTA`'s conditional insert;
- *  - **the version check** is one round trip — the PATCH carries
- *    `version = eq.<expected>`, so zero rows changed means, and only means,
- *    another writer moved the record on, exactly as `UPDATE_REQUEST_CAS` does.
+ *  - **the version check** is one round trip — a PATCH carrying
+ *    `version = eq.<expected>` changes zero rows when, and only when, another
+ *    writer moved the record on, exactly as `UPDATE_REQUEST_CAS` does.
  *
- * TODO(ceiling): what does *not* survive is the outer transaction. On SQLite the
- * record, the counter and the write-id ledger row commit together; here they are
- * separate statements, so a process killed between the accepted insert and the
- * ledger write leaves a record whose write id was never recorded — a retry of
- * that write id would then create a second record. The window is one round trip
- * wide. Closing it needs the whole mutation inside one plpgsql function, which
- * would move the tracker's policy into the database and out of `tracker-store.ts`
- * — the trade the pilot deliberately has not made. Same shape as the D1 note in
- * `backend.ts`.
+ * …and since migration 0004 so does **the whole mutation**. The record, the
+ * storage counter and the idempotency ledger row commit together, because a
+ * plpgsql function body is one transaction: `hosted.app_record_create_atomic`
+ * and `hosted.app_record_update_atomic` are the `BEGIN IMMEDIATE` the SQLite
+ * store gets from its connection. No policy moved into the database with them —
+ * they compare the quota, guard the version and reserve the write id, which is
+ * exactly what `INSERT_REQUEST_WITHIN_QUOTA`, `UPDATE_REQUEST_CAS` and the
+ * ledger's PRIMARY KEY already decide; the validation, the byte measure, the
+ * intent hash, the patch merge and every refusal's wording stay in
+ * {@link PgTrackerStore} beside `tracker-store.ts`'s.
+ *
+ * The functions from 0003 stay in use: the import path admits records through
+ * `app_record_insert_within_quota` one at a time, and `app_storage_add` remains
+ * the only way to move a counter without writing a record.
  */
 import { randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -93,7 +99,6 @@ import {
   appMismatch,
   decodeCursor,
   encodeCursor,
-  insertColumns,
   notEditor,
   notFound,
   parseOrThrow,
@@ -125,11 +130,26 @@ const TABLE = {
   storage: "app_storage",
 } as const;
 
-/** The two functions migration 0003 defines. */
+/**
+ * The database functions this backend calls: two from migration 0003, two from
+ * migration 0004. {@link ATOMIC_FUNCTIONS} is the set whose absence has to name
+ * 0004 rather than 0003 in the refusal.
+ */
 const FN = {
   insertWithinQuota: "app_record_insert_within_quota",
   storageAdd: "app_storage_add",
+  createAtomic: "app_record_create_atomic",
+  updateAtomic: "app_record_update_atomic",
 } as const;
+
+/** The functions migration 0004 adds. */
+const ATOMIC_FUNCTIONS: ReadonlySet<string> = new Set<string>([FN.createAtomic, FN.updateAtomic]);
+
+/** The suffix an app's disposable probe namespace carries (`open.ts`, decision R3-07). */
+export const TEST_NAMESPACE_SUFFIX = "::test";
+
+/** How many record rows one page of the logical-byte reconciliation reads. */
+const SUM_PAGE_SIZE = 1000;
 
 /** The promoted columns a record read asks for; `body` carries the rest. */
 const RECORD_COLUMNS = "record_id,subject,version,logical_bytes,body,created_at,updated_at";
@@ -174,6 +194,53 @@ interface PgWriteRow {
   status_code: number;
   result: unknown;
   at: string;
+}
+
+/** What one call to `hosted.app_record_create_atomic` decided. */
+export type PgCreateOutcome =
+  | { outcome: "ok"; storageBytes: number }
+  | { outcome: "quota_exceeded"; storageBytes: number }
+  | { outcome: "write_id_taken" }
+  | { outcome: "record_exists" };
+
+/** What one call to `hosted.app_record_update_atomic` decided. */
+export type PgUpdateOutcome =
+  | { outcome: "ok"; storageBytes: number }
+  | { outcome: "not_found" }
+  | { outcome: "stale_version"; current: EquipmentRequest }
+  | { outcome: "quota_exceeded"; storageBytes: number; delta: number }
+  | { outcome: "write_id_taken" };
+
+/** Everything one atomic create needs. The app id is the backend's, never a parameter. */
+export interface PgCreateInput {
+  record: EquipmentRequest;
+  logicalBytes: number;
+  limitBytes: number;
+  writeId: string;
+  subject: string;
+  intentHash: string;
+  statusCode: number;
+  at: string;
+}
+
+/** Everything one atomic update needs. `record` is the whole next record, already merged. */
+export interface PgUpdateInput {
+  record: EquipmentRequest;
+  expectedVersion: number;
+  logicalBytes: number;
+  limitBytes: number;
+  writeId: string;
+  subject: string;
+  intentHash: string;
+  statusCode: number;
+  at: string;
+}
+
+/** What emptying a probe namespace removed, per table. */
+export interface PgNamespacePurge {
+  records: number;
+  writes: number;
+  storage: number;
 }
 
 /** Shape a PostgREST error arrives in, whichever client built it. */
@@ -255,6 +322,176 @@ export class PgDataBackend implements AsyncDataBackend {
   /** Stateless HTTP: nothing is held open. Present for interface parity. */
   close(): void {
     // PostgREST is reached over stateless HTTP; there is no connection to release.
+  }
+
+  /**
+   * Always false: there is no connection to close, so this backend is never in
+   * the "already closed" state a `SqliteBackend` can be in. Present so
+   * `open.ts`'s cache can ask either backend the same question.
+   */
+  get isClosed(): boolean {
+    return false;
+  }
+
+  /* --------------------------- one transaction --------------------------- */
+
+  /**
+   * The create path as ONE transaction: quota admission, the record, the
+   * counter and the ledger row (migration 0004,
+   * `hosted.app_record_create_atomic`).
+   *
+   * This is the counterpart of `TrackerDataStore`'s `backend.transaction(...)`,
+   * not of a single statement — which is why it is a method rather than another
+   * case in {@link PgDataBackend.execute}: there is no `sql.ts` statement that
+   * describes a whole transaction.
+   */
+  async createAtomic(input: PgCreateInput): Promise<PgCreateOutcome> {
+    const { record } = input;
+    const envelope = await this.callFunction(FN.createAtomic, {
+      p_app_id: this.appId,
+      p_record_id: record.id,
+      p_subject: record.createdBy,
+      p_version: record.version,
+      p_logical_bytes: input.logicalBytes,
+      p_body: record,
+      p_created_at: record.createdAt,
+      p_updated_at: record.updatedAt,
+      p_limit_bytes: input.limitBytes,
+      p_write_id: input.writeId,
+      p_intent_hash: input.intentHash,
+      p_status_code: input.statusCode,
+      p_result: record,
+      p_at: input.at,
+    }, "store this request");
+
+    switch (envelope.outcome) {
+      case "ok":
+        return { outcome: "ok", storageBytes: Number(envelope.storage_bytes ?? 0) };
+      case "quota_exceeded":
+        return { outcome: "quota_exceeded", storageBytes: Number(envelope.storage_bytes ?? 0) };
+      case "write_id_taken":
+        return { outcome: "write_id_taken" };
+      case "record_exists":
+        return { outcome: "record_exists" };
+      default:
+        throw this.unknownOutcome(FN.createAtomic, envelope.outcome);
+    }
+  }
+
+  /**
+   * The update path as ONE transaction: the version guard, the record, the
+   * counter delta and the ledger row (migration 0004,
+   * `hosted.app_record_update_atomic`).
+   *
+   * `record` is the whole next record the store merged; the function stores it
+   * verbatim, so there is no second read to merge the jsonb and no window in
+   * which another writer's merge could be lost.
+   */
+  async updateAtomic(input: PgUpdateInput): Promise<PgUpdateOutcome> {
+    const { record } = input;
+    const envelope = await this.callFunction(FN.updateAtomic, {
+      p_app_id: this.appId,
+      p_record_id: record.id,
+      p_expected_version: input.expectedVersion,
+      p_logical_bytes: input.logicalBytes,
+      p_body: record,
+      p_updated_at: record.updatedAt,
+      p_limit_bytes: input.limitBytes,
+      p_subject: input.subject,
+      p_write_id: input.writeId,
+      p_intent_hash: input.intentHash,
+      p_status_code: input.statusCode,
+      p_result: record,
+      p_at: input.at,
+    }, "update this request");
+
+    switch (envelope.outcome) {
+      case "ok":
+        return { outcome: "ok", storageBytes: Number(envelope.storage_bytes ?? 0) };
+      case "not_found":
+        return { outcome: "not_found" };
+      case "stale_version":
+        return { outcome: "stale_version", current: envelope.current as EquipmentRequest };
+      case "quota_exceeded":
+        return {
+          outcome: "quota_exceeded",
+          storageBytes: Number(envelope.storage_bytes ?? 0),
+          delta: Number(envelope.delta ?? 0),
+        };
+      case "write_id_taken":
+        return { outcome: "write_id_taken" };
+      default:
+        throw this.unknownOutcome(FN.updateAtomic, envelope.outcome);
+    }
+  }
+
+  /* ------------------------------ whole-app ------------------------------ */
+
+  /**
+   * The logical bytes the stored rows actually add up to, read a page at a
+   * time. The reconciliation counterpart of `SELECT_REQUESTS_LOGICAL_BYTES_SUM`
+   * — PostgREST has no `sum()`, so the column is paged and added here.
+   */
+  async sumLogicalBytes(): Promise<{ total: number; rows: number }> {
+    let total = 0;
+    let rows = 0;
+    for (let from = 0; ; from += SUM_PAGE_SIZE) {
+      const { data, error } = await this.table(TABLE.records)
+        .select("record_id,logical_bytes")
+        .eq("app_id", this.appId)
+        .order("record_id", { ascending: true })
+        .range(from, from + SUM_PAGE_SIZE - 1);
+      this.refuse(error, "add up this app's stored bytes");
+      const page = (data ?? []) as unknown as { logical_bytes: number | string }[];
+      for (const row of page) total += Number(row.logical_bytes);
+      rows += page.length;
+      if (page.length < SUM_PAGE_SIZE) return { total, rows };
+    }
+  }
+
+  /** The stored counter for this app, as `SELECT_STORAGE_BYTES` reads it. */
+  async storageCounter(): Promise<number> {
+    return this.storageBytes();
+  }
+
+  /** How many records this app holds, as `COUNT_REQUESTS` counts them. */
+  async countRecords(): Promise<number> {
+    return this.countRows(TABLE.records);
+  }
+
+  /**
+   * Empties this backend's namespace: every record, every ledger row and the
+   * storage counter.
+   *
+   * Only ever a probe namespace. The app id a `PgDataBackend` is bound to is
+   * fixed at construction, and this refuses unless it ends with
+   * `{@link TEST_NAMESPACE_SUFFIX}` — a control-authority app id never contains
+   * `::`, so "reset the probe database" cannot become "delete a customer's
+   * data" through this method however it is called.
+   */
+  async purgeTestNamespace(): Promise<PgNamespacePurge> {
+    if (!this.appId.endsWith(TEST_NAMESPACE_SUFFIX)) {
+      throw new HostedError(
+        "forbidden",
+        `Only a disposable probe namespace can be emptied, and ${this.appId} is not one.`,
+        {
+          fix: `Open the probe namespace with openAppData(appId, { file: "test" }); it is the only id that ends with "${TEST_NAMESPACE_SUFFIX}". Nothing was deleted.`,
+        }
+      );
+    }
+
+    const writes = await this.table(TABLE.writes).delete().eq("app_id", this.appId).select("write_id");
+    this.refuse(writes.error, "empty this probe namespace's write ledger");
+    const records = await this.table(TABLE.records).delete().eq("app_id", this.appId).select("record_id");
+    this.refuse(records.error, "empty this probe namespace's records");
+    const storage = await this.table(TABLE.storage).delete().eq("app_id", this.appId).select("app_id");
+    this.refuse(storage.error, "reset this probe namespace's storage counter");
+
+    return {
+      records: (records.data ?? []).length,
+      writes: (writes.data ?? []).length,
+      storage: (storage.data ?? []).length,
+    };
   }
 
   /* ----------------------------- the mapping ----------------------------- */
@@ -521,14 +758,71 @@ export class PgDataBackend implements AsyncDataBackend {
     return this.client.from(name);
   }
 
-  /** Turns a PostgREST error into a refusal that says what to do about it. */
-  private refuse(error: unknown, attempted: string): void {
+  /**
+   * Calls one `hosted.*` function and returns its jsonb envelope.
+   *
+   * The envelope is an object with an `outcome` key; anything else means the
+   * applied function is not the one this build expects, which is refused rather
+   * than read as a silent success.
+   */
+  private async callFunction(
+    fn: string,
+    args: Record<string, unknown>,
+    attempted: string
+  ): Promise<Record<string, unknown>> {
+    const { data, error } = await this.client.rpc(fn, args);
+    this.refuse(error, attempted, fn);
+    if (data === null || typeof data !== "object" || Array.isArray(data)) {
+      throw new HostedError(
+        "runtime_unavailable",
+        `Postgres could not ${attempted}: hosted.${fn} answered something that is not an outcome envelope.`,
+        {
+          fix: "Re-apply supabase/migrations/0004_hosted_app_data_atomic.sql — the function in the database is not the one this build calls. Nothing was written.",
+          details: { function: fn },
+        }
+      );
+    }
+    return data as Record<string, unknown>;
+  }
+
+  /** An envelope whose `outcome` this build has no branch for. */
+  private unknownOutcome(fn: string, outcome: unknown): HostedError {
+    return new HostedError(
+      "runtime_unavailable",
+      `hosted.${fn} answered the outcome "${String(outcome)}", which this build does not know how to act on.`,
+      {
+        fix: "Re-apply supabase/migrations/0004_hosted_app_data_atomic.sql so the function matches this build. Whether anything was written depends on that function; re-read the record before retrying.",
+        details: { function: fn, outcome: String(outcome) },
+      }
+    );
+  }
+
+  /**
+   * Turns a PostgREST error into a refusal that says what to do about it.
+   *
+   * `fn` names the database function the call went to, when it went to one: a
+   * missing function from migration 0004 has to name 0004, not 0003, or the fix
+   * sends the reader to a file that is already applied.
+   */
+  private refuse(error: unknown, attempted: string, fn?: string): void {
     if (!error) return;
     const e = error as PgErrorLike;
     const code = e.code ?? "";
     const detail = [e.message, e.details, e.hint].filter(Boolean).join(" — ") || "no detail was returned";
 
-    if (code === "PGRST106" || code === "PGRST205" || code === "42P01" || code === "42883") {
+    const missingFunction = code === "PGRST202" || code === "PGRST203" || code === "42883";
+    if (fn !== undefined && ATOMIC_FUNCTIONS.has(fn) && missingFunction) {
+      throw new HostedError(
+        "runtime_unavailable",
+        `Postgres could not ${attempted}: hosted.${fn ?? "<function>"} is not in this database — ${detail}`,
+        {
+          fix: "Apply supabase/migrations/0004_hosted_app_data_atomic.sql in the Supabase SQL editor (0003 alone is not enough for the create and update paths), then retry. Nothing was written.",
+          details: { code, function: fn },
+        }
+      );
+    }
+
+    if (code === "PGRST106" || code === "PGRST205" || code === "42P01" || missingFunction) {
       throw new HostedError(
         "runtime_unavailable",
         `Postgres could not ${attempted}: the hosted app-data schema is not reachable — ${detail}`,
@@ -630,24 +924,43 @@ export class PgTrackerStore implements AppDataStore {
     };
     const bytes = logicalBytes(record);
 
-    const inserted = await this.backend.run(INSERT_REQUEST_WITHIN_QUOTA, [
-      ...insertColumns(record, bytes),
-      bytes,
-      this.storageLimitBytes,
-    ]);
-    // The quota comparison is inside the function, so zero rows means the quota
-    // and nothing else. Nothing has been written at this point.
-    if (inserted.changes !== 1) throw await this.quotaExceeded(bytes);
+    // One round trip, one transaction: the quota comparison, the record, the
+    // counter and the ledger row. This is `TrackerDataStore`'s
+    // `backend.transaction(...)` expressed as a function call — nothing here
+    // can leave a record whose write id was never recorded.
+    const outcome = await this.backend.createAtomic({
+      record,
+      logicalBytes: bytes,
+      limitBytes: this.storageLimitBytes,
+      writeId: parsed.writeId,
+      subject: ctx.subject,
+      intentHash,
+      statusCode: 201,
+      at: now,
+    });
 
-    // No UPDATE_STORAGE_ADD here, and that is the one place this store's create
-    // path differs from `TrackerDataStore`'s. On SQLite the conditional insert
-    // only *compares* against the counter and a second statement moves it, both
-    // inside one transaction. Postgres has no transaction spanning these round
-    // trips, so `app_record_insert_within_quota` compares, inserts and moves the
-    // counter under one row lock instead — the accounting is already done, and
-    // adding to it again here would count every created record twice.
-    await this.recordWrite(parsed.writeId, ctx.subject, "create", record.id, intentHash, 201, record, now);
-    return { record, replayed: false };
+    switch (outcome.outcome) {
+      case "ok":
+        return { record, replayed: false };
+      case "quota_exceeded":
+        // The comparison is inside the transaction, so a refusal wrote nothing
+        // — and the figure it refused against comes back with it.
+        throw quotaExceeded(outcome.storageBytes, this.storageLimitBytes, bytes);
+      case "write_id_taken":
+        // Another caller took this write id between the replay read above and
+        // the insert. Whatever they recorded is the answer: an identical intent
+        // replays, a different one is refused.
+        return await this.afterWriteIdRace(parsed.writeId, intentHash);
+      case "record_exists":
+        throw new HostedError(
+          "internal",
+          `A request with the id ${record.id} is already stored, so this create was not applied.`,
+          {
+            fix: "Send the create again with a new writeId; the id it minted collided with a stored record and nothing was written.",
+            details: { recordId: record.id },
+          }
+        );
+    }
   }
 
   /** Applies a patch, guarded on the version the caller edited. */
@@ -692,40 +1005,39 @@ export class PgTrackerStore implements AppDataStore {
       updatedAt: now,
     };
     const bytes = logicalBytes(next);
-    const delta = bytes - currentRow.logical_bytes;
-    // Only growth can breach the quota; a patch that shrinks a record is always
-    // allowed, which is what lets an app at its ceiling recover.
-    if (delta > 0 && (await this.currentStorageBytes()) + delta > this.storageLimitBytes) {
-      throw await this.quotaExceeded(delta);
-    }
 
-    const swapped = await this.backend.run(UPDATE_REQUEST_CAS, [
-      next.title,
-      next.details,
-      next.category,
-      next.quantity,
-      next.priority,
-      next.status,
-      next.requestedFor,
-      next.neededBy,
-      next.updatedBy,
-      next.updatedByEmail,
-      next.updatedAt,
-      bytes,
-      id,
-      parsed.expectedVersion,
-    ]);
-    if (swapped.changes !== 1) {
-      // The version moved between the read and the swap. Answer with what is
-      // actually stored now, rather than with what we had read.
-      const reread = await this.backend.get<RequestRow>(SELECT_REQUEST_BY_ID, [id]);
-      if (!reread) throw notFound(id);
-      throw staleVersion(parsed.expectedVersion, toRecord(reread));
-    }
+    // One round trip, one transaction: the version guard, the record, the
+    // counter delta and the ledger row. The whole merged record goes down, so
+    // there is no second read to merge the jsonb and no window to lose a merge
+    // in. Only growth can breach the quota — a patch that shrinks a record is
+    // always allowed, which is what lets an app at its ceiling recover — and
+    // that comparison is inside the function.
+    const outcome = await this.backend.updateAtomic({
+      record: next,
+      expectedVersion: parsed.expectedVersion,
+      logicalBytes: bytes,
+      limitBytes: this.storageLimitBytes,
+      writeId: parsed.writeId,
+      subject: ctx.subject,
+      intentHash,
+      statusCode: 200,
+      at: now,
+    });
 
-    await this.backend.run(UPDATE_STORAGE_ADD, [delta]);
-    await this.recordWrite(parsed.writeId, ctx.subject, "update", id, intentHash, 200, next, now);
-    return { record: next, replayed: false };
+    switch (outcome.outcome) {
+      case "ok":
+        return { record: next, replayed: false };
+      case "not_found":
+        throw notFound(id);
+      case "stale_version":
+        // The version moved between the read and the swap. Answer with what is
+        // actually stored now, rather than with what we had read.
+        throw staleVersion(parsed.expectedVersion, outcome.current);
+      case "quota_exceeded":
+        throw quotaExceeded(outcome.storageBytes, this.storageLimitBytes, outcome.delta);
+      case "write_id_taken":
+        return await this.afterWriteIdRace(parsed.writeId, intentHash);
+    }
   }
 
   /** Logical bytes currently stored by this app. See `bytes.ts` for what that measures. */
@@ -775,35 +1087,33 @@ export class PgTrackerStore implements AppDataStore {
     return { record: JSON.parse(row.result) as EquipmentRequest, replayed: true };
   }
 
-  private async recordWrite(
-    writeId: string,
-    subject: string,
-    op: "create" | "update",
-    recordId: string,
-    intentHash: string,
-    statusCode: number,
-    record: EquipmentRequest,
-    now: string
-  ): Promise<void> {
-    await this.backend.run(INSERT_WRITE, [
-      writeId,
-      subject,
-      op,
-      recordId,
-      intentHash,
-      statusCode,
-      JSON.stringify(record),
-      now,
-    ]);
+  /**
+   * What to answer when the atomic function reports that this write id was
+   * already taken.
+   *
+   * Only reachable when two callers sent the same write id at the same time:
+   * the replay read at the top of the mutation found nothing, and by the time
+   * the function ran, the other caller's ledger row was there. Reading that row
+   * is the answer — an identical intent replays its result, a different one is
+   * refused — which is exactly what the SQLite path's transaction does by
+   * serialising the two writers instead.
+   */
+  private async afterWriteIdRace(writeId: string, intentHash: string): Promise<MutationResult> {
+    const replayed = await this.replayOf(writeId, intentHash);
+    if (replayed) return replayed;
+    throw new HostedError(
+      "idempotency_conflict",
+      "This writeId was already used for a different change, so it cannot be reused for this one.",
+      {
+        fix: "Send this change with a new writeId. Reuse a writeId only to retry the identical request.",
+        details: { writeId },
+      }
+    );
   }
 
   private async currentStorageBytes(): Promise<number> {
     const row = await this.backend.get<{ logical_bytes: number }>(SELECT_STORAGE_BYTES);
     return Number(row?.logical_bytes ?? 0);
-  }
-
-  private async quotaExceeded(required: number): Promise<HostedError> {
-    return quotaExceeded(await this.currentStorageBytes(), this.storageLimitBytes, required);
   }
 
   private assertApp(appId: string): void {

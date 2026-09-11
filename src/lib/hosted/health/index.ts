@@ -1,8 +1,9 @@
 /**
  * Real health and real logs for a hosted app, with release attribution (G28).
  *
- * Every check below reads something: a row in the control authority, a pragma
- * on the app's own database, the artifact's bytes re-hashed from disk, the
+ * Every check below reads something: a row in the control authority, an
+ * integrity probe of the app's own data (a pragma on SQLite, a logical
+ * reconciliation on Postgres), the artifact's bytes re-hashed from disk, the
  * event table. **There is no `simulated: true` anywhere in this file, and
  * there never will be** — the infrastructure product has a labelled simulated
  * health surface and that is a different thing entirely. A probe that cannot
@@ -27,7 +28,7 @@ import {
 import { authority, utcDay } from "@/lib/hosted/authority";
 import { FsArtifactStore } from "@/lib/hosted/artifacts";
 import { hostedConfig } from "@/lib/hosted/config";
-import { LATEST_TRACKER_SCHEMA_VERSION, openAppData, trackerSql } from "@/lib/hosted/data";
+import { LATEST_TRACKER_SCHEMA_VERSION, openAppData } from "@/lib/hosted/data";
 import { enforcementFor } from "@/lib/hosted/quota";
 
 /** One probe and what it found. */
@@ -171,17 +172,16 @@ export async function appHealth(
   let records: number | null = null;
   try {
     const data = openAppData(appId);
-    // Reads only: a pragma and two counts. A health check never writes to a
-    // customer's database.
-    const rows = data.backend.all<{ quick_check?: unknown }>("PRAGMA quick_check");
-    const ok = rows.length === 1 && String(rows[0]?.quick_check) === "ok";
-    checks.push({
-      id: "data_quick_check",
-      ok,
-      detail: ok
-        ? "PRAGMA quick_check on the app's database reported ok."
-        : `PRAGMA quick_check reported: ${rows.map((row) => String(row?.quick_check)).join("; ") || "no result"}`,
-    });
+    // Reads only: an integrity probe and two counts. A health check never
+    // writes to a customer's database.
+    //
+    // The check id stays `data_quick_check` on both stores because it is what
+    // this probe has always been called and what the apps screen labels; the
+    // detail says which question was actually asked. On SQLite it is `PRAGMA
+    // quick_check`; on Postgres there is no file to walk, so it is the logical
+    // check — the app's rows read back and its storage counter agrees with them.
+    const integrity = await data.ops.integrity();
+    checks.push({ id: "data_quick_check", ok: integrity.ok, detail: integrity.detail });
 
     const version = await data.store.schemaVersion(appId);
     checks.push({
@@ -193,7 +193,7 @@ export async function appHealth(
           : `Tracker schema version ${version}; this build serves version ${LATEST_TRACKER_SCHEMA_VERSION}.`,
     });
 
-    records = Number(data.backend.get<{ total: number }>(trackerSql.COUNT_REQUESTS)?.total ?? 0);
+    records = await data.ops.countRecords();
     const bytes = await data.store.storageBytes(appId);
     checks.push({
       id: "records",

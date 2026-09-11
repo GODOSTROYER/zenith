@@ -20,8 +20,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { appDataDir, hostedStoreKind } from "@/lib/hosted/config";
 import { DEFAULT_LIMITS, HostedError } from "@/lib/hosted/contracts";
+import { type AppDataOps, postgresOps, sqliteOps } from "./app-ops";
 import { SqliteBackend, type SqliteBackendOptions } from "./backend";
-import { PgDataBackend, PgTrackerStore } from "./pg-backend";
+import { PgDataBackend, PgTrackerStore, TEST_NAMESPACE_SUFFIX } from "./pg-backend";
 import { applyTrackerMigrations } from "./schema";
 import { TrackerDataStore } from "./tracker-store";
 
@@ -50,18 +51,42 @@ export interface OpenAppDataOptions {
 }
 
 /**
- * An open, migrated app database and the store over it.
+ * Whichever backend this app's data is actually reached through.
+ *
+ * A union rather than one class, and deliberately *not* a lie: before this was
+ * widened, postgres mode handed out an object shaped like a `SqliteBackend`
+ * that refused every call by name, because three callers used the field for
+ * things only SQLite can do. Those three now go through {@link OpenAppData.ops},
+ * which is implemented on both stores, so the field can say what it is.
+ */
+export type AppDataBackend = SqliteBackend | PgDataBackend;
+
+/**
+ * An open, migrated app database, the store over it and the whole-database
+ * operations beside it.
  *
  * `store` is a union rather than one class because the two stores are the same
  * contract over two very different databases — `TrackerDataStore` over this
  * app's own SQLite file, `PgTrackerStore` over its rows in `hosted.app_records`.
  * Their public methods are signature-for-signature identical, so a caller that
- * only uses the store never has to know which it got, which is the point.
+ * only uses the store never has to know which it got, which is the point. The
+ * same holds for `ops`.
  */
 export interface OpenAppData {
-  backend: SqliteBackend;
+  /**
+   * The raw backend. Almost nothing should reach for this: `store` covers
+   * request-time work and `ops` covers the rest. `sqliteBackendOf()` is the
+   * escape hatch for the genuinely SQLite-only.
+   */
+  backend: AppDataBackend;
   store: TrackerDataStore | PgTrackerStore;
-  /** Absolute path of the database file. */
+  /** Integrity, record count and bulk import — available on both stores. */
+  ops: AppDataOps;
+  /**
+   * Absolute path of the database file. In postgres mode there is no file, and
+   * this keeps naming the path the SQLite branch would have used so the cache
+   * key, `closeAppData` and the callers that only report it are unchanged.
+   */
   path: string;
 }
 
@@ -71,48 +96,22 @@ interface CacheEntry extends OpenAppData {
 }
 
 /**
- * The stand-in for `backend` when an app's data lives in Postgres.
+ * The SQLite connection behind an open app database.
  *
- * TODO(ceiling): `OpenAppData.backend` is a *synchronous* SQLite connection, and
- * three callers use it directly for things only SQLite can do — `PRAGMA
- * quick_check` (`hosted/health`, `hosted/backup/reopen`) and a synchronous
- * import transaction (`hosted/export`). None of those has a Postgres equivalent
- * yet, and none of them is in this wave's scope, so in postgres mode this object
- * takes the field and refuses every call by name rather than answering something
- * plausible and wrong. The `store` — which is what the gateway, the broker and
- * the release runner actually use — is fully backed.
- *
- * The cast is deliberate and contained: `SqliteBackend` has private fields, so
- * nothing can structurally satisfy it, and widening the field to a union would
- * break the three call sites above at compile time without giving them anything
- * to do instead.
+ * The escape hatch for the handful of things that are SQLite facts and admit as
+ * much — the same shape as `sqliteConnection()` in the control authority. In
+ * postgres mode it refuses by name rather than handing back something that
+ * would answer plausibly and wrongly.
  */
-function postgresModeBackend(appId: string): SqliteBackend {
-  const refuse = (): never => {
-    throw new HostedError(
-      "internal",
-      `App ${appId} keeps its data in Postgres, so it has no SQLite connection to run this against.`,
-      {
-        fix: "Reach this app's data through openAppData(appId).store, which is backed on both stores. Integrity checks (PRAGMA quick_check) and the synchronous export/import path are SQLite-only and still have to be given Postgres equivalents.",
-      }
-    );
-  };
-  const shim = {
-    path: `postgres:hosted.app_records?app_id=${appId}`,
-    busyTimeoutMs: 0,
-    isClosed: false,
-    inTransaction: false,
-    pragmas: refuse,
-    run: refuse,
-    get: refuse,
-    all: refuse,
-    transaction: refuse,
-    exec: refuse,
-    close: () => {
-      /* nothing is held open */
-    },
-  };
-  return shim as unknown as SqliteBackend;
+export function sqliteBackendOf(open: OpenAppData): SqliteBackend {
+  if (open.backend instanceof SqliteBackend) return open.backend;
+  throw new HostedError(
+    "internal",
+    "This app keeps its data in Postgres, so it has no SQLite connection to run this against.",
+    {
+      fix: "Use openAppData(appId).store for records and .ops for integrity, counts and imports; both are backed on either store.",
+    }
+  );
 }
 
 const CACHE_KEY = Symbol.for("zenith.hosted.data.openAppData");
@@ -148,7 +147,8 @@ export function openAppData(appId: string, options: OpenAppDataOptions = {}): Op
   const filePath = path.join(directory, APP_DATA_FILENAMES[file]);
 
   const hit = cache().get(filePath);
-  if (hit && !hit.backend.isClosed) return { backend: hit.backend, store: hit.store, path: hit.path };
+  if (hit && !hit.backend.isClosed)
+    return { backend: hit.backend, store: hit.store, ops: hit.ops, path: hit.path };
 
   if (hostedStoreKind() === "postgres") return openPostgres(id, file, filePath, options);
 
@@ -167,9 +167,10 @@ export function openAppData(appId: string, options: OpenAppDataOptions = {}): Op
     appId: id,
     limits: { storageBytes: options.storageBytes ?? DEFAULT_LIMITS.storageBytes },
   });
-  const entry: CacheEntry = { appId: id, file, backend, store, path: filePath };
+  const ops = sqliteOps(backend, store);
+  const entry: CacheEntry = { appId: id, file, backend, store, ops, path: filePath };
   cache().set(filePath, entry);
-  return { backend, store, path: filePath };
+  return { backend, store, ops, path: filePath };
 }
 
 /**
@@ -192,22 +193,17 @@ function openPostgres(
   filePath: string,
   options: OpenAppDataOptions
 ): OpenAppData {
-  const scope = file === "test" ? `${appId}::test` : appId;
+  const scope = file === "test" ? `${appId}${TEST_NAMESPACE_SUFFIX}` : appId;
   const backend = new PgDataBackend({ appId: scope });
   const store = new PgTrackerStore({
     backend,
     appId,
     limits: { storageBytes: options.storageBytes ?? DEFAULT_LIMITS.storageBytes },
   });
-  const entry: CacheEntry = {
-    appId,
-    file,
-    backend: postgresModeBackend(scope),
-    store,
-    path: filePath,
-  };
+  const ops = postgresOps(backend, store);
+  const entry: CacheEntry = { appId, file, backend, store, ops, path: filePath };
   cache().set(filePath, entry);
-  return { backend: entry.backend, store, path: filePath };
+  return { backend, store, ops, path: filePath };
 }
 
 /**
@@ -245,31 +241,42 @@ export function closeAllAppData(): number {
 }
 
 /**
- * Deletes and recreates an app's `test.sqlite`, returning the fresh, migrated
- * database.
+ * Throws away an app's disposable probe database and hands back a fresh, empty
+ * one.
  *
- * This is what a candidate release probes against (decision R3-07). It touches
- * only the test file — `data.sqlite` and its WAL sidecars are never opened,
- * never renamed and never removed by this function.
+ * This is what a candidate release probes against (decision R3-07). On SQLite
+ * it deletes and recreates `test.sqlite`, touching only that file —
+ * `data.sqlite` and its WAL sidecars are never opened, never renamed and never
+ * removed here. On Postgres it empties the `<appId>::test` namespace, which is
+ * disjoint from the app's own rows because `app_id` is the first column of
+ * every hosted primary key.
+ *
+ * Async because one of the two is a round trip. Every caller of it is already
+ * async — the release runner's probe (`runtime/local.ts`) among them — so
+ * awaiting a ready database is the same guarantee the synchronous version gave.
  */
-export function resetTestDatabase(appId: string, options: Omit<OpenAppDataOptions, "file"> = {}): OpenAppData {
+export async function resetTestDatabase(
+  appId: string,
+  options: Omit<OpenAppDataOptions, "file"> = {}
+): Promise<OpenAppData> {
   const id = assertAppId(appId);
   const directory = options.dir ?? appDataDir(id);
   if (hostedStoreKind() === "postgres") {
-    // TODO(ceiling): throwing away the probe namespace is a DELETE over
-    // `hosted.app_records`/`app_writes`/`app_storage` for `<appId>::test`, and
-    // that is a network round trip — this function is synchronous and every
-    // caller expects a ready database on return. Refusing by name is the honest
-    // answer until the release runner's probe path is made async; answering with
-    // a namespace that still holds the last probe's rows would make a candidate
-    // pass on stale data.
-    throw new HostedError(
-      "internal",
-      `App ${id} keeps its data in Postgres, where the disposable probe database cannot be replaced synchronously.`,
-      {
-        fix: "Probe this candidate with ZENITH_HOSTED_STORE=sqlite, or make the release runner's probe path await an async reset of the <appId>::test namespace. Production rows were not touched.",
-      }
-    );
+    // There is no file to throw away: the probe database is the app-id
+    // namespace `<appId>::test`, and emptying it is a DELETE over
+    // `hosted.app_records`, `hosted.app_writes` and `hosted.app_storage` for
+    // that id alone. `purgeTestNamespace()` refuses any id that does not end in
+    // `::test`, and a control-authority app id never contains `::`, so
+    // production rows are out of this path's reach by construction.
+    const opened = openAppData(id, { ...options, file: "test" });
+    const backend = opened.backend;
+    if (!(backend instanceof PgDataBackend)) {
+      throw new HostedError("internal", `App ${id} opened a probe database that is not the Postgres one.`, {
+        fix: "Report this: ZENITH_HOSTED_STORE=postgres and openAppData() answered a SQLite connection. Nothing was deleted.",
+      });
+    }
+    await backend.purgeTestNamespace();
+    return opened;
   }
   closeAppData(id, "test");
 

@@ -228,11 +228,31 @@ describe("the queue", () => {
   it("lists waiting jobs oldest first and drops them as they are claimed", async () => {
     const app = await seedApp(a, { slug: "queue-app" });
     const sibling = await seedApp(a, { slug: "queue-app-2" });
-    const first = (await publish(app.id, uuid(), { n: 1 })).job;
-    const second = (await publish(sibling.id, uuid(), { n: 2 })).job;
+
+    // Queued through the repository rather than `admitJob`, because this is the
+    // one test about *ordering*: `queued()` orders by `(created_at, id)`, and
+    // two jobs admitted in the same millisecond tie on `created_at` and fall
+    // back to a random UUID. Explicit, distinct timestamps make "oldest first"
+    // the thing being asserted instead of a coin toss.
+    const queue = (appId: string, createdAt: string) =>
+      a.tx((repos) =>
+        repos.jobs.insert({
+          id: uuid(),
+          kind: "publish" as const,
+          workspaceId: "ws-one",
+          appId,
+          actor: OWNER,
+          intentHash: hashIntent({ appId, createdAt }),
+          createdAt,
+        })
+      );
+
+    const first = await queue(app.id, iso(-2_000));
+    const second = await queue(sibling.id, iso(-1_000));
 
     // What the release runner ticks over: ids and apps, oldest first, and no
-    // raw connection anywhere near it.
+    // raw connection anywhere near it. Filtered to this test's own two apps —
+    // every other test in this file leaves queued jobs behind.
     const waiting = await a.repos.jobs.queued();
     expect(waiting.filter((job) => job.appId === app.id || job.appId === sibling.id)).toEqual([
       { id: first.id, appId: app.id },

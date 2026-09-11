@@ -3,14 +3,15 @@
  * `fetch`.
  *
  * Mocked at the transport rather than at the client on purpose: the thing worth
- * pinning is the *request* — that the version guard really is in the PATCH's
- * query string, that the keyset predicate really is an `or=(…)` group, that
- * every single request is confined to one `app_id`. A mocked `SupabaseClient`
- * would let all three drift without a test noticing, because the assertion
- * would be about the call we made to our own double.
+ * pinning is the *request* — that a mutation really is one request carrying the
+ * record, the counter and the ledger row together, that the version guard
+ * really rides inside it, that the keyset predicate really is an `or=(…)`
+ * group, that every single request is confined to one `app_id`. A mocked
+ * `SupabaseClient` would let all of that drift without a test noticing, because
+ * the assertion would be about the call we made to our own double.
  *
  * What is not covered here is whether Postgres agrees. That is
- * `pg-contract.live.test.ts`, which needs migration 0003 applied.
+ * `pg-contract.live.test.ts`, which needs migrations 0003 and 0004 applied.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -43,6 +44,8 @@ interface Call {
 interface Reply {
   status?: number;
   body: unknown;
+  /** Sent back in the `content-range` header, which is where PostgREST puts an exact count. */
+  count?: number;
 }
 
 /**
@@ -69,9 +72,11 @@ function harness() {
       body: typeof raw === "string" && raw.length > 0 ? (JSON.parse(raw) as unknown) : undefined,
     });
     const next = replies.get(key)?.shift() ?? { body: [] };
+    const headers: Record<string, string> = { "content-type": "application/json" };
+    if (next.count !== undefined) headers["content-range"] = `0-0/${next.count}`;
     return new Response(JSON.stringify(next.body ?? []), {
       status: next.status ?? 200,
-      headers: { "content-type": "application/json" },
+      headers,
     });
   };
 
@@ -82,10 +87,18 @@ function harness() {
     backend,
     store,
     calls,
-    queue(key: string, body: unknown, status?: number) {
+    queue(key: string, body: unknown, status?: number, count?: number) {
       const list = replies.get(key) ?? [];
-      list.push({ body, status });
+      list.push({ body, status, count });
       replies.set(key, list);
+    },
+    /**
+     * Every request that could have changed something, in order: anything that
+     * is not a read. One of these per mutation is the whole point of migration
+     * 0004 — the record, the counter and the ledger row go down together.
+     */
+    writes(): Call[] {
+      return calls.filter((call) => call.method !== "GET" && call.method !== "HEAD");
     },
     /** Every call whose table/function matches, in the order they were made. */
     of(key: string): Call[] {
@@ -196,12 +209,11 @@ describe("every request PgDataBackend makes", () => {
 /* ----------------------------- compare and swap ---------------------------- */
 
 describe("the version check", () => {
-  it("rides in the PATCH, so the guard cannot be lost between the read and the write", async () => {
+  it("rides in the one function call, with the whole merged record", async () => {
     const h = harness();
     h.queue("GET app_writes", []); // the write id is new
-    h.queue("GET app_records", [pgRow(STORED)]); // the store's read
-    h.queue("GET app_records", [pgRow(STORED)]); // the backend's read, to merge the jsonb
-    h.queue("PATCH app_records", [{ record_id: STORED.id }]); // one row changed
+    h.queue("GET app_records", [pgRow(STORED)]); // the store's read, to merge the patch
+    h.queue("POST rpc/app_record_update_atomic", { outcome: "ok", storage_bytes: 4_000 });
 
     const result = await h.store.update(ctx(), STORED.id, {
       writeId: "11111111-2222-4222-8222-333333333333",
@@ -212,25 +224,41 @@ describe("the version check", () => {
     expect(result.replayed).toBe(false);
     expect(result.record.version).toBe(2);
     expect(result.record.status).toBe("approved");
-    // untouched fields survive the read-merge-write
+    // untouched fields survive the merge
     expect(result.record.title).toBe(STORED.title);
     expect(result.record.createdAt).toBe(STORED.createdAt);
 
-    const patch = h.of("app_records").find((call) => call.method === "PATCH");
-    expect(patch).toBeDefined();
-    expect(decodeURIComponent(patch!.url)).toContain("version=eq.1");
-    expect(decodeURIComponent(patch!.url)).toContain(`record_id=eq.${STORED.id}`);
-    expect((patch!.body as { version: number }).version).toBe(2);
+    const rpc = h.of("rpc/app_record_update_atomic")[0];
+    const sent = rpc.body as {
+      p_app_id: string;
+      p_record_id: string;
+      p_expected_version: number;
+      p_body: EquipmentRequest;
+      p_write_id: string;
+      p_intent_hash: string;
+      p_status_code: number;
+    };
+    expect(sent.p_app_id).toBe(APP);
+    expect(sent.p_record_id).toBe(STORED.id);
+    expect(sent.p_expected_version).toBe(1);
+    expect(sent.p_body.version).toBe(2);
+    expect(sent.p_write_id).toBe("11111111-2222-4222-8222-333333333333");
+    expect(sent.p_intent_hash).toHaveLength(64);
+    expect(sent.p_status_code).toBe(200);
+
+    // The record, the counter and the ledger row are that one request and
+    // nothing else: no PATCH, no second insert, no separate counter move.
+    expect(h.writes()).toHaveLength(1);
+    expect(h.of("app_records").filter((call) => call.method === "PATCH")).toHaveLength(0);
+    expect(h.of("rpc/app_storage_add")).toHaveLength(0);
   });
 
-  it("answers stale_version with what is stored now when the PATCH changes no row", async () => {
+  it("answers stale_version with what the function found stored, without re-reading", async () => {
     const h = harness();
     const moved: EquipmentRequest = { ...STORED, version: 2, status: "ordered" };
     h.queue("GET app_writes", []);
     h.queue("GET app_records", [pgRow(STORED)]); // the store read version 1
-    h.queue("GET app_records", [pgRow(moved)]); // the backend's merge read
-    h.queue("PATCH app_records", []); // …and another writer had already moved it
-    h.queue("GET app_records", [pgRow(moved)]); // the store re-reads to report
+    h.queue("POST rpc/app_record_update_atomic", { outcome: "stale_version", current: moved });
 
     const error = await refusal(() =>
       h.store.update(ctx(), STORED.id, {
@@ -247,6 +275,175 @@ describe("the version check", () => {
     // reserving this one would refuse that retry.
     expect(h.of("app_writes").filter((call) => call.method === "POST")).toHaveLength(0);
   });
+
+  it("answers not_found when the function reports the record is gone", async () => {
+    const h = harness();
+    h.queue("GET app_writes", []);
+    h.queue("GET app_records", [pgRow(STORED)]);
+    h.queue("POST rpc/app_record_update_atomic", { outcome: "not_found" });
+
+    const error = await refusal(() =>
+      h.store.update(ctx(), STORED.id, {
+        writeId: "11111111-2222-4222-8222-555555555555",
+        expectedVersion: 1,
+        patch: { status: "approved" },
+      })
+    );
+    expect(error.code).toBe("not_found");
+  });
+
+  it("refuses an update that would grow the app past its ceiling, and writes nothing", async () => {
+    const h = harness();
+    h.queue("GET app_writes", []);
+    h.queue("GET app_records", [pgRow(STORED)]);
+    h.queue("POST rpc/app_record_update_atomic", {
+      outcome: "quota_exceeded",
+      storage_bytes: 99_990,
+      delta: 40,
+    });
+
+    const error = await refusal(() =>
+      h.store.update(ctx(), STORED.id, {
+        writeId: "11111111-2222-4222-8222-666666666666",
+        expectedVersion: 1,
+        patch: { details: "x".repeat(50) },
+      })
+    );
+
+    expect(error.code).toBe("quota_exceeded");
+    expect(error.message).toContain("99990 of its 100000 logical bytes and this change needs 40 more");
+    expect(h.of("app_writes").filter((call) => call.method === "POST")).toHaveLength(0);
+  });
+});
+
+/* --------------------------- one transaction ------------------------------ */
+
+describe("a mutation that races another caller's write id", () => {
+  it("replays what the winner recorded, rather than writing a second record", async () => {
+    const h = harness();
+    const writeId = "88888888-2222-4222-8222-111111111111";
+    const body = { writeId, record: input() };
+    const parsed = CreateRequestBody.parse(body);
+    const hash = writeIntentHash("create", APP, IDENTITIES.editor.subject, null, parsed);
+
+    h.queue("GET app_writes", []); // the replay read found nothing …
+    h.queue("POST rpc/app_record_create_atomic", { outcome: "write_id_taken" }); // … and lost the race
+    h.queue("GET app_writes", [
+      {
+        write_id: writeId,
+        subject: IDENTITIES.editor.subject,
+        op: "create",
+        record_id: STORED.id,
+        intent_hash: hash,
+        status_code: 201,
+        result: STORED,
+        at: STORED.createdAt,
+      },
+    ]);
+
+    const result = await h.store.create(ctx(), body);
+    expect(result.replayed).toBe(true);
+    expect(result.record).toEqual(STORED);
+    // One attempted write, and it wrote nothing.
+    expect(h.writes()).toHaveLength(1);
+  });
+
+  it("refuses when the winner recorded a different change", async () => {
+    const h = harness();
+    const writeId = "88888888-2222-4222-8222-222222222222";
+    h.queue("GET app_writes", []);
+    h.queue("POST rpc/app_record_create_atomic", { outcome: "write_id_taken" });
+    h.queue("GET app_writes", [
+      {
+        write_id: writeId,
+        subject: IDENTITIES.editor.subject,
+        op: "create",
+        record_id: STORED.id,
+        intent_hash: "a-hash-of-some-other-intent",
+        status_code: 201,
+        result: STORED,
+        at: STORED.createdAt,
+      },
+    ]);
+
+    const error = await refusal(() => h.store.create(ctx(), { writeId, record: input() }));
+    expect(error.code).toBe("idempotency_conflict");
+  });
+});
+
+describe("when migration 0004 has not been applied", () => {
+  it("names 0004, not 0003, and says nothing was written", async () => {
+    const h = harness();
+    h.queue("GET app_writes", []);
+    h.queue(
+      "POST rpc/app_record_create_atomic",
+      {
+        code: "PGRST202",
+        message: "Could not find the function hosted.app_record_create_atomic in the schema cache",
+      },
+      404
+    );
+
+    const error = await refusal(() =>
+      h.store.create(ctx(), { writeId: "99999999-2222-4222-8222-111111111111", record: input() })
+    );
+
+    expect(error.code).toBe("runtime_unavailable");
+    expect(error.fix).toContain("0004_hosted_app_data_atomic.sql");
+    expect(error.fix).toContain("Nothing was written");
+  });
+});
+
+/* ---------------------------- the probe namespace -------------------------- */
+
+describe("emptying the disposable probe namespace", () => {
+  it("deletes the three tables for `<appId>::test` and nothing else", async () => {
+    const calls: string[] = [];
+    const fetchDouble: typeof globalThis.fetch = async (target, init) => {
+      const url = typeof target === "string" ? target : target instanceof URL ? target.href : target.url;
+      calls.push(`${(init?.method ?? "GET").toUpperCase()} ${decodeURIComponent(url)}`);
+      return new Response("[]", { status: 200, headers: { "content-type": "application/json" } });
+    };
+    const probe = new PgDataBackend({ appId: `${APP}::test`, fetch: fetchDouble });
+
+    await probe.purgeTestNamespace();
+
+    expect(calls).toHaveLength(3);
+    expect(calls.filter((call) => call.startsWith("DELETE"))).toHaveLength(3);
+    expect(calls.some((call) => call.includes("app_writes"))).toBe(true);
+    expect(calls.some((call) => call.includes("app_records"))).toBe(true);
+    expect(calls.some((call) => call.includes("app_storage"))).toBe(true);
+    for (const call of calls) expect(call).toContain(`app_id=eq.${APP}::test`);
+  });
+
+  it("refuses an app id that is not a probe namespace, so customer rows are unreachable", async () => {
+    const h = harness();
+    const error = await refusal(() => h.backend.purgeTestNamespace());
+    expect(error.code).toBe("forbidden");
+    expect(error.message).toContain("not one");
+    expect(h.calls).toHaveLength(0);
+  });
+});
+
+/* --------------------------- whole-app reads ------------------------------ */
+
+describe("the whole-app reads the integrity check is built on", () => {
+  it("adds up the stored logical bytes within this app", async () => {
+    const h = harness();
+    h.queue("GET app_records", [
+      { record_id: "a", logical_bytes: 120 },
+      { record_id: "b", logical_bytes: 80 },
+    ]);
+
+    await expect(h.backend.sumLogicalBytes()).resolves.toEqual({ total: 200, rows: 2 });
+    expect(decodeURIComponent(h.of("app_records")[0].url)).toContain(`app_id=eq.${APP}`);
+  });
+
+  it("counts this app's records from the exact count PostgREST reports", async () => {
+    const h = harness();
+    h.queue("HEAD app_records", [], 200, 17);
+    await expect(h.backend.countRecords()).resolves.toBe(17);
+  });
 });
 
 /* ---------------------------------- quota --------------------------------- */
@@ -255,9 +452,9 @@ describe("quota admission", () => {
   it("is the one round trip the function answers, and a refusal writes nothing", async () => {
     const h = harness();
     h.queue("GET app_writes", []);
-    h.queue("POST rpc/app_record_insert_within_quota", 0); // refused: it would not fit
-    h.queue("GET app_records", []); // the refusal reports current usage
-    h.queue("GET app_storage", [{ logical_bytes: 99_950 }]);
+    // Refused: it would not fit. The figure it refused against comes back with
+    // the refusal, so there is no second read to report usage.
+    h.queue("POST rpc/app_record_create_atomic", { outcome: "quota_exceeded", storage_bytes: 99_950 });
 
     const error = await refusal(() =>
       h.store.create(ctx(), { writeId: "55555555-2222-4222-8222-333333333333", record: input() })
@@ -268,7 +465,9 @@ describe("quota admission", () => {
     expect(error.message).toContain("logical bytes: the UTF-8 JSON size");
     expect((error.details as { limitLogicalBytes: number }).limitLogicalBytes).toBe(100_000);
 
-    // No row and no ledger entry: the comparison is inside the insert.
+    // No row, no ledger entry, no counter move: the comparison is the first
+    // thing inside the transaction.
+    expect(h.writes()).toHaveLength(1);
     expect(h.of("app_records").filter((call) => call.method === "POST")).toHaveLength(0);
     expect(h.of("app_writes").filter((call) => call.method === "POST")).toHaveLength(0);
     expect(h.of("rpc/app_storage_add")).toHaveLength(0);
@@ -277,22 +476,36 @@ describe("quota admission", () => {
   it("sends the same logical-byte figure the SQLite path would have measured", async () => {
     const h = harness();
     h.queue("GET app_writes", []);
-    h.queue("POST rpc/app_record_insert_within_quota", 1);
+    h.queue("POST rpc/app_record_create_atomic", { outcome: "ok", storage_bytes: 640 });
 
     const result = await h.store.create(ctx(), {
       writeId: "55555555-2222-4222-8222-666666666666",
       record: input(),
     });
 
-    const rpc = h.of("rpc/app_record_insert_within_quota")[0];
-    const sent = rpc.body as { p_logical_bytes: number; p_limit_bytes: number; p_body: EquipmentRequest };
+    const rpc = h.of("rpc/app_record_create_atomic")[0];
+    const sent = rpc.body as {
+      p_logical_bytes: number;
+      p_limit_bytes: number;
+      p_body: EquipmentRequest;
+      p_result: EquipmentRequest;
+      p_write_id: string;
+      p_status_code: number;
+    };
     expect(sent.p_logical_bytes).toBe(logicalBytes(result.record));
     expect(sent.p_limit_bytes).toBe(100_000);
     expect(sent.p_body.id).toBe(result.record.id);
+    // The ledger row rides in the same call: the record, the counter and the
+    // replayable result commit together or not at all.
+    expect(sent.p_result).toEqual(result.record);
+    expect(sent.p_write_id).toBe("55555555-2222-4222-8222-666666666666");
+    expect(sent.p_status_code).toBe(201);
 
-    // …and the counter is NOT moved again afterwards: the admission function
-    // already did it, under the same row lock as the comparison.
+    expect(h.writes()).toHaveLength(1);
+    // …and the counter is NOT moved again afterwards: the function already did
+    // it, under the same row lock as the comparison.
     expect(h.of("rpc/app_storage_add")).toHaveLength(0);
+    expect(h.of("app_writes").filter((call) => call.method === "POST")).toHaveLength(0);
   });
 });
 
@@ -322,7 +535,7 @@ describe("a retried write id", () => {
 
     expect(result.replayed).toBe(true);
     expect(result.record).toEqual(STORED);
-    expect(h.of("rpc/app_record_insert_within_quota")).toHaveLength(0);
+    expect(h.of("rpc/app_record_create_atomic")).toHaveLength(0);
     expect(h.of("app_records")).toHaveLength(0);
   });
 
@@ -349,7 +562,7 @@ describe("a retried write id", () => {
     );
 
     expect(error.code).toBe("idempotency_conflict");
-    expect(h.of("rpc/app_record_insert_within_quota")).toHaveLength(0);
+    expect(h.of("rpc/app_record_create_atomic")).toHaveLength(0);
   });
 });
 

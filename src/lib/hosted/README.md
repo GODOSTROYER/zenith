@@ -7,8 +7,15 @@ only authority on who may open them. It is ~103 files and about a fifth of
 and the data directory.
 
 Its own store is `<ZENITH_DATA>/control.sqlite`, reached only through
-`authority/`. Nothing here writes to `.data/state.json`, and nothing in
-`src/lib/db` knows this directory exists. Longer prose:
+`authority/` — or the `hosted` schema of a Supabase Postgres project when
+`ZENITH_HOSTED_STORE=postgres`, which is the same interface over
+`authority/pg/**` and is what a serverless deployment runs on. That one flag
+also moves the per-app data plane (`data/`) and the artifact store
+(`artifacts/`); the operational side of it — schema, variables, cut-over,
+troubleshooting — is
+[docs/HOSTED-POSTGRES.md](../../../docs/HOSTED-POSTGRES.md). Nothing here writes
+to `.data/state.json`, and nothing in `src/lib/db` knows this directory exists.
+Longer prose:
 [docs/ARCHITECTURE.md](../../../docs/ARCHITECTURE.md); the layer rules:
 [docs/MODULE-MAP.md](../../../docs/MODULE-MAP.md); the decisions this code
 cites by number (`R3-*`, `G*`): [docs/hosted/](../../../docs/hosted/).
@@ -41,7 +48,7 @@ would import — the barrels below are what routes use.
 | `build/` | One pinned recipe (`RECIPE_V1`) and three runners: local child process, E2B, Docker | Read a submitted build script or config, or install from the source tree |
 | `release/` | Apps, publish jobs, releases, rollback, suspension, and the 250 ms job runner | Move an app off a healthy release before a candidate is built, stored, re-verified and probed |
 | `runtime/` | `local` and `cloudflare` behind one `HostedRuntime` interface. The Cloudflare adapter's binding allowlists live in `cloudflare-bindings.ts` and its embedded release worker in `cloudflare-worker-module.ts` | Let a caller branch on which runtime is selected, or claim a capability it has not proven |
-| `data/` | The per-app customer data layer — the fixed broker's storage side, on SQLite or D1. `TrackerDataStore` (`tracker-store.ts` + `tracker-rows.ts`) is the reference `AppDataStore`, not the only possible one | Be reachable from app-published code; the app's JS calls the broker over HTTP |
+| `data/` | The per-app customer data layer — the fixed broker's storage side, on SQLite, D1, or the `hosted.app_*` tables over PostgREST (`pg-backend.ts`) when `ZENITH_HOSTED_STORE=postgres`. `TrackerDataStore` (`tracker-store.ts` + `tracker-rows.ts`) is the reference `AppDataStore`, not the only possible one | Be reachable from app-published code; the app's JS calls the broker over HTTP |
 | `quota/` | Requests per app per UTC day, body limits, the enforcement table | Keep a counter in module scope, or decide who the caller is |
 | `usage/` | The usage ledger, the spending estimate, the 50/75/90 % alerts and the build pause | Call an estimate a bill, or stop a running app to save money |
 | `events/` | Pseudonymous activation and lifecycle events, deduped per logical operation, and the scorecard | Store a subject, or let a recording failure break the request it was recording |
@@ -63,9 +70,14 @@ state through a half-open authority. Verified in both files, the order is:
    hosted mode it additionally requires an identity provider and Node ≥ 22.16.
    Hosted mode fails closed: a missing precondition stops the process rather
    than serving a private app on guesswork.
-2. **authority** — `openAuthority()` opens `control.sqlite`, reads back every
-   pragma, and refuses to start on a file that fails `quick_check` rather than
-   replacing it with an empty one.
+2. **authority** — the one place the implementation is chosen. On SQLite,
+   `openAuthority()` opens `control.sqlite`, reads back every pragma, and
+   refuses to start on a file that fails `quick_check` rather than replacing it
+   with an empty one. On Postgres, `createPostgresAuthority()` is installed:
+   `SUPABASE_DB_URL` must be set (checked in step 1, by variable name), and the
+   `hosted.schema_migrations` check starts here and is awaited by every later
+   read and write, refusing with the migration file named. Both are synchronous
+   to build, which is what keeps `ensureHosted()` synchronous.
 3. **access** — `registerAccessOutboxHandlers()` registers the invitation-email
    handler.
 4. **usage** — `registerOpsOutboxHandlers()` registers the revocation-ledger

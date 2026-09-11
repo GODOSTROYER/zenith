@@ -10,9 +10,23 @@ import { ctx, input } from "./_helpers";
 
 const DATA_DIR = isolatedDataDir("zenith-data-conflict-");
 
-const { SqliteBackend, TrackerDataStore, closeAllAppData, openAppData, trackerSql } = await import(
+const { SqliteBackend, TrackerDataStore, closeAllAppData, openAppData, sqliteBackendOf, trackerSql } = await import(
   "@/lib/hosted/data"
 );
+
+/**
+ * `openAppData` with its backend narrowed to the SQLite connection.
+ *
+ * `OpenAppData.backend` is a union of the two backends this build ships, and
+ * this file runs in the default `sqlite` store and asserts on statements only a
+ * SQLite connection can run. `sqliteBackendOf` is the one escape hatch that
+ * says so; narrowing once here keeps the assertions readable.
+ */
+const openSqlite = (appId: string, options: Parameters<typeof openAppData>[1] = {}) => {
+  const opened = openAppData(appId, options);
+  return { ...opened, backend: sqliteBackendOf(opened) };
+};
+
 
 const extraBackends: InstanceType<typeof SqliteBackend>[] = [];
 
@@ -41,7 +55,7 @@ async function refusal(fn: () => Promise<unknown>): Promise<HostedError> {
 describe("two-editor conflict", () => {
   it("refuses the second writer with the current record, then accepts the rebase", async () => {
     const appId = freshApp();
-    const { store } = openAppData(appId);
+    const { store } = openSqlite(appId);
     const editorA = ctx("editor", IDENTITIES.editor, appId);
     const editorB = ctx("owner", IDENTITIES.owner, appId);
 
@@ -93,7 +107,7 @@ describe("two-editor conflict", () => {
 
   it("records no write id for a refused conflict, so the same id is still usable", async () => {
     const appId = freshApp();
-    const { backend, store } = openAppData(appId);
+    const { backend, store } = openSqlite(appId);
     const editor = ctx("editor", IDENTITIES.editor, appId);
     const seed = await store.create(editor, { writeId: uuid(), record: input() });
     await store.update(editor, seed.record.id, { writeId: uuid(), expectedVersion: 1, patch: { quantity: 2 } });
@@ -119,7 +133,7 @@ describe("two-editor conflict", () => {
 describe("compare-and-swap", () => {
   it("changes no row when the version does not match", async () => {
     const appId = freshApp();
-    const { backend, store } = openAppData(appId);
+    const { backend, store } = openSqlite(appId);
     const editor = ctx("editor", IDENTITIES.editor, appId);
     const seed = await store.create(editor, { writeId: uuid(), record: input() });
 
@@ -148,7 +162,7 @@ describe("compare-and-swap", () => {
 
   it("lets exactly one of two connections win the same version", async () => {
     const appId = freshApp();
-    const opened = openAppData(appId);
+    const opened = openSqlite(appId);
     const editorA = ctx("editor", IDENTITIES.editor, appId);
     const editorB = ctx("owner", IDENTITIES.owner, appId);
 
@@ -206,7 +220,7 @@ describe("compare-and-swap", () => {
 
   it("fails fast rather than hanging when another connection holds the write lock", async () => {
     const appId = freshApp();
-    const opened = openAppData(appId);
+    const opened = openSqlite(appId);
     const editor = ctx("editor", IDENTITIES.editor, appId);
     const seed = await opened.store.create(editor, { writeId: uuid(), record: input() });
 

@@ -45,7 +45,7 @@ import {
 } from "@/lib/hosted/contracts";
 import { authority } from "@/lib/hosted/authority";
 import { FsArtifactStore } from "@/lib/hosted/artifacts";
-import { insertColumns, logicalBytes, openAppData, trackerSql } from "@/lib/hosted/data";
+import { openAppData } from "@/lib/hosted/data";
 import { INSTALL_WORKSPACE, recordEvent } from "@/lib/hosted/events";
 
 /** The format tag every bundle carries, so a reader can refuse a future one. */
@@ -380,7 +380,7 @@ export async function importApp(bundle: unknown, options: ImportAppOptions): Pro
     }
   });
 
-  const records = importRecords(appId, file.records as EquipmentRequest[]);
+  const records = await importRecords(appId, file.records as EquipmentRequest[]);
 
   await recordEvent({
     event: "app.created",
@@ -413,53 +413,36 @@ export async function importApp(bundle: unknown, options: ImportAppOptions): Pro
 /**
  * Write imported records into the new app's database.
  *
- * The store's own conditional insert is used, so the storage quota is enforced
- * on an import exactly as it is on a write, and the running byte counter stays
- * correct. A record whose id is already present is skipped and reported rather
- * than merged — an import into a fresh app should never hit this, and silently
- * choosing a winner would be the wrong answer if it did.
+ * The store's own quota-admitted insert is used, so the storage quota is
+ * enforced on an import exactly as it is on a write, and the running byte
+ * counter stays correct. A record whose id is already present is skipped and
+ * reported rather than merged — an import into a fresh app should never hit
+ * this, and silently choosing a winner would be the wrong answer if it did.
+ *
+ * The writing itself is `openAppData(appId).ops.importRecords`, which is
+ * implemented on both stores; this function owns the refusal's wording, because
+ * "importing this app would take it past its limit" is a fact about the import
+ * and not about the database. On SQLite the whole import is one transaction and
+ * a refusal rolls it back; on Postgres the bundle's total is checked against the
+ * app's headroom before anything is written, and the refusal names how many
+ * records were already written in the narrow case where another writer filled
+ * the app mid-import.
  */
-function importRecords(appId: string, records: EquipmentRequest[]): ImportResult["records"] {
+async function importRecords(appId: string, records: EquipmentRequest[]): Promise<ImportResult["records"]> {
   const data = openAppData(appId);
-  const skipped: { id: string; reason: string }[] = [];
-  let imported = 0;
+  const limitLogicalBytes = data.store.storageLimitBytes;
 
-  data.backend.transaction(() => {
-    for (const record of records) {
-      const existing = data.backend.get<{ id: string }>(trackerSql.SELECT_REQUEST_BY_ID, [record.id]);
-      if (existing) {
-        skipped.push({ id: record.id, reason: "A request with this id is already in the app." });
-        continue;
-      }
-      const bytes = logicalBytes(record);
-      // The 17 stored columns come from the tracker store's own list, so an
-      // imported row and a row the app writes itself can never disagree about
-      // column order; the two trailing values are the quota bounds the
-      // conditional insert compares.
-      const result = data.backend.run(trackerSql.INSERT_REQUEST_WITHIN_QUOTA, [
-        ...insertColumns(record, bytes),
-        bytes,
-        data.store.storageLimitBytes,
-      ]);
-      if (result.changes !== 1) {
-        // The only reason the conditional insert writes nothing: the storage
-        // quota. Throwing rolls back the whole import rather than leaving an
-        // app holding an arbitrary prefix of its own history.
-        throw new HostedError(
-          "quota_exceeded",
-          `Importing this app would take it past its ${data.store.storageLimitBytes} logical-byte storage limit at record ${record.id} (${imported} of ${records.length} imported). Nothing was written.`,
-          {
-            fix: "Ask Zenith to raise the storage limit for the destination app before importing, or import into an install configured with a larger limit.",
-            details: { imported, total: records.length, limitLogicalBytes: data.store.storageLimitBytes },
-          }
-        );
-      }
-      data.backend.run(trackerSql.UPDATE_STORAGE_ADD, [bytes]);
-      imported += 1;
-    }
+  return data.ops.importRecords(records, {
+    quotaRefusal: (imported) =>
+      new HostedError(
+        "quota_exceeded",
+        `Importing this app would take it past its ${limitLogicalBytes} logical-byte storage limit (${imported} of ${records.length} imported).`,
+        {
+          fix: "Ask Zenith to raise the storage limit for the destination app before importing, or import into an install configured with a larger limit.",
+          details: { imported, total: records.length, limitLogicalBytes },
+        }
+      ),
   });
-
-  return { imported, skipped };
 }
 
 /** The workspace install-wide import/export events are filed under when there is no app yet. */

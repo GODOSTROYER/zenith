@@ -38,11 +38,8 @@ import { createPgUsageRepo } from "./usage";
 /** Every table of the control authority, bound to one connection or transaction. */
 export function bindPgRepos(sql: Sql | TransactionSql): Repos {
   return {
-    // Implemented in this package.
     jobs: createPgJobsRepo(sql),
     outbox: createPgOutboxRepo(sql),
-
-    // Awaiting their packages. Each method throws naming itself and its file.
     apps: createPgAppsRepo(sql),
     grants: createPgGrantsRepo(sql),
     invites: createPgInvitesRepo(sql),

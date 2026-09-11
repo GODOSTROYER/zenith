@@ -381,6 +381,7 @@ accepts, never a silent default. Full table and build-time caveats in
 | Variable | Purpose | Default |
 | --- | --- | --- |
 | `ZENITH_DATA` | Data directory: snapshot, revisions, event and audit logs. One process per directory | `./.data` |
+| `ZENITH_STORE` | `file` \| `postgres` — which implementation backs the infrastructure product's store. `postgres` is required on a serverless deployment | `file` |
 | `ZENITH_FAST` | `1` collapses simulated step durations; used by tests and smoke | `0` |
 | `ZENITH_LOCALSTACK_ENDPOINT` | LocalStack edge endpoint | `http://localhost:4566` |
 | `ZENITH_LOG_LEVEL` | `debug` \| `info` \| `warn` \| `error` | `info` |
@@ -395,8 +396,16 @@ accepts, never a silent default. Full table and build-time caveats in
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key; `…_ANON_KEY` also accepted. **Build-time** | unset |
 | `NEXT_PUBLIC_SUPABASE_OAUTH_PROVIDERS` | Comma-separated `github`, `google`. **Build-time** | empty |
 | `NEXT_PUBLIC_SITE_URL` | Absolute origin for OpenGraph and share-card URLs. **Build-time** | `http://localhost:3400` |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server-only, used by `npm run seed:users` | unset |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only. `npm run seed:users`, and — with `ZENITH_STORE=postgres` or `ZENITH_HOSTED_STORE=postgres` — the identity the stores reach PostgREST and Storage as | unset |
+| `ZENITH_HOSTED_STORE` | `sqlite` \| `postgres` — which store the hosted-apps subsystem uses. One flag moves the control authority, the per-app data plane and the artifact store together | `sqlite` |
+| `SUPABASE_DB_URL` | Supavisor **transaction-mode** pooler URI (port 6543) the hosted control authority connects through. Carries the database password, so it is never echoed and belongs in a secret, not a plain variable | unset |
+| `ZENITH_ARTIFACT_BUCKET` | Private Supabase Storage bucket published artifacts live in when `ZENITH_HOSTED_STORE=postgres` | `zenith-artifacts` |
+| `CRON_SECRET` | Bearer token `/api/internal/keepalive` and `/api/internal/tick/*` demand. Unset, they answer 503 and run nothing | unset |
 | `ANTHROPIC_API_KEY` | Enables Claude language parsing in the Navigator | unset |
+
+Running the hosted subsystem on Supabase Postgres — the schema, the manual
+migration steps, the cut-over and the troubleshooting table — is
+[docs/HOSTED-POSTGRES.md](docs/HOSTED-POSTGRES.md).
 
 ---
 

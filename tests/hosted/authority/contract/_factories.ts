@@ -20,10 +20,7 @@
  *
  * Three of the scenarios are about **partial unique indexes** — database
  * properties that no repository exposes and that no amount of repository calls
- * can prove directly. Two of the three (`app_grants_active`,
- * `hosted_events_logical`) sit on tables whose Postgres repositories belong to
- * later packages, so in this build there is no repository to reach them with on
- * that side at all. Proving them through `raw()` is not a shortcut around the
+ * can prove directly. Proving them through `raw()` is not a shortcut around the
  * repositories; it is the only way to assert the thing itself, and it is the
  * assertion that will catch a migration that quietly dropped a `WHERE` clause.
  *

@@ -31,9 +31,11 @@ const Schema = z.object({
   /**
    * Which implementation backs the hosted subsystem's control authority — the
    * hosted sibling of product A's `ZENITH_STORE` (`@/lib/env`). "sqlite" is the
-   * embedded `control.sqlite` authority and the only one this build ships;
-   * "postgres" parses here, so the flag exists end to end, and is refused at
-   * boot by `@/lib/hosted/index` saying so.
+   * embedded `control.sqlite` authority, per-app SQLite files and artifacts on
+   * disk; "postgres" is the `hosted` schema in Supabase over the pooler
+   * (`SUPABASE_DB_URL`), per-app rows over PostgREST and artifacts in the
+   * Storage bucket. `@/lib/hosted/index` installs whichever this names at boot;
+   * see docs/HOSTED-POSTGRES.md.
    */
   ZENITH_HOSTED_STORE: z.enum(["sqlite", "postgres"]).default("sqlite"),
   ZENITH_RUNTIME: z.enum(["local", "cloudflare"]).default("local"),

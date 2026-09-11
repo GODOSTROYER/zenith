@@ -9,8 +9,12 @@ Which store is `ZENITH_HOSTED_STORE`, chosen once in `src/lib/hosted/index.ts`:
 
 - `sqlite` (default) — `<ZENITH_DATA>/control.sqlite`, opened and migrated in
   process. One machine, one file.
-- `postgres` — Supabase, over `SUPABASE_DB_URL`. `pg/` holds it. Migrations are
-  **not** applied in process; see below.
+- `postgres` — Supabase, over `SUPABASE_DB_URL` (the Supavisor transaction-mode
+  pooler, port 6543). `pg/` holds it, and every one of the fifteen repositories
+  is implemented there. Migrations are **not** applied in process; see below.
+  The operational side — which migration file, the exposed-schemas step, the
+  cut-over and the troubleshooting table — is
+  [docs/HOSTED-POSTGRES.md](../../../../docs/HOSTED-POSTGRES.md).
 
 No call site branches on the choice.
 
@@ -26,8 +30,11 @@ inside it.
 
 ## The interface
 
-One interface, two implementations: the SQLite authority this process opens
-today, and a Postgres one later that no call site will have to notice.
+One interface, two implementations, both complete: the SQLite authority this
+process opens by default, and the Postgres one in `pg/`. No call site notices
+which it got — the contract suite in `tests/hosted/authority/contract/` runs the
+same scenarios against both and expects the same answers, including the same
+`HostedError` code, message and `details` on every refusal.
 
 ```ts
 export interface Authority {
@@ -98,7 +105,7 @@ of `sqlite_master`.
 | `sqlite.ts` | The SQLite implementation: the transaction mutex, the `AsyncLocalStorage` that tells nesting from contention, and the promised repositories | Let two top-level transactions run at once on the one connection, or hand the raw connection to anything but `sqliteConnection()` |
 | `sql.ts` | Row readers, the prepared-statement cache, SQLite error classification, and `nowIso()` | Coerce a missing or wrongly-typed column instead of refusing it; format a timestamp any way but fixed-width ISO-8601 UTC |
 | `schema.ts` | The ordered migration list. Every enum a CHECK, every relationship a FOREIGN KEY | Edit the SQL of a version that has shipped — add a version, never change one. (Forward-only: there is no `down`.) |
-| `pg/` | The Postgres implementation: `client.ts` (one client, `prepare: false` because transaction-mode pooling forbids named prepares), `tx.ts` (`sql.begin`, savepoints when nested, retry on `40001`/`40P01`/`53300`/`08006`/`08003`), `errors.ts`, `rows.ts`, `repos/` | Apply DDL. `migrate()` **reads** `hosted.schema_migrations` and refuses to boot naming `supabase/migrations/0002_hosted_authority.sql`; a hundred serverless instances racing `CREATE TABLE` is not a migration strategy |
+| `pg/` | The Postgres implementation: `client.ts` (one client, `prepare: false` because transaction-mode pooling forbids named prepares), `tx.ts` (`sql.begin`, savepoints when nested, retry on `40001`/`40P01`/`53300`/`08006`/`08003`), `errors.ts`, `rows.ts`, `repos/` (all fifteen, one file per table, mirroring `repos/` below statement for statement) | Apply DDL. `migrate()` **reads** `hosted.schema_migrations` and refuses to boot naming `supabase/migrations/0002_hosted_authority.sql`; a hundred serverless instances racing `CREATE TABLE` is not a migration strategy |
 | `repos.ts` | The repository set in both shapes: `SyncRepos` as the repository files write it, `Repos` (every method promised) as callers see it | Reach for the global authority — a repository takes its `DatabaseSync`, which is what lets any combination run inside one `tx()`. List a method twice: `Async<T>` maps them |
 | `jobs.ts` | Job admission and the idempotency rule: same UUID + same intent hash is a retry; same UUID + different intent is `idempotency_conflict` (409) | Silently resolve a conflicting retry to either operation |
 | `outbox.ts` | Draining the outbox: claim durably, perform, settle. Five attempts inside one claim | Claim a row whose kind has no registered handler — it stays `pending` and visible. `failed` is terminal (`TODO(ceiling):` — no dead-letter queue yet) |

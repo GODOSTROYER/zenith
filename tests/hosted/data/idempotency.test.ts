@@ -9,9 +9,23 @@ import { ctx, input } from "./_helpers";
 
 const DATA_DIR = isolatedDataDir("zenith-data-idempotency-");
 
-const { closeAllAppData, closeAppData, openAppData, trackerSql, writeIntentHash } = await import(
+const { closeAllAppData, closeAppData, openAppData, sqliteBackendOf, trackerSql, writeIntentHash } = await import(
   "@/lib/hosted/data"
 );
+
+/**
+ * `openAppData` with its backend narrowed to the SQLite connection.
+ *
+ * `OpenAppData.backend` is a union of the two backends this build ships, and
+ * this file runs in the default `sqlite` store and asserts on statements only a
+ * SQLite connection can run. `sqliteBackendOf` is the one escape hatch that
+ * says so; narrowing once here keeps the assertions readable.
+ */
+const openSqlite = (appId: string, options: Parameters<typeof openAppData>[1] = {}) => {
+  const opened = openAppData(appId, options);
+  return { ...opened, backend: sqliteBackendOf(opened) };
+};
+
 
 afterAll(async () => {
   closeAllAppData();
@@ -37,7 +51,7 @@ async function refusal(fn: () => Promise<unknown>): Promise<HostedError> {
 describe("create replay", () => {
   it("returns the identical record and writes no second row", async () => {
     const appId = freshApp();
-    const { backend, store } = openAppData(appId);
+    const { backend, store } = openSqlite(appId);
     const editor = ctx("editor", IDENTITIES.editor, appId);
     const writeId = uuid();
     const body = { writeId, record: input({ title: "Keyboard", category: "peripheral" }) };
@@ -58,7 +72,7 @@ describe("create replay", () => {
 
   it("treats an omitted default as the same intent as the value it defaults to", async () => {
     const appId = freshApp();
-    const { store } = openAppData(appId);
+    const { store } = openSqlite(appId);
     const editor = ctx("editor", IDENTITIES.editor, appId);
     const writeId = uuid();
 
@@ -76,7 +90,7 @@ describe("create replay", () => {
 
   it("refuses the same write id carrying a different body", async () => {
     const appId = freshApp();
-    const { backend, store } = openAppData(appId);
+    const { backend, store } = openSqlite(appId);
     const editor = ctx("editor", IDENTITIES.editor, appId);
     const writeId = uuid();
 
@@ -92,7 +106,7 @@ describe("create replay", () => {
 
   it("refuses a write id reused by a different subject or for a different operation", async () => {
     const appId = freshApp();
-    const { store } = openAppData(appId);
+    const { store } = openSqlite(appId);
     const editor = ctx("editor", IDENTITIES.editor, appId);
     const owner = ctx("owner", IDENTITIES.owner, appId);
     const writeId = uuid();
@@ -113,7 +127,7 @@ describe("create replay", () => {
 
   it("re-checks the role before replaying", async () => {
     const appId = freshApp();
-    const { store } = openAppData(appId);
+    const { store } = openSqlite(appId);
     const editor = ctx("editor", IDENTITIES.editor, appId);
     const viewer = ctx("viewer", IDENTITIES.viewer, appId);
     const writeId = uuid();
@@ -128,7 +142,7 @@ describe("create replay", () => {
 describe("update replay", () => {
   it("returns the record as it was written, not as it is now", async () => {
     const appId = freshApp();
-    const { backend, store } = openAppData(appId);
+    const { backend, store } = openSqlite(appId);
     const editor = ctx("editor", IDENTITIES.editor, appId);
     const seed = await store.create(editor, { writeId: uuid(), record: input() });
 
@@ -163,12 +177,12 @@ describe("across a restart", () => {
     const writeId = uuid();
     const body = { writeId, record: input({ title: "Survives a restart" }) };
 
-    const before = openAppData(appId);
+    const before = openSqlite(appId);
     const created = await before.store.create(editor, body);
     const bytesBefore = await before.store.storageBytes(appId);
     expect(closeAppData(appId)).toBe(1);
 
-    const after = openAppData(appId);
+    const after = openSqlite(appId);
     expect(after.backend).not.toBe(before.backend);
 
     const replay = await after.store.create(editor, body);
@@ -184,7 +198,7 @@ describe("across a restart", () => {
 describe("retention sweep", () => {
   it("drops write ids past the retention window and keeps the records", async () => {
     const appId = freshApp();
-    const { backend, store } = openAppData(appId);
+    const { backend, store } = openSqlite(appId);
     const editor = ctx("editor", IDENTITIES.editor, appId);
     const writeId = uuid();
     const body = { writeId, record: input({ title: "Old write" }) };

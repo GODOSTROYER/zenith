@@ -150,7 +150,17 @@ async function runChecks(app: HostedApp, artifacts: ArtifactStore): Promise<Reop
 
   try {
     const data = openAppData(app.id);
-    checks.push(pragmaCheck("data.quick_check", () => data.backend.all("PRAGMA quick_check")));
+    // On SQLite this is `PRAGMA quick_check` on the app's restored file. On
+    // Postgres there is no file to walk and the cluster owns its own physical
+    // integrity, so the probe is the logical one: every record of this app
+    // reads back, and `hosted.app_storage` agrees with the sum of their logical
+    // bytes. A counter that drifted is a real fault — it is what every quota
+    // decision is made against — and a restore is exactly when it would show.
+    // The check keeps the id `data.quick_check` because that is what an
+    // operator's runbook and the restore report already name; the detail says
+    // which of the two ran.
+    const integrity = await data.ops.integrity();
+    checks.push({ id: "data.quick_check", ok: integrity.ok, detail: integrity.detail });
     const version = await data.store.schemaVersion(app.id);
     checks.push({
       id: "schema_version",

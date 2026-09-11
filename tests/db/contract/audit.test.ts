@@ -15,7 +15,7 @@
 import { afterAll, describe, expect, it } from "vitest";
 import type { AuditEvent, Workspace } from "@/lib/domain/types";
 import type { Store } from "@/lib/db/types";
-import { CONTRACT_PREFIX, contractStores, postgresContractEnabled } from "./_shared";
+import { CONTRACT_PREFIX, cleanupPostgresContract, contractStores, postgresContractEnabled } from "./_shared";
 
 /** Two workspaces, so "this tenant's log" is a claim with a counter-example. */
 const WS_A = `${CONTRACT_PREFIX}-audit-a`;
@@ -204,6 +204,7 @@ afterAll(async () => {
   await pgClient().from("audit_events").delete().like("workspace_id", `${CONTRACT_PREFIX}%`);
   const { closeRestBridge } = await import("@/lib/db/pg/sync-rest");
   closeRestBridge();
+  await cleanupPostgresContract();
 });
 
 describe.each(contractStores)("audit contract — $name", ({ name, store }) => {

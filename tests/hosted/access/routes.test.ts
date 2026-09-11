@@ -60,7 +60,7 @@ const provider: ProviderState = { user: null, error: null, throws: null };
 // The shipping authority over a fake client: the mapping from a provider answer
 // to a refusal is the code under test, not something this file re-implements.
 setSessionAuthorityForTests(
-  supabaseSessionAuthority({
+  await supabaseSessionAuthority({
     createClient: () => ({
       auth: {
         async getUser() {
@@ -84,19 +84,19 @@ const signIn = (who: { subject: string; email: string; name: string }, verifiedE
   provider.throws = null;
 };
 
-beforeEach(() => {
+beforeEach(async () => {
   signIn(IDENTITIES.owner);
 });
 
-afterEach(() => {
+afterEach(async () => {
   session.user = null;
   provider.user = null;
   provider.error = null;
   provider.throws = null;
 });
 
-afterAll(() => {
-  setSessionAuthorityForTests(null);
+afterAll(async () => {
+  await setSessionAuthorityForTests(null);
   closeAuthority();
   removeDir(dataDir);
 });
@@ -130,9 +130,9 @@ interface ErrorBody {
 const errorOf = async (res: Response): Promise<ErrorBody["error"]> =>
   ((await res.json()) as ErrorBody).error;
 
-const app = (slug: string) => {
-  const record = seedApp(a, { slug, name: `App ${slug}` });
-  seedGrant(a, record.id, IDENTITIES.owner, "owner");
+const app = async (slug: string) => {
+  const record = await seedApp(a, { slug, name: `App ${slug}` });
+  await seedGrant(a, record.id, IDENTITIES.owner, "owner");
   return record;
 };
 
@@ -140,7 +140,7 @@ const app = (slug: string) => {
 
 describe("owner-only routes", () => {
   it("lets an owner read and change the access list", async () => {
-    const target = app("routes-owner");
+    const target = await app("routes-owner");
     const list = await call(grantsRoute.GET, `/api/hosted/apps/${target.id}/grants`, { appId: target.id });
     expect(list.status).toBe(200);
     expect(list.headers.get("cache-control")).toBe("no-store");
@@ -177,8 +177,8 @@ describe("owner-only routes", () => {
   });
 
   it("refuses an editor and a stranger alike, in the hosted envelope", async () => {
-    const target = app("routes-refuse");
-    seedGrant(a, target.id, IDENTITIES.editor, "editor");
+    const target = await app("routes-refuse");
+    await seedGrant(a, target.id, IDENTITIES.editor, "editor");
 
     signIn(IDENTITIES.editor);
     const asEditor = await call(grantsRoute.GET, `/api/hosted/apps/${target.id}/grants`, {
@@ -199,8 +199,8 @@ describe("owner-only routes", () => {
   });
 
   it("refuses to remove the app's only owner, with 409 and a way forward", async () => {
-    const target = app("routes-last-owner");
-    const owner = a.repos.grants.listByApp(target.id)[0];
+    const target = await app("routes-last-owner");
+    const owner = (await a.repos.grants.listByApp(target.id))[0];
     const res = await call(
       grantRoute.DELETE,
       `/api/hosted/apps/${target.id}/grants/${owner.id}`,
@@ -211,11 +211,11 @@ describe("owner-only routes", () => {
     const error = await errorOf(res);
     expect(error.code).toBe("conflict");
     expect(error.fix).toContain("owner");
-    expect(a.repos.grants.get(owner.id)?.state).toBe("active");
+    expect((await a.repos.grants.get(owner.id))?.state).toBe("active");
   });
 
   it("refuses a body that is not valid", async () => {
-    const target = app("routes-bad-body");
+    const target = await app("routes-bad-body");
     const res = await call(
       grantsRoute.POST,
       `/api/hosted/apps/${target.id}/grants`,
@@ -229,7 +229,7 @@ describe("owner-only routes", () => {
 
 describe("invitations over HTTP", () => {
   it("answers 201 with the link once, then resends and revokes it", async () => {
-    const target = app("routes-invites");
+    const target = await app("routes-invites");
     const created = await call(
       invitesRoute.POST,
       `/api/hosted/apps/${target.id}/invites`,
@@ -275,8 +275,8 @@ describe("invitations over HTTP", () => {
 
 describe("accepting an invitation as an outsider", () => {
   it("works for a signed-in person who belongs to no workspace at all", async () => {
-    const target = app("routes-accept");
-    const issued = createInvite(
+    const target = await app("routes-accept");
+    const issued = await createInvite(
       target.id,
       { email: IDENTITIES.stranger.email, role: "editor" },
       IDENTITIES.owner.subject
@@ -285,7 +285,7 @@ describe("accepting an invitation as an outsider", () => {
 
     signIn(IDENTITIES.stranger);
     // Nothing in the store makes this person a member of anything.
-    expect(a.repos.grants.activeFor(target.id, IDENTITIES.stranger.subject)).toBeNull();
+    expect(await a.repos.grants.activeFor(target.id, IDENTITIES.stranger.subject)).toBeNull();
 
     const res = await call(acceptRoute.POST, "/api/hosted/invites/accept", {}, {
       method: "POST",
@@ -304,8 +304,8 @@ describe("accepting an invitation as an outsider", () => {
   });
 
   it("refuses an unconfirmed address with 403 and grants nothing", async () => {
-    const target = app("routes-accept-unverified");
-    const issued = createInvite(
+    const target = await app("routes-accept-unverified");
+    const issued = await createInvite(
       target.id,
       { email: IDENTITIES.viewer.email, role: "viewer" },
       IDENTITIES.owner.subject
@@ -319,15 +319,15 @@ describe("accepting an invitation as an outsider", () => {
     });
     expect(res.status).toBe(403);
     expect((await errorOf(res)).code).toBe("forbidden");
-    expect(a.repos.grants.activeFor(target.id, IDENTITIES.viewer.subject)).toBeNull();
-    expect(a.repos.invites.get(issued.invite.id)?.state).toBe("pending");
+    expect(await a.repos.grants.activeFor(target.id, IDENTITIES.viewer.subject)).toBeNull();
+    expect((await a.repos.invites.get(issued.invite.id))?.state).toBe("pending");
   });
 });
 
 describe("launching an app", () => {
   it("answers a redirect for POST and a 303 for a plain link", async () => {
-    const target = app("routes-launch");
-    seedGrant(a, target.id, IDENTITIES.viewer, "viewer");
+    const target = await app("routes-launch");
+    await seedGrant(a, target.id, IDENTITIES.viewer, "viewer");
     signIn(IDENTITIES.viewer);
 
     const posted = await call(
@@ -351,7 +351,7 @@ describe("launching an app", () => {
   });
 
   it("refuses a stranger with 403 and mints nothing", async () => {
-    const target = app("routes-launch-stranger");
+    const target = await app("routes-launch-stranger");
     signIn(IDENTITIES.stranger);
     const res = await call(
       launchRoute.POST,
@@ -366,9 +366,9 @@ describe("launching an app", () => {
 
 describe("when the identity provider cannot be reached", () => {
   it("answers 503 rather than admitting the request — on accept and on launch", async () => {
-    const target = app("routes-outage");
-    seedGrant(a, target.id, IDENTITIES.viewer, "viewer");
-    const issued = createInvite(
+    const target = await app("routes-outage");
+    await seedGrant(a, target.id, IDENTITIES.viewer, "viewer");
+    const issued = await createInvite(
       target.id,
       { email: IDENTITIES.stranger.email, role: "viewer" },
       IDENTITIES.owner.subject
@@ -397,13 +397,13 @@ describe("when the identity provider cannot be reached", () => {
     expect((await errorOf(launched)).code).toBe("policy_unavailable");
 
     // Nothing was admitted, and nothing was written.
-    expect(a.repos.invites.get(issued.invite.id)?.state).toBe("pending");
-    expect(a.repos.grants.activeFor(target.id, IDENTITIES.stranger.subject)).toBeNull();
+    expect((await a.repos.invites.get(issued.invite.id))?.state).toBe("pending");
+    expect(await a.repos.grants.activeFor(target.id, IDENTITIES.stranger.subject)).toBeNull();
   });
 
   it("answers 401 only when the provider positively says there is no session", async () => {
-    const target = app("routes-signed-out");
-    seedGrant(a, target.id, IDENTITIES.viewer, "viewer");
+    const target = await app("routes-signed-out");
+    await seedGrant(a, target.id, IDENTITIES.viewer, "viewer");
     signIn(IDENTITIES.viewer);
     provider.user = null;
     provider.error = { message: "Auth session missing!", status: 400 };
@@ -419,8 +419,8 @@ describe("when the identity provider cannot be reached", () => {
   });
 
   it("treats a rate limit and a 5xx as unavailable, never as a denial to route around", async () => {
-    const target = app("routes-rate-limited");
-    seedGrant(a, target.id, IDENTITIES.viewer, "viewer");
+    const target = await app("routes-rate-limited");
+    await seedGrant(a, target.id, IDENTITIES.viewer, "viewer");
     signIn(IDENTITIES.viewer);
     for (const status of [429, 500, 503]) {
       provider.user = null;
@@ -438,10 +438,10 @@ describe("when the identity provider cannot be reached", () => {
 
 describe("sign-out", () => {
   it("terminates the caller's app sessions and says how many", async () => {
-    const target = app("routes-signout");
-    const grant = seedGrant(a, target.id, IDENTITIES.viewer, "viewer");
-    a.tx(() =>
-      a.repos.sessions.insert({
+    const target = await app("routes-signout");
+    const grant = await seedGrant(a, target.id, IDENTITIES.viewer, "viewer");
+    await a.tx((repos) =>
+      repos.sessions.insert({
         id: "f".repeat(64),
         appId: target.id,
         subject: IDENTITIES.viewer.subject,
@@ -454,7 +454,7 @@ describe("sign-out", () => {
     const res = await call(terminateRoute.POST, "/api/hosted/session/terminate", {}, { method: "POST" });
     expect(res.status).toBe(200);
     expect((await res.json()) as { terminated: number }).toMatchObject({ terminated: 1 });
-    expect(a.repos.sessions.get("f".repeat(64))?.terminatedReason).toBe("signed_out");
+    expect((await a.repos.sessions.get("f".repeat(64)))?.terminatedReason).toBe("signed_out");
   });
 
   it("refuses a caller with no session at all", async () => {

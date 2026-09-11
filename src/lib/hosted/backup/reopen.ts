@@ -22,7 +22,7 @@
  * verified is what will actually be served.
  */
 import { HostedError, type ArtifactStore, type HostedApp } from "@/lib/hosted/contracts";
-import { authority } from "@/lib/hosted/authority";
+import { authority, sqliteConnection } from "@/lib/hosted/authority";
 import { FsArtifactStore } from "@/lib/hosted/artifacts";
 import { LATEST_TRACKER_SCHEMA_VERSION, openAppData } from "@/lib/hosted/data";
 import { recordEvent } from "@/lib/hosted/events";
@@ -61,13 +61,13 @@ export interface ReopenResult {
  */
 export async function reopenApp(appId: string, options: ReopenOptions): Promise<ReopenResult> {
   const a = authority();
-  const app = a.repos.apps.get(appId);
+  const app = await a.repos.apps.get(appId);
   if (!app)
     throw new HostedError("not_found", `No hosted app has the id ${appId}.`, {
       fix: "List the restored apps with scripts/hosted/restore.ts's report, or from the control authority, and reopen one of those ids.",
     });
 
-  const held = a.repos.grants.listByApp(appId).filter((grant) => grant.state === "needs_reapproval");
+  const held = (await a.repos.grants.listByApp(appId)).filter((grant) => grant.state === "needs_reapproval");
   if (held.length > 0 && options.acknowledgeReapproval !== true)
     throw new HostedError(
       "recovering",
@@ -94,15 +94,15 @@ export async function reopenApp(appId: string, options: ReopenOptions): Promise<
     );
 
   const now = new Date().toISOString();
-  const reopened = a.tx(() =>
-    a.repos.apps.update(appId, { state: "active", stateReason: null }, now)
+  const reopened = await a.tx(async (repos) =>
+    repos.apps.update(appId, { state: "active", stateReason: null }, now)
   );
   if (!reopened)
     throw new HostedError("internal", `App ${appId} disappeared while it was being reopened.`, {
       fix: "Re-read the app and try again; another process changed it at the same moment.",
     });
 
-  recordEvent({
+  await recordEvent({
     event: "app.resumed",
     workspaceId: app.workspaceId,
     appId,
@@ -132,7 +132,21 @@ async function runChecks(app: HostedApp, artifacts: ArtifactStore): Promise<Reop
   const a = authority();
   const checks: ReopenCheck[] = [];
 
-  checks.push(pragmaCheck("control.quick_check", () => a.db.prepare("PRAGMA quick_check").all()));
+  // The control database's own integrity probe is a SQLite fact, so it is read
+  // through the one escape hatch that admits as much rather than through a
+  // repository every implementation would have to answer.
+  // TODO(ceiling): Postgres backup path — a Postgres authority has no
+  // quick_check, and this probe becomes whatever that implementation can prove
+  // about the restored cluster.
+  checks.push(
+    a.kind === "sqlite"
+      ? pragmaCheck("control.quick_check", () => sqliteConnection(a).prepare("PRAGMA quick_check").all())
+      : {
+          id: "control.quick_check",
+          ok: false,
+          detail: `Not checked: the control authority is ${a.kind}, which has no PRAGMA quick_check.`,
+        }
+  );
 
   try {
     const data = openAppData(app.id);
@@ -160,7 +174,7 @@ async function runChecks(app: HostedApp, artifacts: ArtifactStore): Promise<Reop
     });
     return checks;
   }
-  const release = a.repos.releases.get(app.activeReleaseId);
+  const release = await a.repos.releases.get(app.activeReleaseId);
   if (!release) {
     checks.push({
       id: "active_release",

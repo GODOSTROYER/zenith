@@ -27,14 +27,14 @@ beforeAll(async () => {
   contracts = await import("@/lib/hosted/contracts");
 });
 
-afterEach(() => {
+afterEach(async () => {
   delete process.env.ZENITH_BUILD_RUNNER;
 });
 
 afterAll(() => removeDir(DATA));
 
 const outputs: string[] = [];
-afterAll(() => {
+afterAll(async () => {
   for (const dir of outputs) fs.rmSync(dir, { recursive: true, force: true });
 });
 
@@ -87,7 +87,7 @@ describe("RecipeLocalRunner availability", () => {
     expect(await new build.RecipeLocalRunner().availability()).toEqual({ available: true });
   });
 
-  it("names the process boundary it does and does not provide", () => {
+  it("names the process boundary it does and does not provide", async () => {
     const runner = new build.RecipeLocalRunner();
     expect(runner.boundary).toContain("not a hostile-code sandbox");
     expect(runner.boundary).toContain("separate child process");
@@ -180,7 +180,7 @@ describe("RecipeLocalRunner isolation and limits", () => {
       expect(echoed, "the debug worker must report the environment it received").toBeTruthy();
       const keys = (echoed as import("@/lib/hosted/contracts").BuildLogLine).line.slice("env-keys ".length).split(",");
       expect(keys).toContain("PATH");
-      expect(build.secretEnvKeys(keys)).toEqual([]);
+      expect(await build.secretEnvKeys(keys)).toEqual([]);
       expect(keys).not.toContain("ZENITH_SECRET_KEY");
       expect(keys).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
       expect(keys).not.toContain("AWS_ACCESS_KEY_ID");
@@ -261,8 +261,8 @@ describe("RecipeLocalRunner isolation and limits", () => {
 });
 
 describe("the recipe itself", () => {
-  it("never loads a submitted config or env file, and pins react to the platform copy", () => {
-    const config = build.recipeConfig(FIXTURE, path.join(DATA, "out"));
+  it("never loads a submitted config or env file, and pins react to the platform copy", async () => {
+    const config = await build.recipeConfig(FIXTURE, path.join(DATA, "out"));
     expect(config.configFile).toBe(false);
     expect(config.envFile).toBe(false);
     expect(config.root).toBe(FIXTURE);
@@ -279,22 +279,22 @@ describe("the recipe itself", () => {
     for (const entry of alias) expect(entry.replacement.includes("node_modules")).toBe(true);
   });
 
-  it("recognises a module that came from outside the source root", () => {
+  it("recognises a module that came from outside the source root", async () => {
     const root = "/tmp/source";
     const allow = ["/platform/node_modules"];
     expect(
-      build.foreignModules(
+      await build.foreignModules(
         ["/tmp/source/src/main.tsx", "/platform/node_modules/react/index.js", "\u0000vite/modulepreload-polyfill.js"],
         { root, allow }
       )
     ).toEqual([]);
-    expect(build.foreignModules(["/etc/passwd", "/tmp/source/../other/x.tsx"], { root, allow })).toEqual([
+    expect(await build.foreignModules(["/etc/passwd", "/tmp/source/../other/x.tsx"], { root, allow })).toEqual([
       "/etc/passwd",
       "/tmp/source/../other/x.tsx",
     ]);
   });
 
-  it("reproduces the pinned toolchain in one install line", () => {
+  it("reproduces the pinned toolchain in one install line", async () => {
     expect(build.RECIPE_INSTALL_ARGS).toContain(`vite@${contracts.RECIPE_V1.vite}`);
     expect(build.RECIPE_INSTALL_ARGS).toContain(`@vitejs/plugin-react@${contracts.RECIPE_V1.pluginReact}`);
     expect(build.RECIPE_INSTALL_ARGS).toContain(`react@${contracts.RECIPE_V1.react}`);
@@ -303,16 +303,16 @@ describe("the recipe itself", () => {
 });
 
 describe("the runner registry", () => {
-  it("selects nothing when the install has not decided, and says why", () => {
-    expect(build.selectedBuildRunner()).toBeNull();
+  it("selects nothing when the install has not decided, and says why", async () => {
+    expect(await build.selectedBuildRunner()).toBeNull();
     expect(build.NO_RUNNER_REASON).toContain("ZENITH_BUILD_RUNNER");
   });
 
-  it("selects the configured runner", () => {
+  it("selects the configured runner", async () => {
     process.env.ZENITH_BUILD_RUNNER = "e2b";
-    expect(build.selectedBuildRunner()?.id).toBe("e2b");
+    expect((await build.selectedBuildRunner())?.id).toBe("e2b");
     process.env.ZENITH_BUILD_RUNNER = "recipe-local";
-    expect(build.selectedBuildRunner()?.id).toBe("recipe-local");
+    expect((await build.selectedBuildRunner())?.id).toBe("recipe-local");
   });
 
   it("reports every runner with its own boundary and availability", async () => {

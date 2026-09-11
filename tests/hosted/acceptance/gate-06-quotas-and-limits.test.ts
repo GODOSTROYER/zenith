@@ -67,7 +67,7 @@ beforeAll(async () => {
   });
   ({ digest, releaseId } = releaseOf(job));
 
-  m.access.grantDirect(alpha.id, { subject: EDITOR.subject, email: EDITOR.email, role: "editor" }, OWNER.subject);
+  await m.access.grantDirect(alpha.id, { subject: EDITOR.subject, email: EDITOR.email, role: "editor" }, OWNER.subject);
   cookie = await signIn(m, alpha, OWNER.subject);
 
   for (const slug of ["flighta", "flightb", "flightc"])
@@ -80,17 +80,18 @@ beforeAll(async () => {
     });
 }, 300_000);
 
-afterAll(() => {
-  closeHosted(m);
+afterAll(async () => {
+  await closeHosted(m);
   removeDir(DATA);
 });
 
 describe("Gate 6 — quotas, limits, single-flight and suspension", () => {
-  it("admits exactly `limit` requests in a UTC day and counts the refusals", () => {
+  it("admits exactly `limit` requests in a UTC day and counts the refusals", async () => {
     const day = m.authority.utcDay();
-    m.quota.resetDayForTests(alpha.id, day);
+    await m.quota.resetDayForTests(alpha.id, day);
 
-    const verdicts = [1, 2, 3, 4].map(() => m.quota.admitRequest(alpha.id, { limit: 3 }));
+    const verdicts = [];
+    for (const _ of [1, 2, 3, 4]) verdicts.push(await m.quota.admitRequest(alpha.id, { limit: 3 }));
     expect(
       verdicts.map((v) => v.allowed),
       "the request numbered exactly `limit` is the last one admitted"
@@ -102,27 +103,27 @@ describe("Gate 6 — quotas, limits, single-flight and suspension", () => {
     expect(verdicts[3].limit).toBe(3);
 
     // The number lives in SQLite, not in this process.
-    const row = m.authority.authority().repos.quotas.get(alpha.id, day);
+    const row = await m.authority.authority().repos.quotas.get(alpha.id, day);
     expect(row.requests).toBe(4);
     expect(row.denied).toBe(1);
-    m.quota.resetDayForTests(alpha.id, day);
+    await m.quota.resetDayForTests(alpha.id, day);
   });
 
   it("maps a counter that is already at the ceiling to a 429 on the app host", async () => {
     const day = m.authority.utcDay();
     const limit = m.contracts.DEFAULT_LIMITS.requestsPerDay;
-    m.quota.resetDayForTests(alpha.id, day);
+    await m.quota.resetDayForTests(alpha.id, day);
     // Put today's row at the ceiling through the authority, as a day of real
     // traffic would have. The next request is the one over the line.
     m.authority
-      .authority()
-      .db.prepare(
+      .sqliteConnection(m.authority.authority())
+      .prepare(
         "INSERT INTO quota_counters (app_id, day, requests, denied) VALUES (?, ?, ?, 0) " +
           "ON CONFLICT (app_id, day) DO UPDATE SET requests = excluded.requests"
       )
       .run(alpha.id, day, limit);
 
-    m.gateway.resetGatewayTelemetry();
+    await m.gateway.resetGatewayTelemetry();
     const one = call({ host: HOST, path: "/", cookie, accept: "application/json" });
     const res = await m.gateway.handleGateway(one.req, one.params);
     expect(res.status, "over the daily ceiling").toBe(429);
@@ -139,11 +140,11 @@ describe("Gate 6 — quotas, limits, single-flight and suspension", () => {
     expect(m.gateway.gatewayTelemetry.brokerInvoked, "nothing was brokered").toBe(0);
 
     // The refused request is itself counted, both ways.
-    const after = m.authority.authority().repos.quotas.get(alpha.id, day);
+    const after = await m.authority.authority().repos.quotas.get(alpha.id, day);
     expect(after.requests).toBe(limit + 1);
     expect(after.denied).toBe(1);
 
-    m.quota.resetDayForTests(alpha.id, day);
+    await m.quota.resetDayForTests(alpha.id, day);
     const again = call({ host: HOST, path: "/", cookie, accept: "application/json" });
     expect(
       (await m.gateway.handleGateway(again.req, again.params)).status,
@@ -153,9 +154,11 @@ describe("Gate 6 — quotas, limits, single-flight and suspension", () => {
 
   it("refuses a body over one megabyte with 413, without storing any of it", async () => {
     const limit = m.contracts.DEFAULT_LIMITS.bodyBytes;
-    const before = m.authority
-      .authority()
-      .repos.events.listSince({ appId: alpha.id, event: "record.created" }, { limit: 500 }).length;
+    const before = (
+      await m.authority
+        .authority()
+        .repos.events.listSince({ appId: alpha.id, event: "record.created" }, { limit: 500 })
+    ).length;
 
     const oversize = JSON.stringify({
       writeId: uuid(),
@@ -165,7 +168,7 @@ describe("Gate 6 — quotas, limits, single-flight and suspension", () => {
       limit
     );
 
-    m.gateway.resetGatewayTelemetry();
+    await m.gateway.resetGatewayTelemetry();
     const one = call({
       host: HOST,
       path: "/_zenith/data/v1/requests",
@@ -181,10 +184,10 @@ describe("Gate 6 — quotas, limits, single-flight and suspension", () => {
     expect(body.code).toBe("body_too_large");
     expect(body.fix ?? body.message, "the refusal names the ceiling").toContain(String(limit));
     expect(
-      m.authority.authority().repos.events.listSince(
+      (await m.authority.authority().repos.events.listSince(
         { appId: alpha.id, event: "record.created" },
         { limit: 500 }
-      ).length,
+      )).length,
       "nothing was created"
     ).toBe(before);
 
@@ -242,7 +245,7 @@ describe("Gate 6 — quotas, limits, single-flight and suspension", () => {
   });
 
   it("measures storage as the logical bytes it says it measures", async () => {
-    const { store: appStore } = m.data.openAppData(alpha.id);
+    const { store: appStore } = await m.data.openAppData(alpha.id);
     expect(appStore.storageLimitBytes, "the ceiling an owner is told about").toBe(
       m.contracts.DEFAULT_LIMITS.storageBytes
     );
@@ -305,11 +308,10 @@ describe("Gate 6 — quotas, limits, single-flight and suspension", () => {
           ? ((await res.json()) as { items: { id: string; title: string; version: number }[] }).items
           : null;
       })()) ?? []).map((item) => `${item.id}:${item.title}:${item.version}`).sort(),
-      grants: a.repos.grants
-        .listByApp(alpha.id)
+      grants: (await a.repos.grants.listByApp(alpha.id))
         .map((grant) => `${grant.id}:${grant.role}:${grant.state}`)
         .sort(),
-      releases: a.repos.releases.listByApp(alpha.id).map((r) => `${r.id}:${r.status}`).sort(),
+      releases: (await a.repos.releases.listByApp(alpha.id)).map((r) => `${r.id}:${r.status}`).sort(),
       artifactOk: (await store.verify(digest)).ok,
       storageBytes: await m.data.openAppData(alpha.id).store.storageBytes(alpha.id),
     });
@@ -326,7 +328,7 @@ describe("Gate 6 — quotas, limits, single-flight and suspension", () => {
     });
     const suspended = await m.release.runJobOnce(suspend.job.id);
     expect(suspended.status, `suspend: ${suspended.error ?? ""}`).toBe("succeeded");
-    expect(a.repos.apps.get(alpha.id)?.state).toBe("suspended");
+    expect((await a.repos.apps.get(alpha.id))?.state).toBe("suspended");
 
     // Nothing serves, including to the owner who suspended it.
     const denied = call({ host: HOST, path: "/", cookie, accept: "application/json" });
@@ -337,11 +339,11 @@ describe("Gate 6 — quotas, limits, single-flight and suspension", () => {
     // But every row and every byte is still there, read straight from the store.
     const a2 = m.authority.authority();
     expect(
-      a2.repos.grants.listByApp(alpha.id).map((g) => `${g.id}:${g.role}:${g.state}`).sort(),
+      (await a2.repos.grants.listByApp(alpha.id)).map((g) => `${g.id}:${g.role}:${g.state}`).sort(),
       "grants across a suspension"
     ).toEqual(before.grants);
     expect(
-      a2.repos.releases.listByApp(alpha.id).map((r) => `${r.id}:${r.status}`).sort(),
+      (await a2.repos.releases.listByApp(alpha.id)).map((r) => `${r.id}:${r.status}`).sort(),
       "releases across a suspension"
     ).toEqual(before.releases);
     expect((await store.verify(digest)).ok, "the artifact across a suspension").toBe(true);
@@ -359,8 +361,8 @@ describe("Gate 6 — quotas, limits, single-flight and suspension", () => {
     });
     const resumed = await m.release.runJobOnce(resume.job.id);
     expect(resumed.status, `resume: ${resumed.error ?? ""}`).toBe("succeeded");
-    expect(a2.repos.apps.get(alpha.id)?.state).toBe("active");
-    expect(a2.repos.apps.get(alpha.id)?.activeReleaseId, "the same release is live").toBe(releaseId);
+    expect((await a2.repos.apps.get(alpha.id))?.state).toBe("active");
+    expect((await a2.repos.apps.get(alpha.id))?.activeReleaseId, "the same release is live").toBe(releaseId);
 
     cookie = await signIn(m, alpha, OWNER.subject);
     const after = await snapshot();
@@ -370,10 +372,10 @@ describe("Gate 6 — quotas, limits, single-flight and suspension", () => {
     expect(after.artifactOk).toBe(true);
   }, 120_000);
 
-  it("ended the app's live sessions when it was suspended, rather than leaving them dangling", () => {
+  it("ended the app's live sessions when it was suspended, rather than leaving them dangling", async () => {
     const rows = m.authority
-      .authority()
-      .db.prepare(
+      .sqliteConnection(m.authority.authority())
+      .prepare(
         "SELECT terminated_reason AS reason, COUNT(*) AS n FROM app_sessions WHERE app_id = ? AND terminated_at IS NOT NULL GROUP BY terminated_reason"
       )
       .all(alpha.id)
@@ -402,34 +404,34 @@ describe("Gate 6 — quotas, limits, single-flight and suspension", () => {
     const c1 = await queue(flight.flightc);
     const a = m.authority.authority();
 
-    expect(m.release.claimJob(a1), "the first job for an app takes its slot").not.toBeNull();
-    expect(m.release.claimJob(a2), "the second job for the same app waits").toBeNull();
-    expect(a.repos.jobs.get(a2)?.status, "and stays queued rather than failing").toBe("queued");
+    expect(await m.release.claimJob(a1), "the first job for an app takes its slot").not.toBeNull();
+    expect(await m.release.claimJob(a2), "the second job for the same app waits").toBeNull();
+    expect((await a.repos.jobs.get(a2))?.status, "and stays queued rather than failing").toBe("queued");
     // The authority itself refuses it, so the check above is a courtesy.
-    expect(() => a.repos.jobs.claim(a2, "another-worker", 60_000)).toThrowError(
+    await expect(a.repos.jobs.claim(a2, "another-worker", 60_000)).rejects.toThrowError(
       /Another job is already running for this app/
     );
 
-    expect(m.release.buildSlot(flight.flightb.id).ok, "the second pilot slot").toBe(true);
-    expect(m.release.claimJob(b1)).not.toBeNull();
-    expect(a.repos.jobs.countRunning()).toBe(2);
+    expect((await m.release.buildSlot(flight.flightb.id)).ok, "the second pilot slot").toBe(true);
+    expect(await m.release.claimJob(b1)).not.toBeNull();
+    expect(await a.repos.jobs.countRunning()).toBe(2);
 
-    const third = m.release.buildSlot(flight.flightc.id);
+    const third = await m.release.buildSlot(flight.flightc.id);
     expect(third.ok, `a third app must wait: ${third.reason ?? ""}`).toBe(false);
     expect(third.reason).toContain(
       `${m.contracts.DEFAULT_LIMITS.buildsPilotWide} at a time`
     );
-    expect(m.release.claimJob(c1), "and it is not claimed").toBeNull();
-    m.release.tickJobs();
-    expect(a.repos.jobs.get(c1)?.status, "a tick with no room changes nothing").toBe("queued");
+    expect(await m.release.claimJob(c1), "and it is not claimed").toBeNull();
+    await m.release.tickJobs();
+    expect((await a.repos.jobs.get(c1))?.status, "a tick with no room changes nothing").toBe("queued");
 
-    a.repos.jobs.cancel(b1, "acceptance run finished with this slot");
-    expect(m.release.buildSlot(flight.flightc.id).ok, "freeing a slot lets the queue move").toBe(true);
-    expect(m.release.claimJob(c1)).not.toBeNull();
+    await a.repos.jobs.cancel(b1, "acceptance run finished with this slot");
+    expect((await m.release.buildSlot(flight.flightc.id)).ok, "freeing a slot lets the queue move").toBe(true);
+    expect(await m.release.claimJob(c1)).not.toBeNull();
 
     // Leave nothing running behind this test.
-    for (const jobId of [a1, a2, c1]) a.repos.jobs.cancel(jobId, "acceptance run teardown");
-    expect(a.repos.jobs.countRunning()).toBe(0);
+    for (const jobId of [a1, a2, c1]) await a.repos.jobs.cancel(jobId, "acceptance run teardown");
+    expect(await a.repos.jobs.countRunning()).toBe(0);
   });
 
   it("refuses a publish for a suspended app rather than queueing it for later", async () => {

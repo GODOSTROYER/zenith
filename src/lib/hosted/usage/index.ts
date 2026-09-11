@@ -92,16 +92,18 @@ export const BUILD_PAUSE_FRACTION = 0.9;
 /**
  * Append one measurement to the usage ledger.
  *
- * Synchronous and durable: it returns after the row committed. Nothing here
+ * Durable: it resolves after the row committed. Nothing here
  * converts to dollars — the ledger stores what was measured, and the rate
  * table is applied at read time, so re-pricing history is re-reading it rather
  * than rewriting it.
  */
-export function recordUsage(entry: Omit<UsageEntry, "id" | "at"> & { at?: string }): UsageEntry {
+export async function recordUsage(
+  entry: Omit<UsageEntry, "id" | "at"> & { at?: string }
+): Promise<UsageEntry> {
   const a = authority();
   try {
-    return a.tx(() =>
-      a.repos.usage.append({
+    return await a.tx(async (repos) =>
+      repos.usage.append({
         id: randomUUID(),
         workspaceId: entry.workspaceId,
         appId: entry.appId,
@@ -144,10 +146,10 @@ export interface UsageSummary {
 }
 
 /** Total measured usage for a workspace since `since`, grouped by kind. */
-export function usageSummary(
+export async function usageSummary(
   workspaceId: string,
   opts: { since: string; appId?: string }
-): UsageSummary {
+): Promise<UsageSummary> {
   const a = authority();
   const byKind: UsageSummary["byKind"] = [];
   let estimatedUsd = 0;
@@ -155,8 +157,8 @@ export function usageSummary(
 
   for (const kind of Object.keys(RATE_TABLE) as UsageEntry["kind"][]) {
     const query = { workspaceId, since: opts.since, kind, ...(opts.appId ? { appId: opts.appId } : {}) };
-    const amount = a.repos.usage.sumSince(query);
-    const entries = a.repos.usage.listSince(query, { limit: 10_000 }).length;
+    const amount = await a.repos.usage.sumSince(query);
+    const entries = (await a.repos.usage.listSince(query, { limit: 10_000 })).length;
     if (entries === 0 && amount === 0) continue;
     const rate = RATE_TABLE[kind];
     const usd = amount * rate.usdPerUnit;
@@ -209,19 +211,22 @@ export const spendAlertKey = (workspaceId: string, month: string, threshold: num
   `spend:${workspaceId}:${month}:${threshold}`;
 
 /** Where the workspace stands this month. Reads only; raises nothing. */
-export function spendingStatus(workspaceId: string, opts: { now?: Date } = {}): SpendingStatus {
+export async function spendingStatus(
+  workspaceId: string,
+  opts: { now?: Date } = {}
+): Promise<SpendingStatus> {
   const now = opts.now ?? new Date();
   const month = utcMonth(now);
   const since = monthStart(now);
   const envelopeUsd = hostedConfig().ZENITH_SPEND_ENVELOPE_USD;
-  const usage = usageSummary(workspaceId, { since });
+  const usage = await usageSummary(workspaceId, { since });
   const estimatedUsd = usage.estimatedUsd;
   const fraction = envelopeUsd > 0 ? estimatedUsd / envelopeUsd : 0;
 
   const a = authority();
   const thresholds = {} as Record<SpendThreshold, ThresholdState>;
   for (const threshold of SPEND_THRESHOLDS) {
-    const row = a.repos.outbox.getByKey(spendAlertKey(workspaceId, month, threshold));
+    const row = await a.repos.outbox.getByKey(spendAlertKey(workspaceId, month, threshold));
     thresholds[threshold] = row
       ? { threshold, crossed: true, crossedAt: row.createdAt }
       : { threshold, crossed: false };
@@ -271,10 +276,13 @@ function pauseVerdict(envelopeUsd: number, estimatedUsd: number, fraction: numbe
  * deduplicated on its logical id, so a runner asking on every job does not
  * write a row per job.
  */
-export function buildsPaused(workspaceId: string, opts: { now?: Date } = {}): { paused: boolean; reason: string } {
-  const status = spendingStatus(workspaceId, opts);
+export async function buildsPaused(
+  workspaceId: string,
+  opts: { now?: Date } = {}
+): Promise<{ paused: boolean; reason: string }> {
+  const status = await spendingStatus(workspaceId, opts);
   if (status.buildsPaused.paused)
-    recordEvent({
+    await recordEvent({
       event: "build.paused",
       workspaceId,
       logicalId: `pause:${workspaceId}:${status.month}`,
@@ -303,8 +311,11 @@ export interface ThresholdCheck {
  * Call it after usage is recorded — from the job runner, from a nightly sweep,
  * or from the spending screen.
  */
-export function checkSpendThresholds(workspaceId: string, opts: { now?: Date } = {}): ThresholdCheck {
-  const status = spendingStatus(workspaceId, opts);
+export async function checkSpendThresholds(
+  workspaceId: string,
+  opts: { now?: Date } = {}
+): Promise<ThresholdCheck> {
+  const status = await spendingStatus(workspaceId, opts);
   const crossed: SpendThreshold[] = [];
   if (status.envelopeUsd <= 0) return { status, crossed };
 
@@ -313,8 +324,8 @@ export function checkSpendThresholds(workspaceId: string, opts: { now?: Date } =
     if (status.fraction < threshold / 100) continue;
     if (status.thresholds[threshold].crossed) continue;
     const key = spendAlertKey(workspaceId, status.month, threshold);
-    const { inserted } = a.tx(() =>
-      a.repos.outbox.enqueue({
+    const { inserted } = await a.tx(async (repos) =>
+      repos.outbox.enqueue({
         id: randomUUID(),
         idempotencyKey: key,
         kind: "spend_alert",
@@ -333,7 +344,7 @@ export function checkSpendThresholds(workspaceId: string, opts: { now?: Date } =
     if (!inserted) continue;
     crossed.push(threshold);
     status.thresholds[threshold] = { threshold, crossed: true, crossedAt: new Date().toISOString() };
-    recordEvent({
+    await recordEvent({
       event: "spend.threshold",
       workspaceId,
       logicalId: key,

@@ -110,7 +110,7 @@ async function main(): Promise<number> {
   if (job.status !== "succeeded") {
     process.stderr.write(
       `the publish did not succeed (${job.status} in ${job.phase}): ${job.error ?? "no error recorded"}\n` +
-        `${release.jobLogs(jobId).slice(-15).join("\n")}\n`
+        `${(await release.jobLogs(jobId)).slice(-15).join("\n")}\n`
     );
     return 1;
   }
@@ -138,7 +138,7 @@ async function main(): Promise<number> {
   /* The owner's own session, used for the second-identity conflict. Redeemed
      over the loopback socket rather than in process, so it is a real cookie. */
   const ownerState = `state-${randomUUID()}`;
-  const ownerRedirect = new URL(access.createExchange(app.id, OWNER.subject, ownerState).redirect);
+  const ownerRedirect = new URL((await access.createExchange(app.id, OWNER.subject, ownerState)).redirect);
   const ownerCallback = await journey.loopbackRequest(server.port, {
     host: appHost,
     path: `${ownerRedirect.pathname}${ownerRedirect.search}`,
@@ -174,7 +174,7 @@ async function main(): Promise<number> {
   }
   if (!browser) {
     await server.close();
-    data.closeAllAppData();
+    await data.closeAllAppData();
     authority.closeAuthority();
     process.stderr.write(`${NO_BROWSER_MESSAGE}\n\ntried:\n  ${attempts.join("\n  ")}\n`);
     return 2;
@@ -196,7 +196,7 @@ async function main(): Promise<number> {
       subject: randomUUID(),
       email: `rae.${viewport.name}@example.test`,
     };
-    const grant = access.grantDirect(
+    const grant = await access.grantDirect(
       app.id,
       { subject: recipient.subject, email: recipient.email, role: "editor" },
       OWNER.subject
@@ -223,7 +223,7 @@ async function main(): Promise<number> {
     try {
       /* --- open the app through the real exchange --- */
       const state = `state-${randomUUID()}`;
-      const redirect = access.createExchange(app.id, recipient.subject, state).redirect;
+      const redirect = (await access.createExchange(app.id, recipient.subject, state)).redirect;
       await page.goto(redirect, { waitUntil: "domcontentloaded" });
 
       const cookies = await context.cookies();
@@ -343,7 +343,7 @@ async function main(): Promise<number> {
       );
 
       /* --- the grant is revoked --- */
-      access.revokeGrant(grant.id, OWNER.subject, "acceptance run: revoked mid-session", { appId: app.id });
+      await access.revokeGrant(grant.id, OWNER.subject, "acceptance run: revoked mid-session", { appId: app.id });
       await page.goto(`${appOrigin}/`, { waitUntil: "domcontentloaded" });
       const body = (await page.textContent("body")) ?? "";
       const denied = body.includes("Open this app from Zenith");
@@ -375,7 +375,7 @@ async function main(): Promise<number> {
 
   await browser.close();
   await server.close();
-  data.closeAllAppData();
+  await data.closeAllAppData();
   authority.closeAuthority();
 
   const failed = steps.filter((step) => !step.ok);

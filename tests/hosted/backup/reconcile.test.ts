@@ -33,14 +33,14 @@ const { EDITOR, OWNER, VIEWER, seedApp, seedGrant, seedRecord, seedSession } = a
 const a = openAuthority();
 registerOpsOutboxHandlers();
 
-const app = seedApp(a, { slug: "reconcile-app", workspaceId: "ws-reconcile" });
-const ownerGrant = seedGrant(a, app.id, OWNER, "owner");
-const editorGrant = seedGrant(a, app.id, EDITOR, "editor");
-const viewerGrant = seedGrant(a, app.id, VIEWER, "viewer");
-const editorSession = seedSession(a, app.id, editorGrant.id, EDITOR.subject);
-seedSession(a, app.id, ownerGrant.id, OWNER.subject);
+const app = await seedApp(a, { slug: "reconcile-app", workspaceId: "ws-reconcile" });
+const ownerGrant = await seedGrant(a, app.id, OWNER, "owner");
+const editorGrant = await seedGrant(a, app.id, EDITOR, "editor");
+const viewerGrant = await seedGrant(a, app.id, VIEWER, "viewer");
+const editorSession = await seedSession(a, app.id, editorGrant.id, EDITOR.subject);
+await seedSession(a, app.id, ownerGrant.id, OWNER.subject);
 
-afterAll(() => {
+afterAll(async () => {
   closeAllAppData();
   closeAuthority();
   removeDir(dataDir);
@@ -48,17 +48,17 @@ afterAll(() => {
 
 /** Revoke a grant the way the product does, and get the line off-host. */
 async function revoke(grantId: string, subject: string, reason: string): Promise<number> {
-  const seq = a.tx(() => {
-    a.repos.grants.revoke(grantId, OWNER.subject, reason);
-    a.repos.sessions.terminateByGrant(grantId, "revoked");
-    const entry = a.repos.revocations.append({
+  const seq = await a.tx(async (repos) => {
+    await repos.grants.revoke(grantId, OWNER.subject, reason);
+    await repos.sessions.terminateByGrant(grantId, "revoked");
+    const entry = await repos.revocations.append({
       appId: app.id,
       grantId,
       subject,
       by: OWNER.subject,
       reason,
     });
-    a.repos.outbox.enqueue({
+    await repos.outbox.enqueue({
       id: randomUUID(),
       idempotencyKey: `revocation:${entry.seq}`,
       kind: "revocation_ledger",

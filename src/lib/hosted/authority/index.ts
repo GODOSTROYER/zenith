@@ -12,14 +12,20 @@
  *
  * The rule everything else is built on:
  *
- *     const { app } = authority().tx((db) => { ... });   // returns after COMMIT
- *     return NextResponse.json({ app });                  // only then, ACK
+ *     const { app } = await authority().tx(async (repos) => { ... });  // after COMMIT
+ *     return NextResponse.json({ app });                               // only then, ACK
  *
- * `tx()` is `BEGIN IMMEDIATE … COMMIT`, synchronous, and returns only once the
- * commit succeeded. Anything that must leave the process — an email, a
- * provider call, a ledger append — is an outbox row written inside that same
- * transaction and performed afterwards by `drainOutbox()`. That is what makes
- * "acknowledged" mean "durable" rather than "probably".
+ * `tx()` is `BEGIN IMMEDIATE … COMMIT` and resolves only once the commit
+ * succeeded. Anything that must leave the process — an email, a provider call,
+ * a ledger append — is an outbox row written inside that same transaction and
+ * performed afterwards by `drainOutbox()`. That is what makes "acknowledged"
+ * mean "durable" rather than "probably".
+ *
+ * **Promise everywhere.** Every repository method and `tx()` itself return
+ * Promises, whichever implementation is behind them. SQLite answers without
+ * yielding and Postgres will not, and no call site has to know which: `await`
+ * is what a caller writes either way. The raw connection is deliberately not on
+ * `Authority` — a caller holding a `DatabaseSync` is a caller that cannot move.
  *
  * This is the only barrel in the directory. Import from
  * `@/lib/hosted/authority`, never from a file inside it.
@@ -30,11 +36,20 @@ export {
   backupAuthority,
   closeAuthority,
   openAuthority,
-  type Authority,
   type OpenAuthorityOptions,
 } from "./lifecycle";
 
-export { transact, TX_BACKOFF_MS, TX_MAX_ATTEMPTS, type TransactOptions } from "./tx";
+export type { Authority } from "./types";
+
+export { sqliteConnection, type SqliteAuthority } from "./sqlite";
+
+export {
+  transact,
+  transactAsync,
+  TX_BACKOFF_MS,
+  TX_MAX_ATTEMPTS,
+  type TransactOptions,
+} from "./tx";
 
 export {
   appliedMigrations,
@@ -44,7 +59,7 @@ export {
   type Migration,
 } from "./schema";
 
-export { createRepos, type Repos } from "./repos";
+export { createRepos, type Async, type Repos, type SyncRepos } from "./repos";
 
 export { admitJob, hashIntent, type AdmitJobInput, type AdmittedJob } from "./jobs";
 
@@ -65,29 +80,39 @@ export {
 
 export { nowIso } from "./sql";
 
-export type { AppPatch, AppsRepo, NewApp } from "./repos/apps";
-export type { ArtifactsRepo, NewArtifact } from "./repos/artifacts";
-export type { BackupsRepo, NewBackupManifest } from "./repos/backups";
+// The repository *interfaces* are the promised ones, from `./repos`. Their
+// input and output shapes are plain data and come from the file that owns the
+// table.
 export type {
-  ClaimedDelivery,
+  AppsRepo,
+  ArtifactsRepo,
+  BackupsRepo,
   DeliveriesRepo,
-  DeliverySettlement,
-  NewDelivery,
-} from "./repos/deliveries";
-export type { EventQuery, EventsRepo, NewHostedEvent } from "./repos/events";
-export type { ExchangesRepo, NewExchange } from "./repos/exchanges";
-export type { GrantsRepo, NewGrant } from "./repos/grants";
-export type { InvitesRepo, NewInvite } from "./repos/invites";
-export type { ClaimedJob, JobsRepo, NewJob } from "./repos/jobs";
-export type {
-  EnqueueResult,
-  NewOutboxEntry,
-  OutboxKind,
+  EventsRepo,
+  ExchangesRepo,
+  GrantsRepo,
+  InvitesRepo,
+  JobsRepo,
   OutboxRepo,
-  OutboxSettlement,
-} from "./repos/outbox";
-export { utcDay, type QuotasRepo } from "./repos/quotas";
-export type { NewRelease, ReleaseStamps, ReleasesRepo } from "./repos/releases";
-export type { NewRevocation, RevocationsRepo } from "./repos/revocations";
-export type { NewSession, SessionsRepo, TerminationReason } from "./repos/sessions";
-export type { NewUsageEntry, UsageKind, UsageQuery, UsageRepo } from "./repos/usage";
+  QuotasRepo,
+  ReleasesRepo,
+  RevocationsRepo,
+  SessionsRepo,
+  UsageRepo,
+} from "./repos";
+
+export type { AppPatch, NewApp } from "./repos/apps";
+export type { NewArtifact } from "./repos/artifacts";
+export type { NewBackupManifest } from "./repos/backups";
+export type { ClaimedDelivery, DeliverySettlement, NewDelivery } from "./repos/deliveries";
+export type { EventQuery, NewHostedEvent } from "./repos/events";
+export type { NewExchange } from "./repos/exchanges";
+export type { NewGrant } from "./repos/grants";
+export type { NewInvite } from "./repos/invites";
+export type { ClaimedJob, NewJob, QueuedJob } from "./repos/jobs";
+export type { EnqueueResult, NewOutboxEntry, OutboxKind, OutboxSettlement } from "./repos/outbox";
+export { utcDay } from "./repos/quotas";
+export type { NewRelease, ReleaseStamps } from "./repos/releases";
+export type { NewRevocation } from "./repos/revocations";
+export type { NewSession, TerminationReason } from "./repos/sessions";
+export type { NewUsageEntry, UsageKind, UsageQuery } from "./repos/usage";

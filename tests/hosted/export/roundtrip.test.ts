@@ -32,13 +32,13 @@ const {
 } = await import("../backup/_ops-fixtures");
 
 const a = openAuthority();
-const app = seedApp(a, { slug: "export-source", workspaceId: "ws-export", createdBy: OWNER.subject });
-seedGrant(a, app.id, OWNER, "owner");
-seedGrant(a, app.id, EDITOR, "editor");
-const revoked = seedGrant(a, app.id, VIEWER, "viewer");
-a.tx(() => a.repos.grants.revoke(revoked.id, OWNER.subject, "left"));
-a.tx(() =>
-  a.repos.invites.insert({
+const app = await seedApp(a, { slug: "export-source", workspaceId: "ws-export", createdBy: OWNER.subject });
+await seedGrant(a, app.id, OWNER, "owner");
+await seedGrant(a, app.id, EDITOR, "editor");
+const revoked = await seedGrant(a, app.id, VIEWER, "viewer");
+await a.tx((repos) => repos.grants.revoke(revoked.id, OWNER.subject, "left"));
+await a.tx((repos) =>
+  repos.invites.insert({
     id: uuid(),
     appId: app.id,
     email: "pending@acme.example",
@@ -49,7 +49,7 @@ a.tx(() =>
   })
 );
 
-afterAll(() => {
+afterAll(async () => {
   closeAllAppData();
   closeAuthority();
   removeDir(dataDir);
@@ -96,7 +96,7 @@ describe("exportApp", () => {
 
   it("lists the artifact's files and says the source is not included", async () => {
     const artifact = await seedArtifact(a, path.join(dataDir, "artifacts"), { marker: "export" });
-    seedActiveRelease(a, app.id, artifact.digest);
+    await seedActiveRelease(a, app.id, artifact.digest);
 
     const bundle = await exportApp(app.id);
     expect(bundle.artifact?.digest).toBe(artifact.digest);
@@ -108,8 +108,8 @@ describe("exportApp", () => {
     expect(bundle.releases).toHaveLength(1);
   });
 
-  it("records that the export happened", () => {
-    const events = a.repos.events.listSince({ appId: app.id, event: "export.completed" }, { limit: 10 });
+  it("records that the export happened", async () => {
+    const events = await a.repos.events.listSince({ appId: app.id, event: "export.completed" }, { limit: 10 });
     expect(events.length).toBeGreaterThan(0);
     expect(events[0].props?.records).toBe(RECORD_COUNT);
   });
@@ -164,7 +164,7 @@ describe("importApp", () => {
     }
 
     /* Access is intent, and nothing more. */
-    const grants = a.repos.grants.listByApp(result.app.id);
+    const grants = await a.repos.grants.listByApp(result.app.id);
     expect(grants.filter((grant) => grant.state === "active")).toHaveLength(1);
     expect(grants.find((grant) => grant.state === "active")?.email).toBe("new.owner@acme.example");
     const held = grants.filter((grant) => grant.state === "needs_reapproval");
@@ -179,11 +179,11 @@ describe("importApp", () => {
     expect(held.find((grant) => grant.email === "pending@acme.example")?.subject).toBe(
       importedSubject("invite", "pending@acme.example")
     );
-    for (const grant of held) expect(a.repos.grants.activeFor(result.app.id, grant.subject)).toBeNull();
+    for (const grant of held) expect(await a.repos.grants.activeFor(result.app.id, grant.subject)).toBeNull();
 
     /* And the app itself is new: no release, no artifact, nothing serving. */
     expect(result.app.activeReleaseId).toBeNull();
-    expect(a.repos.releases.listByApp(result.app.id)).toEqual([]);
+    expect(await a.repos.releases.listByApp(result.app.id)).toEqual([]);
     expect(result.limitations.join(" ")).toMatch(/None of them can open this app/);
     expect(result.limitations.join(" ")).toMatch(/Sessions were not imported/);
   });
@@ -233,6 +233,6 @@ describe("importApp", () => {
         { workspaceId: "ws-import", slug: "bad-records", createdBy: OWNER.subject, email: OWNER.email }
       )
     ).rejects.toThrow(/not a Zenith app export/);
-    expect(a.repos.apps.getBySlug("bad-records")).toBeNull();
+    expect(await a.repos.apps.getBySlug("bad-records")).toBeNull();
   });
 });

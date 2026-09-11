@@ -35,7 +35,7 @@ async function main(): Promise<void> {
 
   openAuthority();
   try {
-    const card = scorecard({ since, until });
+    const card = await scorecard({ since, until });
     process.stdout.write(`${JSON.stringify(card, null, 2)}\n`);
     const unknown = Object.values(card.metrics).filter((metric) => metric.unknown);
     finish(

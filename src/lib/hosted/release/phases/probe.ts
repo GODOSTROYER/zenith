@@ -17,17 +17,17 @@ import { appendLog, emit, requireApp, type JobRun, type PhaseData } from "../sha
 export async function probe(run: JobRun, data: PhaseData): Promise<void> {
   if (data.probeOk === true) return;
   const a = authority();
-  const app = requireApp(run.job.appId);
+  const app = await requireApp(run.job.appId);
   const releaseId = String(data.releaseId);
   const candidate = data.candidateRef as unknown as RuntimeCandidateRef;
 
   const result: CandidateProbeResult = await releaseDeps.runtime().probeCandidate(app, candidate);
-  a.repos.releases.setProbe(releaseId, result);
+  await a.repos.releases.setProbe(releaseId, result);
   for (const check of result.checks) appendLog(data, `probe ${check.id}: ${check.ok ? "ok" : "failed"} — ${check.detail}`);
 
   if (!result.ok) {
     const failed = result.checks.filter((check) => !check.ok).map((check) => `${check.id} (${check.detail})`);
-    emit({
+    await emit({
       event: "release.verified",
       workspaceId: run.job.workspaceId,
       appId: app.id,
@@ -48,9 +48,9 @@ export async function probe(run: JobRun, data: PhaseData): Promise<void> {
     );
   }
 
-  a.repos.releases.setStatus(releaseId, "verified", { verifiedAt: result.checkedAt });
+  await a.repos.releases.setStatus(releaseId, "verified", { verifiedAt: result.checkedAt });
   data.probeOk = true;
-  emit({
+  await emit({
     event: "release.verified",
     workspaceId: run.job.workspaceId,
     appId: app.id,

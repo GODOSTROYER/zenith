@@ -13,7 +13,7 @@ const { ROW_OVERHEAD_BYTES, closeAllAppData, logicalBytes, openAppData, trackerS
   "@/lib/hosted/data"
 );
 
-afterAll(() => {
+afterAll(async () => {
   closeAllAppData();
   removeDir(DATA_DIR);
 });
@@ -54,7 +54,7 @@ const sample: EquipmentRequest = {
 };
 
 describe("the logical-byte measure", () => {
-  it("is the UTF-8 JSON size of the stored fields plus the fixed row allowance", () => {
+  it("is the UTF-8 JSON size of the stored fields plus the fixed row allowance", async () => {
     const expected =
       Buffer.byteLength(
         JSON.stringify({
@@ -80,7 +80,7 @@ describe("the logical-byte measure", () => {
     expect(logicalBytes(sample)).toBe(expected);
   });
 
-  it("counts bytes, not characters", () => {
+  it("counts bytes, not characters", async () => {
     const ascii = logicalBytes({ ...sample, details: "aaaa" });
     const emoji = logicalBytes({ ...sample, details: "🚀🚀" });
     expect(ascii).toBeLessThan(emoji);
@@ -88,7 +88,7 @@ describe("the logical-byte measure", () => {
     expect(emoji - logicalBytes({ ...sample, details: "" })).toBe(8);
   });
 
-  it("does not depend on the order of the caller's object keys", () => {
+  it("does not depend on the order of the caller's object keys", async () => {
     const reordered = { ...sample } as Record<string, unknown>;
     const rebuilt = Object.fromEntries(
       Object.keys(reordered).reverse().map((key) => [key, reordered[key]])

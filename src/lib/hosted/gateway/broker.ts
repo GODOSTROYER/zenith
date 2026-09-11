@@ -104,14 +104,14 @@ function listQuery(url: URL): ListRequestsInput {
 }
 
 /** Fire-and-forget event recording; a failed row never changes the answer. */
-function note(
+async function note(
   admitted: AdmittedRequest,
   event: "record.created" | "record.updated" | "record.conflict",
   outcome: "ok" | "error",
   logicalId?: string
-): void {
+): Promise<void> {
   try {
-    gatewayDeps().recordEvent({
+    await gatewayDeps().recordEvent({
       event,
       workspaceId: admitted.app.workspaceId,
       appId: admitted.app.id,
@@ -196,7 +196,7 @@ export async function handleBroker(
     if (method === "POST") {
       noteBrokerInvoked();
       const { record, replayed } = await store().create(ctx, body as CreateRequestInput);
-      note(admitted, "record.created", "ok", writeId);
+      await note(admitted, "record.created", "ok", writeId);
       return gatewayJson(
         { record },
         { status: 201, releaseId, headers: replayed ? { "x-zenith-replayed": "true" } : undefined }
@@ -205,15 +205,15 @@ export async function handleBroker(
 
     noteBrokerInvoked();
     const { record, replayed } = await store().update(ctx, route.recordId as string, body as UpdateRequestInput);
-    note(admitted, "record.updated", "ok", writeId);
+    await note(admitted, "record.updated", "ok", writeId);
     return gatewayJson(
       { record },
       { status: 200, releaseId, headers: replayed ? { "x-zenith-replayed": "true" } : undefined }
     );
   } catch (err) {
-    if (err instanceof HostedError && err.code === "stale_version") note(admitted, "record.conflict", "error");
+    if (err instanceof HostedError && err.code === "stale_version") await note(admitted, "record.conflict", "error");
     if (err instanceof HostedError && (err.code === "forbidden" || err.code === "csrf_rejected"))
-      noteAccessDenied(admitted.app, err.code, { subject: admitted.session.subject, releaseId });
+      await noteAccessDenied(admitted.app, err.code, { subject: admitted.session.subject, releaseId });
     return respondWithError(err, { wantsHtml: false, releaseId });
   }
 }

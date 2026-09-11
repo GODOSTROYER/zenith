@@ -16,7 +16,7 @@ import { registerAccessOutboxHandlers } from "@/lib/hosted/access";
 import { authorityOpen, openAuthority, replayOutbox } from "@/lib/hosted/authority";
 import { startHostedJobRunner } from "@/lib/hosted/release";
 import { registerOpsOutboxHandlers } from "@/lib/hosted/usage";
-import { hostedConfig, hostedMode } from "@/lib/hosted/config";
+import { hostedConfig, hostedMode, hostedStoreKind } from "@/lib/hosted/config";
 import { log } from "@/lib/log";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
@@ -34,6 +34,15 @@ export function nodeMeetsFloor(version: string = process.versions.node): boolean
  */
 export function assertHostedPreconditions(): void {
   hostedConfig(); // validates every ZENITH_* variable, throwing with the offender
+  // The authority implementation is chosen here, before `openAuthority()`.
+  // Only the SQLite authority exists in this build; the flag parses end to end,
+  // so a deployment that asks for Postgres is told at boot instead of finding
+  // out from a half-open authority later.
+  if (hostedStoreKind() === "postgres")
+    throw new Error(
+      "ZENITH_HOSTED_STORE=postgres is not available in this build yet. " +
+        "Fix: unset ZENITH_HOSTED_STORE (or set it to sqlite) to use the embedded control authority."
+    );
   if (!hostedMode()) return;
   if (!isSupabaseConfigured())
     throw new Error(

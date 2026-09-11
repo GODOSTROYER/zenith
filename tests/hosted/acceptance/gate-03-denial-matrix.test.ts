@@ -58,7 +58,7 @@ type Shape = "html" | "asset" | "api" | "head" | "range";
 
 /** Run the five shapes and answer with the status of each, sentinel checked. */
 async function matrix(host: string, cookie?: string): Promise<Record<Shape, number>> {
-  m.gateway.resetGatewayTelemetry();
+  await m.gateway.resetGatewayTelemetry();
   const calls: Record<Shape, ReturnType<typeof call>> = {
     html: call({ host, path: "/", cookie, accept: "text/html" }),
     asset: call({ host, path: `/${assetPath}`, cookie }),
@@ -123,15 +123,15 @@ beforeAll(async () => {
   if (!assetPath) throw new Error(`the build emitted no JS asset: ${files.map((f) => f.path).join(", ")}`);
 }, 300_000);
 
-afterAll(() => {
-  closeHosted(m);
+afterAll(async () => {
+  await closeHosted(m);
   removeDir(DATA);
 });
 
 describe("Gate 3 — who is turned away, and how far they get", () => {
   it("serves an admitted owner, so the matrix below is measuring denial and not absence", async () => {
     const cookie = await signIn(m, alpha, OWNER.subject);
-    m.gateway.resetGatewayTelemetry();
+    await m.gateway.resetGatewayTelemetry();
     const statuses = await matrix(ALPHA, cookie);
     expect(statuses.html, "an admitted HTML navigation").toBe(200);
     expect(statuses.asset).toBe(200);
@@ -153,7 +153,7 @@ describe("Gate 3 — who is turned away, and how far they get", () => {
   });
 
   it("turns away a revoked grant holder, and the cookie they were holding", async () => {
-    const grant = m.access.grantDirect(
+    const grant = await m.access.grantDirect(
       alpha.id,
       { subject: OUTSIDER.subject, email: OUTSIDER.email, role: "editor" },
       OWNER.subject
@@ -161,20 +161,20 @@ describe("Gate 3 — who is turned away, and how far they get", () => {
     const cookie = await signIn(m, alpha, OUTSIDER.subject);
     expect((await matrix(ALPHA, cookie)).html, "before the revocation").toBe(200);
 
-    m.access.revokeGrant(grant.id, OWNER.subject, "left the pilot", { appId: alpha.id });
+    await m.access.revokeGrant(grant.id, OWNER.subject, "left the pilot", { appId: alpha.id });
     expectDenied(await matrix(ALPHA, cookie), 401, "a revoked grant");
 
     // The revocation is durable and the session row is closed, not just ignored.
     const a = m.authority.authority();
-    expect(a.repos.grants.activeFor(alpha.id, OUTSIDER.subject), "no active grant remains").toBeNull();
+    expect(await a.repos.grants.activeFor(alpha.id, OUTSIDER.subject), "no active grant remains").toBeNull();
     expect(
-      m.access.resolveAppSessionDetailed(cookie.split("=")[1], alpha.id),
+      await m.access.resolveAppSessionDetailed(cookie.split("=")[1], alpha.id),
       "the session resolves to a reason, never to ok"
     ).toMatchObject({ ok: false });
   });
 
   it("turns away an invitation that expired before it was opened", async () => {
-    const issued = m.access.createInvite(
+    const issued = await m.access.createInvite(
       alpha.id,
       { email: RECIPIENT.email, role: "editor" },
       OWNER.subject
@@ -184,15 +184,15 @@ describe("Gate 3 — who is turned away, and how far they get", () => {
     // Move the invitation's own expiry into the past — the only thing a test
     // can honestly do about a 48-hour window without waiting two days.
     m.authority
-      .authority()
-      .db.prepare("UPDATE app_invites SET expires_at = ? WHERE id = ?")
+      .sqliteConnection(m.authority.authority())
+      .prepare("UPDATE app_invites SET expires_at = ? WHERE id = ?")
       .run(new Date(Date.now() - 60_000).toISOString(), issued.invite.id);
 
-    expect(() => m.access.acceptInvite(token, verifiedIdentity(RECIPIENT))).toThrowError(
+    await expect(m.access.acceptInvite(token, verifiedIdentity(RECIPIENT))).rejects.toThrowError(
       /no longer usable/
     );
     expect(
-      m.access.activeGrant(alpha.id, RECIPIENT.subject),
+      await m.access.activeGrant(alpha.id, RECIPIENT.subject),
       "an expired invitation grants nothing"
     ).toBeNull();
     expectDenied(await matrix(ALPHA), 401, "an expired invitation");
@@ -215,7 +215,7 @@ describe("Gate 3 — who is turned away, and how far they get", () => {
     const cookie = await signIn(m, alpha, OWNER.subject);
     expect((await matrix(ALPHA, cookie)).html).toBe(200);
 
-    const ended = m.access.terminateAppSessionsForSubject(OWNER.subject, "signed_out");
+    const ended = await m.access.terminateAppSessionsForSubject(OWNER.subject, "signed_out");
     expect(ended, "signing out of the platform ends app sessions").toBeGreaterThan(0);
     expectDenied(await matrix(ALPHA, cookie), 401, "a terminated session");
   });
@@ -238,8 +238,8 @@ describe("Gate 3 — who is turned away, and how far they get", () => {
 
   it("ends only the sessions it was asked to end", async () => {
     // The editor holds access to both apps, and signs out of alpha.
-    m.access.grantDirect(alpha.id, { subject: EDITOR.subject, email: EDITOR.email, role: "editor" }, OWNER.subject);
-    m.access.grantDirect(beta.id, { subject: EDITOR.subject, email: EDITOR.email, role: "editor" }, OWNER.subject);
+    await m.access.grantDirect(alpha.id, { subject: EDITOR.subject, email: EDITOR.email, role: "editor" }, OWNER.subject);
+    await m.access.grantDirect(beta.id, { subject: EDITOR.subject, email: EDITOR.email, role: "editor" }, OWNER.subject);
     const onAlpha = await signIn(m, alpha, EDITOR.subject);
     const onBeta = await signIn(m, beta, EDITOR.subject);
 
@@ -263,7 +263,7 @@ describe("Gate 3 — who is turned away, and how far they get", () => {
     ).toBe(200);
 
     // Platform sign-out is the one that takes everything.
-    const ended = m.access.terminateAppSessionsForSubject(EDITOR.subject, "signed_out");
+    const ended = await m.access.terminateAppSessionsForSubject(EDITOR.subject, "signed_out");
     expect(ended, "the remaining app session ends with the platform session").toBeGreaterThan(0);
     const afterPlatform = call({ host: BETA, path: "/", cookie: onBeta, accept: "application/json" });
     expect((await m.gateway.handleGateway(afterPlatform.req, afterPlatform.params)).status).toBe(401);
@@ -280,7 +280,7 @@ describe("Gate 3 — who is turned away, and how far they get", () => {
     });
     const finished = await m.release.runJobOnce(job.job.id);
     expect(finished.status, `suspend job: ${finished.error ?? ""}`).toBe("succeeded");
-    expect(m.authority.authority().repos.apps.get(beta.id)?.state).toBe("suspended");
+    expect((await m.authority.authority().repos.apps.get(beta.id))?.state).toBe("suspended");
 
     expectDenied(await matrix(BETA, cookie), 423, "a suspended app");
 
@@ -301,7 +301,7 @@ describe("Gate 3 — who is turned away, and how far they get", () => {
   /* ---------------------------- the control origin ---------------------- */
 
   it("answers a direct control-origin request to the gateway path with 404 and no stamp", async () => {
-    m.gateway.resetGatewayTelemetry();
+    await m.gateway.resetGatewayTelemetry();
     const direct = call({
       host: "localhost:3400",
       paramHost: appHost("alpha"),
@@ -340,32 +340,32 @@ describe("Gate 3 — who is turned away, and how far they get", () => {
 
   it("does not charge an app for traffic that was never its own", async () => {
     const day = m.authority.utcDay();
-    const before = m.authority.authority().repos.quotas.get(alpha.id, day).requests;
+    const before = (await m.authority.authority().repos.quotas.get(alpha.id, day)).requests;
     for (const host of [appHost("nosuchapp"), "localhost:3400", "evil.example"]) {
       const one = call({ host, path: "/", accept: "application/json" });
       expect((await m.gateway.handleGateway(one.req, one.params)).status, host).toBe(404);
     }
     expect(
-      m.authority.authority().repos.quotas.get(alpha.id, day).requests,
+      (await m.authority.authority().repos.quotas.get(alpha.id, day)).requests,
       "a request that resolved to no app is nobody's traffic"
     ).toBe(before);
   });
 
-  it("recorded every one of those denials against the app, and counted them as traffic", () => {
+  it("recorded every one of those denials against the app, and counted them as traffic", async () => {
     const a = m.authority.authority();
-    const denials = a.repos.events
-      .listSince({ appId: alpha.id, event: "access.denied" }, { limit: 500 })
-      .length;
+    const denials = (
+      await a.repos.events.listSince({ appId: alpha.id, event: "access.denied" }, { limit: 500 })
+    ).length;
     expect(denials, "each refusal is an event an owner can see").toBeGreaterThan(0);
 
-    const counter = a.repos.quotas.get(alpha.id, m.authority.utcDay());
+    const counter = await a.repos.quotas.get(alpha.id, m.authority.utcDay());
     expect(
       counter.requests,
       "R3-12: every request that reached a known app host counts, whatever its outcome"
     ).toBeGreaterThan(denials);
   });
 
-  it("kept the release pointer untouched throughout", () => {
-    expect(m.authority.authority().repos.apps.get(alpha.id)?.activeReleaseId).toBe(alphaRelease);
+  it("kept the release pointer untouched throughout", async () => {
+    expect((await m.authority.authority().repos.apps.get(alpha.id))?.activeReleaseId).toBe(alphaRelease);
   });
 });

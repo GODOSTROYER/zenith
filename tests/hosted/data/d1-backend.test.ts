@@ -15,7 +15,7 @@ const DATA_DIR = isolatedDataDir("zenith-data-d1-");
 
 const { D1HttpBackend, trackerSql } = await import("@/lib/hosted/data");
 
-afterAll(() => {
+afterAll(async () => {
   removeDir(DATA_DIR);
 });
 
@@ -271,7 +271,7 @@ describe("refusals", () => {
     expect(calls).toHaveLength(1);
   });
 
-  it("closes without holding anything open", () => {
+  it("closes without holding anything open", async () => {
     const { backend, calls } = backendWith([ok([])]);
     expect(() => backend.close()).not.toThrow();
     expect(() => backend.close()).not.toThrow();

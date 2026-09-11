@@ -53,7 +53,7 @@ const replacing = (entries: TarEntry[], target: string, bytes: Buffer): TarEntry
   entries.map((e) => (e.path === target ? { ...e, bytes } : e));
 
 describe("validateSource — the supported v1 tarball", () => {
-  it("accepts the minimal-app fixture and pins a digest", () => {
+  it("accepts the minimal-app fixture and pins a digest", async () => {
     const validated = source.validateSource({ kind: "tarball", bytes: writeTar(fixtureEntries()) });
     expect(validated.kind).toBe("tarball");
     expect(validated.manifest.name).toBe("Minimal app");
@@ -71,19 +71,19 @@ describe("validateSource — the supported v1 tarball", () => {
     ]);
   });
 
-  it("accepts the same archive gzipped, with the same digest", () => {
+  it("accepts the same archive gzipped, with the same digest", async () => {
     const plain = source.validateSource({ kind: "tarball", bytes: writeTar(fixtureEntries()) });
     const zipped = source.validateSource({ kind: "tarball", bytes: gzip(writeTar(fixtureEntries())) });
     expect(zipped.digest).toBe(plain.digest);
   });
 
-  it("gives the same digest whatever order the entries arrive in", () => {
+  it("gives the same digest whatever order the entries arrive in", async () => {
     const forward = source.validateSource({ kind: "tarball", bytes: writeTar(fixtureEntries()) });
     const reversed = source.validateSource({ kind: "tarball", bytes: writeTar([...fixtureEntries()].reverse()) });
     expect(reversed.digest).toBe(forward.digest);
   });
 
-  it("gives a different digest when one byte of content changes", () => {
+  it("gives a different digest when one byte of content changes", async () => {
     const before = source.validateSource({ kind: "tarball", bytes: writeTar(fixtureEntries()) });
     const after = source.validateSource({
       kind: "tarball",
@@ -92,7 +92,7 @@ describe("validateSource — the supported v1 tarball", () => {
     expect(after.digest).not.toBe(before.digest);
   });
 
-  it("reads a ustar prefix + name pair as one path", () => {
+  it("reads a ustar prefix + name pair as one path", async () => {
     const entries = fixtureEntries().map((e) =>
       e.path === "src/main.tsx" ? { ...e, path: "main.tsx", prefix: "src" } : e
     );
@@ -100,7 +100,7 @@ describe("validateSource — the supported v1 tarball", () => {
     expect(validated.files.some((f) => f.path === "src/main.tsx")).toBe(true);
   });
 
-  it("reads a GNU long-name entry", () => {
+  it("reads a GNU long-name entry", async () => {
     const long = `src/${"a".repeat(96)}.tsx`;
     const entries: TarEntry[] = [
       ...fixtureEntries(),
@@ -113,14 +113,14 @@ describe("validateSource — the supported v1 tarball", () => {
 });
 
 describe("validateSource — the directory intake mirrors the tarball", () => {
-  it("produces the same digest from the fixture directory", () => {
+  it("produces the same digest from the fixture directory", async () => {
     const fromTar = source.validateSource({ kind: "tarball", bytes: writeTar(fixtureEntries()) });
     const fromDir = source.validateSource({ kind: "directory", path: FIXTURE });
     expect(fromDir.kind).toBe("directory");
     expect(fromDir.digest).toBe(fromTar.digest);
   });
 
-  it("refuses a symbolic link instead of following it", () => {
+  it("refuses a symbolic link instead of following it", async () => {
     const dir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "zenith-w2-link-"));
     try {
       fs.cpSync(FIXTURE, dir, { recursive: true });
@@ -146,34 +146,34 @@ describe("validateSource — the directory intake mirrors the tarball", () => {
     }
   });
 
-  it("refuses a path that is not a directory", () => {
+  it("refuses a path that is not a directory", async () => {
     const reasons = reasonsFor({ kind: "directory", path: path.join(FIXTURE, "index.html") });
     expect(reasons.some((r) => r.includes("not a readable directory"))).toBe(true);
   });
 });
 
 describe("validateSource — path and archive shapes", () => {
-  it("refuses a ..-traversal entry", () => {
+  it("refuses a ..-traversal entry", async () => {
     const reasons = reasonsForTar([...fixtureEntries(), { path: "../x.tsx", bytes: Buffer.from("x") }]);
     expect(reasons.some((r) => r.includes('".." segment'))).toBe(true);
   });
 
-  it("refuses an absolute entry", () => {
+  it("refuses an absolute entry", async () => {
     const reasons = reasonsForTar([...fixtureEntries(), { path: "/etc/passwd", bytes: Buffer.from("x") }]);
     expect(reasons.some((r) => r.includes("absolute path is not accepted"))).toBe(true);
   });
 
-  it("refuses a drive-letter entry", () => {
+  it("refuses a drive-letter entry", async () => {
     const reasons = reasonsForTar([...fixtureEntries(), { path: "C:/Windows/system.ini", bytes: Buffer.from("x") }]);
     expect(reasons.some((r) => r.includes("absolute path is not accepted"))).toBe(true);
   });
 
-  it("refuses a backslash entry", () => {
+  it("refuses a backslash entry", async () => {
     const reasons = reasonsForTar([...fixtureEntries(), { path: "src\\evil.tsx", bytes: Buffer.from("x") }]);
     expect(reasons.some((r) => r.includes("may not contain a backslash"))).toBe(true);
   });
 
-  it("refuses a symlink entry", () => {
+  it("refuses a symlink entry", async () => {
     const reasons = reasonsForTar([
       ...fixtureEntries(),
       { path: "src/link.tsx", type: "symlink", linkname: "/etc/passwd" },
@@ -181,7 +181,7 @@ describe("validateSource — path and archive shapes", () => {
     expect(reasons.some((r) => r.includes("symbolic link is not accepted"))).toBe(true);
   });
 
-  it("refuses a hard link entry", () => {
+  it("refuses a hard link entry", async () => {
     const reasons = reasonsForTar([
       ...fixtureEntries(),
       { path: "src/hard.tsx", type: "hardlink", linkname: "index.html" },
@@ -189,7 +189,7 @@ describe("validateSource — path and archive shapes", () => {
     expect(reasons.some((r) => r.includes("hard link is not accepted"))).toBe(true);
   });
 
-  it("refuses device and FIFO entries", () => {
+  it("refuses device and FIFO entries", async () => {
     const reasons = reasonsForTar([
       ...fixtureEntries(),
       { path: "src/dev", type: "chardev" },
@@ -198,13 +198,13 @@ describe("validateSource — path and archive shapes", () => {
     expect(reasons.filter((r) => r.includes("device, FIFO and contiguous")).length).toBe(2);
   });
 
-  it("refuses a tree deeper than the limit", () => {
+  it("refuses a tree deeper than the limit", async () => {
     const deep = `src/${Array.from({ length: contracts.SOURCE_LIMITS.maxDepth }, (_, i) => `d${i}`).join("/")}/x.tsx`;
     const reasons = reasonsForTar([...fixtureEntries(), { path: deep, bytes: Buffer.from("x") }]);
     expect(reasons.some((r) => r.includes("levels deep"))).toBe(true);
   });
 
-  it("refuses a path longer than the limit, however the archive carries it", () => {
+  it("refuses a path longer than the limit, however the archive carries it", async () => {
     // The ustar `name` field is 100 bytes, so an over-long path can only reach
     // the reader through a pax `path` record — which is exactly the smuggling
     // route worth checking.
@@ -217,13 +217,13 @@ describe("validateSource — path and archive shapes", () => {
     expect(reasons.some((r) => r.includes("characters; the limit is"))).toBe(true);
   });
 
-  it("refuses a single file over the per-file limit", () => {
+  it("refuses a single file over the per-file limit", async () => {
     const big = Buffer.alloc(contracts.SOURCE_LIMITS.maxFileBytes + 1, 0x61);
     const reasons = reasonsForTar([...fixtureEntries(), { path: "public/big.txt", bytes: big }]);
     expect(reasons.some((r) => r.includes("the per-file limit is"))).toBe(true);
   });
 
-  it("refuses a tree over the total byte limit", () => {
+  it("refuses a tree over the total byte limit", async () => {
     const chunk = Buffer.alloc(1_900_000, 0x62);
     const reasons = reasonsForTar([
       ...fixtureEntries(),
@@ -234,7 +234,7 @@ describe("validateSource — path and archive shapes", () => {
     expect(reasons.some((r) => r.includes("larger than"))).toBe(true);
   });
 
-  it("refuses more files than the limit", () => {
+  it("refuses more files than the limit", async () => {
     const many: TarEntry[] = Array.from({ length: contracts.SOURCE_LIMITS.maxFiles + 1 }, (_, i) => ({
       path: `src/f${i}.tsx`,
       bytes: Buffer.from("x"),
@@ -243,27 +243,27 @@ describe("validateSource — path and archive shapes", () => {
     expect(reasons.some((r) => r.includes("more than"))).toBe(true);
   });
 
-  it("refuses a gzip bomb by the decompression ceiling, not by expanding it", () => {
+  it("refuses a gzip bomb by the decompression ceiling, not by expanding it", async () => {
     const bomb = zlib.gzipSync(Buffer.alloc(contracts.SOURCE_LIMITS.maxDecompressedBytes + 4096, 0));
     expect(bomb.length).toBeLessThan(200_000);
     const reasons = reasonsFor({ kind: "tarball", bytes: bomb });
     expect(reasons.some((r) => r.includes("decompression ceiling"))).toBe(true);
   });
 
-  it("refuses a truncated archive", () => {
+  it("refuses a truncated archive", async () => {
     const whole = writeTar(fixtureEntries());
     const reasons = reasonsFor({ kind: "tarball", bytes: whole.subarray(0, whole.length - 3 * 512) });
     expect(reasons.some((r) => r.includes("truncated"))).toBe(true);
   });
 
-  it("refuses a size field larger than the payload", () => {
+  it("refuses a size field larger than the payload", async () => {
     const reasons = reasonsForTar([
       { path: "index.html", bytes: Buffer.from("<html></html>"), declaredSize: 5_000_000 },
     ]);
     expect(reasons.some((r) => r.includes("truncated"))).toBe(true);
   });
 
-  it("refuses a corrupt header checksum", () => {
+  it("refuses a corrupt header checksum", async () => {
     const reasons = reasonsForTar([
       ...fixtureEntries(),
       { path: "src/bad.tsx", bytes: Buffer.from("x"), corruptChecksum: true },
@@ -271,7 +271,7 @@ describe("validateSource — path and archive shapes", () => {
     expect(reasons.some((r) => r.includes("failed its checksum"))).toBe(true);
   });
 
-  it("refuses a pax record it does not model", () => {
+  it("refuses a pax record it does not model", async () => {
     const reasons = reasonsForTar([
       ...fixtureEntries(),
       { path: "PaxHeader", type: "pax", bytes: paxRecord("SCHILY.xattr.security.selinux", "unconfined") },
@@ -280,7 +280,7 @@ describe("validateSource — path and archive shapes", () => {
     expect(reasons.some((r) => r.includes("does not model"))).toBe(true);
   });
 
-  it("refuses a pax global header", () => {
+  it("refuses a pax global header", async () => {
     const reasons = reasonsForTar([
       { path: "pax_global_header", type: "paxGlobal", bytes: paxRecord("comment", "hello") },
       ...fixtureEntries(),
@@ -288,24 +288,24 @@ describe("validateSource — path and archive shapes", () => {
     expect(reasons.some((r) => r.includes("pax global header"))).toBe(true);
   });
 
-  it("refuses the same path twice", () => {
+  it("refuses the same path twice", async () => {
     const reasons = reasonsForTar([...fixtureEntries(), { path: "index.html", bytes: Buffer.from("<b>second</b>") }]);
     expect(reasons.some((r) => r.includes("holds this path twice"))).toBe(true);
   });
 
-  it("refuses an empty upload", () => {
+  it("refuses an empty upload", async () => {
     const reasons = reasonsFor({ kind: "tarball", bytes: Buffer.alloc(0) });
     expect(reasons.some((r) => r.includes("upload is empty"))).toBe(true);
   });
 });
 
 describe("validateSource — the source contract", () => {
-  it("refuses a submitted vite config", () => {
+  it("refuses a submitted vite config", async () => {
     const reasons = reasonsForTar([...fixtureEntries(), { path: "vite.config.ts", bytes: Buffer.from("export default {}") }]);
     expect(reasons.some((r) => r.includes("vite.config.ts"))).toBe(true);
   });
 
-  it("refuses any other config module", () => {
+  it("refuses any other config module", async () => {
     const reasons = reasonsForTar([
       ...fixtureEntries(),
       { path: "src/tailwind.config.js", bytes: Buffer.from("module.exports = {}") },
@@ -313,12 +313,12 @@ describe("validateSource — the source contract", () => {
     expect(reasons.some((r) => r.includes("tailwind.config.js"))).toBe(true);
   });
 
-  it("refuses a .env file", () => {
+  it("refuses a .env file", async () => {
     const reasons = reasonsForTar([...fixtureEntries(), { path: ".env", bytes: Buffer.from("SECRET=1") }]);
     expect(reasons.some((r) => r.includes(".env"))).toBe(true);
   });
 
-  it("refuses a lockfile", () => {
+  it("refuses a lockfile", async () => {
     const reasons = reasonsForTar([
       ...fixtureEntries(),
       { path: "package-lock.json", bytes: Buffer.from("{}") },
@@ -326,7 +326,7 @@ describe("validateSource — the source contract", () => {
     expect(reasons.some((r) => r.includes("package-lock.json"))).toBe(true);
   });
 
-  it("refuses node_modules", () => {
+  it("refuses node_modules", async () => {
     const reasons = reasonsForTar([
       ...fixtureEntries(),
       { path: "node_modules/", type: "dir" },
@@ -335,42 +335,42 @@ describe("validateSource — the source contract", () => {
     expect(reasons.some((r) => r.includes("node_modules"))).toBe(true);
   });
 
-  it("refuses a tsconfig", () => {
+  it("refuses a tsconfig", async () => {
     const reasons = reasonsForTar([...fixtureEntries(), { path: "tsconfig.json", bytes: Buffer.from("{}") }]);
     expect(reasons.some((r) => r.includes("tsconfig.json"))).toBe(true);
   });
 
-  it("refuses any other dotfile", () => {
+  it("refuses any other dotfile", async () => {
     const reasons = reasonsForTar([...fixtureEntries(), { path: "src/.npmrc", bytes: Buffer.from("registry=x") }]);
     expect(reasons.some((r) => r.includes(".npmrc"))).toBe(true);
   });
 
-  it("refuses an unsupported root file", () => {
+  it("refuses an unsupported root file", async () => {
     const reasons = reasonsForTar([...fixtureEntries(), { path: "Makefile", bytes: Buffer.from("all:") }]);
     expect(reasons.some((r) => r.includes("may sit at the source root"))).toBe(true);
   });
 
-  it("refuses an unsupported root directory", () => {
+  it("refuses an unsupported root directory", async () => {
     const reasons = reasonsForTar([...fixtureEntries(), { path: "server/index.ts", bytes: Buffer.from("x") }]);
     expect(reasons.some((r) => r.includes("not a supported root directory"))).toBe(true);
   });
 
-  it("refuses an unsupported extension under src/", () => {
+  it("refuses an unsupported extension under src/", async () => {
     const reasons = reasonsForTar([...fixtureEntries(), { path: "src/build.sh", bytes: Buffer.from("#!/bin/sh") }]);
     expect(reasons.some((r) => r.includes("extension is not supported"))).toBe(true);
   });
 
-  it("refuses a missing zenith.app.json", () => {
+  it("refuses a missing zenith.app.json", async () => {
     const reasons = reasonsForTar(withoutPath(fixtureEntries(), "zenith.app.json"));
     expect(reasons.some((r) => r.includes("zenith.app.json is missing"))).toBe(true);
   });
 
-  it("refuses a missing index.html", () => {
+  it("refuses a missing index.html", async () => {
     const reasons = reasonsForTar(withoutPath(fixtureEntries(), "index.html"));
     expect(reasons.some((r) => r.includes("index.html is missing"))).toBe(true);
   });
 
-  it("refuses the wrong contract version", () => {
+  it("refuses the wrong contract version", async () => {
     const reasons = reasonsForTar(
       replacing(
         fixtureEntries(),
@@ -381,12 +381,12 @@ describe("validateSource — the source contract", () => {
     expect(reasons.some((r) => r.startsWith("zenith.app.json: contract"))).toBe(true);
   });
 
-  it("refuses a manifest that is not JSON", () => {
+  it("refuses a manifest that is not JSON", async () => {
     const reasons = reasonsForTar(replacing(fixtureEntries(), "zenith.app.json", Buffer.from("{oops")));
     expect(reasons.some((r) => r.includes("not valid JSON"))).toBe(true);
   });
 
-  it("refuses scripts in package.json", () => {
+  it("refuses scripts in package.json", async () => {
     const reasons = reasonsForTar(
       replacing(
         fixtureEntries(),
@@ -397,14 +397,14 @@ describe("validateSource — the source contract", () => {
     expect(reasons.some((r) => r.includes('"scripts" is not accepted'))).toBe(true);
   });
 
-  it("refuses devDependencies in package.json", () => {
+  it("refuses devDependencies in package.json", async () => {
     const reasons = reasonsForTar(
       replacing(fixtureEntries(), "package.json", Buffer.from(JSON.stringify({ devDependencies: { vite: "1" } })))
     );
     expect(reasons.some((r) => r.includes('"devDependencies" is not accepted'))).toBe(true);
   });
 
-  it("refuses a dependency the recipe does not provide", () => {
+  it("refuses a dependency the recipe does not provide", async () => {
     const reasons = reasonsForTar(
       replacing(
         fixtureEntries(),
@@ -415,14 +415,14 @@ describe("validateSource — the source contract", () => {
     expect(reasons.some((r) => r.includes('dependency "left-pad"'))).toBe(true);
   });
 
-  it("refuses an unknown package.json field", () => {
+  it("refuses an unknown package.json field", async () => {
     const reasons = reasonsForTar(
       replacing(fixtureEntries(), "package.json", Buffer.from(JSON.stringify({ workspaces: ["packages/*"] })))
     );
     expect(reasons.some((r) => r.includes('"workspaces" is not part'))).toBe(true);
   });
 
-  it("reports every reason at once", () => {
+  it("reports every reason at once", async () => {
     const reasons = reasonsForTar([
       ...withoutPath(replacing(fixtureEntries(), "package.json", Buffer.from(JSON.stringify({ scripts: {} }))), "zenith.app.json"),
       { path: "../escape.tsx", bytes: Buffer.from("x") },
@@ -439,7 +439,7 @@ describe("validateSource — the source contract", () => {
 });
 
 describe("materializeSource", () => {
-  it("writes the tree and reads back identically", () => {
+  it("writes the tree and reads back identically", async () => {
     const validated = source.validateSource({ kind: "directory", path: FIXTURE });
     const dir = source.materializeSource(validated);
     try {
@@ -456,7 +456,7 @@ describe("materializeSource", () => {
     expect(fs.existsSync(dir)).toBe(false);
   });
 
-  it("re-validates paths and refuses to write outside the root", () => {
+  it("re-validates paths and refuses to write outside the root", async () => {
     const validated = source.validateSource({ kind: "directory", path: FIXTURE });
     const tampered = {
       ...validated,
@@ -465,7 +465,7 @@ describe("materializeSource", () => {
     expect(() => source.materializeSource(tampered)).toThrow(contracts.HostedError);
   });
 
-  it("is idempotent about removal", () => {
+  it("is idempotent about removal", async () => {
     const validated = source.validateSource({ kind: "directory", path: FIXTURE });
     const dir = source.materializeSource(validated);
     source.removeMaterialized(dir);

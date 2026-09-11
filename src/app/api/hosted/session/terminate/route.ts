@@ -18,5 +18,5 @@ export const dynamic = "force-dynamic";
 
 export const POST = hostedRoute(async (): Promise<SessionsTerminatedWire> => {
   const user = signedInUser();
-  return { terminated: terminateAppSessionsForSubject(user.id, "signed_out") };
+  return { terminated: await terminateAppSessionsForSubject(user.id, "signed_out") };
 });

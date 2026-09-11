@@ -17,10 +17,11 @@ import { isolatedDataDir, removeDir } from "../_fixtures";
 
 const dataDir = isolatedDataDir("zenith-authority-busy-");
 
-const { closeAuthority, openAuthority } = await import("@/lib/hosted/authority");
+const { closeAuthority, openAuthority, sqliteConnection } = await import("@/lib/hosted/authority");
 const { uuid } = await import("./_helpers");
 
 const a = openAuthority();
+const db = sqliteConnection(a);
 
 afterAll(() => {
   closeAuthority();
@@ -65,15 +66,15 @@ function holdWriteLock(holdMs: number): { worker: Worker; exited: Promise<number
 }
 
 const countApps = (): number =>
-  Number(a.db.prepare("SELECT COUNT(*) AS n FROM apps").get()?.n ?? -1);
+  Number(db.prepare("SELECT COUNT(*) AS n FROM apps").get()?.n ?? -1);
 
 describe("a second writer holding the database", () => {
   it("waits for a hold shorter than the busy timeout, then commits", async () => {
     const { exited } = holdWriteLock(400);
     const started = Date.now();
 
-    const app = a.tx(() =>
-      a.repos.apps.insert({
+    const app = await a.tx((repos) =>
+      repos.apps.insert({
         id: uuid(),
         workspaceId: "ws-one",
         slug: "waited-for-the-lock",
@@ -84,7 +85,7 @@ describe("a second writer holding the database", () => {
     );
     const waited = Date.now() - started;
 
-    expect(a.repos.apps.get(app.id)?.slug).toBe("waited-for-the-lock");
+    expect((await a.repos.apps.get(app.id))?.slug).toBe("waited-for-the-lock");
     expect(waited).toBeGreaterThan(100);
     expect(waited).toBeLessThan(5_000);
     await exited;
@@ -97,9 +98,9 @@ describe("a second writer holding the database", () => {
 
     let thrown: unknown;
     try {
-      a.tx(
-        () =>
-          a.repos.apps.insert({
+      await a.tx(
+        (repos) =>
+          repos.apps.insert({
             id: uuid(),
             workspaceId: "ws-one",
             slug: "never-written",
@@ -126,12 +127,12 @@ describe("a second writer holding the database", () => {
     expect(waited).toBeLessThan(15_000);
 
     // Nothing was half written, and the connection is not stuck in a transaction.
-    expect(a.repos.apps.getBySlug("never-written")).toBeNull();
-    expect(a.db.isTransaction).toBe(false);
+    expect(await a.repos.apps.getBySlug("never-written")).toBeNull();
+    expect(db.isTransaction).toBe(false);
 
     await exited;
     // The holder rolled back, so its own row is gone and the count is untouched.
     expect(countApps()).toBe(before);
-    expect(a.repos.events.count()).toBe(0);
+    expect(await a.repos.events.count()).toBe(0);
   }, 30_000);
 });

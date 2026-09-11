@@ -32,6 +32,7 @@ import {
   type Release,
 } from "@/lib/hosted/contracts";
 import type { Authority } from "@/lib/hosted/authority";
+import type { GatewayDeps } from "@/lib/hosted/gateway";
 
 /** The control origin the default configuration serves on, and the port app hosts carry. */
 export const CONTROL_ORIGIN = "http://localhost:3400";
@@ -199,27 +200,21 @@ export interface DoubleState {
 /** The doubles, and the state they record into. */
 export interface Doubles {
   state: DoubleState;
-  deps: {
-    resolveAppSession: (cookieValue: string, appId: string) => ResolvedSession | null;
-    redeemExchange: (
-      code: string,
-      opts: { appId: string; state: string }
-    ) => { cookieValue: string; session: AppSession; grant: AppGrant };
-    appSessionCookie: (value: string, expiresAt: string) => string;
-    clearAppSessionCookie: () => string;
-    terminateAppSession: (cookieValue: string, reason: string) => boolean;
-    admitRequest: (
-      appId: string,
-      opts?: { now?: Date; limit?: number }
-    ) => { allowed: boolean; counter: QuotaCounter; limit: number };
-    readJsonBody: (req: Request, maxBytes?: number) => Promise<unknown>;
-    recordEvent: (input: {
-      event: string;
-      outcome?: string;
-      logicalId?: string;
-      subject?: string;
-    }) => boolean;
-  };
+  /**
+   * The seam the gateway owns, with the module's own signatures — every one of
+   * them promised, because the modules the gateway calls all are.
+   */
+  deps: Pick<
+    GatewayDeps,
+    | "resolveAppSession"
+    | "redeemExchange"
+    | "appSessionCookie"
+    | "clearAppSessionCookie"
+    | "terminateAppSession"
+    | "admitRequest"
+    | "readJsonBody"
+    | "recordEvent"
+  >;
 }
 
 /**
@@ -229,7 +224,7 @@ export interface Doubles {
  * cookie minted against another app (which is exactly the case the sibling-app
  * test needs), and `readJsonBody` enforces the byte cap it is given.
  */
-export function makeDoubles(): Doubles {
+export async function makeDoubles(): Promise<Doubles> {
   const state: DoubleState = {
     sessions: new Map(),
     events: [],
@@ -243,7 +238,7 @@ export function makeDoubles(): Doubles {
   return {
     state,
     deps: {
-      resolveAppSession(cookieValue, appId) {
+      async resolveAppSession(cookieValue, appId) {
         const found = state.sessions.get(cookieValue);
         // A live session for another app is not a session here. The gateway
         // must not be able to tell the two cases apart either.
@@ -251,7 +246,7 @@ export function makeDoubles(): Doubles {
         return found;
       },
 
-      redeemExchange(code, opts) {
+      async redeemExchange(code, opts) {
         const exchange = state.exchanges.get(code);
         if (!exchange)
           throw new HostedError("not_found", "That sign-in link has already been used, or it expired.", {
@@ -278,12 +273,12 @@ export function makeDoubles(): Doubles {
         return `${APP_SESSION_COOKIE}=; Path=/; Secure; HttpOnly; SameSite=Lax; Max-Age=0`;
       },
 
-      terminateAppSession(cookieValue) {
+      async terminateAppSession(cookieValue) {
         state.terminated.push(cookieValue);
         return state.sessions.delete(cookieValue);
       },
 
-      admitRequest(appId) {
+      async admitRequest(appId) {
         state.counted.push(appId);
         const counter: QuotaCounter = {
           appId,
@@ -309,7 +304,7 @@ export function makeDoubles(): Doubles {
         }
       },
 
-      recordEvent(input) {
+      async recordEvent(input) {
         state.events.push(input);
         return true;
       },
@@ -362,9 +357,9 @@ export const fakeApp = (overrides: Partial<HostedApp> = {}): HostedApp => ({
 export function seedApp(
   a: Authority,
   opts: { slug: string; workspaceId?: string; state?: AppState; name?: string }
-): HostedApp {
-  return a.tx(() =>
-    a.repos.apps.insert({
+): Promise<HostedApp> {
+  return a.tx((repos) =>
+    repos.apps.insert({
       id: randomUUID(),
       workspaceId: opts.workspaceId ?? "ws-one",
       slug: opts.slug,
@@ -377,9 +372,9 @@ export function seedApp(
 }
 
 /** Record an artifact row for a digest the artifact store already holds. */
-export function seedArtifactRow(a: Authority, digest: string, bytes: number, files: number): void {
-  a.tx(() =>
-    a.repos.artifacts.insert({
+export async function seedArtifactRow(a: Authority, digest: string, bytes: number, files: number): Promise<void> {
+  await a.tx((repos) =>
+    repos.artifacts.insert({
       digest,
       byteSize: bytes,
       fileCount: files,
@@ -389,19 +384,19 @@ export function seedArtifactRow(a: Authority, digest: string, bytes: number, fil
 }
 
 /** Insert an active release and move the app's durable pointer at it. */
-export function seedActiveRelease(a: Authority, app: HostedApp, digest: string): Release {
-  const release = a.tx(() =>
-    a.repos.releases.insert({
+export async function seedActiveRelease(a: Authority, app: HostedApp, digest: string): Promise<Release> {
+  const release = await a.tx(async (repos) =>
+    repos.releases.insert({
       id: randomUUID(),
       appId: app.id,
-      number: a.repos.releases.nextNumber(app.id),
+      number: await repos.releases.nextNumber(app.id),
       artifactDigest: digest,
       jobId: randomUUID(),
       runtime: "local",
       status: "active",
     })
   );
-  const moved = a.tx(() => a.repos.apps.setActiveRelease(app.id, release.id, app.activeFence));
+  const moved = await a.tx((repos) => repos.apps.setActiveRelease(app.id, release.id, app.activeFence));
   if (!moved) throw new Error("the fixture could not move the app's active-release pointer");
   return release;
 }

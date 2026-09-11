@@ -22,7 +22,7 @@ let appId: string;
 
 beforeAll(async () => {
   h = await harness(DATA);
-  const wired = wire(h);
+  const wired = await wire(h);
   const app = await makeApp(h, {
     workspaceId: WORKSPACES.one.id,
     slug: "runner-app",
@@ -33,28 +33,28 @@ beforeAll(async () => {
   wired.restore();
 });
 
-afterEach(() => {
+afterEach(async () => {
   undo?.();
   undo = undefined;
-  h.release.resetReleaseDeps();
-  h.release.stopHostedJobRunner();
+  await h.release.resetReleaseDeps();
+  await h.release.stopHostedJobRunner();
 });
 
-afterAll(() => {
-  h.release.stopHostedJobRunner();
-  h.data.closeAllAppData();
+afterAll(async () => {
+  await h.release.stopHostedJobRunner();
+  await h.data.closeAllAppData();
   h.authority.closeAuthority();
   removeDir(DATA);
 });
 
-const until = async (predicate: () => boolean, ms = 5000): Promise<void> => {
+const until = async (predicate: () => boolean | Promise<boolean>, ms = 5000): Promise<void> => {
   const deadline = Date.now() + ms;
-  while (!predicate() && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 20));
+  while (!(await predicate()) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 20));
 };
 
 describe("the ticker", () => {
   it("picks a queued job up on its own and runs it to completion", async () => {
-    undo = wire(h).restore;
+    undo = (await wire(h)).restore;
     const jobId = uuid();
     await h.release.admitPublish({
       jobId,
@@ -64,22 +64,22 @@ describe("the ticker", () => {
       source: { kind: "fixture", name: "minimal-app" },
     });
 
-    h.release.startHostedJobRunner();
-    await until(() => h.authority.authority().repos.jobs.get(jobId)?.status === "succeeded");
+    await h.release.startHostedJobRunner();
+    await until(async () => (await h.authority.authority().repos.jobs.get(jobId))?.status === "succeeded");
 
-    const job = h.authority.authority().repos.jobs.get(jobId)!;
+    const job = (await h.authority.authority().repos.jobs.get(jobId))!;
     expect(job.status).toBe("succeeded");
     expect(job.leaseOwner).toBeUndefined();
-    expect(h.authority.authority().repos.apps.get(appId)?.activeReleaseId).toBe(job.phaseData.releaseId);
+    expect((await h.authority.authority().repos.apps.get(appId))?.activeReleaseId).toBe(job.phaseData.releaseId);
   });
 });
 
 describe("the lease", () => {
-  it("is renewed under the same fence, and refused once the fence has moved", () => {
-    undo = wire(h).restore;
+  it("is renewed under the same fence, and refused once the fence has moved", async () => {
+    undo = (await wire(h)).restore;
     const a = h.authority.authority();
     const jobId = uuid();
-    a.repos.jobs.insert({
+    await a.repos.jobs.insert({
       id: jobId,
       kind: "publish",
       workspaceId: WORKSPACES.one.id,
@@ -87,24 +87,24 @@ describe("the lease", () => {
       actor: IDENTITIES.owner.subject,
       intentHash: "0".repeat(64),
     });
-    const run = h.release.claimJob(jobId)!;
-    const first = a.repos.jobs.get(jobId)!.leaseUntil!;
+    const run = ((await h.release.claimJob(jobId))!);
+    const first = (await a.repos.jobs.get(jobId))!.leaseUntil!;
 
-    expect(h.release.renewLease(run, 120_000)).toBe(true);
-    expect(Date.parse(a.repos.jobs.get(jobId)!.leaseUntil!)).toBeGreaterThan(Date.parse(first));
+    expect(await h.release.renewLease(run, 120_000)).toBe(true);
+    expect(Date.parse((await a.repos.jobs.get(jobId))!.leaseUntil!)).toBeGreaterThan(Date.parse(first));
 
     // A worker whose lease expired and whose job was re-claimed holds a stale
     // fence, and may not push the new owner's lease around.
     const stale = { ...run, fence: run.fence - 1 };
-    expect(h.release.renewLease(stale)).toBe(false);
-    a.repos.jobs.cancel(jobId, "test finished with this job");
+    expect(await h.release.renewLease(stale)).toBe(false);
+    await a.repos.jobs.cancel(jobId, "test finished with this job");
   });
 
-  it("reclaims a job whose lease has passed, and only then", () => {
-    undo = wire(h).restore;
+  it("reclaims a job whose lease has passed, and only then", async () => {
+    undo = (await wire(h)).restore;
     const a = h.authority.authority();
     const jobId = uuid();
-    a.repos.jobs.insert({
+    await a.repos.jobs.insert({
       id: jobId,
       kind: "publish",
       workspaceId: WORKSPACES.one.id,
@@ -112,17 +112,17 @@ describe("the lease", () => {
       actor: IDENTITIES.owner.subject,
       intentHash: "1".repeat(64),
     });
-    h.release.claimJob(jobId, 60_000);
-    expect(h.release.reclaimExpiredJobs()).toBe(0);
-    expect(h.release.reclaimExpiredJobs(new Date(Date.now() + 120_000).toISOString())).toBe(1);
-    expect(a.repos.jobs.get(jobId)?.status).toBe("queued");
-    a.repos.jobs.cancel(jobId, "test finished with this job");
+    await h.release.claimJob(jobId, 60_000);
+    expect(await h.release.reclaimExpiredJobs()).toBe(0);
+    expect(await h.release.reclaimExpiredJobs(new Date(Date.now() + 120_000).toISOString())).toBe(1);
+    expect((await a.repos.jobs.get(jobId))?.status).toBe("queued");
+    await a.repos.jobs.cancel(jobId, "test finished with this job");
   });
 });
 
 describe("job logs", () => {
-  it("replace anything that looks like a credential", () => {
-    const redacted = h.release.redactLine(
+  it("replace anything that looks like a credential", async () => {
+    const redacted = await h.release.redactLine(
       'env: AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG, authorization: Bearer eyJhbGciOiJIUzI1NiJ9, key sk-proj-abcdefghijklmnop'
     );
     expect(redacted).toContain("AWS_SECRET_ACCESS_KEY=•••");
@@ -134,11 +134,11 @@ describe("job logs", () => {
     expect(redacted).toContain("AWS_SECRET_ACCESS_KEY");
   });
 
-  it("keep at most the last 200 lines, so a runaway build cannot fill the database", () => {
-    undo = wire(h).restore;
+  it("keep at most the last 200 lines, so a runaway build cannot fill the database", async () => {
+    undo = (await wire(h)).restore;
     const a = h.authority.authority();
     const jobId = uuid();
-    a.repos.jobs.insert({
+    await a.repos.jobs.insert({
       id: jobId,
       kind: "publish",
       workspaceId: WORKSPACES.one.id,
@@ -147,37 +147,37 @@ describe("job logs", () => {
       intentHash: "2".repeat(64),
       phaseData: { logs: Array.from({ length: 500 }, (_, i) => `line ${i}`) },
     });
-    const logs = h.release.jobLogs(jobId);
+    const logs = await h.release.jobLogs(jobId);
     expect(logs).toHaveLength(h.release.JOB_LOG_LINES);
     expect(logs[logs.length - 1]).toBe("line 499");
-    expect(h.release.jobLogs(uuid())).toEqual([]);
-    a.repos.jobs.cancel(jobId, "test finished with this job");
+    expect(await h.release.jobLogs(uuid())).toEqual([]);
+    await a.repos.jobs.cancel(jobId, "test finished with this job");
   });
 });
 
 describe("cleanup", () => {
   it("tells the runtime to keep the active release and the three most recent", async () => {
-    let wired = wire(h);
+    let wired = await wire(h);
     undo = () => wired.restore();
-    const app = h.authority.authority().repos.apps.get(appId)!;
+    const app = (await h.authority.authority().repos.apps.get(appId))!;
 
     // Five releases, each from a different build, so the history is real.
     for (let i = 0; i < 4; i++) {
       wired.restore();
-      wired = wire(h, { build: buildRunnerDouble({ html: `<!doctype html><title>Release ${i}</title>` }) });
+      wired = await wire(h, { build: await buildRunnerDouble({ html: `<!doctype html><title>Release ${i}</title>` }) });
       const job = await publishOnce(h, { app, actor: IDENTITIES.owner.subject });
       expect(job.status).toBe("succeeded");
     }
     undo = () => wired.restore();
 
-    const releases = h.authority.authority().repos.releases.listByApp(appId);
+    const releases = await h.authority.authority().repos.releases.listByApp(appId);
     expect(releases.length).toBeGreaterThanOrEqual(4);
     const retain = wired.runtime.recorder.cleaned.at(-1)!;
     expect(retain.appId).toBe(appId);
     // The active release plus the three newest — the ones a rollback can still
     // select — and nothing older.
     const newest = releases.slice(0, h.release.RETAINED_RELEASES).map((r) => r.id);
-    expect(new Set(retain.retain)).toEqual(new Set([...newest, h.authority.authority().repos.apps.get(appId)!.activeReleaseId!]));
+    expect(new Set(retain.retain)).toEqual(new Set([...newest, (await h.authority.authority().repos.apps.get(appId))!.activeReleaseId!]));
     expect(retain.retain).not.toContain(releases[releases.length - 1].id);
   });
 });

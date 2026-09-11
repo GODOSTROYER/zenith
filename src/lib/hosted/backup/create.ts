@@ -104,7 +104,7 @@ export async function createBackup(options: CreateBackupOptions = {}): Promise<B
     await backupAuthority(controlCopy);
     files.push({ name: "control.sqlite", bytes: fs.readFileSync(controlCopy) });
 
-    const apps = a.repos.apps.listAll();
+    const apps = await a.repos.apps.listAll();
     const skipped: string[] = [];
     for (const app of apps) {
       const source = appDataPath(app.id);
@@ -124,16 +124,14 @@ export async function createBackup(options: CreateBackupOptions = {}): Promise<B
       note: options.includeArtifacts
         ? "The artifact bytes are in this bundle under artifacts/sha256/<digest>/."
         : "Artifact bytes are NOT in this bundle. Artifacts are content-addressed and immutable: re-upload the store, or rebuild from the same source with the same pinned recipe to reproduce the same digest. The bundle does not hold the source.",
-      artifacts: a.repos.artifacts.list({ limit: 10_000 }),
+      artifacts: await a.repos.artifacts.list({ limit: 10_000 }),
     };
     files.push({ name: "artifacts.json", bytes: Buffer.from(`${JSON.stringify(inventory, null, 2)}\n`, "utf8") });
 
     if (options.includeArtifacts) files.push(...artifactFiles(inventory.artifacts));
 
-    const packed = packBundle(
-      { id, createdAt, revocationSeq: a.repos.revocations.maxSeq(), keyId: "" },
-      files
-    );
+    const revocationSeq = await a.repos.revocations.maxSeq();
+    const packed = packBundle({ id, createdAt, revocationSeq, keyId: "" }, files);
     const sealed = seal(packed.bytes);
     // The key id is known only once the key has been read, so the manifest the
     // bundle carries has an empty one and the *recorded* manifest — the one a
@@ -144,13 +142,13 @@ export async function createBackup(options: CreateBackupOptions = {}): Promise<B
       digest: sha256(sealed.bytes),
       byteSize: sealed.bytes.length,
       files: packed.files,
-      revocationSeq: a.repos.revocations.maxSeq(),
+      revocationSeq,
       keyId: sealed.keyId,
     };
 
     await target.put(backupKeyFor(id), sealed.bytes);
-    a.tx(() => a.repos.backups.insert(manifest));
-    recordEvent({
+    await a.tx(async (repos) => repos.backups.insert(manifest));
+    await recordEvent({
       event: "backup.completed",
       workspaceId: INSTALL_WORKSPACE,
       logicalId: `backup:${id}`,

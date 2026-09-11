@@ -31,7 +31,7 @@ export const GET = hostedRoute(async (req): Promise<HostedSpendingPayload> => {
       { fix: `Ask an admin of ${workspace.name} to open it, or to give you the admin role.` }
     );
 
-  const { status, crossed } = checkSpendThresholds(workspace.id);
+  const { status, crossed } = await checkSpendThresholds(workspace.id);
   return {
     workspace: { id: workspace.id, name: workspace.name },
     spending: status,

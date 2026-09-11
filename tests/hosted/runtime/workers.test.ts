@@ -22,19 +22,19 @@ const brokerWorker = await import("../../../workers/broker-worker");
 /* ------------------------------- invariants ------------------------------- */
 
 describe("the copies stay copies", () => {
-  it("uses the same content policy and security headers as the control service", () => {
+  it("uses the same content policy and security headers as the control service", async () => {
     expect(gatewayWorker.WORKER_CSP).toBe(GATEWAY_CSP);
     expect(gatewayWorker.WORKER_SECURITY_HEADERS).toEqual(GATEWAY_SECURITY_HEADERS);
     expect(gatewayWorker.WORKER_CACHE_CONTROL["no-store"]).toBe("private, no-store");
     expect(gatewayWorker.WORKER_CACHE_CONTROL.immutable).toBe("private, max-age=300, immutable");
   });
 
-  it("decides the cache policy for the same paths the gateway does", () => {
+  it("decides the cache policy for the same paths the gateway does", async () => {
     for (const p of ["assets/app-abc123.js", "index.html", "assets/logo.svg", "assets/index-4f2a9c1b.css"])
       expect(gatewayWorker.HASHED_ASSET_RE.test(p), p).toBe(isHashedAssetPath(p));
   });
 
-  it("issues the identical SQL the local broker issues", () => {
+  it("issues the identical SQL the local broker issues", async () => {
     const shared: Record<keyof typeof brokerWorker.BROKER_SQL, string> = {
       SELECT_REQUEST_BY_ID: trackerSql.SELECT_REQUEST_BY_ID,
       SELECT_REQUESTS_PAGE: trackerSql.SELECT_REQUESTS_PAGE,
@@ -49,7 +49,7 @@ describe("the copies stay copies", () => {
       expect(brokerWorker.BROKER_SQL[name as keyof typeof shared], name).toBe(statement);
   });
 
-  it("keeps its one D1-only statement clearly outside that set", () => {
+  it("keeps its one D1-only statement clearly outside that set", async () => {
     expect(brokerWorker.D1_DELETE_WRITE).toBe("DELETE FROM writes WHERE write_id = ?");
     expect(Object.values(trackerSql)).not.toContain(brokerWorker.D1_DELETE_WRITE);
   });
@@ -213,7 +213,7 @@ describe("the dispatch worker", () => {
     }
   });
 
-  it("reads only its own cookie out of the header it forwards to the policy", () => {
+  it("reads only its own cookie out of the header it forwards to the policy", async () => {
     expect(gatewayWorker.readSessionCookie("a=1; __Host-zenith_app=opaque; b=2")).toBe("opaque");
     expect(gatewayWorker.readSessionCookie("sb-access-token=platform")).toBeUndefined();
     expect(gatewayWorker.readSessionCookie(null)).toBeUndefined();
@@ -228,7 +228,7 @@ interface D1Call {
 }
 
 /** A D1 double: records every statement, answers from a table of canned rows. */
-function fakeD1(rows: Record<string, unknown[]>, changes: Record<string, number> = {}) {
+async function fakeD1(rows: Record<string, unknown[]>, changes: Record<string, number> = {}) {
   const calls: D1Call[] = [];
   const make = (sql: string, values: unknown[] = []): D1PreparedStatement => ({
     bind: (...next: unknown[]) => make(sql, next),
@@ -292,7 +292,7 @@ const storedRow = {
 
 describe("the broker worker", () => {
   it("refuses a request that did not arrive through the dispatch worker", async () => {
-    const { db, calls } = fakeD1({});
+    const { db, calls } = await fakeD1({});
     const res = await brokerWorker.default.fetch(
       new Request(`https://alpha.apps.example.com${REQUESTS}`),
       { DB: db }
@@ -302,7 +302,7 @@ describe("the broker worker", () => {
   });
 
   it("refuses a viewer's write before it touches the database", async () => {
-    const { db, calls } = fakeD1({});
+    const { db, calls } = await fakeD1({});
     const res = await brokerWorker.default.fetch(
       brokerRequest(REQUESTS, {
         method: "POST",
@@ -317,7 +317,7 @@ describe("the broker worker", () => {
   });
 
   it("creates through the same conditional insert the local runtime uses", async () => {
-    const { db, calls } = fakeD1({});
+    const { db, calls } = await fakeD1({});
     const res = await brokerWorker.default.fetch(
       brokerRequest(REQUESTS, {
         method: "POST",
@@ -341,7 +341,7 @@ describe("the broker worker", () => {
   });
 
   it("compensates the write ledger when the quota refuses the row", async () => {
-    const { db, calls } = fakeD1(
+    const { db, calls } = await fakeD1(
       { [brokerWorker.BROKER_SQL.SELECT_STORAGE_BYTES]: [{ logical_bytes: 104857600 }] },
       { [brokerWorker.BROKER_SQL.INSERT_REQUEST_WITHIN_QUOTA]: 0 }
     );
@@ -365,7 +365,7 @@ describe("the broker worker", () => {
   });
 
   it("answers a stale update with 409 and the record as it stands", async () => {
-    const { db } = fakeD1({ [brokerWorker.BROKER_SQL.SELECT_REQUEST_BY_ID]: [{ ...storedRow, version: 4 }] });
+    const { db } = await fakeD1({ [brokerWorker.BROKER_SQL.SELECT_REQUEST_BY_ID]: [{ ...storedRow, version: 4 }] });
     const res = await brokerWorker.default.fetch(
       brokerRequest(`${REQUESTS}/rec-1`, {
         method: "PATCH",
@@ -399,7 +399,7 @@ describe("the broker worker", () => {
         neededBy: null,
       },
     });
-    const { db } = fakeD1({
+    const { db } = await fakeD1({
       [brokerWorker.BROKER_SQL.SELECT_WRITE_BY_ID]: [
         { write_id: writeId, intent_hash: hash, result: JSON.stringify(record), op: "create", created_at: "" },
       ],
@@ -417,7 +417,7 @@ describe("the broker worker", () => {
 
   it("refuses a write id reused for different content", async () => {
     const writeId = "55555555-5555-4555-8555-555555555555";
-    const { db } = fakeD1({
+    const { db } = await fakeD1({
       [brokerWorker.BROKER_SQL.SELECT_WRITE_BY_ID]: [
         { write_id: writeId, intent_hash: "0".repeat(64), result: "{}", op: "create", created_at: "" },
       ],
@@ -434,7 +434,7 @@ describe("the broker worker", () => {
   });
 
   it("answers 405 with allow, and 404 for a path outside its prefix", async () => {
-    const { db } = fakeD1({});
+    const { db } = await fakeD1({});
     const wrongMethod = await brokerWorker.default.fetch(
       brokerRequest(REQUESTS, { method: "PATCH", body: "{}" }),
       { DB: db }
@@ -447,7 +447,7 @@ describe("the broker worker", () => {
   });
 
   it("bounds the body it will read", async () => {
-    const { db, calls } = fakeD1({});
+    const { db, calls } = await fakeD1({});
     const res = await brokerWorker.default.fetch(
       brokerRequest(REQUESTS, {
         method: "POST",

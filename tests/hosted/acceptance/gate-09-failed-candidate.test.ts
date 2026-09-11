@@ -94,7 +94,7 @@ async function records(): Promise<string[]> {
  * that says a check failed — which is the state a broken candidate produces
  * and which no fixture can otherwise create on demand.
  */
-function runtimeWithFailingProbe(real: HostedRuntime): HostedRuntime {
+async function runtimeWithFailingProbe(real: HostedRuntime): Promise<HostedRuntime> {
   return {
     id: real.id,
     label: real.label,
@@ -147,9 +147,9 @@ beforeAll(async () => {
   await write("Written under release 2", r2.releaseId);
 }, 300_000);
 
-afterAll(() => {
-  m.release.resetReleaseDeps();
-  closeHosted(m);
+afterAll(async () => {
+  await m.release.resetReleaseDeps();
+  await closeHosted(m);
   removeDir(DATA);
 });
 
@@ -157,8 +157,8 @@ describe("Gate 9 — a failed candidate, and rollback that is not restore", () =
   it("set the scene: two releases, records under each, release 2 serving", async () => {
     expect(r2.digest, "the two releases are different builds").not.toBe(r1.digest);
     const a = m.authority.authority();
-    expect(a.repos.apps.get(app.id)?.activeReleaseId).toBe(r2.releaseId);
-    expect(a.repos.apps.get(app.id)?.activeFence).toBe(2);
+    expect((await a.repos.apps.get(app.id))?.activeReleaseId).toBe(r2.releaseId);
+    expect((await a.repos.apps.get(app.id))?.activeFence).toBe(2);
     expect((await records()).length).toBe(2);
 
     const page = call({ host: HOST, path: "/", cookie, accept: "text/html" });
@@ -168,10 +168,9 @@ describe("Gate 9 — a failed candidate, and rollback that is not restore", () =
   });
 
   it("refuses to activate a candidate whose probe failed, and keeps serving release 2", async () => {
-    const before = m.authority.authority().repos.apps.get(app.id)!;
-    const restore = m.release.setReleaseDepsForTests({
-      runtime: () => runtimeWithFailingProbe(m.runtime.selectedHostedRuntime()),
-    });
+    const before = ((await m.authority.authority().repos.apps.get(app.id))!);
+    const failing = await runtimeWithFailingProbe(await m.runtime.selectedHostedRuntime());
+    const restore = m.release.setReleaseDepsForTests({ runtime: () => failing });
     let job;
     try {
       job = await publish(m, {
@@ -191,13 +190,13 @@ describe("Gate 9 — a failed candidate, and rollback that is not restore", () =
     // The candidate exists, is marked failed, and is not the active release.
     const candidateId = String(job.phaseData.releaseId);
     const a = m.authority.authority();
-    const candidate = a.repos.releases.get(candidateId);
+    const candidate = await a.repos.releases.get(candidateId);
     expect(candidate?.number, "the candidate took the next number").toBe(3);
     expect(candidate?.status).toBe("failed");
     expect(candidate?.probe?.ok, "the probe result is recorded on the release").toBe(false);
     expect(candidate?.activatedAt, "it was never activated").toBeFalsy();
 
-    const after = a.repos.apps.get(app.id)!;
+    const after = ((await a.repos.apps.get(app.id))!);
     expect(after.activeReleaseId, "the pointer did not move").toBe(before.activeReleaseId);
     expect(after.activeFence, "and neither did the fence").toBe(before.activeFence);
 
@@ -209,23 +208,20 @@ describe("Gate 9 — a failed candidate, and rollback that is not restore", () =
   }, 300_000);
 
   it("will not roll back to the release that failed its probe", async () => {
-    const candidate = m.authority
-      .authority()
-      .repos.releases.listByApp(app.id)
-      .find((release) => release.status === "failed");
+    const candidate = (await m.authority.authority().repos.releases.listByApp(app.id)).find(
+      (release) => release.status === "failed"
+    );
     expect(candidate, "there is a failed release to try").toBeTruthy();
 
     // `admitRollback` refuses synchronously, at admission, so the operator is
     // told before a job exists rather than by a job that fails later.
-    expect(() =>
-      m.release.admitRollback({
+    await expect(m.release.admitRollback({
         jobId: uuid(),
         appId: app.id,
         workspaceId: app.workspaceId,
         actor: OWNER.subject,
         releaseId: candidate?.id as string,
-      })
-    ).toThrowError(/only a release that passed its health probe/);
+      })).rejects.toThrowError(/only a release that passed its health probe/);
   });
 
   it("writes more records under release 2, so the rollback has something to lose", async () => {
@@ -237,7 +233,7 @@ describe("Gate 9 — a failed candidate, and rollback that is not restore", () =
   it("rolls back to release 1 and keeps every record, whichever release wrote it", async () => {
     const before = await records();
 
-    const admitted = m.release.admitRollback({
+    const admitted = await m.release.admitRollback({
       jobId: uuid(),
       appId: app.id,
       workspaceId: app.workspaceId,
@@ -248,11 +244,11 @@ describe("Gate 9 — a failed candidate, and rollback that is not restore", () =
     expect(job.status, `rollback: ${job.error ?? ""}`).toBe("succeeded");
 
     const a = m.authority.authority();
-    expect(a.repos.apps.get(app.id)?.activeReleaseId, "the app is back on release 1").toBe(r1.releaseId);
-    expect(a.repos.apps.get(app.id)?.activeFence, "a rollback is an activation, so the fence moves").toBe(3);
-    expect(a.repos.releases.get(r1.releaseId)?.status).toBe("active");
+    expect((await a.repos.apps.get(app.id))?.activeReleaseId, "the app is back on release 1").toBe(r1.releaseId);
+    expect((await a.repos.apps.get(app.id))?.activeFence, "a rollback is an activation, so the fence moves").toBe(3);
+    expect((await a.repos.releases.get(r1.releaseId))?.status).toBe("active");
     expect(
-      a.repos.releases.get(r2.releaseId)?.status,
+      (await a.repos.releases.get(r2.releaseId))?.status,
       "the release stepped off is rolled_back, not superseded"
     ).toBe("rolled_back");
 
@@ -287,7 +283,7 @@ describe("Gate 9 — a failed candidate, and rollback that is not restore", () =
   });
 
   it("can roll forward again, because release 2 is still a legitimate target", async () => {
-    const admitted = m.release.admitRollback({
+    const admitted = await m.release.admitRollback({
       jobId: uuid(),
       appId: app.id,
       workspaceId: app.workspaceId,
@@ -296,7 +292,7 @@ describe("Gate 9 — a failed candidate, and rollback that is not restore", () =
     });
     const job = await m.release.runJobOnce(admitted.job.id);
     expect(job.status, `roll forward: ${job.error ?? ""}`).toBe("succeeded");
-    expect(m.authority.authority().repos.apps.get(app.id)?.activeReleaseId).toBe(r2.releaseId);
+    expect((await m.authority.authority().repos.apps.get(app.id))?.activeReleaseId).toBe(r2.releaseId);
     expect((await records()).length, "still four records").toBe(4);
   }, 120_000);
 });

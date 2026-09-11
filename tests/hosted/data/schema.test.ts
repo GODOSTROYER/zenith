@@ -20,7 +20,7 @@ const {
   trackerSql,
 } = await import("@/lib/hosted/data");
 
-afterAll(() => {
+afterAll(async () => {
   closeAllAppData();
   removeDir(DATA_DIR);
 });
@@ -79,7 +79,7 @@ describe("tracker migrations", () => {
     await expect(store.schemaVersion(APP_A)).resolves.toBe(1);
   });
 
-  it("is idempotent: re-applying changes neither the version nor the data", () => {
+  it("is idempotent: re-applying changes neither the version nor the data", async () => {
     const { backend } = openAppData(APP_A);
     backend.run(trackerSql.INSERT_REQUEST_WITHIN_QUOTA, insertParams({ id: "keep-me" }));
     const before = backend.get<{ total: number }>(trackerSql.COUNT_REQUESTS)?.total;
@@ -92,7 +92,7 @@ describe("tracker migrations", () => {
     expect(backend.get<{ value: string }>(trackerSql.SELECT_META, [SCHEMA_VERSION_KEY])?.value).toBe("1");
   });
 
-  it("opens with the hosted durability pragmas", () => {
+  it("opens with the hosted durability pragmas", async () => {
     const { backend } = openAppData(APP_A);
     const pragmas = backend.pragmas();
     expect(pragmas.journalMode).toBe("wal");
@@ -119,7 +119,7 @@ describe("CHECK constraints (second line of defence behind zod)", () => {
   ];
 
   for (const { name, overrides } of cases) {
-    it(`rejects ${name} at the database, even when validation is bypassed`, () => {
+    it(`rejects ${name} at the database, even when validation is bypassed`, async () => {
       const { backend } = openAppData(APP_A);
       expect(() => backend.run(trackerSql.INSERT_REQUEST_WITHIN_QUOTA, insertParams(overrides))).toThrow(
         /CHECK constraint failed/i
@@ -127,7 +127,7 @@ describe("CHECK constraints (second line of defence behind zod)", () => {
     });
   }
 
-  it("accepts a null needed_by and every valid enum value", () => {
+  it("accepts a null needed_by and every valid enum value", async () => {
     const { backend } = openAppData(APP_A);
     for (const category of ["laptop", "monitor", "peripheral", "software", "furniture", "other"]) {
       const result = backend.run(
@@ -148,7 +148,7 @@ describe("CHECK constraints (second line of defence behind zod)", () => {
     }
   });
 
-  it("refuses a second storage row, so the counter cannot fork", () => {
+  it("refuses a second storage row, so the counter cannot fork", async () => {
     const { backend } = openAppData(APP_A);
     expect(() => backend.run("INSERT INTO storage (id, logical_bytes) VALUES (2, 0)")).toThrow(
       /CHECK constraint failed/i

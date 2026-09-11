@@ -18,8 +18,10 @@ export const dynamic = "force-dynamic";
 export const GET = hostedRoute<{ appId: string }>(
   { workspaceRole: "viewer" },
   async (_req, { appId }, { actor }): Promise<AppSummaryWire> => {
-    const app = requireOwnedApp(appId, requireWorkspace().id);
-    const summary = appSummary(app.id);
-    return isAppOwner(app.id, actor) ? { ...summary, ...ownerOnlyBlock(app.id) } : summary;
+    const app = await requireOwnedApp(appId, requireWorkspace().id);
+    const summary = await appSummary(app.id);
+    return (await isAppOwner(app.id, actor))
+      ? { ...summary, ...(await ownerOnlyBlock(app.id)) }
+      : summary;
   }
 );

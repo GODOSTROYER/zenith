@@ -82,6 +82,18 @@ export interface JobsRepo {
   cancel(id: string, reason?: string, now?: string): boolean;
   /** Put every running job whose lease has passed back on the queue. Returns how many moved. */
   reclaimExpired(now?: string): number;
+  /**
+   * The queue, oldest first: just the id and the app of each job waiting to be
+   * claimed. What the release runner ticks over, and the reason nothing outside
+   * this directory needs the raw connection.
+   */
+  queued(limit?: number): QueuedJob[];
+}
+
+/** One waiting job, as the runner reads the queue. */
+export interface QueuedJob {
+  id: string;
+  appId: string;
 }
 
 const COLUMNS =
@@ -253,6 +265,14 @@ export function createJobsRepo(db: DatabaseSync): JobsRepo {
           "WHERE status = 'running' AND lease_until IS NOT NULL AND lease_until <= ?"
       ).run(now, now);
       return changeCount(changed);
+    },
+
+    queued(limit = 50) {
+      return sql(
+        "SELECT id, app_id FROM hosted_jobs WHERE status = 'queued' ORDER BY created_at, id LIMIT ?"
+      )
+        .all(Math.max(1, Math.trunc(limit)))
+        .map((row) => ({ id: readText(row, "id"), appId: readText(row, "app_id") }));
     },
   };
 }

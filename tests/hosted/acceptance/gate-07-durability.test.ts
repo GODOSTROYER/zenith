@@ -75,8 +75,8 @@ beforeAll(async () => {
   cookie = await signIn(m, app, OWNER.subject);
 }, 300_000);
 
-afterAll(() => {
-  closeHosted(m);
+afterAll(async () => {
+  await closeHosted(m);
   removeDir(DATA);
 });
 
@@ -95,8 +95,8 @@ async function createWith(writeId: string, title: string): Promise<Response> {
 }
 
 /** Read the app's own database directly, without going through the store. */
-function readAppDb<T>(read: (db: DatabaseSync) => T): T {
-  const db = new DatabaseSync(m.data.appDataPath(app.id, "data"), { readOnly: true });
+async function readAppDb<T>(read: (db: DatabaseSync) => T): Promise<T> {
+  const db = new DatabaseSync(await m.data.appDataPath(app.id, "data"), { readOnly: true });
   try {
     return read(db);
   } finally {
@@ -117,28 +117,28 @@ describe("Gate 7 — acknowledged work survives a reopen", () => {
     }
 
     // Grants two ways: a direct grant and an accepted invitation.
-    m.access.grantDirect(app.id, { subject: EDITOR.subject, email: EDITOR.email, role: "editor" }, OWNER.subject);
-    const issued = m.access.createInvite(app.id, { email: RECIPIENT.email, role: "viewer" }, OWNER.subject);
-    m.access.acceptInvite(
+    await m.access.grantDirect(app.id, { subject: EDITOR.subject, email: EDITOR.email, role: "editor" }, OWNER.subject);
+    const issued = await m.access.createInvite(app.id, { email: RECIPIENT.email, role: "viewer" }, OWNER.subject);
+    await m.access.acceptInvite(
       new URL(issued.acceptUrl).searchParams.get("token") as string,
       verifiedIdentity(RECIPIENT)
     );
     // And one that is revoked, so the *absence* has to survive too.
-    const doomed = m.access.grantDirect(
+    const doomed = await m.access.grantDirect(
       app.id,
       { subject: OUTSIDER.subject, email: OUTSIDER.email, role: "editor" },
       OWNER.subject
     );
-    m.access.revokeGrant(doomed.id, OWNER.subject, "left the pilot", { appId: app.id });
+    await m.access.revokeGrant(doomed.id, OWNER.subject, "left the pilot", { appId: app.id });
 
-    expect(m.access.listGrants(app.id).length, "four grants, one of them revoked").toBe(4);
-    expect(readAppDb((db) => Number(db.prepare("SELECT COUNT(*) AS n FROM equipment_requests").get()?.n))).toBe(
+    expect((await m.access.listGrants(app.id)).length, "four grants, one of them revoked").toBe(4);
+    expect(await readAppDb((db) => Number(db.prepare("SELECT COUNT(*) AS n FROM equipment_requests").get()?.n))).toBe(
       2
     );
   });
 
   it("answers a retried write with the record it already made, and makes no second one", async () => {
-    const before = readAppDb((db) => Number(db.prepare("SELECT COUNT(*) AS n FROM equipment_requests").get()?.n));
+    const before = await readAppDb((db) => Number(db.prepare("SELECT COUNT(*) AS n FROM equipment_requests").get()?.n));
     const res = await createWith(WRITE_IDS.first, "Standing desk");
     expect(res.status, "a replay answers as the original did").toBe(201);
     expect(res.headers.get("x-zenith-replayed"), "and says it was a replay").toBe("true");
@@ -146,7 +146,7 @@ describe("Gate 7 — acknowledged work survives a reopen", () => {
     expect(record.id, "the same record, not a new one").toBe(created[WRITE_IDS.first]);
     expect(record.version).toBe(1);
     expect(
-      readAppDb((db) => Number(db.prepare("SELECT COUNT(*) AS n FROM equipment_requests").get()?.n)),
+      await readAppDb((db) => Number(db.prepare("SELECT COUNT(*) AS n FROM equipment_requests").get()?.n)),
       "the row count after the retry"
     ).toBe(before);
   });
@@ -156,12 +156,12 @@ describe("Gate 7 — acknowledged work survives a reopen", () => {
   it("finds every app, grant, release, record and counter after closing and reopening", async () => {
     const a = m.authority.authority();
     const before = {
-      apps: a.repos.apps.listByWorkspace(WORKSPACES.one.id).map((one) => one.id).sort(),
-      grants: m.access.listGrants(app.id).map((g) => `${g.id}:${g.role}:${g.state}`).sort(),
-      releases: a.repos.releases.listByApp(app.id).map((r) => `${r.id}:${r.status}`).sort(),
-      quota: a.repos.quotas.get(app.id, m.authority.utcDay()).requests,
-      events: a.repos.events.listSince({ appId: app.id }, { limit: 500 }).length,
-      records: readAppDb((db) =>
+      apps: (await a.repos.apps.listByWorkspace(WORKSPACES.one.id)).map((one) => one.id).sort(),
+      grants: (await m.access.listGrants(app.id)).map((g) => `${g.id}:${g.role}:${g.state}`).sort(),
+      releases: (await a.repos.releases.listByApp(app.id)).map((r) => `${r.id}:${r.status}`).sort(),
+      quota: (await a.repos.quotas.get(app.id, m.authority.utcDay())).requests,
+      events: (await a.repos.events.listSince({ appId: app.id }, { limit: 500 })).length,
+      records: await readAppDb((db) =>
         db
           .prepare("SELECT id, title, version FROM equipment_requests ORDER BY id")
           .all()
@@ -180,27 +180,27 @@ describe("Gate 7 — acknowledged work survives a reopen", () => {
     expect(reopened.path, "the same control database").toContain("control.sqlite");
 
     expect(
-      reopened.repos.apps.listByWorkspace(WORKSPACES.one.id).map((one) => one.id).sort(),
+      (await reopened.repos.apps.listByWorkspace(WORKSPACES.one.id)).map((one) => one.id).sort(),
       "apps after the reopen"
     ).toEqual(before.apps);
     expect(
-      m.access.listGrants(app.id).map((g) => `${g.id}:${g.role}:${g.state}`).sort(),
+      (await m.access.listGrants(app.id)).map((g) => `${g.id}:${g.role}:${g.state}`).sort(),
       "grants after the reopen, revocation included"
     ).toEqual(before.grants);
     expect(
-      reopened.repos.releases.listByApp(app.id).map((r) => `${r.id}:${r.status}`).sort(),
+      (await reopened.repos.releases.listByApp(app.id)).map((r) => `${r.id}:${r.status}`).sort(),
       "releases after the reopen"
     ).toEqual(before.releases);
     expect(
-      reopened.repos.quotas.get(app.id, m.authority.utcDay()).requests,
+      (await reopened.repos.quotas.get(app.id, m.authority.utcDay())).requests,
       "the day's counter after the reopen"
     ).toBe(before.quota);
     expect(
-      reopened.repos.events.listSince({ appId: app.id }, { limit: 500 }).length,
+      (await reopened.repos.events.listSince({ appId: app.id }, { limit: 500 })).length,
       "the event log after the reopen"
     ).toBe(before.events);
     expect(
-      readAppDb((db) =>
+      await readAppDb((db) =>
         db
           .prepare("SELECT id, title, version FROM equipment_requests ORDER BY id")
           .all()
@@ -213,7 +213,7 @@ describe("Gate 7 — acknowledged work survives a reopen", () => {
       "logical bytes after the reopen"
     ).toBe(before.storage);
     expect(
-      reopened.repos.apps.get(app.id)?.activeReleaseId,
+      (await reopened.repos.apps.get(app.id))?.activeReleaseId,
       "and the app still points at the release it was serving"
     ).toBe(releaseId);
   });
@@ -235,7 +235,7 @@ describe("Gate 7 — acknowledged work survives a reopen", () => {
     const id = ((await first.json()) as { record: { id: string } }).record.id;
     const count = () =>
       readAppDb((db) => Number(db.prepare("SELECT COUNT(*) AS n FROM equipment_requests").get()?.n));
-    const before = count();
+    const before = await count();
 
     // The process goes away before the retry arrives.
     m.data.closeAllAppData();
@@ -246,11 +246,11 @@ describe("Gate 7 — acknowledged work survives a reopen", () => {
     expect(retry.status, "the retry after the reopen").toBe(201);
     expect(retry.headers.get("x-zenith-replayed"), "and it is answered as a replay").toBe("true");
     expect(((await retry.json()) as { record: { id: string } }).record.id, "the same record").toBe(id);
-    expect(count(), "and there is still one row for that write id").toBe(before);
+    expect(await count(), "and there is still one row for that write id").toBe(before);
 
     // The ledger row is what makes that possible, and it is on disk.
     expect(
-      readAppDb((db) =>
+      await readAppDb((db) =>
         Number(db.prepare("SELECT COUNT(*) AS n FROM writes WHERE write_id = ?").get(WRITE_IDS.lostAck)?.n)
       ),
       "one write-ledger row for one write id"

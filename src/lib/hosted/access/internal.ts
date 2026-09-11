@@ -23,7 +23,7 @@ import {
   type HostedEventName,
   type Subject,
 } from "@/lib/hosted/contracts";
-import { authority, nowIso } from "@/lib/hosted/authority";
+import { nowIso, type Repos } from "@/lib/hosted/authority";
 import { hostedConfig } from "@/lib/hosted/config";
 import { sha256Hex } from "@/lib/hosted/digest";
 
@@ -94,9 +94,12 @@ export function requireEmail(raw: string): string {
  * Callers that are deciding admission must ask `activeGrant` **first**, so an
  * unknown app and an app the caller has no grant on answer alike. This is for
  * the paths that have already passed that check.
+ *
+ * Takes the repositories rather than reaching for `authority().repos`, so a
+ * call inside `tx()` reads on the transaction its caller already opened.
  */
-export function requireApp(appId: string): HostedApp {
-  const app = authority().repos.apps.get(appId);
+export async function requireApp(repos: Repos, appId: string): Promise<HostedApp> {
+  const app = await repos.apps.get(appId);
   if (!app || app.state === "deleted")
     throw new HostedError("not_found", "That app does not exist.", {
       fix: "Check the link, or pick the app from your workspace's app list.",
@@ -159,8 +162,8 @@ export interface AccessEvent {
  * Append one access event. Call inside the transaction that writes the state it
  * describes, so a rolled-back change cannot leave an event claiming it happened.
  */
-export function appendAccessEvent(input: AccessEvent): void {
-  authority().repos.events.append({
+export async function appendAccessEvent(repos: Repos, input: AccessEvent): Promise<void> {
+  await repos.events.append({
     id: uuid(),
     event: input.event,
     workspaceId: input.workspaceId,

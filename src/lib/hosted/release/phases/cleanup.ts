@@ -16,7 +16,9 @@ export async function cleanup(run: JobRun, data: PhaseData): Promise<void> {
   delete data.materializedDir;
   delete data.sourcePath;
   try {
-    await releaseDeps.runtime().cleanup(requireApp(run.job.appId), retainedReleases(run.job.appId));
+    await releaseDeps
+      .runtime()
+      .cleanup(await requireApp(run.job.appId), await retainedReleases(run.job.appId));
   } catch (err) {
     // A candidate left behind costs disk, not correctness. The release is
     // live; saying the publish failed now would be worse than a stray file.

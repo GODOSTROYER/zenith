@@ -16,7 +16,7 @@ const DATA_DIR = isolatedDataDir("zenith-data-store-");
 
 const { closeAllAppData, openAppData } = await import("@/lib/hosted/data");
 
-afterAll(() => {
+afterAll(async () => {
   closeAllAppData();
   removeDir(DATA_DIR);
 });

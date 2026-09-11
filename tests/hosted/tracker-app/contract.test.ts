@@ -43,12 +43,12 @@ const paths = files.map((file) => file.rel);
 const read = (rel: string): string => fs.readFileSync(path.join(root, rel), "utf8");
 
 describe("the fixture is a supported source package", () => {
-  it("declares the manifest the contract asks for", () => {
+  it("declares the manifest the contract asks for", async () => {
     const manifest = SourceManifest.parse(JSON.parse(read("zenith.app.json")));
     expect(manifest).toEqual({ contract: 1, name: "Equipment requests", schema: 1, entry: "index.html" });
   });
 
-  it("submits a package.json that is metadata only", () => {
+  it("submits a package.json that is metadata only", async () => {
     const raw: unknown = JSON.parse(read("package.json"));
     const parsed = SourcePackageJson.parse(raw);
     expect(parsed.type).toBe("module");
@@ -63,7 +63,7 @@ describe("the fixture is a supported source package", () => {
     }
   });
 
-  it("keeps only the root files and directories the contract allows", () => {
+  it("keeps only the root files and directories the contract allows", async () => {
     for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
       if (entry.isDirectory()) {
         expect(ALLOWED_ROOT_DIRS.has(entry.name), `unexpected root directory ${entry.name}`).toBe(true);
@@ -76,7 +76,7 @@ describe("the fixture is a supported source package", () => {
     expect(read("index.html")).toContain('src="/src/main.tsx"');
   });
 
-  it("uses only allowed extensions under src/ and public/", () => {
+  it("uses only allowed extensions under src/ and public/", async () => {
     for (const rel of paths) {
       const [top] = rel.split("/");
       if (!ALLOWED_ROOT_DIRS.has(top)) continue;
@@ -85,7 +85,7 @@ describe("the fixture is a supported source package", () => {
     }
   });
 
-  it("matches none of the rejected patterns", () => {
+  it("matches none of the rejected patterns", async () => {
     for (const rel of paths) {
       for (const pattern of REJECTED_PATTERNS) {
         expect(pattern.test(rel), `${rel} matches ${String(pattern)}`).toBe(false);
@@ -93,7 +93,7 @@ describe("the fixture is a supported source package", () => {
     }
   });
 
-  it("stays inside the source limits", () => {
+  it("stays inside the source limits", async () => {
     expect(files.length).toBeLessThanOrEqual(SOURCE_LIMITS.maxFiles);
     const total = files.reduce((sum, file) => sum + file.bytes, 0);
     expect(total).toBeLessThanOrEqual(SOURCE_LIMITS.maxTotalBytes);
@@ -108,13 +108,13 @@ describe("the fixture is a supported source package", () => {
     }
   });
 
-  it("carries no build configuration of its own", () => {
+  it("carries no build configuration of its own", async () => {
     for (const name of ["vite.config.ts", "vite.config.js", "tsconfig.json", "package-lock.json", ".env"]) {
       expect(fs.existsSync(path.join(root, name)), `${name} must not be submitted`).toBe(false);
     }
   });
 
-  it("is stored with LF line endings", () => {
+  it("is stored with LF line endings", async () => {
     const text = new Set([".ts", ".tsx", ".css", ".html", ".json", ".svg", ".md", ".txt"]);
     for (const rel of paths) {
       if (!text.has(path.extname(rel).toLowerCase())) continue;

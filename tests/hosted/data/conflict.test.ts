@@ -16,7 +16,7 @@ const { SqliteBackend, TrackerDataStore, closeAllAppData, openAppData, trackerSq
 
 const extraBackends: InstanceType<typeof SqliteBackend>[] = [];
 
-afterAll(() => {
+afterAll(async () => {
   for (const backend of extraBackends) backend.close();
   closeAllAppData();
   removeDir(DATA_DIR);

@@ -19,7 +19,7 @@
  *    after it is conditioned on. A worker that comes back from a long sleep
  *    finds its writes refused rather than trampling the worker that took over.
  */
-import { authority, authorityOpen, nowIso } from "@/lib/hosted/authority";
+import { authority, authorityOpen, nowIso, type QueuedJob } from "@/lib/hosted/authority";
 import { HostedError, type HostedJob } from "@/lib/hosted/contracts";
 import { log } from "@/lib/log";
 import { isServerless } from "@/lib/serverless";
@@ -67,7 +67,9 @@ export function startHostedJobRunner(): void {
     void tickJobs();
     return;
   }
-  gl.__zenithJobTicker = setInterval(tickJobs, JOB_TICK_MS);
+  gl.__zenithJobTicker = setInterval(() => {
+    void tickJobs();
+  }, JOB_TICK_MS);
   // Never hold the process open just to look for jobs (tests and scripts).
   (gl.__zenithJobTicker as { unref?: () => void }).unref?.();
 }
@@ -88,17 +90,18 @@ export const hostedJobRunnerRunning = (): boolean => g().__zenithJobTicker !== u
 /**
  * One pass: reclaim what died, then start whatever there is room for.
  *
- * Synchronous by signature and asynchronous underneath, exactly like the
- * engine's tick: a job that takes five minutes must not make the interval
- * wait for it, and a job that throws must not stop the next tick.
+ * The pass itself is awaited — reading the queue is a promise now — but the
+ * jobs it starts are not, exactly like the engine's tick: a job that takes five
+ * minutes must not make the interval wait for it, and a job that throws must
+ * not stop the next tick. The ticker drops the returned promise on purpose.
  */
-export function tickJobs(): void {
+export async function tickJobs(): Promise<void> {
   if (!authorityOpen()) return;
   const a = authority();
-  let queued: { id: string; appId: string }[];
+  let queued: QueuedJob[];
   try {
-    a.repos.jobs.reclaimExpired();
-    queued = queuedJobs();
+    await a.repos.jobs.reclaimExpired();
+    queued = await queuedJobs();
   } catch (err) {
     log.error("hosted job tick failed to read the queue", { scope: "hosted", error: err });
     return;
@@ -108,10 +111,10 @@ export function tickJobs(): void {
   const busy = inflight();
   for (const { id, appId } of queued) {
     if (busy.has(id)) continue;
-    if (!buildSlot(appId).ok) continue;
+    if (!(await buildSlot(appId)).ok) continue;
     let claimed: JobRun | null;
     try {
-      claimed = claimJob(id);
+      claimed = await claimJob(id);
     } catch (err) {
       // Single flight: another job for this app got there first. Not an error,
       // just a job that waits for the next tick.
@@ -125,11 +128,8 @@ export function tickJobs(): void {
 }
 
 /** Queued jobs, oldest first. */
-export function queuedJobs(limit = 50): { id: string; appId: string }[] {
-  const rows = authority()
-    .db.prepare("SELECT id, app_id FROM hosted_jobs WHERE status = 'queued' ORDER BY created_at, id LIMIT ?")
-    .all(limit);
-  return rows.map((row) => ({ id: String(row.id), appId: String(row.app_id) }));
+export function queuedJobs(limit = 50): Promise<QueuedJob[]> {
+  return authority().repos.jobs.queued(limit);
 }
 
 /**
@@ -140,12 +140,15 @@ export function queuedJobs(limit = 50): { id: string; appId: string }[] {
  * already has a running job — the single-flight index, surfaced by
  * `jobs.claim`.
  */
-export function claimJob(jobId: string, leaseMs: number = JOB_LEASE_MS): JobRun | null {
+export async function claimJob(
+  jobId: string,
+  leaseMs: number = JOB_LEASE_MS
+): Promise<JobRun | null> {
   const a = authority();
-  const job = a.repos.jobs.get(jobId);
+  const job = await a.repos.jobs.get(jobId);
   if (!job || job.status !== "queued") return null;
-  if (!buildSlot(job.appId).ok) return null;
-  const claimed = a.repos.jobs.claim(jobId, jobOwner(), leaseMs);
+  if (!(await buildSlot(job.appId)).ok) return null;
+  const claimed = await a.repos.jobs.claim(jobId, jobOwner(), leaseMs);
   return claimed ? runOf(claimed.job, claimed.fence) : null;
 }
 
@@ -165,7 +168,7 @@ export async function runClaimedJob(run: JobRun): Promise<void> {
     default:
       // `export` and `restore` belong to W8; a worker that does not know a
       // kind must not silently succeed at it.
-      authority().repos.jobs.fail(
+      await authority().repos.jobs.fail(
         run.job.id,
         run.fence,
         `This build has no runner for ${run.job.kind} jobs, so nothing was done.`
@@ -211,9 +214,9 @@ async function runClaimed(run: JobRun): Promise<void> {
  */
 export async function runJobOnce(jobId: string, opts: { leaseMs?: number } = {}): Promise<HostedJob> {
   const a = authority();
-  const run = claimJob(jobId, opts.leaseMs ?? JOB_LEASE_MS);
+  const run = await claimJob(jobId, opts.leaseMs ?? JOB_LEASE_MS);
   if (!run) {
-    const job = a.repos.jobs.get(jobId);
+    const job = await a.repos.jobs.get(jobId);
     if (!job)
       throw new HostedError("not_found", `No job ${jobId} exists.`, {
         fix: "Check the job id from the publish response.",
@@ -230,7 +233,7 @@ export async function runJobOnce(jobId: string, opts: { leaseMs?: number } = {})
   } finally {
     busy.delete(jobId);
   }
-  const finished = a.repos.jobs.get(jobId);
+  const finished = await a.repos.jobs.get(jobId);
   if (!finished)
     throw new HostedError("internal", `Job ${jobId} vanished while it was running.`, {
       fix: "This is a bug: a running job's row was deleted. Check the control database.",
@@ -239,8 +242,8 @@ export async function runJobOnce(jobId: string, opts: { leaseMs?: number } = {})
 }
 
 /** A job's bounded, redacted log lines, oldest first. */
-export function jobLogs(jobId: string): string[] {
-  const job = authority().repos.jobs.get(jobId);
+export async function jobLogs(jobId: string): Promise<string[]> {
+  const job = await authority().repos.jobs.get(jobId);
   if (!job) return [];
   return logsOf(job);
 }
@@ -249,5 +252,5 @@ export function jobLogs(jobId: string): string[] {
  * Put every job whose lease has passed back on the queue, and say how many
  * moved. `now` is for tests, which cannot wait a minute for a lease to expire.
  */
-export const reclaimExpiredJobs = (now: string = nowIso()): number =>
+export const reclaimExpiredJobs = (now: string = nowIso()): Promise<number> =>
   authority().repos.jobs.reclaimExpired(now);

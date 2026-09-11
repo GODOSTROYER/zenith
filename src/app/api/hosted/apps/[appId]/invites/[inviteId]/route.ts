@@ -15,6 +15,6 @@ export const dynamic = "force-dynamic";
 export const DELETE = hostedRoute<{ appId: string; inviteId: string }>(
   { appRole: "owner", verify: "live" },
   async (_req, { appId, inviteId }, { subject }): Promise<AppInviteWire> => ({
-    invite: revokeInvite(inviteId, subject, { appId }),
+    invite: await revokeInvite(inviteId, subject, { appId }),
   })
 );

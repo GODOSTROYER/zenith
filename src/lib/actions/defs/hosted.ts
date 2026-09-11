@@ -75,9 +75,12 @@ function refusal(err: unknown, title: string): ActionResult {
 }
 
 /** Whether this actor holds the app's owner grant, and the sentence to show when they do not. */
-function ownerCheck(appId: string, subject: Subject): { ok: boolean; reason?: string } {
+async function ownerCheck(
+  appId: string,
+  subject: Subject
+): Promise<{ ok: boolean; reason?: string }> {
   try {
-    releaseDeps.requireAppRole(appId, subject, "owner");
+    await releaseDeps.requireAppRole(appId, subject, "owner");
     return { ok: true };
   } catch (err) {
     if (err instanceof HostedError)
@@ -100,12 +103,12 @@ async function builderLine(): Promise<{ ok: boolean; line: string }> {
 }
 
 /** The app a hosted action names, scoped to the workspace the action runs in. */
-function appFor(ctx: ActionContext, appId: string) {
+async function appFor(ctx: ActionContext, appId: string) {
   if (!authorityOpen())
     throw new HostedError("policy_unavailable", "The hosted control authority is not open in this process.", {
       fix: "This is a boot problem, not an input problem: ensureHosted() runs on every server boot path.",
     });
-  const app = getApp(appId);
+  const app = await getApp(appId);
   if (!app || app.workspaceId !== ctx.workspaceId)
     throw new HostedError("not_found", `No hosted app ${appId} exists in this workspace.`, {
       fix: "Pick an app from the workspace's Apps list.",
@@ -134,10 +137,10 @@ defineAction<CreateApp>({
   requiredRole: "editor",
   mutates: true,
   input: CreateApp,
-  plan(_ctx, input) {
+  async plan(_ctx, input) {
     const runtime = hostedConfig().ZENITH_RUNTIME;
     const legal = isValidAppSlug(input.slug);
-    const taken = legal && authorityOpen() ? authority().repos.apps.getBySlug(input.slug) : null;
+    const taken = legal && authorityOpen() ? await authority().repos.apps.getBySlug(input.slug) : null;
     return {
       summary: `Create the hosted app “${input.name}” at ${appHostname(input.slug)}.`,
       details: [
@@ -196,12 +199,12 @@ defineAction<PublishApp>({
   mutates: true,
   input: PublishApp,
   async plan(ctx, input) {
-    const app = appFor(ctx, input.appId);
+    const app = await appFor(ctx, input.appId);
     const builder = await builderLine();
-    const owner = ownerCheck(app.id, subjectOf(ctx));
+    const owner = await ownerCheck(app.id, subjectOf(ctx));
     let paused: { paused: boolean; reason?: string };
     try {
-      paused = releaseDeps.buildsPaused(ctx.workspaceId);
+      paused = await releaseDeps.buildsPaused(ctx.workspaceId);
     } catch (err) {
       paused = { paused: true, reason: err instanceof Error ? err.message : String(err) };
     }
@@ -240,10 +243,10 @@ defineAction<PublishApp>({
   },
   async execute(ctx, input) {
     try {
-      const app = appFor(ctx, input.appId);
+      const app = await appFor(ctx, input.appId);
       // Workspace role is `runAction`'s to enforce; the app's owner grant is
       // this action's, and it is checked before anything is queued.
-      releaseDeps.requireAppRole(app.id, subjectOf(ctx), "owner");
+      await releaseDeps.requireAppRole(app.id, subjectOf(ctx), "owner");
       const { job, created } = await admitPublish({
         jobId: input.jobId,
         appId: app.id,
@@ -281,13 +284,13 @@ defineAction<RollbackApp>({
   requiredRole: "editor",
   mutates: true,
   input: RollbackApp,
-  plan(ctx, input) {
-    const app = appFor(ctx, input.appId);
-    const owner = ownerCheck(app.id, subjectOf(ctx));
+  async plan(ctx, input) {
+    const app = await appFor(ctx, input.appId);
+    const owner = await ownerCheck(app.id, subjectOf(ctx));
     let target: string | undefined;
     let blocked: string | undefined;
     try {
-      const release = assertRollbackTarget(app.id, input.releaseId, app.activeReleaseId);
+      const release = await assertRollbackTarget(app.id, input.releaseId, app.activeReleaseId);
       target = `release ${release.number}`;
     } catch (err) {
       blocked = err instanceof HostedError ? `${err.message} ${err.fix ?? ""}`.trim() : String(err);
@@ -306,11 +309,11 @@ defineAction<RollbackApp>({
       blocked: !owner.ok ? owner.reason : blocked,
     };
   },
-  execute(ctx, input) {
+  async execute(ctx, input) {
     try {
-      const app = appFor(ctx, input.appId);
-      releaseDeps.requireAppRole(app.id, subjectOf(ctx), "owner");
-      const { job, created } = admitRollback({
+      const app = await appFor(ctx, input.appId);
+      await releaseDeps.requireAppRole(app.id, subjectOf(ctx), "owner");
+      const { job, created } = await admitRollback({
         jobId: input.jobId,
         appId: app.id,
         workspaceId: ctx.workspaceId,
@@ -347,9 +350,9 @@ defineAction<AppState>({
   requiredRole: "admin",
   mutates: true,
   input: AppState,
-  plan(ctx, input) {
-    const app = appFor(ctx, input.appId);
-    const owner = ownerCheck(app.id, subjectOf(ctx));
+  async plan(ctx, input) {
+    const app = await appFor(ctx, input.appId);
+    const owner = await ownerCheck(app.id, subjectOf(ctx));
     return {
       summary: `Suspend “${app.name}” at ${appHostname(app.slug)}.`,
       details: [
@@ -368,11 +371,11 @@ defineAction<AppState>({
           : undefined,
     };
   },
-  execute(ctx, input) {
+  async execute(ctx, input) {
     try {
-      const app = appFor(ctx, input.appId);
-      releaseDeps.requireAppRole(app.id, subjectOf(ctx), "owner");
-      const { job, created } = admitSuspend({
+      const app = await appFor(ctx, input.appId);
+      await releaseDeps.requireAppRole(app.id, subjectOf(ctx), "owner");
+      const { job, created } = await admitSuspend({
         jobId: input.jobId,
         appId: app.id,
         workspaceId: ctx.workspaceId,
@@ -400,9 +403,9 @@ defineAction<AppState>({
   requiredRole: "admin",
   mutates: true,
   input: AppState,
-  plan(ctx, input) {
-    const app = appFor(ctx, input.appId);
-    const owner = ownerCheck(app.id, subjectOf(ctx));
+  async plan(ctx, input) {
+    const app = await appFor(ctx, input.appId);
+    const owner = await ownerCheck(app.id, subjectOf(ctx));
     return {
       summary: `Resume “${app.name}” at ${appHostname(app.slug)}.`,
       details: [
@@ -424,11 +427,11 @@ defineAction<AppState>({
             : undefined,
     };
   },
-  execute(ctx, input) {
+  async execute(ctx, input) {
     try {
-      const app = appFor(ctx, input.appId);
-      releaseDeps.requireAppRole(app.id, subjectOf(ctx), "owner");
-      const { job, created } = admitResume({
+      const app = await appFor(ctx, input.appId);
+      await releaseDeps.requireAppRole(app.id, subjectOf(ctx), "owner");
+      const { job, created } = await admitResume({
         jobId: input.jobId,
         appId: app.id,
         workspaceId: ctx.workspaceId,

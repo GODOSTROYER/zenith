@@ -24,7 +24,7 @@ import {
   type RevocationLedgerEntry,
   type Subject,
 } from "@/lib/hosted/contracts";
-import { authority } from "@/lib/hosted/authority";
+import { authority, type Repos } from "@/lib/hosted/authority";
 import { log } from "@/lib/log";
 import {
   accessDenied,
@@ -65,7 +65,7 @@ export interface RevokedGrant {
  * The caller's one live grant on this app, or null. The admission read: never
  * cached, because a grant revoked a second ago must stop the next request.
  */
-export function activeGrant(appId: string, subject: Subject): AppGrant | null {
+export async function activeGrant(appId: string, subject: Subject): Promise<AppGrant | null> {
   return authority().repos.grants.activeFor(appId, subject);
 }
 
@@ -75,14 +75,18 @@ export function activeGrant(appId: string, subject: Subject): AppGrant | null {
  * A stranger, a revoked grant, an unknown app and a role that is too junior all
  * get the identical message — see `accessDenied`.
  */
-export function requireAppRole(appId: string, subject: Subject, min: AppRole): AppGrant {
-  const grant = activeGrant(appId, subject);
+export async function requireAppRole(
+  appId: string,
+  subject: Subject,
+  min: AppRole
+): Promise<AppGrant> {
+  const grant = await activeGrant(appId, subject);
   if (!grant || !roleAtLeast(grant.role, min)) throw accessDenied(min);
   return grant;
 }
 
 /** Every grant on an app, newest first, revoked ones included — this is the history. */
-export function listGrants(appId: string): AppGrant[] {
+export async function listGrants(appId: string): Promise<AppGrant[]> {
   return authority().repos.grants.listByApp(appId);
 }
 
@@ -103,7 +107,11 @@ export interface DirectGrant {
  * the partial unique index would reject anyway — answered here as a `conflict`
  * that says what to do instead.
  */
-export function grantDirect(appId: string, input: DirectGrant, by: Subject): AppGrant {
+export async function grantDirect(
+  appId: string,
+  input: DirectGrant,
+  by: Subject
+): Promise<AppGrant> {
   const email = requireEmail(input.email);
   const subject = input.subject.trim();
   if (!subject)
@@ -112,9 +120,9 @@ export function grantDirect(appId: string, input: DirectGrant, by: Subject): App
     });
 
   const a = authority();
-  return a.tx(() => {
-    const app = requireApp(appId);
-    const existing = a.repos.grants.activeFor(appId, subject);
+  return a.tx(async (repos) => {
+    const app = await requireApp(repos, appId);
+    const existing = await repos.grants.activeFor(appId, subject);
     if (existing)
       throw new HostedError(
         "conflict",
@@ -124,15 +132,15 @@ export function grantDirect(appId: string, input: DirectGrant, by: Subject): App
           details: { grantId: existing.id, role: existing.role },
         }
       );
-    const byEmail = a.repos.grants
-      .listByApp(appId, { activeOnly: true })
-      .find((grant) => grant.email === email);
+    const byEmail = (await repos.grants.listByApp(appId, { activeOnly: true })).find(
+      (grant) => grant.email === email
+    );
     if (byEmail)
       throw new HostedError("conflict", `${email} already has access to ${app.name}.`, {
         fix: "Change that person's role instead, or revoke their access first.",
         details: { grantId: byEmail.id, role: byEmail.role },
       });
-    return a.repos.grants.insert({
+    return repos.grants.insert({
       id: uuid(),
       appId,
       subject,
@@ -150,28 +158,28 @@ export function grantDirect(appId: string, input: DirectGrant, by: Subject): App
  * transaction, so two owners demoting each other at the same instant cannot
  * both succeed.
  */
-export function changeGrantRole(
+export async function changeGrantRole(
   grantId: string,
   role: AppRole,
   by: Subject,
   scope: GrantScope = {}
-): AppGrant {
+): Promise<AppGrant> {
   const a = authority();
-  const grant = a.tx(() => {
-    const current = scopedGrant(grantId, scope);
+  const grant = await a.tx(async (repos) => {
+    const current = await scopedGrant(repos, grantId, scope);
     if (current.state !== "active")
       throw new HostedError("conflict", "That access is no longer active, so its role cannot change.", {
         fix: "Send a fresh invitation, or grant access again with the role you want.",
         details: { grantId, state: current.state },
       });
     if (current.role === role) return current;
-    refuseLastOwnerChange(current, role);
-    if (!a.repos.grants.setRole(grantId, role))
+    await refuseLastOwnerChange(repos, current, role);
+    if (!(await repos.grants.setRole(grantId, role)))
       throw new HostedError("conflict", "That access changed while this request was in flight.", {
         fix: "Reload the app's access panel and try again.",
         details: { grantId },
       });
-    return a.repos.grants.get(grantId) as AppGrant;
+    return (await repos.grants.get(grantId)) as AppGrant;
   });
   // No event name covers a role change (HOSTED_EVENTS has none), so the audit
   // line goes to the server log — with the actor as a hash, the same rule the
@@ -194,40 +202,40 @@ export function changeGrantRole(
  * from an older backup can re-apply it (G23). Its idempotency key includes the
  * ledger sequence, so a replay after a crash is one effect, not two.
  */
-export function revokeGrant(
+export async function revokeGrant(
   grantId: string,
   by: Subject,
   reason?: string,
   scope: GrantScope = {}
-): RevokedGrant {
+): Promise<RevokedGrant> {
   const why = (reason ?? "").trim() || "access removed by an owner";
   const a = authority();
-  return a.tx(() => {
-    const current = scopedGrant(grantId, scope);
+  return a.tx(async (repos) => {
+    const current = await scopedGrant(repos, grantId, scope);
     if (current.state === "revoked")
       throw new HostedError("conflict", "That access was already revoked.", {
         fix: "Nothing more to do — the person's sessions ended when it was revoked. Reload the access panel to see the current list.",
         details: { grantId, revokedAt: current.revokedAt },
       });
-    if (!scope.lastOwnerOk) refuseLastOwnerChange(current, null);
+    if (!scope.lastOwnerOk) await refuseLastOwnerChange(repos, current, null);
 
-    const app = requireApp(current.appId);
-    const grant = a.repos.grants.revoke(grantId, by, why);
+    const app = await requireApp(repos, current.appId);
+    const grant = await repos.grants.revoke(grantId, by, why);
     if (!grant || grant.state !== "revoked")
       throw new HostedError("conflict", "That access changed while this request was in flight.", {
         fix: "Reload the app's access panel and try again.",
         details: { grantId },
       });
 
-    const sessionsTerminated = a.repos.sessions.terminateByGrant(grantId, "revoked");
-    const revocation = a.repos.revocations.append({
+    const sessionsTerminated = await repos.sessions.terminateByGrant(grantId, "revoked");
+    const revocation = await repos.revocations.append({
       appId: grant.appId,
       grantId,
       subject: grant.subject,
       by,
       reason: why,
     });
-    a.repos.outbox.enqueue({
+    await repos.outbox.enqueue({
       id: uuid(),
       idempotencyKey: `revocation:${grantId}:${revocation.seq}`,
       kind: "revocation_ledger",
@@ -243,7 +251,7 @@ export function revokeGrant(
         reason: revocation.reason,
       },
     });
-    appendAccessEvent({
+    await appendAccessEvent(repos, {
       event: "grant.revoked",
       workspaceId: app.workspaceId,
       appId: app.id,
@@ -258,8 +266,8 @@ export function revokeGrant(
 /* -------------------------------- internals ------------------------------- */
 
 /** The grant, checked against the app the caller reached it through. */
-function scopedGrant(grantId: string, scope: GrantScope): AppGrant {
-  const grant = authority().repos.grants.get(grantId);
+async function scopedGrant(repos: Repos, grantId: string, scope: GrantScope): Promise<AppGrant> {
+  const grant = await repos.grants.get(grantId);
   // A grant on another app answers exactly as an unknown one: an owner of one
   // app must not be able to discover ids belonging to another.
   if (!grant || (scope.appId !== undefined && grant.appId !== scope.appId))
@@ -276,10 +284,14 @@ function scopedGrant(grantId: string, scope: GrantScope): AppGrant {
  *
  * Called inside the transaction that does the write, never before it.
  */
-function refuseLastOwnerChange(grant: AppGrant, nextRole: AppRole | null): void {
+async function refuseLastOwnerChange(
+  repos: Repos,
+  grant: AppGrant,
+  nextRole: AppRole | null
+): Promise<void> {
   if (grant.state !== "active" || grant.role !== "owner") return;
   if (nextRole === "owner") return;
-  if (authority().repos.grants.countActiveOwners(grant.appId) > 1) return;
+  if ((await repos.grants.countActiveOwners(grant.appId)) > 1) return;
   throw new HostedError(
     "conflict",
     nextRole === null

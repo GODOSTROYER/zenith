@@ -41,17 +41,17 @@ const { gatewayTelemetry, handleGateway, resetGatewayDeps, resetGatewayTelemetry
 
 const authority = openAuthority();
 const store = new FsArtifactStore(hostedConfig().artifactDir);
-const artifact = await store.put(writeBuiltTree(DATA_DIR), provenance("job-journey"));
-seedArtifactRow(authority, artifact.digest, artifact.byteSize, artifact.fileCount);
+const artifact = await store.put(await writeBuiltTree(DATA_DIR), provenance("job-journey"));
+await seedArtifactRow(authority, artifact.digest, artifact.byteSize, artifact.fileCount);
 
-const app = seedApp(authority, { slug: "alpha" });
-const release = seedActiveRelease(authority, app, artifact.digest);
-const ORIGIN = appOrigin("alpha");
+const app = await seedApp(authority, { slug: "alpha" });
+const release = await seedActiveRelease(authority, app, artifact.digest);
+const ORIGIN = await appOrigin("alpha");
 
 /** A real, live grant. */
 function grant(subject: string, email: string, role: "owner" | "editor" | "viewer") {
-  return authority.tx(() =>
-    authority.repos.grants.insert({
+  return authority.tx((repos) =>
+    repos.grants.insert({
       id: randomUUID(),
       appId: app.id,
       subject,
@@ -62,10 +62,10 @@ function grant(subject: string, email: string, role: "owner" | "editor" | "viewe
   );
 }
 
-const ownerGrant = grant(IDENTITIES.owner.subject, IDENTITIES.owner.email, "owner");
-grant(IDENTITIES.viewer.subject, IDENTITIES.viewer.email, "viewer");
+const ownerGrant = await grant(IDENTITIES.owner.subject, IDENTITIES.owner.email, "owner");
+await grant(IDENTITIES.viewer.subject, IDENTITIES.viewer.email, "viewer");
 // Revoked by one of the cases below, so it must be nobody else's grant.
-const editorGrant = grant(IDENTITIES.editor.subject, IDENTITIES.editor.email, "editor");
+const editorGrant = await grant(IDENTITIES.editor.subject, IDENTITIES.editor.email, "editor");
 
 /**
  * Walk the real launch: mint an exchange on the control side, follow the
@@ -73,12 +73,12 @@ const editorGrant = grant(IDENTITIES.editor.subject, IDENTITIES.editor.email, "e
  */
 async function signIn(subject: string): Promise<string> {
   const state = `state-${randomUUID()}`;
-  const { redirect } = createExchange(app.id, subject, state);
+  const { redirect } = await createExchange(app.id, subject, state);
   const url = new URL(redirect);
   expect(url.host).toBe("alpha.apps.localhost:3400");
   expect(url.pathname).toBe("/_zenith/auth/callback");
 
-  const { req, params } = call({ path: `${url.pathname}${url.search}`, accept: "text/html" });
+  const { req, params } = await call({ path: `${url.pathname}${url.search}`, accept: "text/html" });
   const res = await handleGateway(req, params);
   expect(res.status).toBe(303);
   expect(res.headers.get("location")).toBe("/");
@@ -91,14 +91,14 @@ async function signIn(subject: string): Promise<string> {
   return `__Host-zenith_app=${value}`;
 }
 
-beforeEach(() => {
-  resetGatewayDeps();
-  resetGatewayTelemetry();
+beforeEach(async () => {
+  await resetGatewayDeps();
+  await resetGatewayTelemetry();
 });
 
-afterAll(() => {
-  resetGatewayDeps();
-  closeAllAppData();
+afterAll(async () => {
+  await resetGatewayDeps();
+  await closeAllAppData();
   closeAuthority();
   removeDir(DATA_DIR);
 });
@@ -107,13 +107,13 @@ describe("the whole journey, against the real modules", () => {
   it("signs a recipient in, serves the app, and lets an owner write a record", async () => {
     const cookie = await signIn(IDENTITIES.owner.subject);
 
-    const page = call({ path: "/", cookie, accept: "text/html" });
+    const page = await call({ path: "/", cookie, accept: "text/html" });
     const served = await handleGateway(page.req, page.params);
     expect(served.status).toBe(200);
     expect(served.headers.get("x-zenith-release")).toBe(release.id);
     expect(await served.text()).toContain("<div id=\"root\"></div>");
 
-    const session = call({ path: "/_zenith/session", cookie, accept: "application/json" });
+    const session = await call({ path: "/_zenith/session", cookie, accept: "application/json" });
     const info = (await (await handleGateway(session.req, session.params)).json()) as SessionInfo;
     expect(info.subject).toBe(IDENTITIES.owner.subject);
     expect(info.role).toBe("owner");
@@ -121,7 +121,7 @@ describe("the whole journey, against the real modules", () => {
     expect(info.controlOrigin).toBe("http://localhost:3400");
 
     const writeId = randomUUID();
-    const create = call({
+    const create = await call({
       path: "/_zenith/data/v1/requests",
       method: "POST",
       cookie,
@@ -134,16 +134,16 @@ describe("the whole journey, against the real modules", () => {
     const record = ((await created.json()) as { record: { id: string; version: number } }).record;
     expect(record.version).toBe(1);
 
-    const read = call({ path: "/_zenith/data/v1/requests", cookie, accept: "application/json" });
+    const read = await call({ path: "/_zenith/data/v1/requests", cookie, accept: "application/json" });
     const list = (await (await handleGateway(read.req, read.params)).json()) as { items: { id: string }[] };
     expect(list.items.map((i) => i.id)).toContain(record.id);
   });
 
   it("refuses a viewer's write through the real role check, without calling the store", async () => {
     const cookie = await signIn(IDENTITIES.viewer.subject);
-    resetGatewayTelemetry();
+    await resetGatewayTelemetry();
 
-    const write = call({
+    const write = await call({
       path: "/_zenith/data/v1/requests",
       method: "POST",
       cookie,
@@ -157,21 +157,21 @@ describe("the whole journey, against the real modules", () => {
     expect(gatewayTelemetry.brokerInvoked).toBe(0);
 
     // The same viewer may still read.
-    const read = call({ path: "/_zenith/data/v1/requests", cookie, accept: "application/json" });
+    const read = await call({ path: "/_zenith/data/v1/requests", cookie, accept: "application/json" });
     expect((await handleGateway(read.req, read.params)).status).toBe(200);
   });
 
   it("stops honouring a cookie the moment its grant is revoked", async () => {
     const cookie = await signIn(IDENTITIES.editor.subject);
-    const before = call({ path: "/", cookie, accept: "application/json" });
+    const before = await call({ path: "/", cookie, accept: "application/json" });
     expect((await handleGateway(before.req, before.params)).status).toBe(200);
 
-    authority.tx(() =>
-      authority.repos.grants.revoke(editorGrant.id, IDENTITIES.owner.subject, "left the project")
+    await authority.tx((repos) =>
+      repos.grants.revoke(editorGrant.id, IDENTITIES.owner.subject, "left the project")
     );
-    resetGatewayTelemetry();
+    await resetGatewayTelemetry();
 
-    const after = call({ path: "/", cookie, accept: "application/json" });
+    const after = await call({ path: "/", cookie, accept: "application/json" });
     const res = await handleGateway(after.req, after.params);
     expect(res.status).toBe(401);
     expect((await errorBody(res)).code).toBe("sign_in_required");
@@ -182,7 +182,7 @@ describe("the whole journey, against the real modules", () => {
   it("ends a session on sign-out, and the cookie stops working immediately", async () => {
     const cookie = await signIn(IDENTITIES.owner.subject);
 
-    const out = call({
+    const out = await call({
       path: "/_zenith/auth/signout",
       method: "POST",
       cookie,
@@ -193,20 +193,20 @@ describe("the whole journey, against the real modules", () => {
     expect(res.status).toBe(303);
     expect(res.headers.get("set-cookie")).toContain("Max-Age=0");
 
-    const after = call({ path: "/", cookie, accept: "application/json" });
+    const after = await call({ path: "/", cookie, accept: "application/json" });
     expect((await handleGateway(after.req, after.params)).status).toBe(401);
   });
 
   it("counts every one of those requests against the app's real daily quota", async () => {
-    const before = authority.repos.quotas.get(app.id, utcDay()).requests;
-    const c = call({ path: "/", accept: "application/json" });
+    const before = (await authority.repos.quotas.get(app.id, utcDay())).requests;
+    const c = await call({ path: "/", accept: "application/json" });
     await handleGateway(c.req, c.params);
-    expect(authority.repos.quotas.get(app.id, utcDay()).requests).toBe(before + 1);
+    expect((await authority.repos.quotas.get(app.id, utcDay())).requests).toBe(before + 1);
   });
 
   it("records the opening and the write in the real events table", async () => {
     const cookie = await signIn(IDENTITIES.owner.subject);
-    const write = call({
+    const write = await call({
       path: "/_zenith/data/v1/requests",
       method: "POST",
       cookie,
@@ -216,12 +216,12 @@ describe("the whole journey, against the real modules", () => {
     });
     expect((await handleGateway(write.req, write.params)).status).toBe(201);
 
-    const events = authority.repos.events.listSince({ appId: app.id }).map((e) => e.event);
+    const events = (await authority.repos.events.listSince({ appId: app.id })).map((e) => e.event);
     expect(events).toContain("app.opened");
     expect(events).toContain("record.created");
   });
 
-  it("keeps the owner's grant usable throughout", () => {
-    expect(authority.repos.grants.activeFor(app.id, IDENTITIES.owner.subject)?.id).toBe(ownerGrant.id);
+  it("keeps the owner's grant usable throughout", async () => {
+    expect((await authority.repos.grants.activeFor(app.id, IDENTITIES.owner.subject))?.id).toBe(ownerGrant.id);
   });
 });

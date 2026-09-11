@@ -88,14 +88,14 @@ beforeAll(async () => {
   cookie = await signIn(m, app, OWNER.subject);
 }, 300_000);
 
-afterAll(() => {
+afterAll(async () => {
   for (const name of Object.keys(DECOYS)) delete process.env[name];
-  closeHosted(m);
+  await closeHosted(m);
   removeDir(DATA);
 });
 
 describe("Gate 5 — secrets, headers, CSRF and the limits that are not enforced here", () => {
-  it("carried none of the six decoy variables into the build output", () => {
+  it("carried none of the six decoy variables into the build output", async () => {
     const files = readStoredFiles(m.config.hostedConfig().artifactDir, digest);
     expect(files.length, "the artifact must actually have files to search").toBeGreaterThan(2);
 
@@ -110,7 +110,7 @@ describe("Gate 5 — secrets, headers, CSRF and the limits that are not enforced
     expect(hits, `expected no secret in the artifact, found: ${hits.join("; ")}`).toEqual([]);
   });
 
-  it("did not carry the variables' names either, so nothing can read them at runtime", () => {
+  it("did not carry the variables' names either, so nothing can read them at runtime", async () => {
     const files = readStoredFiles(m.config.hostedConfig().artifactDir, digest);
     const names = Object.keys(DECOYS);
     const hits = files.flatMap((file) => {
@@ -120,9 +120,9 @@ describe("Gate 5 — secrets, headers, CSRF and the limits that are not enforced
     expect(hits, `variable names found in the artifact: ${hits.join("; ")}`).toEqual([]);
   });
 
-  it("hands the build child no variable with a forbidden prefix", () => {
-    const child = m.build.buildChildEnv();
-    expect(m.build.secretEnvKeys(Object.keys(child)), "the child environment").toEqual([]);
+  it("hands the build child no variable with a forbidden prefix", async () => {
+    const child = await m.build.buildChildEnv();
+    expect(await m.build.secretEnvKeys(Object.keys(child)), "the child environment").toEqual([]);
     expect(Object.keys(child).sort(), "and it is only PATH and an emptied NODE_OPTIONS").toEqual([
       "NODE_OPTIONS",
       "PATH",
@@ -130,8 +130,8 @@ describe("Gate 5 — secrets, headers, CSRF and the limits that are not enforced
     expect(child.NODE_OPTIONS, "an inherited --require would be code injection").toBe("");
   });
 
-  it("records the boundary the build actually had, rather than implying one", () => {
-    const provenance = m.authority.authority().repos.artifacts.get(digest)?.provenance;
+  it("records the boundary the build actually had, rather than implying one", async () => {
+    const provenance = (await m.authority.authority().repos.artifacts.get(digest))?.provenance;
     expect(provenance?.builtBy).toBe("recipe-local");
     expect(provenance?.buildBoundary, "the runner names what it is not").toContain(
       "not a hostile-code sandbox"
@@ -192,7 +192,7 @@ describe("Gate 5 — secrets, headers, CSRF and the limits that are not enforced
     }
   });
 
-  it("states the content policy the contract names, including the one concession", () => {
+  it("states the content policy the contract names, including the one concession", async () => {
     const csp = m.gateway.GATEWAY_CSP;
     for (const directive of [
       "default-src 'self'",
@@ -248,7 +248,7 @@ describe("Gate 5 — secrets, headers, CSRF and the limits that are not enforced
     ];
 
     for (const attempt of attempts) {
-      m.gateway.resetGatewayTelemetry();
+      await m.gateway.resetGatewayTelemetry();
       const one = call({
         host: HOST,
         path: "/_zenith/data/v1/requests",
@@ -313,15 +313,15 @@ describe("Gate 5 — secrets, headers, CSRF and the limits that are not enforced
 
   /* -------------------------------- egress -------------------------------- */
 
-  it("says plainly which limits this runtime does not enforce", () => {
-    const local = m.quota.enforcementFor("local");
+  it("says plainly which limits this runtime does not enforce", async () => {
+    const local = await m.quota.enforcementFor("local");
     expect(local.requestCpuMs, "CPU milliseconds on the local runtime").toBe("not_enforced");
     expect(local.outboundSubrequests, "outbound subrequests on the local runtime").toBe("not_enforced");
     expect(m.quota.ENFORCEMENT_LABELS.not_enforced).toBe(
       "Not enforced by this runtime — shown because it applies on Cloudflare."
     );
     // The same ceilings are the provider's on Cloudflare, and reported as such.
-    expect(m.quota.enforcementFor("cloudflare").outboundSubrequests).toBe("provider");
+    expect((await m.quota.enforcementFor("cloudflare")).outboundSubrequests).toBe("provider");
 
     // What the local runtime does enforce, it enforces.
     expect(local.bodyBytes).toBe("enforced");
@@ -330,8 +330,8 @@ describe("Gate 5 — secrets, headers, CSRF and the limits that are not enforced
     expect(local.buildTimeoutMs).toBe("enforced");
   });
 
-  it("labels the local runtime as a single machine rather than a sandbox", () => {
-    const runtime = m.runtime.selectedHostedRuntime();
+  it("labels the local runtime as a single machine rather than a sandbox", async () => {
+    const runtime = await m.runtime.selectedHostedRuntime();
     expect(runtime.id).toBe("local");
     expect(runtime.label, "the label must not imply isolation it does not have").toContain(
       "single host"

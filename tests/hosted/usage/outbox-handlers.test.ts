@@ -25,9 +25,9 @@ const { registerOpsOutboxHandlers } = await import("@/lib/hosted/usage");
 const { OWNER, seedApp, seedGrant, seedSession } = await import("../backup/_ops-fixtures");
 
 const a = openAuthority();
-registerOpsOutboxHandlers();
+await registerOpsOutboxHandlers();
 
-afterAll(() => {
+afterAll(async () => {
   closeAuthority();
   removeDir(dataDir);
 });
@@ -35,19 +35,19 @@ afterAll(() => {
 const ledgerFile = (): string => path.join(ledgerDir, ...REVOCATION_LEDGER_KEY.split("/"));
 
 /** Revoke a grant the way W5 does: state change, ledger row and outbox entry in one transaction. */
-function revoke(appId: string, grantId: string, subject: string, reason: string): string {
+async function revoke(appId: string, grantId: string, subject: string, reason: string): Promise<string> {
   const outboxId = randomUUID();
-  a.tx(() => {
-    a.repos.grants.revoke(grantId, OWNER.subject, reason);
-    a.repos.sessions.terminateByGrant(grantId, "revoked");
-    const entry = a.repos.revocations.append({
+  await a.tx(async (repos) => {
+    await repos.grants.revoke(grantId, OWNER.subject, reason);
+    await repos.sessions.terminateByGrant(grantId, "revoked");
+    const entry = await repos.revocations.append({
       appId,
       grantId,
       subject,
       by: OWNER.subject,
       reason,
     });
-    a.repos.outbox.enqueue({
+    await repos.outbox.enqueue({
       id: outboxId,
       idempotencyKey: `revocation:${entry.seq}`,
       kind: "revocation_ledger",
@@ -59,13 +59,13 @@ function revoke(appId: string, grantId: string, subject: string, reason: string)
 
 describe("the revocation_ledger handler", () => {
   it("appends one JSON line per revocation to the target's ledger key", async () => {
-    const app = seedApp(a, { slug: "ledger-app" });
-    const first = seedGrant(a, app.id, { subject: "sub-1", email: "one@example.test" }, "editor");
-    const second = seedGrant(a, app.id, { subject: "sub-2", email: "two@example.test" }, "viewer");
-    seedSession(a, app.id, first.id, "sub-1");
+    const app = await seedApp(a, { slug: "ledger-app" });
+    const first = await seedGrant(a, app.id, { subject: "sub-1", email: "one@example.test" }, "editor");
+    const second = await seedGrant(a, app.id, { subject: "sub-2", email: "two@example.test" }, "viewer");
+    await seedSession(a, app.id, first.id, "sub-1");
 
-    revoke(app.id, first.id, "sub-1", "left the team");
-    revoke(app.id, second.id, "sub-2", "project finished");
+    await revoke(app.id, first.id, "sub-1", "left the team");
+    await revoke(app.id, second.id, "sub-2", "project finished");
 
     const drained = await flushOutbox({ kinds: ["revocation_ledger"] });
     expect(drained).toMatchObject({ done: 2, failed: 0 });
@@ -85,9 +85,9 @@ describe("the revocation_ledger handler", () => {
 
   it("appends without overwriting what is already there", async () => {
     const before = fs.readFileSync(ledgerFile(), "utf8");
-    const app = seedApp(a, { slug: "ledger-app-2" });
-    const grant = seedGrant(a, app.id, { subject: "sub-3", email: "three@example.test" }, "editor");
-    revoke(app.id, grant.id, "sub-3", "role ended");
+    const app = await seedApp(a, { slug: "ledger-app-2" });
+    const grant = await seedGrant(a, app.id, { subject: "sub-3", email: "three@example.test" }, "editor");
+    await revoke(app.id, grant.id, "sub-3", "role ended");
     await flushOutbox({ kinds: ["revocation_ledger"] });
 
     const after = fs.readFileSync(ledgerFile(), "utf8");
@@ -97,8 +97,8 @@ describe("the revocation_ledger handler", () => {
 
   it("refuses a payload that carries no sequence number, rather than writing a line a restore cannot order", async () => {
     const id = randomUUID();
-    a.tx(() =>
-      a.repos.outbox.enqueue({
+    await a.tx((repos) =>
+      repos.outbox.enqueue({
         id,
         idempotencyKey: `revocation:malformed:${id}`,
         kind: "revocation_ledger",
@@ -107,24 +107,24 @@ describe("the revocation_ledger handler", () => {
     );
     const drained = await flushOutbox({ kinds: ["revocation_ledger"] });
     expect(drained.failed).toBe(1);
-    expect(a.repos.outbox.get(id)?.error).toMatch(/seq/);
+    expect((await a.repos.outbox.get(id))?.error).toMatch(/seq/);
   });
 
   it("fails loudly, naming ZENITH_BACKUP_TARGET, when there is nowhere off-host to write", async () => {
-    const app = seedApp(a, { slug: "ledger-app-none" });
-    const grant = seedGrant(a, app.id, { subject: "sub-4", email: "four@example.test" }, "editor");
+    const app = await seedApp(a, { slug: "ledger-app-none" });
+    const grant = await seedGrant(a, app.id, { subject: "sub-4", email: "four@example.test" }, "editor");
     const previous = process.env.ZENITH_BACKUP_TARGET;
     process.env.ZENITH_BACKUP_TARGET = "none";
     try {
-      const outboxId = revoke(app.id, grant.id, "sub-4", "access removed");
+      const outboxId = await revoke(app.id, grant.id, "sub-4", "access removed");
       const drained = await flushOutbox({ kinds: ["revocation_ledger"] });
       expect(drained).toMatchObject({ done: 0, failed: 1 });
 
-      const row = a.repos.outbox.get(outboxId);
+      const row = await a.repos.outbox.get(outboxId);
       expect(row?.state).toBe("failed");
       expect(row?.error).toMatch(/no backup target/i);
       // The revocation itself still stuck: only the off-host copy is missing.
-      expect(a.repos.grants.get(grant.id)?.state).toBe("revoked");
+      expect((await a.repos.grants.get(grant.id))?.state).toBe("revoked");
     } finally {
       process.env.ZENITH_BACKUP_TARGET = previous;
     }
@@ -134,8 +134,8 @@ describe("the revocation_ledger handler", () => {
 describe("the spend_alert handler", () => {
   it("settles the entry, and is honest that a log line is all it does", async () => {
     const id = randomUUID();
-    a.tx(() =>
-      a.repos.outbox.enqueue({
+    await a.tx((repos) =>
+      repos.outbox.enqueue({
         id,
         idempotencyKey: `spend:ws-alert:2026-09:50`,
         kind: "spend_alert",
@@ -144,6 +144,6 @@ describe("the spend_alert handler", () => {
     );
     const drained = await flushOutbox({ kinds: ["spend_alert"] });
     expect(drained).toMatchObject({ done: 1, failed: 0 });
-    expect(a.repos.outbox.get(id)?.state).toBe("done");
+    expect((await a.repos.outbox.get(id))?.state).toBe("done");
   });
 });

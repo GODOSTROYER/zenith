@@ -35,7 +35,9 @@ import {
   authority,
   drainOutbox,
   registerOutboxHandler,
+  sqliteConnection,
   type Authority,
+  type Repos,
 } from "@/lib/hosted/authority";
 import { hostedConfig } from "@/lib/hosted/config";
 import { log } from "@/lib/log";
@@ -78,7 +80,7 @@ export interface AcceptedInvite {
 }
 
 /** Every invitation on an app, newest first. */
-export function listInvites(appId: string): AppInvite[] {
+export async function listInvites(appId: string): Promise<AppInvite[]> {
   return authority().repos.invites.listByApp(appId);
 }
 
@@ -104,7 +106,11 @@ export interface NewInviteInput {
  * access list, where a role change is the real intent), and supersedes any
  * outstanding invitation for the same address so only one link is ever live.
  */
-export function createInvite(appId: string, input: NewInviteInput, by: Subject): IssuedInvite {
+export async function createInvite(
+  appId: string,
+  input: NewInviteInput,
+  by: Subject
+): Promise<IssuedInvite> {
   return issueInvite(appId, input, by, {});
 }
 
@@ -114,8 +120,12 @@ export function createInvite(appId: string, input: NewInviteInput, by: Subject):
  * The old token stops working at the same instant the new one starts: both
  * happen in the transaction that writes the replacement.
  */
-export function resendInvite(inviteId: string, by: Subject, scope: InviteScope = {}): IssuedInvite {
-  const previous = scopedInvite(inviteId, scope);
+export async function resendInvite(
+  inviteId: string,
+  by: Subject,
+  scope: InviteScope = {}
+): Promise<IssuedInvite> {
+  const previous = await scopedInvite(authority().repos, inviteId, scope);
   if (previous.state !== "pending")
     throw new HostedError(
       "conflict",
@@ -137,11 +147,15 @@ export function resendInvite(inviteId: string, by: Subject, scope: InviteScope =
 }
 
 /** Withdraw an outstanding invitation. Its link stops working immediately. */
-export function revokeInvite(inviteId: string, by: Subject, scope: InviteScope = {}): AppInvite {
+export async function revokeInvite(
+  inviteId: string,
+  by: Subject,
+  scope: InviteScope = {}
+): Promise<AppInvite> {
   const a = authority();
-  const invite = a.tx(() => {
-    const current = scopedInvite(inviteId, scope);
-    if (!a.repos.invites.setState(inviteId, "revoked"))
+  const invite = await a.tx(async (repos) => {
+    const current = await scopedInvite(repos, inviteId, scope);
+    if (!(await repos.invites.setState(inviteId, "revoked")))
       throw new HostedError(
         "conflict",
         `That invitation is ${current.state}, so it cannot be withdrawn.`,
@@ -153,7 +167,7 @@ export function revokeInvite(inviteId: string, by: Subject, scope: InviteScope =
           details: { inviteId, state: current.state },
         }
       );
-    return a.repos.invites.get(inviteId) as AppInvite;
+    return (await repos.invites.get(inviteId)) as AppInvite;
   });
   log.info("hosted app invitation revoked", {
     scope: "hosted.access",
@@ -176,14 +190,17 @@ const WRONG_ADDRESS = "This invitation was sent to a different address.";
  * never from a claim read out of a cookie: a terminated session that still
  * carries a valid-looking JWT must not be able to accept anything.
  */
-export function acceptInvite(token: string, identity: VerifiedIdentity): AcceptedInvite {
+export async function acceptInvite(
+  token: string,
+  identity: VerifiedIdentity
+): Promise<AcceptedInvite> {
   const tokenHash = sha256Hex(token ?? "");
   const email = normalizeEmail(identity.email ?? "");
   const a = authority();
 
-  return a.tx(() => {
+  return a.tx(async (repos) => {
     const at = nowIso();
-    const invite = a.repos.invites.getByTokenHash(tokenHash);
+    const invite = await repos.invites.getByTokenHash(tokenHash);
     // Unknown, revoked, superseded, already accepted and expired are one
     // answer: any difference between them is an oracle over tokens.
     if (!invite || invite.state !== "pending" || invite.expiresAt <= at) throw unusableInvite();
@@ -194,16 +211,16 @@ export function acceptInvite(token: string, identity: VerifiedIdentity): Accepte
         fix: "Sign in as the person the invitation names, with that address confirmed, then open the link again.",
       });
 
-    const app = requireApp(invite.appId);
-    if (!a.repos.invites.accept(invite.id, identity.subject, at)) throw unusableInvite();
+    const app = await requireApp(repos, invite.appId);
+    if (!(await repos.invites.accept(invite.id, identity.subject, at))) throw unusableInvite();
 
     // A revoked grant is history, not a seat to reoccupy: acceptance always
     // produces a *new* active row, which is what the partial unique index
     // allows and what keeps the revocation visible.
-    const existing = a.repos.grants.activeFor(invite.appId, identity.subject);
+    const existing = await repos.grants.activeFor(invite.appId, identity.subject);
     const grant =
       existing ??
-      a.repos.grants.insert({
+      (await repos.grants.insert({
         id: uuid(),
         appId: invite.appId,
         subject: identity.subject,
@@ -211,9 +228,9 @@ export function acceptInvite(token: string, identity: VerifiedIdentity): Accepte
         role: invite.role,
         grantedBy: invite.createdBy,
         createdAt: at,
-      });
+      }));
 
-    appendAccessEvent({
+    await appendAccessEvent(repos, {
       event: "invite.accepted",
       workspaceId: app.workspaceId,
       appId: app.id,
@@ -270,7 +287,7 @@ async function deliverInviteEmail(entry: HostedOutboxEntry): Promise<void> {
   const deliveryId = stringField(entry, "deliveryId");
   const a = authority();
 
-  const claim = a.tx((db) => claimDelivery(db, deliveryId));
+  const claim = await a.tx(async () => claimDelivery(a, deliveryId));
   if (claim.kind === "sent") return;
   if (claim.kind === "missing")
     throw new Error(
@@ -281,11 +298,11 @@ async function deliverInviteEmail(entry: HostedOutboxEntry): Promise<void> {
       `Invitation delivery ${deliveryId} is held by another sender, so this attempt did not send anything.`
     );
 
-  const invite = a.repos.invites.get(inviteId);
+  const invite = await a.repos.invites.get(inviteId);
   if (!invite || invite.state !== "pending") {
     // Not a failure of the transport: the invitation stopped being outstanding
     // before its email went out (revoked, resent, or already accepted).
-    settleFailed(
+    await settleFailed(
       a,
       deliveryId,
       invite
@@ -296,7 +313,7 @@ async function deliverInviteEmail(entry: HostedOutboxEntry): Promise<void> {
   }
 
   if (!claim.sealedPayload) {
-    settleFailed(
+    await settleFailed(
       a,
       deliveryId,
       "The sealed invitation payload is gone, so the email cannot be rebuilt. Resend the invitation to mint a new link."
@@ -309,7 +326,7 @@ async function deliverInviteEmail(entry: HostedOutboxEntry): Promise<void> {
     payload = unsealInvite(inviteId, claim.sealedPayload);
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);
-    settleFailed(a, deliveryId, reason);
+    await settleFailed(a, deliveryId, reason);
     throw err;
   }
 
@@ -318,14 +335,14 @@ async function deliverInviteEmail(entry: HostedOutboxEntry): Promise<void> {
     providerMessageId = await sendInviteEmail(payload);
   } catch (err) {
     const reason = (err instanceof Error ? err.message : String(err)).slice(0, 2000);
-    settleFailed(a, deliveryId, reason);
+    await settleFailed(a, deliveryId, reason);
     throw err;
   }
 
-  a.tx(() => {
-    a.repos.deliveries.settle(deliveryId, "sent", { transport: "smtp", providerMessageId });
+  await a.tx(async (repos) => {
+    await repos.deliveries.settle(deliveryId, "sent", { transport: "smtp", providerMessageId });
     // The only remaining copy of the token in this database goes now.
-    a.repos.deliveries.clearSealedPayload(deliveryId);
+    await repos.deliveries.clearSealedPayload(deliveryId);
   });
 }
 
@@ -336,12 +353,12 @@ interface IssueOptions {
 }
 
 /** The one path that mints an invitation, used by both create and resend. */
-function issueInvite(
+async function issueInvite(
   appId: string,
   input: NewInviteInput,
   by: Subject,
   opts: IssueOptions
-): IssuedInvite {
+): Promise<IssuedInvite> {
   const email = requireEmail(input.email);
   const inviteId = uuid();
   const deliveryId = uuid();
@@ -353,12 +370,12 @@ function issueInvite(
   const problem = inviteEmailProblem();
   const a = authority();
 
-  const issued = a.tx((db) => {
-    const app = requireApp(appId);
+  const issued = await a.tx(async (repos) => {
+    const app = await requireApp(repos, appId);
 
-    const held = a.repos.grants
-      .listByApp(appId, { activeOnly: true })
-      .find((grant) => grant.email === email);
+    const held = (await repos.grants.listByApp(appId, { activeOnly: true })).find(
+      (grant) => grant.email === email
+    );
     if (held)
       throw new HostedError("conflict", `${email} already has access to ${app.name}.`, {
         fix: `Change their role or revoke their access from the app's access list; an invitation would give them a second seat they do not need.`,
@@ -366,10 +383,10 @@ function issueInvite(
       });
 
     // Only one link per address is ever live.
-    for (const outstanding of a.repos.invites.listByApp(appId, { state: "pending" }))
-      if (outstanding.email === email) a.repos.invites.supersede(outstanding.id);
+    for (const outstanding of await repos.invites.listByApp(appId, { state: "pending" }))
+      if (outstanding.email === email) await repos.invites.supersede(outstanding.id);
 
-    const invite = a.repos.invites.insert({
+    const invite = await repos.invites.insert({
       id: inviteId,
       appId,
       email,
@@ -383,7 +400,7 @@ function issueInvite(
     const sealed = problem
       ? null
       : sealInvite(inviteId, { token, email, appName: app.name, acceptUrl });
-    const queued = a.repos.deliveries.insert({
+    const queued = await repos.deliveries.insert({
       id: deliveryId,
       inviteId,
       sealedPayload: sealed,
@@ -393,10 +410,10 @@ function issueInvite(
     if (problem) {
       // Nothing to attempt, so the row is settled here rather than queued for
       // an effect this install cannot perform. The owner still has the link.
-      markUndeliverable(db, deliveryId, problem);
-      delivery = a.repos.deliveries.get(deliveryId) ?? queued;
+      markUndeliverable(a, deliveryId, problem);
+      delivery = (await repos.deliveries.get(deliveryId)) ?? queued;
     } else {
-      a.repos.outbox.enqueue({
+      await repos.outbox.enqueue({
         id: uuid(),
         idempotencyKey: `invite:${inviteId}:${deliveryId}`,
         kind: INVITE_EMAIL_KIND,
@@ -404,7 +421,7 @@ function issueInvite(
       });
     }
 
-    appendAccessEvent({
+    await appendAccessEvent(repos, {
       event: "invite.sent",
       workspaceId: app.workspaceId,
       appId: app.id,
@@ -419,8 +436,12 @@ function issueInvite(
 }
 
 /** The invitation, checked against the app the caller reached it through. */
-function scopedInvite(inviteId: string, scope: InviteScope): AppInvite {
-  const invite = authority().repos.invites.get(inviteId);
+async function scopedInvite(
+  repos: Repos,
+  inviteId: string,
+  scope: InviteScope
+): Promise<AppInvite> {
+  const invite = await repos.invites.get(inviteId);
   if (!invite || (scope.appId !== undefined && invite.appId !== scope.appId))
     throw new HostedError("not_found", "That invitation does not exist on this app.", {
       fix: "Reload the app's access panel — the list you are looking at may be out of date.",
@@ -456,8 +477,14 @@ type DeliveryClaim =
  * handler is invoked once per outbox row and must own exactly the row that row
  * names. A `failed` row is claimable again — that is what makes the outbox's
  * retries reach the transport — while a `sent` row never is.
+ *
+ * TODO(postgres): `deliveries` has no targeted claim — `claimPending` takes the
+ * whole queue — so this still runs against the SQLite connection the open
+ * transaction is holding. It needs a `deliveries.claim(id, leaseMs)` before a
+ * second authority implementation can send an invitation.
  */
-function claimDelivery(db: DatabaseSync, deliveryId: string): DeliveryClaim {
+function claimDelivery(a: Authority, deliveryId: string): DeliveryClaim {
+  const db: DatabaseSync = sqliteConnection(a);
   const at = nowIso();
   const staleBefore = nowIso(Date.parse(at) - OUTBOX_LEASE_MS);
   const rows = db
@@ -480,8 +507,8 @@ function claimDelivery(db: DatabaseSync, deliveryId: string): DeliveryClaim {
 }
 
 /** Settle a claimed row `failed`, with the reason on the row. Its own transaction. */
-function settleFailed(a: Authority, deliveryId: string, error: string): void {
-  a.tx(() => a.repos.deliveries.settle(deliveryId, "failed", { error: error.slice(0, 2000) }));
+async function settleFailed(a: Authority, deliveryId: string, error: string): Promise<void> {
+  await a.tx((repos) => repos.deliveries.settle(deliveryId, "failed", { error: error.slice(0, 2000) }));
 }
 
 /**
@@ -495,8 +522,13 @@ function settleFailed(a: Authority, deliveryId: string, error: string): void {
  * Until the migration requested of the integrator lands, the column is left
  * NULL on a settled row, which says the same thing: no transport was used. The
  * reason, naming the variable to set, is always on the row either way.
+ *
+ * TODO(postgres): same as `claimDelivery` — until `deliveries` can settle a
+ * `pending` row, this writes on the SQLite connection the open transaction is
+ * holding.
  */
-function markUndeliverable(db: DatabaseSync, deliveryId: string, reason: string): void {
+function markUndeliverable(a: Authority, deliveryId: string, reason: string): void {
+  const db: DatabaseSync = sqliteConnection(a);
   db.prepare(
     "UPDATE invite_deliveries SET state = 'failed', settled_at = ?, claimed_at = NULL, " +
       "transport = ?, error = ? WHERE id = ? AND state = 'pending'"

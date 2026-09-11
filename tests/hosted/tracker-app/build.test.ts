@@ -61,13 +61,13 @@ describe("the tracker fixture builds with the pinned recipe", () => {
     indexHtml = fs.readFileSync(path.join(outDir, "index.html"), "utf8");
   }, 180_000);
 
-  afterAll(() => {
+  afterAll(async () => {
     if (priorNodeEnv === undefined) delete env.NODE_ENV;
     else env.NODE_ENV = priorNodeEnv;
     if (outDir) fs.rmSync(outDir, { recursive: true, force: true });
   });
 
-  it("emits an entry document and hashed assets", () => {
+  it("emits an entry document and hashed assets", async () => {
     const names = emitted.map((file) => file.rel);
     expect(names).toContain("index.html");
     expect(names).toContain("favicon.svg");
@@ -82,11 +82,11 @@ describe("the tracker fixture builds with the pinned recipe", () => {
     }
   });
 
-  it("ships no source maps", () => {
+  it("ships no source maps", async () => {
     expect(emitted.filter((file) => file.rel.endsWith(".map"))).toEqual([]);
   });
 
-  it("puts no inline script in the entry document", () => {
+  it("puts no inline script in the entry document", async () => {
     const scripts = indexHtml.match(/<script\b[^>]*>/g) ?? [];
     expect(scripts.length).toBeGreaterThan(0);
     for (const tag of scripts) {
@@ -96,12 +96,12 @@ describe("the tracker fixture builds with the pinned recipe", () => {
     expect(indexHtml).not.toMatch(/\son[a-z]+=/i);
   });
 
-  it("asks for nothing from another origin", () => {
+  it("asks for nothing from another origin", async () => {
     const external = indexHtml.match(/(?:src|href)="https?:\/\/[^"]+"/g) ?? [];
     expect(external).toEqual([]);
   });
 
-  it("stays under 400 KB in total", () => {
+  it("stays under 400 KB in total", async () => {
     const total = emitted.reduce((sum, file) => sum + file.bytes, 0);
     expect(total, `emitted ${total} bytes`).toBeLessThan(400 * 1024);
   });

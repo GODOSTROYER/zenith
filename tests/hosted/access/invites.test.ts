@@ -18,7 +18,7 @@ const dataDir = isolatedDataDir("zenith-access-invites-");
 process.env.ZENITH_SECRET_KEY = "1".repeat(64);
 delete process.env.ZENITH_SMTP_URL;
 
-const { closeAuthority, openAuthority } = await import("@/lib/hosted/authority");
+const { closeAuthority, openAuthority, sqliteConnection } = await import("@/lib/hosted/authority");
 const { HostedError, INVITE_TTL_MS } = await import("@/lib/hosted/contracts");
 const { acceptInvite, createInvite, listInvites, resendInvite, revokeInvite, revokeGrant } =
   await import("@/lib/hosted/access");
@@ -26,18 +26,18 @@ const { IDENTITIES, seedApp, seedGrant, sha256Hex, uuid, verified } = await impo
 
 const a = openAuthority();
 
-afterAll(() => {
+afterAll(async () => {
   closeAuthority();
   removeDir(dataDir);
 });
 
-afterEach(() => {
+afterEach(async () => {
   vi.useRealTimers();
 });
 
-const refusal = (fn: () => unknown): { code: string; message: string; fix?: string } => {
+const refusal = async (fn: () => unknown): Promise<{ code: string; message: string; fix?: string }> => {
   try {
-    fn();
+    await fn();
   } catch (err) {
     if (err instanceof HostedError) return { code: err.code, message: err.message, fix: err.fix };
     throw err;
@@ -49,16 +49,16 @@ const refusal = (fn: () => unknown): { code: string; message: string; fix?: stri
 const tokenOf = (acceptUrl: string): string =>
   new URL(acceptUrl).searchParams.get("token") as string;
 
-const app = (slug: string) => {
-  const record = seedApp(a, { slug, name: `App ${slug}` });
-  seedGrant(a, record.id, IDENTITIES.owner, "owner");
+const app = async (slug: string) => {
+  const record = await seedApp(a, { slug, name: `App ${slug}` });
+  await seedGrant(a, record.id, IDENTITIES.owner, "owner");
   return record;
 };
 
 describe("creating an invitation", () => {
-  it("hands the link over once, stores only its hash, and expires it in 48 hours", () => {
-    const target = app("invite-create");
-    const issued = createInvite(
+  it("hands the link over once, stores only its hash, and expires it in 48 hours", async () => {
+    const target = await app("invite-create");
+    const issued = await createInvite(
       target.id,
       { email: "  Recipient@Example.Test ", role: "editor" },
       IDENTITIES.owner.subject
@@ -71,7 +71,7 @@ describe("creating an invitation", () => {
     expect(issued.acceptUrl).toContain("/apps/accept?token=");
 
     // The row holds the hash and nothing that can be turned back into a link.
-    const row = a.db.prepare("SELECT * FROM app_invites WHERE id = ?").get(issued.invite.id);
+    const row = sqliteConnection(a).prepare("SELECT * FROM app_invites WHERE id = ?").get(issued.invite.id);
     expect(JSON.stringify(row)).not.toContain(token);
 
     // The expiry is computed a hair before `created_at` is stamped, so the
@@ -81,40 +81,40 @@ describe("creating an invitation", () => {
     expect(ttl).toBeGreaterThan(INVITE_TTL_MS - 5_000);
   });
 
-  it("refuses an address that already holds access, and points at the access list", () => {
-    const target = app("invite-held");
-    seedGrant(a, target.id, IDENTITIES.viewer, "viewer");
-    const refused = refusal(() =>
+  it("refuses an address that already holds access, and points at the access list", async () => {
+    const target = await app("invite-held");
+    await seedGrant(a, target.id, IDENTITIES.viewer, "viewer");
+    const refused = await refusal(() =>
       createInvite(target.id, { email: IDENTITIES.viewer.email, role: "editor" }, IDENTITIES.owner.subject)
     );
     expect(refused.code).toBe("conflict");
     expect(refused.fix).toContain("access list");
   });
 
-  it("supersedes an outstanding invitation for the same address", () => {
-    const target = app("invite-supersede");
-    const first = createInvite(target.id, { email: "twice@example.test", role: "viewer" }, IDENTITIES.owner.subject);
-    const second = createInvite(target.id, { email: "twice@example.test", role: "viewer" }, IDENTITIES.owner.subject);
+  it("supersedes an outstanding invitation for the same address", async () => {
+    const target = await app("invite-supersede");
+    const first = await createInvite(target.id, { email: "twice@example.test", role: "viewer" }, IDENTITIES.owner.subject);
+    const second = await createInvite(target.id, { email: "twice@example.test", role: "viewer" }, IDENTITIES.owner.subject);
 
-    expect(a.repos.invites.get(first.invite.id)?.state).toBe("superseded");
-    expect(a.repos.invites.get(second.invite.id)?.state).toBe("pending");
-    expect(refusal(() => acceptInvite(tokenOf(first.acceptUrl), verified(IDENTITIES.stranger, { email: "twice@example.test" }))).code).toBe(
+    expect((await a.repos.invites.get(first.invite.id))?.state).toBe("superseded");
+    expect((await a.repos.invites.get(second.invite.id))?.state).toBe("pending");
+    expect((await refusal(() => acceptInvite(tokenOf(first.acceptUrl), verified(IDENTITIES.stranger, { email: "twice@example.test" })))).code).toBe(
       "conflict"
     );
-    expect(listInvites(target.id)).toHaveLength(2);
+    expect(await listInvites(target.id)).toHaveLength(2);
   });
 });
 
 describe("accepting an invitation", () => {
-  it("gives the verified recipient the role the invitation named", () => {
-    const target = app("accept-ok");
-    const issued = createInvite(
+  it("gives the verified recipient the role the invitation named", async () => {
+    const target = await app("accept-ok");
+    const issued = await createInvite(
       target.id,
       { email: IDENTITIES.stranger.email, role: "editor" },
       IDENTITIES.owner.subject
     );
 
-    const accepted = acceptInvite(tokenOf(issued.acceptUrl), verified(IDENTITIES.stranger));
+    const accepted = await acceptInvite(tokenOf(issued.acceptUrl), verified(IDENTITIES.stranger));
     expect(accepted.app.id).toBe(target.id);
     expect(accepted.grant).toMatchObject({
       appId: target.id,
@@ -123,30 +123,30 @@ describe("accepting an invitation", () => {
       state: "active",
       email: IDENTITIES.stranger.email,
     });
-    expect(a.repos.invites.get(issued.invite.id)).toMatchObject({
+    expect(await a.repos.invites.get(issued.invite.id)).toMatchObject({
       state: "accepted",
       acceptedBy: IDENTITIES.stranger.subject,
     });
-    expect(a.repos.events.count({ event: "invite.accepted", appId: target.id })).toBe(1);
+    expect(await a.repos.events.count({ event: "invite.accepted", appId: target.id })).toBe(1);
   });
 
-  it("refuses a different address and an unconfirmed one with the identical sentence", () => {
-    const target = app("accept-wrong-address");
-    const forViewer = createInvite(
+  it("refuses a different address and an unconfirmed one with the identical sentence", async () => {
+    const target = await app("accept-wrong-address");
+    const forViewer = await createInvite(
       target.id,
       { email: IDENTITIES.viewer.email, role: "viewer" },
       IDENTITIES.owner.subject
     );
-    const forEditor = createInvite(
+    const forEditor = await createInvite(
       target.id,
       { email: IDENTITIES.editor.email, role: "viewer" },
       IDENTITIES.owner.subject
     );
 
-    const wrongAddress = refusal(() =>
+    const wrongAddress = await refusal(() =>
       acceptInvite(tokenOf(forViewer.acceptUrl), verified(IDENTITIES.stranger))
     );
-    const unconfirmed = refusal(() =>
+    const unconfirmed = await refusal(() =>
       acceptInvite(tokenOf(forEditor.acceptUrl), verified(IDENTITIES.editor, { emailVerified: false }))
     );
 
@@ -154,30 +154,30 @@ describe("accepting an invitation", () => {
     expect(wrongAddress).toEqual(unconfirmed);
     // Nothing in the refusal says who the invitation was for.
     expect(JSON.stringify(wrongAddress)).not.toContain(IDENTITIES.viewer.email);
-    expect(a.repos.invites.get(forViewer.invite.id)?.state).toBe("pending");
-    expect(a.repos.grants.activeFor(target.id, IDENTITIES.stranger.subject)).toBeNull();
+    expect((await a.repos.invites.get(forViewer.invite.id))?.state).toBe("pending");
+    expect(await a.repos.grants.activeFor(target.id, IDENTITIES.stranger.subject)).toBeNull();
   });
 
-  it("refuses an unknown token exactly as it refuses a replayed one", () => {
-    const target = app("accept-replay");
-    const issued = createInvite(
+  it("refuses an unknown token exactly as it refuses a replayed one", async () => {
+    const target = await app("accept-replay");
+    const issued = await createInvite(
       target.id,
       { email: IDENTITIES.stranger.email, role: "viewer" },
       IDENTITIES.owner.subject
     );
     const token = tokenOf(issued.acceptUrl);
-    acceptInvite(token, verified(IDENTITIES.stranger));
+    await acceptInvite(token, verified(IDENTITIES.stranger));
 
-    const replay = refusal(() => acceptInvite(token, verified(IDENTITIES.stranger)));
-    const unknown = refusal(() => acceptInvite(`never-issued-${uuid()}`, verified(IDENTITIES.stranger)));
+    const replay = await refusal(() => acceptInvite(token, verified(IDENTITIES.stranger)));
+    const unknown = await refusal(() => acceptInvite(`never-issued-${uuid()}`, verified(IDENTITIES.stranger)));
     expect(replay.code).toBe("conflict");
     expect(replay).toEqual(unknown);
-    expect(a.repos.grants.listByApp(target.id, { activeOnly: true })).toHaveLength(2);
+    expect(await a.repos.grants.listByApp(target.id, { activeOnly: true })).toHaveLength(2);
   });
 
-  it("treats the expiry instant itself as expired", () => {
-    const target = app("accept-expiry");
-    const issued = createInvite(
+  it("treats the expiry instant itself as expired", async () => {
+    const target = await app("accept-expiry");
+    const issued = await createInvite(
       target.id,
       { email: IDENTITIES.stranger.email, role: "viewer" },
       IDENTITIES.owner.subject
@@ -188,73 +188,73 @@ describe("accepting an invitation", () => {
     // Only Date is faked: the transaction helper's own waits stay real.
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(deadline));
-    expect(refusal(() => acceptInvite(token, verified(IDENTITIES.stranger))).code).toBe("conflict");
-    expect(a.repos.invites.get(issued.invite.id)?.state).toBe("pending");
+    expect((await refusal(() => acceptInvite(token, verified(IDENTITIES.stranger)))).code).toBe("conflict");
+    expect((await a.repos.invites.get(issued.invite.id))?.state).toBe("pending");
 
     vi.setSystemTime(new Date(Date.parse(deadline) - 1));
-    expect(acceptInvite(token, verified(IDENTITIES.stranger)).grant.role).toBe("viewer");
+    expect((await acceptInvite(token, verified(IDENTITIES.stranger))).grant.role).toBe("viewer");
   });
 
-  it("issues a fresh grant when the person's previous one was revoked", () => {
-    const target = app("accept-after-revoke");
-    const old = seedGrant(a, target.id, IDENTITIES.stranger, "viewer");
-    revokeGrant(old.id, IDENTITIES.owner.subject, "left the project");
+  it("issues a fresh grant when the person's previous one was revoked", async () => {
+    const target = await app("accept-after-revoke");
+    const old = await seedGrant(a, target.id, IDENTITIES.stranger, "viewer");
+    await revokeGrant(old.id, IDENTITIES.owner.subject, "left the project");
 
-    const issued = createInvite(
+    const issued = await createInvite(
       target.id,
       { email: IDENTITIES.stranger.email, role: "editor" },
       IDENTITIES.owner.subject
     );
-    const grant = acceptInvite(tokenOf(issued.acceptUrl), verified(IDENTITIES.stranger)).grant;
+    const grant = (await acceptInvite(tokenOf(issued.acceptUrl), verified(IDENTITIES.stranger))).grant;
 
     expect(grant.id).not.toBe(old.id);
     expect(grant.state).toBe("active");
     expect(grant.role).toBe("editor");
     // The revoked row is still there: it is the evidence the person was removed.
-    expect(a.repos.grants.get(old.id)?.state).toBe("revoked");
+    expect((await a.repos.grants.get(old.id))?.state).toBe("revoked");
   });
 });
 
 describe("resending and revoking", () => {
-  it("kills the old link and makes a new one work", () => {
-    const target = app("invite-resend");
-    const first = createInvite(
+  it("kills the old link and makes a new one work", async () => {
+    const target = await app("invite-resend");
+    const first = await createInvite(
       target.id,
       { email: IDENTITIES.stranger.email, role: "viewer" },
       IDENTITIES.owner.subject
     );
-    const second = resendInvite(first.invite.id, IDENTITIES.owner.subject, { appId: target.id });
+    const second = await resendInvite(first.invite.id, IDENTITIES.owner.subject, { appId: target.id });
 
     expect(second.invite.supersedes).toBe(first.invite.id);
     expect(second.invite.role).toBe("viewer");
     expect(tokenOf(second.acceptUrl)).not.toBe(tokenOf(first.acceptUrl));
-    expect(a.repos.invites.get(first.invite.id)?.state).toBe("superseded");
+    expect((await a.repos.invites.get(first.invite.id))?.state).toBe("superseded");
 
-    expect(refusal(() => acceptInvite(tokenOf(first.acceptUrl), verified(IDENTITIES.stranger))).code).toBe(
+    expect((await refusal(() => acceptInvite(tokenOf(first.acceptUrl), verified(IDENTITIES.stranger)))).code).toBe(
       "conflict"
     );
-    expect(acceptInvite(tokenOf(second.acceptUrl), verified(IDENTITIES.stranger)).grant.role).toBe("viewer");
-    expect(refusal(() => resendInvite(second.invite.id, IDENTITIES.owner.subject)).code).toBe("conflict");
+    expect((await acceptInvite(tokenOf(second.acceptUrl), verified(IDENTITIES.stranger))).grant.role).toBe("viewer");
+    expect((await refusal(() => resendInvite(second.invite.id, IDENTITIES.owner.subject))).code).toBe("conflict");
   });
 
-  it("withdraws an outstanding invitation, and refuses one that belongs to another app", () => {
-    const mine = app("invite-revoke-mine");
-    const theirs = app("invite-revoke-theirs");
-    const issued = createInvite(
+  it("withdraws an outstanding invitation, and refuses one that belongs to another app", async () => {
+    const mine = await app("invite-revoke-mine");
+    const theirs = await app("invite-revoke-theirs");
+    const issued = await createInvite(
       mine.id,
       { email: IDENTITIES.stranger.email, role: "viewer" },
       IDENTITIES.owner.subject
     );
 
-    const foreign = refusal(() => revokeInvite(issued.invite.id, IDENTITIES.owner.subject, { appId: theirs.id }));
-    const missing = refusal(() => revokeInvite(uuid(), IDENTITIES.owner.subject, { appId: theirs.id }));
+    const foreign = await refusal(() => revokeInvite(issued.invite.id, IDENTITIES.owner.subject, { appId: theirs.id }));
+    const missing = await refusal(() => revokeInvite(uuid(), IDENTITIES.owner.subject, { appId: theirs.id }));
     expect(foreign.code).toBe("not_found");
     expect(foreign.message).toBe(missing.message);
 
-    expect(revokeInvite(issued.invite.id, IDENTITIES.owner.subject, { appId: mine.id }).state).toBe("revoked");
-    expect(refusal(() => acceptInvite(tokenOf(issued.acceptUrl), verified(IDENTITIES.stranger))).code).toBe(
+    expect((await revokeInvite(issued.invite.id, IDENTITIES.owner.subject, { appId: mine.id })).state).toBe("revoked");
+    expect((await refusal(() => acceptInvite(tokenOf(issued.acceptUrl), verified(IDENTITIES.stranger)))).code).toBe(
       "conflict"
     );
-    expect(refusal(() => revokeInvite(issued.invite.id, IDENTITIES.owner.subject)).code).toBe("conflict");
+    expect((await refusal(() => revokeInvite(issued.invite.id, IDENTITIES.owner.subject))).code).toBe("conflict");
   });
 });

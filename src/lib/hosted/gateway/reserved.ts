@@ -137,7 +137,7 @@ function signIn(req: NextRequest, app: HostedApp): Response {
  * message that goes in front of the recipient comes from the fixed table
  * above, never from the failure.
  */
-function authCallback(req: NextRequest, app: HostedApp): Response {
+async function authCallback(req: NextRequest, app: HostedApp): Promise<Response> {
   if (req.method !== "GET")
     return methodNotAllowed(["GET"], { wantsHtml: false, what: "The sign-in callback" });
   const url = new URL(req.url);
@@ -149,16 +149,16 @@ function authCallback(req: NextRequest, app: HostedApp): Response {
   if (!code || !state) return bounce("invalid_input");
   try {
     const deps = gatewayDeps();
-    const { cookieValue, session } = deps.redeemExchange(code, { appId: app.id, state });
+    const { cookieValue, session } = await deps.redeemExchange(code, { appId: app.id, state });
     return gatewaySeeOther("/", { setCookie: deps.appSessionCookie(cookieValue, session.expiresAt) });
   } catch (err) {
-    noteAccessDenied(app, err instanceof HostedError ? err.code : "internal");
+    await noteAccessDenied(app, err instanceof HostedError ? err.code : "internal");
     return bounce(err instanceof HostedError ? err.code : "internal");
   }
 }
 
 /** `POST /_zenith/auth/signout` — terminate the session, clear the cookie, show the door. */
-function signOut(req: NextRequest, host: string, cookieValue: string | null): Response {
+async function signOut(req: NextRequest, host: string, cookieValue: string | null): Promise<Response> {
   if (req.method !== "POST")
     return methodNotAllowed(["POST"], { wantsHtml: false, what: "Signing out" });
   // Sign-out changes state, so it needs the same origin proof a write does.
@@ -166,7 +166,7 @@ function signOut(req: NextRequest, host: string, cookieValue: string | null): Re
   assertSameOriginMutation(req, host, { requireJsonContentType: false });
   if (cookieValue) {
     try {
-      gatewayDeps().terminateAppSession(cookieValue, "signed_out");
+      await gatewayDeps().terminateAppSession(cookieValue, "signed_out");
     } catch {
       // The cookie is cleared either way: a session the authority cannot reach
       // must not stay in the browser looking valid.
@@ -292,10 +292,10 @@ export async function handleReserved(
       break;
   }
 
-  const { session, grant } = admitSession(ctx.app, ctx.cookieValue);
-  const { release, digest } = resolveActiveRelease(ctx.app);
+  const { session, grant } = await admitSession(ctx.app, ctx.cookieValue);
+  const { release, digest } = await resolveActiveRelease(ctx.app);
   const admitted: AdmittedRequest = { host: ctx.host, app: ctx.app, session, grant, release, digest };
-  noteAppOpened(ctx.app, session, release.id);
+  await noteAppOpened(ctx.app, session, release.id);
 
   switch (route.id) {
     case "session":

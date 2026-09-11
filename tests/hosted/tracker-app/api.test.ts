@@ -91,7 +91,7 @@ function stub(answers: (Response | (() => Response))[]): void {
   });
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   calls = [];
   minted = 0;
   resetApi();

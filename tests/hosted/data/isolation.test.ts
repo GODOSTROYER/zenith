@@ -19,7 +19,7 @@ const {
   trackerSql,
 } = await import("@/lib/hosted/data");
 
-afterAll(() => {
+afterAll(async () => {
   closeAllAppData();
   removeDir(DATA_DIR);
 });
@@ -81,7 +81,7 @@ describe("app isolation", () => {
     expect(beta.backend.get<{ total: number }>(trackerSql.SELECT_REQUESTS_LOGICAL_BYTES_SUM)?.total).toBe(betaBytes);
   });
 
-  it("hands back the same handle for the same app and file", () => {
+  it("hands back the same handle for the same app and file", async () => {
     const first = openAppData(APP_A);
     const second = openAppData(APP_A);
     expect(second.backend).toBe(first.backend);

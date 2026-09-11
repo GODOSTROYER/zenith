@@ -60,26 +60,26 @@ export interface WiringOptions extends Omit<RuntimeDoubleOptions, "store"> {
  * is the authority, the artifact store, the source validator and the release
  * pipeline itself — those are what the tests are about.
  */
-export function wire(h: Harness, opts: WiringOptions = {}) {
-  const runtime = runtimeDouble({ store: h.store, ...opts });
-  const build = opts.build ?? buildRunnerDouble();
-  const usage = usageDouble(opts.paused);
+export async function wire(h: Harness, opts: WiringOptions = {}) {
+  const runtime = await runtimeDouble({ store: h.store, ...opts });
+  const build = opts.build ?? await buildRunnerDouble();
+  const usage = await usageDouble(opts.paused);
   const real = h.release.releaseDeps.buildRunner;
-  const restore = h.release.setReleaseDepsForTests({
+  const restore = await h.release.setReleaseDepsForTests({
     runtime: () => runtime.runtime,
     buildRunner: opts.useRealBuildRunner ? real : () => build.runner,
     artifactStore: () => h.store,
     recordUsage: usage.recordUsage as never,
-    buildsPaused: usage.buildsPaused,
+    buildsPaused: async () => usage.buildsPaused(),
     appSchemaVersion: () => Promise.resolve(opts.schemaVersion ?? 1),
-    requireAppRole: (appId, subject) => {
+    requireAppRole: async (appId, subject) => {
       if (opts.owner && subject !== opts.owner)
         throw new h.contracts.HostedError("forbidden", `${subject} does not hold an owner grant on ${appId}.`, {
           fix: "Ask an owner of this app to give you the owner role, or have them publish.",
         });
       return grantFor(appId, subject);
     },
-    activeGrant: (appId, subject) =>
+    activeGrant: async (appId, subject) =>
       opts.owner && subject !== opts.owner ? null : grantFor(appId, subject),
   });
   return { runtime, build, usage, restore };

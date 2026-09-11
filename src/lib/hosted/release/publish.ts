@@ -90,10 +90,10 @@ export interface AdmitPublishInput {
 export async function admitPublish(
   input: AdmitPublishInput
 ): Promise<{ job: HostedJob; created: boolean }> {
-  const app = requireAppIn(input.appId, input.workspaceId);
+  const app = await requireAppIn(input.appId, input.workspaceId);
   assertPublishable(app);
 
-  const paused = releaseDeps.buildsPaused(input.workspaceId);
+  const paused = await releaseDeps.buildsPaused(input.workspaceId);
   if (paused.paused)
     throw new HostedError(
       "conflict",
@@ -112,7 +112,7 @@ export async function admitPublish(
     source: input.source,
   });
 
-  const admitted = admitJob({
+  const admitted = await admitJob({
     id: input.jobId,
     kind: "publish",
     workspaceId: input.workspaceId,
@@ -147,7 +147,7 @@ export async function admitPublish(
     // A job whose source was never written cannot run, and leaving it queued
     // would have a worker discover that minutes later. Cancel it here, where
     // the caller is still listening.
-    authority().repos.jobs.cancel(
+    await authority().repos.jobs.cancel(
       input.jobId,
       `The submitted source could not be stored: ${reasonOf(err)}`
     );
@@ -157,9 +157,9 @@ export async function admitPublish(
     });
   }
 
-  seedPhaseData(input.jobId, seed);
+  await seedPhaseData(input.jobId, seed);
 
-  emit({
+  await emit({
     event: "source.accepted",
     workspaceId: input.workspaceId,
     appId: input.appId,
@@ -169,7 +169,7 @@ export async function admitPublish(
     props: { source: input.source.kind },
   });
 
-  return { job: authority().repos.jobs.get(input.jobId) ?? admitted.job, created: true };
+  return { job: (await authority().repos.jobs.get(input.jobId)) ?? admitted.job, created: true };
 }
 
 /** An app that is not `active` refuses work rather than queueing it for later. */
@@ -202,21 +202,21 @@ export async function runPublish(run: JobRun): Promise<void> {
   let releaseId = typeof data.releaseId === "string" ? data.releaseId : undefined;
 
   try {
-    const app = requireApp(run.job.appId);
+    const app = await requireApp(run.job.appId);
     assertPublishable(app);
 
     for (const phase of resumeFrom(run.job, data)) {
-      advanceTo(run, phase, data);
+      await advanceTo(run, phase, data);
       // Only `stage` answers with anything: the id of the candidate release it
       // recorded, which the terminal write below reports.
       const produced = await PUBLISH_PHASE_HANDLERS[phase](run, data);
       if (typeof produced === "string") releaseId = produced;
-      persist(run, data);
+      await persist(run, data);
     }
 
     appendLog(data, `published release ${String(data.releaseNumber ?? "?")} (${String(releaseId)})`);
-    advanceTo(run, "finish", data);
-    a.repos.jobs.finish(run.job.id, run.fence, {
+    await advanceTo(run, "finish", data);
+    await a.repos.jobs.finish(run.job.id, run.fence, {
       releaseId,
       releaseNumber: data.releaseNumber,
       artifactDigest: data.artifactDigest,
@@ -228,11 +228,11 @@ export async function runPublish(run: JobRun): Promise<void> {
     // somebody else's release and stays exactly as it was.
     const candidateId = typeof data.releaseId === "string" ? data.releaseId : releaseId;
     if (candidateId) {
-      const release = a.repos.releases.get(candidateId);
+      const release = await a.repos.releases.get(candidateId);
       if (release && release.status !== "active")
-        a.repos.releases.setStatus(candidateId, "failed", { error: message });
+        await a.repos.releases.setStatus(candidateId, "failed", { error: message });
     }
-    failJob(run, data, message);
+    await failJob(run, data, message);
   }
 }
 

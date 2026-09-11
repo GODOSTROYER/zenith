@@ -5,6 +5,9 @@
  *
  * Nothing here mocks SQLite. Every helper writes through the real repositories
  * inside a real transaction against a real file.
+ *
+ * Every one of them returns a Promise, because every repository call does:
+ * `const app = await seedApp(a)`.
  */
 import { createHash, randomUUID } from "node:crypto";
 import { RECIPE_V1, type ArtifactProvenance } from "@/lib/hosted/contracts";
@@ -43,8 +46,8 @@ export function seedApp(
   opts: { slug?: string; workspaceId?: string; createdBy?: string } = {}
 ) {
   const slug = opts.slug ?? `app-${uuid().slice(0, 8)}`;
-  return a.tx(() =>
-    a.repos.apps.insert({
+  return a.tx((repos) =>
+    repos.apps.insert({
       id: uuid(),
       workspaceId: opts.workspaceId ?? "ws-one",
       slug,
@@ -62,8 +65,8 @@ export function seedGrant(
   subject: string,
   role: "owner" | "editor" | "viewer" = "owner"
 ) {
-  return a.tx(() =>
-    a.repos.grants.insert({
+  return a.tx((repos) =>
+    repos.grants.insert({
       id: uuid(),
       appId,
       subject,
@@ -75,10 +78,10 @@ export function seedGrant(
 }
 
 /** Insert an artifact row and answer with its digest. */
-export function seedArtifact(a: Authority, seed = uuid()): string {
+export async function seedArtifact(a: Authority, seed = uuid()): Promise<string> {
   const digest = digestOf(seed);
-  a.tx(() =>
-    a.repos.artifacts.insert({
+  await a.tx((repos) =>
+    repos.artifacts.insert({
       digest,
       byteSize: 1024,
       fileCount: 3,
@@ -89,13 +92,13 @@ export function seedArtifact(a: Authority, seed = uuid()): string {
 }
 
 /** Insert an artifact and a candidate release for an app, and answer with the release. */
-export function seedRelease(a: Authority, appId: string, jobId = uuid()) {
-  const digest = seedArtifact(a, `${appId}-${jobId}`);
-  return a.tx(() =>
-    a.repos.releases.insert({
+export async function seedRelease(a: Authority, appId: string, jobId = uuid()) {
+  const digest = await seedArtifact(a, `${appId}-${jobId}`);
+  return a.tx(async (repos) =>
+    repos.releases.insert({
       id: uuid(),
       appId,
-      number: a.repos.releases.nextNumber(appId),
+      number: await repos.releases.nextNumber(appId),
       artifactDigest: digest,
       jobId,
       runtime: "local",

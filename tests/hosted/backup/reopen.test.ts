@@ -27,11 +27,11 @@ const { EDITOR, OWNER, seedActiveRelease, seedApp, seedArtifact, seedGrant, seed
 );
 
 let a = openAuthority();
-const app = seedApp(a, { slug: "reopen-app", workspaceId: "ws-reopen" });
-seedGrant(a, app.id, OWNER, "owner");
-seedGrant(a, app.id, EDITOR, "editor");
+const app = await seedApp(a, { slug: "reopen-app", workspaceId: "ws-reopen" });
+await seedGrant(a, app.id, OWNER, "owner");
+await seedGrant(a, app.id, EDITOR, "editor");
 
-afterAll(() => {
+afterAll(async () => {
   closeAllAppData();
   closeAuthority();
   removeDir(dataDir);
@@ -39,9 +39,9 @@ afterAll(() => {
 });
 
 /** The thrown value as a HostedError, so a failure names what actually came out. */
-async function refusal(promise: Promise<unknown>): Promise<InstanceType<typeof HostedError>> {
+async function refusal(run: () => Promise<unknown>): Promise<InstanceType<typeof HostedError>> {
   try {
-    await promise;
+    await run();
   } catch (error) {
     if (error instanceof HostedError) return error;
     throw error;
@@ -58,7 +58,7 @@ describe("reopenApp after a restore", () => {
   it("restores an app with its artifact and leaves it recovering", async () => {
     const artifact = await seedArtifact(a, path.join(dataDir, "artifacts"), { marker: "reopen" });
     digest = artifact.digest;
-    seedActiveRelease(a, app.id, digest);
+    await seedActiveRelease(a, app.id, digest);
     for (let n = 0; n < 4; n++) await seedRecord(app.id, { title: `Record ${n}` });
 
     // Artifact bytes included: this drill is about a host that lost everything.
@@ -82,16 +82,16 @@ describe("reopenApp after a restore", () => {
     // From here on, this process *is* the restored install.
     process.env.ZENITH_DATA = restoredDir;
     a = openAuthority();
-    expect(a.repos.apps.get(app.id)?.state).toBe("recovering");
+    expect((await a.repos.apps.get(app.id))?.state).toBe("recovering");
   }, 60_000);
 
   it("refuses while grants are held, and says reopening does not re-approve anybody", async () => {
-    const error = await refusal(reopenApp(app.id, { operator: "ops@zenith.test" }));
+    const error = await refusal(() => reopenApp(app.id, { operator: "ops@zenith.test" }));
     expect(error.code).toBe("recovering");
     expect(error.message).toMatch(/2 grant\(s\) held for re-approval/);
     expect(error.fix).toMatch(/does not re-approve anybody/);
     expect((error.details?.heldGrants as unknown[]).length).toBe(2);
-    expect(a.repos.apps.get(app.id)?.state).toBe("recovering");
+    expect((await a.repos.apps.get(app.id))?.state).toBe("recovering");
   });
 
   it("reopens once an operator acknowledges the held grants and every check passes", async () => {
@@ -111,13 +111,13 @@ describe("reopenApp after a restore", () => {
     expect(result.checks.every((check) => check.ok)).toBe(true);
     // The restored data really is there.
     expect(result.checks.find((check) => check.id === "artifact_verified")?.detail).toMatch(/matches/);
-    expect(a.repos.events.listSince({ event: "app.resumed" }, { limit: 5 })).toHaveLength(1);
+    expect(await a.repos.events.listSince({ event: "app.resumed" }, { limit: 5 })).toHaveLength(1);
     // Held grants stay held: reopening is not re-approval.
-    expect(a.repos.grants.listByApp(app.id).every((grant) => grant.state === "needs_reapproval")).toBe(true);
+    expect((await a.repos.grants.listByApp(app.id)).every((grant) => grant.state === "needs_reapproval")).toBe(true);
   });
 
   it("refuses on a failed check, and no acknowledgement overrides it", async () => {
-    a.tx(() => a.repos.apps.update(app.id, { state: "recovering", stateReason: "drill" }));
+    await a.tx((repos) => repos.apps.update(app.id, { state: "recovering", stateReason: "drill" }));
     const original = fs.readFileSync(artifactFile(digest));
     // One byte, same length: the size check cannot catch this, so it is the
     // content hash that has to.
@@ -125,7 +125,7 @@ describe("reopenApp after a restore", () => {
     tampered[tampered.length - 2] = tampered[tampered.length - 2] === 0x3e ? 0x3d : 0x3e;
     fs.writeFileSync(artifactFile(digest), tampered);
     try {
-      const error = await refusal(
+      const error = await refusal(() =>
         reopenApp(app.id, { operator: "ops@zenith.test", acknowledgeReapproval: true })
       );
       expect(error.code).toBe("recovering");
@@ -135,21 +135,21 @@ describe("reopenApp after a restore", () => {
       expect(checks.find((check) => check.id === "artifact_verified")?.detail).toMatch(/has changed/);
       // Everything else still passed: the report names what is wrong, not "something".
       expect(checks.filter((check) => !check.ok)).toHaveLength(1);
-      expect(a.repos.apps.get(app.id)?.state).toBe("recovering");
+      expect((await a.repos.apps.get(app.id))?.state).toBe("recovering");
     } finally {
       fs.writeFileSync(artifactFile(digest), original);
     }
   });
 
   it("refuses an app that has no active release, because there is nothing to serve", async () => {
-    const orphan = seedApp(a, { slug: "no-release-app", workspaceId: "ws-reopen" });
-    const error = await refusal(reopenApp(orphan.id, { operator: "ops@zenith.test" }));
+    const orphan = await seedApp(a, { slug: "no-release-app", workspaceId: "ws-reopen" });
+    const error = await refusal(() => reopenApp(orphan.id, { operator: "ops@zenith.test" }));
     const checks = error.details?.checks as { id: string; ok: boolean; detail: string }[];
     expect(checks.find((check) => check.id === "active_release")?.detail).toMatch(/nothing for it to serve/);
   });
 
   it("refuses an app id that does not exist", async () => {
-    const error = await refusal(
+    const error = await refusal(() =>
       reopenApp("00000000-0000-4000-8000-000000000000", { operator: "ops@zenith.test" })
     );
     expect(error.code).toBe("not_found");

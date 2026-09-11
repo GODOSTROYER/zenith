@@ -138,16 +138,16 @@ export async function loadHosted(): Promise<HostedModules> {
 }
 
 /** Everything an acceptance file tears down, in the order the teardown needs. */
-export function closeHosted(m: HostedModules): void {
+export async function closeHosted(m: HostedModules): Promise<void> {
   try {
-    m.gateway.resetGatewayDeps();
-    m.release.resetReleaseDeps();
-    m.release.stopHostedJobRunner();
+    await m.gateway.resetGatewayDeps();
+    await m.release.resetReleaseDeps();
+    await m.release.stopHostedJobRunner();
   } catch {
     /* teardown is best effort; the data directory removal is what matters */
   }
   try {
-    m.data.closeAllAppData();
+    await m.data.closeAllAppData();
   } catch {
     /* as above */
   }
@@ -371,7 +371,7 @@ export async function signIn(
 ): Promise<string> {
   const port = opts.port ?? 3400;
   const state = opts.state ?? `state-${randomUUID()}`;
-  const { redirect } = m.access.createExchange(app.id, subject, state);
+  const { redirect } = await m.access.createExchange(app.id, subject, state);
   const url = new URL(redirect);
 
   const { req, params } = call({
@@ -421,7 +421,7 @@ export async function publishOrThrow(m: HostedModules, input: PublishInput): Pro
   if (job.status !== "succeeded")
     throw new Error(
       `publish ${job.id} ended ${job.status} in phase ${job.phase}: ${job.error ?? "no error recorded"}\n` +
-        m.release.jobLogs(job.id).slice(-12).join("\n")
+        (await m.release.jobLogs(job.id)).slice(-12).join("\n")
     );
   return job;
 }

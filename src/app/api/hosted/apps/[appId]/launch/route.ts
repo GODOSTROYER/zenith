@@ -23,12 +23,12 @@ const Launch = z.object({ state: z.string() }).strict();
 export const POST = hostedRoute<{ appId: string }>(async (req, { appId }) => {
   const identity = await verifiedIdentity(req);
   const { state } = await readJsonBody(req, Launch);
-  return createExchange(appId, identity.subject, state);
+  return await createExchange(appId, identity.subject, state);
 });
 
 export const GET = hostedRoute<{ appId: string }>(async (req, { appId }) => {
   const identity = await verifiedIdentity(req);
-  const { redirect } = createExchange(
+  const { redirect } = await createExchange(
     appId,
     identity.subject,
     req.nextUrl.searchParams.get("state") ?? ""

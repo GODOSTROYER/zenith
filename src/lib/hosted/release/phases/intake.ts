@@ -26,7 +26,7 @@ export async function intake(run: JobRun, data: PhaseData): Promise<void> {
   try {
     validated = validateSource(source);
   } catch (err) {
-    emit({
+    await emit({
       event: "source.rejected",
       workspaceId: run.job.workspaceId,
       appId: run.job.appId,

@@ -36,40 +36,40 @@ const { gatewayTelemetry, handleGateway, resetGatewayDeps, resetGatewayTelemetry
 
 const authority = openAuthority();
 const store = new FsArtifactStore(hostedConfig().artifactDir);
-const artifact = await store.put(writeBuiltTree(DATA_DIR), provenance("job-reserved"));
-seedArtifactRow(authority, artifact.digest, artifact.byteSize, artifact.fileCount);
+const artifact = await store.put(await writeBuiltTree(DATA_DIR), provenance("job-reserved"));
+await seedArtifactRow(authority, artifact.digest, artifact.byteSize, artifact.fileCount);
 
-const alpha = seedApp(authority, { slug: "alpha", name: "Alpha equipment tracker" });
-const release = seedActiveRelease(authority, alpha, artifact.digest);
+const alpha = await seedApp(authority, { slug: "alpha", name: "Alpha equipment tracker" });
+const release = await seedActiveRelease(authority, alpha, artifact.digest);
 
-const doubles = makeDoubles();
+const doubles = await makeDoubles();
 const OWNER_COOKIE = "cookie-owner";
-const ORIGIN = appOrigin("alpha");
+const ORIGIN = await appOrigin("alpha");
 
-beforeEach(() => {
-  resetGatewayDeps();
-  setGatewayDepsForTests(doubles.deps);
-  resetGatewayTelemetry();
+beforeEach(async () => {
+  await resetGatewayDeps();
+  await setGatewayDepsForTests(doubles.deps);
+  await resetGatewayTelemetry();
   doubles.state.events.length = 0;
   doubles.state.terminated.length = 0;
   doubles.state.sessions.clear();
   doubles.state.exchanges.clear();
   doubles.state.sessions.set(
     OWNER_COOKIE,
-    resolved(alpha, { subject: IDENTITIES.owner.subject, email: IDENTITIES.owner.email, role: "owner" })
+    await resolved(alpha, { subject: IDENTITIES.owner.subject, email: IDENTITIES.owner.email, role: "owner" })
   );
 });
 
-afterAll(() => {
-  resetGatewayDeps();
-  closeAllAppData();
+afterAll(async () => {
+  await resetGatewayDeps();
+  await closeAllAppData();
   closeAuthority();
   removeDir(DATA_DIR);
 });
 
 describe("the sign-in page", () => {
   it("renders with no script, and links to the control origin's apps list", async () => {
-    const { req, params } = call({ path: "/_zenith/auth/signin", accept: "text/html" });
+    const { req, params } = await call({ path: "/_zenith/auth/signin", accept: "text/html" });
     const res = await handleGateway(req, params);
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("text/html; charset=utf-8");
@@ -85,12 +85,12 @@ describe("the sign-in page", () => {
   });
 
   it("says one sentence about a code it recognises, and stays vague about one it does not", async () => {
-    const known = call({ path: "/_zenith/auth/signin?error=forbidden", accept: "text/html" });
+    const known = await call({ path: "/_zenith/auth/signin?error=forbidden", accept: "text/html" });
     expect(await (await handleGateway(known.req, known.params)).text()).toContain(
       "Your access to this app has changed"
     );
 
-    const invented = call({
+    const invented = await call({
       path: "/_zenith/auth/signin?error=%3Cscript%3Ealert(1)%3C%2Fscript%3E",
       accept: "text/html",
     });
@@ -108,7 +108,7 @@ describe("the exchange callback", () => {
       cookieValue: "brand-new-session",
       expiresAt: new Date("2026-09-07T21:00:00.000Z").toISOString(),
     });
-    const { req, params } = call({
+    const { req, params } = await call({
       path: "/_zenith/auth/callback?code=good-code&state=browser-state",
       accept: "text/html",
     });
@@ -126,7 +126,7 @@ describe("the exchange callback", () => {
   });
 
   it("bounces a code it cannot redeem back to the page, with only the code", async () => {
-    const { req, params } = call({
+    const { req, params } = await call({
       path: "/_zenith/auth/callback?code=stale&state=browser-state",
       accept: "text/html",
     });
@@ -144,7 +144,7 @@ describe("the exchange callback", () => {
       cookieValue: "unused",
       expiresAt: new Date("2026-09-07T21:00:00.000Z").toISOString(),
     });
-    const { req, params } = call({
+    const { req, params } = await call({
       path: "/_zenith/auth/callback?code=code-2&state=someone-elses-state",
       accept: "text/html",
     });
@@ -153,7 +153,7 @@ describe("the exchange callback", () => {
   });
 
   it("bounces a callback with no code at all", async () => {
-    const { req, params } = call({ path: "/_zenith/auth/callback", accept: "text/html" });
+    const { req, params } = await call({ path: "/_zenith/auth/callback", accept: "text/html" });
     const res = await handleGateway(req, params);
     expect(res.headers.get("location")).toBe("/_zenith/auth/signin?error=invalid_input");
   });
@@ -161,10 +161,10 @@ describe("the exchange callback", () => {
 
 describe("signing out", () => {
   it("refuses a cross-site sign-out", async () => {
-    const { req, params } = call({
+    const { req, params } = await call({
       path: "/_zenith/auth/signout",
       method: "POST",
-      cookie: sessionCookie(OWNER_COOKIE),
+      cookie: await sessionCookie(OWNER_COOKIE),
     });
     const res = await handleGateway(req, params);
     expect(res.status).toBe(403);
@@ -173,11 +173,11 @@ describe("signing out", () => {
   });
 
   it("terminates the session and clears the cookie from the app's own page", async () => {
-    const { req, params } = call({
+    const { req, params } = await call({
       path: "/_zenith/auth/signout",
       method: "POST",
       origin: ORIGIN,
-      cookie: sessionCookie(OWNER_COOKIE),
+      cookie: await sessionCookie(OWNER_COOKIE),
     });
     const res = await handleGateway(req, params);
     expect(res.status).toBe(303);
@@ -189,7 +189,7 @@ describe("signing out", () => {
   });
 
   it("answers 405 with allow for a GET", async () => {
-    const { req, params } = call({ path: "/_zenith/auth/signout", origin: ORIGIN });
+    const { req, params } = await call({ path: "/_zenith/auth/signout", origin: ORIGIN });
     const res = await handleGateway(req, params);
     expect(res.status).toBe(405);
     expect(res.headers.get("allow")).toBe("POST");
@@ -198,10 +198,10 @@ describe("signing out", () => {
 
 describe("the session document", () => {
   it("says who the recipient is, where they came from and what the bounds are", async () => {
-    const { req, params } = call({
+    const { req, params } = await call({
       path: "/_zenith/session",
       accept: "application/json",
-      cookie: sessionCookie(OWNER_COOKIE),
+      cookie: await sessionCookie(OWNER_COOKIE),
     });
     const res = await handleGateway(req, params);
     expect(res.status).toBe(200);
@@ -220,16 +220,16 @@ describe("the session document", () => {
   });
 
   it("needs a session, like everything else behind admission", async () => {
-    const { req, params } = call({ path: "/_zenith/session", accept: "application/json" });
+    const { req, params } = await call({ path: "/_zenith/session", accept: "application/json" });
     expect((await handleGateway(req, params)).status).toBe(401);
   });
 
   it("records the opening once per session and day", async () => {
     for (let i = 0; i < 3; i++) {
-      const { req, params } = call({
+      const { req, params } = await call({
         path: "/_zenith/session",
         accept: "application/json",
-        cookie: sessionCookie(OWNER_COOKIE),
+        cookie: await sessionCookie(OWNER_COOKIE),
       });
       await handleGateway(req, params);
     }
@@ -243,10 +243,10 @@ describe("the session document", () => {
 
 describe("health", () => {
   it("reports real checks, attributed to the release that answered", async () => {
-    const { req, params } = call({
+    const { req, params } = await call({
       path: "/_zenith/health",
       accept: "application/json",
-      cookie: sessionCookie(OWNER_COOKIE),
+      cookie: await sessionCookie(OWNER_COOKIE),
     });
     const res = await handleGateway(req, params);
     expect(res.status).toBe(200);

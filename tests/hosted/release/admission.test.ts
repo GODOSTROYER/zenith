@@ -30,7 +30,7 @@ let appId: string;
 
 beforeAll(async () => {
   h = await harness(DATA);
-  undo = wire(h).restore;
+  undo = (await wire(h)).restore;
   const app = await makeApp(h, {
     workspaceId: WORKSPACES.one.id,
     slug: "admission",
@@ -42,15 +42,15 @@ beforeAll(async () => {
   undo = undefined;
 });
 
-afterEach(() => {
+afterEach(async () => {
   undo?.();
   undo = undefined;
-  h.release.resetReleaseDeps();
+  await h.release.resetReleaseDeps();
 });
 
-afterAll(() => {
-  h.release.stopHostedJobRunner();
-  h.data.closeAllAppData();
+afterAll(async () => {
+  await h.release.stopHostedJobRunner();
+  await h.data.closeAllAppData();
   h.authority.closeAuthority();
   removeDir(DATA);
 });
@@ -64,7 +64,7 @@ const publish = (
 
 describe("idempotency", () => {
   it("joins the job a repeated id already names, and queues nothing twice", async () => {
-    undo = wire(h).restore;
+    undo = (await wire(h)).restore;
     const jobId = uuid();
     const first = await publish(jobId, { kind: "fixture", name: "minimal-app" });
     const second = await publish(jobId, { kind: "fixture", name: "minimal-app" });
@@ -73,23 +73,23 @@ describe("idempotency", () => {
     expect(second.created).toBe(false);
     expect(second.job.id).toBe(first.job.id);
     expect(second.job.intentHash).toBe(first.job.intentHash);
-    expect(h.authority.authority().repos.jobs.listByApp(appId)).toHaveLength(1);
+    expect(await h.authority.authority().repos.jobs.listByApp(appId)).toHaveLength(1);
   });
 
   it("refuses the same id carrying a different source", async () => {
-    undo = wire(h).restore;
+    undo = (await wire(h)).restore;
     const jobId = uuid();
     await publish(jobId, { kind: "fixture", name: "minimal-app" });
     await expect(publish(jobId, { kind: "fixture", name: "tracker-app" })).rejects.toMatchObject({
       code: "idempotency_conflict",
     });
     // The job that exists is untouched: still the source it was admitted with.
-    const job = h.authority.authority().repos.jobs.get(jobId)!;
+    const job = (await h.authority.authority().repos.jobs.get(jobId))!;
     expect((job.phaseData.source as { name: string }).name).toBe("minimal-app");
   });
 
   it("refuses the same id from a different actor", async () => {
-    undo = wire(h).restore;
+    undo = (await wire(h)).restore;
     const jobId = uuid();
     await publish(jobId, { kind: "fixture", name: "minimal-app" });
     await expect(
@@ -98,9 +98,9 @@ describe("idempotency", () => {
   });
 
   it("keeps a submitted tarball on disk before it answers, and does not overwrite it on a conflict", async () => {
-    undo = wire(h).restore;
+    undo = (await wire(h)).restore;
     const jobId = uuid();
-    const tarball = gzip(writeTar(entriesFromDirectory(FIXTURE)));
+    const tarball = await gzip(await writeTar(await entriesFromDirectory(FIXTURE)));
     const admitted = await publish(jobId, { kind: "tarball", base64: tarball.toString("base64") });
 
     const stored = path.join(DATA, "jobs", jobId, "source.tgz");
@@ -110,7 +110,7 @@ describe("idempotency", () => {
 
     // A different archive under the same id is refused, and the bytes the
     // admitted job is going to build are exactly the ones it was admitted with.
-    const other = gzip(writeTar([...entriesFromDirectory(FIXTURE), { path: "src/extra.ts", bytes: Buffer.from("export const x = 1;\n") }]));
+    const other = await gzip(await writeTar([...entriesFromDirectory(FIXTURE), { path: "src/extra.ts", bytes: Buffer.from("export const x = 1;\n") }]));
     await expect(publish(jobId, { kind: "tarball", base64: other.toString("base64") })).rejects.toMatchObject({
       code: "idempotency_conflict",
     });
@@ -118,9 +118,9 @@ describe("idempotency", () => {
   });
 
   it("treats the same bytes under a different filename as the same publish", async () => {
-    undo = wire(h).restore;
+    undo = (await wire(h)).restore;
     const jobId = uuid();
-    const base64 = gzip(writeTar(entriesFromDirectory(FIXTURE))).toString("base64");
+    const base64 = (await gzip(await writeTar(await entriesFromDirectory(FIXTURE)))).toString("base64");
 
     const first = await publish(jobId, { kind: "tarball", base64, filename: "minimal-app.tar.gz" });
     // The browser downloaded it again and the OS renamed it. Same operation.
@@ -136,7 +136,7 @@ describe("idempotency", () => {
 
 describe("admission refusals", () => {
   it("refuses a fixture this install does not ship", async () => {
-    undo = wire(h).restore;
+    undo = (await wire(h)).restore;
     await expect(publish(uuid(), { kind: "fixture", name: "../../etc/passwd" })).rejects.toMatchObject({
       code: "unsupported_source",
     });
@@ -146,7 +146,7 @@ describe("admission refusals", () => {
   });
 
   it("refuses a publish to a suspended app, and queues nothing", async () => {
-    undo = wire(h).restore;
+    undo = (await wire(h)).restore;
     const suspendJob = uuid();
     await h.release.admitSuspend({
       jobId: suspendJob,
@@ -156,13 +156,13 @@ describe("admission refusals", () => {
       reason: "paused while we investigate",
     });
     await h.release.runJobOnce(suspendJob);
-    expect(h.authority.authority().repos.apps.get(appId)?.state).toBe("suspended");
+    expect((await h.authority.authority().repos.apps.get(appId))?.state).toBe("suspended");
 
     const jobId = uuid();
     await expect(publish(jobId, { kind: "fixture", name: "minimal-app" })).rejects.toMatchObject({
       code: "suspended",
     });
-    expect(h.authority.authority().repos.jobs.get(jobId)).toBeNull();
+    expect(await h.authority.authority().repos.jobs.get(jobId)).toBeNull();
 
     const resumeJob = uuid();
     await h.release.admitResume({
@@ -172,23 +172,23 @@ describe("admission refusals", () => {
       actor: IDENTITIES.owner.subject,
     });
     await h.release.runJobOnce(resumeJob);
-    expect(h.authority.authority().repos.apps.get(appId)?.state).toBe("active");
+    expect((await h.authority.authority().repos.apps.get(appId))?.state).toBe("active");
   });
 
   it("refuses a publish while spending has paused builds, quoting the reason", async () => {
-    undo = wire(h, {
+    undo = (await wire(h, {
       paused: { paused: true, reason: "Builds are paused: this workspace is at 92 % of its approved envelope." },
-    }).restore;
+    })).restore;
     const jobId = uuid();
     await expect(publish(jobId, { kind: "fixture", name: "minimal-app" })).rejects.toMatchObject({
       code: "conflict",
       message: expect.stringContaining("92 %"),
     });
-    expect(h.authority.authority().repos.jobs.get(jobId)).toBeNull();
+    expect(await h.authority.authority().repos.jobs.get(jobId)).toBeNull();
   });
 
   it("refuses an app in another workspace exactly as it refuses one that does not exist", async () => {
-    undo = wire(h).restore;
+    undo = (await wire(h)).restore;
     await expect(
       h.release.admitPublish({
         jobId: uuid(),
@@ -203,10 +203,10 @@ describe("admission refusals", () => {
 
 describe("a hostile archive", () => {
   it("fails the job with every reason, and never reaches a build runner", async () => {
-    const wired = wire(h);
+    const wired = await wire(h);
     undo = wired.restore;
-    const hostile = gzip(
-      writeTar([
+    const hostile = await gzip(
+      await writeTar([
         ...entriesFromDirectory(FIXTURE),
         { path: "../escape.txt", bytes: Buffer.from("owned\n") },
         { path: "src/../../etc/passwd", bytes: Buffer.from("root:x:0:0\n") },
@@ -223,14 +223,14 @@ describe("a hostile archive", () => {
     expect(job.phase).toBe("intake");
     expect(wired.build.recorder.calls).toBe(0);
 
-    const logs = h.release.jobLogs(jobId).join("\n");
+    const logs = (await h.release.jobLogs(jobId)).join("\n");
     expect(logs).toContain("vite.config.ts");
     expect(logs).toContain("package-lock.json");
     expect(logs).toMatch(/escape\.txt|passwd/);
 
     // Nothing about the app moved: no release, no artifact, no pointer.
-    const app = h.authority.authority().repos.apps.get(appId)!;
+    const app = (await h.authority.authority().repos.apps.get(appId))!;
     expect(app.activeReleaseId).toBeNull();
-    expect(h.authority.authority().repos.releases.listByApp(appId)).toEqual([]);
+    expect(await h.authority.authority().repos.releases.listByApp(appId)).toEqual([]);
   });
 });

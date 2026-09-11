@@ -32,7 +32,7 @@ export async function verifyArtifact(run: JobRun, data: PhaseData): Promise<void
     throw new HostedError("internal", `The artifact did not pass publisher verification: ${verdict.detail}`, {
       fix: "Publish again. Nothing was activated, and the app is still serving its previous release.",
     });
-  authority().repos.artifacts.markVerified(digest);
+  await authority().repos.artifacts.markVerified(digest);
   data.artifactVerified = true;
   appendLog(
     data,

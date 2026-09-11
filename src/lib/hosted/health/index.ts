@@ -92,7 +92,7 @@ export async function appHealth(
   const runtime = { id: runtimeId, label: RUNTIME_LABELS[runtimeId], enforcement: enforcementFor(runtimeId) };
   const checks: HealthCheck[] = [];
 
-  const app = a.repos.apps.get(appId);
+  const app = await a.repos.apps.get(appId);
   if (!app) {
     return {
       simulated: false,
@@ -126,7 +126,7 @@ export async function appHealth(
 
   /* ------------------------------- release ------------------------------- */
 
-  const release = app.activeReleaseId ? a.repos.releases.get(app.activeReleaseId) : null;
+  const release = app.activeReleaseId ? await a.repos.releases.get(app.activeReleaseId) : null;
   if (!app.activeReleaseId)
     checks.push({
       id: "active_release",
@@ -209,9 +209,9 @@ export async function appHealth(
   /* ------------------------------- activity ------------------------------ */
 
   const since = new Date(now.getTime() - EVENT_WINDOW_MS).toISOString();
-  const lastEvents = digest(a.repos.events.listSince({ appId, since }, { limit: 5000 }), since);
+  const lastEvents = digest(await a.repos.events.listSince({ appId, since }, { limit: 5000 }), since);
   const day = utcDay(now);
-  const counter = a.repos.quotas.get(appId, day);
+  const counter = await a.repos.quotas.get(appId, day);
 
   return {
     simulated: false,
@@ -266,12 +266,12 @@ export interface AppLogLine {
 }
 
 /** Recent activity for one app, newest last, rendered as lines. */
-export function appLogs(
+export async function appLogs(
   appId: string,
   options: { limit?: number; since?: string } = {}
-): { appId: string; lines: AppLogLine[]; disclosure: string } {
+): Promise<{ appId: string; lines: AppLogLine[]; disclosure: string }> {
   const limit = Math.max(1, Math.min(1000, Math.trunc(options.limit ?? 100)));
-  const events = authority().repos.events.listSince(
+  const events = await authority().repos.events.listSince(
     { appId, ...(options.since ? { since: options.since } : {}) },
     { limit }
   );

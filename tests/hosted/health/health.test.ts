@@ -25,14 +25,14 @@ const { OWNER, seedActiveRelease, seedApp, seedArtifact, seedGrant, seedRecord }
 
 const a = openAuthority();
 const artifactRoot = path.join(dataDir, "artifacts");
-const app = seedApp(a, { slug: "health-app", workspaceId: "ws-health" });
-seedGrant(a, app.id, OWNER, "owner");
+const app = await seedApp(a, { slug: "health-app", workspaceId: "ws-health" });
+await seedGrant(a, app.id, OWNER, "owner");
 
 const { digest } = await seedArtifact(a, artifactRoot, { marker: "health" });
-const release = seedActiveRelease(a, app.id, digest);
+const release = await seedActiveRelease(a, app.id, digest);
 for (let n = 0; n < 3; n++) await seedRecord(app.id, { title: `Health record ${n}` });
 
-afterAll(() => {
+afterAll(async () => {
   closeAllAppData();
   closeAuthority();
   removeDir(dataDir);
@@ -42,12 +42,12 @@ const artifactFile = path.join(artifactRoot, "sha256", digest, "files", "index.h
 
 describe("appHealth", () => {
   it("runs every probe for real and never reports a simulated result", async () => {
-    admitRequest(app.id, { limit: 100 });
-    admitRequest(app.id, { limit: 1 });
-    admitRequest(app.id, { limit: 1 });
-    recordEvent({ event: "record.created", workspaceId: "ws-health", appId: app.id, subject: OWNER.subject, releaseId: release.id });
-    recordEvent({ event: "record.conflict", workspaceId: "ws-health", appId: app.id, subject: OWNER.subject, releaseId: release.id, outcome: "error" });
-    recordEvent({ event: "access.denied", workspaceId: "ws-health", appId: app.id, outcome: "denied" });
+    await admitRequest(app.id, { limit: 100 });
+    await admitRequest(app.id, { limit: 1 });
+    await admitRequest(app.id, { limit: 1 });
+    await recordEvent({ event: "record.created", workspaceId: "ws-health", appId: app.id, subject: OWNER.subject, releaseId: release.id });
+    await recordEvent({ event: "record.conflict", workspaceId: "ws-health", appId: app.id, subject: OWNER.subject, releaseId: release.id, outcome: "error" });
+    await recordEvent({ event: "access.denied", workspaceId: "ws-health", appId: app.id, outcome: "denied" });
 
     const health = await appHealth(app.id);
 
@@ -99,7 +99,7 @@ describe("appHealth", () => {
   });
 
   it("reports an app with no active release as not ok, rather than as healthy-with-nothing", async () => {
-    const bare = seedApp(a, { slug: "health-bare", workspaceId: "ws-health" });
+    const bare = await seedApp(a, { slug: "health-bare", workspaceId: "ws-health" });
     const health = await appHealth(bare.id);
     expect(health.simulated).toBe(false);
     expect(health.ok).toBe(false);
@@ -112,7 +112,7 @@ describe("appHealth", () => {
   });
 
   it("reports a suspended app's state rather than hiding it behind an ok", async () => {
-    a.tx(() => a.repos.apps.update(app.id, { state: "suspended", stateReason: "operator paused it" }));
+    await a.tx((repos) => repos.apps.update(app.id, { state: "suspended", stateReason: "operator paused it" }));
     try {
       const health = await appHealth(app.id);
       expect(health.state).toBe("suspended");
@@ -120,7 +120,7 @@ describe("appHealth", () => {
       expect(health.checks.find((check) => check.id === "authority_row")?.ok).toBe(false);
       expect(health.ok).toBe(false);
     } finally {
-      a.tx(() => a.repos.apps.update(app.id, { state: "active", stateReason: null }));
+      await a.tx((repos) => repos.apps.update(app.id, { state: "active", stateReason: null }));
     }
   });
 
@@ -135,8 +135,8 @@ describe("appHealth", () => {
 });
 
 describe("appLogs", () => {
-  it("renders each line with the release that served it, and no content", () => {
-    const logs = appLogs(app.id, { limit: 50 });
+  it("renders each line with the release that served it, and no content", async () => {
+    const logs = await appLogs(app.id, { limit: 50 });
     expect(logs.lines.length).toBeGreaterThan(0);
 
     const withRelease = logs.lines.filter((line) => line.releaseId === release.id);
@@ -159,8 +159,8 @@ describe("appLogs", () => {
     expect(logs.disclosure).toMatch(/never a record's contents/);
   });
 
-  it("is bounded", () => {
-    expect(appLogs(app.id, { limit: 2 }).lines).toHaveLength(2);
-    expect(appLogs(app.id, { limit: 100_000 }).lines.length).toBeLessThanOrEqual(1000);
+  it("is bounded", async () => {
+    expect((await appLogs(app.id, { limit: 2 })).lines).toHaveLength(2);
+    expect((await appLogs(app.id, { limit: 100_000 })).lines.length).toBeLessThanOrEqual(1000);
   });
 });

@@ -34,41 +34,41 @@ const { gatewayTelemetry, handleGateway, resetGatewayDeps, resetGatewayTelemetry
 
 const authority = openAuthority();
 const store = new FsArtifactStore(hostedConfig().artifactDir);
-const artifact = await store.put(writeBuiltTree(DATA_DIR), provenance("job-session"));
-seedArtifactRow(authority, artifact.digest, artifact.byteSize, artifact.fileCount);
+const artifact = await store.put(await writeBuiltTree(DATA_DIR), provenance("job-session"));
+await seedArtifactRow(authority, artifact.digest, artifact.byteSize, artifact.fileCount);
 
-const alpha = seedApp(authority, { slug: "alpha" });
-const beta = seedApp(authority, { slug: "beta" });
-const unpublished = seedApp(authority, { slug: "unpublished" });
-seedActiveRelease(authority, alpha, artifact.digest);
-seedActiveRelease(authority, beta, artifact.digest);
+const alpha = await seedApp(authority, { slug: "alpha" });
+const beta = await seedApp(authority, { slug: "beta" });
+const unpublished = await seedApp(authority, { slug: "unpublished" });
+await seedActiveRelease(authority, alpha, artifact.digest);
+await seedActiveRelease(authority, beta, artifact.digest);
 
-const doubles = makeDoubles();
+const doubles = await makeDoubles();
 
 /** A live owner session on alpha, and a live owner session on beta. */
 const ALPHA_COOKIE = "cookie-for-alpha";
 const BETA_COOKIE = "cookie-for-beta";
 const REVOKED_COOKIE = "cookie-that-was-revoked";
 
-beforeEach(() => {
-  resetGatewayDeps();
-  setGatewayDepsForTests(doubles.deps);
-  resetGatewayTelemetry();
+beforeEach(async () => {
+  await resetGatewayDeps();
+  await setGatewayDepsForTests(doubles.deps);
+  await resetGatewayTelemetry();
   doubles.state.events.length = 0;
   doubles.state.sessions.clear();
   doubles.state.sessions.set(
     ALPHA_COOKIE,
-    resolved(alpha, { subject: IDENTITIES.owner.subject, email: IDENTITIES.owner.email, role: "owner" })
+    await resolved(alpha, { subject: IDENTITIES.owner.subject, email: IDENTITIES.owner.email, role: "owner" })
   );
   doubles.state.sessions.set(
     BETA_COOKIE,
-    resolved(beta, { subject: IDENTITIES.editor.subject, email: IDENTITIES.editor.email, role: "editor" })
+    await resolved(beta, { subject: IDENTITIES.editor.subject, email: IDENTITIES.editor.email, role: "editor" })
   );
 });
 
-afterAll(() => {
-  resetGatewayDeps();
-  closeAllAppData();
+afterAll(async () => {
+  await resetGatewayDeps();
+  await closeAllAppData();
   closeAuthority();
   removeDir(DATA_DIR);
 });
@@ -80,7 +80,7 @@ const nothingInvoked = (): void => {
 
 describe("no session", () => {
   it("sends a browser to the sign-in page", async () => {
-    const { req, params } = call({ accept: "text/html,application/xhtml+xml" });
+    const { req, params } = await call({ accept: "text/html,application/xhtml+xml" });
     const res = await handleGateway(req, params);
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toBe("/_zenith/auth/signin");
@@ -89,7 +89,7 @@ describe("no session", () => {
   });
 
   it("answers a program 401 with a code it can branch on", async () => {
-    const { req, params } = call({ accept: "application/json", path: "/assets/app-abc123.js" });
+    const { req, params } = await call({ accept: "application/json", path: "/assets/app-abc123.js" });
     const res = await handleGateway(req, params);
     expect(res.status).toBe(401);
     const error = await errorBody(res);
@@ -99,7 +99,7 @@ describe("no session", () => {
   });
 
   it("records the denial as an event", async () => {
-    const { req, params } = call({});
+    const { req, params } = await call({});
     await handleGateway(req, params);
     expect(doubles.state.events.map((e) => e.event)).toContain("access.denied");
     expect(doubles.state.events.find((e) => e.event === "access.denied")?.outcome).toBe("denied");
@@ -108,7 +108,7 @@ describe("no session", () => {
 
 describe("a session that is not for this app", () => {
   it("refuses beta's cookie on alpha, and says nothing about beta", async () => {
-    const { req, params } = call({ cookie: sessionCookie(BETA_COOKIE) });
+    const { req, params } = await call({ cookie: await sessionCookie(BETA_COOKIE) });
     const res = await handleGateway(req, params);
     expect(res.status).toBe(401);
     const error = await errorBody(res);
@@ -120,7 +120,7 @@ describe("a session that is not for this app", () => {
   });
 
   it("admits the same cookie on the app it was minted for", async () => {
-    const { req, params } = call({ host: appHost("beta"), cookie: sessionCookie(BETA_COOKIE) });
+    const { req, params } = await call({ host: await appHost("beta"), cookie: await sessionCookie(BETA_COOKIE) });
     const res = await handleGateway(req, params);
     expect(res.status).toBe(200);
     expect(gatewayTelemetry.artifactServed).toBe(1);
@@ -131,20 +131,20 @@ describe("a session the authority no longer honours", () => {
   it("refuses as soon as the access module answers null", async () => {
     // What a revoked grant looks like from here: the cookie is unchanged in
     // the browser and the resolution simply stops succeeding.
-    const { req: before, params } = call({ cookie: sessionCookie(ALPHA_COOKIE) });
+    const { req: before, params } = await call({ cookie: await sessionCookie(ALPHA_COOKIE) });
     expect((await handleGateway(before, params)).status).toBe(200);
 
     doubles.state.sessions.delete(ALPHA_COOKIE);
-    resetGatewayTelemetry();
+    await resetGatewayTelemetry();
 
-    const { req: after } = call({ cookie: sessionCookie(REVOKED_COOKIE) });
+    const { req: after } = await call({ cookie: await sessionCookie(REVOKED_COOKIE) });
     const res = await handleGateway(after, params);
     expect(res.status).toBe(401);
     nothingInvoked();
   });
 
   it("ignores a cookie of some other name", async () => {
-    const { req, params } = call({ cookie: `sb-access-token=platform-secret; other=1` });
+    const { req, params } = await call({ cookie: `sb-access-token=platform-secret; other=1` });
     const res = await handleGateway(req, params);
     expect(res.status).toBe(401);
     nothingInvoked();
@@ -155,15 +155,15 @@ describe("step 8 — the release", () => {
   it("answers 404 with a fix when the app has never been published", async () => {
     doubles.state.sessions.set(
       "cookie-for-unpublished",
-      resolved(unpublished, {
+      await resolved(unpublished, {
         subject: IDENTITIES.owner.subject,
         email: IDENTITIES.owner.email,
         role: "owner",
       })
     );
-    const { req, params } = call({
-      host: appHost("unpublished"),
-      cookie: sessionCookie("cookie-for-unpublished"),
+    const { req, params } = await call({
+      host: await appHost("unpublished"),
+      cookie: await sessionCookie("cookie-for-unpublished"),
     });
     const res = await handleGateway(req, params);
     expect(res.status).toBe(404);
@@ -177,7 +177,7 @@ describe("step 8 — the release", () => {
 describe("methods app content does not answer", () => {
   it("refuses PUT, DELETE and OPTIONS with allow, without asking for a session", async () => {
     for (const method of ["PUT", "DELETE", "OPTIONS"]) {
-      const { req, params } = call({ method });
+      const { req, params } = await call({ method });
       const res = await handleGateway(req, params);
       expect(res.status, method).toBe(405);
       expect(res.headers.get("allow"), method).toBe("GET, HEAD");

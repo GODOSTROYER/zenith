@@ -82,7 +82,7 @@ beforeAll(async () => {
     createdBy: OWNER.subject,
     email: OWNER.email,
   });
-  m.access.grantDirect(app.id, { subject: EDITOR.subject, email: EDITOR.email, role: "editor" }, OWNER.subject);
+  await m.access.grantDirect(app.id, { subject: EDITOR.subject, email: EDITOR.email, role: "editor" }, OWNER.subject);
 
   r1 = releaseOf(
     await publishOrThrow(m, { app, actor: OWNER.subject, source: { kind: "fixture", name: "tracker-app" } })
@@ -91,8 +91,8 @@ beforeAll(async () => {
   editorCookie = await signIn(m, app, EDITOR.subject);
 }, 300_000);
 
-afterAll(() => {
-  closeHosted(m);
+afterAll(async () => {
+  await closeHosted(m);
   removeDir(DATA);
 });
 
@@ -150,20 +150,20 @@ describe("Gate 8 — a compatible update leaves the data alone", () => {
 
     expect(r2.number, "the release number moves").toBe(2);
     expect(String(job.phaseData.sourceDigest), "the source digest moves").not.toBe(
-      String(m.authority.authority().repos.artifacts.get(r1.digest)?.provenance.sourceDigest)
+      String((await m.authority.authority().repos.artifacts.get(r1.digest))?.provenance.sourceDigest)
     );
     expect(r2.digest, "identical output is the same artifact").toBe(r1.digest);
     expect(job.phaseData.artifactReused, "and the pipeline says it joined one").toBe(true);
     expect(
-      m.release.jobLogs(job.id).some((line) => line.includes("re-verified")),
+      (await m.release.jobLogs(job.id)).some((line) => line.includes("re-verified")),
       "a reused artifact is re-verified, not trusted"
     ).toBe(true);
 
     const a = m.authority.authority();
-    expect(a.repos.apps.get(app.id)?.activeReleaseId).toBe(r2.releaseId);
-    expect(a.repos.apps.get(app.id)?.activeFence, "one activation, one fence step").toBe(2);
-    expect(a.repos.releases.get(r1.releaseId)?.status, "release 1 after release 2").toBe("superseded");
-    expect(a.repos.releases.get(r1.releaseId)?.supersededAt).toBeTruthy();
+    expect((await a.repos.apps.get(app.id))?.activeReleaseId).toBe(r2.releaseId);
+    expect((await a.repos.apps.get(app.id))?.activeFence, "one activation, one fence step").toBe(2);
+    expect((await a.repos.releases.get(r1.releaseId))?.status, "release 1 after release 2").toBe("superseded");
+    expect((await a.repos.releases.get(r1.releaseId))?.supersededAt).toBeTruthy();
   }, 300_000);
 
   it("still holds every record, at the version it had, under release 2", async () => {
@@ -211,9 +211,9 @@ describe("Gate 8 — a compatible update leaves the data alone", () => {
   it("kept the app on one data schema throughout, which is what made the update compatible", async () => {
     const version = await m.data.openAppData(app.id).store.schemaVersion(app.id);
     expect(version).toBe(m.data.LATEST_TRACKER_SCHEMA_VERSION);
-    for (const release of m.authority.authority().repos.releases.listByApp(app.id))
+    for (const release of await m.authority.authority().repos.releases.listByApp(app.id))
       expect(
-        m.authority.authority().repos.artifacts.get(release.artifactDigest)?.provenance.schemaVersion,
+        (await m.authority.authority().repos.artifacts.get(release.artifactDigest))?.provenance.schemaVersion,
         `release ${release.number} was built for schema 1`
       ).toBe(1);
   });
@@ -298,9 +298,11 @@ describe("Gate 8 — a compatible update leaves the data alone", () => {
 
     // And the conflict is on the record, for the owner to see.
     expect(
-      m.authority
-        .authority()
-        .repos.events.listSince({ appId: app.id, event: "record.conflict" }, { limit: 10 }).length,
+      (
+        await m.authority
+          .authority()
+          .repos.events.listSince({ appId: app.id, event: "record.conflict" }, { limit: 10 })
+      ).length,
       "a conflict is an event, not just a status code"
     ).toBeGreaterThan(0);
   });

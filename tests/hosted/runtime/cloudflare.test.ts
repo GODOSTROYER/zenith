@@ -25,10 +25,10 @@ const { HostedError } = await import("@/lib/hosted/contracts");
 const authority = openAuthority();
 const store = new FsArtifactStore(hostedConfig().artifactDir);
 const artifact = await store.put(writeBuiltTree(DATA_DIR), provenance("job-cf"));
-seedArtifactRow(authority, artifact.digest, artifact.byteSize, artifact.fileCount);
+await seedArtifactRow(authority, artifact.digest, artifact.byteSize, artifact.fileCount);
 
-const app = seedApp(authority, { slug: "alpha" });
-const release = seedActiveRelease(authority, app, artifact.digest);
+const app = await seedApp(authority, { slug: "alpha" });
+const release = await seedActiveRelease(authority, app, artifact.digest);
 
 const ACCOUNT = "0123456789abcdef0123456789abcdef";
 const NAMESPACE = "zenith-pilot";
@@ -37,7 +37,7 @@ const DATABASE_ID = "11111111-1111-4111-8111-111111111111";
 const SCRIPT = releaseScriptName("alpha", release.number, artifact.digest);
 const BROKER = brokerScriptName("alpha");
 
-afterAll(() => {
+afterAll(async () => {
   closeAllAppData();
   closeAuthority();
   removeDir(DATA_DIR);
@@ -357,7 +357,7 @@ describe("readBindings", () => {
 });
 
 describe("the binding allowlist itself", () => {
-  it("refuses anything with an extra field, a wrong name or a wrong type", () => {
+  it("refuses anything with an extra field, a wrong name or a wrong type", async () => {
     expect(isAllowedReleaseBindings([])).toBe(true);
     expect(isAllowedReleaseBindings([{ type: "assets", name: "ASSETS" }])).toBe(true);
     expect(isAllowedReleaseBindings([{ type: "assets", name: "ASSETS", script_name: "other" }])).toBe(false);

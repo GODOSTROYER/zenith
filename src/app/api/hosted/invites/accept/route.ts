@@ -22,7 +22,7 @@ const Accept = z.object({ token: z.string().trim().min(1).max(400) }).strict();
 export const POST = hostedRoute(async (req): Promise<AcceptResult> => {
   const identity = await verifiedIdentity(req);
   const { token } = await readJsonBody(req, Accept);
-  const { app, grant } = acceptInvite(token, identity);
+  const { app, grant } = await acceptInvite(token, identity);
   return {
     app: { id: app.id, slug: app.slug, name: app.name },
     grant,

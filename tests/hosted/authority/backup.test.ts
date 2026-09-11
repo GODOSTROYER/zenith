@@ -40,12 +40,12 @@ const rowId = (n: number): string => `usage-${String(n).padStart(5, "0")}`;
 
 describe("backupAuthority", () => {
   it("produces a consistent, verified copy while the source is being written", async () => {
-    const app = seedApp(a, { slug: "backup-app" });
+    const app = await seedApp(a, { slug: "backup-app" });
     // Enough rows to make the backup take more than one step, so the writes
     // below genuinely overlap it rather than tidily following it.
     for (let n = 0; n < 400; n++)
-      a.tx(() =>
-        a.repos.usage.append({
+      await a.tx((repos) =>
+        repos.usage.append({
           id: rowId(n),
           workspaceId: "ws-one",
           appId: app.id,
@@ -65,8 +65,8 @@ describe("backupAuthority", () => {
     let written = 400;
     let writtenDuringBackup = 0;
     for (let n = 400; n < 700; n++) {
-      a.tx(() =>
-        a.repos.usage.append({
+      await a.tx((repos) =>
+        repos.usage.append({
           id: rowId(n),
           workspaceId: "ws-one",
           appId: app.id,
@@ -111,7 +111,7 @@ describe("backupAuthority", () => {
 
     // The source kept every row throughout.
     expect(
-      a.repos.usage.listSince({ workspaceId: "ws-one", since: "0000" }, { limit: 1000 })
+      await a.repos.usage.listSince({ workspaceId: "ws-one", since: "0000" }, { limit: 1000 })
     ).toHaveLength(written);
   }, 30_000);
 

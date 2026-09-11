@@ -100,11 +100,11 @@ const conflict = (id: string, field: string, admitted: string, now: string): Hos
  * interleave with a concurrent request carrying the same id. Nests safely
  * inside a caller's own `tx()`.
  */
-export function admitJob(input: AdmitJobInput): AdmittedJob {
+export async function admitJob(input: AdmitJobInput): Promise<AdmittedJob> {
   const intentHash = hashIntent(input.intent);
   const a = authority();
-  return a.tx(() => {
-    const existing = a.repos.jobs.get(input.id);
+  return a.tx(async (repos) => {
+    const existing = await repos.jobs.get(input.id);
     if (existing) {
       if (existing.actor !== input.actor)
         throw conflict(input.id, "actor", existing.actor, input.actor);
@@ -116,7 +116,7 @@ export function admitJob(input: AdmitJobInput): AdmittedJob {
         throw conflict(input.id, "intent", existing.intentHash, intentHash);
       return { job: existing, created: false };
     }
-    const job = a.repos.jobs.insert({
+    const job = await repos.jobs.insert({
       id: input.id,
       kind: input.kind,
       workspaceId: input.workspaceId,

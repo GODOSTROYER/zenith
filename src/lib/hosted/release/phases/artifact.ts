@@ -55,7 +55,7 @@ export async function storeArtifact(run: JobRun, data: PhaseData): Promise<void>
   data.artifactSourceDigest = artifact.provenance.sourceDigest;
   data.artifactReused = artifact.provenance.jobId !== run.job.id;
 
-  authority().repos.artifacts.insert({
+  await authority().repos.artifacts.insert({
     digest: artifact.digest,
     byteSize: artifact.byteSize,
     fileCount: artifact.fileCount,

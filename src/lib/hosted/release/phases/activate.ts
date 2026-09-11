@@ -21,15 +21,15 @@ export async function activate(run: JobRun, data: PhaseData): Promise<void> {
   const a = authority();
   const releaseId = String(data.releaseId);
 
-  const swapped = a.tx(() => {
-    const app = requireApp(run.job.appId);
-    const release = a.repos.releases.get(releaseId);
+  const swapped = await a.tx(async (repos) => {
+    const app = await requireApp(run.job.appId, repos);
+    const release = await repos.releases.get(releaseId);
     if (!release || release.appId !== app.id)
       throw new HostedError("not_found", `Release ${releaseId} does not belong to app ${app.id}.`, {
         fix: "Publish again; this job's candidate release is missing from the control database.",
       });
     const expected = typeof data.observedFence === "number" ? data.observedFence : app.activeFence;
-    if (!a.repos.apps.setActiveRelease(app.id, releaseId, expected))
+    if (!(await repos.apps.setActiveRelease(app.id, releaseId, expected)))
       throw new HostedError(
         "conflict",
         `Another activation moved ${app.name} while this publish was in flight, so release ${release.number} was not activated.`,
@@ -39,18 +39,18 @@ export async function activate(run: JobRun, data: PhaseData): Promise<void> {
         }
       );
     const at = nowIso();
-    a.repos.releases.markSuperseded(app.id, releaseId, at);
-    a.repos.releases.setStatus(releaseId, "active", { activatedAt: at });
+    await repos.releases.markSuperseded(app.id, releaseId, at);
+    await repos.releases.setStatus(releaseId, "active", { activatedAt: at });
     return { fence: expected + 1, release };
   });
 
-  const app = requireApp(run.job.appId);
+  const app = await requireApp(run.job.appId);
   await releaseDeps.runtime().activate(app, swapped.release, swapped.fence);
 
   data.activated = true;
   data.activeFence = swapped.fence;
   appendLog(data, `release ${swapped.release.number} activated at fence ${swapped.fence}`);
-  emit({
+  await emit({
     event: "release.activated",
     workspaceId: run.job.workspaceId,
     appId: app.id,

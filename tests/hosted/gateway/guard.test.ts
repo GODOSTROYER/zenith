@@ -44,31 +44,31 @@ const {
 
 const authority = openAuthority();
 const store = new FsArtifactStore(hostedConfig().artifactDir);
-const artifact = await store.put(writeBuiltTree(DATA_DIR), provenance("job-guard"));
-seedArtifactRow(authority, artifact.digest, artifact.byteSize, artifact.fileCount);
+const artifact = await store.put(await writeBuiltTree(DATA_DIR), provenance("job-guard"));
+await seedArtifactRow(authority, artifact.digest, artifact.byteSize, artifact.fileCount);
 
-const alpha = seedApp(authority, { slug: "alpha" });
-seedApp(authority, { slug: "paused", state: "suspended" });
-seedActiveRelease(authority, alpha, artifact.digest);
+const alpha = await seedApp(authority, { slug: "alpha" });
+await seedApp(authority, { slug: "paused", state: "suspended" });
+await seedActiveRelease(authority, alpha, artifact.digest);
 
-const doubles = makeDoubles();
+const doubles = await makeDoubles();
 const COOKIE = "guard-owner";
 
-beforeEach(() => {
-  resetGatewayDeps();
-  setGatewayDepsForTests(doubles.deps);
-  resetGatewayTelemetry();
+beforeEach(async () => {
+  await resetGatewayDeps();
+  await setGatewayDepsForTests(doubles.deps);
+  await resetGatewayTelemetry();
   doubles.state.quotaAllowed = true;
   doubles.state.sessions.clear();
   doubles.state.sessions.set(
     COOKIE,
-    resolved(alpha, { subject: IDENTITIES.owner.subject, email: IDENTITIES.owner.email, role: "owner" })
+    await resolved(alpha, { subject: IDENTITIES.owner.subject, email: IDENTITIES.owner.email, role: "owner" })
   );
 });
 
-afterAll(() => {
-  resetGatewayDeps();
-  closeAllAppData();
+afterAll(async () => {
+  await resetGatewayDeps();
+  await closeAllAppData();
   closeAuthority();
   removeDir(DATA_DIR);
 });
@@ -85,8 +85,8 @@ describe("applyResponseGuard", () => {
         "content-type": "text/plain",
       },
     });
-    const guarded = applyResponseGuard(hostile, { cache: "no-store" });
-    const headers = headerMap(guarded);
+    const guarded = await applyResponseGuard(hostile, { cache: "no-store" });
+    const headers = await headerMap(guarded);
 
     expect(headers["set-cookie"]).toBeUndefined();
     expect(headers.location).toBeUndefined();
@@ -98,8 +98,8 @@ describe("applyResponseGuard", () => {
     expect(await guarded.text()).toBe("x");
   });
 
-  it("sets the whole security header set and the cache policy it was told", () => {
-    const guarded = applyResponseGuard(new Response(null, { status: 204 }), {
+  it("sets the whole security header set and the cache policy it was told", async () => {
+    const guarded = await applyResponseGuard(new Response(null, { status: 204 }), {
       cache: "immutable",
       releaseId: "rel-1",
     });
@@ -110,23 +110,23 @@ describe("applyResponseGuard", () => {
     expect(guarded.headers.get("content-security-policy")).toBe(GATEWAY_CSP);
   });
 
-  it("never leaks the ownership marker it uses to decide", () => {
+  it("never leaks the ownership marker it uses to decide", async () => {
     const marked = new Response(null, {
       status: 303,
       headers: { location: "/", "x-zenith-owned": "location" },
     });
-    const guarded = applyResponseGuard(marked, { cache: "no-store" });
+    const guarded = await applyResponseGuard(marked, { cache: "no-store" });
     expect(guarded.headers.get("location")).toBe("/");
     expect(guarded.headers.get("x-zenith-owned")).toBeNull();
   });
 });
 
 describe("isHashedAssetPath", () => {
-  it("caches only names that change with their bytes", () => {
+  it("caches only names that change with their bytes", async () => {
     for (const hashed of ["assets/app-abc123.js", "assets/index-4f2a9c1b.css", "assets/chunk/vendor-9a8b7c6d.js"])
-      expect(isHashedAssetPath(hashed), hashed).toBe(true);
+      expect(await isHashedAssetPath(hashed), hashed).toBe(true);
     for (const plain of ["index.html", "assets/logo.svg", "assets/app.js", "favicon.ico", "assets/a-b.js"])
-      expect(isHashedAssetPath(plain), plain).toBe(false);
+      expect(await isHashedAssetPath(plain), plain).toBe(false);
   });
 });
 
@@ -136,7 +136,7 @@ describe("every response the gateway returns", () => {
       what: "an unknown host",
       status: 404,
       make: async () => {
-        const c = call({ host: "nosuch.apps.localhost:3400" });
+        const c = await call({ host: "nosuch.apps.localhost:3400" });
         return handleGateway(c.req, c.params);
       },
     },
@@ -144,7 +144,7 @@ describe("every response the gateway returns", () => {
       what: "a suspended app",
       status: 423,
       make: async () => {
-        const c = call({ host: appHost("paused") });
+        const c = await call({ host: await appHost("paused") });
         return handleGateway(c.req, c.params);
       },
     },
@@ -152,7 +152,7 @@ describe("every response the gateway returns", () => {
       what: "a request with no session",
       status: 401,
       make: async () => {
-        const c = call({ accept: "application/json" });
+        const c = await call({ accept: "application/json" });
         return handleGateway(c.req, c.params);
       },
     },
@@ -160,11 +160,11 @@ describe("every response the gateway returns", () => {
       what: "a cross-site write",
       status: 403,
       make: async () => {
-        const c = call({
+        const c = await call({
           path: "/_zenith/data/v1/requests",
           method: "POST",
-          cookie: sessionCookie(COOKIE),
-          origin: appOrigin("beta"),
+          cookie: await sessionCookie(COOKIE),
+          origin: await appOrigin("beta"),
           accept: "application/json",
           body: "{}",
         });
@@ -175,7 +175,7 @@ describe("every response the gateway returns", () => {
       what: "a missing file",
       status: 404,
       make: async () => {
-        const c = call({ path: "/missing.js", cookie: sessionCookie(COOKIE) });
+        const c = await call({ path: "/missing.js", cookie: await sessionCookie(COOKIE) });
         return handleGateway(c.req, c.params);
       },
     },
@@ -183,7 +183,7 @@ describe("every response the gateway returns", () => {
       what: "a served page",
       status: 200,
       make: async () => {
-        const c = call({ path: "/", cookie: sessionCookie(COOKIE) });
+        const c = await call({ path: "/", cookie: await sessionCookie(COOKIE) });
         return handleGateway(c.req, c.params);
       },
     },
@@ -191,7 +191,7 @@ describe("every response the gateway returns", () => {
       what: "a served hashed asset",
       status: 200,
       make: async () => {
-        const c = call({ path: "/assets/app-abc123.js", cookie: sessionCookie(COOKIE) });
+        const c = await call({ path: "/assets/app-abc123.js", cookie: await sessionCookie(COOKIE) });
         return handleGateway(c.req, c.params);
       },
     },
@@ -199,7 +199,7 @@ describe("every response the gateway returns", () => {
       what: "a redirect to the sign-in page",
       status: 303,
       make: async () => {
-        const c = call({ accept: "text/html" });
+        const c = await call({ accept: "text/html" });
         return handleGateway(c.req, c.params);
       },
     },
@@ -207,7 +207,7 @@ describe("every response the gateway returns", () => {
       what: "a method that is not answered",
       status: 405,
       make: async () => {
-        const c = call({ method: "DELETE" });
+        const c = await call({ method: "DELETE" });
         return handleGateway(c.req, c.params);
       },
     },
@@ -217,7 +217,7 @@ describe("every response the gateway returns", () => {
     it(`carries the guard on ${what}`, async () => {
       const res = await make();
       expect(res.status).toBe(status);
-      const headers = headerMap(res);
+      const headers = await headerMap(res);
       for (const [name, value] of Object.entries(GATEWAY_SECURITY_HEADERS))
         expect(headers[name], `${what} / ${name}`).toBe(value);
       expect(headers["cache-control"], what).toMatch(/^private, /);
@@ -237,7 +237,7 @@ describe("every response the gateway returns", () => {
 
   it("lets no served artifact set a cookie", async () => {
     for (const path of ["/", "/assets/app-abc123.js", "/assets/logo.svg", "/requests/1"]) {
-      const c = call({ path, cookie: sessionCookie(COOKIE) });
+      const c = await call({ path, cookie: await sessionCookie(COOKIE) });
       const res = await handleGateway(c.req, c.params);
       expect(res.headers.get("set-cookie"), path).toBeNull();
     }
@@ -246,10 +246,10 @@ describe("every response the gateway returns", () => {
   it("answers a 503 with the guard when the authority cannot be reached", async () => {
     closeAuthority();
     try {
-      const c = call({ path: "/" });
+      const c = await call({ path: "/" });
       const res = await handleGateway(c.req, c.params);
       expect(res.status).toBe(503);
-      const headers = headerMap(res);
+      const headers = await headerMap(res);
       for (const [name, value] of Object.entries(GATEWAY_SECURITY_HEADERS)) expect(headers[name]).toBe(value);
       expect(headers["cache-control"]).toBe("private, no-store");
     } finally {

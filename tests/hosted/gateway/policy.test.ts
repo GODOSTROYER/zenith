@@ -42,38 +42,38 @@ const authority = openAuthority();
 await ensureBoot();
 await new Promise((resolve) => setTimeout(resolve, 0));
 const store = new FsArtifactStore(hostedConfig().artifactDir);
-const artifact = await store.put(writeBuiltTree(DATA_DIR), provenance("job-policy"));
-seedArtifactRow(authority, artifact.digest, artifact.byteSize, artifact.fileCount);
+const artifact = await store.put(await writeBuiltTree(DATA_DIR), provenance("job-policy"));
+await seedArtifactRow(authority, artifact.digest, artifact.byteSize, artifact.fileCount);
 
-const alpha = seedApp(authority, { slug: "alpha" });
-seedApp(authority, { slug: "paused", state: "suspended" });
-const release = seedActiveRelease(authority, alpha, artifact.digest);
+const alpha = await seedApp(authority, { slug: "alpha" });
+await seedApp(authority, { slug: "paused", state: "suspended" });
+const release = await seedActiveRelease(authority, alpha, artifact.digest);
 
-const doubles = makeDoubles();
+const doubles = await makeDoubles();
 const SECRET = "a-long-shared-secret-for-the-edge";
 const COOKIE = "policy-owner";
 
-beforeEach(() => {
+beforeEach(async () => {
   process.env.ZENITH_POLICY_SHARED_SECRET = SECRET;
-  resetGatewayDeps();
-  setGatewayDepsForTests(doubles.deps);
+  await resetGatewayDeps();
+  await setGatewayDepsForTests(doubles.deps);
   doubles.state.quotaAllowed = true;
   doubles.state.counted.length = 0;
   doubles.state.sessions.clear();
   doubles.state.sessions.set(
     COOKIE,
-    resolved(alpha, { subject: IDENTITIES.owner.subject, email: IDENTITIES.owner.email, role: "owner" })
+    await resolved(alpha, { subject: IDENTITIES.owner.subject, email: IDENTITIES.owner.email, role: "owner" })
   );
 });
 
-afterEach(() => {
+afterEach(async () => {
   process.env.ZENITH_POLICY_SHARED_SECRET = SECRET;
 });
 
-afterAll(() => {
+afterAll(async () => {
   delete process.env.ZENITH_POLICY_SHARED_SECRET;
-  resetGatewayDeps();
-  closeAllAppData();
+  await resetGatewayDeps();
+  await closeAllAppData();
   closeAuthority();
   removeDir(DATA_DIR);
 });
@@ -145,7 +145,7 @@ describe("what it answers", () => {
       id: release.id,
       digest: artifact.digest,
       number: release.number,
-      script: releaseScriptName("alpha", release.number, artifact.digest),
+      script: await releaseScriptName("alpha", release.number, artifact.digest),
     });
     expect(decision.session).toEqual({
       subject: IDENTITIES.owner.subject,
@@ -164,7 +164,7 @@ describe("what it answers", () => {
     const decision = await decisionOf(res);
     expect(decision.decision).toBe("serve");
     expect(decision.reserved).toBe("data.requests");
-    expect(decision.release?.script).toBe(brokerScriptName("alpha"));
+    expect(decision.release?.script).toBe(await brokerScriptName("alpha"));
   });
 
   it("marks the sign-in page reserved and needs no session for it", async () => {
@@ -183,7 +183,7 @@ describe("what it answers", () => {
         method: "POST",
         path: "/_zenith/data/v1/requests",
         cookie: COOKIE,
-        origin: appOrigin("alpha"),
+        origin: await appOrigin("alpha"),
       })
     );
     expect(good.decision).toBe("serve");
@@ -194,7 +194,7 @@ describe("what it answers", () => {
         method: "POST",
         path: "/_zenith/data/v1/requests",
         cookie: COOKIE,
-        origin: appOrigin("beta"),
+        origin: await appOrigin("beta"),
       })
     );
     expect(sibling.decision).toBe("deny");

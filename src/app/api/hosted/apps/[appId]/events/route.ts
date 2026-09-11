@@ -21,9 +21,9 @@ export const GET = hostedRoute<{ appId: string }>(
     const url = new URL(req.url);
     const limit = intParam(url, "limit", 100, { min: 1, max: 1000 });
     const since = url.searchParams.get("since") ?? undefined;
-    const logs = appLogs(appId, { limit, since });
+    const logs = await appLogs(appId, { limit, since });
     return {
-      events: listEvents({ appId, since, limit }),
+      events: await listEvents({ appId, since, limit }),
       logs: logs.lines,
       disclosure: logs.disclosure,
     };

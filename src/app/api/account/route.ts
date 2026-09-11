@@ -39,10 +39,10 @@ export const dynamic = "force-dynamic";
  * grant naming an account that no longer exists. An admin of the app's
  * workspace grants a replacement owner from the app's access panel.
  */
-function revokeHostedGrants(subject: string): number {
-  const grants = authority().repos.grants.listBySubject(subject, { activeOnly: true });
+async function revokeHostedGrants(subject: string): Promise<number> {
+  const grants = await authority().repos.grants.listBySubject(subject, { activeOnly: true });
   for (const grant of grants)
-    revokeGrant(grant.id, subject, "the account that held this access was deleted", {
+    await revokeGrant(grant.id, subject, "the account that held this access was deleted", {
       lastOwnerOk: true,
     });
   return grants.length;
@@ -67,8 +67,8 @@ export const DELETE = route(async () => {
   // harmless. See the header note.
   const admin = createAdminClient();
 
-  const appSessionsEnded = terminateAppSessionsForSubject(user.id, "signed_out");
-  const grantsRevoked = revokeHostedGrants(user.id);
+  const appSessionsEnded = await terminateAppSessionsForSubject(user.id, "signed_out");
+  const grantsRevoked = await revokeHostedGrants(user.id);
   const removal = removeAccountRecords(user);
 
   const { error } = await admin.auth.admin.deleteUser(user.id);

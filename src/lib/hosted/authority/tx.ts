@@ -8,13 +8,22 @@
  * must happen *outside* the transaction — an email, a provider call — is an
  * outbox row written inside it (see `outbox.ts`).
  *
- * **`fn` is synchronous, and that is deliberate.** `DatabaseSync` is a
- * blocking API and a SQLite write transaction holds a file lock. An `await`
- * inside a transaction would hold that lock across the event loop and let a
- * second request interleave its own statements on the same connection, which
- * is how a `BEGIN` and a `COMMIT` end up belonging to different logical
- * operations. So: no async work of any kind inside `fn` — do the network call
- * before the transaction, or record the intent in the outbox and do it after.
+ * **Two forms, one rule.** `transact()` takes a synchronous `fn` and is what
+ * the migration runner and the restore tooling use on a connection of their
+ * own. `transactAsync()` takes an `fn` that is awaited, which is what the
+ * authority's `tx()` is built from now that every repository call returns a
+ * Promise.
+ *
+ * **An awaited transaction must be serialised by its caller.** `DatabaseSync`
+ * is one connection, so an `await` inside a transaction holds the write lock
+ * across the event loop; a second transaction that issued `BEGIN` in the gap
+ * would interleave its statements with this one and a `BEGIN` and a `COMMIT`
+ * would end up belonging to different logical operations. `transactAsync()`
+ * does not police that — `sqlite-authority.ts` runs every top-level
+ * transaction through a process-wide mutex so the gap cannot be used. Keep
+ * `fn` to database work regardless: a network call inside a transaction holds
+ * the lock for as long as the network takes, which is the reason the outbox
+ * exists.
  *
  * **`fn` may run more than once.** When SQLite reports the database busy the
  * whole attempt is rolled back and retried (bounded, with backoff), so `fn`
@@ -67,6 +76,18 @@ function sleep(ms: number): void {
   if (ms <= 0) return;
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
+
+/**
+ * The same wait for the awaited form, which must not block the thread: the
+ * contender it is backing off from is usually another request on this event
+ * loop. Never keeps the process alive.
+ */
+const sleepAsync = (ms: number): Promise<void> =>
+  ms <= 0
+    ? Promise.resolve()
+    : new Promise<void>((resolve) => {
+        (setTimeout(resolve, ms) as unknown as { unref?: () => void }).unref?.();
+      });
 
 const backoffFor = (attempt: number): number => {
   if (env().ZENITH_FAST) return 0;
@@ -131,6 +152,84 @@ export function transact<T>(db: DatabaseSync, fn: (db: DatabaseSync) => T, opts:
     }
   }
   throw busy(last, attempts);
+}
+
+/**
+ * Run an awaited `fn` inside one durable transaction and resolve with its
+ * value.
+ *
+ * The same frames and the same retry as `transact()`: `BEGIN IMMEDIATE` …
+ * `COMMIT` at the outermost level, `SAVEPOINT` … `RELEASE` inside one, bounded
+ * replay on busy, and a resolution that happens only after the commit
+ * succeeded. The backoff waits on a timer rather than blocking the thread.
+ *
+ * **The caller owns serialisation.** Two overlapping calls on one connection
+ * would interleave; `createSqliteAuthority` is what makes sure they cannot.
+ */
+export async function transactAsync<T>(
+  db: DatabaseSync,
+  fn: (db: DatabaseSync) => T | Promise<T>,
+  opts: TransactOptions = {}
+): Promise<T> {
+  if (db.isTransaction) return withSavepointAsync(db, fn);
+
+  const attempts = Math.max(1, Math.trunc(opts.attempts ?? TX_MAX_ATTEMPTS));
+  let last: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      db.exec("BEGIN IMMEDIATE");
+    } catch (err) {
+      if (!isBusyError(err)) throw err;
+      last = err;
+      await sleepAsync(backoffFor(attempt));
+      continue;
+    }
+    try {
+      const value = await fn(db);
+      db.exec("COMMIT");
+      return value;
+    } catch (err) {
+      try {
+        if (db.isTransaction) db.exec("ROLLBACK");
+      } catch {
+        /* the original error is the one worth reporting */
+      }
+      if (!isBusyError(err)) throw err;
+      last = err;
+      await sleepAsync(backoffFor(attempt));
+    }
+  }
+  throw busy(last, attempts);
+}
+
+/** `SAVEPOINT` … `RELEASE` around an awaited `fn`, with `ROLLBACK TO` on a throw. */
+async function withSavepointAsync<T>(
+  db: DatabaseSync,
+  fn: (db: DatabaseSync) => T | Promise<T>
+): Promise<T> {
+  const level = (depth.get(db) ?? 0) + 1;
+  depth.set(db, level);
+  const name = `zenith_sp_${level}`;
+  try {
+    db.exec(`SAVEPOINT ${name}`);
+    try {
+      const value = await fn(db);
+      db.exec(`RELEASE ${name}`);
+      return value;
+    } catch (err) {
+      // ROLLBACK TO leaves the savepoint on the stack; RELEASE pops it. Both,
+      // in that order, or the next sibling savepoint nests inside a dead one.
+      try {
+        db.exec(`ROLLBACK TO ${name}`);
+        db.exec(`RELEASE ${name}`);
+      } catch {
+        /* the outer frame's ROLLBACK discards everything anyway */
+      }
+      throw err;
+    }
+  } finally {
+    depth.set(db, level - 1);
+  }
 }
 
 function withSavepoint<T>(db: DatabaseSync, fn: (db: DatabaseSync) => T): T {

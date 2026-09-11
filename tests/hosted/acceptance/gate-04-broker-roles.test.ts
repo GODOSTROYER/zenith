@@ -103,8 +103,8 @@ beforeAll(async () => {
     source: { kind: "fixture", name: "minimal-app" },
   });
 
-  m.access.grantDirect(alpha.id, { subject: EDITOR.subject, email: EDITOR.email, role: "editor" }, OWNER.subject);
-  m.access.grantDirect(alpha.id, { subject: VIEWER.subject, email: VIEWER.email, role: "viewer" }, OWNER.subject);
+  await m.access.grantDirect(alpha.id, { subject: EDITOR.subject, email: EDITOR.email, role: "editor" }, OWNER.subject);
+  await m.access.grantDirect(alpha.id, { subject: VIEWER.subject, email: VIEWER.email, role: "viewer" }, OWNER.subject);
 
   ownerCookie = await signIn(m, alpha, OWNER.subject);
   editorCookie = await signIn(m, alpha, EDITOR.subject);
@@ -112,8 +112,8 @@ beforeAll(async () => {
   betaOwnerCookie = await signIn(m, beta, OWNER.subject);
 }, 300_000);
 
-afterAll(() => {
-  closeHosted(m);
+afterAll(async () => {
+  await closeHosted(m);
   removeDir(DATA);
 });
 
@@ -164,7 +164,7 @@ describe("Gate 4 — broker roles, reserved routes and the data capability", () 
   });
 
   it("lets a viewer read and refuses their writes without opening the store", async () => {
-    m.gateway.resetGatewayTelemetry();
+    await m.gateway.resetGatewayTelemetry();
     const read = call({
       host: ALPHA,
       path: "/_zenith/data/v1/requests",
@@ -209,9 +209,11 @@ describe("Gate 4 — broker roles, reserved routes and the data capability", () 
   });
 
   it("ignores every attempt to smuggle a verb past the role check", async () => {
-    const before = m.authority
-      .authority()
-      .repos.events.listSince({ appId: alpha.id, event: "record.created" }, { limit: 500 }).length;
+    const before = (
+      await m.authority
+        .authority()
+        .repos.events.listSince({ appId: alpha.id, event: "record.created" }, { limit: 500 })
+    ).length;
 
     const overrides: { name: string; options: Parameters<typeof call>[0] }[] = [
       {
@@ -255,10 +257,10 @@ describe("Gate 4 — broker roles, reserved routes and the data capability", () 
     }
 
     expect(
-      m.authority.authority().repos.events.listSince(
+      (await m.authority.authority().repos.events.listSince(
         { appId: alpha.id, event: "record.created" },
         { limit: 500 }
-      ).length,
+      )).length,
       "no override created a record"
     ).toBe(before);
 
@@ -344,11 +346,11 @@ describe("Gate 4 — broker roles, reserved routes and the data capability", () 
       },
     });
     expect(job.status).toBe("failed");
-    expect(m.release.jobLogs(job.id).join("\n")).toMatch(/extension is not supported/);
+    expect((await m.release.jobLogs(job.id)).join("\n")).toMatch(/extension is not supported/);
   });
 
   it("keeps app A's cookie away from app B's data, and the two datasets apart", async () => {
-    m.gateway.resetGatewayTelemetry();
+    await m.gateway.resetGatewayTelemetry();
     const crossed = call({
       host: BETA,
       path: "/_zenith/data/v1/requests",
@@ -376,7 +378,7 @@ describe("Gate 4 — broker roles, reserved routes and the data capability", () 
     );
 
     // The databases are separate files, which is the reason the above holds.
-    expect(m.data.appDataPath(alpha.id, "data")).not.toBe(m.data.appDataPath(beta.id, "data"));
+    expect(await m.data.appDataPath(alpha.id, "data")).not.toBe(await m.data.appDataPath(beta.id, "data"));
   });
 
   it("never lets an artifact response carry a cookie or a redirect", async () => {
@@ -396,7 +398,7 @@ describe("Gate 4 — broker roles, reserved routes and the data capability", () 
         "content-type": "text/html",
       },
     });
-    const guarded = m.gateway.applyResponseGuard(smuggler, { cache: "no-store" });
+    const guarded = await m.gateway.applyResponseGuard(smuggler, { cache: "no-store" });
     expect(guarded.headers.getSetCookie(), "set-cookie stripped").toEqual([]);
     expect(guarded.headers.get("location"), "location stripped").toBeNull();
     expect(guarded.headers.get("access-control-allow-origin"), "CORS stripped").toBeNull();

@@ -191,7 +191,7 @@ export class LocalRuntime implements HostedRuntime, SelectableRuntime {
    * worker whose token has been overtaken gets `conflict` and stops.
    */
   async activate(app: HostedApp, release: Release, fence: number): Promise<void> {
-    const current = authority().repos.apps.get(app.id);
+    const current = await authority().repos.apps.get(app.id);
     if (!current)
       throw new HostedError("not_found", `App ${app.id} no longer exists, so nothing can be activated.`, {
         fix: "Reload the app list; this app was deleted while the publish was running.",
@@ -310,7 +310,7 @@ export class LocalRuntime implements HostedRuntime, SelectableRuntime {
     candidate: RuntimeCandidateRef
   ): Promise<Check> {
     try {
-      const release = authority().repos.releases.get(candidate.releaseId);
+      const release = await authority().repos.releases.get(candidate.releaseId);
       const expected = release?.schemaVersion ?? TRACKER_SCHEMA_VERSION;
       const actual = await this.readProductionSchemaVersion(app.id);
       return check(

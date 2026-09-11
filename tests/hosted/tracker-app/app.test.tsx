@@ -116,7 +116,7 @@ async function press(node: Element, key: string): Promise<void> {
   await settle();
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
   minted = 0;
   noise = [];
@@ -130,7 +130,7 @@ beforeEach(() => {
   root = createRoot(host);
 });
 
-afterEach(() => {
+afterEach(async () => {
   act(() => root.unmount());
   host.remove();
   resetApi();

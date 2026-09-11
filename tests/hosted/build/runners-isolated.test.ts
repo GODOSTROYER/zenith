@@ -27,7 +27,7 @@ beforeAll(async () => {
   contracts = await import("@/lib/hosted/contracts");
 });
 
-afterEach(() => {
+afterEach(async () => {
   delete process.env.ZENITH_BUILD_RUNNER;
   delete process.env.E2B_API_KEY;
 });
@@ -124,7 +124,7 @@ describe("E2bRunner availability", () => {
     expect(await new build.E2bRunner().availability()).toEqual({ available: true });
   });
 
-  it("says its boundary is unverified live", () => {
+  it("says its boundary is unverified live", async () => {
     expect(new build.E2bRunner().boundary).toContain("unverified live");
     expect(new build.E2bRunner().boundary).toContain("disposable");
   });
@@ -287,8 +287,8 @@ describe("DockerRunner availability", () => {
 });
 
 describe("DockerRunner argument vector", () => {
-  it("carries the whole boundary in the flags", () => {
-    const args = build.dockerRunArgs({ memoryMb: 768, root: "/tmp/src-1", out: "/tmp/out-1" });
+  it("carries the whole boundary in the flags", async () => {
+    const args = await build.dockerRunArgs({ memoryMb: 768, root: "/tmp/src-1", out: "/tmp/out-1" });
     expect(args).toEqual([
       "run",
       "--rm",
@@ -332,7 +332,7 @@ describe("DockerRunner argument vector", () => {
     expect(result.error).toContain("without writing a result");
   });
 
-  it("says its boundary is the daemon's and unproven here", () => {
+  it("says its boundary is the daemon's and unproven here", async () => {
     expect(new build.DockerRunner().boundary).toContain("no network");
     expect(new build.DockerRunner().boundary).toContain("no container has been run from this repository");
   });

@@ -259,9 +259,9 @@ export async function jobTickPass(): Promise<JobTickResult> {
   const { authorityOpen } = await import("@/lib/hosted/authority");
   if (!authorityOpen()) return { ran: false, queued: 0, remaining: 0 };
   const { queuedJobs, tickJobs } = await import("@/lib/hosted/release");
-  const queued = queuedJobs().length;
-  tickJobs();
-  return { ran: true, queued, remaining: queuedJobs().length };
+  const queued = (await queuedJobs()).length;
+  await tickJobs();
+  return { ran: true, queued, remaining: (await queuedJobs()).length };
 }
 
 /* --------------------------------- routing -------------------------------- */

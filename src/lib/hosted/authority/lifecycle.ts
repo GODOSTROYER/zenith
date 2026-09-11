@@ -22,27 +22,10 @@ import path from "node:path";
 import { backup, DatabaseSync } from "node:sqlite";
 import { HostedError } from "@/lib/hosted/contracts";
 import { controlDatabasePath } from "@/lib/hosted/config";
-import { createRepos, type Repos } from "./repos";
 import { migrate } from "./schema";
 import { readText, type SqlRow } from "./sql";
-import { transact, type TransactOptions } from "./tx";
-
-/** The open control authority: its connection, its file, its transaction helper, its tables. */
-export interface Authority {
-  /** The live connection. Prefer `repos`; reach for this only for a one-off query. */
-  db: DatabaseSync;
-  /** Absolute path of the database file. */
-  path: string;
-  /**
-   * Run `fn` in one durable transaction and return its value. Commit-before-
-   * ACK: this returns only after `COMMIT` succeeded. `fn` is synchronous, must
-   * do database work only, and may be re-run if SQLite reports the database
-   * busy — see `tx.ts`.
-   */
-  tx<T>(fn: (db: DatabaseSync) => T, opts?: TransactOptions): T;
-  /** One repository per table, all bound to `db`. */
-  repos: Repos;
-}
+import { createSqliteAuthority, sqliteConnection } from "./sqlite";
+import type { Authority } from "./types";
 
 /** How the authority is opened. */
 export interface OpenAuthorityOptions {
@@ -64,7 +47,7 @@ const held = (): Authority | undefined => {
   const existing = (globalThis as AuthorityGlobal).__zenithAuthority;
   // A connection closed behind our back (a test that called db.close(), a
   // half-finished teardown) must not be handed out as if it were live.
-  if (existing && !existing.db.isOpen) {
+  if (existing && !sqliteConnection(existing).isOpen) {
     delete (globalThis as AuthorityGlobal).__zenithAuthority;
     return undefined;
   }
@@ -129,12 +112,12 @@ export function openAuthority(opts: OpenAuthorityOptions = {}): Authority {
     throw hadContent ? refuseCorrupt(target, err) : err;
   }
 
-  const authority: Authority = {
-    db,
-    path: target,
-    tx: (fn, txOpts) => transact(db, fn, txOpts),
-    repos: createRepos(db),
-  };
+  const authority = createSqliteAuthority(db, target, {
+    onClose: () => {
+      if ((globalThis as AuthorityGlobal).__zenithAuthority === authority)
+        delete (globalThis as AuthorityGlobal).__zenithAuthority;
+    },
+  });
   (globalThis as AuthorityGlobal).__zenithAuthority = authority;
   return authority;
 }
@@ -159,8 +142,9 @@ export function closeAuthority(): void {
   const existing = (globalThis as AuthorityGlobal).__zenithAuthority;
   delete (globalThis as AuthorityGlobal).__zenithAuthority;
   if (!existing) return;
+  const db = sqliteConnection(existing);
   try {
-    if (existing.db.isOpen) existing.db.close();
+    if (db.isOpen) db.close();
   } catch {
     /* closing twice is not a failure worth propagating */
   }

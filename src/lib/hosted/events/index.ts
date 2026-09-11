@@ -151,7 +151,7 @@ export function actorClassOf(subject?: Subject, email?: string): ActorClass {
  *
  * Never throws. Callers put this on the happy path of a request handler.
  */
-export function recordEvent(input: RecordEventInput): boolean {
+export async function recordEvent(input: RecordEventInput): Promise<boolean> {
   try {
     if (!authorityOpen()) return false;
     if (!(HOSTED_EVENTS as readonly string[]).includes(input.event)) {
@@ -162,8 +162,8 @@ export function recordEvent(input: RecordEventInput): boolean {
       return false;
     }
     const a = authority();
-    const { inserted } = a.tx(() =>
-      a.repos.events.append({
+    const { inserted } = await a.tx(async (repos) =>
+      repos.events.append({
         id: randomUUID(),
         event: input.event,
         workspaceId: input.workspaceId,
@@ -196,7 +196,7 @@ export interface ListEventsQuery extends EventQuery {
 }
 
 /** Events in the slice, oldest first. Bounded; the default is the repository's. */
-export function listEvents(query: ListEventsQuery = {}): HostedEvent[] {
+export async function listEvents(query: ListEventsQuery = {}): Promise<HostedEvent[]> {
   const { limit, ...slice } = query;
   return authority().repos.events.listSince(slice, limit === undefined ? {} : { limit });
 }
@@ -275,15 +275,15 @@ function median(values: number[]): number {
  * cannot be computed says so with a reason rather than reporting a zero that
  * would read as "we measured, and it is none".
  */
-export function scorecard(window: ScorecardWindow): Scorecard {
+export async function scorecard(window: ScorecardWindow): Promise<Scorecard> {
   const since = window.since;
   const until = window.until ?? new Date().toISOString();
   const a = authority();
-  const events = a.repos.events
-    .listSince({ since }, { limit: window.limit ?? 100_000 })
-    .filter((event) => event.ts <= until);
+  const events = (
+    await a.repos.events.listSince({ since }, { limit: window.limit ?? 100_000 })
+  ).filter((event) => event.ts <= until);
 
-  const apps = new Map(a.repos.apps.listAll().map((app) => [app.id, app]));
+  const apps = new Map((await a.repos.apps.listAll()).map((app) => [app.id, app]));
   const salted = eventsSalted();
   // The pseudonym of each app's creator, so "someone other than the builder"
   // is answerable from hashes alone.

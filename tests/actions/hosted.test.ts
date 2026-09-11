@@ -53,18 +53,18 @@ const ctx = (id: string): ActionContext => ({ workspaceId: workspace.id, actor: 
 const store = new artifacts.FsArtifactStore(path.join(DATA, "artifacts"));
 
 /** Wire the release module's collaborators; `owner` is the only subject with the grant. */
-function wire(opts: { owner?: string; runner?: BuildRunner | null; unavailable?: Availability; paused?: { paused: boolean; reason?: string } } = {}) {
-  const runtime: HostedRuntime = runtimeDouble({ store }).runtime;
-  const build = opts.runner === undefined ? buildRunnerDouble({ unavailable: opts.unavailable }).runner : opts.runner;
+async function wire(opts: { owner?: string; runner?: BuildRunner | null; unavailable?: Availability; paused?: { paused: boolean; reason?: string } } = {}) {
+  const runtime: HostedRuntime = (await runtimeDouble({ store })).runtime;
+  const build = opts.runner === undefined ? (await buildRunnerDouble({ unavailable: opts.unavailable })).runner : opts.runner;
   const usage = usageDouble(opts.paused);
   return release.setReleaseDepsForTests({
     runtime: () => runtime,
     buildRunner: () => build,
     artifactStore: () => store,
     recordUsage: usage.recordUsage as never,
-    buildsPaused: usage.buildsPaused,
+    buildsPaused: async () => usage.buildsPaused(),
     appSchemaVersion: () => Promise.resolve(1),
-    requireAppRole: (appId, subject) => {
+    requireAppRole: async (appId, subject) => {
       const holder = opts.owner ?? OWNER;
       if (subject !== holder)
         throw new contracts.HostedError("forbidden", `${subject} does not hold an owner grant on ${appId}.`, {
@@ -72,7 +72,7 @@ function wire(opts: { owner?: string; runner?: BuildRunner | null; unavailable?:
         });
       return grant(appId, subject);
     },
-    activeGrant: (appId, subject) => (subject === (opts.owner ?? OWNER) ? grant(appId, subject) : null),
+    activeGrant: async (appId, subject) => (subject === (opts.owner ?? OWNER) ? grant(appId, subject) : null),
   });
 }
 
@@ -90,26 +90,26 @@ const grant = (appId: string, subject: string) => ({
 
 let undo: (() => void) | undefined;
 
-beforeAll(() => {
+beforeAll(async () => {
   authority.openAuthority();
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   resetDb({
     workspaces: [workspace],
     members: [member(OWNER, "editor"), member(EDITOR, "editor"), member(VIEWER, "viewer")],
   });
 });
 
-afterEach(() => {
+afterEach(async () => {
   undo?.();
   undo = undefined;
-  release.resetReleaseDeps();
+  await release.resetReleaseDeps();
 });
 
-afterAll(() => {
-  release.stopHostedJobRunner();
-  data.closeAllAppData();
+afterAll(async () => {
+  await release.stopHostedJobRunner();
+  await data.closeAllAppData();
   authority.closeAuthority();
   fs.rmSync(DATA, { recursive: true, force: true });
 });
@@ -123,7 +123,7 @@ async function createApp(slug: string, who = OWNER) {
 
 describe("app.create", () => {
   it("plans the hostname and the runtime, then creates the app and its owner grant", async () => {
-    undo = wire();
+    undo = await wire();
     const { plan } = await runAction("app.create", ctx(EDITOR), { name: "Tracker", slug: "tracker" }, { mode: "plan" });
     expect(plan?.blocked).toBeUndefined();
     expect(plan?.summary).toContain("tracker.apps.localhost");
@@ -134,11 +134,11 @@ describe("app.create", () => {
     expect(result?.ok).toBe(true);
     const app = (result?.data as { app: { id: string; slug: string } }).app;
     expect(app.slug).toBe("tracker");
-    expect(authority.authority().repos.grants.listByApp(app.id)[0].subject).toBe(EDITOR);
+    expect((await authority.authority().repos.grants.listByApp(app.id))[0].subject).toBe(EDITOR);
   });
 
   it("blocks the plan for a slug that is taken and for one that cannot be a hostname", async () => {
-    undo = wire();
+    undo = await wire();
     const taken = await runAction("app.create", ctx(EDITOR), { name: "Again", slug: "tracker" }, { mode: "plan" });
     expect(taken.plan?.blocked).toContain("already belongs to another app");
 
@@ -147,17 +147,17 @@ describe("app.create", () => {
   });
 
   it("refuses a viewer, naming the role they would need", async () => {
-    undo = wire();
+    undo = await wire();
     const { result } = await runAction("app.create", ctx(VIEWER), { name: "Nope", slug: "nope" }, { mode: "execute" });
     expect(result?.ok).toBe(false);
     expect(result?.error).toContain("role_denied");
-    expect(authority.authority().repos.apps.getBySlug("nope")).toBeNull();
+    expect(await authority.authority().repos.apps.getBySlug("nope")).toBeNull();
   });
 });
 
 describe("app.publish", () => {
   it("plans with the runner that will build and the phases it will run", async () => {
-    undo = wire();
+    undo = await wire();
     const app = await createApp("publishable");
     const { plan } = await runAction(
       "app.publish",
@@ -171,8 +171,8 @@ describe("app.publish", () => {
   });
 
   it("blocks the plan when this install has no build runner, quoting the variable", async () => {
-    undo = wire({ runner: null });
-    const app = authority.authority().repos.apps.getBySlug("publishable")!;
+    undo = await wire({ runner: null });
+    const app = ((await authority.authority().repos.apps.getBySlug("publishable"))!);
     const { plan } = await runAction(
       "app.publish",
       ctx(OWNER),
@@ -183,8 +183,8 @@ describe("app.publish", () => {
   });
 
   it("blocks the plan when the selected runner cannot run here", async () => {
-    undo = wire({ unavailable: { available: false, reason: "the Docker daemon is not reachable", fix: "Start Docker Desktop." } });
-    const app = authority.authority().repos.apps.getBySlug("publishable")!;
+    undo = await wire({ unavailable: { available: false, reason: "the Docker daemon is not reachable", fix: "Start Docker Desktop." } });
+    const app = ((await authority.authority().repos.apps.getBySlug("publishable"))!);
     const { plan } = await runAction(
       "app.publish",
       ctx(OWNER),
@@ -196,8 +196,8 @@ describe("app.publish", () => {
   });
 
   it("blocks the plan when the actor has the workspace role but not the owner grant", async () => {
-    undo = wire({ owner: OWNER });
-    const app = authority.authority().repos.apps.getBySlug("publishable")!;
+    undo = await wire({ owner: OWNER });
+    const app = ((await authority.authority().repos.apps.getBySlug("publishable"))!);
     const { plan } = await runAction(
       "app.publish",
       ctx(EDITOR),
@@ -208,8 +208,8 @@ describe("app.publish", () => {
   });
 
   it("blocks the plan while spending has paused builds", async () => {
-    undo = wire({ paused: { paused: true, reason: "Builds are paused at 90 % of the approved envelope." } });
-    const app = authority.authority().repos.apps.getBySlug("publishable")!;
+    undo = await wire({ paused: { paused: true, reason: "Builds are paused at 90 % of the approved envelope." } });
+    const app = ((await authority.authority().repos.apps.getBySlug("publishable"))!);
     const { plan } = await runAction(
       "app.publish",
       ctx(OWNER),
@@ -220,8 +220,8 @@ describe("app.publish", () => {
   });
 
   it("refuses execute for a workspace viewer, and for an editor without the owner grant", async () => {
-    undo = wire({ owner: OWNER });
-    const app = authority.authority().repos.apps.getBySlug("publishable")!;
+    undo = await wire({ owner: OWNER });
+    const app = ((await authority.authority().repos.apps.getBySlug("publishable"))!);
 
     const viewer = await runAction(
       "app.publish",
@@ -240,12 +240,12 @@ describe("app.publish", () => {
     );
     expect(editor.result?.ok).toBe(false);
     expect(editor.result?.error).toContain("does not hold an owner grant");
-    expect(authority.authority().repos.jobs.listByApp(app.id)).toHaveLength(0);
+    expect(await authority.authority().repos.jobs.listByApp(app.id)).toHaveLength(0);
   });
 
   it("queues the job for an editor who also owns the app, and replays a repeated job id", async () => {
-    undo = wire({ owner: OWNER });
-    const app = authority.authority().repos.apps.getBySlug("publishable")!;
+    undo = await wire({ owner: OWNER });
+    const app = ((await authority.authority().repos.apps.getBySlug("publishable"))!);
     const jobId = crypto.randomUUID();
     const input = { appId: app.id, jobId, source: { kind: "fixture", name: "minimal-app" } };
 
@@ -256,12 +256,12 @@ describe("app.publish", () => {
 
     const second = await runAction("app.publish", ctx(OWNER), input, { mode: "execute", idempotencyKey: jobId });
     expect(second.result?.ok).toBe(true);
-    expect(authority.authority().repos.jobs.listByApp(app.id)).toHaveLength(1);
+    expect(await authority.authority().repos.jobs.listByApp(app.id)).toHaveLength(1);
   });
 
   it("refuses an app id from another workspace exactly as it refuses one that does not exist", async () => {
-    undo = wire();
-    const app = authority.authority().repos.apps.getBySlug("publishable")!;
+    undo = await wire();
+    const app = ((await authority.authority().repos.apps.getBySlug("publishable"))!);
     const foreign: ActionContext = { workspaceId: "ws-two", actor: actor(OWNER) };
     const { plan } = await runAction(
       "app.publish",
@@ -275,8 +275,8 @@ describe("app.publish", () => {
 
 describe("app.suspend and app.resume", () => {
   it("need the admin role, and say so on the plan", async () => {
-    undo = wire();
-    const app = authority.authority().repos.apps.getBySlug("publishable")!;
+    undo = await wire();
+    const app = ((await authority.authority().repos.apps.getBySlug("publishable"))!);
     const { plan } = await runAction(
       "app.suspend",
       ctx(OWNER),
@@ -300,8 +300,8 @@ describe("app.suspend and app.resume", () => {
 
   it("queues the suspension for a workspace admin who owns the app", async () => {
     resetDb({ workspaces: [workspace], members: [member(OWNER, "admin")] });
-    undo = wire();
-    const app = authority.authority().repos.apps.getBySlug("publishable")!;
+    undo = await wire();
+    const app = ((await authority.authority().repos.apps.getBySlug("publishable"))!);
     const jobId = crypto.randomUUID();
     const { result } = await runAction(
       "app.suspend",
@@ -310,7 +310,7 @@ describe("app.suspend and app.resume", () => {
       { mode: "execute" }
     );
     expect(result?.ok).toBe(true);
-    const job = authority.authority().repos.jobs.get(jobId)!;
+    const job = ((await authority.authority().repos.jobs.get(jobId))!);
     expect(job.kind).toBe("suspend");
     expect(job.status).toBe("queued");
   });
@@ -318,8 +318,8 @@ describe("app.suspend and app.resume", () => {
 
 describe("app.rollback", () => {
   it("blocks the plan when the named release is not a rollback target", async () => {
-    undo = wire();
-    const app = authority.authority().repos.apps.getBySlug("publishable")!;
+    undo = await wire();
+    const app = ((await authority.authority().repos.apps.getBySlug("publishable"))!);
     const { plan } = await runAction(
       "app.rollback",
       ctx(OWNER),

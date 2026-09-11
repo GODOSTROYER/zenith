@@ -30,7 +30,15 @@
  * (one per process, on `globalThis`), and swapping it for the restore target
  * would leave a running control service pointed at a directory it is not
  * serving. A private `DatabaseSync` over the restored file touches nothing
- * else and is closed before this function returns.
+ * else and is closed before this function returns. It is also the one place
+ * that is deliberately synchronous: `createRepos()` over a private
+ * `DatabaseSync` is the repository set as the repository files write it, and
+ * `transact()` is its synchronous transaction.
+ *
+ * TODO(ceiling): Postgres backup path — rebuilding the control authority from a
+ * bundle is a SQLite file operation here. A Postgres authority restores from a
+ * dump into a fresh database, and everything from `new DatabaseSync` down needs
+ * a different mechanism.
  *
  * **The local revocation ledger is not rewritten.** Entries newer than the
  * snapshot are *applied* (the grant is revoked, its sessions end) and recorded
@@ -52,7 +60,7 @@ import {
   type GrantState,
   type RevocationLedgerEntry,
 } from "@/lib/hosted/contracts";
-import { createRepos, transact, type Repos } from "@/lib/hosted/authority";
+import { createRepos, transact, type SyncRepos } from "@/lib/hosted/authority";
 import { log } from "@/lib/log";
 import { unpackBundle } from "./bundle";
 import { unseal } from "./crypto";
@@ -278,7 +286,7 @@ function assertEmpty(into: string): void {
 /** Read the off-host ledger and apply — or refuse to vouch for — what it says. */
 async function reconcile(
   db: DatabaseSync,
-  repos: Repos,
+  repos: SyncRepos,
   manifest: BackupManifest,
   target: BackupTarget | null,
   targetFix: string | undefined,
@@ -370,7 +378,7 @@ async function reconcile(
  */
 function closeEverything(
   db: DatabaseSync,
-  repos: Repos,
+  repos: SyncRepos,
   report: ReconciliationReport,
   now: string
 ): ReconciliationReport {
@@ -423,7 +431,7 @@ function parseLedgerLine(line: string): RevocationLedgerEntry | null {
 }
 
 /** The counts an operator checks before deciding anything is safe to reopen. */
-function countEverything(repos: Repos, into: string): RestoreReport["counts"] {
+function countEverything(repos: SyncRepos, into: string): RestoreReport["counts"] {
   const apps = repos.apps.listAll();
   const appsByState: Record<string, number> = {};
   const grantsByState: Record<GrantState, number> = { active: 0, revoked: 0, needs_reapproval: 0 };

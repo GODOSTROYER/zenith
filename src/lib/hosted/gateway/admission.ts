@@ -111,9 +111,9 @@ export const refusedPath = (): HostedError =>
  * file or a sibling module that has not landed all end in 503, never in a
  * request that is admitted because the check could not run.
  */
-export function authorityStep<T>(what: string, fn: () => T): T {
+export async function authorityStep<T>(what: string, fn: () => T | Promise<T>): Promise<T> {
   try {
-    return fn();
+    return await fn();
   } catch (err) {
     // A refusal the policy itself decided (quota, forbidden, sign-in) is the
     // answer, not a failure to get one.
@@ -149,8 +149,8 @@ export function resolveHost(hostHeader: string | null, expected?: string): { hos
 }
 
 /** Step 2: a live app owns that slug. Deleted apps are indistinguishable from absent ones. */
-export function loadApp(slug: string): HostedApp {
-  const app = authorityStep("looking up the app", () => authority().repos.apps.getBySlug(slug));
+export async function loadApp(slug: string): Promise<HostedApp> {
+  const app = await authorityStep("looking up the app", () => authority().repos.apps.getBySlug(slug));
   if (!app || app.state === "deleted") throw unknownHost();
   return app;
 }
@@ -183,8 +183,8 @@ export function assertAppState(app: HostedApp, opts: { method: string; reserved:
  * its outcome — a 403 costs the app a request just as a 200 does, because the
  * work of deciding it is what the counter measures.
  */
-export function countRequest(app: HostedApp, now: Date = new Date()): void {
-  const verdict = authorityStep("counting the request against today's quota", () =>
+export async function countRequest(app: HostedApp, now: Date = new Date()): Promise<void> {
+  const verdict = await authorityStep("counting the request against today's quota", () =>
     gatewayDeps().admitRequest(app.id, { now })
   );
   if (verdict.allowed) return;
@@ -228,9 +228,12 @@ export const signInRequired = (): HostedError =>
  * this app" confirms the other app exists and that the holder has access to
  * it. The two cases are not distinguishable from outside, by design.
  */
-export function admitSession(app: HostedApp, cookieValue: string | null): { session: AppSession; grant: AppGrant } {
+export async function admitSession(
+  app: HostedApp,
+  cookieValue: string | null
+): Promise<{ session: AppSession; grant: AppGrant }> {
   if (!cookieValue) throw signInRequired();
-  const resolved = authorityStep("checking your session", () =>
+  const resolved = await authorityStep("checking your session", () =>
     gatewayDeps().resolveAppSession(cookieValue, app.id)
   );
   if (!resolved) throw signInRequired();
@@ -238,8 +241,8 @@ export function admitSession(app: HostedApp, cookieValue: string | null): { sess
 }
 
 /** Step 8: the app's durable active-release pointer, and the artifact it names. */
-export function resolveActiveRelease(app: HostedApp): { release: Release; digest: string } {
-  const release = authorityStep("looking up the active release", () =>
+export async function resolveActiveRelease(app: HostedApp): Promise<{ release: Release; digest: string }> {
+  const release = await authorityStep("looking up the active release", () =>
     app.activeReleaseId ? authority().repos.releases.get(app.activeReleaseId) : null
   );
   if (!release || release.status !== "active" || release.appId !== app.id)
@@ -258,9 +261,13 @@ export function resolveActiveRelease(app: HostedApp): { release: Release; digest
  *
  * Never throws: an analytics row is not worth failing a request over.
  */
-export function noteAppOpened(app: HostedApp, session: AppSession, releaseId?: string): void {
+export async function noteAppOpened(
+  app: HostedApp,
+  session: AppSession,
+  releaseId?: string
+): Promise<void> {
   try {
-    gatewayDeps().recordEvent({
+    await gatewayDeps().recordEvent({
       event: "app.opened",
       workspaceId: app.workspaceId,
       appId: app.id,
@@ -275,13 +282,13 @@ export function noteAppOpened(app: HostedApp, session: AppSession, releaseId?: s
 }
 
 /** Record a denial for the activation scorecard. Never throws. */
-export function noteAccessDenied(
+export async function noteAccessDenied(
   app: HostedApp,
   code: string,
   opts: { subject?: string; releaseId?: string; path?: string } = {}
-): void {
+): Promise<void> {
   try {
-    gatewayDeps().recordEvent({
+    await gatewayDeps().recordEvent({
       event: "access.denied",
       workspaceId: app.workspaceId,
       appId: app.id,
@@ -338,11 +345,11 @@ export const csrfRejected = (): HostedError =>
  * Everything is decided here; the worker only obeys. That is what makes the
  * two runtimes share one admission rather than two implementations that drift.
  */
-export function decideAdmission(input: AdmissionInput): AdmissionDecision {
+export async function decideAdmission(input: AdmissionInput): Promise<AdmissionDecision> {
   const now = input.now ?? new Date();
   try {
     const { slug } = resolveHost(input.host);
-    const app = loadApp(slug);
+    const app = await loadApp(slug);
 
     const rawPath = input.path.split("?")[0] ?? "/";
     const normalized = normalizeAppPath(
@@ -351,7 +358,7 @@ export function decideAdmission(input: AdmissionInput): AdmissionDecision {
     const reserved = normalized === null ? null : reservedRouteOf(normalized);
 
     assertAppState(app, { method: input.method, reserved });
-    countRequest(app, now);
+    await countRequest(app, now);
 
     if (normalized === null) throw unknownReservedRoute();
     if (isReservedPath(normalized) && !reserved) throw unknownReservedRoute();
@@ -360,7 +367,7 @@ export function decideAdmission(input: AdmissionInput): AdmissionDecision {
     if (reserved?.id === "auth.signin" || reserved?.id === "auth.callback")
       return { decision: "serve", status: 200, reserved: reserved.id };
 
-    const { session, grant } = admitSession(app, input.cookie ?? null);
+    const { session, grant } = await admitSession(app, input.cookie ?? null);
 
     // A mutation through the broker must carry this app's own Origin. The edge
     // asks us rather than re-deriving the rule, so both runtimes refuse the
@@ -370,8 +377,8 @@ export function decideAdmission(input: AdmissionInput): AdmissionDecision {
       if ((input.origin ?? "").trim().toLowerCase() !== expected) throw csrfRejected();
     }
 
-    const { release, digest } = resolveActiveRelease(app);
-    noteAppOpened(app, session, release.id);
+    const { release, digest } = await resolveActiveRelease(app);
+    await noteAppOpened(app, session, release.id);
     return {
       decision: "serve",
       status: 200,

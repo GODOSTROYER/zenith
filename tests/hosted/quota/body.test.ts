@@ -42,9 +42,9 @@ function streamedRequest(chunks: string[], headers: Record<string, string> = {})
 }
 
 /** The thrown value as a HostedError, so a failure names what actually came out. */
-async function refusal(promise: Promise<unknown>): Promise<InstanceType<typeof HostedError>> {
+async function refusal(read: () => Promise<unknown>): Promise<InstanceType<typeof HostedError>> {
   try {
-    await promise;
+    await read();
   } catch (error) {
     if (error instanceof HostedError) return error;
     throw error;
@@ -64,7 +64,7 @@ describe("readJsonBody", () => {
       headers: { "content-type": "application/json", "content-length": "2000000" },
       body: JSON.stringify({ small: true }),
     });
-    const error = await refusal(readJsonBody(request, 1024));
+    const error = await refusal(() => readJsonBody(request, 1024));
     expect(error.code).toBe("body_too_large");
     expect(error.status).toBe(413);
     expect(error.fix).toMatch(/1024 bytes/);
@@ -76,7 +76,7 @@ describe("readJsonBody", () => {
     const request = streamedRequest(['{"details":"', ...Array.from({ length: 10 }, () => chunk), '"}']);
     expect(request.headers.get("content-length")).toBeNull();
 
-    const error = await refusal(readJsonBody(request, 1024));
+    const error = await refusal(() => readJsonBody(request, 1024));
     expect(error.code).toBe("body_too_large");
     expect(error.status).toBe(413);
   });
@@ -87,19 +87,19 @@ describe("readJsonBody", () => {
   });
 
   it("refuses a body that is not JSON", async () => {
-    const error = await refusal(readJsonBody(jsonRequest("{ not json,")));
+    const error = await refusal(() => readJsonBody(jsonRequest("{ not json,")));
     expect(error.code).toBe("invalid_input");
     expect(error.status).toBe(400);
     expect(error.message).toMatch(/not valid JSON/);
   });
 
   it("refuses an empty body", async () => {
-    const error = await refusal(readJsonBody(jsonRequest("")));
+    const error = await refusal(() => readJsonBody(jsonRequest("")));
     expect(error.code).toBe("invalid_input");
   });
 
   it("refuses a content type that is not JSON, and one that is missing", async () => {
-    const wrong = await refusal(
+    const wrong = await refusal(() =>
       readJsonBody(
         new Request("http://apps.localhost/x", {
           method: "POST",
@@ -114,7 +114,7 @@ describe("readJsonBody", () => {
 
     // A string body makes `Request` set text/plain for you, so a request with
     // genuinely no content-type is one with no body at all.
-    const missing = await refusal(readJsonBody(new Request("http://apps.localhost/x", { method: "POST" })));
+    const missing = await refusal(() => readJsonBody(new Request("http://apps.localhost/x", { method: "POST" })));
     expect(missing.code).toBe("invalid_input");
     expect(missing.message).toMatch(/no content-type header/);
   });
@@ -135,13 +135,13 @@ describe("readJsonBody", () => {
       headers: { "content-type": "application/json", "content-length": String(DEFAULT_LIMITS.bodyBytes + 1) },
       body: "{}",
     });
-    expect((await refusal(readJsonBody(request))).code).toBe("body_too_large");
+    expect((await refusal(() => readJsonBody(request))).code).toBe("body_too_large");
   });
 });
 
 describe("enforcementFor", () => {
-  it("says the local runtime does not enforce the provider's CPU and subrequest limits", () => {
-    expect(enforcementFor("local")).toEqual({
+  it("says the local runtime does not enforce the provider's CPU and subrequest limits", async () => {
+    expect(await enforcementFor("local")).toEqual({
       buildsPerApp: "enforced",
       buildsPilotWide: "enforced",
       buildTimeoutMs: "enforced",
@@ -153,18 +153,18 @@ describe("enforcementFor", () => {
     });
   });
 
-  it("attributes CPU and subrequests to the provider on Cloudflare, and nothing else changes", () => {
-    const cloudflare = enforcementFor("cloudflare");
+  it("attributes CPU and subrequests to the provider on Cloudflare, and nothing else changes", async () => {
+    const cloudflare = await enforcementFor("cloudflare");
     expect(cloudflare.requestCpuMs).toBe("provider");
     expect(cloudflare.outboundSubrequests).toBe("provider");
 
-    const local = enforcementFor("local");
+    const local = await enforcementFor("local");
     const rest = Object.keys(local).filter((key) => key !== "requestCpuMs" && key !== "outboundSubrequests");
     for (const key of rest)
       expect(cloudflare[key as keyof typeof cloudflare]).toBe(local[key as keyof typeof local]);
   });
 
-  it("has a sentence for every enforcement state, and none of them claims something untrue", () => {
+  it("has a sentence for every enforcement state, and none of them claims something untrue", async () => {
     expect(Object.keys(ENFORCEMENT_LABELS).sort()).toEqual(["enforced", "not_enforced", "provider"]);
     expect(ENFORCEMENT_LABELS.not_enforced).toMatch(/Not enforced by this runtime/);
     expect(ENFORCEMENT_LABELS.provider).toMatch(/Cloudflare/);

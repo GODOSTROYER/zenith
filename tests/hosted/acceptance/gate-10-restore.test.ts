@@ -70,8 +70,8 @@ const HOST = appHost("alpha");
 const ORIGIN = appOrigin("alpha");
 
 /** Point the process at a data directory and open the authority there. */
-function openAt(dir: string): void {
-  m.data.closeAllAppData();
+async function openAt(dir: string): Promise<void> {
+  await m.data.closeAllAppData();
   m.authority.closeAuthority();
   process.env.ZENITH_DATA = dir;
   // The gateway caches one artifact store per root; the root has not changed,
@@ -93,7 +93,7 @@ function readControl<T>(dir: string, read: (db: DatabaseSync) => T): T {
 beforeAll(async () => {
   m = await loadHosted();
   m.authority.openAuthority();
-  m.usage.registerOpsOutboxHandlers();
+  await m.usage.registerOpsOutboxHandlers();
 
   app = await m.release.createApp({
     workspaceId: WORKSPACES.one.id,
@@ -109,17 +109,17 @@ beforeAll(async () => {
   });
   releaseId = releaseOf(job).releaseId;
 
-  ownerGrantId = m.access.listGrants(app.id)[0].id;
-  editorGrantId = m.access.grantDirect(
+  ownerGrantId = (await m.access.listGrants(app.id))[0].id;
+  editorGrantId = (await m.access.grantDirect(
     app.id,
     { subject: EDITOR.subject, email: EDITOR.email, role: "editor" },
     OWNER.subject
-  ).id;
-  viewerGrantId = m.access.grantDirect(
+  )).id;
+  viewerGrantId = (await m.access.grantDirect(
     app.id,
     { subject: VIEWER.subject, email: VIEWER.email, role: "viewer" },
     OWNER.subject
-  ).id;
+  )).id;
 
   ownerCookie = await signIn(m, app, OWNER.subject);
   editorCookie = await signIn(m, app, EDITOR.subject);
@@ -140,9 +140,9 @@ beforeAll(async () => {
   }
 }, 300_000);
 
-afterAll(() => {
+afterAll(async () => {
   delete process.env.ZENITH_ARTIFACT_DIR;
-  closeHosted(m);
+  await closeHosted(m);
   process.env.ZENITH_DATA = DATA;
   removeDir(DATA);
 });
@@ -151,12 +151,12 @@ describe("Gate 10 — restore into a clean directory, with reconciliation", () =
   it("takes a real encrypted backup, and does not put artifact bytes in it", async () => {
     // One revocation before the snapshot, so the ledger exists and the
     // snapshot's high-water mark is not zero.
-    const doomed = m.access.grantDirect(
+    const doomed = await m.access.grantDirect(
       app.id,
       { subject: OUTSIDER.subject, email: OUTSIDER.email, role: "viewer" },
       OWNER.subject
     );
-    m.access.revokeGrant(doomed.id, OWNER.subject, "left before the backup", { appId: app.id });
+    await m.access.revokeGrant(doomed.id, OWNER.subject, "left before the backup", { appId: app.id });
     await m.authority.flushOutbox({ kinds: ["revocation_ledger"] });
 
     const manifest = await m.backup.createBackup();
@@ -167,8 +167,8 @@ describe("Gate 10 — restore into a clean directory, with reconciliation", () =
     bundle = fs.readFileSync(path.join(OFF_HOST, ...m.backup.backupKeyFor(manifest.id).split("/")));
     expect(bundle.length).toBe(manifest.byteSize);
 
-    const { files } = m.backup.unpackBundle(
-      m.backup.unseal(bundle, Buffer.from(process.env.ZENITH_BACKUP_KEY as string, "base64")).plain
+    const { files } = await m.backup.unpackBundle(
+      (await m.backup.unseal(bundle, Buffer.from(process.env.ZENITH_BACKUP_KEY as string, "base64"))).plain
     );
     const inventory = JSON.parse(
       files.find((file) => file.name === "artifacts.json")?.bytes.toString("utf8") as string
@@ -179,7 +179,7 @@ describe("Gate 10 — restore into a clean directory, with reconciliation", () =
   }, 120_000);
 
   it("appends a revocation taken after the snapshot to the off-host ledger", async () => {
-    m.access.revokeGrant(editorGrantId, OWNER.subject, "moved teams", { appId: app.id });
+    await m.access.revokeGrant(editorGrantId, OWNER.subject, "moved teams", { appId: app.id });
     const drained = await m.authority.flushOutbox({ kinds: ["revocation_ledger"] });
     expect(drained.failed, "the ledger append must not fail quietly").toBe(0);
     expect(drained.done).toBeGreaterThan(0);
@@ -221,26 +221,26 @@ describe("Gate 10 — restore into a clean directory, with reconciliation", () =
   }, 120_000);
 
   it("keeps the revoked person out of the restored install, through the gateway", async () => {
-    openAt(RESTORE_A);
+    await openAt(RESTORE_A);
     const a = m.authority.authority();
 
-    expect(a.repos.grants.get(editorGrantId)?.state, "the grant removed after the snapshot").toBe(
+    expect((await a.repos.grants.get(editorGrantId))?.state, "the grant removed after the snapshot").toBe(
       "revoked"
     );
-    expect(a.repos.grants.get(ownerGrantId)?.state, "and the ones that were not, were not").toBe(
+    expect((await a.repos.grants.get(ownerGrantId))?.state, "and the ones that were not, were not").toBe(
       "active"
     );
-    expect(a.repos.grants.get(viewerGrantId)?.state).toBe("active");
+    expect((await a.repos.grants.get(viewerGrantId))?.state).toBe("active");
 
     // Their old cookie resolves to nothing, and the app host says so.
     const value = editorCookie.split("=")[1];
-    expect(m.access.resolveAppSession(value, app.id), "resolveAppSession on the restored host").toBeNull();
+    expect(await m.access.resolveAppSession(value, app.id), "resolveAppSession on the restored host").toBeNull();
     expect(
-      m.access.resolveAppSessionDetailed(value, app.id),
+      await m.access.resolveAppSessionDetailed(value, app.id),
       "and it says why, without ever answering ok"
     ).toMatchObject({ ok: false });
 
-    m.gateway.resetGatewayTelemetry();
+    await m.gateway.resetGatewayTelemetry();
     const denied = call({ host: HOST, path: "/", cookie: editorCookie, accept: "application/json" });
     const res = await m.gateway.handleGateway(denied.req, denied.params);
     expect(res.status, "the person removed after the snapshot, after the restore").toBe(401);
@@ -249,7 +249,7 @@ describe("Gate 10 — restore into a clean directory, with reconciliation", () =
     expect(m.gateway.gatewayTelemetry.brokerInvoked).toBe(0);
 
     // And they cannot start a new session either.
-    expect(() => m.access.createExchange(app.id, EDITOR.subject, `state-${uuid()}`)).toThrowError(
+    await expect(m.access.createExchange(app.id, EDITOR.subject, `state-${uuid()}`)).rejects.toThrowError(
       /does not have it/
     );
   });
@@ -300,13 +300,13 @@ describe("Gate 10 — restore into a clean directory, with reconciliation", () =
       "and nothing was thrown away to achieve that"
     ).toBe(3);
 
-    openAt(RESTORE_B);
+    await openAt(RESTORE_B);
     const a = m.authority.authority();
-    expect(a.repos.apps.get(app.id)?.state).toBe("recovering");
-    expect(a.repos.apps.get(app.id)?.stateReason).toMatch(/could not be confirmed against the off-host ledger/);
-    expect(a.repos.grants.get(ownerGrantId)?.state, "even the owner is held").toBe("needs_reapproval");
+    expect((await a.repos.apps.get(app.id))?.state).toBe("recovering");
+    expect((await a.repos.apps.get(app.id))?.stateReason).toMatch(/could not be confirmed against the off-host ledger/);
+    expect((await a.repos.grants.get(ownerGrantId))?.state, "even the owner is held").toBe("needs_reapproval");
 
-    m.gateway.resetGatewayTelemetry();
+    await m.gateway.resetGatewayTelemetry();
     const held = call({ host: HOST, path: "/", accept: "application/json" });
     const res = await m.gateway.handleGateway(held.req, held.params);
     expect(res.status, "an app in recovery does not serve").toBe(423);
@@ -316,7 +316,7 @@ describe("Gate 10 — restore into a clean directory, with reconciliation", () =
     expect(m.gateway.gatewayTelemetry.artifactServed).toBe(0);
 
     // A held grant cannot even start a launch.
-    expect(() => m.access.createExchange(app.id, OWNER.subject, `state-${uuid()}`)).toThrowError();
+    await expect(m.access.createExchange(app.id, OWNER.subject, `state-${uuid()}`)).rejects.toThrowError();
   }, 120_000);
 
   it("refuses to reopen the app until an operator says they have seen the held list", async () => {
@@ -333,7 +333,7 @@ describe("Gate 10 — restore into a clean directory, with reconciliation", () =
       const details = (err as { details?: { heldGrants?: { email: string }[] } }).details;
       expect(details?.heldGrants?.map((one) => one.email).sort()).toContain(OWNER.email);
     }
-    expect(m.authority.authority().repos.apps.get(app.id)?.state, "and it stays closed").toBe(
+    expect((await m.authority.authority().repos.apps.get(app.id))?.state, "and it stays closed").toBe(
       "recovering"
     );
   });
@@ -350,7 +350,7 @@ describe("Gate 10 — restore into a clean directory, with reconciliation", () =
     expect(result.grantsNeedingReapproval, "and the held list is unchanged").toBeGreaterThan(0);
 
     const a = m.authority.authority();
-    expect(a.repos.grants.get(ownerGrantId)?.state, "reopening is not re-approving").toBe(
+    expect((await a.repos.grants.get(ownerGrantId))?.state, "reopening is not re-approving").toBe(
       "needs_reapproval"
     );
 
@@ -360,7 +360,7 @@ describe("Gate 10 — restore into a clean directory, with reconciliation", () =
     const res = await m.gateway.handleGateway(anyone.req, anyone.params);
     expect(res.status).toBe(401);
     expect((await errorBody(res)).code).toBe("sign_in_required");
-    expect(() => m.access.createExchange(app.id, OWNER.subject, `state-${uuid()}`)).toThrowError(
+    await expect(m.access.createExchange(app.id, OWNER.subject, `state-${uuid()}`)).rejects.toThrowError(
       /does not have it/
     );
   });

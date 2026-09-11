@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
 export const DELETE = route(async () => {
   const user = requireAccountUser();
 
-  const appSessionsEnded = terminateAppSessionsForSubject(user.id, "signed_out");
+  const appSessionsEnded = await terminateAppSessionsForSubject(user.id, "signed_out");
   if (appSessionsEnded)
     log.info("app sessions terminated by sign-out-everywhere", {
       scope: "hosted.access",

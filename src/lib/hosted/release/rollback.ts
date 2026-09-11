@@ -69,12 +69,14 @@ export interface AdmitRollbackInput {
 }
 
 /** Queue a rollback, or return the job this id already names. */
-export function admitRollback(input: AdmitRollbackInput): { job: HostedJob; created: boolean } {
-  const app = requireAppIn(input.appId, input.workspaceId);
+export async function admitRollback(
+  input: AdmitRollbackInput
+): Promise<{ job: HostedJob; created: boolean }> {
+  const app = await requireAppIn(input.appId, input.workspaceId);
   assertPublishable(app);
   // Checked at admission as well as in the job, so an impossible rollback is
   // refused while the operator is still looking at the screen.
-  assertRollbackTarget(app.id, input.releaseId, app.activeReleaseId);
+  await assertRollbackTarget(app.id, input.releaseId, app.activeReleaseId);
 
   const { intent } = rollbackIntent({
     appId: input.appId,
@@ -82,7 +84,7 @@ export function admitRollback(input: AdmitRollbackInput): { job: HostedJob; crea
     actor: input.actor,
     releaseId: input.releaseId,
   });
-  const admitted = admitJob({
+  const admitted = await admitJob({
     id: input.jobId,
     kind: "rollback",
     workspaceId: input.workspaceId,
@@ -91,22 +93,22 @@ export function admitRollback(input: AdmitRollbackInput): { job: HostedJob; crea
     intent,
   });
   if (admitted.created) {
-    seedPhaseData(input.jobId, {
+    await seedPhaseData(input.jobId, {
       releaseId: input.releaseId,
       logs: [`${nowIso()} admitted rollback of ${app.slug} to release ${input.releaseId}`],
     });
-    return { job: authority().repos.jobs.get(input.jobId) ?? admitted.job, created: true };
+    return { job: (await authority().repos.jobs.get(input.jobId)) ?? admitted.job, created: true };
   }
   return admitted;
 }
 
 /** The release a rollback may select, or the refusal saying why this one is not it. */
-export function assertRollbackTarget(
+export async function assertRollbackTarget(
   appId: string,
   releaseId: string,
   activeReleaseId: string | null
-): Release {
-  const release = authority().repos.releases.get(releaseId);
+): Promise<Release> {
+  const release = await authority().repos.releases.get(releaseId);
   if (!release || release.appId !== appId)
     throw new HostedError("not_found", `Release ${releaseId} is not a release of this app.`, {
       fix: "Pick a release from GET /api/hosted/apps/<id>/releases.",
@@ -143,12 +145,12 @@ export async function runRollback(run: JobRun): Promise<void> {
   const a = authority();
 
   try {
-    const app = requireApp(run.job.appId);
+    const app = await requireApp(run.job.appId);
     assertPublishable(app);
     const releaseId = String(data.releaseId ?? intentReleaseId(run.job));
 
-    advanceTo(run, "check", data);
-    const target = assertRollbackTarget(app.id, releaseId, app.activeReleaseId);
+    await advanceTo(run, "check", data);
+    const target = await assertRollbackTarget(app.id, releaseId, app.activeReleaseId);
     data.releaseId = target.id;
     data.releaseNumber = target.number;
 
@@ -167,13 +169,13 @@ export async function runRollback(run: JobRun): Promise<void> {
     // re-read, when the pointer moves below.
     data.observedFence = app.activeFence;
     appendLog(data, `rollback target release ${target.number} matches data schema ${current}`);
-    persist(run, data);
+    await persist(run, data);
 
-    advanceTo(run, "activate", data);
-    const swapped = a.tx(() => {
-      const fresh = requireApp(app.id);
+    await advanceTo(run, "activate", data);
+    const swapped = await a.tx(async (repos) => {
+      const fresh = await requireApp(app.id, repos);
       const expected = typeof data.observedFence === "number" ? data.observedFence : fresh.activeFence;
-      if (!a.repos.apps.setActiveRelease(fresh.id, target.id, expected))
+      if (!(await repos.apps.setActiveRelease(fresh.id, target.id, expected)))
         throw new HostedError(
           "conflict",
           `Another activation moved ${fresh.name} while this rollback was in flight, so nothing was changed.`,
@@ -186,18 +188,18 @@ export async function runRollback(run: JobRun): Promise<void> {
       // The release being left is `rolled_back`, not `superseded`: nothing
       // newer arrived, somebody chose to step off it.
       if (fresh.activeReleaseId && fresh.activeReleaseId !== target.id)
-        a.repos.releases.setStatus(fresh.activeReleaseId, "rolled_back", { supersededAt: at });
-      a.repos.releases.markSuperseded(fresh.id, target.id, at);
-      a.repos.releases.setStatus(target.id, "active", { activatedAt: at });
+        await repos.releases.setStatus(fresh.activeReleaseId, "rolled_back", { supersededAt: at });
+      await repos.releases.markSuperseded(fresh.id, target.id, at);
+      await repos.releases.setStatus(target.id, "active", { activatedAt: at });
       return { fence: expected + 1, from: fresh.activeReleaseId };
     });
 
-    await releaseDeps.runtime().activate(requireApp(app.id), target, swapped.fence);
+    await releaseDeps.runtime().activate(await requireApp(app.id), target, swapped.fence);
     data.activated = true;
     data.activeFence = swapped.fence;
     data.rolledBackFrom = swapped.from;
     appendLog(data, `release ${target.number} is live again at fence ${swapped.fence}; no record was touched`);
-    emit({
+    await emit({
       event: "release.rolled_back",
       workspaceId: run.job.workspaceId,
       appId: app.id,
@@ -208,8 +210,8 @@ export async function runRollback(run: JobRun): Promise<void> {
       props: { release: target.number, fence: swapped.fence },
     });
 
-    advanceTo(run, "finish", data);
-    a.repos.jobs.finish(run.job.id, run.fence, {
+    await advanceTo(run, "finish", data);
+    await a.repos.jobs.finish(run.job.id, run.fence, {
       releaseId: target.id,
       releaseNumber: target.number,
       rolledBackFrom: swapped.from,
@@ -218,7 +220,7 @@ export async function runRollback(run: JobRun): Promise<void> {
     if (err instanceof Error && err.name === "LeaseLost") return;
     // A rollback never marks a release failed: every release it touches was
     // already proven once, and the refusal is about this attempt, not them.
-    failJob(run, data, reasonOf(err));
+    await failJob(run, data, reasonOf(err));
   }
 }
 

@@ -22,7 +22,7 @@ export async function build(run: JobRun, data: PhaseData): Promise<void> {
     return;
   }
 
-  const slot = buildSlot(run.job.appId, run.job.id);
+  const slot = await buildSlot(run.job.appId, run.job.id);
   if (!slot.ok)
     throw new HostedError("conflict", slot.reason ?? "No build slot is free.", {
       fix: "Wait for the running build to finish and publish again; this install runs a bounded number of builds at once.",
@@ -50,7 +50,7 @@ export async function build(run: JobRun, data: PhaseData): Promise<void> {
       { fix: "Publish again. The job's work directory was modified after intake accepted it." }
     );
 
-  emit({
+  await emit({
     event: "build.started",
     workspaceId: run.job.workspaceId,
     appId: run.job.appId,
@@ -82,7 +82,7 @@ export async function build(run: JobRun, data: PhaseData): Promise<void> {
   // it is recorded either way; a ledger that only counts successes understates
   // exactly the spending a runaway build causes.
   try {
-    releaseDeps.recordUsage({
+    await releaseDeps.recordUsage({
       workspaceId: run.job.workspaceId,
       appId: run.job.appId,
       kind: "build_ms",
@@ -94,7 +94,7 @@ export async function build(run: JobRun, data: PhaseData): Promise<void> {
   }
 
   if (!result.ok || !result.outputDir) {
-    emit({
+    await emit({
       event: "build.failed",
       workspaceId: run.job.workspaceId,
       appId: run.job.appId,
@@ -112,7 +112,7 @@ export async function build(run: JobRun, data: PhaseData): Promise<void> {
     );
   }
 
-  emit({
+  await emit({
     event: "build.succeeded",
     workspaceId: run.job.workspaceId,
     appId: run.job.appId,

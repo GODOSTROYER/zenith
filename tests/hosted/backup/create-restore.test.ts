@@ -33,12 +33,12 @@ const { EDITOR, OWNER, VIEWER, seedApp, seedGrant, seedRecord, seedSession } = a
 const a = openAuthority();
 registerOpsOutboxHandlers();
 
-const app = seedApp(a, { slug: "backup-alpha", workspaceId: "ws-backup" });
-const ownerGrant = seedGrant(a, app.id, OWNER, "owner");
-seedGrant(a, app.id, EDITOR, "editor");
-seedSession(a, app.id, ownerGrant.id, OWNER.subject);
+const app = await seedApp(a, { slug: "backup-alpha", workspaceId: "ws-backup" });
+const ownerGrant = await seedGrant(a, app.id, OWNER, "owner");
+await seedGrant(a, app.id, EDITOR, "editor");
+await seedSession(a, app.id, ownerGrant.id, OWNER.subject);
 
-afterAll(() => {
+afterAll(async () => {
   closeAllAppData();
   closeAuthority();
   removeDir(dataDir);
@@ -46,17 +46,17 @@ afterAll(() => {
 
 /** Revoke a grant and get the line off-host, so the ledger exists and reaches the snapshot. */
 async function revokeAndPublish(grantId: string, subject: string): Promise<void> {
-  a.tx(() => {
-    a.repos.grants.revoke(grantId, OWNER.subject, "fixture");
-    a.repos.sessions.terminateByGrant(grantId, "revoked");
-    const entry = a.repos.revocations.append({
+  await a.tx(async (repos) => {
+    await repos.grants.revoke(grantId, OWNER.subject, "fixture");
+    await repos.sessions.terminateByGrant(grantId, "revoked");
+    const entry = await repos.revocations.append({
       appId: app.id,
       grantId,
       subject,
       by: OWNER.subject,
       reason: "fixture",
     });
-    a.repos.outbox.enqueue({
+    await repos.outbox.enqueue({
       id: randomUUID(),
       idempotencyKey: `revocation:${entry.seq}`,
       kind: "revocation_ledger",
@@ -82,7 +82,7 @@ describe("createBackup and restoreBackup", () => {
   it("snapshots under concurrent writes and restores into a clean directory", async () => {
     // A revoked grant before the snapshot, so the off-host ledger exists and
     // reaches at least as far as the backup does.
-    const throwaway = seedGrant(a, app.id, VIEWER, "viewer");
+    const throwaway = await seedGrant(a, app.id, VIEWER, "viewer");
     await revokeAndPublish(throwaway.id, VIEWER.subject);
 
     const before: string[] = [];
@@ -98,8 +98,8 @@ describe("createBackup and restoreBackup", () => {
     // Keep both databases moving while the copy is taken.
     for (let n = 0; n < 40; n++) {
       await seedRecord(app.id, { title: `During ${n}` });
-      a.tx(() =>
-        a.repos.usage.append({
+      await a.tx((repos) =>
+        repos.usage.append({
           id: `usage-${String(n).padStart(4, "0")}`,
           workspaceId: "ws-backup",
           appId: app.id,
@@ -126,9 +126,9 @@ describe("createBackup and restoreBackup", () => {
     expect(manifest.revocationSeq).toBe(1);
     expect(manifest.keyId).toMatch(/^[0-9a-f]{8}$/);
     // Recorded, and recorded once.
-    expect(a.repos.backups.latest()?.id).toBe(manifest.id);
+    expect((await a.repos.backups.latest())?.id).toBe(manifest.id);
     expect(
-      a.repos.events.listSince({ event: "backup.completed" }, { limit: 10 }).map((e) => e.logicalId)
+      (await a.repos.events.listSince({ event: "backup.completed" }, { limit: 10 })).map((e) => e.logicalId)
     ).toEqual([`backup:${manifest.id}`]);
 
     /* The restore. */

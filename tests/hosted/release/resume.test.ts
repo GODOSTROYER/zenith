@@ -26,7 +26,7 @@ let appId: string;
 
 beforeAll(async () => {
   h = await harness(DATA);
-  const undo = wire(h).restore;
+  const undo = (await wire(h)).restore;
   const app = await makeApp(h, {
     workspaceId: WORKSPACES.one.id,
     slug: "resumable",
@@ -37,19 +37,19 @@ beforeAll(async () => {
   undo();
 });
 
-afterAll(() => {
-  h.release.resetReleaseDeps();
-  h.release.stopHostedJobRunner();
-  h.data.closeAllAppData();
+afterAll(async () => {
+  await h.release.resetReleaseDeps();
+  await h.release.stopHostedJobRunner();
+  await h.data.closeAllAppData();
   h.authority.closeAuthority();
   removeDir(DATA);
 });
 
 describe("a publish whose worker dies at stage", () => {
   it("resumes from stage in a new process without rebuilding", async () => {
-    const build = buildRunnerDouble({ html: "<!doctype html><title>Resumable</title>" });
+    const build = await buildRunnerDouble({ html: "<!doctype html><title>Resumable</title>" });
     let crashed = false;
-    const first = wire(h, {
+    const first = await wire(h, {
       build,
       beforeStage: () => {
         // The worker dies here: the phase and its data are already committed,
@@ -75,23 +75,23 @@ describe("a publish whose worker dies at stage", () => {
     // A new process opens the same file and finds the job exactly as the dead
     // worker left it.
     h.authority.openAuthority();
-    const stranded = h.authority.authority().repos.jobs.get(jobId)!;
+    const stranded = (await h.authority.authority().repos.jobs.get(jobId))!;
     expect(stranded.status).toBe("running");
     expect(stranded.phase).toBe("stage");
     expect(stranded.phaseData.artifactDigest).toMatch(/^[0-9a-f]{64}$/);
     expect(stranded.phaseData.artifactVerified).toBe(true);
     expect(stranded.phaseData.releaseId).toBeTruthy();
     const strandedRelease = String(stranded.phaseData.releaseId);
-    expect(h.authority.authority().repos.releases.get(strandedRelease)?.status).toBe("candidate");
+    expect((await h.authority.authority().repos.releases.get(strandedRelease))?.status).toBe("candidate");
 
     // Nothing moves until the lease expires — that is what stops two workers
     // running one job — so the reclaim is asked about a time after it does.
-    expect(h.release.reclaimExpiredJobs(new Date(Date.now() - 60_000).toISOString())).toBe(0);
+    expect(await h.release.reclaimExpiredJobs(new Date(Date.now() - 60_000).toISOString())).toBe(0);
     const future = new Date(Date.now() + 120_000).toISOString();
-    expect(h.release.reclaimExpiredJobs(future)).toBe(1);
-    expect(h.authority.authority().repos.jobs.get(jobId)?.status).toBe("queued");
+    expect(await h.release.reclaimExpiredJobs(future)).toBe(1);
+    expect((await h.authority.authority().repos.jobs.get(jobId))?.status).toBe("queued");
 
-    const second = wire(h, { build });
+    const second = await wire(h, { build });
     const finished = await h.release.runJobOnce(jobId);
     second.restore();
 
@@ -107,11 +107,11 @@ describe("a publish whose worker dies at stage", () => {
     expect(finished.phaseData.artifactDigest).toBe(stranded.phaseData.artifactDigest);
     expect(finished.attempts).toBe(2);
 
-    const releases = h.authority.authority().repos.releases.listByApp(appId);
+    const releases = await h.authority.authority().repos.releases.listByApp(appId);
     expect(releases).toHaveLength(1);
     expect(releases[0].id).toBe(strandedRelease);
     expect(releases[0].status).toBe("active");
-    expect(h.authority.authority().repos.apps.get(appId)?.activeReleaseId).toBe(strandedRelease);
-    expect(h.authority.authority().repos.apps.get(appId)?.activeFence).toBe(1);
+    expect((await h.authority.authority().repos.apps.get(appId))?.activeReleaseId).toBe(strandedRelease);
+    expect((await h.authority.authority().repos.apps.get(appId))?.activeFence).toBe(1);
   });
 });

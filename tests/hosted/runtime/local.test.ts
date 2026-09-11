@@ -26,13 +26,13 @@ const { HostedError } = await import("@/lib/hosted/contracts");
 const authority = openAuthority();
 const store = new FsArtifactStore(hostedConfig().artifactDir);
 const artifact = await store.put(writeBuiltTree(DATA_DIR), provenance("job-local"));
-seedArtifactRow(authority, artifact.digest, artifact.byteSize, artifact.fileCount);
+await seedArtifactRow(authority, artifact.digest, artifact.byteSize, artifact.fileCount);
 
-const app = seedApp(authority, { slug: "alpha" });
-const release = seedActiveRelease(authority, app, artifact.digest);
-const current = () => authority.repos.apps.get(app.id)!;
+const app = await seedApp(authority, { slug: "alpha" });
+const release = await seedActiveRelease(authority, app, artifact.digest);
+const current = async () => (await authority.repos.apps.get(app.id))!;
 
-afterAll(() => {
+afterAll(async () => {
   closeAllAppData();
   closeAuthority();
   removeDir(DATA_DIR);
@@ -60,10 +60,10 @@ describe("identity and availability", () => {
       "Local runtime — this control process serves the app and runs the broker (single host, no CPU/subrequest limits)"
     );
     expect(await runtime.availability()).toEqual({ available: true });
-    expect(runtime.blockedReason()).toBeNull();
+    expect(await runtime.blockedReason()).toBeNull();
   });
 
-  it("names the app's stable hostname", () => {
+  it("names the app's stable hostname", async () => {
     expect(new LocalRuntime().hostname(app)).toBe("alpha.apps.localhost");
   });
 });
@@ -162,17 +162,17 @@ describe("probeCandidate", () => {
 
 describe("activate", () => {
   it("accepts the fence the app is actually at", async () => {
-    await expect(new LocalRuntime().activate(app, release, current().activeFence)).resolves.toBeUndefined();
+    await expect(new LocalRuntime().activate(app, release, (await current()).activeFence)).resolves.toBeUndefined();
   });
 
   it("refuses a stale fence rather than letting an old worker point the hostname", async () => {
-    const stale = current().activeFence - 1;
+    const stale = (await current()).activeFence - 1;
     await expect(new LocalRuntime().activate(app, release, stale)).rejects.toBeInstanceOf(HostedError);
     await new LocalRuntime()
       .activate(app, release, stale)
-      .catch((err: HostedErrorType) => {
+      .catch(async (err: HostedErrorType) => {
         expect(err.code).toBe("conflict");
-        expect(err.details?.currentFence).toBe(current().activeFence);
+        expect(err.details?.currentFence).toBe((await current()).activeFence);
         expect(err.fix).toContain("stays live");
       });
   });
@@ -209,15 +209,15 @@ describe("cleanup", () => {
 });
 
 describe("selectedHostedRuntime", () => {
-  it("lists both runtimes", () => {
+  it("lists both runtimes", async () => {
     expect(hostedRuntimes().map((r) => r.id)).toEqual(["local", "cloudflare"]);
   });
 
-  it("selects local by default", () => {
+  it("selects local by default", async () => {
     expect(selectedHostedRuntime().id).toBe("local");
   });
 
-  it("refuses cloudflare by naming every variable that is missing", () => {
+  it("refuses cloudflare by naming every variable that is missing", async () => {
     process.env.ZENITH_RUNTIME = "cloudflare";
     try {
       selectedHostedRuntime();
@@ -235,7 +235,7 @@ describe("selectedHostedRuntime", () => {
     }
   });
 
-  it("selects cloudflare once all three inputs exist", () => {
+  it("selects cloudflare once all three inputs exist", async () => {
     process.env.ZENITH_RUNTIME = "cloudflare";
     process.env.ZENITH_CF_ACCOUNT_ID = "0123456789abcdef0123456789abcdef";
     process.env.ZENITH_CF_NAMESPACE = "zenith-pilot";

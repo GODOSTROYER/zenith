@@ -74,11 +74,11 @@ beforeAll(async () => {
   });
   ({ releaseId, digest } = releaseOf(job));
 
-  grantId = m.access.grantDirect(
+  grantId = (await m.access.grantDirect(
     app.id,
     { subject: EDITOR.subject, email: EDITOR.email, role: "editor" },
     OWNER.subject
-  ).id;
+  )).id;
 
   server = await startGatewayServer(m.gateway.handleGateway);
   // App hostnames carry the control origin's port, so the exchange redirects
@@ -91,14 +91,14 @@ beforeAll(async () => {
 afterAll(async () => {
   await server?.close();
   process.env.ZENITH_CONTROL_ORIGIN = "http://localhost:3400";
-  closeHosted(m);
+  await closeHosted(m);
   removeDir(DATA);
 });
 
 describe("Gate 12 — the journey over a real socket, and the browser script", () => {
   it("redeems a real exchange over HTTP and is handed a host-locked cookie", async () => {
     const state = `state-${uuid()}`;
-    const redirect = new URL(m.access.createExchange(app.id, EDITOR.subject, state).redirect);
+    const redirect = new URL((await m.access.createExchange(app.id, EDITOR.subject, state)).redirect);
     expect(redirect.host, "the launch URL carries the running port").toBe(host);
 
     const res = await loopbackRequest(server.port, {
@@ -188,7 +188,7 @@ describe("Gate 12 — the journey over a real socket, and the browser script", (
   it("answers a stale write with the conflict payload the app's UI renders", async () => {
     // A second identity moves the record on.
     const ownerState = `state-${uuid()}`;
-    const ownerRedirect = new URL(m.access.createExchange(app.id, OWNER.subject, ownerState).redirect);
+    const ownerRedirect = new URL((await m.access.createExchange(app.id, OWNER.subject, ownerState)).redirect);
     const callback = await loopbackRequest(server.port, {
       host,
       path: `${ownerRedirect.pathname}${ownerRedirect.search}`,
@@ -225,7 +225,7 @@ describe("Gate 12 — the journey over a real socket, and the browser script", (
   });
 
   it("refuses the next navigation once the grant is revoked", async () => {
-    m.access.revokeGrant(grantId, OWNER.subject, "acceptance run", { appId: app.id });
+    await m.access.revokeGrant(grantId, OWNER.subject, "acceptance run", { appId: app.id });
 
     const navigation = await loopbackRequest(server.port, {
       host,
@@ -263,7 +263,7 @@ describe("Gate 12 — the journey over a real socket, and the browser script", (
     expect(direct.headers["x-zenith-release"], "no attribution on an unknown host").toBeUndefined();
   });
 
-  it("saw every one of those requests, and answered each of them itself", () => {
+  it("saw every one of those requests, and answered each of them itself", async () => {
     const statuses = server.seen.map((one) => one.status);
     expect(server.seen.length, "the loopback server handled the whole journey").toBeGreaterThan(8);
     expect(statuses, "and never fell through to the adapter's own error path").not.toContain(599);
@@ -272,7 +272,7 @@ describe("Gate 12 — the journey over a real socket, and the browser script", (
 
   /* --------------------------- the browser script ------------------------- */
 
-  it("ships a browser script that drives an installed Chrome or Edge", () => {
+  it("ships a browser script that drives an installed Chrome or Edge", async () => {
     expect(fs.existsSync(SCRIPT), `${SCRIPT} must exist`).toBe(true);
     const source = fs.readFileSync(SCRIPT, "utf8");
 
@@ -285,7 +285,7 @@ describe("Gate 12 — the journey over a real socket, and the browser script", (
     );
   });
 
-  it("fails loudly, with exit code 2, when there is no browser to run in", () => {
+  it("fails loudly, with exit code 2, when there is no browser to run in", async () => {
     const source = fs.readFileSync(SCRIPT, "utf8");
     expect(source, "the no-browser path returns 2").toMatch(/return 2;/);
     expect(source, "and says what is missing").toContain("gate 12 needs a real browser and found none");
@@ -303,7 +303,7 @@ describe("Gate 12 — the journey over a real socket, and the browser script", (
     );
   });
 
-  it("covers the steps gate 12 names, at both widths", () => {
+  it("covers the steps gate 12 names, at both widths", async () => {
     const source = fs.readFileSync(SCRIPT, "utf8");
     expect(source, "a 375px width").toContain("width: 375");
     expect(source, "and a desktop width").toContain("width: 1280");
@@ -320,7 +320,7 @@ describe("Gate 12 — the journey over a real socket, and the browser script", (
     expect(source, "and prints a JSON summary").toMatch(/JSON\.stringify\(summary, null, 2\)/);
   });
 
-  it("gives the browser script its own data directory, and clears it", () => {
+  it("gives the browser script its own data directory, and clears it", async () => {
     const source = fs.readFileSync(SCRIPT, "utf8");
     expect(source, "it never runs against .data").toContain('".data-hosted-browser"');
     expect(source, "and starts from empty").toContain("fs.rmSync(DATA_DIR, { recursive: true, force: true })");

@@ -73,8 +73,8 @@ beforeAll(async () => {
   });
 }, 300_000);
 
-afterAll(() => {
-  closeHosted(m);
+afterAll(async () => {
+  await closeHosted(m);
   removeDir(DATA);
 });
 
@@ -92,7 +92,7 @@ describe("Gate 2 — a second identity with no workspace membership", () => {
       "the recipient must hold no workspace membership in the legacy store"
     ).toEqual([]);
     expect(
-      m.access.activeGrant(alpha.id, RECIPIENT.subject),
+      await m.access.activeGrant(alpha.id, RECIPIENT.subject),
       "the recipient must hold no grant before the invitation"
     ).toBeNull();
 
@@ -102,8 +102,8 @@ describe("Gate 2 — a second identity with no workspace membership", () => {
     expect((await errorBody(res)).code).toBe("sign_in_required");
   });
 
-  it("accepts an invitation only against the verified address it names", () => {
-    const issued = m.access.createInvite(
+  it("accepts an invitation only against the verified address it names", async () => {
+    const issued = await m.access.createInvite(
       alpha.id,
       { email: RECIPIENT.email, role: "editor" },
       OWNER.subject
@@ -113,29 +113,27 @@ describe("Gate 2 — a second identity with no workspace membership", () => {
     expect(issued.invite.tokenHash, "only the hash is stored").not.toBe(token);
 
     // Somebody else's verified address is not this invitation's address.
-    expect(() => m.access.acceptInvite(token, verifiedIdentity(OUTSIDER))).toThrowError(
+    await expect(m.access.acceptInvite(token, verifiedIdentity(OUTSIDER))).rejects.toThrowError(
       /sent to a different address/
     );
     // The right address, unconfirmed, is refused in exactly the same words.
-    expect(() =>
-      m.access.acceptInvite(token, verifiedIdentity(RECIPIENT, { emailVerified: false }))
-    ).toThrowError(/sent to a different address/);
+    await expect(m.access.acceptInvite(token, verifiedIdentity(RECIPIENT, { emailVerified: false }))).rejects.toThrowError(/sent to a different address/);
 
-    const accepted = m.access.acceptInvite(token, verifiedIdentity(RECIPIENT));
+    const accepted = await m.access.acceptInvite(token, verifiedIdentity(RECIPIENT));
     expect(accepted.app.id).toBe(alpha.id);
     expect(accepted.grant.role, "the role the invitation named").toBe("editor");
     expect(accepted.grant.state).toBe("active");
     expect(accepted.grant.email).toBe(RECIPIENT.email.toLowerCase());
 
     // Single use: the same link cannot be redeemed twice, by anybody.
-    expect(() => m.access.acceptInvite(token, verifiedIdentity(RECIPIENT))).toThrowError(
+    await expect(m.access.acceptInvite(token, verifiedIdentity(RECIPIENT))).rejects.toThrowError(
       /no longer usable/
     );
   });
 
   it("launches from the control origin and redeems on the app host", async () => {
     const state = `state-${uuid()}`;
-    const { redirect } = m.access.createExchange(alpha.id, RECIPIENT.subject, state);
+    const { redirect } = await m.access.createExchange(alpha.id, RECIPIENT.subject, state);
     const url = new URL(redirect);
     expect(url.host, "the launch lands on the app's own host").toBe(appHost("alpha"));
     expect(url.pathname).toBe("/_zenith/auth/callback");
@@ -195,7 +193,7 @@ describe("Gate 2 — a second identity with no workspace membership", () => {
 
   it("binds the exchange code to this app and this browser's state", async () => {
     // A code whose state was tampered with on the way back.
-    const first = new URL(m.access.createExchange(alpha.id, RECIPIENT.subject, `state-${uuid()}`).redirect);
+    const first = new URL((await m.access.createExchange(alpha.id, RECIPIENT.subject, `state-${uuid()}`)).redirect);
     first.searchParams.set("state", "a-state-the-browser-never-sent");
     const tampered = call({
       host: appHost("alpha"),
@@ -208,7 +206,7 @@ describe("Gate 2 — a second identity with no workspace membership", () => {
     expect(cookieValueOf(res), "a mismatched state mints no session").toBeNull();
 
     // A code minted for alpha, presented on beta's host.
-    const second = new URL(m.access.createExchange(alpha.id, RECIPIENT.subject, `state-${uuid()}`).redirect);
+    const second = new URL((await m.access.createExchange(alpha.id, RECIPIENT.subject, `state-${uuid()}`)).redirect);
     const crossed = call({
       host: appHost("beta"),
       path: `${second.pathname}${second.search}`,
@@ -285,7 +283,7 @@ describe("Gate 2 — a second identity with no workspace membership", () => {
       cookie: recipientCookie,
       accept: "application/json",
     });
-    m.gateway.resetGatewayTelemetry();
+    await m.gateway.resetGatewayTelemetry();
     const res = await m.gateway.handleGateway(onBeta.req, onBeta.params);
     expect(res.status, "app A's cookie on app B").toBe(401);
     expect((await errorBody(res)).code).toBe("sign_in_required");
@@ -295,17 +293,17 @@ describe("Gate 2 — a second identity with no workspace membership", () => {
     // And the identity cannot mint an exchange for beta either: there is no
     // grant. The refusal is word for word the one an app id that does not
     // exist gets, so app ids stay non-enumerable.
-    const refusal = (appId: string): string => {
+    const refusal = async (appId: string): Promise<string> => {
       try {
-        m.access.createExchange(appId, RECIPIENT.subject, `state-${uuid()}`);
+        await m.access.createExchange(appId, RECIPIENT.subject, `state-${uuid()}`);
       } catch (err) {
         return err instanceof Error ? err.message : String(err);
       }
       throw new Error(`createExchange(${appId}) was expected to refuse and did not`);
     };
-    const onKnownApp = refusal(beta.id);
+    const onKnownApp = await refusal(beta.id);
     expect(onKnownApp).toMatch(/does not have it/);
-    expect(refusal("00000000-0000-4000-8000-000000000000"), "no oracle over app ids").toBe(onKnownApp);
+    expect(await refusal("00000000-0000-4000-8000-000000000000"), "no oracle over app ids").toBe(onKnownApp);
 
     // The session is still perfectly good on alpha.
     const onAlpha = call({

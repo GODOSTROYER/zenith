@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 export const POST = hostedRoute<{ appId: string; inviteId: string }>(
   { appRole: "owner", verify: "live" },
   async (_req, { appId, inviteId }, { subject }) => {
-    const issued: IssuedInviteWire = resendInvite(inviteId, subject, { appId });
+    const issued: IssuedInviteWire = await resendInvite(inviteId, subject, { appId });
     scheduleInviteDelivery();
     return hostedJson(issued, 201);
   }

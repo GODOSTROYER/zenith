@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     if (user) {
       try {
         await ensureBoot(); // the authority is opened by boot, not by this route
-        const ended = terminateAppSessionsForSubject(user.id, "signed_out");
+        const ended = await terminateAppSessionsForSubject(user.id, "signed_out");
         if (ended) log.info("app sessions terminated on sign-out", { scope: "hosted.access", ended });
       } catch (err) {
         log.error("app sessions were not terminated on sign-out", { scope: "hosted.access", error: err });

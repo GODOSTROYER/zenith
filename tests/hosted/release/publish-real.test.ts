@@ -31,7 +31,7 @@ const secondJob = uuid();
 
 beforeAll(async () => {
   h = await harness(DATA);
-  undo = wire(h, { useRealBuildRunner: true }).restore;
+  undo = (await wire(h, { useRealBuildRunner: true })).restore;
   const app = await makeApp(h, {
     workspaceId: WORKSPACES.one.id,
     slug: "realpublish",
@@ -42,11 +42,11 @@ beforeAll(async () => {
   appId = app.id;
 });
 
-afterAll(() => {
+afterAll(async () => {
   undo();
-  h.release.resetReleaseDeps();
-  h.release.stopHostedJobRunner();
-  h.data.closeAllAppData();
+  await h.release.resetReleaseDeps();
+  await h.release.stopHostedJobRunner();
+  await h.data.closeAllAppData();
   h.authority.closeAuthority();
   delete process.env.ZENITH_BUILD_RUNNER;
   removeDir(DATA);
@@ -76,7 +76,7 @@ describe("a real publish of fixtures/hosted/minimal-app", () => {
     // publisher check has recomputed those bytes since.
     const digest = String(job.phaseData.artifactDigest);
     expect(digest).toMatch(/^[0-9a-f]{64}$/);
-    const indexed = h.authority.authority().repos.artifacts.get(digest);
+    const indexed = await h.authority.authority().repos.artifacts.get(digest);
     expect(indexed?.verifiedAt).toBeTruthy();
     expect(indexed?.provenance.jobId).toBe(firstJob);
     expect(indexed?.provenance.recipe.id).toBe("vite-react-v1");
@@ -85,8 +85,8 @@ describe("a real publish of fixtures/hosted/minimal-app", () => {
     expect(files.some((f) => f.path.startsWith("assets/") && f.path.endsWith(".js"))).toBe(true);
 
     // The release is active and the app points at it under fence 1.
-    const app = h.authority.authority().repos.apps.get(appId)!;
-    const release = h.authority.authority().repos.releases.get(String(job.phaseData.releaseId))!;
+    const app = (await h.authority.authority().repos.apps.get(appId))!;
+    const release = (await h.authority.authority().repos.releases.get(String(job.phaseData.releaseId)))!;
     expect(release.number).toBe(1);
     expect(release.status).toBe("active");
     expect(release.probe?.ok).toBe(true);
@@ -100,11 +100,10 @@ describe("a real publish of fixtures/hosted/minimal-app", () => {
     expect(fs.existsSync(jobDir(firstJob))).toBe(false);
   }, 120_000);
 
-  it("recorded the events the pipeline claims to record", () => {
-    const events = h.authority
-      .authority()
-      .repos.events.listSince({ appId }, { limit: 100 })
-      .map((event) => event.event);
+  it("recorded the events the pipeline claims to record", async () => {
+    const events = (
+      await h.authority.authority().repos.events.listSince({ appId }, { limit: 100 })
+    ).map((event) => event.event);
     expect(events).toContain("app.created");
     expect(events).toContain("source.accepted");
     expect(events).toContain("build.started");
@@ -125,8 +124,8 @@ describe("a real publish of fixtures/hosted/minimal-app", () => {
     expect(job.error).toBeUndefined();
     expect(job.status).toBe("succeeded");
 
-    const app = h.authority.authority().repos.apps.get(appId)!;
-    const releases = h.authority.authority().repos.releases.listByApp(appId);
+    const app = (await h.authority.authority().repos.apps.get(appId))!;
+    const releases = await h.authority.authority().repos.releases.listByApp(appId);
     expect(releases.map((r) => r.number)).toEqual([2, 1]);
 
     const [second, first] = releases;
@@ -142,7 +141,7 @@ describe("a real publish of fixtures/hosted/minimal-app", () => {
     expect(second.artifactDigest).toBe(first.artifactDigest);
     expect(job.phaseData.artifactReused).toBe(true);
     expect(job.phaseData.artifactJobId).toBe(firstJob);
-    expect(h.release.jobLogs(secondJob).some((line) => line.includes("re-verified"))).toBe(true);
+    expect((await h.release.jobLogs(secondJob)).some((line) => line.includes("re-verified"))).toBe(true);
   }, 120_000);
 
   it("refuses a second job id for the same source with a different actor", async () => {

@@ -28,10 +28,20 @@ const Schema = z.object({
     .default("apps.localhost"),
   /** Scheme app hosts are served on. http only makes sense for *.localhost. */
   ZENITH_APP_SCHEME: z.enum(["http", "https"]).default("http"),
+  /**
+   * Which implementation backs the hosted subsystem's control authority — the
+   * hosted sibling of product A's `ZENITH_STORE` (`@/lib/env`). "sqlite" is the
+   * embedded `control.sqlite` authority and the only one this build ships;
+   * "postgres" parses here, so the flag exists end to end, and is refused at
+   * boot by `@/lib/hosted/index` saying so.
+   */
+  ZENITH_HOSTED_STORE: z.enum(["sqlite", "postgres"]).default("sqlite"),
   ZENITH_RUNTIME: z.enum(["local", "cloudflare"]).default("local"),
   /** Which build runner may run. `none` refuses every build and says why. */
   ZENITH_BUILD_RUNNER: z.enum(["none", "recipe-local", "e2b", "docker"]).default("none"),
   ZENITH_ARTIFACT_DIR: z.string().min(1).optional(),
+  /** Object-storage bucket published artifacts live in when the store is not local disk. */
+  ZENITH_ARTIFACT_BUCKET: z.string().default("zenith-artifacts"),
   ZENITH_BACKUP_TARGET: z.enum(["none", "filesystem", "s3"]).default("none"),
   ZENITH_BACKUP_DIR: z.string().min(1).optional(),
   ZENITH_BACKUP_S3_BUCKET: z.string().min(1).optional(),
@@ -100,6 +110,14 @@ export function hostedConfig(): HostedConfig {
   memo = { key, config };
   return config;
 }
+
+/**
+ * Which implementation backs the hosted control authority. Validated — an
+ * unknown value throws from `hostedConfig()` rather than silently meaning
+ * "sqlite".
+ */
+export const hostedStoreKind = (): HostedConfig["ZENITH_HOSTED_STORE"] =>
+  hostedConfig().ZENITH_HOSTED_STORE;
 
 /** True when hosted admission rules apply to this process. Safe anywhere. */
 export const hostedMode = (): boolean => present("ZENITH_HOSTED_MODE") === "1";

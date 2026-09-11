@@ -21,7 +21,7 @@ export const dynamic = "force-dynamic";
 export const GET = hostedRoute<{ appId: string }>(
   { appRole: "owner", refusal: "not_found" },
   async (req, { appId }): Promise<HostedUsage> => {
-    const app = authority().repos.apps.get(appId);
+    const app = await authority().repos.apps.get(appId);
     if (!app)
       throw new HostedError("not_found", `No hosted app has the id ${appId}.`, {
         fix: "Open the app from your apps list.",
@@ -32,8 +32,8 @@ export const GET = hostedRoute<{ appId: string }>(
     const since = new Date(Date.now() - days * 24 * 60 * 60_000).toISOString();
 
     return {
-      quota: quotaSummary(appId, { days }),
-      usage: usageSummary(app.workspaceId, { since, appId }),
+      quota: await quotaSummary(appId, { days }),
+      usage: await usageSummary(app.workspaceId, { since, appId }),
       limits: DEFAULT_LIMITS,
       enforcement: enforcementFor(hostedConfig().ZENITH_RUNTIME),
       enforcementLabels: ENFORCEMENT_LABELS,

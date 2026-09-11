@@ -28,7 +28,7 @@ const recordIds: string[] = [];
 
 beforeAll(async () => {
   h = await harness(DATA);
-  const wired = wire(h);
+  const wired = await wire(h);
   const app = await makeApp(h, {
     workspaceId: WORKSPACES.one.id,
     slug: "rollbackable",
@@ -43,7 +43,7 @@ beforeAll(async () => {
   wired.restore();
 
   // Real records, written by the release that is live, through the real store.
-  const { store } = h.data.openAppData(appId);
+  const { store } = await h.data.openAppData(appId);
   for (const title of ["Standing desk", "Second monitor"]) {
     const created = await store.create(
       {
@@ -70,41 +70,41 @@ beforeAll(async () => {
     recordIds.push(created.record.id);
   }
 
-  const second = wire(h, { build: buildRunnerDouble({ html: "<!doctype html><title>Release two</title>" }) });
+  const second = await wire(h, { build: await buildRunnerDouble({ html: "<!doctype html><title>Release two</title>" }) });
   const job = await publishOnce(h, { app, actor: IDENTITIES.owner.subject });
   expect(job.status).toBe("succeeded");
   releaseTwo = String(job.phaseData.releaseId);
   second.restore();
 });
 
-afterEach(() => {
+afterEach(async () => {
   undo?.();
   undo = undefined;
-  h.release.resetReleaseDeps();
+  await h.release.resetReleaseDeps();
 });
 
-afterAll(() => {
-  h.release.stopHostedJobRunner();
-  h.data.closeAllAppData();
+afterAll(async () => {
+  await h.release.stopHostedJobRunner();
+  await h.data.closeAllAppData();
   h.authority.closeAuthority();
   removeDir(DATA);
 });
 
 describe("rolling back to a superseded release", () => {
   it("moves the pointer, marks the release it left rolled_back, and does not touch a record", async () => {
-    const wired = wire(h);
+    const wired = await wire(h);
     undo = wired.restore;
 
-    const before = h.authority.authority().repos.apps.get(appId)!;
+    const before = (await h.authority.authority().repos.apps.get(appId))!;
     expect(before.activeReleaseId).toBe(releaseTwo);
-    const { store } = h.data.openAppData(appId);
+    const { store } = await h.data.openAppData(appId);
     const priorVersions = await Promise.all(
       recordIds.map(async (id) => (await store.get({ appId, subject: IDENTITIES.editor.subject, email: IDENTITIES.editor.email, role: "editor", releaseId: releaseTwo }, id))?.version)
     );
     expect(priorVersions).toEqual([1, 1]);
 
     const jobId = uuid();
-    const admitted = h.release.admitRollback({
+    const admitted = await h.release.admitRollback({
       jobId,
       appId,
       workspaceId: WORKSPACES.one.id,
@@ -118,12 +118,12 @@ describe("rolling back to a superseded release", () => {
     expect(job.status).toBe("succeeded");
     expect(job.phaseData.phases).toEqual(["check", "activate", "finish"]);
 
-    const app = h.authority.authority().repos.apps.get(appId)!;
+    const app = (await h.authority.authority().repos.apps.get(appId))!;
     expect(app.activeReleaseId).toBe(releaseOne);
     expect(app.activeFence).toBe(before.activeFence + 1);
-    expect(h.authority.authority().repos.releases.get(releaseOne)?.status).toBe("active");
+    expect((await h.authority.authority().repos.releases.get(releaseOne))?.status).toBe("active");
     // Left deliberately, not overtaken: the history has to say which.
-    expect(h.authority.authority().repos.releases.get(releaseTwo)?.status).toBe("rolled_back");
+    expect((await h.authority.authority().repos.releases.get(releaseTwo))?.status).toBe("rolled_back");
     expect(wired.runtime.recorder.activated).toHaveLength(1);
 
     // Every record is still there, at the version it was at.
@@ -138,18 +138,17 @@ describe("rolling back to a superseded release", () => {
     expect(after.map((r) => r?.title)).toEqual(["Standing desk", "Second monitor"]);
     expect(after.map((r) => r?.version)).toEqual([1, 1]);
 
-    const events = h.authority
-      .authority()
-      .repos.events.listSince({ appId }, { limit: 200 })
-      .map((event) => event.event);
+    const events = (
+      await h.authority.authority().repos.events.listSince({ appId }, { limit: 200 })
+    ).map((event) => event.event);
     expect(events).toContain("release.rolled_back");
   });
 });
 
 describe("rollback refusals", () => {
   it("refuses a release that never passed a probe", async () => {
-    const wired = wire(h, {
-      build: buildRunnerDouble({ html: "<!doctype html><title>Never healthy</title>" }),
+    const wired = await wire(h, {
+      build: await buildRunnerDouble({ html: "<!doctype html><title>Never healthy</title>" }),
       probe: () => ({
         ok: false,
         checkedAt: new Date().toISOString(),
@@ -169,47 +168,41 @@ describe("rollback refusals", () => {
     });
     const failed = await h.release.runJobOnce(publishJob);
     const failedRelease = String(failed.phaseData.releaseId);
-    expect(h.authority.authority().repos.releases.get(failedRelease)?.status).toBe("failed");
+    expect((await h.authority.authority().repos.releases.get(failedRelease))?.status).toBe("failed");
 
-    expect(() =>
-      h.release.admitRollback({
+    await expect(h.release.admitRollback({
         jobId: uuid(),
         appId,
         workspaceId: WORKSPACES.one.id,
         actor: IDENTITIES.owner.subject,
         releaseId: failedRelease,
-      })
-    ).toThrowError(/only a release that passed its health probe/);
+      })).rejects.toThrowError(/only a release that passed its health probe/);
   });
 
-  it("refuses the release that is already serving, and one from another app", () => {
-    undo = wire(h).restore;
-    expect(() =>
-      h.release.admitRollback({
+  it("refuses the release that is already serving, and one from another app", async () => {
+    undo = (await wire(h)).restore;
+    await expect(h.release.admitRollback({
         jobId: uuid(),
         appId,
         workspaceId: WORKSPACES.one.id,
         actor: IDENTITIES.owner.subject,
         releaseId: releaseOne,
-      })
-    ).toThrowError(/already the release this app is serving/);
+      })).rejects.toThrowError(/already the release this app is serving/);
 
-    expect(() =>
-      h.release.admitRollback({
+    await expect(h.release.admitRollback({
         jobId: uuid(),
         appId,
         workspaceId: WORKSPACES.one.id,
         actor: IDENTITIES.owner.subject,
         releaseId: "rel-does-not-exist",
-      })
-    ).toThrowError(/not a release of this app/);
+      })).rejects.toThrowError(/not a release of this app/);
   });
 
   it("refuses a target built for a different data schema, without reading a record", async () => {
     // The app's records report schema 2; every release here was built for 1.
-    undo = wire(h, { schemaVersion: 2 }).restore;
+    undo = (await wire(h, { schemaVersion: 2 })).restore;
     const jobId = uuid();
-    h.release.admitRollback({
+    await h.release.admitRollback({
       jobId,
       appId,
       workspaceId: WORKSPACES.one.id,
@@ -224,8 +217,8 @@ describe("rollback refusals", () => {
     expect(job.error).toContain("schema 2");
 
     // Nothing moved, and neither release changed status.
-    const app = h.authority.authority().repos.apps.get(appId)!;
+    const app = (await h.authority.authority().repos.apps.get(appId))!;
     expect(app.activeReleaseId).toBe(releaseOne);
-    expect(h.authority.authority().repos.releases.get(releaseTwo)?.status).toBe("rolled_back");
+    expect((await h.authority.authority().repos.releases.get(releaseTwo))?.status).toBe("rolled_back");
   });
 });

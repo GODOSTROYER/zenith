@@ -78,8 +78,8 @@ beforeAll(async () => {
   cookie = await signIn(m, app, OWNER.subject);
 }, 300_000);
 
-afterAll(() => {
-  closeHosted(m);
+afterAll(async () => {
+  await closeHosted(m);
   removeDir(DATA);
 });
 
@@ -87,8 +87,8 @@ afterAll(() => {
 const trackerEntries = (): TarEntry[] => entriesFromDirectory(fixtureDir("tracker-app"));
 
 /** A hostile archive: the real fixture plus whatever the case adds or replaces. */
-const hostile = (mutate: (entries: TarEntry[]) => TarEntry[]): string =>
-  gzip(writeTar(mutate(trackerEntries()))).toString("base64");
+const hostile = async (mutate: (entries: TarEntry[]) => TarEntry[]): Promise<string> =>
+  gzip(await writeTar(mutate(trackerEntries()))).toString("base64");
 
 /** Publish a hostile archive and answer with the finished job. */
 const submit = (base64: string) =>
@@ -98,7 +98,7 @@ describe("Gate 1 — source to a running app", () => {
   it("compiles the fixture with the pinned recipe into one content-addressed artifact", async () => {
     expect(first.digest, "the artifact key must be a sha256 hex digest").toMatch(/^[0-9a-f]{64}$/);
 
-    const indexed = m.authority.authority().repos.artifacts.get(first.digest);
+    const indexed = await m.authority.authority().repos.artifacts.get(first.digest);
     expect(indexed, `artifact ${first.digest} must be indexed in the authority`).toBeTruthy();
     expect(indexed?.provenance.recipe.id, "recipe that produced it").toBe("vite-react-v1");
     expect(indexed?.provenance.builtBy, "runner that produced it").toBe("recipe-local");
@@ -127,16 +127,16 @@ describe("Gate 1 — source to a running app", () => {
     expect(verdict.detail, "verify must name what it recomputed").toMatch(/digest matches/);
   });
 
-  it("left the release active and the app's durable pointer on it", () => {
+  it("left the release active and the app's durable pointer on it", async () => {
     const a = m.authority.authority();
-    const release = a.repos.releases.get(first.releaseId);
+    const release = await a.repos.releases.get(first.releaseId);
     expect(release?.status, "release status").toBe("active");
     expect(release?.artifactDigest, "release artifact").toBe(first.digest);
     expect(release?.probe?.ok, "the candidate probe must have passed").toBe(true);
     expect(release?.verifiedAt, "verifiedAt").toBeTruthy();
     expect(release?.activatedAt, "activatedAt").toBeTruthy();
 
-    const current = a.repos.apps.get(app.id);
+    const current = await a.repos.apps.get(app.id);
     expect(current?.activeReleaseId, "active release pointer").toBe(first.releaseId);
     expect(current?.activeFence, "fence after the first activation").toBe(1);
   });
@@ -175,50 +175,50 @@ describe("Gate 1 — source to a running app", () => {
   /* ------------------------------- hostile ------------------------------- */
 
   it("refuses a `..` traversal entry, records the reason, and creates no release", async () => {
-    const before = m.authority.authority().repos.releases.listByApp(app.id).length;
+    const before = (await m.authority.authority().repos.releases.listByApp(app.id)).length;
     const job = await submit(
-      hostile((entries) => [...entries, { path: "../escaped.tsx", bytes: Buffer.from("export {}") }])
+      await hostile((entries) => [...entries, { path: "../escaped.tsx", bytes: Buffer.from("export {}") }])
     );
 
     expect(job.status, `job ${job.id} was expected to fail`).toBe("failed");
     expect(job.phase, "it must fail at intake, before anything is built").toBe("intake");
-    const logs = m.release.jobLogs(job.id).join("\n");
+    const logs = (await m.release.jobLogs(job.id)).join("\n");
     expect(logs, "the job log must name the reason").toMatch(/source rejected:.*"\.\." segment/s);
-    expect(m.authority.authority().repos.releases.listByApp(app.id).length, "release count").toBe(before);
+    expect((await m.authority.authority().repos.releases.listByApp(app.id)).length, "release count").toBe(before);
   });
 
   it("refuses a symlink entry rather than following it", async () => {
-    const before = m.authority.authority().repos.releases.listByApp(app.id).length;
+    const before = (await m.authority.authority().repos.releases.listByApp(app.id)).length;
     const job = await submit(
-      hostile((entries) => [
+      await hostile((entries) => [
         ...entries,
         { path: "src/passwd.ts", type: "symlink", linkname: "/etc/passwd" },
       ])
     );
 
     expect(job.status).toBe("failed");
-    expect(m.release.jobLogs(job.id).join("\n")).toMatch(/symbolic link is not accepted/);
-    expect(m.authority.authority().repos.releases.listByApp(app.id).length).toBe(before);
+    expect((await m.release.jobLogs(job.id)).join("\n")).toMatch(/symbolic link is not accepted/);
+    expect((await m.authority.authority().repos.releases.listByApp(app.id)).length).toBe(before);
   });
 
   it("refuses a submitted vite.config.ts — the recipe is the platform's, not the app's", async () => {
-    const before = m.authority.authority().repos.releases.listByApp(app.id).length;
+    const before = (await m.authority.authority().repos.releases.listByApp(app.id)).length;
     const job = await submit(
-      hostile((entries) => [
+      await hostile((entries) => [
         ...entries,
         { path: "vite.config.ts", bytes: Buffer.from("export default { plugins: [] }") },
       ])
     );
 
     expect(job.status).toBe("failed");
-    expect(m.release.jobLogs(job.id).join("\n")).toMatch(/vite\.config\.ts/);
-    expect(m.authority.authority().repos.releases.listByApp(app.id).length).toBe(before);
+    expect((await m.release.jobLogs(job.id)).join("\n")).toMatch(/vite\.config\.ts/);
+    expect((await m.authority.authority().repos.releases.listByApp(app.id)).length).toBe(before);
   });
 
   it("refuses a dependency the recipe does not provide", async () => {
-    const before = m.authority.authority().repos.releases.listByApp(app.id).length;
+    const before = (await m.authority.authority().repos.releases.listByApp(app.id)).length;
     const job = await submit(
-      hostile((entries) =>
+      await hostile((entries) =>
         entries.map((entry) =>
           entry.path === "package.json"
             ? {
@@ -238,24 +238,24 @@ describe("Gate 1 — source to a running app", () => {
     );
 
     expect(job.status).toBe("failed");
-    expect(m.release.jobLogs(job.id).join("\n")).toMatch(/left-pad/);
-    expect(m.authority.authority().repos.releases.listByApp(app.id).length).toBe(before);
+    expect((await m.release.jobLogs(job.id)).join("\n")).toMatch(/left-pad/);
+    expect((await m.authority.authority().repos.releases.listByApp(app.id)).length).toBe(before);
   });
 
   it("refuses a file over the per-file ceiling", async () => {
-    const before = m.authority.authority().repos.releases.listByApp(app.id).length;
+    const before = (await m.authority.authority().repos.releases.listByApp(app.id)).length;
     const oversize = Buffer.alloc(m.contracts.SOURCE_LIMITS.maxFileBytes + 1, 0x61);
     const job = await submit(
-      hostile((entries) => [...entries, { path: "public/huge.txt", bytes: oversize }])
+      await hostile((entries) => [...entries, { path: "public/huge.txt", bytes: oversize }])
     );
 
     expect(job.status).toBe("failed");
-    expect(m.release.jobLogs(job.id).join("\n")).toMatch(/per-file limit is/);
-    expect(m.authority.authority().repos.releases.listByApp(app.id).length).toBe(before);
+    expect((await m.release.jobLogs(job.id)).join("\n")).toMatch(/per-file limit is/);
+    expect((await m.authority.authority().repos.releases.listByApp(app.id)).length).toBe(before);
   });
 
   it("kept serving the release it had while every hostile submission was refused", async () => {
-    const current = m.authority.authority().repos.apps.get(app.id);
+    const current = await m.authority.authority().repos.apps.get(app.id);
     expect(current?.activeReleaseId, "the active pointer must not have moved").toBe(first.releaseId);
     expect(current?.activeFence, "no activation happened, so the fence must not have moved").toBe(1);
 

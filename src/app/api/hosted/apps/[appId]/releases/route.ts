@@ -17,10 +17,10 @@ export const dynamic = "force-dynamic";
 export const GET = hostedRoute<{ appId: string }>(
   { workspaceRole: "viewer" },
   async (req, { appId }): Promise<ReleasesWire> => {
-    const app = requireOwnedApp(appId, requireWorkspace().id);
+    const app = await requireOwnedApp(appId, requireWorkspace().id);
     const limit = intParam(req, "limit", 50, { min: 1, max: 200 });
     return {
-      releases: authority().repos.releases.listByApp(app.id, { limit }),
+      releases: await authority().repos.releases.listByApp(app.id, { limit }),
       activeReleaseId: app.activeReleaseId,
       activeFence: app.activeFence,
     };

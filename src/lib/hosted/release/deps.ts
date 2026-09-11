@@ -43,10 +43,10 @@ export interface ReleaseDeps {
   buildRunner(): BuildRunner | null;
   artifactStore(): ArtifactStore;
   /** The caller's active grant at or above `min`, or `forbidden`. */
-  requireAppRole(appId: string, subject: Subject, min: AppRole): AppGrant;
-  activeGrant(appId: string, subject: Subject): AppGrant | null;
-  recordUsage(entry: Omit<UsageEntry, "id" | "at"> & { at?: string }): UsageEntry;
-  buildsPaused(workspaceId: string): { paused: boolean; reason?: string };
+  requireAppRole(appId: string, subject: Subject, min: AppRole): Promise<AppGrant>;
+  activeGrant(appId: string, subject: Subject): Promise<AppGrant | null>;
+  recordUsage(entry: Omit<UsageEntry, "id" | "at"> & { at?: string }): Promise<UsageEntry>;
+  buildsPaused(workspaceId: string): Promise<{ paused: boolean; reason?: string }>;
   /** The data schema an app's records are stored under; a rollback target must match it. */
   appSchemaVersion(appId: string): Promise<number>;
 }
@@ -55,10 +55,10 @@ const DEFAULTS: ReleaseDeps = {
   runtime: () => selectedHostedRuntime(),
   buildRunner: () => selectedBuildRunner(),
   artifactStore: () => new FsArtifactStore(),
-  requireAppRole: (appId, subject, min) => requireAppRole(appId, subject, min),
-  activeGrant: (appId, subject) => activeGrant(appId, subject),
-  recordUsage: (entry) => recordUsage(entry),
-  buildsPaused: (workspaceId) => buildsPaused(workspaceId),
+  requireAppRole: async (appId, subject, min) => requireAppRole(appId, subject, min),
+  activeGrant: async (appId, subject) => activeGrant(appId, subject),
+  recordUsage: async (entry) => recordUsage(entry),
+  buildsPaused: async (workspaceId) => buildsPaused(workspaceId),
   appSchemaVersion: (appId) => openAppData(appId).store.schemaVersion(appId),
 };
 

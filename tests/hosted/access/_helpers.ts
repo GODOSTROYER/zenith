@@ -29,8 +29,8 @@ export function seedApp(
   opts: { slug?: string; name?: string; workspaceId?: string; createdBy?: string } = {}
 ) {
   const slug = opts.slug ?? APPS.alpha.slug;
-  return a.tx(() =>
-    a.repos.apps.insert({
+  return a.tx((repos) =>
+    repos.apps.insert({
       id: uuid(),
       workspaceId: opts.workspaceId ?? WORKSPACES.one.id,
       slug,
@@ -49,8 +49,8 @@ export function seedGrant(
   role: AppRole = "viewer",
   grantedBy = IDENTITIES.owner.subject
 ) {
-  return a.tx(() =>
-    a.repos.grants.insert({
+  return a.tx((repos) =>
+    repos.grants.insert({
       id: uuid(),
       appId,
       subject: who.subject,
@@ -62,17 +62,17 @@ export function seedGrant(
 }
 
 /** Open a session directly, for the paths that need one to already exist. */
-export function seedSession(
+export async function seedSession(
   a: Authority,
   appId: string,
   who: TestIdentity,
   grantId: string,
   expiresAt = iso(3_600_000)
-): { cookieValue: string; id: string } {
+): Promise<{ cookieValue: string; id: string }> {
   const cookieValue = `test-${uuid()}`;
   const id = sha256Hex(cookieValue);
-  a.tx(() =>
-    a.repos.sessions.insert({ id, appId, subject: who.subject, grantId, expiresAt })
+  await a.tx((repos) =>
+    repos.sessions.insert({ id, appId, subject: who.subject, grantId, expiresAt })
   );
   return { cookieValue, id };
 }

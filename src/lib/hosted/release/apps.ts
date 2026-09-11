@@ -71,15 +71,15 @@ export async function createApp(input: CreateAppInput): Promise<HostedApp> {
 
   const a = authority();
   const runtime = hostedConfig().ZENITH_RUNTIME;
-  const created = a.tx(() => {
-    const taken = a.repos.apps.getBySlug(slug);
+  const created = await a.tx(async (repos) => {
+    const taken = await repos.apps.getBySlug(slug);
     if (taken)
       throw new HostedError("conflict", `The slug "${slug}" is already an app on this install.`, {
         fix: `Every app has its own hostname, so slugs are unique across the install. Pick another one — "${slug}-2" or a name closer to what this app does.`,
         details: { slug },
       });
 
-    const app = a.repos.apps.insert({
+    const app = await repos.apps.insert({
       id: crypto.randomUUID(),
       workspaceId: input.workspaceId,
       slug,
@@ -89,7 +89,7 @@ export async function createApp(input: CreateAppInput): Promise<HostedApp> {
     });
     // The owner grant is why this is a transaction: an app without one is an
     // app nobody can operate.
-    const grant = a.repos.grants.insert({
+    const grant = await repos.grants.insert({
       id: crypto.randomUUID(),
       appId: app.id,
       subject: input.createdBy,
@@ -97,7 +97,7 @@ export async function createApp(input: CreateAppInput): Promise<HostedApp> {
       role: "owner",
       grantedBy: input.createdBy,
     });
-    emit({
+    await emit({
       event: "app.created",
       workspaceId: app.workspaceId,
       appId: app.id,
@@ -120,21 +120,21 @@ export async function createApp(input: CreateAppInput): Promise<HostedApp> {
         : err instanceof Error
           ? err.message
           : String(err);
-    const patched = a.repos.apps.update(created.app.id, { stateReason: reason });
+    const patched = await a.repos.apps.update(created.app.id, { stateReason: reason });
     return patched ?? { ...created.app, stateReason: reason };
   }
-  return a.repos.apps.get(created.app.id) ?? created.app;
+  return (await a.repos.apps.get(created.app.id)) ?? created.app;
 }
 
 /** One app, or null. */
-export const getApp = (appId: string): HostedApp | null => authority().repos.apps.get(appId);
+export const getApp = (appId: string): Promise<HostedApp | null> => authority().repos.apps.get(appId);
 
 /** One app, refused with `not_found` when it is missing or belongs elsewhere. */
-export const requireOwnedApp = (appId: string, workspaceId: string): HostedApp =>
+export const requireOwnedApp = (appId: string, workspaceId: string): Promise<HostedApp> =>
   requireAppIn(appId, workspaceId);
 
 /** Every app in a workspace, oldest first. */
-export const listApps = (workspaceId: string): HostedApp[] =>
+export const listApps = (workspaceId: string): Promise<HostedApp[]> =>
   authority().repos.apps.listByWorkspace(workspaceId);
 
 /** What a screen needs about one app in a single read. */
@@ -164,46 +164,54 @@ export interface AppSummary {
  * config means a summary still renders when the runtime is unavailable —
  * which is exactly when someone needs to look at this screen.
  */
-export function appSummary(appId: string, opts: { jobs?: number; releases?: number } = {}): AppSummary {
+export async function appSummary(
+  appId: string,
+  opts: { jobs?: number; releases?: number } = {}
+): Promise<AppSummary> {
   const a = authority();
-  const app = requireApp(appId);
-  const releases = a.repos.releases.listByApp(app.id, { limit: opts.releases ?? 50 });
+  const app = await requireApp(appId);
+  const releases = await a.repos.releases.listByApp(app.id, { limit: opts.releases ?? 50 });
   return {
     app,
-    activeRelease: app.activeReleaseId ? a.repos.releases.get(app.activeReleaseId) : null,
+    activeRelease: app.activeReleaseId ? await a.repos.releases.get(app.activeReleaseId) : null,
     releases,
-    runningJob: a.repos.jobs.runningFor(app.id),
-    recentJobs: a.repos.jobs.listByApp(app.id, { limit: opts.jobs ?? 20 }),
+    runningJob: await a.repos.jobs.runningFor(app.id),
+    recentJobs: await a.repos.jobs.listByApp(app.id, { limit: opts.jobs ?? 20 }),
     hostname: appHostname(app.slug),
     origin: appOrigin(app.slug),
-    grantCount: a.repos.grants.listByApp(app.id, { activeOnly: true }).length,
-    inviteCount: a.repos.invites.listByApp(app.id, { state: "pending" }).length,
+    grantCount: (await a.repos.grants.listByApp(app.id, { activeOnly: true })).length,
+    inviteCount: (await a.repos.invites.listByApp(app.id, { state: "pending" })).length,
   };
 }
 
 /** Every grant on an app, newest first. Read directly; W5 owns the writes. */
-export const appGrants = (appId: string): AppGrant[] => authority().repos.grants.listByApp(appId);
+export const appGrants = (appId: string): Promise<AppGrant[]> =>
+  authority().repos.grants.listByApp(appId);
 
 /**
  * The releases a cleanup sweep must keep: whatever is serving, plus the most
  * recent few, because those are what a rollback can still select.
  */
-export function retainedReleases(appId: string, keep: number = RETAINED_RELEASES): Set<string> {
+export async function retainedReleases(
+  appId: string,
+  keep: number = RETAINED_RELEASES
+): Promise<Set<string>> {
   const a = authority();
-  const app = requireApp(appId);
+  const app = await requireApp(appId);
   const retain = new Set<string>();
   if (app.activeReleaseId) retain.add(app.activeReleaseId);
-  for (const release of a.repos.releases.listByApp(appId, { limit: keep })) retain.add(release.id);
+  for (const release of await a.repos.releases.listByApp(appId, { limit: keep }))
+    retain.add(release.id);
   return retain;
 }
 
 /** Move an app between states, recording why. Used by the suspend/resume jobs. */
-export function setAppState(
+export async function setAppState(
   appId: string,
   state: HostedApp["state"],
   reason: string | null
-): HostedApp {
-  const updated = authority().repos.apps.update(appId, { state, stateReason: reason }, nowIso());
+): Promise<HostedApp> {
+  const updated = await authority().repos.apps.update(appId, { state, stateReason: reason }, nowIso());
   if (!updated)
     throw new HostedError("not_found", `No hosted app ${appId} exists.`, {
       fix: "The app was deleted while this job was queued. Nothing was changed.",

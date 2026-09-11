@@ -24,14 +24,14 @@ const NewGrant = z
 
 export const GET = hostedRoute<{ appId: string }>(
   { appRole: "owner", verify: "session" },
-  async (_req, { appId }): Promise<AppGrantsWire> => ({ grants: listGrants(appId) })
+  async (_req, { appId }): Promise<AppGrantsWire> => ({ grants: await listGrants(appId) })
 );
 
 export const POST = hostedRoute<{ appId: string }>(
   { appRole: "owner", verify: "live" },
   async (req, { appId }, { subject }) => {
     const body = await readJsonBody(req, NewGrant);
-    const created: AppGrantWire = { grant: grantDirect(appId, body, subject) };
+    const created: AppGrantWire = { grant: await grantDirect(appId, body, subject) };
     return hostedJson(created, 201);
   }
 );

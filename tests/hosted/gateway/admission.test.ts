@@ -31,30 +31,30 @@ const { gatewayTelemetry, handleGateway, resetGatewayDeps, resetGatewayTelemetry
 
 let authority = openAuthority();
 const store = new FsArtifactStore(hostedConfig().artifactDir);
-const artifact = await store.put(writeBuiltTree(DATA_DIR), provenance("job-admission"));
-seedArtifactRow(authority, artifact.digest, artifact.byteSize, artifact.fileCount);
+const artifact = await store.put(await writeBuiltTree(DATA_DIR), provenance("job-admission"));
+await seedArtifactRow(authority, artifact.digest, artifact.byteSize, artifact.fileCount);
 
-const alpha = seedApp(authority, { slug: "alpha" });
-seedApp(authority, { slug: "paused", state: "suspended" });
-seedApp(authority, { slug: "restoring", state: "recovering" });
-const removed = seedApp(authority, { slug: "removed" });
-seedActiveRelease(authority, alpha, artifact.digest);
-authority.tx(() => authority.repos.apps.update(removed.id, { state: "deleted" }));
+const alpha = await seedApp(authority, { slug: "alpha" });
+await seedApp(authority, { slug: "paused", state: "suspended" });
+await seedApp(authority, { slug: "restoring", state: "recovering" });
+const removed = await seedApp(authority, { slug: "removed" });
+await seedActiveRelease(authority, alpha, artifact.digest);
+await authority.tx((repos) => repos.apps.update(removed.id, { state: "deleted" }));
 
-const doubles = makeDoubles();
+const doubles = await makeDoubles();
 
-beforeEach(() => {
-  resetGatewayDeps();
-  setGatewayDepsForTests(doubles.deps);
-  resetGatewayTelemetry();
+beforeEach(async () => {
+  await resetGatewayDeps();
+  await setGatewayDepsForTests(doubles.deps);
+  await resetGatewayTelemetry();
   doubles.state.quotaAllowed = true;
   doubles.state.counted.length = 0;
   doubles.state.events.length = 0;
 });
 
-afterAll(() => {
-  resetGatewayDeps();
-  closeAllAppData();
+afterAll(async () => {
+  await resetGatewayDeps();
+  await closeAllAppData();
   closeAuthority();
   removeDir(DATA_DIR);
 });
@@ -67,7 +67,7 @@ const nothingInvoked = (): void => {
 
 describe("step 1 — the host", () => {
   it("refuses a host that names no app, without saying which apps exist", async () => {
-    const { req, params } = call({ host: "nosuchapp.apps.localhost:3400" });
+    const { req, params } = await call({ host: "nosuchapp.apps.localhost:3400" });
     const res = await handleGateway(req, params);
     expect(res.status).toBe(404);
     expect((await errorBody(res)).code).toBe("unknown_host");
@@ -78,15 +78,15 @@ describe("step 1 — the host", () => {
     // What a curl of http://localhost:3400/hosted-gateway/alpha.apps.localhost/
     // looks like once it reaches the route: the Host header is the control
     // origin's, and no app is served on that name.
-    const { req } = call({ host: "localhost:3400" });
-    const res = await handleGateway(req, { host: appHost("alpha"), path: undefined });
+    const { req } = await call({ host: "localhost:3400" });
+    const res = await handleGateway(req, { host: await appHost("alpha"), path: undefined });
     expect(res.status).toBe(404);
     expect((await errorBody(res)).code).toBe("unknown_host");
     nothingInvoked();
   });
 
   it("refuses when the Host header and the route parameter disagree", async () => {
-    const { req, params } = call({ host: appHost("alpha"), paramHost: appHost("beta") });
+    const { req, params } = await call({ host: await appHost("alpha"), paramHost: await appHost("beta") });
     const res = await handleGateway(req, params);
     expect(res.status).toBe(404);
     expect((await errorBody(res)).code).toBe("unknown_host");
@@ -108,8 +108,8 @@ describe("step 1 — the host", () => {
         updatedAt: "",
       },
     });
-    const { req } = call({ host: `ALPHA.apps.localhost:3400`, cookie: "__Host-zenith_app=live" });
-    const res = await handleGateway(req, { host: encodeURIComponent(appHost("alpha")), path: undefined });
+    const { req } = await call({ host: `ALPHA.apps.localhost:3400`, cookie: "__Host-zenith_app=live" });
+    const res = await handleGateway(req, { host: encodeURIComponent(await appHost("alpha")), path: undefined });
     expect(res.status).toBe(200);
     doubles.state.sessions.clear();
   });
@@ -117,7 +117,7 @@ describe("step 1 — the host", () => {
 
 describe("step 2 — the app", () => {
   it("answers a deleted app exactly as it answers an unknown one", async () => {
-    const { req, params } = call({ host: appHost("removed") });
+    const { req, params } = await call({ host: await appHost("removed") });
     const res = await handleGateway(req, params);
     expect(res.status).toBe(404);
     expect((await errorBody(res)).code).toBe("unknown_host");
@@ -127,7 +127,7 @@ describe("step 2 — the app", () => {
 
 describe("step 3 — the app's state", () => {
   it("answers a suspended app 423, as a page for a browser", async () => {
-    const { req, params } = call({ host: appHost("paused"), accept: "text/html,*/*" });
+    const { req, params } = await call({ host: await appHost("paused"), accept: "text/html,*/*" });
     const res = await handleGateway(req, params);
     expect(res.status).toBe(423);
     expect(res.headers.get("content-type")).toContain("text/html");
@@ -138,7 +138,7 @@ describe("step 3 — the app's state", () => {
   });
 
   it("answers a suspended app 423 as JSON for a program", async () => {
-    const { req, params } = call({ host: appHost("paused"), accept: "application/json" });
+    const { req, params } = await call({ host: await appHost("paused"), accept: "application/json" });
     const res = await handleGateway(req, params);
     expect(res.status).toBe(423);
     const error = await errorBody(res);
@@ -148,8 +148,8 @@ describe("step 3 — the app's state", () => {
   });
 
   it("still renders the sign-in page of a suspended app", async () => {
-    const { req, params } = call({
-      host: appHost("paused"),
+    const { req, params } = await call({
+      host: await appHost("paused"),
       path: "/_zenith/auth/signin",
       accept: "text/html",
     });
@@ -159,7 +159,7 @@ describe("step 3 — the app's state", () => {
   });
 
   it("answers a recovering app 423 with its own code", async () => {
-    const { req, params } = call({ host: appHost("restoring") });
+    const { req, params } = await call({ host: await appHost("restoring") });
     const res = await handleGateway(req, params);
     expect(res.status).toBe(423);
     expect((await errorBody(res)).code).toBe("recovering");
@@ -169,20 +169,20 @@ describe("step 3 — the app's state", () => {
 
 describe("step 4 — the daily quota", () => {
   it("counts a request that was refused for another reason", async () => {
-    const { req, params } = call({ path: "/" });
+    const { req, params } = await call({ path: "/" });
     await handleGateway(req, params);
     expect(doubles.state.counted).toEqual([alpha.id]);
   });
 
   it("does not count a request that never resolved to an app", async () => {
-    const { req, params } = call({ host: "nosuchapp.apps.localhost:3400" });
+    const { req, params } = await call({ host: "nosuchapp.apps.localhost:3400" });
     await handleGateway(req, params);
     expect(doubles.state.counted).toEqual([]);
   });
 
   it("refuses over the cap with retry-after pointing at the next UTC midnight", async () => {
     doubles.state.quotaAllowed = false;
-    const { req, params } = call({ path: "/" });
+    const { req, params } = await call({ path: "/" });
     const res = await handleGateway(req, params);
     expect(res.status).toBe(429);
     const error = await errorBody(res);
@@ -201,7 +201,7 @@ describe("step 5 — the authority", () => {
   it("answers 503 when the control authority is not open, and never serves anyway", async () => {
     closeAuthority();
     try {
-      const { req, params } = call({ path: "/" });
+      const { req, params } = await call({ path: "/" });
       const res = await handleGateway(req, params);
       expect(res.status).toBe(503);
       const error = await errorBody(res);
@@ -216,7 +216,7 @@ describe("step 5 — the authority", () => {
 
 describe("paths the gateway will not interpret", () => {
   it("refuses a traversal segment", async () => {
-    const { req, params } = call({ path: "/x", segments: ["..", "secret"] });
+    const { req, params } = await call({ path: "/x", segments: ["..", "secret"] });
     const res = await handleGateway(req, params);
     expect(res.status).toBe(404);
     expect((await errorBody(res)).code).toBe("not_found");
@@ -225,7 +225,7 @@ describe("paths the gateway will not interpret", () => {
 
   it("refuses an empty segment, a backslash and a NUL", async () => {
     for (const segments of [["", "x"], ["a\\b"], ["a b"]]) {
-      const { req, params } = call({ path: "/x", segments });
+      const { req, params } = await call({ path: "/x", segments });
       const res = await handleGateway(req, params);
       expect(res.status, segments.join("|")).toBe(404);
     }
@@ -233,7 +233,7 @@ describe("paths the gateway will not interpret", () => {
   });
 
   it("counts those requests before refusing them", async () => {
-    const { req, params } = call({ path: "/x", segments: ["..", "secret"] });
+    const { req, params } = await call({ path: "/x", segments: ["..", "secret"] });
     await handleGateway(req, params);
     expect(doubles.state.counted).toEqual([alpha.id]);
   });

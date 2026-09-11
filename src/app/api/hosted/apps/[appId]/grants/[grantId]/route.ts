@@ -27,7 +27,7 @@ export const PATCH = hostedRoute<{ appId: string; grantId: string }>(
   { appRole: "owner", verify: "live" },
   async (req, { appId, grantId }, { subject }): Promise<AppGrantWire> => {
     const { role } = await readJsonBody(req, RoleChange);
-    return { grant: changeGrantRole(grantId, role, subject, { appId }) };
+    return { grant: await changeGrantRole(grantId, role, subject, { appId }) };
   }
 );
 
@@ -35,7 +35,7 @@ export const DELETE = hostedRoute<{ appId: string; grantId: string }>(
   { appRole: "owner", verify: "live" },
   async (req, { appId, grantId }, { subject }): Promise<GrantRevokedWire> => {
     const { reason } = await readJsonBody(req, Revoke, { optional: true });
-    const revoked = revokeGrant(grantId, subject, reason, { appId });
+    const revoked = await revokeGrant(grantId, subject, reason, { appId });
     return {
       grant: revoked.grant,
       sessionsTerminated: revoked.sessionsTerminated,

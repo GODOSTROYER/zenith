@@ -85,7 +85,7 @@ export async function handleGateway(req: NextRequest, params: GatewayParams): Pr
     const { host, slug } = resolveHost(req.headers.get("host"), params.host);
 
     // 2
-    app = loadApp(slug);
+    app = await loadApp(slug);
 
     // The path is parsed now because step 3 needs to know whether this is the
     // sign-in page, but a path the gateway refuses is not rejected until after
@@ -99,7 +99,7 @@ export async function handleGateway(req: NextRequest, params: GatewayParams): Pr
 
     // 4 (5 is not a step of its own: `authorityStep` wraps every read above
     // and below, so a control authority that cannot answer is a 503 anywhere.)
-    countRequest(app);
+    await countRequest(app);
 
     if (normalized === null) throw refusedPath();
 
@@ -118,20 +118,20 @@ export async function handleGateway(req: NextRequest, params: GatewayParams): Pr
 
     // 7
     const cookieValue = appSessionCookieValue(req.headers.get("cookie"));
-    const { session, grant } = admitSession(app, cookieValue);
+    const { session, grant } = await admitSession(app, cookieValue);
     subject = session.subject;
 
     // 8
-    const { release, digest } = resolveActiveRelease(app);
+    const { release, digest } = await resolveActiveRelease(app);
     releaseId = release.id;
-    noteAppOpened(app, session, release.id);
+    await noteAppOpened(app, session, release.id);
 
     // 9
     return await serveArtifact(req, normalized, { host, app, session, grant, release, digest });
   } catch (err) {
     const hosted = hostedErrorOf(err);
     if (app && hosted && DENIAL_CODES.has(hosted.code))
-      noteAccessDenied(app, hosted.code, { subject, releaseId });
+      await noteAccessDenied(app, hosted.code, { subject, releaseId });
 
     // A person who followed a link should land on the page that explains how
     // to get in, not on a JSON body they cannot read. A program gets the

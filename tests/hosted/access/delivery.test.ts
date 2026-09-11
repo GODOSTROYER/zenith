@@ -22,7 +22,7 @@ import { isolatedDataDir, removeDir } from "../_fixtures";
 const dataDir = isolatedDataDir("zenith-access-delivery-");
 process.env.ZENITH_SECRET_KEY = "2".repeat(64);
 
-const { closeAuthority, flushOutbox, openAuthority } = await import("@/lib/hosted/authority");
+const { closeAuthority, flushOutbox, openAuthority, sqliteConnection } = await import("@/lib/hosted/authority");
 const {
   NODEMAILER,
   createInvite,
@@ -34,7 +34,7 @@ const {
 const { IDENTITIES, seedApp, seedGrant, uuid } = await import("./_helpers");
 
 const a = openAuthority();
-registerAccessOutboxHandlers();
+await registerAccessOutboxHandlers();
 
 const REAL_SPEC = NODEMAILER.spec;
 const WORKING = new URL("../../alerts/fake-nodemailer.mjs", import.meta.url).href;
@@ -48,19 +48,19 @@ interface FakeMail {
 }
 type MailGlobal = typeof globalThis & { __zenithFakeMail?: FakeMail[]; __zenithFailedMail?: number };
 
-beforeEach(() => {
+beforeEach(async () => {
   (globalThis as MailGlobal).__zenithFakeMail = [];
   (globalThis as MailGlobal).__zenithFailedMail = 0;
 });
 
-afterEach(() => {
+afterEach(async () => {
   NODEMAILER.spec = REAL_SPEC;
   delete process.env.ZENITH_SMTP_URL;
   delete process.env.ZENITH_ALERT_FROM;
   delete process.env.ZENITH_INVITE_FROM;
 });
 
-afterAll(() => {
+afterAll(async () => {
   closeAuthority();
   removeDir(dataDir);
 });
@@ -70,9 +70,9 @@ const withSmtp = (): void => {
   process.env.ZENITH_ALERT_FROM = "Zenith <zenith@example.test>";
 };
 
-const app = (slug: string) => {
-  const record = seedApp(a, { slug, name: `App ${slug}` });
-  seedGrant(a, record.id, IDENTITIES.owner, "owner");
+const app = async (slug: string) => {
+  const record = await seedApp(a, { slug, name: `App ${slug}` });
+  await seedGrant(a, record.id, IDENTITIES.owner, "owner");
   return record;
 };
 
@@ -80,16 +80,16 @@ const invite = (appId: string) =>
   createInvite(appId, { email: IDENTITIES.stranger.email, role: "viewer" }, IDENTITIES.owner.subject);
 
 const sealedBytes = (deliveryId: string): Uint8Array | null => {
-  const row = a.db.prepare("SELECT sealed_payload FROM invite_deliveries WHERE id = ?").get(deliveryId);
+  const row = sqliteConnection(a).prepare("SELECT sealed_payload FROM invite_deliveries WHERE id = ?").get(deliveryId);
   const value = row?.sealed_payload;
   return value instanceof Uint8Array ? value : null;
 };
 
 describe("with no transport configured", () => {
-  it("settles the delivery failed at creation, names the variable, and queues nothing", () => {
-    expect(inviteEmailProblem()).toContain("ZENITH_SMTP_URL");
-    const target = app("delivery-none");
-    const issued = invite(target.id);
+  it("settles the delivery failed at creation, names the variable, and queues nothing", async () => {
+    expect(await inviteEmailProblem()).toContain("ZENITH_SMTP_URL");
+    const target = await app("delivery-none");
+    const issued = await invite(target.id);
 
     expect(issued.delivery.state).toBe("failed");
     expect(issued.delivery.settledAt).toBeTruthy();
@@ -100,7 +100,7 @@ describe("with no transport configured", () => {
     // claim a transport it never used.
     expect(issued.delivery.transport === undefined || issued.delivery.transport === "none").toBe(true);
     expect(sealedBytes(issued.delivery.id)).toBeNull();
-    expect(a.repos.outbox.getByKey(`invite:${issued.invite.id}:${issued.delivery.id}`)).toBeNull();
+    expect(await a.repos.outbox.getByKey(`invite:${issued.invite.id}:${issued.delivery.id}`)).toBeNull();
 
     // …and the owner still holds a working link.
     expect(issued.acceptUrl).toContain("token=");
@@ -111,25 +111,25 @@ describe("with a transport that accepts", () => {
   it("drains the outbox, records what was sent, and erases the sealed token", async () => {
     withSmtp();
     NODEMAILER.spec = WORKING;
-    const target = app("delivery-sent");
-    const issued = invite(target.id);
+    const target = await app("delivery-sent");
+    const issued = await invite(target.id);
 
     expect(issued.delivery.state).toBe("pending");
     expect(sealedBytes(issued.delivery.id)).toBeInstanceOf(Uint8Array);
-    const queued = a.repos.outbox.getByKey(`invite:${issued.invite.id}:${issued.delivery.id}`);
+    const queued = await a.repos.outbox.getByKey(`invite:${issued.invite.id}:${issued.delivery.id}`);
     expect(queued).toMatchObject({ kind: "invite_email", state: "pending" });
 
     const drained = await flushOutbox({ kinds: ["invite_email"] });
     expect(drained).toMatchObject({ done: 1, failed: 0 });
 
-    expect(a.repos.deliveries.get(issued.delivery.id)).toMatchObject({
+    expect(await a.repos.deliveries.get(issued.delivery.id)).toMatchObject({
       state: "sent",
       transport: "smtp",
       providerMessageId: "fake",
       error: undefined,
     });
     expect(sealedBytes(issued.delivery.id)).toBeNull();
-    expect(a.repos.outbox.get(queued!.id)?.state).toBe("done");
+    expect((await a.repos.outbox.get(queued!.id))?.state).toBe("done");
 
     const sent = (globalThis as MailGlobal).__zenithFakeMail ?? [];
     expect(sent).toHaveLength(1);
@@ -144,8 +144,8 @@ describe("with a transport that accepts", () => {
     withSmtp();
     process.env.ZENITH_INVITE_FROM = "Invitations <invites@example.test>";
     NODEMAILER.spec = WORKING;
-    const target = app("delivery-from");
-    invite(target.id);
+    const target = await app("delivery-from");
+    await invite(target.id);
 
     await flushOutbox({ kinds: ["invite_email"] });
     const sent = (globalThis as MailGlobal).__zenithFakeMail ?? [];
@@ -155,16 +155,16 @@ describe("with a transport that accepts", () => {
   it("does not send for an invitation that stopped being outstanding", async () => {
     withSmtp();
     NODEMAILER.spec = WORKING;
-    const target = app("delivery-superseded");
-    const first = invite(target.id);
+    const target = await app("delivery-superseded");
+    const first = await invite(target.id);
     // A resend supersedes the first invitation before its email went out.
-    invite(target.id);
+    await invite(target.id);
 
     await flushOutbox({ kinds: ["invite_email"] });
     const sent = (globalThis as MailGlobal).__zenithFakeMail ?? [];
     expect(sent).toHaveLength(1);
-    expect(a.repos.deliveries.get(first.delivery.id)).toMatchObject({ state: "failed" });
-    expect(a.repos.deliveries.get(first.delivery.id)?.error).toContain("superseded");
+    expect(await a.repos.deliveries.get(first.delivery.id)).toMatchObject({ state: "failed" });
+    expect((await a.repos.deliveries.get(first.delivery.id))?.error).toContain("superseded");
   });
 });
 
@@ -172,18 +172,18 @@ describe("with a transport that refuses", () => {
   it("records the failure with its reason, after every attempt, and claims nothing", async () => {
     withSmtp();
     NODEMAILER.spec = FAILING;
-    const target = app("delivery-failed");
-    const issued = invite(target.id);
+    const target = await app("delivery-failed");
+    const issued = await invite(target.id);
 
     const drained = await flushOutbox({ kinds: ["invite_email"] });
     expect(drained).toMatchObject({ done: 0, failed: 1 });
 
-    const delivery = a.repos.deliveries.get(issued.delivery.id);
+    const delivery = await a.repos.deliveries.get(issued.delivery.id);
     expect(delivery?.state).toBe("failed");
     expect(delivery?.error).toContain("rejected the recipient address");
     expect(delivery?.attempts).toBeGreaterThan(1);
 
-    const entry = a.repos.outbox.getByKey(`invite:${issued.invite.id}:${issued.delivery.id}`);
+    const entry = await a.repos.outbox.getByKey(`invite:${issued.invite.id}:${issued.delivery.id}`);
     expect(entry?.state).toBe("failed");
     expect(entry?.error).toContain("rejected the recipient address");
     expect((globalThis as MailGlobal).__zenithFailedMail).toBeGreaterThan(1);
@@ -191,7 +191,7 @@ describe("with a transport that refuses", () => {
 });
 
 describe("the sealed payload", () => {
-  it("never holds the token in clear, and refuses to open under another invitation id", () => {
+  it("never holds the token in clear, and refuses to open under another invitation id", async () => {
     const inviteId = uuid();
     const payload = {
       token: `token-${uuid()}`,
@@ -199,7 +199,7 @@ describe("the sealed payload", () => {
       appName: "App sealed",
       acceptUrl: "http://localhost:3400/apps/accept?token=x",
     };
-    const sealed = sealInvite(inviteId, payload);
+    const sealed = await sealInvite(inviteId, payload);
 
     expect(Buffer.from(sealed).includes(Buffer.from(payload.token, "utf8"))).toBe(false);
     expect(unsealInvite(inviteId, sealed)).toEqual(payload);
@@ -211,9 +211,9 @@ describe("the sealed payload", () => {
     expect(() => unsealInvite(inviteId, altered)).toThrow(/could not be opened/);
   });
 
-  it("cannot be opened by a server holding a different key", () => {
+  it("cannot be opened by a server holding a different key", async () => {
     const inviteId = uuid();
-    const sealed = sealInvite(inviteId, {
+    const sealed = await sealInvite(inviteId, {
       token: `token-${uuid()}`,
       email: IDENTITIES.stranger.email,
       appName: "App other key",

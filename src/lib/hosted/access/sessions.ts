@@ -41,7 +41,7 @@ import {
   type AppSession,
   type Subject,
 } from "@/lib/hosted/contracts";
-import { authority } from "@/lib/hosted/authority";
+import { authority, sqliteConnection } from "@/lib/hosted/authority";
 import { appOrigin } from "@/lib/hosted/config";
 import {
   accessDenied,
@@ -82,18 +82,22 @@ export interface ExchangeRedirect {
  * unknown app, so app ids stay non-enumerable), and a suspended or recovering
  * app is `423` with the reason the operator gave.
  */
-export function createExchange(appId: string, subject: Subject, state: string): ExchangeRedirect {
+export async function createExchange(
+  appId: string,
+  subject: Subject,
+  state: string
+): Promise<ExchangeRedirect> {
   requireExchangeState(state);
   // Grant first, app second: a stranger asking about an app that does not exist
   // must get the same answer as a stranger asking about one that does.
-  const grant = activeGrantOrDeny(appId, subject);
-  const app = requireApp(appId);
+  const grant = await activeGrantOrDeny(appId, subject);
+  const app = await requireApp(authority().repos, appId);
   requireAppActive(app);
 
   const code = secretValue();
   const a = authority();
-  a.tx(() =>
-    a.repos.exchanges.insert({
+  await a.tx((repos) =>
+    repos.exchanges.insert({
       codeHash: sha256Hex(code),
       appId,
       subject,
@@ -140,27 +144,27 @@ type RedeemOutcome =
  * returned outcome, so a code that arrived at the wrong place is spent rather
  * than left to be replayed at the right one.
  */
-export function redeemExchange(code: string, opts: RedeemOptions): RedeemedExchange {
+export async function redeemExchange(code: string, opts: RedeemOptions): Promise<RedeemedExchange> {
   const cookieValue = secretValue();
   const sessionId = sha256Hex(cookieValue);
   const a = authority();
 
-  const outcome = a.tx((db): RedeemOutcome => {
+  const outcome = await a.tx(async (repos): Promise<RedeemOutcome> => {
     const at = nowIso();
-    const exchange = a.repos.exchanges.consume(sha256Hex(code), at);
+    const exchange = await repos.exchanges.consume(sha256Hex(code), at);
     if (!exchange) return { ok: false, reason: "used_or_expired" };
     if (exchange.appId !== opts.appId) return { ok: false, reason: "wrong_app" };
     // Constant work, not a constant-time compare: both values are already
     // known to whoever holds the code, so there is nothing to time-attack.
     if (exchange.state !== opts.state) return { ok: false, reason: "wrong_state" };
 
-    const grant = a.repos.grants.get(exchange.grantId);
+    const grant = await repos.grants.get(exchange.grantId);
     if (!grant || grant.state !== "active") return { ok: false, reason: "revoked" };
 
-    const app = a.repos.apps.get(exchange.appId);
+    const app = await repos.apps.get(exchange.appId);
     if (!app || app.state !== "active") return { ok: false, reason: "app", appId: exchange.appId };
 
-    const session = a.repos.sessions.insert({
+    const session = await repos.sessions.insert({
       id: sessionId,
       appId: exchange.appId,
       subject: exchange.subject,
@@ -171,11 +175,14 @@ export function redeemExchange(code: string, opts: RedeemOptions): RedeemedExcha
     // The exchange records which session it produced. It cannot be set by
     // `consume`: `session_id` references `app_sessions(id)` and foreign keys are
     // immediate, so the session has to exist first.
-    db.prepare("UPDATE app_exchanges SET session_id = ? WHERE code_hash = ?").run(
-      session.id,
-      exchange.codeHash
-    );
-    appendAccessEvent({
+    // TODO(postgres): the repositories carry no statement for this link, so it
+    // is still written against the SQLite connection the open transaction is
+    // running on. It needs an `exchanges.linkSession(codeHash, sessionId)`
+    // before a second authority implementation can serve this path.
+    sqliteConnection(a)
+      .prepare("UPDATE app_exchanges SET session_id = ? WHERE code_hash = ?")
+      .run(session.id, exchange.codeHash);
+    await appendAccessEvent(repos, {
       event: "app.opened",
       workspaceId: app.workspaceId,
       appId: app.id,
@@ -188,7 +195,7 @@ export function redeemExchange(code: string, opts: RedeemOptions): RedeemedExcha
 
   if (outcome.ok) return outcome.value;
   if (outcome.reason === "app") {
-    const app = authority().repos.apps.get(outcome.appId);
+    const app = await authority().repos.apps.get(outcome.appId);
     if (app) requireAppActive(app);
     throw new HostedError("not_found", "That app does not exist.", {
       fix: "Check the link, or pick the app from your workspace's app list.",
@@ -231,10 +238,13 @@ export type ResolvedAppSession =
  * its own status; this never decides one, and never answers "ok" on a value it
  * could not check.
  */
-export function resolveAppSessionDetailed(cookieValue: string, appId: string): ResolvedAppSession {
+export async function resolveAppSessionDetailed(
+  cookieValue: string,
+  appId: string
+): Promise<ResolvedAppSession> {
   if (!cookieValue || !cookieValue.trim()) return { ok: false, reason: "missing" };
   const a = authority();
-  const session = a.repos.sessions.get(sha256Hex(cookieValue));
+  const session = await a.repos.sessions.get(sha256Hex(cookieValue));
   if (!session) return { ok: false, reason: "missing" };
   if (session.appId !== appId) return { ok: false, reason: "wrong_app" };
   if (session.terminatedAt) return { ok: false, reason: "terminated" };
@@ -242,39 +252,39 @@ export function resolveAppSessionDetailed(cookieValue: string, appId: string): R
   // expiry instant itself counts as expired.
   if (session.expiresAt <= nowIso()) return { ok: false, reason: "expired" };
 
-  const grant = a.repos.grants.get(session.grantId);
+  const grant = await a.repos.grants.get(session.grantId);
   if (!grant || grant.state !== "active") return { ok: false, reason: "revoked" };
 
-  const app = a.repos.apps.get(session.appId);
+  const app = await a.repos.apps.get(session.appId);
   if (!app || app.state !== "active") return { ok: false, reason: "app_unavailable" };
 
   return { ok: true, session, grant };
 }
 
 /** Live session + live grant for a cookie value on this app, or null. Never cached. */
-export function resolveAppSession(
+export async function resolveAppSession(
   cookieValue: string,
   appId: string
-): { session: AppSession; grant: AppGrant } | null {
-  const resolved = resolveAppSessionDetailed(cookieValue, appId);
+): Promise<{ session: AppSession; grant: AppGrant } | null> {
+  const resolved = await resolveAppSessionDetailed(cookieValue, appId);
   return resolved.ok ? { session: resolved.session, grant: resolved.grant } : null;
 }
 
 /** End one session by its cookie value. False when there was no live session to end. */
-export function terminateAppSession(
+export async function terminateAppSession(
   cookieValue: string,
   reason: NonNullable<AppSession["terminatedReason"]>
-): boolean {
+): Promise<boolean> {
   if (!cookieValue || !cookieValue.trim()) return false;
   const id = sha256Hex(cookieValue);
   const a = authority();
-  return a.tx(() => {
-    const session = a.repos.sessions.get(id);
+  return a.tx(async (repos) => {
+    const session = await repos.sessions.get(id);
     if (!session || session.terminatedAt) return false;
-    if (!a.repos.sessions.terminate(id, reason)) return false;
-    const app = a.repos.apps.get(session.appId);
+    if (!(await repos.sessions.terminate(id, reason))) return false;
+    const app = await repos.apps.get(session.appId);
     if (app)
-      appendAccessEvent({
+      await appendAccessEvent(repos, {
         event: "session.terminated",
         workspaceId: app.workspaceId,
         appId: app.id,
@@ -294,26 +304,31 @@ export function terminateAppSession(
  * platform session going away has to take the app sessions with it, or a signed
  * -out browser keeps its app tabs.
  */
-export function terminateAppSessionsForSubject(
+export async function terminateAppSessionsForSubject(
   subject: Subject,
   reason: NonNullable<AppSession["terminatedReason"]>
-): number {
+): Promise<number> {
   const a = authority();
-  return a.tx((db) => {
+  return a.tx(async (repos) => {
     // Which workspaces are affected has to be read before the update, because
     // afterwards there are no live rows left to read it from.
-    const rows = db
+    //
+    // TODO(postgres): `sessions` has no "which apps is this person live on"
+    // read, so this one still goes to the SQLite connection the open
+    // transaction is running on. It needs a repository method before a second
+    // authority implementation can serve platform sign-out.
+    const rows = sqliteConnection(a)
       .prepare("SELECT DISTINCT app_id FROM app_sessions WHERE subject = ? AND terminated_at IS NULL")
       .all(subject);
     const workspaces = new Set<string>();
     for (const row of rows) {
       const appId = typeof row.app_id === "string" ? row.app_id : undefined;
-      const app = appId ? a.repos.apps.get(appId) : null;
+      const app = appId ? await repos.apps.get(appId) : null;
       if (app) workspaces.add(app.workspaceId);
     }
 
     const at = nowIso();
-    const ended = a.repos.sessions.terminateBySubject(subject, reason, at);
+    const ended = await repos.sessions.terminateBySubject(subject, reason, at);
     if (ended === 0) return 0;
 
     // One event per affected workspace, because `workspace_id` is NOT NULL and
@@ -325,7 +340,7 @@ export function terminateAppSessionsForSubject(
     const who = subjectHashUnchecked(subject);
     const list = [...workspaces];
     for (const workspaceId of list)
-      appendAccessEvent({
+      await appendAccessEvent(repos, {
         event: "session.terminated",
         workspaceId,
         subject,
@@ -337,18 +352,18 @@ export function terminateAppSessionsForSubject(
 }
 
 /** End every live session on one app — suspension, recovery, an operator. */
-export function terminateAppSessionsForApp(
+export async function terminateAppSessionsForApp(
   appId: string,
   reason: NonNullable<AppSession["terminatedReason"]>
-): number {
+): Promise<number> {
   const a = authority();
-  return a.tx(() => {
+  return a.tx(async (repos) => {
     const at = nowIso();
-    const ended = a.repos.sessions.terminateByApp(appId, reason, at);
+    const ended = await repos.sessions.terminateByApp(appId, reason, at);
     if (ended === 0) return 0;
-    const app = a.repos.apps.get(appId);
+    const app = await repos.apps.get(appId);
     if (app)
-      appendAccessEvent({
+      await appendAccessEvent(repos, {
         event: "session.terminated",
         workspaceId: app.workspaceId,
         appId: app.id,
@@ -407,8 +422,8 @@ function requireExchangeState(state: string): void {
 }
 
 /** The live grant, or the one shared denial. Used where "no grant" must not differ from "no app". */
-function activeGrantOrDeny(appId: string, subject: Subject): AppGrant {
-  const grant = authority().repos.grants.activeFor(appId, subject);
+async function activeGrantOrDeny(appId: string, subject: Subject): Promise<AppGrant> {
+  const grant = await authority().repos.grants.activeFor(appId, subject);
   if (!grant) throw accessDenied("viewer");
   return grant;
 }

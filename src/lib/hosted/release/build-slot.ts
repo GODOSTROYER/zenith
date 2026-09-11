@@ -15,9 +15,12 @@ import { DEFAULT_LIMITS } from "@/lib/hosted/contracts";
  * else enforces and which is the whole reason a third app's publish waits in
  * the queue instead of racing two others for the same CPU.
  */
-export function buildSlot(appId: string, jobId?: string): { ok: boolean; reason?: string } {
+export async function buildSlot(
+  appId: string,
+  jobId?: string
+): Promise<{ ok: boolean; reason?: string }> {
   const jobs = authority().repos.jobs;
-  const running = jobs.runningFor(appId);
+  const running = await jobs.runningFor(appId);
   if (running && running.id !== jobId)
     return {
       ok: false,
@@ -25,7 +28,7 @@ export function buildSlot(appId: string, jobId?: string): { ok: boolean; reason?
     };
   // A job that already holds the slot it is asking about counts itself, so the
   // running total is compared with `>` when it does and `>=` when it does not.
-  const count = jobs.countRunning();
+  const count = await jobs.countRunning();
   const held = jobId && running?.id === jobId ? 1 : 0;
   if (count - held >= DEFAULT_LIMITS.buildsPilotWide)
     return {

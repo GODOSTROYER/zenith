@@ -126,8 +126,9 @@ async function drainOnce(opts: DrainOptions): Promise<DrainResult> {
   if (kinds.length === 0) return result;
 
   const a = authority();
-  const claimed = a.tx((): HostedOutboxEntry[] =>
-    a.repos.outbox.claimPending(opts.leaseMs ?? OUTBOX_LEASE_MS, { kinds, limit: OUTBOX_BATCH })
+  const claimed = await a.tx(
+    (repos): Promise<HostedOutboxEntry[]> =>
+      repos.outbox.claimPending(opts.leaseMs ?? OUTBOX_LEASE_MS, { kinds, limit: OUTBOX_BATCH })
   );
 
   for (const entry of claimed) {
@@ -135,16 +136,18 @@ async function drainOnce(opts: DrainOptions): Promise<DrainResult> {
     if (!handler) {
       // The handler was removed between the claim and now. Put this one row
       // back rather than record a failure for an effect nobody attempted.
-      a.tx(() => a.repos.outbox.release(entry.id));
+      await a.tx((repos) => repos.outbox.release(entry.id));
       continue;
     }
     const outcome = await attempt(handler, entry);
     if (outcome.ok) {
-      a.tx(() => a.repos.outbox.settle(entry.id, "done", { extraAttempts: outcome.attempts - 1 }));
+      await a.tx((repos) =>
+        repos.outbox.settle(entry.id, "done", { extraAttempts: outcome.attempts - 1 })
+      );
       result.done++;
     } else {
-      a.tx(() =>
-        a.repos.outbox.settle(entry.id, "failed", {
+      await a.tx((repos) =>
+        repos.outbox.settle(entry.id, "failed", {
           extraAttempts: outcome.attempts - 1,
           error: outcome.error,
         })
@@ -193,7 +196,7 @@ async function attempt(handler: OutboxHandler, entry: HostedOutboxEntry): Promis
  */
 export async function replayOutbox(): Promise<ReplayResult> {
   const a = authority();
-  const reclaimed = a.tx(() => a.repos.outbox.reclaimStale(0));
+  const reclaimed = await a.tx((repos) => repos.outbox.reclaimStale(0));
   if (reclaimed > 0)
     log.info("reclaimed hosted outbox rows left by a previous process", {
       scope: "hosted.outbox",
@@ -213,7 +216,7 @@ export async function flushOutbox(opts: DrainOptions = {}): Promise<DrainResult>
   const kinds = opts.kinds ?? registeredOutboxKinds();
   if (kinds.length === 0) return total;
   for (let pass = 0; pass < 10; pass++) {
-    const pending = authority().repos.outbox.listPending({ kinds });
+    const pending = await authority().repos.outbox.listPending({ kinds });
     if (pending.length === 0) return total;
     const round = await drainOutbox(opts);
     total.done += round.done;

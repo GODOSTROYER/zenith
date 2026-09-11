@@ -97,12 +97,12 @@ async function main(): Promise<number> {
   const usage = await import("@/lib/hosted/usage");
 
   const a = authority.openAuthority();
-  usage.registerOpsOutboxHandlers();
-  access.registerAccessOutboxHandlers();
+  await usage.registerOpsOutboxHandlers();
+  await access.registerAccessOutboxHandlers();
   check(
     "environment",
     true,
-    `node ${process.version}, sqlite ${String(a.db.prepare("SELECT sqlite_version() AS v").get()?.v)}, data ${DATA_DIR}`
+    `node ${process.version}, sqlite ${String(authority.sqliteConnection(a).prepare("SELECT sqlite_version() AS v").get()?.v)}, data ${DATA_DIR}`
   );
 
   const server = await journey.startGatewayServer(gateway.handleGateway);
@@ -154,7 +154,7 @@ async function main(): Promise<number> {
 
     /* -------------------------------- invite ------------------------------ */
 
-    const issued = access.createInvite(app.id, { email: RECIPIENT.email, role: "editor" }, OWNER.subject);
+    const issued = await access.createInvite(app.id, { email: RECIPIENT.email, role: "editor" }, OWNER.subject);
     const token = new URL(issued.acceptUrl).searchParams.get("token") as string;
     check(
       "invite",
@@ -164,7 +164,7 @@ async function main(): Promise<number> {
 
     /* -------------------------------- accept ------------------------------ */
 
-    const accepted = access.acceptInvite(token, {
+    const accepted = await access.acceptInvite(token, {
       subject: RECIPIENT.subject,
       email: RECIPIENT.email,
       emailVerified: true,
@@ -179,7 +179,7 @@ async function main(): Promise<number> {
 
     let replayed = false;
     try {
-      access.acceptInvite(token, {
+      await access.acceptInvite(token, {
         subject: RECIPIENT.subject,
         email: RECIPIENT.email,
         emailVerified: true,
@@ -297,7 +297,7 @@ async function main(): Promise<number> {
 
     /* --------------------------------- revoke ----------------------------- */
 
-    access.revokeGrant(grantId, OWNER.subject, "acceptance run: access removed after the backup", {
+    await access.revokeGrant(grantId, OWNER.subject, "acceptance run: access removed after the backup", {
       appId: app.id,
     });
     const drained = await authority.flushOutbox({ kinds: ["revocation_ledger"] });
@@ -331,10 +331,10 @@ async function main(): Promise<number> {
     data.closeAllAppData();
     authority.closeAuthority();
     process.env.ZENITH_DATA = RESTORE_INTO;
-    gateway.resetGatewayDeps();
+    await gateway.resetGatewayDeps();
     authority.openAuthority();
 
-    const restoredGrant = authority.authority().repos.grants.get(grantId);
+    const restoredGrant = await authority.authority().repos.grants.get(grantId);
     check(
       "revoked stays revoked",
       restoredGrant?.state === "revoked",
@@ -376,7 +376,7 @@ async function main(): Promise<number> {
   } finally {
     await server.close();
     try {
-      data.closeAllAppData();
+      await data.closeAllAppData();
     } catch {
       /* teardown */
     }
@@ -402,7 +402,7 @@ async function redeem(
   appId: string,
   subject: string
 ): Promise<string> {
-  const url = new URL(access.createExchange(appId, subject, `state-${randomUUID()}`).redirect);
+  const url = new URL((await access.createExchange(appId, subject, `state-${randomUUID()}`)).redirect);
   const res = await journey.loopbackRequest(port, {
     host,
     path: `${url.pathname}${url.search}`,

@@ -21,7 +21,7 @@ let artifactDigest: string;
 
 beforeAll(async () => {
   h = await harness(DATA);
-  const wired = wire(h);
+  const wired = await wire(h);
   const app = await makeApp(h, {
     workspaceId: WORKSPACES.one.id,
     slug: "suspendable",
@@ -35,26 +35,26 @@ beforeAll(async () => {
   wired.restore();
 });
 
-afterEach(() => {
+afterEach(async () => {
   undo?.();
   undo = undefined;
-  h.release.resetReleaseDeps();
+  await h.release.resetReleaseDeps();
 });
 
-afterAll(() => {
-  h.release.stopHostedJobRunner();
-  h.data.closeAllAppData();
+afterAll(async () => {
+  await h.release.stopHostedJobRunner();
+  await h.data.closeAllAppData();
   h.authority.closeAuthority();
   removeDir(DATA);
 });
 
 describe("suspend and resume", () => {
   it("moves the state, records the reason and the event, and keeps everything else", async () => {
-    undo = wire(h).restore;
-    const before = h.authority.authority().repos.apps.get(appId)!;
+    undo = (await wire(h)).restore;
+    const before = (await h.authority.authority().repos.apps.get(appId))!;
 
     const suspendJob = uuid();
-    h.release.admitSuspend({
+    await h.release.admitSuspend({
       jobId: suspendJob,
       appId,
       workspaceId: WORKSPACES.one.id,
@@ -65,19 +65,19 @@ describe("suspend and resume", () => {
     expect(suspended.status).toBe("succeeded");
     expect(suspended.phaseData.phases).toEqual(["suspend", "finish"]);
 
-    const app = h.authority.authority().repos.apps.get(appId)!;
+    const app = (await h.authority.authority().repos.apps.get(appId))!;
     expect(app.state).toBe("suspended");
     expect(app.stateReason).toContain("data problem");
 
     // Everything the app is made of is still there.
     expect(app.activeReleaseId).toBe(before.activeReleaseId);
     expect(app.activeFence).toBe(before.activeFence);
-    expect(h.authority.authority().repos.releases.get(releaseId)?.status).toBe("active");
-    expect(h.authority.authority().repos.grants.listByApp(appId)).toHaveLength(1);
+    expect((await h.authority.authority().repos.releases.get(releaseId))?.status).toBe("active");
+    expect(await h.authority.authority().repos.grants.listByApp(appId)).toHaveLength(1);
     expect(await h.store.get(artifactDigest)).not.toBeNull();
 
     const resumeJob = uuid();
-    h.release.admitResume({
+    await h.release.admitResume({
       jobId: resumeJob,
       appId,
       workspaceId: WORKSPACES.one.id,
@@ -86,70 +86,63 @@ describe("suspend and resume", () => {
     const resumed = await h.release.runJobOnce(resumeJob);
     expect(resumed.status).toBe("succeeded");
 
-    const back = h.authority.authority().repos.apps.get(appId)!;
+    const back = (await h.authority.authority().repos.apps.get(appId))!;
     expect(back.state).toBe("active");
     expect(back.stateReason).toBeUndefined();
     expect(back.activeReleaseId).toBe(before.activeReleaseId);
 
-    const events = h.authority
-      .authority()
-      .repos.events.listSince({ appId }, { limit: 200 })
-      .map((event) => event.event);
+    const events = (
+      await h.authority.authority().repos.events.listSince({ appId }, { limit: 200 })
+    ).map((event) => event.event);
     expect(events).toContain("app.suspended");
     expect(events).toContain("app.resumed");
   });
 
   it("records the default reason when an operator gives none", async () => {
-    undo = wire(h).restore;
+    undo = (await wire(h)).restore;
     const jobId = uuid();
-    h.release.admitSuspend({ jobId, appId, workspaceId: WORKSPACES.one.id, actor: IDENTITIES.owner.subject });
+    await h.release.admitSuspend({ jobId, appId, workspaceId: WORKSPACES.one.id, actor: IDENTITIES.owner.subject });
     await h.release.runJobOnce(jobId);
-    expect(h.authority.authority().repos.apps.get(appId)?.stateReason).toBe(h.release.SUSPEND_DEFAULT_REASON);
+    expect((await h.authority.authority().repos.apps.get(appId))?.stateReason).toBe(h.release.SUSPEND_DEFAULT_REASON);
   });
 
   it("refuses to suspend twice or resume an app that is already active", async () => {
-    undo = wire(h).restore;
-    expect(() =>
-      h.release.admitSuspend({
+    undo = (await wire(h)).restore;
+    await expect(h.release.admitSuspend({
         jobId: uuid(),
         appId,
         workspaceId: WORKSPACES.one.id,
         actor: IDENTITIES.owner.subject,
-      })
-    ).toThrowError(/already suspended/);
+      })).rejects.toThrowError(/already suspended/);
 
     const resumeJob = uuid();
-    h.release.admitResume({ jobId: resumeJob, appId, workspaceId: WORKSPACES.one.id, actor: IDENTITIES.owner.subject });
+    await h.release.admitResume({ jobId: resumeJob, appId, workspaceId: WORKSPACES.one.id, actor: IDENTITIES.owner.subject });
     await h.release.runJobOnce(resumeJob);
 
-    expect(() =>
-      h.release.admitResume({
+    await expect(h.release.admitResume({
         jobId: uuid(),
         appId,
         workspaceId: WORKSPACES.one.id,
         actor: IDENTITIES.owner.subject,
-      })
-    ).toThrowError(/already active/);
+      })).rejects.toThrowError(/already active/);
   });
 
   it("refuses a rollback while the app is suspended", async () => {
-    undo = wire(h).restore;
+    undo = (await wire(h)).restore;
     const suspendJob = uuid();
-    h.release.admitSuspend({ jobId: suspendJob, appId, workspaceId: WORKSPACES.one.id, actor: IDENTITIES.owner.subject });
+    await h.release.admitSuspend({ jobId: suspendJob, appId, workspaceId: WORKSPACES.one.id, actor: IDENTITIES.owner.subject });
     await h.release.runJobOnce(suspendJob);
 
-    expect(() =>
-      h.release.admitRollback({
+    await expect(h.release.admitRollback({
         jobId: uuid(),
         appId,
         workspaceId: WORKSPACES.one.id,
         actor: IDENTITIES.owner.subject,
         releaseId,
-      })
-    ).toThrowError(/suspended/);
+      })).rejects.toThrowError(/suspended/);
 
     const resumeJob = uuid();
-    h.release.admitResume({ jobId: resumeJob, appId, workspaceId: WORKSPACES.one.id, actor: IDENTITIES.owner.subject });
+    await h.release.admitResume({ jobId: resumeJob, appId, workspaceId: WORKSPACES.one.id, actor: IDENTITIES.owner.subject });
     await h.release.runJobOnce(resumeJob);
   });
 });

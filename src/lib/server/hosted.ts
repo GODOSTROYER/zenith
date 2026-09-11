@@ -245,16 +245,20 @@ export async function requireAppOwner(
     return {
       subject: identity.subject,
       email: identity.email,
-      grant: ownerGrant(appId, identity.subject, refusal),
+      grant: await ownerGrant(appId, identity.subject, refusal),
       identity,
     };
   }
   if (opts.actor) {
     const subject = subjectOf(opts.actor);
-    return { subject, email: "", grant: ownerGrant(appId, subject, refusal) };
+    return { subject, email: "", grant: await ownerGrant(appId, subject, refusal) };
   }
   const user = signedInCaller(refusal);
-  return { subject: user.id, email: user.email, grant: ownerGrant(appId, user.id, refusal) };
+  return {
+    subject: user.id,
+    email: user.email,
+    grant: await ownerGrant(appId, user.id, refusal),
+  };
 }
 
 /**
@@ -274,13 +278,17 @@ function signedInCaller(refusal: OwnerRefusal): SessionUser {
   return user;
 }
 
-function ownerGrant(appId: string, subject: Subject, refusal: OwnerRefusal): AppGrant {
+async function ownerGrant(
+  appId: string,
+  subject: Subject,
+  refusal: OwnerRefusal
+): Promise<AppGrant> {
   if (refusal !== "not_found") return releaseDeps.requireAppRole(appId, subject, "owner");
   // A foreign id answers exactly as a missing one does, so the id space is not
   // enumerable from outside.
-  const app = authority().repos.apps.get(appId);
+  const app = await authority().repos.apps.get(appId);
   if (!app) throw noSuchApp(appId);
-  const grant = authority().repos.grants.activeFor(appId, subject);
+  const grant = await authority().repos.grants.activeFor(appId, subject);
   if (!grant || grant.role !== "owner") throw noSuchApp(appId);
   return grant;
 }
@@ -291,9 +299,9 @@ const noSuchApp = (appId: string): HostedError =>
   });
 
 /** True when this caller holds the app's owner grant. Never throws. */
-export function isAppOwner(appId: string, actor: Actor): boolean {
+export async function isAppOwner(appId: string, actor: Actor): Promise<boolean> {
   try {
-    return releaseDeps.activeGrant(appId, subjectOf(actor))?.role === "owner";
+    return (await releaseDeps.activeGrant(appId, subjectOf(actor)))?.role === "owner";
   } catch {
     // The access module refuses rather than guesses when it cannot answer, and
     // "cannot confirm you are the owner" must read as "not the owner" here.
@@ -415,9 +423,12 @@ export async function runtimeStatus(): Promise<{
 export const limitsBlock = () => DEFAULT_LIMITS;
 
 /** Grants and invitations on an app, read straight from the authority. */
-export function ownerOnlyBlock(appId: string) {
+export async function ownerOnlyBlock(appId: string) {
   const a = authority();
-  return { grants: a.repos.grants.listByApp(appId), invites: a.repos.invites.listByApp(appId) };
+  return {
+    grants: await a.repos.grants.listByApp(appId),
+    invites: await a.repos.invites.listByApp(appId),
+  };
 }
 
 /* ------------------------------ hosted actions ----------------------------- */

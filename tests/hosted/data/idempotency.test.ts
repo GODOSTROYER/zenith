@@ -13,7 +13,7 @@ const { closeAllAppData, closeAppData, openAppData, trackerSql, writeIntentHash 
   "@/lib/hosted/data"
 );
 
-afterAll(() => {
+afterAll(async () => {
   closeAllAppData();
   removeDir(DATA_DIR);
 });
@@ -210,14 +210,14 @@ describe("retention sweep", () => {
 });
 
 describe("intent hash", () => {
-  it("does not depend on the order the body's keys were written in", () => {
+  it("does not depend on the order the body's keys were written in", async () => {
     const a = writeIntentHash("create", "app", "sub", null, { writeId: "w", record: { title: "A", quantity: 2 } });
     const b = writeIntentHash("create", "app", "sub", null, { record: { quantity: 2, title: "A" }, writeId: "w" });
     expect(a).toBe(b);
     expect(a).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  it("changes with the operation, the app, the subject, the record and the body", () => {
+  it("changes with the operation, the app, the subject, the record and the body", async () => {
     const base = writeIntentHash("update", "app", "sub", "rec", { patch: { quantity: 1 } });
     expect(writeIntentHash("create", "app", "sub", "rec", { patch: { quantity: 1 } })).not.toBe(base);
     expect(writeIntentHash("update", "other", "sub", "rec", { patch: { quantity: 1 } })).not.toBe(base);

@@ -39,37 +39,37 @@ const { gatewayTelemetry, handleGateway, resetGatewayDeps, resetGatewayTelemetry
 
 const authority = openAuthority();
 const store = new FsArtifactStore(hostedConfig().artifactDir);
-const artifact = await store.put(writeBuiltTree(DATA_DIR), provenance("job-broker"));
-seedArtifactRow(authority, artifact.digest, artifact.byteSize, artifact.fileCount);
+const artifact = await store.put(await writeBuiltTree(DATA_DIR), provenance("job-broker"));
+await seedArtifactRow(authority, artifact.digest, artifact.byteSize, artifact.fileCount);
 
-const alpha = seedApp(authority, { slug: "alpha" });
-const release = seedActiveRelease(authority, alpha, artifact.digest);
+const alpha = await seedApp(authority, { slug: "alpha" });
+const release = await seedActiveRelease(authority, alpha, artifact.digest);
 
-const doubles = makeDoubles();
+const doubles = await makeDoubles();
 const EDITOR = "cookie-editor";
 const VIEWER = "cookie-viewer";
-const ORIGIN = appOrigin("alpha");
+const ORIGIN = await appOrigin("alpha");
 const REQUESTS = "/_zenith/data/v1/requests";
 
-beforeEach(() => {
-  resetGatewayDeps();
-  setGatewayDepsForTests(doubles.deps);
-  resetGatewayTelemetry();
+beforeEach(async () => {
+  await resetGatewayDeps();
+  await setGatewayDepsForTests(doubles.deps);
+  await resetGatewayTelemetry();
   doubles.state.events.length = 0;
   doubles.state.sessions.clear();
   doubles.state.sessions.set(
     EDITOR,
-    resolved(alpha, { subject: IDENTITIES.editor.subject, email: IDENTITIES.editor.email, role: "editor" })
+    await resolved(alpha, { subject: IDENTITIES.editor.subject, email: IDENTITIES.editor.email, role: "editor" })
   );
   doubles.state.sessions.set(
     VIEWER,
-    resolved(alpha, { subject: IDENTITIES.viewer.subject, email: IDENTITIES.viewer.email, role: "viewer" })
+    await resolved(alpha, { subject: IDENTITIES.viewer.subject, email: IDENTITIES.viewer.email, role: "viewer" })
   );
 });
 
-afterAll(() => {
-  resetGatewayDeps();
-  closeAllAppData();
+afterAll(async () => {
+  await resetGatewayDeps();
+  await closeAllAppData();
   closeAuthority();
   removeDir(DATA_DIR);
 });
@@ -86,10 +86,10 @@ interface CallShape {
 
 /** One broker call as the app's own client would make it. */
 async function broker(shape: CallShape): Promise<Response> {
-  const { req, params } = call({
+  const { req, params } = await call({
     path: shape.path,
     method: shape.method ?? "GET",
-    cookie: sessionCookie(shape.cookie ?? EDITOR),
+    cookie: await sessionCookie(shape.cookie ?? EDITOR),
     accept: "application/json",
     ...(shape.origin === undefined ? {} : { origin: shape.origin }),
     ...(shape.contentType === undefined ? {} : { contentType: shape.contentType }),
@@ -208,7 +208,7 @@ describe("cross-site protection", () => {
     const res = await broker({
       path: REQUESTS,
       method: "POST",
-      origin: appOrigin("beta"),
+      origin: await appOrigin("beta"),
       body: newRequest(),
     });
     expect(res.status).toBe(403);
@@ -259,10 +259,10 @@ describe("cross-site protection", () => {
 
 describe("limits and shapes", () => {
   it("answers 413 for a body over the limit, without reading it into a record", async () => {
-    const { req, params } = call({
+    const { req, params } = await call({
       path: REQUESTS,
       method: "POST",
-      cookie: sessionCookie(EDITOR),
+      cookie: await sessionCookie(EDITOR),
       accept: "application/json",
       origin: ORIGIN,
       body: JSON.stringify({ writeId: uuid(), record: { title: "x".repeat(2_000_000), category: "other" } }),

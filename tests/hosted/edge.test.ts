@@ -13,17 +13,17 @@ const { slugFromHost, gatewayPath, isValidAppSlug, GATEWAY_PREFIX } = await impo
   "@/lib/hosted/contracts"
 );
 
-afterEach(() => {
+afterEach(async () => {
   delete process.env.ZENITH_APP_DOMAIN;
 });
 
 describe("slugFromHost", () => {
-  it("names the slug under the app domain, ignoring port and case", () => {
+  it("names the slug under the app domain, ignoring port and case", async () => {
     expect(slugFromHost("Alpha.apps.localhost:3400", "apps.localhost")).toBe("alpha");
     expect(slugFromHost("beta-2.apps.example.com", "apps.example.com")).toBe("beta-2");
   });
 
-  it("refuses everything that is not exactly one valid label under the domain", () => {
+  it("refuses everything that is not exactly one valid label under the domain", async () => {
     for (const host of [
       "localhost:3400",
       "apps.localhost",
@@ -39,7 +39,7 @@ describe("slugFromHost", () => {
       expect(slugFromHost(host, "apps.localhost"), String(host)).toBeNull();
   });
 
-  it("rejects reserved and malformed slugs for app creation", () => {
+  it("rejects reserved and malformed slugs for app creation", async () => {
     for (const s of ["www", "api", "zenith", "ab", "-abc", "abc-", "Abc", "a".repeat(41)])
       expect(isValidAppSlug(s), s).toBe(false);
     expect(isValidAppSlug("alpha")).toBe(true);
@@ -48,7 +48,7 @@ describe("slugFromHost", () => {
 });
 
 describe("gatewayPath", () => {
-  it("routes under the gateway prefix with the host encoded once", () => {
+  it("routes under the gateway prefix with the host encoded once", async () => {
     expect(gatewayPath("alpha.apps.localhost:3400", "/")).toBe(`${GATEWAY_PREFIX}/alpha.apps.localhost%3A3400`);
     expect(gatewayPath("alpha.apps.localhost", "/_zenith/data/v1/requests")).toBe(
       `${GATEWAY_PREFIX}/alpha.apps.localhost/_zenith/data/v1/requests`
@@ -57,7 +57,7 @@ describe("gatewayPath", () => {
 });
 
 describe("hostedRewrite", () => {
-  it("rewrites an app-host request onto the gateway and marks it no-store", () => {
+  it("rewrites an app-host request onto the gateway and marks it no-store", async () => {
     const req = new NextRequest("http://alpha.apps.localhost:3400/assets/app.js?v=1", {
       headers: { host: "alpha.apps.localhost:3400", cookie: "sb-access-token=secret" },
     });
@@ -69,12 +69,12 @@ describe("hostedRewrite", () => {
     expect(res!.headers.get("cache-control")).toBe("no-store");
   });
 
-  it("leaves the control origin alone", () => {
+  it("leaves the control origin alone", async () => {
     const req = new NextRequest("http://localhost:3400/overview", { headers: { host: "localhost:3400" } });
     expect(hostedRewrite(req)).toBeNull();
   });
 
-  it("honours ZENITH_APP_DOMAIN", () => {
+  it("honours ZENITH_APP_DOMAIN", async () => {
     process.env.ZENITH_APP_DOMAIN = "apps.example.com";
     expect(edgeAppDomain()).toBe("apps.example.com");
     const req = new NextRequest("https://alpha.apps.example.com/", { headers: { host: "alpha.apps.example.com" } });
@@ -85,7 +85,7 @@ describe("hostedRewrite", () => {
 });
 
 describe("isPlatformStaticPath", () => {
-  it("matches exactly what the old matcher excluded", () => {
+  it("matches exactly what the old matcher excluded", async () => {
     for (const p of ["/favicon.ico", "/fonts/x.woff2", "/logo.svg", "/a/b.png"]) expect(isPlatformStaticPath(p), p).toBe(true);
     for (const p of ["/p/design-png", "/fonts/nested/x.woff2", "/p/private.woff2", "/overview", "/api/me"])
       expect(isPlatformStaticPath(p), p).toBe(false);

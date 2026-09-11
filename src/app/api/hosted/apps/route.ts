@@ -36,7 +36,7 @@ export const GET = hostedRoute({ workspaceRole: "viewer" }, async (): Promise<Ho
   const runtime = await runtimeStatus();
   const config = hostedConfig();
   return {
-    apps: listApps(workspace.id).map((app) => appSummary(app.id)),
+    apps: await Promise.all((await listApps(workspace.id)).map((app) => appSummary(app.id))),
     limits: limitsBlock(),
     enforcement: runtime.enforcement,
     runtime: { id: runtime.id, label: runtime.label, availability: runtime.availability },
@@ -47,7 +47,7 @@ export const GET = hostedRoute({ workspaceRole: "viewer" }, async (): Promise<Ho
     selectedBuilderReason: selectedBuildRunner() ? null : NO_RUNNER_REASON,
     // The spending pause applies to everyone who can publish, not only to the
     // admin who can read the spending screen.
-    buildsPaused: buildsPaused(workspace.id),
+    buildsPaused: await buildsPaused(workspace.id),
     // So a workspace with no apps yet can still show the address the first one
     // will have, instead of reading it back off an app that does not exist.
     appDomain: config.ZENITH_APP_DOMAIN,

@@ -31,7 +31,7 @@ import {
   type QuotaCounter,
   type RuntimeId,
 } from "@/lib/hosted/contracts";
-import { authority, utcDay } from "@/lib/hosted/authority";
+import { authority, sqliteConnection, utcDay } from "@/lib/hosted/authority";
 
 /** What `admitRequest` answers with: the decision, the committed counter, the ceiling used. */
 export interface QuotaDecision {
@@ -65,20 +65,20 @@ const isUnknownApp = (error: unknown): boolean =>
  * request, once as a denial — on purpose: `requests` is "attempts", `denied`
  * is "attempts we turned away", and `requests - denied` is what was served.
  */
-export function admitRequest(
+export async function admitRequest(
   appId: string,
   opts: { now?: Date; limit?: number } = {}
-): QuotaDecision {
+): Promise<QuotaDecision> {
   const limit = opts.limit ?? DEFAULT_LIMITS.requestsPerDay;
   const day = utcDay(opts.now ?? new Date());
   const a = authority();
   try {
-    const counter = a.tx(() => {
-      const before = a.repos.quotas.get(appId, day);
+    const counter = await a.tx(async (repos) => {
+      const before = await repos.quotas.get(appId, day);
       // The decision is made on the value this request is about to take, so
       // the request numbered exactly `limit` is the last one admitted.
       const denied = before.requests + 1 > limit;
-      return a.repos.quotas.increment(appId, day, denied);
+      return repos.quotas.increment(appId, day, denied);
     });
     return { allowed: counter.requests <= limit, counter, limit };
   } catch (error) {
@@ -255,10 +255,10 @@ export interface QuotaSummary {
 }
 
 /** Counters for an app over the last `days` UTC days, today included. */
-export function quotaSummary(
+export async function quotaSummary(
   appId: string,
   opts: { days?: number; now?: Date; limit?: number } = {}
-): QuotaSummary {
+): Promise<QuotaSummary> {
   const span = Math.max(1, Math.min(365, Math.trunc(opts.days ?? 30)));
   const now = opts.now ?? new Date();
   const today = utcDay(now);
@@ -267,9 +267,9 @@ export function quotaSummary(
   return {
     appId,
     today,
-    current: a.repos.quotas.get(appId, today),
+    current: await a.repos.quotas.get(appId, today),
     limit: opts.limit ?? DEFAULT_LIMITS.requestsPerDay,
-    days: a.repos.quotas.listByApp(appId, { sinceDay, limit: span }),
+    days: await a.repos.quotas.listByApp(appId, { sinceDay, limit: span }),
     disclosure:
       "Counted by Zenith on every request that resolved to this app, whatever the outcome, and reset at 00:00 UTC. It is not a provider's own metering.",
   };
@@ -282,13 +282,18 @@ export function quotaSummary(
  * removed. Nothing in the product calls this — a quota that could be reset
  * from a request path is not a quota.
  */
-export function resetDayForTests(appId: string, day?: string): number {
+export async function resetDayForTests(appId: string, day?: string): Promise<number> {
   const a = authority();
-  return a.tx(() => {
+  // The connection rather than a repository: deleting a counter is a fixture's
+  // privilege, not part of the quota repository's surface. `sqliteConnection`
+  // is the sanctioned way for test tooling to reach it and refuses anything
+  // that is not SQLite.
+  const db = sqliteConnection(a);
+  return a.tx(async () => {
     const statement =
       day === undefined
-        ? a.db.prepare("DELETE FROM quota_counters WHERE app_id = ?")
-        : a.db.prepare("DELETE FROM quota_counters WHERE app_id = ? AND day = ?");
+        ? db.prepare("DELETE FROM quota_counters WHERE app_id = ?")
+        : db.prepare("DELETE FROM quota_counters WHERE app_id = ? AND day = ?");
     const result = day === undefined ? statement.run(appId) : statement.run(appId, day);
     return Number(result.changes);
   });

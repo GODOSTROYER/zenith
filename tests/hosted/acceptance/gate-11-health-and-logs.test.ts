@@ -78,7 +78,7 @@ beforeAll(async () => {
   ({ releaseId, digest } = releaseOf(job));
   releaseNumber = releaseOf(job).number;
 
-  m.access.grantDirect(app.id, { subject: VIEWER.subject, email: VIEWER.email, role: "viewer" }, OWNER.subject);
+  await m.access.grantDirect(app.id, { subject: VIEWER.subject, email: VIEWER.email, role: "viewer" }, OWNER.subject);
   ownerCookie = await signIn(m, app, OWNER.subject);
   viewerCookie = await signIn(m, app, VIEWER.subject);
 
@@ -120,8 +120,8 @@ beforeAll(async () => {
   await m.gateway.handleGateway(stale.req, stale.params);
 }, 300_000);
 
-afterAll(() => {
-  closeHosted(m);
+afterAll(async () => {
+  await closeHosted(m);
   removeDir(DATA);
 });
 
@@ -176,7 +176,7 @@ describe("Gate 11 — real health, real logs, and honest labels", () => {
     const day = m.authority.utcDay();
     expect(health.quota.day).toBe(day);
     expect(health.quota.requests, "the quota block is the real counter").toBe(
-      m.authority.authority().repos.quotas.get(app.id, day).requests
+      (await m.authority.authority().repos.quotas.get(app.id, day)).requests
     );
     expect(health.quota.limit).toBe(m.contracts.DEFAULT_LIMITS.requestsPerDay);
   });
@@ -241,8 +241,8 @@ describe("Gate 11 — real health, real logs, and honest labels", () => {
 
   /* ---------------------------------- logs -------------------------------- */
 
-  it("renders logs that carry the release and no record contents", () => {
-    const logs = m.health.appLogs(app.id, { limit: 200 });
+  it("renders logs that carry the release and no record contents", async () => {
+    const logs = await m.health.appLogs(app.id, { limit: 200 });
     expect(logs.lines.length, "there is something to read").toBeGreaterThan(3);
     expect(logs.disclosure, "the reader is told what these are and are not").toMatch(
       /never a record's contents/
@@ -262,8 +262,8 @@ describe("Gate 11 — real health, real logs, and honest labels", () => {
     expect(all).toMatch(/access\.denied denied/);
   });
 
-  it("keeps the events themselves free of record contents and raw subjects", () => {
-    const events = m.authority.authority().repos.events.listSince({ appId: app.id }, { limit: 500 });
+  it("keeps the events themselves free of record contents and raw subjects", async () => {
+    const events = await m.authority.authority().repos.events.listSince({ appId: app.id }, { limit: 500 });
     const serialised = JSON.stringify(events);
     expect(serialised, "no record title in the event table").not.toContain(SECRET_TITLE);
     expect(serialised, "no address in the event table").not.toContain(OWNER.email);
@@ -271,7 +271,7 @@ describe("Gate 11 — real health, real logs, and honest labels", () => {
 
   /* ------------------------------- the contrast --------------------------- */
 
-  it("leaves the infrastructure product's simulated health labelled simulated", () => {
+  it("leaves the infrastructure product's simulated health labelled simulated", async () => {
     const legacy = fs.readFileSync(
       path.join(process.cwd(), "src", "app", "api", "health", "[envId]", "route.ts"),
       "utf8"

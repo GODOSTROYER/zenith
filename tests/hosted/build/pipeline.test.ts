@@ -29,7 +29,7 @@ beforeAll(async () => {
   process.env.ZENITH_BUILD_RUNNER = "recipe-local";
 });
 
-afterAll(() => {
+afterAll(async () => {
   delete process.env.ZENITH_BUILD_RUNNER;
   removeDir(DATA);
 });

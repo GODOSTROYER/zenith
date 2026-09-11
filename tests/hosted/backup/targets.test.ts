@@ -222,7 +222,7 @@ describe("S3Target", () => {
 /* -------------------------------- selection ------------------------------- */
 
 describe("selectedBackupTarget", () => {
-  it("answers with no target, and names the variable, when nothing is configured", () => {
+  it("answers with no target, and names the variable, when nothing is configured", async () => {
     const previous = process.env.ZENITH_BACKUP_TARGET;
     process.env.ZENITH_BACKUP_TARGET = "none";
     try {
@@ -238,7 +238,7 @@ describe("selectedBackupTarget", () => {
     }
   });
 
-  it("builds a filesystem target from ZENITH_BACKUP_DIR", () => {
+  it("builds a filesystem target from ZENITH_BACKUP_DIR", async () => {
     const previous = { target: process.env.ZENITH_BACKUP_TARGET, dir: process.env.ZENITH_BACKUP_DIR };
     process.env.ZENITH_BACKUP_TARGET = "filesystem";
     process.env.ZENITH_BACKUP_DIR = path.join(dataDir, "configured");
@@ -253,7 +253,7 @@ describe("selectedBackupTarget", () => {
     }
   });
 
-  it("refuses an s3 target with no bucket, naming the variable that would give it one", () => {
+  it("refuses an s3 target with no bucket, naming the variable that would give it one", async () => {
     const previous = { target: process.env.ZENITH_BACKUP_TARGET, bucket: process.env.ZENITH_BACKUP_S3_BUCKET };
     process.env.ZENITH_BACKUP_TARGET = "s3";
     delete process.env.ZENITH_BACKUP_S3_BUCKET;

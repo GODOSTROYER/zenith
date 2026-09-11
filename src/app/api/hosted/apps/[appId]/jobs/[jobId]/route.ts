@@ -21,10 +21,10 @@ export const dynamic = "force-dynamic";
 export const GET = hostedRoute<{ appId: string; jobId: string }>(
   { workspaceRole: "viewer" },
   async (req, { appId, jobId }, { actor }): Promise<HostedJobPayload> => {
-    const app = requireOwnedApp(appId, requireWorkspace().id);
+    const app = await requireOwnedApp(appId, requireWorkspace().id);
     await requireAppOwner(app.id, req, { verify: "session", actor });
 
-    const job = authority().repos.jobs.get(jobId);
+    const job = await authority().repos.jobs.get(jobId);
     // A job of another app answers exactly as a missing one: a job id must not
     // be a way to learn what other apps on this install are doing.
     if (!job || job.appId !== app.id)
@@ -32,6 +32,6 @@ export const GET = hostedRoute<{ appId: string; jobId: string }>(
         fix: "Use the job id the publish response returned, or list the app's recent jobs with GET /api/hosted/apps/<id>.",
       });
 
-    return { job, logs: jobLogs(job.id) };
+    return { job, logs: await jobLogs(job.id) };
   }
 );

@@ -42,8 +42,10 @@ export interface AdmitStateChangeInput {
 }
 
 /** Queue a suspension. Refused when the app is already suspended. */
-export function admitSuspend(input: AdmitStateChangeInput): { job: HostedJob; created: boolean } {
-  const app = requireAppIn(input.appId, input.workspaceId);
+export async function admitSuspend(
+  input: AdmitStateChangeInput
+): Promise<{ job: HostedJob; created: boolean }> {
+  const app = await requireAppIn(input.appId, input.workspaceId);
   if (app.state === "suspended")
     throw new HostedError("conflict", `${app.name} is already suspended.`, {
       fix: `Resume it with POST /api/hosted/apps/${app.id}/resume when it should serve again.`,
@@ -53,8 +55,10 @@ export function admitSuspend(input: AdmitStateChangeInput): { job: HostedJob; cr
 }
 
 /** Queue a resume. Refused when the app is not suspended. */
-export function admitResume(input: AdmitStateChangeInput): { job: HostedJob; created: boolean } {
-  const app = requireAppIn(input.appId, input.workspaceId);
+export async function admitResume(
+  input: AdmitStateChangeInput
+): Promise<{ job: HostedJob; created: boolean }> {
+  const app = await requireAppIn(input.appId, input.workspaceId);
   if (app.state === "active")
     throw new HostedError("conflict", `${app.name} is already active.`, {
       fix: "Nothing to resume. Open the app, or publish a release to it.",
@@ -68,11 +72,11 @@ export function admitResume(input: AdmitStateChangeInput): { job: HostedJob; cre
   return admitStateChange("resume", app, input);
 }
 
-function admitStateChange(
+async function admitStateChange(
   kind: "suspend" | "resume",
   app: HostedApp,
   input: AdmitStateChangeInput
-): { job: HostedJob; created: boolean } {
+): Promise<{ job: HostedJob; created: boolean }> {
   const { intent } = stateIntent({
     kind,
     appId: input.appId,
@@ -80,7 +84,7 @@ function admitStateChange(
     actor: input.actor,
     reason: input.reason,
   });
-  const admitted = admitJob({
+  const admitted = await admitJob({
     id: input.jobId,
     kind,
     workspaceId: input.workspaceId,
@@ -89,11 +93,11 @@ function admitStateChange(
     intent,
   });
   if (!admitted.created) return admitted;
-  seedPhaseData(input.jobId, {
+  await seedPhaseData(input.jobId, {
     reason: input.reason ?? null,
     logs: [`${nowIso()} admitted ${kind} of ${app.slug}`],
   });
-  return { job: authority().repos.jobs.get(input.jobId) ?? admitted.job, created: true };
+  return { job: (await authority().repos.jobs.get(input.jobId)) ?? admitted.job, created: true };
 }
 
 /** The default reason recorded when an operator suspends without giving one. */
@@ -114,12 +118,12 @@ async function runStateChange(run: JobRun, kind: "suspend" | "resume"): Promise<
   const data = phaseDataOf(run.job);
   const a = authority();
   try {
-    const app = requireApp(run.job.appId);
-    advanceTo(run, kind, data);
+    const app = await requireApp(run.job.appId);
+    await advanceTo(run, kind, data);
 
     const reason =
       kind === "suspend" ? (typeof data.reason === "string" && data.reason.trim() ? data.reason.trim() : SUSPEND_DEFAULT_REASON) : null;
-    const updated = setAppState(app.id, kind === "suspend" ? "suspended" : "active", reason);
+    const updated = await setAppState(app.id, kind === "suspend" ? "suspended" : "active", reason);
 
     data.state = updated.state;
     data.previousState = app.state;
@@ -127,11 +131,11 @@ async function runStateChange(run: JobRun, kind: "suspend" | "resume"): Promise<
     if (kind === "suspend") {
       // Cut recipients off now, not at their next cookie expiry: a suspended
       // app must stop serving, and a resumed one must be re-entered from Zenith.
-      const ended = terminateAppSessionsForApp(app.id, "operator");
+      const ended = await terminateAppSessionsForApp(app.id, "operator");
       data.sessionsEnded = ended;
       appendLog(data, `${ended} app session${ended === 1 ? "" : "s"} ended`);
     }
-    emit({
+    await emit({
       event: kind === "suspend" ? "app.suspended" : "app.resumed",
       workspaceId: run.job.workspaceId,
       appId: app.id,
@@ -141,11 +145,10 @@ async function runStateChange(run: JobRun, kind: "suspend" | "resume"): Promise<
       props: { from: app.state, to: updated.state },
     });
 
-    advanceTo(run, "finish", data);
-    a.repos.jobs.finish(run.job.id, run.fence, { state: updated.state, reason });
-    await Promise.resolve();
+    await advanceTo(run, "finish", data);
+    await a.repos.jobs.finish(run.job.id, run.fence, { state: updated.state, reason });
   } catch (err) {
     if (err instanceof Error && err.name === "LeaseLost") return;
-    failJob(run, data, reasonOf(err));
+    await failJob(run, data, reasonOf(err));
   }
 }

@@ -48,8 +48,8 @@ export function seedApp(
   opts: { slug?: string; workspaceId?: string; createdBy?: string } = {}
 ) {
   const slug = opts.slug ?? `app-${uuid().slice(0, 8)}`;
-  return a.tx(() =>
-    a.repos.apps.insert({
+  return a.tx((repos) =>
+    repos.apps.insert({
       id: uuid(),
       workspaceId: opts.workspaceId ?? "ws-one",
       slug,
@@ -67,8 +67,8 @@ export function seedGrant(
   who: { subject: string; email: string },
   role: "owner" | "editor" | "viewer" = "owner"
 ) {
-  return a.tx(() =>
-    a.repos.grants.insert({
+  return a.tx((repos) =>
+    repos.grants.insert({
       id: uuid(),
       appId,
       subject: who.subject,
@@ -81,8 +81,8 @@ export function seedGrant(
 
 /** Open a live session against a grant, so a revocation has something to terminate. */
 export function seedSession(a: Authority, appId: string, grantId: string, subject: string) {
-  return a.tx(() =>
-    a.repos.sessions.insert({
+  return a.tx((repos) =>
+    repos.sessions.insert({
       id: sha256Hex(`session-${grantId}-${uuid()}`),
       appId,
       subject,
@@ -114,8 +114,8 @@ export async function seedArtifact(
   const artifact = await store.put(outputDir, provenance(jobId));
   fs.rmSync(outputDir, { recursive: true, force: true });
 
-  a.tx(() =>
-    a.repos.artifacts.insert({
+  await a.tx((repos) =>
+    repos.artifacts.insert({
       digest: artifact.digest,
       byteSize: artifact.byteSize,
       fileCount: artifact.fileCount,
@@ -126,19 +126,19 @@ export async function seedArtifact(
 }
 
 /** Insert a release for an app and make it the active one. */
-export function seedActiveRelease(a: Authority, appId: string, digest: string) {
-  return a.tx(() => {
-    const release = a.repos.releases.insert({
+export async function seedActiveRelease(a: Authority, appId: string, digest: string) {
+  return a.tx(async (repos) => {
+    const release = await repos.releases.insert({
       id: uuid(),
       appId,
-      number: a.repos.releases.nextNumber(appId),
+      number: await repos.releases.nextNumber(appId),
       artifactDigest: digest,
       jobId: uuid(),
       runtime: "local",
     });
-    a.repos.releases.setStatus(release.id, "active", { activatedAt: iso() });
-    const app = a.repos.apps.get(appId);
-    a.repos.apps.setActiveRelease(appId, release.id, app?.activeFence ?? 0);
+    await repos.releases.setStatus(release.id, "active", { activatedAt: iso() });
+    const app = await repos.apps.get(appId);
+    await repos.apps.setActiveRelease(appId, release.id, app?.activeFence ?? 0);
     return release;
   });
 }

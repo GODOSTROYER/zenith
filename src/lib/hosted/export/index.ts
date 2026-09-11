@@ -113,14 +113,14 @@ export interface ExportAppOptions {
  */
 export async function exportApp(appId: string, options: ExportAppOptions = {}): Promise<AppExport> {
   const a = authority();
-  const app = a.repos.apps.get(appId);
+  const app = await a.repos.apps.get(appId);
   if (!app)
     throw new HostedError("not_found", `No hosted app has the id ${appId}.`, {
       fix: "Open the app from the apps list and export it from there; the id in the URL is the one this endpoint takes.",
     });
 
-  const releases = a.repos.releases.listByApp(appId, { limit: 1000 });
-  const activeRelease = app.activeReleaseId ? (a.repos.releases.get(app.activeReleaseId) ?? null) : null;
+  const releases = await a.repos.releases.listByApp(appId, { limit: 1000 });
+  const activeRelease = app.activeReleaseId ? ((await a.repos.releases.get(app.activeReleaseId)) ?? null) : null;
 
   let artifact: AppExport["artifact"] = null;
   if (activeRelease) {
@@ -166,8 +166,8 @@ export async function exportApp(appId: string, options: ExportAppOptions = {}): 
     activeRelease,
     artifact,
     access: {
-      grants: a.repos.grants.listByApp(appId).map(toExportedGrant),
-      invites: a.repos.invites.listByApp(appId).map(toExportedInvite),
+      grants: (await a.repos.grants.listByApp(appId)).map(toExportedGrant),
+      invites: (await a.repos.invites.listByApp(appId)).map(toExportedInvite),
     },
     records,
     source: {
@@ -185,7 +185,7 @@ export async function exportApp(appId: string, options: ExportAppOptions = {}): 
     ],
   };
 
-  recordEvent({
+  await recordEvent({
     event: "export.completed",
     workspaceId: app.workspaceId,
     appId,
@@ -307,7 +307,7 @@ export async function importApp(bundle: unknown, options: ImportAppOptions): Pro
   const file = parsed.data;
 
   const a = authority();
-  if (a.repos.apps.getBySlug(options.slug))
+  if (await a.repos.apps.getBySlug(options.slug))
     throw new HostedError("conflict", `The slug "${options.slug}" is already taken by another app on this install.`, {
       fix: "Import under a different slug — it becomes the app's hostname, so it has to be unique across the install.",
     });
@@ -316,8 +316,8 @@ export async function importApp(bundle: unknown, options: ImportAppOptions): Pro
   const ownerEmail = options.email.toLowerCase();
   const now = new Date().toISOString();
 
-  const created = a.tx(() => {
-    const app = a.repos.apps.insert({
+  const created = await a.tx(async (repos) => {
+    const app = await repos.apps.insert({
       id: appId,
       workspaceId: options.workspaceId,
       slug: options.slug,
@@ -327,7 +327,7 @@ export async function importApp(bundle: unknown, options: ImportAppOptions): Pro
       state: "active",
       createdAt: now,
     });
-    a.repos.grants.insert({
+    await repos.grants.insert({
       id: randomUUID(),
       appId,
       subject: options.createdBy,
@@ -345,12 +345,12 @@ export async function importApp(bundle: unknown, options: ImportAppOptions): Pro
   const seen = new Set<string>([ownerEmail]);
   let fromGrants = 0;
   let fromInvites = 0;
-  a.tx(() => {
+  await a.tx(async (repos) => {
     for (const entry of file.access.grants) {
       const email = entry.email.toLowerCase();
       if (seen.has(email)) continue;
       seen.add(email);
-      a.repos.grants.insert({
+      await repos.grants.insert({
         id: randomUUID(),
         appId,
         subject: importedSubject("grant", email),
@@ -366,7 +366,7 @@ export async function importApp(bundle: unknown, options: ImportAppOptions): Pro
       const email = entry.email.toLowerCase();
       if (seen.has(email)) continue;
       seen.add(email);
-      a.repos.grants.insert({
+      await repos.grants.insert({
         id: randomUUID(),
         appId,
         subject: importedSubject("invite", email),
@@ -382,7 +382,7 @@ export async function importApp(bundle: unknown, options: ImportAppOptions): Pro
 
   const records = importRecords(appId, file.records as EquipmentRequest[]);
 
-  recordEvent({
+  await recordEvent({
     event: "app.created",
     workspaceId: options.workspaceId,
     appId,

@@ -1,5 +1,7 @@
 /**
- * Every `ZENITH_*` variable the server reads, in one validated place.
+ * Every `ZENITH_*` variable the server reads, in one validated place — plus
+ * `SUPABASE_DB_URL`, which keeps Supabase's own name and is validated (never
+ * read for its value) here alongside them.
  *
  * Before this module the 13 reads were scattered and ad-hoc: a typo in
  * `ZENITH_FAST` silently meant "slow", and `ZENITH_LLM_MODEL` — which decides
@@ -98,6 +100,16 @@ const Schema = z.object({
       `must be an SMTP URL. ${SMTP_FIX}`
     )
     .optional(),
+  /**
+   * Optional. The Supabase Supavisor **transaction-mode** pooler URL (port
+   * 6543) a Postgres-backed store connects through. Not a `ZENITH_*` name
+   * because it is Supabase's, and the one exception to the rule above: it is
+   * validated for shape here, never read for its value by this module. It
+   * carries the database password, so it is treated exactly like
+   * SUPABASE_SERVICE_ROLE_KEY — never logged, and redacted out of the
+   * validation error below.
+   */
+  SUPABASE_DB_URL: z.string().url().optional(),
   /** Optional. The From address on alert email. Required alongside ZENITH_SMTP_URL. */
   ZENITH_ALERT_FROM: z
     .string()
@@ -131,6 +143,7 @@ const RAW_KEYS = [
   "ZENITH_SECRET_KEY",
   "ZENITH_SMTP_URL",
   "ZENITH_ALERT_FROM",
+  "SUPABASE_DB_URL",
 ] as const;
 
 /**
@@ -166,10 +179,12 @@ export function env(): ZenithEnv {
       const lines = parsed.error.issues.map((i) => {
         const key = String(i.path[0] ?? "(unknown)");
         const rawValue = process.env[key] ?? "";
-        // A rejected key is still key material, and a rejected SMTP URL still
-        // carries a password — echoing either would put it in the boot log. Say
-        // how long it was; that is what makes the error actionable.
-        const secretish = key === "ZENITH_SECRET_KEY" || key === "ZENITH_SMTP_URL";
+        // A rejected key is still key material, and a rejected SMTP or
+        // database URL still carries a password — echoing any of them would put
+        // it in the boot log. Say how long it was; that is what makes the error
+        // actionable.
+        const secretish =
+          key === "ZENITH_SECRET_KEY" || key === "ZENITH_SMTP_URL" || key === "SUPABASE_DB_URL";
         const shown = secretish ? `(${rawValue.length} chars, hidden)` : JSON.stringify(rawValue);
         return `  ${key}=${shown} — ${i.message}`;
       });

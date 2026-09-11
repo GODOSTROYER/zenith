@@ -17,7 +17,7 @@
  *    behaviour: the new owner will report the outcome.
  */
 import path from "node:path";
-import { authority, nowIso } from "@/lib/hosted/authority";
+import { authority, nowIso, sqliteConnection, type Repos } from "@/lib/hosted/authority";
 import { HostedError, type HostedApp, type HostedJob } from "@/lib/hosted/contracts";
 import { env } from "@/lib/env";
 import { recordEvent, type RecordEventInput } from "@/lib/hosted/events";
@@ -58,9 +58,15 @@ export class LeaseLost extends Error {
 
 /* --------------------------------- records -------------------------------- */
 
-/** The app a job is about. Throws `not_found` when it has been deleted under us. */
-export function requireApp(appId: string): HostedApp {
-  const app = authority().repos.apps.get(appId);
+/**
+ * The app a job is about. Throws `not_found` when it has been deleted under us.
+ *
+ * `repos` defaults to the authority's own, which is what a caller outside a
+ * transaction wants. Inside `tx()` pass the callback's `repos`, so the read
+ * runs on the transaction that is open rather than on a second connection.
+ */
+export async function requireApp(appId: string, repos: Repos = authority().repos): Promise<HostedApp> {
+  const app = await repos.apps.get(appId);
   if (!app)
     throw new HostedError("not_found", `No hosted app ${appId} exists.`, {
       fix: "Check the app id in the URL, or list the workspace's apps with GET /api/hosted/apps.",
@@ -69,8 +75,12 @@ export function requireApp(appId: string): HostedApp {
 }
 
 /** The app a job is about, refused when it belongs to a different workspace. */
-export function requireAppIn(appId: string, workspaceId: string): HostedApp {
-  const app = requireApp(appId);
+export async function requireAppIn(
+  appId: string,
+  workspaceId: string,
+  repos: Repos = authority().repos
+): Promise<HostedApp> {
+  const app = await requireApp(appId, repos);
   // A foreign id answers exactly as a missing one: knowing an id must not be
   // enough to learn that it exists in someone else's workspace.
   if (app.workspaceId !== workspaceId)
@@ -102,11 +112,14 @@ export const phaseDataOf = (job: HostedJob): PhaseData => ({ ...job.phaseData })
  * tarball was stored — is written straight to the row. Inside `tx()`, so it is
  * durable before the caller is told the job exists.
  *
- * TODO(ceiling): raw SQL for one column. Move to `admitJob({ …, phaseData })` if
- * W1 adds the argument.
+ * TODO(ceiling): raw SQL for one column, so it reaches the connection rather
+ * than a repository. Move to `admitJob({ …, phaseData })`, or to
+ * `repos.jobs.setPhaseData(jobId, seed)`, the moment the authority offers
+ * either — that is what removes the `sqliteConnection` call from this file.
  */
-export function seedPhaseData(jobId: string, seed: PhaseData): void {
-  authority().tx((db) => {
+export async function seedPhaseData(jobId: string, seed: PhaseData): Promise<void> {
+  const db = sqliteConnection(authority());
+  await authority().tx(async () => {
     db.prepare("UPDATE hosted_jobs SET phase_data = ?, updated_at = ? WHERE id = ?").run(
       JSON.stringify(seed),
       nowIso(),
@@ -119,20 +132,21 @@ export function seedPhaseData(jobId: string, seed: PhaseData): void {
  * Record the phase this worker is about to enter, with everything it has
  * learned so far. Throws `LeaseLost` when the fence moved.
  */
-export function advanceTo(run: JobRun, phase: string, data: PhaseData): void {
+export async function advanceTo(run: JobRun, phase: string, data: PhaseData): Promise<void> {
   // The trail of phases this job has entered, in order. It costs one short
   // string per step and it is the difference between "the job failed" and
   // "the job failed at probe, having got as far as stage".
   const trail = Array.isArray(data.phases) ? (data.phases as string[]) : [];
   if (trail[trail.length - 1] !== phase) trail.push(phase);
   data.phases = trail;
-  if (!authority().repos.jobs.advance(run.job.id, run.fence, phase, data)) throw new LeaseLost(run.job.id);
+  if (!(await authority().repos.jobs.advance(run.job.id, run.fence, phase, data)))
+    throw new LeaseLost(run.job.id);
   run.phase = phase;
 }
 
 /** Persist what the current phase produced without moving to the next one. */
-export function persist(run: JobRun, data: PhaseData): void {
-  advanceTo(run, run.phase, data);
+export async function persist(run: JobRun, data: PhaseData): Promise<void> {
+  await advanceTo(run, run.phase, data);
 }
 
 /**
@@ -144,13 +158,18 @@ export function persist(run: JobRun, data: PhaseData): void {
  * The statement is conditioned on the same fence every other write is, so a
  * worker that already lost the job cannot extend a lease it no longer holds.
  *
- * TODO(ceiling): raw SQL because the repository has no lease renewal yet. Move this
- * to `repos.jobs.renewLease(id, fence, leaseMs)` when W1 adds one.
+ * Synchronous on purpose: the heartbeat runs from a `setInterval`, which has
+ * nowhere to await a promise and no business queueing behind a long
+ * transaction just to say "still here".
+ *
+ * TODO(ceiling): raw SQL because the repository has no lease renewal yet, so
+ * this is the one place the release directory reaches the connection. Move it
+ * to `repos.jobs.renewLease(id, fence, leaseMs)` when the authority adds one.
  */
 export function renewLease(run: JobRun, leaseMs: number = JOB_LEASE_MS): boolean {
   const now = nowIso();
-  const result = authority()
-    .db.prepare(
+  const result = sqliteConnection(authority())
+    .prepare(
       "UPDATE hosted_jobs SET lease_until = ?, updated_at = ? WHERE id = ? AND fence_token = ? AND status = 'running'"
     )
     .run(nowIso(Date.parse(now) + leaseMs), now, run.job.id, run.fence);
@@ -201,9 +220,9 @@ export function logsOf(job: HostedJob): string[] {
  * Record an analytics event. Never throws into a pipeline: a metric that could
  * fail a publish would be a worse bargain than no metric at all.
  */
-export function emit(input: RecordEventInput): void {
+export async function emit(input: RecordEventInput): Promise<void> {
   try {
-    recordEvent(input);
+    await recordEvent(input);
   } catch {
     /* the operation is what matters; the event log is best effort */
   }
@@ -221,10 +240,10 @@ export function reasonOf(err: unknown): string {
  * Fail a job, keeping the log. Returns false when the fence had already moved,
  * in which case the new owner reports the outcome instead.
  */
-export function failJob(run: JobRun, data: PhaseData, message: string): boolean {
+export async function failJob(run: JobRun, data: PhaseData, message: string): Promise<boolean> {
   appendLog(data, `failed: ${message}`);
   // The log is part of the failure, so write it before the status: `fail`
   // clears the lease and a later `advance` would be refused.
-  authority().repos.jobs.advance(run.job.id, run.fence, run.phase, data);
+  await authority().repos.jobs.advance(run.job.id, run.fence, run.phase, data);
   return authority().repos.jobs.fail(run.job.id, run.fence, message);
 }

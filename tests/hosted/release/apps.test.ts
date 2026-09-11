@@ -20,21 +20,21 @@ beforeAll(async () => {
   h = await harness(DATA);
 });
 
-afterEach(() => {
+afterEach(async () => {
   undo?.();
   undo = undefined;
-  h.release.resetReleaseDeps();
+  await h.release.resetReleaseDeps();
 });
 
-afterAll(() => {
-  h.release.stopHostedJobRunner();
+afterAll(async () => {
+  await h.release.stopHostedJobRunner();
   h.authority.closeAuthority();
   removeDir(DATA);
 });
 
 describe("createApp", () => {
   it("writes the app, its owner grant and its creation event in one transaction", async () => {
-    const wired = wire(h);
+    const wired = await wire(h);
     undo = wired.restore;
 
     const app = await makeApp(h, {
@@ -51,7 +51,7 @@ describe("createApp", () => {
     expect(app.runtime).toBe("local");
     expect(app.stateReason).toBeUndefined();
 
-    const grants = h.authority.authority().repos.grants.listByApp(app.id);
+    const grants = await h.authority.authority().repos.grants.listByApp(app.id);
     expect(grants).toHaveLength(1);
     expect(grants[0].role).toBe("owner");
     expect(grants[0].subject).toBe(IDENTITIES.owner.subject);
@@ -63,8 +63,8 @@ describe("createApp", () => {
   });
 
   it("refuses a slug another app already has, without touching that app", async () => {
-    undo = wire(h).restore;
-    const first = h.authority.authority().repos.apps.getBySlug(APPS.alpha.slug);
+    undo = (await wire(h)).restore;
+    const first = await h.authority.authority().repos.apps.getBySlug(APPS.alpha.slug);
     expect(first).not.toBeNull();
 
     await expect(
@@ -78,13 +78,13 @@ describe("createApp", () => {
 
     // Nothing about the app that owns the slug changed, and no second app,
     // grant or half-written row was left behind.
-    expect(h.authority.authority().repos.apps.getBySlug(APPS.alpha.slug)?.id).toBe(first?.id);
-    expect(h.authority.authority().repos.apps.listByWorkspace(WORKSPACES.two.id)).toHaveLength(0);
-    expect(h.authority.authority().repos.grants.listByApp(first!.id)).toHaveLength(1);
+    expect((await h.authority.authority().repos.apps.getBySlug(APPS.alpha.slug))?.id).toBe(first?.id);
+    expect(await h.authority.authority().repos.apps.listByWorkspace(WORKSPACES.two.id)).toHaveLength(0);
+    expect(await h.authority.authority().repos.grants.listByApp(first!.id)).toHaveLength(1);
   });
 
   it("refuses a reserved slug and an illegal one, naming the rule", async () => {
-    undo = wire(h).restore;
+    undo = (await wire(h)).restore;
     for (const slug of ["api", "admin", "zenith"]) {
       await expect(
         makeApp(h, {
@@ -105,11 +105,11 @@ describe("createApp", () => {
         })
       ).rejects.toMatchObject({ code: "invalid_input" });
     }
-    expect(h.authority.authority().repos.apps.listByWorkspace(WORKSPACES.one.id)).toHaveLength(1);
+    expect(await h.authority.authority().repos.apps.listByWorkspace(WORKSPACES.one.id)).toHaveLength(1);
   });
 
   it("normalises a slug to the lowercase hostname it becomes", async () => {
-    undo = wire(h).restore;
+    undo = (await wire(h)).restore;
     const app = await makeApp(h, {
       workspaceId: WORKSPACES.one.id,
       slug: "  Gamma-Tracker  ",
@@ -120,7 +120,7 @@ describe("createApp", () => {
   });
 
   it("refuses a name that is not a name", async () => {
-    undo = wire(h).restore;
+    undo = (await wire(h)).restore;
     await expect(
       makeApp(h, {
         workspaceId: WORKSPACES.one.id,
@@ -132,7 +132,7 @@ describe("createApp", () => {
   });
 
   it("keeps the app when the runtime cannot prepare it, and records why", async () => {
-    undo = wire(h, { ensureAppError: new Error("the local runtime has no data directory") }).restore;
+    undo = (await wire(h, { ensureAppError: new Error("the local runtime has no data directory") })).restore;
 
     const app = await makeApp(h, {
       workspaceId: WORKSPACES.one.id,
@@ -144,16 +144,16 @@ describe("createApp", () => {
     expect(app.state).toBe("active");
     expect(app.stateReason).toContain("no data directory");
     // The record is the durable truth: the app and its grant are both real.
-    expect(h.authority.authority().repos.apps.get(app.id)?.stateReason).toContain("no data directory");
-    expect(h.authority.authority().repos.grants.listByApp(app.id)).toHaveLength(1);
+    expect((await h.authority.authority().repos.apps.get(app.id))?.stateReason).toContain("no data directory");
+    expect(await h.authority.authority().repos.grants.listByApp(app.id)).toHaveLength(1);
   });
 });
 
 describe("appSummary", () => {
-  it("answers with the app, its hostname and the fact that nothing is serving yet", () => {
-    undo = wire(h).restore;
-    const app = h.authority.authority().repos.apps.getBySlug(APPS.alpha.slug)!;
-    const summary = h.release.appSummary(app.id);
+  it("answers with the app, its hostname and the fact that nothing is serving yet", async () => {
+    undo = (await wire(h)).restore;
+    const app = (await h.authority.authority().repos.apps.getBySlug(APPS.alpha.slug))!;
+    const summary = await h.release.appSummary(app.id);
     expect(summary.app.id).toBe(app.id);
     expect(summary.activeRelease).toBeNull();
     expect(summary.releases).toEqual([]);

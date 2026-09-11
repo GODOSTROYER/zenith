@@ -22,14 +22,14 @@ const NewInvite = z
 
 export const GET = hostedRoute<{ appId: string }>(
   { appRole: "owner", verify: "session" },
-  async (_req, { appId }): Promise<AppInvitesWire> => ({ invites: listInvites(appId) })
+  async (_req, { appId }): Promise<AppInvitesWire> => ({ invites: await listInvites(appId) })
 );
 
 export const POST = hostedRoute<{ appId: string }>(
   { appRole: "owner", verify: "live" },
   async (req, { appId }, { subject }) => {
     const body = await readJsonBody(req, NewInvite);
-    const issued: IssuedInviteWire = createInvite(appId, body, subject);
+    const issued: IssuedInviteWire = await createInvite(appId, body, subject);
     // The row is committed; the email is an effect performed after the answer.
     scheduleInviteDelivery();
     return hostedJson(issued, 201);

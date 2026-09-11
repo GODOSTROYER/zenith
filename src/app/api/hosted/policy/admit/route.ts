@@ -125,7 +125,7 @@ export async function POST(req: NextRequest): Promise<Response> {
       })
     );
 
-  const decision = decideAdmission({
+  const decision = await decideAdmission({
     host,
     method: method.toUpperCase(),
     path,

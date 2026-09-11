@@ -34,6 +34,7 @@ import {
 } from "@/lib/domain/types";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { env } from "@/lib/env";
+import { isServerless } from "@/lib/serverless";
 import {
   getProvider,
   registerProvider,
@@ -95,7 +96,30 @@ const TERMINAL: DeploymentStatus[] = [
   "rolled_back",
 ];
 
-const fast = () => env().ORRERY_FAST;
+/**
+ * `env()` re-fingerprints every ORRERY_* variable on each call, so the two
+ * settings the engine reads on its hot paths are resolved once per distinct
+ * raw value instead. Each of these depends on exactly one variable, so the
+ * variable itself is the whole cache key — a test that reassigns it is still
+ * seen on the next call.
+ */
+function envSetting<T>(raw: string | undefined, memo: EnvMemo<T>, read: () => T): T {
+  if (memo.loaded && memo.raw === raw) return memo.value as T;
+  const value = read();
+  Object.assign(memo, { loaded: true, raw, value });
+  return value;
+}
+
+interface EnvMemo<T> {
+  loaded: boolean;
+  raw?: string;
+  value?: T;
+}
+
+const fastMemo: EnvMemo<boolean> = { loaded: false };
+const fast = (): boolean =>
+  envSetting(process.env.ORRERY_FAST, fastMemo, () => env().ORRERY_FAST);
+
 /** Fast mode collapses every estimate to ≤40ms so smoke tests finish instantly. */
 const collapse = (ms: number) => (fast() ? Math.min(ms, 40) : ms);
 
@@ -107,7 +131,13 @@ const now = () => new Date().toISOString();
  * way out. The default and the validation live in `lib/env.ts` with every
  * other ORRERY_* variable.
  */
-const stepTimeoutMs = (): number => env().ORRERY_STEP_TIMEOUT_MS;
+const stepTimeoutMemo: EnvMemo<number> = { loaded: false };
+const stepTimeoutMs = (): number =>
+  envSetting(
+    process.env.ORRERY_STEP_TIMEOUT_MS,
+    stepTimeoutMemo,
+    () => env().ORRERY_STEP_TIMEOUT_MS
+  );
 
 /**
  * Providers that invent their infrastructure rather than calling one. Used as
@@ -284,11 +314,25 @@ export function ensureEngine(): void {
     gl.__orreryProvidersReady = true;
   }
   if (!gl.__orreryInflight) gl.__orreryInflight = new Set();
-  if (!gl.__orreryTicker) {
+  // A serverless instance is frozen between requests, so a ticker there either
+  // never fires or fires against a `/tmp` no other instance can see. Boot runs
+  // one tick instead; see src/lib/serverless.ts and src/lib/server/boot.ts.
+  if (!gl.__orreryTicker && !isServerless()) {
     gl.__orreryTicker = setInterval(tick, 250);
     // Never hold the process open just to tick (matters for tests + scripts).
     (gl.__orreryTicker as { unref?: () => void }).unref?.();
   }
+}
+
+/**
+ * Advance every active deployment by one step, now.
+ *
+ * What the ticker does on a timer, for a caller that has no timer: boot runs
+ * this once on a serverless instance so a deployment resumed from disk is not
+ * left exactly where the last instance froze it.
+ */
+export function engineTick(): void {
+  tick();
 }
 
 /* --------------------------------- ticker --------------------------------- */

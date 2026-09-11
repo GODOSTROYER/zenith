@@ -9,13 +9,14 @@
  * Workstream W5 (hosted R3).
  */
 import { revokeInvite } from "@/lib/hosted/access";
-import { hostedRoute, verifiedOwner } from "@/lib/hosted/access/http";
+import type { AppInviteWire } from "@/lib/hosted/contracts";
+import { hostedRoute } from "@/lib/server/hosted";
 
 export const dynamic = "force-dynamic";
 
 export const DELETE = hostedRoute<{ appId: string; inviteId: string }>(
-  async (req, { appId, inviteId }) => {
-    const { identity } = await verifiedOwner(req, appId);
-    return { invite: revokeInvite(inviteId, identity.subject, { appId }) };
-  }
+  { appRole: "owner", verify: "live" },
+  async (_req, { appId, inviteId }, { subject }): Promise<AppInviteWire> => ({
+    invite: revokeInvite(inviteId, subject, { appId }),
+  })
 );

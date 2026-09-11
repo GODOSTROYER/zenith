@@ -20,8 +20,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorNote, errorText, useSafeToasts } from "@/components/screens/shared";
 import { PageHeading } from "@/components/screens/page-heading";
 import { useShell } from "@/components/shell/shell-context";
-import { AppCard } from "@/components/apps/app-card";
-import { RuntimeBanner } from "@/components/apps/runtime-banner";
+import { AppCard } from "./app-card";
+import { RuntimeBanner } from "./runtime-banner";
 import { launchHostedApp, useHostedApps } from "@/lib/client/hosted";
 
 /** A Link that has to look like the primary Button; the kit has no `asChild`. */

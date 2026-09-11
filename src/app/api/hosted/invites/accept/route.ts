@@ -14,13 +14,14 @@
  */
 import { z } from "zod";
 import { acceptInvite } from "@/lib/hosted/access";
-import { hostedRoute, readJsonBody, verifiedIdentity } from "@/lib/hosted/access/http";
+import type { AcceptResult } from "@/lib/hosted/contracts";
+import { hostedRoute, readJsonBody, verifiedIdentity } from "@/lib/server/hosted";
 
 export const dynamic = "force-dynamic";
 
 const Accept = z.object({ token: z.string().trim().min(1).max(400) }).strict();
 
-export const POST = hostedRoute(async (req) => {
+export const POST = hostedRoute(async (req): Promise<AcceptResult> => {
   const identity = await verifiedIdentity(req);
   const { token } = await readJsonBody(req, Accept);
   const { app, grant } = acceptInvite(token, identity);

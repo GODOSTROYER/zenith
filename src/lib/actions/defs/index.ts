@@ -17,7 +17,8 @@ import "./navigator";
 import "./security";
 import "./connection";
 import "./workspace";
-import "./alerts";
+import "./alerts-rules";
+import "./alerts-channels";
 import "./hosted";
 
 /** Idempotent: defineAction overwrites by id, so repeat calls are free. */

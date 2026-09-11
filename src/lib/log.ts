@@ -38,14 +38,31 @@ function serialise(value: unknown): unknown {
   return value;
 }
 
-function emit(level: LogLevel, message: string, fields?: LogFields): void {
+/**
+ * The threshold, resolved at most once per distinct `ORRERY_LOG_LEVEL`.
+ *
+ * `env()` re-fingerprints every variable it knows about on each call, which is
+ * real work to repeat per log line. The raw variable is the only input to this
+ * answer, so reading it directly is the cheap way to know whether the
+ * validated one still applies. A test that reassigns it is still seen.
+ */
+let threshold: { raw: string | undefined; min: LogLevel } | undefined;
+
+function minLevel(): LogLevel {
+  const raw = process.env.ORRERY_LOG_LEVEL;
+  if (threshold && threshold.raw === raw) return threshold.min;
   let min: LogLevel = "info";
   try {
     min = env().ORRERY_LOG_LEVEL;
   } catch {
     // A broken environment must not silence the logging that would explain it.
   }
-  if (RANK[level] < RANK[min]) return;
+  threshold = { raw, min };
+  return min;
+}
+
+function emit(level: LogLevel, message: string, fields?: LogFields): void {
+  if (RANK[level] < RANK[minLevel()]) return;
 
   const record: Record<string, unknown> = {
     level,
@@ -54,7 +71,9 @@ function emit(level: LogLevel, message: string, fields?: LogFields): void {
   };
   const requestId = currentRequestId();
   if (requestId) record.requestId = requestId;
-  for (const [k, v] of Object.entries(fields ?? {})) record[k] = serialise(v);
+  // Object.keys, not Object.entries: the same own enumerable keys, without a
+  // two-element array allocated per field on a path this hot.
+  if (fields) for (const k of Object.keys(fields)) record[k] = serialise(fields[k]);
 
   let line: string;
   try {

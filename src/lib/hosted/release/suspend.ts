@@ -16,10 +16,10 @@
  *
  * Workstream W7 (hosted R3).
  */
+import { terminateAppSessionsForApp } from "@/lib/hosted/access";
 import { admitJob, authority, nowIso } from "@/lib/hosted/authority";
 import { HostedError, type HostedApp, type HostedJob, type Subject } from "@/lib/hosted/contracts";
 import { setAppState } from "./apps";
-import { releaseDeps } from "./deps";
 import { stateIntent } from "./intent";
 import {
   advanceTo,
@@ -129,7 +129,7 @@ async function runStateChange(run: JobRun, kind: "suspend" | "resume"): Promise<
     if (kind === "suspend") {
       // Cut recipients off now, not at their next cookie expiry: a suspended
       // app must stop serving, and a resumed one must be re-entered from Zenith.
-      const ended = releaseDeps.terminateAppSessions(app.id, "operator");
+      const ended = terminateAppSessionsForApp(app.id, "operator");
       data.sessionsEnded = ended;
       appendLog(data, `${ended} app session${ended === 1 ? "" : "s"} ended`);
     }

@@ -24,7 +24,9 @@
 import { authority, authorityOpen, nowIso } from "@/lib/hosted/authority";
 import { HostedError, type HostedJob } from "@/lib/hosted/contracts";
 import { log } from "@/lib/log";
-import { runPublish, buildSlot } from "./publish";
+import { isServerless } from "@/lib/serverless";
+import { runPublish } from "./publish";
+import { buildSlot } from "./build-slot";
 import { runRollback } from "./rollback";
 import { runResume, runSuspend } from "./suspend";
 import {
@@ -61,6 +63,12 @@ export function startHostedJobRunner(): void {
   const gl = g();
   if (gl.__zenithJobTicker) return;
   gl.__zenithJobsInflight ??= new Set();
+  // A serverless instance has no life between requests, so a ticker there
+  // never fires; see src/lib/serverless.ts. Look for work once instead.
+  if (isServerless()) {
+    void tickJobs();
+    return;
+  }
   gl.__zenithJobTicker = setInterval(tickJobs, JOB_TICK_MS);
   // Never hold the process open just to look for jobs (tests and scripts).
   (gl.__zenithJobTicker as { unref?: () => void }).unref?.();

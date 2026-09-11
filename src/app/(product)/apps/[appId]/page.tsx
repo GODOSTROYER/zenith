@@ -19,16 +19,16 @@ import { ErrorNote, errorText, useSafeToasts } from "@/components/screens/shared
 import { PageHeading } from "@/components/screens/page-heading";
 import { SectionNavigation } from "@/components/screens/section-navigation";
 import { useShell } from "@/components/shell/shell-context";
-import { AudiencePanel } from "@/components/apps/audience-panel";
-import { HealthPanel } from "@/components/apps/health-panel";
-import { PublishPanel } from "@/components/apps/publish-panel";
-import { ReleasesTable } from "@/components/apps/releases-table";
-import { RuntimeBanner } from "@/components/apps/runtime-banner";
+import { AudiencePanel } from "../audience-panel";
+import { HealthPanel } from "../health-panel";
+import { PublishPanel } from "../publish-panel";
+import { ReleasesTable } from "../releases-table";
+import { RuntimeBanner } from "../runtime-banner";
 import {
   publishBlockedReason,
   rollbackBlockedReason,
   stateChangeBlockedReason,
-} from "@/components/apps/gating";
+} from "../gating";
 import {
   launchHostedApp,
   useHostedApp,

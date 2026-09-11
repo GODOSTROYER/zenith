@@ -17,6 +17,7 @@ import { Chip } from "@/components/ui/chip";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { RevisionMeta } from "@/components/screens/project-data";
 import { ErrorNote } from "@/components/screens/shared";
+import { useAsync } from "@/components/screens/use-async";
 
 export interface CostCardProps {
   working: Manifest;
@@ -159,13 +160,10 @@ function RevisionCostTrend({ revisions }: { revisions: RevisionMeta[] }) {
     [revisions]
   );
   const [series, setSeries] = useState<{ number: number; usd: number }[]>();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<unknown>();
+  const { busy, error, run } = useAsync<void>();
 
-  const load = async () => {
-    setBusy(true);
-    setError(undefined);
-    try {
+  const load = () =>
+    run(async () => {
       const loaded = await Promise.all(
         recent.map((r) => api<{ revision: Revision }>(`/api/revisions/${r.id}`))
       );
@@ -175,12 +173,7 @@ function RevisionCostTrend({ revisions }: { revisions: RevisionMeta[] }) {
           usd: monthlyCostUsd(l.revision.manifest),
         }))
       );
-    } catch (e) {
-      setError(e);
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   if (recent.length < 2) return null;
 

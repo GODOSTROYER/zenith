@@ -9,16 +9,17 @@
  *
  * Workstream W8 (hosted R3).
  */
+import type { AppEventsWire } from "@/lib/hosted/contracts";
 import { appLogs } from "@/lib/hosted/health";
 import { listEvents } from "@/lib/hosted/events";
-import { intParam, route } from "@/lib/server/context";
-import { hosted, requireAppOwner } from "@/app/api/hosted/ops/_http";
+import { intParam } from "@/lib/server/context";
+import { hostedRoute } from "@/lib/server/hosted";
 
 export const dynamic = "force-dynamic";
 
-export const GET = route<{ appId: string }>(async (req, { appId }) =>
-  hosted(async () => {
-    requireAppOwner(appId);
+export const GET = hostedRoute<{ appId: string }>(
+  { appRole: "owner", refusal: "not_found" },
+  async (req, { appId }): Promise<AppEventsWire> => {
     const url = new URL(req.url);
     const limit = intParam(url, "limit", 100, { min: 1, max: 1000 });
     const since = url.searchParams.get("since") ?? undefined;
@@ -28,5 +29,5 @@ export const GET = route<{ appId: string }>(async (req, { appId }) =>
       logs: logs.lines,
       disclosure: logs.disclosure,
     };
-  })
+  }
 );

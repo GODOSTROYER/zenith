@@ -25,7 +25,7 @@ import { BulkFixDialog } from "./bulk-fix-dialog";
 import { DismissDialog } from "./dismiss-dialog";
 import { FindingEnvChip } from "./finding-env-chip";
 import { FindingRow } from "./finding-row";
-import { FiltersBar } from "./filters-bar";
+import { FiltersBar } from "./security-filters-bar";
 import { HistorySection } from "./history-section";
 import { PendingSection } from "./pending-section";
 import { useFixPlans } from "./use-fix-plans";

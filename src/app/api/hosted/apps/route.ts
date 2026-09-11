@@ -14,17 +14,17 @@ import { z } from "zod";
 import { NO_RUNNER_REASON, buildRunnerStatus, selectedBuildRunner } from "@/lib/hosted/build";
 import { buildsPaused } from "@/lib/hosted/usage";
 import { hostedConfig } from "@/lib/hosted/config";
+import type { AppCreatedWire, HostedAppsWire } from "@/lib/hosted/contracts";
 import { appSummary, listApps } from "@/lib/hosted/release";
 import {
-  actorOf,
   executeHosted,
+  hostedJson,
   hostedRoute,
   limitsBlock,
-  readBody,
-  requireWorkspaceRole,
+  readJsonBody,
   runtimeStatus,
-} from "@/lib/hosted/release/http";
-import { buildCtx, json, requireWorkspace } from "@/lib/server/context";
+} from "@/lib/server/hosted";
+import { buildCtx, requireWorkspace } from "@/lib/server/context";
 
 export const dynamic = "force-dynamic";
 
@@ -33,9 +33,7 @@ const CreateBody = z.object({
   slug: z.string().trim().toLowerCase().min(3).max(40),
 });
 
-export const GET = hostedRoute(async (req) => {
-  const actor = await actorOf(req);
-  requireWorkspaceRole(actor, "viewer");
+export const GET = hostedRoute({ workspaceRole: "viewer" }, async (): Promise<HostedAppsWire> => {
   const workspace = requireWorkspace();
   const runtime = await runtimeStatus();
   const config = hostedConfig();
@@ -59,10 +57,11 @@ export const GET = hostedRoute(async (req) => {
   };
 });
 
-export const POST = hostedRoute(async (req) => {
-  const actor = await actorOf(req);
-  requireWorkspaceRole(actor, "editor");
-  const body = await readBody(req, CreateBody, 'POST { "name": "Equipment tracker", "slug": "tracker" }.');
+export const POST = hostedRoute({ workspaceRole: "editor" }, async (req, _params, { actor }) => {
+  const body = await readJsonBody(req, CreateBody, {
+    fix: 'POST { "name": "Equipment tracker", "slug": "tracker" }.',
+  });
   const result = await executeHosted("app.create", buildCtx({}, actor), body);
-  return json({ app: (result.data as { app: unknown }).app }, 201);
+  const { app } = result.data as AppCreatedWire;
+  return hostedJson({ app }, 201);
 });

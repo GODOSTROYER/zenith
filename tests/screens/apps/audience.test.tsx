@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { ToastProvider } from "@/components/ui/toast";
-import { DeliveryNote } from "@/components/apps/delivery-note";
+import { DeliveryNote } from "@/app/(product)/apps/delivery-note";
 import { delivery, grant, invite, loaded } from "./fixtures";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -24,7 +24,7 @@ vi.mock("@/lib/client/hosted", async (original) => ({
   useHostedInvites: () => state.invites,
 }));
 
-import { AudiencePanel } from "@/components/apps/audience-panel";
+import { AudiencePanel } from "@/app/(product)/apps/audience-panel";
 
 let root: Root;
 let host: HTMLDivElement;

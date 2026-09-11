@@ -9,20 +9,22 @@
  * Workstream W7 (hosted R3).
  */
 import { authority } from "@/lib/hosted/authority";
+import type { ReleasesWire } from "@/lib/hosted/contracts";
 import { requireOwnedApp } from "@/lib/hosted/release";
-import { actorOf, hostedRoute, requireWorkspaceRole } from "@/lib/hosted/release/http";
+import { hostedRoute } from "@/lib/server/hosted";
 import { intParam, requireWorkspace } from "@/lib/server/context";
 
 export const dynamic = "force-dynamic";
 
-export const GET = hostedRoute<{ appId: string }>(async (req, { appId }) => {
-  const actor = await actorOf(req);
-  requireWorkspaceRole(actor, "viewer");
-  const app = requireOwnedApp(appId, requireWorkspace().id);
-  const limit = intParam(req, "limit", 50, { min: 1, max: 200 });
-  return {
-    releases: authority().repos.releases.listByApp(app.id, { limit }),
-    activeReleaseId: app.activeReleaseId,
-    activeFence: app.activeFence,
-  };
-});
+export const GET = hostedRoute<{ appId: string }>(
+  { workspaceRole: "viewer" },
+  async (req, { appId }): Promise<ReleasesWire> => {
+    const app = requireOwnedApp(appId, requireWorkspace().id);
+    const limit = intParam(req, "limit", 50, { min: 1, max: 200 });
+    return {
+      releases: authority().repos.releases.listByApp(app.id, { limit }),
+      activeReleaseId: app.activeReleaseId,
+      activeFence: app.activeFence,
+    };
+  }
+);

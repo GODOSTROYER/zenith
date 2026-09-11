@@ -10,15 +10,14 @@
  */
 import { NextResponse } from "next/server";
 import { exportApp } from "@/lib/hosted/export";
-import { route } from "@/lib/server/context";
-import { hosted, requireAppOwner } from "@/app/api/hosted/ops/_http";
+import { hostedRoute } from "@/lib/server/hosted";
 
 export const dynamic = "force-dynamic";
 
-export const GET = route<{ appId: string }>(async (_req, { appId }) =>
-  hosted(async () => {
-    const caller = requireAppOwner(appId);
-    const bundle = await exportApp(appId, { subject: caller.subject, email: caller.email });
+export const GET = hostedRoute<{ appId: string }>(
+  { appRole: "owner", refusal: "not_found" },
+  async (_req, { appId }, { subject, email }) => {
+    const bundle = await exportApp(appId, { subject, email });
     const filename = `zenith-${bundle.app.slug}-${bundle.exportedAt.slice(0, 10)}.json`;
     return new NextResponse(`${JSON.stringify(bundle, null, 2)}\n`, {
       status: 200,
@@ -28,5 +27,5 @@ export const GET = route<{ appId: string }>(async (_req, { appId }) =>
         "cache-control": "no-store",
       },
     });
-  })
+  }
 );

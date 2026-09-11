@@ -8,13 +8,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ToastProvider } from "@/components/ui/toast";
-import { PublishPanel } from "@/components/apps/publish-panel";
+import { PublishPanel } from "@/app/(product)/apps/publish-panel";
 import {
   publishBlockedReason,
   rollbackBlockedReason,
   stateChangeBlockedReason,
   type GateInput,
-} from "@/components/apps/gating";
+} from "@/app/(product)/apps/gating";
 import { builder, release } from "./fixtures";
 
 const base: GateInput = {

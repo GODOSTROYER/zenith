@@ -217,10 +217,10 @@ screen, not a grab bag:
 | --- | --- | --- |
 | `p/[slug]/settings/environments.tsx` | 920 | Seven colocated forms (rename, clone, move, new, policy…) for one card. Splits the same way `security/` just did; nobody has needed it yet. |
 | `p/[slug]/revisions/page.tsx` | 853 | `EnvironmentCompare` / `CompareView` / `LeavingNote` are the obvious three siblings. |
-| `components/landing/landing.tsx` | 845 | Marketing surface, one page, its own type scale. Low churn. |
+| `app/_landing/landing.tsx` | 845 | Marketing surface, one page, its own type scale. Low churn. |
 | `p/[slug]/observe/alerts.tsx` | 804 | Nine inline components (rule list, history, four dialogs). The biggest remaining split candidate in the product. |
 | `p/[slug]/source/page.tsx` | 801 | Gutter-synced editor; `WorkingTab` / `DeployedTab` / `IssueList` split cleanly. |
-| `components/landing/hero-canvas.tsx` | 684 | One canvas animation. Nothing to extract that would not be worse. |
+| `app/_landing/hero-canvas.tsx` | 684 | One canvas animation. Nothing to extract that would not be worse. |
 | `components/map/dialogs.tsx` | 554 | Import + blueprint dialogs. Two files if it grows again. |
 | `p/[slug]/settings/page.tsx` | 371 | Was on the split list; it is not large. Left alone. |
 
@@ -302,7 +302,7 @@ which this pass was not allowed to do.
 - **Landing's own copy button and pill tabs** (`landing.tsx:95`, `:333`) —
   duplicate `ui/copy-button.tsx` logic including its failure string, and
   reimplement `ui/tabs.tsx` as rounded pills. Deliberate: the marketing surface
-  has its own look. Written down in `components/landing/README.md`.
+  has its own look. Written down in `app/_landing/README.md`.
 
 ### 7.5 Hand-rolled where the kit already has it
 

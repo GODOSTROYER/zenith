@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { ErrorNote, useSafeToasts } from "@/components/screens/shared";
 import { PageHeading } from "@/components/screens/page-heading";
 import { useShell } from "@/components/shell/shell-context";
-import { SLUG_RULE, deriveSlug, slugProblem } from "@/components/apps/slug";
+import { SLUG_RULE, deriveSlug, slugProblem } from "../slug";
 import { createHostedApp, domainHint, useHostedApps } from "@/lib/client/hosted";
 
 export default function NewAppPage() {

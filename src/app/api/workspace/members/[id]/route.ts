@@ -9,7 +9,7 @@
 import { z } from "zod";
 import { db, save } from "@/lib/db/store";
 import type { Member } from "@/lib/domain/types";
-import { ApiError, requireAdmin, requireWorkspace, route } from "@/lib/server/context";
+import { ApiError, requireWorkspace, route } from "@/lib/server/context";
 
 export const dynamic = "force-dynamic";
 
@@ -29,8 +29,7 @@ const isLastAdmin = (member: Member): boolean =>
   member.role === "admin" &&
   !db().members.some((m) => m.workspaceId === member.workspaceId && m.role === "admin" && m !== member);
 
-export const PATCH = route<{ id: string }>(async (req, { id }) => {
-  await requireAdmin(req);
+export const PATCH = route<{ id: string }>({ workspaceRole: "admin" }, async (req, { id }) => {
   const ws = requireWorkspace();
   const member = find(id, ws.id);
 
@@ -53,8 +52,7 @@ export const PATCH = route<{ id: string }>(async (req, { id }) => {
   return { member };
 });
 
-export const DELETE = route<{ id: string }>(async (req, { id }) => {
-  await requireAdmin(req);
+export const DELETE = route<{ id: string }>({ workspaceRole: "admin" }, async (_req, { id }) => {
   const ws = requireWorkspace();
   const member = find(id, ws.id);
 

@@ -4,7 +4,7 @@ import type { CloudConnection, Deployment, Environment, Project, Workspace } fro
 import { tempDataDir } from "../_support/data-dir";
 
 tempDataDir("orrery-bootstrap-");
-const { resetDb } = await import("@/lib/db/store");
+const { db, resetDb } = await import("@/lib/db/store");
 const { emptyManifest } = await import("@/lib/domain/types");
 const { actionRegistry } = await import("@/lib/actions/core");
 const { GET } = await import("@/app/api/bootstrap/route");
@@ -69,5 +69,46 @@ describe("workspace bootstrap", () => {
     expect(connection.declaredPermissions).not.toEqual(connection.grantedPermissions);
     expect(connection.declaredPermissions?.join(" ")).toMatch(/AWS access|Preview/i);
     expect(connection.lastCheckedAt).toBe("2026-01-02");
+  });
+
+  it("answers 304 to a matching if-none-match, and 200 again once the payload moves", async () => {
+    const first = await GET(new NextRequest("http://localhost/api/bootstrap"), {
+      params: Promise.resolve({}),
+    });
+    expect(first.status).toBe(200);
+    const etag = first.headers.get("etag");
+    expect(etag).toMatch(/^W\/"[0-9a-f]{8}"$/);
+
+    const conditional = async (tag: string) =>
+      GET(
+        new NextRequest("http://localhost/api/bootstrap", { headers: { "if-none-match": tag } }),
+        { params: Promise.resolve({}) }
+      );
+
+    const unchanged = await conditional(etag!);
+    expect(unchanged.status).toBe(304);
+    expect(unchanged.headers.get("etag")).toBe(etag);
+    // A 304 carries no body, and must not become a cacheable one either.
+    expect(unchanged.headers.get("cache-control")).toBe("no-store");
+    expect(await unchanged.text()).toBe("");
+
+    // A stale tag is a normal read, not a refusal.
+    const stale = await conditional('W/"00000000"');
+    expect(stale.status).toBe(200);
+    expect(stale.headers.get("etag")).toBe(etag);
+
+    // And the tag really tracks the payload.
+    db().projects.push({
+      id: "p3",
+      workspaceId: "ws1",
+      name: "three",
+      slug: "three",
+      workingManifest: emptyManifest(),
+      origin: { type: "blank" },
+      createdAt: "2026-01-03",
+    } as Project);
+    const moved = await conditional(etag!);
+    expect(moved.status).toBe(200);
+    expect(moved.headers.get("etag")).not.toBe(etag);
   });
 });

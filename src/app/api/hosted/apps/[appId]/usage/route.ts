@@ -10,19 +10,19 @@
  *
  * Workstream W8 (hosted R3).
  */
-import { DEFAULT_LIMITS, HostedError } from "@/lib/hosted/contracts";
+import { DEFAULT_LIMITS, HostedError, type HostedUsage } from "@/lib/hosted/contracts";
 import { authority } from "@/lib/hosted/authority";
 import { hostedConfig } from "@/lib/hosted/config";
 import { ENFORCEMENT_LABELS, enforcementFor, quotaSummary } from "@/lib/hosted/quota";
 import { RATE_TABLE, SPEND_DISCLOSURE, usageSummary } from "@/lib/hosted/usage";
-import { intParam, route } from "@/lib/server/context";
-import { hosted, requireAppOwner } from "@/app/api/hosted/ops/_http";
+import { intParam } from "@/lib/server/context";
+import { hostedRoute } from "@/lib/server/hosted";
 
 export const dynamic = "force-dynamic";
 
-export const GET = route<{ appId: string }>(async (req, { appId }) =>
-  hosted(async () => {
-    requireAppOwner(appId);
+export const GET = hostedRoute<{ appId: string }>(
+  { appRole: "owner", refusal: "not_found" },
+  async (req, { appId }): Promise<HostedUsage> => {
     const app = authority().repos.apps.get(appId);
     if (!app)
       throw new HostedError("not_found", `No hosted app has the id ${appId}.`, {
@@ -42,5 +42,5 @@ export const GET = route<{ appId: string }>(async (req, { appId }) =>
       rateTable: RATE_TABLE,
       disclosure: SPEND_DISCLOSURE,
     };
-  })
+  }
 );

@@ -400,6 +400,7 @@ export function resetDb(data?: Partial<Database>): Database {
   g.__orreryDb = { ...structuredClone(EMPTY), ...data };
   ensureDir();
   for (const f of [EVENTS, AUDIT]) if (fs.existsSync(f)) fs.unlinkSync(f);
+  auditCounts().clear();
   // Cold storage too, and before the flush: `data` may carry inline manifests
   // (the seed script does), and those are what the flush writes back out.
   fs.rmSync(MANIFESTS, { recursive: true, force: true });
@@ -424,11 +425,27 @@ interface EventTail {
   /** bytes of EVENTS already parsed into `events` */
   pos: number;
   events: DeploymentEvent[];
+  /**
+   * The same events, bucketed by deployment. The SSE route polls per client
+   * every 300ms and only ever wants one deployment, so a reader takes its own
+   * bucket instead of filtering the whole 5,000-event tail each tick. Kept in
+   * step with `events`: appended in the same loop, rebuilt when the tail is
+   * sliced.
+   */
+  byDeployment: Map<string, DeploymentEvent[]>;
   /** trailing bytes that are not yet a complete line */
   carry: Buffer;
   /** true once old events have been evicted from `events` */
   evicted: boolean;
 }
+
+const emptyTail = (): EventTail => ({
+  pos: 0,
+  events: [],
+  byDeployment: new Map(),
+  carry: Buffer.alloc(0),
+  evicted: false,
+});
 
 /** ponytail: cap the in-memory tail; older reads fall back to a file scan. */
 const TAIL_MAX = 5_000;
@@ -437,13 +454,13 @@ type GE = typeof globalThis & { __orreryEventTail?: EventTail };
 
 function eventTail(): EventTail {
   const g = globalThis as GE;
-  const t = (g.__orreryEventTail ??= { pos: 0, events: [], carry: Buffer.alloc(0), evicted: false });
+  const t = (g.__orreryEventTail ??= emptyTail());
   if (!fs.existsSync(EVENTS)) {
-    if (t.pos) Object.assign(t, { pos: 0, events: [], carry: Buffer.alloc(0), evicted: false });
+    if (t.pos) Object.assign(t, emptyTail());
     return t;
   }
   const size = fs.statSync(EVENTS).size;
-  if (size < t.pos) Object.assign(t, { pos: 0, events: [], carry: Buffer.alloc(0), evicted: false });
+  if (size < t.pos) Object.assign(t, emptyTail());
   if (size === t.pos) return t;
 
   const fd = fs.openSync(EVENTS, "r");
@@ -461,7 +478,11 @@ function eventTail(): EventTail {
     for (const line of chunk.subarray(0, lastNl).toString("utf8").split("\n")) {
       if (!line) continue;
       try {
-        t.events.push(JSON.parse(line) as DeploymentEvent);
+        const e = JSON.parse(line) as DeploymentEvent;
+        t.events.push(e);
+        const bucket = t.byDeployment.get(e.deploymentId);
+        if (bucket) bucket.push(e);
+        else t.byDeployment.set(e.deploymentId, [e]);
       } catch {
         /* skip torn line */
       }
@@ -472,6 +493,14 @@ function eventTail(): EventTail {
   if (t.events.length > TAIL_MAX) {
     t.events = t.events.slice(-TAIL_MAX);
     t.evicted = true;
+    // Rebuild the buckets from what survived: a deployment whose events all
+    // aged out must lose its bucket too, or the index would outgrow the tail.
+    t.byDeployment = new Map();
+    for (const e of t.events) {
+      const bucket = t.byDeployment.get(e.deploymentId);
+      if (bucket) bucket.push(e);
+      else t.byDeployment.set(e.deploymentId, [e]);
+    }
   }
   return t;
 }
@@ -493,7 +522,7 @@ function scanEvents(deploymentId: string, afterSeq: number): DeploymentEvent[] {
 
 export function readEvents(deploymentId: string, afterSeq = -1): DeploymentEvent[] {
   const t = eventTail();
-  const hit = t.events.filter((e) => e.deploymentId === deploymentId && e.seq > afterSeq);
+  const hit = (t.byDeployment.get(deploymentId) ?? []).filter((e) => e.seq > afterSeq);
   // The tail answers everything unless events older than the cursor were evicted.
   if (!t.evicted || (hit.length > 0 && hit[0].seq === afterSeq + 1)) return hit;
   return scanEvents(deploymentId, afterSeq);
@@ -554,31 +583,100 @@ const matches = (e: AuditEvent, f: AuditFilter): boolean =>
  */
 const AUDIT_COUNT_BUDGET = 4 << 20;
 
-export function countAudit(filter: AuditFilter = {}): { total: number; exact: boolean } {
-  if (!fs.existsSync(AUDIT)) return { total: 0, exact: true };
-  const size = fs.statSync(AUDIT).size;
-  const start = Math.max(0, size - AUDIT_COUNT_BUDGET);
-  const fd = fs.openSync(AUDIT, "r");
+/**
+ * What a previous count of one filter saw, so the next one does not re-read
+ * the log. The activity screen polls every 10s per tab and the log only ever
+ * grows, so the honest incremental answer is: nothing appended → the same
+ * number; bytes appended → count those bytes and add the delta.
+ */
+interface AuditCount {
+  /** bytes of AUDIT already counted — always the end of a complete line */
+  counted: number;
+  total: number;
+  exact: boolean;
+}
+
+/** ponytail: one entry per distinct filter; LRU by insertion order. */
+const AUDIT_COUNT_CACHE_MAX = 64;
+
+type GAC = typeof globalThis & { __orreryAuditCounts?: Map<string, AuditCount> };
+const auditCounts = (): Map<string, AuditCount> =>
+  ((globalThis as GAC).__orreryAuditCounts ??= new Map());
+
+function rememberCount(key: string, c: AuditCount): { total: number; exact: boolean } {
+  const cache = auditCounts();
+  cache.delete(key);
+  cache.set(key, c);
+  if (cache.size > AUDIT_COUNT_CACHE_MAX) cache.delete(cache.keys().next().value as string);
+  return { total: c.total, exact: c.exact };
+}
+
+/**
+ * Count matching rows in `[start, end)`. Only whole lines are counted and
+ * `consumed` reports where the last one ended — a record still being appended
+ * is left for the next call, which is what makes `consumed` safe to cache.
+ */
+function countRange(
+  fd: number,
+  start: number,
+  end: number,
+  filter: AuditFilter,
+  dropFirst: boolean
+): { total: number; consumed: number } {
+  if (end <= start) return { total: 0, consumed: start };
+  const buf = Buffer.allocUnsafe(end - start);
+  fs.readSync(fd, buf, 0, buf.length, start);
+  const lastNl = buf.lastIndexOf(10);
+  if (lastNl < 0) return { total: 0, consumed: start };
+  const lines = buf.subarray(0, lastNl).toString("utf8").split("\n");
+  // A partial first line (we may have cut mid-record) is dropped, not guessed.
+  if (dropFirst) lines.shift();
   let total = 0;
-  try {
-    const buf = Buffer.allocUnsafe(size - start);
-    fs.readSync(fd, buf, 0, buf.length, start);
-    const text = buf.toString("utf8");
-    // A partial first line (we may have cut mid-record) is dropped, not guessed.
-    const lines = text.split("\n");
-    if (start > 0) lines.shift();
-    for (const line of lines) {
-      if (!line) continue;
-      try {
-        if (matches(JSON.parse(line) as AuditEvent, filter)) total++;
-      } catch {
-        /* skip torn line */
-      }
+  for (const line of lines) {
+    if (!line) continue;
+    try {
+      if (matches(JSON.parse(line) as AuditEvent, filter)) total++;
+    } catch {
+      /* skip torn line */
     }
+  }
+  return { total, consumed: start + lastNl + 1 };
+}
+
+export function countAudit(filter: AuditFilter = {}): { total: number; exact: boolean } {
+  const key = JSON.stringify(filter);
+  if (!fs.existsSync(AUDIT)) {
+    auditCounts().delete(key);
+    return { total: 0, exact: true };
+  }
+  const size = fs.statSync(AUDIT).size;
+  const hit = auditCounts().get(key);
+  // Same bytes as last time, so the same answer — no read at all.
+  if (hit && hit.counted === size) return { total: hit.total, exact: hit.exact };
+
+  const fd = fs.openSync(AUDIT, "r");
+  try {
+    // Grew, and the whole log still fits the budget: count the appended bytes
+    // and add the delta. Past the budget the 4 MB window slides, so rows leave
+    // it from the front too and only a full rescan can stay honest.
+    if (hit && hit.exact && size > hit.counted && size <= AUDIT_COUNT_BUDGET) {
+      const added = countRange(fd, hit.counted, size, filter, false);
+      return rememberCount(key, {
+        counted: added.consumed,
+        total: hit.total + added.total,
+        exact: true,
+      });
+    }
+    const start = Math.max(0, size - AUDIT_COUNT_BUDGET);
+    const scan = countRange(fd, start, size, filter, start > 0);
+    return rememberCount(key, {
+      counted: scan.consumed,
+      total: scan.total,
+      exact: start === 0,
+    });
   } finally {
     fs.closeSync(fd);
   }
-  return { total, exact: start === 0 };
 }
 
 /**

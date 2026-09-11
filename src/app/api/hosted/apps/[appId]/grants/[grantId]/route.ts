@@ -14,13 +14,8 @@
  */
 import { z } from "zod";
 import { changeGrantRole, revokeGrant } from "@/lib/hosted/access";
-import {
-  RoleSchema,
-  hostedRoute,
-  readJsonBody,
-  readOptionalJsonBody,
-  verifiedOwner,
-} from "@/lib/hosted/access/http";
+import type { AppGrantWire, GrantRevokedWire } from "@/lib/hosted/contracts";
+import { RoleSchema, hostedRoute, readJsonBody } from "@/lib/server/hosted";
 
 export const dynamic = "force-dynamic";
 
@@ -31,18 +26,18 @@ const Revoke = z
   .strict();
 
 export const PATCH = hostedRoute<{ appId: string; grantId: string }>(
-  async (req, { appId, grantId }) => {
-    const { identity } = await verifiedOwner(req, appId);
+  { appRole: "owner", verify: "live" },
+  async (req, { appId, grantId }, { subject }): Promise<AppGrantWire> => {
     const { role } = await readJsonBody(req, RoleChange);
-    return { grant: changeGrantRole(grantId, role, identity.subject, { appId }) };
+    return { grant: changeGrantRole(grantId, role, subject, { appId }) };
   }
 );
 
 export const DELETE = hostedRoute<{ appId: string; grantId: string }>(
-  async (req, { appId, grantId }) => {
-    const { identity } = await verifiedOwner(req, appId);
-    const { reason } = await readOptionalJsonBody(req, Revoke);
-    const revoked = revokeGrant(grantId, identity.subject, reason, { appId });
+  { appRole: "owner", verify: "live" },
+  async (req, { appId, grantId }, { subject }): Promise<GrantRevokedWire> => {
+    const { reason } = await readJsonBody(req, Revoke, { optional: true });
+    const revoked = revokeGrant(grantId, subject, reason, { appId });
     return {
       grant: revoked.grant,
       sessionsTerminated: revoked.sessionsTerminated,

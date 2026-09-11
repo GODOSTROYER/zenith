@@ -17,6 +17,7 @@ import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { ErrorNote } from "@/components/screens/shared";
+import { useAsync } from "@/components/screens/use-async";
 import { createInvite, type IssuedInvite } from "@/lib/client/hosted";
 import type { AppRole } from "@/lib/hosted/contracts";
 import { APP_ROLE_OPTIONS, APP_ROLE_TEXT } from "./labels";
@@ -35,8 +36,7 @@ const looksLikeEmail = (value: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.
 export function InviteForm({ appId, appName, disabledReason, onInvited }: InviteFormProps) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<AppRole>("viewer");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<unknown>();
+  const { busy, error, run } = useAsync<void>();
   const [result, setResult] = useState<IssuedInvite | null>(null);
 
   const trimmed = email.trim();
@@ -48,20 +48,13 @@ export function InviteForm({ appId, appName, disabledReason, onInvited }: Invite
         ? `“${trimmed}” is not an email address. Invitations only work for an address the person can prove is theirs.`
         : undefined);
 
-  const submit = async () => {
-    setBusy(true);
-    setError(undefined);
-    try {
+  const submit = () =>
+    run(async () => {
       const invited = await createInvite(appId, { email: trimmed.toLowerCase(), role });
       setResult(invited);
       setEmail("");
       onInvited();
-    } catch (cause) {
-      setError(cause);
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   return (
     <form

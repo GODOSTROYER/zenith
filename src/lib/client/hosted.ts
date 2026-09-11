@@ -19,66 +19,56 @@ import { useEffect, useMemo, useState } from "react";
 import { api, useJson, type Loadable } from "@/lib/client/api";
 import { downloadFile } from "@/components/screens/download-file";
 import type {
+  AcceptResult,
   AppGrant,
   AppInvite,
   AppRole,
-  AppState,
-  Availability,
-  BuildRunnerId,
+  AppSummaryWire,
+  BuilderInfo,
   HostedApp,
+  HostedAppsWire,
+  HostedHealth,
   HostedJob,
+  HostedJobPayload,
   HostedLimits,
-  InviteDelivery,
+  HostedSpendingPayload,
+  HostedUsage,
+  IssuedInviteWire,
+  JobAccepted,
   JobStatus,
   LimitEnforcement,
-  QuotaCounter,
   Release,
-  RuntimeId,
-  UsageEntry,
+  RuntimeInfo,
 } from "@/lib/hosted/contracts";
 
 /* ------------------------------ wire shapes ------------------------------- */
 
-/** The runtime serving app hosts, describing itself. Shown word for word. */
-export interface RuntimeInfo {
-  id: RuntimeId;
-  label: string;
-  availability: Availability;
-}
-
-/** One build runner this install knows about, and its own isolation sentence. */
-export interface BuilderInfo {
-  id: BuildRunnerId;
-  label: string;
-  boundary: string;
-  availability: Availability;
-}
-
-/** `GET /api/hosted/apps/:id`, and one entry of the apps list. */
-export interface AppSummaryWire {
-  app: HostedApp;
-  activeRelease: Release | null;
-  releases: Release[];
-  runningJob: HostedJob | null;
-  recentJobs: HostedJob[];
-  hostname: string;
-  origin: string;
-  /** owner only — its presence is how the caller learns they are one */
-  grants?: AppGrant[];
-  invites?: AppInvite[];
-}
-
-export interface HostedAppsWire {
-  apps: AppSummaryWire[];
-  limits: HostedLimits;
-  /** null when the runtime could not be reached to ask */
-  enforcement: LimitEnforcement | null;
-  runtime: RuntimeInfo;
-  builder: BuilderInfo[];
-  /** not sent today; read when the API starts sending it */
-  appDomain?: string;
-  appScheme?: string;
-}
+/**
+ * The response bodies are declared once, in `@/lib/hosted/contracts/wire`, and
+ * each hosted route annotates its return with the same type — so a field this
+ * module reads and the API stopped sending is a compile error rather than an
+ * `undefined` on a screen. They are re-exported here because every screen has
+ * always imported them from this module.
+ */
+export type {
+  AcceptResult,
+  AppSummaryWire,
+  BuilderInfo,
+  EnforcementKey,
+  EventDigest,
+  HostedAppsWire,
+  HostedHealth,
+  HostedJobPayload,
+  HostedSpendingPayload,
+  HostedUsage,
+  IssuedInviteWire as IssuedInvite,
+  JobAccepted,
+  QuotaSummary,
+  RuntimeInfo,
+  SpendingStatus,
+  ThresholdState,
+  UsageSummary,
+} from "@/lib/hosted/contracts";
 
 /* ------------------------------ view models ------------------------------- */
 
@@ -116,118 +106,7 @@ export interface HostedAppView {
   isOwner: boolean;
 }
 
-/* --------------------------- health, usage, spend -------------------------- */
-
-/** What the app's own event rows said over the last day. Counts, not a log. */
-export interface EventDigest {
-  since: string;
-  total: number;
-  writes: number;
-  denials: number;
-  conflicts: number;
-  errors: number;
-  byEvent: Record<string, number>;
-}
-
-export interface HostedHealth {
-  /** the health route measures; it never generates a result */
-  simulated: boolean;
-  appId: string;
-  slug: string;
-  state: AppState;
-  stateReason?: string;
-  checkedAt: string;
-  runtime: { id: RuntimeId; label: string; enforcement: LimitEnforcement };
-  /** the release the checks were run against, or null when nothing is serving */
-  release: { id: string; number: number; digest: string } | null;
-  ok: boolean;
-  checks: { id: string; ok: boolean; detail: string }[];
-  lastEvents: EventDigest;
-  quota: { day: string; requests: number; denied: number; limit: number };
-}
-
-export interface QuotaSummary {
-  appId: string;
-  today: string;
-  current: QuotaCounter;
-  limit: number;
-  days: QuotaCounter[];
-  /** how the number was produced — shown verbatim */
-  disclosure: string;
-}
-
-export interface UsageSummary {
-  workspaceId: string;
-  since: string;
-  byKind: {
-    kind: UsageEntry["kind"];
-    amount: number;
-    entries: number;
-    estimatedUsd: number;
-    unit: string;
-    basis: string;
-  }[];
-  estimatedUsd: number;
-  invoicedUsd: number;
-  disclosure: string;
-}
-
-export type EnforcementKey = LimitEnforcement[keyof HostedLimits];
-
-export interface HostedUsage {
-  quota: QuotaSummary;
-  usage: UsageSummary;
-  limits: HostedLimits;
-  enforcement: LimitEnforcement;
-  /** the API's own words for each enforcement value */
-  enforcementLabels: Record<EnforcementKey, string>;
-  disclosure: string;
-}
-
-export interface ThresholdState {
-  threshold: number;
-  crossed: boolean;
-  crossedAt?: string;
-}
-
-export interface SpendingStatus {
-  workspaceId: string;
-  month: string;
-  since: string;
-  envelopeUsd: number;
-  /** an estimate, never a bill */
-  estimatedUsd: number;
-  fraction: number;
-  thresholds: Record<string, ThresholdState>;
-  buildsPaused: { paused: boolean; reason: string };
-  usage: UsageSummary;
-  disclosure: string;
-}
-
-export interface HostedSpendingPayload {
-  workspace: { id: string; name: string };
-  spending: SpendingStatus;
-  alertsRaised: number[];
-  disclosure: string;
-}
-
 /* --------------------------------- jobs ----------------------------------- */
-
-/**
- * A job's kept output. The runner stores each line as `<iso> <text>`, so the
- * timestamp is split off for display rather than shown inside the message.
- */
-export interface HostedJobPayload {
-  job: HostedJob;
-  logs: string[];
-}
-
-export interface JobAccepted {
-  job: HostedJob;
-  jobId: string;
-  /** false when this job id already existed: the same intent was replayed */
-  created: boolean;
-}
 
 export type FixtureName = "tracker-app" | "minimal-app";
 
@@ -235,19 +114,6 @@ export type FixtureName = "tracker-app" | "minimal-app";
 export type PublishSource =
   | { kind: "fixture"; name: FixtureName }
   | { kind: "tarball"; base64: string };
-
-export interface IssuedInvite {
-  invite: AppInvite;
-  delivery: InviteDelivery;
-  /** in clear, this once only */
-  acceptUrl: string;
-}
-
-export interface AcceptResult {
-  app: { id: string; slug: string; name: string };
-  grant: AppGrant;
-  launchUrl: string;
-}
 
 /* -------------------------------- helpers --------------------------------- */
 
@@ -519,11 +385,11 @@ export const revokeGrant = (
 export const createInvite = (
   appId: string,
   input: { email: string; role: AppRole }
-): Promise<IssuedInvite> =>
-  post<IssuedInvite>(`/api/hosted/apps/${encodeURIComponent(appId)}/invites`, input);
+): Promise<IssuedInviteWire> =>
+  post<IssuedInviteWire>(`/api/hosted/apps/${encodeURIComponent(appId)}/invites`, input);
 
-export const resendInvite = (appId: string, inviteId: string): Promise<IssuedInvite> =>
-  post<IssuedInvite>(
+export const resendInvite = (appId: string, inviteId: string): Promise<IssuedInviteWire> =>
+  post<IssuedInviteWire>(
     `/api/hosted/apps/${encodeURIComponent(appId)}/invites/${encodeURIComponent(inviteId)}/resend`,
     {}
   );

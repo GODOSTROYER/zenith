@@ -3,12 +3,11 @@
  *
  *   DELETE /api/workspace/invites/:id → { revoked: Invite }
  */
-import { ApiError, readInvites, requireAdmin, requireWorkspace, route, writeInvites } from "@/lib/server/context";
+import { ApiError, readInvites, requireWorkspace, route, writeInvites } from "@/lib/server/context";
 
 export const dynamic = "force-dynamic";
 
-export const DELETE = route<{ id: string }>(async (req, { id }) => {
-  await requireAdmin(req);
+export const DELETE = route<{ id: string }>({ workspaceRole: "admin" }, async (_req, { id }) => {
   const ws = requireWorkspace();
   const invites = readInvites();
   const invite = invites.find((i) => i.id === id && i.workspaceId === ws.id);

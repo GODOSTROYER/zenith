@@ -3,13 +3,13 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Manifest } from "@/lib/domain/types";
 import { diffManifests } from "@/lib/domain/graph";
-import { CURRENT_DEMO_MANIFEST, PROPOSED_DEMO_MANIFEST, DEMO_COST, DEMO_STEPS, demoApi, demoSource } from "@/components/landing/demo-fixture";
-import { deriveDemo, initialDemoState, revisionDemoReducer, useRevisionDemo, type DemoState } from "@/components/landing/use-revision-demo";
-import { ChangeDemo } from "@/components/landing/change-demo";
-import { ModelSurfaces } from "@/components/landing/model-surfaces";
+import { CURRENT_DEMO_MANIFEST, PROPOSED_DEMO_MANIFEST, DEMO_COST, DEMO_STEPS, demoApi, demoSource } from "@/app/_landing/demo-fixture";
+import { deriveDemo, initialDemoState, revisionDemoReducer, useRevisionDemo, type DemoState } from "@/app/_landing/use-revision-demo";
+import { ChangeDemo } from "@/app/_landing/change-demo";
+import { ModelSurfaces } from "@/app/_landing/model-surfaces";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-vi.mock("@/components/landing/revision-scene", () => ({ RevisionScene: ({ phase }: { phase: string }) => <div data-scene-phase={phase} /> }));
+vi.mock("@/app/_landing/revision-scene", () => ({ RevisionScene: ({ phase }: { phase: string }) => <div data-scene-phase={phase} /> }));
 let root: Root | undefined;
 let host: HTMLDivElement | undefined;
 function Harness() { const demo = useRevisionDemo(); return <><ChangeDemo demo={demo} /><ModelSurfaces demo={demo} /></>; }

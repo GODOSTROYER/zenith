@@ -9,33 +9,26 @@
  * Workstream W7 (hosted R3).
  */
 import { z } from "zod";
-import {
-  accepted,
-  actorOf,
-  executeHosted,
-  hostedRoute,
-  readBody,
-  requireWorkspaceRole,
-} from "@/lib/hosted/release/http";
+import type { JobAccepted } from "@/lib/hosted/contracts";
+import { accepted, executeHosted, hostedRoute, readJsonBody } from "@/lib/server/hosted";
 import { buildCtx } from "@/lib/server/context";
 
 export const dynamic = "force-dynamic";
 
 const SuspendBody = z.object({ jobId: z.string().uuid(), reason: z.string().trim().max(300).optional() });
 
-export const POST = hostedRoute<{ appId: string }>(async (req, { appId }) => {
-  const actor = await actorOf(req);
-  requireWorkspaceRole(actor, "admin");
-  const body = await readBody(
-    req,
-    SuspendBody,
-    'POST { "jobId": "<uuid you generate>", "reason": "why this app is being suspended" }.'
-  );
-  const result = await executeHosted(
-    "app.suspend",
-    buildCtx({}, actor),
-    { appId, jobId: body.jobId, reason: body.reason }
-  );
-  const data = result.data as { job: unknown; jobId: string; created: boolean };
-  return accepted({ job: data.job, jobId: data.jobId, created: data.created });
-});
+export const POST = hostedRoute<{ appId: string }>(
+  { workspaceRole: "admin" },
+  async (req, { appId }, { actor }) => {
+    const body = await readJsonBody(req, SuspendBody, {
+      fix: 'POST { "jobId": "<uuid you generate>", "reason": "why this app is being suspended" }.',
+    });
+    const result = await executeHosted(
+      "app.suspend",
+      buildCtx({}, actor),
+      { appId, jobId: body.jobId, reason: body.reason }
+    );
+    const data = result.data as JobAccepted;
+    return accepted({ job: data.job, jobId: data.jobId, created: data.created });
+  }
+);

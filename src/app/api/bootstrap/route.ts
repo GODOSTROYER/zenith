@@ -1,13 +1,23 @@
-/** Single call the app shell hydrates from. */
+/**
+ * Single call the app shell hydrates from.
+ *
+ * Polled every 10s per open tab, so two things about it are deliberate:
+ *  - the action catalog and the provider list are projections of registries
+ *    that boot fills and nothing writes to afterwards, so they are built once;
+ *  - an unchanged payload answers `304 Not Modified` to `If-None-Match`, which
+ *    is most polls — a workspace's shape rarely moves between two of them.
+ */
 import type { Role } from "@/lib/actions/core";
 import { actionRegistry } from "@/lib/actions/core";
 import { publicChannels, type PublicAlertChannel } from "@/lib/alerts/channels";
 import { db } from "@/lib/db/store";
-import type { AutonomyLevel, Workspace } from "@/lib/domain/types";
+import type { AutonomyLevel, ProviderId, Workspace } from "@/lib/domain/types";
+import { hash32 } from "@/lib/domain/hash";
 import { providerRegistry } from "@/lib/providers/types";
 import {
   currentRequest,
   demoActor,
+  json,
   readAutonomy,
   requireWorkspace,
   route,
@@ -15,6 +25,56 @@ import {
   workspacesFor,
 } from "@/lib/server/context";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+
+/**
+ * A projection of a registry, computed on first use and kept.
+ *
+ * Both registries are filled by boot and read forever after, so rebuilding
+ * their display projections per poll is work with a constant answer. The
+ * registry's identity *and* its size are the cache key rather than a "booted"
+ * flag: a test that installs its own registry, or registers one more entry
+ * into this one, is seen on the next call instead of being served a stale list.
+ */
+function projection<K, V, T>(registry: () => Map<K, V>, build: (m: Map<K, V>) => T): () => T {
+  let memo: { from: Map<K, V>; size: number; value: T } | undefined;
+  return () => {
+    const m = registry();
+    if (memo && memo.from === m && memo.size === m.size) return memo.value;
+    const value = build(m);
+    memo = { from: m, size: m.size, value };
+    return value;
+  };
+}
+
+/** Display fields only; page layouts never need the execution graph itself. */
+const catalog = projection(actionRegistry, (m) =>
+  [...m.values()]
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .map(({ id, title, category, risk, requiredRole }) => ({
+      id,
+      title,
+      category,
+      risk,
+      requiredRole,
+    }))
+);
+
+/** availability drives every label in the UI — never presented as available */
+const providers = projection(providerRegistry, (m) =>
+  [...m.values()].map((p) => ({
+    id: p.id,
+    displayName: p.displayName,
+    availability: p.availability,
+    tagline: p.tagline,
+    regions: p.regions,
+  }))
+);
+
+/** Today's declared permissions per provider — metadata, not a live check. */
+const declaredPermissions = projection(
+  providerRegistry,
+  (m) => new Map<ProviderId, string[]>([...m].map(([id, p]) => [id, p.accessExplanation().permissions]))
+);
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +120,7 @@ interface BootstrapSettings {
   alertChannels: PublicAlertChannel[];
 }
 
-export const GET = route(async () => {
+export const GET = route(async (req) => {
   const state = currentRequest();
   const user = state?.user ?? null;
   // A signed-in stranger is refused by name here (requireWorkspace throws the
@@ -105,13 +165,12 @@ export const GET = route(async () => {
     alertChannels: publicChannels(workspace.id),
   };
 
-  return {
+  const permissions = declaredPermissions();
+
+  const body = {
     workspace,
-    // Boot already registered these handlers. Serialize display fields only;
-    // page layouts never need to import the execution graph themselves.
-    catalog: [...actionRegistry().values()]
-      .sort((a, b) => a.id.localeCompare(b.id))
-      .map(({ id, title, category, risk, requiredRole }) => ({ id, title, category, risk, requiredRole })),
+    // Boot already registered these handlers; see `catalog` above.
+    catalog: catalog(),
     workspaces,
     projects,
     environments,
@@ -125,21 +184,22 @@ export const GET = route(async () => {
         ...c,
         // Presentation alias only. Do not rename stored/user-defined connections.
         label: c.provider === "sandbox" && c.label === "Orrery Sandbox" ? "Zenith Sandbox" : c.label,
-        declaredPermissions:
-          providerRegistry().get(c.provider)?.accessExplanation().permissions ?? c.grantedPermissions,
+        declaredPermissions: permissions.get(c.provider) ?? c.grantedPermissions,
       })),
-    /** availability drives every label in the UI — never presented as available */
-    providers: [...providerRegistry().values()].map((p) => ({
-      id: p.id,
-      displayName: p.displayName,
-      availability: p.availability,
-      tagline: p.tagline,
-      regions: p.regions,
-    })),
+    providers: providers(),
     settings,
     user,
     role,
     auth: { configured: isSupabaseConfigured() },
     members: d.members.filter((m) => m.workspaceId === workspace.id),
   };
+
+  // The literal above fixes key order, so a plain stringify is a stable digest.
+  const etag = `W/"${hash32(JSON.stringify(body))}"`;
+  if (req.headers.get("if-none-match") === etag)
+    return new Response(null, { status: 304, headers: { etag, "cache-control": "no-store" } });
+
+  const res = json(body);
+  res.headers.set("etag", etag);
+  return res;
 });

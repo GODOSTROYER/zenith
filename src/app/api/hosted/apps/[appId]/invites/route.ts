@@ -10,14 +10,8 @@
  */
 import { z } from "zod";
 import { createInvite, listInvites, scheduleInviteDelivery } from "@/lib/hosted/access";
-import {
-  RoleSchema,
-  hostedJson,
-  hostedRoute,
-  readJsonBody,
-  signedInOwner,
-  verifiedOwner,
-} from "@/lib/hosted/access/http";
+import type { AppInvitesWire, IssuedInviteWire } from "@/lib/hosted/contracts";
+import { RoleSchema, hostedJson, hostedRoute, readJsonBody } from "@/lib/server/hosted";
 
 export const dynamic = "force-dynamic";
 
@@ -28,16 +22,18 @@ const NewInvite = z
   })
   .strict();
 
-export const GET = hostedRoute<{ appId: string }>(async (_req, { appId }) => {
-  signedInOwner(appId);
-  return { invites: listInvites(appId) };
-});
+export const GET = hostedRoute<{ appId: string }>(
+  { appRole: "owner", verify: "session" },
+  async (_req, { appId }): Promise<AppInvitesWire> => ({ invites: listInvites(appId) })
+);
 
-export const POST = hostedRoute<{ appId: string }>(async (req, { appId }) => {
-  const { identity } = await verifiedOwner(req, appId);
-  const body = await readJsonBody(req, NewInvite);
-  const issued = createInvite(appId, body, identity.subject);
-  // The row is committed; the email is an effect performed after the answer.
-  scheduleInviteDelivery();
-  return hostedJson(issued, 201);
-});
+export const POST = hostedRoute<{ appId: string }>(
+  { appRole: "owner", verify: "live" },
+  async (req, { appId }, { subject }) => {
+    const body = await readJsonBody(req, NewInvite);
+    const issued: IssuedInviteWire = createInvite(appId, body, subject);
+    // The row is committed; the email is an effect performed after the answer.
+    scheduleInviteDelivery();
+    return hostedJson(issued, 201);
+  }
+);

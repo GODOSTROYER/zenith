@@ -7,7 +7,7 @@
 import type { Metadata } from "next";
 import { ensureEngine } from "@/lib/engine/engine";
 import { providerRegistry } from "@/lib/providers/types";
-import { Landing, type ProviderRow } from "@/components/landing/landing";
+import { Landing, type ProviderRow } from "@/app/_landing/landing";
 
 const TITLE = "Zenith — see the change before you ship";
 const DESCRIPTION =
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
  * What used to make it dynamic was the CTA: it needed the session
  * (`getSessionUser`, which reads cookies) and the workspace count (`db()`).
  * Both moved to `GET /api/me`, which the CTA fetches for itself — see
- * components/landing/cta.tsx. Nothing left in this file reads a request.
+ * app/_landing/cta.tsx. Nothing left in this file reads a request.
  *
  * The provider honesty table still comes from the registry, now read at build
  * time, which is the honest source either way: the registry is populated by

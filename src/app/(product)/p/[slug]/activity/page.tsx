@@ -26,7 +26,7 @@ import {
   ACTOR_LABEL,
   type ActorFilter,
   type ResultFilter,
-} from "./filters-bar";
+} from "./activity-filters-bar";
 import { dedupe, groupByDay, inDateRange, toCsv } from "./rows";
 
 const PAGE_SIZE = 50;

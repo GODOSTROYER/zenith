@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { ToastProvider } from "@/components/ui/toast";
-import { ReleasesTable } from "@/components/apps/releases-table";
+import { ReleasesTable } from "@/app/(product)/apps/releases-table";
 import { ISO, release } from "./fixtures";
 import type { Release } from "@/lib/hosted/contracts";
 

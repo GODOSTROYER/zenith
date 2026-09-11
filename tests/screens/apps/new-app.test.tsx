@@ -9,7 +9,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import type { ReactNode } from "react";
 import { ToastProvider } from "@/components/ui/toast";
-import { deriveSlug, slugProblem } from "@/components/apps/slug";
+import { deriveSlug, slugProblem } from "@/app/(product)/apps/slug";
 import { listPayload, loaded, shell } from "./fixtures";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

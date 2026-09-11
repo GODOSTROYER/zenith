@@ -45,6 +45,7 @@ import {
 } from "@/lib/domain/types";
 import { environmentHealth } from "@/lib/logsim";
 import { log } from "@/lib/log";
+import { isServerless } from "@/lib/serverless";
 import { findChannel } from "./channels";
 import { queueDelivery } from "./deliver";
 
@@ -590,6 +591,10 @@ export function startAlertEvaluator(): void {
     }
   };
   pass(); // re-derive open state immediately after a restart
+  // A serverless instance is frozen between requests, so the pass above — run
+  // on every fresh instance, which is what boot is there — is the whole
+  // evaluator there. A timer would only fire against a `/tmp` nobody else sees.
+  if (isServerless()) return;
   g.__orreryAlertTimer = setInterval(pass, EVALUATION_INTERVAL_MS);
   (g.__orreryAlertTimer as { unref?: () => void }).unref?.();
 }

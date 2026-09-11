@@ -19,8 +19,8 @@ import { Meter } from "@/components/ui/meter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorNote, SectionTitle } from "@/components/screens/shared";
 import { fmtUsd } from "@/lib/format";
-import { LimitsTable } from "@/components/apps/limits-table";
-import { fmtBytes, fmtCount } from "@/components/apps/limits";
+import { LimitsTable } from "../limits-table";
+import { fmtBytes, fmtCount } from "../limits";
 import { useHostedUsage, useSpending } from "@/lib/client/hosted";
 import type { HostedLimits, LimitEnforcement } from "@/lib/hosted/contracts";
 

@@ -55,7 +55,7 @@ Product pages share responsive 20px/28px gutters. A persistent collapsible 208px
 
 ## Landing language and scope
 
-`src/components/landing/landing.css` scopes the `--zenith-*` tokens to
+`src/app/_landing/landing.css` scopes the `--zenith-*` tokens to
 `.zenith-landing`. Light uses porcelain `#f4f3ee`, ink `#20211f` and vermilion
 `#be3e25`; dark uses `#22241f`, warm ink `#f2f1e9` and the more luminous
 `#ff886c` accent. Rules, panels and muted text have separate values in each

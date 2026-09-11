@@ -47,7 +47,7 @@ import {
 } from "@/lib/hosted/contracts";
 import { authority } from "@/lib/hosted/authority";
 import { FsArtifactStore } from "@/lib/hosted/artifacts";
-import { logicalBytes, openAppData, trackerSql } from "@/lib/hosted/data";
+import { insertColumns, logicalBytes, openAppData, trackerSql } from "@/lib/hosted/data";
 import { INSTALL_WORKSPACE, recordEvent } from "@/lib/hosted/events";
 
 /** The format tag every bundle carries, so a reader can refuse a future one. */
@@ -434,24 +434,12 @@ function importRecords(appId: string, records: EquipmentRequest[]): ImportResult
         continue;
       }
       const bytes = logicalBytes(record);
+      // The 17 stored columns come from the tracker store's own list, so an
+      // imported row and a row the app writes itself can never disagree about
+      // column order; the two trailing values are the quota bounds the
+      // conditional insert compares.
       const result = data.backend.run(trackerSql.INSERT_REQUEST_WITHIN_QUOTA, [
-        record.id,
-        record.title,
-        record.details,
-        record.category,
-        record.quantity,
-        record.priority,
-        record.status,
-        record.requestedFor,
-        record.neededBy,
-        record.version,
-        record.createdBy,
-        record.createdByEmail,
-        record.createdAt,
-        record.updatedBy,
-        record.updatedByEmail,
-        record.updatedAt,
-        bytes,
+        ...insertColumns(record, bytes),
         bytes,
         data.store.storageLimitBytes,
       ]);

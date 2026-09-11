@@ -14,7 +14,6 @@ import {
   ApiError,
   json,
   readInvites,
-  requireAdmin,
   requireWorkspace,
   route,
   writeInvites,
@@ -27,14 +26,12 @@ const Body = z.object({
   role: z.enum(["admin", "editor", "viewer"]),
 });
 
-export const GET = route(async (req) => {
-  await requireAdmin(req);
+export const GET = route({ workspaceRole: "admin" }, async () => {
   const ws = requireWorkspace();
   return { invites: readInvites().filter((i) => i.workspaceId === ws.id) };
 });
 
-export const POST = route(async (req) => {
-  const actor = await requireAdmin(req);
+export const POST = route({ workspaceRole: "admin" }, async (req, _params, { actor }) => {
   const ws = requireWorkspace();
 
   const parsed = Body.safeParse(await req.json().catch(() => ({})));

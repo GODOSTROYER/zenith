@@ -9,33 +9,26 @@
  * Workstream W7 (hosted R3).
  */
 import { z } from "zod";
-import {
-  accepted,
-  actorOf,
-  executeHosted,
-  hostedRoute,
-  readBody,
-  requireWorkspaceRole,
-} from "@/lib/hosted/release/http";
+import type { JobAccepted } from "@/lib/hosted/contracts";
+import { accepted, executeHosted, hostedRoute, readJsonBody } from "@/lib/server/hosted";
 import { buildCtx } from "@/lib/server/context";
 
 export const dynamic = "force-dynamic";
 
 const RollbackBody = z.object({ jobId: z.string().uuid(), releaseId: z.string().min(1) });
 
-export const POST = hostedRoute<{ appId: string }>(async (req, { appId }) => {
-  const actor = await actorOf(req);
-  requireWorkspaceRole(actor, "editor");
-  const body = await readBody(
-    req,
-    RollbackBody,
-    'POST { "jobId": "<uuid you generate>", "releaseId": "<a release from GET …/releases>" }.'
-  );
-  const result = await executeHosted(
-    "app.rollback",
-    buildCtx({}, actor),
-    { appId, jobId: body.jobId, releaseId: body.releaseId }
-  );
-  const data = result.data as { job: unknown; jobId: string; created: boolean };
-  return accepted({ job: data.job, jobId: data.jobId, created: data.created });
-});
+export const POST = hostedRoute<{ appId: string }>(
+  { workspaceRole: "editor" },
+  async (req, { appId }, { actor }) => {
+    const body = await readJsonBody(req, RollbackBody, {
+      fix: 'POST { "jobId": "<uuid you generate>", "releaseId": "<a release from GET …/releases>" }.',
+    });
+    const result = await executeHosted(
+      "app.rollback",
+      buildCtx({}, actor),
+      { appId, jobId: body.jobId, releaseId: body.releaseId }
+    );
+    const data = result.data as JobAccepted;
+    return accepted({ job: data.job, jobId: data.jobId, created: data.created });
+  }
+);

@@ -7,7 +7,9 @@
  *   shared.ts    phases, leases, bounded logs, the two refusals a worker owes
  *   apps.ts      creating and reading apps (app + owner grant in one tx)
  *   intent.ts    what a publish is, canonically, and how it is hashed
- *   publish.ts   intake → build → artifact → verify → stage → probe → activate
+ *   publish.ts   admission, the build ceiling, the phase order and the loop
+ *   phases/      one file per phase: intake → build → artifact → verify →
+ *                stage → probe → activate → cleanup
  *   rollback.ts  putting an app back onto a proven release, data untouched
  *   suspend.ts   stop admitting requests without destroying anything
  *   runner.ts    the ticker, the claim policy and the lease heartbeat
@@ -50,11 +52,12 @@ export {
   type PublishIntentInput,
 } from "./intent";
 
+export { buildSlot } from "./build-slot";
+
 export {
   PUBLISH_PHASES,
   admitPublish,
   assertPublishable,
-  buildSlot,
   runPublish,
   type AdmitPublishInput,
   type PublishPhase,

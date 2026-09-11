@@ -15,7 +15,7 @@
 import { z } from "zod";
 import { appendAudit, db, save } from "@/lib/db/store";
 import { id, type Actor, type AutonomyLevel } from "@/lib/domain/types";
-import { hostedMode } from "@/lib/hosted/config";
+import { membershipPolicy } from "@/lib/auth/policy";
 import { WORKSPACE_ROLE_RANK, type WorkspaceRole } from "@/lib/domain/roles";
 
 export interface ActionContext {
@@ -120,18 +120,18 @@ export function getAction(actionId: string): ActionDef<unknown> {
 /**
  * The caller's role in ONE workspace. Membership is per workspace, so an
  * admin of A is whatever their row in B says — or a viewer if they have none.
- * Without a workspace id (legacy callers) the lookup spans every workspace;
- * every enforcement path passes one.
+ * The workspace is required: every enforcement path has one, and a lookup that
+ * spanned all of them would answer with whichever workspace sorted first.
  */
-export function roleOf(actor: Actor, workspaceId?: string): Role {
-  const members = workspaceId
-    ? db().members.filter((m) => m.workspaceId === workspaceId)
-    : db().members;
+export function roleOf(actor: Actor, workspaceId: string): Role {
+  const members = db().members.filter((m) => m.workspaceId === workspaceId);
   const member = members.find((m) => m.id === actor.id);
   if (member) return member.role;
-  // An empty member table means "nobody to defer to" only outside hosted
-  // mode; there a workspace always has the admin who created it.
-  if (actor.id === "local" || (members.length === 0 && !hostedMode())) return "admin";
+  // An empty member table means "nobody to defer to" only where the
+  // membership policy says so; hosted workspaces always have the admin who
+  // created them.
+  if (actor.id === "local" || (members.length === 0 && membershipPolicy().emptyWorkspaceGrantsAdmin))
+    return "admin";
   return "viewer";
 }
 

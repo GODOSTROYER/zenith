@@ -8,15 +8,13 @@
  *
  * Workstream W8 (hosted R3).
  */
+import type { HostedHealthWire } from "@/lib/hosted/contracts";
 import { appHealth } from "@/lib/hosted/health";
-import { route } from "@/lib/server/context";
-import { hosted, requireAppOwner } from "@/app/api/hosted/ops/_http";
+import { hostedRoute } from "@/lib/server/hosted";
 
 export const dynamic = "force-dynamic";
 
-export const GET = route<{ appId: string }>(async (_req, { appId }) =>
-  hosted(async () => {
-    requireAppOwner(appId);
-    return { health: await appHealth(appId) };
-  })
+export const GET = hostedRoute<{ appId: string }>(
+  { appRole: "owner", refusal: "not_found" },
+  async (_req, { appId }): Promise<HostedHealthWire> => ({ health: await appHealth(appId) })
 );

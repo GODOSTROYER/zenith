@@ -1,4 +1,4 @@
-# components/landing — Zenith's marketing surface
+# app/_landing — Zenith's marketing surface
 
 `landing.tsx` composes focused chapters. It obtains the runtime-aware CTA once
 and shares it, together with one deterministic demonstration state, across `/`.

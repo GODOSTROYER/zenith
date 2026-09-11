@@ -86,16 +86,73 @@ export function pollDelay(baseMs: number, idleTicks: number): number {
 
 const isHidden = () => typeof document !== "undefined" && document.visibilityState === "hidden";
 
+/**
+ * The last body a conditional GET returned, and the tag it came with.
+ *
+ * Polling is mostly a question — "has this moved?" — and a route that answers
+ * with an ETag can say no in a header instead of a payload. The entry is keyed
+ * by URL and shared by every hook reading it, which is also what makes a
+ * second reader of the same URL safe: a 304 hands back the body held here, not
+ * nothing.
+ *
+ * ponytail: bounded, LRU by insertion order. A route with no ETag never gets
+ * an entry and behaves exactly as before.
+ */
+const ETAG_CACHE_MAX = 64;
+const etagCache = new Map<string, { etag: string; body: unknown }>();
+
+async function conditionalRead<T>(
+  url: string,
+  conditional = true
+): Promise<{ data: T; unchanged: boolean }> {
+  const cached = conditional ? etagCache.get(url) : undefined;
+  const res = await fetch(url, {
+    headers: {
+      "content-type": "application/json",
+      ...(cached ? { "if-none-match": cached.etag } : {}),
+    },
+    cache: "no-store",
+  });
+
+  if (res.status === 304) {
+    // Only ever sent a tag we held, so this is the body that tag named. A 304
+    // without one (a proxy answering from its own cache) is re-asked plainly
+    // rather than turned into an empty payload.
+    if (cached) return { data: cached.body as T, unchanged: true };
+    return conditionalRead<T>(url, false);
+  }
+
+  const body = (await res.json().catch(() => ({}))) as T & {
+    error?: { message: string; fix?: string };
+  };
+  if (!res.ok || body?.error) {
+    const e = body?.error;
+    throw new ApiError(e?.message ?? `Request failed (${res.status}).`, res.status, e?.fix);
+  }
+
+  // Optional chaining, not laziness: `fetch` is stubbed in tests and by some
+  // service workers with the two fields a caller actually reads, and a missing
+  // header must mean "this route has no tag", not a thrown read.
+  const etag = res.headers?.get("etag");
+  etagCache.delete(url);
+  if (etag) {
+    etagCache.set(url, { etag, body });
+    if (etagCache.size > ETAG_CACHE_MAX)
+      etagCache.delete(etagCache.keys().next().value as string);
+  }
+  return { data: body as T, unchanged: false };
+}
+
 // Share pending reads only, never cached responses or mutations. In particular,
 // React Strict Mode's effect replay should not send a second identical request.
 const pendingReads = new Map<string, Promise<unknown>>();
-function readJson<T>(url: string): Promise<T> {
+function readJson<T>(url: string): Promise<{ data: T; unchanged: boolean }> {
   let pending = pendingReads.get(url);
   if (!pending) {
-    pending = api<unknown>(url).finally(() => pendingReads.delete(url));
+    pending = conditionalRead<T>(url).finally(() => pendingReads.delete(url));
     pendingReads.set(url, pending);
   }
-  return pending as Promise<T>;
+  return pending as Promise<{ data: T; unchanged: boolean }>;
 }
 
 /**
@@ -159,14 +216,21 @@ export function useJson<T>(url: string | null, refreshMs = 0): Loadable<T> {
       requesting = true;
       queued = false;
       try {
-        const result = await readJson<T>(url);
+        const { data: result, unchanged } = await readJson<T>(url);
         if (!alive) return;
-        const serialized = JSON.stringify(result);
-        if (serialized === seen) idle += 1;
+        // A 304 is the server saying "identical", which is the same answer the
+        // stringify below computes — without the payload or the compare. It is
+        // only trusted once this hook has a payload of its own to keep: a hook
+        // mounting onto a URL another one already cached still needs it.
+        if (unchanged && seen !== undefined) idle += 1;
         else {
-          idle = 0;
-          seen = serialized;
-          setData(result);
+          const serialized = JSON.stringify(result);
+          if (serialized === seen) idle += 1;
+          else {
+            idle = 0;
+            seen = serialized;
+            setData(result);
+          }
         }
         setError(undefined);
       } catch (cause) {

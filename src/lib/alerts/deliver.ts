@@ -518,8 +518,15 @@ function claimPending(): AlertOutboxEntry[] {
 
 /**
  * Record the terminal outcome, on the row and on the event the UI reads.
- * Flushed, not just queued: an outcome that only lives in memory is exactly the
- * duplicate the receiver would see after a crash.
+ *
+ * Saved, not flushed: `drain()` flushes once after the whole batch, so N
+ * channels cost one rewrite of `state.json` rather than N. What that widens is
+ * the window the outbox is already built for — a crash between the send and
+ * the settle reaching disk re-sends the row under its original idempotency key
+ * (see `reclaimStale` and the "retries a send that was never settled" test),
+ * and the duplicate is the receiver's to drop. The barrier that must stay
+ * durable is the *claim*, which `claimPending` still flushes before a byte
+ * leaves; that is what keeps a crash from losing the send entirely.
  */
 function settle(row: AlertOutboxEntry, delivery: AlertDelivery): void {
   row.status = delivery.ok ? "delivered" : "failed";
@@ -534,7 +541,6 @@ function settle(row: AlertOutboxEntry, delivery: AlertDelivery): void {
   const event = db().alertEvents.find((e) => e.id === row.eventId);
   if (event) event.deliveries = [...(event.deliveries ?? []), delivery];
   save(event?.projectId);
-  flush();
 }
 
 /** Send one claimed row, then settle it. Never throws. */
@@ -597,10 +603,13 @@ function drain(): void {
   g.__orreryDeliveryInFlight = (g.__orreryDeliveryInFlight ?? Promise.resolve())
     .then(() => Promise.all(batch.map((row) => deliverEntry(row))))
     .then(
-      () => undefined,
+      // One write for the batch's outcomes, in place of one per row.
+      () => flush(),
       (err) => {
         // deliverEntry never throws, so this is a bug rather than a bad
-        // endpoint. It must not become an unhandled rejection either way.
+        // endpoint. It must not become an unhandled rejection either way —
+        // and whatever did settle before it still has to reach disk.
+        flush();
         log.error("alert delivery batch failed", { scope: "alerts", error: err });
       }
     );

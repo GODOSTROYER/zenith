@@ -16,7 +16,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createExchange } from "@/lib/hosted/access";
-import { hostedRoute, readJsonBody, verifiedIdentity } from "@/lib/hosted/access/http";
+import { hostedRoute, readJsonBody, verifiedIdentity } from "@/lib/server/hosted";
 
 export const dynamic = "force-dynamic";
 

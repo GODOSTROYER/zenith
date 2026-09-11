@@ -1,9 +1,8 @@
 "use client";
 import { useId, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
 import { cx } from "@/lib/format";
-import { Button } from "./button";
+import { ModalHeader, ModalOverlay } from "./modal-parts";
 import { useModal } from "./use-modal";
 
 export interface DialogProps {
@@ -39,14 +38,7 @@ export function Dialog({
 
   return createPortal(
     <div inert={!open} className="fixed inset-0 z-50 grid place-items-center p-4">
-      <div
-        onClick={onClose}
-        aria-hidden="true"
-        className={cx(
-          "absolute inset-0 bg-bg0/70 transition-opacity duration-[var(--dur-base)] [transition-timing-function:var(--ease-swift)]",
-          shown ? "opacity-100" : "opacity-0"
-        )}
-      />
+      <ModalOverlay onClose={onClose} shown={shown} />
       <div
         ref={ref}
         role="dialog"
@@ -62,26 +54,15 @@ export function Dialog({
           className
         )}
       >
-        <header
-          className={cx(
-            "flex shrink-0 items-start justify-between gap-4 border-b px-5 py-4",
-            tone === "danger" ? "border-err/30" : "border-line"
-          )}
-        >
-          <div className="min-w-0">
-            <h2 id={titleId} className="break-words text-[18px] font-semibold leading-snug text-ink">
-              {title}
-            </h2>
-            {description && (
-              <p id={descId} className="mt-1 text-[12.5px] text-ink-mute">
-                {description}
-              </p>
-            )}
-          </div>
-          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close dialog" title="Close (Esc)">
-            <X className="h-4 w-4" />
-          </Button>
-        </header>
+        <ModalHeader
+          titleId={titleId}
+          descId={descId}
+          title={title}
+          description={description}
+          onClose={onClose}
+          closeLabel="Close dialog"
+          tone={tone}
+        />
         {children && <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">{children}</div>}
         {footer && (
           <footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-line bg-bg2 px-5 py-4">

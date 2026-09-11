@@ -24,7 +24,7 @@ import { useSelectedEnv } from "@/components/screens/project-data";
 import { ActionConfirm, ErrorNote } from "@/components/screens/shared";
 import { useShell } from "@/components/shell/shell-context";
 import { useGate } from "./access";
-import { AlertChannelsSection } from "./alerts";
+import { AlertChannelsSection } from "./settings-alerts";
 import { ConnectionsSection } from "./connections";
 import { EnvironmentsSection } from "./environments";
 import { MembersSection } from "./members";

@@ -24,7 +24,7 @@ import { appDataDir } from "@/lib/hosted/config";
 import { DEFAULT_LIMITS, HostedError } from "@/lib/hosted/contracts";
 import { SqliteBackend, type SqliteBackendOptions } from "./backend";
 import { applyTrackerMigrations } from "./schema";
-import { TrackerDataStore } from "./store";
+import { TrackerDataStore } from "./tracker-store";
 
 /** Which of an app's two databases to open. */
 export type AppDataFile = "data" | "test";

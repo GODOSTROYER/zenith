@@ -20,7 +20,7 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { Dialog } from "@/components/ui/dialog";
 import { TimeAgo } from "@/components/ui/time-ago";
 import { RoleChip, errorText, roleShortfall, useSafeToasts } from "@/components/screens/shared";
-import { APP_STATE } from "@/components/apps/labels";
+import { APP_STATE } from "../labels";
 import { newJobId, resumeHostedApp, suspendHostedApp } from "@/lib/client/hosted";
 import type { HostedAppSummary } from "@/lib/client/hosted";
 import type { Release } from "@/lib/hosted/contracts";

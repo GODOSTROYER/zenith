@@ -10,15 +10,9 @@
  * Workstream W7 (hosted R3).
  */
 import { z } from "zod";
+import type { JobAccepted } from "@/lib/hosted/contracts";
 import { PublishSource } from "@/lib/hosted/release";
-import {
-  accepted,
-  actorOf,
-  executeHosted,
-  hostedRoute,
-  readBody,
-  requireWorkspaceRole,
-} from "@/lib/hosted/release/http";
+import { accepted, executeHosted, hostedRoute, readJsonBody } from "@/lib/server/hosted";
 import { buildCtx } from "@/lib/server/context";
 
 export const dynamic = "force-dynamic";
@@ -28,19 +22,18 @@ const PublishBody = z.object({
   source: PublishSource,
 });
 
-export const POST = hostedRoute<{ appId: string }>(async (req, { appId }) => {
-  const actor = await actorOf(req);
-  requireWorkspaceRole(actor, "editor");
-  const body = await readBody(
-    req,
-    PublishBody,
-    'POST { "jobId": "<uuid you generate>", "source": { "kind": "fixture", "name": "minimal-app" } } — or { "kind": "tarball", "base64": "…" }.'
-  );
-  const result = await executeHosted(
-    "app.publish",
-    buildCtx({}, actor),
-    { appId, jobId: body.jobId, source: body.source }
-  );
-  const data = result.data as { job: unknown; jobId: string; created: boolean };
-  return accepted({ job: data.job, jobId: data.jobId, created: data.created });
-});
+export const POST = hostedRoute<{ appId: string }>(
+  { workspaceRole: "editor" },
+  async (req, { appId }, { actor }) => {
+    const body = await readJsonBody(req, PublishBody, {
+      fix: 'POST { "jobId": "<uuid you generate>", "source": { "kind": "fixture", "name": "minimal-app" } } — or { "kind": "tarball", "base64": "…" }.',
+    });
+    const result = await executeHosted(
+      "app.publish",
+      buildCtx({}, actor),
+      { appId, jobId: body.jobId, source: body.source }
+    );
+    const data = result.data as JobAccepted;
+    return accepted({ job: data.job, jobId: data.jobId, created: data.created });
+  }
+);

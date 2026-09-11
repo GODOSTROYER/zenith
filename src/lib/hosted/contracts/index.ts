@@ -13,3 +13,7 @@ export * from "./tracker-v1";
 export * from "./source-v1";
 export * from "./interfaces";
 export * from "./hosts";
+// The control API's response bodies. Behind the barrel like everything else
+// here, because the routes and the browser client both read them and neither
+// may reach past this door.
+export * from "./wire";

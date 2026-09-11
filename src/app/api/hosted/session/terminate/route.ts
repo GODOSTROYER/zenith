@@ -13,11 +13,12 @@
  * Workstream W5 (hosted R3).
  */
 import { terminateAppSessionsForSubject } from "@/lib/hosted/access";
-import { hostedRoute, signedInUser } from "@/lib/hosted/access/http";
+import type { SessionsTerminatedWire } from "@/lib/hosted/contracts";
+import { hostedRoute, signedInUser } from "@/lib/server/hosted";
 
 export const dynamic = "force-dynamic";
 
-export const POST = hostedRoute(async () => {
+export const POST = hostedRoute(async (): Promise<SessionsTerminatedWire> => {
   const user = signedInUser();
   return { terminated: terminateAppSessionsForSubject(user.id, "signed_out") };
 });

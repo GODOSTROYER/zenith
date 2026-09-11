@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/engine/engine", () => ({ ensureEngine: vi.fn() }));
 vi.mock("@/lib/providers/types", () => ({ providerRegistry: () => new Map() }));
-vi.mock("@/components/landing/landing", () => ({ Landing: () => null }));
+vi.mock("@/app/_landing/landing", () => ({ Landing: () => null }));
 
 beforeEach(() => vi.resetModules());
 afterEach(() => vi.unstubAllEnvs());

@@ -10,14 +10,15 @@
  * Workstream W5 (hosted R3).
  */
 import { resendInvite, scheduleInviteDelivery } from "@/lib/hosted/access";
-import { hostedJson, hostedRoute, verifiedOwner } from "@/lib/hosted/access/http";
+import type { IssuedInviteWire } from "@/lib/hosted/contracts";
+import { hostedJson, hostedRoute } from "@/lib/server/hosted";
 
 export const dynamic = "force-dynamic";
 
 export const POST = hostedRoute<{ appId: string; inviteId: string }>(
-  async (req, { appId, inviteId }) => {
-    const { identity } = await verifiedOwner(req, appId);
-    const issued = resendInvite(inviteId, identity.subject, { appId });
+  { appRole: "owner", verify: "live" },
+  async (_req, { appId, inviteId }, { subject }) => {
+    const issued: IssuedInviteWire = resendInvite(inviteId, subject, { appId });
     scheduleInviteDelivery();
     return hostedJson(issued, 201);
   }

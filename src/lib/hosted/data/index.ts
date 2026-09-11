@@ -55,13 +55,23 @@ export {
 } from "./schema";
 export {
   type CreateRequestInput,
-  type CursorPayload,
   type ListRequestsInput,
   type MutationResult,
   TrackerDataStore,
   type TrackerDataStoreOptions,
   type UpdateRequestInput,
+} from "./tracker-store";
+export {
+  type CursorPayload,
+  type RequestRow,
+  cursorRejected,
   decodeCursor,
   encodeCursor,
-} from "./store";
+  insertColumns,
+  notFound,
+  parseOrThrow,
+  roleRank,
+  staleVersion,
+  toRecord,
+} from "./tracker-rows";
 export * as trackerSql from "./sql";

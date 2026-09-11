@@ -19,7 +19,7 @@ vi.mock("@/lib/client/hosted", async (original) => ({
   useHostedJob: () => state.job,
 }));
 
-import { JobProgress } from "@/components/apps/job-progress";
+import { JobProgress } from "@/app/(product)/apps/job-progress";
 
 let root: Root;
 let host: HTMLDivElement;

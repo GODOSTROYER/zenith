@@ -107,9 +107,16 @@ Business rules over the stores. No `Request`, no `Response`, no route knowledge.
 | Path | Owns | May import |
 | --- | --- | --- |
 | `src/lib/server/boot.ts` | `ensureBoot()`: data-dir claim → `ensureHosted()` → engine → actions → alerts | L0–L4 |
-| `src/lib/server/context.ts` | `route()`, `ApiError` / `errorResponse`, workspace resolution and role | L0–L4 |
+| `src/lib/server/context.ts` | Barrel over the six modules below; every existing importer still resolves here | — |
+| `src/lib/server/errors.ts` | `ApiError`, `notFound`, `json`, `errorResponse` | L0–L1 |
+| `src/lib/server/request.ts` | `RequestState`, `currentRequest`, `route({ workspaceRole? }, handler)`, `intParam` | L0–L4 |
+| `src/lib/server/workspace.ts` | `requireWorkspace`, `workspacesFor`, `currentWorkspace`, `membershipCheck` | L0–L4 |
+| `src/lib/server/membership.ts` | invites, `ensureMember`, join target/role, the denial sentence (policy from `auth/policy.ts`) | L0–L4 |
+| `src/lib/server/actor.ts` | demo/navigator actors, `resolveActor`, `workspaceRole`, `requireAdmin` | L0–L4 |
+| `src/lib/server/scope.ts` | `scopedProject/Environment/Deployment`, `buildCtx` | L0–L4 |
+| `src/lib/server/hosted.ts` | The hosted request edge: one `hostedRoute({ workspaceRole?, appRole?, verify? })`, `readJsonBody`, `requireAppOwner`; `hosted/{access,release}/http.ts` are barrels over it | L0–L4 |
 | `src/lib/server/sse.ts` | SSE streams with `?after=<seq>` replay | L0–L4 |
-| `src/lib/hosted/access/http.ts` | The `/api` layer for access routes: `hostedRoute`, `signedInUser`, `verifiedIdentity`. Not re-exported by the access barrel | L0–L4 + `server/context` |
+| `src/lib/hosted/access/http.ts` | Re-export barrel over `src/lib/server/hosted.ts` kept for existing import paths. Not re-exported by the access barrel | `server/hosted` only |
 | `src/lib/hosted/release/http.ts` | The `/api` layer for app routes: hosted status mapping, the two role checks | L0–L4 + `server/context`, `actions/core` |
 | `src/app/api/**` (50 route files, 22 of them under `api/hosted`) | HTTP. Parse, authorise, delegate, shape the envelope | L0–L5 |
 | `src/app/hosted-gateway/[host]/[[...path]]` | Where `hosted/edge.ts` rewrites an app-host request | `hosted/gateway` |
@@ -147,13 +154,17 @@ Business rules over the stores. No `Request`, no `Response`, no route knowledge.
    subdirectory have one. `supabase/`, `navigator/` and `providers/` do not,
    each for a stated reason (see docs/ARCHITECTURE.md, "Barrels").
 
-## Known violations (the three cycles)
+## Known violations
 
-All three are the same shape: a module that belongs in L3/L4 also carries its
-own HTTP layer, and the HTTP layer reaches back up to L5.
+None as of 2026-09-11. The three cycles this section used to list — `hosted/access/http.ts` → `server/context`, `hosted/release/http.ts` → `server/context`, and `hosted/release/http.ts` → `actions/core` — were all the same shape (an L3 module carrying its own HTTP layer that reached back to L5) and were removed by moving that layer to `src/lib/server/hosted.ts`. The two `http.ts` files remain only as re-export barrels.
 
-| Edge | Why it is there | Intended fix |
-| --- | --- | --- |
+Edges that look like violations and are not:
+
+- `actions/core.ts` reads membership policy from `auth/policy.ts` (L4 → L1). It no longer imports `hosted/config` directly.
+- `hosted/release/phases/build.ts` and `release/runner.ts` share `buildSlot` through `release/build-slot.ts`, so the phase never imports the pipeline that drives it.
+
+Worth watching: `actions/defs/hosted.ts` may still import `server/request` for `currentRequest()`; the cleaner home for that value is the `ActionContext` the route already builds.
+--- | --- | --- |
 | `hosted/access/http.ts` → `server/context` | Hosted access routes want `route()`'s boot, request id, workspace resolution and `no-store` | Move the file to `src/lib/server/hosted-route.ts` (or beside the routes), leaving `access/` free of the request layer. The access barrel already refuses to re-export it, so no consumer moves. |
 | `hosted/release/http.ts` → `server/context` | Same wrapper, plus the hosted-status error mapping | Same move. `release/index.ts` does not re-export `http.ts` either. |
 | `hosted/release/http.ts` → `actions/core` | The app routes run hosted mutations as audited actions | Follows the file. Once `http.ts` sits at L5, calling L4 is the normal direction. |

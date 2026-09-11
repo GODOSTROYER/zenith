@@ -88,17 +88,61 @@ const notInRelease = (): HostedError =>
  * is called at that moment and nowhere else, so a denial test that asserts the
  * counter is zero is asserting that no artifact was ever opened.
  */
+/**
+ * The part of the filesystem store that can answer without reading bytes.
+ *
+ * Feature-detected rather than required, because `ArtifactStore` is the
+ * contract every implementation signs and a store that only knows how to
+ * `open` is still a correct one — it just pays for the bytes it will not send.
+ */
+interface StatCapableStore {
+  statFile(digest: string, path: string): { file: ArtifactFile; size: number } | null;
+  readFile(
+    stat: { file: ArtifactFile; size: number },
+    range?: { start: number; end: number }
+  ): Buffer;
+}
+
+const statCapable = (store: object): store is StatCapableStore =>
+  typeof (store as Partial<StatCapableStore>).statFile === "function" &&
+  typeof (store as Partial<StatCapableStore>).readFile === "function";
+
+/** What the response needs to know, however the store was able to say it. */
+interface OpenedFile {
+  file: ArtifactFile;
+  size: number;
+  /** the bytes, or a reader for them — a HEAD or a 304 never calls it */
+  read: (range?: { start: number; end: number }) => Buffer;
+}
+
+async function openTarget(digest: string, target: string): Promise<OpenedFile | null> {
+  const store = gatewayDeps().artifactStore();
+  if (statCapable(store)) {
+    const stat = store.statFile(digest, target);
+    if (!stat) return null;
+    return { file: stat.file, size: stat.size, read: (range) => store.readFile(stat, range) };
+  }
+  const opened = await store.open(digest, target);
+  if (!opened) return null;
+  return {
+    file: opened.file,
+    size: opened.bytes.length,
+    read: (range) =>
+      range ? opened.bytes.subarray(range.start, range.end + 1) : opened.bytes,
+  };
+}
+
 export async function serveArtifact(
   req: NextRequest,
   path: string,
   admitted: AdmittedRequest
 ): Promise<Response> {
   const target = artifactTargetFor(path);
-  const opened = await gatewayDeps().artifactStore().open(admitted.digest, target);
+  const opened = await openTarget(admitted.digest, target);
   if (!opened) throw notInRelease();
   noteArtifactServed();
 
-  const { bytes, file } = opened;
+  const { file, size } = opened;
   const etag = `"${file.sha256}"`;
   const cache = isHashedAssetPath(target) ? "immutable" : "no-store";
   const releaseId = admitted.release.id;
@@ -112,34 +156,34 @@ export async function serveArtifact(
       headers: { etag, "accept-ranges": "bytes" },
     });
 
-  const range = parseByteRange(req.headers.get("range"), bytes.length);
+  const range = parseByteRange(req.headers.get("range"), size);
   if (range.kind === "invalid")
     return gatewayResponse(null, {
       status: 416,
       cache: "no-store",
       releaseId,
-      headers: { "content-range": `bytes */${bytes.length}`, "accept-ranges": "bytes", etag },
+      headers: { "content-range": `bytes */${size}`, "accept-ranges": "bytes", etag },
     });
 
   if (range.kind === "range") {
-    const slice = bytes.subarray(range.start, range.end + 1);
-    return gatewayResponse(head ? null : new Uint8Array(slice), {
+    const length = range.end - range.start + 1;
+    return gatewayResponse(head ? null : new Uint8Array(opened.read(range)), {
       status: 206,
       cache,
       releaseId,
       headers: {
-        ...contentHeaders(file, slice.length),
+        ...contentHeaders(file, length),
         etag,
         "accept-ranges": "bytes",
-        "content-range": `bytes ${range.start}-${range.end}/${bytes.length}`,
+        "content-range": `bytes ${range.start}-${range.end}/${size}`,
       },
     });
   }
 
-  return gatewayResponse(head ? null : new Uint8Array(bytes), {
+  return gatewayResponse(head ? null : new Uint8Array(opened.read()), {
     cache,
     releaseId,
-    headers: { ...contentHeaders(file, bytes.length), etag, "accept-ranges": "bytes" },
+    headers: { ...contentHeaders(file, size), etag, "accept-ranges": "bytes" },
   });
 }
 

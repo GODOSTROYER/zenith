@@ -9,7 +9,7 @@
  */
 import type { SecurityFinding } from "@/lib/domain/types";
 import { providerRegistry } from "@/lib/providers/types";
-import { engine, ensureEngine } from "@/lib/engine/engine";
+import { engine, engineTick, ensureEngine } from "@/lib/engine/engine";
 import { registerAllActions } from "@/lib/actions/defs";
 import { replayOutbox, startAlertEvaluator } from "@/lib/alerts";
 import * as security from "@/lib/security/rules";
@@ -18,6 +18,7 @@ import { claimDataDir } from "@/lib/data-lock";
 import { ensureHosted } from "@/lib/hosted";
 import { env } from "@/lib/env";
 import { log } from "@/lib/log";
+import { isServerless } from "@/lib/serverless";
 
 type G = typeof globalThis & { __orreryBoot?: Promise<void> };
 
@@ -51,7 +52,12 @@ async function boot(): Promise<void> {
   // Refuse to share a data directory with another live process: the store
   // rewrites state.json wholesale, so two writers silently lose each other's
   // work. The thrown error names the pid, the directory and the way out.
-  claimDataDir(env().ORRERY_DATA);
+  //
+  // Except on a serverless instance, where the premise is false: every instance
+  // has its own `/tmp`, so the lock it finds is one a *previous* instance of
+  // itself left behind, and honouring it would refuse to boot for a writer that
+  // no longer exists. Nothing is shared, so nothing needs claiming.
+  if (!isServerless()) claimDataDir(env().ORRERY_DATA);
   // The hosted control authority (SQLite) opens right after the data-dir
   // claim, before anything can read hosted state, and refuses to boot in
   // hosted mode without the inputs it needs. See src/lib/hosted/index.ts.
@@ -75,6 +81,12 @@ async function boot(): Promise<void> {
   // on anything that broke while the server was down and keeps watching after.
   // Unref'd 15s timer; it returns immediately when no rules exist.
   startAlertEvaluator();
+  // On a serverless instance neither timer above exists — `ensureEngine` skips
+  // its 250ms ticker and `startAlertEvaluator` runs its pass and stops. The
+  // evaluator's pass has already happened; the engine has not ticked, so it
+  // does so here. Boot runs on every fresh instance, so what a long-lived
+  // process gets from its first timer fire, an instance gets from this.
+  if (isServerless()) engineTick();
   if (providerRegistry().size === 0)
     log.warn("no providers registered; provider pickers will be empty", { scope: "boot" });
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ctaFor } from "@/components/landing/cta";
+import { ctaFor } from "@/app/_landing/cta";
 
 describe("Zenith entry paths", () => {
   it("gives visitors an account-creation path independent of other tenants", () => {

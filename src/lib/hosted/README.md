@@ -40,8 +40,8 @@ would import — the barrels below are what routes use.
 | `source/` | The untrusted-input boundary: bounded tar reading, the supported-source contract, materialisation | Execute, install from, or load as configuration anything a builder submitted |
 | `build/` | One pinned recipe (`RECIPE_V1`) and three runners: local child process, E2B, Docker | Read a submitted build script or config, or install from the source tree |
 | `release/` | Apps, publish jobs, releases, rollback, suspension, and the 250 ms job runner | Move an app off a healthy release before a candidate is built, stored, re-verified and probed |
-| `runtime/` | `local` and `cloudflare` behind one `HostedRuntime` interface | Let a caller branch on which runtime is selected, or claim a capability it has not proven |
-| `data/` | The per-app customer data layer — the fixed broker's storage side, on SQLite or D1 | Be reachable from app-published code; the app's JS calls the broker over HTTP |
+| `runtime/` | `local` and `cloudflare` behind one `HostedRuntime` interface. The Cloudflare adapter's binding allowlists live in `cloudflare-bindings.ts` and its embedded release worker in `cloudflare-worker-module.ts` | Let a caller branch on which runtime is selected, or claim a capability it has not proven |
+| `data/` | The per-app customer data layer — the fixed broker's storage side, on SQLite or D1. `TrackerDataStore` (`tracker-store.ts` + `tracker-rows.ts`) is the reference `AppDataStore`, not the only possible one | Be reachable from app-published code; the app's JS calls the broker over HTTP |
 | `quota/` | Requests per app per UTC day, body limits, the enforcement table | Keep a counter in module scope, or decide who the caller is |
 | `usage/` | The usage ledger, the spending estimate, the 50/75/90 % alerts and the build pause | Call an estimate a bill, or stop a running app to save money |
 | `events/` | Pseudonymous activation and lifecycle events, deduped per logical operation, and the scorecard | Store a subject, or let a recording failure break the request it was recording |
@@ -49,7 +49,7 @@ would import — the barrels below are what routes use.
 | `backup/` | Encrypted off-host backup, clean-host restore, revocation reconciliation, the deliberate reopen step | Reopen an install automatically, or restore in a way that re-admits somebody revoked since the snapshot |
 | `export/` | The "you can leave" file: records and access *intent*, in a shape another install can read | Claim an import restored access — every imported grant arrives `needs_reapproval` |
 
-Each of `authority/`, `access/`, `gateway/` and `release/` has its own
+Each of `authority/`, `access/`, `data/`, `gateway/` and `release/` has its own
 `README.md` with one line per file.
 
 ## Boot order

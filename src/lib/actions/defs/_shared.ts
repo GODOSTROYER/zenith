@@ -7,11 +7,13 @@
  *    every preview says out loud that it only touches the working copy.
  */
 import type { ActionContext, ActionPlan, Risk } from "@/lib/actions/core";
+import { channelsOf, maskTarget } from "@/lib/alerts";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { db, q, save } from "@/lib/db/store";
 import { diffManifests } from "@/lib/domain/graph";
 import { fmtUsd } from "@/lib/format";
 import type {
+  AlertChannel,
   CloudConnection,
   Deployment,
   Environment,
@@ -228,4 +230,31 @@ export function editSummary(before: Manifest, after: Manifest, what: string): st
   const delta = cs.totalCostDeltaUsd;
   const money = delta === 0 ? "no cost change" : `${fmtUsd(delta, { sign: true })}/mo`;
   return `${what} — ${money}, projected ${fmtUsd(monthlyCostUsd(after))}/mo (estimate). Deploy to apply it.`;
+}
+
+/* ------------------------------ alert presenters --------------------------- */
+
+/**
+ * Shared by both halves of the alerts catalog: a rule's plan has to name the
+ * channels it will reach, and a channel's own plans have to name itself the
+ * same way.
+ */
+export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** How a channel reads in prose: name, kind and the endpoint, target masked. */
+export const channelLabel = (c: AlertChannel) =>
+  `${c.name} (${c.kind} → ${maskTarget(c.kind, c.target)})`;
+
+/**
+ * The delivery truth, read from this workspace rather than asserted. Repeated
+ * on every rule mutation. See docs/LIMITATIONS.md for the boundary.
+ */
+export function whereItShows(ctx: ActionContext, channelIds?: string[]): string {
+  const enabled = channelsOf(ctx.workspaceId).filter((c) => c.enabled);
+  const selected = channelIds === undefined ? enabled : enabled.filter((c) => channelIds.includes(c.id));
+  if (enabled.length === 0)
+    return "In-product only: Observe → Alerts, and anywhere else that reads the alerts feed. This workspace has no delivery channels, so if nobody opens Zenith, nobody is told — add one under Settings → Alerts.";
+  if (selected.length === 0)
+    return `In-product only: this rule is set to deliver nowhere, even though the workspace has ${plural(enabled.length, "enabled channel")}. It shows under Observe → Alerts and nowhere else.`;
+  return `Shows under Observe → Alerts, and is delivered to ${plural(selected.length, "channel")}: ${selected.map(channelLabel).join(", ")}. Every attempt is recorded on the alert, successes and failures alike.`;
 }

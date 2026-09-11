@@ -11,8 +11,8 @@ import { createRoot, type Root } from "react-dom/client";
 import type { ReactNode } from "react";
 import { DEFAULT_LIMITS } from "@/lib/hosted/contracts";
 import { ToastProvider } from "@/components/ui/toast";
-import { HealthPanel } from "@/components/apps/health-panel";
-import { LimitsTable } from "@/components/apps/limits-table";
+import { HealthPanel } from "@/app/(product)/apps/health-panel";
+import { LimitsTable } from "@/app/(product)/apps/limits-table";
 import { enforcement, health, usage } from "./fixtures";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

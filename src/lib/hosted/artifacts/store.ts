@@ -151,9 +151,35 @@ export function artifactContentType(relative: string): string {
   return type;
 }
 
+/**
+ * Parsed manifests held per store instance.
+ *
+ * Safe to hold without invalidation because the thing cached is immutable by
+ * construction: a digest directory is created once by `rename` and its
+ * `manifest.json` describes bytes that hash to that same digest. The two
+ * places that do change a stored artifact — `markVerified`, which rewrites the
+ * manifest with a timestamp, and `remove`, which deletes it — update this
+ * cache themselves rather than leaving it to a timeout.
+ *
+ * ponytail: LRU by insertion order; a Map is the stdlib's LRU.
+ */
+const MANIFEST_CACHE_MAX = 64;
+
+/** What one file of an artifact is, without having read its bytes. */
+export interface ArtifactStat {
+  file: ArtifactFile;
+  /** the size on disk, which is what every length header is computed from */
+  size: number;
+  /** absolute path of the file, already checked to be inside the artifact */
+  absolute: string;
+}
+
 export class FsArtifactStore implements ArtifactStore {
   /** Absolute root of the store; defaults to `hostedConfig().artifactDir`. */
   readonly root: string;
+
+  /** digest → parsed manifest.json; see MANIFEST_CACHE_MAX. */
+  private readonly manifests = new Map<string, ArtifactManifest>();
 
   constructor(root?: string) {
     this.root = root ?? hostedConfig().artifactDir;
@@ -167,12 +193,44 @@ export class FsArtifactStore implements ArtifactStore {
     return path.join(this.digestDir(digest), "manifest.json");
   }
 
+  private cacheManifest(digest: string, manifest: ArtifactManifest): ArtifactManifest {
+    this.manifests.delete(digest);
+    this.manifests.set(digest, manifest);
+    if (this.manifests.size > MANIFEST_CACHE_MAX)
+      this.manifests.delete(this.manifests.keys().next().value as string);
+    return manifest;
+  }
+
+  /**
+   * The manifest as it is on disk, right now.
+   *
+   * Every tamper check — `verify`, and the second-put comparison — goes
+   * through this rather than the cache, because a cached copy would answer
+   * with the bytes an edit was meant to be caught against.
+   */
   private readManifest(digest: string): ArtifactManifest | null {
     try {
-      return JSON.parse(fs.readFileSync(this.manifestPath(digest), "utf8")) as ArtifactManifest;
+      return this.cacheManifest(
+        digest,
+        JSON.parse(fs.readFileSync(this.manifestPath(digest), "utf8")) as ArtifactManifest
+      );
     } catch {
+      // Absence is never cached: a digest that is missing now can be published
+      // a moment later, and a negative entry would hide it.
+      this.manifests.delete(digest);
       return null;
     }
+  }
+
+  /** The manifest for the read path: parsed once per digest, then remembered. */
+  private cachedManifest(digest: string): ArtifactManifest | null {
+    const hit = this.manifests.get(digest);
+    if (hit) {
+      this.manifests.delete(digest); // re-insert = most recently used
+      this.manifests.set(digest, hit);
+      return hit;
+    }
+    return this.readManifest(digest);
   }
 
   async put(outputDir: string, provenance: ArtifactProvenance): Promise<Artifact> {
@@ -228,6 +286,7 @@ export class FsArtifactStore implements ArtifactStore {
         if (!raced) throw err;
         return this.reuse(raced, files, digest);
       }
+      this.cacheManifest(digest, manifest);
       return artifact;
     } finally {
       removeQuietly(staging);
@@ -252,19 +311,28 @@ export class FsArtifactStore implements ArtifactStore {
 
   async get(digest: string): Promise<Artifact | null> {
     if (!DIGEST_RE.test(digest)) return null;
-    return this.readManifest(digest)?.artifact ?? null;
+    return this.cachedManifest(digest)?.artifact ?? null;
   }
 
   async list(digest: string): Promise<ArtifactFile[]> {
     if (!DIGEST_RE.test(digest)) return [];
-    return this.readManifest(digest)?.files ?? [];
+    return this.cachedManifest(digest)?.files ?? [];
   }
 
-  async open(digest: string, relative: string): Promise<{ bytes: Buffer; file: ArtifactFile } | null> {
+  /**
+   * Everything about one file except its bytes.
+   *
+   * The gateway answers `HEAD` and a 304 from this alone — both need the
+   * etag and the length and neither sends a body, so reading the file would be
+   * work thrown away. Every check `open` makes is made here, including the
+   * filesystem one, so a stat-only answer can never be more permissive than a
+   * read.
+   */
+  statFile(digest: string, relative: string): ArtifactStat | null {
     if (!DIGEST_RE.test(digest)) return null;
     const normalised = artifactPath(relative);
     if (!normalised) return null;
-    const manifest = this.readManifest(digest);
+    const manifest = this.cachedManifest(digest);
     if (!manifest) return null;
     const file = manifest.files.find((f) => f.path === normalised);
     if (!file) return null;
@@ -276,7 +344,33 @@ export class FsArtifactStore implements ArtifactStore {
     if (relativeToBase.startsWith("..") || path.isAbsolute(relativeToBase)) return null;
     const stat = fs.lstatSync(target, { throwIfNoEntry: false });
     if (!stat || !stat.isFile()) return null;
-    return { bytes: fs.readFileSync(target), file };
+    return { file, size: stat.size, absolute: target };
+  }
+
+  /**
+   * The bytes of one file, or of one byte range of it.
+   *
+   * A range is read positionally: a client asking for the last 64 KB of a
+   * large asset must not cost the whole asset in memory first.
+   */
+  readFile(stat: ArtifactStat, range?: { start: number; end: number }): Buffer {
+    if (!range) return fs.readFileSync(stat.absolute);
+    const length = Math.max(0, range.end - range.start + 1);
+    if (length === 0) return Buffer.alloc(0);
+    const fd = fs.openSync(stat.absolute, "r");
+    try {
+      const buf = Buffer.allocUnsafe(length);
+      const read = fs.readSync(fd, buf, 0, length, range.start);
+      return read === length ? buf : buf.subarray(0, read);
+    } finally {
+      fs.closeSync(fd);
+    }
+  }
+
+  async open(digest: string, relative: string): Promise<{ bytes: Buffer; file: ArtifactFile } | null> {
+    const stat = this.statFile(digest, relative);
+    if (!stat) return null;
+    return { bytes: this.readFile(stat), file: stat.file };
   }
 
   async verify(digest: string): Promise<{ ok: boolean; detail: string }> {
@@ -320,6 +414,7 @@ export class FsArtifactStore implements ArtifactStore {
     if (!fs.existsSync(this.digestDir(digest))) return false;
     if (await referencedBy(digest)) return false;
     removeQuietly(this.digestDir(digest));
+    this.manifests.delete(digest);
     return !fs.existsSync(this.digestDir(digest));
   }
 
@@ -336,6 +431,7 @@ export class FsArtifactStore implements ArtifactStore {
     const temporary = `${this.manifestPath(digest)}.${crypto.randomUUID()}`;
     fs.writeFileSync(temporary, `${JSON.stringify(updated, null, 2)}\n`);
     fs.renameSync(temporary, this.manifestPath(digest));
+    this.cacheManifest(digest, updated);
     return updated.artifact;
   }
 

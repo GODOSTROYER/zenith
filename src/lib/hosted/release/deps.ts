@@ -13,6 +13,13 @@
  * defaults are the real modules, and a test swaps in a double for the call it
  * needs to steer. Nothing here decides policy; it only decides *who is asked*.
  *
+ * The seam holds exactly what a test actually replaces. Two collaborators used
+ * to sit here and never be swapped — ending an app's sessions on suspension
+ * (`@/lib/hosted/access`) and recording an analytics event
+ * (`@/lib/hosted/events`) — so they are imported at their one call site each,
+ * in `suspend.ts` and `shared.ts`, where a reader and a code-graph tool can
+ * see the edge. Add a member back the moment a test needs to steer it.
+ *
  * Workstream W7 (hosted R3).
  */
 import type {
@@ -24,11 +31,10 @@ import type {
   Subject,
   UsageEntry,
 } from "@/lib/hosted/contracts";
-import { activeGrant, requireAppRole, terminateAppSessionsForApp } from "@/lib/hosted/access";
+import { activeGrant, requireAppRole } from "@/lib/hosted/access";
 import { FsArtifactStore } from "@/lib/hosted/artifacts";
 import { selectedBuildRunner } from "@/lib/hosted/build";
 import { openAppData } from "@/lib/hosted/data";
-import { recordEvent, type RecordEventInput } from "@/lib/hosted/events";
 import { selectedHostedRuntime } from "@/lib/hosted/runtime";
 import { buildsPaused, recordUsage } from "@/lib/hosted/usage";
 
@@ -42,11 +48,8 @@ export interface ReleaseDeps {
   /** The caller's active grant at or above `min`, or `forbidden`. */
   requireAppRole(appId: string, subject: Subject, min: AppRole): AppGrant;
   activeGrant(appId: string, subject: Subject): AppGrant | null;
-  /** End every live app session of an app (suspension); returns how many ended. */
-  terminateAppSessions(appId: string, reason: "operator" | "restored"): number;
   recordUsage(entry: Omit<UsageEntry, "id" | "at"> & { at?: string }): UsageEntry;
   buildsPaused(workspaceId: string): { paused: boolean; reason?: string };
-  recordEvent(input: RecordEventInput): boolean;
   /** The data schema an app's records are stored under; a rollback target must match it. */
   appSchemaVersion(appId: string): Promise<number>;
 }
@@ -57,10 +60,8 @@ const DEFAULTS: ReleaseDeps = {
   artifactStore: () => new FsArtifactStore(),
   requireAppRole: (appId, subject, min) => requireAppRole(appId, subject, min),
   activeGrant: (appId, subject) => activeGrant(appId, subject),
-  terminateAppSessions: (appId, reason) => terminateAppSessionsForApp(appId, reason),
   recordUsage: (entry) => recordUsage(entry),
   buildsPaused: (workspaceId) => buildsPaused(workspaceId),
-  recordEvent: (input) => recordEvent(input),
   appSchemaVersion: (appId) => openAppData(appId).store.schemaVersion(appId),
 };
 

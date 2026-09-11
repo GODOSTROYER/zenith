@@ -22,8 +22,7 @@ import path from "node:path";
 import { authority, nowIso } from "@/lib/hosted/authority";
 import { HostedError, type HostedApp, type HostedJob } from "@/lib/hosted/contracts";
 import { env } from "@/lib/env";
-import { releaseDeps } from "./deps";
-import type { RecordEventInput } from "@/lib/hosted/events";
+import { recordEvent, type RecordEventInput } from "@/lib/hosted/events";
 
 /** A claimed job and the fence token its claimant holds. Every write is conditioned on it. */
 export interface JobRun {
@@ -206,7 +205,7 @@ export function logsOf(job: HostedJob): string[] {
  */
 export function emit(input: RecordEventInput): void {
   try {
-    releaseDeps.recordEvent(input);
+    recordEvent(input);
   } catch {
     /* the operation is what matters; the event log is best effort */
   }

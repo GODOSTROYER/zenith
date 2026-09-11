@@ -45,19 +45,33 @@ import {
 } from "@/lib/hosted/contracts";
 import { enforcementFor } from "@/lib/hosted/quota";
 import { assertCfName, assertNamespace, cfRefusal, CloudflareApiClient, type CfFetch } from "./cf-api";
+import {
+  asDatabase,
+  asDatabases,
+  asStrings,
+  describe,
+  isAllowedBrokerBindings,
+  isAllowedReleaseBindings,
+  scriptUpload,
+} from "./cloudflare-bindings";
+import { CF_COMPATIBILITY_DATE, RELEASE_WORKER_MODULE } from "./cloudflare-worker-module";
 import { brokerScriptName, releaseScriptName } from "./names";
 import type { SelectableRuntime } from "./selectable";
 
-/** Compatibility date every uploaded script is pinned to. Pinned, never "today". */
-export const CF_COMPATIBILITY_DATE = "2026-09-01";
-
-/** The release worker: assets only, no logic, no capability but its own files. */
-export const RELEASE_WORKER_MODULE = `export default {
-  async fetch(request, env) {
-    return env.ASSETS.fetch(request);
-  },
-};
-`;
+// The embedded worker source and the binding rules used to live in this file.
+// They are re-exported so `./index.ts`, and anything that already imports them
+// from here, keep working unchanged.
+export { CF_COMPATIBILITY_DATE, RELEASE_WORKER_MODULE } from "./cloudflare-worker-module";
+export {
+  asDatabase,
+  asDatabases,
+  asStrings,
+  describe,
+  isAllowedBrokerBindings,
+  isAllowedReleaseBindings,
+  scriptUpload,
+  type D1Database,
+} from "./cloudflare-bindings";
 
 /** Options. Everything injectable; production passes the env-derived values once. */
 export interface CloudflareRuntimeOptions {
@@ -78,11 +92,6 @@ export interface CloudflareRuntimeOptions {
   brokerModuleSource?: string;
   /** Where to read that bundle from, when it is not passed directly. */
   brokerModulePath?: string;
-}
-
-interface D1Database {
-  uuid: string;
-  name: string;
 }
 
 type Check = CandidateProbeResult["checks"][number];
@@ -108,6 +117,8 @@ export class CloudflareRuntime implements HostedRuntime, SelectableRuntime {
   constructor(options: CloudflareRuntimeOptions = {}) {
     this.options = options;
   }
+
+  /* ------------------------ availability and shape ------------------------ */
 
   /** Blocked, by name, until all three inputs exist. Never "probably fine". */
   blockedReason(): { reason: string; fix: string } | null {
@@ -135,7 +146,7 @@ export class CloudflareRuntime implements HostedRuntime, SelectableRuntime {
     return appHostname(app.slug);
   }
 
-  /* -------------------------------- the app ------------------------------- */
+  /* ------------------------------- the app -------------------------------- */
 
   /**
    * One D1 database and one broker script per app.
@@ -196,7 +207,7 @@ export class CloudflareRuntime implements HostedRuntime, SelectableRuntime {
     };
   }
 
-  /* ----------------------------- the candidate ---------------------------- */
+  /* ---------------------------- the candidate ----------------------------- */
 
   /**
    * Upload the release's assets under a content-addressed script name.
@@ -340,6 +351,8 @@ export class CloudflareRuntime implements HostedRuntime, SelectableRuntime {
     };
   }
 
+  /* ------------------------------ activation ------------------------------ */
+
   /**
    * No provider call. The stable hostname is routed to the dispatch worker,
    * which asks `/api/hosted/policy/admit` which release is active on every
@@ -352,6 +365,8 @@ export class CloudflareRuntime implements HostedRuntime, SelectableRuntime {
     void release;
     void fence;
   }
+
+  /* --------------------------- binding readback --------------------------- */
 
   /**
    * Read every binding back, from both endpoints, against the strict allowlist.
@@ -415,6 +430,8 @@ export class CloudflareRuntime implements HostedRuntime, SelectableRuntime {
     };
   }
 
+  /* ------------------------------ retention ------------------------------- */
+
   /**
    * Delete this app's release scripts that nothing retains. Brokers are never
    * removed here — an app's broker outlives every release it serves.
@@ -450,7 +467,7 @@ export class CloudflareRuntime implements HostedRuntime, SelectableRuntime {
     }
   }
 
-  /* ------------------------------- internals ------------------------------ */
+  /* ------------------------------ internals ------------------------------- */
 
   private client(): CloudflareApiClient {
     const blocked = this.blockedReason();
@@ -511,6 +528,8 @@ export class CloudflareRuntime implements HostedRuntime, SelectableRuntime {
       },
     };
   }
+
+  /* ----------------------------- asset upload ----------------------------- */
 
   /**
    * The two-step asset upload: open a session with a manifest, then send the
@@ -583,75 +602,4 @@ export class CloudflareRuntime implements HostedRuntime, SelectableRuntime {
     }
     return completion;
   }
-}
-
-/* --------------------------------- helpers -------------------------------- */
-
-/** The multipart body a Workers script upload takes: metadata plus one module. */
-export function scriptUpload(input: { module: string; metadata: Record<string, unknown> }): FormData {
-  const form = new FormData();
-  const main = String(input.metadata.main_module ?? "index.mjs");
-  form.append("metadata", new Blob([JSON.stringify(input.metadata)], { type: "application/json" }));
-  form.append(main, new Blob([input.module], { type: "application/javascript+module" }), main);
-  return form;
-}
-
-const asDatabases = (value: unknown): D1Database[] =>
-  Array.isArray(value)
-    ? value
-        .filter((row): row is Record<string, unknown> => typeof row === "object" && row !== null)
-        .map((row) => ({ uuid: String(row.uuid ?? ""), name: String(row.name ?? "") }))
-        .filter((row) => row.uuid !== "")
-    : [];
-
-function asDatabase(value: unknown): D1Database {
-  const [first] = asDatabases([value]);
-  if (!first)
-    throw cfRefusal(
-      "Cloudflare did not return the database it was asked to create.",
-      "Try publishing again. If the database exists in the dashboard, this adapter will adopt it on the next attempt."
-    );
-  return first;
-}
-
-const asStrings = (value: unknown): string[] =>
-  Array.isArray(value) ? value.filter((row): row is string => typeof row === "string") : [];
-
-/** A one-line description per binding, for the readback report. */
-const describe = (bindings: unknown[]): string[] =>
-  bindings.map((binding) => {
-    if (typeof binding !== "object" || binding === null) return "an unreadable binding";
-    const row = binding as Record<string, unknown>;
-    return `${String(row.name ?? "?")} (${String(row.type ?? "?")})`;
-  });
-
-/** A release may have nothing, or exactly the assets binding — and no extra fields. */
-export function isAllowedReleaseBindings(bindings: unknown[]): boolean {
-  if (bindings.length === 0) return true;
-  if (bindings.length !== 1) return false;
-  const row = bindings[0];
-  if (typeof row !== "object" || row === null) return false;
-  const binding = row as Record<string, unknown>;
-  return (
-    binding.type === "assets" &&
-    binding.name === "ASSETS" &&
-    Object.keys(binding).every((key) => key === "type" || key === "name")
-  );
-}
-
-/** A broker must have exactly one d1 binding called DB, on the expected database. */
-export function isAllowedBrokerBindings(bindings: unknown[], expectedDatabase?: string): boolean {
-  if (bindings.length !== 1) return false;
-  const row = bindings[0];
-  if (typeof row !== "object" || row === null) return false;
-  const binding = row as Record<string, unknown>;
-  if (binding.type !== "d1" || binding.name !== "DB") return false;
-  if (!Object.keys(binding).every((key) => ["type", "name", "id", "database_id", "database_name"].includes(key)))
-    return false;
-  if (expectedDatabase === undefined) return true;
-  const id = binding.database_id ?? binding.id;
-  if (id !== expectedDatabase) return false;
-  // The deprecated `id` field, when present alongside `database_id`, must agree.
-  if ("id" in binding && "database_id" in binding && binding.id !== binding.database_id) return false;
-  return true;
 }

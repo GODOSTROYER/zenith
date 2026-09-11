@@ -10,14 +10,8 @@
  */
 import { z } from "zod";
 import { grantDirect, listGrants } from "@/lib/hosted/access";
-import {
-  RoleSchema,
-  hostedJson,
-  hostedRoute,
-  readJsonBody,
-  signedInOwner,
-  verifiedOwner,
-} from "@/lib/hosted/access/http";
+import type { AppGrantWire, AppGrantsWire } from "@/lib/hosted/contracts";
+import { RoleSchema, hostedJson, hostedRoute, readJsonBody } from "@/lib/server/hosted";
 
 export const dynamic = "force-dynamic";
 
@@ -30,13 +24,16 @@ const NewGrant = z
   })
   .strict();
 
-export const GET = hostedRoute<{ appId: string }>(async (_req, { appId }) => {
-  signedInOwner(appId);
-  return { grants: listGrants(appId) };
-});
+export const GET = hostedRoute<{ appId: string }>(
+  { appRole: "owner", verify: "session" },
+  async (_req, { appId }): Promise<AppGrantsWire> => ({ grants: listGrants(appId) })
+);
 
-export const POST = hostedRoute<{ appId: string }>(async (req, { appId }) => {
-  const { identity } = await verifiedOwner(req, appId);
-  const body = await readJsonBody(req, NewGrant);
-  return hostedJson({ grant: grantDirect(appId, body, identity.subject) }, 201);
-});
+export const POST = hostedRoute<{ appId: string }>(
+  { appRole: "owner", verify: "live" },
+  async (req, { appId }, { subject }) => {
+    const body = await readJsonBody(req, NewGrant);
+    const created: AppGrantWire = { grant: grantDirect(appId, body, subject) };
+    return hostedJson(created, 201);
+  }
+);

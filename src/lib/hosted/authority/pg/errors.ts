@@ -103,21 +103,3 @@ export function exhausted(err: unknown, attempts: number): HostedError {
     }
   );
 }
-
-/**
- * What a repository this build has not implemented yet answers with.
- *
- * Named, not generic: "not implemented" with no subject is the error that costs
- * an hour. This says which repository and which method, so the gap is a line in
- * a file rather than a hunt.
- */
-export function notImplemented(repo: string, method: string): HostedError {
-  return new HostedError(
-    "internal",
-    `The Postgres control authority has no ${repo}.${method}() in this build, so that operation is not implemented in this build.`,
-    {
-      fix: `Implement it in src/lib/hosted/authority/pg/repos/${repo}.ts following pg/repos/README.md, or set ZENITH_HOSTED_STORE=sqlite to use the embedded control authority, which implements every repository.`,
-      details: { repo, method, store: "postgres" },
-    }
-  );
-}

@@ -18,7 +18,7 @@ isolatedDataDir("zenith-authority-pg-tx-");
 
 const { transactPg, savepointName, backoffFor, currentPgTransaction, TX_MAX_ATTEMPTS, TX_BACKOFF_MS } =
   await import("@/lib/hosted/authority/pg/tx");
-const { isRetryable, isUniqueViolation, exhausted, notImplemented, PG_RETRYABLE_CODES } = await import(
+const { isRetryable, isUniqueViolation, exhausted, PG_RETRYABLE_CODES } = await import(
   "@/lib/hosted/authority/pg/errors"
 );
 const { HostedError } = await import("@/lib/hosted/contracts");
@@ -232,17 +232,5 @@ describe("savepoints", () => {
       expect(currentPgTransaction()).toBe(tx);
     });
     expect(currentPgTransaction()).toBeUndefined();
-  });
-});
-
-describe("the unimplemented repositories", () => {
-  it("refuse by name, saying which file implements them", () => {
-    const refusal = notImplemented("grants", "revoke");
-    expect(refusal).toBeInstanceOf(HostedError);
-    expect(refusal.code).toBe("internal");
-    expect(refusal.message).toContain("grants.revoke()");
-    expect(refusal.message).toContain("not implemented in this build");
-    expect(refusal.fix).toContain("pg/repos/grants.ts");
-    expect(refusal.details).toMatchObject({ repo: "grants", method: "revoke", store: "postgres" });
   });
 });

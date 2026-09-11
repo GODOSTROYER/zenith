@@ -1,8 +1,7 @@
 # `pg/repos` — writing a Postgres repository
 
 One file per table, mirroring `authority/repos/<table>.ts` statement for
-statement. Package P1a wrote `jobs.ts` and `outbox.ts`; the rest are named stubs
-(`stubs.ts`) until their packages land.
+statement. Every table has one.
 
 **The target is behavioural identity, not similarity.** The contract test in
 `tests/hosted/authority/contract/` runs the same scenarios against both stores
@@ -103,7 +102,6 @@ Three conventions that are load-bearing:
 | `isUniqueViolation(err)` | SQLSTATE `23505`. Same name and meaning as `sql.ts`'s, so "a UNIQUE failure here means the single-flight index" reads identically in both files |
 | `isRetryable(err)` | `40001` / `40P01` / `53300` / `08006` / `08003`. `../tx.ts` already acts on it; a repository should not |
 | `pgErrorCode` / `pgConstraintName` | when a repository needs to tell two constraints apart |
-| `notImplemented(repo, method)` | the stubs' refusal. Not for a repository you are writing |
 
 When you turn a constraint violation into a `HostedError`, **copy the SQLite
 repository's message, fix and details verbatim** — see `singleFlight` in

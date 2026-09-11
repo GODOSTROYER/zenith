@@ -8,38 +8,32 @@
  * and once per transaction with that transaction's own tag, for the `repos`
  * handed to a `tx()` callback.
  *
- * **Package P1a implements only what the boot path needs to start**: `jobs`
- * (the runner's queue, claims, leases and phase data) and `outbox` (every
- * effect that leaves the process). `hosted.schema_migrations` is read by
+ * Every table has its repository here. `hosted.schema_migrations` is read by
  * `migrations.ts`, which is not part of `Repos` because no caller has ever
- * wanted it. Everything else is a named stub — see `stubs.ts` for why the gaps
- * are filled rather than omitted, and `README.md` for the helper API a
- * repository package writes against.
+ * wanted it. `README.md` documents the helper API a repository is written
+ * against.
  *
  * **Adding a repository is two lines.** Write `pg/repos/<table>.ts` exporting
- * `createPg<Table>Repo(sql)`, then replace its `stub<…>(…)` line below with a
- * call to it. Nothing else in this directory changes.
+ * `createPg<Table>Repo(sql)`, then add it to the object below. Nothing else in
+ * this directory changes.
  */
-import type {
-  AppsRepo,
-  ArtifactsRepo,
-  BackupsRepo,
-  DeliveriesRepo,
-  EventsRepo,
-  ExchangesRepo,
-  GrantsRepo,
-  InvitesRepo,
-  QuotasRepo,
-  ReleasesRepo,
-  Repos,
-  RevocationsRepo,
-  SessionsRepo,
-  UsageRepo,
-} from "../../repos";
+import type { Repos } from "../../repos";
 import type { Sql, TransactionSql } from "../client";
+import { createPgAppsRepo } from "./apps";
+import { createPgArtifactsRepo } from "./artifacts";
+import { createPgBackupsRepo } from "./backups";
+import { createPgEventsRepo } from "./events";
+import { createPgDeliveriesRepo } from "./deliveries";
+import { createPgExchangesRepo } from "./exchanges";
+import { createPgGrantsRepo } from "./grants";
+import { createPgInvitesRepo } from "./invites";
 import { createPgJobsRepo } from "./jobs";
 import { createPgOutboxRepo } from "./outbox";
-import { stub } from "./stubs";
+import { createPgQuotasRepo } from "./quotas";
+import { createPgReleasesRepo } from "./releases";
+import { createPgSessionsRepo } from "./sessions";
+import { createPgRevocationsRepo } from "./revocations";
+import { createPgUsageRepo } from "./usage";
 
 /** Every table of the control authority, bound to one connection or transaction. */
 export function bindPgRepos(sql: Sql | TransactionSql): Repos {
@@ -49,79 +43,18 @@ export function bindPgRepos(sql: Sql | TransactionSql): Repos {
     outbox: createPgOutboxRepo(sql),
 
     // Awaiting their packages. Each method throws naming itself and its file.
-    apps: stub<AppsRepo>("apps", [
-      "get",
-      "getBySlug",
-      "insert",
-      "listAll",
-      "listByWorkspace",
-      "setActiveRelease",
-      "update",
-    ]),
-    grants: stub<GrantsRepo>("grants", [
-      "activeFor",
-      "countActiveOwners",
-      "get",
-      "insert",
-      "listByApp",
-      "listBySubject",
-      "markNeedsReapproval",
-      "revoke",
-      "setRole",
-    ]),
-    invites: stub<InvitesRepo>("invites", [
-      "accept",
-      "get",
-      "getByTokenHash",
-      "insert",
-      "listByApp",
-      "setState",
-      "supersede",
-    ]),
-    deliveries: stub<DeliveriesRepo>("deliveries", [
-      "claim",
-      "claimPending",
-      "clearSealedPayload",
-      "get",
-      "insert",
-      "listByInvite",
-      "reclaimStale",
-      "settle",
-      "settlePending",
-    ]),
-    sessions: stub<SessionsRepo>("sessions", [
-      "appIdsForSubject",
-      "get",
-      "insert",
-      "listByApp",
-      "purgeExpired",
-      "terminate",
-      "terminateByApp",
-      "terminateByGrant",
-      "terminateBySubject",
-    ]),
-    exchanges: stub<ExchangesRepo>("exchanges", [
-      "consume",
-      "get",
-      "insert",
-      "linkSession",
-      "purgeExpired",
-    ]),
-    artifacts: stub<ArtifactsRepo>("artifacts", ["get", "insert", "list", "markVerified"]),
-    releases: stub<ReleasesRepo>("releases", [
-      "get",
-      "insert",
-      "listByApp",
-      "markSuperseded",
-      "nextNumber",
-      "setProbe",
-      "setRuntimeRef",
-      "setStatus",
-    ]),
-    quotas: stub<QuotasRepo>("quotas", ["get", "increment", "listByApp", "resetDay"]),
-    usage: stub<UsageRepo>("usage", ["append", "listSince", "sumSince"]),
-    revocations: stub<RevocationsRepo>("revocations", ["append", "listAfter", "maxSeq"]),
-    backups: stub<BackupsRepo>("backups", ["insert", "latest", "list"]),
-    events: stub<EventsRepo>("events", ["append", "count", "listSince"]),
+    apps: createPgAppsRepo(sql),
+    grants: createPgGrantsRepo(sql),
+    invites: createPgInvitesRepo(sql),
+    deliveries: createPgDeliveriesRepo(sql),
+    sessions: createPgSessionsRepo(sql),
+    exchanges: createPgExchangesRepo(sql),
+    artifacts: createPgArtifactsRepo(sql),
+    releases: createPgReleasesRepo(sql),
+    quotas: createPgQuotasRepo(sql),
+    usage: createPgUsageRepo(sql),
+    revocations: createPgRevocationsRepo(sql),
+    backups: createPgBackupsRepo(sql),
+    events: createPgEventsRepo(sql),
   };
 }

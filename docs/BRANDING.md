@@ -11,8 +11,8 @@ The corporate symbol is the Shift Register: two authored solid vector shapes
 with offset edges and a diagonal seam. It accompanies original lowercase
 zenith vector lettering, not font outlines. The shared master geometry is in
 `src/components/shell/brand-geometry.ts`; the existing `OrbitMark` and
-`Wordmark` exports remain compatible with product callers. The visible `.ai`
-suffix and accessible Zenith name preserve the product name. Monochrome,
+`Wordmark` exports remain compatible with product callers. The wordmark is the
+lettering alone, with no suffix; the accessible name is Zenith. Monochrome,
 inverse and small symbol treatments share this identity. Gimbal's moving rings
 belong to the Navigator character and are not the corporate mark.
 

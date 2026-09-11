@@ -31,8 +31,7 @@ export function Wordmark({ size = 18, draw = false, className }: WordmarkProps) 
       <OrbitMark size={size} draw={draw} />
       <svg width={size * 3.65} height={size} viewBox="0 0 256 66" fill="currentColor" aria-hidden="true">
         {ZENITH_LETTER_PATHS.map((d) => <path key={d} d={d} fillRule="evenodd" />)}
-      </svg>
-      <span aria-hidden="true" style={{ fontSize: size * 0.4, alignSelf: "flex-end", lineHeight: 1.5, marginLeft: -3 }}>.ai</span>
+      </svg>
     </span>
   );
 }

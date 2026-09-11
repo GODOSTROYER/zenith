@@ -2,7 +2,7 @@
 
 **Identity:** “Your stack, clearly in view.” The authored Shift Register symbol
 uses two offset solid shapes and a diagonal seam. The lowercase zenith wordmark
-is custom vector lettering, with an optional visible `.ai` suffix. Shared
+is custom vector lettering with no suffix. Shared
 geometry lives in `src/components/shell/brand-geometry.ts`; the compatible
 `OrbitMark` export now renders this symbol. Gimbal's moving rings remain
 character-specific. Keep existing configuration and persisted names compatible;

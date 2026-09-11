@@ -233,7 +233,7 @@ const SCENARIO: Step[] = [
       for (let i = 0; i < 5; i++)
         store.appendAudit({
           ts: new Date(1_700_000_000_000 + i * 1000).toISOString(),
-          id: `aud-${i}`,
+          id: `${CONTRACT_PREFIX}-aud-${i}`,
           workspaceId: WS,
           projectId: i % 2 === 0 ? PROJ : "proj-other",
           actor: { type: "user", id: "mem-contract", name: "You" },
@@ -245,31 +245,31 @@ const SCENARIO: Step[] = [
 
       // Newest first.
       expect(store.readAudit().map((e) => e.id)).toEqual([
-        "aud-4",
-        "aud-3",
-        "aud-2",
-        "aud-1",
-        "aud-0",
+        `${CONTRACT_PREFIX}-aud-4`,
+        `${CONTRACT_PREFIX}-aud-3`,
+        `${CONTRACT_PREFIX}-aud-2`,
+        `${CONTRACT_PREFIX}-aud-1`,
+        `${CONTRACT_PREFIX}-aud-0`,
       ]);
       expect(store.readAudit({ projectId: PROJ }).map((e) => e.id)).toEqual([
-        "aud-4",
-        "aud-2",
-        "aud-0",
+        `${CONTRACT_PREFIX}-aud-4`,
+        `${CONTRACT_PREFIX}-aud-2`,
+        `${CONTRACT_PREFIX}-aud-0`,
       ]);
-      expect(store.readAudit({ actionId: "deploy." }).map((e) => e.id)).toEqual(["aud-0"]);
+      expect(store.readAudit({ actionId: "deploy." }).map((e) => e.id)).toEqual([`${CONTRACT_PREFIX}-aud-0`]);
 
       const page = store.readAuditPage({ limit: 2 });
-      expect(page.events.map((e) => e.id)).toEqual(["aud-4", "aud-3"]);
+      expect(page.events.map((e) => e.id)).toEqual([`${CONTRACT_PREFIX}-aud-4`, `${CONTRACT_PREFIX}-aud-3`]);
       expect(page.nextCursor).toBeDefined();
       const next = store.readAuditPage({ limit: 2, cursor: page.nextCursor });
-      expect(next.events.map((e) => e.id)).toEqual(["aud-2", "aud-1"]);
+      expect(next.events.map((e) => e.id)).toEqual([`${CONTRACT_PREFIX}-aud-2`, `${CONTRACT_PREFIX}-aud-1`]);
 
       expect(store.countAudit()).toEqual({ total: 5, exact: true });
       expect(store.countAudit({ projectId: PROJ })).toEqual({ total: 3, exact: true });
       // Cached counts stay honest when the log grows.
       store.appendAudit({
         ts: new Date(1_700_000_010_000).toISOString(),
-        id: "aud-5",
+        id: `${CONTRACT_PREFIX}-aud-5`,
         workspaceId: WS,
         projectId: PROJ,
         actor: { type: "system", id: "sys", name: "Zenith" },

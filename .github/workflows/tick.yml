@@ -1,0 +1,86 @@
+name: Tick
+
+# Background work for the serverless deployment.
+#
+# Vercel has no long-lived process, so the engine ticker, the alert evaluator,
+# the alert outbox drainer and the hosted job runner all have to be driven by a
+# request (see src/lib/server/cron.ts). Vercel Cron cannot do the driving on the
+# **Hobby plan**: it runs a cron entry at most once per day there, which is why
+# vercel.json schedules only /api/internal/keepalive and this workflow does the
+# real work. GitHub's own floor is five minutes, so five minutes is the cadence.
+#
+# Scheduled runs are always on the default branch, whatever this file says, and
+# GitHub disables the schedule after 60 days without repository activity — if
+# ticks stop, look there first.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Origin to tick (defaults to https://tryzenith.cloud)"
+        required: false
+        default: "https://tryzenith.cloud"
+
+# It only makes HTTP requests; it reads nothing from the repository.
+permissions:
+  contents: read
+
+# A slow tick must never queue up behind itself: skip, do not stack.
+concurrency:
+  group: tick
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    env:
+      BASE_URL: ${{ inputs.base_url || 'https://tryzenith.cloud' }}
+      # Set this as a repository secret with the same value as CRON_SECRET on
+      # the Vercel project. It is passed to curl through the environment and
+      # through a header file, never on the command line (an argv is visible to
+      # every process on the runner) and never echoed.
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+    steps:
+      - name: Check the secret is present
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${CRON_SECRET}" ]; then
+            echo "::error::CRON_SECRET is not set as a repository secret, so every tick would be refused with 401. Add it in Settings → Secrets and variables → Actions, with the same value as CRON_SECRET on the Vercel project."
+            exit 1
+          fi
+
+      - name: Tick
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The bearer lives in a file curl reads, so it never appears in argv,
+          # in `set -x` output, or in the workflow log.
+          header_file="$(mktemp)"
+          trap 'rm -f "$header_file"' EXIT
+          printf 'Authorization: Bearer %s\n' "$CRON_SECRET" > "$header_file"
+
+          failed=0
+          for pass in engine alerts outbox jobs; do
+            url="${BASE_URL}/api/internal/tick/${pass}"
+            echo "--- ${pass}"
+            status=0
+            # --fail-with-body keeps the JSON error envelope visible on a 4xx/5xx
+            # instead of swallowing it, which is how a 401 or 503 tells you what
+            # to fix. No --retry: a tick that fails is picked up five minutes
+            # later by the next run, and retrying a 20s pass risks overlap.
+            curl --silent --show-error --fail-with-body \
+              --connect-timeout 15 --max-time 90 \
+              --header @"$header_file" \
+              --request POST "$url" || status=$?
+            if [ "$status" -ne 0 ]; then
+              echo "::warning::${pass} tick failed (curl exit ${status})"
+              failed=1
+            fi
+            echo
+          done
+          exit "$failed"

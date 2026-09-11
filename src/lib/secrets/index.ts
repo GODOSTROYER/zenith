@@ -1,12 +1,19 @@
 /**
  * Zenith's secret store — the smallest thing that is honestly a store.
  *
- * What it is: one file beside the snapshot (`<ZENITH_DATA>/secrets.json`,
- * mode 0600) holding, per workspace, one row per reference: the metadata
- * anybody may read, and the value sealed with AES-256-GCM under the server's
+ * What it is: one row per (workspace, reference), holding the metadata anybody
+ * may read and the value sealed with AES-256-GCM under the server's
  * `ZENITH_SECRET_KEY`. The reference — `vault:<projectId>/<serviceId>/<KEY>`,
  * see `vaultRef` below — is the only part that ever reaches a manifest, a
  * revision, a diff, the audit log or an export.
+ *
+ * **This file owns the crypto and nothing else owns any of it.** Where the
+ * sealed bytes are kept is `./backend.ts`'s question: `<ZENITH_DATA>/secrets.json`
+ * at mode 0600 (`./file-backend.ts`, the default and unchanged), or
+ * `public.secrets` when `ZENITH_STORE=postgres` (`./pg-backend.ts`). A backend
+ * never sees a plaintext value and never holds the key, so moving the rows to
+ * Postgres gives the database ciphertext it cannot open — which is the whole
+ * reason the seam is drawn here and not further down.
  *
  * What it is not: a KMS. There is one key for the whole server, it lives in
  * the environment, there is no per-user access control and no way to export a
@@ -15,15 +22,10 @@
  * Without `ZENITH_SECRET_KEY` the store is *not configured*: every write is
  * refused, naming the variable and how to generate one. It never degrades to
  * writing plaintext.
- *
- * TODO(ceiling): read-through file access, no cache — the file is small and written
- * rarely, and a cache is a correctness bug the moment two things hold the data
- * directory. Move it behind the same interface if that stops being true.
  */
 import crypto from "node:crypto";
-import fs from "node:fs";
-import path from "node:path";
 import { decodeSecretKey, env, SECRET_KEY_FIX } from "@/lib/env";
+import { KEY_VERSION, secretsBackend, type SecretRecord } from "./backend";
 
 /* ---------------------------------- shape --------------------------------- */
 
@@ -43,25 +45,23 @@ export interface SecretMeta {
 /** What a read returns: metadata when there is a value, `exists: false` when not. */
 export type SecretStatus = ({ exists: true } & SecretMeta) | { ref: string; exists: false };
 
-interface StoredSecret extends SecretMeta {
-  /** base64(iv).base64(authTag).base64(ciphertext) */
-  cipher: string;
-}
+/** The record minus everything sealed — what a caller is allowed to see. */
+const metaOf = (record: SecretRecord): SecretMeta => ({
+  ref: record.ref,
+  createdAt: record.createdAt,
+  createdBy: record.createdBy,
+  updatedAt: record.updatedAt,
+  updatedBy: record.updatedBy,
+  version: record.version,
+});
 
-interface StoreFile {
-  version: 1;
-  /** workspaceId → ref → row */
-  workspaces: Record<string, Record<string, StoredSecret>>;
-}
-
-const EMPTY: StoreFile = { version: 1, workspaces: {} };
+/** The storage seam, for anything that needs to know which one is in play. */
+export { secretsBackend, type SecretRecord, type SecretsBackend } from "./backend";
 
 /* -------------------------------- references ------------------------------- */
 
 /** Marks a reference Zenith resolves itself, as opposed to your own manager. */
 export { VAULT_PREFIX, isVaultRef, parseVaultRef, vaultRef, type VaultRefParts } from "./refs";
-
-/** True for references this Zenith is responsible for. */
 
 /**
  * THE SHAPE OF A GENERATED REFERENCE
@@ -127,25 +127,39 @@ function requireKey(): Buffer {
 /**
  * The workspace and the reference are authenticated alongside the value, so a
  * row copied to another ref or another workspace fails to open rather than
- * quietly handing back the wrong secret.
+ * quietly handing back the wrong secret. Unchanged by the storage seam, and it
+ * has to be: rows written by any earlier Zenith open with exactly this.
  */
 const aad = (workspaceId: string, ref: string) => Buffer.from(`${workspaceId} ${ref}`, "utf8");
 
-function seal(workspaceId: string, ref: string, value: string): string {
+/** The three sealed parts, base64. Joined by the file backend, columns in Postgres. */
+type Sealed = Pick<SecretRecord, "iv" | "authTag" | "ciphertext">;
+
+function seal(workspaceId: string, ref: string, value: string): Sealed {
   const iv = crypto.randomBytes(12);
   const c = crypto.createCipheriv("aes-256-gcm", requireKey(), iv);
   c.setAAD(aad(workspaceId, ref));
   const ct = Buffer.concat([c.update(value, "utf8"), c.final()]);
-  return [iv, c.getAuthTag(), ct].map((b) => b.toString("base64")).join(".");
+  return {
+    iv: iv.toString("base64"),
+    authTag: c.getAuthTag().toString("base64"),
+    ciphertext: ct.toString("base64"),
+  };
 }
 
-function unseal(workspaceId: string, ref: string, cipher: string): string {
-  const [iv, tag, ct] = cipher.split(".").map((s) => Buffer.from(s, "base64"));
+function unseal(workspaceId: string, ref: string, sealed: Sealed): string {
   try {
-    const d = crypto.createDecipheriv("aes-256-gcm", requireKey(), iv);
+    const d = crypto.createDecipheriv(
+      "aes-256-gcm",
+      requireKey(),
+      Buffer.from(sealed.iv, "base64")
+    );
     d.setAAD(aad(workspaceId, ref));
-    d.setAuthTag(tag);
-    return Buffer.concat([d.update(ct), d.final()]).toString("utf8");
+    d.setAuthTag(Buffer.from(sealed.authTag, "base64"));
+    return Buffer.concat([
+      d.update(Buffer.from(sealed.ciphertext, "base64")),
+      d.final(),
+    ]).toString("utf8");
   } catch {
     throw new Error(
       `The stored value for ${ref} cannot be opened with this server's ZENITH_SECRET_KEY. ` +
@@ -155,90 +169,21 @@ function unseal(workspaceId: string, ref: string, cipher: string): string {
   }
 }
 
-/* ---------------------------------- file ---------------------------------- */
-
-/**
- * `ZENITH_DATA` is read live (scripts and tests set it at runtime), but the
- * join only has to happen when it actually moves.
- */
-let pathCache: { dir: string; file: string } | undefined;
-
-const storePath = (): string => {
-  const dir = env().ZENITH_DATA;
-  if (pathCache?.dir !== dir) pathCache = { dir, file: path.join(dir, "secrets.json") };
-  return pathCache.file;
-};
-
-/**
- * The last parse of the store, and the stat that produced it. Every accessor
- * calls `read()`, so without this a screen listing ten references parsed (and
- * re-decoded) the whole file ten times. `mtimeMs` + `size` is the invalidation:
- * `write()` clears it outright, and an edit from outside this process moves
- * both. A stale cache can therefore only survive a change that keeps the size
- * AND the mtime, which the atomic rename in `write()` never does.
- */
-let fileCache: { file: string; mtimeMs: number; size: number; data: StoreFile } | undefined;
-
-function read(): StoreFile {
-  const file = storePath();
-  const stat = fs.statSync(file, { throwIfNoEntry: false });
-  if (!stat) return structuredClone(EMPTY);
-  if (
-    fileCache &&
-    fileCache.file === file &&
-    fileCache.mtimeMs === stat.mtimeMs &&
-    fileCache.size === stat.size
-  )
-    return fileCache.data;
-  try {
-    const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as StoreFile;
-    const data: StoreFile = { ...EMPTY, ...parsed, workspaces: parsed.workspaces ?? {} };
-    fileCache = { file, mtimeMs: stat.mtimeMs, size: stat.size, data };
-    return data;
-  } catch {
-    // Never start fresh here: that would silently discard every value. Refuse
-    // loudly instead — the file is the only copy Zenith has.
-    throw new Error(
-      `${file} is not readable JSON, so Zenith cannot tell whether it holds your secrets. ` +
-        `Restore it from a backup before writing anything else; nothing was changed.`
-    );
-  }
-}
-
-function write(data: StoreFile): void {
-  // Drop the cache before touching the file, not after: both writers mutate
-  // the object `read()` handed them, so the cached copy is already stale, and
-  // a throw part-way through must not leave that copy readable.
-  fileCache = undefined;
-  const file = storePath();
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const tmp = `${file}.tmp`;
-  // 0600 on create; chmod after in case the file already existed at 0644.
-  fs.writeFileSync(tmp, JSON.stringify(data), { encoding: "utf8", mode: 0o600 });
-  fs.renameSync(tmp, file);
-  try {
-    fs.chmodSync(file, 0o600);
-  } catch {
-    // Windows and some mounts do not carry POSIX modes. The value is still
-    // encrypted at rest, which is what the file's protection actually rests on.
-  }
-}
-
 /* ---------------------------------- reads --------------------------------- */
 
 /** Metadata for one reference. Never the value. */
 export function secretStatus(workspaceId: string, ref: string): SecretStatus {
-  const row = read().workspaces[workspaceId]?.[ref];
-  if (!row) return { ref, exists: false };
-  const { cipher: _cipher, ...meta } = row;
-  return { ...meta, exists: true };
+  const record = secretsBackend().get(workspaceId, ref);
+  if (!record) return { ref, exists: false };
+  return { ...metaOf(record), exists: true };
 }
 
 /** Every reference this workspace has a value for, oldest first. Never values. */
 export function listSecrets(workspaceId: string): SecretMeta[] {
-  const rows = Object.values(read().workspaces[workspaceId] ?? {});
-  return rows
-    .map(({ cipher: _cipher, ...meta }) => meta)
+  // Sorted here rather than in either backend, so both answer in one order.
+  return secretsBackend()
+    .list(workspaceId)
+    .map(metaOf)
     .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
 }
 
@@ -248,8 +193,8 @@ export function listSecrets(workspaceId: string): SecretMeta[] {
  * nothing here logs it. Undefined when there is no such reference.
  */
 export function readSecretValue(workspaceId: string, ref: string): string | undefined {
-  const row = read().workspaces[workspaceId]?.[ref];
-  return row && unseal(workspaceId, ref, row.cipher);
+  const record = secretsBackend().get(workspaceId, ref);
+  return record && unseal(workspaceId, ref, record);
 }
 
 /* --------------------------------- writes --------------------------------- */
@@ -288,23 +233,21 @@ export function putSecret(
   checkRef(ref);
   checkValue(value);
 
-  const data = read();
-  const bucket = (data.workspaces[workspaceId] ??= {});
-  const prior = bucket[ref];
+  const backend = secretsBackend();
+  const prior = backend.get(workspaceId, ref);
   const now = new Date().toISOString();
-  const row: StoredSecret = {
+  const record: SecretRecord = {
     ref,
     createdAt: prior?.createdAt ?? now,
     createdBy: prior?.createdBy ?? by,
     updatedAt: now,
     updatedBy: by,
     version: (prior?.version ?? 0) + 1,
-    cipher: seal(workspaceId, ref, value),
+    keyVersion: KEY_VERSION,
+    ...seal(workspaceId, ref, value),
   };
-  bucket[ref] = row;
-  write(data);
-  const { cipher: _cipher, ...meta } = row;
-  return meta;
+  backend.put(workspaceId, record);
+  return metaOf(record);
 }
 
 /**
@@ -315,11 +258,6 @@ export function putSecret(
  * forever on a server whose key has changed.
  */
 export function removeSecret(workspaceId: string, ref: string): SecretMeta | undefined {
-  const data = read();
-  const row = data.workspaces[workspaceId]?.[ref];
-  if (!row) return undefined;
-  delete data.workspaces[workspaceId][ref];
-  write(data);
-  const { cipher: _cipher, ...meta } = row;
-  return meta;
+  const record = secretsBackend().remove(workspaceId, ref);
+  return record && metaOf(record);
 }

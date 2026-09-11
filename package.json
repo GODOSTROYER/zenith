@@ -5,7 +5,7 @@
   "engines": {
     "node": ">=22.16"
   },
-  "description": "Zenith — a bring-your-own-cloud deployment and operations platform. Your infrastructure, in motion.",
+  "description": "Zenith \u2014 a bring-your-own-cloud deployment and operations platform. Your infrastructure, in motion.",
   "scripts": {
     "dev": "next dev --turbopack -p 3400",
     "dev:webpack": "next dev -p 3400",
@@ -38,7 +38,8 @@
     "hosted:scorecard": "tsx --env-file-if-exists=.env.local scripts/hosted/scorecard.ts",
     "hosted:backup-live-check": "tsx --env-file-if-exists=.env.local scripts/hosted/backup-live-check.ts",
     "hosted:acceptance": "tsx scripts/hosted-acceptance.ts",
-    "hosted:browser": "tsx scripts/hosted-browser.ts"
+    "hosted:browser": "tsx scripts/hosted-browser.ts",
+    "test:contract": "vitest run tests/db/contract --no-file-parallelism"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",

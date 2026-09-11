@@ -410,7 +410,22 @@ function evaluate(rules: AlertRule[], at = Date.now()): number {
   return changed;
 }
 
-/** Everything, for the background pass. */
+/**
+ * Everything, for the background pass.
+ *
+ * "Everything" means **everything the current snapshot holds**, and on Postgres
+ * that is a deliberately narrower thing than the install: a request's snapshot
+ * is the caller's workspace slice, so a read-time evaluation can only ever
+ * touch the caller's own rules. Nothing below widens that — `evaluate` walks
+ * the rules it was handed, `evaluateRule` reads environments, revisions and
+ * deployments out of the same graph, and `openEventFor` scans the same event
+ * array — so a rule outside the snapshot is not evaluated rather than
+ * mis-evaluated against a half-loaded store.
+ *
+ * A caller that really does want the whole install — the cron route — gets it
+ * by priming a snapshot with `primeProcessSnapshot(null)` before calling, which
+ * is the same contract `./deliver`'s header states for `replayOutbox`.
+ */
 export const evaluateAll = (at = Date.now()): number => evaluate(tables().rules, at);
 
 /** One project, for a read of the alerts API — the page shows a fresh answer. */

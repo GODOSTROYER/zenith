@@ -308,6 +308,88 @@ idempotently → events appended (replayable) → verify phase (honest health) �
    transition**: the old shape re-serialised a megabyte of deploy history per
    step, forever. Revision *metadata* still grows linearly with deploys, which
    is what the paged `GET /api/projects/:id/revisions` route is for.
+
+   ### Phase 3 — closing the hybrid, and running without a process
+
+   Phase 3 takes the second half of the store to Postgres and, separately,
+   answers the question a serverless host raises the moment it does: *who runs
+   the background work?*
+
+   **Where each collection lives.** Every table is reached the same way — a
+   `CollectionAdapter` registered in `src/lib/db/pg/registry.ts` — and the only
+   thing that differs is which module registers it, so four packages extend the
+   store in parallel without ever editing one file twice:
+
+   | Module | Collections |
+   | --- | --- |
+   | `pg/core.ts` (Phase 2) | workspaces · members · invites · connections · projects · environments · settings |
+   | `pg/history.ts` | revisions · `revision_manifests` · deployments · `deployment_events` |
+   | `pg/audit.ts` | `audit_events` · secrets |
+   | `pg/alerts.ts` | findings · navigator runs · alert rules · alert events · alert outbox |
+
+   `pg/all.ts` imports all four in **foreign-key order**, which is registration
+   order, which is the order writes run down and deletes run back up. Anything
+   that iterates the store — the flush, the snapshot load, and
+   `scripts/migrate-to-postgres.ts` — iterates that registry and names no table
+   of its own. The migration therefore needed no per-collection cases to gain a
+   package's tables; it gained the four **log and side-file** imports instead
+   (`events.jsonl` → `deployment_events` preserving `seq` and `ts`,
+   `audit.jsonl` → `audit_events` preserving `ts` and keyed on the unique `id`,
+   `revisions/<id>.json` → `revision_manifests`, and `secrets.json` → `secrets`
+   as a split of `base64(iv).base64(authTag).base64(ciphertext)` into three
+   columns, never a decrypt), because those four live in the data directory as
+   files rather than in `state.json`.
+
+   **Background work has no process to live in.** The engine's 250 ms ticker,
+   the alert evaluator's 15 s pass, the outbox drainer and the hosted job runner
+   all assume one long-lived server. A Vercel instance exists for a request and
+   is frozen after it, so `src/lib/serverless.ts` turns those timers off there
+   and something else has to drive them: five internal routes, each of which
+   runs **one bounded pass** and returns JSON counts.
+
+   | Route | Pass |
+   | --- | --- |
+   | `POST /api/internal/tick/engine` | `engineTick()` in a loop under a ~20 s wall-clock budget — many steps per deployment per invocation, stopping the instant nothing is in flight |
+   | `POST /api/internal/tick/alerts` | `evaluateAll()` |
+   | `POST /api/internal/tick/outbox` | `replayOutbox(60s lease)` — a minute rather than the boot-time zero, because another instance may be mid-send |
+   | `POST /api/internal/tick/jobs` | `tickJobs()`, reporting the queue either side |
+   | `GET /api/internal/keepalive` | one authenticated read, so a free Supabase project is never paused for inactivity |
+
+   All five are authorised by the Vercel convention `Authorization: Bearer
+   <CRON_SECRET>`, compared in **constant time** over SHA-256 digests (so that
+   neither the value nor its length is recoverable from timing), **401**
+   otherwise, and **503** when `CRON_SECRET` is unset — an internal route that
+   silently becomes public because a variable was forgotten is a worse failure
+   than a tick that does not happen. The bearer is checked *before* anything is
+   read, which is why these five do not go through `route()`: `route()`
+   prefetches the store before the handler runs, and an unauthenticated caller
+   must not be able to make the server load a database.
+
+   **The Hobby-plan constraint, stated once.** Vercel Cron on the Hobby plan
+   runs a cron entry **at most once per day**, so per-minute scheduling is not
+   available there at all. `vercel.json` therefore schedules only the daily
+   keepalive (Vercel attaches the bearer itself once `CRON_SECRET` is set on the
+   project), and `.github/workflows/tick.yml` drives the four tick routes on
+   GitHub's own floor of five minutes. Between those ticks, `nudge()`
+   (`src/lib/server/cron.ts`) covers the case that actually needs sub-minute
+   progress: reading a project payload runs one synchronous `engineTick()` when
+   that workspace has a deployment in flight — serverless only, rate-limited to
+   once per five seconds per instance, a no-op when nothing is deploying, and
+   unable to fail the read. Nothing starts a `setInterval` anywhere.
+
+   **The snapshot contract for out-of-request work.** On Postgres `db()` reads a
+   snapshot loaded *before* the caller ran, and `route()` loads the caller's
+   workspace slice. A cron pass has no caller, and a pass that saw one workspace
+   would advance one workspace — so every pass runs inside an **unfiltered**
+   snapshot: `primeProcessSnapshot(null)`, which is `loadSnapshot(client, null)`,
+   which is every workspace and every row. The pass then runs inside
+   `runWithSnapshot()` so a nested reader finds the same object, and the
+   write-back is awaited before the response leaves — the same "commit before
+   ACK" every mutating route obeys. One rule follows from this and is worth
+   stating on its own: **an unauthenticated request on Postgres loads the whole
+   database**, which is exactly right for the scheduler and exactly why these
+   routes check their bearer first.
+
 2. **Sandbox provider is a first-class citizen**, not a mock: same adapter
    contract as AWS, realistic phased execution, honest labeling. This keeps
    every demo path production-shaped.

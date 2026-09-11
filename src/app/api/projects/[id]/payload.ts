@@ -22,6 +22,7 @@ import { diffManifests, validateManifest } from "@/lib/domain/graph";
 import { manifestHash } from "@/lib/actions/defs/project-manifest";
 import { log } from "@/lib/log";
 import { securityModule } from "@/lib/server/boot";
+import { nudge } from "@/lib/server/cron";
 
 type ValidationIssues = ReturnType<typeof validateManifest>;
 
@@ -78,6 +79,13 @@ export async function projectPayload(
   project: Project,
   only: string | null
 ): Promise<ProjectPayload> {
+  // Opportunistic progression: on serverless there is no ticker, and a person
+  // watching a deploy polls or streams this payload every few seconds. One
+  // synchronous engine tick here starts the next step of anything in flight in
+  // this workspace; it is rate-limited to once per 5s per instance, is a no-op
+  // when nothing is deploying, and never throws. See src/lib/server/cron.ts.
+  nudge(project.workspaceId);
+
   const environments = q.environmentsOf(project.id);
   const cache = cacheFor(project);
 

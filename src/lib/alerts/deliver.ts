@@ -30,9 +30,47 @@
  * attempts with backoff, then the row is `failed` with its reason on the event
  * and the operator retries with Test on the channel. A `failed` row is never
  * re-driven on its own; that is what a dead-letter screen would add.
+ *
+ * ## Two instances, one outbox (ZENITH_STORE=postgres)
+ *
+ * On the file store there is exactly one writer of the data directory —
+ * `claimDataDir()` proves it at boot — so "claim the pending rows and send
+ * them" needs no coordination at all. On Postgres the app is many serverless
+ * instances over one table, and two of them can drain the same rows in the same
+ * second. Three things make that safe, in order of who catches what:
+ *
+ *  1. **The claim is a version-guarded write.** Each row is moved `pending →
+ *     sending` on its own, with `.eq("version", loadedVersion)`. Zero rows
+ *     updated means another instance got there first, and that is a *skip*, not
+ *     an error and not a retry (`claimOutboxRowIn` in
+ *     `@/lib/db/pg/alerts`). It is deliberately not the snapshot flush: a flush
+ *     writes every dirty row and one conflict aborts the batch, which is right
+ *     for a request and wrong for a drainer.
+ *  2. **`claimed_at` is the lease.** A claim lives in a column, not in process
+ *     memory, so another instance can read it — and `reclaimStale` hands back
+ *     rows whose stamp is older than `OUTBOX_LEASE_MS` with the same guarded
+ *     write, under the row's original idempotency key.
+ *  3. **`alert_outbox.idempotency_key` is unique.** Even if the two above were
+ *     wrong, a second row for the same (event, transition, channel) cannot be
+ *     inserted, so a duplicate send cannot be *created*. The loser of that race
+ *     adopts the winner's row instead of failing its flush.
+ *
+ * ## Snapshot contract — READ THIS BEFORE CALLING FROM A CRON ROUTE
+ *
+ * `evaluateAll`, `replayOutbox` and `flushDeliveries` read and write through
+ * `db()`, which on Postgres is **a snapshot somebody loaded before the call**.
+ * Inside `route()` that is the request's own prefetch and nothing extra is
+ * needed. Outside one — a cron handler, a script, a worker — the caller MUST
+ * first `await primeProcessSnapshot(user)` from `@/lib/db/postgres-store`
+ * (`user: null` loads the whole install, which is what a cron wants), or every
+ * read answers out of an empty graph and every write is a no-op. The drainer
+ * awaits its own writes (`flushPendingAsync`, not the fire-and-forget
+ * `flush()`), so the caller does not need a final flush — but it must not exit
+ * before `replayOutbox`/`flushDeliveries` resolves, or the instance freezes
+ * mid-send and the rows are reclaimed by lease instead of delivered.
  */
 import { createHmac } from "node:crypto";
-import { db, flush, q, save } from "@/lib/db/store";
+import { db, flush, flushPendingAsync, isPostgres, q, save } from "@/lib/db/store";
 import {
   id,
   type AlertChannel,
@@ -497,13 +535,21 @@ export function enqueueDeliveries(
   return created;
 }
 
+/** The Postgres half of the outbox, loaded only when that store is in use. */
+const pgAlerts = () => import("@/lib/db/pg/alerts");
+
 /**
  * Take every pending row, mark it `sending`, and make that durable *before* the
  * first byte leaves. A crash from here on leaves a claimed row this process no
  * longer owns, which the next boot reclaims — the send is retried with the same
  * idempotency key rather than dropped.
+ *
+ * Synchronous, and it stays synchronous: with one writer of the data directory
+ * the claim needs no coordination, and `drain()` decides the whole batch before
+ * it yields — so no second drain, and nothing that runs on a later microtask,
+ * can take a row out from under a claim that has already been made.
  */
-function claimPending(): AlertOutboxEntry[] {
+function claimPendingLocal(): AlertOutboxEntry[] {
   const batch = outbox().filter((r) => r.status === "pending");
   if (batch.length === 0) return [];
   const at = iso();
@@ -514,6 +560,68 @@ function claimPending(): AlertOutboxEntry[] {
   save();
   flush(); // the whole batch costs one write, not one per row
   return batch;
+}
+
+/** True when a flush failed only because another instance wrote the row first. */
+const isDuplicateOutbox = (err: unknown): boolean =>
+  err instanceof Error && err.message.includes("alert_outbox_idempotency_key");
+
+/**
+ * Get this snapshot's enqueued rows into the table, adopting anything another
+ * instance enqueued for the same transition rather than failing on the unique
+ * index. Nothing can be claimed that has not been written.
+ */
+async function persistOutbox(): Promise<void> {
+  save();
+  try {
+    await flushPendingAsync();
+  } catch (err) {
+    if (!isDuplicateOutbox(err)) throw err;
+    const pg = await pgAlerts();
+    const dropped = await pg.dropDuplicateOutboxRows(await pg.outboxSnapshot());
+    log.info("outbox row already enqueued by another instance", { scope: "alerts", dropped });
+    save();
+    await flushPendingAsync();
+  }
+}
+
+/**
+ * The multi-instance claim. Every row is taken on its own, guarded on the
+ * version it was read at; a row this instance loses is skipped, not retried and
+ * not failed — the instance that won it is sending it right now.
+ */
+async function claimPendingShared(): Promise<AlertOutboxEntry[]> {
+  const pg = await pgAlerts();
+  await persistOutbox();
+  const snap = await pg.outboxSnapshot();
+  // Rows another instance enqueued are not in this snapshot at all, and rows
+  // this snapshot loaded as pending may already be gone. Look before claiming.
+  await pg.refreshOutbox(snap, pg.outboxWorkspaces(snap));
+
+  const at = iso();
+  const claimed: AlertOutboxEntry[] = [];
+  for (const row of [...outbox()]) {
+    if (row.status !== "pending") continue;
+    if (await pg.claimOutboxRowIn(snap, row, at)) claimed.push(row);
+  }
+  return claimed;
+}
+
+/**
+ * One write for a batch's outcomes, on whichever store is in play. On Postgres
+ * it must be the **awaited** flush: `flush()` there only starts the round trip,
+ * and a serverless instance can be frozen the instant this function returns.
+ */
+async function flushOutbox(): Promise<void> {
+  if (!isPostgres()) return void flush();
+  try {
+    await flushPendingAsync();
+  } catch (err) {
+    // A settle that lost a race is a delivery already recorded by whoever won
+    // it; a real failure is worth a line, but never an unhandled rejection in
+    // a background drain.
+    log.warn("alert outbox flush failed", { scope: "alerts", error: err });
+  }
 }
 
 /**
@@ -597,22 +705,43 @@ export function queueDelivery(event: AlertEvent, phase: "fired" | "resolved"): v
   });
 }
 
+/**
+ * Claim, send, settle.
+ *
+ * Which half runs where matters. On the file store the claim happens **before
+ * this function returns**, exactly as it always did: one writer, one
+ * synchronous write, and a caller that sees `sending` on disk the moment
+ * `drain()` comes back. On Postgres the claim is a round trip per row, so it
+ * moves inside the in-flight chain — which also serialises it behind the
+ * previous batch, so two overlapping drains in one process cannot both be
+ * negotiating for the same rows.
+ */
 function drain(): void {
-  const batch = claimPending();
-  if (batch.length === 0) return;
+  if (!isPostgres()) {
+    const batch = claimPendingLocal();
+    if (batch.length > 0) runBatch(() => Promise.resolve(batch));
+    return;
+  }
+  runBatch(claimPendingShared);
+}
+
+function runBatch(claim: () => Promise<AlertOutboxEntry[]>): void {
   g.__zenithDeliveryInFlight = (g.__zenithDeliveryInFlight ?? Promise.resolve())
-    .then(() => Promise.all(batch.map((row) => deliverEntry(row))))
-    .then(
-      // One write for the batch's outcomes, in place of one per row.
-      () => flush(),
-      (err) => {
-        // deliverEntry never throws, so this is a bug rather than a bad
-        // endpoint. It must not become an unhandled rejection either way —
-        // and whatever did settle before it still has to reach disk.
-        flush();
-        log.error("alert delivery batch failed", { scope: "alerts", error: err });
+    .catch(() => undefined)
+    .then(async () => {
+      const batch = await claim();
+      if (batch.length === 0) return;
+      try {
+        await Promise.all(batch.map((row) => deliverEntry(row)));
+      } finally {
+        // One write for the batch's outcomes, in place of one per row —
+        // and whatever did settle before a bug still has to reach the store.
+        await flushOutbox();
       }
-    );
+    })
+    // deliverEntry never throws, so a rejection here is a bug rather than a bad
+    // endpoint. It must not become an unhandled rejection either way.
+    .catch((err) => log.error("alert delivery batch failed", { scope: "alerts", error: err }));
 }
 
 /**
@@ -630,9 +759,28 @@ export async function deliverEvent(
 }
 
 /**
- * Hand back rows a dead process was holding. A claim older than the lease
- * cannot still be in flight — nothing legitimately takes that long — so the row
- * goes back to `pending` and is sent again under its original key.
+ * Hand back rows a dead process was holding, on whichever store is in play.
+ *
+ * Both paths decide on `claimedAt`, which is why that stamp is a durable field
+ * and not process state: on Postgres the instance that took the claim may never
+ * come back, and the only evidence another instance has is the column. The
+ * Postgres path re-reads the claimable window first and writes each reclaim
+ * guarded on the row's version, so two instances reclaiming at once produce one
+ * winner and no duplicate send.
+ */
+export async function reclaimStaleAsync(
+  leaseMs = OUTBOX_LEASE_MS,
+  now = Date.now()
+): Promise<number> {
+  if (!isPostgres()) return reclaimStale(leaseMs, now);
+  const pg = await pgAlerts();
+  return pg.reclaimStaleIn(await pg.outboxSnapshot(), leaseMs, now);
+}
+
+/**
+ * The synchronous file-store reclaim. A claim older than the lease cannot still
+ * be in flight — nothing legitimately takes that long — so the row goes back to
+ * `pending` and is sent again under its original key.
  */
 export function reclaimStale(leaseMs = OUTBOX_LEASE_MS, now = Date.now()): number {
   let reclaimed = 0;
@@ -660,9 +808,15 @@ export function reclaimStale(leaseMs = OUTBOX_LEASE_MS, now = Date.now()): numbe
  * correct precisely here — `claimDataDir()` has just proved this process is the
  * only writer of this data directory, so no live runner can be holding one.
  * Pass a real lease to reclaim only rows abandoned longer ago than that.
+ *
+ * On Postgres that proof does not exist: another instance may be mid-send right
+ * now, so a cron caller MUST pass `OUTBOX_LEASE_MS` (or longer) rather than
+ * take the default. See the snapshot contract in this file's header for what
+ * else such a caller owes — the short version is `primeProcessSnapshot` first,
+ * and do not exit before this promise resolves.
  */
 export async function replayOutbox(leaseMs = 0): Promise<number> {
-  const reclaimed = reclaimStale(leaseMs);
+  const reclaimed = await reclaimStaleAsync(leaseMs);
   const pending = outbox().filter((r) => r.status === "pending").length;
   if (pending === 0) return 0;
   log.info("replaying alert outbox", { scope: "alerts", pending, reclaimed });

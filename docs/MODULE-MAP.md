@@ -12,11 +12,17 @@ Two products share one repository and one process:
   the `Store` split is a façade over two implementations `ZENITH_STORE`
   selects: `src/lib/db/file-store.ts` (the default) and
   `src/lib/db/postgres-store.ts` (Supabase Postgres, request-scoped snapshot).
-  The Postgres one is a **hybrid**: it owns workspaces, members, invites,
-  connections, projects, environments and settings, and delegates revisions,
-  deployments, deployment events, the audit log, findings, navigator runs,
-  alerts and secrets straight back to `FileStore` until Phase 3. That boundary
-  is stated in full at the top of `postgres-store.ts`.
+  The Postgres one holds no per-collection knowledge itself: every table is a
+  `CollectionAdapter` registered in `db/pg/registry.ts`, and `db/pg/all.ts`
+  imports the four modules that register them in foreign-key order —
+  `core.ts` (workspaces, members, invites, connections, projects, environments,
+  settings), `history.ts` (revisions, revision manifests, deployments,
+  deployment events), `audit.ts` (audit events, secrets) and `alerts.ts`
+  (findings, navigator runs, alert rules/events/outbox). Phase 2 shipped
+  `core.ts` alone and delegated the rest back to `FileStore` through
+  `db/pg/delegates.ts`; Phase 3 is the other three. Whatever is not yet
+  registered is still answered by a delegate, and that boundary is stated in
+  full at the top of `postgres-store.ts`.
 - **B — hosted apps.** Private apps served on `<slug>.<ZENITH_APP_DOMAIN>`.
   Persists to `.data/control.sqlite` through `src/lib/hosted/authority/`.
 
@@ -121,6 +127,7 @@ Business rules over the stores. No `Request`, no `Response`, no route knowledge.
 | Path | Owns | May import |
 | --- | --- | --- |
 | `src/lib/server/boot.ts` | `ensureBoot()`: data-dir claim → `ensureHosted()` → engine → actions → alerts | L0–L4 |
+| `src/lib/server/cron.ts` | Background work on a host with no background. `authorizeCron` (Bearer `CRON_SECRET`, constant-time, 401/503), `inCronScope` (an **unfiltered** `primeProcessSnapshot(null)` + `runWithSnapshot` + awaited flush), the four bounded passes (`engineTickPass` ~20 s budget, `alertTickPass`, `outboxTickPass`, `jobTickPass`), `cronRoute` and `nudge()`. Starts no timer, ever | L0–L4 |
 | `src/lib/server/context.ts` | Barrel over the six modules below; every existing importer still resolves here | — |
 | `src/lib/server/errors.ts` | `ApiError`, `notFound`, `json`, `errorResponse` | L0–L1 |
 | `src/lib/server/request.ts` | `RequestState`, `currentRequest`, `route({ workspaceRole? }, handler)`, `intParam` | L0–L4 |
@@ -133,7 +140,8 @@ Business rules over the stores. No `Request`, no `Response`, no route knowledge.
 | `src/lib/server/sse.ts` | SSE streams with `?after=<seq>` replay | L0–L4 |
 | `src/lib/hosted/access/http.ts` | Re-export barrel over `src/lib/server/hosted.ts` kept for existing import paths. Not re-exported by the access barrel | `server/hosted` only |
 | `src/lib/hosted/release/http.ts` | The `/api` layer for app routes: hosted status mapping, the two role checks | L0–L4 + `server/context`, `actions/core` |
-| `src/app/api/**` (50 route files, 22 of them under `api/hosted`) | HTTP. Parse, authorise, delegate, shape the envelope | L0–L5 |
+| `src/app/api/**` (55 route files, 22 of them under `api/hosted`) | HTTP. Parse, authorise, delegate, shape the envelope | L0–L5 |
+| `src/app/api/internal/**` (5 route files) | The scheduler's surface: `tick/{engine,alerts,outbox,jobs}` and `keepalive`. Each is one bounded pass returning counts. Deliberately **not** `route()` — the bearer is checked before any store read, so an unauthenticated caller cannot make the server load a database | `server/cron` |
 | `src/app/hosted-gateway/[host]/[[...path]]` | Where `hosted/edge.ts` rewrites an app-host request | `hosted/gateway` |
 
 ### L6 — UI
@@ -208,3 +216,26 @@ Two edges people expect to find here and which are **not** cycles:
 | What does the process do on start-up? | `src/lib/server/boot.ts` → `src/lib/hosted/index.ts` |
 | Where is this table? | `src/lib/hosted/authority/schema.ts`, then `repos/<table>.ts` |
 | Why is this ceiling here? | `grep -rn 'TODO(ceiling):' src`, then [docs/DEBT.md](DEBT.md) |
+| What runs between requests on Vercel? | `src/lib/server/cron.ts`, then `.github/workflows/tick.yml` and `vercel.json` |
+| How do I move a data directory into Postgres? | `scripts/migrate-to-postgres.ts`, then [docs/RUNNING.md](RUNNING.md) § "Running on Vercel with Postgres" |
+
+---
+
+## Phase 3 in one paragraph
+
+The store's second half moves to Postgres through `db/pg/{history,audit,alerts}.ts`,
+each registering its collections with `registerCollection()` so nothing edits
+`postgres-store.ts`. The four things that are *not* collections — `events.jsonl`,
+`audit.jsonl`, `revisions/<id>.json` and `secrets.json` — are imported by
+`scripts/migrate-to-postgres.ts`, which otherwise iterates `rowAdapters()` and
+names no table of its own. Separately, background work stops depending on a
+long-lived process: `src/lib/server/cron.ts` and `src/app/api/internal/**` turn
+"a request arrived" into one bounded pass of the engine, the alert evaluator,
+the outbox drainer or the hosted job runner. Vercel Cron on the **Hobby plan**
+runs at most once per day, so `vercel.json` schedules only the daily keepalive
+and `.github/workflows/tick.yml` drives the ticks every five minutes; `nudge()`
+covers the gap on the request path. Out-of-request work runs inside an
+**unfiltered** snapshot (`primeProcessSnapshot(null)`), which is the same thing
+an unauthenticated request already gets and the reason the internal routes
+authorise before they read. Full reasoning: [docs/ARCHITECTURE.md](ARCHITECTURE.md),
+ADR 1 → "Phase 3".

@@ -40,8 +40,25 @@ export const postgresContractEnabled = (): boolean =>
  */
 export const CONTRACT_PREFIX = `contract-${Math.random().toString(36).slice(2, 10)}`;
 
-/** Phase-2 tables, in reverse foreign-key order — what cleanup deletes from. */
+/**
+ * Every table the suite writes, in reverse foreign-key order — what cleanup
+ * deletes from. A Phase-3 package appends its own tables above the Phase-2
+ * block it depends on (`revision_manifests` before `revisions`, and both before
+ * `projects`), so the list stays delete-safe.
+ */
 const CONTRACT_TABLES = [
+  // Reverse FK order; every table is filtered on workspace_id except workspaces.
+  "alert_outbox",
+  "alert_events",
+  "alert_rules",
+  "navigator_runs",
+  "findings",
+  "audit_events",
+  "secrets",
+  "deployment_events",
+  "deployments",
+  "revision_manifests",
+  "revisions",
   "environments",
   "projects",
   "connections",

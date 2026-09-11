@@ -228,6 +228,101 @@ A local Supabase stack via `npm run supabase:start` also works
 
 ---
 
+## Running on Vercel with Postgres
+
+Two things change when Zenith runs on a serverless host. The store has to be
+Postgres, because an instance's `/tmp` is its own and nothing written there
+survives; and the background work has to be driven by requests, because there is
+no long-lived process to hold a timer. Both are configuration, and this is all
+of it.
+
+### 1. Environment variables on the Vercel project
+
+Set these on **production and preview** (Project → Settings → Environment
+Variables). Never paste a value into a shell that is being recorded, and never
+into a file that is committed.
+
+| Variable | Value |
+| --- | --- |
+| `ZENITH_STORE` | `postgres`. Without it the deployment runs on the file store, in a `/tmp` that vanishes |
+| `NEXT_PUBLIC_SUPABASE_URL` | the project URL. **Build-time** — changing it needs a redeploy, not a restart |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | the publishable key. **Build-time** |
+| `SUPABASE_SERVICE_ROLE_KEY` | server-only; the store reaches PostgREST as the service role, which is the only identity the tables admit |
+| `CRON_SECRET` | the bearer the five internal routes demand. Vercel attaches it to its own cron requests automatically once it is set |
+
+`CRON_SECRET` goes in a **third** place as well: a GitHub Actions repository
+secret of the same name (Settings → Secrets and variables → Actions), with the
+same value, because `.github/workflows/tick.yml` is what actually drives the
+ticks. Generate one with `openssl rand -hex 32`.
+
+`ZENITH_SECRET_KEY` is unchanged and still required for secret writes — and is
+still the only copy of the key those values were sealed with, so it must be the
+same value before and after the migration below.
+
+### 2. Apply the schema, then migrate the data
+
+```bash
+# Once, against the project NEXT_PUBLIC_SUPABASE_URL names:
+#   apply supabase/migrations/0001_system_of_record.sql
+#   (Supabase dashboard → SQL editor, or `supabase db push`)
+
+# Then, from a machine that has the data directory:
+ZENITH_DATA=/path/to/.data npm run migrate:postgres
+
+# And to see what landed, per table, without writing anything:
+npm run migrate:postgres -- --verify
+```
+
+`npm run migrate:postgres` reads `.env.local` for the Supabase keys. It is
+idempotent — every insert is an upsert with `ignoreDuplicates` and it never
+deletes — so a partial run is finished by running it again. It moves every
+registered collection (it iterates the adapter registry, so it needs no edit
+when a collection is added) plus the four things that live in the data directory
+as files: `events.jsonl` → `deployment_events`, `audit.jsonl` → `audit_events`,
+`revisions/<id>.json` → `revision_manifests`, and `secrets.json` → `secrets`.
+Secrets are **moved, not decrypted**: the stored
+`base64(iv).base64(authTag).base64(ciphertext)` is split into its three columns
+and the key is never read.
+
+### 3. What runs in the background, and how often
+
+There is no ticker on Vercel. Five internal routes each run one bounded pass:
+
+| Route | What one call does |
+| --- | --- |
+| `POST /api/internal/tick/engine` | advances every in-flight deployment for up to ~20 s |
+| `POST /api/internal/tick/alerts` | one alert evaluation pass |
+| `POST /api/internal/tick/outbox` | drains the alert delivery outbox once |
+| `POST /api/internal/tick/jobs` | one pass of the hosted publish-job runner |
+| `GET /api/internal/keepalive` | one authenticated read, so a free Supabase project is not paused for inactivity |
+
+**Vercel Cron on the Hobby plan runs at most once per day**, so it cannot tick.
+`vercel.json` gives it the one job it can do — the daily keepalive — and
+`.github/workflows/tick.yml` curls the four tick routes every five minutes
+(GitHub's own floor), on `schedule` plus `workflow_dispatch` for a manual run.
+Note that GitHub disables a schedule after 60 days without repository activity:
+if ticks stop, look there first.
+
+### 4. Triggering a tick by hand
+
+Put the secret in an environment variable — never on the command line, where it
+is visible to every process on the machine and lands in your shell history:
+
+```bash
+read -rs CRON_SECRET && export CRON_SECRET      # paste, press enter; nothing echoes
+curl -sS --fail-with-body -X POST \
+  -H "Authorization: Bearer $CRON_SECRET" \
+  https://tryzenith.cloud/api/internal/tick/engine
+```
+
+The reply is JSON counts — `{"pass":"engine","ok":true,"ms":…,"deployments":…,
+"ticks":…,"remaining":…,"timedOut":…}` — so a tick always says what it did.
+**401** means the bearer did not match; **503** means `CRON_SECRET` is not set on
+the deployment at all, which is deliberate: these routes run nothing rather than
+running unauthenticated.
+
+---
+
 ## Environment variables
 
 Everything is optional. `npm run doctor` tells you which are set and what each
@@ -252,6 +347,9 @@ received and what it accepts — never a silent default.
 | `ANTHROPIC_API_KEY` | *(unset)* | Enables Claude language parsing in the Navigator. Without it the deterministic planner handles goals |
 | `ZENITH_SEED_FORCE` | *(unset)* | `1` lets `npm run seed` wipe a data directory holding workspaces it did not create |
 | `ZENITH_PORT` | `3400` | Read by `docker-compose.yml` only, for the host-side port. Not an application variable |
+| `ZENITH_STORE` | `file` | `postgres` puts product A's store in Supabase Postgres. Required on any serverless deployment — see "Running on Vercel with Postgres" above |
+| `CRON_SECRET` | *(unset)* | Bearer token for `/api/internal/tick/*` and `/api/internal/keepalive`. Vercel's own name, so Vercel Cron sends it automatically. Unset, those routes answer **503** and run nothing. Set the same value as a GitHub Actions secret, which `.github/workflows/tick.yml` uses |
+| `ZENITH_SERVERLESS` | *(unset)* | `1` says "this is a serverless instance" anywhere that is not Vercel (`VERCEL` says it there). Turns off the pid lock and the timers, and turns on the per-request flush and `nudge()` |
 
 **Build-time** means Next inlines the value into the browser bundle during
 `next build`. Changing one requires a rebuild (`npm run docker:build`), not a
@@ -397,3 +495,5 @@ LocalStack is not running, or not where Zenith is looking. `npm run doctor`
 reports the endpoint it checked and whether `s3` and `sqs` are available.
 `npm run localstack:up` starts it; `npm run localstack:logs` shows why it is
 unhealthy if it started but is not answering.
+
+Run the live contract suite with `npm run test:contract` (it passes `--no-file-parallelism`): every contract file talks to the one real project, so they run one at a time.

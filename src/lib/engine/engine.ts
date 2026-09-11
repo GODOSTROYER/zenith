@@ -8,18 +8,25 @@
  * one running step per deployment at a time, through the provider adapter. It
  * walks an active-deployment set, so a finished deployment costs nothing and an
  * idle server ticks on an empty set.
- * Every transition is appended to the JSONL event log with a per-deployment
- * monotonic `seq`, so SSE clients replay from any cursor after a refresh.
+ * Every transition is appended to the event log with a per-deployment monotonic
+ * `seq`, so SSE clients replay from any cursor after a refresh. On the file
+ * store that number comes from this process's own map; on Postgres the log is
+ * shared, so the store's delegate assigns it (see `seqFor`).
  *
- * Import `engine` (EngineApi) and `ensureEngine()`.
+ * Import `engine` (EngineApi) and `ensureEngine()`. A tick from outside a
+ * request — boot on serverless, a cron route — uses `engineTickAsync()`, whose
+ * snapshot-and-409 contract is documented on the function.
  */
 import {
   appendEvent,
   db,
+  flushPendingAsync,
+  isPostgres,
   q,
   readEvents,
   save,
 } from "@/lib/db/store";
+import { nextEventSeq } from "@/lib/db/pg/history";
 import {
   id,
   type Actor,
@@ -153,6 +160,13 @@ const KEEP_DEPLOYMENTS_PER_ENV = 200;
 /* ------------------------------ event stream ------------------------------ */
 
 function seqFor(deploymentId: string): number {
+  // On Postgres the event log is shared, so a number this process minted from
+  // its own map is a number another instance may already have used. The
+  // delegate owns the assignment there — it reserves from a counter seeded
+  // against the table and the insert itself retries on a unique violation, so
+  // `(deployment_id, seq)` stays dense and unique across instances. See
+  // `nextEventSeq` in src/lib/db/pg/history.ts.
+  if (isPostgres()) return nextEventSeq(deploymentId);
   const gl = g();
   if (!gl.__zenithSeq) gl.__zenithSeq = new Map();
   let next = gl.__zenithSeq.get(deploymentId);
@@ -333,6 +347,56 @@ export function ensureEngine(): void {
  */
 export function engineTick(): void {
   tick();
+}
+
+/** A row moved under us: the Postgres store's optimistic-concurrency 409. */
+const isConflict = (err: unknown): boolean =>
+  typeof err === "object" && err !== null && (err as { status?: number }).status === 409;
+
+/**
+ * One tick, awaited, for a caller that is not inside a request — boot on a
+ * serverless instance, and the cron routes package D builds.
+ *
+ * ## The contract, for a caller outside a request
+ *
+ *  1. **There must be a snapshot.** On Postgres `db()` reads the request's
+ *     snapshot, or the process-global one; outside `route()` there is no
+ *     request, and an unprimed process snapshot is *empty* (see
+ *     `processSnapshot()` in src/lib/db/postgres-store.ts) — the tick would
+ *     walk an empty deployment list and do nothing at all. A cron route that
+ *     runs through `route()` already has one; anything else must
+ *     `await primeProcessSnapshot()` first.
+ *  2. **A 409 is retried once, not fatal.** The engine writes on every step
+ *     transition and calls `save()` ~9 times per deployment, so a flush that
+ *     collides with a concurrent request is expected rather than exceptional.
+ *     This reloads the snapshot and ticks again; only a second failure
+ *     propagates.
+ *  3. **It is not a barrier.** `tick()` starts the provider step and returns —
+ *     what is awaited here is the store write, not the deployment. Call it once
+ *     per cron invocation; the next one picks the deployment up where this one
+ *     left it.
+ *
+ * On the file store this is `engineTick()` plus a synchronous flush, and the
+ * retry never runs.
+ */
+export async function engineTickAsync(): Promise<void> {
+  ensureEngine();
+  tick();
+  try {
+    await flushPendingAsync();
+  } catch (err) {
+    if (!isConflict(err) || !isPostgres()) throw err;
+    // Someone else moved a row this tick touched. Re-read and run it again
+    // against current state rather than abandoning the deployment mid-flight.
+    const { primeProcessSnapshot } = await import("@/lib/db/postgres-store");
+    const { requestSnapshot } = await import("@/lib/db/request-snapshot");
+    // Inside a request the snapshot belongs to `route()`, which owns the reload
+    // and the response; priming the process-global one would change nothing.
+    if (requestSnapshot() !== undefined) throw err;
+    await primeProcessSnapshot();
+    tick();
+    await flushPendingAsync();
+  }
 }
 
 /* --------------------------------- ticker --------------------------------- */

@@ -107,6 +107,8 @@ describe("session middleware", () => {
     { path: "/signup", signedIn: true, status: 307, location: "/auth/continue" },
     { path: "/overview", signedIn: false, status: 307, location: "/login" },
     { path: "/api/bootstrap", signedIn: false, status: 401, location: null },
+    { path: "/api/internal/tick/engine", signedIn: false, status: 200, location: null },
+    { path: "/api/internal/keepalive", signedIn: false, status: 200, location: null },
     { path: "/login", signedIn: false, status: 200, location: null },
   ])("preserves session cookie updates for $path with signedIn=$signedIn", async ({ path, signedIn, status, location }) => {
     cookieBatches = [[refreshedCookie]];

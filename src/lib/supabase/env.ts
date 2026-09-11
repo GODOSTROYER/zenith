@@ -80,9 +80,17 @@ export const PUBLIC_PATHS = [
  */
 const PREVIEW_PAGE = /^\/preview\/[^/]+\/[^/]+$/;
 
+/**
+ * Background-work routes authenticate with a bearer secret, not a session:
+ * the scheduler that calls them has no cookie. They check the secret before
+ * touching anything, so letting them past the session gate exposes nothing.
+ */
+const INTERNAL_PREFIX = "/api/internal/";
+
 export function isPublicPath(pathname: string): boolean {
   return (
     PUBLIC_PATHS.some((p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`))) ||
-    PREVIEW_PAGE.test(pathname)
+    PREVIEW_PAGE.test(pathname) ||
+    pathname.startsWith(INTERNAL_PREFIX)
   );
 }

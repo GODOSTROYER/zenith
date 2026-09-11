@@ -61,7 +61,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AuditEvent, DeploymentEvent, Manifest } from "@/lib/domain/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { FileStore } from "./file-store";
-import "./pg/core"; // registers the Phase-2 collections
+import "./pg/all"; // registers every collection and delegate group, in FK order
 import { delegates } from "./pg/delegates";
 import {
   adapterFor,

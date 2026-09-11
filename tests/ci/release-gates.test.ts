@@ -37,7 +37,7 @@ const workflow = load(
 const requiredCommands: Record<string, string[]> = {
   verify: ['"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml', "npm ci", "npm run typecheck", "npm run lint", "npm test", "npm run smoke", "npm run gimbal:verify"],
   build: ["npm ci", "npm run build"],
-  docker: ["docker build -t orrery:ci ."],
+  docker: ["docker build -t zenith:ci ."],
   hosted: [
     "npm ci",
     "npx vitest run tests/hosted",
@@ -105,7 +105,7 @@ describe("release gate policy", () => {
   });
 
   it("isolates CI data using a context that is valid at job scope", () => {
-    expect(workflow.jobs.verify.env?.ORRERY_DATA).toBe("${{ github.workspace }}/.data-ci");
+    expect(workflow.jobs.verify.env?.ZENITH_DATA).toBe("${{ github.workspace }}/.data-ci");
   });
 
   /*
@@ -128,8 +128,8 @@ describe("release gate policy", () => {
     });
 
     it("gets its own data directory, and never the developer's", () => {
-      expect(hosted().env?.ORRERY_DATA).toBe("${{ github.workspace }}/.data-ci-hosted");
-      expect(hosted().env?.ORRERY_DATA).not.toBe(workflow.jobs.verify.env?.ORRERY_DATA);
+      expect(hosted().env?.ZENITH_DATA).toBe("${{ github.workspace }}/.data-ci-hosted");
+      expect(hosted().env?.ZENITH_DATA).not.toBe(workflow.jobs.verify.env?.ZENITH_DATA);
     });
 
     it("builds for real, because a hosted gate that cannot build proves nothing", () => {

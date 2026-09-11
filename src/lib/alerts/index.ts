@@ -571,7 +571,7 @@ export function acknowledge(eventId: string, actor: Actor, note?: string): Alert
 
 /* -------------------------------- evaluator ------------------------------- */
 
-type G = typeof globalThis & { __orreryAlertTimer?: ReturnType<typeof setInterval> };
+type G = typeof globalThis & { __zenithAlertTimer?: ReturnType<typeof setInterval> };
 
 /**
  * Start the background pass. Idempotent, and `unref`'d so it never keeps the
@@ -580,7 +580,7 @@ type G = typeof globalThis & { __orreryAlertTimer?: ReturnType<typeof setInterva
  */
 export function startAlertEvaluator(): void {
   const g = globalThis as G;
-  if (g.__orreryAlertTimer) return;
+  if (g.__zenithAlertTimer) return;
   const pass = () => {
     try {
       if (tables().rules.length === 0) return;
@@ -595,6 +595,6 @@ export function startAlertEvaluator(): void {
   // on every fresh instance, which is what boot is there — is the whole
   // evaluator there. A timer would only fire against a `/tmp` nobody else sees.
   if (isServerless()) return;
-  g.__orreryAlertTimer = setInterval(pass, EVALUATION_INTERVAL_MS);
-  (g.__orreryAlertTimer as { unref?: () => void }).unref?.();
+  g.__zenithAlertTimer = setInterval(pass, EVALUATION_INTERVAL_MS);
+  (g.__zenithAlertTimer as { unref?: () => void }).unref?.();
 }

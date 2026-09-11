@@ -100,7 +100,7 @@ export function analyze(
         // value currently in the working copy, stores it, and swaps in the
         // reference — writing the store first, so a failure leaves the
         // plaintext exactly where it is. When the store is unconfigured the
-        // plan comes back blocked, naming ORRERY_SECRET_KEY and how to make
+        // plan comes back blocked, naming ZENITH_SECRET_KEY and how to make
         // one; nothing is destroyed on any path.
         //
         // The rule engine deliberately does NOT ask whether the store is
@@ -209,7 +209,7 @@ export function analyze(
   return out;
 }
 
-type G = typeof globalThis & { __orreryFindingsHash?: Map<string, string> };
+type G = typeof globalThis & { __zenithFindingsHash?: Map<string, string> };
 
 /** Everything `analyze` actually reads. Same hash in ⇒ same findings out. */
 function inputHash(project: Project, environments: Environment[]): string {
@@ -268,7 +268,7 @@ export function syncFindings(projectId: string): SecurityFinding[] {
   // manifest or the environments that findings depend on actually changed.
   const environments = q.environmentsOf(project.id);
   const hash = inputHash(project, environments);
-  const seen = ((globalThis as G).__orreryFindingsHash ??= new Map());
+  const seen = ((globalThis as G).__zenithFindingsHash ??= new Map());
   if (seen.get(project.id) === hash) return db().findings.filter(mine);
 
   const fresh = analyze(project, environments);

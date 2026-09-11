@@ -73,7 +73,7 @@ describe("parseOAuthProviders", () => {
 });
 
 describe("userFromClaims display name", () => {
-  const nameFrom = (user_metadata: Record<string, unknown>, email = "ada@orrery.test") =>
+  const nameFrom = (user_metadata: Record<string, unknown>, email = "ada@zenith.test") =>
     userFromClaims({ sub: "u-1", email, user_metadata })?.name;
 
   it("prefers full_name over every other key", () => {
@@ -117,7 +117,7 @@ describe("userFromClaims display name", () => {
     // The name bag is user-writable; a role in it must not be honoured.
     const user = userFromClaims({
       sub: "u-1",
-      email: "ada@orrery.test",
+      email: "ada@zenith.test",
       user_metadata: { full_name: "Ada", role: "admin" },
       app_metadata: {},
     });

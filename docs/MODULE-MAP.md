@@ -45,7 +45,7 @@ Reads `process.env`. Still knows nothing about persistence.
 
 | Path | Owns | May import |
 | --- | --- | --- |
-| `src/lib/env.ts` | Every validated `ORRERY_*` variable | L0 |
+| `src/lib/env.ts` | Every validated `ZENITH_*` variable | L0 |
 | `src/lib/hosted/config.ts` | Every validated `ZENITH_*` variable, and `appHostname()` | L0, `env.ts` |
 | `src/lib/log.ts` | One JSON object per line; request id via `AsyncLocalStorage` | L0 |
 | `src/lib/data-lock.ts` | Refuse a second process against one data directory | L0, `env.ts` |
@@ -141,7 +141,7 @@ Business rules over the stores. No `Request`, no `Response`, no route knowledge.
 3. **Two stores, never crossed.** `db/store.ts` owns `.data/state.json`;
    `hosted/authority` owns `.data/control.sqlite`. Nothing in the authority
    directory writes to the JSON store.
-4. **One validated place per env prefix.** `ORRERY_*` in `src/lib/env.ts`,
+4. **One validated place per env prefix.** `ZENITH_*` in `src/lib/env.ts`,
    `ZENITH_*` in `src/lib/hosted/config.ts`. Secrets are presence-only in both
    and are read at exactly one call site each.
 5. **Every mutation goes through the action registry** (product A) or through a

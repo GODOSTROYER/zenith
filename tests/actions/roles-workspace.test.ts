@@ -7,7 +7,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { Actor } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-roles-ws-");
+tempDataDir("zenith-roles-ws-");
 const { roleOf } = await import("@/lib/actions/core");
 const { resetDb } = await import("@/lib/db/store");
 

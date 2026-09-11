@@ -2,7 +2,7 @@
  * The secret store, and the promise it makes: Zenith holds the value, and
  * nothing that leaves the server holds the value.
  *
- * The refusal side — what happens with no `ORRERY_SECRET_KEY` — is in
+ * The refusal side — what happens with no `ZENITH_SECRET_KEY` — is in
  * `tests/actions/system.test.ts`, which runs with the variable unset. Two
  * files because the store reads its key from the process environment, and a
  * test that mutates that mid-run tests the mutation, not the store.
@@ -14,8 +14,8 @@ import path from "node:path";
 import type { ActionContext } from "@/lib/actions/core";
 import { tempDataDir } from "../_support/data-dir";
 
-const DATA = tempDataDir("orrery-secrets-");
-process.env.ORRERY_SECRET_KEY = crypto.randomBytes(32).toString("base64");
+const DATA = tempDataDir("zenith-secrets-");
+process.env.ZENITH_SECRET_KEY = crypto.randomBytes(32).toString("base64");
 
 const { runAction } = await import("@/lib/actions/core");
 const { flush, q, readAudit, resetDb } = await import("@/lib/db/store");
@@ -146,7 +146,7 @@ describe("system.setSecret stores the value and records only the reference", () 
         connectionId: "conn-sandbox",
         region: "local-1",
         policies: { approvalRequired: false, allowStatefulDeletion: false },
-        baseDomain: "atlas.orrery.test",
+        baseDomain: "atlas.zenith.test",
         createdAt: new Date().toISOString(),
       },
       manifest()

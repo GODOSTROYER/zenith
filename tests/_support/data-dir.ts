@@ -1,18 +1,18 @@
 /**
- * One isolated `ORRERY_DATA` directory per test file.
+ * One isolated `ZENITH_DATA` directory per test file.
  *
  * Call `tempDataDir()` at module top level, BEFORE any `await import` of
- * application code: `@/lib/env` reads `ORRERY_DATA` on first use and the store
+ * application code: `@/lib/env` reads `ZENITH_DATA` on first use and the store
  * pins it on first import, so a directory set after that import is ignored and
  * the suite quietly shares the default data directory with every other suite.
  *
- *     const DATA = tempDataDir("orrery-roles-", { fast: true });
+ *     const DATA = tempDataDir("zenith-roles-", { fast: true });
  *     const { db, resetDb } = await import("@/lib/db/store");
  *
  * `fs.realpathSync` on the tmpdir is deliberate and not cosmetic. On macOS
  * `os.tmpdir()` is a symlink (`/var` -> `/private/var`) and on Windows it can
  * be an 8.3 short path; code under test that compares a resolved path against
- * `ORRERY_DATA` sees two different strings for the same directory unless the
+ * `ZENITH_DATA` sees two different strings for the same directory unless the
  * root is resolved first.
  *
  * Nothing here may import application code — this module is imported
@@ -55,18 +55,18 @@ function registerCleanup(): void {
 }
 
 export interface TempDataOptions {
-  /** Also set `ORRERY_FAST=1`, which collapses step budgets and backoff. */
+  /** Also set `ZENITH_FAST=1`, which collapses step budgets and backoff. */
   fast?: boolean;
 }
 
 /**
- * Create a fresh temp directory, point `ORRERY_DATA` at it, and return it.
+ * Create a fresh temp directory, point `ZENITH_DATA` at it, and return it.
  * The directory is removed when the process exits.
  */
 export function tempDataDir(prefix: string, opts: TempDataOptions = {}): string {
   const dir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), prefix));
-  process.env.ORRERY_DATA = dir;
-  if (opts.fast) process.env.ORRERY_FAST = "1";
+  process.env.ZENITH_DATA = dir;
+  if (opts.fast) process.env.ZENITH_FAST = "1";
   created.push(dir);
   registerCleanup();
   return dir;

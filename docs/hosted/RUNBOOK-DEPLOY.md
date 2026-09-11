@@ -45,7 +45,7 @@ deployment, accepting the downtime.
                     └───────────────┬──────────────────────┘
                                     │
                     ┌───────────────▼──────────────────────┐
-                    │ persistent volume at ORRERY_DATA     │
+                    │ persistent volume at ZENITH_DATA     │
                     │  control.sqlite  (+ -wal, -shm)      │
                     │  apps/<appId>/{app.sqlite,test.sqlite}│
                     │  artifacts/sha256/<digest>/          │
@@ -63,7 +63,7 @@ deployment, accepting the downtime.
 | --- | --- | --- |
 | Host / provider | unknown | Not selected. Must not be a platform with an ephemeral filesystem — see §7. |
 | Region | unknown | Must be recorded in [DATA-LIFECYCLE.md](DATA-LIFECYCLE.md) once chosen. |
-| Runtime | Node >= 22.16, image from this repo's `Dockerfile` (`node:22-alpine` base, non-root `orrery` user, `PORT=3400`, `ORRERY_DATA=/data`, `VOLUME /data`) | Image builds in CI. It has never been launched as an authenticated hosted service. |
+| Runtime | Node >= 22.16, image from this repo's `Dockerfile` (`node:22-alpine` base, non-root `zenith` user, `PORT=3400`, `ZENITH_DATA=/data`, `VOLUME /data`) | Image builds in CI. It has never been launched as an authenticated hosted service. |
 | Instances | exactly 1 | Enforced by the store's single-writer rule, not by configuration. |
 | Volume | one persistent block/filesystem volume mounted at `/data` | Size unknown. Must survive container replacement, not just restart. |
 | Reverse proxy | unknown product | Requirements in §3. |
@@ -79,7 +79,7 @@ convention, not a gate.
 
 ## 2. Environment
 
-`ZENITH_*` variables are parsed in `src/lib/hosted/config.ts`; `ORRERY_*` in
+`ZENITH_*` variables are parsed in `src/lib/hosted/config.ts`; `ZENITH_*` in
 `src/lib/env.ts`. Defaults are the local single-host profile, which is **not**
 a deployment profile.
 
@@ -91,9 +91,9 @@ a deployment profile.
 | `ZENITH_CONTROL_ORIGIN` | `https://<control host>` (unknown) | Where browsers reach the control app; exchange redirects return here. |
 | `ZENITH_APP_DOMAIN` | `<app-domain>` (unknown) | Apps are served at `<slug>.<app-domain>`. Must be a *different* registrable name from the control host, so an app host can never receive a platform cookie. |
 | `ZENITH_APP_SCHEME` | `https` | The `__Host-` app cookie requires Secure. `http` is only defensible for `*.localhost`. |
-| `ORRERY_DATA` | `/data` | The persistent volume. Set explicitly in the Dockerfile; do not let a host `.env.local` override it. |
-| `ORRERY_SECRET_KEY` | 32 bytes (unknown) | Existing secret store. Losing it makes stored values unreadable; there is no re-wrap command. |
-| `ZENITH_BACKUP_KEY` | 32 bytes, base64 or hex (unknown) | AES-256-GCM key for backups. **Must differ from `ORRERY_SECRET_KEY`** (`R3-11`) so a host compromise that reads one does not decrypt the other. Store it somewhere the host cannot read. |
+| `ZENITH_DATA` | `/data` | The persistent volume. Set explicitly in the Dockerfile; do not let a host `.env.local` override it. |
+| `ZENITH_SECRET_KEY` | 32 bytes (unknown) | Existing secret store. Losing it makes stored values unreadable; there is no re-wrap command. |
+| `ZENITH_BACKUP_KEY` | 32 bytes, base64 or hex (unknown) | AES-256-GCM key for backups. **Must differ from `ZENITH_SECRET_KEY`** (`R3-11`) so a host compromise that reads one does not decrypt the other. Store it somewhere the host cannot read. |
 | `ZENITH_BACKUP_TARGET` | `filesystem` or `s3` | `none` means no backups and no revocation ledger; a hosted deployment with `none` cannot satisfy G22 or G23. |
 | `ZENITH_BACKUP_DIR` *or* `ZENITH_BACKUP_S3_BUCKET` (+ `ZENITH_BACKUP_S3_ENDPOINT`) | unknown | Target location. A directory on the same volume is not off-host. |
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | unknown | **Build arguments, not runtime variables.** Next inlines them at build time; passing them at run time leaves the browser in demo mode. Changing them is a rebuild. |
@@ -110,7 +110,7 @@ reported with the missing variable named, never simulated. Full matrix in
 `ZENITH_CF_ACCOUNT_ID`, `ZENITH_CF_NAMESPACE`, `ZENITH_CF_API_TOKEN`,
 `E2B_API_KEY`, `ZENITH_POLICY_SHARED_SECRET`, `ZENITH_EVENTS_SALT`,
 `ZENITH_SPEND_ENVELOPE_USD`, `ZENITH_FOUNDER_SUBJECTS`, `ZENITH_INVITE_FROM`,
-`ORRERY_SMTP_URL`, `ORRERY_ALERT_FROM`.
+`ZENITH_SMTP_URL`, `ZENITH_ALERT_FROM`.
 
 `ZENITH_BUILD_RUNNER` defaults to `none`, which refuses every build and says
 why. On a shared host, `recipe-local` runs the pinned recipe in a child
@@ -169,7 +169,7 @@ an open service. Treat the flag as a release gate, not a preference.
 | Retention | unknown. Proposed 30 days, stated in [DATA-LIFECYCLE.md](DATA-LIFECYCLE.md) once agreed. |
 | Off-host | Required. A directory on the same volume protects against nothing that matters. |
 | Revocation ledger | Appended to the same target on every grant revocation, so a restore of an older snapshot can be reconciled (`R3-11`, G23). |
-| Key custody | unknown. `ZENITH_BACKUP_KEY` must be recoverable independently of the host and of `ORRERY_SECRET_KEY`. Losing it makes every backup unreadable; there is no recovery path. |
+| Key custody | unknown. `ZENITH_BACKUP_KEY` must be recoverable independently of the host and of `ZENITH_SECRET_KEY`. Losing it makes every backup unreadable; there is no recovery path. |
 | Verification | unknown. A backup that has never been restored is not a backup. |
 
 ## 6. Clean-host restore (outline)
@@ -186,7 +186,7 @@ never been run.** Treat every step as unvalidated.
 3. **Recover the key.** `ZENITH_BACKUP_KEY` from its independent custody
    location. Verify it decrypts the chosen backup *before* touching the target
    host.
-4. **Provision the host and volume.** Same image, same `ORRERY_DATA` mount.
+4. **Provision the host and volume.** Same image, same `ZENITH_DATA` mount.
 5. **Restore.** Decrypt and place `control.sqlite` and the per-app databases;
    restore or re-upload the artifact store.
 6. **Reconcile revocations.** Read the off-host revocation ledger for entries
@@ -215,7 +215,7 @@ classification `experiment/target`). Do not quote them to a customer.
 
 ## 7. Vercel is not a valid host for this topology
 
-A `.vercel/project.json` exists in this checkout (project `orrery`). It is a
+A `.vercel/project.json` exists in this checkout (project `zenith`). It is a
 local artefact of a previous preview deployment of the *marketing and product
 UI*. It is **not** a hosted control deployment and must not become one.
 

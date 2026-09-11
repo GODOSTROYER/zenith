@@ -31,7 +31,7 @@ import type {
 import type { SessionUser } from "@/lib/auth/session";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-observe-");
+tempDataDir("zenith-observe-");
 // Tenancy only exists once auth does: in demo mode there is one local user who
 // is in every workspace, and nothing here would have anything to isolate.
 process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
@@ -55,8 +55,8 @@ const { GET: streamGet } = await import("@/app/api/projects/[id]/stream/route");
 
 const AT = "2026-01-01T00:00:00.000Z";
 
-const ada: SessionUser = { id: "u-ada", email: "ada@orrery.test", name: "Ada" };
-const bo: SessionUser = { id: "u-bo", email: "bo@orrery.test", name: "Bo" };
+const ada: SessionUser = { id: "u-ada", email: "ada@zenith.test", name: "Ada" };
+const bo: SessionUser = { id: "u-bo", email: "bo@zenith.test", name: "Bo" };
 
 const manifest = (serviceName: string): Manifest => ({
   version: 1,

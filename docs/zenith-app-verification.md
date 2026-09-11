@@ -83,7 +83,7 @@ The independent reviewers used **gpt-6-astra with high reasoning**. Visual/funct
 
 Host: Windows 10.0.26200, Node 24.19.0, Next 15.5.24, React 19.1.0, TypeScript/Tailwind 4, native Three. Browser QA used the running Turbopack development server on localhost:3400. Signed-out auth pages used 127.0.0.1:3400 to keep the existing localhost session intact.
 
-Builds used an isolated source snapshot and the installed dependencies, with no environment or application-data files copied. A separate `ORRERY_DATA` directory prevented interference with the running server. Root `.next` was untouched. The build report records exact hashes, elapsed time, build ID, warnings and final snapshot freshness.
+Builds used an isolated source snapshot and the installed dependencies, with no environment or application-data files copied. A separate `ZENITH_DATA` directory prevented interference with the running server. Root `.next` was untouched. The build report records exact hashes, elapsed time, build ID, warnings and final snapshot freshness.
 
 Representative Next first-load JS: System 106 kB, Overview 123 kB, Revisions 131 kB, Navigator 134 kB, Deploys 135 kB, Settings 140 kB, Source 148 kB, Observe 149 kB; the static landing remains 142 kB. These are build summaries, not measured network transfers or Core Web Vitals. The snapshot's parent-lockfile workspace-inference warning is nonblocking.
 

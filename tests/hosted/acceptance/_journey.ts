@@ -7,7 +7,7 @@
  * module. It opens no database, imports no application code at load time, and
  * contains no behaviour a gate could pass against. What it does is:
  *
- *  - import the real barrels *after* a test has pinned `ORRERY_DATA`
+ *  - import the real barrels *after* a test has pinned `ZENITH_DATA`
  *    (`loadHosted`), because `@/lib/env` reads that variable on first use;
  *  - build the requests a browser would send to an app host (`call`), with the
  *    Host header the middleware rewrite preserves;
@@ -62,7 +62,7 @@ export interface HostedModules {
  *
  * Called *after* `isolatedDataDir()` and *before* any `await import`. Nothing
  * here weakens a check: the build runner and the runtime are the real ones,
- * and `ORRERY_SECRET_KEY` exists because invitation delivery payloads are
+ * and `ZENITH_SECRET_KEY` exists because invitation delivery payloads are
  * sealed with it — an install without one refuses to issue an invitation,
  * which is a different test.
  */
@@ -72,15 +72,15 @@ export function acceptanceEnv(dataDir: string): void {
   process.env.ZENITH_APP_DOMAIN = "apps.localhost";
   process.env.ZENITH_APP_SCHEME = "http";
   process.env.ZENITH_CONTROL_ORIGIN = "http://localhost:3400";
-  process.env.ORRERY_SECRET_KEY = "1".repeat(64);
+  process.env.ZENITH_SECRET_KEY = "1".repeat(64);
   process.env.ZENITH_BACKUP_KEY = Buffer.alloc(32, 11).toString("base64");
   process.env.ZENITH_BACKUP_TARGET = "filesystem";
   process.env.ZENITH_BACKUP_DIR = path.join(dataDir, "off-host");
-  delete process.env.ORRERY_SMTP_URL;
+  delete process.env.ZENITH_SMTP_URL;
   delete process.env.ZENITH_SPEND_ENVELOPE_USD;
 }
 
-/** Import every hosted barrel. Dynamic: `ORRERY_DATA` must already be pinned. */
+/** Import every hosted barrel. Dynamic: `ZENITH_DATA` must already be pinned. */
 export async function loadHosted(): Promise<HostedModules> {
   const [
     access,
@@ -171,7 +171,7 @@ export function environmentNote(sqliteVersion: string): Record<string, string> {
     os: `${os.type()} ${os.release()} (${os.arch()})`,
     node: process.version,
     sqlite: sqliteVersion,
-    dataDir: process.env.ORRERY_DATA ?? "(unset)",
+    dataDir: process.env.ZENITH_DATA ?? "(unset)",
     buildRunner: process.env.ZENITH_BUILD_RUNNER ?? "(unset)",
     runtime: process.env.ZENITH_RUNTIME ?? "(unset)",
   };

@@ -53,7 +53,7 @@ describe("workbench navigation", () => {
     expect(host.querySelector("input")).toBe(draft);
     expect(draft.value).toBe("unsaved resource");
     expect(mounts).toBe(1);
-    expect(localStorage.getItem("orrery-shell-collapsed")).toBe("true");
+    expect(localStorage.getItem("zenith-shell-collapsed")).toBe("true");
     expect(host.querySelector('[aria-current="page"]')?.textContent).toBe("Source");
     expect(host.querySelectorAll('nav a[href^="/p/atlas"]')).toHaveLength(9);
   });

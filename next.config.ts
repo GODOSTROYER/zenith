@@ -23,12 +23,12 @@ const nextConfig: NextConfig = {
     "e2b",
   ],
 
-  // `env.ts` defaults ORRERY_DATA to path.join(process.cwd(), ".data"), which
+  // `env.ts` defaults ZENITH_DATA to path.join(process.cwd(), ".data"), which
   // the tracer resolves to a real directory — so without this, 32 route traces
   // pull the whole data directory into .next/standalone/.data, state.json,
   // events.jsonl and audit.jsonl included. That both duplicates a developer's
   // database and audit log into build output and lays a trap: the standalone
-  // server runs with its own directory as cwd, so an unset ORRERY_DATA there
+  // server runs with its own directory as cwd, so an unset ZENITH_DATA there
   // resolves to that build-time copy — a server reading a frozen snapshot.
   //
   // The key is glob-matched against each route ("/api/bootstrap", "/overview"),

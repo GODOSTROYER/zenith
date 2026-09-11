@@ -34,7 +34,7 @@ export interface ToastRecord extends ToastInput {
 declare global {
   interface Window {
     /** Set by the app shell so every toast is mirrored into the Activity feed. */
-    __orreryActivity?: (toast: ToastRecord) => void;
+    __zenithActivity?: (toast: ToastRecord) => void;
   }
 }
 
@@ -137,7 +137,7 @@ export function ToastProvider({ children, renderToaster = true }: ToastProviderP
       });
       arm(toast.id);
       try {
-        window.__orreryActivity?.(toast);
+        window.__zenithActivity?.(toast);
       } catch {
         /* mirroring to Activity must never break the notification */
       }
@@ -186,7 +186,7 @@ const EDGE: Record<ToastKind, string> = {
  * toolbar (bottom-right) or any header. Hover pauses auto-dismiss.
  *
  * The deploy dock also lives along the bottom edge; it publishes its height as
- * `--orrery-dock-h` on <html> while mounted, and the stack sits above it, so
+ * `--zenith-dock-h` on <html> while mounted, and the stack sits above it, so
  * the two never overlap at any width.
  */
 export function Toaster() {
@@ -197,7 +197,7 @@ export function Toaster() {
     <div
       className={cx(
         "pointer-events-none fixed left-4 z-[60] flex w-[340px] max-w-[calc(100vw-2rem)] flex-col-reverse gap-2",
-        "bottom-[calc(1rem+var(--orrery-dock-h,0px))] transition-[bottom] duration-[var(--dur-base)] [transition-timing-function:var(--ease-swift)]"
+        "bottom-[calc(1rem+var(--zenith-dock-h,0px))] transition-[bottom] duration-[var(--dur-base)] [transition-timing-function:var(--ease-swift)]"
       )}
       role="region"
       aria-label="Notifications"

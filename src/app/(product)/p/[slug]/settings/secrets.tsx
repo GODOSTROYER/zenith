@@ -98,7 +98,7 @@ export function SecretsSection({
     <>
       <Card
         title={`${store.secrets.length} stored value${store.secrets.length === 1 ? "" : "s"}`}
-        subtitle={`Encrypted under this server's ORRERY_SECRET_KEY. Only the reference reaches a manifest, a diff, the audit log or an export — never the value, and there is no route that returns one.`}
+        subtitle={`Encrypted under this server's ZENITH_SECRET_KEY. Only the reference reaches a manifest, a diff, the audit log or an export — never the value, and there is no route that returns one.`}
         padded={false}
       >
         {store.secrets.length === 0 ? (

@@ -120,14 +120,14 @@ export function DeployDock({
   useEffect(() => {
     const el = shellRef.current;
     const root = document.documentElement;
-    const clear = () => root.style.removeProperty("--orrery-dock-h");
+    const clear = () => root.style.removeProperty("--zenith-dock-h");
     if (!el) {
       clear();
       return;
     }
     const ro = new ResizeObserver(() =>
       root.style.setProperty(
-        "--orrery-dock-h",
+        "--zenith-dock-h",
         // clamped: a toast pushed off the top of the window is worse than a
         // toast resting on a dock that already fills most of the screen
         `${Math.min(el.offsetHeight + 12, window.innerHeight * 0.55)}px`

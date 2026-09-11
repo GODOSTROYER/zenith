@@ -24,7 +24,7 @@ export function LandingHeader({ cta }: { cta: Cta }) {
     const preference = window.matchMedia("(prefers-color-scheme: light)");
     const followSystem = () => {
       try {
-        if (localStorage.getItem("orrery-theme") !== "system") return;
+        if (localStorage.getItem("zenith-theme") !== "system") return;
         if (preference.matches) document.documentElement.dataset.theme = "light";
         else document.documentElement.removeAttribute("data-theme");
       } catch { /* An explicit theme selection still works without storage. */ }
@@ -37,7 +37,7 @@ export function LandingHeader({ cta }: { cta: Cta }) {
     if (next) document.documentElement.dataset.theme = "light";
     else document.documentElement.removeAttribute("data-theme");
     setLight(next);
-    try { localStorage.setItem("orrery-theme", next ? "light" : "dark"); } catch { /* The selected theme still applies without persistence. */ }
+    try { localStorage.setItem("zenith-theme", next ? "light" : "dark"); } catch { /* The selected theme still applies without persistence. */ }
   };
   return (
     <header className="zenith-header">

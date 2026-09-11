@@ -16,7 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { isolatedDataDir, removeDir } from "../_fixtures";
 
 const dataDir = isolatedDataDir("zenith-access-grants-");
-process.env.ORRERY_SECRET_KEY = "0".repeat(64);
+process.env.ZENITH_SECRET_KEY = "0".repeat(64);
 
 const { closeAuthority, openAuthority } = await import("@/lib/hosted/authority");
 const { HostedError } = await import("@/lib/hosted/contracts");

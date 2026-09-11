@@ -72,7 +72,7 @@ export interface RecordEventInput {
 export const INSTALL_WORKSPACE = "__install";
 
 /** Email domains whose holders are test actors, excluded from activation metrics. */
-export const TEST_EMAIL_DOMAINS = ["example.test", "orrery.test"] as const;
+export const TEST_EMAIL_DOMAINS = ["example.test", "zenith.test"] as const;
 
 /* ------------------------------ pseudonymity ------------------------------ */
 

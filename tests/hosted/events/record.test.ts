@@ -67,7 +67,7 @@ describe("recordEvent", () => {
     expect(actorClassOf(FOUNDER)).toBe("founder");
     expect(actorClassOf(TEST_SUBJECT)).toBe("test");
     expect(actorClassOf(PERSON, "someone@example.test")).toBe("test");
-    expect(actorClassOf(PERSON, "someone@orrery.test")).toBe("test");
+    expect(actorClassOf(PERSON, "someone@zenith.test")).toBe("test");
     expect(actorClassOf(PERSON, "someone@acme.com")).toBe("external");
     expect(actorClassOf(PERSON)).toBe("external");
     expect(actorClassOf(undefined)).toBe("system");

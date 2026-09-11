@@ -73,7 +73,7 @@ const ORIGIN = appOrigin("alpha");
 function openAt(dir: string): void {
   m.data.closeAllAppData();
   m.authority.closeAuthority();
-  process.env.ORRERY_DATA = dir;
+  process.env.ZENITH_DATA = dir;
   // The gateway caches one artifact store per root; the root has not changed,
   // but the reset also puts every dependency back to the real module.
   m.gateway.resetGatewayDeps();
@@ -143,7 +143,7 @@ beforeAll(async () => {
 afterAll(() => {
   delete process.env.ZENITH_ARTIFACT_DIR;
   closeHosted(m);
-  process.env.ORRERY_DATA = DATA;
+  process.env.ZENITH_DATA = DATA;
   removeDir(DATA);
 });
 

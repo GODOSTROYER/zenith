@@ -17,7 +17,7 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[orrery/ui] route error", error);
+    console.error("[zenith/ui] route error", error);
   }, [error]);
 
   return (

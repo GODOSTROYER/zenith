@@ -24,7 +24,7 @@ interface HealthPayload {
   >;
 }
 
-/** `web — https://web--staging.atlas.orrery.app` → the two halves. */
+/** `web — https://web--staging.atlas.zenith.app` → the two halves. */
 function splitLabel(label: string): { name: string; pretty: string } {
   const at = label.indexOf(" — ");
   if (at < 0) return { name: label, pretty: label };
@@ -37,7 +37,7 @@ function splitLabel(label: string): { name: string; pretty: string } {
  * before anything reached the screen. Effects only.
  */
 function claimFirstLiveEver(projectId: string): boolean {
-  const key = `orrery-first-live-${projectId}`;
+  const key = `zenith-first-live-${projectId}`;
   try {
     if (localStorage.getItem(key)) return false;
     localStorage.setItem(key, new Date().toISOString());

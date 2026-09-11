@@ -2,7 +2,7 @@
  * The hosted control authority: one SQLite file, one connection, one
  * transaction rule.
  *
- * `<ORRERY_DATA>/control.sqlite`, opened through `node:sqlite` with
+ * `<ZENITH_DATA>/control.sqlite`, opened through `node:sqlite` with
  * `journal_mode=WAL`, `synchronous=FULL`, `foreign_keys=ON` and
  * `busy_timeout=5000`, every one of them read back before the process is
  * allowed to continue. Apps, grants, invitations, sessions, exchanges, jobs,

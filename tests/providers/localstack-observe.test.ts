@@ -67,7 +67,7 @@ const environment: Environment = {
   connectionId: "conn-localstack",
   region: "us-east-1",
   policies: { approvalRequired: false, allowStatefulDeletion: false },
-  baseDomain: "atlas.orrery.test",
+  baseDomain: "atlas.zenith.test",
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 

@@ -6,7 +6,7 @@
  * SHA-256, so the database cannot be turned back into a working link — but the
  * outbox has to be able to rebuild the email after a crash, and that needs the
  * token itself. So the token lives, for as long as one delivery row is
- * outstanding, as ciphertext under `ORRERY_SECRET_KEY`, and
+ * outstanding, as ciphertext under `ZENITH_SECRET_KEY`, and
  * `deliveries.clearSealedPayload` erases it the moment the row settles.
  *
  * The invitation id is the AAD, so a payload copied onto another delivery row —
@@ -35,11 +35,11 @@ const IV_BYTES = 12;
 const TAG_BYTES = 16;
 
 export const NO_SECRET_KEY =
-  "No ORRERY_SECRET_KEY is set, so an invitation token cannot be sealed for delivery and no invitation email can be sent.";
+  "No ZENITH_SECRET_KEY is set, so an invitation token cannot be sealed for delivery and no invitation email can be sent.";
 
 /** The 32-byte key, or `policy_unavailable` naming the fix. Never returns a guess. */
 function key(): Buffer {
-  const raw = env().ORRERY_SECRET_KEY;
+  const raw = env().ZENITH_SECRET_KEY;
   const decoded = raw ? decodeSecretKey(raw) : undefined;
   if (!decoded)
     throw new HostedError("policy_unavailable", NO_SECRET_KEY, { fix: SECRET_KEY_FIX });
@@ -48,7 +48,7 @@ function key(): Buffer {
 
 /** True when this process could seal a payload. Cheap; the invite path asks first. */
 export function sealingConfigured(): boolean {
-  const raw = env().ORRERY_SECRET_KEY;
+  const raw = env().ZENITH_SECRET_KEY;
   return !!raw && decodeSecretKey(raw) !== undefined;
 }
 
@@ -71,7 +71,7 @@ export function unsealInvite(inviteId: string, sealed: Uint8Array): SealedInvite
   const refuse = (): never => {
     throw new HostedError(
       "internal",
-      "The sealed invitation payload could not be opened with this server's ORRERY_SECRET_KEY.",
+      "The sealed invitation payload could not be opened with this server's ZENITH_SECRET_KEY.",
       {
         fix: "It was sealed under a different key, or the row was altered. Revoke the invitation and send a new one; the old link cannot be recovered.",
         details: { inviteId },

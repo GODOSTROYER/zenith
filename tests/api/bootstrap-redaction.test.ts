@@ -18,7 +18,7 @@ import { NextRequest } from "next/server";
 import type { AlertChannel, Invite, Workspace } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-bootstrap-redaction-");
+tempDataDir("zenith-bootstrap-redaction-");
 const { db, resetDb } = await import("@/lib/db/store");
 const { GET } = await import("@/app/api/bootstrap/route");
 

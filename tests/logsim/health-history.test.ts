@@ -10,7 +10,7 @@ import path from "node:path";
 import type { Deployment, Environment, Manifest, Revision } from "@/lib/domain/types";
 import * as fixtures from "../alerts/_fixtures";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-logsim-"));
+process.env.ZENITH_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-logsim-"));
 
 const { resetDb } = await import("@/lib/db/store");
 const { healthHistory } = await import("@/lib/logsim");

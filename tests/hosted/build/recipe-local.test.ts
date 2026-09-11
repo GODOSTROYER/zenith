@@ -164,11 +164,11 @@ describe("RecipeLocalRunner building the minimal app for real", () => {
 });
 
 describe("RecipeLocalRunner isolation and limits", () => {
-  it("hands the child no ORRERY_, SUPABASE_, NEXT_PUBLIC_, ZENITH_, E2B_ or AWS_ variable", async () => {
+  it("hands the child no ZENITH_, SUPABASE_, NEXT_PUBLIC_, ZENITH_, E2B_ or AWS_ variable", async () => {
     process.env.ZENITH_BUILD_RUNNER = "recipe-local";
     // A structurally valid key, so `env()` accepts it and the only thing under
     // test is whether it travels into the child. It is not used to encrypt.
-    process.env.ORRERY_SECRET_KEY = Buffer.alloc(32, 7).toString("base64");
+    process.env.ZENITH_SECRET_KEY = Buffer.alloc(32, 7).toString("base64");
     process.env.SUPABASE_SERVICE_ROLE_KEY = "also-must-not-travel";
     process.env.AWS_ACCESS_KEY_ID = "nor-this";
     try {
@@ -181,11 +181,11 @@ describe("RecipeLocalRunner isolation and limits", () => {
       const keys = (echoed as import("@/lib/hosted/contracts").BuildLogLine).line.slice("env-keys ".length).split(",");
       expect(keys).toContain("PATH");
       expect(build.secretEnvKeys(keys)).toEqual([]);
-      expect(keys).not.toContain("ORRERY_SECRET_KEY");
+      expect(keys).not.toContain("ZENITH_SECRET_KEY");
       expect(keys).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
       expect(keys).not.toContain("AWS_ACCESS_KEY_ID");
     } finally {
-      delete process.env.ORRERY_SECRET_KEY;
+      delete process.env.ZENITH_SECRET_KEY;
       delete process.env.SUPABASE_SERVICE_ROLE_KEY;
       delete process.env.AWS_ACCESS_KEY_ID;
     }

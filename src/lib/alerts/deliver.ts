@@ -5,12 +5,12 @@
  *
  *  - **webhook** — a POST of JSON. When the channel has a secret, the exact
  *    bytes of the body are signed with HMAC-SHA256 and sent as
- *    `X-Orrery-Signature: sha256=<hex>`, so a receiver can prove Zenith sent it.
+ *    `X-Zenith-Signature: sha256=<hex>`, so a receiver can prove Zenith sent it.
  *    Without a secret the request is unsigned and the UI says so.
  *  - **slack** — the same alert as a Slack incoming-webhook payload (`text`
  *    plus `blocks`). The URL *is* the credential, so it is masked everywhere.
- *  - **email** — SMTP through `nodemailer`, configured by `ORRERY_SMTP_URL` and
- *    `ORRERY_ALERT_FROM`. The package is loaded at send time: a workspace with
+ *  - **email** — SMTP through `nodemailer`, configured by `ZENITH_SMTP_URL` and
+ *    `ZENITH_ALERT_FROM`. The package is loaded at send time: a workspace with
  *    no email channel never needs it installed, and one that does gets an error
  *    naming `npm install nodemailer` instead of a crash at import.
  *
@@ -21,7 +21,7 @@
  * byte leaves. The rows are then claimed (`sending`, durably) before the
  * network call and settled (`delivered` / `failed`) after it, so a crash
  * mid-flight is retried at the next boot rather than lost. Each row carries a
- * stable `idempotencyKey` — sent as `X-Orrery-Idempotency-Key` — so a receiver
+ * stable `idempotencyKey` — sent as `X-Zenith-Idempotency-Key` — so a receiver
  * that already saw the first attempt can recognise the retry as the same
  * message. Every terminal outcome is appended to `event.deliveries` and stamped
  * on the channel as `lastDelivery`: a failure is recorded, not thrown.
@@ -55,14 +55,14 @@ export const DELIVERY_ATTEMPTS = 3;
 const BACKOFF_MS = [1_000, 4_000];
 
 /** The header a receiver verifies. */
-export const SIGNATURE_HEADER = "X-Orrery-Signature";
+export const SIGNATURE_HEADER = "X-Zenith-Signature";
 
 /**
  * The header a receiver de-duplicates on. Stable across every retry of one
  * transition to one channel — including a retry after this server restarted
  * mid-send — so a receiver that stores the key can drop the second copy.
  */
-export const IDEMPOTENCY_HEADER = "X-Orrery-Idempotency-Key";
+export const IDEMPOTENCY_HEADER = "X-Zenith-Idempotency-Key";
 
 /** What a channel is asked to send. `test` is a human pressing Test in Settings. */
 export type AlertPhase = "fired" | "resolved" | "test";
@@ -105,7 +105,7 @@ export function messageText(msg: AlertMessage): string {
  */
 export function webhookBody(msg: AlertMessage, sentAt = new Date().toISOString()): string {
   return JSON.stringify({
-    source: "orrery",
+    source: "zenith",
     event: eventName(msg.phase),
     sentAt,
     text: messageText(msg),
@@ -206,9 +206,9 @@ async function loadNodemailer(): Promise<NodemailerLike> {
 /** Why email cannot be sent right now, or undefined when it can be attempted. */
 export function emailProblem(): string | undefined {
   const e = env();
-  if (!e.ORRERY_SMTP_URL) return `No SMTP server is configured. ${SMTP_FIX}`;
-  if (!e.ORRERY_ALERT_FROM)
-    return `ORRERY_SMTP_URL is set but ORRERY_ALERT_FROM is not, so the mail would have no From address. ${SMTP_FIX}`;
+  if (!e.ZENITH_SMTP_URL) return `No SMTP server is configured. ${SMTP_FIX}`;
+  if (!e.ZENITH_ALERT_FROM)
+    return `ZENITH_SMTP_URL is set but ZENITH_ALERT_FROM is not, so the mail would have no From address. ${SMTP_FIX}`;
   return undefined;
 }
 
@@ -218,17 +218,17 @@ async function sendEmail(channel: AlertChannel, msg: AlertMessage): Promise<void
   if (problem) throw new Permanent(problem);
   const e = env();
   const nodemailer = await loadNodemailer();
-  const transport = nodemailer.createTransport(e.ORRERY_SMTP_URL!);
+  const transport = nodemailer.createTransport(e.ZENITH_SMTP_URL!);
   const { subject, text } = emailBody(msg);
   try {
     // TODO(ceiling): the timeout races the send rather than aborting the socket —
     // nodemailer's own connectionTimeout/socketTimeout would need the URL taken
-    // apart. Pass them as query params on ORRERY_SMTP_URL if a hung SMTP
+    // apart. Pass them as query params on ZENITH_SMTP_URL if a hung SMTP
     // connection ever needs to be closed rather than abandoned.
     await withTimeout(
-      transport.sendMail({ from: e.ORRERY_ALERT_FROM!, to: channel.target, subject, text }),
+      transport.sendMail({ from: e.ZENITH_ALERT_FROM!, to: channel.target, subject, text }),
       DELIVERY_TIMEOUT_MS,
-      `The SMTP server did not accept the message within ${DELIVERY_TIMEOUT_MS / 1000}s. Check ORRERY_SMTP_URL — a wrong port is the usual cause.`
+      `The SMTP server did not accept the message within ${DELIVERY_TIMEOUT_MS / 1000}s. Check ZENITH_SMTP_URL — a wrong port is the usual cause.`
     );
   } finally {
     transport.close?.();
@@ -297,16 +297,16 @@ async function attempt(
   // the idempotency key does not change, so it — not the bytes — is what tells
   // a receiver that attempt 2 is the same notification as attempt 1.
   return post(channel.target, body, {
-    "X-Orrery-Event": eventName(msg.phase),
+    "X-Zenith-Event": eventName(msg.phase),
     [IDEMPOTENCY_HEADER]: idempotencyKey,
     ...(channel.secret ? { [SIGNATURE_HEADER]: sign(body, channel.secret) } : {}),
   });
 }
 
-/** Backoff, collapsed by ORRERY_FAST the same way simulated step durations are. */
+/** Backoff, collapsed by ZENITH_FAST the same way simulated step durations are. */
 const wait = (ms: number) =>
   new Promise<void>((r) => {
-    if (env().ORRERY_FAST || ms <= 0) return r();
+    if (env().ZENITH_FAST || ms <= 0) return r();
     // Cast because `lib.dom` types setTimeout as returning a number; a backoff
     // must never be the reason a script or a test run refuses to exit.
     (setTimeout(r, ms) as unknown as { unref?: () => void }).unref?.();
@@ -447,7 +447,7 @@ export const idempotencyKeyFor = (
   eventId: string,
   transition: AlertPhase,
   channelId: string
-): string => `orrery-${transition}-${eventId}-${channelId}`;
+): string => `zenith-${transition}-${eventId}-${channelId}`;
 
 /**
  * Write the intent to deliver one transition to every selected channel.
@@ -576,8 +576,8 @@ async function deliverEntry(row: AlertOutboxEntry): Promise<void> {
 /* ---------------------------------- queue ---------------------------------- */
 
 type G = typeof globalThis & {
-  __orreryDeliveryInFlight?: Promise<void>;
-  __orreryDeliveryScheduled?: boolean;
+  __zenithDeliveryInFlight?: Promise<void>;
+  __zenithDeliveryScheduled?: boolean;
 };
 const g = globalThis as G;
 
@@ -589,10 +589,10 @@ const g = globalThis as G;
  */
 export function queueDelivery(event: AlertEvent, phase: "fired" | "resolved"): void {
   enqueueDeliveries(event, phase);
-  if (g.__orreryDeliveryScheduled) return;
-  g.__orreryDeliveryScheduled = true;
+  if (g.__zenithDeliveryScheduled) return;
+  g.__zenithDeliveryScheduled = true;
   queueMicrotask(() => {
-    g.__orreryDeliveryScheduled = false;
+    g.__zenithDeliveryScheduled = false;
     drain();
   });
 }
@@ -600,7 +600,7 @@ export function queueDelivery(event: AlertEvent, phase: "fired" | "resolved"): v
 function drain(): void {
   const batch = claimPending();
   if (batch.length === 0) return;
-  g.__orreryDeliveryInFlight = (g.__orreryDeliveryInFlight ?? Promise.resolve())
+  g.__zenithDeliveryInFlight = (g.__zenithDeliveryInFlight ?? Promise.resolve())
     .then(() => Promise.all(batch.map((row) => deliverEntry(row))))
     .then(
       // One write for the batch's outcomes, in place of one per row.
@@ -674,7 +674,7 @@ export async function replayOutbox(leaseMs = 0): Promise<number> {
 export async function flushDeliveries(): Promise<void> {
   for (let i = 0; i < 5; i++) {
     drain();
-    await g.__orreryDeliveryInFlight;
+    await g.__zenithDeliveryInFlight;
     if (!outbox().some((r) => r.status === "pending")) return;
   }
 }

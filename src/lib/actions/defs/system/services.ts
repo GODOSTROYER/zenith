@@ -34,7 +34,7 @@ const AddService = z.object({
 });
 type AddService = z.infer<typeof AddService>;
 
-const PLACEHOLDER_IMAGE = "ghcr.io/orrery/hello-web:1";
+const PLACEHOLDER_IMAGE = "ghcr.io/zenith/hello-web:1";
 
 manifestAction<AddService>({
   id: "system.addService",

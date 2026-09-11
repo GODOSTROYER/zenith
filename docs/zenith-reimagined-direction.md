@@ -83,7 +83,7 @@ The five-level autonomy explorer displays the real shared policy meanings and st
 
 Heading: **Your cloud. / Clear boundaries.** Registry-fed provider rows show the current connection limits. Sandbox simulates without provisioning. LocalStack supports local S3 buckets and SQS queues, with services, routes and other emulated behavior remaining simulated. AWS Preview exports real Terraform without in-app apply, account reads or live account verification. Kubernetes and Google Cloud appear under **On the horizon** as **Planned**; Microsoft Azure and the explicit Oracle roadmap entry say **Coming later**. None is presented as a working connection, and their provider IDs/status values are unchanged.
 
-**The system stays yours.** The export illustration retains `orrery.manifest.json`, Terraform files and an operations README. The setup-guide link points to existing documentation. The illustration is not a nonworking download control. No data namespaces, export compatibility or historical provenance is renamed by the presentation.
+**The system stays yours.** The export illustration retains `zenith.manifest.json`, Terraform files and an operations README. The setup-guide link points to existing documentation. The illustration is not a nonworking download control. No data namespaces, export compatibility or historical provenance is renamed by the presentation.
 
 ### Close
 

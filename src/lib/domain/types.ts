@@ -269,7 +269,7 @@ export interface Environment {
   /** revision currently live in this environment (undefined = never deployed) */
   deployedRevisionId?: string;
   policies: ManifestPolicies;
-  /** base domain for managed routes, e.g. "atlas.orrery.test" */
+  /** base domain for managed routes, e.g. "atlas.zenith.test" */
   baseDomain: string;
   /**
    * The deployment that currently owns this environment — the lease. Only the
@@ -522,7 +522,7 @@ export interface AlertEvent {
 export const AlertChannelKind = z.enum([
   "webhook", // POST JSON, optionally signed with HMAC-SHA256
   "slack", // Slack incoming webhook (text + blocks)
-  "email", // SMTP, via ORRERY_SMTP_URL
+  "email", // SMTP, via ZENITH_SMTP_URL
 ]);
 export type AlertChannelKind = z.infer<typeof AlertChannelKind>;
 
@@ -535,7 +535,7 @@ export interface AlertChannel {
   /** the endpoint URL (webhook, slack) or the recipient address (email) */
   target: string;
   /**
-   * Webhook only: the key `X-Orrery-Signature` is computed with. Held in plain
+   * Webhook only: the key `X-Zenith-Signature` is computed with. Held in plain
    * text in this server's store — no route returns it and the UI masks it.
    */
   secret?: string;

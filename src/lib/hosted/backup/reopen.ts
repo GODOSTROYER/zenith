@@ -18,7 +18,7 @@
  *
  * The checks run against this process's own authority, which is the point:
  * after a clean-host restore you start the control service with
- * `ORRERY_DATA=<the restored directory>` and reopen from inside it, so what is
+ * `ZENITH_DATA=<the restored directory>` and reopen from inside it, so what is
  * verified is what will actually be served.
  */
 import { HostedError, type ArtifactStore, type HostedApp } from "@/lib/hosted/contracts";

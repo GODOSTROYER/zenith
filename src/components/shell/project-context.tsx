@@ -77,7 +77,7 @@ export function useProjectData(): ProjectData {
   return ctx;
 }
 
-const envKey = (projectId: string) => `orrery-env-${projectId}`;
+const envKey = (projectId: string) => `zenith-env-${projectId}`;
 
 /** Query-only navigation must reach the existing provider without remounting drafts. */
 function EnvironmentUrlSync({ select }: { select: (id: string) => void }) {

@@ -19,7 +19,7 @@ import { isolatedDataDir, removeDir } from "../_fixtures";
 import type { SessionUser } from "@/lib/auth/session";
 
 const dataDir = isolatedDataDir("zenith-access-routes-");
-process.env.ORRERY_SECRET_KEY = "4".repeat(64);
+process.env.ZENITH_SECRET_KEY = "4".repeat(64);
 // Tenancy only exists once auth does; without keys every caller is the one
 // local demo user who is a member of everything.
 process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";

@@ -42,7 +42,7 @@ import type {
 } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-deploy-isolation-", { fast: true });
+tempDataDir("zenith-deploy-isolation-", { fast: true });
 const { runAction } = await import("@/lib/actions/core");
 const { db, q, resetDb } = await import("@/lib/db/store");
 await import("@/lib/actions/defs");
@@ -61,7 +61,7 @@ const member = (id: string, workspaceId: string, name: string): Member => ({
   id,
   workspaceId,
   name,
-  email: `${name.toLowerCase()}@orrery.test`,
+  email: `${name.toLowerCase()}@zenith.test`,
   role: "admin",
 });
 
@@ -73,7 +73,7 @@ const manifest = (serviceName: string): Manifest => ({
       id: `svc-${serviceName}`,
       name: serviceName,
       kind: "web",
-      source: { type: "image", image: "ghcr.io/orrery/hello-web:1" },
+      source: { type: "image", image: "ghcr.io/zenith/hello-web:1" },
       size: "small",
       replicas: 1,
       port: 3000,
@@ -124,7 +124,7 @@ const environment = (
   // a deployment parks at awaiting_approval, where approve and cancel both
   // have something real to do and no runner is left ticking.
   policies: { approvalRequired: true, allowStatefulDeletion: false },
-  baseDomain: `${projectId}.orrery.app`,
+  baseDomain: `${projectId}.zenith.app`,
   deployedRevisionId,
   createdAt: AT,
 });

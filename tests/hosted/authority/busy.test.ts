@@ -121,7 +121,7 @@ describe("a second writer holding the database", () => {
     expect(error).toBeInstanceOf(Error);
     expect(error.code).toBe("policy_unavailable");
     expect(error.details?.reason).toBe("sqlite_busy");
-    expect(error.fix).toMatch(/ORRERY_DATA|Retry/);
+    expect(error.fix).toMatch(/ZENITH_DATA|Retry/);
     expect(waited).toBeGreaterThan(4_000);
     expect(waited).toBeLessThan(15_000);
 

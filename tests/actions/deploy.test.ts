@@ -3,7 +3,7 @@ import type { ActionContext } from "@/lib/actions/core";
 import type { Changeset, Deployment } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-deploy-", { fast: true });
+tempDataDir("zenith-deploy-", { fast: true });
 const { runAction } = await import("@/lib/actions/core");
 const { resetDb, q } = await import("@/lib/db/store");
 await import("@/lib/actions/defs");

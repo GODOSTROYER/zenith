@@ -15,11 +15,11 @@ import { totalMs } from "@/components/ui/phase-timeline";
 import { pickPair } from "@/app/(product)/p/[slug]/revisions/pick-pair";
 import type { DeploymentStep, Output } from "@/lib/domain/types";
 
-const ORIGIN = "https://orrery.test";
+const ORIGIN = "https://zenith.test";
 
 const url = (over: Partial<Output> = {}): Output => ({
   key: "url:svc",
-  label: "web — https://web--staging.atlas.orrery.app",
+  label: "web — https://web--staging.atlas.zenith.app",
   value: "/preview/dep_1/svc_1",
   kind: "url",
   ...over,
@@ -27,8 +27,8 @@ const url = (over: Partial<Output> = {}): Output => ({
 
 const connection = (): Output => ({
   key: "conn:db",
-  label: "db — postgres.staging.atlas.orrery.app:5432",
-  value: "postgres.staging.atlas.orrery.app:5432",
+  label: "db — postgres.staging.atlas.zenith.app:5432",
+  value: "postgres.staging.atlas.zenith.app:5432",
   kind: "connection",
 });
 
@@ -60,7 +60,7 @@ describe("openLabel", () => {
 describe("absoluteHref", () => {
   it("makes a local preview path pasteable", () => {
     expect(absoluteHref("/preview/dep_1/svc_1", ORIGIN)).toBe(
-      "https://orrery.test/preview/dep_1/svc_1"
+      "https://zenith.test/preview/dep_1/svc_1"
     );
   });
 
@@ -77,17 +77,17 @@ describe("absoluteHref", () => {
 describe("copyTarget", () => {
   it("copies the working preview link for a simulated url, never the fake host", () => {
     const t = copyTarget(url(), true, ORIGIN);
-    expect(t.value).toBe("https://orrery.test/preview/dep_1/svc_1");
+    expect(t.value).toBe("https://zenith.test/preview/dep_1/svc_1");
     expect(t.what).toMatch(/preview link/);
   });
 
   it("copies the real address for a real url", () => {
-    expect(copyTarget(url(), false, ORIGIN).value).toBe("https://web--staging.atlas.orrery.app");
+    expect(copyTarget(url(), false, ORIGIN).value).toBe("https://web--staging.atlas.zenith.app");
   });
 
   it("copies the connection string itself, which is never a link", () => {
     const t = copyTarget(connection(), true, ORIGIN);
-    expect(t.value).toBe("postgres.staging.atlas.orrery.app:5432");
+    expect(t.value).toBe("postgres.staging.atlas.zenith.app:5432");
     expect(t.what).toBe("the connection value");
   });
 });

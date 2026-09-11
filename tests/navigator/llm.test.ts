@@ -11,9 +11,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { emptyManifest, type Project } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-nav-llm-");
+tempDataDir("zenith-nav-llm-");
 process.env.ANTHROPIC_API_KEY = "test-key-not-used";
-process.env.ORRERY_LLM_MODEL = "claude-test-model";
+process.env.ZENITH_LLM_MODEL = "claude-test-model";
 
 const create = vi.fn();
 vi.mock("@anthropic-ai/sdk", () => ({

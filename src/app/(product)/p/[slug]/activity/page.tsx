@@ -118,11 +118,11 @@ export default function ActivityPage() {
       const note =
         "The events matching these filters that were loaded in the browser at export time; load older pages first for a longer trail.";
       if (kind === "csv") {
-        downloadFile(`orrery-activity-${slug}-${stamp}.csv`, toCsv(shown), "text/csv");
+        downloadFile(`zenith-activity-${slug}-${stamp}.csv`, toCsv(shown), "text/csv");
         return;
       }
       downloadFile(
-        `orrery-activity-${slug}-${stamp}.json`,
+        `zenith-activity-${slug}-${stamp}.json`,
         JSON.stringify(
           {
             exportedAt: new Date().toISOString(),

@@ -20,7 +20,7 @@ import { env } from "@/lib/env";
 import { log } from "@/lib/log";
 import { isServerless } from "@/lib/serverless";
 
-type G = typeof globalThis & { __orreryBoot?: Promise<void> };
+type G = typeof globalThis & { __zenithBoot?: Promise<void> };
 
 /* ------------------------- module accessors (typed) ------------------------ */
 
@@ -57,7 +57,7 @@ async function boot(): Promise<void> {
   // has its own `/tmp`, so the lock it finds is one a *previous* instance of
   // itself left behind, and honouring it would refuse to boot for a writer that
   // no longer exists. Nothing is shared, so nothing needs claiming.
-  if (!isServerless()) claimDataDir(env().ORRERY_DATA);
+  if (!isServerless()) claimDataDir(env().ZENITH_DATA);
   // The hosted control authority (SQLite) opens right after the data-dir
   // claim, before anything can read hosted state, and refuses to boot in
   // hosted mode without the inputs it needs. See src/lib/hosted/index.ts.
@@ -94,11 +94,11 @@ async function boot(): Promise<void> {
 /** Idempotent per process (and across Next HMR reloads). */
 export function ensureBoot(): Promise<void> {
   const g = globalThis as G;
-  g.__orreryBoot ??= boot().catch((err) => {
+  g.__zenithBoot ??= boot().catch((err) => {
     log.error("boot failed", { scope: "boot", error: err });
     // A failed boot must not be swallowed into a half-working app: every
     // request that awaits boot sees the same error, with its fix attached.
     throw err;
   });
-  return g.__orreryBoot;
+  return g.__zenithBoot;
 }

@@ -54,7 +54,7 @@ async function main(): Promise<void> {
       : `All ${report.counts.artifacts.referenced} referenced artifact(s) are present.`,
     `Full report: ${path.join(report.into, RESTORE_REPORT_FILE)}`,
     report.reconciliation.evidenceComplete
-      ? "Next: start the control service with ORRERY_DATA=<this directory>, then reopen each app with scripts/hosted/reopen.ts."
+      ? "Next: start the control service with ZENITH_DATA=<this directory>, then reopen each app with scripts/hosted/reopen.ts."
       : "Next: re-approve the held grants, then reopen each app with scripts/hosted/reopen.ts --acknowledge-reapproval.",
   ];
   finish(`\n${lines.join("\n")}\n`);

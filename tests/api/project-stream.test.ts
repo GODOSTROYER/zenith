@@ -9,7 +9,7 @@ import { NextRequest } from "next/server";
 import type { Environment, Manifest, Project, Workspace } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-stream-");
+tempDataDir("zenith-stream-");
 const { db, flush, resetDb } = await import("@/lib/db/store");
 const { GET: streamGet } = await import("@/app/api/projects/[id]/stream/route");
 const { GET: projectGet } = await import("@/app/api/projects/[id]/route");

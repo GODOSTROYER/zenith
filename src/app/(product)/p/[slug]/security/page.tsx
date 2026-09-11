@@ -106,10 +106,10 @@ export default function SecurityPage() {
     const at = new Date();
     const stamp = at.toISOString().slice(0, 10);
     if (kind === "csv")
-      downloadFile(`orrery-findings-${slug}-${stamp}.csv`, toCsv(findings, envName), "text/csv");
+      downloadFile(`zenith-findings-${slug}-${stamp}.csv`, toCsv(findings, envName), "text/csv");
     else
       downloadFile(
-        `orrery-findings-${slug}-${stamp}.json`,
+        `zenith-findings-${slug}-${stamp}.json`,
         toJson(findings, { project: slug, at: at.toISOString(), envName }),
         "application/json"
       );

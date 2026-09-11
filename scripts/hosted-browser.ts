@@ -34,17 +34,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
-/* Environment first: `@/lib/env` reads ORRERY_DATA on first use, so every
+/* Environment first: `@/lib/env` reads ZENITH_DATA on first use, so every
    application module below is imported dynamically, after this block. */
 const DATA_DIR = path.join(process.cwd(), ".data-hosted-browser");
-process.env.ORRERY_DATA = DATA_DIR;
-process.env.ORRERY_FAST = "1";
+process.env.ZENITH_DATA = DATA_DIR;
+process.env.ZENITH_FAST = "1";
 process.env.ZENITH_BUILD_RUNNER = "recipe-local";
 process.env.ZENITH_RUNTIME = "local";
 process.env.ZENITH_APP_DOMAIN = "apps.localhost";
 process.env.ZENITH_APP_SCHEME = "http";
-process.env.ORRERY_SECRET_KEY = "1".repeat(64);
-delete process.env.ORRERY_SMTP_URL;
+process.env.ZENITH_SECRET_KEY = "1".repeat(64);
+delete process.env.ZENITH_SMTP_URL;
 
 const NO_BROWSER_MESSAGE =
   "gate 12 needs a real browser and found none.\n" +

@@ -148,7 +148,7 @@ export function ExportPanel({
             title={`All ${files.length + 1} files in one text file, split by "===== <path>" markers`}
             onClick={() =>
               download(
-                `orrery-${(environmentName ?? "environment").toLowerCase().replace(/\s+/g, "-")}-bundle.txt`,
+                `zenith-${(environmentName ?? "environment").toLowerCase().replace(/\s+/g, "-")}-bundle.txt`,
                 bundleText(files, data.readme, environmentName ?? "this environment")
               )
             }
@@ -167,7 +167,7 @@ export function ExportPanel({
               variant="quiet"
               icon={<Download className="h-3.5 w-3.5" />}
               onClick={() =>
-                download("orrery.manifest.json", JSON.stringify(workingManifest, null, 2))
+                download("zenith.manifest.json", JSON.stringify(workingManifest, null, 2))
               }
             >
               Manifest JSON

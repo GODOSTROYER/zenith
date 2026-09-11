@@ -29,15 +29,15 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 
-/* Environment first: `@/lib/env` reads ORRERY_DATA on first use, so every
+/* Environment first: `@/lib/env` reads ZENITH_DATA on first use, so every
    application module below is imported dynamically, after this block. */
 const DATA_DIR = path.join(process.cwd(), ".data-hosted-acceptance");
 const ARTIFACT_DIR = path.join(DATA_DIR, "artifact-store");
 const OFF_HOST = path.join(DATA_DIR, "off-host");
 const RESTORE_INTO = path.join(DATA_DIR, "restore");
 
-process.env.ORRERY_DATA = DATA_DIR;
-process.env.ORRERY_FAST = "1";
+process.env.ZENITH_DATA = DATA_DIR;
+process.env.ZENITH_FAST = "1";
 process.env.ZENITH_BUILD_RUNNER = "recipe-local";
 process.env.ZENITH_RUNTIME = "local";
 process.env.ZENITH_APP_DOMAIN = "apps.localhost";
@@ -46,8 +46,8 @@ process.env.ZENITH_ARTIFACT_DIR = ARTIFACT_DIR;
 process.env.ZENITH_BACKUP_TARGET = "filesystem";
 process.env.ZENITH_BACKUP_DIR = OFF_HOST;
 process.env.ZENITH_BACKUP_KEY = Buffer.alloc(32, 13).toString("base64");
-process.env.ORRERY_SECRET_KEY = "1".repeat(64);
-delete process.env.ORRERY_SMTP_URL;
+process.env.ZENITH_SECRET_KEY = "1".repeat(64);
+delete process.env.ZENITH_SMTP_URL;
 
 const OWNER = { subject: "11111111-1111-4111-8111-111111111111", email: "owner@example.test" };
 const RECIPIENT = { subject: "55555555-5555-4555-8555-555555555555", email: "rae.recipient@example.test" };
@@ -330,7 +330,7 @@ async function main(): Promise<number> {
 
     data.closeAllAppData();
     authority.closeAuthority();
-    process.env.ORRERY_DATA = RESTORE_INTO;
+    process.env.ZENITH_DATA = RESTORE_INTO;
     gateway.resetGatewayDeps();
     authority.openAuthority();
 

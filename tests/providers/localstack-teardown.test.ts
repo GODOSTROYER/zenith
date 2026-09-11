@@ -19,8 +19,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Environment, Manifest } from "@/lib/domain/types";
 import type { ProviderPlanStep, StepRuntime } from "@/lib/providers/types";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-teardown-"));
-process.env.ORRERY_FAST = "1";
+process.env.ZENITH_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-teardown-"));
+process.env.ZENITH_FAST = "1";
 
 /**
  * A LocalStack endpoint that records every call. `vi.hoisted` because the
@@ -143,7 +143,7 @@ const environment: Environment = {
   connectionId: "conn-localstack",
   region: "us-east-1",
   policies: { approvalRequired: false, allowStatefulDeletion: false },
-  baseDomain: "atlas.orrery.test",
+  baseDomain: "atlas.zenith.test",
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 

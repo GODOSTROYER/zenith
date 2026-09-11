@@ -17,11 +17,11 @@ Filling a value in here is a commitment. Do not infer one. If a row says
 | Class | Contents | Where it lives | Who can read it |
 | --- | --- | --- | --- |
 | Identity | Email address, Supabase user id, verified-email state | Supabase Auth project | Supabase; Zenith operators via the dashboard and the service-role key |
-| Platform state | Workspaces, members, projects, manifests, revisions, deploys, audit trail, alert channels | `<ORRERY_DATA>/state.json` + `revisions/` on the control volume | Anyone who can read the volume; workspace members through the product |
-| Hosted control state | Apps, grants, invites (token **hashes**), invite delivery payloads (encrypted), app sessions, exchanges, jobs, outbox, artifacts index, releases, quotas, usage, revocations, events | `<ORRERY_DATA>/control.sqlite` | Anyone who can read the volume; owners through the product |
-| Customer app records | The tracker records a recipient actually types — the equipment requests | `<ORRERY_DATA>/apps/<appId>/app.sqlite` (local runtime) or per-app D1 (Cloudflare runtime) | The app's granted users through the broker; anyone who can read the volume |
-| Artifacts | Built frontend bundles, content-addressed | `<ORRERY_DATA>/artifacts/sha256/<digest>/` | Anyone who can read the volume; granted users through the gateway |
-| Secrets | Workspace secret values, AES-256-GCM under `ORRERY_SECRET_KEY` | `<ORRERY_DATA>/secrets.json` | The running process; anyone holding the key and the file |
+| Platform state | Workspaces, members, projects, manifests, revisions, deploys, audit trail, alert channels | `<ZENITH_DATA>/state.json` + `revisions/` on the control volume | Anyone who can read the volume; workspace members through the product |
+| Hosted control state | Apps, grants, invites (token **hashes**), invite delivery payloads (encrypted), app sessions, exchanges, jobs, outbox, artifacts index, releases, quotas, usage, revocations, events | `<ZENITH_DATA>/control.sqlite` | Anyone who can read the volume; owners through the product |
+| Customer app records | The tracker records a recipient actually types — the equipment requests | `<ZENITH_DATA>/apps/<appId>/app.sqlite` (local runtime) or per-app D1 (Cloudflare runtime) | The app's granted users through the broker; anyone who can read the volume |
+| Artifacts | Built frontend bundles, content-addressed | `<ZENITH_DATA>/artifacts/sha256/<digest>/` | Anyone who can read the volume; granted users through the gateway |
+| Secrets | Workspace secret values, AES-256-GCM under `ZENITH_SECRET_KEY` | `<ZENITH_DATA>/secrets.json` | The running process; anyone holding the key and the file |
 | Backups | Encrypted copies of control and app databases + the revocation ledger | Off-host target — `unknown` | Anyone holding `ZENITH_BACKUP_KEY` and the target |
 | Analytics events | Event name, timestamp, workspace, app, **pseudonymous subject hash**, release, outcome, logical id, assisted flag, actor class | `control.sqlite` | Operators |
 | Logs | Application and deploy logs | Control volume; host provider's log pipeline — `unknown` | Operators; the host provider |

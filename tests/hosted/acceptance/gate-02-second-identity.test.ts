@@ -157,7 +157,7 @@ describe("Gate 2 — a second identity with no workspace membership", () => {
     expect(raw, "SameSite=Lax").toContain("SameSite=Lax");
     expect(raw, "Path=/").toContain("Path=/");
     expect(raw, "a __Host- cookie may carry no Domain").not.toMatch(/;\s*Domain=/i);
-    expect(raw, "no platform cookie is ever set on an app host").not.toMatch(/\bsb-|orrery-/);
+    expect(raw, "no platform cookie is ever set on an app host").not.toMatch(/\bsb-|zenith-/);
 
     const value = cookieValueOf(res);
     expect(value).toBeTruthy();

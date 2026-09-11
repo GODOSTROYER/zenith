@@ -13,34 +13,34 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { tempDataDir } from "../_support/data-dir";
 
-const DATA = tempDataDir("orrery-serverless-boot-");
+const DATA = tempDataDir("zenith-serverless-boot-");
 const { ensureBoot } = await import("@/lib/server/boot");
 const { EVALUATION_INTERVAL_MS } = await import("@/lib/alerts");
 
 type Globals = typeof globalThis & {
-  __orreryBoot?: Promise<void>;
-  __orreryTicker?: unknown;
-  __orreryAlertTimer?: unknown;
+  __zenithBoot?: Promise<void>;
+  __zenithTicker?: unknown;
+  __zenithAlertTimer?: unknown;
 };
 
 /** Boot is memoised per process; a second scenario needs a clean slate. */
 function forgetBoot(): void {
   const g = globalThis as Globals;
-  for (const timer of [g.__orreryTicker, g.__orreryAlertTimer])
+  for (const timer of [g.__zenithTicker, g.__zenithAlertTimer])
     if (timer) clearInterval(timer as ReturnType<typeof setInterval>);
-  delete g.__orreryBoot;
-  delete g.__orreryTicker;
-  delete g.__orreryAlertTimer;
+  delete g.__zenithBoot;
+  delete g.__zenithTicker;
+  delete g.__zenithAlertTimer;
 }
 
 beforeEach(forgetBoot);
 afterEach(() => {
   forgetBoot();
-  delete process.env.ORRERY_SERVERLESS;
+  delete process.env.ZENITH_SERVERLESS;
   vi.restoreAllMocks();
 });
 
-const lockFile = () => path.join(DATA, ".orrery.lock");
+const lockFile = () => path.join(DATA, ".zenith.lock");
 
 /** The interval periods one boot asks for. 250ms is the engine's ticker, 15s the evaluator's. */
 async function bootIntervals(): Promise<number[]> {
@@ -53,7 +53,7 @@ async function bootIntervals(): Promise<number[]> {
 
 describe("boot on a serverless instance", () => {
   it("starts neither the engine ticker nor the alert evaluator, and claims nothing", async () => {
-    process.env.ORRERY_SERVERLESS = "1";
+    process.env.ZENITH_SERVERLESS = "1";
 
     const delays = await bootIntervals();
 
@@ -61,8 +61,8 @@ describe("boot on a serverless instance", () => {
     // so the evaluator's period is what a timer count is asserted on.
     expect(delays).not.toContain(EVALUATION_INTERVAL_MS);
     const g = globalThis as Globals;
-    expect(g.__orreryTicker).toBeUndefined();
-    expect(g.__orreryAlertTimer).toBeUndefined();
+    expect(g.__zenithTicker).toBeUndefined();
+    expect(g.__zenithAlertTimer).toBeUndefined();
     // Every instance has its own /tmp, so the lock could only ever name a
     // process that no longer exists.
     expect(fs.existsSync(lockFile())).toBe(false);
@@ -74,8 +74,8 @@ describe("boot on a serverless instance", () => {
     expect(delays).toContain(EVALUATION_INTERVAL_MS);
     expect(delays).toContain(250); // the engine ticker
     const g = globalThis as Globals;
-    expect(g.__orreryTicker).toBeDefined();
-    expect(g.__orreryAlertTimer).toBeDefined();
+    expect(g.__zenithTicker).toBeDefined();
+    expect(g.__zenithAlertTimer).toBeDefined();
     expect(fs.existsSync(lockFile())).toBe(true);
   });
 });

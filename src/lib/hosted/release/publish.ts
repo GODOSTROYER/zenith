@@ -79,7 +79,7 @@ export interface AdmitPublishInput {
 /**
  * Admit a publish, or return the job this id already names.
  *
- * The submitted tarball is written to `<ORRERY_DATA>/jobs/<jobId>/source.tgz`
+ * The submitted tarball is written to `<ZENITH_DATA>/jobs/<jobId>/source.tgz`
  * before this returns, so the request body is never the only copy: a restart
  * between the 202 and the first build resumes from disk rather than asking the
  * builder to upload again. The bytes are written *after* admission rather than
@@ -152,7 +152,7 @@ export async function admitPublish(
       `The submitted source could not be stored: ${reasonOf(err)}`
     );
     throw new HostedError("internal", "The submitted source could not be written to disk, so this publish was not queued.", {
-      fix: "Check free space and permissions on ORRERY_DATA, then publish again. Nothing about the app was changed.",
+      fix: "Check free space and permissions on ZENITH_DATA, then publish again. Nothing about the app was changed.",
       details: { jobId: input.jobId },
     });
   }

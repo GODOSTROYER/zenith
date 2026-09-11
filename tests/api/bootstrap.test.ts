@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import type { CloudConnection, Deployment, Environment, Project, Workspace } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-bootstrap-");
+tempDataDir("zenith-bootstrap-");
 const { db, resetDb } = await import("@/lib/db/store");
 const { emptyManifest } = await import("@/lib/domain/types");
 const { actionRegistry } = await import("@/lib/actions/core");

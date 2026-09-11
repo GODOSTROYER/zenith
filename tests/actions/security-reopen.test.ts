@@ -10,7 +10,7 @@ import type { ActionContext } from "@/lib/actions/core";
 import type { Actor, Project, SecurityFinding } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-reopen-", { fast: true });
+tempDataDir("zenith-reopen-", { fast: true });
 const { runAction } = await import("@/lib/actions/core");
 const { db, readAudit, resetDb } = await import("@/lib/db/store");
 await import("@/lib/actions/defs");

@@ -2,7 +2,7 @@
   "name": "Gimbal",
   "role": "Navigator",
   "version": 1,
-  "provenance": "Original procedural geometry authored for Orrery; see scripts/gimbal-build.mjs.",
+  "provenance": "Original procedural geometry authored for Zenith; see scripts/gimbal-build.mjs.",
   "coordinateSystem": {
     "up": "+Y",
     "front": "+Z",

@@ -17,7 +17,7 @@ redefining what they already export.
 | `@/lib/db/store` | `db()`, `save(projectId?)`, `resetDb()`, `q.*` (incl. `q.revisionManifest(id)` — manifests are cold storage), `onChange(fn)`/`changed(c, projectId)` (post-save change events), `appendEvent`, `readEvents`, `appendAudit`, `readAudit` |
 | `@/lib/actions/core` | `defineAction`, `runAction`, `actionRegistry`, `ActionContext`, `ActionPlan`, `ActionResult` |
 | `@/lib/providers/types` | `ProviderAdapter`, `registerProvider`, `getProvider`, `providerRegistry`, `PreflightReport`, `ProviderProbe`, `StepRuntime`, `stepBudgetMs`, `ExportBundle` |
-| `@/lib/env` | `env()` — validated `ORRERY_*`; `configured()` — which optional keys are present |
+| `@/lib/env` | `env()` — validated `ZENITH_*`; `configured()` — which optional keys are present |
 | `@/lib/log` | `log.{debug,info,warn,error}(message, fields)`, `withRequestId`, `currentRequestId` |
 | `@/lib/data-lock` | `claimDataDir(dir)` — refuse a second process against one data directory |
 | `@/lib/engine/types` | `EngineApi`, `StartDeploymentInput` |
@@ -75,7 +75,7 @@ Base: `/api`. JSON in/out. Errors: `{ error: { message, fix? } }` + proper statu
 workspace once, before the handler runs, and stashes it for the request. Every
 scoped read calls `requireWorkspace()` — still synchronous and zero-argument —
 so a route cannot pick a different workspace than the one the request resolved
-to. The order is: the `orrery-workspace` cookie *if the caller is still a member
+to. The order is: the `zenith-workspace` cookie *if the caller is still a member
 of it* → their first membership → `workspaces[0]` in demo mode (no auth keys) →
 404 naming `/onboarding`. Server components and server actions call
 `await currentWorkspace()` for the same answer. `workspaceRole(actor)` gives the
@@ -84,7 +84,7 @@ docs/LIMITATIONS.md.
 
 - `GET  /api/bootstrap` → `{ workspace, workspaces, projects, environments, deployments, connections, providers, settings, user, role, auth, members }` (single call the app shell hydrates from; providers include availability). `workspace` is the **resolved current workspace** and everything beside it is scoped to that one; `workspaces` is every workspace the caller belongs to as `{ id, name, slug, role }` — the switcher's list, and the only place the browser learns a workspace it is not in exists
 - `POST /api/workspace` body `{ name }` → 201 `{ workspace }` — creates a workspace, makes the caller its admin, and selects it (sets the cookie below). Not an action: it happens before the membership an action would role-check. In demo mode (no Supabase keys) a second workspace is refused with 409 — one local user is admin of everything, so a second one is only a second name for the same permissions
-- `POST /api/workspace/select` body `{ workspaceId }` → `{ workspace }` — sets the httpOnly `orrery-workspace` cookie. 403 when the caller is not a member (same answer for an id that does not exist, so ids stay non-enumerable), with a fix listing the workspaces they *are* in
+- `POST /api/workspace/select` body `{ workspaceId }` → `{ workspace }` — sets the httpOnly `zenith-workspace` cookie. 403 when the caller is not a member (same answer for an id that does not exist, so ids stay non-enumerable), with a fix listing the workspaces they *are* in
 - `GET|POST /api/workspace/invites`, `DELETE /api/workspace/invites/:id`, `PATCH|DELETE /api/workspace/members/:id` — admin only, and scoped to the resolved workspace on both sides: `requireAdmin` reads the caller's role *in that workspace* (`workspaceRole`, not `roleOf`), and every read filters by it
 - `GET  /api/projects/:id` → `{ project, manifestHash, environments, revisions, findings, workingIssues, changesets: { [envId]: Changeset }, changesetsScopedTo? }`. `?env=<id>` computes only that environment's changeset; an unchanged payload answers `304` to `If-None-Match`. `revisions` is metadata only — manifests come one at a time from `/api/revisions/:id`
 - `GET  /api/projects/:id/stream?env=ID&after=SEQ` → **SSE** of the same payload, pushed. `event: project`, `data: { etag, ...the GET body }`, `id: <seq>`; sent on connect and again whenever the store reports the project changed, at most one message per poll tick (300ms) and never twice for the same hash. Heartbeat every 15s; `Last-Event-ID` (or `?after=`) resumes the id sequence, but a snapshot stream has nothing to replay — a reconnect always gets current state. Same workspace scoping and the same 404 as the GET. Clients keep the 5s poll behind it and fall back automatically when the stream is not delivering
@@ -151,7 +151,7 @@ Zenith separates the two halves of a secret and never mixes them:
 | | where it lives | who sees it |
 | --- | --- | --- |
 | the reference (`vault:<KEY>`) | `service.env[].secretRef` in the manifest | diffs, revisions, audit, exports, the browser |
-| the value | `<ORRERY_DATA>/secrets.json`, AES-256-GCM under `ORRERY_SECRET_KEY` | this server process only |
+| the value | `<ZENITH_DATA>/secrets.json`, AES-256-GCM under `ZENITH_SECRET_KEY` | this server process only |
 
 - `system.setSecret` (editor) — `{ serviceId, key, secretValue?, secretRef?, moveExistingValue? }`.
   With `secretValue` it stores the value and writes only the reference. With
@@ -166,7 +166,7 @@ Zenith separates the two halves of a secret and never mixes them:
   **and** the stored value; the plan says the value is unrecoverable and that
   running services keep their injected copy until redeploy.
 
-With no `ORRERY_SECRET_KEY` the store is *not configured*: every write is
+With no `ZENITH_SECRET_KEY` the store is *not configured*: every write is
 refused through `plan().blocked`, naming the variable and `openssl rand -base64
 32`. It never degrades to storing plaintext, and it never accepts a value it
 cannot keep. `GET /api/secrets?workspace=<id>` returns
@@ -218,13 +218,13 @@ them: **unset = every enabled channel**, `[]` = deliver nowhere (on screen
 only), and a disabled channel is skipped either way.
 
 - **webhook** — `POST` of
-  `{ source: "orrery", event: "alert.fired" | "alert.resolved" | "alert.test",
+  `{ source: "zenith", event: "alert.fired" | "alert.resolved" | "alert.test",
   sentAt, text, alert: { id, ruleId, projectId, environmentId, severity,
   simulated, summary, detail, firedAt, resolvedAt?, resolvedReason? } }`.
-  With a secret, `X-Orrery-Signature: sha256=<hex>` is an HMAC-SHA256 over the
+  With a secret, `X-Zenith-Signature: sha256=<hex>` is an HMAC-SHA256 over the
   **exact bytes posted** (the body is built once so the two can never diverge).
-  `X-Orrery-Event` carries the same event name, and
-  `X-Orrery-Idempotency-Key` carries `orrery-<transition>-<eventId>-<channelId>`
+  `X-Zenith-Event` carries the same event name, and
+  `X-Zenith-Idempotency-Key` carries `zenith-<transition>-<eventId>-<channelId>`
   — **stable across every retry of that transition to that channel**, including
   a retry after this server restarted mid-send. The body is not: `sentAt`
   changes per attempt, and so therefore does the signature. A receiver that
@@ -233,13 +233,13 @@ only), and a disabled channel is skipped either way.
 - **slack** — Slack's incoming-webhook payload: `text` (the notification line)
   plus `blocks` — a `section` with mrkdwn, then a `context` line carrying
   severity/close reason and the `simulated` note.
-- **email** — SMTP through `nodemailer`, `ORRERY_SMTP_URL` +
-  `ORRERY_ALERT_FROM`. The package is imported at send time through a
+- **email** — SMTP through `nodemailer`, `ZENITH_SMTP_URL` +
+  `ZENITH_ALERT_FROM`. The package is imported at send time through a
   non-literal specifier, so `tsc` passes without it and a workspace with no
   email channel never needs it; a missing package or variable is reported as
   the delivery failure, naming `npm install` or the variable.
 - **Retry** — `DELIVERY_ATTEMPTS` (3) with backoff (1s, 4s; collapsed by
-  `ORRERY_FAST`), `DELIVERY_TIMEOUT_MS` (10s) per attempt via
+  `ZENITH_FAST`), `DELIVERY_TIMEOUT_MS` (10s) per attempt via
   `AbortSignal.timeout`. A 4xx that is not 429 is permanent and is not retried:
   a wrong URL fails the same way three times.
 - **Recorded, never silent** — every result lands on `AlertEvent.deliveries`
@@ -356,7 +356,7 @@ edge endpoint, by the names the adapter provisions), **AWS Preview** (refuses).
 Implements `EngineApi` from `@/lib/engine/types`, exported as `engine`.
 Ticker: `setInterval` 250ms held on `globalThis`, started lazily; each tick
 advances at most one running step per deployment using the provider's
-`executeStep`. Sandbox speed: env `ORRERY_FAST=1` collapses `estMs` to ≤40ms
+`executeStep`. Sandbox speed: env `ZENITH_FAST=1` collapses `estMs` to ≤40ms
 (smoke tests). Emit every transition via `appendEvent` with a per-deployment
 monotonically increasing `seq` (store the counter on the deployment record).
 Verification phase performs health checks (sandbox: synthetic, honest —
@@ -370,10 +370,10 @@ Availability `available`, tagline says simulated. Realistic step plans per
 node kind (prepare → provision → release → verify), jittered durations
 totaling 8–20s per deploy (or fast mode), provider-stream log lines that look
 like real infra output without impersonating AWS. URLs:
-`https://{service}--{env}.{project}.orrery.app` — but the Output's `value`
+`https://{service}--{env}.{project}.zenith.app` — but the Output's `value`
 must be a real clickable local path: `/preview/{deploymentId}/{serviceId}`
 (the UI renders it as the pretty hostname with the local href). Failure
-injection: any service with env var `ORRERY_CHAOS=fail_once` fails its release
+injection: any service with env var `ZENITH_CHAOS=fail_once` fails its release
 step on the first attempt (used by the failure-recovery path).
 
 ## AWS provider — `src/lib/providers/aws/`
@@ -402,7 +402,7 @@ needed:
 `Select`, `Switch`, `CostDelta` (renders +/− USD with color + tnum),
 `RiskBadge`, `TimeAgo` (local + ISO title), `CopyButton`, `PhaseTimeline`
 (deployment phases/steps), `LogViewer` (auto-follow, stream toggle),
-`ThemeToggle` (persists `orrery-theme`, default dark).
+`ThemeToggle` (persists `zenith-theme`, default dark).
 Also `src/lib/format.ts`: `fmtUsd`, `fmtDate`, `timeAgo`, `cx` (clsx re-export).
 Style: tokens only, refined hairlines, generous spacing, no glassmorphism.
 

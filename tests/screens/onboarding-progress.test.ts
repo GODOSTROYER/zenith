@@ -48,7 +48,7 @@ describe("resumable starter validates identities and allows only safe fields", (
     expect(choiceFromDraft(undefined, boot)).toBeUndefined();
   });
   it("namespaces by real user and workspace IDs; demo remains ephemeral", () => {
-    expect(guideStorageKey(starterBoot())).toBe("orrery:guide:v1:u1:w1");
+    expect(guideStorageKey(starterBoot())).toBe("zenith:guide:v1:u1:w1");
     expect(guideStorageKey(starterBoot({ user: null }))).toBeUndefined();
     expect(restoreGuide("{", starterBoot())).toBeUndefined();
   });

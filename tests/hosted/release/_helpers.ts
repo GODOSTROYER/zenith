@@ -1,9 +1,9 @@
 /**
  * The setup every W7 test repeats: import the hosted modules after
- * `isolatedDataDir()` has pinned ORRERY_DATA, open the authority, and wire the
+ * `isolatedDataDir()` has pinned ZENITH_DATA, open the authority, and wire the
  * release module's collaborators to doubles that answer.
  *
- * The imports are dynamic because `@/lib/env` reads ORRERY_DATA on first use
+ * The imports are dynamic because `@/lib/env` reads ZENITH_DATA on first use
  * and the artifact store resolves its root from it — a static import at the
  * top of a test file would pin the developer's real `.data` directory.
  *

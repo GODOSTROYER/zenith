@@ -45,7 +45,7 @@ it("announces the inherited light theme after landing-to-auth navigation without
   document.documentElement.dataset.theme = "light";
   expectSelected("Light");
   expect(document.documentElement.dataset.theme).toBe("light");
-  expect(localStorage.getItem("orrery-theme")).toBeNull();
+  expect(localStorage.getItem("zenith-theme")).toBeNull();
 });
 
 it("keeps the unsaved dark document selected", () => {
@@ -53,10 +53,10 @@ it("keeps the unsaved dark document selected", () => {
 });
 
 it.each(["dark", "light", "system"])("preserves the explicit saved %s preference", (theme) => {
-  localStorage.setItem("orrery-theme", theme);
+  localStorage.setItem("zenith-theme", theme);
   if (theme !== "dark") document.documentElement.dataset.theme = "light";
   expectSelected(theme[0].toUpperCase() + theme.slice(1));
-  expect(localStorage.getItem("orrery-theme")).toBe(theme);
+  expect(localStorage.getItem("zenith-theme")).toBe(theme);
 });
 
 it("announces the displayed light theme when storage is unavailable", () => {

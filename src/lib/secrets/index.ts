@@ -1,10 +1,10 @@
 /**
  * Zenith's secret store — the smallest thing that is honestly a store.
  *
- * What it is: one file beside the snapshot (`<ORRERY_DATA>/secrets.json`,
+ * What it is: one file beside the snapshot (`<ZENITH_DATA>/secrets.json`,
  * mode 0600) holding, per workspace, one row per reference: the metadata
  * anybody may read, and the value sealed with AES-256-GCM under the server's
- * `ORRERY_SECRET_KEY`. The reference — `vault:<projectId>/<serviceId>/<KEY>`,
+ * `ZENITH_SECRET_KEY`. The reference — `vault:<projectId>/<serviceId>/<KEY>`,
  * see `vaultRef` below — is the only part that ever reaches a manifest, a
  * revision, a diff, the audit log or an export.
  *
@@ -12,7 +12,7 @@
  * the environment, there is no per-user access control and no way to export a
  * value. `docs/LIMITATIONS.md` says so in the same words.
  *
- * Without `ORRERY_SECRET_KEY` the store is *not configured*: every write is
+ * Without `ZENITH_SECRET_KEY` the store is *not configured*: every write is
  * refused, naming the variable and how to generate one. It never degrades to
  * writing plaintext.
  *
@@ -108,13 +108,13 @@ export interface StoreState {
 
 /** Is there a usable key? Cheap; every write and every surface asks first. */
 export function secretStoreState(): StoreState {
-  return env().ORRERY_SECRET_KEY
+  return env().ZENITH_SECRET_KEY
     ? { configured: true }
     : { configured: false, reason: SECRET_STORE_UNCONFIGURED, fix: SECRET_KEY_FIX };
 }
 
 function requireKey(): Buffer {
-  const raw = env().ORRERY_SECRET_KEY;
+  const raw = env().ZENITH_SECRET_KEY;
   // env() already rejects a malformed key at boot; this is the belt to that
   // brace, and the message a caller who skipped secretStoreState() deserves.
   const key = raw ? decodeSecretKey(raw) : undefined;
@@ -148,7 +148,7 @@ function unseal(workspaceId: string, ref: string, cipher: string): string {
     return Buffer.concat([d.update(ct), d.final()]).toString("utf8");
   } catch {
     throw new Error(
-      `The stored value for ${ref} cannot be opened with this server's ORRERY_SECRET_KEY. ` +
+      `The stored value for ${ref} cannot be opened with this server's ZENITH_SECRET_KEY. ` +
         `It was written under a different key, or the store file was altered. ` +
         `Restore the original key, or set a new value with system.rotateSecret — the old one is unrecoverable.`
     );
@@ -158,13 +158,13 @@ function unseal(workspaceId: string, ref: string, cipher: string): string {
 /* ---------------------------------- file ---------------------------------- */
 
 /**
- * `ORRERY_DATA` is read live (scripts and tests set it at runtime), but the
+ * `ZENITH_DATA` is read live (scripts and tests set it at runtime), but the
  * join only has to happen when it actually moves.
  */
 let pathCache: { dir: string; file: string } | undefined;
 
 const storePath = (): string => {
-  const dir = env().ORRERY_DATA;
+  const dir = env().ZENITH_DATA;
   if (pathCache?.dir !== dir) pathCache = { dir, file: path.join(dir, "secrets.json") };
   return pathCache.file;
 };

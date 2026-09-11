@@ -15,8 +15,8 @@ import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { isolatedDataDir, removeDir } from "../_fixtures";
 
 const dataDir = isolatedDataDir("zenith-access-invites-");
-process.env.ORRERY_SECRET_KEY = "1".repeat(64);
-delete process.env.ORRERY_SMTP_URL;
+process.env.ZENITH_SECRET_KEY = "1".repeat(64);
+delete process.env.ZENITH_SMTP_URL;
 
 const { closeAuthority, openAuthority } = await import("@/lib/hosted/authority");
 const { HostedError, INVITE_TTL_MS } = await import("@/lib/hosted/contracts");

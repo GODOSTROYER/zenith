@@ -367,7 +367,7 @@ export function registerOpsOutboxHandlers(): void {
  * workspace alert channels (`db().settings.alertChannels`, with their webhook
  * URLs and SMTP transport) live in the legacy JSON store, and reaching them
  * from here would import that store into the hosted path — pinning
- * `ORRERY_DATA` at module load, dragging the whole `Database` shape into every
+ * `ZENITH_DATA` at module load, dragging the whole `Database` shape into every
  * hosted test, and coupling two subsystems that decision R3-02 keeps apart.
  * The honest state is therefore: **a spending alert is a log line an operator
  * has to be watching for.** Wiring it to the existing channels is an

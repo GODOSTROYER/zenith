@@ -6,7 +6,7 @@ import { MenuItem, Popover } from "./popover";
 
 export type Theme = "dark" | "light" | "system";
 
-const KEY = "orrery-theme";
+const KEY = "zenith-theme";
 
 /** What "system" resolves to right now. */
 function prefersLight(): boolean {
@@ -42,7 +42,7 @@ const OPTIONS: { value: Theme; label: string; icon: typeof Sun; hint: string }[]
 ];
 
 /**
- * Dark is the default; the choice persists to `orrery-theme` and is applied
+ * Dark is the default; the choice persists to `zenith-theme` and is applied
  * before paint by the script in app/layout.tsx. "System" follows
  * `prefers-color-scheme` and keeps following it while the OS setting changes.
  */

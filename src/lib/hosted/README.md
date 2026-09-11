@@ -6,7 +6,7 @@ only authority on who may open them. It is ~103 files and about a fifth of
 `src`, and it shares nothing with the infrastructure product except the process
 and the data directory.
 
-Its own store is `<ORRERY_DATA>/control.sqlite`, reached only through
+Its own store is `<ZENITH_DATA>/control.sqlite`, reached only through
 `authority/`. Nothing here writes to `.data/state.json`, and nothing in
 `src/lib/db` knows this directory exists. Longer prose:
 [docs/ARCHITECTURE.md](../../../docs/ARCHITECTURE.md); the layer rules:
@@ -16,7 +16,7 @@ cites by number (`R3-*`, `G*`): [docs/hosted/](../../../docs/hosted/).
 ## The three loose files
 
 `config.ts` validates every `ZENITH_*` variable in one place, the same
-discipline `@/lib/env` applies to `ORRERY_*`; secrets are presence-only here
+discipline `@/lib/env` applies to `ZENITH_*`; secrets are presence-only here
 and read at exactly one call site each. It must not read the store or decide
 policy. `digest.ts` is the one SHA-256 and tree-digest rule, so a source, an
 artifact, a bundle and an intent cannot drift apart in how they are named; it

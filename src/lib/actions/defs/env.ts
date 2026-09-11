@@ -89,8 +89,8 @@ export function liveRevision(env: Environment): string | undefined {
 
 export function baseDomainFor(project: Project, name: string, klass: EnvironmentClass): string {
   return klass === "production"
-    ? `${project.slug}.orrery.app`
-    : `${name}.${project.slug}.orrery.app`;
+    ? `${project.slug}.zenith.app`
+    : `${name}.${project.slug}.zenith.app`;
 }
 
 const CreateEnv = z.object({

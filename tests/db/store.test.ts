@@ -4,7 +4,7 @@ import path from "node:path";
 import type { AuditEvent, DeploymentEvent } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
-const DATA = tempDataDir("orrery-store-");
+const DATA = tempDataDir("zenith-store-");
 const { appendAudit, appendEvent, db, flush, readAudit, readAuditPage, readEvents, resetDb, save } =
   await import("@/lib/db/store");
 

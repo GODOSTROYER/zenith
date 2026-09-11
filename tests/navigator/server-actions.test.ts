@@ -21,7 +21,7 @@ vi.mock("@/lib/server/boot", () => ({ ensureBoot: async () => undefined }));
 vi.mock("@/lib/navigator/llm", () => ({ normalizeGoal: session.normalize }));
 vi.mock("@/lib/navigator/verification", () => ({ verifyRun: async () => ({ note: "No provider checks in this fixture." }) }));
 
-tempDataDir("orrery-nav-boundary-");
+tempDataDir("zenith-nav-boundary-");
 const { db, resetDb } = await import("@/lib/db/store");
 const { emptyManifest } = await import("@/lib/domain/types");
 const { defineAction } = await import("@/lib/actions/core");

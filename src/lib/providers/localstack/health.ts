@@ -66,7 +66,7 @@ export async function health(): Promise<HealthResult> {
       ok: false,
       kind: "malformed",
       detail: `${url} answered 200, but the body was not JSON.`,
-      fix: `Something other than LocalStack is serving ${LOCALSTACK_ENDPOINT}. Free the port, or point ORRERY_LOCALSTACK_ENDPOINT at the right one.`,
+      fix: `Something other than LocalStack is serving ${LOCALSTACK_ENDPOINT}. Free the port, or point ZENITH_LOCALSTACK_ENDPOINT at the right one.`,
     };
   }
 }

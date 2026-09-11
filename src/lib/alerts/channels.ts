@@ -74,7 +74,7 @@ export function channelsForRule(rule: AlertRule, workspaceId?: string): AlertCha
  * A Slack incoming-webhook URL is a bearer credential in URL form, and a
  * generic webhook URL often carries a token in its path or query too — so
  * everything past the host is replaced. An email address is not a credential
- * (the SMTP password lives in `ORRERY_SMTP_URL`, never on the channel), so it
+ * (the SMTP password lives in `ZENITH_SMTP_URL`, never on the channel), so it
  * is shown: masking it would only stop an operator checking the recipient.
  */
 export function maskTarget(kind: AlertChannelKind, target: string): string {

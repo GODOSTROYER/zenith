@@ -1,5 +1,5 @@
 # Keep the build context small and keep host state out of the image.
-# .data/ especially: it holds a .orrery.lock naming a pid on the host, and
+# .data/ especially: it holds a .zenith.lock naming a pid on the host, and
 # baking it in would make the container fight a process that isn't there.
 node_modules
 .next

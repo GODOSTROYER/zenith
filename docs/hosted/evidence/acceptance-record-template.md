@@ -26,7 +26,7 @@ a sprint produces a story, not a record.
 | Source SHA | `unknown` |
 | Build SHA / artifact digest | `unknown` |
 | Branch | `unknown` |
-| Environment | `unknown` — OS, Node version, `ORRERY_DATA` path, hosted mode on/off |
+| Environment | `unknown` — OS, Node version, `ZENITH_DATA` path, hosted mode on/off |
 | Provider versions and identifiers | `unknown` — runtime, build runner, backup target, Supabase project, exact SDK versions |
 | Configuration that matters | `unknown` — the `ZENITH_*` values in effect, secrets by presence only, never by value |
 | Tester | `unknown` — a human name or an agent id |

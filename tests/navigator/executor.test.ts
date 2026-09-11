@@ -11,7 +11,7 @@ import { z } from "zod";
 import type { Actor, NavigatorRun, NavigatorStep } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-nav-exec-", { fast: true });
+tempDataDir("zenith-nav-exec-", { fast: true });
 const { defineAction, runAction } = await import("@/lib/actions/core");
 await import("@/lib/actions/defs");
 const { db, resetDb, save } = await import("@/lib/db/store");

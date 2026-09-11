@@ -16,7 +16,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { isolatedDataDir, removeDir, type TestIdentity } from "../_fixtures";
 
 const dataDir = isolatedDataDir("zenith-access-sessions-");
-process.env.ORRERY_SECRET_KEY = "3".repeat(64);
+process.env.ZENITH_SECRET_KEY = "3".repeat(64);
 
 const { closeAuthority, openAuthority } = await import("@/lib/hosted/authority");
 const { APP_SESSION_COOKIE, APP_SESSION_TTL_MS, EXCHANGE_TTL_MS, HostedError } = await import(

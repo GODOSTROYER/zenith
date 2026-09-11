@@ -103,7 +103,7 @@ One export is deliberately kept:
 
 **Exported but only used inside its own file (55 symbols).** Not dead, and
 mostly correct: an exported type that names an exported function's signature
-(`OrreryEnv`, `LogFields`, `AuditFilter`, `SecretMeta`, `SsePull`, `DriftKind`…)
+(`ZenithEnv`, `LogFields`, `AuditFilter`, `SecretMeta`, `SsePull`, `DriftKind`…)
 belongs in the public surface even with no importer today. The ones that are
 genuinely just internal helpers wearing an `export` — `round2` (domain/graph),
 `baseDomainFor` / `connectionLabel` (`actions/defs/env`, being renamed to
@@ -173,11 +173,11 @@ status (500 → 200 with a blocked plan) and that is more than an organisation p
 
 ## 6. Environment reads
 
-One way to read env: `src/lib/env.ts` (validated `ORRERY_*`) plus
+One way to read env: `src/lib/env.ts` (validated `ZENITH_*`) plus
 `src/lib/supabase/env.ts` (`NEXT_PUBLIC_*`, which Next inlines by literal text).
 Two raw reads were folded into the schema in this pass:
-`ORRERY_STEP_TIMEOUT_MS` (was read raw in the engine and validated nowhere) and
-`ORRERY_FAST` in `navigator/run.ts`.
+`ZENITH_STEP_TIMEOUT_MS` (was read raw in the engine and validated nowhere) and
+`ZENITH_FAST` in `navigator/run.ts`.
 
 Remaining by design, and documented in `env.ts`'s header: provider credentials
 (`SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY`, `AWS_ACCESS_KEY_ID`) are
@@ -185,7 +185,7 @@ presence-only flags there and their values stay at their single call site, so
 `env.ts` never becomes a place a secret can be read from by accident.
 `NODE_ENV` is exempt everywhere.
 
-`ORRERY_STEP_TIMEOUT_MS` is not in `.env.local.example`; that file was outside
+`ZENITH_STEP_TIMEOUT_MS` is not in `.env.local.example`; that file was outside
 this pass's ownership.
 
 ---

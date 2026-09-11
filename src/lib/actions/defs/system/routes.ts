@@ -33,7 +33,7 @@ manifestAction<AddRoute>({
   build(project, input) {
     const next = clone(project.workingManifest);
     const managedDns = input.managedDns ?? !input.host;
-    const host = input.host ?? `app.${project.slug}.orrery.app`;
+    const host = input.host ?? `app.${project.slug}.zenith.app`;
     if (next.routes.some((r) => r.host === host && r.pathPrefix === (input.pathPrefix ?? "/")))
       throw new Error(`${host}${input.pathPrefix ?? "/"} is already published. Pick another hostname or path prefix.`);
 

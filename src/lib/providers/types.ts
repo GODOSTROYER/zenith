@@ -217,12 +217,12 @@ export interface ProviderAdapter {
 
 /* -------------------------------- registry -------------------------------- */
 
-type G = typeof globalThis & { __orreryProviders?: Map<ProviderId, ProviderAdapter> };
+type G = typeof globalThis & { __zenithProviders?: Map<ProviderId, ProviderAdapter> };
 
 export function providerRegistry(): Map<ProviderId, ProviderAdapter> {
   const g = globalThis as G;
-  if (!g.__orreryProviders) g.__orreryProviders = new Map();
-  return g.__orreryProviders;
+  if (!g.__zenithProviders) g.__zenithProviders = new Map();
+  return g.__zenithProviders;
 }
 
 export function registerProvider(p: ProviderAdapter): void {

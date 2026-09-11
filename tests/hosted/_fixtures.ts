@@ -2,7 +2,7 @@
  * Shared fixtures for hosted tests. Integrator-owned; append, never rewrite.
  *
  * Call `isolatedDataDir()` at module top level BEFORE any `await import` of
- * application code: `@/lib/env` reads ORRERY_DATA on first use and the store
+ * application code: `@/lib/env` reads ZENITH_DATA on first use and the store
  * pins it on first import.
  */
 import fs from "node:fs";
@@ -11,8 +11,8 @@ import path from "node:path";
 
 export function isolatedDataDir(prefix = "zenith-hosted-"): string {
   const dir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), prefix));
-  process.env.ORRERY_DATA = dir;
-  process.env.ORRERY_FAST = "1";
+  process.env.ZENITH_DATA = dir;
+  process.env.ZENITH_FAST = "1";
   return dir;
 }
 

@@ -40,7 +40,7 @@ export function AddRouteForm({ onCreated }: AddRouteFormProps) {
           value={host}
           mono
           autoFocus
-          placeholder={`app.${project.slug}.orrery.app`}
+          placeholder={`app.${project.slug}.zenith.app`}
           onChange={(e) => setHost(e.target.value)}
         />
       </Field>

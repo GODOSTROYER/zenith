@@ -1,20 +1,20 @@
 /**
- * Orrery smoke test — the two paths that must never break:
+ * Zenith smoke test — the two paths that must never break:
  *   1. Happy path: blueprint → environment → plan → apply → succeeded → URL.
  *   2. Failure path: chaos-flagged release fails → rollback → recovered.
  *
  * Runs against real code paths (actions + engine + sandbox provider) with
- * ORRERY_FAST=1 and an isolated data dir. Exit 0 = pass.
+ * ZENITH_FAST=1 and an isolated data dir. Exit 0 = pass.
  *
  * Run: npm run smoke
  */
-process.env.ORRERY_FAST = "1";
-process.env.ORRERY_DATA = `${process.cwd()}/.data-smoke`;
+process.env.ZENITH_FAST = "1";
+process.env.ZENITH_DATA = `${process.cwd()}/.data-smoke`;
 
 import fs from "node:fs";
 
 async function main() {
-  fs.rmSync(process.env.ORRERY_DATA!, { recursive: true, force: true });
+  fs.rmSync(process.env.ZENITH_DATA!, { recursive: true, force: true });
 
   const { resetDb, db, save, q } = await import("../src/lib/db/store");
   const { runAction } = await import("../src/lib/actions/core");
@@ -84,7 +84,7 @@ async function main() {
   const web = proj.workingManifest.services.find((s) => s.kind === "web")!;
   const chaos = await runAction("system.setEnvVar", ectx, {
     serviceId: web.id,
-    key: "ORRERY_CHAOS",
+    key: "ZENITH_CHAOS",
     value: "fail_once",
   }, { mode: "execute" });
   if (!chaos.result?.ok) fail(`chaos env set: ${chaos.result?.error}`);

@@ -268,7 +268,7 @@ export function WorkingTab({
       )}
 
       {mode === "read" ? (
-        <CodeBlock code={json} title="orrery.manifest.json" lineNumbers maxHeight={560} />
+        <CodeBlock code={json} title="zenith.manifest.json" lineNumbers maxHeight={560} />
       ) : (
         <EditorBoundary onRestore={loadTheirs}>
           <div className="space-y-4">
@@ -281,7 +281,7 @@ export function WorkingTab({
             */}
             <div className="overflow-hidden rounded-card border border-line bg-bg2 focus-within:border-signal">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-bg1 px-4 py-2.5">
-                <span className="font-mono text-[12px] text-ink-mute">orrery.manifest.json</span>
+                <span className="font-mono text-[12px] text-ink-mute">zenith.manifest.json</span>
                 <span role="status" className={`flex items-center gap-1.5 text-[12px] ${dirty ? "text-warn" : "text-ok"}`}>{dirty ? <><span aria-hidden="true">●</span> Unsaved text</> : <><Check className="h-3.5 w-3.5" aria-hidden="true" /> Saved working copy</>}</span>
               </div>
               <div className="flex h-[clamp(320px,calc(100dvh-350px),820px)]">

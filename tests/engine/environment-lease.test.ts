@@ -8,7 +8,7 @@
  *
  * The provider here parks inside a step until the test opens a gate, so both
  * interleavings are pinned rather than raced: the loser finishing *during* the
- * rollback, and the loser finishing *after* it. ORRERY_FAST collapses every
+ * rollback, and the loser finishing *after* it. ZENITH_FAST collapses every
  * step budget; the held step is held by the gate, never by a timer.
  */
 import { afterAll, beforeAll, beforeEach, expect, test } from "vitest";
@@ -16,7 +16,7 @@ import type { Deployment, Environment, ProviderId } from "@/lib/domain/types";
 import type { ProviderAdapter, StepRuntime } from "@/lib/providers/types";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-lease-", { fast: true });
+tempDataDir("zenith-lease-", { fast: true });
 const { db, q, resetDb, save } = await import("@/lib/db/store");
 const { engine, ensureEngine } = await import("@/lib/engine/engine");
 const { getProvider, registerProvider } = await import("@/lib/providers/types");

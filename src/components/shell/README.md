@@ -28,11 +28,11 @@ the product layout; approved landing layout and brand geometry are unchanged.
 The frame owns the viewport; each screen owns its primary scrolling surface.
 Desktop navigation is 208px expanded and 60px collapsed. Below 900px the same
 destinations use a focus-trapped Drawer with Escape and trigger-focus return.
-Rail collapse persists under `orrery-shell-collapsed`; all prior keys remain.
+Rail collapse persists under `zenith-shell-collapsed`; all prior keys remain.
 
 Environment deep links synchronize with the existing provider even when only
 the query changes. Manual selection validates project membership and replaces
 the URL's `env` parameter, retaining other filters and the hash. The existing
-`orrery-env-{projectId}` preference remains authoritative for links without an
+`zenith-env-{projectId}` preference remains authoritative for links without an
 environment. Workspace switching returns to Overview to avoid retaining a
 route that belongs to the previous workspace.

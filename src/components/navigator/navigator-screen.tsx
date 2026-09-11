@@ -106,7 +106,7 @@ export function NavigatorScreen({
 
   useEffect(() => {
     try {
-      setCharacterVisible(localStorage.getItem("orrery-gimbal-visible") !== "false");
+      setCharacterVisible(localStorage.getItem("zenith-gimbal-visible") !== "false");
     } catch {
       // Storage may be unavailable; visible is the safe, reversible default.
     }
@@ -116,7 +116,7 @@ export function NavigatorScreen({
     setCharacterVisible((visible) => {
       const next = !visible;
       try {
-        localStorage.setItem("orrery-gimbal-visible", String(next));
+        localStorage.setItem("zenith-gimbal-visible", String(next));
       } catch {
         // The preference is optional; the control still works for this session.
       }

@@ -3,7 +3,7 @@
  * which builds the same service and manifest).
  *
  * IMPORTANT: nothing here may import application code at module level. The
- * suites that use this file set `ORRERY_DATA` at their own top level and then
+ * suites that use this file set `ZENITH_DATA` at their own top level and then
  * `await import("@/lib/db/store")`; a runtime import in here would run first
  * and pin the store to the wrong directory. Type-only imports are erased, so
  * they are safe — keep it that way.
@@ -37,7 +37,7 @@ export const service = (chaos?: string) => ({
   size: "small" as const,
   replicas: 2,
   port: 3000,
-  env: chaos ? [{ key: "ORRERY_CHAOS", value: chaos }] : [],
+  env: chaos ? [{ key: "ZENITH_CHAOS", value: chaos }] : [],
   ownership: "managed" as const,
 });
 
@@ -127,7 +127,7 @@ export function channelData(over: Partial<AlertChannel> = {}): AlertChannel {
     workspaceId: "ws1",
     kind: "webhook",
     name: "ops endpoint",
-    target: "https://example.test/hooks/orrery",
+    target: "https://example.test/hooks/zenith",
     enabled: true,
     createdBy: ACTOR,
     createdAt: ago(60),

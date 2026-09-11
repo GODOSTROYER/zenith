@@ -1,7 +1,7 @@
 /**
  * Sealing and opening a backup: AES-256-GCM under `ZENITH_BACKUP_KEY`.
  *
- * A separate key from `ORRERY_SECRET_KEY` on purpose (decision R3-11): a host
+ * A separate key from `ZENITH_SECRET_KEY` on purpose (decision R3-11): a host
  * compromise that reads the secret store must not also decrypt every backup
  * ever taken, and the backup key is supposed to live somewhere the host cannot
  * read at all.
@@ -36,7 +36,7 @@ const HEADER_BYTES = MAGIC.length + 1 + KEY_ID_BYTES + IV_BYTES + TAG_BYTES;
 
 /** How to produce a valid `ZENITH_BACKUP_KEY`. One string, so every refusal says the same thing. */
 export const BACKUP_KEY_FIX =
-  "Set ZENITH_BACKUP_KEY in the server environment to a 32-byte key — generate one with `openssl rand -base64 32` (hex is accepted too) — and keep it somewhere the host itself cannot read. It must differ from ORRERY_SECRET_KEY, and a backup sealed under a lost key cannot be opened by anyone, including Zenith.";
+  "Set ZENITH_BACKUP_KEY in the server environment to a 32-byte key — generate one with `openssl rand -base64 32` (hex is accepted too) — and keep it somewhere the host itself cannot read. It must differ from ZENITH_SECRET_KEY, and a backup sealed under a lost key cannot be opened by anyone, including Zenith.";
 
 /** The 32 raw bytes of `ZENITH_BACKUP_KEY`, or a refusal naming the fix. */
 export function backupKey(): Buffer {
@@ -50,8 +50,8 @@ export function backupKey(): Buffer {
     throw new HostedError("policy_unavailable", `ZENITH_BACKUP_KEY is set (${raw.trim().length} characters, hidden) but does not decode to 32 bytes.`, {
       fix: BACKUP_KEY_FIX,
     });
-  if (process.env.ORRERY_SECRET_KEY !== undefined && process.env.ORRERY_SECRET_KEY.trim() === raw.trim())
-    throw new HostedError("policy_unavailable", "ZENITH_BACKUP_KEY is the same value as ORRERY_SECRET_KEY.", {
+  if (process.env.ZENITH_SECRET_KEY !== undefined && process.env.ZENITH_SECRET_KEY.trim() === raw.trim())
+    throw new HostedError("policy_unavailable", "ZENITH_BACKUP_KEY is the same value as ZENITH_SECRET_KEY.", {
       fix: "Give the backup its own key. Sharing one means a host compromise that reads the secret store also decrypts every backup — the separation decision R3-11 exists for.",
     });
   return key;

@@ -205,7 +205,7 @@ Exact write assignments are in [OWNERSHIP.md](OWNERSHIP.md). No hosted product a
 
 ## Fresh baseline evidence
 
-Evidence directory: `Z:/Projects/Spawned.ai/orrery/.data-hosted-baseline-20260907/evidence/`. This is ignored local evidence, not a deployable artifact. `BASELINE.md` records commands, environment and log names.
+Evidence directory: `Z:/Projects/Spawned.ai/zenith/.data-hosted-baseline-20260907/evidence/`. This is ignored local evidence, not a deployable artifact. `BASELINE.md` records commands, environment and log names.
 
 Conditions: Windows, Node 24.19.0, npm 11.6.0; existing installed dependencies; isolated archived checkout and separate test data. CI/Docker use Node 22, which this local run does not certify.
 
@@ -244,7 +244,7 @@ Final commands from the repository root, with logs under the evidence directory:
 | SQLite probe under portable Node 22.23.2 | Eight checks passed, scratch removed | `sqlite-feasibility-node22.json`, `sqlite-node22-verification.json` |
 | SQLite probe under installed Node 24.19.0 | Eight checks passed, scratch removed | `sqlite-feasibility.json`, `SQLITE-REVIEW.md` |
 
-The final build reused the baseline snapshot, copied final changed source/config/tests explicitly, set `ORRERY_DATA` to its isolated `.data-final-build`, and kept the developer's `.next` untouched. Its parent-lockfile tracing warning is the same isolation characteristic recorded at baseline, not Docker verification. Baseline smoke/Gimbal checks remain applicable; those scripts/assets were unchanged. Full tests use doubles for provider/email behavior. No hosted browser acceptance journey was run.
+The final build reused the baseline snapshot, copied final changed source/config/tests explicitly, set `ZENITH_DATA` to its isolated `.data-final-build`, and kept the developer's `.next` untouched. Its parent-lockfile tracing warning is the same isolation characteristic recorded at baseline, not Docker verification. Baseline smoke/Gimbal checks remain applicable; those scripts/assets were unchanged. Full tests use doubles for provider/email behavior. No hosted browser acceptance journey was run.
 
 The portable Node 22 ZIP and actionlint binaries were downloaded only into ignored scratch space and checked against their official release SHA-256 checksums before extraction. No dependency/lockfile, global runtime, PATH or production configuration changed. Current Docker read-only verification still fails because the Docker Desktop Linux engine pipe is unavailable.
 

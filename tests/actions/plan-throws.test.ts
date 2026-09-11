@@ -6,7 +6,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import type { ActionContext } from "@/lib/actions/core";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-plan-throws-");
+tempDataDir("zenith-plan-throws-");
 const { runAction } = await import("@/lib/actions/core");
 const { resetDb } = await import("@/lib/db/store");
 await import("@/lib/actions/defs");

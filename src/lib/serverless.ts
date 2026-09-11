@@ -11,9 +11,9 @@
  * "other process" whose lock it finds is a previous instance of this one.
  *
  * Two inputs, and both are explicit: `VERCEL` is set by the platform on every
- * build and runtime instance, and `ORRERY_SERVERLESS=1` says the same thing
+ * build and runtime instance, and `ZENITH_SERVERLESS=1` says the same thing
  * for anywhere else that runs this way (and for the tests that assert it).
  * Local `next dev` sets neither, so nothing about it changes.
  */
 export const isServerless = (): boolean =>
-  process.env.ORRERY_SERVERLESS === "1" || !!process.env.VERCEL;
+  process.env.ZENITH_SERVERLESS === "1" || !!process.env.VERCEL;

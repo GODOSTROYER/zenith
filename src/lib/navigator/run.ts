@@ -122,7 +122,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Follow a deployment the run started until it settles (or needs a human). */
 async function awaitDeployment(deploymentId: string): Promise<Deployment | undefined> {
-  const budgetMs = env().ORRERY_FAST ? 15_000 : 60_000;
+  const budgetMs = env().ZENITH_FAST ? 15_000 : 60_000;
   const deadline = Date.now() + budgetMs;
   for (;;) {
     const d = q.deployment(deploymentId);

@@ -1,6 +1,6 @@
 /**
  * Engine state machine, end to end, against a throwaway data directory.
- * ORRERY_FAST collapses every step budget to <=40ms so the whole file runs in
+ * ZENITH_FAST collapses every step budget to <=40ms so the whole file runs in
  * a couple of seconds.
  */
 import fs from "node:fs";
@@ -8,9 +8,9 @@ import os from "node:os";
 import path from "node:path";
 import { expect, test } from "vitest";
 
-const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-engine-"));
-process.env.ORRERY_DATA = dataDir;
-process.env.ORRERY_FAST = "1";
+const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-engine-"));
+process.env.ZENITH_DATA = dataDir;
+process.env.ZENITH_FAST = "1";
 
 // Imported after the env is set: the store resolves its data dir at load time.
 const { db, q, readEvents, resetDb, save } = await import("@/lib/db/store");
@@ -38,7 +38,7 @@ function manifest(chaos: boolean): Manifest {
         replicas: 2,
         port: 3000,
         healthPath: "/healthz",
-        env: chaos ? [{ key: "ORRERY_CHAOS", value: "fail_once" }] : [],
+        env: chaos ? [{ key: "ZENITH_CHAOS", value: "fail_once" }] : [],
         ownership: "managed",
       },
     ],
@@ -53,7 +53,7 @@ function manifest(chaos: boolean): Manifest {
       },
     ],
     routes: [
-      { id: ROUTE, host: "app.atlas.orrery.app", pathPrefix: "/", tls: true, managedDns: true },
+      { id: ROUTE, host: "app.atlas.zenith.app", pathPrefix: "/", tls: true, managedDns: true },
     ],
     bindings: [
       { id: "b_route", from: ROUTE, to: WEB, capability: "http" },
@@ -100,7 +100,7 @@ function seed(approvalRequired = false) {
         connectionId: "conn_sandbox",
         region: "sim-a",
         policies: { approvalRequired, allowStatefulDeletion: false },
-        baseDomain: "atlas.orrery.app",
+        baseDomain: "atlas.zenith.app",
         createdAt: new Date().toISOString(),
       },
     ],
@@ -177,7 +177,7 @@ test("a clean deployment walks the phases, publishes URLs and moves the environm
   // Activation moment: a clickable local URL plus the pretty hostname.
   const url = d.outputs.find((o) => o.kind === "url" && o.targetId === WEB);
   expect(url?.value).toBe(`/preview/${d.id}/${WEB}`);
-  expect(url?.label).toContain("https://app.atlas.orrery.app");
+  expect(url?.label).toContain("https://app.atlas.zenith.app");
   expect(d.outputs.some((o) => o.kind === "connection" && o.targetId === DB_ID)).toBe(true);
 
   // Revision bookkeeping.

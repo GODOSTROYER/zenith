@@ -68,26 +68,26 @@ type EventBody =
   | { type: "output"; output: Output };
 
 type EngineGlobals = typeof globalThis & {
-  __orreryTicker?: ReturnType<typeof setInterval>;
-  __orrerySeq?: Map<string, number>;
-  __orreryInflight?: Set<string>;
+  __zenithTicker?: ReturnType<typeof setInterval>;
+  __zenithSeq?: Map<string, number>;
+  __zenithInflight?: Set<string>;
   /** deployments the ticker still has work for; finished ones are dropped */
-  __orreryActive?: Set<string>;
+  __zenithActive?: Set<string>;
   /** abort handle for the provider step each deployment has in flight right now */
-  __orreryAborts?: Map<string, AbortController>;
-  __orreryProvidersReady?: boolean;
+  __zenithAborts?: Map<string, AbortController>;
+  __zenithProvidersReady?: boolean;
 };
 
 const g = () => globalThis as EngineGlobals;
 
 /** Deployments the ticker must look at. Empty = the ticker costs one compare. */
-const active = (): Set<string> => (g().__orreryActive ??= new Set());
+const active = (): Set<string> => (g().__zenithActive ??= new Set());
 
 /**
  * The abort handle of whatever provider call each deployment is inside, so a
  * takeover can tell the adapter to stop instead of only refusing its results.
  */
-const aborts = (): Map<string, AbortController> => (g().__orreryAborts ??= new Map());
+const aborts = (): Map<string, AbortController> => (g().__zenithAborts ??= new Map());
 
 const TERMINAL: DeploymentStatus[] = [
   "succeeded",
@@ -97,7 +97,7 @@ const TERMINAL: DeploymentStatus[] = [
 ];
 
 /**
- * `env()` re-fingerprints every ORRERY_* variable on each call, so the two
+ * `env()` re-fingerprints every ZENITH_* variable on each call, so the two
  * settings the engine reads on its hot paths are resolved once per distinct
  * raw value instead. Each of these depends on exactly one variable, so the
  * variable itself is the whole cache key — a test that reassigns it is still
@@ -118,7 +118,7 @@ interface EnvMemo<T> {
 
 const fastMemo: EnvMemo<boolean> = { loaded: false };
 const fast = (): boolean =>
-  envSetting(process.env.ORRERY_FAST, fastMemo, () => env().ORRERY_FAST);
+  envSetting(process.env.ZENITH_FAST, fastMemo, () => env().ZENITH_FAST);
 
 /** Fast mode collapses every estimate to ≤40ms so smoke tests finish instantly. */
 const collapse = (ms: number) => (fast() ? Math.min(ms, 40) : ms);
@@ -129,14 +129,14 @@ const now = () => new Date().toISOString();
  * How long one provider step may take before the engine stops waiting.
  * Without this a hung adapter pins a deployment in `applying` forever, with no
  * way out. The default and the validation live in `lib/env.ts` with every
- * other ORRERY_* variable.
+ * other ZENITH_* variable.
  */
 const stepTimeoutMemo: EnvMemo<number> = { loaded: false };
 const stepTimeoutMs = (): number =>
   envSetting(
-    process.env.ORRERY_STEP_TIMEOUT_MS,
+    process.env.ZENITH_STEP_TIMEOUT_MS,
     stepTimeoutMemo,
-    () => env().ORRERY_STEP_TIMEOUT_MS
+    () => env().ZENITH_STEP_TIMEOUT_MS
   );
 
 /**
@@ -154,14 +154,14 @@ const KEEP_DEPLOYMENTS_PER_ENV = 200;
 
 function seqFor(deploymentId: string): number {
   const gl = g();
-  if (!gl.__orrerySeq) gl.__orrerySeq = new Map();
-  let next = gl.__orrerySeq.get(deploymentId);
+  if (!gl.__zenithSeq) gl.__zenithSeq = new Map();
+  let next = gl.__zenithSeq.get(deploymentId);
   if (next === undefined) {
     // Resume: continue after whatever is already on disk.
     const prior = readEvents(deploymentId);
     next = prior.reduce((m, e) => Math.max(m, e.seq + 1), 0);
   }
-  gl.__orrerySeq.set(deploymentId, next + 1);
+  gl.__zenithSeq.set(deploymentId, next + 1);
   return next;
 }
 
@@ -306,21 +306,21 @@ const MISSING_ENVIRONMENT =
  */
 export function ensureEngine(): void {
   const gl = g();
-  if (!gl.__orreryProvidersReady) {
+  if (!gl.__zenithProvidersReady) {
     registerProvider(sandboxProvider);
     registerProvider(localstackProvider);
     registerProvider(awsProvider);
     for (const p of plannedProviders) registerProvider(p);
-    gl.__orreryProvidersReady = true;
+    gl.__zenithProvidersReady = true;
   }
-  if (!gl.__orreryInflight) gl.__orreryInflight = new Set();
+  if (!gl.__zenithInflight) gl.__zenithInflight = new Set();
   // A serverless instance is frozen between requests, so a ticker there either
   // never fires or fires against a `/tmp` no other instance can see. Boot runs
   // one tick instead; see src/lib/serverless.ts and src/lib/server/boot.ts.
-  if (!gl.__orreryTicker && !isServerless()) {
-    gl.__orreryTicker = setInterval(tick, 250);
+  if (!gl.__zenithTicker && !isServerless()) {
+    gl.__zenithTicker = setInterval(tick, 250);
     // Never hold the process open just to tick (matters for tests + scripts).
-    (gl.__orreryTicker as { unref?: () => void }).unref?.();
+    (gl.__zenithTicker as { unref?: () => void }).unref?.();
   }
 }
 
@@ -340,7 +340,7 @@ export function engineTick(): void {
 function tick(): void {
   const running = active();
   if (running.size === 0) return; // nothing is deploying: the ticker costs nothing
-  const inflight = g().__orreryInflight!;
+  const inflight = g().__zenithInflight!;
   for (const deploymentId of running) {
     const d = stored(deploymentId);
     if (!d || (d.status !== "applying" && d.status !== "verifying")) {
@@ -360,7 +360,7 @@ function tick(): void {
 }
 
 async function runStep(d: StoredDeployment, step: DeploymentStep): Promise<void> {
-  const inflight = g().__orreryInflight!;
+  const inflight = g().__zenithInflight!;
   inflight.add(d.id);
   try {
     const env = q.environment(d.environmentId);
@@ -486,7 +486,7 @@ function deadline(
           new Error(
             `${providerName} did not finish "${stepTitle}" within ${Math.round(ms / 1000)}s, so Zenith stopped waiting. ` +
               `Anything ${providerName} already created is still there — check it for a half-finished resource, then deploy again. ` +
-              `If this provider is legitimately slower than that, raise ORRERY_STEP_TIMEOUT_MS (currently ${ms}) and restart the server.`
+              `If this provider is legitimately slower than that, raise ZENITH_STEP_TIMEOUT_MS (currently ${ms}) and restart the server.`
           )
         ),
       { once: true }

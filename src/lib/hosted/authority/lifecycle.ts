@@ -9,7 +9,7 @@
  * **One connection per process, held on `globalThis`.** Next.js re-evaluates
  * modules on HMR; a module-scoped variable would leak a second `DatabaseSync`
  * on every edit, and two connections in one process is how a busy-timeout
- * mystery starts. The JSON store solves this the same way (`__orreryDb`).
+ * mystery starts. The JSON store solves this the same way (`__zenithDb`).
  *
  * **A corrupt file is never replaced by an empty one.** If the existing file
  * cannot be opened, cannot be configured, or fails `PRAGMA quick_check`, the
@@ -46,7 +46,7 @@ export interface Authority {
 
 /** How the authority is opened. */
 export interface OpenAuthorityOptions {
-  /** Override the file. Defaults to `controlDatabasePath()` (`<ORRERY_DATA>/control.sqlite`). */
+  /** Override the file. Defaults to `controlDatabasePath()` (`<ZENITH_DATA>/control.sqlite`). */
   path?: string;
 }
 
@@ -91,7 +91,7 @@ export function openAuthority(opts: OpenAuthorityOptions = {}): Authority {
         "internal",
         `The hosted control authority is already open at ${existing.path}, so it cannot also be opened at ${target}.`,
         {
-          fix: "Call closeAuthority() before opening a different file, or give this process its own data directory with ORRERY_DATA=<path>.",
+          fix: "Call closeAuthority() before opening a different file, or give this process its own data directory with ZENITH_DATA=<path>.",
         }
       );
     return existing;
@@ -144,7 +144,7 @@ export function authority(): Authority {
   const existing = held();
   if (existing) return existing;
   throw new HostedError("internal", "The hosted control authority has not been opened in this process.", {
-    fix: "Call openAuthority() on the boot path before anything reads hosted state (tests call it themselves after setting ORRERY_DATA).",
+    fix: "Call openAuthority() on the boot path before anything reads hosted state (tests call it themselves after setting ZENITH_DATA).",
   });
 }
 

@@ -91,14 +91,14 @@ const EMPTY: Database = {
   settings: {},
 };
 
-const DATA_DIR = env().ORRERY_DATA;
+const DATA_DIR = env().ZENITH_DATA;
 const STATE = path.join(DATA_DIR, "state.json");
 const EVENTS = path.join(DATA_DIR, "events.jsonl");
 const AUDIT = path.join(DATA_DIR, "audit.jsonl");
 /** Cold storage: one immutable manifest per revision, written once. */
 const MANIFESTS = path.join(DATA_DIR, "revisions");
 
-type G = typeof globalThis & { __orreryDb?: Database };
+type G = typeof globalThis & { __zenithDb?: Database };
 
 function ensureDir() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -107,7 +107,7 @@ function ensureDir() {
 /** Load (once per process; survives Next.js HMR via globalThis). */
 export function db(): Database {
   const g = globalThis as G;
-  if (g.__orreryDb) return g.__orreryDb;
+  if (g.__zenithDb) return g.__zenithDb;
   ensureDir();
   let data: Database = EMPTY;
   if (fs.existsSync(STATE)) {
@@ -138,7 +138,7 @@ export function db(): Database {
   } else {
     data = structuredClone(EMPTY);
   }
-  g.__orreryDb = data;
+  g.__zenithDb = data;
   // Baseline for the orphan sweep, set before the first write can happen: a
   // project deleted by this process's very first save must still take its
   // manifests with it.
@@ -155,7 +155,7 @@ export function db(): Database {
 /**
  * Revision manifests are the cold half of the store: written once at deploy,
  * read by one screen at a time, and — before this split — re-serialised in
- * full on every save, forever. They now live in `<ORRERY_DATA>/revisions/`,
+ * full on every save, forever. They now live in `<ZENITH_DATA>/revisions/`,
  * one atomic file each, and `Revision.manifest` is a lazy accessor:
  *
  *  - `enumerable: false`, so `JSON.stringify(db())` never sees a manifest and
@@ -173,9 +173,9 @@ export function db(): Database {
 /** TODO(ceiling): LRU by insertion order; a Map is the stdlib's LRU. */
 const MANIFEST_CACHE_MAX = 32;
 
-type GM = typeof globalThis & { __orreryManifests?: Map<string, Manifest> };
+type GM = typeof globalThis & { __zenithManifests?: Map<string, Manifest> };
 const manifestCache = (): Map<string, Manifest> =>
-  ((globalThis as GM).__orreryManifests ??= new Map());
+  ((globalThis as GM).__zenithManifests ??= new Map());
 
 /** Ids come from `id()`, but an importer's id is untrusted: never a path. */
 const manifestFile = (id: string): string =>
@@ -272,15 +272,15 @@ export interface StoreChange {
 }
 
 type GC = typeof globalThis & {
-  __orreryChanges?: EventEmitter;
-  __orreryTouched?: { ids: Set<string>; all: boolean };
+  __zenithChanges?: EventEmitter;
+  __zenithTouched?: { ids: Set<string>; all: boolean };
 };
 
 const changes = (): EventEmitter =>
-  ((globalThis as GC).__orreryChanges ??= new EventEmitter().setMaxListeners(0));
+  ((globalThis as GC).__zenithChanges ??= new EventEmitter().setMaxListeners(0));
 
 const touched = () =>
-  ((globalThis as GC).__orreryTouched ??= { ids: new Set<string>(), all: false });
+  ((globalThis as GC).__zenithTouched ??= { ids: new Set<string>(), all: false });
 
 /**
  * Called after every successful write. Returns an unsubscribe function.
@@ -302,8 +302,8 @@ export const changed = (c: StoreChange, projectId: string): boolean =>
 /* --------------------------------- saving --------------------------------- */
 
 type GS = typeof globalThis & {
-  __orrerySaveTimer?: ReturnType<typeof setTimeout>;
-  __orreryExitHooked?: boolean;
+  __zenithSaveTimer?: ReturnType<typeof setTimeout>;
+  __zenithExitHooked?: boolean;
 };
 
 /** Coalescing window: a burst of step transitions costs one write, not twenty. */
@@ -351,21 +351,21 @@ export function save(projectId?: string): void {
   if (projectId) t.ids.add(projectId);
   else t.all = true;
   hookExit();
-  if (g.__orrerySaveTimer) return; // a flush is already scheduled
-  g.__orrerySaveTimer = setTimeout(() => {
-    g.__orrerySaveTimer = undefined;
+  if (g.__zenithSaveTimer) return; // a flush is already scheduled
+  g.__zenithSaveTimer = setTimeout(() => {
+    g.__zenithSaveTimer = undefined;
     writeState();
   }, SAVE_DEBOUNCE_MS);
   // Never hold the process open for a pending save; the exit hook flushes it.
-  (g.__orrerySaveTimer as { unref?: () => void }).unref?.();
+  (g.__zenithSaveTimer as { unref?: () => void }).unref?.();
 }
 
 /** Write any pending save immediately. Idempotent. */
 export function flush(): void {
   const g = globalThis as GS;
-  if (g.__orrerySaveTimer) {
-    clearTimeout(g.__orrerySaveTimer);
-    g.__orrerySaveTimer = undefined;
+  if (g.__zenithSaveTimer) {
+    clearTimeout(g.__zenithSaveTimer);
+    g.__zenithSaveTimer = undefined;
   }
   writeState();
 }
@@ -384,10 +384,10 @@ function onSignal(sig: NodeJS.Signals): void {
 
 function hookExit(): void {
   const g = globalThis as GS;
-  if (g.__orreryExitHooked) return;
-  g.__orreryExitHooked = true;
+  if (g.__zenithExitHooked) return;
+  g.__zenithExitHooked = true;
   process.on("exit", () => {
-    if ((globalThis as GS).__orrerySaveTimer) flush();
+    if ((globalThis as GS).__zenithSaveTimer) flush();
   });
   for (const sig of SIGNALS) process.on(sig, onSignal);
 }
@@ -395,7 +395,7 @@ function hookExit(): void {
 /** Reset everything (used by seed script). */
 export function resetDb(data?: Partial<Database>): Database {
   const g = globalThis as G;
-  g.__orreryDb = { ...structuredClone(EMPTY), ...data };
+  g.__zenithDb = { ...structuredClone(EMPTY), ...data };
   ensureDir();
   for (const f of [EVENTS, AUDIT]) if (fs.existsSync(f)) fs.unlinkSync(f);
   auditCounts().clear();
@@ -404,7 +404,7 @@ export function resetDb(data?: Partial<Database>): Database {
   fs.rmSync(MANIFESTS, { recursive: true, force: true });
   manifestCache().clear();
   flush();
-  return g.__orreryDb;
+  return g.__zenithDb;
 }
 
 /* ------------------------------ event streams ------------------------------ */
@@ -448,11 +448,11 @@ const emptyTail = (): EventTail => ({
 /** TODO(ceiling): cap the in-memory tail; older reads fall back to a file scan. */
 const TAIL_MAX = 5_000;
 
-type GE = typeof globalThis & { __orreryEventTail?: EventTail };
+type GE = typeof globalThis & { __zenithEventTail?: EventTail };
 
 function eventTail(): EventTail {
   const g = globalThis as GE;
-  const t = (g.__orreryEventTail ??= emptyTail());
+  const t = (g.__zenithEventTail ??= emptyTail());
   if (!fs.existsSync(EVENTS)) {
     if (t.pos) Object.assign(t, emptyTail());
     return t;
@@ -597,9 +597,9 @@ interface AuditCount {
 /** TODO(ceiling): one entry per distinct filter; LRU by insertion order. */
 const AUDIT_COUNT_CACHE_MAX = 64;
 
-type GAC = typeof globalThis & { __orreryAuditCounts?: Map<string, AuditCount> };
+type GAC = typeof globalThis & { __zenithAuditCounts?: Map<string, AuditCount> };
 const auditCounts = (): Map<string, AuditCount> =>
-  ((globalThis as GAC).__orreryAuditCounts ??= new Map());
+  ((globalThis as GAC).__zenithAuditCounts ??= new Map());
 
 function rememberCount(key: string, c: AuditCount): { total: number; exact: boolean } {
   const cache = auditCounts();

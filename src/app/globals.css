@@ -259,7 +259,7 @@ input, textarea { caret-color: var(--signal); }
 
 /* ------------------------- shared micro-animations ------------------------- */
 
-@keyframes orrery-pulse {
+@keyframes zenith-pulse {
   0%,
   100% {
     opacity: 1;
@@ -269,7 +269,7 @@ input, textarea { caret-color: var(--signal); }
   }
 }
 
-@keyframes orrery-enter {
+@keyframes zenith-enter {
   from {
     opacity: 0;
     transform: translateY(4px);
@@ -280,7 +280,7 @@ input, textarea { caret-color: var(--signal); }
   }
 }
 
-@keyframes orrery-dash {
+@keyframes zenith-dash {
   to {
     stroke-dashoffset: -16;
   }
@@ -472,17 +472,17 @@ input, textarea { caret-color: var(--signal); }
 }
 
 .animate-enter {
-  animation: orrery-enter var(--dur-base) var(--ease-swift) both;
+  animation: zenith-enter var(--dur-base) var(--ease-swift) both;
 }
 
 .status-pulse {
-  animation: orrery-pulse 1.6s ease-in-out infinite;
+  animation: zenith-pulse 1.6s ease-in-out infinite;
 }
 
 /* live edges on the System Map */
 .edge-live {
   stroke-dasharray: 6 10;
-  animation: orrery-dash 1.2s linear infinite;
+  animation: zenith-dash 1.2s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

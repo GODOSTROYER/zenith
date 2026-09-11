@@ -20,7 +20,7 @@ notices stating that you changed the files (see Apache 2.0 §4(b)).
 This software, documentation and specifications are provided "as is", without
 warranty of any kind (see Apache 2.0 §§7–8).
 
-Orrery distribution note: basis_transcoder.js and basis_transcoder.wasm are
+Zenith distribution note: basis_transcoder.js and basis_transcoder.wasm are
 unmodified copies distributed by the installed Three.js package. The companion
 README.md is copied from Three.js examples/jsm/libs/basis. Their upstream project
 is https://github.com/BinomialLLC/basis_universal. The full Apache License 2.0 is

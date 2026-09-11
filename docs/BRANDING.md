@@ -47,13 +47,15 @@ low-power mode and WebGL fallback. A greeting is never a Verified event.
 
 ## Compatibility boundary
 
-This rebrand changes presentation, not the identity of existing user data.
-Keep `ORRERY_*` configuration variables, `orrery-theme` and other browser/store
-namespaces, cookies, package identity, API/action/provider IDs, persisted
-workspace/project IDs, user-defined names and domains, Terraform tags/addresses,
-and `orrery.manifest.json`/archive names compatible. Existing audit history and
-Gimbal asset provenance remain historical records. Human-readable explanations
-can say Zenith while showing those literal configuration keys and filenames.
+The old product name is gone from the codebase as of 2026-09-11: configuration
+variables are `ZENITH_*`, browser storage keys and the workspace cookie carry a
+`zenith-` prefix, the package, Docker user and volumes are `zenith`, and the
+export is `zenith.manifest.json`. Data written under the old names is not
+migrated: an earlier browser preference or cookie is simply ignored, and a
+deployment must set the `ZENITH_*` variables. Persisted workspace/project IDs,
+user-defined names and domains, API/action/provider IDs and Terraform
+tags/addresses never carried the name and are unchanged. Audit history and
+Gimbal asset provenance remain historical records.
 
 Illustrations use reserved example domains; existing project domains are not
 rewritten. The Zenith name does not establish ownership of that internet

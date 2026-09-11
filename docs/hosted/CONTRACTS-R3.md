@@ -27,11 +27,11 @@ before apply.
 `ZENITH_SPEND_ENVELOPE_USD`, `ZENITH_FOUNDER_SUBJECTS`, `ZENITH_TEST_SUBJECTS`,
 `ZENITH_INVITE_FROM`. Presence-only secrets: `ZENITH_CF_API_TOKEN`,
 `E2B_API_KEY`, `ZENITH_BACKUP_KEY` (32 bytes, base64/hex, distinct from
-`ORRERY_SECRET_KEY`), `ZENITH_POLICY_SHARED_SECRET`, `ZENITH_EVENTS_SALT`.
+`ZENITH_SECRET_KEY`), `ZENITH_POLICY_SHARED_SECRET`, `ZENITH_EVENTS_SALT`.
 
 ## Authority (W1: `src/lib/hosted/authority/`)
 
-One SQLite file `<ORRERY_DATA>/control.sqlite` opened once per process via
+One SQLite file `<ZENITH_DATA>/control.sqlite` opened once per process via
 `node:sqlite` `DatabaseSync`; `PRAGMA journal_mode=WAL; synchronous=FULL;
 foreign_keys=ON; busy_timeout=5000`. Versioned migrations table. Exports:
 
@@ -100,7 +100,7 @@ script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;
 frame-ancestors 'none'; base-uri 'none'; form-action 'self'`),
 `x-content-type-options: nosniff`, `referrer-policy: no-referrer`; strips
 any `set-cookie`, `location` or `access-control-*` an artifact might carry.
-Platform cookies (`sb-*`, `orrery-*`) are never read on app hosts.
+Platform cookies (`sb-*`, `zenith-*`) are never read on app hosts.
 
 ## Jobs (W7: `src/lib/hosted/release/`)
 
@@ -114,7 +114,7 @@ content-addressed names before creating anything.
 
 ## Tests
 
-Every test sets `process.env.ORRERY_DATA` to a fresh `mkdtempSync` directory
+Every test sets `process.env.ZENITH_DATA` to a fresh `mkdtempSync` directory
 **before** any `await import`, opens the authority itself and closes it in
 `afterAll`. Never touch `.data`. Two apps, three identities (owner, editor,
 viewer) and one stranger are the standard fixture; helpers may live in

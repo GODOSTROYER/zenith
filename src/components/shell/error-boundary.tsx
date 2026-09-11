@@ -27,7 +27,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[orrery/ui] screen crashed", error, info.componentStack);
+    console.error("[zenith/ui] screen crashed", error, info.componentStack);
   }
 
   render() {

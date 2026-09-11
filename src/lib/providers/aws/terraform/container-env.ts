@@ -52,7 +52,7 @@ export function containerEnv(m: Manifest, s: Service, _env: Environment): Contai
   if (s.port) out.env.push({ name: "PORT", expr: hclString(s.port) });
 
   for (const e of s.env) {
-    if (e.key === "ORRERY_CHAOS") continue; // sandbox-only failure injection
+    if (e.key === "ZENITH_CHAOS") continue; // sandbox-only failure injection
     if (e.value !== undefined) {
       // Not JSON.stringify: JSON has no opinion about `${`, so it would hand
       // the value straight through as a live HCL interpolation.

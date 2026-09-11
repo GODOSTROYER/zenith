@@ -321,7 +321,7 @@ export function ProductChrome({ children }: { children: ReactNode }) {
   const title = pathname.startsWith("/guide") ? "Workspace guide" : "Workspace overview";
 
   useEffect(() => {
-    try { setCollapsed(localStorage.getItem("orrery-shell-collapsed") === "true"); } catch { /* Optional preference. */ }
+    try { setCollapsed(localStorage.getItem("zenith-shell-collapsed") === "true"); } catch { /* Optional preference. */ }
   }, []);
   useEffect(() => { setMobileOpen(false); }, [pathname]);
   useEffect(() => {
@@ -332,7 +332,7 @@ export function ProductChrome({ children }: { children: ReactNode }) {
   }, []);
   const toggleRail = () => setCollapsed((current) => {
     const next = !current;
-    try { localStorage.setItem("orrery-shell-collapsed", String(next)); } catch { /* Session state remains usable. */ }
+    try { localStorage.setItem("zenith-shell-collapsed", String(next)); } catch { /* Session state remains usable. */ }
     return next;
   });
 

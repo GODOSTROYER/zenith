@@ -39,7 +39,7 @@ function serialise(value: unknown): unknown {
 }
 
 /**
- * The threshold, resolved at most once per distinct `ORRERY_LOG_LEVEL`.
+ * The threshold, resolved at most once per distinct `ZENITH_LOG_LEVEL`.
  *
  * `env()` re-fingerprints every variable it knows about on each call, which is
  * real work to repeat per log line. The raw variable is the only input to this
@@ -49,11 +49,11 @@ function serialise(value: unknown): unknown {
 let threshold: { raw: string | undefined; min: LogLevel } | undefined;
 
 function minLevel(): LogLevel {
-  const raw = process.env.ORRERY_LOG_LEVEL;
+  const raw = process.env.ZENITH_LOG_LEVEL;
   if (threshold && threshold.raw === raw) return threshold.min;
   let min: LogLevel = "info";
   try {
-    min = env().ORRERY_LOG_LEVEL;
+    min = env().ZENITH_LOG_LEVEL;
   } catch {
     // A broken environment must not silence the logging that would explain it.
   }

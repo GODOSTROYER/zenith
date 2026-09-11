@@ -56,7 +56,7 @@ describe("environment identity in a persistent project layout", () => {
     expect(new URLSearchParams(window.location.search).get("env")).toBe("prod");
     expect(new URLSearchParams(window.location.search).get("filter")).toBe("open");
     expect(window.location.hash).toBe("#finding");
-    expect(localStorage.getItem("orrery-env-atlas")).toBe("prod");
+    expect(localStorage.getItem("zenith-env-atlas")).toBe("prod");
   });
 
   it("refuses foreign environment IDs from links and manual callbacks", async () => {
@@ -66,6 +66,6 @@ describe("environment identity in a persistent project layout", () => {
     expect(current.selectedEnvId).toBe("dev");
     await act(async () => current.setSelectedEnv("another-project-production"));
     expect(current.selectedEnvId).toBe("dev");
-    expect(localStorage.getItem("orrery-env-atlas")).not.toBe("another-project-production");
+    expect(localStorage.getItem("zenith-env-atlas")).not.toBe("another-project-production");
   });
 });

@@ -22,7 +22,7 @@ export default function RootLayout({
         */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var t=localStorage.getItem("orrery-theme");if(t==="light"||(t==="system"&&window.matchMedia("(prefers-color-scheme: light)").matches)||(!t&&location.pathname==="/"))document.documentElement.setAttribute("data-theme","light");}catch(e){if(location.pathname==="/")document.documentElement.setAttribute("data-theme","light");}`,
+            __html: `try{var t=localStorage.getItem("zenith-theme");if(t==="light"||(t==="system"&&window.matchMedia("(prefers-color-scheme: light)").matches)||(!t&&location.pathname==="/"))document.documentElement.setAttribute("data-theme","light");}catch(e){if(location.pathname==="/")document.documentElement.setAttribute("data-theme","light");}`,
           }}
         />
       </head>

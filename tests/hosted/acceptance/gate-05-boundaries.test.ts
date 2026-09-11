@@ -46,7 +46,7 @@ acceptanceEnv(DATA);
  * artifact is proof of travel rather than a coincidence of vocabulary.
  */
 const DECOYS: Record<string, string> = {
-  ORRERY_DECOY_SECRET: "orrery-decoy-8f31d0a2c7b94e56",
+  ZENITH_DECOY_SECRET: "zenith-decoy-8f31d0a2c7b94e56",
   SUPABASE_DECOY_SERVICE_ROLE: "supabase-decoy-4c1e77b9aa0d2f38",
   ZENITH_DECOY_TOKEN: "zenith-decoy-b62a95c0e14d7f83",
   E2B_DECOY_API_KEY: "e2b-decoy-19d4f8ca63b70e25",
@@ -105,7 +105,7 @@ describe("Gate 5 — secrets, headers, CSRF and the limits that are not enforced
       for (const [name, value] of Object.entries(DECOYS))
         if (text.includes(value)) hits.push(`${file.path} contains ${name}`);
       // The one real secret this process holds is checked by value too.
-      if (text.includes("1".repeat(64))) hits.push(`${file.path} contains ORRERY_SECRET_KEY`);
+      if (text.includes("1".repeat(64))) hits.push(`${file.path} contains ZENITH_SECRET_KEY`);
     }
     expect(hits, `expected no secret in the artifact, found: ${hits.join("; ")}`).toEqual([]);
   });
@@ -303,7 +303,7 @@ describe("Gate 5 — secrets, headers, CSRF and the limits that are not enforced
     const withPlatformCookies = call({
       host: HOST,
       path: "/_zenith/session",
-      cookie: "sb-access-token=forged; sb-refresh-token=forged; orrery-session=forged",
+      cookie: "sb-access-token=forged; sb-refresh-token=forged; zenith-session=forged",
       accept: "application/json",
     });
     const res = await m.gateway.handleGateway(withPlatformCookies.req, withPlatformCookies.params);

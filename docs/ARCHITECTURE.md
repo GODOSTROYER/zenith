@@ -85,7 +85,7 @@ src/lib/
                                           diffManifests. Pure. Imports nothing but zod.
   cost/         pricing.ts                estimate tables. Prices a manifest, never an account.
   format.ts                               fmtUsd / fmtDate / timeAgo / fmtDuration / cx. Presentation only.
-  env.ts                                  every validated ORRERY_* variable, in one place.
+  env.ts                                  every validated ZENITH_* variable, in one place.
   log.ts                                  one JSON object per line, request id via AsyncLocalStorage.
   data-lock.ts                            refuse a second process against one data directory.
 
@@ -212,7 +212,7 @@ idempotently → events appended (replayable) → verify phase (honest health) �
    **Hot and cold.** `state.json` is rewritten in full on every save, so only
    what changes belongs in it. Revision manifests — immutable once written, and
    the largest thing the store holds — live one atomic file each under
-   `<ORRERY_DATA>/revisions/<id>.json`, read on demand behind a 32-entry LRU.
+   `<ZENITH_DATA>/revisions/<id>.json`, read on demand behind a 32-entry LRU.
    `Revision.manifest` is a **non-enumerable lazy accessor**: every reader
    (`revision.manifest`, in the engine, the providers, the alert and log
    simulators, the security rules, the server-rendered screens) keeps working
@@ -224,7 +224,7 @@ idempotently → events appended (replayable) → verify phase (honest health) �
    are written *before* `state.json` is rewritten, so an interrupted migration
    simply re-runs.
 
-   Measured with `ORRERY_DATA=<scratch> npx tsx tests/db/bench-manifests.ts <seeded dir>`
+   Measured with `ZENITH_DATA=<scratch> npx tsx tests/db/bench-manifests.ts <seeded dir>`
    (medians; Windows, 500 serialise samples and 50 whole-save samples):
 
    | store | bytes serialised / save | serialise | whole save |

@@ -81,7 +81,7 @@ export function requireAppIn(appId: string, workspaceId: string): HostedApp {
 }
 
 /** Scratch directory for one job: the submitted source and the tree it is expanded into. */
-export const jobDir = (jobId: string): string => path.join(env().ORRERY_DATA, "jobs", jobId);
+export const jobDir = (jobId: string): string => path.join(env().ZENITH_DATA, "jobs", jobId);
 
 /** Where a submitted tarball is persisted so a restart can resume without the request body. */
 export const jobSourcePath = (jobId: string): string => path.join(jobDir(jobId), "source.tgz");

@@ -24,7 +24,7 @@ export const RESERVED_SLUGS = new Set([
   "cdn",
   "control",
   "zenith",
-  "orrery",
+  "zenith",
   "localhost",
   "test",
 ]);

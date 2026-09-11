@@ -14,7 +14,7 @@ import type { ReactElement } from "react";
 import type { AuditEvent, Manifest, Service } from "@/lib/domain/types";
 import type { ProjectRow } from "@/app/(product)/overview/rows";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-overview-"));
+process.env.ZENITH_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-overview-"));
 
 const { appendAudit, resetDb } = await import("@/lib/db/store");
 const { monthlyCostUsd } = await import("@/lib/cost/pricing");
@@ -119,7 +119,7 @@ beforeAll(async () => {
         region: "us-east-1",
         deployedRevisionId: "r1",
         policies: { approvalRequired: false, allowStatefulDeletion: false, budgetUsdMonthly: 250 },
-        baseDomain: "atlas.orrery.test",
+        baseDomain: "atlas.zenith.test",
         createdAt: NOW,
       },
     ],

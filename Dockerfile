@@ -1,4 +1,4 @@
-# Orrery — production image, built on Next's `output: "standalone"` tracing.
+# Zenith — production image, built on Next's `output: "standalone"` tracing.
 #
 # Installing dependencies and pulling base images require network access.
 # Fonts are self-hosted in public/fonts; Next compilation does not fetch them.
@@ -46,21 +46,21 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3400 \
     HOSTNAME=0.0.0.0 \
-    ORRERY_DATA=/data
+    ZENITH_DATA=/data
 
-RUN addgroup -S -g 1001 nodejs && adduser -S -u 1001 -G nodejs orrery
+RUN addgroup -S -g 1001 nodejs && adduser -S -u 1001 -G nodejs zenith
 
 # standalone/ carries server.js and the traced node_modules; static/ and
 # public/ are NOT traced into it and must be copied alongside by hand.
-COPY --from=builder --chown=orrery:nodejs /app/public ./public
+COPY --from=builder --chown=zenith:nodejs /app/public ./public
 
 # .next is created and chowned before anything lands in it, per the official
 # example: the standalone server writes .next/cache at run time, and a
-# root-owned .next makes that fail under USER orrery.
-RUN mkdir .next && chown orrery:nodejs .next
+# root-owned .next makes that fail under USER zenith.
+RUN mkdir .next && chown zenith:nodejs .next
 
-COPY --from=builder --chown=orrery:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=orrery:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=zenith:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=zenith:nodejs /app/.next/static ./.next/static
 
 # Hosted build recipe (src/lib/hosted/build). The worker is spawned by path,
 # so output tracing never sees it; it and its shared config must sit at the
@@ -69,21 +69,21 @@ COPY --from=builder --chown=orrery:nodejs /app/.next/static ./.next/static
 # is fine, and the isolated runners (`docker`, `e2b`) carry their own copy
 # (docker/recipe/Dockerfile). Only the opt-in same-host runner needs it here,
 # so it is installed only when ZENITH_RECIPE_LOCAL=1 is passed at build time.
-COPY --from=builder --chown=orrery:nodejs /app/src/lib/hosted/build/recipe-worker.mjs ./src/lib/hosted/build/recipe-worker.mjs
-COPY --from=builder --chown=orrery:nodejs /app/src/lib/hosted/build/recipe-config.mjs ./src/lib/hosted/build/recipe-config.mjs
+COPY --from=builder --chown=zenith:nodejs /app/src/lib/hosted/build/recipe-worker.mjs ./src/lib/hosted/build/recipe-worker.mjs
+COPY --from=builder --chown=zenith:nodejs /app/src/lib/hosted/build/recipe-config.mjs ./src/lib/hosted/build/recipe-config.mjs
 # The two reference source packages a publish may name by fixture id
 # (src/lib/hosted/release/intent.ts FIXTURES). Plain source files, no build.
-COPY --from=builder --chown=orrery:nodejs /app/fixtures ./fixtures
+COPY --from=builder --chown=zenith:nodejs /app/fixtures ./fixtures
 ARG ZENITH_RECIPE_LOCAL=0
-RUN if [ "$ZENITH_RECIPE_LOCAL" = "1" ]; then       npm install --no-save --no-audit --no-fund --ignore-scripts vite@7.3.6 @vitejs/plugin-react@5.1.4 react@19.1.0 react-dom@19.1.0       && chown -R orrery:nodejs node_modules;     fi
+RUN if [ "$ZENITH_RECIPE_LOCAL" = "1" ]; then       npm install --no-save --no-audit --no-fund --ignore-scripts vite@7.3.6 @vitejs/plugin-react@5.1.4 react@19.1.0 react-dom@19.1.0       && chown -R zenith:nodejs node_modules;     fi
 
 # Docker seeds a fresh named volume from the image directory at the mount
-# point, ownership included. Creating /data as orrery here is what makes the
+# point, ownership included. Creating /data as zenith here is what makes the
 # volume writable by a non-root process; without it the first save fails EACCES.
-RUN mkdir -p /data && chown orrery:nodejs /data
+RUN mkdir -p /data && chown zenith:nodejs /data
 VOLUME /data
 
-USER orrery
+USER zenith
 EXPOSE 3400
 
 # node is guaranteed present; curl and wget are not worth an apk layer.

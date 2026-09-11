@@ -13,7 +13,7 @@ import { useShell } from "@/components/shell/shell-context";
 const KEEP = 20;
 
 /** Per-tab, so a reload keeps the buffer and a new tab starts clean. */
-const STORE_KEY = "orrery-activity";
+const STORE_KEY = "zenith-activity";
 
 const DOT: Record<string, DotStatus> = { ok: "ok", warn: "warn", err: "err", info: "info" };
 
@@ -54,7 +54,7 @@ export function ActivityBell() {
   useEffect(() => setItems(read()), []);
 
   useEffect(() => {
-    window.__orreryActivity = (toast) => {
+    window.__zenithActivity = (toast) => {
       setItems((list) => {
         const next = [toast, ...list].slice(0, KEEP);
         write(next);
@@ -63,7 +63,7 @@ export function ActivityBell() {
       setUnseen((n) => Math.min(n + 1, 99));
     };
     return () => {
-      delete window.__orreryActivity;
+      delete window.__zenithActivity;
     };
   }, []);
 

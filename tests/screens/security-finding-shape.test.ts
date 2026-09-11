@@ -12,7 +12,7 @@ import path from "node:path";
 import { isEnvironmentPolicy, matches, NO_FILTERS } from "@/app/(product)/p/[slug]/security/rows";
 import { emptyManifest, type Environment, type Project } from "@/lib/domain/types";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-rules-"));
+process.env.ZENITH_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-rules-"));
 
 const { analyze } = await import("@/lib/security/rules");
 
@@ -45,7 +45,7 @@ const prod: Environment = {
   class: "production",
   connectionId: "cx1",
   region: "us-east-1",
-  baseDomain: "atlas.orrery.test",
+  baseDomain: "atlas.zenith.test",
   createdAt: "2026-09-01T00:00:00.000Z",
   policies: { approvalRequired: false, allowStatefulDeletion: true },
 };

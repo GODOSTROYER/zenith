@@ -109,7 +109,7 @@ storage — after `localstack:down && localstack:up`, re-deploy the environment.
 
 ### Pointing at a different LocalStack
 
-`ORRERY_LOCALSTACK_ENDPOINT` (default `http://localhost:4566`). Set it in
+`ZENITH_LOCALSTACK_ENDPOINT` (default `http://localhost:4566`). Set it in
 `.env.local` if you run LocalStack elsewhere or on another port. The app
 container gets `http://localstack:4566` automatically over the compose network.
 
@@ -128,7 +128,7 @@ Or via npm: `npm run docker:build`, `npm run docker:up`, `npm run docker:down`.
 
 This starts LocalStack **and** Zenith, with the app on
 <http://localhost:3400>, wired to LocalStack over the compose network, and its
-data directory on a named volume at `/data`. `orrery` sits behind the `app`
+data directory on a named volume at `/data`. `zenith` sits behind the `app`
 profile, which is why a bare `docker compose up` starts only LocalStack.
 
 Four things worth knowing:
@@ -147,7 +147,7 @@ Four things worth knowing:
   `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`,
   `NEXT_PUBLIC_SUPABASE_OAUTH_PROVIDERS` and `NEXT_PUBLIC_SITE_URL` in `.env`,
   and rebuild (`npm run docker:build`) after changing any of them. Everything
-  else — the `ORRERY_*` variables, `SUPABASE_SERVICE_ROLE_KEY`,
+  else — the `ZENITH_*` variables, `SUPABASE_SERVICE_ROLE_KEY`,
   `ANTHROPIC_API_KEY` — is read at run time from `.env` and `.env.local`, and a
   restart is enough.
 
@@ -162,7 +162,7 @@ Four things worth knowing:
   memory and rewrites it on save, so the second writer silently destroys the
   first one's work. Boot refuses to start when it detects this.
 
-`ORRERY_PORT=3500 docker compose --profile app up` moves the host-side port if
+`ZENITH_PORT=3500 docker compose --profile app up` moves the host-side port if
 3400 is taken.
 
 ### Verified vs unverified
@@ -209,9 +209,9 @@ says so rather than breaking.
 
 | Email | Password | Role |
 | --- | --- | --- |
-| `arnav@orrery.test` | `orrery-owner-2026!` | admin |
-| `claude@orrery.test` | `orrery-claude-2026!` | editor |
-| `sai@orrery.test` | `orrery-sai-2026!` | editor |
+| `arnav@zenith.test` | `zenith-owner-2026!` | admin |
+| `claude@zenith.test` | `zenith-claude-2026!` | editor |
+| `sai@zenith.test` | `zenith-sai-2026!` | editor |
 
 Local-only credentials for a local demo. Never point `seed:users` at a project
 that has real users.
@@ -236,22 +236,22 @@ received and what it accepts — never a silent default.
 
 | Variable | Default | Effect |
 | --- | --- | --- |
-| `ORRERY_DATA` | `./.data` | Data directory: snapshot, revisions, event and audit logs. One process per directory. The container sets `/data` |
-| `ORRERY_FAST` | `0` | `1` collapses simulated step durations; a deploy finishes in seconds. Used by tests and smoke |
-| `ORRERY_LOCALSTACK_ENDPOINT` | `http://localhost:4566` | LocalStack edge endpoint. The container gets `http://localstack:4566` |
-| `ORRERY_LOG_LEVEL` | `info` | `debug` \| `info` \| `warn` \| `error` |
-| `ORRERY_LLM_MODEL` | `claude-opus-5` | Model for the Navigator's language front-end. Only used when `ANTHROPIC_API_KEY` is set |
-| `ORRERY_SECRET_KEY` | *(unset)* | 32 bytes, base64 or hex (`openssl rand -base64 32`). Encrypts the secret store. Unset means every secret write is refused, saying so. **Keep the same key** — values written under an old one cannot be read back, and there is no recovery |
-| `ORRERY_SMTP_URL` | *(unset)* | `smtp://user:pass@host:port` (`smtps://` for implicit TLS). Email alert delivery. Webhook and Slack channels need neither this nor the next |
-| `ORRERY_ALERT_FROM` | *(unset)* | From address on alert email, e.g. `Zenith <orrery@example.com>`. Required alongside `ORRERY_SMTP_URL` |
+| `ZENITH_DATA` | `./.data` | Data directory: snapshot, revisions, event and audit logs. One process per directory. The container sets `/data` |
+| `ZENITH_FAST` | `0` | `1` collapses simulated step durations; a deploy finishes in seconds. Used by tests and smoke |
+| `ZENITH_LOCALSTACK_ENDPOINT` | `http://localhost:4566` | LocalStack edge endpoint. The container gets `http://localstack:4566` |
+| `ZENITH_LOG_LEVEL` | `info` | `debug` \| `info` \| `warn` \| `error` |
+| `ZENITH_LLM_MODEL` | `claude-opus-5` | Model for the Navigator's language front-end. Only used when `ANTHROPIC_API_KEY` is set |
+| `ZENITH_SECRET_KEY` | *(unset)* | 32 bytes, base64 or hex (`openssl rand -base64 32`). Encrypts the secret store. Unset means every secret write is refused, saying so. **Keep the same key** — values written under an old one cannot be read back, and there is no recovery |
+| `ZENITH_SMTP_URL` | *(unset)* | `smtp://user:pass@host:port` (`smtps://` for implicit TLS). Email alert delivery. Webhook and Slack channels need neither this nor the next |
+| `ZENITH_ALERT_FROM` | *(unset)* | From address on alert email, e.g. `Zenith <zenith@example.com>`. Required alongside `ZENITH_SMTP_URL` |
 | `NEXT_PUBLIC_SUPABASE_URL` | *(unset)* | Supabase project URL. **Build-time** |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | *(unset)* | Publishable key; `NEXT_PUBLIC_SUPABASE_ANON_KEY` also accepted. **Build-time** |
 | `NEXT_PUBLIC_SUPABASE_OAUTH_PROVIDERS` | *(empty)* | Comma-separated: `github`, `google`. Unknown names are dropped with a console warning. **Build-time** |
 | `NEXT_PUBLIC_SITE_URL` | `http://localhost:3400` | Absolute origin for OpenGraph and share-card URLs. **Build-time** |
 | `SUPABASE_SERVICE_ROLE_KEY` | *(unset)* | Server-only. Used by `npm run seed:users`. Never exposed to the browser |
 | `ANTHROPIC_API_KEY` | *(unset)* | Enables Claude language parsing in the Navigator. Without it the deterministic planner handles goals |
-| `ORRERY_SEED_FORCE` | *(unset)* | `1` lets `npm run seed` wipe a data directory holding workspaces it did not create |
-| `ORRERY_PORT` | `3400` | Read by `docker-compose.yml` only, for the host-side port. Not an application variable |
+| `ZENITH_SEED_FORCE` | *(unset)* | `1` lets `npm run seed` wipe a data directory holding workspaces it did not create |
+| `ZENITH_PORT` | `3400` | Read by `docker-compose.yml` only, for the host-side port. Not an application variable |
 
 **Build-time** means Next inlines the value into the browser bundle during
 `next build`. Changing one requires a rebuild (`npm run docker:build`), not a
@@ -286,18 +286,18 @@ needs Docker — `npm run dev` is unaffected.
 
 ### "Another Zenith process is already using the data directory"
 
-Exactly what it says: something else holds `<ORRERY_DATA>/.orrery.lock`. Zenith
+Exactly what it says: something else holds `<ZENITH_DATA>/.zenith.lock`. Zenith
 keeps the whole database in memory and rewrites it on save, so a second process
 would silently overwrite the first one's writes — hence the refusal instead of a
 corrupt database.
 
 - **A dev server is already running.** Stop it, or give this process its own
-  directory: `ORRERY_DATA=.data-scratch npm run dev`.
+  directory: `ZENITH_DATA=.data-scratch npm run dev`.
 - **The pid named in the error is gone** (a hard kill or a power cut leaves the
   file behind). Boot reclaims a dead holder's lock automatically; if something
-  still complains, delete `<ORRERY_DATA>/.orrery.lock`.
+  still complains, delete `<ZENITH_DATA>/.zenith.lock`.
 - **The error says the two processes ran from different directories.**
-  `ORRERY_DATA` is resolved relative to the working directory when it is not
+  `ZENITH_DATA` is resolved relative to the working directory when it is not
   absolute, so the same relative path from two places is two different
   databases. Use an absolute path.
 
@@ -310,9 +310,9 @@ Zenith uses **3400**. `npm run dev`, `npm start` and the container all bind it.
 - Host: `next dev -p 3401` (or change the `dev` script). Note that this repo's
   screenshot tooling parks a production server on **3401**, so pick another port
   if that one is busy.
-- Container: `ORRERY_PORT=3500 docker compose --profile app up`.
+- Container: `ZENITH_PORT=3500 docker compose --profile app up`.
 - **LocalStack on 4566**: `docker ps` shows what holds it. If it is something
-  other than LocalStack, point `ORRERY_LOCALSTACK_ENDPOINT` elsewhere — the
+  other than LocalStack, point `ZENITH_LOCALSTACK_ENDPOINT` elsewhere — the
   adapter detects a non-LocalStack service on that port and says so specifically
   rather than telling you to start Docker.
 
@@ -351,13 +351,13 @@ recorded walkthrough or screenshot run.
 configuration`. **That is a warning, not an error** — Next serves normally after
 it (only `output: "export"` actually refuses). It is Next suggesting the leaner
 `node .next/standalone/server.js`, which also works. If you run the standalone
-server directly, set `ORRERY_DATA` explicitly: it runs with
+server directly, set `ZENITH_DATA` explicitly: it runs with
 `.next/standalone/` as its working directory, so the default would resolve to
 `.next/standalone/.data` rather than your real one.
 
 ### A build copies your database into `.next/standalone/.data` (Windows)
 
-`src/lib/env.ts` defaults `ORRERY_DATA` to `path.join(process.cwd(), ".data")`.
+`src/lib/env.ts` defaults `ZENITH_DATA` to `path.join(process.cwd(), ".data")`.
 Next's file tracer resolves that to a real directory, so 32 route traces list
 the data directory and `next build` copies all of it — `state.json`,
 `events.jsonl`, `audit.jsonl` — into `.next/standalone/.data`.
@@ -376,9 +376,9 @@ Consequences, all contained:
   Linux, where the exclude works anyway.
 - `.next/` is gitignored, so nothing is committed.
 - The real trap is running `node .next/standalone/server.js` **without**
-  `ORRERY_DATA` set: its working directory is `.next/standalone/`, so it reads
+  `ZENITH_DATA` set: its working directory is `.next/standalone/`, so it reads
   that frozen build-time copy instead of your live database. Always set
-  `ORRERY_DATA` explicitly when running the standalone server directly, or use
+  `ZENITH_DATA` explicitly when running the standalone server directly, or use
   `npm start`.
 - `rm -rf .next` between builds if the duplicated copy bothers you.
 

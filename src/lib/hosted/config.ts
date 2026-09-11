@@ -1,6 +1,6 @@
 /**
  * Every `ZENITH_*` variable the hosted subsystem reads, validated in one place
- * — the same discipline as `@/lib/env` for `ORRERY_*`.
+ * — the same discipline as `@/lib/env` for `ZENITH_*`.
  *
  * Secrets are presence-only here: `ZENITH_CF_API_TOKEN`, `E2B_API_KEY`,
  * `ZENITH_BACKUP_KEY` and `ZENITH_POLICY_SHARED_SECRET` are read by exactly
@@ -52,7 +52,7 @@ const Schema = z.object({
   ZENITH_FOUNDER_SUBJECTS: z.string().default(""),
   /** Comma-separated subjects classified as test actors (read by `@/lib/hosted/events`). */
   ZENITH_TEST_SUBJECTS: z.string().default(""),
-  /** From address for app invitations; falls back to ORRERY_ALERT_FROM. */
+  /** From address for app invitations; falls back to ZENITH_ALERT_FROM. */
   ZENITH_INVITE_FROM: z.string().optional(),
 });
 
@@ -73,7 +73,7 @@ let memo: { key: string; config: HostedConfig } | undefined;
 
 export function hostedConfig(): HostedConfig {
   const raw = Object.fromEntries(Object.keys(Schema.shape).map((k) => [k, present(k)]));
-  const data = env().ORRERY_DATA;
+  const data = env().ZENITH_DATA;
   // `data` is in the key because artifactDir and backupDir are derived from it.
   const key = JSON.stringify([raw, data]);
   if (memo && memo.key === key) return memo.config;
@@ -106,11 +106,11 @@ export const hostedMode = (): boolean => present("ZENITH_HOSTED_MODE") === "1";
 
 
 /** Absolute path of the control authority database. */
-export const controlDatabasePath = (): string => path.join(env().ORRERY_DATA, "control.sqlite");
+export const controlDatabasePath = (): string => path.join(env().ZENITH_DATA, "control.sqlite");
 
 /** Per-app data directory (local runtime): database, test database, logs. */
 export const appDataDir = (appId: string): string =>
-  path.join(env().ORRERY_DATA, "apps", encodeURIComponent(appId));
+  path.join(env().ZENITH_DATA, "apps", encodeURIComponent(appId));
 
 /** The stable app hostname for a slug, e.g. `tracker.apps.localhost`. */
 export function appHostname(slug: string): string {

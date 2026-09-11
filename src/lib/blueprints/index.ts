@@ -64,7 +64,7 @@ function res(name: string, kind: ResourceKind, size: ServiceSize = "small"): Res
   return { id: id(), name, kind, config: {}, size, ownership: "managed" };
 }
 
-function route(projectSlug: string, host = `app.${projectSlug}.orrery.app`): Route {
+function route(projectSlug: string, host = `app.${projectSlug}.zenith.app`): Route {
   return { id: id(), host, pathPrefix: "/", tls: true, managedDns: true };
 }
 
@@ -141,7 +141,7 @@ export const blueprints: Blueprint[] = [
       const worker = svc("worker", "worker");
       const pg = res("postgres", "postgres", "standard");
       const queue = res("jobs", "queue");
-      const r = route(slug, `api.${slug}.orrery.app`);
+      const r = route(slug, `api.${slug}.zenith.app`);
       return manifest({
         services: [api, worker],
         resources: [pg, queue],
@@ -218,7 +218,7 @@ export const blueprints: Blueprint[] = [
     manifestFactory(slug) {
       const web = svc("app", "web", { port: 3000, healthPath: "/healthz" });
       const pg = res("postgres", "postgres");
-      const r = route(slug, `tools.${slug}.orrery.app`);
+      const r = route(slug, `tools.${slug}.zenith.app`);
       return manifest({
         services: [web],
         resources: [pg],

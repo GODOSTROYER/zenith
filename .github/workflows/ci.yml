@@ -22,8 +22,8 @@ jobs:
     env:
       # Use an ignored directory in the disposable CI checkout. github.workspace
       # is available in job env; runner.temp is only available in later contexts.
-      ORRERY_DATA: ${{ github.workspace }}/.data-ci
-      ORRERY_FAST: "1"
+      ZENITH_DATA: ${{ github.workspace }}/.data-ci
+      ZENITH_FAST: "1"
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -59,7 +59,7 @@ jobs:
         run: npm test
 
       - name: Smoke
-        # scripts/smoke.ts sets its own ORRERY_DATA (.data-smoke) and clears it
+        # scripts/smoke.ts sets its own ZENITH_DATA (.data-smoke) and clears it
         # on start, so this is end-to-end against a directory it owns.
         run: npm run smoke
 
@@ -76,10 +76,10 @@ jobs:
 
     env:
       # Its own ignored directory in the disposable CI checkout. Every hosted
-      # suite and both scripts pin ORRERY_DATA themselves; this is the backstop
+      # suite and both scripts pin ZENITH_DATA themselves; this is the backstop
       # that keeps anything which forgot to from reaching .data.
-      ORRERY_DATA: ${{ github.workspace }}/.data-ci-hosted
-      ORRERY_FAST: "1"
+      ZENITH_DATA: ${{ github.workspace }}/.data-ci-hosted
+      ZENITH_FAST: "1"
       # Real builds, real runtime. Without these the pipeline refuses to build
       # at all, which would turn every gate into a skipped one.
       ZENITH_BUILD_RUNNER: recipe-local
@@ -101,7 +101,7 @@ jobs:
         run: npx vitest run tests/hosted
 
       - name: Hosted acceptance journey
-        # scripts/hosted-acceptance.ts sets its own ORRERY_DATA
+        # scripts/hosted-acceptance.ts sets its own ZENITH_DATA
         # (.data-hosted-acceptance) and clears it on start.
         run: npx tsx scripts/hosted-acceptance.ts
 
@@ -156,4 +156,4 @@ jobs:
       # purpose. Supplying Supabase keys here would only inline a project's
       # public URL into an artifact CI then throws away.
       - name: Build image (no push)
-        run: docker build -t orrery:ci .
+        run: docker build -t zenith:ci .

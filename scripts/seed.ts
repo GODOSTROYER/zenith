@@ -1,5 +1,5 @@
 /**
- * Seed Orrery with a realistic demo workspace: Kepler Labs / project "atlas".
+ * Seed Zenith with a realistic demo workspace: Kepler Labs / project "atlas".
  * Produces: workspace, sandbox connection, project with deployed staging,
  * empty production (approval-gated), revision history, one past failed
  * deployment (for the recovery story), and security findings.
@@ -36,11 +36,11 @@ async function main() {
   // than one workspace that could take somebody's real one with it. Re-seeding
   // the seeded workspace is idempotent; anything else has to be asked for.
   const others = db().workspaces.filter((w) => w.id !== SEEDED_WORKSPACE);
-  if (others.length && !process.env.ORRERY_SEED_FORCE) {
+  if (others.length && !process.env.ZENITH_SEED_FORCE) {
     console.error(
       `Refusing to seed: this data directory also holds ${others.length} other workspace(s) — ` +
         `${others.map((w) => `"${w.name}"`).join(", ")}. Seeding would delete them.\n` +
-        `Fix: run ORRERY_SEED_FORCE=1 npm run seed to wipe anyway, or point ORRERY_DATA at a fresh directory.`
+        `Fix: run ZENITH_SEED_FORCE=1 npm run seed to wipe anyway, or point ZENITH_DATA at a fresh directory.`
     );
     process.exit(1);
   }
@@ -65,7 +65,7 @@ async function main() {
     id: "conn-sandbox",
     workspaceId: ws.id,
     provider: "sandbox",
-    label: "Orrery Sandbox",
+    label: "Zenith Sandbox",
     region: "local-1",
     status: "healthy",
     grantedPermissions: [
@@ -142,7 +142,7 @@ async function main() {
     region: "local-1",
     deployedRevisionId: rev3.id,
     policies: { approvalRequired: false, budgetUsdMonthly: 120, allowStatefulDeletion: false },
-    baseDomain: "atlas.orrery.app",
+    baseDomain: "atlas.zenith.app",
     createdAt: iso(21 * DAY),
   };
   const production: Environment = {
@@ -153,7 +153,7 @@ async function main() {
     connectionId: "conn-sandbox",
     region: "local-1",
     policies: { approvalRequired: true, allowStatefulDeletion: false },
-    baseDomain: "atlas.orrery.app",
+    baseDomain: "atlas.zenith.app",
     createdAt: iso(21 * DAY),
   };
   data.environments.push(staging, production);
@@ -284,7 +284,7 @@ function seedDeployment(
         ? [
             {
               key: "url-web",
-              label: `web — https://web--${opts.env.name}.atlas.orrery.app`,
+              label: `web — https://web--${opts.env.name}.atlas.zenith.app`,
               value: `/preview/${opts.id}/svc-web`,
               kind: "url",
               targetId: "svc-web",
@@ -333,7 +333,7 @@ function fallbackManifest(): Manifest {
     { id: "res-jobs", name: "jobs", kind: "queue", config: {}, size: "nano", ownership: "managed" },
     { id: "res-mail", name: "mail", kind: "email", config: {}, size: "nano", ownership: "managed" },
   ];
-  m.routes = [{ id: "rt-app", host: "app.atlas.orrery.app", pathPrefix: "/", tls: true, managedDns: true }];
+  m.routes = [{ id: "rt-app", host: "app.atlas.zenith.app", pathPrefix: "/", tls: true, managedDns: true }];
   m.bindings = [
     { id: "b1", from: "rt-app", to: "svc-web", capability: "http", note: "public traffic, TLS terminated at the edge" },
     { id: "b2", from: "svc-web", to: "res-db", capability: "sql", note: "web reads and writes application data" },

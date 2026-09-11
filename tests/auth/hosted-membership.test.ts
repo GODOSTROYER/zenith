@@ -9,7 +9,7 @@ import type { Invite, Member } from "@/lib/domain/types";
 import type { SessionUser } from "@/lib/auth/session";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-hosted-members-");
+tempDataDir("zenith-hosted-members-");
 process.env.ZENITH_HOSTED_MODE = "1";
 
 const { ensureMember, readInvites } = await import("@/lib/server/context");
@@ -33,24 +33,24 @@ function seed(members: Member[] = [], invites: Invite[] = []) {
   });
 }
 
-const admin: Member = { id: "u-ada", workspaceId: WS, name: "Ada", email: "ada@orrery.test", role: "admin" };
-const viewer: Member = { id: "u-vi", workspaceId: WS, name: "Vi", email: "vi@orrery.test", role: "viewer" };
+const admin: Member = { id: "u-ada", workspaceId: WS, name: "Ada", email: "ada@zenith.test", role: "admin" };
+const viewer: Member = { id: "u-vi", workspaceId: WS, name: "Vi", email: "vi@zenith.test", role: "viewer" };
 
 describe("hosted mode: role claims never grant or re-grant", () => {
   beforeEach(() => seed([admin, viewer]));
 
   it("does not rewrite a stored role from app_metadata.role", () => {
-    const r = ensureMember(user("u-vi", "vi@orrery.test", "Vi", "editor"));
+    const r = ensureMember(user("u-vi", "vi@zenith.test", "Vi", "editor"));
     if ("denied" in r) throw new Error(r.denied.message);
     expect(r.member.role).toBe("viewer");
   });
 
   it("refuses a stranger who carries a role claim, and does not point at app_metadata", () => {
-    const r = ensureMember(user("u-new", "new@orrery.test", "New", "admin"));
+    const r = ensureMember(user("u-new", "new@zenith.test", "New", "admin"));
     expect("denied" in r).toBe(true);
     if ("denied" in r) {
-      expect(r.denied.message).toMatch(/new@orrery\.test is not a member/);
-      expect(r.denied.fix).toMatch(/Ada \(ada@orrery\.test\)/);
+      expect(r.denied.message).toMatch(/new@zenith\.test is not a member/);
+      expect(r.denied.fix).toMatch(/Ada \(ada@zenith\.test\)/);
       expect(r.denied.fix).not.toMatch(/app_metadata/);
     }
     expect(db().members).toHaveLength(2);
@@ -58,7 +58,7 @@ describe("hosted mode: role claims never grant or re-grant", () => {
 
   it("keeps a removed member out on their next sign-in even with a claim", () => {
     db().members.splice(db().members.indexOf(viewer), 1);
-    const r = ensureMember(user("u-vi", "vi@orrery.test", "Vi", "admin"));
+    const r = ensureMember(user("u-vi", "vi@zenith.test", "Vi", "admin"));
     expect("denied" in r).toBe(true);
   });
 });
@@ -86,7 +86,7 @@ describe("hosted mode: invites still admit", () => {
         {
           id: "inv-1",
           workspaceId: WS,
-          email: "claude@orrery.test",
+          email: "claude@zenith.test",
           role: "editor",
           createdBy: "u-ada",
           createdAt: new Date().toISOString(),
@@ -96,7 +96,7 @@ describe("hosted mode: invites still admit", () => {
   );
 
   it("admits the invited email with the invited role, ignoring any claim", () => {
-    const r = ensureMember(user("u-claude", "claude@orrery.test", "Claude", "admin"));
+    const r = ensureMember(user("u-claude", "claude@zenith.test", "Claude", "admin"));
     if ("denied" in r) throw new Error(r.denied.message);
     expect(r.member.role).toBe("editor");
     expect(readInvites()[0].acceptedAt).toBeTruthy();

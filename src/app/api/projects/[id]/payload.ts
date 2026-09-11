@@ -33,10 +33,10 @@ interface ProjectCache {
   changesets: Map<string, { against: string; changeset: Changeset }>;
 }
 
-type G = typeof globalThis & { __orreryProjectCache?: Map<string, ProjectCache> };
+type G = typeof globalThis & { __zenithProjectCache?: Map<string, ProjectCache> };
 
 function cacheFor(project: Project): ProjectCache {
-  const all = ((globalThis as G).__orreryProjectCache ??= new Map());
+  const all = ((globalThis as G).__zenithProjectCache ??= new Map());
   const hash = manifestHash(project.workingManifest);
   const hit = all.get(project.id);
   if (hit && hit.hash === hash) return hit;

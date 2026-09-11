@@ -28,7 +28,7 @@ import { LogSink, buildResult } from "./runner-support";
  * what it passes; the build tests check what the child actually received, using
  * this same list, so the two cannot drift apart.
  */
-export const FORBIDDEN_ENV_PREFIXES = ["ORRERY_", "SUPABASE_", "NEXT_PUBLIC_", "ZENITH_", "E2B_", "AWS_"] as const;
+export const FORBIDDEN_ENV_PREFIXES = ["ZENITH_", "SUPABASE_", "NEXT_PUBLIC_", "ZENITH_", "E2B_", "AWS_"] as const;
 
 /** Which of `keys` a build must never see. Empty means the environment is clean. */
 export const secretEnvKeys = (keys: readonly string[]): string[] =>

@@ -17,11 +17,11 @@ import path from "node:path";
 import type { AlertChannel, AlertRule } from "@/lib/domain/types";
 import * as fixtures from "./_fixtures";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-outbox-"));
+process.env.ZENITH_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-outbox-"));
 // Collapses the delivery backoff, the same knob that collapses step durations.
-process.env.ORRERY_FAST = "1";
+process.env.ZENITH_FAST = "1";
 
-const STATE = path.join(process.env.ORRERY_DATA, "state.json");
+const STATE = path.join(process.env.ZENITH_DATA, "state.json");
 
 const { db, flush, resetDb } = await import("@/lib/db/store");
 const {
@@ -106,16 +106,16 @@ function restart(snapshot?: string): void {
   flush(); // no debounced write may land after the "crash"
   if (snapshot !== undefined) fs.writeFileSync(STATE, snapshot, "utf8");
   const g = globalThis as Record<string, unknown>;
-  delete g.__orreryDb;
-  delete g.__orreryDeliveryInFlight;
-  delete g.__orreryDeliveryScheduled;
+  delete g.__zenithDb;
+  delete g.__zenithDeliveryInFlight;
+  delete g.__zenithDeliveryScheduled;
 }
 
 beforeEach(() => {
   // A hung send from the previous test must not be awaited by this one.
   const g = globalThis as Record<string, unknown>;
-  delete g.__orreryDeliveryInFlight;
-  delete g.__orreryDeliveryScheduled;
+  delete g.__zenithDeliveryInFlight;
+  delete g.__zenithDeliveryScheduled;
   seed("degrade");
 });
 afterEach(() => vi.unstubAllGlobals());

@@ -13,7 +13,7 @@ import type { AuditEvent, Environment, Invite, Member, Project, Workspace } from
 import type { SessionUser } from "@/lib/auth/session";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-workspaces-");
+tempDataDir("zenith-workspaces-");
 const { ensureMember, readInvites, workspacesFor } = await import("@/lib/server/context");
 const { appendAudit, db, inWorkspace, readAudit, resetDb } = await import("@/lib/db/store");
 const { emptyManifest } = await import("@/lib/domain/types");
@@ -23,8 +23,8 @@ const AT = "2026-09-01T10:00:00.000Z";
 const wsA: Workspace = { id: "ws-a", name: "Kepler Labs", slug: "kepler", createdAt: AT };
 const wsB: Workspace = { id: "ws-b", name: "Orbital", slug: "orbital", createdAt: AT };
 
-const ada = { id: "u-ada", email: "ada@orrery.test", name: "Ada" } satisfies SessionUser;
-const bo = { id: "u-bo", email: "bo@orrery.test", name: "Bo" } satisfies SessionUser;
+const ada = { id: "u-ada", email: "ada@zenith.test", name: "Ada" } satisfies SessionUser;
+const bo = { id: "u-bo", email: "bo@zenith.test", name: "Bo" } satisfies SessionUser;
 
 const member = (id: string, workspaceId: string, email: string, role: Member["role"] = "admin"): Member => ({
   id,
@@ -52,7 +52,7 @@ const environment = (id: string, projectId: string): Environment => ({
   connectionId: `conn-${projectId}`,
   region: "local-1",
   policies: { approvalRequired: false, allowStatefulDeletion: false },
-  baseDomain: `${projectId}.orrery.app`,
+  baseDomain: `${projectId}.zenith.app`,
   createdAt: AT,
 });
 
@@ -146,7 +146,7 @@ describe("joining is per workspace", () => {
   const inviteToB = (): Invite => ({
     id: "inv-b",
     workspaceId: wsB.id,
-    email: "cass@orrery.test",
+    email: "cass@zenith.test",
     role: "editor",
     createdBy: "u-bo",
     createdAt: AT,
@@ -154,7 +154,7 @@ describe("joining is per workspace", () => {
 
   it("puts an invited user in the workspace that invited them", () => {
     seedTwo([inviteToB()]);
-    const out = ensureMember({ id: "u-cass", email: "cass@orrery.test", name: "Cass" });
+    const out = ensureMember({ id: "u-cass", email: "cass@zenith.test", name: "Cass" });
     if ("denied" in out) throw new Error(out.denied.message);
     expect(out.member.workspaceId).toBe(wsB.id);
     expect(out.member.role).toBe("editor");
@@ -169,7 +169,7 @@ describe("joining is per workspace", () => {
       members: [member("u-bo", wsB.id, bo.email)],
       settings: { invites: [inviteToB()] },
     });
-    const out = ensureMember({ id: "u-cass", email: "cass@orrery.test", name: "Cass" });
+    const out = ensureMember({ id: "u-cass", email: "cass@zenith.test", name: "Cass" });
     if ("denied" in out) throw new Error(out.denied.message);
     expect(out.member.workspaceId).toBe(wsB.id);
     expect(out.member.role).toBe("editor");
@@ -180,10 +180,10 @@ describe("joining is per workspace", () => {
     seedTwo();
     const empty: Workspace = { id: "ws-c", name: "Third", slug: "third", createdAt: AT };
     db().workspaces.push(empty);
-    const out = ensureMember({ id: "u-dee", email: "dee@orrery.test", name: "Dee" }, empty);
+    const out = ensureMember({ id: "u-dee", email: "dee@zenith.test", name: "Dee" }, empty);
     if ("denied" in out) throw new Error(out.denied.message);
     expect(out.member).toMatchObject({ workspaceId: empty.id, role: "admin" });
-    expect(workspacesFor({ id: "u-dee", email: "dee@orrery.test", name: "Dee" }).map((w) => w.id)).toEqual([empty.id]);
+    expect(workspacesFor({ id: "u-dee", email: "dee@zenith.test", name: "Dee" }).map((w) => w.id)).toEqual([empty.id]);
   });
 
   it("refuses a stranger without naming every admin on the server", () => {
@@ -191,7 +191,7 @@ describe("joining is per workspace", () => {
     const out = ensureMember({ id: "u-x", email: "x@example.com", name: "X" });
     if (!("denied" in out)) throw new Error("expected a denial");
     expect(out.denied.message).toMatch(/not a member of any of the 2 workspaces/);
-    expect(out.denied.fix).not.toMatch(/ada@orrery\.test|bo@orrery\.test/);
+    expect(out.denied.fix).not.toMatch(/ada@zenith\.test|bo@zenith\.test/);
   });
 
   it("keeps admin of A from becoming admin of B", () => {

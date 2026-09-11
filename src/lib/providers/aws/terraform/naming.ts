@@ -279,7 +279,7 @@ export function routeOf(m: Manifest, serviceId: string): Route | undefined {
   return b ? m.routes.find((r) => r.id === b.from) : undefined;
 }
 
-export const projectSlug = (env: Environment) => String(env.baseDomain ?? "").split(".")[0] || "orrery";
+export const projectSlug = (env: Environment) => String(env.baseDomain ?? "").split(".")[0] || "zenith";
 
 /** Sandbox regions are Zenith-internal; a real bundle needs a real region. */
 export const exportRegion = (env: Environment) => {

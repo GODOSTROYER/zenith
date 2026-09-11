@@ -15,7 +15,7 @@ import type { ActionContext } from "@/lib/actions/core";
 import type { Manifest } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-import-res-", { fast: true });
+tempDataDir("zenith-import-res-", { fast: true });
 const { runAction } = await import("@/lib/actions/core");
 const { db, q, resetDb, save } = await import("@/lib/db/store");
 const { sandboxProvider } = await import("@/lib/providers/sandbox");

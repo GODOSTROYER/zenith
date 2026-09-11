@@ -62,7 +62,7 @@ async function loadNodemailer(): Promise<NodemailerLike> {
 
 /** The From address invitations are sent from, or undefined when none is configured. */
 export function inviteFrom(): string | undefined {
-  const from = hostedConfig().ZENITH_INVITE_FROM ?? env().ORRERY_ALERT_FROM;
+  const from = hostedConfig().ZENITH_INVITE_FROM ?? env().ZENITH_ALERT_FROM;
   return from && from.trim() ? from.trim() : undefined;
 }
 
@@ -73,10 +73,10 @@ export function inviteFrom(): string | undefined {
  */
 export function inviteEmailProblem(): string | undefined {
   if (!sealingConfigured()) return `${NO_SECRET_KEY} ${SECRET_KEY_FIX}`;
-  if (!env().ORRERY_SMTP_URL)
+  if (!env().ZENITH_SMTP_URL)
     return `No SMTP server is configured, so this invitation could not be emailed. ${SMTP_FIX}`;
   if (!inviteFrom())
-    return `ORRERY_SMTP_URL is set but neither ZENITH_INVITE_FROM nor ORRERY_ALERT_FROM is, so the invitation email would have no From address. ${SMTP_FIX}`;
+    return `ZENITH_SMTP_URL is set but neither ZENITH_INVITE_FROM nor ZENITH_ALERT_FROM is, so the invitation email would have no From address. ${SMTP_FIX}`;
   return undefined;
 }
 
@@ -109,7 +109,7 @@ export function inviteMessage(payload: SealedInvite): { subject: string; text: s
 export async function sendInviteEmail(payload: SealedInvite): Promise<string | undefined> {
   const problem = inviteEmailProblem();
   if (problem) throw new Error(problem);
-  const smtpUrl = env().ORRERY_SMTP_URL as string;
+  const smtpUrl = env().ZENITH_SMTP_URL as string;
   const from = inviteFrom() as string;
   const nodemailer = await loadNodemailer();
   const transport = nodemailer.createTransport(smtpUrl);
@@ -118,7 +118,7 @@ export async function sendInviteEmail(payload: SealedInvite): Promise<string | u
     const result = await withTimeout(
       transport.sendMail({ from, to: payload.email, subject, text }),
       INVITE_SEND_TIMEOUT_MS,
-      `The SMTP server did not accept the invitation within ${INVITE_SEND_TIMEOUT_MS / 1000}s. Check ORRERY_SMTP_URL — a wrong port is the usual cause.`
+      `The SMTP server did not accept the invitation within ${INVITE_SEND_TIMEOUT_MS / 1000}s. Check ZENITH_SMTP_URL — a wrong port is the usual cause.`
     );
     const id = (result as { messageId?: unknown })?.messageId;
     return typeof id === "string" ? id : undefined;

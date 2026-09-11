@@ -52,7 +52,7 @@ provider "aws" {
       Project     = var.project_name
       Environment = var.environment
       ManagedBy   = "terraform"
-      Origin      = "orrery-export"
+      Origin      = "zenith-export"
     }
   }
 }
@@ -661,7 +661,7 @@ resource "aws_db_instance" "${t}" {
   storage_type                = "gp3"
   storage_encrypted           = true
   db_name                     = ${hclString(dbName)}
-  username                    = "orrery"
+  username                    = "zenith"
   password                    = random_password.${t}.result
   db_subnet_group_name        = aws_db_subnet_group.main.name
   vpc_security_group_ids      = [aws_security_group.data.id]

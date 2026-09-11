@@ -3,7 +3,7 @@ import type { ActionContext } from "@/lib/actions/core";
 import type { Actor } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-workspace-", { fast: true });
+tempDataDir("zenith-workspace-", { fast: true });
 const { getAction, runAction } = await import("@/lib/actions/core");
 const { db, resetDb } = await import("@/lib/db/store");
 await import("@/lib/actions/defs");

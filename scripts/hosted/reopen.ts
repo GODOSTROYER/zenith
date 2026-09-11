@@ -2,7 +2,7 @@
  * Reopen one app after a restore, once its checks pass.
  *
  * Run:
- *   ORRERY_DATA=<restored directory> \
+ *   ZENITH_DATA=<restored directory> \
  *   npx tsx --env-file-if-exists=.env.local scripts/hosted/reopen.ts <appId> \
  *     [--acknowledge-reapproval] [--operator=<name>]
  *
@@ -29,7 +29,7 @@ async function main(): Promise<void> {
   if (!appId) {
     process.stderr.write(
       "Usage: tsx scripts/hosted/reopen.ts <appId> [--acknowledge-reapproval] [--operator=<name>]\n" +
-        "  Run with ORRERY_DATA pointing at the restored data directory.\n"
+        "  Run with ZENITH_DATA pointing at the restored data directory.\n"
     );
     process.exit(2);
   }

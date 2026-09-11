@@ -14,7 +14,7 @@ import type { Environment, Manifest } from "@/lib/domain/types";
 
 // The sandbox adapter reaches the store for secret status at deploy time; give
 // it a throwaway directory so importing it can never touch a real one.
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-observe-"));
+process.env.ZENITH_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-observe-"));
 
 const { computeDrift } = await import("@/lib/drift");
 const { sandboxProvider } = await import("@/lib/providers/sandbox");
@@ -28,7 +28,7 @@ const environment: Environment = {
   connectionId: "conn-sandbox",
   region: "sim-a",
   policies: { approvalRequired: false, allowStatefulDeletion: false },
-  baseDomain: "atlas.orrery.test",
+  baseDomain: "atlas.zenith.test",
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 

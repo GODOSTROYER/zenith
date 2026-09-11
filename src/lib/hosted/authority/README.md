@@ -1,6 +1,6 @@
 # hosted/authority — the control authority
 
-One SQLite file (`<ORRERY_DATA>/control.sqlite`), one connection per process,
+One SQLite file (`<ZENITH_DATA>/control.sqlite`), one connection per process,
 one transaction rule. Apps, grants, invitations, sessions, exchanges, jobs,
 releases, quotas, usage, revocations, backups and events live here and nowhere
 else. The legacy JSON store keeps the infrastructure product; nothing in this

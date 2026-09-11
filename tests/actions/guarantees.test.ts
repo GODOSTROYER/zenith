@@ -7,7 +7,7 @@ import type { ActionContext } from "@/lib/actions/core";
 import type { Deployment, SecurityFinding } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-guarantees-", { fast: true });
+tempDataDir("zenith-guarantees-", { fast: true });
 const { runAction } = await import("@/lib/actions/core");
 const { db, q, readAudit, resetDb } = await import("@/lib/db/store");
 const { ensureEngine } = await import("@/lib/engine/engine");

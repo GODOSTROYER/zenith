@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-mw-");
+tempDataDir("zenith-mw-");
 const { config } = await import("@/middleware");
 const { isPublicPath } = await import("@/lib/supabase/env");
 const { isPlatformStaticPath } = await import("@/lib/hosted/edge");

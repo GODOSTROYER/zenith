@@ -1,7 +1,7 @@
 /**
  * Disposable primitive probe, not the hosted authority or a migration.
  * Run: node node_modules/tsx/dist/cli.mjs scripts/hosted-spike/sqlite-feasibility.ts
- * It never reads ORRERY_DATA or application configuration.
+ * It never reads ZENITH_DATA or application configuration.
  */
 import assert from "node:assert/strict";
 import fs from "node:fs";

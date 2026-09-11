@@ -1,7 +1,7 @@
 /**
  * What the manifest split costs a save. Not a test — run it by hand:
  *
- *   ORRERY_DATA=<empty scratch dir> npx tsx tests/db/bench-manifests.ts <seeded dir>
+ *   ZENITH_DATA=<empty scratch dir> npx tsx tests/db/bench-manifests.ts <seeded dir>
  *
  * "before" is the old shape (manifests inline in state.json), reconstructed by
  * stitching the side files back in; "after" is the real `flush()`. Both write
@@ -14,10 +14,10 @@ import path from "node:path";
 import { db, flush, resetDb } from "@/lib/db/store";
 
 const SEEDED = process.argv[2];
-const BENCH = process.env.ORRERY_DATA;
+const BENCH = process.env.ZENITH_DATA;
 if (!SEEDED || !BENCH)
   throw new Error(
-    "usage: ORRERY_DATA=<empty scratch dir> npx tsx tests/db/bench-manifests.ts <seeded dir>"
+    "usage: ZENITH_DATA=<empty scratch dir> npx tsx tests/db/bench-manifests.ts <seeded dir>"
   );
 
 type Db = ReturnType<typeof db>;

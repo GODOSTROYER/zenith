@@ -67,7 +67,7 @@ function readSource(job: HostedJob, data: PhaseData): Parameters<typeof validate
   const stored = typeof data.sourcePath === "string" ? data.sourcePath : jobSourcePath(job.id);
   if (!fs.existsSync(stored))
     throw new HostedError("unsupported_source", "The submitted source is no longer on disk, so it cannot be built.", {
-      fix: "Publish again with the source attached; a queued job's package is kept under ORRERY_DATA/jobs and this one is gone.",
+      fix: "Publish again with the source attached; a queued job's package is kept under ZENITH_DATA/jobs and this one is gone.",
       details: { jobId: job.id },
     });
   return { kind: "tarball", bytes: fs.readFileSync(stored) };

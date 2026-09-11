@@ -15,7 +15,7 @@ import {
 } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-nav-plan-", { fast: true });
+tempDataDir("zenith-nav-plan-", { fast: true });
 const { runAction } = await import("@/lib/actions/core");
 const { registerAllActions } = await import("@/lib/actions/defs");
 const { db, resetDb, save } = await import("@/lib/db/store");
@@ -61,7 +61,7 @@ const envs: Environment[] = [
     connectionId: "conn-1",
     region: "local",
     policies: { approvalRequired: false, allowStatefulDeletion: false },
-    baseDomain: "staging.atlas.orrery.app",
+    baseDomain: "staging.atlas.zenith.app",
     createdAt: new Date().toISOString(),
   },
 ];

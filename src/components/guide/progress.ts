@@ -13,7 +13,7 @@ export interface GuideDraft {
 
 /** The legacy product namespace remains stable. Anonymous demo sessions are not persisted. */
 export function guideStorageKey(boot: Bootstrap): string | undefined {
-  return boot.user?.id ? `orrery:guide:v1:${encodeURIComponent(boot.user.id)}:${encodeURIComponent(boot.workspace.id)}` : undefined;
+  return boot.user?.id ? `zenith:guide:v1:${encodeURIComponent(boot.user.id)}:${encodeURIComponent(boot.workspace.id)}` : undefined;
 }
 
 /** Allowlist fields and validate every stored identity against fresh workspace state. */

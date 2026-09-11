@@ -39,22 +39,22 @@ export const navigatorActor = (): Actor => ({
  * The Navigator's own server-side calls carry a secret minted at boot and
  * never leaving this process; anything else is just the user.
  */
-type GK = typeof globalThis & { __orreryNavKey?: string };
+type GK = typeof globalThis & { __zenithNavKey?: string };
 
 const navigatorKey = (): string => {
   const g = globalThis as GK;
-  return (g.__orreryNavKey ??= crypto.randomUUID());
+  return (g.__zenithNavKey ??= crypto.randomUUID());
 };
 
 /** Headers the Navigator's own HTTP calls must send to be attributed to it. */
 export const navigatorHeaders = (): Record<string, string> => ({
-  "x-orrery-actor": "navigator",
-  "x-orrery-actor-key": navigatorKey(),
+  "x-zenith-actor": "navigator",
+  "x-zenith-actor-key": navigatorKey(),
 });
 
 const isNavigator = (req: NextRequest): boolean =>
-  req.headers.get("x-orrery-actor") === "navigator" &&
-  req.headers.get("x-orrery-actor-key") === navigatorKey();
+  req.headers.get("x-zenith-actor") === "navigator" &&
+  req.headers.get("x-zenith-actor-key") === navigatorKey();
 
 /**
  * Identity-aware actor: a proven Navigator call wins; otherwise the signed-in

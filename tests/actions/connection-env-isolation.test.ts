@@ -41,7 +41,7 @@ import type {
 } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-conn-env-isolation-", { fast: true });
+tempDataDir("zenith-conn-env-isolation-", { fast: true });
 const { runAction } = await import("@/lib/actions/core");
 const { db, resetDb } = await import("@/lib/db/store");
 await import("@/lib/actions/defs");
@@ -63,7 +63,7 @@ const member = (id: string, workspaceId: string, name: string): Member => ({
   id,
   workspaceId,
   name,
-  email: `${name.toLowerCase()}@orrery.test`,
+  email: `${name.toLowerCase()}@zenith.test`,
   role: "admin",
 });
 
@@ -74,7 +74,7 @@ const manifest = (serviceName: string): Manifest => ({
       id: `svc-${serviceName}`,
       name: serviceName,
       kind: "web",
-      source: { type: "image", image: "ghcr.io/orrery/hello-web:1" },
+      source: { type: "image", image: "ghcr.io/zenith/hello-web:1" },
       size: "small",
       replicas: 1,
       port: 3000,
@@ -122,7 +122,7 @@ const environment = (id: string, projectId: string, connectionId: string): Envir
   connectionId,
   region: "sim-a",
   policies: { approvalRequired: false, allowStatefulDeletion: false },
-  baseDomain: `${projectId}.orrery.app`,
+  baseDomain: `${projectId}.zenith.app`,
   createdAt: AT,
 });
 

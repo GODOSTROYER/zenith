@@ -59,7 +59,7 @@ function unreachable(detail: string, fix: string): never {
 async function main(): Promise<void> {
   const cfg = hostedConfig();
   const bucket = option("bucket") ?? cfg.ZENITH_BACKUP_S3_BUCKET;
-  const endpoint = option("endpoint") ?? cfg.ZENITH_BACKUP_S3_ENDPOINT ?? env().ORRERY_LOCALSTACK_ENDPOINT;
+  const endpoint = option("endpoint") ?? cfg.ZENITH_BACKUP_S3_ENDPOINT ?? env().ZENITH_LOCALSTACK_ENDPOINT;
   if (!bucket)
     unreachable(
       "no bucket was named.",

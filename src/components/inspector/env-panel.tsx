@@ -302,7 +302,7 @@ export function EnvPanel({ service }: EnvPanelProps) {
             label="Value"
             help={
               off
-                ? "Unavailable: this server has no secret store, so a value typed here could only be discarded. Set ORRERY_SECRET_KEY (above) to turn it on."
+                ? "Unavailable: this server has no secret store, so a value typed here could only be discarded. Set ZENITH_SECRET_KEY (above) to turn it on."
                 : "Stored encrypted on this Zenith server; the manifest keeps only the reference."
             }
           >

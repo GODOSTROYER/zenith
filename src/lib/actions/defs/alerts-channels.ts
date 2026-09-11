@@ -38,11 +38,11 @@ import {
 import { channelLabel, plural } from "./_shared";
 /* -------------------------------- channels -------------------------------- */
 
-const STATE_FILE = "this server's state file (<ORRERY_DATA>/state.json)";
+const STATE_FILE = "this server's state file (<ZENITH_DATA>/state.json)";
 
 /** The SMTP host, never the URL — the URL carries the password. */
 function smtpHost(): string | undefined {
-  const url = env().ORRERY_SMTP_URL;
+  const url = env().ZENITH_SMTP_URL;
   if (!url) return undefined;
   try {
     return new URL(url).host;
@@ -59,13 +59,13 @@ function whatWillBeSent(kind: AlertChannel["kind"], target: string): string {
   if (kind === "slack")
     return `Every alert this workspace raises — and every one that closes — is posted to ${where} as a Slack incoming-webhook message (text plus blocks): severity and summary on the first line, the detail under it, and a note when the condition was simulated.`;
   const host = smtpHost();
-  return `Every alert this workspace raises — and every one that closes — is emailed to ${target}${host ? ` through ${host}` : ""}, with the summary as the subject and the detail as the body. From: ${env().ORRERY_ALERT_FROM ?? "(ORRERY_ALERT_FROM is not set)"}.`;
+  return `Every alert this workspace raises — and every one that closes — is emailed to ${target}${host ? ` through ${host}` : ""}, with the summary as the subject and the detail as the body. From: ${env().ZENITH_ALERT_FROM ?? "(ZENITH_ALERT_FROM is not set)"}.`;
 }
 
 /** Where the credential ends up. Said on every channel plan, without exception. */
 function whereTheSecretLives(kind: AlertChannel["kind"], hasSecret: boolean): string {
   if (kind === "email")
-    return `The SMTP password lives in ORRERY_SMTP_URL in this server's environment, not in this channel — the channel holds only the recipient address.`;
+    return `The SMTP password lives in ZENITH_SMTP_URL in this server's environment, not in this channel — the channel holds only the recipient address.`;
   if (kind === "slack")
     return `A Slack incoming-webhook URL is itself the credential: anyone holding it can post to that channel. It is stored in plain text in ${STATE_FILE} and masked everywhere Zenith shows it, but anyone who can read this server's disk can read it.`;
   return hasSecret

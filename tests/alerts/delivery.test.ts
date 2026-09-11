@@ -16,9 +16,9 @@ import path from "node:path";
 import type { AlertChannel } from "@/lib/domain/types";
 import * as fixtures from "./_fixtures";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-delivery-"));
+process.env.ZENITH_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-delivery-"));
 // Collapses the delivery backoff, the same knob that collapses step durations.
-process.env.ORRERY_FAST = "1";
+process.env.ZENITH_FAST = "1";
 
 const { db, resetDb } = await import("@/lib/db/store");
 const {
@@ -95,8 +95,8 @@ function stubFetch(statuses: (number | Error)[]) {
 beforeEach(() => {
   seed();
   NODEMAILER.spec = "nodemailer";
-  delete process.env.ORRERY_SMTP_URL;
-  delete process.env.ORRERY_ALERT_FROM;
+  delete process.env.ZENITH_SMTP_URL;
+  delete process.env.ZENITH_ALERT_FROM;
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -345,7 +345,7 @@ describe("channel actions", () => {
       {
         kind: "webhook",
         name: "ops endpoint",
-        target: "https://example.test/hooks/orrery",
+        target: "https://example.test/hooks/zenith",
         secret: "hunter2",
       },
       { mode: "plan" }
@@ -353,7 +353,7 @@ describe("channel actions", () => {
     const details = plan!.details.join(" ");
     expect(plan!.blocked).toBeUndefined();
     expect(details).toContain("https://example.test/…"); // masked, even in the plan
-    expect(details).toContain("X-Orrery-Signature");
+    expect(details).toContain("X-Zenith-Signature");
     expect(details).toContain("plain text in this server's state file");
     expect(calls).toHaveLength(0); // planning sends nothing
 
@@ -363,7 +363,7 @@ describe("channel actions", () => {
       {
         kind: "webhook",
         name: "ops endpoint",
-        target: "https://example.test/hooks/orrery",
+        target: "https://example.test/hooks/zenith",
         secret: "hunter2",
       },
       { mode: "execute" }
@@ -375,7 +375,7 @@ describe("channel actions", () => {
     const dup = await runAction(
       "alerts.createChannel",
       ctx,
-      { kind: "webhook", name: "again", target: "https://example.test/hooks/orrery" },
+      { kind: "webhook", name: "again", target: "https://example.test/hooks/zenith" },
       { mode: "plan" }
     );
     expect(dup.plan?.blocked).toContain("already sends to this exact webhook target");
@@ -455,8 +455,8 @@ describe("channel actions", () => {
 
 describe("email", () => {
   it("refuses honestly when nodemailer is not installed, naming npm install", async () => {
-    process.env.ORRERY_SMTP_URL = "smtp://user:pass@smtp.example.test:587";
-    process.env.ORRERY_ALERT_FROM = "orrery@example.test";
+    process.env.ZENITH_SMTP_URL = "smtp://user:pass@smtp.example.test:587";
+    process.env.ZENITH_ALERT_FROM = "zenith@example.test";
     // Point the loader at something that cannot resolve: the refusal must be
     // the same whether or not the package happens to be installed here.
     NODEMAILER.spec = "nodemailer-not-installed-on-purpose";
@@ -478,19 +478,19 @@ describe("email", () => {
       msg
     );
     expect(result.ok).toBe(false);
-    expect(result.error).toContain("ORRERY_SMTP_URL");
+    expect(result.error).toContain("ZENITH_SMTP_URL");
     expect(result.attempts).toBe(1);
   });
 
   it("sends through the transport when one is available", async () => {
-    process.env.ORRERY_SMTP_URL = "smtp://user:pass@smtp.example.test:587";
-    process.env.ORRERY_ALERT_FROM = "Zenith <orrery@example.test>";
+    process.env.ZENITH_SMTP_URL = "smtp://user:pass@smtp.example.test:587";
+    process.env.ZENITH_ALERT_FROM = "Zenith <zenith@example.test>";
     const sent: Record<string, string>[] = [];
     // A stand-in for the package, resolved through the same seam a test uses to
     // prove the missing-package path. `vi.mock` cannot intercept a specifier
     // that does not resolve on disk.
     NODEMAILER.spec = new URL("./fake-nodemailer.mjs", import.meta.url).href;
-    (globalThis as { __orreryFakeMail?: unknown[] }).__orreryFakeMail = sent;
+    (globalThis as { __zenithFakeMail?: unknown[] }).__zenithFakeMail = sent;
 
     const result = await deliverToChannel(
       channel({ id: "mail", kind: "email", target: "ops@example.test" }),
@@ -499,7 +499,7 @@ describe("email", () => {
     expect(result.ok).toBe(true);
     expect(sent).toHaveLength(1);
     expect(sent[0].to).toBe("ops@example.test");
-    expect(sent[0].from).toBe("Zenith <orrery@example.test>");
+    expect(sent[0].from).toBe("Zenith <zenith@example.test>");
     expect(sent[0].subject).toContain(msg.title);
     expect(sent[0].text).toContain(msg.body);
   });

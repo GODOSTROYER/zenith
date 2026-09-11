@@ -1,5 +1,5 @@
 /**
- * `npm run setup` — one command between `git clone` and a running Orrery.
+ * `npm run setup` — one command between `git clone` and a running Zenith.
  *
  * It reports rather than requires: Node and Docker are checked and named, but
  * nothing here refuses to finish. Everything it does is idempotent and
@@ -29,7 +29,7 @@ function checkNode(): void {
   const major = Number(process.versions.node.split(".")[0]);
   if (major >= 20) return ok(`Node v${process.versions.node}`);
   problem(
-    `Node v${process.versions.node} is too old — Orrery needs 20 or newer.`,
+    `Node v${process.versions.node} is too old — Zenith needs 20 or newer.`,
     "Install Node 20+ from https://nodejs.org (or `nvm install 22`), then run `npm install && npm run setup` again."
   );
 }
@@ -52,7 +52,7 @@ function checkDocker(): boolean {
   if (res.signal || res.error) {
     problem(
       "`docker version` did not answer within 6s — the daemon is wedged or still starting.",
-      "On Windows this is usually the stale-socket crash: quit Docker Desktop, rename %LOCALAPPDATA%\\Docker\\run to run.stale, relaunch. See docs/RUNNING.md → Troubleshooting. Orrery runs without it."
+      "On Windows this is usually the stale-socket crash: quit Docker Desktop, rename %LOCALAPPDATA%\\Docker\\run to run.stale, relaunch. See docs/RUNNING.md → Troubleshooting. Zenith runs without it."
     );
     return false;
   }
@@ -71,7 +71,7 @@ function ensureEnvFile(): void {
   if (!fs.existsSync(ENV_EXAMPLE))
     return problem(
       ".env.local.example is missing, so there is nothing to copy from.",
-      "Restore it from git (`git checkout .env.local.example`) and run `npm run setup` again. Orrery still starts without .env.local — every variable in it is optional."
+      "Restore it from git (`git checkout .env.local.example`) and run `npm run setup` again. Zenith still starts without .env.local — every variable in it is optional."
     );
   fs.copyFileSync(ENV_EXAMPLE, ENV_FILE);
   ok("created .env.local from .env.local.example — every value in it is optional and blank by design.");
@@ -85,7 +85,7 @@ function ensureEnvFile(): void {
  * has work here and setup must not touch it.
  */
 function seedIfEmpty(): void {
-  const dir = path.resolve(process.env.ORRERY_DATA?.trim() || path.join(root, ".data"));
+  const dir = path.resolve(process.env.ZENITH_DATA?.trim() || path.join(root, ".data"));
   if (fs.existsSync(path.join(dir, "state.json")))
     return ok(`data directory ${dir} already has a database — not re-seeding (that would wipe it).`);
 
@@ -97,21 +97,21 @@ function seedIfEmpty(): void {
   if (res.status === 0) return ok('seeded the "Kepler Labs" demo workspace.');
   problem(
     `seeding failed (npm run seed exited ${res.status ?? "on a signal"}).`,
-    "Read the output above. Most often it is a stale .data directory — delete it and run `npm run seed` again. Orrery also starts empty and walks you through /onboarding."
+    "Read the output above. Most often it is a stale .data directory — delete it and run `npm run seed` again. Zenith also starts empty and walks you through /onboarding."
   );
 }
 
 /* --------------------------------- next steps ------------------------------- */
 
 function nextSteps(dockerUp: boolean): void {
-  const steps = [["npm run dev", "start Orrery on http://localhost:3400"]];
+  const steps = [["npm run dev", "start Zenith on http://localhost:3400"]];
 
   if (isSupabaseConfigured())
     steps.push(["npm run seed:users", "create the shared test accounts (Supabase keys are configured)"]);
   else
     steps.push([
       "(optional) add Supabase keys to .env.local",
-      "sign-in and multi-user; without them Orrery runs as a single local admin",
+      "sign-in and multi-user; without them Zenith runs as a single local admin",
     ]);
 
   if (dockerUp)
@@ -127,7 +127,7 @@ function nextSteps(dockerUp: boolean): void {
 
 /* ----------------------------------- main ----------------------------------- */
 
-console.log("\nOrrery setup\n");
+console.log("\nZenith setup\n");
 checkNode();
 const dockerUp = checkDocker();
 ensureEnvFile();

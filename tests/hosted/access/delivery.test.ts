@@ -5,7 +5,7 @@
  * Three outcomes, and none of them is "probably sent":
  *
  *  - No transport configured: the delivery row is born settled `failed`, with a
- *    reason that names `ORRERY_SMTP_URL`, and nothing is queued. The owner
+ *    reason that names `ZENITH_SMTP_URL`, and nothing is queued. The owner
  *    still has the link from the create response.
  *  - A transport that accepts: the outbox drains, the row says `sent` via
  *    `smtp` with the provider's id, and the sealed token is erased — so the
@@ -20,7 +20,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { isolatedDataDir, removeDir } from "../_fixtures";
 
 const dataDir = isolatedDataDir("zenith-access-delivery-");
-process.env.ORRERY_SECRET_KEY = "2".repeat(64);
+process.env.ZENITH_SECRET_KEY = "2".repeat(64);
 
 const { closeAuthority, flushOutbox, openAuthority } = await import("@/lib/hosted/authority");
 const {
@@ -46,17 +46,17 @@ interface FakeMail {
   subject: string;
   text: string;
 }
-type MailGlobal = typeof globalThis & { __orreryFakeMail?: FakeMail[]; __zenithFailedMail?: number };
+type MailGlobal = typeof globalThis & { __zenithFakeMail?: FakeMail[]; __zenithFailedMail?: number };
 
 beforeEach(() => {
-  (globalThis as MailGlobal).__orreryFakeMail = [];
+  (globalThis as MailGlobal).__zenithFakeMail = [];
   (globalThis as MailGlobal).__zenithFailedMail = 0;
 });
 
 afterEach(() => {
   NODEMAILER.spec = REAL_SPEC;
-  delete process.env.ORRERY_SMTP_URL;
-  delete process.env.ORRERY_ALERT_FROM;
+  delete process.env.ZENITH_SMTP_URL;
+  delete process.env.ZENITH_ALERT_FROM;
   delete process.env.ZENITH_INVITE_FROM;
 });
 
@@ -66,8 +66,8 @@ afterAll(() => {
 });
 
 const withSmtp = (): void => {
-  process.env.ORRERY_SMTP_URL = "smtp://user:pass@smtp.example.test:587";
-  process.env.ORRERY_ALERT_FROM = "Zenith <zenith@example.test>";
+  process.env.ZENITH_SMTP_URL = "smtp://user:pass@smtp.example.test:587";
+  process.env.ZENITH_ALERT_FROM = "Zenith <zenith@example.test>";
 };
 
 const app = (slug: string) => {
@@ -87,13 +87,13 @@ const sealedBytes = (deliveryId: string): Uint8Array | null => {
 
 describe("with no transport configured", () => {
   it("settles the delivery failed at creation, names the variable, and queues nothing", () => {
-    expect(inviteEmailProblem()).toContain("ORRERY_SMTP_URL");
+    expect(inviteEmailProblem()).toContain("ZENITH_SMTP_URL");
     const target = app("delivery-none");
     const issued = invite(target.id);
 
     expect(issued.delivery.state).toBe("failed");
     expect(issued.delivery.settledAt).toBeTruthy();
-    expect(issued.delivery.error).toContain("ORRERY_SMTP_URL");
+    expect(issued.delivery.error).toContain("ZENITH_SMTP_URL");
     // The contract's word for this is `transport: "none"`; the v1 schema's CHECK
     // constraint does not list it yet (see the integrator request), so the
     // column is NULL until that migration lands. Either way the row must not
@@ -131,7 +131,7 @@ describe("with a transport that accepts", () => {
     expect(sealedBytes(issued.delivery.id)).toBeNull();
     expect(a.repos.outbox.get(queued!.id)?.state).toBe("done");
 
-    const sent = (globalThis as MailGlobal).__orreryFakeMail ?? [];
+    const sent = (globalThis as MailGlobal).__zenithFakeMail ?? [];
     expect(sent).toHaveLength(1);
     expect(sent[0].to).toBe(IDENTITIES.stranger.email);
     expect(sent[0].from).toBe("Zenith <zenith@example.test>");
@@ -148,7 +148,7 @@ describe("with a transport that accepts", () => {
     invite(target.id);
 
     await flushOutbox({ kinds: ["invite_email"] });
-    const sent = (globalThis as MailGlobal).__orreryFakeMail ?? [];
+    const sent = (globalThis as MailGlobal).__zenithFakeMail ?? [];
     expect(sent[0].from).toBe("Invitations <invites@example.test>");
   });
 
@@ -161,7 +161,7 @@ describe("with a transport that accepts", () => {
     invite(target.id);
 
     await flushOutbox({ kinds: ["invite_email"] });
-    const sent = (globalThis as MailGlobal).__orreryFakeMail ?? [];
+    const sent = (globalThis as MailGlobal).__zenithFakeMail ?? [];
     expect(sent).toHaveLength(1);
     expect(a.repos.deliveries.get(first.delivery.id)).toMatchObject({ state: "failed" });
     expect(a.repos.deliveries.get(first.delivery.id)?.error).toContain("superseded");
@@ -220,12 +220,12 @@ describe("the sealed payload", () => {
       acceptUrl: "http://localhost:3400/apps/accept?token=x",
     });
 
-    const ours = process.env.ORRERY_SECRET_KEY;
-    process.env.ORRERY_SECRET_KEY = "9".repeat(64);
+    const ours = process.env.ZENITH_SECRET_KEY;
+    process.env.ZENITH_SECRET_KEY = "9".repeat(64);
     try {
       expect(() => unsealInvite(inviteId, sealed)).toThrow(/could not be opened/);
     } finally {
-      process.env.ORRERY_SECRET_KEY = ours;
+      process.env.ZENITH_SECRET_KEY = ours;
     }
     expect(unsealInvite(inviteId, sealed).appName).toBe("App other key");
   });

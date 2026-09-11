@@ -41,7 +41,7 @@ function nodeAndNpm(): Check[] {
       : {
           label: "Node",
           status: "fail",
-          detail: `v${process.versions.node} — Orrery needs 20 or newer (Next 15 and the --env-file flags this repo's scripts use).`,
+          detail: `v${process.versions.node} — Zenith needs 20 or newer (Next 15 and the --env-file flags this repo's scripts use).`,
           fix: "Install Node 20+ from https://nodejs.org (or `nvm install 22`), then re-run.",
         };
 
@@ -116,7 +116,7 @@ async function localstack(endpoint: string): Promise<Check> {
       ? {
           label: "LocalStack",
           status: "warn",
-          detail: `up at ${endpoint}, but ${missing.join(" and ")} not available — those are the two Orrery provisions for real.`,
+          detail: `up at ${endpoint}, but ${missing.join(" and ")} not available — those are the two Zenith provisions for real.`,
           fix: "Set SERVICES=s3,sqs on the container (docker-compose.yml already does) and restart it.",
         }
       : {
@@ -132,7 +132,7 @@ async function localstack(endpoint: string): Promise<Check> {
       detail: timedOut
         ? `${url} did not answer within 2.5s — something holds the port but is not answering.`
         : `nothing answered at ${url}.`,
-      fix: "Optional. `npm run localstack:up` starts it. If the port is held by something else, point ORRERY_LOCALSTACK_ENDPOINT elsewhere.",
+      fix: "Optional. `npm run localstack:up` starts it. If the port is held by something else, point ZENITH_LOCALSTACK_ENDPOINT elsewhere.",
     };
   }
 }
@@ -147,33 +147,33 @@ function supabase(): Check {
   return {
     label: "Supabase auth",
     status: "warn",
-    detail: "not configured — Orrery runs in local demo mode as a single admin user.",
+    detail: "not configured — Zenith runs in local demo mode as a single admin user.",
     fix: "Optional. Put NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in .env.local (see .env.local.example), then restart the dev server.",
   };
 }
 
 function secretKey(): Check {
-  const raw = val("ORRERY_SECRET_KEY");
+  const raw = val("ZENITH_SECRET_KEY");
   if (!raw)
     return {
       label: "Secret store",
       status: "warn",
-      detail: "ORRERY_SECRET_KEY unset — every secret write is refused (Orrery says so rather than pretending).",
+      detail: "ZENITH_SECRET_KEY unset — every secret write is refused (Zenith says so rather than pretending).",
       fix: `Optional. ${SECRET_KEY_FIX}`,
     };
   return decodeSecretKey(raw)
-    ? { label: "Secret store", status: "ok", detail: "ORRERY_SECRET_KEY decodes to 32 bytes." }
+    ? { label: "Secret store", status: "ok", detail: "ZENITH_SECRET_KEY decodes to 32 bytes." }
     : {
         label: "Secret store",
         status: "fail",
-        detail: `ORRERY_SECRET_KEY is set (${raw.length} chars, hidden) but does not decode to 32 bytes — the server refuses to boot on this.`,
+        detail: `ZENITH_SECRET_KEY is set (${raw.length} chars, hidden) but does not decode to 32 bytes — the server refuses to boot on this.`,
         fix: SECRET_KEY_FIX,
       };
 }
 
 function smtp(): Check {
-  const url = val("ORRERY_SMTP_URL");
-  const from = val("ORRERY_ALERT_FROM");
+  const url = val("ZENITH_SMTP_URL");
+  const from = val("ZENITH_ALERT_FROM");
   if (!url && !from)
     return {
       label: "Email alerts",
@@ -185,7 +185,7 @@ function smtp(): Check {
     return {
       label: "Email alerts",
       status: "fail",
-      detail: `${url ? "ORRERY_ALERT_FROM" : "ORRERY_SMTP_URL"} is missing — the two are only useful together, so every send is refused.`,
+      detail: `${url ? "ZENITH_ALERT_FROM" : "ZENITH_SMTP_URL"} is missing — the two are only useful together, so every send is refused.`,
       fix: SMTP_FIX,
     };
   return { label: "Email alerts", status: "ok", detail: `SMTP configured, from ${from}.` };
@@ -193,7 +193,7 @@ function smtp(): Check {
 
 function dataDir(dir: string): Check {
   const resolved = path.resolve(dir);
-  const lock = path.join(resolved, ".orrery.lock");
+  const lock = path.join(resolved, ".zenith.lock");
 
   if (!fs.existsSync(resolved))
     return {
@@ -231,7 +231,7 @@ function dataDir(dir: string): Check {
         label: "Data directory",
         status: "ok",
         detail: `${resolved} — held by pid ${holder.pid} since ${holder.startedAt ?? "?"}${holder.cwd && holder.cwd !== process.cwd() ? ` (started from ${holder.cwd})` : ""}.`,
-        fix: "Expected if a dev server is running. A second process against this directory would silently overwrite its writes — give it ORRERY_DATA=<other path>.",
+        fix: "Expected if a dev server is running. A second process against this directory would silently overwrite its writes — give it ZENITH_DATA=<other path>.",
       }
     : {
         // Not a warning: data-lock reclaims a dead holder's file on the next
@@ -249,14 +249,14 @@ async function main() {
 
   // env() throws on an invalid variable. Doctor is what you run *because* it
   // throws, so the failure is a line here and the defaults carry the rest.
-  let endpoint = val("ORRERY_LOCALSTACK_ENDPOINT") || "http://localhost:4566";
-  let data = val("ORRERY_DATA") || path.join(process.cwd(), ".data");
+  let endpoint = val("ZENITH_LOCALSTACK_ENDPOINT") || "http://localhost:4566";
+  let data = val("ZENITH_DATA") || path.join(process.cwd(), ".data");
   try {
     const { env } = await import("../src/lib/env");
     const e = env();
-    endpoint = e.ORRERY_LOCALSTACK_ENDPOINT;
-    data = e.ORRERY_DATA;
-    checks.push({ label: "Environment", status: "ok", detail: "every ORRERY_* variable validates." });
+    endpoint = e.ZENITH_LOCALSTACK_ENDPOINT;
+    data = e.ZENITH_DATA;
+    checks.push({ label: "Environment", status: "ok", detail: "every ZENITH_* variable validates." });
   } catch (err) {
     checks.push({
       label: "Environment",
@@ -269,7 +269,7 @@ async function main() {
   checks.push(docker(), await localstack(endpoint), supabase(), secretKey(), smtp(), dataDir(data));
 
   const width = Math.max(...checks.map((c) => c.label.length));
-  console.log("\nOrrery doctor\n");
+  console.log("\nZenith doctor\n");
   for (const c of checks) {
     console.log(`${MARK[c.status]} ${c.label.padEnd(width)}  ${c.detail}`);
     if (c.fix && c.status !== "ok") console.log(`${" ".repeat(width + 4)}→ ${c.fix}`);
@@ -279,7 +279,7 @@ async function main() {
   const warned = checks.filter((c) => c.status === "warn");
   console.log(
     failed.length
-      ? `\n${failed.length} blocking problem(s): ${failed.map((c) => c.label).join(", ")}. Orrery will not start until those are fixed.`
+      ? `\n${failed.length} blocking problem(s): ${failed.map((c) => c.label).join(", ")}. Zenith will not start until those are fixed.`
       : warned.length
         ? `\nReady to run. ${warned.length} optional feature(s) are off: ${warned.map((c) => c.label).join(", ")}.`
         : "\nEverything configured and reachable."

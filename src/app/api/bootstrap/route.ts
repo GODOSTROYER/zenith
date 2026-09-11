@@ -183,7 +183,7 @@ export const GET = route(async (req) => {
       .map((c) => ({
         ...c,
         // Presentation alias only. Do not rename stored/user-defined connections.
-        label: c.provider === "sandbox" && c.label === "Orrery Sandbox" ? "Zenith Sandbox" : c.label,
+        label: c.provider === "sandbox" && c.label === "Zenith Sandbox" ? "Zenith Sandbox" : c.label,
         declaredPermissions: permissions.get(c.provider) ?? c.grantedPermissions,
       })),
     providers: providers(),

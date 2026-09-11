@@ -17,9 +17,9 @@ if (fs.existsSync(envPath)) {
 }
 
 export const TEST_ACCOUNTS = [
-  { email: "arnav@orrery.test", password: "orrery-owner-2026!", name: "Arnav (owner)", role: "admin" },
-  { email: "claude@orrery.test", password: "orrery-claude-2026!", name: "Claude (tester)", role: "editor" },
-  { email: "sai@orrery.test", password: "orrery-sai-2026!", name: "Sai (collaborator)", role: "editor" },
+  { email: "arnav@zenith.test", password: "zenith-owner-2026!", name: "Arnav (owner)", role: "admin" },
+  { email: "claude@zenith.test", password: "zenith-claude-2026!", name: "Claude (tester)", role: "editor" },
+  { email: "sai@zenith.test", password: "zenith-sai-2026!", name: "Sai (collaborator)", role: "editor" },
 ] as const;
 
 async function main() {

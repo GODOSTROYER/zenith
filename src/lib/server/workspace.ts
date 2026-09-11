@@ -17,7 +17,7 @@ import { ensureMember } from "@/lib/server/membership";
 import { currentRequest } from "@/lib/server/request";
 import type { SseGuard } from "@/lib/server/sse";
 
-export const WORKSPACE_COOKIE = "orrery-workspace";
+export const WORKSPACE_COOKIE = "zenith-workspace";
 
 /**
  * Workspaces this caller may act in. Demo mode (no Supabase keys) is one local

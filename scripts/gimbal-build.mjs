@@ -364,7 +364,7 @@ async function createSheets(components, metrics) {
     await writePng(sharp(Buffer.from(graphic)), path.join(OUTPUT, 'poses', `${state}.png`));
   }
   const width = 1600, height = 700;
-  let body = text(56, 63, 'GIMBAL', 30, '#eef3f9', 'letter-spacing="5"') + text(58, 96, 'NAVIGATOR  /  PRODUCTION CHARACTER  /  ORRERY', 12, '#8e9dac', 'letter-spacing="2"');
+  let body = text(56, 63, 'GIMBAL', 30, '#eef3f9', 'letter-spacing="5"') + text(58, 96, 'NAVIGATOR  /  PRODUCTION CHARACTER  /  ZENITH', 12, '#8e9dac', 'letter-spacing="2"');
   const views = [['FRONT', 0, false], ['THREE-QUARTER', 0.55, false], ['SIDE', 1.57, false], ['SILHOUETTE', 0, true]];
   views.forEach(([label, yaw, silhouette], i) => {
     const cx = 216 + i * 389;
@@ -451,7 +451,7 @@ await fs.writeFile(path.join(OUTPUT, 'icon-monochrome.svg'), iconSvg('#d9e3ef'))
 await fs.writeFile(path.join(OUTPUT, 'icon-grayscale.svg'), iconSvg('#9eabb9'));
 for (const size of [16, 24, 32]) await fs.writeFile(path.join(OUTPUT, `icon-${size}.svg`), iconSvg('#a78bfa', size));
 const manifest = {
-  name: 'Gimbal', role: 'Navigator', version: 1, provenance: 'Original procedural geometry authored for Orrery; see scripts/gimbal-build.mjs.',
+  name: 'Gimbal', role: 'Navigator', version: 1, provenance: 'Original procedural geometry authored for Zenith; see scripts/gimbal-build.mjs.',
   coordinateSystem: { up: '+Y', front: '+Z', target: [0, 0, 0], recommendedCamera: [3, 1, 8], orthographicHeight: 4.2 },
   lods: metrics, skeleton: { bones: RIG.length, hierarchy: RIG.map(([name, parent, translation]) => ({ name, parent, translation })) },
   materials: MATERIAL_NAMES, drawCalls: 4, atlas: { width: 1024, height: 1024, encoding: 'KTX2 Basis ETC1S', file: '/gimbal/atlas.ktx2', source: '/gimbal/atlas.png', shared: true },

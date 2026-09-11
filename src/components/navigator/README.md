@@ -1,4 +1,4 @@
-# components/navigator — the agent surface
+# components/navigator â€” the agent surface
 
 `navigator-screen.tsx` is the screen; `command-bar.tsx` takes the instruction,
 `autonomy-dial.tsx` sets how far it may go alone, `run-panel.tsx` and
@@ -24,7 +24,7 @@ matches are identified as the current working copy, with links to the matching
 System node. A recorded deployment ID links to its exact Deploys entry. Review,
 approval, cancellation and execution continue through the existing action path.
 
-This is the only area allowed to use the `nav-accent` token — agent activity
+This is the only area allowed to use the `nav-accent` token â€” agent activity
 must stay recognisable at a glance (see `docs/DESIGN.md`). Planning and
 execution live in `src/lib/navigator`; nothing here decides what a run does.
 Gimbal motion is likewise presentational: it reads the run state and never
@@ -36,7 +36,7 @@ rings, each moving across all axes at different, slowly varying rates. State
 changes preserve orbit phase and ease expressions, orientation and color over
 roughly a second. A filtered energy pulse gradually decays over several seconds;
 settled states continue a calm orbit. Small blinks/winks occur at irregular
-5–12 second intervals. Hover gives a glance; tap or keyboard activation gives
+5â€“12 second intervals. Hover gives a glance; tap or keyboard activation gives
 a wink (a blink during Applying or Blocked), with a cooldown.
 
 `GimbalCharacter` accepts `material="porcelain"` for the product workspace and
@@ -48,14 +48,13 @@ Material choice never changes workflow state or verification eligibility.
 The renderer creates its own geometry and materials; it downloads no GLB,
 texture atlas or decoder. The earlier full-body assets remain in `public/gimbal`
 as an archive, documented in `docs/gimbal-assets.md`. The SVG fallback matches
-the new face-and-rings silhouette. Rendering uses antialiasing, smooth geometry, 60fps motion and 2�3x pixel density
+the new face-and-rings silhouette. Rendering uses antialiasing, smooth geometry, 60fps motion and 2–3x pixel density
 (with a 4096px drawing-buffer dimension limit). There are no quality or motion
 selectors. System reduced motion stops frames without lowering visual quality;
 offscreen and hidden views pause without catching up.
 Visibility is checked again after the lazy renderer import; a tab or scene that
 became hidden does not initialize GPU resources or consume its recovery retry.
-All geometry/materials are disposed once on unmount or context loss. The saved hide preference retains its `orrery-gimbal-visible` key. The retired
-`orrery-gimbal-motion` value is left untouched but no longer read or written.
+All geometry/materials are disposed once on unmount or context loss. The saved hide preference is stored under the `zenith-gimbal-visible` key.
 
 Completion alone is not verification. After all steps finish successfully,
 `src/lib/navigator/run.ts` calls `verifyRun` from `verification.ts`, persists the

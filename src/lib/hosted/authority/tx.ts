@@ -69,7 +69,7 @@ function sleep(ms: number): void {
 }
 
 const backoffFor = (attempt: number): number => {
-  if (env().ORRERY_FAST) return 0;
+  if (env().ZENITH_FAST) return 0;
   return TX_BACKOFF_MS[Math.min(attempt, TX_BACKOFF_MS.length) - 1] ?? 0;
 };
 
@@ -78,7 +78,7 @@ const busy = (err: unknown, attempts: number): HostedError =>
     "policy_unavailable",
     `The hosted control database stayed locked by another writer through ${attempts} attempt${attempts === 1 ? "" : "s"}, so this change was not made and nothing was half-written.`,
     {
-      fix: "Retry the request. If it keeps happening, a second process is holding the same ORRERY_DATA directory — stop it, or give this one its own directory with ORRERY_DATA=<path> (see src/lib/data-lock.ts).",
+      fix: "Retry the request. If it keeps happening, a second process is holding the same ZENITH_DATA directory — stop it, or give this one its own directory with ZENITH_DATA=<path> (see src/lib/data-lock.ts).",
       details: { attempts, reason: "sqlite_busy" },
     }
   );

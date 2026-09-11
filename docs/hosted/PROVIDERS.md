@@ -99,11 +99,11 @@ gates to prove live, not properties inherited by adding the SDK.
 | Approval | None. | Billable + account + region decision (feeds [DATA-LIFECYCLE.md](DATA-LIFECYCLE.md)). |
 | Cost | None. | **Unverified.** No provider, plan, storage class or region selected. |
 
-`ZENITH_ARTIFACT_DIR` (default `<ORRERY_DATA>/artifacts`) holds the
+`ZENITH_ARTIFACT_DIR` (default `<ZENITH_DATA>/artifacts`) holds the
 content-addressed store. It is on the same volume by default; a host loss
 loses it unless it is in the backup set.
 
-`ZENITH_BACKUP_KEY` must be **distinct from `ORRERY_SECRET_KEY`** and
+`ZENITH_BACKUP_KEY` must be **distinct from `ZENITH_SECRET_KEY`** and
 recoverable independently of the host. Custody is `unknown`. There is no
 key-rotation tooling and no re-wrap command for the existing secret store; the
 same limitation applies to backups until W8 proves otherwise.
@@ -112,7 +112,7 @@ same limitation applies to backups until W8 proves otherwise.
 
 | Item | State |
 | --- | --- |
-| Variables | `ORRERY_SMTP_URL` (carries the password; never echoed), `ORRERY_ALERT_FROM`, `ZENITH_INVITE_FROM`, and the `nodemailer` package installed. |
+| Variables | `ZENITH_SMTP_URL` (carries the password; never echoed), `ZENITH_ALERT_FROM`, `ZENITH_INVITE_FROM`, and the `nodemailer` package installed. |
 | Provider | `unknown`. Not selected. |
 | Verified in this repo | The existing alert path sends real SMTP when configured, and reports the missing variable or `npm install` as the delivery failure rather than dropping silently. Hosted invitations use a **separate** transactional outbox (`R3-11`, W5), not the alert outbox. |
 | Unverified live | That an invitation reaches an external mailbox. |

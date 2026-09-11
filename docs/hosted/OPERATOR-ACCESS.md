@@ -29,7 +29,7 @@ Each must be a **separate credential**, not the same token used four ways.
 | **Control** | Operate the control service, read/write the authority, manage grants | Run submitted code; hold the backup key | `unknown` | `[ ]` |
 | **Build** | Run the pinned recipe, read one submitted source, write one artifact | Read the control database, platform secrets, other tenants' sources or the publisher credential | `unknown` | `[ ]` |
 | **Publisher** | Verify artifact bytes and activate a release | Build; read customer records | `unknown` | `[ ]` |
-| **Recovery** | Decrypt and restore backups | Be stored on the control host, or be the same key as `ORRERY_SECRET_KEY` | `unknown` | `[ ]` |
+| **Recovery** | Decrypt and restore backups | Be stored on the control host, or be the same key as `ZENITH_SECRET_KEY` | `unknown` | `[ ]` |
 
 - `[ ]` The four roles are enumerated with a named human owner each.
 - `[ ]` Where one person holds several roles, that is written down with the
@@ -62,12 +62,12 @@ One row per credential that can reach customer data, source, backups or DNS.
 
 | Credential | Provider | Scope | Where stored | Rotation interval | Last rotated | Owner |
 | --- | --- | --- | --- | --- | --- | --- |
-| `ORRERY_SECRET_KEY` | self | Workspace secret store | `unknown` | `unknown` | `unknown` | `unknown` |
+| `ZENITH_SECRET_KEY` | self | Workspace secret store | `unknown` | `unknown` | `unknown` | `unknown` |
 | `ZENITH_BACKUP_KEY` | self | Backup decryption | `unknown` — must be off the control host | `unknown` | `unknown` | `unknown` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase | Full project access | `unknown` | `unknown` | `unknown` | `unknown` |
 | `ZENITH_CF_API_TOKEN` | Cloudflare | `unknown` | not issued | `unknown` | n/a | `unknown` |
 | `E2B_API_KEY` | E2B | `unknown` | not issued | `unknown` | n/a | `unknown` |
-| `ORRERY_SMTP_URL` | email provider | Send | `unknown` | `unknown` | `unknown` | `unknown` |
+| `ZENITH_SMTP_URL` | email provider | Send | `unknown` | `unknown` | `unknown` | `unknown` |
 | `ZENITH_POLICY_SHARED_SECRET` | self | Gateway↔policy | `unknown` | `unknown` | `unknown` | `unknown` |
 | `ZENITH_EVENTS_SALT` | self | Subject pseudonymisation | `unknown` | `unknown` — **rotating it breaks cohort continuity**; decide before the first pilot | `unknown` | `unknown` |
 | Host / DNS / registrar logins | `unknown` | `unknown` | `unknown` | `unknown` | `unknown` | `unknown` |
@@ -75,11 +75,11 @@ One row per credential that can reach customer data, source, backups or DNS.
 - `[ ]` Every credential above has a real row, not a placeholder.
 - `[ ]` No credential appears in a repository, a screenshot, a chat message, a
   CI log or an evidence file.
-- `[ ]` `ZENITH_BACKUP_KEY` is provably different from `ORRERY_SECRET_KEY`.
+- `[ ]` `ZENITH_BACKUP_KEY` is provably different from `ZENITH_SECRET_KEY`.
 - `[ ]` Losing any single credential has a written recovery path.
 - `[ ]` **Known limitation, unchanged:** the existing secret store has no
   rotation tooling and no re-wrap command — values written under an old
-  `ORRERY_SECRET_KEY` cannot be read back. A rotation plan must account for
+  `ZENITH_SECRET_KEY` cannot be read back. A rotation plan must account for
   that, not assume it away.
 
 ## 4. Access review
@@ -140,7 +140,7 @@ an acceptance record
   `secrets.json`, `control.sqlite`, per-app databases, artifacts.
 - `[ ]` Confirm `ZENITH_BACKUP_KEY` was **not** on that host, so the backups
   are still confidential.
-- `[ ]` Rotate `ORRERY_SECRET_KEY` — and confront the no-re-wrap limitation in
+- `[ ]` Rotate `ZENITH_SECRET_KEY` — and confront the no-re-wrap limitation in
   §3 before, not during, the incident.
 - `[ ]` Terminate every app session and platform session.
 - `[ ]` Rebuild on a clean host from a backup taken **before** the compromise

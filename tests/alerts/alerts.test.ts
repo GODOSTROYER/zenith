@@ -10,7 +10,7 @@ import path from "node:path";
 import type { Deployment, Environment, Manifest, Project, Revision } from "@/lib/domain/types";
 import * as fixtures from "./_fixtures";
 
-process.env.ORRERY_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "orrery-alerts-"));
+process.env.ZENITH_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-alerts-"));
 
 const { db, flush, resetDb } = await import("@/lib/db/store");
 const { evaluateAll, evaluateRule, eventPage, openEventFor, rulesOf } = await import(
@@ -326,7 +326,7 @@ describe("durability", () => {
 
     flush();
     // Drop the in-process cache: the next db() reads state.json from disk.
-    delete (globalThis as { __orreryDb?: unknown }).__orreryDb;
+    delete (globalThis as { __zenithDb?: unknown }).__zenithDb;
 
     expect(db().alertEvents).toEqual(before);
     expect(db().alertRules.map((r) => r.id)).toEqual([ruleId]);

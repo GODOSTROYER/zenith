@@ -26,7 +26,7 @@ import type { ActionContext, ActionPlan } from "@/lib/actions/core";
 import type { Manifest } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-stateful-", { fast: true });
+tempDataDir("zenith-stateful-", { fast: true });
 const { runAction } = await import("@/lib/actions/core");
 const { resetDb, db, q, save } = await import("@/lib/db/store");
 await import("@/lib/actions/defs");

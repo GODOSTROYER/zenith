@@ -31,8 +31,8 @@ import type { ActionContext } from "@/lib/actions/core";
 import type { Manifest, Revision } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
-const DATA = tempDataDir("orrery-ns-");
-process.env.ORRERY_SECRET_KEY = crypto.randomBytes(32).toString("base64");
+const DATA = tempDataDir("zenith-ns-");
+process.env.ZENITH_SECRET_KEY = crypto.randomBytes(32).toString("base64");
 
 const { runAction } = await import("@/lib/actions/core");
 const { db, flush, q, readAudit, resetDb } = await import("@/lib/db/store");
@@ -367,7 +367,7 @@ describe("a value a live revision still reads is kept, not deleted", () => {
       region: "local-1",
       deployedRevisionId: revision.id,
       policies: { approvalRequired: false, allowStatefulDeletion: false },
-      baseDomain: "atlas.orrery.test",
+      baseDomain: "atlas.zenith.test",
       createdAt: new Date().toISOString(),
     });
     flush(); // moves the revision's manifest to its side file, as a deploy would
@@ -410,7 +410,7 @@ describe("namespaced or legacy, the value stays in the store", () => {
         connectionId: "conn-sandbox",
         region: "local-1",
         policies: { approvalRequired: false, allowStatefulDeletion: false },
-        baseDomain: "atlas.orrery.test",
+        baseDomain: "atlas.zenith.test",
         createdAt: new Date().toISOString(),
       },
       manifest()

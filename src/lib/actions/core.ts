@@ -88,12 +88,12 @@ export interface ActionDef<I = unknown> {
 
 /* -------------------------------- registry -------------------------------- */
 
-type G = typeof globalThis & { __orreryActions?: Map<string, ActionDef<unknown>> };
+type G = typeof globalThis & { __zenithActions?: Map<string, ActionDef<unknown>> };
 
 export function actionRegistry(): Map<string, ActionDef<unknown>> {
   const g = globalThis as G;
-  if (!g.__orreryActions) g.__orreryActions = new Map();
-  return g.__orreryActions;
+  if (!g.__zenithActions) g.__zenithActions = new Map();
+  return g.__zenithActions;
 }
 
 export function defineAction<I>(def: ActionDef<I>): ActionDef<I> {
@@ -158,12 +158,12 @@ interface IdemEntry {
   result: ActionResult;
 }
 
-type GI = typeof globalThis & { __orreryIdem?: Map<string, IdemEntry> };
+type GI = typeof globalThis & { __zenithIdem?: Map<string, IdemEntry> };
 
 function idemCache(): Map<string, IdemEntry> {
   const g = globalThis as GI;
-  if (!g.__orreryIdem) g.__orreryIdem = new Map();
-  return g.__orreryIdem;
+  if (!g.__zenithIdem) g.__zenithIdem = new Map();
+  return g.__zenithIdem;
 }
 
 function idemGet(key: string): ActionResult | undefined {

@@ -2,7 +2,7 @@
 
 ## Review boundary
 
-Work is on `codex/orrery-integration`, based on `security-hardening` at
+Work is on `codex/zenith-integration`, based on `security-hardening` at
 `e38cf87`. Nothing was pushed or deployed. Existing Gimbal improvements were
 preserved and included. The pre-existing `.gitignore` edit remains uncommitted.
 No authentication configuration or user data was changed for browser testing.

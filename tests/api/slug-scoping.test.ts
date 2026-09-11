@@ -22,7 +22,7 @@ import type { Environment, Manifest, Member, Project, Workspace } from "@/lib/do
 import type { SessionUser } from "@/lib/auth/session";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-slug-");
+tempDataDir("zenith-slug-");
 // Tenancy only exists once auth does: demo mode has one local user in every
 // workspace, so there would be nothing to isolate.
 process.env.NEXT_PUBLIC_SUPABASE_URL = "http://127.0.0.1:54321";
@@ -40,8 +40,8 @@ const { GET: auditGet } = await import("@/app/api/projects/[id]/audit/route");
 const { GET: alertsGet } = await import("@/app/api/projects/[id]/alerts/route");
 
 const AT = "2026-01-01T00:00:00.000Z";
-const ada: SessionUser = { id: "u-ada", email: "ada@orrery.test", name: "Ada" };
-const bo: SessionUser = { id: "u-bo", email: "bo@orrery.test", name: "Bo" };
+const ada: SessionUser = { id: "u-ada", email: "ada@zenith.test", name: "Ada" };
+const bo: SessionUser = { id: "u-bo", email: "bo@zenith.test", name: "Bo" };
 
 const manifest = (): Manifest => ({
   version: 1,

@@ -19,7 +19,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const LOCK_FILE = ".orrery.lock";
+const LOCK_FILE = ".zenith.lock";
 
 interface Holder {
   pid: number;
@@ -65,10 +65,10 @@ export function claimDataDir(dataDir: string): void {
     throw new Error(
       `Another Zenith process (pid ${held.pid}, started ${held.startedAt}) is already using the data directory ${dir}. ` +
         `Zenith keeps the whole database in memory and rewrites it on save, so a second process would silently overwrite the first one's writes. ` +
-        `Fix: stop that process, or give this one its own directory with ORRERY_DATA=<path>. ` +
+        `Fix: stop that process, or give this one its own directory with ZENITH_DATA=<path>. ` +
         `If pid ${held.pid} is gone, delete ${file} and start again.` +
         (held.cwd !== process.cwd()
-          ? ` (That process ran from ${held.cwd}; this one runs from ${process.cwd()}. ORRERY_DATA is resolved relative to the working directory when it is not absolute, so the two can disagree about where the database lives.)`
+          ? ` (That process ran from ${held.cwd}; this one runs from ${process.cwd()}. ZENITH_DATA is resolved relative to the working directory when it is not absolute, so the two can disagree about where the database lives.)`
           : "")
     );
   }

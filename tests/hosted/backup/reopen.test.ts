@@ -80,7 +80,7 @@ describe("reopenApp after a restore", () => {
     expect(fs.existsSync(artifactFile(digest))).toBe(true);
 
     // From here on, this process *is* the restored install.
-    process.env.ORRERY_DATA = restoredDir;
+    process.env.ZENITH_DATA = restoredDir;
     a = openAuthority();
     expect(a.repos.apps.get(app.id)?.state).toBe("recovering");
   }, 60_000);

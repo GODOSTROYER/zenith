@@ -11,7 +11,7 @@ import type { ActionContext } from "@/lib/actions/core";
 import { emptyManifest, type CloudConnection, type Deployment } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-envlife-", { fast: true });
+tempDataDir("zenith-envlife-", { fast: true });
 const { runAction } = await import("@/lib/actions/core");
 const { db, resetDb, q, save } = await import("@/lib/db/store");
 await import("@/lib/actions/defs");

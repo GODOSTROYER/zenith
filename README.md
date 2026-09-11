@@ -20,7 +20,7 @@ operations README — mean there is no lock-in.
 | **License** | No license file yet |
 
 The platform is now Zenith; Gimbal remains its Navigator character. Existing
-`ORRERY_*` configuration, storage namespaces and export filenames remain compatible.
+`ZENITH_*` configuration, storage namespaces and export filenames remain compatible.
 See [the identity and compatibility notes](docs/BRANDING.md).
 
 ## Start with Gimbal
@@ -136,9 +136,9 @@ users.
 
 | Email | Password | Role |
 | --- | --- | --- |
-| `arnav@orrery.test` | `orrery-owner-2026!` | admin |
-| `claude@orrery.test` | `orrery-claude-2026!` | editor |
-| `sai@orrery.test` | `orrery-sai-2026!` | editor |
+| `arnav@zenith.test` | `zenith-owner-2026!` | admin |
+| `claude@zenith.test` | `zenith-claude-2026!` | editor |
+| `sai@zenith.test` | `zenith-sai-2026!` | editor |
 
 ---
 
@@ -156,7 +156,7 @@ passes the cap, not after the bill arrives.
 
 ### System Map — `/p/<project>`
 
-![System map of the atlas project: a route node app.atlas.orrery.app on the left feeding web and worker service nodes, which fan out to sessions, mail, cache, res1, jobs and postgres nodes on the right, edges labelled http, cache, smtp, sql, queue_publish and queue_consume, a res1 node badged "new" with a dashed outline and a jobs node badged "drift", and a pill at the bottom reading "1 pending change · +$26.00/mo · Review"](docs/screenshots/system-map.png)
+![System map of the atlas project: a route node app.atlas.zenith.app on the left feeding web and worker service nodes, which fan out to sessions, mail, cache, res1, jobs and postgres nodes on the right, edges labelled http, cache, smtp, sql, queue_publish and queue_consume, a res1 node badged "new" with a dashed outline and a jobs node badged "drift", and a pill at the bottom reading "1 pending change · +$26.00/mo · Review"](docs/screenshots/system-map.png)
 
 The centerpiece, and the clearest expression of **a map that cannot lie**:
 layout is computed from the graph into three strata — Routes, Services,
@@ -180,7 +180,7 @@ disabled with the reason, never hidden.
 
 ### Source — `/p/<project>/source`
 
-![Source screen showing Working copy, Deployed (r5) and Export tabs, a Read/Edit toggle, the counts "157 lines · 2 services · 6 resources · 9 bindings", and the orrery.manifest.json contents with line numbers](docs/screenshots/source.png)
+![Source screen showing Working copy, Deployed (r5) and Export tabs, a Read/Edit toggle, the counts "157 lines · 2 services · 6 resources · 9 bindings", and the zenith.manifest.json contents with line numbers](docs/screenshots/source.png)
 
 The same manifest the map draws, as JSON you can read, edit and validate.
 Working copy and deployed revision sit side by side as tabs, and Export produces
@@ -320,8 +320,8 @@ so anyone can see what an action would do before asking for it. Auth is optional
 with no Supabase keys Zenith is one local admin user, and says so.
 
 **Secrets.** The manifest holds only `vault:<KEY>`; the value lives in
-`<ORRERY_DATA>/secrets.json` under AES-256-GCM, and reaches no diff, revision,
-audit row, browser payload or export. Without `ORRERY_SECRET_KEY` the store is
+`<ZENITH_DATA>/secrets.json` under AES-256-GCM, and reaches no diff, revision,
+audit row, browser payload or export. Without `ZENITH_SECRET_KEY` the store is
 *not configured* and every write is refused saying so — it never degrades to
 plaintext.
 
@@ -380,17 +380,17 @@ accepts, never a silent default. Full table and build-time caveats in
 
 | Variable | Purpose | Default |
 | --- | --- | --- |
-| `ORRERY_DATA` | Data directory: snapshot, revisions, event and audit logs. One process per directory | `./.data` |
-| `ORRERY_FAST` | `1` collapses simulated step durations; used by tests and smoke | `0` |
-| `ORRERY_LOCALSTACK_ENDPOINT` | LocalStack edge endpoint | `http://localhost:4566` |
-| `ORRERY_LOG_LEVEL` | `debug` \| `info` \| `warn` \| `error` | `info` |
-| `ORRERY_LLM_MODEL` | Model for the Navigator's language front-end; used only with `ANTHROPIC_API_KEY` | `claude-opus-5` |
-| `ORRERY_SECRET_KEY` | 32 bytes (base64 or hex) encrypting the secret store. Unset means every secret write is refused, saying so | unset |
-| `ORRERY_STEP_TIMEOUT_MS` | Per-step deadline for a deployment step | `300000` |
-| `ORRERY_SMTP_URL` | SMTP server for email alert channels. Carries the password, so it is never echoed | unset |
-| `ORRERY_ALERT_FROM` | From address on alert email. Required alongside `ORRERY_SMTP_URL` | unset |
-| `ORRERY_SEED_FORCE` | `1` lets `npm run seed` wipe a data directory it did not create | unset |
-| `ORRERY_PORT` | Host-side port, read by `docker-compose.yml` only | `3400` |
+| `ZENITH_DATA` | Data directory: snapshot, revisions, event and audit logs. One process per directory | `./.data` |
+| `ZENITH_FAST` | `1` collapses simulated step durations; used by tests and smoke | `0` |
+| `ZENITH_LOCALSTACK_ENDPOINT` | LocalStack edge endpoint | `http://localhost:4566` |
+| `ZENITH_LOG_LEVEL` | `debug` \| `info` \| `warn` \| `error` | `info` |
+| `ZENITH_LLM_MODEL` | Model for the Navigator's language front-end; used only with `ANTHROPIC_API_KEY` | `claude-opus-5` |
+| `ZENITH_SECRET_KEY` | 32 bytes (base64 or hex) encrypting the secret store. Unset means every secret write is refused, saying so | unset |
+| `ZENITH_STEP_TIMEOUT_MS` | Per-step deadline for a deployment step | `300000` |
+| `ZENITH_SMTP_URL` | SMTP server for email alert channels. Carries the password, so it is never echoed | unset |
+| `ZENITH_ALERT_FROM` | From address on alert email. Required alongside `ZENITH_SMTP_URL` | unset |
+| `ZENITH_SEED_FORCE` | `1` lets `npm run seed` wipe a data directory it did not create | unset |
+| `ZENITH_PORT` | Host-side port, read by `docker-compose.yml` only | `3400` |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL. **Build-time** | unset |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key; `…_ANON_KEY` also accepted. **Build-time** | unset |
 | `NEXT_PUBLIC_SUPABASE_OAUTH_PROVIDERS` | Comma-separated `github`, `google`. **Build-time** | empty |
@@ -433,7 +433,7 @@ accepts, never a silent default. Full table and build-time caveats in
 `npm run verify` runs the four gates in order, and they all run offline.
 Fonts are self-hosted, so `npm run build` no longer fetches Google Fonts.
 `.github/workflows/ci.yml` runs `build` and `docker` as separate
-`continue-on-error` jobs. Point tests and scripts at a throwaway directory (`ORRERY_DATA=$(mktemp -d)`)
+`continue-on-error` jobs. Point tests and scripts at a throwaway directory (`ZENITH_DATA=$(mktemp -d)`)
 so a run never touches your working `.data/`.
 
 ### Screenshots
@@ -442,9 +442,9 @@ so a run never touches your working `.data/`.
 against a **running** server, signs in with the seeded admin account, and
 captures every screen above at 1440×900 into `docs/screenshots/`. Use a
 production build (`npm run build && npm start`) rather than `next dev`, or the
-first hit on each route compiles while the shutter is open. `ORRERY_URL`,
-`ORRERY_SHOT_EMAIL`, `ORRERY_SHOT_PASSWORD`, `ORRERY_SHOT_PROJECT` and
-`ORRERY_SHOT_ONLY=navigator,settings` override the defaults; one screen failing
+first hit on each route compiles while the shutter is open. `ZENITH_URL`,
+`ZENITH_SHOT_EMAIL`, `ZENITH_SHOT_PASSWORD`, `ZENITH_SHOT_PROJECT` and
+`ZENITH_SHOT_ONLY=navigator,settings` override the defaults; one screen failing
 never costs the others. See [scripts/screenshots.ts](scripts/screenshots.ts).
 
 ### Repository layout
@@ -494,12 +494,12 @@ ceilings that matter most:
    drift against the sandbox are deterministic simulations — labeled everywhere,
    but simulations. Only S3 and SQS on LocalStack are really provisioned and read
    back.
-4. **Secrets have one key and no recovery.** One `ORRERY_SECRET_KEY` per server,
+4. **Secrets have one key and no recovery.** One `ZENITH_SECRET_KEY` per server,
    no KMS, no envelope encryption, no versioned history, no re-wrap tooling:
    values written under an old key cannot be read back. Any editor in the
    workspace can rotate or remove any of its secrets.
 5. **Alerts have no paging.** No on-call, escalation, repeat-until-ack or
    dead-letter queue — after three failed attempts the failure is recorded and
    dropped. Channel credentials (a Slack webhook URL, a signing secret) sit in
-   plain text in `<ORRERY_DATA>/state.json`, masked in the UI but readable by
+   plain text in `<ZENITH_DATA>/state.json`, masked in the UI but readable by
    anyone who can read that file.

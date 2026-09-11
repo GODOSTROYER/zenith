@@ -47,7 +47,7 @@ const env = (name: string, klass: Environment["class"], approvalRequired = false
   connectionId: "conn-1",
   region: "local",
   policies: { approvalRequired, allowStatefulDeletion: false },
-  baseDomain: `${name}.atlas.orrery.app`,
+  baseDomain: `${name}.atlas.zenith.app`,
   createdAt: new Date().toISOString(),
 });
 

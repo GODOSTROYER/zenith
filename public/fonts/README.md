@@ -1,4 +1,4 @@
-# Orrery font files
+# Zenith font files
 
 These are the unchanged variable WOFF2 subsets previously downloaded by
 `next/font/google` for Space Grotesk (300–700) and JetBrains Mono (100–800).

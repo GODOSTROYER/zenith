@@ -43,12 +43,12 @@ const KIND_LABEL: Record<AlertChannelKind, string> = {
 
 const KIND_HELP: Record<AlertChannelKind, string> = {
   webhook:
-    "A POST of JSON to your endpoint. With a secret, each request carries X-Orrery-Signature (HMAC-SHA256 over the exact body) so the receiver can prove Zenith sent it. " +
-    "Delivery is retried, so the same alert can arrive more than once: dedupe on X-Orrery-Idempotency-Key, which is stable across retries — the body is not, since it carries the send time.",
+    "A POST of JSON to your endpoint. With a secret, each request carries X-Zenith-Signature (HMAC-SHA256 over the exact body) so the receiver can prove Zenith sent it. " +
+    "Delivery is retried, so the same alert can arrive more than once: dedupe on X-Zenith-Idempotency-Key, which is stable across retries — the body is not, since it carries the send time.",
   slack:
     "Slack's incoming-webhook payload — text plus blocks. Copy the URL from the incoming-webhook app; that URL is the credential, so Zenith masks it everywhere after you save it.",
   email:
-    "One recipient address, sent over SMTP. Needs ORRERY_SMTP_URL and ORRERY_ALERT_FROM on this server — the password lives there, never on the channel.",
+    "One recipient address, sent over SMTP. Needs ZENITH_SMTP_URL and ZENITH_ALERT_FROM on this server — the password lives there, never on the channel.",
 };
 
 const TARGET_LABEL: Record<AlertChannelKind, string> = {
@@ -58,7 +58,7 @@ const TARGET_LABEL: Record<AlertChannelKind, string> = {
 };
 
 const TARGET_PLACEHOLDER: Record<AlertChannelKind, string> = {
-  webhook: "https://example.com/hooks/orrery",
+  webhook: "https://example.com/hooks/zenith",
   slack: "https://hooks.slack.com/services/T000/B000/xxxx",
   email: "ops@example.com",
 };
@@ -187,7 +187,7 @@ export function AlertChannelsSection({
                       )}
                       {c.kind === "webhook" &&
                         (c.hasSecret ? (
-                          <Chip tone="ok" title="Requests carry X-Orrery-Signature, an HMAC-SHA256 over the exact body.">
+                          <Chip tone="ok" title="Requests carry X-Zenith-Signature, an HMAC-SHA256 over the exact body.">
                             signed
                           </Chip>
                         ) : (
@@ -450,7 +450,7 @@ function ChannelForm({
         {draft.kind === "webhook" && (
           <Field
             label="Signing secret (optional)"
-            help={`Zenith signs the exact body with HMAC-SHA256 and sends X-Orrery-Signature. The secret is stored in plain text in this server's state file. ${editing ? "Leave empty to keep the current one." : "Leave empty to send unsigned requests."}`}
+            help={`Zenith signs the exact body with HMAC-SHA256 and sends X-Zenith-Signature. The secret is stored in plain text in this server's state file. ${editing ? "Leave empty to keep the current one." : "Leave empty to send unsigned requests."}`}
           >
             <Input
               type="password"

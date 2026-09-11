@@ -8,10 +8,10 @@ import { SQSClient } from "@aws-sdk/client-sqs";
 import { env } from "@/lib/env";
 import type { Environment } from "@/lib/domain/types";
 
-export const LOCALSTACK_ENDPOINT = env().ORRERY_LOCALSTACK_ENDPOINT;
+export const LOCALSTACK_ENDPOINT = env().ZENITH_LOCALSTACK_ENDPOINT;
 
 export const REGION = "us-east-1";
-export const FAST = () => env().ORRERY_FAST;
+export const FAST = () => env().ZENITH_FAST;
 
 export const PERMISSIONS = [
   `Talks only to LocalStack on this machine (${LOCALSTACK_ENDPOINT})`,

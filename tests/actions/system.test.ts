@@ -4,12 +4,12 @@ import path from "node:path";
 import type { ActionContext } from "@/lib/actions/core";
 import { tempDataDir } from "../_support/data-dir";
 
-// The store reads ORRERY_DATA when it is first imported, so point it at a
+// The store reads ZENITH_DATA when it is first imported, so point it at a
 // scratch directory before anything pulls it in.
-const DATA = tempDataDir("orrery-test-");
+const DATA = tempDataDir("zenith-test-");
 // This suite is the UNCONFIGURED secret store: explicit, so a developer with
 // the variable exported in their shell gets the same run as CI.
-delete process.env.ORRERY_SECRET_KEY;
+delete process.env.ZENITH_SECRET_KEY;
 
 const { runAction } = await import("@/lib/actions/core");
 const { flush, readAudit, resetDb, q } = await import("@/lib/db/store");
@@ -76,7 +76,7 @@ describe("system.* actions round-trip the working manifest", () => {
   });
 
   /*
-   * This file runs with no ORRERY_SECRET_KEY (see the top), which is the
+   * This file runs with no ZENITH_SECRET_KEY (see the top), which is the
    * unconfigured store — the state most installs start in. Its promise is that
    * nothing half-works: a value is refused rather than accepted and dropped,
    * the refusal names the variable and how to make a key, and no value is ever
@@ -92,7 +92,7 @@ describe("system.* actions round-trip the working manifest", () => {
     expect(result!.ok).toBe(false);
     expect(result!.error).toMatch(/secret store is not configured/i);
     // The refusal is only useful if it names the variable and how to make one.
-    expect(result!.error).toMatch(/ORRERY_SECRET_KEY/);
+    expect(result!.error).toMatch(/ZENITH_SECRET_KEY/);
     expect(result!.error).toMatch(/openssl rand -base64 32/);
     expect(result!.error).toMatch(/secretRef/); // the path that still works
     expect(JSON.stringify(manifest())).not.toContain("sk_live_do_not_store");
@@ -132,7 +132,7 @@ describe("system.* actions round-trip the working manifest", () => {
     expect(result!.ok).toBe(false);
     expect(result!.error).toMatch(/secret store is not configured/i);
     expect(result!.error).toMatch(/would delete the only copy/i);
-    expect(result!.error).toMatch(/ORRERY_SECRET_KEY/);
+    expect(result!.error).toMatch(/ZENITH_SECRET_KEY/);
     const api = manifest().services.find((s) => s.name === "api")!;
     expect(api.env.find((e) => e.key === "LEGACY_ENDPOINT")!.value).toBe("https://issuer.test/t");
   });
@@ -146,7 +146,7 @@ describe("system.* actions round-trip the working manifest", () => {
       { mode: "execute" }
     );
     expect(result!.ok).toBe(false);
-    expect(result!.error).toMatch(/ORRERY_SECRET_KEY/);
+    expect(result!.error).toMatch(/ZENITH_SECRET_KEY/);
     const row = readAudit({ projectId }).find((r) => r.actionId === "system.rotateSecret")!;
     expect(JSON.stringify(row.input)).not.toContain("sk_live_rotate_nowhere");
   });

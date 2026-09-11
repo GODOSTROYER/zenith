@@ -3,7 +3,7 @@ import type { ActionContext } from "@/lib/actions/core";
 import type { Project } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-import-secret-isolation-");
+tempDataDir("zenith-import-secret-isolation-");
 const { runAction } = await import("@/lib/actions/core");
 const { q, resetDb } = await import("@/lib/db/store");
 await import("@/lib/actions/defs");

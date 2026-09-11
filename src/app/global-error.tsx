@@ -15,7 +15,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    console.error("[orrery/ui] root error", error);
+    console.error("[zenith/ui] root error", error);
   }, [error]);
 
   return (

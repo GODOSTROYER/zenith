@@ -39,7 +39,7 @@ import { manifestAction } from "./shared";
  *   manifest  → the reference, which is diffed, revisioned, audited, exported
  *   store     → the value, which is none of those things
  *
- * Without `ORRERY_SECRET_KEY` there is no store, and a write is refused with
+ * Without `ZENITH_SECRET_KEY` there is no store, and a write is refused with
  * the variable's name and how to generate a key. It never half-works: a value
  * is never accepted and dropped, and a plaintext value is never replaced by a
  * reference to nothing.
@@ -296,7 +296,7 @@ manifestAction<SetSecret>({
         next,
         what: `Moves ${input.key} on ${service.name} into the secret store`,
         details: [
-          `The value moves from the manifest into Zenith's store under ${ref}, encrypted with this server's ORRERY_SECRET_KEY. The manifest keeps only the reference.`,
+          `The value moves from the manifest into Zenith's store under ${ref}, encrypted with this server's ZENITH_SECRET_KEY. The manifest keeps only the reference.`,
           refLine(),
           `The store is written first: if that fails, the plaintext stays where it is and nothing is committed.`,
         ],
@@ -342,7 +342,7 @@ manifestAction<SetSecret>({
         next,
         what: held.exists ? `Replaces the stored value for ${input.key} on ${service.name}` : what,
         details: [
-          `The value is encrypted with AES-256-GCM under this server's ORRERY_SECRET_KEY and written to the secret store as ${ref}${held.exists ? ` (v${held.version} → v${held.version + 1})` : " (v1)"}.`,
+          `The value is encrypted with AES-256-GCM under this server's ZENITH_SECRET_KEY and written to the secret store as ${ref}${held.exists ? ` (v${held.version} → v${held.version + 1})` : " (v1)"}.`,
           `The manifest records only ${ref}. No value reaches the manifest, the diff, a revision, the audit log or an export bundle.`,
           refLine(),
         ],
@@ -488,7 +488,7 @@ defineAction<RotateSecret>({
     return {
       ...base,
       details: [
-        `${ref} goes from v${held.version} to v${held.version + 1}. The new value is encrypted under this server's ORRERY_SECRET_KEY and replaces the old one, which is not recoverable afterwards.`,
+        `${ref} goes from v${held.version} to v${held.version + 1}. The new value is encrypted under this server's ZENITH_SECRET_KEY and replaces the old one, which is not recoverable afterwards.`,
         `The manifest, the working copy and every revision are untouched — they hold the reference, never the value.`,
         readers.length <= 1
           ? `${readers.length === 1 ? readers[0].label : "Nothing in this workspace"} reads ${ref}, so nothing else changes.`

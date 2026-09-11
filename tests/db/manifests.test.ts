@@ -4,7 +4,7 @@ import path from "node:path";
 import type { Manifest, Revision } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
-const DATA = tempDataDir("orrery-manifests-");
+const DATA = tempDataDir("zenith-manifests-");
 const { db, flush, onChange, q, resetDb, save } = await import("@/lib/db/store");
 
 const STATE = path.join(DATA, "state.json");
@@ -33,8 +33,8 @@ const revision = (id: string, projectId: string, m: Manifest): Revision => ({
 /** Simulate a cold process against the same directory. */
 function coldBoot(): void {
   const g = globalThis as Record<string, unknown>;
-  delete g.__orreryDb;
-  delete g.__orreryManifests;
+  delete g.__zenithDb;
+  delete g.__zenithManifests;
 }
 
 const stateText = () => fs.readFileSync(STATE, "utf8");

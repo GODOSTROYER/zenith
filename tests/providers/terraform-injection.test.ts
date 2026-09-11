@@ -54,7 +54,7 @@ const hostileEnv: Environment = {
   connectionId: "conn-x",
   region: `us-west-2${INTERP}`,
   policies: { approvalRequired: false, allowStatefulDeletion: false },
-  baseDomain: `atlas${BREAK}.orrery.test`,
+  baseDomain: `atlas${BREAK}.zenith.test`,
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 

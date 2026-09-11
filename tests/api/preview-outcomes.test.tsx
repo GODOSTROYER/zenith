@@ -9,7 +9,7 @@ vi.mock("@/lib/db/store", () => ({ q: db }));
 import PreviewPage from "@/app/preview/[deploymentId]/[serviceId]/page";
 
 const previewOutput: Output = {
-  key: "url:web", label: "web — https://web--staging.atlas.orrery.app",
+  key: "url:web", label: "web — https://web--staging.atlas.zenith.app",
   value: "/preview/deploy-1/web", kind: "url", targetId: "web", simulated: true,
 };
 let deployment: Pick<Deployment, "id" | "projectId" | "environmentId" | "revisionId" | "status" | "outputs">;
@@ -22,7 +22,7 @@ function expectNoSuccess(html: string) {
   expect(html).not.toContain("completed successfully");
   expect(html).not.toContain("is running");
   expect(html).not.toContain("verified it answered");
-  expect(html).not.toContain("web--staging.atlas.orrery.app");
+  expect(html).not.toContain("web--staging.atlas.zenith.app");
 }
 
 describe("simulated preview outcomes", () => {
@@ -67,7 +67,7 @@ describe("simulated preview outcomes", () => {
     const html = await render();
     expect(html).toContain("web · simulated preview");
     expect(html).toContain("completed successfully");
-    expect(html).toContain("https://web--staging.atlas.orrery.app");
+    expect(html).toContain("https://web--staging.atlas.zenith.app");
     expect(html).toContain("does not check live service health");
     expect(html).not.toContain("is running");
     expect(html).not.toContain("verified it answered");

@@ -10,7 +10,7 @@ import type { Invite, Member } from "@/lib/domain/types";
 import type { SessionUser } from "@/lib/auth/session";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-members-");
+tempDataDir("zenith-members-");
 const { ensureMember, readInvites } = await import("@/lib/server/context");
 const { userFromClaims } = await import("@/lib/auth/session");
 const { db, resetDb } = await import("@/lib/db/store");
@@ -40,7 +40,7 @@ const placeholder: Member = {
   role: "admin",
 };
 
-const tarun = user("u-tarun", "tarun@orrery.test", "Tarun");
+const tarun = user("u-tarun", "tarun@zenith.test", "Tarun");
 
 const memberOf = (r: ReturnType<typeof ensureMember>): Member => {
   if ("denied" in r) throw new Error(`expected a member, got a denial: ${r.denied.message}`);
@@ -68,7 +68,7 @@ describe("placeholder admin", () => {
   beforeEach(() =>
     seed([
       placeholder,
-      { id: "u-tarun", workspaceId: WS, name: "Tarun", email: "tarun@orrery.test", role: "editor" },
+      { id: "u-tarun", workspaceId: WS, name: "Tarun", email: "tarun@zenith.test", role: "editor" },
     ])
   );
 
@@ -78,14 +78,14 @@ describe("placeholder admin", () => {
 
   it("drops the placeholder rather than leaving two admins", () => {
     ensureMember(tarun);
-    expect(db().members.map((m) => m.email)).toEqual(["tarun@orrery.test"]);
+    expect(db().members.map((m) => m.email)).toEqual(["tarun@zenith.test"]);
   });
 
   it("leaves a real admin's seat alone", () => {
     seed([
       placeholder,
-      { id: "u-ada", workspaceId: WS, name: "Ada", email: "ada@orrery.test", role: "admin" },
-      { id: "u-tarun", workspaceId: WS, name: "Tarun", email: "tarun@orrery.test", role: "editor" },
+      { id: "u-ada", workspaceId: WS, name: "Ada", email: "ada@zenith.test", role: "admin" },
+      { id: "u-tarun", workspaceId: WS, name: "Tarun", email: "tarun@zenith.test", role: "editor" },
     ]);
     expect(memberOf(ensureMember(tarun)).role).toBe("editor");
     expect(db().members.find((m) => m.email === "you@kepler.dev")).toBeUndefined();
@@ -96,26 +96,26 @@ describe("invites", () => {
   const invite: Invite = {
     id: "inv-1",
     workspaceId: WS,
-    email: "claude@orrery.test",
+    email: "claude@zenith.test",
     role: "editor",
     createdBy: "u-tarun",
     createdAt: new Date().toISOString(),
   };
 
   beforeEach(() =>
-    seed([{ id: "u-tarun", workspaceId: WS, name: "Tarun", email: "tarun@orrery.test", role: "admin" }], [invite])
+    seed([{ id: "u-tarun", workspaceId: WS, name: "Tarun", email: "tarun@zenith.test", role: "admin" }], [invite])
   );
 
   it("admits the invited email with the invited role, and marks it accepted", () => {
-    const member = memberOf(ensureMember(user("u-claude", "claude@orrery.test", "Claude")));
+    const member = memberOf(ensureMember(user("u-claude", "claude@zenith.test", "Claude")));
     expect(member.role).toBe("editor");
     expect(readInvites()[0].acceptedAt).toBeTruthy();
   });
 
   it("does not admit the same invite twice", () => {
-    ensureMember(user("u-claude", "claude@orrery.test", "Claude"));
+    ensureMember(user("u-claude", "claude@zenith.test", "Claude"));
     db().members.splice(1, 1); // removed by an admin
-    const again = ensureMember(user("u-claude", "claude@orrery.test", "Claude"));
+    const again = ensureMember(user("u-claude", "claude@zenith.test", "Claude"));
     expect("denied" in again).toBe(true);
   });
 
@@ -123,7 +123,7 @@ describe("invites", () => {
     const denied = ensureMember(user("u-x", "stranger@example.com", "Stranger"));
     if (!("denied" in denied)) throw new Error("expected a denial");
     expect(denied.denied.message).toMatch(/stranger@example\.com is not a member of Kepler Labs/);
-    expect(denied.denied.fix).toMatch(/Tarun \(tarun@orrery\.test\)/);
+    expect(denied.denied.fix).toMatch(/Tarun \(tarun@zenith\.test\)/);
     expect(denied.denied.fix).toMatch(/invite/i);
   });
 });
@@ -131,18 +131,18 @@ describe("invites", () => {
 describe("app_metadata role claim", () => {
   beforeEach(() =>
     seed([
-      { id: "u-tarun", workspaceId: WS, name: "Tarun", email: "tarun@orrery.test", role: "admin" },
-      { id: "u-claude", workspaceId: WS, name: "Claude", email: "claude@orrery.test", role: "viewer" },
+      { id: "u-tarun", workspaceId: WS, name: "Tarun", email: "tarun@zenith.test", role: "admin" },
+      { id: "u-claude", workspaceId: WS, name: "Claude", email: "claude@zenith.test", role: "viewer" },
     ])
   );
 
   it("updates an existing member's role", () => {
-    const member = memberOf(ensureMember(user("u-claude", "claude@orrery.test", "Claude", "editor")));
+    const member = memberOf(ensureMember(user("u-claude", "claude@zenith.test", "Claude", "editor")));
     expect(member.role).toBe("editor");
   });
 
   it("admits a new user the operator granted a role, without an invite", () => {
-    const member = memberOf(ensureMember(user("u-v", "vedant@orrery.test", "Vedant", "editor")));
+    const member = memberOf(ensureMember(user("u-v", "vedant@zenith.test", "Vedant", "editor")));
     expect(member.role).toBe("editor");
   });
 

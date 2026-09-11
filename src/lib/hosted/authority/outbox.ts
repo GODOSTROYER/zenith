@@ -34,7 +34,7 @@ export type OutboxHandler = (entry: HostedOutboxEntry) => Promise<void>;
 /** Attempts inside one claim, including the first. */
 export const OUTBOX_MAX_ATTEMPTS = 5;
 
-/** Waits between those attempts, in milliseconds. Collapsed to nothing by `ORRERY_FAST`. */
+/** Waits between those attempts, in milliseconds. Collapsed to nothing by `ZENITH_FAST`. */
 export const OUTBOX_BACKOFF_MS = [200, 800, 2_000, 5_000] as const;
 
 /**
@@ -91,7 +91,7 @@ export const registeredOutboxKinds = (): OutboxKind[] => [...handlers().keys()];
 /** Backoff that a fast test run does not have to sit through. Never keeps the process alive. */
 const wait = (ms: number): Promise<void> =>
   new Promise<void>((resolve) => {
-    if (ms <= 0 || env().ORRERY_FAST) return resolve();
+    if (ms <= 0 || env().ZENITH_FAST) return resolve();
     (setTimeout(resolve, ms) as unknown as { unref?: () => void }).unref?.();
   });
 

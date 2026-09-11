@@ -8,9 +8,9 @@ import type { Deployment, ProviderId } from "@/lib/domain/types";
 import type { ProviderAdapter, StepRuntime } from "@/lib/providers/types";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-deadline-", { fast: true });
+tempDataDir("zenith-deadline-", { fast: true });
 // Short enough to assert in a test; the product default is five minutes.
-process.env.ORRERY_STEP_TIMEOUT_MS = "300";
+process.env.ZENITH_STEP_TIMEOUT_MS = "300";
 
 const { db, q, resetDb } = await import("@/lib/db/store");
 const { engine, ensureEngine } = await import("@/lib/engine/engine");
@@ -88,7 +88,7 @@ beforeAll(() => {
 
 afterAll(() => {
   registerProvider(original);
-  delete process.env.ORRERY_STEP_TIMEOUT_MS;
+  delete process.env.ZENITH_STEP_TIMEOUT_MS;
 });
 
 async function settle(deploymentId: string, ms = 15_000): Promise<Deployment> {
@@ -117,7 +117,7 @@ test("a hung step fails on its deadline, naming the provider and how to change i
   expect(done.status).toBe("failed");
   expect(done.error).toMatch(/Hanging Provider/);
   expect(done.error).toMatch(/did not finish/);
-  expect(done.error).toMatch(/ORRERY_STEP_TIMEOUT_MS/);
+  expect(done.error).toMatch(/ZENITH_STEP_TIMEOUT_MS/);
   expect(done.steps[0].status).toBe("failed");
   // the adapter is told to stop, not merely abandoned
   expect(aborted).toBe(true);

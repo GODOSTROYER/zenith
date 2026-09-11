@@ -2,7 +2,7 @@
  * Regenerates the README screenshots against a running dev server.
  *
  *   npm run screenshots            # http://localhost:3400, test admin account
- *   ORRERY_URL=… ORRERY_SHOT_EMAIL=… ORRERY_SHOT_PASSWORD=… npm run screenshots
+ *   ZENITH_URL=… ZENITH_SHOT_EMAIL=… ZENITH_SHOT_PASSWORD=… npm run screenshots
  *
  * Drives the installed Chrome through playwright-core (no browser download),
  * signs in through the real login form, and captures each product screen at
@@ -15,14 +15,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { chromium, type Page } from "playwright-core";
 
-const BASE = process.env.ORRERY_URL ?? "http://localhost:3400";
-const EMAIL = process.env.ORRERY_SHOT_EMAIL ?? "arnav@orrery.test";
-const PASSWORD = process.env.ORRERY_SHOT_PASSWORD ?? "orrery-owner-2026!";
-const SLUG = process.env.ORRERY_SHOT_PROJECT ?? "atlas";
+const BASE = process.env.ZENITH_URL ?? "http://localhost:3400";
+const EMAIL = process.env.ZENITH_SHOT_EMAIL ?? "arnav@zenith.test";
+const PASSWORD = process.env.ZENITH_SHOT_PASSWORD ?? "zenith-owner-2026!";
+const SLUG = process.env.ZENITH_SHOT_PROJECT ?? "atlas";
 const OUT = path.resolve(process.cwd(), "docs/screenshots");
 const VIEWPORT = { width: 1440, height: 900 };
-/** ORRERY_SHOT_ONLY=navigator,settings re-captures a subset (landing included only when named). */
-const ONLY = new Set((process.env.ORRERY_SHOT_ONLY ?? "").split(",").map((s) => s.trim()).filter(Boolean));
+/** ZENITH_SHOT_ONLY=navigator,settings re-captures a subset (landing included only when named). */
+const ONLY = new Set((process.env.ZENITH_SHOT_ONLY ?? "").split(",").map((s) => s.trim()).filter(Boolean));
 const wanted = (name: string) => ONLY.size === 0 || ONLY.has(name);
 
 interface Shot {

@@ -39,7 +39,7 @@ import type {
 } from "@/lib/domain/types";
 import { tempDataDir } from "../_support/data-dir";
 
-tempDataDir("orrery-sec-alerts-isolation-", { fast: true });
+tempDataDir("zenith-sec-alerts-isolation-", { fast: true });
 const { runAction } = await import("@/lib/actions/core");
 const { db, resetDb } = await import("@/lib/db/store");
 const { channelTable, scopedChannel, scopedEvent, scopedRule } = await import("@/lib/alerts");
@@ -61,7 +61,7 @@ const member = (id: string, workspaceId: string, name: string): Member => ({
   id,
   workspaceId,
   name,
-  email: `${name.toLowerCase()}@orrery.test`,
+  email: `${name.toLowerCase()}@zenith.test`,
   role: "admin",
 });
 
@@ -73,7 +73,7 @@ const manifest = (suffix: string): Manifest => ({
       id: `svc-${suffix}`,
       name: "api",
       kind: "web",
-      source: { type: "image", image: "ghcr.io/orrery/hello-web:1" },
+      source: { type: "image", image: "ghcr.io/zenith/hello-web:1" },
       size: "small",
       replicas: 1,
       port: 3000,
@@ -82,7 +82,7 @@ const manifest = (suffix: string): Manifest => ({
     },
   ],
   resources: [],
-  routes: [{ id: `rt-${suffix}`, host: `${suffix}.orrery.app`, pathPrefix: "/", tls: false, managedDns: true }],
+  routes: [{ id: `rt-${suffix}`, host: `${suffix}.zenith.app`, pathPrefix: "/", tls: false, managedDns: true }],
   bindings: [],
 });
 
@@ -115,7 +115,7 @@ const environment = (id: string, projectId: string, connectionId: string): Envir
   connectionId,
   region: "sim-a",
   policies: { approvalRequired: false, allowStatefulDeletion: false },
-  baseDomain: `${projectId}.orrery.app`,
+  baseDomain: `${projectId}.zenith.app`,
   createdAt: AT,
 });
 
@@ -128,8 +128,8 @@ const finding = (id: string, projectId: string, suffix: string): SecurityFinding
   id,
   projectId,
   severity: "high",
-  title: `${suffix}.orrery.app serves traffic without TLS`,
-  detail: `Requests to ${suffix}.orrery.app travel as plaintext.`,
+  title: `${suffix}.zenith.app serves traffic without TLS`,
+  detail: `Requests to ${suffix}.zenith.app travel as plaintext.`,
   targetId: `rt-${suffix}`,
   fix: {
     actionId: "system.updateRoute",
@@ -169,7 +169,7 @@ const channel = (id: string, workspaceId: string, host: string): AlertChannel =>
   workspaceId,
   kind: "webhook",
   name: "ops",
-  target: `https://${host}/orrery`,
+  target: `https://${host}/zenith`,
   secret: `signing-key-${id}`,
   enabled: true,
   createdBy: ada,

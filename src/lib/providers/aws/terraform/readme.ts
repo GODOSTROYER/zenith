@@ -117,7 +117,7 @@ ${
 ### Secrets
 
 A Zenith server can hold secret values — encrypted at rest, under its own
-\`ORRERY_SECRET_KEY\` — but **an export never contains one**, whether or not
+\`ZENITH_SECRET_KEY\` — but **an export never contains one**, whether or not
 the store has it. A bundle you can commit, mail or paste is the wrong place
 for a credential, and there is no flag to change that.
 

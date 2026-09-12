@@ -40,6 +40,7 @@ export const readerTools: ReaderTool[] = [
   tool("zenith_export_project", "Generate an export from a redacted working manifest. No provider apply and no local file write.", environmentProps, "export"),
 ];
 const providers: ProviderAdapter[] = [sandboxProvider, localstackProvider, awsProvider, ...plannedProviders];
+export function registerReaderProviders(): void { providers.forEach(registerProvider); }
 function denied(): never { throw new AgentError("not_found", "No permitted record matches this selection. Copy identifiers from the authorized project list.", 404); }
 function member(grant: Credential) {
   const found = db().members.find(m => m.id === grant.subject && m.workspaceId === grant.workspaceId);
@@ -83,7 +84,7 @@ function validate(name: string, args: Record<string, unknown>) {
       throw new AgentError("invalid_arguments", "Use the declared string, integer, cursor and enum bounds.", 400);
   }
 }
-async function call(name: string, args: Record<string, unknown>, grant: Credential, selected: SelectedScope): Promise<unknown> {
+export async function callReader(name: string, args: Record<string, unknown>, grant: Credential, selected: SelectedScope): Promise<unknown> {
   validate(name, args); const actor = member(grant);
   switch (name) {
     case "zenith_get_context": return { selected, user: { id: actor.id, name: actor.name, role: actor.role }, credentialId: grant.id, expiresAt: grant.expiresAt, mode: "read-only" };
@@ -143,6 +144,6 @@ export const agentReader = createReaderHandler({
       return fn();
     });
   },
-  call,
+  call: callReader,
   log(record) { console.info(JSON.stringify(record)); },
 });

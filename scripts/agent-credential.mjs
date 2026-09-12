@@ -8,7 +8,7 @@ for (let i = 0; i < args.length; i += 2) {
   if (!/^--[a-z-]+$/.test(args[i] ?? '') || !args[i + 1] || options[args[i].slice(2)] !== undefined) throw new Error('Use unique --name value pairs.');
   options[args[i].slice(2)] = args[i + 1];
 }
-const allowed = ['file', 'id', 'subject', 'workspace', 'projects', 'environments', 'scopes', 'days', 'token-out'];
+const allowed = ['file', 'id', 'subject', 'workspace', 'projects', 'environments', 'apps', 'scopes', 'days', 'token-out'];
 if (!['issue', 'revoke'].includes(command) || !options.file || !isAbsolute(options.file) || Object.keys(options).some(k => !allowed.includes(k))) {
   console.error('Usage: node scripts/agent-credential.mjs issue --file /private/access.credentials.json --subject USER_ID --workspace WORKSPACE_ID --projects PROJECT_ID --token-out /private/client.token [--scopes read,plan,export] [--days 1]\nRevoke: node scripts/agent-credential.mjs revoke --file /private/access.credentials.json --id CREDENTIAL_ID'); process.exit(2);
 }
@@ -33,11 +33,12 @@ try {
     if (!identifier(options.id) || !state.credentials.some(r => r.id === options.id)) throw new Error('No matching credential; verify its ID.');
     id = options.id; state.credentials = state.credentials.filter(r => r.id !== id);
   } else {
-    const projects = (options.projects ?? '').split(','), environments = options.environments?.split(',');
+    const projects = (options.projects ?? '').split(','), environments = options.environments?.split(','), apps = options.apps?.split(',');
     const scopes = (options.scopes ?? 'read').split(','), days = Number(options.days ?? 1);
     if (!identifier(options.subject) || ['local', 'navigator', 'system'].includes(options.subject) || !identifier(options.workspace)
       || !projects.every(identifier) || projects.length > 100 || environments && (!environments.every(identifier) || environments.length > 100)
-      || !scopes.includes('read') || scopes.some(s => !['read', 'plan', 'export'].includes(s)) || scopes.length > 3
+      || apps && (!apps.every(identifier) || apps.length > 100)
+      || !scopes.includes('read') || scopes.some(s => !['read', 'plan', 'export', 'write', 'publish', 'logs'].includes(s)) || scopes.length > 6
       || !Number.isInteger(days) || days < 1 || days > 30 || !options['token-out'] || !isAbsolute(options['token-out']) || options['token-out'] === options.file || state.credentials.length >= 100)
       throw new Error('Use an actual non-demo member, explicit project IDs, read/plan/export scopes, 1-30 days, and a new absolute token file.');
     const tokenDir = await lstat(dirname(options['token-out']));
@@ -45,7 +46,7 @@ try {
     const token = `za_${randomBytes(32).toString('base64url')}`; id = randomUUID();
     const now = Date.now();
     state.credentials.push({ id, tokenHash: createHash('sha256').update(token).digest('hex'), subject: options.subject, workspaceId: options.workspace,
-      projectIds: [...new Set(projects)], ...(environments ? { environmentIds: [...new Set(environments)] } : {}), scopes: [...new Set(scopes)],
+      projectIds: [...new Set(projects)], ...(environments ? { environmentIds: [...new Set(environments)] } : {}), ...(apps ? { appIds: [...new Set(apps)] } : {}), scopes: [...new Set(scopes)],
       issuedAt: new Date(now).toISOString(), expiresAt: new Date(now + days * 86400000).toISOString() });
     const output = await open(options['token-out'], 'wx', 0o600); tokenCreated = true;
     try { await output.writeFile(`${token}\n`); await output.sync(); } finally { await output.close(); }

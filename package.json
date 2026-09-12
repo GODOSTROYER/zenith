@@ -5,7 +5,7 @@
   "engines": {
     "node": ">=22.16"
   },
-  "description": "Zenith — a bring-your-own-cloud deployment and operations platform. Your infrastructure, in motion.",
+  "description": "Zenith \u2014 a bring-your-own-cloud deployment and operations platform. Your infrastructure, in motion.",
   "scripts": {
     "dev": "next dev --turbopack -p 3400",
     "dev:webpack": "next dev -p 3400",
@@ -63,7 +63,9 @@
     "react-dom": "19.1.0",
     "three": "^0.185.1",
     "vite": "7.3.6",
-    "zod": "^3.25.0"
+    "zod": "^3.25.0",
+    "@modelcontextprotocol/server": "2.0.0",
+    "jose": "6.2.12"
   },
   "devDependencies": {
     "@eslint/eslintrc": "3.3.7",

@@ -12,6 +12,7 @@
  * Concrete actions live in src/lib/actions/defs/.
  */
 import { z } from "zod";
+import { withMutationGate } from "./mutation-gate";
 import { appendAudit, db, save } from "@/lib/db/store";
 import { id, type Actor, type AutonomyLevel } from "@/lib/domain/types";
 import { membershipPolicy } from "@/lib/auth/policy";
@@ -22,6 +23,8 @@ export interface ActionContext {
   projectId?: string;
   environmentId?: string;
   actor: Actor;
+  /** Set by the authenticated integration coordinator, never read from action input. */
+  integration?: { operationId: string; clientId: string; proposalDigest: string };
   /** effective autonomy level when actor.type === "navigator" */
   autonomy?: AutonomyLevel;
 }
@@ -205,6 +208,13 @@ export async function runAction(
   opts: RunOptions
 ): Promise<{ plan?: ActionPlan; result?: ActionResult }> {
   const action = getAction(actionId);
+  if (opts.mode === "execute" && action.mutates) return withMutationGate(() => runActionInsideGate(actionId, ctx, rawInput, opts));
+  return runActionInsideGate(actionId, ctx, rawInput, opts);
+}
+async function runActionInsideGate(
+  actionId: string, ctx: ActionContext, rawInput: unknown, opts: RunOptions
+): Promise<{ plan?: ActionPlan; result?: ActionResult }> {
+  const action = getAction(actionId);
   const parsed = action.input.safeParse(rawInput ?? {});
   if (!parsed.success) {
     const msg = parsed.error.issues
@@ -365,7 +375,7 @@ function audit(
     environmentId: ctx.environmentId,
     actor: ctx.actor,
     actionId: action.id,
-    input: capSnapshot(redact(input)),
+    input: capSnapshot(redact(ctx.integration ? { integration: ctx.integration, inputStoredInReceipt: true } : input)),
     result,
     summary,
     error,

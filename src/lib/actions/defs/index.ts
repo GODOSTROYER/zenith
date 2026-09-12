@@ -12,6 +12,7 @@ import "./project-manifest";
 import "./system";
 import "./env";
 import "./deploy";
+import "./promote";
 import "./ops";
 import "./navigator";
 import "./security";

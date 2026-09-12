@@ -12,8 +12,8 @@ export class AgentError extends Error {
 }
 export interface Credential {
   id: string; tokenHash: string; subject: string; workspaceId: string;
-  projectIds: string[]; environmentIds?: string[];
-  scopes: ("read" | "plan" | "export")[]; issuedAt: string; expiresAt: string;
+  projectIds: string[]; environmentIds?: string[]; appIds?: string[];
+  scopes: ("read" | "plan" | "export" | "write" | "publish" | "logs")[]; issuedAt: string; expiresAt: string;
 }
 export interface SelectedScope { workspaceId: string; projectId?: string; environmentId?: string }
 export const object = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
@@ -24,13 +24,14 @@ export function parseCredentials(value: unknown): Credential[] {
     throw new AgentError("policy_unavailable", "The operator must repair the version-1 credential file.", 503);
   const ids = new Set(); const hashes = new Set();
   for (const row of value.credentials) {
-    const valid = object(row) && Object.keys(row).every(k => ["id", "tokenHash", "subject", "workspaceId", "projectIds", "environmentIds", "scopes", "issuedAt", "expiresAt"].includes(k))
+    const valid = object(row) && Object.keys(row).every(k => ["id", "tokenHash", "subject", "workspaceId", "projectIds", "environmentIds", "appIds", "scopes", "issuedAt", "expiresAt"].includes(k))
       && identifier(row.id) && identifier(row.subject) && !["local", "navigator", "system"].includes(row.subject)
       && identifier(row.workspaceId) && identifiers(row.projectIds) && row.projectIds.length > 0
       && (row.environmentIds === undefined || identifiers(row.environmentIds))
+      && (row.appIds === undefined || identifiers(row.appIds))
       && typeof row.tokenHash === "string" && /^[0-9a-f]{64}$/.test(row.tokenHash)
-      && Array.isArray(row.scopes) && row.scopes.length <= 3 && row.scopes.includes("read")
-      && row.scopes.every(s => ["read", "plan", "export"].includes(String(s)))
+      && Array.isArray(row.scopes) && row.scopes.length <= 6 && row.scopes.includes("read")
+      && row.scopes.every(s => ["read", "plan", "export", "write", "publish", "logs"].includes(String(s)))
       && typeof row.issuedAt === "string" && typeof row.expiresAt === "string"
       && Number.isFinite(Date.parse(row.issuedAt)) && Number.isFinite(Date.parse(row.expiresAt))
       && Date.parse(row.expiresAt) > Date.parse(row.issuedAt)

@@ -7,6 +7,11 @@ import { OperationError } from "./journal";
 import { inApplication, journal, liveMember, publicReceipt, writeAvailability } from "./application";
 import { callTool, operationTools } from "./tools";
 import { redact } from "@/lib/agent-access/security";
+import { acceptUpload, permittedApp, authorizeAppReview } from "./hosted";
+import { MAX_UPLOAD_BYTES } from "./uploads";
+import { authority } from "@/lib/hosted/authority";
+import { ensureBoot } from "@/lib/server/boot";
+import { requireScope } from "./access";
 
 const MAX_BODY = 131072, MAX_RESULT = 262144;
 const buckets = new Map<string, { at: number; count: number }>();
@@ -55,7 +60,7 @@ export async function handleMcp(request: Request): Promise<Response> {
             try {
               // Authorization is checked on each HTTP request and again in the
               // tool/application layer. Client annotations never grant access.
-              const data = await callTool(tool.name, args, grant, selected);
+              const data = redact(await callTool(tool.name, args, grant, selected));
               const structuredContent = { contractVersion: 2, data };
               const text = JSON.stringify(structuredContent);
               if (Buffer.byteLength(text) > MAX_RESULT / 2) throw new OperationError("response_too_large", "Narrow the query or use pagination. The tool result exceeded its bound.", 413);
@@ -95,6 +100,7 @@ export async function handleReview(request: Request): Promise<Response> {
     return await inApplication(grant, { workspaceId: receipt.owner.workspaceId, projectId: receipt.owner.projectId, environmentId: receipt.owner.environmentId }, async () => {
       liveMember(review.subject, receipt.owner.workspaceId, receipt.preview.requiredRole);
       liveMember(receipt.owner.subject, receipt.owner.workspaceId, "editor");
+      await authorizeAppReview(receipt, review.subject);
       if (review.decision === "inspect") return response({ ...publicReceipt(receipt), intent: redact(receipt.intent) });
       const decided = journal().decide(receipt.id, review.digest, review.subject, review.decision, review.nonce, review.expiresAt);
       return response(publicReceipt(decided));
@@ -104,4 +110,21 @@ export async function handleReview(request: Request): Promise<Response> {
 export async function handleMetadata(request: Request): Promise<Response> {
   try { const config = configuration(); validateOrigin(request, config.origin); return response(metadata(config)); }
   catch (error) { return failure(error, randomUUID()); }
+}
+
+export async function handleSource(request: Request): Promise<Response> {
+  const requestId = randomUUID();
+  try {
+    const { grant, selected } = await authenticateRequest(request);
+    requireScope(grant, "publish");
+    if (request.method !== "POST" || request.headers.get("content-type") !== "application/octet-stream") throw new OperationError("invalid_upload", "POST archive bytes as application/octet-stream through the local source helper.", 415);
+    const appId = request.headers.get("x-zenith-app") ?? "", id = request.headers.get("x-zenith-upload-id") ?? "", hash = request.headers.get("x-zenith-source-sha256") ?? "";
+    if (!/^[0-9a-f]{64}$/.test(hash)) throw new OperationError("invalid_digest", "Supply the SHA-256 of the exact archive bytes.", 400);
+    return await inApplication(grant, selected, async () => {
+      await ensureBoot(); await permittedApp(authority().repos, grant, appId, true);
+      const bytes = await boundedBytes(request, MAX_UPLOAD_BYTES, 10000);
+      const upload = await acceptUpload(id, appId, bytes, hash, grant, selected);
+      return response({ upload, notice: "Source accepted under the fixed frontend contract. Nothing was published; prepare and review a publish next." }, 201, { "x-request-id": requestId });
+    });
+  } catch (error) { return failure(error, requestId); }
 }

@@ -14,6 +14,8 @@ import { ensureBoot } from "@/lib/server/boot";
 import { redact, type SelectedScope } from "@/lib/agent-access/security";
 import { readerCall } from "@/lib/agent-access/zenith-reader";
 import { join } from "node:path";
+import { existsSync } from "node:fs";
+import { diffManifests, isStatefulKind } from "@/lib/domain/graph";
 import { OperationError, digest, openPrivateJournal, type Intent, type Preview, type Receipt, type Operation, type OperationJournal } from "./journal";
 import { checkGrantTime, object, ownerOf, readGrant, requireScope, type AgentGrant } from "./access";
 
@@ -64,11 +66,15 @@ export function assertWrites(): void {
 }
 type Globals = typeof globalThis & { __zenithAgentJournals?: Map<string, OperationJournal> };
 export function journal(): OperationJournal {
-  assertWrites(); claimDataDir(env().ZENITH_DATA);
+  if (isServerless() || isPostgres()) throw new OperationError("journal_unavailable", "This control-host journal is unavailable in a Postgres/serverless process. Read the recorded operation on its original control host.", 503);
+  claimDataDir(env().ZENITH_DATA);
   const path = join(env().ZENITH_DATA, "agent-operations", "journal.sqlite");
   const map = (globalThis as Globals).__zenithAgentJournals ??= new Map();
   let value = map.get(path);
-  if (!value) { value = openPrivateJournal(path); value.recoverInterrupted(); map.set(path, value); }
+  if (!value) {
+    if (!existsSync(path) && process.env.ZENITH_AGENT_WRITES !== "1") throw new OperationError("journal_unavailable", "No reviewed-operation journal exists on this control host.", 404);
+    value = openPrivateJournal(path); value.recoverInterrupted(); map.set(path, value);
+  }
   return value;
 }
 function context(grant: AgentGrant, selected: SelectedScope, operationId?: string): ActionContext {
@@ -133,6 +139,12 @@ export function normalizeIntent(kind: string, input: Record<string, unknown>, gr
   if (kind === "rollback") {
     if (typeof input.toRevisionId !== "string") throw new OperationError("target_required", "Select an explicit revision from this project's history before preparing rollback.", 400);
     const revision = q.revision(input.toRevisionId); if (!revision || revision.projectId !== p.id) missing();
+    const deployed = e.deployedRevisionId ? q.revisionManifest(e.deployedRevisionId) : undefined;
+    if (deployed && !e.policies.allowStatefulDeletion) {
+      const changes = diffManifests(deployed, revision.manifest);
+      if (changes.items.some(i => i.op === "delete" && deployed.resources.some(r => r.id === i.nodeId && r.ownership === "managed" && isStatefulKind(r.kind))))
+        throw new OperationError("stateful_deletion_denied", "This rollback removes managed stateful resources. It is blocked by the environment policy; rollback cannot recover deleted data.");
+    }
     return { kind: "rollback", input: { toRevisionId: revision.id } };
   }
   if (kind === "cancel" || kind === "approve_deployment") {
@@ -186,7 +198,10 @@ export async function prepareChange(kind: string, input: Record<string, unknown>
 export async function executeChange(receiptId: string, key: string, grant: AgentGrant, selected: SelectedScope) {
   requireScope(grant, "execute"); assertWrites(); await ensureBoot(); registerAllActions();
   const owner = ownerOf(grant, selected), store = journal(), receipt = store.receipt(receiptId, owner);
-  const action = actionFor(receipt.intent, grant, selected);
+  if (receipt.intent.kind === "publish" || receipt.intent.kind === "rollback_app") {
+    const { executeHosted } = await import("./hosted");
+    return executeHosted(receipt, key, grant, selected);
+  }
   // The awaited work is over. Synchronous membership/state validation, journal
   // claim, and invocation happen in this one event-loop turn on the file store.
   const claimed = store.claim(receiptId, owner, key, current => {
@@ -196,6 +211,7 @@ export async function executeChange(receiptId: string, key: string, grant: Agent
   });
   if (!claimed.created) return operationView(claimed.operation, grant, selected);
   const operationId = claimed.operation.id;
+  const action = actionFor(receipt.intent, grant, selected);
   let result: ActionResult;
   try {
     const response = await runAction(action.id, context(grant, selected, operationId), action.input, { mode: "execute", idempotencyKey: operationId });
@@ -238,6 +254,8 @@ export async function readTool(name: string, args: Record<string, unknown>, gran
   if (name === "zenith_get_capabilities") return { ...await readerCall(name, args, readGrant(grant), selected) as Record<string, unknown>, contractVersion: 2,
     writes: writeAvailability(), scopes: grant.scopes, approval: "Independent control-host operator; never an agent-provided flag.",
     idempotency: "Durable at-most-once dispatch. Interrupted dispatch requires reconciliation; not exactly-once effects across stores.",
+    mode: grant.scopes.includes("execute") ? "reviewed-operations" : "read-only",
+    unavailable: { postgresWrites: "Not enabled: cross-store fencing is not implemented.", arbitraryPublishing: "Only the pinned React/Vite frontend source contract is supported.", nativeModelValidation: "Recorded separately from protocol and application integration tests." },
     remoteAuthentication: "Maintained authorization-provider introspection with issuer, resource audience, expiration and enrollment checks." };
   if (name === "zenith_get_logs") {
     requireScope(grant, "logs"); const id = typeof args.deploymentId === "string" ? args.deploymentId : "", d = q.deployment(id);

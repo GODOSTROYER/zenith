@@ -2,8 +2,9 @@
 import { readerTools } from "@/lib/agent-access/zenith-reader";
 import { type ScopeName, type AgentGrant, requireScope, ownerOf } from "./access";
 import { type SelectedScope, redact } from "@/lib/agent-access/security";
-import { journal, narrow, prepareChange, executeChange, publicReceipt, operationView, readTool } from "./application";
+import { journal, narrow, prepareChange, executeChange, publicReceipt, readTool } from "./application";
 import { OperationError } from "./journal";
+import { prepareHosted, readHosted, hostedOperationView } from "./hosted";
 export interface AgentTool { name: string; description: string; inputSchema: Record<string, unknown>; scope: ScopeName; mutates: boolean; destructive?: boolean }
 const string = { type: "string", minLength: 1, maxLength: 100 };
 const uuid = { type: "string", format: "uuid" };
@@ -14,6 +15,11 @@ function tool(name: string, description: string, properties: Record<string, unkn
 }
 export const operationTools: AgentTool[] = [
   ...readerTools.map(t => ({ ...t, mutates: false })),
+  tool("zenith_get_source_contract", "Read the supported private-app frontend contract and source limits. No source bytes are returned.", {}, [], "read"),
+  tool("zenith_list_apps", "List only private apps authorized by both this enrollment and a current app grant.", {}, [], "read"),
+  tool("zenith_get_app", "Inspect a permitted private app and up to 50 releases. Workspace membership alone never grants app access.", { appId: string }, ["appId"], "read"),
+  tool("zenith_prepare_publish", "Prepare publication of an immutable uploaded source. Requires publish scope, a live identity, an app-owner grant and independent review. Never send source bytes or base64 in tool arguments.", { ...selection, requestId: uuid, appId: string, uploadId: uuid }, ["requestId", "appId", "uploadId"], "publish", true),
+  tool("zenith_prepare_app_rollback", "Prepare private-app code rollback to a named compatible release. Customer records are not rolled back. Requires current app-owner access and independent review.", { ...selection, requestId: uuid, appId: string, releaseId: string }, ["requestId", "appId", "releaseId"], "publish", true),
   tool("zenith_prepare_manifest", "Prepare a complete working-manifest replacement. Supply the current manifestHash; preserve existing literal values as [redacted]. Saves a receipt, not the working copy. Independent approval is required.", { ...selection, requestId: uuid, expectedHash: string, manifest: { type: "object" } }, ["requestId", "expectedHash", "manifest"], "plan", true),
   tool("zenith_prepare_import", "Import Compose, Dockerfile or Terraform text into a reviewed manifest replacement. Existing source restrictions apply. Never submit credentials; plaintext environment values must be configured in Zenith instead.", { ...selection, requestId: uuid, expectedHash: string, format: { type: "string", enum: ["compose", "dockerfile", "terraform"] }, text: { type: "string", minLength: 1, maxLength: 32768 } }, ["requestId", "expectedHash", "format", "text"], "plan", true),
   tool("zenith_prepare_deploy", "Prepare deployment of the current working definition. Returns an expiring reviewed receipt with cost, risk and provider constraints; does not deploy.", { ...selection, requestId: uuid }, ["requestId"], "plan", true),
@@ -38,10 +44,15 @@ export async function callTool(name: string, args: Record<string, unknown>, gran
     return prepareChange(kinds[name], input, String(args.requestId), grant, scoped);
   }
   switch (name) {
+    case "zenith_prepare_publish": return prepareHosted("publish", args, String(args.requestId), grant, scoped);
+    case "zenith_prepare_app_rollback": return prepareHosted("rollback_app", args, String(args.requestId), grant, scoped);
+    case "zenith_get_source_contract":
+    case "zenith_list_apps":
+    case "zenith_get_app": return readHosted(name, args, grant);
     case "zenith_get_receipt": return publicReceipt(journal().receipt(String(args.receiptId), ownerOf(grant, scoped)));
     case "zenith_cancel_plan": return publicReceipt(journal().cancel(String(args.receiptId), ownerOf(grant, scoped)));
     case "zenith_execute_plan": return executeChange(String(args.receiptId), String(args.idempotencyKey), grant, scoped);
-    case "zenith_get_operation": return operationView(journal().operation(String(args.operationId), ownerOf(grant, scoped)), grant, scoped);
+    case "zenith_get_operation": return hostedOperationView(journal().operation(String(args.operationId), ownerOf(grant, scoped)), grant, scoped);
     case "zenith_get_operation_events": return { events: journal().events(String(args.operationId), ownerOf(grant, scoped), Number(args.after ?? 0)) };
     default: return redact(await readTool(name, args, grant, scoped));
   }

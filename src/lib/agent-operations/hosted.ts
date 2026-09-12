@@ -29,6 +29,8 @@ export async function verifyHostedIdentity(subject: string): Promise<void> {
       throw new OperationError("identity_denied", "A confirmed, active identity-provider account is required for private-app changes.", 403);
   } finally { clearTimeout(timer); }
 }
+export const hostedIdentity = { verify: verifyHostedIdentity };
+
 export async function permittedApp(repos: Repos, grant: AgentGrant, appId: string, owner = false) {
   if (!grant.appIds?.includes(appId)) throw new OperationError("app_not_found", "No permitted private app matches this grant.", 404);
   const app = await repos.apps.get(appId), access = await repos.grants.activeFor(appId, grant.subject);
@@ -47,7 +49,7 @@ function actionInput(intent: Intent, grant: AgentGrant, selected: SelectedScope)
   return { id: "app.publish", input: { appId, jobId, source: { kind: "tarball", base64: source.bytes.toString("base64"), filename: "source.tar" } } };
 }
 export async function acceptUpload(id: string, appId: string, bytes: Buffer, expectedDigest: string, grant: AgentGrant, selected: SelectedScope): Promise<Upload> {
-  requireScope(grant, "publish"); assertWrites(); await ensureBoot(); await verifyHostedIdentity(grant.subject);
+  requireScope(grant, "publish"); assertWrites(); await ensureBoot(); await hostedIdentity.verify(grant.subject);
   await authority().tx(async repos => { await permittedApp(repos, grant, appId, true); });
   const validated = validateArchive(bytes);
   return authority().tx(async repos => {
@@ -56,7 +58,7 @@ export async function acceptUpload(id: string, appId: string, bytes: Buffer, exp
   });
 }
 export async function prepareHosted(kind: "publish" | "rollback_app", args: Record<string, unknown>, requestId: string, grant: AgentGrant, selected: SelectedScope) {
-  requireScope(grant, "plan"); requireScope(grant, "publish"); assertWrites(); await ensureBoot(); await verifyHostedIdentity(grant.subject);
+  requireScope(grant, "plan"); requireScope(grant, "publish"); assertWrites(); await ensureBoot(); await hostedIdentity.verify(grant.subject);
   const appId = String(args.appId);
   let intent: Intent;
   if (kind === "publish") {
@@ -76,12 +78,12 @@ export async function prepareHosted(kind: "publish" | "rollback_app", args: Reco
 }
 export async function authorizeAppReview(receipt: Receipt, subject: string): Promise<void> {
   if (receipt.intent.kind !== "publish" && receipt.intent.kind !== "rollback_app") return;
-  await ensureBoot(); await verifyHostedIdentity(subject);
+  await ensureBoot(); await hostedIdentity.verify(subject);
   const appId = String(receipt.intent.input.appId), app = await authority().repos.apps.get(appId), access = await authority().repos.grants.activeFor(appId, subject);
   if (!app || app.workspaceId !== receipt.owner.workspaceId || access?.role !== "owner") throw new OperationError("app_review_denied", "The independent reviewer must currently own this private app as well as hold the required workspace role.", 403);
 }
 export async function executeHosted(receipt: Receipt, key: string, grant: AgentGrant, selected: SelectedScope) {
-  requireScope(grant, "execute"); requireScope(grant, "publish"); assertWrites(); await ensureBoot(); await verifyHostedIdentity(grant.subject);
+  requireScope(grant, "execute"); requireScope(grant, "publish"); assertWrites(); await ensureBoot(); await hostedIdentity.verify(grant.subject);
   const store = journal(), owner = ownerOf(grant, selected), appId = String(receipt.intent.input.appId);
   let reserved: Operation | undefined, result: ActionResult | undefined;
   try {

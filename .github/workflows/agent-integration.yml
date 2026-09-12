@@ -22,15 +22,28 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version: '22.16.0'
+          node-version: '22'
           cache: npm
       - run: npm ci
-      - name: Record maintained integration dependency versions
-        run: |
-          npm view @modelcontextprotocol/server version dependencies peerDependencies --json
-          npm view @modelcontextprotocol/client version dependencies peerDependencies --json
-          npm view @modelcontextprotocol/node version dependencies --json
-          npm view jose version --json
-          npm view esbuild version --json
       - run: npm run typecheck
       - run: node scripts/test-agent-reader.mjs
+      - name: Prepare offline development workspace
+        if: github.event_name == 'push'
+        run: |
+          mkdir -p "$RUNNER_TEMP/agent-sdk"
+          cd "$RUNNER_TEMP/agent-sdk"
+          npm init -y >/dev/null
+          npm install --ignore-scripts --save-exact @modelcontextprotocol/server@2.0.0 @modelcontextprotocol/client@2.0.0 @modelcontextprotocol/node@2.0.0 jose@6.2.12 esbuild@0.28.2
+          tar -czf "$RUNNER_TEMP/agent-sdk.tar.gz" package.json package-lock.json node_modules
+          cd "$GITHUB_WORKSPACE"
+          tar -czf "$RUNNER_TEMP/zenith-workspace.tar.gz" --exclude='*.woff*' --exclude='*.ttf' --exclude='*.otf' --exclude='docs/screenshots' --exclude='*.glb' --exclude='*.ktx2' package.json package-lock.json tsconfig.json next.config.ts vitest.config.ts eslint.config.mjs postcss.config.mjs src scripts tests fixtures docs node_modules
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push'
+        with:
+          name: offline-agent-development
+          path: |
+            ${{ runner.temp }}/zenith-workspace.tar.gz
+            ${{ runner.temp }}/agent-sdk.tar.gz
+          retention-days: 1
+          if-no-files-found: error
+          compression-level: 0

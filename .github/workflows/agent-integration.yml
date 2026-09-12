@@ -1,0 +1,36 @@
+name: Agent integration
+on:
+  push:
+    branches: [feat/agent-workflows-v2]
+  pull_request:
+    paths: ['src/lib/agent-access/**', 'src/app/api/agent/**', 'tests/agent/**', 'scripts/agent-*', '.github/workflows/agent-integration.yml']
+permissions:
+  contents: read
+concurrency:
+  group: agent-integration-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      ZENITH_DATA: ${{ github.workspace }}/.data-agent-ci
+      ZENITH_FAST: '1'
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.16.0'
+          cache: npm
+      - run: npm ci
+      - name: Record maintained integration dependency versions
+        run: |
+          npm view @modelcontextprotocol/server version dependencies peerDependencies --json
+          npm view @modelcontextprotocol/client version dependencies peerDependencies --json
+          npm view @modelcontextprotocol/node version dependencies --json
+          npm view jose version --json
+          npm view esbuild version --json
+      - run: npm run typecheck
+      - run: node scripts/test-agent-reader.mjs

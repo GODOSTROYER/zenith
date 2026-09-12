@@ -1,0 +1,63 @@
+name: Resolve and verify reviewed agent integration
+on:
+  push:
+    branches: [feat/reviewed-agent-operations]
+    paths: [scripts/materialize-agent-v2.mjs, .github/workflows/agent-v2-materialize.yml]
+permissions:
+  contents: read
+concurrency:
+  group: agent-v2-materialize
+  cancel-in-progress: false
+jobs:
+  resolve:
+    if: github.repository == 'GODOSTROYER/zenith' && github.ref == 'refs/heads/feat/reviewed-agent-operations'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    outputs:
+      sha: ${{ steps.result.outputs.sha }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: feat/reviewed-agent-operations
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Apply checked integration anchors and resolve pinned SDK
+        run: |
+          node scripts/materialize-agent-v2.mjs
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Commit generated source integration and lockfile to this branch only
+        id: result
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = refs/heads/feat/reviewed-agent-operations
+          git config user.name 'Zenith build verification'
+          git config user.email 'noreply@github.com'
+          git add package.json package-lock.json src/lib/agent-access/zenith-reader.ts src/lib/agent-operations/journal.ts src/lib/agent-operations/application.ts src/middleware.ts
+          if ! git diff --cached --quiet; then
+            git commit -m 'build(agent): resolve pinned SDK and integrate reviewed endpoint'
+            git push origin HEAD:refs/heads/feat/reviewed-agent-operations
+          fi
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  verify:
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run smoke
+      - run: npm run build

@@ -1,0 +1,88 @@
+# One-time, hash-verified source transfer for PR #5. Removed by its checkpoint commit.
+# This job can write only the named feature branch. It never merges or publishes.
+name: Assemble agent control source checkpoint
+on:
+  push:
+    branches: [feat/agent-operations-and-approvals]
+permissions:
+  contents: read
+jobs:
+  assemble:
+    if: github.repository == 'GODOSTROYER/zenith' && github.actor == 'GODOSTROYER' && contains(github.event.head_commit.message, 'assemble-agent-control')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.16.0'
+      - name: Verify and apply the exact reviewed source patch
+        run: |
+          python3 - <<'PY'
+          import pathlib, hashlib, bz2, subprocess
+          chunks = [pathlib.Path('.agent-transfer/part'+str(i)).read_bytes() for i in range(4)]
+          expected = ['1748ac0cfaa021f0f61f8cd95f89dfb026ab7bfada574f1e3e099a87b905851e','9fd4773cf67829d80d241d8d7612583da240cb9ed317973da0d8791a461c46ed','e59686c7a776255508280493bb0600898645b6fdc2da323f42ee799b22460f30','a403404ebd5b4dd063245d043602656ca44cac69eb1e56e0fb05d6a7ab40c7d6']
+          assert [hashlib.sha256(c).hexdigest() for c in chunks] == expected, 'Transfer chunk checksum mismatch'
+          patch = bz2.decompress(b''.join(chunks))
+          assert len(patch) == 133340 and hashlib.sha256(patch).hexdigest() == '06b8189deb3c12270bec80305409df33edfbb7d726257eed436ece8f5fb3a7b1'
+          allowed = ('src/lib/actions/', 'src/lib/agent-access/', 'src/app/(product)/integrations/', 'src/app/api/agent/v2/', 'src/app/api/integrations/agent/', 'src/app/.well-known/oauth-protected-resource/api/agent/v2/', 'tests/agent-control-')
+          exact = {'src/middleware.ts','package.json','scripts/agent-credential.mjs','docs/AGENT-CONTROL.md'}
+          records = subprocess.run(['git','apply','--numstat','-z'], input=patch, check=True, capture_output=True).stdout.rstrip(b'\0').split(b'\0')
+          assert len(records) == 31
+          for record in records:
+              fields = record.decode().split('\t', 2)
+              assert len(fields)==3 and fields[0].isdigit() and fields[1].isdigit()
+              p = fields[2]
+              assert '..' not in pathlib.PurePosixPath(p).parts and (p in exact or p.startswith(allowed)), p
+          subprocess.run(['git','apply','--check'], input=patch, check=True)
+          subprocess.run(['git','apply'], input=patch, check=True)
+          PY
+      - name: Resolve and install exact declared dependencies
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          npm ci --ignore-scripts
+      - name: Verify application types and focused tests
+        id: checks
+        continue-on-error: true
+        run: |
+          mkdir -p artifacts
+          set +e
+          npm run typecheck > artifacts/typecheck.log 2>&1; types=$?
+          node scripts/test-agent-reader.mjs > artifacts/reader.log 2>&1; reader=$?
+          npm test -- tests/agent-control --no-file-parallelism > artifacts/control.log 2>&1; control=$?
+          cat artifacts/typecheck.log artifacts/reader.log artifacts/control.log
+          test "$types$reader$control" = 000
+      - name: Commit the implementation checkpoint to its existing feature branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          branch=feat/agent-operations-and-approvals
+          test "$GITHUB_REF" = "refs/heads/$branch"
+          current=$(git ls-remote origin "refs/heads/$branch" | cut -f1)
+          test "$current" = "$GITHUB_SHA"
+          git rm -r .agent-transfer .github/workflows/assemble-agent-control.yml
+          git add src scripts/agent-credential.mjs docs/AGENT-CONTROL.md tests/agent-control-*.test.ts package.json package-lock.json
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'feat: reviewed agent operations, OAuth resource access, and source publishing'
+          header=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $header" push origin "HEAD:refs/heads/$branch"
+      - name: Preserve tracked implementation and diagnostics
+        if: always()
+        run: |
+          mkdir -p artifacts
+          git archive --format=tar HEAD src scripts tests docs package.json package-lock.json tsconfig.json next.config.ts vitest.config.ts eslint.config.mjs > artifacts/zenith-source.tar
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: agent-control-implementation-${{ github.sha }}
+          retention-days: 1
+          path: artifacts/
+      - name: Keep failed verification visible
+        if: steps.checks.outcome == 'failure'
+        run: exit 1

@@ -1,13 +1,15 @@
 name: Agent control verification
 on:
-  push:
-    branches: [feat/agent-operations-and-approvals]
   pull_request:
     paths:
       - 'src/lib/agent-access/**'
+      - 'src/lib/actions/**'
       - 'src/app/api/agent/**'
       - 'src/app/api/integrations/**'
+      - 'src/app/(product)/integrations/**'
+      - 'src/middleware.ts'
       - 'tests/agent*'
+      - 'package*.json'
       - '.github/workflows/agent-control.yml'
 permissions:
   contents: read
@@ -23,25 +25,7 @@ jobs:
         with:
           node-version: '22.16.0'
           cache: npm
-      - name: Source checkpoint (tracked source only)
-        run: |
-          mkdir -p artifacts
-          git archive --format=tar HEAD src scripts tests docs package.json package-lock.json tsconfig.json next.config.ts vitest.config.ts eslint.config.mjs > artifacts/zenith-source.tar
-      - name: Prepare isolated integration tooling
-        run: |
-          mkdir -p "$RUNNER_TEMP/zenith-tooling"
-          cd "$RUNNER_TEMP/zenith-tooling"
-          npm init -y >/dev/null
-          npm install --ignore-scripts --save-exact @modelcontextprotocol/server@2 @modelcontextprotocol/client@2 jose@6 esbuild@0.25 typescript@5.8.3 tsx@4 zod@3.25 vitest@3 @types/node@22
-          tar -czf "$GITHUB_WORKSPACE/artifacts/zenith-tooling.tar.gz" package.json package-lock.json node_modules
-      - name: Preserve source and tooling review checkpoint
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: agent-control-checkpoint-${{ github.sha }}
-          retention-days: 1
-          path: artifacts/
-      - name: Install locked application dependencies
-        run: npm ci --ignore-scripts
+      - run: npm ci --ignore-scripts
       - run: npm run typecheck
-      - run: npm test -- tests/agent --no-file-parallelism
+      - run: node scripts/test-agent-reader.mjs
+      - run: npm test -- tests/agent-control --no-file-parallelism

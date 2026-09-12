@@ -27,10 +27,6 @@ jobs:
         run: |
           mkdir -p artifacts
           git archive --format=tar HEAD src scripts tests docs package.json package-lock.json tsconfig.json next.config.ts vitest.config.ts eslint.config.mjs > artifacts/zenith-source.tar
-      - name: Install locked application dependencies
-        run: npm ci --ignore-scripts
-      - run: npm run typecheck
-      - run: npm test -- --no-file-parallelism
       - name: Prepare isolated integration tooling
         run: |
           mkdir -p "$RUNNER_TEMP/zenith-tooling"
@@ -38,10 +34,14 @@ jobs:
           npm init -y >/dev/null
           npm install --ignore-scripts --save-exact @modelcontextprotocol/server@2 @modelcontextprotocol/client@2 jose@6 esbuild@0.25 typescript@5.8.3 tsx@4 zod@3.25 vitest@3 @types/node@22
           tar -czf "$GITHUB_WORKSPACE/artifacts/zenith-tooling.tar.gz" package.json package-lock.json node_modules
-      - name: Preserve private review checkpoint
+      - name: Preserve source and tooling review checkpoint
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: agent-control-checkpoint-${{ github.sha }}
           retention-days: 1
           path: artifacts/
+      - name: Install locked application dependencies
+        run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm test -- tests/agent --no-file-parallelism

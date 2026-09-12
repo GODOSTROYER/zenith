@@ -14,7 +14,7 @@ export class OperationError extends Error {
     super(message); this.name = "OperationError";
   }
 }
-export type IntentKind = "manifest" | "import" | "deploy" | "rollback" | "cancel" | "publish" | "rollback_app";
+export type IntentKind = "manifest" | "import" | "deploy" | "rollback" | "cancel" | "approve_deployment" | "publish" | "rollback_app";
 export interface Owner {
   subject: string; credentialId: string; workspaceId: string;
   projectId?: string; environmentId?: string; authorizationHash: string;

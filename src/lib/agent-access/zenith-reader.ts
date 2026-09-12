@@ -83,7 +83,7 @@ function validate(name: string, args: Record<string, unknown>) {
       throw new AgentError("invalid_arguments", "Use the declared string, integer, cursor and enum bounds.", 400);
   }
 }
-async function call(name: string, args: Record<string, unknown>, grant: Credential, selected: SelectedScope): Promise<unknown> {
+export async function readerCall(name: string, args: Record<string, unknown>, grant: Credential, selected: SelectedScope): Promise<unknown> {
   validate(name, args); const actor = member(grant);
   switch (name) {
     case "zenith_get_context": return { selected, user: { id: actor.id, name: actor.name, role: actor.role }, credentialId: grant.id, expiresAt: grant.expiresAt, mode: "read-only" };
@@ -143,6 +143,6 @@ export const agentReader = createReaderHandler({
       return fn();
     });
   },
-  call,
+  call: readerCall,
   log(record) { console.info(JSON.stringify(record)); },
 });

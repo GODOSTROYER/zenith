@@ -40,7 +40,8 @@
     "hosted:backup-live-check": "tsx --env-file-if-exists=.env.local scripts/hosted/backup-live-check.ts",
     "hosted:acceptance": "tsx scripts/hosted-acceptance.ts",
     "hosted:browser": "tsx scripts/hosted-browser.ts",
-    "test:contract": "vitest run tests/db/contract --no-file-parallelism"
+    "test:contract": "vitest run tests/db/contract --no-file-parallelism",
+    "test:agent": "vitest run tests/agent-operations"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",
@@ -63,7 +64,8 @@
     "react-dom": "19.1.0",
     "three": "^0.185.1",
     "vite": "7.3.6",
-    "zod": "^3.25.0"
+    "zod": "^3.25.0",
+    "@modelcontextprotocol/server": "2.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "3.3.7",
@@ -86,6 +88,7 @@
     "tailwindcss": "^4.1.7",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
-    "vitest": "^3.1.4"
+    "vitest": "^3.1.4",
+    "@modelcontextprotocol/client": "2.0.0"
   }
 }

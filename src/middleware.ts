@@ -8,7 +8,7 @@ export async function middleware(request: NextRequest) {
   if (isPlatformStaticPath(request.nextUrl.pathname)) return NextResponse.next({ request });
   // This exact endpoint enforces its own credential and scope on every request.
   // Never let the browser-cookie gate turn it into a login redirect or demo admin.
-  if (request.nextUrl.pathname === "/api/agent/v1/mcp") return NextResponse.next({ request });
+  if (["/api/agent/v1/mcp", "/api/agent/v2/mcp", "/api/agent/v2/review", "/api/agent/v2/source", "/.well-known/oauth-protected-resource/api/agent/v2/mcp"].includes(request.nextUrl.pathname)) return NextResponse.next({ request });
   return updateSession(request);
 }
 export const config = { matcher: ["/((?!_next/static|_next/image).*)"] };

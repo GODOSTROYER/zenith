@@ -14,7 +14,7 @@ import { ensureBoot } from "@/lib/server/boot";
 import { redact, type SelectedScope } from "@/lib/agent-access/security";
 import { readerCall } from "@/lib/agent-access/zenith-reader";
 import { join } from "node:path";
-import { OperationError, digest, openPrivateJournal, type Intent, type Owner, type Preview, type Receipt, type Operation, type OperationJournal } from "./journal";
+import { OperationError, digest, openPrivateJournal, type Intent, type Preview, type Receipt, type Operation, type OperationJournal } from "./journal";
 import { checkGrantTime, object, ownerOf, readGrant, requireScope, type AgentGrant } from "./access";
 
 const rank = { viewer: 0, editor: 1, admin: 2 } as const;

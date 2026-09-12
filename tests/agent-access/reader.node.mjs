@@ -1,0 +1,32 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { createHash } from 'node:crypto';
+import { mkdtemp, writeFile, chmod, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+if(!process.env.ZENITH_AGENT_TEST_BUILD)throw Error('Run node scripts/test-agent-reader.mjs.');
+const require=createRequire(import.meta.url);
+const {authenticate,parseCredentials,selectScope,redact,loadCredentials}=require(path.join(process.env.ZENITH_AGENT_TEST_BUILD,'security.js'));
+const {createReaderHandler}=require(path.join(process.env.ZENITH_AGENT_TEST_BUILD,'http.js'));
+const token=`za_${'C'.repeat(43)}`,now=Date.now();
+const grant={id:'cred',tokenHash:createHash('sha256').update(token).digest('hex'),subject:'user',workspaceId:'ws',projectIds:['p'],environmentIds:['e'],scopes:['read'],issuedAt:new Date(now-1000).toISOString(),expiresAt:new Date(now+60000).toISOString()};
+const state=()=>({version:1,credentials:[grant]});
+test('scoped credential authenticates',()=>assert.equal(authenticate(`Bearer ${token}`,parseCredentials(state())).subject,'user'));
+test('invalid, expired and revoked credentials fail',()=>{assert.throws(()=>authenticate(null,[grant]));assert.throws(()=>authenticate(`Bearer ${token}`,[{...grant,expiresAt:new Date(now-1).toISOString()}]));assert.throws(()=>authenticate(`Bearer ${token}`,[]));});
+test('demo identities, duplicate records and write scopes rejected',()=>{for(const credentials of [[{...grant,subject:'local'}],[grant,grant],[{...grant,scopes:['read','execute']}]])assert.throws(()=>parseCredentials({version:1,credentials}));});
+test('lifetimes beyond 30 days are refused',()=>assert.throws(()=>parseCredentials({version:1,credentials:[{...grant,expiresAt:new Date(now+31*86400000).toISOString()}]})));
+test('header selection cannot enlarge credential scope',()=>{for(const extra of [{'x-zenith-workspace':'other'},{'x-zenith-project':'other'},{'x-zenith-project':'p','x-zenith-environment':'other'},{'x-zenith-environment':'e'}])assert.throws(()=>selectScope(new Headers({'x-zenith-workspace':'ws',...extra}),grant));});
+test('known secrets removed and vault references retained',()=>{const out=redact({value:'literal',token,secretRef:'vault:API_KEY',text:`Bearer ${token}`});assert.equal(out.value,'[redacted]');assert.equal(out.token,'[redacted]');assert.equal(out.secretRef,'vault:API_KEY');assert.equal(JSON.stringify(out).includes(token),false);});
+async function fixture(fn){const dir=await mkdtemp(path.join(tmpdir(),'zenith-reader-'));const file=path.join(dir,'access.json');await writeFile(file,JSON.stringify(state()),{mode:0o600});try{await fn(file);}finally{await rm(dir,{recursive:true,force:true});}}
+const req=(message,extra={})=>new Request('http://127.0.0.1:3400/api/agent/v1/mcp',{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json',accept:'application/json, text/event-stream','mcp-protocol-version':'2025-11-25','x-zenith-workspace':'ws',...extra},body:JSON.stringify(message)});
+function handler(file,more={}){return createReaderHandler({enabled:true,origin:'http://127.0.0.1:3400',credentialsPath:file,tools:[{name:'zenith_get_context',description:'fixture',scope:'read',inputSchema:{type:'object'}},{name:'zenith_plan_deploy',description:'fixture',scope:'plan',inputSchema:{type:'object'}}],inScope:async(_g,_s,fn)=>fn(),call:async()=>({value:'private',workspaceId:'ws'}),...more});}
+const message={jsonrpc:'2.0',id:1,method:'tools/list'};
+test('private authority file is required and reread after revocation',async()=>fixture(async file=>{assert.equal((await loadCredentials(file)).length,1);await chmod(file,0o644);await assert.rejects(loadCredentials(file));await chmod(file,0o600);const h=handler(file);assert.equal((await h(req(message))).status,200);await writeFile(file,JSON.stringify({version:1,credentials:[]}));assert.equal((await h(req(message))).status,401);}));
+test('missing authentication never enters application scope',async()=>fixture(async file=>{let calls=0;const h=handler(file,{inScope:async()=>{calls++;}});assert.equal((await h(req(message,{authorization:''}))).status,401);assert.equal(calls,0);}));
+test('tool catalog is filtered by credential scopes',async()=>fixture(async file=>{const out=await (await handler(file)(req(message))).json();assert.deepEqual(out.result.tools.map(t=>t.name),['zenith_get_context']);}));
+test('write attempts never dispatch, even with approved true',async()=>fixture(async file=>{let calls=0;const h=handler(file,{call:async()=>{calls++;}});const out=await(await h(req({...message,method:'tools/call',params:{name:'zenith_execute_plan',arguments:{approved:true}}}))).json();assert.equal(out.result.isError,true);assert.equal(calls,0);}));
+test('tool results are redacted and structured',async()=>fixture(async file=>{const out=await(await handler(file)(req({...message,method:'tools/call',params:{name:'zenith_get_context'}}))).json();assert.equal(out.result.structuredContent.data.value,'[redacted]');assert.equal(out.result.structuredContent.mode,'read-only');}));
+test('disabled, non-loopback and foreign-origin profiles refuse',async()=>fixture(async file=>{assert.equal((await handler(file,{enabled:false})(req(message))).status,503);assert.equal((await handler(file,{origin:'https://example.com'})(req(message))).status,503);assert.equal((await handler(file)(req(message,{origin:'https://foreign.example'}))).status,403);}));
+test('oversized bodies are refused',async()=>fixture(async file=>{assert.equal((await handler(file)(req({...message,padding:'x'.repeat(65536)}))).status,413);}));
+test('unsupported methods do not create an execution path',async()=>fixture(async file=>{const out=await(await handler(file)(req({...message,method:'actions/execute'}))).json();assert.equal(out.error.code,-32601);}));

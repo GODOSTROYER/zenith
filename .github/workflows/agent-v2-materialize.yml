@@ -36,7 +36,7 @@ jobs:
           test "$GITHUB_REF" = refs/heads/feat/reviewed-agent-operations
           git config user.name 'Zenith build verification'
           git config user.email 'noreply@github.com'
-          git add package.json package-lock.json src/lib/agent-access/zenith-reader.ts src/lib/agent-operations/journal.ts src/lib/agent-operations/application.ts src/middleware.ts
+          git add package.json package-lock.json src/lib/agent-access/zenith-reader.ts src/lib/agent-operations src/middleware.ts
           if ! git diff --cached --quiet; then
             git commit -m 'build(agent): resolve pinned SDK and integrate reviewed endpoint'
             git push origin HEAD:refs/heads/feat/reviewed-agent-operations

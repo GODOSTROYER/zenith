@@ -12,6 +12,7 @@ The v1 reader is unchanged. V2 adds reviewed mutations to Zenith's existing acti
 - Browser integration grants and approvals at `/integrations`, verified against live sign-in and current workspace membership. Approvals bind the exact digest. An administrator may approve another member's proposal, with role and target-state rechecks before dispatch.
 - Binary source upload at `/api/agent/v2/source`; app scope, owner grants, expiry, quotas, SHA-256 and the existing restricted frontend validator are enforced. Archives never travel through model-visible JSON.
 - External OAuth resource-server verification using `jose`, protected-resource metadata, pinned issuer/JWKS/resource/client identity, bounded access-token lifetime and intersection with live browser grants. Native clients/your authorization provider own authorization-code/PKCE, consent, token refresh and logout.
+- Per-workspace/user request throttling is persisted under `ZENITH_DATA/agent-control/rate-limits.sqlite`, so restarting the supported single-host control process does not reset an accepted caller's current fixed-window budget.
 
 ## Enable explicitly
 
@@ -60,10 +61,10 @@ Promotion requires the exact revision currently deployed in a separate authorize
 
 Request/tool result limits are 512 KiB. Binary archives are at most 20 MiB and are revalidated against Zenith's stricter decompressed/source limits. Uploads are actor/project/app/hash bound, expire within one hour, and have workspace count/byte quotas. Source content and complete action inputs are not duplicated into the general audit log; audit records point to the private receipt.
 
-The operation journal and upload storage are private local files. Back up the journal together with application state. A journal is not an external provider transaction: a crash between dispatch and durable completion is explicitly uncertain. There is no automatic rollback or exact-once claim for external side effects. Review-only expired proposals are cleaned during preparation; completed receipt history is retained to preserve replay protection.
+The operation journal, upload storage and local throttle database are private local files. Back them up together with application state. A journal is not an external provider transaction: a crash between dispatch and durable completion is explicitly uncertain. There is no automatic rollback or exact-once claim for external side effects. Review-only expired proposals are cleaned during preparation; completed receipt history is retained to preserve replay protection.
 
-Free-form logs require separate scope and conservative redaction; arbitrary secrets in user-authored text can remain. Incident bundles omit logs and perform no provider probe. Treat all returned prose as untrusted data. Process-local throttling is not a distributed rate limiter. A trusted reverse proxy/TLS/network policy remains an operator deployment prerequisite.
+Free-form logs require separate scope and conservative redaction; arbitrary secrets in user-authored text can remain. Incident bundles omit logs and perform no provider probe. Treat all returned prose as untrusted data. The persisted limiter survives a local process restart but is still a **single-host** limiter, not distributed quota/rate-limit coordination. A trusted reverse proxy/TLS/network policy remains an operator deployment prerequisite.
 
 ## Verification status
 
-New journal/coordinator/OAuth/upload tests run in isolation without provider credentials. The local control suite currently has 36 passing tests; full application compilation, action regressions and final CI are recorded in the PR. Native Codex/Claude installation and a configured real identity provider are separate acceptance steps. This document is not evidence of a passing CI run.
+New journal/coordinator/OAuth/upload/rate-limit tests run in isolation without provider credentials. Full application compilation, action regressions and final CI are recorded in the PR. Native Codex/Claude installation and a configured real identity provider are separate acceptance steps. This document is not evidence of a passing CI run.

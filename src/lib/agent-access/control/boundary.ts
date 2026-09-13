@@ -3,6 +3,7 @@ import { ControlError, type Principal } from './journal';
 import { AgentError, authenticate, loadCredentials, type SelectedScope } from '../security';
 import { control, inAgentScope, requireControl, resolveTarget } from './runtime';
 import { oauthConfig, verifyOAuth, bindGrant } from './oauth';
+import { throttle } from './rate-limit';
 const id=(x:string|null|undefined)=>typeof x==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(x);
 export function controlOrigin(): string {
   const raw=process.env.ZENITH_AGENT_ORIGIN??'';let url:URL;
@@ -61,10 +62,4 @@ export function failure(error:unknown):Response{
   if(e.status===401){try{response.headers.set('www-authenticate',`Bearer resource_metadata="${controlOrigin()}/.well-known/oauth-protected-resource/api/agent/v2/mcp", scope="zenith:read"`);}catch{/* misconfigured origin */}}
   return response;
 }
-const rates=new Map<string,{at:number;count:number}>();
-export function throttle(who:Principal):void{
-  const now=Date.now();for(const[key,row]of rates)if(now-row.at>60000)rates.delete(key);
-  const key=`${who.workspaceId}:${who.subject}`,row=rates.get(key)??{at:now,count:0};row.count++;
-  if(row.count>120||rates.size>=2000&&!rates.has(key))throw new ControlError('rate_limited','Request limit reached; retry later.',429);
-  rates.set(key,row);
-}
+export { throttle };

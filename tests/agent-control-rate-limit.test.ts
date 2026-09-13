@@ -23,7 +23,7 @@ describe('durable agent request throttling', () => {
   it('persists the accepted budget across process restarts', () => {
     const dir = mkdtempSync(join(tmpdir(), 'zenith-rate-limit-'));
     const file = join(dir, 'limits.sqlite');
-    let now = 1_700_000_000_000;
+    const now = 1_700_000_000_000;
     try {
       const first = new DurableRateLimiter(file, () => now);
       first.check(who, { limit: 2 });

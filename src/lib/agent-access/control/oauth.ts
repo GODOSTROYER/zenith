@@ -38,7 +38,9 @@ export async function verifyOAuth(token: string, config: OAuthConfig, key?: JWTV
 }
 /** Token scopes and a browser-authorized resource grant must BOTH allow the operation. */
 export function bindGrant(identity: VerifiedOAuth, grant: (Principal & {clientId:string;revoked?:boolean})|undefined): Principal {
-  if(!grant||grant.revoked||grant.subject!==identity.subject||grant.clientId!==identity.clientId||grant.oauthIssuer!==identity.issuer||Date.parse(grant.expiresAt)<=Date.now())
+  const grantExpiresAt = typeof grant?.expiresAt === 'string' ? Date.parse(grant.expiresAt) : Number.NaN;
+  if(!grant||grant.revoked||grant.subject!==identity.subject||grant.clientId!==identity.clientId||grant.oauthIssuer!==identity.issuer
+    ||!Number.isFinite(grantExpiresAt)||grantExpiresAt<=Date.now())
     throw new ControlError('integration_grant_required','Authorize this OAuth client and resource scope in Zenith → Integrations, or renew its grant.',403);
   const scopes=grant.scopes.filter(s=>identity.scopes.includes(s));
   if(!scopes.includes('read'))throw new ControlError('scope_denied','Token and integration grant do not share the required scope.',403);

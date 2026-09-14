@@ -16,11 +16,11 @@ import { isolatedDataDir } from "./_fixtures";
 
 isolatedDataDir("zenith-hosted-config-");
 
-const { assertSupportedStoreTopology, hostedConfig, hostedStoreKind } = await import("@/lib/hosted/config");
+const { hostedConfig, hostedStoreKind } = await import("@/lib/hosted/config");
 const { assertHostedPreconditions } = await import("@/lib/hosted/index");
 const { env } = await import("@/lib/env");
 
-const KEYS = ["ZENITH_STORE", "ZENITH_HOSTED_STORE", "ZENITH_ARTIFACT_BUCKET", "SUPABASE_DB_URL"] as const;
+const KEYS = ["ZENITH_HOSTED_STORE", "ZENITH_ARTIFACT_BUCKET", "SUPABASE_DB_URL"] as const;
 
 afterEach(async () => {
   for (const key of KEYS) delete process.env[key];
@@ -35,7 +35,6 @@ describe("ZENITH_HOSTED_STORE", () => {
 
   it("accepts postgres, and the memoised parse sees the change", async () => {
     expect(hostedStoreKind()).toBe("sqlite");
-    process.env.ZENITH_STORE = "postgres";
     process.env.ZENITH_HOSTED_STORE = "postgres";
     expect(hostedStoreKind()).toBe("postgres");
     expect(hostedConfig().ZENITH_HOSTED_STORE).toBe("postgres");
@@ -50,7 +49,6 @@ describe("ZENITH_HOSTED_STORE", () => {
     // The selection point. Both implementations exist now, so what boot refuses
     // is not the choice but the missing half of it, and the message names the
     // variable to set rather than the build's limitations.
-    process.env.ZENITH_STORE = "postgres";
     process.env.ZENITH_HOSTED_STORE = "postgres";
     expect(() => assertHostedPreconditions()).toThrow(
       "ZENITH_HOSTED_STORE=postgres needs a database to connect to"
@@ -59,34 +57,11 @@ describe("ZENITH_HOSTED_STORE", () => {
   });
 
   it("passes the store check once SUPABASE_DB_URL is set", async () => {
-    process.env.ZENITH_STORE = "postgres";
     process.env.ZENITH_HOSTED_STORE = "postgres";
     process.env.SUPABASE_DB_URL = "postgresql://u:p@db.example.test:6543/postgres";
     // Nothing connects here: the check is a configuration fact. Hosted mode is
     // off in this suite, so the function returns after it.
     expect(() => assertHostedPreconditions()).not.toThrow();
-  });
-});
-
-describe("store topology", () => {
-  it.each([
-    ["file", "sqlite"],
-    ["postgres", "postgres"],
-  ] as const)("accepts the supported %s + %s pair", (product, hosted) => {
-    process.env.ZENITH_STORE = product;
-    process.env.ZENITH_HOSTED_STORE = hosted;
-    expect(() => assertSupportedStoreTopology()).not.toThrow();
-  });
-
-  it.each([
-    ["file", "postgres"],
-    ["postgres", "sqlite"],
-  ] as const)("rejects the unsafe mixed %s + %s pair", (product, hosted) => {
-    process.env.ZENITH_STORE = product;
-    process.env.ZENITH_HOSTED_STORE = hosted;
-    expect(() => assertSupportedStoreTopology()).toThrow(
-      `Unsupported storage topology: ZENITH_STORE=${product} cannot be combined with ZENITH_HOSTED_STORE=${hosted}`
-    );
   });
 });
 

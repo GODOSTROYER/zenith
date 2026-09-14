@@ -124,6 +124,37 @@ export const hostedStoreKind = (): HostedConfig["ZENITH_HOSTED_STORE"] =>
 /** True when hosted admission rules apply to this process. Safe anywhere. */
 export const hostedMode = (): boolean => present("ZENITH_HOSTED_MODE") === "1";
 
+/**
+ * The product and hosted stores form one supported topology, not two
+ * independently swappable durability choices. A local file-backed product
+ * paired with a hosted Postgres authority (or the reverse) can answer a
+ * request from two authorities with different restart and multi-writer
+ * guarantees. Refuse those mixed pairs before the hosted authority opens.
+ *
+ * The two aligned pairs remain supported:
+ *   file + sqlite — local, single-writer mode
+ *   postgres + postgres — hosted, durable mode
+ *
+ * This check does not claim that PostgreSQL agent-control writes are safe;
+ * that separate refusal remains in the agent-control layer and its docs.
+ */
+export function assertSupportedStoreTopology(): void {
+  const product = env().ZENITH_STORE;
+  const hosted = hostedConfig().ZENITH_HOSTED_STORE;
+  const aligned =
+    (product === "file" && hosted === "sqlite") ||
+    (product === "postgres" && hosted === "postgres");
+  if (aligned) return;
+
+  throw new Error(
+    `Unsupported storage topology: ZENITH_STORE=${product} cannot be combined with ` +
+      `ZENITH_HOSTED_STORE=${hosted}. ` +
+      "Use ZENITH_STORE=file with ZENITH_HOSTED_STORE=sqlite for local single-writer mode, " +
+      "or ZENITH_STORE=postgres with ZENITH_HOSTED_STORE=postgres for hosted durable mode. " +
+      "This check does not enable PostgreSQL agent-control writes."
+  );
+}
+
 
 /** Absolute path of the control authority database. */
 export const controlDatabasePath = (): string => path.join(env().ZENITH_DATA, "control.sqlite");

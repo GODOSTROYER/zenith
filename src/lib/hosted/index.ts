@@ -22,7 +22,12 @@ import {
 } from "@/lib/hosted/authority";
 import { startHostedJobRunner } from "@/lib/hosted/release";
 import { registerOpsOutboxHandlers } from "@/lib/hosted/usage";
-import { hostedConfig, hostedMode, hostedStoreKind } from "@/lib/hosted/config";
+import {
+  assertSupportedStoreTopology,
+  hostedConfig,
+  hostedMode,
+  hostedStoreKind,
+} from "@/lib/hosted/config";
 import { env } from "@/lib/env";
 import { log } from "@/lib/log";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -41,6 +46,7 @@ export function nodeMeetsFloor(version: string = process.versions.node): boolean
  */
 export function assertHostedPreconditions(): void {
   hostedConfig(); // validates every ZENITH_* variable, throwing with the offender
+  assertSupportedStoreTopology();
   // Postgres needs somewhere to connect. Checked here, before anything opens,
   // so a deployment that asks for Postgres and gave no URL is told which
   // variable to set rather than finding out from a half-open authority later.
@@ -99,4 +105,3 @@ export function ensureHosted(): void {
   }, 0);
   (replay as { unref?: () => void }).unref?.();
 }
-

@@ -1,6 +1,6 @@
 # Production-hardening architecture gate
 
-Status: approved for bounded implementation from `45d065833ba57e947ed7f30285877efa9208f3f8`.
+Status: approved for bounded implementation from `45d065833ba57e947ed7f30285877efa9208f3f8`; the initial blanket topology-guard proposal was rejected during independent review as a compatibility regression.
 
 This gate records the source-verified disposition of the prior review and the
 contracts that implementation work must preserve. It is intentionally scoped
@@ -29,7 +29,7 @@ default branch. The plugin default is `main`.
 | E2B dependency supply chain and egress | **Partially addressed; hold** | `src/lib/hosted/build/runner-e2b.ts` leaves egress enabled and installs packages at job time; lifecycle isolation exists but production parity is unverified. | D with F | Frozen lockfile/install-policy tests, egress/teardown evidence, disposable live lane |
 | Synchronous PostgREST bridge | **Reproduced; rework** | `src/lib/db/pg/sync-rest.ts` uses a worker and `Atomics.wait` for up to 15 seconds; used by history/audit/secrets paths. | A | Async API contract, injected failure/restart tests, event-loop measurement |
 | Agent-control PostgreSQL write refusal | **Reproduced; correct limit** | `docs/AGENT-CONTROL.md` explicitly keeps reviewed writes on a long-lived single-writer file-store host until application transactions and the journal are coordinated. | B | Preserve fail-closed guard; add topology tests; no guard removal in this change |
-| `ZENITH_STORE` vs `ZENITH_HOSTED_STORE` split | **Reproduced; guard/document** | Product storage and hosted authority/data/artifact selection are independent; mixed modes can otherwise appear healthy while using different authorities. | A/F | Boot matrix rejects unsupported combinations; documentation and readiness checks |
+| `ZENITH_STORE` vs `ZENITH_HOSTED_STORE` split | **Reproduced separation; compatibility-sensitive** | Product storage and hosted authority/data/artifact selection are independent. Existing `docs/HOSTED-POSTGRES.md` and `docs/ARCHITECTURE.md` explicitly describe hybrid combinations, including product PostgreSQL with hosted SQLite. | A/F | Document both authorities and migration boundaries; add readiness evidence without rejecting documented combinations. A future guard must be based on a proven unsupported pair, not a blanket mixed-mode rule. |
 | Full test instability | **Unverified as product failure** | Baseline typecheck passed; plugin verification passed. Broad application tests require the repository-supported Node/runtime and isolated fixtures before classifying failures. | F | Reproduce on supported Node; report environment vs product failures without weakening assertions |
 | UI routing/polling/accessibility items | **Unverified pending source/test reproduction** | Prior report findings require current-path confirmation before edits. | E | Browser/keyboard/narrow viewport/reconnect tests and request-volume measurement |
 
@@ -45,9 +45,11 @@ default branch. The plugin default is `main`.
    file-store control node until a coordinated application transaction and
    operation-journal adapter is proven. The existing PostgreSQL refusal remains
    fail-closed.
-3. Local `ZENITH_STORE=file` is explicitly local/single-writer. It is not
-   advertised as hosted durability. Unsupported mixed product/hosted store
-   combinations fail at boot/readiness rather than silently forming hybrids.
+3. Local `ZENITH_STORE=file` is explicitly local/single-writer for the product
+   subsystem. The hosted subsystem has its own authority selector. Existing
+   product/hosted hybrid combinations remain compatible because the repository
+   intentionally supports them; documentation and readiness must identify both
+   authorities and must not imply cross-authority atomicity.
 4. Business state, audit/operation records, idempotency state, and outbox
    intent that share an authority commit in one transaction. Separate
    authorities use durable intent plus reconciliation; the system never claims
@@ -79,9 +81,10 @@ task.
 Shared contracts and migrations have one owner at a time. Workers use isolated
 branches/worktrees and return commits; only the integrator applies them.
 
-1. **A0 / integrator:** freeze contracts, store-topology matrix, migration
+1. **A0 / integrator:** freeze contracts, store-authority matrix, migration
    naming, and test fixtures. Own `src/lib/db/types.ts`, shared schemas,
-   `supabase/migrations/**`, and generated contracts.
+   `supabase/migrations/**`, and generated contracts. Do not add a blanket
+   mixed-store boot refusal without a demonstrated unsupported combination.
 2. **C1:** own `src/lib/alerts/**`, alert action definitions, and secret
    reference adapter/tests. It may propose changes to A0-owned schemas, but
    does not edit migrations concurrently.
@@ -108,7 +111,7 @@ branches/worktrees and return commits; only the integrator applies them.
 | Mode | State authority | Allowed scope | Required evidence |
 |---|---|---|---|
 | Local development | File store; single writer | Product/local features; agent control only with explicit local flags | typecheck/lint/targeted tests; filesystem-loss and restart behavior documented |
-| Supported hosted production | PostgreSQL for hosted/product state, existing durable artifact storage, encrypted secret references; separate agent-control node until B is proven | Only features whose adapters and authorization gates are verified | migration rehearsal, async/event-loop checks, tenant isolation, failure injection, backups/restore, readiness and observability |
+| Supported hosted production | Product and hosted authorities are selected independently; each must use its documented adapter and authority boundary. Existing hybrid modes remain compatibility-supported; cross-authority atomicity is not implied. | Only features whose adapters and authorization gates are verified | migration rehearsal per authority, async/event-loop checks, tenant isolation, failure injection, backups/restore, readiness and observability |
 | Experimental PostgreSQL agent-control writes | **Unavailable** | Fail closed; no enablement by removing a guard | Requires coordinated transaction/journal, multi-instance leases/fences, revocation races, restart and uncertainty tests |
 | E2B build backend | **Hold** | Not production-supported until provenance, frozen dependency resolution, egress, teardown, and live evidence pass | Docker/E2B parity evidence on disposable targets |
 | Plugin installation | Signed/trusted release only for production | Unsigned/hash-only artifacts are rejected or explicitly local-only | signature/trust/rotation/revocation and application contract checks |

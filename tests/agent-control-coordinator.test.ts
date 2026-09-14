@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Journal, type Principal, type Proposal } from '../src/lib/agent-access/control/journal';
+import { ControlError, Journal, type Principal, type Proposal } from '../src/lib/agent-access/control/journal';
 import { Coordinator, type ControlPort } from '../src/lib/agent-access/control/coordinator';
 import { withMutationGate } from '../src/lib/actions/mutation-gate';
 const who: Principal = { subject:'member', integrationId:'codex', workspaceId:'ws', projectIds:['p'], scopes:['read','plan','write'], expiresAt:'2099-01-01T00:00:00Z' };
@@ -31,6 +31,21 @@ describe('integration coordinator',()=>{
       await expect(f.coordinator.execute(async()=>who,op.id)).rejects.toThrow('revoked');expect(f.count().executions).toBe(0);
     }finally{f.close();}
     const stale=fixture({fingerprint:async()=>'changed'});try{const op=await approved(stale);await expect(stale.coordinator.execute(async()=>who,op.id)).rejects.toThrow('State or permissions changed');expect(stale.count().executions).toBe(0);}finally{stale.close();}
+  });
+  it('does not finalize dispatch after authorization is revoked in flight',async()=>{
+    let dispatched=false, identityCalls=0;
+    const f=fixture({execute:async()=>{dispatched=true;return {ok:true};}});
+    try {
+      const op=await approved(f);
+      await expect(f.coordinator.execute(async()=>{
+        identityCalls++;
+        if(identityCalls === 2) throw new ControlError('revoked','revoked');
+        return who;
+      },op.id)).rejects.toThrow('may have been accepted');
+      expect(f.journal.get(who,op.id).phase).toBe('uncertain');
+      expect(dispatched).toBe(true);
+      expect(f.count().flushes).toBe(1);
+    } finally { f.close(); }
   });
   it('does not give an unauthenticated caller approval through input',async()=>{
     const f=fixture();try{const op=await f.coordinator.prepare(who,{approved:true});await expect(f.coordinator.execute(async()=>who,op.id)).rejects.toThrow('approve');expect(f.count().executions).toBe(0);}finally{f.close();}

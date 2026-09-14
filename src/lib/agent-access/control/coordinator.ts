@@ -44,6 +44,17 @@ export class Coordinator {
         try {
           const result = await this.port.execute(who, claim.operation);
           await this.port.flush(); // durable app state BEFORE reporting durable dispatch completion
+          // Authorization may have been revoked while the action was in flight.
+          // The side effect is now ambiguous from the caller's perspective, so
+          // refuse to finalize it as success and let the uncertainty path fence
+          // retries.
+          const current = await freshIdentity();
+          if (current.subject !== who.subject || current.workspaceId !== who.workspaceId)
+            throw new ControlError('identity_changed', 'The authorized identity changed during dispatch.', 403);
+          await this.port.scope(current, async () => {
+            checkTarget(current, claim.operation.target, claim.operation.action.startsWith('app.') ? 'publish' : 'write');
+            await this.port.authorize(current, claim.operation);
+          });
           return this.journal.finish(op.id, result, result.ok);
         } catch {
           // The external side effect may have happened. Persist ambiguity; never claim rollback or retry.

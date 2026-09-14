@@ -17,7 +17,7 @@ current branch intentionally preserves the existing independent selectors.
 
 ## Verification
 
-- `npx vitest run tests/hosted/config.test.ts tests/agent-control-oauth.test.ts --no-file-parallelism`: 15/15 passed on the final branch (the hosted config suite is unchanged after reverting the compatibility regression).
+- `npx vitest run tests/hosted/config.test.ts tests/agent-control-oauth.test.ts --no-file-parallelism`: 23/23 passed on the final branch (15 OAuth, 8 hosted-config; the hosted config suite is unchanged after reverting the compatibility regression).
 - `npm run typecheck`: passed.
 - Targeted ESLint over changed files: passed.
 - `git diff --check`: passed.

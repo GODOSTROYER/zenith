@@ -110,6 +110,47 @@ const Schema = z.object({
    * validation error below.
    */
   SUPABASE_DB_URL: z.string().url().optional(),
+  /* ------------------------------ agent access ------------------------------ */
+  /*
+   * The `ZENITH_AGENT_*` family, which until now was read straight out of
+   * `process.env` in six files and documented in three docs that could drift
+   * from it (ADR D-10).
+   *
+   * **Every one of them is `z.string().optional()`, deliberately.** The rest of
+   * this schema tightens shapes because a typo in `ZENITH_FAST` silently meant
+   * "slow". These are different: they are live on a production deployment
+   * today, and each already has a call site that validates it and refuses with
+   * a message naming the fix — `boundary.ts` parses `ZENITH_AGENT_ORIGIN` as a
+   * URL per request, `oauth.ts` parses the issuer and JWKS URLs, and the flags
+   * are compared to the literal `"1"` so anything else is "off". Tightening
+   * them here would move those refusals from the request that needs them to
+   * boot, turning a misconfigured variable into a deployment that does not
+   * start — a behaviour change this round has no business making. So the
+   * family is *declared and documented* here, read through one place, and
+   * validated where it already was.
+   */
+  /** `"1"` enables the v2 reviewed-operations control plane. Anything else is off. */
+  ZENITH_AGENT_CONTROL: z.string().optional(),
+  /**
+   * `"1"` enables reviewed writes **on the single-writer file store only**. On
+   * `ZENITH_STORE=postgres` it governs nothing: writes follow the scopes on the
+   * linked credential, which a person approved in the browser.
+   */
+  ZENITH_AGENT_WRITES: z.string().optional(),
+  /** `"1"` enables the v1 read-only reader. Anything else is off. */
+  ZENITH_AGENT_READER: z.string().optional(),
+  /** The origin agent transports accept and build review URLs from. Parsed as a URL at its call sites. */
+  ZENITH_AGENT_ORIGIN: z.string().optional(),
+  /** Absolute path to the POSIX credential file the v1 reader authenticates against. */
+  ZENITH_AGENT_CREDENTIAL_FILE: z.string().optional(),
+  /** External OAuth resource-server issuer, when remote origins are admitted. */
+  ZENITH_AGENT_OAUTH_ISSUER: z.string().optional(),
+  /** JWKS URL for that issuer. */
+  ZENITH_AGENT_OAUTH_JWKS: z.string().optional(),
+  /** Which claim carries the client id. Defaults to `client_id` at the call site. */
+  ZENITH_AGENT_OAUTH_CLIENT_CLAIM: z.string().optional(),
+  /** Which claim carries the subject. Defaults to `sub` at the call site. */
+  ZENITH_AGENT_OAUTH_SUBJECT_CLAIM: z.string().optional(),
   /** Optional. The From address on alert email. Required alongside ZENITH_SMTP_URL. */
   ZENITH_ALERT_FROM: z
     .string()
@@ -144,6 +185,15 @@ const RAW_KEYS = [
   "ZENITH_SMTP_URL",
   "ZENITH_ALERT_FROM",
   "SUPABASE_DB_URL",
+  "ZENITH_AGENT_CONTROL",
+  "ZENITH_AGENT_WRITES",
+  "ZENITH_AGENT_READER",
+  "ZENITH_AGENT_ORIGIN",
+  "ZENITH_AGENT_CREDENTIAL_FILE",
+  "ZENITH_AGENT_OAUTH_ISSUER",
+  "ZENITH_AGENT_OAUTH_JWKS",
+  "ZENITH_AGENT_OAUTH_CLIENT_CLAIM",
+  "ZENITH_AGENT_OAUTH_SUBJECT_CLAIM",
 ] as const;
 
 /**

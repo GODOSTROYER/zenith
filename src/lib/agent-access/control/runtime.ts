@@ -6,7 +6,6 @@ import { loadSnapshot, pgClient } from '@/lib/db/postgres-store';
 import { runWithSnapshot } from '@/lib/db/request-snapshot';
 import { claimDataDir } from '@/lib/data-lock';
 import { env } from '@/lib/env';
-import { isServerless } from '@/lib/serverless';
 import { getAction, runAction, type ActionContext, type ActionResult } from '@/lib/actions/core';
 import { withMutationGate } from '@/lib/actions/mutation-gate';
 import { registerAllActions } from '@/lib/actions/defs';
@@ -16,18 +15,39 @@ import { WORKSPACE_ROLE_RANK } from '@/lib/domain/roles';
 import { callReader, readerTools, registerReaderProviders } from '../zenith-reader';
 import { redact, type Credential, type SelectedScope } from '../security';
 import { Coordinator, type ApplicationAuthority, type ControlPort } from './coordinator';
-import { Journal, ControlError, checkTarget, digest, type Principal, type Target, type Proposal, type Operation } from './journal';
+import { Journal, SqliteAgentJournal, ControlError, checkTarget, digest, type AgentJournal, type Principal, type Target, type Proposal, type Operation } from './journal';
+import {
+  controlCapabilitiesSync, requireControlSync, requireWritesSync,
+  requireControl as requireControlCapability, requireWrites as requireWritesCapability,
+  type ControlCapabilities,
+} from './capabilities';
+import { advanceAfterDispatch, advancesDeployment } from './advance';
 import { controlTools, EDIT_ACTIONS, preparationSchema, targetSchema, CONTROL_VERSION, type Preparation } from './contracts';
 
-export function requireControl(): void {
-  if (process.env.ZENITH_AGENT_CONTROL !== '1' || isServerless()) throw new ControlError('control_disabled', 'Agent control requires explicit enablement on a long-lived single-writer host.', 503);
-}
-export function requireWrites(): void {
-  requireControl();
-  // PostgreSQL application snapshots are request-isolated and not protected by this process's gate.
-  // Refuse rather than imply a distributed transaction that the application does not provide.
-  if (process.env.ZENITH_AGENT_WRITES !== '1' || isPostgres()) throw new ControlError('writes_disabled', 'Enable reviewed writes on the single-writer file store. Distributed PostgreSQL writes require a coordinated application transaction implementation.', 503);
-}
+/**
+ * The two flag guards that used to live here are now `capabilities.ts`.
+ *
+ * They are not deleted and they are not configurable. `controlCapabilities()`
+ * asks the question they were standing in for — is there a durable, DB-enforced
+ * place to put an intent, and a credential authority to bind it to? — and
+ * answers it from the configuration. Serverless + file is still refused, and
+ * Postgres without a reachable `agent` schema is still refused; what has
+ * changed is that Postgres *with* one is no longer refused for a reason that
+ * stopped being true.
+ *
+ * **These two keep their synchronous signature.** `browser.ts:14` and
+ * `boundary.ts:16` call them as statements, and making them async there would
+ * turn a guard into a floating promise that refuses nothing — the failure mode
+ * worth avoiding above all others in this file. They run the whole decision
+ * except the one part that needs the network; `requireControlAsync` /
+ * `requireWritesAsync` add that and are what every write path below awaits.
+ */
+export function requireControl(): void { requireControlSync(); }
+export function requireWrites(): void { requireWritesSync(); }
+/** The full check, journal reachability included. Frozen contract F4. */
+export const requireControlAsync = requireControlCapability;
+/** The full write check, journal reachability included. Frozen contract F4. */
+export const requireWritesAsync = requireWritesCapability;
 export function liveMember(who: Principal): Member {
   if (['local','navigator','system'].includes(who.subject) || Date.parse(who.expiresAt) <= Date.now()) throw new ControlError('identity_denied', 'A current non-demo member is required.', 403);
   const member = db().members.find(m => m.id === who.subject && m.workspaceId === who.workspaceId);
@@ -35,7 +55,7 @@ export function liveMember(who: Principal): Member {
   return member;
 }
 export async function inAgentScope<T>(who: Principal, fn: () => Promise<T>): Promise<T> {
-  requireControl();
+  await requireControlAsync();
   if (!isPostgres()) claimDataDir(env().ZENITH_DATA);
   const snapshot = isPostgres() ? await loadSnapshot(pgClient(), { id: who.subject, email: '' }) : undefined;
   return runWithSnapshot(snapshot, async () => { liveMember(who); return fn(); });
@@ -118,7 +138,7 @@ async function fingerprint(who: Principal, op: Proposal): Promise<string> {
     revision: typeof op.input.toRevisionId === 'string' ? q.revision(op.input.toRevisionId) : null });
 }
 async function proposal(who: Principal, raw: unknown): Promise<Proposal> {
-  requireWrites(); const input = preparationSchema.parse(raw), { project, environment } = resolveTarget(who, input.target, 'plan');
+  await requireWritesAsync(); const input = preparationSchema.parse(raw), { project, environment } = resolveTarget(who, input.target, 'plan');
   if (input.kind.startsWith('deployment.') && !environment) throw new ControlError('environment_required', 'Choose an environment explicitly.', 400);
   const action = input.kind==='system.edit'?EDIT_ACTIONS[input.edit]:ACTIONS[input.kind]; let args: Record<string, unknown>;
   switch (input.kind) {
@@ -164,7 +184,7 @@ function stableJobId(who: Principal, requestKey: string): string {
   return `${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-8${h.slice(17,20)}-${h.slice(20,32)}`;
 }
 async function execute(who: Principal, op: Operation): Promise<{ ok: boolean; [key: string]: unknown }> {
-  requireWrites();
+  await requireWritesAsync();
   // Start/resume the application runtime only once a write has been approved.
   const { ensureBoot } = await import('@/lib/server/boot'); await ensureBoot();
   await authorize(who, op);
@@ -188,11 +208,59 @@ async function execute(who: Principal, op: Operation): Promise<{ ok: boolean; [k
   return { ...actionResult, dispatchOnly:true, operationId:op.id,
     note:'A successful dispatch may still be awaiting deployment approval or execution. Inspect the linked deployment or job.' };
 }
-const globalControl = globalThis as typeof globalThis & { __zenithControl?: Coordinator };
+const globalControl = globalThis as typeof globalThis & { __zenithControl?: Coordinator; __zenithAgentJournal?: AgentJournal };
 let singleton: Coordinator | undefined = globalControl.__zenithControl;
+
+/**
+ * The journal this deployment writes intents to, as the asynchronous interface.
+ *
+ * `SqliteAgentJournal` on the file store — the same class, the same file, the
+ * same behaviour, one promise deep — and `PgAgentJournal` on Postgres.
+ * `recover()` is called at construction **only** on the SQLite branch: on
+ * Postgres a cold instance calling it would declare every other live instance's
+ * in-flight operation uncertain, because `workerId` is per-process. There it is
+ * the lease that decides, on `agentTickPass()`.
+ */
+export async function agentJournal(): Promise<AgentJournal> {
+  if (globalControl.__zenithAgentJournal) return globalControl.__zenithAgentJournal;
+  if (controlCapabilitiesSync().journal === 'postgres') {
+    // Lazy import, inside the branch, so a file-store install never loads
+    // postgres.js at all. The schema check is the journal's own, and remembered.
+    const { pgAgentJournal } = await import('./journal-pg');
+    return (globalControl.__zenithAgentJournal = pgAgentJournal());
+  }
+  claimDataDir(env().ZENITH_DATA);
+  const inner = new Journal(resolve(env().ZENITH_DATA, 'agent-control', 'operations.sqlite'));
+  inner.recover();
+  return (globalControl.__zenithAgentJournal = new SqliteAgentJournal(inner));
+}
+
+/**
+ * The coordinator, over the journal this deployment has.
+ *
+ * **Postgres is refused here, and the refusal is a wiring gap, not a design
+ * one.** Everything the Postgres control plane needs — `agent.agent_operations`
+ * with its claim, fence, lease and reconciliation — is implemented in
+ * `journal-pg.ts` and exercised by the contract suite. What is missing is that
+ * `Coordinator` (`coordinator.ts`, a frozen file this packet may not edit)
+ * reads its journal synchronously, and so do `browser.ts:26-27,39-52` and
+ * `boundary.ts:41` (two files other packets own). Three files therefore have to
+ * gain `await` together, in one commit, before this branch can be flipped —
+ * which is an integrator's change to make, not a worker's. See HANDOFF-P2.
+ *
+ * Until then the refusal is explicit and names the work, because the failure
+ * mode worth avoiding is a Postgres deployment that *appears* to accept a
+ * reviewed operation and writes it somewhere nothing will read again.
+ */
 export function control(): Coordinator {
   requireControl();
   if (singleton) return singleton;
+  if (controlCapabilitiesSync().journal === 'postgres')
+    throw new ControlError('control_unwired',
+      'The Postgres agent journal is present and reachable, but the coordinator has not been switched onto it yet: ' +
+      'coordinator.ts, browser.ts and boundary.ts still read the journal synchronously, which a database cannot answer. ' +
+      'Fix: land the AgentJournal await change across those three files (see HANDOFF-P2), or set ZENITH_STORE=file ' +
+      'to run agent control on the single-writer host in the meantime.', 503);
   claimDataDir(env().ZENITH_DATA);
   const journal = new Journal(resolve(env().ZENITH_DATA, 'agent-control', 'operations.sqlite')); journal.recover();
   const port: ControlPort = { gate:withMutationGate, scope:inAgentScope, identify:raw=>{const input=preparationSchema.parse(raw);return {requestKey:input.requestKey,clientInputDigest:digest(input)};}, proposal, fingerprint, authorize, applicationAuthority, execute, flush:async()=>{await flushPendingAsync();} };
@@ -207,8 +275,17 @@ function credential(who: Principal): Credential {
   return { id:who.integrationId, subject:who.subject, workspaceId:who.workspaceId, projectIds:who.projectIds,
     environmentIds:who.environmentIds, appIds:who.appIds, scopes:who.scopes as Credential['scopes'], issuedAt:new Date(0).toISOString(), expiresAt:who.expiresAt, tokenHash:'' };
 }
+/**
+ * The tools this principal may actually call, on this deployment.
+ *
+ * `writesAvailable` comes from the capability decision rather than from the
+ * flag, so the advertisement and the guard can no longer disagree — a tool that
+ * cannot run is still not listed. Synchronous, because every MCP transport
+ * iterates this list inline; `controlCapabilitiesSync()` is the whole decision
+ * minus the reachability probe, which the write path itself awaits.
+ */
 export function catalog(who: Principal) {
-  const writesAvailable = process.env.ZENITH_AGENT_WRITES === '1' && !isPostgres();
+  const writesAvailable = controlCapabilitiesSync().writes;
   return [...readerTools.map(t=>({...t, mutates:false})), ...controlTools].filter(t => (who.scopes.includes(t.scope)||(t.name==='zenith_execute_operation'&&who.scopes.includes('publish'))) && (!t.mutates || writesAvailable))
     .map(({scope,mutates,...t})=>({...t, annotations:{ readOnlyHint:!mutates, destructiveHint:mutates, idempotentHint:!mutates, openWorldHint:true }, requiredScope:scope,...(t.name==='zenith_execute_operation'?{requiredAnyScope:['write','publish']}:{} )}));
 }
@@ -218,12 +295,29 @@ export async function invoke(name: string, args: Record<string, unknown>, whoInp
   const who = selectedPrincipal(whoInput, selected), spec = catalog(who).find(t=>t.name===name);
   if (!spec) throw new ControlError('capability_unavailable','This tool is not enabled for the current scopes and deployment topology.',403);
   if (name === 'zenith_prepare_change') return operationView(await control().prepare(async()=>selectedPrincipal(await freshIdentity(),selected),args), origin);
-  if (name === 'zenith_execute_operation') return operationView(await control().execute(async()=>selectedPrincipal(await freshIdentity(),selected),idSchema.parse(args.operationId)),origin);
+  if (name === 'zenith_execute_operation') {
+    // The coordinator has finalized by the time this resolves, so the operation's
+    // outcome is already durable and nothing below can change it. Only then is it
+    // safe to spend a few seconds moving the deployment the dispatch created:
+    // otherwise the first step of a simulated deploy waits for the five-minute
+    // scheduler pass, and the canvas shows nothing happening.
+    const op = await control().execute(async()=>selectedPrincipal(await freshIdentity(),selected),idSchema.parse(args.operationId));
+    if (advancesDeployment(op.action) && (op.result as {data?:{deploymentId?:string}}|undefined)?.data?.deploymentId)
+      await advanceAfterDispatch(who.workspaceId);
+    return operationView(op, origin);
+  }
   return inAgentScope(who, async()=>{
-    if (name === 'zenith_get_capabilities') return { contractVersion:CONTROL_VERSION, mode:'reviewed-operations', tools:catalog(who),
-      writesEnabled:process.env.ZENITH_AGENT_WRITES === '1' && !isPostgres(), sourceUpload:'separate bounded binary endpoint; explicit app scope and owner grant required',
+    if (name === 'zenith_get_capabilities') { const c: ControlCapabilities = controlCapabilitiesSync(); return {
+      contractVersion:CONTROL_VERSION, mode:'reviewed-operations', tools:catalog(who), writesEnabled:c.writes,
+      journal:c.journal, coordination:c.coordination, credentials:c.credentials, ...(c.reason?{unavailableBecause:c.reason}:{}),
+      sourceUpload:'separate bounded binary endpoint; explicit app scope and owner grant required',
       transport:'MCP SDK 2 Streamable HTTP', approval:'live signed-in browser review; existing environment admin approval is preserved',
-      persistence:'single-writer durable SQLite journal; interrupted dispatch is uncertain, never automatically replayed' };
+      persistence: c.journal === 'postgres'
+        ? 'durable Postgres journal with a database-enforced claim, fence token and lease; an interrupted dispatch reconciles to uncertain and is never automatically replayed'
+        : 'single-writer durable SQLite journal; interrupted dispatch is uncertain, never automatically replayed',
+      coordinationNote: c.coordination === 'process-gate'
+        ? 'This host coordinates in one process (mutation gate and pid lock). It is not distributed and does not claim to be.'
+        : 'Claims, leases and fences are enforced by the database, across instances.' }; }
     if (name === 'zenith_get_context') return { selected, member:liveMember(who), integrationId:who.integrationId, expiresAt:who.expiresAt, scopes:who.scopes, mode:'reviewed-operations' };
     if (name === 'zenith_get_manifest') {
       const value = await callReader(name,args,credential(who),selected) as {manifest:unknown};
@@ -256,10 +350,10 @@ export async function invoke(name: string, args: Record<string, unknown>, whoInp
   });
 }
 export async function acceptUpload(who: Principal, target: Target, appId: string, bytes: Buffer) {
-  requireWrites();return inAgentScope(who,async()=>{resolveTarget(who,target,'publish');await ownedApp(who,appId);const {validateSource}=await import('@/lib/hosted/source');const validated=validateSource({kind:'tarball',bytes});return {...control().journal.putUpload(who,target,appId,bytes),contractVersion:1,sourceDigest:validated.digest};});
+  await requireWritesAsync();return inAgentScope(who,async()=>{resolveTarget(who,target,'publish');await ownedApp(who,appId);const {validateSource}=await import('@/lib/hosted/source');const validated=validateSource({kind:'tarball',bytes});return {...control().journal.putUpload(who,target,appId,bytes),contractVersion:1,sourceDigest:validated.digest};});
 }
 export async function reviewOperation(subject: string, workspace: string, role: 'viewer'|'editor'|'admin', id: string, expectedDigest:string, approve:boolean) {
-  requireWrites();return withMutationGate(async()=>{
+  await requireWritesAsync();return withMutationGate(async()=>{
     const op=control().journal.forReview(id,workspace);
     if(op.subject!==subject&&role!=='admin')throw new ControlError('operation_not_found','Operation not found.',404);
     const currentApprover=db().members.find(m=>m.id===subject&&m.workspaceId===workspace);

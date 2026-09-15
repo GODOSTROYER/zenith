@@ -16,7 +16,7 @@
  *    `workspacesFor(user)` and the caller's own audit rows, so a bug that
  *    widens it has to widen membership first.
  */
-import { appendAuditAsync, db, q, readAudit, readAuditPageAsync, save } from "@/lib/db/store";
+import { appendAuditAsync, appendAuditBatch, db, flushPendingAsync, isPostgres, q, readAudit, readAuditPageAsync, save } from "@/lib/db/store";
 import { id } from "@/lib/domain/types";
 import type { Actor, AuditEvent, Member, Workspace } from "@/lib/domain/types";
 import type { SessionUser } from "@/lib/auth/session";
@@ -50,6 +50,96 @@ export function requireAccountUser(): SessionUser {
 export function membershipsOf(user: SessionUser): Member[] {
   const email = user.email.toLowerCase();
   return db().members.filter((m) => m.id === user.id || m.email.toLowerCase() === email);
+}
+
+/**
+ * Account deletion crosses two authorities: the local store and Supabase
+ * Auth.  A durable marker makes the irreversible boundary recoverable when a
+ * process dies after Auth deletion but before local cleanup is flushed.
+ * Values are identity metadata only; credentials never enter this journal.
+ */
+export type PendingAccountDeletion = {
+  operationId: string;
+  user: Pick<SessionUser, "id" | "email" | "name">;
+  stage: "started" | "doors-closed" | "identity-deleted";
+  updatedAt: string;
+};
+
+const PENDING_DELETIONS = "pendingAccountDeletions";
+
+function pendingDeletions(): PendingAccountDeletion[] {
+  const settings = db().settings;
+  const value = settings[PENDING_DELETIONS];
+  if (!Array.isArray(value)) return [];
+  return value.filter((entry): entry is PendingAccountDeletion => {
+    if (!entry || typeof entry !== "object") return false;
+    const row = entry as Partial<PendingAccountDeletion>;
+    return typeof row.operationId === "string" && typeof row.stage === "string" &&
+      !!row.user && typeof row.user.id === "string" && typeof row.user.email === "string" &&
+      typeof row.user.name === "string";
+  });
+}
+
+function setPendingDeletions(rows: PendingAccountDeletion[]): void {
+  db().settings[PENDING_DELETIONS] = rows;
+}
+
+export function pendingAccountDeletion(userId: string): PendingAccountDeletion | undefined {
+  return pendingDeletions().find((entry) => entry.user.id === userId);
+}
+
+export async function beginAccountDeletion(user: SessionUser, operationId = id()): Promise<PendingAccountDeletion> {
+  const existing = pendingAccountDeletion(user.id);
+  if (existing) return existing;
+  const entry: PendingAccountDeletion = {
+    operationId,
+    user: { id: user.id, email: user.email, name: user.name },
+    stage: "started",
+    updatedAt: new Date().toISOString(),
+  };
+  setPendingDeletions([...pendingDeletions(), entry]);
+  save();
+  await flushPendingAsync();
+  return entry;
+}
+
+export async function advanceAccountDeletion(
+  operationId: string,
+  stage: PendingAccountDeletion["stage"]
+): Promise<void> {
+  const rows = pendingDeletions();
+  const index = rows.findIndex((entry) => entry.operationId === operationId);
+  if (index < 0) throw new Error("The account-deletion journal entry is missing; refusing an unjournaled deletion.");
+  rows[index] = { ...rows[index], stage, updatedAt: new Date().toISOString() };
+  setPendingDeletions(rows);
+  save();
+  await flushPendingAsync();
+}
+
+export async function finishAccountDeletion(operationId: string): Promise<void> {
+  setPendingDeletions(pendingDeletions().filter((entry) => entry.operationId !== operationId));
+  save();
+  await flushPendingAsync();
+}
+
+/**
+ * Complete only deletions that already crossed the Supabase identity boundary.
+ * This is safe to call from an authenticated internal cron pass: it never
+ * guesses whether an external identity was deleted, and it is idempotent via
+ * the operation-scoped audit ids above.
+ */
+export async function reconcilePendingAccountDeletionsAsync(): Promise<number> {
+  let completed = 0;
+  for (const entry of pendingDeletions()) {
+    if (entry.stage !== "identity-deleted") continue;
+    await removeAccountRecordsAsync(
+      { id: entry.user.id, email: entry.user.email, name: entry.user.name },
+      entry.operationId
+    );
+    await finishAccountDeletion(entry.operationId);
+    completed++;
+  }
+  return completed;
 }
 
 /* --------------------------------- export --------------------------------- */
@@ -241,7 +331,7 @@ export interface AccountRemoval {
  * before calling this cleanup. This function therefore returns what it touched
  * rather than assuming the provider operation and local cleanup are atomic.
  */
-export async function removeAccountRecordsAsync(user: SessionUser): Promise<AccountRemoval> {
+export async function removeAccountRecordsAsync(user: SessionUser, operationId = id()): Promise<AccountRemoval> {
   const d = db();
   const mine = membershipsOf(user);
   const workspaces = mine
@@ -267,24 +357,30 @@ export async function removeAccountRecordsAsync(user: SessionUser): Promise<Acco
   const actor: Actor = { type: "user", id: user.id, name: user.name };
   const ts = new Date().toISOString();
   try {
-    for (const member of mine) {
+    const pendingAudits: AuditEvent[] = mine.flatMap((member) => {
       const ws = d.workspaces.find((w) => w.id === member.workspaceId);
-      await appendAuditAsync({
+      const auditId = `${operationId}:workspace.removeMember:${member.workspaceId}`;
+      if (readAudit({ workspaceId: member.workspaceId }).some((event) => event.id === auditId)) return [];
+      return [{
         ts,
-        id: id(),
+        id: auditId,
         workspaceId: member.workspaceId,
         actor,
         actionId: "workspace.removeMember",
         input: { memberId: user.id, reason: "account.delete" },
         result: "ok",
         summary: `${user.name} deleted their Zenith account, which ended their ${member.role} membership of ${ws?.name ?? "this workspace"}.`,
-      });
+      }];
+    });
+    if (isPostgres()) {
+      for (const event of pendingAudits) await appendAuditAsync(event);
+    } else {
+      appendAuditBatch(pendingAudits);
     }
   } catch (error) {
-    // The audit transport may fail after one row was accepted. Restore the
-    // mutable snapshot so this failed operation is not also persisted by a
-    // later request. A durable cross-table transaction is still required for
-    // hosted Postgres and is why the route refuses that mode above.
+    // Restore the mutable snapshot. File-store batches are atomically replaced;
+    // Postgres account deletion is refused above until a cross-table transaction
+    // exists, so an async audit failure cannot leave a successful deletion.
     d.members.splice(0, d.members.length, ...originalMembers);
     if (invitesRevoked) {
       if (originalInvites === undefined) delete d.settings.invites;

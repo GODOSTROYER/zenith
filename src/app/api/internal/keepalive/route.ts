@@ -13,6 +13,7 @@
  */
 import { cronRoute } from "@/lib/server/cron";
 import { db } from "@/lib/db/store";
+import { reconcilePendingAccountDeletionsAsync } from "@/lib/server/account";
 
 export const dynamic = "force-dynamic";
 
@@ -20,9 +21,11 @@ export const GET = cronRoute("keepalive", async () => {
   // A real read through the primed snapshot: on Postgres that is a round trip
   // to the project, which is the entire point of the route.
   const data = db();
+  const accountDeletionsReconciled = await reconcilePendingAccountDeletionsAsync();
   return {
     workspaces: data.workspaces.length,
     projects: data.projects.length,
     deployments: data.deployments.length,
+    accountDeletionsReconciled,
   };
 });

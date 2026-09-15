@@ -514,6 +514,23 @@ function appendAudit(e: AuditEvent): void {
   fs.appendFileSync(AUDIT, JSON.stringify(e) + "\n", "utf8");
 }
 
+/**
+ * Append a logical batch as one atomic file replacement. Account deletion
+ * emits one audit event per membership; appending those lines individually
+ * would let a later failure leave a durable prefix while the in-memory
+ * membership rollback succeeds. The single-writer mutation gate makes this
+ * bounded replacement safe, and recovery retries the same deterministic ids.
+ */
+function appendAuditBatch(events: AuditEvent[]): void {
+  if (events.length === 0) return;
+  ensureDir();
+  const previous = fs.existsSync(AUDIT) ? fs.readFileSync(AUDIT, "utf8") : "";
+  const suffix = events.map((event) => JSON.stringify(event)).join("\n") + "\n";
+  const tmp = `${AUDIT}.${process.pid}.${Date.now()}.tmp`;
+  fs.writeFileSync(tmp, previous + suffix, { encoding: "utf8", mode: 0o600 });
+  fs.renameSync(tmp, AUDIT);
+}
+
 /** Bytes scanned per call before we stop and hand back a cursor. */
 const AUDIT_SCAN_BUDGET = 1 << 20;
 const AUDIT_CHUNK = 64 * 1024;
@@ -713,7 +730,7 @@ const revisionManifest = (id: string): Manifest | undefined =>
  * Next.js HMR) and there is exactly one of it per process, which an
  * instantiable class would only make it possible to get wrong.
  */
-export const FileStore: Store = {
+export const FileStore: Store & { appendAuditBatch(events: AuditEvent[]): void } = {
   db,
   save,
   flush,
@@ -722,6 +739,7 @@ export const FileStore: Store = {
   appendEvent,
   readEvents,
   appendAudit,
+  appendAuditBatch,
   readAuditPage,
   readAudit,
   countAudit,

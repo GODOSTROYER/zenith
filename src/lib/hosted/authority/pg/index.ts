@@ -164,14 +164,22 @@ export function createPostgresAuthority(opts: PostgresAuthorityOptions = {}): Po
         const expected = newestMigration();
         const applied = await readAppliedMigrations(client);
         const versions = applied.map((m) => m.version);
-        const recorded = applied.find((m) => m.version === expected.version);
-        if (!recorded || recorded.name !== expected.name) {
+        const appliedByVersion = new Map(applied.map((migration) => [migration.version, migration]));
+        const missing = MIGRATIONS.find((migration) => {
+          const recorded = appliedByVersion.get(migration.version);
+          return !recorded || recorded.name !== migration.name;
+        });
+        const unknown = applied.find((migration) => !MIGRATIONS.some((expectedMigration) => expectedMigration.version === migration.version));
+        if (missing || unknown) {
+          const recorded = appliedByVersion.get(missing?.version ?? expected.version);
           throw schemaBehind(
             versions,
             expected,
-            recorded
-              ? `The ledger records version ${expected.version} as "${recorded.name}", but this build requires "${expected.name}".`
-              : undefined
+            missing
+              ? recorded
+                ? `The ledger records version ${missing.version} as "${recorded.name}", but this build requires "${missing.name}".`
+                : `The ledger is missing version ${missing.version} ("${missing.name}").`
+              : `The ledger contains unknown migration version ${unknown?.version}; refusing to run against an unrecognized schema.`
           );
         }
         if (expected.version === 3 && !(await hasPendingInviteUniquenessIndex(client))) {

@@ -25,7 +25,14 @@
 import { revokeGrant, terminateAppSessionsForSubject } from "@/lib/hosted/access";
 import { authority } from "@/lib/hosted/authority";
 import { log } from "@/lib/log";
-import { removeAccountRecordsAsync, requireAccountUser } from "@/lib/server/account";
+import {
+  advanceAccountDeletion,
+  beginAccountDeletion,
+  finishAccountDeletion,
+  pendingAccountDeletion,
+  removeAccountRecordsAsync,
+  requireAccountUser,
+} from "@/lib/server/account";
 import { ApiError, route, soleAdminWorkspaces } from "@/lib/server/context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -84,20 +91,33 @@ export const DELETE = route(async () => withMutationGate(async () => {
   // Step 2: nothing has been touched yet, so a configuration failure here is
   // harmless. See the header note.
   const admin = createAdminClient();
+  const existing = pendingAccountDeletion(user.id);
+  const journal = await beginAccountDeletion(user, existing?.operationId);
+  let appSessionsEnded = 0;
+  let grantsRevoked = 0;
 
-  const appSessionsEnded = await terminateAppSessionsForSubject(user.id, "signed_out");
-  const grantsRevoked = await revokeHostedGrants(user.id);
+  if (journal.stage !== "identity-deleted") {
+    appSessionsEnded = await terminateAppSessionsForSubject(user.id, "signed_out");
+    grantsRevoked = await revokeHostedGrants(user.id);
+    await advanceAccountDeletion(journal.operationId, "doors-closed");
 
-  const { error } = await admin.auth.admin.deleteUser(user.id);
-  if (error)
-    throw new ApiError(`Your Zenith sign-in was not deleted: ${error.message}`, 502, {
-      fix: "Your active app sessions and hosted grants were closed, but your local workspace memberships were preserved. Try again to remove the sign-in itself; if it keeps failing, an operator can delete the user from the Supabase dashboard under Authentication → Users.",
-    });
+    const { error } = await admin.auth.admin.deleteUser(user.id);
+    if (error)
+      throw new ApiError(`Your Zenith sign-in was not deleted: ${error.message}`, 502, {
+        fix: "Your active app sessions and hosted grants were closed and the deletion is journaled for retry, but your local workspace memberships were preserved. Try again to remove the sign-in itself; if it keeps failing, an operator can delete the user from the Supabase dashboard under Authentication → Users.",
+      });
+
+    // Persist the irreversible boundary before touching local memberships. If
+    // the process dies after this point, an operator/cron reconciliation can
+    // safely resume local cleanup from the journal.
+    await advanceAccountDeletion(journal.operationId, "identity-deleted");
+  }
 
   // The identity-provider deletion is irreversible and cannot share the local
   // store transaction. Keep the local membership cleanup after it so a failed
   // provider call leaves the account retryable instead of half-removed.
-  const removal = await removeAccountRecordsAsync(user);
+  const removal = await removeAccountRecordsAsync(user, journal.operationId);
+  await finishAccountDeletion(journal.operationId);
 
   log.info("account deleted", {
     scope: "account",

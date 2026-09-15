@@ -18,7 +18,8 @@ a claim that Zenith is production-ready in every backend.
 | Fence every hosted app-grant insertion path, including direct grants and invitation acceptance | post-review hardening (this commit) | Grant services now enter the same re-entrant mutation gate as account deletion, role changes, and revocation; hosted access and agent-control regression tests pass |
 | Make pending invitation uniqueness an authority-level invariant | current hardening slice | Added versioned SQLite migration v3 and Supabase migration 0005 for one pending invite per normalized `(app_id, email)`; duplicate legacy rows must be reconciled before apply |
 | Fence synchronous PostgREST replies and account-delete failure handling | current hardening slice | Worker replies carry request IDs so late responses cannot satisfy a later call; provider-delete failure preserves local membership rows for retry |
-| Fail closed for cross-authority account deletion in Product-Postgres mode and await deletion audit writes | current hardening slice | PostgreSQL mode refuses before service-role, session, grant or membership changes; single-writer cleanup awaits audit persistence and rolls back its in-memory mutation on audit failure; account-delete tests pass |
+| Fail closed for cross-authority account deletion in Product-Postgres mode and make single-writer deletion recoverable | current hardening slice | PostgreSQL mode refuses before service-role, session, grant or membership changes; file-mode audit rows commit as one atomic batch, deletion stages are journaled and keepalive can resume identity-deleted operations; account-delete tests pass |
+| Make alert-secret migration fail closed and retryable across separate stores | current hardening slice | Postgres legacy delivery/apply is refused until a coordinated transaction exists; file-mode migration journals each channel, commits per channel, rolls back on failure, rejects swapped references, and retries unfinished entries explicitly |
 | Verify the deployed hosted schema's migration identity and invite uniqueness definition | current hardening slice | Postgres boot checks migration version/name and the actual `app_invites_pending_email` unique index, not only the ledger version; runbook now documents migrations 0002–0005 |
 
 The initial blanket mixed-store guard was implemented experimentally and then
@@ -101,9 +102,9 @@ current branch intentionally preserves the existing independent selectors.
   closed before any external side effect** because the current design has no
   durable workflow coordinating Supabase identity deletion with Product state.
   The supported self-service path remains the explicit single-writer file mode;
-  even there, provider deletion and local persistence are separate authorities,
-  so an operator reconciliation path is still required for an unexpected local
-  write failure after provider deletion.
+  its audit batch is atomic and its post-provider stages are journaled, with
+  keepalive reconciliation for a process crash. A live distributed transaction
+  or outbox is still not claimed for the unavailable Postgres mode.
 
 ## Release envelope
 

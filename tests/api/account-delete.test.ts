@@ -154,6 +154,26 @@ describe("deleting your own account", () => {
       "signOut",
     ]);
     expect(state.adminClients).toBe(1);
+    expect(db().settings.pendingAccountDeletions).toEqual([]);
+  });
+
+  it("resumes local cleanup from an identity-deleted journal without repeating provider calls", async () => {
+    db().members[1].role = "admin";
+    db().settings.pendingAccountDeletions = [
+      {
+        operationId: "op-recovery",
+        user: state.user,
+        stage: "identity-deleted",
+        updatedAt: "2026-01-03T00:00:00.000Z",
+      },
+    ];
+
+    const res = await run();
+    expect(res.status).toBe(204);
+    expect(state.order).toEqual(["signOut"]);
+    expect(db().members.map((m) => m.id)).toEqual(["u-other"]);
+    expect(db().settings.pendingAccountDeletions).toEqual([]);
+    expect(readAudit({ workspaceId: "w-atlas" })[0]?.id).toBe("op-recovery:workspace.removeMember:w-atlas");
   });
 
   it("removes the member row and the invites they issued, and records why", async () => {

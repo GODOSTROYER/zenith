@@ -52,11 +52,15 @@ export async function hasPendingInviteUniquenessIndex(sql: Sql | TransactionSql)
   let rows: PgRow[];
   try {
     rows = (await sql`
-      select indexname, indexdef
-      from pg_indexes
-      where schemaname = 'hosted'
-        and tablename = 'app_invites'
-        and indexname = 'app_invites_pending_email'
+      select i.indexrelid::regclass::text as indexname,
+             pg_get_indexdef(i.indexrelid) as indexdef,
+             pg_get_expr(i.indpred, i.indrelid) as predicate
+      from pg_index i
+      join pg_class c on c.oid = i.indrelid
+      join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'hosted'
+        and c.relname = 'app_invites'
+        and i.indexrelid::regclass::text = 'hosted.app_invites_pending_email'
     `) as unknown as PgRow[];
   } catch (err) {
     if (pgErrorCode(err) === PG_UNDEFINED_TABLE) return false;
@@ -66,13 +70,13 @@ export async function hasPendingInviteUniquenessIndex(sql: Sql | TransactionSql)
   return rows.some((row) => {
     const name = readText(row, "indexname");
     const definition = readText(row, "indexdef").replace(/\s+/g, " ").toLowerCase();
+    const predicate = readText(row, "predicate").replace(/\s+/g, " ").toLowerCase().replace(/^\((.*)\)$/, "$1");
     return (
-      name === "app_invites_pending_email" &&
+      (name === "app_invites_pending_email" || name === "hosted.app_invites_pending_email") &&
       definition.includes("create unique index") &&
       definition.includes("on hosted.app_invites") &&
-      definition.includes("(app_id, lower(email))") &&
-      (definition.includes("where (state = 'pending'::text)") ||
-        definition.includes("where (state = 'pending')"))
+      /\(app_id, lower\(\(?email\)?(?:::text)?\)\)/.test(definition) &&
+      (predicate === "state = 'pending'::text" || predicate === "state = 'pending'")
     );
   });
 }

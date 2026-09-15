@@ -348,6 +348,19 @@ describe("which channels a rule uses", () => {
     expect(stored.targetSecretRef).toBe("vault:alert-channel/legacy-async/TARGET_URL");
     expect(readSecretValue("ws1", stored.secretRef!)).toBe("legacy-signing");
     expect(readSecretValue("ws1", stored.targetSecretRef!)).toBe("https://alerts.example.test/hooks/legacy-token");
+    expect((db().settings as { pendingAlertSecretMigrations?: unknown[] }).pendingAlertSecretMigrations).toEqual([]);
+  });
+
+  it("rejects a same-workspace credential reference swapped from another channel", async () => {
+    const owner = channel({ id: "credential-owner", kind: "slack", target: "https://hooks.slack.com/services/T/B/owner" });
+    setChannelCredentials(owner, { target: owner.target }, "test");
+    const swapped = channel({ id: "credential-swapped", kind: "slack", target: "https://hooks.slack.com/services/T/B/swapped" }) as AlertChannel & { targetSecretRef?: string };
+    swapped.targetSecretRef = "vault:alert-channel/credential-owner/TARGET_URL";
+    const calls = stubFetch([200]);
+    const result = await deliverToChannel(swapped, msg);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/not owned by this channel/i);
+    expect(calls).toHaveLength(0);
   });
 
   it("replaces a mixed legacy signing value even when an encrypted reference already exists", async () => {

@@ -107,6 +107,21 @@ export const readEvents = (deploymentId: string, afterSeq = -1): DeploymentEvent
 
 export const appendAudit = (e: AuditEvent): void => currentStore().appendAudit(e);
 
+/**
+ * Append a file-store audit batch atomically when the caller needs a logical
+ * all-or-nothing set. Postgres request paths use appendAuditAsync instead;
+ * account deletion refuses Product-Postgres mode until the cross-authority
+ * transaction exists.
+ */
+export const appendAuditBatch = (events: AuditEvent[]): void => {
+  const store = currentStore() as Store & { appendAuditBatch?: (items: AuditEvent[]) => void };
+  if (store.appendAuditBatch) {
+    store.appendAuditBatch(events);
+    return;
+  }
+  for (const event of events) store.appendAudit(event);
+};
+
 /** Awaitable audit append for request/action paths; the Store contract stays sync. */
 export async function appendAuditAsync(
   e: AuditEvent,

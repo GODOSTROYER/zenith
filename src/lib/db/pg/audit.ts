@@ -195,18 +195,17 @@ export async function appendAuditAsync(e: AuditEvent, options: RestAsyncOptions 
 }
 
 function appendAudit(e: AuditEvent): void {
-  try {
-    restSync({
-      method: "POST",
-      table: TABLE,
-      op: "insert into",
-      path: `${TABLE}?on_conflict=id`,
-      body: [toRow(e)],
-      prefer: "resolution=ignore-duplicates,return=minimal",
-    });
-  } catch (err) {
-    console.error(`Zenith could not write an audit row (${e.actionId}): ${(err as Error).message}`);
-  }
+  // A mutation must not be reported as successful when its audit record was
+  // rejected. The async request path already propagates this error; keep the
+  // synchronous compatibility path equally fail-closed.
+  restSync({
+    method: "POST",
+    table: TABLE,
+    op: "insert into",
+    path: `${TABLE}?on_conflict=id`,
+    body: [toRow(e)],
+    prefer: "resolution=ignore-duplicates,return=minimal",
+  });
 }
 
 /** One page, newest first. `nextCursor` is the last row's `seq`. */

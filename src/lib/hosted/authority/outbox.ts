@@ -15,6 +15,11 @@
  *    `pending` and visible in `listPending()`. Failing rows because the module
  *    that handles them has not booted yet would destroy real intentions to
  *    make a counter look tidy.
+ *  - **A claim is fenced.** Every write a drain makes after the claim —
+ *    settle, release, renew — carries the token `claimPending` handed back, so
+ *    a drain that stalled past its lease and was reclaimed is refused by the
+ *    database instead of settling over the new owner. It logs the refusal and
+ *    counts nothing, because the counts describe rows it owned.
  *  - **`failed` is terminal.** TODO(ceiling): no dead-letter queue and no
  *    per-kind circuit breaker — five attempts inside one claim, then the row
  *    keeps its error and stops. The upgrade path is a dead-letter view an
@@ -26,7 +31,7 @@ import type { HostedOutboxEntry } from "@/lib/hosted/contracts";
 import { env } from "@/lib/env";
 import { log } from "@/lib/log";
 import { authority } from "./lifecycle";
-import type { OutboxKind } from "./repos/outbox";
+import { outboxFence, type OutboxKind } from "./repos/outbox";
 
 /** What performs one effect. Rejecting means "not done"; the row is retried, then failed. */
 export type OutboxHandler = (entry: HostedOutboxEntry) => Promise<void>;
@@ -132,27 +137,49 @@ async function drainOnce(opts: DrainOptions): Promise<DrainResult> {
   );
 
   for (const entry of claimed) {
+    // The token this drain owns the row with: every write below is conditional
+    // on it, so a lease this process lost while a handler was slow cannot be
+    // used to overwrite whoever took the row.
+    const fence = outboxFence(entry);
     const handler = handlers().get(entry.kind);
     if (!handler) {
       // The handler was removed between the claim and now. Put this one row
       // back rather than record a failure for an effect nobody attempted.
-      await a.tx((repos) => repos.outbox.release(entry.id));
+      await a.tx((repos) => repos.outbox.release(entry.id, fence));
       continue;
     }
-    const outcome = await attempt(handler, entry);
+    const outcome = await attempt(handler, entry, () =>
+      a.tx((repos) => repos.outbox.renew(entry.id, fence))
+    );
+    if (outcome.lost) {
+      // The lease was reclaimed while this handler was working. Another drain
+      // owns the row now and will record its own outcome; settling here would
+      // erase theirs. The effect may have happened twice — that is what
+      // at-least-once means, and the idempotency key is the receiver's handle.
+      log.warn("hosted outbox lease lost mid-send; the row belongs to another drain", {
+        scope: "hosted.outbox",
+        kind: entry.kind,
+        idempotencyKey: entry.idempotencyKey,
+        attempts: outcome.attempts,
+      });
+      continue;
+    }
     if (outcome.ok) {
-      await a.tx((repos) =>
-        repos.outbox.settle(entry.id, "done", { extraAttempts: outcome.attempts - 1 })
+      const settled = await a.tx((repos) =>
+        repos.outbox.settle(entry.id, "done", { fence, extraAttempts: outcome.attempts - 1 })
       );
-      result.done++;
+      if (settled) result.done++;
+      else lostSettle(entry, outcome.attempts);
     } else {
-      await a.tx((repos) =>
+      const settled = await a.tx((repos) =>
         repos.outbox.settle(entry.id, "failed", {
+          fence,
           extraAttempts: outcome.attempts - 1,
           error: outcome.error,
         })
       );
-      result.failed++;
+      if (settled) result.failed++;
+      else lostSettle(entry, outcome.attempts);
       log.warn("hosted outbox entry failed", {
         scope: "hosted.outbox",
         kind: entry.kind,
@@ -165,14 +192,44 @@ async function drainOnce(opts: DrainOptions): Promise<DrainResult> {
   return result;
 }
 
+/**
+ * A settle the database refused: this drain no longer held the row.
+ *
+ * Counted as neither `done` nor `failed`, because the counts describe rows this
+ * drain actually owned. It is logged rather than swallowed — a coordination
+ * failure that nobody can see is the one that costs an afternoon.
+ */
+function lostSettle(entry: HostedOutboxEntry, attempts: number): void {
+  log.warn("hosted outbox settle refused: the claim was no longer this drain's", {
+    scope: "hosted.outbox",
+    kind: entry.kind,
+    idempotencyKey: entry.idempotencyKey,
+    attempts,
+  });
+}
+
 interface Attempted {
   ok: boolean;
   attempts: number;
   error?: string;
+  /** The lease was reclaimed underneath this drain; nothing here may settle. */
+  lost?: boolean;
 }
 
-/** Run one handler up to `OUTBOX_MAX_ATTEMPTS` times. Never throws. */
-async function attempt(handler: OutboxHandler, entry: HostedOutboxEntry): Promise<Attempted> {
+/**
+ * Run one handler up to `OUTBOX_MAX_ATTEMPTS` times. Never throws.
+ *
+ * Between attempts the lease is renewed, which is what lets a handler that
+ * legitimately runs longer than `OUTBOX_LEASE_MS` finish at all: before, the row
+ * was reclaimed and re-sent underneath it. A renewal that fails is the signal
+ * that it *was* reclaimed, and the loop stops rather than sending again on
+ * somebody else's claim.
+ */
+async function attempt(
+  handler: OutboxHandler,
+  entry: HostedOutboxEntry,
+  renew: () => Promise<boolean>
+): Promise<Attempted> {
   let error = "";
   for (let n = 1; n <= OUTBOX_MAX_ATTEMPTS; n++) {
     try {
@@ -180,7 +237,10 @@ async function attempt(handler: OutboxHandler, entry: HostedOutboxEntry): Promis
       return { ok: true, attempts: n };
     } catch (err) {
       error = (err instanceof Error ? err.message : String(err)).slice(0, 2000);
-      if (n < OUTBOX_MAX_ATTEMPTS) await wait(OUTBOX_BACKOFF_MS[n - 1] ?? 0);
+      if (n < OUTBOX_MAX_ATTEMPTS) {
+        await wait(OUTBOX_BACKOFF_MS[n - 1] ?? 0);
+        if (!(await renew())) return { ok: false, attempts: n, error, lost: true };
+      }
     }
   }
   return { ok: false, attempts: OUTBOX_MAX_ATTEMPTS, error };

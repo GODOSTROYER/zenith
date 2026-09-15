@@ -39,7 +39,7 @@ import {
 } from "@/lib/hosted/authority";
 import { hostedConfig } from "@/lib/hosted/config";
 import { log } from "@/lib/log";
-import { withMutationGate } from "@/lib/actions/mutation-gate";
+import { isMutationQueueFull, withMutationGate } from "@/lib/actions/mutation-gate";
 import {
   appendAccessEvent,
   isoIn,
@@ -78,9 +78,58 @@ export interface AcceptedInvite {
   grant: AppGrant;
 }
 
-/** Every invitation on an app, newest first. */
+/**
+ * The process-wide mutation gate, with its capacity refusal translated.
+ *
+ * The gate is a single FIFO shared with every product mutation in this process
+ * (`actions/mutation-gate.ts`), and past its queue bound it throws a plain
+ * Error. On these paths — one of which is an end user following an invitation
+ * link — that would reach `hostedRoute` as an opaque 500. It is a "come back in
+ * a moment" answer and says so, with a code the gateway maps to 503.
+ *
+ * The gate is a fast path in front of the real fence, never the fence itself:
+ * `app_invites_pending_email` and the authority transaction are what make these
+ * operations safe between instances.
+ */
+async function gated<T>(work: () => Promise<T>): Promise<T> {
+  try {
+    return await withMutationGate(work);
+  } catch (err) {
+    if (!isMutationQueueFull(err)) throw err;
+    throw new HostedError(
+      "runtime_unavailable",
+      "This server is already running as many changes as it will queue, so this one was not attempted.",
+      {
+        fix: "Wait a few seconds and try again — nothing was written, so a retry is safe.",
+      }
+    );
+  }
+}
+
+/**
+ * Every invitation on an app, newest first.
+ *
+ * Sweeps overdue invitations to `expired` first, so the list the owner reads
+ * says what is true and an invitation that has run out stops holding its
+ * address's pending slot. Best effort: a sweep that fails must not make the
+ * list unreadable, and the next write path sweeps again anyway.
+ */
 export async function listInvites(appId: string): Promise<AppInvite[]> {
+  await sweepExpired(appId);
   return authority().repos.invites.listByApp(appId);
+}
+
+/**
+ * Move this app's overdue invitations to `expired`. Bounded by the repository's
+ * own sweep limit, so one call is one bounded statement.
+ */
+async function sweepExpired(appId: string): Promise<number> {
+  try {
+    return await authority().tx((repos) => repos.invites.expireOverdue(nowIso(), { appId }));
+  } catch (err) {
+    log.warn("hosted invitation expiry sweep failed", { scope: "hosted.access", appId, error: err });
+    return 0;
+  }
 }
 
 /** The control-origin URL a recipient opens. The token travels only here and in the email. */
@@ -110,7 +159,7 @@ export async function createInvite(
   input: NewInviteInput,
   by: Subject
 ): Promise<IssuedInvite> {
-  return withMutationGate(() => issueInvite(appId, input, by, {}));
+  return gated(() => issueInvite(appId, input, by, {}));
 }
 
 /**
@@ -124,7 +173,7 @@ export async function resendInvite(
   by: Subject,
   scope: InviteScope = {}
 ): Promise<IssuedInvite> {
-  return withMutationGate(async () => {
+  return gated(async () => {
     const previous = await scopedInvite(authority().repos, inviteId, scope);
     if (previous.state !== "pending")
       throw new HostedError(
@@ -153,7 +202,7 @@ export async function revokeInvite(
   by: Subject,
   scope: InviteScope = {}
 ): Promise<AppInvite> {
-  return withMutationGate(async () => {
+  return gated(async () => {
     const a = authority();
     const invite = await a.tx(async (repos) => {
       const current = await scopedInvite(repos, inviteId, scope);
@@ -197,17 +246,27 @@ export async function acceptInvite(
   token: string,
   identity: VerifiedIdentity
 ): Promise<AcceptedInvite> {
-  return withMutationGate(async () => {
+  return gated(async () => {
     const tokenHash = sha256Hex(token ?? "");
     const email = normalizeEmail(identity.email ?? "");
     const a = authority();
 
-    return a.tx(async (repos) => {
+    const accepted = await a.tx(async (repos) => {
       const at = nowIso();
       const invite = await repos.invites.getByTokenHash(tokenHash);
       // Unknown, revoked, superseded, already accepted and expired are one
       // answer: any difference between them is an oracle over tokens.
-      if (!invite || invite.state !== "pending" || invite.expiresAt <= at) throw unusableInvite();
+      if (!invite || invite.state !== "pending" || invite.expiresAt <= at) {
+        // An overdue invitation is *recorded* as expired here rather than
+        // merely refused, so it stops occupying its address's pending slot.
+        // Returning the refusal instead of throwing it is what commits that
+        // transition: a throw would roll the transaction back and the row would
+        // stay `pending` for ever. The caller still gets the one refusal below,
+        // indistinguishable from every other unusable-link answer.
+        if (invite && invite.state === "pending" && invite.expiresAt <= at)
+          await repos.invites.setState(invite.id, "expired");
+        return null;
+      }
 
       // Unverified and mismatched are also one answer, for the same reason.
       if (!identity.emailVerified || !email || email !== invite.email)
@@ -244,6 +303,8 @@ export async function acceptInvite(
       });
       return { app, grant };
     });
+    if (!accepted) throw unusableInvite();
+    return accepted;
   });
 }
 
@@ -393,11 +454,23 @@ async function issueInvite(
           details: { grantId: held.id, role: held.role },
         });
 
+      // An invitation whose deadline has passed is not outstanding, and the
+      // index does not know that until the state column says so. Sweep first,
+      // inside this transaction, so an expired invitation can never be what
+      // refuses a new one.
+      await repos.invites.expireOverdue(nowIso(), { appId });
+
       // Only one link per address is ever live. The partial unique index is the
       // authority-level fence for concurrent hosted instances; this supersede
       // keeps the common single-transaction path readable and idempotent.
+      //
+      // Compared case-folded, because the index is on `lower(email)`: a row
+      // written by a migration or a direct repository caller as
+      // `Recipient@Example.test` is the same slot as `recipient@example.test`,
+      // and an exact-case comparison would skip it and hit the index instead.
       for (const outstanding of await repos.invites.listByApp(appId, { state: "pending" }))
-        if (outstanding.email === email) await repos.invites.supersede(outstanding.id);
+        if (normalizeEmail(outstanding.email) === email)
+          await repos.invites.supersede(outstanding.id);
 
       const invite = await repos.invites.insert({
         id: inviteId,
@@ -449,15 +522,27 @@ async function issueInvite(
       return { invite, delivery };
     });
   } catch (error) {
-    if (isPendingInviteConflict(error))
-      throw new HostedError("conflict", `${email} already has a pending invitation for this app.`, {
-        fix: "Reload the app's access list; resend the existing invitation or wait for it to expire before issuing another.",
-      });
+    if (isPendingInviteConflict(error)) throw pendingInviteConflict(email);
     throw error;
   }
 
   return { invite: issued.invite, delivery: issued.delivery, acceptUrl };
 }
+
+/**
+ * What `app_invites_pending_email` means to the person who asked.
+ *
+ * Reaching it means a *live* invitation already holds this address's slot: the
+ * issue path supersedes outstanding ones and sweeps overdue ones before it
+ * inserts, so this is a genuine race with another writer rather than a stale
+ * row. Exported so the copy is pinned by a test — the wording is the whole
+ * value of the refusal, and it used to offer waiting for an expiry that nothing
+ * in the system ever performed.
+ */
+export const pendingInviteConflict = (email: string): HostedError =>
+  new HostedError("conflict", `${email} already has a pending invitation for this app.`, {
+    fix: "Reload the app's access list, then resend that invitation to mint a new link, or revoke it and invite the address again. Issuing a new invitation supersedes an outstanding one, so seeing this means another request created one at the same moment — retrying once is safe.",
+  });
 
 function isPendingInviteConflict(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error);

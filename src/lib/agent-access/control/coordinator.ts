@@ -1,5 +1,5 @@
 /** Testable transaction coordinator. Application authority and provider logic stay behind the port. */
-import { Journal, ControlError, checkTarget, digest, type Operation, type Principal, type Proposal } from './journal';
+import { ControlError, checkTarget, digest, type AgentJournal, type Operation, type Principal, type Proposal } from './journal';
 
 /**
  * The application-side facts that decide whether this principal may finalize
@@ -82,8 +82,20 @@ export const applicationAuthorityDigest = (authority: ApplicationAuthority): str
         }
       : authority.approver,
   });
+/**
+ * The transaction coordinator, over whichever journal this deployment has.
+ *
+ * `AgentJournal` rather than the SQLite class: a Postgres journal answers over
+ * a network and no amount of care makes a round trip a return value. Every
+ * journal call below is therefore awaited. Nothing else about the sequence
+ * moved — the digest binding, the fence-guarded finalize, `uncertain` on any
+ * dispatch failure, the self-approval refusal and the expiry checks are the
+ * same statements in the same order, and on the file store `await` on
+ * `SqliteAgentJournal` resolves without yielding to anything the journal
+ * itself does.
+ */
 export class Coordinator {
-  constructor(readonly journal: Journal, private readonly port: ControlPort) {}
+  constructor(readonly journal: AgentJournal, private readonly port: ControlPort) {}
   /**
    * The application-authority digest this operation is finalized against.
    *
@@ -103,7 +115,7 @@ export class Coordinator {
       const who = typeof identity === 'function' ? await identity() : identity;
       return this.port.scope(who, async () => {
       const intent = this.port.identify?.(input);
-      const previous = intent ? this.journal.findRequest(who, intent.requestKey) : undefined;
+      const previous = intent ? await this.journal.findRequest(who, intent.requestKey) : undefined;
       if (previous) {
         checkTarget(who, previous.target, 'plan');
         if (previous.clientInputDigest !== intent!.clientInputDigest) throw new ControlError('idempotency_conflict', 'This request key belongs to different inputs.');
@@ -112,7 +124,7 @@ export class Coordinator {
       }
       const proposal = await this.port.proposal(who, input);
       await this.port.authorize(who, proposal);
-      return this.journal.prepare(who, proposal);
+      return await this.journal.prepare(who, proposal);
       });
     });
   }
@@ -121,12 +133,12 @@ export class Coordinator {
       // Re-authenticate after waiting for other callers. Revocation/expiry cannot be hidden by queueing.
       const who = await freshIdentity();
       return this.port.scope(who, async () => {
-        const op = this.journal.get(who, operationId);
+        const op = await this.journal.get(who, operationId);
         checkTarget(who, op.target, op.action.startsWith('app.') ? 'publish' : 'write');
         await this.port.authorize(who, op);
         const fingerprint = await this.port.fingerprint(who, op);
         const applicationAuthorizationDigest = await this.applicationDigest(who, op);
-        const claim = this.journal.claim(who, operationId, fingerprint, applicationAuthorizationDigest);
+        const claim = await this.journal.claim(who, operationId, fingerprint, applicationAuthorizationDigest);
         if (!claim.claimed) return claim.operation;
         try {
           const result = await this.port.execute(who, claim.operation);
@@ -144,10 +156,19 @@ export class Coordinator {
             await this.port.authorize(current, claim.operation);
             currentApplicationAuthorizationDigest = await this.applicationDigest(current, claim.operation);
           });
-          return this.journal.finishIfValid(current, op.id, result, result.ok, currentApplicationAuthorizationDigest);
+          // `return await`, not `return`: the finalize's own refusals — a stale
+          // fence, an expired plan, a membership or role that moved — have to be
+          // caught by the `catch` below and turned into `uncertain`, exactly as
+          // they were when this call was synchronous. Returning the promise
+          // unawaited would let them escape the try block as themselves.
+          return await this.journal.finishIfValid(current, op.id, result, result.ok, currentApplicationAuthorizationDigest);
         } catch {
           // The external side effect may have happened. Persist ambiguity; never claim rollback or retry.
-          this.journal.uncertain(op.id);
+          // Awaited, not fired and forgotten: on Postgres the row is only
+          // ambiguous once the write has actually landed, and a journal that
+          // refuses here must surface its own failure exactly as it did when
+          // this call was synchronous.
+          await this.journal.uncertain(op.id);
           throw new ControlError('outcome_uncertain', `Operation ${op.id} may have been accepted. Inspect it before taking another action.`, 503);
         }
       });

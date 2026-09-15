@@ -45,6 +45,10 @@ const linkedAgentView=(credential:LinkedCredential):LinkedAgentView=>({
 });
 export const browserGet=route(async(req)=>{
   try{const {identity,member,workspace}=await browser(req),origin=controlOrigin();
+    // The journal answers over a network on Postgres, so every read below is
+    // awaited. On the file store the awaits resolve without yielding to
+    // anything the journal itself does, and the screen renders as it did.
+    const journal=(await control()).journal;
     // The list is additive and must never be able to take the screen down: an
     // install with no credential authority configured has no linked agents to
     // show, and says which it is rather than rendering an empty list as if it
@@ -54,8 +58,8 @@ export const browserGet=route(async(req)=>{
       linkedAgents=(await credentialAuthority().listCredentials(identity.subject,workspace.id)).map(linkedAgentView);}
     catch(error){linkedAgentsUnavailable=error instanceof Error?error.message:'The credential authority is unavailable.';}
     return json(redact({workspaceId:workspace.id,subject:identity.subject,role:member.role,
-      grants:control().journal.grants(identity.subject,workspace.id),
-      operations:control().journal.reviewQueue(workspace.id,identity.subject,member.role==='admin').map(op=>operationView(op,origin)),
+      grants:await journal.grants(identity.subject,workspace.id),
+      operations:(await journal.reviewQueue(workspace.id,identity.subject,member.role==='admin')).map(op=>operationView(op,origin)),
       projects:db().projects.filter(p=>p.workspaceId===workspace.id).map(p=>({id:p.id,name:p.name})),
       linkedAgents,...(linkedAgentsUnavailable?{linkedAgentsUnavailable}:{}),
       oauthConfigured:!!oauthConfig(process.env,origin),resource:`${origin}/api/agent/v2/mcp`}));
@@ -166,9 +170,10 @@ export const browserReview=route(async(req)=>{
 });
 export const browserGrant=route(async(req)=>{
   try{const {identity,member,workspace}=await browser(req,true),input=grantSchema.parse(await jsonBody(req));
-    const previous=control().journal.getGrant(identity.subject,input.clientId,workspace.id);
+    const journal=(await control()).journal;
+    const previous=await journal.getGrant(identity.subject,input.clientId,workspace.id);
     // Revocation must remain available after project/app permissions or OAuth configuration change.
-    if(input.revoked){if(!previous)throw new ControlError('grant_not_found','Integration grant not found.',404);const revoked={...previous,revoked:true};control().journal.setGrant(revoked);return json(redact(revoked));}
+    if(input.revoked){if(!previous)throw new ControlError('grant_not_found','Integration grant not found.',404);const revoked={...previous,revoked:true};await journal.setGrant(revoked);return json(redact(revoked));}
     const config=oauthConfig(process.env,controlOrigin());
     if(!config)throw new ControlError('oauth_unavailable','Configure the authorization server first.',503);
     if(!input.scopes.includes('read')||member.role==='viewer'&&input.scopes.some(s=>['write','publish'].includes(s)))throw new ControlError('scope_denied','Choose read scope and only operations allowed by your current role.',403);
@@ -176,9 +181,9 @@ export const browserGrant=route(async(req)=>{
     if(input.environmentIds?.some(id=>!db().environments.some(e=>e.id===id&&input.projectIds.includes(e.projectId))))throw new ControlError('scope_denied','Select environments belonging to the selected projects.',403);
     if(input.appIds.length){const {requireOwnedApp,releaseDeps}=await import('@/lib/hosted/release');for(const id of input.appIds){await requireOwnedApp(id,workspace.id);await releaseDeps.requireAppRole(id,identity.subject,'owner');}}
     
-    if(!previous&&control().journal.grants(identity.subject,workspace.id).length>=50)throw new ControlError('grant_quota','Revoke or reuse an existing client grant.',429);
+    if(!previous&&(await journal.grants(identity.subject,workspace.id)).length>=50)throw new ControlError('grant_quota','Revoke or reuse an existing client grant.',429);
     const grant={...input,subject:identity.subject,workspaceId:workspace.id,integrationId:previous?.integrationId??`integration_${randomUUID()}`,
       oauthIssuer:config.issuer,expiresAt:new Date(Date.now()+input.days*86400000).toISOString()};
-    control().journal.setGrant(grant);return json(redact(grant));
+    await journal.setGrant(grant);return json(redact(grant));
   }catch(error){return failure(error);}
 });

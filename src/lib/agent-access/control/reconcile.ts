@@ -26,6 +26,7 @@
 import { log } from '@/lib/log';
 import { isPostgres } from '@/lib/db/store';
 import { controlCapabilitiesSync } from './capabilities';
+import { SqliteAgentJournal } from './journal';
 
 /** What one pass did. Frozen contract (WORK-GRAPH-2 F6). */
 export interface AgentTickResult {
@@ -77,11 +78,16 @@ export async function agentTickPass(budgetMs = AGENT_TICK_BUDGET_MS): Promise<Ag
     // used to happen only on the next write.
     try {
       const { control } = await import('./runtime');
-      const journal = control().journal;
-      out.reconciled = journal.recover();
-      const swept = journal.expire();
-      out.expired = swept.expired;
-      out.uploads = swept.uploads;
+      const journal = (await control()).journal;
+      // `recover()` and `expire()` are the single-writer journal's own, not part
+      // of the `AgentJournal` surface both stores answer — a Postgres journal
+      // recovers by lease, below, and must never be asked to do this.
+      if (journal instanceof SqliteAgentJournal) {
+        out.reconciled = await journal.recover();
+        const swept = await journal.expire();
+        out.expired = swept.expired;
+        out.uploads = swept.uploads;
+      }
     } catch (error) {
       // A pass that cannot open the journal is not a reason to fail the tick
       // route; the other four passes still have work to do.

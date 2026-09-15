@@ -72,7 +72,7 @@ export async function authorizeRequest(request: Request): Promise<{who:Principal
     const config=oauthConfig(process.env,origin);if(!config)throw new ControlError('oauth_unavailable','Configure a trusted OAuth authorization server before remote use.',503);
     const selected=selection(request),identity=await verifyOAuth(token,config);
     // External subject must be the same stable subject used by Zenith workspace membership.
-    who=bindGrant(identity,control().journal.getGrant(identity.subject,identity.clientId,selected.workspaceId));
+    who=bindGrant(identity,await (await control()).journal.getGrant(identity.subject,identity.clientId,selected.workspaceId));
   }
   const selected=selection(request,who);
   await inAgentScope(who,async()=>{if(selected.projectId)resolveTarget(who,{...selected,projectId:selected.projectId});});

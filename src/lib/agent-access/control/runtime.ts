@@ -88,7 +88,7 @@ const ACTIONS: Record<Exclude<Preparation['kind'],'system.edit'>, string> = { 'm
 async function actionInput(who: Principal, operation: Proposal): Promise<Record<string, unknown>> {
   if (operation.action === 'app.publish') {
     const { appId, uploadId, sha256, jobId } = operation.input;
-    const bytes = control().journal.upload(who, operation.target, String(appId), String(uploadId), String(sha256));
+    const bytes = await (await control()).journal.upload(who, operation.target, String(appId), String(uploadId), String(sha256));
     return { appId, jobId, source: { kind: 'tarball', base64: bytes.toString('base64') } };
   }
   return operation.input;
@@ -209,7 +209,7 @@ async function execute(who: Principal, op: Operation): Promise<{ ok: boolean; [k
     note:'A successful dispatch may still be awaiting deployment approval or execution. Inspect the linked deployment or job.' };
 }
 const globalControl = globalThis as typeof globalThis & { __zenithControl?: Coordinator; __zenithAgentJournal?: AgentJournal };
-let singleton: Coordinator | undefined = globalControl.__zenithControl;
+let pending: Promise<Coordinator> | undefined;
 
 /**
  * The journal this deployment writes intents to, as the asynchronous interface.
@@ -243,28 +243,35 @@ export async function agentJournal(): Promise<AgentJournal> {
  * with its claim, fence, lease and reconciliation — is implemented in
  * `journal-pg.ts` and exercised by the contract suite. What is missing is that
  * `Coordinator` (`coordinator.ts`, a frozen file this packet may not edit)
- * reads its journal synchronously, and so do `browser.ts:26-27,39-52` and
- * `boundary.ts:41` (two files other packets own). Three files therefore have to
- * gain `await` together, in one commit, before this branch can be flipped —
- * which is an integrator's change to make, not a worker's. See HANDOFF-P2.
+ * reads its journal synchronously — which a database cannot answer.
  *
- * Until then the refusal is explicit and names the work, because the failure
- * mode worth avoiding is a Postgres deployment that *appears* to accept a
- * reviewed operation and writes it somewhere nothing will read again.
+ * **That is now done.** `Coordinator` takes an `AgentJournal` and awaits every
+ * journal call; `browser.ts` and `boundary.ts` await their reads; and this
+ * function resolves a coordinator rather than returning one. The full
+ * capability check runs first — the schema probe on Postgres included — so a
+ * deployment whose `agent` schema is missing is refused here with the
+ * migration named, rather than accepting a reviewed operation it could not
+ * make durable.
+ *
+ * `withMutationGate` is kept on both stores. On Postgres the claim's
+ * exclusivity belongs to the database (the conditional `UPDATE … RETURNING`
+ * on `agent.agent_operations`), so the process gate carries nothing across
+ * instances — but it takes nothing away either, and
+ * `capabilities.coordination` already reports which of the two is actually
+ * load-bearing.
  */
-export function control(): Coordinator {
-  requireControl();
-  if (singleton) return singleton;
-  if (controlCapabilitiesSync().journal === 'postgres')
-    throw new ControlError('control_unwired',
-      'The Postgres agent journal is present and reachable, but the coordinator has not been switched onto it yet: ' +
-      'coordinator.ts, browser.ts and boundary.ts still read the journal synchronously, which a database cannot answer. ' +
-      'Fix: land the AgentJournal await change across those three files (see HANDOFF-P2), or set ZENITH_STORE=file ' +
-      'to run agent control on the single-writer host in the meantime.', 503);
-  claimDataDir(env().ZENITH_DATA);
-  const journal = new Journal(resolve(env().ZENITH_DATA, 'agent-control', 'operations.sqlite')); journal.recover();
-  const port: ControlPort = { gate:withMutationGate, scope:inAgentScope, identify:raw=>{const input=preparationSchema.parse(raw);return {requestKey:input.requestKey,clientInputDigest:digest(input)};}, proposal, fingerprint, authorize, applicationAuthority, execute, flush:async()=>{await flushPendingAsync();} };
-  singleton = new Coordinator(journal,port); globalControl.__zenithControl = singleton; return singleton;
+export async function control(): Promise<Coordinator> {
+  await requireControlAsync();
+  if (globalControl.__zenithControl) return globalControl.__zenithControl;
+  pending ??= (async () => {
+    const journal = await agentJournal();
+    const port: ControlPort = { gate:withMutationGate, scope:inAgentScope, identify:raw=>{const input=preparationSchema.parse(raw);return {requestKey:input.requestKey,clientInputDigest:digest(input)};}, proposal, fingerprint, authorize, applicationAuthority, execute, flush:async()=>{await flushPendingAsync();} };
+    return (globalControl.__zenithControl = new Coordinator(journal, port));
+  })();
+  // A journal that could not be opened must not be remembered as a coordinator
+  // that can never exist: the next caller tries again rather than inheriting a
+  // rejected promise for the lifetime of the process.
+  try { return await pending; } catch (error) { pending = undefined; throw error; }
 }
 export function operationView(op: Operation, origin: string): Record<string, unknown> {
   const { input: _input, workerId: _worker, ...visible } = op;
@@ -294,14 +301,14 @@ const pageSchema = z.object({limit:z.number().int().min(1).max(100).default(50),
 export async function invoke(name: string, args: Record<string, unknown>, whoInput: Principal, selected: SelectedScope, freshIdentity: () => Promise<Principal>, origin: string): Promise<unknown> {
   const who = selectedPrincipal(whoInput, selected), spec = catalog(who).find(t=>t.name===name);
   if (!spec) throw new ControlError('capability_unavailable','This tool is not enabled for the current scopes and deployment topology.',403);
-  if (name === 'zenith_prepare_change') return operationView(await control().prepare(async()=>selectedPrincipal(await freshIdentity(),selected),args), origin);
+  if (name === 'zenith_prepare_change') return operationView(await (await control()).prepare(async()=>selectedPrincipal(await freshIdentity(),selected),args), origin);
   if (name === 'zenith_execute_operation') {
     // The coordinator has finalized by the time this resolves, so the operation's
     // outcome is already durable and nothing below can change it. Only then is it
     // safe to spend a few seconds moving the deployment the dispatch created:
     // otherwise the first step of a simulated deploy waits for the five-minute
     // scheduler pass, and the canvas shows nothing happening.
-    const op = await control().execute(async()=>selectedPrincipal(await freshIdentity(),selected),idSchema.parse(args.operationId));
+    const op = await (await control()).execute(async()=>selectedPrincipal(await freshIdentity(),selected),idSchema.parse(args.operationId));
     if (advancesDeployment(op.action) && (op.result as {data?:{deploymentId?:string}}|undefined)?.data?.deploymentId)
       await advanceAfterDispatch(who.workspaceId);
     return operationView(op, origin);
@@ -328,10 +335,10 @@ export async function invoke(name: string, args: Record<string, unknown>, whoInp
       return {...value, workingManifestHash:contentHash(project.workingManifest)};
     }
     if (readerTools.some(t=>t.name===name)) return callReader(name,args,credential(who),selected);
-    if (name === 'zenith_list_operations') { const p=pageSchema.parse(args); return { items:control().journal.list(who,p.limit,p.offset).map(op=>operationView(op,origin)), offset:p.offset, limit:p.limit }; }
-    if (name === 'zenith_get_operation_events') return {events:control().journal.events(who,idSchema.parse(args.operationId),Number(args.after??0),Number(args.limit??50))};
+    if (name === 'zenith_list_operations') { const p=pageSchema.parse(args); return { items:(await (await control()).journal.list(who,p.limit,p.offset)).map(op=>operationView(op,origin)), offset:p.offset, limit:p.limit }; }
+    if (name === 'zenith_get_operation_events') return {events:await (await control()).journal.events(who,idSchema.parse(args.operationId),Number(args.after??0),Number(args.limit??50))};
     if (name === 'zenith_get_operation') {
-      const op=control().journal.get(who,idSchema.parse(args.operationId));
+      const op=await (await control()).journal.get(who,idSchema.parse(args.operationId));
       const result=op.result as {data?:{deploymentId?:string;jobId?:string}}|undefined;
       let evidence:unknown;
       if(result?.data?.deploymentId) { const d=q.deployment(result.data.deploymentId); if(d?.projectId===op.target.projectId && d.environmentId===op.target.environmentId) evidence={deploymentId:d.id,status:d.status,revisionId:d.revisionId,endedAt:d.endedAt}; }
@@ -350,11 +357,12 @@ export async function invoke(name: string, args: Record<string, unknown>, whoInp
   });
 }
 export async function acceptUpload(who: Principal, target: Target, appId: string, bytes: Buffer) {
-  await requireWritesAsync();return inAgentScope(who,async()=>{resolveTarget(who,target,'publish');await ownedApp(who,appId);const {validateSource}=await import('@/lib/hosted/source');const validated=validateSource({kind:'tarball',bytes});return {...control().journal.putUpload(who,target,appId,bytes),contractVersion:1,sourceDigest:validated.digest};});
+  await requireWritesAsync();return inAgentScope(who,async()=>{resolveTarget(who,target,'publish');await ownedApp(who,appId);const {validateSource}=await import('@/lib/hosted/source');const validated=validateSource({kind:'tarball',bytes});return {...await (await control()).journal.putUpload(who,target,appId,bytes),contractVersion:1,sourceDigest:validated.digest};});
 }
 export async function reviewOperation(subject: string, workspace: string, role: 'viewer'|'editor'|'admin', id: string, expectedDigest:string, approve:boolean) {
   await requireWritesAsync();return withMutationGate(async()=>{
-    const op=control().journal.forReview(id,workspace);
+    const journal=(await control()).journal;
+    const op=await journal.forReview(id,workspace);
     if(op.subject!==subject&&role!=='admin')throw new ControlError('operation_not_found','Operation not found.',404);
     const currentApprover=db().members.find(m=>m.id===subject&&m.workspaceId===workspace);
     if(!currentApprover)throw new ControlError('approval_revoked','Approver membership changed.',403);
@@ -363,6 +371,6 @@ export async function reviewOperation(subject: string, workspace: string, role: 
     if(WORKSPACE_ROLE_RANK[role]<WORKSPACE_ROLE_RANK[needed])throw new ControlError('approval_role','This proposal requires a current authorized approver.',403);
     const requester=db().members.find(m=>m.id===op.subject&&m.workspaceId===workspace);
     if(!requester||WORKSPACE_ROLE_RANK[requester.role]<WORKSPACE_ROLE_RANK[getAction(op.action).requiredRole])throw new ControlError('requester_revoked','Requester permission changed.',403);
-    return control().journal.review(id,op.subject,workspace,expectedDigest,approve,subject,role as 'editor'|'admin');
+    return journal.review(id,op.subject,workspace,expectedDigest,approve,subject,role as 'editor'|'admin');
   });
 }

@@ -54,9 +54,12 @@ the loss window in prose; there is no test that measures it.
 | Host | Vercel serverless (`vercel.json`, `regions: ["bom1"]`); `isServerless()` true (`src/lib/serverless.ts:19`) |
 | Product store | PostgREST as the service role, `public.*` (19 tables), migration `0001` |
 | Hosted authority | `hosted.*` over a direct pooled Postgres connection (Supavisor transaction mode, port 6543), migrations `0002`–`0005` (`docs/HOSTED-POSTGRES.md`) |
+| Agent authority | `agent.*` over the **same** pooled client (`pgAuthorityClient()` is a singleton, so the connection budget is unchanged), migrations `0006`–`0007` (`docs/HOSTED-POSTGRES.md` §9). Not exposed to PostgREST |
 | Artifacts | Supabase Storage bucket `zenith-artifacts` (`src/lib/hosted/artifacts/storage-store.ts`) |
 | Scheduling | GitHub Actions `tick.yml`, `*/5 * * * *`, POSTs `engine`/`alerts`/`outbox`/`jobs` to `/api/internal/tick/*` with a constant-time bearer; plus `vercel.json` keepalive cron at 06:00 |
-| Agent control | **unavailable** — refused twice (`runtime.ts:23` serverless, `:29` postgres) |
+| Agent control | **available, opt-in** — `ZENITH_AGENT_CONTROL=1` plus a reachable `agent` schema at version 1; anything missing is `503 control_disabled` naming the fix. The two flag refusals are replaced in place by the capability probe (`docs/AGENT-CONTROL.md`, "Topology"), which is identical on a long-lived file host and **stricter** on serverless + file. Writes follow the scopes on the browser-approved credential; `ZENITH_AGENT_WRITES` is a file-store variable and is **not** set here |
+| Agent link | `POST /api/agent/link/{start,token}` and the `/agent/link` approval screen. Needs `ZENITH_SECRET_KEY` (the link code's ciphertext) and `ZENITH_AGENT_ORIGIN=https://tryzenith.cloud`; without the key every link answers `503 link_unavailable` rather than storing a token in the clear (`docs/AGENT-LINK.md`) |
+| Agent reconciliation | a fifth `tick.yml` curl to `/api/internal/tick/agent`, every five minutes: expired leases → `uncertain`, unreviewed proposals → `expired`, link codes swept, uploads deleted. Bounded and idempotent |
 | Account deletion | **unavailable** — refused before any side effect (`src/app/api/account/route.ts:69-77`) |
 | Status | **Supported target**, with two open correctness blockers (below) |
 
@@ -67,9 +70,12 @@ the loss window in prose; there is no test that measures it.
   `src/app/preview/[deploymentId]/[serviceId]/page.tsx:40-52`). On Vercel the file store is a
   fresh per-instance `/tmp`, so `/overview` renders empty and every preview URL 404s.
   Packet A1.
-- **VER-3.** No CI lane exercises Postgres at all
-  (`grep -rn "postgres\|services:" .github/workflows/` → nothing); every live contract lane
-  is `describe.skipIf`-ed and skips silently. Packet F1.
+- ~~**VER-3.** No CI lane exercises Postgres at all~~ — **closed.** `.github/workflows/ci.yml`
+  now carries a `postgres` job with a real `postgres:16.15-alpine` service pinned by digest,
+  `scripts/ci/apply-supabase-migrations.sh` applying `0001`–`0007`, and
+  `scripts/ci/postgres-lane-report.mjs` failing a lane that produced zero passing tests. What
+  the lane still cannot reach is listed by that script's own BLOCKED table, on the run's
+  summary page, so an absent lane is visible rather than inferred from silence.
 
 **Measurable acceptance criteria**
 1. Migrations `0001`–`0005` applied; the boot schema check passes both the version **and** the
@@ -94,6 +100,16 @@ the loss window in prose; there is no test that measures it.
    re-applied; measured RPO/RTO recorded.
 10. Readiness endpoint reports, per authority: reachable, migration version, selector,
     serverless.
+11. Migrations `0006`–`0007` applied and verified by the queries in
+    `docs/HOSTED-POSTGRES.md` §9.1 — the ledger by exact string, the ten named indexes,
+    `service_role` USAGE, and row level security on every table in `agent`.
+12. CI's `postgres` job reports a **non-zero** passing count for both
+    `tests/agent-link/pg-contract.test.ts` and `tests/agent-control/pg-contract.test.ts`, and
+    passes. Two independent connections race one claim; a stale fence and a moved authority
+    digest each write zero rows; an expired lease reconciles to `uncertain` once and is never
+    re-dispatched.
+13. `npm run agent:acceptance` exit 0 and `npm run agent:browser` exit 0 — the journey and
+    the consent screen, the second in a real browser, neither `continue-on-error`.
 
 **Evidence available on this machine, no credentials:** 4 and 5 (static + unit), and the
 readiness endpoint's shape once it exists. A local PostgreSQL container could satisfy 2 for the

@@ -27,7 +27,62 @@ ZENITH_AGENT_CREDENTIAL_FILE=/absolute/private/access.credentials.json
 
 Issue a real, non-demo member's credential with `scripts/agent-credential.mjs`. The read/plan/export scopes remain valid; write/publish/logs are separately available, and publishing requires explicit app IDs. Never paste credentials into a model conversation. The client separately requires `ZENITH_API_VERSION=2` and explicit write opt-in.
 
-**Topology limit:** reviewed writes currently refuse the PostgreSQL application store. The process mutation gate protects the supported single-writer file-store topology; it is not a distributed lock. Read-only PostgreSQL paths do not make writes safe across multiple application snapshots. Do not remove this guard without a coordinated application transaction/journal adapter. SQLite is an experimental Node API on the minimum supported runtime.
+## Topology: what decides whether control and writes are available
+
+This section used to read *"reviewed writes currently refuse the PostgreSQL
+application store … do not remove this guard"*. The guard was not removed. It
+was **replaced in place** by a capability probe that asks the question the two
+flags were standing in for — *is there a durable, DB-enforced place to put an
+intent, and a credential authority to bind it to?* — and answers it from the
+configuration rather than from a flag somebody set once. On a single-writer
+file host the answer is identical to the old one; on serverless + file it is
+stricter.
+
+| `ZENITH_STORE` | serverless | `ZENITH_AGENT_CONTROL` | `SUPABASE_DB_URL` + `agent` schema v1 | control | writes | why |
+|---|---|---|---|---|---|---|
+| `file` | no | `1` | — | yes | yes, if `ZENITH_AGENT_WRITES=1` | exactly the previous semantics, unchanged |
+| `file` | no | unset | — | no | no | `control_disabled`, as before |
+| `file` | **yes** | `1` | — | no | no | a `/tmp` SQLite journal on an instance that can be frozen is not durable |
+| `postgres` | either | `1` | reachable | yes | yes | DB-enforced claims, leases and fences exist |
+| `postgres` | either | `1` | **missing, unreachable or behind** | no | no | `control_disabled` naming the fix. **Fail closed** |
+| `postgres` | either | unset | reachable | no | no | still opt-in; nothing turns on by upgrading |
+
+Three properties survive the change. `ZENITH_AGENT_CONTROL=1` is still
+required. The file single-host mode still coordinates with the process mutation
+gate and the pid lock, and still says so: `capabilities.coordination` reports
+`process-gate`, and `zenith_get_capabilities` repeats it verbatim rather than
+implying a distributed lock. Serverless + file is still refused.
+
+`ZENITH_AGENT_WRITES` keeps its meaning **on the file store only**. On Postgres
+writes follow the scopes on the credential, because the credential was minted
+through a browser consent that named them; a process-wide flag there would be a
+second, weaker gate on top of a per-credential one.
+
+### What this is, and is not, evidence of
+
+ADR D-8 listed six things that had to be proven before the refusal moved. Five
+are met as written and the sixth is replaced by a documented contract, not by a
+claim:
+
+| D-8 item | status |
+|---|---|
+| 1. a transaction spanning the agent journal and the product store | **Not met, and not claimed.** The product store speaks PostgREST; a direct-Postgres journal cannot commit with it. Replaced by explicit intent + reconciliation with `uncertain` as a first-class outcome — ADR **D-8a** and **D-15** |
+| 2. DB-enforced single-writer/fencing replacing the pid file | **Met on Postgres:** one conditional `UPDATE … RETURNING` with `fence_token` and `lease_until`. The pid file is not used in Postgres mode |
+| 3. multi-instance lease and fence tests in separate connections | **Met:** `tests/agent-control/pg-contract.test.ts`, two independent clients, in CI's `postgres` job |
+| 4. revocation-race tests | **Met:** a finalize whose authorization digest moved writes zero rows and the operation becomes `uncertain`; the journey suite revokes a live credential and the next request is 401 |
+| 5. restart-and-uncertainty | **Met:** an expired lease reconciles to `uncertain` exactly once and is never re-dispatched |
+| 6. a live PostgreSQL CI lane proving 1–5 | **Exists:** `.github/workflows/ci.yml`'s `postgres` job, with `0001`–`0007` applied and `scripts/ci/postgres-lane-report.mjs` failing a lane that ran zero tests |
+
+So the honest summary is: **five of six as written, and the sixth deliberately
+replaced.** If item 1 is wanted literally, the only route is moving the product
+store off PostgREST onto a direct connection, which is a far larger project.
+
+Still true, and still worth saying: SQLite is an experimental Node API on the
+minimum supported runtime, and the file-store journal is a single-host story.
+Two operations on the *same project* can dispatch concurrently from two
+instances on Postgres; the version-guarded flush makes one of them lose with a
+409 and become `uncertain`, which is safe and is the existing behaviour rather
+than a new risk.
 
 ## Remote OAuth
 

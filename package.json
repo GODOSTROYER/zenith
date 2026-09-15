@@ -41,6 +41,8 @@
     "hosted:backup-live-check": "tsx --env-file-if-exists=.env.local scripts/hosted/backup-live-check.ts",
     "hosted:acceptance": "tsx scripts/hosted-acceptance.ts",
     "hosted:browser": "tsx scripts/hosted-browser.ts",
+    "agent:acceptance": "tsx scripts/agent-acceptance.ts",
+    "agent:browser": "tsx scripts/agent-browser.ts",
     "test:contract": "vitest run tests/db/contract --no-file-parallelism"
   },
   "dependencies": {

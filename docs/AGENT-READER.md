@@ -21,7 +21,24 @@ export ZENITH_AGENT_CREDENTIAL_FILE="$HOME/.config/zenith-reader/access.credenti
 npm run dev -- --hostname 127.0.0.1
 ```
 
-The endpoint is otherwise disabled and also refuses on Vercel. **Host/Origin validation is not network isolation.** Bind the listener to loopback; do not expose this service through a public listener, proxy or tunnel. Remote OAuth is not implemented, and opaque operator tokens are not a substitute for OAuth compliance.
+**Host/Origin validation is not network isolation.** Bind the listener to loopback; do not expose this service through a public listener, proxy or tunnel. Remote OAuth is not implemented, and opaque operator tokens are not a substitute for OAuth compliance.
+
+### Enablement: what replaced the Vercel refusal
+
+This endpoint used to be disabled whenever `process.env.VERCEL` was set, whatever else was configured. That was the right refusal while the only credential authority was a POSIX file: on a serverless instance it would have read a `/tmp` file that no other instance had ever written.
+
+The condition is now **`ZENITH_AGENT_READER=1` and a credential authority that reports itself ready**:
+
+| authority | selected by | ready when | so on Vercel |
+| --- | --- | --- | --- |
+| file | `ZENITH_STORE=file` (the default) | `ZENITH_AGENT_CREDENTIAL_FILE` names an owned, mode-0600, POSIX file | never ready — there is no such file on a serverless instance, so the reader stays disabled exactly as before |
+| postgres | `ZENITH_STORE=postgres` | `SUPABASE_DB_URL` is reachable and `agent.schema_migrations` is at version 1 | ready, and the reader answers |
+
+This is strictly narrower than "not Vercel": a misconfigured Postgres install is refused rather than admitted, and a file install on any serverless host is still refused — now because the authority cannot be read, which is the actual reason, instead of because of the platform's name.
+
+The origin rule moves with it. A `za_` credential is accepted on a **loopback** origin (the file authority, as before) **or** on the configured HTTPS origin when the credential came from the Postgres authority, which is what "Zenith is the issuer" means: the token is Zenith's own, minted through a browser consent, hashed at rest and revocable from the same screen. See [AGENT-LINK.md](AGENT-LINK.md).
+
+Credentials issued by `scripts/agent-credential.mjs` keep working unchanged; the file it writes is the same version-1 file, and `authenticate()` is not modified.
 
 ## Issue and revoke a credential
 

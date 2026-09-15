@@ -221,6 +221,55 @@ removing it is a regression, however green the rest of the suite looks.
 
 ---
 
+## D-8a. Item 1 of D-8 is not met, and is replaced rather than waived
+
+**Status.** Amends D-8. Accepted by the integrator for the linked-agent round.
+
+**Decision.** Items 2–6 of D-8 are met as written (evidence below). Item 1 — *a coordinated
+transaction spanning the agent journal and the product store* — **is not met, is not claimed,
+and is not being waited for.** In its place the design commits to explicit **intent +
+reconciliation**, with `uncertain` as a first-class outcome. The guard at
+`control/runtime.ts:29` is not deleted; it is replaced in place by the capability probe of
+`docs/AGENT-CONTROL.md`, which is identical on a long-lived file host and **stricter** on
+serverless + file.
+
+**Why item 1 cannot be met as written.** The product store speaks PostgREST
+(`src/lib/db/postgres-store.ts`), and a journal on a direct Postgres connection cannot commit
+with it. Several PostgREST requests are not one transaction, and pretending otherwise would
+be exactly the kind of implied atomicity this ADR exists to forbid. The only alternative that
+would satisfy item 1 literally is moving the product store off PostgREST onto `postgres.js` —
+a far larger project, and one that should be decided on its own merits rather than smuggled in
+behind an agent feature.
+
+**What is committed instead** — the substance is D-15:
+
+- The journal commit (intent) and the product commit (effect) are two commits in two
+  authorities. What binds them is the **order** — intent first, effect second, outcome last —
+  and the fact that the only states a reader can observe are `running` (intent recorded,
+  effect unknown), `succeeded`/`failed` (effect observed **and** the authority still valid),
+  and `uncertain` (everything else).
+- No cross-authority transaction is implied anywhere in the code, the tools' output, or the
+  documentation.
+- A dispatch whose outcome cannot be confirmed is `uncertain` and is **never** automatically
+  retried, never re-dispatched, and never given a new request key.
+
+**Evidence for items 2–6**, so that this amendment is a record and not a promise:
+
+| item | where |
+|---|---|
+| 2 fencing | the claim, finalize and renewal statements of `supabase/migrations/0007_agent_control.sql` + `control/journal-pg.ts`; asserted in `tests/agent-control/pg-contract.test.ts` |
+| 3 separate connections | the same file opens **two independent clients** and races them; one claim wins, the other returns zero rows |
+| 4 revocation race | a finalize whose `authorization_digest` or `application_authorization_digest` moved updates zero rows → `uncertain`; `tests/agent-journey.test.ts` revokes a live credential and the next request is 401 |
+| 5 restart and uncertainty | an expired `lease_until` reconciles to `uncertain` exactly once, is not re-dispatched, and a second pass changes nothing |
+| 6 a live lane | `.github/workflows/ci.yml`'s `postgres` job, `0001`–`0007` applied by `scripts/ci/apply-supabase-migrations.sh`, with `scripts/ci/postgres-lane-report.mjs` failing a lane that ran zero tests |
+
+**Consequence.** Any statement anywhere in this repository that the agent journal and the
+product store commit together is wrong and must be corrected to D-15's wording. The PR
+description says "five of six as written, and the sixth replaced by a documented
+reconciliation contract", and nothing stronger.
+
+---
+
 ## D-9. Secret handling
 
 **Decision.** Secret values never enter settings, manifests, revisions, diffs, audit rows,
@@ -352,6 +401,49 @@ behind, reads and writes refuse rather than half-work — which is already the b
 migration version, selector value, and whether the process is serverless. It is the only
 sanctioned way for an operator to learn which topology is actually running. It reports state;
 it never mutates.
+
+---
+
+## D-15. The reconciliation contract, in place of a transaction that cannot exist
+
+**Status.** The substance of D-8a. This is the contract every reviewed write now keeps.
+
+**Decision — the three observable states, and nothing else.**
+
+| state | means | what a caller may conclude |
+|---|---|---|
+| `running` | the intent is committed; the effect is unknown | nothing about the effect. It is in flight or its instance is gone |
+| `succeeded` / `failed` | the effect was observed **and** the authority was still valid when it was recorded | the outcome, as stated |
+| `uncertain` | everything else | the action **may or may not** have taken effect. A human resolves it from the evidence attached to the operation |
+
+**Decision — the order is the binding, and the order is fixed.** Re-verify identity, take the
+snapshot, authorize, fingerprint, **claim** (one conditional `UPDATE … RETURNING` that
+advances the fence and takes a lease), dispatch, flush the product write under its version
+guard, re-verify identity and authority, **finalize** guarded on the fence *and* both
+authority digests. A failure at any step after the claim lands in `uncertain`.
+
+**Decision — recovery produces `uncertain`, never a retry.** An operation whose lease expired
+is reconciled by the `tick/agent` pass to `uncertain` with a single bounded, idempotent
+statement. It is never re-dispatched: the claim only ever matches `phase='approved'`, and a
+reconciled row will never be that again. `Journal.recover()` keeps running at construction on
+the **file** store only, where a single process really is the only writer; calling it at
+construction on serverless would let every cold instance poison every live instance's rows,
+because `workerId` is per-process.
+
+**Decision — the idempotency key stays `op.id`.** Not `${op.id}:${fence}`. The action
+runner's key is already tenant + principal + action + key bound to the canonical payload
+hash, and an operation's input is immutable after `prepare()`. Adding the fence would make a
+re-claim look like a new operation to the action runner, which is precisely the silent retry
+this contract refuses.
+
+**Decision — what the user is told.** `zenith_get_operation` attaches the deployment or job
+evidence to an `uncertain` operation so a human can close it, and the dispatch payload keeps
+saying, in those words, that *a successful dispatch may still be awaiting deployment approval
+or execution*. An agent may not report "deployed" from a dispatch, and the skill text says so.
+
+**Consequence.** `uncertain` is a normal outcome, not an error to be engineered away. Any
+change that reduces the number of `uncertain` outcomes by retrying, rather than by observing,
+violates this decision.
 
 ---
 

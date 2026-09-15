@@ -119,12 +119,31 @@ before this row is signed off.
 | Selectors | `ZENITH_STORE=postgres`, `ZENITH_HOSTED_STORE=sqlite` |
 | Host | one long-lived process (**not** serverless) |
 | Status | **Supported, documented** (`docs/HOSTED-POSTGRES.md`); the blanket mixed-mode refusal that PR #9 tried was correctly reverted |
+| Background work | **in-process scheduler**, started by `boot()` — see below. No engine ticker, no boot catch-up |
 | Caveat | no cross-authority atomicity is implied, and none exists |
+
+**How deployments advance on this row.** Not the 250 ms ticker: `ensureEngine()`
+(`src/lib/engine/engine.ts`) starts no ticker on Postgres, because a timer callback has no
+snapshot and an unprimed `db()` refuses — a throw from `setInterval` is a process exit. `boot()`
+returns before `engine.resumeInFlight()`, `replayOutbox()` and `startAlertEvaluator()` for the
+same reason. What replaces both is `startCronScheduler()` (`src/lib/server/cron.ts`), which
+`boot()` starts on exactly this row: an unref'd 2 s interval running the engine pass every tick
+and the alerts and outbox passes every 8th, each inside `inCronScope()` (an unfiltered primed
+snapshot and an awaited write-back), single-flight, and logging rather than throwing on failure.
+`nudge()` also runs on this row now, closing the gap between passes for a person watching a
+deploy. **An external scheduler against `/api/internal/tick/*` is therefore optional here, and
+required on row 2.** Setting `CRON_SECRET` and pointing something at the tick routes as well is
+safe — the passes are the same and the scheduler is single-flight per process — but two processes
+are two schedulers, which is a reason to keep this row at one process until the fencing work in
+ARCH-5 lands. Pinned by `tests/engine/postgres-scheduler.test.ts` and
+`tests/engine/serverless-boot.test.ts`.
 
 **Acceptance criteria:** as row 2 items 1–6 for the product half, plus the SQLite authority's
 own acceptance (`npm run hosted:acceptance`) on a persistent disk, plus an explicit statement
-in the runbook that a product-store write and a hosted-authority write are two commits.
-**Evidence here:** available. **Blocked:** the product-store Postgres half.
+in the runbook that a product-store write and a hosted-authority write are two commits, plus
+one observed deployment reaching `succeeded` with **no** external scheduler running.
+**Evidence here:** available for the scheduler's unit behaviour (fake timers, mocked seam).
+**Blocked:** the product-store Postgres half, and the end-to-end deploy on a real host.
 
 ---
 
@@ -145,8 +164,8 @@ in the runbook that a product-store write and a hosted-authority write are two c
 | Backend | Selector | Status | What exists | What is missing / blocked |
 |---|---|---|---|---|
 | **Cloudflare / D1 runtime** | `ZENITH_RUNTIME=cloudflare` (`src/lib/hosted/config.ts:41`) + `ZENITH_CF_ACCOUNT_ID`, `_NAMESPACE`, `_PROBE_URL`, `_BROKER_MODULE` (`:66-77`), `ZENITH_CF_API_TOKEN` presence-only | **Experimental — zero acceptance evidence** | config validation and adapter code | no CI lane touches it (`grep -rn cloudflare .github/workflows/` → nothing); no live probe, no deploy, no teardown evidence. **Blocked** — no Cloudflare credentials. Do not imply support anywhere. |
-| **E2B build runner** | `ZENITH_BUILD_RUNNER=e2b` + `E2B_API_KEY` + `ZENITH_E2B_TEMPLATE` + `_DIGEST` + `_ATTESTATION_PUBLIC_KEY` | **Hold — local policy implemented, live gate open** | bare-template-ID enforcement and tag/`latest` rejection (`config.ts:45-54`); signed Ed25519 attestation verified before upload and the provider-resolved ID re-checked (`runner-e2b.ts:161-193`); no job-time package install (`:238-255`); `allowInternetAccess: false` (`:67-72,83,213`); teardown in a `finally` on every path (`:302-309`); 23-case isolated suite | the digest is a **self-declared string inside the image**, never computed over image bytes, and says nothing about which packages the template holds or how they were resolved (`:244` compares four `package.json` version fields). No test asserts `allowInternetAccess: false` is actually passed. Provider-side egress enforcement, VM reclamation, inter-job contamination, controller access: **blocked** without `E2B_API_KEY`. |
-| **Docker build runner** | `ZENITH_BUILD_RUNNER=docker` | **Closest to supportable of the three runners** | strongest network/filesystem policy and it is **tested**: `--network none`, `--read-only`, `--tmpfs /tmp`, memory/cpu/pids caps, `/src:ro` (`runner-docker.ts:46-67`, asserted `tests/hosted/build/runners-isolated.test.ts:463-496`) | image is a **mutable tag** `zenith-recipe:v1` (`runner-docker.ts:30,169-175`), not a digest; the image's own install is neither lockfile-frozen nor script-free (`docker/recipe/Dockerfile:27`). Both closable here — packet D1. |
+| **E2B build runner** | `ZENITH_BUILD_RUNNER=e2b` + `E2B_API_KEY` + `ZENITH_E2B_TEMPLATE` + `_DIGEST` + `_ATTESTATION_PUBLIC_KEY` | **Hold — local policy implemented, live gate open** | bare-template-ID enforcement and tag/`latest` rejection (`config.ts:45-54`); signed Ed25519 attestation verified before upload and the provider-resolved ID re-checked (`runner-e2b.ts:161-193`); no job-time package install (`:238-255`); `allowInternetAccess: false` (`:67-72,83,213`), **asserted on the options the sandbox factory actually receives** (`tests/hosted/build/runners-isolated.test.ts:121-134,315-329`, via a recording factory — the older `async () => sandbox` discarded them); teardown in a `finally` on every path (`:302-309`); 23-case isolated suite | the digest is a **self-declared string inside the image**, never computed over image bytes, and says nothing about which packages the template holds or how they were resolved (`:244` compares four `package.json` version fields). Provider-side egress enforcement, VM reclamation, inter-job contamination, controller access: **blocked** without `E2B_API_KEY`. |
+| **Docker build runner** | `ZENITH_BUILD_RUNNER=docker` | **Closest to supportable of the three runners** | strongest network/filesystem policy and it is **tested**: `--network none`, `--read-only`, `--tmpfs /tmp`, memory/cpu/pids caps, `/src:ro` (`runner-docker.ts:46-67`, asserted `tests/hosted/build/runners-isolated.test.ts:463-496`); the image reference is **immutable or the runner refuses** — `ZENITH_RECIPE_IMAGE` must be an image ID or a `name@sha256:` digest, there is no default and tags are rejected with the command that prints the digest (`resolveRecipeImage`, `runner-docker.ts:45-78`); the image's own install is frozen and script-free (`npm ci --ignore-scripts --omit=dev` from a committed lockfile, `docker/recipe/Dockerfile:36-37`, drift-checked by `tests/hosted/build/recipe-image.test.ts`) | the digest names the bytes, not their provenance: nothing here signs the image or proves who built it, and the operator sets `ZENITH_RECIPE_IMAGE` by hand on every host. Live docker-in-production evidence is still **blocked**. |
 | **`recipe-local` runner** | `ZENITH_BUILD_RUNNER=recipe-local` | **Development only** | env allowlist and forbidden-prefix filtering (`runner-recipe-local.ts:31,38-54`), SIGKILL on timeout/cancel, bounded logs | **no network policy at all** — a child process with full host networking; its own boundary string says it is "not a hostile-code sandbox" (`:86-88`). Must refuse under `ZENITH_HOSTED_MODE=1` without an explicit acknowledgement. Note CI's `hosted` job runs with `ZENITH_BUILD_RUNNER=recipe-local`, which is correct for CI and must not be read as production endorsement. |
 | **Hosted SQLite authority** | `ZENITH_HOSTED_STORE=sqlite` | **Supported on a long-lived host; unsupported on serverless** (row 4) | full repo parity with the Postgres backend — 15 repos each, real transactions (`authority/tx.ts:129-138`), leases, fencing tokens, single-flight indexes | `node:sqlite` is an experimental Node API on the minimum supported runtime (`docs/AGENT-CONTROL.md:30`); Node ≥22.16 is enforced only in hosted mode (`src/lib/hosted/index.ts:57-62`) |
 | **File-mode agent control** | `ZENITH_AGENT_CONTROL=1` + `ZENITH_AGENT_WRITES=1`, file store, long-lived host | **The only supported agent-control topology** | durable SQLite journal with `UNIQUE(workspace, subject, request_key)` and payload-hash binding (`control/journal.ts:69,113-121`); durable SQLite rate limiter (`control/rate-limit.ts:15-41`); re-entrant mutation gate widened across grant/member/account paths | the process-local PID file is load-bearing for a durable table's correctness: `Journal.workerId` is per-instance (`journal.ts:47`) and `recover()` (`:213-221`) marks every foreign `running` row `uncertain`. No multi-OS-process test exists (`tests/agent-control-journal.test.ts:93-110` is two connections in one process). Packet B2. |

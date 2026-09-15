@@ -486,11 +486,12 @@ describe("the keepalive reconcile pass", () => {
     // cleanup the DELETE route refuses.
     expect(state.order).toEqual([]);
     expect(readAudit({ workspaceId: "w-atlas" })).toHaveLength(0);
-    // The in-memory membership list is deliberately *not* asserted here.
-    // `inCronScope` primed a Postgres snapshot, and `loadSnapshot` still adopts
-    // its rows into the file store's graph object (A-1, pre-existing and out of
-    // this packet's scope), so an empty fake project empties the graph this
-    // process happens to be holding. The audit log above is the assertion that
-    // survives that, and it is the one that matters.
+    // …and the membership this process holds is untouched, which is now a real
+    // assertion rather than a caveat. A1 could only assert the audit log here:
+    // `loadSnapshot` adopted its rows into the file store's one process-global
+    // graph (A-1), so the cron pass's empty fake project emptied the graph this
+    // test was holding. A snapshot owns its graph now, so an empty Postgres
+    // project cannot reach into the file store's rows at all.
+    expect(db().members.map((m) => m.id)).toEqual(["u-me", "u-other"]);
   });
 });

@@ -46,12 +46,24 @@
  * same object, and the write-back is awaited before the response leaves, the
  * same "commit before ACK" every mutating route obeys.
  *
- * Nothing here starts a timer. That is the point.
+ * ## The one timer, and why it exists
+ *
+ * A *long-lived* host on `ZENITH_STORE=postgres` is the topology that falls
+ * between the two stools above: the engine's 250 ms ticker is off there (a
+ * timer callback has no snapshot, so `db()` would rightly refuse — see
+ * `ensureEngine()`), boot does no durable catch-up for the same reason, and
+ * nothing outside the process is obliged to call these routes. So
+ * `startCronScheduler()` below runs the same passes on an unref'd interval,
+ * inside the same `inCronScope()`, single-flight and never inside a request
+ * scope. It refuses to start on serverless, where the premise is false, and on
+ * the file store, which has its own timers. See ADR 1 in docs/ARCHITECTURE.md
+ * and §3 of docs/RUNNING.md for which topology gets which.
  */
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { ApiError, errorResponse, json } from "@/lib/server/errors";
 import { db, flushPendingAsync, isPostgres } from "@/lib/db/store";
+import { outsideSnapshot } from "@/lib/db/request-snapshot";
 import { engine, engineTick } from "@/lib/engine/engine";
 import { evaluateAll, replayOutbox } from "@/lib/alerts";
 import { log, withRequestId } from "@/lib/log";
@@ -264,6 +276,158 @@ export async function jobTickPass(): Promise<JobTickResult> {
   return { ran: true, queued, remaining: (await queuedJobs()).length };
 }
 
+/* ------------------------------ the scheduler ------------------------------ */
+
+/**
+ * How often one scheduled pass starts on a long-lived Postgres host.
+ *
+ * Every pass primes an unfiltered snapshot, which is one round trip per table,
+ * so this is not the engine's 250 ms — but `engineTickPass()` loops internally
+ * at `ENGINE_STEP_MS` until nothing is in flight, so a deployment is advanced
+ * step after step *within* one pass rather than one step per interval. Two
+ * seconds is the worst-case wait before a fresh deployment is picked up, and
+ * an idle install costs one prefetch per two seconds and no writes.
+ */
+export const SCHEDULER_INTERVAL_MS = 2_000;
+
+/**
+ * Alerts and the outbox run every Nth pass — ~16 s, which is the 15 s cadence
+ * `startAlertEvaluator()` uses on a file-store host. Evaluating alert rules
+ * eight times more often than that buys nothing and costs a full pass.
+ */
+export const SCHEDULER_SLOW_EVERY = 8;
+
+/**
+ * The engine budget one scheduled pass may spend. Shorter than the route's
+ * `ENGINE_BUDGET_MS`: a route answers when its pass ends, while this one holds
+ * the only scheduler slot, and a 20 s pass would delay the alert evaluation
+ * behind it by 20 s.
+ */
+export const SCHEDULER_ENGINE_BUDGET_MS = 5_000;
+
+/**
+ * The passes one scheduled tick runs, indirected so a test can observe them.
+ *
+ * Not a plugin point: production reads exactly these three, in this order, and
+ * `/api/internal/tick/*` calls the same functions directly. `jobTickPass()` is
+ * deliberately absent — the hosted job runner reads the hosted authority, not
+ * the product snapshot, so it never lost its own 250 ms ticker
+ * (`startHostedJobRunner()`, called by `ensureHosted()` before boot's Postgres
+ * return). Adding it here would tick it twice.
+ */
+export const scheduledPasses = {
+  engine: engineTickPass,
+  alerts: alertTickPass,
+  outbox: outboxTickPass,
+};
+
+export interface SchedulerPassResult {
+  engine: EngineTickResult;
+  /** absent on a fast pass — alerts and the outbox run every `SCHEDULER_SLOW_EVERY` */
+  alerts?: AlertTickResult;
+  outbox?: OutboxTickResult;
+  ms: number;
+}
+
+type GScheduler = typeof globalThis & {
+  __zenithCronScheduler?: ReturnType<typeof setInterval>;
+  __zenithCronPassRunning?: boolean;
+  __zenithCronPassCount?: number;
+};
+
+/**
+ * Run one scheduled pass now, unless one is already running.
+ *
+ * Single-flight by a process-global flag rather than by the interval: a pass
+ * that overruns its period must not have a second one started on top of it,
+ * because two passes would each prime a snapshot, each advance the same
+ * deployments, and each flush a baseline the other invalidated. `null` means
+ * "skipped, one was in flight" — the next tick tries again.
+ *
+ * `outsideSnapshot()` is load-bearing. The interval is created during `boot()`,
+ * which the first request awaits, so the callback inherits that request's async
+ * context for the life of the process; without it every pass would read one
+ * arbitrary caller's tenant slice instead of priming its own unfiltered one.
+ */
+export async function runScheduledPass(): Promise<SchedulerPassResult | null> {
+  const g = globalThis as GScheduler;
+  if (g.__zenithCronPassRunning) return null;
+  g.__zenithCronPassRunning = true;
+  const started = Date.now();
+  const count = (g.__zenithCronPassCount = (g.__zenithCronPassCount ?? 0) + 1);
+  const slow = count % SCHEDULER_SLOW_EVERY === 1;
+  try {
+    return await outsideSnapshot(() =>
+      inCronScope(async () => {
+        const engineResult = await scheduledPasses.engine(SCHEDULER_ENGINE_BUDGET_MS);
+        const result: SchedulerPassResult = { engine: engineResult, ms: 0 };
+        if (slow) {
+          result.alerts = await scheduledPasses.alerts();
+          result.outbox = await scheduledPasses.outbox();
+        }
+        result.ms = Date.now() - started;
+        return result;
+      })
+    );
+  } finally {
+    g.__zenithCronPassRunning = false;
+  }
+}
+
+/**
+ * Start the in-process scheduler, and say whether it started.
+ *
+ * Called by `boot()`. Three refusals, each because something else already does
+ * the work:
+ *
+ *  - **serverless** — an instance is frozen between requests, so an interval
+ *    either never fires or fires against an instance nobody will ask again;
+ *    `.github/workflows/tick.yml` (or any external scheduler) drives the tick
+ *    routes there, and `nudge()` covers the gap on the request path;
+ *  - **the file store** — `ensureEngine()`'s 250 ms ticker and
+ *    `startAlertEvaluator()`'s 15 s timer are live on that host and read the
+ *    one graph directly;
+ *  - **already running** — boot is idempotent, and so is this.
+ *
+ * The interval is `unref`'d: a scheduler must never be the reason a script or
+ * a test process refuses to exit.
+ */
+export function startCronScheduler(): boolean {
+  const g = globalThis as GScheduler;
+  if (g.__zenithCronScheduler) return false;
+  if (isServerless() || !isPostgres()) return false;
+  const timer = setInterval(() => {
+    void runScheduledPass().catch((err) => {
+      // A background pass must not take the process down: an unhandled
+      // rejection from a timer callback is an exit, and the next pass would
+      // have retried anyway. Logged at error because a pass that keeps failing
+      // means deployments are not advancing.
+      log.error("scheduled pass failed", { scope: "cron", error: err });
+    });
+  }, SCHEDULER_INTERVAL_MS);
+  (timer as { unref?: () => void }).unref?.();
+  g.__zenithCronScheduler = timer;
+  log.info("in-process scheduler started", {
+    scope: "cron",
+    reason: "ZENITH_STORE=postgres on a long-lived host: no engine ticker, no boot catch-up",
+    everyMs: SCHEDULER_INTERVAL_MS,
+    passes: ["engine", `alerts+outbox every ${SCHEDULER_SLOW_EVERY}`],
+  });
+  return true;
+}
+
+/** Stop it. Tests, and any caller that starts one deliberately. */
+export function stopCronScheduler(): void {
+  const g = globalThis as GScheduler;
+  if (g.__zenithCronScheduler) clearInterval(g.__zenithCronScheduler);
+  g.__zenithCronScheduler = undefined;
+  g.__zenithCronPassRunning = false;
+}
+
+/** True while the interval exists. */
+export const cronSchedulerRunning = (): boolean =>
+  (globalThis as GScheduler).__zenithCronScheduler !== undefined;
+
 /* --------------------------------- routing -------------------------------- */
 
 /**
@@ -318,13 +482,23 @@ type G = typeof globalThis & { __zenithNudgeAt?: number };
  * immediately, because the steps are async. The response is not delayed by the
  * step, only by the tick that starts it.
  *
- * Bounded three ways: serverless only (a server has its 250 ms ticker and does
- * not need this), at most once per `NUDGE_INTERVAL_MS` per instance, and never
- * when nothing is in flight. It swallows its own errors — a background nudge
- * must not be able to fail a read.
+ * Bounded three ways: only on a host with no 250 ms ticker, at most once per
+ * `NUDGE_INTERVAL_MS` per instance, and never when nothing is in flight. It
+ * swallows its own errors — a background nudge must not be able to fail a read.
+ *
+ * "No ticker" is two hosts, not one. Serverless is the obvious one. The other
+ * is a long-lived host on `ZENITH_STORE=postgres`, where `ensureEngine()` also
+ * starts no ticker (a timer callback has no snapshot to read): the in-process
+ * scheduler above advances deployments there every
+ * `SCHEDULER_INTERVAL_MS`, and this closes the gap between two of its passes
+ * for the person watching the deploy. It is safe on that host in a way it is
+ * not outside a request: `db()` here is the caller's own request snapshot, and
+ * `PostgresStore.save()` schedules its own flush, which a long-lived process
+ * finishes even when `flushMutation` returns early because the request was a
+ * GET. A file-store host keeps its ticker and is left alone.
  */
 export function nudge(workspaceId?: string): void {
-  if (!isServerless()) return;
+  if (!isServerless() && !isPostgres()) return;
   const g = globalThis as G;
   const now = Date.now();
   if (g.__zenithNudgeAt !== undefined && now - g.__zenithNudgeAt < NUDGE_INTERVAL_MS) return;

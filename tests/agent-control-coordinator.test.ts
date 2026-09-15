@@ -123,3 +123,47 @@ describe('integration coordinator',()=>{
     expect(await withMutationGate(async()=>42)).toBe(42);
   });
 });
+
+/**
+ * The wiring the Postgres journal is still waiting on.
+ *
+ * `AgentJournal` (F5) is all-promise, because a network round trip cannot be a
+ * return value. `Coordinator` reads its journal synchronously — and so do
+ * `browser.ts` (`control().journal.reviewQueue(...).map(...)`) and
+ * `boundary.ts` (`bindGrant(identity, control().journal.getGrant(...))`). Those
+ * three files have to gain `await` in one commit, and they belong to three
+ * different packets, so none of them can do it alone.
+ *
+ * This pins the current state rather than asserting it is right: if the
+ * coordinator is switched onto the asynchronous journal without the other two,
+ * this fails here instead of in a browser that silently renders no review
+ * queue.
+ */
+describe('coordinator journal surface',()=>{
+  it('still reads the journal synchronously, which is why Postgres is not wired yet',async()=>{
+    const f=fixture();
+    try{
+      const op=await approved(f);
+      // Not a promise: `Coordinator.execute` does `const op = this.journal.get(...)`
+      // and then reads `op.target` on the next line.
+      const read=f.journal.get(who,op.id);
+      expect(read).not.toBeInstanceOf(Promise);
+      expect(read.target.workspaceId).toBe('ws');
+      expect(f.journal.reviewQueue('ws',who.subject,true)).not.toBeInstanceOf(Promise);
+      expect(f.journal.getGrant(who.subject,'client','ws')).not.toBeInstanceOf(Promise);
+    } finally {f.close();}
+  });
+  it('keeps uncertain a terminal answer, never a retry',async()=>{
+    let dispatches=0;
+    const f=fixture({execute:async()=>{dispatches++;throw new ControlError('provider_failed','the provider did not answer');}});
+    try{
+      const op=await approved(f);
+      await expect(f.coordinator.execute(async()=>who,op.id)).rejects.toThrow('may have been accepted');
+      expect(f.journal.get(who,op.id).phase).toBe('uncertain');
+      // A second attempt is handed the uncertainty, not a fresh dispatch: the
+      // side effect may have happened and nothing here can find out.
+      expect((await f.coordinator.execute(async()=>who,op.id)).phase).toBe('uncertain');
+      expect(dispatches).toBe(1);
+    } finally {f.close();}
+  });
+});

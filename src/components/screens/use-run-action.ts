@@ -72,23 +72,29 @@ export function useRunAction(onSettled?: () => void) {
       opts: { busyKey?: string; silent?: boolean } = {}
     ): Promise<ActionResult | undefined> => {
       setBusyId(opts.busyKey ?? actionId);
+      // What this run is about, so its notification leads to that project's
+      // activity trail rather than to whichever project is on screen when the
+      // panel is opened. Undefined for workspace-level actions, and the row
+      // then stays plain text.
+      const about = call.scope?.projectId ? { projectId: call.scope.projectId } : {};
       try {
         const result = await executeAction(actionId, call);
         if (!result.ok) {
           toasts.push({
+            ...about,
             kind: "err",
             title: result.summary,
             body: result.error ?? "The action did not complete.",
           });
         } else {
-          if (!opts.silent) toasts.push({ kind: "ok", title: result.summary });
+          if (!opts.silent) toasts.push({ ...about, kind: "ok", title: result.summary });
           refresh();
         }
         onSettled?.();
         return result.ok ? result : undefined;
       } catch (e) {
         const { message, fix } = errorText(e);
-        toasts.push({ kind: "err", title: message, body: fix });
+        toasts.push({ ...about, kind: "err", title: message, body: fix });
         return undefined;
       } finally {
         setBusyId(null);

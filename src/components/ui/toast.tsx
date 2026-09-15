@@ -23,6 +23,17 @@ export interface ToastInput {
   kind?: ToastKind;
   /** the control that resolves the toast; the toast never covers it */
   action?: { label: string; onClick: () => void };
+  /**
+   * Which project this notification is about, so the Activity panel can lead
+   * each row to *its* own trail instead of to whichever project happens to be
+   * on screen. Push whichever identity the call site actually has; the panel
+   * resolves it against the workspaces the caller is authorized for, and says
+   * "no longer available" when it resolves to nothing. Omit both on anything
+   * that is not about one project — the row then stays plain text.
+   */
+  projectId?: string;
+  /** the same identity by slug, for call sites that only know the route */
+  projectSlug?: string;
 }
 
 export interface ToastRecord extends ToastInput {

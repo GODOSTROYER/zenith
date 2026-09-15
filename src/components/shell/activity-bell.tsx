@@ -9,6 +9,7 @@ import { StatusDot, type DotStatus } from "@/components/ui/status-dot";
 import { TimeAgo } from "@/components/ui/time-ago";
 import { type ToastRecord } from "@/components/ui/toast";
 import { useShell } from "@/components/shell/shell-context";
+import { activityTarget, normalizeActivity, UNAVAILABLE_NOTE } from "@/components/shell/activity-target";
 
 const KEEP = 20;
 
@@ -20,8 +21,7 @@ const DOT: Record<string, DotStatus> = { ok: "ok", warn: "warn", err: "err", inf
 function read(): ToastRecord[] {
   try {
     const raw = sessionStorage.getItem(STORE_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? (parsed as ToastRecord[]).slice(0, KEEP) : [];
+    return normalizeActivity(raw ? JSON.parse(raw) : [], KEEP);
   } catch {
     /* private mode or corrupt entry — an empty buffer is the honest fallback */
     return [];
@@ -68,12 +68,17 @@ export function ActivityBell() {
   }, []);
 
   /**
-   * The trail these notifications end up in: the project you are looking at,
-   * or the workspace's first one. With no project there is no trail yet, and
-   * the rows stay plain text rather than pretending to lead somewhere.
+   * The footer's "see all" — a place to go, not a claim about any one row.
+   * Each row decides its own destination from the project it was pushed for
+   * (see activity-target.ts); this is the trail of the project you are looking
+   * at, or the first one, and it says which so it is never mistaken for the
+   * workspace's whole history.
    */
-  const slug = /^\/p\/([^/]+)/.exec(pathname ?? "")?.[1] ?? boot?.projects[0]?.slug;
-  const activityHref = slug ? `/p/${slug}/activity` : undefined;
+  const projects = boot?.projects;
+  const routeSlug = /^\/p\/([^/]+)/.exec(pathname ?? "")?.[1];
+  const here = routeSlug
+    ? projects?.find((p) => p.slug === routeSlug)
+    : projects?.[0];
 
   return (
     <Popover
@@ -119,29 +124,46 @@ export function ActivityBell() {
         ) : (
           <ul>
             {items.map((t) => {
+              // Per row, from the identity the notification itself carries.
+              const target = activityTarget(t, projects);
               const body = (
                 <>
                   <StatusDot status={DOT[t.kind] ?? "info"} className="mt-1.5" />
                   <span className="min-w-0 flex-1">
                     <span className="block text-[12.5px] text-ink">{t.title}</span>
                     {t.body && <span className="mt-0.5 block text-[12px] text-ink-mute">{t.body}</span>}
+                    {target.kind === "unavailable" && (
+                      <span className="mt-0.5 block text-[11.5px] text-ink-faint">
+                        {UNAVAILABLE_NOTE} — that project was removed, or it is not one you can
+                        open.
+                      </span>
+                    )}
                   </span>
                   <TimeAgo iso={t.ts} className="shrink-0 text-[11.5px] text-ink-faint" />
                 </>
               );
               return (
                 <li key={t.id} className="border-b border-line last:border-b-0">
-                  {activityHref ? (
+                  {target.kind === "link" ? (
                     <Link
-                      href={activityHref}
+                      href={target.href}
                       onClick={close}
-                      title="Open the full activity trail"
+                      title={`Open the activity trail of ${target.projectName}`}
                       className="flex items-start gap-2.5 px-3.5 py-2.5 transition-colors duration-[120ms] [transition-timing-function:var(--ease-swift)] hover:bg-bg2"
                     >
                       {body}
                     </Link>
                   ) : (
-                    <span className="flex items-start gap-2.5 px-3.5 py-2.5">{body}</span>
+                    <span
+                      className="flex items-start gap-2.5 px-3.5 py-2.5"
+                      title={
+                        target.kind === "unavailable"
+                          ? `${UNAVAILABLE_NOTE}: the project this notification came from is not in this workspace any more.`
+                          : undefined
+                      }
+                    >
+                      {body}
+                    </span>
                   )}
                 </li>
               );
@@ -150,21 +172,23 @@ export function ActivityBell() {
         )}
       </div>
       <footer className="border-t border-line px-3.5 py-2">
-        {activityHref ? (
+        {here ? (
           <Link
-            href={activityHref}
+            href={`/p/${encodeURIComponent(here.slug)}/activity`}
             onClick={close}
             className="text-[12.5px] text-signal hover:underline"
           >
-            See all activity →
+            See all activity in {here.name} →
           </Link>
-        ) : (
+        ) : projects ? (
           <span
             className="text-[12.5px] text-ink-faint"
             title="The durable trail lives on a project's Activity tab, and this workspace has no project yet."
           >
             No activity trail yet — create a project first.
           </span>
+        ) : (
+          <span className="text-[12.5px] text-ink-faint">Loading this workspace…</span>
         )}
       </footer>
     </Popover>

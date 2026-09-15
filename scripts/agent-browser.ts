@@ -361,6 +361,13 @@ async function main(): Promise<number> {
         ]);
         const page = await context.newPage();
         await page.goto(`${origin}/agent/link?code=${pending.userCode}`, { waitUntil: "domcontentloaded" });
+        // The screen fetches the request after hydration; judge it only once the
+        // decision controls exist, otherwise the checks below race the fetch.
+        await page
+          .getByRole("button", { name: /select all current projects|^deny/i })
+          .first()
+          .waitFor({ state: "attached", timeout: 30_000 })
+          .catch(() => {});
         await page.waitForLoadState("networkidle").catch(() => {});
 
         const text = (await page.textContent("body")) ?? "";
@@ -492,7 +499,28 @@ async function main(): Promise<number> {
 
         /* --- approve, and the terminal comes back to life --- */
 
-        await page.getByRole("button", { name: PAGE.approve }).first().click();
+        const approveControl = page.getByRole("button", { name: PAGE.approve }).first();
+        if ((await approveControl.count()) === 0) {
+          // Explain why the role query sees nothing when the DOM has the element.
+          const why = await page.evaluate(() => {
+            const el = Array.from(document.querySelectorAll("button")).find((b) =>
+              /^approve/i.test((b.textContent ?? "").trim())
+            );
+            if (!el) return "no <button> whose text starts with Approve";
+            const chain: string[] = [];
+            for (let n: Element | null = el; n; n = n.parentElement) {
+              const flags = ["aria-hidden", "inert", "hidden", "aria-modal", "role"]
+                .filter((a) => n!.hasAttribute(a))
+                .map((a) => `${a}=${n!.getAttribute(a)}`);
+              if (flags.length) chain.push(`${n.tagName.toLowerCase()}[${flags.join(" ")}]`);
+            }
+            const style = getComputedStyle(el);
+            return `found; ancestors with a11y flags: ${chain.join(" > ") || "none"}; display=${style.display} visibility=${style.visibility} opacity=${style.opacity}; disabled=${(el as HTMLButtonElement).disabled}`;
+          });
+          const snapshot = await page.locator("main").ariaSnapshot().catch(() => "(no aria snapshot)");
+          record(label, "the approve control is exposed to assistive technology", false, `${why}; main aria snapshot tail: ${JSON.stringify(snapshot.slice(-900))}`);
+        }
+        await approveControl.click();
         const done = await page
           .waitForFunction(
             (pattern: string) => new RegExp(pattern, "i").test(document.body.innerText),

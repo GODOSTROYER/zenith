@@ -318,8 +318,8 @@ async function runActionInsideGate(
 
   try {
     const result = await action.execute(ctx, input);
-    if (action.mutates) save();
     await audit(ctx, action, input, result.ok ? "ok" : "error", result.summary, result.error);
+    if (action.mutates) save();
     if (idemKey) idemSet(idemKey, result);
     return { result };
   } catch (err) {
@@ -329,7 +329,14 @@ async function runActionInsideGate(
       summary: `${action.title} failed.`,
       error: message,
     };
-    await audit(ctx, action, input, "error", result.summary, message);
+    try {
+      await audit(ctx, action, input, "error", result.summary, message);
+    } catch (auditError) {
+      // A failed action must still be returned as an error when the secondary
+      // failure audit cannot be persisted; never turn it into an unhandled
+      // request exception or claim that the mutation succeeded.
+      console.error(`Zenith could not write the failure audit row: ${(auditError as Error).message}`);
+    }
     return { result };
   }
 }

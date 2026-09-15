@@ -143,12 +143,17 @@ describe.each(authorities)("$name", (factory) => {
   /* -------------------------------- invites -------------------------------- */
 
   describe("invites", () => {
-    const inviteFor = (overrides: Partial<{ expiresAt: string; supersedes: string }> = {}) =>
-      a.tx((repos) =>
+    const inviteFor = (overrides: Partial<{ expiresAt: string; supersedes: string }> = {}) => {
+      const id = contractId("inv");
+      return a.tx((repos) =>
         repos.invites.insert({
-          id: contractId("inv"),
+          id,
           appId,
-          email: "person@example.test",
+          // The schema intentionally permits one live invite per normalized
+          // address. Each contract scenario leaves its rows in place until
+          // afterAll, so use a fresh address for each fixture rather than
+          // accidentally testing cross-test state.
+          email: `${id}@example.test`,
           role: "editor",
           tokenHash: contractHex(),
           createdBy: owner,
@@ -156,6 +161,7 @@ describe.each(authorities)("$name", (factory) => {
           supersedes: overrides.supersedes,
         })
       );
+    };
 
     it("round-trips, finds by token hash, and refuses a duplicate hash", async () => {
       const invite = await inviteFor();
@@ -218,11 +224,12 @@ describe.each(authorities)("$name", (factory) => {
 
   describe("deliveries", () => {
     const deliveryFor = async (payload: Uint8Array | null = new Uint8Array([1, 2, 3, 4]), createdAt?: string) => {
+      const inviteId = contractId("dinv");
       const invite = await a.tx((repos) =>
         repos.invites.insert({
-          id: contractId("dinv"),
+          id: inviteId,
           appId,
-          email: "d@example.test",
+          email: `${inviteId}@example.test`,
           role: "viewer",
           tokenHash: contractHex(),
           createdBy: owner,

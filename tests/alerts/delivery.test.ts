@@ -350,6 +350,22 @@ describe("which channels a rule uses", () => {
     expect(readSecretValue("ws1", stored.targetSecretRef!)).toBe("https://alerts.example.test/hooks/legacy-token");
   });
 
+  it("replaces a mixed legacy signing value even when an encrypted reference already exists", async () => {
+    const mixed = fixtures.channelData({
+      id: "mixed-legacy",
+      kind: "webhook",
+      target: "https://alerts.example.test/hooks/mixed",
+    });
+    setChannelCredentials(mixed, { signing: "old-encrypted" }, "test");
+    mixed.secret = "new-legacy-signing";
+
+    const report = await migrateLegacyChannelSecretsAsync([mixed]);
+    const stored = mixed as AlertChannel & { secretRef?: string };
+    expect(report).toEqual({ inspected: 1, migrated: 1, unchanged: 0 });
+    expect(stored.secret).toBeUndefined();
+    expect(readSecretValue("ws1", stored.secretRef!)).toBe("new-legacy-signing");
+  });
+
   it("keeps alert metadata readable when an encrypted reference cannot be opened", () => {
     const originalKey = process.env.ZENITH_SECRET_KEY;
     const c = fixtures.channelData({ id: "unopenable", target: "https://alerts.example.test/hooks/private" });

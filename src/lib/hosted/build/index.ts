@@ -43,6 +43,7 @@ export {
   SANDBOX_ROOT,
   SANDBOX_SOURCE,
   TEMPLATE_ATTESTATION,
+  templateAttestationPayload,
   defaultSandboxFactory,
   type E2bOptions,
   type RecipeSandbox,

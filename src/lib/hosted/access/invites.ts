@@ -110,7 +110,7 @@ export async function createInvite(
   input: NewInviteInput,
   by: Subject
 ): Promise<IssuedInvite> {
-  return issueInvite(appId, input, by, {});
+  return withMutationGate(() => issueInvite(appId, input, by, {}));
 }
 
 /**
@@ -124,25 +124,27 @@ export async function resendInvite(
   by: Subject,
   scope: InviteScope = {}
 ): Promise<IssuedInvite> {
-  const previous = await scopedInvite(authority().repos, inviteId, scope);
-  if (previous.state !== "pending")
-    throw new HostedError(
-      "conflict",
-      `That invitation is ${previous.state}, so there is nothing outstanding to resend.`,
-      {
-        fix:
-          previous.state === "accepted"
-            ? "The person already accepted it — they are in the app's access list."
-            : "Send a new invitation instead.",
-        details: { inviteId, state: previous.state },
-      }
+  return withMutationGate(async () => {
+    const previous = await scopedInvite(authority().repos, inviteId, scope);
+    if (previous.state !== "pending")
+      throw new HostedError(
+        "conflict",
+        `That invitation is ${previous.state}, so there is nothing outstanding to resend.`,
+        {
+          fix:
+            previous.state === "accepted"
+              ? "The person already accepted it — they are in the app's access list."
+              : "Send a new invitation instead.",
+          details: { inviteId, state: previous.state },
+        }
+      );
+    return issueInvite(
+      previous.appId,
+      { email: previous.email, role: previous.role },
+      by,
+      { supersedes: previous.id }
     );
-  return issueInvite(
-    previous.appId,
-    { email: previous.email, role: previous.role },
-    by,
-    { supersedes: previous.id }
-  );
+  });
 }
 
 /** Withdraw an outstanding invitation. Its link stops working immediately. */
@@ -151,30 +153,32 @@ export async function revokeInvite(
   by: Subject,
   scope: InviteScope = {}
 ): Promise<AppInvite> {
-  const a = authority();
-  const invite = await a.tx(async (repos) => {
-    const current = await scopedInvite(repos, inviteId, scope);
-    if (!(await repos.invites.setState(inviteId, "revoked")))
-      throw new HostedError(
-        "conflict",
-        `That invitation is ${current.state}, so it cannot be withdrawn.`,
-        {
-          fix:
-            current.state === "accepted"
-              ? "Revoke the person's access from the app's access list instead."
-              : "It is already no longer usable; reload the invitation list.",
-          details: { inviteId, state: current.state },
-        }
-      );
-    return (await repos.invites.get(inviteId)) as AppInvite;
+  return withMutationGate(async () => {
+    const a = authority();
+    const invite = await a.tx(async (repos) => {
+      const current = await scopedInvite(repos, inviteId, scope);
+      if (!(await repos.invites.setState(inviteId, "revoked")))
+        throw new HostedError(
+          "conflict",
+          `That invitation is ${current.state}, so it cannot be withdrawn.`,
+          {
+            fix:
+              current.state === "accepted"
+                ? "Revoke the person's access from the app's access list instead."
+                : "It is already no longer usable; reload the invitation list.",
+            details: { inviteId, state: current.state },
+          }
+        );
+      return (await repos.invites.get(inviteId)) as AppInvite;
+    });
+    log.info("hosted app invitation revoked", {
+      scope: "hosted.access",
+      appId: invite.appId,
+      inviteId,
+      byHash: subjectHashUnchecked(by),
+    });
+    return invite;
   });
-  log.info("hosted app invitation revoked", {
-    scope: "hosted.access",
-    appId: invite.appId,
-    inviteId,
-    byHash: subjectHashUnchecked(by),
-  });
-  return invite;
 }
 
 /* --------------------------------- accept --------------------------------- */
@@ -375,73 +379,89 @@ async function issueInvite(
   const problem = inviteEmailProblem();
   const a = authority();
 
-  const issued = await a.tx(async (repos) => {
-    const app = await requireApp(repos, appId);
+  let issued: { invite: AppInvite; delivery: InviteDelivery };
+  try {
+    issued = await a.tx(async (repos) => {
+      const app = await requireApp(repos, appId);
 
-    const held = (await repos.grants.listByApp(appId, { activeOnly: true })).find(
-      (grant) => grant.email === email
-    );
-    if (held)
-      throw new HostedError("conflict", `${email} already has access to ${app.name}.`, {
-        fix: `Change their role or revoke their access from the app's access list; an invitation would give them a second seat they do not need.`,
-        details: { grantId: held.id, role: held.role },
+      const held = (await repos.grants.listByApp(appId, { activeOnly: true })).find(
+        (grant) => grant.email === email
+      );
+      if (held)
+        throw new HostedError("conflict", `${email} already has access to ${app.name}.`, {
+          fix: `Change their role or revoke their access from the app's access list; an invitation would give them a second seat they do not need.`,
+          details: { grantId: held.id, role: held.role },
+        });
+
+      // Only one link per address is ever live. The partial unique index is the
+      // authority-level fence for concurrent hosted instances; this supersede
+      // keeps the common single-transaction path readable and idempotent.
+      for (const outstanding of await repos.invites.listByApp(appId, { state: "pending" }))
+        if (outstanding.email === email) await repos.invites.supersede(outstanding.id);
+
+      const invite = await repos.invites.insert({
+        id: inviteId,
+        appId,
+        email,
+        role: input.role,
+        tokenHash: sha256Hex(token),
+        createdBy: by,
+        expiresAt: isoIn(INVITE_TTL_MS),
+        supersedes: opts.supersedes,
       });
 
-    // Only one link per address is ever live.
-    for (const outstanding of await repos.invites.listByApp(appId, { state: "pending" }))
-      if (outstanding.email === email) await repos.invites.supersede(outstanding.id);
-
-    const invite = await repos.invites.insert({
-      id: inviteId,
-      appId,
-      email,
-      role: input.role,
-      tokenHash: sha256Hex(token),
-      createdBy: by,
-      expiresAt: isoIn(INVITE_TTL_MS),
-      supersedes: opts.supersedes,
-    });
-
-    const sealed = problem
-      ? null
-      : sealInvite(inviteId, { token, email, appName: app.name, acceptUrl });
-    const queued = await repos.deliveries.insert({
-      id: deliveryId,
-      inviteId,
-      sealedPayload: sealed,
-    });
-
-    let delivery = queued;
-    if (problem) {
-      // Nothing to attempt, so the row is settled here rather than queued for
-      // an effect this install cannot perform. `transport: "none"` says that on
-      // the row — "no transport configured: the owner must share the link by
-      // hand" — rather than leaving a NULL that could mean anything. The reason,
-      // naming the variable to set, is on the row either way. The owner still
-      // has the link.
-      await repos.deliveries.settlePending(deliveryId, { transport: "none", error: problem });
-      delivery = (await repos.deliveries.get(deliveryId)) ?? queued;
-    } else {
-      await repos.outbox.enqueue({
-        id: uuid(),
-        idempotencyKey: `invite:${inviteId}:${deliveryId}`,
-        kind: INVITE_EMAIL_KIND,
-        payload: { inviteId, deliveryId },
+      const sealed = problem
+        ? null
+        : sealInvite(inviteId, { token, email, appName: app.name, acceptUrl });
+      const queued = await repos.deliveries.insert({
+        id: deliveryId,
+        inviteId,
+        sealedPayload: sealed,
       });
-    }
 
-    await appendAccessEvent(repos, {
-      event: "invite.sent",
-      workspaceId: app.workspaceId,
-      appId: app.id,
-      subject: by,
-      logicalId: inviteId,
-      props: { role: input.role, queued: !problem, resend: opts.supersedes !== undefined },
+      let delivery = queued;
+      if (problem) {
+        // Nothing to attempt, so the row is settled here rather than queued for
+        // an effect this install cannot perform. `transport: "none"` says that on
+        // the row — "no transport configured: the owner must share the link by
+        // hand" — rather than leaving a NULL that could mean anything. The reason,
+        // naming the variable to set, is on the row either way. The owner still
+        // has the link.
+        await repos.deliveries.settlePending(deliveryId, { transport: "none", error: problem });
+        delivery = (await repos.deliveries.get(deliveryId)) ?? queued;
+      } else {
+        await repos.outbox.enqueue({
+          id: uuid(),
+          idempotencyKey: `invite:${inviteId}:${deliveryId}`,
+          kind: INVITE_EMAIL_KIND,
+          payload: { inviteId, deliveryId },
+        });
+      }
+
+      await appendAccessEvent(repos, {
+        event: "invite.sent",
+        workspaceId: app.workspaceId,
+        appId: app.id,
+        subject: by,
+        logicalId: inviteId,
+        props: { role: input.role, queued: !problem, resend: opts.supersedes !== undefined },
+      });
+      return { invite, delivery };
     });
-    return { invite, delivery };
-  });
+  } catch (error) {
+    if (isPendingInviteConflict(error))
+      throw new HostedError("conflict", `${email} already has a pending invitation for this app.`, {
+        fix: "Reload the app's access list; resend the existing invitation or wait for it to expire before issuing another.",
+      });
+    throw error;
+  }
 
   return { invite: issued.invite, delivery: issued.delivery, acceptUrl };
+}
+
+function isPendingInviteConflict(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("app_invites_pending_email");
 }
 
 /** The invitation, checked against the app the caller reached it through. */

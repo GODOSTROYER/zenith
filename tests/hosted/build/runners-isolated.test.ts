@@ -10,14 +10,20 @@
 import { EventEmitter } from "node:events";
 import fs from "node:fs";
 import path from "node:path";
+import { generateKeyPairSync, sign } from "node:crypto";
 import { Readable } from "node:stream";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { isolatedDataDir, removeDir, uuid } from "../_fixtures";
 
 const DATA = isolatedDataDir("zenith-w2-runners-");
 const FIXTURE = path.join(process.cwd(), "fixtures", "hosted", "minimal-app");
 const TEMPLATE_ID = "zenith-recipe-v1";
 const TEMPLATE_DIGEST = `sha256:${"a".repeat(64)}`;
+const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+const ATTESTATION_PUBLIC_KEY = publicKey.export({ type: "spki", format: "pem" }).toString();
+
+const signAttestation = (templateId: string, digest: string): string =>
+  sign(null, Buffer.from(`${templateId}\n${digest}\n`), privateKey).toString("base64");
 
 let build: typeof import("@/lib/hosted/build");
 let source: typeof import("@/lib/hosted/source");
@@ -29,11 +35,16 @@ beforeAll(async () => {
   contracts = await import("@/lib/hosted/contracts");
 });
 
+beforeEach(() => {
+  process.env.ZENITH_E2B_TEMPLATE_ATTESTATION_PUBLIC_KEY = ATTESTATION_PUBLIC_KEY;
+});
+
 afterEach(async () => {
   delete process.env.ZENITH_BUILD_RUNNER;
   delete process.env.E2B_API_KEY;
   delete process.env.ZENITH_E2B_TEMPLATE;
   delete process.env.ZENITH_E2B_TEMPLATE_DIGEST;
+  delete process.env.ZENITH_E2B_TEMPLATE_ATTESTATION_PUBLIC_KEY;
 });
 
 afterAll(() => removeDir(DATA));
@@ -83,8 +94,12 @@ function fakeSandbox(
           return new TextEncoder().encode(
             JSON.stringify(
               behaviour.attestation ?? {
-                templateId: process.env.ZENITH_E2B_TEMPLATE,
-                digest: process.env.ZENITH_E2B_TEMPLATE_DIGEST,
+                templateId: process.env.ZENITH_E2B_TEMPLATE ?? "",
+                digest: process.env.ZENITH_E2B_TEMPLATE_DIGEST ?? "",
+                signature: signAttestation(
+                  process.env.ZENITH_E2B_TEMPLATE ?? "",
+                  process.env.ZENITH_E2B_TEMPLATE_DIGEST ?? ""
+                ),
               }
             )
           );
@@ -166,6 +181,17 @@ describe("E2bRunner availability", () => {
     const availability = await new build.E2bRunner().availability();
     expect(availability.available).toBe(false);
     expect(availability.reason).toContain("ZENITH_E2B_TEMPLATE_DIGEST");
+  });
+
+  it("refuses without a trusted attestation public key", async () => {
+    process.env.ZENITH_BUILD_RUNNER = "e2b";
+    process.env.E2B_API_KEY = "e2b_test_key";
+    process.env.ZENITH_E2B_TEMPLATE = TEMPLATE_ID;
+    process.env.ZENITH_E2B_TEMPLATE_DIGEST = TEMPLATE_DIGEST;
+    delete process.env.ZENITH_E2B_TEMPLATE_ATTESTATION_PUBLIC_KEY;
+    const availability = await new build.E2bRunner().availability();
+    expect(availability.available).toBe(false);
+    expect(availability.reason).toContain("ZENITH_E2B_TEMPLATE_ATTESTATION_PUBLIC_KEY");
   });
 
   it("rejects template tags instead of treating them as immutable IDs", async () => {
@@ -277,6 +303,23 @@ describe("E2bRunner call sequence", () => {
     );
     expect(result.ok).toBe(false);
     expect(result.error).toContain("attestation digest");
+    expect(calls.map((c) => c.name)).toEqual(["files.read", "kill"]);
+  });
+
+  it("refuses an attestation without a valid publisher signature", async () => {
+    process.env.ZENITH_BUILD_RUNNER = "e2b";
+    process.env.E2B_API_KEY = "e2b_test_key";
+    process.env.ZENITH_E2B_TEMPLATE = TEMPLATE_ID;
+    process.env.ZENITH_E2B_TEMPLATE_DIGEST = TEMPLATE_DIGEST;
+    const { sandbox, calls } = fakeSandbox({
+      attestation: { templateId: TEMPLATE_ID, digest: TEMPLATE_DIGEST, signature: "not-a-signature" },
+    });
+    const result = await new build.E2bRunner({ createSandbox: async () => sandbox }).run(
+      request(),
+      new AbortController().signal
+    );
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("trusted publisher key");
     expect(calls.map((c) => c.name)).toEqual(["files.read", "kill"]);
   });
 

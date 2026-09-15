@@ -13,10 +13,10 @@
  *  2. **Construct the admin client next.** This is the only call site of the
  *     service-role client in `src/app` — a missing `SUPABASE_SERVICE_ROLE_KEY`
  *     must fail while the account is still whole, not halfway through.
- *  3. **Close the doors before the identity.** App sessions end, then hosted
- *     grants are revoked, then the member rows go, and only then is the
- *     Supabase user deleted. Deleting the identity first would leave live
- *     grants naming a subject nobody can ever sign in as.
+ *  3. **Close the live doors before the identity.** App sessions end and
+ *     hosted grants are revoked before the Supabase user is deleted. Local
+ *     membership cleanup follows the irreversible provider operation, so a
+ *     failed provider call leaves the account retryable rather than half-gone.
  *
  * What survives on purpose: audit rows and revision authors. They record what
  * this person did at the time they did it, and a history that rewrites itself
@@ -70,13 +70,17 @@ export const DELETE = route(async () => withMutationGate(async () => {
 
   const appSessionsEnded = await terminateAppSessionsForSubject(user.id, "signed_out");
   const grantsRevoked = await revokeHostedGrants(user.id);
-  const removal = removeAccountRecords(user);
 
   const { error } = await admin.auth.admin.deleteUser(user.id);
   if (error)
     throw new ApiError(`Your Zenith sign-in was not deleted: ${error.message}`, 502, {
-      fix: "Your workspace memberships and app access are already gone, so nothing opens for you any more. Try again to remove the sign-in itself; if it keeps failing, an operator can delete the user from the Supabase dashboard under Authentication → Users.",
+      fix: "Your active app sessions and hosted grants were closed, but your local workspace memberships were preserved. Try again to remove the sign-in itself; if it keeps failing, an operator can delete the user from the Supabase dashboard under Authentication → Users.",
     });
+
+  // The identity-provider deletion is irreversible and cannot share the local
+  // store transaction. Keep the local membership cleanup after it so a failed
+  // provider call leaves the account retryable instead of half-removed.
+  const removal = removeAccountRecords(user);
 
   log.info("account deleted", {
     scope: "account",

@@ -17,6 +17,7 @@
  * extraction are provider behaviours, and they are **unverified live**.
  */
 import fs from "node:fs";
+import { createPublicKey, verify as verifySignature } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 import type { Availability, BuildLogLine, BuildRequest, BuildResult, BuildRunner, BuildRunnerId } from "@/lib/hosted/contracts";
@@ -36,7 +37,12 @@ export const TEMPLATE_ATTESTATION = "/etc/zenith/template-attestation.json";
 export interface TemplateAttestation {
   templateId: string;
   digest: string;
+  signature: string;
 }
+
+/** Canonical bytes signed by the trusted template publisher. */
+export const templateAttestationPayload = (attestation: Pick<TemplateAttestation, "templateId" | "digest">): string =>
+  `${attestation.templateId}\n${attestation.digest}\n`;
 
 /** The slice of the E2B `Sandbox` this runner uses. Kept small so a double is honest. */
 export interface RecipeSandbox {
@@ -138,6 +144,12 @@ export class E2bRunner implements BuildRunner {
         reason: "ZENITH_E2B_TEMPLATE_DIGEST is not set, so the runner cannot verify the pre-baked template attestation.",
         fix: "Set ZENITH_E2B_TEMPLATE_DIGEST to the sha256:<64-hex> digest recorded in the template attestation.",
       };
+    if (!hostedConfig().ZENITH_E2B_TEMPLATE_ATTESTATION_PUBLIC_KEY)
+      return {
+        available: false,
+        reason: "ZENITH_E2B_TEMPLATE_ATTESTATION_PUBLIC_KEY is not set, so the runner cannot authenticate the template attestation.",
+        fix: "Set it to the trusted Ed25519 publisher public key used to sign the template attestation.",
+      };
     return { available: true };
   }
 
@@ -154,6 +166,20 @@ export class E2bRunner implements BuildRunner {
       throw new Error("The E2B template attestation does not match the configured immutable template ID.");
     if (attestation.digest !== config.ZENITH_E2B_TEMPLATE_DIGEST)
       throw new Error("The E2B template attestation digest does not match ZENITH_E2B_TEMPLATE_DIGEST.");
+    if (typeof attestation.signature !== "string" || !attestation.signature)
+      throw new Error("The E2B template attestation has no publisher signature.");
+    try {
+      const publicKey = createPublicKey(config.ZENITH_E2B_TEMPLATE_ATTESTATION_PUBLIC_KEY!);
+      const valid = verifySignature(
+        null,
+        Buffer.from(templateAttestationPayload(attestation)),
+        publicKey,
+        Buffer.from(attestation.signature, "base64")
+      );
+      if (!valid) throw new Error("signature mismatch");
+    } catch {
+      throw new Error("The E2B template attestation is not signed by the trusted publisher key.");
+    }
     if (sandbox.getInfo) {
       const info = await sandbox.getInfo();
       if (info.templateId !== config.ZENITH_E2B_TEMPLATE)

@@ -325,9 +325,15 @@ CREATE INDEX invite_deliveries_invite ON invite_deliveries(invite_id);
 CREATE INDEX invite_deliveries_state ON invite_deliveries(state, created_at);
 `;
 
+/** v3: make the one-pending-invitation rule an authority-level constraint. */
+const V3 = `
+CREATE UNIQUE INDEX app_invites_pending_email ON app_invites(app_id, lower(email)) WHERE state = 'pending';
+`;
+
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: "control-authority-v1", sql: V1 },
   { version: 2, name: "invite-delivery-transport-none", sql: V2 },
+  { version: 3, name: "one-pending-invite-per-app-email", sql: V3 },
 ];
 
 const MIGRATIONS_TABLE = `

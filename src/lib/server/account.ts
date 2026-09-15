@@ -237,8 +237,9 @@ export interface AccountRemoval {
  * created by somebody else are also left alone — they are that admin's
  * standing offer to an email, not this person's data.
  *
- * The caller does the irreversible half (the Supabase user) afterwards, so
- * this returns what it touched rather than assuming it.
+ * The account route performs the irreversible identity-provider operation
+ * before calling this cleanup. This function therefore returns what it touched
+ * rather than assuming the provider operation and local cleanup are atomic.
  */
 export function removeAccountRecords(user: SessionUser): AccountRemoval {
   const d = db();

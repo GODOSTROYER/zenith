@@ -52,6 +52,8 @@ const Schema = z.object({
     .string()
     .regex(/^sha256:[0-9a-f]{64}$/, "must be sha256:<64 lowercase hexadecimal characters>")
     .optional(),
+  /** Trusted Ed25519 public key used to authenticate the template attestation. */
+  ZENITH_E2B_TEMPLATE_ATTESTATION_PUBLIC_KEY: z.string().min(1).optional(),
   ZENITH_ARTIFACT_DIR: z.string().min(1).optional(),
   /** Object-storage bucket published artifacts live in when the store is not local disk. */
   ZENITH_ARTIFACT_BUCKET: z.string().default("zenith-artifacts"),

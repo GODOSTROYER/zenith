@@ -163,5 +163,6 @@ describe("deleting your own account", () => {
       status: 502,
       message: "Your Zenith sign-in was not deleted: service unavailable",
     });
+    expect(db().members.map((m) => m.id)).toEqual(["u-me", "u-other"]);
   });
 });

@@ -171,30 +171,27 @@ function where(filter: AuditFilter, workspaceIds: string[]): string[] {
  * for the page — that a deferred write would show the caller a log missing the
  * thing it just did. It costs one blocking round trip, the same as a read.
  *
- * A failure is reported on the console and never thrown: an audit write that
- * took the caller's action down with it would trade a missing log line for a
- * failed deployment. The file store's append cannot fail this way, so nothing
- * upstream is written to handle it.
+ * A failure is thrown to the async action boundary: a caller must not report a
+ * successful mutation when its audit record was not durably accepted. The
+ * surrounding action path converts that failure to an error result. This is
+ * still not a cross-table transaction; production cutover must retain the
+ * database transaction/outbox requirement documented in the hardening record.
  *
  * Idempotent on `id`: the unique index plus `resolution=ignore-duplicates`
  * means a retry (a queue redelivery, a re-run script) writes nothing twice.
  */
 export async function appendAuditAsync(e: AuditEvent, options: RestAsyncOptions = {}): Promise<void> {
-  try {
-    await restAsync(
-      {
-        method: "POST",
-        table: TABLE,
-        op: "insert into",
-        path: `${TABLE}?on_conflict=id`,
-        body: [toRow(e)],
-        prefer: "resolution=ignore-duplicates,return=minimal",
-      },
-      options
-    );
-  } catch (err) {
-    console.error(`Zenith could not write an audit row (${e.actionId}): ${(err as Error).message}`);
-  }
+  await restAsync(
+    {
+      method: "POST",
+      table: TABLE,
+      op: "insert into",
+      path: `${TABLE}?on_conflict=id`,
+      body: [toRow(e)],
+      prefer: "resolution=ignore-duplicates,return=minimal",
+    },
+    options
+  );
 }
 
 function appendAudit(e: AuditEvent): void {

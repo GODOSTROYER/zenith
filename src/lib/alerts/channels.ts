@@ -386,18 +386,18 @@ function migrateLegacyChannelSecrets(channels: AlertChannel[]): boolean {
       // its distinct reference before handling new legacy rows.
       if (channel.kind === "slack" && stored.secretRef && !stored.targetSecretRef) {
         const value = readSecretValue(channel.workspaceId, stored.secretRef);
-        if (value) {
-          setChannelTargetSecret(channel, value, "system:alert-channel-migration");
-          removeSecret(channel.workspaceId, stored.secretRef);
-          delete stored.secretRef;
-          changed = true;
-        }
+        if (value === undefined)
+          throw new Error("The Slack webhook credential cannot be migrated because its encrypted value is missing or unreadable.");
+        setChannelTargetSecret(channel, value, "system:alert-channel-migration");
+        removeSecret(channel.workspaceId, stored.secretRef);
+        delete stored.secretRef;
+        changed = true;
       }
       if (channel.kind !== "email" && !stored.targetSecretRef) {
         setChannelTargetSecret(channel, channel.target, "system:alert-channel-migration");
         changed = true;
       }
-      if (channel.kind === "webhook" && channel.secret !== undefined && !stored.secretRef) {
+      if (channel.kind === "webhook" && channel.secret !== undefined) {
         setChannelSecret(channel, channel.secret, "system:alert-channel-migration");
         changed = true;
       }
@@ -447,18 +447,18 @@ export async function migrateLegacyChannelSecretsAsync(
     try {
       if (channel.kind === "slack" && stored.secretRef && !stored.targetSecretRef) {
         const value = await readSecretValueAsync(channel.workspaceId, stored.secretRef);
-        if (value !== undefined) {
-          await setChannelTargetSecretAsync(channel, value, "system:alert-channel-migration");
-          await removeSecretAsync(channel.workspaceId, stored.secretRef);
-          delete stored.secretRef;
-          changed = true;
-        }
+        if (value === undefined)
+          throw new Error("The Slack webhook credential cannot be migrated because its encrypted value is missing or unreadable.");
+        await setChannelTargetSecretAsync(channel, value, "system:alert-channel-migration");
+        await removeSecretAsync(channel.workspaceId, stored.secretRef);
+        delete stored.secretRef;
+        changed = true;
       }
       if (channel.kind !== "email" && !stored.targetSecretRef) {
         await setChannelTargetSecretAsync(channel, channel.target, "system:alert-channel-migration");
         changed = true;
       }
-      if (channel.kind === "webhook" && channel.secret !== undefined && !stored.secretRef) {
+      if (channel.kind === "webhook" && channel.secret !== undefined) {
         await setChannelSecretAsync(channel, channel.secret, "system:alert-channel-migration");
         changed = true;
       }

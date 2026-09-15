@@ -116,12 +116,13 @@ port.on("message", (req) => {
         body: req.body === undefined ? undefined : JSON.stringify(req.body),
       });
       out = {
+        id: req.id,
         status: res.status,
         body: await res.text(),
         range: res.headers.get("content-range"),
       };
     } catch (err) {
-      out = { status: 0, body: "", range: null, failure: String((err && err.message) || err) };
+      out = { id: req.id, status: 0, body: "", range: null, failure: String((err && err.message) || err) };
     }
     port.postMessage(out);
     Atomics.store(signal, 0, 1);
@@ -182,6 +183,7 @@ export function closeRestBridge(): void {
 }
 
 interface WorkerReply {
+  id: string;
   status: number;
   body: string;
   range: string | null;
@@ -197,31 +199,35 @@ function countFrom(range: string | null): number | undefined {
 }
 
 /**
- * Run one query and return its rows, blocking until the worker answers.
+ * Run one query and return its rows, blocking until the worker answers. Every
+ * request carries an id because a timed-out worker may finish later; a stale
+ * reply must never be interpreted as the result of the next query.
  *
  * Throws the same `storeError` shape every other Postgres failure wears, so a
  * misapplied migration reads the same here as it does in the snapshot loader.
  */
 export function restSync(req: RestRequest): RestResult {
   const { port, signal } = bridge();
+  const requestId = `rest-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  const deadline = Date.now() + TIMEOUT_MS;
   Atomics.store(signal, 0, 0);
-  port.postMessage({ method: req.method, path: req.path, body: req.body, prefer: req.prefer });
+  port.postMessage({ id: requestId, method: req.method, path: req.path, body: req.body, prefer: req.prefer });
 
-  // `not-equal` means the worker finished before this thread got here, which is
-  // a success, not a miss. Only `timed-out` is a failure.
-  if (Atomics.wait(signal, 0, 0, TIMEOUT_MS) === "timed-out")
-    throw storeError(
-      req.table,
-      req.op,
-      `the database did not answer within ${TIMEOUT_MS} ms`
-    );
-
-  // The reply is posted before the signal is released, so it is normally here
-  // already; the retry covers the window where the two threads interleave.
+  // A previous timed-out request may still finish on the shared worker. Drain
+  // and discard replies for another id; without this fence, the next caller
+  // could parse an old table's response as its own.
   let reply: WorkerReply | undefined;
-  for (let attempt = 0; attempt < 100 && !reply; attempt++) {
-    reply = receiveMessageOnPort(port)?.message as WorkerReply | undefined;
-    if (!reply) Atomics.wait(signal, 0, 1, 10);
+  while (!reply) {
+    const next = receiveMessageOnPort(port)?.message as WorkerReply | undefined;
+    if (next) {
+      if (next.id === requestId) reply = next;
+      continue;
+    }
+    const remaining = deadline - Date.now();
+    if (remaining <= 0)
+      throw storeError(req.table, req.op, `the database did not answer within ${TIMEOUT_MS} ms`);
+    if (Atomics.load(signal, 0) !== 0) Atomics.store(signal, 0, 0);
+    Atomics.wait(signal, 0, 0, Math.min(remaining, 50));
   }
   if (!reply) throw storeError(req.table, req.op, "the database worker answered with nothing");
   if (reply.failure) throw storeError(req.table, req.op, reply.failure);

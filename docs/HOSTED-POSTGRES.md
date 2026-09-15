@@ -109,6 +109,11 @@ the project):
    `ZENITH_STORE=postgres`.
 2. `supabase/migrations/0002_hosted_authority.sql` — the control schema.
 3. `supabase/migrations/0003_hosted_app_data.sql` — the per-app data plane.
+4. `supabase/migrations/0004_hosted_app_data_atomic.sql` — atomic create/update
+   RPCs when the hosted data plane uses PostgreSQL.
+5. `supabase/migrations/0005_pending_invite_uniqueness.sql` — one pending
+   invitation per normalized app/address; reconcile duplicate pending rows
+   before applying it. This also records authority migration version 3.
 
 Rules that hold for all three:
 

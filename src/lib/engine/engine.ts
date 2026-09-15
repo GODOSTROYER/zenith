@@ -331,7 +331,10 @@ export function ensureEngine(): void {
   // A serverless instance is frozen between requests, so a ticker there either
   // never fires or fires against a `/tmp` no other instance can see. Boot runs
   // one tick instead; see src/lib/serverless.ts and src/lib/server/boot.ts.
-  if (!gl.__zenithTicker && !isServerless()) {
+  // On the Postgres store a timer callback has no request snapshot to read, so
+  // an unprimed `db()` would (correctly) refuse; the scheduled
+  // `/api/internal/tick/engine` pass advances deployments there instead.
+  if (!gl.__zenithTicker && !isServerless() && !isPostgres()) {
     gl.__zenithTicker = setInterval(tick, 250);
     // Never hold the process open just to tick (matters for tests + scripts).
     (gl.__zenithTicker as { unref?: () => void }).unref?.();

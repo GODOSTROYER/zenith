@@ -256,6 +256,16 @@ idempotently → events appended (replayable) → verify phase (honest health) �
    the four rows it renders by id through a bounded query that has no snapshot
    to widen.
 
+   *Every snapshot owns its graph.* A load allocates a fresh empty `Database`
+   and hydrates into that. It used to build over `FileStore.db()` — one object
+   per process — while the adopt step truncates and refills the arrays it is
+   handed, so two requests served concurrently by one instance shared one
+   graph: one awaited anything, the other's prefetch replaced the rows, and the
+   first resumed reading the second tenant's data *and* diffing its flush
+   against a baseline that no longer described the graph. The isolation is now
+   structural rather than a scheduling accident, and it is pinned by
+   `tests/db/snapshot-isolation.test.ts` (two interleaved scopes, one flush).
+
    *Writes are row-level optimistic concurrency.* Every table carries
    `version bigint`; a flush diffs the snapshot against the baseline captured at
    load, writes only the rows that actually moved, and guards each update with
@@ -283,8 +293,11 @@ idempotently → events appended (replayable) → verify phase (honest health) �
    store is **not** a fallback authority for any collection, and nothing writes
    `state.json`: `save()` used to mirror the graph into it, which produced a
    second partial copy of whichever tenant's slice an instance last prefetched
-   and that nothing read back. The one `FileStore` call left in the Postgres
-   store is `reset()`'s, which is how a seed or a test gets an empty graph.
+   and that nothing read back. The `FileStore` calls left in the Postgres store
+   are `reset()`'s, which is how a seed or a test gets an empty graph, and
+   `onChange`'s, which keeps the in-process emitter as a second *notification*
+   source so a listener still hears a `reset()` — never as durability, and
+   never as a graph a request reads.
    What is genuinely still open is stated where it bites rather than as a
    phase: a flush is a sequence of PostgREST requests, so the product store
    does **not** claim cross-table atomicity, and no feature may be built that

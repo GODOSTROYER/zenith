@@ -428,3 +428,29 @@ bridge. The sync surfaces that are now dead (`buildAccountExport`, `deployedMani
 `changesetFor`, the sync secret accessors) should be deleted, and the `Store` audit/manifest
 readers widened, so the bridge can be removed rather than policed. That is the remaining
 Track A work.
+
+## Disposition at the integration head
+
+Recorded after every wave-1 packet and the post-review fixes merged; the
+evidence for each row is the command and exit code in
+`IMPLEMENTATION-STATUS.md` section 3.2 and the CI record in section 3.2a.
+
+| ID | Status | Evidence |
+|---|---|---|
+| ARCH-1a (history/audit/alerts authority) | disproved-superseded; prose corrected | `src/lib/db/pg/all.ts`, `history.ts`, `audit.ts`, `alerts.ts` are the Postgres authority; headers and ADR 1 rewritten |
+| ARCH-1b (server components read the file store) | fixed | `processSnapshot()` throws when unprimed; `/overview` runs in `runInStoreScope()`, `/preview` reads by id; `tests/db/rsc-scope.test.ts` |
+| ARCH-1c (`save()` mirrors `state.json`) | fixed | `PostgresStore.save/flush` no longer call `FileStore`; local echo via `announce()` |
+| ARCH-1d (one shared graph per process) | fixed | `loadSnapshot` builds over `emptyGraph()`; `tests/db/snapshot-isolation.test.ts` fails on the old line |
+| ARCH-2 (file store acks before fsync) | partially addressed | bounded tail-repairing audit append with idempotent retry (`tests/db/audit-batch.test.ts`); `fsync` and a crash test remain (packet A2); file mode documented local/single-writer |
+| ARCH-3 (split idempotency) | contract fixed; window still process-local and disclosed | key = workspace + actor + action + key bound to a canonical payload hash; retained only after the durable flush; `idempotency_in_flight` while pending; `tests/actions/idempotency.test.ts`, `tests/api/actions-idempotency-commit.test.ts` |
+| ARCH-4 (D1/Cloudflare) | unverified | no credentials, no lane; experimental in `DEPLOYMENT-MATRIX.md` |
+| ARCH-5 (process-local coordination) | narrowed | outbox fence token + renew in both backends; catalog-based index check; leased boot replay; in-process cron scheduler for long-lived Postgres hosts; still process-local: mutation gate, reader limiter, data-dir claim |
+| ARCH-6 (retention / dead letters / restore drill) | open | packet F2 in `WORK-GRAPH.md` |
+| SEC-01 (webhook SSRF) | addressed; residual low | transition ranges and obfuscated literals blocked, port policy, pinned connection, socket-closing deadline, bounded fan-out; `tests/alerts/webhook-policy.test.ts` |
+| SEC-02 (plaintext alert secrets) | addressed on the file store; explicit and operable on Postgres | encrypted refs with tenant/channel AAD; Postgres legacy rows enumerated, migration exits 1 naming them; `docs/hosted/PROVIDERS.md` |
+| SEC-03 (plugin provenance) | partially addressed (substantially), companion PR | launcher bin, verified private copy, descriptor binding, mandatory expiry, rollback floor, gated release signing; installer wiring and key custody remain |
+| SEC-04 (job-time installs) | addressed at the committed inputs | no runner installs at job time (asserted); frozen script-free image installs; CI `--ignore-scripts`; the application image built in CI; the recipe image is unbuilt |
+| SEC-05 (E2B egress) | partially addressed; unverified live | factory options asserted, abort forwarded, teardown bounded, attestation v2; docker digest-pinned; recipe-local refuses in hosted mode |
+| UI-1 to UI-6 | fixed | `tests/shell/**`, `tests/ui/**`, `tests/screens/**`; browser screenshots at seven widths |
+| UI-7 | disproved at baseline; residual gaps closed | 2 s base with jitter, cancellation, terminal stop, stale completion fixed; 76 to 28 requests/min measured |
+| VER (Node 26 failures, no Postgres lane, POSIX-only tests) | addressed | whole suite green on Node 24 and CI Node 22; Postgres CI lane executed 161 assertions; POSIX-only suites skip with a printed reason on win32 |

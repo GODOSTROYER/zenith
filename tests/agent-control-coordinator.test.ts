@@ -47,6 +47,16 @@ describe('integration coordinator',()=>{
       expect(f.count().flushes).toBe(1);
     } finally { f.close(); }
   });
+  it('does not finalize when application membership or role changes in flight',async()=>{
+    let digestCalls = 0;
+    const f=fixture({applicationAuthorizationDigest:async()=>digestCalls++ === 0 ? 'member-before' : 'member-after'});
+    try {
+      const op=await approved(f);
+      await expect(f.coordinator.execute(async()=>who,op.id)).rejects.toThrow('may have been accepted');
+      expect(f.journal.get(who,op.id).phase).toBe('uncertain');
+      expect(f.count().executions).toBe(1);
+    } finally { f.close(); }
+  });
   it('does not give an unauthenticated caller approval through input',async()=>{
     const f=fixture();try{const op=await f.coordinator.prepare(who,{approved:true});await expect(f.coordinator.execute(async()=>who,op.id)).rejects.toThrow('approve');expect(f.count().executions).toBe(0);}finally{f.close();}
   });

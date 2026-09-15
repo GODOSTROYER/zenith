@@ -28,8 +28,7 @@ import {
   messageText,
   scopedChannel,
   removeChannelSecrets,
-  setChannelSecret,
-  setChannelTargetSecret,
+  setChannelCredentials,
   type AlertMessage,
   webhookTargetInputProblem,
 } from "@/lib/alerts";
@@ -208,10 +207,16 @@ defineAction<CreateChannel>({
       createdAt: new Date().toISOString(),
     };
     try {
-      if (input.kind === "webhook") setChannelTargetSecret(channel, rawTarget, ctx.actor.name);
-      if (input.kind === "webhook" && input.secret?.trim())
-        setChannelSecret(channel, input.secret.trim(), ctx.actor.name);
-      if (input.kind === "slack") setChannelTargetSecret(channel, rawTarget, ctx.actor.name);
+      setChannelCredentials(
+        channel,
+        {
+          ...(input.kind === "webhook" || input.kind === "slack" ? { target: rawTarget } : {}),
+          ...(input.kind === "webhook" && input.secret?.trim()
+            ? { signing: input.secret.trim() }
+            : {}),
+        },
+        ctx.actor.name
+      );
     } catch (error) {
       return {
         ok: false,
@@ -303,6 +308,13 @@ defineAction<UpdateChannel>({
   },
   execute(ctx, input) {
     const channel = scopedChannel(ctx.workspaceId, input.channelId);
+    if (input.secret !== undefined && channel.kind !== "webhook")
+      return {
+        ok: false,
+        summary: "That channel has no signing secret.",
+        error: `A ${channel.kind} channel has no signing secret. Update its target credential instead.`,
+      };
+    const credentialUpdate: { target?: string; signing?: string | undefined } = {};
     if (input.target !== undefined) {
       const rawTarget = input.target.trim();
       // HTTP targets may carry bearer material in their path/query. Keep the
@@ -311,50 +323,22 @@ defineAction<UpdateChannel>({
       if (channel.kind === "slack" || channel.kind === "webhook") input.target = maskTarget(channel.kind, rawTarget);
       const problem = targetProblem(channel.kind, rawTarget);
       if (problem) return { ok: false, summary: "That target cannot be used.", error: problem };
-      if (channel.kind === "slack") {
-        try {
-          setChannelTargetSecret(channel, rawTarget, ctx.actor.name);
-        } catch (error) {
-          return {
-            ok: false,
-            summary: "The channel target could not be stored safely.",
-            error: error instanceof Error ? error.message : String(error),
-          };
-        }
-      } else if (channel.kind === "webhook") {
-        try {
-          setChannelTargetSecret(channel, rawTarget, ctx.actor.name);
-        } catch (error) {
-          return {
-            ok: false,
-            summary: "The channel target could not be stored safely.",
-            error: error instanceof Error ? error.message : String(error),
-          };
-        }
-      } else channel.target = rawTarget;
+      if (channel.kind === "slack" || channel.kind === "webhook") credentialUpdate.target = rawTarget;
+      else channel.target = rawTarget;
+    }
+    if (input.secret !== undefined) {
+      credentialUpdate.signing = input.secret.trim() || undefined;
+    }
+    try {
+      if (Object.keys(credentialUpdate).length) setChannelCredentials(channel, credentialUpdate, ctx.actor.name);
+    } catch (error) {
+      return {
+        ok: false,
+        summary: "The channel credentials could not be stored safely.",
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
     if (input.name !== undefined) channel.name = input.name.trim();
-    if (input.secret !== undefined) {
-      if (channel.kind !== "webhook")
-        return {
-          ok: false,
-          summary: "That channel has no signing secret.",
-          error: `A ${channel.kind} channel has no signing secret. Update its target credential instead.`,
-        };
-      try {
-        setChannelSecret(
-          channel,
-          input.secret.trim() || undefined,
-          ctx.actor.name
-        );
-      } catch (error) {
-        return {
-          ok: false,
-          summary: "The channel secret could not be stored safely.",
-          error: error instanceof Error ? error.message : String(error),
-        };
-      }
-    }
     if (input.enabled !== undefined) channel.enabled = input.enabled;
     save();
     return {

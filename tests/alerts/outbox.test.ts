@@ -36,9 +36,11 @@ const {
   reclaimStale,
   replayOutbox,
   WEBHOOK_POLICY,
+  WEBHOOK_TRANSPORT,
 } = await import("@/lib/alerts");
 
 const productionResolver = WEBHOOK_POLICY.resolveAll;
+const productionTransport = WEBHOOK_TRANSPORT.request;
 
 const { ACTOR: actor, NOW, ago, seedData } = fixtures;
 
@@ -79,16 +81,16 @@ type Call = { url: string; init: RequestInit };
 function stubFetch(answers: (number | Error | "hang")[]): Call[] {
   const calls: Call[] = [];
   let i = 0;
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (url: string, init: RequestInit) => {
-      calls.push({ url, init });
-      const next = answers[Math.min(i++, answers.length - 1)];
-      if (next === "hang") return new Promise<Response>(() => {});
-      if (next instanceof Error) throw next;
-      return { ok: next >= 200 && next < 300, status: next } as Response;
-    })
-  );
+  WEBHOOK_TRANSPORT.request = async (target, body, headers, signal) => {
+    calls.push({
+      url: target.url.toString(),
+      init: { method: "POST", headers, body, signal } as RequestInit,
+    });
+    const next = answers[Math.min(i++, answers.length - 1)];
+    if (next === "hang") return new Promise<Response>(() => {});
+    if (next instanceof Error) throw next;
+    return new Response(null, { status: next });
+  };
   return calls;
 }
 
@@ -125,6 +127,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   WEBHOOK_POLICY.resolveAll = productionResolver;
+  WEBHOOK_TRANSPORT.request = productionTransport;
   vi.unstubAllGlobals();
 });
 
@@ -241,14 +244,12 @@ describe("a crash does not lose the notification", () => {
     // state file from inside `fetch` is exactly that moment.
     let midSend = "";
     const first: Call[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (url: string, init: RequestInit) => {
-        first.push({ url, init });
-        if (!midSend) midSend = fs.readFileSync(STATE, "utf8");
-        return { ok: true, status: 200 } as Response;
-      })
-    );
+    WEBHOOK_TRANSPORT.request = async (target, body, headers, signal) => {
+      const init = { method: "POST", headers, body, signal } as RequestInit;
+      first.push({ url: target.url.toString(), init });
+      if (!midSend) midSend = fs.readFileSync(STATE, "utf8");
+      return new Response(null, { status: 200 });
+    };
 
     evaluateAll(NOW);
     await flushDeliveries();

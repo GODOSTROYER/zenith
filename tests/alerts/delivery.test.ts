@@ -1,7 +1,7 @@
 /**
  * Alert delivery: the part that leaves the browser.
  *
- * `fetch` is stubbed throughout — these tests prove the bytes Zenith would put
+ * the webhook transport is stubbed throughout — these tests prove the bytes Zenith would put
  * on the wire and what it does with the answer, not that a webhook endpoint
  * exists. The two things a reviewer should be able to check here are the
  * signature (computed over the exact posted body, independently recomputed in
@@ -36,13 +36,16 @@ const {
   maskTarget,
   publicChannels,
   sign,
+  setChannelCredentials,
   slackBody,
   WEBHOOK_POLICY,
   WEBHOOK_RESPONSE_MAX_BYTES,
+  WEBHOOK_TRANSPORT,
   validateWebhookTarget,
   webhookBody,
 } = await import("@/lib/alerts");
 const { readSecretValue } = await import("@/lib/secrets");
+const { FileSecrets } = await import("@/lib/secrets/file-backend");
 const { runAction } = await import("@/lib/actions/core");
 const { registerAllActions } = await import("@/lib/actions/defs");
 
@@ -50,6 +53,7 @@ registerAllActions();
 
 const { NOW, ago, seedData } = fixtures;
 const productionResolver = WEBHOOK_POLICY.resolveAll;
+const productionTransport = WEBHOOK_TRANSPORT.request;
 
 const ctx = {
   workspaceId: "ws1",
@@ -83,19 +87,19 @@ const msg = {
   firedAt: ago(1),
 };
 
-/** A `fetch` that records every call and answers from a queue of statuses. */
+/** A transport stub that records every call and answers from a queue of statuses. */
 function stubFetch(statuses: (number | Error)[]) {
   const calls: { url: string; init: RequestInit }[] = [];
   let i = 0;
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (url: string, init: RequestInit) => {
-      calls.push({ url, init });
-      const next = statuses[Math.min(i++, statuses.length - 1)];
-      if (next instanceof Error) throw next;
-      return { ok: next >= 200 && next < 300, status: next } as Response;
-    })
-  );
+  WEBHOOK_TRANSPORT.request = async (target, body, headers, signal) => {
+    calls.push({
+      url: target.url.toString(),
+      init: { method: "POST", headers, body, signal } as RequestInit,
+    });
+    const next = statuses[Math.min(i++, statuses.length - 1)];
+    if (next instanceof Error) throw next;
+    return new Response(null, { status: next });
+  };
   return calls;
 }
 
@@ -108,6 +112,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   WEBHOOK_POLICY.resolveAll = productionResolver;
+  WEBHOOK_TRANSPORT.request = productionTransport;
   vi.unstubAllGlobals();
 });
 
@@ -237,21 +242,29 @@ describe("webhook egress policy", () => {
     ).rejects.toThrow(/restricted network destination/i);
   });
 
-  it("refuses redirects and passes redirect:error to fetch", async () => {
+  it("passes the validated public address to the outbound transport", async () => {
+    let connectedAddress = "";
+    WEBHOOK_POLICY.resolveAll = async () => ["93.184.216.34"];
+    WEBHOOK_TRANSPORT.request = async (target) => {
+      connectedAddress = target.address;
+      return new Response(null, { status: 204 });
+    };
+    expect((await deliverToChannel(channel(), msg)).ok).toBe(true);
+    expect(connectedAddress).toBe("93.184.216.34");
+  });
+
+  it("refuses redirects without following them", async () => {
     const calls = stubFetch([302]);
     const result = await deliverToChannel(channel(), msg);
     expect(calls).toHaveLength(1);
-    expect((calls[0].init as RequestInit).redirect).toBe("error");
     expect(result.ok).toBe(false);
     expect(result.error).toContain("redirect");
   });
 
   it("stops reading an oversized response", async () => {
     const calls: RequestInit[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (_url: string, init: RequestInit) => {
-        calls.push(init);
+    WEBHOOK_TRANSPORT.request = async (_target, _body, _headers, _signal) => {
+        calls.push({});
         const body = new ReadableStream<Uint8Array>({
           start(controller) {
             controller.enqueue(new Uint8Array(WEBHOOK_RESPONSE_MAX_BYTES + 1));
@@ -259,8 +272,7 @@ describe("webhook egress policy", () => {
           },
         });
         return new Response(body, { status: 200 });
-      })
-    );
+      };
     const result = await deliverToChannel(channel(), msg);
     expect(calls).toHaveLength(1);
     expect(result.ok).toBe(false);
@@ -320,6 +332,22 @@ describe("which channels a rule uses", () => {
     expect(readSecretValue("ws1", stored.secretRef!)).toBe("legacy-key");
   });
 
+  it("keeps alert metadata readable when an encrypted reference cannot be opened", () => {
+    const originalKey = process.env.ZENITH_SECRET_KEY;
+    const c = fixtures.channelData({ id: "unopenable", target: "https://alerts.example.test/hooks/private" });
+    setChannelCredentials(c, { target: c.target }, "test");
+    (db().settings as { alertChannels?: AlertChannel[] }).alertChannels = [c];
+    process.env.ZENITH_SECRET_KEY = crypto.randomBytes(32).toString("base64");
+    try {
+      expect(() => channelTable()).not.toThrow();
+      const loaded = channelTable()[0] as AlertChannel & { targetSecretRef?: string };
+      expect(loaded.targetSecretRef).toBe("vault:alert-channel/unopenable/TARGET_URL");
+      expect(loaded.target).toBe("https://alerts.example.test/…");
+    } finally {
+      process.env.ZENITH_SECRET_KEY = originalKey;
+    }
+  });
+
   it("stores a Slack webhook URL as an encrypted credential", async () => {
     const target = "https://hooks.slack.com/services/T/B/secret-token";
     const result = await runAction(
@@ -375,6 +403,33 @@ describe("which channels a rule uses", () => {
     const stored = channelTable().find((c) => c.id === channelId)!;
     expect((await import("@/lib/alerts")).channelTarget(stored)).toBe(target);
     expect(JSON.stringify(stored)).not.toContain("update-token");
+  });
+
+  it("rolls back a target credential when the second credential write fails", () => {
+    const c = fixtures.channelData({ id: "atomic-channel" });
+    const originalPut = FileSecrets.put;
+    let puts = 0;
+    vi.spyOn(FileSecrets, "put").mockImplementation((workspaceId, record) => {
+      puts += 1;
+      if (puts === 2) throw new Error("simulated signing-secret backend failure");
+      originalPut.call(FileSecrets, workspaceId, record);
+    });
+    try {
+      expect(() =>
+        setChannelCredentials(
+          c,
+          { target: "https://alerts.example.test/hooks/token", signing: "signing" },
+          "test"
+        )
+      ).toThrow(/simulated signing-secret backend failure/);
+      const stored = c as AlertChannel & { targetSecretRef?: string; secretRef?: string };
+      expect(stored.targetSecretRef).toBeUndefined();
+      expect(stored.secretRef).toBeUndefined();
+      expect(readSecretValue("ws1", "vault:alert-channel/atomic-channel/TARGET_URL")).toBeUndefined();
+      expect(readSecretValue("ws1", "vault:alert-channel/atomic-channel/SIGNING_SECRET")).toBeUndefined();
+    } finally {
+      vi.restoreAllMocks();
+    }
   });
 
   it("fails closed for legacy plaintext credentials when encryption is unavailable", async () => {

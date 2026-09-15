@@ -7,6 +7,8 @@ export interface ControlPort {
   proposal(who: Principal, input: unknown): Promise<Proposal>;
   fingerprint(who: Principal, operation: Proposal): Promise<string>;
   authorize(who: Principal, operation: Proposal): Promise<void>;
+  /** Digest of current application membership/app-role authority. */
+  applicationAuthorizationDigest?(who: Principal, operation: Proposal): Promise<string>;
   execute(who: Principal, operation: Operation): Promise<{ ok: boolean; [key: string]: unknown }>;
   flush(): Promise<void>;
 }
@@ -39,7 +41,10 @@ export class Coordinator {
         checkTarget(who, op.target, op.action.startsWith('app.') ? 'publish' : 'write');
         await this.port.authorize(who, op);
         const fingerprint = await this.port.fingerprint(who, op);
-        const claim = this.journal.claim(who, operationId, fingerprint);
+        const applicationAuthorizationDigest = this.port.applicationAuthorizationDigest
+          ? await this.port.applicationAuthorizationDigest(who, op)
+          : undefined;
+        const claim = this.journal.claim(who, operationId, fingerprint, applicationAuthorizationDigest);
         if (!claim.claimed) return claim.operation;
         try {
           const result = await this.port.execute(who, claim.operation);
@@ -51,11 +56,15 @@ export class Coordinator {
           const current = await freshIdentity();
           if (current.subject !== who.subject || current.workspaceId !== who.workspaceId)
             throw new ControlError('identity_changed', 'The authorized identity changed during dispatch.', 403);
+          let currentApplicationAuthorizationDigest: string | undefined;
           await this.port.scope(current, async () => {
             checkTarget(current, claim.operation.target, claim.operation.action.startsWith('app.') ? 'publish' : 'write');
             await this.port.authorize(current, claim.operation);
+            currentApplicationAuthorizationDigest = this.port.applicationAuthorizationDigest
+              ? await this.port.applicationAuthorizationDigest(current, claim.operation)
+              : undefined;
           });
-          return this.journal.finishIfValid(current, op.id, result, result.ok);
+          return this.journal.finishIfValid(current, op.id, result, result.ok, currentApplicationAuthorizationDigest);
         } catch {
           // The external side effect may have happened. Persist ambiguity; never claim rollback or retry.
           this.journal.uncertain(op.id);

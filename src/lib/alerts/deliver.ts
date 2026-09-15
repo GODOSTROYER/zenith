@@ -70,6 +70,8 @@
  * mid-send and the rows are reclaimed by lease instead of delivered.
  */
 import { createHmac } from "node:crypto";
+import https from "node:https";
+import { Readable } from "node:stream";
 import { db, flush, flushPendingAsync, isPostgres, q, save } from "@/lib/db/store";
 import {
   id,
@@ -83,7 +85,8 @@ import { log } from "@/lib/log";
 import { withTimeout } from "@/lib/timeout";
 import { channelSecret, channelTarget, channelsForRule, channelsOf, findChannel } from "./channels";
 import {
-  validateWebhookTarget,
+  resolveWebhookTarget,
+  type ResolvedWebhookTarget,
   webhookTargetProblem,
   WebhookPolicyError,
   WEBHOOK_RESPONSE_MAX_BYTES,
@@ -302,14 +305,13 @@ async function post(url: string, body: string, headers: Record<string, string>):
   (deadline as unknown as { unref?: () => void }).unref?.();
   let res: Response;
   try {
-    await validateWebhookTarget(url, { signal: controller.signal });
-    res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...headers },
+    const target = await resolveWebhookTarget(url, { signal: controller.signal });
+    res = await WEBHOOK_TRANSPORT.request(
+      target,
       body,
-      redirect: "error",
-      signal: controller.signal,
-    });
+      { "Content-Type": "application/json", ...headers },
+      controller.signal
+    );
     if (res.redirected || (res.status >= 300 && res.status < 400))
       throw new Permanent("The alert endpoint returned a redirect, which Zenith refuses for safety.");
     await readBoundedResponse(res, controller.signal);
@@ -338,6 +340,57 @@ async function post(url: string, body: string, headers: Record<string, string>):
   if (retryable(res.status)) throw new Error(reason);
   throw new Permanent(reason, res.status);
 }
+
+export interface WebhookTransport {
+  request(
+    target: ResolvedWebhookTarget,
+    body: string,
+    headers: Record<string, string>,
+    signal: AbortSignal
+  ): Promise<Response>;
+}
+
+/**
+ * HTTPS transport with a pinned DNS result. `https.request` is used instead
+ * of the platform fetch because Node fetch resolves the hostname again and
+ * therefore leaves a DNS validation-to-connect race.
+ */
+async function requestPinned(
+  target: ResolvedWebhookTarget,
+  body: string,
+  headers: Record<string, string>,
+  signal: AbortSignal
+): Promise<Response> {
+  return new Promise<Response>((resolve, reject) => {
+    const request = https.request(
+      target.url,
+      {
+        method: "POST",
+        headers,
+        signal,
+        servername: target.url.hostname,
+        lookup: (_hostname, _options, callback) => {
+          callback(null, target.address, target.address.includes(":") ? 6 : 4);
+        },
+      },
+      (incoming) => {
+        const stream = Readable.toWeb(incoming) as unknown as ReadableStream<Uint8Array>;
+        const responseHeaders = new Headers();
+        for (const [name, value] of Object.entries(incoming.headers)) {
+          if (value !== undefined) responseHeaders.set(name, Array.isArray(value) ? value.join(", ") : value);
+        }
+        resolve(new Response(stream, {
+          status: incoming.statusCode ?? 0,
+          headers: responseHeaders,
+        }));
+      }
+    );
+    request.once("error", reject);
+    request.end(body);
+  });
+}
+
+export const WEBHOOK_TRANSPORT: WebhookTransport = { request: requestPinned };
 
 /** Read and discard receiver output without allowing an unbounded response. */
 async function readBoundedResponse(res: Response, signal: AbortSignal): Promise<void> {

@@ -102,6 +102,82 @@ export const channelHasSecret = (channel: AlertChannel): boolean => {
   return !!stored.secretRef || !!channel.secret;
 };
 
+type ChannelCredentialUpdate = {
+  target?: string;
+  signing?: string | undefined;
+};
+
+type ChannelCredentialSnapshot = {
+  target: string;
+  legacySecret: string | undefined;
+  secretRef: string | undefined;
+  targetSecretRef: string | undefined;
+  secret: string | undefined;
+  targetValue: string | undefined;
+};
+
+function snapshotChannelCredentials(channel: AlertChannel): ChannelCredentialSnapshot {
+  const stored = channel as StoredAlertChannel;
+  return {
+    target: channel.target,
+    legacySecret: channel.secret,
+    secretRef: stored.secretRef,
+    targetSecretRef: stored.targetSecretRef,
+    secret: stored.secretRef ? readSecretValue(channel.workspaceId, stored.secretRef) : undefined,
+    targetValue: stored.targetSecretRef
+      ? readSecretValue(channel.workspaceId, stored.targetSecretRef)
+      : undefined,
+  };
+}
+
+function restoreChannelCredentials(channel: AlertChannel, before: ChannelCredentialSnapshot): void {
+  const stored = channel as StoredAlertChannel;
+  const currentRefs = new Set([stored.secretRef, stored.targetSecretRef].filter(Boolean) as string[]);
+  const previousRefs = new Set([before.secretRef, before.targetSecretRef].filter(Boolean) as string[]);
+  for (const ref of currentRefs) {
+    if (!previousRefs.has(ref)) removeSecret(channel.workspaceId, ref);
+  }
+  if (before.secretRef && before.secret !== undefined)
+    putSecret(channel.workspaceId, before.secretRef, before.secret, "system:alert-channel-rollback");
+  if (before.targetSecretRef && before.targetValue !== undefined)
+    putSecret(channel.workspaceId, before.targetSecretRef, before.targetValue, "system:alert-channel-rollback");
+  if (before.secretRef) stored.secretRef = before.secretRef;
+  else delete stored.secretRef;
+  if (before.targetSecretRef) stored.targetSecretRef = before.targetSecretRef;
+  else delete stored.targetSecretRef;
+  if (before.legacySecret !== undefined) channel.secret = before.legacySecret;
+  else delete channel.secret;
+  channel.target = before.target;
+}
+
+/**
+ * Apply both independent channel credentials as one logical mutation. The
+ * secret backend has no cross-row transaction, so failed second writes are
+ * compensated before the caller is allowed to save the channel snapshot.
+ */
+export function setChannelCredentials(
+  channel: AlertChannel,
+  update: ChannelCredentialUpdate,
+  by: string
+): void {
+  const before = snapshotChannelCredentials(channel);
+  try {
+    if (Object.prototype.hasOwnProperty.call(update, "target"))
+      setChannelTargetSecret(channel, update.target!, by);
+    if (Object.prototype.hasOwnProperty.call(update, "signing"))
+      setChannelSecret(channel, update.signing, by);
+  } catch (error) {
+    try {
+      restoreChannelCredentials(channel, before);
+    } catch {
+      throw new Error(
+        "The alert credentials could not be updated or rolled back safely. No channel snapshot was saved; inspect the secret store before retrying."
+      );
+    }
+    throw error;
+  }
+}
+
 /** Store or clear a channel signing key without leaving a plaintext row. */
 export function setChannelSecret(channel: AlertChannel, value: string | undefined, by: string): void {
   const stored = channel as StoredAlertChannel;
@@ -134,23 +210,39 @@ export function setChannelTargetSecret(channel: AlertChannel, value: string, by:
 
 /** Remove both independent channel credentials, including old legacy fields. */
 export function removeChannelSecrets(channel: AlertChannel): void {
+  const before = snapshotChannelCredentials(channel);
   const stored = channel as StoredAlertChannel;
-  const refs = new Set<string>();
-  if (stored.secretRef) refs.add(stored.secretRef);
-  if (stored.targetSecretRef) refs.add(stored.targetSecretRef);
-  for (const ref of refs) removeSecret(channel.workspaceId, ref);
-  delete stored.secretRef;
-  delete stored.targetSecretRef;
-  delete channel.secret;
+  try {
+    const refs = new Set<string>();
+    if (stored.secretRef) refs.add(stored.secretRef);
+    if (stored.targetSecretRef) refs.add(stored.targetSecretRef);
+    for (const ref of refs) removeSecret(channel.workspaceId, ref);
+    delete stored.secretRef;
+    delete stored.targetSecretRef;
+    delete channel.secret;
+  } catch (error) {
+    try {
+      restoreChannelCredentials(channel, before);
+    } catch {
+      throw new Error("The alert credentials could not be deleted or rolled back safely; inspect the secret store before retrying.");
+    }
+    throw error;
+  }
 }
 
 /** Safely migrate legacy plaintext channel keys when encryption is configured. */
 function migrateLegacyChannelSecrets(channels: AlertChannel[]): boolean {
+  // Metadata/settings pages may still load legacy rows without the key, but
+  // channelSecret/channelTarget refuse to use them. This preserves a safe,
+  // redacted admin view while keeping delivery fail-closed until migration is
+  // possible; it must not turn an unavailable key into a 500 for every page.
   if (!secretStoreState().configured) return false;
   let changed = false;
   for (const channel of channels) {
     const stored = channel as StoredAlertChannel;
+    let before: ChannelCredentialSnapshot | undefined;
     try {
+      before = snapshotChannelCredentials(channel);
       // The previous slice used SIGNING_SECRET for Slack's target. Move it to
       // its distinct reference before handling new legacy rows.
       if (channel.kind === "slack" && stored.secretRef && !stored.targetSecretRef) {
@@ -170,8 +262,20 @@ function migrateLegacyChannelSecrets(channels: AlertChannel[]): boolean {
         setChannelSecret(channel, channel.secret, "system:alert-channel-migration");
         changed = true;
       }
-    } catch {
-      // Keep the old value if the key/store is unavailable; retry next read.
+    } catch (error) {
+      // A missing/tampered old reference must not turn a metadata/settings
+      // read into a 500. No mutation has happened when the snapshot itself
+      // fails; leave the row untouched and let delivery fail closed when it
+      // tries to resolve the unavailable credential.
+      if (!before) continue;
+      try {
+        restoreChannelCredentials(channel, before);
+      } catch {
+        throw new Error("An alert channel migration failed and could not be rolled back safely; inspect the secret store before retrying.");
+      }
+      throw new Error(
+        `An alert channel credential could not be migrated safely. No plaintext fallback is permitted: ${error instanceof Error ? error.message : String(error)}`
+      );
     }
   }
   return changed;

@@ -49,6 +49,26 @@ describe("PostgrestAsyncRepository", () => {
     );
   });
 
+  it("binds tenant identity into object writes and rejects a mismatched body", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async (_input, init) => {
+      expect(JSON.parse(String(init?.body))).toEqual({ id: "event-1", workspace_id: "workspace-a" });
+      return new Response("[]", { status: 201 });
+    });
+    const repo = createAsyncRepository({ baseUrl: "https://supabase.test", apiKey: "test-key", fetch: fetchMock });
+    await repo.request({ ...request, method: "POST", body: { id: "event-1" }, op: "write" }, context);
+    await expect(repo.request({ ...request, method: "PATCH", body: { workspace_id: "workspace-b" }, op: "write" }, context))
+      .rejects.toThrow(/body tenant does not match/i);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("does not let callers select an arbitrary tenant column", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    const repo = createAsyncRepository({ baseUrl: "https://supabase.test", apiKey: "test-key", fetch: fetchMock });
+    await expect(repo.request({ ...request, tenantColumn: "organization_id" }, context))
+      .rejects.toThrow(/table-specific repository/i);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("fails with a bounded timeout and aborts the underlying request", async () => {
     let aborted = false;
     const fetchMock = vi.fn<typeof fetch>(async (_input, init) => {

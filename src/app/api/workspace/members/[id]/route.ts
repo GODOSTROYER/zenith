@@ -10,6 +10,7 @@ import { z } from "zod";
 import { db, save } from "@/lib/db/store";
 import type { Member } from "@/lib/domain/types";
 import { ApiError, isLastAdmin, requireWorkspace, route } from "@/lib/server/context";
+import { withMutationGate } from "@/lib/actions/mutation-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -25,8 +26,9 @@ function find(memberId: string, workspaceId: string): Member {
 }
 
 export const PATCH = route<{ id: string }>({ workspaceRole: "admin" }, async (req, { id }) => {
-  const ws = requireWorkspace();
-  const member = find(id, ws.id);
+  return withMutationGate(async () => {
+    const ws = requireWorkspace();
+    const member = find(id, ws.id);
 
   const parsed = Body.safeParse(await req.json().catch(() => ({})));
   if (!parsed.success)
@@ -44,12 +46,14 @@ export const PATCH = route<{ id: string }>({ workspaceRole: "admin" }, async (re
     member.role = role;
     save();
   }
-  return { member };
+    return { member };
+  });
 });
 
 export const DELETE = route<{ id: string }>({ workspaceRole: "admin" }, async (_req, { id }) => {
-  const ws = requireWorkspace();
-  const member = find(id, ws.id);
+  return withMutationGate(async () => {
+    const ws = requireWorkspace();
+    const member = find(id, ws.id);
 
   if (isLastAdmin(member))
     throw new ApiError(`${member.name} is the last admin of ${ws.name}.`, 409, {
@@ -61,5 +65,6 @@ export const DELETE = route<{ id: string }>({ workspaceRole: "admin" }, async (_
   save();
   // Removal does not end an already-issued session; the member is refused on
   // their next bootstrap. See docs/LIMITATIONS.md (U11).
-  return { removed: member };
+    return { removed: member };
+  });
 });

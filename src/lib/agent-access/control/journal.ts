@@ -25,6 +25,8 @@ export interface Operation extends Proposal {
   workerId?: string; executedByIntegration?: string; finishedAt?: string;
   /** Grant snapshot held by the worker claim; checked again at finalization. */
   authorizationDigest?: string;
+  /** Application membership/role snapshot held by the worker claim. */
+  applicationAuthorizationDigest?: string;
 }
 export function canonical(value: unknown): string {
   if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null';
@@ -154,7 +156,7 @@ export class Journal {
     });
   }
   /** Called under the application's mutation gate after fresh authorization and fingerprint validation. */
-  claim(who: Principal, id: string, fingerprint: string): { operation: Operation; claimed: boolean } {
+  claim(who: Principal, id: string, fingerprint: string, applicationAuthorizationDigest?: string): { operation: Operation; claimed: boolean } {
     return this.transaction(() => {
       const op = this.get(who, id);
       checkTarget(who, op.target, op.action.startsWith('app.') ? 'publish' : 'write', this.clock());
@@ -164,6 +166,7 @@ export class Journal {
       if (op.fingerprint !== fingerprint) throw new ControlError('stale_plan', 'State or permissions changed. Prepare and review a new plan.');
       op.phase = 'running'; op.workerId = this.workerId; op.executedByIntegration = who.integrationId;
       op.authorizationDigest = this.authorizationDigest(who);
+      op.applicationAuthorizationDigest = applicationAuthorizationDigest;
       return { operation: this.write(op, 'claimed'), claimed: true };
     });
   }
@@ -173,7 +176,7 @@ export class Journal {
    * before this call; this transaction closes the race for the journal-owned
    * grant/revocation state and makes expiry linearizable with finish.
    */
-  finishIfValid(who: Principal, id: string, result: unknown, success: boolean): Operation {
+  finishIfValid(who: Principal, id: string, result: unknown, success: boolean, applicationAuthorizationDigest?: string): Operation {
     return this.transaction(() => {
       const op = this.row(id);
       if (op.phase !== 'running' || op.workerId !== this.workerId)
@@ -185,6 +188,8 @@ export class Journal {
       checkTarget(who, op.target, op.action.startsWith('app.') ? 'publish' : 'write', this.clock());
       if (op.authorizationDigest !== this.authorizationDigest(who))
         throw new ControlError('authorization_changed', 'The integration grant changed during dispatch.', 403);
+      if (op.applicationAuthorizationDigest !== applicationAuthorizationDigest)
+        throw new ControlError('authorization_changed', 'Application membership or role changed during dispatch.', 403);
       op.phase = success ? 'succeeded' : 'failed'; op.result = structuredClone(result); op.finishedAt = new Date(this.clock()).toISOString();
       return this.write(op, op.phase);
     });

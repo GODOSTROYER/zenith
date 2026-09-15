@@ -16,6 +16,12 @@ export class WebhookPolicyError extends Error {
 
 export type ResolveAll = (hostname: string, signal: AbortSignal) => Promise<readonly string[]>;
 
+/** The exact address selected for the outbound connection after validation. */
+export interface ResolvedWebhookTarget {
+  url: URL;
+  address: string;
+}
+
 /** Injectable only for deterministic tests; production uses a fresh Resolver. */
 export const WEBHOOK_POLICY: { resolveAll: ResolveAll } = { resolveAll: resolveAllDns };
 
@@ -62,6 +68,18 @@ export async function validateWebhookTarget(
   target: string,
   options: { signal?: AbortSignal; resolveAll?: ResolveAll } = {}
 ): Promise<URL> {
+  return (await resolveWebhookTarget(target, options)).url;
+}
+
+/**
+ * Validate and select the address used for delivery. The delivery transport
+ * must use this address rather than resolving the hostname a second time;
+ * otherwise DNS rebinding can turn a successful policy check into an SSRF.
+ */
+export async function resolveWebhookTarget(
+  target: string,
+  options: { signal?: AbortSignal; resolveAll?: ResolveAll } = {}
+): Promise<ResolvedWebhookTarget> {
   const url = parseWebhookTarget(target);
   const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
 
@@ -73,7 +91,7 @@ export async function validateWebhookTarget(
     if (blockedCategory(address))
       throw new WebhookPolicyError("The alert endpoint resolves to a restricted network destination and was blocked.", "blocked");
   }
-  return url;
+  return { url, address: addresses[0] };
 }
 
 export function webhookTargetProblem(error: unknown): string {

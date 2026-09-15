@@ -29,6 +29,7 @@ import { removeAccountRecords, requireAccountUser } from "@/lib/server/account";
 import { ApiError, route, soleAdminWorkspaces } from "@/lib/server/context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { withMutationGate } from "@/lib/actions/mutation-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +49,7 @@ async function revokeHostedGrants(subject: string): Promise<number> {
   return grants.length;
 }
 
-export const DELETE = route(async () => {
+export const DELETE = route(async () => withMutationGate(async () => {
   const user = requireAccountUser();
 
   const blocked = soleAdminWorkspaces(user.id);
@@ -89,4 +90,4 @@ export const DELETE = route(async () => {
   // is what makes the next request a signed-out one rather than a 401 loop.
   await (await createClient()).auth.signOut();
   return new Response(null, { status: 204, headers: { "cache-control": "no-store" } });
-});
+}));

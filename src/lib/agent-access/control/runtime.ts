@@ -87,6 +87,20 @@ async function authorize(who: Principal, op: Proposal): Promise<void> {
     if (!approver || WORKSPACE_ROLE_RANK[approver.role] < WORKSPACE_ROLE_RANK[required]) throw new ControlError('approval_revoked', 'The approving member no longer has the required role.', 403);
   }
 }
+async function applicationAuthorizationDigest(who: Principal, op: Proposal): Promise<string> {
+  const member = liveMember(who);
+  const prepared = op as Operation;
+  const appAuthority = op.action.startsWith('app.') && op.action !== 'app.create'
+    ? await ownedApp(who, String(op.input.appId))
+    : undefined;
+  return digest({
+    member: { id: member.id, workspaceId: member.workspaceId, role: member.role },
+    appAuthority: appAuthority ? { app: appAuthority.app, grant: appAuthority.grant } : undefined,
+    approver: prepared.approvedBy
+      ? db().members.find((candidate) => candidate.id === prepared.approvedBy && candidate.workspaceId === who.workspaceId)
+      : undefined,
+  });
+}
 async function fingerprint(who: Principal, op: Proposal): Promise<string> {
   const { project, environment } = resolveTarget(who, op.target);
   const app = op.action.startsWith('app.') && op.action !== 'app.create' ? await ownedApp(who, String(op.input.appId)) : undefined;
@@ -174,7 +188,7 @@ export function control(): Coordinator {
   if (singleton) return singleton;
   claimDataDir(env().ZENITH_DATA);
   const journal = new Journal(resolve(env().ZENITH_DATA, 'agent-control', 'operations.sqlite')); journal.recover();
-  const port: ControlPort = { gate:withMutationGate, scope:inAgentScope, identify:raw=>{const input=preparationSchema.parse(raw);return {requestKey:input.requestKey,clientInputDigest:digest(input)};}, proposal, fingerprint, authorize, execute, flush:async()=>{await flushPendingAsync();} };
+  const port: ControlPort = { gate:withMutationGate, scope:inAgentScope, identify:raw=>{const input=preparationSchema.parse(raw);return {requestKey:input.requestKey,clientInputDigest:digest(input)};}, proposal, fingerprint, authorize, applicationAuthorizationDigest, execute, flush:async()=>{await flushPendingAsync();} };
   singleton = new Coordinator(journal,port); globalControl.__zenithControl = singleton; return singleton;
 }
 export function operationView(op: Operation, origin: string): Record<string, unknown> {

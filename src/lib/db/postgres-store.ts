@@ -7,9 +7,10 @@
  * `Store` is a synchronous interface (see `./types.ts` — the "sync now, async
  * later" note) and ~113 files depend on that. A network round trip cannot be
  * made synchronous, so this implementation does not try: it reads a
- * **snapshot** that was loaded *before* the caller ran, hands the caller the
- * live mutable graph exactly as the file store does, and writes the diff back
- * on `flush`. The load happens in one of two places:
+ * **snapshot** that was loaded *before* the caller ran, hands the caller a
+ * live mutable graph exactly as the file store does — its **own** graph, one
+ * per load, never the process-global one the file store owns — and writes the
+ * diff back on `flush`. The load happens in one of two places:
  *
  *  - **per request** — `route()` (src/lib/server/request.ts) prefetches the
  *    caller's workspace slice into `RequestState.snapshot` before the handler
@@ -60,8 +61,13 @@
  * through `./pg/delegates.ts`, and those four modules replace them with
  * `setDelegate("audit", …)` without touching this file. So on
  * `ZENITH_STORE=postgres` the file store is **not** a fallback authority for
- * any collection; the only `FileStore` call left in this module is
- * `reset()`'s, which builds the empty graph a seed or a test starts from.
+ * any collection, and it does not hold this store's graph either: a snapshot
+ * is built over its own `emptyGraph()`, so two requests in one process cannot
+ * see each other's rows. The `FileStore` calls left in this module are
+ * `reset()`'s — the empty graph a seed or a test starts from, which no request
+ * path reaches — and `onChange`'s, which keeps the in-process emitter as a
+ * second *notification* source (never as durability) so a listener still hears
+ * a `reset()` or a seed.
  *
  * What is *not* closed, and is tracked rather than hidden: a flush is a
  * sequence of PostgREST requests, so this store does not claim cross-table
@@ -175,6 +181,31 @@ const emptySnapshot = (data: Database): Snapshot => ({
   scheduled: false,
 });
 
+/**
+ * An empty `Database`, and a **new one every call**.
+ *
+ * Declared here rather than borrowed from `FileStore` because the whole point
+ * is that it is *not* the file store's graph: `FileStore.db()` is one object
+ * per process (see that file's header), and a snapshot built over it would be
+ * shared by every other snapshot in the same process — see `loadSnapshot`.
+ * Typed as `Database` so a new collection cannot be forgotten silently.
+ */
+const emptyGraph = (): Database => ({
+  workspaces: [],
+  members: [],
+  connections: [],
+  projects: [],
+  environments: [],
+  revisions: [],
+  deployments: [],
+  findings: [],
+  navigatorRuns: [],
+  alertRules: [],
+  alertEvents: [],
+  alertOutbox: [],
+  settings: { invites: [] },
+});
+
 /* --------------------------------- loading -------------------------------- */
 
 async function selectRows(
@@ -201,12 +232,23 @@ async function selectRows(
  * fetches everything keyed by those ids, round 3 everything keyed by what round
  * 2 loaded. `null` for `user` loads everything, which is what a script, a
  * migration or a test wants.
+ *
+ * **Every load gets its own graph.** This used to build the snapshot over
+ * `FileStore.db()` — one object per process — while `adopt()` below truncates
+ * and refills the very arrays it is handed. Two requests served concurrently
+ * by one Node process therefore shared one graph: request A awaited anything,
+ * request B's prefetch emptied the arrays and refilled them with B's tenant's
+ * rows, and A resumed reading them. That is a cross-tenant read, and a
+ * cross-tenant *write* too, because `diff()` compares `snap.data` — by then
+ * B's rows — against A's `baseline` and turns the mismatch into inserts and
+ * deletes. `emptyGraph()` is one allocation per load and the isolation is
+ * structural: no snapshot can reach another's objects.
  */
 export async function loadSnapshot(
   client: SupabaseClient,
   user: { id: string; email: string } | null
 ): Promise<Snapshot> {
-  const base = FileStore.db();
+  const base = emptyGraph();
   const snap = emptySnapshot(base);
 
   const ctx: PrefetchContext = { client, user, workspaceIds: [], projectIds: [] };
@@ -339,27 +381,6 @@ export const clearProcessSnapshot = (): void => {
  * which is right for the scheduler and a leak for a page.
  */
 export const detachedSnapshot = (): Snapshot => emptySnapshot(emptyGraph());
-
-/**
- * An empty `Database`. Declared here rather than borrowed from `FileStore`
- * because the whole point is that it is *not* the file store's graph; typed as
- * `Database` so a new collection cannot be forgotten silently.
- */
-const emptyGraph = (): Database => ({
-  workspaces: [],
-  members: [],
-  connections: [],
-  projects: [],
-  environments: [],
-  revisions: [],
-  deployments: [],
-  findings: [],
-  navigatorRuns: [],
-  alertRules: [],
-  alertEvents: [],
-  alertOutbox: [],
-  settings: { invites: [] },
-});
 
 /**
  * Rows of one registered collection by primary key, with **no snapshot**.
@@ -801,10 +822,12 @@ export const PostgresStore: Store & {
    * `reset()` is a test and seed affordance, and a store pointed at a real
    * project must not be one call away from emptying it.
    *
-   * The one remaining `FileStore` call in this module, and deliberately so: it
-   * is how a seed or a test gets an empty graph (and clears this process's
-   * cold-storage side files), not a durability path. It does write
-   * `state.json`; no request path reaches it.
+   * `FileStore.reset()` here is deliberate: it is how a seed or a test gets an
+   * empty graph (and clears this process's cold-storage side files), not a
+   * durability path. It does write `state.json`, and it is the one place a
+   * Postgres snapshot ends up pointing at the file store's process-global
+   * graph — which is safe only because no request path reaches `reset()`. A
+   * loaded snapshot never does: see `loadSnapshot`.
    */
   reset(data?: Partial<Database>): Database {
     const snap = currentSnapshot();

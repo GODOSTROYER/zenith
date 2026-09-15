@@ -1207,6 +1207,12 @@ export function reclaimStale(leaseMs = OUTBOX_LEASE_MS, now = Date.now()): numbe
  * even attempted on a serverless instance, where `boot()` skips the claim
  * because every instance has its own `/tmp`. In both cases another instance
  * may be mid-send right now, so only a genuinely expired claim may be taken.
+ *
+ * The Postgres arm is **defensive, not live**: `boot()` returns before this
+ * call on Postgres (it holds no snapshot to read the outbox with), and that
+ * host's outbox is drained by `outboxTickPass()`, which passes its own
+ * `OUTBOX_LEASE_MS`. The arm stays because the rule is about the store, not
+ * about which caller happens to ask today.
  */
 export const bootReplayLeaseMs = (): number =>
   isPostgres() || isServerless() ? OUTBOX_LEASE_MS : 0;

@@ -266,13 +266,14 @@ class FileCredentialAuthority implements CredentialAuthority {
       if (!code) return undefined;
       if (effectiveState(code, now) !== "pending") return view(code, now);
       // A code that keeps being looked up and not approved is being guessed at.
+      // The counter has to survive the call, so this lookup is a write — which
+      // is also why it is bounded and under the same lock as everything else.
       code.failedLookups += 1;
       if (code.failedLookups > LINK_MAX_FAILED_LOOKUPS) {
         code.state = "expired";
         code.secretCt = undefined;
-        await writeLinks(path, file);
-        return view(code, now);
       }
+      await writeLinks(path, file);
       return view(code, now);
     });
   }

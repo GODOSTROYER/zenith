@@ -37,14 +37,19 @@ import fs from "node:fs";
  *
  * `match` is applied to a test's full name. The authority contract files are
  * `describe.each(authorities)("$name", …)`, so every Postgres assertion's name
- * starts with `PostgresAuthority` — which is precisely the thing that vanishes
- * when the factory table has one row.
+ * starts with the row name — which is precisely the thing that vanishes when
+ * the factory table has one row. Vitest formats `$name` with pretty-format, so
+ * a string row name arrives quoted: `'PostgresAuthority' ledgers …`. The first
+ * CI run of this job failed on exactly that, with 161 Postgres assertions
+ * passing; the matcher accepts both spellings and is pinned by
+ * tests/ci/postgres-lane-report.test.ts.
  */
+const ROW_NAME = /^'?PostgresAuthority'?(?:\s|$)/;
 const INTENDED = [
   {
     id: "hosted-authority-contract",
     label: "tests/hosted/authority/contract/** (Postgres row)",
-    match: (fullName) => fullName.startsWith("PostgresAuthority"),
+    match: (fullName) => ROW_NAME.test(fullName),
     why: "The hosted control authority over a direct Postgres connection (src/lib/hosted/authority/pg/client.ts).",
   },
   {

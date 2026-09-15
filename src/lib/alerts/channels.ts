@@ -16,12 +16,15 @@
  *  - the token inside a Slack incoming-webhook URL, which is the whole URL's
  *    reason to be secret. `maskTarget` keeps it out of every response.
  */
-import { db, flush, q } from "@/lib/db/store";
+import { db, flush, flushPendingAsync, isPostgres, q } from "@/lib/db/store";
 import type { AlertChannel, AlertChannelKind, AlertRule } from "@/lib/domain/types";
 import {
   putSecret,
+  putSecretAsync,
   readSecretValue,
+  readSecretValueAsync,
   removeSecret,
+  removeSecretAsync,
   secretStoreState,
 } from "@/lib/secrets";
 
@@ -86,6 +89,138 @@ export function channelTarget(channel: AlertChannel): string {
     return readSecretValue(channel.workspaceId, (channel as StoredAlertChannel).targetSecretRef!)!;
   }
   throw new Error("This channel still has a plaintext webhook target. Configure ZENITH_SECRET_KEY and reload it before sending.");
+}
+
+/** Awaitable signing-key lookup for alert delivery. */
+export async function channelSecretAsync(channel: AlertChannel): Promise<string | undefined> {
+  const stored = channel as StoredAlertChannel;
+  if (stored.secretRef) {
+    const value = await readSecretValueAsync(channel.workspaceId, stored.secretRef);
+    if (value === undefined)
+      throw new Error("The channel's signing secret is missing from Zenith's secret store; set it again before sending.");
+    return value;
+  }
+  if (channel.secret !== undefined) {
+    if (!secretStoreState().configured)
+      throw new Error("This channel still has a legacy plaintext signing secret. Configure ZENITH_SECRET_KEY and reload it before sending.");
+    await setChannelSecretAsync(channel, channel.secret, "system:alert-channel-migration");
+    await flushPendingAsync();
+    return readSecretValueAsync(channel.workspaceId, (channel as StoredAlertChannel).secretRef!);
+  }
+  return undefined;
+}
+
+/** Awaitable target lookup for alert delivery. */
+export async function channelTargetAsync(channel: AlertChannel): Promise<string> {
+  const stored = channel as StoredAlertChannel;
+  if (channel.kind === "email") return channel.target;
+  if (stored.targetSecretRef) {
+    const value = await readSecretValueAsync(channel.workspaceId, stored.targetSecretRef);
+    if (value === undefined)
+      throw new Error("The channel's webhook target is missing from Zenith's secret store; set it again before sending.");
+    return value;
+  }
+  if (channel.kind === "slack" && stored.secretRef) {
+    const value = await readSecretValueAsync(channel.workspaceId, stored.secretRef);
+    if (value === undefined)
+      throw new Error("The channel's Slack webhook URL is missing from Zenith's secret store; set it again before sending.");
+    return value;
+  }
+  if (secretStoreState().configured && channel.target) {
+    await setChannelTargetSecretAsync(channel, channel.target, "system:alert-channel-migration");
+    await flushPendingAsync();
+    const value = await readSecretValueAsync(channel.workspaceId, (channel as StoredAlertChannel).targetSecretRef!);
+    if (value === undefined)
+      throw new Error("The channel's webhook target is missing from Zenith's secret store; set it again before sending.");
+    return value;
+  }
+  throw new Error("This channel still has a plaintext webhook target. Configure ZENITH_SECRET_KEY and reload it before sending.");
+}
+
+async function snapshotChannelCredentialsAsync(channel: AlertChannel): Promise<ChannelCredentialSnapshot> {
+  const stored = channel as StoredAlertChannel;
+  return {
+    target: channel.target,
+    legacySecret: channel.secret,
+    secretRef: stored.secretRef,
+    targetSecretRef: stored.targetSecretRef,
+    secret: stored.secretRef ? await readSecretValueAsync(channel.workspaceId, stored.secretRef) : undefined,
+    targetValue: stored.targetSecretRef
+      ? await readSecretValueAsync(channel.workspaceId, stored.targetSecretRef)
+      : undefined,
+  };
+}
+
+async function restoreChannelCredentialsAsync(channel: AlertChannel, before: ChannelCredentialSnapshot): Promise<void> {
+  const stored = channel as StoredAlertChannel;
+  const currentRefs = new Set([stored.secretRef, stored.targetSecretRef].filter(Boolean) as string[]);
+  const previousRefs = new Set([before.secretRef, before.targetSecretRef].filter(Boolean) as string[]);
+  for (const ref of currentRefs) if (!previousRefs.has(ref)) await removeSecretAsync(channel.workspaceId, ref);
+  if (before.secretRef && before.secret !== undefined)
+    await putSecretAsync(channel.workspaceId, before.secretRef, before.secret, "system:alert-channel-rollback");
+  if (before.targetSecretRef && before.targetValue !== undefined)
+    await putSecretAsync(channel.workspaceId, before.targetSecretRef, before.targetValue, "system:alert-channel-rollback");
+  if (before.secretRef) stored.secretRef = before.secretRef; else delete stored.secretRef;
+  if (before.targetSecretRef) stored.targetSecretRef = before.targetSecretRef; else delete stored.targetSecretRef;
+  if (before.legacySecret !== undefined) channel.secret = before.legacySecret; else delete channel.secret;
+  channel.target = before.target;
+}
+
+export async function setChannelSecretAsync(channel: AlertChannel, value: string | undefined, by: string): Promise<void> {
+  const stored = channel as StoredAlertChannel;
+  const ref = stored.secretRef ?? alertChannelSecretRef(channel.id);
+  if (value) {
+    await putSecretAsync(channel.workspaceId, ref, value, by);
+    stored.secretRef = ref;
+  } else if (stored.secretRef) {
+    await removeSecretAsync(channel.workspaceId, stored.secretRef);
+    delete stored.secretRef;
+  }
+  delete channel.secret;
+}
+
+export async function setChannelTargetSecretAsync(channel: AlertChannel, value: string, by: string): Promise<void> {
+  const stored = channel as StoredAlertChannel;
+  const ref = stored.targetSecretRef ?? alertChannelTargetSecretRef(channel.id);
+  const parsed = new URL(value);
+  await putSecretAsync(channel.workspaceId, ref, value, by);
+  stored.targetSecretRef = ref;
+  channel.target = channel.kind === "slack"
+    ? parsed.origin
+    : `${parsed.origin}${parsed.pathname !== "/" || parsed.search ? "/…" : ""}`;
+}
+
+/** Async counterpart used by action execution and Postgres-backed delivery. */
+export async function setChannelCredentialsAsync(
+  channel: AlertChannel,
+  update: ChannelCredentialUpdate,
+  by: string
+): Promise<void> {
+  const before = await snapshotChannelCredentialsAsync(channel);
+  try {
+    if (Object.prototype.hasOwnProperty.call(update, "target"))
+      await setChannelTargetSecretAsync(channel, update.target!, by);
+    if (Object.prototype.hasOwnProperty.call(update, "signing"))
+      await setChannelSecretAsync(channel, update.signing, by);
+  } catch (error) {
+    try { await restoreChannelCredentialsAsync(channel, before); }
+    catch { throw new Error("The alert credentials could not be updated or rolled back safely. Inspect the secret store before retrying."); }
+    throw error;
+  }
+}
+
+export async function removeChannelSecretsAsync(channel: AlertChannel): Promise<void> {
+  const before = await snapshotChannelCredentialsAsync(channel);
+  const stored = channel as StoredAlertChannel;
+  try {
+    const refs = new Set([stored.secretRef, stored.targetSecretRef].filter(Boolean) as string[]);
+    for (const ref of refs) await removeSecretAsync(channel.workspaceId, ref);
+    delete stored.secretRef; delete stored.targetSecretRef; delete channel.secret;
+  } catch (error) {
+    try { await restoreChannelCredentialsAsync(channel, before); }
+    catch { throw new Error("The alert credentials could not be deleted or rolled back safely; inspect the secret store before retrying."); }
+    throw error;
+  }
 }
 
 export const channelHasSecret = (channel: AlertChannel): boolean => {
@@ -281,6 +416,65 @@ function migrateLegacyChannelSecrets(channels: AlertChannel[]): boolean {
   return changed;
 }
 
+export interface AlertSecretMigrationReport {
+  inspected: number;
+  migrated: number;
+  unchanged: number;
+}
+
+/**
+ * Explicit, awaitable migration for an operator rehearsal or cutover.
+ * Metadata reads never call this implicitly on a Postgres-backed process:
+ * callers must opt in, keep the key available, and flush the store after the
+ * returned mutations have been reviewed.
+ */
+export async function migrateLegacyChannelSecretsAsync(
+  channels: AlertChannel[]
+): Promise<AlertSecretMigrationReport> {
+  if (!secretStoreState().configured)
+    throw new Error(
+      "Alert secret migration is blocked: configure ZENITH_SECRET_KEY before attempting an apply."
+    );
+  let migrated = 0;
+  for (const channel of channels) {
+    const stored = channel as StoredAlertChannel;
+    const before = await snapshotChannelCredentialsAsync(channel);
+    let changed = false;
+    try {
+      if (channel.kind === "slack" && stored.secretRef && !stored.targetSecretRef) {
+        const value = await readSecretValueAsync(channel.workspaceId, stored.secretRef);
+        if (value !== undefined) {
+          await setChannelTargetSecretAsync(channel, value, "system:alert-channel-migration");
+          await removeSecretAsync(channel.workspaceId, stored.secretRef);
+          delete stored.secretRef;
+          changed = true;
+        }
+      }
+      if (channel.kind !== "email" && !stored.targetSecretRef) {
+        await setChannelTargetSecretAsync(channel, channel.target, "system:alert-channel-migration");
+        changed = true;
+      }
+      if (channel.kind === "webhook" && channel.secret !== undefined && !stored.secretRef) {
+        await setChannelSecretAsync(channel, channel.secret, "system:alert-channel-migration");
+        changed = true;
+      }
+    } catch (error) {
+      try {
+        await restoreChannelCredentialsAsync(channel, before);
+      } catch {
+        throw new Error(
+          "Alert secret migration failed and could not be rolled back safely; stop and inspect the secret store."
+        );
+      }
+      throw new Error(
+        `Alert secret migration failed for ${channel.id}; no plaintext fallback is permitted: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    if (changed) migrated += 1;
+  }
+  return { inspected: channels.length, migrated, unchanged: channels.length - migrated };
+}
+
 /**
  * The channel list, backfilled in place. Same trick as `tables()` in ./index:
  * a snapshot written before channels existed has no array, and the next save()
@@ -289,7 +483,10 @@ function migrateLegacyChannelSecrets(channels: AlertChannel[]): boolean {
 export function channelTable(): AlertChannel[] {
   const settings = db().settings as { alertChannels?: AlertChannel[] };
   settings.alertChannels ??= [];
-  if (migrateLegacyChannelSecrets(settings.alertChannels)) flush();
+  // Postgres-backed request paths must not run the legacy migration through
+  // the synchronous compatibility accessors. Delivery performs the same
+  // migration with the async secret API when it actually needs the value.
+  if (!isPostgres() && migrateLegacyChannelSecrets(settings.alertChannels)) flush();
   return settings.alertChannels;
 }
 

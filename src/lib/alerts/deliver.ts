@@ -83,7 +83,7 @@ import {
 import { env, SMTP_FIX } from "@/lib/env";
 import { log } from "@/lib/log";
 import { withTimeout } from "@/lib/timeout";
-import { channelSecret, channelTarget, channelsForRule, channelsOf, findChannel } from "./channels";
+import { channelSecretAsync, channelTargetAsync, channelsForRule, channelsOf, findChannel } from "./channels";
 import {
   resolveWebhookTarget,
   type ResolvedWebhookTarget,
@@ -426,13 +426,13 @@ async function attempt(
     await sendEmail(channel, msg);
     return undefined;
   }
-  if (channel.kind === "slack") return post(channelTarget(channel), JSON.stringify(slackBody(msg)), {});
+  if (channel.kind === "slack") return post(await channelTargetAsync(channel), JSON.stringify(slackBody(msg)), {});
   const body = webhookBody(msg);
-  const secret = channelSecret(channel);
+  const secret = await channelSecretAsync(channel);
   // The signature covers the body, which carries a fresh `sentAt` per attempt;
   // the idempotency key does not change, so it — not the bytes — is what tells
   // a receiver that attempt 2 is the same notification as attempt 1.
-  return post(channelTarget(channel), body, {
+  return post(await channelTargetAsync(channel), body, {
     "X-Zenith-Event": eventName(msg.phase),
     [IDEMPOTENCY_HEADER]: idempotencyKey,
     ...(secret ? { [SIGNATURE_HEADER]: sign(body, secret) } : {}),

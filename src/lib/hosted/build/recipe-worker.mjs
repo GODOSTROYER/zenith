@@ -61,7 +61,8 @@ try {
   const react = typeof pluginModule.default === "function" ? pluginModule.default : pluginModule;
   if (typeof react !== "function") throw new Error("@vitejs/plugin-react did not export a plugin factory.");
 
-  const allow = [path.join(platform, "node_modules")];
+  const modules = path.join(platform, "node_modules");
+  const allow = [fs.realpathSync(modules)];
   const config = recipeInlineConfig({
     root: job.root,
     outDir: job.outDir,

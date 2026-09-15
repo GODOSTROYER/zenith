@@ -7,11 +7,12 @@
  * moves `SecretRecord`s, which are already sealed. That is what makes the
  * Postgres backend safe to add — the database gains rows it cannot open.
  *
- * Every method is synchronous, because every caller of `./index.ts` is:
- * `system.setSecret` runs inside an action, the sandbox provider resolves
- * references inside a deploy, and `GET /api/secrets` lists inside a route. The
- * Postgres backend pays for that with a blocking round trip — see
- * `@/lib/db/pg/sync-rest`, which explains why that is the honest price here.
+ * The compatibility methods remain synchronous for legacy callers that have
+ * not yet been widened. Request/provider paths use the async surface below:
+ * system secret actions, sandbox injection, alert delivery/mutations, and
+ * `GET /api/secrets` no longer need the blocking bridge. Audit/history and a
+ * few older compatibility readers still pay that price until their public
+ * contracts are widened; see `@/lib/db/pg/sync-rest`.
  *
  * Chosen by `ZENITH_STORE`, at call time rather than at import: the file store
  * is the default, a test flips the variable between suites, and the file
@@ -19,8 +20,8 @@
  * all.
  */
 import { env } from "@/lib/env";
-import { FileSecrets } from "./file-backend";
-import { PostgresSecrets } from "./pg-backend";
+import { FileSecrets, FileSecretsAsync } from "./file-backend";
+import { PostgresSecrets, PostgresSecretsAsync } from "./pg-backend";
 
 /** The current sealing scheme. Bumped only if the key derivation changes. */
 export const KEY_VERSION = 1;
@@ -69,6 +70,19 @@ export interface SecretsBackend {
 }
 
 /**
+ * Awaitable storage for request and provider paths. Postgres must use this
+ * surface: a network round trip must never park the Node event loop. The
+ * synchronous interface stays only for file-backed compatibility paths.
+ */
+export interface AsyncSecretsBackend {
+  readonly kind: "file" | "postgres";
+  get(workspaceId: string, ref: string): Promise<SecretRecord | undefined>;
+  list(workspaceId: string): Promise<SecretRecord[]>;
+  put(workspaceId: string, record: SecretRecord): Promise<void>;
+  remove(workspaceId: string, ref: string): Promise<SecretRecord | undefined>;
+}
+
+/**
  * The backend this process stores secrets in.
  *
  * Both are imported, neither is touched until it is asked for something: the
@@ -78,4 +92,9 @@ export interface SecretsBackend {
  */
 export function secretsBackend(): SecretsBackend {
   return env().ZENITH_STORE === "postgres" ? PostgresSecrets : FileSecrets;
+}
+
+/** Select the non-blocking backend for request/provider code. */
+export function asyncSecretsBackend(): AsyncSecretsBackend {
+  return env().ZENITH_STORE === "postgres" ? PostgresSecretsAsync : FileSecretsAsync;
 }

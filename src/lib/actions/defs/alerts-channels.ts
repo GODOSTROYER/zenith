@@ -20,15 +20,15 @@ import {
   SIGNATURE_HEADER,
   channelTable,
   channelHasSecret,
-  channelTarget,
+  channelTargetAsync,
   channelsOf,
   deliverToChannel,
   emailProblem,
   maskTarget,
   messageText,
   scopedChannel,
-  removeChannelSecrets,
-  setChannelCredentials,
+  removeChannelSecretsAsync,
+  setChannelCredentialsAsync,
   type AlertMessage,
   webhookTargetInputProblem,
 } from "@/lib/alerts";
@@ -150,18 +150,24 @@ defineAction<CreateChannel>({
   requiredRole: "admin",
   mutates: true,
   input: CreateChannel,
-  plan(ctx, input) {
+  async plan(ctx, input) {
     const hasSecret = input.kind === "webhook" && !!input.secret?.trim();
     const enabled = input.enabled ?? true;
     const using = rulesUsing(ctx.workspaceId);
-    const duplicate = channelsOf(ctx.workspaceId).find((c) => {
-      if (c.kind !== input.kind) return false;
+    let duplicate: AlertChannel | undefined;
+    for (const c of channelsOf(ctx.workspaceId)) {
+      if (c.kind !== input.kind) continue;
       try {
-        return (c.kind === "email" ? c.target : channelTarget(c)) === input.target.trim();
+        const target = c.kind === "email" ? c.target : await channelTargetAsync(c);
+        if (target === input.target.trim()) {
+          duplicate = c;
+          break;
+        }
       } catch {
-        return false;
+        // A legacy or unreadable credential is not compared during planning;
+        // delivery remains fail-closed until the credential is repaired.
       }
-    });
+    }
 
     return {
       summary: `Deliver this workspace's alerts to ${input.name.trim()} (${input.kind}).`,
@@ -188,7 +194,7 @@ defineAction<CreateChannel>({
             : undefined),
     };
   },
-  execute(ctx, input) {
+  async execute(ctx, input) {
     const problem = targetProblem(input.kind, input.target);
     if (problem) return { ok: false, summary: "That target cannot be used.", error: problem };
     const rawTarget = input.target.trim();
@@ -207,7 +213,7 @@ defineAction<CreateChannel>({
       createdAt: new Date().toISOString(),
     };
     try {
-      setChannelCredentials(
+      await setChannelCredentialsAsync(
         channel,
         {
           ...(input.kind === "webhook" || input.kind === "slack" ? { target: rawTarget } : {}),
@@ -254,7 +260,7 @@ defineAction<UpdateChannel>({
   requiredRole: "admin",
   mutates: true,
   input: UpdateChannel,
-  plan(ctx, input) {
+  async plan(ctx, input) {
     const channel = scopedChannel(ctx.workspaceId, input.channelId);
     const target = input.target?.trim() ?? channel.target;
     const enabled = input.enabled ?? channel.enabled;
@@ -306,7 +312,7 @@ defineAction<UpdateChannel>({
           : undefined),
     };
   },
-  execute(ctx, input) {
+  async execute(ctx, input) {
     const channel = scopedChannel(ctx.workspaceId, input.channelId);
     if (input.secret !== undefined && channel.kind !== "webhook")
       return {
@@ -330,7 +336,8 @@ defineAction<UpdateChannel>({
       credentialUpdate.signing = input.secret.trim() || undefined;
     }
     try {
-      if (Object.keys(credentialUpdate).length) setChannelCredentials(channel, credentialUpdate, ctx.actor.name);
+      if (Object.keys(credentialUpdate).length)
+        await setChannelCredentialsAsync(channel, credentialUpdate, ctx.actor.name);
     } catch (error) {
       return {
         ok: false,
@@ -402,10 +409,10 @@ defineAction<DeleteChannel>({
       requiresApproval: false,
     };
   },
-  execute(ctx, input) {
+  async execute(ctx, input) {
     const channel = scopedChannel(ctx.workspaceId, input.channelId);
     try {
-      removeChannelSecrets(channel);
+      await removeChannelSecretsAsync(channel);
     } catch (error) {
       return {
         ok: false,

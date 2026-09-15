@@ -2,8 +2,8 @@
  * `e2b` — the platform recipe in a disposable remote sandbox.
  *
  * The sequence is fixed and observable: create a sandbox with a timeout, upload
- * the materialized source plus the recipe worker, install the pinned toolchain
- * **inside the sandbox** (never on this host, and never from the submission),
+ * the materialized source plus the recipe worker, verify the pinned toolchain
+ * pre-baked in an immutable template (never install from the submission),
  * run the worker, download `dist/` back, and kill the sandbox in a `finally`
  * whatever happened.
  *
@@ -22,7 +22,7 @@ import path from "node:path";
 import type { Availability, BuildLogLine, BuildRequest, BuildResult, BuildRunner, BuildRunnerId } from "@/lib/hosted/contracts";
 import { hostedConfig } from "@/lib/hosted/config";
 import { log } from "@/lib/log";
-import { RECIPE_INSTALL_ARGS, recipeWorkerPath, type RecipeWorkerResult } from "./recipe";
+import { RECIPE_V1, recipeWorkerPath, type RecipeWorkerResult } from "./recipe";
 import { removeMaterialized } from "@/lib/hosted/source";
 import { LogSink, buildResult } from "./runner-support";
 
@@ -49,17 +49,23 @@ export interface RecipeSandbox {
 }
 
 /** How a sandbox is obtained. The default asks the real SDK; tests pass a double. */
-export type SandboxFactory = (opts: { apiKey: string; timeoutMs: number }) => Promise<RecipeSandbox>;
+export type SandboxFactory = (opts: {
+  apiKey: string;
+  timeoutMs: number;
+  template: string;
+  allowInternetAccess: false;
+}) => Promise<RecipeSandbox>;
 
 /**
  * The real factory: `Sandbox.create` from the `e2b` SDK, imported at call time.
- * `allowInternetAccess` stays on because `npm install` of the pinned toolchain
- * happens inside the sandbox; restricting egress to the registry is a provider
- * configuration this repository has not been able to verify live.
+ * The template is immutable and contains the pinned recipe toolchain. The
+ * build never installs packages from the submitted source, and internet access
+ * is explicitly disabled for the sandbox. Provider-side enforcement still has
+ * to be proven in a disposable live lane.
  */
-export const defaultSandboxFactory: SandboxFactory = async ({ apiKey, timeoutMs }) => {
+export const defaultSandboxFactory: SandboxFactory = async ({ apiKey, timeoutMs, template, allowInternetAccess }) => {
   const { Sandbox } = await import("e2b");
-  const sandbox = await Sandbox.create({ apiKey, timeoutMs });
+  const sandbox = await Sandbox.create({ apiKey, timeoutMs, template, allowInternetAccess });
   return sandbox as unknown as RecipeSandbox;
 };
 
@@ -78,7 +84,7 @@ export class E2bRunner implements BuildRunner {
   readonly id: BuildRunnerId = "e2b";
   readonly label = "Platform recipe in an E2B sandbox";
   readonly boundary =
-    "Runs the platform's Vite recipe inside a disposable remote E2B sandbox, created for this build and killed when it ends. No submitted script or config is executed. The sandbox's network egress policy and its teardown are provider behaviours and are unverified live in this repository.";
+    "Runs the platform's Vite recipe inside a disposable remote E2B sandbox from an immutable, pre-pinned template with internet access disabled, then kills it when the build ends. No submitted script or config is executed. Provider-side egress and teardown remain unverified live in this repository.";
 
   private readonly createSandbox: SandboxFactory;
   private readonly workerPath: string;
@@ -111,6 +117,12 @@ export class E2bRunner implements BuildRunner {
         reason: `The recipe worker or its config module is not on disk (${this.workerPath}).`,
         fix: "Ship src/lib/hosted/build/recipe-worker.mjs and recipe-config.mjs beside the server.",
       };
+    if (!hostedConfig().ZENITH_E2B_TEMPLATE)
+      return {
+        available: false,
+        reason: "ZENITH_E2B_TEMPLATE is not set, so the runner cannot select an immutable toolchain image.",
+        fix: "Build and attest a template containing the pinned recipe toolchain, then set ZENITH_E2B_TEMPLATE to its immutable tag.",
+      };
     return { available: true };
   }
 
@@ -131,6 +143,8 @@ export class E2bRunner implements BuildRunner {
       sandbox = await this.createSandbox({
         apiKey: process.env.E2B_API_KEY ?? "",
         timeoutMs: req.limits.timeoutMs,
+        template: hostedConfig().ZENITH_E2B_TEMPLATE!,
+        allowInternetAccess: false,
       });
       note("info", `Sandbox ${sandbox.sandboxId} created for job ${req.jobId}.`);
       if (signal.aborted) return done({ ok: false, error: "The build was cancelled before the sandbox was used." });
@@ -153,16 +167,23 @@ export class E2bRunner implements BuildRunner {
       ]);
       note("info", `Uploaded ${req.source.files.length} source files and the recipe worker.`);
 
-      const install = await sandbox.commands.run(`npm ${RECIPE_INSTALL_ARGS.join(" ")}`, {
+      const expected = JSON.stringify({
+        vite: RECIPE_V1.vite,
+        "@vitejs/plugin-react": RECIPE_V1.pluginReact,
+        react: RECIPE_V1.react,
+        "react-dom": RECIPE_V1.react,
+      });
+      const check = `const expected=${expected}; for (const [name, version] of Object.entries(expected)) { const pkg=require(require.resolve(name + "/package.json", { paths: ["${SANDBOX_ROOT}"] })); if (pkg.version !== version) throw new Error(name + "@" + pkg.version + " is not pinned to " + version); }`;
+      const toolchain = await sandbox.commands.run(`node -e ${JSON.stringify(check)}`, {
         cwd: SANDBOX_ROOT,
         timeoutMs: req.limits.timeoutMs,
         onStdout: (d) => note("stdout", d),
         onStderr: (d) => note("stderr", d),
       });
-      if (install.exitCode !== 0)
+      if (toolchain.exitCode !== 0)
         return done({
           ok: false,
-          error: `Installing the pinned toolchain in the sandbox failed with exit code ${install.exitCode}. This is the platform recipe, not the submission's dependencies.`,
+          error: `The immutable E2B template does not contain the pinned recipe toolchain (exit code ${toolchain.exitCode}). No package installation was attempted.`,
         });
 
       const worker = await sandbox.commands.run(

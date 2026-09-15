@@ -11,7 +11,7 @@
  * `configured: false` plus the reason and the fix, so a surface can say so
  * plainly instead of showing an empty list that looks like "no secrets yet".
  */
-import { listSecrets, secretStoreState } from "@/lib/secrets";
+import { listSecretsAsync, secretStoreState } from "@/lib/secrets";
 import { ApiError, requireWorkspace, resolveActor, route } from "@/lib/server/context";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +36,7 @@ export const GET = route(async (req) => {
     // Each row carries `exists: true` explicitly: a consumer should never have
     // to infer presence from membership in a list it might have filtered.
     secrets: state.configured
-      ? listSecrets(workspace.id).map((meta) => ({ ...meta, exists: true as const }))
+      ? (await listSecretsAsync(workspace.id)).map((meta) => ({ ...meta, exists: true as const }))
       : [],
   };
 });

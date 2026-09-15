@@ -294,6 +294,15 @@ describe("the recipe itself", () => {
     ]);
   });
 
+  it("resolves a symlinked platform dependency tree before enforcing module origin", async () => {
+    const root = path.join(DATA, "platform-link");
+    const target = path.join(DATA, "real-node-modules");
+    fs.mkdirSync(target, { recursive: true });
+    fs.mkdirSync(root, { recursive: true });
+    fs.symlinkSync(target, path.join(root, "node_modules"), "dir");
+    expect(build.recipeAllowedReads(root)).toEqual([fs.realpathSync(target)]);
+  });
+
   it("reproduces the pinned toolchain in one install line", async () => {
     expect(build.RECIPE_INSTALL_ARGS).toContain(`vite@${contracts.RECIPE_V1.vite}`);
     expect(build.RECIPE_INSTALL_ARGS).toContain(`@vitejs/plugin-react@${contracts.RECIPE_V1.pluginReact}`);

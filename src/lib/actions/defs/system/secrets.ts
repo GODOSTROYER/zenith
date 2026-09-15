@@ -16,9 +16,9 @@ import {
 import {
   isVaultRef,
   parseVaultRef,
-  putSecret,
-  removeSecret as removeStoredSecret,
-  secretStatus,
+  putSecretAsync,
+  removeSecretAsync,
+  secretStatusAsync,
   secretStoreState,
   vaultRef,
 } from "@/lib/secrets";
@@ -183,10 +183,10 @@ const SCOPED_NOTE =
   "To share one value between services, pass that service's secretRef explicitly instead of letting Zenith generate one.";
 
 /** How a plan describes what the store currently holds at a reference. */
-function heldLine(ctx: ActionContext, ref: string): string {
+async function heldLine(ctx: ActionContext, ref: string): Promise<string> {
   if (!isOurs(ref))
     return `${ref} is not Zenith's to resolve — your provider reads it at deploy time. Zenith only records the name.`;
-  const held = secretStatus(ctx.workspaceId, ref);
+  const held = await secretStatusAsync(ctx.workspaceId, ref);
   return held.exists
     ? `The store already holds a value for ${ref} (v${held.version}, updated ${held.updatedAt} by ${held.updatedBy}). Applying this points at it; the value itself is unchanged.`
     : `Nothing is stored at ${ref} yet. Add the value in the same step, or with system.rotateSecret, before you deploy — a service whose secret is missing starts without it.`;
@@ -226,7 +226,7 @@ manifestAction<SetSecret>({
   title: "Set secret",
   risk: "low",
   input: SetSecret,
-  build(project, input, ctx) {
+  async build(project, input, ctx) {
     const next = clone(project.workingManifest);
     const service = requireService(next, input.serviceId);
     const { ref, source } = resolveRef(project, service, input.key, input.secretRef);
@@ -309,7 +309,7 @@ manifestAction<SetSecret>({
           `Revisions already recorded still contain the plaintext — this cannot change the past. Rotate the credential at its source if it has been exposed.`,
           REDEPLOY_NOTE,
         ],
-        apply: () => putSecret(ctx.workspaceId, ref, plaintext, ctx.actor.name),
+        apply: async () => { await putSecretAsync(ctx.workspaceId, ref, plaintext, ctx.actor.name); },
         data: { serviceId: service.id, secretRef: ref },
       };
     }
@@ -334,7 +334,7 @@ manifestAction<SetSecret>({
             `Drop secretRef to store the value at ${generated}, or put it in ${ref} yourself and run this action with secretRef and no value.`,
         };
 
-      const held = secretStatus(ctx.workspaceId, ref);
+      const held = await secretStatusAsync(ctx.workspaceId, ref);
       const value = input.secretValue;
       point();
       const shared = others();
@@ -359,7 +359,7 @@ manifestAction<SetSecret>({
             : []),
           REDEPLOY_NOTE,
         ],
-        apply: () => putSecret(ctx.workspaceId, ref, value, ctx.actor.name),
+        apply: async () => { await putSecretAsync(ctx.workspaceId, ref, value, ctx.actor.name); },
         data: { serviceId: service.id, secretRef: ref },
       };
     }
@@ -384,7 +384,7 @@ manifestAction<SetSecret>({
       details: [
         `The manifest records only the reference ${ref}. No value is written to the manifest, the diff, the audit log or an export bundle.`,
         refLine(),
-        heldLine(ctx, ref),
+        await heldLine(ctx, ref),
         ...(shared.length
           ? [
               `${listConsumers(shared)} read the same reference, so ${service.name}.${input.key} shares one value with ${shared.length === 1 ? "it" : "them"} — rotating it changes what they all read.`,
@@ -446,7 +446,7 @@ defineAction<RotateSecret>({
   requiredRole: "editor",
   mutates: true,
   input: RotateSecret,
-  plan(ctx, input) {
+  async plan(ctx, input) {
     const project = requireProject(ctx, input.projectId);
     const ref = requireRef(project, input);
     const store = secretStoreState();
@@ -467,7 +467,7 @@ defineAction<RotateSecret>({
           `${ref} is not held by Zenith — it names a value in your own secret manager, which Zenith cannot write to. ` +
           `Rotate it there, then redeploy so the services pick it up.`,
       };
-    const held = secretStatus(ctx.workspaceId, ref);
+    const held = await secretStatusAsync(ctx.workspaceId, ref);
     if (!held.exists)
       return {
         ...base,
@@ -504,7 +504,7 @@ defineAction<RotateSecret>({
       ],
     };
   },
-  execute(ctx, input) {
+  async execute(ctx, input) {
     const project = requireProject(ctx, input.projectId);
     const ref = requireRef(project, input);
     const store = secretStoreState();
@@ -516,14 +516,14 @@ defineAction<RotateSecret>({
         summary: "The secret was not rotated.",
         error: `${ref} lives in your own secret manager. Rotate it there, then redeploy.`,
       };
-    if (!secretStatus(ctx.workspaceId, ref).exists)
+    if (!(await secretStatusAsync(ctx.workspaceId, ref)).exists)
       return {
         ok: false,
         summary: "The secret was not rotated.",
         error: `Nothing is stored at ${ref}. Set the first value with system.setSecret.`,
       };
 
-    const meta = putSecret(ctx.workspaceId, ref, input.secretValue, ctx.actor.name);
+    const meta = await putSecretAsync(ctx.workspaceId, ref, input.secretValue, ctx.actor.name);
     return {
       ok: true,
       summary: `${ref} is now v${meta.version}. ${REDEPLOY_NOTE}`,
@@ -546,7 +546,7 @@ manifestAction<RemoveSecret>({
   title: "Remove secret",
   risk: "medium",
   input: RemoveSecret,
-  build(project, input, ctx) {
+  async build(project, input, ctx) {
     const next = clone(project.workingManifest);
     const service = requireService(next, input.serviceId);
     const entry = service.env.find((e) => e.key === input.key);
@@ -560,7 +560,7 @@ manifestAction<RemoveSecret>({
       );
 
     const ref = entry.secretRef;
-    const held = isOurs(ref) ? secretStatus(ctx.workspaceId, ref) : { exists: false as const, ref };
+    const held = isOurs(ref) ? await secretStatusAsync(ctx.workspaceId, ref) : { exists: false as const, ref };
     service.env = service.env.filter((e) => e.key !== input.key);
 
     /*
@@ -615,7 +615,9 @@ manifestAction<RemoveSecret>({
           : []),
       ],
       apply:
-        isOurs(ref) && !keepsValue ? () => void removeStoredSecret(ctx.workspaceId, ref) : undefined,
+        isOurs(ref) && !keepsValue
+          ? async () => { await removeSecretAsync(ctx.workspaceId, ref); }
+          : undefined,
       data: { serviceId: service.id, secretRef: ref, valueKept: keepsValue },
     };
   },

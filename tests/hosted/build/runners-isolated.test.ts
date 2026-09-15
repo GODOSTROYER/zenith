@@ -30,6 +30,7 @@ beforeAll(async () => {
 afterEach(async () => {
   delete process.env.ZENITH_BUILD_RUNNER;
   delete process.env.E2B_API_KEY;
+  delete process.env.ZENITH_E2B_TEMPLATE;
 });
 
 afterAll(() => removeDir(DATA));
@@ -88,8 +89,8 @@ function fakeSandbox(behaviour: { installExit?: number; workerExit?: number; res
       async run(cmd, opts) {
         calls.push({ name: "commands.run", detail: cmd });
         opts?.onStdout?.(`running ${cmd.slice(0, 20)}\n`);
-        const isInstall = cmd.startsWith("npm install");
-        const exitCode = isInstall ? behaviour.installExit ?? 0 : behaviour.workerExit ?? 0;
+        const isToolchainCheck = cmd.startsWith("node -e");
+        const exitCode = isToolchainCheck ? behaviour.installExit ?? 0 : behaviour.workerExit ?? 0;
         return { exitCode, stdout: "", stderr: "" };
       },
     },
@@ -121,7 +122,16 @@ describe("E2bRunner availability", () => {
   it("is available with both the selection and the key", async () => {
     process.env.ZENITH_BUILD_RUNNER = "e2b";
     process.env.E2B_API_KEY = "e2b_test_key";
+    process.env.ZENITH_E2B_TEMPLATE = "zenith-recipe-v1:sha256:fixture";
     expect(await new build.E2bRunner().availability()).toEqual({ available: true });
+  });
+
+  it("refuses without an immutable template", async () => {
+    process.env.ZENITH_BUILD_RUNNER = "e2b";
+    process.env.E2B_API_KEY = "e2b_test_key";
+    const availability = await new build.E2bRunner().availability();
+    expect(availability.available).toBe(false);
+    expect(availability.reason).toContain("ZENITH_E2B_TEMPLATE");
   });
 
   it("says its boundary is unverified live", async () => {
@@ -134,6 +144,7 @@ describe("E2bRunner call sequence", () => {
   it("creates, uploads, installs the platform toolchain, runs the worker, downloads and kills", async () => {
     process.env.ZENITH_BUILD_RUNNER = "e2b";
     process.env.E2B_API_KEY = "e2b_test_key";
+    process.env.ZENITH_E2B_TEMPLATE = "zenith-recipe-v1:sha256:fixture";
     const { sandbox, calls, written } = fakeSandbox();
     const runner = new build.E2bRunner({ createSandbox: async () => sandbox });
     const result = await runner.run(request(), new AbortController().signal);
@@ -154,9 +165,10 @@ describe("E2bRunner call sequence", () => {
     ]);
 
     const [install, worker] = calls.filter((c) => c.name === "commands.run");
-    expect(install?.detail).toContain("npm install --no-audit --no-fund");
-    expect(install?.detail).toContain(`vite@${contracts.RECIPE_V1.vite}`);
-    expect(install?.detail).toContain(`react@${contracts.RECIPE_V1.react}`);
+    expect(install?.detail).toContain("node -e");
+    expect(install?.detail).not.toContain("npm install");
+    expect(install?.detail).toContain(contracts.RECIPE_V1.vite);
+    expect(install?.detail).toContain(contracts.RECIPE_V1.react);
     expect(worker?.detail).toContain("recipe-worker.mjs");
 
     // The worker and its config module travel with the source; nothing from the
@@ -180,19 +192,21 @@ describe("E2bRunner call sequence", () => {
   it("kills the sandbox when the install fails", async () => {
     process.env.ZENITH_BUILD_RUNNER = "e2b";
     process.env.E2B_API_KEY = "e2b_test_key";
+    process.env.ZENITH_E2B_TEMPLATE = "zenith-recipe-v1:sha256:fixture";
     const { sandbox, calls } = fakeSandbox({ installExit: 1 });
     const result = await new build.E2bRunner({ createSandbox: async () => sandbox }).run(
       request(),
       new AbortController().signal
     );
     expect(result.ok).toBe(false);
-    expect(result.error).toContain("pinned toolchain");
+    expect(result.error).toContain("pinned recipe toolchain");
     expect(calls.at(-1)?.name).toBe("kill");
   });
 
   it("kills the sandbox when the worker throws", async () => {
     process.env.ZENITH_BUILD_RUNNER = "e2b";
     process.env.E2B_API_KEY = "e2b_test_key";
+    process.env.ZENITH_E2B_TEMPLATE = "zenith-recipe-v1:sha256:fixture";
     const { sandbox, calls } = fakeSandbox();
     sandbox.commands.run = async () => {
       throw new Error("sandbox went away");
@@ -209,6 +223,7 @@ describe("E2bRunner call sequence", () => {
   it("refuses a build whose sandbox result says it failed", async () => {
     process.env.ZENITH_BUILD_RUNNER = "e2b";
     process.env.E2B_API_KEY = "e2b_test_key";
+    process.env.ZENITH_E2B_TEMPLATE = "zenith-recipe-v1:sha256:fixture";
     const { sandbox } = fakeSandbox({ result: { ok: false, error: "esbuild: Unexpected token" } });
     const result = await new build.E2bRunner({ createSandbox: async () => sandbox }).run(
       request(),
@@ -221,6 +236,7 @@ describe("E2bRunner call sequence", () => {
   it("refuses output that has no index.html", async () => {
     process.env.ZENITH_BUILD_RUNNER = "e2b";
     process.env.E2B_API_KEY = "e2b_test_key";
+    process.env.ZENITH_E2B_TEMPLATE = "zenith-recipe-v1:sha256:fixture";
     const { sandbox } = fakeSandbox({ distFiles: { "assets/only.js": "x" } });
     const result = await new build.E2bRunner({ createSandbox: async () => sandbox }).run(
       request(),

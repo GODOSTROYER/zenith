@@ -34,6 +34,7 @@ const {
   evaluateAll,
   flushDeliveries,
   maskTarget,
+  migrateLegacyChannelSecretsAsync,
   publicChannels,
   sign,
   setChannelCredentials,
@@ -330,6 +331,23 @@ describe("which channels a rule uses", () => {
     expect(stored.secret).toBeUndefined();
     expect(stored.secretRef).toBe("vault:alert-channel/legacy/SIGNING_SECRET");
     expect(readSecretValue("ws1", stored.secretRef!)).toBe("legacy-key");
+  });
+
+  it("rehearses the explicit async legacy migration without using the blocking bridge", async () => {
+    const legacy = fixtures.channelData({
+      id: "legacy-async",
+      kind: "webhook",
+      target: "https://alerts.example.test/hooks/legacy-token",
+      secret: "legacy-signing",
+    });
+    const report = await migrateLegacyChannelSecretsAsync([legacy]);
+    const stored = legacy as AlertChannel & { secretRef?: string; targetSecretRef?: string };
+    expect(report).toEqual({ inspected: 1, migrated: 1, unchanged: 0 });
+    expect(stored.secret).toBeUndefined();
+    expect(stored.secretRef).toBe("vault:alert-channel/legacy-async/SIGNING_SECRET");
+    expect(stored.targetSecretRef).toBe("vault:alert-channel/legacy-async/TARGET_URL");
+    expect(readSecretValue("ws1", stored.secretRef!)).toBe("legacy-signing");
+    expect(readSecretValue("ws1", stored.targetSecretRef!)).toBe("https://alerts.example.test/hooks/legacy-token");
   });
 
   it("keeps alert metadata readable when an encrypted reference cannot be opened", () => {

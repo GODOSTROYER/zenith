@@ -15,12 +15,13 @@
  * measured in kilobytes and is the wrong shape for a table. `get` is a primary
  * key lookup and `list` is one filtered select.
  *
- * Every call blocks the calling thread for one round trip — see
- * `@/lib/db/pg/sync-rest` for why a synchronous interface over a network
- * database is the honest price here rather than a trick.
+ * The compatibility object below blocks the calling thread for one round trip
+ * — see `@/lib/db/pg/sync-rest`. Request/provider code must use
+ * `PostgresSecretsAsync`, which is defined beside it and never parks the
+ * event loop.
  */
-import { eq, restSync } from "@/lib/db/pg/sync-rest";
-import type { SecretRecord, SecretsBackend } from "./backend";
+import { eq, restAsync, restSync } from "@/lib/db/pg/sync-rest";
+import type { AsyncSecretsBackend, SecretRecord, SecretsBackend } from "./backend";
 
 const TABLE = "secrets";
 
@@ -114,6 +115,57 @@ export const PostgresSecrets: SecretsBackend = {
   /** One round trip: PostgREST hands back what it deleted. */
   remove(workspaceId, ref) {
     const { rows } = restSync({
+      method: "DELETE",
+      table: TABLE,
+      op: "delete from",
+      path: `${TABLE}?${key(workspaceId, ref)}`,
+      prefer: "return=representation",
+    });
+    return rows.length > 0 ? fromRow(rows[0]) : undefined;
+  },
+};
+
+/**
+ * Non-blocking Postgres secret backend. Keep this beside the compatibility
+ * backend so a caller cannot accidentally select the worker-thread bridge for
+ * a request path that can await.
+ */
+export const PostgresSecretsAsync: AsyncSecretsBackend = {
+  kind: "postgres",
+
+  async get(workspaceId, ref) {
+    const { rows } = await restAsync({
+      method: "GET",
+      table: TABLE,
+      op: "read",
+      path: `${TABLE}?select=*&${key(workspaceId, ref)}&limit=1`,
+    });
+    return rows.length > 0 ? fromRow(rows[0]) : undefined;
+  },
+
+  async list(workspaceId) {
+    const { rows } = await restAsync({
+      method: "GET",
+      table: TABLE,
+      op: "read",
+      path: `${TABLE}?select=*&${eq("workspace_id", workspaceId)}`,
+    });
+    return rows.map(fromRow);
+  },
+
+  async put(workspaceId, record) {
+    await restAsync({
+      method: "POST",
+      table: TABLE,
+      op: "write",
+      path: `${TABLE}?on_conflict=workspace_id,ref`,
+      body: [toRow(workspaceId, record)],
+      prefer: "resolution=merge-duplicates,return=minimal",
+    });
+  },
+
+  async remove(workspaceId, ref) {
+    const { rows } = await restAsync({
       method: "DELETE",
       table: TABLE,
       op: "delete from",

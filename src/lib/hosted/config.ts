@@ -41,6 +41,8 @@ const Schema = z.object({
   ZENITH_RUNTIME: z.enum(["local", "cloudflare"]).default("local"),
   /** Which build runner may run. `none` refuses every build and says why. */
   ZENITH_BUILD_RUNNER: z.enum(["none", "recipe-local", "e2b", "docker"]).default("none"),
+  /** Immutable E2B template tag containing the pinned recipe toolchain. */
+  ZENITH_E2B_TEMPLATE: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/).optional(),
   ZENITH_ARTIFACT_DIR: z.string().min(1).optional(),
   /** Object-storage bucket published artifacts live in when the store is not local disk. */
   ZENITH_ARTIFACT_BUCKET: z.string().default("zenith-artifacts"),

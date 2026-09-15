@@ -12,6 +12,9 @@ a claim that Zenith is production-ready in every backend.
 | Fence agent-operation finalization against operation expiry, durable OAuth grants, and application authority | `5455a52` (on top of `6bc2e21`) | Coordinator/journal, membership, grant, account-delete, and hosted access tests pass; supported single-writer mutation paths share the gate |
 | Store alert signing keys and credential-bearing HTTP targets as encrypted secret references with compensating rotation | `5455a52` (on top of `90a8a87`) | Alert delivery, outbox, bootstrap-redaction, audit masking, rollback, tamper-read, and workspace-isolation tests pass; legacy plaintext delivery fails closed |
 | Bind webhook delivery to the validated DNS address and scope async tenant writes | `5455a52` (on top of `9274b0f`, `fa67fa9`) | Address-pinning, redirect, bounded-response, async body-binding, and tenant-column tests pass |
+| Widen secret-backed request/provider paths to async PostgREST and add explicit alert-secret migration | working tree (pending commit) | Async secret route/actions/provider/alert delivery tests pass; `npm run migrate:alert-secrets -- --dry-run` is safe by default and `--apply` requires an explicit operator action |
+| Require a pinned E2B template with no runtime package installation | working tree (pending commit) | E2B isolated runner tests pass 17/17; template selection is fail-closed and toolchain versions are checked inside the template |
+| Enforce plugin provenance at the runtime consumption boundary | `61568b6` plus generated outputs (pending commit) | Plugin verify passes 143 tests/2 skips; the generated runtime fails closed when the trusted launcher enables the signed Ed25519 gate |
 
 The initial blanket mixed-store guard was implemented experimentally and then
 reverted after independent review showed it would reject the repository's
@@ -22,12 +25,15 @@ current branch intentionally preserves the existing independent selectors.
 
 - Focused hardening suite (serial, no file parallelism): **282/282 passed** across 20 alert, action, secret, hosted-access, agent-control, redaction, and async-repository files.
 - Final regression set after independent review: **57/57 passed** across alert delivery, account deletion, agent-control coordinator, and async-repository tests.
+- Resumed async/E2B/UI bundle: **96/96 passed** across alert delivery, recipe-local/E2B runners, secret contract, client stream/poll fallback, and workbench controls; E2B isolated suite **17/17 passed**.
+- Hosted acceptance: **22/22 checks passed** through publish, invite, browser-facing gateway, conflict, backup, revoke, restore, and post-restore denial.
+- Hosted browser gate: **blocked with exit 2 because Chrome/Edge is not installed**; the script fails closed rather than reporting a skipped browser result.
 - `npm run typecheck`: passed.
 - `npm run lint`: passed.
 - `git diff --check`: passed.
 - `npm run build`: compiled successfully; Next emitted the existing `module.createRequire failed parsing argument` warnings for hosted build recipe imports.
 - `npm run test:contract`: 36 executed, 15 skipped.
-- Companion plugin `npm run verify`: 141 tests passed, 2 platform skips; typecheck, build, contracts, and integrity checks passed.
+- Companion plugin `npm run verify`: **143 tests passed, 2 platform skips**; typecheck, build, contracts, and integrity checks passed.
 
 ## Partial / release blockers
 
@@ -38,19 +44,25 @@ current branch intentionally preserves the existing independent selectors.
   bodies. No live metadata probing was performed. Legacy plaintext rows require
   `ZENITH_SECRET_KEY` for migration and are not deliverable while the key is
   unavailable.
-- Publisher-authenticated plugin provenance: **partial**. The companion plugin
-  now has an external Ed25519 envelope, trust allowlist, artifact binding, and
-  fail-closed verification tests. The consuming installer/marketplace execution
-  boundary has not yet been wired to require verification, so unsigned or
-  untrusted releases are not yet blocked in production.
-- E2B frozen dependency/egress policy: not implemented. Existing isolated E2B
-  tests passed 16; live provider behavior remains unverified.
-- UI routing/accessibility/polling changes: not implemented. Browser service
-  and the current jsdom setup blocked a verified change.
-- `sync-rest` async replacement: **partial**. Audit/event repository access uses
-  awaited PostgREST paths and tenant-scoped writes now bind the body tenant;
-  secret backend access still uses the blocking bridge and remaining callers
-  must be audited before hosted concurrency is production-safe.
+- Publisher-authenticated plugin provenance: **runtime gate implemented; release
+  activation still external**. The generated package checks the signed Ed25519
+  envelope and exact package bytes before MCP/control startup when the trusted
+  launcher supplies `ZENITH_REQUIRE_PROVENANCE=1` plus absolute manifest/trust
+  paths. A publisher key, installer wiring, and marketplace live install are
+  not available in this workspace.
+- E2B frozen dependency/egress policy: **local policy implemented; live gate
+  open**. E2B now refuses missing immutable templates, performs no package
+  installation, checks the pinned recipe versions, disables sandbox internet
+  access, and always tears down the sandbox. Provider-side egress, controller
+  access, terms, and live teardown remain unverified.
+- UI routing/accessibility/polling: **source/test gate passed; live browser
+  gate open**. Stream fallback, polling/backoff, route switching, and
+  workbench controls pass the resumed 96-test bundle. The repository browser
+  journey could not run because neither Chrome nor Edge is installed.
+- `sync-rest` async replacement: **substantially widened; compatibility bridge
+  remains**. Secret route/actions/provider/alert delivery and mutation planning
+  use awaited backend APIs; audit/history and older synchronous compatibility
+  readers still use the bridge and require a separate contract-widening slice.
 - Agent-control finalization fence: **bounded slice implemented**. Durable grant
   revocation, operation expiry, application membership/app-role digests, and
   account/grant/member mutation paths are fenced by the single-writer gate;
@@ -64,17 +76,18 @@ current branch intentionally preserves the existing independent selectors.
 The branch is suitable only as a **draft** application PR for review of the
 tested hardening slices and architecture record. It does not authorize
 production cutover, destructive migration, secret rotation, package
-publishing, or enabling PostgreSQL agent-control writes. Legacy secret
-migration, the remaining synchronous secret path, installer-bound provenance,
-E2B live egress/teardown, UI behavior, live webhook probing, and hosted
+publishing, or enabling PostgreSQL agent-control writes. Live legacy-secret
+migration against a representative Postgres database, the remaining
+audit/history synchronous bridge, publisher-key/installer activation, E2B live
+egress/teardown, a real browser binary, live webhook probing, and hosted
 migration evidence remain open. Preserving independent selectors does not
 prove cross-authority atomicity or that either backend is durable under every
 hosted failure.
 
 The companion plugin provenance work is tracked in the draft PR
-`GODOSTROYER/Zenith-plugins#6`. It is intentionally not a production approval
-for the plugin installer until verification is enforced at that consumption
-boundary.
+`GODOSTROYER/Zenith-plugins#6`. Its runtime gate is implemented, but it is not
+production approval until a trusted installer supplies the external publisher
+manifest/trust configuration and a live marketplace installation is verified.
 
 ## Rollback
 

@@ -62,7 +62,14 @@ export const recipeWorkerPath = (root: string = platformRoot()): string =>
   path.join(root, ...RECIPE_WORKER_RELATIVE.split("/"));
 
 /** The platform directories a build may read besides the source root. */
-export const recipeAllowedReads = (root: string = platformRoot()): string[] => [path.join(root, "node_modules")];
+export const recipeAllowedReads = (root: string = platformRoot()): string[] => {
+  const modules = path.join(root, "node_modules");
+  try {
+    return [fs.realpathSync(modules)];
+  } catch {
+    return [modules];
+  }
+};
 
 /** Which of the recipe's packages this machine cannot resolve, and where it looked. */
 export function missingRecipePackages(root: string = platformRoot()): string[] {

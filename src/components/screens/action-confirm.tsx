@@ -179,6 +179,8 @@ export function ActionConfirm({
         kind: result.ok ? "ok" : "err",
         title: result.summary,
         body: result.ok ? undefined : result.error,
+        // so the notification leads to the trail of the project it changed
+        projectId: scope?.projectId,
       });
       if (result.ok) {
         // The thing on screen behind this dialog is now out of date. Refetch
@@ -193,7 +195,7 @@ export function ActionConfirm({
     } catch (e) {
       setError(e);
       const { message, fix } = errorText(e);
-      toasts.push({ kind: "err", title: message, body: fix });
+      toasts.push({ kind: "err", title: message, body: fix, projectId: scope?.projectId });
     } finally {
       setBusy(false);
     }

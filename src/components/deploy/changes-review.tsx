@@ -146,7 +146,12 @@ export function ChangesReview({ changeset, onDeployed }: ChangesReviewProps) {
         return;
       }
       const id = (result.data as { deploymentId?: string } | undefined)?.deploymentId;
-      toasts.push({ title: result.summary, kind: "ok" });
+      toasts.push({
+        title: result.summary,
+        kind: "ok",
+        projectId: project.id,
+        projectSlug: project.slug,
+      });
       refresh();
       if (id) onDeployed(id);
     } catch (err) {

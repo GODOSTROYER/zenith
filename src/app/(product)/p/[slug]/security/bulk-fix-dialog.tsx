@@ -93,6 +93,7 @@ export function BulkFixDialog({
       }
       const stopped = ran < runnable.length;
       toasts.push({
+        projectId: scope.projectId,
         kind: failures.length === 0 ? "ok" : "err",
         title:
           failures.length > 0
@@ -108,7 +109,7 @@ export function BulkFixDialog({
     } catch (e) {
       setError(e);
       const { message, fix } = errorText(e);
-      toasts.push({ kind: "err", title: message, body: fix });
+      toasts.push({ kind: "err", title: message, body: fix, projectId: scope.projectId });
     } finally {
       setBusy(false);
       setProgress(0);

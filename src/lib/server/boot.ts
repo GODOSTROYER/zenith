@@ -15,6 +15,7 @@ import { replayOutbox, startAlertEvaluator } from "@/lib/alerts";
 import * as security from "@/lib/security/rules";
 import * as logsim from "@/lib/logsim";
 import { claimDataDir } from "@/lib/data-lock";
+import { isPostgres } from "@/lib/db/store";
 import { ensureHosted } from "@/lib/hosted";
 import { env } from "@/lib/env";
 import { log } from "@/lib/log";
@@ -62,9 +63,36 @@ async function boot(): Promise<void> {
   // claim, before anything can read hosted state, and refuses to boot in
   // hosted mode without the inputs it needs. See src/lib/hosted/index.ts.
   ensureHosted();
+  ensureEngine(); // also registers every provider adapter
+  registerAllActions();
+
+  // Everything below reads the product store, and on `ZENITH_STORE=postgres`
+  // a read needs a snapshot that was loaded before the caller ran. Boot has no
+  // caller: it runs before `route()` prefetches anything, and it runs for a
+  // request that has not been authenticated yet — so priming one here would
+  // both be the wrong scope and let an unauthenticated probe make the server
+  // read the whole database, which is exactly what `cronRoute` refuses to do.
+  //
+  // On Postgres the durable catch-up is therefore the scheduler's, not boot's:
+  // `/api/internal/tick/{engine,alerts,outbox,jobs}` check their bearer first
+  // and run inside `inCronScope()`, which holds a real unfiltered snapshot.
+  // Skipping here loses nothing that was working — before the store refused an
+  // unprimed read, these three read the *file store's* graph in Postgres mode,
+  // which is a different authority and holds none of these rows.
+  if (isPostgres()) {
+    log.info("durable catch-up deferred to the scheduler", {
+      scope: "boot",
+      reason: "ZENITH_STORE=postgres; boot holds no store snapshot",
+      passes: ["/api/internal/tick/engine", "/api/internal/tick/alerts", "/api/internal/tick/outbox"],
+    });
+    if (providerRegistry().size === 0)
+      log.warn("no providers registered; provider pickers will be empty", { scope: "boot" });
+    return;
+  }
+
   // Alert deliveries the last process had queued — or was mid-send when it
   // died — are reclaimed and drained. Safe to reclaim every claimed row here
-  // because the line above just proved no other process owns this data
+  // because the data-dir claim above just proved no other process owns this
   // directory. Scheduled rather than awaited, and `unref`'d like the evaluator
   // timer: a webhook that never answers must not hold up boot, keep the process
   // alive, or make the first request wait 30s for a retry ladder to finish.
@@ -74,9 +102,7 @@ async function boot(): Promise<void> {
     );
   }, 0);
   (replay as { unref?: () => void }).unref?.();
-  ensureEngine(); // also registers every provider adapter
   engine.resumeInFlight();
-  registerAllActions();
   // Alert rules are re-derived from durable records, so this both catches up
   // on anything that broke while the server was down and keeps watching after.
   // Unref'd 15s timer; it returns immediately when no rules exist.

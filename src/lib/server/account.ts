@@ -387,6 +387,58 @@ export const accountExportFilename = (user: SessionUser, now = new Date()): stri
 
 /* -------------------------------- deletion -------------------------------- */
 
+/** The one action id every deterministic deletion audit row carries. */
+const REMOVE_MEMBER_ACTION = "workspace.removeMember";
+
+/**
+ * Rows per lookup page, and how many pages one lookup will read.
+ *
+ * The filter is an exact action id, so a page is almost always the whole answer
+ * and the loop ends on the first call; the budget exists because the file
+ * store's reader is byte-bounded per call (1 MiB), so a long log needs several.
+ * 512 of them is ~512 MiB of audit log — far past any real one, and finite, so
+ * a corrupted cursor cannot spin here for ever.
+ */
+const AUDIT_LOOKUP_PAGE = 200;
+const AUDIT_LOOKUP_PAGES = 512;
+
+/**
+ * Is this exact audit row already in the log?
+ *
+ * The deletion path is not atomic on either store — the file batch is a bounded
+ * append and Postgres is several requests — so every row it writes carries a
+ * deterministic `<operationId>:<action>:<workspace>` id and the retry skips the
+ * ones that are already there. That check has to be *exact*: it used to read
+ * `readAudit({ workspaceId })`, which is the newest 500 rows, so a workspace
+ * busy enough to push the row off that page made the reconcile pass re-emit a
+ * row that was already durable — and `FileStore.appendAudit` has no dedupe of
+ * its own (the Postgres append does, via `on_conflict=id`). So this pages the
+ * workspace's log by cursor, filtered to the one action, until it finds the id
+ * or reaches the end of the log.
+ *
+ * Reaching the page budget without an answer is neither "present" nor "absent",
+ * and both guesses are wrong in a way nobody would notice: it throws, which the
+ * caller already handles by rolling the in-memory deletion back and leaving the
+ * journal entry for the next reconcile pass.
+ */
+async function auditRowPresent(workspaceId: string, auditId: string): Promise<boolean> {
+  let cursor: string | undefined;
+  for (let page = 0; page < AUDIT_LOOKUP_PAGES; page++) {
+    const { events, nextCursor } = await readAuditPageAsync({
+      workspaceId,
+      actionId: REMOVE_MEMBER_ACTION,
+      limit: AUDIT_LOOKUP_PAGE,
+      cursor,
+    });
+    if (events.some((event) => event.id === auditId)) return true;
+    if (!nextCursor) return false;
+    cursor = nextCursor;
+  }
+  throw new Error(
+    `Could not establish whether audit row ${auditId} was already written: the log did not end within ${AUDIT_LOOKUP_PAGES} pages. Nothing was changed; retry once the log has been compacted or archived.`
+  );
+}
+
 export interface AccountRemoval {
   /** the workspaces this person was removed from, in store order */
   workspaces: Workspace[];
@@ -434,21 +486,23 @@ export async function removeAccountRecordsAsync(user: SessionUser, operationId =
   const actor: Actor = { type: "user", id: user.id, name: user.name };
   const ts = new Date().toISOString();
   try {
-    const pendingAudits: AuditEvent[] = mine.flatMap((member) => {
+    const pendingAudits: AuditEvent[] = [];
+    for (const member of mine) {
       const ws = d.workspaces.find((w) => w.id === member.workspaceId);
-      const auditId = `${operationId}:workspace.removeMember:${member.workspaceId}`;
-      if (readAudit({ workspaceId: member.workspaceId }).some((event) => event.id === auditId)) return [];
-      return [{
+      const auditId = `${operationId}:${REMOVE_MEMBER_ACTION}:${member.workspaceId}`;
+      // Exact, not "somewhere in the newest page": see `auditRowPresent`.
+      if (await auditRowPresent(member.workspaceId, auditId)) continue;
+      pendingAudits.push({
         ts,
         id: auditId,
         workspaceId: member.workspaceId,
         actor,
-        actionId: "workspace.removeMember",
+        actionId: REMOVE_MEMBER_ACTION,
         input: { memberId: user.id, reason: "account.delete" },
         result: "ok",
         summary: `${user.name} deleted their Zenith account, which ended their ${member.role} membership of ${ws?.name ?? "this workspace"}.`,
-      }];
-    });
+      });
+    }
     if (isPostgres()) {
       for (const event of pendingAudits) await appendAuditAsync(event);
     } else {

@@ -46,37 +46,56 @@
 .workbench-context-evidence { display: flex; align-items: baseline; gap: 3px; margin-left: auto; white-space: nowrap; font-size: 11px; color: var(--ink-faint); }
 .workbench-context-evidence .font-mono { font-size: 12px; color: var(--ink-mute); }
 .workbench-pending { display: flex; gap: 4px; white-space: nowrap; font-size: 12px; color: var(--signal); padding-left: 8px; border-left: 1px solid var(--line); }
+/* The same two numbers as one control, for bars too narrow to spell both out.
+   Hidden on wide screens (where the sentences above are already visible) and
+   the only one of the two that is reachable at any given width, so the cost
+   and the pending count are never simply gone. */
+.workbench-context-anchor { display: none; flex: 0 0 auto; margin-left: auto; }
+.workbench-context-summary { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 2px 7px; border: 1px solid var(--line); border-radius: 3px; white-space: nowrap; font-size: 12px; color: var(--ink-mute); transition: border-color var(--dur-fast) var(--ease-swift), color var(--dur-fast) var(--ease-swift); }
+.workbench-context-summary:hover { border-color: var(--line-strong); color: var(--ink); }
+.workbench-context-summary .font-mono { font-size: 12px; }
+.workbench-context-summary-pending { display: inline-flex; align-items: center; padding-left: 5px; border-left: 1px solid var(--line); color: var(--signal); font-weight: 650; }
 .workbench-project-surface { display: flex; flex-direction: column; height: 100%; min-width: 0; min-height: 0; }
 .workbench-project-surface[data-production="true"] { border-top: 1px solid var(--prod); }
 .workbench-mobile-menu { display: none; flex-shrink: 0; min-width: 36px; min-height: 36px; align-items: center; justify-content: center; border-radius: 3px; color: var(--ink-mute); }
 .workbench-mobile-workspace { margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .workbench-mobile-footer { display: flex; gap: 12px; align-items: center; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+/* Below this the bar cannot spell out both the cost and the pending count, so
+   it trades the two sentences for the compact control carrying the same two
+   numbers — which says the words behind them when opened. */
 @media (max-width: 1190px) {
   .workbench-context-evidence, .workbench-pending { display: none; }
+  .workbench-context-anchor { display: block; }
   .workbench-account { max-width: 125px; }
 }
+/* No rail: the bar carries the project identity alone now, so it is allowed to
+   grow a row rather than squeeze the selects past reading. */
 @media (max-width: 899px) {
   .workbench-rail { display: none; }
   .workbench-mobile-menu { display: inline-flex; }
-  .workbench-context-bar { padding: 0 12px; gap: 6px; }
-  .workbench-project-select { width: clamp(100px, 24vw, 220px); }
+  .workbench-context-bar { flex-wrap: wrap; height: auto; min-height: 56px; padding: 7px 12px; gap: 6px; }
+  .workbench-project-context { flex-wrap: wrap; row-gap: 6px; width: 100%; }
+  .workbench-project-name, .workbench-project-select { flex: 1 1 110px; width: auto; max-width: 230px; }
+  .workbench-environment { flex: 1 1 150px; max-width: 210px; }
+  .workbench-environment-select, .workbench-environment-production .workbench-environment-select { flex: 1 1 auto; width: auto; }
   .workbench-account, .workbench-desktop-theme { display: none; }
   .workbench-tools { gap: 0; }
   .workbench-tools > button:first-child { width: 36px; padding-left: 8px; padding-right: 8px; }
   .workbench-tools > button:first-child > span, .workbench-tools > button:first-child > kbd { display: none; }
 }
+/* Phone width: the project controls take a row of their own under the menu and
+   the tools, and only the decorative separator goes. The production shield and
+   its ring stay — that marker is the point of the row. */
 @media (max-width: 520px) {
-  .workbench-context-bar { padding: 0 8px; gap: 2px; }
-  .workbench-project-context { gap: 2px; }
-  .workbench-project-name, .workbench-project-select { max-width: 110px; width: 26vw; }
-  .workbench-environment-select { width: 96px; }
-  .workbench-environment-production .workbench-environment-select { width: 130px; }
-  .workbench-environment-production > svg, .workbench-context-divider { display: none; }
+  .workbench-context-bar { padding: 7px 8px; gap: 6px; }
+  .workbench-context { order: 2; flex-basis: 100%; }
+  .workbench-project-context { gap: 6px 4px; }
+  .workbench-project-name, .workbench-project-select { max-width: none; }
+  .workbench-environment { max-width: none; }
+  .workbench-context-divider { display: none; }
   .workbench-tools > button { min-width: 32px; width: 32px; padding: 6px; }
 }
 @media (max-width: 380px) {
-  .workbench-project-name, .workbench-project-select { width: 66px; }
-  .workbench-environment-production .workbench-environment-select { width: 110px; }
   .workbench-mobile-menu { min-width: 32px; }
 }
 @media (pointer: coarse) { .workbench-mobile-menu, .workbench-nav-link { min-height: 44px; } }

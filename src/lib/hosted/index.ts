@@ -14,10 +14,13 @@
  */
 import { registerAccessOutboxHandlers } from "@/lib/hosted/access";
 import {
+  authority,
   authorityOpen,
   createPostgresAuthority,
+  flushOutbox,
   installAuthority,
   openAuthority,
+  OUTBOX_LEASE_MS,
   replayOutbox,
 } from "@/lib/hosted/authority";
 import { startHostedJobRunner } from "@/lib/hosted/release";
@@ -25,6 +28,7 @@ import { registerOpsOutboxHandlers } from "@/lib/hosted/usage";
 import { hostedConfig, hostedMode, hostedStoreKind } from "@/lib/hosted/config";
 import { env } from "@/lib/env";
 import { log } from "@/lib/log";
+import { isServerless } from "@/lib/serverless";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 /** `node:sqlite` gained `backup()` and `busy_timeout` handling in 22.16. */
@@ -90,10 +94,31 @@ export function ensureHosted(): void {
   // Effects the previous process left `sending` (an invite email, a ledger
   // append) are reclaimed and drained — after this tick, so a slow transport
   // never holds boot, and unref'd so it never holds the process open.
+  //
+  // `replayOutbox()` reclaims with lease 0 — every row still marked `sending`
+  // — which is correct only because `boot()` has just proved, with
+  // `claimDataDir()`, that this process is the sole writer. That proof does
+  // not exist on the PostgreSQL authority (many instances, one table) and it
+  // is not even attempted on a serverless instance, where `boot()` skips the
+  // claim. In those two cases a row inside its lease may be in flight on
+  // another instance right now, so only expired claims are taken and the drain
+  // is driven directly instead of through the lease-0 helper.
   const replay = setTimeout(() => {
     // A test that closed the authority before this tick fired has nothing to replay.
     if (!authorityOpen()) return;
-    void replayOutbox().catch((err) =>
+    const singleWriter = hostedStoreKind() !== "postgres" && !isServerless();
+    const replayed = singleWriter
+      ? replayOutbox()
+      : (async () => {
+          const reclaimed = await authority().tx((repos) => repos.outbox.reclaimStale(OUTBOX_LEASE_MS));
+          if (reclaimed > 0)
+            log.info("reclaimed hosted outbox rows whose lease had expired", {
+              scope: "hosted.outbox",
+              reclaimed,
+            });
+          return flushOutbox();
+        })();
+    void replayed.catch((err) =>
       log.error("hosted outbox replay failed", { scope: "hosted", error: err })
     );
   }, 0);

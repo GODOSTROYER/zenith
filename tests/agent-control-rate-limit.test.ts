@@ -10,6 +10,29 @@ const who: Principal = {
   scopes: ['read'], expiresAt: '2099-01-01T00:00:00Z',
 };
 
+/**
+ * The on-disk case cannot run on Windows.
+ *
+ * `new DurableRateLimiter(<path>)` refuses any file whose parent directory is
+ * not owned by this uid and not private to it — and the condition names the
+ * platform outright: `process.platform === 'win32'` is one of its disjuncts
+ * (`src/lib/agent-access/control/rate-limit.ts:22-25`), alongside `parent.uid
+ * !== process.getuid!()` and `parent.mode & 0o077`. Windows has neither uids
+ * nor POSIX mode bits, so the constructor throws `rate_limit_permissions`
+ * before the file is opened. That is the guard working, not a bug: agent
+ * control is only supported on a long-lived POSIX host
+ * (`docs/AGENT-CONTROL.md`).
+ *
+ * The `:memory:` cases below are unaffected and still run everywhere.
+ */
+const POSIX_LIMITER_ONLY = process.platform === 'win32';
+if (POSIX_LIMITER_ONLY)
+  console.warn(
+    '\n[agent-control rate limit] 1 test SKIPPED on win32: rate limits require an owned private POSIX directory\n' +
+      '  (src/lib/agent-access/control/rate-limit.ts:22-25 refuses win32 explicitly, and reads process.getuid()).\n' +
+      '  It is not skipped on Linux or macOS, and CI runs it.\n'
+  );
+
 describe('durable agent request throttling', () => {
   it('allows the configured budget and rejects the next request', () => {
     const limiter = new DurableRateLimiter(':memory:');
@@ -20,7 +43,7 @@ describe('durable agent request throttling', () => {
     } finally { limiter.close(); }
   });
 
-  it('persists the accepted budget across process restarts', () => {
+  it.skipIf(POSIX_LIMITER_ONLY)('persists the accepted budget across process restarts', () => {
     const dir = mkdtempSync(join(tmpdir(), 'zenith-rate-limit-'));
     const file = join(dir, 'limits.sqlite');
     const now = 1_700_000_000_000;

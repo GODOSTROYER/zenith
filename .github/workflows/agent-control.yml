@@ -18,11 +18,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      # Same checkout SHA as ci.yml. This file used to pin 11d5960a (v4.2.2)
+      # while ci.yml pinned v4.3.1; two pins for one action is two things to
+      # audit and one of them is always the stale one.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
+          # The exact pin this file already carried, now shared by ci.yml.
           node-version: '22.16.0'
           cache: npm
       - run: npm ci --ignore-scripts

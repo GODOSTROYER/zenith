@@ -14,11 +14,19 @@ interface Step {
   with?: Record<string, unknown>;
 }
 
+interface Service {
+  image?: string;
+  env?: Record<string, unknown>;
+  ports?: unknown;
+  options?: string;
+}
+
 interface Job {
   if?: unknown;
   "continue-on-error"?: unknown;
   permissions?: unknown;
   env?: Record<string, unknown>;
+  services?: Record<string, Service>;
   steps: Step[];
 }
 
@@ -28,21 +36,55 @@ interface Workflow {
   jobs: Record<string, Job>;
 }
 
+/** Read and parse one workflow. Rejects malformed YAML and duplicate keys. */
+const read = (file: string): Workflow =>
+  load(fs.readFileSync(path.join(process.cwd(), ".github/workflows", file), "utf8")) as Workflow;
+
 // Parse YAML, rather than grepping comments or whitespace. This also rejects
 // malformed YAML and duplicate keys before evaluating the release policy.
-const workflow = load(
-  fs.readFileSync(path.join(process.cwd(), ".github/workflows/ci.yml"), "utf8"),
-) as Workflow;
+const workflow = read("ci.yml");
+const agentControl = read("agent-control.yml");
+
+/**
+ * The install line, exactly, in every job that installs.
+ *
+ * `--ignore-scripts` is a supply-chain decision, not a preference: two packages
+ * in this tree declare a `postinstall` (esbuild, unrs-resolver) and both are
+ * no-ops once `optionalDependencies` are present, so nothing is bought by
+ * letting arbitrary dependency code run at install time. Pinned here because a
+ * flag that quietly falls off is indistinguishable from one that was never
+ * there.
+ */
+const INSTALL = "npm ci --ignore-scripts";
+
+/** One Node pin for the whole repository. See the ci.yml header for why this one. */
+const NODE_VERSION = "22.16.0";
+
+/** One checkout pin for the whole repository. */
+const CHECKOUT = "actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5";
 
 const requiredCommands: Record<string, string[]> = {
-  verify: ['"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml', "npm ci", "npm run typecheck", "npm run lint", "npm test", "npm run smoke", "npm run gimbal:verify"],
-  build: ["npm ci", "npm run build"],
+  verify: [
+    '"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml .github/workflows/tick.yml .github/workflows/agent-control.yml',
+    INSTALL,
+    "npm run typecheck",
+    "npm run lint",
+    "npm test",
+    "npm run smoke",
+    "npm run gimbal:verify",
+  ],
+  build: [INSTALL, "npm run build"],
   docker: ["docker build -t zenith:ci ."],
   hosted: [
-    "npm ci",
+    INSTALL,
     "npx vitest run tests/hosted",
     "npx tsx scripts/hosted-acceptance.ts",
     "npx tsx scripts/hosted-browser.ts",
+  ],
+  postgres: [
+    INSTALL,
+    "bash scripts/ci/apply-supabase-migrations.sh",
+    "npx vitest run tests/hosted/authority/contract tests/scripts/migrate-hosted-to-postgres.test.ts --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/postgres-lane.json",
   ],
 };
 
@@ -100,7 +142,7 @@ describe("release gate policy", () => {
       "printf '%s  %s\\n' '8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8' 'actionlint.tar.gz' | sha256sum --check --strict",
       'tar -xzf actionlint.tar.gz -C "$RUNNER_TEMP" actionlint',
     ]);
-    const syntaxGate = steps.findIndex((step) => step.run === '"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml');
+    const syntaxGate = steps.findIndex((step) => step.run?.startsWith('"$RUNNER_TEMP/actionlint"'));
     expect(steps.indexOf(installer)).toBeLessThan(syntaxGate);
   });
 
@@ -167,5 +209,148 @@ describe("release gate policy", () => {
         at("npx tsx scripts/hosted-acceptance.ts")
       );
     });
+  });
+
+  /*
+   * One Node version and one checkout SHA across the repository.
+   *
+   * Before this, `ci.yml` floated on `22` while `agent-control.yml` pinned
+   * `22.16.0`, and the two pinned different `actions/checkout` commits. The
+   * cost of two pins is not the duplication; it is that a merge gate and a
+   * release gate could disagree about what "green" was measured on.
+   */
+  describe("the toolchain pins", () => {
+    const nodeSteps = (w: Workflow): Step[] =>
+      Object.values(w.jobs)
+        .flatMap((job) => job.steps)
+        .filter((step) => step.uses?.startsWith("actions/setup-node@"));
+
+    it("pins one exact Node version in every job that sets one up", () => {
+      const steps = [...nodeSteps(workflow), ...nodeSteps(agentControl)];
+      // Four in ci.yml (verify, postgres, hosted, build) plus agent-control.
+      expect(steps.length).toBeGreaterThanOrEqual(5);
+      for (const step of steps) expect(String(step.with?.["node-version"])).toBe(NODE_VERSION);
+    });
+
+    it("pins one checkout commit in every workflow that checks out", () => {
+      const checkouts = [...Object.values(workflow.jobs), ...Object.values(agentControl.jobs)]
+        .flatMap((job) => job.steps)
+        .filter((step) => step.uses?.startsWith("actions/checkout@"));
+      expect(checkouts.length).toBeGreaterThanOrEqual(5);
+      for (const step of checkouts) {
+        expect(step.uses).toBe(CHECKOUT);
+        expect(step.with?.["persist-credentials"]).toBe(false);
+      }
+    });
+
+    it("installs with --ignore-scripts everywhere, and never with a bare npm ci", () => {
+      const installs = [...Object.values(workflow.jobs), ...Object.values(agentControl.jobs)]
+        .flatMap((job) => job.steps)
+        .map((step) => step.run?.trim() ?? "")
+        .filter((run) => run.startsWith("npm ci"));
+      expect(installs.length).toBeGreaterThanOrEqual(5);
+      for (const run of installs) expect(run).toBe(INSTALL);
+    });
+  });
+
+  /*
+   * The PostgreSQL job (F1).
+   *
+   * It exists because every live contract lane in this repository is gated on
+   * `ZENITH_CONTRACT_POSTGRES` and, unset, disappears without a trace: the
+   * hosted-authority suites are `describe.each` over a factory table whose
+   * Postgres row is simply absent (`tests/hosted/authority/contract/_factories.ts:152`).
+   * A green run that exercised no Postgres looked exactly like one that did.
+   *
+   * These assertions pin the parts that make the job mean something: a real
+   * database, both gating variables, the migrations actually applied, and a
+   * report step that fails when a lane produced zero tests.
+   */
+  describe("the PostgreSQL contract job", () => {
+    const pg = (): Job => workflow.jobs.postgres;
+
+    it("runs unconditionally, and its failure fails CI", () => {
+      expect(pg(), "the workflow must define a `postgres` job").toBeDefined();
+      expect(pg().if).toBeUndefined();
+      expect(pg()["continue-on-error"] ?? false).toBe(false);
+      for (const step of pg().steps)
+        expect(
+          step["continue-on-error"] ?? false,
+          `step ${step.name ?? step.run ?? step.uses} must not continue on error`
+        ).toBe(false);
+    });
+
+    it("brings a real PostgreSQL service container, pinned by digest", () => {
+      const service = pg().services?.postgres;
+      expect(service, "the job must declare a `postgres` service").toBeDefined();
+      // A tag alone would let the database move underneath the assertions.
+      expect(service?.image).toMatch(/^postgres:[\w.-]+@sha256:[a-f0-9]{64}$/);
+      expect(service?.options, "the job must wait on a health check").toContain("pg_isready");
+      expect(service?.ports).toEqual(["5432:5432"]);
+    });
+
+    it("sets both conditions the contract factories require, or the lane is not in the table", () => {
+      // tests/hosted/authority/contract/_factories.ts:79-80 — the flag says you
+      // meant it, the URL says there is something to mean it about.
+      expect(pg().env?.ZENITH_CONTRACT_POSTGRES).toBe("1");
+      expect(String(pg().env?.SUPABASE_DB_URL)).toMatch(/^postgresql:\/\/.+@127\.0\.0\.1:5432\//);
+      // Setting this to `postgres` would make both factory rows the same
+      // database and quietly delete the SQLite half of the contract.
+      expect(pg().env?.ZENITH_HOSTED_STORE).toBeUndefined();
+    });
+
+    it("gets its own data directory, and never another job's", () => {
+      expect(pg().env?.ZENITH_DATA).toBe("${{ github.workspace }}/.data-ci-postgres");
+      expect(pg().env?.ZENITH_DATA).not.toBe(workflow.jobs.verify.env?.ZENITH_DATA);
+      expect(pg().env?.ZENITH_DATA).not.toBe(workflow.jobs.hosted.env?.ZENITH_DATA);
+    });
+
+    it("applies the migrations before it runs anything against them", () => {
+      const order = pg().steps.map((step) => step.run?.trim() ?? "");
+      const at = (command: string): number => order.indexOf(command);
+      expect(at("bash scripts/ci/apply-supabase-migrations.sh")).toBeGreaterThan(at(INSTALL));
+      expect(order.findIndex((run) => run.startsWith("npx vitest run"))).toBeGreaterThan(
+        at("bash scripts/ci/apply-supabase-migrations.sh")
+      );
+    });
+
+    it("reports on the lanes even when the suites failed, and fails when one ran nothing", () => {
+      const report = pg().steps.find((step) =>
+        step.run?.includes("scripts/ci/postgres-lane-report.mjs")
+      );
+      expect(report, "the job must end in a lane report").toBeDefined();
+      // `always()` so a blocked-lane table still reaches the job summary after a
+      // red suite — the one condition in this workflow that is deliberate.
+      expect(report?.if).toBe("always()");
+      expect(report?.["continue-on-error"] ?? false).toBe(false);
+      expect(report?.run?.trim()).toBe("node scripts/ci/postgres-lane-report.mjs .data-ci-lane/postgres-lane.json");
+    });
+
+    it("keeps the helper scripts it depends on", () => {
+      for (const file of [
+        "scripts/ci/apply-supabase-migrations.sh",
+        "scripts/ci/postgres-lane-report.mjs",
+      ])
+        expect(fs.existsSync(path.join(process.cwd(), file)), `${file} must exist`).toBe(true);
+    });
+  });
+
+  /*
+   * actionlint validates every workflow, not only the one it lives in.
+   * `tick.yml` drives production background work on a schedule and
+   * `agent-control.yml` is a merge gate; neither was being parsed by anything.
+   */
+  it("validates every workflow file in the repository", () => {
+    const step = workflow.jobs.verify.steps.find((one) => one.name === "Validate workflow syntax");
+    expect(step).toBeDefined();
+    const onDisk = fs
+      .readdirSync(path.join(process.cwd(), ".github/workflows"))
+      .filter((name) => name.endsWith(".yml") || name.endsWith(".yaml"))
+      .sort();
+    expect(onDisk.length).toBeGreaterThan(0);
+    for (const name of onDisk)
+      expect(step?.run, `actionlint must be given .github/workflows/${name}`).toContain(
+        `.github/workflows/${name}`
+      );
   });
 });

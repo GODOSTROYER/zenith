@@ -14,6 +14,30 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Two pins that every job in this repository now shares, written out literally
+# in each job rather than through an expression so that `tests/ci/release-gates.test.ts`
+# can assert them by parsing the YAML:
+#
+#   node-version: '22.16.0'  — package.json's `engines.node` floor is >=22.16,
+#     and `node:sqlite` (the hosted authority's embedded store) is experimental,
+#     so the exact patch is part of what a green run means. `.github/workflows/
+#     agent-control.yml` already pinned it; ci.yml floated on `22`. One of the
+#     two had to go, and the pin is the one that makes a run reproducible.
+#
+#   actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  (v4.3.1) — the
+#     newer of the two SHAs that were in use; agent-control.yml pinned
+#     11d5960a (v4.2.2) and now shares this one.
+#
+# `npm ci --ignore-scripts` everywhere: two packages in the tree declare an
+# install lifecycle script — esbuild (postinstall=node install.js) and
+# unrs-resolver (postinstall=node postinstall.js). Both resolve their native
+# binary from `optionalDependencies`, which `npm ci` installs, and both scripts
+# return without doing anything once that binary is resolvable
+# (node_modules/napi-postinstall/lib/index.js:176-187 breaks out of its loop on
+# the first `require.resolve` that succeeds; esbuild's install.js only
+# hard-links the binary over its JS shim as an optimisation). Nothing in
+# package.json declares a `prepare`/`postinstall` of its own.
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -40,14 +64,17 @@ jobs:
           tar -xzf actionlint.tar.gz -C "$RUNNER_TEMP" actionlint
 
       - name: Validate workflow syntax
-        run: '"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml'
+        # Every workflow, not only this one. `tick.yml` drives production
+        # background work and `agent-control.yml` is a merge gate; a typo in
+        # either used to reach the default branch unchecked.
+        run: '"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml .github/workflows/tick.yml .github/workflows/agent-control.yml'
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 22
+          node-version: '22.16.0'
           cache: npm
 
-      - run: npm ci
+      - run: npm ci --ignore-scripts
 
       - name: Typecheck
         run: npm run typecheck
@@ -65,6 +92,110 @@ jobs:
 
       - name: Verify Gimbal assets
         run: npm run gimbal:verify
+
+  # The PostgreSQL lane.
+  #
+  # Before this job existed, `grep -rn "postgres\|services:" .github/workflows/`
+  # returned nothing: every live contract suite in the repository was gated on
+  # `ZENITH_CONTRACT_POSTGRES` and skipped silently, so "the tests pass" meant
+  # "the SQLite half of the tests passes". This job gives the hosted control
+  # authority a real database to be wrong against.
+  #
+  # ## What it proves
+  #
+  #   - `supabase/migrations/0001`-`0005` apply, in order, to an empty
+  #     PostgreSQL 16 — every table, partial unique index, CHECK, identity
+  #     column and plpgsql function, plus the migration ledger that
+  #     `src/lib/hosted/authority/pg/index.ts:165-191` refuses to boot without.
+  #   - `tests/hosted/authority/contract/**` runs its **PostgresAuthority** row,
+  #     not only its SQLite one: real transactions, rollback isolation, fence
+  #     tokens, the outbox, and the three partial unique indexes asserted
+  #     through `raw()` because no repository can expose them.
+  #   - the live half of `tests/scripts/migrate-hosted-to-postgres.test.ts`:
+  #     insert order, idempotence on a second run, and the three SQLite→Postgres
+  #     type conversions (boolean, bytea, `overriding system value`).
+  #
+  # ## What it does not, and why that is stated rather than papered over
+  #
+  # The **product** store does not speak Postgres. `PostgresStore` is a
+  # PostgREST client over `NEXT_PUBLIC_SUPABASE_URL` with the service-role key
+  # (`tests/db/contract/factories.ts:31-34`), as is the hosted *data* backend
+  # (`tests/hosted/data/pg-contract.live.test.ts:38-41`). A bare Postgres
+  # container serves neither, so `tests/db/contract/**` and
+  # `pg-contract.live.test.ts` are **not** in this job and are reported BLOCKED
+  # by the summary step below. Pointing them at this container would make them
+  # fail, not pass.
+  #
+  # Two details of this database are a stand-in rather than the real thing, and
+  # `scripts/ci/apply-supabase-migrations.sh` documents both: `service_role` is
+  # created as a NOLOGIN role so the migrations' grant blocks apply, and the
+  # tests connect as the container superuser, which bypasses RLS for a different
+  # reason than Supabase's service role does. Nothing here proves Supabase's
+  # role graph.
+  postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        # Pinned by digest, not by tag: a service container that silently moved
+        # a major version would change what every assertion below means.
+        image: postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+        env:
+          POSTGRES_USER: postgres
+          # Not a secret. The database is created, used and destroyed inside
+          # this job and is reachable only from it; putting it in `secrets`
+          # would imply it guards something.
+          POSTGRES_PASSWORD: zenith-ci-throwaway
+          POSTGRES_DB: zenith_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready --username postgres --dbname zenith_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
+    env:
+      ZENITH_DATA: ${{ github.workspace }}/.data-ci-postgres
+      ZENITH_FAST: "1"
+      # The two conditions the hosted-authority factory requires
+      # (tests/hosted/authority/contract/_factories.ts:79-80). Both, or the
+      # Postgres row is not in the factory table at all.
+      ZENITH_CONTRACT_POSTGRES: "1"
+      SUPABASE_DB_URL: postgresql://postgres:zenith-ci-throwaway@127.0.0.1:5432/zenith_ci
+      # ZENITH_HOSTED_STORE is deliberately unset: the contract suites open the
+      # SQLite authority through `openAuthority()` for their first factory row,
+      # and setting `postgres` here would make both rows the same database.
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.16.0'
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: Apply supabase/migrations 0001-0005
+        run: bash scripts/ci/apply-supabase-migrations.sh
+
+      - name: Postgres contract lanes
+        # `--no-file-parallelism` because both files share one `contract-`
+        # namespace and one `max: 1` connection; running them at once would
+        # make a cleanup race look like a contract violation.
+        run: npx vitest run tests/hosted/authority/contract tests/scripts/migrate-hosted-to-postgres.test.ts --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/postgres-lane.json
+
+      - name: Lane report - fail if a lane ran zero tests, and list what is blocked
+        # `always()` so the blocked-lane table reaches the summary even when the
+        # suites above failed. The step still fails the job on its own terms:
+        # it is the gate that a Postgres lane which exercised no Postgres is a
+        # failure, not a pass.
+        if: always()
+        run: node scripts/ci/postgres-lane-report.mjs .data-ci-lane/postgres-lane.json
 
   # The hosted-apps path: every hosted suite, the twelve-gate acceptance
   # record, and the end-to-end journey script. Kept out of `verify` because it
@@ -92,10 +223,10 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 22
+          node-version: '22.16.0'
           cache: npm
 
-      - run: npm ci
+      - run: npm ci --ignore-scripts
 
       - name: Hosted suites
         run: npx vitest run tests/hosted
@@ -131,10 +262,10 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 22
+          node-version: '22.16.0'
           cache: npm
 
-      - run: npm ci
+      - run: npm ci --ignore-scripts
 
       - name: Build
         run: npm run build

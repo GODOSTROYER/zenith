@@ -15,6 +15,7 @@ a claim that Zenith is production-ready in every backend.
 | Widen secret-backed request/provider paths to async PostgREST and add explicit alert-secret migration | working tree (pending commit) | Async secret route/actions/provider/alert delivery tests pass; `npm run migrate:alert-secrets -- --dry-run` is safe by default and `--apply` requires an explicit operator action |
 | Require a pinned E2B template with no runtime package installation | working tree (pending commit) | E2B isolated runner tests pass 17/17; template selection is fail-closed and toolchain versions are checked inside the template |
 | Enforce plugin provenance at the runtime consumption boundary | `61568b6` plus generated outputs (pending commit) | Plugin verify passes 143 tests/2 skips; the generated runtime fails closed when the trusted launcher enables the signed Ed25519 gate |
+| Fence every hosted app-grant insertion path, including direct grants and invitation acceptance | post-review hardening (this commit) | Grant services now enter the same re-entrant mutation gate as account deletion, role changes, and revocation; hosted access and agent-control regression tests pass |
 
 The initial blanket mixed-store guard was implemented experimentally and then
 reverted after independent review showed it would reject the repository's
@@ -34,6 +35,9 @@ current branch intentionally preserves the existing independent selectors.
 - `npm run build`: compiled successfully; Next emitted the existing `module.createRequire failed parsing argument` warnings for hosted build recipe imports.
 - `npm run test:contract`: 36 executed, 15 skipped.
 - Companion plugin `npm run verify`: **143 tests passed, 2 platform skips**; typecheck, build, contracts, and integrity checks passed.
+- Post-review regression bundle: **116 tests passed** across agent control, account
+  deletion, hosted access, alert delivery/outbox, redaction, and async repository
+  boundaries; `npm run typecheck`, `npm run lint`, and `git diff --check` passed.
 
 ## Partial / release blockers
 
@@ -65,9 +69,9 @@ current branch intentionally preserves the existing independent selectors.
   readers still use the bridge and require a separate contract-widening slice.
 - Agent-control finalization fence: **bounded slice implemented**. Durable grant
   revocation, operation expiry, application membership/app-role digests, and
-  account/grant/member mutation paths are fenced by the single-writer gate;
-  PostgreSQL agent-control writes remain refused and distributed authority is
-  not claimed.
+  account/grant/member/direct-grant/invitation-acceptance mutation paths are
+  fenced by the single-writer gate; PostgreSQL agent-control writes remain
+  refused and distributed authority is not claimed.
 - PostgreSQL agent-control writes remain explicitly refused by
   `docs/AGENT-CONTROL.md`.
 

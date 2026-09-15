@@ -39,6 +39,7 @@ import {
 } from "@/lib/hosted/authority";
 import { hostedConfig } from "@/lib/hosted/config";
 import { log } from "@/lib/log";
+import { withMutationGate } from "@/lib/actions/mutation-gate";
 import {
   appendAccessEvent,
   isoIn,
@@ -192,51 +193,53 @@ export async function acceptInvite(
   token: string,
   identity: VerifiedIdentity
 ): Promise<AcceptedInvite> {
-  const tokenHash = sha256Hex(token ?? "");
-  const email = normalizeEmail(identity.email ?? "");
-  const a = authority();
+  return withMutationGate(async () => {
+    const tokenHash = sha256Hex(token ?? "");
+    const email = normalizeEmail(identity.email ?? "");
+    const a = authority();
 
-  return a.tx(async (repos) => {
-    const at = nowIso();
-    const invite = await repos.invites.getByTokenHash(tokenHash);
-    // Unknown, revoked, superseded, already accepted and expired are one
-    // answer: any difference between them is an oracle over tokens.
-    if (!invite || invite.state !== "pending" || invite.expiresAt <= at) throw unusableInvite();
+    return a.tx(async (repos) => {
+      const at = nowIso();
+      const invite = await repos.invites.getByTokenHash(tokenHash);
+      // Unknown, revoked, superseded, already accepted and expired are one
+      // answer: any difference between them is an oracle over tokens.
+      if (!invite || invite.state !== "pending" || invite.expiresAt <= at) throw unusableInvite();
 
-    // Unverified and mismatched are also one answer, for the same reason.
-    if (!identity.emailVerified || !email || email !== invite.email)
-      throw new HostedError("forbidden", WRONG_ADDRESS, {
-        fix: "Sign in as the person the invitation names, with that address confirmed, then open the link again.",
-      });
+      // Unverified and mismatched are also one answer, for the same reason.
+      if (!identity.emailVerified || !email || email !== invite.email)
+        throw new HostedError("forbidden", WRONG_ADDRESS, {
+          fix: "Sign in as the person the invitation names, with that address confirmed, then open the link again.",
+        });
 
-    const app = await requireApp(repos, invite.appId);
-    if (!(await repos.invites.accept(invite.id, identity.subject, at))) throw unusableInvite();
+      const app = await requireApp(repos, invite.appId);
+      if (!(await repos.invites.accept(invite.id, identity.subject, at))) throw unusableInvite();
 
-    // A revoked grant is history, not a seat to reoccupy: acceptance always
-    // produces a *new* active row, which is what the partial unique index
-    // allows and what keeps the revocation visible.
-    const existing = await repos.grants.activeFor(invite.appId, identity.subject);
-    const grant =
-      existing ??
-      (await repos.grants.insert({
-        id: uuid(),
-        appId: invite.appId,
+      // A revoked grant is history, not a seat to reoccupy: acceptance always
+      // produces a *new* active row, which is what the partial unique index
+      // allows and what keeps the revocation visible.
+      const existing = await repos.grants.activeFor(invite.appId, identity.subject);
+      const grant =
+        existing ??
+        (await repos.grants.insert({
+          id: uuid(),
+          appId: invite.appId,
+          subject: identity.subject,
+          email,
+          role: invite.role,
+          grantedBy: invite.createdBy,
+          createdAt: at,
+        }));
+
+      await appendAccessEvent(repos, {
+        event: "invite.accepted",
+        workspaceId: app.workspaceId,
+        appId: app.id,
         subject: identity.subject,
-        email,
-        role: invite.role,
-        grantedBy: invite.createdBy,
-        createdAt: at,
-      }));
-
-    await appendAccessEvent(repos, {
-      event: "invite.accepted",
-      workspaceId: app.workspaceId,
-      appId: app.id,
-      subject: identity.subject,
-      logicalId: invite.id,
-      props: { role: grant.role, reusedGrant: existing !== null },
+        logicalId: invite.id,
+        props: { role: grant.role, reusedGrant: existing !== null },
+      });
+      return { app, grant };
     });
-    return { app, grant };
   });
 }
 
@@ -473,4 +476,3 @@ function stringField(entry: HostedOutboxEntry, key: string): string {
 async function settleFailed(a: Authority, deliveryId: string, error: string): Promise<void> {
   await a.tx((repos) => repos.deliveries.settle(deliveryId, "failed", { error: error.slice(0, 2000) }));
 }
-

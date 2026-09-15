@@ -26,6 +26,7 @@ import {
 } from "@/lib/hosted/contracts";
 import { authority, type Repos } from "@/lib/hosted/authority";
 import { log } from "@/lib/log";
+import { withMutationGate } from "@/lib/actions/mutation-gate";
 import {
   accessDenied,
   appendAccessEvent,
@@ -112,41 +113,43 @@ export async function grantDirect(
   input: DirectGrant,
   by: Subject
 ): Promise<AppGrant> {
-  const email = requireEmail(input.email);
-  const subject = input.subject.trim();
-  if (!subject)
-    throw new HostedError("invalid_input", "A direct grant needs the person's platform user id.", {
-      fix: "Send an invitation instead — it works for someone who has not signed in here yet.",
-    });
-
-  const a = authority();
-  return a.tx(async (repos) => {
-    const app = await requireApp(repos, appId);
-    const existing = await repos.grants.activeFor(appId, subject);
-    if (existing)
-      throw new HostedError(
-        "conflict",
-        `That person already has ${existing.role} access to ${app.name}.`,
-        {
-          fix: `Change their role instead of granting again, or revoke the existing ${existing.role} access first.`,
-          details: { grantId: existing.id, role: existing.role },
-        }
-      );
-    const byEmail = (await repos.grants.listByApp(appId, { activeOnly: true })).find(
-      (grant) => grant.email === email
-    );
-    if (byEmail)
-      throw new HostedError("conflict", `${email} already has access to ${app.name}.`, {
-        fix: "Change that person's role instead, or revoke their access first.",
-        details: { grantId: byEmail.id, role: byEmail.role },
+  return withMutationGate(async () => {
+    const email = requireEmail(input.email);
+    const subject = input.subject.trim();
+    if (!subject)
+      throw new HostedError("invalid_input", "A direct grant needs the person's platform user id.", {
+        fix: "Send an invitation instead — it works for someone who has not signed in here yet.",
       });
-    return repos.grants.insert({
-      id: uuid(),
-      appId,
-      subject,
-      email,
-      role: input.role,
-      grantedBy: by,
+
+    const a = authority();
+    return a.tx(async (repos) => {
+      const app = await requireApp(repos, appId);
+      const existing = await repos.grants.activeFor(appId, subject);
+      if (existing)
+        throw new HostedError(
+          "conflict",
+          `That person already has ${existing.role} access to ${app.name}.`,
+          {
+            fix: `Change their role instead of granting again, or revoke the existing ${existing.role} access first.`,
+            details: { grantId: existing.id, role: existing.role },
+          }
+        );
+      const byEmail = (await repos.grants.listByApp(appId, { activeOnly: true })).find(
+        (grant) => grant.email === email
+      );
+      if (byEmail)
+        throw new HostedError("conflict", `${email} already has access to ${app.name}.`, {
+          fix: "Change that person's role instead, or revoke their access first.",
+          details: { grantId: byEmail.id, role: byEmail.role },
+        });
+      return repos.grants.insert({
+        id: uuid(),
+        appId,
+        subject,
+        email,
+        role: input.role,
+        grantedBy: by,
+      });
     });
   });
 }

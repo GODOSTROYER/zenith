@@ -393,10 +393,41 @@ describe.each(authorities)("$name", (factory) => {
       expect(mine).toMatchObject({ state: "sending", attempts: 1 });
       expect(await a.repos.outbox.get(id)).toMatchObject({ state: "sending" });
 
-      expect(await a.tx((repos) => repos.outbox.settle(id, "done"))).toBe(true);
+      // The claim's own `attempts` is the fence token: every write this drain
+      // makes afterwards names the claim it is finishing.
+      const fence = mine!.attempts;
+      expect(await a.tx((repos) => repos.outbox.settle(id, "done", { fence }))).toBe(true);
       expect(await a.repos.outbox.get(id)).toMatchObject({ state: "done", error: undefined });
       // A settled row is not claimable again, so a replayed drain does nothing.
-      expect(await a.tx((repos) => repos.outbox.settle(id, "done"))).toBe(false);
+      expect(await a.tx((repos) => repos.outbox.settle(id, "done", { fence }))).toBe(false);
+    });
+
+    it("refuses a settle from a claim that was reclaimed underneath it", async () => {
+      const id = contractId("fenced-row");
+      await a.tx((repos) =>
+        repos.outbox.enqueue({ id, idempotencyKey: contractId("fenced"), kind: "webhook", payload: {} })
+      );
+
+      const first = await a.tx((repos) => repos.outbox.claimPending(60_000, { kinds: ["webhook"] }));
+      const stale = first.find((entry) => entry.id === id)!.attempts;
+
+      // The first worker stalls past its lease; a second drain reclaims the row
+      // (lease 0) and takes it.
+      const second = await a.tx((repos) => repos.outbox.claimPending(0, { kinds: ["webhook"] }));
+      const live = second.find((entry) => entry.id === id)!.attempts;
+      expect(live).toBeGreaterThan(stale);
+
+      // The stalled worker wakes up. Its settle, its release and its renewal are
+      // all refused: the row is not its to finish.
+      expect(await a.tx((repos) => repos.outbox.settle(id, "done", { fence: stale }))).toBe(false);
+      expect(await a.tx((repos) => repos.outbox.release(id, stale))).toBe(false);
+      expect(await a.tx((repos) => repos.outbox.renew(id, stale))).toBe(false);
+      expect(await a.repos.outbox.get(id)).toMatchObject({ state: "sending" });
+
+      // The owner's are not.
+      expect(await a.tx((repos) => repos.outbox.renew(id, live))).toBe(true);
+      expect(await a.tx((repos) => repos.outbox.settle(id, "done", { fence: live }))).toBe(true);
+      expect(await a.repos.outbox.get(id)).toMatchObject({ state: "done" });
     });
 
     it("hands a claim back with release(), and records a failure with its reason", async () => {
@@ -404,14 +435,15 @@ describe.each(authorities)("$name", (factory) => {
       await a.tx((repos) =>
         repos.outbox.enqueue({ id, idempotencyKey: contractId("fail"), kind: "webhook", payload: {} })
       );
-      await a.tx((repos) => repos.outbox.claimPending(60_000, { kinds: ["webhook"] }));
-      expect(await a.tx((repos) => repos.outbox.release(id))).toBe(true);
+      const first = await a.tx((repos) => repos.outbox.claimPending(60_000, { kinds: ["webhook"] }));
+      expect(await a.tx((repos) => repos.outbox.release(id, first.find((e) => e.id === id)!.attempts))).toBe(true);
       expect(await a.repos.outbox.get(id)).toMatchObject({ state: "pending", claimedAt: undefined });
 
-      await a.tx((repos) => repos.outbox.claimPending(60_000, { kinds: ["webhook"] }));
-      expect(await a.tx((repos) => repos.outbox.settle(id, "failed", { error: "the endpoint refused" }))).toBe(
-        true
-      );
+      const second = await a.tx((repos) => repos.outbox.claimPending(60_000, { kinds: ["webhook"] }));
+      const fence = second.find((e) => e.id === id)!.attempts;
+      expect(
+        await a.tx((repos) => repos.outbox.settle(id, "failed", { fence, error: "the endpoint refused" }))
+      ).toBe(true);
       expect(await a.repos.outbox.get(id)).toMatchObject({ state: "failed", error: "the endpoint refused" });
     });
 

@@ -15,6 +15,7 @@ import { bootReplayLeaseMs, replayOutbox, startAlertEvaluator } from "@/lib/aler
 import * as security from "@/lib/security/rules";
 import * as logsim from "@/lib/logsim";
 import { claimDataDir } from "@/lib/data-lock";
+import { startCronScheduler } from "@/lib/server/cron";
 import { isPostgres } from "@/lib/db/store";
 import { ensureHosted } from "@/lib/hosted";
 import { env } from "@/lib/env";
@@ -79,10 +80,20 @@ async function boot(): Promise<void> {
   // Skipping here loses nothing that was working — before the store refused an
   // unprimed read, these three read the *file store's* graph in Postgres mode,
   // which is a different authority and holds none of these rows.
+  //
+  // "The scheduler" is an external one on serverless (Vercel Cron, the GitHub
+  // schedule, anything that can send the bearer) and an **in-process** one on a
+  // long-lived host, which `startCronScheduler()` starts right here: that host
+  // has no engine ticker either, so without it a deployment would sit in
+  // `applying` for ever, no alert rule would ever be evaluated, and the outbox
+  // would never drain. It runs the same three passes inside the same
+  // `inCronScope()`, and refuses to start on serverless or the file store.
   if (isPostgres()) {
+    const scheduler = startCronScheduler();
     log.info("durable catch-up deferred to the scheduler", {
       scope: "boot",
       reason: "ZENITH_STORE=postgres; boot holds no store snapshot",
+      scheduler: scheduler ? "in-process" : "external",
       passes: ["/api/internal/tick/engine", "/api/internal/tick/alerts", "/api/internal/tick/outbox"],
     });
     if (providerRegistry().size === 0)
@@ -91,12 +102,17 @@ async function boot(): Promise<void> {
   }
 
   // Alert deliveries the last process had queued — or was mid-send when it
-  // died — are reclaimed and drained. How much may be reclaimed depends on
-  // whether the claim above actually happened: on one process owning one data
-  // directory, every row still marked `sending` is provably abandoned and the
-  // lease is 0. On PostgreSQL, or on a serverless instance where the claim is
-  // skipped entirely, another instance may be mid-send right now, so only a
-  // genuinely expired claim may be taken — `bootReplayLeaseMs()` is that rule.
+  // died — are reclaimed and drained. Everything below this point is the **file
+  // store's** boot: Postgres returned above, and its outbox is drained by the
+  // outbox pass with its own 60 s lease, not here.
+  //
+  // How much may be reclaimed depends on whether the claim above actually
+  // happened: on one process owning one data directory, every row still marked
+  // `sending` is provably abandoned and the lease is 0. On a serverless
+  // instance the claim is skipped entirely, so another instance may be mid-send
+  // right now and only a genuinely expired claim may be taken —
+  // `bootReplayLeaseMs()` is that rule, and its Postgres arm is defensive:
+  // unreachable from here, correct for anybody who ever calls it elsewhere.
   // Scheduled rather than awaited, and `unref`'d like the evaluator timer: a
   // webhook that never answers must not hold up boot, keep the process alive,
   // or make the first request wait 30s for a retry ladder to finish.

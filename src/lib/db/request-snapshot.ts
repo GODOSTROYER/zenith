@@ -23,3 +23,17 @@ export const runWithSnapshot = <T>(snapshot: unknown, fn: () => T): T =>
 
 /** The snapshot this call should read, or undefined outside a request. */
 export const requestSnapshot = (): unknown => storage.getStore();
+
+/**
+ * Run `fn` with **no** snapshot in scope, whatever the caller inherited.
+ *
+ * For work that is not a caller's: the in-process scheduler
+ * (`src/lib/server/cron.ts`) starts its interval from `boot()`, and `boot()` is
+ * awaited by the first request that arrives — so the timer callback inherits
+ * that request's async context, and any snapshot it was holding, for the life
+ * of the process. A background pass must prime and read its *own* unfiltered
+ * snapshot, never one request's tenant slice, so it leaves the context first.
+ * `AsyncLocalStorage.exit()` is exactly that, and it is a no-op when there is
+ * nothing to leave.
+ */
+export const outsideSnapshot = <T>(fn: () => T): T => storage.exit(fn);

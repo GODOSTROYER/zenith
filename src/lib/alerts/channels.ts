@@ -42,6 +42,31 @@ export const alertChannelSecretRef = (channelId: string): string =>
 export const alertChannelTargetSecretRef = (channelId: string): string =>
   `vault:alert-channel/${channelId}/TARGET_URL`;
 
+/**
+ * A credential fault, as opposed to a bad moment.
+ *
+ * Every throw in this file's read paths is one of these: a missing
+ * `ZENITH_SECRET_KEY`, a reference this channel does not own, a ciphertext that
+ * will not open, a legacy row on a store that cannot migrate it. None of them
+ * changes between two attempts a second apart, so `deliver.ts` turns this class
+ * into a permanent delivery failure instead of spending the retry ladder on it.
+ */
+export class ChannelCredentialError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ChannelCredentialError";
+  }
+}
+
+/**
+ * What an operator has to do about a legacy row that this store cannot migrate.
+ * One sentence, so the delivery record, the test-send and the migration script
+ * all say the same thing — and it names the channel, because "some channel is
+ * blocked" is not an instruction.
+ */
+export const postgresLegacyChannelProblem = (channel: AlertChannel, what: string): string =>
+  `This channel ("${channel.name}", ${channel.id}) still has a ${what}, and a Postgres install cannot migrate it in place: the secret row and the channel row have no shared transaction. Delivery stays blocked until an operator runs the coordinated migration (docs/hosted/PROVIDERS.md → "Alert channel secrets"), or resets this channel's credential under Settings → Alerts, which rewrites it in the encrypted form.`;
+
 function assertCanonicalCredentialRefs(channel: AlertChannel): void {
   const stored = channel as StoredAlertChannel;
   const signingRef = alertChannelSecretRef(channel.id);
@@ -49,9 +74,41 @@ function assertCanonicalCredentialRefs(channel: AlertChannel): void {
   // The first migration used `secretRef` for a Slack URL. Preserve that exact
   // legacy shape, but never accept an arbitrary same-workspace reference.
   if (stored.targetSecretRef && stored.targetSecretRef !== targetRef)
-    throw new Error("The channel's webhook target reference is not owned by this channel; reset the credential before sending.");
+    throw new ChannelCredentialError("The channel's webhook target reference is not owned by this channel; reset the credential before sending.");
   if (stored.secretRef && stored.secretRef !== signingRef)
-    throw new Error("The channel's signing credential reference is not owned by this channel; reset the credential before sending.");
+    throw new ChannelCredentialError("The channel's signing credential reference is not owned by this channel; reset the credential before sending.");
+}
+
+/**
+ * Open one sealed credential, turning every way that can fail into a
+ * `ChannelCredentialError`.
+ *
+ * `readSecretValue*` throws a plain `Error` when the ciphertext will not open —
+ * a rotated or missing `ZENITH_SECRET_KEY`, an altered store file, a row lifted
+ * from another tenant whose AAD no longer matches. That is a credential fault
+ * like any other here, and classifying it as one is what keeps delivery from
+ * spending three attempts and two backoffs on a byte that will never decrypt.
+ */
+function openSecret(workspaceId: string, ref: string, missing: string): string {
+  let value: string | undefined;
+  try {
+    value = readSecretValue(workspaceId, ref);
+  } catch (error) {
+    throw new ChannelCredentialError(error instanceof Error ? error.message : String(error));
+  }
+  if (value === undefined) throw new ChannelCredentialError(missing);
+  return value;
+}
+
+async function openSecretAsync(workspaceId: string, ref: string, missing: string): Promise<string> {
+  let value: string | undefined;
+  try {
+    value = await readSecretValueAsync(workspaceId, ref);
+  } catch (error) {
+    throw new ChannelCredentialError(error instanceof Error ? error.message : String(error));
+  }
+  if (value === undefined) throw new ChannelCredentialError(missing);
+  return value;
 }
 
 /** Read a signing key without exposing it to callers that only need metadata. */
@@ -59,19 +116,16 @@ export function channelSecret(channel: AlertChannel): string | undefined {
   const stored = channel as StoredAlertChannel;
   assertCanonicalCredentialRefs(channel);
   if (stored.secretRef) {
-    const value = readSecretValue(channel.workspaceId, stored.secretRef);
-    if (value === undefined)
-      throw new Error("The channel's signing secret is missing from Zenith's secret store; set it again before sending.");
-    return value;
+    return openSecret(channel.workspaceId, stored.secretRef, "The channel's signing secret is missing from Zenith's secret store; set it again before sending.");
   }
   // Legacy plaintext is intentionally not a usable fallback. channelTable()
   // migrates it when the key is configured; direct callers that already hold a
   // just-created/legacy object get the same idempotent migration.
   if (channel.secret !== undefined) {
     if (!secretStoreState().configured)
-      throw new Error("This channel still has a legacy plaintext signing secret. Configure ZENITH_SECRET_KEY and reload it before sending.");
+      throw new ChannelCredentialError("This channel still has a legacy plaintext signing secret. Configure ZENITH_SECRET_KEY and reload it before sending.");
     if (isPostgres())
-      throw new Error("This channel still has a legacy plaintext signing secret. Postgres delivery is blocked until the coordinated alert-secret migration is applied.");
+      throw new ChannelCredentialError(postgresLegacyChannelProblem(channel, "legacy plaintext signing secret"));
     setChannelSecret(channel, channel.secret, "system:alert-channel-migration");
     save();
     flush();
@@ -86,29 +140,23 @@ export function channelTarget(channel: AlertChannel): string {
   assertCanonicalCredentialRefs(channel);
   if (channel.kind === "email") return channel.target;
   if (stored.targetSecretRef) {
-    const value = readSecretValue(channel.workspaceId, stored.targetSecretRef);
-    if (value === undefined)
-      throw new Error("The channel's webhook target is missing from Zenith's secret store; set it again before sending.");
-    return value;
+    return openSecret(channel.workspaceId, stored.targetSecretRef, "The channel's webhook target is missing from Zenith's secret store; set it again before sending.");
   }
   // Rows written by the first hardening slice used secretRef for Slack URLs.
   // Resolve that shape only while migration is able to move it to the target
   // namespace; it is never treated as a generic plaintext fallback.
   if (channel.kind === "slack" && stored.secretRef) {
-    const value = readSecretValue(channel.workspaceId, stored.secretRef);
-    if (value === undefined)
-      throw new Error("The channel's Slack webhook URL is missing from Zenith's secret store; set it again before sending.");
-    return value;
+    return openSecret(channel.workspaceId, stored.secretRef, "The channel's Slack webhook URL is missing from Zenith's secret store; set it again before sending.");
   }
   if (secretStoreState().configured && channel.target) {
     if (isPostgres())
-      throw new Error("This channel still has a plaintext webhook target. Postgres delivery is blocked until the coordinated alert-secret migration is applied.");
+      throw new ChannelCredentialError(postgresLegacyChannelProblem(channel, "plaintext webhook target"));
     setChannelTargetSecret(channel, channel.target, "system:alert-channel-migration");
     save();
     flush();
     return readSecretValue(channel.workspaceId, (channel as StoredAlertChannel).targetSecretRef!)!;
   }
-  throw new Error("This channel still has a plaintext webhook target. Configure ZENITH_SECRET_KEY and reload it before sending.");
+  throw new ChannelCredentialError("This channel still has a plaintext webhook target. Configure ZENITH_SECRET_KEY and reload it before sending.");
 }
 
 /** Awaitable signing-key lookup for alert delivery. */
@@ -116,16 +164,13 @@ export async function channelSecretAsync(channel: AlertChannel): Promise<string 
   const stored = channel as StoredAlertChannel;
   assertCanonicalCredentialRefs(channel);
   if (stored.secretRef) {
-    const value = await readSecretValueAsync(channel.workspaceId, stored.secretRef);
-    if (value === undefined)
-      throw new Error("The channel's signing secret is missing from Zenith's secret store; set it again before sending.");
-    return value;
+    return openSecretAsync(channel.workspaceId, stored.secretRef, "The channel's signing secret is missing from Zenith's secret store; set it again before sending.");
   }
   if (channel.secret !== undefined) {
     if (!secretStoreState().configured)
-      throw new Error("This channel still has a legacy plaintext signing secret. Configure ZENITH_SECRET_KEY and reload it before sending.");
+      throw new ChannelCredentialError("This channel still has a legacy plaintext signing secret. Configure ZENITH_SECRET_KEY and reload it before sending.");
     if (isPostgres())
-      throw new Error("This channel still has a legacy plaintext signing secret. Postgres delivery is blocked until the coordinated alert-secret migration is applied.");
+      throw new ChannelCredentialError(postgresLegacyChannelProblem(channel, "legacy plaintext signing secret"));
     await setChannelSecretAsync(channel, channel.secret, "system:alert-channel-migration");
     save();
     await flushPendingAsync();
@@ -140,29 +185,20 @@ export async function channelTargetAsync(channel: AlertChannel): Promise<string>
   assertCanonicalCredentialRefs(channel);
   if (channel.kind === "email") return channel.target;
   if (stored.targetSecretRef) {
-    const value = await readSecretValueAsync(channel.workspaceId, stored.targetSecretRef);
-    if (value === undefined)
-      throw new Error("The channel's webhook target is missing from Zenith's secret store; set it again before sending.");
-    return value;
+    return openSecretAsync(channel.workspaceId, stored.targetSecretRef, "The channel's webhook target is missing from Zenith's secret store; set it again before sending.");
   }
   if (channel.kind === "slack" && stored.secretRef) {
-    const value = await readSecretValueAsync(channel.workspaceId, stored.secretRef);
-    if (value === undefined)
-      throw new Error("The channel's Slack webhook URL is missing from Zenith's secret store; set it again before sending.");
-    return value;
+    return openSecretAsync(channel.workspaceId, stored.secretRef, "The channel's Slack webhook URL is missing from Zenith's secret store; set it again before sending.");
   }
   if (secretStoreState().configured && channel.target) {
     if (isPostgres())
-      throw new Error("This channel still has a plaintext webhook target. Postgres delivery is blocked until the coordinated alert-secret migration is applied.");
+      throw new ChannelCredentialError(postgresLegacyChannelProblem(channel, "plaintext webhook target"));
     await setChannelTargetSecretAsync(channel, channel.target, "system:alert-channel-migration");
     save();
     await flushPendingAsync();
-    const value = await readSecretValueAsync(channel.workspaceId, (channel as StoredAlertChannel).targetSecretRef!);
-    if (value === undefined)
-      throw new Error("The channel's webhook target is missing from Zenith's secret store; set it again before sending.");
-    return value;
+    return openSecretAsync(channel.workspaceId, (channel as StoredAlertChannel).targetSecretRef!, "The channel's webhook target is missing from Zenith's secret store; set it again before sending.");
   }
-  throw new Error("This channel still has a plaintext webhook target. Configure ZENITH_SECRET_KEY and reload it before sending.");
+  throw new ChannelCredentialError("This channel still has a plaintext webhook target. Configure ZENITH_SECRET_KEY and reload it before sending.");
 }
 
 async function snapshotChannelCredentialsAsync(channel: AlertChannel): Promise<ChannelCredentialSnapshot> {
@@ -318,9 +354,47 @@ function restoreChannelCredentials(channel: AlertChannel, before: ChannelCredent
 }
 
 /**
- * Apply both independent channel credentials as one logical mutation. The
- * secret backend has no cross-row transaction, so failed second writes are
- * compensated before the caller is allowed to save the channel snapshot.
+ * Apply both independent channel credentials as one logical mutation.
+ *
+ * ## This is a two-authority write, and it is compensating, not atomic
+ *
+ * A channel credential lives in the **secret store** (`src/lib/secrets`) while
+ * the reference to it lives in the **product store** (`db().settings`). There
+ * is no transaction that spans the two (ADR D-4), so exactly three outcomes
+ * exist and all three are handled here or by the caller:
+ *
+ *  1. Both writes succeed — the normal case.
+ *  2. The *second* secret write fails. Compensated below: the first write is
+ *     undone and the previous values are put back, and the function throws
+ *     **before** the caller reaches `save()`, so no channel snapshot referring
+ *     to a half-written pair is ever persisted.
+ *  3. The secret writes succeed and the caller's own `save()`/flush of the
+ *     settings row then fails — a crash, a 409, a disk error. This one is
+ *     **not compensated and cannot be**: the process may be gone. The
+ *     observable result is an **orphaned secret row** under this channel's
+ *     canonical reference, holding a value nothing points at.
+ *
+ * Outcome 3 is safe but not self-healing, and it is deliberately left that way:
+ *
+ *  - It cannot leak. The orphan is sealed under AAD `"<workspaceId> <ref>"` and
+ *    the reference is derived from the channel id, so only this channel can
+ *    ever name it, and only this workspace can ever open it.
+ *  - It cannot be used. Delivery reads the reference from the channel row; a
+ *    row that was never saved has none, so the channel fails closed.
+ *  - It is reconciled by a *re-run*, not by a sweep. Both `setChannelSecret`
+ *    and `setChannelTargetSecret` write the canonical reference for the channel
+ *    id, so repeating the operation (or `npm run migrate:alert-secrets --
+ *    --apply`, which journals each channel in
+ *    `settings.pendingAlertSecretMigrations` before touching it) **overwrites**
+ *    the orphan rather than adding a second one. The journal entry is what
+ *    tells an operator the pair was mid-flight; `reconcilePendingAlertSecretMigrationsAsync`
+ *    retains exactly those entries whose channel still looks unmigrated.
+ *  - Deleting the channel removes the orphan too, because `removeChannelSecrets`
+ *    deletes by canonical reference rather than by what the row happens to say.
+ *
+ * The runbook entry for this is in docs/hosted/PROVIDERS.md → "Alert channel
+ * secrets"; the failure test is `tests/alerts/migrate-alert-secrets.test.ts`
+ * ("an orphaned secret is reconciled by re-running the migration").
  */
 export function setChannelCredentials(
   channel: AlertChannel,
@@ -456,10 +530,63 @@ function migrateLegacyChannelSecrets(channels: AlertChannel[]): boolean {
   return changed;
 }
 
+/** The one sentence an operator sees for a row this store cannot migrate. */
+export const POSTGRES_MIGRATION_BLOCKED =
+  "blocked: Postgres legacy row requires the coordinated migration (see runbook)";
+
+export type AlertSecretMigrationStatus = "candidate" | "migrated" | "unchanged" | "blocked";
+
+/** One channel's place in a migration, named so a report can be read row by row. */
+export interface AlertSecretMigrationEntry {
+  channelId: string;
+  name: string;
+  kind: AlertChannelKind;
+  status: AlertSecretMigrationStatus;
+  /** What is still plaintext, or why the row cannot be moved. */
+  detail?: string;
+}
+
 export interface AlertSecretMigrationReport {
   inspected: number;
   migrated: number;
   unchanged: number;
+  blocked: number;
+  channels: AlertSecretMigrationEntry[];
+}
+
+/** What is still in the clear on this row, or undefined when nothing is. */
+function legacyCredential(channel: AlertChannel): string | undefined {
+  const stored = channel as StoredAlertChannel;
+  if (channel.kind === "email") return undefined;
+  const parts: string[] = [];
+  if (!stored.targetSecretRef)
+    parts.push(channel.kind === "slack" && stored.secretRef ? "Slack URL under the old reference" : "plaintext target URL");
+  if (channel.kind === "webhook" && channel.secret !== undefined) parts.push("plaintext signing secret");
+  return parts.length ? parts.join(" and ") : undefined;
+}
+
+/**
+ * What a migration would do, without doing any of it.
+ *
+ * This is what makes the PostgreSQL hold *operable* rather than merely safe:
+ * `migrateLegacyChannelSecretsAsync` still refuses that store outright (the
+ * secret row and the channel row have no shared transaction — ADR D-4), but an
+ * operator can now see exactly which channels are held, by name, and what each
+ * one is still holding in the clear. The runbook step is in
+ * docs/hosted/PROVIDERS.md → "Alert channel secrets".
+ */
+export function planAlertSecretMigration(channels: AlertChannel[]): AlertSecretMigrationEntry[] {
+  const blocked = isPostgres();
+  return channels.map((channel) => {
+    const detail = legacyCredential(channel);
+    return {
+      channelId: channel.id,
+      name: channel.name,
+      kind: channel.kind,
+      status: !detail ? "unchanged" : blocked ? "blocked" : "candidate",
+      detail: detail ? (blocked ? `${POSTGRES_MIGRATION_BLOCKED} — ${detail}` : detail) : undefined,
+    };
+  });
 }
 
 type PendingAlertSecretMigration = {
@@ -542,7 +669,9 @@ export async function migrateLegacyChannelSecretsAsync(
     );
   await reconcilePendingAlertSecretMigrationsAsync();
   let migrated = 0;
+  const entries: AlertSecretMigrationEntry[] = [];
   for (const channel of channels) {
+    const legacy = legacyCredential(channel);
     const stored = channel as StoredAlertChannel;
     const candidate = channel.kind !== "email" &&
       (!stored.targetSecretRef || (channel.kind === "webhook" && channel.secret !== undefined) ||
@@ -591,11 +720,19 @@ export async function migrateLegacyChannelSecretsAsync(
       await flushPendingAsync();
       await finishAlertSecretMigration(channel);
       migrated += 1;
-    } else if (candidate) {
-      await finishAlertSecretMigration(channel);
+      entries.push({ channelId: channel.id, name: channel.name, kind: channel.kind, status: "migrated", detail: legacy });
+    } else {
+      if (candidate) await finishAlertSecretMigration(channel);
+      entries.push({ channelId: channel.id, name: channel.name, kind: channel.kind, status: "unchanged" });
     }
   }
-  return { inspected: channels.length, migrated, unchanged: channels.length - migrated };
+  return {
+    inspected: channels.length,
+    migrated,
+    unchanged: channels.length - migrated,
+    blocked: 0,
+    channels: entries,
+  };
 }
 
 /**

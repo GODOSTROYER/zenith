@@ -26,18 +26,23 @@ const STATE = path.join(process.env.ZENITH_DATA, "state.json");
 
 const { db, flush, resetDb } = await import("@/lib/db/store");
 const {
+  DELIVERY_COUNTERS,
+  DELIVERY_FANOUT_LIMIT,
   IDEMPOTENCY_HEADER,
   OUTBOX_LEASE_MS,
   SIGNATURE_HEADER,
+  bootReplayLeaseMs,
   channelTable,
   evaluateAll,
   flushDeliveries,
   idempotencyKeyFor,
   reclaimStale,
   replayOutbox,
+  settleWithRetry,
   WEBHOOK_POLICY,
   WEBHOOK_TRANSPORT,
 } = await import("@/lib/alerts");
+type OutboxSettlement = Parameters<typeof settleWithRetry>[0][number];
 
 const productionResolver = WEBHOOK_POLICY.resolveAll;
 const productionTransport = WEBHOOK_TRANSPORT.request;
@@ -329,6 +334,154 @@ describe("a crash does not lose the notification", () => {
     await replayOutbox();
     expect(JSON.parse(calls[0].init.body as string).event).toBe("alert.resolved");
     expect(onDisk().alertOutbox[0].status).toBe("delivered");
+  });
+});
+
+/* ------------------------------ boot replay lease -------------------------- */
+
+describe("boot reclaims only what it can prove is abandoned", () => {
+  it("leaves a live claim alone where no single writer was proved", async () => {
+    channel({ id: "a" });
+    rule();
+    stubFetch(["hang"]);
+
+    evaluateAll(NOW);
+    await tick(); // the claim is durable and the send never comes back
+    restart(); // …and the process is replaced while that claim is seconds old
+
+    expect(db().alertOutbox[0].status).toBe("sending");
+    expect(db().alertOutbox[0].claimedAt).toBeTruthy();
+
+    // A serverless instance never ran `claimDataDir`, so "nobody else owns
+    // this directory" is not something this process knows. Same on Postgres.
+    process.env.ZENITH_SERVERLESS = "1";
+    try {
+      expect(bootReplayLeaseMs()).toBe(OUTBOX_LEASE_MS);
+      const calls = stubFetch([200]);
+      expect(await replayOutbox(bootReplayLeaseMs())).toBe(0);
+      expect(calls).toHaveLength(0);
+      expect(db().alertOutbox[0].status).toBe("sending");
+    } finally {
+      delete process.env.ZENITH_SERVERLESS;
+    }
+
+    // One process, one data directory, the claim proved: lease 0, and the row
+    // that a dead process was holding is taken back and sent.
+    expect(bootReplayLeaseMs()).toBe(0);
+    const calls = stubFetch([200]);
+    expect(await replayOutbox(bootReplayLeaseMs())).toBe(1);
+    expect(calls).toHaveLength(1);
+    expect(onDisk().alertOutbox[0].status).toBe("delivered");
+  });
+});
+
+/* -------------------------------- fan-out ---------------------------------- */
+
+describe("delivery fan-out is bounded", () => {
+  it("never has more than the limit in flight, however many channels fire", async () => {
+    const channels = 20;
+    for (let i = 0; i < channels; i++) channel({ id: `fan-${i}` });
+    rule();
+
+    let inFlight = 0;
+    let peak = 0;
+    WEBHOOK_TRANSPORT.request = async () => {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight -= 1;
+      return new Response(null, { status: 200 });
+    };
+
+    expect(evaluateAll(NOW)).toBe(1);
+    await flushDeliveries();
+
+    expect(db().alertOutbox).toHaveLength(channels);
+    expect(db().alertOutbox.every((r) => r.status === "delivered")).toBe(true);
+    expect(peak).toBeLessThanOrEqual(DELIVERY_FANOUT_LIMIT);
+    // And it is a *pool*, not a queue of one: the bound is a cap, not a stall.
+    expect(peak).toBeGreaterThan(1);
+  });
+});
+
+/* ----------------------------- a lost settle ------------------------------- */
+
+describe("a settle that loses its version guard", () => {
+  const settlement = (): OutboxSettlement => {
+    const row = {
+      id: "row-settle",
+      workspaceId: "ws1",
+      channelId: "a",
+      eventId: "ev-settle",
+      transition: "fired" as const,
+      idempotencyKey: "zenith-fired-ev-settle-a",
+      status: "sending" as const,
+      attempts: 1,
+      createdAt: ago(1),
+      claimedAt: ago(1),
+    };
+    return {
+      row,
+      delivery: { channelId: "a", at: ago(0), ok: true, status: 200, attempts: 1 },
+    };
+  };
+
+  it("is retried against a fresh row version rather than logged and dropped", async () => {
+    const settled = settlement();
+    let flushes = 0;
+    const outcome = await settleWithRetry([settled], {
+      flush: async () => {
+        // The first flush is the one that lost the race.
+        if (++flushes === 1) throw new Error("alert_outbox version conflict");
+      },
+      // A re-read puts the table's own row back over ours, settlement and all.
+      refresh: async () => {
+        settled.row.status = "sending";
+        delete settled.row.settledAt;
+      },
+    });
+
+    expect(outcome).toBe("retried");
+    expect(flushes).toBe(2);
+    expect(settled.row.status).toBe("delivered");
+    expect(settled.row.settledAt).toBeTruthy();
+    expect(settled.row.claimedAt).toBeUndefined();
+  });
+
+  it("keeps the winner's outcome when the re-read shows the row already settled", async () => {
+    const settled = settlement();
+    let flushes = 0;
+    const outcome = await settleWithRetry([settled], {
+      flush: async () => {
+        if (++flushes === 1) throw new Error("alert_outbox version conflict");
+      },
+      refresh: async () => {
+        // Another instance settled it as failed; that is the durable record.
+        settled.row.status = "failed";
+        settled.row.error = "the winner's reason";
+      },
+    });
+
+    expect(outcome).toBe("retried");
+    expect(settled.row.status).toBe("failed");
+    expect(settled.row.error).toBe("the winner's reason");
+  });
+
+  it("names and counts the duplicate risk when even the retry cannot commit", async () => {
+    const before = DELIVERY_COUNTERS.duplicateSendPossible;
+    const settled = settlement();
+    const outcome = await settleWithRetry([settled], {
+      flush: async () => {
+        throw new Error("alert_outbox unreachable");
+      },
+      refresh: async () => undefined,
+    });
+
+    // The message left this server and the row still says `sending`, so at
+    // lease expiry another instance will send it again. That is a counted,
+    // named outcome now, not a warn line.
+    expect(outcome).toBe("duplicate-send-possible");
+    expect(DELIVERY_COUNTERS.duplicateSendPossible).toBe(before + 1);
   });
 });
 

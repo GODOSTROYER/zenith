@@ -195,12 +195,15 @@ defineAction<CreateChannel>({
     };
   },
   async execute(ctx, input) {
-    const problem = targetProblem(input.kind, input.target);
-    if (problem) return { ok: false, summary: "That target cannot be used.", error: problem };
     const rawTarget = input.target.trim();
     // HTTP targets may carry bearer material in their path/query. Keep the
-    // submitted value out of the post-action audit input for both kinds.
+    // submitted value out of the post-action audit input for both kinds —
+    // including when validation rejects it, which `runAction` audits just the
+    // same, and which the egress policy now makes a routine outcome rather
+    // than a rare one.
     if (input.kind === "slack" || input.kind === "webhook") input.target = maskTarget(input.kind, rawTarget);
+    const problem = targetProblem(input.kind, rawTarget);
+    if (problem) return { ok: false, summary: "That target cannot be used.", error: problem };
 
     const channel: AlertChannel = {
       id: id(),

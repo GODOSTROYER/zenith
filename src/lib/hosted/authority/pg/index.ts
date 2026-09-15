@@ -73,6 +73,32 @@ const newestMigration = (): { version: number; name: string } => {
   return { version: newest.version, name: newest.name };
 };
 
+/**
+ * Structural facts a ledger row is not allowed to vouch for on its own.
+ *
+ * A migration's *number* being recorded says somebody ran a file; it does not
+ * say the object that file creates exists, and a manually edited or partially
+ * restored `schema_migrations` must not convince the runtime that a fence is in
+ * place. Each entry is checked whenever this build knows its migration, so a
+ * later version keeps verifying every earlier invariant rather than retiring it.
+ */
+interface SchemaInvariant {
+  /** The migration that introduces it. Checked while this build still ships that migration. */
+  version: number;
+  /** What the refusal says when the database does not have it. */
+  reason: string;
+  verify(client: Sql): Promise<boolean>;
+}
+
+const SCHEMA_INVARIANTS: readonly SchemaInvariant[] = [
+  {
+    version: 3,
+    reason:
+      "The required unique index hosted.app_invites_pending_email is missing or has the wrong definition.",
+    verify: hasPendingInviteUniquenessIndex,
+  },
+];
+
 /** The refusal when the database has not been brought up to this build's schema. */
 function schemaBehind(
   found: number[],
@@ -182,12 +208,12 @@ export function createPostgresAuthority(opts: PostgresAuthorityOptions = {}): Po
               : `The ledger contains unknown migration version ${unknown?.version}; refusing to run against an unrecognized schema.`
           );
         }
-        if (expected.version === 3 && !(await hasPendingInviteUniquenessIndex(client))) {
-          throw schemaBehind(
-            versions,
-            expected,
-            "The required unique index hosted.app_invites_pending_email is missing or has the wrong definition."
-          );
+        for (const invariant of SCHEMA_INVARIANTS) {
+          // Gated on the invariant's *own* migration, never on the newest one:
+          // `expected.version === 3` stopped being true the moment a version 4
+          // was added, and the check would have disabled itself silently.
+          if (!MIGRATIONS.some((migration) => migration.version === invariant.version)) continue;
+          if (!(await invariant.verify(client))) throw schemaBehind(versions, expected, invariant.reason);
         }
       })();
     return checked;

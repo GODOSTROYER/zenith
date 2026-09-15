@@ -14,6 +14,12 @@
  *    the same subquery would block on each other and then claim rows the other
  *    already had. `skip locked` makes each drainer take rows nobody else holds,
  *    which is what the single-connection SQLite version got for free.
+ *
+ * The claim fence matters most here: this is the backend where two instances
+ * really do drain the same table, so `settle`, `release` and `renew` all carry
+ * `and attempts = <the value the claim returned>`. A stalled worker whose lease
+ * expired is refused by the database rather than settling over whoever reclaimed
+ * the row. See `outboxFence` in the SQLite twin.
  */
 import type { HostedOutboxEntry, OutboxState } from "@/lib/hosted/contracts";
 import { nowIso } from "../../sql";
@@ -124,7 +130,7 @@ export function createPgOutboxRepo(sql: Sql | TransactionSql): OutboxRepo {
       return rows.map(map);
     },
 
-    async settle(id, state, fields = {}) {
+    async settle(id, state, fields) {
       const result = await sql`
         update hosted.hosted_outbox set
           state = ${state},
@@ -132,15 +138,23 @@ export function createPgOutboxRepo(sql: Sql | TransactionSql): OutboxRepo {
           claimed_at = null,
           error = ${writeOptional(fields.error)},
           attempts = attempts + ${Math.max(0, fields.extraAttempts ?? 0)}
-        where id = ${id} and state = 'sending'
+        where id = ${id} and state = 'sending' and attempts = ${fields.fence}
       `;
       return changeCount(result) === 1;
     },
 
-    async release(id) {
+    async release(id, fence) {
       const result = await sql`
         update hosted.hosted_outbox set state = 'pending', claimed_at = null
-        where id = ${id} and state = 'sending'
+        where id = ${id} and state = 'sending' and attempts = ${fence}
+      `;
+      return changeCount(result) === 1;
+    },
+
+    async renew(id, fence, now = nowIso()) {
+      const result = await sql`
+        update hosted.hosted_outbox set claimed_at = ${now}
+        where id = ${id} and state = 'sending' and attempts = ${fence}
       `;
       return changeCount(result) === 1;
     },

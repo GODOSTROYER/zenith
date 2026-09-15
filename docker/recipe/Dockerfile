@@ -1,34 +1,43 @@
 # The build image for the `docker` runner: the platform recipe, and nothing else.
 #
-#   docker build -t zenith-recipe:v1 -f docker/recipe/Dockerfile .
+#   docker build -t zenith-recipe:build -f docker/recipe/Dockerfile .
+#   docker image inspect --format '{{.Id}}' zenith-recipe:build
 #
-# The pinned toolchain is installed once, here, at image build time. A container
-# started from this image never installs anything, never reads a submitted
-# `vite.config.*` or `package.json` script, and never has a network: the runner
-# starts it with `--network none`, `--read-only`, `/src` mounted read-only and
-# `/out` as the only writable mount.
+# The second command prints the `sha256:<64 hex>` image ID the runner must be
+# pointed at: `ZENITH_RECIPE_IMAGE` takes a digest or an image ID, never a tag,
+# so a rebuilt `:v1` cannot silently become the build boundary (see
+# `src/lib/hosted/build/runner-docker.ts`). The tag above is a scratch label for
+# the one `docker image inspect` that follows it.
 #
-# Rebuild this image whenever `RECIPE_V1` in `src/lib/hosted/contracts/source-v1.ts`
-# changes; the versions below and that constant must agree, because the recipe
-# version lands in every artifact's provenance.
+# The pinned toolchain is installed once, here, at image build time, from the
+# lockfile committed beside this file — `npm ci` (frozen: the resolved tree is
+# exactly what `docker/recipe/package-lock.json` records, transitive packages
+# included) with `--ignore-scripts` (no dependency's `preinstall`/`install`/
+# `postinstall` runs, so a compromised transitive package cannot execute code
+# while the image is being built). A container started from this image never
+# installs anything, never reads a submitted `vite.config.*` or `package.json`
+# script, and never has a network: the runner starts it with `--network none`,
+# `--read-only`, `/src` mounted read-only and `/out` as the only writable mount.
 #
-# Workstream W2 (hosted R3).
+# `docker/recipe/package.json` and `RECIPE_V1` in
+# `src/lib/hosted/contracts/source-v1.ts` must agree, because the recipe version
+# lands in every artifact's provenance. `tests/hosted/build/recipe-image.test.ts`
+# fails if they drift, and fails if this file stops installing from the lockfile.
+# To change the toolchain: edit `docker/recipe/package.json` and `RECIPE_V1`,
+# regenerate the lockfile with `npm install --package-lock-only --ignore-scripts`
+# in a scratch copy of `docker/recipe/`, and rebuild the image.
+#
+# Workstream W2 (hosted R3); frozen and script-free in track D.
 
 FROM node:22-alpine
 
-# `RECIPE_V1`, duplicated here because an image cannot import TypeScript.
-ARG VITE_VERSION=7.3.6
-ARG PLUGIN_REACT_VERSION=5.1.4
-ARG REACT_VERSION=19.1.0
-
 WORKDIR /opt/zenith
 
-# One layer, one install, no lockfile from anyone outside this repository.
-RUN npm install --no-audit --no-fund --omit=dev \
-      "vite@${VITE_VERSION}" \
-      "@vitejs/plugin-react@${PLUGIN_REACT_VERSION}" \
-      "react@${REACT_VERSION}" \
-      "react-dom@${REACT_VERSION}" \
+# Frozen (`ci` from the committed lockfile, not `install`) and script-free.
+# `--omit=dev` is belt and braces: the toolchain package.json has no
+# devDependencies, and this keeps it that way if one is ever added by mistake.
+COPY docker/recipe/package.json docker/recipe/package-lock.json ./
+RUN npm ci --ignore-scripts --omit=dev --no-audit --no-fund \
  && npm cache clean --force
 
 # The recipe itself. `recipe-worker.mjs` imports `recipe-config.mjs` from beside

@@ -1,6 +1,6 @@
 /** Resource-server verification only. Login, consent, PKCE and refresh are owned by a maintained external authorization server. */
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey, type JWTPayload } from 'jose';
-import { ControlError, type Principal } from './journal';
+import { ControlError, digest, type Principal } from './journal';
 import { SCOPE_NAMES } from './contracts';
 export interface OAuthConfig { issuer: string; jwksUrl: string; resource: string; clientClaim: 'client_id'|'azp'; subjectClaim?: string }
 export function oauthConfig(env: Record<string,string|undefined>, origin: string): OAuthConfig | undefined {
@@ -44,5 +44,5 @@ export function bindGrant(identity: VerifiedOAuth, grant: (Principal & {clientId
     throw new ControlError('integration_grant_required','Authorize this OAuth client and resource scope in Zenith → Integrations, or renew its grant.',403);
   const scopes=grant.scopes.filter(s=>identity.scopes.includes(s));
   if(!scopes.includes('read'))throw new ControlError('scope_denied','Token and integration grant do not share the required scope.',403);
-  return {...grant,scopes,expiresAt:new Date(Math.min(Date.parse(grant.expiresAt),Date.parse(identity.expiresAt))).toISOString()};
+  return {...grant,scopes,grantDigest:digest(grant),expiresAt:new Date(Math.min(Date.parse(grant.expiresAt),Date.parse(identity.expiresAt))).toISOString()};
 }

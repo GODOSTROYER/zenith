@@ -10,6 +10,8 @@ export class ControlError extends Error {
 export interface Principal {
   subject: string; integrationId: string; workspaceId: string;
   projectIds: string[]; environmentIds?: string[]; appIds?: string[]; scopes: string[]; expiresAt: string; oauthIssuer?: string;
+  /** Digest of the live resource grant when the principal came from OAuth. */
+  grantDigest?: string;
 }
 export interface Target { workspaceId: string; projectId: string; environmentId?: string }
 export interface Proposal {
@@ -21,6 +23,8 @@ export interface Operation extends Proposal {
   id: string; subject: string; integrationId: string; createdAt: string; expiresAt: string;
   digest: string; phase: Phase; approvedBy?: string; approvalRole?: 'editor' | 'admin'; approvedAt?: string; result?: unknown;
   workerId?: string; executedByIntegration?: string; finishedAt?: string;
+  /** Grant snapshot held by the worker claim; checked again at finalization. */
+  authorizationDigest?: string;
 }
 export function canonical(value: unknown): string {
   if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null';
@@ -92,6 +96,13 @@ export class Journal {
       .run(op.id, kind, at, JSON.stringify({ operationId: op.id, phase: op.phase, digest: op.digest, integrationId: op.integrationId }));
     return op;
   }
+  private authorizationDigest(who: Principal): string | undefined {
+    const clientId = (who as Principal & { clientId?: string }).clientId;
+    if (!clientId) return who.grantDigest;
+    const row = this.sql.prepare('SELECT document FROM agent_grants WHERE subject=? AND client_id=? AND workspace=?')
+      .get(who.subject, clientId, who.workspaceId) as JsonRow | undefined;
+    return row ? digest(JSON.parse(row.document)) : undefined;
+  }
   prepare(who: Principal, proposal: Proposal, ttlMs = 15 * 60_000): Operation {
     checkTarget(who, proposal.target, 'plan', this.clock());
     if (!/^[A-Za-z0-9_-]{8,100}$/.test(proposal.requestKey)) throw new ControlError('invalid_request_key', 'Use a stable 8–100 character request key.', 400);
@@ -152,7 +163,30 @@ export class Journal {
       if (Date.parse(op.expiresAt) <= this.clock()) throw new ControlError('plan_expired', 'Prepare a fresh plan.');
       if (op.fingerprint !== fingerprint) throw new ControlError('stale_plan', 'State or permissions changed. Prepare and review a new plan.');
       op.phase = 'running'; op.workerId = this.workerId; op.executedByIntegration = who.integrationId;
+      op.authorizationDigest = this.authorizationDigest(who);
       return { operation: this.write(op, 'claimed'), claimed: true };
+    });
+  }
+  /**
+   * Atomically fence finalization against the durable grant and operation
+   * expiry. Application-side authorization is checked by the coordinator just
+   * before this call; this transaction closes the race for the journal-owned
+   * grant/revocation state and makes expiry linearizable with finish.
+   */
+  finishIfValid(who: Principal, id: string, result: unknown, success: boolean): Operation {
+    return this.transaction(() => {
+      const op = this.row(id);
+      if (op.phase !== 'running' || op.workerId !== this.workerId)
+        throw new ControlError('operation_not_owned', 'This worker does not own the operation.');
+      if (op.subject !== who.subject || op.target.workspaceId !== who.workspaceId || op.executedByIntegration !== who.integrationId)
+        throw new ControlError('authorization_changed', 'The authorized integration changed during dispatch.', 403);
+      if (Date.parse(op.expiresAt) <= this.clock())
+        throw new ControlError('plan_expired', 'The approved operation expired before it could be finalized.', 409);
+      checkTarget(who, op.target, op.action.startsWith('app.') ? 'publish' : 'write', this.clock());
+      if (op.authorizationDigest !== this.authorizationDigest(who))
+        throw new ControlError('authorization_changed', 'The integration grant changed during dispatch.', 403);
+      op.phase = success ? 'succeeded' : 'failed'; op.result = structuredClone(result); op.finishedAt = new Date(this.clock()).toISOString();
+      return this.write(op, op.phase);
     });
   }
   finish(id: string, result: unknown, success: boolean): Operation {

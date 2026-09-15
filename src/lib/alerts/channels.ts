@@ -25,12 +25,19 @@ import {
   secretStoreState,
 } from "@/lib/secrets";
 
-/** Additive fields understood by the alert store; old rows omit secretRef. */
-export type StoredAlertChannel = AlertChannel & { secretRef?: string };
+/** Additive fields understood by the alert store; old rows omit both refs. */
+export type StoredAlertChannel = AlertChannel & {
+  secretRef?: string;
+  targetSecretRef?: string;
+};
 
 /** Stable, workspace-scoped identity for a channel's signing key. */
 export const alertChannelSecretRef = (channelId: string): string =>
   `vault:alert-channel/${channelId}/SIGNING_SECRET`;
+
+/** Stable, workspace-scoped identity for a credential-bearing target URL. */
+export const alertChannelTargetSecretRef = (channelId: string): string =>
+  `vault:alert-channel/${channelId}/TARGET_URL`;
 
 /** Read a signing key without exposing it to callers that only need metadata. */
 export function channelSecret(channel: AlertChannel): string | undefined {
@@ -41,25 +48,58 @@ export function channelSecret(channel: AlertChannel): string | undefined {
       throw new Error("The channel's signing secret is missing from Zenith's secret store; set it again before sending.");
     return value;
   }
-  // Compatibility for rows created before channel secrets used the store.
-  return channel.secret;
+  // Legacy plaintext is intentionally not a usable fallback. channelTable()
+  // migrates it when the key is configured; direct callers that already hold a
+  // just-created/legacy object get the same idempotent migration.
+  if (channel.secret !== undefined) {
+    if (!secretStoreState().configured)
+      throw new Error("This channel still has a legacy plaintext signing secret. Configure ZENITH_SECRET_KEY and reload it before sending.");
+    setChannelSecret(channel, channel.secret, "system:alert-channel-migration");
+    flush();
+    return readSecretValue(channel.workspaceId, (channel as StoredAlertChannel).secretRef!);
+  }
+  return undefined;
 }
 
 /** Resolve a Slack URL credential without exposing it to metadata callers. */
 export function channelTarget(channel: AlertChannel): string {
   const stored = channel as StoredAlertChannel;
+  if (channel.kind === "email") return channel.target;
+  if (stored.targetSecretRef) {
+    const value = readSecretValue(channel.workspaceId, stored.targetSecretRef);
+    if (value === undefined)
+      throw new Error("The channel's webhook target is missing from Zenith's secret store; set it again before sending.");
+    return value;
+  }
+  // Rows written by the first hardening slice used secretRef for Slack URLs.
+  // Resolve that shape only while migration is able to move it to the target
+  // namespace; it is never treated as a generic plaintext fallback.
   if (channel.kind === "slack" && stored.secretRef) {
     const value = readSecretValue(channel.workspaceId, stored.secretRef);
     if (value === undefined)
       throw new Error("The channel's Slack webhook URL is missing from Zenith's secret store; set it again before sending.");
     return value;
   }
-  return channel.target;
+  if (secretStoreState().configured && channel.target) {
+    setChannelTargetSecret(channel, channel.target, "system:alert-channel-migration");
+    flush();
+    return readSecretValue(channel.workspaceId, (channel as StoredAlertChannel).targetSecretRef!)!;
+  }
+  throw new Error("This channel still has a plaintext webhook target. Configure ZENITH_SECRET_KEY and reload it before sending.");
 }
 
 export const channelHasSecret = (channel: AlertChannel): boolean => {
   const stored = channel as StoredAlertChannel;
-  return channel.kind === "slack" ? !!stored.secretRef || !!channel.target : !!stored.secretRef || !!channel.secret;
+  if (channel.kind === "slack") {
+    if (stored.targetSecretRef || stored.secretRef) return true;
+    try {
+      const url = new URL(channel.target);
+      return url.pathname !== "/" || !!url.search;
+    } catch {
+      return false;
+    }
+  }
+  return !!stored.secretRef || !!channel.secret;
 };
 
 /** Store or clear a channel signing key without leaving a plaintext row. */
@@ -79,11 +119,29 @@ export function setChannelSecret(channel: AlertChannel, value: string | undefine
 /** Store a Slack webhook URL while retaining only its non-secret origin. */
 export function setChannelTargetSecret(channel: AlertChannel, value: string, by: string): void {
   const stored = channel as StoredAlertChannel;
-  const ref = stored.secretRef ?? alertChannelSecretRef(channel.id);
-  const origin = new URL(value).origin;
+  const ref = stored.targetSecretRef ?? alertChannelTargetSecretRef(channel.id);
+  const parsed = new URL(value);
   putSecret(channel.workspaceId, ref, value, by);
-  stored.secretRef = ref;
-  channel.target = origin;
+  stored.targetSecretRef = ref;
+  // Keep only a deliberately non-sensitive display value in the channel row.
+  // Generic webhook paths may themselves contain bearer material, so the
+  // display path is never copied from the submitted URL. Slack keeps its
+  // historical origin-only display contract.
+  channel.target = channel.kind === "slack"
+    ? parsed.origin
+    : `${parsed.origin}${parsed.pathname !== "/" || parsed.search ? "/…" : ""}`;
+}
+
+/** Remove both independent channel credentials, including old legacy fields. */
+export function removeChannelSecrets(channel: AlertChannel): void {
+  const stored = channel as StoredAlertChannel;
+  const refs = new Set<string>();
+  if (stored.secretRef) refs.add(stored.secretRef);
+  if (stored.targetSecretRef) refs.add(stored.targetSecretRef);
+  for (const ref of refs) removeSecret(channel.workspaceId, ref);
+  delete stored.secretRef;
+  delete stored.targetSecretRef;
+  delete channel.secret;
 }
 
 /** Safely migrate legacy plaintext channel keys when encryption is configured. */
@@ -91,12 +149,27 @@ function migrateLegacyChannelSecrets(channels: AlertChannel[]): boolean {
   if (!secretStoreState().configured) return false;
   let changed = false;
   for (const channel of channels) {
-    if ((channel.kind === "slack" ? !channel.target : !channel.secret) || (channel as StoredAlertChannel).secretRef)
-      continue;
+    const stored = channel as StoredAlertChannel;
     try {
-      if (channel.kind === "slack") setChannelTargetSecret(channel, channel.target, "system:alert-channel-migration");
-      else setChannelSecret(channel, channel.secret, "system:alert-channel-migration");
-      changed = true;
+      // The previous slice used SIGNING_SECRET for Slack's target. Move it to
+      // its distinct reference before handling new legacy rows.
+      if (channel.kind === "slack" && stored.secretRef && !stored.targetSecretRef) {
+        const value = readSecretValue(channel.workspaceId, stored.secretRef);
+        if (value) {
+          setChannelTargetSecret(channel, value, "system:alert-channel-migration");
+          removeSecret(channel.workspaceId, stored.secretRef);
+          delete stored.secretRef;
+          changed = true;
+        }
+      }
+      if (channel.kind !== "email" && !stored.targetSecretRef) {
+        setChannelTargetSecret(channel, channel.target, "system:alert-channel-migration");
+        changed = true;
+      }
+      if (channel.kind === "webhook" && channel.secret !== undefined && !stored.secretRef) {
+        setChannelSecret(channel, channel.secret, "system:alert-channel-migration");
+        changed = true;
+      }
     } catch {
       // Keep the old value if the key/store is unavailable; retry next read.
     }
@@ -177,10 +250,10 @@ export function maskTarget(kind: AlertChannelKind, target: string): string {
 
 /** A channel as it goes on the wire: no secret, no token in the target. */
 export interface PublicAlertChannel
-  extends Omit<AlertChannel, "secret" | "target"> {
+  extends Omit<AlertChannel, "secret" | "target" | "secretRef" | "targetSecretRef"> {
   /** the endpoint with anything credential-shaped removed */
   target: string;
-  /** whether a webhook signing secret is set — never the secret itself */
+  /** whether the channel's credential is set — never the credential itself */
   hasSecret: boolean;
 }
 

@@ -18,6 +18,7 @@ import type { AlertChannel, AlertRule } from "@/lib/domain/types";
 import * as fixtures from "./_fixtures";
 
 process.env.ZENITH_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-outbox-"));
+process.env.ZENITH_SECRET_KEY = Buffer.alloc(32, 6).toString("base64");
 // Collapses the delivery backoff, the same knob that collapses step durations.
 process.env.ZENITH_FAST = "1";
 

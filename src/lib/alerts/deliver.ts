@@ -379,7 +379,7 @@ async function attempt(
   // The signature covers the body, which carries a fresh `sentAt` per attempt;
   // the idempotency key does not change, so it — not the bytes — is what tells
   // a receiver that attempt 2 is the same notification as attempt 1.
-  return post(channel.target, body, {
+  return post(channelTarget(channel), body, {
     "X-Zenith-Event": eventName(msg.phase),
     [IDEMPOTENCY_HEADER]: idempotencyKey,
     ...(secret ? { [SIGNATURE_HEADER]: sign(body, secret) } : {}),

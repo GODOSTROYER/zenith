@@ -64,6 +64,32 @@ describe('durable agent journal', () => {
       expect(() => j.claim(who, other.id, proposal.fingerprint)).toThrow('fresh plan');
     } finally { j.close(); }
   });
+  it('does not finalize an operation after its approval expires', () => {
+    let now = Date.now(); const j = new Journal(':memory:', () => now);
+    try {
+      const op = j.prepare(who, proposal, 1000);
+      j.review(op.id, who.subject, who.workspaceId, op.digest, true);
+      j.claim(who, op.id, proposal.fingerprint);
+      now += 1001;
+      expect(() => j.finishIfValid(who, op.id, { ok: true }, true)).toThrow('expired');
+      expect(j.get(who, op.id).phase).toBe('running');
+    } finally { j.close(); }
+  });
+  it('fences finalization when the durable OAuth grant is revoked', () => {
+    const j = new Journal(':memory:');
+    const client = 'codex-client';
+    const grant = { ...who, clientId: client, integrationId: 'integration', revoked: false };
+    const authenticated = { ...who, clientId: client } as Principal & { clientId: string };
+    try {
+      j.setGrant(grant);
+      const op = j.prepare(authenticated, proposal);
+      j.review(op.id, who.subject, who.workspaceId, op.digest, true);
+      j.claim(authenticated, op.id, proposal.fingerprint);
+      j.setGrant({ ...grant, revoked: true });
+      expect(() => j.finishIfValid(authenticated, op.id, { ok: true }, true)).toThrow('grant changed');
+      expect(j.get(authenticated, op.id).phase).toBe('running');
+    } finally { j.close(); }
+  });
   it('persists across restarts and never blindly replays an interrupted dispatch', () => {
     const dir = mkdtempSync(join(tmpdir(), 'zenith-journal-')); const file = join(dir, 'agent.sqlite');
     try { const first = new Journal(file); const op = ready(first); first.claim(who, op.id, proposal.fingerprint); first.close();

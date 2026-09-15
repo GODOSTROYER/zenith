@@ -55,7 +55,7 @@ export class Coordinator {
             checkTarget(current, claim.operation.target, claim.operation.action.startsWith('app.') ? 'publish' : 'write');
             await this.port.authorize(current, claim.operation);
           });
-          return this.journal.finish(op.id, result, result.ok);
+          return this.journal.finishIfValid(current, op.id, result, result.ok);
         } catch {
           // The external side effect may have happened. Persist ambiguity; never claim rollback or retry.
           this.journal.uncertain(op.id);

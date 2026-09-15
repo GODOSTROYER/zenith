@@ -27,6 +27,7 @@ import {
   maskTarget,
   messageText,
   scopedChannel,
+  removeChannelSecrets,
   setChannelSecret,
   setChannelTargetSecret,
   type AlertMessage,
@@ -72,7 +73,7 @@ function whereTheSecretLives(kind: AlertChannel["kind"], hasSecret: boolean): st
   if (kind === "slack")
     return `A Slack incoming-webhook URL is itself the credential: anyone holding it can post to that channel. It is encrypted in Zenith's secret store; only its non-secret origin is kept with this channel.`;
   return hasSecret
-    ? `Each request carries ${SIGNATURE_HEADER}: sha256=… , an HMAC over the exact bytes of the body. The signing secret is encrypted in Zenith's secret store; only its reference is kept with this channel.`
+    ? `The destination URL and signing key are encrypted in Zenith's secret store; only the destination origin and secret references are kept with this channel. Each request carries ${SIGNATURE_HEADER}: sha256=… , an HMAC over the exact bytes of the body.`
     : `No signing secret: requests go out unsigned and the receiver cannot prove Zenith sent them. Set one to have Zenith send ${SIGNATURE_HEADER}.`;
 }
 
@@ -157,7 +158,7 @@ defineAction<CreateChannel>({
     const duplicate = channelsOf(ctx.workspaceId).find((c) => {
       if (c.kind !== input.kind) return false;
       try {
-        return (c.kind === "slack" ? channelTarget(c) : c.target) === input.target.trim();
+        return (c.kind === "email" ? c.target : channelTarget(c)) === input.target.trim();
       } catch {
         return false;
       }
@@ -192,8 +193,9 @@ defineAction<CreateChannel>({
     const problem = targetProblem(input.kind, input.target);
     if (problem) return { ok: false, summary: "That target cannot be used.", error: problem };
     const rawTarget = input.target.trim();
-    // A Slack URL is a credential; keep it out of the post-action audit input.
-    if (input.kind === "slack") input.target = maskTarget("slack", rawTarget);
+    // HTTP targets may carry bearer material in their path/query. Keep the
+    // submitted value out of the post-action audit input for both kinds.
+    if (input.kind === "slack" || input.kind === "webhook") input.target = maskTarget(input.kind, rawTarget);
 
     const channel: AlertChannel = {
       id: id(),
@@ -206,6 +208,7 @@ defineAction<CreateChannel>({
       createdAt: new Date().toISOString(),
     };
     try {
+      if (input.kind === "webhook") setChannelTargetSecret(channel, rawTarget, ctx.actor.name);
       if (input.kind === "webhook" && input.secret?.trim())
         setChannelSecret(channel, input.secret.trim(), ctx.actor.name);
       if (input.kind === "slack") setChannelTargetSecret(channel, rawTarget, ctx.actor.name);
@@ -290,6 +293,9 @@ defineAction<UpdateChannel>({
       requiresApproval: false,
       blocked:
         (input.target !== undefined ? targetProblem(channel.kind, input.target) : undefined) ??
+        (input.secret !== undefined && channel.kind !== "webhook"
+          ? `A ${channel.kind} channel has no signing secret. Update its target credential instead.`
+          : undefined) ??
         (nothing
           ? "Change the name, the destination, the secret or the on/off switch — this would save the channel exactly as it is."
           : undefined),
@@ -299,12 +305,23 @@ defineAction<UpdateChannel>({
     const channel = scopedChannel(ctx.workspaceId, input.channelId);
     if (input.target !== undefined) {
       const rawTarget = input.target.trim();
-      // A Slack URL is a credential; keep it out of the post-action audit input,
-      // including when validation rejects the replacement.
-      if (channel.kind === "slack") input.target = maskTarget("slack", rawTarget);
+      // HTTP targets may carry bearer material in their path/query. Keep the
+      // submitted value out of the post-action audit input, including when
+      // validation rejects the replacement.
+      if (channel.kind === "slack" || channel.kind === "webhook") input.target = maskTarget(channel.kind, rawTarget);
       const problem = targetProblem(channel.kind, rawTarget);
       if (problem) return { ok: false, summary: "That target cannot be used.", error: problem };
       if (channel.kind === "slack") {
+        try {
+          setChannelTargetSecret(channel, rawTarget, ctx.actor.name);
+        } catch (error) {
+          return {
+            ok: false,
+            summary: "The channel target could not be stored safely.",
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      } else if (channel.kind === "webhook") {
         try {
           setChannelTargetSecret(channel, rawTarget, ctx.actor.name);
         } catch (error) {
@@ -318,10 +335,16 @@ defineAction<UpdateChannel>({
     }
     if (input.name !== undefined) channel.name = input.name.trim();
     if (input.secret !== undefined) {
+      if (channel.kind !== "webhook")
+        return {
+          ok: false,
+          summary: "That channel has no signing secret.",
+          error: `A ${channel.kind} channel has no signing secret. Update its target credential instead.`,
+        };
       try {
         setChannelSecret(
           channel,
-          channel.kind === "webhook" ? input.secret.trim() || undefined : undefined,
+          input.secret.trim() || undefined,
           ctx.actor.name
         );
       } catch (error) {
@@ -398,7 +421,7 @@ defineAction<DeleteChannel>({
   execute(ctx, input) {
     const channel = scopedChannel(ctx.workspaceId, input.channelId);
     try {
-      if (channelHasSecret(channel)) setChannelSecret(channel, undefined, ctx.actor.name);
+      removeChannelSecrets(channel);
     } catch (error) {
       return {
         ok: false,

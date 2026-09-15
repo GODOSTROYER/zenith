@@ -15,16 +15,15 @@ export interface AsyncRepositoryContext {
 }
 
 export interface AsyncRepositoryRequest extends RestRequest {
-  /** Set to null only for an explicitly install-global query. */
-  tenantColumn?: string | null;
+  /** The tenant column; omitted means the canonical workspace_id column. */
+  tenantColumn?: string;
 }
 
 export interface AsyncRepository {
   request(req: AsyncRepositoryRequest, context: AsyncRepositoryContext): Promise<RestResult>;
 }
 
-function scopedPath(path: string, column: string | null | undefined, tenantId: string): string {
-  if (column === null) return path;
+function scopedPath(path: string, column: string | undefined, tenantId: string): string {
   const separator = path.includes("?") ? "&" : "?";
   return `${path}${separator}${eq(column ?? "workspace_id", tenantId)}`;
 }
@@ -39,6 +38,11 @@ export class PostgrestAsyncRepository implements AsyncRepository {
       throw new Error(
         `Postgres store refused ${req.op} "${req.table}": a tenant is required for async storage access.`
       );
+    // Keep install-global access out of this tenant-scoped API. If a future
+    // trusted bootstrap needs it, give that caller a separate explicit
+    // capability rather than allowing a request field to bypass isolation.
+    if ((req as AsyncRepositoryRequest & { tenantColumn?: string | null }).tenantColumn === null)
+      throw new Error(`Postgres store refused ${req.op} "${req.table}": unscoped async access is not available through the tenant repository.`);
     return restAsync(
       { ...req, path: scopedPath(req.path, req.tenantColumn, tenantId) },
       {

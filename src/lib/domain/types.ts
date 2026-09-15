@@ -532,13 +532,17 @@ export interface AlertChannel {
   kind: AlertChannelKind;
   /** what an operator calls it, e.g. "#ops in Slack" */
   name: string;
-  /** the endpoint URL (webhook, slack) or the recipient address (email) */
+  /** the non-secret origin for HTTP channels, or recipient address for email */
   target: string;
   /**
-   * Webhook only: the key `X-Zenith-Signature` is computed with. Held in plain
-   * text in this server's store — no route returns it and the UI masks it.
+   * Server-only reference for a webhook signing key. The plaintext value is
+   * held by Zenith's encrypted secret store and never belongs in this record.
    */
   secret?: string;
+  /** Server-only reference for the credential-bearing HTTP target. */
+  secretRef?: string;
+  /** Server-only reference for a Slack/webhook target URL. */
+  targetSecretRef?: string;
   enabled: boolean;
   createdBy: Actor;
   createdAt: string;

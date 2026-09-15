@@ -329,16 +329,68 @@ describe("which channels a rule uses", () => {
       { mode: "execute" }
     );
     const channelId = (result.result?.data as { channelId: string }).channelId;
-    const stored = channelTable().find((c) => c.id === channelId) as AlertChannel & { secretRef?: string };
+    const stored = channelTable().find((c) => c.id === channelId) as AlertChannel & { secretRef?: string; targetSecretRef?: string };
     expect(stored.target).toBe("https://hooks.slack.com");
-    expect(stored.secretRef).toBe(`vault:alert-channel/${channelId}/SIGNING_SECRET`);
+    expect(stored.targetSecretRef).toBe(`vault:alert-channel/${channelId}/TARGET_URL`);
     expect(JSON.stringify(stored)).not.toContain("secret-token");
-    expect(readSecretValue("ws1", stored.secretRef!)).toBe(target);
+    expect(readSecretValue("ws1", stored.targetSecretRef!)).toBe(target);
     const calls = stubFetch([200]);
     expect((await deliverToChannel(stored, msg)).ok).toBe(true);
     expect(calls[0].url).toBe(target);
     const audit = readAudit({ workspaceId: "ws1" }).find((row) => row.actionId === "alerts.createChannel");
     expect(JSON.stringify(audit)).not.toContain("secret-token");
+  });
+
+  it("masks a generic webhook bearer path before action auditing", async () => {
+    const target = "https://alerts.example.test/hooks/bearer-token?tenant=private";
+    const result = await runAction(
+      "alerts.createChannel",
+      ctx,
+      { kind: "webhook", name: "alerts", target },
+      { mode: "execute" }
+    );
+    expect(result.result?.ok).toBe(true);
+    const audit = readAudit({ workspaceId: "ws1" }).find((row) => row.actionId === "alerts.createChannel");
+    expect(JSON.stringify(audit)).not.toContain("bearer-token");
+    expect(JSON.stringify(audit)).not.toContain("tenant=private");
+    expect(JSON.stringify(audit)).toContain("https://alerts.example.test/…");
+  });
+
+  it("rejects a signing-secret update for Slack without deleting its target credential", async () => {
+    const target = "https://hooks.slack.com/services/T/B/update-token";
+    const created = await runAction(
+      "alerts.createChannel",
+      ctx,
+      { kind: "slack", name: "deploys", target },
+      { mode: "execute" }
+    );
+    const channelId = (created.result?.data as { channelId: string }).channelId;
+    const rejected = await runAction(
+      "alerts.updateChannel",
+      ctx,
+      { channelId, secret: "not-a-slack-signing-secret" },
+      { mode: "execute" }
+    );
+    expect(rejected.result?.ok).toBe(false);
+    const stored = channelTable().find((c) => c.id === channelId)!;
+    expect((await import("@/lib/alerts")).channelTarget(stored)).toBe(target);
+    expect(JSON.stringify(stored)).not.toContain("update-token");
+  });
+
+  it("fails closed for legacy plaintext credentials when encryption is unavailable", async () => {
+    const legacy = channel({ id: "legacy-no-key", secret: "legacy-signing-key" });
+    const previous = process.env.ZENITH_SECRET_KEY;
+    delete process.env.ZENITH_SECRET_KEY;
+    try {
+      const calls = stubFetch([200]);
+      const result = await deliverToChannel(legacy, msg);
+      expect(result.ok).toBe(false);
+      expect(calls).toHaveLength(0);
+      expect(result.error).toMatch(/configure ZENITH_SECRET_KEY/i);
+    } finally {
+      if (previous === undefined) delete process.env.ZENITH_SECRET_KEY;
+      else process.env.ZENITH_SECRET_KEY = previous;
+    }
   });
 });
 
@@ -464,9 +516,10 @@ describe("channel actions", () => {
     );
     expect(created.result?.ok).toBe(true);
     const channelId = (created.result?.data as { channelId: string }).channelId;
-    const stored = channelTable().find((c) => c.id === channelId) as AlertChannel & { secretRef?: string };
+    const stored = channelTable().find((c) => c.id === channelId) as AlertChannel & { secretRef?: string; targetSecretRef?: string };
     expect(stored.secret).toBeUndefined();
     expect(stored.secretRef).toBe(`vault:alert-channel/${channelId}/SIGNING_SECRET`);
+    expect(stored.targetSecretRef).toBe(`vault:alert-channel/${channelId}/TARGET_URL`);
     expect(readSecretValue("ws1", stored.secretRef!)).toBe("hunter2");
 
     // The same target twice would deliver every alert twice.

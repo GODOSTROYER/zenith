@@ -90,6 +90,13 @@ describe("PostgrestAsyncRepository", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("refuses a caller-selected unscoped query", async () => {
+    const fetchMock = vi.fn<typeof fetch>();
+    const repo = createAsyncRepository({ baseUrl: "https://supabase.test", apiKey: "test-key", fetch: fetchMock });
+    await expect(repo.request({ ...request, tenantColumn: null } as never, context)).rejects.toThrow(/unscoped async access is not available/i);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("does not retain failed initialization state across the next request", async () => {
     const fetchMock = vi.fn<typeof fetch>()
       .mockRejectedValueOnce(new Error("connection reset"))

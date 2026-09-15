@@ -395,11 +395,25 @@ describe("delivery fan-out is bounded", () => {
 
     let inFlight = 0;
     let peak = 0;
-    WEBHOOK_TRANSPORT.request = async () => {
+    // The stub honours the abort signal the way the real transport does, so a
+    // deadline that fires under load ends this call before the retry starts
+    // instead of leaving two "in flight" for one row.
+    WEBHOOK_TRANSPORT.request = async (_target, _body, _headers, signal) => {
       inFlight += 1;
       peak = Math.max(peak, inFlight);
-      await new Promise((resolve) => setTimeout(resolve, 5));
-      inFlight -= 1;
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(resolve, 5);
+          const abort = () => {
+            clearTimeout(timer);
+            reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+          };
+          if (signal.aborted) abort();
+          else signal.addEventListener("abort", abort, { once: true });
+        });
+      } finally {
+        inFlight -= 1;
+      }
       return new Response(null, { status: 200 });
     };
 

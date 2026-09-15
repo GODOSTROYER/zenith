@@ -824,20 +824,33 @@ export interface OutboxSettlement {
   delivery: AlertDelivery;
 }
 
-export type SettleOutcome = "flushed" | "retried" | "duplicate-send-possible";
+export type SettleOutcome =
+  | "flushed"
+  | "retried"
+  | "settled-elsewhere"
+  | "duplicate-send-possible";
 
 /**
  * Outcomes this process could not make durable, counted rather than logged and
  * forgotten.
  *
  * `duplicateSendPossible` is the honest name for what a lost settle means: the
- * message left this server, the row still says `sending`, and at lease expiry
- * another instance will send it again. It is not an error the operator can act
- * on row by row — it is a number that should be zero, and a readiness/metrics
- * surface is where it belongs (Track F). Process-local, like every other
- * counter here; it is reset only by a restart.
+ * message left this server, the row is still claimable in the table, and at
+ * lease expiry another instance will send it again. It is not an error the
+ * operator can act on row by row — it is a number that should be zero, and a
+ * readiness/metrics surface is where it belongs (Track F). Process-local, like
+ * every other counter here; it is reset only by a restart.
+ *
+ * It counts only rows that are *actually* re-sendable. A row the winning
+ * claimant already settled to `delivered`/`failed` is terminal, will never be
+ * re-driven, and must not be counted here — that was a false alarm on every
+ * ordinary lost race, which is worse than no counter at all.
  */
 export const DELIVERY_COUNTERS = { duplicateSendPossible: 0 };
+
+/** Still claimable in the table, so still re-sendable by somebody. */
+const isClaimable = (row: AlertOutboxEntry): boolean =>
+  row.status === "pending" || row.status === "sending";
 
 /**
  * Commit a batch's settlements, and say what happened when they do not commit.
@@ -847,46 +860,109 @@ export const DELIVERY_COUNTERS = { duplicateSendPossible: 0 };
  * against a freshly read row version, which is what a conflict actually calls
  * for; only if *that* fails is the duplicate accepted, named and counted.
  *
+ * The re-read has to be **by id and in any state**. A conflict here almost
+ * always means another claimant won the row and wrote its terminal outcome, so
+ * a re-read of the claimable window — the obvious one, and the one this used
+ * to do — cannot see the row it is asking about, leaves the stale baseline in
+ * place, conflicts again and reports a duplicate send for a row that is
+ * finished. `deps.reread` re-baselines exactly the ids it is given
+ * (`readOutboxRowsIn` in `@/lib/db/pg/alerts`), which is what lets the four
+ * outcomes below be told apart.
+ *
  * Exported with explicit dependencies so the conflict path can be driven in a
- * test without a live PostgreSQL: production passes the store's own flush and
- * a re-read of the claimable window.
+ * test without a live PostgreSQL; `postgresSettleDeps()` is what production
+ * passes, and what a test should pass too.
  */
 export async function settleWithRetry(
   settled: readonly OutboxSettlement[],
-  deps: { flush: () => Promise<void>; refresh: () => Promise<void> }
+  deps: { flush: () => Promise<void>; reread: (ids: readonly string[]) => Promise<void> }
 ): Promise<SettleOutcome> {
   try {
     await deps.flush();
     return "flushed";
   } catch (err) {
-    log.warn("alert outbox settle did not commit; retrying against a fresh row version", {
+    log.warn("alert outbox settle did not commit; re-reading the rows it was for", {
       scope: "alerts",
       rows: settled.length,
       error: err,
     });
   }
-  try {
-    await deps.refresh();
-    // The re-read re-baselines every row against the table, which also
-    // overwrites the settlement this process just wrote. Put it back on top of
-    // the fresh version — except where the row is no longer `sending`, which
-    // means the instance that won the race already recorded the outcome and
-    // theirs is the durable one.
-    for (const { row, delivery } of settled)
-      if (row.status === "sending") applyRowSettlement(row, delivery);
-    save();
-    await deps.flush();
-    return "retried";
-  } catch (err) {
-    DELIVERY_COUNTERS.duplicateSendPossible += settled.length;
+
+  const acceptDuplicate = (risky: readonly OutboxSettlement[], err: unknown): SettleOutcome => {
+    DELIVERY_COUNTERS.duplicateSendPossible += risky.length;
     log.error("duplicate send possible at lease expiry", {
       scope: "alerts",
-      rows: settled.map((s) => s.row.id),
+      rows: risky.map((s) => s.row.id),
       counted: DELIVERY_COUNTERS.duplicateSendPossible,
       error: err,
     });
     return "duplicate-send-possible";
+  };
+
+  try {
+    await deps.reread(settled.map((s) => s.row.id));
+  } catch (err) {
+    // No answer from the table is no way to tell a row somebody already settled
+    // from one somebody is about to re-send. Count the pessimistic reading.
+    return acceptDuplicate(settled, err);
   }
+
+  // The re-read re-baselines every row against the table, which also overwrites
+  // the settlement this process just wrote. Put it back on top of the fresh
+  // version — except where the row came back terminal, which means the claimant
+  // that won the race already recorded the outcome and theirs is the durable
+  // one. Those rows are nobody's to send again, so re-applying ours would only
+  // conflict, and counting them as a duplicate risk would be a false alarm.
+  const mine = settled.filter((s) => isClaimable(s.row));
+  const elsewhere = settled.filter((s) => !isClaimable(s.row)).map((s) => s.row.id);
+  for (const { row, delivery } of mine) applyRowSettlement(row, delivery);
+  save();
+
+  try {
+    await deps.flush();
+  } catch (err) {
+    // Nothing of ours is claimable, so nothing will go out twice: what was lost
+    // is this process's copy of the delivery log, not at-most-once delivery.
+    if (mine.length === 0) {
+      log.error("alert outbox settle did not commit, and no row of it is re-sendable", {
+        scope: "alerts",
+        rows: elsewhere,
+        error: err,
+      });
+      return "settled-elsewhere";
+    }
+    return acceptDuplicate(mine, err);
+  }
+
+  if (elsewhere.length > 0)
+    log.info("alert outbox rows were already settled by the claimant that won them", {
+      scope: "alerts",
+      rows: elsewhere,
+    });
+  return mine.length === 0 ? "settled-elsewhere" : "retried";
+}
+
+/**
+ * What `settleWithRetry` runs against on Postgres: the store's own awaited
+ * flush, and a by-id re-read of the rows being settled.
+ *
+ * Exported because the defect this replaced was a *test* that injected a
+ * `refresh` the production dependency could not produce — a row coming back
+ * terminal, which is precisely the case the guard exists for. A test that wants
+ * that path drives these deps against a fake PostgREST rather than inventing
+ * its own semantics.
+ */
+export function postgresSettleDeps(): {
+  flush: () => Promise<void>;
+  reread: (ids: readonly string[]) => Promise<void>;
+} {
+  return {
+    flush: async () => void (await flushPendingAsync()),
+    reread: async (ids) => {
+      const pg = await pgAlerts();
+      await pg.readOutboxRowsIn(await pg.outboxSnapshot(), ids);
+    },
+  };
 }
 
 /**
@@ -896,14 +972,7 @@ export async function settleWithRetry(
  */
 async function flushOutbox(settled: readonly OutboxSettlement[]): Promise<void> {
   if (!isPostgres()) return void flush();
-  await settleWithRetry(settled, {
-    flush: async () => void (await flushPendingAsync()),
-    refresh: async () => {
-      const pg = await pgAlerts();
-      const snap = await pg.outboxSnapshot();
-      await pg.refreshOutbox(snap, pg.outboxWorkspaces(snap));
-    },
-  });
+  await settleWithRetry(settled, postgresSettleDeps());
 }
 
 /**

@@ -16,12 +16,12 @@
  *    `workspacesFor(user)` and the caller's own audit rows, so a bug that
  *    widens it has to widen membership first.
  */
-import { appendAudit, db, q, readAudit, readAuditPageAsync, save } from "@/lib/db/store";
+import { appendAuditAsync, db, q, readAudit, readAuditPageAsync, save } from "@/lib/db/store";
 import { id } from "@/lib/domain/types";
 import type { Actor, AuditEvent, Member, Workspace } from "@/lib/domain/types";
 import type { SessionUser } from "@/lib/auth/session";
 import { ApiError } from "@/lib/server/errors";
-import { readInvites, writeInvites } from "@/lib/server/membership";
+import { readInvites } from "@/lib/server/membership";
 import { currentRequest } from "@/lib/server/request";
 import { workspacesFor } from "@/lib/server/workspace";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -241,12 +241,15 @@ export interface AccountRemoval {
  * before calling this cleanup. This function therefore returns what it touched
  * rather than assuming the provider operation and local cleanup are atomic.
  */
-export function removeAccountRecords(user: SessionUser): AccountRemoval {
+export async function removeAccountRecordsAsync(user: SessionUser): Promise<AccountRemoval> {
   const d = db();
   const mine = membershipsOf(user);
   const workspaces = mine
     .map((m) => d.workspaces.find((w) => w.id === m.workspaceId))
     .filter((w): w is Workspace => Boolean(w));
+
+  const originalMembers = d.members.slice();
+  const originalInvites = d.settings.invites;
 
   for (const member of mine) {
     const at = d.members.indexOf(member);
@@ -256,26 +259,43 @@ export function removeAccountRecords(user: SessionUser): AccountRemoval {
   const invites = readInvites();
   const kept = invites.filter((i) => i.acceptedAt || i.createdBy !== user.id);
   const invitesRevoked = invites.length - kept.length;
-  // `writeInvites` saves; save unconditionally too, because removing the last
-  // member of a workspace with no invites is still a change.
-  if (invitesRevoked) writeInvites(kept);
-  save();
+  // Keep all state changes in memory until the required audit rows have been
+  // accepted. `writeInvites` calls save immediately, which would allow a
+  // Postgres snapshot to commit before an async audit failure is observed.
+  if (invitesRevoked) d.settings.invites = kept;
 
   const actor: Actor = { type: "user", id: user.id, name: user.name };
   const ts = new Date().toISOString();
-  for (const member of mine) {
-    const ws = d.workspaces.find((w) => w.id === member.workspaceId);
-    appendAudit({
-      ts,
-      id: id(),
-      workspaceId: member.workspaceId,
-      actor,
-      actionId: "workspace.removeMember",
-      input: { memberId: user.id, reason: "account.delete" },
-      result: "ok",
-      summary: `${user.name} deleted their Zenith account, which ended their ${member.role} membership of ${ws?.name ?? "this workspace"}.`,
-    });
+  try {
+    for (const member of mine) {
+      const ws = d.workspaces.find((w) => w.id === member.workspaceId);
+      await appendAuditAsync({
+        ts,
+        id: id(),
+        workspaceId: member.workspaceId,
+        actor,
+        actionId: "workspace.removeMember",
+        input: { memberId: user.id, reason: "account.delete" },
+        result: "ok",
+        summary: `${user.name} deleted their Zenith account, which ended their ${member.role} membership of ${ws?.name ?? "this workspace"}.`,
+      });
+    }
+  } catch (error) {
+    // The audit transport may fail after one row was accepted. Restore the
+    // mutable snapshot so this failed operation is not also persisted by a
+    // later request. A durable cross-table transaction is still required for
+    // hosted Postgres and is why the route refuses that mode above.
+    d.members.splice(0, d.members.length, ...originalMembers);
+    if (invitesRevoked) {
+      if (originalInvites === undefined) delete d.settings.invites;
+      else d.settings.invites = originalInvites;
+    }
+    throw error;
   }
+
+  // `save` is deliberately after the required audit writes. The route edge
+  // awaits the pending write before returning 204.
+  save();
 
   return { workspaces, invitesRevoked };
 }

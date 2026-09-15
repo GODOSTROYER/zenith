@@ -22,7 +22,7 @@ One Supabase project holds four separate things.
 | Where | Holds | Reached by | Applied by |
 | --- | --- | --- | --- |
 | `public.*` (19 tables) | Product A's system of record: workspaces, members, projects, environments, revisions, deployments, alerts, audit, secrets | `src/lib/db/postgres-store.ts` over PostgREST as the service role | `supabase/migrations/0001_system_of_record.sql` |
-| `hosted.*` — the control schema (16 tables) | The hosted control authority: `apps`, `app_grants`, `app_invites`, `invite_deliveries`, `app_sessions`, `app_exchanges`, `hosted_jobs`, `hosted_outbox`, `artifacts`, `releases`, `quota_counters`, `usage_ledger`, `revocation_ledger`, `backup_manifests`, `hosted_events`, plus `schema_migrations` | `src/lib/hosted/authority/pg/**` over a **direct Postgres connection** (postgres.js, through Supavisor) | `supabase/migrations/0002_hosted_authority.sql` |
+| `hosted.*` — the control schema (16 tables) | The hosted control authority: `apps`, `app_grants`, `app_invites`, `invite_deliveries`, `app_sessions`, `app_exchanges`, `hosted_jobs`, `hosted_outbox`, `artifacts`, `releases`, `quota_counters`, `usage_ledger`, `revocation_ledger`, `backup_manifests`, `hosted_events`, plus `schema_migrations` | `src/lib/hosted/authority/pg/**` over a **direct Postgres connection** (postgres.js, through Supavisor) | `0002_hosted_authority.sql` + `0005_pending_invite_uniqueness.sql` |
 | `hosted.*` — the per-app data plane (`app_records`, `app_writes`, `app_storage`, plus the functions `hosted.app_record_insert_within_quota` and `hosted.app_storage_add`) | Each hosted app's customer records — what one SQLite file per app held before | `src/lib/hosted/data/pg-backend.ts` over **PostgREST** as the service role | `supabase/migrations/0003_hosted_app_data.sql` |
 | Storage bucket `zenith-artifacts` | Published build outputs, content-addressed: `sha256/<digest>/manifest.json` and `sha256/<digest>/files/<path>` | `src/lib/hosted/artifacts/storage-store.ts`, service-role HTTP against `/storage/v1/…` | created by hand in the dashboard |
 
@@ -69,7 +69,7 @@ never talks to PostgREST for either product.
 
 It must be the **transaction-mode pooler** string on port 6543, not the direct
 5432 host. Three settings in `authority/pg/client.ts` follow from that, and all
-three are correctness, not tuning:
+these are correctness, not tuning:
 
 - **`prepare: false`.** Transaction-mode pooling hands the next transaction a
   different backend connection, so a named prepared statement created on one is
@@ -115,7 +115,7 @@ the project):
    invitation per normalized app/address; reconcile duplicate pending rows
    before applying it. This also records authority migration version 3.
 
-Rules that hold for all three:
+Rules that hold for all migration files:
 
 - **Each is idempotent.** `create schema / table / index if not exists`,
   `create or replace function`, and `on conflict do nothing` for the
@@ -162,32 +162,33 @@ before anything opens:
 > transaction-mode pooler URI (port 6543) from the Supabase dashboard, or set
 > ZENITH_HOSTED_STORE=sqlite for the embedded control authority.
 
-**Schema behind.** `createPostgresAuthority()` returns synchronously with a
-schema check *in flight*: it reads `hosted.schema_migrations` and compares the
-newest version in `MIGRATIONS` (today version 2,
-`invite-delivery-transport-none`) against what is recorded. Every `tx()` and
-every repository call awaits that check before its first statement, so it gates
-every read and every write without gating construction. A failure is remembered
-and re-thrown to every later caller rather than retried into a storm — the
-answer will not change until somebody applies the file.
+**Schema behind or drifted.** `createPostgresAuthority()` returns synchronously
+with a schema check *in flight*: it reads `hosted.schema_migrations`, verifies
+the newest migration's version **and name**, and checks the v3 pending-invite
+unique index definition. Every `tx()` and every repository call awaits that
+check before its first statement, so it gates every read and every write without
+gating construction. A failure is remembered and re-thrown to every later
+caller rather than retried into a storm — the answer will not change until
+somebody applies or repairs the schema.
 
 The refusal is a `HostedError("internal")` reading either
 
 > The hosted control database has no hosted.schema_migrations rows, so its
-> schema has never been applied, and this build needs version 2
-> ("invite-delivery-transport-none").
+> schema has never been applied, and this build needs version 3
+> ("one-pending-invite-per-app-email").
 
 or, when some versions are present,
 
 > The hosted control database records schema versions 1, and this build needs
-> version 2 ("invite-delivery-transport-none"), which is not among them.
+> version 3 ("one-pending-invite-per-app-email"), which is not valid for this build.
 
 with the fix:
 
-> Apply supabase/migrations/0002_hosted_authority.sql to the Supabase project
-> (SQL editor, or `psql` against SUPABASE_DB_URL) and start again. It is
-> idempotent, so re-applying it is safe. Nothing was read or written in the
-> meantime.
+> Apply supabase/migrations/0002_hosted_authority.sql through
+> supabase/migrations/0005_pending_invite_uniqueness.sql in order (SQL editor,
+> or `psql` against SUPABASE_DB_URL) and start again. Re-applying the
+> idempotent migrations is safe; reconcile duplicate pending invites before
+> 0005. Nothing was read or written in the meantime.
 
 A missing `hosted.schema_migrations` table (`42P01`) is read as an empty list
 rather than thrown, so "never applied" produces the message above instead of the
@@ -322,8 +323,8 @@ project, not a configuration change. On a fresh install it is one variable.
 | --- | --- | --- |
 | `PGRST106` — "The schema must be one of the following" (surfaced as a `runtime_unavailable` refusal from the per-app data plane) | `hosted` is not in the Data API's exposed schemas | Settings → API → Exposed schemas, add `hosted`. Nothing was written |
 | `PGRST205` / `42883` from the same place | The table or the quota/storage function is missing | Apply `supabase/migrations/0003_hosted_app_data.sql` |
-| `42P01` — relation does not exist | A migration was not applied (or was applied to the wrong project) | Apply the file the error or the boot refusal names. All three are idempotent |
-| Boot refuses: "records schema versions … and this build needs version 2" | `0002` is missing or older than this build | Apply `supabase/migrations/0002_hosted_authority.sql` and restart |
+| `42P01` — relation does not exist | A migration was not applied (or was applied to the wrong project) | Apply the file the error or the boot refusal names. The migration files are idempotent |
+| Boot refuses: "records schema versions … and this build needs version 3" or reports a missing pending-invite index | `0002`–`0005` are missing, the migration ledger name is wrong, or the v3 index definition drifted | Reconcile duplicate pending invites, apply `0002` through `0005` in order, and restart |
 | Boot refuses: "SUPABASE_DB_URL is not set" | `ZENITH_HOSTED_STORE=postgres` with no connection string | Set `SUPABASE_DB_URL` (port 6543), or set the flag back to `sqlite` |
 | `53300` — too many connections, usually as `policy_unavailable` after retries | The pooler is out of slots | Retry; check the project's connection count. Confirm nothing runs with a pool larger than 1, and that the URL is the 6543 pooler and not 5432 |
 | `40001` / `40P01` — serialization failure, deadlock | Two writers on one row. Already retried with backoff | If it persists, look for a hot row (one app's job queue, one quota counter) rather than tuning the retry |

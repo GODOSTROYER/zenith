@@ -114,6 +114,24 @@ describe("deleting your own account", () => {
     expect(state.order).toEqual([]);
   });
 
+  it("fails closed in Product-Postgres mode before touching another authority", async () => {
+    const previous = process.env.ZENITH_STORE;
+    process.env.ZENITH_STORE = "postgres";
+    try {
+      await expect(run()).rejects.toMatchObject({
+        status: 503,
+        message: "Account deletion is unavailable while Product storage uses PostgreSQL.",
+        fix: expect.stringContaining("No identity, grant, session or membership was changed."),
+      });
+      expect(state.adminClients).toBe(0);
+      expect(state.order).toEqual([]);
+      expect(db().members).toHaveLength(2);
+    } finally {
+      if (previous === undefined) delete process.env.ZENITH_STORE;
+      else process.env.ZENITH_STORE = previous;
+    }
+  });
+
   it("names every workspace that would be left without an admin", async () => {
     db().workspaces.push(workspace("w-orbit", "Orbit"));
     db().members.push(member("u-me", "w-orbit", "admin"));

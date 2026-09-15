@@ -18,6 +18,8 @@ a claim that Zenith is production-ready in every backend.
 | Fence every hosted app-grant insertion path, including direct grants and invitation acceptance | post-review hardening (this commit) | Grant services now enter the same re-entrant mutation gate as account deletion, role changes, and revocation; hosted access and agent-control regression tests pass |
 | Make pending invitation uniqueness an authority-level invariant | current hardening slice | Added versioned SQLite migration v3 and Supabase migration 0005 for one pending invite per normalized `(app_id, email)`; duplicate legacy rows must be reconciled before apply |
 | Fence synchronous PostgREST replies and account-delete failure handling | current hardening slice | Worker replies carry request IDs so late responses cannot satisfy a later call; provider-delete failure preserves local membership rows for retry |
+| Fail closed for cross-authority account deletion in Product-Postgres mode and await deletion audit writes | current hardening slice | PostgreSQL mode refuses before service-role, session, grant or membership changes; single-writer cleanup awaits audit persistence and rolls back its in-memory mutation on audit failure; account-delete tests pass |
+| Verify the deployed hosted schema's migration identity and invite uniqueness definition | current hardening slice | Postgres boot checks migration version/name and the actual `app_invites_pending_email` unique index, not only the ledger version; runbook now documents migrations 0002–0005 |
 
 The initial blanket mixed-store guard was implemented experimentally and then
 reverted after independent review showed it would reject the repository's
@@ -36,6 +38,7 @@ current branch intentionally preserves the existing independent selectors.
 - `git diff --check`: passed.
 - `npm run build`: compiled successfully; Next emitted the existing `module.createRequire failed parsing argument` warnings for hosted build recipe imports.
 - `npm run test:contract`: 36 executed, 15 skipped.
+- Account deletion and Postgres schema-boundary regression set: **47/47 passed**.
 - Companion plugin `npm run verify`: **144 tests passed, 2 platform skips**; typecheck, build, contracts, and integrity checks passed.
 - Post-review regression bundle: **116 tests passed** across agent control, account
   deletion, hosted access, alert delivery/outbox, redaction, and async repository
@@ -94,6 +97,13 @@ current branch intentionally preserves the existing independent selectors.
   refused and distributed authority is not claimed.
 - PostgreSQL agent-control writes remain explicitly refused by
   `docs/AGENT-CONTROL.md`.
+- Account deletion across authorities: **Postgres Product-store mode now fails
+  closed before any external side effect** because the current design has no
+  durable workflow coordinating Supabase identity deletion with Product state.
+  The supported self-service path remains the explicit single-writer file mode;
+  even there, provider deletion and local persistence are separate authorities,
+  so an operator reconciliation path is still required for an unexpected local
+  write failure after provider deletion.
 
 ## Release envelope
 
@@ -114,7 +124,8 @@ inspection and migrates mixed legacy rows that still contain a plaintext
 signing value. Async action audits now propagate Postgres write failures, so an
 action is not returned as successful when its audit insert is rejected; the
 remaining cross-table transaction/outbox guarantee is still a production
-database gate.
+database gate. Postgres Product-store account deletion is deliberately
+unsupported until that durable cross-authority workflow exists.
 
 The companion plugin provenance work is tracked in the draft PR
 `GODOSTROYER/Zenith-plugins#6`. Its runtime gate is implemented, but it is not

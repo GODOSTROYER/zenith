@@ -42,3 +42,37 @@ export async function readAppliedMigrations(sql: Sql | TransactionSql): Promise<
     appliedAt: readText(row, "applied_at"),
   }));
 }
+
+/**
+ * Verify the v3 invariant at the database, not only in the migration ledger.
+ * A manually edited or partially restored `schema_migrations` row must not
+ * convince the runtime that concurrent pending-invite issuance is fenced.
+ */
+export async function hasPendingInviteUniquenessIndex(sql: Sql | TransactionSql): Promise<boolean> {
+  let rows: PgRow[];
+  try {
+    rows = (await sql`
+      select indexname, indexdef
+      from pg_indexes
+      where schemaname = 'hosted'
+        and tablename = 'app_invites'
+        and indexname = 'app_invites_pending_email'
+    `) as unknown as PgRow[];
+  } catch (err) {
+    if (pgErrorCode(err) === PG_UNDEFINED_TABLE) return false;
+    throw err;
+  }
+
+  return rows.some((row) => {
+    const name = readText(row, "indexname");
+    const definition = readText(row, "indexdef").replace(/\s+/g, " ").toLowerCase();
+    return (
+      name === "app_invites_pending_email" &&
+      definition.includes("create unique index") &&
+      definition.includes("on hosted.app_invites") &&
+      definition.includes("(app_id, lower(email))") &&
+      (definition.includes("where (state = 'pending'::text)") ||
+        definition.includes("where (state = 'pending')"))
+    );
+  });
+}

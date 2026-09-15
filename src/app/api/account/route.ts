@@ -25,11 +25,12 @@
 import { revokeGrant, terminateAppSessionsForSubject } from "@/lib/hosted/access";
 import { authority } from "@/lib/hosted/authority";
 import { log } from "@/lib/log";
-import { removeAccountRecords, requireAccountUser } from "@/lib/server/account";
+import { removeAccountRecordsAsync, requireAccountUser } from "@/lib/server/account";
 import { ApiError, route, soleAdminWorkspaces } from "@/lib/server/context";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { withMutationGate } from "@/lib/actions/mutation-gate";
+import { isPostgres } from "@/lib/db/store";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,22 @@ async function revokeHostedGrants(subject: string): Promise<number> {
 
 export const DELETE = route(async () => withMutationGate(async () => {
   const user = requireAccountUser();
+
+  // Product state and the Supabase identity are separate authorities. The
+  // process-local mutation gate below protects the file/single-writer mode,
+  // but it cannot fence another Postgres-backed instance or make provider
+  // deletion and local cleanup one transaction. Refuse before constructing a
+  // service-role client or changing a grant until a durable deletion journal
+  // coordinates those authorities.
+  if (isPostgres()) {
+    throw new ApiError(
+      "Account deletion is unavailable while Product storage uses PostgreSQL.",
+      503,
+      {
+        fix: "Use the supported single-writer file-store mode for self-service deletion, or ask an operator to run the coordinated account-deletion workflow. No identity, grant, session or membership was changed.",
+      }
+    );
+  }
 
   const blocked = soleAdminWorkspaces(user.id);
   if (blocked.length) {
@@ -80,7 +97,7 @@ export const DELETE = route(async () => withMutationGate(async () => {
   // The identity-provider deletion is irreversible and cannot share the local
   // store transaction. Keep the local membership cleanup after it so a failed
   // provider call leaves the account retryable instead of half-removed.
-  const removal = removeAccountRecords(user);
+  const removal = await removeAccountRecordsAsync(user);
 
   log.info("account deleted", {
     scope: "account",

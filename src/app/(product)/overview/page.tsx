@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Boxes } from "lucide-react";
-import { db, readAudit } from "@/lib/db/store";
+import { db, readAuditPageAsync, runInStoreScope } from "@/lib/db/store";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { diffManifests } from "@/lib/domain/graph";
 import { emptyManifest, type Deployment, type Manifest } from "@/lib/domain/types";
@@ -25,7 +25,22 @@ const ACTIVITY_ROWS = 10;
 const PRIMARY_LINK =
   "inline-flex h-9 items-center rounded-ctl bg-signal px-3.5 text-[13px] font-medium text-on-signal transition-colors hover:bg-signal-strong";
 
+/**
+ * Everything on this screen is one workspace's, and it is read here rather
+ * than in the component so the whole read happens inside one store scope.
+ *
+ * `runInStoreScope` is what `route()` is for an API request: on Postgres it
+ * prefetches the signed-in caller's workspace slice before the body runs, so
+ * `currentWorkspace()` — itself a `db()` reader — and every read after it see
+ * one view that belongs to this person. Without it a Postgres render would
+ * either throw (nothing primed) or, worse before that refusal existed, answer
+ * out of the file store.
+ */
 export default async function OverviewPage() {
+  return runInStoreScope(renderOverview);
+}
+
+async function renderOverview() {
   // The workspace the browser is in — the same resolution /api uses, so this
   // screen and the shell above it can never be looking at different ones.
   const workspace = await currentWorkspace();
@@ -126,7 +141,9 @@ export default async function OverviewPage() {
    * belongs to, so "whichever project sorted first" is never implied.
    */
   const names = new Map(projects.map((p) => [p.id, p]));
-  const activity = readAudit({ workspaceId: workspace.id, limit: ACTIVITY_ROWS });
+  const activity = (
+    await readAuditPageAsync({ workspaceId: workspace.id, limit: ACTIVITY_ROWS })
+  ).events;
 
   return (
     <div className="product-page mx-auto h-full w-full max-w-[1320px] overflow-y-auto">

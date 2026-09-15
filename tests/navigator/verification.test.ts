@@ -13,7 +13,7 @@ vi.mock("@/lib/db/store", () => ({ q: {
   revision: () => ({ id: "r1", manifest: { version: 1, services: [], resources: [], bindings: [], routes: [] } }),
   revisionManifest: () => undefined,
   connection: () => ({ provider: fake.provider.id }),
-} }));
+}, revisionManifestAsync: async () => undefined }));
 vi.mock("@/lib/providers/types", () => ({ getProvider: () => fake.provider }));
 const { verifyRun } = await import("@/lib/navigator/verification");
 const run = (): NavigatorRun => ({ id: "n1", projectId: "p1", status: "done", goal: "deploy staging",

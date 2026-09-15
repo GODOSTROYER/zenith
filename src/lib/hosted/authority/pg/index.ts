@@ -49,7 +49,7 @@ import {
   type Sql,
 } from "./client";
 import { bindPgRepos } from "./repos";
-import { readAppliedMigrations } from "./repos/migrations";
+import { hasPendingInviteUniquenessIndex, readAppliedMigrations } from "./repos/migrations";
 import { currentPgTransaction, transactPg } from "./tx";
 
 /** The Postgres implementation. Nothing on it that `Authority` does not have. */
@@ -73,16 +73,56 @@ const newestMigration = (): { version: number; name: string } => {
   return { version: newest.version, name: newest.name };
 };
 
+/**
+ * Structural facts a ledger row is not allowed to vouch for on its own.
+ *
+ * A migration's *number* being recorded says somebody ran a file; it does not
+ * say the object that file creates exists, and a manually edited or partially
+ * restored `schema_migrations` must not convince the runtime that a fence is in
+ * place. Each entry is checked whenever this build knows its migration, so a
+ * later version keeps verifying every earlier invariant rather than retiring it.
+ */
+interface SchemaInvariant {
+  /** The migration that introduces it. Checked while this build still ships that migration. */
+  version: number;
+  /** What the refusal says when the database does not have it. */
+  reason: string;
+  verify(client: Sql): Promise<boolean>;
+}
+
+const SCHEMA_INVARIANTS: readonly SchemaInvariant[] = [
+  {
+    version: 3,
+    reason:
+      "The required unique index hosted.app_invites_pending_email is missing or has the wrong definition.",
+    verify: hasPendingInviteUniquenessIndex,
+  },
+];
+
 /** The refusal when the database has not been brought up to this build's schema. */
-function schemaBehind(found: number[], expected: { version: number; name: string }): HostedError {
+function schemaBehind(
+  found: number[],
+  expected: { version: number; name: string },
+  reason?: string
+): HostedError {
+  const suffix = reason ? ` ${reason}` : "";
   return new HostedError(
     "internal",
     found.length === 0
-      ? `The hosted control database has no hosted.schema_migrations rows, so its schema has never been applied, and this build needs version ${expected.version} ("${expected.name}").`
-      : `The hosted control database records schema versions ${found.join(", ")}, and this build needs version ${expected.version} ("${expected.name}"), which is not among them.`,
+      ? `The hosted control database has no hosted.schema_migrations rows, so its schema has never been applied, and this build needs version ${expected.version} ("${expected.name}").${suffix}`
+      : `The hosted control database records schema versions ${found.join(", ")}, and this build needs version ${expected.version} ("${expected.name}"), which is not valid for this build.${suffix}`,
     {
-      fix: "Apply supabase/migrations/0002_hosted_authority.sql to the Supabase project (SQL editor, or `psql` against SUPABASE_DB_URL) and start again. It is idempotent, so re-applying it is safe. Nothing was read or written in the meantime.",
-      details: { found, expected: expected.version, file: "supabase/migrations/0002_hosted_authority.sql" },
+      fix: "Apply supabase/migrations/0002_hosted_authority.sql through supabase/migrations/0005_pending_invite_uniqueness.sql in order (SQL editor, or `psql` against SUPABASE_DB_URL) and start again. Re-applying the idempotent migrations is safe; reconcile duplicate pending invites before 0005. Nothing was read or written in the meantime.",
+      details: {
+        found,
+        expected: expected.version,
+        files: [
+          "supabase/migrations/0002_hosted_authority.sql",
+          "supabase/migrations/0003_hosted_app_data.sql",
+          "supabase/migrations/0004_hosted_app_data_atomic.sql",
+          "supabase/migrations/0005_pending_invite_uniqueness.sql",
+        ],
+      },
     }
   );
 }
@@ -150,7 +190,31 @@ export function createPostgresAuthority(opts: PostgresAuthorityOptions = {}): Po
         const expected = newestMigration();
         const applied = await readAppliedMigrations(client);
         const versions = applied.map((m) => m.version);
-        if (!versions.includes(expected.version)) throw schemaBehind(versions, expected);
+        const appliedByVersion = new Map(applied.map((migration) => [migration.version, migration]));
+        const missing = MIGRATIONS.find((migration) => {
+          const recorded = appliedByVersion.get(migration.version);
+          return !recorded || recorded.name !== migration.name;
+        });
+        const unknown = applied.find((migration) => !MIGRATIONS.some((expectedMigration) => expectedMigration.version === migration.version));
+        if (missing || unknown) {
+          const recorded = appliedByVersion.get(missing?.version ?? expected.version);
+          throw schemaBehind(
+            versions,
+            expected,
+            missing
+              ? recorded
+                ? `The ledger records version ${missing.version} as "${recorded.name}", but this build requires "${missing.name}".`
+                : `The ledger is missing version ${missing.version} ("${missing.name}").`
+              : `The ledger contains unknown migration version ${unknown?.version}; refusing to run against an unrecognized schema.`
+          );
+        }
+        for (const invariant of SCHEMA_INVARIANTS) {
+          // Gated on the invariant's *own* migration, never on the newest one:
+          // `expected.version === 3` stopped being true the moment a version 4
+          // was added, and the check would have disabled itself silently.
+          if (!MIGRATIONS.some((migration) => migration.version === invariant.version)) continue;
+          if (!(await invariant.verify(client))) throw schemaBehind(versions, expected, invariant.reason);
+        }
       })();
     return checked;
   };

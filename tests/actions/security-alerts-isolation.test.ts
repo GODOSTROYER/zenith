@@ -40,6 +40,7 @@ import type {
 import { tempDataDir } from "../_support/data-dir";
 
 tempDataDir("zenith-sec-alerts-isolation-", { fast: true });
+process.env.ZENITH_SECRET_KEY = Buffer.alloc(32, 7).toString("base64");
 const { runAction } = await import("@/lib/actions/core");
 const { db, resetDb } = await import("@/lib/db/store");
 const { channelTable, scopedChannel, scopedEvent, scopedRule } = await import("@/lib/alerts");
@@ -538,16 +539,17 @@ describe("the refusal is about tenancy, not about the object being broken", () =
       target: "https://orbital.example/ops-v2",
     });
     expect(mine.ok).toBe(true);
-    expect(channelB().target).toBe("https://orbital.example/ops-v2");
+    expect(channelB().target).toBe("https://orbital.example/…");
 
     const hers = await execute("alerts.updateChannel", asAda(), {
       channelId: "chan-a",
       target: "https://kepler.example/ops-v2",
     });
     expect(hers.ok).toBe(true);
-    expect(channelTable().find((c) => c.id === "chan-a")!.target).toBe("https://kepler.example/ops-v2");
-    // …and neither move touched the other's secret.
-    expect(channelB().secret).toBe("signing-key-chan-b");
+    expect(channelTable().find((c) => c.id === "chan-a")!.target).toBe("https://kepler.example/…");
+    // …and neither move touched the other's encrypted signing secret.
+    const channelBSecret = (await import("@/lib/alerts")).channelSecret(channelB());
+    expect(channelBSecret).toBe("signing-key-chan-b");
   });
 
   it("lets B's own admin acknowledge B's alert", async () => {

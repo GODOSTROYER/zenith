@@ -45,7 +45,7 @@ interface Built {
    * BEFORE the manifest is committed, so a failed write leaves the plaintext
    * where it was rather than replacing it with a reference to nothing.
    */
-  apply?: () => void;
+  apply?: () => void | Promise<void>;
 }
 
 /**
@@ -59,7 +59,7 @@ export function manifestAction<I extends { projectId?: string }>(def: {
   requiredRole?: Role;
   input: z.ZodType<I>;
   /** Pure apart from reads. `ctx` is here for the workspace-scoped secret store. */
-  build(project: Project, input: I, ctx: ActionContext): Built;
+  build(project: Project, input: I, ctx: ActionContext): Built | Promise<Built>;
 }) {
   return defineAction<I>({
     id: def.id,
@@ -69,23 +69,23 @@ export function manifestAction<I extends { projectId?: string }>(def: {
     requiredRole: def.requiredRole ?? "editor",
     mutates: true,
     input: def.input,
-    plan(ctx: ActionContext, input: I) {
+    async plan(ctx: ActionContext, input: I) {
       const project = requireProject(ctx, input.projectId);
-      const built = def.build(project, input, ctx);
+      const built = await def.build(project, input, ctx);
       const plan = planFromDiff(project.workingManifest, built.next, built.what, {
         details: built.details,
         warnings: built.warnings,
       });
       return built.blocked ? { ...plan, blocked: built.blocked } : plan;
     },
-    execute(ctx: ActionContext, input: I): ActionResult {
+    async execute(ctx: ActionContext, input: I): Promise<ActionResult> {
       const project = requireProject(ctx, input.projectId);
       const before = clone(project.workingManifest);
-      const built = def.build(project, input, ctx);
+      const built = await def.build(project, input, ctx);
       if (built.blocked)
         return { ok: false, summary: `${def.title} was not applied.`, error: built.blocked };
       // Store first, manifest second: if this throws, nothing is committed.
-      built.apply?.();
+      await built.apply?.();
       commit(project, built.next);
       return { ok: true, summary: editSummary(before, built.next, built.what), data: built.data };
     },

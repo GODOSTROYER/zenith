@@ -10,7 +10,7 @@
  *
  * Not a route file — colocated with the routes that use it.
  */
-import { db, q } from "@/lib/db/store";
+import { db, q, revisionManifestAsync } from "@/lib/db/store";
 import {
   emptyManifest,
   hash32,
@@ -51,13 +51,13 @@ function cacheFor(project: Project): ProjectCache {
   return fresh;
 }
 
-function changesetFor(cache: ProjectCache, env: Environment, project: Project): Changeset {
+async function changesetFor(cache: ProjectCache, env: Environment, project: Project): Promise<Changeset> {
   const against = env.deployedRevisionId ?? "";
   const hit = cache.changesets.get(env.id);
   if (hit && hit.against === against) return hit.changeset;
   // Cold storage: loads the deployed manifest on demand, cached by the store.
   const deployed = env.deployedRevisionId
-    ? q.revisionManifest(env.deployedRevisionId)
+    ? await revisionManifestAsync(env.deployedRevisionId)
     : undefined;
   const changeset = diffManifests(deployed ?? emptyManifest(), project.workingManifest);
   cache.changesets.set(env.id, { against, changeset });
@@ -91,7 +91,7 @@ export async function projectPayload(
 
   const wanted = only ? environments.filter((e) => e.id === only) : environments;
   const changesets: Record<string, Changeset> = {};
-  for (const env of wanted) changesets[env.id] = changesetFor(cache, env, project);
+  for (const env of wanted) changesets[env.id] = await changesetFor(cache, env, project);
 
   // Refresh findings if the security scanner has shipped; otherwise show stored ones.
   const security = await securityModule();

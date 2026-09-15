@@ -153,7 +153,9 @@ describe("GET /api/bootstrap redaction", () => {
       expect.objectContaining({
         id: "ch-slack",
         kind: "slack",
-        hasSecret: false,
+        // A Slack incoming-webhook URL is itself a bearer credential, even
+        // when it is legacy data and has not yet been migrated to the vault.
+        hasSecret: true,
         target: "https://hooks.slack.com/…",
       }),
     ]);

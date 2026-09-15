@@ -15,7 +15,6 @@
  */
 export {
   RECIPE_ALIAS_SPECIFIERS,
-  RECIPE_INSTALL_ARGS,
   RECIPE_PACKAGES,
   RECIPE_V1,
   RECIPE_WORKER_RELATIVE,
@@ -31,29 +30,40 @@ export {
 } from "./recipe";
 export {
   FORBIDDEN_ENV_PREFIXES,
+  HOSTED_ACK_ENV,
   RecipeLocalRunner,
   buildChildEnv,
   killTree,
   secretEnvKeys,
+  unsandboxedBuildsAcknowledged,
   type RecipeLocalOptions,
 } from "./runner-recipe-local";
 export {
+  ATTESTATION_KEY_ID_ENV,
+  ATTESTATION_SCHEME,
   E2bRunner,
+  SANDBOX_KILL_TIMEOUT_MS,
   SANDBOX_OUT,
   SANDBOX_ROOT,
   SANDBOX_SOURCE,
+  TEMPLATE_ATTESTATION,
+  attestationKeyId,
+  templateAttestationPayload,
   defaultSandboxFactory,
   type E2bOptions,
   type RecipeSandbox,
   type SandboxFactory,
+  type TemplateAttestation,
 } from "./runner-e2b";
 export {
   CONTAINER_OUT,
   CONTAINER_SOURCE,
   DockerRunner,
-  RECIPE_IMAGE,
+  RECIPE_IMAGE_ENV,
   dockerRunArgs,
+  resolveRecipeImage,
   type DockerOptions,
+  type RecipeImage,
   type SpawnFn,
 } from "./runner-docker";
 export { NO_RUNNER_REASON, buildRunnerStatus, buildRunners, selectedBuildRunner } from "./registry";

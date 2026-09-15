@@ -8,14 +8,14 @@
  * is `buildAccountExport` in `server/account.ts`, including the `notes` array
  * the file itself carries so the answer travels with the export.
  */
-import { accountExportFilename, buildAccountExport, requireAccountUser } from "@/lib/server/account";
+import { accountExportFilename, buildAccountExportAsync, requireAccountUser } from "@/lib/server/account";
 import { route } from "@/lib/server/context";
 
 export const dynamic = "force-dynamic";
 
 export const GET = route(async () => {
   const user = requireAccountUser();
-  const body = buildAccountExport(user);
+  const body = await buildAccountExportAsync(user);
   return new Response(`${JSON.stringify(body, null, 2)}\n`, {
     status: 200,
     headers: {

@@ -25,7 +25,7 @@
  */
 import crypto from "node:crypto";
 import { decodeSecretKey, env, SECRET_KEY_FIX } from "@/lib/env";
-import { KEY_VERSION, secretsBackend, type SecretRecord } from "./backend";
+import { asyncSecretsBackend, KEY_VERSION, secretsBackend, type SecretRecord } from "./backend";
 
 /* ---------------------------------- shape --------------------------------- */
 
@@ -56,7 +56,13 @@ const metaOf = (record: SecretRecord): SecretMeta => ({
 });
 
 /** The storage seam, for anything that needs to know which one is in play. */
-export { secretsBackend, type SecretRecord, type SecretsBackend } from "./backend";
+export {
+  asyncSecretsBackend,
+  secretsBackend,
+  type AsyncSecretsBackend,
+  type SecretRecord,
+  type SecretsBackend,
+} from "./backend";
 
 /* -------------------------------- references ------------------------------- */
 
@@ -197,6 +203,29 @@ export function readSecretValue(workspaceId: string, ref: string): string | unde
   return record && unseal(workspaceId, ref, record);
 }
 
+/** Non-blocking metadata read for request/provider paths. */
+export async function secretStatusAsync(workspaceId: string, ref: string): Promise<SecretStatus> {
+  const record = await asyncSecretsBackend().get(workspaceId, ref);
+  if (!record) return { ref, exists: false };
+  return { ...metaOf(record), exists: true };
+}
+
+/** Non-blocking workspace listing for API and settings routes. */
+export async function listSecretsAsync(workspaceId: string): Promise<SecretMeta[]> {
+  return (await asyncSecretsBackend().list(workspaceId))
+    .map(metaOf)
+    .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
+}
+
+/** Non-blocking server-only plaintext read. */
+export async function readSecretValueAsync(
+  workspaceId: string,
+  ref: string
+): Promise<string | undefined> {
+  const record = await asyncSecretsBackend().get(workspaceId, ref);
+  return record && unseal(workspaceId, ref, record);
+}
+
 /* --------------------------------- writes --------------------------------- */
 
 /** A value larger than this is a file, not a credential, and the store is JSON. */
@@ -259,5 +288,42 @@ export function putSecret(
  */
 export function removeSecret(workspaceId: string, ref: string): SecretMeta | undefined {
   const record = secretsBackend().remove(workspaceId, ref);
+  return record && metaOf(record);
+}
+
+/** Non-blocking encrypted write. */
+export async function putSecretAsync(
+  workspaceId: string,
+  ref: string,
+  value: string,
+  by: string
+): Promise<SecretMeta> {
+  requireKey();
+  checkRef(ref);
+  checkValue(value);
+
+  const backend = asyncSecretsBackend();
+  const prior = await backend.get(workspaceId, ref);
+  const now = new Date().toISOString();
+  const record: SecretRecord = {
+    ref,
+    createdAt: prior?.createdAt ?? now,
+    createdBy: prior?.createdBy ?? by,
+    updatedAt: now,
+    updatedBy: by,
+    version: (prior?.version ?? 0) + 1,
+    keyVersion: KEY_VERSION,
+    ...seal(workspaceId, ref, value),
+  };
+  await backend.put(workspaceId, record);
+  return metaOf(record);
+}
+
+/** Non-blocking delete. Deleting remains possible without the sealing key. */
+export async function removeSecretAsync(
+  workspaceId: string,
+  ref: string
+): Promise<SecretMeta | undefined> {
+  const record = await asyncSecretsBackend().remove(workspaceId, ref);
   return record && metaOf(record);
 }

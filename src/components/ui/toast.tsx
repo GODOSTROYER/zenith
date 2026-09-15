@@ -23,6 +23,22 @@ export interface ToastInput {
   kind?: ToastKind;
   /** the control that resolves the toast; the toast never covers it */
   action?: { label: string; onClick: () => void };
+  /**
+   * Which project this notification is about, so the Activity panel can lead
+   * each row to *its* own trail instead of to whichever project happens to be
+   * on screen when the panel is opened.
+   *
+   * Callers rarely set either: a notification raised on a project route is
+   * stamped with that route's project by `push` itself. Pass one when the call
+   * site knows better than the route — an action run against another project
+   * from a workspace screen — and `projectId` where there is a choice, since a
+   * slug can be handed to a different project later. The panel resolves the
+   * identity against the projects the caller is authorized for and says "no
+   * longer available" when it resolves to nothing.
+   */
+  projectId?: string;
+  /** the same identity by slug, for call sites that only know the route */
+  projectSlug?: string;
 }
 
 export interface ToastRecord extends ToastInput {
@@ -40,7 +56,52 @@ declare global {
 
 /** Visible at once. Older ones are dropped from view — Activity keeps them all. */
 const MAX_VISIBLE = 3;
-const DISMISS_MS = 6000;
+/** How long a purely informational notification stays up on its own. */
+export const DISMISS_MS = 6000;
+
+/**
+ * Notifications that must not vanish on a timer.
+ *
+ * A failure, a warning, and anything offering a control are the notifications
+ * someone has to read or act on — six seconds is not a reading speed, and on a
+ * screen reader or a touch device it is often not even a chance to notice. They
+ * stay until they are dismissed, or until the stack is full of newer ones (and
+ * even then the activity panel still has them). Plain confirmations still
+ * clear themselves, so success does not accumulate into a wall.
+ */
+export function isPersistent(t: Pick<ToastInput, "kind" | "action">): boolean {
+  return t.kind === "err" || t.kind === "warn" || Boolean(t.action);
+}
+
+/**
+ * The project whose route a notification was raised on, from a pathname.
+ *
+ * Almost every notification is about the project the browser is already
+ * looking at, and stamping that here means the hundred or so `push()` call
+ * sites across the product do not each have to remember to say so. A caller
+ * that knows better — an action run against another project from a workspace
+ * screen — passes its own identity and this never overrides it.
+ */
+export function routeProjectSlug(pathname: string | undefined): string | undefined {
+  return /^\/p\/([^/?#]+)/.exec(pathname ?? "")?.[1];
+}
+
+/**
+ * Keep the stack at `max`, dropping what can most afford to go: the oldest
+ * self-clearing notification first, and only then the oldest of what is left.
+ */
+export function trimQueue<T extends Pick<ToastInput, "kind" | "action">>(
+  list: T[],
+  max: number
+): T[] {
+  if (list.length <= max) return list;
+  const out = [...list];
+  while (out.length > max) {
+    const i = out.findIndex((t) => !isPersistent(t));
+    out.splice(i === -1 ? 0 : i, 1);
+  }
+  return out;
+}
 
 export interface ToastApi {
   toasts: ToastRecord[];
@@ -91,6 +152,8 @@ export interface ToastProviderProps {
 export function ToastProvider({ children, renderToaster = true }: ToastProviderProps) {
   const [toasts, setToasts] = useState<ToastRecord[]>([]);
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  /** ids that are never on a timer — see `isPersistent` */
+  const held = useRef(new Set<string>());
 
   /** the one place a timer dies — every removal path goes through here */
   const clearTimer = useCallback((id: string) => {
@@ -99,17 +162,31 @@ export function ToastProvider({ children, renderToaster = true }: ToastProviderP
     timers.current.delete(id);
   }, []);
 
-  const dismiss = useCallback(
+  const forget = useCallback(
     (id: string) => {
       clearTimer(id);
-      setToasts((list) => list.filter((x) => x.id !== id));
+      held.current.delete(id);
     },
     [clearTimer]
   );
 
+  const dismiss = useCallback(
+    (id: string) => {
+      forget(id);
+      setToasts((list) => list.filter((x) => x.id !== id));
+    },
+    [forget]
+  );
+
+  /**
+   * Start (or restart) the countdown. `resume` is this same function, so a
+   * notification that must not auto-dismiss stays put through every
+   * hover/leave and focus/blur cycle instead of quietly being re-armed.
+   */
   const arm = useCallback(
     (id: string) => {
       clearTimer(id);
+      if (held.current.has(id)) return;
       timers.current.set(
         id,
         setTimeout(() => dismiss(id), DISMISS_MS)
@@ -122,17 +199,26 @@ export function ToastProvider({ children, renderToaster = true }: ToastProviderP
 
   const push = useCallback(
     (input: ToastInput) => {
+      // Read at push time rather than through a router hook: the provider sits
+      // above the shell (and above the router in tests), and what matters is
+      // where the browser was when this happened, not what it re-renders on.
+      const from =
+        input.projectId || input.projectSlug
+          ? undefined
+          : routeProjectSlug(typeof window === "undefined" ? undefined : window.location.pathname);
       const toast: ToastRecord = {
         ...input,
+        ...(from ? { projectSlug: from } : {}),
         kind: input.kind ?? "info",
         id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`,
         ts: new Date().toISOString(),
       };
+      if (isPersistent(toast)) held.current.add(toast.id);
       setToasts((list) => {
-        const next = [...list, toast].slice(-MAX_VISIBLE);
+        const next = trimQueue([...list, toast], MAX_VISIBLE);
         // dropped by the overflow trim — they leave the screen, so their
         // timers leave too (clearTimeout is idempotent under StrictMode)
-        for (const t of list) if (!next.includes(t)) clearTimer(t.id);
+        for (const t of list) if (!next.includes(t)) forget(t.id);
         return next;
       });
       arm(toast.id);
@@ -143,14 +229,16 @@ export function ToastProvider({ children, renderToaster = true }: ToastProviderP
       }
       return toast.id;
     },
-    [arm, clearTimer]
+    [arm, forget]
   );
 
   useEffect(() => {
     const map = timers.current;
+    const ids = held.current;
     return () => {
       for (const t of map.values()) clearTimeout(t);
       map.clear();
+      ids.clear();
     };
   }, []);
 
@@ -183,7 +271,14 @@ const EDGE: Record<ToastKind, string> = {
 
 /**
  * The notification stack — fixed bottom-LEFT so it never covers the map
- * toolbar (bottom-right) or any header. Hover pauses auto-dismiss.
+ * toolbar (bottom-right) or any header.
+ *
+ * Auto-dismiss pauses for anyone who is actually with the notification: a
+ * pointer over it, keyboard focus anywhere inside it (React's onFocus/onBlur
+ * are focusin/focusout, so that is the whole subtree), and a touch on it —
+ * which on a touch device is the only "hover" there is. It resumes when they
+ * leave. Failures, warnings and anything with a control never start a
+ * countdown at all; the activity bell keeps every one of them either way.
  *
  * The deploy dock also lives along the bottom edge; it publishes its height as
  * `--zenith-dock-h` on <html> while mounted, and the stack sits above it, so
@@ -211,7 +306,12 @@ export function Toaster() {
           onMouseLeave={() => resume(t.id)}
           onFocus={() => pause(t.id)}
           onBlur={() => resume(t.id)}
-          className="animate-enter pointer-events-auto relative overflow-hidden rounded-card border border-line bg-bg3 shadow-overlay"
+          onPointerDown={() => pause(t.id)}
+          onPointerLeave={() => resume(t.id)}
+          onPointerCancel={() => resume(t.id)}
+          onTouchStart={() => pause(t.id)}
+          onTouchEnd={() => resume(t.id)}
+          className="animate-enter pointer-events-auto relative overflow-hidden rounded-card border border-line bg-bg3 shadow-overlay motion-reduce:animate-none"
         >
           <span aria-hidden="true" className={cx("absolute inset-y-0 left-0 w-0.5", EDGE[t.kind])} />
           <div className="flex items-start gap-2.5 py-3 pr-2 pl-3.5">

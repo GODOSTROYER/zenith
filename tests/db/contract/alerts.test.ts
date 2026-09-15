@@ -116,19 +116,22 @@ describe.skipIf(!live)("alerts on Postgres", () => {
   /**
    * A snapshot scoped to this run's member, loaded the way `route()` loads one.
    *
-   * Note what `loadSnapshot` builds over: `FileStore.db()`, one graph per
-   * process. Two snapshots in one process therefore share the *objects* and
-   * differ only in their `baseline` — which is exactly the state two serverless
-   * instances are in, because the baseline is the version each read the row at
-   * and the version is what the claim is guarded on.
+   * Every load builds its **own** graph (`emptyGraph()` in `postgres-store.ts`),
+   * so two snapshots taken here share no objects at all and differ in their
+   * `baseline` as well — which is exactly the state two serverless instances
+   * are in, and the baseline is the version each read the row at, which is what
+   * the claim below is guarded on. Callers keep references into their own
+   * graph, and `adoptRow()` mutates in place, so each snapshot's row is brought
+   * up to date on its own.
    */
   const snapshot = () => pg.loadSnapshot(client, caller);
 
   /**
    * Re-read into the process snapshot, so `store.db()` and its baseline agree
-   * again. Every test starts here: a bare `loadSnapshot` refills the shared
-   * graph without replacing the process snapshot's baseline, and a flush
-   * against that mismatch would try to re-insert rows that already exist.
+   * again. Every test starts here: a bare `loadSnapshot` builds a graph the
+   * process snapshot knows nothing about, so `store.db()` would still be
+   * reading the older one, and a flush of a stale baseline would try to
+   * re-insert rows that already exist.
    */
   const reload = () => pg.primeProcessSnapshot(caller);
 

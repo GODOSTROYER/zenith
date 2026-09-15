@@ -19,13 +19,18 @@ import {
   DELIVERY_TIMEOUT_MS,
   SIGNATURE_HEADER,
   channelTable,
+  channelHasSecret,
+  channelTargetAsync,
   channelsOf,
   deliverToChannel,
   emailProblem,
   maskTarget,
   messageText,
   scopedChannel,
+  removeChannelSecretsAsync,
+  setChannelCredentialsAsync,
   type AlertMessage,
+  webhookTargetInputProblem,
 } from "@/lib/alerts";
 import { db, save } from "@/lib/db/store";
 import { env } from "@/lib/env";
@@ -37,8 +42,6 @@ import {
 } from "@/lib/domain/types";
 import { channelLabel, plural } from "./_shared";
 /* -------------------------------- channels -------------------------------- */
-
-const STATE_FILE = "this server's state file (<ZENITH_DATA>/state.json)";
 
 /** The SMTP host, never the URL — the URL carries the password. */
 function smtpHost(): string | undefined {
@@ -67,9 +70,9 @@ function whereTheSecretLives(kind: AlertChannel["kind"], hasSecret: boolean): st
   if (kind === "email")
     return `The SMTP password lives in ZENITH_SMTP_URL in this server's environment, not in this channel — the channel holds only the recipient address.`;
   if (kind === "slack")
-    return `A Slack incoming-webhook URL is itself the credential: anyone holding it can post to that channel. It is stored in plain text in ${STATE_FILE} and masked everywhere Zenith shows it, but anyone who can read this server's disk can read it.`;
+    return `A Slack incoming-webhook URL is itself the credential: anyone holding it can post to that channel. It is encrypted in Zenith's secret store; only its non-secret origin is kept with this channel.`;
   return hasSecret
-    ? `Each request carries ${SIGNATURE_HEADER}: sha256=… , an HMAC over the exact bytes of the body. That signing secret is stored in plain text in ${STATE_FILE} — no route returns it and the UI masks it, but anyone who can read this server's disk can read it.`
+    ? `The destination URL and signing key are encrypted in Zenith's secret store; only the destination origin and secret references are kept with this channel. Each request carries ${SIGNATURE_HEADER}: sha256=… , an HMAC over the exact bytes of the body.`
     : `No signing secret: requests go out unsigned and the receiver cannot prove Zenith sent them. Set one to have Zenith send ${SIGNATURE_HEADER}.`;
 }
 
@@ -81,15 +84,7 @@ function targetProblem(kind: AlertChannel["kind"], target: string): string | und
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)
       ? undefined
       : `"${t}" is not an email address. Use one like ops@example.com — one address per channel; add a second channel for a second recipient.`;
-  let url: URL;
-  try {
-    url = new URL(t);
-  } catch {
-    return `"${t}" is not a URL. Paste the full endpoint, starting with https://.`;
-  }
-  if (url.protocol !== "https:" && url.protocol !== "http:")
-    return `Zenith can only POST over http or https, and "${url.protocol}" is neither. Paste the endpoint's https:// URL.`;
-  return undefined;
+  return webhookTargetInputProblem(t);
 }
 
 /** Worth knowing, but not a refusal. */
@@ -109,10 +104,6 @@ function targetWarnings(kind: AlertChannel["kind"], target: string, hasSecret: b
   } catch {
     return out;
   }
-  if (url.protocol === "http:")
-    out.push(
-      `${url.host} is plain http, so the alert — and the signature, if any — crosses the network unencrypted. Use https unless this endpoint is on the same host.`
-    );
   if (kind === "slack" && url.hostname !== "hooks.slack.com")
     out.push(
       `${url.hostname} is not hooks.slack.com. Zenith will still send Slack's payload shape there, which is what Mattermost and Discord-compatible receivers expect — but if you meant Slack, copy the URL from the incoming-webhook app again.`
@@ -159,13 +150,24 @@ defineAction<CreateChannel>({
   requiredRole: "admin",
   mutates: true,
   input: CreateChannel,
-  plan(ctx, input) {
+  async plan(ctx, input) {
     const hasSecret = input.kind === "webhook" && !!input.secret?.trim();
     const enabled = input.enabled ?? true;
     const using = rulesUsing(ctx.workspaceId);
-    const duplicate = channelsOf(ctx.workspaceId).find(
-      (c) => c.kind === input.kind && c.target === input.target.trim()
-    );
+    let duplicate: AlertChannel | undefined;
+    for (const c of channelsOf(ctx.workspaceId)) {
+      if (c.kind !== input.kind) continue;
+      try {
+        const target = c.kind === "email" ? c.target : await channelTargetAsync(c);
+        if (target === input.target.trim()) {
+          duplicate = c;
+          break;
+        }
+      } catch {
+        // A legacy or unreadable credential is not compared during planning;
+        // delivery remains fail-closed until the credential is repaired.
+      }
+    }
 
     return {
       summary: `Deliver this workspace's alerts to ${input.name.trim()} (${input.kind}).`,
@@ -192,8 +194,15 @@ defineAction<CreateChannel>({
             : undefined),
     };
   },
-  execute(ctx, input) {
-    const problem = targetProblem(input.kind, input.target);
+  async execute(ctx, input) {
+    const rawTarget = input.target.trim();
+    // HTTP targets may carry bearer material in their path/query. Keep the
+    // submitted value out of the post-action audit input for both kinds —
+    // including when validation rejects it, which `runAction` audits just the
+    // same, and which the egress policy now makes a routine outcome rather
+    // than a rare one.
+    if (input.kind === "slack" || input.kind === "webhook") input.target = maskTarget(input.kind, rawTarget);
+    const problem = targetProblem(input.kind, rawTarget);
     if (problem) return { ok: false, summary: "That target cannot be used.", error: problem };
 
     const channel: AlertChannel = {
@@ -201,12 +210,29 @@ defineAction<CreateChannel>({
       workspaceId: ctx.workspaceId,
       kind: input.kind,
       name: input.name.trim(),
-      target: input.target.trim(),
-      secret: input.kind === "webhook" ? input.secret?.trim() || undefined : undefined,
+      target: rawTarget,
       enabled: input.enabled ?? true,
       createdBy: ctx.actor,
       createdAt: new Date().toISOString(),
     };
+    try {
+      await setChannelCredentialsAsync(
+        channel,
+        {
+          ...(input.kind === "webhook" || input.kind === "slack" ? { target: rawTarget } : {}),
+          ...(input.kind === "webhook" && input.secret?.trim()
+            ? { signing: input.secret.trim() }
+            : {}),
+        },
+        ctx.actor.name
+      );
+    } catch (error) {
+      return {
+        ok: false,
+        summary: "The channel secret could not be stored safely.",
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
     channelTable().push(channel);
     save();
     return {
@@ -237,13 +263,13 @@ defineAction<UpdateChannel>({
   requiredRole: "admin",
   mutates: true,
   input: UpdateChannel,
-  plan(ctx, input) {
+  async plan(ctx, input) {
     const channel = scopedChannel(ctx.workspaceId, input.channelId);
     const target = input.target?.trim() ?? channel.target;
     const enabled = input.enabled ?? channel.enabled;
     const hasSecret =
       channel.kind === "webhook" &&
-      (input.secret === undefined ? !!channel.secret : !!input.secret.trim());
+      (input.secret === undefined ? channelHasSecret(channel) : !!input.secret.trim());
     const nothing =
       input.name === undefined &&
       input.target === undefined &&
@@ -281,27 +307,54 @@ defineAction<UpdateChannel>({
       requiresApproval: false,
       blocked:
         (input.target !== undefined ? targetProblem(channel.kind, input.target) : undefined) ??
+        (input.secret !== undefined && channel.kind !== "webhook"
+          ? `A ${channel.kind} channel has no signing secret. Update its target credential instead.`
+          : undefined) ??
         (nothing
           ? "Change the name, the destination, the secret or the on/off switch — this would save the channel exactly as it is."
           : undefined),
     };
   },
-  execute(ctx, input) {
+  async execute(ctx, input) {
     const channel = scopedChannel(ctx.workspaceId, input.channelId);
+    if (input.secret !== undefined && channel.kind !== "webhook")
+      return {
+        ok: false,
+        summary: "That channel has no signing secret.",
+        error: `A ${channel.kind} channel has no signing secret. Update its target credential instead.`,
+      };
+    const credentialUpdate: { target?: string; signing?: string | undefined } = {};
     if (input.target !== undefined) {
-      const problem = targetProblem(channel.kind, input.target);
+      const rawTarget = input.target.trim();
+      // HTTP targets may carry bearer material in their path/query. Keep the
+      // submitted value out of the post-action audit input, including when
+      // validation rejects the replacement.
+      if (channel.kind === "slack" || channel.kind === "webhook") input.target = maskTarget(channel.kind, rawTarget);
+      const problem = targetProblem(channel.kind, rawTarget);
       if (problem) return { ok: false, summary: "That target cannot be used.", error: problem };
-      channel.target = input.target.trim();
+      if (channel.kind === "slack" || channel.kind === "webhook") credentialUpdate.target = rawTarget;
+      else channel.target = rawTarget;
+    }
+    if (input.secret !== undefined) {
+      credentialUpdate.signing = input.secret.trim() || undefined;
+    }
+    try {
+      if (Object.keys(credentialUpdate).length)
+        await setChannelCredentialsAsync(channel, credentialUpdate, ctx.actor.name);
+    } catch (error) {
+      return {
+        ok: false,
+        summary: "The channel credentials could not be stored safely.",
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
     if (input.name !== undefined) channel.name = input.name.trim();
-    if (input.secret !== undefined)
-      channel.secret = channel.kind === "webhook" ? input.secret.trim() || undefined : undefined;
     if (input.enabled !== undefined) channel.enabled = input.enabled;
     save();
     return {
       ok: true,
       summary: `${channel.name} is ${channel.enabled ? "receiving" : "not receiving"} alerts (${channel.kind} → ${maskTarget(channel.kind, channel.target)}).`,
-      data: { channelId: channel.id, enabled: channel.enabled, hasSecret: !!channel.secret },
+      data: { channelId: channel.id, enabled: channel.enabled, hasSecret: channelHasSecret(channel) },
     };
   },
 });
@@ -337,7 +390,7 @@ defineAction<DeleteChannel>({
         using.all > 0
           ? `${plural(using.all, "rule")} deliver to every channel and will use the ${plural(remaining, "one")} that remain${remaining === 1 ? "s" : ""}.`
           : "No rule delivers to every channel.",
-        channel.kind === "webhook" && channel.secret
+        channel.kind === "webhook" && channelHasSecret(channel)
           ? "The stored signing secret is deleted with it and is not recoverable."
           : channel.kind === "slack"
             ? "The stored webhook URL is deleted with it. Revoke it in Slack as well if it should stop working entirely."
@@ -359,8 +412,17 @@ defineAction<DeleteChannel>({
       requiresApproval: false,
     };
   },
-  execute(ctx, input) {
+  async execute(ctx, input) {
     const channel = scopedChannel(ctx.workspaceId, input.channelId);
+    try {
+      await removeChannelSecretsAsync(channel);
+    } catch (error) {
+      return {
+        ok: false,
+        summary: "The channel secret could not be removed safely.",
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
     const table = channelTable();
     const at = table.findIndex((c) => c.id === channel.id);
     if (at >= 0) table.splice(at, 1);
@@ -407,7 +469,7 @@ defineAction<TestChannel>({
           /^Every alert this workspace raises — and every one that closes — is/,
           "It is"
         ),
-        whereTheSecretLives(channel.kind, channel.kind === "webhook" && !!channel.secret),
+        whereTheSecretLives(channel.kind, channel.kind === "webhook" && channelHasSecret(channel)),
         `Up to ${DELIVERY_ATTEMPTS} attempts with backoff, ${DELIVERY_TIMEOUT_MS / 1000}s each — the same path a real alert takes. The result is recorded on the channel either way, and shown under Settings → Alerts.`,
         "No alert rule fires and no alert is recorded: this proves the channel, not a condition.",
       ],
@@ -417,7 +479,7 @@ defineAction<TestChannel>({
         ...(channel.enabled
           ? []
           : ["This channel is switched off. The test is still sent, but real alerts are not."]),
-        ...targetWarnings(channel.kind, channel.target, !!channel.secret),
+        ...targetWarnings(channel.kind, channel.target, channelHasSecret(channel)),
       ],
       requiresApproval: false,
     };

@@ -11,9 +11,11 @@
  *
  * Concrete actions live in src/lib/actions/defs/.
  */
+import { AsyncLocalStorage } from "node:async_hooks";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { withMutationGate } from "./mutation-gate";
-import { appendAudit, db, save } from "@/lib/db/store";
+import { appendAuditAsync, db, flushPendingAsync, isPostgres, save } from "@/lib/db/store";
 import { id, type Actor, type AutonomyLevel } from "@/lib/domain/types";
 import { membershipPolicy } from "@/lib/auth/policy";
 import { WORKSPACE_ROLE_RANK, type WorkspaceRole } from "@/lib/domain/roles";
@@ -141,24 +143,88 @@ export function roleOf(actor: Actor, workspaceId: string): Role {
 
 /**
  * Bounded replay cache: a retried request inside the window gets the original
- * result, and the map can never grow without limit. Keys are namespaced by
- * actor, so two people deploying the same changeset are two actions with two
- * audit rows — not one silently swallowed by the other's replay.
+ * result, and the map can never grow without limit.
  *
- * TODO(ceiling): in-process only. A restart clears the window, so a retry that
- * crosses a restart applies twice. `IDEM_WINDOW_NOTE` states that out loud;
- * persist the map beside state.json if that stops being acceptable.
+ * One contract, the same one `agent-access/control/journal.ts:119` and
+ * `hosted/authority/jobs.ts` implement durably: a key is scoped by **tenant +
+ * principal + operation** — workspace, actor and action id — and bound to a
+ * **canonical hash of the request**. Same key + same request returns the
+ * retained outcome; same key + a *different* request is an `idempotency_conflict`,
+ * never the first request's answer wearing the second one's name.
+ *
+ * An entry is **pending** until the request that produced it has durably
+ * committed, and only then **retained**. That distinction is the whole reason
+ * this section is more than a Map: `save()` on the Postgres store merely
+ * schedules a coalesced network write, and the write itself is awaited by
+ * `flushMutation()` in `server/request.ts` *after* `runAction` has returned. An
+ * entry written before that flush would answer a retry with `ok: true` for a
+ * mutation that never landed — so a pending entry is promoted by
+ * `withActionOutcomes()` when the flush succeeds and dropped when it fails, and
+ * a retry that arrives while it is still pending is refused rather than
+ * answered with an outcome nobody has committed yet. On the file store, where
+ * `save()` needs no network round trip and `route()` flushes nothing on a
+ * long-lived host, an outcome is retained immediately, exactly as before.
+ *
+ * TODO(ceiling): in-process only, and deliberately still so in this change.
+ * A restart clears the window, so a retry that crosses a restart applies twice,
+ * and two instances share no window at all. `IDEM_WINDOW_NOTE` and the
+ * `idempotency` block on every execute response state that out loud; bounding
+ * it durably is a storage decision, not a rename of this map.
  */
 const IDEM_MAX = 500;
 const IDEM_TTL_MS = 10 * 60_000;
 
 /** The honest description of the replay guarantee, for API docs and plan copy. */
 export const IDEM_WINDOW_NOTE =
-  "Retries with the same idempotencyKey return the first result for 10 minutes, per actor. The window lives in this server process: if the server restarts, a retry runs the action again.";
+  "Retries with the same idempotencyKey return the first request's retained outcome for 10 minutes, per workspace, actor and action, and only when the request body hashes the same; a different body under the same key is refused as idempotency_conflict. An outcome is retained only once that request's own durable write has succeeded, so a replayed response is evidence the change was committed; a retry that arrives while the first request is still committing is refused as idempotency_in_flight rather than answered early. The window lives in this server process: if the server restarts, or the retry reaches another instance, a retry runs the action again.";
+
+/**
+ * What the response says about the replay guarantee that answered it.
+ *
+ * Returned on every execute so a caller can reason about its own retries
+ * instead of reading the source: `scope: "process"` is the load-bearing word —
+ * this window is not shared with any other instance and does not survive a
+ * restart. The API route serialises the whole `runAction` return value, so this
+ * reaches clients without the route knowing anything about it.
+ */
+export interface IdempotencyReport {
+  /** Whether the caller supplied a key at all. */
+  applied: boolean;
+  /** Where the window lives. Only ever `"process"` today — say so, don't imply more. */
+  scope: "process";
+  /** True when it is best-effort: lost on restart, not shared across instances. */
+  bestEffort: true;
+  /**
+   * True when this response is the **retained** outcome of an earlier identical
+   * request — one whose durable write had already succeeded when it was
+   * retained. It is never true for an outcome that is still awaiting its
+   * request's flush: that case is refused as `idempotency_in_flight`.
+   */
+  replayed: boolean;
+  windowMs: number;
+  note: string;
+}
+
+const idempotencyReport = (applied: boolean, replayed: boolean): IdempotencyReport => ({
+  applied,
+  scope: "process",
+  bestEffort: true,
+  replayed,
+  windowMs: IDEM_TTL_MS,
+  note: IDEM_WINDOW_NOTE,
+});
 
 interface IdemEntry {
   at: number;
+  /** Canonical hash of the request this key was first used for. */
+  requestHash: string;
   result: ActionResult;
+  /**
+   * `pending` — the action ran, but the request that ran it has not yet
+   * committed durably, so this outcome may still be thrown away.
+   * `retained` — the durable write succeeded and a retry may be answered.
+   */
+  state: "pending" | "retained";
 }
 
 type GI = typeof globalThis & { __zenithIdem?: Map<string, IdemEntry> };
@@ -169,25 +235,200 @@ function idemCache(): Map<string, IdemEntry> {
   return g.__zenithIdem;
 }
 
-function idemGet(key: string): ActionResult | undefined {
+function idemGet(key: string): IdemEntry | undefined {
   const cache = idemCache();
   const hit = cache.get(key);
   if (!hit) return undefined;
   if (Date.now() - hit.at > IDEM_TTL_MS) {
+    // Expiry also bounds `pending`: a request that never reached either
+    // promotion or eviction (a crashed worker, a killed lambda) releases its
+    // key instead of blocking every retry of it for good.
     cache.delete(key);
     return undefined;
   }
-  return hit.result;
+  return hit;
 }
 
-function idemSet(key: string, result: ActionResult): void {
+function idemSet(
+  key: string,
+  requestHash: string,
+  result: ActionResult,
+  state: IdemEntry["state"]
+): void {
   const cache = idemCache();
   cache.delete(key); // re-insert so Map iteration order is oldest-first
-  cache.set(key, { at: Date.now(), result });
+  cache.set(key, { at: Date.now(), requestHash, result, state });
   for (const [k, v] of cache) {
     if (cache.size <= IDEM_MAX && Date.now() - v.at <= IDEM_TTL_MS) break;
     cache.delete(k);
   }
+}
+
+/** The request's durable write landed: this outcome may now answer a retry. */
+function idemRetain(key: string): void {
+  const entry = idemCache().get(key);
+  if (entry) entry.state = "retained";
+}
+
+/** It did not land: keep nothing, so a retry runs the action instead. */
+function idemEvict(key: string): void {
+  idemCache().delete(key);
+}
+
+/* --------------------- committing an outcome, once ------------------------ */
+
+/**
+ * True when the store's `save()` only *schedules* the durable write, so the
+ * commit happens after `runAction` returns.
+ *
+ * Only Postgres: there `save()` queues a PostgREST round trip that
+ * `flushMutation()` awaits at the edge of the request. The file store writes
+ * from its own timer with an exit hook behind it and `route()` awaits nothing
+ * on a long-lived host, so deferring retention there would invent a pending
+ * state with nothing to resolve it.
+ */
+const commitIsDeferred = (): boolean => isPostgres();
+
+interface OutcomeScope {
+  keys: Set<string>;
+  settled: boolean;
+}
+
+/** What `route()` (or any caller that owns the flush) settles a request with. */
+export interface ActionOutcomeScope {
+  /** The durable write succeeded: promote this request's outcomes to retained. */
+  commit(): void;
+  /** It did not: drop them, so a retry re-executes rather than replaying a lie. */
+  abandon(): void;
+}
+
+const outcomeScope = new AsyncLocalStorage<OutcomeScope>();
+
+/**
+ * Run one request's handler inside a commit scope.
+ *
+ * Every idempotent outcome `runAction` produces inside `body` is held *pending*
+ * until the caller — which is the only code that knows whether the durable
+ * flush succeeded — calls `commit()`. A body that throws, or that returns
+ * without committing, abandons them: nothing is retained that was not written.
+ *
+ * `server/request.ts` wraps every API request in this and commits immediately
+ * after `await flushMutation(req)`. Any other owner of a flush should do the
+ * same; a caller that opens no scope at all still gets flush-or-evict, because
+ * `runAction` then flushes for itself (see `retainOutcome`).
+ */
+export async function withActionOutcomes<T>(
+  body: (scope: ActionOutcomeScope) => Promise<T>
+): Promise<T> {
+  const scope: OutcomeScope = { keys: new Set(), settled: false };
+  const handle: ActionOutcomeScope = {
+    commit() {
+      if (scope.settled) return;
+      scope.settled = true;
+      for (const key of scope.keys) idemRetain(key);
+    },
+    abandon() {
+      if (scope.settled) return;
+      scope.settled = true;
+      for (const key of scope.keys) idemEvict(key);
+    },
+  };
+  try {
+    return await outcomeScope.run(scope, () => body(handle));
+  } finally {
+    // Default to abandoning: a body that threw, or one that simply forgot to
+    // commit, must not leave an outcome behind that nobody confirmed.
+    handle.abandon();
+  }
+}
+
+/**
+ * Retain `result` under `key` — but never before the write that backs it.
+ *
+ * Returns the result to answer with: the same one when it is safe to retain,
+ * and a `commit_failed` refusal when this call owned the flush and the flush
+ * did not land.
+ */
+async function retainOutcome(
+  action: ActionDef<unknown>,
+  key: string,
+  requestHash: string,
+  result: ActionResult
+): Promise<ActionResult> {
+  if (!commitIsDeferred()) {
+    idemSet(key, requestHash, result, "retained");
+    return result;
+  }
+  idemSet(key, requestHash, result, "pending");
+  const scope = outcomeScope.getStore();
+  if (scope) {
+    // Somebody else owns the flush and will settle this key either way.
+    scope.keys.add(key);
+    return result;
+  }
+  // Nobody does — a server action, the agent-control gateway or a background
+  // pass, none of which go through `route()`. Own it here rather than retain an
+  // outcome no request will ever confirm.
+  try {
+    await flushPendingAsync();
+    idemRetain(key);
+    return result;
+  } catch (err) {
+    idemEvict(key);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`Zenith could not commit ${action.id}: ${message}`);
+    return {
+      ok: false,
+      summary: `${action.title} could not be committed.`,
+      data: result.data,
+      error: `commit_failed: ${message}. Nothing was stored under this idempotency key, so the same request may be sent again and will run once the store accepts writes.`,
+    };
+  }
+}
+
+/**
+ * A stable JSON form for hashing. Mirrors `hashIntent` in
+ * `hosted/authority/jobs.ts` — sorted keys, ISO dates, `undefined` dropped —
+ * with one deliberate difference: it never throws. A value that has no natural
+ * JSON form is hashed as a tagged string rather than turned into a 500, because
+ * this runs *after* the action's own schema has accepted the input and a
+ * refusal here would fail a request the action itself considers valid.
+ */
+function canonicalForHash(value: unknown): unknown {
+  if (value === undefined || value === null) return null;
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) return value.map(canonicalForHash);
+  if (typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const key of Object.keys(value as Record<string, unknown>).sort()) {
+      const inner = (value as Record<string, unknown>)[key];
+      if (inner === undefined) continue;
+      out[key] = canonicalForHash(inner);
+    }
+    return out;
+  }
+  if (typeof value === "number") return Number.isFinite(value) ? value : `number:${String(value)}`;
+  if (typeof value === "string" || typeof value === "boolean") return value;
+  return `${typeof value}:${String(value)}`;
+}
+
+/**
+ * The request identity a key is bound to: the validated input plus the scope it
+ * was aimed at. Two requests that differ only in their project or environment
+ * are two different requests, even under one key.
+ */
+function requestHashOf(ctx: ActionContext, input: unknown): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify(
+        canonicalForHash({
+          input,
+          projectId: ctx.projectId,
+          environmentId: ctx.environmentId,
+        })
+      )
+    )
+    .digest("hex");
 }
 
 /* -------------------------------- executor -------------------------------- */
@@ -195,6 +436,17 @@ function idemSet(key: string, result: ActionResult): void {
 export interface RunOptions {
   mode: "plan" | "execute";
   idempotencyKey?: string;
+}
+
+/** What one `runAction` call answers with. `plan` for plans, `result` for executes. */
+export interface ActionRun {
+  plan?: ActionPlan;
+  result?: ActionResult;
+  /**
+   * Present on every execute: what the replay window did, and what it is worth.
+   * Absent on plans, which change nothing and are never replayed.
+   */
+  idempotency?: IdempotencyReport;
 }
 
 /**
@@ -206,14 +458,14 @@ export async function runAction(
   ctx: ActionContext,
   rawInput: unknown,
   opts: RunOptions
-): Promise<{ plan?: ActionPlan; result?: ActionResult }> {
+): Promise<ActionRun> {
   const action = getAction(actionId);
   if (opts.mode === "execute" && action.mutates) return withMutationGate(() => runActionInsideGate(actionId, ctx, rawInput, opts));
   return runActionInsideGate(actionId, ctx, rawInput, opts);
 }
 async function runActionInsideGate(
   actionId: string, ctx: ActionContext, rawInput: unknown, opts: RunOptions
-): Promise<{ plan?: ActionPlan; result?: ActionResult }> {
+): Promise<ActionRun> {
   const action = getAction(actionId);
   const parsed = action.input.safeParse(rawInput ?? {});
   if (!parsed.success) {
@@ -279,7 +531,7 @@ async function runActionInsideGate(
         summary: `"${action.title}" needs the ${action.requiredRole} role and you are ${role} in this workspace.`,
         error: `role_denied: ask a workspace admin to give ${ctx.actor.name} the ${action.requiredRole} role in Settings → Members, or have them run this action.`,
       };
-      audit(ctx, action, input, "denied", denied.summary, denied.error);
+      await audit(ctx, action, input, "denied", denied.summary, denied.error);
       return { result: denied };
     }
   }
@@ -293,7 +545,7 @@ async function runActionInsideGate(
         summary: `Navigator is in ${level} mode and may not execute actions.`,
         error: "autonomy_denied",
       };
-      audit(ctx, action, input, "denied", denied.summary);
+      await audit(ctx, action, input, "denied", denied.summary);
       return { result: denied };
     }
     if (level === "bounded" && action.risk !== "low") {
@@ -302,26 +554,82 @@ async function runActionInsideGate(
         summary: `Bounded autonomy only permits low-risk actions; "${action.title}" is ${action.risk} risk and needs approval.`,
         error: "autonomy_denied",
       };
-      audit(ctx, action, input, "denied", denied.summary);
+      await audit(ctx, action, input, "denied", denied.summary);
       return { result: denied };
     }
   }
 
-  // Namespaced by actor: the same key from two people is two actions.
+  // Tenant + principal + operation: the same key in another workspace, from
+  // another actor, or against another action is another request entirely.
   const idemKey = opts.idempotencyKey
-    ? `${ctx.actor.id}:${actionId}:${opts.idempotencyKey}`
+    ? `${ctx.workspaceId}:${ctx.actor.id}:${actionId}:${opts.idempotencyKey}`
     : undefined;
+  const requestHash = idemKey ? requestHashOf(ctx, input) : "";
   if (idemKey) {
     const cached = idemGet(idemKey);
-    if (cached) return { result: cached };
+    if (cached && cached.requestHash !== requestHash)
+      return {
+        result: {
+          ok: false,
+          summary: `Idempotency key "${opts.idempotencyKey}" was already used for a different ${action.title} request.`,
+          // Same contract as control/journal.ts:119 and hosted/authority/jobs.ts:
+          // a reused key with different inputs is a conflict, never a silent
+          // replay of somebody else's request.
+          error:
+            "idempotency_conflict: this key belongs to different inputs. Send a new idempotency key for a new request, or resend the original request unchanged to receive its retained outcome.",
+        },
+        idempotency: idempotencyReport(true, false),
+      };
+    if (cached && cached.state === "pending")
+      return {
+        result: {
+          ok: false,
+          summary: `An earlier ${action.title} request with idempotency key "${opts.idempotencyKey}" is still being committed.`,
+          // Never the third answer: not a replay (the outcome is unconfirmed),
+          // not a second execution (it may yet commit). The caller retries and
+          // gets whichever of those two the first request turns out to be.
+          error:
+            "idempotency_in_flight: the first request under this key has not finished committing. Retry in a moment: you will receive its retained outcome if it committed, and the action will run once if it did not.",
+        },
+        idempotency: idempotencyReport(true, false),
+      };
+    if (cached) return { result: cached.result, idempotency: idempotencyReport(true, true) };
   }
 
   try {
     const result = await action.execute(ctx, input);
+    // Business state BEFORE the audit await, and deliberately.
+    //
+    // `execute()` has already mutated the live in-memory `db()` object, so the
+    // only two orderings available are "persist it" and "leave it dangling for
+    // an unrelated later save() to flush". There is no transaction spanning the
+    // product store and the audit log (ADR D-4), so this persists first and then
+    // reports an audit failure honestly, rather than skipping the save and
+    // leaving a half-applied mutation that the next action's save() commits
+    // behind a request that was told it failed.
     if (action.mutates) save();
-    audit(ctx, action, input, result.ok ? "ok" : "error", result.summary, result.error);
-    if (idemKey) idemSet(idemKey, result);
-    return { result };
+    try {
+      await audit(ctx, action, input, result.ok ? "ok" : "error", result.summary, result.error);
+    } catch (auditError) {
+      // The effect happened and is persisted; its audit row is not. Neither
+      // "success" nor "nothing happened" is true, so say exactly that — an
+      // action never reports ok when a record it is required to write is
+      // missing. Retained under the key so a retry does not apply it twice.
+      const message = auditError instanceof Error ? auditError.message : String(auditError);
+      console.error(`Zenith could not write the audit row for ${action.id}: ${message}`);
+      const unaudited: ActionResult = {
+        ok: false,
+        summary: `${action.title} was applied, but its audit record could not be written.`,
+        data: result.data,
+        error: `audit_write_failed: ${message}. The change itself is saved; re-run nothing until the audit log is readable again, and reconcile from the object's own history.`,
+      };
+      const answer = idemKey
+        ? await retainOutcome(action, idemKey, requestHash, unaudited)
+        : unaudited;
+      return { result: answer, idempotency: idempotencyReport(Boolean(idemKey), false) };
+    }
+    const answer = idemKey ? await retainOutcome(action, idemKey, requestHash, result) : result;
+    return { result: answer, idempotency: idempotencyReport(Boolean(idemKey), false) };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const result: ActionResult = {
@@ -329,8 +637,24 @@ async function runActionInsideGate(
       summary: `${action.title} failed.`,
       error: message,
     };
-    audit(ctx, action, input, "error", result.summary, message);
-    return { result };
+    try {
+      await audit(ctx, action, input, "error", result.summary, message);
+    } catch (auditError) {
+      // A failed action must still be returned as an error when the secondary
+      // failure audit cannot be persisted; never turn it into an unhandled
+      // request exception or claim that the mutation succeeded.
+      console.error(`Zenith could not write the failure audit row: ${(auditError as Error).message}`);
+    }
+    // Deliberately not cached under the idempotency key: a request that threw
+    // may be retried, and retaining the throw would make a transient failure
+    // permanent for that key.
+    //
+    // TODO(ceiling): an `execute()` that throws half-way may leave its partial
+    // mutation in the in-memory `db()` object, which a later unrelated `save()`
+    // would flush. The store has no rollback primitive to undo it with — the
+    // fix is a real transaction boundary (ADR D-4), not a `save()` here, which
+    // would persist exactly the half-applied state this comment warns about.
+    return { result, idempotency: idempotencyReport(Boolean(idemKey), false) };
   }
 }
 
@@ -358,7 +682,7 @@ function withRoleBlock(
   return out;
 }
 
-function audit(
+async function audit(
   ctx: ActionContext,
   action: ActionDef<unknown>,
   input: unknown,
@@ -367,7 +691,7 @@ function audit(
   error?: string
 ) {
   if (!action.mutates && result === "ok") return; // don't audit reads
-  appendAudit({
+  await appendAuditAsync({
     ts: new Date().toISOString(),
     id: id(),
     workspaceId: ctx.workspaceId,

@@ -241,9 +241,30 @@ idempotently → events appended (replayable) → verify phase (honest health) �
    person signs in), then the workspaces those rows name, then everything keyed
    by those ids, plus the install-global settings row and the change-feed
    versions — and the handler then reads and mutates a graph already in memory.
-   One snapshot per request is also what stops two concurrent requests sharing
-   one mutable object. Outside a request (a script, the seed, a test) there is a
-   process-global snapshot instead, primed explicitly.
+   Outside a request — a script, the seed, a test, a cron pass, a server
+   component — there is a process-global snapshot instead, and it is primed
+   **explicitly**: `primeProcessSnapshot()`, `inCronScope()` or
+   `runInStoreScope()`. There is no implicit third way in. A `db()` that finds
+   neither a request scope nor a primed snapshot **throws**, naming those
+   entry points. It used to hand back an empty snapshot over `FileStore.db()`,
+   which meant an unprimed reader answered out of a different authority with
+   no error and no row — a silently empty activity list before the first cron
+   tick, and every workspace on the install after it. The two server
+   components that relied on that are now explicit: `/overview` opens a
+   `runInStoreScope()` for the signed-in caller (and an empty snapshot, never
+   the install, when there is no caller), and the public `/preview` page reads
+   the four rows it renders by id through a bounded query that has no snapshot
+   to widen.
+
+   *Every snapshot owns its graph.* A load allocates a fresh empty `Database`
+   and hydrates into that. It used to build over `FileStore.db()` — one object
+   per process — while the adopt step truncates and refills the arrays it is
+   handed, so two requests served concurrently by one instance shared one
+   graph: one awaited anything, the other's prefetch replaced the rows, and the
+   first resumed reading the second tenant's data *and* diffing its flush
+   against a baseline that no longer described the graph. The isolation is now
+   structural rather than a scheduling accident, and it is pinned by
+   `tests/db/snapshot-isolation.test.ts` (two interleaved scopes, one flush).
 
    *Writes are row-level optimistic concurrency.* Every table carries
    `version bigint`; a flush diffs the snapshot against the baseline captured at
@@ -264,19 +285,27 @@ idempotently → events appended (replayable) → verify phase (honest health) �
    which projects moved; listeners poll that one narrow table at the SSE tick
    (300 ms), at most once per window, and only while a listener exists.
 
-   *It is a hybrid, and that is Phase 3 debt.* Phase 2 moved the organisational
-   slice — workspaces, members, invites, connections, projects, environments,
-   settings, `workspace_versions`. Revisions and their manifests, deployments,
-   deployment events, the audit log, findings, navigator runs, alert
-   rules/events/outbox and secrets still delegate to `FileStore` verbatim. Their
-   tables exist in `supabase/migrations/0001_system_of_record.sql` and are empty.
-   This makes `ZENITH_STORE=postgres` usable end to end today rather than after
-   the whole store lands — and it means a serverless deployment on `postgres`
-   still keeps that half in its own `/tmp`. Two schema deviations are recorded in
-   the migration itself: `Database.settings` is install-global rather than
-   per-workspace (one reserved row, `workspace_id = '__install__'`), and invites
-   get a real table because they are looked up by address on the sign-in path,
-   projected back into `settings.invites` on hydration so no caller changes.
+   *It is no longer a hybrid.* Phase 2 moved the organisational slice, and
+   Phase 3 (below) moved the rest: revisions and their manifests, deployments,
+   deployment events, the audit log, findings, navigator runs and alert
+   rules/events/outbox are all registered adapters or delegates over Postgres,
+   and secrets select a Postgres backend. On `ZENITH_STORE=postgres` the file
+   store is **not** a fallback authority for any collection, and nothing writes
+   `state.json`: `save()` used to mirror the graph into it, which produced a
+   second partial copy of whichever tenant's slice an instance last prefetched
+   and that nothing read back. The `FileStore` calls left in the Postgres store
+   are `reset()`'s, which is how a seed or a test gets an empty graph, and
+   `onChange`'s, which keeps the in-process emitter as a second *notification*
+   source so a listener still hears a `reset()` — never as durability, and
+   never as a graph a request reads.
+   What is genuinely still open is stated where it bites rather than as a
+   phase: a flush is a sequence of PostgREST requests, so the product store
+   does **not** claim cross-table atomicity, and no feature may be built that
+   needs one. Two schema deviations are recorded in the migration itself:
+   `Database.settings` is install-global rather than per-workspace (one
+   reserved row, `workspace_id = '__install__'`), and invites get a real table
+   because they are looked up by address on the sign-in path, projected back
+   into `settings.invites` on hydration so no caller changes.
 
    **Hot and cold.** `state.json` is rewritten in full on every save, so only
    what changes belongs in it. Revision manifests — immutable once written, and
@@ -340,12 +369,18 @@ idempotently → events appended (replayable) → verify phase (honest health) �
    columns, never a decrypt), because those four live in the data directory as
    files rather than in `state.json`.
 
-   **Background work has no process to live in.** The engine's 250 ms ticker,
-   the alert evaluator's 15 s pass, the outbox drainer and the hosted job runner
-   all assume one long-lived server. A Vercel instance exists for a request and
-   is frozen after it, so `src/lib/serverless.ts` turns those timers off there
-   and something else has to drive them: five internal routes, each of which
-   runs **one bounded pass** and returns JSON counts.
+   **Background work has no process to live in — on two hosts, for two
+   different reasons.** The engine's 250 ms ticker, the alert evaluator's 15 s
+   pass, the outbox drainer and the hosted job runner all assume one long-lived
+   server. A Vercel instance exists for a request and is frozen after it, so
+   `src/lib/serverless.ts` turns those timers off there. `ZENITH_STORE=postgres`
+   turns the first three off as well, on *any* host: they read the store, `db()`
+   answers from a snapshot loaded before the caller ran, and a timer callback
+   has no caller — so an unprimed read is a fault, and a fault raised inside
+   `setInterval` is a process exit. (The hosted job runner keeps its ticker on a
+   long-lived host: it reads the hosted authority, not the product snapshot.)
+   What drives the work instead is five internal routes, each of which runs
+   **one bounded pass** and returns JSON counts.
 
    | Route | Pass |
    | --- | --- |
@@ -353,7 +388,7 @@ idempotently → events appended (replayable) → verify phase (honest health) �
    | `POST /api/internal/tick/alerts` | `evaluateAll()` |
    | `POST /api/internal/tick/outbox` | `replayOutbox(60s lease)` — a minute rather than the boot-time zero, because another instance may be mid-send |
    | `POST /api/internal/tick/jobs` | `tickJobs()`, reporting the queue either side |
-   | `GET /api/internal/keepalive` | one authenticated read, so a free Supabase project is never paused for inactivity |
+   | `GET /api/internal/keepalive` | one authenticated read, so a free Supabase project is never paused for inactivity — plus the account-deletion reconcile, which fails closed on Product-Postgres exactly as `DELETE /api/account` does, because it runs the same non-atomic local cleanup |
 
    All five are authorised by the Vercel convention `Authorization: Bearer
    <CRON_SECRET>`, compared in **constant time** over SHA-256 digests (so that
@@ -373,9 +408,26 @@ idempotently → events appended (replayable) → verify phase (honest health) �
    GitHub's own floor of five minutes. Between those ticks, `nudge()`
    (`src/lib/server/cron.ts`) covers the case that actually needs sub-minute
    progress: reading a project payload runs one synchronous `engineTick()` when
-   that workspace has a deployment in flight — serverless only, rate-limited to
-   once per five seconds per instance, a no-op when nothing is deploying, and
-   unable to fail the read. Nothing starts a `setInterval` anywhere.
+   that workspace has a deployment in flight — on any host with no ticker
+   (serverless, and a long-lived Postgres one), rate-limited to once per five
+   seconds per instance, a no-op when nothing is deploying, and unable to fail
+   the read.
+
+   **The one timer, and the topology it exists for.** A five-minute external
+   schedule is Vercel's answer, and it is not available to a self-hosted
+   long-lived process that nobody points a cron at — which is exactly the row
+   `DEPLOYMENT-MATRIX.md` §3 calls supported. So `startCronScheduler()`
+   (`src/lib/server/cron.ts`), started by `boot()` on that row alone, runs the
+   same passes on an unref'd 2 s interval: the engine pass every tick, alerts
+   and the outbox every eighth, each inside `inCronScope()` so it holds the same
+   primed unfiltered snapshot a tick route would, single-flight so an
+   overrunning pass is never doubled up, and logging rather than throwing on
+   failure. It leaves the inherited async context first
+   (`outsideSnapshot()`), because the interval is created inside `boot()`, which
+   the first request awaits — without that every pass would read one arbitrary
+   caller's tenant slice for the life of the process. It refuses to start on
+   serverless (frozen instances) and on the file store (which has its own
+   timers), and it is the only `setInterval` this layer starts.
 
    **The snapshot contract for out-of-request work.** On Postgres `db()` reads a
    snapshot loaded *before* the caller ran, and `route()` loads the caller's
@@ -386,9 +438,14 @@ idempotently → events appended (replayable) → verify phase (honest health) �
    `runWithSnapshot()` so a nested reader finds the same object, and the
    write-back is awaited before the response leaves — the same "commit before
    ACK" every mutating route obeys. One rule follows from this and is worth
-   stating on its own: **an unauthenticated request on Postgres loads the whole
-   database**, which is exactly right for the scheduler and exactly why these
-   routes check their bearer first.
+   stating on its own: **an authenticated scheduler request on Postgres loads
+   the whole database**, which is exactly right for a pass that must advance
+   every workspace and exactly why these routes check their bearer first.
+   Nothing else may reach that snapshot by accident: an unprimed read is a
+   fault, and boot — which runs before the bearer is checked — does no durable
+   catch-up on Postgres for the same reason, deferring it to these passes (to
+   the in-process scheduler on a long-lived host, to an external one on
+   serverless; boot's log line says which).
 
 2. **Sandbox provider is a first-class citizen**, not a mock: same adapter
    contract as AWS, realistic phased execution, honest labeling. This keeps

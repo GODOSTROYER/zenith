@@ -4,7 +4,7 @@
  * Run:
  *   npx tsx scripts/hosted-browser.ts
  *
- * Not part of `npm test`: it needs a Chrome or Edge binary, which a unit test
+ * Not part of `npm test`: it needs a Chrome, Edge, or Chromium binary, which a unit test
  * runner has no business requiring. It is a separate CI step for the same
  * reason, and it **fails** rather than skips when no browser is installed —
  * exit code 2, with the message below. A silent pass here would be the most
@@ -48,8 +48,8 @@ delete process.env.ZENITH_SMTP_URL;
 
 const NO_BROWSER_MESSAGE =
   "gate 12 needs a real browser and found none.\n" +
-  "Install Google Chrome or Microsoft Edge on this machine (playwright-core drives the installed\n" +
-  "binary through `chromium.launch({ channel: \"chrome\" })`, so no browser download is needed), then\n" +
+  "Install Google Chrome, Microsoft Edge, or Chromium on this machine (playwright-core drives the installed\n" +
+  "binary, so no browser download is needed), then\n" +
   "run `npx tsx scripts/hosted-browser.ts` again. This step is not skipped when a browser is missing:\n" +
   "nothing about the recipient's journey in a rendering engine has been verified.";
 
@@ -155,11 +155,21 @@ async function main(): Promise<number> {
   const { chromium } = await import("playwright-core");
   const attempts: string[] = [];
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
-  let channel = "";
-  for (const candidate of ["chrome", "msedge"]) {
+  let browserName = "";
+  const candidates: Array<{
+    name: string;
+    options: Parameters<typeof chromium.launch>[0];
+  }> = [
+    { name: "chrome", options: { channel: "chrome" } },
+    { name: "msedge", options: { channel: "msedge" } },
+    ...["/usr/bin/chromium-browser", "/snap/bin/chromium", "/usr/bin/chromium"]
+      .filter((executablePath) => fs.existsSync(executablePath))
+      .map((executablePath) => ({ name: executablePath, options: { executablePath } })),
+  ];
+  for (const candidate of candidates) {
     try {
-      browser = await chromium.launch({ channel: candidate, headless: true });
-      channel = candidate;
+      browser = await chromium.launch({ ...candidate.options, headless: true });
+      browserName = candidate.name;
       break;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -169,7 +179,7 @@ async function main(): Promise<number> {
       // library, a crash on launch — is a failure of this run, and is raised
       // with its own message rather than dressed up as a missing binary.
       if (!/not found|no such file|ENOENT|Chromium distribution/i.test(message)) throw err;
-      attempts.push(`${candidate}: ${message.split("\n")[0]}`);
+      attempts.push(`${candidate.name}: ${message.split("\n")[0]}`);
     }
   }
   if (!browser) {
@@ -179,7 +189,7 @@ async function main(): Promise<number> {
     process.stderr.write(`${NO_BROWSER_MESSAGE}\n\ntried:\n  ${attempts.join("\n  ")}\n`);
     return 2;
   }
-  process.stdout.write(`driving ${channel} through playwright-core\n`);
+  process.stdout.write(`driving ${browserName} through playwright-core\n`);
 
   const viewports = [
     { name: "desktop", width: 1280, height: 800 },
@@ -381,7 +391,7 @@ async function main(): Promise<number> {
   const failed = steps.filter((step) => !step.ok);
   const summary = {
     gate: 12,
-    browser: { channel, engine: "playwright-core chromium" },
+    browser: { channel: browserName, engine: "playwright-core chromium" },
     app: { slug: SLUG, releaseId, artifactDigest: digest },
     server: { port: server.port, bound: server.bound, host: appHost },
     secureCookieAcceptedOnHttpLocalhost: cookieWasSecure,

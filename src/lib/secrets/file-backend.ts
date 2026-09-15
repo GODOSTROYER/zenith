@@ -18,7 +18,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { env } from "@/lib/env";
-import type { SecretRecord, SecretsBackend } from "./backend";
+import type { AsyncSecretsBackend, SecretRecord, SecretsBackend } from "./backend";
 
 /** What one row looks like on disk. `cipher` is the combined string. */
 interface StoredSecret {
@@ -171,4 +171,13 @@ export const FileSecrets: SecretsBackend = {
     write(data);
     return toRecord(row);
   },
+};
+
+/** The file backend is already local; expose the same shape to async callers. */
+export const FileSecretsAsync: AsyncSecretsBackend = {
+  kind: "file",
+  async get(workspaceId, ref) { return FileSecrets.get(workspaceId, ref); },
+  async list(workspaceId) { return FileSecrets.list(workspaceId); },
+  async put(workspaceId, record) { FileSecrets.put(workspaceId, record); },
+  async remove(workspaceId, ref) { return FileSecrets.remove(workspaceId, ref); },
 };

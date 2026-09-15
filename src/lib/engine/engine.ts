@@ -331,7 +331,18 @@ export function ensureEngine(): void {
   // A serverless instance is frozen between requests, so a ticker there either
   // never fires or fires against a `/tmp` no other instance can see. Boot runs
   // one tick instead; see src/lib/serverless.ts and src/lib/server/boot.ts.
-  if (!gl.__zenithTicker && !isServerless()) {
+  // On the Postgres store a timer callback has no request snapshot to read, so
+  // an unprimed `db()` would (correctly) refuse — and a raw `tick()` throwing
+  // from a `setInterval` is an uncaught exception, which is a process exit. A
+  // tick there has to be wrapped in a primed scope, which is what
+  // `/api/internal/tick/engine` does for an external scheduler and what
+  // `startCronScheduler()` (src/lib/server/cron.ts) does in-process on a
+  // long-lived host. Nothing is left unadvanced by this gate; the work moved.
+  //
+  // Changing either half of this condition changes which topology has a
+  // background at all — tests/engine/serverless-boot.test.ts and
+  // tests/engine/postgres-scheduler.test.ts pin both.
+  if (!gl.__zenithTicker && !isServerless() && !isPostgres()) {
     gl.__zenithTicker = setInterval(tick, 250);
     // Never hold the process open just to tick (matters for tests + scripts).
     (gl.__zenithTicker as { unref?: () => void }).unref?.();

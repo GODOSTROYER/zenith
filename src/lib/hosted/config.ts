@@ -41,6 +41,19 @@ const Schema = z.object({
   ZENITH_RUNTIME: z.enum(["local", "cloudflare"]).default("local"),
   /** Which build runner may run. `none` refuses every build and says why. */
   ZENITH_BUILD_RUNNER: z.enum(["none", "recipe-local", "e2b", "docker"]).default("none"),
+  /** Immutable E2B template ID; aliases/tags (including `latest`) are rejected. */
+  ZENITH_E2B_TEMPLATE: z
+    .string()
+    .regex(/^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$/, "must be a bare E2B template ID, not a tag")
+    .refine((v) => v.toLowerCase() !== "latest", "must be an immutable template ID, not latest")
+    .optional(),
+  /** SHA-256 digest published in the pre-baked template attestation. */
+  ZENITH_E2B_TEMPLATE_DIGEST: z
+    .string()
+    .regex(/^sha256:[0-9a-f]{64}$/, "must be sha256:<64 lowercase hexadecimal characters>")
+    .optional(),
+  /** Trusted Ed25519 public key used to authenticate the template attestation. */
+  ZENITH_E2B_TEMPLATE_ATTESTATION_PUBLIC_KEY: z.string().min(1).optional(),
   ZENITH_ARTIFACT_DIR: z.string().min(1).optional(),
   /** Object-storage bucket published artifacts live in when the store is not local disk. */
   ZENITH_ARTIFACT_BUCKET: z.string().default("zenith-artifacts"),

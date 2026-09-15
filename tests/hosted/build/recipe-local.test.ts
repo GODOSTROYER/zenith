@@ -29,6 +29,8 @@ beforeAll(async () => {
 
 afterEach(async () => {
   delete process.env.ZENITH_BUILD_RUNNER;
+  delete process.env.ZENITH_HOSTED_MODE;
+  delete process.env.ZENITH_ALLOW_UNSANDBOXED_BUILDS_IN_HOSTED_MODE;
 });
 
 afterAll(() => removeDir(DATA));
@@ -91,6 +93,44 @@ describe("RecipeLocalRunner availability", () => {
     const runner = new build.RecipeLocalRunner();
     expect(runner.boundary).toContain("not a hostile-code sandbox");
     expect(runner.boundary).toContain("separate child process");
+    // The gap that is easiest to read past: there is no network policy here.
+    expect(runner.boundary).toContain("no network policy");
+  });
+
+  it("refuses in hosted mode, naming the missing network boundary", async () => {
+    process.env.ZENITH_BUILD_RUNNER = "recipe-local";
+    process.env.ZENITH_HOSTED_MODE = "1";
+    const availability = await new build.RecipeLocalRunner().availability();
+    expect(availability.available).toBe(false);
+    expect(availability.reason).toContain("no network policy");
+    expect(availability.reason).toContain("instance-metadata");
+    expect(availability.fix).toContain("ZENITH_BUILD_RUNNER=docker");
+    expect(availability.fix).toContain(build.HOSTED_ACK_ENV);
+  });
+
+  it("runs in hosted mode only on an explicit acknowledgement of exactly 1", async () => {
+    process.env.ZENITH_BUILD_RUNNER = "recipe-local";
+    process.env.ZENITH_HOSTED_MODE = "1";
+    for (const value of ["", "0", "true", "yes", "1 1"]) {
+      process.env[build.HOSTED_ACK_ENV] = value;
+      expect(
+        (await new build.RecipeLocalRunner().availability()).available,
+        `${JSON.stringify(value)} must not count as an acknowledgement`
+      ).toBe(false);
+    }
+    process.env[build.HOSTED_ACK_ENV] = "1";
+    expect(await new build.RecipeLocalRunner().availability()).toEqual({ available: true });
+    expect(build.unsandboxedBuildsAcknowledged("1")).toBe(true);
+    expect(build.unsandboxedBuildsAcknowledged("")).toBe(false);
+    expect(build.unsandboxedBuildsAcknowledged("0")).toBe(false);
+  });
+
+  it("is unaffected outside hosted mode, which is what CI runs", async () => {
+    // CI's hosted job selects recipe-local without ZENITH_HOSTED_MODE; that is
+    // correct for CI and must keep working.
+    process.env.ZENITH_BUILD_RUNNER = "recipe-local";
+    delete process.env.ZENITH_HOSTED_MODE;
+    expect(await new build.RecipeLocalRunner().availability()).toEqual({ available: true });
   });
 });
 
@@ -294,11 +334,40 @@ describe("the recipe itself", () => {
     ]);
   });
 
-  it("reproduces the pinned toolchain in one install line", async () => {
-    expect(build.RECIPE_INSTALL_ARGS).toContain(`vite@${contracts.RECIPE_V1.vite}`);
-    expect(build.RECIPE_INSTALL_ARGS).toContain(`@vitejs/plugin-react@${contracts.RECIPE_V1.pluginReact}`);
-    expect(build.RECIPE_INSTALL_ARGS).toContain(`react@${contracts.RECIPE_V1.react}`);
-    expect(build.RECIPE_INSTALL_ARGS).toContain("--no-audit");
+  it("resolves a symlinked platform dependency tree before enforcing module origin", async () => {
+    const root = path.join(DATA, "platform-link");
+    const target = path.join(DATA, "real-node-modules");
+    fs.mkdirSync(target, { recursive: true });
+    fs.mkdirSync(root, { recursive: true });
+    fs.symlinkSync(target, path.join(root, "node_modules"), "dir");
+    expect(build.recipeAllowedReads(root)).toEqual([fs.realpathSync(target)]);
+  });
+
+  it("publishes no install line for a runner to reach for", async () => {
+    // The toolchain is put in place at image-build time from a committed
+    // lockfile. An exported install line is an invitation to reintroduce the
+    // job-time `npm install` SEC-04 is about, and nothing consumed this one.
+    expect(Object.keys(build)).not.toContain("RECIPE_INSTALL_ARGS");
+  });
+
+  it("never invokes a package manager anywhere in the build directory", async () => {
+    // A submission that carries no lockfile is the normal case: lockfiles are
+    // refused at intake (`src/lib/hosted/contracts/source-v1.ts`) because the
+    // platform supplies the dependencies. That is only safe while no runner and
+    // no worker resolves dependencies itself — so assert it over the source,
+    // comments stripped, rather than trusting the prose at the top of each file.
+    const dir = path.join(process.cwd(), "src", "lib", "hosted", "build");
+    const files = fs.readdirSync(dir).filter((name) => /\.(ts|mjs)$/.test(name));
+    expect(files.length).toBeGreaterThan(5);
+    for (const name of files) {
+      const code = fs
+        .readFileSync(path.join(dir, name), "utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/^[^\n]*\/\/[^\n]*$/gm, "");
+      expect(code, `${name} must not run a package manager at job time`).not.toMatch(
+        /\b(?:npm|yarn|pnpm)\s+(?:ci|install|add|i)\b/
+      );
+    }
   });
 });
 

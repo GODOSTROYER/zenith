@@ -23,16 +23,12 @@ export { RECIPE_V1, RECIPE_ALIAS_SPECIFIERS, foreignModules };
 /** The packages the recipe needs on the machine that runs it. */
 export const RECIPE_PACKAGES = ["vite", "@vitejs/plugin-react", "react", "react-dom"] as const;
 
-/** `npm install` line that reproduces the pinned toolchain in a sandbox or image. */
-export const RECIPE_INSTALL_ARGS = [
-  "install",
-  "--no-audit",
-  "--no-fund",
-  `vite@${RECIPE_V1.vite}`,
-  `@vitejs/plugin-react@${RECIPE_V1.pluginReact}`,
-  `react@${RECIPE_V1.react}`,
-  `react-dom@${RECIPE_V1.react}`,
-] as const;
+// There is deliberately no install line here. The pinned toolchain is put in
+// place once, at image-build time, from `docker/recipe/package-lock.json` —
+// frozen and script-free. A runner that could reach for an install line is a
+// runner that could install at job time, which is the thing SEC-04 is about;
+// `tests/hosted/build/recipe-local.test.ts` fails if one reappears in this
+// directory.
 
 /** Where the worker lives inside the platform tree, relative to the platform root. */
 export const RECIPE_WORKER_RELATIVE = path.posix.join("src", "lib", "hosted", "build", "recipe-worker.mjs");
@@ -62,7 +58,14 @@ export const recipeWorkerPath = (root: string = platformRoot()): string =>
   path.join(root, ...RECIPE_WORKER_RELATIVE.split("/"));
 
 /** The platform directories a build may read besides the source root. */
-export const recipeAllowedReads = (root: string = platformRoot()): string[] => [path.join(root, "node_modules")];
+export const recipeAllowedReads = (root: string = platformRoot()): string[] => {
+  const modules = path.join(root, "node_modules");
+  try {
+    return [fs.realpathSync(modules)];
+  } catch {
+    return [modules];
+  }
+};
 
 /** Which of the recipe's packages this machine cannot resolve, and where it looked. */
 export function missingRecipePackages(root: string = platformRoot()): string[] {

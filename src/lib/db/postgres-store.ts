@@ -7,17 +7,24 @@
  * `Store` is a synchronous interface (see `./types.ts` — the "sync now, async
  * later" note) and ~113 files depend on that. A network round trip cannot be
  * made synchronous, so this implementation does not try: it reads a
- * **snapshot** that was loaded *before* the caller ran, hands the caller the
- * live mutable graph exactly as the file store does, and writes the diff back
- * on `flush`. The load happens in one of two places:
+ * **snapshot** that was loaded *before* the caller ran, hands the caller a
+ * live mutable graph exactly as the file store does — its **own** graph, one
+ * per load, never the process-global one the file store owns — and writes the
+ * diff back on `flush`. The load happens in one of two places:
  *
  *  - **per request** — `route()` (src/lib/server/request.ts) prefetches the
  *    caller's workspace slice into `RequestState.snapshot` before the handler
- *    runs, so one request sees one consistent view and two concurrent requests
- *    never share a graph;
- *  - **per process** — a script, a seed, a test or a server component outside a
- *    request gets a process-global snapshot on `globalThis`, loaded lazily on
- *    the first `db()` that finds no request scope.
+ *    runs, so one request sees one consistent view;
+ *  - **per process** — a script, a seed, a test, a cron pass or a server
+ *    component primes one *explicitly* (`primeProcessSnapshot()`,
+ *    `inCronScope()`, `runInStoreScope()`), and it is then found on
+ *    `globalThis` by any `db()` with no request scope.
+ *
+ * There is no third way in. A `db()` that finds neither **throws** — see
+ * `processSnapshot()`. It used to hand back an empty snapshot over
+ * `FileStore.db()`, which meant an unprimed reader (a server component, a
+ * worker) silently answered out of a different authority, with no error and
+ * no row: an empty activity list rather than a fault.
  *
  * ## Writes: row-level optimistic concurrency
  *
@@ -36,26 +43,35 @@
  * table at the SSE tick (300 ms), at most once per window per workspace, and
  * only while a listener is attached.
  *
- * ## HYBRID BOUNDARY — Phase 3 debt
+ * ## What Postgres is the authority for
  *
- * Phase 2 moves the *organisational* slice only:
+ * All of `Database`, and this file holds none of that knowledge itself: every
+ * collection is an adapter in `./pg/registry.ts`, and everything here iterates
+ * the registry.
  *
- *     workspaces · members · invites · connections · projects · environments
- *     settings   · workspace_versions
+ *     ./pg/core.ts     workspaces · members · invites · connections
+ *                      projects · environments · settings · workspace_versions
+ *     ./pg/history.ts  revisions · revision_manifests · deployments
+ *                      deployment_events
+ *     ./pg/audit.ts    audit_events (and the secrets backend)
+ *     ./pg/alerts.ts   findings · navigator runs · alert rules/events/outbox
  *
- * …and it holds none of that knowledge itself: each of those collections is an
- * adapter in `./pg/registry.ts` (registered by `./pg/core.ts`), and everything
- * here iterates the registry.
+ * `./pg/all.ts` imports the four in foreign-key order. The method groups that
+ * are not part of the row graph — manifests, deployment events, audit — arrive
+ * through `./pg/delegates.ts`, and those four modules replace them with
+ * `setDelegate("audit", …)` without touching this file. So on
+ * `ZENITH_STORE=postgres` the file store is **not** a fallback authority for
+ * any collection, and it does not hold this store's graph either: a snapshot
+ * is built over its own `emptyGraph()`, so two requests in one process cannot
+ * see each other's rows. The `FileStore` calls left in this module are
+ * `reset()`'s — the empty graph a seed or a test starts from, which no request
+ * path reaches — and `onChange`'s, which keeps the in-process emitter as a
+ * second *notification* source (never as durability) so a listener still hears
+ * a `reset()` or a seed.
  *
- * Everything else — revisions and their manifests, deployments, deployment
- * events, the audit log, findings, navigator runs, alert rules/events/outbox,
- * secrets — still goes to `FileStore`, unchanged, through the delegate groups
- * in `./pg/delegates.ts` (`setDelegate("audit", …)` replaces one without
- * touching this file). The tables for them exist (supabase/migrations/0001_system_of_record.sql)
- * and are empty. That is deliberate: it makes `ZENITH_STORE=postgres` usable end
- * to end today instead of after the whole store lands, and it is real debt —
- * a serverless instance still keeps that half in its own `/tmp`. Phase 3 closes
- * it. Tracked in docs/MODULE-MAP.md and docs/ARCHITECTURE.md (ADR 1).
+ * What is *not* closed, and is tracked rather than hidden: a flush is a
+ * sequence of PostgREST requests, so this store does not claim cross-table
+ * atomicity (see `./pg/audit.ts` and docs/ARCHITECTURE.md, ADR 1).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AuditEvent, DeploymentEvent, Manifest } from "@/lib/domain/types";
@@ -165,6 +181,31 @@ const emptySnapshot = (data: Database): Snapshot => ({
   scheduled: false,
 });
 
+/**
+ * An empty `Database`, and a **new one every call**.
+ *
+ * Declared here rather than borrowed from `FileStore` because the whole point
+ * is that it is *not* the file store's graph: `FileStore.db()` is one object
+ * per process (see that file's header), and a snapshot built over it would be
+ * shared by every other snapshot in the same process — see `loadSnapshot`.
+ * Typed as `Database` so a new collection cannot be forgotten silently.
+ */
+const emptyGraph = (): Database => ({
+  workspaces: [],
+  members: [],
+  connections: [],
+  projects: [],
+  environments: [],
+  revisions: [],
+  deployments: [],
+  findings: [],
+  navigatorRuns: [],
+  alertRules: [],
+  alertEvents: [],
+  alertOutbox: [],
+  settings: { invites: [] },
+});
+
 /* --------------------------------- loading -------------------------------- */
 
 async function selectRows(
@@ -191,12 +232,23 @@ async function selectRows(
  * fetches everything keyed by those ids, round 3 everything keyed by what round
  * 2 loaded. `null` for `user` loads everything, which is what a script, a
  * migration or a test wants.
+ *
+ * **Every load gets its own graph.** This used to build the snapshot over
+ * `FileStore.db()` — one object per process — while `adopt()` below truncates
+ * and refills the very arrays it is handed. Two requests served concurrently
+ * by one Node process therefore shared one graph: request A awaited anything,
+ * request B's prefetch emptied the arrays and refilled them with B's tenant's
+ * rows, and A resumed reading them. That is a cross-tenant read, and a
+ * cross-tenant *write* too, because `diff()` compares `snap.data` — by then
+ * B's rows — against A's `baseline` and turns the mismatch into inserts and
+ * deletes. `emptyGraph()` is one allocation per load and the isolation is
+ * structural: no snapshot can reach another's objects.
  */
 export async function loadSnapshot(
   client: SupabaseClient,
   user: { id: string; email: string } | null
 ): Promise<Snapshot> {
-  const base = FileStore.db();
+  const base = emptyGraph();
   const snap = emptySnapshot(base);
 
   const ctx: PrefetchContext = { client, user, workspaceIds: [], projectIds: [] };
@@ -270,18 +322,38 @@ function adopt(
 type GSnap = typeof globalThis & { __zenithPgSnapshot?: Snapshot };
 
 /**
- * The snapshot a caller with no request scope gets: one per process, loaded on
- * first use. Scripts, the seed, tests and server components outside `route()`
- * land here; a request never does, because `route()` put one in `RequestState`.
+ * What an unprimed read says, and how to stop saying it.
+ *
+ * Exported so a test can assert the refusal by identity rather than by
+ * matching prose that is allowed to improve.
+ */
+export const UNPRIMED_SNAPSHOT_ERROR =
+  "The Postgres product store was read with no snapshot in scope, so there is nothing to read: " +
+  "`db()` is synchronous and cannot load one, and answering from the file store would serve a " +
+  "different authority's rows as if they were this store's. " +
+  "Fix: run the read inside `route()` (src/lib/server/request.ts, which prefetches the caller's " +
+  "slice), `inCronScope()` (src/lib/server/cron.ts), or `runInStoreScope()` (src/lib/db/store.ts) " +
+  "for a server component — or await `primeProcessSnapshot()` first, which is what the scripts, " +
+  "the seed and the contract tests do.";
+
+/** The process-global snapshot if one was primed, without demanding it. */
+const primedSnapshot = (): Snapshot | undefined => (globalThis as GSnap).__zenithPgSnapshot;
+
+/**
+ * The snapshot a caller with no request scope gets: the one somebody primed.
+ *
+ * An unprimed read is a **fault, not a fallback**. Returning
+ * `emptySnapshot(FileStore.db())` here — which is what this did — meant a
+ * server component or a worker outside `route()` read a different authority
+ * and could not tell: no error, no rows, and once a cron pass had primed an
+ * unfiltered snapshot, every workspace on the install instead. Scripts, the
+ * seed, the cron scope and the contract tests all prime explicitly already, so
+ * the refusal costs them nothing.
  */
 function processSnapshot(): Snapshot {
-  const g = globalThis as GSnap;
-  if (g.__zenithPgSnapshot) return g.__zenithPgSnapshot;
-  // Nothing has loaded yet and `db()` cannot await. Hand back an empty snapshot
-  // over the file store's graph rather than lying about what is in Postgres —
-  // `primeProcessSnapshot()` is the supported way in, and both the scripts and
-  // the contract tests call it.
-  return (g.__zenithPgSnapshot = emptySnapshot(FileStore.db()));
+  const snap = primedSnapshot();
+  if (snap) return snap;
+  throw new Error(UNPRIMED_SNAPSHOT_ERROR);
 }
 
 /** Load the process-global snapshot from Postgres. Awaited by scripts and tests. */
@@ -297,6 +369,48 @@ export async function primeProcessSnapshot(
 export const clearProcessSnapshot = (): void => {
   delete (globalThis as GSnap).__zenithPgSnapshot;
 };
+
+/**
+ * A snapshot that loaded nothing and is nobody's — its own graph, not
+ * `FileStore`'s.
+ *
+ * What a *signed-out* reader gets in a scope that needs one. It is not a
+ * fallback: `scope` is empty, `baseline` is empty, so a flush of it writes
+ * nothing and can delete nothing. `loadSnapshot(client, null)` is the other
+ * answer and the wrong one here — that means "every workspace on the install",
+ * which is right for the scheduler and a leak for a page.
+ */
+export const detachedSnapshot = (): Snapshot => emptySnapshot(emptyGraph());
+
+/**
+ * Rows of one registered collection by primary key, with **no snapshot**.
+ *
+ * The bounded read a page outside every scope needs: it names the ids it wants
+ * and gets those rows, so it can never widen into a tenant slice or an
+ * install-wide graph the way a snapshot can. Read-only by construction — the
+ * objects it returns are in no baseline, so no flush will ever write them
+ * back. Collections whose primary key is `(workspace_id, id)` are refused,
+ * because an id alone does not name one of their rows.
+ */
+export async function readRowsByIdAsync<T extends { id: string }>(
+  collection: PgCollection,
+  ids: string[]
+): Promise<T[]> {
+  const spec = adapterFor(collection);
+  if (spec.scopedByWorkspace)
+    throw new Error(
+      `"${collection}" is keyed by (workspace_id, id), so an id alone does not name a row. ` +
+        `Fix: read it through a snapshot scope instead of readRowsByIdAsync().`
+    );
+  const wanted = [...new Set(ids.filter(Boolean))];
+  if (wanted.length === 0) return [];
+  const rows = await selectRows(pgClient(), spec.table, { column: "id", values: wanted });
+  return rows.map((row) => {
+    const obj = spec.hydrate(row) as T;
+    setTenant(obj, String(row.workspace_id ?? ""));
+    return obj;
+  });
+}
 
 /**
  * The snapshot this call should read: the request's, when there is one.
@@ -546,7 +660,11 @@ const seenVersions = (): Map<string, number> =>
   ((globalThis as GFeed).__zenithPgSeen ??= new Map());
 
 async function pollFeed(): Promise<void> {
-  const ids = [...currentSnapshot().scope];
+  // Deliberately the non-demanding accessor: the poller runs on a timer, not
+  // on a caller's behalf, so "nobody has primed a snapshot yet" is a reason to
+  // poll nothing this tick, not a fault to raise from an interval callback.
+  const snap = requestSnapshot() as Snapshot | undefined ?? primedSnapshot();
+  const ids = snap ? [...snap.scope] : [];
   if (ids.length === 0 || listeners().size === 0) return;
   const { data, error } = await pgClient()
     .from("workspace_versions")
@@ -579,9 +697,10 @@ async function pollFeed(): Promise<void> {
  */
 function onChange(fn: (c: StoreChange) => void): () => void {
   const g = globalThis as GFeed;
-  // Local writes still announce themselves synchronously through the file
-  // store's emitter, so an in-process save reaches its own SSE stream without
-  // waiting a poll for the round trip to come back.
+  // The file store's emitter is kept as a second source, not as durability: it
+  // still carries anything that writes through `FileStore` in this process
+  // (`reset()`, a seed) so a listener does not miss it. The ordinary local echo
+  // is `announce()` below.
   const offLocal = FileStore.onChange(fn);
   listeners().add(fn);
   if (!g.__zenithPgPoll) {
@@ -596,6 +715,26 @@ function onChange(fn: (c: StoreChange) => void): () => void {
       g.__zenithPgPoll = undefined;
     }
   };
+}
+
+/**
+ * The local echo an open SSE stream needs, emitted where the mutation happened.
+ *
+ * This used to be a side effect of `FileStore.save()`: Postgres mode called it
+ * for its own reasons and the emitter came along. Nothing writes `state.json`
+ * in Postgres mode any more, so the notification is raised here instead —
+ * synchronously, so an in-process save reaches its own stream without waiting
+ * for the 300 ms feed poll to bring the round trip back.
+ */
+function announce(projectId?: string): void {
+  if (listeners().size === 0) return;
+  const change: StoreChange = { projectIds: projectId ? [projectId] : [] };
+  for (const fn of listeners())
+    try {
+      fn(change);
+    } catch {
+      /* a listener's failure is the listener's problem; the write already happened */
+    }
 }
 
 /* ------------------------------ the interface ------------------------------ */
@@ -642,14 +781,17 @@ export const PostgresStore: Store & {
     else snap.touched.all = true;
     for (const c of ALL()) snap.dirty.add(c);
     snap.scheduled = true;
-    // The Phase-3 half of the graph lives in the file store, and its own
-    // coalescer is what persists it. Dropping this would lose every deployment.
-    FileStore.save(projectId);
+    // No `FileStore.save()`. Postgres is the authority for every collection
+    // (see the header), so writing `state.json` too produced a second, partial
+    // copy of whichever tenant's slice this instance last prefetched — a file
+    // that nothing reads back and that a serverless instance keeps in its own
+    // /tmp. The one thing that call still bought is the local change event,
+    // which `announce()` raises directly.
+    announce(projectId);
     void schedule(snap).catch(() => undefined);
   },
 
   flush(): void {
-    FileStore.flush();
     void flushPostgres().catch(() => undefined);
   },
 
@@ -660,7 +802,6 @@ export const PostgresStore: Store & {
   flushPending(): boolean {
     const snap = currentSnapshot();
     const had = snap.scheduled || snap.dirty.size > 0;
-    FileStore.flushPending();
     if (had) {
       // Claim the work now: the write is in flight from this moment, so a
       // second call before it lands has nothing new to report. `diff()` reads
@@ -673,7 +814,6 @@ export const PostgresStore: Store & {
   },
 
   flushAsync(): Promise<boolean> {
-    FileStore.flushPending();
     return flushPostgres();
   },
 
@@ -681,6 +821,13 @@ export const PostgresStore: Store & {
    * Reset is scoped to what this snapshot loaded, never a global truncate:
    * `reset()` is a test and seed affordance, and a store pointed at a real
    * project must not be one call away from emptying it.
+   *
+   * `FileStore.reset()` here is deliberate: it is how a seed or a test gets an
+   * empty graph (and clears this process's cold-storage side files), not a
+   * durability path. It does write `state.json`, and it is the one place a
+   * Postgres snapshot ends up pointing at the file store's process-global
+   * graph — which is safe only because no request path reaches `reset()`. A
+   * loaded snapshot never does: see `loadSnapshot`.
    */
   reset(data?: Partial<Database>): Database {
     const snap = currentSnapshot();

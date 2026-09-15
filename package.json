@@ -23,6 +23,7 @@
     "seed:users": "tsx scripts/seed-users.ts",
     "migrate:postgres": "tsx --env-file-if-exists=.env.local scripts/migrate-to-postgres.ts",
     "migrate:hosted": "tsx --env-file-if-exists=.env.local scripts/migrate-hosted-to-postgres.ts",
+    "migrate:alert-secrets": "tsx --env-file-if-exists=.env.local scripts/migrate-alert-secrets.ts",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "setup": "tsx --env-file-if-exists=.env.local scripts/setup.ts",

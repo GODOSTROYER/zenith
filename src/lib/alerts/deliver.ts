@@ -70,6 +70,9 @@
  * mid-send and the rows are reclaimed by lease instead of delivered.
  */
 import { createHmac } from "node:crypto";
+import http from "node:http";
+import https from "node:https";
+import { Readable } from "node:stream";
 import { db, flush, flushPendingAsync, isPostgres, q, save } from "@/lib/db/store";
 import {
   id,
@@ -80,17 +83,60 @@ import {
 } from "@/lib/domain/types";
 import { env, SMTP_FIX } from "@/lib/env";
 import { log } from "@/lib/log";
+import { isServerless } from "@/lib/serverless";
 import { withTimeout } from "@/lib/timeout";
-import { channelsForRule, channelsOf, findChannel } from "./channels";
+import {
+  ChannelCredentialError,
+  channelSecretAsync,
+  channelTargetAsync,
+  channelsForRule,
+  channelsOf,
+  findChannel,
+} from "./channels";
+import {
+  isTransientPolicyFailure,
+  resolveWebhookTarget,
+  type ResolvedWebhookTarget,
+  webhookTargetProblem,
+  WebhookPolicyError,
+  WEBHOOK_RESPONSE_MAX_BYTES,
+} from "./webhook-policy";
+
+export * from "./webhook-policy";
 
 /** Per attempt, not per delivery: three attempts can take 30s in the worst case. */
 export const DELIVERY_TIMEOUT_MS = 10_000;
 
+/**
+ * The deadline actually enforced, in an object so a test can shorten it the
+ * same way `WEBHOOK_POLICY` and `NODEMAILER` are pointed somewhere else. It is
+ * the number the socket is destroyed at, not a value raced against a promise.
+ */
+export const DELIVERY_DEADLINE = { ms: DELIVERY_TIMEOUT_MS };
+
 /** Total attempts, including the first. */
 export const DELIVERY_ATTEMPTS = 3;
 
+/**
+ * How many channels one instance may be POSTing to at once.
+ *
+ * A batch is every pending row across every workspace, and each row can hold a
+ * socket for the full deadline: unbounded fan-out is self-inflicted resource
+ * exhaustion on a flapping rule, and an amplifier pointed at a third party.
+ * Eight is small enough to be harmless and large enough that a normal
+ * workspace's channels still go out together.
+ */
+export const DELIVERY_FANOUT_LIMIT = 8;
+
 /** Waits *between* attempts, so there are ATTEMPTS - 1 of them. */
 const BACKOFF_MS = [1_000, 4_000];
+
+/**
+ * Half the base wait plus up to half again. Bounded — the worst case stays the
+ * documented one — but no two instances that failed in the same second come
+ * back in the same second.
+ */
+const jitter = (ms: number): number => ms / 2 + Math.random() * (ms / 2);
 
 /** The header a receiver verifies. */
 export const SIGNATURE_HEADER = "X-Zenith-Signature";
@@ -289,24 +335,48 @@ class Permanent extends Error {
 const retryable = (status: number) => status === 429 || status >= 500;
 
 async function post(url: string, body: string, headers: Record<string, string>): Promise<number> {
+  const controller = new AbortController();
+  const timeoutMs = DELIVERY_DEADLINE.ms;
+  const deadline = setTimeout(() => controller.abort(), timeoutMs);
+  (deadline as unknown as { unref?: () => void }).unref?.();
   let res: Response;
   try {
-    res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...headers },
+    const target = await resolveWebhookTarget(url, { signal: controller.signal });
+    res = await WEBHOOK_TRANSPORT.request(
+      target,
       body,
-      signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS),
-    });
+      { "Content-Type": "application/json", ...headers },
+      controller.signal
+    );
+    if (res.redirected || (res.status >= 300 && res.status < 400)) {
+      // Cancel before throwing: an unread body holds its socket in the
+      // keep-alive pool until the response is garbage collected.
+      await res.body?.cancel().catch(() => undefined);
+      throw new Permanent("The alert endpoint returned a redirect, which Zenith refuses for safety.");
+    }
+    await readBoundedResponse(res, controller.signal);
   } catch (err) {
+    clearTimeout(deadline);
+    if (err instanceof Permanent) throw err;
+    if (err instanceof WebhookPolicyError) {
+      // Two opposite failures arrive through one class, and treating them the
+      // same way is wrong in both directions: a resolver blip or a slow
+      // resolver is a bad moment and must be retried, while a refused scheme,
+      // port or address is a decision that cannot change between attempts and
+      // must not burn the retry ladder.
+      if (isTransientPolicyFailure(err.kind)) throw new Error(webhookTargetProblem(err));
+      throw new Permanent(webhookTargetProblem(err));
+    }
     const name = err instanceof Error ? err.name : "";
-    if (name === "TimeoutError" || name === "AbortError")
+    if (name === "TimeoutError" || name === "AbortError" || controller.signal.aborted)
       throw new Error(
-        `No response within ${DELIVERY_TIMEOUT_MS / 1000}s. Check that this server can reach the endpoint — a proxy or an egress rule is the usual cause.`
+        `No response within ${timeoutMs / 1000}s. Check that this server can reach the endpoint — a proxy or an egress rule is the usual cause.`
       );
     throw new Error(
-      `Could not reach the endpoint: ${err instanceof Error ? err.message : String(err)}. Check the URL in Settings → Alerts and that this server has outbound network access.`
+      "Could not reach the alert endpoint. Check the URL in Settings → Alerts and that this server has outbound network access."
     );
   }
+  clearTimeout(deadline);
   if (res.ok) return res.status;
 
   const reason =
@@ -319,6 +389,145 @@ async function post(url: string, body: string, headers: Record<string, string>):
   throw new Permanent(reason, res.status);
 }
 
+export interface WebhookTransport {
+  request(
+    target: ResolvedWebhookTarget,
+    body: string,
+    headers: Record<string, string>,
+    signal: AbortSignal
+  ): Promise<Response>;
+}
+
+/**
+ * Transport with a pinned DNS result. `https.request` is used instead of the
+ * platform fetch because Node fetch resolves the hostname again and therefore
+ * leaves a DNS validation-to-connect race.
+ *
+ * `http.request` is used for the one case the egress policy allows a plaintext
+ * target — an acknowledged local development receiver; see ./webhook-policy.
+ * The policy has already refused `http:` everywhere else, so reaching here with
+ * one means the operator asked for it on a machine where it is honoured.
+ *
+ * **The deadline closes the socket.** Every path — no connection, a connection
+ * that never answers, a response that stalls mid-body — ends in
+ * `request.destroy()`, so an endpoint that simply never replies costs one
+ * socket for the deadline rather than one until the process exits. Racing a
+ * promise against a timer would leave the socket open and pooled.
+ */
+async function requestPinned(
+  target: ResolvedWebhookTarget,
+  body: string,
+  headers: Record<string, string>,
+  signal: AbortSignal
+): Promise<Response> {
+  const insecure = target.url.protocol === "http:";
+  const driver = insecure ? http : https;
+  return new Promise<Response>((resolve, reject) => {
+    let settled = false;
+    const request = driver.request(
+      target.url,
+      {
+        method: "POST",
+        headers,
+        // SNI and certificate validation stay on the hostname; only the
+        // address the socket connects to is pinned.
+        ...(insecure ? {} : { servername: target.url.hostname }),
+        lookup: (_hostname, _options, callback) => {
+          callback(null, target.address, target.address.includes(":") ? 6 : 4);
+        },
+      },
+      (incoming) => {
+        const stream = Readable.toWeb(incoming) as unknown as ReadableStream<Uint8Array>;
+        const responseHeaders = new Headers();
+        for (const [name, value] of Object.entries(incoming.headers)) {
+          if (value !== undefined) responseHeaders.set(name, Array.isArray(value) ? value.join(", ") : value);
+        }
+        settled = true;
+        resolve(new Response(stream, {
+          status: incoming.statusCode ?? 0,
+          headers: responseHeaders,
+        }));
+      }
+    );
+
+    /**
+     * Destroy first, then report. `destroy(err)` tears the socket down and
+     * emits the same error on the request, so a listener that has already
+     * resolved (the body is still streaming) also loses its connection.
+     */
+    const abort = (): void => {
+      const error = Object.assign(new Error("The alert endpoint did not answer before the deadline."), {
+        name: "TimeoutError",
+      });
+      request.destroy(error);
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
+    };
+    if (signal.aborted) return abort();
+    signal.addEventListener("abort", abort, { once: true });
+    // Belt and braces: a socket that goes quiet without the caller's deadline
+    // firing (a frozen timer on a serverless instance) is still closed.
+    request.setTimeout(DELIVERY_DEADLINE.ms, abort);
+
+    request.once("error", (err) => {
+      if (settled) return;
+      settled = true;
+      reject(err);
+    });
+    request.end(body);
+  });
+}
+
+export const WEBHOOK_TRANSPORT: WebhookTransport = { request: requestPinned };
+
+/** Read and discard receiver output without allowing an unbounded response. */
+async function readBoundedResponse(res: Response, signal: AbortSignal): Promise<void> {
+  if (!res.body) return;
+  const reader = res.body.getReader();
+  const cancel = () => void reader.cancel().catch(() => undefined);
+  signal.addEventListener("abort", cancel, { once: true });
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (signal.aborted) throw new Error("aborted");
+      if (done) return;
+      total += value.byteLength;
+      if (total > WEBHOOK_RESPONSE_MAX_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw new Permanent("The alert endpoint response exceeded the safe size limit.");
+      }
+    }
+  } finally {
+    signal.removeEventListener("abort", cancel);
+    reader.releaseLock();
+  }
+}
+
+/**
+ * The stored credentials for one send.
+ *
+ * Every failure here is `Permanent`: a missing `ZENITH_SECRET_KEY`, a
+ * reference this channel does not own, an unreadable ciphertext or a Postgres
+ * legacy row is exactly as broken on attempt three as on attempt one, and
+ * spending the retry ladder on it only delays the operator's answer.
+ */
+async function channelCredentials(
+  channel: AlertChannel
+): Promise<{ target: string; secret: string | undefined }> {
+  try {
+    return {
+      target: await channelTargetAsync(channel),
+      secret: channel.kind === "webhook" ? await channelSecretAsync(channel) : undefined,
+    };
+  } catch (err) {
+    if (err instanceof ChannelCredentialError) throw new Permanent(err.message);
+    throw err;
+  }
+}
+
 /** One attempt at one channel. Returns the HTTP status when there is one. */
 async function attempt(
   channel: AlertChannel,
@@ -329,15 +538,17 @@ async function attempt(
     await sendEmail(channel, msg);
     return undefined;
   }
-  if (channel.kind === "slack") return post(channel.target, JSON.stringify(slackBody(msg)), {});
+  if (channel.kind === "slack")
+    return post((await channelCredentials(channel)).target, JSON.stringify(slackBody(msg)), {});
   const body = webhookBody(msg);
+  const { target, secret } = await channelCredentials(channel);
   // The signature covers the body, which carries a fresh `sentAt` per attempt;
   // the idempotency key does not change, so it — not the bytes — is what tells
   // a receiver that attempt 2 is the same notification as attempt 1.
-  return post(channel.target, body, {
+  return post(target, body, {
     "X-Zenith-Event": eventName(msg.phase),
     [IDEMPOTENCY_HEADER]: idempotencyKey,
-    ...(channel.secret ? { [SIGNATURE_HEADER]: sign(body, channel.secret) } : {}),
+    ...(secret ? { [SIGNATURE_HEADER]: sign(body, secret) } : {}),
   });
 }
 
@@ -383,7 +594,7 @@ export async function deliverToChannel(
             : `${last} Tried ${n} time${n === 1 ? "" : "s"}${n > 1 ? " with backoff" : ""}.`,
           attempts: n,
         });
-      await wait(BACKOFF_MS[n - 1] ?? BACKOFF_MS[BACKOFF_MS.length - 1]);
+      await wait(jitter(BACKOFF_MS[n - 1] ?? BACKOFF_MS[BACKOFF_MS.length - 1]));
     }
   }
   // Unreachable: the loop always returns. Kept so the type is honest.
@@ -607,21 +818,161 @@ async function claimPendingShared(): Promise<AlertOutboxEntry[]> {
   return claimed;
 }
 
+/** One row's terminal outcome, kept so a lost settle can be re-applied. */
+export interface OutboxSettlement {
+  row: AlertOutboxEntry;
+  delivery: AlertDelivery;
+}
+
+export type SettleOutcome =
+  | "flushed"
+  | "retried"
+  | "settled-elsewhere"
+  | "duplicate-send-possible";
+
+/**
+ * Outcomes this process could not make durable, counted rather than logged and
+ * forgotten.
+ *
+ * `duplicateSendPossible` is the honest name for what a lost settle means: the
+ * message left this server, the row is still claimable in the table, and at
+ * lease expiry another instance will send it again. It is not an error the
+ * operator can act on row by row — it is a number that should be zero, and a
+ * readiness/metrics surface is where it belongs (Track F). Process-local, like
+ * every other counter here; it is reset only by a restart.
+ *
+ * It counts only rows that are *actually* re-sendable. A row the winning
+ * claimant already settled to `delivered`/`failed` is terminal, will never be
+ * re-driven, and must not be counted here — that was a false alarm on every
+ * ordinary lost race, which is worse than no counter at all.
+ */
+export const DELIVERY_COUNTERS = { duplicateSendPossible: 0 };
+
+/** Still claimable in the table, so still re-sendable by somebody. */
+const isClaimable = (row: AlertOutboxEntry): boolean =>
+  row.status === "pending" || row.status === "sending";
+
+/**
+ * Commit a batch's settlements, and say what happened when they do not commit.
+ *
+ * Swallowing a settle conflict into `log.warn` turned a coordination failure
+ * into a silent duplicate send (ADR D-6). The guarded settle is retried once
+ * against a freshly read row version, which is what a conflict actually calls
+ * for; only if *that* fails is the duplicate accepted, named and counted.
+ *
+ * The re-read has to be **by id and in any state**. A conflict here almost
+ * always means another claimant won the row and wrote its terminal outcome, so
+ * a re-read of the claimable window — the obvious one, and the one this used
+ * to do — cannot see the row it is asking about, leaves the stale baseline in
+ * place, conflicts again and reports a duplicate send for a row that is
+ * finished. `deps.reread` re-baselines exactly the ids it is given
+ * (`readOutboxRowsIn` in `@/lib/db/pg/alerts`), which is what lets the four
+ * outcomes below be told apart.
+ *
+ * Exported with explicit dependencies so the conflict path can be driven in a
+ * test without a live PostgreSQL; `postgresSettleDeps()` is what production
+ * passes, and what a test should pass too.
+ */
+export async function settleWithRetry(
+  settled: readonly OutboxSettlement[],
+  deps: { flush: () => Promise<void>; reread: (ids: readonly string[]) => Promise<void> }
+): Promise<SettleOutcome> {
+  try {
+    await deps.flush();
+    return "flushed";
+  } catch (err) {
+    log.warn("alert outbox settle did not commit; re-reading the rows it was for", {
+      scope: "alerts",
+      rows: settled.length,
+      error: err,
+    });
+  }
+
+  const acceptDuplicate = (risky: readonly OutboxSettlement[], err: unknown): SettleOutcome => {
+    DELIVERY_COUNTERS.duplicateSendPossible += risky.length;
+    log.error("duplicate send possible at lease expiry", {
+      scope: "alerts",
+      rows: risky.map((s) => s.row.id),
+      counted: DELIVERY_COUNTERS.duplicateSendPossible,
+      error: err,
+    });
+    return "duplicate-send-possible";
+  };
+
+  try {
+    await deps.reread(settled.map((s) => s.row.id));
+  } catch (err) {
+    // No answer from the table is no way to tell a row somebody already settled
+    // from one somebody is about to re-send. Count the pessimistic reading.
+    return acceptDuplicate(settled, err);
+  }
+
+  // The re-read re-baselines every row against the table, which also overwrites
+  // the settlement this process just wrote. Put it back on top of the fresh
+  // version — except where the row came back terminal, which means the claimant
+  // that won the race already recorded the outcome and theirs is the durable
+  // one. Those rows are nobody's to send again, so re-applying ours would only
+  // conflict, and counting them as a duplicate risk would be a false alarm.
+  const mine = settled.filter((s) => isClaimable(s.row));
+  const elsewhere = settled.filter((s) => !isClaimable(s.row)).map((s) => s.row.id);
+  for (const { row, delivery } of mine) applyRowSettlement(row, delivery);
+  save();
+
+  try {
+    await deps.flush();
+  } catch (err) {
+    // Nothing of ours is claimable, so nothing will go out twice: what was lost
+    // is this process's copy of the delivery log, not at-most-once delivery.
+    if (mine.length === 0) {
+      log.error("alert outbox settle did not commit, and no row of it is re-sendable", {
+        scope: "alerts",
+        rows: elsewhere,
+        error: err,
+      });
+      return "settled-elsewhere";
+    }
+    return acceptDuplicate(mine, err);
+  }
+
+  if (elsewhere.length > 0)
+    log.info("alert outbox rows were already settled by the claimant that won them", {
+      scope: "alerts",
+      rows: elsewhere,
+    });
+  return mine.length === 0 ? "settled-elsewhere" : "retried";
+}
+
+/**
+ * What `settleWithRetry` runs against on Postgres: the store's own awaited
+ * flush, and a by-id re-read of the rows being settled.
+ *
+ * Exported because the defect this replaced was a *test* that injected a
+ * `refresh` the production dependency could not produce — a row coming back
+ * terminal, which is precisely the case the guard exists for. A test that wants
+ * that path drives these deps against a fake PostgREST rather than inventing
+ * its own semantics.
+ */
+export function postgresSettleDeps(): {
+  flush: () => Promise<void>;
+  reread: (ids: readonly string[]) => Promise<void>;
+} {
+  return {
+    flush: async () => void (await flushPendingAsync()),
+    reread: async (ids) => {
+      const pg = await pgAlerts();
+      await pg.readOutboxRowsIn(await pg.outboxSnapshot(), ids);
+    },
+  };
+}
+
 /**
  * One write for a batch's outcomes, on whichever store is in play. On Postgres
  * it must be the **awaited** flush: `flush()` there only starts the round trip,
  * and a serverless instance can be frozen the instant this function returns.
  */
-async function flushOutbox(): Promise<void> {
+async function flushOutbox(settled: readonly OutboxSettlement[]): Promise<void> {
   if (!isPostgres()) return void flush();
-  try {
-    await flushPendingAsync();
-  } catch (err) {
-    // A settle that lost a race is a delivery already recorded by whoever won
-    // it; a real failure is worth a line, but never an unhandled rejection in
-    // a background drain.
-    log.warn("alert outbox flush failed", { scope: "alerts", error: err });
-  }
+  await settleWithRetry(settled, postgresSettleDeps());
 }
 
 /**
@@ -636,7 +987,12 @@ async function flushOutbox(): Promise<void> {
  * durable is the *claim*, which `claimPending` still flushes before a byte
  * leaves; that is what keeps a crash from losing the send entirely.
  */
-function settle(row: AlertOutboxEntry, delivery: AlertDelivery): void {
+/**
+ * The row half of a settlement, and only the row half. Separated because the
+ * settle retry above re-applies it after a conflicting re-read, while the
+ * event's delivery log must be appended exactly once.
+ */
+function applyRowSettlement(row: AlertOutboxEntry, delivery: AlertDelivery): void {
   row.status = delivery.ok ? "delivered" : "failed";
   row.attempts = delivery.attempts ?? row.attempts;
   row.settledAt = delivery.at;
@@ -645,15 +1001,20 @@ function settle(row: AlertOutboxEntry, delivery: AlertDelivery): void {
   else delete row.error;
   if (delivery.status !== undefined) row.httpStatus = delivery.status;
   else delete row.httpStatus;
+}
+
+function settle(row: AlertOutboxEntry, delivery: AlertDelivery): OutboxSettlement {
+  applyRowSettlement(row, delivery);
   // The honest per-event log: one entry per terminal outcome, never per attempt.
   const event = db().alertEvents.find((e) => e.id === row.eventId);
   if (event) event.deliveries = [...(event.deliveries ?? []), delivery];
   save(event?.projectId);
+  return { row, delivery };
 }
 
 /** Send one claimed row, then settle it. Never throws. */
-async function deliverEntry(row: AlertOutboxEntry): Promise<void> {
-  const fail = (error: string): void =>
+async function deliverEntry(row: AlertOutboxEntry): Promise<OutboxSettlement> {
+  const fail = (error: string): OutboxSettlement =>
     settle(row, {
       channelId: row.channelId,
       at: iso(),
@@ -678,7 +1039,25 @@ async function deliverEntry(row: AlertOutboxEntry): Promise<void> {
     );
 
   const msg = messageForEvent(event, row.transition);
-  settle(row, await deliverToChannel(channel, msg, row.idempotencyKey));
+  return settle(row, await deliverToChannel(channel, msg, row.idempotencyKey));
+}
+
+/**
+ * Run `task` over `items`, never more than `limit` of them in flight. A plain
+ * `Promise.all` over the batch is what made fan-out unbounded.
+ */
+async function withBoundedConcurrency<T>(
+  items: readonly T[],
+  limit: number,
+  task: (item: T) => Promise<void>
+): Promise<void> {
+  let next = 0;
+  // `next++` is not interrupted by an await, so each worker takes a distinct
+  // index without any further coordination.
+  const worker = async (): Promise<void> => {
+    while (next < items.length) await task(items[next++]);
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
 }
 
 /* ---------------------------------- queue ---------------------------------- */
@@ -731,12 +1110,15 @@ function runBatch(claim: () => Promise<AlertOutboxEntry[]>): void {
     .then(async () => {
       const batch = await claim();
       if (batch.length === 0) return;
+      const settled: OutboxSettlement[] = [];
       try {
-        await Promise.all(batch.map((row) => deliverEntry(row)));
+        await withBoundedConcurrency(batch, DELIVERY_FANOUT_LIMIT, async (row) => {
+          settled.push(await deliverEntry(row));
+        });
       } finally {
         // One write for the batch's outcomes, in place of one per row —
         // and whatever did settle before a bug still has to reach the store.
-        await flushOutbox();
+        await flushOutbox(settled);
       }
     })
     // deliverEntry never throws, so a rejection here is a bug rather than a bad
@@ -815,6 +1197,26 @@ export function reclaimStale(leaseMs = OUTBOX_LEASE_MS, now = Date.now()): numbe
  * else such a caller owes — the short version is `primeProcessSnapshot` first,
  * and do not exit before this promise resolves.
  */
+/**
+ * The lease a boot replay may safely use, which is the whole of the rule above
+ * expressed once so `boot()` cannot get it wrong.
+ *
+ * Lease 0 — reclaim everything still marked `sending` — rests entirely on
+ * `claimDataDir()` having just proved this process is the only writer. That
+ * proof does not exist on Postgres (many instances, one table) and it is not
+ * even attempted on a serverless instance, where `boot()` skips the claim
+ * because every instance has its own `/tmp`. In both cases another instance
+ * may be mid-send right now, so only a genuinely expired claim may be taken.
+ *
+ * The Postgres arm is **defensive, not live**: `boot()` returns before this
+ * call on Postgres (it holds no snapshot to read the outbox with), and that
+ * host's outbox is drained by `outboxTickPass()`, which passes its own
+ * `OUTBOX_LEASE_MS`. The arm stays because the rule is about the store, not
+ * about which caller happens to ask today.
+ */
+export const bootReplayLeaseMs = (): number =>
+  isPostgres() || isServerless() ? OUTBOX_LEASE_MS : 0;
+
 export async function replayOutbox(leaseMs = 0): Promise<number> {
   const reclaimed = await reclaimStaleAsync(leaseMs);
   const pending = outbox().filter((r) => r.status === "pending").length;

@@ -19,7 +19,7 @@ import {
 import { SIZE_SPECS } from "@/lib/cost/pricing";
 import { q } from "@/lib/db/store";
 import { expectedAttributes } from "@/lib/drift";
-import { secretStatus, secretStoreState } from "@/lib/secrets";
+import { secretStatusAsync, secretStoreState } from "@/lib/secrets";
 import {
   stepBudgetMs,
   type Discovery,
@@ -52,7 +52,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, Math.max(0, ms)))
  * reported here, which is the last place before a deploy where that is cheap
  * to notice.
  */
-function injectSecrets(rt: StepRuntime, service: Service): void {
+async function injectSecrets(rt: StepRuntime, service: Service): Promise<void> {
   const refs = service.env.filter((e) => e.secretRef !== undefined);
   if (!refs.length) return;
 
@@ -70,7 +70,7 @@ function injectSecrets(rt: StepRuntime, service: Service): void {
       missing.push(e.key);
       continue;
     }
-    const held = secretStatus(workspaceId, ref);
+    const held = await secretStatusAsync(workspaceId, ref);
     if (held.exists)
       rt.log(`inject ${e.key} ← ${ref} (v${held.version}, from the Zenith secret store)`, "provider");
     else missing.push(e.key);
@@ -348,7 +348,7 @@ async function executeStep(rt: StepRuntime): Promise<void> {
         "provider",
       ],
     ]);
-    injectSecrets(rt, service);
+    await injectSecrets(rt, service);
     await paced(rt, [[`replica 1/${Math.max(1, service.replicas)} started`, "provider"]]);
 
     if (chaosFlag(service) === "fail_once") {

@@ -9,8 +9,21 @@
  * module-origin check that fails the build if anything outside the source root
  * and the pinned toolchain reached the bundle.
  *
+ * What it does **not** give, stated plainly because the gap is easy to miss
+ * between the things it does do: **there is no network policy at all.** The
+ * child inherits the control host's network namespace. It can reach the
+ * platform's own database, the cloud provider's instance-metadata endpoint, an
+ * internal service and the public internet, exactly as the server process can.
+ * `docker` gets `--network none` and `e2b` asks for `allowInternetAccess:
+ * false`; this runner has no equivalent and no way to acquire one from inside a
+ * child process. The environment allowlist means the build carries no
+ * credential *with* it; it does not stop the build from asking the network for
+ * one.
+ *
  * It is allowed to run only when `ZENITH_BUILD_RUNNER=recipe-local`; otherwise
- * `availability()` names the variable and points at the isolated runners.
+ * `availability()` names the variable and points at the isolated runners. In
+ * hosted mode it additionally refuses unless the operator has acknowledged that
+ * gap by name — see `HOSTED_ACK_ENV`.
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import fs from "node:fs";
@@ -29,6 +42,25 @@ import { LogSink, buildResult } from "./runner-support";
  * this same list, so the two cannot drift apart.
  */
 export const FORBIDDEN_ENV_PREFIXES = ["ZENITH_", "SUPABASE_", "NEXT_PUBLIC_", "ZENITH_", "E2B_", "AWS_"] as const;
+
+/**
+ * The acknowledgement that lets `recipe-local` run in hosted mode.
+ *
+ * Hosted mode means other people's code. This runner has no network policy and
+ * says so above; running it there is a decision an operator may legitimately
+ * make for a closed pilot, but it must be a decision, made by name, not the
+ * consequence of one variable being left at a development value. Anything other
+ * than exactly "1" is a refusal.
+ *
+ * Proposed for `src/lib/hosted/config.ts` (not this packet's file to edit), so
+ * it is read from `process.env` here, in one place.
+ */
+export const HOSTED_ACK_ENV = "ZENITH_ALLOW_UNSANDBOXED_BUILDS_IN_HOSTED_MODE";
+
+/** Whether the operator has acknowledged the missing network boundary. */
+export const unsandboxedBuildsAcknowledged = (
+  raw: string | undefined = process.env[HOSTED_ACK_ENV]
+): boolean => (raw ?? "").trim() === "1";
 
 /** Which of `keys` a build must never see. Empty means the environment is clean. */
 export const secretEnvKeys = (keys: readonly string[]): string[] =>
@@ -86,7 +118,7 @@ export class RecipeLocalRunner implements BuildRunner {
   readonly id: BuildRunnerId = "recipe-local";
   readonly label = "Platform recipe, child process on this host";
   readonly boundary =
-    "Runs the platform's Vite recipe in a separate child process on the control host with an empty environment, a wall-clock timeout and a memory cap. No submitted script or config is executed. This is a process boundary, not a hostile-code sandbox.";
+    "Runs the platform's Vite recipe in a separate child process on the control host with an empty environment, a wall-clock timeout and a memory cap. No submitted script or config is executed. This is a process boundary, not a hostile-code sandbox: there is no network policy, so the build can reach anything this host can reach, and no filesystem boundary beyond the operating system's.";
 
   private readonly platformRoot: string;
   private readonly workerPath: string;
@@ -102,7 +134,17 @@ export class RecipeLocalRunner implements BuildRunner {
       return {
         available: false,
         reason: `ZENITH_BUILD_RUNNER is "${selected}", so building on the control host is not permitted.`,
-        fix: "Set ZENITH_BUILD_RUNNER=recipe-local to accept a same-host process boundary, or choose an isolated runner: ZENITH_BUILD_RUNNER=e2b (needs E2B_API_KEY) or ZENITH_BUILD_RUNNER=docker (needs a running daemon and the zenith-recipe:v1 image).",
+        fix: "Set ZENITH_BUILD_RUNNER=recipe-local to accept a same-host process boundary, or choose an isolated runner: ZENITH_BUILD_RUNNER=e2b (needs E2B_API_KEY) or ZENITH_BUILD_RUNNER=docker (needs a running daemon and ZENITH_RECIPE_IMAGE set to the recipe image's digest).",
+      };
+    // Hosted mode is other people's code. Refuse rather than build it in a
+    // child process that can reach this host's entire network, unless the
+    // operator has said so by name.
+    if (hostedConfig().hostedMode && !unsandboxedBuildsAcknowledged())
+      return {
+        available: false,
+        reason:
+          "ZENITH_HOSTED_MODE=1, and this runner has no network policy: a submitted build would run in a child process that can reach anything this host can reach, including the platform's database and the cloud provider's instance-metadata endpoint.",
+        fix: `Use an isolated runner in hosted mode — ZENITH_BUILD_RUNNER=docker (no network at all) or ZENITH_BUILD_RUNNER=e2b (a disposable remote sandbox with egress disabled). To accept the risk deliberately anyway, for example in a closed pilot with trusted builders, set ${HOSTED_ACK_ENV}=1.`,
       };
     if (!fs.existsSync(this.workerPath))
       return {

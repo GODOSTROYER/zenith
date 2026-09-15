@@ -14,6 +14,7 @@ import { z } from "zod";
 import { changeGrantRole, revokeGrant } from "@/lib/hosted/access";
 import type { AppGrantWire, GrantRevokedWire } from "@/lib/hosted/contracts";
 import { RoleSchema, hostedRoute, readJsonBody } from "@/lib/server/hosted";
+import { withMutationGate } from "@/lib/actions/mutation-gate";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ export const PATCH = hostedRoute<{ appId: string; grantId: string }>(
   { appRole: "owner", verify: "live" },
   async (req, { appId, grantId }, { subject }): Promise<AppGrantWire> => {
     const { role } = await readJsonBody(req, RoleChange);
-    return { grant: await changeGrantRole(grantId, role, subject, { appId }) };
+    return { grant: await withMutationGate(() => changeGrantRole(grantId, role, subject, { appId })) };
   }
 );
 
@@ -35,7 +36,7 @@ export const DELETE = hostedRoute<{ appId: string; grantId: string }>(
   { appRole: "owner", verify: "live" },
   async (req, { appId, grantId }, { subject }): Promise<GrantRevokedWire> => {
     const { reason } = await readJsonBody(req, Revoke, { optional: true });
-    const revoked = await revokeGrant(grantId, subject, reason, { appId });
+    const revoked = await withMutationGate(() => revokeGrant(grantId, subject, reason, { appId }));
     return {
       grant: revoked.grant,
       sessionsTerminated: revoked.sessionsTerminated,

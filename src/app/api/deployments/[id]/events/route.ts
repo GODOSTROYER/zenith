@@ -46,7 +46,7 @@ export const GET = route<{ id: string }>(async (req, { id }) => {
   // deployment log is a live read and losing access has to stop it.
   return sseResponse(req.signal, membershipCheck(), async () => {
     const events: DeploymentEvent[] = isPostgres()
-      ? await readEventsAsync(deployment.id, cursor)
+      ? await readEventsAsync(deployment.id, cursor, { signal: req.signal })
       : readEvents(deployment.id, cursor);
     for (const e of events) {
       cursor = Math.max(cursor, e.seq);

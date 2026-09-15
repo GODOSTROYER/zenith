@@ -1,6 +1,6 @@
 /** Resource-server verification only. Login, consent, PKCE and refresh are owned by a maintained external authorization server. */
 import { createRemoteJWKSet, jwtVerify, type JWTVerifyGetKey, type JWTPayload } from 'jose';
-import { ControlError, type Principal } from './journal';
+import { ControlError, digest, type Principal } from './journal';
 import { SCOPE_NAMES } from './contracts';
 export interface OAuthConfig { issuer: string; jwksUrl: string; resource: string; clientClaim: 'client_id'|'azp'; subjectClaim?: string }
 export function oauthConfig(env: Record<string,string|undefined>, origin: string): OAuthConfig | undefined {
@@ -38,9 +38,11 @@ export async function verifyOAuth(token: string, config: OAuthConfig, key?: JWTV
 }
 /** Token scopes and a browser-authorized resource grant must BOTH allow the operation. */
 export function bindGrant(identity: VerifiedOAuth, grant: (Principal & {clientId:string;revoked?:boolean})|undefined): Principal {
-  if(!grant||grant.revoked||grant.subject!==identity.subject||grant.clientId!==identity.clientId||grant.oauthIssuer!==identity.issuer||Date.parse(grant.expiresAt)<=Date.now())
+  const grantExpiresAt = typeof grant?.expiresAt === 'string' ? Date.parse(grant.expiresAt) : Number.NaN;
+  if(!grant||grant.revoked||grant.subject!==identity.subject||grant.clientId!==identity.clientId||grant.oauthIssuer!==identity.issuer
+    ||!Number.isFinite(grantExpiresAt)||grantExpiresAt<=Date.now())
     throw new ControlError('integration_grant_required','Authorize this OAuth client and resource scope in Zenith → Integrations, or renew its grant.',403);
   const scopes=grant.scopes.filter(s=>identity.scopes.includes(s));
   if(!scopes.includes('read'))throw new ControlError('scope_denied','Token and integration grant do not share the required scope.',403);
-  return {...grant,scopes,expiresAt:new Date(Math.min(Date.parse(grant.expiresAt),Date.parse(identity.expiresAt))).toISOString()};
+  return {...grant,scopes,grantDigest:digest(grant),expiresAt:new Date(Math.min(Date.parse(grant.expiresAt),Date.parse(identity.expiresAt))).toISOString()};
 }

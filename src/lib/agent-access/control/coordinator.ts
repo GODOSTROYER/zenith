@@ -1,5 +1,31 @@
 /** Testable transaction coordinator. Application authority and provider logic stay behind the port. */
-import { Journal, ControlError, checkTarget, type Operation, type Principal, type Proposal } from './journal';
+import { Journal, ControlError, checkTarget, digest, type Operation, type Principal, type Proposal } from './journal';
+
+/**
+ * The application-side facts that decide whether this principal may finalize
+ * this operation — and *only* those.
+ *
+ * The digest taken before dispatch is compared with the one taken after, so
+ * anything in here that the operation itself changes reports a successful
+ * publish or rollback as `outcome_uncertain`: the app row's `updatedAt`,
+ * `activeReleaseId` and `activeFence` all move during activation, and the
+ * operator is then told to investigate a non-event while the journal keeps a
+ * permanent `uncertain` row. Target *state* is the fingerprint's job
+ * (`fingerprint()` above, rechecked before dispatch); authority is this one's.
+ *
+ * So: identity, tenancy, role and revocation. Nothing the action writes.
+ */
+export interface ApplicationAuthority {
+  /** The acting member: who they are, where, and with what role. */
+  member?: { id: string; workspaceId: string; role: string };
+  /** The app the operation targets, as an authority object — never its release pointers. */
+  app?: { id: string; workspaceId: string; state?: string };
+  /** The app-role grant that admits this principal, and whether it is still live. */
+  grant?: { id: string; subject: string; role: string; revokedAt?: string | null };
+  /** The approver's standing, when the operation was approved by a human. */
+  approver?: { id: string; workspaceId: string; role: string } | null;
+}
+
 export interface ControlPort {
   gate<T>(work: () => Promise<T>): Promise<T>;
   scope<T>(who: Principal, work: () => Promise<T>): Promise<T>;
@@ -7,11 +33,71 @@ export interface ControlPort {
   proposal(who: Principal, input: unknown): Promise<Proposal>;
   fingerprint(who: Principal, operation: Proposal): Promise<string>;
   authorize(who: Principal, operation: Proposal): Promise<void>;
+  /**
+   * Current application membership/app-role authority, as facts.
+   *
+   * Preferred over `applicationAuthorizationDigest`: the coordinator narrows
+   * these to the authorization-relevant fields and digests them itself, so a
+   * port cannot accidentally bind the finalisation check to state the operation
+   * mutates. A port that supplies both is read through this one.
+   */
+  applicationAuthority?(who: Principal, operation: Proposal): Promise<ApplicationAuthority>;
+  /**
+   * Digest of current application membership/app-role authority.
+   *
+   * Legacy shape: whatever the port hashes is what the check binds to, volatile
+   * fields included. Implement `applicationAuthority` instead.
+   */
+  applicationAuthorizationDigest?(who: Principal, operation: Proposal): Promise<string>;
   execute(who: Principal, operation: Operation): Promise<{ ok: boolean; [key: string]: unknown }>;
   flush(): Promise<void>;
 }
+
+/**
+ * One digest of the authorization-relevant facts, taken the same way before and
+ * after dispatch. Absent fields are absent from the hash, so a port that
+ * supplies less is not silently equal to one that supplies more.
+ */
+export const applicationAuthorityDigest = (authority: ApplicationAuthority): string =>
+  digest({
+    member: authority.member
+      ? { id: authority.member.id, workspaceId: authority.member.workspaceId, role: authority.member.role }
+      : undefined,
+    app: authority.app
+      ? { id: authority.app.id, workspaceId: authority.app.workspaceId, state: authority.app.state }
+      : undefined,
+    grant: authority.grant
+      ? {
+          id: authority.grant.id,
+          subject: authority.grant.subject,
+          role: authority.grant.role,
+          revokedAt: authority.grant.revokedAt ?? null,
+        }
+      : undefined,
+    approver: authority.approver
+      ? {
+          id: authority.approver.id,
+          workspaceId: authority.approver.workspaceId,
+          role: authority.approver.role,
+        }
+      : authority.approver,
+  });
 export class Coordinator {
   constructor(readonly journal: Journal, private readonly port: ControlPort) {}
+  /**
+   * The application-authority digest this operation is finalized against.
+   *
+   * Taken identically before and after dispatch, and narrowed here rather than
+   * in the port, so the comparison can only ever be about authority — never
+   * about state the operation itself just wrote.
+   */
+  private async applicationDigest(who: Principal, operation: Proposal): Promise<string | undefined> {
+    if (this.port.applicationAuthority)
+      return applicationAuthorityDigest(await this.port.applicationAuthority(who, operation));
+    if (this.port.applicationAuthorizationDigest)
+      return this.port.applicationAuthorizationDigest(who, operation);
+    return undefined;
+  }
   async prepare(identity: Principal | (() => Promise<Principal>), input: unknown): Promise<Operation> {
     return this.port.gate(async () => {
       const who = typeof identity === 'function' ? await identity() : identity;
@@ -39,12 +125,26 @@ export class Coordinator {
         checkTarget(who, op.target, op.action.startsWith('app.') ? 'publish' : 'write');
         await this.port.authorize(who, op);
         const fingerprint = await this.port.fingerprint(who, op);
-        const claim = this.journal.claim(who, operationId, fingerprint);
+        const applicationAuthorizationDigest = await this.applicationDigest(who, op);
+        const claim = this.journal.claim(who, operationId, fingerprint, applicationAuthorizationDigest);
         if (!claim.claimed) return claim.operation;
         try {
           const result = await this.port.execute(who, claim.operation);
           await this.port.flush(); // durable app state BEFORE reporting durable dispatch completion
-          return this.journal.finish(op.id, result, result.ok);
+          // Authorization may have been revoked while the action was in flight.
+          // The side effect is now ambiguous from the caller's perspective, so
+          // refuse to finalize it as success and let the uncertainty path fence
+          // retries.
+          const current = await freshIdentity();
+          if (current.subject !== who.subject || current.workspaceId !== who.workspaceId)
+            throw new ControlError('identity_changed', 'The authorized identity changed during dispatch.', 403);
+          let currentApplicationAuthorizationDigest: string | undefined;
+          await this.port.scope(current, async () => {
+            checkTarget(current, claim.operation.target, claim.operation.action.startsWith('app.') ? 'publish' : 'write');
+            await this.port.authorize(current, claim.operation);
+            currentApplicationAuthorizationDigest = await this.applicationDigest(current, claim.operation);
+          });
+          return this.journal.finishIfValid(current, op.id, result, result.ok, currentApplicationAuthorizationDigest);
         } catch {
           // The external side effect may have happened. Persist ambiguity; never claim rollback or retry.
           this.journal.uncertain(op.id);

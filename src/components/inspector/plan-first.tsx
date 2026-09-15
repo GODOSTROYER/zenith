@@ -114,14 +114,7 @@ export function PlanFirst({
         });
         return;
       }
-      toasts.push({
-        title: result.summary,
-        kind: "ok",
-        // effScope's project, which a caller may have pointed elsewhere — the
-        // notification names what ran, not where it was started from.
-        projectId: effScope.projectId,
-        ...(effScope.projectId === project.id ? { projectSlug: project.slug } : {}),
-      });
+      toasts.push({ title: result.summary, kind: "ok" });
       setStage({ at: "idle" });
       refresh();
       onDone?.(result);

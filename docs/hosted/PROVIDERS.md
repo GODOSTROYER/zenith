@@ -121,6 +121,129 @@ same limitation applies to backups until W8 proves otherwise.
 | Approval | Sending real external email needs explicit approval. |
 | Cost | **Unverified.** No provider, plan or volume estimate. |
 
+## 4b. Alert webhook egress and channel secrets
+
+Two operator-facing policies live in `src/lib/alerts/`. Neither is a provider
+choice, but both change what a deployment can reach and what it must run once
+before alerting works, so they are recorded here rather than in a changelog.
+
+### Webhook egress policy
+
+An alert channel is an operator-supplied URL that this server POSTs to. Left
+unconstrained that is a server-side request forgery primitive, so the
+destination is checked twice: the URL itself (scheme, embedded credentials,
+fragment, port) and **every address the hostname currently resolves to** —
+the connection then uses that validated address, so a second resolution cannot
+land somewhere else.
+
+| Item | Production / hosted | Local development |
+| --- | --- | --- |
+| Scheme | `https://` only | `http://` allowed |
+| Destination | Public addresses only | Loopback, RFC1918 and link-local allowed |
+| Ports | 443 and 8443, plus `ZENITH_ALERT_WEBHOOK_ALLOWED_PORTS` | any |
+| Metadata services and IPv6 transition ranges | refused | **still refused** |
+
+**Never reachable, under any policy:** `169.254.169.254`, `100.100.100.200`,
+`fd00:ec2::254`, and the IPv6 transition ranges that wrap an arbitrary IPv4
+destination — NAT64 `64:ff9b::/96` and `64:ff9b:1::/48`, 6to4 `2002::/16` and
+its relay anycast prefix `192.88.99.0/24`, IPv4-compatible `::a.b.c.d`, and
+Teredo `2001::/32`. On an IPv6-only host behind DNS64 these are how a webhook
+reaches the instance metadata service, and nothing legitimate points at them.
+
+**`ZENITH_ALERT_WEBHOOK_ALLOW_INSECURE=1`** is an acknowledgement, not a
+switch. It is honoured only when the process is plainly a development one —
+`ZENITH_HOSTED_MODE` unset, `ZENITH_STORE=file`, and not serverless
+(`ZENITH_SERVERLESS`/`VERCEL` unset). Set it on a hosted, PostgreSQL-backed or
+serverless deployment and it does nothing; the refusal an operator sees then
+says so in as many words, so the variable is never silently ineffective.
+
+**`ZENITH_ALERT_WEBHOOK_ALLOWED_PORTS`** is a comma-separated list added to the
+443/8443 default, e.g. `9443,10443`. A malformed entry is ignored rather than
+fatal — a typo must not take every channel in the install offline — and the
+refusal names the list actually in force, so the mistake is visible the first
+time it matters.
+
+**Upgrade impact.** A channel created before this policy whose target is
+`http://` or on a private address becomes undeliverable. That is deliberate,
+and the failure is actionable rather than mysterious: the delivery record, the
+Test button and every retry all carry one sentence naming the scheme/port/
+address class and pointing at Settings → Alerts. No resolved address, resolver
+detail or internal IP appears in any of them. Before upgrading, list the
+workspace's channels and re-point anything that is not a public `https://`
+endpoint; there is no in-place migration for a destination only the operator
+can choose.
+
+### Alert channel secrets
+
+A channel's signing key and its credential-bearing target URL are sealed by
+`src/lib/secrets` (AES-256-GCM under `ZENITH_SECRET_KEY`, with
+`"<workspaceId> <ref>"` as additional authenticated data) and the channel row
+keeps only a reference plus a non-secret display origin.
+
+Moving an existing install to that shape is an **explicit operator action**,
+never a boot step:
+
+```
+npm run migrate:alert-secrets              # rehearsal; writes nothing, exits 2
+npm run migrate:alert-secrets -- --apply   # the move, one channel at a time
+```
+
+| Exit | Meaning |
+| --- | --- |
+| 0 | nothing to do, or the apply succeeded |
+| 1 | one or more channels are **blocked** (see below); nothing was written |
+| 2 | a rehearsal was printed and nothing was written |
+| 3 | the apply failed; the failing channel was rolled back and is named in the journal |
+
+Both modes print a per-channel report: the channel id, its name, its kind, and
+what it is still holding in the clear.
+
+**`ZENITH_STORE=postgres` is held, and says so per channel.** The secret row
+and the channel row live in two authorities with no shared transaction (see
+ADR D-4), so an in-place migration could commit one and lose the other. The
+script therefore refuses on that store with exit 1 and the line
+`blocked: Postgres legacy row requires the coordinated migration (see runbook)`
+against every held channel, and delivery for those channels stays refused with
+a message naming the channel. The two ways forward:
+
+1. **Per channel, now, from the UI.** Re-enter the channel's target (and
+   signing secret) under Settings → Alerts. That write goes through the
+   encrypted path, so the row stops being legacy and delivery resumes for it.
+   This is the supported remedy for a small number of channels.
+2. **All at once, under a maintenance window.** The coordinated migration — a
+   single SQL/RPC that writes the sealed rows and the channel metadata together
+   — is not in this build. Until it is, option 1 is the only complete path.
+
+**Old plaintext copies, and what to do about them (required step).** A
+successful migration removes the plaintext from the *current* state, and from
+nothing else. Every copy taken before it still holds the credentials in the
+clear:
+
+- `<ZENITH_DATA>/state.json` in any filesystem snapshot or file-level backup;
+- the `settings` jsonb of every PostgreSQL dump and PITR window;
+- any export or support bundle produced before the run.
+
+Because those copies cannot be edited, the credentials must be **rotated at the
+receiver**, not merely re-encrypted here: revoke and re-issue the Slack
+incoming-webhook URL, re-issue any generic webhook token, and generate a new
+HMAC signing key (updating the receiver at the same time — the old signature
+stops verifying the moment the key changes). Until that is done, treat every
+pre-migration backup as holding live credentials.
+
+**Retention.** Pre-migration backups are not deleted to remove the plaintext;
+they are kept for their normal retention period and the rotation above is what
+makes their contents worthless. Record the rotation date against the retention
+window in [DATA-LIFECYCLE.md](DATA-LIFECYCLE.md); a backup older than the
+rotation can then be reasoned about as holding only dead credentials.
+
+**An interrupted apply is resumable.** Each channel is journaled in
+`settings.pendingAlertSecretMigrations` before it is touched and cleared after
+it commits, and both writers use a reference derived from the channel id. A
+crash between the secret write and the settings write therefore leaves an
+orphaned secret row that nothing can name and nothing can open — and re-running
+the command overwrites it rather than adding a second one. Re-run the apply;
+do not hand-edit the store.
+
 ## 5. Domains, TLS and host
 
 | Item | Decision | State |

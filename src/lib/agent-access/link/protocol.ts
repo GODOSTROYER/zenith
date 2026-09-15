@@ -45,9 +45,6 @@ export const LINK_CREDENTIAL_QUOTA = 20;
 /** Hard ceiling on a linked credential's lifetime, in days (`security.ts:38`). */
 export const LINK_MAX_DAYS = 30;
 
-/** What the approval screen offers, and what it picks when the user does not. */
-export const LINK_DEFAULT_DAYS = 30;
-
 /**
  * The user-code alphabet: RFC 4648 base32 with `I`, `L`, `O` and `U` removed —
  * 28 symbols. `I`/`L` read as `1`, `O` as `0`, and `U` is dropped because it

@@ -6,8 +6,10 @@
  * so a link nobody ever followed kept its address's slot for ever and the 409
  * told the owner to "wait for it to expire" — which never happened. These tests
  * pin the explicit `pending → expired` transition: lazily on the accept path,
- * as a bounded sweep on the list and issue paths, and case-folded so a row
- * written with different capitalisation is still the same slot.
+ * as a bounded sweep inside the issue transaction and in the gated maintenance
+ * pass, and case-folded so a row written with different capitalisation is still
+ * the same slot. The list is a read — it *reports* an overdue invitation as
+ * expired and writes nothing.
  */
 import { afterAll, describe, expect, it } from "vitest";
 import { isolatedDataDir, removeDir } from "../_fixtures";
@@ -19,7 +21,9 @@ delete process.env.ZENITH_SMTP_URL;
 const { closeAuthority, openAuthority } = await import("@/lib/hosted/authority");
 const { HostedError } = await import("@/lib/hosted/contracts");
 const { acceptInvite, createInvite, listInvites } = await import("@/lib/hosted/access");
-const { pendingInviteConflict } = await import("@/lib/hosted/access/invites");
+const { expireOverdueInvites, pendingInviteConflict } = await import(
+  "@/lib/hosted/access/invites"
+);
 const { IDENTITIES, iso, seedApp, seedGrant, sha256Hex, uuid, verified } = await import("./_helpers");
 
 const a = openAuthority();
@@ -80,7 +84,7 @@ describe("an expired invitation stops holding the address's slot", () => {
     expect((await a.repos.invites.get(stale.id))?.state).toBe("expired");
   });
 
-  it("is swept by reading the list, so what the owner sees is true", async () => {
+  it("is reported as expired by the list without the list writing anything", async () => {
     const target = await app("expiry-list");
     const stale = await seedInvite(target.id, "listed@example.test", iso(-1_000));
     const live = await seedInvite(target.id, "live@example.test", iso(600_000));
@@ -88,6 +92,23 @@ describe("an expired invitation stops holding the address's slot", () => {
     const listed = await listInvites(target.id);
     expect(listed.find((invite) => invite.id === stale.id)?.state).toBe("expired");
     expect(listed.find((invite) => invite.id === live.id)?.state).toBe("pending");
+
+    // A GET is a read: the answer is computed, not written back. The row is
+    // still `pending` until a write path — or the maintenance call below —
+    // records the transition.
+    expect((await a.repos.invites.get(stale.id))?.state).toBe("pending");
+  });
+
+  it("is recorded by the gated maintenance pass, which is a write path", async () => {
+    const target = await app("expiry-sweep");
+    const stale = await seedInvite(target.id, "swept@example.test", iso(-1_000));
+    const live = await seedInvite(target.id, "kept@example.test", iso(600_000));
+
+    expect(await expireOverdueInvites(target.id)).toBe(1);
+    expect((await a.repos.invites.get(stale.id))?.state).toBe("expired");
+    expect((await a.repos.invites.get(live.id))?.state).toBe("pending");
+    // Bounded and idempotent: a second pass has nothing left to do.
+    expect(await expireOverdueInvites(target.id)).toBe(0);
   });
 
   it("is recorded when a recipient follows a link that has run out", async () => {

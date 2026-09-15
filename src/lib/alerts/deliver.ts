@@ -348,8 +348,12 @@ async function post(url: string, body: string, headers: Record<string, string>):
       { "Content-Type": "application/json", ...headers },
       controller.signal
     );
-    if (res.redirected || (res.status >= 300 && res.status < 400))
+    if (res.redirected || (res.status >= 300 && res.status < 400)) {
+      // Cancel before throwing: an unread body holds its socket in the
+      // keep-alive pool until the response is garbage collected.
+      await res.body?.cancel().catch(() => undefined);
       throw new Permanent("The alert endpoint returned a redirect, which Zenith refuses for safety.");
+    }
     await readBoundedResponse(res, controller.signal);
   } catch (err) {
     clearTimeout(deadline);

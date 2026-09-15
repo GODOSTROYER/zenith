@@ -60,7 +60,22 @@ export interface InvitesRepo {
   accept(id: string, subject: Subject, now: string): boolean;
   /** Marks an outstanding invitation superseded by a resend. */
   supersede(id: string): boolean;
+  /**
+   * Move overdue `pending` invitations to `expired`, and answer with how many
+   * moved.
+   *
+   * Expiry is enforced on read (`accept` compares `expires_at`), but the *state
+   * column* is what `app_invites_pending_email` filters on, so an invitation
+   * that nobody ever touched again keeps its app+address slot for ever. This is
+   * the transition that lets the slot go. Bounded by `limit` (default 200) so a
+   * sweep is a bounded statement, never a table-wide rewrite, and scoped to one
+   * app when `appId` is given.
+   */
+  expireOverdue(now: string, opts?: { appId?: string; limit?: number }): number;
 }
+
+/** The largest number of rows one `expireOverdue` call will move. */
+export const INVITE_EXPIRY_SWEEP_LIMIT = 200;
 
 const COLUMNS =
   "id, app_id, email, role, token_hash, state, created_by, created_at, expires_at, " +
@@ -160,6 +175,22 @@ export function createInvitesRepo(db: DatabaseSync): InvitesRepo {
         "UPDATE app_invites SET state = 'superseded' WHERE id = ? AND state = 'pending'"
       ).run(id);
       return changeCount(result) === 1;
+    },
+
+    expireOverdue(now, opts = {}) {
+      const limit = Math.max(1, Math.trunc(opts.limit ?? INVITE_EXPIRY_SWEEP_LIMIT));
+      // The LIMIT lives in a subquery: SQLite is built without
+      // SQLITE_ENABLE_UPDATE_DELETE_LIMIT, and the subquery form is also the
+      // one the Postgres twin can express.
+      const scope = opts.appId === undefined ? "" : " AND app_id = ?";
+      const args = opts.appId === undefined ? [now, limit] : [now, opts.appId, limit];
+      const result = sql(
+        "UPDATE app_invites SET state = 'expired' WHERE id IN (" +
+          "SELECT id FROM app_invites WHERE state = 'pending' AND expires_at <= ?" +
+          scope +
+          " ORDER BY expires_at, id LIMIT ?)"
+      ).run(...args);
+      return changeCount(result);
     },
   };
 }

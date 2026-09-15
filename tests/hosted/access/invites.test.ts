@@ -182,6 +182,14 @@ describe("accepting an invitation", () => {
       { email: IDENTITIES.stranger.email, role: "viewer" },
       IDENTITIES.owner.subject
     );
+    // A second recipient, so the "one instant earlier" case can be probed
+    // without rewinding an invitation that the first probe has already
+    // recorded as expired — time only runs one way in production.
+    const spare = await createInvite(
+      target.id,
+      { email: IDENTITIES.viewer.email, role: "viewer" },
+      IDENTITIES.owner.subject
+    );
     const token = tokenOf(issued.acceptUrl);
     const deadline = issued.invite.expiresAt;
 
@@ -189,10 +197,15 @@ describe("accepting an invitation", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(deadline));
     expect((await refusal(() => acceptInvite(token, verified(IDENTITIES.stranger)))).code).toBe("conflict");
-    expect((await a.repos.invites.get(issued.invite.id))?.state).toBe("pending");
+    // The refusal also *records* the expiry: the state column is what the
+    // pending-uniqueness index filters on, so a link that ran out must stop
+    // holding its address's slot rather than sit `pending` for ever.
+    expect((await a.repos.invites.get(issued.invite.id))?.state).toBe("expired");
 
-    vi.setSystemTime(new Date(Date.parse(deadline) - 1));
-    expect((await acceptInvite(token, verified(IDENTITIES.stranger))).grant.role).toBe("viewer");
+    vi.setSystemTime(new Date(Date.parse(spare.invite.expiresAt) - 1));
+    expect(
+      (await acceptInvite(tokenOf(spare.acceptUrl), verified(IDENTITIES.viewer))).grant.role
+    ).toBe("viewer");
   });
 
   it("issues a fresh grant when the person's previous one was revoked", async () => {

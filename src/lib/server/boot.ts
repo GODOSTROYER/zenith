@@ -11,7 +11,7 @@ import type { SecurityFinding } from "@/lib/domain/types";
 import { providerRegistry } from "@/lib/providers/types";
 import { engine, engineTick, ensureEngine } from "@/lib/engine/engine";
 import { registerAllActions } from "@/lib/actions/defs";
-import { replayOutbox, startAlertEvaluator } from "@/lib/alerts";
+import { bootReplayLeaseMs, replayOutbox, startAlertEvaluator } from "@/lib/alerts";
 import * as security from "@/lib/security/rules";
 import * as logsim from "@/lib/logsim";
 import { claimDataDir } from "@/lib/data-lock";
@@ -63,13 +63,17 @@ async function boot(): Promise<void> {
   // hosted mode without the inputs it needs. See src/lib/hosted/index.ts.
   ensureHosted();
   // Alert deliveries the last process had queued — or was mid-send when it
-  // died — are reclaimed and drained. Safe to reclaim every claimed row here
-  // because the line above just proved no other process owns this data
-  // directory. Scheduled rather than awaited, and `unref`'d like the evaluator
-  // timer: a webhook that never answers must not hold up boot, keep the process
-  // alive, or make the first request wait 30s for a retry ladder to finish.
+  // died — are reclaimed and drained. How much may be reclaimed depends on
+  // whether the claim above actually happened: on one process owning one data
+  // directory, every row still marked `sending` is provably abandoned and the
+  // lease is 0. On PostgreSQL, or on a serverless instance where the claim is
+  // skipped entirely, another instance may be mid-send right now, so only a
+  // genuinely expired claim may be taken — `bootReplayLeaseMs()` is that rule.
+  // Scheduled rather than awaited, and `unref`'d like the evaluator timer: a
+  // webhook that never answers must not hold up boot, keep the process alive,
+  // or make the first request wait 30s for a retry ladder to finish.
   const replay = setTimeout(() => {
-    void replayOutbox().catch((err) =>
+    void replayOutbox(bootReplayLeaseMs()).catch((err) =>
       log.error("alert outbox replay failed", { scope: "alerts", error: err })
     );
   }, 0);

@@ -1,10 +1,31 @@
-/** Durable request throttling for the supported single-host agent-control topology. */
+/**
+ * Durable request throttling for agent control, on whichever store this
+ * deployment runs.
+ *
+ * The SQLite limiter below is the original and is unchanged: a fixed window, a
+ * row per `(workspace, subject, bucket)`, and the previous window deleted on
+ * every check. It is durable across a restart, which is what made it worth a
+ * database instead of a `Map`, and it is process-local, which is fine on the
+ * one host it was written for.
+ *
+ * `PgRateLimiter` is the same algorithm against `agent.agent_rate_limits`
+ * (`0006_agent_link.sql`), which generalises the key to `(scope, key, bucket)`
+ * so an unauthenticated caller can be keyed too. It is the same window, the
+ * same limit and the same refusal — the difference is that on a host where a
+ * hundred instances serve one credential, a hundred process-local limiters is
+ * a limit of 12,000 requests a minute wearing the label of 120.
+ *
+ * Both are reached through `check()`, so nothing above this file branches.
+ */
 import { DatabaseSync } from 'node:sqlite';
+import { createHash } from 'node:crypto';
 import { chmodSync, closeSync, existsSync, lstatSync, mkdirSync, openSync } from 'node:fs';
 import { dirname, isAbsolute, resolve } from 'node:path';
 import { claimDataDir } from '@/lib/data-lock';
 import { env } from '@/lib/env';
+import { isPostgres } from '@/lib/db/store';
 import { ControlError, type Principal } from './journal';
+import type { AnySql } from './journal-pg';
 
 export interface RateLimitOptions {
   limit?: number;
@@ -76,8 +97,66 @@ export class DurableRateLimiter {
   }
 }
 
+/* ------------------------------- postgres --------------------------------- */
+
+/**
+ * The key a principal is counted under.
+ *
+ * Hashed, because the column is shared with the link endpoints' key — which is
+ * a salted client address — and a table that holds raw addresses next to raw
+ * subject ids is a table nobody wants to have to reason about. The hash is not
+ * a secret and is not treated as one; it is a fixed-width identifier.
+ */
+export const rateLimitKey = (who: Principal): string =>
+  createHash('sha256').update(`${who.workspaceId}\u0000${who.subject}`).digest('hex');
+
+/** The bucket's current count, incremented. One statement, so two instances cannot both miss. */
+export const countStatement = (sql: AnySql, p: { scope: string; key: string; bucket: number }) => sql`
+  insert into agent.agent_rate_limits (scope, key, bucket, count) values (${p.scope}, ${p.key}, ${p.bucket}, 1)
+  on conflict (scope, key, bucket) do update set count = agent.agent_rate_limits.count + 1
+  returning count`;
+
+/** Windows older than the previous one. Bounded, and the same sweep the SQLite limiter makes. */
+export const sweepStatement = (sql: AnySql, p: { bucket: number }) =>
+  sql`delete from agent.agent_rate_limits where bucket < ${p.bucket - 1}`;
+
+/**
+ * The same fixed window, counted in the database rather than in one process.
+ *
+ * `check()` has the argument shape and the refusal of `DurableRateLimiter`'s,
+ * so `throttleAsync()` can hold either without a branch above it.
+ */
+export class PgRateLimiter {
+  constructor(private readonly sql: AnySql, private readonly clock = Date.now) {}
+
+  async check(who: Principal, options: RateLimitOptions & { scope?: string } = {}): Promise<void> {
+    const limit = options.limit ?? 120;
+    const windowMs = options.windowMs ?? 60_000;
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 10_000
+      || !Number.isSafeInteger(windowMs) || windowMs < 1_000 || windowMs > 60 * 60_000)
+      throw new ControlError('rate_limit_configuration', 'Rate-limit bounds are invalid.', 503);
+    const bucket = Math.floor(this.clock() / windowMs);
+    const scope = options.scope ?? 'v2';
+    // The sweep is a separate statement on purpose: it must not be able to roll
+    // back the count, and it is the same "delete the window before last" the
+    // file limiter does on every check.
+    await sweepStatement(this.sql, { bucket });
+    const rows = (await countStatement(this.sql, { scope, key: rateLimitKey(who), bucket })) as unknown as { count: unknown }[];
+    const count = Number(rows[0]?.count ?? 0);
+    if (!Number.isFinite(count) || count > limit)
+      throw new ControlError('rate_limited', 'Request limit reached; retry later.', 429);
+  }
+}
+
 type GlobalRateLimiter = typeof globalThis & { __zenithAgentRateLimiter?: DurableRateLimiter };
 
+/**
+ * The file store's limiter, unchanged.
+ *
+ * Still synchronous, because the transports that call it are and because on the
+ * host it serves the answer really is available without leaving the process.
+ * On Postgres it is `throttleAsync()` that runs.
+ */
 export function throttle(who: Principal): void {
   const global = globalThis as GlobalRateLimiter;
   if (!global.__zenithAgentRateLimiter) {
@@ -86,4 +165,21 @@ export function throttle(who: Principal): void {
     global.__zenithAgentRateLimiter = new DurableRateLimiter(resolve(data, 'agent-control', 'rate-limits.sqlite'));
   }
   global.__zenithAgentRateLimiter.check(who);
+}
+
+/**
+ * Throttle on whichever store this deployment runs.
+ *
+ * The one entry point a transport should call. On the file store it is
+ * `throttle()` and no round trip; on Postgres it is one upsert against
+ * `agent.agent_rate_limits`, which is the only version of this limit that means
+ * anything when the same credential is served by many instances.
+ */
+export async function throttleAsync(who: Principal, options: RateLimitOptions & { scope?: string } = {}): Promise<void> {
+  if (!isPostgres()) {
+    throttle(who);
+    return;
+  }
+  const { pgAuthorityClient } = await import('@/lib/hosted/authority/pg/client');
+  await new PgRateLimiter(pgAuthorityClient()).check(who, options);
 }

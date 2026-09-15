@@ -54,6 +54,33 @@ export type PlannerModeProp = keyof typeof PLANNER_NOTES;
 /** A run is still live if it is running, or paused waiting on an approval. */
 const isLive = (r: NavigatorRun) => r.status === "executing" || r.status === "awaiting_approval";
 
+/** Finished, one way or another: nothing further will ever be written to it. */
+const isTerminal = (r: NavigatorRun) =>
+  r.status === "done" || r.status === "failed" || r.status === "cancelled";
+
+/**
+ * How often this screen asks a live run what it is doing.
+ *
+ * It used to be a flat 800ms for as long as the run was executing: 75 requests
+ * a minute per open tab, at the same rate whether steps were landing or the
+ * run was waiting on a provider. It is a poll rather than a stream because a
+ * Navigator run has no event route — the resumable SSE streams in this codebase
+ * carry deployments, logs, alerts and the project payload, and adding a fifth
+ * event service is not in scope here — so what the poll owes is restraint:
+ *
+ *   - `useJson` waits for each response before scheduling the next, backs off
+ *     to 4× while the payload keeps coming back identical, stops entirely in a
+ *     hidden tab and re-reads the moment the tab comes back;
+ *   - a step landing changes the payload and snaps the interval back to base;
+ *   - `RUN_POLL_JITTER` spreads several tabs watching the same run apart;
+ *   - a terminal run is not polled at all — the URL goes null and the response
+ *     that observed the ending is the final state this screen keeps.
+ */
+const RUN_POLL_MS = 2000;
+const RUN_POLL_JITTER = 0.2;
+/** Stable identity: an options literal must not re-run the hook's timer effect. */
+const RUN_POLL_OPTIONS = { jitterRatio: RUN_POLL_JITTER };
+
 export function NavigatorScreen({
   slug,
   plannerMode = "deterministic",
@@ -80,6 +107,9 @@ export function NavigatorScreen({
   const [characterVisible, setCharacterVisible] = useState(true);
 
   const runs = useJson<{ runs: NavigatorRun[] }>(`/api/navigator/runs?projectId=${project.id}`);
+  // `useJson` returns a fresh object each render; its `refresh` is the stable
+  // half, and the only half an effect should ever depend on.
+  const runsRefresh = runs.refresh;
 
   // `executeRun` is one long server action: navigating away drops the panel but
   // not the run. On arrival, adopt whatever is still live for this project so
@@ -94,10 +124,13 @@ export function NavigatorScreen({
     setRunning(active.status === "executing");
   }, [runs.data, run, project.id]);
 
-  // Follow the live run while it executes; the executor writes each step as it goes.
+  // Follow the live run while it executes; the executor writes each step as it
+  // goes. A run that has already ended is never followed: there is nothing left
+  // to watch, and the request would only confirm what this screen is showing.
   const live = useJson<{ run: NavigatorRun }>(
-    run && running ? `/api/navigator/runs/${run.id}` : null,
-    800
+    run && running && !isTerminal(run) ? `/api/navigator/runs/${run.id}` : null,
+    RUN_POLL_MS,
+    RUN_POLL_OPTIONS
   );
   const liveRun = live.data?.run;
   const shown = (running && liveRun && liveRun.id === run?.id && liveRun) || run;
@@ -125,13 +158,23 @@ export function NavigatorScreen({
   }, []);
 
   // An adopted run finishes on the server, not in this tab's `execute` call.
+  //
+  // The response that saw the ending *is* the final state, so adopting it is
+  // the one fetch after the terminal transition — the screen never keeps a
+  // half-written run and then stops asking. Everything a finished run moved
+  // (history, costs, findings, deployments) is re-read once, here, rather than
+  // on every tick of a poll that was running in case something changed.
   useEffect(() => {
     const followed = live.data?.run;
     if (running && followed && followed.id === run?.id && followed.status !== "executing") {
       setRun(followed);
       setRunning(false);
+      if (isTerminal(followed)) {
+        runsRefresh();
+        refresh();
+      }
     }
-  }, [live.data, running, run?.id]);
+  }, [live.data, running, run?.id, runsRefresh, refresh]);
 
   const prodEnvIds = useMemo(
     () => new Set(environments.filter((e) => e.class === "production").map((e) => e.id)),

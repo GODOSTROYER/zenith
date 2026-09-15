@@ -88,6 +88,24 @@ export function pollDelay(baseMs: number, idleTicks: number, maxSteps = MAX_IDLE
   return baseMs * 2 ** steps;
 }
 
+/**
+ * Spread a polling delay over a bounded window above itself.
+ *
+ * Tabs that opened together stay together: every one of them asks at the same
+ * instant, for as long as they are open, and a run watched from three screens
+ * arrives as three simultaneous requests every interval. Jitter breaks that
+ * convoy without changing what the interval promises — the delay is never
+ * shorter than `delayMs`, and never longer than `delayMs * (1 + ratio)`.
+ *
+ * `ratio` of 0 (the default everywhere that has not asked for it) returns the
+ * delay untouched, so existing callers keep exactly the timing they had.
+ */
+export function withJitter(delayMs: number, ratio: number, random: () => number = Math.random): number {
+  const spread = Math.min(Math.max(ratio, 0), 1);
+  if (spread === 0 || delayMs <= 0) return delayMs;
+  return Math.round(delayMs * (1 + spread * random()));
+}
+
 const isHidden = () => typeof document !== "undefined" && document.visibilityState === "hidden";
 
 /**
@@ -107,7 +125,8 @@ const etagCache = new Map<string, { etag: string; body: unknown }>();
 
 async function conditionalRead<T>(
   url: string,
-  conditional = true
+  conditional = true,
+  signal?: AbortSignal
 ): Promise<{ data: T; unchanged: boolean }> {
   const cached = conditional ? etagCache.get(url) : undefined;
   const res = await fetch(url, {
@@ -116,6 +135,7 @@ async function conditionalRead<T>(
       ...(cached ? { "if-none-match": cached.etag } : {}),
     },
     cache: "no-store",
+    signal,
   });
 
   if (res.status === 304) {
@@ -123,7 +143,7 @@ async function conditionalRead<T>(
     // without one (a proxy answering from its own cache) is re-asked plainly
     // rather than turned into an empty payload.
     if (cached) return { data: cached.body as T, unchanged: true };
-    return conditionalRead<T>(url, false);
+    return conditionalRead<T>(url, false, signal);
   }
 
   const body = (await res.json().catch(() => ({}))) as T & {
@@ -147,16 +167,67 @@ async function conditionalRead<T>(
   return { data: body as T, unchanged: false };
 }
 
+/** True for the rejection a cancelled `fetch` produces, in either shape. */
+export const isAbort = (cause: unknown): boolean =>
+  (cause as { name?: string } | null)?.name === "AbortError";
+
+interface SharedRead {
+  promise: Promise<{ data: unknown; unchanged: boolean }>;
+  controller: AbortController;
+  /** how many mounted hooks are still waiting on this one request */
+  readers: number;
+}
+
 // Share pending reads only, never cached responses or mutations. In particular,
 // React Strict Mode's effect replay should not send a second identical request.
-const pendingReads = new Map<string, Promise<unknown>>();
-function readJson<T>(url: string): Promise<{ data: T; unchanged: boolean }> {
-  let pending = pendingReads.get(url);
-  if (!pending) {
-    pending = conditionalRead<T>(url).finally(() => pendingReads.delete(url));
-    pendingReads.set(url, pending);
+//
+// Each shared read carries the AbortController for its own `fetch`, and the
+// readers are counted: a screen that unmounts or changes route lets go of its
+// read, and the request is cancelled only once nobody is left waiting for it.
+// Aborting on the first release would cancel a request a *second*, still-mounted
+// reader of the same URL is depending on.
+const pendingReads = new Map<string, SharedRead>();
+
+interface Read<T> {
+  promise: Promise<{ data: T; unchanged: boolean }>;
+  /** stop waiting; cancels the request when this was the last reader */
+  release: () => void;
+}
+
+function readJson<T>(url: string): Read<T> {
+  let shared = pendingReads.get(url);
+  if (!shared) {
+    const controller = new AbortController();
+    const entry: SharedRead = {
+      controller,
+      readers: 0,
+      promise: undefined as unknown as SharedRead["promise"],
+    };
+    entry.promise = conditionalRead<T>(url, true, controller.signal).finally(() => {
+      if (pendingReads.get(url) === entry) pendingReads.delete(url);
+    });
+    pendingReads.set(url, entry);
+    shared = entry;
   }
-  return pending as Promise<{ data: T; unchanged: boolean }>;
+  const entry = shared;
+  entry.readers += 1;
+
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    entry.readers -= 1;
+    // Strict Mode detaches and re-attaches inside one commit. Deferring the
+    // decision by a microtask lets that remount re-claim the request it just
+    // let go of, instead of cancelling it and paying for a second one.
+    queueMicrotask(() => {
+      if (entry.readers > 0) return;
+      if (pendingReads.get(url) === entry) pendingReads.delete(url);
+      entry.controller.abort();
+    });
+  };
+
+  return { promise: entry.promise as Read<T>["promise"], release };
 }
 
 /**
@@ -181,6 +252,13 @@ export interface UseJsonOptions {
    * whole job is to notice something that happened somewhere else.
    */
   maxIdleSteps?: number;
+  /**
+   * Fraction of the delay to spread each poll over, so several tabs watching
+   * the same thing stop asking in lockstep. `0.2` means "somewhere in the next
+   * interval to interval-and-a-fifth". Defaults to `0` — no jitter, and the
+   * exact timing every existing caller already has.
+   */
+  jitterRatio?: number;
 }
 
 /**
@@ -208,6 +286,8 @@ export function useJson<T>(
   // on every render and must not re-run the effect that owns the timer.
   const maxIdleSteps = useRef(options.maxIdleSteps);
   maxIdleSteps.current = options.maxIdleSteps;
+  const jitterRatio = useRef(options.jitterRatio);
+  jitterRatio.current = options.jitterRatio;
   const refresh = useCallback(() => refreshRef.current(), []);
 
   useEffect(() => {
@@ -217,6 +297,8 @@ export function useJson<T>(
     let idle = 0;
     let seen: string | undefined;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    /** the read this hook is currently waiting on, so it can let go of it */
+    let inflight: { release: () => void } | undefined;
     setData(undefined);
     setError(undefined);
     setLoading(!!url);
@@ -226,7 +308,10 @@ export function useJson<T>(
       if (alive && url && intervalMs.current && !requesting && !isHidden()) {
         timer = setTimeout(
           run,
-          pollDelay(intervalMs.current, idle, maxIdleSteps.current ?? MAX_IDLE_STEPS)
+          withJitter(
+            pollDelay(intervalMs.current, idle, maxIdleSteps.current ?? MAX_IDLE_STEPS),
+            jitterRatio.current ?? 0
+          )
         );
       }
     }
@@ -240,8 +325,10 @@ export function useJson<T>(
       clearTimeout(timer);
       requesting = true;
       queued = false;
+      const read = readJson<T>(url);
+      inflight = read;
       try {
-        const { data: result, unchanged } = await readJson<T>(url);
+        const { data: result, unchanged } = await read.promise;
         if (!alive) return;
         // A 304 is the server saying "identical", which is the same answer the
         // stringify below computes — without the payload or the compare. It is
@@ -259,8 +346,11 @@ export function useJson<T>(
         }
         setError(undefined);
       } catch (cause) {
-        if (alive) setError(cause as ApiError);
+        // A cancelled read is this hook going away, not the route failing.
+        if (alive && !isAbort(cause)) setError(cause as ApiError);
       } finally {
+        if (inflight === read) inflight = undefined;
+        read.release();
         requesting = false;
         if (alive) {
           setLoading(false);
@@ -282,6 +372,10 @@ export function useJson<T>(
     return () => {
       alive = false;
       clearTimeout(timer);
+      // Unmount, or a new URL: stop waiting on the old read. The request is
+      // cancelled outright when no other mounted hook is reading the same URL.
+      inflight?.release();
+      inflight = undefined;
       refreshRef.current = () => {};
       scheduleRef.current = () => {};
       document.removeEventListener("visibilitychange", onVisibility);

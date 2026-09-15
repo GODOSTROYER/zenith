@@ -30,10 +30,12 @@ export {
 } from "./recipe";
 export {
   FORBIDDEN_ENV_PREFIXES,
+  HOSTED_ACK_ENV,
   RecipeLocalRunner,
   buildChildEnv,
   killTree,
   secretEnvKeys,
+  unsandboxedBuildsAcknowledged,
   type RecipeLocalOptions,
 } from "./runner-recipe-local";
 export {

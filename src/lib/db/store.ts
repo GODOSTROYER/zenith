@@ -12,12 +12,18 @@
  *   ./postgres-store.ts Supabase Postgres, with a request-scoped snapshot
  *   this file           chooses one (ZENITH_STORE) and re-exports it
  *
- * `ZENITH_STORE` is `"file"` (the default) or `"postgres"`. The Postgres store
- * owns the organisational slice — workspaces, members, invites, connections,
- * projects, environments, settings — and *delegates the rest to the file store*
- * until Phase 3. That hybrid is documented at the top of `./postgres-store.ts`
- * and in docs/ARCHITECTURE.md (ADR 1); it is real debt, stated rather than
- * hidden.
+ * `ZENITH_STORE` is `"file"` (the default) or `"postgres"`, and it selects one
+ * authority for **all** of `Database` — the two are alternatives, not layers.
+ * On `postgres` every collection is a registered adapter and the delegated
+ * method groups (manifests, deployment events, audit) are Postgres too, so the
+ * file store is not a fallback for anything; the details are at the top of
+ * `./postgres-store.ts` and in docs/ARCHITECTURE.md (ADR 1).
+ *
+ * The consequence for callers is `runInStoreScope()` below: on `postgres`,
+ * `db()` reads a snapshot that was loaded before the caller ran, and a read
+ * with no scope **throws** rather than quietly answering from somewhere else.
+ * `route()` and `inCronScope()` open that scope for requests and cron passes;
+ * a server component opens its own.
  *
  * The durability contract, the hot/cold split and the change-event semantics
  * are documented where they are implemented — see `./file-store.ts` and
@@ -99,6 +105,51 @@ export const flushPendingAsync = async (): Promise<boolean> => {
 
 /** Reset everything (used by seed script). */
 export const resetDb = (data?: Partial<Database>): Database => currentStore().reset(data);
+
+/* ------------------------------ the read scope ------------------------------ */
+
+/**
+ * Run a server component's reads inside a store scope.
+ *
+ * On the file store this is a pass-through: `db()` is already the whole graph
+ * and there is nothing to load. On Postgres it is what `route()` does for an
+ * API request, minus the request — it resolves the signed-in user, prefetches
+ * **that person's** workspace slice, and runs the body inside
+ * `runWithSnapshot`, so every `db()`, `q.*` and `currentWorkspace()` inside
+ * reads one consistent view that was loaded before the component ran.
+ *
+ * A server component that skips this now *fails* on Postgres instead of
+ * silently rendering the file store's graph (or, after a cron pass had primed
+ * an unfiltered snapshot, every workspace on the install). That refusal is the
+ * point; this is the supported way past it.
+ *
+ * Signed out with Supabase configured, the scope is a **detached empty
+ * snapshot** rather than `loadSnapshot(client, null)`: "no caller" must mean
+ * "no rows" on a page, not "every workspace on the install" — that reading
+ * belongs to the scheduler, which authenticates first (`inCronScope`). With
+ * Supabase unconfigured the install is in local demo mode, where there is one
+ * local user who is in every workspace by definition (`workspacesFor`), and
+ * the unfiltered load is the honest answer.
+ */
+export async function runInStoreScope<T>(body: () => Promise<T>): Promise<T> {
+  if (!isPostgres()) return body();
+  // Dynamically imported, all three: this module is loaded by the migration
+  // script, the seed and the contract tests under plain `tsx`, and a static
+  // import of the session helper would drag `next/headers` into every one.
+  const [{ getSessionUser }, { isSupabaseConfigured }, pg, { runWithSnapshot }] = await Promise.all([
+    import("@/lib/auth/session"),
+    import("@/lib/supabase/env"),
+    import("./postgres-store"),
+    import("./request-snapshot"),
+  ]);
+  const user = await getSessionUser().catch(() => null);
+  const snapshot = user
+    ? await pg.loadSnapshot(pg.pgClient(), { id: user.id, email: user.email })
+    : isSupabaseConfigured()
+      ? pg.detachedSnapshot()
+      : await pg.loadSnapshot(pg.pgClient(), null);
+  return runWithSnapshot(snapshot, body);
+}
 
 export const appendEvent = (e: DeploymentEvent): void => currentStore().appendEvent(e);
 

@@ -16,8 +16,93 @@
  *  - the token inside a Slack incoming-webhook URL, which is the whole URL's
  *    reason to be secret. `maskTarget` keeps it out of every response.
  */
-import { db, q } from "@/lib/db/store";
+import { db, flush, q } from "@/lib/db/store";
 import type { AlertChannel, AlertChannelKind, AlertRule } from "@/lib/domain/types";
+import {
+  putSecret,
+  readSecretValue,
+  removeSecret,
+  secretStoreState,
+} from "@/lib/secrets";
+
+/** Additive fields understood by the alert store; old rows omit secretRef. */
+export type StoredAlertChannel = AlertChannel & { secretRef?: string };
+
+/** Stable, workspace-scoped identity for a channel's signing key. */
+export const alertChannelSecretRef = (channelId: string): string =>
+  `vault:alert-channel/${channelId}/SIGNING_SECRET`;
+
+/** Read a signing key without exposing it to callers that only need metadata. */
+export function channelSecret(channel: AlertChannel): string | undefined {
+  const stored = channel as StoredAlertChannel;
+  if (stored.secretRef) {
+    const value = readSecretValue(channel.workspaceId, stored.secretRef);
+    if (value === undefined)
+      throw new Error("The channel's signing secret is missing from Zenith's secret store; set it again before sending.");
+    return value;
+  }
+  // Compatibility for rows created before channel secrets used the store.
+  return channel.secret;
+}
+
+/** Resolve a Slack URL credential without exposing it to metadata callers. */
+export function channelTarget(channel: AlertChannel): string {
+  const stored = channel as StoredAlertChannel;
+  if (channel.kind === "slack" && stored.secretRef) {
+    const value = readSecretValue(channel.workspaceId, stored.secretRef);
+    if (value === undefined)
+      throw new Error("The channel's Slack webhook URL is missing from Zenith's secret store; set it again before sending.");
+    return value;
+  }
+  return channel.target;
+}
+
+export const channelHasSecret = (channel: AlertChannel): boolean => {
+  const stored = channel as StoredAlertChannel;
+  return channel.kind === "slack" ? !!stored.secretRef || !!channel.target : !!stored.secretRef || !!channel.secret;
+};
+
+/** Store or clear a channel signing key without leaving a plaintext row. */
+export function setChannelSecret(channel: AlertChannel, value: string | undefined, by: string): void {
+  const stored = channel as StoredAlertChannel;
+  const ref = stored.secretRef ?? alertChannelSecretRef(channel.id);
+  if (value) {
+    putSecret(channel.workspaceId, ref, value, by);
+    stored.secretRef = ref;
+  } else if (stored.secretRef) {
+    removeSecret(channel.workspaceId, stored.secretRef);
+    delete stored.secretRef;
+  }
+  delete channel.secret;
+}
+
+/** Store a Slack webhook URL while retaining only its non-secret origin. */
+export function setChannelTargetSecret(channel: AlertChannel, value: string, by: string): void {
+  const stored = channel as StoredAlertChannel;
+  const ref = stored.secretRef ?? alertChannelSecretRef(channel.id);
+  const origin = new URL(value).origin;
+  putSecret(channel.workspaceId, ref, value, by);
+  stored.secretRef = ref;
+  channel.target = origin;
+}
+
+/** Safely migrate legacy plaintext channel keys when encryption is configured. */
+function migrateLegacyChannelSecrets(channels: AlertChannel[]): boolean {
+  if (!secretStoreState().configured) return false;
+  let changed = false;
+  for (const channel of channels) {
+    if ((channel.kind === "slack" ? !channel.target : !channel.secret) || (channel as StoredAlertChannel).secretRef)
+      continue;
+    try {
+      if (channel.kind === "slack") setChannelTargetSecret(channel, channel.target, "system:alert-channel-migration");
+      else setChannelSecret(channel, channel.secret, "system:alert-channel-migration");
+      changed = true;
+    } catch {
+      // Keep the old value if the key/store is unavailable; retry next read.
+    }
+  }
+  return changed;
+}
 
 /**
  * The channel list, backfilled in place. Same trick as `tables()` in ./index:
@@ -27,6 +112,7 @@ import type { AlertChannel, AlertChannelKind, AlertRule } from "@/lib/domain/typ
 export function channelTable(): AlertChannel[] {
   const settings = db().settings as { alertChannels?: AlertChannel[] };
   settings.alertChannels ??= [];
+  if (migrateLegacyChannelSecrets(settings.alertChannels)) flush();
   return settings.alertChannels;
 }
 
@@ -104,7 +190,7 @@ export const publicChannel = (c: AlertChannel): PublicAlertChannel => ({
   kind: c.kind,
   name: c.name,
   target: maskTarget(c.kind, c.target),
-  hasSecret: !!c.secret,
+  hasSecret: channelHasSecret(c),
   enabled: c.enabled,
   createdBy: c.createdBy,
   createdAt: c.createdAt,

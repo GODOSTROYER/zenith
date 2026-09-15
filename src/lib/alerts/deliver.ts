@@ -81,7 +81,15 @@ import {
 import { env, SMTP_FIX } from "@/lib/env";
 import { log } from "@/lib/log";
 import { withTimeout } from "@/lib/timeout";
-import { channelsForRule, channelsOf, findChannel } from "./channels";
+import { channelSecret, channelTarget, channelsForRule, channelsOf, findChannel } from "./channels";
+import {
+  validateWebhookTarget,
+  webhookTargetProblem,
+  WebhookPolicyError,
+  WEBHOOK_RESPONSE_MAX_BYTES,
+} from "./webhook-policy";
+
+export * from "./webhook-policy";
 
 /** Per attempt, not per delivery: three attempts can take 30s in the worst case. */
 export const DELIVERY_TIMEOUT_MS = 10_000;
@@ -289,24 +297,36 @@ class Permanent extends Error {
 const retryable = (status: number) => status === 429 || status >= 500;
 
 async function post(url: string, body: string, headers: Record<string, string>): Promise<number> {
+  const controller = new AbortController();
+  const deadline = setTimeout(() => controller.abort(), DELIVERY_TIMEOUT_MS);
+  (deadline as unknown as { unref?: () => void }).unref?.();
   let res: Response;
   try {
+    await validateWebhookTarget(url, { signal: controller.signal });
     res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...headers },
       body,
-      signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS),
+      redirect: "error",
+      signal: controller.signal,
     });
+    if (res.redirected || (res.status >= 300 && res.status < 400))
+      throw new Permanent("The alert endpoint returned a redirect, which Zenith refuses for safety.");
+    await readBoundedResponse(res, controller.signal);
   } catch (err) {
+    clearTimeout(deadline);
+    if (err instanceof Permanent) throw err;
+    if (err instanceof WebhookPolicyError) throw new Permanent(webhookTargetProblem(err));
     const name = err instanceof Error ? err.name : "";
-    if (name === "TimeoutError" || name === "AbortError")
+    if (name === "TimeoutError" || name === "AbortError" || controller.signal.aborted)
       throw new Error(
         `No response within ${DELIVERY_TIMEOUT_MS / 1000}s. Check that this server can reach the endpoint — a proxy or an egress rule is the usual cause.`
       );
     throw new Error(
-      `Could not reach the endpoint: ${err instanceof Error ? err.message : String(err)}. Check the URL in Settings → Alerts and that this server has outbound network access.`
+      "Could not reach the alert endpoint. Check the URL in Settings → Alerts and that this server has outbound network access."
     );
   }
+  clearTimeout(deadline);
   if (res.ok) return res.status;
 
   const reason =
@@ -319,6 +339,30 @@ async function post(url: string, body: string, headers: Record<string, string>):
   throw new Permanent(reason, res.status);
 }
 
+/** Read and discard receiver output without allowing an unbounded response. */
+async function readBoundedResponse(res: Response, signal: AbortSignal): Promise<void> {
+  if (!res.body) return;
+  const reader = res.body.getReader();
+  const cancel = () => void reader.cancel().catch(() => undefined);
+  signal.addEventListener("abort", cancel, { once: true });
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (signal.aborted) throw new Error("aborted");
+      if (done) return;
+      total += value.byteLength;
+      if (total > WEBHOOK_RESPONSE_MAX_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw new Permanent("The alert endpoint response exceeded the safe size limit.");
+      }
+    }
+  } finally {
+    signal.removeEventListener("abort", cancel);
+    reader.releaseLock();
+  }
+}
+
 /** One attempt at one channel. Returns the HTTP status when there is one. */
 async function attempt(
   channel: AlertChannel,
@@ -329,15 +373,16 @@ async function attempt(
     await sendEmail(channel, msg);
     return undefined;
   }
-  if (channel.kind === "slack") return post(channel.target, JSON.stringify(slackBody(msg)), {});
+  if (channel.kind === "slack") return post(channelTarget(channel), JSON.stringify(slackBody(msg)), {});
   const body = webhookBody(msg);
+  const secret = channelSecret(channel);
   // The signature covers the body, which carries a fresh `sentAt` per attempt;
   // the idempotency key does not change, so it — not the bytes — is what tells
   // a receiver that attempt 2 is the same notification as attempt 1.
   return post(channel.target, body, {
     "X-Zenith-Event": eventName(msg.phase),
     [IDEMPOTENCY_HEADER]: idempotencyKey,
-    ...(channel.secret ? { [SIGNATURE_HEADER]: sign(body, channel.secret) } : {}),
+    ...(secret ? { [SIGNATURE_HEADER]: sign(body, secret) } : {}),
   });
 }
 

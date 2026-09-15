@@ -34,7 +34,10 @@ const {
   idempotencyKeyFor,
   reclaimStale,
   replayOutbox,
+  WEBHOOK_POLICY,
 } = await import("@/lib/alerts");
+
+const productionResolver = WEBHOOK_POLICY.resolveAll;
 
 const { ACTOR: actor, NOW, ago, seedData } = fixtures;
 
@@ -116,9 +119,13 @@ beforeEach(() => {
   const g = globalThis as Record<string, unknown>;
   delete g.__zenithDeliveryInFlight;
   delete g.__zenithDeliveryScheduled;
+  WEBHOOK_POLICY.resolveAll = async () => ["93.184.216.34"];
   seed("degrade");
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  WEBHOOK_POLICY.resolveAll = productionResolver;
+  vi.unstubAllGlobals();
+});
 
 /* --------------------------------- intent --------------------------------- */
 

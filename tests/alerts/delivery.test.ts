@@ -9,6 +9,7 @@
  * result with a reason, never a silent drop.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import crypto from "node:crypto";
 import { createHmac } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -17,10 +18,11 @@ import type { AlertChannel } from "@/lib/domain/types";
 import * as fixtures from "./_fixtures";
 
 process.env.ZENITH_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-delivery-"));
+process.env.ZENITH_SECRET_KEY = crypto.randomBytes(32).toString("base64");
 // Collapses the delivery backoff, the same knob that collapses step durations.
 process.env.ZENITH_FAST = "1";
 
-const { db, resetDb } = await import("@/lib/db/store");
+const { db, readAudit, resetDb } = await import("@/lib/db/store");
 const {
   DELIVERY_ATTEMPTS,
   MISSING_NODEMAILER,
@@ -35,14 +37,19 @@ const {
   publicChannels,
   sign,
   slackBody,
+  WEBHOOK_POLICY,
+  WEBHOOK_RESPONSE_MAX_BYTES,
+  validateWebhookTarget,
   webhookBody,
 } = await import("@/lib/alerts");
+const { readSecretValue } = await import("@/lib/secrets");
 const { runAction } = await import("@/lib/actions/core");
 const { registerAllActions } = await import("@/lib/actions/defs");
 
 registerAllActions();
 
 const { NOW, ago, seedData } = fixtures;
+const productionResolver = WEBHOOK_POLICY.resolveAll;
 
 const ctx = {
   workspaceId: "ws1",
@@ -94,11 +101,15 @@ function stubFetch(statuses: (number | Error)[]) {
 
 beforeEach(() => {
   seed();
+  WEBHOOK_POLICY.resolveAll = async () => ["93.184.216.34"];
   NODEMAILER.spec = "nodemailer";
   delete process.env.ZENITH_SMTP_URL;
   delete process.env.ZENITH_ALERT_FROM;
 });
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  WEBHOOK_POLICY.resolveAll = productionResolver;
+  vi.unstubAllGlobals();
+});
 
 /* -------------------------------- payloads -------------------------------- */
 
@@ -206,6 +217,57 @@ describe("retry, backoff and timeout", () => {
   });
 });
 
+describe("webhook egress policy", () => {
+  it.each([
+    "http://example.test/hooks",
+    "https://localhost/hooks",
+    "https://127.0.0.1/hooks",
+    "https://10.0.0.8/hooks",
+    "https://169.254.169.254/latest/meta-data",
+    "https://[::1]/hooks",
+  ])("rejects prohibited destination %s before fetch", async (target) => {
+    await expect(validateWebhookTarget(target)).rejects.toThrow(/not allowed|restricted|https:\/\//i);
+  });
+
+  it("rejects a DNS answer when any address is private", async () => {
+    await expect(
+      validateWebhookTarget("https://dual-stack.example.test/hooks", {
+        resolveAll: async () => ["93.184.216.34", "192.168.1.20"],
+      })
+    ).rejects.toThrow(/restricted network destination/i);
+  });
+
+  it("refuses redirects and passes redirect:error to fetch", async () => {
+    const calls = stubFetch([302]);
+    const result = await deliverToChannel(channel(), msg);
+    expect(calls).toHaveLength(1);
+    expect((calls[0].init as RequestInit).redirect).toBe("error");
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("redirect");
+  });
+
+  it("stops reading an oversized response", async () => {
+    const calls: RequestInit[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        calls.push(init);
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.enqueue(new Uint8Array(WEBHOOK_RESPONSE_MAX_BYTES + 1));
+            controller.close();
+          },
+        });
+        return new Response(body, { status: 200 });
+      })
+    );
+    const result = await deliverToChannel(channel(), msg);
+    expect(calls).toHaveLength(1);
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("safe size limit");
+  });
+});
+
 /* -------------------------------- selection -------------------------------- */
 
 describe("which channels a rule uses", () => {
@@ -245,6 +307,38 @@ describe("which channels a rule uses", () => {
     expect(maskTarget("slack", "https://hooks.slack.com/services/T/B/xyz")).toBe(
       "https://hooks.slack.com/…"
     );
+  });
+
+  it("migrates a legacy plaintext signing key to an encrypted reference", () => {
+    const legacy = fixtures.channelData({ id: "legacy", secret: "legacy-key" });
+    (db().settings as { alertChannels?: AlertChannel[] }).alertChannels = [legacy];
+
+    expect(channelTable()).toHaveLength(1);
+    const stored = channelTable()[0] as AlertChannel & { secretRef?: string };
+    expect(stored.secret).toBeUndefined();
+    expect(stored.secretRef).toBe("vault:alert-channel/legacy/SIGNING_SECRET");
+    expect(readSecretValue("ws1", stored.secretRef!)).toBe("legacy-key");
+  });
+
+  it("stores a Slack webhook URL as an encrypted credential", async () => {
+    const target = "https://hooks.slack.com/services/T/B/secret-token";
+    const result = await runAction(
+      "alerts.createChannel",
+      ctx,
+      { kind: "slack", name: "deploys", target },
+      { mode: "execute" }
+    );
+    const channelId = (result.result?.data as { channelId: string }).channelId;
+    const stored = channelTable().find((c) => c.id === channelId) as AlertChannel & { secretRef?: string };
+    expect(stored.target).toBe("https://hooks.slack.com");
+    expect(stored.secretRef).toBe(`vault:alert-channel/${channelId}/SIGNING_SECRET`);
+    expect(JSON.stringify(stored)).not.toContain("secret-token");
+    expect(readSecretValue("ws1", stored.secretRef!)).toBe(target);
+    const calls = stubFetch([200]);
+    expect((await deliverToChannel(stored, msg)).ok).toBe(true);
+    expect(calls[0].url).toBe(target);
+    const audit = readAudit({ workspaceId: "ws1" }).find((row) => row.actionId === "alerts.createChannel");
+    expect(JSON.stringify(audit)).not.toContain("secret-token");
   });
 });
 
@@ -354,7 +448,7 @@ describe("channel actions", () => {
     expect(plan!.blocked).toBeUndefined();
     expect(details).toContain("https://example.test/…"); // masked, even in the plan
     expect(details).toContain("X-Zenith-Signature");
-    expect(details).toContain("plain text in this server's state file");
+    expect(details).toContain("encrypted in Zenith's secret store");
     expect(calls).toHaveLength(0); // planning sends nothing
 
     const created = await runAction(
@@ -370,6 +464,10 @@ describe("channel actions", () => {
     );
     expect(created.result?.ok).toBe(true);
     const channelId = (created.result?.data as { channelId: string }).channelId;
+    const stored = channelTable().find((c) => c.id === channelId) as AlertChannel & { secretRef?: string };
+    expect(stored.secret).toBeUndefined();
+    expect(stored.secretRef).toBe(`vault:alert-channel/${channelId}/SIGNING_SECRET`);
+    expect(readSecretValue("ws1", stored.secretRef!)).toBe("hunter2");
 
     // The same target twice would deliver every alert twice.
     const dup = await runAction(

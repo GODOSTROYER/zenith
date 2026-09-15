@@ -102,7 +102,7 @@ export class RecipeLocalRunner implements BuildRunner {
       return {
         available: false,
         reason: `ZENITH_BUILD_RUNNER is "${selected}", so building on the control host is not permitted.`,
-        fix: "Set ZENITH_BUILD_RUNNER=recipe-local to accept a same-host process boundary, or choose an isolated runner: ZENITH_BUILD_RUNNER=e2b (needs E2B_API_KEY) or ZENITH_BUILD_RUNNER=docker (needs a running daemon and the zenith-recipe:v1 image).",
+        fix: "Set ZENITH_BUILD_RUNNER=recipe-local to accept a same-host process boundary, or choose an isolated runner: ZENITH_BUILD_RUNNER=e2b (needs E2B_API_KEY) or ZENITH_BUILD_RUNNER=docker (needs a running daemon and ZENITH_RECIPE_IMAGE set to the recipe image's digest).",
       };
     if (!fs.existsSync(this.workerPath))
       return {

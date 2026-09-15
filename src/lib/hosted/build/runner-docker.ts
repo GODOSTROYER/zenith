@@ -5,8 +5,10 @@
  * provider account: no network (`--network none`), a memory cap, one CPU, a
  * pid limit, a read-only root filesystem with only `/tmp` writable, the source
  * mounted read-only at `/src` and one writable mount at `/out`. The image
- * (`docker/recipe/Dockerfile`) already holds the pinned toolchain, so nothing
- * is installed at build time and nothing from the submission is ever run.
+ * (`docker/recipe/Dockerfile`) already holds the pinned toolchain — installed
+ * frozen and script-free from a committed lockfile — so nothing is installed at
+ * build time and nothing from the submission is ever run. The image itself is
+ * named by digest (`ZENITH_RECIPE_IMAGE`), never by tag.
  *
  * `spawn` is injectable so the exact argument vector — the part that carries
  * the isolation — is asserted by a test without a daemon.
@@ -26,8 +28,53 @@ import { log } from "@/lib/log";
 import type { RecipeWorkerResult } from "./recipe";
 import { LogSink, buildResult } from "./runner-support";
 
-/** The image `docker/recipe/Dockerfile` produces. Tagged, never `latest`. */
-export const RECIPE_IMAGE = "zenith-recipe:v1";
+/**
+ * Where the image reference comes from. There is no default and no tag.
+ *
+ * A tag is a mutable pointer: `zenith-recipe:v1` can be repointed at any image
+ * at any time, so a tag says nothing about which bytes the build actually runs
+ * in — the isolation reviewed in `docker/recipe/Dockerfile` and the container
+ * that starts would be two different things, with nothing to notice the gap.
+ * This is the same reason `ZENITH_E2B_TEMPLATE` refuses tags and aliases
+ * (`src/lib/hosted/config.ts`), and it is refused here the same way: the runner
+ * is unavailable, naming the variable and the command that prints the value.
+ *
+ * Proposed for `src/lib/hosted/config.ts` (not this packet's file to edit), so
+ * it is read from `process.env` here and validated in one exported function.
+ */
+export const RECIPE_IMAGE_ENV = "ZENITH_RECIPE_IMAGE";
+
+/** `docker image inspect --format '{{.Id}}' <tag>` — a local image ID. */
+const IMAGE_ID = /^sha256:[0-9a-f]{64}$/;
+/** `{{index .RepoDigests 0}}` — a pushed image's digest reference. */
+const DIGEST_REF =
+  /^[a-z0-9]+(?:[._-][a-z0-9]+)*(?::[0-9]{1,5})?(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*@sha256:[0-9a-f]{64}$/;
+
+const BUILD_IT = `docker build -t zenith-recipe:build -f docker/recipe/Dockerfile . && docker image inspect --format '{{.Id}}' zenith-recipe:build`;
+
+/** Either an immutable image reference, or the reason it was refused. */
+export type RecipeImage = { ok: true; image: string } | { ok: false; reason: string; fix: string };
+
+/**
+ * Validate an image reference. Accepts an image ID (`sha256:<64 hex>`) or a
+ * digest reference (`name@sha256:<64 hex>`); refuses everything else, tags
+ * included, rather than falling back to one.
+ */
+export function resolveRecipeImage(raw: string | undefined = process.env[RECIPE_IMAGE_ENV]): RecipeImage {
+  const value = (raw ?? "").trim();
+  if (value === "")
+    return {
+      ok: false,
+      reason: `${RECIPE_IMAGE_ENV} is not set, so the runner has no immutable image to start the build in.`,
+      fix: `Build the recipe image and read its digest with: ${BUILD_IT} — then set ${RECIPE_IMAGE_ENV} to the sha256:<64 hex> value it prints.`,
+    };
+  if (IMAGE_ID.test(value) || DIGEST_REF.test(value)) return { ok: true, image: value };
+  return {
+    ok: false,
+    reason: `${RECIPE_IMAGE_ENV}="${value}" is not a digest. A tag can be repointed at a different image after it was reviewed, so it cannot stand for the build boundary.`,
+    fix: `Set ${RECIPE_IMAGE_ENV} to an image ID (sha256: followed by 64 lowercase hexadecimal characters) or a digest reference (name@sha256:...). ${BUILD_IT} prints the first; docker image inspect --format '{{index .RepoDigests 0}}' <tag> prints the second for a pushed image.`,
+  };
+}
 
 /** Paths inside the container. Fixed, so the image entrypoint needs no arguments. */
 export const CONTAINER_SOURCE = "/src";
@@ -43,7 +90,7 @@ export type SpawnFn = (command: string, args: readonly string[], options: SpawnO
  * `--network none` and the build can reach the internet, drop `:ro` and it can
  * rewrite the source it was given.
  */
-export function dockerRunArgs(input: { memoryMb: number; root: string; out: string; image?: string }): string[] {
+export function dockerRunArgs(input: { memoryMb: number; root: string; out: string; image: string }): string[] {
   return [
     "run",
     "--rm",
@@ -62,12 +109,13 @@ export function dockerRunArgs(input: { memoryMb: number; root: string; out: stri
     `${input.root}:${CONTAINER_SOURCE}:ro`,
     "-v",
     `${input.out}:${CONTAINER_OUT}`,
-    input.image ?? RECIPE_IMAGE,
+    input.image,
   ];
 }
 
 export interface DockerOptions {
   spawn?: SpawnFn;
+  /** overrides `ZENITH_RECIPE_IMAGE`; validated the same way, tags included */
   image?: string;
   /** the `docker` executable, for a host that installs it under another name */
   docker?: string;
@@ -139,16 +187,22 @@ export class DockerRunner implements BuildRunner {
   readonly id: BuildRunnerId = "docker";
   readonly label = "Platform recipe in a throwaway container";
   readonly boundary =
-    "Runs the platform's Vite recipe in a throwaway container with no network, a read-only root filesystem, a memory and pid cap, the source mounted read-only and one writable output mount. No submitted script or config is executed. Container isolation is the Docker daemon's, and no container has been run from this repository.";
+    "Runs the platform's Vite recipe in a throwaway container started from a digest-pinned image, with no network, a read-only root filesystem, a memory and pid cap, the source mounted read-only and one writable output mount. No submitted script or config is executed. Container isolation is the Docker daemon's, and no container has been run from this repository.";
 
   private readonly spawnFn: SpawnFn;
-  private readonly image: string;
+  /** what the constructor was given, if anything; `undefined` means read the env */
+  private readonly imageOverride: string | undefined;
   private readonly docker: string;
 
   constructor(options: DockerOptions = {}) {
     this.spawnFn = options.spawn ?? (nodeSpawn as SpawnFn);
-    this.image = options.image ?? RECIPE_IMAGE;
+    this.imageOverride = options.image;
     this.docker = options.docker ?? "docker";
+  }
+
+  /** Resolved per call, not per construction: the env may be set after boot. */
+  private recipeImage(): RecipeImage {
+    return resolveRecipeImage(this.imageOverride ?? process.env[RECIPE_IMAGE_ENV]);
   }
 
   async availability(): Promise<Availability> {
@@ -159,6 +213,10 @@ export class DockerRunner implements BuildRunner {
         reason: `ZENITH_BUILD_RUNNER is "${selected}", so builds are not sent to a container.`,
         fix: "Set ZENITH_BUILD_RUNNER=docker to build in a throwaway container.",
       };
+    // Before the daemon, because it is deterministic and it is the difference
+    // between "a container" and "the container that was reviewed".
+    const pinned = this.recipeImage();
+    if (!pinned.ok) return { available: false, reason: pinned.reason, fix: pinned.fix };
     const info = await capture(this.spawnFn, this.docker, ["info", "--format", "{{.ServerVersion}}"], 2000);
     if (info.error || info.code !== 0)
       return {
@@ -166,12 +224,12 @@ export class DockerRunner implements BuildRunner {
         reason: "The Docker daemon did not answer `docker info` within 2 seconds.",
         fix: "Start Docker Desktop or the docker service on this host, then try the build again.",
       };
-    const image = await capture(this.spawnFn, this.docker, ["image", "inspect", this.image], 5000);
+    const image = await capture(this.spawnFn, this.docker, ["image", "inspect", pinned.image], 5000);
     if (image.error || image.code !== 0)
       return {
         available: false,
-        reason: `The build image ${this.image} is not present on this host.`,
-        fix: `Build it once with: docker build -t ${this.image} -f docker/recipe/Dockerfile .`,
+        reason: `The pinned build image ${pinned.image} is not present on this host.`,
+        fix: `Build it once with: ${BUILD_IT} — and check the digest it prints is the one in ${RECIPE_IMAGE_ENV}.`,
       };
     return { available: true };
   }
@@ -185,6 +243,12 @@ export class DockerRunner implements BuildRunner {
     const availability = await this.availability();
     if (!availability.available)
       return done({ ok: false, error: `${availability.reason} ${availability.fix ?? ""}`.trim() });
+
+    // Resolved again rather than carried over from `availability()`: the run
+    // must never start a container from anything but a validated digest, and
+    // that has to be true at the point the argv is built, not earlier.
+    const pinned = this.recipeImage();
+    if (!pinned.ok) return done({ ok: false, error: `${pinned.reason} ${pinned.fix}` });
 
     const tmp = fs.realpathSync(os.tmpdir());
     const mount = fs.mkdtempSync(path.join(tmp, "zenith-out-"));
@@ -206,7 +270,7 @@ export class DockerRunner implements BuildRunner {
         })
       );
 
-      const args = dockerRunArgs({ memoryMb: req.limits.memoryMb, root, out: mount, image: this.image });
+      const args = dockerRunArgs({ memoryMb: req.limits.memoryMb, root, out: mount, image: pinned.image });
       note("info", `${this.docker} ${args.join(" ")}`);
       const result = await capture(this.spawnFn, this.docker, args, req.limits.timeoutMs, { onLine: note, signal });
 

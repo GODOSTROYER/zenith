@@ -53,9 +53,11 @@ export {
   CONTAINER_OUT,
   CONTAINER_SOURCE,
   DockerRunner,
-  RECIPE_IMAGE,
+  RECIPE_IMAGE_ENV,
   dockerRunArgs,
+  resolveRecipeImage,
   type DockerOptions,
+  type RecipeImage,
   type SpawnFn,
 } from "./runner-docker";
 export { NO_RUNNER_REASON, buildRunnerStatus, buildRunners, selectedBuildRunner } from "./registry";

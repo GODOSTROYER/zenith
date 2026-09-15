@@ -88,9 +88,12 @@ const PAGE = {
   expiry: /expir|days/i,
   // The primary control says what it does ("Approve and issue a credential");
   // match the leading verb, not an exact label, so copy can stay descriptive.
-  approve: /^approve/i,
-  deny: /^deny/i,
-  approved: /you can go back to your terminal/i,
+  // Anchor on whitespace-or-end rather than ``: the word-boundary escape is
+  // lost when Playwright serialises a role-name regex into its selector, so
+  // `/^approve/i` silently matches nothing.
+  approve: /^approve(?:\s|$)/i,
+  deny: /^deny(?:\s|$)/i,
+  approved: /return to your terminal|you can go back to your terminal/i,
 } as const;
 
 /** The six scopes, and what the screen must do with each by default. */
@@ -286,6 +289,11 @@ async function main(): Promise<number> {
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   let browserName = "";
   const candidates: Array<{ name: string; options: Parameters<typeof chromium.launch>[0] }> = [
+    // An explicit executable first, for hosts with no system browser (a WSL
+    // checkout with a downloaded Chromium build, for example).
+    ...(process.env.ZENITH_BROWSER_EXECUTABLE && fs.existsSync(process.env.ZENITH_BROWSER_EXECUTABLE)
+      ? [{ name: process.env.ZENITH_BROWSER_EXECUTABLE, options: { executablePath: process.env.ZENITH_BROWSER_EXECUTABLE } }]
+      : []),
     { name: "chrome", options: { channel: "chrome" } },
     { name: "msedge", options: { channel: "msedge" } },
     ...["/usr/bin/chromium-browser", "/snap/bin/chromium", "/usr/bin/chromium"]
@@ -500,26 +508,6 @@ async function main(): Promise<number> {
         /* --- approve, and the terminal comes back to life --- */
 
         const approveControl = page.getByRole("button", { name: PAGE.approve }).first();
-        if ((await approveControl.count()) === 0) {
-          // Explain why the role query sees nothing when the DOM has the element.
-          const why = await page.evaluate(() => {
-            const el = Array.from(document.querySelectorAll("button")).find((b) =>
-              /^approve/i.test((b.textContent ?? "").trim())
-            );
-            if (!el) return "no <button> whose text starts with Approve";
-            const chain: string[] = [];
-            for (let n: Element | null = el; n; n = n.parentElement) {
-              const flags = ["aria-hidden", "inert", "hidden", "aria-modal", "role"]
-                .filter((a) => n!.hasAttribute(a))
-                .map((a) => `${a}=${n!.getAttribute(a)}`);
-              if (flags.length) chain.push(`${n.tagName.toLowerCase()}[${flags.join(" ")}]`);
-            }
-            const style = getComputedStyle(el);
-            return `found; ancestors with a11y flags: ${chain.join(" > ") || "none"}; display=${style.display} visibility=${style.visibility} opacity=${style.opacity}; disabled=${(el as HTMLButtonElement).disabled}`;
-          });
-          const snapshot = await page.locator("main").ariaSnapshot().catch(() => "(no aria snapshot)");
-          record(label, "the approve control is exposed to assistive technology", false, `${why}; main aria snapshot tail: ${JSON.stringify(snapshot.slice(-900))}`);
-        }
         await approveControl.click();
         const done = await page
           .waitForFunction(

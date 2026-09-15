@@ -107,29 +107,41 @@ async function gated<T>(work: () => Promise<T>): Promise<T> {
 }
 
 /**
- * Every invitation on an app, newest first.
+ * Every invitation on an app, newest first — and nothing else. A GET is a read.
  *
- * Sweeps overdue invitations to `expired` first, so the list the owner reads
- * says what is true and an invitation that has run out stops holding its
- * address's pending slot. Best effort: a sweep that fails must not make the
- * list unreadable, and the next write path sweeps again anyway.
+ * An invitation past its deadline is *reported* as expired here, computed from
+ * the row rather than written back to it: "what the owner sees is true" is a
+ * property of the answer, not a reason for a list to mutate the database. The
+ * durable `pending → expired` transition belongs to the write paths that need
+ * it — `issueInvite` sweeps inside its own transaction before the supersede,
+ * `acceptInvite` records the one it touched, and `expireOverdueInvites` is the
+ * gated maintenance pass — so no read has to take the mutation gate, and an
+ * authority connection that refuses writes still serves the list truthfully
+ * instead of logging a swallowed warning per call.
  */
 export async function listInvites(appId: string): Promise<AppInvite[]> {
-  await sweepExpired(appId);
-  return authority().repos.invites.listByApp(appId);
+  const at = nowIso();
+  const invites = await authority().repos.invites.listByApp(appId);
+  return invites.map((invite) =>
+    invite.state === "pending" && invite.expiresAt <= at
+      ? { ...invite, state: "expired" as const }
+      : invite
+  );
 }
 
 /**
- * Move this app's overdue invitations to `expired`. Bounded by the repository's
- * own sweep limit, so one call is one bounded statement.
+ * Record this app's overdue invitations as `expired`: the durable half of what
+ * `listInvites` only projects.
+ *
+ * One bounded statement (the repository's own sweep limit, `for update skip
+ * locked` on Postgres), inside the mutation gate like every other write in this
+ * file. An operator or a maintenance tick can call it to free pending slots
+ * without waiting for the next invitation; nothing depends on it having run,
+ * because the paths where an expired row would otherwise be load-bearing sweep
+ * for themselves.
  */
-async function sweepExpired(appId: string): Promise<number> {
-  try {
-    return await authority().tx((repos) => repos.invites.expireOverdue(nowIso(), { appId }));
-  } catch (err) {
-    log.warn("hosted invitation expiry sweep failed", { scope: "hosted.access", appId, error: err });
-    return 0;
-  }
+export async function expireOverdueInvites(appId: string): Promise<number> {
+  return gated(() => authority().tx((repos) => repos.invites.expireOverdue(nowIso(), { appId })));
 }
 
 /** The control-origin URL a recipient opens. The token travels only here and in the email. */

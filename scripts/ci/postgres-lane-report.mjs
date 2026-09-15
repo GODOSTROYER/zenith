@@ -58,6 +58,18 @@ const INTENDED = [
     match: (fullName) => fullName.includes("against the real Supabase project"),
     why: "The one-shot hosted migration, run for real: order, idempotence, and the three type conversions.",
   },
+  {
+    id: "agent-link-pg-contract",
+    label: "tests/agent-link/pg-contract.test.ts (agent.agent_credentials, agent_link_codes, agent_rate_limits)",
+    match: (fullName) => /^'?AgentLinkPostgres'?(?:\s|$)/.test(fullName),
+    why: "The credential lifetime, the single-use device-code exchange, and the durable rate-limit window, against the real agent schema (supabase/migrations/0006_agent_link.sql).",
+  },
+  {
+    id: "agent-control-pg-contract",
+    label: "tests/agent-control/pg-contract.test.ts (agent.agent_operations)",
+    match: (fullName) => /^'?AgentControlPostgres'?(?:\s|$)/.test(fullName),
+    why: "The claim, the fence, the lease and the reconciliation, raced from two independent connections (supabase/migrations/0007_agent_control.sql).",
+  },
 ];
 
 /**

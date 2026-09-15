@@ -339,11 +339,30 @@ export class PgCredentialAuthority implements CredentialAuthority {
     // Approved. Single use, and the secret is destroyed by the same statement
     // that consumes the row — a concurrent second poller updates zero rows and
     // is told the code expired, never handed a second copy.
+    //
+    // `RETURNING` reports the row **after** the update, so a plain
+    // `UPDATE … SET secret_ct = null … RETURNING secret_ct` hands back `null`
+    // and there is no token to give the agent. (LINK-PROTOCOL §3.3's comment
+    // claims otherwise; it is wrong about Postgres, and the CI `postgres` lane
+    // is where that was finally observed.) The pre-update value has to be read
+    // by something that is not the UPDATE's own target list, so it is read by a
+    // sub-select in `FROM` — and that sub-select takes `FOR UPDATE`, which is
+    // what keeps the single-use property: a second poller blocks on the row
+    // lock, re-evaluates its `state = 'approved'` predicate against the
+    // committed row, finds `consumed`, matches nothing and returns no rows.
+    // `t.state = 'approved'` repeats the guard on the target so the same
+    // re-check also happens for the UPDATE itself.
     const consumed = (await sql`
-      update agent.agent_link_codes
+      update agent.agent_link_codes as t
          set state = 'consumed', secret_ct = null
-       where device_code_hash = ${deviceCodeHash} and state = 'approved' and expires_at > ${nowIso}
-      returning credential_id, secret_ct
+        from (
+          select device_code_hash, credential_id, secret_ct
+            from agent.agent_link_codes
+           where device_code_hash = ${deviceCodeHash} and state = 'approved' and expires_at > ${nowIso}
+           for update
+        ) prev
+       where t.device_code_hash = prev.device_code_hash and t.state = 'approved'
+      returning prev.credential_id as credential_id, prev.secret_ct as secret_ct
     `) as unknown as { credential_id: string | null; secret_ct: Uint8Array | null }[];
     const claimed = consumed[0];
     if (!claimed?.secret_ct || !claimed.credential_id) return { status: "expired" };

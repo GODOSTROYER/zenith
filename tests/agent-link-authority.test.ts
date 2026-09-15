@@ -441,6 +441,21 @@ describe("postgres credential authority (statement shape; live behaviour is P5's
     const consume = calls.find((call) => call.text.includes("set state = 'consumed'"))!;
     expect(consume.text).toContain("secret_ct = null");
     expect(consume.text).toContain("state = 'approved'");
+    // And it still hands the secret back, which a plain `UPDATE … RETURNING
+    // secret_ct` cannot: RETURNING reports the row *after* the SET, so that
+    // form answers `null` and the agent is handed nothing. The pre-update value
+    // comes from a sub-select in FROM instead — taken `for update`, which is
+    // what keeps the single-use property when two pollers arrive together.
+    // (LINK-PROTOCOL §3.3 writes the plain form and claims otherwise; the CI
+    // `postgres` lane is where that was caught.)
+    expect(consume.text).toContain("from (");
+    expect(consume.text).toContain("for update");
+    expect(consume.text).toContain(
+      "returning prev.credential_id as credential_id, prev.secret_ct as secret_ct"
+    );
+    expect(consume.text, "never the post-update columns").not.toMatch(
+      /returning\s+credential_id\s*,\s*secret_ct/
+    );
   });
 
   it("drops the subject predicate only for an admin", async () => {

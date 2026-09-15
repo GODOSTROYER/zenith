@@ -19,10 +19,10 @@
  *    `packages/client/control.ts` in the plugins repo), so nothing about it may
  *    change.
  */
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { AgentError } from "../security";
 import { decodeSecretKey, env } from "@/lib/env";
-import { secretStoreState } from "@/lib/secrets";
+import { seal, secretStoreState, unseal } from "@/lib/secrets";
 
 /** The integer both ends hard-code. Bumping it is a protocol change. */
 export const LINK_PROTOCOL_VERSION = 1;
@@ -184,10 +184,11 @@ export function clientAddress(request: Request): string {
  * The issued token, encrypted, for the at-most-ten-minutes between approval and
  * the poll that consumes it.
  *
- * AES-256-GCM under `ZENITH_SECRET_KEY`, the same key and the same construction
- * `src/lib/secrets/index.ts` uses for application secrets, with the code's own
- * hash as additional authenticated data so a row copied onto another code fails
- * to open rather than handing back the wrong token. Layout is
+ * AES-256-GCM under `ZENITH_SECRET_KEY` — literally `seal()` from
+ * `src/lib/secrets/index.ts`, which owns all of Zenith's secret crypto, with
+ * the code's own hash as the second half of the additional authenticated data
+ * so a row copied onto another code fails to open rather than handing back the
+ * wrong token. The stored bytes are unchanged by the move. Layout is
  * `iv(12) ‖ tag(16) ‖ ciphertext`, one buffer, because the column is one
  * `bytea` and the file store holds one base64 string.
  *
@@ -196,24 +197,26 @@ export function clientAddress(request: Request): string {
  * applies to every application secret (ADR D-9).
  */
 export function sealLinkSecret(userCodeHash: string, token: string): Buffer {
-  const key = linkKey();
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", key, iv);
-  cipher.setAAD(Buffer.from(`agent-link ${userCodeHash}`, "utf8"));
-  const ciphertext = Buffer.concat([cipher.update(token, "utf8"), cipher.final()]);
-  return Buffer.concat([iv, cipher.getAuthTag(), ciphertext]);
+  requireLinkKey();
+  const sealed = seal(LINK_AAD, userCodeHash, token);
+  return Buffer.concat([
+    Buffer.from(sealed.iv, "base64"),
+    Buffer.from(sealed.authTag, "base64"),
+    Buffer.from(sealed.ciphertext, "base64"),
+  ]);
 }
 
 /** The inverse. A sealed value that will not open is a failed exchange, not a token. */
 export function openLinkSecret(userCodeHash: string, sealed: Uint8Array): string {
-  const key = linkKey();
+  requireLinkKey();
   const bytes = Buffer.from(sealed.buffer, sealed.byteOffset, sealed.byteLength);
   if (bytes.length < 12 + 16 + 1) throw linkUnavailable();
   try {
-    const decipher = createDecipheriv("aes-256-gcm", key, bytes.subarray(0, 12));
-    decipher.setAAD(Buffer.from(`agent-link ${userCodeHash}`, "utf8"));
-    decipher.setAuthTag(bytes.subarray(12, 28));
-    return Buffer.concat([decipher.update(bytes.subarray(28)), decipher.final()]).toString("utf8");
+    return unseal(LINK_AAD, userCodeHash, {
+      iv: bytes.subarray(0, 12).toString("base64"),
+      authTag: bytes.subarray(12, 28).toString("base64"),
+      ciphertext: bytes.subarray(28).toString("base64"),
+    });
   } catch {
     throw new AgentError(
       "link_unavailable",
@@ -223,11 +226,24 @@ export function openLinkSecret(userCodeHash: string, sealed: Uint8Array): string
   }
 }
 
-function linkKey(): Buffer {
+/**
+ * The first half of the AAD pair. `secrets/index.ts` joins its two labels with
+ * a space, so this produces exactly `agent-link <userCodeHash>` — the byte for
+ * byte AAD this module has always used, which is what lets the seal move into
+ * that file without any stored value changing.
+ */
+const LINK_AAD = "agent-link";
+
+/**
+ * Refuse before sealing, in this module's own words.
+ *
+ * `seal`/`unseal` throw a store-shaped `Error` when the key is missing or
+ * malformed, and a terminal waiting on `zenith login` deserves the link
+ * surface's 503 with the variable named instead.
+ */
+function requireLinkKey(): void {
   const raw = env().ZENITH_SECRET_KEY;
-  const key = raw ? decodeSecretKey(raw) : undefined;
-  if (!key) throw linkUnavailable();
-  return key;
+  if (!raw || !decodeSecretKey(raw)) throw linkUnavailable();
 }
 
 function linkUnavailable(): AgentError {

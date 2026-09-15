@@ -10,7 +10,7 @@
  * failure looks like an authentication bug rather than a minting bug.
  */
 import { describe, expect, it } from "vitest";
-import { createHash } from "node:crypto";
+import { createCipheriv, createHash, randomBytes } from "node:crypto";
 
 process.env.ZENITH_SECRET_KEY ??= Buffer.alloc(32, 7).toString("base64");
 
@@ -133,6 +133,28 @@ describe("the seal over the issued token", () => {
 
   it("refuses short or truncated ciphertext instead of guessing", () => {
     expect(() => openLinkSecret(hashUserCode("AAAA2222"), Buffer.alloc(4))).toThrow(/ZENITH_SECRET_KEY/);
+  });
+
+  /**
+   * The seal moved into `src/lib/secrets/index.ts`, which owns Zenith's secret
+   * crypto. It must not have moved the bytes: a value sealed by the version
+   * that wrote its own AES-256-GCM here has to open unchanged, because rows
+   * written before the refactor are sitting in `agent.agent_link_codes` and in
+   * `link-codes.json` right now.
+   */
+  it("opens a value sealed by the AES-256-GCM this module used to write itself", () => {
+    const key = Buffer.from(process.env.ZENITH_SECRET_KEY!, "base64");
+    const hash = hashUserCode("AAAA2222");
+    const token = mintToken();
+    const iv = randomBytes(12);
+    const cipher = createCipheriv("aes-256-gcm", key, iv);
+    cipher.setAAD(Buffer.from(`agent-link ${hash}`, "utf8"));
+    const ciphertext = Buffer.concat([cipher.update(token, "utf8"), cipher.final()]);
+    const legacy = Buffer.concat([iv, cipher.getAuthTag(), ciphertext]);
+
+    expect(openLinkSecret(hash, legacy)).toBe(token);
+    // iv(12) ‖ tag(16) ‖ ciphertext, still one buffer of the same length.
+    expect(sealLinkSecret(hash, token)).toHaveLength(legacy.length);
   });
 
   it("has nowhere to put a secret when no key is configured", () => {

@@ -86,8 +86,10 @@ const PAGE = {
   workspacePicker: /workspace/i,
   projectSelect: /project/i,
   expiry: /expir|days/i,
-  approve: /^approve$/i,
-  deny: /^deny$/i,
+  // The primary control says what it does ("Approve and issue a credential");
+  // match the leading verb, not an exact label, so copy can stay descriptive.
+  approve: /^approve/i,
+  deny: /^deny/i,
   approved: /you can go back to your terminal/i,
 } as const;
 

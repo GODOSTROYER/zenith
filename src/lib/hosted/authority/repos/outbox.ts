@@ -11,6 +11,12 @@
  * that retries — a replayed request, a resumed job phase — writes one row, not
  * two. The key is the receiver's dedupe handle as well, which is what makes
  * "at least once delivery" safe to build on.
+ *
+ * A claim is *fenced*: `claimPending` hands back the row with the `attempts`
+ * value its own statement wrote, and `settle`, `release` and `renew` are all
+ * conditional on it. A worker that stalled past its lease and was reclaimed
+ * gets `false` instead of overwriting the new owner's work — the same rule
+ * `hosted_jobs` keeps with its `fence_token` column. See `outboxFence`.
  */
 import type { DatabaseSync } from "node:sqlite";
 import type { HostedOutboxEntry, OutboxState } from "@/lib/hosted/contracts";
@@ -49,6 +55,16 @@ export interface EnqueueResult {
 
 /** What a settled entry records. */
 export interface OutboxSettlement {
+  /**
+   * The claim being settled: `attempts` as `claimPending` returned it.
+   *
+   * This is the fence token. `attempts` is incremented by the claim itself and
+   * never decremented, so it names one claim of one row for as long as that row
+   * exists, and a worker holding an older value is provably not the owner. See
+   * `outboxFence` below for why an existing column is the token rather than a
+   * new one.
+   */
+  fence: number;
   error?: string;
   /**
    * Retries the drainer made *inside* this claim, beyond the one the claim
@@ -59,6 +75,25 @@ export interface OutboxSettlement {
   extraAttempts?: number;
   now?: string;
 }
+
+/**
+ * The fence token for a claimed row.
+ *
+ * `hosted_jobs` carries an explicit `fence_token` column and conditions every
+ * `advance`/`finish`/`fail` on it (`repos/jobs.ts`). The outbox had nothing:
+ * `settle` and `release` were guarded on `state = 'sending'` alone, so a worker
+ * that stalled past its lease, was reclaimed, and then woke up would settle the
+ * row *the new owner was actively sending* — losing the new owner's attempt
+ * count and, if its send had failed, the failure itself.
+ *
+ * `attempts` supplies the same guarantee with no migration: `claimPending`
+ * increments it in the same statement that takes the row, so every claim has a
+ * strictly larger token than the claim before it, and no two live claims of one
+ * row can share one. A column of its own would be more self-describing and is
+ * the right shape for the schema owner to add later — see the handoff — but the
+ * fence is real either way, because the *database* decides who matches.
+ */
+export const outboxFence = (entry: HostedOutboxEntry): number => entry.attempts;
 
 /** Reads and writes of the `hosted_outbox` table. */
 export interface OutboxRepo {
@@ -78,14 +113,24 @@ export interface OutboxRepo {
     leaseMs: number,
     opts?: { kinds?: readonly OutboxKind[]; now?: string; limit?: number }
   ): HostedOutboxEntry[];
-  /** Record the terminal outcome of a claimed row. */
-  settle(id: string, state: Extract<OutboxState, "done" | "failed">, fields?: OutboxSettlement): boolean;
+  /**
+   * Record the terminal outcome of a claimed row, if this claim still owns it.
+   * `false` means the lease was lost and another worker holds the row — the
+   * effect may have happened twice, but the record belongs to the new owner.
+   */
+  settle(id: string, state: Extract<OutboxState, "done" | "failed">, fields: OutboxSettlement): boolean;
   /**
    * Put one claimed row back on the queue without settling it — the drainer
    * uses this when it turns out it cannot perform the effect after all, so the
-   * row is retried rather than recorded as a failure nobody attempted.
+   * row is retried rather than recorded as a failure nobody attempted. Fenced:
+   * a stale holder must not hand back a row somebody else is sending.
    */
-  release(id: string): boolean;
+  release(id: string, fence: number): boolean;
+  /**
+   * Extend this claim's lease. `false` means it is already gone — stop, and do
+   * not settle: the row belongs to whoever reclaimed it.
+   */
+  renew(id: string, fence: number, now?: string): boolean;
   /** Hand back rows a dead process was holding. `leaseMs` of 0 reclaims every `sending` row. */
   reclaimStale(leaseMs: number, now?: string): number;
   listPending(opts?: { kinds?: readonly OutboxKind[] }): HostedOutboxEntry[];
@@ -185,19 +230,34 @@ export function createOutboxRepo(db: DatabaseSync): OutboxRepo {
         .map(map);
     },
 
-    settle(id, state, fields = {}) {
+    settle(id, state, fields) {
       const now = fields.now ?? nowIso();
       const result = sql(
         "UPDATE hosted_outbox SET state = ?, settled_at = ?, claimed_at = NULL, error = ?, " +
-          "attempts = attempts + ? WHERE id = ? AND state = 'sending'"
-      ).run(state, now, writeOptional(fields.error), Math.max(0, fields.extraAttempts ?? 0), id);
+          "attempts = attempts + ? WHERE id = ? AND state = 'sending' AND attempts = ?"
+      ).run(
+        state,
+        now,
+        writeOptional(fields.error),
+        Math.max(0, fields.extraAttempts ?? 0),
+        id,
+        fields.fence
+      );
       return changeCount(result) === 1;
     },
 
-    release(id) {
+    release(id, fence) {
       const result = sql(
-        "UPDATE hosted_outbox SET state = 'pending', claimed_at = NULL WHERE id = ? AND state = 'sending'"
-      ).run(id);
+        "UPDATE hosted_outbox SET state = 'pending', claimed_at = NULL " +
+          "WHERE id = ? AND state = 'sending' AND attempts = ?"
+      ).run(id, fence);
+      return changeCount(result) === 1;
+    },
+
+    renew(id, fence, now = nowIso()) {
+      const result = sql(
+        "UPDATE hosted_outbox SET claimed_at = ? WHERE id = ? AND state = 'sending' AND attempts = ?"
+      ).run(now, id, fence);
       return changeCount(result) === 1;
     },
 

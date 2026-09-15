@@ -42,7 +42,7 @@ interface Statement {
 const sent: Statement[] = [];
 
 /** A PostgREST-shaped builder that actually honours `.in(column, values)`. */
-function builder(table: string, op: string) {
+function builder(table: string) {
   let rows = TABLES[table] ?? [];
   const self: Record<string, unknown> = {};
   for (const name of ["select", "or", "like", "order", "limit", "eq"]) self[name] = () => self;
@@ -62,7 +62,7 @@ vi.mock("@supabase/supabase-js", () => ({
         (op: string) =>
         (...args: unknown[]) => {
           sent.push({ op, table, payload: args[0] as Record<string, unknown> | undefined });
-          return builder(table, op);
+          return builder(table);
         };
       return {
         select: record("select"),

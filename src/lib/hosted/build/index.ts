@@ -37,11 +37,15 @@ export {
   type RecipeLocalOptions,
 } from "./runner-recipe-local";
 export {
+  ATTESTATION_KEY_ID_ENV,
+  ATTESTATION_SCHEME,
   E2bRunner,
+  SANDBOX_KILL_TIMEOUT_MS,
   SANDBOX_OUT,
   SANDBOX_ROOT,
   SANDBOX_SOURCE,
   TEMPLATE_ATTESTATION,
+  attestationKeyId,
   templateAttestationPayload,
   defaultSandboxFactory,
   type E2bOptions,

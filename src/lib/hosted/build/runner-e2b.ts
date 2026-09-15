@@ -1,11 +1,16 @@
 /**
  * `e2b` — the platform recipe in a disposable remote sandbox.
  *
- * The sequence is fixed and observable: create a sandbox with a timeout, upload
- * the materialized source plus the recipe worker, verify the pinned toolchain
- * pre-baked in an immutable template (never install from the submission),
- * run the worker, download `dist/` back, and kill the sandbox in a `finally`
- * whatever happened.
+ * The sequence is fixed and observable: create a sandbox with a timeout and
+ * internet access disabled, check the template attestation before any job data
+ * moves, upload the materialized source plus the recipe worker, verify the
+ * pinned toolchain pre-baked in an immutable template (never install from the
+ * submission), run the worker, download `dist/` back, and kill the sandbox in a
+ * `finally` whatever happened — within a bounded time, so a provider that never
+ * answers cannot hang the build request.
+ *
+ * The attestation check is drift detection, not remote attestation: see
+ * `verifyTemplate`, which says exactly what it does and does not prove.
  *
  * The E2B API surface this uses is narrowed to `RecipeSandbox` so tests can
  * inject a double and assert the whole sequence, including teardown on failure.
@@ -34,15 +39,60 @@ export const SANDBOX_OUT = `${SANDBOX_ROOT}/dist`;
 /** Written into the image at template-build time; never supplied by a job. */
 export const TEMPLATE_ATTESTATION = "/etc/zenith/template-attestation.json";
 
+/**
+ * The environment variable naming the key the attestation must be signed under.
+ *
+ * Proposed for `src/lib/hosted/config.ts` (not this packet's file to edit), so
+ * it is read from `process.env` here and validated in one place.
+ */
+export const ATTESTATION_KEY_ID_ENV = "ZENITH_E2B_TEMPLATE_ATTESTATION_KEY_ID";
+
+/** How long a `sandbox.kill()` may take before the build stops waiting for it. */
+export const SANDBOX_KILL_TIMEOUT_MS = 10_000;
+
+const KEY_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+/** An ISO-8601 instant in UTC. Nothing else is accepted, so there is one reading. */
+const EXPIRES_AT_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/;
+
 export interface TemplateAttestation {
   templateId: string;
   digest: string;
+  /** which publisher key signed this; must equal ZENITH_E2B_TEMPLATE_ATTESTATION_KEY_ID */
+  keyId: string;
+  /** ISO-8601 UTC instant after which this statement is refused */
+  expiresAt: string;
   signature: string;
 }
 
-/** Canonical bytes signed by the trusted template publisher. */
-export const templateAttestationPayload = (attestation: Pick<TemplateAttestation, "templateId" | "digest">): string =>
-  `${attestation.templateId}\n${attestation.digest}\n`;
+/**
+ * Canonical bytes signed by the trusted template publisher.
+ *
+ * The first line is domain separation: it pins the scheme version, so a
+ * signature minted for the earlier two-field payload cannot be replayed as a
+ * key-id-and-expiry-bearing one. Every other field is newline-free by the time
+ * it reaches here — `templateId` and `digest` are checked against values zod
+ * has already constrained, `keyId` against `KEY_ID_RE`, `expiresAt` against
+ * `EXPIRES_AT_RE` — so the separator cannot be smuggled inside a field.
+ */
+export const ATTESTATION_SCHEME = "zenith-e2b-template-attestation-v2";
+export const templateAttestationPayload = (
+  attestation: Pick<TemplateAttestation, "templateId" | "digest" | "keyId" | "expiresAt">
+): string =>
+  `${ATTESTATION_SCHEME}\n${attestation.templateId}\n${attestation.digest}\n${attestation.keyId}\n${attestation.expiresAt}\n`;
+
+/** The configured attestation key id, or undefined when unset or malformed. */
+export function attestationKeyId(raw: string | undefined = process.env[ATTESTATION_KEY_ID_ENV]): string | undefined {
+  const value = (raw ?? "").trim();
+  return KEY_ID_RE.test(value) ? value : undefined;
+}
+
+/** A build that stopped because its caller aborted, not because it failed. */
+class BuildCancelled extends Error {
+  constructor() {
+    super("The build was cancelled; the sandbox was killed.");
+    this.name = "BuildCancelled";
+  }
+}
 
 /** The slice of the E2B `Sandbox` this runner uses. Kept small so a double is honest. */
 export interface RecipeSandbox {
@@ -55,7 +105,18 @@ export interface RecipeSandbox {
   commands: {
     run(
       cmd: string,
-      opts?: { cwd?: string; timeoutMs?: number; onStdout?: (d: string) => void; onStderr?: (d: string) => void }
+      opts?: {
+        cwd?: string;
+        timeoutMs?: number;
+        onStdout?: (d: string) => void;
+        onStderr?: (d: string) => void;
+        /**
+         * Forwarded on every call. An SDK that honours it stops the remote
+         * command; one that ignores it costs nothing, because the runner also
+         * stops waiting on abort and the `finally` kills the sandbox.
+         */
+        signal?: AbortSignal;
+      }
     ): Promise<{ exitCode: number; stdout: string; stderr: string }>;
   };
   /** Required from the real E2B SDK so the resolved image is independently checked. */
@@ -95,6 +156,8 @@ export interface E2bOptions {
   workerPath?: string;
   /** absolute path of the config module the worker imports */
   configPath?: string;
+  /** how long teardown may take before the build stops waiting for it */
+  killTimeoutMs?: number;
 }
 
 const toArrayBuffer = (bytes: Buffer): ArrayBuffer =>
@@ -104,16 +167,18 @@ export class E2bRunner implements BuildRunner {
   readonly id: BuildRunnerId = "e2b";
   readonly label = "Platform recipe in an E2B sandbox";
   readonly boundary =
-    "Runs the platform's Vite recipe inside a disposable remote E2B sandbox from a bare immutable template ID with a matching SHA-256 attestation, internet access disabled, and guaranteed teardown. No submitted script or config is executed. Provider-side egress and teardown remain unverified live in this repository.";
+    "Runs the platform's Vite recipe inside a disposable remote E2B sandbox, created from a bare immutable template ID with internet access disabled, and killed on every path. Before any job data is uploaded the runner checks a statement stored in the template that binds that template ID to a digest, signed under a named key and carrying an expiry. That is drift detection, not measurement: the digest is a value declared inside the image, never computed over the image's bytes, so it detects a wrong, replaced, unsigned or expired template and proves nothing against the provider itself. No submitted script or config is executed. Provider-side egress and teardown remain unverified live in this repository.";
 
   private readonly createSandbox: SandboxFactory;
   private readonly workerPath: string;
   private readonly configPath: string;
+  private readonly killTimeoutMs: number;
 
   constructor(options: E2bOptions = {}) {
     this.createSandbox = options.createSandbox ?? defaultSandboxFactory;
     this.workerPath = options.workerPath ?? recipeWorkerPath();
     this.configPath = options.configPath ?? path.join(path.dirname(this.workerPath), "recipe-config.mjs");
+    this.killTimeoutMs = options.killTimeoutMs ?? SANDBOX_KILL_TIMEOUT_MS;
   }
 
   async availability(): Promise<Availability> {
@@ -155,11 +220,53 @@ export class E2bRunner implements BuildRunner {
         reason: "ZENITH_E2B_TEMPLATE_ATTESTATION_PUBLIC_KEY is not set, so the runner cannot authenticate the template attestation.",
         fix: "Set it to the trusted Ed25519 publisher public key used to sign the template attestation.",
       };
+    const keyId = attestationKeyId();
+    if (!keyId)
+      return {
+        available: false,
+        reason: `${ATTESTATION_KEY_ID_ENV} is not set, so a signature made under any key the operator ever trusted would be accepted.`,
+        fix: `Set ${ATTESTATION_KEY_ID_ENV} to the key id recorded in the template attestation (letters, digits, dot, dash or underscore, up to 64 characters). Rotating a key means changing this and the public key together.`,
+      };
     return { available: true };
   }
 
-  private async verifyTemplate(sandbox: RecipeSandbox): Promise<void> {
+  /**
+   * What this check is, exactly.
+   *
+   * It reads a JSON statement stored in the template and requires it to name
+   * the configured template ID and digest, to be signed under the configured
+   * key id by the configured Ed25519 public key, and to have an expiry that has
+   * not passed. Then it asks the provider which template it actually resolved
+   * and requires the same ID.
+   *
+   * What that buys: a template that is the wrong one, is a rebuild that lost
+   * the statement, was signed under a retired key, or whose signature is past
+   * its stated life, is refused before any job data is uploaded.
+   *
+   * What it does NOT buy, and must not be described as buying: the digest is a
+   * string the image declares about itself. Nothing computes it over the
+   * image's bytes or its package set, so an image carrying a byte-for-byte copy
+   * of a valid statement passes. Against a malicious or compromised provider
+   * this check is worth nothing; against drift and misconfiguration it is worth
+   * a great deal. Binding it to something measurable is open work.
+   */
+  private async verifyTemplate(sandbox: RecipeSandbox, now: number = Date.now()): Promise<void> {
     const config = hostedConfig();
+    // Constructed before the signature check, so an operator with a mis-pasted
+    // PEM is told their key is unreadable instead of being told an attacker
+    // signed their template (REVIEW-D FIND-16).
+    let publicKey;
+    try {
+      publicKey = createPublicKey(config.ZENITH_E2B_TEMPLATE_ATTESTATION_PUBLIC_KEY!);
+    } catch (err) {
+      throw new Error(
+        `ZENITH_E2B_TEMPLATE_ATTESTATION_PUBLIC_KEY could not be read as a public key: ${err instanceof Error ? err.message : String(err)}. Fix: set it to the publisher's Ed25519 public key in PEM form, newlines included.`
+      );
+    }
+    const keyId = attestationKeyId();
+    if (!keyId)
+      throw new Error(`${ATTESTATION_KEY_ID_ENV} is not set, so the attestation's key id cannot be checked.`);
+
     const raw = await sandbox.files.read(TEMPLATE_ATTESTATION, { format: "bytes" });
     let attestation: TemplateAttestation;
     try {
@@ -171,25 +278,67 @@ export class E2bRunner implements BuildRunner {
       throw new Error("The E2B template attestation does not match the configured immutable template ID.");
     if (attestation.digest !== config.ZENITH_E2B_TEMPLATE_DIGEST)
       throw new Error("The E2B template attestation digest does not match ZENITH_E2B_TEMPLATE_DIGEST.");
+    if (attestation.keyId !== keyId)
+      throw new Error(
+        `The E2B template attestation was signed under key id ${JSON.stringify(String(attestation.keyId ?? ""))}, not the trusted ${keyId}.`
+      );
+    // Fail closed on expiry: absent, unparseable and past are one answer.
+    if (typeof attestation.expiresAt !== "string" || !EXPIRES_AT_RE.test(attestation.expiresAt))
+      throw new Error(
+        "The E2B template attestation has no usable expiry. Fix: re-sign the template attestation with an expiresAt in ISO-8601 UTC, such as 2027-01-31T00:00:00Z."
+      );
+    const expiresAt = Date.parse(attestation.expiresAt);
+    if (!Number.isFinite(expiresAt) || expiresAt <= now)
+      throw new Error(
+        `The E2B template attestation expired at ${attestation.expiresAt}. Fix: re-sign the template attestation with a later expiry, or rebuild and re-attest the template.`
+      );
     if (typeof attestation.signature !== "string" || !attestation.signature)
       throw new Error("The E2B template attestation has no publisher signature.");
+    let valid = false;
     try {
-      const publicKey = createPublicKey(config.ZENITH_E2B_TEMPLATE_ATTESTATION_PUBLIC_KEY!);
-      const valid = verifySignature(
+      valid = verifySignature(
         null,
         Buffer.from(templateAttestationPayload(attestation)),
         publicKey,
         Buffer.from(attestation.signature, "base64")
       );
-      if (!valid) throw new Error("signature mismatch");
     } catch {
-      throw new Error("The E2B template attestation is not signed by the trusted publisher key.");
+      valid = false;
     }
+    if (!valid) throw new Error("The E2B template attestation is not signed by the trusted publisher key.");
+
     if (typeof (sandbox as { getInfo?: unknown }).getInfo !== "function")
       throw new Error("The E2B sandbox did not expose the resolved template ID; refusing to build without provider identity verification.");
     const info = await sandbox.getInfo();
     if (!info || typeof info.templateId !== "string" || info.templateId !== config.ZENITH_E2B_TEMPLATE)
       throw new Error("E2B resolved a different template ID than the configured immutable template ID.");
+  }
+
+  /**
+   * Run one command in the sandbox, giving up the moment the caller aborts.
+   *
+   * The signal is forwarded to the SDK as well, but the guarantee does not
+   * depend on the SDK honouring it: on abort this rejects, `run()` stops, and
+   * the `finally` kills the sandbox — which is what actually stops the remote
+   * work and the billing for it.
+   */
+  private async runInSandbox(
+    sandbox: RecipeSandbox,
+    cmd: string,
+    opts: { cwd: string; timeoutMs: number; onStdout: (d: string) => void; onStderr: (d: string) => void },
+    signal: AbortSignal
+  ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+    if (signal.aborted) throw new BuildCancelled();
+    let onAbort = (): void => {};
+    const cancelled = new Promise<never>((_resolve, reject) => {
+      onAbort = (): void => reject(new BuildCancelled());
+      signal.addEventListener("abort", onAbort, { once: true });
+    });
+    try {
+      return await Promise.race([sandbox.commands.run(cmd, { ...opts, signal }), cancelled]);
+    } finally {
+      signal.removeEventListener("abort", onAbort);
+    }
   }
 
   async run(req: BuildRequest, signal: AbortSignal): Promise<BuildResult> {
@@ -214,7 +363,10 @@ export class E2bRunner implements BuildRunner {
       });
       note("info", `Sandbox ${sandbox.sandboxId} created for job ${req.jobId}.`);
       await this.verifyTemplate(sandbox);
-      note("info", "Verified the immutable template ID and SHA-256 attestation before uploading job data.");
+      note(
+        "info",
+        "Checked the provider-resolved template ID against a signed, unexpired attestation before uploading job data. This detects template drift; it does not measure the image."
+      );
       if (signal.aborted) return done({ ok: false, error: "The build was cancelled before the sandbox was used." });
 
       const job = {
@@ -242,26 +394,33 @@ export class E2bRunner implements BuildRunner {
         "react-dom": RECIPE_V1.react,
       });
       const check = `const expected=${expected}; for (const [name, version] of Object.entries(expected)) { const pkg=require(require.resolve(name + "/package.json", { paths: ["${SANDBOX_ROOT}"] })); if (pkg.version !== version) throw new Error(name + "@" + pkg.version + " is not pinned to " + version); }`;
-      const toolchain = await sandbox.commands.run(`node -e ${JSON.stringify(check)}`, {
-        cwd: SANDBOX_ROOT,
-        timeoutMs: req.limits.timeoutMs,
-        onStdout: (d) => note("stdout", d),
-        onStderr: (d) => note("stderr", d),
-      });
+      const toolchain = await this.runInSandbox(
+        sandbox,
+        `node -e ${JSON.stringify(check)}`,
+        {
+          cwd: SANDBOX_ROOT,
+          timeoutMs: req.limits.timeoutMs,
+          onStdout: (d) => note("stdout", d),
+          onStderr: (d) => note("stderr", d),
+        },
+        signal
+      );
       if (toolchain.exitCode !== 0)
         return done({
           ok: false,
           error: `The immutable E2B template does not contain the pinned recipe toolchain (exit code ${toolchain.exitCode}). No package installation was attempted.`,
         });
 
-      const worker = await sandbox.commands.run(
+      const worker = await this.runInSandbox(
+        sandbox,
         `node ${SANDBOX_ROOT}/recipe-worker.mjs ${SANDBOX_ROOT}/job.json ${SANDBOX_ROOT}/result.json`,
         {
           cwd: SANDBOX_ROOT,
           timeoutMs: req.limits.timeoutMs,
           onStdout: (d) => note("stdout", d),
           onStderr: (d) => note("stderr", d),
-        }
+        },
+        signal
       );
 
       let result: RecipeWorkerResult | undefined;
@@ -297,14 +456,37 @@ export class E2bRunner implements BuildRunner {
       keepOutput = true;
       return done({ ok: true, outputDir: outDir });
     } catch (err) {
+      if (err instanceof BuildCancelled) return done({ ok: false, error: err.message });
       log.warn("hosted build failed", { runner: this.id, jobId: req.jobId, err });
       return done({ ok: false, error: err instanceof Error ? err.message : String(err) });
     } finally {
       if (sandbox) {
+        // Bounded. `finally` blocks the promise this method returns, so an
+        // un-timed `kill()` against a provider that never answers hangs the
+        // whole build request for as long as the provider likes.
+        const sandboxId = sandbox.sandboxId;
+        const kill = sandbox.kill();
+        // A rejection that arrives after the race has already settled must not
+        // surface as an unhandled rejection.
+        kill.catch(() => undefined);
+        let timer: ReturnType<typeof setTimeout> | undefined;
         try {
-          await sandbox.kill();
+          await Promise.race([
+            kill,
+            new Promise((_resolve, reject) => {
+              timer = setTimeout(
+                () => reject(new Error(`sandbox.kill() did not answer within ${this.killTimeoutMs} ms`)),
+                this.killTimeoutMs
+              );
+            }),
+          ]);
         } catch (err) {
-          log.warn("hosted build sandbox was not torn down", { runner: this.id, jobId: req.jobId, err });
+          // Known gap: this is the only record. Nothing lists or re-kills a
+          // sandbox that survived, so a leak bills until the provider's own
+          // timeout — see docs/hosted/PROVIDERS.md.
+          log.warn("hosted build sandbox was not torn down", { runner: this.id, jobId: req.jobId, sandboxId, err });
+        } finally {
+          if (timer) clearTimeout(timer);
         }
       }
       if (!keepOutput) removeMaterialized(outDir);

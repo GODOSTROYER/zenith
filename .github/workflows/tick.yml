@@ -3,8 +3,9 @@ name: Tick
 # Background work for the serverless deployment.
 #
 # Vercel has no long-lived process, so the engine ticker, the alert evaluator,
-# the alert outbox drainer and the hosted job runner all have to be driven by a
-# request (see src/lib/server/cron.ts). Vercel Cron cannot do the driving on the
+# the alert outbox drainer, the hosted job runner and the agent control plane's
+# reconciliation pass all have to be driven by a request (see src/lib/server/cron.ts
+# and CONTROL-PLANE-ON-POSTGRES.md §6). Vercel Cron cannot do the driving on the
 # **Hobby plan**: it runs a cron entry at most once per day there, which is why
 # vercel.json schedules only /api/internal/keepalive and this workflow does the
 # real work. GitHub's own floor is five minutes, so five minutes is the cadence.
@@ -65,7 +66,7 @@ jobs:
           printf 'Authorization: Bearer %s\n' "$CRON_SECRET" > "$header_file"
 
           failed=0
-          for pass in engine alerts outbox jobs; do
+          for pass in engine alerts outbox jobs agent; do
             url="${BASE_URL}/api/internal/tick/${pass}"
             echo "--- ${pass}"
             status=0

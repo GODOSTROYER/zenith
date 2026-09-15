@@ -275,6 +275,13 @@ describe('postgres journal statements', () => {
     await sweepUploadsStatement(tag, { now: 'now', limit: SCAN_LIMIT });
     expect(recorded[0].text).toContain("set phase = 'expired'");
     expect(recorded[0].values).toContain(SCAN_LIMIT);
+    // Expiry is for proposals nobody got to, and for nothing else. A `running`
+    // row belongs to the lease, which resolves it to `uncertain` — expiring it
+    // here would hide a dispatch that may already have had its effect behind a
+    // phase that reads like "nothing happened".
+    expect(recorded[0].text).toContain("phase in ('prepared','approved')");
+    expect(recorded[0].text, 'expiry never touches a running row').not.toContain("'running'");
+    expect(recorded[0].text).toContain('expires_at <=');
     expect(recorded[1].text).toContain('delete from agent.agent_uploads');
     expect(recorded[1].values).toContain(SCAN_LIMIT);
   });

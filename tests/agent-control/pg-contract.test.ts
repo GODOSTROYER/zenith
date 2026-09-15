@@ -60,6 +60,22 @@ if (!enabled())
 
 const PREFIX = `contract-${Math.random().toString(36).slice(2, 10)}`;
 const id = (label: string): string => `${PREFIX}-${label}-${Math.random().toString(36).slice(2, 10)}`;
+
+/**
+ * A namespace for **one scenario's** operations.
+ *
+ * `PREFIX` is this *file's* namespace, so a sweep filtered on it sweeps every
+ * scenario's fixtures. Two earlier scenarios deliberately leave rows that a
+ * sweep would match — an `approved` row whose `expires_at` is already in the
+ * past ("what expired while it waited") and `running` rows whose leases will
+ * lapse if the file takes longer than `LEASE_MS` — so any assertion of the form
+ * "this pass touched exactly these rows" must name only its own, or it is
+ * really asserting the order and the speed the file happened to run at. The
+ * `postgres` lane found this the first time it ran the suite: the expiry
+ * scenario returned two ids where it expected one.
+ */
+const namespace = (label: string): string =>
+  `${PREFIX}-${label}-${Math.random().toString(36).slice(2, 10)}`;
 const hex = (): string =>
   Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
 const iso = (offsetMs = 0): string => new Date(Date.now() + offsetMs).toISOString();
@@ -117,10 +133,15 @@ interface Approved {
   requestKey: string;
 }
 
-/** One operation reviewed and approved in the browser, waiting to be claimed. */
-async function approved(overrides: { expiresAt?: string; phase?: string } = {}): Promise<Approved> {
+/**
+ * One operation reviewed and approved in the browser, waiting to be claimed.
+ *
+ * `ns` puts the row in a scenario's own namespace; without it the row carries
+ * the file's, which is the right default for the scenarios that never sweep.
+ */
+async function approved(overrides: { expiresAt?: string; phase?: string; ns?: string } = {}): Promise<Approved> {
   const op: Approved = {
-    id: id("op"),
+    id: `${overrides.ns ?? PREFIX}-op-${Math.random().toString(36).slice(2, 10)}`,
     workspaceId: id("ws"),
     subject: id("subject"),
     digest: hex(),
@@ -196,14 +217,21 @@ const finalize = (
     returning id
   `;
 
-/** The reconciliation pass of §6, bounded and idempotent. */
-const reconcile = (sql: Sql, now = iso()) =>
+/**
+ * The reconciliation pass of §6, bounded and idempotent.
+ *
+ * `ns` is the scenario's namespace, not the file's: a `running` row another
+ * scenario left inside its lease becomes a *lapsed* lease the moment the suite
+ * takes longer than `LEASE_MS`, and this pass would then reconcile it and
+ * report an id the caller never made.
+ */
+const reconcile = (sql: Sql, ns: string, now = iso()) =>
   sql`
     update agent.agent_operations
        set phase = 'uncertain', lease_owner = null, lease_until = null,
            document = jsonb_set(document, '{phase}', '"uncertain"')
      where phase = 'running' and lease_until is not null and lease_until <= ${now}
-       and id like ${`${PREFIX}%`}
+       and id like ${`${ns}%`}
     returning id
   `;
 
@@ -358,7 +386,8 @@ describe.skipIf(!enabled())("AgentControlPostgres", () => {
 
   describe("reconciliation", () => {
     it("turns an expired lease into uncertain once, and never back into a dispatch", async () => {
-      const op = await approved();
+      const ns = namespace("lease");
+      const op = await approved({ ns });
       const fence = Number((await claim(alpha, op, "instance-a"))[0].fence_token);
 
       // The instance froze. Nothing can renew the lease, so it lapses.
@@ -366,7 +395,7 @@ describe.skipIf(!enabled())("AgentControlPostgres", () => {
         update agent.agent_operations set lease_until = ${iso(-1_000)} where id = ${op.id}
       `;
 
-      const first = await reconcile(beta);
+      const first = await reconcile(beta, ns);
       expect(first.map((row) => row.id), "the tick pass resolves it").toEqual([op.id]);
       expect(await phaseOf(op.id)).toBe("uncertain");
 
@@ -377,7 +406,7 @@ describe.skipIf(!enabled())("AgentControlPostgres", () => {
       expect(row.lease_owner).toBeNull();
       expect(row.lease_until).toBeNull();
 
-      expect((await reconcile(beta)).length, "a second pass reconciles nothing the first did").toBe(0);
+      expect((await reconcile(beta, ns)).length, "a second pass reconciles nothing the first did").toBe(0);
 
       // The whole point: an uncertain operation is never replayed. The claim
       // only ever matches `phase='approved'`, and this row will never be that
@@ -391,26 +420,42 @@ describe.skipIf(!enabled())("AgentControlPostgres", () => {
     });
 
     it("leaves a live lease alone", async () => {
-      const op = await approved();
+      const ns = namespace("live-lease");
+      const op = await approved({ ns });
       await claim(alpha, op, "instance-a");
       expect(
-        (await reconcile(beta)).map((row) => row.id),
+        (await reconcile(beta, ns)).map((row) => row.id),
         "a running operation inside its lease is somebody's live request"
-      ).not.toContain(op.id);
+      ).toEqual([]);
       expect(await phaseOf(op.id)).toBe("running");
     });
 
     it("expires a proposal nobody reviewed, without touching one that is running", async () => {
-      const forgotten = await approved({ phase: "prepared", expiresAt: iso(-1_000) });
-      const live = await approved();
+      // The namespace is what makes "exactly these ids" an assertion about the
+      // predicate rather than about what the rest of the file left lying
+      // around: "refuses to claim what expired while it waited" deliberately
+      // leaves an `approved` row whose `expires_at` has passed, and a file-wide
+      // filter expires that one too.
+      const ns = namespace("expiry");
+      const forgotten = await approved({ ns, phase: "prepared", expiresAt: iso(-1_000) });
+      const live = await approved({ ns });
       await claim(alpha, live, "instance-a");
 
       const expired = await alpha`
         update agent.agent_operations set phase = 'expired'
-         where phase in ('prepared','approved') and expires_at <= ${iso()} and id like ${`${PREFIX}%`}
+         where phase in ('prepared','approved') and expires_at <= ${iso()} and id like ${`${ns}%`}
         returning id
       `;
-      expect(expired.map((row) => row.id)).toEqual([forgotten.id]);
+      expect(
+        expired.map((row) => row.id),
+        "only the unreviewed proposal: `running` is not a phase expiry may touch"
+      ).toEqual([forgotten.id]);
+      expect(await phaseOf(live.id)).toBe("running");
+
+      // The lease, not the expiry, is what resolves a dispatch that stopped —
+      // and it resolves it to `uncertain`, never to `expired`. Two phases, two
+      // passes, and neither may do the other's work.
+      expect((await reconcile(beta, ns)).length, "and its lease has not lapsed either").toBe(0);
       expect(await phaseOf(live.id)).toBe("running");
     });
   });

@@ -21,10 +21,19 @@
  * the second one. `tests/agent-link-authority.test.ts` (packet P1) asks the
  * first, against the file authority, where it can.
  *
- * The statements below are the ones LINK-PROTOCOL.md §3.3 specifies, copied
- * verbatim. If P1's implementation drifts from them this suite keeps passing
- * and P1's own suite fails — which is the right way round: this file pins the
- * contract, not the caller.
+ * The statements below are the ones LINK-PROTOCOL.md §3.3 specifies. If P1's
+ * implementation drifts from them this suite keeps passing and P1's own suite
+ * fails — which is the right way round: this file pins the contract, not the
+ * caller.
+ *
+ * **One of them is not verbatim, on purpose.** §3.3 writes the exchange as a
+ * plain `UPDATE … RETURNING secret_ct` and annotates it "postgres returns the
+ * PRE-update value". Postgres does not: `RETURNING` reports the row after the
+ * update, so that statement hands back `null`. The corrected form — a
+ * `FOR UPDATE` sub-select in `FROM`, whose columns `RETURNING` reads — is
+ * `exchangeStatement` below, and the scenario "cannot read the secret back
+ * from a plain RETURNING" keeps the original on file as the counter-example.
+ * Fix §3.3 when the plan is next revised; do not fix the code to match it.
  *
  * ## What it runs against
  *
@@ -69,8 +78,20 @@ const id = (label: string): string => `${PREFIX}-${label}-${Math.random().toStri
 
 /** The hex namespace for the columns a CHECK constrains to 64 hex characters. */
 const HEX = Array.from({ length: 12 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
-const hex = (): string =>
-  (HEX + Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join("")).slice(0, 64);
+const rand = (n: number): string =>
+  Array.from({ length: n }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+const hex = (namespace: string = HEX): string => (namespace + rand(64)).slice(0, 64);
+
+/**
+ * A namespace for **one scenario's** codes.
+ *
+ * `HEX` alone is this *file's* namespace, so a sweep filtered on it sweeps every
+ * scenario's fixtures — including rows an earlier `it` deliberately left
+ * expired or approved. Any assertion of the form "this pass touched exactly
+ * these rows" has to name only its own, or it is asserting the order the file
+ * happens to run in.
+ */
+const namespace = (): string => HEX + rand(8);
 
 const iso = (offsetMs = 0): string => new Date(Date.now() + offsetMs).toISOString();
 
@@ -150,11 +171,11 @@ const verify = async (tokenHash: string, now = iso()): Promise<Record<string, un
   `.then((rows) => rows as unknown as Record<string, unknown>[]);
 
 /** One `pending` link code, ten minutes from now. */
-async function linkCode(opts: { expiresAt?: string; state?: string } = {}): Promise<{
+async function linkCode(opts: { expiresAt?: string; state?: string; ns?: string } = {}): Promise<{
   userCodeHash: string;
   deviceCodeHash: string;
 }> {
-  const codes = { userCodeHash: hex(), deviceCodeHash: hex() };
+  const codes = { userCodeHash: hex(opts.ns), deviceCodeHash: hex(opts.ns) };
   await sql`
     insert into agent.agent_link_codes
       (user_code_hash, device_code_hash, state, client_name, client_version, label,
@@ -166,6 +187,36 @@ async function linkCode(opts: { expiresAt?: string; state?: string } = {}): Prom
   `;
   return codes;
 }
+
+/**
+ * The exchange of LINK-PROTOCOL §3.3, corrected.
+ *
+ * §3.3 writes it as a plain `UPDATE … SET secret_ct = null … RETURNING
+ * credential_id, secret_ct` and annotates it "postgres returns the PRE-update
+ * value". **It does not.** `RETURNING` reports the row as the statement left
+ * it, so that form hands back `null` and the agent gets no token — which is
+ * what the `postgres` lane observed the first time it ran this file.
+ *
+ * The pre-update secret therefore has to come from somewhere that is not the
+ * UPDATE's own target: a sub-select in `FROM`, read under `FOR UPDATE`. The
+ * lock is not decoration. It is what preserves single use: a second poller
+ * blocks on it, re-evaluates `state = 'approved'` against the committed row,
+ * sees `consumed`, and matches nothing. `t.state = 'approved'` repeats the
+ * guard on the target row so the UPDATE re-checks it too.
+ */
+const exchangeStatement = (deviceCodeHash: string, now = iso()) =>
+  sql`
+    update agent.agent_link_codes as t
+       set state = 'consumed', secret_ct = null
+      from (
+        select device_code_hash, credential_id, secret_ct
+          from agent.agent_link_codes
+         where device_code_hash = ${deviceCodeHash} and state = 'approved' and expires_at > ${now}
+         for update
+      ) prev
+     where t.device_code_hash = prev.device_code_hash and t.state = 'approved'
+    returning prev.credential_id as credential_id, prev.secret_ct as secret_ct
+  `;
 
 /* ================================ the suite ================================ */
 
@@ -291,20 +342,13 @@ describe.skipIf(!enabled())("AgentLinkPostgres", () => {
          where user_code_hash = ${codes.userCodeHash} and state = 'pending'
       `;
 
-      const exchange = () =>
-        sql`
-          update agent.agent_link_codes
-             set state = 'consumed', secret_ct = null
-           where device_code_hash = ${codes.deviceCodeHash} and state = 'approved'
-             and expires_at > ${iso()}
-          returning credential_id, secret_ct
-        `;
+      const exchange = () => exchangeStatement(codes.deviceCodeHash);
 
       const first = await exchange();
       expect(first.length, "the first poll is the exchange").toBe(1);
       expect(
         Buffer.from(first[0].secret_ct as Uint8Array).toString(),
-        "RETURNING answers with the pre-update value, which is the whole trick"
+        "the sub-select in FROM is read before the SET lands, which is the whole trick"
       ).toBe("za_the_issued_secret");
       expect(first[0].credential_id).toBe(credentialId);
 
@@ -318,6 +362,34 @@ describe.skipIf(!enabled())("AgentLinkPostgres", () => {
       expect(row[0].secret_ct, "the ciphertext is gone, not merely unreachable").toBeNull();
     });
 
+    it("cannot read the secret back from a plain RETURNING, which is why the statement is shaped that way", async () => {
+      const codes = await linkCode();
+      const credentialId = (await credential()).id;
+      await sql`
+        update agent.agent_link_codes
+           set state = 'approved', approved_at = ${iso()}, approved_by = ${id("subject")},
+               credential_id = ${credentialId}, secret_ct = ${Buffer.from("za_lost_to_returning")}
+         where user_code_hash = ${codes.userCodeHash} and state = 'pending'
+      `;
+
+      // LINK-PROTOCOL §3.3 as written. One row is updated — so this looks like
+      // it worked — and the column comes back null, because RETURNING reports
+      // the row *after* the SET. This assertion is here so that nobody
+      // "simplifies" the statement above back into this one.
+      const naive = await sql`
+        update agent.agent_link_codes
+           set state = 'consumed', secret_ct = null
+         where device_code_hash = ${codes.deviceCodeHash} and state = 'approved'
+           and expires_at > ${iso()}
+        returning credential_id, secret_ct
+      `;
+      expect(naive.length, "the row is updated either way").toBe(1);
+      expect(
+        naive[0].secret_ct,
+        "RETURNING is post-update: the agent would be handed nothing"
+      ).toBeNull();
+    });
+
     it("gives two concurrent pollers one token between them", async () => {
       const codes = await linkCode();
       const credentialId = (await credential()).id;
@@ -328,32 +400,33 @@ describe.skipIf(!enabled())("AgentLinkPostgres", () => {
          where user_code_hash = ${codes.userCodeHash} and state = 'pending'
       `;
 
-      const exchange = () =>
-        sql`
-          update agent.agent_link_codes set state = 'consumed', secret_ct = null
-           where device_code_hash = ${codes.deviceCodeHash} and state = 'approved'
-             and expires_at > ${iso()}
-          returning secret_ct
-        `;
+      const exchange = () => exchangeStatement(codes.deviceCodeHash);
 
       const [a, b] = await Promise.all([exchange(), exchange()]);
       expect(a.length + b.length, "one exchange, one expired_token").toBe(1);
+      // And the one that won holds the plaintext, not a null the caller would
+      // have to treat as "expired" after having already consumed the row.
+      expect(Buffer.from([...a, ...b][0].secret_ct as Uint8Array).toString()).toBe("za_once");
     });
 
     it("sweeps expired codes and destroys their secrets, and a second pass finds nothing", async () => {
-      const stale = await linkCode({ expiresAt: iso(-60_000) });
+      // This scenario's own namespace: other scenarios leave `approved` and
+      // `pending` rows behind, and a file-wide filter would sweep whichever of
+      // them had aged past their ten minutes by the time this test ran.
+      const ns = namespace();
+      const stale = await linkCode({ ns, expiresAt: iso(-60_000) });
       await sql`
         update agent.agent_link_codes set state = 'approved', secret_ct = ${Buffer.from("za_never_collected")}
          where user_code_hash = ${stale.userCodeHash}
       `;
-      const live = await linkCode();
+      const live = await linkCode({ ns });
       const now = iso();
 
       const sweep = () =>
         sql`
           update agent.agent_link_codes set state = 'expired', secret_ct = null
            where state in ('pending','approved') and expires_at <= ${now}
-             and user_code_hash like ${`${HEX}%`}
+             and user_code_hash like ${`${ns}%`}
           returning user_code_hash
         `;
 

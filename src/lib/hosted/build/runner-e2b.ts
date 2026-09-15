@@ -58,8 +58,8 @@ export interface RecipeSandbox {
       opts?: { cwd?: string; timeoutMs?: number; onStdout?: (d: string) => void; onStderr?: (d: string) => void }
     ): Promise<{ exitCode: number; stdout: string; stderr: string }>;
   };
-  /** Available on the real E2B SDK; doubles may omit it. */
-  getInfo?: () => Promise<{ templateId: string }>;
+  /** Required from the real E2B SDK so the resolved image is independently checked. */
+  getInfo: () => Promise<{ templateId: string }>;
   kill(): Promise<boolean>;
 }
 
@@ -81,7 +81,12 @@ export type SandboxFactory = (opts: {
 export const defaultSandboxFactory: SandboxFactory = async ({ apiKey, timeoutMs, template, allowInternetAccess }) => {
   const { Sandbox } = await import("e2b");
   const sandbox = await Sandbox.create({ apiKey, timeoutMs, template, allowInternetAccess });
-  return sandbox as unknown as RecipeSandbox;
+  const getInfo = (sandbox as { getInfo?: unknown }).getInfo;
+  if (typeof getInfo !== "function")
+    throw new Error("The E2B SDK did not expose the resolved template ID; refusing to build without provider identity verification.");
+  // Preserve SDK methods that may live on the sandbox prototype; spreading the
+  // SDK object would silently drop those methods before the first build step.
+  return Object.assign(sandbox, { getInfo: getInfo.bind(sandbox) }) as RecipeSandbox;
 };
 
 export interface E2bOptions {
@@ -180,11 +185,11 @@ export class E2bRunner implements BuildRunner {
     } catch {
       throw new Error("The E2B template attestation is not signed by the trusted publisher key.");
     }
-    if (sandbox.getInfo) {
-      const info = await sandbox.getInfo();
-      if (info.templateId !== config.ZENITH_E2B_TEMPLATE)
-        throw new Error("E2B resolved a different template ID than the configured immutable template ID.");
-    }
+    if (typeof (sandbox as { getInfo?: unknown }).getInfo !== "function")
+      throw new Error("The E2B sandbox did not expose the resolved template ID; refusing to build without provider identity verification.");
+    const info = await sandbox.getInfo();
+    if (!info || typeof info.templateId !== "string" || info.templateId !== config.ZENITH_E2B_TEMPLATE)
+      throw new Error("E2B resolved a different template ID than the configured immutable template ID.");
   }
 
   async run(req: BuildRequest, signal: AbortSignal): Promise<BuildResult> {

@@ -64,6 +64,22 @@ interface Call {
   detail?: string;
 }
 
+interface FakeFile {
+  path: string;
+  data: string | ArrayBuffer;
+}
+
+interface FakeFileEntry {
+  name: string;
+  path: string;
+  type?: string;
+}
+
+interface FakeCommandOptions {
+  onStdout?: (data: string) => void;
+  onStderr?: (data: string) => void;
+}
+
 function fakeSandbox(
   behaviour: {
     installExit?: number;
@@ -72,6 +88,7 @@ function fakeSandbox(
     distFiles?: Record<string, string>;
     attestation?: unknown;
     resolvedTemplateId?: string;
+    omitGetInfo?: boolean;
   } = {}
 ) {
   const calls: Call[] = [];
@@ -80,15 +97,15 @@ function fakeSandbox(
     "index.html": "<!doctype html><title>Minimal app</title>",
     "assets/index-abc.js": "console.log('minimal app ok')",
   };
-  const sandbox: import("@/lib/hosted/build").RecipeSandbox = {
+  const sandbox = {
     sandboxId: "sbx-test-1",
     files: {
-      async write(files) {
+      async write(files: FakeFile[]) {
         calls.push({ name: "files.write", detail: String(files.length) });
         for (const file of files) written.set(file.path, file.data);
         return files.map((f) => ({ path: f.path }));
       },
-      async read(target) {
+      async read(target: string) {
         calls.push({ name: "files.read", detail: target });
         if (target === build.TEMPLATE_ATTESTATION)
           return new TextEncoder().encode(
@@ -112,7 +129,7 @@ function fakeSandbox(
         if (body === undefined) throw new Error(`no such file ${target}`);
         return new TextEncoder().encode(body);
       },
-      async list(dir) {
+      async list(dir: string): Promise<FakeFileEntry[]> {
         calls.push({ name: "files.list", detail: dir });
         return Object.keys(dist).map((relative) => ({
           name: relative.split("/").pop() as string,
@@ -125,7 +142,7 @@ function fakeSandbox(
       return { templateId: behaviour.resolvedTemplateId ?? process.env.ZENITH_E2B_TEMPLATE ?? "" };
     },
     commands: {
-      async run(cmd, opts) {
+      async run(cmd: string, opts?: FakeCommandOptions) {
         calls.push({ name: "commands.run", detail: cmd });
         opts?.onStdout?.(`running ${cmd.slice(0, 20)}\n`);
         const isToolchainCheck = cmd.startsWith("node -e");
@@ -138,6 +155,7 @@ function fakeSandbox(
       return true;
     },
   };
+  if (behaviour.omitGetInfo) delete (sandbox as { getInfo?: unknown }).getInfo;
   return { sandbox, calls, written };
 }
 
@@ -205,6 +223,21 @@ describe("E2bRunner availability", () => {
   it("says its boundary is unverified live", async () => {
     expect(new build.E2bRunner().boundary).toContain("unverified live");
     expect(new build.E2bRunner().boundary).toContain("disposable");
+  });
+
+  it("refuses an SDK adapter that cannot report the provider-resolved template", async () => {
+    process.env.ZENITH_BUILD_RUNNER = "e2b";
+    process.env.E2B_API_KEY = "e2b_test_key";
+    process.env.ZENITH_E2B_TEMPLATE = TEMPLATE_ID;
+    process.env.ZENITH_E2B_TEMPLATE_DIGEST = TEMPLATE_DIGEST;
+    const { sandbox, calls } = fakeSandbox({ omitGetInfo: true });
+    const result = await new build.E2bRunner({ createSandbox: async () => sandbox }).run(
+      request(),
+      new AbortController().signal
+    );
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("resolved template ID");
+    expect(calls.map((c) => c.name)).toEqual(["files.read", "kill"]);
   });
 });
 

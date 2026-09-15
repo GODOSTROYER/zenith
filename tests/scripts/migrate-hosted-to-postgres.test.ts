@@ -199,7 +199,10 @@ async function seed(): Promise<Fixture> {
       expiresAt: new Date(Date.now() + 86_400_000).toISOString(),
     });
     // A resend, so `app_invites.supersedes` — the table's self reference —
-    // actually has a value to defer and patch.
+    // actually has a value to defer and patch. The original is superseded
+    // first, as the service does, because v3 allows one pending invitation
+    // per app and address.
+    await repos.invites.supersede(inviteId);
     await repos.invites.insert({
       id: resendId,
       appId,

@@ -10,7 +10,7 @@ a claim that Zenith is production-ready in every backend.
 | Reject malformed or non-finite agent integration grant expiries | `f42d2e4923d28385cb8b2b060b19365afea58ed6` (cherry-picked as `50b37f5`) | 15 OAuth tests, typecheck, targeted lint pass |
 | Record the architecture gate, topology, migration rules, work graph, and deployment matrix | `d8cf2af93e895312914f3de47131e15af6b2a3fb` | Reviewed against current source and Sol gate output |
 | Fence agent-operation finalization against operation expiry and the durable OAuth grant snapshot | `2d2786c` (integrated as `6bc2e21`) | Agent-control coordinator/journal tests and typecheck pass; application-authority race remains partial |
-| Store alert signing keys and credential-bearing HTTP targets as encrypted secret references | `9274b0f` plus follow-up working-tree changes | Alert delivery, outbox, bootstrap-redaction, and workspace-isolation tests pass; legacy plaintext delivery fails closed |
+| Store alert signing keys and credential-bearing HTTP targets as encrypted secret references | `90a8a87` (on top of `9274b0f`) | Alert delivery, outbox, bootstrap-redaction, and workspace-isolation tests pass; legacy plaintext delivery fails closed |
 | Add HTTPS/private-address/redirect/response-size validation and asynchronous audit/event repository paths | `9274b0f`, `fa67fa9` | Targeted alert and hosted-storage tests pass; actual webhook connection binding and secret backend async path remain open |
 
 The initial blanket mixed-store guard was implemented experimentally and then
@@ -66,6 +66,11 @@ the remaining synchronous secret path, installer-bound provenance, E2B live
 egress/teardown, UI behavior, and hosted migration evidence remain open.
 Preserving independent selectors does not prove cross-authority atomicity or
 that either backend is durable under every hosted failure.
+
+The companion plugin provenance work is tracked in the draft PR
+`GODOSTROYER/Zenith-plugins#6`. It is intentionally not a production approval
+for the plugin installer until verification is enforced at that consumption
+boundary.
 
 ## Rollback
 

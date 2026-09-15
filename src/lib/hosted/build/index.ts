@@ -42,10 +42,12 @@ export {
   SANDBOX_OUT,
   SANDBOX_ROOT,
   SANDBOX_SOURCE,
+  TEMPLATE_ATTESTATION,
   defaultSandboxFactory,
   type E2bOptions,
   type RecipeSandbox,
   type SandboxFactory,
+  type TemplateAttestation,
 } from "./runner-e2b";
 export {
   CONTAINER_OUT,

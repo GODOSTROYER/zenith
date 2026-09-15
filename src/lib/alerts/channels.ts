@@ -16,7 +16,7 @@
  *  - the token inside a Slack incoming-webhook URL, which is the whole URL's
  *    reason to be secret. `maskTarget` keeps it out of every response.
  */
-import { db, flush, flushPendingAsync, isPostgres, q } from "@/lib/db/store";
+import { db, flush, flushPendingAsync, isPostgres, q, save } from "@/lib/db/store";
 import type { AlertChannel, AlertChannelKind, AlertRule } from "@/lib/domain/types";
 import {
   putSecret,
@@ -58,6 +58,7 @@ export function channelSecret(channel: AlertChannel): string | undefined {
     if (!secretStoreState().configured)
       throw new Error("This channel still has a legacy plaintext signing secret. Configure ZENITH_SECRET_KEY and reload it before sending.");
     setChannelSecret(channel, channel.secret, "system:alert-channel-migration");
+    save();
     flush();
     return readSecretValue(channel.workspaceId, (channel as StoredAlertChannel).secretRef!);
   }
@@ -85,6 +86,7 @@ export function channelTarget(channel: AlertChannel): string {
   }
   if (secretStoreState().configured && channel.target) {
     setChannelTargetSecret(channel, channel.target, "system:alert-channel-migration");
+    save();
     flush();
     return readSecretValue(channel.workspaceId, (channel as StoredAlertChannel).targetSecretRef!)!;
   }
@@ -104,6 +106,7 @@ export async function channelSecretAsync(channel: AlertChannel): Promise<string 
     if (!secretStoreState().configured)
       throw new Error("This channel still has a legacy plaintext signing secret. Configure ZENITH_SECRET_KEY and reload it before sending.");
     await setChannelSecretAsync(channel, channel.secret, "system:alert-channel-migration");
+    save();
     await flushPendingAsync();
     return readSecretValueAsync(channel.workspaceId, (channel as StoredAlertChannel).secretRef!);
   }
@@ -128,6 +131,7 @@ export async function channelTargetAsync(channel: AlertChannel): Promise<string>
   }
   if (secretStoreState().configured && channel.target) {
     await setChannelTargetSecretAsync(channel, channel.target, "system:alert-channel-migration");
+    save();
     await flushPendingAsync();
     const value = await readSecretValueAsync(channel.workspaceId, (channel as StoredAlertChannel).targetSecretRef!);
     if (value === undefined)

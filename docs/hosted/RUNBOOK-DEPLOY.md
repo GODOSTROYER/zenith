@@ -108,9 +108,16 @@ reported with the missing variable named, never simulated. Full matrix in
 
 `ZENITH_RUNTIME`, `ZENITH_BUILD_RUNNER`, `ZENITH_ARTIFACT_DIR`,
 `ZENITH_CF_ACCOUNT_ID`, `ZENITH_CF_NAMESPACE`, `ZENITH_CF_API_TOKEN`,
-`E2B_API_KEY`, `ZENITH_POLICY_SHARED_SECRET`, `ZENITH_EVENTS_SALT`,
+`E2B_API_KEY`, `ZENITH_E2B_TEMPLATE`, `ZENITH_E2B_TEMPLATE_DIGEST`,
+`ZENITH_POLICY_SHARED_SECRET`, `ZENITH_EVENTS_SALT`,
 `ZENITH_SPEND_ENVELOPE_USD`, `ZENITH_FOUNDER_SUBJECTS`, `ZENITH_INVITE_FROM`,
 `ZENITH_SMTP_URL`, `ZENITH_ALERT_FROM`.
+
+For the E2B runner, `ZENITH_E2B_TEMPLATE` must be the provider-resolved bare
+template ID (not a name, alias, or tag), and `ZENITH_E2B_TEMPLATE_DIGEST` must
+match the `sha256:<64-hex>` value in the pre-baked image's
+`/etc/zenith/template-attestation.json`. The runner verifies both before any
+job source is uploaded.
 
 `ZENITH_BUILD_RUNNER` defaults to `none`, which refuses every build and says
 why. On a shared host, `recipe-local` runs the pinned recipe in a child

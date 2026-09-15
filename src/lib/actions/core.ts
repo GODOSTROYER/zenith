@@ -13,7 +13,7 @@
  */
 import { z } from "zod";
 import { withMutationGate } from "./mutation-gate";
-import { appendAudit, db, save } from "@/lib/db/store";
+import { appendAuditAsync, db, save } from "@/lib/db/store";
 import { id, type Actor, type AutonomyLevel } from "@/lib/domain/types";
 import { membershipPolicy } from "@/lib/auth/policy";
 import { WORKSPACE_ROLE_RANK, type WorkspaceRole } from "@/lib/domain/roles";
@@ -279,7 +279,7 @@ async function runActionInsideGate(
         summary: `"${action.title}" needs the ${action.requiredRole} role and you are ${role} in this workspace.`,
         error: `role_denied: ask a workspace admin to give ${ctx.actor.name} the ${action.requiredRole} role in Settings → Members, or have them run this action.`,
       };
-      audit(ctx, action, input, "denied", denied.summary, denied.error);
+      await audit(ctx, action, input, "denied", denied.summary, denied.error);
       return { result: denied };
     }
   }
@@ -293,7 +293,7 @@ async function runActionInsideGate(
         summary: `Navigator is in ${level} mode and may not execute actions.`,
         error: "autonomy_denied",
       };
-      audit(ctx, action, input, "denied", denied.summary);
+      await audit(ctx, action, input, "denied", denied.summary);
       return { result: denied };
     }
     if (level === "bounded" && action.risk !== "low") {
@@ -302,7 +302,7 @@ async function runActionInsideGate(
         summary: `Bounded autonomy only permits low-risk actions; "${action.title}" is ${action.risk} risk and needs approval.`,
         error: "autonomy_denied",
       };
-      audit(ctx, action, input, "denied", denied.summary);
+      await audit(ctx, action, input, "denied", denied.summary);
       return { result: denied };
     }
   }
@@ -319,7 +319,7 @@ async function runActionInsideGate(
   try {
     const result = await action.execute(ctx, input);
     if (action.mutates) save();
-    audit(ctx, action, input, result.ok ? "ok" : "error", result.summary, result.error);
+    await audit(ctx, action, input, result.ok ? "ok" : "error", result.summary, result.error);
     if (idemKey) idemSet(idemKey, result);
     return { result };
   } catch (err) {
@@ -329,7 +329,7 @@ async function runActionInsideGate(
       summary: `${action.title} failed.`,
       error: message,
     };
-    audit(ctx, action, input, "error", result.summary, message);
+    await audit(ctx, action, input, "error", result.summary, message);
     return { result };
   }
 }
@@ -358,7 +358,7 @@ function withRoleBlock(
   return out;
 }
 
-function audit(
+async function audit(
   ctx: ActionContext,
   action: ActionDef<unknown>,
   input: unknown,
@@ -367,7 +367,7 @@ function audit(
   error?: string
 ) {
   if (!action.mutates && result === "ok") return; // don't audit reads
-  appendAudit({
+  await appendAuditAsync({
     ts: new Date().toISOString(),
     id: id(),
     workspaceId: ctx.workspaceId,

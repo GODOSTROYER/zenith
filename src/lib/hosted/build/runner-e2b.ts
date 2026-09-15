@@ -30,6 +30,13 @@ import { LogSink, buildResult } from "./runner-support";
 export const SANDBOX_ROOT = "/home/user/zenith";
 export const SANDBOX_SOURCE = `${SANDBOX_ROOT}/source`;
 export const SANDBOX_OUT = `${SANDBOX_ROOT}/dist`;
+/** Written into the image at template-build time; never supplied by a job. */
+export const TEMPLATE_ATTESTATION = "/etc/zenith/template-attestation.json";
+
+export interface TemplateAttestation {
+  templateId: string;
+  digest: string;
+}
 
 /** The slice of the E2B `Sandbox` this runner uses. Kept small so a double is honest. */
 export interface RecipeSandbox {
@@ -45,6 +52,8 @@ export interface RecipeSandbox {
       opts?: { cwd?: string; timeoutMs?: number; onStdout?: (d: string) => void; onStderr?: (d: string) => void }
     ): Promise<{ exitCode: number; stdout: string; stderr: string }>;
   };
+  /** Available on the real E2B SDK; doubles may omit it. */
+  getInfo?: () => Promise<{ templateId: string }>;
   kill(): Promise<boolean>;
 }
 
@@ -58,7 +67,7 @@ export type SandboxFactory = (opts: {
 
 /**
  * The real factory: `Sandbox.create` from the `e2b` SDK, imported at call time.
- * The template is immutable and contains the pinned recipe toolchain. The
+ * The template ID is immutable and contains the pinned recipe toolchain. The
  * build never installs packages from the submitted source, and internet access
  * is explicitly disabled for the sandbox. Provider-side enforcement still has
  * to be proven in a disposable live lane.
@@ -84,7 +93,7 @@ export class E2bRunner implements BuildRunner {
   readonly id: BuildRunnerId = "e2b";
   readonly label = "Platform recipe in an E2B sandbox";
   readonly boundary =
-    "Runs the platform's Vite recipe inside a disposable remote E2B sandbox from an immutable, pre-pinned template with internet access disabled, then kills it when the build ends. No submitted script or config is executed. Provider-side egress and teardown remain unverified live in this repository.";
+    "Runs the platform's Vite recipe inside a disposable remote E2B sandbox from a bare immutable template ID with a matching SHA-256 attestation, internet access disabled, and guaranteed teardown. No submitted script or config is executed. Provider-side egress and teardown remain unverified live in this repository.";
 
   private readonly createSandbox: SandboxFactory;
   private readonly workerPath: string;
@@ -121,9 +130,35 @@ export class E2bRunner implements BuildRunner {
       return {
         available: false,
         reason: "ZENITH_E2B_TEMPLATE is not set, so the runner cannot select an immutable toolchain image.",
-        fix: "Build and attest a template containing the pinned recipe toolchain, then set ZENITH_E2B_TEMPLATE to its immutable tag.",
+        fix: "Build and attest a template containing the pinned recipe toolchain, then set ZENITH_E2B_TEMPLATE to its bare immutable ID.",
+      };
+    if (!hostedConfig().ZENITH_E2B_TEMPLATE_DIGEST)
+      return {
+        available: false,
+        reason: "ZENITH_E2B_TEMPLATE_DIGEST is not set, so the runner cannot verify the pre-baked template attestation.",
+        fix: "Set ZENITH_E2B_TEMPLATE_DIGEST to the sha256:<64-hex> digest recorded in the template attestation.",
       };
     return { available: true };
+  }
+
+  private async verifyTemplate(sandbox: RecipeSandbox): Promise<void> {
+    const config = hostedConfig();
+    const raw = await sandbox.files.read(TEMPLATE_ATTESTATION, { format: "bytes" });
+    let attestation: TemplateAttestation;
+    try {
+      attestation = JSON.parse(Buffer.from(raw).toString("utf8")) as TemplateAttestation;
+    } catch {
+      throw new Error(`The E2B template is missing a valid ${TEMPLATE_ATTESTATION} attestation.`);
+    }
+    if (attestation.templateId !== config.ZENITH_E2B_TEMPLATE)
+      throw new Error("The E2B template attestation does not match the configured immutable template ID.");
+    if (attestation.digest !== config.ZENITH_E2B_TEMPLATE_DIGEST)
+      throw new Error("The E2B template attestation digest does not match ZENITH_E2B_TEMPLATE_DIGEST.");
+    if (sandbox.getInfo) {
+      const info = await sandbox.getInfo();
+      if (info.templateId !== config.ZENITH_E2B_TEMPLATE)
+        throw new Error("E2B resolved a different template ID than the configured immutable template ID.");
+    }
   }
 
   async run(req: BuildRequest, signal: AbortSignal): Promise<BuildResult> {
@@ -147,6 +182,8 @@ export class E2bRunner implements BuildRunner {
         allowInternetAccess: false,
       });
       note("info", `Sandbox ${sandbox.sandboxId} created for job ${req.jobId}.`);
+      await this.verifyTemplate(sandbox);
+      note("info", "Verified the immutable template ID and SHA-256 attestation before uploading job data.");
       if (signal.aborted) return done({ ok: false, error: "The build was cancelled before the sandbox was used." });
 
       const job = {

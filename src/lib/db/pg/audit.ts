@@ -179,6 +179,24 @@ function where(filter: AuditFilter, workspaceIds: string[]): string[] {
  * Idempotent on `id`: the unique index plus `resolution=ignore-duplicates`
  * means a retry (a queue redelivery, a re-run script) writes nothing twice.
  */
+export async function appendAuditAsync(e: AuditEvent, options: RestAsyncOptions = {}): Promise<void> {
+  try {
+    await restAsync(
+      {
+        method: "POST",
+        table: TABLE,
+        op: "insert into",
+        path: `${TABLE}?on_conflict=id`,
+        body: [toRow(e)],
+        prefer: "resolution=ignore-duplicates,return=minimal",
+      },
+      options
+    );
+  } catch (err) {
+    console.error(`Zenith could not write an audit row (${e.actionId}): ${(err as Error).message}`);
+  }
+}
+
 function appendAudit(e: AuditEvent): void {
   try {
     restSync({

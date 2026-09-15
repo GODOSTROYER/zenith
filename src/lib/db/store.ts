@@ -107,6 +107,19 @@ export const readEvents = (deploymentId: string, afterSeq = -1): DeploymentEvent
 
 export const appendAudit = (e: AuditEvent): void => currentStore().appendAudit(e);
 
+/** Awaitable audit append for request/action paths; the Store contract stays sync. */
+export async function appendAuditAsync(
+  e: AuditEvent,
+  options: import("./pg/sync-rest").RestAsyncOptions = {}
+): Promise<void> {
+  if (!isPostgres()) {
+    appendAudit(e);
+    return;
+  }
+  const { appendAuditAsync: append } = await import("./pg/audit");
+  await append(e, options);
+}
+
 export const readAuditPage = (filter: AuditFilter = {}): AuditPage =>
   currentStore().readAuditPage(filter);
 

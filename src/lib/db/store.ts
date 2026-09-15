@@ -159,10 +159,12 @@ export const readEvents = (deploymentId: string, afterSeq = -1): DeploymentEvent
 export const appendAudit = (e: AuditEvent): void => currentStore().appendAudit(e);
 
 /**
- * Append a file-store audit batch atomically when the caller needs a logical
- * all-or-nothing set. Postgres request paths use appendAuditAsync instead;
- * account deletion refuses Product-Postgres mode until the cross-authority
- * transaction exists.
+ * Append a logical set of audit rows in one bounded write, for a caller that
+ * emits several rows for one operation. It is not a transaction — see
+ * `file-store.ts` for why idempotent retry is the guarantee instead, and what
+ * each row has to carry to make that true. Postgres request paths use
+ * `appendAuditAsync`; account deletion refuses Product-Postgres mode until the
+ * cross-authority transaction exists.
  */
 export const appendAuditBatch = (events: AuditEvent[]): void => {
   const store = currentStore() as Store & { appendAuditBatch?: (items: AuditEvent[]) => void };

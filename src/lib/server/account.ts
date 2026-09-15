@@ -455,9 +455,14 @@ export async function removeAccountRecordsAsync(user: SessionUser, operationId =
       appendAuditBatch(pendingAudits);
     }
   } catch (error) {
-    // Restore the mutable snapshot. File-store batches are atomically replaced;
-    // Postgres account deletion is refused above until a cross-table transaction
-    // exists, so an async audit failure cannot leave a successful deletion.
+    // Restore the mutable snapshot, so a failed audit write never leaves a
+    // deletion that happened but was not recorded. Neither store makes this
+    // all-or-nothing on its own — the file batch is a bounded append and
+    // Postgres is several requests — which is why every row above carries a
+    // deterministic `<operationId>:<action>:<workspace>` id and is skipped when
+    // it is already present: the recovery story is idempotent retry, not
+    // atomicity. Product-Postgres account deletion is refused at the route and
+    // in the keepalive pass until a cross-table transaction exists.
     d.members.splice(0, d.members.length, ...originalMembers);
     if (invitesRevoked) {
       if (originalInvites === undefined) delete d.settings.invites;

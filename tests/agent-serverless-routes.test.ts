@@ -24,7 +24,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
-import type { ReaderDependencies, CredentialAuthority } from "@/lib/agent-access/http";
+import type { ReaderDependencies, ReaderAuthority } from "@/lib/agent-access/http";
 import { tempDataDir } from "./_support/data-dir";
 
 tempDataDir("zenith-agent-serverless-", { fast: true });
@@ -135,7 +135,7 @@ describe("v1 reader route", () => {
   // the file authority answers 503 link_unavailable from ready()"), so it
   // cannot prove the 401/403 paths on every dev machine. http.ts's contract —
   // what this packet owns — is what is under test here.
-  function fileAuthorityStub(): CredentialAuthority {
+  function fileAuthorityStub(): ReaderAuthority {
     return {
       kind: "file",
       async ready() {},

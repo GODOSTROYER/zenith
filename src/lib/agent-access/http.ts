@@ -1,20 +1,22 @@
 /** Bounded, stateless JSON-response Streamable HTTP profile; no write methods. */
 import { randomUUID } from "node:crypto";
 import { AgentError, object, redact, selectScope, type Credential, type SelectedScope } from "./security";
+// The real authority contract (F1, LINK-PROTOCOL.md §3.1). The import is
+// relative and type-only on purpose: this file is also compiled standalone by
+// scripts/test-agent-reader.mjs (no path aliases), and a type-only import is
+// erased at emit, so the reader's bundle still requires nothing but security.js.
+import type { CredentialAuthority } from "./authority/types";
 
-// INTEGRATOR: remove this local interface once src/lib/agent-access/authority/types.ts
-// (P1 owns; frozen contract F1, LINK-PROTOCOL.md §3.1) lands, and import
-// `CredentialAuthority` from "../authority/types" instead. This file is compiled
-// standalone by scripts/test-agent-reader.mjs (security.ts + http.ts only, no path
-// aliases), so it cannot import that module yet; the shape below matches F1 exactly
-// for the members this transport actually calls.
-export interface CredentialAuthority {
-  readonly kind: "file" | "postgres";
-  /** Fail-closed capability probe. Throws AgentError('policy_unavailable', …, 503). */
-  ready(): Promise<void>;
-  /** Bearer -> Credential, or throw AgentError('unauthorized', …, 401). */
-  verify(authorizationHeader: string | null, now?: number): Promise<Credential>;
-}
+export type { CredentialAuthority };
+
+/**
+ * The members this read-only transport actually calls.
+ *
+ * A narrowing of F1, not a second interface: the real authority satisfies it,
+ * and writing it down keeps the reader from quietly acquiring a dependency on
+ * the link surface it has no business touching.
+ */
+export type ReaderAuthority = Pick<CredentialAuthority, "kind" | "ready" | "verify">;
 
 export interface ReaderTool {
   name: string; description: string; inputSchema: Record<string, unknown>;
@@ -25,7 +27,7 @@ export interface ReaderDependencies {
   origin: string;
   /** Recomputed per request: enablement depends on live authority connectivity. */
   enabled(): Promise<boolean>;
-  authority(): CredentialAuthority;
+  authority(): ReaderAuthority;
   tools: ReaderTool[];
   inScope<T>(grant: Credential, selected: SelectedScope, fn: () => Promise<T>): Promise<T>;
   call(name: string, args: Record<string, unknown>, grant: Credential, selected: SelectedScope): Promise<unknown>;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ControlError, Journal, type Principal, type Proposal } from '../src/lib/agent-access/control/journal';
+import { ControlError, Journal, SqliteAgentJournal, type Principal, type Proposal } from '../src/lib/agent-access/control/journal';
 import { Coordinator, type ControlPort } from '../src/lib/agent-access/control/coordinator';
 import { withMutationGate } from '../src/lib/actions/mutation-gate';
 const who: Principal = { subject:'member', integrationId:'codex', workspaceId:'ws', projectIds:['p'], scopes:['read','plan','write'], expiresAt:'2099-01-01T00:00:00Z' };
@@ -8,8 +8,12 @@ function fixture(patch: Partial<ControlPort> = {}) {
   const journal = new Journal(':memory:'); let executions = 0, flushes = 0;
   const port: ControlPort = { gate:withMutationGate, scope:async(_,f)=>f(), proposal:async()=>proposal, fingerprint:async()=>proposal.fingerprint,
     authorize:async()=>{}, execute:async()=>{ executions++; return {ok:true, data:{deploymentId:'dep'}}; }, flush:async()=>{flushes++;}, ...patch };
-  const coordinator = new Coordinator(journal, port);
-  return { journal, coordinator, count:()=>({executions,flushes}), close:()=>journal.close() };
+  // The coordinator holds the asynchronous surface; the assertions below keep
+  // reading the synchronous class underneath it, so what they observe is the
+  // durable row rather than whatever the adapter chose to return.
+  const agentJournal = new SqliteAgentJournal(journal);
+  const coordinator = new Coordinator(agentJournal, port);
+  return { journal, agentJournal, coordinator, count:()=>({executions,flushes}), close:()=>journal.close() };
 }
 async function approved(f: ReturnType<typeof fixture>) { const op=await f.coordinator.prepare(who, {}); f.journal.review(op.id,who.subject,who.workspaceId,op.digest,true); return op; }
 describe('integration coordinator',()=>{
@@ -125,32 +129,38 @@ describe('integration coordinator',()=>{
 });
 
 /**
- * The wiring the Postgres journal is still waiting on.
+ * The wiring the Postgres journal was waiting on, now done.
  *
  * `AgentJournal` (F5) is all-promise, because a network round trip cannot be a
- * return value. `Coordinator` reads its journal synchronously — and so do
- * `browser.ts` (`control().journal.reviewQueue(...).map(...)`) and
- * `boundary.ts` (`bindGrant(identity, control().journal.getGrant(...))`). Those
- * three files have to gain `await` in one commit, and they belong to three
- * different packets, so none of them can do it alone.
- *
- * This pins the current state rather than asserting it is right: if the
- * coordinator is switched onto the asynchronous journal without the other two,
- * this fails here instead of in a browser that silently renders no review
- * queue.
+ * return value. `Coordinator` now takes that interface and awaits every journal
+ * call, and `browser.ts` and `boundary.ts` await their reads too. This pins the
+ * wired state: if the coordinator is ever narrowed back to the synchronous
+ * class, or a journal call loses its `await`, it fails here rather than in a
+ * Postgres deployment that silently writes an approved operation somewhere
+ * nothing reads again.
  */
 describe('coordinator journal surface',()=>{
-  it('still reads the journal synchronously, which is why Postgres is not wired yet',async()=>{
+  it('holds the asynchronous journal and awaits every call',async()=>{
     const f=fixture();
     try{
       const op=await approved(f);
-      // Not a promise: `Coordinator.execute` does `const op = this.journal.get(...)`
-      // and then reads `op.target` on the next line.
-      const read=f.journal.get(who,op.id);
-      expect(read).not.toBeInstanceOf(Promise);
+      // The coordinator's own journal is the AgentJournal, and every method
+      // that decides anything answers with a promise.
+      expect(f.coordinator.journal).toBe(f.agentJournal);
+      expect(f.coordinator.journal.kind).toBe('file');
+      for (const call of [
+        f.coordinator.journal.get(who,op.id),
+        f.coordinator.journal.findRequest(who,proposal.requestKey),
+        f.coordinator.journal.reviewQueue('ws',who.subject,true),
+        f.coordinator.journal.getGrant(who.subject,'client','ws'),
+      ]) expect(call).toBeInstanceOf(Promise);
+      // And awaiting them yields the same rows the synchronous journal holds,
+      // because `SqliteAgentJournal` delegates rather than caching.
+      const read=await f.coordinator.journal.get(who,op.id);
       expect(read.target.workspaceId).toBe('ws');
-      expect(f.journal.reviewQueue('ws',who.subject,true)).not.toBeInstanceOf(Promise);
-      expect(f.journal.getGrant(who.subject,'client','ws')).not.toBeInstanceOf(Promise);
+      expect(read.phase).toBe(f.journal.get(who,op.id).phase);
+      expect(await f.coordinator.journal.reviewQueue('ws',who.subject,true)).toHaveLength(1);
+      expect(await f.coordinator.journal.getGrant(who.subject,'client','ws')).toBeUndefined();
     } finally {f.close();}
   });
   it('keeps uncertain a terminal answer, never a retry',async()=>{

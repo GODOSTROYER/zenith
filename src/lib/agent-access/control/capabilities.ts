@@ -47,6 +47,7 @@
 import { env } from '@/lib/env';
 import { isPostgres } from '@/lib/db/store';
 import { isServerless } from '@/lib/serverless';
+import { credentialAuthority } from '../authority';
 import { ControlError } from './journal';
 
 export interface ControlCapabilities {
@@ -65,18 +66,16 @@ export interface ControlCapabilities {
 }
 
 /**
- * Where the credential authority lives.
+ * Where the credential authority lives — asked of the authority itself.
  *
- * **Local stub — remove when P1 lands.** The real answer is
- * `credentialAuthority().kind` from `src/lib/agent-access/authority/index.ts`
- * (LINK-PROTOCOL §3.1, frozen contract F1), which is being written in parallel
- * and is not importable yet. F1 fixes the selection rule as "whichever
- * authority `ZENITH_STORE` selects", which is what this reproduces — so the
- * value is right today and the line still has to go, because the real authority
- * also knows whether it is *reachable* and this does not.
+ * `credentialAuthority()` (F1, `authority/index.ts`) is cheap: it holds no
+ * connection and opens nothing, so this stays a local fact and
+ * `controlCapabilitiesSync()` stays synchronous. Whether that authority is
+ * *reachable* is a separate question, and the one every link endpoint asks
+ * through `requireCredentialAuthority()`.
  */
 function credentialAuthorityKind(): 'file' | 'postgres' {
-  return env().ZENITH_STORE === 'postgres' ? 'postgres' : 'file';
+  return credentialAuthority().kind;
 }
 
 /** How the journal reachability probe has turned out so far, this process. */

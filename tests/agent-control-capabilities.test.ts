@@ -167,14 +167,23 @@ describe('agent control capabilities', () => {
     await expect(runtime.requireWritesAsync()).rejects.toThrow(/SUPABASE_DB_URL/);
   });
 
-  it('the coordinator refuses the Postgres journal until three files await it', async () => {
+  it('the coordinator is wired onto the Postgres journal rather than refusing it', async () => {
     const runtime = await import('../src/lib/agent-access/control/runtime');
-    Object.assign(process.env, { ZENITH_STORE: 'postgres', ZENITH_AGENT_CONTROL: '1', SUPABASE_DB_URL: POOLER });
-    // Everything the Postgres control plane needs exists; what is missing is
-    // that `coordinator.ts`, `browser.ts` and `boundary.ts` still read the
-    // journal synchronously. Refusing loudly beats appearing to accept a
-    // reviewed operation and writing it where nothing will read it again.
-    expect(() => runtime.control()).toThrow(/coordinator/);
-    expect(() => runtime.control()).toThrow(/ZENITH_STORE=file/);
+    Object.assign(process.env, { ZENITH_STORE: 'postgres', ZENITH_AGENT_CONTROL: '1' });
+    // `control()` used to throw `control_unwired` here, because `coordinator.ts`,
+    // `browser.ts` and `boundary.ts` read the journal synchronously and a
+    // database cannot answer that way. All three now await it, so the factory
+    // resolves rather than returns — and the only refusal left on the Postgres
+    // path is about the configuration, with the variable named.
+    //
+    // No `SUPABASE_DB_URL` on purpose: the decision is then entirely local, so
+    // this asserts the wiring without a unit test opening a socket.
+    const attempt = runtime.control();
+    expect(attempt).toBeInstanceOf(Promise);
+    await expect(attempt).rejects.toThrow(/SUPABASE_DB_URL/);
+    await attempt.catch((error: unknown) => {
+      expect((error as ControlError).code).toBe('control_disabled');
+      expect(String((error as Error).message)).not.toMatch(/synchronously|land the AgentJournal await change/);
+    });
   });
 });

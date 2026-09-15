@@ -12,6 +12,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import crypto from "node:crypto";
 import { createHmac } from "node:crypto";
 import fs from "node:fs";
+import http from "node:http";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import type { AlertChannel } from "@/lib/domain/types";
@@ -25,9 +27,11 @@ process.env.ZENITH_FAST = "1";
 const { db, readAudit, resetDb } = await import("@/lib/db/store");
 const {
   DELIVERY_ATTEMPTS,
+  DELIVERY_DEADLINE,
   MISSING_NODEMAILER,
   NODEMAILER,
   SIGNATURE_HEADER,
+  WEBHOOK_ALLOW_INSECURE_ENV,
   channelTable,
   channelsForRule,
   deliverToChannel,
@@ -75,6 +79,16 @@ function channel(over: Partial<AlertChannel> = {}): AlertChannel {
   return c;
 }
 
+/**
+ * The same, read back through `channelTable()` so the legacy migration has
+ * actually run — the row then holds the encrypted references a live channel
+ * has, rather than the plaintext a fixture starts with.
+ */
+function sealedChannel(over: Partial<AlertChannel> = {}): AlertChannel {
+  const c = channel(over);
+  return channelTable().find((row) => row.id === c.id)!;
+}
+
 const msg = {
   phase: "fired" as const,
   title: "api degraded in sandbox.",
@@ -104,6 +118,8 @@ function stubFetch(statuses: (number | Error)[]) {
   return calls;
 }
 
+const productionDeadline = DELIVERY_DEADLINE.ms;
+
 beforeEach(() => {
   seed();
   WEBHOOK_POLICY.resolveAll = async () => ["93.184.216.34"];
@@ -114,6 +130,8 @@ beforeEach(() => {
 afterEach(() => {
   WEBHOOK_POLICY.resolveAll = productionResolver;
   WEBHOOK_TRANSPORT.request = productionTransport;
+  DELIVERY_DEADLINE.ms = productionDeadline;
+  delete process.env[WEBHOOK_ALLOW_INSECURE_ENV];
   vi.unstubAllGlobals();
 });
 
@@ -262,6 +280,51 @@ describe("webhook egress policy", () => {
     expect(result.error).toContain("redirect");
   });
 
+  it("closes the socket of an endpoint that never answers, and retries it", async () => {
+    // The one test here that uses the real transport. A loopback server that
+    // accepts the connection and never writes a byte is the failure the
+    // deadline exists for; what is asserted is that the *socket* ends, not
+    // merely that the promise stopped waiting.
+    const sockets: net.Socket[] = [];
+    let closed = 0;
+    const server = http.createServer(() => {
+      /* never respond */
+    });
+    server.on("connection", (socket) => {
+      sockets.push(socket);
+      socket.on("close", () => {
+        closed += 1;
+      });
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address() as net.AddressInfo;
+
+    // A plaintext loopback receiver is reachable only under the acknowledged
+    // development policy, which is exactly the shape this case has in life.
+    process.env[WEBHOOK_ALLOW_INSECURE_ENV] = "1";
+    DELIVERY_DEADLINE.ms = 200;
+    try {
+      const result = await deliverToChannel(
+        channel({ id: "hangs", target: `http://127.0.0.1:${port}/hooks` }),
+        msg
+      );
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain("No response within");
+      // A hung endpoint is a bad moment, not a bad URL: it uses the ladder.
+      expect(result.attempts).toBe(DELIVERY_ATTEMPTS);
+      expect(sockets).toHaveLength(DELIVERY_ATTEMPTS);
+      // The close travels back over loopback, so wait for it rather than
+      // assuming it has already landed when the promise settles.
+      for (let i = 0; i < 100 && closed < DELIVERY_ATTEMPTS; i++)
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(closed).toBe(DELIVERY_ATTEMPTS);
+      expect(sockets.every((s) => s.destroyed)).toBe(true);
+    } finally {
+      for (const socket of sockets) socket.destroy();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  });
+
   it("stops reading an oversized response", async () => {
     const calls: RequestInit[] = [];
     WEBHOOK_TRANSPORT.request = async (_target, _body, _headers, _signal) => {
@@ -278,6 +341,98 @@ describe("webhook egress policy", () => {
     expect(calls).toHaveLength(1);
     expect(result.ok).toBe(false);
     expect(result.error).toContain("safe size limit");
+  });
+});
+
+describe("which failures are retried", () => {
+  it("retries a resolver failure instead of failing the delivery permanently", async () => {
+    const calls = stubFetch([200]);
+    WEBHOOK_POLICY.resolveAll = async () => {
+      throw new Error("ENOTFOUND");
+    };
+    const result = await deliverToChannel(channel({ id: "dns-blip" }), msg);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/did not resolve/i);
+    // A 30-second resolver blip must not burn the whole delivery on one try.
+    expect(result.attempts).toBe(DELIVERY_ATTEMPTS);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("refuses a blocked destination once, without a retry ladder", async () => {
+    const calls = stubFetch([200]);
+    WEBHOOK_POLICY.resolveAll = async () => ["10.0.0.8"];
+    const result = await deliverToChannel(channel({ id: "rebound" }), msg);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/restricted network destination/i);
+    expect(result.error).toMatch(/Settings → Alerts/);
+    expect(result.error).not.toContain("10.0.0.8");
+    expect(result.attempts).toBe(1);
+    expect(calls).toHaveLength(0);
+  });
+});
+
+/* ---------------------------- the secret lifecycle ------------------------- */
+
+describe("a credential that cannot be opened", () => {
+  /** The sealed record behind a channel's target, as it sits in the store. */
+  const sealedTarget = (channelId: string, workspaceId = "ws1") =>
+    FileSecrets.get(workspaceId, `vault:alert-channel/${channelId}/TARGET_URL`)!;
+
+  it("fails closed when a byte of the ciphertext is flipped", async () => {
+    const c = sealedChannel({ id: "tampered", target: "https://alerts.example.test/hooks/token" });
+    const record = sealedTarget("tampered");
+    const bytes = Buffer.from(record.ciphertext, "base64");
+    bytes[0] ^= 0xff;
+    FileSecrets.put("ws1", { ...record, ciphertext: bytes.toString("base64") });
+
+    const calls = stubFetch([200]);
+    const result = await deliverToChannel(c, msg);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/cannot be opened/i);
+    // Nothing is sent, and a byte that will never decrypt is not retried.
+    expect(calls).toHaveLength(0);
+    expect(result.attempts).toBe(1);
+  });
+
+  it("refuses another tenant's ciphertext presented under the same reference", async () => {
+    // The reference is canonical for the channel id, so `assertCanonicalCredentialRefs`
+    // has nothing to object to: what refuses this is the AAD, which binds the
+    // sealed bytes to `"<workspaceId> <ref>"`.
+    const owner = sealedChannel({ id: "tenant-a", target: "https://alerts.example.test/hooks/a" });
+    const record = sealedTarget("tenant-a");
+    FileSecrets.put("ws2", record);
+
+    const impostor = fixtures.channelData({
+      id: "tenant-a",
+      workspaceId: "ws2",
+      target: "https://alerts.example.test/…",
+    }) as AlertChannel & { targetSecretRef?: string };
+    impostor.targetSecretRef = (owner as AlertChannel & { targetSecretRef?: string }).targetSecretRef;
+
+    const calls = stubFetch([200]);
+    const result = await deliverToChannel(impostor, msg);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/cannot be opened/i);
+    expect(calls).toHaveLength(0);
+    expect(result.attempts).toBe(1);
+  });
+
+  it("fails closed on the modern reference path when the key is gone", async () => {
+    const c = sealedChannel({ id: "no-key-modern", target: "https://alerts.example.test/hooks/modern" });
+    expect((c as AlertChannel & { targetSecretRef?: string }).targetSecretRef).toBeTruthy();
+    const previous = process.env.ZENITH_SECRET_KEY;
+    delete process.env.ZENITH_SECRET_KEY;
+    try {
+      const calls = stubFetch([200]);
+      const result = await deliverToChannel(c, msg);
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/ZENITH_SECRET_KEY/);
+      expect(calls).toHaveLength(0);
+      expect(result.attempts).toBe(1);
+    } finally {
+      if (previous === undefined) delete process.env.ZENITH_SECRET_KEY;
+      else process.env.ZENITH_SECRET_KEY = previous;
+    }
   });
 });
 
@@ -342,7 +497,16 @@ describe("which channels a rule uses", () => {
     });
     const report = await migrateLegacyChannelSecretsAsync([legacy]);
     const stored = legacy as AlertChannel & { secretRef?: string; targetSecretRef?: string };
-    expect(report).toEqual({ inspected: 1, migrated: 1, unchanged: 0 });
+    expect(report).toMatchObject({ inspected: 1, migrated: 1, unchanged: 0, blocked: 0 });
+    expect(report.channels).toEqual([
+      {
+        channelId: "legacy-async",
+        name: legacy.name,
+        kind: "webhook",
+        status: "migrated",
+        detail: "plaintext target URL and plaintext signing secret",
+      },
+    ]);
     expect(stored.secret).toBeUndefined();
     expect(stored.secretRef).toBe("vault:alert-channel/legacy-async/SIGNING_SECRET");
     expect(stored.targetSecretRef).toBe("vault:alert-channel/legacy-async/TARGET_URL");
@@ -361,6 +525,8 @@ describe("which channels a rule uses", () => {
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/not owned by this channel/i);
     expect(calls).toHaveLength(0);
+    // A reference this channel does not own is the same on every attempt.
+    expect(result.attempts).toBe(1);
   });
 
   it("replaces a mixed legacy signing value even when an encrypted reference already exists", async () => {
@@ -374,7 +540,7 @@ describe("which channels a rule uses", () => {
 
     const report = await migrateLegacyChannelSecretsAsync([mixed]);
     const stored = mixed as AlertChannel & { secretRef?: string };
-    expect(report).toEqual({ inspected: 1, migrated: 1, unchanged: 0 });
+    expect(report).toMatchObject({ inspected: 1, migrated: 1, unchanged: 0, blocked: 0 });
     expect(stored.secret).toBeUndefined();
     expect(readSecretValue("ws1", stored.secretRef!)).toBe("new-legacy-signing");
   });
@@ -489,6 +655,7 @@ describe("which channels a rule uses", () => {
       expect(result.ok).toBe(false);
       expect(calls).toHaveLength(0);
       expect(result.error).toMatch(/configure ZENITH_SECRET_KEY/i);
+      expect(result.attempts).toBe(1);
     } finally {
       if (previous === undefined) delete process.env.ZENITH_SECRET_KEY;
       else process.env.ZENITH_SECRET_KEY = previous;

@@ -309,7 +309,11 @@ export const SCHEDULER_ENGINE_BUDGET_MS = 5_000;
  * The passes one scheduled tick runs, indirected so a test can observe them.
  *
  * Not a plugin point: production reads exactly these three, in this order, and
- * `/api/internal/tick/*` calls the same functions directly.
+ * `/api/internal/tick/*` calls the same functions directly. `jobTickPass()` is
+ * deliberately absent — the hosted job runner reads the hosted authority, not
+ * the product snapshot, so it never lost its own 250 ms ticker
+ * (`startHostedJobRunner()`, called by `ensureHosted()` before boot's Postgres
+ * return). Adding it here would tick it twice.
  */
 export const scheduledPasses = {
   engine: engineTickPass,

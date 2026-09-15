@@ -369,12 +369,18 @@ idempotently → events appended (replayable) → verify phase (honest health) �
    columns, never a decrypt), because those four live in the data directory as
    files rather than in `state.json`.
 
-   **Background work has no process to live in.** The engine's 250 ms ticker,
-   the alert evaluator's 15 s pass, the outbox drainer and the hosted job runner
-   all assume one long-lived server. A Vercel instance exists for a request and
-   is frozen after it, so `src/lib/serverless.ts` turns those timers off there
-   and something else has to drive them: five internal routes, each of which
-   runs **one bounded pass** and returns JSON counts.
+   **Background work has no process to live in — on two hosts, for two
+   different reasons.** The engine's 250 ms ticker, the alert evaluator's 15 s
+   pass, the outbox drainer and the hosted job runner all assume one long-lived
+   server. A Vercel instance exists for a request and is frozen after it, so
+   `src/lib/serverless.ts` turns those timers off there. `ZENITH_STORE=postgres`
+   turns the first three off as well, on *any* host: they read the store, `db()`
+   answers from a snapshot loaded before the caller ran, and a timer callback
+   has no caller — so an unprimed read is a fault, and a fault raised inside
+   `setInterval` is a process exit. (The hosted job runner keeps its ticker on a
+   long-lived host: it reads the hosted authority, not the product snapshot.)
+   What drives the work instead is five internal routes, each of which runs
+   **one bounded pass** and returns JSON counts.
 
    | Route | Pass |
    | --- | --- |
@@ -402,9 +408,26 @@ idempotently → events appended (replayable) → verify phase (honest health) �
    GitHub's own floor of five minutes. Between those ticks, `nudge()`
    (`src/lib/server/cron.ts`) covers the case that actually needs sub-minute
    progress: reading a project payload runs one synchronous `engineTick()` when
-   that workspace has a deployment in flight — serverless only, rate-limited to
-   once per five seconds per instance, a no-op when nothing is deploying, and
-   unable to fail the read. Nothing starts a `setInterval` anywhere.
+   that workspace has a deployment in flight — on any host with no ticker
+   (serverless, and a long-lived Postgres one), rate-limited to once per five
+   seconds per instance, a no-op when nothing is deploying, and unable to fail
+   the read.
+
+   **The one timer, and the topology it exists for.** A five-minute external
+   schedule is Vercel's answer, and it is not available to a self-hosted
+   long-lived process that nobody points a cron at — which is exactly the row
+   `DEPLOYMENT-MATRIX.md` §3 calls supported. So `startCronScheduler()`
+   (`src/lib/server/cron.ts`), started by `boot()` on that row alone, runs the
+   same passes on an unref'd 2 s interval: the engine pass every tick, alerts
+   and the outbox every eighth, each inside `inCronScope()` so it holds the same
+   primed unfiltered snapshot a tick route would, single-flight so an
+   overrunning pass is never doubled up, and logging rather than throwing on
+   failure. It leaves the inherited async context first
+   (`outsideSnapshot()`), because the interval is created inside `boot()`, which
+   the first request awaits — without that every pass would read one arbitrary
+   caller's tenant slice for the life of the process. It refuses to start on
+   serverless (frozen instances) and on the file store (which has its own
+   timers), and it is the only `setInterval` this layer starts.
 
    **The snapshot contract for out-of-request work.** On Postgres `db()` reads a
    snapshot loaded *before* the caller ran, and `route()` loads the caller's
@@ -420,7 +443,9 @@ idempotently → events appended (replayable) → verify phase (honest health) �
    every workspace and exactly why these routes check their bearer first.
    Nothing else may reach that snapshot by accident: an unprimed read is a
    fault, and boot — which runs before the bearer is checked — does no durable
-   catch-up on Postgres for the same reason, deferring it to these passes.
+   catch-up on Postgres for the same reason, deferring it to these passes (to
+   the in-process scheduler on a long-lived host, to an external one on
+   serverless; boot's log line says which).
 
 2. **Sandbox provider is a first-class citizen**, not a mock: same adapter
    contract as AWS, realistic phased execution, honest labeling. This keeps

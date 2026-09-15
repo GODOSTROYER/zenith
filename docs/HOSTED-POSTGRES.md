@@ -112,8 +112,94 @@ the project):
 4. `supabase/migrations/0004_hosted_app_data_atomic.sql` — atomic create/update
    RPCs when the hosted data plane uses PostgreSQL.
 5. `supabase/migrations/0005_pending_invite_uniqueness.sql` — one pending
-   invitation per normalized app/address; reconcile duplicate pending rows
-   before applying it. This also records authority migration version 3.
+   invitation per normalized app/address; **reconcile duplicate pending rows
+   first — the query and the fix are in §3.1 below**. This also records
+   authority migration version 3, which is the version this build refuses to
+   boot without.
+
+### 3.1 Before `0005`: reconcile duplicate pending invitations
+
+`0005` creates `app_invites_pending_email`, a unique index on
+`(app_id, lower(email))` `where state = 'pending'`, and inserts the version-3
+ledger row **in the same transaction**. So if any app has two live pending
+invitations for one address, the whole migration rolls back: no index, no
+version row. That is deliberate — silently keeping one of two rows would
+discard a bearer link somebody is holding — but it means the reconciliation is
+an operator decision, taken before the deploy, not during it.
+
+**Step 1 — the check. It writes nothing; run it on its own first.**
+
+```sql
+select app_id, lower(email) as address, count(*) as pending
+from hosted.app_invites
+where state = 'pending'
+group by 1, 2
+having count(*) > 1
+order by pending desc;
+```
+
+Expected output on a project that is ready: **`0 rows`** (psql prints
+`(0 rows)`; the SQL editor prints "Success. No rows returned"). With `0 rows`,
+skip to applying `0005` — nothing below is needed.
+
+**Step 2 — supersede the older duplicates.** Only if step 1 returned rows. Each
+group keeps its **newest** invitation pending; every older one becomes
+`superseded`, which is a state the schema already has and the access list
+already renders. Read it before running it: this is the step that decides whose
+link stops working.
+
+```sql
+begin;
+
+with ranked as (
+  select id,
+         row_number() over (
+           partition by app_id, lower(email)
+           order by created_at desc, id desc
+         ) as rn,
+         first_value(id) over (
+           partition by app_id, lower(email)
+           order by created_at desc, id desc
+         ) as newest_id
+  from hosted.app_invites
+  where state = 'pending'
+)
+update hosted.app_invites as i
+   set state = 'superseded',
+       supersedes = ranked.newest_id
+  from ranked
+ where i.id = ranked.id
+   and ranked.rn > 1;
+
+-- Re-run the check inside the transaction. Commit only on 0 rows.
+select app_id, lower(email) as address, count(*) as pending
+from hosted.app_invites
+where state = 'pending'
+group by 1, 2
+having count(*) > 1;
+
+commit;   -- or `rollback;` if that select returned anything
+```
+
+Then run step 1 again after the commit and confirm **`0 rows`**, and apply
+`0005`.
+
+Three things worth knowing before you run it:
+
+- **The older links stop working.** An invitation that is not `pending` cannot
+  be accepted, so anyone holding one of the superseded links needs the newest
+  one — or a fresh **Resend** from the app's access list, which mints a new
+  token and supersedes whatever is outstanding. The newest link is deliberately
+  the survivor: it is the one the last person to act intended.
+- **The `supersedes` pointer runs the other way here, and that is fine.** At
+  runtime the *new* invitation records `supersedes = <old id>` (one old row per
+  new one). A bulk reconciliation cannot do that for a group of three or more,
+  so each superseded row instead records the id of the invitation that replaced
+  it. The column is provenance — nothing reads it to make a decision — and the
+  foreign key and the state CHECK are satisfied either way.
+- **`created_at` is ISO-8601 UTC text**, so `order by created_at desc` is
+  chronological. `id desc` only breaks a tie between two rows written in the
+  same millisecond.
 
 Rules that hold for all migration files:
 
@@ -152,7 +238,14 @@ reads the bytes and serves them itself.
 ## 4. The boot schema check
 
 Two refusals guard a Postgres hosted install, and both name the variable or file
-to fix.
+to fix. Stated plainly, because it decides the order of every deploy below:
+**this build does not serve a single hosted request until `0005` is applied and
+its index verifies.** The check reads `hosted.schema_migrations` for version 3
+*and* the definition of `hosted.app_invites_pending_email`; until both are
+there, every hosted read and every hosted write fails closed with the message
+below. A deploy that ships this build to a project still at version 1 or 2 is a
+hosted outage that lasts until somebody runs the SQL — which is why §3.1's
+reconciliation and `0005` come **before** the deploy, not after it.
 
 **No URL.** `assertHostedPreconditions()` in `src/lib/hosted/index.ts` checks
 before anything opens:
@@ -189,6 +282,10 @@ with the fix:
 > or `psql` against SUPABASE_DB_URL) and start again. Re-applying the
 > idempotent migrations is safe; reconcile duplicate pending invites before
 > 0005. Nothing was read or written in the meantime.
+
+"Reconcile duplicate pending invites before 0005" in that fix is **§3.1** above:
+the check, the supersede statement, and the `0 rows` it must print before `0005`
+will commit.
 
 A missing `hosted.schema_migrations` table (`42P01`) is read as an empty list
 rather than thrown, so "never applied" produces the message above instead of the
@@ -249,6 +346,21 @@ inert; delete them with the same `like 'contract-%'` filters, in the order
 
 The cut-over is a flag. There is no data migration behind it (see below).
 
+0. **Pre-deploy check — before anything is deployed or flipped.** Run §3.1
+   step 1 against the project. It must print **`0 rows`**; if it does not, run
+   §3.1 step 2 and re-check. Then apply the migrations, `0005` included, and
+   confirm it committed:
+
+   ```sql
+   select version, name from hosted.schema_migrations order by version;
+   -- must include: 3 | one-pending-invite-per-app-email
+   select indexdef from pg_indexes
+    where schemaname = 'hosted' and indexname = 'app_invites_pending_email';
+   -- must return one row
+   ```
+
+   This step is first because the build refuses every hosted request until both
+   of those are true (§4). Deploying before it is an outage, not a slow start.
 1. **Prepare the project.** Apply `0002` and `0003`, add `hosted` to the exposed
    schemas, create the private artifact bucket.
 2. **Set the variables on Vercel** (production and preview): `ZENITH_HOSTED_STORE=postgres`,
@@ -303,6 +415,28 @@ project, not a configuration change. On a fresh install it is one variable.
   routes (`engine`, `alerts`, `outbox`, `jobs`) every five minutes — GitHub's
   own floor — on `schedule` plus `workflow_dispatch`. GitHub disables a schedule
   after 60 days without repository activity; if ticks stop, look there first.
+
+### How deployments advance, per host
+
+`ZENITH_STORE=postgres` turns the engine's 250 ms ticker **off**: `db()` reads a
+snapshot loaded before the caller ran, a timer callback has no caller, and an
+unprimed read is a fault rather than an answer from the wrong authority. Boot
+skips the durable catch-up (`resumeInFlight`, the outbox replay, the alert
+evaluator) for the same reason. So "what advances a deployment" depends on the
+host, and there are only two answers:
+
+| Host | What ticks | You must schedule |
+| --- | --- | --- |
+| **Serverless** (Vercel — the topology this document is written for) | nothing in-process; `nudge()` advances a watched deploy on the request path | **yes** — `/api/internal/tick/{engine,alerts,outbox,jobs}` with the bearer. That is `tick.yml`'s job |
+| **Long-lived** (Docker, a VM, `npm start`) | the **in-process scheduler**: `startCronScheduler()` (`src/lib/server/cron.ts`), started by `boot()` — an unref'd 2 s interval running the engine pass every tick and the alerts and outbox passes every eighth, each inside `inCronScope()`, single-flight. The hosted publish-job runner keeps its own 250 ms ticker (`ensureHosted()`), because it reads the authority rather than the product snapshot | no — optional. The same passes, so pointing cron at the routes as well is safe |
+
+Boot says which one this process has, in one line:
+`{"msg":"durable catch-up deferred to the scheduler","scheduler":"in-process"}`.
+`"external"` means this process starts no timer, so something else must call the
+routes — if you see `"external"` on a host you expected to tick itself, check
+`ZENITH_SERVERLESS`/`VERCEL` in its environment. **Run one process per install
+either way:** two long-lived copies are two schedulers, and cross-instance
+leases for the engine do not exist yet.
 - **Pooler slots are the scarce resource.** Hence `max: 1` per instance and the
   20-second idle timeout. When the pooler is out of slots Postgres reports
   `53300`, which `authority/pg/tx.ts` treats as retryable and replays the whole
@@ -324,7 +458,8 @@ project, not a configuration change. On a fresh install it is one variable.
 | `PGRST106` — "The schema must be one of the following" (surfaced as a `runtime_unavailable` refusal from the per-app data plane) | `hosted` is not in the Data API's exposed schemas | Settings → API → Exposed schemas, add `hosted`. Nothing was written |
 | `PGRST205` / `42883` from the same place | The table or the quota/storage function is missing | Apply `supabase/migrations/0003_hosted_app_data.sql` |
 | `42P01` — relation does not exist | A migration was not applied (or was applied to the wrong project) | Apply the file the error or the boot refusal names. The migration files are idempotent |
-| Boot refuses: "records schema versions … and this build needs version 3" or reports a missing pending-invite index | `0002`–`0005` are missing, the migration ledger name is wrong, or the v3 index definition drifted | Reconcile duplicate pending invites, apply `0002` through `0005` in order, and restart |
+| Boot refuses: "records schema versions … and this build needs version 3" or reports a missing pending-invite index | `0002`–`0005` are missing, the migration ledger name is wrong, or the v3 index definition drifted | Run the §3.1 check, supersede any duplicates it finds, then apply `0002` through `0005` in order and restart. Every hosted request fails closed until this is done |
+| `0005` fails with `could not create unique index "app_invites_pending_email"` / `duplicate key value` | Two or more live `pending` invitations share one `(app_id, lower(email))`. The whole migration rolled back — no index, no version row | §3.1: run the check, then the supersede statement, then re-run the check for `0 rows` and apply `0005` again |
 | Boot refuses: "SUPABASE_DB_URL is not set" | `ZENITH_HOSTED_STORE=postgres` with no connection string | Set `SUPABASE_DB_URL` (port 6543), or set the flag back to `sqlite` |
 | `53300` — too many connections, usually as `policy_unavailable` after retries | The pooler is out of slots | Retry; check the project's connection count. Confirm nothing runs with a pool larger than 1, and that the URL is the 6543 pooler and not 5432 |
 | `40001` / `40P01` — serialization failure, deadlock | Two writers on one row. Already retried with backoff | If it persists, look for a hot row (one app's job queue, one quota counter) rather than tuning the retry |

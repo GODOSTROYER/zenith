@@ -286,7 +286,30 @@ and the key is never read.
 
 ### 3. What runs in the background, and how often
 
-There is no ticker on Vercel. Five internal routes each run one bounded pass:
+Three topologies, three answers. Get this wrong and a deployment sits in
+`applying` for ever, so it is worth the table:
+
+| Host | Store | What advances deployments, evaluates alerts, drains the outbox |
+| --- | --- | --- |
+| long-lived (`npm start`, Docker, a VM) | `file` | the engine's **250 ms ticker**, the alert evaluator's 15 s timer, and boot's outbox replay — all in-process, all started by `boot()` |
+| long-lived | `postgres` | the **in-process scheduler**: an unref'd 2 s interval that runs the same passes the tick routes run, inside a primed snapshot. No ticker, no boot catch-up |
+| serverless (Vercel) | either | **nothing in-process.** An external schedule must call the tick routes below; `nudge()` covers the gap on the request path |
+
+On `ZENITH_STORE=postgres` the 250 ms ticker is off deliberately: `db()` reads a
+snapshot loaded before the caller ran, a timer callback has no caller, and an
+unprimed read is a fault rather than a silent answer from somewhere else. So the
+work moved into passes that prime a snapshot first — `startCronScheduler()` in
+`src/lib/server/cron.ts` on a long-lived host, and the five routes below
+anywhere. The scheduler runs the engine pass every tick and the alerts and
+outbox passes every eighth, is single-flight (a pass that overruns its period is
+never doubled up), and logs a failing pass rather than throwing out of a timer.
+Its log line at boot says which scheduler this install has:
+`{"msg":"durable catch-up deferred to the scheduler","scheduler":"in-process"}`
+— `"external"` there means this process starts no timer and something must call
+the routes.
+
+There is no ticker on Vercel, and none on a long-lived Postgres host either.
+Five internal routes each run one bounded pass:
 
 | Route | What one call does |
 | --- | --- |
@@ -302,6 +325,17 @@ There is no ticker on Vercel. Five internal routes each run one bounded pass:
 (GitHub's own floor), on `schedule` plus `workflow_dispatch` for a manual run.
 Note that GitHub disables a schedule after 60 days without repository activity:
 if ticks stop, look there first.
+
+**Self-hosting on Postgres?** That schedule is pointed at the Vercel origin, so
+it is not yours. You do not need a replacement: the in-process scheduler covers
+the engine, alerts and outbox passes on a long-lived host, and the hosted
+publish-job pass is not in it because it does not need to be — `ensureHosted()`
+starts the job runner's own 250 ms ticker on that host (it reads the hosted
+authority, not the product snapshot, so it never lost its timer). Pointing cron
+at your own `/api/internal/tick/*` as well is safe: the passes are the same and
+the in-process one is single-flight. Run one process, though — two copies means
+two schedulers, and the coordination that would make that correct (leases across
+instances) is not built.
 
 ### 4. Triggering a tick by hand
 

@@ -7,8 +7,20 @@ on:
       - 'src/app/api/agent/**'
       - 'src/app/api/integrations/**'
       - 'src/app/(product)/integrations/**'
+      # The link flow: the credential authority, its three unauthenticated
+      # endpoints, the approval screen, and the two migrations that carry the
+      # `agent` schema. A change to any of them changes what a linked
+      # credential is, so it belongs behind this gate. The first two are
+      # already inside the two globs above; they are named anyway, so that
+      # narrowing a parent glob later cannot silently drop them.
+      - 'src/lib/agent-access/authority/**'
+      - 'src/app/api/agent/link/**'
+      - 'src/app/(product)/agent/**'
+      - 'supabase/migrations/0006*'
+      - 'supabase/migrations/0007*'
       - 'src/middleware.ts'
       - 'tests/agent*'
+      - 'scripts/agent-*'
       - 'package*.json'
       - '.github/workflows/agent-control.yml'
 permissions:
@@ -32,4 +44,14 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run typecheck
       - run: node scripts/test-agent-reader.mjs
+      # `tests/agent-control` is a path filter, not a file: it matches the
+      # `tests/agent-control-*.test.ts` files and the `tests/agent-control/`
+      # directory the Postgres contract suite lives in. That suite has no
+      # database here, so it skips itself loudly and is proved in ci.yml's
+      # `postgres` job instead — the same split `tests/hosted/authority` uses.
       - run: npm test -- tests/agent-control --no-file-parallelism
+      # The link flow: protocol, authority, routes, and the file-store journey
+      # that ties them to a simulated deployment read back through the project
+      # payload. Separate from the line above so that a failure names which
+      # half of the feature broke.
+      - run: npm test -- tests/agent-link tests/agent-journey.test.ts --no-file-parallelism

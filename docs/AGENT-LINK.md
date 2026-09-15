@@ -214,6 +214,14 @@ fails, rather than skipping, when no browser is installed.
 Both refuse to run on Windows with exit code 2, for the `loadCredentials()`
 reason in §5. CI's `agent` job runs them on Linux.
 
+`agent:acceptance` also tees its own stdout and stderr — the application's log
+lines included — and its last check greps that transcript for `za_` and `zl_`
+values. So ACCEPTANCE L5 ("no token and no device code in any log line") is a
+result of the run rather than a claim about it, and the run fails if anything
+inside `src/**` ever starts printing one. `tests/agent-journey.test.ts` does
+the same for the bodies it reads: `read()` returns them redacted, so no vitest
+assertion message can carry a credential into CI output.
+
 The database side of the same story is
 `tests/agent-link/pg-contract.test.ts` and
 `tests/agent-control/pg-contract.test.ts`, which run in CI's `postgres` job

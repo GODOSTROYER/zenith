@@ -439,11 +439,32 @@ async function main(): Promise<number> {
           reachable.some((name) => PAGE.projectSelect.test(name)),
           "a project multi-select with an accessible name"
         );
+        const decisionsReachable =
+          reachable.some((name) => PAGE.approve.test(name)) && reachable.some((name) => PAGE.deny.test(name));
+        // When the decisions are missing, say what the page actually offers: every
+        // button's accessible name and enabled state, plus the tail of the page text,
+        // so a red run names the markup instead of a regex.
+        const buttonInventory = decisionsReachable
+          ? ""
+          : await page.evaluate(() =>
+              Array.from(document.querySelectorAll("button, [role=button]"))
+                .map((el) => {
+                  const b = el as HTMLButtonElement;
+                  const name = (b.getAttribute("aria-label") ?? b.textContent ?? "").trim().replace(/\s+/g, " ");
+                  return `${JSON.stringify(name.slice(0, 60))}${b.disabled ? " (disabled)" : ""}`;
+                })
+                .join(", ")
+            );
+        const stateTail = decisionsReachable
+          ? ""
+          : await page.evaluate(() => document.body.innerText.replace(/\s+/g, " ").slice(-400));
         record(
           label,
           "and so are Approve and Deny",
-          reachable.some((name) => PAGE.approve.test(name)) && reachable.some((name) => PAGE.deny.test(name)),
-          "both decisions are keyboard reachable, not only the one we want you to press"
+          decisionsReachable,
+          decisionsReachable
+            ? "both decisions are keyboard reachable, not only the one we want you to press"
+            : `not both reachable; buttons on the page: [${buttonInventory}]; page tail: ${JSON.stringify(stateTail)}`
         );
 
         /* --- the layout, at this width --- */

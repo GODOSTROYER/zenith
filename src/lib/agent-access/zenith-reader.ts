@@ -14,8 +14,8 @@ import { plannedProviders } from "@/lib/providers/planned";
 import { computeDrift } from "@/lib/drift";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import type { Manifest } from "@/lib/domain/types";
-import { AgentError, redact, type Credential, type SelectedScope } from "./security";
-import { createReaderHandler, type ReaderTool } from "./http";
+import { AgentError, authenticate, loadCredentials, redact, type Credential, type SelectedScope } from "./security";
+import { createReaderHandler, type CredentialAuthority, type ReaderTool } from "./http";
 
 const string = { type: "string", minLength: 1, maxLength: 100 };
 const pagination = { limit: { type: "integer", minimum: 1, maximum: 100 }, cursor: { type: "string", pattern: "^[0-9]{1,6}$" } };
@@ -130,8 +130,29 @@ export async function callReader(name: string, args: Record<string, unknown>, gr
     default: throw new AgentError("capability_unavailable", "This endpoint exposes read-only tools only.");
   }
 }
+// INTEGRATOR: remove this local factory once src/lib/agent-access/authority/index.ts
+// (P1 owns; frozen contract F1) lands; import `credentialAuthority` from "./authority"
+// instead — same name and shape, so this call site does not change. `isPostgres()` is
+// the selector per LINK-PROTOCOL.md §3.1: the credential's subject must be a live
+// member row, and membership lives in the product store.
+function credentialAuthority(): CredentialAuthority {
+  const path = process.env.ZENITH_AGENT_CREDENTIAL_FILE ?? "";
+  return {
+    kind: isPostgres() ? "postgres" : "file",
+    async ready() {
+      if (isPostgres()) throw new AgentError("policy_unavailable", "A Postgres credential authority is not yet available in this build.", 503);
+      await loadCredentials(path);
+    },
+    async verify(header) { return authenticate(header, await loadCredentials(path)); },
+  };
+}
+async function readerEnabled(): Promise<boolean> {
+  if (process.env.ZENITH_AGENT_READER !== "1") return false;
+  try { await credentialAuthority().ready(); return true; } catch { return false; }
+}
 export const agentReader = createReaderHandler({
-  enabled: process.env.ZENITH_AGENT_READER === "1" && !process.env.VERCEL,
+  enabled: readerEnabled,
+  authority: () => credentialAuthority(),
   origin: process.env.ZENITH_AGENT_ORIGIN ?? "", credentialsPath: process.env.ZENITH_AGENT_CREDENTIAL_FILE ?? "",
   tools: readerTools,
   async inScope(grant, selected, fn) {

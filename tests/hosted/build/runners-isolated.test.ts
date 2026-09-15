@@ -19,6 +19,8 @@ const DATA = isolatedDataDir("zenith-w2-runners-");
 const FIXTURE = path.join(process.cwd(), "fixtures", "hosted", "minimal-app");
 const TEMPLATE_ID = "zenith-recipe-v1";
 const TEMPLATE_DIGEST = `sha256:${"a".repeat(64)}`;
+/** A docker image ID, the shape `docker image inspect --format '{{.Id}}'` prints. */
+const IMAGE_DIGEST = `sha256:${"c".repeat(64)}`;
 const { privateKey, publicKey } = generateKeyPairSync("ed25519");
 const ATTESTATION_PUBLIC_KEY = publicKey.export({ type: "spki", format: "pem" }).toString();
 
@@ -45,6 +47,7 @@ afterEach(async () => {
   delete process.env.ZENITH_E2B_TEMPLATE;
   delete process.env.ZENITH_E2B_TEMPLATE_DIGEST;
   delete process.env.ZENITH_E2B_TEMPLATE_ATTESTATION_PUBLIC_KEY;
+  delete process.env.ZENITH_RECIPE_IMAGE;
 });
 
 afterAll(() => removeDir(DATA));
@@ -424,6 +427,45 @@ function fakeSpawn(script: (command: string, args: readonly string[]) => { code:
   return { spawn, seen };
 }
 
+describe("DockerRunner image pinning", () => {
+  it("accepts an image ID and a digest reference, and nothing else", () => {
+    expect(build.resolveRecipeImage(IMAGE_DIGEST)).toEqual({ ok: true, image: IMAGE_DIGEST });
+    expect(build.resolveRecipeImage(`zenith-recipe@${IMAGE_DIGEST}`)).toEqual({
+      ok: true,
+      image: `zenith-recipe@${IMAGE_DIGEST}`,
+    });
+    expect(build.resolveRecipeImage(`registry.example.com:5000/ns/zenith-recipe@${IMAGE_DIGEST}`).ok).toBe(true);
+  });
+
+  it("refuses the mutable tag the image used to be named by, and says why", () => {
+    const refused = build.resolveRecipeImage("zenith-recipe:v1");
+    expect(refused.ok).toBe(false);
+    if (refused.ok) return;
+    expect(refused.reason).toContain("is not a digest");
+    expect(refused.reason).toContain("repointed");
+    expect(refused.fix).toContain(build.RECIPE_IMAGE_ENV);
+  });
+
+  it("refuses latest, a short digest and a digest with uppercase hex", () => {
+    for (const value of [
+      "zenith-recipe:latest",
+      "latest",
+      `sha256:${"a".repeat(63)}`,
+      `sha256:${"A".repeat(64)}`,
+      `zenith-recipe@sha1:${"a".repeat(40)}`,
+    ])
+      expect(build.resolveRecipeImage(value).ok, `${value} must be refused`).toBe(false);
+  });
+
+  it("refuses an unset variable rather than falling back to a tag", () => {
+    const refused = build.resolveRecipeImage(undefined);
+    expect(refused.ok).toBe(false);
+    if (refused.ok) return;
+    expect(refused.reason).toContain(build.RECIPE_IMAGE_ENV);
+    expect(refused.fix).toContain("docker/recipe/Dockerfile");
+  });
+});
+
 describe("DockerRunner availability", () => {
   it("refuses when another runner is selected", async () => {
     process.env.ZENITH_BUILD_RUNNER = "e2b";
@@ -432,8 +474,18 @@ describe("DockerRunner availability", () => {
     expect(availability.fix).toContain("ZENITH_BUILD_RUNNER=docker");
   });
 
+  it("refuses before touching the daemon when the image is not pinned by digest", async () => {
+    process.env.ZENITH_BUILD_RUNNER = "docker";
+    const { spawn, seen } = fakeSpawn(() => ({ code: 0 }));
+    const availability = await new build.DockerRunner({ spawn, image: "zenith-recipe:v1" }).availability();
+    expect(availability.available).toBe(false);
+    expect(availability.reason).toContain("is not a digest");
+    expect(seen, "a tag must be refused without asking the daemon anything").toEqual([]);
+  });
+
   it("reports a daemon that does not answer, with the fix", async () => {
     process.env.ZENITH_BUILD_RUNNER = "docker";
+    process.env.ZENITH_RECIPE_IMAGE = IMAGE_DIGEST;
     const { spawn } = fakeSpawn(() => ({ code: 1 }));
     const availability = await new build.DockerRunner({ spawn }).availability();
     expect(availability.available).toBe(false);
@@ -441,18 +493,22 @@ describe("DockerRunner availability", () => {
     expect(availability.fix).toContain("Start Docker");
   });
 
-  it("reports a missing image with the command that builds it", async () => {
+  it("reports a missing image by its digest, with the command that builds it", async () => {
     process.env.ZENITH_BUILD_RUNNER = "docker";
+    process.env.ZENITH_RECIPE_IMAGE = IMAGE_DIGEST;
     const { spawn, seen } = fakeSpawn((_c, args) => ({ code: args[0] === "info" ? 0 : 1 }));
     const availability = await new build.DockerRunner({ spawn }).availability();
     expect(availability.available).toBe(false);
-    expect(availability.reason).toContain(build.RECIPE_IMAGE);
+    expect(availability.reason).toContain(IMAGE_DIGEST);
     expect(availability.fix).toContain("docker/recipe/Dockerfile");
     expect(seen.map((s) => s.args[0])).toEqual(["info", "image"]);
+    // The inspect must name the digest, not a tag that could resolve elsewhere.
+    expect(seen[1]?.args).toEqual(["image", "inspect", IMAGE_DIGEST]);
   });
 
-  it("is available when the daemon answers and the image is present", async () => {
+  it("is available when the daemon answers and the pinned image is present", async () => {
     process.env.ZENITH_BUILD_RUNNER = "docker";
+    process.env.ZENITH_RECIPE_IMAGE = IMAGE_DIGEST;
     const { spawn } = fakeSpawn(() => ({ code: 0 }));
     expect(await new build.DockerRunner({ spawn }).availability()).toEqual({ available: true });
   });
@@ -460,7 +516,12 @@ describe("DockerRunner availability", () => {
 
 describe("DockerRunner argument vector", () => {
   it("carries the whole boundary in the flags", async () => {
-    const args = await build.dockerRunArgs({ memoryMb: 768, root: "/tmp/src-1", out: "/tmp/out-1" });
+    const args = await build.dockerRunArgs({
+      memoryMb: 768,
+      root: "/tmp/src-1",
+      out: "/tmp/out-1",
+      image: IMAGE_DIGEST,
+    });
     expect(args).toEqual([
       "run",
       "--rm",
@@ -479,12 +540,13 @@ describe("DockerRunner argument vector", () => {
       "/tmp/src-1:/src:ro",
       "-v",
       "/tmp/out-1:/out",
-      "zenith-recipe:v1",
+      IMAGE_DIGEST,
     ]);
   });
 
   it("mounts the source read-only and the output writable when it actually runs", async () => {
     process.env.ZENITH_BUILD_RUNNER = "docker";
+    process.env.ZENITH_RECIPE_IMAGE = IMAGE_DIGEST;
     const { spawn, seen } = fakeSpawn(() => ({ code: 0 }));
     const result = await new build.DockerRunner({ spawn }).run(request(), new AbortController().signal);
 
@@ -496,7 +558,7 @@ describe("DockerRunner argument vector", () => {
     expect(argv).toContain("--read-only");
     expect(argv.some((a) => a.endsWith(":/src:ro"))).toBe(true);
     expect(argv.some((a) => a.endsWith(":/out"))).toBe(true);
-    expect(argv.at(-1)).toBe(build.RECIPE_IMAGE);
+    expect(argv.at(-1)).toBe(IMAGE_DIGEST);
 
     // The double never wrote a result file, so the runner must say so rather
     // than claim a build it cannot see.
@@ -504,8 +566,19 @@ describe("DockerRunner argument vector", () => {
     expect(result.error).toContain("without writing a result");
   });
 
-  it("says its boundary is the daemon's and unproven here", async () => {
+  it("never starts a container when the image is a tag", async () => {
+    process.env.ZENITH_BUILD_RUNNER = "docker";
+    process.env.ZENITH_RECIPE_IMAGE = "zenith-recipe:v1";
+    const { spawn, seen } = fakeSpawn(() => ({ code: 0 }));
+    const result = await new build.DockerRunner({ spawn }).run(request(), new AbortController().signal);
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("is not a digest");
+    expect(seen.some((s) => s.args[0] === "run")).toBe(false);
+  });
+
+  it("says its boundary is digest-pinned, the daemon's, and unproven here", async () => {
     expect(new build.DockerRunner().boundary).toContain("no network");
+    expect(new build.DockerRunner().boundary).toContain("digest-pinned");
     expect(new build.DockerRunner().boundary).toContain("no container has been run from this repository");
   });
 });

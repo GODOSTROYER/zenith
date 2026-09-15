@@ -97,7 +97,7 @@ import {
   type PrefetchQuery,
   type TenantContext,
 } from "./registry";
-import { eq, restSync } from "./sync-rest";
+import { eq, restAsync, restSync, type RestAsyncOptions } from "./sync-rest";
 
 /* ------------------------------- the graph -------------------------------- */
 
@@ -641,17 +641,28 @@ async function insertEvent(e: DeploymentEvent): Promise<void> {
  */
 export async function readEventsAsync(
   deploymentId: string,
-  afterSeq = -1
+  afterSeq = -1,
+  options: RestAsyncOptions = {}
 ): Promise<DeploymentEvent[]> {
   syncGraph();
-  const { data, error } = await pgClient()
-    .from("deployment_events")
-    .select("deployment_id,seq,ts,body")
-    .eq("deployment_id", deploymentId)
-    .gt("seq", afterSeq)
-    .order("seq", { ascending: true });
-  if (error) throw storeError("deployment_events", "read", error.message);
-  const events = ((data ?? []) as PgRow[]).map((row) => rowToEvent(row));
+  const workspaceId = workspaceOfDeployment(deploymentId);
+  // The synchronous delegate refuses deployments outside the current graph.
+  // Keep the awaitable path equally fail-closed; service-role REST has no RLS
+  // policy to supply this fence for us.
+  if (!workspaceId) return [];
+  const cursor = Number.isFinite(afterSeq) ? Math.trunc(afterSeq) : -1;
+  const { rows } = await restAsync(
+    {
+      method: "GET",
+      table: "deployment_events",
+      op: "read",
+      path:
+        `${SEQ_SELECT}&${eq("deployment_id", deploymentId)}&${eq("workspace_id", workspaceId)}` +
+        `&seq=gt.${cursor}&order=seq.asc`,
+    },
+    options
+  );
+  const events = rows.map((row) => rowToEvent(row));
   remember(deploymentId, events);
   return events.filter((e) => e.seq > afterSeq);
 }

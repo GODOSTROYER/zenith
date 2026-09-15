@@ -33,10 +33,10 @@
  *
  * ## Synchronicity
  *
- * `AuditDelegate` is synchronous because `Store` is, and every call here
- * depends on arguments no prefetch ever sees — a filter, a cursor, one event —
- * so there is nothing to load in advance. Both reads and the append therefore
- * block on `./sync-rest`, which explains that mechanism at length.
+ * `AuditDelegate` is synchronous because `Store` is, and the compatibility
+ * readers still block on `./sync-rest`. Request handlers that can await use the
+ * explicit `readAuditPageAsync`/`countAuditAsync` pair instead, because every
+ * query depends on arguments no prefetch ever sees — a filter and a cursor.
  *
  * This group is installed unconditionally, not behind a `ZENITH_STORE` check:
  * `delegates.audit` is reachable only through `PostgresStore`, and anything
@@ -47,7 +47,7 @@ import type { AuditEvent } from "@/lib/domain/types";
 import { currentSnapshot } from "../postgres-store";
 import type { AuditCountResult, AuditFilter, AuditPage } from "../types";
 import { setDelegate, type AuditDelegate } from "./delegates";
-import { eq, inList, restSync } from "./sync-rest";
+import { eq, inList, restAsync, restSync, type RestAsyncOptions } from "./sync-rest";
 
 const TABLE = "audit_events";
 
@@ -219,6 +219,34 @@ function readAuditPage(filter: AuditFilter = {}): AuditPage {
     : { events, nextCursor: cursorOf(rows[rows.length - 1]) };
 }
 
+/** Awaitable audit page for request handlers; the Store contract stays sync. */
+export async function readAuditPageAsync(
+  filter: AuditFilter = {},
+  options: RestAsyncOptions = {}
+): Promise<AuditPage> {
+  const workspaceIds = scopeIds(filter);
+  if (workspaceIds.length === 0) return { events: [] };
+
+  const want = Math.max(1, filter.limit ?? 500);
+  const parts = where(filter, workspaceIds);
+  const cursor = filter.cursor === undefined ? undefined : Number(filter.cursor);
+  if (cursor !== undefined && Number.isFinite(cursor)) parts.push(`seq=lt.${cursor}`);
+
+  const { rows } = await restAsync(
+    {
+      method: "GET",
+      table: TABLE,
+      op: "read",
+      path: `${TABLE}?select=*&${parts.join("&")}&order=seq.desc&limit=${want}`,
+    },
+    options
+  );
+  const events = rows.map(fromRow);
+  return rows.length < want
+    ? { events }
+    : { events, nextCursor: cursorOf(rows[rows.length - 1]) };
+}
+
 /** Back-compatible reader: newest first, no cursor. */
 const readAudit = (filter: AuditFilter = {}): AuditEvent[] => readAuditPage(filter).events;
 
@@ -242,6 +270,27 @@ function countAudit(filter: AuditFilter = {}): AuditCountResult {
     path: `${TABLE}?select=seq&${where(filter, workspaceIds).join("&")}&limit=1`,
     prefer: "count=exact",
   });
+  return { total: total ?? 0, exact: true };
+}
+
+/** Awaitable exact count paired with `readAuditPageAsync`. */
+export async function countAuditAsync(
+  filter: AuditFilter = {},
+  options: RestAsyncOptions = {}
+): Promise<AuditCountResult> {
+  const workspaceIds = scopeIds(filter);
+  if (workspaceIds.length === 0) return { total: 0, exact: true };
+
+  const { total } = await restAsync(
+    {
+      method: "GET",
+      table: TABLE,
+      op: "count",
+      path: `${TABLE}?select=seq&${where(filter, workspaceIds).join("&")}&limit=1`,
+      prefer: "count=exact",
+    },
+    options
+  );
   return { total: total ?? 0, exact: true };
 }
 

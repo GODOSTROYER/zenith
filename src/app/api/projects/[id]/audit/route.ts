@@ -19,7 +19,8 @@
  * `totalIsExact` is false when the log is longer than that, so a screen can say
  * "1000+" rather than presenting a floor as a fact.
  */
-import { countAudit, q, readAuditPage } from "@/lib/db/store";
+import { countAudit, isPostgres, q, readAuditPage } from "@/lib/db/store";
+import { countAuditAsync, readAuditPageAsync } from "@/lib/db/pg/audit";
 import type { AuditEvent } from "@/lib/domain/types";
 import { ApiError, intParam, route, scopedProject } from "@/lib/server/context";
 
@@ -87,12 +88,17 @@ export const GET = route<{ id: string }>(async (req, { id }) => {
     actionId: sp.get("action")?.trim() || undefined,
   };
 
-  const page = readAuditPage({
+  const pageFilter = {
     ...filter,
     limit: Math.min(Math.max(intParam(req, "limit", 50), 1), 500),
     cursor: sp.get("cursor") ?? undefined,
-  });
-  const count = countAudit(filter);
+  };
+  const page = isPostgres()
+    ? await readAuditPageAsync(pageFilter, { signal: req.signal })
+    : readAuditPage(pageFilter);
+  const count = isPostgres()
+    ? await countAuditAsync(filter, { signal: req.signal })
+    : countAudit(filter);
 
   return {
     events: page.events,

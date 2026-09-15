@@ -69,6 +69,22 @@ export interface RestResult {
   total?: number;
 }
 
+/** Options for the non-blocking transport. Production uses the environment. */
+export interface RestAsyncOptions {
+  /** Override the configured Supabase URL (tests and alternate deployments). */
+  baseUrl?: string;
+  /** Override the configured API key (tests and alternate deployments). */
+  apiKey?: string;
+  /** Forward the caller's request identity when one is available. */
+  authorization?: string;
+  /** Abort this request, without affecting any other request. */
+  signal?: AbortSignal;
+  /** Test seam for an inert fetch implementation. */
+  fetch?: typeof fetch;
+  /** Per-call deadline, capped at the bridge's hard deadline. */
+  timeoutMs?: number;
+}
+
 /** How long a single query may block the calling thread before it is a failure. */
 const TIMEOUT_MS = 15_000;
 
@@ -231,6 +247,94 @@ export function restSync(req: RestRequest): RestResult {
     }
   }
   return { rows, total: countFrom(reply.range) };
+}
+
+/**
+ * Run one PostgREST query without parking the Node thread.
+ *
+ * This is deliberately separate from `restSync`: callers must await it, and
+ * each request owns its controller and deadline. Caller cancellation is
+ * allowed through unchanged so route handlers can distinguish it from a DB
+ * failure.
+ */
+export async function restAsync(
+  req: RestRequest,
+  options: RestAsyncOptions = {}
+): Promise<RestResult> {
+  const configured =
+    options.baseUrl === undefined || options.apiKey === undefined ? config() : undefined;
+  const baseUrl = (options.baseUrl ?? configured?.url ?? "").replace(/\/+$/, "");
+  const apiKey = options.apiKey ?? configured?.key ?? "";
+  const fetchImpl = options.fetch ?? globalThis.fetch;
+  if (!fetchImpl) throw storeError(req.table, req.op, "fetch is not available in this runtime");
+
+  const requestedTimeout = options.timeoutMs ?? TIMEOUT_MS;
+  const timeoutMs = Number.isFinite(requestedTimeout)
+    ? Math.min(TIMEOUT_MS, Math.max(1, Math.floor(requestedTimeout)))
+    : TIMEOUT_MS;
+  const controller = new AbortController();
+  let timedOut = false;
+  const cancel = () => controller.abort(options.signal?.reason);
+  if (options.signal?.aborted) {
+    throw options.signal.reason ?? new DOMException("The operation was aborted", "AbortError");
+  }
+  options.signal?.addEventListener("abort", cancel, { once: true });
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+
+  try {
+    const headers: Record<string, string> = {
+      apikey: apiKey,
+      authorization: options.authorization ?? `Bearer ${apiKey}`,
+      "content-type": "application/json",
+      accept: "application/json",
+    };
+    if (req.prefer) headers.prefer = req.prefer;
+    const response = await fetchImpl(`${baseUrl}/rest/v1/${req.path}`, {
+      method: req.method,
+      headers,
+      body: req.body === undefined ? undefined : JSON.stringify(req.body),
+      signal: controller.signal,
+    });
+    if (timedOut) throw new Error("async database request timed out");
+    const body = await response.text();
+    if (timedOut) throw new Error("async database request timed out");
+    if (response.status < 200 || response.status >= 300) {
+      let message = `HTTP ${response.status}`;
+      try {
+        const parsed = JSON.parse(body) as { message?: string; hint?: string };
+        if (parsed.message) message = `${parsed.message}${parsed.hint ? ` (${parsed.hint})` : ""}`;
+      } catch {
+        if (body) message = `${message}: ${body.slice(0, 200)}`;
+      }
+      throw storeError(req.table, req.op, message);
+    }
+
+    let rows: Record<string, unknown>[] = [];
+    if (body.trim()) {
+      try {
+        const parsed = JSON.parse(body) as unknown;
+        rows = Array.isArray(parsed)
+          ? (parsed as Record<string, unknown>[])
+          : [parsed as Record<string, unknown>];
+      } catch {
+        throw storeError(req.table, req.op, "the database returned a body that is not JSON");
+      }
+    }
+    return { rows, total: countFrom(response.headers.get("content-range")) };
+  } catch (error) {
+    if (options.signal?.aborted) throw options.signal.reason ?? error;
+    if (timedOut)
+      throw storeError(req.table, req.op, `the database did not answer within ${timeoutMs} ms`);
+    if (error instanceof Error && error.message.startsWith("Postgres store could not ")) throw error;
+    const message = error instanceof Error ? error.message : String(error);
+    throw storeError(req.table, req.op, message);
+  } finally {
+    clearTimeout(timer);
+    options.signal?.removeEventListener("abort", cancel);
+  }
 }
 
 /* ------------------------------ query building ----------------------------- */

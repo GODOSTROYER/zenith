@@ -8,6 +8,29 @@ const who: Principal = { subject: 'member', integrationId: 'codex', workspaceId:
 const proposal: Proposal = { action: 'manifest.import', input: { source: 'source' }, target: { workspaceId: 'ws', projectId: 'project' },
   fingerprint: 'original-state', plan: { summary: 'reviewed', risk: 'low' }, requestKey: 'request_0001' };
 function ready(j: Journal) { const op = j.prepare(who, proposal); j.review(op.id, who.subject, who.workspaceId, op.digest, true); return op; }
+/**
+ * The on-disk cases cannot run on Windows.
+ *
+ * `new Journal(<path>)` refuses any file whose parent directory is not owned by
+ * this uid and not private to it — and the condition names the platform
+ * outright: `process.platform === 'win32'` is one of its disjuncts
+ * (`src/lib/agent-access/control/journal.ts:54-57`), alongside `parent.uid !==
+ * process.getuid!()` and `parent.mode & 0o077`. Windows has neither uids nor
+ * POSIX mode bits, so the constructor throws `journal_permissions` before the
+ * journal is ever opened. That is the guard working, not a bug: agent control
+ * is only supported on a long-lived POSIX host (`docs/AGENT-CONTROL.md`).
+ *
+ * So these two skip on win32 with the reason printed, rather than failing. A
+ * red local suite that is red for a reason nobody can fix teaches developers to
+ * ignore red. CI runs them for real on ubuntu-latest.
+ */
+const POSIX_JOURNAL_ONLY = process.platform === 'win32';
+if (POSIX_JOURNAL_ONLY)
+  console.warn(
+    '\n[agent-control journal] 2 tests SKIPPED on win32: the journal requires an owned private POSIX directory\n' +
+      '  (src/lib/agent-access/control/journal.ts:54-57 refuses win32 explicitly, and reads process.getuid()).\n' +
+      '  They are not skipped on Linux or macOS, and CI runs them.\n'
+  );
 describe('durable agent journal', () => {
   it('canonical digests ignore object key order but not values or arrays', () => {
     expect(digest({ b: 2, a: [1,2] })).toBe(digest({ a: [1,2], b: 2 }));
@@ -90,7 +113,7 @@ describe('durable agent journal', () => {
       expect(j.get(authenticated, op.id).phase).toBe('running');
     } finally { j.close(); }
   });
-  it('persists across restarts and never blindly replays an interrupted dispatch', () => {
+  it.skipIf(POSIX_JOURNAL_ONLY)('persists across restarts and never blindly replays an interrupted dispatch', () => {
     const dir = mkdtempSync(join(tmpdir(), 'zenith-journal-')); const file = join(dir, 'agent.sqlite');
     try { const first = new Journal(file); const op = ready(first); first.claim(who, op.id, proposal.fingerprint); first.close();
       const second = new Journal(file); try {
@@ -100,7 +123,7 @@ describe('durable agent journal', () => {
       } finally { second.close(); }
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
-  it('two journal connections cannot claim the same receipt twice', () => {
+  it.skipIf(POSIX_JOURNAL_ONLY)('two journal connections cannot claim the same receipt twice', () => {
     const dir = mkdtempSync(join(tmpdir(), 'zenith-claim-')); const file = join(dir, 'agent.sqlite');
     const first = new Journal(file), second = new Journal(file);
     try { const op = ready(first); expect(first.claim(who, op.id, proposal.fingerprint).claimed).toBe(true);

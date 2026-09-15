@@ -18,6 +18,7 @@
 import type { AppInvite, AppRole, InviteState } from "@/lib/hosted/contracts";
 import { nowIso } from "../../sql";
 import type { InvitesRepo } from "../../repos";
+import { INVITE_EXPIRY_SWEEP_LIMIT } from "../../repos/invites";
 import type { Sql, TransactionSql } from "../client";
 import { changeCount, readOptionalText, readText, writeOptional, type PgRow } from "../rows";
 
@@ -116,6 +117,25 @@ export function createPgInvitesRepo(sql: Sql | TransactionSql): InvitesRepo {
         where id = ${id} and state = 'pending'
       `;
       return changeCount(result) === 1;
+    },
+
+    async expireOverdue(now, opts = {}) {
+      const limit = Math.max(1, Math.trunc(opts.limit ?? INVITE_EXPIRY_SWEEP_LIMIT));
+      // `for update skip locked` for the same reason `claimPending` needs it:
+      // two instances sweeping at once must not block on each other, and a row
+      // another transaction is already moving is not this sweep's to move.
+      const result = await sql`
+        update hosted.app_invites set state = 'expired'
+        where id in (
+          select id from hosted.app_invites
+          where state = 'pending' and expires_at <= ${now}
+          ${opts.appId === undefined ? sql`` : sql`and app_id = ${opts.appId}`}
+          order by expires_at, id
+          limit ${limit}
+          for update skip locked
+        )
+      `;
+      return changeCount(result);
     },
   };
 }

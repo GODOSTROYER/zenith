@@ -12,7 +12,7 @@
  *    `Set-Cookie` and `Cookie` headers, so the Node → `NextRequest` adapter the
  *    browser depends on is itself covered by the suite rather than trusted;
  *  - it reads `scripts/hosted-browser.ts` and pins the properties that make it
- *    honest: it drives an installed Chrome or Edge, it exits 2 with an
+ *    honest: it drives an installed Chrome, Edge, or Chromium, it exits 2 with an
  *    explanation when there is none, and it never skips.
  *
  * What this file does **not** establish is stated plainly in ACCEPTANCE-R3.md:
@@ -272,14 +272,17 @@ describe("Gate 12 — the journey over a real socket, and the browser script", (
 
   /* --------------------------- the browser script ------------------------- */
 
-  it("ships a browser script that drives an installed Chrome or Edge", async () => {
+  it("ships a browser script that drives an installed Chrome, Edge, or Chromium", async () => {
     expect(fs.existsSync(SCRIPT), `${SCRIPT} must exist`).toBe(true);
     const source = fs.readFileSync(SCRIPT, "utf8");
 
     expect(source, "it launches the installed browser rather than downloading one").toContain(
-      'chromium.launch({ channel: candidate, headless: true })'
+      "await chromium.launch({ ...candidate.options, headless: true })"
     );
-    expect(source, "Chrome first").toMatch(/\["chrome", "msedge"\]/);
+    expect(source, "Chrome and Edge are preferred").toContain(
+      '{ name: "chrome", options: { channel: "chrome" } },'
+    );
+    expect(source, "Chromium fallback is explicit").toContain("/usr/bin/chromium-browser");
     expect(source, "it drives playwright-core, the devDependency this repo has").toContain(
       'await import("playwright-core")'
     );

@@ -12,9 +12,9 @@ a claim that Zenith is production-ready in every backend.
 | Fence agent-operation finalization against operation expiry, durable OAuth grants, and application authority | `5455a52` (on top of `6bc2e21`) | Coordinator/journal, membership, grant, account-delete, and hosted access tests pass; supported single-writer mutation paths share the gate |
 | Store alert signing keys and credential-bearing HTTP targets as encrypted secret references with compensating rotation | `5455a52` (on top of `90a8a87`) | Alert delivery, outbox, bootstrap-redaction, audit masking, rollback, tamper-read, and workspace-isolation tests pass; legacy plaintext delivery fails closed |
 | Bind webhook delivery to the validated DNS address and scope async tenant writes | `5455a52` (on top of `9274b0f`, `fa67fa9`) | Address-pinning, redirect, bounded-response, async body-binding, and tenant-column tests pass |
-| Widen secret-backed request/provider paths to async PostgREST and add explicit alert-secret migration | working tree (pending commit) | Async secret route/actions/provider/alert delivery tests pass; `npm run migrate:alert-secrets -- --dry-run` is safe by default and `--apply` requires an explicit operator action |
-| Require a pinned E2B template with no runtime package installation | working tree (pending commit) | E2B isolated runner tests pass 17/17; template selection is fail-closed and toolchain versions are checked inside the template |
-| Enforce plugin provenance at the runtime consumption boundary | `61568b6` plus generated outputs (pending commit) | Plugin verify passes 143 tests/2 skips; the generated runtime fails closed when the trusted launcher enables the signed Ed25519 gate |
+| Widen secret-backed request/provider paths to async PostgREST and add explicit alert-secret migration | `b96459b` | Async secret route/actions/provider/alert delivery tests pass; `npm run migrate:alert-secrets -- --dry-run` is safe by default and `--apply` requires an explicit operator action |
+| Require a pinned E2B template with no runtime package installation | `b96459b` | E2B isolated runner tests pass 17/17; template selection is fail-closed and toolchain versions are checked inside the template |
+| Enforce plugin provenance at the runtime consumption boundary | `951bdb9` in `GODOSTROYER/Zenith-plugins#6` | Plugin verify passes 144 tests/2 skips; the generated runtime fails closed at activation unless the trusted launcher supplies the signed Ed25519 gate |
 | Fence every hosted app-grant insertion path, including direct grants and invitation acceptance | post-review hardening (this commit) | Grant services now enter the same re-entrant mutation gate as account deletion, role changes, and revocation; hosted access and agent-control regression tests pass |
 
 The initial blanket mixed-store guard was implemented experimentally and then
@@ -28,13 +28,13 @@ current branch intentionally preserves the existing independent selectors.
 - Final regression set after independent review: **57/57 passed** across alert delivery, account deletion, agent-control coordinator, and async-repository tests.
 - Resumed async/E2B/UI bundle: **96/96 passed** across alert delivery, recipe-local/E2B runners, secret contract, client stream/poll fallback, and workbench controls; E2B isolated suite **17/17 passed**.
 - Hosted acceptance: **22/22 checks passed** through publish, invite, browser-facing gateway, conflict, backup, revoke, restore, and post-restore denial.
-- Hosted browser gate: **blocked with exit 2 because Chrome/Edge is not installed**; the script fails closed rather than reporting a skipped browser result.
+- Hosted browser gate: **passed** with `/usr/bin/chromium-browser` through `playwright-core`; 24/24 journey checks passed at 1280px and 375px with no uncaught/page errors.
 - `npm run typecheck`: passed.
 - `npm run lint`: passed.
 - `git diff --check`: passed.
 - `npm run build`: compiled successfully; Next emitted the existing `module.createRequire failed parsing argument` warnings for hosted build recipe imports.
 - `npm run test:contract`: 36 executed, 15 skipped.
-- Companion plugin `npm run verify`: **143 tests passed, 2 platform skips**; typecheck, build, contracts, and integrity checks passed.
+- Companion plugin `npm run verify`: **144 tests passed, 2 platform skips**; typecheck, build, contracts, and integrity checks passed.
 - Post-review regression bundle: **116 tests passed** across agent control, account
   deletion, hosted access, alert delivery/outbox, redaction, and async repository
   boundaries; `npm run typecheck`, `npm run lint`, and `git diff --check` passed.
@@ -59,10 +59,11 @@ current branch intentionally preserves the existing independent selectors.
   installation, checks the pinned recipe versions, disables sandbox internet
   access, and always tears down the sandbox. Provider-side egress, controller
   access, terms, and live teardown remain unverified.
-- UI routing/accessibility/polling: **source/test gate passed; live browser
-  gate open**. Stream fallback, polling/backoff, route switching, and
-  workbench controls pass the resumed 96-test bundle. The repository browser
-  journey could not run because neither Chrome nor Edge is installed.
+- UI routing/accessibility/polling: **source and browser gates passed**. Stream
+  fallback, polling/backoff, route switching, workbench controls, keyboard
+  interaction, reload persistence, conflict preservation, revocation denial,
+  desktop/mobile rendering, and console/page-error checks are covered by the
+  resumed bundle and the real Chromium journey.
 - `sync-rest` async replacement: **substantially widened; compatibility bridge
   remains**. Secret route/actions/provider/alert delivery and mutation planning
   use awaited backend APIs; audit/history and older synchronous compatibility
@@ -83,8 +84,8 @@ production cutover, destructive migration, secret rotation, package
 publishing, or enabling PostgreSQL agent-control writes. Live legacy-secret
 migration against a representative Postgres database, the remaining
 audit/history synchronous bridge, publisher-key/installer activation, E2B live
-egress/teardown, a real browser binary, live webhook probing, and hosted
-migration evidence remain open. Preserving independent selectors does not
+egress/teardown, live webhook probing, and hosted migration evidence remain
+open. Preserving independent selectors does not
 prove cross-authority atomicity or that either backend is durable under every
 hosted failure.
 

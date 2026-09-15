@@ -31,7 +31,7 @@ default branch. The plugin default is `main`.
 | Agent-control PostgreSQL write refusal | **Reproduced; correct limit** | `docs/AGENT-CONTROL.md` explicitly keeps reviewed writes on a long-lived single-writer file-store host until application transactions and the journal are coordinated. Application authority mutations now share the file-store gate. | B | Preserve fail-closed guard; application grant/member/account race tests passed; no guard removal in this change |
 | `ZENITH_STORE` vs `ZENITH_HOSTED_STORE` split | **Reproduced separation; compatibility-sensitive** | Product storage and hosted authority/data/artifact selection are independent. Existing `docs/HOSTED-POSTGRES.md` and `docs/ARCHITECTURE.md` explicitly describe hybrid combinations, including product PostgreSQL with hosted SQLite. | A/F | Document both authorities and migration boundaries; add readiness evidence without rejecting documented combinations. A future guard must be based on a proven unsupported pair, not a blanket mixed-mode rule. |
 | Full test instability | **Unverified as product failure** | Baseline typecheck passed; plugin verification passed. Broad application tests require the repository-supported Node/runtime and isolated fixtures before classifying failures. | F | Reproduce on supported Node; report environment vs product failures without weakening assertions |
-| UI routing/polling/accessibility items | **Unverified pending source/test reproduction** | Prior report findings require current-path confirmation before edits. | E | Browser/keyboard/narrow viewport/reconnect tests and request-volume measurement |
+| UI routing/polling/accessibility items | **Source and browser gates passed** | Stream fallback, polling/backoff, route switching, workbench controls, keyboard interaction, reload/conflict/revocation journey, desktop/mobile rendering, and console/page-error checks passed through the real Chromium gate. | E | Hosted browser journey passed 24/24; production traffic-volume measurement remains an operational follow-up |
 
 ## Architecture decision record
 
@@ -120,7 +120,7 @@ branches/worktrees and return commits; only the integrator applies them.
 
 - OpenClaw 2026.9.4 exposes configured aliases `sol` and `luna`.
 - Application `npm run typecheck`: exit 0.
-- Plugin `npm run verify`: exit 0; 130 tests passed, 2 skipped, contracts and
+- Plugin `npm run verify`: exit 0; 144 tests passed, 2 skipped, contracts and
   integrity checks passed.
 - No production migration, infrastructure change, secret change, package
   publish, or default-branch mutation has been performed.

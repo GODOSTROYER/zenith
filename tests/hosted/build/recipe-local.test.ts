@@ -303,11 +303,31 @@ describe("the recipe itself", () => {
     expect(build.recipeAllowedReads(root)).toEqual([fs.realpathSync(target)]);
   });
 
-  it("reproduces the pinned toolchain in one install line", async () => {
-    expect(build.RECIPE_INSTALL_ARGS).toContain(`vite@${contracts.RECIPE_V1.vite}`);
-    expect(build.RECIPE_INSTALL_ARGS).toContain(`@vitejs/plugin-react@${contracts.RECIPE_V1.pluginReact}`);
-    expect(build.RECIPE_INSTALL_ARGS).toContain(`react@${contracts.RECIPE_V1.react}`);
-    expect(build.RECIPE_INSTALL_ARGS).toContain("--no-audit");
+  it("publishes no install line for a runner to reach for", async () => {
+    // The toolchain is put in place at image-build time from a committed
+    // lockfile. An exported install line is an invitation to reintroduce the
+    // job-time `npm install` SEC-04 is about, and nothing consumed this one.
+    expect(Object.keys(build)).not.toContain("RECIPE_INSTALL_ARGS");
+  });
+
+  it("never invokes a package manager anywhere in the build directory", async () => {
+    // A submission that carries no lockfile is the normal case: lockfiles are
+    // refused at intake (`src/lib/hosted/contracts/source-v1.ts`) because the
+    // platform supplies the dependencies. That is only safe while no runner and
+    // no worker resolves dependencies itself — so assert it over the source,
+    // comments stripped, rather than trusting the prose at the top of each file.
+    const dir = path.join(process.cwd(), "src", "lib", "hosted", "build");
+    const files = fs.readdirSync(dir).filter((name) => /\.(ts|mjs)$/.test(name));
+    expect(files.length).toBeGreaterThan(5);
+    for (const name of files) {
+      const code = fs
+        .readFileSync(path.join(dir, name), "utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/^[^\n]*\/\/[^\n]*$/gm, "");
+      expect(code, `${name} must not run a package manager at job time`).not.toMatch(
+        /\b(?:npm|yarn|pnpm)\s+(?:ci|install|add|i)\b/
+      );
+    }
   });
 });
 

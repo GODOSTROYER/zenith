@@ -13,7 +13,18 @@ FROM node:22-alpine AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+# Frozen (`ci`, not `install`) and script-free: no dependency's install/postinstall
+# runs while the image is built, so a compromised transitive package cannot bake
+# itself into the image. Nothing in this tree needs a lifecycle script — the only
+# three packages that declare one are `esbuild` (its platform binary comes from
+# the `@esbuild/*` optional package, resolved at require time), `fsevents`
+# (macOS-only, optional, never installed here) and `unrs-resolver` (its native
+# binding likewise resolves from the installed platform package). Evidence:
+# `npm ci --ignore-scripts` in a scratch copy of this lockfile installed 698
+# packages, after which `require("esbuild")` transformed TypeScript and
+# `unrs-resolver`'s native `ResolverFactory` loaded. That was on win32-x64, not
+# this image's linux/musl — see docs/hosted/PROVIDERS.md for what is unverified.
+RUN npm ci --ignore-scripts
 
 # --------------------------------- builder ----------------------------------
 FROM node:22-alpine AS builder
@@ -74,8 +85,25 @@ COPY --from=builder --chown=zenith:nodejs /app/src/lib/hosted/build/recipe-confi
 # The two reference source packages a publish may name by fixture id
 # (src/lib/hosted/release/intent.ts FIXTURES). Plain source files, no build.
 COPY --from=builder --chown=zenith:nodejs /app/fixtures ./fixtures
+#
+# The toolchain is installed from the same committed lockfile the `docker`
+# runner's recipe image uses (docker/recipe/package-lock.json), so the two
+# images carry a provably identical tree: frozen (`npm ci`, resolved exactly as
+# the lockfile records) and script-free (`--ignore-scripts`). It is installed in
+# a scratch directory and merged into /app/node_modules rather than installed
+# there, because `npm ci` empties the node_modules of the directory it runs in
+# and /app/node_modules is Next's traced standalone tree.
+COPY docker/recipe/package.json docker/recipe/package-lock.json /opt/zenith-recipe/
 ARG ZENITH_RECIPE_LOCAL=0
-RUN if [ "$ZENITH_RECIPE_LOCAL" = "1" ]; then       npm install --no-save --no-audit --no-fund --ignore-scripts vite@7.3.6 @vitejs/plugin-react@5.1.4 react@19.1.0 react-dom@19.1.0       && chown -R zenith:nodejs node_modules;     fi
+RUN if [ "$ZENITH_RECIPE_LOCAL" = "1" ]; then \
+      cd /opt/zenith-recipe \
+      && npm ci --ignore-scripts --omit=dev --no-audit --no-fund \
+      && mkdir -p /app/node_modules \
+      && cp -R /opt/zenith-recipe/node_modules/. /app/node_modules/ \
+      && rm -rf /opt/zenith-recipe/node_modules \
+      && npm cache clean --force \
+      && chown -R zenith:nodejs /app/node_modules; \
+    fi
 
 # Docker seeds a fresh named volume from the image directory at the mount
 # point, ownership included. Creating /data as zenith here is what makes the

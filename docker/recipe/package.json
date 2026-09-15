@@ -1,0 +1,13 @@
+{
+  "name": "zenith-recipe-toolchain",
+  "version": "1.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "description": "The pinned Vite toolchain the hosted build recipe runs. Frozen by package-lock.json; installed with npm ci --ignore-scripts.",
+  "dependencies": {
+    "@vitejs/plugin-react": "5.1.4",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "vite": "7.3.6"
+  }
+}

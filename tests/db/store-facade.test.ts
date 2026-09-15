@@ -83,4 +83,28 @@ describe("delegation", () => {
 
     store.resetDb();
   });
+
+  /**
+   * The scope a server component opens is a pass-through on the file store:
+   * `db()` is already the whole graph, so there is nothing to load and nothing
+   * that may change about what the body sees. What it costs on Postgres — a
+   * prefetch, and a refusal without one — is pinned in tests/db/rsc-scope.test.ts.
+   */
+  it("runs a store scope as a pass-through on the file store", async () => {
+    store.resetDb();
+    store.db().workspaces.push({
+      id: "ws-scope",
+      name: "Scope",
+      slug: "scope",
+      createdAt: new Date().toISOString(),
+    });
+
+    const inside = await store.runInStoreScope(async () => store.db());
+    expect(inside).toBe(FileStore.db());
+    expect(inside.workspaces.map((w) => w.id)).toEqual(["ws-scope"]);
+    // …and it is still readable after the scope closes, unlike Postgres mode.
+    expect(store.db().workspaces.map((w) => w.id)).toEqual(["ws-scope"]);
+
+    store.resetDb();
+  });
 });

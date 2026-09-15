@@ -20,6 +20,7 @@ import { appendAuditAsync, appendAuditBatch, db, flushPendingAsync, isPostgres, 
 import { id } from "@/lib/domain/types";
 import type { Actor, AuditEvent, Member, Workspace } from "@/lib/domain/types";
 import type { SessionUser } from "@/lib/auth/session";
+import { log } from "@/lib/log";
 import { ApiError } from "@/lib/server/errors";
 import { readInvites } from "@/lib/server/membership";
 import { currentRequest } from "@/lib/server/request";
@@ -54,14 +55,33 @@ export function membershipsOf(user: SessionUser): Member[] {
 
 /**
  * Account deletion crosses two authorities: the local store and Supabase
- * Auth.  A durable marker makes the irreversible boundary recoverable when a
- * process dies after Auth deletion but before local cleanup is flushed.
- * Values are identity metadata only; credentials never enter this journal.
+ * Auth. A durable marker makes the irreversible boundary recoverable when a
+ * process dies around it. Values are identity metadata only; credentials
+ * never enter this journal.
+ *
+ * ## The stages, and why `identity-delete-attempted` exists
+ *
+ *   started                    the journal entry is durable
+ *   doors-closed               app sessions ended, hosted grants revoked
+ *   identity-delete-attempted  written **before** `admin.deleteUser` returns
+ *   identity-deleted           the provider confirmed it
+ *
+ * The journal used to go straight from `doors-closed` to `identity-deleted`,
+ * which left the one window it was built to close: a process that died between
+ * `deleteUser` returning 200 and the journal write landing left an identity
+ * that is gone, a journal that says it is not, and a user who cannot sign in
+ * to retry — so the member rows, the invites they issued and the entry itself
+ * persisted for ever, and `soleAdminWorkspaces` kept counting a ghost admin.
+ *
+ * Recording the *attempt* first turns that into a question with an answer:
+ * ask the provider whether the identity is still there (`getUserById`). Gone
+ * means the call succeeded and local cleanup may finish; present means it did
+ * not, and the account is whole and retryable by its owner.
  */
 export type PendingAccountDeletion = {
   operationId: string;
   user: Pick<SessionUser, "id" | "email" | "name">;
-  stage: "started" | "doors-closed" | "identity-deleted";
+  stage: "started" | "doors-closed" | "identity-delete-attempted" | "identity-deleted";
   updatedAt: string;
 };
 
@@ -123,15 +143,72 @@ export async function finishAccountDeletion(operationId: string): Promise<void> 
 }
 
 /**
- * Complete only deletions that already crossed the Supabase identity boundary.
- * This is safe to call from an authenticated internal cron pass: it never
- * guesses whether an external identity was deleted, and it is idempotent via
- * the operation-scoped audit ids above.
+ * Ask the identity provider whether this subject still exists.
+ *
+ * `"gone"` is the only answer that unblocks local cleanup, so every uncertain
+ * outcome — no service-role key, a provider that will not answer, a shape we
+ * do not recognise — resolves to `"unknown"` and the entry is left alone. A
+ * reconcile pass that guessed "probably deleted" would strip a live account's
+ * memberships.
+ *
+ * The admin client is constructed here rather than imported at module scope so
+ * a file-mode install with no service-role key still loads this module.
+ */
+async function identityState(userId: string): Promise<"gone" | "present" | "unknown"> {
+  if (!isSupabaseConfigured()) return "unknown";
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const { data, error } = await createAdminClient().auth.admin.getUserById(userId);
+    if (data?.user?.id) return "present";
+    // Supabase answers a missing user with a 404-shaped error, and every other
+    // error is a provider problem rather than an answer.
+    if (error) return error.status === 404 ? "gone" : "unknown";
+    return "gone";
+  } catch {
+    return "unknown";
+  }
+}
+
+/**
+ * Finish the deletions that already crossed the Supabase identity boundary.
+ *
+ * Safe to call from an authenticated internal cron pass: it never *guesses*
+ * whether an external identity was deleted, and it is idempotent through the
+ * operation-scoped audit ids below.
+ *
+ * `identity-delete-attempted` is the stage the crash window lands in, and it
+ * is resolved by asking the provider, not by assuming: gone means the
+ * irreversible call did happen and local cleanup is owed; present means it did
+ * not, and the account is intact. A present identity is **surfaced, never
+ * retried here** — re-running an irreversible provider call from a background
+ * pass would delete an account whose owner was last told it had *not* been
+ * deleted (the route answers 502 with exactly that). The owner retries by
+ * calling `DELETE /api/account` again, which resumes from this same entry.
  */
 export async function reconcilePendingAccountDeletionsAsync(): Promise<number> {
   let completed = 0;
   for (const entry of pendingDeletions()) {
-    if (entry.stage !== "identity-deleted") continue;
+    let stage = entry.stage;
+
+    if (stage === "identity-delete-attempted") {
+      const state = await identityState(entry.user.id);
+      if (state !== "gone") {
+        log.warn("account deletion is waiting on its identity provider", {
+          scope: "account",
+          operationId: entry.operationId,
+          identity: state,
+          fix:
+            state === "present"
+              ? "The Supabase user still exists, so the deletion did not happen. The account owner can retry with DELETE /api/account; an operator can delete the user under Authentication → Users."
+              : "The identity provider could not be asked (no service-role key, or it did not answer), so nothing was assumed. The entry is kept for the next pass.",
+        });
+        continue;
+      }
+      await advanceAccountDeletion(entry.operationId, "identity-deleted");
+      stage = "identity-deleted";
+    }
+
+    if (stage !== "identity-deleted") continue;
     await removeAccountRecordsAsync(
       { id: entry.user.id, email: entry.user.email, name: entry.user.name },
       entry.operationId
@@ -378,9 +455,14 @@ export async function removeAccountRecordsAsync(user: SessionUser, operationId =
       appendAuditBatch(pendingAudits);
     }
   } catch (error) {
-    // Restore the mutable snapshot. File-store batches are atomically replaced;
-    // Postgres account deletion is refused above until a cross-table transaction
-    // exists, so an async audit failure cannot leave a successful deletion.
+    // Restore the mutable snapshot, so a failed audit write never leaves a
+    // deletion that happened but was not recorded. Neither store makes this
+    // all-or-nothing on its own — the file batch is a bounded append and
+    // Postgres is several requests — which is why every row above carries a
+    // deterministic `<operationId>:<action>:<workspace>` id and is skipped when
+    // it is already present: the recovery story is idempotent retry, not
+    // atomicity. Product-Postgres account deletion is refused at the route and
+    // in the keepalive pass until a cross-table transaction exists.
     d.members.splice(0, d.members.length, ...originalMembers);
     if (invitesRevoked) {
       if (originalInvites === undefined) delete d.settings.invites;

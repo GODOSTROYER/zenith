@@ -515,20 +515,75 @@ function appendAudit(e: AuditEvent): void {
 }
 
 /**
- * Append a logical batch as one atomic file replacement. Account deletion
- * emits one audit event per membership; appending those lines individually
- * would let a later failure leave a durable prefix while the in-memory
- * membership rollback succeeds. The single-writer mutation gate makes this
- * bounded replacement safe, and recovery retries the same deterministic ids.
+ * Append a logical batch of audit rows in one bounded write.
+ *
+ * Account deletion emits one row per membership and wants them to arrive
+ * together. This used to buy that by reading the whole of `audit.jsonl` into a
+ * string, concatenating, and renaming a full copy over it. That was wrong three
+ * ways, and all three are fixed by not doing it:
+ *
+ *  - **It could silently drop the batch's first row.** `appendAudit` is a bare
+ *    `appendFileSync`, so a crash mid-append leaves a line with no trailing
+ *    newline. `previous + suffix` then glued the first event onto that remnant,
+ *    and every reader skips an unparseable line in a `catch` — so the row was
+ *    lost with no error while the caller was told the write succeeded. The tail
+ *    is now *repaired* with a newline before anything is appended: the torn
+ *    record stays torn (it was never complete), and the batch is intact.
+ *  - **It erased concurrent appends.** The read-modify-write was only atomic
+ *    against the in-process mutation gate, which is one process. Any other
+ *    writer on the same `ZENITH_DATA` that appended between the read and the
+ *    rename had its line replaced away. Writes now go to an `O_APPEND` handle,
+ *    so every write lands at the current end of the file whoever else is
+ *    writing.
+ *  - **It was O(log).** A 500 MB audit file was read into memory and rewritten
+ *    to emit three rows. Cost is now the batch, not the log.
+ *
+ * What is given up is all-or-nothing: a crash inside the write can leave a
+ * partial durable prefix. That is the right trade, because the recovery story
+ * is *idempotent retry* rather than atomicity — every row carries a
+ * deterministic operation-scoped id (`<operationId>:<action>:<workspace>`) and
+ * the caller checks for it before writing, so a resumed deletion re-emits the
+ * same ids rather than duplicating them. Durability against power loss is
+ * unchanged and still absent here: nothing in this file calls `fsync`.
  */
 function appendAuditBatch(events: AuditEvent[]): void {
   if (events.length === 0) return;
   ensureDir();
-  const previous = fs.existsSync(AUDIT) ? fs.readFileSync(AUDIT, "utf8") : "";
-  const suffix = events.map((event) => JSON.stringify(event)).join("\n") + "\n";
-  const tmp = `${AUDIT}.${process.pid}.${Date.now()}.tmp`;
-  fs.writeFileSync(tmp, previous + suffix, { encoding: "utf8", mode: 0o600 });
-  fs.renameSync(tmp, AUDIT);
+  const payload = Buffer.from(
+    events.map((event) => JSON.stringify(event)).join("\n") + "\n",
+    "utf8"
+  );
+  // "a+" rather than "a": the tail has to be *read* to know whether the last
+  // write finished. The mode applies only when the file is created, so this
+  // never re-modes an existing log the way the old full rewrite did.
+  const fd = fs.openSync(AUDIT, "a+", 0o600);
+  try {
+    if (tornTail(fd)) writeAll(fd, NEWLINE);
+    writeAll(fd, payload);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+const NEWLINE = Buffer.from("\n", "utf8");
+
+/** True when the file ends mid-record — a previous append did not finish. */
+function tornTail(fd: number): boolean {
+  const size = fs.fstatSync(fd).size;
+  if (size === 0) return false;
+  const last = Buffer.allocUnsafe(1);
+  fs.readSync(fd, last, 0, 1, size - 1);
+  return last[0] !== 0x0a;
+}
+
+/**
+ * `writeSync` may write fewer bytes than it was given, and a short write here
+ * would be a truncated JSON line — exactly the torn tail above.
+ */
+function writeAll(fd: number, buffer: Buffer): void {
+  let written = 0;
+  while (written < buffer.length)
+    written += fs.writeSync(fd, buffer, written, buffer.length - written);
 }
 
 /** Bytes scanned per call before we stop and hand back a cursor. */

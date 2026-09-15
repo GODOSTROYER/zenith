@@ -26,10 +26,15 @@ export interface ToastInput {
   /**
    * Which project this notification is about, so the Activity panel can lead
    * each row to *its* own trail instead of to whichever project happens to be
-   * on screen. Push whichever identity the call site actually has; the panel
-   * resolves it against the workspaces the caller is authorized for, and says
-   * "no longer available" when it resolves to nothing. Omit both on anything
-   * that is not about one project — the row then stays plain text.
+   * on screen when the panel is opened.
+   *
+   * Callers rarely set either: a notification raised on a project route is
+   * stamped with that route's project by `push` itself. Pass one when the call
+   * site knows better than the route — an action run against another project
+   * from a workspace screen — and `projectId` where there is a choice, since a
+   * slug can be handed to a different project later. The panel resolves the
+   * identity against the projects the caller is authorized for and says "no
+   * longer available" when it resolves to nothing.
    */
   projectId?: string;
   /** the same identity by slug, for call sites that only know the route */
@@ -66,6 +71,19 @@ export const DISMISS_MS = 6000;
  */
 export function isPersistent(t: Pick<ToastInput, "kind" | "action">): boolean {
   return t.kind === "err" || t.kind === "warn" || Boolean(t.action);
+}
+
+/**
+ * The project whose route a notification was raised on, from a pathname.
+ *
+ * Almost every notification is about the project the browser is already
+ * looking at, and stamping that here means the hundred or so `push()` call
+ * sites across the product do not each have to remember to say so. A caller
+ * that knows better — an action run against another project from a workspace
+ * screen — passes its own identity and this never overrides it.
+ */
+export function routeProjectSlug(pathname: string | undefined): string | undefined {
+  return /^\/p\/([^/?#]+)/.exec(pathname ?? "")?.[1];
 }
 
 /**
@@ -181,8 +199,16 @@ export function ToastProvider({ children, renderToaster = true }: ToastProviderP
 
   const push = useCallback(
     (input: ToastInput) => {
+      // Read at push time rather than through a router hook: the provider sits
+      // above the shell (and above the router in tests), and what matters is
+      // where the browser was when this happened, not what it re-renders on.
+      const from =
+        input.projectId || input.projectSlug
+          ? undefined
+          : routeProjectSlug(typeof window === "undefined" ? undefined : window.location.pathname);
       const toast: ToastRecord = {
         ...input,
+        ...(from ? { projectSlug: from } : {}),
         kind: input.kind ?? "info",
         id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`,
         ts: new Date().toISOString(),

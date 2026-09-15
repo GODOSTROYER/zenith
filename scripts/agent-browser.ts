@@ -424,6 +424,17 @@ async function main(): Promise<number> {
           record(label, "the expiry control is labelled", false, "no control matched an expiry label");
         }
 
+        /* --- choose a project first: Approve is disabled until one is ticked --- */
+
+        const selectAll = page.getByRole("button", { name: /select all current projects/i }).first();
+        if ((await selectAll.count()) > 0) {
+          await selectAll.click();
+        } else {
+          const project = page.getByRole("option", { name: /Consent App/i }).first();
+          if ((await project.count()) > 0) await project.click().catch(() => {});
+          else await page.getByLabel(/Consent App/i).first().check().catch(() => {});
+        }
+
         /* --- keyboard reachability --- */
 
         const reachable = await tabThrough(page, 60);
@@ -480,10 +491,6 @@ async function main(): Promise<number> {
         );
 
         /* --- approve, and the terminal comes back to life --- */
-
-        const project = page.getByRole("option", { name: /Consent App/i }).first();
-        if ((await project.count()) > 0) await project.click().catch(() => {});
-        else await page.getByLabel(/Consent App/i).first().check().catch(() => {});
 
         await page.getByRole("button", { name: PAGE.approve }).first().click();
         const done = await page

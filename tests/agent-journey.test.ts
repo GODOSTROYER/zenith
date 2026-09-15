@@ -161,21 +161,49 @@ const call = (
     { params: Promise.resolve((init.params ?? {}) as never) }
   );
 
+/* ------------------------------ secret hygiene ----------------------------- */
+
+/**
+ * Anything shaped like an issued bearer (`za_`) or a device code (`zl_`).
+ *
+ * ACCEPTANCE L5 forbids either in any log line of the journey, and a vitest
+ * assertion message *is* a log line — it is printed, in full, on failure, into
+ * CI output that is kept. So `read()` hands back a redacted `text`: every
+ * assertion message below is derived from it, and the raw body survives only
+ * inside `json`, which nothing prints.
+ */
+const SECRET = /(za|zl)_[A-Za-z0-9_-]{43}/g;
+
+/** Keep the three-character prefix — the shape is not the secret. */
+const redact = (text: string): string =>
+  text.replace(SECRET, (found) => `${found.slice(0, 3)}<redacted>`);
+
+/** Every body this suite read, as it would be printed. Asserted clean at the end. */
+const printable: string[] = [];
+let redactions = 0;
+
 /**
  * Read a response once.
  *
  * A `Response` body is a stream and can only be consumed once, so an assertion
  * message that reads `await res.text()` would eat the body the next line is
  * about to parse. Everything below goes through this.
+ *
+ * `text` is the redacted form and `json` is parsed from the raw one, so a
+ * caller can still assert on `json.token` while nothing it can print carries a
+ * secret.
  */
 async function read(res: Response): Promise<{ status: number; text: string; json: Record<string, unknown> }> {
-  const text = await res.text();
+  const raw = await res.text();
   let parsed: Record<string, unknown> = {};
   try {
-    parsed = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+    parsed = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
   } catch {
     /* a non-JSON body is reported through `text` */
   }
+  const text = redact(raw);
+  if (text !== raw) redactions++;
+  printable.push(text);
   return { status: res.status, text, json: parsed };
 }
 
@@ -274,8 +302,9 @@ afterAll(() => {
 /* ================================ the journey =============================== */
 
 describe.skipIf(WINDOWS)("the linked-agent journey on the file store", () => {
-  /* The device flow's secrets, carried between steps. None of them is printed,
-     and none of them reaches an assertion message. */
+  /* The device flow's secrets, carried between steps. None of them is printed
+     and none of them reaches an assertion message — `read()` redacts every
+     body on the way out, and the last case in this file greps what is left. */
   const flow = { deviceCode: "", userCode: "", token: "", credentialId: "" };
   let operationId = "";
   let operationDigest = "";
@@ -296,9 +325,12 @@ describe.skipIf(WINDOWS)("the linked-agent journey on the file store", () => {
     );
     expect(res.status, res.text).toBe(201);
 
-    expect(String(res.json.deviceCode), "the device code is the real secret").toMatch(
-      /^zl_[A-Za-z0-9_-]{43}$/
-    );
+    // Asserted as a boolean, not with `toMatch`: a `toMatch` failure prints
+    // the received value, and the received value is the device code.
+    expect(
+      /^zl_[A-Za-z0-9_-]{43}$/.test(String(res.json.deviceCode)),
+      "the device code is the real secret, and has the shape the token route pins"
+    ).toBe(true);
     expect(String(res.json.userCode), "8 characters from a 28-symbol alphabet, grouped 4-4").toMatch(
       /^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/
     );
@@ -423,9 +455,12 @@ describe.skipIf(WINDOWS)("the linked-agent journey on the file store", () => {
     );
     expect(res.status, res.text).toBe(200);
     expect(res.json.status).toBe("issued");
-    expect(String(res.json.token), "the shape three validators already pin").toMatch(
-      /^za_[A-Za-z0-9_-]{43}$/
-    );
+    // A boolean for the same reason as the device code above: this is the one
+    // response in the journey that carries the bearer.
+    expect(
+      /^za_[A-Za-z0-9_-]{43}$/.test(String(res.json.token)),
+      "the shape three validators already pin"
+    ).toBe(true);
     expect(res.json.credentialId).toBe(flow.credentialId);
     expect(res.json.workspaceId).toBe(WORKSPACE);
     expect(res.json.projectIds).toEqual([projectId]);
@@ -558,16 +593,29 @@ describe.skipIf(WINDOWS)("the linked-agent journey on the file store", () => {
     // how the canvas knows to show it; when it finishes the lease clears and
     // the revision it deployed is recorded. Reading `db()` here would prove the
     // engine ran and nothing about what a user sees.
-    const seen = await pollProject((environments) =>
-      environments.some((e) => e.id === environmentId && e.activeDeploymentId === deploymentId)
-    );
-    expect(seen, "GET /api/projects/:id names the deployment the agent dispatched").toBe(true);
-
-    const finished = await pollProject((environments) => {
+    //
+    // One watch, not two. `zenith_execute_operation` spends up to
+    // `ENGINE_ADVANCE_BUDGET_MS` (6 s, control/advance.ts) advancing what it
+    // dispatched, and on the file store a simulated deploy of this fixture
+    // finishes inside that budget — four ticks, about a second. So the lease is
+    // usually already released by the time this line runs, and waiting for it
+    // *first* was waiting for something that had been and gone: the poll ran
+    // out its 20 s budget and the suite failed on a deployment that had in fact
+    // succeeded. The lease is recorded when it is visible and required never;
+    // what is required is the settled payload, bound below to the revision this
+    // deployment published, which is what makes it this deployment's payload
+    // and not merely a finished one.
+    let sawLease = false;
+    const settled = await pollProject((environments) => {
       const environment = environments.find((e) => e.id === environmentId);
-      return Boolean(environment && !environment.activeDeploymentId && environment.deployedRevisionId);
-    }, 60_000);
-    expect(finished, "the simulated deployment reached a terminal status").toBe(true);
+      if (!environment) return false;
+      if (environment.activeDeploymentId === deploymentId) sawLease = true;
+      return !environment.activeDeploymentId && Boolean(environment.deployedRevisionId);
+    });
+    expect(
+      settled,
+      "GET /api/projects/:id released the lease and recorded a revision for the dispatched deployment"
+    ).toBe(true);
 
     const detail = await read(
       await call(deploymentGet, `/api/deployments/${deploymentId}`, { params: { id: deploymentId } })
@@ -575,9 +623,24 @@ describe.skipIf(WINDOWS)("the linked-agent journey on the file store", () => {
     expect(detail.status, detail.text).toBe(200);
     const deployment = detail.json.deployment as {
       status: string;
+      environmentId: string;
+      revisionId: string;
       steps: unknown[];
       outputs: { kind: string; simulated?: boolean }[];
     };
+
+    // The binding: the revision the canvas now says this environment runs is
+    // the revision *this* deployment published. Without it "something
+    // finished" would pass.
+    const environments = await projectEnvironments();
+    const environment = environments.find((e) => e.id === environmentId);
+    expect(deployment.environmentId).toBe(environmentId);
+    expect(
+      environment?.deployedRevisionId,
+      sawLease
+        ? "the canvas held the lease, then named the revision the deployment published"
+        : "the in-request advance finished the deploy, and the canvas names the revision it published"
+    ).toBe(deployment.revisionId);
     expect(deployment.status, `the deployment ended ${deployment.status}`).toBe("succeeded");
     expect(deployment.steps.length, "the timeline the canvas draws").toBeGreaterThan(0);
     expect(
@@ -612,6 +675,23 @@ describe.skipIf(WINDOWS)("the linked-agent journey on the file store", () => {
     expect(after.status, "effective on the next request — there is no cache to invalidate").toBe(401);
   });
 
+  it("printed no token and no device code anywhere in the journey", () => {
+    // ACCEPTANCE L5, asserted rather than assumed. `read()` is the only way a
+    // body reaches this file, and everything it returned is here; a `toMatch`
+    // or a `res.text` that got its secret past the redactor would show up as a
+    // hit. The counter is the other half: it fails if `read()` were bypassed
+    // and this check had nothing to be clean about — the start and the token
+    // exchange always carry one.
+    const written = printable.join("\n");
+    // The count, never the matches: a failure message that quotes the leak it
+    // found has published it a second time.
+    expect(
+      (written.match(SECRET) ?? []).length,
+      "no za_ or zl_ value in anything this suite can print"
+    ).toBe(0);
+    expect(redactions, "the start response and the token exchange both carry one").toBeGreaterThanOrEqual(2);
+  });
+
   /* -------------------------------- helpers -------------------------------- */
 
   function browserReview(payload: unknown): Promise<Response> {
@@ -639,9 +719,14 @@ describe.skipIf(WINDOWS)("the linked-agent journey on the file store", () => {
   /**
    * Poll the project payload until a condition holds.
    *
-   * The polling is the mechanism, not an artefact of the test: every payload
-   * read calls `nudge()`, which is what advances a deployment on a host with
-   * no ticker (CONTROL-PLANE-ON-POSTGRES.md §7.2).
+   * What advances the deployment here is the file store's own 250 ms engine
+   * ticker (`ensureEngine`, engine.ts:346), plus the bounded advance that
+   * `zenith_execute_operation` already spent inside the dispatching request.
+   * `nudge()` on the payload read is the mechanism on the two hosts that have
+   * no ticker — serverless and Postgres — and returns immediately here
+   * (cron.ts:501); CONTROL-PLANE-ON-POSTGRES.md §7.2 is about those. So this
+   * poll is an observation, not a pump: it must not be the thing that makes
+   * the deployment move, or the suite would be testing itself.
    */
   async function pollProject(
     holds: (environments: { id: string; activeDeploymentId?: string; deployedRevisionId?: string }[]) => boolean,

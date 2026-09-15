@@ -79,6 +79,50 @@ const NO_POSIX_MESSAGE =
   "authority has nowhere to write. Run this on Linux or macOS — CI's `agent` job does — or link against a\n" +
   "hosted Zenith, where the Postgres credential authority is used instead. Nothing has been verified here.";
 
+/* ------------------------------ secret hygiene ----------------------------- */
+
+/**
+ * Anything shaped like an issued bearer (`za_`) or a device code (`zl_`).
+ *
+ * ACCEPTANCE L5: for the whole journey, neither may appear in a single log
+ * line. This script's transcript is one of those logs — it is pasted into a PR
+ * and kept in CI output — so it does two things rather than one. It never puts
+ * a response body that carries a secret into a detail, and every detail it
+ * does record goes through `redact()` anyway, because "I remembered" is not a
+ * property anyone can check later. What *is* checkable is the transcript
+ * itself, and the last check of the run greps it.
+ */
+const SECRET = /(za|zl)_[A-Za-z0-9_-]{43}/g;
+
+/** Keep the three-character prefix — which credential shape it was is not the secret. */
+const redact = (text: string): string =>
+  text.replace(SECRET, (found) => `${found.slice(0, 3)}<redacted>`);
+
+/** Everything this process wrote, so the run can grep its own output. */
+const transcript: string[] = [];
+
+/**
+ * Tee stdout and stderr into `transcript`.
+ *
+ * The application's own logger writes through `process.stdout`, so this
+ * records what Zenith printed as well as what this script printed. A secret
+ * that leaks from a log line inside `src/**` therefore fails this run, which
+ * is the point: L5 is about every log line, not only the ones written here.
+ */
+function recordOutput(): void {
+  for (const stream of [process.stdout, process.stderr]) {
+    const inner = stream.write.bind(stream) as (...args: unknown[]) => boolean;
+    (stream as unknown as { write: (...args: unknown[]) => boolean }).write = (
+      ...args: unknown[]
+    ): boolean => {
+      const [chunk] = args;
+      if (typeof chunk === "string") transcript.push(chunk);
+      else if (Buffer.isBuffer(chunk)) transcript.push(chunk.toString("utf8"));
+      return inner(...args);
+    };
+  }
+}
+
 /** One line of the table this script prints. */
 interface Row {
   step: string;
@@ -90,14 +134,14 @@ const rows: Row[] = [];
 
 /** Record a check. Returns what it was given, so it reads inline. */
 function check(step: string, ok: boolean, detail: string): boolean {
-  rows.push({ step, ok, detail });
+  rows.push({ step, ok, detail: redact(detail) });
   return ok;
 }
 
 /** Record a check that must hold for the run to continue. */
 function must(step: string, ok: boolean, detail: string): void {
   check(step, ok, detail);
-  if (!ok) throw new Error(`${step}: ${detail}`);
+  if (!ok) throw new Error(redact(`${step}: ${detail}`));
 }
 
 function table(): string {
@@ -287,6 +331,7 @@ interface Answer {
 }
 
 async function main(): Promise<number> {
+  recordOutput();
   if (process.platform === "win32") {
     process.stderr.write(`${NO_POSIX_MESSAGE}\n`);
     return 2;
@@ -541,7 +586,13 @@ async function main(): Promise<number> {
     /* ------------------------------- 5. exchange ----------------------------- */
 
     const issued = await call("POST", "/api/agent/link/token", { body: { deviceCode, protocolVersion: 1 } });
-    must("token exchange", issued.status === 200 && issued.json.status === "issued", `HTTP ${issued.status} ${issued.text.slice(0, 120)}`);
+    // Never the body here: this is the one response in the whole journey that
+    // carries the bearer, and it carries the only copy of it (L5).
+    must(
+      "token exchange",
+      issued.status === 200 && issued.json.status === "issued",
+      `HTTP ${issued.status} status=${String(issued.json.status)}, credential ${String(issued.json.credentialId)}`
+    );
     bearer = String(issued.json.token ?? "");
     must(
       "the bearer has the shape three validators pin",
@@ -654,31 +705,46 @@ async function main(): Promise<number> {
 
     /* --------------------------- 10. the canvas payload ---------------------- */
 
-    const visibleAt = await waitFor(
-      async () => (await activeDeployment()) === deploymentId,
-      15_000,
-      "the environment names the dispatched deployment"
-    );
-    check(
-      "the canvas sees it",
-      visibleAt >= 0,
-      `GET /api/projects/:id showed the deployment ${visibleAt}ms after execute returned`
-    );
-
-    const finishedAt = await waitFor(
+    /*
+     * One watch, not two.
+     *
+     * `zenith_execute_operation` spends up to `ENGINE_ADVANCE_BUDGET_MS` (6 s)
+     * advancing what it dispatched, and on the file store a simulated deploy of
+     * this fixture finishes inside that budget — four ticks, about a second. So
+     * by the time this line runs the environment has usually *already* released
+     * `activeDeploymentId` and recorded the revision the deployment published.
+     * Waiting for the lease first would be waiting for something that has
+     * already been and gone, which is exactly how this read timed out before.
+     *
+     * The lease is still worth reporting when it is visible, so it is recorded
+     * rather than required; what is required is the settled payload, bound to
+     * this deployment's own revision two checks below.
+     */
+    let sawLease = false;
+    const settledAt = await waitFor(
       async () => {
-        const environments = await environmentsOf();
-        const one = environments.find((e) => e.id === environmentId);
-        return Boolean(one && !one.activeDeploymentId && one.deployedRevisionId);
+        const one = (await environmentsOf()).find((e) => e.id === environmentId);
+        if (!one) return false;
+        if (one.activeDeploymentId === deploymentId) sawLease = true;
+        return !one.activeDeploymentId && Boolean(one.deployedRevisionId);
       },
       90_000,
-      "the environment released the deployment and recorded a revision"
+      "the environment released the deployment and recorded the revision it published"
     );
-    must("the deployment reached a terminal state", finishedAt >= 0, `${finishedAt}ms of wall clock, watched through the project payload`);
+    must(
+      "the canvas payload settles on the dispatched deployment",
+      settledAt >= 0,
+      `${settledAt}ms of wall clock after execute returned` +
+        (sawLease
+          ? `, and GET /api/projects/:id was seen holding the lease on ${deploymentId}`
+          : `, the in-request advance had already carried ${deploymentId} to the end`)
+    );
 
-    const detail = await call("GET", `/api/deployments/${deploymentId}`);
+    const detail = await browser("GET", `/api/deployments/${deploymentId}`);
     const deployed = (detail.json.deployment ?? {}) as {
       status?: string;
+      environmentId?: string;
+      revisionId?: string;
       steps?: unknown[];
       outputs?: { kind: string; label: string; simulated?: boolean }[];
     };
@@ -694,7 +760,19 @@ async function main(): Promise<number> {
       `${urls.length} URL output(s), all flagged simulated — phase 1 deploys nothing real`
     );
 
-    const payload = await call("GET", `/api/projects/${projectId}`);
+    // The one that binds the canvas payload to *this* deployment rather than to
+    // "something finished": the revision the environment now runs is the
+    // revision this deployment published.
+    const settled = (await environmentsOf()).find((e) => e.id === environmentId);
+    must(
+      "the canvas names the revision this deployment published",
+      Boolean(deployed.revisionId) &&
+        deployed.environmentId === environmentId &&
+        settled?.deployedRevisionId === deployed.revisionId,
+      `environment ${environmentId} runs revision ${String(settled?.deployedRevisionId)}, published by deployment ${deploymentId}`
+    );
+
+    const payload = await browser("GET", `/api/projects/${projectId}`);
     check(
       "no credential leaks into the canvas payload",
       !/za_[A-Za-z0-9_-]{43}/.test(payload.text) && !/zl_[A-Za-z0-9_-]{43}/.test(payload.text),
@@ -722,6 +800,25 @@ async function main(): Promise<number> {
     await provider.close();
   }
 
+  /*
+   * ACCEPTANCE L5, asserted against this run's own output instead of assumed.
+   *
+   * `recordOutput()` has been teeing stdout and stderr since the first line of
+   * `main()`, so this sees every log line the application wrote as well as
+   * every line this script wrote. `table()` is added because the rows have not
+   * been printed yet — they are printed two statements below, and a leak in a
+   * detail has to fail the run that produced it, not the next one.
+   */
+  const written = `${transcript.join("")}\n${table()}`;
+  const leaked = written.match(SECRET) ?? [];
+  check(
+    "no token and no device code in this transcript",
+    leaked.length === 0,
+    leaked.length === 0
+      ? `${written.length} bytes of transcript grepped for za_/zl_, zero hits (ACCEPTANCE L5)`
+      : `${leaked.length} secret(s) printed — the first at offset ${written.search(SECRET)}`
+  );
+
   const failed = rows.filter((row) => !row.ok);
   process.stdout.write(
     `\nAgent acceptance journey — workspace ${WORKSPACE}, credential ${credentialId || "(none issued)"}\n\n${table()}\n\n`
@@ -735,10 +832,22 @@ async function main(): Promise<number> {
 
   /* -------------------------------- helpers -------------------------------- */
 
+  /**
+   * The canvas payload, read the way the canvas reads it: as the signed-in
+   * browser, with its session cookie.
+   *
+   * `GET /api/projects/:id` resolves the workspace it acts in from the
+   * caller's *membership* (`resolveRequest` → `pickWorkspace`, and then
+   * `requireWorkspace()`), so a request with no session cookie is not a
+   * project read at all — it is an anonymous caller, and the honest answer is
+   * `404 "You are not a member of any workspace here."` Reading it with
+   * `call()` therefore turned every canvas observation in this journey into a
+   * refusal about identity that read like a broken link flow.
+   */
   async function environmentsOf(): Promise<
     { id: string; activeDeploymentId?: string; deployedRevisionId?: string }[]
   > {
-    const answer = await call("GET", `/api/projects/${projectId}`);
+    const answer = await browser("GET", `/api/projects/${projectId}`);
     if (answer.status !== 200) throw new Error(`GET /api/projects/:id answered ${answer.status}: ${answer.text.slice(0, 200)}`);
     return (answer.json.environments ?? []) as {
       id: string;
@@ -754,9 +863,13 @@ async function main(): Promise<number> {
   /**
    * Poll until a condition holds, answering with how long it took.
    *
-   * Polling the project payload is the mechanism and not an artefact: every
-   * read calls `nudge()`, which is what advances a deployment on a host with no
-   * ticker (CONTROL-PLANE-ON-POSTGRES.md §7.2).
+   * The poll is an observation, not a pump. What moves the deployment on this
+   * host is the file store's own 250 ms engine ticker (`ensureEngine`,
+   * engine.ts:346) and the bounded advance `zenith_execute_operation` already
+   * spent inside the dispatching request. `nudge()` on a payload read is the
+   * mechanism on the two hosts that have no ticker — serverless and Postgres —
+   * and returns immediately here (cron.ts:501); that is what
+   * CONTROL-PLANE-ON-POSTGRES.md §7.2 is about.
    */
   async function waitFor(holds: () => Promise<boolean>, budgetMs: number, what: string): Promise<number> {
     const started = Date.now();
@@ -816,7 +929,9 @@ main()
   .then((code) => process.exit(code))
   .catch((err: unknown) => {
     process.stderr.write(
-      `agent-acceptance failed: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`
+      redact(
+        `agent-acceptance failed: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`
+      )
     );
     process.exit(1);
   });

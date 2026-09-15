@@ -35,6 +35,12 @@
  * place. `dropDuplicateOutboxRows` turns that refusal into the right outcome
  * — adopt the row the other instance wrote and drop our copy — rather than a
  * failed flush.
+ *
+ * Two reads, two questions. `refreshOutbox` asks *what is left to send* and so
+ * reads only the claimable window; `readOutboxRowsIn` asks *what became of
+ * these rows* and so reads them by id in any state, which is the only way a
+ * settle can tell "the winner already recorded this" from "somebody else will
+ * send it again at lease expiry".
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
@@ -382,6 +388,20 @@ export async function claimOutboxRowIn(
   return false;
 }
 
+/**
+ * Forget a row the table no longer holds.
+ *
+ * The baseline *and* the object go together: a baseline with no object is a
+ * delete the next flush would issue, and an object with no baseline is an
+ * insert.
+ */
+function forgetRow(snap: SnapshotLike, row: AlertOutboxEntry): void {
+  snap.baseline.delete(outboxKey(row));
+  const list = rows(snap);
+  const i = list.indexOf(row);
+  if (i >= 0) list.splice(i, 1);
+}
+
 /** Pull one row back from the table, or forget it when it is gone. */
 async function resyncRow(
   snap: SnapshotLike,
@@ -395,12 +415,44 @@ async function resyncRow(
     adoptRow(snap, found);
     return;
   }
-  // Deleted underneath us. Drop the baseline *and* the object together: a
-  // baseline with no object is a delete the next flush would issue.
-  snap.baseline.delete(outboxKey(row));
-  const list = rows(snap);
-  const i = list.indexOf(row);
-  if (i >= 0) list.splice(i, 1);
+  forgetRow(snap, row); // deleted underneath us
+}
+
+/**
+ * Re-read exactly these rows by id, in whatever state the table holds them.
+ *
+ * `refreshOutbox` above answers "what is there left to send", so it reads only
+ * the claimable window. That is the wrong question for a settle whose
+ * version-guarded write just lost: the most likely answer is that the claimant
+ * that won the row already wrote `delivered`/`failed` to it, and a
+ * `status in (pending, sending)` read cannot see such a row **at all**. The
+ * caller would be left with its stale baseline, a second conflict, and a
+ * duplicate-send alarm raised over a terminal row nobody will ever send again.
+ *
+ * So: ids only, no status filter. Every row found is adopted the way everything
+ * else in this file adopts — object mutated in place and baseline re-based — so
+ * the caller can read the winner's outcome straight off the object it already
+ * holds. Ids the table no longer holds are forgotten and returned.
+ */
+export async function readOutboxRowsIn(
+  snap: SnapshotLike,
+  ids: readonly string[]
+): Promise<string[]> {
+  const wanted = [...new Set(ids.filter(Boolean))];
+  if (wanted.length === 0) return [];
+  const { data, error } = await (await client())
+    .from("alert_outbox")
+    .select("*")
+    .in("id", wanted);
+  if (error) throw storeError("alert_outbox", "re-read rows from", error.message);
+  const found = new Set<string>();
+  for (const row of (data ?? []) as PgRow[]) found.add(adoptRow(snap, row).id);
+  const missing = wanted.filter((id) => !found.has(id));
+  for (const id of missing) {
+    const held = rows(snap).find((r) => r.id === id);
+    if (held) forgetRow(snap, held);
+  }
+  return missing;
 }
 
 /**

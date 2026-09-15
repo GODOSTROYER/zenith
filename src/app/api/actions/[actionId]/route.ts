@@ -3,8 +3,15 @@
  * here, so no surface can hold private state about the system.
  *
  * `idempotencyKey` is honest about its limits: retries are deduplicated per
- * actor for ten minutes, in this server process only. A retry that crosses a
- * server restart runs the action a second time — see `IDEM_WINDOW_NOTE`.
+ * workspace, actor and action for ten minutes, and only for an identical
+ * request body — a different body under the same key is `idempotency_conflict`.
+ * An outcome becomes replayable only once `route()`'s durable flush for its
+ * request has succeeded, so `idempotency.replayed: true` in the response means
+ * the change was committed; a retry that arrives before that is
+ * `idempotency_in_flight`. The window is this server process only: a retry that
+ * crosses a restart, or reaches another instance, runs the action a second
+ * time — see `IDEM_WINDOW_NOTE`, which is what the response and the
+ * malformed-body fix both quote.
  */
 import { z } from "zod";
 import { actionRegistry, runAction, IDEM_WINDOW_NOTE } from "@/lib/actions/core";

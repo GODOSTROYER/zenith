@@ -70,6 +70,10 @@ const READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
  *
  * One place, so every mutating route is covered without remembering to. Local
  * `next dev` is untouched: `isServerless()` is false and nothing is awaited.
+ *
+ * This is also the request's commit point for the action runner's replay
+ * window: `route()` promotes the request's idempotent outcomes only after this
+ * resolves, and a rejection here leaves none of them behind.
  */
 async function flushMutation(req: NextRequest): Promise<void> {
   if (READ_METHODS.has(req.method.toUpperCase())) return;
@@ -171,23 +175,33 @@ export function route<P extends Record<string, string> = Record<string, string>>
         // Postgres, `resolveRequest` is itself a store read.
         const snapshot = await prefetch(req);
         const { runWithSnapshot } = await import("@/lib/db/request-snapshot");
-        const out = await runWithSnapshot(snapshot, async () => {
-          const { resolveRequest, routeGrant } = await import("@/lib/server/actor");
-          const state: RequestState = { ...(await resolveRequest(req)), snapshot };
-          const result = await requestState.run(state, async () => {
-            const params = ctx?.params ? await ctx.params : ({} as P);
-            // A route that demands nothing must not resolve an actor: the
-            // invitation routes answer callers `resolveActor()` would refuse.
-            const grant = options.workspaceRole
-              ? await routeGrant(req, options.workspaceRole)
-              : (undefined as unknown as RouteGrant);
-            return handler(req, params, grant);
-          });
-          // Inside the snapshot scope, deliberately: the flush writes *this*
-          // request's snapshot, and outside it would find the process-global one.
-          await flushMutation(req);
-          return result;
-        });
+        const { withActionOutcomes } = await import("@/lib/actions/core");
+        const out = await runWithSnapshot(snapshot, async () =>
+          // The commit scope spans the handler AND the flush, because the
+          // action runner may only retain an idempotent outcome once this
+          // request's durable write has landed — see `retainOutcome` in
+          // `actions/core.ts`. A throw anywhere below abandons those outcomes,
+          // so a retry re-runs the action instead of replaying a mutation that
+          // was never committed.
+          withActionOutcomes(async (outcomes) => {
+            const { resolveRequest, routeGrant } = await import("@/lib/server/actor");
+            const state: RequestState = { ...(await resolveRequest(req)), snapshot };
+            const result = await requestState.run(state, async () => {
+              const params = ctx?.params ? await ctx.params : ({} as P);
+              // A route that demands nothing must not resolve an actor: the
+              // invitation routes answer callers `resolveActor()` would refuse.
+              const grant = options.workspaceRole
+                ? await routeGrant(req, options.workspaceRole)
+                : (undefined as unknown as RouteGrant);
+              return handler(req, params, grant);
+            });
+            // Inside the snapshot scope, deliberately: the flush writes *this*
+            // request's snapshot, and outside it would find the process-global one.
+            await flushMutation(req);
+            outcomes.commit();
+            return result;
+          })
+        );
         const res = out instanceof Response ? out : json(out);
         res.headers.set("x-request-id", requestId);
         return res;

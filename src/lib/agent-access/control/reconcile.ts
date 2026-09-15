@@ -27,6 +27,8 @@ import { log } from '@/lib/log';
 import { isPostgres } from '@/lib/db/store';
 import { controlCapabilitiesSync } from './capabilities';
 import { SqliteAgentJournal } from './journal';
+// Type-only, so nothing of the Postgres journal is loaded on the file store.
+import type { AnySql } from './journal-pg';
 
 /** What one pass did. Frozen contract (WORK-GRAPH-2 F6). */
 export interface AgentTickResult {
@@ -34,7 +36,10 @@ export interface AgentTickResult {
   reconciled: number;
   /** `prepared`/`approved` rows past `expires_at`, moved to `expired`. */
   expired: number;
-  /** Link codes swept (LINK-PROTOCOL §3.3). Zero until `0006` is applied. */
+  /**
+   * Link codes swept: rows moved to `expired` plus rows deleted a day later
+   * (LINK-PROTOCOL §3.3). Zero until `0006` is applied.
+   */
   links: number;
   /** Uploaded source past its hour, deleted. */
   uploads: number;
@@ -50,6 +55,42 @@ const UNDEFINED_TABLE = '42P01';
 
 const isUndefinedTable = (error: unknown): boolean =>
   typeof error === 'object' && error !== null && (error as { code?: unknown }).code === UNDEFINED_TABLE;
+
+/**
+ * How long a finished link code is kept before housekeeping deletes it.
+ *
+ * The same twenty-four hours `PgCredentialAuthority.expireLinks()` keeps, and
+ * deliberately not imported from it: this pass must not drag the credential
+ * authority (and with it the secret module and its own schema probe) into the
+ * tick route just to learn a number.
+ */
+const LINK_RETENTION_MS = 86_400_000;
+
+/**
+ * A link code past `expires_at` is *expired*, and its undelivered secret dies
+ * with it. It is not deleted here: an agent still polling deserves
+ * `expired_token` rather than `invalid_device_code`, which is what a vanished
+ * row would produce. LINK-PROTOCOL §3.3.
+ *
+ * `agent.agent_link_codes` is keyed on `user_code_hash` and **has no `id`
+ * column** (0006). Naming one costs a `42703 undefined_column` — which is not
+ * `isUndefinedTable` and so fails the whole pass.
+ */
+export const sweepLinkCodesStatement = (sql: AnySql, p: { now: string; limit: number }) => sql`
+  update agent.agent_link_codes set state = 'expired', secret_ct = null
+   where user_code_hash in (
+     select user_code_hash from agent.agent_link_codes
+      where state in ('pending','approved') and expires_at <= ${p.now}
+      order by expires_at limit ${p.limit})
+  returning user_code_hash`;
+
+/** And a day after that the row itself goes, whatever state it reached. */
+export const deleteLinkCodesStatement = (sql: AnySql, p: { cutoff: string; limit: number }) => sql`
+  delete from agent.agent_link_codes
+   where user_code_hash in (
+     select user_code_hash from agent.agent_link_codes
+      where expires_at <= ${p.cutoff} order by expires_at limit ${p.limit})
+  returning user_code_hash`;
 
 /**
  * One reconciliation pass.
@@ -118,12 +159,10 @@ export async function agentTickPass(budgetMs = AGENT_TICK_BUDGET_MS): Promise<Ag
   // and "that table is not there yet" is not a failed tick.
   if (Date.now() < deadline)
     try {
-      const swept = (await sql`
-        delete from agent.agent_link_codes
-         where id in (
-           select id from agent.agent_link_codes where expires_at <= ${now} order by expires_at limit ${SCAN_LIMIT})
-        returning id`) as unknown as unknown[];
-      out.links = swept.length;
+      const cutoff = new Date(Date.now() - LINK_RETENTION_MS).toISOString();
+      const expiredCodes = (await sweepLinkCodesStatement(sql, { now, limit: SCAN_LIMIT })) as unknown as unknown[];
+      const deleted = (await deleteLinkCodesStatement(sql, { cutoff, limit: SCAN_LIMIT })) as unknown as unknown[];
+      out.links = expiredCodes.length + deleted.length;
     } catch (error) {
       if (!isUndefinedTable(error)) throw error;
     }

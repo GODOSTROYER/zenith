@@ -1,4 +1,4 @@
-import { q } from "@/lib/db/store";
+import { q, revisionManifestAsync } from "@/lib/db/store";
 import { id, type NavigatorRun, type NavigatorVerification } from "@/lib/domain/types";
 import { getProvider } from "@/lib/providers/types";
 
@@ -35,7 +35,9 @@ export async function verifyRun(run: NavigatorRun): Promise<{ verification?: Nav
       continue;
     }
     if (!provider.verify) return { note: `${provider.displayName} does not support complete deployment verification yet.` };
-    const previous = deployment.previousRevisionId ? q.revisionManifest(deployment.previousRevisionId) : undefined;
+    const previous = deployment.previousRevisionId
+      ? await revisionManifestAsync(deployment.previousRevisionId)
+      : undefined;
     if (deployment.previousRevisionId && !previous) return { note: "The previous revision is missing; removals cannot be verified." };
     const startedAt = Date.now();
     const result = await provider.verify(environment, revision.manifest, previous);

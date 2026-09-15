@@ -12,7 +12,7 @@ a claim that Zenith is production-ready in every backend.
 | Fence agent-operation finalization against operation expiry, durable OAuth grants, and application authority | `5455a52` (on top of `6bc2e21`) | Coordinator/journal, membership, grant, account-delete, and hosted access tests pass; supported single-writer mutation paths share the gate |
 | Store alert signing keys and credential-bearing HTTP targets as encrypted secret references with compensating rotation | `5455a52` (on top of `90a8a87`) | Alert delivery, outbox, bootstrap-redaction, audit masking, rollback, tamper-read, and workspace-isolation tests pass; legacy plaintext delivery fails closed |
 | Bind webhook delivery to the validated DNS address and scope async tenant writes | `5455a52` (on top of `9274b0f`, `fa67fa9`) | Address-pinning, redirect, bounded-response, async body-binding, and tenant-column tests pass |
-| Widen secret-backed request/provider paths to async PostgREST and add explicit alert-secret migration | `b96459b` | Async secret route/actions/provider/alert delivery tests pass; `npm run migrate:alert-secrets -- --dry-run` is safe by default and `--apply` requires an explicit operator action |
+| Widen secret-backed request/provider paths and cold readers to async PostgREST, and add explicit alert-secret migration | `b96459b` + `856ee9a` + current async-reader slice | Async secret route/actions/provider/alert delivery, project payload, deploy planning, provider verification, and secret-consumer tests pass; `npm run migrate:alert-secrets -- --dry-run` is safe by default and `--apply` requires an explicit operator action |
 | Require a pinned E2B template with no runtime package installation | `b96459b` | E2B isolated runner tests pass 17/17; template selection is fail-closed and toolchain versions are checked inside the template |
 | Enforce plugin provenance at the runtime consumption boundary | `951bdb9` in `GODOSTROYER/Zenith-plugins#6` | Plugin verify passes 144 tests/2 skips; the generated runtime fails closed at activation unless the trusted launcher supplies the signed Ed25519 gate |
 | Fence every hosted app-grant insertion path, including direct grants and invitation acceptance | post-review hardening (this commit) | Grant services now enter the same re-entrant mutation gate as account deletion, role changes, and revocation; hosted access and agent-control regression tests pass |
@@ -64,10 +64,11 @@ current branch intentionally preserves the existing independent selectors.
   interaction, reload persistence, conflict preservation, revocation denial,
   desktop/mobile rendering, and console/page-error checks are covered by the
   resumed bundle and the real Chromium journey.
-- `sync-rest` async replacement: **substantially widened; compatibility bridge
-  remains**. Secret route/actions/provider/alert delivery and mutation planning
-  use awaited backend APIs; audit/history and older synchronous compatibility
-  readers still use the bridge and require a separate contract-widening slice.
+- `sync-rest` async replacement: **request/worker paths widened; compatibility
+  bridge remains**. Secret route/actions/provider/alert delivery, project
+  payloads, deploy planning, provider verification, and secret-consumer scans
+  use awaited backend APIs. The synchronous `Store` contract and legacy
+  audit/history/secret delegates still use the bridge by design.
 - Agent-control finalization fence: **bounded slice implemented**. Durable grant
   revocation, operation expiry, application membership/app-role digests, and
   account/grant/member/direct-grant/invitation-acceptance mutation paths are

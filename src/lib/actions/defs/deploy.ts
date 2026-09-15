@@ -6,7 +6,7 @@
  */
 import { z } from "zod";
 import { defineAction, type ActionContext, type ActionPlan } from "@/lib/actions/core";
-import { db, q, save } from "@/lib/db/store";
+import { db, q, revisionManifestAsync, save } from "@/lib/db/store";
 import { diffManifests, isStatefulKind, validateManifest } from "@/lib/domain/graph";
 import {
   emptyManifest,
@@ -78,11 +78,11 @@ function connectionBlock(env: Environment): string | undefined {
  * Everything that makes `deploy.apply` refuse, decided once and rendered as
  * `plan.blocked` so no surface has to infer it from warning prose.
  */
-function deployBlock(env: Environment, project: Project, cs: Changeset): string | undefined {
+async function deployBlock(env: Environment, project: Project, cs: Changeset): Promise<string | undefined> {
   const reasons = [
     providerBlock(env),
     connectionBlock(env),
-    statefulDeletionBlock(env, cs),
+    await statefulDeletionBlock(env, cs),
     ...blockingIssues(project.workingManifest),
   ].filter((r): r is string => Boolean(r));
   return reasons.length ? reasons.join(" ") : undefined;
@@ -102,9 +102,9 @@ function deployBlock(env: Environment, project: Project, cs: Changeset): string 
  * Only *managed* resources count. A referenced one was never provisioned by
  * Zenith, so dropping it from the manifest forgets it rather than deleting it.
  */
-function statefulDeletionBlock(env: Environment, cs: Changeset): string | undefined {
+async function statefulDeletionBlock(env: Environment, cs: Changeset): Promise<string | undefined> {
   if (env.policies.allowStatefulDeletion) return undefined;
-  const deployed = deployedManifest(env);
+  const deployed = await deployedManifestAsync(env);
   const doomed = cs.items
     .filter((i) => i.op === "delete" && i.nodeType === "resource")
     .map((i) => deployed.resources.find((r) => r.id === i.nodeId))
@@ -127,8 +127,17 @@ export function deployedManifest(env: Environment): Manifest {
   return (id ? q.revisionManifest(id) : undefined) ?? emptyManifest();
 }
 
+export async function deployedManifestAsync(env: Environment): Promise<Manifest> {
+  const revisionId = env.deployedRevisionId;
+  return (revisionId ? await revisionManifestAsync(revisionId) : undefined) ?? emptyManifest();
+}
+
 export function changesetFor(env: Environment, project: Project): Changeset {
   return diffManifests(deployedManifest(env), project.workingManifest);
+}
+
+export async function changesetForAsync(env: Environment, project: Project): Promise<Changeset> {
+  return diffManifests(await deployedManifestAsync(env), project.workingManifest);
 }
 
 function tally(cs: Changeset): string {
@@ -155,9 +164,9 @@ function blockingIssues(m: Manifest): string[] {
     .map((i) => `${i.message}${i.fix ? ` ${i.fix}` : ""}`);
 }
 
-function deployPlan(env: Environment, project: Project): ActionPlan {
-  const cs = changesetFor(env, project);
-  const blocked = deployBlock(env, project, cs);
+async function deployPlan(env: Environment, project: Project): Promise<ActionPlan> {
+  const cs = await changesetForAsync(env, project);
+  const blocked = await deployBlock(env, project, cs);
   const warnings = validateManifest(project.workingManifest)
     .filter((i) => i.level === "warning")
     .map((i) => `${i.message}${i.fix ? ` ${i.fix}` : ""}`);
@@ -206,14 +215,14 @@ defineAction<PlanInput>({
   requiredRole: "viewer",
   mutates: false,
   input: PlanInput,
-  plan(ctx, input) {
+  async plan(ctx, input) {
     const env = requireEnvironment(ctx, input.environmentId);
-    return deployPlan(env, requireProject(ctx, input.projectId ?? env.projectId));
+    return await deployPlan(env, requireProject(ctx, input.projectId ?? env.projectId));
   },
-  execute(ctx, input) {
+  async execute(ctx, input) {
     const env = requireEnvironment(ctx, input.environmentId);
     const project = requireProject(ctx, input.projectId ?? env.projectId);
-    const changeset = changesetFor(env, project);
+    const changeset = await changesetForAsync(env, project);
     return {
       ok: true,
       summary: `${tally(changeset)} between ${project.name}'s working copy and ${env.name}.`,
@@ -239,9 +248,9 @@ defineAction<ApplyInput>({
   requiredRole: "editor",
   mutates: true,
   input: ApplyInput,
-  plan(ctx, input) {
+  async plan(ctx, input) {
     const env = requireEnvironment(ctx, input.environmentId);
-    return deployPlan(env, requireProject(ctx, input.projectId ?? env.projectId));
+    return await deployPlan(env, requireProject(ctx, input.projectId ?? env.projectId));
   },
   async execute(ctx, input) {
     const env = requireEnvironment(ctx, input.environmentId);
@@ -271,7 +280,7 @@ defineAction<ApplyInput>({
         error: "The system is empty. Add a service or a resource first, or apply a blueprint.",
       };
 
-    const changeset = changesetFor(env, project);
+    const changeset = await changesetForAsync(env, project);
     if (changeset.items.length === 0 && env.deployedRevisionId)
       return {
         ok: false,
@@ -283,7 +292,7 @@ defineAction<ApplyInput>({
     // is a courtesy, not a checkpoint: `runAction` can be called straight in
     // execute mode, so a refusal that only exists in plan mode is advice, not a
     // policy. This is the wall.
-    const statefulRefusal = statefulDeletionBlock(env, changeset);
+    const statefulRefusal = await statefulDeletionBlock(env, changeset);
     if (statefulRefusal)
       return {
         ok: false,

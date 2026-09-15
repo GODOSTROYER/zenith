@@ -22,7 +22,7 @@ import {
   secretStoreState,
   vaultRef,
 } from "@/lib/secrets";
-import { db, q } from "@/lib/db/store";
+import { db, q, revisionManifestAsync } from "@/lib/db/store";
 import {
   clone,
   requireProject,
@@ -114,11 +114,11 @@ const envHits = (m: Manifest, ref: string) =>
  * Cost: one pass over the working manifests already in memory, plus one cold
  * manifest per deployed environment (bounded by environments, not by history).
  */
-function refConsumers(
+async function refConsumers(
   ctx: ActionContext,
   ref: string,
   view: { projectId: string; manifest: Manifest }
-): RefConsumer[] {
+): Promise<RefConsumer[]> {
   const out: RefConsumer[] = [];
   const seen = new Set<string>();
   const push = (c: RefConsumer) => {
@@ -147,7 +147,7 @@ function refConsumers(
       // empty. Not knowing is not a reason to delete somebody's credential, so
       // treat it as "cannot rule out a consumer" and say so.
       try {
-        deployed = q.revisionManifest(revisionId);
+        deployed = await revisionManifestAsync(revisionId);
       } catch {
         push({
           projectId: p.id,
@@ -238,8 +238,8 @@ manifestAction<SetSecret>({
     const what = `Stores ${input.key} as a secret on ${service.name}`;
 
     /** Who else reads this reference once this edit lands — sharing, out loud. */
-    const others = (): RefConsumer[] =>
-      refConsumers(ctx, ref, { projectId: project.id, manifest: next }).filter(
+    const others = async (): Promise<RefConsumer[]> =>
+      (await refConsumers(ctx, ref, { projectId: project.id, manifest: next })).filter(
         (c) => !isSelf(c, project.id, service.id, input.key)
       );
 
@@ -291,7 +291,7 @@ manifestAction<SetSecret>({
             `${store.reason} ${service.name}.${input.key} still holds its plaintext value and was left exactly as it is — moving it now would delete the only copy. ${store.fix}`,
         };
       point();
-      const shared = others();
+      const shared = await others();
       return {
         next,
         what: `Moves ${input.key} on ${service.name} into the secret store`,
@@ -337,7 +337,7 @@ manifestAction<SetSecret>({
       const held = await secretStatusAsync(ctx.workspaceId, ref);
       const value = input.secretValue;
       point();
-      const shared = others();
+      const shared = await others();
       return {
         next,
         what: held.exists ? `Replaces the stored value for ${input.key} on ${service.name}` : what,
@@ -377,7 +377,7 @@ manifestAction<SetSecret>({
       };
 
     point();
-    const shared = others();
+    const shared = await others();
     return {
       next,
       what: `Points ${input.key} at the secret ${ref} on ${service.name}`,
@@ -480,7 +480,7 @@ defineAction<RotateSecret>({
     // one variable — a generated reference names one service — but a shared
     // reference, or a legacy `vault:<KEY>` from before references carried
     // identity, can be several, and a rotation is the moment to say so.
-    const readers = refConsumers(ctx, ref, {
+    const readers = await refConsumers(ctx, ref, {
       projectId: project.id,
       manifest: project.workingManifest,
     });
@@ -584,7 +584,7 @@ manifestAction<RemoveSecret>({
      * declared to read is not deleted here on any path.
      */
     const remaining = isOurs(ref)
-      ? refConsumers(ctx, ref, { projectId: project.id, manifest: next }).filter(
+      ? (await refConsumers(ctx, ref, { projectId: project.id, manifest: next })).filter(
           (c) => c.live || !isSelf(c, project.id, service.id, input.key)
         )
       : [];

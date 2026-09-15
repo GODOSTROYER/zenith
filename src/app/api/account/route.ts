@@ -17,6 +17,11 @@
  *     hosted grants are revoked before the Supabase user is deleted. Local
  *     membership cleanup follows the irreversible provider operation, so a
  *     failed provider call leaves the account retryable rather than half-gone.
+ *  4. **Journal the attempt, not the outcome.** The provider call and the local
+ *     store are two authorities and cannot commit together, so the window
+ *     around `deleteUser` is recorded *before* it
+ *     (`identity-delete-attempted`) — see `server/account.ts` for why that is
+ *     the side that makes a dead process recoverable.
  *
  * What survives on purpose: audit rows and revision authors. They record what
  * this person did at the time they did it, and a history that rewrites itself
@@ -101,15 +106,22 @@ export const DELETE = route(async () => withMutationGate(async () => {
     grantsRevoked = await revokeHostedGrants(user.id);
     await advanceAccountDeletion(journal.operationId, "doors-closed");
 
+    // Journal the *attempt* before the irreversible call, not after it. The
+    // window between `deleteUser` returning and the next journal write landing
+    // cannot be closed — they are two authorities — so it is recorded on the
+    // side that makes it answerable: a process that dies in there leaves an
+    // entry saying "we were about to delete this identity", and reconciliation
+    // asks the provider which side of the call it died on. Recording only
+    // afterwards left that window invisible and the account stranded.
+    await advanceAccountDeletion(journal.operationId, "identity-delete-attempted");
+
     const { error } = await admin.auth.admin.deleteUser(user.id);
     if (error)
       throw new ApiError(`Your Zenith sign-in was not deleted: ${error.message}`, 502, {
         fix: "Your active app sessions and hosted grants were closed and the deletion is journaled for retry, but your local workspace memberships were preserved. Try again to remove the sign-in itself; if it keeps failing, an operator can delete the user from the Supabase dashboard under Authentication → Users.",
       });
 
-    // Persist the irreversible boundary before touching local memberships. If
-    // the process dies after this point, an operator/cron reconciliation can
-    // safely resume local cleanup from the journal.
+    // The provider confirmed it. From here local cleanup is owed unconditionally.
     await advanceAccountDeletion(journal.operationId, "identity-deleted");
   }
 

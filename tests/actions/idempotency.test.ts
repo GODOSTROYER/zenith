@@ -32,10 +32,23 @@ const savedWorkspaceName = (id: string): string | undefined => {
 /** Flipped by the audit test; everything else writes audit rows for real. */
 const audit = { fail: false, calls: 0 };
 
+/**
+ * Whether the store defers its durable write past `runAction` (Postgres) and
+ * whether that write lands. The file store is the default here, so everything
+ * except the two "deferred commit" cases runs the real, unchanged path.
+ */
+const commit = { deferred: false, fail: false, calls: 0 };
+
 vi.mock("@/lib/db/store", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/db/store")>();
   return {
     ...actual,
+    isPostgres: () => commit.deferred,
+    flushPendingAsync: async () => {
+      commit.calls++;
+      if (commit.fail) throw new Error("postgrest unreachable");
+      return actual.flushPendingAsync();
+    },
     appendAuditAsync: async (
       event: Parameters<typeof actual.appendAuditAsync>[0],
       options?: Parameters<typeof actual.appendAuditAsync>[1]
@@ -104,6 +117,10 @@ beforeEach(() => {
   executions = 0;
   audit.fail = false;
   audit.calls = 0;
+  commit.deferred = false;
+  commit.fail = false;
+  commit.calls = 0;
+  (globalThis as { __zenithIdem?: Map<string, unknown> }).__zenithIdem = new Map();
 });
 
 describe("the replay window is bound to the request, not only the key", () => {
@@ -156,6 +173,64 @@ describe("the replay window is bound to the request, not only the key", () => {
     // No key supplied: the response still says what protection was applied.
     const none = await exec({ tag: "two" });
     expect(none.idempotency).toMatchObject({ applied: false, replayed: false });
+  });
+
+  it("says a replay is the outcome of a request that committed", async () => {
+    const { idempotency } = await exec({ tag: "one" }, "key-commit-note");
+    expect(idempotency?.note).toMatch(/retained only once that request's own durable write/);
+    expect(idempotency?.note).toMatch(/idempotency_in_flight/);
+  });
+
+  it("keeps the file store's path exactly as it was: retain, no flush", async () => {
+    await exec({ tag: "one" }, "key-file-store");
+    const replay = await exec({ tag: "one" }, "key-file-store");
+
+    expect(replay.idempotency).toMatchObject({ replayed: true });
+    expect(executions).toBe(1);
+    // The file store's own timer and exit hook own that write; `runAction` does
+    // not reach for a flush it was never responsible for.
+    expect(commit.calls).toBe(0);
+  });
+});
+
+/**
+ * A caller with no `route()` around it — a server action (`navigator/run.ts`
+ * drives every step through one), the agent-control gateway, a background pass.
+ * Nothing else will ever close the window for them, so the runner owns the
+ * commit itself rather than retaining an outcome nobody confirmed.
+ */
+describe("a deferred commit with no request scope to settle it", () => {
+  it("flushes before it retains, and then replays", async () => {
+    commit.deferred = true;
+
+    const first = await exec({ tag: "one" }, "key-deferred-ok");
+    expect(first.result?.ok).toBe(true);
+    expect(commit.calls).toBe(1); // the write was awaited, not left scheduled
+    expect(first.idempotency).toMatchObject({ replayed: false });
+
+    const replay = await exec({ tag: "one" }, "key-deferred-ok");
+    expect(replay.result).toBe(first.result);
+    expect(replay.idempotency).toMatchObject({ replayed: true });
+    expect(executions).toBe(1);
+  });
+
+  it("retains nothing when the commit fails, and the retry re-executes", async () => {
+    commit.deferred = true;
+    commit.fail = true;
+
+    const failed = await exec({ tag: "one" }, "key-deferred-fail");
+    expect(failed.result?.ok).toBe(false);
+    expect(failed.result?.error).toMatch(/^commit_failed:/);
+    expect(failed.idempotency).toMatchObject({ applied: true, replayed: false });
+    expect(executions).toBe(1);
+
+    // Nothing was retained, so the identical request runs again instead of
+    // being answered with the success that never reached the store.
+    commit.fail = false;
+    const retry = await exec({ tag: "one" }, "key-deferred-fail");
+    expect(retry.result?.ok).toBe(true);
+    expect(retry.idempotency).toMatchObject({ replayed: false });
+    expect(executions).toBe(2);
   });
 });
 

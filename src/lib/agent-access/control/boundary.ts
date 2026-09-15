@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { ControlError, type Principal } from './journal';
-import { AgentError, authenticate, loadCredentials, type SelectedScope } from '../security';
-import { control, inAgentScope, requireControl, resolveTarget } from './runtime';
+import { AgentError, type SelectedScope } from '../security';
+import { credentialAuthority } from '../authority';
+import { control, inAgentScope, resolveTarget } from './runtime';
 import { oauthConfig, verifyOAuth, bindGrant } from './oauth';
 import { throttle } from './rate-limit';
 const id=(x:string|null|undefined)=>typeof x==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(x);
@@ -12,11 +13,36 @@ export function controlOrigin(): string {
     ||url.protocol!=='https:'&&!/^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:[0-9]+)?$/.test(raw))throw new ControlError('origin_configuration','Use an exact HTTPS origin or literal local development origin.',503);
   return url.origin;
 }
+/**
+ * The origin check, and only the origin check.
+ *
+ * It used to call `requireControl()` too. The capability question moved to the
+ * entry points (`control/http.ts` and the routes), because the replacement is
+ * async and a transport is where a 503 belongs; this function answers one
+ * question and answers it the same way it always has. Nothing weaker replaced
+ * the call — the check is still made, one frame further out.
+ */
 export function checkRequestOrigin(request: Request): string {
-  requireControl();const origin=controlOrigin(),target=new URL(origin);
+  const origin=controlOrigin(),target=new URL(origin);
   if((request.headers.get('host')??new URL(request.url).host)!==target.host||request.headers.has('origin')&&request.headers.get('origin')!==origin)
     throw new ControlError('origin_denied','Use the configured Zenith host. Forwarded host headers are not trusted.',403);
   return origin;
+}
+/**
+ * Record that a credential was used, without letting that recording matter.
+ *
+ * Never awaited, never inside a transaction with authorization, batched to at
+ * most once per credential per minute per instance, and a failure is swallowed:
+ * a diagnostics write must not be able to deny a request. The map is a cache,
+ * not an authority — losing it costs an accurate `lastUsedAt` and nothing else.
+ */
+const lastNoted=new Map<string,number>();
+function noteUse(authority:{touch:(id:string,at:string)=>Promise<void>},credentialId:string):void{
+  const now=Date.now();
+  if((lastNoted.get(credentialId)??0)>now-60_000)return;
+  if(lastNoted.size>2000)lastNoted.clear();
+  lastNoted.set(credentialId,now);
+  void authority.touch(credentialId,new Date(now).toISOString()).catch(()=>{});
 }
 function selection(request: Request, who?: Principal): SelectedScope {
   const params=new URL(request.url).searchParams;
@@ -31,9 +57,17 @@ export async function authorizeRequest(request: Request): Promise<{who:Principal
   if(!authorization?.startsWith('Bearer '))throw new ControlError('authentication_required','Authenticate to Zenith with a scoped integration token.',401);
   const token=authorization.slice(7);let who:Principal;
   if(token.startsWith('za_')) {
-    if(!origin.startsWith('http://'))throw new ControlError('oauth_required','Remote access requires OAuth; development credentials are accepted only on the loopback origin.',401);
-    const grant=authenticate(authorization,await loadCredentials(process.env.ZENITH_AGENT_CREDENTIAL_FILE??''));
+    // A `za_` bearer is Zenith's own credential. It is accepted on a loopback
+    // origin (the file authority, exactly as before) **or** on the configured
+    // HTTPS origin when it came from the Postgres authority — a token minted
+    // through a browser consent the user gave, hashed at rest and revocable
+    // from the same screen. An operator-issued file credential is still
+    // loopback-only, because that file is a single host's.
+    const authority=credentialAuthority();
+    if(!origin.startsWith('http://')&&authority.kind!=='postgres')throw new ControlError('oauth_required','Remote access requires OAuth; development credentials are accepted only on the loopback origin.',401);
+    const grant=await authority.verify(authorization);
     who={...grant,integrationId:grant.id};
+    noteUse(authority,grant.id);
   } else {
     const config=oauthConfig(process.env,origin);if(!config)throw new ControlError('oauth_unavailable','Configure a trusted OAuth authorization server before remote use.',503);
     const selected=selection(request),identity=await verifyOAuth(token,config);

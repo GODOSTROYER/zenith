@@ -14,6 +14,18 @@ export interface Credential {
   id: string; tokenHash: string; subject: string; workspaceId: string;
   projectIds: string[]; environmentIds?: string[]; appIds?: string[];
   scopes: ("read" | "plan" | "export" | "write" | "publish" | "logs")[]; issuedAt: string; expiresAt: string;
+  /**
+   * Set when the credential was withdrawn from the Integrations screen. The
+   * three fields below are optional, so a file written by any earlier
+   * `scripts/agent-credential.mjs` still parses unchanged; they exist so a
+   * browser-issued credential round-trips through the file authority with the
+   * same record the Postgres authority holds.
+   */
+  revokedAt?: string;
+  /** What the person called this agent. Shown on the Integrations screen. */
+  label?: string;
+  /** What the program called itself when it asked. Never verified. */
+  clientName?: string;
 }
 export interface SelectedScope { workspaceId: string; projectId?: string; environmentId?: string }
 export const object = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
@@ -24,7 +36,7 @@ export function parseCredentials(value: unknown): Credential[] {
     throw new AgentError("policy_unavailable", "The operator must repair the version-1 credential file.", 503);
   const ids = new Set(); const hashes = new Set();
   for (const row of value.credentials) {
-    const valid = object(row) && Object.keys(row).every(k => ["id", "tokenHash", "subject", "workspaceId", "projectIds", "environmentIds", "appIds", "scopes", "issuedAt", "expiresAt"].includes(k))
+    const valid = object(row) && Object.keys(row).every(k => ["id", "tokenHash", "subject", "workspaceId", "projectIds", "environmentIds", "appIds", "scopes", "issuedAt", "expiresAt", "revokedAt", "label", "clientName"].includes(k))
       && identifier(row.id) && identifier(row.subject) && !["local", "navigator", "system"].includes(row.subject)
       && identifier(row.workspaceId) && identifiers(row.projectIds) && row.projectIds.length > 0
       && (row.environmentIds === undefined || identifiers(row.environmentIds))
@@ -35,7 +47,10 @@ export function parseCredentials(value: unknown): Credential[] {
       && typeof row.issuedAt === "string" && typeof row.expiresAt === "string"
       && Number.isFinite(Date.parse(row.issuedAt)) && Number.isFinite(Date.parse(row.expiresAt))
       && Date.parse(row.expiresAt) > Date.parse(row.issuedAt)
-      && Date.parse(row.expiresAt) - Date.parse(row.issuedAt) <= 30 * 86400000;
+      && Date.parse(row.expiresAt) - Date.parse(row.issuedAt) <= 30 * 86400000
+      && (row.revokedAt === undefined || typeof row.revokedAt === "string" && Number.isFinite(Date.parse(row.revokedAt)))
+      && (row.label === undefined || typeof row.label === "string" && /^[A-Za-z0-9._-]{1,40}$/.test(row.label))
+      && (row.clientName === undefined || typeof row.clientName === "string" && /^[A-Za-z0-9 ._-]{1,60}$/.test(row.clientName));
     if (!valid || ids.has(row.id) || hashes.has(row.tokenHash))
       throw new AgentError("policy_unavailable", "The operator must repair invalid or duplicate credential records.", 503);
     ids.add(row.id); hashes.add(row.tokenHash);
@@ -66,7 +81,11 @@ export function authenticate(header: string | null, records: Credential[], now =
   const digest = createHash("sha256").update(header.slice(7)).digest();
   let found: Credential | undefined;
   for (const record of records) if (timingSafeEqual(digest, Buffer.from(record.tokenHash, "hex"))) found = record;
-  if (!found || Date.parse(found.expiresAt) <= now || Date.parse(found.issuedAt) > now)
+  // `revokedAt` is checked here so revocation no longer means deleting the row:
+  // the Integrations screen can show a credential as revoked rather than
+  // vanished, and the refusal a revoked token gets is the same one an expired
+  // token gets.
+  if (!found || found.revokedAt || Date.parse(found.expiresAt) <= now || Date.parse(found.issuedAt) > now)
     throw new AgentError("unauthorized", "Credential invalid, expired, or revoked. Ask the operator for a scoped replacement.", 401);
   return found;
 }

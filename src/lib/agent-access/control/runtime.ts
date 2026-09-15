@@ -15,7 +15,7 @@ import { diffManifests } from '@/lib/domain/graph';
 import { WORKSPACE_ROLE_RANK } from '@/lib/domain/roles';
 import { callReader, readerTools, registerReaderProviders } from '../zenith-reader';
 import { redact, type Credential, type SelectedScope } from '../security';
-import { Coordinator, type ControlPort } from './coordinator';
+import { Coordinator, type ApplicationAuthority, type ControlPort } from './coordinator';
 import { Journal, ControlError, checkTarget, digest, type Principal, type Target, type Proposal, type Operation } from './journal';
 import { controlTools, EDIT_ACTIONS, preparationSchema, targetSchema, CONTROL_VERSION, type Preparation } from './contracts';
 
@@ -87,19 +87,26 @@ async function authorize(who: Principal, op: Proposal): Promise<void> {
     if (!approver || WORKSPACE_ROLE_RANK[approver.role] < WORKSPACE_ROLE_RANK[required]) throw new ControlError('approval_revoked', 'The approving member no longer has the required role.', 403);
   }
 }
-async function applicationAuthorizationDigest(who: Principal, op: Proposal): Promise<string> {
+async function applicationAuthority(who: Principal, op: Proposal): Promise<ApplicationAuthority> {
+  // Facts only: the coordinator narrows and digests them itself, so a
+  // successful publish that moved the app's release pointers is not reported
+  // as `uncertain` while a revoked grant or a changed role still is.
   const member = liveMember(who);
   const prepared = op as Operation;
   const appAuthority = op.action.startsWith('app.') && op.action !== 'app.create'
     ? await ownedApp(who, String(op.input.appId))
     : undefined;
-  return digest({
+  const approver = prepared.approvedBy
+    ? db().members.find((candidate) => candidate.id === prepared.approvedBy && candidate.workspaceId === who.workspaceId)
+    : undefined;
+  return {
     member: { id: member.id, workspaceId: member.workspaceId, role: member.role },
-    appAuthority: appAuthority ? { app: appAuthority.app, grant: appAuthority.grant } : undefined,
-    approver: prepared.approvedBy
-      ? db().members.find((candidate) => candidate.id === prepared.approvedBy && candidate.workspaceId === who.workspaceId)
+    app: appAuthority ? { id: appAuthority.app.id, workspaceId: appAuthority.app.workspaceId, state: appAuthority.app.state } : undefined,
+    grant: appAuthority
+      ? { id: appAuthority.grant.id, subject: appAuthority.grant.subject, role: appAuthority.grant.role, revokedAt: appAuthority.grant.revokedAt ?? null }
       : undefined,
-  });
+    approver: approver ? { id: approver.id, workspaceId: approver.workspaceId, role: approver.role } : null,
+  };
 }
 async function fingerprint(who: Principal, op: Proposal): Promise<string> {
   const { project, environment } = resolveTarget(who, op.target);
@@ -188,7 +195,7 @@ export function control(): Coordinator {
   if (singleton) return singleton;
   claimDataDir(env().ZENITH_DATA);
   const journal = new Journal(resolve(env().ZENITH_DATA, 'agent-control', 'operations.sqlite')); journal.recover();
-  const port: ControlPort = { gate:withMutationGate, scope:inAgentScope, identify:raw=>{const input=preparationSchema.parse(raw);return {requestKey:input.requestKey,clientInputDigest:digest(input)};}, proposal, fingerprint, authorize, applicationAuthorizationDigest, execute, flush:async()=>{await flushPendingAsync();} };
+  const port: ControlPort = { gate:withMutationGate, scope:inAgentScope, identify:raw=>{const input=preparationSchema.parse(raw);return {requestKey:input.requestKey,clientInputDigest:digest(input)};}, proposal, fingerprint, authorize, applicationAuthority, execute, flush:async()=>{await flushPendingAsync();} };
   singleton = new Coordinator(journal,port); globalControl.__zenithControl = singleton; return singleton;
 }
 export function operationView(op: Operation, origin: string): Record<string, unknown> {

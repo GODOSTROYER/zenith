@@ -14,7 +14,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { AlertChannel, AlertRule } from "@/lib/domain/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { AlertChannel, AlertOutboxEntry, AlertRule } from "@/lib/domain/types";
 import * as fixtures from "./_fixtures";
 
 process.env.ZENITH_DATA = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-outbox-"));
@@ -36,6 +37,7 @@ const {
   evaluateAll,
   flushDeliveries,
   idempotencyKeyFor,
+  postgresSettleDeps,
   reclaimStale,
   replayOutbox,
   settleWithRetry,
@@ -43,6 +45,13 @@ const {
   WEBHOOK_TRANSPORT,
 } = await import("@/lib/alerts");
 type OutboxSettlement = Parameters<typeof settleWithRetry>[0][number];
+
+// The settle-conflict tests below drive the real Postgres dependencies of
+// `settleWithRetry` against a fake PostgREST: the store's own client seam, the
+// store's own snapshot scope, and the real by-id reader in `pg/alerts`.
+const pgAlerts = await import("@/lib/db/pg/alerts");
+const { resetPgClient } = await import("@/lib/db/postgres-store");
+const { runWithSnapshot } = await import("@/lib/db/request-snapshot");
 
 const productionResolver = WEBHOOK_POLICY.resolveAll;
 const productionTransport = WEBHOOK_TRANSPORT.request;
@@ -133,6 +142,7 @@ beforeEach(() => {
 afterEach(() => {
   WEBHOOK_POLICY.resolveAll = productionResolver;
   WEBHOOK_TRANSPORT.request = productionTransport;
+  resetPgClient(); // no fake PostgREST may outlive the test that installed it
   vi.unstubAllGlobals();
 });
 
@@ -406,80 +416,238 @@ describe("delivery fan-out is bounded", () => {
 
 /* ----------------------------- a lost settle ------------------------------- */
 
+/**
+ * Driven against the *real* re-read, not a stub of one.
+ *
+ * The deps passed below are `postgresSettleDeps()` — the closure production
+ * passes — over a fake PostgREST, so what decides each outcome is
+ * `readOutboxRowsIn`'s own semantics rather than a test's idea of them. Only
+ * the flush is injected, because the thing being simulated *is* a flush that
+ * loses its version guard.
+ */
 describe("a settle that loses its version guard", () => {
-  const settlement = (): OutboxSettlement => {
-    const row = {
-      id: "row-settle",
+  type Row = Record<string, unknown>;
+  type Snap = Parameters<typeof pgAlerts.refreshOutbox>[0];
+
+  /** A row as the table holds it: promoted columns, plus everything else in `data`. */
+  const tableRow = (over: Row = {}): Row => ({
+    id: "row-settle",
+    workspace_id: "ws1",
+    channel_id: "a",
+    event_id: "ev-settle",
+    status: "sending",
+    claimed_at: ago(1),
+    attempts: 1,
+    idempotency_key: "zenith-fired-ev-settle-a",
+    version: 4,
+    updated_at: ago(0),
+    data: { transition: "fired", createdAt: ago(2) },
+    ...over,
+  });
+
+  /** What the claimant that won the row wrote: terminal, and nobody's to re-send. */
+  const settledElsewhere = (id = "row-settle"): Row =>
+    tableRow({
+      id,
+      status: "failed",
+      claimed_at: null,
+      version: 5,
+      data: {
+        transition: "fired",
+        createdAt: ago(2),
+        settledAt: ago(0),
+        error: "the winner's reason",
+      },
+    });
+
+  /** One row of this instance's batch, as `settle()` left it: terminal locally. */
+  const settlement = (id = "row-settle"): OutboxSettlement => {
+    const row: AlertOutboxEntry = {
+      id,
       workspaceId: "ws1",
       channelId: "a",
       eventId: "ev-settle",
-      transition: "fired" as const,
-      idempotencyKey: "zenith-fired-ev-settle-a",
-      status: "sending" as const,
+      transition: "fired",
+      idempotencyKey: `zenith-fired-ev-settle-${id}`,
+      status: "delivered",
       attempts: 1,
-      createdAt: ago(1),
-      claimedAt: ago(1),
+      createdAt: ago(2),
+      settledAt: ago(0),
     };
-    return {
-      row,
-      delivery: { channelId: "a", at: ago(0), ok: true, status: 200, attempts: 1 },
-    };
+    return { row, delivery: { channelId: "a", at: ago(0), ok: true, status: 200, attempts: 1 } };
   };
 
-  it("is retried against a fresh row version rather than logged and dropped", async () => {
+  /**
+   * The drainer's snapshot: the rows it is settling, and no baseline for them
+   * yet — every read below re-bases what it adopts, which is the half of the
+   * job a claimable-window re-read could not do for a settled row.
+   */
+  const snapshotOf = (settled: readonly OutboxSettlement[]): Snap => ({
+    data: { alertOutbox: settled.map((s) => s.row) } as unknown as Snap["data"],
+    baseline: new Map(),
+  });
+
+  /**
+   * A fake PostgREST over one `alert_outbox` table, installed on the store's own
+   * client seam. Enough of the builder for the reads this file drives:
+   * `.select("*")`, any number of `.in()` filters ANDed together, awaited last.
+   */
+  function fakePostgrest(table: Row[]) {
+    const reads: { table: string; filters: [string, unknown[]][] }[] = [];
+    let broken: string | undefined;
+    const answer = (name: string, filters: [string, unknown[]][]) => {
+      reads.push({ table: name, filters });
+      if (broken) return { data: null, error: { message: broken } };
+      const match = (r: Row) => filters.every(([column, values]) => values.includes(r[column]));
+      const rows = table.filter(match);
+      // PostgREST hands back copies; nothing the store does may reach back into
+      // the table through what it read.
+      return { data: rows.map((r) => structuredClone(r)), error: null };
+    };
+    const query = (name: string, filters: [string, unknown[]][]) => ({
+      in: (column: string, values: unknown[]) => query(name, [...filters, [column, values]]),
+      then: <T>(onOk: (r: ReturnType<typeof answer>) => T) =>
+        Promise.resolve(onOk(answer(name, filters))),
+    });
+    resetPgClient({
+      from: (name: string) => ({ select: () => query(name, []) }),
+    } as unknown as SupabaseClient);
+    return { reads, breakWith: (message: string) => void (broken = message) };
+  }
+
+  /** Production's own deps, with only the flush simulated. */
+  const run = (
+    settled: readonly OutboxSettlement[],
+    snap: Snap,
+    flush: () => Promise<void>
+  ): Promise<Awaited<ReturnType<typeof settleWithRetry>>> =>
+    runWithSnapshot(snap, () => settleWithRetry(settled, { ...postgresSettleDeps(), flush }));
+
+  it("re-reads the row by id, in any state, and re-applies the settlement it lost", async () => {
+    const before = DELIVERY_COUNTERS.duplicateSendPossible;
     const settled = settlement();
+    const snap = snapshotOf([settled]);
+    // The table still holds this instance's own claim: the conflict was a stale
+    // version, not a lost row.
+    const { reads } = fakePostgrest([tableRow({ version: 6 })]);
     let flushes = 0;
-    const outcome = await settleWithRetry([settled], {
-      flush: async () => {
-        // The first flush is the one that lost the race.
-        if (++flushes === 1) throw new Error("alert_outbox version conflict");
-      },
-      // A re-read puts the table's own row back over ours, settlement and all.
-      refresh: async () => {
-        settled.row.status = "sending";
-        delete settled.row.settledAt;
-      },
+
+    const outcome = await run([settled], snap, async () => {
+      // The first flush is the one that lost the race.
+      if (++flushes === 1) throw new Error("alert_outbox version conflict");
     });
 
     expect(outcome).toBe("retried");
     expect(flushes).toBe(2);
+    // By id and by nothing else. A `status in (pending, sending)` filter here is
+    // exactly the defect this replaced.
+    expect(reads).toEqual([{ table: "alert_outbox", filters: [["id", ["row-settle"]]] }]);
     expect(settled.row.status).toBe("delivered");
     expect(settled.row.settledAt).toBeTruthy();
     expect(settled.row.claimedAt).toBeUndefined();
+    // …written on the table's version, which is what makes the second flush
+    // something other than the same 409 again.
+    expect([...snap.baseline.values()].map((b) => b.version)).toEqual([6]);
+    expect(DELIVERY_COUNTERS.duplicateSendPossible).toBe(before);
   });
 
-  it("keeps the winner's outcome when the re-read shows the row already settled", async () => {
-    const settled = settlement();
-    let flushes = 0;
-    const outcome = await settleWithRetry([settled], {
-      flush: async () => {
-        if (++flushes === 1) throw new Error("alert_outbox version conflict");
-      },
-      refresh: async () => {
-        // Another instance settled it as failed; that is the durable record.
-        settled.row.status = "failed";
-        settled.row.error = "the winner's reason";
-      },
-    });
-
-    expect(outcome).toBe("retried");
-    expect(settled.row.status).toBe("failed");
-    expect(settled.row.error).toBe("the winner's reason");
-  });
-
-  it("names and counts the duplicate risk when even the retry cannot commit", async () => {
+  it("keeps the winner's outcome, and counts no duplicate, when the row came back terminal", async () => {
     const before = DELIVERY_COUNTERS.duplicateSendPossible;
     const settled = settlement();
-    const outcome = await settleWithRetry([settled], {
-      flush: async () => {
-        throw new Error("alert_outbox unreachable");
-      },
-      refresh: async () => undefined,
+    const snap = snapshotOf([settled]);
+    const { reads } = fakePostgrest([settledElsewhere()]);
+    let flushes = 0;
+
+    const outcome = await run([settled], snap, async () => {
+      if (++flushes === 1) throw new Error("alert_outbox version conflict");
     });
 
-    // The message left this server and the row still says `sending`, so at
-    // lease expiry another instance will send it again. That is a counted,
-    // named outcome now, not a warn line.
+    expect(outcome).toBe("settled-elsewhere");
+    expect(reads[0].filters).toEqual([["id", ["row-settle"]]]);
+    // The durable record is the winner's, and this instance now agrees with it.
+    expect(settled.row.status).toBe("failed");
+    expect(settled.row.error).toBe("the winner's reason");
+    expect(settled.row.settledAt).toBe(ago(0));
+    expect([...snap.baseline.values()].map((b) => b.version)).toEqual([5]);
+    // The row is terminal: nobody will ever send it again, so there is no
+    // duplicate to warn about. Counting one was a false alarm on every
+    // ordinary lost race.
+    expect(DELIVERY_COUNTERS.duplicateSendPossible).toBe(before);
+    // The flush still runs — the event's delivery log is in that write too.
+    expect(flushes).toBe(2);
+  });
+
+  it("is invisible to the claimable-window re-read, which is why the by-id one exists", async () => {
+    fakePostgrest([settledElsewhere()]);
+    const snap = snapshotOf([settlement()]);
+
+    // `refreshOutbox` answers the drainer's question — what is left to send —
+    // so it filters to pending/sending. A row the winner already settled is not
+    // in that answer at all: nothing is adopted, nothing is re-based, and a
+    // retry built on it conflicts a second time and cries duplicate over a row
+    // that is finished.
+    await pgAlerts.refreshOutbox(snap, ["ws1"]);
+    expect(snap.baseline.size).toBe(0);
+    expect(snap.data.alertOutbox[0].status).toBe("delivered"); // stale, this instance's
+
+    // The by-id read asks the other question, and gets the answer.
+    expect(await pgAlerts.readOutboxRowsIn(snap, ["row-settle"])).toEqual([]);
+    expect(snap.data.alertOutbox[0].status).toBe("failed");
+    expect(snap.baseline.size).toBe(1);
+  });
+
+  it("names and counts the duplicate when the row is claimable under a newer claim", async () => {
+    const before = DELIVERY_COUNTERS.duplicateSendPossible;
+    const settled = settlement();
+    const snap = snapshotOf([settled]);
+    // Another instance reclaimed the row at lease expiry and is sending it right
+    // now; this process's outcome is never going to land.
+    const table = [tableRow({ claimed_at: ago(0), version: 9 })];
+    fakePostgrest(table);
+
+    const outcome = await run([settled], snap, async () => {
+      throw new Error("alert_outbox version conflict");
+    });
+
+    // The message left this server and the row is still claimable, so the
+    // receiver will see it twice under the same idempotency key. That is a
+    // counted, named outcome, not a warn line.
+    expect(outcome).toBe("duplicate-send-possible");
+    expect(DELIVERY_COUNTERS.duplicateSendPossible).toBe(before + 1);
+    expect(table[0].status).toBe("sending"); // the newer claimant owns its fate
+  });
+
+  it("counts only the rows of a batch that can actually go out again", async () => {
+    const before = DELIVERY_COUNTERS.duplicateSendPossible;
+    const mine = settlement("row-mine");
+    const theirs = settlement("row-theirs");
+    const snap = snapshotOf([mine, theirs]);
+    fakePostgrest([tableRow({ id: "row-mine", version: 7 }), settledElsewhere("row-theirs")]);
+
+    const outcome = await run([mine, theirs], snap, async () => {
+      throw new Error("alert_outbox version conflict");
+    });
+
+    expect(outcome).toBe("duplicate-send-possible");
+    // One of the two is terminal elsewhere. A counter that said 2 here is the
+    // false alarm the whole branch exists to stop.
+    expect(DELIVERY_COUNTERS.duplicateSendPossible).toBe(before + 1);
+    expect(mine.row.status).toBe("delivered");
+    expect(theirs.row.status).toBe("failed");
+  });
+
+  it("counts the whole batch when the table cannot be re-read at all", async () => {
+    const before = DELIVERY_COUNTERS.duplicateSendPossible;
+    const settled = settlement();
+    const snap = snapshotOf([settled]);
+    fakePostgrest([tableRow()]).breakWith("connection terminated unexpectedly");
+
+    const outcome = await run([settled], snap, async () => {
+      throw new Error("alert_outbox unreachable");
+    });
+
+    // No answer is no way to tell a row somebody already settled from one
+    // somebody is about to re-send, so the pessimistic reading is counted.
     expect(outcome).toBe("duplicate-send-possible");
     expect(DELIVERY_COUNTERS.duplicateSendPossible).toBe(before + 1);
   });

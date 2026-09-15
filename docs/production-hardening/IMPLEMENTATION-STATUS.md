@@ -121,6 +121,17 @@ reviewer each read the diff and the logs. Their blocking items
 on a long-lived Postgres host, missing reconciliation query, stale status
 document, plugin help and rollback-floor gaps) are the fix commits above.
 
+### 3.2a CI on the pushed head `0bd513e` (Linux, Node 22.16.0)
+
+| Job | Conclusion | Notes |
+|---|---|---|
+| verify | pass | typecheck, lint, whole suite, smoke, Gimbal under `npm ci --ignore-scripts` |
+| hosted | pass | hosted suites, acceptance journey, gate 12 in the runner's Chrome |
+| build | pass | `npm run build` under `npm ci --ignore-scripts` |
+| docker | pass | the application image assembles with `npm ci --ignore-scripts` (the recipe image is not built by CI) |
+| postgres | **fail, then fixed** | migrations 0001-0005 applied and verified; `tests/hosted/authority/contract/**` + the migrate suite ran **161 tests, 161 passed, 0 skipped** against the service container, so the `PostgresAuthority` rows executed for the first time. The lane report then failed the job because vitest formats `$name` quoted (`'PostgresAuthority' ...`) and the matcher looked for the bare word; fixed in the next commit and pinned by `tests/ci/postgres-lane-report.test.ts`. |
+| Vercel | pass | preview deployment |
+
 ### 3.3 Companion plugins (`GODOSTROYER/Zenith-plugins`, branch `hardening/plugin-provenance`)
 
 | Gate | Command | Exit | Result |

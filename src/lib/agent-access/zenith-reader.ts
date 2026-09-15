@@ -1,5 +1,5 @@
 /** Zenith owns all application reads; the plugin distribution contains none of this. */
-import { db, isPostgres, q, readEvents } from "@/lib/db/store";
+import { db, isPostgres, q, readEventsAsync, revisionManifestAsync } from "@/lib/db/store";
 import { loadSnapshot, pgClient } from "@/lib/db/postgres-store";
 import { runWithSnapshot } from "@/lib/db/request-snapshot";
 import { claimDataDir } from "@/lib/data-lock";
@@ -95,7 +95,7 @@ export async function callReader(name: string, args: Record<string, unknown>, gr
     case "zenith_get_manifest": {
       const p = project(args, grant, selected);
       if (args.view !== "deployed") return { view: "working", manifest: p.workingManifest, redaction: "All literal environment values are removed; vault references remain." };
-      const e = environment(args, grant, selected), m = e.deployedRevisionId ? q.revisionManifest(e.deployedRevisionId) : undefined;
+      const e = environment(args, grant, selected), m = e.deployedRevisionId ? await revisionManifestAsync(e.deployedRevisionId) : undefined;
       if (!m) throw new AgentError("not_deployed", "No deployed manifest exists here. Inspect the working copy instead.", 409);
       return { view: "deployed", revisionId: e.deployedRevisionId, manifest: m, redaction: "All literal environment values are removed; vault references remain." };
     }
@@ -110,14 +110,14 @@ export async function callReader(name: string, args: Record<string, unknown>, gr
     case "zenith_get_deployment": { const d = deployment(args, grant, selected); return { id: d.id, status: d.status, revisionId: d.revisionId, createdAt: d.createdAt, endedAt: d.endedAt, steps: d.steps, outputs: d.outputs }; }
     case "zenith_get_events": {
       const d = deployment(args, grant, selected), after = Number(args.after ?? -1), limit = Number(args.limit ?? 50);
-      const all = readEvents(d.id, after).filter(e => e.type !== "log").sort((a, b) => a.seq - b.seq), events = all.slice(0, limit);
+      const all = (await readEventsAsync(d.id, after)).filter(e => e.type !== "log").sort((a, b) => a.seq - b.seq), events = all.slice(0, limit);
       return { events, ...(all.length > limit ? { nextAfter: events[events.length - 1]!.seq } : {}), logsExcluded: true };
     }
     case "zenith_get_findings": { const p = project(args, grant, selected); return page(db().findings.filter(f => f.projectId === p.id && (!f.environmentId || (!grant.environmentIds || grant.environmentIds.includes(f.environmentId)) && (!selected.environmentId || selected.environmentId === f.environmentId))).sort((a, b) => a.id.localeCompare(b.id)), args); }
     case "zenith_get_drift": {
       const e = environment(args, grant, selected), provider = providers.find(p => p.id === q.connection(e.connectionId)?.provider);
       if (!provider?.observe || provider.availability !== "available") throw new AgentError("provider_unavailable", "This provider cannot supply live read-back here. AWS Preview does not inspect an AWS account.", 501);
-      const manifest = e.deployedRevisionId ? q.revisionManifest(e.deployedRevisionId) : undefined;
+      const manifest = e.deployedRevisionId ? await revisionManifestAsync(e.deployedRevisionId) : undefined;
       if (!manifest) throw new AgentError("not_deployed", "Deploy a revision through Zenith before requesting drift.", 409);
       const live = await provider.observe(e, manifest);
       return { provider: provider.id, simulated: live.simulated, observedAt: live.observedAt, revisionId: e.deployedRevisionId, items: computeDrift(manifest, live) };

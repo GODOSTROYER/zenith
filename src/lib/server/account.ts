@@ -16,9 +16,9 @@
  *    `workspacesFor(user)` and the caller's own audit rows, so a bug that
  *    widens it has to widen membership first.
  */
-import { appendAudit, db, q, readAudit, save } from "@/lib/db/store";
+import { appendAudit, db, q, readAudit, readAuditPageAsync, save } from "@/lib/db/store";
 import { id } from "@/lib/domain/types";
-import type { Actor, Member, Workspace } from "@/lib/domain/types";
+import type { Actor, AuditEvent, Member, Workspace } from "@/lib/domain/types";
 import type { SessionUser } from "@/lib/auth/session";
 import { ApiError } from "@/lib/server/errors";
 import { readInvites, writeInvites } from "@/lib/server/membership";
@@ -110,59 +110,68 @@ export interface AccountExportWorkspace {
  * filtering, because nothing here reads them. Audit inputs were redacted when
  * the row was written (`actions/core`), so they carry no secret either.
  */
-export function buildAccountExport(user: SessionUser): AccountExport {
-  const d = db();
+function exportWorkspace(
+  user: SessionUser,
+  ws: Workspace,
+  d: ReturnType<typeof db>,
+  auditEvents: AuditEvent[]
+): AccountExportWorkspace {
   const email = user.email.toLowerCase();
-
-  const workspaces = workspacesFor(user).map((ws): AccountExportWorkspace => {
-    const member = d.members.find(
-      (m) => m.workspaceId === ws.id && (m.id === user.id || m.email.toLowerCase() === email)
-    );
-    return {
-      workspace: { id: ws.id, name: ws.name, slug: ws.slug, createdAt: ws.createdAt },
-      membership: member
-        ? { role: member.role, name: member.name, email: member.email }
-        : null,
-      projects: d.projects
-        .filter((p) => p.workspaceId === ws.id)
-        .map((p) => ({
-          id: p.id,
-          name: p.name,
-          slug: p.slug,
-          createdAt: p.createdAt,
-          environments: q.environmentsOf(p.id).map((e) => ({
-            id: e.id,
-            name: e.name,
-            class: e.class,
-            region: e.region,
-            baseDomain: e.baseDomain,
-            deployedRevisionId: e.deployedRevisionId,
-            createdAt: e.createdAt,
-          })),
-          revisions: q.revisionsOf(p.id).map((r) => ({
-            id: r.id,
-            number: r.number,
-            message: r.message,
-            author: r.author,
-            createdAt: r.createdAt,
-            deployedTo: r.deployedTo ?? [],
-          })),
-        })),
-      audit: readAudit({ workspaceId: ws.id, actorType: "user", limit: EXPORT_AUDIT_LIMIT })
-        .filter((e) => e.actor.id === user.id)
-        .map((e) => ({
-          ts: e.ts,
+  const member = d.members.find(
+    (m) => m.workspaceId === ws.id && (m.id === user.id || m.email.toLowerCase() === email)
+  );
+  return {
+    workspace: { id: ws.id, name: ws.name, slug: ws.slug, createdAt: ws.createdAt },
+    membership: member
+      ? { role: member.role, name: member.name, email: member.email }
+      : null,
+    projects: d.projects
+      .filter((p) => p.workspaceId === ws.id)
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        createdAt: p.createdAt,
+        environments: q.environmentsOf(p.id).map((e) => ({
           id: e.id,
-          actionId: e.actionId,
-          projectId: e.projectId,
-          environmentId: e.environmentId,
-          result: e.result,
-          summary: e.summary,
-          input: e.input,
-          error: e.error,
+          name: e.name,
+          class: e.class,
+          region: e.region,
+          baseDomain: e.baseDomain,
+          deployedRevisionId: e.deployedRevisionId,
+          createdAt: e.createdAt,
         })),
-    };
-  });
+        revisions: q.revisionsOf(p.id).map((r) => ({
+          id: r.id,
+          number: r.number,
+          message: r.message,
+          author: r.author,
+          createdAt: r.createdAt,
+          deployedTo: r.deployedTo ?? [],
+        })),
+      })),
+    audit: auditEvents
+      .filter((e) => e.actor.id === user.id)
+      .map((e) => ({
+        ts: e.ts,
+        id: e.id,
+        actionId: e.actionId,
+        projectId: e.projectId,
+        environmentId: e.environmentId,
+        result: e.result,
+        summary: e.summary,
+        input: e.input,
+        error: e.error,
+      })),
+  };
+}
+
+function accountExportBody(
+  user: SessionUser,
+  audits: Map<string, AuditEvent[]>
+): AccountExport {
+  const d = db();
+  const workspaces = workspacesFor(user);
 
   return {
     exportedAt: new Date().toISOString(),
@@ -173,8 +182,36 @@ export function buildAccountExport(user: SessionUser): AccountExport {
       "No secret values, provider credentials or manifests are included. Manifests come out of Settings → Export, per environment.",
       "Hosted app data is exported per app from that app's own export, which produces a runnable bundle rather than a summary.",
     ],
-    workspaces,
+    workspaces: workspaces.map((ws) => exportWorkspace(user, ws, d, audits.get(ws.id) ?? [])),
   };
+}
+
+/** Synchronous compatibility export for the file-store contract. */
+export function buildAccountExport(user: SessionUser): AccountExport {
+  const audits = new Map(
+    workspacesFor(user).map((ws) => [
+      ws.id,
+      readAudit({ workspaceId: ws.id, actorType: "user", limit: EXPORT_AUDIT_LIMIT }),
+    ])
+  );
+  return accountExportBody(user, audits);
+}
+
+/** Non-blocking export path for Postgres-backed account requests. */
+export async function buildAccountExportAsync(user: SessionUser): Promise<AccountExport> {
+  const audits = new Map(
+    await Promise.all(
+      workspacesFor(user).map(async (ws) => [
+        ws.id,
+        (await readAuditPageAsync({
+          workspaceId: ws.id,
+          actorType: "user",
+          limit: EXPORT_AUDIT_LIMIT,
+        })).events,
+      ] as const)
+    )
+  );
+  return accountExportBody(user, audits);
 }
 
 /** A filename that says whose account it is and when, without an email in it. */

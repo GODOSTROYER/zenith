@@ -114,6 +114,44 @@ export const readAuditPage = (filter: AuditFilter = {}): AuditPage =>
 export const readAudit = (filter: AuditFilter = {}): AuditEvent[] =>
   currentStore().readAudit(filter);
 
+/** Awaitable audit page for request and worker paths. */
+export async function readAuditPageAsync(
+  filter: AuditFilter = {},
+  options: import("./pg/sync-rest").RestAsyncOptions = {}
+): Promise<AuditPage> {
+  if (!isPostgres()) return readAuditPage(filter);
+  const { readAuditPageAsync: read } = await import("./pg/audit");
+  return read(filter, options);
+}
+
+/** Awaitable exact audit count paired with `readAuditPageAsync`. */
+export async function countAuditAsync(
+  filter: AuditFilter = {},
+  options: import("./pg/sync-rest").RestAsyncOptions = {}
+): Promise<AuditCountResult> {
+  if (!isPostgres()) return countAudit(filter);
+  const { countAuditAsync: count } = await import("./pg/audit");
+  return count(filter, options);
+}
+
+/** Awaitable deployment-event read for SSE, readers and other async callers. */
+export async function readEventsAsync(
+  deploymentId: string,
+  afterSeq = -1,
+  options: import("./pg/sync-rest").RestAsyncOptions = {}
+): Promise<DeploymentEvent[]> {
+  if (!isPostgres()) return readEvents(deploymentId, afterSeq);
+  const { readEventsAsync: read } = await import("./pg/history");
+  return read(deploymentId, afterSeq, options);
+}
+
+/** Awaitable cold manifest read for API and provider verification paths. */
+export async function revisionManifestAsync(id: string): Promise<Manifest | undefined> {
+  if (!isPostgres()) return q.revisionManifest(id);
+  const { revisionManifestAsync: read } = await import("./pg/history");
+  return read(id);
+}
+
 export const countAudit = (filter: AuditFilter = {}): AuditCountResult =>
   currentStore().countAudit(filter);
 

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Boxes } from "lucide-react";
-import { db, readAudit } from "@/lib/db/store";
+import { db, readAuditPageAsync } from "@/lib/db/store";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { diffManifests } from "@/lib/domain/graph";
 import { emptyManifest, type Deployment, type Manifest } from "@/lib/domain/types";
@@ -126,7 +126,9 @@ export default async function OverviewPage() {
    * belongs to, so "whichever project sorted first" is never implied.
    */
   const names = new Map(projects.map((p) => [p.id, p]));
-  const activity = readAudit({ workspaceId: workspace.id, limit: ACTIVITY_ROWS });
+  const activity = (
+    await readAuditPageAsync({ workspaceId: workspace.id, limit: ACTIVITY_ROWS })
+  ).events;
 
   return (
     <div className="product-page mx-auto h-full w-full max-w-[1320px] overflow-y-auto">

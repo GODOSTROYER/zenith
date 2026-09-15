@@ -11,10 +11,11 @@
  *
  * Concrete actions live in src/lib/actions/defs/.
  */
+import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { withMutationGate } from "./mutation-gate";
-import { appendAuditAsync, db, save } from "@/lib/db/store";
+import { appendAuditAsync, db, flushPendingAsync, isPostgres, save } from "@/lib/db/store";
 import { id, type Actor, type AutonomyLevel } from "@/lib/domain/types";
 import { membershipPolicy } from "@/lib/auth/policy";
 import { WORKSPACE_ROLE_RANK, type WorkspaceRole } from "@/lib/domain/roles";
@@ -151,6 +152,19 @@ export function roleOf(actor: Actor, workspaceId: string): Role {
  * retained outcome; same key + a *different* request is an `idempotency_conflict`,
  * never the first request's answer wearing the second one's name.
  *
+ * An entry is **pending** until the request that produced it has durably
+ * committed, and only then **retained**. That distinction is the whole reason
+ * this section is more than a Map: `save()` on the Postgres store merely
+ * schedules a coalesced network write, and the write itself is awaited by
+ * `flushMutation()` in `server/request.ts` *after* `runAction` has returned. An
+ * entry written before that flush would answer a retry with `ok: true` for a
+ * mutation that never landed — so a pending entry is promoted by
+ * `withActionOutcomes()` when the flush succeeds and dropped when it fails, and
+ * a retry that arrives while it is still pending is refused rather than
+ * answered with an outcome nobody has committed yet. On the file store, where
+ * `save()` needs no network round trip and `route()` flushes nothing on a
+ * long-lived host, an outcome is retained immediately, exactly as before.
+ *
  * TODO(ceiling): in-process only, and deliberately still so in this change.
  * A restart clears the window, so a retry that crosses a restart applies twice,
  * and two instances share no window at all. `IDEM_WINDOW_NOTE` and the
@@ -162,7 +176,7 @@ const IDEM_TTL_MS = 10 * 60_000;
 
 /** The honest description of the replay guarantee, for API docs and plan copy. */
 export const IDEM_WINDOW_NOTE =
-  "Retries with the same idempotencyKey return the first result for 10 minutes, per workspace, actor and action, and only when the request body hashes the same; a different body under the same key is refused as idempotency_conflict. The window lives in this server process: if the server restarts, or the retry reaches another instance, a retry runs the action again.";
+  "Retries with the same idempotencyKey return the first request's retained outcome for 10 minutes, per workspace, actor and action, and only when the request body hashes the same; a different body under the same key is refused as idempotency_conflict. An outcome is retained only once that request's own durable write has succeeded, so a replayed response is evidence the change was committed; a retry that arrives while the first request is still committing is refused as idempotency_in_flight rather than answered early. The window lives in this server process: if the server restarts, or the retry reaches another instance, a retry runs the action again.";
 
 /**
  * What the response says about the replay guarantee that answered it.
@@ -180,7 +194,12 @@ export interface IdempotencyReport {
   scope: "process";
   /** True when it is best-effort: lost on restart, not shared across instances. */
   bestEffort: true;
-  /** True when this response is a replay of an earlier identical request. */
+  /**
+   * True when this response is the **retained** outcome of an earlier identical
+   * request — one whose durable write had already succeeded when it was
+   * retained. It is never true for an outcome that is still awaiting its
+   * request's flush: that case is refused as `idempotency_in_flight`.
+   */
   replayed: boolean;
   windowMs: number;
   note: string;
@@ -200,6 +219,12 @@ interface IdemEntry {
   /** Canonical hash of the request this key was first used for. */
   requestHash: string;
   result: ActionResult;
+  /**
+   * `pending` — the action ran, but the request that ran it has not yet
+   * committed durably, so this outcome may still be thrown away.
+   * `retained` — the durable write succeeded and a retry may be answered.
+   */
+  state: "pending" | "retained";
 }
 
 type GI = typeof globalThis & { __zenithIdem?: Map<string, IdemEntry> };
@@ -215,19 +240,149 @@ function idemGet(key: string): IdemEntry | undefined {
   const hit = cache.get(key);
   if (!hit) return undefined;
   if (Date.now() - hit.at > IDEM_TTL_MS) {
+    // Expiry also bounds `pending`: a request that never reached either
+    // promotion or eviction (a crashed worker, a killed lambda) releases its
+    // key instead of blocking every retry of it for good.
     cache.delete(key);
     return undefined;
   }
   return hit;
 }
 
-function idemSet(key: string, requestHash: string, result: ActionResult): void {
+function idemSet(
+  key: string,
+  requestHash: string,
+  result: ActionResult,
+  state: IdemEntry["state"]
+): void {
   const cache = idemCache();
   cache.delete(key); // re-insert so Map iteration order is oldest-first
-  cache.set(key, { at: Date.now(), requestHash, result });
+  cache.set(key, { at: Date.now(), requestHash, result, state });
   for (const [k, v] of cache) {
     if (cache.size <= IDEM_MAX && Date.now() - v.at <= IDEM_TTL_MS) break;
     cache.delete(k);
+  }
+}
+
+/** The request's durable write landed: this outcome may now answer a retry. */
+function idemRetain(key: string): void {
+  const entry = idemCache().get(key);
+  if (entry) entry.state = "retained";
+}
+
+/** It did not land: keep nothing, so a retry runs the action instead. */
+function idemEvict(key: string): void {
+  idemCache().delete(key);
+}
+
+/* --------------------- committing an outcome, once ------------------------ */
+
+/**
+ * True when the store's `save()` only *schedules* the durable write, so the
+ * commit happens after `runAction` returns.
+ *
+ * Only Postgres: there `save()` queues a PostgREST round trip that
+ * `flushMutation()` awaits at the edge of the request. The file store writes
+ * from its own timer with an exit hook behind it and `route()` awaits nothing
+ * on a long-lived host, so deferring retention there would invent a pending
+ * state with nothing to resolve it.
+ */
+const commitIsDeferred = (): boolean => isPostgres();
+
+interface OutcomeScope {
+  keys: Set<string>;
+  settled: boolean;
+}
+
+/** What `route()` (or any caller that owns the flush) settles a request with. */
+export interface ActionOutcomeScope {
+  /** The durable write succeeded: promote this request's outcomes to retained. */
+  commit(): void;
+  /** It did not: drop them, so a retry re-executes rather than replaying a lie. */
+  abandon(): void;
+}
+
+const outcomeScope = new AsyncLocalStorage<OutcomeScope>();
+
+/**
+ * Run one request's handler inside a commit scope.
+ *
+ * Every idempotent outcome `runAction` produces inside `body` is held *pending*
+ * until the caller — which is the only code that knows whether the durable
+ * flush succeeded — calls `commit()`. A body that throws, or that returns
+ * without committing, abandons them: nothing is retained that was not written.
+ *
+ * `server/request.ts` wraps every API request in this and commits immediately
+ * after `await flushMutation(req)`. Any other owner of a flush should do the
+ * same; a caller that opens no scope at all still gets flush-or-evict, because
+ * `runAction` then flushes for itself (see `retainOutcome`).
+ */
+export async function withActionOutcomes<T>(
+  body: (scope: ActionOutcomeScope) => Promise<T>
+): Promise<T> {
+  const scope: OutcomeScope = { keys: new Set(), settled: false };
+  const handle: ActionOutcomeScope = {
+    commit() {
+      if (scope.settled) return;
+      scope.settled = true;
+      for (const key of scope.keys) idemRetain(key);
+    },
+    abandon() {
+      if (scope.settled) return;
+      scope.settled = true;
+      for (const key of scope.keys) idemEvict(key);
+    },
+  };
+  try {
+    return await outcomeScope.run(scope, () => body(handle));
+  } finally {
+    // Default to abandoning: a body that threw, or one that simply forgot to
+    // commit, must not leave an outcome behind that nobody confirmed.
+    handle.abandon();
+  }
+}
+
+/**
+ * Retain `result` under `key` — but never before the write that backs it.
+ *
+ * Returns the result to answer with: the same one when it is safe to retain,
+ * and a `commit_failed` refusal when this call owned the flush and the flush
+ * did not land.
+ */
+async function retainOutcome(
+  action: ActionDef<unknown>,
+  key: string,
+  requestHash: string,
+  result: ActionResult
+): Promise<ActionResult> {
+  if (!commitIsDeferred()) {
+    idemSet(key, requestHash, result, "retained");
+    return result;
+  }
+  idemSet(key, requestHash, result, "pending");
+  const scope = outcomeScope.getStore();
+  if (scope) {
+    // Somebody else owns the flush and will settle this key either way.
+    scope.keys.add(key);
+    return result;
+  }
+  // Nobody does — a server action, the agent-control gateway or a background
+  // pass, none of which go through `route()`. Own it here rather than retain an
+  // outcome no request will ever confirm.
+  try {
+    await flushPendingAsync();
+    idemRetain(key);
+    return result;
+  } catch (err) {
+    idemEvict(key);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`Zenith could not commit ${action.id}: ${message}`);
+    return {
+      ok: false,
+      summary: `${action.title} could not be committed.`,
+      data: result.data,
+      error: `commit_failed: ${message}. Nothing was stored under this idempotency key, so the same request may be sent again and will run once the store accepts writes.`,
+    };
   }
 }
 
@@ -425,6 +580,19 @@ async function runActionInsideGate(
         },
         idempotency: idempotencyReport(true, false),
       };
+    if (cached && cached.state === "pending")
+      return {
+        result: {
+          ok: false,
+          summary: `An earlier ${action.title} request with idempotency key "${opts.idempotencyKey}" is still being committed.`,
+          // Never the third answer: not a replay (the outcome is unconfirmed),
+          // not a second execution (it may yet commit). The caller retries and
+          // gets whichever of those two the first request turns out to be.
+          error:
+            "idempotency_in_flight: the first request under this key has not finished committing. Retry in a moment: you will receive its retained outcome if it committed, and the action will run once if it did not.",
+        },
+        idempotency: idempotencyReport(true, false),
+      };
     if (cached) return { result: cached.result, idempotency: idempotencyReport(true, true) };
   }
 
@@ -455,11 +623,13 @@ async function runActionInsideGate(
         data: result.data,
         error: `audit_write_failed: ${message}. The change itself is saved; re-run nothing until the audit log is readable again, and reconcile from the object's own history.`,
       };
-      if (idemKey) idemSet(idemKey, requestHash, unaudited);
-      return { result: unaudited, idempotency: idempotencyReport(Boolean(idemKey), false) };
+      const answer = idemKey
+        ? await retainOutcome(action, idemKey, requestHash, unaudited)
+        : unaudited;
+      return { result: answer, idempotency: idempotencyReport(Boolean(idemKey), false) };
     }
-    if (idemKey) idemSet(idemKey, requestHash, result);
-    return { result, idempotency: idempotencyReport(Boolean(idemKey), false) };
+    const answer = idemKey ? await retainOutcome(action, idemKey, requestHash, result) : result;
+    return { result: answer, idempotency: idempotencyReport(Boolean(idemKey), false) };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     const result: ActionResult = {

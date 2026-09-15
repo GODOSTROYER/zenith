@@ -102,7 +102,7 @@ vi.mock("@/lib/supabase/server", () => ({
 const { DELETE } = await import("@/app/api/account/route");
 const { GET: keepalive } = await import("@/app/api/internal/keepalive/route");
 const { reconcilePendingAccountDeletionsAsync } = await import("@/lib/server/account");
-const { db, readAudit, resetDb } = await import("@/lib/db/store");
+const { appendAudit, db, readAudit, resetDb } = await import("@/lib/db/store");
 const { resetPgClient } = await import("@/lib/db/postgres-store");
 const { NextRequest } = await import("next/server");
 
@@ -212,6 +212,62 @@ describe("deleting your own account", () => {
     expect(db().members.map((m) => m.id)).toEqual(["u-other"]);
     expect(db().settings.pendingAccountDeletions).toEqual([]);
     expect(readAudit({ workspaceId: "w-atlas" })[0]?.id).toBe("op-recovery:workspace.removeMember:w-atlas");
+  });
+
+  it("finds a deterministic audit row that a busy workspace pushed off the newest page", async () => {
+    db().members[1].role = "admin";
+    const actor = { type: "user" as const, id: "u-me", name: "Mika" };
+    const auditId = "op-busy:workspace.removeMember:w-atlas";
+
+    // The first attempt's row did reach the log, and then the workspace kept
+    // working. The retry's dedupe check used to read only the newest 500 rows,
+    // so everything below this line was invisible to it and the reconcile pass
+    // wrote a second row with the same id — which `FileStore.appendAudit`, with
+    // no dedupe of its own, happily appended.
+    appendAudit({
+      ts: "2026-01-03T00:00:00.000Z",
+      id: auditId,
+      workspaceId: "w-atlas",
+      actor,
+      actionId: "workspace.removeMember",
+      input: { memberId: "u-me", reason: "account.delete" },
+      result: "ok",
+      summary: "Mika deleted their Zenith account.",
+    });
+    for (let n = 0; n < 600; n++)
+      appendAudit({
+        ts: "2026-01-03T00:00:01.000Z",
+        id: `noise-${n}`,
+        workspaceId: "w-atlas",
+        actor: { type: "system", id: "sys", name: "Zenith" },
+        actionId: "deploy.apply",
+        input: {},
+        result: "ok",
+        summary: "a busy workspace",
+      });
+
+    db().settings.pendingAccountDeletions = [
+      {
+        operationId: "op-busy",
+        user: state.user,
+        stage: "identity-deleted",
+        updatedAt: "2026-01-03T00:00:00.000Z",
+      },
+    ];
+
+    const res = await run();
+    expect(res.status).toBe(204);
+
+    // Exactly one row with that id: the retry recognised the durable one
+    // instead of duplicating it, and the deletion still completed.
+    const removals = readAudit({
+      workspaceId: "w-atlas",
+      actionId: "workspace.removeMember",
+      limit: 5000,
+    });
+    expect(removals.filter((event) => event.id === auditId)).toHaveLength(1);
+    expect(removals).toHaveLength(1);
+    expect(db().members.map((m) => m.id)).toEqual(["u-other"]);
   });
 
   it("removes the member row and the invites they issued, and records why", async () => {

@@ -185,13 +185,13 @@ describe("sessions", () => {
 });
 
 describe("invitations", () => {
-  const invite = async (appId: string, expiresAt: string) => {
+  const invite = async (appId: string, expiresAt: string, email = "recipient@example.test") => {
     const token = `token-${uuid()}`;
     const record = await a.tx((repos) =>
       repos.invites.insert({
         id: uuid(),
         appId,
-        email: "recipient@example.test",
+        email,
         role: "editor",
         tokenHash: sha256Hex(token),
         createdBy: OWNER,
@@ -220,7 +220,9 @@ describe("invitations", () => {
     const deadline = new Date(base + 60_000).toISOString();
     const justBefore = new Date(base + 59_999).toISOString();
     const first = await invite(app.id, deadline);
-    const second = await invite(app.id, deadline);
+    // A second *pending* invitation for the same address is refused by the
+    // v3 unique index, so the boundary case uses a different recipient.
+    const second = await invite(app.id, deadline, "second-recipient@example.test");
 
     expect(await a.tx((repos) => repos.invites.accept(first.record.id, VIEWER, deadline))).toBe(false);
     expect((await a.repos.invites.get(first.record.id))?.state).toBe("pending");

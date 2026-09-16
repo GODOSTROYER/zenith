@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { ZodError } from 'zod';
+import { log } from '@/lib/log';
 import { ControlError, type Principal } from './journal';
 import { AgentError, type SelectedScope } from '../security';
 import { credentialAuthority } from '../authority';
@@ -91,8 +93,15 @@ export async function jsonBody(request:Request):Promise<unknown>{
 }
 export function json(value:unknown,status=200):Response{return new Response(JSON.stringify(value),{status,headers:{'content-type':'application/json','cache-control':'no-store','x-content-type-options':'nosniff'}});}
 export function failure(error:unknown):Response{
-  const e=error instanceof ControlError?error:error instanceof AgentError?new ControlError(error.code,error.message,error.status):new ControlError('request_failed','The request was refused. Check configuration or server diagnostics.',400);
-  const response=json({error:{code:e.code,message:e.message,requestId:randomUUID()}},e.status);
+  const requestId=randomUUID();
+  // A request that fails validation says which field, so an agent can correct it
+  // instead of retrying blind. Anything else unexpected is logged with the id the
+  // caller sees, and still answered without internal detail.
+  const e=error instanceof ControlError?error:error instanceof AgentError?new ControlError(error.code,error.message,error.status)
+    :error instanceof ZodError?new ControlError('invalid_input',error.issues.map(i=>`${i.path.join('.')||'(request)'}: ${i.message}`).join('; ').slice(0,2000),400)
+    :new ControlError('request_failed','The request was refused. Check configuration or server diagnostics.',400);
+  if(e.code==='request_failed')log.error('agent control request failed',{scope:'agent',requestId,error});
+  const response=json({error:{code:e.code,message:e.message,requestId}},e.status);
   if(e.status===401){try{response.headers.set('www-authenticate',`Bearer resource_metadata="${controlOrigin()}/.well-known/oauth-protected-resource/api/agent/v2/mcp", scope="zenith:read"`);}catch{/* misconfigured origin */}}
   return response;
 }

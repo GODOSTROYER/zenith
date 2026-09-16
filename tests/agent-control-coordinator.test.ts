@@ -177,3 +177,29 @@ describe('coordinator journal surface',()=>{
     } finally {f.close();}
   });
 });
+
+describe("agent control request errors", () => {
+  it("names the invalid field instead of masking a validation error", async () => {
+    const { failure } = await import("../src/lib/agent-access/control/boundary");
+    const { preparationSchema } = await import("../src/lib/agent-access/control/contracts");
+    const parsed = preparationSchema.safeParse({
+      kind: "system.edit", edit: "service.remove", requestKey: "abcdefgh1",
+      target: { workspaceId: "w", projectId: "p" }, parameters: {}, unexpected: 1,
+    });
+    expect(parsed.success).toBe(false);
+    const res = failure(parsed.success ? new Error("unreachable") : parsed.error);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("invalid_input");
+    expect(body.error.message).toMatch(/unexpected/);
+  });
+
+  it("accepts the advertised expectedHash on a curated edit", async () => {
+    const { preparationSchema } = await import("../src/lib/agent-access/control/contracts");
+    const parsed = preparationSchema.safeParse({
+      kind: "system.edit", edit: "service.remove", requestKey: "abcdefgh1",
+      target: { workspaceId: "w", projectId: "p" }, parameters: { serviceId: "s" }, expectedHash: "0cc9d141",
+    });
+    expect(parsed.success).toBe(true);
+  });
+});

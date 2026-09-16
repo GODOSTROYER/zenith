@@ -12,6 +12,7 @@ import { control, requireControl, operationView, reviewOperation } from './runti
 import { controlOrigin, jsonBody, json, failure } from './boundary';
 import { grantSchema, reviewSchema } from './contracts';
 import { oauthConfig } from './oauth';
+import { reviewDisplay } from './review';
 async function browser(req:NextRequest, mutation=false){
   // `await`, because the capability probe that replaces this flag check is
   // async (CONTROL-PLANE §1). Awaiting a synchronous refusal is identical;
@@ -61,9 +62,9 @@ export const browserGet=route(async(req)=>{
     // configured; without one the screen already says so, and the Postgres
     // journal refuses grant storage, so there is nothing to list.
     const oauthConfigured=!!oauthConfig(process.env,origin);
-    return json(redact({workspaceId:workspace.id,subject:identity.subject,role:member.role,
+    return json(redact({workspaceId:workspace.id,workspaceName:workspace.name,subject:identity.subject,role:member.role,
       grants:oauthConfigured?await journal.grants(identity.subject,workspace.id):[],
-      operations:(await journal.reviewQueue(workspace.id,identity.subject,member.role==='admin')).map(op=>operationView(op,origin)),
+      operations:(await journal.reviewQueue(workspace.id,identity.subject,member.role==='admin')).map(op=>({...operationView(op,origin),review:reviewDisplay(op,db())})),
       projects:db().projects.filter(p=>p.workspaceId===workspace.id).map(p=>({id:p.id,name:p.name})),
       linkedAgents,...(linkedAgentsUnavailable?{linkedAgentsUnavailable}:{}),
       oauthConfigured,resource:`${origin}/api/agent/v2/mcp`}));

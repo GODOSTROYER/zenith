@@ -352,3 +352,65 @@ describe("every control can be reached and named", () => {
     expect(button("Try again")).toBeTruthy();
   });
 });
+
+describe("workspace-level proposals and whole-workspace links", () => {
+  const WORKSPACE_OP = {
+    ...PREPARED,
+    id: "op_ws",
+    digest: "e".repeat(64),
+    action: "project.create",
+    target: { workspaceId: "w1" },
+    plan: { kind: "project.create", summary: 'Create the project "Fresh".', details: ["URL slug: /p/fresh."], approvalRole: "editor" },
+    review: {
+      kind: "project.create",
+      title: "Create a project",
+      level: "workspace",
+      workspace: { id: "w1", name: "Acme" },
+      fields: [
+        { label: "Name", text: "Fresh" },
+        { label: "Connection", text: "Sandbox · sandbox (c1)", mono: true },
+      ],
+    },
+  };
+
+  it("names the workspace instead of a project, and shows the request", async () => {
+    state = baseState({ workspaceName: "Acme", operations: [WORKSPACE_OP] });
+    await renderInLayout();
+    const text = card("op_ws").textContent ?? "";
+    expect(text).toContain("Workspace · Acme");
+    expect(text).not.toContain("undefined");
+    expect(text).toContain("Create a project");
+    expect(text).toContain("Sandbox · sandbox (c1)");
+    expect(text).toMatch(/workspace-level change/i);
+  });
+
+  it("names the project and environment for a project proposal", async () => {
+    await renderInLayout();
+    expect(card("op_ready").textContent).toContain("Atlas");
+  });
+
+  it("links the project a finished project.create made", async () => {
+    const done = {
+      ...WORKSPACE_OP,
+      phase: "succeeded",
+      review: { ...WORKSPACE_OP.review, created: { projectId: "p9", name: "Fresh", slug: "fresh", href: "/p/fresh" } },
+    };
+    state = baseState({ operations: [done] });
+    await renderInLayout();
+    const link = [...card("op_ws").querySelectorAll("a")].find((a) => a.textContent === "Open project")!;
+    expect(link.getAttribute("href")).toBe("/p/fresh");
+  });
+
+  it("shows a whole-workspace credential as Whole workspace", async () => {
+    const agent = {
+      id: "cred1", label: null, clientName: "zenith", clientVersion: "2.0.0", scopes: ["read", "plan"],
+      projectIds: [], environmentIds: null, issuedAt: hour(-1), expiresAt: hour(24), lastUsedAt: null, revokedAt: null,
+    };
+    state = baseState({ linkedAgents: [{ ...agent, allProjects: true }, { ...agent, id: "cred2", projectIds: ["p1"] }] });
+    await renderInLayout();
+    const list = host.querySelector("#linked-agents")!.textContent ?? "";
+    expect(list).toContain("Whole workspace (all projects, including new ones)");
+    expect(list).toContain("1 project");
+    expect(host.querySelector("#proposals")).not.toBeNull();
+  });
+});

@@ -6,7 +6,7 @@ The v1 reader is unchanged. V2 adds reviewed mutations to Zenith's existing acti
 
 - Maintained MCP SDK 2 Streamable HTTP at `/api/agent/v2/mcp`, plus a bounded versioned tools gateway for the local SDK bridge.
 - All thirteen reader capabilities, exact operation preparation/execution/status/events, revision comparison, scoped logs, incident bundles, app status and curated edit-field discovery.
-- Services/resources/bindings/routes use eleven fixed canonical action mappings; no arbitrary action, member administration, raw secret or policy-relaxation tool exists.
+- Services/resources/bindings/routes use eleven fixed canonical action mappings, plus the four curated edits below; no arbitrary action, member administration, raw secret or policy-relaxation tool exists.
 - Manifest replacement with an original working-copy hash, Compose import, deploy, rollback, exact saved-revision promotion, app creation, digest-bound source publishing and code rollback.
 - Private SQLite journal: expiring proposal receipts, stable request keys, browser review, transactional single-use claims, audit correlation, retained operation events, same-user cross-client inspection and interruption reconciliation. A restart marks interrupted dispatch uncertain and never blindly replays it.
 - Browser integration grants and approvals at `/integrations`, verified against live sign-in and current workspace membership. Approvals bind the exact digest. An administrator may approve another member's proposal, with role and target-state rechecks before dispatch.
@@ -101,6 +101,89 @@ The audience/resource is exactly `https://your-zenith-origin.example/api/agent/v
 Supported scopes are `zenith:read`, `zenith:plan`, `zenith:export`, `zenith:write`, `zenith:publish`, `zenith:logs`. The issuer, JWT scope AND live integration grant must all agree. Ordinary browser tokens with an unrelated `aud` are rejected. This does not install or configure an authorization provider for you, and no claim of compatibility with an unconfigured provider is made.
 
 Configure the matching OAuth client and selected project/environment/app scope in the signed-in Integrations screen. Revocation remains possible even after project/app permissions or issuer configuration change. Revoking a grant affects subsequent authorization; it does not undo an already dispatched provider operation.
+
+## Scope modes, workspace-level changes and hand-offs
+
+**Scope modes.** A credential is bound to one workspace and holds either an
+explicit project list or the whole-workspace flag (`allProjects`, column
+`agent_credentials.all_projects`, migration `0008`). Every grant check goes
+through `grantsProject()` / `grantsApp()` in `src/lib/agent-access/security.ts`;
+`checkTarget()` accepts a target without `projectId` only for a whole-workspace
+principal, and `resolveTarget()` still requires the project to belong to the
+target workspace. Pinning a project (`x-zenith-project`) always narrows the
+principal to that one project, so workspace-level kinds are then refused.
+`zenith_get_capabilities` reports `scopeMode` (`projects` or `workspace`) and
+`preparationKinds`.
+
+**Target levels for `zenith_prepare_change`.**
+
+| level | target | kinds |
+|---|---|---|
+| workspace (whole-workspace only) | `{workspaceId}` | `project.create`, `project.createFromCompose`, `project.createFromBlueprint`, `workspace.rename`, `connection.create` (sandbox/localstack), `connection.check`, `connection.disconnect`, `alerts.updateChannel`, `alerts.testChannel`, `alerts.deleteChannel` |
+| project | `{workspaceId, projectId}` | `manifest.replace`, `manifest.importCompose`, `system.edit`, `project.applyBlueprint`, `project.importResources`, `environment.create`, `alerts.createRule`, `alerts.updateRule`, `alerts.deleteRule`, `alerts.acknowledge`, `finding.dismiss`, `finding.reopen`, `finding.resolve`, `app.create`, `app.publish`, `app.rollback`, `app.suspend`, `app.resume` |
+| environment | `{workspaceId, projectId, environmentId}` | `deployment.deploy`, `deployment.rollback`, `deployment.promote`, `deployment.cancel`, `environment.clone`, `environment.update`, `environment.setBudget`, `environment.setConnection`, `environment.tightenPolicies`, `ops.restart` |
+
+`system.edit` adds four curated edits: `env.set` (refused with
+`secret_value_refused` when the key or value looks like a secret),
+`secret.adopt` (a `secretRef` or `moveExistingValue`, never a value),
+`secret.remove` and `service.scale`. `projectId` and `environmentId` always
+come from the target, never from parameters. `environment.tightenPolicies` can
+only set `approvalRequired: true` or `allowStatefulDeletion: false`.
+
+**Creating a project.** `project.create` is prepared against `{workspaceId}`,
+reviewed like any other proposal, and executed with the operation id as the
+idempotency key, so a retry creates one project. `zenith_get_operation` then
+carries `{projectId, slug, environmentId}`, and the same credential can target
+the new project straight away: reachability comes from the whole-workspace
+flag, and no credential row is changed. Prepare refuses once the workspace
+holds `ZENITH_AGENT_MAX_PROJECTS` projects (default 50).
+
+**Reads added in this version.** `zenith_list_workspaces` (the subject's own
+memberships, with a `zenith login --workspace <id>` re-link hint),
+`zenith_get_workspace`, `zenith_list_blueprints`, `zenith_list_secrets`
+(references and versions, never values), `zenith_get_alerts` (channels without
+URL or secret), `zenith_get_audit`, `zenith_investigate`, `zenith_get_health`,
+`zenith_get_service_logs` (`logs` scope, redacted), `zenith_discover_resources`,
+`zenith_list_apps` and `zenith_get_handoff`.
+
+**Hand-offs.** Some tasks stay with a person. `zenith_get_handoff{task}`
+returns `{url, instructions, command?}`. The URL is built by
+`src/lib/agent-access/control/handoff.ts` from fixed paths on the Zenith
+origin, with only grant-checked, identifier-shaped ids and never a value.
+
+| task | where the person goes |
+|---|---|
+| `workspace.create` | `/onboarding?step=1`; command `zenith login --new-workspace "<name>"` |
+| `workspace.autonomy` | `/p/<slug>/navigator` |
+| `account`, `account.export`, `account.delete` | `/account#profile`, `#data`, `#danger` |
+| `members`, `invites` | `/settings#members` |
+| `secret.set`, `secret.rotate` | `/p/<slug>/settings#secrets` (`/settings#secrets` without a project) |
+| `connection.credentials` | `…/settings#connections` |
+| `alerts.channel` | `…/settings#alerts` |
+| `environment.policies`, `environment.delete` | `…/settings?env=<id>#environments` |
+| `project.delete` | `/p/<slug>/settings#danger` |
+| `deploy.approve` | `/p/<slug>/deploys?deployment=<id>` |
+| `operation.review` | `/integrations?operation=<id>` |
+| `app.audience` | `/apps/<id>#audience` |
+| `relink` | `/integrations#linked-agents`; command `zenith login` |
+
+`/settings` opens the first project's settings with the same query and
+section. For a workspace with no projects it renders the Workspace and Members
+sections itself.
+
+**Never available to an agent:** approving its own proposal or a deployment,
+creating a workspace directly, member and invite administration, entering a
+secret value or provider credentials, creating an alert channel or changing
+its URL or secret, loosening a policy, deleting a project or environment,
+changing Navigator autonomy, revoking or widening its own credential, and
+driving Navigator runs.
+
+**Review screen.** `/integrations` shows each proposal with its scope
+("Workspace · <name>" for a workspace-level change), the requested parameters
+with ids resolved to names inside the reviewer's workspace (`env.set` shows its
+key and value), the plan's change lines and, after a successful
+`project.create`, a link to the created project. Linked agents show "Whole
+workspace" or their project count.
 
 ## Exact-change lifecycle
 

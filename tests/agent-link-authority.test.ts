@@ -372,6 +372,50 @@ describe("postgres credential authority (statement shape; live behaviour is P5's
     expect(calls.filter((call) => call.text.includes("schema_migrations"))).toHaveLength(1);
   });
 
+  it("binds scope arrays as text parsed into jsonb, never as a jsonb-encoded string", async () => {
+    const { tag, calls } = fakeSql((text) => (text.includes("schema_migrations") ? [{ version: 1 }] : []));
+    const pg = new PgCredentialAuthority(() => tag as never);
+    await pg.startLink({
+      userCodeHash: "u".repeat(64),
+      deviceCodeHash: "d".repeat(64),
+      clientName: "Claude Code",
+      requestedScopes: ["read", "plan", "read"],
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    } as never);
+    const insert = calls.find((call) => call.text.includes("insert into agent.agent_link_codes"));
+    // `$n::jsonb` makes postgres.js JSON-encode the bound string a second time,
+    // which is what production stored and the approval screen then crashed on.
+    expect(insert?.text).toMatch(/::text::jsonb/);
+    expect(insert?.text).not.toMatch(/\$\d+::jsonb/);
+    expect(insert?.values).toContain(JSON.stringify(["read", "plan"]));
+  });
+
+  it("reads scope columns whether they hold an array or the legacy encoded string", async () => {
+    const legacy = {
+      user_code_hash: "u".repeat(64),
+      device_code_hash: "d".repeat(64),
+      state: "pending",
+      client_name: "Claude Code",
+      client_version: null,
+      label: null,
+      requested_scopes: JSON.stringify(["read", "plan", "write"]),
+      created_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + 60_000).toISOString(),
+      credential_id: null,
+      secret_ct: null,
+      poll_count: 0,
+      last_polled_at: null,
+      failed_lookups: 0,
+    };
+    const { tag } = fakeSql((text) =>
+      text.includes("schema_migrations") ? [{ version: 1 }] : text.includes("from agent.agent_link_codes") ? [legacy] : []
+    );
+    const pg = new PgCredentialAuthority(() => tag as never);
+    const row = await pg.linkByUserCode(legacy.user_code_hash);
+    expect(row?.requestedScopes).toEqual(["read", "plan", "write"]);
+  });
+
   it("never reaches the database with an unparseable bearer", async () => {
     const { tag, calls } = fakeSql(migrated);
     const pg = new PgCredentialAuthority(() => tag as never);

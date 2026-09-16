@@ -57,6 +57,26 @@ const LINK_RETENTION_MS = 86_400_000;
 /** Nothing in this module ever reads or writes more rows than this at once. */
 const PAGE = 200;
 
+/**
+ * A jsonb string-array column. Rows written before the binding fix hold the
+ * array JSON-encoded *inside* a jsonb string (`"[\"read\"]"`), because the value
+ * was bound as text and cast; accept both shapes so those rows keep working.
+ */
+const stringArray = (value: unknown): string[] => {
+  let v = value;
+  if (typeof v === "string") {
+    try {
+      v = JSON.parse(v);
+    } catch {
+      return [];
+    }
+  }
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+};
+
+/** Bind a string array as a real jsonb array, never as a jsonb-encoded string. */
+const jsonArray = (values: readonly string[]): string => JSON.stringify([...new Set(values)]);
+
 const unavailable = (message: string): AgentError =>
   new AgentError("policy_unavailable", message, 503);
 
@@ -83,10 +103,10 @@ const toCredential = (row: CredentialRow): LinkedCredential => ({
   tokenHash: row.token_hash,
   subject: row.subject,
   workspaceId: row.workspace_id,
-  projectIds: row.project_ids,
-  ...(row.environment_ids ? { environmentIds: row.environment_ids } : {}),
-  ...(row.app_ids ? { appIds: row.app_ids } : {}),
-  scopes: row.scopes as Credential["scopes"],
+  projectIds: stringArray(row.project_ids),
+  ...(row.environment_ids ? { environmentIds: stringArray(row.environment_ids) } : {}),
+  ...(row.app_ids ? { appIds: stringArray(row.app_ids) } : {}),
+  scopes: stringArray(row.scopes) as Credential["scopes"],
   issuedAt: row.issued_at,
   expiresAt: row.expires_at,
   ...(row.label ? { label: row.label } : {}),
@@ -123,7 +143,7 @@ const toLinkRow = (row: LinkCodeRow, now: number): LinkRow => ({
   clientName: row.client_name,
   ...(row.client_version ? { clientVersion: row.client_version } : {}),
   ...(row.label ? { label: row.label } : {}),
-  requestedScopes: row.requested_scopes,
+  requestedScopes: stringArray(row.requested_scopes),
   createdAt: row.created_at,
   expiresAt: row.expires_at,
   ...(row.credential_id ? { credentialId: row.credential_id } : {}),
@@ -207,7 +227,7 @@ export class PgCredentialAuthority implements CredentialAuthority {
          requested_scopes, created_at, expires_at, poll_count, failed_lookups)
       values (${start.userCodeHash}, ${start.deviceCodeHash}, 'pending', ${start.clientName},
               ${start.clientVersion ?? null}, ${start.label ?? null},
-              ${JSON.stringify(start.requestedScopes)}::jsonb, ${start.createdAt}, ${start.expiresAt},
+              ${jsonArray(start.requestedScopes)}::text::jsonb, ${start.createdAt}, ${start.expiresAt},
               0, 0)
     `;
   }
@@ -277,10 +297,10 @@ export class PgCredentialAuthority implements CredentialAuthority {
           (id, token_hash, subject, workspace_id, project_ids, environment_ids, app_ids, scopes,
            label, client_name, client_version, issued_at, expires_at, created_by)
         values (${credentialId}, ${hashToken(token)}, ${input.subject}, ${input.workspaceId},
-                ${JSON.stringify([...new Set(input.projectIds)])}::jsonb,
-                ${input.environmentIds ? JSON.stringify([...new Set(input.environmentIds)]) : null}::jsonb,
+                ${jsonArray(input.projectIds)}::text::jsonb,
+                ${input.environmentIds ? jsonArray(input.environmentIds) : null}::text::jsonb,
                 null,
-                ${JSON.stringify([...new Set(input.scopes)])}::jsonb,
+                ${jsonArray(input.scopes)}::text::jsonb,
                 ${input.label ?? code.label ?? null}, ${code.client_name}, ${code.client_version ?? null},
                 ${nowIso}, ${expiresAt}, ${input.subject})
       `;

@@ -434,9 +434,13 @@ interface Change {
   baseline?: Baseline;
 }
 
-function diff(snap: Snapshot): { writes: Change[]; deletes: Change[] } {
+/** Each row as it stood when a flush computed its writes. */
+type Captured = Map<string, { json: string; workspaceId: string }>;
+
+function diff(snap: Snapshot): { writes: Change[]; deletes: Change[]; captured: Captured } {
   const writes: Change[] = [];
   const seen = new Set<string>();
+  const captured: Captured = new Map();
 
   for (const adapter of rowAdapters()) {
     const collection = adapter.collection;
@@ -444,8 +448,12 @@ function diff(snap: Snapshot): { writes: Change[]; deletes: Change[] } {
       const workspaceId = adapter.tenant(row as never, { db: snap.data });
       const key = bkey(collection, row.id, keyScope(collection, workspaceId));
       seen.add(key);
+      const json = canonical(row);
+      captured.set(key, { json, workspaceId });
       const baseline = snap.baseline.get(key);
-      if (baseline && baseline.json === canonical(row)) continue;
+      if (baseline && baseline.json === json) continue;
+      // The live row may change again before it is written; the baseline records
+      // `json`, so the next pass still sees any difference and writes it.
       writes.push({ collection, row, workspaceId, baseline });
     }
   }
@@ -464,7 +472,7 @@ function diff(snap: Snapshot): { writes: Change[]; deletes: Change[] } {
       baseline,
     });
   }
-  return { writes, deletes };
+  return { writes, deletes, captured };
 }
 
 /** A 409 the caller can act on, rather than a silently lost edit. */
@@ -595,7 +603,7 @@ async function bumpFeed(client: SupabaseClient, snap: Snapshot, ids: Set<string>
 /** Write every pending change in one pass, then re-baseline the snapshot. */
 async function flushSnapshot(snap: Snapshot): Promise<void> {
   const client = pgClient();
-  const { writes, deletes } = diff(snap);
+  const { writes, deletes, captured } = diff(snap);
   const touchedWorkspaces = new Set<string>();
 
   // FK order: a workspace before its members, a project before its
@@ -616,27 +624,35 @@ async function flushSnapshot(snap: Snapshot): Promise<void> {
   await writeSettings(client, snap);
   await bumpFeed(client, snap, touchedWorkspaces);
 
-  rebaseline(snap);
-  snap.dirty.clear();
+  // Rebaseline from what this pass wrote, not from the snapshot as it stands
+  // now. The writes above yield, and a caller in the same request can mutate
+  // the snapshot meanwhile (a deploy saves its revision, which starts this
+  // flush, then creates the deployment and claims the environment lease).
+  // Recording those later rows as the baseline marked them written when they
+  // never were, so the deployment silently never reached the database.
+  rebaseline(snap, captured);
   snap.touched.ids.clear();
   snap.touched.all = false;
-  snap.scheduled = false;
+  const leftover = diff(snap);
+  if (leftover.writes.length === 0 && leftover.deletes.length === 0) {
+    snap.dirty.clear();
+    snap.scheduled = false;
+  } else {
+    snap.scheduled = true;
+  }
 }
 
-/** After a successful flush the snapshot *is* the database. Say so. */
-function rebaseline(snap: Snapshot): void {
+/** After a successful flush the database holds what the pass captured. Say so. */
+function rebaseline(snap: Snapshot, captured: Captured): void {
   const next = new Map<string, Baseline>();
-  for (const adapter of rowAdapters())
-    for (const row of adapter.rows!(snap.data)) {
-      const workspaceId = adapter.tenant(row as never, { db: snap.data });
-      const key = bkey(adapter.collection, row.id, keyScope(adapter.collection, workspaceId));
-      const previous = snap.baseline.get(key);
-      next.set(key, {
-        version: previous ? previous.version + (previous.json === canonical(row) ? 0 : 1) : 1,
-        json: canonical(row),
-      });
-      snap.scope.add(workspaceId);
-    }
+  for (const [key, row] of captured) {
+    const previous = snap.baseline.get(key);
+    next.set(key, {
+      version: previous ? previous.version + (previous.json === row.json ? 0 : 1) : 1,
+      json: row.json,
+    });
+    snap.scope.add(row.workspaceId);
+  }
   const settings = snap.baseline.get(bkey("settings", INSTALL_SETTINGS_ID));
   if (settings) next.set(bkey("settings", INSTALL_SETTINGS_ID), settings);
   snap.baseline = next;
@@ -763,9 +779,20 @@ export async function flushPostgres(): Promise<boolean> {
   const snap = currentSnapshot();
   const had = snap.scheduled || snap.dirty.size > 0;
   const pending = (globalThis as GPending).__zenithPgPending;
-  if (had) await schedule(snap);
-  else if (pending) await pending;
-  return had;
+  if (!had) {
+    if (pending) await pending;
+    // A pass already in flight may leave rows it did not capture.
+    if (!snap.scheduled) return false;
+  }
+  // Each pass writes what it captured; anything a caller changed meanwhile is
+  // left scheduled for the next pass. Bounded so a runaway writer cannot pin
+  // the request.
+  for (let pass = 0; pass < 5; pass++) {
+    await schedule(snap);
+    if (!snap.scheduled) break;
+  }
+  if (snap.scheduled) throw storeError("store", "flush", "changes kept arriving during the flush; retry the request");
+  return true;
 }
 
 export const PostgresStore: Store & {

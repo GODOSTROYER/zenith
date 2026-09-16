@@ -41,6 +41,9 @@ interface Statement {
 /** Every statement the store sent, in order. */
 const sent: Statement[] = [];
 
+/** Runs once, inside the first write a flush sends — i.e. mid-flush. */
+let onWrite: (() => void) | undefined;
+
 /** A PostgREST-shaped builder that actually honours `.in(column, values)`. */
 function builder(table: string) {
   let rows = TABLES[table] ?? [];
@@ -62,6 +65,11 @@ vi.mock("@supabase/supabase-js", () => ({
         (op: string) =>
         (...args: unknown[]) => {
           sent.push({ op, table, payload: args[0] as Record<string, unknown> | undefined });
+          const hook = onWrite;
+          if (hook && op !== "select") {
+            onWrite = undefined;
+            hook();
+          }
           return builder(table);
         };
       return {
@@ -237,5 +245,27 @@ describe("a flush diffs against its own baseline", () => {
     expect(update?.payload).toMatchObject({ name: "Atlas Renamed", version: 2 });
     // The other tenant's open snapshot still holds its own rows afterwards.
     expect(other.data.projects.map((p) => p.id)).toEqual(["proj-globex"]);
+  });
+});
+
+describe("a write made while a flush is in flight", () => {
+  it("is still sent by the awaited flush, not marked written by the earlier pass", async () => {
+    const snapshot = await pg.loadSnapshot(pg.pgClient(), ADA);
+    await runWithSnapshot(snapshot, async () => {
+      const project = db().projects.find((p) => p.id === "proj-acme")!;
+      project.name = "Atlas renamed";
+      // The deploy path in miniature: the first save starts a flush, and the
+      // caller keeps mutating the same snapshot while that flush is writing.
+      onWrite = () => {
+        project.name = "Atlas renamed again";
+        db().projects.push({ ...project, id: "proj-acme-2", slug: "atlas-2", name: "Atlas two" });
+      };
+      save(project.id);
+      await flushPendingAsync();
+    });
+    const writes = sent.filter((s) => s.table === "projects" && s.op !== "select");
+    const payloads = JSON.stringify(writes.map((w) => w.payload));
+    expect(payloads).toContain("Atlas renamed again");
+    expect(writes.some((w) => w.op === "insert" && (w.payload as { id?: string })?.id === "proj-acme-2")).toBe(true);
   });
 });

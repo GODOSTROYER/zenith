@@ -14,7 +14,6 @@ import { controlOrigin, failure, json } from "@/lib/agent-access/control/boundar
 import { linkRateLimit, requireLinkAuthority } from "@/lib/agent-access/authority";
 import {
   LINK_POLL_INTERVAL_S,
-  LINK_PROTOCOL_VERSION,
   LINK_TTL_MS,
   clientAddress,
   hashDeviceCode,
@@ -53,6 +52,9 @@ export async function POST(request: Request): Promise<Response> {
       ...(input.clientVersion === undefined ? {} : { clientVersion: input.clientVersion }),
       ...(input.label === undefined ? {} : { label: input.label }),
       requestedScopes: input.requestedScopes,
+      protocolVersion: input.protocolVersion,
+      ...(input.workspaceHint === undefined ? {} : { workspaceHint: input.workspaceHint }),
+      ...(input.workspaceNameHint === undefined ? {} : { workspaceNameHint: input.workspaceNameHint }),
       createdAt: new Date(now).toISOString(),
       expiresAt: new Date(now + LINK_TTL_MS).toISOString(),
     });
@@ -69,7 +71,9 @@ export async function POST(request: Request): Promise<Response> {
         verificationUriComplete: `${origin}/agent/link?code=${encodeURIComponent(userCode)}`,
         interval: LINK_POLL_INTERVAL_S,
         expiresIn: LINK_TTL_MS / 1000,
-        protocolVersion: LINK_PROTOCOL_VERSION,
+        // The version the client spoke, never a newer one: a version-1 plugin
+        // refuses any other value, and it keeps working unchanged.
+        protocolVersion: input.protocolVersion,
       },
       201
     );

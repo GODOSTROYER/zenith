@@ -50,9 +50,11 @@ export function parseCredentials(value: unknown): Credential[] {
     throw new AgentError("policy_unavailable", "The operator must repair the version-1 credential file.", 503);
   const ids = new Set(); const hashes = new Set();
   for (const row of value.credentials) {
-    const valid = object(row) && Object.keys(row).every(k => ["id", "tokenHash", "subject", "workspaceId", "projectIds", "environmentIds", "appIds", "scopes", "issuedAt", "expiresAt", "revokedAt", "label", "clientName"].includes(k))
+    const valid = object(row) && Object.keys(row).every(k => ["id", "tokenHash", "subject", "workspaceId", "projectIds", "environmentIds", "appIds", "scopes", "issuedAt", "expiresAt", "revokedAt", "label", "clientName", "allProjects"].includes(k))
       && identifier(row.id) && identifier(row.subject) && !["local", "navigator", "system"].includes(row.subject)
-      && identifier(row.workspaceId) && identifiers(row.projectIds) && row.projectIds.length > 0
+      && identifier(row.workspaceId) && identifiers(row.projectIds)
+      // A whole-workspace record names no projects and no environments; every other record names at least one project.
+      && (row.allProjects === undefined ? row.projectIds.length > 0 : row.allProjects === true && row.projectIds.length === 0 && row.environmentIds === undefined)
       && (row.environmentIds === undefined || identifiers(row.environmentIds))
       && (row.appIds === undefined || identifiers(row.appIds))
       && typeof row.tokenHash === "string" && /^[0-9a-f]{64}$/.test(row.tokenHash)
@@ -107,7 +109,7 @@ export function selectScope(headers: Headers, grant: Credential): SelectedScope 
   const workspaceId = headers.get("x-zenith-workspace");
   const projectId = headers.get("x-zenith-project") ?? undefined;
   const environmentId = headers.get("x-zenith-environment") ?? undefined;
-  if (workspaceId !== grant.workspaceId || !identifier(workspaceId) || projectId !== undefined && (!identifier(projectId) || !grant.projectIds.includes(projectId))
+  if (workspaceId !== grant.workspaceId || !identifier(workspaceId) || projectId !== undefined && (!identifier(projectId) || !grantsProject(grant, projectId))
     || environmentId !== undefined && (!identifier(environmentId) || !projectId || grant.environmentIds !== undefined && !grant.environmentIds.includes(environmentId)))
     throw new AgentError("scope_denied", "Select identifiers permitted by this credential; browser workspace selection is not used.");
   return { workspaceId, ...(projectId ? { projectId } : {}), ...(environmentId ? { environmentId } : {}) };

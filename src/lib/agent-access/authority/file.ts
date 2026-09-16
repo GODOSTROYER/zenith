@@ -41,6 +41,7 @@ import {
   paceInterval,
   sealLinkSecret,
 } from "../link/protocol";
+import { checkScopeShape, protocolTooOld } from "./scope";
 import type {
   ApproveLinkInput,
   CredentialAuthority,
@@ -77,6 +78,10 @@ interface StoredLink {
   pollCount: number;
   lastPolledAt?: string;
   failedLookups: number;
+  /** Absent on a code an older build wrote, which means 1. */
+  protocolVersion?: number;
+  workspaceHint?: string;
+  workspaceNameHint?: string;
 }
 
 interface LinkFile {
@@ -208,6 +213,9 @@ const view = (code: StoredLink, now: number): LinkRow => ({
   createdAt: code.createdAt,
   expiresAt: code.expiresAt,
   ...(code.credentialId === undefined ? {} : { credentialId: code.credentialId }),
+  protocolVersion: code.protocolVersion ?? 1,
+  ...(code.workspaceHint === undefined ? {} : { workspaceHint: code.workspaceHint }),
+  ...(code.workspaceNameHint === undefined ? {} : { workspaceNameHint: code.workspaceNameHint }),
 });
 
 /* -------------------------------- authority -------------------------------- */
@@ -253,7 +261,7 @@ class FileCredentialAuthority implements CredentialAuthority {
       const codes = prune(file.codes, now);
       if (codes.some((code) => code.userCodeHash === start.userCodeHash || code.deviceCodeHash === start.deviceCodeHash))
         throw new AgentError("rate_limited", "Try linking again.", 429);
-      codes.push({ ...start, state: "pending", pollCount: 0, failedLookups: 0 });
+      codes.push({ ...start, protocolVersion: start.protocolVersion ?? 1, state: "pending", pollCount: 0, failedLookups: 0 });
       await writeLinks(path, { version: 1, codes });
     });
   }
@@ -283,6 +291,7 @@ class FileCredentialAuthority implements CredentialAuthority {
     const now = input.now ?? Date.now();
     if (!Number.isInteger(input.days) || input.days < 1 || input.days > LINK_MAX_DAYS)
       throw new AgentError("invalid_request", `Choose a lifetime between 1 and ${LINK_MAX_DAYS} days.`, 400);
+    const allProjects = checkScopeShape(input);
     return withLock(path, async () => {
       const file = await readLinks(path);
       const code = file.codes.find((candidate) => candidate.userCodeHash === input.userCodeHash);
@@ -290,6 +299,7 @@ class FileCredentialAuthority implements CredentialAuthority {
         throw new AgentError("link_code_not_found", "This link request is no longer waiting. Run `zenith login` again.", 404);
       if (code.state !== "pending")
         throw new AgentError("link_code_consumed", "This link request was already answered.", 409);
+      if (allProjects && (code.protocolVersion ?? 1) < 2) throw protocolTooOld();
 
       const credentials = await readCredentials(path);
       const live = credentials.filter(
@@ -321,6 +331,7 @@ class FileCredentialAuthority implements CredentialAuthority {
         workspaceId: input.workspaceId,
         projectIds: [...new Set(input.projectIds)],
         ...(input.environmentIds ? { environmentIds: [...new Set(input.environmentIds)] } : {}),
+        ...(allProjects ? { allProjects: true as const } : {}),
         scopes: [...new Set(input.scopes)] as Credential["scopes"],
         issuedAt: new Date(now).toISOString(),
         expiresAt: new Date(now + input.days * 86_400_000).toISOString(),

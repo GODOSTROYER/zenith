@@ -14,7 +14,7 @@ import { plannedProviders } from "@/lib/providers/planned";
 import { computeDrift } from "@/lib/drift";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import type { Manifest } from "@/lib/domain/types";
-import { AgentError, redact, type Credential, type SelectedScope } from "./security";
+import { AgentError, grantsProject, redact, type Credential, type SelectedScope } from "./security";
 import { createReaderHandler, type ReaderTool } from "./http";
 // The one selector (LINK-PROTOCOL.md §3.1): the credential's subject must be a
 // live member row, and membership lives in the product store, so the authority
@@ -53,7 +53,9 @@ function member(grant: Credential) {
 }
 function project(args: Record<string, unknown>, grant: Credential, selected: SelectedScope) {
   const id = args.projectId ?? selected.projectId;
-  if (typeof id !== "string" || !grant.projectIds.includes(id) || selected.projectId && selected.projectId !== id) denied();
+  // Grant first, then tenancy: under a whole-workspace grant the project row must
+  // still belong to the credential's workspace, which the next line checks.
+  if (typeof id !== "string" || !grantsProject(grant, id) || selected.projectId && selected.projectId !== id) denied();
   const p = q.project(id);
   if (!p || p.id !== id || p.workspaceId !== grant.workspaceId) denied();
   return p;
@@ -94,7 +96,7 @@ export async function callReader(name: string, args: Record<string, unknown>, gr
     case "zenith_get_context": return { selected, user: { id: actor.id, name: actor.name, role: actor.role }, credentialId: grant.id, expiresAt: grant.expiresAt, mode: "read-only" };
     case "zenith_get_capabilities": return { contractVersion: 1, mode: "read-only", providers: providers.map(p => ({ id: p.id, availability: p.availability, description: p.tagline })),
       unavailable: { execute: "Durable receipts, atomic execution and trusted approvals are not integrated.", remoteOAuth: "Not implemented; this endpoint is loopback development only.", publishing: "Hosted source uploads and app-owner authorization are not integrated.", logs: "Free-form logs are excluded to reduce secret leakage.", metrics: "No metrics ingestion or automatic provider verification is implied." } };
-    case "zenith_list_projects": return page(db().projects.filter(p => p.workspaceId === grant.workspaceId && grant.projectIds.includes(p.id) && (!selected.projectId || selected.projectId === p.id)).sort((a, b) => a.id.localeCompare(b.id)).map(p => ({ id: p.id, name: p.name, slug: p.slug })), args);
+    case "zenith_list_projects": return page(db().projects.filter(p => p.workspaceId === grant.workspaceId && grantsProject(grant, p.id) && (!selected.projectId || selected.projectId === p.id)).sort((a, b) => a.id.localeCompare(b.id)).map(p => ({ id: p.id, name: p.name, slug: p.slug })), args);
     case "zenith_get_project": { const p = project(args, grant, selected); return { id: p.id, name: p.name, slug: p.slug, workspaceId: p.workspaceId, workingMonthlyUsd: monthlyCostUsd(p.workingManifest), costIsEstimate: true }; }
     case "zenith_get_manifest": {
       const p = project(args, grant, selected);

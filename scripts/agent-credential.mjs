@@ -4,7 +4,14 @@ import { randomBytes, createHash, randomUUID } from 'node:crypto';
 import { open, readFile, mkdir, rename, rm, lstat } from 'node:fs/promises';
 import { dirname, isAbsolute } from 'node:path';
 const args = process.argv.slice(2), command = args.shift(); const options = {};
+// `--all-projects` is the one flag without a value: the whole-workspace grant
+// (every current and future project, no environment narrowing).
+const FLAGS = ['all-projects'];
 for (let i = 0; i < args.length; i += 2) {
+  if (FLAGS.includes(args[i]?.slice(2)) && args[i].startsWith('--')) {
+    if (options[args[i].slice(2)] !== undefined) throw new Error('Use unique --name value pairs.');
+    options[args[i].slice(2)] = true; i -= 1; continue;
+  }
   if (!/^--[a-z-]+$/.test(args[i] ?? '') || !args[i + 1] || options[args[i].slice(2)] !== undefined) throw new Error('Use unique --name value pairs.');
   options[args[i].slice(2)] = args[i + 1];
 }
@@ -13,9 +20,9 @@ for (let i = 0; i < args.length; i += 2) {
 // so an operator-issued credential can be told apart on the Integrations
 // screen, and they stay optional so a file written by any earlier version of
 // this script still parses.
-const allowed = ['file', 'id', 'subject', 'workspace', 'projects', 'environments', 'apps', 'scopes', 'days', 'token-out', 'label', 'client-name'];
+const allowed = ['file', 'id', 'subject', 'workspace', 'projects', 'environments', 'apps', 'scopes', 'days', 'token-out', 'label', 'client-name', 'all-projects'];
 if (!['issue', 'revoke'].includes(command) || !options.file || !isAbsolute(options.file) || Object.keys(options).some(k => !allowed.includes(k))) {
-  console.error('Usage: node scripts/agent-credential.mjs issue --file /private/access.credentials.json --subject USER_ID --workspace WORKSPACE_ID --projects PROJECT_ID --token-out /private/client.token [--scopes read,plan,export] [--days 1] [--label laptop] [--client-name "Claude Code"]\nRevoke: node scripts/agent-credential.mjs revoke --file /private/access.credentials.json --id CREDENTIAL_ID'); process.exit(2);
+  console.error('Usage: node scripts/agent-credential.mjs issue --file /private/access.credentials.json --subject USER_ID --workspace WORKSPACE_ID (--projects PROJECT_ID | --all-projects) --token-out /private/client.token [--scopes read,plan,export] [--days 1] [--label laptop] [--client-name "Claude Code"]\nRevoke: node scripts/agent-credential.mjs revoke --file /private/access.credentials.json --id CREDENTIAL_ID'); process.exit(2);
 }
 if (process.platform === 'win32') { console.error('This operator utility requires POSIX file permissions. Windows authority support awaits ACL verification.'); process.exit(2); }
 const identifier = x => typeof x === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(x);
@@ -38,22 +45,23 @@ try {
     if (!identifier(options.id) || !state.credentials.some(r => r.id === options.id)) throw new Error('No matching credential; verify its ID.');
     id = options.id; state.credentials = state.credentials.filter(r => r.id !== id);
   } else {
-    const projects = (options.projects ?? '').split(','), environments = options.environments?.split(','), apps = options.apps?.split(',');
+    const allProjects = options['all-projects'] === true;
+    const projects = allProjects ? [] : (options.projects ?? '').split(','), environments = options.environments?.split(','), apps = options.apps?.split(',');
     const scopes = (options.scopes ?? 'read').split(','), days = Number(options.days ?? 1);
     if (!identifier(options.subject) || ['local', 'navigator', 'system'].includes(options.subject) || !identifier(options.workspace)
-      || !projects.every(identifier) || projects.length > 100 || environments && (!environments.every(identifier) || environments.length > 100)
+      || (allProjects ? options.projects !== undefined || environments !== undefined : !projects.length || !projects.every(identifier)) || projects.length > 100 || environments && (!environments.every(identifier) || environments.length > 100)
       || apps && (!apps.every(identifier) || apps.length > 100)
       || !scopes.includes('read') || scopes.some(s => !['read', 'plan', 'export', 'write', 'publish', 'logs'].includes(s)) || scopes.length > 6
       || !Number.isInteger(days) || days < 1 || days > 30 || !options['token-out'] || !isAbsolute(options['token-out']) || options['token-out'] === options.file || state.credentials.length >= 100
       || options.label !== undefined && !/^[A-Za-z0-9._-]{1,40}$/.test(options.label)
       || options['client-name'] !== undefined && !/^[A-Za-z0-9 ._-]{1,60}$/.test(options['client-name']))
-      throw new Error('Use an actual non-demo member, explicit project IDs, read/plan/export scopes, 1-30 days, a new absolute token file, and plain short --label/--client-name values.');
+      throw new Error('Use an actual non-demo member, explicit project IDs (or --all-projects without --projects/--environments), read/plan/export scopes, 1-30 days, a new absolute token file, and plain short --label/--client-name values.');
     const tokenDir = await lstat(dirname(options['token-out']));
     if (!tokenDir.isDirectory() || tokenDir.isSymbolicLink() || tokenDir.uid !== process.getuid() || (tokenDir.mode & 0o077)) throw new Error('Token output directory must be owned and private (0700).');
     const token = `za_${randomBytes(32).toString('base64url')}`; id = randomUUID();
     const now = Date.now();
     state.credentials.push({ id, tokenHash: createHash('sha256').update(token).digest('hex'), subject: options.subject, workspaceId: options.workspace,
-      projectIds: [...new Set(projects)], ...(environments ? { environmentIds: [...new Set(environments)] } : {}), ...(apps ? { appIds: [...new Set(apps)] } : {}), scopes: [...new Set(scopes)],
+      projectIds: [...new Set(projects)], ...(allProjects ? { allProjects: true } : {}), ...(environments ? { environmentIds: [...new Set(environments)] } : {}), ...(apps ? { appIds: [...new Set(apps)] } : {}), scopes: [...new Set(scopes)],
       issuedAt: new Date(now).toISOString(), expiresAt: new Date(now + days * 86400000).toISOString(),
       ...(options.label ? { label: options.label } : {}), ...(options['client-name'] ? { clientName: options['client-name'] } : {}) });
     const output = await open(options['token-out'], 'wx', 0o600); tokenCreated = true;

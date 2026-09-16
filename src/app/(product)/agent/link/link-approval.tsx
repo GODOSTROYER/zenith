@@ -38,7 +38,30 @@ interface LinkRequest {
   projects: { id: string; workspaceId: string; name: string }[];
   environments: { id: string; projectId: string; name: string }[];
   maxDays: number;
+  /** The link protocol the terminal spoke. Absent from an older server = 1. */
+  protocolVersion?: number;
+  /** Whether the whole-workspace grant may be offered (protocol >= 2). */
+  wholeWorkspace?: boolean;
+  /** What the terminal asked for. Unverified text; it only sets defaults. */
+  hint?: { workspaceId?: string; member?: boolean; workspaceName?: string; unverified: true } | null;
+  /** Whether this server lets a signed-in person create another workspace. */
+  canCreateWorkspace?: boolean;
 }
+
+type Mode = "workspace" | "projects";
+
+/**
+ * The least-privilege default: an explicit project list whenever the workspace
+ * has projects to list, and the whole workspace only when it has none (there
+ * is nothing else it could be) — and only for a terminal that can receive it.
+ */
+const defaultMode = (request: LinkRequest, workspaceId: string): Mode =>
+  request.wholeWorkspace && !request.projects.some((p) => p.workspaceId === workspaceId)
+    ? "workspace"
+    : "projects";
+
+const OPTION_CLASS =
+  "flex cursor-pointer gap-3 rounded-card border p-4 transition-colors duration-[var(--dur-fast)] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-signal";
 
 const SCOPES = ["read", "plan", "export", "write", "publish", "logs"] as const;
 
@@ -93,10 +116,18 @@ export default function LinkApproval() {
   const [scopes, setScopes] = useState<string[]>(DEFAULT_SCOPES);
   const [days, setDays] = useState(30);
   const [label, setLabel] = useState("");
+  const [mode, setMode] = useState<Mode>("projects");
+  const [newName, setNewName] = useState("");
+  const [createError, setCreateError] = useState("");
   const outcomeRef = useRef<HTMLDivElement>(null);
   const busy = busyKey !== undefined;
 
-  const load = useCallback(async (value: string, signal?: AbortSignal) => {
+  /**
+   * Read the waiting request. `prefer` selects a workspace the person just
+   * created, with the whole workspace forced — a brand-new workspace has no
+   * projects, so that is the only grant it can have.
+   */
+  const load = useCallback(async (value: string, signal?: AbortSignal, prefer?: string) => {
     setLoadError("");
     try {
       const data = await send<LinkRequest>(
@@ -105,15 +136,46 @@ export default function LinkApproval() {
         signal
       );
       setRequest(data);
-      // The server puts the workspace this browser is already looking at first.
-      setWorkspaceId(data.workspaces[0]?.id ?? "");
-      setLabel(data.client.label ?? "");
-      setDays(Math.min(30, data.maxDays));
+      // The server puts the hinted workspace (only when this person is a member
+      // of it), then the one this browser is already looking at, first.
+      const chosen =
+        prefer && data.workspaces.some((w) => w.id === prefer) ? prefer : data.workspaces[0]?.id ?? "";
+      setWorkspaceId(chosen);
+      setProjectIds([]);
+      setEnvironmentIds([]);
+      setNarrowEnvironments(false);
+      setMode(prefer && data.wholeWorkspace ? "workspace" : defaultMode(data, chosen));
+      setNewName((name) => name || data.hint?.workspaceName || "");
+      if (!prefer) {
+        setLabel(data.client.label ?? "");
+        setDays(Math.min(30, data.maxDays));
+      }
     } catch (e) {
       if (!signal?.aborted)
         setLoadError(e instanceof Error ? e.message : "This code could not be checked.");
     }
   }, []);
+
+  /**
+   * The same same-origin `POST /api/workspace` onboarding makes: a person
+   * clicking Create, never the program. The program's suggested name only
+   * prefilled the box.
+   */
+  async function createWorkspace() {
+    const name = newName.trim();
+    if (!name) return;
+    setBusyKey("create");
+    setCreateError("");
+    try {
+      const created = await send<{ workspace: { id: string } }>("/api/workspace", { name });
+      await load(code, undefined, created.workspace.id);
+      setNote({ kind: "ok", text: `Created “${name}”. It is selected below.` });
+    } catch (e) {
+      setCreateError(e instanceof Error ? e.message : "The workspace could not be created.");
+    } finally {
+      setBusyKey(undefined);
+    }
+  }
 
   useEffect(() => {
     const query = new URLSearchParams(window.location.search).get("code") ?? "";
@@ -135,8 +197,11 @@ export default function LinkApproval() {
   const environments = (request?.environments ?? []).filter((e) =>
     projectIds.includes(e.projectId)
   );
-  const role = request?.workspaces.find((w) => w.id === workspaceId)?.role ?? "";
+  const workspace = request?.workspaces.find((w) => w.id === workspaceId);
+  const role = workspace?.role ?? "";
   const viewer = role === "viewer";
+  const whole = mode === "workspace" && request?.wholeWorkspace === true;
+  const ready = Boolean(workspaceId) && (whole || projectIds.length > 0);
 
   async function answer(approve: boolean) {
     setBusyKey(approve ? "approve" : "deny");
@@ -148,8 +213,14 @@ export default function LinkApproval() {
         ...(approve
           ? {
               workspaceId,
-              projectIds,
-              ...(narrowEnvironments && environmentIds.length ? { environmentIds } : {}),
+              ...(whole
+                ? { projectIds: [], allProjects: true }
+                : {
+                    projectIds,
+                    ...(narrowEnvironments && environmentIds.length ? { environmentIds } : {}),
+                    // A protocol-1 terminal's body stays exactly what it was.
+                    ...(request?.wholeWorkspace ? { allProjects: false } : {}),
+                  }),
               scopes: viewer ? scopes.filter((s) => s !== "write" && s !== "publish") : scopes,
               days,
               ...(label ? { label } : {}),
@@ -269,6 +340,28 @@ export default function LinkApproval() {
                 <dt className="text-ink-faint">Asked for</dt>
                 <dd className="text-ink">{request.requestedScopes.join(", ") || "read"}</dd>
               </div>
+              {request.hint?.workspaceId && (
+                <div className="flex flex-wrap gap-2 sm:col-span-2">
+                  <dt className="text-ink-faint">Asked for workspace</dt>
+                  <dd className="min-w-0 break-all text-ink">
+                    <span className="font-mono">{request.hint.workspaceId}</span>
+                    <span className="text-ink-mute">
+                      {request.hint.member
+                        ? " · one of your workspaces, selected below"
+                        : " · not one of your workspaces, so it was ignored"}
+                    </span>
+                  </dd>
+                </div>
+              )}
+              {request.hint?.workspaceName && (
+                <div className="flex flex-wrap gap-2 sm:col-span-2">
+                  <dt className="text-ink-faint">Suggested new workspace</dt>
+                  <dd className="min-w-0 break-all text-ink">
+                    {request.hint.workspaceName}
+                    <span className="text-ink-mute"> · nothing is created until you press Create</span>
+                  </dd>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 <dt className="text-ink-faint">Started</dt>
                 <dd className="text-ink" title={fmtDate(request.startedAt)}>
@@ -284,7 +377,8 @@ export default function LinkApproval() {
             </dl>
             <Callout tone="warn" compact className="mt-4" title="This text is not verified">
               <p>
-                The program supplied its own name, version and label. Nothing checks them. Approve
+                The program supplied its own name, version, label and any workspace it suggested.
+                Nothing checks them. Approve
                 only if this code is the one your own terminal is showing you right now.
               </p>
             </Callout>
@@ -299,6 +393,8 @@ export default function LinkApproval() {
                     setWorkspaceId(e.target.value);
                     setProjectIds([]);
                     setEnvironmentIds([]);
+                    setNarrowEnvironments(false);
+                    setMode(defaultMode(request, e.target.value));
                   }}
                   options={request.workspaces.map((w) => ({
                     value: w.id,
@@ -308,15 +404,134 @@ export default function LinkApproval() {
                 />
               </Field>
 
+              {request.wholeWorkspace && request.canCreateWorkspace && (
+                <fieldset className="min-w-0 rounded-card border border-line p-4">
+                  <legend className="px-1 text-[13px] font-medium text-ink">
+                    Create a new workspace
+                  </legend>
+                  <p className="mb-3 text-[12px] text-ink-faint">
+                    Optional. You become its admin, it starts with a Zenith Sandbox connection and
+                    no projects, and it is selected above with the whole workspace chosen.
+                    {request.hint?.workspaceName
+                      ? " The name below was suggested by the program; change it if you like."
+                      : ""}
+                  </p>
+                  <form
+                    className="flex flex-wrap items-end gap-3"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void createWorkspace();
+                    }}
+                  >
+                    <Field label="Workspace name" help="1-60 characters.">
+                      <Input
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        maxLength={60}
+                        autoComplete="off"
+                        className="w-64 max-w-full"
+                      />
+                    </Field>
+                    <Button
+                      type="submit"
+                      busy={busyKey === "create"}
+                      disabled={!newName.trim() || (busy && busyKey !== "create")}
+                      disabledReason={
+                        !newName.trim()
+                          ? "Type a name for the new workspace first."
+                          : "This is available again when the current request settles."
+                      }
+                    >
+                      Create
+                    </Button>
+                  </form>
+                  {createError && (
+                    <Callout tone="err" compact live="alert" className="mt-3">
+                      <p>{createError}</p>
+                    </Callout>
+                  )}
+                </fieldset>
+              )}
+
               <fieldset className="min-w-0">
                 <legend className="text-[13px] font-medium text-ink">Projects</legend>
-                <p className="mt-0.5 mb-2 text-[12px] text-ink-faint">
-                  The agent sees nothing outside what you tick here. At least one is required, and
-                  what you tick is recorded as those projects — not as a standing “everything”.
-                </p>
-                {projects.length === 0 ? (
+                {request.wholeWorkspace ? (
+                  <div role="radiogroup" aria-label="Project access" className="mt-2 mb-3 space-y-2">
+                    <label
+                      className={
+                        OPTION_CLASS +
+                        (mode === "workspace"
+                          ? " border-signal bg-signal-dim"
+                          : " border-line bg-bg1 hover:border-line-strong")
+                      }
+                    >
+                      <input
+                        type="radio"
+                        name="project-access"
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[var(--signal)]"
+                        checked={mode === "workspace"}
+                        onChange={() => {
+                          setMode("workspace");
+                          setNarrowEnvironments(false);
+                          setEnvironmentIds([]);
+                        }}
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-[13px] font-medium text-ink">
+                          Whole workspace (including projects created later)
+                        </span>
+                        <span className="mt-1 block max-w-[70ch] text-[12.5px] leading-relaxed text-ink-mute">
+                          All current and future projects in {workspace?.name ?? "this workspace"},
+                          plus workspace settings: create projects, connections, alerts and rename.
+                          Every change is still reviewed on the Integrations screen before it runs.
+                        </span>
+                      </span>
+                    </label>
+                    <label
+                      className={
+                        OPTION_CLASS +
+                        (mode === "projects"
+                          ? " border-signal bg-signal-dim"
+                          : " border-line bg-bg1 hover:border-line-strong") +
+                        (projects.length === 0 ? " cursor-not-allowed opacity-55" : "")
+                      }
+                      title={
+                        projects.length === 0
+                          ? "This workspace has no projects yet, so there is nothing to list."
+                          : undefined
+                      }
+                    >
+                      <input
+                        type="radio"
+                        name="project-access"
+                        className="mt-0.5 h-3.5 w-3.5 shrink-0 accent-[var(--signal)]"
+                        checked={mode === "projects"}
+                        disabled={projects.length === 0}
+                        onChange={() => setMode("projects")}
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-[13px] font-medium text-ink">
+                          Only these projects
+                        </span>
+                        <span className="mt-1 block max-w-[70ch] text-[12.5px] leading-relaxed text-ink-mute">
+                          The agent sees nothing outside what you tick below, and a project created
+                          later is not included.
+                        </span>
+                      </span>
+                    </label>
+                  </div>
+                ) : (
+                  <p className="mt-0.5 mb-2 text-[12px] text-ink-faint">
+                    The agent sees nothing outside what you tick here. At least one is required, and
+                    what you tick is recorded as those projects — not as a standing “everything”.
+                  </p>
+                )}
+                {whole ? null : projects.length === 0 ? (
                   <p className="text-[13px] text-ink-mute">
                     This workspace has no projects yet, so there is nothing to give access to.
+                    {request.wholeWorkspace
+                      ? ""
+                      : " Update the Zenith plugin and run `zenith login` again to link a whole workspace."}
                   </p>
                 ) : (
                   <>
@@ -346,7 +561,7 @@ export default function LinkApproval() {
                 )}
               </fieldset>
 
-              {projectIds.length > 0 && environments.length > 0 && (
+              {!whole && projectIds.length > 0 && environments.length > 0 && (
                 <fieldset className="min-w-0">
                   <legend className="text-[13px] font-medium text-ink">Environments</legend>
                   <Checkbox
@@ -450,11 +665,13 @@ export default function LinkApproval() {
               variant="primary"
               icon={<ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />}
               busy={busyKey === "approve"}
-              disabled={projectIds.length === 0 || !workspaceId || (busy && busyKey !== "approve")}
+              disabled={!ready || (busy && busyKey !== "approve")}
               disabledReason={
-                projectIds.length === 0
-                  ? "Choose at least one project before this agent can be linked."
-                  : "This is available again when the current request settles."
+                !workspaceId
+                  ? "Choose a workspace, or create one, before this agent can be linked."
+                  : !ready
+                    ? "Choose at least one project before this agent can be linked."
+                    : "This is available again when the current request settles."
               }
               onClick={() => void answer(true)}
             >

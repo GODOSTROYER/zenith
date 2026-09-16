@@ -153,6 +153,10 @@ describe("landmarks and headings", () => {
     expect(named).toEqual([
       "Connect an OAuth client",
       "Authorized clients",
+      // Credentials issued by the browser link flow are a fourth region, named
+      // and ordered like the other three — a screen reader reaches it by
+      // landmark without reading the OAuth list first.
+      "Linked agents",
       "Proposals awaiting review",
     ]);
   });

@@ -471,8 +471,146 @@ leases for the engine do not exist yet.
 
 ---
 
+## 9. The `agent` schema — migrations `0006` and `0007`
+
+The linked-agent feature adds one schema, `agent`, with its own migration
+ledger. It is deliberately not `hosted.*`: that schema is gated by the hosted
+boot check, which refuses every request below version 3, and an agent-link
+outage must not be coupled to a hosted-apps migration. It is deliberately not
+`public.*` either: that schema is served by PostgREST and frozen by `0001`,
+and nothing in the `agent` schema should ever be reachable over the Data API.
+
+| file | ledger row | tables |
+| --- | --- | --- |
+| `0006_agent_link.sql` | `1 \| agent-link-v1` | `agent_credentials`, `agent_link_codes`, `agent_rate_limits` |
+| `0007_agent_control.sql` | `2 \| agent-control-v1` | `agent_operations`, `agent_operation_events`, `agent_uploads` |
+
+Both create the schema if it is absent, both are idempotent, and both carry the
+full `service_role` grant block, so either order applies and re-applying is a
+no-op — exactly as `0002`/`0003` already do. They are listed in numeric order
+below because that is the order to run them in when you have the choice.
+
+### 9.1 Runbook
+
+Nothing here is run by an agent. Migrations are applied by hand, as §3 requires.
+
+**0. Pre-check.** In the SQL editor:
+
+```sql
+select version, name from hosted.schema_migrations order by version;   -- expect 1, 2, 3
+select 1 from information_schema.schemata where schema_name = 'agent';  -- expect 0 rows
+```
+
+Confirm on Vercel that `ZENITH_STORE=postgres`, `ZENITH_HOSTED_STORE=postgres`,
+`SUPABASE_DB_URL` (the 6543 pooler), `NEXT_PUBLIC_SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET` **and `ZENITH_SECRET_KEY`** are all
+set. If `ZENITH_SECRET_KEY` is missing, stop and set it first: the link code's
+`secret_ct` is encrypted with it, and every link attempt would answer `503
+link_unavailable` rather than storing a token in the clear.
+
+**1. Apply `supabase/migrations/0006_agent_link.sql`.** Verify:
+
+```sql
+select version, name from agent.schema_migrations order by version;  -- 1 | agent-link-v1
+select count(*) from agent.agent_credentials;                        -- 0
+```
+
+**2. Apply `supabase/migrations/0007_agent_control.sql`.** Verify:
+
+```sql
+select version, name from agent.schema_migrations order by version;  -- 1, 2
+select indexname from pg_indexes where schemaname = 'agent' order by 1;
+-- agent_credentials_live, agent_credentials_subject, agent_link_codes_expiry,
+-- agent_operation_events_op, agent_operations_leased, agent_operations_pending_expiry,
+-- agent_operations_review, agent_operations_scope, agent_rate_limits_bucket,
+-- agent_uploads_workspace   (plus the primary-key and UNIQUE indexes PostgreSQL names itself)
+select has_schema_privilege('service_role','agent','USAGE');         -- t
+```
+
+**Do not add `agent` to Settings → API → Exposed schemas.** Nothing reaches it
+over PostgREST — the journal and the credential authority speak direct Postgres
+through `postgres.js`, reusing the same `max: 1` pooled client the hosted
+authority already holds, so the connection budget does not change. Exposing the
+schema would publish credential rows to the Data API surface.
+
+**3. Set two new Vercel variables**, production **and** preview:
+
+```text
+ZENITH_AGENT_CONTROL=1
+ZENITH_AGENT_ORIGIN=https://tryzenith.cloud
+```
+
+Do **not** set `ZENITH_AGENT_WRITES` — it governs the file store only. Do
+**not** set `ZENITH_AGENT_CREDENTIAL_FILE` — there is no file authority on
+Vercel, and setting it would name a `/tmp` path that no other instance sees.
+
+**4. Add the fifth tick** to `.github/workflows/tick.yml`: `POST
+$BASE_URL/api/internal/tick/agent` with the same bearer and the same failure
+handling as the other four. It reconciles expired leases to `uncertain`,
+expires unreviewed proposals, sweeps link codes and deletes expired uploads —
+all bounded, all idempotent.
+
+**5. Redeploy.** Environment changes reach functions only through a new
+deployment, and `NEXT_PUBLIC_*` are build-time.
+
+**6. Verify by request, not by boot** — the `agent` schema check is lazy, as
+`hosted`'s is. In this order, each before the next:
+
+1. `POST /api/internal/tick/agent` with the bearer → `{"pass":"agent","ok":true,…}`,
+   not 401 or 503.
+2. `POST /api/agent/link/start` → 201 with an eight-character user code.
+3. Open the verification URL signed in — the approval screen renders a
+   workspace and at least one project.
+4. Approve; the terminal prints the granted scope (never the token).
+5. `GET /api/agent/v2/tools` with the bearer lists `zenith_prepare_change` and
+   `zenith_execute_operation`.
+6. One prepare → browser approve → execute → the simulated deployment moving on
+   the canvas.
+7. `/integrations` lists the linked agent; Revoke; the next agent call is 401.
+
+**7. Record the run.** Paste the transcripts of step 6 into the PR with their
+exit codes. No document may claim a run that did not happen.
+
+### 9.2 Rollback
+
+Three independent levers, smallest first. **Nothing is dropped and nothing is
+deleted.**
+
+| symptom | lever | effect |
+| --- | --- | --- |
+| link or control misbehaving | unset `ZENITH_AGENT_CONTROL`, redeploy | the capability probe answers `control: false`; `/api/agent/v2/*` answers `503 control_disabled` and the link endpoints answer `503 link_unavailable`. Issued credentials stop working; every row stays |
+| one agent misbehaving | Integrations → Linked agents → **Revoke** | `revoked_at` is set; effective on that credential's next request |
+| the whole feature is wrong | revert the application deployment to the previous one in Vercel | the `agent` schema is simply unreferenced by the old build. No migration runs backwards |
+
+There is deliberately **no down-migration**. `agent.*` is additive, touches
+nothing in `public.*` or `hosted.*`, and dropping it would destroy the audit
+trail of operations that already ran. If the schema really must go, that is a
+separate, deliberate `drop schema agent cascade` by the operator, with its own
+runbook entry written first — never part of a rollback.
+
+An operation left `running` when the feature is switched off resolves to
+`uncertain` on the next `tick/agent` pass **if** the feature is switched back
+on. While it is off the row simply sits there, which is the honest state:
+nobody can say what happened to its side effect.
+
+### 9.3 Troubleshooting
+
+| Symptom | Means | Do |
+| --- | --- | --- |
+| every v2 call answers `503 control_disabled` | `ZENITH_AGENT_CONTROL` is unset, or `SUPABASE_DB_URL` is unreachable, or `agent.schema_migrations` is behind | the message names which. Run §9.1 step 0 and 2's verification queries |
+| every link call answers `503 link_unavailable` | `ZENITH_SECRET_KEY` is not set, or the credential authority cannot be reached | set the key **before** the deploy; a link would otherwise have to store a token in the clear, which it will not do |
+| `42P01 agent.agent_operations does not exist` | `0007` was not applied, or was applied to a different project | apply it; the file is idempotent |
+| an operation sits at `uncertain` | its dispatch could not be confirmed — a killed instance, a lost version guard, or an authority that moved mid-flight | inspect the linked deployment or job on `/integrations`. **Do not** re-run it with a new request key; that is the silent replay this design refuses |
+| `zenith_get_capabilities` reports `coordination: "process-gate"` on production | the deployment is running the file store, not Postgres | check `ZENITH_STORE`. The advertisement is truthful by design, so this is the symptom doing its job |
+
+---
+
 ## See also
 
+- [AGENT-LINK.md](AGENT-LINK.md) — the linked-agent flow this schema backs, for
+  the operator and the user.
+- [AGENT-CONTROL.md](AGENT-CONTROL.md) — the capability table that decides
+  whether control and writes are available at all.
 - [RUNNING.md](RUNNING.md) — product A on Postgres, the tick routes, the full
   environment-variable table.
 - [MODULE-MAP.md](MODULE-MAP.md) — which module owns which store.

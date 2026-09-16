@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ControlError, Journal, type Principal, type Proposal } from '../src/lib/agent-access/control/journal';
+import { ControlError, Journal, SqliteAgentJournal, type Principal, type Proposal } from '../src/lib/agent-access/control/journal';
 import { Coordinator, type ControlPort } from '../src/lib/agent-access/control/coordinator';
 import { withMutationGate } from '../src/lib/actions/mutation-gate';
 const who: Principal = { subject:'member', integrationId:'codex', workspaceId:'ws', projectIds:['p'], scopes:['read','plan','write'], expiresAt:'2099-01-01T00:00:00Z' };
@@ -8,8 +8,12 @@ function fixture(patch: Partial<ControlPort> = {}) {
   const journal = new Journal(':memory:'); let executions = 0, flushes = 0;
   const port: ControlPort = { gate:withMutationGate, scope:async(_,f)=>f(), proposal:async()=>proposal, fingerprint:async()=>proposal.fingerprint,
     authorize:async()=>{}, execute:async()=>{ executions++; return {ok:true, data:{deploymentId:'dep'}}; }, flush:async()=>{flushes++;}, ...patch };
-  const coordinator = new Coordinator(journal, port);
-  return { journal, coordinator, count:()=>({executions,flushes}), close:()=>journal.close() };
+  // The coordinator holds the asynchronous surface; the assertions below keep
+  // reading the synchronous class underneath it, so what they observe is the
+  // durable row rather than whatever the adapter chose to return.
+  const agentJournal = new SqliteAgentJournal(journal);
+  const coordinator = new Coordinator(agentJournal, port);
+  return { journal, agentJournal, coordinator, count:()=>({executions,flushes}), close:()=>journal.close() };
 }
 async function approved(f: ReturnType<typeof fixture>) { const op=await f.coordinator.prepare(who, {}); f.journal.review(op.id,who.subject,who.workspaceId,op.digest,true); return op; }
 describe('integration coordinator',()=>{
@@ -121,5 +125,55 @@ describe('integration coordinator',()=>{
   it('mutation gate is reentrant and releases on throw',async()=>{
     await expect(withMutationGate(()=>withMutationGate(async()=>{throw Error('expected');}))).rejects.toThrow('expected');
     expect(await withMutationGate(async()=>42)).toBe(42);
+  });
+});
+
+/**
+ * The wiring the Postgres journal was waiting on, now done.
+ *
+ * `AgentJournal` (F5) is all-promise, because a network round trip cannot be a
+ * return value. `Coordinator` now takes that interface and awaits every journal
+ * call, and `browser.ts` and `boundary.ts` await their reads too. This pins the
+ * wired state: if the coordinator is ever narrowed back to the synchronous
+ * class, or a journal call loses its `await`, it fails here rather than in a
+ * Postgres deployment that silently writes an approved operation somewhere
+ * nothing reads again.
+ */
+describe('coordinator journal surface',()=>{
+  it('holds the asynchronous journal and awaits every call',async()=>{
+    const f=fixture();
+    try{
+      const op=await approved(f);
+      // The coordinator's own journal is the AgentJournal, and every method
+      // that decides anything answers with a promise.
+      expect(f.coordinator.journal).toBe(f.agentJournal);
+      expect(f.coordinator.journal.kind).toBe('file');
+      for (const call of [
+        f.coordinator.journal.get(who,op.id),
+        f.coordinator.journal.findRequest(who,proposal.requestKey),
+        f.coordinator.journal.reviewQueue('ws',who.subject,true),
+        f.coordinator.journal.getGrant(who.subject,'client','ws'),
+      ]) expect(call).toBeInstanceOf(Promise);
+      // And awaiting them yields the same rows the synchronous journal holds,
+      // because `SqliteAgentJournal` delegates rather than caching.
+      const read=await f.coordinator.journal.get(who,op.id);
+      expect(read.target.workspaceId).toBe('ws');
+      expect(read.phase).toBe(f.journal.get(who,op.id).phase);
+      expect(await f.coordinator.journal.reviewQueue('ws',who.subject,true)).toHaveLength(1);
+      expect(await f.coordinator.journal.getGrant(who.subject,'client','ws')).toBeUndefined();
+    } finally {f.close();}
+  });
+  it('keeps uncertain a terminal answer, never a retry',async()=>{
+    let dispatches=0;
+    const f=fixture({execute:async()=>{dispatches++;throw new ControlError('provider_failed','the provider did not answer');}});
+    try{
+      const op=await approved(f);
+      await expect(f.coordinator.execute(async()=>who,op.id)).rejects.toThrow('may have been accepted');
+      expect(f.journal.get(who,op.id).phase).toBe('uncertain');
+      // A second attempt is handed the uncertainty, not a fresh dispatch: the
+      // side effect may have happened and nothing here can find out.
+      expect((await f.coordinator.execute(async()=>who,op.id)).phase).toBe('uncertain');
+      expect(dispatches).toBe(1);
+    } finally {f.close();}
   });
 });

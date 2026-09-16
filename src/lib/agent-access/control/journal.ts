@@ -41,6 +41,52 @@ export function checkTarget(who: Principal, target: Target, scope: string, now =
     throw new ControlError('scope_denied', 'This integration cannot access this operation or target.', 403);
 }
 
+/** A durable OAuth client grant, as both stores hand it back. */
+export type Grant = Principal & { clientId: string; revoked?: boolean };
+/** What `putUpload` returns on either store. */
+export interface UploadReceipt { uploadId: string; sha256: string; bytes: number; expiresAt: string }
+/** One journal event, as `events()` projects it. */
+export interface JournalEvent { sequence: number; kind: string; at: string; data: unknown }
+
+/**
+ * The journal surface, with every method asynchronous.
+ *
+ * Extracted from `Journal` below so a second implementation can exist that
+ * cannot answer synchronously: `journal-pg.ts` talks to Supabase over
+ * `postgres.js`, and no amount of care makes a network round trip a return
+ * value. The SQLite implementation keeps its synchronous class (nothing about
+ * its behaviour changes) and `SqliteAgentJournal` presents it through this
+ * interface as already-resolved promises.
+ *
+ * **Frozen contract (WORK-GRAPH-2 F5).** The method set and their argument
+ * shapes are the ones `Journal` already had; only the return types moved into
+ * promises.
+ */
+export interface AgentJournal {
+  /** Which store is behind this journal. Reported by `zenith_get_capabilities`. */
+  readonly kind: 'file' | 'postgres';
+  /** Identity of the process/instance holding a claim. */
+  readonly workerId: string;
+  prepare(who: Principal, proposal: Proposal, ttlMs?: number): Promise<Operation>;
+  findRequest(who: Principal, requestKey: string): Promise<Operation | undefined>;
+  get(who: Principal, id: string): Promise<Operation>;
+  review(id: string, subject: string, workspace: string, expectedDigest: string, approve: boolean,
+    approver?: string, role?: 'editor' | 'admin'): Promise<Operation>;
+  claim(who: Principal, id: string, fingerprint: string, applicationAuthorizationDigest?: string): Promise<{ operation: Operation; claimed: boolean }>;
+  finishIfValid(who: Principal, id: string, result: unknown, success: boolean, applicationAuthorizationDigest?: string): Promise<Operation>;
+  finish(id: string, result: unknown, success: boolean): Promise<Operation>;
+  uncertain(id: string): Promise<Operation>;
+  list(who: Principal, limit?: number, offset?: number): Promise<Operation[]>;
+  events(who: Principal, id: string, after?: number, limit?: number): Promise<JournalEvent[]>;
+  forReview(id: string, workspace: string): Promise<Operation>;
+  reviewQueue(workspace: string, subject: string, admin: boolean): Promise<Operation[]>;
+  putUpload(who: Principal, target: Target, appId: string, bytes: Buffer): Promise<UploadReceipt>;
+  upload(who: Principal, target: Target, appId: string, id: string, expectedHash: string): Promise<Buffer>;
+  grants(subject: string, workspace: string): Promise<Grant[]>;
+  getGrant(subject: string, clientId: string, workspace: string): Promise<Grant | undefined>;
+  setGrant(grant: Grant): Promise<void>;
+}
+
 type JsonRow = { document: string };
 /** Synchronization is a SQLite transaction, never an in-memory replay cache. */
 export class Journal {
@@ -243,11 +289,24 @@ export class Journal {
     return (this.sql.prepare("SELECT document FROM agent_operations WHERE workspace=? AND phase IN ('prepared','approved') ORDER BY created_at DESC LIMIT 100")
       .all(workspace) as JsonRow[]).map(r => JSON.parse(r.document) as Operation).filter(op => admin || op.subject === subject);
   }
-  private expirePending(): void {
+  private expirePending(): { expired: number; uploads: number } {
     const rows = this.sql.prepare("SELECT document FROM agent_operations WHERE phase IN ('prepared','approved')").all() as JsonRow[];
+    let expired = 0;
     for (const row of rows) { const op = JSON.parse(row.document) as Operation;
-      if (Date.parse(op.expiresAt) <= this.clock()) { op.phase = 'expired'; this.write(op, 'expired'); } }
-    this.sql.prepare('DELETE FROM agent_uploads WHERE expires_at <= ?').run(this.clock());
+      if (Date.parse(op.expiresAt) <= this.clock()) { op.phase = 'expired'; this.write(op, 'expired'); expired++; } }
+    const uploads = this.sql.prepare('DELETE FROM agent_uploads WHERE expires_at <= ?').run(this.clock());
+    return { expired, uploads: Number(uploads.changes ?? 0) };
+  }
+  /**
+   * The same sweep `prepare()` and `putUpload()` already run, on its own.
+   *
+   * `agentTickPass()` (reconcile.ts) calls this so the single-host file store
+   * expires stale proposals and uploads on the scheduler's pass as well as on
+   * the next write, which is the only thing that used to trigger it. Counting
+   * is the only thing added; what is expired and when is unchanged.
+   */
+  expire(): { expired: number; uploads: number } {
+    return this.transaction(() => this.expirePending());
   }
   grants(subject: string, workspace: string): (Principal & { clientId: string; revoked?: boolean })[] {
     return (this.sql.prepare('SELECT document FROM agent_grants WHERE subject=? AND workspace=? LIMIT 100').all(subject, workspace) as JsonRow[]).map(r => JSON.parse(r.document));
@@ -284,4 +343,57 @@ export class Journal {
     const row = this.sql.prepare('SELECT document FROM agent_grants WHERE subject=? AND client_id=? AND workspace=?').get(subject, clientId, workspace) as JsonRow | undefined;
     return row ? JSON.parse(row.document) : undefined;
   }
+}
+
+/**
+ * `Journal` as an `AgentJournal`: the same object, one promise deep.
+ *
+ * Nothing is reordered, retried or batched here. Every method delegates
+ * straight through, so the single-host file store keeps the behaviour its
+ * tests already pin — a `BEGIN IMMEDIATE` transaction per call, the same
+ * refusals, the same codes — and the only difference a caller can observe is
+ * that it has to `await`.
+ *
+ * It exists so that one call site can hold either store. `Coordinator` still
+ * takes the synchronous class today (see runtime.ts's note on the wiring this
+ * round could not finish); everything written against `AgentJournal` —
+ * `agentTickPass()`, the reconciliation pass, and the Postgres implementation's
+ * own tests — works against both.
+ */
+export class SqliteAgentJournal implements AgentJournal {
+  readonly kind = 'file' as const;
+  constructor(readonly inner: Journal) {}
+  get workerId(): string { return this.inner.workerId; }
+  close(): void { this.inner.close(); }
+  /** Boot-time recovery, single-writer only. Never reachable on Postgres. */
+  async recover(): Promise<number> { return this.inner.recover(); }
+  async expire(): Promise<{ expired: number; uploads: number }> { return this.inner.expire(); }
+  async prepare(who: Principal, proposal: Proposal, ttlMs?: number): Promise<Operation> {
+    return ttlMs === undefined ? this.inner.prepare(who, proposal) : this.inner.prepare(who, proposal, ttlMs);
+  }
+  async findRequest(who: Principal, requestKey: string): Promise<Operation | undefined> { return this.inner.findRequest(who, requestKey); }
+  async get(who: Principal, id: string): Promise<Operation> { return this.inner.get(who, id); }
+  async review(id: string, subject: string, workspace: string, expectedDigest: string, approve: boolean,
+    approver?: string, role: 'editor' | 'admin' = 'editor'): Promise<Operation> {
+    return this.inner.review(id, subject, workspace, expectedDigest, approve, approver ?? subject, role);
+  }
+  async claim(who: Principal, id: string, fingerprint: string, applicationAuthorizationDigest?: string): Promise<{ operation: Operation; claimed: boolean }> {
+    return this.inner.claim(who, id, fingerprint, applicationAuthorizationDigest);
+  }
+  async finishIfValid(who: Principal, id: string, result: unknown, success: boolean, applicationAuthorizationDigest?: string): Promise<Operation> {
+    return this.inner.finishIfValid(who, id, result, success, applicationAuthorizationDigest);
+  }
+  async finish(id: string, result: unknown, success: boolean): Promise<Operation> { return this.inner.finish(id, result, success); }
+  async uncertain(id: string): Promise<Operation> { return this.inner.uncertain(id); }
+  async list(who: Principal, limit?: number, offset?: number): Promise<Operation[]> { return this.inner.list(who, limit, offset); }
+  async events(who: Principal, id: string, after?: number, limit?: number): Promise<JournalEvent[]> {
+    return this.inner.events(who, id, after, limit) as JournalEvent[];
+  }
+  async forReview(id: string, workspace: string): Promise<Operation> { return this.inner.forReview(id, workspace); }
+  async reviewQueue(workspace: string, subject: string, admin: boolean): Promise<Operation[]> { return this.inner.reviewQueue(workspace, subject, admin); }
+  async putUpload(who: Principal, target: Target, appId: string, bytes: Buffer): Promise<UploadReceipt> { return this.inner.putUpload(who, target, appId, bytes); }
+  async upload(who: Principal, target: Target, appId: string, id: string, expectedHash: string): Promise<Buffer> { return this.inner.upload(who, target, appId, id, expectedHash); }
+  async grants(subject: string, workspace: string): Promise<Grant[]> { return this.inner.grants(subject, workspace); }
+  async getGrant(subject: string, clientId: string, workspace: string): Promise<Grant | undefined> { return this.inner.getGrant(subject, clientId, workspace); }
+  async setGrant(grant: Grant): Promise<void> { this.inner.setGrant(grant); }
 }

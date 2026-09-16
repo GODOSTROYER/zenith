@@ -45,6 +45,11 @@ const passed = (fullName: string): Assertion => ({
 });
 
 const LIVE_MIGRATE = passed("migrate against the real Supabase project applies in order and is idempotent");
+// The two agent lanes the job also intends to run; present in every "should pass" fixture.
+const AGENT_LANES = [
+  passed("AgentLinkPostgres credentials issue verify revoke"),
+  passed("AgentControlPostgres claims exactly one of two racing connections"),
+];
 
 describe("postgres lane report", () => {
   it("counts the Postgres row under vitest's quoted $name spelling", () => {
@@ -53,6 +58,7 @@ describe("postgres lane report", () => {
         passed("'SqliteAuthority' ledgers quota counters hands each caller the total that committed"),
         passed("'PostgresAuthority' ledgers quota counters hands each caller the total that committed"),
         LIVE_MIGRATE,
+        ...AGENT_LANES,
       ])
     );
     expect(out).not.toContain("produced 0 passing tests");
@@ -61,14 +67,14 @@ describe("postgres lane report", () => {
 
   it("still accepts the unquoted spelling", () => {
     const { status } = run(
-      report([passed("PostgresAuthority ledgers quota counters hands each caller the total"), LIVE_MIGRATE])
+      report([passed("PostgresAuthority ledgers quota counters hands each caller the total"), LIVE_MIGRATE, ...AGENT_LANES])
     );
     expect(status).toBe(0);
   });
 
   it("fails the job when only the SQLite row ran", () => {
     const { status, out } = run(
-      report([passed("'SqliteAuthority' ledgers quota counters hands each caller the total"), LIVE_MIGRATE])
+      report([passed("'SqliteAuthority' ledgers quota counters hands each caller the total"), LIVE_MIGRATE, ...AGENT_LANES])
     );
     expect(out).toContain("produced 0 passing tests");
     expect(status).toBe(1);
@@ -76,8 +82,18 @@ describe("postgres lane report", () => {
 
   it("does not mistake a row whose name merely contains the word", () => {
     const { status } = run(
-      report([passed("'NotPostgresAuthorityAtAll' ledgers something"), LIVE_MIGRATE])
+      report([passed("'NotPostgresAuthorityAtAll' ledgers something"), LIVE_MIGRATE, ...AGENT_LANES])
     );
+    expect(status).toBe(1);
+  });
+});
+
+describe("postgres lane report, agent lanes", () => {
+  it("fails the job when an agent contract file ran zero tests", () => {
+    const { status, out } = run(
+      report([passed("'PostgresAuthority' ledgers quota counters hands each caller the total"), LIVE_MIGRATE, AGENT_LANES[0]])
+    );
+    expect(out).toContain("agent.agent_operations");
     expect(status).toBe(1);
   });
 });

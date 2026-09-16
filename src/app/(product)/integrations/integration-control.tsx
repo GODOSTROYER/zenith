@@ -14,7 +14,7 @@
  * else in the product.
  */
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { KeyRound, RefreshCw, ScrollText } from "lucide-react";
+import { KeyRound, Link2, RefreshCw, ScrollText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { Card } from "@/components/ui/card";
@@ -55,6 +55,25 @@ interface Grant {
   expiresAt: string;
   revoked?: boolean;
 }
+/**
+ * One agent linked from a terminal through `zenith login` — Zenith's own
+ * credential, not an OAuth grant. The two are listed separately because they
+ * are different things: this one has no issuer to bind to and no second token
+ * to intersect scopes with, and it is revoked by its own id.
+ */
+interface LinkedAgent {
+  id: string;
+  label: string | null;
+  clientName: string | null;
+  clientVersion: string | null;
+  scopes: string[];
+  projectIds: string[];
+  environmentIds: string[] | null;
+  issuedAt: string;
+  expiresAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+}
 interface State {
   workspaceId: string;
   subject: string;
@@ -64,6 +83,9 @@ interface State {
   projects: { id: string; name: string }[];
   grants: Grant[];
   operations: Operation[];
+  linkedAgents: LinkedAgent[];
+  /** present only when the credential authority could not be read at all */
+  linkedAgentsUnavailable?: string;
 }
 
 /** Unchanged wire contract: same URLs, same method selection, same payloads. */
@@ -506,6 +528,102 @@ export default function IntegrationControl() {
                                 revoked: true,
                               },
                               "Access revoked for subsequent requests."
+                            )
+                          }
+                        >
+                          Revoke
+                        </Button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </Card>
+          </section>
+
+          <section aria-labelledby="linked-heading" className="space-y-4">
+            <h2 className="text-[20px] font-medium text-ink" id="linked-heading">
+              Linked agents
+            </h2>
+            <p className="max-w-[70ch] text-[13px] text-ink-mute">
+              Credentials you issued from a terminal by approving a link request. Revoking one
+              takes effect on that agent&rsquo;s next request; nothing already dispatched is
+              undone.
+            </p>
+            {state.linkedAgentsUnavailable && (
+              <Callout tone="warn" title="Linked agents could not be read">
+                <p>{state.linkedAgentsUnavailable}</p>
+              </Callout>
+            )}
+            <Card padded={false}>
+              {(state.linkedAgents ?? []).length === 0 ? (
+                <EmptyState
+                  icon={<Link2 className="h-5 w-5" aria-hidden="true" />}
+                  title="No agents linked"
+                  body="Run `zenith login` in your terminal to link one."
+                />
+              ) : (
+                <ul>
+                  {state.linkedAgents.map((agent) => {
+                    const expired = Date.parse(agent.expiresAt) <= now;
+                    const dead = Boolean(agent.revokedAt) || expired;
+                    return (
+                      <li
+                        key={agent.id}
+                        className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line px-5 py-3.5 last:border-b-0"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="flex flex-wrap items-center gap-2">
+                            <span className="min-w-0 break-all text-[13px] text-ink">
+                              {agent.label ?? agent.clientName ?? agent.id}
+                            </span>
+                            {agent.revokedAt ? (
+                              <Chip tone="neutral">revoked</Chip>
+                            ) : expired ? (
+                              <Chip tone="neutral">expired</Chip>
+                            ) : (
+                              <Chip tone="ok">active</Chip>
+                            )}
+                          </p>
+                          <p className="mt-0.5 text-[12.5px] text-ink-mute">
+                            {agent.clientName ?? "an unnamed program"}
+                            {agent.clientVersion ? ` ${agent.clientVersion}` : ""}
+                            {" · "}
+                            {agent.scopes.join(", ")}
+                            {" · "}
+                            {agent.projectIds.length} project
+                            {agent.projectIds.length === 1 ? "" : "s"}
+                            {" · "}
+                            <span title={fmtDate(agent.expiresAt)}>
+                              {expired ? "expired " : "expires "}
+                              <TimeAgo iso={agent.expiresAt} />
+                            </span>
+                            {agent.lastUsedAt && (
+                              <span title={fmtDate(agent.lastUsedAt)}>
+                                {" · last used "}
+                                <TimeAgo iso={agent.lastUsedAt} />
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="quiet"
+                          busy={busyKey === `unlink:${agent.id}`}
+                          disabled={dead || (busy && busyKey !== `unlink:${agent.id}`)}
+                          disabledReason={
+                            agent.revokedAt
+                              ? "This credential is already revoked, so there is nothing left to withdraw."
+                              : expired
+                                ? "This credential has expired, so it already authorizes nothing."
+                                : "Another change is still being saved."
+                          }
+                          onClick={() =>
+                            void act(
+                              `unlink:${agent.id}`,
+                              "/api/integrations/agent/link/revoke",
+                              { credentialId: agent.id },
+                              "Credential revoked. It stops working on this agent's next request."
                             )
                           }
                         >

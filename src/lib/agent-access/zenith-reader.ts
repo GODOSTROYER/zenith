@@ -16,6 +16,10 @@ import { monthlyCostUsd } from "@/lib/cost/pricing";
 import type { Manifest } from "@/lib/domain/types";
 import { AgentError, redact, type Credential, type SelectedScope } from "./security";
 import { createReaderHandler, type ReaderTool } from "./http";
+// The one selector (LINK-PROTOCOL.md §3.1): the credential's subject must be a
+// live member row, and membership lives in the product store, so the authority
+// follows `ZENITH_STORE` rather than a second flag.
+import { credentialAuthority } from "./authority";
 
 const string = { type: "string", minLength: 1, maxLength: 100 };
 const pagination = { limit: { type: "integer", minimum: 1, maximum: 100 }, cursor: { type: "string", pattern: "^[0-9]{1,6}$" } };
@@ -130,8 +134,13 @@ export async function callReader(name: string, args: Record<string, unknown>, gr
     default: throw new AgentError("capability_unavailable", "This endpoint exposes read-only tools only.");
   }
 }
+async function readerEnabled(): Promise<boolean> {
+  if (process.env.ZENITH_AGENT_READER !== "1") return false;
+  try { await credentialAuthority().ready(); return true; } catch { return false; }
+}
 export const agentReader = createReaderHandler({
-  enabled: process.env.ZENITH_AGENT_READER === "1" && !process.env.VERCEL,
+  enabled: readerEnabled,
+  authority: () => credentialAuthority(),
   origin: process.env.ZENITH_AGENT_ORIGIN ?? "", credentialsPath: process.env.ZENITH_AGENT_CREDENTIAL_FILE ?? "",
   tools: readerTools,
   async inScope(grant, selected, fn) {

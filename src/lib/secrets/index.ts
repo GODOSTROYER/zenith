@@ -139,9 +139,22 @@ function requireKey(): Buffer {
 const aad = (workspaceId: string, ref: string) => Buffer.from(`${workspaceId} ${ref}`, "utf8");
 
 /** The three sealed parts, base64. Joined by the file backend, columns in Postgres. */
-type Sealed = Pick<SecretRecord, "iv" | "authTag" | "ciphertext">;
+export type Sealed = Pick<SecretRecord, "iv" | "authTag" | "ciphertext">;
 
-function seal(workspaceId: string, ref: string, value: string): Sealed {
+/**
+ * Seal a string under `ZENITH_SECRET_KEY`, authenticated by a pair of labels.
+ *
+ * Exported so that nothing else in the tree has to write AES-256-GCM again.
+ * The two labels are the AAD and nothing else — the store passes the workspace
+ * and the reference, the agent link flow passes `"agent-link"` and the user
+ * code's hash — so a sealed value carried to another label pair fails to open
+ * rather than quietly handing back the wrong secret. The parameter names say
+ * what the store uses them for, because that is still this module's own and
+ * largest caller.
+ *
+ * Throws when there is no usable key. It never degrades to writing plaintext.
+ */
+export function seal(workspaceId: string, ref: string, value: string): Sealed {
   const iv = crypto.randomBytes(12);
   const c = crypto.createCipheriv("aes-256-gcm", requireKey(), iv);
   c.setAAD(aad(workspaceId, ref));
@@ -153,7 +166,14 @@ function seal(workspaceId: string, ref: string, value: string): Sealed {
   };
 }
 
-function unseal(workspaceId: string, ref: string, sealed: Sealed): string {
+/**
+ * The inverse of `seal`, under the same two labels.
+ *
+ * Throws when the value will not open — a wrong key, a wrong label pair, or an
+ * altered row. A caller with its own vocabulary for that (the link flow answers
+ * `503 link_unavailable`) catches this and says so in its own words.
+ */
+export function unseal(workspaceId: string, ref: string, sealed: Sealed): string {
   try {
     const d = crypto.createDecipheriv(
       "aes-256-gcm",

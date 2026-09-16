@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Apply supabase/migrations/0001…0005, in order, to the database named by
+# Apply supabase/migrations/0001…0007, in order, to the database named by
 # SUPABASE_DB_URL. Written for the `postgres` job in .github/workflows/ci.yml,
 # whose database is a disposable service container — never point it at a
 # Supabase project.
@@ -9,9 +9,25 @@
 #
 # The Supabase CLI wants a linked project and an access token. CI has neither,
 # and the thing under test is the *SQL in this repository*, not the CLI. `psql`
-# applying the five files in order is the smallest thing that proves the schema
+# applying the seven files in order is the smallest thing that proves the schema
 # the hosted authority checks for (`src/lib/hosted/authority/pg/index.ts:165-191`)
 # can actually be built from what is committed.
+#
+# ## 0006 and 0007 — the `agent` schema
+#
+# The agent link flow (`supabase/migrations/0006_agent_link.sql`) and the agent
+# control plane (`0007_agent_control.sql`) create one new schema, `agent`, with
+# its own `agent.schema_migrations` ledger — deliberately not `hosted.*`, so an
+# agent-link outage is not coupled to a hosted-apps migration
+# (PLAN2/LINK-PROTOCOL.md §3.2). Both files are idempotent, both create the
+# schema if absent and both repeat the `service_role` grant block, so either
+# order applies and re-applying is a no-op. They are listed in numeric order
+# anyway, because that is the order the operator runbook
+# (`docs/HOSTED-POSTGRES.md` §9) tells a human to run them in.
+#
+# `agent` is **not** exposed to PostgREST on Supabase and nothing in this script
+# exposes it here either: the agent journal and credential authority speak
+# direct Postgres through `postgres.js`.
 #
 # ## The one Supabase-only thing these files need
 #
@@ -55,6 +71,8 @@ MIGRATIONS=(
   "0003_hosted_app_data.sql"
   "0004_hosted_app_data_atomic.sql"
   "0005_pending_invite_uniqueness.sql"
+  "0006_agent_link.sql"
+  "0007_agent_control.sql"
 )
 
 if [ -z "${SUPABASE_DB_URL:-}" ]; then
@@ -156,7 +174,72 @@ fi
 echo "app_invites_pending_email = ${index_def}"
 
 counts="$(psql "$SUPABASE_DB_URL" --no-align --tuples-only --set ON_ERROR_STOP=1 \
-  --command "select schemaname || '=' || count(*) from pg_tables where schemaname in ('public','hosted') group by schemaname order by schemaname")"
+  --command "select schemaname || '=' || count(*) from pg_tables where schemaname in ('public','hosted','agent') group by schemaname order by schemaname")"
 echo "tables: $(echo "$counts" | tr '\n' ' ')"
 
-echo "Migrations 0001-0005 applied and verified."
+# --- the agent schema (0006, 0007) ------------------------------------------
+#
+# Same three questions as above, asked of the schema the agent link flow and
+# the agent control plane live in. The ledger is checked by exact string for
+# the same reason `hosted.schema_migrations` is: `pgAgentJournal()` and
+# `pgCredentialAuthority()` refuse every read and write until both rows are
+# present, so a lane that applied the DDL but not the ledger row would fail
+# later, with a less useful message.
+agent_ledger="$(psql "$SUPABASE_DB_URL" --no-align --tuples-only --set ON_ERROR_STOP=1 \
+  --command "select string_agg(version || ':' || name, ', ' order by version) from agent.schema_migrations")"
+echo "agent.schema_migrations = ${agent_ledger}"
+if [ "$agent_ledger" != "1:agent-link-v1, 2:agent-control-v1" ]; then
+  echo "::error::agent.schema_migrations is not 1:agent-link-v1, 2:agent-control-v1; the agent journal and credential authority will refuse every request." >&2
+  exit 1
+fi
+
+# The ten named indexes of docs/HOSTED-POSTGRES.md §9 step 3. A subset check,
+# not an equality one: the primary keys and the two UNIQUE constraints create
+# their own system-named indexes beside these, and pinning that list would make
+# this script fail on a rename PostgreSQL chose.
+AGENT_INDEXES=(
+  agent_credentials_live
+  agent_credentials_subject
+  agent_link_codes_expiry
+  agent_operation_events_op
+  agent_operations_leased
+  agent_operations_pending_expiry
+  agent_operations_review
+  agent_operations_scope
+  agent_rate_limits_bucket
+  agent_uploads_workspace
+)
+present="$(psql "$SUPABASE_DB_URL" --no-align --tuples-only --set ON_ERROR_STOP=1 \
+  --command "select indexname from pg_indexes where schemaname = 'agent' order by 1")"
+echo "agent indexes: $(echo "$present" | tr '\n' ' ')"
+for index in "${AGENT_INDEXES[@]}"; do
+  if ! printf '%s\n' "$present" | grep -qx -- "$index"; then
+    echo "::error::agent.${index} is missing; 0006/0007 did not apply the index the runbook names." >&2
+    exit 1
+  fi
+done
+
+# The grant block at the tail of each file, which is the one Supabase-only
+# thing these migrations need. On the container `service_role` is the NOLOGIN
+# stand-in created above, so this proves the statement applied — not that
+# Supabase's own role graph is correct. Nothing here connects as it.
+agent_usage="$(psql "$SUPABASE_DB_URL" --no-align --tuples-only --set ON_ERROR_STOP=1 \
+  --command "select has_schema_privilege('service_role','agent','USAGE')")"
+if [ "$agent_usage" != "t" ]; then
+  echo "::error::service_role has no USAGE on schema agent; the grant block at the tail of 0006/0007 did not apply." >&2
+  exit 1
+fi
+echo "service_role USAGE on schema agent = ${agent_usage}"
+
+# RLS on with no policies is the `hosted` rule, repeated for `agent`. A table
+# that reached production with RLS off would be readable by `anon` the moment
+# somebody exposed the schema to the Data API by mistake.
+unprotected="$(psql "$SUPABASE_DB_URL" --no-align --tuples-only --set ON_ERROR_STOP=1 \
+  --command "select string_agg(relname, ', ' order by relname) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'agent' and c.relkind = 'r' and not c.relrowsecurity")"
+if [ -n "$unprotected" ]; then
+  echo "::error::row level security is off on agent.{${unprotected}}; every table in the agent schema must enable it." >&2
+  exit 1
+fi
+echo "row level security enabled on every table in schema agent."
+
+echo "Migrations 0001-0007 applied and verified."

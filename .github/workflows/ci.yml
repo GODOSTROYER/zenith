@@ -103,10 +103,16 @@ jobs:
   #
   # ## What it proves
   #
-  #   - `supabase/migrations/0001`-`0005` apply, in order, to an empty
+  #   - `supabase/migrations/0001`-`0007` apply, in order, to an empty
   #     PostgreSQL 16 — every table, partial unique index, CHECK, identity
   #     column and plpgsql function, plus the migration ledger that
   #     `src/lib/hosted/authority/pg/index.ts:165-191` refuses to boot without.
+  #   - the `agent` schema of `0006`/`0007` is a database contract, not an
+  #     application one: `tests/agent-link/pg-contract.test.ts` and
+  #     `tests/agent-control/pg-contract.test.ts` state the claim, the fence,
+  #     the lease and the uniqueness constraints as SQL against two independent
+  #     connections, because a claim that is only exclusive in TypeScript is not
+  #     exclusive at all.
   #   - `tests/hosted/authority/contract/**` runs its **PostgresAuthority** row,
   #     not only its SQLite one: real transactions, rollback isolation, fence
   #     tokens, the outbox, and the three partial unique indexes asserted
@@ -180,14 +186,16 @@ jobs:
 
       - run: npm ci --ignore-scripts
 
-      - name: Apply supabase/migrations 0001-0005
+      - name: Apply supabase/migrations 0001-0007
         run: bash scripts/ci/apply-supabase-migrations.sh
 
       - name: Postgres contract lanes
-        # `--no-file-parallelism` because both files share one `contract-`
+        # `--no-file-parallelism` because all four files share one `contract-`
         # namespace and one `max: 1` connection; running them at once would
-        # make a cleanup race look like a contract violation.
-        run: npx vitest run tests/hosted/authority/contract tests/scripts/migrate-hosted-to-postgres.test.ts --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/postgres-lane.json
+        # make a cleanup race look like a contract violation. The two agent
+        # files open their own short-lived clients for the races they force,
+        # and close them in `afterAll`.
+        run: npx vitest run tests/hosted/authority/contract tests/scripts/migrate-hosted-to-postgres.test.ts tests/agent-link/pg-contract.test.ts tests/agent-control/pg-contract.test.ts --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/postgres-lane.json
 
       - name: Lane report - fail if a lane ran zero tests, and list what is blocked
         # `always()` so the blocked-lane table reaches the summary even when the
@@ -249,6 +257,60 @@ jobs:
 
       - name: Gate 12 - recipient journey in a real browser
         run: npx tsx scripts/hosted-browser.ts
+
+  # The linked-agent path: the whole journey on the file store, and the
+  # approval screen in a rendering engine.
+  #
+  # Kept out of `verify` for the reason the `hosted` job is: both scripts pin
+  # their own ZENITH_DATA, one of them starts a Next dev server and the other
+  # drives a real browser, and a failure here is a release gate for this
+  # feature rather than a flake in the unit suite.
+  #
+  # Neither step is `continue-on-error`, and `scripts/agent-browser.ts` exits 2
+  # — a failure — when it finds no browser rather than skipping. A green run
+  # that verified nothing in a rendering engine is the expensive lie this job
+  # exists to prevent, and the approval screen is the one surface where the
+  # user's consent is actually collected.
+  agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      # The backstop only. Both scripts set their own data directory and clear
+      # it on start; this keeps anything that forgot to out of `.data`.
+      ZENITH_DATA: ${{ github.workspace }}/.data-ci-agent
+      ZENITH_FAST: "1"
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.16.0'
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: Agent acceptance journey
+        # link start -> browser approve -> token exchange -> prepare -> browser
+        # review -> execute -> the deployment read back through
+        # GET /api/projects/:id, which is the payload the canvas reads.
+        run: npm run agent:acceptance
+
+      - name: Report the installed browser
+        # Informational only, so it never fails the job: the gate below decides,
+        # and it fails with its own message and exit code 2 when no browser is
+        # installed.
+        shell: bash
+        run: |
+          set -uo pipefail
+          google-chrome --version || microsoft-edge --version || echo "no Chrome or Edge on this runner; the approval-screen gate will fail with exit 2"
+          exit 0
+
+      - name: Approval screen in a real browser
+        run: npm run agent:browser
 
   # Fonts ship in public/fonts, so this gate has no Google Fonts dependency.
   build:

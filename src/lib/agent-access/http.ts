@@ -1,6 +1,23 @@
 /** Bounded, stateless JSON-response Streamable HTTP profile; no write methods. */
 import { randomUUID } from "node:crypto";
-import { AgentError, authenticate, loadCredentials, object, redact, selectScope, type Credential, type SelectedScope } from "./security";
+import { AgentError, object, redact, selectScope, type Credential, type SelectedScope } from "./security";
+// The real authority contract (F1, LINK-PROTOCOL.md §3.1). The import is
+// relative and type-only on purpose: this file is also compiled standalone by
+// scripts/test-agent-reader.mjs (no path aliases), and a type-only import is
+// erased at emit, so the reader's bundle still requires nothing but security.js.
+import type { CredentialAuthority } from "./authority/types";
+
+export type { CredentialAuthority };
+
+/**
+ * The members this read-only transport actually calls.
+ *
+ * A narrowing of F1, not a second interface: the real authority satisfies it,
+ * and writing it down keeps the reader from quietly acquiring a dependency on
+ * the link surface it has no business touching.
+ */
+export type ReaderAuthority = Pick<CredentialAuthority, "kind" | "ready" | "verify">;
+
 export interface ReaderTool {
   name: string; description: string; inputSchema: Record<string, unknown>;
   scope: "read" | "plan" | "export";
@@ -8,7 +25,9 @@ export interface ReaderTool {
 export interface ReaderDependencies {
   credentialsPath: string;
   origin: string;
-  enabled: boolean;
+  /** Recomputed per request: enablement depends on live authority connectivity. */
+  enabled(): Promise<boolean>;
+  authority(): ReaderAuthority;
   tools: ReaderTool[];
   inScope<T>(grant: Credential, selected: SelectedScope, fn: () => Promise<T>): Promise<T>;
   call(name: string, args: Record<string, unknown>, grant: Credential, selected: SelectedScope): Promise<unknown>;
@@ -16,6 +35,13 @@ export interface ReaderDependencies {
 }
 const versions = ["2025-11-25", "2025-06-18", "2024-11-05"];
 const MAX_BODY = 65536, MAX_RESULT = 262144;
+const LOOPBACK_ORIGIN = /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d{1,5})?$/;
+/** Same exactness rule control/boundary.ts's controlOrigin() applies: no userinfo, query, hash or path. */
+function isConfiguredHttpsOrigin(raw: string): boolean {
+  let url: URL;
+  try { url = new URL(raw); } catch { return false; }
+  return url.protocol === "https:" && url.origin === raw && !url.username && !url.password && !url.search && !url.hash && url.pathname === "/";
+}
 async function readBody(request: Request): Promise<unknown> {
   if (!request.body) throw new AgentError("invalid_request", "Send one JSON-RPC object.", 400);
   const reader = request.body.getReader(); const chunks: Uint8Array[] = []; let n = 0;
@@ -45,18 +71,24 @@ export function createReaderHandler(deps: ReaderDependencies) {
       } });
     };
     try {
-      if (!deps.enabled || !/^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(:\d{1,5})?$/.test(deps.origin))
-        throw new AgentError("policy_unavailable", "This build requires explicitly enabled loopback development mode. Remote OAuth is not implemented; do not expose this endpoint publicly.", 503);
+      const authority = deps.authority();
+      // Loopback development mode, as today — or the configured HTTPS origin when
+      // Zenith itself is the issuer of record (the credential authority is Postgres).
+      // The same rule P1 applies to the za_ branch of control/boundary.ts, written
+      // once per transport because the two transports are separate files.
+      const originOk = LOOPBACK_ORIGIN.test(deps.origin) || (authority.kind === "postgres" && isConfiguredHttpsOrigin(deps.origin));
+      if (!(await deps.enabled()) || !originOk)
+        throw new AgentError("policy_unavailable", "This build requires explicitly enabled loopback development mode, or a configured HTTPS origin backed by the Postgres credential authority. Remote OAuth is not implemented; do not expose this endpoint publicly.", 503);
       const origin = new URL(deps.origin);
       if ((request.headers.get("host") ?? new URL(request.url).host) !== origin.host || request.headers.has("origin") && request.headers.get("origin") !== deps.origin)
-        throw new AgentError("origin_denied", "Use the configured loopback origin; forwarded-host headers are not trusted.");
+        throw new AgentError("origin_denied", "Use the configured origin; forwarded-host headers are not trusted.");
       if (request.method !== "POST") return response({ error: { code: "method_not_allowed", message: "Use POST; no server-initiated event stream is provided." } }, 405);
       if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json"))
         throw new AgentError("unsupported_media_type", "Send application/json.", 415);
       if (!request.headers.get("accept")?.includes("application/json")) throw new AgentError("not_acceptable", "Accept application/json and text/event-stream.", 406);
       const supplied = request.headers.get("authorization");
       if (!supplied || !/^Bearer za_[A-Za-z0-9_-]{43}$/.test(supplied)) throw new AgentError("unauthorized", "Supply a scoped agent credential; browser cookies are not accepted.", 401);
-      const grant = authenticate(supplied, await loadCredentials(deps.credentialsPath));
+      const grant = await authority.verify(supplied);
       const selected = selectScope(request.headers, grant);
       const now = Date.now();
       for (const [key, r] of rates) if (now - r.at >= 60000) rates.delete(key);

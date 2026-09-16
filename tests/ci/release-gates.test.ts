@@ -84,8 +84,9 @@ const requiredCommands: Record<string, string[]> = {
   postgres: [
     INSTALL,
     "bash scripts/ci/apply-supabase-migrations.sh",
-    "npx vitest run tests/hosted/authority/contract tests/scripts/migrate-hosted-to-postgres.test.ts --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/postgres-lane.json",
+    "npx vitest run tests/hosted/authority/contract tests/scripts/migrate-hosted-to-postgres.test.ts tests/agent-link/pg-contract.test.ts tests/agent-control/pg-contract.test.ts --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/postgres-lane.json",
   ],
+  agent: [INSTALL, "npm run agent:acceptance", "npm run agent:browser"],
 };
 
 describe("release gate policy", () => {
@@ -208,6 +209,59 @@ describe("release gate policy", () => {
       expect(at("npx tsx scripts/hosted-browser.ts")).toBeGreaterThan(
         at("npx tsx scripts/hosted-acceptance.ts")
       );
+    });
+  });
+
+  /*
+   * The linked-agent job.
+   *
+   * The approval screen is where the user's consent is actually collected, so
+   * the browser gate over it gets the same treatment gate 12 gets: no
+   * condition, no `continue-on-error`, and a missing browser is a failure
+   * rather than a skip. `scripts/agent-browser.ts` exits 2 in that case, which
+   * fails the step; nothing in this job may turn that back into a pass.
+   */
+  describe("the linked-agent job", () => {
+    const agent = (): Job => workflow.jobs.agent;
+
+    it("runs unconditionally, and its failure fails CI", () => {
+      expect(agent(), "the workflow must define an `agent` job").toBeDefined();
+      expect(agent().if).toBeUndefined();
+      expect(agent()["continue-on-error"] ?? false).toBe(false);
+      for (const step of agent().steps)
+        expect(
+          step["continue-on-error"] ?? false,
+          `step ${step.name ?? step.run ?? step.uses} must not continue on error`
+        ).toBe(false);
+    });
+
+    it("gets its own data directory, and never another job's", () => {
+      expect(agent().env?.ZENITH_DATA).toBe("${{ github.workspace }}/.data-ci-agent");
+      for (const other of ["verify", "postgres", "hosted"])
+        expect(agent().env?.ZENITH_DATA).not.toBe(workflow.jobs[other].env?.ZENITH_DATA);
+    });
+
+    it("runs the journey before the browser, and gates on neither a detected browser nor a flag", () => {
+      const order = agent().steps.map((one) => one.run?.trim() ?? "");
+      expect(order.indexOf("npm run agent:browser")).toBeGreaterThan(
+        order.indexOf("npm run agent:acceptance")
+      );
+      const browser = agent().steps.find((one) => one.run?.trim() === "npm run agent:browser");
+      expect(browser?.if, "the browser gate must not be conditional").toBeUndefined();
+      expect(
+        agent().steps.some((one) => typeof one.if === "string" && /browser/i.test(one.if)),
+        "no step may be conditional on the browser report"
+      ).toBe(false);
+    });
+
+    it("keeps the two scripts and the npm entry points that name them", () => {
+      const pkg = JSON.parse(
+        fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8")
+      ) as { scripts: Record<string, string> };
+      expect(pkg.scripts["agent:acceptance"]).toBe("tsx scripts/agent-acceptance.ts");
+      expect(pkg.scripts["agent:browser"]).toBe("tsx scripts/agent-browser.ts");
+      for (const file of ["scripts/agent-acceptance.ts", "scripts/agent-browser.ts"])
+        expect(fs.existsSync(path.join(process.cwd(), file)), `${file} must exist`).toBe(true);
     });
   });
 

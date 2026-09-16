@@ -389,6 +389,30 @@ received and what it accepts — never a silent default.
 `next build`. Changing one requires a rebuild (`npm run docker:build`), not a
 restart.
 
+### The `ZENITH_AGENT_*` family
+
+These turn on the agent surfaces — the read-only v1 reader, the reviewed-write
+v2 control plane, and the browser link flow that mints a credential for a
+coding agent. Everything here is off unless you set it, and every refusal names
+the variable to set.
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `ZENITH_AGENT_READER` | *(unset)* | `1` enables the read-only `/api/agent/v1/mcp` endpoint. It also needs a credential authority that reports itself ready: the POSIX file below, or the Postgres one when `ZENITH_STORE=postgres`. See [AGENT-READER.md](AGENT-READER.md) |
+| `ZENITH_AGENT_CONTROL` | *(unset)* | `1` enables the reviewed-change surface at `/api/agent/v2/*` and the link endpoints. Required on every topology — nothing turns on by upgrading. Without a durable journal (file store on a long-lived host, or `agent` schema v1 on Postgres) it still answers `503 control_disabled` |
+| `ZENITH_AGENT_WRITES` | *(unset)* | `1` allows dispatch of an already-approved proposal **on the file store only**. On Postgres, writes follow the scopes on the credential the browser approved, and this variable is not read. Strict `=== "1"`: `true` disables writes |
+| `ZENITH_AGENT_ORIGIN` | *(unset)* | The one origin agent requests may arrive on: an exact HTTPS origin (`https://tryzenith.cloud`) or a literal loopback origin (`http://127.0.0.1:3400`). Anything with a path, query, fragment or credentials is refused at boot. Also the origin the verification URL is built from |
+| `ZENITH_AGENT_CREDENTIAL_FILE` | *(unset)* | Absolute path to the private version-1 credential file, mode 0600 in a 0700 directory you own. The **file** authority only — do not set it on a serverless host, where it would name a `/tmp` path no other instance can see. Refused on Windows by design |
+| `ZENITH_SECRET_KEY` | *(unset)* | Not agent-specific, but the link flow needs it: the issued token is held encrypted between approval and the terminal's poll. Unset, every link answers `503 link_unavailable` rather than storing a token in the clear |
+| `ZENITH_AGENT_OAUTH_ISSUER` / `_JWKS` / `_CLIENT_CLAIM` / `_SUBJECT_CLAIM` | *(unset)* | The OAuth resource-server path, unchanged by the link feature and independent of it. Unset, a non-`za_` bearer answers `503 oauth_unavailable` |
+
+On a hosted deployment the two to set are `ZENITH_AGENT_CONTROL=1` and
+`ZENITH_AGENT_ORIGIN=https://tryzenith.cloud`, after applying migrations `0006`
+and `0007` — the full order is [HOSTED-POSTGRES.md](HOSTED-POSTGRES.md) §9.
+`zenith_get_capabilities` reports which journal and which coordination are
+actually in force, and it is required to be truthful: a tool that cannot run is
+not advertised.
+
 ---
 
 ## Troubleshooting

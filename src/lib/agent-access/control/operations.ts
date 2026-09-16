@@ -24,7 +24,8 @@ import { db, q } from '@/lib/db/store';
 import { channelsOf, findChannel } from '@/lib/alerts';
 import { slugify } from '@/lib/importers/types';
 import type { Environment, Project } from '@/lib/domain/types';
-import { redact } from '../security';
+import { isVaultRef, parseVaultRef } from '@/lib/secrets/refs';
+import { grantsProject, redact } from '../security';
 import { ControlError, digest, type Principal } from './journal';
 import type { EditKind, Preparation, PreparationKind } from './contracts';
 
@@ -35,6 +36,8 @@ export interface ResolvedTarget {
   workspaceId: string;
   project?: Project;
   environment?: Environment;
+  /** The principal's environment narrowing, when its link has one. */
+  environmentIds?: readonly string[];
 }
 
 type Of<K extends PreparationKind> = Extract<Preparation, { kind: K }>;
@@ -81,10 +84,20 @@ function ownChannels(r: ResolvedTarget, channelIds: readonly string[] | undefine
   const mine = new Set(channelsOf(r.workspaceId).map(c => c.id));
   if (channelIds.some(id => !mine.has(id))) throw notFound('alert channel');
 }
-/** Project-owned records: same project, and the same environment when the target names one. */
+/**
+ * Project-owned records: same project, and the same environment when the target names one.
+ *
+ * A link narrowed to some environments may change only a record of one of
+ * them, whatever the target names. A record with no environment (a
+ * project-wide finding) is refused under such a link: it concerns every
+ * environment of the project, the unreachable ones included. That is stricter
+ * than `checkTarget`, which admits a bare project target; the reads
+ * (`reads.ts`) still show such records, as `zenith_get_findings` does.
+ */
 function ownInProject(r: ResolvedTarget, row: { projectId: string; environmentId?: string } | undefined, what: string): void {
   if (!row || !r.project || row.projectId !== r.project.id
-    || (r.environment && row.environmentId !== undefined && row.environmentId !== r.environment.id)) throw notFound(what);
+    || (r.environment && row.environmentId !== undefined && row.environmentId !== r.environment.id)
+    || (r.environmentIds && (row.environmentId === undefined || !r.environmentIds.includes(row.environmentId)))) throw notFound(what);
 }
 
 /* ---------------------------------- state --------------------------------- */
@@ -357,6 +370,50 @@ export function requireProjectQuota(workspaceId: string, env?: Record<string, st
 export function stableJobId(who: Principal, requestKey: string): string {
   const h = digest({ workspace: who.workspaceId, subject: who.subject, requestKey });
   return `${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-8${h.slice(17,20)}-${h.slice(20,32)}`;
+}
+
+/* --------------------------- secret reference scope ------------------------ */
+
+/** Every string under a `secretRef` key, anywhere in a built action input (an edit, or a whole manifest). */
+function secretRefsIn(value: unknown, out: Set<string> = new Set()): Set<string> {
+  if (Array.isArray(value)) for (const v of value) secretRefsIn(v, out);
+  else if (value && typeof value === 'object')
+    for (const [k, v] of Object.entries(value)) {
+      if (k === 'secretRef' && typeof v === 'string') out.add(v); else secretRefsIn(v, out);
+    }
+  return out;
+}
+
+/**
+ * Refuse, with `scope_denied`, a secret reference an explicit-list link may not
+ * point a variable at. Without this, a link to project A could name
+ * `vault:<B>/…` (or a legacy `vault:KEY` only B reads): the plan would describe
+ * B's stored value and its readers, and once approved A's service would be
+ * deployed with B's credential.
+ *
+ * Allowed: any reference under a whole-workspace link; one a project the link
+ * grants already reads (the target's own included); one of Zenith's that names
+ * the target project. A reference to an external manager (`aws:…`) that no
+ * project outside the grant reads is allowed too: Zenith holds nothing for it,
+ * and pointing at your own provider is the ordinary case. Every refusal uses
+ * the same sentence.
+ */
+export function requireGrantedSecretRefs(who: Principal, r: ResolvedTarget, args: Args): void {
+  if (who.allProjects === true) return;
+  const refs = secretRefsIn(args);
+  if (!refs.size) return;
+  const granted = new Set<string>(), ungranted = new Set<string>();
+  for (const p of db().projects) {
+    if (p.workspaceId !== r.workspaceId) continue;
+    const into = grantsProject(who, p.id) ? granted : ungranted;
+    for (const s of p.workingManifest.services) for (const e of s.env) if (e.secretRef) into.add(e.secretRef);
+  }
+  for (const ref of refs) {
+    if (granted.has(ref)) continue;
+    if (isVaultRef(ref) ? r.project !== undefined && parseVaultRef(ref)?.projectId === r.project.id : !ungranted.has(ref)) continue;
+    throw new ControlError('scope_denied',
+      'This link cannot use that secret reference: it belongs to a project the link does not cover. Point at a reference this project already uses, or leave secretRef out and let Zenith generate one.', 403);
+  }
 }
 
 /* ---------------------------- env.set secret guard ------------------------- */

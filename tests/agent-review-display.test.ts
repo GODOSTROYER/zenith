@@ -93,6 +93,19 @@ describe("reviewDisplay", () => {
     expect(foreign.fields.map((f) => f.text)).toEqual(["f1", "c2"]);
   });
 
+  it("says which project a secret reference belongs to", () => {
+    const refText = (secretRef: string) => reviewDisplay(
+      op({ action: "system.setSecret", plan: { kind: "system.edit" }, target: { workspaceId: "ws1", projectId: "p1" }, input: { serviceId: "svc1", key: "DB", secretRef } }),
+      data
+    ).fields.find((f) => f.label === "Secret reference")?.text;
+    expect(refText("vault:p1/svc1/DB")).toBe("vault:p1/svc1/DB · this project: Shop");
+    expect(refText("vault:p2/svc9/DB")).toBe("vault:p2/svc9/DB · another project: Fresh");
+    // Another workspace's project is never named.
+    expect(refText("vault:px/svc9/DB")).toBe("vault:px/svc9/DB · project not found in this workspace");
+    expect(refText("vault:DB")).toMatch(/names no project/);
+    expect(refText("aws:secret/db")).toBe("aws:secret/db");
+  });
+
   it("summarises bulky input instead of echoing it", () => {
     const view = reviewDisplay(op({ action: "project.importCompose", input: { name: "x", composeYaml: "services:\n  web:\n    image: nginx" } }), data);
     expect(view.fields[1]).toEqual({ label: "Compose file", text: "3 lines, 33 characters" });

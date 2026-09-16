@@ -13,6 +13,7 @@
  */
 import type { Database } from '@/lib/db/types';
 import type { AlertChannel, Project } from '@/lib/domain/types';
+import { parseVaultRef } from '@/lib/secrets/refs';
 import type { Operation } from './journal';
 
 /** `text`, not `value`: `redact()` blanks every key named `value`, and this line is meant to be read. */
@@ -141,9 +142,17 @@ function describeValue(key: string, value: unknown, ctx: { data: Database; works
       }
       case 'composeYaml':
         return { label, text: `${value.split('\n').length} lines, ${value.length} characters` };
+      case 'secretRef': {
+        // Whose value this is: a reference of Zenith's names its project, or none at all.
+        const parts = parseVaultRef(value);
+        if (!parts) return text(value);
+        if (parts.projectId === undefined) return text(`${value} · names no project: any project that uses it reads the same value`);
+        const owner = data.projects.find((p) => p.id === parts.projectId && p.workspaceId === workspaceId);
+        if (!owner) return text(`${value} · project not found in this workspace`);
+        return text(`${value} · ${owner.id === project?.id ? 'this project' : 'another project'}: ${owner.name}`);
+      }
       case 'value':
       case 'key':
-      case 'secretRef':
         return text(value);
       default:
         return text(value, /Id$|^(slug|blueprint|region|provider|expectedHash)$/.test(key));

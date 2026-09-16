@@ -17,7 +17,7 @@ import { grantsApp, grantsProject, redact, type Credential, type SelectedScope }
 import { Coordinator, type ApplicationAuthority, type ControlPort } from './coordinator';
 import { Journal, SqliteAgentJournal, ControlError, checkTarget, digest, type AgentJournal, type Principal, type Target, type Proposal, type Operation } from './journal';
 import {
-  OPERATION_ACTIONS, operationSpec, refuseEditParameters, requireProjectQuota, requireWorkspaceScope, stableJobId,
+  OPERATION_ACTIONS, operationSpec, refuseEditParameters, requireGrantedSecretRefs, requireProjectQuota, requireWorkspaceScope, stableJobId,
   type ResolvedTarget,
 } from './operations';
 import { isReadTool, readTool } from './reads';
@@ -108,12 +108,16 @@ async function ownedApp(who: Principal, appId: string) {
 }
 function context(who: Principal, target: Target, operation?: Operation): ActionContext {
   const member = liveMember(who);
-  return { ...target, actor: { type: 'user', id: member.id, name: member.name }, ...(operation ? { integration: {
+  return { ...target, actor: { type: 'user', id: member.id, name: member.name },
+    // An explicit-list link's plans never name a variable of a project it cannot see.
+    ...(who.allProjects === true ? {} : { visibleProjectIds: who.projectIds }),
+    ...(operation ? { integration: {
     operationId: operation.id, clientId: who.integrationId, proposalDigest: operation.digest } } : {}) };
 }
 /** The kinds this file plans itself. Every other kind is a row of `OPERATIONS` (operations.ts). */
 const ACTIONS: Partial<Record<PreparationKind, string>> = { 'manifest.replace':'project.updateManifest', 'deployment.deploy':'deploy.apply', 'deployment.rollback':'deploy.rollback',
   'manifest.importCompose':'project.importCompose', 'deployment.promote':'deploy.promote', 'app.create':'app.create', 'app.publish':'app.publish', 'app.rollback':'app.rollback' };
+const CREATES_PROJECT: readonly PreparationKind[] = ['project.create', 'project.createFromCompose', 'project.createFromBlueprint'];
 /** The allow-list: nothing outside it is ever dispatched for an integration. */
 const ALLOWED_ACTIONS = new Set<string>([...Object.values(ACTIONS), ...Object.values(EDIT_ACTIONS), ...OPERATION_ACTIONS]);
 /** The prepared kind of an operation. Recorded in its plan before the first fingerprint. */
@@ -123,7 +127,7 @@ const specOf = (op: Proposal) => { const kind = kindOf(op); return kind ? operat
 /** The target as `OPERATIONS` rows read it. */
 function resolvedFor(who: Principal, op: Proposal, scope = 'read'): ResolvedTarget {
   const { project, environment } = resolveAnyTarget(who, op.target, scope);
-  return { workspaceId: who.workspaceId, project, environment };
+  return { workspaceId: who.workspaceId, project, environment, ...(who.environmentIds ? { environmentIds: who.environmentIds } : {}) };
 }
 async function actionInput(who: Principal, operation: Proposal): Promise<Record<string, unknown>> {
   if (operation.action === 'app.publish') {
@@ -145,6 +149,15 @@ async function authorize(who: Principal, op: Proposal): Promise<void> {
   if(op.action==='deploy.promote')resolveTarget(who,{...op.target,environmentId:String(op.input.sourceEnvironmentId)});
   if (op.action.startsWith('app.') && op.action !== 'app.create') await ownedApp(who, String(op.input.appId));
   const prepared = op as Operation;
+  // An approved operation about to be claimed. The coordinator authorizes before `claim`, so a
+  // refusal here leaves it approved rather than `uncertain`. Projects made since review still
+  // count against the quota (the fingerprint does not digest the count). Not after dispatch:
+  // the operation is `running` then, and its own new project must not fail it.
+  if (prepared.phase === 'approved') {
+    const kind = kindOf(op);
+    if (kind && CREATES_PROJECT.includes(kind)) requireProjectQuota(who.workspaceId);
+    if (kind === 'system.edit' || kind === 'manifest.replace') requireGrantedSecretRefs(who, resolved, op.input);
+  }
   if (prepared.approvedBy) {
     const approver = db().members.find(m => m.id === prepared.approvedBy && m.workspaceId === who.workspaceId);
     const required = String(op.plan.approvalRole ?? action.requiredRole) as 'editor' | 'admin';
@@ -191,7 +204,12 @@ async function fingerprint(who: Principal, op: Proposal): Promise<string> {
  * deleted rule or channel is the operation's own effect, not a refusal.
  */
 function requireOwned(who: Principal, op: Proposal): void {
-  specOf(op)?.owns?.(op.input, resolvedFor(who, op));
+  const resolved = resolvedFor(who, op);
+  specOf(op)?.owns?.(op.input, resolved);
+  // The kinds that can carry a secretRef: curated edits and whole-manifest replacement. At
+  // prepare this runs before the plan, so a refused reference is never described to the agent.
+  const kind = kindOf(op);
+  if (kind === 'system.edit' || kind === 'manifest.replace') requireGrantedSecretRefs(who, resolved, op.input);
 }
 /** The action schema an edit is validated against: strict, with the edit's forbidden fields removed. */
 function editSchema(edit: EditKind): z.ZodTypeAny {
@@ -206,7 +224,6 @@ const needProject = (project: Project | undefined): Project => {
   if (!project) throw new ControlError('project_required', 'This kind needs a project target.', 400);
   return project;
 };
-const CREATES_PROJECT: readonly PreparationKind[] = ['project.create', 'project.createFromCompose', 'project.createFromBlueprint'];
 async function proposal(who: Principal, raw: unknown): Promise<Proposal> {
   await requireWritesAsync(); const input = preparationSchema.parse(raw), spec = operationSpec(input.kind);
   // Before any lookup, and before anything is persisted: the fix is a re-link, not a retry.

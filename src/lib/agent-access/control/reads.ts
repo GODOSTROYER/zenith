@@ -65,6 +65,15 @@ const needEnvironment = (r: ResolvedRead): Environment => {
 /** The projects a principal may see in its workspace. */
 const visibleProjects = (who: Principal): Project[] =>
   db().projects.filter(p => p.workspaceId === who.workspaceId && grantsProject(who, p.id));
+/**
+ * May this principal see a row of a granted project? Under an environment
+ * narrowing, a row of another environment is hidden whatever the target names.
+ * A row with no environment (project-wide) stays visible, as `checkTarget`
+ * admits a bare project target and `zenith_get_findings` shows such findings;
+ * the writes that change one are stricter (`ownInProject` in operations.ts).
+ */
+const inGrantedEnvironment = (who: Principal, environmentId: string | undefined): boolean =>
+  !who.environmentIds || environmentId === undefined || who.environmentIds.includes(environmentId);
 const actorOf = (member: Member): ActionContext['actor'] => ({ type: 'user', id: member.id, name: member.name });
 
 async function providerOf(env: Environment) {
@@ -77,14 +86,23 @@ async function providerOf(env: Environment) {
 
 /* ---------------------------------- tools --------------------------------- */
 
+/**
+ * The person's workspaces. An explicit-list link sees only its own: it was
+ * granted some projects, not a view of the person's other memberships. A
+ * whole-workspace link also sees the others (name and role), each marked
+ * `linked: false` because this link cannot act there.
+ */
 function listWorkspaces({ who }: ReadContext) {
-  const items = db().members.filter(m => m.id === who.subject).flatMap(m => {
+  const whole = who.allProjects === true;
+  const items = db().members.filter(m => m.id === who.subject && (whole || m.workspaceId === who.workspaceId)).flatMap(m => {
     const ws = db().workspaces.find(w => w.id === m.workspaceId);
     if (!ws) return [];
     const current = ws.id === who.workspaceId;
-    return [{ id: ws.id, name: ws.name, role: m.role, current, ...(current ? {} : { relink: `zenith login --workspace ${ws.id}` }) }];
+    return [{ id: ws.id, name: ws.name, role: m.role, current, linked: current, ...(current ? {} : { relink: `zenith login --workspace ${ws.id}` }) }];
   });
-  return { items, note: 'A link is bound to one workspace. To work in another, run its relink command; the browser asks you to approve it.' };
+  return { items, note: whole
+    ? 'A link is bound to one workspace. A row with linked: false needs a new link: run its relink command; the browser asks you to approve it.'
+    : 'This link covers selected projects of one workspace, so only that workspace is listed. To work elsewhere, run `zenith login` and link again.' };
 }
 
 function getWorkspace({ who, member }: ReadContext) {
@@ -125,6 +143,8 @@ async function listSecrets({ who, args, resolve }: ReadContext) {
   const projects = r?.project ? [r.project] : visibleProjects(who);
   const store = secretStoreState();
   if (!store.configured) return { configured: false, reason: store.reason, items: [] };
+  // References live in the project-wide working manifest, which an environment-narrowed
+  // link reads in full (zenith_get_manifest): a row has no environment to filter on.
   const usage = new Map<string, { projectId: string; serviceId: string; service: string; key: string }[]>();
   for (const p of projects)
     for (const s of p.workingManifest.services)
@@ -142,7 +162,7 @@ function getAlerts({ who, args, resolve }: ReadContext) {
   const r = resolve(args.target);
   const projectIds = new Set(r.project ? [r.project.id] : visibleProjects(who).map(p => p.id));
   const inScope = (row: { projectId: string; environmentId: string }) =>
-    projectIds.has(row.projectId) && (!r.environment || row.environmentId === r.environment.id);
+    projectIds.has(row.projectId) && (!r.environment || row.environmentId === r.environment.id) && inGrantedEnvironment(who, row.environmentId);
   return {
     rules: db().alertRules.filter(inScope).map(x => ({ id: x.id, projectId: x.projectId, environmentId: x.environmentId,
       kind: x.kind, threshold: x.threshold ?? null, enabled: x.enabled, channelIds: x.channelIds ?? null })),
@@ -157,14 +177,15 @@ function getAlerts({ who, args, resolve }: ReadContext) {
   };
 }
 
-async function getAudit({ args, resolve }: ReadContext) {
+async function getAudit({ who, args, resolve }: ReadContext) {
   const r = resolve(args.target);
   const project = needProject(r);
   const limit = limitSchema.parse(args.limit ?? 50);
   const cursor = z.string().min(1).max(200).optional().parse(args.cursor);
   const page = await readAuditPageAsync({ projectId: project.id, environmentId: r.environment?.id, limit, cursor });
   return {
-    events: redact(page.events.map(e => ({ id: e.id, ts: e.ts, actor: { type: e.actor.type, name: e.actor.name },
+    // Filtered after paging, so a narrowed link can see a short page; `nextCursor` still continues.
+    events: redact(page.events.filter(e => inGrantedEnvironment(who, e.environmentId)).map(e => ({ id: e.id, ts: e.ts, actor: { type: e.actor.type, name: e.actor.name },
       actionId: e.actionId, environmentId: e.environmentId ?? null, result: e.result, summary: e.summary, error: e.error ?? null }))),
     nextCursor: page.nextCursor ?? null,
     inputsExcluded: true,
@@ -175,6 +196,8 @@ async function getAudit({ args, resolve }: ReadContext) {
 async function investigate({ who, member, args, resolve }: ReadContext) {
   const r = resolve(args.target);
   const project = needProject(r);
+  // Project-wide, the investigation reads the latest failure of any environment.
+  if (who.environmentIds && !r.environment) needEnvironment(r);
   registerAllActions();
   // ops.investigate is `mutates: false`: runAction neither saves nor audits a successful read.
   const run = await runAction('ops.investigate',

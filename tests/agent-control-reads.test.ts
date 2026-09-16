@@ -81,8 +81,14 @@ beforeAll(async () => {
 describe('workspace reads', () => {
   it('lists memberships with a relink command for the others', async () => {
     const { items } = await invoke('zenith_list_workspaces') as { items: { id: string; current: boolean; role: string; relink?: string }[] };
-    expect(items).toContainEqual({ id: WS, name: 'Reads', role: 'editor', current: true });
-    expect(items).toContainEqual({ id: OTHER, name: 'Elsewhere', role: 'viewer', current: false, relink: `zenith login --workspace ${OTHER}` });
+    expect(items).toContainEqual({ id: WS, name: 'Reads', role: 'editor', current: true, linked: true });
+    expect(items).toContainEqual({ id: OTHER, name: 'Elsewhere', role: 'viewer', current: false, linked: false, relink: `zenith login --workspace ${OTHER}` });
+  });
+
+  it('lists only the linked workspace to an explicit-list link', async () => {
+    const narrow = await invoke('zenith_list_workspaces', {}, listed);
+    expect(narrow.items).toEqual([{ id: WS, name: 'Reads', role: 'editor', current: true, linked: true }]);
+    expect(JSON.stringify(narrow)).not.toContain(OTHER);
   });
 
   it('shows the workspace without member details, narrowed for an explicit list', async () => {
@@ -160,6 +166,45 @@ describe('project and environment reads', () => {
     expect(await code(invoke('zenith_discover_resources', { target: { workspaceId: WS }, connectionId: 'conn-reads' }, listed))).toBe('workspace_scope_required');
     const found = await invoke('zenith_discover_resources', { target: { workspaceId: WS }, connectionId: 'conn-reads' });
     expect(found.simulated).toBe(true);
+  });
+});
+
+describe('environment narrowing on project targets', () => {
+  let second = '';
+  let narrowed: Principal;
+  beforeAll(async () => {
+    const actor = { type: 'user' as const, id: ADA.id, name: ADA.name };
+    const created = await runAction('env.create', { workspaceId: WS, projectId, actor }, { projectId, name: 'hidden', class: 'staging' }, { mode: 'execute' });
+    second = (created.result?.data as { environmentId: string }).environmentId;
+    await runAction('env.setBudget', { workspaceId: WS, projectId, environmentId: second, actor }, { environmentId: second, budgetUsdMonthly: 7 }, { mode: 'execute' });
+    for (const env of [environmentId, second]) {
+      db().alertRules.push({ id: `rule-${env}`, projectId, environmentId: env, kind: 'deploy_failed', enabled: true } as never);
+      db().alertEvents.push({ id: `event-${env}`, ruleId: `rule-${env}`, projectId, environmentId: env, firedAt: AT, summary: 'x', severity: 'low', detail: 'x', simulated: true } as never);
+    }
+    save();
+    narrowed = { ...listed, environmentIds: [environmentId] };
+  });
+
+  it('hides alert rules and events of other environments when the target names only the project', async () => {
+    const wide = await invoke('zenith_get_alerts', { target: tgt() }) as { rules: { id: string }[] };
+    expect(wide.rules.map(r => r.id)).toContain(`rule-${second}`);
+    const alerts = await invoke('zenith_get_alerts', { target: tgt() }, narrowed) as { rules: { environmentId: string }[]; events: { environmentId: string }[] };
+    expect(alerts.rules.length).toBeGreaterThan(0);
+    expect([...alerts.rules, ...alerts.events].every(x => x.environmentId === environmentId)).toBe(true);
+  });
+
+  it('hides audit rows of other environments and keeps project-wide ones', async () => {
+    const wide = await invoke('zenith_get_audit', { target: tgt(), limit: 100 }) as { events: { environmentId: string | null }[] };
+    expect(wide.events.some(e => e.environmentId === second)).toBe(true);
+    const page = await invoke('zenith_get_audit', { target: tgt(), limit: 100 }, narrowed) as { events: { environmentId: string | null }[] };
+    expect(page.events.length).toBeGreaterThan(0);
+    expect(page.events.every(e => e.environmentId === null || e.environmentId === environmentId)).toBe(true);
+  });
+
+  it('investigates only a granted environment', async () => {
+    expect(await code(invoke('zenith_investigate', { target: tgt() }, narrowed))).toBe('environment_required');
+    expect(await invoke('zenith_investigate', { target: tgt({ environmentId }) }, narrowed)).toMatchObject({ changedNothing: true });
+    expect(await code(invoke('zenith_investigate', { target: tgt({ environmentId: second }) }, narrowed))).toBe('scope_denied');
   });
 });
 

@@ -53,6 +53,7 @@ import {
   type AgentJournal, type Grant, type JournalEvent, type Operation, type Principal,
   type Proposal, type Target, type UploadReceipt,
 } from './journal';
+import { grantsApp } from '../security';
 
 /** Either the pooled client or an open transaction's tag. Statements take both. */
 export type AnySql = Sql | TransactionSql;
@@ -83,6 +84,8 @@ export const SCAN_LIMIT = 200;
 export const REQUIRED_MIGRATIONS: readonly { version: number; name: string }[] = [
   { version: 1, name: 'agent-link-v1' },
   { version: 2, name: 'agent-control-v1' },
+  // Workspace-level operations are journalled with a null project_id (PLAN3 §2a).
+  { version: 3, name: 'agent-workspace-scope-v1' },
 ];
 
 /** ISO-8601 UTC, fixed width — the only timestamp format these columns hold. */
@@ -104,8 +107,8 @@ function schemaBehind(found: { version: number; name: string }[], missing: { ver
   return new ControlError(
     'journal_schema',
     `The agent control database is missing schema version ${missing.version} ("${missing.name}"). ${recorded} ` +
-      'Fix: apply supabase/migrations/0006_agent_link.sql and supabase/migrations/0007_agent_control.sql in the Supabase SQL editor ' +
-      '(or with psql against SUPABASE_DB_URL) and start again. Both are idempotent, so re-applying them is safe. ' +
+      'Fix: apply supabase/migrations/0006_agent_link.sql, 0007_agent_control.sql and 0008_agent_workspace_scope.sql, in that order, in the Supabase SQL editor ' +
+      '(or with psql against SUPABASE_DB_URL) and start again. All three are idempotent, so re-applying them is safe. ' +
       'Nothing was read or written in the meantime.',
     503
   );
@@ -576,7 +579,7 @@ export class PgAgentJournal implements AgentJournal {
 
   async putUpload(who: Principal, target: Target, appId: string, bytes: Buffer): Promise<UploadReceipt> {
     checkTarget(who, target, 'publish', this.clock());
-    if (!who.appIds?.includes(appId)) throw new ControlError('scope_denied', 'Select an explicitly authorized app.', 403);
+    if (!grantsApp(who, appId)) throw new ControlError('scope_denied', 'Select an explicitly authorized app.', 403);
     if (!bytes.length || bytes.length > 20 * 1024 * 1024)
       throw new ControlError('source_too_large', 'Source archive exceeds its upload limit.', 413);
     return this.tx(async (sql) => {
@@ -606,7 +609,7 @@ export class PgAgentJournal implements AgentJournal {
            and project_id = ${projectOf(target)} and app_id = ${appId}`) as unknown as
         { sha256: string; expires_at: string; bytes: Uint8Array }[];
       const row = rows[0];
-      if (!who.appIds?.includes(appId) || !row || Date.parse(row.expires_at) <= this.clock() || row.sha256 !== expectedHash)
+      if (!grantsApp(who, appId) || !row || Date.parse(row.expires_at) <= this.clock() || row.sha256 !== expectedHash)
         throw new ControlError('upload_unavailable', 'Upload missing, expired, out of scope or changed. Upload and prepare again.', 404);
       const bytes = Buffer.from(row.bytes);
       if (createHash('sha256').update(bytes).digest('hex') !== expectedHash)

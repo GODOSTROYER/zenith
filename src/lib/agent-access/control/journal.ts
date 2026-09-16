@@ -3,7 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { createHash, randomUUID } from 'node:crypto';
 import { chmodSync, existsSync, lstatSync, mkdirSync, openSync, closeSync } from 'node:fs';
 import { dirname, isAbsolute } from 'node:path';
-import { grantsProject } from '../security';
+import { grantsApp, grantsProject } from '../security';
 
 export class ControlError extends Error {
   constructor(readonly code: string, message: string, readonly status = 409) { super(message); }
@@ -333,7 +333,7 @@ export class Journal {
   }
   putUpload(who: Principal, target: Target, appId: string, bytes: Buffer): { uploadId: string; sha256: string; bytes: number; expiresAt: string } {
     checkTarget(who, target, 'publish', this.clock());
-    if (!who.appIds?.includes(appId)) throw new ControlError('scope_denied', 'Select an explicitly authorized app.', 403);
+    if (!grantsApp(who, appId)) throw new ControlError('scope_denied', 'Select an explicitly authorized app.', 403);
     if (!bytes.length || bytes.length > 20 * 1024 * 1024) throw new ControlError('source_too_large', 'Source archive exceeds its upload limit.', 413);
     return this.transaction(() => {
       this.expirePending();
@@ -349,7 +349,7 @@ export class Journal {
     checkTarget(who, target, 'publish', this.clock());
     const row = this.sql.prepare('SELECT * FROM agent_uploads WHERE id=? AND subject=? AND workspace=? AND project=? AND app=?')
       .get(id, who.subject, who.workspaceId, projectOf(target), appId) as { sha256: string; expires_at: number; bytes: Uint8Array } | undefined;
-    if (!who.appIds?.includes(appId) || !row || row.expires_at <= this.clock() || row.sha256 !== expectedHash)
+    if (!grantsApp(who, appId) || !row || row.expires_at <= this.clock() || row.sha256 !== expectedHash)
       throw new ControlError('upload_unavailable', 'Upload missing, expired, out of scope or changed. Upload and prepare again.', 404);
     const bytes = Buffer.from(row.bytes);
     if (createHash('sha256').update(bytes).digest('hex') !== expectedHash) throw new ControlError('upload_corrupt', 'Stored source integrity check failed.', 503);

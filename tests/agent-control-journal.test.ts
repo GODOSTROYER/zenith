@@ -411,6 +411,12 @@ describe.skipIf(!PG_LIVE)('postgres agent journal (live)', () => {
     await clientA.unsafe(
       "insert into agent.schema_migrations (version, name, applied_at) values (1, 'agent-link-v1', '2026-01-01T00:00:00.000Z') on conflict (version) do nothing"
     );
+    // Version 3 (`0008_agent_workspace_scope.sql`) alters `agent_credentials`
+    // from 0006 as well; only its `agent_operations` half matters to the journal.
+    await clientA.unsafe('alter table agent.agent_operations alter column project_id drop not null');
+    await clientA.unsafe(
+      "insert into agent.schema_migrations (version, name, applied_at) values (3, 'agent-workspace-scope-v1', '2026-01-01T00:00:00.000Z') on conflict (version) do nothing"
+    );
   });
 
   afterAll(async () => {

@@ -57,12 +57,16 @@ export const browserGet=route(async(req)=>{
     try{await requireCredentialAuthority();
       linkedAgents=(await credentialAuthority().listCredentials(identity.subject,workspace.id)).map(linkedAgentView);}
     catch(error){linkedAgentsUnavailable=error instanceof Error?error.message:'The credential authority is unavailable.';}
+    // OAuth client grants exist only where an external authorization server is
+    // configured; without one the screen already says so, and the Postgres
+    // journal refuses grant storage, so there is nothing to list.
+    const oauthConfigured=!!oauthConfig(process.env,origin);
     return json(redact({workspaceId:workspace.id,subject:identity.subject,role:member.role,
-      grants:await journal.grants(identity.subject,workspace.id),
+      grants:oauthConfigured?await journal.grants(identity.subject,workspace.id):[],
       operations:(await journal.reviewQueue(workspace.id,identity.subject,member.role==='admin')).map(op=>operationView(op,origin)),
       projects:db().projects.filter(p=>p.workspaceId===workspace.id).map(p=>({id:p.id,name:p.name})),
       linkedAgents,...(linkedAgentsUnavailable?{linkedAgentsUnavailable}:{}),
-      oauthConfigured:!!oauthConfig(process.env,origin),resource:`${origin}/api/agent/v2/mcp`}));
+      oauthConfigured,resource:`${origin}/api/agent/v2/mcp`}));
   }catch(error){return failure(error);}
 });
 

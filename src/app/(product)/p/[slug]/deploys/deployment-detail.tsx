@@ -4,7 +4,7 @@
  * streams; a finished one replays the same event log from seq 0, so history
  * and live look identical and a refresh loses nothing.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { GitCompare } from "lucide-react";
 import { useEventStream } from "@/lib/client/api";
@@ -22,6 +22,7 @@ import { useShell } from "@/components/shell/shell-context";
 import { roleAllows, roleReason, useRequiredRole } from "@/components/deploy/caller-role";
 import { ActionConfirm, ErrorNote } from "@/components/screens/shared";
 import { ConnectedDetail } from "@/components/screens/connected-detail";
+import { applyStreamEvent, EMPTY_DEPLOYMENT_PATCH, reconcileDeployment } from "@/components/deploy/deployment-state";
 import { OutputRow } from "./output-row";
 import { isLive, STATUS_DOT, STATUS_LABEL, STREAM_EVENTS } from "./status";
 
@@ -53,19 +54,22 @@ export function DeploymentDetail({
 }: DeploymentDetailProps) {
   const { boot } = useShell();
   const approveRole = useRequiredRole("deploy.approve", "admin");
-  const [dep, setDep] = useState<Deployment>(snapshot);
+  // The stored record (from the list, refreshed as the workspace poll moves)
+  // is the authority; the stream only fills in what happened since. The log
+  // can hold stale events after a terminal one, so the stream is folded into
+  // a patch that never moves backwards and merged the same way the map dock
+  // merges it — otherwise a replayed "verifying" outlived a "succeeded" row.
+  const [patch, setPatch] = useState(EMPTY_DEPLOYMENT_PATCH);
   const [lines, setLines] = useState<LogLine[]>([]);
   const [confirm, setConfirm] = useState<null | "approve" | "cancel" | "rollback">(null);
   const [selectedStepId, setSelectedStepId] = useState<string>();
 
   const revisionNumber = revisionNumbers.get(snapshot.revisionId);
-
-  useEffect(() => {
-    setDep(snapshot);
-  }, [snapshot]);
+  const dep = useMemo<Deployment>(() => reconcileDeployment(snapshot, patch), [snapshot, patch]);
 
   const onEvent = useCallback((type: string, raw: unknown) => {
     const e = raw as DeploymentEvent;
+    if (e.deploymentId !== undefined && e.deploymentId !== snapshot.id) return;
     if (type === "log" && e.type === "log") {
       setLines((prev) =>
         [...prev, { seq: e.seq, stream: e.stream, line: e.line, ts: e.ts }].slice(
@@ -74,22 +78,8 @@ export function DeploymentDetail({
       );
       return;
     }
-    setDep((prev) => {
-      if (type === "status" && e.type === "status") return { ...prev, status: e.status };
-      if (type === "step" && e.type === "step")
-        return {
-          ...prev,
-          steps: prev.steps.map((s) =>
-            s.id === e.stepId ? { ...s, status: e.status, error: e.error ?? s.error } : s
-          ),
-        };
-      if (type === "output" && e.type === "output")
-        return prev.outputs.some((o) => o.key === e.output.key)
-          ? prev
-          : { ...prev, outputs: [...prev.outputs, e.output] };
-      return prev;
-    });
-  }, []);
+    if (type === e.type) setPatch((prev) => applyStreamEvent(prev, e));
+  }, [snapshot.id]);
 
   const { connected } = useEventStream(
     `/api/deployments/${snapshot.id}/events`,

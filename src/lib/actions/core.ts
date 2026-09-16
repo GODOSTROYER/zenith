@@ -27,6 +27,11 @@ export interface ActionContext {
   actor: Actor;
   /** Set by the authenticated integration coordinator, never read from action input. */
   integration?: { operationId: string; clientId: string; proposalDigest: string };
+  /**
+   * Set by the integration runtime for a link that covers only some projects:
+   * a plan counts the variables of other projects instead of naming them.
+   */
+  visibleProjectIds?: readonly string[];
   /** effective autonomy level when actor.type === "navigator" */
   autonomy?: AutonomyLevel;
 }

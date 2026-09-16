@@ -27,6 +27,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TimeAgo } from "@/components/ui/time-ago";
 import { cx, fmtDate, fmtUsd } from "@/lib/format";
+import type { ReviewDisplay } from "@/lib/agent-access/control/review";
 
 interface Operation {
   id: string;
@@ -35,8 +36,10 @@ interface Operation {
   subject: string;
   phase: string;
   expiresAt: string;
-  target: { projectId: string; environmentId?: string };
+  /** `projectId` absent: a workspace-level proposal (whole-workspace links only). */
+  target: { workspaceId?: string; projectId?: string; environmentId?: string };
   plan: {
+    kind?: string;
     summary?: string;
     details?: string[];
     warnings?: string[];
@@ -45,6 +48,8 @@ interface Operation {
     approvalRole?: string;
   };
   source?: { repository: string; commit: string; pullRequest?: number };
+  /** The exact request, projected for this screen (absent from older servers). */
+  review?: ReviewDisplay;
 }
 interface Grant {
   clientId: string;
@@ -68,6 +73,8 @@ interface LinkedAgent {
   clientVersion: string | null;
   scopes: string[];
   projectIds: string[];
+  /** Whole workspace: every current and future project. `projectIds` is then empty. */
+  allProjects?: boolean;
   environmentIds: string[] | null;
   issuedAt: string;
   expiresAt: string;
@@ -76,6 +83,7 @@ interface LinkedAgent {
 }
 interface State {
   workspaceId: string;
+  workspaceName?: string;
   subject: string;
   role: string;
   resource: string;
@@ -129,6 +137,96 @@ const PHASE: Record<string, { label: string; tone: ChipTone }> = {
 };
 
 type Note = { kind: "ok" | "err"; text: string };
+
+/** What a linked credential reaches, in words. */
+function reach(agent: LinkedAgent): string {
+  if (agent.allProjects) return "Whole workspace (all projects, including new ones)";
+  const projects = `${agent.projectIds.length} project${agent.projectIds.length === 1 ? "" : "s"}`;
+  return agent.environmentIds?.length
+    ? `${projects}, ${agent.environmentIds.length} environment${agent.environmentIds.length === 1 ? "" : "s"}`
+    : projects;
+}
+
+/**
+ * Where a proposal lands. A workspace-level one (creating a project or a
+ * connection, renaming) names the workspace, because there is no project to
+ * name yet.
+ */
+function ProposalScope({ op, state }: { op: Operation; state: State }) {
+  const review = op.review;
+  if (op.target.projectId === undefined)
+    return (
+      <>
+        <dt className="text-ink-faint">Scope</dt>
+        <dd className="min-w-0 text-ink">
+          Workspace · <strong className="font-medium">{review?.workspace.name ?? state.workspaceName ?? state.workspaceId}</strong>
+        </dd>
+      </>
+    );
+  const projectName =
+    review?.project?.name ?? state.projects.find((p) => p.id === op.target.projectId)?.name;
+  return (
+    <>
+      <dt className="text-ink-faint">Project</dt>
+      <dd className="min-w-0 break-all text-ink">
+        {projectName ? (
+          <>
+            {projectName} <span className="font-mono text-ink-faint">{op.target.projectId}</span>
+          </>
+        ) : (
+          <span className="font-mono">{op.target.projectId}</span>
+        )}
+        {op.target.environmentId ? (
+          <>
+            {" · "}
+            {review?.environment?.name ?? <span className="font-mono">{op.target.environmentId}</span>}
+          </>
+        ) : null}
+      </dd>
+    </>
+  );
+}
+
+/** The request itself, and what the dispatched operation created. */
+function ProposalRequest({ op }: { op: Operation }) {
+  const review = op.review;
+  return (
+    <>
+      {op.target.projectId === undefined && (
+        <p className="mt-3 text-[12.5px] text-ink-mute">
+          A workspace-level change: it is not tied to one project, and only a whole-workspace link
+          can propose it.
+        </p>
+      )}
+      {review && review.fields.length > 0 && (
+        <div className="mt-4">
+          <p className="text-[12px] font-medium text-ink-mute">Requested</p>
+          <dl className="mt-1.5 grid gap-x-4 gap-y-1 rounded-ctl border border-line bg-bg1 px-3 py-2.5 text-[12.5px] sm:grid-cols-[minmax(120px,max-content)_minmax(0,1fr)]">
+            {review.fields.map((field, index) => (
+              <div key={index} className="contents">
+                <dt className="text-ink-faint">{field.label}</dt>
+                <dd className={cx("min-w-0 whitespace-pre-wrap break-all text-ink", field.mono && "font-mono")}>
+                  {field.text}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
+      {review?.created && (
+        <Callout tone="ok" compact className="mt-3">
+          <p>
+            Created project <strong className="font-medium">{review.created.name}</strong>{" "}
+            <span className="font-mono">{review.created.slug}</span> ·{" "}
+            <a href={review.created.href} className="text-signal underline-offset-2 hover:underline">
+              Open project
+            </a>
+          </p>
+        </Callout>
+      )}
+    </>
+  );
+}
 
 export default function IntegrationControl() {
   const [state, setState] = useState<State>();
@@ -541,7 +639,7 @@ export default function IntegrationControl() {
             </Card>
           </section>
 
-          <section aria-labelledby="linked-heading" className="space-y-4">
+          <section id="linked-agents" aria-labelledby="linked-heading" className="space-y-4">
             <h2 className="text-[20px] font-medium text-ink" id="linked-heading">
               Linked agents
             </h2>
@@ -591,8 +689,7 @@ export default function IntegrationControl() {
                             {" · "}
                             {agent.scopes.join(", ")}
                             {" · "}
-                            {agent.projectIds.length} project
-                            {agent.projectIds.length === 1 ? "" : "s"}
+                            {reach(agent)}
                             {" · "}
                             <span title={fmtDate(agent.expiresAt)}>
                               {expired ? "expired " : "expires "}
@@ -637,7 +734,7 @@ export default function IntegrationControl() {
             </Card>
           </section>
 
-          <section aria-labelledby="proposals-heading" className="space-y-4">
+          <section id="proposals" aria-labelledby="proposals-heading" className="space-y-4">
             <h2 className="text-[20px] font-medium text-ink" id="proposals-heading">
               Proposals awaiting review
             </h2>
@@ -671,18 +768,21 @@ export default function IntegrationControl() {
                   <Card
                     key={op.id}
                     className={cx("scroll-mt-6", linked === op.id && "ring-1 ring-signal/45")}
-                    title={op.plan.summary ?? op.action}
+                    title={op.plan.summary ?? op.review?.title ?? op.action}
+                    subtitle={
+                      op.review ? (
+                        <>
+                          {op.review.title} · <span className="font-mono">{op.review.kind}</span>
+                        </>
+                      ) : undefined
+                    }
                     actions={<Chip tone={phase.tone}>{phase.label}</Chip>}
                   >
                     {/* the anchor the client's own review link points at */}
                     <span id={op.id} />
                     <dl className="grid gap-x-6 gap-y-1.5 text-[12.5px] sm:grid-cols-2">
                       <div className="flex gap-2">
-                        <dt className="text-ink-faint">Project</dt>
-                        <dd className="min-w-0 break-all font-mono text-ink">
-                          {op.target.projectId}
-                          {op.target.environmentId ? ` · ${op.target.environmentId}` : ""}
-                        </dd>
+                        <ProposalScope op={op} state={state} />
                       </div>
                       <div className="flex gap-2">
                         <dt className="text-ink-faint">Requested by</dt>
@@ -713,8 +813,13 @@ export default function IntegrationControl() {
                       )}
                     </dl>
 
+                    <ProposalRequest op={op} />
+
                     {op.plan.details && op.plan.details.length > 0 && (
-                      <ul className="mt-4 list-disc space-y-1 pl-5 text-[13px] text-ink">
+                      <p className="mt-4 text-[12px] font-medium text-ink-mute">What changes</p>
+                    )}
+                    {op.plan.details && op.plan.details.length > 0 && (
+                      <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[13px] text-ink">
                         {op.plan.details.map((line, index) => (
                           <li key={index}>{line}</li>
                         ))}

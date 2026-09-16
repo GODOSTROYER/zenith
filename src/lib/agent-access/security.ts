@@ -26,7 +26,21 @@ export interface Credential {
   label?: string;
   /** What the program called itself when it asked. Never verified. */
   clientName?: string;
+  /**
+   * The whole-workspace grant: every current and future project of
+   * `workspaceId`, plus workspace-level operations. `projectIds` is `[]` when
+   * this is set and `environmentIds` is absent. A flag rather than a `*`
+   * sentinel, so no `includes()` check can ever match it by accident; test it
+   * only through `grantsProject` / `grantsApp`.
+   */
+  allProjects?: true;
 }
+/** The single project-grant predicate. Tenancy (project.workspaceId) is the caller's check. */
+export const grantsProject = (g: { allProjects?: boolean; projectIds: readonly string[] }, projectId: string): boolean =>
+  g.allProjects === true || g.projectIds.includes(projectId);
+/** The app-grant predicate. `ownedApp` still requires the subject's owner grant on top of it. */
+export const grantsApp = (g: { allProjects?: boolean; appIds?: readonly string[] }, appId: string): boolean =>
+  g.allProjects === true || !!g.appIds?.includes(appId);
 export interface SelectedScope { workspaceId: string; projectId?: string; environmentId?: string }
 export const object = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
 const identifier = (x: unknown): x is string => typeof x === "string" && /^[A-Za-z0-9_-]{1,100}$/.test(x);
@@ -36,9 +50,11 @@ export function parseCredentials(value: unknown): Credential[] {
     throw new AgentError("policy_unavailable", "The operator must repair the version-1 credential file.", 503);
   const ids = new Set(); const hashes = new Set();
   for (const row of value.credentials) {
-    const valid = object(row) && Object.keys(row).every(k => ["id", "tokenHash", "subject", "workspaceId", "projectIds", "environmentIds", "appIds", "scopes", "issuedAt", "expiresAt", "revokedAt", "label", "clientName"].includes(k))
+    const valid = object(row) && Object.keys(row).every(k => ["id", "tokenHash", "subject", "workspaceId", "projectIds", "environmentIds", "appIds", "scopes", "issuedAt", "expiresAt", "revokedAt", "label", "clientName", "allProjects"].includes(k))
       && identifier(row.id) && identifier(row.subject) && !["local", "navigator", "system"].includes(row.subject)
-      && identifier(row.workspaceId) && identifiers(row.projectIds) && row.projectIds.length > 0
+      && identifier(row.workspaceId) && identifiers(row.projectIds)
+      // A whole-workspace record names no projects and no environments; every other record names at least one project.
+      && (row.allProjects === undefined ? row.projectIds.length > 0 : row.allProjects === true && row.projectIds.length === 0 && row.environmentIds === undefined)
       && (row.environmentIds === undefined || identifiers(row.environmentIds))
       && (row.appIds === undefined || identifiers(row.appIds))
       && typeof row.tokenHash === "string" && /^[0-9a-f]{64}$/.test(row.tokenHash)
@@ -93,7 +109,7 @@ export function selectScope(headers: Headers, grant: Credential): SelectedScope 
   const workspaceId = headers.get("x-zenith-workspace");
   const projectId = headers.get("x-zenith-project") ?? undefined;
   const environmentId = headers.get("x-zenith-environment") ?? undefined;
-  if (workspaceId !== grant.workspaceId || !identifier(workspaceId) || projectId !== undefined && (!identifier(projectId) || !grant.projectIds.includes(projectId))
+  if (workspaceId !== grant.workspaceId || !identifier(workspaceId) || projectId !== undefined && (!identifier(projectId) || !grantsProject(grant, projectId))
     || environmentId !== undefined && (!identifier(environmentId) || !projectId || grant.environmentIds !== undefined && !grant.environmentIds.includes(environmentId)))
     throw new AgentError("scope_denied", "Select identifiers permitted by this credential; browser workspace selection is not used.");
   return { workspaceId, ...(projectId ? { projectId } : {}), ...(environmentId ? { environmentId } : {}) };

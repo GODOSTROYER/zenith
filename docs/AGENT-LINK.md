@@ -52,9 +52,28 @@ anything; what you are really deciding is whether *you* just started a link.
 **Workspace.** Every workspace you are a live member of. The credential is
 scoped to exactly one.
 
-**Projects.** At least one is required — there is no "all projects, forever"
-option. "Select all current projects" writes down the project ids **as they are
-now**; a project created tomorrow is not included.
+**Projects.** Two choices (link protocol v2; a v1 client only sees the list):
+
+- **Only these projects** — the checklist, with optional environment
+  narrowing. At least one project is required. "Select all current projects"
+  writes down the project ids **as they are now**; a project created tomorrow
+  is not included. This is the default when the workspace has projects.
+- **Whole workspace** — every current and future project, plus the
+  workspace-level proposals (create a project, add a connection, change alert
+  channels, rename the workspace). It is stored as a flag
+  (`agent_credentials.all_projects`), not as a list, so a project the agent
+  creates is reachable by the same credential without re-linking. It cannot be
+  combined with environment narrowing. It is preselected, and the only choice,
+  for a workspace with no projects. Every change is still reviewed on
+  `/integrations` before it runs.
+
+**Create a new workspace.** `zenith login --new-workspace "Name"` prefills a
+"Create a new workspace" panel with that name, marked unverified. Nothing is
+created until you press **Create** (a normal signed-in `POST /api/workspace`);
+the page then selects the new workspace with Whole workspace, and you approve
+as usual. `zenith login --workspace <id>` preselects a workspace you are a
+member of, and is ignored otherwise. Plain `zenith login` offers the same
+panel without a name.
 
 **Scopes.**
 
@@ -65,7 +84,7 @@ now**; a project created tomorrow is not included.
 | `write` | on | dispatching a change **you have already approved in the browser** |
 | `logs` | off | deployment logs. Redaction is conservative, not a secret detector: treat logs as sensitive |
 | `export` | off | bulk export of project data |
-| `publish` | off | hosted-app publishing. Phase 1 does not collect app ids, so a linked credential cannot publish even with this on |
+| `publish` | off | hosted-app publishing, suspend and resume. Only a Whole workspace credential reaches apps (app ids are not collected), and the owner grant is still required |
 
 A `viewer` cannot select `write` or `publish` — the same rule the Integrations
 screen already applies to OAuth grants.
@@ -86,7 +105,12 @@ anything: every change the agent proposes is reviewed again, by digest, on
 
 **Can**
 
-- Read everything inside its workspace, and only the projects it names.
+- Read everything inside its workspace, and only the projects it names — or,
+  with a Whole workspace grant, every project in it, including ones created
+  after the link.
+- Propose workspace-level changes (create a project, add a sandbox or
+  localstack connection, rename, alert channel changes) — Whole workspace
+  only. A project-list credential gets `workspace_scope_required`.
 - Prepare a change: a plan, a cost estimate, a target and a digest, written to
   the agent journal as an *intent* with nothing dispatched.
 - Dispatch a change **after** a signed-in human approved that exact digest in
@@ -101,13 +125,21 @@ anything: every change the agent proposes is reviewed again, by digest, on
   A "yes" typed into a chat window is not an approval and the server does not
   accept one.
 - Reach another workspace, or a project outside its list. Both are rechecked at
-  execution, not only at issue.
+  execution, not only at issue. A Whole workspace grant still never reaches a
+  project of another workspace.
+- Create a workspace, administer members or invites, enter a secret value or
+  provider credentials, loosen a policy, delete a project or environment, or
+  approve a deployment. For each of these `zenith_get_handoff` returns a link
+  to the page where a person does it (see `AGENT-CONTROL.md`).
 - Read or write a secret value. Secrets are `vault:` references everywhere,
   unchanged by this feature.
-- Run an arbitrary action. Twenty-one typed actions exist; there is no
-  "run this SQL", no member administration, and no policy relaxation.
-- Publish a hosted app, in phase 1: the link flow collects no app ids, so the
-  ownership check refuses.
+- Run an arbitrary action. Only a fixed allow-list of typed actions exists;
+  there is no "run this SQL", no member administration, and no policy
+  relaxation.
+- Publish a hosted app with a project-list credential: the link flow collects
+  no app ids, so the ownership check refuses. A Whole workspace credential
+  with `publish` reaches the workspace's apps, and still needs the subject's
+  owner grant on each one.
 - Survive revocation. Revoking takes effect on the credential's **next**
   request; there is no token cache to invalidate.
 

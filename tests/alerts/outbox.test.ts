@@ -390,7 +390,8 @@ describe("boot reclaims only what it can prove is abandoned", () => {
 describe("delivery fan-out is bounded", () => {
   it("never has more than the limit in flight, however many channels fire", async () => {
     const channels = 20;
-    for (let i = 0; i < channels; i++) channel({ id: `fan-${i}` });
+    for (let i = 0; i < channels; i++)
+      channel({ id: `fan-${i}`, target: `https://alerts.example.test/fan-out/${i}` });
     rule();
 
     let inFlight = 0;
@@ -398,8 +399,12 @@ describe("delivery fan-out is bounded", () => {
     // The stub honours the abort signal the way the real transport does, so a
     // deadline that fires under load ends this call before the retry starts
     // instead of leaving two "in flight" for one row.
-    WEBHOOK_TRANSPORT.request = async (_target, _body, _headers, signal) => {
-      inFlight += 1;
+    // beforeEach drops the previous test's delivery chain without awaiting it,
+    // so a send left over from an earlier test can still reach this stub. Count
+    // only this test's channels, or that stray call reads as a ninth slot.
+    WEBHOOK_TRANSPORT.request = async (target, _body, _headers, signal) => {
+      const mine = target.url.pathname.startsWith("/fan-out/");
+      if (mine) inFlight += 1;
       peak = Math.max(peak, inFlight);
       try {
         await new Promise<void>((resolve, reject) => {
@@ -412,7 +417,7 @@ describe("delivery fan-out is bounded", () => {
           else signal.addEventListener("abort", abort, { once: true });
         });
       } finally {
-        inFlight -= 1;
+        if (mine) inFlight -= 1;
       }
       return new Response(null, { status: 200 });
     };

@@ -91,6 +91,8 @@ interface RefConsumer {
   label: string;
   /** true when this consumer is a deployed revision, not the working copy */
   live: boolean;
+  /** in a project `ctx.visibleProjectIds` leaves out: counted in a plan, never named */
+  hidden?: boolean;
 }
 
 /** Is this consumer the very variable an action is editing? */
@@ -121,7 +123,7 @@ async function refConsumers(
 ): Promise<RefConsumer[]> {
   const out: RefConsumer[] = [];
   const seen = new Set<string>();
-  const push = (c: RefConsumer) => {
+  const pushOne = (c: RefConsumer) => {
     if (seen.has(c.label)) return;
     seen.add(c.label);
     out.push(c);
@@ -129,6 +131,9 @@ async function refConsumers(
 
   for (const p of db().projects) {
     if (p.workspaceId !== ctx.workspaceId) continue;
+    // Still found and still counted — removeSecret's keep-the-value decision needs every reader.
+    const hidden = ctx.visibleProjectIds !== undefined && !ctx.visibleProjectIds.includes(p.id);
+    const push = (c: RefConsumer) => pushOne(hidden ? { ...c, hidden } : c);
     const working = p.id === view.projectId ? view.manifest : p.workingManifest;
     for (const { s, e } of envHits(working, ref))
       push({
@@ -172,9 +177,16 @@ async function refConsumers(
 
 /** "a/api.DB_URL, b/worker.DB_URL and 2 more" — a list a person can act on. */
 function listConsumers(consumers: RefConsumer[], max = 4): string {
-  const shown = consumers.slice(0, max).map((c) => c.label);
-  const rest = consumers.length - shown.length;
-  return rest > 0 ? `${shown.join(", ")} and ${rest} more` : shown.join(", ");
+  const named = consumers.filter((c) => !c.hidden);
+  const hidden = consumers.length - named.length;
+  const shown = named.slice(0, max).map((c) => c.label);
+  const rest = named.length - shown.length;
+  const tail = [
+    ...(rest > 0 ? [`${rest} more`] : []),
+    ...(hidden > 0 ? [`${hidden} variable${hidden === 1 ? "" : "s"} in projects this link cannot see`] : []),
+  ].join(" and ");
+  if (!tail) return shown.join(", ");
+  return shown.length ? `${shown.join(", ")} and ${tail}` : tail;
 }
 
 /** How a generated reference explains itself, once, in the same words. */
@@ -491,7 +503,7 @@ defineAction<RotateSecret>({
         `${ref} goes from v${held.version} to v${held.version + 1}. The new value is encrypted under this server's ZENITH_SECRET_KEY and replaces the old one, which is not recoverable afterwards.`,
         `The manifest, the working copy and every revision are untouched — they hold the reference, never the value.`,
         readers.length <= 1
-          ? `${readers.length === 1 ? readers[0].label : "Nothing in this workspace"} reads ${ref}, so nothing else changes.`
+          ? `${readers.length === 1 ? listConsumers(readers) : "Nothing in this workspace"} reads ${ref}, so nothing else changes.`
           : `${readers.length} variables read ${ref} and all of them get the new value: ${listConsumers(readers)}.`,
       ],
       warnings: [

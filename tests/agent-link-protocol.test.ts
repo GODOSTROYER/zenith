@@ -17,6 +17,7 @@ process.env.ZENITH_SECRET_KEY ??= Buffer.alloc(32, 7).toString("base64");
 const {
   LINK_MAX_DAYS,
   LINK_PROTOCOL_VERSION,
+  LINK_PROTOCOL_VERSIONS,
   USER_CODE_ALPHABET,
   USER_CODE_LENGTH,
   formatUserCode,
@@ -32,6 +33,7 @@ const {
   paceInterval,
   parseApproveRequest,
   parseStartRequest,
+  parseTokenBody,
   parseTokenRequest,
   sealLinkSecret,
 } = await import("../src/lib/agent-access/link/protocol");
@@ -191,7 +193,8 @@ describe("request bodies", () => {
       { clientName: "ok", clientVersion: "x".repeat(41) },
       { clientName: "ok", label: "has space" },
       { clientName: "ok", requestedScopes: ["root"] },
-      { clientName: "ok", protocolVersion: 2 },
+      { clientName: "ok", protocolVersion: 3 },
+      { clientName: "ok", protocolVersion: "2" },
       { clientName: "ok", extra: 1 },
     ])
       expect(() => parseStartRequest(bad)).toThrow();
@@ -253,5 +256,99 @@ describe("poll pacing", () => {
     expect(paceInterval(3, start, start)).toBe(20);
     expect(paceInterval(6, start, start)).toBe(30);
     expect(paceInterval(600, start, start)).toBe(30);
+  });
+});
+
+describe("link protocol 2 (whole workspace, workspace hints)", () => {
+  it("speaks 2 and still answers 1, echoing whichever the client sent", () => {
+    expect(LINK_PROTOCOL_VERSION).toBe(2);
+    expect(LINK_PROTOCOL_VERSIONS).toEqual([1, 2]);
+    expect(parseStartRequest({ clientName: "Codex" }).protocolVersion).toBe(1);
+    expect(parseStartRequest({ clientName: "Codex", protocolVersion: 1 }).protocolVersion).toBe(1);
+    expect(parseStartRequest({ clientName: "Codex", protocolVersion: 2 }).protocolVersion).toBe(2);
+    const code = mintDeviceCode();
+    expect(parseTokenBody({ deviceCode: code })).toEqual({ deviceCode: code, protocolVersion: 1 });
+    expect(parseTokenBody({ deviceCode: code, protocolVersion: 2 })).toEqual({ deviceCode: code, protocolVersion: 2 });
+    for (const bad of [0, 3, "2", 1.5, null])
+      expect(() => parseTokenBody({ deviceCode: code, protocolVersion: bad })).toThrow(/protocol versions 1 and 2/);
+  });
+
+  it("accepts a workspace hint or a new-workspace name, strictly, and only at protocol 2", () => {
+    expect(parseStartRequest({ clientName: "Codex", protocolVersion: 2, workspaceHint: "ws_1-A" })).toMatchObject({
+      workspaceHint: "ws_1-A",
+    });
+    expect(
+      parseStartRequest({ clientName: "Codex", protocolVersion: 2, workspaceNameHint: "Acme Labs (EU) 2.0" })
+    ).toMatchObject({ workspaceNameHint: "Acme Labs (EU) 2.0" });
+    expect(parseStartRequest({ clientName: "Codex", protocolVersion: 2, workspaceNameHint: "Café Zürich" }).workspaceNameHint).toBe(
+      "Café Zürich"
+    );
+    expect(parseStartRequest({ clientName: "Codex", protocolVersion: 2 })).not.toHaveProperty("workspaceHint");
+    for (const bad of [
+      // protocol 1 (explicit or implied) carries no hints
+      { clientName: "ok", workspaceHint: "ws_1" },
+      { clientName: "ok", protocolVersion: 1, workspaceNameHint: "Acme" },
+      // one or the other
+      { clientName: "ok", protocolVersion: 2, workspaceHint: "ws_1", workspaceNameHint: "Acme" },
+      // an identifier, not a path or a URL
+      { clientName: "ok", protocolVersion: 2, workspaceHint: "../ws" },
+      { clientName: "ok", protocolVersion: 2, workspaceHint: "" },
+      { clientName: "ok", protocolVersion: 2, workspaceHint: "x".repeat(101) },
+      { clientName: "ok", protocolVersion: 2, workspaceHint: 7 },
+      { clientName: "ok", protocolVersion: 2, workspaceHint: null },
+      // 1-60 plain characters, no markup, no control characters, no padding
+      { clientName: "ok", protocolVersion: 2, workspaceNameHint: "" },
+      { clientName: "ok", protocolVersion: 2, workspaceNameHint: "x".repeat(61) },
+      { clientName: "ok", protocolVersion: 2, workspaceNameHint: "<b>Acme</b>" },
+      { clientName: "ok", protocolVersion: 2, workspaceNameHint: "Acme\nLabs" },
+      { clientName: "ok", protocolVersion: 2, workspaceNameHint: " Acme" },
+      { clientName: "ok", protocolVersion: 2, workspaceNameHint: "Acme " },
+      { clientName: "ok", protocolVersion: 2, workspaceNameHint: "-Acme" },
+      { clientName: "ok", protocolVersion: 2, workspaceNameHint: ["Acme"] },
+    ])
+      expect(() => parseStartRequest(bad), JSON.stringify(bad)).toThrow();
+  });
+
+  it("parses a whole-workspace approval and refuses every half of one", () => {
+    const base = {
+      userCode: "AAAA-2222",
+      approve: true,
+      workspaceId: "ws_1",
+      scopes: ["read", "plan", "write"],
+      days: 7,
+    };
+    expect(parseApproveRequest({ ...base, projectIds: [], allProjects: true })).toMatchObject({
+      approve: true,
+      allProjects: true,
+      projectIds: [],
+    });
+    // Absent and false both mean an explicit list, which a protocol-1 page sends.
+    expect(parseApproveRequest({ ...base, projectIds: ["prj_a"] })).toMatchObject({ allProjects: false });
+    expect(parseApproveRequest({ ...base, projectIds: ["prj_a"], allProjects: false })).toMatchObject({
+      allProjects: false,
+    });
+    for (const bad of [
+      { ...base, allProjects: true },
+      { ...base, allProjects: true, projectIds: ["prj_a"] },
+      { ...base, allProjects: true, projectIds: [], environmentIds: ["env_1"] },
+      { ...base, allProjects: true, projectIds: [], environmentIds: [] },
+      { ...base, allProjects: "true", projectIds: [] },
+      { ...base, allProjects: false, projectIds: [] },
+    ])
+      expect(() => parseApproveRequest(bad), JSON.stringify(bad)).toThrow(/whole workspace|project|environment/i);
+  });
+});
+
+describe("the single project-grant predicate", () => {
+  it("is the only way the link and reader surfaces test a project grant", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const root = join(process.cwd(), "src", "lib", "agent-access");
+    for (const file of ["security.ts", "zenith-reader.ts", "control/boundary.ts"]) {
+      const source = readFileSync(join(root, file), "utf8");
+      // `grantsProject` itself (`g.projectIds.includes(…)`) is the one allowed use.
+      const uses = source.match(/[\w.]*projectIds\.includes\(/g) ?? [];
+      expect(uses.filter((use) => use !== "g.projectIds.includes("), `${file} must use grantsProject()`).toEqual([]);
+    }
   });
 });

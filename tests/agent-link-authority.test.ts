@@ -340,7 +340,10 @@ function fakeSql(handler: (text: string, values: unknown[]) => unknown[]) {
   return { tag, calls };
 }
 
-const migrated = (text: string) => (text.includes("agent.schema_migrations") ? [{ version: 1 }] : []);
+/** Both ledger rows this build needs: 0006 (1) and 0008 (3). */
+const LEDGER = [{ version: 1 }, { version: 3 }];
+
+const migrated = (text: string) => (text.includes("agent.schema_migrations") ? [...LEDGER] : []);
 
 const credentialRow = (overrides: Record<string, unknown> = {}) => ({
   id: "cred_pg",
@@ -373,7 +376,7 @@ describe("postgres credential authority (statement shape; live behaviour is P5's
   });
 
   it("binds scope arrays as text parsed into jsonb, never as a jsonb-encoded string", async () => {
-    const { tag, calls } = fakeSql((text) => (text.includes("schema_migrations") ? [{ version: 1 }] : []));
+    const { tag, calls } = fakeSql((text) => (text.includes("schema_migrations") ? [...LEDGER] : []));
     const pg = new PgCredentialAuthority(() => tag as never);
     await pg.startLink({
       userCodeHash: "u".repeat(64),
@@ -409,7 +412,7 @@ describe("postgres credential authority (statement shape; live behaviour is P5's
       failed_lookups: 0,
     };
     const { tag } = fakeSql((text) =>
-      text.includes("schema_migrations") ? [{ version: 1 }] : text.includes("from agent.agent_link_codes") ? [legacy] : []
+      text.includes("schema_migrations") ? [...LEDGER] : text.includes("from agent.agent_link_codes") ? [legacy] : []
     );
     const pg = new PgCredentialAuthority(() => tag as never);
     const row = await pg.linkByUserCode(legacy.user_code_hash);
@@ -433,7 +436,7 @@ describe("postgres credential authority (statement shape; live behaviour is P5's
       [credentialRow({ token_hash: hash, expires_at: new Date(Date.now() - 1).toISOString() }), false],
       [credentialRow({ token_hash: hash, issued_at: new Date(Date.now() + 60_000).toISOString() }), false],
     ] as const) {
-      const { tag, calls } = fakeSql((text) => (text.includes("schema_migrations") ? [{ version: 1 }] : [row]));
+      const { tag, calls } = fakeSql((text) => (text.includes("schema_migrations") ? [...LEDGER] : [row]));
       const pg = new PgCredentialAuthority(() => tag as never);
       if (ok) expect((await pg.verify(`Bearer ${token}`)).id).toBe("cred_pg");
       else await expect(pg.verify(`Bearer ${token}`)).rejects.toMatchObject({ status: 401 });
@@ -466,7 +469,7 @@ describe("postgres credential authority (statement shape; live behaviour is P5's
     };
     let consumedAlready = false;
     const { tag, calls } = fakeSql((text) => {
-      if (text.includes("schema_migrations")) return [{ version: 1 }];
+      if (text.includes("schema_migrations")) return [...LEDGER];
       if (text.includes("set state = 'consumed'")) {
         if (consumedAlready) return []; // the guard matched zero rows
         consumedAlready = true;
@@ -504,7 +507,7 @@ describe("postgres credential authority (statement shape; live behaviour is P5's
 
   it("drops the subject predicate only for an admin", async () => {
     const { tag, calls } = fakeSql((text) =>
-      text.includes("schema_migrations") ? [{ version: 1 }] : [{ id: "cred_pg" }]
+      text.includes("schema_migrations") ? [...LEDGER] : [{ id: "cred_pg" }]
     );
     const pg = new PgCredentialAuthority(() => tag as never);
     expect(await pg.revokeCredential("member_1", "ws_1", "cred_pg")).toBe(true);
@@ -517,7 +520,7 @@ describe("postgres credential authority (statement shape; live behaviour is P5's
   it("inserts the credential and moves the code inside one transaction", async () => {
     const userCodeHash = hashUserCode("BBBB3333");
     const { tag, calls } = fakeSql((text) => {
-      if (text.includes("schema_migrations")) return [{ version: 1 }];
+      if (text.includes("schema_migrations")) return [...LEDGER];
       if (text.includes("for update"))
         return [
           {
@@ -557,7 +560,7 @@ describe("postgres credential authority (statement shape; live behaviour is P5's
   it("refuses the twenty-first live credential without inserting one", async () => {
     const userCodeHash = hashUserCode("CCCC4444");
     const { tag, calls } = fakeSql((text) => {
-      if (text.includes("schema_migrations")) return [{ version: 1 }];
+      if (text.includes("schema_migrations")) return [...LEDGER];
       if (text.includes("for update"))
         return [
           {
@@ -586,5 +589,218 @@ describe("postgres credential authority (statement shape; live behaviour is P5's
       })
     ).rejects.toMatchObject({ code: "credential_quota", status: 429 });
     expect(calls.some((call) => call.text.includes("insert into agent.agent_credentials"))).toBe(false);
+  });
+});
+
+/* ------------------------- whole-workspace grant (P2) ---------------------- */
+
+describe("file authority: link protocol 2 and the whole-workspace grant", () => {
+  it("keeps a protocol-2 request's hints and issues a whole-workspace credential", async () => {
+    const { deviceCode, userCodeHash } = await start({ protocolVersion: 2, workspaceNameHint: "Side project" });
+    expect(await authority.linkByUserCode(userCodeHash)).toMatchObject({
+      state: "pending",
+      protocolVersion: 2,
+      workspaceNameHint: "Side project",
+    });
+    const hinted = await start({ protocolVersion: 2, workspaceHint: "ws_1" });
+    expect(await authority.linkByUserCode(hinted.userCodeHash)).toMatchObject({ workspaceHint: "ws_1" });
+
+    await authority.approveLink(approval(userCodeHash, { projectIds: [], allProjects: true }));
+    const exchanged = await authority.exchange(hashDeviceCode(deviceCode));
+    if (exchanged.status !== "issued") throw new Error(`expected issued, got ${exchanged.status}`);
+    expect(exchanged.credential).toMatchObject({ allProjects: true, projectIds: [] });
+    expect(exchanged.credential.environmentIds).toBeUndefined();
+    // The file this build wrote is one the unmodified parser and authenticate() accept.
+    const records = onDisk();
+    expect(authenticate(`Bearer ${exchanged.token}`, records)).toMatchObject({ allProjects: true, projectIds: [] });
+    if (!WINDOWS) expect(await authority.verify(`Bearer ${exchanged.token}`)).toMatchObject({ allProjects: true });
+    expect((await authority.listCredentials("member_1", "ws_1"))[0]).toMatchObject({ allProjects: true });
+  });
+
+  it("reads a code with no protocol version as protocol 1 and never gives it the whole workspace", async () => {
+    const { userCodeHash } = await start();
+    expect(await authority.linkByUserCode(userCodeHash)).toMatchObject({ protocolVersion: 1 });
+    await expect(
+      authority.approveLink(approval(userCodeHash, { projectIds: [], allProjects: true }))
+    ).rejects.toMatchObject({ code: "protocol_upgrade_required", status: 409 });
+    // Nothing was written: the code still waits, and an explicit list still works.
+    expect(await authority.linkByUserCode(userCodeHash)).toMatchObject({ state: "pending" });
+    await expect(authority.approveLink(approval(userCodeHash))).resolves.toMatchObject({
+      credentialId: expect.stringMatching(/^cred_/),
+    });
+    expect(onDisk()[0].allProjects).toBeUndefined();
+  });
+
+  it("refuses a whole-workspace approval that also names projects or environments", async () => {
+    const { userCodeHash } = await start({ protocolVersion: 2 });
+    for (const overrides of [
+      { allProjects: true },
+      { allProjects: true, projectIds: [], environmentIds: ["env_1"] },
+      { allProjects: false, projectIds: [] },
+    ])
+      await expect(authority.approveLink(approval(userCodeHash, overrides))).rejects.toMatchObject({
+        code: "invalid_request",
+        status: 400,
+      });
+    expect(await authority.linkByUserCode(userCodeHash)).toMatchObject({ state: "pending" });
+  });
+
+  it("parses whole-workspace records and nothing that only looks like one", () => {
+    const base = {
+      id: "cred_ws",
+      tokenHash: "e".repeat(64),
+      subject: "member_1",
+      workspaceId: "ws_1",
+      scopes: ["read"],
+      issuedAt: "2026-01-01T00:00:00.000Z",
+      expiresAt: "2026-01-02T00:00:00.000Z",
+    };
+    expect(
+      parseCredentials({ version: 1, credentials: [{ ...base, projectIds: [], allProjects: true }] })[0]
+    ).toMatchObject({ allProjects: true });
+    for (const bad of [
+      { ...base, projectIds: [] },
+      { ...base, projectIds: ["prj_a"], allProjects: true },
+      { ...base, projectIds: [], allProjects: false },
+      { ...base, projectIds: [], allProjects: "yes" },
+      { ...base, projectIds: [], allProjects: true, environmentIds: ["env_1"] },
+    ])
+      expect(() => parseCredentials({ version: 1, credentials: [bad] })).toThrow(AgentError);
+  });
+});
+
+describe("postgres authority: link protocol 2 and the whole-workspace grant", () => {
+  const pendingRow = (userCodeHash: string, overrides: Record<string, unknown> = {}) => ({
+    user_code_hash: userCodeHash,
+    device_code_hash: "d".repeat(64),
+    state: "pending",
+    client_name: "Codex",
+    client_version: null,
+    label: null,
+    requested_scopes: ["read"],
+    created_at: new Date().toISOString(),
+    expires_at: new Date(Date.now() + 60_000).toISOString(),
+    credential_id: null,
+    secret_ct: null,
+    poll_count: 0,
+    last_polled_at: null,
+    failed_lookups: 0,
+    ...overrides,
+  });
+
+  it("refuses to run until 0008 is recorded, and says which file to apply", async () => {
+    const { tag } = fakeSql((text) =>
+      text.includes("schema_migrations") ? [{ version: 1 }, { version: 2 }] : []
+    );
+    const pg = new PgCredentialAuthority(() => tag as never);
+    await expect(pg.ready()).rejects.toMatchObject({ code: "policy_unavailable", status: 503 });
+    await expect(pg.ready()).rejects.toThrow(/0008_agent_workspace_scope\.sql/);
+  });
+
+  it("stores the protocol version and hints at start and reads them back", async () => {
+    const row = pendingRow("u".repeat(64), { protocol_version: 2, workspace_hint: "ws_1", workspace_name_hint: null });
+    const { tag, calls } = fakeSql((text) =>
+      text.includes("schema_migrations") ? [...LEDGER] : text.includes("from agent.agent_link_codes") ? [row] : []
+    );
+    const pg = new PgCredentialAuthority(() => tag as never);
+    await pg.startLink({
+      userCodeHash: "u".repeat(64),
+      deviceCodeHash: "d".repeat(64),
+      clientName: "Claude Code",
+      requestedScopes: ["read"],
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      protocolVersion: 2,
+      workspaceNameHint: "Side project",
+    });
+    const insert = calls.find((call) => call.text.includes("insert into agent.agent_link_codes"))!;
+    expect(insert.text).toContain("protocol_version, workspace_hint, workspace_name_hint");
+    expect(insert.values.slice(-3)).toEqual([2, null, "Side project"]);
+    expect(await pg.linkByUserCode("u".repeat(64))).toMatchObject({ protocolVersion: 2, workspaceHint: "ws_1" });
+    // A row an older build wrote has no such columns: protocol 1, no hints.
+    const legacy = pendingRow("v".repeat(64));
+    const old = fakeSql((text) =>
+      text.includes("schema_migrations") ? [...LEDGER] : text.includes("from agent.agent_link_codes") ? [legacy] : []
+    );
+    const read = await new PgCredentialAuthority(() => old.tag as never).linkByUserCode("v".repeat(64));
+    expect(read?.protocolVersion).toBe(1);
+    expect(read).not.toHaveProperty("workspaceHint");
+  });
+
+  it("binds all_projects and an empty project list for a protocol-2 whole-workspace approval", async () => {
+    const userCodeHash = hashUserCode("DDDD5555");
+    const { tag, calls } = fakeSql((text) => {
+      if (text.includes("schema_migrations")) return [...LEDGER];
+      if (text.includes("for update")) return [pendingRow(userCodeHash, { protocol_version: 2 })];
+      if (text.includes("count(*)")) return [{ n: 0 }];
+      if (text.includes("set state = 'approved'")) return [{ user_code_hash: userCodeHash }];
+      return [];
+    });
+    const pg = new PgCredentialAuthority(() => tag as never);
+    await pg.approveLink({
+      userCodeHash,
+      subject: "member_1",
+      workspaceId: "ws_1",
+      projectIds: [],
+      allProjects: true,
+      scopes: ["read", "plan"],
+      days: 30,
+    });
+    const insert = calls.find((call) => call.text.includes("insert into agent.agent_credentials"))!;
+    expect(insert.text).toContain("all_projects");
+    expect(insert.values).toContain("[]");
+    expect(insert.values.at(-1)).toBe(true);
+  });
+
+  it("writes all_projects false for a list, and refuses the whole workspace to a protocol-1 row", async () => {
+    const userCodeHash = hashUserCode("EEEE6666");
+    let protocol: number | undefined = undefined;
+    const { tag, calls } = fakeSql((text) => {
+      if (text.includes("schema_migrations")) return [...LEDGER];
+      if (text.includes("for update"))
+        return [pendingRow(userCodeHash, protocol === undefined ? {} : { protocol_version: protocol })];
+      if (text.includes("count(*)")) return [{ n: 0 }];
+      if (text.includes("set state = 'approved'")) return [{ user_code_hash: userCodeHash }];
+      return [];
+    });
+    const pg = new PgCredentialAuthority(() => tag as never);
+    const input = { userCodeHash, subject: "member_1", workspaceId: "ws_1", scopes: ["read"] as "read"[], days: 1 };
+    await pg.approveLink({ ...input, projectIds: ["prj_a"] });
+    const listed = calls.find((call) => call.text.includes("insert into agent.agent_credentials"))!;
+    expect(listed.values.at(-1)).toBe(false);
+
+    calls.length = 0;
+    for (const version of [undefined, 1]) {
+      protocol = version;
+      await expect(pg.approveLink({ ...input, projectIds: [], allProjects: true })).rejects.toMatchObject({
+        code: "protocol_upgrade_required",
+        status: 409,
+      });
+    }
+    expect(calls.some((call) => call.text.includes("insert into agent.agent_credentials"))).toBe(false);
+    // A malformed shape is refused before any statement runs.
+    const before = calls.length;
+    await expect(pg.approveLink({ ...input, projectIds: ["prj_a"], allProjects: true })).rejects.toMatchObject({
+      code: "invalid_request",
+    });
+    expect(calls.length).toBe(before);
+  });
+
+  it("round-trips all_projects through verify()", async () => {
+    const token = `za_${"F".repeat(43)}`;
+    const hash = createHash("sha256").update(token).digest("hex");
+    for (const [flag, expected] of [
+      [true, true],
+      [false, undefined],
+      [null, undefined],
+    ] as const) {
+      const { tag } = fakeSql((text) =>
+        text.includes("schema_migrations")
+          ? [...LEDGER]
+          : [credentialRow({ token_hash: hash, all_projects: flag, project_ids: flag ? [] : ["prj_a"] })]
+      );
+      const verified = await new PgCredentialAuthority(() => tag as never).verify(`Bearer ${token}`);
+      expect(verified.allProjects).toBe(expected);
+    }
   });
 });

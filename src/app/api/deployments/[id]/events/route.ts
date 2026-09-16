@@ -23,12 +23,12 @@
 import { isPostgres, q, readEvents } from "@/lib/db/store";
 import { readEventsAsync } from "@/lib/db/pg/history";
 import type { DeploymentEvent, DeploymentStatus } from "@/lib/domain/types";
+import { followsStatus, isTerminalDeploymentStatus } from "@/lib/domain/deployment-status";
 import { intParam, membershipCheck, route, scopedDeployment } from "@/lib/server/context";
 import { sseResponse, type SseEvent } from "@/lib/server/sse";
 
 export const dynamic = "force-dynamic";
 
-const TERMINAL: DeploymentStatus[] = ["succeeded", "failed", "rolled_back", "cancelled"];
 const LINGER_MS = 2_000;
 
 export const GET = route<{ id: string }>(async (req, { id }) => {
@@ -50,11 +50,16 @@ export const GET = route<{ id: string }>(async (req, { id }) => {
       : readEvents(deployment.id, cursor);
     for (const e of events) {
       cursor = Math.max(cursor, e.seq);
-      if (e.type === "status") streamed = e.status;
+      // A status that cannot follow the newest one is a stale append from an
+      // instance that lost the row's version guard; it must not reopen the tail.
+      if (e.type === "status" && (streamed === undefined || followsStatus(streamed, e.status))) streamed = e.status;
     }
 
-    const status = streamed ?? q.deployment(deployment.id)?.status;
-    if (status && TERMINAL.includes(status)) {
+    // The row wins when the log's newest status cannot follow it: a finished
+    // deployment whose log ends on a stale phase still ends its stream.
+    const row = q.deployment(deployment.id)?.status;
+    const status = streamed !== undefined && (row === undefined || followsStatus(row, streamed)) ? streamed : row;
+    if (status && isTerminalDeploymentStatus(status)) {
       terminalSince ??= Date.now();
       if (Date.now() - terminalSince > LINGER_MS && events.length === 0) return null;
     } else {

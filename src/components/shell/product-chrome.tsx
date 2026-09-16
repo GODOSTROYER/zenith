@@ -31,7 +31,7 @@ const CHIP =
   "transition-colors duration-[var(--dur-fast)] [transition-timing-function:var(--ease-swift)] " +
   "hover:border-line-strong focus-visible:border-signal";
 
-/** Where the workspace's own settings live — under whichever project is open. */
+/** Where the workspace's own settings live — under whichever project is open, else /settings. */
 function useSettingsSlug(): string | undefined {
   const pathname = usePathname();
   const { boot } = useShell();
@@ -144,8 +144,8 @@ function WorkspaceChip() {
   if (!boot?.workspace)
     return <span className="h-6 w-24 animate-pulse rounded-full bg-bg2" aria-hidden="true" />;
 
-  const settings = slug ? `/p/${slug}/settings` : undefined;
-  const noProject = "Workspace settings live under a project, and this workspace has none yet.";
+  // With no project yet, /settings renders the workspace and members sections itself.
+  const settings = slug ? `/p/${slug}/settings` : "/settings";
   // Demo mode has one local user who is admin of everything, so a second
   // workspace would only be a second name for the same permissions.
   const canCreate = boot.auth.configured;
@@ -222,19 +222,15 @@ function WorkspaceChip() {
           onClick={close}
           icon={<Settings className="h-3.5 w-3.5" aria-hidden="true" />}
           description="Name, environments, connections"
-          disabled={!settings}
-          disabledReason={noProject}
         >
           Rename workspace
         </MenuItem>
         <MenuItem
-          href={settings ? `${settings}#members` : undefined}
+          href={`${settings}#members`}
           onClick={close}
           icon={<Users className="h-3.5 w-3.5" aria-hidden="true" />}
           hint={boot.members.length || undefined}
           description="Who can do what here"
-          disabled={!settings}
-          disabledReason={noProject}
         >
           Members and roles
         </MenuItem>

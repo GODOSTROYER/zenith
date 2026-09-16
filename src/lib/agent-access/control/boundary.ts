@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { ZodError } from 'zod';
 import { log } from '@/lib/log';
 import { ControlError, type Principal } from './journal';
-import { AgentError, type SelectedScope } from '../security';
+import { AgentError, grantsProject, type SelectedScope } from '../security';
 import { credentialAuthority } from '../authority';
 import { control, inAgentScope, resolveTarget } from './runtime';
 import { oauthConfig, verifyOAuth, bindGrant } from './oauth';
@@ -51,7 +51,7 @@ function selection(request: Request, who?: Principal): SelectedScope {
   const take=(header:string,query:string)=>{const a=request.headers.get(header),b=params.get(query);if(a&&b&&a!==b)throw new ControlError('ambiguous_scope','Header and URL selections conflict.',400);return a??b??undefined;};
   const workspaceId=take('x-zenith-workspace','workspace'), projectId=take('x-zenith-project','project'),environmentId=take('x-zenith-environment','environment');
   if(!id(workspaceId)||projectId!==undefined&&!id(projectId)||environmentId!==undefined&&(!id(environmentId)||!projectId))throw new ControlError('scope_required','Select a workspace and optional project/environment explicitly.',400);
-  if(who&&(workspaceId!==who.workspaceId||projectId&&!who.projectIds.includes(projectId)||environmentId&&who.environmentIds&&!who.environmentIds.includes(environmentId)))throw new ControlError('scope_denied','The requested selection is outside this integration grant.',403);
+  if(who&&(workspaceId!==who.workspaceId||projectId&&!grantsProject(who,projectId)||environmentId&&who.environmentIds&&!who.environmentIds.includes(environmentId)))throw new ControlError('scope_denied','The requested selection is outside this integration grant.',403);
   return {workspaceId:workspaceId!,...(projectId?{projectId}:{}),...(environmentId?{environmentId}:{})};
 }
 export async function authorizeRequest(request: Request): Promise<{who:Principal;selected:SelectedScope;origin:string}> {

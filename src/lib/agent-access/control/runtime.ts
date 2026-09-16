@@ -144,6 +144,7 @@ async function proposal(who: Principal, raw: unknown): Promise<Proposal> {
   switch (input.kind) {
     case 'system.edit': {
       if(['projectId','workspaceId','environmentId','actor','integration','approved'].some(k=>k in input.parameters))throw new ControlError('scope_override','Scope, actors and approvals cannot be supplied inside edit parameters.',400);
+      if (input.expectedHash !== undefined && contentHash(project.workingManifest) !== input.expectedHash) throw new ControlError('stale_manifest', 'Read the current manifest hash and prepare again.');
       registerAllActions();const schema=getAction(action).input;const parsed=(schema instanceof z.ZodObject?schema.strict():schema).safeParse({...input.parameters,projectId:project.id});
       if(!parsed.success)throw new ControlError('edit_input',parsed.error.issues.map(i=>`${i.path.join('.')}: ${i.message}`).join('; ').slice(0,2000),400);
       args=parsed.data as Record<string,unknown>;break;

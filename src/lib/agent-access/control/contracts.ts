@@ -11,7 +11,9 @@ export const EDIT_KINDS = ['service.add','service.update','service.remove','reso
 const base = { target: targetSchema, requestKey: z.string().regex(/^[A-Za-z0-9_-]{8,100}$/), sourceRef: sourceRefSchema.optional() };
 export const preparationSchema = z.discriminatedUnion('kind', [
   z.object({ ...base, kind: z.literal('manifest.replace'), manifest: z.record(z.unknown()), expectedHash: z.string().regex(/^[0-9a-f]{8}$/) }).strict(),
-  z.object({ ...base, kind: z.literal('system.edit'), edit: z.enum(EDIT_KINDS), parameters:z.record(z.unknown()) }).strict(),
+  // The published tool schema offers `expectedHash` on every proposal, so an edit
+  // may carry it; when present it is enforced like a manifest replacement's.
+  z.object({ ...base, kind: z.literal('system.edit'), edit: z.enum(EDIT_KINDS), parameters:z.record(z.unknown()), expectedHash: z.string().regex(/^[0-9a-f]{8}$/).optional() }).strict(),
   z.object({ ...base, kind: z.literal('manifest.importCompose'), composeYaml:z.string().min(1).max(262144) }).strict(),
   z.object({ ...base, kind: z.literal('deployment.promote'), sourceEnvironmentId:identifier, revisionId:identifier }).strict(),
   z.object({ ...base, kind: z.literal('deployment.deploy'), message: z.string().max(300).optional() }).strict(),

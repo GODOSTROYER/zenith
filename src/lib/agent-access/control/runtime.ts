@@ -311,7 +311,10 @@ export async function invoke(name: string, args: Record<string, unknown>, whoInp
     // scheduler pass, and the canvas shows nothing happening.
     const op = await (await control()).execute(async()=>selectedPrincipal(await freshIdentity(),selected),idSchema.parse(args.operationId));
     if (advancesDeployment(op.action) && (op.result as {data?:{deploymentId?:string}}|undefined)?.data?.deploymentId)
-      await advanceAfterDispatch(who.workspaceId);
+      // In its own scope: the coordinator's snapshot is gone by now, and the
+      // Postgres store refuses an unscoped read. A fresh load also sees the
+      // deployment exactly as the dispatch committed it.
+      await inAgentScope(who, () => advanceAfterDispatch(who.workspaceId)).catch(() => undefined);
     return operationView(op, origin);
   }
   return inAgentScope(who, async()=>{

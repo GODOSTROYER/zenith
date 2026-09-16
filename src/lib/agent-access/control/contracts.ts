@@ -4,6 +4,8 @@ export const CONTROL_VERSION = 2;
 export const SCOPE_NAMES = ['read', 'plan', 'export', 'write', 'publish', 'logs'] as const;
 const identifier = z.string().regex(/^[A-Za-z0-9_-]{1,100}$/);
 export const targetSchema = z.object({ workspaceId: identifier, projectId: identifier, environmentId: identifier.optional() }).strict();
+/** A workspace-level target. Kinds using it require a whole-workspace grant. */
+export const workspaceTargetSchema = z.object({ workspaceId: identifier }).strict();
 export const sourceRefSchema = z.object({ repository: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/),
   commit: z.string().regex(/^[0-9a-f]{40}$/), pullRequest: z.number().int().positive().optional() }).strict();
 export const EDIT_ACTIONS = { 'service.add':'system.addService', 'service.update':'system.updateService', 'service.remove':'system.removeService', 'resource.add':'system.addResource', 'resource.update':'system.updateResource', 'resource.remove':'system.removeResource', 'binding.set':'system.bind', 'binding.remove':'system.unbind', 'route.add':'system.addRoute', 'route.update':'system.updateRoute', 'route.remove':'system.removeRoute' } as const;

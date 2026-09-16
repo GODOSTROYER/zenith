@@ -38,7 +38,7 @@
  * ## What it runs against
  *
  * The `postgres` job in `.github/workflows/ci.yml`: a disposable
- * `postgres:16.15-alpine` service with `supabase/migrations/0001`–`0007`
+ * `postgres:16.15-alpine` service with `supabase/migrations/0001`–`0008`
  * applied by `scripts/ci/apply-supabase-migrations.sh`. Both
  * `ZENITH_CONTRACT_POSTGRES=1` and `SUPABASE_DB_URL` are required — the flag
  * says you meant it, the URL says there is something to mean it about — and
@@ -120,8 +120,8 @@ beforeAll(async () => {
   const ledger = await sql`select version, name from agent.schema_migrations order by version`;
   expect(
     ledger.map((row) => `${String(row.version)}:${String(row.name)}`),
-    "supabase/migrations/0006_agent_link.sql and 0007_agent_control.sql must both be applied"
-  ).toEqual(["1:agent-link-v1", "2:agent-control-v1"]);
+    "supabase/migrations/0006_agent_link.sql, 0007_agent_control.sql and 0008_agent_workspace_scope.sql must all be applied"
+  ).toEqual(["1:agent-link-v1", "2:agent-control-v1", "3:agent-workspace-scope-v1"]);
 });
 
 afterAll(async () => {
@@ -515,6 +515,75 @@ describe.skipIf(!enabled())("AgentLinkPostgres", () => {
       await expect(
         sql`update agent.agent_rate_limits set count = -1 where scope = 'link.poll' and key = ${key} and bucket = 1`
       ).rejects.toThrow(/check constraint/i);
+    });
+  });
+
+  describe("the whole-workspace grant (0008)", () => {
+    /** A credential row with the 0008 columns; `projects` and `envs` vary per case. */
+    const insertScoped = (allProjects: boolean, projects: string[], envs: string[] | null) => sql`
+      insert into agent.agent_credentials
+        (id, token_hash, subject, workspace_id, project_ids, environment_ids, all_projects, scopes,
+         client_name, issued_at, expires_at, created_by)
+      values (${id("cred")}, ${hex()}, ${id("subject")}, ${id("ws")},
+              ${sql.json(projects)}, ${envs === null ? null : sql.json(envs)}, ${allProjects},
+              ${sql.json(["read", "plan"])}, 'Codex',
+              ${iso()}, ${iso(86_400_000)}, ${id("subject")})
+    `;
+
+    it("stores all_projects with an empty project list, and defaults every other row to false", async () => {
+      await expect(insertScoped(true, [], null)).resolves.toBeDefined();
+      const row = await credential();
+      const [stored] = await sql`select all_projects from agent.agent_credentials where id = ${row.id}`;
+      expect(stored.all_projects, "a row written by the pre-0008 insert is an explicit-list credential").toBe(false);
+    });
+
+    it("still refuses an empty list without all_projects, and more than 100 projects either way", async () => {
+      await expect(insertScoped(false, [], null)).rejects.toThrow(/check constraint/i);
+      const many = Array.from({ length: 101 }, (_, i) => `p${i}`);
+      await expect(insertScoped(false, many, null)).rejects.toThrow(/check constraint/i);
+      await expect(insertScoped(true, many, null)).rejects.toThrow(/check constraint/i);
+    });
+
+    it("refuses environment narrowing on a whole-workspace credential", async () => {
+      await expect(insertScoped(true, [], ["env"]), "agent_credentials_scope_env").rejects.toThrow(
+        /check constraint/i
+      );
+      await expect(insertScoped(false, [id("prj")], ["env"])).resolves.toBeDefined();
+    });
+
+    it("replaced 0006's unnamed length check with the named one, exactly once", async () => {
+      const rows = await sql`
+        select conname from pg_constraint
+         where conrelid = 'agent.agent_credentials'::regclass and contype = 'c'
+           and pg_get_constraintdef(oid) ilike '%jsonb_array_length(project_ids)%'
+         order by conname
+      `;
+      expect(rows.map((row) => String(row.conname))).toEqual(["agent_credentials_project_scope"]);
+    });
+
+    it("records the link protocol version, defaulting to 1, and bounds the name hint", async () => {
+      const codes = await linkCode({ ns: namespace() });
+      const [row] = await sql`
+        select protocol_version, workspace_hint, workspace_name_hint
+          from agent.agent_link_codes where user_code_hash = ${codes.userCodeHash}
+      `;
+      expect(row).toEqual({ protocol_version: 1, workspace_hint: null, workspace_name_hint: null });
+      await expect(
+        sql`update agent.agent_link_codes set protocol_version = 2, workspace_name_hint = ${"x".repeat(60)}
+             where user_code_hash = ${codes.userCodeHash}`
+      ).resolves.toBeDefined();
+      await expect(
+        sql`update agent.agent_link_codes set workspace_name_hint = ${"x".repeat(61)}
+             where user_code_hash = ${codes.userCodeHash}`
+      ).rejects.toThrow(/check constraint/i);
+    });
+
+    it("lets a workspace-level operation have no project", async () => {
+      const [column] = await sql`
+        select is_nullable from information_schema.columns
+         where table_schema = 'agent' and table_name = 'agent_operations' and column_name = 'project_id'
+      `;
+      expect(column?.is_nullable).toBe("YES");
     });
   });
 

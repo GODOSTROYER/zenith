@@ -111,8 +111,8 @@ beforeAll(async () => {
   const ledger = await alpha`select version, name from agent.schema_migrations order by version`;
   expect(
     ledger.map((row) => `${String(row.version)}:${String(row.name)}`),
-    "supabase/migrations/0006_agent_link.sql and 0007_agent_control.sql must both be applied"
-  ).toEqual(["1:agent-link-v1", "2:agent-control-v1"]);
+    "supabase/migrations/0006_agent_link.sql, 0007_agent_control.sql and 0008_agent_workspace_scope.sql must all be applied"
+  ).toEqual(["1:agent-link-v1", "2:agent-control-v1", "3:agent-workspace-scope-v1"]);
 });
 
 afterAll(async () => {

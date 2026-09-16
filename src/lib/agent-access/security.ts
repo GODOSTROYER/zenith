@@ -26,7 +26,21 @@ export interface Credential {
   label?: string;
   /** What the program called itself when it asked. Never verified. */
   clientName?: string;
+  /**
+   * The whole-workspace grant: every current and future project of
+   * `workspaceId`, plus workspace-level operations. `projectIds` is `[]` when
+   * this is set and `environmentIds` is absent. A flag rather than a `*`
+   * sentinel, so no `includes()` check can ever match it by accident; test it
+   * only through `grantsProject` / `grantsApp`.
+   */
+  allProjects?: true;
 }
+/** The single project-grant predicate. Tenancy (project.workspaceId) is the caller's check. */
+export const grantsProject = (g: { allProjects?: boolean; projectIds: readonly string[] }, projectId: string): boolean =>
+  g.allProjects === true || g.projectIds.includes(projectId);
+/** The app-grant predicate. `ownedApp` still requires the subject's owner grant on top of it. */
+export const grantsApp = (g: { allProjects?: boolean; appIds?: readonly string[] }, appId: string): boolean =>
+  g.allProjects === true || !!g.appIds?.includes(appId);
 export interface SelectedScope { workspaceId: string; projectId?: string; environmentId?: string }
 export const object = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
 const identifier = (x: unknown): x is string => typeof x === "string" && /^[A-Za-z0-9_-]{1,100}$/.test(x);

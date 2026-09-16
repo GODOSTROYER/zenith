@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Apply supabase/migrations/0001…0007, in order, to the database named by
+# Apply supabase/migrations/0001…0008, in order, to the database named by
 # SUPABASE_DB_URL. Written for the `postgres` job in .github/workflows/ci.yml,
 # whose database is a disposable service container — never point it at a
 # Supabase project.
@@ -73,6 +73,7 @@ MIGRATIONS=(
   "0005_pending_invite_uniqueness.sql"
   "0006_agent_link.sql"
   "0007_agent_control.sql"
+  "0008_agent_workspace_scope.sql"
 )
 
 if [ -z "${SUPABASE_DB_URL:-}" ]; then
@@ -188,8 +189,8 @@ echo "tables: $(echo "$counts" | tr '\n' ' ')"
 agent_ledger="$(psql "$SUPABASE_DB_URL" --no-align --tuples-only --set ON_ERROR_STOP=1 \
   --command "select string_agg(version || ':' || name, ', ' order by version) from agent.schema_migrations")"
 echo "agent.schema_migrations = ${agent_ledger}"
-if [ "$agent_ledger" != "1:agent-link-v1, 2:agent-control-v1" ]; then
-  echo "::error::agent.schema_migrations is not 1:agent-link-v1, 2:agent-control-v1; the agent journal and credential authority will refuse every request." >&2
+if [ "$agent_ledger" != "1:agent-link-v1, 2:agent-control-v1, 3:agent-workspace-scope-v1" ]; then
+  echo "::error::agent.schema_migrations is not 1:agent-link-v1, 2:agent-control-v1, 3:agent-workspace-scope-v1; the agent journal and credential authority will refuse every request." >&2
   exit 1
 fi
 
@@ -242,4 +243,4 @@ if [ -n "$unprotected" ]; then
 fi
 echo "row level security enabled on every table in schema agent."
 
-echo "Migrations 0001-0007 applied and verified."
+echo "Migrations 0001-0008 applied and verified."

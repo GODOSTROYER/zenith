@@ -103,7 +103,7 @@ jobs:
   #
   # ## What it proves
   #
-  #   - `supabase/migrations/0001`-`0007` apply, in order, to an empty
+  #   - `supabase/migrations/0001`-`0008` apply, in order, to an empty
   #     PostgreSQL 16 — every table, partial unique index, CHECK, identity
   #     column and plpgsql function, plus the migration ledger that
   #     `src/lib/hosted/authority/pg/index.ts:165-191` refuses to boot without.
@@ -186,7 +186,7 @@ jobs:
 
       - run: npm ci --ignore-scripts
 
-      - name: Apply supabase/migrations 0001-0007
+      - name: Apply supabase/migrations 0001-0008
         run: bash scripts/ci/apply-supabase-migrations.sh
 
       - name: Postgres contract lanes

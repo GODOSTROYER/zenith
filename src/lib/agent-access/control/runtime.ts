@@ -345,7 +345,7 @@ export async function invoke(name: string, args: Record<string, unknown>, whoInp
       const op=await (await control()).journal.get(who,idSchema.parse(args.operationId));
       const result=op.result as {data?:{deploymentId?:string;jobId?:string}}|undefined;
       let evidence:unknown;
-      if(result?.data?.deploymentId) { const d=q.deployment(result.data.deploymentId); if(d?.projectId===op.target.projectId && d.environmentId===op.target.environmentId) evidence={deploymentId:d.id,status:d.status,revisionId:d.revisionId,endedAt:d.endedAt}; }
+      if(result?.data?.deploymentId) { const d=q.deployment(result.data.deploymentId); if(d && d.projectId===op.target.projectId && d.environmentId===op.target.environmentId) evidence={deploymentId:d.id,status:d.status,revisionId:d.revisionId,endedAt:d.endedAt}; }
       if(result?.data?.jobId && typeof op.input.appId==='string') { await ownedApp(who,op.input.appId); const {authority}=await import('@/lib/hosted/authority'); const job=await authority().repos.jobs.get(result.data.jobId); if(job?.workspaceId===who.workspaceId && job.appId===op.input.appId) evidence={jobId:job.id,status:job.status,phase:job.phase}; }
       return {...operationView(op,origin),evidence};
     }

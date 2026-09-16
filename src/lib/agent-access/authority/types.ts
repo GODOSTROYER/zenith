@@ -25,6 +25,12 @@ export interface LinkStart {
   requestedScopes: string[];
   createdAt: string;
   expiresAt: string;
+  /** The link protocol the client spoke (1 or 2). Absent = 1. */
+  protocolVersion?: number;
+  /** v2 only: a workspace id the client asked to preselect. Unverified; never authority. */
+  workspaceHint?: string;
+  /** v2 only: a name to prefill "Create a new workspace" with (1-60 chars). Unverified. */
+  workspaceNameHint?: string;
 }
 
 /** One link request, as the approval screen is allowed to see it. */
@@ -46,6 +52,16 @@ export interface LinkRow {
   createdAt: string;
   expiresAt: string;
   credentialId?: string;
+  /**
+   * The protocol the client spoke at start. Absent = 1. The whole-workspace
+   * option is offered only at >= 2: a v1 client rejects an empty `projectIds`
+   * at exchange and would burn the single-use token.
+   */
+  protocolVersion?: number;
+  /** Shown as unverified; the page preselects it only for a member. */
+  workspaceHint?: string;
+  /** Shown as unverified; only prefills a text box. */
+  workspaceNameHint?: string;
 }
 
 /** A credential and the secret that opens it. Only `/token` ever sees this. */
@@ -74,8 +90,12 @@ export interface ApproveLinkInput {
   /** The signed-in member. In phase 1 this is also the credential's subject. */
   subject: string;
   workspaceId: string;
+  /** `[]` exactly when `allProjects` is true. */
   projectIds: string[];
+  /** Must be absent when `allProjects` is true. */
   environmentIds?: string[];
+  /** The whole-workspace grant (see `Credential.allProjects`). */
+  allProjects?: boolean;
   scopes: Credential["scopes"];
   /** 1..30. The ceiling is enforced here and again by `parseCredentials`. */
   days: number;

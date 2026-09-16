@@ -49,7 +49,7 @@ import { pgAuthorityClient, type Sql, type TransactionSql } from '@/lib/hosted/a
 import { transactPg } from '@/lib/hosted/authority/pg/tx';
 import { readNumber } from '@/lib/hosted/authority/pg/rows';
 import {
-  ControlError, checkTarget, digest,
+  ControlError, checkTarget, digest, projectOf,
   type AgentJournal, type Grant, type JournalEvent, type Operation, type Principal,
   type Proposal, type Target, type UploadReceipt,
 } from './journal';
@@ -351,7 +351,7 @@ export class PgAgentJournal implements AgentJournal {
           id, workspace_id, subject, integration_id, request_key, intent_hash, digest, phase,
           action, project_id, environment_id, document, created_at, expires_at)
         values (${op.id}, ${who.workspaceId}, ${who.subject}, ${who.integrationId}, ${proposal.requestKey},
-          ${intentHash}, ${op.digest}, ${op.phase}, ${op.action}, ${proposal.target.projectId},
+          ${intentHash}, ${op.digest}, ${op.phase}, ${op.action}, ${proposal.target.projectId ?? null},
           ${proposal.target.environmentId ?? null}, ${asJson(sql, op)}, ${now}, ${expiresAt})`;
       await this.event(sql, op, 'prepared');
       return op;
@@ -592,7 +592,7 @@ export class PgAgentJournal implements AgentJournal {
       const sha256 = createHash('sha256').update(bytes).digest('hex');
       const expires = iso(Math.min(this.clock() + 3600000, Date.parse(who.expiresAt)));
       await sql`insert into agent.agent_uploads (id, subject, workspace_id, project_id, app_id, sha256, expires_at, bytes)
-        values (${id}, ${who.subject}, ${who.workspaceId}, ${target.projectId}, ${appId}, ${sha256}, ${expires}, ${bytes})`;
+        values (${id}, ${who.subject}, ${who.workspaceId}, ${projectOf(target)}, ${appId}, ${sha256}, ${expires}, ${bytes})`;
       return { uploadId: id, sha256, bytes: bytes.length, expiresAt: expires };
     });
   }
@@ -603,7 +603,7 @@ export class PgAgentJournal implements AgentJournal {
       const rows = (await sql`
         select sha256, expires_at, bytes from agent.agent_uploads
          where id = ${id} and subject = ${who.subject} and workspace_id = ${who.workspaceId}
-           and project_id = ${target.projectId} and app_id = ${appId}`) as unknown as
+           and project_id = ${projectOf(target)} and app_id = ${appId}`) as unknown as
         { sha256: string; expires_at: string; bytes: Uint8Array }[];
       const row = rows[0];
       if (!who.appIds?.includes(appId) || !row || Date.parse(row.expires_at) <= this.clock() || row.sha256 !== expectedHash)

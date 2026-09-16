@@ -35,7 +35,45 @@ const state = vi.hoisted(() => ({
   /** the signed-in browser */
   identity: { subject: "member_1", emailVerified: true },
   role: "editor" as "admin" | "editor" | "viewer",
+  /** the product store; rebuilt before every test so a created workspace does not leak */
+  data: undefined as unknown as {
+    workspaces: Record<string, unknown>[];
+    members: Record<string, unknown>[];
+    projects: Record<string, unknown>[];
+    environments: Record<string, unknown>[];
+    connections: Record<string, unknown>[];
+  },
+  /** the workspace the browser cookie selects */
+  cookieWorkspace: "ws_1",
 }));
+
+const freshData = () => ({
+  workspaces: [
+    { id: "ws_1", name: "Acme", slug: "acme" },
+    { id: "ws_2", name: "Other", slug: "other" },
+    { id: "ws_3", name: "Private", slug: "private" },
+  ],
+  members: [
+    {
+      id: "member_1",
+      workspaceId: "ws_1",
+      name: "Mika",
+      email: "m@example.com",
+      get role() {
+        return state.role;
+      },
+    },
+    { id: "member_1", workspaceId: "ws_2", name: "Mika", email: "m@example.com", role: "admin" },
+    { id: "member_2", workspaceId: "ws_1", name: "Ola", email: "o@example.com", role: "admin" },
+    { id: "member_2", workspaceId: "ws_3", name: "Ola", email: "o@example.com", role: "admin" },
+  ],
+  projects: [
+    { id: "prj_a", workspaceId: "ws_1", name: "Storefront" },
+    { id: "prj_z", workspaceId: "ws_2", name: "Elsewhere" },
+  ],
+  environments: [{ id: "env_x", projectId: "prj_a", name: "prod" }],
+  connections: [],
+});
 
 vi.mock("@/lib/agent-access/authority", async () => {
   const { AgentError } = await import("../src/lib/agent-access/security");
@@ -83,11 +121,29 @@ vi.mock("@/lib/agent-access/authority", async () => {
 vi.mock("@/lib/server/request", () => ({
   route: (a: unknown, b?: unknown) => (typeof a === "function" ? a : b),
   currentRequest: () => ({
-    user: { id: state.identity.subject },
-    workspace: { id: "ws_1", name: "Acme" },
+    user: { id: state.identity.subject, name: "Mika", email: "m@example.com" },
+    workspace: state.data.workspaces.find((w) => w.id === state.cookieWorkspace),
   }),
   intParam: () => 0,
 }));
+
+// POST /api/workspace imports the request barrel; give it the same fake request
+// state, and the real ApiError/json, without loading the whole server layer.
+vi.mock("@/lib/server/context", async () => {
+  const errors = await import("../src/lib/server/errors");
+  return {
+    ApiError: errors.ApiError,
+    json: errors.json,
+    WORKSPACE_COOKIE: "zenith-workspace",
+    route: (a: unknown, b?: unknown) => (typeof a === "function" ? a : b),
+    currentRequest: () => ({
+      user: { id: state.identity.subject, name: "Mika", email: "m@example.com" },
+      workspace: state.data.workspaces.find((w) => w.id === state.cookieWorkspace),
+    }),
+  };
+});
+
+vi.mock("@/lib/supabase/env", () => ({ isSupabaseConfigured: () => true }));
 
 vi.mock("@/lib/hosted/access/identity", () => ({
   verifyRequestIdentity: async () => state.identity,
@@ -95,22 +151,8 @@ vi.mock("@/lib/hosted/access/identity", () => ({
 
 vi.mock("@/lib/db/store", () => ({
   isPostgres: () => false,
-  db: () => ({
-    workspaces: [
-      { id: "ws_1", name: "Acme" },
-      { id: "ws_2", name: "Other" },
-    ],
-    members: [
-      { id: "member_1", workspaceId: "ws_1", name: "Mika", email: "m@example.com", role: state.role },
-      { id: "member_1", workspaceId: "ws_2", name: "Mika", email: "m@example.com", role: "admin" },
-      { id: "member_2", workspaceId: "ws_1", name: "Ola", email: "o@example.com", role: "admin" },
-    ],
-    projects: [
-      { id: "prj_a", workspaceId: "ws_1", name: "Storefront" },
-      { id: "prj_z", workspaceId: "ws_2", name: "Elsewhere" },
-    ],
-    environments: [{ id: "env_x", projectId: "prj_a", name: "prod" }],
-  }),
+  db: () => state.data,
+  save: () => {},
 }));
 
 vi.mock("@/lib/agent-access/control/runtime", () => ({
@@ -124,6 +166,7 @@ vi.mock("@/lib/agent-access/control/runtime", () => ({
 
 const { POST: start } = await import("../src/app/api/agent/link/start/route");
 const { POST: token } = await import("../src/app/api/agent/link/token/route");
+const { POST: createWorkspace } = await import("../src/app/api/workspace/route");
 const handlers = await import("../src/lib/agent-access/control/browser");
 
 /**
@@ -181,6 +224,8 @@ beforeEach(() => {
   state.revokeInput = undefined;
   state.identity = { subject: "member_1", emailVerified: true };
   state.role = "editor";
+  state.data = freshData();
+  state.cookieWorkspace = "ws_1";
 });
 
 describe("POST /api/agent/link/start", () => {
@@ -219,7 +264,7 @@ describe("POST /api/agent/link/start", () => {
     );
     expect(wrongType.status).toBe(415);
     expect((await body(wrongType)).error).toMatchObject({ code: "media_type" });
-    for (const bad of [{}, { clientName: "" }, { clientName: "x".repeat(61) }, { clientName: "ok", protocolVersion: 2 }]) {
+    for (const bad of [{}, { clientName: "" }, { clientName: "x".repeat(61) }, { clientName: "ok", protocolVersion: 3 }]) {
       const response = await start(post(`${ORIGIN}/api/agent/link/start`, bad));
       expect(response.status).toBe(400);
       expect((await body(response)).error).toMatchObject({ code: "invalid_request" });
@@ -285,6 +330,9 @@ describe("POST /api/agent/link/token", () => {
       scopes: ["read", "plan", "write"],
       expiresAt: "2026-10-16T09:14:40.000Z",
       label: "laptop",
+      // Additive in protocol 2; a protocol-1 poller ignores both.
+      allProjects: false,
+      protocolVersion: 1,
     });
   });
 
@@ -386,6 +434,7 @@ describe("POST /api/integrations/agent/link/approve", () => {
       expiresAt: "2026-10-16T09:14:40.000Z",
       workspaceId: "ws_1",
       projectIds: ["prj_a"],
+      allProjects: false,
       scopes: ["read", "plan", "write"],
     });
     // The bearer lives in the /token response and nowhere else.
@@ -557,5 +606,259 @@ describe("GET /api/integrations/agent", () => {
     const data = await body(response);
     expect(data.linkedAgents).toEqual([]);
     expect(String(data.linkedAgentsUnavailable)).toMatch(/directory this server owns/);
+  });
+});
+
+/* ------------------------ link protocol 2 (PLAN3 P2) ------------------------ */
+
+describe("link protocol 2 over the wire", () => {
+  const deviceCode = `zl_${"E".repeat(43)}`;
+  const approval = {
+    userCode: "AAAA-2222",
+    approve: true,
+    workspaceId: "ws_1",
+    scopes: ["read", "plan", "write"],
+    days: 30,
+  };
+  const v2 = { ...pending, protocolVersion: 2 };
+
+  it("keeps a protocol-1 start exactly as it was: version 1 back, no hints stored", async () => {
+    for (const request of [{ clientName: "Codex" }, { clientName: "Codex", protocolVersion: 1 }]) {
+      state.started = [];
+      const response = await start(post(`${ORIGIN}/api/agent/link/start`, request));
+      expect(response.status).toBe(201);
+      expect((await body(response)).protocolVersion).toBe(1);
+      expect(state.started[0]).toMatchObject({ protocolVersion: 1 });
+      expect(state.started[0]).not.toHaveProperty("workspaceHint");
+      expect(state.started[0]).not.toHaveProperty("workspaceNameHint");
+    }
+    // A protocol-1 client cannot smuggle a hint in.
+    const hinted = await start(post(`${ORIGIN}/api/agent/link/start`, { clientName: "Codex", workspaceHint: "ws_2" }));
+    expect(hinted.status).toBe(400);
+    expect((await body(hinted)).error).toMatchObject({ code: "invalid_request" });
+  });
+
+  it("answers a protocol-2 start with version 2 and stores its hint", async () => {
+    const response = await start(
+      post(`${ORIGIN}/api/agent/link/start`, { clientName: "Codex", protocolVersion: 2, workspaceNameHint: "Side project" })
+    );
+    expect(response.status).toBe(201);
+    const data = await body(response);
+    expect(data.protocolVersion).toBe(2);
+    expect(Object.keys(data).sort()).toEqual(
+      ["deviceCode", "expiresIn", "interval", "protocolVersion", "userCode", "verificationUri", "verificationUriComplete"].sort()
+    );
+    // The hint never reaches a URL.
+    expect(String(data.verificationUriComplete)).not.toContain("Side");
+    expect(state.started[0]).toMatchObject({ protocolVersion: 2, workspaceNameHint: "Side project" });
+    for (const bad of [
+      { clientName: "Codex", protocolVersion: 2, workspaceHint: "ws 2" },
+      { clientName: "Codex", protocolVersion: 2, workspaceNameHint: "<script>" },
+      { clientName: "Codex", protocolVersion: 2, workspaceHint: "ws_2", workspaceNameHint: "Side" },
+    ]) {
+      const refused = await start(post(`${ORIGIN}/api/agent/link/start`, bad));
+      expect(refused.status).toBe(400);
+      expect((await body(refused)).error).toMatchObject({ code: "invalid_request" });
+    }
+  });
+
+  it("hands a whole-workspace credential over with allProjects and the poller's version", async () => {
+    state.exchange = {
+      status: "issued",
+      token: `za_${"G".repeat(43)}`,
+      credential: {
+        id: "cred_ws",
+        subject: "member_1",
+        workspaceId: "ws_1",
+        projectIds: [],
+        allProjects: true,
+        scopes: ["read", "plan", "write"],
+        expiresAt: "2026-10-16T09:14:40.000Z",
+      },
+    };
+    const response = await token(post(`${ORIGIN}/api/agent/link/token`, { deviceCode, protocolVersion: 2 }));
+    expect(response.status).toBe(200);
+    expect(await body(response)).toEqual({
+      status: "issued",
+      token: `za_${"G".repeat(43)}`,
+      credentialId: "cred_ws",
+      origin: ORIGIN,
+      workspaceId: "ws_1",
+      projectIds: [],
+      allProjects: true,
+      environmentIds: null,
+      scopes: ["read", "plan", "write"],
+      expiresAt: "2026-10-16T09:14:40.000Z",
+      label: null,
+      protocolVersion: 2,
+      // Protocol 2 only: what the plugin names its local profile after.
+      workspaceSlug: "acme",
+      workspaceName: "Acme",
+    });
+    // A subject that is no longer a member gets the credential, without the labels.
+    (state.exchange.credential as Record<string, unknown>).workspaceId = "ws_3";
+    const stale = await body(await token(post(`${ORIGIN}/api/agent/link/token`, { deviceCode, protocolVersion: 2 })));
+    expect(stale.status).toBe("issued");
+    expect(stale).not.toHaveProperty("workspaceSlug");
+    // A protocol-1 poller never sees them.
+    (state.exchange.credential as Record<string, unknown>).workspaceId = "ws_1";
+    const v1 = await body(await token(post(`${ORIGIN}/api/agent/link/token`, { deviceCode, protocolVersion: 1 })));
+    expect(v1).not.toHaveProperty("workspaceSlug");
+    expect(v1).not.toHaveProperty("workspaceName");
+    expect(v1.protocolVersion).toBe(1);
+    const pendingPoll = await token(post(`${ORIGIN}/api/agent/link/token`, { deviceCode, protocolVersion: 2 }));
+    expect(pendingPoll.status).toBe(200);
+  });
+
+  it("never offers the whole workspace to a protocol-1 request", async () => {
+    const response = await browserLinkGet(get(`${ORIGIN}/api/integrations/agent/link?code=AAAA-2222`));
+    const data = await body(response);
+    expect(data).toMatchObject({ protocolVersion: 1, wholeWorkspace: false, hint: null });
+  });
+
+  it("preselects a hinted workspace only for a member, and shows the hint as unverified", async () => {
+    state.link = { ...v2, workspaceHint: "ws_2" };
+    const member = await body(await browserLinkGet(get(`${ORIGIN}/api/integrations/agent/link?code=AAAA-2222`)));
+    expect(member).toMatchObject({
+      protocolVersion: 2,
+      wholeWorkspace: true,
+      canCreateWorkspace: true,
+      hint: { workspaceId: "ws_2", member: true, unverified: true },
+    });
+    expect((member.workspaces as { id: string }[]).map((w) => w.id)).toEqual(["ws_2", "ws_1"]);
+
+    // ws_3 exists, but this person is not in it: the default is untouched and
+    // nothing about ws_3 (its name, its projects) is disclosed.
+    state.link = { ...v2, workspaceHint: "ws_3" };
+    const stranger = await body(await browserLinkGet(get(`${ORIGIN}/api/integrations/agent/link?code=AAAA-2222`)));
+    expect(stranger.hint).toEqual({ workspaceId: "ws_3", member: false, unverified: true });
+    expect(JSON.stringify(stranger)).not.toContain("Private");
+    expect((stranger.workspaces as { id: string }[]).map((w) => w.id)).toEqual(["ws_1", "ws_2"]);
+    expect((stranger.projects as { workspaceId: string }[]).some((p) => p.workspaceId === "ws_3")).toBe(false);
+
+    state.link = { ...v2, workspaceNameHint: "Side project" };
+    const named = await body(await browserLinkGet(get(`${ORIGIN}/api/integrations/agent/link?code=AAAA-2222`)));
+    expect(named.hint).toEqual({ workspaceName: "Side project", unverified: true });
+  });
+
+  it("approves the whole workspace with no projects, and passes the flag to the authority", async () => {
+    const response = await browserLinkApprove(
+      browserPost(`${ORIGIN}/api/integrations/agent/link/approve`, { ...approval, projectIds: [], allProjects: true })
+    );
+    expect(response.status).toBe(200);
+    expect(await body(response)).toMatchObject({ status: "approved", projectIds: [], allProjects: true });
+    expect(state.approveInput).toMatchObject({ workspaceId: "ws_1", projectIds: [], allProjects: true });
+    expect(state.approveInput).not.toHaveProperty("environmentIds");
+  });
+
+  it("refuses a whole-workspace approval that also narrows, names projects, or crosses workspaces", async () => {
+    for (const bad of [
+      { ...approval, projectIds: [], allProjects: true, environmentIds: ["env_x"] },
+      { ...approval, projectIds: ["prj_a"], allProjects: true },
+      { ...approval, allProjects: true },
+    ]) {
+      const response = await browserLinkApprove(browserPost(`${ORIGIN}/api/integrations/agent/link/approve`, bad));
+      expect(response.status).toBe(400);
+      expect((await body(response)).error).toMatchObject({ code: "invalid_request" });
+    }
+    const foreign = await browserLinkApprove(
+      browserPost(`${ORIGIN}/api/integrations/agent/link/approve`, { ...approval, workspaceId: "ws_3", projectIds: [], allProjects: true })
+    );
+    expect(foreign.status).toBe(403);
+    expect((await body(foreign)).error).toMatchObject({ code: "membership_denied" });
+    expect(state.approveInput).toBeUndefined();
+  });
+
+  it("still holds a viewer to read-only under the whole workspace", async () => {
+    state.role = "viewer";
+    const write = await browserLinkApprove(
+      browserPost(`${ORIGIN}/api/integrations/agent/link/approve`, { ...approval, projectIds: [], allProjects: true })
+    );
+    expect(write.status).toBe(403);
+    expect((await body(write)).error).toMatchObject({ code: "scope_denied" });
+    const read = await browserLinkApprove(
+      browserPost(`${ORIGIN}/api/integrations/agent/link/approve`, {
+        ...approval,
+        projectIds: [],
+        allProjects: true,
+        scopes: ["read", "plan"],
+      })
+    );
+    expect(read.status).toBe(200);
+  });
+
+  it("passes the authority's protocol refusal through, typed", async () => {
+    const { AgentError } = await import("../src/lib/agent-access/security");
+    // The fake authority refuses with whatever the real one would.
+    const authority = (await import("@/lib/agent-access/authority")).credentialAuthority();
+    const approveLink = authority.approveLink;
+    authority.approveLink = async () => {
+      throw new AgentError("protocol_upgrade_required", "old terminal", 409);
+    };
+    try {
+      const response = await browserLinkApprove(
+        browserPost(`${ORIGIN}/api/integrations/agent/link/approve`, { ...approval, projectIds: [], allProjects: true })
+      );
+      expect(response.status).toBe(409);
+      expect((await body(response)).error).toMatchObject({ code: "protocol_upgrade_required" });
+    } finally {
+      authority.approveLink = approveLink;
+    }
+  });
+
+  it("creates a workspace mid-approval through POST /api/workspace and links it whole", async () => {
+    state.link = { ...v2, workspaceNameHint: "Side project" };
+    // The person presses Create: the same same-origin call onboarding makes.
+    const created = await createWorkspace(
+      new Request(`${ORIGIN}/api/workspace`, {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: ORIGIN },
+        body: JSON.stringify({ name: "Side project" }),
+      }) as never,
+      { params: Promise.resolve({}) } as never
+    );
+    expect(created.status).toBe(201);
+    const { workspace } = (await created.json()) as { workspace: { id: string; name: string } };
+    expect(workspace.name).toBe("Side project");
+    // The route selects the new workspace for the browser, as onboarding does.
+    expect(created.headers.get("set-cookie")).toContain(workspace.id);
+    state.cookieWorkspace = workspace.id;
+    expect(state.data.members).toContainEqual(expect.objectContaining({ id: "member_1", workspaceId: workspace.id, role: "admin" }));
+
+    // The page refetches: the new workspace is first, is the person's as admin, and has no projects.
+    const refreshed = await body(await browserLinkGet(get(`${ORIGIN}/api/integrations/agent/link?code=AAAA-2222`)));
+    expect((refreshed.workspaces as { id: string; role: string }[])[0]).toMatchObject({ id: workspace.id, role: "admin" });
+    expect((refreshed.projects as { workspaceId: string }[]).some((p) => p.workspaceId === workspace.id)).toBe(false);
+
+    // A workspace with zero projects is approvable — as the whole workspace.
+    const approved = await browserLinkApprove(
+      browserPost(`${ORIGIN}/api/integrations/agent/link/approve`, {
+        ...approval,
+        workspaceId: workspace.id,
+        projectIds: [],
+        allProjects: true,
+      })
+    );
+    expect(approved.status).toBe(200);
+    expect(state.approveInput).toMatchObject({ workspaceId: workspace.id, projectIds: [], allProjects: true, subject: "member_1" });
+  });
+
+  it("lists a whole-workspace linked agent as such", async () => {
+    state.credentials = [
+      {
+        id: "cred_ws",
+        tokenHash: "",
+        subject: "member_1",
+        workspaceId: "ws_1",
+        projectIds: [],
+        allProjects: true,
+        scopes: ["read"],
+        issuedAt: "2026-09-01T00:00:00.000Z",
+        expiresAt: "2026-10-01T00:00:00.000Z",
+        clientName: "Codex",
+      },
+    ];
+    const data = await body(await browserGet(get(`${ORIGIN}/api/integrations/agent`)));
+    expect(data.linkedAgents).toEqual([expect.objectContaining({ id: "cred_ws", projectIds: [], allProjects: true })]);
   });
 });

@@ -578,6 +578,99 @@ describe.skipIf(!enabled())("AgentLinkPostgres", () => {
       ).rejects.toThrow(/check constraint/i);
     });
 
+    /**
+     * The one place this file calls the authority rather than raw SQL: the
+     * question is whether `PgCredentialAuthority`'s own statements bind the
+     * 0008 columns in a shape the constraints accept, and read them back.
+     */
+    const throughAuthority = async (protocolVersion: number) => {
+      process.env.ZENITH_SECRET_KEY ??= Buffer.alloc(32, 5).toString("base64");
+      const { createPgCredentialAuthority } = await import("@/lib/agent-access/authority/pg");
+      const authority = createPgCredentialAuthority(() => sql);
+      const ns = namespace();
+      const codes = { userCodeHash: hex(ns), deviceCodeHash: hex(ns) };
+      const subject = id("subject"), workspaceId = id("ws");
+      await authority.startLink({
+        ...codes,
+        clientName: "Claude Code",
+        requestedScopes: ["read", "plan"],
+        createdAt: iso(),
+        expiresAt: iso(600_000),
+        protocolVersion,
+        ...(protocolVersion >= 2 ? { workspaceNameHint: "Contract space" } : {}),
+      });
+      return { authority, codes, subject, workspaceId };
+    };
+
+    const cleanup = async (userCodeHash: string, credentialId?: string) => {
+      await sql`delete from agent.agent_link_codes where user_code_hash = ${userCodeHash}`;
+      if (credentialId) await sql`delete from agent.agent_credentials where id = ${credentialId}`;
+    };
+
+    it("issues and verifies a whole-workspace credential through the Postgres authority", async () => {
+      const { authority, codes, subject, workspaceId } = await throughAuthority(2);
+      let credentialId: string | undefined;
+      try {
+        expect(await authority.linkByUserCode(codes.userCodeHash)).toMatchObject({
+          state: "pending",
+          protocolVersion: 2,
+          workspaceNameHint: "Contract space",
+        });
+        ({ credentialId } = await authority.approveLink({
+          userCodeHash: codes.userCodeHash,
+          subject,
+          workspaceId,
+          projectIds: [],
+          allProjects: true,
+          scopes: ["read", "plan"],
+          days: 1,
+        }));
+        const [stored] = await sql`
+          select all_projects, project_ids, environment_ids from agent.agent_credentials where id = ${credentialId}
+        `;
+        expect(stored.all_projects).toBe(true);
+        expect(stored.project_ids, "a real jsonb array, not an encoded string").toEqual([]);
+        expect(stored.environment_ids).toBeNull();
+
+        const exchanged = await authority.exchange(codes.deviceCodeHash);
+        if (exchanged.status !== "issued") throw new Error(`expected issued, got ${exchanged.status}`);
+        expect(exchanged.credential).toMatchObject({ allProjects: true, projectIds: [] });
+        const verified = await authority.verify(`Bearer ${exchanged.token}`);
+        expect(verified).toMatchObject({ id: credentialId, allProjects: true, projectIds: [] });
+        expect((await authority.listCredentials(subject, workspaceId))[0]).toMatchObject({ allProjects: true });
+      } finally {
+        await cleanup(codes.userCodeHash, credentialId);
+      }
+    });
+
+    it("refuses the whole workspace to a protocol-1 link and writes nothing", async () => {
+      const { authority, codes, subject, workspaceId } = await throughAuthority(1);
+      try {
+        await expect(
+          authority.approveLink({
+            userCodeHash: codes.userCodeHash,
+            subject,
+            workspaceId,
+            projectIds: [],
+            allProjects: true,
+            scopes: ["read"],
+            days: 1,
+          })
+        ).rejects.toMatchObject({ code: "protocol_upgrade_required" });
+        const [row] = await sql`
+          select state, credential_id, protocol_version from agent.agent_link_codes
+           where user_code_hash = ${codes.userCodeHash}
+        `;
+        expect(row).toEqual({ state: "pending", credential_id: null, protocol_version: 1 });
+        const [count] = await sql`
+          select count(*)::int as n from agent.agent_credentials where subject = ${subject}
+        `;
+        expect(count.n).toBe(0);
+      } finally {
+        await cleanup(codes.userCodeHash);
+      }
+    });
+
     it("lets a workspace-level operation have no project", async () => {
       const [column] = await sql`
         select is_nullable from information_schema.columns

@@ -13,6 +13,7 @@ import { controlOrigin, jsonBody, json, failure } from './boundary';
 import { grantSchema, reviewSchema } from './contracts';
 import { oauthConfig } from './oauth';
 import { reviewDisplay } from './review';
+import { isSupabaseConfigured } from '@/lib/supabase/env';
 async function browser(req:NextRequest, mutation=false){
   // `await`, because the capability probe that replaces this flag check is
   // async (CONTROL-PLANE §1). Awaiting a synchronous refusal is identical;
@@ -36,12 +37,14 @@ async function browser(req:NextRequest, mutation=false){
 export interface LinkedAgentView {
   id:string; label:string|null; clientName:string|null; clientVersion:string|null;
   scopes:string[]; projectIds:string[]; environmentIds:string[]|null;
+  /** The whole-workspace grant: every current and future project. `projectIds` is `[]` then. */
+  allProjects?:true;
   issuedAt:string; expiresAt:string; lastUsedAt:string|null; revokedAt:string|null;
 }
 const linkedAgentView=(credential:LinkedCredential):LinkedAgentView=>({
   id:credential.id, label:credential.label??null, clientName:credential.clientName??null,
   clientVersion:credential.clientVersion??null, scopes:credential.scopes, projectIds:credential.projectIds,
-  environmentIds:credential.environmentIds??null, issuedAt:credential.issuedAt, expiresAt:credential.expiresAt,
+  environmentIds:credential.environmentIds??null, ...(credential.allProjects===true?{allProjects:true as const}:{}), issuedAt:credential.issuedAt, expiresAt:credential.expiresAt,
   lastUsedAt:credential.lastUsedAt??null, revokedAt:credential.revokedAt??null,
 });
 export const browserGet=route(async(req)=>{
@@ -96,16 +99,34 @@ export const browserLinkGet=route(async(req)=>{
     // limited to whichever one the browser cookie happens to hold.
     const memberships=db().members.filter(m=>m.id===identity.subject);
     const selected=currentRequest()?.workspace?.id;
+    // The program's workspace hint is unverified text. It changes the default
+    // only when this person is a member of that workspace; otherwise it is
+    // silently ignored, and the answer does not say whether it exists.
+    const protocolVersion=row.protocolVersion??1;
+    const hinted=protocolVersion>=2&&row.workspaceHint&&memberships.some(m=>m.workspaceId===row.workspaceHint)?row.workspaceHint:undefined;
+    const rank=(id:string)=>id===hinted?-2:id===selected?-1:0;
     const workspaces=memberships.flatMap(m=>{const w=db().workspaces.find(candidate=>candidate.id===m.workspaceId);
       return w?[{id:w.id,name:w.name,role:m.role}]:[];})
-      // The cookie's pick first, so the screen's default is the workspace the
-      // person is already looking at, when they are a member of it.
-      .sort((a,b)=>(a.id===selected?-1:0)-(b.id===selected?-1:0));
+      // The hinted workspace first, then the cookie's pick, so the screen's
+      // default is the one the terminal asked for or the one the person is
+      // already looking at — and only ever one they are a member of.
+      .sort((a,b)=>rank(a.id)-rank(b.id));
     const ids=new Set(workspaces.map(w=>w.id));
     return json(redact({userCode:code.slice(0,4)+'-'+code.slice(4),
       client:{name:row.clientName,version:row.clientVersion??null,label:row.label??null,unverified:true},
       requestedScopes:row.requestedScopes,startedAt:row.createdAt,expiresAt:row.expiresAt,status:row.state,
       subject:identity.subject,workspaces,
+      protocolVersion,
+      // A protocol-1 client rejects an empty project list at exchange and would
+      // burn its single-use token, so it is never offered the whole workspace.
+      wholeWorkspace:protocolVersion>=2,
+      hint:protocolVersion>=2&&(row.workspaceHint||row.workspaceNameHint)
+        ?{...(row.workspaceHint?{workspaceId:row.workspaceHint,member:hinted!==undefined}:{}),
+          ...(row.workspaceNameHint?{workspaceName:row.workspaceNameHint}:{}),unverified:true}
+        :null,
+      // Creating a workspace here is the same-origin POST /api/workspace the
+      // onboarding screen makes; demo mode runs a single workspace.
+      canCreateWorkspace:isSupabaseConfigured()||workspaces.length===0,
       projects:db().projects.filter(p=>ids.has(p.workspaceId)).map(p=>({id:p.id,workspaceId:p.workspaceId,name:p.name})),
       environments:db().environments.filter(e=>db().projects.some(p=>p.id===e.projectId&&ids.has(p.workspaceId)))
         .map(e=>({id:e.id,projectId:e.projectId,name:e.name})),
@@ -137,6 +158,10 @@ export const browserLinkApprove=route(async(req)=>{
     }
     const member=db().members.find(m=>m.id===identity.subject&&m.workspaceId===input.workspaceId);
     if(!member)throw new ControlError('membership_denied','Choose a workspace you are a current member of.',403);
+    // A whole-workspace grant names no projects (the parser guarantees `[]` and
+    // no environments), so these two rechecks apply to an explicit list only.
+    // Whether this link may carry it at all (protocol >= 2) is rechecked inside
+    // the authority, against the row it locks.
     if(input.projectIds.some(id=>!db().projects.some(p=>p.id===id&&p.workspaceId===input.workspaceId)))
       throw new ControlError('scope_denied','Select projects from the chosen workspace.',403);
     if(input.environmentIds?.some(id=>!db().environments.some(e=>e.id===id&&input.projectIds.includes(e.projectId))))
@@ -145,12 +170,13 @@ export const browserLinkApprove=route(async(req)=>{
       throw new ControlError('scope_denied','Choose read, and only operations allowed by your current role.',403);
     const issued=await authority.approveLink({userCodeHash,subject:identity.subject,workspaceId:input.workspaceId,
       projectIds:input.projectIds,...(input.environmentIds?{environmentIds:input.environmentIds}:{}),
+      ...(input.allProjects?{allProjects:true}:{}),
       scopes:input.scopes as LinkedCredential['scopes'],days:input.days,...(input.label?{label:input.label}:{})});
     // The secret is deliberately not here. The browser tab is the least
     // trustworthy place to hold it; the terminal already has an authenticated
     // channel bound to the device code.
     return json({status:'approved',credentialId:issued.credentialId,expiresAt:issued.expiresAt,
-      workspaceId:input.workspaceId,projectIds:input.projectIds,scopes:input.scopes});
+      workspaceId:input.workspaceId,projectIds:input.projectIds,allProjects:input.allProjects,scopes:input.scopes});
   }catch(error){return failure(error);}
 });
 

@@ -72,9 +72,6 @@
 .lettering { display: flex; flex-direction: column; width: min(96vw, 1720px); max-width: none; }
 .lettering .welcome { align-self: flex-start; margin: 0 0 2px 1.2%; text-align: left; }
 .wordmarkWide svg { width: 100%; }
-.meaning { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 4px 14px; margin: 22px 0 0; font: 400 clamp(17px, 1.5vw, 23px)/1.4 var(--zenith-font-display); font-style: italic; color: rgba(255, 255, 255, .82); text-shadow: 0 4px 24px rgba(30, 15, 15, .5); }
-.meaning em { font-style: italic; color: #fff; letter-spacing: .06em; }
-.meaning span::before { content: "·"; margin-right: 14px; color: rgba(255, 255, 255, .5); }
 .apexBottom { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 24px 48px; margin-top: auto; padding-top: 28px; }
 .hero[data-variant="apex"] .marks { margin-top: 0; }
 .tagline { margin: 0; max-width: 24ch; font: 600 clamp(22px, 2.3vw, 34px)/1.22 var(--zenith-font-ui); letter-spacing: -.02em; color: #fff; text-shadow: 0 6px 30px rgba(30, 15, 15, .45); }
@@ -117,8 +114,7 @@
   .marks { justify-content: flex-start; padding-right: 150px; }
 }
 @media (max-width: 900px) {
-  /* Portrait: the star breathes under the masthead, the lettering sits below the centre of the sky, and the mountains
-     drop a little so the meaning line still clears the summit. */
+  /* Portrait: the star breathes under the masthead, the lettering sits below the centre of the sky, and the mountains drop a little. */
   .hero { --scene-drop: 12svh; }
   .content { padding: 104px var(--zenith-gutter) 44px; }
   .bottom, .apexBottom { grid-template-columns: 1fr; align-items: start; padding-top: 0; }
@@ -135,8 +131,6 @@
   .content { padding: 96px var(--zenith-gutter) 40px; }
   .wordmark svg, .wordmarkWide svg { width: 100%; }
   .welcome { font-size: 17px; }
-  .meaning { font-size: 16px; gap: 2px 8px; margin-top: 16px; }
-  .meaning span::before { margin-right: 8px; }
   .apexStar { width: 34px; height: 34px; margin-left: -17px; }
   .apexRay { top: 17px; }
   .lettering { width: 100%; }

@@ -29,8 +29,8 @@ const TRACK = 7;
 
 /**
  * Two compositions share the sky. "apex" (the default): the lettering wide and
- * centred, the mark glowing at the top of the ray that rises from the summit,
- * the meaning of the word beneath. "classic" (`?hero=classic`): the earlier
+ * centred, the mark glowing at the top of the ray that rises from the summit.
+ * "classic" (`?hero=classic`): the earlier
  * left-set opening with the mark on the summit.
  */
 type Variant = "apex" | "classic";
@@ -168,7 +168,6 @@ export function SpaceHero({ cta }: { cta: Cta }) {
                   </svg>
                 </h1>
               </div>
-              <p className={styles.meaning} data-hero-seq data-enter="2" data-hero-fade><em>ze·nith</em><span>the point of the sky directly overhead. The highest point.</span></p>
             </div>
             <div className={styles.apexBottom}>
               <Tagline />

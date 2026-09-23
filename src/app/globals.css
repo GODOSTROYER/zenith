@@ -513,3 +513,48 @@ input, textarea { caret-color: var(--signal); }
 .react-flow__controls-button:hover {
   background: var(--bg3);
 }
+
+/* ---------- The Zenith loader (src/components/brand/zenith-loader.tsx) ----------
+   The mark assembles in cut register: the bar slides in from the left, the stroke from the right,
+   they snap together, a light runs along the slant and the zenith star glints at the bar's tip.
+   While waiting, the pieces breathe a hair out of register on a 2.4 s beat. */
+.zl { --zl-bar: #f5f3ee; --zl-stroke: #e65332; --zl-star: #fff4e8; display: block; overflow: visible; }
+.zl[data-tone="light"] { --zl-bar: #131418; --zl-star: #e65332; }
+.zl[data-tone="auto"] { --zl-bar: var(--ink, #f5f3ee); --zl-star: var(--signal, #e65332); }
+.zl-bar, .zl-stroke, .zl-star, .zl-sheen { transform-box: fill-box; transform-origin: 50% 50%; }
+.zl-bar { fill: var(--zl-bar); animation: zl-bar-in 640ms cubic-bezier(.32, .72, 0, 1) both, zl-bar-beat 2400ms cubic-bezier(.45, 0, .2, 1) 900ms infinite; }
+.zl-stroke { fill: var(--zl-stroke); animation: zl-stroke-in 640ms cubic-bezier(.32, .72, 0, 1) 90ms both, zl-stroke-beat 2400ms cubic-bezier(.45, 0, .2, 1) 900ms infinite; }
+.zl-sheen { animation: zl-sheen 2400ms cubic-bezier(.4, 0, .2, 1) 520ms infinite both; }
+.zl-star { fill: var(--zl-star); transform-origin: 50% 50%; filter: drop-shadow(0 0 1.6px rgba(255, 190, 150, .95)) drop-shadow(0 0 4px rgba(230, 83, 50, .6)); animation: zl-star 2400ms cubic-bezier(.3, .7, .2, 1) 560ms infinite both; }
+@keyframes zl-bar-in { from { opacity: 0; transform: translateX(-9px) skewX(-14deg); } to { opacity: 1; transform: none; } }
+@keyframes zl-stroke-in { from { opacity: 0; transform: translateX(9px) skewX(-14deg); } to { opacity: 1; transform: none; } }
+@keyframes zl-bar-beat { 0%, 44%, 100% { transform: none; } 22% { transform: translate(-1.1px, -1.5px); } 30% { transform: translate(.2px, .25px); } }
+@keyframes zl-stroke-beat { 0%, 44%, 100% { transform: none; } 22% { transform: translate(1.1px, 1.5px); } 30% { transform: translate(-.2px, -.25px); } }
+@keyframes zl-sheen { 0%, 12% { transform: translateX(0) skewX(-24deg); opacity: 0; } 16% { opacity: .62; } 48% { transform: translateX(52px) skewX(-24deg); opacity: .62; } 52%, 100% { transform: translateX(52px) skewX(-24deg); opacity: 0; } }
+@keyframes zl-star { 0%, 14% { transform: scale(0) rotate(-45deg); opacity: 0; } 26% { transform: scale(1.25) rotate(0deg); opacity: 1; } 40% { transform: scale(.9); opacity: 1; } 70% { transform: scale(1); opacity: .9; } 100% { transform: scale(0) rotate(30deg); opacity: 0; } }
+
+/* The boot splash: ink ground, a vermilion breath of light under the mark; it lifts away like a sheet. */
+.zenith-boot {
+  position: fixed; inset: 0; z-index: 2147483001; display: grid; place-items: center;
+  background: radial-gradient(ellipse 55% 42% at 50% 56%, rgba(230, 83, 50, .16), transparent 70%), #08090d;
+  box-shadow: 0 30px 90px rgba(0, 0, 0, .45);
+  /* Without JavaScript it steps aside on its own. */
+  animation: zenith-boot-away 520ms ease 4.5s forwards;
+}
+.zenith-boot[data-phase="lift"] { pointer-events: none; animation: zenith-boot-lift 760ms cubic-bezier(.7, 0, .2, 1) forwards; }
+.zenith-boot[data-phase="lift"] .zl { animation: zenith-boot-mark 460ms cubic-bezier(.4, 0, .2, 1) forwards; }
+@keyframes zenith-boot-lift { from { transform: none; border-radius: 0; } to { transform: translateY(-104%); border-radius: 0 0 48px 48px; } }
+@keyframes zenith-boot-mark { to { transform: translateY(-36px) scale(.86); opacity: 0; } }
+@keyframes zenith-boot-away { to { opacity: 0; visibility: hidden; } }
+
+/* The product's loading screen: the mark over the skeleton. */
+.zenith-screen-loading { position: relative; }
+.zenith-screen-loading > .zenith-screen-mark { position: absolute; left: 50%; top: 150px; transform: translateX(-50%); z-index: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .zl-bar, .zl-stroke, .zl-sheen, .zl-star { animation: none; }
+  .zl-star, .zl-sheen { opacity: 0; }
+  .zl { animation: zl-calm 1800ms ease-in-out infinite alternate; }
+  .zenith-boot[data-phase="lift"] { animation: zenith-boot-away 240ms ease forwards; }
+}
+@keyframes zl-calm { from { opacity: .55; } to { opacity: 1; } }

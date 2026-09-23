@@ -70,6 +70,28 @@ the lesson.
    reaches it, and Gimbal stays out of the opening, rising into its corner
    once that edge has climbed into the upper third of the viewport.
    The landing hides the native scrollbar so nothing sits at the right edge.
+   The masthead is a floating liquid-glass capsule, the opening's "Create
+   account" is a clear liquid-glass lens over the sky, and Gimbal's guide and
+   pop-outs are the same glass (`liquid-glass.ts`, a port of the reference in
+   `Z:\Projects\Liquid Glass`: rounded-rectangle distance, curved bevel,
+   Snell refraction with a red/green/blue split, Schlick reflection, rim and
+   lip). Chromium refracts the live page through an SVG backdrop filter;
+   Safari and Firefox get the same light map over a frosted blur. The capsule,
+   the guide and the pop-outs read what they float over and set their text
+   tone (`data-tone`), so porcelain gets ink text and the sky or ink surfaces
+   get porcelain text.
+   Every full page load (the landing, sign in, the app) opens on the Zenith
+   loader (`components/brand/boot-splash.tsx`): on the ink ground the two
+   pieces of the mark slide in from opposite sides and snap into register,
+   a light runs along the slant and the zenith star glints at the bar's tip;
+   the splash lifts away like a sheet once the page has hydrated and its
+   fonts are in. Leaving the landing for sign in, sign up or the app plays
+   the page curtain (`lib/client/page-curtain.ts`): a sheet in the next
+   page's ground rises over the receding landing, carrying the loader if
+   the next page takes a moment, and dissolves on arrival; the sign-in
+   page's logo returns the same way under a night-sky sheet. In-page links
+   scroll and rewrite the hash without adding history entries, so Back from
+   sign in returns to the landing.
    On portrait screens the star sits a fifth of the way down, the lettering
    below the centre of the sky (its centre near 60% of the height), and the
    mountains drop a little (12 svh) so the meaning line still clears the summit.

@@ -49,6 +49,10 @@ function withGsap(build: (gsap: Gsap) => void | (() => void), load: () => Promis
 }
 
 /** Smooth, inertial scrolling for the whole page, driven by the GSAP ticker so ScrollTrigger stays in step. */
+/** The page's smooth scroller while it runs (for in-page links); null under reduced motion or before it loads. */
+let activeScroller: { scrollTo: (target: HTMLElement | number, options?: { offset?: number }) => void } | null = null;
+export function smoothScroller() { return activeScroller; }
+
 export function useSmoothScroll() {
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
@@ -57,13 +61,15 @@ export function useSmoothScroll() {
     let dispose = () => {};
     Promise.all([loadGsap(), import("lenis"), import("gsap/ScrollTrigger")]).then(([gsap, { default: Lenis }, { ScrollTrigger }]) => {
       if (cancelled) return;
-      const lenis = new Lenis({ lerp: 0.1, anchors: { offset: -88 } });
+      // In-page links are handled by `useLandingNavigation`, which scrolls through this instance.
+      const lenis = new Lenis({ lerp: 0.1 });
+      activeScroller = lenis;
       const onScroll = () => ScrollTrigger.update();
       lenis.on("scroll", onScroll);
       const tick = (time: number) => lenis.raf(time * 1000);
       gsap.ticker.add(tick);
       gsap.ticker.lagSmoothing(500, 33);
-      dispose = () => { gsap.ticker.remove(tick); lenis.off("scroll", onScroll); lenis.destroy(); };
+      dispose = () => { gsap.ticker.remove(tick); lenis.off("scroll", onScroll); lenis.destroy(); if (activeScroller === lenis) activeScroller = null; };
     }).catch(() => { /* Native scrolling is fine. */ });
     return () => { cancelled = true; dispose(); };
   }, []);

@@ -65,6 +65,39 @@
   --warn: #ffd37a;
 }
 .zenith-landing .zenith-ink { background: var(--zenith-paper); color: var(--zenith-ink); }
+/* Glass tone. A floating liquid-glass surface (the masthead, Gimbal's guide and pop-outs) reads what it sits on and takes
+   the token set that contrasts with it (`data-tone`, kept by `useLiquidGlass`): porcelain text tokens over light pages,
+   ink text tokens over the sky and the ink surfaces. The glass itself is tinted from `--zenith-paper`, so it follows too. */
+.zenith-landing [data-tone="light"] {
+  --zenith-paper: #f6f4ee;
+  --zenith-ink: #131418;
+  --zenith-muted: #55565c;
+  --zenith-rule: rgba(19, 20, 24, .14);
+  --zenith-panel: rgba(255, 255, 255, .66);
+  --zenith-surface: rgba(255, 255, 255, .45);
+  --zenith-soft: rgba(19, 20, 24, .07);
+  --zenith-accent-text: #b8391c;
+  --zenith-accent-soft: rgba(230, 83, 50, .14);
+  --zenith-glow: rgba(230, 83, 50, .16);
+  --zenith-error: #932553;
+  --ok: #0d8a5a;
+  --warn: #b06a12;
+}
+.zenith-landing [data-tone="dark"] {
+  --zenith-paper: #0d0e11;
+  --zenith-ink: #f5f3ee;
+  --zenith-muted: rgba(245, 243, 238, .7);
+  --zenith-rule: rgba(255, 255, 255, .16);
+  --zenith-panel: rgba(255, 255, 255, .08);
+  --zenith-surface: rgba(255, 255, 255, .05);
+  --zenith-soft: rgba(255, 255, 255, .11);
+  --zenith-accent-text: #ff8f6f;
+  --zenith-accent-soft: rgba(230, 83, 50, .2);
+  --zenith-glow: rgba(230, 83, 50, .26);
+  --zenith-error: #ff8fbb;
+  --ok: #7fe0b4;
+  --warn: #ffd37a;
+}
 /* No native scrollbar beside the landing: scrolling is unchanged, but nothing sits at the right edge to break the symmetry. The product keeps its own. */
 html:has(.zenith-landing) { scrollbar-width: none; }
 html:has(.zenith-landing)::-webkit-scrollbar { width: 0; height: 0; display: none; }
@@ -95,10 +128,21 @@ html:has(.zenith-landing)::-webkit-scrollbar { width: 0; height: 0; display: non
 .zenith-sheet-ink > section:first-child { border-top: 0; }
 @media (max-width: 560px) { .zenith-sheet { border-radius: 26px 26px 0 0; } }
 
-/* Masthead: glass over the sky, porcelain once the opening scrolls past. */
-.zenith-header { position: fixed; top: 0; left: 0; right: 0; z-index: 40; padding: 0 var(--zenith-gutter); color: #f5f3ee; background: transparent; transition: background 260ms ease, color 260ms ease, box-shadow 260ms ease; }
-.zenith-header[data-solid="true"] { color: var(--zenith-ink); background: color-mix(in srgb, var(--zenith-paper) 86%, transparent); backdrop-filter: blur(14px); box-shadow: inset 0 -1px 0 var(--zenith-rule); }
-.zenith-header-inner { min-height: 84px; max-width: 1520px; margin: auto; display: flex; gap: 32px; align-items: center; justify-content: space-between; }
+/* Masthead: a floating liquid-glass capsule. It refracts whatever passes beneath it (Chromium; frosted elsewhere), carries
+   the light map from `useLiquidGlass` as its top background layer, and its text takes the tone of what it floats over. */
+.zenith-header { position: fixed; top: 0; left: 0; right: 0; z-index: 40; padding: 12px var(--zenith-gutter) 0; pointer-events: none; }
+.zenith-header-inner {
+  position: relative; min-height: 64px; max-width: 1400px; margin: auto; padding: 0 10px 0 24px;
+  display: flex; gap: 32px; align-items: center; justify-content: space-between;
+  pointer-events: auto; border-radius: 999px; color: var(--zenith-ink);
+  background-color: color-mix(in srgb, var(--zenith-paper) 30%, transparent);
+  background-image: var(--lg-light, linear-gradient(135deg, rgba(255, 255, 255, .2), transparent 48%));
+  background-size: 100% 100%; background-repeat: no-repeat;
+  -webkit-backdrop-filter: blur(18px) saturate(1.5); backdrop-filter: blur(18px) saturate(1.5);
+  box-shadow: 0 18px 44px -24px rgba(0, 0, 0, .55), 0 1px 3px rgba(0, 0, 0, .12);
+  transition: color 320ms ease, background-color 320ms ease;
+}
+.zenith-header-inner[data-glass="frost"], .zenith-header-inner:not([data-glass]) { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), inset 0 0 0 1px var(--zenith-rule), 0 18px 44px -24px rgba(0, 0, 0, .55); }
 .zenith-home { display: inline-flex; align-items: center; min-height: 48px; flex-shrink: 0; }
 .zenith-home-word { display: none; }
 .zenith-header[data-solid="true"] .zenith-home-mark { display: none; }
@@ -107,19 +151,17 @@ html:has(.zenith-landing)::-webkit-scrollbar { width: 0; height: 0; display: non
 .zenith-desktop-nav { display: flex; align-items: center; gap: 26px; margin-left: auto; }
 .zenith-desktop-nav a, .zenith-sign-in { min-height: 44px; display: inline-flex; gap: 5px; align-items: center; text-decoration: none; font-size: 14px; font-weight: 600; white-space: nowrap; opacity: .92; }
 .zenith-desktop-nav a:hover, .zenith-sign-in:hover { opacity: 1; color: var(--zenith-accent-text); }
-.zenith-header:not([data-solid="true"]) .zenith-desktop-nav a:hover, .zenith-header:not([data-solid="true"]) .zenith-sign-in:hover { color: #ffb9a3; }
 .zenith-header-actions { display: flex; gap: 14px; align-items: center; }
 .zenith-icon-button { width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid transparent; border-radius: 12px; background: none; color: inherit; cursor: pointer; }
 .zenith-icon-button:hover { border-color: currentColor; }
+.zenith-header-inner .zenith-icon-button { border-radius: 50%; }
 
 /* The one button: an ink pill on porcelain, a porcelain pill on ink; vermilion under the pointer. */
 .zenith-cta { display: inline-flex; justify-content: space-between; align-items: center; gap: 22px; min-height: 54px; padding: 13px 24px; background: var(--zenith-ink); color: var(--zenith-paper) !important; text-decoration: none; border: 1px solid var(--zenith-ink); border-radius: 999px; font-size: 14px; font-weight: 700; letter-spacing: -.01em; transition: background 180ms ease, border-color 180ms ease, color 180ms ease, transform 200ms var(--zenith-ease); }
 .zenith-cta:hover { background: var(--zenith-accent); border-color: var(--zenith-accent); color: #fff !important; transform: translateY(-1px); }
 .zenith-cta svg { transition: transform 220ms var(--zenith-ease); }
 .zenith-cta:hover svg { transform: translate(2px,-2px); }
-.zenith-header-cta { min-height: 42px; padding: 8px 16px; font-size: 13px; gap: 14px; }
-.zenith-header:not([data-solid="true"]) .zenith-header-cta { background: rgba(255, 255, 255, .12); border-color: rgba(255, 255, 255, .5); color: #fff !important; backdrop-filter: blur(8px); }
-.zenith-header:not([data-solid="true"]) .zenith-header-cta:hover { background: var(--zenith-accent); border-color: var(--zenith-accent); }
+.zenith-header-cta { min-height: 44px; padding: 8px 18px; font-size: 13px; gap: 14px; }
 .zenith-menu-button, .zenith-mobile-nav { display: none; }
 .zenith-text-link { display: inline-flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 44px; text-decoration: none; border-bottom: 1px solid var(--zenith-rule); font-size: 14px; font-weight: 600; transition: color 160ms ease, border-color 160ms ease; }
 .zenith-text-link:hover { border-color: var(--zenith-accent); color: var(--zenith-accent-text); }
@@ -147,25 +189,33 @@ html:has(.zenith-landing)::-webkit-scrollbar { width: 0; height: 0; display: non
   .zenith-header-cta svg { width: 14px; height: 14px; }
   .zenith-sign-in { padding: 0 6px; }
   .zenith-menu-button { display: grid; }
-  .zenith-mobile-nav { display: flex; position: absolute; top: 84px; right: 0; left: 0; padding: 18px var(--zenith-gutter) 28px; background: var(--zenith-paper); color: var(--zenith-ink); border-bottom: 1px solid var(--zenith-rule); flex-direction: column; }
+  .zenith-mobile-nav { display: flex; position: absolute; top: 86px; right: var(--zenith-gutter); left: var(--zenith-gutter); padding: 10px 22px 16px; pointer-events: auto; background: var(--zenith-paper); color: var(--zenith-ink); border: 1px solid var(--zenith-rule); border-radius: 26px; box-shadow: 0 24px 60px -28px rgba(0, 0, 0, .5); flex-direction: column; }
   .zenith-mobile-nav > a { display: flex; justify-content: space-between; align-items: center; min-height: 52px; font-size: 17px; font-weight: 600; text-decoration: none; }
   .zenith-mobile-nav > .zenith-cta { margin-top: 16px; font-size: 14px; }
 }
 @media (max-width: 560px) {
   .zenith-landing { --zenith-gutter: 20px; --zenith-r-card: 22px; --zenith-r-tile: 16px; }
-  .zenith-header-inner { min-height: 72px; }
-  .zenith-mobile-nav { top: 72px; }
+  .zenith-header { padding-top: 10px; }
+  .zenith-header-inner { min-height: 58px; padding-left: 18px; padding-right: 6px; gap: 12px; }
+  .zenith-mobile-nav { top: 76px; }
+  /* The capsule is narrow on phones: the mark stays, the full wordmark would crowd the button. */
+  .zenith-header[data-solid="true"] .zenith-home-mark { display: inline-flex; }
+  .zenith-header[data-solid="true"] .zenith-home-word { display: none; }
   .zenith-header-actions .zenith-icon-button { width: 40px; min-height: 44px; }
   .zenith-sign-in { font-size: 13px; padding: 0 8px; }
   .zenith-footer { flex-direction: column; align-items: flex-start; padding: 24px 0 120px 0; gap: 20px; }
   .zenith-footer nav { gap: 30px; }
+}
+/* Reduced transparency: every glass surface becomes solid in its tone. */
+@media (prefers-reduced-transparency: reduce) {
+  .zenith-header-inner { background: var(--zenith-paper); -webkit-backdrop-filter: none; backdrop-filter: none !important; box-shadow: inset 0 0 0 1px var(--zenith-rule), 0 18px 44px -24px rgba(0, 0, 0, .45); }
 }
 @media (prefers-reduced-motion: reduce) {
   .zenith-landing *, .zenith-landing *::before, .zenith-landing *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
 }
 @media (forced-colors: active) {
   .zenith-cta { border: 1px solid ButtonText; }
-  .zenith-header { background: Canvas; color: CanvasText; }
+  .zenith-header-inner { background: Canvas; color: CanvasText; border: 1px solid CanvasText; -webkit-backdrop-filter: none; backdrop-filter: none !important; }
 }
 
 /* Keep approved landing-only inherited primitive tones and geometry stable. */

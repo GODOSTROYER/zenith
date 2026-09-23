@@ -24,6 +24,12 @@ explicit roadmap-only row.
 - `gimbal-companion.tsx`: the persistent character with its light and shadow,
   the suggestion bubble, the walkthrough callout and the liquid-glass question
   panel, which expands out of the corner (a clip-path animation).
+- `liquid-glass.ts`: `useLiquidGlass`, the liquid-glass material for the masthead capsule, the
+  opening's call to action and Gimbal's guide and pop-outs (a port of `Z:\Projects\Liquid Glass`:
+  per-element displacement and light maps, an SVG backdrop filter in Chromium, frosted elsewhere)
+  and the automatic text tone (`data-tone`) read from what the glass sits on.
+- `landing-navigation.ts`: every link click on the landing: in-page links scroll and replace the
+  hash (never push, so Back from /login returns here), links out play the page curtain.
 - `landing-motion.ts`: GSAP and Lenis, lazy, reduced-motion gated. The only
   animation library use in the app; product UI stays on CSS.
 - `landing.css`: the one language: porcelain and ink surfaces (`.zenith-ink`,

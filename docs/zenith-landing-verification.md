@@ -260,6 +260,44 @@ A small Playwright script scrolled each chapter into view at 1440 × 900 and
   contentful paint 1,852 ms desktop cold and 2,936 ms throttled, layout
   shift 0 on both.
 
+## Liquid glass, navigation and the loader (23 September 2026, late)
+
+- Glass: in headless Chrome every glass surface reports `data-glass="lens"`
+  with `backdrop-filter: url(#zenith-glass-N)`; the hero's button refracts
+  the ridges through its rim. The masthead capsule's text tone reads dark
+  over the sky and the ink sheet and light over the porcelain; Gimbal's
+  guide, walked through every chapter with the panel open, reads light over
+  the statement, agents and control chapters and dark over the system card,
+  growth card, cloud and close. No horizontal overflow at 390 px (the phone
+  capsule keeps the mark, not the wordmark). With the lens on, idling on
+  the animated sky produced no long tasks. Building the maps first cost
+  111 + 36 ms at 1x and 317 + 191 ms at 2x on the main thread; after
+  mirroring the displacement map by quadrant, filling the flat interior of
+  the light map in one pass, encoding to blobs asynchronously and scheduling
+  the first build in idle time, the lab's desktop longest task fell from
+  900 ms back to 319 ms.
+- Navigation: clicking Agents then Cloud leaves `history.length` unchanged
+  (2, 2, 2) and the URL at `/#agents`, then `/#cloud`; the logo returns to
+  the top and clears the hash; Sign in plays the curtain (the sheet at
+  286 px, 27 px, 0 px from covering at 120, 320 and 560 ms), `/login`
+  arrives beneath it and it dissolves; Back then shows the landing (title,
+  hero, `#agents` at 88 px from the top), Forward shows sign in again, and
+  the sign-in page's logo returns to the landing under a `#08090d` sheet.
+  No page errors (the starfield's zero-size `drawImage` during navigation is
+  guarded).
+- Loader: stepped frame by frame (assembly, register, star glint, beat) on
+  both grounds; the boot splash lifted at 2.4 s and was gone at 3.2 s on a
+  cold development landing, and at 1.3 s / 2.1 s on `/login`.
+- Final run: 270 test files pass (5 skipped), lint and the type check are
+  clean, the lab passes 20 of 20 with no unexpected errors. Development
+  server figures: largest contentful paint 2,188 ms desktop cold (1,852 ms
+  before the glass), 3,572 ms throttled; layout shift 0; longest task
+  319 ms desktop, 2,095 ms throttled. One earlier lab run failed the
+  contextual-suggestion check on a 15 s wait; the dismissal passed twice
+  when run on its own and in the next full run.
+- Not verified: Safari and Firefox (frosted fallback only, by design), a
+  production build's figures, a real phone.
+
 ## Manual, in the desktop app's browser pane
 
 - The opening renders its layers, the six-letter lettering as `h1` "Zenith",

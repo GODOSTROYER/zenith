@@ -14,6 +14,7 @@ import { CloudOrbit } from "./cloud-orbit";
 import { CloseChapter } from "./close-chapter";
 import { GimbalCompanion } from "./gimbal-companion";
 import { useSheetHandoff } from "./landing-motion";
+import { useLandingNavigation } from "./landing-navigation";
 import "./landing.css";
 
 export interface ProviderRow {
@@ -36,10 +37,12 @@ export function Landing({ providers }: { providers: ProviderRow[] }) {
   const cta = useCta();
   const paper = useRef<HTMLDivElement>(null);
   const ink = useRef<HTMLDivElement>(null);
+  const page = useRef<HTMLDivElement>(null);
   useSheetHandoff(paper, ink);
+  useLandingNavigation(page);
   return (
     <LandingExperienceProvider>
-      <div className="zenith-landing">
+      <div ref={page} className="zenith-landing">
         <a href="#main" className="zenith-skip">Skip to content</a>
         <LandingHeader cta={cta} />
         <main id="main">

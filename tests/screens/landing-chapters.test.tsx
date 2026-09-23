@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/link", () => ({ default: ({ children, ...props }: React.ComponentProps<"a">) => <a {...props}>{children}</a> }));
 vi.mock("motion/react", () => ({ motion: { div: (props: React.ComponentProps<"div">) => <div {...props} />, button: (props: React.ComponentProps<"button">) => <button {...props} /> } }));
-vi.mock("@/app/_landing/landing-motion", () => ({ useReveal() {}, useHeroScene() {}, useHeaderState() {}, useStatementReveal() {}, useSmoothScroll() {}, useCountUp() {}, useCountOnView() {}, useProgressLine() {}, useOrbitMotion() {}, useFlowMotion() {}, useSystemFlow() {}, useFan() {}, useSheetHandoff() {} }));
+vi.mock("@/app/_landing/landing-motion", () => ({ useReveal() {}, useHeroScene() {}, useHeaderState() {}, useStatementReveal() {}, useSmoothScroll() {}, useCountUp() {}, useCountOnView() {}, useProgressLine() {}, useOrbitMotion() {}, useFlowMotion() {}, useSystemFlow() {}, useFan() {}, useSheetHandoff() {}, smoothScroller: () => null }));
 // eslint-disable-next-line @next/next/no-img-element
 vi.mock("next/image", () => ({ default: (props: React.ComponentProps<"img">) => <img {...props} alt={props.alt ?? ""} /> }));
 vi.mock("@/components/navigator/gimbal-character", () => ({

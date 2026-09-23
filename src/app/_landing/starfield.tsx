@@ -132,7 +132,7 @@ export function Starfield({ className }: { className?: string }) {
 
     const draw = (time: number) => {
       context.clearRect(0, 0, width, height);
-      context.drawImage(backdrop, 0, 0, width, height);
+      if (backdrop.width && backdrop.height) context.drawImage(backdrop, 0, 0, width, height);
       for (const star of stars) {
         const twinkle = preference?.matches ? 1 : 0.65 + 0.35 * Math.sin(time * 0.001 * star.speed + star.phase);
         const alpha = star.a * twinkle * (1 - star.y * 0.75);

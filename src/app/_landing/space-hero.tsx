@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { ArrowDown } from "lucide-react";
 import { ZENITH_LETTER_PATHS, ZENITH_SYMBOL_PATHS } from "@/components/shell/brand-geometry";
-import { LandingCta } from "./landing-cta";
+import { GlassCta } from "./landing-cta";
 import type { Cta } from "./cta";
 import { RIDGES, SCENE_HEIGHT, SCENE_WIDTH, SUMMIT } from "./hero-ridges";
 import { useHeroScene } from "./landing-motion";
@@ -172,7 +172,7 @@ export function SpaceHero({ cta }: { cta: Cta }) {
             </div>
             <div className={styles.apexBottom}>
               <Tagline />
-              <div className={styles.actions} data-hero-seq data-enter="3" data-hero-fade><LandingCta cta={cta} /></div>
+              <div className={styles.actions} data-hero-seq data-enter="3" data-hero-fade><GlassCta cta={cta} /></div>
             </div>
           </>
         ) : (
@@ -185,7 +185,7 @@ export function SpaceHero({ cta }: { cta: Cta }) {
               </h1>
             </div>
             <div className={styles.bottom}>
-              <div className={styles.actions} data-hero-seq data-enter="3" data-hero-fade><LandingCta cta={cta} /><a href="#before" className={styles.ghost}>See the system <ArrowDown size={16} aria-hidden="true" /></a></div>
+              <div className={styles.actions} data-hero-seq data-enter="3" data-hero-fade><GlassCta cta={cta} /><a href="#before" className={styles.ghost}>See the system <ArrowDown size={16} aria-hidden="true" /></a></div>
               <Tagline />
             </div>
           </>

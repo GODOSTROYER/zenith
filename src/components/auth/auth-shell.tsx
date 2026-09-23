@@ -1,6 +1,8 @@
 "use client";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { curtainNavigate } from "@/lib/client/page-curtain";
 import { ToastProvider } from "@/components/ui/toast";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Wordmark } from "@/components/shell/wordmark";
@@ -11,11 +13,24 @@ import { Wordmark } from "@/components/shell/wordmark";
  * rendering a form that cannot work.
  */
 export function AuthShell({ configured, children }: { configured: boolean; children: ReactNode }) {
+  const router = useRouter();
+  const frame = useRef<HTMLDivElement>(null);
   return (
     <ToastProvider>
-      <div className="flex min-h-dvh flex-col bg-bg0 text-ink">
+      <div ref={frame} className="flex min-h-dvh flex-col bg-bg0 text-ink">
         <header className="flex h-16 items-center justify-between border-b border-line px-6 sm:px-8">
-          <Link href="/" className="flex items-center gap-2.5">
+          <Link
+            href="/"
+            aria-label="Zenith home"
+            className="flex items-center gap-2.5"
+            onClick={(event) => {
+              if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+              // Back to the landing under a sheet the colour of its night sky.
+              event.preventDefault();
+              router.prefetch("/");
+              curtainNavigate("/", (to) => router.push(to), { color: "#08090d", recede: frame.current });
+            }}
+          >
             <Wordmark size={22} />
           </Link>
           <ThemeToggle />

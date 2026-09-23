@@ -63,10 +63,19 @@
   border: 1px solid var(--zenith-rule);
   border-radius: 14px 14px 4px 14px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 12px 34px rgba(0, 0, 0, .4);
+  transition: color 320ms ease, background-color 320ms ease;
   backdrop-filter: blur(14px) saturate(1.2);
   transform-origin: 100% 100%;
   animation: arrive 460ms var(--settle) both;
 }
+.bubble, .callout {
+  border-radius: 18px;
+  background-color: color-mix(in srgb, var(--zenith-paper) 64%, transparent);
+  background-image: var(--lg-light, none);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+.bubble[data-glass="lens"], .callout[data-glass="lens"] { border-color: transparent; box-shadow: 0 16px 40px -18px rgba(0, 0, 0, .55); }
 .invitation { display: flex; align-items: center; }
 .invitationText { display: block; min-height: 44px; padding: 12px 6px 12px 16px; border: 0; background: none; color: inherit; text-align: left; font-size: 12px; font-weight: 600; cursor: pointer; }
 .invitationText > svg { display: inline; margin-left: 3px; vertical-align: middle; color: var(--zenith-accent-text); }
@@ -96,7 +105,7 @@
 @property --px { syntax: "<percentage>"; inherits: false; initial-value: 22%; }
 @property --py { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
 .panel {
-  --fill: #0d0e11;
+  --fill: var(--zenith-paper);
   --r: 28px;
   position: relative;
   isolation: isolate;
@@ -113,13 +122,13 @@
   background:
     radial-gradient(280px 220px at var(--px) var(--py), rgba(255, 255, 255, .09), transparent 70%),
     linear-gradient(108deg, transparent 38%, rgba(255, 255, 255, .13) 50%, transparent 62%) var(--sheen, -140%) 0 / 240% 100% no-repeat,
-    linear-gradient(135deg, rgba(255, 255, 255, .16), transparent 46%),
+    var(--lg-light, linear-gradient(135deg, rgba(255, 255, 255, .16), transparent 46%)) 0 0 / 100% 100% no-repeat,
     radial-gradient(ellipse at 100% 0, var(--zenith-glow), transparent 48%),
     var(--fill);
   box-shadow: 0 30px 80px -24px rgba(0, 0, 0, .6), 0 2px 6px rgba(0, 0, 0, .22);
   outline: none;
   transform-origin: 100% 100%;
-  transition: --px 260ms ease, --py 260ms ease;
+  transition: --px 260ms ease, --py 260ms ease, color 320ms ease;
   will-change: transform, clip-path;
   animation: open 780ms var(--grow) both, sheen 1400ms ease-out 300ms both;
 }
@@ -137,9 +146,13 @@
 .panel::before { padding: 1px; background: var(--rim); }
 .panel::after { display: none; padding: 14px; background: linear-gradient(135deg, rgba(255, 255, 255, .05), transparent 50%, color-mix(in srgb, var(--zenith-accent) 30%, transparent) 130%); }
 @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .panel { --fill: rgba(13, 14, 17, .8); -webkit-backdrop-filter: blur(24px) saturate(1.3); backdrop-filter: blur(24px) saturate(1.3); }
+  /* A reading surface: the tint stays dense enough for its text over any page, in either tone. */
+  .panel { --fill: color-mix(in srgb, var(--zenith-paper) 62%, transparent); -webkit-backdrop-filter: blur(24px) saturate(1.3); backdrop-filter: blur(24px) saturate(1.3); }
+  .panel[data-tone="light"] { --fill: color-mix(in srgb, var(--zenith-paper) 58%, transparent); }
   .panel::after { display: block; -webkit-backdrop-filter: blur(1px) brightness(1.32) saturate(1.25); backdrop-filter: blur(1px) brightness(1.32) saturate(1.25); }
 }
+/* With the lens on, the light map draws the rim, the reflections and the lip; the CSS rim and ring stand down. */
+.panel[data-glass="lens"]::before, .panel[data-glass="lens"]::after { display: none; }
 .panel > * { animation: rise 460ms var(--settle) both; }
 .panel > :nth-child(1) { animation-delay: 220ms; }
 .panel > :nth-child(2) { animation-delay: 260ms; }
@@ -224,7 +237,7 @@
   .conversation { min-height: 60px; }
 }
 @media (prefers-reduced-transparency: reduce) {
-  .panel, .invitation, .bubble, .callout, .restore { background: #0d0e11; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .panel, .invitation, .bubble, .callout, .restore { background: var(--zenith-paper); -webkit-backdrop-filter: none; backdrop-filter: none !important; }
   .panel { border: 1px solid var(--zenith-rule); }
   .panel::before, .panel::after { display: none; }
   .scrim { background: rgba(13, 14, 17, .93); }
@@ -235,7 +248,7 @@
 }
 @media (forced-colors: active) {
   .halo, .core, .shadow { display: none; }
-  .panel, .bubble, .callout, .invitation { background: Canvas; border: 1px solid CanvasText; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .panel, .bubble, .callout, .invitation { background: Canvas; border: 1px solid CanvasText; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none !important; }
   .panel::before, .panel::after { display: none; }
   .question, .chips button { border: 1px solid CanvasText; }
 }

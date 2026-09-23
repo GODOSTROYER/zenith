@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { GLASS, useLiquidGlass } from "./liquid-glass";
 import { ArrowUpRight, BellOff, Minus, RotateCcw, X } from "lucide-react";
 import { GimbalCharacter } from "@/components/navigator/gimbal-character";
 import type { GimbalMood } from "@/components/navigator/gimbal-renderer";
@@ -39,6 +40,7 @@ export function GimbalCompanion() {
   const nextId = useRef(0);
   const launcher = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLElement>(null);
+  const callout = useRef<HTMLDivElement>(null);
   const shine = useRef<number | null>(null);
   /* The glass catches the pointer's light: two custom properties, written straight to the element once a frame. */
   const followLight = useCallback((event: PointerEvent<HTMLElement>) => {
@@ -108,6 +110,10 @@ export function GimbalCompanion() {
   const tempo = companion.open || hovering || step ? 2.6 : 1.9;
   const hidden = onHero && !companion.open && !closing && !walkthrough;
   useEffect(() => { if (!hidden) setShownOnce(true); }, [hidden]);
+  // Liquid glass for the guide and its pop-outs; each reads what it floats over and sets its text tone to contrast.
+  useLiquidGlass(panel, GLASS.panel, { active: companion.open, tone: true });
+  useLiquidGlass(callout, GLASS.bubble, { active: Boolean(!companion.open && step && definition && walkthrough), tone: true });
+  useLiquidGlass(bubble, GLASS.bubble, { active: Boolean(!companion.open && !walkthrough && suggestion), tone: true });
   useEffect(() => { if (companion.mood !== mood) dispatch({ type: "mood", mood }); }, [mood, companion.mood, dispatch]);
 
   /* Open, close and focus. */
@@ -224,10 +230,10 @@ export function GimbalCompanion() {
   }
 
   return (
-    <div className={`zenith-ink-tokens ${styles.companion}`} data-mood={mood} data-open={companion.open || undefined} data-hidden={hidden || undefined}>
+    <div className={`zenith-ink-tokens ${styles.companion}`} data-mood={mood} data-open={companion.open || undefined} data-hidden={hidden || undefined} data-glass-skip>
       {companion.open && mobile && <div className={styles.scrim} data-closing={closing || undefined} aria-hidden="true" onClick={close} />}
       {companion.open && (
-        <section ref={panel} className={styles.panel} data-closing={closing || undefined} role="dialog" aria-modal={mobile || undefined} aria-label="Ask Gimbal" aria-describedby={`${panelId}-kind`} tabIndex={-1} onKeyDown={trapTab} onPointerMove={followLight} onPointerLeave={restLight}>
+        <section ref={panel} className={styles.panel} data-closing={closing || undefined} data-tone="dark" role="dialog" aria-modal={mobile || undefined} aria-label="Ask Gimbal" aria-describedby={`${panelId}-kind`} tabIndex={-1} onKeyDown={trapTab} onPointerMove={followLight} onPointerLeave={restLight}>
           <header className={styles.header}>
             <div><h2 id={`${panelId}-title`}>A little perspective.</h2><span id={`${panelId}-kind`} className={styles.guideLabel}>Ask Gimbal · Answers from the Zenith team</span></div>
             <div className={styles.actions}>
@@ -249,7 +255,7 @@ export function GimbalCompanion() {
         </section>
       )}
       {!companion.open && step && definition && walkthrough && (
-        <div className={styles.callout} role="dialog" aria-label={`Walkthrough: ${definition.title}`}>
+        <div ref={callout} className={styles.callout} data-tone="dark" role="dialog" aria-label={`Walkthrough: ${definition.title}`}>
           <div className={styles.calloutHead}><span>{definition.title} · {walkthrough.step + 1} / {definition.steps.length}</span><button type="button" className={styles.closeSmall} aria-label="Close walkthrough" onClick={() => { dispatch({ type: "walkthrough-end" }); pulse("pleased", 1400); }}><X size={16} aria-hidden="true" /></button></div>
           <p aria-live="polite">{step.text(state)}</p>
           <div className={styles.bubbleActions}>
@@ -259,7 +265,7 @@ export function GimbalCompanion() {
         </div>
       )}
       {!companion.open && !walkthrough && suggestion && (
-        <div ref={bubble} className={styles.bubble} role="status" aria-live="polite">
+        <div ref={bubble} className={styles.bubble} data-tone="dark" role="status" aria-live="polite">
           <p>{suggestion.prompt}</p>
           <div className={styles.bubbleActions}>
             <button type="button" className={styles.dismiss} onClick={() => dispatch({ type: "suggestion-dismiss" })}>Not now</button>

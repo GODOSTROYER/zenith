@@ -8,18 +8,21 @@ import { LandingCta } from "./landing-cta";
 import type { Cta } from "./cta";
 import { CHAPTERS } from "./landing-state";
 import { useHeaderState } from "./landing-motion";
+import { GLASS, useLiquidGlass } from "./liquid-glass";
 
 const LINKS = CHAPTERS.filter((c) => c.nav).map((c) => ({ href: `#${c.id}`, label: c.nav as string }));
 
-/** Transparent over the sky, solid once the opening has scrolled past. */
+/** A floating liquid-glass capsule; its text follows whatever it floats over (`data-tone`). */
 export function LandingHeader({ cta }: { cta: Cta }) {
   const [open, setOpen] = useState(false);
   const header = useRef<HTMLElement>(null);
+  const bar = useRef<HTMLDivElement>(null);
   useHeaderState(header);
+  useLiquidGlass(bar, GLASS.bar, { tone: true });
   return (
-    <header ref={header} className="zenith-header" data-solid="false">
-      <div className="zenith-header-inner">
-        <a href="#main" aria-label="Zenith home" className="zenith-home"><span className="zenith-home-mark"><OrbitMark size={30} /></span><span className="zenith-home-word"><Wordmark size={26} /></span></a>
+    <header ref={header} className="zenith-header" data-solid="false" data-glass-skip>
+      <div ref={bar} className="zenith-header-inner" data-tone="dark">
+        <Link href="/" aria-label="Zenith home" className="zenith-home"><span className="zenith-home-mark"><OrbitMark size={30} /></span><span className="zenith-home-word"><Wordmark size={26} /></span></Link>
         <nav className="zenith-desktop-nav" aria-label="Main navigation">
           {LINKS.map((link) => <a key={link.href} href={link.href}>{link.label}</a>)}
           <Link href="/guide">Guide <ArrowUpRight size={12} aria-hidden="true" /></Link>

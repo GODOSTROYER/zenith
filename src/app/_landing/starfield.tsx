@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-interface Star { x: number; y: number; r: number; a: number; phase: number; speed: number; bright: boolean }
+interface Star { x: number; y: number; r: number; a: number; phase: number; speed: number; bright: boolean; tint: string }
 interface Meteor { x: number; y: number; vx: number; vy: number; born: number; life: number; length: number; width: number }
 
 /** The opening dispatches this on itself when the star at the apex is pressed. */
@@ -13,7 +13,7 @@ export const METEORS_EVENT = "zenith:meteors";
  * faint band of the Milky Way with thousands of dust-fine points, painted once
  * per resize, and a field of sharper stars over it, dense at the zenith and
  * sparse near the horizon, each twinkling on its own phase; the brightest few
- * carry a soft glint. On request a wave of meteors crosses the sky. Draws only
+ * carry a soft round halo, tinted warm, pale blue or amber. On request a wave of meteors crosses the sky. Draws only
  * while visible, at most 30 times a second (60 while meteors fly), and stands
  * still under a reduced-motion preference.
  */
@@ -31,10 +31,12 @@ export function Starfield({ className }: { className?: string }) {
     let width = 0, height = 0, ratio = 1, frame: number | null = null, last = 0, visible = true;
 
     const gaussian = () => { const u = 1 - Math.random(), v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+    /** Mostly warm white, with a few pale blue and amber stars, as the eye sees them. */
+    const tint = () => { const t = Math.random(); return t < 0.14 ? "214, 226, 255" : t < 0.26 ? "255, 216, 176" : "255, 244, 232"; };
     const seed = (count: number): Star[] => Array.from({ length: count }, () => {
       const y = Math.pow(Math.random(), 1.6);
       const r = 0.35 + Math.pow(Math.random(), 2.2) * 1.5;
-      return { x: Math.random(), y, r, a: 0.3 + Math.random() * 0.7, phase: Math.random() * Math.PI * 2, speed: 0.4 + Math.random() * 1.2, bright: r > 1.35 };
+      return { x: Math.random(), y, r, a: 0.3 + Math.random() * 0.7, phase: Math.random() * Math.PI * 2, speed: 0.4 + Math.random() * 1.2, bright: r > 1.35, tint: tint() };
     });
 
     /** The Milky Way: a soft diagonal band of haze and dust, painted once. */
@@ -138,21 +140,18 @@ export function Starfield({ className }: { className?: string }) {
         const alpha = star.a * twinkle * (1 - star.y * 0.75);
         const x = star.x * width, y = star.y * height;
         if (star.bright) {
-          const glow = context.createRadialGradient(x, y, 0, x, y, star.r * 5);
-          glow.addColorStop(0, `rgba(255, 240, 225, ${(alpha * 0.45).toFixed(3)})`);
-          glow.addColorStop(1, "rgba(255, 240, 225, 0)");
-          context.fillStyle = glow;
-          context.fillRect(x - star.r * 5, y - star.r * 5, star.r * 10, star.r * 10);
-          context.strokeStyle = `rgba(255, 246, 236, ${(alpha * 0.5).toFixed(3)})`;
-          context.lineWidth = 0.6;
-          context.beginPath();
-          context.moveTo(x - star.r * 4.5, y); context.lineTo(x + star.r * 4.5, y);
-          context.moveTo(x, y - star.r * 4.5); context.lineTo(x, y + star.r * 4.5);
-          context.stroke();
+          // A layered round halo, no spikes: a wide faint bloom under a tighter glow.
+          for (const [reach, strength] of [[8, 0.16], [3.2, 0.5]] as const) {
+            const glow = context.createRadialGradient(x, y, 0, x, y, star.r * reach);
+            glow.addColorStop(0, `rgba(${star.tint}, ${(alpha * strength).toFixed(3)})`);
+            glow.addColorStop(1, `rgba(${star.tint}, 0)`);
+            context.fillStyle = glow;
+            context.fillRect(x - star.r * reach, y - star.r * reach, star.r * reach * 2, star.r * reach * 2);
+          }
         }
         context.beginPath();
         context.arc(x, y, star.r, 0, Math.PI * 2);
-        context.fillStyle = `rgba(255, 246, 236, ${alpha.toFixed(3)})`;
+        context.fillStyle = `rgba(${star.tint}, ${alpha.toFixed(3)})`;
         context.fill();
       }
       if (meteors.length) drawMeteors(time);

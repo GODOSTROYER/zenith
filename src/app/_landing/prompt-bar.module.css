@@ -1,0 +1,13 @@
+/* The prompt bar inside the guide panel: a rounded field on ink, the accent for the send action. */
+.composer { min-width: 0; width: 100%; font-family: var(--zenith-font-ui, sans-serif); }
+.prompt { display: flex; align-items: flex-end; gap: 10px; border: 1px solid var(--zenith-rule); border-radius: 16px; padding: 8px; background: var(--zenith-panel); color: var(--zenith-ink); transition: border-color 160ms ease; }
+.prompt:focus-within { border-color: var(--zenith-accent); }
+.prompt textarea { display: block; width: 100%; min-width: 0; min-height: 22px; border: 0; padding: 0; margin: 11px 2px 11px 6px; resize: none; background: transparent; color: inherit; font: 500 14px/22px var(--zenith-font-ui, sans-serif); outline: none; caret-color: var(--zenith-accent); }
+.prompt textarea::placeholder { color: var(--zenith-muted); opacity: 1; }
+.send { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; border: 0; border-radius: 50%; color: #fff; background: var(--zenith-accent); cursor: pointer; transition: transform 200ms var(--zenith-ease), background 160ms ease, color 160ms ease; }
+.send:hover:not(:disabled) { transform: translateY(-1px); }
+.send:disabled { color: var(--zenith-muted); background: var(--zenith-soft); cursor: default; }
+.send:focus-visible { outline: 2px solid var(--zenith-ink); outline-offset: 3px; }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+@media (max-width: 640px) { .prompt textarea { font-size: 16px; } }
+@media (prefers-reduced-motion: reduce) { .prompt, .send { transition: none; } }

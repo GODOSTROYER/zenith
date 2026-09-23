@@ -1,0 +1,54 @@
+/* The control chapter: the words on the left, the dial on the right, turning on its own until a visitor takes it. */
+.note { display: block; margin-top: 14px; font: 400 15px/1.6 var(--zenith-font-ui); letter-spacing: 0; color: var(--zenith-muted); }
+
+/* The instrument: the dial, its readout, and one line for what the level means. */
+.instrument { display: flex; flex-direction: column; align-items: center; justify-self: end; width: min(100%, 520px); }
+.dial { position: relative; width: 100%; margin: 0; }
+.dial svg { display: block; width: 100%; height: auto; overflow: visible; }
+.track { fill: none; stroke: color-mix(in srgb, var(--zenith-ink) 12%, transparent); stroke-width: 10; stroke-linecap: round; }
+.fill { fill: none; stroke: var(--zenith-accent); stroke-width: 10; stroke-linecap: round; stroke-dasharray: 1; stroke-dashoffset: calc(1 - var(--notch, 2) / 4); transition: stroke-dashoffset 900ms cubic-bezier(.32, .72, 0, 1); }
+.needle { transform-box: view-box; transform-origin: 200px 200px; transform: rotate(calc((var(--notch, 2) - 2) * 45deg)); transition: transform 900ms cubic-bezier(.32, .72, 0, 1); }
+.needle line { stroke: var(--zenith-ink); stroke-width: 3.5; stroke-linecap: round; }
+.needle circle { fill: var(--zenith-ink); }
+.notch { position: absolute; width: 44px; height: 44px; transform: translate(-50%, -50%); display: grid; place-items: center; padding: 0; border: 1.5px solid color-mix(in srgb, var(--zenith-ink) 28%, transparent); border-radius: 50%; background: var(--zenith-panel); color: var(--zenith-ink); font: 600 13px/1 var(--zenith-font-ui); cursor: pointer; transition: background 260ms ease, color 260ms ease, border-color 260ms ease, box-shadow 260ms ease, opacity 240ms var(--zenith-ease); }
+.notch:hover { border-color: var(--zenith-ink); }
+.notch[aria-pressed="true"] { background: var(--zenith-ink); color: var(--zenith-paper); border-color: var(--zenith-ink); }
+.notch[data-hot="true"] { border-color: var(--zenith-accent); box-shadow: 0 0 0 4px var(--zenith-accent-soft); }
+.notch[data-soft="true"] { opacity: .35; }
+.notch:focus-visible { outline: 2px solid var(--zenith-accent); outline-offset: 3px; }
+.notch span { position: absolute; white-space: nowrap; font: 500 11px/1 var(--zenith-font-ui); text-transform: capitalize; color: var(--zenith-muted); pointer-events: none; transition: color 260ms ease; }
+.notch[aria-pressed="true"] span { color: var(--zenith-ink); font-weight: 600; }
+.notch[data-index="0"] span, .notch[data-index="4"] span { top: calc(100% + 8px); }
+.notch[data-index="0"] span { left: 0; }
+.notch[data-index="4"] span { right: 0; }
+.notch[data-index="1"] span { right: calc(100% + 9px); top: 50%; transform: translateY(-50%); }
+.notch[data-index="2"] span { bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%); }
+.notch[data-index="3"] span { left: calc(100% + 9px); top: 50%; transform: translateY(-50%); }
+.readout { display: flex; align-items: baseline; justify-content: center; gap: 10px; width: 100%; margin: 6px 0 0; }
+.readout b { font: 400 46px/1 var(--zenith-font-display); letter-spacing: -.03em; color: var(--zenith-ink); }
+.readout span { font: 500 16px/1 var(--zenith-font-ui); text-transform: capitalize; color: var(--zenith-muted); }
+.meaning { margin: 14px 0 0; max-width: 34ch; font: 400 clamp(20px, 1.8vw, 26px)/1.3 var(--zenith-font-display); letter-spacing: -.01em; color: var(--zenith-ink); text-align: center; text-wrap: balance; }
+
+/* What never moves. */
+.keeps { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 12px 26px; }
+.keeps li { display: flex; align-items: center; gap: 10px; font: 500 14px/1.3 var(--zenith-font-ui); color: var(--zenith-muted); transition: color 200ms ease; }
+.keeps li i { flex-shrink: 0; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--zenith-soft); color: var(--zenith-ink); transition: background 200ms ease, color 200ms ease; }
+.keeps li[data-hot="true"] { color: var(--zenith-ink); }
+.keeps li[data-hot="true"] i { background: var(--zenith-accent); color: #fff; }
+.links { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin-top: 30px; }
+
+@media (max-width: 1000px) {
+  .instrument { justify-self: center; }
+}
+@media (max-width: 560px) {
+  .notch { width: 38px; height: 38px; font-size: 12px; }
+  .notch span { font-size: 10px; }
+  .readout b { font-size: 38px; }
+  .meaning { font-size: 19px; }
+  .keeps { gap: 10px 18px; }
+  .keeps li { font-size: 13px; }
+  .keeps li i { width: 36px; height: 36px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fill, .needle, .notch, .keeps li i { transition: none; }
+}

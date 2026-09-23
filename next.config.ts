@@ -10,6 +10,10 @@ const nextConfig: NextConfig = {
   // in docs/RUNNING.md keeps working.
   output: "standalone",
 
+  // Gimbal's home on the landing is the bottom-left corner; keep the dev-only
+  // Next.js indicator out of its way so reviews see the character, not a badge.
+  devIndicators: { position: "bottom-left" },
+
   // These Node-only SDKs are pulled in by the provider/action registry. Let
   // Node load their published builds instead of bundling them into each route.
   serverExternalPackages: [

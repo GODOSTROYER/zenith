@@ -28,13 +28,13 @@ export default function RootLayout({
       </head>
       <body>
         <template dangerouslySetInnerHTML={{ __html: `<!--
-Landing direction contract / test/zenith-reimagined
-THESIS: The next infrastructure change becomes a physical revision object.
+Landing direction contract / your cloud, in full view
+THESIS: One system, seen before, during and after the change, with Gimbal as the guide who lives in the corner.
 OWN-WORLD: Porcelain, ink and vermilion; cut-register vector identity, Instrument Serif, Manrope and precise monospaced evidence.
-STORY: Inspect Atlas, review its queue and bindings, approve a simulation, inspect the audit, restore configuration and choose a supported starting point.
-FIRST VIEWPORT: Monumental editorial headline and real CTA on the left; immediately visible dimensional infrastructure on the right. Mobile stacks both.
-FORM: Revision Object, first of three internally challenged directions; user-selected territory, seed 5d9df14d advisory only.
-FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+STORY: Build with the agents you already use, understand the system and the plan, explore growth, choose your path, observe after deployment, decide how much to delegate, keep what is yours.
+FIRST VIEWPORT: Monumental editorial headline and real CTA on the left; the application assembling into a readable system on the right; the two paths and their availability stated. Mobile stacks both.
+FORM: Eight chapters over one shared presentation state; no demonstration may contradict another.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, DESIGN.md, docs/zenith-landing-direction.md and the verification notes
 -->` }} />
         {children}
       </body>

@@ -1,0 +1,96 @@
+/* One diagram for every chapter. Nodes are HTML; edges are measured and routed; a light travels the story. */
+.diagram { position: relative; width: 100%; min-width: 0; }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-gap: clamp(18px, 3.2vw, 44px);
+  row-gap: 72px;
+  position: relative;
+  z-index: 1;
+}
+.diagram[data-mode="stack"] .grid { grid-template-columns: minmax(0, 1fr); row-gap: 34px; padding-right: 58px; }
+.node {
+  --i: 0;
+  grid-column: var(--col);
+  grid-row: var(--row);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  min-height: 72px;
+  padding: 12px 12px 12px 52px;
+  margin: 0;
+  text-align: left;
+  background: var(--zenith-panel);
+  color: var(--zenith-ink);
+  border: 1px solid var(--zenith-rule);
+  border-radius: 18px;
+  font: inherit;
+  text-decoration: none;
+  transition: opacity 260ms var(--zenith-ease), border-color 200ms ease, box-shadow 280ms ease, transform 200ms var(--zenith-ease), background 220ms ease;
+}
+.diagram[data-mode="stack"] .node { grid-column: auto; grid-row: auto; order: var(--stack); }
+button.node, a.node { cursor: pointer; }
+button.node:hover, a.node:hover { border-color: var(--zenith-muted); transform: translateY(-1px); }
+.node[aria-pressed="true"], .node[data-selected="true"] { border-color: var(--zenith-ink); box-shadow: inset 0 0 0 1px var(--zenith-ink); }
+.node[data-proposed="true"] { background: color-mix(in srgb, var(--zenith-accent) 14%, var(--zenith-panel)); border-color: color-mix(in srgb, var(--zenith-accent) 55%, transparent); }
+.node[data-soft="true"] { opacity: .3; }
+.node[data-hot="true"] { border-color: var(--zenith-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--zenith-accent) 24%, transparent); }
+.node[data-hot="true"][aria-pressed="true"] { box-shadow: inset 0 0 0 1px var(--zenith-accent), 0 0 0 3px color-mix(in srgb, var(--zenith-accent) 24%, transparent); }
+.node[data-lit="true"] { border-color: var(--zenith-ink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--zenith-ink) 22%, transparent), 0 12px 32px -12px color-mix(in srgb, var(--zenith-ink) 50%, transparent); }
+.node:focus-visible { outline: 2px solid var(--zenith-accent); outline-offset: 4px; }
+.glyph { position: absolute; left: 12px; top: 12px; box-sizing: content-box; padding: 5px; border-radius: 10px; background: color-mix(in srgb, var(--zenith-ink) 9%, transparent); color: var(--zenith-ink); transition: background 220ms ease, color 220ms ease; }
+.node[data-proposed="true"] .glyph { background: color-mix(in srgb, var(--zenith-accent) 30%, transparent); color: var(--zenith-accent-text); }
+.node[data-lit="true"] .glyph { background: var(--zenith-ink); color: var(--zenith-paper); }
+.label { font-size: 14px; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; }
+.sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font: 500 11.5px/1.45 var(--zenith-font-ui); color: var(--zenith-muted); }
+.tag { display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 999px; background: var(--zenith-accent-soft); color: var(--zenith-accent-text); font: 700 9.5px/1.7 var(--zenith-font-ui); letter-spacing: .07em; text-transform: uppercase; }
+.health { position: absolute; right: 14px; top: 16px; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); }
+.health[data-health="watch"] { background: var(--warn); }
+.edges { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 2; }
+.edge { fill: none; stroke: var(--zenith-muted); stroke-width: 1.4; stroke-linecap: round; transition: opacity 260ms var(--zenith-ease), stroke 180ms ease; }
+.edge[data-proposed="true"] { stroke: var(--zenith-accent); stroke-dasharray: 5 5; animation: march 1.1s linear infinite; }
+.edge[data-selected="true"] { stroke: var(--zenith-ink); stroke-width: 1.9; }
+.edge[data-proposed="true"][data-selected="true"] { stroke: var(--zenith-accent); }
+.edge[data-soft="true"] { opacity: .22; }
+.edge[data-hot="true"] { stroke: var(--zenith-accent); stroke-width: 2.2; stroke-dasharray: none; animation: none; }
+.edgeLabel {
+  font: 600 11px var(--zenith-font-ui);
+  fill: var(--zenith-ink);
+  paint-order: stroke;
+  stroke: var(--zenith-paper);
+  stroke-width: 7px;
+  stroke-linejoin: round;
+  text-anchor: middle;
+}
+.arrow { fill: var(--zenith-muted); }
+.arrowInk { fill: var(--zenith-ink); }
+.arrowAccent { fill: var(--zenith-accent); }
+/* The travelling light: a soft halo and a bright core, placed on the edges by the motion hook. */
+.light { opacity: 0; pointer-events: none; }
+.light circle:first-child { fill: var(--zenith-ink); opacity: .22; }
+.light circle:last-child { fill: var(--zenith-ink); }
+.sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+@keyframes march { to { stroke-dashoffset: -20; } }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+@keyframes fade { from { opacity: 0; } }
+.diagram[data-reveal="true"] .node { animation: rise 640ms var(--zenith-ease) both; animation-delay: calc(var(--i) * 90ms); }
+.diagram[data-reveal="true"] .edge { animation: fade 520ms var(--zenith-ease) both; animation-delay: calc(520ms + var(--i) * 100ms); }
+.diagram[data-reveal="true"] .edge[data-proposed="true"] { animation: fade 520ms var(--zenith-ease) both, march 1.1s linear infinite; animation-delay: calc(520ms + var(--i) * 100ms), 0s; }
+@media (max-width: 560px) {
+  .node { min-height: 64px; padding: 11px 12px 11px 50px; border-radius: 14px; }
+  .glyph { left: 10px; top: 11px; padding: 5px; }
+  .label { font-size: 13px; }
+  .sub { font-size: 10.5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .edge[data-proposed="true"], .diagram[data-reveal="true"] .edge[data-proposed="true"] { animation: none; }
+  .light { display: none; }
+}
+@media (forced-colors: active) {
+  .node { border-color: CanvasText; }
+  .node[aria-pressed="true"] { outline: 2px solid Highlight; }
+  .edge { stroke: CanvasText; }
+}

@@ -1,0 +1,143 @@
+/* The opening: the sky at its zenith, in the page's own two colours. Ink overhead, the mark's vermilion at the horizon; the ridges generated, sharp and lit along the crest. */
+.hero { --scene-drop: 0px; position: relative; z-index: 0; min-height: 100svh; overflow: hidden; isolation: isolate; color: #f5f3ee; background: #08090d; }
+.layer { position: absolute; inset: 0; pointer-events: none; will-change: transform; }
+.sky { background: linear-gradient(180deg, #08090d 0%, #0f1015 16%, #1c191f 30%, #3a2427 44%, #75362e 56%, #b8472f 67%, #e65332 76%, #f28a5e 85%, #ffbb96 93%, #ffdcc4 100%); }
+.nebula { inset: -25%; filter: blur(28px); opacity: .9; background:
+  radial-gradient(ellipse 30% 22% at 24% 32%, rgba(230, 83, 50, .22), transparent 70%),
+  radial-gradient(ellipse 14% 10% at 31% 27%, rgba(255, 150, 120, .16), transparent 70%),
+  radial-gradient(ellipse 38% 26% at 75% 36%, rgba(150, 160, 190, .18), transparent 70%),
+  radial-gradient(ellipse 50% 22% at 50% 76%, rgba(255, 140, 100, .4), transparent 70%);
+  animation: drift 28s ease-in-out infinite alternate; }
+.stars { width: 100%; height: 100%; }
+.glow { top: auto; bottom: calc(14% - var(--scene-drop)); left: 50%; width: min(70vw, 1100px); height: min(70vw, 1100px); transform: translate(-50%, 50%); border-radius: 50%; filter: blur(26px);
+  background: radial-gradient(circle, rgba(255, 214, 178, .72) 0%, rgba(230, 83, 50, .34) 32%, rgba(230, 83, 50, .08) 52%, transparent 66%); }
+/* Atmosphere at the horizon: a warm band the far ridge rises out of. */
+.haze { top: auto; bottom: calc(26% - var(--scene-drop)); height: 26%; background: linear-gradient(to top, rgba(255, 150, 120, .42), rgba(230, 83, 50, .14) 45%, transparent); }
+.ridge { top: var(--scene-drop); bottom: calc(-1 * var(--scene-drop)); will-change: transform; }
+.scene { display: block; width: 100%; height: 100%; overflow: visible; shape-rendering: geometricPrecision; }
+/* Rim light (radial from the summit), body colour, valley haze and a hairline on the crest, per ridge: warm dusk silhouettes in the ink family. */
+.scene[data-ridge="far"] .lightNear { stop-color: #ffb48e; } .scene[data-ridge="far"] .lightMid { stop-color: #b45a44; } .scene[data-ridge="far"] .lightFar { stop-color: #5b3538; }
+.scene[data-ridge="far"] .body { fill: #3b2428; } .scene[data-ridge="far"] .hazeTop { stop-color: rgba(255, 140, 110, 0); } .scene[data-ridge="far"] .hazeBottom { stop-color: rgba(255, 140, 110, .34); }
+.scene[data-ridge="far"] .crest { stroke: rgba(255, 214, 190, .55); }
+.scene[data-ridge="mid"] .lightNear { stop-color: #8c5048; } .scene[data-ridge="mid"] .lightMid { stop-color: #4e2f33; } .scene[data-ridge="mid"] .lightFar { stop-color: #2c1d22; }
+.scene[data-ridge="mid"] .body { fill: #1f161a; } .scene[data-ridge="mid"] .hazeTop { stop-color: rgba(200, 120, 110, 0); } .scene[data-ridge="mid"] .hazeBottom { stop-color: rgba(200, 120, 110, .2); }
+.scene[data-ridge="mid"] .crest { stroke: rgba(240, 200, 190, .22); }
+.scene[data-ridge="near"] .lightNear { stop-color: #3b262a; } .scene[data-ridge="near"] .lightMid { stop-color: #241a1e; } .scene[data-ridge="near"] .lightFar { stop-color: #17121a; }
+.scene[data-ridge="near"] .body { fill: #0f0c10; } .scene[data-ridge="near"] .hazeTop { stop-color: rgba(120, 80, 90, 0); } .scene[data-ridge="near"] .hazeBottom { stop-color: rgba(120, 80, 90, .12); }
+.scene[data-ridge="near"] .crest { stroke: rgba(220, 190, 190, .14); }
+.crest { fill: none; stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+.hazeFill { mix-blend-mode: screen; }
+.ray { transform-box: fill-box; transform-origin: 50% 100%; filter: blur(.4px); }
+.summitMark { fill: #fff2e6; filter: drop-shadow(0 0 14px rgba(255, 170, 130, .95)) drop-shadow(0 0 40px rgba(230, 83, 50, .6)); }
+/* The apex: the mark glowing at the top of the ray that rises from the summit (`--summit-bottom` is measured by the component). */
+.apex { position: absolute; left: 50%; top: 112px; bottom: calc(var(--summit-bottom, 38%) - var(--scene-drop)); width: 0; pointer-events: none; }
+.apexRay { position: absolute; z-index: 1; left: -1.5px; top: 21px; bottom: 0; width: 3px; border-radius: 3px; transform-origin: 50% 100%; filter: blur(.4px);
+  background: linear-gradient(to bottom, rgba(255, 241, 228, .95), rgba(255, 208, 184, .4) 38%, rgba(255, 208, 184, .14) 72%, rgba(255, 241, 228, .85)); }
+.apexStar { position: absolute; z-index: 3; left: 50%; top: 0; width: 42px; height: 42px; margin-left: -21px; padding: 0; border: 0; background: none; color: #fff4e8; cursor: pointer; pointer-events: auto; }
+.apexStar svg { display: block; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 0 8px rgba(255, 190, 150, .75)) drop-shadow(0 0 28px rgba(230, 83, 50, .45)); animation: twinkle 4.2s ease-in-out infinite; }
+.apexStar:hover svg { animation-play-state: paused; filter: drop-shadow(0 0 14px rgba(255, 200, 160, 1)) drop-shadow(0 0 48px rgba(230, 83, 50, .8)); transform: scale(1.16); }
+.apexStar:focus-visible { outline: 2px solid rgba(255, 244, 232, .9); outline-offset: 10px; border-radius: 50%; }
+.apexStar[data-burst] svg { animation: burst 1000ms var(--zenith-ease) 1, twinkle 4.2s ease-in-out 1000ms infinite; }
+.spike { fill: currentColor; }
+.spikeSoft { fill: currentColor; opacity: .55; transform-origin: 50% 50%; transform: rotate(45deg) scale(.62); }
+.starCore { fill: #fff; }
+@keyframes twinkle {
+  0%, 100% { transform: scale(.94); opacity: .8; filter: drop-shadow(0 0 6px rgba(255, 190, 150, .6)) drop-shadow(0 0 22px rgba(230, 83, 50, .35)); }
+  42% { transform: scale(1.3) rotate(8deg); opacity: 1; filter: drop-shadow(0 0 18px rgba(255, 220, 190, 1)) drop-shadow(0 0 64px rgba(230, 83, 50, .95)); }
+  58% { transform: scale(1.18) rotate(-4deg); opacity: 1; filter: drop-shadow(0 0 14px rgba(255, 210, 180, .95)) drop-shadow(0 0 48px rgba(230, 83, 50, .8)); }
+}
+@keyframes burst {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.7) rotate(22deg); filter: drop-shadow(0 0 26px rgba(255, 240, 220, 1)) drop-shadow(0 0 90px rgba(230, 83, 50, 1)); }
+  100% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(255, 190, 150, .9)) drop-shadow(0 0 34px rgba(230, 83, 50, .55)); }
+}
+/* The dim that deepens as the opening recedes under the sheet. */
+.dim { background: #08090d; opacity: 0; z-index: 2; }
+.clouds { top: auto; bottom: calc(-1 * var(--scene-drop)); height: 46%; filter: blur(18px); opacity: .85; background:
+  radial-gradient(ellipse 26% 22% at 14% 74%, rgba(255, 190, 170, .55), transparent 70%),
+  radial-gradient(ellipse 18% 14% at 30% 84%, rgba(255, 205, 190, .45), transparent 70%),
+  radial-gradient(ellipse 34% 26% at 58% 92%, rgba(255, 170, 150, .55), transparent 70%),
+  radial-gradient(ellipse 16% 14% at 76% 80%, rgba(255, 200, 180, .4), transparent 70%),
+  radial-gradient(ellipse 26% 24% at 90% 72%, rgba(230, 150, 140, .45), transparent 70%); }
+.content { position: relative; z-index: 2; min-height: 100svh; display: flex; flex-direction: column; padding: 118px var(--zenith-gutter) 40px; }
+/* Classic composition. */
+.top { display: grid; grid-template-columns: 1fr; gap: 6px; }
+.welcome { margin: 0 0 0 1.5%; font: 500 clamp(18px, 2vw, 30px)/1.2 var(--zenith-font-ui); color: rgba(245, 243, 238, .88); letter-spacing: -.01em; }
+.wordmark { margin: 0; line-height: 0; }
+.wordmark svg { display: block; width: min(90vw, 1440px); height: auto; overflow: visible; fill: #fff; filter: drop-shadow(0 26px 70px rgba(20, 12, 12, .5)); }
+.bottom { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 24px 48px; margin-top: 12px; }
+/* Apex composition: everything centred on the ray, the tagline and the action at the foot. */
+.apexTop { display: flex; flex-direction: column; align-items: center; text-align: center; margin-top: 46px; }
+/* The lettering and its greeting share one measure, so "Welcome to" sits at the lettering's top-left. */
+.lettering { display: flex; flex-direction: column; width: min(96vw, 1720px); max-width: none; }
+.lettering .welcome { align-self: flex-start; margin: 0 0 2px 1.2%; text-align: left; }
+.wordmarkWide svg { width: 100%; }
+.meaning { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 4px 14px; margin: 22px 0 0; font: 400 clamp(17px, 1.5vw, 23px)/1.4 var(--zenith-font-display); font-style: italic; color: rgba(255, 255, 255, .82); text-shadow: 0 4px 24px rgba(30, 15, 15, .5); }
+.meaning em { font-style: italic; color: #fff; letter-spacing: .06em; }
+.meaning span::before { content: "·"; margin-right: 14px; color: rgba(255, 255, 255, .5); }
+.apexBottom { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 24px 48px; margin-top: auto; padding-top: 28px; }
+.hero[data-variant="apex"] .marks { margin-top: 0; }
+.tagline { margin: 0; max-width: 24ch; font: 600 clamp(22px, 2.3vw, 34px)/1.22 var(--zenith-font-ui); letter-spacing: -.02em; color: #fff; text-shadow: 0 6px 30px rgba(30, 15, 15, .45); }
+/* The turning word: both candidates share one cell; the current one is sharp and in place, the other waits below, soft. */
+.swap { position: relative; display: inline-grid; vertical-align: baseline; }
+.swap > span { grid-area: 1 / 1; opacity: 0; transform: translateY(.38em); filter: blur(6px); transition: opacity 1100ms var(--zenith-ease), transform 1100ms var(--zenith-ease), filter 1100ms var(--zenith-ease); }
+.swap > span[data-current] { opacity: 1; transform: none; filter: blur(0); }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; }
+.actions :global(.zenith-cta) { background: #fff; border-color: #fff; color: var(--zenith-ink) !important; }
+.ghost { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 4px; color: #fff; font: 500 14px var(--zenith-font-ui); text-decoration: none; border-bottom: 1px solid rgba(255, 255, 255, .45); transition: border-color 160ms ease; }
+.ghost:hover { border-color: #fff; }
+.marks { list-style: none; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 18px clamp(22px, 4vw, 60px); margin: auto 0 0; padding: 56px 0 0; }
+.marks li { --i: 0; display: inline-flex; align-items: center; gap: 10px; color: rgba(255, 255, 255, .92); font: 700 clamp(15px, 1.3vw, 20px)/1 var(--zenith-font-ui); letter-spacing: -.02em; }
+.marks img { height: 28px; width: auto; filter: brightness(0) invert(1); opacity: .95; }
+.marks li:nth-child(2) { --i: 1; } .marks li:nth-child(3) { --i: 2; } .marks li:nth-child(4) { --i: 3; } .marks li:nth-child(5) { --i: 4; } .marks li:nth-child(6) { --i: 5; } .marks li:nth-child(7) { --i: 6; } .marks li:nth-child(8) { --i: 7; }
+.marks li[data-brand="oracle"] img { height: 15px; }
+.marks li[data-brand="aws"] img { height: 30px; }
+.scrollCue { position: absolute; left: var(--zenith-gutter); bottom: 40px; z-index: 3; display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid rgba(255, 255, 255, .5); border-radius: 50%; color: #fff; transition: border-color 160ms ease; }
+.scrollCue:hover { border-color: #fff; }
+@keyframes drift { from { transform: translate3d(-2%, -1%, 0) scale(1); } to { transform: translate3d(2%, 2%, 0) scale(1.06); } }
+@media (max-width: 1100px) {
+  /* Gimbal lives bottom-right; the marks end clear of its home. */
+  .marks { justify-content: flex-start; padding-right: 150px; }
+}
+@media (max-width: 900px) {
+  /* Portrait: the star breathes under the masthead, the lettering sits below the centre of the sky, and the mountains
+     drop a little so the meaning line still clears the summit. */
+  .hero { --scene-drop: 12svh; }
+  .content { padding: 104px var(--zenith-gutter) 44px; }
+  .bottom, .apexBottom { grid-template-columns: 1fr; align-items: start; padding-top: 0; }
+  .apex { top: 20svh; }
+  .apexTop { margin-top: auto; margin-bottom: 16svh; }
+  .apexBottom { margin-top: 0; }
+  .tagline { max-width: 16ch; font-size: clamp(22px, 6vw, 28px); padding-right: 64px; }
+  /* The button lives in the masthead here, and the marks would only crowd the foot. */
+  .actions, .marks { display: none; }
+  .scrollCue { left: auto; right: var(--zenith-gutter); bottom: 44px; }
+}
+@media (max-width: 560px) {
+  .hero { min-height: 100svh; }
+  .content { padding: 96px var(--zenith-gutter) 40px; }
+  .wordmark svg, .wordmarkWide svg { width: 100%; }
+  .welcome { font-size: 17px; }
+  .meaning { font-size: 16px; gap: 2px 8px; margin-top: 16px; }
+  .meaning span::before { margin-right: 8px; }
+  .apexStar { width: 34px; height: 34px; margin-left: -17px; }
+  .apexRay { top: 17px; }
+  .lettering { width: 100%; }
+  .scrollCue { bottom: 40px; }
+}
+/* The words and the marks enter from the stylesheet the moment it applies, in a short cascade, so the first paint never
+   waits for the motion library. `backwards` holds only the starting pose, so the scroll-bound fades own them afterwards. */
+@media (prefers-reduced-motion: no-preference) {
+  .hero [data-enter] { animation: rise 900ms var(--zenith-ease) backwards; }
+  .hero [data-enter="1"] { animation-delay: .35s; }
+  .hero [data-enter="2"] { animation-delay: .6s; }
+  .hero [data-enter="3"] { animation-delay: .75s; }
+  .hero [data-enter="4"] { animation-delay: calc(.9s + var(--i, 0) * 60ms); }
+  /* The drawn parts (letters, ray, star) wait for the motion library in their starting pose; if it never arrives, they appear on their own. */
+  .hero:not([data-motion]) [data-letter], .hero:not([data-motion]) [data-hero-apex], .hero:not([data-motion]) [data-hero-beacon] { opacity: 0; animation: appear 700ms var(--zenith-ease) 1.6s forwards; }
+  .hero:not([data-motion]) [data-letter] { transform: translateY(46px); }
+  .hero:not([data-motion]) [data-hero-beacon] { transform: scaleY(.2); transform-origin: 50% 100%; }
+}
+@keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes appear { to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .nebula, .apexStar svg { animation: none; } }

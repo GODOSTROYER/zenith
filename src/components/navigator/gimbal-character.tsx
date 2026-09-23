@@ -3,24 +3,36 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cx } from "@/lib/format";
 import type { GimbalState } from "./gimbal-contract";
-import type { GimbalMaterial, GimbalRenderer } from "./gimbal-renderer";
+import type { GimbalMaterial, GimbalMood, GimbalRenderer } from "./gimbal-renderer";
 import { GimbalFallback } from "./gimbal-fallback";
 
 /** Visible-only gyroscope. Workflow information remains in adjacent HTML. */
-export function GimbalCharacter({ state, material = "alloy", className }: {
+export function GimbalCharacter({ state, material = "alloy", mood = "idle", tempo = 1, className, activateLabel, onActivate }: {
   state: GimbalState | null;
   material?: GimbalMaterial;
+  /** Personality only: pace and expression. Never a workflow or verification signal. */
+  mood?: GimbalMood;
+  /** Multiplies the rings' orbit rate on top of state and mood; 1 is the product's own pace. */
+  tempo?: number;
   className?: string;
+  /** Accessible name of the character's button; defaults to the greeting. */
+  activateLabel?: string;
+  /** When present, activating the character calls this instead of showing the greeting text. */
+  onActivate?: () => void;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const renderer = useRef<GimbalRenderer | null>(null);
   const latestState = useRef(state);
+  const latestMood = useRef(mood);
+  const latestTempo = useRef(tempo);
   const syncSettings = useRef<() => void>(() => {});
   const greetingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hello, setHello] = useState(false);
   const [active, setActive] = useState(false);
   const [ready, setReady] = useState(false);
   latestState.current = state;
+  latestMood.current = mood;
+  latestTempo.current = tempo;
 
   useEffect(() => {
     const element = host.current;
@@ -65,6 +77,8 @@ export function GimbalCharacter({ state, material = "alloy", className }: {
         let failed = false;
         const instance = await createGimbalRenderer(element, {
           state: latestState.current,
+          mood: latestMood.current,
+          tempo: latestTempo.current,
           material,
           reducedMotion: reducedMotion(),
           onReady: () => { if (!disposed) setReady(true); },
@@ -74,6 +88,8 @@ export function GimbalCharacter({ state, material = "alloy", className }: {
         renderer.current = instance;
         starting = false;
         instance.setState(latestState.current);
+        instance.setMood(latestMood.current);
+        instance.setTempo(latestTempo.current);
         syncSettings.current();
         instance.setVisible(visible && document.visibilityState === "visible");
       }).catch(recover);
@@ -105,23 +121,31 @@ export function GimbalCharacter({ state, material = "alloy", className }: {
   }, [material]);
 
   useLayoutEffect(() => { renderer.current?.setState(state); }, [state]);
+  useLayoutEffect(() => { renderer.current?.setMood(mood); }, [mood]);
+  useLayoutEffect(() => { renderer.current?.setTempo(tempo); }, [tempo]);
 
   const greet = () => {
+    if (onActivate) {
+      renderer.current?.greet("tap");
+      onActivate();
+      return;
+    }
     if (greetingTimer.current) return;
     renderer.current?.greet("tap");
     setHello(true);
     greetingTimer.current = setTimeout(() => { setHello(false); greetingTimer.current = null; }, 1800);
   };
+  const label = activateLabel ?? "Say hello to Gimbal";
 
   return (
-    <div className={cx("gimbal-character", className)} data-gimbal-state={state ?? "neutral"}
+    <div className={cx("gimbal-character", className)} data-gimbal-state={state ?? "neutral"} data-gimbal-mood={mood}
       data-renderer={ready ? "3d" : "static"} data-quality="max" data-material={material} data-active={active}>
       <span className="gimbal-aura" aria-hidden="true" />
       <span key={state} className="gimbal-state-pulse" aria-hidden="true" />
-      <GimbalFallback state={state} material={material} hidden={ready} />
+      <GimbalFallback state={state} material={material} mood={mood} hidden={ready} />
       <div className="gimbal-canvas" ref={host} aria-hidden="true" />
-      <button type="button" className="gimbal-greeting" aria-label="Say hello to Gimbal"
-        title="Say hello to Gimbal"
+      <button type="button" className="gimbal-greeting" aria-label={label}
+        title={label}
         onPointerEnter={(event) => { if (event.pointerType === "mouse") renderer.current?.greet("hover"); }}
         onClick={greet} />
       <span className={cx("gimbal-hello", !hello && "sr-only")} role="status" aria-live="polite">

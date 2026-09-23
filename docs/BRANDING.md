@@ -16,20 +16,26 @@ lettering alone, with no suffix; the accessible name is Zenith. Monochrome,
 inverse and small symbol treatments share this identity. Gimbal's moving rings
 belong to the Navigator character and are not the corporate mark.
 
-The landing direction is **The Revision Object**: porcelain, ink and controlled
-vermilion make the next infrastructure change tangible. Instrument Serif
-roman/italic supplies editorial display type, Manrope supplies body and controls,
-and the existing JetBrains Mono supplies technical evidence. All font files are
-self-hosted with their license notices. Both landing themes are intentionally
-composed; the dark inspect/review chapter and closing signature keep their ink
-ground in either theme. Proposed work earns the vermilion accent; a recorded
-queue settles into porcelain with a small revision tab.
+The landing direction is **Your cloud, in full view**: the sky at its zenith
+as the opening (night gradient, stars, a warm horizon, ridges and a beacon)
+with the brand lettering across the viewport, porcelain daylight for the
+chapters, and night again for the cloud roadmap and the close. Manrope carries
+headlines and body, Instrument Serif italic the accents, JetBrains Mono the
+technical evidence. All font files are self-hosted with their license notices.
+The page is one composed theme rather than a light/dark pair. Proposed work
+keeps the vermilion accent. One example system carries every chapter; the
+earlier Atlas story and infrastructure sculpture are retired. Cloud marks under
+`public/cloud-logos` identify roadmap destinations with their availability
+beside them, not partnerships.
 
 Product workflows extend the approved Revision Object identity into a compact operational workbench: porcelain/ink surfaces, vermilion actions and proposed changes, selective Instrument Serif titles, Manrope controls and JetBrains Mono technical data. The landing keeps its own composition and display scale. Success is green, warnings and production identity amber, errors berry, information blue and Navigator violet. Every meaningful state needs text or an icon; color alone is insufficient.
 
-Gimbal introduces itself neutrally and responds to a voluntary greeting. Its
-landing appearance shares the product renderer, reduced-motion handling,
-low-power mode and WebGL fallback. A greeting is never a Verified event.
+Gimbal lives in the bottom-right corner of the landing as a persistent guide,
+sharing the product renderer, reduced-motion handling and WebGL fallback, with
+a personality mood layer that never borrows a workflow colour. Its answers on
+the public page are a curated guide written by the team, labelled as such;
+they are not a live model. A greeting, a mood or a completed walkthrough is
+never a Verified event and never means anything was provisioned.
 
 ## Product language
 

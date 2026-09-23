@@ -1,14 +1,19 @@
 import type { GimbalState } from "./gimbal-contract";
-import type { GimbalMaterial } from "./gimbal-renderer";
+import type { GimbalMaterial, GimbalMood } from "./gimbal-renderer";
 
 /** Lightweight first paint and no-WebGL fallback, matching the living gyroscope. */
-export function GimbalFallback({ state, hidden = false, material = "alloy" }: { state: GimbalState | null; hidden?: boolean; material?: GimbalMaterial }) {
+export function GimbalFallback({ state, hidden = false, material = "alloy", mood = "idle" }: { state: GimbalState | null; hidden?: boolean; material?: GimbalMaterial; mood?: GimbalMood }) {
   const porcelain = material === "porcelain";
   const faceColor = porcelain ? "#f4f3ee" : "#ffd69c";
-  const focused = state === "planning" || state === "applying" || state === "blocked";
+  const focused = state === "planning" || state === "applying" || state === "blocked" || mood === "thinking";
   const angles = state === "awaiting_approval" ? [18, 24, 30]
     : state === "applying" ? [32, 32, 32]
     : state === "blocked" ? [12, 78, -30] : [32, -48, 14];
+  // A mood only bends the smile; state colour and ring alignment stay workflow-owned.
+  const smile = state === "blocked" ? "M121 140 Q128 138 135 140"
+    : state === "verified" || mood === "delighted" || mood === "pleased" ? "M121 138 Q128 145 135 138"
+    : mood === "cautious" ? "M121 141 Q128 140 135 141"
+    : "M121 140 Q128 142 135 140";
   return (
     <svg className="gimbal-static" viewBox="0 0 256 256" aria-hidden="true" style={hidden ? { display: "none" } : undefined}>
       <g fill="none" stroke={porcelain ? "#919487" : "#8999b2"} strokeWidth="2">
@@ -23,7 +28,7 @@ export function GimbalFallback({ state, hidden = false, material = "alloy" }: { 
         <rect x="110" y={focused ? 121 : 118} width="8" height={focused ? 10 : 15} rx="4" />
         <rect x="138" y={focused ? 121 : 118} width="8" height={focused ? 10 : 15} rx="4" />
       </g>
-      <path d={state === "blocked" ? "M121 140 Q128 138 135 140" : state === "verified" ? "M121 138 Q128 145 135 138" : "M121 140 Q128 142 135 140"} fill="none" stroke={faceColor} strokeWidth="1.6" strokeLinecap="round" />
+      <path d={smile} fill="none" stroke={faceColor} strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
 }

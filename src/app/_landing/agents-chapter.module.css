@@ -1,0 +1,65 @@
+/* Your agents: one flow across a wide tile, a pulse that waits for your approval and leaves each station it has passed lit, three small cards. Porcelain tiles, hairlines, the accent for what is done. */
+.lede { max-width: none; white-space: nowrap; }
+.flowTile { grid-column: span 12; padding: 34px 28px 26px; gap: 22px; overflow: hidden; }
+.flow { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); justify-items: center; align-items: start; gap: 0 8px; padding-top: 4px; }
+.line { position: absolute; left: 12.5%; right: 12.5%; top: 40px; height: 2px; background: var(--zenith-rule); }
+.pulse { position: absolute; left: 12.5%; top: 40px; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; background: var(--zenith-accent); box-shadow: 0 0 0 6px var(--zenith-accent-soft), 0 0 18px var(--zenith-accent); opacity: 0; pointer-events: none; }
+.station { position: relative; display: flex; flex-direction: column; align-items: center; gap: 14px; min-width: 0; padding: 0; border: 0; background: none; color: var(--zenith-muted); font: 500 12.5px/1.35 var(--zenith-font-ui); text-align: center; cursor: pointer; transition: opacity 240ms var(--zenith-ease), color 220ms ease, transform 220ms var(--zenith-ease); }
+.station:hover { transform: translateY(-2px); }
+.station[aria-pressed="true"], .station[data-done="true"] { color: var(--zenith-ink); }
+.station[data-soft="true"] { opacity: .35; }
+.station:focus-visible { outline: 2px solid var(--zenith-accent); outline-offset: 6px; border-radius: 12px; }
+.stationLabel { max-width: 14ch; text-wrap: balance; }
+.node, .agents { position: relative; width: 80px; height: 80px; border-radius: 24px; border: 1px solid var(--zenith-rule); background: var(--zenith-panel); color: var(--zenith-ink); transition: border-color 260ms ease, box-shadow 300ms ease, background 300ms ease, color 260ms ease; }
+.node { display: grid; place-items: center; }
+.station[aria-pressed="true"] .node, .station[aria-pressed="true"] .agents { border-color: var(--zenith-ink); }
+/* Done: each station the pulse has passed stays lit in the accent until the loop begins again. */
+.station[data-done="true"] .node, .station[data-done="true"] .agents { border-color: var(--zenith-accent); background: color-mix(in srgb, var(--zenith-accent) 12%, var(--zenith-panel)); box-shadow: 0 0 0 4px color-mix(in srgb, var(--zenith-accent) 10%, transparent); }
+.station[data-done="true"] .node { color: var(--zenith-accent-text); }
+.station[data-hot="true"] .node, .station[data-hot="true"] .agents { border-color: var(--zenith-accent); box-shadow: 0 0 0 3px var(--zenith-accent-soft); }
+.zenith { color: var(--zenith-accent); }
+.zenith svg { width: 36px; height: 36px; }
+.badge { position: absolute; right: -7px; top: -7px; display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 22px; padding: 0 7px; border-radius: 11px; background: var(--zenith-ink); color: var(--zenith-paper); font: 700 10px/1 var(--zenith-font-ui); font-style: normal; box-shadow: 0 0 0 2px var(--zenith-panel); }
+.badgeIcon { width: 22px; padding: 0; }
+.badgeIcon svg { display: block; }
+.gate { overflow: hidden; color: var(--zenith-muted); }
+.gateBar { position: absolute; inset: 0 0 auto; display: flex; gap: 4px; padding: 8px 10px; border-bottom: 1px solid var(--zenith-rule); }
+.gateBar i { width: 5px; height: 5px; border-radius: 50%; background: var(--zenith-rule); }
+.gate > svg { margin-top: 16px; transform: scale(.8); transition: color 220ms ease, transform 320ms cubic-bezier(.16, 1, .3, 1); }
+.gate[data-approved="true"] { border-color: var(--zenith-accent); background: color-mix(in srgb, var(--zenith-accent) 12%, var(--zenith-panel)); }
+.gate[data-approved="true"] > svg { color: var(--zenith-accent-text); transform: scale(1); }
+/* The two apps, side by side, as app tiles: squircles in the products' own colours with a soft inner light. */
+.agents { width: auto; min-width: 80px; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 0 14px; }
+.app { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; color: #fff; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 6px 14px -8px rgba(19, 20, 24, .5); }
+.claude { background: linear-gradient(145deg, #f28a66, #d95d3a); }
+.codex { background: linear-gradient(145deg, #2c2d33, #0f1013); }
+.hint { margin: 0; min-height: 2.8em; font: 400 15px/1.5 var(--zenith-font-ui); color: var(--zenith-muted); text-align: center; text-wrap: balance; }
+/* Gimbal lives bottom-right; the foot ends clear of its column. */
+.foot { display: flex; justify-content: flex-end; align-items: center; margin-top: 20px; padding-right: 160px; }
+@media (max-width: 900px) {
+  .lede { white-space: normal; }
+}
+@media (max-width: 800px) {
+  .flowTile { padding: 22px 12px 18px; gap: 14px; }
+  .flow { gap: 0 4px; }
+  .line, .pulse { top: 30px; }
+  .pulse { width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; }
+  .node, .agents { width: 60px; height: 60px; min-width: 60px; border-radius: 18px; }
+  .agents { gap: 6px; padding: 0 8px; width: auto; }
+  .app { width: 32px; height: 32px; border-radius: 10px; }
+  .app > svg { width: 16px; height: 16px; }
+  .zenith svg { width: 28px; height: 28px; }
+  .node > svg { width: 22px; height: 22px; }
+  .gate > svg { margin-top: 12px; }
+  .badge { min-width: 18px; height: 18px; font-size: 9px; right: -5px; top: -5px; padding: 0 5px; }
+  .badgeIcon { width: 18px; padding: 0; }
+  .station { gap: 8px; font-size: 10.5px; }
+  .stationLabel { max-width: 10ch; }
+  .hint { font-size: 13px; }
+  .foot { padding-right: 0; justify-content: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulse { display: none; }
+  .gate { border-color: var(--zenith-accent); }
+  .gate > svg { color: var(--zenith-accent-text); transform: none; transition: none; }
+}

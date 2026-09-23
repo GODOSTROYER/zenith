@@ -13,13 +13,14 @@ system. The workspace guide is optional and revisitable. Completion cues
 reflect actual records, not page visits. AWS Preview never reads as a
 deployed environment.
 
-**Landing feel:** The Revision Object — the next change, made tangible.
-Porcelain infrastructure objects, ink, controlled vermilion, large editorial
-serif typography and precise ruled evidence. Existing service objects remain
-spatially anchored while a queue is proposed, simulated and recorded. The
-landing has intentional light and dark themes, with a consistently dark
-inspect/review chapter and closing signature. This replaces the previous
-observatory marketing direction.
+**Landing feel:** Your cloud, in full view. The public page opens in the sky
+at its zenith (night gradient, stars, nebula, a warm horizon, three ridges and
+a beacon) with the brand lettering across the viewport, then turns to porcelain
+daylight: bold sans headlines, one paragraph at most, big rounded cards, the
+two-column feature pattern with round-icon rows, and one example system in
+every demonstration. It returns to night for the cloud roadmap and the close.
+Gimbal lives in the bottom-right corner as a persistent guide. This replaces the
+Atlas narrative and the infrastructure object.
 
 **Product feel:** the Revision Object workbench. Warm porcelain and ink form a calm operational surface, with fine rules, precise alignment, vermilion proposed-change emphasis and a compact persistent navigation rail. See `zenith-app-design-contract.md` for the shared foundation, route ownership and signature interactions.
 
@@ -56,50 +57,56 @@ Product pages share responsive 20px/28px gutters. A persistent collapsible 208px
 ## Landing language and scope
 
 `src/app/_landing/landing.css` scopes the `--zenith-*` tokens to
-`.zenith-landing`. Light uses porcelain `#f4f3ee`, ink `#20211f` and vermilion
-`#be3e25`; dark uses `#22241f`, warm ink `#f2f1e9` and the more luminous
-`#ff886c` accent. Rules, panels and muted text have separate values in each
-theme. The dark demonstration and closing chapter use their own deliberate
-ink grounds rather than mechanically inverting every section.
+`.zenith-landing` as one language with two surfaces and one accent. Porcelain
+`#f6f4ee` is the page; ink `#0d0e11` is every card, the roadmap and the close,
+composed with the `.zenith-ink` class (`.zenith-ink-tokens` carries the same
+tokens for floating glass such as Gimbal's guide). The accent is the mark's
+vermilion `#e65332` for fills, large type, what is proposed, selected, hovered
+or lit; `--zenith-accent-text` (`#b8391c` on porcelain, `#ff8f6f` on ink) is
+the same hue at text-safe contrast. Neutrals come from the surface: muted
+text, hairline rules, panels and round icon tiles are the ink or the paper at
+low alpha, never a third hue. Ink surfaces carry one flourish, a faint
+vermilion glow from a corner. Controls are one family: the pill button (ink
+on porcelain, porcelain on ink, vermilion under the pointer), segmented pills,
+outline chips, round icon tiles, hairline text links. Radii: cards 28 px,
+tiles 20 px, controls 14 px, pills 999. The sky (`space-hero.module.css`)
+runs from ink through the vermilion horizon to a peach `#ffdcc4`; nothing on
+the page is blue or violet. The landing does not follow the product's
+light/dark toggle; it is the same page for everyone.
 
-Instrument Serif 400 roman/italic is the landing display face; Manrope variable
-is the landing body/control face; the existing JetBrains Mono supplies resource
-names, source, revisions and estimates. These are real self-hosted assets
-declared in `src/app/fonts.css`, with provenance and OFL notices under
-`public/fonts`. Space Grotesk assets retain their historical provenance; Manrope now supplies the product UI role. The drawn brand
-wordmark is independent of all font files.
+Manrope variable (600–700 for headlines) is the landing body and display face;
+Instrument Serif italic is kept for accents; the existing JetBrains Mono
+supplies sizes, revisions and estimates. The drawn brand lettering is the
+opening headline itself, with the accessible name "Zenith".
 
-The desktop hero uses `clamp(76px, 8.2vw, 132px)` at .92 leading and −.035em
-tracking, with responsive overrides. It begins directly with “See the change.
-Before you ship.” and includes the real runtime-aware CTA plus “Explore the
-change.” Editorial section type, thin rules, restrained control corners and
-substantial empty space provide hierarchy. Responsive layouts stack the model,
-inspector and plan rather than requiring an offscreen horizontal diagram.
-Product surfaces use their own restrained scale and shared primitives.
+The opening reads "Welcome to" above the lettering, carries the real
+runtime-aware CTA plus "See the system", the tagline "Your cloud. In full
+view.", and the marks Zenith works with. A pinned statement and the
+"Only the real facts" strip follow, then the chapters reachable from the
+masthead: System, Growth, Observe, Agents, Gimbal, Cloud, and the close.
 
-One local demo state feeds the hero, dark inspector/review stage and all four
-model surfaces. The first view deliberately shows proposed revision 09 while
-the active baseline is 08. Atlas has `atlas-api` and `atlas-worker`; the proposal
-adds `atlas-jobs` and explicit publish/consume bindings. Static estimates are
-$14 → $15 (+$1), labeled synthetic configuration rather than a billing quote.
-The review checkbox and explicit Run simulation action are required before
-progress begins. No provider is contacted.
+One shared state (`landing-state.ts`, provided by `landing-experience.tsx`)
+feeds every demonstration and Gimbal: the inspected view, the selected part,
+the growth step, the chosen path, the observed part, the demonstration autonomy
+level, the agent sequence step, walkthrough progress and the companion's own
+state. Changing any selector changes only presentation; nothing on the page
+reads or writes a workspace, an account or a provider.
 
-Simulation records revision 09. Historical 08/09 views are read-only and leave
-the active revision and approval state unchanged. The separate restore action
-creates revision 10 using the 08 configuration, retaining 09 in the audit trail.
-Reviewing and running the queue again appends 11; subsequent restores/runs
-continue appending. Reset demonstration clears only the page's local example,
-returning to baseline 08 with proposal 09 visible. This demonstration is not
-persisted workspace history. Restoration means configuration, not deleted data.
+The example system is defined once in `scenario.ts` with real product
+manifests. Estimates come from `@/lib/cost/pricing` ($22 → $30, +$8 a month)
+and the plan from `diffManifests`, so the page can never disagree with the
+product's own explanations, risk labels and cost deltas. The growth chapter is
+labelled a concept preview: its traffic-to-configuration sizing rules are the
+page's assumptions, priced with the product tables; Zenith does not forecast
+traffic. The observability chapter's signals are illustrative and labelled;
+its honesty table comes from `docs/LIMITATIONS.md`. Managed hosting is labelled
+"In development" because no hosted availability is advertised. No source code,
+terminal, JSON, API request or configuration block appears on the page, and the
+main repository is not linked; the public plugin repository is.
 
-The four surfaces use the selected manifest and revision: System Map, Source,
-API and a scripted Navigator illustration. API examples send no request.
-Source uses reserved example image references. Provider content comes from the
-registry and states concrete current limits. Gimbal follows in a separate
-chapter, then providers/export and the closing CTA. See
-`zenith-reimagined-direction.md` for the selected direction and implementation
-reference; verification findings belong in the dedicated verification report.
+See `zenith-landing-direction.md` for the selected direction and the
+implementation reference; verification findings belong in the dedicated
+verification report.
 
 ## Motion
 
@@ -107,16 +114,16 @@ Motion communicates state; nothing animates without meaning. The following
 CSS duration and primitive rules govern the shared product UI.
 Durations 150/220/380ms, ease `--ease-swift`; CSS transitions and keyframes only, no animation library; `animate-enter` for list/panel entrances; `.status-pulse` only while something is genuinely in progress; `.edge-live` dash-flow on map edges only during active deployment of that binding's target. Respect `prefers-reduced-motion` (already global).
 
-**Landing scene exception.** `RevisionScene` lazily loads the native Three.js
-renderer when visible, with an immediate authored SVG fallback. The scene is
-decorative; HTML labels and controls carry every interaction and meaning.
-Queue motion follows the shared demo phase, while existing service positions
-stay fixed. The proposed queue is vermilion; the recorded treatment settles
-into porcelain with a small vermilion revision tab. Restoration removes the
-queue without erasing the retained record. Reduced motion uses stable poses;
-rendering responds to visibility, system preference and low-power conditions.
-Scroll, hover and model inspection never execute the simulation. No continuous
-decorative spin or scroll-driven apply is part of this direction.
+**Landing motion.** The landing is the one place an animation library is
+used: `landing-motion.ts` runs GSAP with ScrollTrigger and Lenis smooth
+scrolling, loaded lazily in the browser and gated by
+`prefers-reduced-motion: no-preference` through `gsap.matchMedia`. Under a
+reduce preference nothing moves and the page is laid out in its final state.
+The opening's layers scroll at their own depth, the statement lights word by
+word, reveals rise once, numbers count, the orbit drifts. `SystemDiagram` lays
+out the example manifest as HTML nodes and measures them to route SVG
+connections; every relationship is a real binding. Scroll, hover and selection
+never execute anything.
 
 **Gimbal exception.** Navigator's procedural 3D character blends ring poses
 through native Three.js animation; the CSS motion rule above continues to
@@ -140,6 +147,19 @@ SVG fallbacks while loading or when WebGL is unavailable. The outer glow uses
 purple for planning, yellow for approval, blue for applying, green for verified,
 and red for blocked. Approval and blocked glows remain steady; verification
 acknowledges once. No glow or gesture may turn a simulated result into Verified.
+
+**Personality moods.** The renderer carries a second, separate layer:
+`idle`, `attentive`, `engaged`, `thinking`, `delighted`, `cautious` and
+`pleased`. A mood changes pace, expression and ring choreography only; the
+accent colour always comes from the workflow state, so no mood can resemble
+Verified, Blocked or any typed outcome. The public page uses moods for
+hover, opening the question panel, walkthroughs, discoveries and warnings;
+the product never sets one. The landing companion (`gimbal-companion.tsx`)
+keeps the character bottom-right without a card, draws its own soft light and
+shadow behind it, opens a bubble, a walkthrough callout or a curated question
+panel beside it, offers one contextual suggestion per chapter after settled
+reading (12 s, 45 s cooldown, four per session, dismissed for the session),
+and can be minimised or set to quiet mode. Nothing it does executes an action.
 
 Ready, Plan complete, Completed, Simulation complete, and Cancelled are
 neutral lifecycle presentations, outside the five workflow states.

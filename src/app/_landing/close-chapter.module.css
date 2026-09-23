@@ -1,0 +1,56 @@
+/* Night, like the opening. The close keeps the original's composition: the fanned sheets and the ownership line, the serif invitation, the mark, the footer. The section composes `.zenith-ink`. */
+.close { position: relative; padding-bottom: 0; overflow: hidden; }
+.close::before { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse 60% 46% at 50% 100%, var(--zenith-glow), transparent 70%); pointer-events: none; }
+.close > * { position: relative; }
+.ownership { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 32px 8%; align-items: center; padding-bottom: 88px; border-bottom: 1px solid var(--zenith-rule); }
+.ownTitle { margin: 0; font: 400 clamp(40px, 4.4vw, 60px)/1.02 var(--zenith-font-display); letter-spacing: -.03em; }
+.ownTitle em { color: var(--zenith-accent); }
+.ownText { margin: 20px 0 0; max-width: 40ch; font: 400 15px/1.75 var(--zenith-font-ui); color: var(--zenith-muted); }
+/* The original close's fanned sheets, in the night: each export a glass sheet, offset and tilted,
+   fanning out as they come into view (`--fan` 0 → 1 from the motion hook) and lifting with a glow under the pointer. */
+.sheets { --fan: 1; list-style: none; margin: 0; padding: 14px 56px 26px 0; position: relative; display: flex; flex-direction: column; }
+.sheet { --lift: 0px; position: relative; z-index: calc(var(--i) + 1); display: flex; align-items: center; gap: 18px; min-height: 96px; padding: 0 26px 0 24px; margin-top: -30px; border-radius: 20px; background: var(--zenith-panel); border: 1px solid var(--zenith-rule); backdrop-filter: blur(12px); box-shadow: 0 34px 60px -34px rgba(0, 0, 0, .85); transform: rotate(calc(var(--fan) * -1.4deg)) translate(calc(var(--fan) * var(--i) * 26px), var(--lift)); transform-origin: 0 50%; transition: transform 460ms var(--zenith-ease), border-color 220ms ease, opacity 300ms ease; animation: bob 6s ease-in-out infinite; animation-delay: calc(var(--i) * -2s); }
+.sheet:first-child { margin-top: 0; }
+.sheet::before { content: ""; position: absolute; inset: -22px; z-index: -1; border-radius: 34px; background: radial-gradient(ellipse at 28% 50%, color-mix(in srgb, var(--zenith-accent) 45%, transparent), transparent 62%); filter: blur(16px); opacity: 0; transition: opacity 320ms ease; }
+.sheets:has(.sheet:hover) .sheet:not(:hover) { opacity: .5; }
+.sheet:hover { --lift: -8px; z-index: 5; transform: rotate(0deg) translate(calc(var(--fan) * var(--i) * 26px), var(--lift)) scale(1.02); border-color: color-mix(in srgb, var(--zenith-accent) 65%, transparent); animation-play-state: paused; }
+.sheet:hover::before { opacity: 1; }
+.sheetIcon { flex-shrink: 0; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: var(--zenith-soft); color: var(--zenith-ink); transition: background 220ms ease, color 220ms ease; }
+.sheet:hover .sheetIcon { background: var(--zenith-accent); color: #fff; }
+.sheetBody { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.sheetName { font: 500 15px/1.3 var(--zenith-font-mono); letter-spacing: -.01em; color: var(--zenith-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sheetTitle { font: 400 12.5px/1.4 var(--zenith-font-ui); color: var(--zenith-muted); }
+.sheetIndex { margin-left: auto; display: grid; place-items: center; font: 500 12px/1 var(--zenith-font-mono); color: var(--zenith-muted); }
+@keyframes bob { 50% { translate: 0 -5px; } }
+.roadmap { display: inline-flex; align-items: center; gap: 10px; margin-top: 18px; font: 500 12px/1.5 var(--zenith-font-ui); color: var(--zenith-muted); }
+.roadmap i { width: 7px; height: 7px; border: 1px dotted currentColor; border-radius: 50%; }
+.main { display: grid; grid-template-columns: 1fr .45fr; align-items: center; gap: 32px; padding: 96px 0 94px; }
+.main h2 { margin: 0; font: 400 clamp(62px, 7.2vw, 116px)/.97 var(--zenith-font-display); letter-spacing: -.035em; }
+.main h2 em { color: var(--zenith-accent); }
+.tagline { margin: 26px 0 0; font: 400 clamp(26px, 2.6vw, 40px)/1.15 var(--zenith-font-display); letter-spacing: -.02em; }
+.tagline em { color: var(--zenith-accent); }
+.body { margin: 22px 0 0; color: var(--zenith-muted); font: 400 15px/1.8 var(--zenith-font-ui); }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 22px 30px; margin-top: 32px; }
+.symbol { display: grid; place-items: center; color: var(--zenith-accent); transform: rotate(-7deg); }
+.symbol svg { width: 100%; max-width: 340px; height: auto; filter: drop-shadow(-12px 26px 8px rgba(0, 0, 0, .4)); }
+@media (max-width: 1000px) {
+  .ownership { grid-template-columns: 1fr; gap: 36px; padding-bottom: 64px; }
+  .ownCopy { order: -1; }
+  .sheets { padding-right: 52px; }
+  .main { grid-template-columns: 1fr; padding: 72px 0 68px; }
+  .symbol { display: none; }
+}
+@media (max-width: 640px) {
+  .sheet { min-height: 84px; gap: 14px; padding: 0 18px; margin-top: -24px; }
+  .sheetIcon { width: 42px; height: 42px; }
+  .sheetName { font-size: 13.5px; }
+  .main h2 { font-size: clamp(50px, 12vw, 66px); }
+  .main h2 br { display: none; }
+  .main h2 em { display: block; }
+  .tagline { font-size: 24px; }
+  .body { font-size: 14px; }
+  .body br { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet { animation: none; transition: none; }
+}

@@ -15,10 +15,10 @@ export async function GET() {
         <svg width="157" height="42" viewBox="0 0 256 66" fill="#20211f">{ZENITH_LETTER_PATHS.map((d) => <path key={d} d={d} fillRule="evenodd" />)}</svg>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", flexDirection: "column", fontFamily: "Instrument Serif", fontSize: 100, lineHeight: 1, letterSpacing: "-.025em" }}><span>See the change.</span><span>Before you ship.</span></div>
+        <div style={{ display: "flex", flexDirection: "column", fontFamily: "Instrument Serif", fontSize: 100, lineHeight: 1, letterSpacing: "-.025em" }}><span>Your cloud.</span><span>In full view.</span></div>
         <svg width="240" height="240" viewBox="0 0 32 32" fill="#cc3d25">{ZENITH_SYMBOL_PATHS.map((d) => <path key={d} d={d} />)}</svg>
       </div>
-      <div style={{ display: "flex", borderTop: "1px solid #cccec4", paddingTop: 24, fontSize: 21, color: "#606259" }}>Local-first deployment & operations. The next change, made tangible.</div>
+      <div style={{ display: "flex", borderTop: "1px solid #cccec4", paddingTop: 24, fontSize: 21, color: "#606259" }}>Deployment and operations, with the whole system in view.</div>
     </div>,
     { width: 1200, height: 630, fonts: [{ name: "Instrument Serif", data: display, weight: 400, style: "normal" }] },
   );

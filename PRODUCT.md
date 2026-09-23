@@ -33,16 +33,20 @@ Never overclaims. Celebrates once, quietly.
 
 **Brand commitments.** Zenith — “Your stack, clearly in view.”
 Identity: the authored Shift Register symbol and custom zenith vector lettering.
-Gimbal retains its own moving rings. The landing's Revision Object direction
-makes the next change tangible through porcelain, ink and controlled vermilion,
-with self-hosted Instrument Serif display, Manrope UI and JetBrains Mono
-technical type in intentional light and dark themes. The same identity now extends into operational workspaces: warm layered surfaces, vermilion actions and proposed changes, selective Instrument Serif page titles, Manrope controls and JetBrains Mono technical data. Berry errors, amber production context and violet Navigator identity remain separate from brand emphasis. docs/DESIGN.md remains authoritative; docs/BRANDING.md preserves identity
+Gimbal retains its own moving rings. The landing direction, "Your cloud, in
+full view", opens in the sky at its zenith with the brand lettering across the
+viewport, turns to porcelain daylight for the chapters, and tells the whole
+product story in few words over one example system with Gimbal as a persistent
+guide. The same identity now extends into operational workspaces: warm layered surfaces, vermilion actions and proposed changes, selective Instrument Serif page titles, Manrope controls and JetBrains Mono technical data. Berry errors, amber production context and violet Navigator identity remain separate from brand emphasis. docs/DESIGN.md remains authoritative; docs/BRANDING.md preserves identity
 and compatibility boundaries.
 
 **Platform.** Next.js 15 web app, local-first today (localhost:3400).
 No pricing, no customers, no testimonials yet — the landing page may NOT
 invent commercial claims; it demonstrates the product with real product
-vocabulary and clearly synthetic demo data ("atlas" system).
+vocabulary and one clearly synthetic example system (an upload-and-process
+application), priced by the product cost model and diffed by the product diff.
+Growth scenarios are a labelled concept preview; managed hosting is labelled
+in development; no code, terminal or API request appears on the page.
 
 **Uninventable facts:** prices, customers, benchmarks, hosted availability.
 CTA reality: "Create account" → /signup for signed-out visitors when auth is

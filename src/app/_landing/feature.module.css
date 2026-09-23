@@ -1,0 +1,36 @@
+/* The two-column feature: a bold line, one paragraph, round-icon rows, and one big ink card beside them. */
+.row { display: grid; grid-template-columns: minmax(0, .78fr) minmax(0, 1.22fr); gap: 48px 64px; align-items: center; }
+.row[data-flip="true"] .text { order: 2; }
+/* A balanced row: two equal columns on a narrower measure, so the pair reads as one centred composition. */
+.row[data-balanced="true"] { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); max-width: 1360px; margin-inline: auto; gap: 48px 72px; }
+.text { display: flex; flex-direction: column; min-width: 0; }
+.text h2 { margin: 0; font: 700 clamp(34px, 3.6vw, 50px)/1.08 var(--zenith-font-ui); letter-spacing: -.035em; color: var(--zenith-ink); text-wrap: balance; }
+.text > p { margin: 18px 0 32px; max-width: 32ch; font: 400 clamp(18px, 1.55vw, 24px)/1.4 var(--zenith-font-ui); letter-spacing: -.015em; color: var(--zenith-ink); text-wrap: pretty; }
+.pills { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.pill { display: flex; align-items: center; gap: 16px; font: 500 16px/1.4 var(--zenith-font-ui); color: var(--zenith-muted); transition: color 200ms ease; }
+.pill i { flex-shrink: 0; display: grid; place-items: center; width: 58px; height: 58px; border-radius: 50%; background: var(--zenith-soft); color: var(--zenith-ink); transition: background 200ms ease, color 200ms ease; }
+.pill[data-hot="true"] { color: var(--zenith-ink); }
+.pill[data-hot="true"] i { background: var(--zenith-accent); color: #fff; }
+
+/* The ink card: composed with `.zenith-ink` for its tokens; one vermilion glow from the lower corner and nothing else. */
+.card { position: relative; min-width: 0; padding: 26px; border-radius: var(--zenith-r-card); overflow: hidden; box-shadow: 0 40px 90px -56px rgba(13, 14, 17, .7); }
+.card::before { content: ""; position: absolute; inset: -30%; background: radial-gradient(ellipse 42% 36% at 84% 96%, var(--zenith-glow), transparent 70%); pointer-events: none; }
+.card > * { position: relative; }
+.cardHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-bottom: 18px; }
+.cardStats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 22px; }
+.cardStat { padding: 14px 16px; border-radius: var(--zenith-r-control); background: var(--zenith-panel); border: 1px solid var(--zenith-rule); transition: box-shadow 220ms ease, border-color 200ms ease; }
+.cardStat[data-hot="true"] { border-color: var(--zenith-accent); box-shadow: 0 0 0 3px var(--zenith-accent-soft); }
+.cardStat b { display: block; font: 700 clamp(24px, 2.4vw, 34px)/1 var(--zenith-font-ui); letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.cardStat span { display: block; margin-top: 6px; font: 500 12px/1.4 var(--zenith-font-ui); color: var(--zenith-muted); }
+.cardFoot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-top: 18px; font: 500 12px/1.5 var(--zenith-font-ui); color: var(--zenith-muted); }
+@media (max-width: 1000px) {
+  .row, .row[data-balanced="true"] { grid-template-columns: 1fr; gap: 32px; }
+  .row[data-flip="true"] .text { order: 0; }
+  .text > p { max-width: 40ch; }
+}
+@media (max-width: 560px) {
+  .card { padding: 16px; }
+  .cardStats { grid-template-columns: 1fr; }
+  .pill { font-size: 15px; gap: 12px; }
+  .pill i { width: 48px; height: 48px; }
+}

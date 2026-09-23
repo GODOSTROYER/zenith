@@ -1,0 +1,241 @@
+/* Gimbal's home: bottom-right, floating just above the page edge, no card. The guide opens beside it on ink glass; the root carries the ink tokens. */
+.companion {
+  position: fixed;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 18px;
+  pointer-events: none;
+  color: var(--zenith-ink);
+  font-family: var(--zenith-font-ui, "Manrope", sans-serif);
+  --glow: .55;
+  --glow-color: color-mix(in srgb, var(--zenith-accent) 35%, #ffd9c4);
+  --glow-deep: color-mix(in srgb, var(--zenith-accent) 55%, transparent);
+  --ground: rgba(0, 0, 0, .55);
+  --glass: rgba(13, 14, 17, .88);
+  /* one light for every glass surface here: the page's light from the top-left, Gimbal's glow warming the bottom-right */
+  --rim: linear-gradient(135deg, rgba(255, 255, 255, .6) 0%, rgba(255, 255, 255, .18) 32%, rgba(255, 255, 255, .07) 64%, color-mix(in srgb, var(--zenith-accent) 60%, #fff) 100%);
+  /* the one easing for everything that opens and settles here, and a slower one for the glass growing out of the corner */
+  --settle: cubic-bezier(.32, .72, 0, 1);
+  --grow: cubic-bezier(.42, .02, .18, 1);
+}
+.companion > * { pointer-events: auto; }
+/* Out of the opening's way: hidden while the sky is on screen, rising into the corner as it scrolls past. */
+.companion { transition: opacity 520ms var(--settle), transform 600ms var(--settle); }
+.companion[data-hidden] { opacity: 0; transform: translateY(28px) scale(.9); pointer-events: none; }
+.companion[data-hidden] > * { pointer-events: none; }
+.companion button, .companion a { font-family: inherit; -webkit-tap-highlight-color: transparent; }
+.companion button:focus-visible, .companion a:focus-visible { outline: 2px solid var(--zenith-accent); outline-offset: 4px; }
+.companion[data-mood="attentive"] { --glow: .8; }
+.companion[data-mood="engaged"], .companion[data-mood="delighted"] { --glow: 1; }
+.companion[data-mood="thinking"] { --glow: .9; }
+.companion[data-mood="pleased"] { --glow: .8; }
+.companion[data-mood="cautious"] { --glow: .35; }
+
+/* Launcher: the character, its light, and a small label. It settles back a touch while the guide is open. */
+.launcher { position: relative; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.stage { position: relative; width: 128px; height: 128px; isolation: isolate; transition: transform 560ms var(--settle); }
+.companion[data-open] .stage { transform: scale(.92) translateY(4px); }
+.float { position: absolute; inset: 0; animation: float 6.5s ease-in-out infinite; }
+.halo { position: absolute; inset: -34%; border-radius: 50%; background: radial-gradient(circle at 50% 55%, var(--glow-deep) 0%, var(--glow-color) 22%, transparent 62%); filter: blur(12px); opacity: calc(.55 * var(--glow)); transition: opacity 600ms ease; animation: halo 6.5s ease-in-out infinite; z-index: 0; }
+.companion[data-open] .halo { opacity: calc(.8 * var(--glow)); }
+.core { position: absolute; inset: 8%; border-radius: 50%; box-shadow: 0 0 30px 8px color-mix(in srgb, var(--glow-color) 70%, transparent), 0 0 70px 22px color-mix(in srgb, var(--glow-deep) 60%, transparent); opacity: calc(.7 * var(--glow)); transition: opacity 600ms ease; z-index: 0; }
+.shadow { position: absolute; left: 16%; right: 16%; bottom: -10px; height: 18px; border-radius: 50%; background: radial-gradient(ellipse at center, var(--ground) 0%, transparent 70%); filter: blur(3px); animation: shadow 6.5s ease-in-out infinite; z-index: 0; }
+.character { position: absolute; inset: 0; z-index: 1; }
+.character :global(.gimbal-character) { width: 100%; height: 100%; }
+.character :global(.gimbal-aura), .character :global(.gimbal-state-pulse), .character :global(.gimbal-character::before), .character :global(.gimbal-hello) { display: none; }
+.character :global(.gimbal-greeting) { inset: 0; border-radius: 50%; }
+.character :global(.gimbal-greeting:focus-visible) { outline: 2px solid var(--zenith-accent); outline-offset: 2px; }
+.launcherLabel { margin-right: 12px; font-size: 11px; font-weight: 600; color: var(--zenith-ink); text-shadow: 0 1px 8px rgba(0, 0, 0, .5); pointer-events: none; }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+@keyframes shadow { 0%, 100% { transform: scaleX(1); opacity: .9; } 50% { transform: scaleX(.78); opacity: .55; } }
+@keyframes halo { 0%, 100% { transform: scale(.96); } 50% { transform: scale(1.06); } }
+
+/* Invitation, offer and walkthrough bubbles: ink glass, tail towards the character. */
+.invitation, .bubble, .callout {
+  position: relative;
+  max-width: min(360px, calc(100vw - 40px));
+  color: var(--zenith-ink);
+  background: var(--glass);
+  border: 1px solid var(--zenith-rule);
+  border-radius: 14px 14px 4px 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 12px 34px rgba(0, 0, 0, .4);
+  backdrop-filter: blur(14px) saturate(1.2);
+  transform-origin: 100% 100%;
+  animation: arrive 460ms var(--settle) both;
+}
+.invitation { display: flex; align-items: center; }
+.invitationText { display: block; min-height: 44px; padding: 12px 6px 12px 16px; border: 0; background: none; color: inherit; text-align: left; font-size: 12px; font-weight: 600; cursor: pointer; }
+.invitationText > svg { display: inline; margin-left: 3px; vertical-align: middle; color: var(--zenith-accent-text); }
+.dismissInvitation { display: grid; place-items: center; align-self: stretch; flex: none; width: 44px; min-height: 44px; border: 0; background: transparent; color: var(--zenith-muted); cursor: pointer; }
+.dismissInvitation:hover { color: var(--zenith-ink); }
+.bubble, .callout { padding: 13px 15px 12px; font-size: 13px; line-height: 1.55; font-weight: 500; }
+.callout { max-width: min(430px, calc(100vw - 40px)); }
+.bubble p, .callout p { margin: 0; }
+.bubbleActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+.accept, .dismiss, .step { min-height: 36px; padding: 0 12px; border-radius: 999px; border: 1px solid transparent; font: 600 12px var(--zenith-font-ui); cursor: pointer; transition: background 160ms ease, border-color 160ms ease, transform 200ms var(--zenith-ease); }
+.accept { background: var(--zenith-accent); color: #fff; }
+.accept:hover { transform: translateY(-1px); }
+.dismiss, .step { background: transparent; color: inherit; border-color: var(--zenith-rule); }
+.dismiss:hover, .step:hover { border-color: var(--zenith-accent); }
+.step:disabled { opacity: .4; cursor: default; }
+.calloutHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; font: 600 11px var(--zenith-font-ui); color: var(--zenith-muted); }
+.closeSmall { width: 32px; height: 32px; margin: -6px -8px -6px 0; display: grid; place-items: center; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; }
+.closeSmall:hover { background: var(--zenith-soft); }
+
+.restore { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 1px solid var(--zenith-rule); border-radius: 999px; color: var(--zenith-ink); background: var(--glass); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .14), 0 7px 20px rgba(0, 0, 0, .35); font-size: 12px; font-weight: 600; cursor: pointer; backdrop-filter: blur(14px) saturate(1.2); }
+.restore:hover { border-color: var(--zenith-accent); }
+
+/* The guide panel: liquid glass in the ink family. A calm frosted body; a one-pixel rim lit from the top-left and warmed by
+   Gimbal's glow at the bottom-right; a brighter, sharper lens ring just inside the edge where the glass bends the light; one
+   broad shadow; a highlight that follows the pointer. It expands out of the character's corner as a growing rounded shape
+   (the content stays sharp and materialises inside it), and collapses back the same way, quicker. */
+@property --px { syntax: "<percentage>"; inherits: false; initial-value: 22%; }
+@property --py { syntax: "<percentage>"; inherits: false; initial-value: 0%; }
+.panel {
+  --fill: #0d0e11;
+  --r: 28px;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  width: 420px;
+  max-width: calc(100vw - 40px);
+  max-height: min(720px, calc(100dvh - 190px));
+  padding: 26px 22px 20px;
+  border: 0;
+  border-radius: var(--r);
+  color: var(--zenith-ink);
+  /* top to bottom: the pointer's highlight, the sheen that passes once as it opens, the top-left light, Gimbal's glow, the body */
+  background:
+    radial-gradient(280px 220px at var(--px) var(--py), rgba(255, 255, 255, .09), transparent 70%),
+    linear-gradient(108deg, transparent 38%, rgba(255, 255, 255, .13) 50%, transparent 62%) var(--sheen, -140%) 0 / 240% 100% no-repeat,
+    linear-gradient(135deg, rgba(255, 255, 255, .16), transparent 46%),
+    radial-gradient(ellipse at 100% 0, var(--zenith-glow), transparent 48%),
+    var(--fill);
+  box-shadow: 0 30px 80px -24px rgba(0, 0, 0, .6), 0 2px 6px rgba(0, 0, 0, .22);
+  outline: none;
+  transform-origin: 100% 100%;
+  transition: --px 260ms ease, --py 260ms ease;
+  will-change: transform, clip-path;
+  animation: open 780ms var(--grow) both, sheen 1400ms ease-out 300ms both;
+}
+.panel::before, .panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+.panel::before { padding: 1px; background: var(--rim); }
+.panel::after { display: none; padding: 14px; background: linear-gradient(135deg, rgba(255, 255, 255, .05), transparent 50%, color-mix(in srgb, var(--zenith-accent) 30%, transparent) 130%); }
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .panel { --fill: rgba(13, 14, 17, .8); -webkit-backdrop-filter: blur(24px) saturate(1.3); backdrop-filter: blur(24px) saturate(1.3); }
+  .panel::after { display: block; -webkit-backdrop-filter: blur(1px) brightness(1.32) saturate(1.25); backdrop-filter: blur(1px) brightness(1.32) saturate(1.25); }
+}
+.panel > * { animation: rise 460ms var(--settle) both; }
+.panel > :nth-child(1) { animation-delay: 220ms; }
+.panel > :nth-child(2) { animation-delay: 260ms; }
+.panel > :nth-child(3) { animation-delay: 300ms; }
+.panel > :nth-child(4) { animation-delay: 340ms; }
+.panel > :nth-child(5) { animation-delay: 380ms; }
+.panel[data-closing] { animation: shut 260ms cubic-bezier(.4, 0, .6, 1) both; pointer-events: none; }
+.panel[data-closing] > * { animation: none; }
+@keyframes open {
+  0% { clip-path: inset(calc(100% - 88px) 0 0 calc(100% - 88px) round 44px); transform: translate(6px, 10px) scale(.94); box-shadow: 0 0 0 0 rgba(0, 0, 0, 0), 0 0 0 rgba(0, 0, 0, 0); }
+  78% { clip-path: inset(0 round var(--r)); box-shadow: 0 30px 80px -24px rgba(0, 0, 0, 0), 0 2px 6px rgba(0, 0, 0, 0); }
+  100% { clip-path: inset(-160px round var(--r)); transform: none; box-shadow: 0 30px 80px -24px rgba(0, 0, 0, .6), 0 2px 6px rgba(0, 0, 0, .22); }
+}
+@keyframes shut {
+  0% { clip-path: inset(-160px round var(--r)); transform: none; opacity: 1; box-shadow: 0 30px 80px -24px rgba(0, 0, 0, .6), 0 2px 6px rgba(0, 0, 0, .22); }
+  40% { clip-path: inset(0 round var(--r)); opacity: 1; box-shadow: 0 30px 80px -24px rgba(0, 0, 0, 0), 0 2px 6px rgba(0, 0, 0, 0); }
+  100% { clip-path: inset(calc(100% - 72px) 0 0 calc(100% - 72px) round 36px); transform: translate(6px, 10px) scale(.94); opacity: 0; box-shadow: 0 0 0 0 rgba(0, 0, 0, 0), 0 0 0 rgba(0, 0, 0, 0); }
+}
+@keyframes sheen { from { --sheen: -140%; } to { --sheen: 140%; } }
+@property --sheen { syntax: "<percentage>"; inherits: false; initial-value: -140%; }
+@keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.header { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
+.header, .context, .chips { flex-shrink: 0; }
+.header h2 { margin: 0; color: var(--zenith-ink); font-family: var(--zenith-font-display, "Instrument Serif", serif); font-size: 31px; font-weight: 400; line-height: 1.12; }
+.guideLabel { display: block; margin-top: 9px; color: var(--zenith-muted); font-size: 11px; font-weight: 650; }
+.actions { display: flex; margin: -10px -12px 0 0; }
+.actions button { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 50%; color: var(--zenith-muted); background: none; cursor: pointer; transition: background 160ms ease, color 160ms ease; }
+.actions button:hover { background: var(--zenith-soft); color: var(--zenith-ink); }
+.actions button[aria-pressed="true"] { color: var(--zenith-accent-text); }
+.context { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; margin-top: 16px; padding: 11px 0; border-block: 1px solid var(--zenith-rule); color: var(--zenith-muted); font-size: 11px; }
+.context strong { color: var(--zenith-ink); font-weight: 650; }
+.contextDot { width: 4px; height: 4px; border-radius: 50%; background: var(--zenith-accent); margin-right: 3px; }
+.conversation { min-height: 100px; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--zenith-rule) transparent; padding: 18px 1px 12px; flex: 1 1 auto; }
+.answer { color: var(--zenith-ink); font-size: 13px; font-weight: 550; line-height: 1.8; }
+.answer p { margin: 0; }
+.answer p + p { margin-top: 8px; color: var(--zenith-muted); }
+.showMe { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 7px 0; border: 0; background: none; color: var(--zenith-accent-text); text-decoration: none; text-underline-offset: 4px; font-size: 12px; font-weight: 650; cursor: pointer; }
+.showMe:hover { text-decoration: underline; }
+.exchange + .exchange { margin-top: 19px; }
+.question { margin: 0 0 13px 24px; padding: 10px 12px; border-radius: 12px 12px 2px 12px; background: var(--zenith-accent-soft); color: var(--zenith-ink); font-size: 13px; font-weight: 600; line-height: 1.65; overflow-wrap: anywhere; }
+.chips { display: flex; flex-wrap: wrap; gap: 7px; margin: 5px 0 16px; }
+.chips button { border: 1px solid var(--zenith-rule); border-radius: 999px; min-height: 38px; padding: 7px 12px; background: var(--zenith-panel); color: var(--zenith-ink); text-align: left; font-size: 11px; font-weight: 600; line-height: 1.45; cursor: pointer; transition: background 160ms, border-color 160ms; }
+.chips button:hover { background: var(--zenith-soft); border-color: color-mix(in srgb, var(--zenith-accent) 55%, transparent); }
+.composer { flex: none; }
+.srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.scrim { position: fixed; inset: 0; background: rgba(13, 14, 17, .7); animation: fade 360ms ease both; }
+.scrim[data-closing] { animation: unfade 230ms ease both; }
+@keyframes arrive { from { opacity: 0; transform: translateY(8px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } }
+@keyframes unfade { to { opacity: 0; } }
+
+@media (max-width: 640px) {
+  .companion { right: max(12px, env(safe-area-inset-right)); bottom: max(12px, env(safe-area-inset-bottom)); gap: 10px; }
+  .stage { width: 76px; height: 76px; }
+  .halo { inset: -40%; }
+  .launcherLabel { font-size: 10px; margin-right: 6px; }
+  .invitation { display: none; }
+  .companion[data-open] .launcher { display: none; }
+  .panel { position: fixed; z-index: 1; inset: auto 0 0; width: 100%; max-width: none; max-height: 78dvh; overflow-y: auto; --r: 22px; border-radius: 22px 22px 0 0; padding: 22px 18px max(18px, env(safe-area-inset-bottom)); transform-origin: 100% 100%; animation: openSheet 640ms var(--grow) both; }
+  .panel::after { display: none; }
+  .panel[data-closing] { animation: shutSheet 240ms cubic-bezier(.4, 0, .6, 1) both; }
+  .conversation { max-height: 30dvh; min-height: 80px; }
+  .chips button { min-height: 44px; }
+  .header h2 { font-size: 26px; }
+  .bubble, .callout { max-width: calc(100vw - 24px); }
+}
+@keyframes openSheet {
+  0% { clip-path: inset(calc(100% - 96px) 0 0 calc(100% - 96px) round 40px 40px 0 40px); transform: translateY(12px); }
+  78% { clip-path: inset(0 round 22px 22px 0 0); }
+  100% { clip-path: inset(-160px round 22px 22px 0 0); transform: none; }
+}
+@keyframes shutSheet {
+  0% { clip-path: inset(-160px round 22px 22px 0 0); transform: none; opacity: 1; }
+  40% { clip-path: inset(0 round 22px 22px 0 0); opacity: 1; }
+  100% { clip-path: inset(calc(100% - 80px) 0 0 calc(100% - 80px) round 40px 40px 0 40px); transform: translateY(10px); opacity: 0; }
+}
+@media (max-height: 620px) and (min-width: 641px) {
+  .panel { max-height: calc(100dvh - 150px); padding: 16px 18px 12px; overflow-y: auto; }
+  .stage { width: 84px; height: 84px; }
+  .header h2 { font-size: 25px; }
+  .chips { margin-bottom: 8px; }
+  .conversation { min-height: 60px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .panel, .invitation, .bubble, .callout, .restore { background: #0d0e11; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .panel { border: 1px solid var(--zenith-rule); }
+  .panel::before, .panel::after { display: none; }
+  .scrim { background: rgba(13, 14, 17, .93); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .float, .halo, .shadow, .panel, .panel > *, .scrim, .bubble, .callout, .invitation { animation: none !important; }
+  .companion, .stage, .chips button, .accept { transition: none; }
+}
+@media (forced-colors: active) {
+  .halo, .core, .shadow { display: none; }
+  .panel, .bubble, .callout, .invitation { background: Canvas; border: 1px solid CanvasText; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .panel::before, .panel::after { display: none; }
+  .question, .chips button { border: 1px solid CanvasText; }
+}

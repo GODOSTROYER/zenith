@@ -1,5 +1,11 @@
 # Zenith — The Revision Object
 
+> **Superseded on 23 September 2026.** The public landing now follows
+> [zenith-landing-direction.md](zenith-landing-direction.md) ("Your cloud, in
+> full view"). The identity, materials and typography below still apply; the
+> Atlas state model, the revision sculpture and the four-surface chapter no
+> longer exist on the page. This document is kept as a historical record.
+
 Selected creative direction and implementation reference. 6 September 2026.
 
 The user superseded the previous observatory marketing aesthetic. This document records the selected direction and the implemented landing, rather than an unapproved proposal. Product facts and compatibility remain governed by PRODUCT.md and BRANDING.md. Product workflows retain their shared UI; the landing's editorial fonts, scale and colors are scoped to its own surface. The separate verification report owns measured checks and results.

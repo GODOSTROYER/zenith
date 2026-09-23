@@ -1,17 +1,17 @@
 /**
  * The Zenith landing page — the front door.
- * Direction: "The Revision Object" — see docs/zenith-reimagined-direction.md.
+ * Direction: "Your cloud, in full view" — see docs/zenith-landing-direction.md.
  * Product users pass straight through via the Open Zenith CTA; the page
  * pulls its provider table live from the registry so it can never overclaim.
  */
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { ensureEngine } from "@/lib/engine/engine";
 import { providerRegistry } from "@/lib/providers/types";
 import { Landing, type ProviderRow } from "@/app/_landing/landing";
 
-const TITLE = "Zenith — see the change before you ship";
+const TITLE = "Zenith — your cloud, in full view";
 const DESCRIPTION =
-  "Your next infrastructure change, made tangible. Inspect the system, review estimated cost and risk, and approve supported execution. Local-first, bring your own cloud.";
+  "Zenith turns the application you’re building into infrastructure you can understand and operate: see the architecture, each proposed change and its estimated cost before anything runs, keep the same view after you deploy, and work through Claude Code, Codex or Gimbal with clear approval boundaries.";
 
 export const metadata: Metadata = {
   title: TITLE,
@@ -63,6 +63,9 @@ export const metadata: Metadata = {
  * read a request at all.
  */
 export const dynamic = "force-static";
+
+/** Gimbal's panel sits above the keyboard on phones instead of behind it. */
+export const viewport: Viewport = { width: "device-width", initialScale: 1, interactiveWidget: "resizes-content" };
 
 export default async function LandingPage() {
   // registers the provider adapters the honesty table reads below

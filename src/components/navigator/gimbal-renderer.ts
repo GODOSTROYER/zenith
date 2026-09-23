@@ -8,15 +8,29 @@ import { GIMBAL_STATE, type GimbalState } from "./gimbal-contract";
 
 export type GimbalMaterial = "alloy" | "porcelain";
 
+/**
+ * Personality moods are a presentation layer, separate from the five workflow
+ * states. They change pace, expression and ring choreography only; the accent
+ * colour always comes from the workflow state, so a mood can never look like
+ * Verified, Blocked or any other typed outcome.
+ */
+export const GIMBAL_MOODS = ["idle", "attentive", "engaged", "thinking", "delighted", "cautious", "pleased"] as const;
+export type GimbalMood = (typeof GIMBAL_MOODS)[number];
+
 export interface GimbalRendererOptions {
   material?: GimbalMaterial;
   state: GimbalState | null;
+  mood?: GimbalMood;
+  /** multiplies the orbit rate on top of state and mood; 1 is the product's pace */
+  tempo?: number;
   reducedMotion: boolean;
   onReady: () => void;
   onError: () => void;
 }
 export interface GimbalRenderer {
   setState(state: GimbalState | null): void;
+  setMood(mood: GimbalMood): void;
+  setTempo(tempo: number): void;
   setReducedMotion(reducedMotion: boolean): void;
   setVisible(visible: boolean): void;
   greet(source: "hover" | "tap"): void;
@@ -30,6 +44,22 @@ const EXPRESSION = {
   applying: { eye: 0.72, smile: 0.06, focus: 0.035, speed: 0.14, tilt: 0.12, hold: 0, align: 1, block: 0 },
   verified: { eye: 0.9, smile: 0.65, focus: 0, speed: 0.09, tilt: 0.02, hold: 0, align: 0, block: 0 },
   blocked: { eye: 0.82, smile: -0.16, focus: -0.03, speed: 0.018, tilt: -0.1, hold: 0, align: 0, block: 1 },
+};
+
+/**
+ * Mood offsets. `pace` multiplies the orbit rate, `drift` adds the searching
+ * precession that makes thinking legible, `pulse` is the one-off energy burst
+ * on entry. Everything else is added to the workflow expression. Idle is all
+ * zeros, so the approved workflow poses are exactly unchanged by default.
+ */
+const MOOD: Record<GimbalMood, { pace: number; eye: number; smile: number; tilt: number; focus: number; drift: number; pulse: number }> = {
+  idle: { pace: 1, eye: 0, smile: 0, tilt: 0, focus: 0, drift: 0, pulse: 0 },
+  attentive: { pace: 1.3, eye: 0.05, smile: 0.04, tilt: 0.05, focus: 0.02, drift: 0, pulse: 0.35 },
+  engaged: { pace: 1.7, eye: 0.1, smile: 0.12, tilt: 0.07, focus: 0, drift: 0, pulse: 0.8 },
+  thinking: { pace: 2.1, eye: -0.14, smile: -0.06, tilt: 0.1, focus: 0.045, drift: 1, pulse: 0.5 },
+  delighted: { pace: 2.4, eye: 0.16, smile: 0.34, tilt: -0.06, focus: 0, drift: 0, pulse: 1 },
+  cautious: { pace: 0.55, eye: -0.05, smile: -0.14, tilt: -0.09, focus: -0.02, drift: 0, pulse: 0 },
+  pleased: { pace: 1.15, eye: 0.04, smile: 0.28, tilt: 0.02, focus: 0, drift: 0, pulse: 0.6 },
 };
 
 /** Procedural gyroscope: no model, texture, decoder or animation-clip downloads. */
@@ -92,6 +122,11 @@ export async function createGimbalRenderer(host: HTMLElement, options: GimbalRen
   let state = options.state;
   let target = EXPRESSION[state ?? "neutral"];
   const current = { ...target };
+  let mood: GimbalMood = options.mood ?? "idle";
+  let moodTarget = MOOD[mood];
+  const moodCurrent = { ...moodTarget };
+  let tempoTarget = Math.max(0.2, options.tempo ?? 1), tempoCurrent = tempoTarget;
+  host.dataset.gimbalMood = mood;
   const targetColor = new Color();
   let visible = true, sized = false, disposed = false, ready = false;
   let reduced = options.reducedMotion;
@@ -116,11 +151,14 @@ export async function createGimbalRenderer(host: HTMLElement, options: GimbalRen
       const free = 1 - current.hold - current.block;
       const exploreX = [0.38, -0.65, 0.92][index] + Math.sin(p * 0.71 + seed + index * 2) * 0.32;
       const exploreY = [-0.5, 0.48, 0.2][index] + Math.sin(p * 0.93 + index * 1.7) * 0.48;
+      // Thinking sweeps the rings through a searching precession; no other mood moves them differently.
+      const driftX = moodCurrent.drift * Math.sin(elapsed * 2.1 + index * 2.1) * 0.34;
+      const driftY = moodCurrent.drift * Math.cos(elapsed * 1.6 + index * 1.3) * 0.3;
       poseEuler.set(
         free * (exploreX * (1 - current.align) + (0.55 + index * 0.12) * current.align)
-          + current.hold * (0.48 + index * 0.07) + current.block * [0.18, 1.18, -0.2][index] + current.tilt,
+          + current.hold * (0.48 + index * 0.07) + current.block * [0.18, 1.18, -0.2][index] + current.tilt + moodCurrent.tilt + driftX,
         free * (exploreY * (1 - current.align) + 0.32 * current.align)
-          + current.hold * -0.38 + current.block * [-0.45, 0.12, 0.65][index],
+          + current.hold * -0.38 + current.block * [-0.45, 0.12, 0.65][index] + driftY,
         free * (index * 1.08 + p * (index === 1 ? -0.72 : 0.6) * (1 - current.align) + orbit * current.align)
           + current.hold * (0.2 + index * 0.12) + current.block * [0.25, -0.65, 1.1][index],
       );
@@ -132,12 +170,14 @@ export async function createGimbalRenderer(host: HTMLElement, options: GimbalRen
     const t = gesture ? Math.min(gesture.time / (gesture.kind === "notice" ? 1.4 : 0.9), 1) : 0;
     const envelope = Math.sin(Math.PI * t) ** 2;
     const close = gesture && gesture.kind !== "notice" ? Math.sin(Math.PI * Math.min(t / 0.65, 1)) ** 4 : 0;
+    const eyeOpen = Math.max(0.3, current.eye + moodCurrent.eye);
+    const focus = current.focus + moodCurrent.focus;
     eyes.forEach((eye, i) => {
-      eye.scale.y = 0.112 * current.eye * (1 - (i === 0 || gesture?.kind === "blink" ? close * 0.92 : 0));
-      eye.position.x = (i === 0 ? -0.205 : 0.205) + current.focus + (gesture?.kind === "notice" ? 0.018 * envelope : 0);
+      eye.scale.y = 0.112 * eyeOpen * (1 - (i === 0 || gesture?.kind === "blink" ? close * 0.92 : 0));
+      eye.position.x = (i === 0 ? -0.205 : 0.205) + focus + (gesture?.kind === "notice" ? 0.018 * envelope : 0);
     });
-    mouth.scale.y = current.smile + (gesture?.kind === "wink" ? envelope * 0.15 : 0);
-    face.rotation.y = current.focus * 0.5 + (reduced ? 0 : Math.sin(elapsed * 0.27 + seed) * 0.025);
+    mouth.scale.y = current.smile + moodCurrent.smile + (gesture?.kind === "wink" ? envelope * 0.15 : 0);
+    face.rotation.y = focus * 0.5 + (reduced ? 0 : Math.sin(elapsed * 0.27 + seed) * 0.025);
     face.rotation.z = gesture ? -0.035 * envelope : 0;
     if (gesture && t === 1) { gesture = null; delete host.dataset.gimbalGesture; }
   }
@@ -169,7 +209,9 @@ export async function createGimbalRenderer(host: HTMLElement, options: GimbalRen
       energy += (impulse - energy) * (1 - Math.exp(-dt / 0.65));
       const blend = 1 - Math.exp(-dt / 1.2);
       for (const key of Object.keys(current) as (keyof typeof current)[]) current[key] += (target[key] - current[key]) * blend;
-      orbit += dt * (current.speed + energy * 0.12);
+      for (const key of Object.keys(moodCurrent) as (keyof typeof moodCurrent)[]) moodCurrent[key] += (moodTarget[key] - moodCurrent[key]) * blend;
+      tempoCurrent += (tempoTarget - tempoCurrent) * blend;
+      orbit += dt * (current.speed * moodCurrent.pace + energy * 0.12) * tempoCurrent;
       accent.color.lerp(targetColor, blend); accent.emissive.copy(accent.color);
       if (!gesture && elapsed >= nextBlink) {
         gesture = { kind: state === "blocked" || state === "applying" || Math.random() < 0.75 ? "blink" : "wink", time: 0 };
@@ -197,7 +239,7 @@ export async function createGimbalRenderer(host: HTMLElement, options: GimbalRen
   }
   function dispose() {
     if (disposed) return;
-    disposed = true; stop(); gesture = null; delete host.dataset.gimbalGesture;
+    disposed = true; stop(); gesture = null; delete host.dataset.gimbalGesture; delete host.dataset.gimbalMood;
     observer?.disconnect(); themeObserver?.disconnect();
     window.removeEventListener("resize", resize);
     renderer.domElement.removeEventListener("webglcontextlost", contextLost);
@@ -221,10 +263,24 @@ export async function createGimbalRenderer(host: HTMLElement, options: GimbalRen
       else impulse = 1;
       request();
     },
+    setMood(next) {
+      if (disposed || mood === next) return;
+      mood = next; moodTarget = MOOD[mood]; host.dataset.gimbalMood = mood;
+      // A mood is expression and pace only: the accent stays with the workflow state.
+      if (reduced || !visible) { Object.assign(moodCurrent, moodTarget); pose(); render(); }
+      else impulse = Math.max(impulse, moodTarget.pulse);
+      request();
+    },
+    setTempo(next) {
+      if (disposed) return;
+      tempoTarget = Math.max(0.2, next);
+      if (reduced) tempoCurrent = tempoTarget;
+      request();
+    },
     setReducedMotion(next) {
       if (disposed || reduced === next) return;
       reduced = next; stop(); gesture = null; delete host.dataset.gimbalGesture;
-      if (reduced) Object.assign(current, target);
+      if (reduced) { Object.assign(current, target); Object.assign(moodCurrent, moodTarget); }
       impulse = energy = 0; refreshAccent(); pose(0, true); render(); request();
     },
     setVisible(next) {
@@ -237,6 +293,8 @@ export async function createGimbalRenderer(host: HTMLElement, options: GimbalRen
       if (disposed || reduced || !visible || !sized || elapsed < nextGreeting) return;
       gesture = { kind: source === "hover" ? "notice" : state === "blocked" || state === "applying" ? "blink" : "wink", time: 0 };
       host.dataset.gimbalGesture = gesture.kind;
+      // A greeting also quickens the rings: a glance under the pointer, a flourish on a tap.
+      impulse = Math.max(impulse, source === "hover" ? 1.1 : 2.8);
       nextGreeting = elapsed + (source === "hover" ? 0.3 : 2.5);
       nextBlink = elapsed + 5 + Math.random() * 7;
       request();

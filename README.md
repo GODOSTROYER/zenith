@@ -11,8 +11,8 @@ URL, and leaves a rollback point. Exports — manifest, real Terraform, and an
 operations README — mean there is no lock-in.
 
 **Live demo:** <https://orrery-three-kappa.vercel.app> — the landing page and the
-interactive simulation on it are open to anyone, and that simulation runs on
-synthetic data with no cloud connection; the product screens behind it redirect
+example system it explores are open to anyone, and every demonstration there
+runs on synthetic data with no cloud connection; the product screens behind it redirect
 to sign-in. It is a serverless deployment, a different shape from the local
 single-process install the rest of this file describes — see
 [docs/RUNNING.md](docs/RUNNING.md) § “Running on Vercel with Postgres”.

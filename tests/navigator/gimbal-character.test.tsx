@@ -5,7 +5,7 @@ import { GimbalCharacter } from "@/components/navigator/gimbal-character";
 import type { GimbalRendererOptions } from "@/components/navigator/gimbal-renderer";
 
 const fake = vi.hoisted(() => ({ create: vi.fn(), runtime: {
-  setState: vi.fn(), setReducedMotion: vi.fn(), setVisible: vi.fn(), greet: vi.fn(), dispose: vi.fn(),
+  setState: vi.fn(), setMood: vi.fn(), setTempo: vi.fn(), setReducedMotion: vi.fn(), setVisible: vi.fn(), greet: vi.fn(), dispose: vi.fn(),
 } }));
 vi.mock("@/components/navigator/gimbal-renderer", () => ({ createGimbalRenderer: fake.create }));
 let root: Root, host: HTMLDivElement, options: GimbalRendererOptions;
@@ -83,6 +83,23 @@ describe("Gimbal component lifecycle", () => {
     expect(fake.create).toHaveBeenCalledOnce();
     expect(fake.runtime.dispose).not.toHaveBeenCalled();
     expect(host.querySelector('[data-quality="max"]')).not.toBeNull();
+  });
+  it("passes personality moods to the renderer and hands activation to the host when asked", async () => {
+    const onActivate = vi.fn();
+    await act(async () => { root.render(<GimbalCharacter state={null} mood="attentive" activateLabel="Ask Gimbal" onActivate={onActivate} />); });
+    await act(async () => { await vi.dynamicImportSettled(); });
+    expect(options.mood).toBe("attentive");
+    expect(fake.runtime.setMood).toHaveBeenLastCalledWith("attentive");
+    await act(async () => { root.render(<GimbalCharacter state={null} mood="delighted" activateLabel="Ask Gimbal" onActivate={onActivate} />); });
+    expect(fake.runtime.setMood).toHaveBeenLastCalledWith("delighted");
+    expect(host.querySelector(".gimbal-character")?.getAttribute("data-gimbal-mood")).toBe("delighted");
+    expect(host.querySelector(".gimbal-character")?.getAttribute("data-gimbal-state")).toBe("neutral");
+    const button = host.querySelector<HTMLButtonElement>("button")!;
+    expect(button.getAttribute("aria-label")).toBe("Ask Gimbal");
+    act(() => button.click());
+    expect(onActivate).toHaveBeenCalledOnce();
+    expect(fake.runtime.greet).toHaveBeenCalledWith("tap");
+    expect(host.querySelector('[role="status"]')?.textContent).toBe("");
   });
   it("acknowledges greetings even when WebGL fails", async () => {
     fake.create.mockRejectedValue(new Error("WebGL unavailable"));

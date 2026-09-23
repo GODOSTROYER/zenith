@@ -1,10 +1,11 @@
 "use client";
+import type { ReactNode } from "react";
 import type { ProviderRow } from "./landing";
 import styles from "./narrative-body.module.css";
 
 const NODES=["App","Jobs","Storage","Database"];
 function Map({proposed=false}:{proposed?:boolean}){return <div className={styles.map} aria-label={proposed?"Proposed system":"Current system"}>{NODES.map((n,i)=><span key={n} className={styles.node} data-proposed={proposed&&i===1||undefined}>{n}</span>)}</div>}
-function Status({children,tone}:{children:React.ReactNode;tone:string}){return <span className={styles.status} data-status={tone}><i />{children}</span>}
+function Status({children,tone}:{children:ReactNode;tone:string}){return <span className={styles.status} data-status={tone}><i />{children}</span>}
 
 export function NarrativeBody({providers}:{providers:ProviderRow[]}){
  const aws=providers.find(p=>p.id.toLowerCase().includes("aws"));

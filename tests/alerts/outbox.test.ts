@@ -117,6 +117,10 @@ const onDisk = () =>
 /** Let every queued microtask — the drain, and the send it starts — run. */
 const tick = () => new Promise((r) => setTimeout(r, 0));
 
+/** Wait until a hanging transport has started before simulating a restart. */
+const waitForCalls = (calls: Call[], count: number) =>
+  vi.waitFor(() => expect(calls).toHaveLength(count), { timeout: 5_000, interval: 5 });
+
 /**
  * What a restart looks like: nothing in memory, everything from disk. An
  * optional snapshot rewinds the file to an earlier moment, which is how a crash
@@ -177,8 +181,7 @@ describe("intent is durable before anything is sent", () => {
     }
 
     // And the claim is durable too: `sending` reaches disk before the send.
-    await tick();
-    expect(calls).toHaveLength(2);
+    await waitForCalls(calls, 2);
     for (const row of onDisk().alertOutbox) {
       expect(row.status).toBe("sending");
       expect(row.claimedAt).toBeTruthy();
@@ -188,7 +191,7 @@ describe("intent is durable before anything is sent", () => {
   it("does not queue a second intent for a transition already queued", async () => {
     channel({ id: "a" });
     rule();
-    stubFetch(["hang"]);
+    const calls = stubFetch(["hang"]);
 
     evaluateAll(NOW);
     // A second pass over the same firing rule finds the event already open, so
@@ -196,6 +199,9 @@ describe("intent is durable before anything is sent", () => {
     evaluateAll(NOW + 1_000);
     flush();
     expect(onDisk().alertOutbox).toHaveLength(1);
+    // Let the old request reach its hanging transport before the next test
+    // replaces that transport. Otherwise it can send during another test.
+    await waitForCalls(calls, 1);
   });
 
   it("`[]` channelIds still means deliver nowhere, durably", async () => {
@@ -223,13 +229,13 @@ describe("a crash does not lose the notification", () => {
   it("replays a row that was still pending when the process died", async () => {
     channel({ id: "a" });
     rule();
-    stubFetch(["hang"]);
+    const original = stubFetch(["hang"]);
 
     evaluateAll(NOW);
     flush();
     const pending = fs.readFileSync(STATE, "utf8");
     expect(JSON.parse(pending).alertOutbox[0].status).toBe("pending");
-    await tick(); // the send starts and never comes back
+    await waitForCalls(original, 1); // the send starts and never comes back
 
     // Rewind to the instant after the evaluator's save: the event is open, the
     // intent is recorded, and nothing has been sent.
@@ -294,10 +300,10 @@ describe("a crash does not lose the notification", () => {
   it("reclaims a claim older than the lease and leaves a live one alone", async () => {
     channel({ id: "a" });
     rule();
-    stubFetch(["hang"]);
+    const calls = stubFetch(["hang"]);
 
     evaluateAll(NOW);
-    await tick();
+    await waitForCalls(calls, 1);
     const row = db().alertOutbox[0];
     expect(row.status).toBe("sending");
     expect(row.claimedAt).toBeTruthy();
@@ -330,14 +336,14 @@ describe("a crash does not lose the notification", () => {
       detail: "…",
       simulated: true,
     });
-    stubFetch(["hang"]);
+    const original = stubFetch(["hang"]);
 
     expect(evaluateAll(NOW)).toBe(1);
     flush();
     const closed = fs.readFileSync(STATE, "utf8");
     expect(JSON.parse(closed).alertEvents[0].resolvedAt).toBeTruthy();
     expect(JSON.parse(closed).alertOutbox[0].transition).toBe("resolved");
-    await tick();
+    await waitForCalls(original, 1);
 
     restart(closed);
     const calls = stubFetch([200]);
@@ -353,10 +359,10 @@ describe("boot reclaims only what it can prove is abandoned", () => {
   it("leaves a live claim alone where no single writer was proved", async () => {
     channel({ id: "a" });
     rule();
-    stubFetch(["hang"]);
+    const original = stubFetch(["hang"]);
 
     evaluateAll(NOW);
-    await tick(); // the claim is durable and the send never comes back
+    await waitForCalls(original, 1); // the claim is durable and the send never comes back
     restart(); // …and the process is replaced while that claim is seconds old
 
     expect(db().alertOutbox[0].status).toBe("sending");

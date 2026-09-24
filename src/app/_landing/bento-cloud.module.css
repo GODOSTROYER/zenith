@@ -47,7 +47,7 @@
 .managedWires .managedTrace { stroke: #c26136; stroke-width: 2; stroke-dasharray: 100; stroke-dashoffset: 0; }
 .appTile { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 12px; width: 58%; min-height: 64px; padding: 13px 16px; border: 1px solid #ebcbb1; border-radius: 16px; background: #fffaf4; box-shadow: 0 12px 22px -20px #9d4d2b; }
 .appTile > span { display: grid; place-items: center; color: #b5502c; }
-.appTile small { display: block; font: 500 8px/1.4 var(--zenith-font-mono); letter-spacing: .08em; color: #9e7b61; }
+.appTile small { display: block; font: 500 8px/1.4 var(--zenith-font-mono); letter-spacing: .08em; color: #856247; }
 .appTile b { display: block; margin-top: 2px; font-size: 16px; font-weight: 500; }
 .appTile > i { width: 5px; height: 5px; margin-left: auto; border-radius: 50%; background: #cba67f; }
 .serviceTile { position: absolute; top: 71%; transform: translate(-50%, -50%); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 36%; min-height: 70px; padding: 12px; border: 1px solid #e5bd9d; border-radius: 14px; background: #fff4e7; color: #9a6440; }
@@ -62,7 +62,7 @@
 /* Workload placement: brand-colored destinations in a quiet neutral composition. */
 .multicloudCard { grid-column: span 4; display: flex; flex-direction: column; background: #edf0e8; }
 .multicloudCard .eyebrow { gap: 7px; font-size: 9px; margin-bottom: 18px; }
-.multicloudCard > p { color: #6d7564; font-size: 12px; max-width: 37ch; }
+.multicloudCard > p { color: #626c58; font-size: 12px; max-width: 37ch; }
 .multiScene { margin-top: auto; padding-top: 22px; }
 .multiArt { position: relative; width: 100%; max-width: 340px; margin: auto; aspect-ratio: 300 / 250; }
 .multiCore { position: absolute; top: 0; left: 50%; transform: translateX(-50%); min-height: 52px; display: flex; align-items: center; justify-content: center; gap: 9px; width: 45%; border: 1px solid #d9ddce; border-radius: 14px; background: #fffdf6; box-shadow: 0 8px 16px -13px #6c775b; color: #ad512c; }
@@ -76,18 +76,18 @@
 .gcpDestination { right: 3%; }
 .cloudDestination .logo { height: 34px; width: 56px; object-fit: contain; margin-bottom: 5px; }
 .cloudDestination > b { font-size: 13px; font-weight: 600; color: #4f5b42; }
-.cloudDestination > span { font-size: 9px; color: #758169; }
-.systemBracket { position: absolute; left: 5%; right: 5%; bottom: 0; display: flex; justify-content: center; color: #78886c; font-size: 10px; }
+.cloudDestination > span { font-size: 9px; color: #5f6f52; }
+.systemBracket { position: absolute; left: 5%; right: 5%; bottom: 0; display: flex; justify-content: center; color: #58694b; font-size: 10px; }
 .systemBracket::before { content: ""; position: absolute; bottom: 7px; left: 0; right: 0; height: 10px; border: 1px solid #b9c5aa; border-top: 0; border-radius: 0 0 6px 6px; }
 .systemBracket span { position: relative; padding: 0 8px; background: #edf0e8; }
-.multicloudCard .multiClosing { margin-top: 18px; font-size: 10px; color: #65745b; }
+.multicloudCard .multiClosing { margin-top: 18px; font-size: 10px; color: #59694f; }
 
 /* The ecosystem has identities first; current capability detail stays one click away. */
 .ecosystemCard { grid-column: span 8; background: #fffdf8; }
 .ecosystemHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .ecosystemHeader h3 { font-size: 28px; }
 .ecosystemHeader p { margin-top: 9px; font-size: 12px; }
-.roadmap { padding-top: 4px; color: #847a6e; font: 500 9px/1.5 var(--zenith-font-mono); text-transform: uppercase; letter-spacing: .075em; white-space: nowrap; }
+.roadmap { padding-top: 4px; color: #796e62; font: 500 9px/1.5 var(--zenith-font-mono); text-transform: uppercase; letter-spacing: .075em; white-space: nowrap; }
 .logoCollection { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 18px; list-style: none; padding: 0; margin: 30px 0 25px; }
 .logoCollection li { min-width: 0; text-align: center; border-radius: 12px; }
 .logoFrame { display: flex; align-items: center; justify-content: center; height: 56px; padding: 4px; }

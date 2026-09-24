@@ -1,0 +1,223 @@
+/* Scoped extension of the approved bento system. No hero/global/agent selectors. */
+.cluster {
+  --cloud-duration: 10s;
+  --cloud-ink: #302b28;
+  --cloud-muted: #79695d;
+  --cloud-accent: #e65332;
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 18px;
+  color: var(--cloud-ink);
+  scroll-margin-top: 100px;
+}
+.card { position: relative; min-width: 0; padding: 36px; border-radius: 28px; overflow: hidden; isolation: isolate; }
+.card h3 { margin: 0; font: 500 32px/1.1 var(--zenith-font-ui); letter-spacing: -.055em; text-wrap: balance; }
+.card p { margin: 17px 0 0; font-size: 13px; line-height: 1.65; color: var(--cloud-muted); }
+.eyebrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 0 0 21px; font: 500 10px/1.4 var(--zenith-font-mono); letter-spacing: .085em; text-transform: uppercase; }
+.development, .concept { display: inline-flex; align-items: center; padding: 4px 7px; border: 1px solid #e3bda0; border-radius: 6px; font: 500 10px/1.4 var(--zenith-font-ui); letter-spacing: 0; text-transform: none; color: #805338; background: #ffe7d5; }
+.concept { background: #e5e8dd; color: #5e6954; border-color: #cfd5c6; }
+.card a:focus-visible, .card button:focus-visible, .card summary:focus-visible { outline: 3px solid #9b321c; outline-offset: 4px; border-radius: 8px; }
+.card svg { flex-shrink: 0; }
+.card[data-hot], .logoCollection li[data-hot] { outline: 2px solid var(--cloud-accent); outline-offset: -5px; }
+
+/* The featured path: a readable offering beside one warm, managed system. */
+.managedCard { grid-column: span 8; min-height: 460px; display: grid; grid-template-columns: 42fr 58fr; align-items: center; gap: 20px; background: #fff3e8; }
+.managedCopy { position: relative; z-index: 1; }
+.managedCopy h3 { font-size: clamp(38px, 3.4vw, 52px); line-height: 1.07; }
+.managedCopy h3 > span { color: #bb4324; }
+.managedCopy > p { max-width: 33ch; font-size: 14px; }
+.benefits { display: flex; flex-wrap: wrap; gap: 8px 13px; list-style: none; margin: 24px 0; padding: 0; color: #8d5d3e; font-size: 10px; line-height: 1.6; }
+.benefits li { display: inline-flex; align-items: center; gap: 6px; }
+.benefits li::before { content: ""; width: 3px; height: 3px; border-radius: 50%; background: #b96b46; }
+.managedLink { display: inline-flex; align-items: center; gap: 18px; min-height: 44px; padding: 10px 0; border-bottom: 1px solid #d9ad8c; color: #8e3d23 !important; text-decoration: none; font-size: 12px; font-weight: 600; }
+.managedLink:hover { border-color: #a44324; }
+.motionControl { position: absolute; top: 12px; right: 12px; z-index: 4; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; background: none; color: #8b5b3c; border: 0; border-radius: 50%; cursor: pointer; }
+.motionControl:hover { background: #f5dfcc; }
+.cluster[data-cloud-motion="still"] .motionControl { display: none; }
+.scene { min-width: 0; position: relative; }
+.managedScene { width: 100%; }
+.managedArt { position: relative; width: 100%; aspect-ratio: 360 / 330; }
+.managedArt::before { content: ""; position: absolute; inset: -8%; z-index: -1; background: radial-gradient(ellipse at 56% 56%, #ffd9bd, transparent 68%); pointer-events: none; }
+.managedEnclosure { position: absolute; inset: 5% 3% 10%; border-radius: 28px; border: 1px solid #e4b28b; background: #ffe5d0; box-shadow: inset 0 1px 0 #fff5e9, 0 22px 45px -40px #8d4724; }
+.managedBrand { position: absolute; top: 13%; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 9px; color: #a44824; }
+.managedBrand > span { font-size: 27px; letter-spacing: -.055em; font-weight: 500; color: #613f29; }
+.managedWires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.managedWires path { stroke: #d4a888; stroke-width: 1.4; }
+.managedWires .managedTrace { stroke: #c26136; stroke-width: 2; stroke-dasharray: 100; stroke-dashoffset: 0; }
+.appTile { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 12px; width: 58%; min-height: 64px; padding: 13px 16px; border: 1px solid #ebcbb1; border-radius: 16px; background: #fffaf4; box-shadow: 0 12px 22px -20px #9d4d2b; }
+.appTile > span { display: grid; place-items: center; color: #b5502c; }
+.appTile small { display: block; font: 500 8px/1.4 var(--zenith-font-mono); letter-spacing: .08em; color: #9e7b61; }
+.appTile b { display: block; margin-top: 2px; font-size: 16px; font-weight: 500; }
+.appTile > i { width: 5px; height: 5px; margin-left: auto; border-radius: 50%; background: #cba67f; }
+.serviceTile { position: absolute; top: 71%; transform: translate(-50%, -50%); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 36%; min-height: 70px; padding: 12px; border: 1px solid #e5bd9d; border-radius: 14px; background: #fff4e7; color: #9a6440; }
+.serviceTile > span { font-size: 12px; color: #775338; }
+.computeTile { left: 27%; }
+.storageTile { left: 73%; }
+.computeLines, .storageLines { display: flex; gap: 4px; width: 100%; padding-top: 2px; }
+.computeLines > i, .storageLines > i { display: block; width: 30%; height: 3px; border-radius: 3px; background: #e8cbb1; }
+.storageLines > i:last-child { width: 16%; }
+.managedSeal { display: flex; align-items: center; justify-content: center; gap: 5px; position: absolute; top: 93%; left: 0; width: 100%; color: #8a5a39; font-size: 10px; }
+
+/* Workload placement: brand-colored destinations in a quiet neutral composition. */
+.multicloudCard { grid-column: span 4; display: flex; flex-direction: column; background: #edf0e8; }
+.multicloudCard .eyebrow { gap: 7px; font-size: 9px; margin-bottom: 18px; }
+.multicloudCard > p { color: #6d7564; font-size: 12px; max-width: 37ch; }
+.multiScene { margin-top: auto; padding-top: 22px; }
+.multiArt { position: relative; width: 100%; max-width: 340px; margin: auto; aspect-ratio: 300 / 250; }
+.multiCore { position: absolute; top: 0; left: 50%; transform: translateX(-50%); min-height: 52px; display: flex; align-items: center; justify-content: center; gap: 9px; width: 45%; border: 1px solid #d9ddce; border-radius: 14px; background: #fffdf6; box-shadow: 0 8px 16px -13px #6c775b; color: #ad512c; }
+.multiCore > span { font-size: 14px; font-weight: 600; color: #545d46; }
+.multiWires { position: absolute; top: 0; left: 0; width: 100%; height: 91.2%; pointer-events: none; }
+.multiWires path { stroke: #bbc5ad; stroke-width: 1.3; }
+.multiWires .computeTrace { stroke: #cba46c; stroke-width: 2; stroke-dasharray: 100; }
+.multiWires .storageTrace { stroke: #8daaa4; stroke-width: 2; stroke-dasharray: 100; }
+.cloudDestination { position: absolute; top: 44%; width: 43%; min-height: 98px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 10px 8px; border: 1px solid #dce0d1; border-radius: 15px; background: #fafbf6; box-shadow: 0 9px 20px -20px #667853; }
+.awsDestination { left: 3%; }
+.gcpDestination { right: 3%; }
+.cloudDestination .logo { height: 34px; width: 56px; object-fit: contain; margin-bottom: 5px; }
+.cloudDestination > b { font-size: 13px; font-weight: 600; color: #4f5b42; }
+.cloudDestination > span { font-size: 9px; color: #758169; }
+.systemBracket { position: absolute; left: 5%; right: 5%; bottom: 0; display: flex; justify-content: center; color: #78886c; font-size: 10px; }
+.systemBracket::before { content: ""; position: absolute; bottom: 7px; left: 0; right: 0; height: 10px; border: 1px solid #b9c5aa; border-top: 0; border-radius: 0 0 6px 6px; }
+.systemBracket span { position: relative; padding: 0 8px; background: #edf0e8; }
+.multicloudCard .multiClosing { margin-top: 18px; font-size: 10px; color: #65745b; }
+
+/* The ecosystem has identities first; current capability detail stays one click away. */
+.ecosystemCard { grid-column: span 8; background: #fffdf8; }
+.ecosystemHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.ecosystemHeader h3 { font-size: 28px; }
+.ecosystemHeader p { margin-top: 9px; font-size: 12px; }
+.roadmap { padding-top: 4px; color: #847a6e; font: 500 9px/1.5 var(--zenith-font-mono); text-transform: uppercase; letter-spacing: .075em; white-space: nowrap; }
+.logoCollection { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 18px; list-style: none; padding: 0; margin: 30px 0 25px; }
+.logoCollection li { min-width: 0; text-align: center; border-radius: 12px; }
+.logoFrame { display: flex; align-items: center; justify-content: center; height: 56px; padding: 4px; }
+.logo { max-width: 100%; object-fit: contain; }
+.logoCollection li > span { display: block; margin-top: 10px; color: #776c60; font-size: 10px; }
+.details { border-top: 1px solid #e9e2d7; }
+.details > summary { display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding: 12px 0; list-style: none; cursor: pointer; font-size: 12px; color: #766557; }
+.details > summary::-webkit-details-marker { display: none; }
+.details > summary > svg { transition: transform 180ms ease; }
+.details[open] > summary > svg { transform: rotate(180deg); }
+.detailsBody { padding-top: 6px; }
+.detailsBody h4 { margin: 17px 0 7px; font: 600 11px/1.5 var(--zenith-font-ui); color: #735e4d; }
+.providerRow { display: flex; align-items: flex-start; gap: 16px; padding: 16px 0; border-bottom: 1px solid #eee8df; }
+.rowLogo { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 48px; height: 36px; }
+.rowLogo .logo { width: 42px; height: 28px; }
+.providerRow > div:last-child { flex: 1; min-width: 0; }
+.providerHeading { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
+.providerHeading b { font-size: 12px; font-weight: 600; }
+.providerRow p { margin: 6px 0 0; font-size: 11px; }
+.status { display: inline-flex; padding: 3px 7px; border-radius: 5px; color: #776c60; background: #f0ece5; font-size: 10px; }
+.status[data-status="available"] { color: #44673d; background: #eef4e8; }
+.status[data-status="preview"] { color: #81541e; background: #faf1e2; }
+.status[data-status="simulated"] { color: #696179; background: #f3eff8; }
+.environmentMark { display: grid; place-items: center; width: 33px; height: 33px; border: 1px solid #decdbf; border-radius: 9px; background: #f7f0e8; color: #a7724f; }
+.detailsBody .managedDetail { font-size: 11px; }
+.managedDetail b { font-weight: 600; }
+.detailLink { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; margin-top: 8px; color: #8e4f2d !important; font-size: 11px; text-decoration: none; }
+.teamSlot { grid-column: span 4; min-width: 0; }
+.teamSlot > article { height: 100%; }
+
+/* Synchronized ten-second score; no animation owns layout or real product state. */
+.cluster[data-cloud-motion]:not([data-cloud-motion="still"]) .animated {
+  animation-duration: var(--cloud-duration);
+  animation-iteration-count: infinite;
+  animation-timing-function: cubic-bezier(.2, .65, .3, 1);
+  animation-play-state: paused;
+}
+.cluster[data-cloud-motion="running"][data-user-paused="false"] [data-scene-visible="true"] .animated { animation-play-state: running; }
+.cluster[data-cloud-motion]:not([data-cloud-motion="still"]) .appTile { animation-name: appArrives; }
+.cluster[data-cloud-motion]:not([data-cloud-motion="still"]) .computeTile { animation-name: computeSettles; }
+.cluster[data-cloud-motion]:not([data-cloud-motion="still"]) .storageTile { animation-name: storageSettles; }
+.cluster[data-cloud-motion]:not([data-cloud-motion="still"]) .managedEnclosure { animation-name: enclosureResolves; }
+.cluster[data-cloud-motion]:not([data-cloud-motion="still"]) .managedTrace { animation-name: managedConnection; }
+.cluster[data-cloud-motion]:not([data-cloud-motion="still"]) .managedBrand { animation-name: brandResolves; }
+.cluster[data-cloud-motion]:not([data-cloud-motion="still"]) .managedSeal { animation-name: managedLabel; }
+.cluster[data-cloud-motion]:not([data-cloud-motion="still"]) .multiCore { animation-name: coreFocus; }
+.cluster[data-cloud-motion]:not([data-cloud-motion="still"]) .computeTrace { animation-name: computeConnection; }
+.cluster[data-cloud-motion]:not([data-cloud-motion="still"]) .storageTrace { animation-name: storageConnection; }
+.cluster[data-cloud-motion]:not([data-cloud-motion="still"]) .awsDestination { animation-name: awsFocus; }
+.cluster[data-cloud-motion]:not([data-cloud-motion="still"]) .gcpDestination { animation-name: gcpFocus; }
+.cluster[data-cloud-motion]:not([data-cloud-motion="still"]) .systemBracket { animation-name: sharedSystem; }
+@keyframes appArrives { 0%, 100% { opacity: .7; transform: translate(-50%, calc(-50% + 7px)); } 15%, 85% { opacity: 1; transform: translate(-50%, -50%); } }
+@keyframes computeSettles { 0%, 15%, 100% { opacity: .65; transform: translate(calc(-50% - 6px), calc(-50% + 5px)); } 35%, 85% { opacity: 1; transform: translate(-50%, -50%); } }
+@keyframes storageSettles { 0%, 20%, 100% { opacity: .65; transform: translate(calc(-50% + 6px), calc(-50% + 5px)); } 35%, 85% { opacity: 1; transform: translate(-50%, -50%); } }
+@keyframes enclosureResolves { 0%, 28%, 100% { opacity: .3; } 43%, 85% { opacity: 1; } }
+@keyframes managedConnection { 0%, 20% { opacity: 0; stroke-dashoffset: 100; } 36%, 85% { opacity: 1; stroke-dashoffset: 0; } 100% { opacity: 0; stroke-dashoffset: 0; } }
+@keyframes brandResolves { 0%, 30%, 100% { opacity: .6; } 46%, 85% { opacity: 1; } }
+@keyframes managedLabel { 0%, 35%, 100% { opacity: .35; } 55%, 85% { opacity: 1; } }
+@keyframes coreFocus { 0%, 100% { border-color: #d9ddce; } 15%, 85% { border-color: #bda780; } }
+@keyframes computeConnection { 0%, 15% { opacity: 0; stroke-dashoffset: 100; } 35%, 85% { opacity: 1; stroke-dashoffset: 0; } 100% { opacity: 0; stroke-dashoffset: 0; } }
+@keyframes storageConnection { 0%, 25% { opacity: 0; stroke-dashoffset: 100; } 44%, 85% { opacity: 1; stroke-dashoffset: 0; } 100% { opacity: 0; stroke-dashoffset: 0; } }
+@keyframes awsFocus { 0%, 30%, 100% { border-color: #dce0d1; background: #fafbf6; } 43%, 85% { border-color: #dbbd89; background: #fff9ec; } }
+@keyframes gcpFocus { 0%, 40%, 100% { border-color: #dce0d1; background: #fafbf6; } 55%, 85% { border-color: #9cb5ba; background: #f6faf9; } }
+@keyframes sharedSystem { 0%, 40%, 100% { opacity: .35; } 55%, 85% { opacity: 1; } }
+
+@media (max-width: 1150px) and (min-width: 721px) {
+  .cluster { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .managedCard { grid-column: 1 / -1; grid-row: 1; }
+  .multicloudCard { grid-column: 1; grid-row: 2; }
+  .teamSlot { grid-column: 2; grid-row: 2; }
+  .ecosystemCard { grid-column: 1 / -1; grid-row: 3; }
+  .managedCopy h3 { font-size: 46px; }
+  .managedArt { max-width: 440px; margin: auto; }
+}
+@media (max-width: 720px) {
+  .cluster { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .card, .teamSlot { grid-column: 1; grid-row: auto; }
+  .card { padding: 27px; border-radius: 24px; }
+  .managedCard { display: flex; flex-direction: column; align-items: stretch; gap: 28px; min-height: 0; }
+  .managedCopy { padding-top: 14px; }
+  .managedCopy h3 { font-size: clamp(36px, 10vw, 48px); }
+  .managedCopy > p { font-size: 13px; max-width: 38ch; }
+  .managedCard .eyebrow { padding-right: 12px; font-size: 9px; }
+  .managedLink { font-size: 11px; }
+  .benefits { margin: 20px 0 15px; font-size: 10px; }
+  .managedScene { max-width: 410px; align-self: center; }
+  .appTile { gap: 8px; padding: 10px 12px; min-height: 59px; }
+  .appTile small { font-size: 7px; }
+  .appTile b { font-size: 14px; }
+  .serviceTile { padding: 9px; gap: 6px; min-height: 64px; }
+  .serviceTile > svg { width: 19px; height: 19px; }
+  .serviceTile > span { font-size: 11px; }
+  .managedBrand { gap: 7px; }
+  .managedBrand > svg { width: 27px; height: 27px; }
+  .managedBrand > span { font-size: 25px; }
+  .managedSeal { font-size: 10px; }
+  .multicloudCard h3 { font-size: 34px; }
+  .multiScene { margin-top: 8px; }
+  .multiArt { max-width: 330px; }
+  .cloudDestination > b { font-size: 14px; }
+  .cloudDestination > span { font-size: 10px; }
+  .multicloudCard .multiClosing { font-size: 11px; }
+  .ecosystemHeader { display: block; }
+  .ecosystemHeader h3 { font-size: 29px; }
+  .roadmap { display: block; margin-top: 19px; }
+  .logoCollection { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px 14px; margin-top: 22px; }
+  .logoCollection li:last-child { grid-column: 1 / -1; }
+  .logoCollection li > span { font-size: 11px; }
+  .providerRow { gap: 10px; }
+  .rowLogo { width: 39px; }
+  .providerHeading { align-items: flex-start; gap: 6px; }
+  .providerHeading b { flex-basis: 100%; }
+  .detailsBody h4 { font-size: 11px; }
+}
+@media (max-width: 360px) {
+  .card { padding: 22px; }
+  .managedCopy h3, .multicloudCard h3 { font-size: 32px; }
+  .serviceTile > span { font-size: 10px; }
+  .serviceTile { gap: 5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cluster .animated { animation: none !important; transition: none !important; }
+  .motionControl { display: none; }
+  .details > summary > svg { transition: none; }
+}
+@media (forced-colors: active) {
+  .card, .managedEnclosure, .appTile, .serviceTile, .multiCore, .cloudDestination { border: 1px solid CanvasText; background: Canvas; color: CanvasText; }
+  .card h3, .card p, .card a, .card span, .card b { color: CanvasText !important; }
+  .logoFrame, .rowLogo, .cloudDestination .logo { forced-color-adjust: none; background: white; }
+  .managedWires path, .multiWires path { stroke: CanvasText; }
+  .managedArt::before { display: none; }
+  .motionControl, .details { border: 1px solid ButtonText; }
+}

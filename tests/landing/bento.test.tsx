@@ -61,7 +61,7 @@ describe("bento product story", () => {
   it("adds no second hero, terminal or code wall", async () => {
     await render();
     expect(host.querySelectorAll("h1, pre, code")).toHaveLength(0);
-    expect(host.querySelectorAll("[data-bento]")).toHaveLength(9);
+    expect(host.querySelectorAll("[data-bento]")).toHaveLength(11);
     for (const id of ["before", "scenarios", "agents", "gimbal", "cloud", "ownership"]) {
       expect(host.querySelector(`#${id}[data-chapter]`)).not.toBeNull();
     }
@@ -111,14 +111,16 @@ describe("bento product story", () => {
     expect(host.querySelector("a[download]")).toBeNull();
   });
 
-  it("keeps simulation, local support, preview and roadmap separate", async () => {
+  it("keeps simulation, local support, preview and roadmap in progressive details", async () => {
     await render();
-    const text = host.querySelector("#cloud")!.textContent!;
+    const details = host.querySelector<HTMLDetailsElement>("#cloud details")!;
+    expect(details.open).toBe(false);
+    const text = details.textContent!;
     expect(text).toContain("Available · simulated");
     expect(text).toContain("Other operations remain simulated.");
     expect(text).toContain("No AWS API calls or in-app deployment.");
-    expect(text).toContain("Google Cloud · Planned");
-    expect(text).toContain("Product vision");
+    expect(details.querySelector('[data-status="planned"]')?.textContent).toBe("Planned");
+    expect(text).toContain("In development");
   });
 
   it("does not invent available providers when the registry is empty", async () => {
@@ -137,9 +139,10 @@ describe("bento product story", () => {
   it("leaves a fully visible page with reduced motion and starts no entry animation", async () => {
     await render();
     expect(observe).not.toHaveBeenCalled();
-    expect(host.querySelectorAll("[data-bento]")).toHaveLength(9);
+    expect(host.querySelectorAll("[data-bento]")).toHaveLength(11);
     expect(host.textContent).toContain("Meet Zenith.");
     expect(host.querySelector("[data-agent-loop]")?.getAttribute("data-loop")).toBe("still");
+    expect(host.querySelector("#cloud")?.getAttribute("data-cloud-motion")).toBe("still");
   });
 });
 

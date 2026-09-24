@@ -1,0 +1,79 @@
+/* Scoped to the bento body, never the locked hero, navigation or product UI. */
+.scope { --micro-ease: cubic-bezier(.2,.75,.25,1); --micro-fast: 160ms; --micro-settle: 320ms; }
+.scope [data-bento]::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: radial-gradient(260px circle at var(--micro-x, 50%) var(--micro-y, 50%), rgba(255,255,255,.24), transparent 72%);
+  opacity: 0; z-index: 1; transition: opacity 240ms ease;
+}
+.scope [data-micro-group] { position: relative; isolation: isolate; }
+.scope [data-micro-group] > button { position: relative; z-index: 1; }
+.scope [data-micro-pill] {
+  display: none; position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none;
+  border-radius: 9px; transform-origin: 0 0;
+}
+.scope [data-micro-ready="true"] > [data-micro-pill] { display: block; }
+.scope [data-micro-group="view"] > [data-micro-pill] { background: #b74625; box-shadow: 0 3px 8px rgba(122,48,23,.12); }
+.scope [data-micro-group="estimate"] > [data-micro-pill] { background: #73558e; }
+.scope [data-micro-group="estimate"] > button[aria-pressed="true"] { background: #73558e; color: #fff; }
+.scope [data-micro-group="autonomy"] > [data-micro-pill] { background: #ad381b; border-radius: 11px; box-shadow: 0 8px 24px -16px #a02b0e; }
+.scope [data-micro-group="team"] > [data-micro-pill] { background: #fff7ee; border: 1px solid #e2cbbb; }
+.scope [data-micro-ready="true"] > button[aria-pressed="true"] { background: transparent; border-color: transparent; box-shadow: none; transform: none; }
+.scope [data-micro-group="autonomy"] > button[aria-pressed="true"] { transform: none; }
+.scope [data-micro-group="autonomy"] button > svg { transition: scale 240ms var(--micro-ease); }
+.scope [data-micro-beam] { opacity: 0; fill: none; stroke: #9f4326; stroke-width: 2.5; stroke-dasharray: 1; pointer-events: none; }
+.scope [data-micro-change="number"] { display: inline-block; font-variant-numeric: tabular-nums; min-width: 3ch; }
+.scope [data-micro-foundation] button {
+  display: flex; flex-direction: column; align-items: center; gap: 9px; min-height: 68px;
+  padding: 0; border: 0; color: inherit; background: none; font: inherit; cursor: pointer;
+}
+.scope [data-micro-foundation] button svg { transition: background 180ms ease, border-color 180ms ease, translate 240ms var(--micro-ease); }
+.scope [data-micro-foundation] button[aria-pressed="true"] svg { background: #f8dfcc; border-color: #ba8662; color: #894626; }
+.scope [data-micro-foundation] > div:has(button[aria-pressed="true"])::before { background: #ab7250; }
+.scope [data-micro-foundation-caption] { min-height: 3.1em; }
+.scope [data-micro-export] { transition: transform 250ms var(--micro-ease), translate 250ms var(--micro-ease), background 180ms ease, border-color 180ms ease; }
+.scope [data-micro-export][aria-pressed="true"] { translate: 0 -5px; }
+.scope [data-micro-paper] { transition: translate 300ms var(--micro-ease); }
+.scope [data-micro-plan-row] { transition: background 180ms ease; border-radius: 8px; }
+.scope [data-micro-logo] {
+  display: flex; flex-direction: column; align-items: center; gap: 12px; min-height: 88px; width: 100%;
+  padding: 8px 4px; border: 1px solid transparent; border-radius: 14px;
+  background: transparent; color: inherit; font: inherit; text-align: center; cursor: pointer;
+  transition: background 180ms ease, border-color 180ms ease;
+}
+.scope [data-micro-logo] > span { font-size: 11px; }
+.scope [data-micro-logo] [data-cloud-logo] { transition: translate 240ms var(--micro-ease); }
+.scope [data-micro-logo][aria-pressed="true"] { background: #f9f1e8; border-color: #dfcbb5; }
+.scope [data-micro-provider][data-selected="true"] { background: #fbf4eb; border-radius: 12px; }
+.scope [data-micro-provider]:focus-visible { outline: 2px solid #a4552c; outline-offset: 4px; border-radius: 12px; }
+.scope [data-micro-details] > summary svg { transition: rotate 200ms var(--micro-ease); }
+.scope [data-micro-details][open] > summary svg { rotate: 180deg; }
+.scope [data-bento] :is(button, a, summary) { transition: scale var(--micro-fast) var(--micro-ease), translate 240ms var(--micro-ease), transform 250ms var(--micro-ease), background 180ms ease, color 180ms ease, border-color 180ms ease; }
+.scope [data-bento] :is(button, a, summary):active { scale: .98; }
+.scope [data-micro-action] > svg { transition: translate 200ms var(--micro-ease); }
+.scope [data-micro-action]:focus-visible > svg { translate: 3px 0; }
+.scope [data-bento] input[type="range"] { transition: filter 160ms ease; }
+.scope [data-bento] input[type="range"]:focus-visible { filter: contrast(1.1); }
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) and (forced-colors: none) {
+  .scope [data-bento][data-micro-hover="true"]::after, .scope [data-bento][data-micro-focus="true"]::after { opacity: .7; }
+  .scope [data-micro-export]:hover { translate: 0 -6px; }
+  .scope [data-micro-paper]:hover, .scope [data-micro-paper]:focus-within { translate: 0 -4px; }
+  .scope [data-micro-plan-row]:hover { background: #fbf1e8; }
+  .scope [data-micro-action]:hover > svg { translate: 3px 0; }
+  .scope [data-micro-foundation] button:hover svg { translate: 0 -3px; }
+  .scope [data-micro-logo]:hover { background: #f8f5ee; border-color: #e3dcd0; }
+  .scope [data-micro-logo]:hover [data-cloud-logo] { translate: 0 -3px; }
+}
+.scope[data-micro-policy="still"] [data-bento]::after { opacity: 0; transition: none; }
+@media (prefers-reduced-motion: reduce), (forced-colors: active) {
+  .scope [data-bento]::after { display: none; }
+  .scope [data-micro-pill] { display: none !important; }
+  .scope [data-bento] :is(button,a,summary,input), .scope [data-micro-action] > svg,
+  .scope [data-micro-foundation] svg, .scope [data-micro-paper], .scope [data-micro-export],
+  .scope [data-micro-details] > summary svg { transition: none !important; translate: none; scale: none; }
+  .scope [data-micro-beam] { display: none; }
+}
+@media (forced-colors: active) {
+  .scope [data-micro-logo], .scope [data-micro-foundation] button { border: 1px solid ButtonText; }
+  .scope [data-micro-provider][data-selected="true"] { outline: 2px solid Highlight; background: Canvas; }
+}

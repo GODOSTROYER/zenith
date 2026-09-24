@@ -22,6 +22,9 @@ async function checkPage(page: Page) {
   await page.locator("#statement").waitFor();
   await page.waitForFunction(() => document.querySelectorAll("[data-bento]").length === 11);
   await page.evaluate(() => document.fonts.ready);
+  // The page can be present under the startup curtain. Trial waits for the
+  // unchanged masthead to become hit-testable without activating navigation.
+  await page.locator(".zenith-header .zenith-home").click({ trial: true });
   assert.equal(await page.locator("nextjs-portal").count(), 0, "No framework overlay");
   const layout = await page.evaluate(() => ({
     overflow: document.documentElement.scrollWidth - innerWidth,
@@ -128,7 +131,7 @@ async function main() {
         await page.locator("#statement").scrollIntoViewIfNeeded();
         // Only section captures hide the fixed masthead so it is not composited over
         // the start of a long element image. The unmodified hero capture above keeps it.
-        const captureStyle = ".zenith-header { visibility: hidden !important; }";
+        const captureStyle = ".zenith-header, .zenith-skip { visibility: hidden !important; }";
         await page.locator("#statement").locator("..").screenshot({ path: join(output, `bento-${width}.png`), animations: "disabled", style: captureStyle });
         await page.locator("#cloud").screenshot({ path: join(output, `hosting-${width}.png`), animations: "disabled", style: captureStyle });
         await interactions(page);

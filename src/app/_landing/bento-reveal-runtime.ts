@@ -18,7 +18,10 @@ export function installBentoReveal(root: HTMLElement): () => void {
   const settle = (card: HTMLElement) => {
     const animations = active.get(card);
     active.delete(card);
-    animations?.forEach((animation) => animation.cancel());
+    // Snapshot ownership before callbacks run; cancel events may mutate the set.
+    const pending = animations ? [...animations] : [];
+    animations?.clear();
+    pending.forEach((animation) => animation.cancel());
   };
   const play = (card: HTMLElement, target: Element | null, keyframes: Keyframe[], duration: number, delay: number) => {
     if (!target || !target.isConnected || typeof target.animate !== "function" || !allowed()) return;
@@ -68,6 +71,8 @@ export function installBentoReveal(root: HTMLElement): () => void {
     if (card && root.contains(card)) { seen.add(card); settle(card); }
   };
   policy();
+  // Capture native focus before nested widgets can stop a bubbling focusin.
+  root.addEventListener("focus", interact, true);
   root.addEventListener("focusin", interact);
   root.addEventListener("pointerdown", interact, { passive: true });
   document.addEventListener("visibilitychange", policy);
@@ -76,6 +81,7 @@ export function installBentoReveal(root: HTMLElement): () => void {
     disposed = true;
     observer.disconnect();
     for (const card of active.keys()) settle(card);
+    root.removeEventListener("focus", interact, true);
     root.removeEventListener("focusin", interact);
     root.removeEventListener("pointerdown", interact);
     document.removeEventListener("visibilitychange", policy);

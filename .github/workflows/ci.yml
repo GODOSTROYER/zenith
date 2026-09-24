@@ -67,7 +67,7 @@ jobs:
         # Every workflow, not only this one. `tick.yml` drives production
         # background work and `agent-control.yml` is a merge gate; a typo in
         # either used to reach the default branch unchecked.
-        run: '"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml .github/workflows/tick.yml .github/workflows/agent-control.yml'
+        run: '"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml .github/workflows/tick.yml .github/workflows/agent-control.yml .github/workflows/landing-visual.yml'
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:

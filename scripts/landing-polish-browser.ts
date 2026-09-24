@@ -34,6 +34,18 @@ async function checkPage(page: Page) {
   return layout;
 }
 
+/** Let native lazy loading complete before a long element screenshot jumps past logos. */
+async function loadVisibleLogos(page: Page) {
+  for (const logo of await page.locator("[data-cloud-logo]:visible").all()) {
+    await logo.scrollIntoViewIfNeeded();
+    await logo.evaluate(async (element) => { await (element as HTMLImageElement).decode(); });
+    assert.equal(await logo.evaluate((element) => {
+      const image = element as HTMLImageElement;
+      return image.complete && image.naturalWidth > 0;
+    }), true, "Every displayed vendor logo must decode before capture");
+  }
+}
+
 async function interactions(page: Page) {
   const view = page.locator('#before [data-micro-group="view"]');
   await view.getByRole("button", { name: "Current", exact: true }).click();
@@ -112,9 +124,13 @@ async function main() {
       const layout = await checkPage(page);
       if (width === 1440 || width === 390) {
         await page.screenshot({ path: join(output, `hero-${width}.png`) });
+        await loadVisibleLogos(page);
         await page.locator("#statement").scrollIntoViewIfNeeded();
-        await page.locator("#statement").locator("..").screenshot({ path: join(output, `bento-${width}.png`), animations: "disabled" });
-        await page.locator("#cloud").screenshot({ path: join(output, `hosting-${width}.png`), animations: "disabled" });
+        // Only section captures hide the fixed masthead so it is not composited over
+        // the start of a long element image. The unmodified hero capture above keeps it.
+        const captureStyle = ".zenith-header { visibility: hidden !important; }";
+        await page.locator("#statement").locator("..").screenshot({ path: join(output, `bento-${width}.png`), animations: "disabled", style: captureStyle });
+        await page.locator("#cloud").screenshot({ path: join(output, `hosting-${width}.png`), animations: "disabled", style: captureStyle });
         await interactions(page);
       }
       assert.deepEqual(errors, [], `Runtime errors at ${width}px`);

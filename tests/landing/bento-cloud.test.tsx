@@ -60,7 +60,13 @@ async function render(rows = providers) {
 function cluster() { return host.querySelector<HTMLElement>("#cloud")!; }
 function scenes() { return Array.from(host.querySelectorAll<HTMLElement>("[data-cloud-scene]")); }
 async function intersect(index: number, visible: boolean) {
-  await act(async () => notify([{ target: scenes()[index], isIntersecting: visible, intersectionRatio: visible ? 1 : 0 } as IntersectionObserverEntry], {} as IntersectionObserver));
+  const target = scenes()[index];
+  const rect = target.getBoundingClientRect();
+  const entry: IntersectionObserverEntry = {
+    target, isIntersecting: visible, intersectionRatio: visible ? 1 : 0,
+    boundingClientRect: rect, intersectionRect: rect, rootBounds: null, time: 0,
+  };
+  await act(async () => notify([entry], {} as IntersectionObserver));
 }
 async function setReduced(value: boolean) {
   await act(async () => { motion.matches = value; preferences.forEach((listener) => listener()); });

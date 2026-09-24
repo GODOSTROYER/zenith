@@ -16,6 +16,7 @@ import { BentoSystemMap, Glyph, type GlyphName } from "./bento-visuals";
 import { BentoAgentFlow } from "./bento-agent-flow";
 import { BentoCloudCluster } from "./bento-cloud";
 import { MicroGroup, useBentoMicro } from "./bento-micro";
+import { installBentoReveal } from "./bento-reveal-runtime";
 import micro from "./bento-micro.module.css";
 import styles from "./bento-body.module.css";
 
@@ -61,7 +62,7 @@ function SystemCard() {
       <CardTitle id="before" label="The whole picture" description="See the parts. Understand how they fit. Stay connected to what you’re building.">Your whole app.<br />One clear picture.</CardTitle>
       <ViewSwitch />
     </div>
-    <div className={styles.mapArt}>
+    <div className={styles.mapArt} data-bento-art>
       <BentoSystemMap view={state.view} selected={selected} highlighted={highlight?.nodes} onSelect={(node) => dispatch({ type: "select", node })} />
       <p className={styles.mapCaption} data-micro-change="text" data-micro-value={selected}><b>{NODE_META[selected].label}</b><span>{NODE_META[selected].role}</span></p>
     </div>
@@ -80,7 +81,7 @@ function PreviewCard() {
   const proposed = state.view === "proposed";
   return <Card id="preview" className={styles.previewCard}>
     <CardTitle id="preview" label="Plan before change" description="A new idea becomes a plan you can understand. Not a surprise you have to undo.">See the next move.<br />Before you make it.</CardTitle>
-    <div className={styles.planStack} data-proposed={proposed} data-micro-paper>
+    <div className={styles.planStack} data-proposed={proposed} data-micro-paper data-bento-art>
       <div className={styles.planBack} aria-hidden="true"><span>Current system</span><i /><i /><i /></div>
       <div className={styles.planSheet} data-micro-change="text" data-micro-value={state.view}>
         <div className={styles.planHeading}><Glyph name="layers" /><b>{proposed ? "Your proposed change" : "Your current system"}</b><span>{proposed ? "Preview" : "Example"}</span></div>
@@ -121,7 +122,7 @@ function EstimateCard() {
     <CardTitle id="scenarios" label="Impact, up front">Less guesswork.<br />More foresight.</CardTitle>
     <div className={styles.estimateReadout} role="status"><b data-micro-change="number" data-micro-value={estimate}>{fmtUsd(estimate)}</b><span>/ month<br /><strong>estimated</strong></span></div>
     <ViewSwitch cost />
-    <div className={styles.costBars} aria-label={`Current estimate ${fmtUsd(ESTIMATE.current)}, proposed estimate ${fmtUsd(ESTIMATE.proposed)} per month`}>
+    <div className={styles.costBars} data-bento-art aria-label={`Current estimate ${fmtUsd(ESTIMATE.current)}, proposed estimate ${fmtUsd(ESTIMATE.proposed)} per month`}>
       <div><span>Current</span><i style={{ "--bar": `${ESTIMATE.current / max * 100}%` } as CSSProperties} /><b>{fmtUsd(ESTIMATE.current)}</b></div>
       <div data-selected={proposed}><span>Proposed</span><i style={{ "--bar": `${ESTIMATE.proposed / max * 100}%` } as CSSProperties} /><b>{fmtUsd(ESTIMATE.proposed)}</b></div>
     </div>
@@ -148,7 +149,7 @@ function FoundationCard() {
   const [selected, select] = useState(0);
   return <Card id="foundation" className={styles.foundationCard}>
     <CardTitle id="foundation" label="Connected by design" description="The picture, the plan, and the action path share one underlying model.">One system.<br />Not another silo.</CardTitle>
-    <div className={styles.foundationArt}>
+    <div className={styles.foundationArt} data-bento-art>
       <div className={styles.foundationCore} aria-hidden="true"><OrbitMark size={26} /><span>zenith</span></div>
       <div className={styles.foundationStem} aria-hidden="true" />
       <div className={styles.foundationViews} data-micro-foundation role="group" aria-label="Explore the shared system">
@@ -164,7 +165,7 @@ function OwnershipCard() {
   const artifact = EXPORT_ARTIFACTS[selected];
   return <Card id="ownership" chapter="close" className={styles.ownershipCard}>
     <CardTitle id="ownership" label="Yours, all the way out">Your system.<br />Not our lock-in.</CardTitle>
-    <div className={styles.exportFan} role="group" aria-label="Explore portable exports">
+    <div className={styles.exportFan} data-bento-art role="group" aria-label="Explore portable exports">
       {EXPORT_ARTIFACTS.map((item, index) => <button type="button" key={item.name} data-micro-export className={styles.exportSheet} style={{ "--sheet": index } as CSSProperties} aria-pressed={selected === index} onClick={() => select(index)}>
         <Glyph name="document" size={24} /><b>{item.name}</b><span aria-hidden="true" className={styles.paperLines}><i /><i /><i /></span>
       </button>)}
@@ -172,7 +173,6 @@ function OwnershipCard() {
     <div className={styles.exportCaption} role="status" data-micro-change="text" data-micro-value={selected}><b>{artifact.file}</b><p>{artifact.description}</p></div>
   </Card>;
 }
-
 function TeamsCard() {
   const [selected, select] = useState(0);
   const story = TEAM_STORIES[selected];
@@ -183,28 +183,10 @@ function TeamsCard() {
   </Card>;
 }
 
-/** One-shot entry motion; the readable server-rendered page never waits on animation. */
+/** Choreographed entry keeps the card coordinate system and native controls stable. */
 function useBentoEntrance(root: RefObject<HTMLDivElement | null>) {
   useEffect(() => {
-    const element = root.current;
-    if (!element || typeof IntersectionObserver === "undefined" || typeof window.matchMedia !== "function") return;
-    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (media.matches) return;
-    const animations: Animation[] = [];
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting) return;
-        observer.unobserve(entry.target);
-        if (!media.matches && typeof entry.target.animate === "function") animations.push(entry.target.animate(
-          [{ opacity: 0.65, transform: "translateY(16px)" }, { opacity: 1, transform: "translateY(0)" }],
-          { duration: 440, easing: "cubic-bezier(.2,.75,.25,1)" },
-        ));
-      });
-    }, { threshold: 0.08 });
-    element.querySelectorAll("[data-bento]").forEach((card) => observer.observe(card));
-    const stop = () => { if (media.matches) { observer.disconnect(); animations.forEach((animation) => animation.cancel()); } };
-    media.addEventListener("change", stop);
-    return () => { observer.disconnect(); animations.forEach((animation) => animation.cancel()); media.removeEventListener("change", stop); };
+    if (root.current) return installBentoReveal(root.current);
   }, [root]);
 }
 

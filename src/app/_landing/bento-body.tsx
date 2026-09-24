@@ -11,9 +11,10 @@ import type { ChapterId } from "./landing-state";
 import { LandingCta } from "./landing-cta";
 import { useHighlight, useLanding } from "./landing-experience";
 import { ESTIMATE, NODE_META, PROPOSED_CHANGE, PROPOSED_IDS, SCALE_STEPS, systemFor } from "./scenario";
-import { EXPORT_ARTIFACTS, planRiskLabel, providerPresentation, TEAM_STORIES } from "./bento-data";
+import { EXPORT_ARTIFACTS, planRiskLabel, TEAM_STORIES } from "./bento-data";
 import { BentoSystemMap, Glyph, type GlyphName } from "./bento-visuals";
 import { BentoAgentFlow } from "./bento-agent-flow";
+import { BentoCloudCluster } from "./bento-cloud";
 import styles from "./bento-body.module.css";
 
 function Card({ id, chapter, className, children }: {
@@ -162,26 +163,6 @@ function OwnershipCard() {
   </Card>;
 }
 
-function ProvidersCard({ providers }: { providers: ProviderRow[] }) {
-  const current = providers.filter((provider) => provider.availability !== "planned");
-  const planned = providers.filter((provider) => provider.availability === "planned");
-  return <Card id="cloud" chapter="cloud" className={styles.providersCard}>
-    <div className={styles.providersCopy}><CardTitle id="cloud" label="Honesty is a feature" description="Available, simulated, preview, or planned. You should never have to guess.">Clear about<br />what’s real.</CardTitle><Link href="/guide" className={styles.textButton}>Explore the guide<Glyph name="arrow" size={17} /></Link></div>
-    <div className={styles.providerList}>
-      {current.map((provider) => {
-        const presentation = providerPresentation(provider);
-        return <div key={provider.id} className={styles.providerRow}>
-          <div><b>{provider.displayName}</b><span className={styles.status} data-status={presentation.tone}><i aria-hidden="true" />{presentation.label}</span></div>
-          <p>{presentation.description}</p>
-        </div>;
-      })}
-      {!providers.length && <p>Provider status is unavailable here. Check the guide before planning a deployment.</p>}
-      {!!planned.length && <details className={styles.plannedProviders}><summary>What’s planned?</summary>{planned.map((provider) => <p key={provider.id}><b>{provider.displayName} · Planned</b><span>{provider.tagline}</span></p>)}</details>}
-      <p className={styles.vision}><b>Zenith-managed hosting · Product vision</b><br />Not an available hosting service.</p>
-    </div>
-  </Card>;
-}
-
 function TeamsCard() {
   const [selected, select] = useState(0);
   const story = TEAM_STORIES[selected];
@@ -229,7 +210,7 @@ export function BentoBody({ providers }: { providers: ProviderRow[] }) {
     <div className={styles.grid}>
       <SystemCard /><AgentCard /><PreviewCard /><AutonomyCard />
       <EstimateCard /><FoundationCard /><OwnershipCard />
-      <ProvidersCard providers={providers} /><TeamsCard />
+      <BentoCloudCluster providers={providers}><TeamsCard /></BentoCloudCluster>
     </div>
     <p className={styles.bottomNote}>A clearer view of your cloud. A more considered next move.</p>
   </div>;

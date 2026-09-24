@@ -11,8 +11,9 @@
 .stars { width: 100%; height: 100%; }
 .glow { top: auto; bottom: calc(14% - var(--scene-drop)); left: 50%; width: min(70vw, 1100px); height: min(70vw, 1100px); transform: translate(-50%, 50%); border-radius: 50%; filter: blur(26px);
   background: radial-gradient(circle, rgba(255, 214, 178, .72) 0%, rgba(230, 83, 50, .34) 32%, rgba(230, 83, 50, .08) 52%, transparent 66%); }
-/* Atmosphere at the horizon: a warm band the far ridge rises out of. */
-.haze { top: auto; bottom: calc(26% - var(--scene-drop)); height: 26%; background: linear-gradient(to top, rgba(255, 150, 120, .42), rgba(230, 83, 50, .14) 45%, transparent); }
+/* Atmosphere at the horizon: a warm band the far ridge rises out of. Strongest 26% up, as before, and faded out below
+   that rather than cut off: a hard lower edge showed as a straight line wherever the ridges dip beneath it. */
+.haze { top: auto; bottom: calc(14% - var(--scene-drop)); height: 38%; background: linear-gradient(to top, transparent, rgba(255, 150, 120, .42) 32%, rgba(230, 83, 50, .14) 64%, transparent); }
 .ridge { top: var(--scene-drop); bottom: calc(-1 * var(--scene-drop)); will-change: transform; }
 .scene { display: block; width: 100%; height: 100%; overflow: visible; shape-rendering: geometricPrecision; }
 /* Rim light (radial from the summit), body colour, valley haze and a hairline on the crest, per ridge: warm dusk silhouettes in the ink family. */

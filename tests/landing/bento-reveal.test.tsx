@@ -57,6 +57,14 @@ function entries(indices: number[], visible = true) {
 function enter(indices = [0]) { notify(entries(indices), {} as IntersectionObserver); }
 function preference(query: string, value: boolean) { const state = media.get(query)!; state.matches = value; state.listeners.forEach((listener) => listener()); }
 function start() { cleanup = installBentoReveal(root); }
+function focusControl(button: HTMLButtonElement) {
+  button.focus();
+  // Exercise the delegated event deterministically in JSDOM. Native browser
+  // focus behavior is checked by landing-polish-browser.ts; a second delivery
+  // here also verifies that settling an already-settled card is idempotent.
+  button.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+  expect(document.activeElement).toBe(button);
+}
 
 describe("bento reveal choreography", () => {
   it("renders complete content and schedules nothing before intersection", () => {
@@ -80,16 +88,18 @@ describe("bento reveal choreography", () => {
     start(); enter(); enter(); expect(animations).toHaveLength(3);
   });
   it("finishes instantly on keyboard focus without altering the control", () => {
-    start(); enter(); const button = root.querySelector("button")!; button.focus();
-    expect(animations.every((animation) => animation.cancel.mock.calls.length === 1)).toBe(true);
-    expect(document.activeElement).toBe(button);
+    start(); enter();
+    expect(animations).toHaveLength(3);
+    const pending = [...animations];
+    focusControl(root.querySelector("button")!);
+    pending.forEach((animation) => expect(animation.cancel).toHaveBeenCalledTimes(1));
   });
   it("finishes on pointerdown before a tap can be displaced", () => {
     start(); enter(); root.querySelector("button")!.dispatchEvent(new Event("pointerdown", { bubbles: true }));
     expect(animations.every((animation) => animation.cancel.mock.calls.length === 1)).toBe(true);
   });
   it("never animates a card that the user is already operating", () => {
-    start(); root.querySelector("button")!.focus(); enter(); expect(animations).toHaveLength(0);
+    start(); focusControl(root.querySelector("button")!); enter(); expect(animations).toHaveLength(0);
   });
   it("cancels when offscreen and does not cancel an independent scene", () => {
     start(); enter(); notify(entries([0], false), {} as IntersectionObserver);
@@ -141,7 +151,7 @@ describe("bounded artwork depth", () => {
     expect(card.hasAttribute("data-micro-hover")).toBe(false);
   });
   it("recenters when keyboard focus enters a card", () => {
-    cleanup = installBentoMicro(root); const card = move(); root.querySelector("button")!.focus();
+    cleanup = installBentoMicro(root); const card = move(); focusControl(root.querySelector("button")!);
     expect(card.style.getPropertyValue("--micro-dx")).toBe("");
     expect(card.dataset.microFocus).toBe("true");
   });

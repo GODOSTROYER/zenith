@@ -87,16 +87,28 @@ describe("bento reveal choreography", () => {
   it("does not replay cards on repeated intersection", () => {
     start(); enter(); enter(); expect(animations).toHaveLength(3);
   });
-  it("finishes instantly on keyboard focus without altering the control", () => {
+  it.each(["focus", "focusin", "pointerdown"])("settles owned reveals on %s without double cancellation", (type) => {
     start(); enter();
-    expect(animations).toHaveLength(3);
     const pending = [...animations];
-    focusControl(root.querySelector("button")!);
-    pending.forEach((animation) => expect(animation.cancel).toHaveBeenCalledTimes(1));
-  });
-  it("finishes on pointerdown before a tap can be displaced", () => {
-    start(); enter(); root.querySelector("button")!.dispatchEvent(new Event("pointerdown", { bubbles: true }));
-    expect(animations.every((animation) => animation.cancel.mock.calls.length === 1)).toBe(true);
+    expect(pending).toHaveLength(3);
+    const button = root.querySelector("button")!;
+    // The runtime contract is event delegation, not a JSDOM focus implementation.
+    // Native keyboard focus is exercised against the production page in Chromium.
+    const event = () => type === "pointerdown"
+      ? new Event(type, { bubbles: true })
+      : new FocusEvent(type, { bubbles: type === "focusin" });
+    button.dispatchEvent(event());
+    button.dispatchEvent(event());
+    expect(pending.map((animation) => ({
+      target: animation.target.tagName,
+      cancellations: animation.cancel.mock.calls.length,
+    }))).toEqual([
+      { target: "ARTICLE", cancellations: 1 },
+      { target: "H3", cancellations: 1 },
+      { target: "DIV", cancellations: 1 },
+    ]);
+    expect(button.isConnected).toBe(true);
+    expect(button.textContent).toBe("Use it");
   });
   it("never animates a card that the user is already operating", () => {
     start(); focusControl(root.querySelector("button")!); enter(); expect(animations).toHaveLength(0);

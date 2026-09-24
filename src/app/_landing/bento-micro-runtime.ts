@@ -50,6 +50,8 @@ export function installBentoMicro(root: HTMLElement): () => void {
       delete hovered.dataset.microHover;
       hovered.style.removeProperty("--micro-x");
       hovered.style.removeProperty("--micro-y");
+      hovered.style.removeProperty("--micro-dx");
+      hovered.style.removeProperty("--micro-dy");
     }
     hovered = null;
   };
@@ -63,8 +65,13 @@ export function installBentoMicro(root: HTMLElement): () => void {
     const { card, x, y } = point;
     const rect = card.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
-    card.style.setProperty("--micro-x", `${Math.max(0, Math.min(rect.width, x - rect.left))}px`);
-    card.style.setProperty("--micro-y", `${Math.max(0, Math.min(rect.height, y - rect.top))}px`);
+    const localX = Math.max(0, Math.min(rect.width, x - rect.left));
+    const localY = Math.max(0, Math.min(rect.height, y - rect.top));
+    card.style.setProperty("--micro-x", `${localX}px`);
+    card.style.setProperty("--micro-y", `${localY}px`);
+    // Artwork only, never text or hit targets. Bounded even during pointer capture.
+    card.style.setProperty("--micro-dx", `${((localX / rect.width - .5) * 8).toFixed(2)}px`);
+    card.style.setProperty("--micro-dy", `${((localY / rect.height - .5) * 6).toFixed(2)}px`);
     card.dataset.microHover = "true";
   };
   const pointer = (event: PointerEvent) => {
@@ -79,6 +86,7 @@ export function installBentoMicro(root: HTMLElement): () => void {
     if (cardFor(event.relatedTarget) !== hovered) clearPointer();
   };
   const focus = (event: FocusEvent) => {
+    clearPointer(); // Keyboard focus returns artwork to its readable resting position.
     if (focused) delete focused.dataset.microFocus;
     focused = cardFor(event.target);
     if (focused) focused.dataset.microFocus = "true";
@@ -163,7 +171,7 @@ export function installBentoMicro(root: HTMLElement): () => void {
   });
   mutations.observe(root, { subtree: true, attributes: true, attributeFilter: ["aria-pressed", "data-micro-value", "open"] });
 
-  const resize = () => groups.forEach((group) => positionPill(group, false));
+  const resize = () => { clearPointer(); groups.forEach((group) => positionPill(group, false)); };
   const sizes = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(resize);
   groups.forEach((group) => {
     sizes?.observe(group);
@@ -189,9 +197,12 @@ export function installBentoMicro(root: HTMLElement): () => void {
   root.addEventListener("pointermove", pointer, { passive: true });
   root.addEventListener("pointerout", pointerOut, { passive: true });
   root.addEventListener("pointerleave", clearPointer);
+  root.addEventListener("pointercancel", clearPointer);
   root.addEventListener("focusin", focus);
   root.addEventListener("focusout", blur);
   window.addEventListener("resize", resize, { passive: true });
+  window.addEventListener("scroll", clearPointer, { passive: true, capture: true });
+  window.addEventListener("blur", clearPointer);
   document.addEventListener("visibilitychange", policy);
   [reduced, forced, fine].forEach((media) => media.addEventListener("change", policy));
   void document.fonts?.ready.then(() => { if (!disposed) resize(); });
@@ -206,9 +217,12 @@ export function installBentoMicro(root: HTMLElement): () => void {
     root.removeEventListener("pointermove", pointer);
     root.removeEventListener("pointerout", pointerOut);
     root.removeEventListener("pointerleave", clearPointer);
+    root.removeEventListener("pointercancel", clearPointer);
     root.removeEventListener("focusin", focus);
     root.removeEventListener("focusout", blur);
     window.removeEventListener("resize", resize);
+    window.removeEventListener("scroll", clearPointer, true);
+    window.removeEventListener("blur", clearPointer);
     document.removeEventListener("visibilitychange", policy);
     [reduced, forced, fine].forEach((media) => media.removeEventListener("change", policy));
     groups.forEach((group) => {

@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { chromium, type Browser, type Page } from "playwright-core";
+import { verifyLandingFocus } from "./landing-focus-browser";
 
 const require = createRequire(import.meta.url);
 const output = resolve(process.env.LANDING_QA_DIR || join(tmpdir(), "zenith-landing-visual"));
@@ -149,7 +150,8 @@ async function main() {
       console.log(`Landing browser PASS: ${width}px`);
       await context.close();
     }
-    await writeFile(join(output, "results.json"), JSON.stringify({ status: "passed", url, results }, null, 2));
+    const nativeFocus = await verifyLandingFocus(browser, url);
+    await writeFile(join(output, "results.json"), JSON.stringify({ status: "passed", url, results, nativeFocus }, null, 2));
   } catch (error) {
     await writeFile(join(output, "results.json"), JSON.stringify({ status: "failed", url, results, error: String(error) }, null, 2));
     throw error;

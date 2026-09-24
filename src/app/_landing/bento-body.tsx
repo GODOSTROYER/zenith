@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useReducer, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { OrbitMark, Wordmark } from "@/components/shell/wordmark";
 import { AUTONOMY_LEVELS, AUTONOMY_MEANING } from "@/lib/navigator/shared";
 import { fmtUsd } from "@/lib/format";
@@ -11,8 +11,9 @@ import type { ChapterId } from "./landing-state";
 import { LandingCta } from "./landing-cta";
 import { useHighlight, useLanding } from "./landing-experience";
 import { ESTIMATE, NODE_META, PROPOSED_CHANGE, PROPOSED_IDS, SCALE_STEPS, systemFor } from "./scenario";
-import { approvalExampleReducer, EXPORT_ARTIFACTS, planRiskLabel, providerPresentation, TEAM_STORIES } from "./bento-data";
+import { EXPORT_ARTIFACTS, planRiskLabel, providerPresentation, TEAM_STORIES } from "./bento-data";
 import { BentoSystemMap, Glyph, type GlyphName } from "./bento-visuals";
+import { BentoAgentFlow } from "./bento-agent-flow";
 import styles from "./bento-body.module.css";
 
 function Card({ id, chapter, className, children }: {
@@ -56,7 +57,6 @@ function SystemCard() {
     <div className={styles.mapIntro}>
       <CardTitle id="before" label="The whole picture" description="See the parts. Understand how they fit. Stay connected to what you’re building.">Your whole app.<br />One clear picture.</CardTitle>
       <ViewSwitch />
-      <p className={styles.finePrint}>Illustrative system. No cloud connection.</p>
     </div>
     <div className={styles.mapArt}>
       <BentoSystemMap view={state.view} selected={selected} highlighted={highlight?.nodes} onSelect={(node) => dispatch({ type: "select", node })} />
@@ -66,32 +66,9 @@ function SystemCard() {
 }
 
 function AgentCard() {
-  const [example, send] = useReducer(approvalExampleReducer, { source: "agent", approved: false });
-  const who = example.source === "agent" ? "Agent" : "Your";
   return <Card id="agents" chapter="agents" className={`${styles.agentCard} zenith-ink`}>
     <CardTitle id="agents" label="Same rules. No side doors." description="People and linked agents enter the same plan, review, and approval path.">Agents help.<br />You hold the keys.</CardTitle>
-    <div className={styles.requestExample}>
-      <span className={styles.requestAvatar}><Glyph name={example.source === "agent" ? "agent" : "person"} /></span>
-      <div><small>Example request</small><p>Move uploads into the background.</p></div>
-    </div>
-    <div className={styles.approvalFlow} data-approved={example.approved}>
-      <div className={styles.sourceSwitch} role="group" aria-label="Example request source">
-        <button type="button" aria-pressed={example.source === "you"} onClick={() => send({ type: "source", source: "you" })}><Glyph name="person" size={16} />You</button>
-        <button type="button" aria-pressed={example.source === "agent"} onClick={() => send({ type: "source", source: "agent" })}><Glyph name="agent" size={16} />Agent</button>
-      </div>
-      <div className={styles.path} aria-hidden="true"><span /></div>
-      <span className={styles.flowPlan}>Plan</span>
-      <div className={styles.path} aria-hidden="true"><span /></div>
-      <span className={styles.approvalGate}><Glyph name={example.approved ? "check" : "lock"} size={18} />{example.approved ? "Approved" : "Review"}</span>
-      <div className={`${styles.path} ${styles.lastPath}`} aria-hidden="true"><span /></div>
-      <span className={styles.flowRun}><Glyph name={example.approved ? "check" : "worker"} size={17} /><span>Run</span></span>
-    </div>
-    <div className={styles.agentAction}>
-      <p role="status">{example.approved ? "Example approved. Simulated only; no cloud action." : `${who} proposal is waiting at your approval boundary.`}</p>
-      <button type="button" className={styles.lightButton} onClick={() => send({ type: example.approved ? "reset" : "approve" })}>
-        {example.approved ? "Reset example" : "Approve example"}<Glyph name={example.approved ? "arrow" : "check"} size={16} />
-      </button>
-    </div>
+    <BentoAgentFlow />
   </Card>;
 }
 

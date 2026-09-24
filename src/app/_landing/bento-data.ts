@@ -1,24 +1,6 @@
 /** Presentation-only helpers. No workspace, provider or action APIs belong here. */
 import type { ProviderRow } from "./landing";
 
-export type ExampleSource = "you" | "agent";
-export interface ApprovalExample {
-  source: ExampleSource;
-  approved: boolean;
-}
-export type ApprovalExampleAction =
-  | { type: "source"; source: ExampleSource }
-  | { type: "approve" }
-  | { type: "reset" };
-
-export function approvalExampleReducer(state: ApprovalExample, action: ApprovalExampleAction): ApprovalExample {
-  switch (action.type) {
-    case "source": return { source: action.source, approved: false };
-    case "approve": return { ...state, approved: true };
-    case "reset": return { ...state, approved: false };
-  }
-}
-
 export function planRiskLabel(items: ReadonlyArray<{ risk: string }>): string {
   if (!items.length) return "No changes";
   return items.every((item) => item.risk === "low") ? "Low risk" : "Review risk in the plan";

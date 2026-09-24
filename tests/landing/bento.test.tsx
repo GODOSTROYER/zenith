@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { BentoBody } from "@/app/_landing/bento-body";
-import { approvalExampleReducer, planRiskLabel, providerPresentation } from "@/app/_landing/bento-data";
+import { planRiskLabel, providerPresentation } from "@/app/_landing/bento-data";
 import { LandingExperienceProvider } from "@/app/_landing/landing-experience";
 import { ESTIMATE } from "@/app/_landing/scenario";
 import { AUTONOMY_MEANING } from "@/lib/navigator/shared";
@@ -79,18 +79,16 @@ describe("bento product story", () => {
     expect(host.querySelector("#preview")?.textContent).toContain("Processing worker");
   });
 
-  it("waits for explicit approval and resets consent when the source changes", async () => {
+  it("replaces manual approval with a passive, honestly labeled illustration", async () => {
     await render();
-    const flow = host.querySelector("[data-approved]")!;
-    expect(flow.getAttribute("data-approved")).toBe("false");
-    await click("Approve example");
-    expect(flow.getAttribute("data-approved")).toBe("true");
-    expect(host.querySelector('#agents [role="status"]')?.textContent).toContain("Simulated only; no cloud action");
-    await click("You");
-    expect(flow.getAttribute("data-approved")).toBe("false");
-    await click("Approve example");
-    await click("Reset example");
-    expect(flow.getAttribute("data-approved")).toBe("false");
+    const card = host.querySelector("#agents")!;
+    expect(card.textContent).not.toContain("proposal is waiting");
+    expect(card.textContent).not.toContain("Approve example");
+    expect(card.textContent).not.toContain("Reset example");
+    expect(card.querySelector('[role="status"], [data-approved]')).toBeNull();
+    expect(card.querySelector('[role="img"]')?.getAttribute("aria-label")).toContain("No live cloud action");
+    expect(card.querySelectorAll("button")).toHaveLength(1); // Media pause/play only.
+    expect(card.querySelector("button")?.getAttribute("aria-label")).toBe("Pause agent flow animation");
   });
 
   it("explains all five real autonomy levels without changing a workspace", async () => {
@@ -141,12 +139,16 @@ describe("bento product story", () => {
     expect(observe).not.toHaveBeenCalled();
     expect(host.querySelectorAll("[data-bento]")).toHaveLength(9);
     expect(host.textContent).toContain("Meet Zenith.");
+    expect(host.querySelector("[data-agent-loop]")?.getAttribute("data-loop")).toBe("still");
   });
 });
 
 describe("presentation guardrails", () => {
-  it("makes source changes revoke the example approval", () => {
-    expect(approvalExampleReducer({ source: "agent", approved: true }, { type: "source", source: "you" })).toEqual({ source: "you", approved: false });
+  it("removes the redundant map caption without changing the view controls", async () => {
+    await render();
+    const card = host.querySelector("#before")!;
+    expect(card.textContent).not.toContain("Illustrative system. No cloud connection.");
+    expect(card.querySelector('[aria-label="Example system view"]')).not.toBeNull();
   });
   it("never promotes an unknown or mixed plan risk to low", () => {
     expect(planRiskLabel([])).toBe("No changes");

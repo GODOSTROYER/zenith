@@ -3,7 +3,8 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Journal, SqliteAgentJournal, digest, type Principal, type Proposal } from '../src/lib/agent-access/control/journal';
+import { Journal, SqliteAgentJournal, checkTarget, digest, type Principal, type Proposal } from '../src/lib/agent-access/control/journal';
+import { grantsApp, grantsProject } from '../src/lib/agent-access/security';
 import {
   PgAgentJournal, SCAN_LIMIT, claimStatement, expireStatement, finalizeStatement,
   reconcileStatement, renewStatement, sweepUploadsStatement, type AnySql,
@@ -157,6 +158,56 @@ describe('durable agent journal', () => {
  * wrapper that quietly turned a refusal into a resolved value would throw away
  * the whole of the file store's guarantees.
  */
+describe('checkTarget and the whole-workspace grant', () => {
+  const whole: Principal = { ...who, projectIds: [], allProjects: true };
+  const denied = (fn: () => void) => expect(fn).toThrow(expect.objectContaining({ code: 'scope_denied' }));
+  it('keeps an explicit project list exactly as it was', () => {
+    expect(() => checkTarget(who, { workspaceId: 'ws', projectId: 'project' }, 'plan')).not.toThrow();
+    denied(() => checkTarget(who, { workspaceId: 'ws', projectId: 'created-later' }, 'plan'));
+    denied(() => checkTarget(who, { workspaceId: 'ws' }, 'plan'));
+    denied(() => checkTarget(who, { workspaceId: 'ws', projectId: 'project' }, 'publish'));
+    const narrowed: Principal = { ...who, environmentIds: ['env-a'] };
+    expect(() => checkTarget(narrowed, { workspaceId: 'ws', projectId: 'project', environmentId: 'env-a' }, 'read')).not.toThrow();
+    denied(() => checkTarget(narrowed, { workspaceId: 'ws', projectId: 'project', environmentId: 'env-b' }, 'read'));
+  });
+  it('lets a whole-workspace principal reach any project of its workspace, including one created later', () => {
+    expect(() => checkTarget(whole, { workspaceId: 'ws', projectId: 'created-later' }, 'write')).not.toThrow();
+    expect(() => checkTarget(whole, { workspaceId: 'ws', projectId: 'created-later', environmentId: 'env' }, 'read')).not.toThrow();
+    denied(() => checkTarget(whole, { workspaceId: 'ws', projectId: 'created-later' }, 'publish'));
+  });
+  it('accepts a workspace-level target only for a whole-workspace principal, and never with an environment', () => {
+    expect(() => checkTarget(whole, { workspaceId: 'ws' }, 'plan')).not.toThrow();
+    denied(() => checkTarget(whole, { workspaceId: 'ws', environmentId: 'env' }, 'plan'));
+    denied(() => checkTarget({ ...who, allProjects: undefined }, { workspaceId: 'ws' }, 'plan'));
+  });
+  it('refuses another workspace under allProjects, at project and workspace level', () => {
+    denied(() => checkTarget(whole, { workspaceId: 'other-ws' }, 'plan'));
+    denied(() => checkTarget(whole, { workspaceId: 'other-ws', projectId: 'project' }, 'plan'));
+  });
+  it('still refuses an expired whole-workspace principal', () => {
+    expect(() => checkTarget({ ...whole, expiresAt: '2000-01-01T00:00:00Z' }, { workspaceId: 'ws' }, 'plan'))
+      .toThrow(expect.objectContaining({ code: 'credential_expired' }));
+  });
+  it('journals a workspace-level proposal for a whole-workspace principal only', () => {
+    const j = new Journal(':memory:'); try {
+      const ws: Proposal = { ...proposal, target: { workspaceId: 'ws' }, requestKey: 'request_ws_0001' };
+      denied(() => j.prepare(who, ws));
+      const op = j.prepare(whole, ws);
+      expect(op.target).toEqual({ workspaceId: 'ws' });
+      expect(j.get(whole, op.id).id).toBe(op.id);
+      denied(() => j.get({ ...who, subject: whole.subject }, op.id));
+    } finally { j.close(); }
+  });
+  it('exposes one predicate for projects and one for apps', () => {
+    expect(grantsProject({ projectIds: ['a'] }, 'a')).toBe(true);
+    expect(grantsProject({ projectIds: ['a'] }, 'b')).toBe(false);
+    expect(grantsProject({ projectIds: [], allProjects: true }, 'b')).toBe(true);
+    expect(grantsProject({ projectIds: ['a'], allProjects: false }, 'b')).toBe(false);
+    expect(grantsApp({}, 'app')).toBe(false);
+    expect(grantsApp({ appIds: ['app'] }, 'app')).toBe(true);
+    expect(grantsApp({ allProjects: true }, 'app')).toBe(true);
+  });
+});
 describe('SqliteAgentJournal', () => {
   it('answers exactly as the synchronous journal does, asynchronously', async () => {
     const inner = new Journal(':memory:');
@@ -359,6 +410,12 @@ describe.skipIf(!PG_LIVE)('postgres agent journal (live)', () => {
     // would prove nothing about this one.
     await clientA.unsafe(
       "insert into agent.schema_migrations (version, name, applied_at) values (1, 'agent-link-v1', '2026-01-01T00:00:00.000Z') on conflict (version) do nothing"
+    );
+    // Version 3 (`0008_agent_workspace_scope.sql`) alters `agent_credentials`
+    // from 0006 as well; only its `agent_operations` half matters to the journal.
+    await clientA.unsafe('alter table agent.agent_operations alter column project_id drop not null');
+    await clientA.unsafe(
+      "insert into agent.schema_migrations (version, name, applied_at) values (3, 'agent-workspace-scope-v1', '2026-01-01T00:00:00.000Z') on conflict (version) do nothing"
     );
   });
 

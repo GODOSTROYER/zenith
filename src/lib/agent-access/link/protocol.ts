@@ -24,8 +24,37 @@ import { AgentError } from "../security";
 import { decodeSecretKey, env } from "@/lib/env";
 import { seal, secretStoreState, unseal } from "@/lib/secrets";
 
-/** The integer both ends hard-code. Bumping it is a protocol change. */
-export const LINK_PROTOCOL_VERSION = 1;
+/**
+ * The newest link protocol this server speaks. Version 2 adds the workspace
+ * hints on `/start` and the whole-workspace grant (`allProjects` with an empty
+ * `projectIds`) on `/token`.
+ */
+export const LINK_PROTOCOL_VERSION = 2;
+
+/**
+ * Every version this server still answers. A version-1 client keeps working
+ * unchanged: it is never offered the whole-workspace grant (it would reject the
+ * empty `projectIds` at exchange and burn the single-use token), and every
+ * response it sees echoes the version it spoke.
+ */
+export const LINK_PROTOCOL_VERSIONS: readonly number[] = [1, 2];
+
+/** The version a request spoke: absent means 1. Anything else is refused. */
+function protocolOf(value: unknown): number {
+  if (value === undefined) return 1;
+  if (typeof value !== "number" || !LINK_PROTOCOL_VERSIONS.includes(value))
+    throw invalid(
+      `This server speaks link protocol versions ${LINK_PROTOCOL_VERSIONS.join(" and ")}. Update the Zenith plugin.`
+    );
+  return value;
+}
+
+/**
+ * A workspace name a person would type: 1-60 characters, starting with a letter
+ * or digit, then letters, digits, spaces and light punctuation. No control or
+ * markup characters, so the unverified hint can only ever fill a text box.
+ */
+const WORKSPACE_NAME = /^[\p{L}\p{N}][\p{L}\p{N} ._'&()+-]{0,59}$/u;
 
 /** Ten minutes, fixed — §2.1. */
 export const LINK_TTL_MS = 600_000;
@@ -333,16 +362,46 @@ export interface StartRequest {
   clientVersion?: string;
   label?: string;
   requestedScopes: string[];
+  /** The version the client spoke; 1 when it sent none. Echoed on the response. */
+  protocolVersion: number;
+  /** v2 only: a workspace id to preselect. Unverified; never authority. */
+  workspaceHint?: string;
+  /** v2 only: a name to prefill "Create a new workspace" with. Unverified. */
+  workspaceNameHint?: string;
 }
 
 /** §2.1's body, validated exactly as written. Unknown keys are refused. */
 export function parseStartRequest(value: unknown): StartRequest {
   if (!objectOf(value)) throw invalid("Send a JSON object describing the client asking for access.");
-  const allowed = ["clientName", "clientVersion", "label", "requestedScopes", "protocolVersion"];
+  const allowed = [
+    "clientName",
+    "clientVersion",
+    "label",
+    "requestedScopes",
+    "protocolVersion",
+    "workspaceHint",
+    "workspaceNameHint",
+  ];
   if (Object.keys(value).some((key) => !allowed.includes(key)))
     throw invalid("This request carries fields this server does not accept.");
-  if (value.protocolVersion !== undefined && value.protocolVersion !== LINK_PROTOCOL_VERSION)
-    throw invalid(`This server speaks link protocol version ${LINK_PROTOCOL_VERSION}. Update the Zenith plugin.`);
+  const protocolVersion = protocolOf(value.protocolVersion);
+  const workspaceHint = value.workspaceHint;
+  const workspaceNameHint = value.workspaceNameHint;
+  if ((workspaceHint !== undefined || workspaceNameHint !== undefined) && protocolVersion < 2)
+    throw invalid("Workspace hints need link protocol version 2. Send protocolVersion: 2.");
+  if (workspaceHint !== undefined && workspaceNameHint !== undefined)
+    throw invalid("Send either a workspace to select or a name for a new one, not both.");
+  if (workspaceHint !== undefined && !identifier(workspaceHint))
+    throw invalid("A workspace hint is a workspace id: 1-100 letters, digits, underscores or dashes.");
+  if (
+    workspaceNameHint !== undefined &&
+    (typeof workspaceNameHint !== "string" ||
+      !WORKSPACE_NAME.test(workspaceNameHint) ||
+      workspaceNameHint.trim() !== workspaceNameHint)
+  )
+    throw invalid(
+      "A new workspace name is 1-60 plain characters: letters, digits, spaces and . _ ' & ( ) + -, with no leading or trailing space."
+    );
   const clientName = value.clientName;
   if (typeof clientName !== "string" || !/^[A-Za-z0-9 ._-]{1,60}$/.test(clientName))
     throw invalid("Supply a client name of 1-60 plain characters.");
@@ -366,19 +425,26 @@ export function parseStartRequest(value: unknown): StartRequest {
     ...(label === undefined ? {} : { label }),
     // A hint only. The browser decides what is actually granted.
     requestedScopes: [...new Set((requested ?? ["read"]).map(String))],
+    protocolVersion,
+    ...(workspaceHint === undefined ? {} : { workspaceHint: workspaceHint as string }),
+    ...(workspaceNameHint === undefined ? {} : { workspaceNameHint: workspaceNameHint as string }),
   };
 }
 
-/** §2.5's body. */
-export function parseTokenRequest(value: unknown): string {
+/** §2.5's body, with the version the poller spoke (1 when absent). */
+export function parseTokenBody(value: unknown): { deviceCode: string; protocolVersion: number } {
   if (!objectOf(value)) throw invalid("Send a JSON object carrying the device code.");
   const allowed = ["deviceCode", "protocolVersion"];
   if (Object.keys(value).some((key) => !allowed.includes(key)))
     throw invalid("This request carries fields this server does not accept.");
-  if (value.protocolVersion !== undefined && value.protocolVersion !== LINK_PROTOCOL_VERSION)
-    throw invalid(`This server speaks link protocol version ${LINK_PROTOCOL_VERSION}. Update the Zenith plugin.`);
+  const protocolVersion = protocolOf(value.protocolVersion);
   if (!isDeviceCode(value.deviceCode)) throw invalid("Supply the device code this server issued.");
-  return value.deviceCode;
+  return { deviceCode: value.deviceCode, protocolVersion };
+}
+
+/** §2.5's body: the device code alone. */
+export function parseTokenRequest(value: unknown): string {
+  return parseTokenBody(value).deviceCode;
 }
 
 /**
@@ -392,8 +458,12 @@ export type ApproveRequest =
       approve: true;
       userCode: string;
       workspaceId: string;
+      /** `[]` exactly when `allProjects` is true. */
       projectIds: string[];
+      /** Never present with `allProjects`. */
       environmentIds?: string[];
+      /** The whole-workspace grant. The authority refuses it for a protocol-1 request. */
+      allProjects: boolean;
       scopes: string[];
       days: number;
       label?: string;
@@ -408,7 +478,7 @@ const identifiers = (x: unknown): x is string[] =>
 /** §2.4's body. Everything in it is rechecked against live state afterwards. */
 export function parseApproveRequest(value: unknown): ApproveRequest {
   if (!objectOf(value)) throw invalid("Send a JSON object describing the approval.");
-  const allowed = ["userCode", "approve", "workspaceId", "projectIds", "environmentIds", "scopes", "days", "label"];
+  const allowed = ["userCode", "approve", "workspaceId", "projectIds", "environmentIds", "allProjects", "scopes", "days", "label"];
   if (Object.keys(value).some((key) => !allowed.includes(key)))
     throw invalid("This request carries fields this server does not accept.");
   const userCode = normalizeUserCode(value.userCode);
@@ -419,7 +489,17 @@ export function parseApproveRequest(value: unknown): ApproveRequest {
     throw invalid("A label is 1-40 characters of letters, digits, dot, underscore or dash.");
   if (!value.approve) return { userCode, approve: false, ...(label === undefined ? {} : { label }) };
   if (!identifier(value.workspaceId)) throw invalid("Choose the workspace this agent may act in.");
-  if (!identifiers(value.projectIds)) throw invalid("Choose at least one project this agent may see.");
+  if (value.allProjects !== undefined && typeof value.allProjects !== "boolean")
+    throw invalid("Say explicitly whether this agent gets the whole workspace.");
+  const allProjects = value.allProjects === true;
+  if (allProjects) {
+    if (!Array.isArray(value.projectIds) || value.projectIds.length !== 0)
+      throw invalid("A whole-workspace grant names no projects: send projectIds: [].");
+    if (value.environmentIds !== undefined)
+      throw invalid(
+        "Environment narrowing needs an explicit project list; it cannot be combined with the whole workspace."
+      );
+  } else if (!identifiers(value.projectIds)) throw invalid("Choose at least one project this agent may see.");
   if (value.environmentIds !== undefined && !identifiers(value.environmentIds))
     throw invalid("Environment narrowing, when used, is a list of environments of the chosen projects.");
   const scopes = value.scopes;
@@ -439,8 +519,9 @@ export function parseApproveRequest(value: unknown): ApproveRequest {
     userCode,
     approve: true,
     workspaceId: value.workspaceId,
-    projectIds: value.projectIds,
+    projectIds: value.projectIds as string[],
     ...(value.environmentIds === undefined ? {} : { environmentIds: value.environmentIds as string[] }),
+    allProjects,
     scopes: scopes.map(String),
     days,
     ...(label === undefined ? {} : { label }),

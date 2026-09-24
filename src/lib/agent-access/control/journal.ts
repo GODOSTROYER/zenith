@@ -3,6 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { createHash, randomUUID } from 'node:crypto';
 import { chmodSync, existsSync, lstatSync, mkdirSync, openSync, closeSync } from 'node:fs';
 import { dirname, isAbsolute } from 'node:path';
+import { grantsApp, grantsProject } from '../security';
 
 export class ControlError extends Error {
   constructor(readonly code: string, message: string, readonly status = 409) { super(message); }
@@ -12,8 +13,11 @@ export interface Principal {
   projectIds: string[]; environmentIds?: string[]; appIds?: string[]; scopes: string[]; expiresAt: string; oauthIssuer?: string;
   /** Digest of the live resource grant when the principal came from OAuth. */
   grantDigest?: string;
+  /** Whole-workspace grant (see `Credential.allProjects`). Only `grantsProject` reads it. */
+  allProjects?: true;
 }
-export interface Target { workspaceId: string; projectId: string; environmentId?: string }
+/** `projectId` absent = a workspace-level target, which needs `allProjects`. */
+export interface Target { workspaceId: string; projectId?: string; environmentId?: string }
 export interface Proposal {
   action: string; input: Record<string, unknown>; target: Target; fingerprint: string;
   plan: Record<string, unknown>; requestKey: string; clientInputDigest?: string; source?: { repository: string; commit: string; pullRequest?: number };
@@ -34,11 +38,27 @@ export function canonical(value: unknown): string {
   return `{${Object.entries(value).filter(([, v]) => v !== undefined).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(',')}}`;
 }
 export function digest(value: unknown): string { return createHash('sha256').update(canonical(value)).digest('hex'); }
+/**
+ * The grant check for one target. A workspace-level target (no `projectId`)
+ * passes only for a whole-workspace principal, and never with an
+ * `environmentId`. Existence and tenancy of the project stay in the caller's
+ * `resolveTarget` (`project.workspaceId === target.workspaceId`), so
+ * `allProjects` never reaches another workspace's project.
+ */
 export function checkTarget(who: Principal, target: Target, scope: string, now = Date.now()): void {
   if (Date.parse(who.expiresAt) <= now || !Number.isFinite(Date.parse(who.expiresAt))) throw new ControlError('credential_expired', 'Re-authenticate before continuing.', 401);
-  if (!who.scopes.includes(scope) || target.workspaceId !== who.workspaceId || !who.projectIds.includes(target.projectId)
+  const projectOk = target.projectId === undefined
+    ? who.allProjects === true && target.environmentId === undefined
+    : grantsProject(who, target.projectId);
+  if (!who.scopes.includes(scope) || target.workspaceId !== who.workspaceId || !projectOk
     || target.environmentId && who.environmentIds && !who.environmentIds.includes(target.environmentId))
     throw new ControlError('scope_denied', 'This integration cannot access this operation or target.', 403);
+}
+
+/** The project of a project-level target; a workspace-level target is refused (uploads, for one). */
+export function projectOf(target: Target): string {
+  if (target.projectId === undefined) throw new ControlError('scope_denied', 'This operation needs a project target.', 403);
+  return target.projectId;
 }
 
 /** A durable OAuth client grant, as both stores hand it back. */
@@ -313,7 +333,7 @@ export class Journal {
   }
   putUpload(who: Principal, target: Target, appId: string, bytes: Buffer): { uploadId: string; sha256: string; bytes: number; expiresAt: string } {
     checkTarget(who, target, 'publish', this.clock());
-    if (!who.appIds?.includes(appId)) throw new ControlError('scope_denied', 'Select an explicitly authorized app.', 403);
+    if (!grantsApp(who, appId)) throw new ControlError('scope_denied', 'Select an explicitly authorized app.', 403);
     if (!bytes.length || bytes.length > 20 * 1024 * 1024) throw new ControlError('source_too_large', 'Source archive exceeds its upload limit.', 413);
     return this.transaction(() => {
       this.expirePending();
@@ -321,15 +341,15 @@ export class Journal {
       if (usage.n >= 20 || usage.size + bytes.length > 100 * 1024 * 1024) throw new ControlError('upload_quota', 'Wait for pending uploads to expire before uploading more.', 429);
       const id = `upload_${randomUUID()}`, sha256 = createHash('sha256').update(bytes).digest('hex');
       const expires = Math.min(this.clock() + 3600000, Date.parse(who.expiresAt));
-      this.sql.prepare('INSERT INTO agent_uploads VALUES(?,?,?,?,?,?,?,?)').run(id, who.subject, who.workspaceId, target.projectId, appId, sha256, expires, bytes);
+      this.sql.prepare('INSERT INTO agent_uploads VALUES(?,?,?,?,?,?,?,?)').run(id, who.subject, who.workspaceId, projectOf(target), appId, sha256, expires, bytes);
       return { uploadId: id, sha256, bytes: bytes.length, expiresAt: new Date(expires).toISOString() };
     });
   }
   upload(who: Principal, target: Target, appId: string, id: string, expectedHash: string): Buffer {
     checkTarget(who, target, 'publish', this.clock());
     const row = this.sql.prepare('SELECT * FROM agent_uploads WHERE id=? AND subject=? AND workspace=? AND project=? AND app=?')
-      .get(id, who.subject, who.workspaceId, target.projectId, appId) as { sha256: string; expires_at: number; bytes: Uint8Array } | undefined;
-    if (!who.appIds?.includes(appId) || !row || row.expires_at <= this.clock() || row.sha256 !== expectedHash)
+      .get(id, who.subject, who.workspaceId, projectOf(target), appId) as { sha256: string; expires_at: number; bytes: Uint8Array } | undefined;
+    if (!grantsApp(who, appId) || !row || row.expires_at <= this.clock() || row.sha256 !== expectedHash)
       throw new ControlError('upload_unavailable', 'Upload missing, expired, out of scope or changed. Upload and prepare again.', 404);
     const bytes = Buffer.from(row.bytes);
     if (createHash('sha256').update(bytes).digest('hex') !== expectedHash) throw new ControlError('upload_corrupt', 'Stored source integrity check failed.', 503);

@@ -38,6 +38,7 @@ import {
   paceInterval,
   sealLinkSecret,
 } from "../link/protocol";
+import { checkScopeShape, protocolTooOld } from "./scope";
 import type {
   ApproveLinkInput,
   CredentialAuthority,
@@ -50,6 +51,13 @@ import type {
 /** The migration `supabase/migrations/0006_agent_link.sql` records. */
 export const AGENT_SCHEMA_VERSION = 1;
 export const AGENT_SCHEMA_NAME = "agent-link-v1";
+/**
+ * The migration `supabase/migrations/0008_agent_workspace_scope.sql` records:
+ * `all_projects`, the link protocol version and the workspace hints. This
+ * build writes those columns, so it needs both ledger rows.
+ */
+export const AGENT_SCOPE_SCHEMA_VERSION = 3;
+export const AGENT_SCOPE_SCHEMA_NAME = "agent-workspace-scope-v1";
 
 /** How long a consumed or expired row is kept before housekeeping deletes it. */
 const LINK_RETENTION_MS = 86_400_000;
@@ -96,6 +104,8 @@ interface CredentialRow {
   expires_at: string;
   revoked_at: string | null;
   last_used_at: string | null;
+  /** 0008. `false` on every row an older build wrote. */
+  all_projects?: boolean | null;
 }
 
 const toCredential = (row: CredentialRow): LinkedCredential => ({
@@ -107,6 +117,7 @@ const toCredential = (row: CredentialRow): LinkedCredential => ({
   ...(row.environment_ids ? { environmentIds: stringArray(row.environment_ids) } : {}),
   ...(row.app_ids ? { appIds: stringArray(row.app_ids) } : {}),
   scopes: stringArray(row.scopes) as Credential["scopes"],
+  ...(row.all_projects === true ? { allProjects: true as const } : {}),
   issuedAt: row.issued_at,
   expiresAt: row.expires_at,
   ...(row.label ? { label: row.label } : {}),
@@ -131,7 +142,17 @@ interface LinkCodeRow {
   poll_count: number;
   last_polled_at: string | null;
   failed_lookups: number;
+  /** 0008. Absent or 1 for a row an older build wrote. */
+  protocol_version?: number | null;
+  workspace_hint?: string | null;
+  workspace_name_hint?: string | null;
 }
+
+/** The protocol a stored link request spoke. Anything unreadable is 1, the narrower one. */
+const protocolOfRow = (row: LinkCodeRow): number => {
+  const v = Number(row.protocol_version ?? 1);
+  return Number.isInteger(v) && v >= 1 ? v : 1;
+};
 
 const toLinkRow = (row: LinkCodeRow, now: number): LinkRow => ({
   // The store holds only the hash; the caller echoes the code it looked up with.
@@ -147,6 +168,9 @@ const toLinkRow = (row: LinkCodeRow, now: number): LinkRow => ({
   createdAt: row.created_at,
   expiresAt: row.expires_at,
   ...(row.credential_id ? { credentialId: row.credential_id } : {}),
+  protocolVersion: protocolOfRow(row),
+  ...(row.workspace_hint ? { workspaceHint: row.workspace_hint } : {}),
+  ...(row.workspace_name_hint ? { workspaceNameHint: row.workspace_name_hint } : {}),
 });
 
 export class PgCredentialAuthority implements CredentialAuthority {
@@ -171,10 +195,14 @@ export class PgCredentialAuthority implements CredentialAuthority {
           `The agent control database has no \`agent\` schema, so credentials cannot be issued or checked. Fix: apply supabase/migrations/0006_agent_link.sql (Supabase SQL editor, or psql against SUPABASE_DB_URL) and start again.`
         );
       })) as unknown as { version: number }[];
-      const found = rows.map((row) => row.version);
+      const found = rows.map((row) => Number(row.version));
       if (!found.includes(AGENT_SCHEMA_VERSION))
         throw unavailable(
           `The agent control database records schema versions ${found.join(", ") || "none"}, and this build needs version ${AGENT_SCHEMA_VERSION} ("${AGENT_SCHEMA_NAME}"). Fix: apply supabase/migrations/0006_agent_link.sql and start again. Re-applying it is safe; nothing was read or written in the meantime.`
+        );
+      if (!found.includes(AGENT_SCOPE_SCHEMA_VERSION))
+        throw unavailable(
+          `The agent control database records schema versions ${found.join(", ")}, and this build needs version ${AGENT_SCOPE_SCHEMA_VERSION} ("${AGENT_SCOPE_SCHEMA_NAME}") for whole-workspace links. Fix: apply supabase/migrations/0008_agent_workspace_scope.sql and start again. Re-applying it is safe; nothing was read or written in the meantime.`
         );
     })();
     await this.checked;
@@ -224,11 +252,13 @@ export class PgCredentialAuthority implements CredentialAuthority {
     await sql`
       insert into agent.agent_link_codes
         (user_code_hash, device_code_hash, state, client_name, client_version, label,
-         requested_scopes, created_at, expires_at, poll_count, failed_lookups)
+         requested_scopes, created_at, expires_at, poll_count, failed_lookups,
+         protocol_version, workspace_hint, workspace_name_hint)
       values (${start.userCodeHash}, ${start.deviceCodeHash}, 'pending', ${start.clientName},
               ${start.clientVersion ?? null}, ${start.label ?? null},
               ${jsonArray(start.requestedScopes)}::text::jsonb, ${start.createdAt}, ${start.expiresAt},
-              0, 0)
+              0, 0,
+              ${start.protocolVersion ?? 1}, ${start.workspaceHint ?? null}, ${start.workspaceNameHint ?? null})
     `;
   }
 
@@ -259,6 +289,7 @@ export class PgCredentialAuthority implements CredentialAuthority {
     const now = input.now ?? Date.now();
     if (!Number.isInteger(input.days) || input.days < 1 || input.days > LINK_MAX_DAYS)
       throw new AgentError("invalid_request", `Choose a lifetime between 1 and ${LINK_MAX_DAYS} days.`, 400);
+    const allProjects = checkScopeShape(input);
     const sql = await this.schema();
     const nowIso = new Date(now).toISOString();
     const token = mintToken();
@@ -279,6 +310,7 @@ export class PgCredentialAuthority implements CredentialAuthority {
         );
       if (code.state !== "pending")
         throw new AgentError("link_code_consumed", "This link request was already answered.", 409);
+      if (allProjects && protocolOfRow(code) < 2) throw protocolTooOld();
 
       const live = (await tx`
         select count(*)::int as n from agent.agent_credentials
@@ -295,14 +327,14 @@ export class PgCredentialAuthority implements CredentialAuthority {
       await tx`
         insert into agent.agent_credentials
           (id, token_hash, subject, workspace_id, project_ids, environment_ids, app_ids, scopes,
-           label, client_name, client_version, issued_at, expires_at, created_by)
+           label, client_name, client_version, issued_at, expires_at, created_by, all_projects)
         values (${credentialId}, ${hashToken(token)}, ${input.subject}, ${input.workspaceId},
                 ${jsonArray(input.projectIds)}::text::jsonb,
                 ${input.environmentIds ? jsonArray(input.environmentIds) : null}::text::jsonb,
                 null,
                 ${jsonArray(input.scopes)}::text::jsonb,
                 ${input.label ?? code.label ?? null}, ${code.client_name}, ${code.client_version ?? null},
-                ${nowIso}, ${expiresAt}, ${input.subject})
+                ${nowIso}, ${expiresAt}, ${input.subject}, ${allProjects})
       `;
 
       // One row moves pending -> approved, atomically, or nobody does: a

@@ -471,7 +471,7 @@ leases for the engine do not exist yet.
 
 ---
 
-## 9. The `agent` schema — migrations `0006` and `0007`
+## 9. The `agent` schema — migrations `0006`, `0007` and `0008`
 
 The linked-agent feature adds one schema, `agent`, with its own migration
 ledger. It is deliberately not `hosted.*`: that schema is gated by the hosted
@@ -484,6 +484,7 @@ and nothing in the `agent` schema should ever be reachable over the Data API.
 | --- | --- | --- |
 | `0006_agent_link.sql` | `1 \| agent-link-v1` | `agent_credentials`, `agent_link_codes`, `agent_rate_limits` |
 | `0007_agent_control.sql` | `2 \| agent-control-v1` | `agent_operations`, `agent_operation_events`, `agent_uploads` |
+| `0008_agent_workspace_scope.sql` | `3 \| agent-workspace-scope-v1` | no new table: alters `agent_credentials`, `agent_link_codes`, `agent_operations` (§9.4) |
 
 Both create the schema if it is absent, both are idempotent, and both carry the
 full `service_role` grant block, so either order applies and re-applying is a
@@ -602,6 +603,72 @@ nobody can say what happened to its side effect.
 | `42P01 agent.agent_operations does not exist` | `0007` was not applied, or was applied to a different project | apply it; the file is idempotent |
 | an operation sits at `uncertain` | its dispatch could not be confirmed — a killed instance, a lost version guard, or an authority that moved mid-flight | inspect the linked deployment or job on `/integrations`. **Do not** re-run it with a new request key; that is the silent replay this design refuses |
 | `zenith_get_capabilities` reports `coordination: "process-gate"` on production | the deployment is running the file store, not Postgres | check `ZENITH_STORE`. The advertisement is truthful by design, so this is the symptom doing its job |
+
+### 9.4 `0008_agent_workspace_scope.sql` — the whole-workspace grant
+
+Additive, idempotent, applied by hand after `0006` and `0007` (it alters their
+tables, so it fails with `42P01` if either is missing — apply them first). It
+adds:
+
+- `agent_credentials.all_projects boolean not null default false`, and swaps
+  0006's unnamed `project_ids` length check for
+  `agent_credentials_project_scope` (at most 100; at least one unless
+  `all_projects`) plus `agent_credentials_scope_env` (no environment narrowing
+  on a whole-workspace credential);
+- `agent_link_codes.protocol_version int not null default 1`,
+  `workspace_hint`, `workspace_name_hint` (≤ 60 characters);
+- `agent_operations.project_id` becomes nullable (workspace-level operations);
+- the `service_role` grant block, and ledger row `3 | agent-workspace-scope-v1`.
+
+**Order with the deploy.** Apply `0008` **before** deploying a build that
+writes whole-workspace credentials or workspace-level operations. The build
+before it reads the ledger with "contains", not "equals", so it keeps working
+with version 3 present, and every row it writes satisfies the new checks.
+
+**1. Pre-check.**
+
+```sql
+select version, name from agent.schema_migrations order by version;  -- 1, 2
+```
+
+**2. Apply `supabase/migrations/0008_agent_workspace_scope.sql`.** Verify:
+
+```sql
+select version, name from agent.schema_migrations order by version;
+-- 1 | agent-link-v1, 2 | agent-control-v1, 3 | agent-workspace-scope-v1
+select conname from pg_constraint
+ where conrelid = 'agent.agent_credentials'::regclass and contype = 'c' order by 1;
+-- includes agent_credentials_project_scope and agent_credentials_scope_env;
+-- no other constraint mentions jsonb_array_length(project_ids)
+select column_name, is_nullable, column_default from information_schema.columns
+ where table_schema = 'agent'
+   and column_name in ('all_projects','protocol_version','workspace_hint','workspace_name_hint','project_id')
+ order by table_name, column_name;
+-- agent_operations.project_id is_nullable = YES
+select count(*) from agent.agent_credentials where all_projects;     -- 0 until a v2 link
+select has_schema_privilege('service_role','agent','USAGE');          -- t
+```
+
+Re-applying the file is a no-op: the columns use `if not exists`, the
+constraint swap is guarded by name, and the ledger insert is
+`on conflict do nothing`.
+
+**3. Smoke test with the existing credential** (`GET /api/agent/v2/tools` with
+its bearer). It must still answer 200: an explicit-list credential is
+unchanged by this migration.
+
+**Rollback.** Revert the application deployment; the old build ignores every
+added column. Do not drop anything. Only if the old schema must be restored
+exactly, and only when both counts are 0:
+
+```sql
+select count(*) from agent.agent_operations where project_id is null;
+select count(*) from agent.agent_credentials where all_projects;
+```
+
+then `alter table agent.agent_operations alter column project_id set not null;`
+— the columns and the relaxed checks can stay, since the old build satisfies
+them.
 
 ---
 

@@ -111,8 +111,8 @@ beforeAll(async () => {
   const ledger = await alpha`select version, name from agent.schema_migrations order by version`;
   expect(
     ledger.map((row) => `${String(row.version)}:${String(row.name)}`),
-    "supabase/migrations/0006_agent_link.sql and 0007_agent_control.sql must both be applied"
-  ).toEqual(["1:agent-link-v1", "2:agent-control-v1"]);
+    "supabase/migrations/0006_agent_link.sql, 0007_agent_control.sql and 0008_agent_workspace_scope.sql must all be applied"
+  ).toEqual(["1:agent-link-v1", "2:agent-control-v1", "3:agent-workspace-scope-v1"]);
 });
 
 afterAll(async () => {
@@ -554,6 +554,56 @@ describe.skipIf(!enabled())("AgentControlPostgres", () => {
         (def) => /unique/i.test(def) && /where/i.test(def) && /phase = 'running'/i.test(def)
       );
       expect(singleFlight, "no undiscussed single-flight index").toEqual([]);
+    });
+  });
+  /*
+   * PLAN3 §2b: a workspace-level operation (project.create and friends) is
+   * journalled with a null project_id, and only for a whole-workspace grant.
+   */
+  describe("workspace-level operations", () => {
+    const workspaceId = id("ws-level");
+    const subject = id("subject");
+    const expiresAt = iso(3_600_000);
+    const listedWho = { subject, integrationId: id("cred"), workspaceId, projectIds: [id("prj")], scopes: ["read", "plan", "write"], expiresAt };
+    const wholeWho = { ...listedWho, projectIds: [], allProjects: true as const };
+    const proposal = (requestKey: string) => ({
+      action: "project.create", input: { name: "Agent project" }, target: { workspaceId },
+      fingerprint: hex(), plan: { kind: "project.create", level: "ws" }, requestKey,
+    });
+
+    afterAll(async () => {
+      if (!enabled() || !alpha) return;
+      await alpha`delete from agent.agent_operations where workspace_id = ${workspaceId}`;
+    });
+
+    it("journals, reviews and claims a row with a null project_id", async () => {
+      const { PgAgentJournal } = await import("@/lib/agent-access/control/journal-pg");
+      const journal = new PgAgentJournal({ client: alpha });
+      const op = await journal.prepare(wholeWho, proposal(id("request")));
+      const [row] = await alpha`select project_id, environment_id from agent.agent_operations where id = ${op.id}`;
+      expect(row.project_id).toBeNull();
+      expect(row.environment_id).toBeNull();
+      await journal.review(op.id, subject, workspaceId, op.digest, true, id("approver"), "admin");
+      const claimed = await journal.claim(wholeWho, op.id, op.fingerprint);
+      expect(claimed.claimed).toBe(true);
+      expect((await journal.finishIfValid(wholeWho, op.id, { ok: true }, true)).phase).toBe("succeeded");
+    });
+
+    it("refuses an explicit-list principal and writes nothing", async () => {
+      const { PgAgentJournal } = await import("@/lib/agent-access/control/journal-pg");
+      const journal = new PgAgentJournal({ client: alpha });
+      const requestKey = id("request");
+      await expect(journal.prepare(listedWho, proposal(requestKey))).rejects.toMatchObject({ code: "scope_denied" });
+      const rows = await alpha`select count(*) as n from agent.agent_operations where workspace_id = ${workspaceId} and request_key = ${requestKey}`;
+      expect(Number(rows[0].n)).toBe(0);
+    });
+
+    it("hides a workspace-level row from an explicit-list read", async () => {
+      const { PgAgentJournal } = await import("@/lib/agent-access/control/journal-pg");
+      const journal = new PgAgentJournal({ client: alpha });
+      const op = await journal.prepare(wholeWho, proposal(id("request")));
+      await expect(journal.get(listedWho, op.id)).rejects.toMatchObject({ code: "scope_denied" });
+      expect((await journal.list(listedWho)).some((row) => row.id === op.id)).toBe(false);
     });
   });
 });

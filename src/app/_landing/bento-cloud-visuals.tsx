@@ -19,8 +19,10 @@ export function CloudLogo({ id }: { id: string }) {
   const brand = CLOUD_BRANDS.find((item) => item.id === (id === "oracle-coming-later" ? "oracle" : id));
   if (!brand) return <span className={styles.environmentMark} aria-hidden="true"><Glyph name={id === "sandbox" ? "layers" : "globe"} /></span>;
   // Names are supplied by the surrounding figure/row; the image is not announced twice.
+  // AWS/Oracle have square canvases around horizontal artwork: crop only empty canvas.
   return <Image src={`/cloud-logos/${brand.asset}.svg`} width={brand.width} height={brand.height}
-    className={styles.logo} data-cloud-logo={brand.id} alt="" unoptimized />;
+    className={styles.logo} data-cloud-logo={brand.id} alt="" unoptimized
+    style={brand.id === "aws" || brand.id === "oracle" ? { objectFit: "cover" } : undefined} />;
 }
 
 /** Three real infrastructure concepts resolve into one managed surface. */

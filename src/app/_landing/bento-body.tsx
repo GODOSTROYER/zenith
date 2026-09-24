@@ -15,6 +15,8 @@ import { EXPORT_ARTIFACTS, planRiskLabel, TEAM_STORIES } from "./bento-data";
 import { BentoSystemMap, Glyph, type GlyphName } from "./bento-visuals";
 import { BentoAgentFlow } from "./bento-agent-flow";
 import { BentoCloudCluster } from "./bento-cloud";
+import { MicroGroup, useBentoMicro } from "./bento-micro";
+import micro from "./bento-micro.module.css";
 import styles from "./bento-body.module.css";
 
 function Card({ id, chapter, className, children }: {
@@ -39,12 +41,12 @@ function CardTitle({ id, label, children, description }: {
   </header>;
 }
 
-function ViewSwitch() {
+function ViewSwitch({ cost = false }: { cost?: boolean }) {
   const { state, dispatch } = useLanding();
-  return <div className={styles.viewSwitch} role="group" aria-label="Example system view">
+  return <MicroGroup tone={cost ? "estimate" : "view"} className={styles.viewSwitch} role="group" aria-label={cost ? "Example cost view" : "Example system view"}>
     <button type="button" aria-pressed={state.view === "current"} onClick={() => dispatch({ type: "view", view: "current" })}>Current</button>
     <button type="button" aria-pressed={state.view === "proposed"} onClick={() => dispatch({ type: "view", view: "proposed" })}>Proposed <span aria-hidden="true">+</span></button>
-  </div>;
+  </MicroGroup>;
 }
 
 function SystemCard() {
@@ -61,7 +63,7 @@ function SystemCard() {
     </div>
     <div className={styles.mapArt}>
       <BentoSystemMap view={state.view} selected={selected} highlighted={highlight?.nodes} onSelect={(node) => dispatch({ type: "select", node })} />
-      <p className={styles.mapCaption}><b>{NODE_META[selected].label}</b><span>{NODE_META[selected].role}</span></p>
+      <p className={styles.mapCaption} data-micro-change="text" data-micro-value={selected}><b>{NODE_META[selected].label}</b><span>{NODE_META[selected].role}</span></p>
     </div>
   </Card>;
 }
@@ -78,15 +80,15 @@ function PreviewCard() {
   const proposed = state.view === "proposed";
   return <Card id="preview" className={styles.previewCard}>
     <CardTitle id="preview" label="Plan before change" description="A new idea becomes a plan you can understand. Not a surprise you have to undo.">See the next move.<br />Before you make it.</CardTitle>
-    <div className={styles.planStack} data-proposed={proposed}>
+    <div className={styles.planStack} data-proposed={proposed} data-micro-paper>
       <div className={styles.planBack} aria-hidden="true"><span>Current system</span><i /><i /><i /></div>
-      <div className={styles.planSheet}>
+      <div className={styles.planSheet} data-micro-change="text" data-micro-value={state.view}>
         <div className={styles.planHeading}><Glyph name="layers" /><b>{proposed ? "Your proposed change" : "Your current system"}</b><span>{proposed ? "Preview" : "Example"}</span></div>
-        {proposed ? PROPOSED_IDS.map((id) => <div key={id} className={styles.planRow}><span className={styles.plus}>+</span><div><b>{NODE_META[id].label}</b><small>{NODE_META[id].role}</small></div><span className={styles.added}>Add</span></div>) : <div className={styles.unchanged}><Glyph name="app" size={26} /><p>The app handles uploads and processing.<br /><b>No changes proposed.</b></p></div>}
+        {proposed ? PROPOSED_IDS.map((id) => <div key={id} className={styles.planRow} data-micro-plan-row><span className={styles.plus}>+</span><div><b>{NODE_META[id].label}</b><small>{NODE_META[id].role}</small></div><span className={styles.added}>Add</span></div>) : <div className={styles.unchanged}><Glyph name="app" size={26} /><p>The app handles uploads and processing.<br /><b>No changes proposed.</b></p></div>}
         <div className={styles.planBottom}><span><Glyph name="lock" size={13} />{proposed ? "Review before execution" : "Nothing has changed"}</span><b>{proposed ? planRiskLabel(PROPOSED_CHANGE.items) : "Current"}</b></div>
       </div>
     </div>
-    <button type="button" className={styles.textButton} onClick={() => dispatch({ type: "view", view: proposed ? "current" : "proposed" })}>{proposed ? "Compare with current" : "Preview the change"}<Glyph name="arrow" size={17} /></button>
+    <button type="button" className={styles.textButton} data-micro-action onClick={() => dispatch({ type: "view", view: proposed ? "current" : "proposed" })}>{proposed ? "Compare with current" : "Preview the change"}<Glyph name="arrow" size={17} /></button>
   </Card>;
 }
 
@@ -97,15 +99,15 @@ function AutonomyCard() {
   return <Card id="gimbal" chapter="gimbal" className={styles.autonomyCard}>
     <div className={styles.autonomyCopy}>
       <CardTitle id="gimbal" label="A dial, not a blank cheque">Your agent.<br />Your limits.</CardTitle>
-      <p className={styles.autonomyMeaning} role="status">{AUTONOMY_MEANING[level]}</p>
+      <p className={styles.autonomyMeaning} role="status" data-micro-change="text" data-micro-value={level}>{AUTONOMY_MEANING[level]}</p>
       <p className={styles.finePrint}>Explore the five levels.<br />No workspace setting is changed.</p>
     </div>
-    <div className={styles.autonomyLevels} role="group" aria-label="Explore autonomy levels">
+    <MicroGroup tone="autonomy" className={styles.autonomyLevels} role="group" aria-label="Explore autonomy levels">
       {AUTONOMY_LEVELS.map((value, index) => <button type="button" key={value} data-guide={highlight?.level === value || undefined} aria-pressed={value === level} onClick={() => dispatch({ type: "autonomy", level: value })}>
         <span className={styles.levelDots} aria-hidden="true">{[0, 1, 2, 3, 4].map((dot) => <i key={dot} data-lit={dot <= index} />)}</span>
         <span>{value}</span>{value === level && <Glyph name="check" size={18} />}
       </button>)}
-    </div>
+    </MicroGroup>
   </Card>;
 }
 
@@ -117,35 +119,43 @@ function EstimateCard() {
   const max = Math.max(ESTIMATE.current, ESTIMATE.proposed, 1);
   return <Card id="scenarios" chapter="scenarios" className={styles.estimateCard}>
     <CardTitle id="scenarios" label="Impact, up front">Less guesswork.<br />More foresight.</CardTitle>
-    <div className={styles.estimateReadout} role="status"><b>{fmtUsd(estimate)}</b><span>/ month<br /><strong>estimated</strong></span></div>
+    <div className={styles.estimateReadout} role="status"><b data-micro-change="number" data-micro-value={estimate}>{fmtUsd(estimate)}</b><span>/ month<br /><strong>estimated</strong></span></div>
+    <ViewSwitch cost />
     <div className={styles.costBars} aria-label={`Current estimate ${fmtUsd(ESTIMATE.current)}, proposed estimate ${fmtUsd(ESTIMATE.proposed)} per month`}>
       <div><span>Current</span><i style={{ "--bar": `${ESTIMATE.current / max * 100}%` } as CSSProperties} /><b>{fmtUsd(ESTIMATE.current)}</b></div>
       <div data-selected={proposed}><span>Proposed</span><i style={{ "--bar": `${ESTIMATE.proposed / max * 100}%` } as CSSProperties} /><b>{fmtUsd(ESTIMATE.proposed)}</b></div>
     </div>
     <p className={styles.estimateDelta}>{fmtUsd(ESTIMATE.delta, { sign: true })} / month for the proposed change.</p>
-    <details className={styles.growthDetails}>
+    <details className={styles.growthDetails} data-micro-details>
       <summary>Explore a growth scenario</summary>
-      <label htmlFor="bento-growth">{growth.uploadsPerDay} uploads / day <span>· concept preview</span></label>
-      <input id="bento-growth" type="range" min="0" max={SCALE_STEPS.length - 1} step="1" value={state.scale} aria-valuetext={`${growth.uploadsPerDay} uploads per day; illustrative monthly estimate ${fmtUsd(growth.estimate)}`} onChange={(event) => dispatch({ type: "scale", scale: Number(event.target.value) })} />
-      <p>{fmtUsd(growth.estimate)} / month · illustrative sizing, not a traffic forecast.</p>
+      <div data-micro-disclosure>
+        <label htmlFor="bento-growth">{growth.uploadsPerDay} uploads / day <span>· concept preview</span></label>
+        <input id="bento-growth" type="range" min="0" max={SCALE_STEPS.length - 1} step="1" value={state.scale} aria-valuetext={`${growth.uploadsPerDay} uploads per day; illustrative monthly estimate ${fmtUsd(growth.estimate)}`} onChange={(event) => dispatch({ type: "scale", scale: Number(event.target.value) })} />
+        <p data-micro-change="text" data-micro-value={state.scale}>{fmtUsd(growth.estimate)} / month · illustrative sizing, not a traffic forecast.</p>
+      </div>
     </details>
     <p className={styles.finePrint}>Synthetic example · product estimate tables.<br />Not a bill, forecast, or Zenith subscription price.</p>
   </Card>;
 }
 
-const VIEWS: { label: string; icon: GlyphName }[] = [
-  { label: "System", icon: "app" }, { label: "Plans", icon: "layers" },
-  { label: "Actions", icon: "agent" }, { label: "Exports", icon: "document" },
+const VIEWS: { label: string; icon: GlyphName; description: string }[] = [
+  { label: "System", icon: "app", description: "The picture comes from the same model used to operate your system." },
+  { label: "Plans", icon: "layers", description: "Changes become readable plans with cost and risk before execution." },
+  { label: "Actions", icon: "agent", description: "People and agents share the same audited action boundary." },
+  { label: "Exports", icon: "document", description: "Your system definition and operating notes can leave with you." },
 ];
 function FoundationCard() {
+  const [selected, select] = useState(0);
   return <Card id="foundation" className={styles.foundationCard}>
     <CardTitle id="foundation" label="Connected by design" description="The picture, the plan, and the action path share one underlying model.">One system.<br />Not another silo.</CardTitle>
-    <div className={styles.foundationArt} aria-hidden="true">
-      <div className={styles.foundationCore}><OrbitMark size={26} /><span>zenith</span></div>
-      <div className={styles.foundationStem} />
-      <div className={styles.foundationViews}>{VIEWS.map(({ label, icon }) => <div key={label}><Glyph name={icon} size={20} /><span>{label}</span></div>)}</div>
+    <div className={styles.foundationArt}>
+      <div className={styles.foundationCore} aria-hidden="true"><OrbitMark size={26} /><span>zenith</span></div>
+      <div className={styles.foundationStem} aria-hidden="true" />
+      <div className={styles.foundationViews} data-micro-foundation role="group" aria-label="Explore the shared system">
+        {VIEWS.map(({ label, icon }, index) => <div key={label}><button type="button" aria-pressed={selected === index} onClick={() => select(index)}><Glyph name={icon} size={20} /><span>{label}</span></button></div>)}
+      </div>
     </div>
-    <p className={styles.finePrint}>One shared picture. Plan-first changes.<br />The same audited action boundary.</p>
+    <p className={styles.finePrint} data-micro-foundation-caption role="status" data-micro-change="text" data-micro-value={selected}>{VIEWS[selected].description}</p>
   </Card>;
 }
 
@@ -155,11 +165,11 @@ function OwnershipCard() {
   return <Card id="ownership" chapter="close" className={styles.ownershipCard}>
     <CardTitle id="ownership" label="Yours, all the way out">Your system.<br />Not our lock-in.</CardTitle>
     <div className={styles.exportFan} role="group" aria-label="Explore portable exports">
-      {EXPORT_ARTIFACTS.map((item, index) => <button type="button" key={item.name} className={styles.exportSheet} style={{ "--sheet": index } as CSSProperties} aria-pressed={selected === index} onClick={() => select(index)}>
+      {EXPORT_ARTIFACTS.map((item, index) => <button type="button" key={item.name} data-micro-export className={styles.exportSheet} style={{ "--sheet": index } as CSSProperties} aria-pressed={selected === index} onClick={() => select(index)}>
         <Glyph name="document" size={24} /><b>{item.name}</b><span aria-hidden="true" className={styles.paperLines}><i /><i /><i /></span>
       </button>)}
     </div>
-    <div className={styles.exportCaption} role="status"><b>{artifact.file}</b><p>{artifact.description}</p></div>
+    <div className={styles.exportCaption} role="status" data-micro-change="text" data-micro-value={selected}><b>{artifact.file}</b><p>{artifact.description}</p></div>
   </Card>;
 }
 
@@ -168,8 +178,8 @@ function TeamsCard() {
   const story = TEAM_STORIES[selected];
   return <Card id="teams" className={styles.teamsCard}>
     <CardTitle id="teams" label="For teams like yours">Build the product.<br />Keep the overview.</CardTitle>
-    <div className={styles.teamSwitch} role="group" aria-label="Explore team situations">{TEAM_STORIES.map((item, index) => <button type="button" key={item.name} aria-pressed={selected === index} onClick={() => select(index)}>{item.name}</button>)}</div>
-    <div className={styles.teamStory} role="status"><p>{story.situation}</p><span className={styles.teamArrow}><Glyph name="arrow" size={22} /></span><p>{story.outcome}</p></div>
+    <MicroGroup tone="team" className={styles.teamSwitch} role="group" aria-label="Explore team situations">{TEAM_STORIES.map((item, index) => <button type="button" key={item.name} aria-pressed={selected === index} onClick={() => select(index)}>{item.name}</button>)}</MicroGroup>
+    <div className={styles.teamStory} role="status" data-micro-change="text" data-micro-value={selected}><p>{story.situation}</p><span className={styles.teamArrow}><Glyph name="arrow" size={22} /></span><p>{story.outcome}</p></div>
   </Card>;
 }
 
@@ -202,7 +212,8 @@ function useBentoEntrance(root: RefObject<HTMLDivElement | null>) {
 export function BentoBody({ providers }: { providers: ProviderRow[] }) {
   const root = useRef<HTMLDivElement>(null);
   useBentoEntrance(root);
-  return <div ref={root} className={styles.body}>
+  useBentoMicro(root);
+  return <div ref={root} className={`${styles.body} ${micro.scope}`}>
     <section id="statement" className={styles.intro} aria-labelledby="bento-title">
       <h2 id="bento-title">Meet <span>Zenith.</span></h2>
       <p>One workspace for the infrastructure behind your app.<br className={styles.desktopBreak} /> See the system. Preview the change. Decide what runs.</p>

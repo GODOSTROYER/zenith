@@ -57,13 +57,16 @@ export function BentoSystemMap({ view, selected, highlighted, onSelect }: {
   const manifest = systemFor(view);
   const ids = new Set([...manifest.services, ...manifest.resources, ...manifest.routes].map((part) => part.id));
   const active = ids.has(selected) ? selected : "upload-api";
-  return <div className={styles.systemMap}>
+  return <div className={styles.systemMap} data-micro-change="map" data-micro-value={`${view}:${active}`}>
     <svg className={styles.connections} viewBox="0 0 500 330" preserveAspectRatio="none" aria-hidden="true">
       {manifest.bindings.map((binding) => <path
         key={binding.id} d={CONNECTION_PATHS[binding.id]}
         data-proposed={PROPOSED_BINDING_IDS.includes(binding.id) || undefined}
         data-active={binding.from === active || binding.to === active || undefined}
       />)}
+      {manifest.bindings.filter((binding) => binding.from === active || binding.to === active).map((binding) =>
+        <path key={`trace-${binding.id}`} data-micro-beam pathLength="1" d={CONNECTION_PATHS[binding.id]} />
+      )}
     </svg>
     {Object.entries(POSITIONS).filter(([id]) => ids.has(id)).map(([key, position]) => {
       const id = key as ExampleNodeId;

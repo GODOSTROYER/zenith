@@ -76,10 +76,18 @@ async function interactions(page: Page) {
   await page.locator("#before").scrollIntoViewIfNeeded();
   await page.waitForFunction(() => document.querySelector('[data-micro-group="view"]')?.getAttribute("data-micro-ready") === "true");
   for (let index = 0; index < 4; index++) await view.locator("button").nth(index % 2).click();
-  await delay(450);
-  const pill = await view.locator("[data-micro-pill]").boundingBox();
-  const chosen = await view.locator('button[aria-pressed="true"]').boundingBox();
-  assert.ok(pill && chosen && Math.abs(pill.x - chosen.x) < 2 && Math.abs(pill.y - chosen.y) < 2, "Glider must align with its native control");
+  // Compare both rectangles in one browser frame. Separate protocol reads can
+  // straddle scrolling/GSAP updates; a wall-clock sleep is not animation completion.
+  await page.waitForFunction(() => {
+    const group = document.querySelector('#before [data-micro-group="view"]');
+    const pill = group?.querySelector<HTMLElement>("[data-micro-pill]");
+    const selected = group?.querySelector<HTMLElement>('button[aria-pressed="true"]');
+    if (!pill || !selected || pill.getAnimations().some((animation) => animation.playState === "running")) return false;
+    const a = pill.getBoundingClientRect();
+    const b = selected.getBoundingClientRect();
+    return a.width > 0 && Math.abs(a.x - b.x) < 2 && Math.abs(a.y - b.y) < 2
+      && Math.abs(a.width - b.width) < 2 && Math.abs(a.height - b.height) < 2;
+  }, undefined, { timeout: 10000, polling: "raf" });
   await page.locator("[data-agent-loop]").scrollIntoViewIfNeeded();
   await page.waitForFunction(() => document.querySelector("[data-agent-loop]")?.getAttribute("data-loop") === "running");
   await page.getByRole("button", { name: "Pause agent flow animation", exact: true }).click();

@@ -196,7 +196,7 @@ export function BentoBody({ providers }: { providers: ProviderRow[] }) {
   useBentoEntrance(root);
   useBentoMicro(root);
   return <div ref={root} className={`${styles.body} ${micro.scope}`}>
-    <section id="statement" className={styles.intro} aria-labelledby="bento-title">
+    <section id="bento" className={styles.intro} aria-labelledby="bento-title">
       <h2 id="bento-title">Meet <span>Zenith.</span></h2>
       <p>One workspace for the infrastructure behind your app.<br className={styles.desktopBreak} /> See the system. Preview the change. Decide what runs.</p>
     </section>

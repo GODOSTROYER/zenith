@@ -100,8 +100,56 @@ async function interactions(page: Page) {
   await page.getByRole("button", { name: "Play hosting animations", exact: true }).click();
   await page.emulateMedia({ reducedMotion: "reduce" });
   await delay(100);
-  const running = await page.locator("#statement").locator("..").evaluate((element) => element.getAnimations({ subtree: true }).filter((animation) => animation.playState === "running").length);
+  const running = await page.locator("#bento").locator("..").evaluate((element) => element.getAnimations({ subtree: true }).filter((animation) => animation.playState === "running").length);
   assert.equal(running, 0, "Reduced motion must stop bento animation");
+}
+
+/** Exercise the real pinned story, including reverse scrolling and reduced motion. */
+async function verifyStatement(page: Page, width: number) {
+  const expected = "Behind every app is a system. Zenith brings yours into focus — so you can see what changes, understand the cost, and decide what runs.";
+  const section = page.locator("#statement");
+  assert.equal(await section.count(), 1, "The hero cue must have one unambiguous destination");
+  assert.equal((await section.locator("p").textContent())?.trim(), expected);
+  assert.equal(await section.locator("[data-word]").count(), expected.split(" ").length);
+  assert.equal(await page.locator("#bento").count(), 1);
+  await page.getByRole("link", { name: "Scroll to the next section", exact: true }).click();
+  assert.equal(new URL(page.url()).hash, "#statement", "The existing hero cue must reach the story");
+  const bounds = await section.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const text = element.querySelector("p")!.getBoundingClientRect();
+    return { top: rect.top + scrollY, height: rect.height, viewport: innerHeight,
+      textWidth: text.width, textHeight: text.height, sticky: getComputedStyle(element.firstElementChild!).position,
+      beforeBento: !!(element.compareDocumentPosition(document.getElementById("bento")!) & Node.DOCUMENT_POSITION_FOLLOWING) };
+  });
+  assert.equal(bounds.sticky, "sticky");
+  assert.ok(bounds.beforeBento, "The white story must precede the existing cards");
+  assert.ok(bounds.textWidth <= width && bounds.textHeight < bounds.viewport - 120, "The full paragraph must fit the viewport");
+  await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }));
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.waitForFunction(() => [...document.querySelectorAll("#statement [data-word]")].every((word) => Number(getComputedStyle(word).opacity) < .2));
+  await page.evaluate((top) => scrollTo({ top, behavior: "instant" }), bounds.top + bounds.viewport * .1);
+  await page.waitForFunction(() => Number(getComputedStyle(document.querySelector("#statement [data-word]")!).opacity) > .99);
+  const first = await section.evaluate((element) => ({
+    y: element.querySelector("p")!.getBoundingClientRect().top,
+    light: [...element.querySelectorAll("[data-word]")].reduce((sum, word) => sum + Number(getComputedStyle(word).opacity), 0),
+  }));
+  await page.evaluate((top) => scrollTo({ top, behavior: "instant" }), bounds.top + bounds.viewport * .3);
+  await page.waitForFunction((light) => [...document.querySelectorAll("#statement [data-word]")].reduce((sum, word) => sum + Number(getComputedStyle(word).opacity), 0) > light + 1, first.light);
+  const middle = await section.evaluate((element) => ({
+    y: element.querySelector("p")!.getBoundingClientRect().top,
+    opacities: [...element.querySelectorAll("[data-word]")].map((word) => Number(getComputedStyle(word).opacity)),
+  }));
+  assert.ok(Math.abs(first.y - middle.y) < 2, "The sentence must stay pinned while more words light up");
+  assert.ok(middle.opacities.some((opacity) => opacity > .99) && middle.opacities.some((opacity) => opacity < .2), "The reveal must be progressive, not an all-at-once fade");
+  if (width === 1440 || width === 390) await page.screenshot({ path: join(output, `statement-progress-${width}.png`) });
+  await page.evaluate((top) => scrollTo({ top, behavior: "instant" }), bounds.top + bounds.height - bounds.viewport * .8 + 10);
+  await page.waitForFunction(() => [...document.querySelectorAll("#statement [data-word]")].every((word) => Number(getComputedStyle(word).opacity) > .99));
+  if (width === 1440 || width === 390) await page.screenshot({ path: join(output, `statement-${width}.png`) });
+  await page.evaluate(() => scrollTo({ top: 0, behavior: "instant" }));
+  await page.waitForFunction(() => [...document.querySelectorAll("#statement [data-word]")].every((word) => Number(getComputedStyle(word).opacity) < .2));
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.waitForFunction(() => [...document.querySelectorAll("#statement [data-word]")].every((word) => Number(getComputedStyle(word).opacity) > .99));
+  return { ...bounds, wordCount: middle.opacities.length, progressive: true, reverseScroll: true, reducedMotion: true, heroCue: true };
 }
 
 async function main() {
@@ -134,19 +182,20 @@ async function main() {
       page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
       await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
       const layout = await checkPage(page);
+      const statement = await verifyStatement(page, width);
       if (width === 1440 || width === 390) {
         await page.screenshot({ path: join(output, `hero-${width}.png`) });
         await loadVisibleLogos(page);
-        await page.locator("#statement").scrollIntoViewIfNeeded();
+        await page.locator("#bento").scrollIntoViewIfNeeded();
         // Only section captures hide the fixed masthead so it is not composited over
         // the start of a long element image. The unmodified hero capture above keeps it.
         const captureStyle = ".zenith-header, .zenith-skip { visibility: hidden !important; }";
-        await page.locator("#statement").locator("..").screenshot({ path: join(output, `bento-${width}.png`), animations: "disabled", style: captureStyle });
+        await page.locator("#bento").locator("..").screenshot({ path: join(output, `bento-${width}.png`), animations: "disabled", style: captureStyle });
         await page.locator("#cloud").screenshot({ path: join(output, `hosting-${width}.png`), animations: "disabled", style: captureStyle });
         await interactions(page);
       }
       assert.deepEqual(errors, [], `Runtime errors at ${width}px`);
-      results.push({ width, ...layout, interactions: width === 1440 || width === 390, errors });
+      results.push({ width, ...layout, statement, interactions: width === 1440 || width === 390, errors });
       console.log(`Landing browser PASS: ${width}px`);
       await context.close();
     }

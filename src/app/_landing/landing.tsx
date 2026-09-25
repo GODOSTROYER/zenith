@@ -5,6 +5,7 @@ import { useCta } from "./cta";
 import { LandingExperienceProvider } from "./landing-experience";
 import { LandingHeader } from "./landing-header";
 import { SpaceHero } from "./space-hero";
+import { Statement } from "./statement";
 import { BentoBody, BentoClose } from "./bento-body";
 import { GimbalCompanion } from "./gimbal-companion";
 import { useSheetHandoff } from "./landing-motion";
@@ -20,7 +21,7 @@ export interface ProviderRow {
 
 /**
  * The hero, masthead, CTA resolution and sheet handoff are intentionally unchanged.
- * Below the hero: one approachable bento story, with product-derived previews,
+ * Below the hero: the pinned statement, then a bento story with product-derived previews,
  * the existing shared demonstration state, and registry-backed provider honesty.
  */
 export function Landing({ providers }: { providers: ProviderRow[] }) {
@@ -40,6 +41,7 @@ export function Landing({ providers }: { providers: ProviderRow[] }) {
           {/* Preserve the existing sky → porcelain → ink handoff. */}
           <div ref={paper} className="zenith-sheet" data-sheet>
             <span className="zenith-sheet-edge" data-sheet-edge aria-hidden="true" />
+            <Statement />
             <BentoBody providers={providers} />
             <span className="zenith-sheet-dim" data-sheet-dim aria-hidden="true" />
           </div>

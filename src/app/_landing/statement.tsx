@@ -4,10 +4,13 @@ import { useRef } from "react";
 import { useCountOnView, useReveal, useStatementReveal } from "./landing-motion";
 import styles from "./statement.module.css";
 
-const STATEMENT = "Zenith turns the app you’re building into infrastructure you can see, change and run. Before anything runs. And long after.";
-const ACCENT_FROM = 12; // "Before anything runs. And long after."
+const STATEMENT_LEAD = "Behind every app is a system. Zenith brings yours into focus — so you can see what changes, understand the cost,";
+const STATEMENT_ACCENT = "and decide what runs.";
+const STATEMENT = `${STATEMENT_LEAD} ${STATEMENT_ACCENT}`;
+// Derive the boundary from the copy so the final thought always carries the accent.
+const ACCENT_FROM = STATEMENT_LEAD.split(" ").length;
 
-/** One sentence, lit word by word as it scrolls. The only paragraph the page asks anyone to read. */
+/** A quiet introduction to the product story, lit word by word as it scrolls. */
 export function Statement() {
   const section = useRef<HTMLElement>(null);
   useStatementReveal(section);

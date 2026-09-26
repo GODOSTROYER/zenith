@@ -43,6 +43,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { withMutationGate } from "@/lib/actions/mutation-gate";
 import { isPostgres } from "@/lib/db/store";
+import { ownedWorkspaces } from "@/lib/server/membership";
 
 export const dynamic = "force-dynamic";
 
@@ -88,10 +89,16 @@ export const DELETE = route(async () => withMutationGate(async () => {
       `You are the only admin of ${names.join(" and ")}.`,
       409,
       {
-        fix: `Make someone else an admin first from Settings → Members, then delete your account.`,
+        fix: `Invite another member and transfer workspace ownership from Share, then delete your account.`,
       }
     );
   }
+
+  const owned = ownedWorkspaces(user.id);
+  if (owned.length)
+    throw new ApiError(`You own ${owned.map((workspace) => workspace.name).join(" and ")}.`, 409, {
+      fix: "Transfer workspace ownership from Share before deleting your account.",
+    });
 
   // Step 2: nothing has been touched yet, so a configuration failure here is
   // harmless. See the header note.

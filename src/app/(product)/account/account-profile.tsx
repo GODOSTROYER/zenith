@@ -8,7 +8,8 @@
  * needs the server to be involved. The display name goes through the API
  * instead: the member row is a server-side copy that has to move with it.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { User } from "@supabase/supabase-js";
 import { api } from "@/lib/client/api";
 import { createClient } from "@/lib/supabase/client";
 import { explain } from "@/components/auth/messages";
@@ -175,64 +176,250 @@ export function EmailCard({ currentEmail }: { currentEmail: string }) {
 
 /* -------------------------------- password -------------------------------- */
 
+type PasswordAccount = { id: string; email: string; externalOnly: boolean };
+
+/** Identity providers describe sign-in options, not whether a password exists. */
+function passwordAccount(user: User | null, expectedEmail: string): PasswordAccount {
+  if (!user || user.is_anonymous || !user.email || user.email.toLowerCase() !== expectedEmail.toLowerCase())
+    throw new Error("Your signed-in account changed. Reload this page before updating its password.");
+  const identities = user.identities ?? [];
+  return {
+    id: user.id,
+    email: user.email,
+    externalOnly:
+      identities.length > 0 &&
+      identities.every((identity) => identity.provider !== "email" && identity.provider !== "phone"),
+  };
+}
+
+function authErrorCode(error: unknown): string | undefined {
+  if (error && typeof error === "object" && "code" in error && typeof error.code === "string")
+    return error.code;
+}
+
 export function PasswordCard({ email }: { email: string }) {
+  const [account, setAccount] = useState<PasswordAccount | null>();
+  const [reload, setReload] = useState(0);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [needsNonce, setNeedsNonce] = useState(false);
+  const [nonceSent, setNonceSent] = useState(false);
+  const [nonce, setNonce] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<Note>();
 
+  useEffect(() => {
+    let alive = true;
+    setAccount(undefined);
+    setNote(undefined);
+    setCurrent("");
+    setNext("");
+    setConfirm("");
+    setNeedsNonce(false);
+    setNonceSent(false);
+    setNonce("");
+    void (async () => {
+      try {
+        const { data, error } = await createClient().auth.getUser();
+        if (error) throw error;
+        const verified = passwordAccount(data.user, email);
+        if (alive) setAccount(verified);
+      } catch {
+        if (alive) {
+          setAccount(null);
+          setNote({ kind: "err", text: "We could not verify your signed-in account. Retry, or sign in again." });
+        }
+      }
+    })();
+    return () => { alive = false; };
+  }, [email, reload]);
+
   const short = next.length > 0 && next.length < 8;
   const mismatch = confirm.length > 0 && next !== confirm;
-  const ready = current.length > 0 && next.length >= 8 && next === confirm;
+  const ready =
+    Boolean(account) &&
+    (account?.externalOnly || current.length > 0) &&
+    next.length >= 8 &&
+    next === confirm &&
+    (!needsNonce || (nonceSent && nonce.trim().length > 0));
+
+  const verifiedAccount = async (supabase: ReturnType<typeof createClient>) => {
+    const { data, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    const verified = passwordAccount(data.user, email);
+    if (!account || verified.id !== account.id)
+      throw new Error("Your signed-in account changed. Reload this page before updating its password.");
+    return verified;
+  };
+
+  const sendNonce = async (supabase: ReturnType<typeof createClient>) => {
+    setNeedsNonce(true);
+    setNonceSent(false);
+    setNonce("");
+    const { error } = await supabase.auth.reauthenticate();
+    if (error) throw error;
+    setNonceSent(true);
+    setNote({
+      kind: "ok",
+      text: "A verification code is on its way to your confirmed email address or phone number. Enter it below, then save your password.",
+    });
+  };
+
+  const fail = (error: unknown) => {
+    const code = authErrorCode(error);
+    const message = error instanceof Error ? error.message : String(error);
+    setNote({
+      kind: "err",
+      text:
+        code === "reauthentication_not_valid"
+          ? "That verification code is invalid or expired. Retype it, or send a new code."
+          : message.startsWith("Your signed-in account") || message.startsWith("That current password")
+            ? message
+            : explain(message),
+    });
+  };
 
   const submit = async () => {
+    if (!ready || busy || !account) return;
     setBusy(true);
     setNote(undefined);
     try {
       const supabase = createClient();
-      // Re-authenticate before changing anything: an unattended open tab is
-      // otherwise a way to take the account, and knowing the current password
-      // is what separates you from whoever found the laptop.
-      const { error: reauth } = await supabase.auth.signInWithPassword({
-        email,
-        password: current,
+      const verified = await verifiedAccount(supabase);
+      if (account.externalOnly && !verified.externalOnly) {
+        setAccount(verified);
+        setNote({
+          kind: "err",
+          text: "Your sign-in options changed. Enter your current password, or use the email password link.",
+        });
+        return;
+      }
+      if (!account.externalOnly) {
+        // An email identity can also mean magic-link sign-in. The email-link
+        // action below covers anyone who has no current password to verify.
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: verified.email,
+          password: current,
+        });
+        if (error)
+          throw new Error("That current password does not match. Retype it, or use the email password link.");
+        if (data.user?.id !== verified.id) {
+          await supabase.auth.signOut({ scope: "local" });
+          throw new Error("Your signed-in account changed. Reload this page before updating its password.");
+        }
+      }
+      const { error } = await supabase.auth.updateUser({
+        password: next,
+        ...(!account.externalOnly ? { current_password: current } : {}),
+        ...(needsNonce ? { nonce: nonce.trim() } : {}),
       });
-      if (reauth)
-        throw new Error(
-          "That current password does not match. Retype it, or sign out and use the reset link on the sign-in page."
-        );
-      const { error } = await supabase.auth.updateUser({ password: next });
+      if (error) {
+        const code = authErrorCode(error);
+        if (["reauthentication_needed", "reauthentication_required", "reauth_nonce_missing", "nonce_required"].includes(code ?? "")) {
+          // Supabase enforces a nonce only when its secure-password policy
+          // requires one. Sending a code alone is not proof of verification.
+          await sendNonce(supabase);
+          return;
+        }
+        if (code === "current_password_required" || code === "current_password_mismatch") {
+          setAccount({ ...verified, externalOnly: false });
+          setNote({
+            kind: "err",
+            text: "Enter your current password to change it, or use the email password link.",
+          });
+          return;
+        }
+        throw error;
+      }
+      // This successful write is evidence of a password even on Auth versions
+      // that do not add an email identity when an OAuth user sets one.
+      setAccount({ ...verified, externalOnly: false });
+      setCurrent("");
+      setNext("");
+      setConfirm("");
+      setNeedsNonce(false);
+      setNonceSent(false);
+      setNonce("");
+      setNote({
+        kind: "ok",
+        text: "Password saved. You can now sign in with your email and password. Use “Sign out everywhere” below to end your other sessions.",
+      });
+    } catch (error) {
+      fail(error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resendNonce = async () => {
+    if (!account || busy) return;
+    setBusy(true);
+    setNote(undefined);
+    try {
+      const supabase = createClient();
+      await verifiedAccount(supabase);
+      await sendNonce(supabase);
+    } catch (error) {
+      fail(error);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const emailPasswordLink = async () => {
+    if (!account || busy) return;
+    setBusy(true);
+    setNote(undefined);
+    try {
+      const supabase = createClient();
+      const verified = await verifiedAccount(supabase);
+      const { error } = await supabase.auth.resetPasswordForEmail(verified.email, {
+        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+      });
       if (error) throw error;
       setCurrent("");
       setNext("");
       setConfirm("");
+      setNonce("");
+      setNeedsNonce(false);
+      setNonceSent(false);
       setNote({
         kind: "ok",
-        text: "Password changed. Other browsers keep their sessions — use “Sign out everywhere” below if you want them ended.",
+        text: `Open the password link sent to ${verified.email} in this browser to choose a password.`,
       });
-    } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      setNote({
-        kind: "err",
-        text: message.startsWith("That current password") ? message : explain(message),
-      });
+    } catch (error) {
+      fail(error);
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <Card title="Password" subtitle="Changing it asks for the current one first.">
+    <Card
+      title="Password"
+      subtitle={
+        account?.externalOnly
+          ? "Add email and password sign-in to this account. Your connected sign-in providers remain available."
+          : "Use your current password, or request an email link if you have not set one or have forgotten it."
+      }
+    >
+      {account === undefined && <p role="status" className="mb-4 text-[13px] text-ink-mute">Checking your sign-in options…</p>}
+      {account === null && (
+        <Button onClick={() => setReload((value) => value + 1)}>Retry account check</Button>
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Current password" className="sm:col-span-2">
-          <Input
-            value={current}
-            onChange={(e) => setCurrent(e.target.value)}
-            type="password"
-            autoComplete="current-password"
-          />
-        </Field>
+        {account && !account.externalOnly && (
+          <Field label="Current password" className="sm:col-span-2">
+            <Input
+              value={current}
+              onChange={(e) => setCurrent(e.target.value)}
+              type="password"
+              autoComplete="current-password"
+              disabled={busy}
+            />
+          </Field>
+        )}
         <Field
           label="New password"
           help="At least 8 characters."
@@ -243,6 +430,7 @@ export function PasswordCard({ email }: { email: string }) {
             onChange={(e) => setNext(e.target.value)}
             type="password"
             autoComplete="new-password"
+            disabled={busy || !account}
           />
         </Field>
         <Field
@@ -254,23 +442,51 @@ export function PasswordCard({ email }: { email: string }) {
             onChange={(e) => setConfirm(e.target.value)}
             type="password"
             autoComplete="new-password"
+            disabled={busy || !account}
           />
         </Field>
+        {needsNonce && (
+          <Field label="Verification code" className="sm:col-span-2" help="Use the code from your most recent verification message.">
+            <Input
+              value={nonce}
+              onChange={(e) => setNonce(e.target.value)}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              disabled={busy || !nonceSent}
+            />
+          </Field>
+        )}
       </div>
-      <div className="mt-4">
+      <div className="mt-4 flex flex-wrap gap-3">
         <Button
           busy={busy}
           disabled={!ready}
           disabledReason={
-            !current
-              ? "Enter your current password first."
-              : next.length < 8
-                ? "The new password needs at least 8 characters."
-                : "The two new passwords do not match yet."
+            !account
+              ? "Verify your signed-in account first."
+              : !account.externalOnly && !current
+                ? "Enter your current password first, or use the email password link."
+                : next.length < 8
+                  ? "The new password needs at least 8 characters."
+                  : next !== confirm
+                    ? "The two new passwords do not match yet."
+                    : "Request and enter your verification code first."
           }
           onClick={submit}
         >
-          Change password
+          {account?.externalOnly ? "Set or change password" : "Change password"}
+        </Button>
+        {needsNonce && (
+          <Button disabled={busy} onClick={resendNonce} disabledReason="Wait for the current request to finish.">
+            {nonceSent ? "Send a new code" : "Send verification code"}
+          </Button>
+        )}
+        <Button
+          disabled={busy || !account}
+          disabledReason={busy ? "Wait for the current request to finish." : "Verify your signed-in account first."}
+          onClick={emailPasswordLink}
+        >
+          Email password link
         </Button>
       </div>
       <NoteLine note={note} />

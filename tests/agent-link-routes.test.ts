@@ -35,6 +35,13 @@ const state = vi.hoisted(() => ({
   /** the signed-in browser */
   identity: { subject: "member_1", emailVerified: true },
   role: "editor" as "admin" | "editor" | "viewer",
+  gateEnabled: false,
+  admit: vi.fn(async (_user: { id: string; email: string }): Promise<void> => {}),
+}));
+
+vi.mock("@/lib/waitlist/access", () => ({
+  waitlistGateEnabled: () => state.gateEnabled,
+  requireWaitlistAccess: state.admit,
 }));
 
 vi.mock("@/lib/agent-access/authority", async () => {
@@ -56,7 +63,11 @@ vi.mock("@/lib/agent-access/authority", async () => {
       return state.approved;
     },
     denyLink: async () => state.denied,
-    exchange: async () => state.exchange,
+    exchange: async (_hash: string, _now?: number, admit?: (subject: string) => Promise<void>) => {
+      if (state.exchange.status === "issued")
+        await admit?.((state.exchange.credential as { subject: string }).subject);
+      return state.exchange;
+    },
     listCredentials: async () => state.credentials,
     revokeCredential: async (...args: unknown[]) => {
       state.revokeInput = args;
@@ -181,6 +192,8 @@ beforeEach(() => {
   state.revokeInput = undefined;
   state.identity = { subject: "member_1", emailVerified: true };
   state.role = "editor";
+  state.gateEnabled = false;
+  state.admit.mockReset().mockResolvedValue(undefined);
 });
 
 describe("POST /api/agent/link/start", () => {
@@ -247,6 +260,19 @@ describe("POST /api/agent/link/start", () => {
 });
 
 describe("POST /api/agent/link/token", () => {
+  it.each([403, 503])("never exposes a token when admission refuses with %i", async (status) => {
+    state.gateEnabled = true;
+    state.admit.mockRejectedValueOnce(Object.assign(new Error("Provider secret detail"), { status }));
+    const bearer = `za_${"W".repeat(43)}`;
+    state.exchange = { status: "issued", token: bearer, credential: { subject: "member_1" } };
+    const response = await token(post(`${ORIGIN}/api/agent/link/token`, { deviceCode: `zl_${"A".repeat(43)}` }));
+    expect(response.status).toBe(status);
+    expect(state.admit).toHaveBeenCalledWith({ id: "member_1", email: "" });
+    const payload = await response.text();
+    expect(payload).not.toContain(bearer);
+    expect(payload).not.toContain("Provider secret detail");
+  });
+
   const deviceCode = `zl_${"A".repeat(43)}`;
 
   it("keeps waiting and pacing inside a 200, so a poller never guesses", async () => {

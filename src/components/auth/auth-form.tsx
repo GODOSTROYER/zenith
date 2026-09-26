@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { authCallbackUrl, authPageUrl } from "@/lib/auth/oauth";
 import { destinationAfterSignIn } from "@/lib/auth/destination";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -151,7 +152,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           email,
           password,
           options: {
-            emailRedirectTo: `${origin}/auth/callback`,
+            emailRedirectTo: authCallbackUrl(origin, next),
             data: { full_name: name.trim() },
           },
         });
@@ -169,7 +170,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         }
       } else if (mode === "forgot") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${origin}/auth/callback?next=/reset-password`,
+          redirectTo: authCallbackUrl(origin, authPageUrl("/reset-password", next)),
         });
         if (error) throw error;
         setDone("If an account exists for that email, a reset link is on its way.");
@@ -194,7 +195,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       const { error } = await createClient().auth.resend({
         type: "signup",
         email,
-        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+        options: { emailRedirectTo: authCallbackUrl(window.location.origin, next) },
       });
       if (error) throw error;
       setUnconfirmed(false);
@@ -219,9 +220,8 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       const { error } = await createClient().auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: next
-            ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`
-            : `${window.location.origin}/auth/callback`,
+          redirectTo: authCallbackUrl(window.location.origin, next),
+          ...(provider === "google" ? { queryParams: { prompt: "select_account" } } : {}),
         },
       });
       if (error) throw error;
@@ -275,7 +275,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           {done}
           {unconfirmed && resendButton && <div className="mt-3">{resendButton}</div>}
           <div className="mt-3">
-            <Link href="/login" className="text-signal hover:underline">
+            <Link href={authPageUrl("/login", next)} className="text-signal hover:underline">
               Back to sign in
             </Link>
           </div>
@@ -293,7 +293,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           Open the reset link from your email first. This page can only set a new password while
           that link&apos;s session is active — it expires an hour after it is sent.
           <div className="mt-3">
-            <Link href="/forgot-password" className="text-signal hover:underline">
+            <Link href={authPageUrl("/forgot-password", next)} className="text-signal hover:underline">
               Send me a new reset link
             </Link>
           </div>
@@ -374,12 +374,12 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       <div className="mt-5 flex flex-wrap justify-between gap-2 text-[13px] text-ink-faint">
         {mode === "login" && (
           <>
-            <Link href="/forgot-password" className="hover:text-ink">
+            <Link href={authPageUrl("/forgot-password", next)} className="hover:text-ink">
               Forgot password?
             </Link>
             <span>
               New here?{" "}
-              <Link href="/signup" className="text-signal hover:underline">
+              <Link href={authPageUrl("/signup", next)} className="text-signal hover:underline">
                 Create an account
               </Link>
             </span>
@@ -388,13 +388,13 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         {mode === "signup" && (
           <span>
             Already have an account?{" "}
-            <Link href="/login" className="text-signal hover:underline">
+            <Link href={authPageUrl("/login", next)} className="text-signal hover:underline">
               Sign in
             </Link>
           </span>
         )}
         {(mode === "forgot" || mode === "reset") && (
-          <Link href="/login" className="hover:text-ink">
+          <Link href={authPageUrl("/login", next)} className="hover:text-ink">
             Back to sign in
           </Link>
         )}

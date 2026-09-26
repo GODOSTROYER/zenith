@@ -333,7 +333,7 @@ export class PgCredentialAuthority implements CredentialAuthority {
     return denied.count === 1;
   }
 
-  async exchange(deviceCodeHash: string, now = Date.now()): Promise<ExchangeResult> {
+  async exchange(deviceCodeHash: string, now = Date.now(), admit?: (subject: string) => Promise<void>): Promise<ExchangeResult> {
     const sql = await this.schema();
     const nowIso = new Date(now).toISOString();
     const rows = (await sql`
@@ -355,6 +355,17 @@ export class PgCredentialAuthority implements CredentialAuthority {
     `;
     if (row.state === "pending")
       return early ? { status: "slow_down", interval: paced } : { status: "authorization_pending", interval: paced };
+
+    if (admit) {
+      const credentials = (await sql`
+        select * from agent.agent_credentials where id = ${row.credential_id} limit 1
+      `) as unknown as CredentialRow[];
+      const credential = credentials[0];
+      if (!credential || credential.revoked_at) return { status: "expired" };
+      // This provider lookup must precede the destructive consume statement.
+      // An outage then leaves the same device code available for a retry.
+      await admit(credential.subject);
+    }
 
     // Approved. Single use, and the secret is destroyed by the same statement
     // that consumes the row — a concurrent second poller updates zero rows and

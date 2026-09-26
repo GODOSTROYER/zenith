@@ -8,7 +8,7 @@
  *
  * Split out of `server/context.ts`, which re-exports everything here.
  */
-import { db } from "@/lib/db/store";
+import { db, isPostgres } from "@/lib/db/store";
 import type { Workspace } from "@/lib/domain/types";
 import { postAuthDestination } from "@/lib/auth/destination";
 import { getSessionUser, type SessionUser } from "@/lib/auth/session";
@@ -90,11 +90,10 @@ export function requireWorkspace(): Workspace {
  * delivering payloads until they chose to disconnect. So every stream carries
  * one of these and `sseResponse` re-asks it on every push and heartbeat.
  *
- * The closure captures who and where at connect and re-reads the member table
- * each time — it never touches the request scope, so it is safe to call long
- * after the handler returned. It reuses `workspacesFor` rather than restating
- * the membership rule, at the cost of one filter per poll; that is cheaper than
- * two copies of the rule drifting apart.
+ * The closure captures who and where at connect. The file store is live, but
+ * a PostgreSQL request snapshot stays frozen for the lifetime of a stream, so
+ * PostgreSQL guards query the current member row directly on every check.
+ * A database outage closes the stream rather than reusing an earlier grant.
  */
 export function membershipCheck(): SseGuard {
   const workspace = requireWorkspace();
@@ -102,13 +101,26 @@ export function membershipCheck(): SseGuard {
   // Demo mode and the Navigator have no member row to lose: one local user, in
   // every workspace, for as long as the process runs.
   if (!user) return () => undefined;
-  return () =>
-    workspacesFor(user).some((w) => w.id === workspace.id)
-      ? undefined
-      : {
-          message: `Your membership in ${workspace.name} ended, so this stream stopped.`,
-          fix: `Ask an admin of ${workspace.name} to invite you back, then reload the page.`,
-        };
+  const denied = {
+    message: `Your membership in ${workspace.name} ended, so this stream stopped.`,
+    fix: `Ask an admin of ${workspace.name} to invite you back, then reload the page.`,
+  };
+  if (isPostgres()) return async () => {
+    const unavailable = {
+      message: "Workspace access could not be verified, so this stream stopped.",
+      fix: "Reload the page to reconnect once workspace access can be checked.",
+    };
+    try {
+      const { pgClient } = await import("@/lib/db/postgres-store");
+      const { data, error } = await pgClient().from("members").select("id")
+        .eq("workspace_id", workspace.id).eq("id", user.id).maybeSingle();
+      if (error) return unavailable;
+      return data?.id === user.id ? undefined : denied;
+    } catch {
+      return unavailable;
+    }
+  };
+  return () => workspacesFor(user).some((w) => w.id === workspace.id) ? undefined : denied;
 }
 
 /**

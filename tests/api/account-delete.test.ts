@@ -102,6 +102,7 @@ vi.mock("@/lib/supabase/server", () => ({
 const { DELETE } = await import("@/app/api/account/route");
 const { GET: keepalive } = await import("@/app/api/internal/keepalive/route");
 const { reconcilePendingAccountDeletionsAsync } = await import("@/lib/server/account");
+const { mutateSharing } = await import("@/lib/server/workspace-sharing");
 const { appendAudit, db, readAudit, resetDb } = await import("@/lib/db/store");
 const { resetPgClient } = await import("@/lib/db/postgres-store");
 const { NextRequest } = await import("next/server");
@@ -122,6 +123,11 @@ const member = (id: string, workspaceId: string, role: "admin" | "editor") => ({
 
 const run = () => (DELETE as unknown as () => Promise<Response>)();
 
+const allowAccountDeletion = () => {
+  db().members[1].role = "admin";
+  db().workspaces[0].ownerId = db().members[1].id;
+};
+
 beforeEach(() => {
   state.order = [];
   state.grants = [];
@@ -141,7 +147,7 @@ describe("deleting your own account", () => {
     await expect(run()).rejects.toMatchObject({
       status: 409,
       message: "You are the only admin of Atlas.",
-      fix: "Make someone else an admin first from Settings → Members, then delete your account.",
+      fix: "Invite another member and transfer workspace ownership from Share, then delete your account.",
     });
     expect(db().members).toHaveLength(2);
   });
@@ -150,6 +156,34 @@ describe("deleting your own account", () => {
     await expect(run()).rejects.toThrow();
     expect(state.adminClients).toBe(0);
     expect(state.order).toEqual([]);
+  });
+
+  it("refuses an owner even when another admin could keep administering the workspace", async () => {
+    allowAccountDeletion();
+    db().workspaces[0].ownerId = "u-me";
+
+    await expect(run()).rejects.toMatchObject({
+      status: 409,
+      message: "You own Atlas.",
+      fix: "Transfer workspace ownership from Share before deleting your account.",
+    });
+    expect(state.adminClients).toBe(0);
+    expect(state.order).toEqual([]);
+    expect(db().members).toHaveLength(2);
+  });
+
+  it("protects the new owner immediately after ownership is transferred", async () => {
+    await mutateSharing({
+      operation: "transfer", workspaceId: "w-atlas", memberId: "u-other",
+      actorId: "u-me", actorEmail: "me@example.com", actorName: "Mika",
+    });
+    state.user = { id: "u-other", email: "u-other@example.com", name: "u-other" };
+
+    await expect(run()).rejects.toMatchObject({ status: 409, message: "You own Atlas." });
+    expect(db().workspaces[0].ownerId).toBe("u-other");
+    expect(state.adminClients).toBe(0);
+    expect(state.order).toEqual([]);
+    expect(db().members).toHaveLength(2);
   });
 
   it("fails closed in Product-Postgres mode before touching another authority", async () => {
@@ -179,7 +213,7 @@ describe("deleting your own account", () => {
   });
 
   it("ends sessions and revokes grants before the identity is deleted", async () => {
-    db().members[1].role = "admin";
+    allowAccountDeletion();
     state.grants = [{ id: "g-1" }, { id: "g-2" }];
 
     const res = await run();
@@ -196,7 +230,7 @@ describe("deleting your own account", () => {
   });
 
   it("resumes local cleanup from an identity-deleted journal without repeating provider calls", async () => {
-    db().members[1].role = "admin";
+    allowAccountDeletion();
     db().settings.pendingAccountDeletions = [
       {
         operationId: "op-recovery",
@@ -215,7 +249,7 @@ describe("deleting your own account", () => {
   });
 
   it("finds a deterministic audit row that a busy workspace pushed off the newest page", async () => {
-    db().members[1].role = "admin";
+    allowAccountDeletion();
     const actor = { type: "user" as const, id: "u-me", name: "Mika" };
     const auditId = "op-busy:workspace.removeMember:w-atlas";
 
@@ -271,7 +305,7 @@ describe("deleting your own account", () => {
   });
 
   it("removes the member row and the invites they issued, and records why", async () => {
-    db().members[1].role = "admin";
+    allowAccountDeletion();
     db().settings.invites = [
       { id: "i-1", workspaceId: "w-atlas", email: "new@example.com", role: "editor", createdBy: "u-me", createdAt: "2026-01-02T00:00:00.000Z" },
       { id: "i-2", workspaceId: "w-atlas", email: "other@example.com", role: "editor", createdBy: "u-other", createdAt: "2026-01-02T00:00:00.000Z" },
@@ -289,7 +323,7 @@ describe("deleting your own account", () => {
   });
 
   it("says the doors are already shut when Supabase will not delete the sign-in", async () => {
-    db().members[1].role = "admin";
+    allowAccountDeletion();
     state.deleteUserError = { message: "service unavailable" };
     await expect(run()).rejects.toMatchObject({
       status: 502,
@@ -299,7 +333,7 @@ describe("deleting your own account", () => {
   });
 
   it("journals the attempt before the irreversible call, not after it", async () => {
-    db().members[1].role = "admin";
+    allowAccountDeletion();
     let stageInsideTheCall: string | undefined;
     state.probe = () => {
       const journal = db().settings.pendingAccountDeletions as { stage: string }[];
@@ -314,7 +348,7 @@ describe("deleting your own account", () => {
   });
 
   it("leaves a retryable journal entry when the provider refuses", async () => {
-    db().members[1].role = "admin";
+    allowAccountDeletion();
     state.deleteUserError = { message: "service unavailable" };
     await expect(run()).rejects.toMatchObject({ status: 502 });
 
@@ -333,7 +367,7 @@ describe("deleting your own account", () => {
 describe("resuming a deletion that crashed at the irreversible boundary", () => {
   /** What the store looks like after the crash: doors shut, members intact. */
   const crashedJournal = () => {
-    db().members[1].role = "admin";
+    allowAccountDeletion();
     db().settings.pendingAccountDeletions = [
       {
         operationId: "op-crash",
@@ -389,7 +423,7 @@ describe("resuming a deletion that crashed at the irreversible boundary", () => 
   });
 
   it("still finishes an entry that already reached identity-deleted", async () => {
-    db().members[1].role = "admin";
+    allowAccountDeletion();
     db().settings.pendingAccountDeletions = [
       {
         operationId: "op-confirmed",
@@ -435,7 +469,7 @@ describe("the keepalive reconcile pass", () => {
     );
 
   it("runs the reconcile on the file store", async () => {
-    db().members[1].role = "admin";
+    allowAccountDeletion();
     db().settings.pendingAccountDeletions = [
       {
         operationId: "op-tick",
@@ -455,7 +489,7 @@ describe("the keepalive reconcile pass", () => {
   });
 
   it("fails closed in Product-Postgres mode, like the DELETE route", async () => {
-    db().members[1].role = "admin";
+    allowAccountDeletion();
     db().settings.pendingAccountDeletions = [
       {
         operationId: "op-tick-pg",

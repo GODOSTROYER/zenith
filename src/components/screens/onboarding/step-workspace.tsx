@@ -1,5 +1,6 @@
 "use client";
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { api, ApiError } from "@/lib/client/api";
 import type { Bootstrap } from "./types";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,10 @@ export function StepWorkspace({ boot, loading, onDone }: {
     <p className="text-sm leading-relaxed text-ink-mute">A workspace holds your team’s projects, connections and history. Choose one you belong to, or create a space for a new team.</p>
     {existing && boot && <div className="space-y-3">{(boot.workspaces.length ? boot.workspaces : [{ ...existing, role: boot.role }]).map((w) => <div key={w.id} className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-bg1 p-4">
       <div className="min-w-0"><p className="break-words font-medium text-ink">{w.name}</p><p className="mt-1 text-xs text-ink-faint">{w.role ?? "No role"}{w.id === existing.id ? " · Current workspace" : ""}</p></div>
-      <Button variant={w.id === existing.id ? "primary" : "quiet"} busy={busy} onClick={() => w.id === existing.id ? onDone() : submit(w.id)}>{w.id === existing.id ? "Continue here" : "Use workspace"}</Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Link href={"/workspace?workspace=" + encodeURIComponent(w.id)} aria-label={"Share " + w.name} className="inline-flex min-h-9 items-center rounded-ctl border border-line px-3 text-sm text-ink hover:bg-bg2">Share</Link>
+        <Button variant={w.id === existing.id ? "primary" : "quiet"} busy={busy} onClick={() => w.id === existing.id ? onDone() : submit(w.id)}>{w.id === existing.id ? "Continue here" : "Use workspace"}</Button>
+      </div>
     </div>)}</div>}
     {existing && boot?.auth.configured && !creating && <Button variant="quiet" onClick={() => setCreating(true)}>Create another workspace</Button>}
     {(!existing || creating) && <div className="space-y-4 border-y border-line bg-bg2 p-5">

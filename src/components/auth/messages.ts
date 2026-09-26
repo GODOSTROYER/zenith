@@ -11,6 +11,8 @@
 
 /** Codes auth redirects may put in `?error=`. Nothing else is honoured. */
 export const AUTH_ERROR_CODES: Record<string, string> = {
+  identity_link_mismatch:
+    "Your sign-in changed while connecting that provider. Sign in to the intended account, then connect Google again from Account settings.",
   auth_unavailable:
     "The app server could not verify your session because the authentication service is unavailable. Try again; if it continues, check the service and the server’s network access.",
   link_expired:

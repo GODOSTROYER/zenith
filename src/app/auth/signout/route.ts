@@ -15,6 +15,7 @@ import { ensureBoot } from "@/lib/server/boot";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { sessionUserFromRequest } from "@/lib/supabase/route";
 import { createClient } from "@/lib/supabase/server";
+import { safeNextPath } from "@/lib/auth/destination";
 
 export const dynamic = "force-dynamic";
 
@@ -33,5 +34,10 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
     await supabase.auth.signOut();
   }
-  return NextResponse.redirect(new URL("/login", request.nextUrl.origin), { status: 303 });
+  const form = await request.formData().catch(() => null);
+  const value = form?.get("next");
+  const next = safeNextPath(typeof value === "string" ? value : undefined);
+  const login = new URL("/login", request.nextUrl.origin);
+  if (next) login.searchParams.set("next", next);
+  return NextResponse.redirect(login, { status: 303 });
 }

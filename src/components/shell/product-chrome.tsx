@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Check, ChevronDown, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Plus, Settings, Users } from "lucide-react";
+import { Check, ChevronDown, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Plus, Settings, Share2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { Dialog } from "@/components/ui/dialog";
@@ -149,7 +149,7 @@ function WorkspaceChip() {
   // Demo mode has one local user who is admin of everything, so a second
   // workspace would only be a second name for the same permissions.
   const canCreate = boot.auth.configured;
-  const others = boot.workspaces.filter((w) => w.id !== boot.workspace.id);
+  const workspaces = [{ ...boot.workspace, role: boot.role }, ...boot.workspaces.filter((workspace) => workspace.id !== boot.workspace.id)];
 
   return (
     <>
@@ -184,25 +184,27 @@ function WorkspaceChip() {
           )}
         </MenuNote>
 
-        {/* The one you are in is marked, not hidden: a switcher that omits the
-            current row makes you count to work out where you are. */}
-        <MenuItem
-          icon={<Check className="h-3.5 w-3.5 text-signal" aria-hidden="true" />}
-          hint={boot.role ?? undefined}
-          onClick={close}
-          className="font-medium"
-        >
-          {boot.workspace.name}
-        </MenuItem>
-        {others.map((w) => (
-          <MenuItem
-            key={w.id}
-            icon={<span className="block h-3.5 w-3.5" aria-hidden="true" />}
-            hint={w.role}
-            onClick={() => void select(w.id)}
-          >
-            {w.name}
-          </MenuItem>
+        {workspaces.map((workspace) => (
+          <div key={workspace.id} role="none" className="flex items-center">
+            <div role="none" className="min-w-0 flex-1">
+              <MenuItem
+                icon={workspace.id === boot.workspace.id ? <Check className="h-3.5 w-3.5 text-signal" aria-hidden="true" /> : <span className="block h-3.5 w-3.5" aria-hidden="true" />}
+                hint={workspace.role ?? undefined}
+                onClick={() => workspace.id === boot.workspace.id ? close() : void select(workspace.id)}
+              >
+                {workspace.name}
+              </MenuItem>
+            </div>
+            <Link
+              role="menuitem"
+              href={"/workspace?workspace=" + encodeURIComponent(workspace.id)}
+              aria-label={"Share " + workspace.name}
+              onClick={close}
+              className="mr-2 inline-flex min-h-9 shrink-0 items-center rounded-ctl px-2 text-xs text-signal hover:bg-bg2 focus-visible:bg-bg2"
+            >
+              Share
+            </Link>
+          </div>
         ))}
         <MenuItem
           icon={<Plus className="h-3.5 w-3.5" aria-hidden="true" />}
@@ -228,15 +230,16 @@ function WorkspaceChip() {
           Rename workspace
         </MenuItem>
         <MenuItem
-          href={settings ? `${settings}#members` : undefined}
+          href={"/workspace?workspace=" + encodeURIComponent(boot.workspace.id)}
           onClick={close}
           icon={<Users className="h-3.5 w-3.5" aria-hidden="true" />}
           hint={boot.members.length || undefined}
-          description="Who can do what here"
-          disabled={!settings}
-          disabledReason={noProject}
+          description="Invite people, roles and ownership"
         >
-          Members and roles
+          Sharing and members
+        </MenuItem>
+        <MenuItem href="/invite" onClick={close} icon={<Users className="h-3.5 w-3.5" aria-hidden="true" />} description="Invitations addressed to your email">
+          Your invitations
         </MenuItem>
       </Popover>
       <CreateWorkspaceDialog open={creating} onClose={() => setCreating(false)} />
@@ -326,7 +329,7 @@ export function ProductChrome({ children }: { children: ReactNode }) {
   const routeSlug = /^\/p\/([^/]+)/.exec(pathname)?.[1];
   const slug = routeSlug ?? boot?.projects[0]?.slug;
   const projectName = boot?.projects.find((project) => project.slug === slug)?.name;
-  const title = pathname.startsWith("/guide") ? "Workspace guide" : "Workspace overview";
+  const title = pathname.startsWith("/guide") ? "Workspace guide" : pathname.startsWith("/workspace") ? "Workspace sharing" : pathname.startsWith("/invite") ? "Workspace invitations" : "Workspace overview";
 
   useEffect(() => {
     try { setCollapsed(localStorage.getItem("zenith-shell-collapsed") === "true"); } catch { /* Optional preference. */ }
@@ -373,6 +376,9 @@ export function ProductChrome({ children }: { children: ReactNode }) {
             <div className="workbench-tools">
               <CommandPalette catalog={catalog} />
               <ActivityBell />
+              {boot?.workspace && <Link href={"/workspace?workspace=" + encodeURIComponent(boot.workspace.id)} aria-label={"Share " + boot.workspace.name} title="Workspace sharing and access" className="inline-flex min-h-9 items-center gap-1.5 rounded-ctl border border-line px-2.5 text-xs font-medium text-ink hover:bg-bg2">
+                <Share2 size={14} aria-hidden="true" /><span>Share</span>
+              </Link>}
               <span className="workbench-desktop-theme"><ThemeToggle /></span>
               <span className="workbench-account"><UserMenu /></span>
             </div>

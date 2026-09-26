@@ -4,9 +4,10 @@
  * Two installs answer "may this person be in this workspace?" differently:
  *
  *  - **Self-hosted** trusts the operator. A role the operator put in
- *    `app_metadata.role` is honoured, and the first real user to sign in owns a
+ *    `app_metadata.role` may bootstrap an unowned workspace, and the first real user to sign in owns a
  *    workspace that has nobody in it — there is nobody to defer to, and an
- *    unreachable admin seat would make every admin action impossible.
+ *    unreachable admin seat would make every admin action impossible. Once an
+ *    owner exists, stored membership decisions take precedence over claims.
  *  - **Hosted** (`ZENITH_HOSTED_MODE=1`) trusts only the member table. A
  *    workspace is created by its admin through `POST /api/workspace`, so an
  *    empty one is never a seat for whoever signs in next, and a revoked person
@@ -22,7 +23,7 @@ import { hostedMode } from "@/lib/hosted/config";
 import type { SessionUser } from "@/lib/auth/session";
 
 export interface MembershipPolicy {
-  /** Honour `app_metadata.role`: as a way in, and as a way to change a stored role. */
+  /** Permit `app_metadata.role` to bootstrap roles only while a workspace has no owner. */
   claimsGrantRoles: boolean;
   /** A workspace with no real members admits the next signed-in user as its admin. */
   emptyWorkspaceGrantsAdmin: boolean;

@@ -30,7 +30,7 @@
  *
  * Linux and macOS skip nothing, and CI runs on Linux.
  */
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -101,6 +101,19 @@ beforeEach(() => {
 });
 
 describe("file credential authority", () => {
+  it.each([403, 503])("keeps the approved device code retryable after admission returns %i", async (status) => {
+    const { deviceCode, userCodeHash } = await start();
+    await authority.approveLink(approval(userCodeHash));
+    const before = readFileSync(join(directory, "link-codes.json"), "utf8");
+    const admit = vi.fn(async (): Promise<void> => { throw new AgentError("admission_unavailable", "Waitlist refused this exchange.", status); });
+    await expect(authority.exchange(hashDeviceCode(deviceCode), undefined, admit)).rejects.toMatchObject({ status });
+    expect(admit).toHaveBeenCalledWith("member_1");
+    expect(readFileSync(join(directory, "link-codes.json"), "utf8")).toBe(before);
+    admit.mockResolvedValueOnce(undefined);
+    expect(await authority.exchange(hashDeviceCode(deviceCode), undefined, admit)).toMatchObject({ status: "issued" });
+    expect(await authority.exchange(hashDeviceCode(deviceCode), undefined, admit)).toEqual({ status: "expired" });
+  });
+
   it("refuses on Windows and accepts a private POSIX directory", async () => {
     if (WINDOWS) await expect(authority.ready()).rejects.toMatchObject({ status: 503 });
     else await expect(authority.ready()).resolves.toBeUndefined();
@@ -362,6 +375,40 @@ const credentialRow = (overrides: Record<string, unknown> = {}) => ({
 });
 
 describe("postgres credential authority (statement shape; live behaviour is P5's lane)", () => {
+  it.each([403, 503])("checks admission before consuming a code and permits retry after %i", async (status) => {
+    const { sealLinkSecret } = await import("../src/lib/agent-access/link/protocol");
+    const token = `za_${"C".repeat(43)}`;
+    const userCodeHash = hashUserCode("CCCC4444");
+    const row = {
+      user_code_hash: userCodeHash, device_code_hash: "d".repeat(64), state: "approved",
+      created_at: new Date(Date.now() - 30_000).toISOString(),
+      expires_at: new Date(Date.now() + 60_000).toISOString(),
+      credential_id: "cred_pg", secret_ct: sealLinkSecret(userCodeHash, token),
+      poll_count: 0, last_polled_at: null,
+    };
+    let consumed = false;
+    const { tag, calls } = fakeSql((text) => {
+      if (text.includes("schema_migrations")) return [{ version: 1 }];
+      if (text.includes("set state = 'consumed'")) {
+        if (consumed) return [];
+        consumed = true;
+        return [{ credential_id: row.credential_id, secret_ct: row.secret_ct }];
+      }
+      if (text.includes("from agent.agent_credentials")) return [credentialRow()];
+      if (text.startsWith("update agent.agent_link_codes")) return [];
+      return [row];
+    });
+    const pg = new PgCredentialAuthority(() => tag as never);
+    const admit = vi.fn(async (): Promise<void> => { throw new AgentError("admission_unavailable", "Waitlist refused this exchange.", status); });
+    await expect(pg.exchange(row.device_code_hash, undefined, admit)).rejects.toMatchObject({ status });
+    expect(admit).toHaveBeenCalledWith("member_1");
+    expect(consumed).toBe(false);
+    expect(calls.some((call) => call.text.includes("set state = 'consumed'"))).toBe(false);
+    admit.mockResolvedValueOnce(undefined);
+    expect(await pg.exchange(row.device_code_hash, undefined, admit)).toMatchObject({ status: "issued", token });
+    expect(consumed).toBe(true);
+  });
+
   it("refuses every request until the migration is recorded", async () => {
     const { tag, calls } = fakeSql((text) => (text.includes("agent.schema_migrations") ? [] : []));
     const pg = new PgCredentialAuthority(() => tag as never);

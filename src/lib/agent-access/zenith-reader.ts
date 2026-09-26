@@ -16,6 +16,7 @@ import { monthlyCostUsd } from "@/lib/cost/pricing";
 import type { Manifest } from "@/lib/domain/types";
 import { AgentError, redact, type Credential, type SelectedScope } from "./security";
 import { createReaderHandler, type ReaderTool } from "./http";
+import { requireAgentWaitlistAccess } from "./waitlist";
 // The one selector (LINK-PROTOCOL.md §3.1): the credential's subject must be a
 // live member row, and membership lives in the product store, so the authority
 // follows `ZENITH_STORE` rather than a second flag.
@@ -144,6 +145,7 @@ export const agentReader = createReaderHandler({
   origin: process.env.ZENITH_AGENT_ORIGIN ?? "", credentialsPath: process.env.ZENITH_AGENT_CREDENTIAL_FILE ?? "",
   tools: readerTools,
   async inScope(grant, selected, fn) {
+    await requireAgentWaitlistAccess(grant.subject);
     if (!isPostgres()) claimDataDir(env().ZENITH_DATA);
     const snapshot = isPostgres() ? await loadSnapshot(pgClient(), { id: grant.subject, email: "" }) : undefined;
     return runWithSnapshot(snapshot, async () => {

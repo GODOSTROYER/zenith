@@ -89,6 +89,8 @@ const INTERNAL_PREFIX = "/api/internal/";
 
 export function isPublicPath(pathname: string): boolean {
   return (
+    // Only the exact intake endpoint is public.
+    pathname === "/api/waitlist" ||
     PUBLIC_PATHS.some((p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`))) ||
     PREVIEW_PAGE.test(pathname) ||
     pathname.startsWith(INTERNAL_PREFIX)

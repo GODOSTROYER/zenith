@@ -50,6 +50,10 @@ const AGENT_LANES = [
   passed("AgentLinkPostgres credentials issue verify revoke"),
   passed("AgentControlPostgres claims exactly one of two racing connections"),
 ];
+const PRODUCT_SQL_LANES = [
+  passed("WorkspaceSharingPostgres transfers ownership atomically"),
+  passed("WaitlistPostgres admits concurrent queue batches without duplication"),
+];
 
 describe("postgres lane report", () => {
   it("counts the Postgres row under vitest's quoted $name spelling", () => {
@@ -59,6 +63,7 @@ describe("postgres lane report", () => {
         passed("'PostgresAuthority' ledgers quota counters hands each caller the total that committed"),
         LIVE_MIGRATE,
         ...AGENT_LANES,
+        ...PRODUCT_SQL_LANES,
       ])
     );
     expect(out).not.toContain("produced 0 passing tests");
@@ -67,14 +72,14 @@ describe("postgres lane report", () => {
 
   it("still accepts the unquoted spelling", () => {
     const { status } = run(
-      report([passed("PostgresAuthority ledgers quota counters hands each caller the total"), LIVE_MIGRATE, ...AGENT_LANES])
+      report([passed("PostgresAuthority ledgers quota counters hands each caller the total"), LIVE_MIGRATE, ...AGENT_LANES, ...PRODUCT_SQL_LANES])
     );
     expect(status).toBe(0);
   });
 
   it("fails the job when only the SQLite row ran", () => {
     const { status, out } = run(
-      report([passed("'SqliteAuthority' ledgers quota counters hands each caller the total"), LIVE_MIGRATE, ...AGENT_LANES])
+      report([passed("'SqliteAuthority' ledgers quota counters hands each caller the total"), LIVE_MIGRATE, ...AGENT_LANES, ...PRODUCT_SQL_LANES])
     );
     expect(out).toContain("produced 0 passing tests");
     expect(status).toBe(1);
@@ -82,7 +87,7 @@ describe("postgres lane report", () => {
 
   it("does not mistake a row whose name merely contains the word", () => {
     const { status } = run(
-      report([passed("'NotPostgresAuthorityAtAll' ledgers something"), LIVE_MIGRATE, ...AGENT_LANES])
+      report([passed("'NotPostgresAuthorityAtAll' ledgers something"), LIVE_MIGRATE, ...AGENT_LANES, ...PRODUCT_SQL_LANES])
     );
     expect(status).toBe(1);
   });
@@ -91,9 +96,33 @@ describe("postgres lane report", () => {
 describe("postgres lane report, agent lanes", () => {
   it("fails the job when an agent contract file ran zero tests", () => {
     const { status, out } = run(
-      report([passed("'PostgresAuthority' ledgers quota counters hands each caller the total"), LIVE_MIGRATE, AGENT_LANES[0]])
+      report([passed("'PostgresAuthority' ledgers quota counters hands each caller the total"), LIVE_MIGRATE, AGENT_LANES[0], ...PRODUCT_SQL_LANES])
     );
     expect(out).toContain("agent.agent_operations");
     expect(status).toBe(1);
+  });
+});
+
+describe("postgres lane report, workspace sharing and waitlist", () => {
+  it.each(PRODUCT_SQL_LANES)("fails when $fullName is skipped", (lane) => {
+    const assertions = [
+      passed("PostgresAuthority transactions commit"),
+      LIVE_MIGRATE,
+      ...AGENT_LANES,
+      ...PRODUCT_SQL_LANES.map((entry) => entry === lane ? { ...entry, status: "skipped" as const } : entry),
+    ];
+    const { status, out } = run(report(assertions));
+    expect(status).toBe(1);
+    expect(out).toContain("produced 0 passing tests");
+    expect(out).toContain(lane === PRODUCT_SQL_LANES[0] ? "workspace sharing and ownership" : "waitlist queue and batch admissions");
+  });
+
+  it("accepts quoted product SQL suite names", () => {
+    const { status } = run(report([
+      passed("PostgresAuthority transactions commit"), LIVE_MIGRATE, ...AGENT_LANES,
+      passed("'WorkspaceSharingPostgres' transfers ownership atomically"),
+      passed("'WaitlistPostgres' admits queue batches atomically"),
+    ]));
+    expect(status).toBe(0);
   });
 });

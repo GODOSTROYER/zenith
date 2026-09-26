@@ -51,11 +51,18 @@ async function memberRowsFor(ctx: PrefetchContext): Promise<PgRow[]> {
   const { data, error } = await ctx.client
     .from("members")
     .select("*")
-    .or(`id.eq.${user.id},email.eq.${email}`);
+    .or(`id.eq.${JSON.stringify(user.id)},email_normalized.eq.${JSON.stringify(email)}`);
   if (error) throw storeError("members", "read", error.message);
-  return ((data ?? []) as PgRow[]).filter(
+  const mine = ((data ?? []) as PgRow[]).filter(
     (r) => r.id === user.id || String(r.email ?? "").toLowerCase() === email
   );
+  const workspaceIds = [...new Set(mine.map((r) => String(r.workspace_id)))];
+  if (!workspaceIds.length) return [];
+  // Discover membership before loading peers. A member list must contain the
+  // whole authorized workspace, while an invitation grants no tenant reads.
+  const peers = await ctx.client.from("members").select("*").in("workspace_id", workspaceIds);
+  if (peers.error) throw storeError("members", "read", peers.error.message);
+  return ((peers.data ?? []) as PgRow[]).filter((r) => workspaceIds.includes(String(r.workspace_id)));
 }
 
 /* ---------------------------------------------------------------------------
@@ -68,9 +75,9 @@ registerCollection<Workspace>({
   table: "workspaces",
   key: (r) => ({ id: r.id }),
   tenant: (w) => w.id,
-  promote: (w) => ({ slug: w.slug, name: w.name, created_at: iso(w.createdAt) }),
-  rename: { slug: "slug", name: "name", created_at: "createdAt" },
-  hydrate: hydrateWith<Workspace>({ slug: "slug", name: "name", created_at: "createdAt" }),
+  promote: (w) => ({ slug: w.slug, name: w.name, owner_id: w.ownerId ?? null, created_at: iso(w.createdAt) }),
+  rename: { slug: "slug", name: "name", owner_id: "ownerId", created_at: "createdAt" },
+  hydrate: hydrateWith<Workspace>({ slug: "slug", name: "name", owner_id: "ownerId", created_at: "createdAt" }),
   prefetch: {
     round: 2,
     filter: (ctx) =>
@@ -112,6 +119,8 @@ const inviteRename = {
   role: "role",
   accepted_at: "acceptedAt",
   created_at: "createdAt",
+  expires_at: "expiresAt",
+  revoked_at: "revokedAt",
 };
 
 registerCollection<Invite>({
@@ -120,10 +129,12 @@ registerCollection<Invite>({
   key: (r) => ({ id: r.id }),
   tenant: ownWorkspace,
   promote: (i) => ({
-    email: i.email,
+    email: i.email.trim().toLowerCase(),
     role: i.role,
     accepted_at: iso(i.acceptedAt),
     created_at: iso(i.createdAt),
+    expires_at: iso(i.expiresAt),
+    revoked_at: iso(i.revokedAt),
   }),
   rename: inviteRename,
   hydrate: hydrateWith<Invite>(inviteRename),

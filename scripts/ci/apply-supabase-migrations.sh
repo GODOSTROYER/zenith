@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Apply supabase/migrations/0001…0007, in order, to the database named by
+# Apply the committed supabase/migrations, in order, to the database named by
 # SUPABASE_DB_URL. Written for the `postgres` job in .github/workflows/ci.yml,
 # whose database is a disposable service container — never point it at a
 # Supabase project.
@@ -9,7 +9,7 @@
 #
 # The Supabase CLI wants a linked project and an access token. CI has neither,
 # and the thing under test is the *SQL in this repository*, not the CLI. `psql`
-# applying the seven files in order is the smallest thing that proves the schema
+# applying the files in order is the smallest thing that proves the schema
 # the hosted authority checks for (`src/lib/hosted/authority/pg/index.ts:165-191`)
 # can actually be built from what is committed.
 #
@@ -29,31 +29,31 @@
 # exposes it here either: the agent journal and credential authority speak
 # direct Postgres through `postgres.js`.
 #
-# ## The one Supabase-only thing these files need
+# ## Supabase role stand-ins
 #
-# `service_role`. Every migration ends in a grant block naming it
+# `service_role`. The migrations include grant blocks naming it
 # (0001:422-426, 0002:383-387, 0003:245-261, 0004:289-294) because on Supabase
 # it is a real role that bypasses RLS. A bare PostgreSQL container has no such
-# role, so `create role service_role` below is a **stand-in**: NOLOGIN, no
-# BYPASSRLS, granted nothing this script does not grant it. It exists so the
-# grant statements parse and apply; nothing in the test run authenticates as it.
+# role, so `create role service_role` below is a **stand-in**: NOLOGIN with
+# BYPASSRLS, as required by the SECURITY INVOKER sharing and waitlist functions.
+# Contract tests use SET ROLE to verify privileges. No test authenticates as it.
 #
 # That matters for what the lane can and cannot prove:
 #   - PROVES: every DDL statement applies, in order, from an empty database —
 #     tables, partial unique indexes, CHECKs, identity columns, plpgsql
 #     functions, and the migration ledger the runtime verifies.
-#   - DOES NOT PROVE: that a real `service_role` connection is correctly
-#     privileged, or that RLS refuses `anon`/`authenticated`. The tests connect
-#     as the container superuser, which bypasses RLS the way Supabase's
-#     `service_role` does — the same reachability, a different reason for it.
-#     Anything about Supabase's own role graph is BLOCKED without a project.
+#   - PROVES: the new product functions are executable as the stand-in service
+#     role and inaccessible as the stand-in `anon`/`authenticated` roles.
+#   - DOES NOT PROVE: a real Supabase project's role memberships, exposed API
+#     schemas or PostgREST configuration. Tests open a superuser connection and
+#     use SET ROLE; they do not authenticate through Supabase.
 #
-# `anon` and `authenticated` are deliberately NOT created: no statement in any
-# of the five files grants them anything (they appear only in comments), so
-# inventing them here would be inventing surface area.
+# `anon` and `authenticated` are also NOLOGIN stand-ins. The workspace sharing
+# and waitlist migrations explicitly revoke their table/function privileges;
+# the contract suites use SET ROLE to verify those application boundaries.
 #
-# No extensions are required — `grep -n "create extension" supabase/migrations/`
-# is empty, and nothing calls `gen_random_uuid()`; ids are minted in TypeScript.
+# No extensions are required. `gen_random_uuid()` in the waitlist migration is
+# built into the PostgreSQL version used by this lane.
 #
 # Usage:  SUPABASE_DB_URL=postgresql://… bash scripts/ci/apply-supabase-migrations.sh
 # Exit:   0 applied and verified, 1 anything else (with the reason on stderr).
@@ -73,6 +73,8 @@ MIGRATIONS=(
   "0005_pending_invite_uniqueness.sql"
   "0006_agent_link.sql"
   "0007_agent_control.sql"
+  "0008_workspace_ownership.sql"
+  "0009_waitlist.sql"
 )
 
 if [ -z "${SUPABASE_DB_URL:-}" ]; then
@@ -104,7 +106,9 @@ echo "Applying ${#MIGRATIONS[@]} migrations to ${TARGET}"
 # that has just reported healthy can still refuse the first connection while it
 # finishes its own bootstrap. Bounded: 30 attempts, one second apart.
 attempt=0
-until psql "$SUPABASE_DB_URL" --quiet --no-align --tuples-only --command 'select 1' >/dev/null 2>&1; do
+# Keep the connection argument last: Windows psql stops option parsing at the
+# first positional argument, while GNU builds also accept trailing options.
+until psql --quiet --no-align --tuples-only --command 'select 1' "$SUPABASE_DB_URL" >/dev/null 2>&1; do
   attempt=$((attempt + 1))
   if [ "$attempt" -ge 30 ]; then
     echo "::error::${TARGET} did not accept a connection after 30 attempts." >&2
@@ -117,18 +121,28 @@ echo "Connected after ${attempt} retr$([ "$attempt" -eq 1 ] && echo y || echo ie
 # --- the service_role stand-in ----------------------------------------------
 #
 # Idempotent, so re-running the script against the same container is a no-op.
-psql "$SUPABASE_DB_URL" --quiet --set ON_ERROR_STOP=1 <<'SQL'
+psql --quiet --set ON_ERROR_STOP=1 "$SUPABASE_DB_URL" <<'SQL'
 do $$
 begin
   if not exists (select 1 from pg_roles where rolname = 'service_role') then
-    -- NOLOGIN and no BYPASSRLS on purpose: this role is here so the grant
-    -- blocks in the migrations apply, not so anything can connect as it.
-    create role service_role nologin noinherit;
+    create role service_role nologin noinherit bypassrls;
+  end if;
+end
+$$;
+-- Re-running against the same disposable CI cluster upgrades an older stand-in.
+alter role service_role bypassrls;
+do $$
+begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then
+    create role anon nologin noinherit;
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'authenticated') then
+    create role authenticated nologin noinherit;
   end if;
 end
 $$;
 SQL
-echo "service_role stand-in present."
+echo "service_role, anon and authenticated stand-ins present."
 
 # --- apply, each file in its own transaction --------------------------------
 #
@@ -142,11 +156,12 @@ for file in "${MIGRATIONS[@]}"; do
     exit 1
   fi
   echo "--- ${file}"
-  psql "$SUPABASE_DB_URL" \
+  psql \
     --quiet \
     --single-transaction \
     --set ON_ERROR_STOP=1 \
-    --file "$path"
+    --file "$path" \
+    "$SUPABASE_DB_URL"
 done
 
 # --- verify what actually landed --------------------------------------------
@@ -157,24 +172,24 @@ done
 #   2. the partial unique index the boot check probes for exists;
 #   3. both schemas hold tables.
 echo "--- verification"
-ledger="$(psql "$SUPABASE_DB_URL" --no-align --tuples-only --set ON_ERROR_STOP=1 \
-  --command "select string_agg(version || ':' || name, ', ' order by version) from hosted.schema_migrations")"
+ledger="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+  --command "select string_agg(version || ':' || name, ', ' order by version) from hosted.schema_migrations" "$SUPABASE_DB_URL")"
 echo "hosted.schema_migrations = ${ledger}"
 if [ "$ledger" != "1:control-authority-v1, 2:invite-delivery-transport-none, 3:one-pending-invite-per-app-email" ]; then
   echo "::error::The migration ledger is not what src/lib/hosted/authority/schema.ts expects; the authority will refuse to boot." >&2
   exit 1
 fi
 
-index_def="$(psql "$SUPABASE_DB_URL" --no-align --tuples-only --set ON_ERROR_STOP=1 \
-  --command "select coalesce(indexdef, '') from pg_indexes where schemaname = 'hosted' and indexname = 'app_invites_pending_email'")"
+index_def="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+  --command "select coalesce(indexdef, '') from pg_indexes where schemaname = 'hosted' and indexname = 'app_invites_pending_email'" "$SUPABASE_DB_URL")"
 if [ -z "$index_def" ]; then
   echo "::error::hosted.app_invites_pending_email is missing; migration 0005 did not apply." >&2
   exit 1
 fi
 echo "app_invites_pending_email = ${index_def}"
 
-counts="$(psql "$SUPABASE_DB_URL" --no-align --tuples-only --set ON_ERROR_STOP=1 \
-  --command "select schemaname || '=' || count(*) from pg_tables where schemaname in ('public','hosted','agent') group by schemaname order by schemaname")"
+counts="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+  --command "select schemaname || '=' || count(*) from pg_tables where schemaname in ('public','hosted','agent') group by schemaname order by schemaname" "$SUPABASE_DB_URL")"
 echo "tables: $(echo "$counts" | tr '\n' ' ')"
 
 # --- the agent schema (0006, 0007) ------------------------------------------
@@ -185,8 +200,8 @@ echo "tables: $(echo "$counts" | tr '\n' ' ')"
 # `pgCredentialAuthority()` refuse every read and write until both rows are
 # present, so a lane that applied the DDL but not the ledger row would fail
 # later, with a less useful message.
-agent_ledger="$(psql "$SUPABASE_DB_URL" --no-align --tuples-only --set ON_ERROR_STOP=1 \
-  --command "select string_agg(version || ':' || name, ', ' order by version) from agent.schema_migrations")"
+agent_ledger="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+  --command "select string_agg(version || ':' || name, ', ' order by version) from agent.schema_migrations" "$SUPABASE_DB_URL")"
 echo "agent.schema_migrations = ${agent_ledger}"
 if [ "$agent_ledger" != "1:agent-link-v1, 2:agent-control-v1" ]; then
   echo "::error::agent.schema_migrations is not 1:agent-link-v1, 2:agent-control-v1; the agent journal and credential authority will refuse every request." >&2
@@ -209,8 +224,8 @@ AGENT_INDEXES=(
   agent_rate_limits_bucket
   agent_uploads_workspace
 )
-present="$(psql "$SUPABASE_DB_URL" --no-align --tuples-only --set ON_ERROR_STOP=1 \
-  --command "select indexname from pg_indexes where schemaname = 'agent' order by 1")"
+present="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+  --command "select indexname from pg_indexes where schemaname = 'agent' order by 1" "$SUPABASE_DB_URL")"
 echo "agent indexes: $(echo "$present" | tr '\n' ' ')"
 for index in "${AGENT_INDEXES[@]}"; do
   if ! printf '%s\n' "$present" | grep -qx -- "$index"; then
@@ -222,9 +237,9 @@ done
 # The grant block at the tail of each file, which is the one Supabase-only
 # thing these migrations need. On the container `service_role` is the NOLOGIN
 # stand-in created above, so this proves the statement applied — not that
-# Supabase's own role graph is correct. Nothing here connects as it.
-agent_usage="$(psql "$SUPABASE_DB_URL" --no-align --tuples-only --set ON_ERROR_STOP=1 \
-  --command "select has_schema_privilege('service_role','agent','USAGE')")"
+# Supabase's own role graph is correct. Nothing here authenticates as it.
+agent_usage="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+  --command "select has_schema_privilege('service_role','agent','USAGE')" "$SUPABASE_DB_URL")"
 if [ "$agent_usage" != "t" ]; then
   echo "::error::service_role has no USAGE on schema agent; the grant block at the tail of 0006/0007 did not apply." >&2
   exit 1
@@ -234,12 +249,55 @@ echo "service_role USAGE on schema agent = ${agent_usage}"
 # RLS on with no policies is the `hosted` rule, repeated for `agent`. A table
 # that reached production with RLS off would be readable by `anon` the moment
 # somebody exposed the schema to the Data API by mistake.
-unprotected="$(psql "$SUPABASE_DB_URL" --no-align --tuples-only --set ON_ERROR_STOP=1 \
-  --command "select string_agg(relname, ', ' order by relname) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'agent' and c.relkind = 'r' and not c.relrowsecurity")"
+unprotected="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+  --command "select string_agg(relname, ', ' order by relname) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'agent' and c.relkind = 'r' and not c.relrowsecurity" "$SUPABASE_DB_URL")"
 if [ -n "$unprotected" ]; then
   echo "::error::row level security is off on agent.{${unprotected}}; every table in the agent schema must enable it." >&2
   exit 1
 fi
 echo "row level security enabled on every table in schema agent."
 
-echo "Migrations 0001-0007 applied and verified."
+# Verify the new public RPC boundary independently of the TypeScript tests.
+psql --quiet --set ON_ERROR_STOP=1 "$SUPABASE_DB_URL" <<'SQL'
+do $$
+declare
+  signature text;
+  routine regprocedure;
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'workspaces' and column_name = 'owner_id'
+  ) or to_regclass('public.workspace_invites_pending_email') is null then
+    raise exception 'Workspace ownership columns or pending-invitation index are missing';
+  end if;
+
+  foreach signature in array array[
+    'public.zenith_workspace_sharing(text,text,text,text,text,text,text,text,text,text)',
+    'public.zenith_waitlist_join(text,text,text)',
+    'public.zenith_waitlist_list(text,bigint,integer)',
+    'public.zenith_waitlist_admit(integer,text,text)',
+    'public.zenith_waitlist_admitted(text)',
+    'public.zenith_waitlist_rate_limit(text,integer,integer)'
+  ] loop
+    routine := to_regprocedure(signature);
+    if routine is null then
+      raise exception 'Product RPC % is missing', signature;
+    end if;
+    if not has_function_privilege('service_role', routine, 'EXECUTE')
+       or has_function_privilege('anon', routine, 'EXECUTE')
+       or has_function_privilege('authenticated', routine, 'EXECUTE') then
+      raise exception 'Product RPC % does not have a service-role-only execution boundary', signature;
+    end if;
+  end loop;
+
+  if (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity
+        and c.relname in ('waitlist_entries', 'waitlist_admission_batches', 'waitlist_rate_limits')) <> 3 then
+    raise exception 'Waitlist tables are missing or row level security is disabled';
+  end if;
+end
+$$;
+SQL
+echo "Workspace ownership and waitlist RPC privileges and schema verified."
+
+echo "All ${#MIGRATIONS[@]} committed migrations applied and verified."

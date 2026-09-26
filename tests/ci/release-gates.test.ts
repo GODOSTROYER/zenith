@@ -84,7 +84,7 @@ const requiredCommands: Record<string, string[]> = {
   postgres: [
     INSTALL,
     "bash scripts/ci/apply-supabase-migrations.sh",
-    "npx vitest run tests/hosted/authority/contract tests/scripts/migrate-hosted-to-postgres.test.ts tests/agent-link/pg-contract.test.ts tests/agent-control/pg-contract.test.ts --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/postgres-lane.json",
+    "npx vitest run tests/hosted/authority/contract tests/scripts/migrate-hosted-to-postgres.test.ts tests/agent-link/pg-contract.test.ts tests/agent-control/pg-contract.test.ts tests/db/contract/workspace-sharing.test.ts tests/waitlist/pg-contract.test.ts --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/postgres-lane.json",
   ],
   agent: [INSTALL, "npm run agent:acceptance", "npm run agent:browser"],
 };
@@ -366,6 +366,16 @@ describe("release gate policy", () => {
       expect(order.findIndex((run) => run.startsWith("npx vitest run"))).toBeGreaterThan(
         at("bash scripts/ci/apply-supabase-migrations.sh")
       );
+    });
+
+    it("includes every committed migration in order in the database bootstrap", () => {
+      const script = fs.readFileSync(path.join(process.cwd(), "scripts/ci/apply-supabase-migrations.sh"), "utf8");
+      const manifest = script.match(/^MIGRATIONS=\(\r?\n([\s\S]*?)^\)/m)?.[1];
+      expect(manifest, "the apply script must declare its ordered migration manifest").toBeDefined();
+      const applied = [...(manifest ?? "").matchAll(/"([^"\n]+\.sql)"/g)].map((match) => match[1]);
+      const committed = fs.readdirSync(path.join(process.cwd(), "supabase/migrations"))
+        .filter((file) => file.endsWith(".sql")).sort();
+      expect(applied).toEqual(committed);
     });
 
     it("reports on the lanes even when the suites failed, and fails when one ran nothing", () => {

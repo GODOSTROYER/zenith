@@ -30,7 +30,8 @@ export type SsePull = () => SseEvent[] | null | Promise<SseEvent[] | null>;
  * otherwise why they may not — in the same `{ message, fix }` shape as every
  * error body, because it is delivered as one before the stream closes.
  */
-export type SseGuard = () => { message: string; fix: string } | undefined;
+type SseDenial = { message: string; fix: string } | undefined;
+export type SseGuard = () => SseDenial | Promise<SseDenial>;
 
 const POLL_MS = 300;
 const HEARTBEAT_MS = 15_000;
@@ -71,9 +72,10 @@ export function sseResponse(signal: AbortSignal, guard: SseGuard, pull: SsePull)
        * it, because membership can end while an async `pull` is awaiting and a
        * payload computed under the old answer must not still go out.
        */
-      const revoked = (): boolean => {
+      const revoked = async (): Promise<boolean> => {
         if (closed) return true;
-        const denial = guard();
+        const denial = await guard();
+        if (closed) return true;
         if (!denial) return false;
         write(frame({ event: "error", data: denial }));
         close();
@@ -88,9 +90,9 @@ export function sseResponse(signal: AbortSignal, guard: SseGuard, pull: SsePull)
         if (closed || busy) return;
         busy = true;
         try {
-          if (revoked()) return;
+          if (await revoked()) return;
           const batch = await pull();
-          if (revoked()) return;
+          if (await revoked()) return;
           if (batch === null) {
             write("event: done\ndata: {}\n\n");
             close();

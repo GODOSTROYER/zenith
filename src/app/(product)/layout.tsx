@@ -3,6 +3,7 @@ import { ToastProvider } from "@/components/ui/toast";
 import { ErrorBoundary } from "@/components/shell/error-boundary";
 import { ProductChrome } from "@/components/shell/product-chrome";
 import { ShellProvider } from "@/components/shell/shell-context";
+import { requireProductPageAccess } from "@/lib/waitlist/enforcement";
 import "@/components/shell/workbench.css";
 
 /**
@@ -11,7 +12,8 @@ import "@/components/shell/workbench.css";
  * The bootstrap response carries the real action catalog. Rendering the shell
  * does not import deployment engines and action handlers just to list titles.
  */
-export default function ProductLayout({ children }: { children: ReactNode }) {
+export default async function ProductLayout({ children }: { children: ReactNode }) {
+  await requireProductPageAccess();
   return (
     <ToastProvider>
       <ShellProvider>

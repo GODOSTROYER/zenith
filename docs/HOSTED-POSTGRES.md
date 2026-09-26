@@ -21,7 +21,7 @@ One Supabase project holds four separate things.
 
 | Where | Holds | Reached by | Applied by |
 | --- | --- | --- | --- |
-| `public.*` (19 tables) | Product A's system of record: workspaces, members, projects, environments, revisions, deployments, alerts, audit, secrets | `src/lib/db/postgres-store.ts` over PostgREST as the service role | `supabase/migrations/0001_system_of_record.sql` |
+| `public.*` (22 tables) | Product A's system of record: workspaces, members, projects, environments, revisions, deployments, alerts, audit, secrets, and the waitlist queue/admissions/rate limits | `src/lib/db/postgres-store.ts` and `src/lib/waitlist/postgres.ts` over PostgREST as the service role | `supabase/migrations/0001_system_of_record.sql` + `0008_workspace_ownership.sql` + `0009_waitlist.sql` |
 | `hosted.*` — the control schema (16 tables) | The hosted control authority: `apps`, `app_grants`, `app_invites`, `invite_deliveries`, `app_sessions`, `app_exchanges`, `hosted_jobs`, `hosted_outbox`, `artifacts`, `releases`, `quota_counters`, `usage_ledger`, `revocation_ledger`, `backup_manifests`, `hosted_events`, plus `schema_migrations` | `src/lib/hosted/authority/pg/**` over a **direct Postgres connection** (postgres.js, through Supavisor) | `0002_hosted_authority.sql` + `0005_pending_invite_uniqueness.sql` |
 | `hosted.*` — the per-app data plane (`app_records`, `app_writes`, `app_storage`, plus the functions `hosted.app_record_insert_within_quota` and `hosted.app_storage_add`) | Each hosted app's customer records — what one SQLite file per app held before | `src/lib/hosted/data/pg-backend.ts` over **PostgREST** as the service role | `supabase/migrations/0003_hosted_app_data.sql` |
 | Storage bucket `zenith-artifacts` | Published build outputs, content-addressed: `sha256/<digest>/manifest.json` and `sha256/<digest>/files/<path>` | `src/lib/hosted/artifacts/storage-store.ts`, service-role HTTP against `/storage/v1/…` | created by hand in the dashboard |
@@ -604,6 +604,40 @@ nobody can say what happened to its side effect.
 | `zenith_get_capabilities` reports `coordination: "process-gate"` on production | the deployment is running the file store, not Postgres | check `ZENITH_STORE`. The advertisement is truthful by design, so this is the symptom doing its job |
 
 ---
+
+## 10. Workspace sharing and waitlist — migrations `0008` and `0009`
+
+Apply `supabase/migrations/0008_workspace_ownership.sql` followed by
+`supabase/migrations/0009_waitlist.sql` before deploying the sharing and waitlist
+features on a PostgreSQL installation. These migrations extend `public` and do
+not change the `hosted` or `agent` migration ledgers.
+
+`0008` adds a durable workspace owner and invitation expiry/revocation fields.
+It preserves existing administrator access, chooses a deterministic real
+administrator as the initial owner, and gives existing invitations a seven-day
+grace period. It revokes duplicate pending invitations while retaining the
+newest offer. Membership changes, invitations, acceptance and ownership
+transfers run through `public.zenith_workspace_sharing`, serialized on the
+workspace row.
+
+`0009` adds the waitlist queue, admission batches and durable rate limits. Queue
+joins normalize email addresses and preserve the first submission. Batch
+admissions serialize with joins and persist their request key and exact result,
+including an empty batch, so retries cannot admit additional people. The
+waitlist tables are independent of the product snapshot. No landing-page form
+is installed by this migration.
+
+Both migrations expose only service-role RPCs, use `SECURITY INVOKER`, and keep
+browser identities away from direct table and function access. Supabase's
+`service_role` must retain its `BYPASSRLS` capability. The existing public
+PostgREST schema is sufficient; never expose the service-role key to a browser.
+
+The PostgreSQL CI job applies every committed migration and runs the direct-SQL
+contracts in `tests/db/contract/workspace-sharing.test.ts` and
+`tests/waitlist/pg-contract.test.ts`. Independent connections exercise ownership
+and admission races; `SET ROLE` checks use disposable `service_role`, `anon`
+and `authenticated` stand-ins. This verifies SQL and application grants; it
+does not verify a deployed Supabase project's role graph or PostgREST setup.
 
 ## See also
 

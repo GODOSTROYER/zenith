@@ -167,6 +167,9 @@ export function route<P extends Record<string, string> = Record<string, string>>
     const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID().slice(0, 8);
     return withRequestId(requestId, async () => {
       try {
+        // Admission precedes workspace reads and automatic invitation joins.
+        const { requireProductRequestAccess } = await import("@/lib/waitlist/enforcement");
+        await requireProductRequestAccess(req);
         // Server-rendered reads also use context helpers. Only API handling
         // needs to load/resume the action and provider runtime.
         const { ensureBoot } = await import("@/lib/server/boot");

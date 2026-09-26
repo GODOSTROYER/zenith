@@ -199,6 +199,8 @@ export type ProviderId = z.infer<typeof ProviderId>;
 
 export interface Workspace {
   id: string;
+  /** The accountable owner; an admin member whose seat must be transferred explicitly. */
+  ownerId?: string;
   name: string;
   slug: string;
   createdAt: string;
@@ -227,6 +229,10 @@ export interface Invite {
   createdAt: string;
   /** set the moment the invited email first signs in */
   acceptedAt?: string;
+  /** New invitations expire after seven days; legacy entries may omit this. */
+  expiresAt?: string;
+  /** Revocation is retained so copied invitation links can explain their state. */
+  revokedAt?: string;
 }
 
 export interface CloudConnection {

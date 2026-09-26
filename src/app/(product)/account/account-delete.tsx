@@ -8,7 +8,7 @@
  * names where the fix is.
  *
  * The refusal is computed twice on purpose. The screen works it out from the
- * workspace it can see, so "you are the only admin" is on the page before
+ * workspace it can see, so ownership and last-admin refusals are shown before
  * anybody types their address; the API works it out across every workspace,
  * because that is the only side that can. The server's answer wins.
  */
@@ -28,7 +28,10 @@ import { errorText } from "@/components/screens/shared";
  * screen and `/api/account`'s 409 fix say this, so there is one wording.
  */
 export const soleAdminBlock = (workspace: string): string =>
-  `You are the only admin of ${workspace}. Make someone else an admin first from Settings → Members, then delete your account.`;
+  `You are the only admin of ${workspace}. Invite another member and transfer workspace ownership from Share, then delete your account.`;
+
+export const ownershipBlock = (workspace: string): string =>
+  `You own ${workspace}. Transfer workspace ownership from Share before deleting your account.`;
 
 export function DeleteAccountCard({
   email,
@@ -66,7 +69,7 @@ export function DeleteAccountCard({
       router.refresh();
     } catch (e) {
       const { message, fix } = errorText(e);
-      // A 409 is the last-admin refusal and belongs in the refusal slot, where
+      // A 409 is an ownership or last-admin refusal and belongs in the refusal slot, where
       // it leads and disables the button, rather than in the errors below it.
       const status = (e as { status?: number } | null)?.status;
       if (status === 409) setServerBlock(fix ? `${message} ${fix}` : message);

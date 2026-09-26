@@ -8,6 +8,7 @@ import { AuthForm } from "@/components/auth/auth-form";
 const calls = vi.hoisted(() => ({
   createClient: vi.fn(),
   signIn: vi.fn(),
+  oauth: vi.fn(),
   replace: vi.fn(),
   refresh: vi.fn(),
   search: "",
@@ -15,7 +16,7 @@ const calls = vi.hoisted(() => ({
   hasWorkspace: true,
 }));
 vi.mock("@/lib/supabase/client", () => ({ createClient: calls.createClient }));
-vi.mock("@/lib/supabase/env", () => ({ SUPABASE_OAUTH_PROVIDERS: [], OAUTH_PROVIDER_LABEL: {} }));
+vi.mock("@/lib/supabase/env", () => ({ SUPABASE_OAUTH_PROVIDERS: ["google"], OAUTH_PROVIDER_LABEL: { google: "Google" } }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: calls.replace, refresh: calls.refresh }),
   useSearchParams: () => new URLSearchParams(calls.search),
@@ -36,7 +37,7 @@ beforeEach(async () => {
       );
     throw new Error(`unexpected fetch ${url}`);
   }));
-  calls.createClient.mockImplementation(() => ({ auth: { signInWithPassword: calls.signIn } }));
+  calls.createClient.mockImplementation(() => ({ auth: { signInWithPassword: calls.signIn, signInWithOAuth: calls.oauth } }));
   host = document.createElement("div");
   document.body.append(host);
   root = createRoot(host);
@@ -157,4 +158,50 @@ it("falls back to the requested page when /api/me cannot answer", async () => {
   calls.signIn.mockResolvedValue({ error: null });
   await submit();
   expect(calls.replace).toHaveBeenCalledWith("/p/demo/activity");
+});
+
+
+it("offers Google sign-in with a safe continuation and an explicit account picker", async () => {
+  calls.oauth.mockResolvedValue({ error: null });
+  const button = [...host.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Continue with Google")!;
+  await act(async () => button.click());
+  expect(calls.oauth).toHaveBeenCalledWith({ provider: "google", options: {
+    redirectTo: "http://localhost/auth/callback?next=%2Fp%2Fdemo%2Factivity",
+    queryParams: { prompt: "select_account" },
+  } });
+  expect(button.disabled).toBe(true);
+  expect(calls.signIn).not.toHaveBeenCalled();
+});
+
+it("offers Google on signup and permits retry after a provider failure", async () => {
+  await act(async () => root.render(<AuthForm mode="signup" />));
+  calls.search = "next=%2F%2Fevil.test";
+  await act(async () => root.render(<AuthForm mode="signup" />));
+  calls.oauth.mockResolvedValueOnce({ error: new Error("Provider unavailable") });
+  const button = [...host.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Continue with Google")!;
+  await act(async () => button.click());
+  expect(calls.oauth.mock.calls[0][0].options.redirectTo).toBe("http://localhost/auth/callback");
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain("Provider unavailable");
+  expect(button.disabled).toBe(false);
+  calls.oauth.mockResolvedValueOnce({ error: null });
+  await act(async () => button.click());
+  expect(calls.oauth).toHaveBeenCalledTimes(2);
+});
+
+
+it("preserves workspace invitations when switching between login and signup", async () => {
+  calls.search = "next=%2Finvite%3Finvite%3Dworkspace-token";
+  await act(async () => root.render(<AuthForm mode="login" />));
+  expect(host.querySelector<HTMLAnchorElement>('a[href^="/signup"]')?.getAttribute("href")).toBe("/signup?next=%2Finvite%3Finvite%3Dworkspace-token");
+  await act(async () => root.render(<AuthForm mode="signup" />));
+  expect(host.querySelector<HTMLAnchorElement>('a[href^="/login"]')?.getAttribute("href")).toBe("/login?next=%2Finvite%3Finvite%3Dworkspace-token");
+});
+
+it("honors a workspace invitation for a fresh Google or password account", async () => {
+  calls.hasWorkspace = false;
+  calls.search = "next=%2Finvite%3Finvite%3Dworkspace-token";
+  await act(async () => root.render(<AuthForm mode="login" />));
+  calls.signIn.mockResolvedValue({ error: null });
+  await submit();
+  expect(calls.replace).toHaveBeenCalledWith("/invite?invite=workspace-token");
 });

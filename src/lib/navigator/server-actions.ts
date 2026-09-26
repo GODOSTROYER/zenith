@@ -13,6 +13,7 @@ import { db } from "@/lib/db/store";
 import type { Actor, AutonomyLevel, NavigatorRun } from "@/lib/domain/types";
 import { ApiError, currentWorkspace, demoActor, ensureMember } from "@/lib/server/context";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { requireWaitlistAccess } from "@/lib/waitlist/access";
 import type { Parsing } from "./llm";
 
 // Reading a Navigator page must not eagerly compile its execution runtime.
@@ -39,6 +40,9 @@ async function currentScope(): Promise<{ workspaceId: string; actor: Actor }> {
   const user = await getSessionUser();
   if (!user && isSupabaseConfigured())
     throw new ApiError("Sign in to use the Navigator.", 401, { fix: "Open /login, then retry." });
+  // Server actions can be posted directly without rendering a product layout.
+  // Admission must precede membership normalization and every action mutation.
+  await requireWaitlistAccess(user);
   // Resolve the selection independently of the project/run supplied by the
   // browser. Even a member of two workspaces acts only in the selected one.
   const workspace = await currentWorkspace();

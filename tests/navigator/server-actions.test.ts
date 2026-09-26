@@ -10,8 +10,10 @@ const session = vi.hoisted(() => ({
   workspaceId: "ws-a",
   normalize: vi.fn(async (text: string) => ({ text, mode: "deterministic" as const })),
   execute: vi.fn(() => ({ ok: true, summary: "Read the selected project." })),
+  admit: vi.fn(async (_user: SessionUser | null): Promise<void> => {}),
 }));
 vi.mock("@/lib/auth/session", () => ({ getSessionUser: async () => session.user }));
+vi.mock("@/lib/waitlist/access", () => ({ requireWaitlistAccess: session.admit }));
 vi.mock("@/lib/supabase/env", async (original) => ({
   ...await original<typeof import("@/lib/supabase/env")>(),
   isSupabaseConfigured: () => session.configured,
@@ -47,10 +49,11 @@ beforeEach(() => {
   session.user = ada;
   session.workspaceId = "ws-a";
   session.configured = true;
+  session.admit.mockReset().mockResolvedValue(undefined);
   session.normalize.mockReset().mockImplementation(async (text: string) => ({ text, mode: "deterministic" as const }));
   session.execute.mockReset().mockImplementation(() => ({ ok: true, summary: "Read the selected project." }));
   resetDb({
-    workspaces: ["a", "b"].map((suffix) => ({ id: `ws-${suffix}`, name: suffix, slug: suffix, createdAt: AT })),
+    workspaces: ["a", "b"].map((suffix) => ({ id: `ws-${suffix}`, name: suffix, slug: suffix, ownerId: `u-${suffix}`, createdAt: AT })),
     members: [
       { ...ada, workspaceId: "ws-a", role: "admin" },
       { id: "u-b", name: "Bo", email: "bo@example.test", workspaceId: "ws-b", role: "admin" },
@@ -73,6 +76,30 @@ const operations = {
 };
 
 describe("Navigator server action workspace admission", () => {
+  it.each(["create", "execute", "cancel", "autonomy"] as const)(
+    "%s refuses a waitlisted caller before reading or changing their membership",
+    async (operation) => {
+      // Normalizing this email membership would itself be a write if the gate ran late.
+      db().members[0].id = "pending-subject";
+      const before = JSON.stringify(db());
+      session.admit.mockRejectedValueOnce(new Error("This account is waiting for access."));
+      const reply = operation === "autonomy" ? await setAutonomyAction("bounded") : await operations[operation]("a");
+      expect(reply.error).toMatch(/waiting for access/);
+      expect(JSON.stringify(db())).toBe(before);
+      expect(session.admit).toHaveBeenCalledWith(ada);
+      expect(session.normalize).not.toHaveBeenCalled();
+      expect(session.execute).not.toHaveBeenCalled();
+    }
+  );
+
+  it("fails closed when the admission authority is unavailable", async () => {
+    session.admit.mockRejectedValueOnce(new Error("Admission lookup is unavailable."));
+    const before = JSON.stringify(db());
+    expect(await createRunAction("p-a", "add a redis cache")).toMatchObject({ error: "Admission lookup is unavailable." });
+    expect(JSON.stringify(db())).toBe(before);
+    expect(session.normalize).not.toHaveBeenCalled();
+  });
+
   for (const [name, invoke] of Object.entries(operations)) {
     it.each(["member of A", "member of both", "stranger"])(`${name} refuses B for %s while A is selected`, async (caller) => {
       if (caller === "member of both") db().members.push({ ...ada, workspaceId: "ws-b", role: "admin" });

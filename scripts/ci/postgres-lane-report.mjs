@@ -70,6 +70,18 @@ const INTENDED = [
     match: (fullName) => /^'?AgentControlPostgres'?(?:\s|$)/.test(fullName),
     why: "The claim, the fence, the lease and the reconciliation, raced from two independent connections (supabase/migrations/0007_agent_control.sql).",
   },
+  {
+    id: "workspace-sharing-pg-contract",
+    label: "tests/db/contract/workspace-sharing.test.ts (workspace sharing and ownership)",
+    match: (fullName) => /^'?WorkspaceSharingPostgres'?(?:\s|$)/.test(fullName),
+    why: "Workspace membership permissions and ownership transfers under concurrent requests (supabase/migrations/0008_workspace_ownership.sql).",
+  },
+  {
+    id: "waitlist-pg-contract",
+    label: "tests/waitlist/pg-contract.test.ts (waitlist queue and batch admissions)",
+    match: (fullName) => /^'?WaitlistPostgres'?(?:\s|$)/.test(fullName),
+    why: "Queue ordering, duplicate joins, service-role boundaries and concurrent batch admissions (supabase/migrations/0009_waitlist.sql).",
+  },
 ];
 
 /**
@@ -83,7 +95,7 @@ const INTENDED = [
  */
 const BLOCKED = [
   {
-    lane: "tests/db/contract/** (product store)",
+    lane: "tests/db/contract/** (PostgREST product store; direct-SQL sharing suite runs above)",
     reason:
       "Needs PostgREST: the factory builds `PostgresStore`, which talks to NEXT_PUBLIC_SUPABASE_URL with SUPABASE_SERVICE_ROLE_KEY over HTTP (tests/db/contract/factories.ts:31-34). A bare Postgres container cannot serve it.",
     unblocks: "A Supabase project, or a PostgREST container in front of this database.",

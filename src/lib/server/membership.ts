@@ -2,13 +2,14 @@
  * Joining a workspace: who may, as what, and what a refusal says.
  *
  * Signing up is not joining. A real user joins only as that workspace's first
- * real member, with a role the operator granted through `app_metadata.role`, or
- * by accepting an invite that names their email. Everyone else is refused by
+ * real member, with a bootstrap role on an unowned workspace, or by accepting
+ * an invite that names their email. Owned workspaces use stored membership
+ * roles so operator claims cannot undo a collaboration decision. Everyone else is refused by
  * name, with the admins who can invite them.
  *
  * Split out of `server/context.ts`, which re-exports everything here.
  */
-import { db, save } from "@/lib/db/store";
+import { db, isPostgres, save } from "@/lib/db/store";
 import type { Invite, Member, Workspace } from "@/lib/domain/types";
 import { membershipPolicy } from "@/lib/auth/policy";
 import type { SessionUser } from "@/lib/auth/session";
@@ -30,6 +31,21 @@ const PLACEHOLDER_EMAILS = new Set(["you@local", "you@kepler.dev"]);
 const isPlaceholder = (m: Member): boolean =>
   !m.email || PLACEHOLDER_EMAILS.has(m.email.toLowerCase());
 
+export const isLiveInvite = (invite: Invite, now = Date.now()): boolean =>
+  !invite.acceptedAt && !invite.revokedAt &&
+  (!invite.expiresAt || Date.parse(invite.expiresAt) > now);
+
+/** Stable legacy choice, independent of the caller or member array order. */
+export function workspaceOwnerId(workspace: Workspace): string | undefined {
+  return workspace.ownerId ?? db().members
+    .filter((member) => member.workspaceId === workspace.id && member.role === "admin" && !isPlaceholder(member))
+    .map((member) => member.id).sort()[0];
+}
+
+export function ownedWorkspaces(userId: string): Workspace[] {
+  return db().workspaces.filter((workspace) => workspaceOwnerId(workspace) === userId);
+}
+
 export interface MemberDenial {
   message: string;
   fix: string;
@@ -48,7 +64,7 @@ function joinTarget(user: SessionUser): Workspace | undefined {
   const held = d.members.find((m) => m.id === user.id || m.email.toLowerCase() === email);
   if (held) return d.workspaces.find((w) => w.id === held.workspaceId);
 
-  const invite = readInvites().find((i) => !i.acceptedAt && i.email.toLowerCase() === email);
+  const invite = !isPostgres() && readInvites().find((i) => !i.expiresAt && isLiveInvite(i) && i.email.toLowerCase() === email);
   const invited = invite && d.workspaces.find((w) => w.id === invite.workspaceId);
   if (invited) return invited;
 
@@ -59,9 +75,9 @@ function joinTarget(user: SessionUser): Workspace | undefined {
     ? d.workspaces.find((w) => !d.members.some((m) => m.workspaceId === w.id && !isPlaceholder(m)))
     : undefined;
   if (empty) return empty;
-  // An operator-granted app_metadata.role is install-wide, not per workspace,
-  // so it admits them to the one workspace there is — never picks between many.
-  return policy.claimsGrantRoles && user.role && d.workspaces.length === 1
+  // Operator role claims only bootstrap an unowned installation; they never
+  // overwrite collaboration permissions or pick between several workspaces.
+  return policy.claimsGrantRoles && user.role && d.workspaces.length === 1 && !workspaceOwnerId(d.workspaces[0])
     ? d.workspaces[0]
     : undefined;
 }
@@ -90,13 +106,23 @@ export function ensureMember(
     };
 
   const mine = (): Member[] => d.members.filter((m) => m.workspaceId === ws.id);
+  // Once a workspace has an owner, its collaboration decisions are the
+  // authority. A stale operator claim must never undo removal or demotion.
+  const claimsGrantRoles = policy.claimsGrantRoles && !workspaceOwnerId(ws);
   const email = user.email.toLowerCase();
   let member = mine().find((m) => m.id === user.id || m.email.toLowerCase() === email);
   let dirty = false;
 
+  // Freeze the legacy owner before a profile sync can rebind an invited id.
+  if (member && !ws.ownerId && !isPostgres()) {
+    ws.ownerId = workspaceOwnerId(ws);
+    if (ws.ownerId) dirty = true;
+  }
+
   if (member) {
     // An invite names an email; the id only exists once they sign in.
     if (member.id !== user.id || member.name !== user.name) {
+      if (ws.ownerId === member.id) ws.ownerId = user.id;
       member.id = user.id;
       member.name = user.name;
       dirty = true;
@@ -115,12 +141,12 @@ export function ensureMember(
     // Where claims do not grant roles, one never rewrites a stored role
     // either: the member table is the only authority, so a demotion or a
     // removal sticks.
-    if (policy.claimsGrantRoles && user.role && member.role !== user.role) {
+    if (claimsGrantRoles && user.role && member.role !== user.role && workspaceOwnerId(ws) !== member.id) {
       member.role = user.role;
       dirty = true;
     }
   } else {
-    const role = (policy.claimsGrantRoles ? user.role : undefined) ?? joinRole(ws.id, email);
+    const role = (claimsGrantRoles ? user.role : undefined) ?? joinRole(ws.id, email);
     if (!role) return { denied: denial(user, [ws]) };
     member = { id: user.id, workspaceId: ws.id, name: user.name, email: user.email, role };
     d.members.push(member);
@@ -135,6 +161,11 @@ export function ensureMember(
     if (!mine().some((m) => !stale.includes(m) && m.role === "admin")) member.role = "admin";
     for (const p of stale) d.members.splice(d.members.indexOf(p), 1);
     dirty = true;
+  }
+
+  if (!ws.ownerId && !isPostgres()) {
+    ws.ownerId = workspaceOwnerId(ws);
+    if (ws.ownerId) dirty = true;
   }
 
   if (dirty) save();
@@ -179,9 +210,11 @@ function joinRole(workspaceId: string, email: string): Member["role"] | undefine
   // is a seat at all.
   if (real.length === 0 && membershipPolicy().emptyWorkspaceGrantsAdmin) return "admin";
 
+  // PostgreSQL acceptance must use the locked RPC, never a stale snapshot write.
+  if (isPostgres()) return undefined;
   const invites = readInvites();
   const invite = invites.find(
-    (i) => i.workspaceId === workspaceId && !i.acceptedAt && i.email.toLowerCase() === email
+    (i) => i.workspaceId === workspaceId && !i.expiresAt && isLiveInvite(i) && i.email.toLowerCase() === email
   );
   if (!invite) return undefined;
   invite.acceptedAt = new Date().toISOString();

@@ -103,7 +103,7 @@ jobs:
   #
   # ## What it proves
   #
-  #   - `supabase/migrations/0001`-`0007` apply, in order, to an empty
+  #   - All committed `supabase/migrations` apply, in order, to an empty
   #     PostgreSQL 16 — every table, partial unique index, CHECK, identity
   #     column and plpgsql function, plus the migration ledger that
   #     `src/lib/hosted/authority/pg/index.ts:165-191` refuses to boot without.
@@ -120,6 +120,8 @@ jobs:
   #   - the live half of `tests/scripts/migrate-hosted-to-postgres.test.ts`:
   #     insert order, idempotence on a second run, and the three SQLite→Postgres
   #     type conversions (boolean, bytea, `overriding system value`).
+  #   - Workspace ownership/sharing and waitlist SQL contracts exercise role
+  #     restrictions, ownership transfers, queue ordering and concurrent access.
   #
   # ## What it does not, and why that is stated rather than papered over
   #
@@ -127,17 +129,16 @@ jobs:
   # PostgREST client over `NEXT_PUBLIC_SUPABASE_URL` with the service-role key
   # (`tests/db/contract/factories.ts:31-34`), as is the hosted *data* backend
   # (`tests/hosted/data/pg-contract.live.test.ts:38-41`). A bare Postgres
-  # container serves neither, so `tests/db/contract/**` and
+  # container serves neither, so the PostgREST product-store suites and
   # `pg-contract.live.test.ts` are **not** in this job and are reported BLOCKED
   # by the summary step below. Pointing them at this container would make them
   # fail, not pass.
   #
   # Two details of this database are a stand-in rather than the real thing, and
   # `scripts/ci/apply-supabase-migrations.sh` documents both: `service_role` is
-  # created as a NOLOGIN role so the migrations' grant blocks apply, and the
-  # tests connect as the container superuser, which bypasses RLS for a different
-  # reason than Supabase's service role does. Nothing here proves Supabase's
-  # role graph.
+  # created as NOLOGIN with BYPASSRLS, and tests connect as the container
+  # superuser before using SET ROLE for the product RPC privilege checks.
+  # Nothing here proves Supabase's deployed role graph or PostgREST setup.
   postgres:
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -186,16 +187,13 @@ jobs:
 
       - run: npm ci --ignore-scripts
 
-      - name: Apply supabase/migrations 0001-0007
+      - name: Apply all committed Supabase migrations
         run: bash scripts/ci/apply-supabase-migrations.sh
 
       - name: Postgres contract lanes
-        # `--no-file-parallelism` because all four files share one `contract-`
-        # namespace and one `max: 1` connection; running them at once would
-        # make a cleanup race look like a contract violation. The two agent
-        # files open their own short-lived clients for the races they force,
-        # and close them in `afterAll`.
-        run: npx vitest run tests/hosted/authority/contract tests/scripts/migrate-hosted-to-postgres.test.ts tests/agent-link/pg-contract.test.ts tests/agent-control/pg-contract.test.ts --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/postgres-lane.json
+        # Serialize suites that share database fixtures. Individual race tests
+        # open independent connections to verify database concurrency.
+        run: npx vitest run tests/hosted/authority/contract tests/scripts/migrate-hosted-to-postgres.test.ts tests/agent-link/pg-contract.test.ts tests/agent-control/pg-contract.test.ts tests/db/contract/workspace-sharing.test.ts tests/waitlist/pg-contract.test.ts --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/postgres-lane.json
 
       - name: Lane report - fail if a lane ran zero tests, and list what is blocked
         # `always()` so the blocked-lane table reaches the summary even when the

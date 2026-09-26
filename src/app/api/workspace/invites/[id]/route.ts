@@ -1,24 +1,9 @@
-/**
- * Revoke an invite before it is accepted.
- *
- *   DELETE /api/workspace/invites/:id → { revoked: Invite }
- */
-import { ApiError, readInvites, requireWorkspace, route, writeInvites } from "@/lib/server/context";
+import { route } from "@/lib/server/context";
+import { mutateSharing, sharingActor, sharingWorkspace } from "@/lib/server/workspace-sharing";
 
 export const dynamic = "force-dynamic";
-
-export const DELETE = route<{ id: string }>({ workspaceRole: "admin" }, async (_req, { id }) => {
-  const ws = requireWorkspace();
-  const invites = readInvites();
-  const invite = invites.find((i) => i.id === id && i.workspaceId === ws.id);
-  if (!invite)
-    throw new ApiError(`Invite "${id}" was not found.`, 404, {
-      fix: "List the open invites with GET /api/workspace/invites.",
-    });
-  if (invite.acceptedAt)
-    throw new ApiError(`${invite.email} already accepted that invite and is a member.`, 409, {
-      fix: "Remove the member with DELETE /api/workspace/members/:id instead.",
-    });
-  writeInvites(invites.filter((i) => i !== invite));
+export const DELETE = route<{ id: string }>({ workspaceRole: "admin" }, async (req, { id }) => {
+  const workspace = sharingWorkspace(req.nextUrl.searchParams.get("workspaceId") ?? undefined);
+  const { invite } = await mutateSharing({ operation: "revoke", ...sharingActor(), workspaceId: workspace.id, inviteId: id });
   return { revoked: invite };
 });

@@ -14,6 +14,7 @@ import { diffManifests } from '@/lib/domain/graph';
 import { WORKSPACE_ROLE_RANK } from '@/lib/domain/roles';
 import { callReader, readerTools, registerReaderProviders } from '../zenith-reader';
 import { redact, type Credential, type SelectedScope } from '../security';
+import { requireAgentWaitlistAccess } from '../waitlist';
 import { Coordinator, type ApplicationAuthority, type ControlPort } from './coordinator';
 import { Journal, SqliteAgentJournal, ControlError, checkTarget, digest, type AgentJournal, type Principal, type Target, type Proposal, type Operation } from './journal';
 import {
@@ -56,6 +57,7 @@ export function liveMember(who: Principal): Member {
 }
 export async function inAgentScope<T>(who: Principal, fn: () => Promise<T>): Promise<T> {
   await requireControlAsync();
+  await requireAgentWaitlistAccess(who.subject);
   if (!isPostgres()) claimDataDir(env().ZENITH_DATA);
   const snapshot = isPostgres() ? await loadSnapshot(pgClient(), { id: who.subject, email: '' }) : undefined;
   return runWithSnapshot(snapshot, async () => { liveMember(who); return fn(); });

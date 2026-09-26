@@ -56,8 +56,8 @@ export const GET = route<{ id: string }>(async (req, { id }) => {
   // A revoked stream is closed by sseResponse, which knows nothing about this
   // subscription — so drop it on the way out rather than leaving a listener
   // alive for a reader that is gone.
-  const guard: SseGuard = () => {
-    const denial = stillAMember();
+  const guard: SseGuard = async () => {
+    const denial = await stillAMember();
     if (denial) unsubscribe();
     return denial;
   };

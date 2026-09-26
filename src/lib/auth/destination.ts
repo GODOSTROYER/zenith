@@ -27,7 +27,7 @@ export const ONBOARDING = "/onboarding";
 export const OVERVIEW = "/overview";
 
 /** Paths that are themselves the continuation of an auth flow (case 1). */
-const FLOW_PATHS = [ONBOARDING, "/reset-password", "/apps/accept"] as const;
+const FLOW_PATHS = [ONBOARDING, "/reset-password", "/apps/accept", "/invite"] as const;
 
 /**
  * Pages that exist to get a session. Honouring one as `next` would hand the
@@ -45,11 +45,15 @@ const underPrefix = (path: string, prefixes: readonly string[]): boolean =>
  */
 export function safeNextPath(next: string | null | undefined): string | undefined {
   if (typeof next !== "string") return undefined;
+  // URL parsers strip control characters and normalize dot segments. Validate
+  // their actual destination, not a prefix that normalization can change.
+  if (/[\u0000-\u001f\u007f\\]/.test(next)) return undefined;
   const value = next.trim();
-  if (!value.startsWith("/")) return undefined;
-  if (/^\/[/\\]/.test(value)) return undefined;
-  if (underPrefix(value.split(/[?#]/)[0], AUTH_PAGES)) return undefined;
-  return value;
+  if (!value.startsWith("/") || value.startsWith("//")) return undefined;
+  const base = "https://zenith.invalid";
+  const resolved = new URL(value, base);
+  if (resolved.origin !== base || underPrefix(resolved.pathname, AUTH_PAGES)) return undefined;
+  return `${resolved.pathname}${resolved.search}${resolved.hash}`;
 }
 
 export interface DestinationInput {

@@ -123,7 +123,8 @@ export interface CredentialAuthority {
   linkByUserCode(userCodeHash: string, now?: number): Promise<LinkRow | undefined>;
   approveLink(input: ApproveLinkInput): Promise<{ credentialId: string; expiresAt: string }>;
   denyLink(userCodeHash: string, subject: string): Promise<boolean>;
-  exchange(deviceCodeHash: string, now?: number): Promise<ExchangeResult>;
+  /** Admission runs before consuming an approved code; failures leave it retryable. */
+  exchange(deviceCodeHash: string, now?: number, admit?: (subject: string) => Promise<void>): Promise<ExchangeResult>;
 
   listCredentials(subject: string, workspaceId: string): Promise<LinkedCredential[]>;
   /**

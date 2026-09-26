@@ -66,7 +66,7 @@ export const setTenant = (row: object, workspaceId: string): void => {
 /* -------------------------------- hydration -------------------------------- */
 
 /** Timestamps are stored as `timestamptz` and read back in Postgres' format. */
-const TIMESTAMP_FIELDS = ["createdAt", "acceptedAt", "lastCheckedAt"];
+const TIMESTAMP_FIELDS = ["createdAt", "acceptedAt", "expiresAt", "revokedAt", "lastCheckedAt"];
 
 /**
  * `{ ...row.data, ...promoted }`, with the promoted columns renamed back.

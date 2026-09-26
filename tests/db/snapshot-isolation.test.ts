@@ -43,6 +43,7 @@ const sent: Statement[] = [];
 
 /** Runs once, inside the first write a flush sends — i.e. mid-flush. */
 let onWrite: (() => void) | undefined;
+let onSharingRpc: (() => Record<string, unknown>) | undefined;
 
 /** A PostgREST-shaped builder that actually honours `.in(column, values)`. */
 function builder(table: string) {
@@ -60,6 +61,7 @@ function builder(table: string) {
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({
+    rpc: async () => ({ data: onSharingRpc?.() ?? {}, error: null }),
     from(table: string) {
       const record =
         (op: string) =>
@@ -87,6 +89,7 @@ const { db, save, flushPendingAsync } = await import("@/lib/db/store");
 const pg = await import("@/lib/db/postgres-store");
 const { runWithSnapshot } = await import("@/lib/db/request-snapshot");
 const { FileStore } = await import("@/lib/db/file-store");
+const { pgSharingMutation } = await import("@/lib/db/pg/workspace-sharing");
 
 const ADA = { id: "user-ada", email: "ada@acme.example" };
 const GRACE = { id: "user-grace", email: "grace@globex.example" };
@@ -140,11 +143,22 @@ const memberIds = (): string[] => db().members.map((m) => m.id);
 beforeEach(() => {
   seed();
   sent.length = 0;
+  onSharingRpc = undefined;
   pg.clearProcessSnapshot();
   pg.resetPgClient();
 });
 
 describe("two concurrent snapshots in one process", () => {
+  it("loads peers in authorized workspaces without treating invitations as membership", async () => {
+    TABLES.members.push(row({ id: "peer-acme", workspace_id: "ws-acme", email: "peer@acme.example", role: "viewer" }));
+    TABLES.invites.push(row({ id: "invite-globex", workspace_id: "ws-globex", email: ADA.email, role: "editor", expires_at: "2099-01-01T00:00:00Z" }));
+    const snapshot = await pg.loadSnapshot(pg.pgClient(), ADA);
+    expect(snapshot.data.members.map((m) => m.id)).toEqual([ADA.id, "peer-acme"]);
+    expect(snapshot.data.workspaces.map((w) => w.id)).toEqual(["ws-acme"]);
+    expect(snapshot.data.projects.map((p) => p.id)).toEqual(["proj-acme"]);
+    expect(snapshot.data.settings.invites).toEqual([]);
+  });
+
   it("each read only their own tenant's rows, across an await", async () => {
     const bLoaded = latch();
     const bRead = latch();
@@ -215,6 +229,31 @@ describe("two concurrent snapshots in one process", () => {
 });
 
 describe("a flush diffs against its own baseline", () => {
+  it("rebases an atomic membership change before later snapshot saves", async () => {
+    const peer = row({ id: "peer-acme", workspace_id: "ws-acme", email: "peer@acme.example", role: "viewer" });
+    TABLES.members.push(peer);
+    const snapshot = await pg.loadSnapshot(pg.pgClient(), ADA);
+    onSharingRpc = () => {
+      TABLES.members = TABLES.members.filter((member) => member.id !== "peer-acme");
+      return { removed: peer, workspace: TABLES.workspaces[0] };
+    };
+    await runWithSnapshot(snapshot, async () => {
+      const result = await pgSharingMutation({
+        operation: "remove-member", workspaceId: "ws-acme", actorId: ADA.id,
+        actorEmail: ADA.email, actorName: "Ada", memberId: "peer-acme",
+      });
+      expect(result.removed?.id).toBe("peer-acme");
+      expect(db()).toBe(snapshot.data);
+      expect(db().members.map((m) => m.id)).toEqual([ADA.id]);
+      sent.length = 0;
+      db().projects[0].name = "Atlas after removal";
+      save("proj-acme");
+      await flushPendingAsync();
+    });
+    expect(sent.filter((statement) => statement.table === "members" && statement.op !== "select")).toEqual([]);
+    expect(sent.filter((statement) => statement.op === "update").map((statement) => statement.table)).toEqual(["projects"]);
+  });
+
   it("writes the row this scope changed and nothing of the other tenant's", async () => {
     const other = await pg.loadSnapshot(pg.pgClient(), GRACE);
     const mine = await pg.loadSnapshot(pg.pgClient(), ADA);

@@ -132,6 +132,10 @@ export const resetDb = (data?: Partial<Database>): Database => currentStore().re
  * the unfiltered load is the honest answer.
  */
 export async function runInStoreScope<T>(body: () => Promise<T>): Promise<T> {
+  // RSC navigations can render a page without rerunning its parent layout.
+  // Check admission at the data boundary before reads or invitation joins.
+  const { requireProductPageAccess } = await import("@/lib/waitlist/enforcement");
+  await requireProductPageAccess();
   if (!isPostgres()) return body();
   // Dynamically imported, all three: this module is loaded by the migration
   // script, the seed and the contract tests under plain `tsx`, and a static

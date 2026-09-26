@@ -6,16 +6,19 @@ import { isDestinationActive, PROJECT_DESTINATIONS } from "@/components/shell/na
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 const push = vi.fn();
+let pathname = "/p/atlas/source";
 const { api } = vi.hoisted(() => ({ api: vi.fn(async () => ({})) }));
 vi.mock("@/lib/client/api", () => ({ api, ApiError: class extends Error {} }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/p/atlas/source", useRouter: () => ({ push, refresh: vi.fn() }) }));
-vi.mock("@/components/shell/shell-context", () => ({ useShell: () => ({
+vi.mock("next/navigation", () => ({ usePathname: () => pathname, useRouter: () => ({ push, refresh: vi.fn() }) }));
+const makeShell = () => ({
   catalog: [], refresh: vi.fn(), boot: {
     workspace: { id: "ws", name: "Kepler Labs" }, workspaces: [{ id: "ws2", name: "Second workspace", role: "editor" }],
     projects: [{ id: "p1", name: "Atlas", slug: "atlas" }],
     members: [], auth: { configured: false }, user: null, role: "editor",
   },
-}) }));
+});
+let shell = makeShell();
+vi.mock("@/components/shell/shell-context", () => ({ useShell: () => shell }));
 vi.mock("@/components/shell/command-palette", () => ({ CommandPalette: () => <button>Search</button> }));
 vi.mock("@/components/shell/activity-bell", () => ({ ActivityBell: () => <button>Notifications</button> }));
 vi.mock("@/components/ui/theme-toggle", () => ({ ThemeToggle: () => <button>Theme</button> }));
@@ -24,6 +27,8 @@ let root: Root;
 let host: HTMLDivElement;
 beforeEach(() => {
   push.mockClear(); api.mockClear();
+  pathname = "/p/atlas/source";
+  shell = makeShell();
   localStorage.clear();
   vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => window.setTimeout(() => callback(0), 0));
@@ -70,6 +75,54 @@ describe("workbench navigation", () => {
     await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     expect(document.activeElement).toBe(trigger);
+  });
+
+  it.each([true, false])("keeps the active workspace Share link in the header with projects=%s", async (hasProjects) => {
+    if (!hasProjects) {
+      pathname = "/overview";
+      shell.boot.projects = [];
+    }
+    shell.boot.workspace.id = "active workspace/&";
+    await act(async () => root.render(<ProductChrome><div>Working surface</div></ProductChrome>));
+    const share = host.querySelector<HTMLAnchorElement>('header a[aria-label="Share Kepler Labs"]')!;
+    expect(share).not.toBeNull();
+    expect(share.textContent).toBe("Share");
+    expect(share.getAttribute("href")).toBe("/workspace?workspace=active%20workspace%2F%26");
+    expect(share.getAttribute("aria-disabled")).not.toBe("true");
+
+    const toggle = host.querySelector<HTMLButtonElement>('[aria-label="Collapse navigation"]')!;
+    await act(async () => toggle.click());
+    expect(host.querySelector('header a[aria-label="Share Kepler Labs"]')).toBe(share);
+    expect(api).not.toHaveBeenCalled();
+  });
+
+  it.each(["ws", "other workspace/&"])("opens sharing for workspace %s from its own switcher row with no projects", async (workspaceId) => {
+    pathname = "/overview";
+    shell.boot.projects = [];
+    shell.boot.workspaces = [
+      { id: "ws", name: "Kepler Labs", role: "editor" },
+      { id: "other workspace/&", name: "Second workspace", role: "viewer" },
+    ];
+    await act(async () => root.render(<ProductChrome><div>Working surface</div></ProductChrome>));
+    const trigger = host.querySelector<HTMLButtonElement>('aside button[aria-haspopup="menu"]')!;
+    await act(async () => trigger.click());
+    const menu = document.querySelector('[role="menu"][aria-label="Workspace Kepler Labs"]')!;
+    const shares = Array.from(menu.querySelectorAll<HTMLAnchorElement>('a[role="menuitem"][aria-label^="Share "]'));
+    expect(shares.map((share) => [share.getAttribute("aria-label"), share.getAttribute("href")])).toEqual([
+      ["Share Kepler Labs", "/workspace?workspace=ws"],
+      ["Share Second workspace", "/workspace?workspace=other%20workspace%2F%26"],
+    ]);
+    for (const share of shares) {
+      expect(share.getAttribute("aria-disabled")).not.toBe("true");
+    }
+    const share = shares.find((item) => item.getAttribute("href") === `/workspace?workspace=${encodeURIComponent(workspaceId)}`)!;
+    // Observe the link's handler while preventing jsdom's unsupported navigation.
+    share.addEventListener("click", (event) => event.preventDefault(), { once: true });
+    await act(async () => share.click());
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(api).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+    expect(shell.refresh).not.toHaveBeenCalled();
   });
 
   it("returns to Overview after switching workspace instead of retaining a foreign project route", async () => {

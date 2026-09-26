@@ -16,6 +16,7 @@
  */
 import { controlOrigin, failure, json } from "@/lib/agent-access/control/boundary";
 import { linkRateLimit, requireLinkAuthority } from "@/lib/agent-access/authority";
+import { requireAgentWaitlistAccess } from "@/lib/agent-access/waitlist";
 import {
   clientAddress,
   hashDeviceCode,
@@ -37,7 +38,11 @@ export async function POST(request: Request): Promise<Response> {
     });
 
     const deviceCode = parseTokenRequest(await linkJson(request, 1024));
-    const result = await authority.exchange(hashDeviceCode(deviceCode));
+    const result = await authority.exchange(
+      hashDeviceCode(deviceCode),
+      undefined,
+      requireAgentWaitlistAccess
+    );
 
     switch (result.status) {
       case "authorization_pending":

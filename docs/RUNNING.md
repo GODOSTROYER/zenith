@@ -222,6 +222,8 @@ only after you enable each provider in the dashboard and register
 `<site>/auth/callback` as its redirect URL. Empty (the default) means email and
 password only. Restart the dev server after changing it — it is a
 `NEXT_PUBLIC_*` value.
+See [Google sign-in setup](google-auth.md) for the distinct Google/Supabase
+callback URLs, connecting existing accounts, and adding a password to Google-only accounts.
 
 A local Supabase stack via `npm run supabase:start` also works
 (`supabase/config.toml` is checked in, API on 54321). It needs Docker.

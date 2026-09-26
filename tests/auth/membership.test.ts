@@ -136,14 +136,13 @@ describe("app_metadata role claim", () => {
     ])
   );
 
-  it("updates an existing member's role", () => {
+  it("does not override membership roles in a workspace with an owner", () => {
     const member = memberOf(ensureMember(user("u-claude", "claude@zenith.test", "Claude", "editor")));
-    expect(member.role).toBe("editor");
+    expect(member.role).toBe("viewer");
   });
 
-  it("admits a new user the operator granted a role, without an invite", () => {
-    const member = memberOf(ensureMember(user("u-v", "vedant@zenith.test", "Vedant", "editor")));
-    expect(member.role).toBe("editor");
+  it("does not recreate a removed user from a stale operator role claim", () => {
+    expect(ensureMember(user("u-v", "vedant@zenith.test", "Vedant", "editor"))).toHaveProperty("denied");
   });
 
   it("is read from app_metadata, never from user_metadata", () => {

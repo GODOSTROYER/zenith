@@ -370,7 +370,7 @@ class FileCredentialAuthority implements CredentialAuthority {
     });
   }
 
-  async exchange(deviceCodeHash: string, now = Date.now()): Promise<ExchangeResult> {
+  async exchange(deviceCodeHash: string, now = Date.now(), admit?: (subject: string) => Promise<void>): Promise<ExchangeResult> {
     const path = credentialFile();
     return withLock(path, async () => {
       const file = await readLinks(path);
@@ -397,17 +397,17 @@ class FileCredentialAuthority implements CredentialAuthority {
       // that consumes the row.
       const sealed = code.secretCt;
       if (!sealed) return { status: "expired" };
+      const credential = (await readCredentials(path)).find(
+        (candidate) => candidate.id === code.credentialId
+      );
+      if (!credential || credential.revokedAt) return { status: "expired" };
+      // Keep both the code and sealed bearer intact if admission cannot be checked.
+      await admit?.(credential.subject);
       const token = openLinkSecret(code.userCodeHash, Buffer.from(sealed, "base64"));
       code.state = "consumed";
       code.secretCt = undefined;
       await writeLinks(path, { version: 1, codes: prune(file.codes, now) });
 
-      const credential = (await readCredentials(path)).find(
-        (candidate) => candidate.id === code.credentialId
-      );
-      // The credential was revoked between approval and this poll, or the file
-      // was repaired underneath us. There is nothing to hand over.
-      if (!credential || credential.revokedAt) return { status: "expired" };
       return { status: "issued", credential, token };
     });
   }

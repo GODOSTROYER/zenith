@@ -11,10 +11,13 @@
  */
 import { currentRequest, route, workspacesFor } from "@/lib/server/context";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { getWaitlistAccess, waitlistGateEnabled } from "@/lib/waitlist/access";
+import { sessionUserFromRequest } from "@/lib/supabase/route";
+import { errorResponse, json } from "@/lib/server/errors";
 
 export const dynamic = "force-dynamic";
 
-export const GET = route(async () => {
+const admittedGet = route(async () => {
   const configured = isSupabaseConfigured();
   const user = currentRequest()?.user ?? null;
   return {
@@ -24,3 +27,18 @@ export const GET = route(async () => {
     hasWorkspace: workspacesFor(user).length > 0,
   };
 });
+
+/** A waiting account must not consume invitations through the public CTA probe. */
+export async function GET(...args: Parameters<typeof admittedGet>): Promise<Response> {
+  if (waitlistGateEnabled()) {
+    try {
+      const user = await sessionUserFromRequest(args[0]);
+      if (!(await getWaitlistAccess(user)).allowed) {
+        return json({ configured: isSupabaseConfigured(), signedIn: Boolean(user), hasWorkspace: false });
+      }
+    } catch (error) {
+      return errorResponse(error);
+    }
+  }
+  return admittedGet(...args);
+}

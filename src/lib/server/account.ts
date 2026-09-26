@@ -288,7 +288,7 @@ function exportWorkspace(
     (m) => m.workspaceId === ws.id && (m.id === user.id || m.email.toLowerCase() === email)
   );
   return {
-    workspace: { id: ws.id, name: ws.name, slug: ws.slug, createdAt: ws.createdAt },
+    workspace: { id: ws.id, name: ws.name, slug: ws.slug, ownerId: ws.ownerId, createdAt: ws.createdAt },
     membership: member
       ? { role: member.role, name: member.name, email: member.email }
       : null,

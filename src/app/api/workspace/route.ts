@@ -43,14 +43,14 @@ export const POST = route(async (req) => {
       .replace(/(^-|-$)/g, "")
       .slice(0, 30) || "workspace";
 
-  const workspace = { id: id(), name, slug, createdAt: new Date().toISOString() };
+  const user = currentRequest()?.user;
+  const workspace = { id: id(), name, slug, ownerId: user?.id, createdAt: new Date().toISOString() };
   data.workspaces.push(workspace);
 
   // The creator owns what they created. With no signed-in user (demo mode's
   // first workspace) no member is seeded: a placeholder "you@local" admin is a
   // seat nobody can sign in as, and it demoted every real user to editor
   // forever. The first real user to sign in becomes admin (ensureMember).
-  const user = currentRequest()?.user;
   if (user) {
     const member: Member = {
       id: user.id,

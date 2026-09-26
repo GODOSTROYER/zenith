@@ -6,8 +6,7 @@
  * Settings → Members answers "who may do what here". This answers "who am I,
  * how do I get in, and how do I leave". Nothing on this page is role-gated:
  * every one of these is something a viewer may do to their own account, and
- * the only refusal is the one that protects a workspace from losing its last
- * admin.
+ * deletion is refused until workspace ownership and administration can continue.
  */
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeading } from "@/components/screens/page-heading";
@@ -17,7 +16,7 @@ import { Card } from "@/components/ui/card";
 import { DisplayNameCard, EmailCard, PasswordCard } from "./account-profile";
 import { IdentitiesCard } from "./account-identities";
 import { ExportCard, SessionsCard } from "./account-sessions";
-import { DeleteAccountCard, soleAdminBlock } from "./account-delete";
+import { DeleteAccountCard, ownershipBlock, soleAdminBlock } from "./account-delete";
 
 const SECTIONS = [
   { id: "profile", label: "Profile" },
@@ -56,14 +55,15 @@ export default function AccountPage() {
     );
 
   const user = boot.user;
-  // Only the current workspace's members are on the shell payload, so this
-  // catches the common case early. `/api/account` re-checks every workspace,
-  // and its answer is the one that decides.
+  // Only the current workspace has ownership and member details in the shell.
+  // `/api/account` re-checks every workspace; its refusal is authoritative.
   const here = boot.members.filter((m) => m.role === "admin");
-  const soleAdminHere =
-    boot.role === "admin" && here.length === 1 && here[0]?.id === user.id
-      ? soleAdminBlock(boot.workspace.name)
-      : undefined;
+  const deletionBlock =
+    boot.workspace.ownerId === user.id
+      ? ownershipBlock(boot.workspace.name)
+      : boot.role === "admin" && here.length === 1 && here[0]?.id === user.id
+        ? soleAdminBlock(boot.workspace.name)
+        : undefined;
 
   return (
     <div className="product-page mx-auto h-full w-full max-w-[1100px] overflow-y-auto">
@@ -97,7 +97,7 @@ export default function AccountPage() {
           <DeleteAccountCard
             email={user.email}
             workspaceCount={boot.workspaces.length || 1}
-            blocked={soleAdminHere}
+            blocked={deletionBlock}
           />
         </section>
       </div>

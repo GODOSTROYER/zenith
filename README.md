@@ -30,6 +30,18 @@ The platform is now Zenith; Gimbal remains its Navigator character. Existing
 `ZENITH_*` configuration, storage namespaces and export filenames remain compatible.
 See [the identity and compatibility notes](docs/BRANDING.md).
 
+## Accounts and collaboration
+
+Google sign-in, identity linking, and password setup are covered in
+[Google authentication](docs/google-auth.md). Every workspace has a Share entry
+for email-bound invitations, viewer/editor/admin access, and owner-controlled
+ownership transfers; see [workspace sharing](docs/workspace-sharing.md).
+
+The optional [waitlist](docs/waitlist.md) provides validated intake, a queue,
+and an operator page for releasing batches (including 100 people at once).
+Intake and access gating are independently disabled by default. It does not add
+a landing-page form.
+
 ## Start with Gimbal
 
 New accounts enter the optional starter at `/onboarding`: create or choose a

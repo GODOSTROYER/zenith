@@ -12,7 +12,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUser } from "@/lib/auth/session";
 import { safeNextPath } from "@/lib/auth/destination";
-import { destinationAfterAuth } from "@/lib/server/workspace";
+import { resolveAuthDestination } from "@/lib/auth/server-destination";
+import { getWaitlistAccess } from "@/lib/waitlist/access";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 
 export const dynamic = "force-dynamic";
@@ -21,11 +22,14 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = request.nextUrl;
   const next = searchParams.get("next");
 
-  if (isSupabaseConfigured() && !(await getSessionUser())) {
+  const user = await getSessionUser();
+  if (isSupabaseConfigured() && !user) {
     const url = new URL("/login", origin);
     const safe = safeNextPath(next);
     if (safe) url.searchParams.set("next", safe);
     return NextResponse.redirect(url);
   }
-  return NextResponse.redirect(new URL(await destinationAfterAuth(next), origin));
+  if (!(await getWaitlistAccess(user)).allowed)
+    return NextResponse.redirect(new URL("/waitlist", origin));
+  return NextResponse.redirect(new URL(await resolveAuthDestination(next), origin));
 }

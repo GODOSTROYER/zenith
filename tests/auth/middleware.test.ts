@@ -101,3 +101,10 @@ describe("waitlist public intake boundary", () => {
     }
   });
 });
+
+it("opens only the exact admin entry page", () => {
+  expect(isPublicPath("/admin")).toBe(true);
+  for (const path of ["/admin/anything", "/admin/waitlist", "/administrator", "/api/admin", "/api/admin/waitlist"]) {
+    expect(isPublicPath(path), path).toBe(false);
+  }
+});

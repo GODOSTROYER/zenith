@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export default async function WaitlistAdminPage() {
   const user = await getSessionUser();
-  if (!user) redirect("/login?next=/admin");
+  if (!user) redirect("/admin");
   if (!isWaitlistOperator(user)) notFound();
 
   redirect("/admin#waitlist");

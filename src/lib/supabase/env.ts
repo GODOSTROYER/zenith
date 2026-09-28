@@ -89,6 +89,8 @@ const INTERNAL_PREFIX = "/api/internal/";
 
 export function isPublicPath(pathname: string): boolean {
   return (
+    // Only the owner sign-in page is public; admin children and APIs stay protected.
+    pathname === "/admin" ||
     // Only the exact public waitlist page and intake endpoint bypass the session gate.
     pathname === "/waitlist" ||
     pathname === "/api/waitlist" ||

@@ -102,6 +102,10 @@ describe("session middleware", () => {
   });
 
   it.each([
+    { path: "/admin", signedIn: false, status: 200, location: null },
+    { path: "/admin", signedIn: true, status: 200, location: null },
+    { path: "/admin/anything", signedIn: false, status: 307, location: "/login" },
+    { path: "/api/admin/waitlist", signedIn: false, status: 401, location: null },
     { path: "/overview", signedIn: true, status: 200, location: null },
     { path: "/login", signedIn: true, status: 307, location: "/auth/continue" },
     { path: "/signup", signedIn: true, status: 307, location: "/auth/continue" },

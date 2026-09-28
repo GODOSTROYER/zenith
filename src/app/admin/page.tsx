@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/session";
 import { isWaitlistOperator } from "@/lib/waitlist/access";
 import { WaitlistQueue } from "./waitlist/waitlist-queue";
+import { AdminEntry } from "./admin-entry";
 import { AdminShell } from "./admin-shell";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ export const metadata: Metadata = { title: "Administration · Zenith", robots: {
 
 export default async function AdminPage() {
   const user = await getSessionUser();
-  if (!user) redirect("/login?next=/admin");
+  if (!user) return <AdminEntry />;
   if (!isWaitlistOperator(user)) notFound();
 
   return <AdminShell email={user.email}><WaitlistQueue operatorId={user.id} /></AdminShell>;

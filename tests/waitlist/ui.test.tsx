@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { WaitlistQueue } from "@/app/admin/waitlist/waitlist-queue";
 import type { WaitlistAdmissionBatch, WaitlistAdmissionPreview, WaitlistEntry } from "@/lib/waitlist/types";
 import { WaitlistJoinForm } from "@/app/waitlist/waitlist-join-form";
+import { AdminEntry } from "@/app/admin/admin-entry";
 import AdminPage from "@/app/admin/page";
 import WaitlistAdminPage from "@/app/admin/waitlist/page";
 import WaitlistPage from "@/app/waitlist/page";
@@ -439,8 +440,8 @@ it("saves selected interests and prevents duplicate submissions while a request 
 
 it("keeps intake public while requiring operator authorization for administration", async () => {
   auth.user = null;
-  await expect(AdminPage()).rejects.toThrow("redirect:/login?next=/admin");
-  await expect(WaitlistAdminPage()).rejects.toThrow("redirect:/login?next=/admin");
+  expect((await AdminPage()).type).toBe(AdminEntry);
+  await expect(WaitlistAdminPage()).rejects.toThrow("redirect:/admin");
   await render(await WaitlistPage({}));
   expect(host.querySelector<HTMLInputElement>('[name="email"]')?.readOnly).toBe(false);
   auth.user = { id: "member", email: "member@example.test", name: "Member" };

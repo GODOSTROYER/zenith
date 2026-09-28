@@ -28,7 +28,7 @@ const ORIGIN = "https://zenith.test";
 const OPERATOR = "11111111-1111-4111-8111-111111111111";
 const OTHER_USER = "22222222-2222-4222-8222-222222222222";
 const REQUEST_ID = "33333333-3333-4333-8333-333333333333";
-const valid = { email: "person@example.com", occupation: "Engineer", useCase: "Deploy a private project." };
+const valid = { email: "person@example.com", name: "", occupation: "Engineer", features: [], useCase: "Deploy a private project." };
 const operator: SessionUser = { id: OPERATOR, email: "operator@example.com", name: "Operator" };
 const entry: WaitlistEntry = {
   id: "44444444-4444-4444-8444-444444444444",
@@ -122,6 +122,18 @@ describe("public waitlist intake", () => {
     expect(mocks.session).not.toHaveBeenCalled();
   });
 
+  it("accepts email alone and trims optional profile answers with distinct feature selections", async () => {
+    expect((await join(post("/api/waitlist", { email: " Person@Example.COM " }))).status).toBe(202);
+    expect(mocks.join).toHaveBeenLastCalledWith({ email: valid.email, name: "", occupation: "", features: [], useCase: "" });
+    expect((await join(post("/api/waitlist", {
+      email: valid.email, name: " Alex ", occupation: " Founder ",
+      features: [" Deployments ", "Deployments", "Custom workflow"], useCase: "  ",
+    }))).status).toBe(202);
+    expect(mocks.join).toHaveBeenLastCalledWith({
+      email: valid.email, name: "Alex", occupation: "Founder", features: ["Deployments", "Custom workflow"], useCase: "",
+    });
+  });
+
   it("accepts JSON media types with charset and nonbrowser requests without Origin", async () => {
     const response = await join(rawPost("/api/waitlist", JSON.stringify(valid), { "content-type": "application/json; charset=utf-8" }));
     expect(response.status).toBe(202);
@@ -145,13 +157,17 @@ describe("public waitlist intake", () => {
   it.each([
     { ...valid, email: "invalid" },
     { ...valid, email: `${"a".repeat(245)}@example.com` },
-    { ...valid, occupation: "   " },
+    { ...valid, name: "x".repeat(121) },
+    { ...valid, features: [""] },
+    { ...valid, features: ["x".repeat(121)] },
+    { ...valid, features: Array.from({ length: 13 }, (_, index) => String(index)) },
+    { ...valid, features: [null] },
     { ...valid, occupation: "x".repeat(121) },
-    { ...valid, useCase: "\n\t" },
+    { ...valid, name: null },
     { ...valid, useCase: "x".repeat(2001) },
     { ...valid, status: "admitted" },
     { ...valid, admittedBy: OPERATOR },
-    { email: valid.email, occupation: valid.occupation },
+    { occupation: valid.occupation },
     null,
   ])("rejects invalid or additional fields: %j", async (body) => {
     expect((await join(post("/api/waitlist", body))).status).toBe(400);

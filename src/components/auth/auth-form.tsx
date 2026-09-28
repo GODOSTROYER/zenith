@@ -21,6 +21,7 @@ import {
   type OAuthProvider,
 } from "@/lib/supabase/env";
 import { explain, isUnconfirmedEmail, messageForErrorCode } from "./messages";
+import { OAuthButton } from "./oauth-button";
 
 export type AuthMode = "login" | "signup" | "forgot" | "reset";
 
@@ -77,7 +78,7 @@ function RevealButton({ shown, onToggle }: { shown: boolean; onToggle: () => voi
   );
 }
 
-export function AuthForm({ mode }: { mode: AuthMode }) {
+export function AuthForm({ mode, waitlistRequired = false }: { mode: AuthMode; waitlistRequired?: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next");
@@ -88,6 +89,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [activeProvider, setActiveProvider] = useState<OAuthProvider>();
   const [error, setError] = useState<string | undefined>(() =>
     messageForErrorCode(redirectError)
   );
@@ -213,6 +215,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
    * in the Supabase dashboard — this never offers a door the project cannot open.
    */
   async function oauth(provider: OAuthProvider) {
+    setActiveProvider(provider);
     setBusy(true);
     setError(undefined);
     setUnconfirmed(false);
@@ -229,6 +232,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
       // page does not look idle during the hop.
     } catch (err) {
       fail(err);
+      setActiveProvider(undefined);
       setBusy(false);
     }
   }
@@ -245,7 +249,15 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   return (
     <div className="rounded-card border border-line bg-bg2 p-6 sm:p-8">
       <h1 className="app-page-title">{c.title}</h1>
-      <p className="mt-2 text-[14px] leading-relaxed text-ink-mute">{c.body}</p>
+      <p className="mt-2 text-[14px] leading-relaxed text-ink-mute">
+        {mode === "signup" && waitlistRequired ? "Use the email approved for Zenith early access." : c.body}
+      </p>
+      {mode === "signup" && waitlistRequired && (
+        <p className="mt-4 border-y border-line py-3 text-[13px] leading-relaxed text-ink-mute">
+          New accounts need waitlist approval. Existing accounts keep their access.{" "}
+          <Link href={authPageUrl("/waitlist", next)} className="text-signal underline underline-offset-4">Join the waitlist</Link>.
+        </p>
+      )}
 
       {/* Above the form, and only while the form is the thing on screen: once
           `done` replaces it with "check your inbox", a provider button would be
@@ -254,9 +266,17 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         <>
           <div className="mt-6 space-y-2.5">
             {providers.map((p) => (
-              <Button key={p} block busy={busy} onClick={() => oauth(p)}>
+              <OAuthButton
+                key={p}
+                provider={p}
+                block
+                busy={busy && activeProvider === p}
+                disabled={busy}
+                disabledReason="Wait for the current sign-in attempt to finish."
+                onClick={() => oauth(p)}
+              >
                 Continue with {OAUTH_PROVIDER_LABEL[p]}
-              </Button>
+              </OAuthButton>
             ))}
           </div>
           <div className="mt-5 flex items-center gap-3 text-[12px] text-ink-faint">
@@ -365,7 +385,14 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
             </div>
           )}
 
-          <Button type="submit" variant="primary" busy={busy} block>
+          <Button
+            type="submit"
+            variant="primary"
+            busy={busy && !activeProvider}
+            disabled={busy}
+            disabledReason="Wait for the current sign-in attempt to finish."
+            block
+          >
             {c.cta}
           </Button>
         </form>
@@ -379,8 +406,8 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
             </Link>
             <span>
               New here?{" "}
-              <Link href={authPageUrl("/signup", next)} className="text-signal hover:underline">
-                Create an account
+              <Link href={waitlistRequired ? authPageUrl("/waitlist", next) : authPageUrl("/signup", next)} className="text-signal hover:underline">
+                {waitlistRequired ? "Join the waitlist" : "Create an account"}
               </Link>
             </span>
           </>

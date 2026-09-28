@@ -89,7 +89,8 @@ const INTERNAL_PREFIX = "/api/internal/";
 
 export function isPublicPath(pathname: string): boolean {
   return (
-    // Only the exact intake endpoint is public.
+    // Only the exact public waitlist page and intake endpoint bypass the session gate.
+    pathname === "/waitlist" ||
     pathname === "/api/waitlist" ||
     // Public policy access must not expose any future nested routes.
     pathname === "/privacy" ||

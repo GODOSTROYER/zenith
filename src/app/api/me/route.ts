@@ -25,6 +25,7 @@ const admittedGet = route(async () => {
     configured,
     signedIn: configured && Boolean(user),
     hasWorkspace: workspacesFor(user).length > 0,
+    waitlistRequired: false,
   };
 });
 
@@ -34,7 +35,7 @@ export async function GET(...args: Parameters<typeof admittedGet>): Promise<Resp
     try {
       const user = await sessionUserFromRequest(args[0]);
       if (!(await getWaitlistAccess(user)).allowed) {
-        return json({ configured: isSupabaseConfigured(), signedIn: Boolean(user), hasWorkspace: false });
+        return json({ configured: isSupabaseConfigured(), signedIn: Boolean(user), hasWorkspace: false, waitlistRequired: true });
       }
     } catch (error) {
       return errorResponse(error);

@@ -58,7 +58,7 @@ beforeEach(() => {
   window.history.replaceState(null, "", "/account");
   vi.stubGlobal("window", new Proxy(window, {
     get: (target, property) => property === "location"
-      ? { search: target.location.search, assign: calls.assign }
+      ? { href: target.location.href, search: target.location.search, assign: calls.assign }
       : Reflect.get(target, property, target),
   }));
   host = document.createElement("div");
@@ -149,6 +149,10 @@ describe("account sign-in methods", () => {
     });
     expect(calls.assign).toHaveBeenCalledWith("https://accounts.google.com/authorize");
     expect(calls.linkIdentity).not.toHaveBeenCalled();
+    expect(button("Connect Google").getAttribute("aria-busy")).toBe("true");
+    expect(button("Connect Google").querySelector("img")?.getAttribute("alt")).toBe("");
+    expect(button("Connect GitHub").getAttribute("aria-busy")).toBeNull();
+    expect(host.querySelector('[role="status"]')?.textContent).toBe("Opening Google…");
     expect(button("Connect Google").disabled).toBe(true);
     expect(button("Connect GitHub").disabled).toBe(true);
   });

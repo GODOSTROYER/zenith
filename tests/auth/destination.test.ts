@@ -8,10 +8,10 @@
  * there is no stored "onboarded" flag in this codebase and these tests assume
  * there is none.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Member, Workspace } from "@/lib/domain/types";
 import type { SessionUser } from "@/lib/auth/session";
-import { ONBOARDING, OVERVIEW, postAuthDestination, safeNextPath } from "@/lib/auth/destination";
+import { destinationAfterSignIn, ONBOARDING, OVERVIEW, postAuthDestination, safeNextPath } from "@/lib/auth/destination";
 import { tempDataDir } from "../_support/data-dir";
 
 describe("safeNextPath", () => {
@@ -78,6 +78,22 @@ describe("postAuthDestination", () => {
     expect(postAuthDestination({ hasWorkspace: false, next: "/reset-password" })).toBe(
       "/reset-password"
     );
+  });
+});
+
+describe("destinationAfterSignIn", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each([false, true])("sends a waiting account to the waitlist with hasWorkspace=%s", async (hasWorkspace) => {
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ hasWorkspace, waitlistRequired: true })));
+    vi.stubGlobal("fetch", fetch);
+    expect(await destinationAfterSignIn("/p/atlas/activity")).toBe("/waitlist");
+    expect(fetch).toHaveBeenCalledWith("/api/me", { cache: "no-store" });
+  });
+
+  it("keeps the requested destination for an existing or admitted workspace member", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ hasWorkspace: true, waitlistRequired: false }))));
+    expect(await destinationAfterSignIn("/p/atlas/activity")).toBe("/p/atlas/activity");
   });
 });
 

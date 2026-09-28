@@ -13,6 +13,7 @@ import { GimbalChapter } from "./gimbal-chapter";
 import { CloudOrbit } from "./cloud-orbit";
 import { CloseChapter } from "./close-chapter";
 import { GimbalCompanion } from "./gimbal-companion";
+import { LandingWaitlist } from "./landing-waitlist";
 import { useSheetHandoff } from "./landing-motion";
 import { useLandingNavigation } from "./landing-navigation";
 import "./landing.css";
@@ -64,7 +65,8 @@ export function Landing({ providers }: { providers: ProviderRow[] }) {
             <CloseChapter cta={cta} />
           </div>
         </main>
-        <GimbalCompanion />
+        <GimbalCompanion docked={cta.href === "/waitlist"} />
+        {cta.href === "/waitlist" && <LandingWaitlist signedIn={cta.signedIn} />}
       </div>
     </LandingExperienceProvider>
   );

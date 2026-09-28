@@ -272,10 +272,43 @@ describe("file waitlist repository", () => {
     await expect(repository.list(options)).rejects.toThrow();
   });
 
+  it("persists email-only entries and optional names/features without changing duplicate answers", async () => {
+    await repository.join({ email: "minimal@example.test" });
+    await repository.join({ email: "profile@example.test", name: " Alex ", occupation: " Founder ", features: [" Deployments ", "Custom" ] });
+    await repository.join({ email: "profile@example.test", name: "Replacement", features: ["Changed"] });
+    close(repository);
+    repository = openRepository();
+    expect((await repository.list({ limit: 100 })).entries).toMatchObject([
+      { email: "minimal@example.test", name: "", occupation: "", features: [], useCase: "", position: 1 },
+      { email: "profile@example.test", name: "Alex", occupation: "Founder", features: ["Deployments", "Custom"], useCase: "", position: 2 },
+    ]);
+    const batch = await repository.admit(2, "admin", "profile-batch");
+    close(repository);
+    repository = openRepository();
+    expect(await repository.admit(2, "admin", "profile-batch")).toEqual(batch);
+  });
+
+  it("upgrades a legacy SQLite queue without losing its entries or pending retry results", async () => {
+    await seed(2);
+    const original = await repository.admit(1, "admin", "legacy-batch");
+    close(repository);
+    const legacy = inspectDatabase();
+    legacy.exec("ALTER TABLE waitlist_entries DROP COLUMN name; ALTER TABLE waitlist_entries DROP COLUMN features_json;");
+    const legacyBatch = original.map(({ name: _name, features: _features, ...entry }) => entry);
+    legacy.prepare("UPDATE waitlist_batches SET entries_json=? WHERE request_id=?").run(JSON.stringify(legacyBatch), "legacy-batch");
+    close(legacy);
+    repository = openRepository();
+    expect(await repository.admit(1, "admin", "legacy-batch")).toEqual(original);
+    expect(await repository.list({ limit: 100 })).toMatchObject({ total: 2, admitted: 1, queued: 1 });
+    expect((await repository.list({ limit: 100 })).entries.every((entry) => entry.name === "" && entry.features.length === 0)).toBe(true);
+    await repository.join({ email: "new@example.test", name: "New", features: ["Custom"] });
+    expect((await repository.list({ limit: 100 })).entries[2]).toMatchObject({ name: "New", features: ["Custom"] });
+  });
+
   it("validates a submission before writing any record", async () => {
     await expect(repository.join({ email: "invalid", occupation: "Engineer", useCase: "Deploy" })).rejects.toThrow();
-    await expect(repository.join({ email: "valid@example.test", occupation: " ", useCase: "Deploy" })).rejects.toThrow();
-    await expect(repository.join({ email: "valid@example.test", occupation: "Engineer", useCase: " " })).rejects.toThrow();
+    await expect(repository.join({ email: "valid@example.test", occupation: "x".repeat(121), useCase: "Deploy" })).rejects.toThrow();
+    await expect(repository.join({ email: "valid@example.test", occupation: "Engineer", features: ["x".repeat(121)], useCase: "" })).rejects.toThrow();
     expect(await repository.list({ limit: 100 })).toEqual({ entries: [], total: 0, queued: 0, admitted: 0, nextCursor: null });
   });
 });

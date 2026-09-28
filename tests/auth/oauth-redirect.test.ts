@@ -21,3 +21,9 @@ it("carries invitation through password recovery without creating an auth-page l
   expect(new URL(authCallbackUrl("https://zenith.test", reset)).searchParams.get("next")).toBe(reset);
   expect(authPageUrl("/signup", "//evil.test")).toBe("/signup");
 });
+
+it("carries safe invitation destinations through the waitlist", () => {
+  expect(authPageUrl("/waitlist", "/invite?invite=workspace-token"))
+    .toBe("/waitlist?next=%2Finvite%3Finvite%3Dworkspace-token");
+  expect(authPageUrl("/waitlist", "//evil.test")).toBe("/waitlist");
+});

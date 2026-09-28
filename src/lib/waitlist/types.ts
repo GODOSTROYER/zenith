@@ -3,6 +3,8 @@ export type WaitlistStatus = "queued" | "admitted";
 export interface WaitlistEntry {
   id: string;
   email: string;
+  name: string;
+  features: string[];
   occupation: string;
   useCase: string;
   /** Immutable FIFO sequence; gaps are harmless. */
@@ -23,8 +25,10 @@ export interface WaitlistPage {
 
 export interface WaitlistSubmission {
   email: string;
-  occupation: string;
-  useCase: string;
+  name?: string;
+  occupation?: string;
+  features?: string[];
+  useCase?: string;
 }
 
 export interface WaitlistRepository {

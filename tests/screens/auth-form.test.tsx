@@ -95,6 +95,10 @@ it("keeps sign-in busy until authentication succeeds, then navigates and refresh
   expect(calls.signIn).toHaveBeenCalledWith({ email: "builder@example.test", password: "synthetic-test-password" });
   expect(submitButton().disabled).toBe(true);
   expect(submitButton().getAttribute("aria-busy")).toBe("true");
+  const google = [...host.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Continue with Google")!;
+  expect(google.disabled).toBe(true);
+  expect(google.getAttribute("aria-busy")).toBeNull();
+  expect(host.querySelector('[role="status"]')?.textContent).toBe("");
   expect(calls.replace).not.toHaveBeenCalled();
   await act(async () => complete({ error: null }));
   expect(calls.replace).toHaveBeenCalledWith("/p/demo/activity");
@@ -170,6 +174,12 @@ it("offers Google sign-in with a safe continuation and an explicit account picke
     queryParams: { prompt: "select_account" },
   } });
   expect(button.disabled).toBe(true);
+  expect(button.getAttribute("aria-busy")).toBe("true");
+  expect(button.textContent).toBe("Continue with Google");
+  expect(button.querySelector("img")?.getAttribute("alt")).toBe("");
+  expect(host.querySelector('[role="status"]')?.textContent).toBe("Opening Google…");
+  expect(submitButton().disabled).toBe(true);
+  expect(submitButton().getAttribute("aria-busy")).toBeNull();
   expect(calls.signIn).not.toHaveBeenCalled();
 });
 
@@ -204,4 +214,30 @@ it("honors a workspace invitation for a fresh Google or password account", async
   calls.signIn.mockResolvedValue({ error: null });
   await submit();
   expect(calls.replace).toHaveBeenCalledWith("/invite?invite=workspace-token");
+});
+
+it("routes new visitors to the waitlist while keeping existing sign-in available", async () => {
+  await act(async () => root.render(<AuthForm mode="login" waitlistRequired />));
+  expect(host.querySelector<HTMLAnchorElement>('a[href^="/waitlist"]')?.textContent).toBe("Join the waitlist");
+  expect(host.querySelector('a[href^="/signup"]')).toBeNull();
+  expect(submitButton().disabled).toBe(false);
+  expect(host.textContent).toContain("Continue with Google");
+});
+
+it("explains admission on signup without blocking approved users from creating an account", async () => {
+  await act(async () => root.render(<AuthForm mode="signup" waitlistRequired />));
+  expect(host.textContent).toContain("Use the email approved for Zenith early access.");
+  expect(host.textContent).toContain("New accounts need waitlist approval. Existing accounts keep their access.");
+  expect(host.querySelector('a[href^="/waitlist"]')).not.toBeNull();
+  expect(submitButton().disabled).toBe(false);
+  expect(host.textContent).toContain("Continue with Google");
+});
+
+it("keeps a workspace invitation when gated auth sends a visitor to the waitlist", async () => {
+  calls.search = "next=%2Finvite%3Finvite%3Dworkspace-token";
+  for (const mode of ["login", "signup"] as const) {
+    await act(async () => root.render(<AuthForm mode={mode} waitlistRequired />));
+    expect(host.querySelector<HTMLAnchorElement>('a[href^="/waitlist"]')?.getAttribute("href"))
+      .toBe("/waitlist?next=%2Finvite%3Finvite%3Dworkspace-token");
+  }
 });

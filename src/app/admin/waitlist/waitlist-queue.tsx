@@ -186,18 +186,18 @@ export function WaitlistQueue({ operatorId }: { operatorId: string }) {
           : page?.entries.length === 0 ? <p className="p-6 text-[13px] text-ink-mute">{after !== null ? "No more entries on this page. Go back or refresh the queue." : status === "queued" ? "The queue is empty. New requests will appear here." : "No one has been admitted yet."}</p>
           : <div className="overflow-x-auto" role="region" aria-label={`${status === "queued" ? "Queued" : "Admitted"} waitlist entries`} tabIndex={0}>
             <table className="w-full min-w-[820px] border-collapse text-left text-[13px]">
-              <caption className="sr-only">Waitlist entries in queue order, with occupation and intended use.</caption>
+              <caption className="sr-only">Waitlist entries in queue order, with optional name, profession and feature interests.</caption>
               <thead className="border-b border-line bg-bg2 text-[11px] uppercase tracking-[0.08em] text-ink-faint"><tr>
                 <th scope="col" className="w-20 px-5 py-3 font-medium">Position</th>
                 <th scope="col" className="w-[26%] px-5 py-3 font-medium">Person</th>
-                <th scope="col" className="px-5 py-3 font-medium">What they want to build</th>
+                <th scope="col" className="px-5 py-3 font-medium">Feature interests</th>
                 <th scope="col" className="w-[190px] px-5 py-3 font-medium">Status</th>
               </tr></thead>
               <tbody className="divide-y divide-line">
                 {page?.entries.map((entry) => <tr key={entry.id} className="align-top">
                   <td className="tnum px-5 py-5 font-mono text-[12px] text-ink-faint">#{entry.position}</td>
-                  <td className="px-5 py-5"><p className="break-all font-medium text-ink">{entry.email}</p><p className="mt-1 whitespace-pre-wrap break-words text-ink-mute">{entry.occupation}</p><p className="mt-3 text-[11px] text-ink-faint">Joined <time dateTime={entry.createdAt}>{dateLabel(entry.createdAt)}</time></p></td>
-                  <td className="whitespace-pre-wrap break-words px-5 py-5 leading-relaxed text-ink-mute">{entry.useCase}</td>
+                  <td className="px-5 py-5">{entry.name && <p className="break-words font-medium text-ink">{entry.name}</p>}<p className="break-all text-ink">{entry.email}</p>{entry.occupation && <p className="mt-1 whitespace-pre-wrap break-words text-ink-mute">{entry.occupation}</p>}<p className="mt-3 text-[11px] text-ink-faint">Joined <time dateTime={entry.createdAt}>{dateLabel(entry.createdAt)}</time></p></td>
+                  <td className="whitespace-pre-wrap break-words px-5 py-5 leading-relaxed text-ink-mute">{entry.features?.length > 0 && <ul className="list-disc space-y-1 pl-4">{entry.features.map((feature) => <li key={feature}>{feature}</li>)}</ul>}{entry.useCase && <p className={entry.features?.length ? "mt-3" : undefined}>{entry.useCase}</p>}{!entry.features?.length && !entry.useCase && <span className="text-ink-faint">Not provided</span>}</td>
                   <td className="px-5 py-5"><Chip tone={entry.status === "admitted" ? "ok" : "neutral"}>{entry.status === "admitted" ? "Admitted" : "Queued"}</Chip>{entry.admittedAt && <p className="mt-2 text-[11px] text-ink-faint"><time dateTime={entry.admittedAt}>{dateLabel(entry.admittedAt)}</time></p>}</td>
                 </tr>)}
               </tbody>

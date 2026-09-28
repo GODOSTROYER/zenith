@@ -30,14 +30,14 @@ let root: Root;
 let host: HTMLDivElement;
 const fetchMock = vi.fn();
 const entry = (position: number, status: WaitlistEntry["status"] = "queued"): WaitlistEntry => ({
-  id: `entry-${position}`, email: `builder${position}@example.test`, occupation: "Engineer",
+  id: `entry-${position}`, email: `builder${position}@example.test`, name: "", features: [], occupation: "Engineer",
   useCase: "Build a team deployment workflow", position, status,
   createdAt: "2026-09-26T10:00:00.000Z", admittedAt: status === "admitted" ? "2026-09-26T11:00:00.000Z" : null,
   admittedBy: status === "admitted" ? "operator" : null,
 });
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const queue = (entries: WaitlistEntry[], nextCursor: number | null = null) => json({ entries, total: 2, queued: 2, admitted: 0, nextCursor });
-const button = (label: string) => [...host.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.textContent === label)!;
+const button = (label: string) => [...host.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.textContent?.trim() === label)!;
 const render = async (node: ReactNode) => act(async () => root.render(node));
 const click = async (label: string) => act(async () => button(label).click());
 async function input(name: string, value: string) {
@@ -141,24 +141,56 @@ it("disables out-of-range batches and admission for an empty queue", async () =>
 
 it("submits the account email and answers, preserving retry after throttling", async () => {
   fetchMock.mockResolvedValueOnce(json({ error: { message: "Limited" } }, 429)).mockResolvedValueOnce(json({ accepted: true }, 202));
-  await render(<WaitlistJoinForm email="builder@example.test" />);
+  await render(<WaitlistJoinForm email="builder@example.test" emailReadOnly />);
   expect(host.querySelector<HTMLInputElement>('[name="email"]')?.readOnly).toBe(true);
+  await click("Other");
   expect(host.querySelector<HTMLInputElement>('[name="occupation"]')?.maxLength).toBe(120);
   await input("occupation", "  Engineer  ");
-  await input("useCase", "  Deploy team apps  ");
+  await input("name", "  Builder  ");
+  await click("Something else");
+  await input("customFeature", "  Deploy team apps  ");
   await click("Join the waitlist");
-  expect(host.querySelector('[role="alert"]')?.textContent).toContain("Too many requests");
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain("too many requests");
   expect(button("Join the waitlist").disabled).toBe(false);
   await click("Join the waitlist");
-  expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ email: "builder@example.test", occupation: "Engineer", useCase: "Deploy team apps" });
+  expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ email: "builder@example.test", name: "Builder", occupation: "Engineer", features: ["Deploy team apps"] });
   expect(host.querySelector('[role="status"]')?.textContent).toContain("Your request has been received");
-  expect(host.textContent).not.toMatch(/position|#\d|admitted/i);
+  expect(host.textContent).not.toMatch(/position|#\d/i);
 });
 
-it("requires a session for both pages and operator authorization for administration", async () => {
+it("accepts email alone, rejects invalid email, and exposes only optional profile choices", async () => {
+  fetchMock.mockResolvedValue(json({ accepted: true }, 202));
+  await render(<WaitlistJoinForm />);
+  expect([...host.querySelectorAll<HTMLInputElement>("input[required]")].map(control => control.name)).toEqual(["email"]);
+  await input("email", "invalid-email");
+  await click("Join the waitlist");
+  expect(fetchMock).not.toHaveBeenCalled();
+  await input("email", "visitor@example.test");
+  await click("Join the waitlist");
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ email: "visitor@example.test", name: "", occupation: "", features: [] });
+  expect(document.activeElement).toBe(host.querySelector('[role="status"]'));
+});
+
+it("saves selected interests and prevents duplicate submissions while a request is in flight", async () => {
+  let finish!: (response: Response) => void;
+  fetchMock.mockImplementation(() => new Promise<Response>(resolve => { finish = resolve; }));
+  await render(<WaitlistJoinForm email="visitor@example.test" />);
+  await click("Developer");
+  await act(async () => { host.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click(); });
+  await click("Join the waitlist");
+  expect(button("Saving your place").disabled).toBe(true);
+  await act(async () => { host.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ email: "visitor@example.test", name: "", occupation: "Developer", features: ["Deploy my app"] });
+  await act(async () => finish(json({ accepted: true }, 202)));
+  expect(host.textContent).toContain("Your place is safe");
+});
+
+it("keeps intake public while requiring operator authorization for administration", async () => {
   auth.user = null;
   await expect(WaitlistAdminPage()).rejects.toThrow("redirect:/login?next=/admin/waitlist");
-  await expect(WaitlistPage()).rejects.toThrow("redirect:/login?next=/waitlist");
+  await render(await WaitlistPage());
+  expect(host.querySelector<HTMLInputElement>('[name="email"]')?.readOnly).toBe(false);
   auth.user = { id: "member", email: "member@example.test", name: "Member" };
   auth.operator = false;
   await expect(WaitlistAdminPage()).rejects.toThrow("not-found");
@@ -172,10 +204,22 @@ it("sends admitted users to the auth continuation and pauses intake without losi
   auth.allowed = false;
   auth.enabled = false;
   await render(await WaitlistPage());
-  expect(host.textContent).toContain("New waitlist requests are currently paused");
-  expect(host.querySelector('a[href="/waitlist"]')?.textContent).toBe("Check access again");
+  expect(host.textContent).toContain("New waitlist requests are paused");
+  expect(host.querySelector('a[href="/auth/continue"]')?.textContent).toContain("Check your access again");
   expect(host.querySelector('form[action="/auth/signout"]')).not.toBeNull();
   expect(host.querySelector('[name="occupation"]')).toBeNull();
+});
+
+it("preserves safe invitation continuations and prevents waitlist redirect loops", async () => {
+  const next = "/apps/accept?token=invite";
+  auth.user = null;
+  await render(await WaitlistPage({ searchParams: Promise.resolve({ next }) }));
+  expect(host.querySelector('a[href^="/login"]')?.getAttribute("href")).toBe(`/login?next=${encodeURIComponent(next)}`);
+  auth.user = { id: "member", email: "member@example.test", name: "Member" };
+  auth.allowed = true;
+  await expect(WaitlistPage({ searchParams: Promise.resolve({ next }) })).rejects.toThrow(`redirect:/auth/continue?next=${encodeURIComponent(next)}`);
+  await expect(WaitlistPage({ searchParams: Promise.resolve({ next: "/waitlist?next=/overview" }) })).rejects.toThrow("redirect:/auth/continue");
+  await expect(WaitlistPage({ searchParams: Promise.resolve({ next: "https://other.example" }) })).rejects.toThrow("redirect:/auth/continue");
 });
 
 

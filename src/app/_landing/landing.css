@@ -40,7 +40,8 @@
   --info: #246ba6;
   --prod: #946113;
   --nav-accent: #5a63e8;
-  background: var(--zenith-paper);
+  /* The moving desktop hero must never reveal the porcelain sheet behind it. */
+  background: #08090d;
   color: var(--zenith-ink);
   font-family: var(--zenith-font-ui);
   font-size: 16px;
@@ -100,6 +101,9 @@
 }
 /* No native scrollbar beside the landing: scrolling is unchanged, but nothing sits at the right edge to break the symmetry. The product keeps its own. */
 html:has(.zenith-landing) { scrollbar-width: none; }
+/* Paint the browser canvas as well as the page: mobile rubber-banding and
+   expanding browser chrome can expose it even when the hero fills the screen. */
+html:has(.zenith-landing), body:has(.zenith-landing) { background: #08090d; }
 html:has(.zenith-landing)::-webkit-scrollbar { width: 0; height: 0; display: none; }
 .zenith-landing * { box-sizing: border-box; }
 .zenith-landing a, .zenith-landing button, .zenith-landing summary, .zenith-landing select, .zenith-landing input { -webkit-tap-highlight-color: transparent; }

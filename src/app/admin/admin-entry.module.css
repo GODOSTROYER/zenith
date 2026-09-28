@@ -16,6 +16,9 @@
 .login { max-width: 390px; width: 100%; padding: 35px 0; animation: arrive 500ms ease-out both; }
 .login h2 { margin-top: 20px; font-family: var(--zenith-font-display), Georgia, serif; font-size: 38px; font-weight: 400; letter-spacing: -.03em; line-height: 1.15; }
 .login > p { margin-top: 16px; color: var(--ink-mute); font-size: 12px; line-height: 1.8; }
+.denied { margin-top: 16px; padding: 14px 16px; border: 1px solid var(--line); background: var(--signal-dim); color: var(--ink-mute); font-size: 12px; line-height: 1.7; }
+.login .denied form { margin-top: 12px; }
+.login .denied :global(.ui-button) { margin-top: 0; min-height: 36px; }
 .login form { margin-top: 32px; }
 .login label { display: block; font-size: 12px; margin-bottom: 9px; }
 .login :global(.ui-input) { height: 46px; }

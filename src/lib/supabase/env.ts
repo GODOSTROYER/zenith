@@ -93,6 +93,7 @@ export function isPublicPath(pathname: string): boolean {
     pathname === "/api/waitlist" ||
     // Public policy access must not expose any future nested routes.
     pathname === "/privacy" ||
+    pathname === "/terms" ||
     PUBLIC_PATHS.some((p) => pathname === p || (p !== "/" && pathname.startsWith(`${p}/`))) ||
     PREVIEW_PAGE.test(pathname) ||
     pathname.startsWith(INTERNAL_PREFIX)

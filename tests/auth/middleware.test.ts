@@ -63,6 +63,12 @@ describe("public paths", () => {
     expect(isPublicPath("/privacy-settings")).toBe(false);
   });
 
+  it("makes terms public without exposing nested routes", () => {
+    expect(isPublicPath("/terms")).toBe(true);
+    expect(isPublicPath("/terms/export")).toBe(false);
+    expect(isPublicPath("/terms-settings")).toBe(false);
+  });
+
   it("keeps the sandbox activation page public", () => {
     expect(isPublicPath("/preview/dep-1/svc-1")).toBe(true);
   });

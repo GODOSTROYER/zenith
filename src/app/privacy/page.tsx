@@ -96,13 +96,13 @@ export default function PrivacyPage() {
 
             <section id="contact" aria-labelledby="contact-title">
               <h2 id="contact-title">08 <span>Questions and updates</span></h2>
-              <p>For privacy questions or requests, contact the Zenith operator. A dedicated contact address will be added here before this policy is published. Do not post passwords, secrets or private workspace content in public issues.</p>
+              <p>For privacy questions or requests, contact the Zenith operator at <a href="mailto:support@tryzenith.cloud">support@tryzenith.cloud</a>. Do not post passwords, secrets or private workspace content in public issues.</p>
               <p>This page will be updated as Zenith’s features and data practices change. The date above identifies the latest revision.</p>
             </section>
           </article>
         </div>
       </main>
-      <footer className={styles.footer}><Link href="/">Back to Zenith</Link><span>Privacy policy · September 2026</span></footer>
+      <footer className={styles.footer}><Link href="/">Back to Zenith</Link><Link href="/terms">Terms of service</Link><span>Privacy policy · September 2026</span></footer>
     </div>
   );
 }

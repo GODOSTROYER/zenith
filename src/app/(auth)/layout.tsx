@@ -14,6 +14,8 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         </Link>
         <span aria-hidden="true" className="mx-3">·</span>
         <Link href="/privacy" className="transition-colors hover:text-ink">Privacy policy</Link>
+        <span aria-hidden="true" className="mx-3">·</span>
+        <Link href="/terms" className="transition-colors hover:text-ink">Terms of service</Link>
       </p>
     </AuthShell>
   );

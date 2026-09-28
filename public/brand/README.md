@@ -8,6 +8,7 @@ converted to outlines. Its clipped z and i dot relate to the register geometry.
 - `zenith-lockup.svg`: primary one-color horizontal mark and wordmark.
 - `zenith-lockup-inverse.svg`: warm-white inverse for ink fields.
 - `zenith-wordmark.svg`: lettering alone.
+- `zenith-oauth.svg` / `zenith-oauth.png`: square dark OAuth tile, orange mark above the full Zenith wordmark; PNG is 120 by 120 pixels for Google branding.
 - `zenith-symbol.svg`: one-color master.
 - `zenith-symbol-vermilion.svg`: change/signature accent.
 - `zenith-symbol-inverse.svg`: inverse master.

@@ -17,7 +17,7 @@ const SESSION_KEY = "zenith-landing-guide";
  * enough for Gimbal to offer something. Nothing here reads mouse position or
  * infers intent; it reads scroll position, tab visibility and focus.
  */
-export function LandingExperienceProvider({ children }: { children: ReactNode }) {
+export function LandingExperienceProvider({ children, proactiveSuggestions = true }: { children: ReactNode; proactiveSuggestions?: boolean }) {
   const [state, dispatch] = useReducer(landingReducer, undefined, initialLandingState);
   useSmoothScroll();
 
@@ -32,10 +32,15 @@ export function LandingExperienceProvider({ children }: { children: ReactNode })
     try { sessionStorage.setItem(SESSION_KEY, JSON.stringify({ offered: state.offered, dismissed: state.dismissed, quiet: state.companion.quiet, suggestionsShown: state.suggestionsShown })); } catch { /* see above */ }
   }, [state.restored, state.offered, state.dismissed, state.companion.quiet, state.suggestionsShown]);
 
+  // Intake keeps the corner available. Do not count unseen offers or change the user's quiet preference.
+  useEffect(() => {
+    if (!proactiveSuggestions && state.suggestion) dispatch({ type: "suggestion-expire" });
+  }, [proactiveSuggestions, state.suggestion]);
+
   return (
     <StateContext.Provider value={state}>
       <DispatchContext.Provider value={dispatch}>
-        <ChapterTracker state={state} dispatch={dispatch} />
+        <ChapterTracker state={state} dispatch={dispatch} proactiveSuggestions={proactiveSuggestions} />
         {children}
       </DispatchContext.Provider>
     </StateContext.Provider>
@@ -90,7 +95,7 @@ const typing = () => {
  * not dragging and not already talking to Gimbal. One offer per chapter,
  * subject to the session rules in landing-state.ts.
  */
-function ChapterTracker({ state, dispatch }: { state: LandingState; dispatch: Dispatch<LandingAction> }) {
+function ChapterTracker({ state, dispatch, proactiveSuggestions }: { state: LandingState; dispatch: Dispatch<LandingAction>; proactiveSuggestions: boolean }) {
   const latest = useRef(state);
   latest.current = state;
   const settled = useRef(0);
@@ -130,7 +135,7 @@ function ChapterTracker({ state, dispatch }: { state: LandingState; dispatch: Di
       // Meaningfully visible: the chapter fills at least 45% of the viewport, or is fully on screen.
       const visibleHeight = rect ? Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0) : 0;
       const meaningful = !!rect && (visibleHeight >= window.innerHeight * 0.45 || (rect.top >= 0 && rect.bottom <= window.innerHeight));
-      const eligible = meaningful && document.visibilityState === "visible" && !typing() && !dragging.current && !s.companion.open && !s.walkthrough && !s.suggestion && !s.companion.quiet && s.restored;
+      const eligible = proactiveSuggestions && meaningful && document.visibilityState === "visible" && !typing() && !dragging.current && !s.companion.open && !s.walkthrough && !s.suggestion && !s.companion.quiet && s.restored;
       settled.current = eligible ? settled.current + 1000 : 0;
       const suggestion = SUGGESTIONS[s.chapter];
       if (eligible && suggestion && settled.current >= SUGGESTION_DELAY_MS && canSuggest(s, suggestion, Date.now())) {
@@ -147,7 +152,7 @@ function ChapterTracker({ state, dispatch }: { state: LandingState; dispatch: Di
       window.removeEventListener("pointercancel", up);
       window.clearInterval(tick);
     };
-  }, [dispatch]);
+  }, [dispatch, proactiveSuggestions]);
 
   return null;
 }

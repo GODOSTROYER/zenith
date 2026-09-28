@@ -189,7 +189,7 @@ it("saves selected interests and prevents duplicate submissions while a request 
 it("keeps intake public while requiring operator authorization for administration", async () => {
   auth.user = null;
   await expect(WaitlistAdminPage()).rejects.toThrow("redirect:/login?next=/admin/waitlist");
-  await render(await WaitlistPage());
+  await render(await WaitlistPage({}));
   expect(host.querySelector<HTMLInputElement>('[name="email"]')?.readOnly).toBe(false);
   auth.user = { id: "member", email: "member@example.test", name: "Member" };
   auth.operator = false;
@@ -200,10 +200,10 @@ it("keeps intake public while requiring operator authorization for administratio
 
 it("sends admitted users to the auth continuation and pauses intake without losing the recheck action", async () => {
   auth.allowed = true;
-  await expect(WaitlistPage()).rejects.toThrow("redirect:/auth/continue");
+  await expect(WaitlistPage({})).rejects.toThrow("redirect:/auth/continue");
   auth.allowed = false;
   auth.enabled = false;
-  await render(await WaitlistPage());
+  await render(await WaitlistPage({}));
   expect(host.textContent).toContain("New waitlist requests are paused");
   expect(host.querySelector('a[href="/auth/continue"]')?.textContent).toContain("Check your access again");
   expect(host.querySelector('form[action="/auth/signout"]')).not.toBeNull();

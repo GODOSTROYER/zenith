@@ -11,7 +11,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Member, Workspace } from "@/lib/domain/types";
 import type { SessionUser } from "@/lib/auth/session";
-import { destinationAfterSignIn, ONBOARDING, OVERVIEW, postAuthDestination, safeNextPath } from "@/lib/auth/destination";
+import { destinationAfterSignIn, ONBOARDING, OVERVIEW, postAuthDestination, safeNextPath, waitlistDestination } from "@/lib/auth/destination";
 import { tempDataDir } from "../_support/data-dir";
 
 describe("safeNextPath", () => {
@@ -87,7 +87,7 @@ describe("destinationAfterSignIn", () => {
   it.each([false, true])("sends a waiting account to the waitlist with hasWorkspace=%s", async (hasWorkspace) => {
     const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ hasWorkspace, waitlistRequired: true })));
     vi.stubGlobal("fetch", fetch);
-    expect(await destinationAfterSignIn("/p/atlas/activity")).toBe("/waitlist");
+    expect(await destinationAfterSignIn("/p/atlas/activity")).toBe("/waitlist?next=%2Fp%2Fatlas%2Factivity");
     expect(fetch).toHaveBeenCalledWith("/api/me", { cache: "no-store" });
   });
 
@@ -167,4 +167,15 @@ describe("destinationAfterAuth", () => {
     expect(await destinationAfterAuth(null)).toBe(OVERVIEW);
     expect(db().members.some((m) => m.id === bo.id && m.workspaceId === ws.id)).toBe(true);
   });
+});
+
+describe("waitlistDestination", () => {
+  it("preserves an invitation until admission without consuming it", () => {
+    expect(waitlistDestination("/invite?invite=a%26b#accept"))
+      .toBe("/waitlist?next=%2Finvite%3Finvite%3Da%2526b%23accept");
+  });
+  it.each([null, undefined, "//evil.test", "/\\evil.test", "/login", "/waitlist", "/waitlist?next=/invite", "/waitlist/status", "/p/../waitlist"])
+    ("drops unsafe or recursive continuation %j", (next) => {
+      expect(waitlistDestination(next)).toBe("/waitlist");
+    });
 });

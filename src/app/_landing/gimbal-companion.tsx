@@ -108,7 +108,7 @@ export function GimbalCompanion({ docked = false }: { docked?: boolean }) {
   const base: GimbalMood = step ? (step.mood ?? "engaged") : companion.open ? "attentive" : suggestion || hovering ? "attentive" : "idle";
   const mood = transient ?? base;
   const tempo = companion.open || hovering || step ? 2.6 : 1.9;
-  const hidden = (docked ? !suggestion : onHero) && !companion.open && !closing && !walkthrough;
+  const hidden = (onHero || docked) && !companion.open && !closing && !walkthrough;
   useEffect(() => { if (!hidden) setShownOnce(true); }, [hidden]);
   // Liquid glass for the guide and its pop-outs; each reads what it floats over and sets its text tone to contrast.
   useLiquidGlass(panel, GLASS.panel, { active: companion.open, tone: true });
@@ -265,7 +265,7 @@ export function GimbalCompanion({ docked = false }: { docked?: boolean }) {
           </div>
         </div>
       )}
-      {!companion.open && !walkthrough && suggestion && (
+      {!docked && !companion.open && !walkthrough && suggestion && (
         <div ref={bubble} className={styles.bubble} data-tone="dark" role="status" aria-live="polite">
           <p>{suggestion.prompt}</p>
           <div className={styles.bubbleActions}>

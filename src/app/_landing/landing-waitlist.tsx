@@ -20,7 +20,7 @@ export function LandingWaitlist({ signedIn = false }: { signedIn?: boolean }) {
   const trigger = useRef<HTMLElement | null>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const id = useId();
-  const guideOpen = state.companion.open || Boolean(state.walkthrough) || Boolean(state.suggestion);
+  const guideOpen = state.companion.open || Boolean(state.walkthrough);
   useLiquidGlass(pill, GLASS.bar, { tone: true });
 
   const show = useCallback((element: HTMLElement) => {

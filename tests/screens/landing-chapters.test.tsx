@@ -31,10 +31,10 @@ const providers = [
   { id: "aws", displayName: "Amazon Web Services", availability: "preview" as const, tagline: "Preview: exports Terraform." },
   { id: "kubernetes", displayName: "Kubernetes", availability: "planned" as const, tagline: "Planned." },
 ];
-function Page() {
-  return <LandingExperienceProvider><AgentsChapter /><BeforeChapter /><ScenarioChapter /><GimbalChapter /><CloudOrbit providers={providers} /><CloseChapter cta={{ href: "/signup", label: "Create account" }} /><GimbalCompanion /></LandingExperienceProvider>;
+function Page({ docked = false }: { docked?: boolean }) {
+  return <LandingExperienceProvider proactiveSuggestions={!docked}><AgentsChapter /><BeforeChapter /><ScenarioChapter /><GimbalChapter /><CloudOrbit providers={providers} /><CloseChapter cta={{ href: "/signup", label: "Create account" }} /><GimbalCompanion docked={docked} /></LandingExperienceProvider>;
 }
-function render() { host = document.createElement("div"); document.body.append(host); root = createRoot(host); act(() => root!.render(<Page />)); }
+function render(docked = false) { host = document.createElement("div"); document.body.append(host); root = createRoot(host); act(() => root!.render(<Page docked={docked} />)); }
 function button(text: string, within: ParentNode = host!) { const element = [...within.querySelectorAll("button")].find((item) => item.textContent?.trim() === text || item.textContent?.includes(text) || item.getAttribute("aria-label") === text); if (!element) throw new Error(`Missing button: ${text}`); return element; }
 function click(element: HTMLElement) { act(() => element.click()); }
 async function type(input: HTMLTextAreaElement, value: string) {
@@ -171,5 +171,20 @@ describe("landing chapters over one shared state", () => {
     expect(host!.querySelector('[data-testid="gimbal"]')).toBeNull();
     click(button("Show Gimbal"));
     expect(host!.querySelector('[data-testid="gimbal"]')).not.toBeNull();
+  });
+
+  it("preserves the waitlist corner without counting unseen automatic offers", () => {
+    vi.useFakeTimers();
+    const geometry = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ top: 0, bottom: 1000, left: 0, right: 1200, width: 1200, height: 1000, x: 0, y: 0, toJSON() {} });
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    render(true);
+    act(() => vi.advanceTimersByTime(14000));
+    expect(JSON.parse(sessionStorage.getItem("zenith-landing-guide")!).suggestionsShown).toBe(0);
+    expect(host!.querySelector('[role="status"]')).toBeNull();
+    act(() => root!.render(<Page />));
+    act(() => vi.advanceTimersByTime(14000));
+    expect(JSON.parse(sessionStorage.getItem("zenith-landing-guide")!).suggestionsShown).toBe(1);
+    geometry.mockRestore();
+    visibility.mockRestore();
   });
 });

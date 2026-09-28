@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Join the waitlist", description: "A clearer view of your cloud is coming. Join the Zenith early access waitlist.", robots: { index: false, follow: false } };
 export const viewport: Viewport = { width: "device-width", initialScale: 1, interactiveWidget: "resizes-content" };
 
-export default async function WaitlistPage({ searchParams }: { searchParams?: Promise<{ next?: string | string[] }> } = {}) {
+export default async function WaitlistPage({ searchParams }: { searchParams?: Promise<{ next?: string | string[] }> }) {
   const query = await searchParams;
   const requested = safeNextPath(typeof query?.next === "string" ? query.next : undefined);
   // A waitlist continuation must never send an admitted account back to this page.

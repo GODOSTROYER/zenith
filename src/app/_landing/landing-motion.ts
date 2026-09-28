@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Motion for the landing, on GSAP with Lenis smooth scrolling. Everything
+ * Motion for the landing, on GSAP with desktop Lenis scrolling. Everything
  * here is decorative: it never gates content, never runs under a
  * reduced-motion preference, and loads its libraries only in the browser.
  */
@@ -30,25 +30,28 @@ function loadMotionPath(): Promise<Gsap> {
 }
 
 const MOTION_OK = "(prefers-reduced-motion: no-preference)";
+// Touch scrolling runs on the browser compositor. Do not chase it with JS
+// transforms of full-page surfaces, especially while the address bar expands.
+const DESKTOP_SCROLL = `${MOTION_OK} and (min-width: 901px) and (hover: hover) and (pointer: fine)`;
 
 /**
  * Run `build` with gsap inside a reduced-motion-aware matchMedia scope.
  * Returns the effect cleanup. Nothing runs when the preference is "reduce".
  */
-function withGsap(build: (gsap: Gsap) => void | (() => void), load: () => Promise<Gsap> = loadGsap): () => void {
+function withGsap(build: (gsap: Gsap) => void | (() => void), load: () => Promise<Gsap> = loadGsap, query = MOTION_OK): () => void {
   let cancelled = false;
   let context: { revert: () => void } | null = null;
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => {};
   load().then((gsap) => {
     if (cancelled) return;
     const mm = gsap.matchMedia();
-    mm.add(MOTION_OK, () => build(gsap));
+    mm.add(query, () => build(gsap));
     context = mm;
   }).catch(() => { /* The page reads the same without motion. */ });
   return () => { cancelled = true; context?.revert(); };
 }
 
-/** Smooth, inertial scrolling for the whole page, driven by the GSAP ticker so ScrollTrigger stays in step. */
+/** Desktop wheel scrolling shares the GSAP ticker; touch devices keep native momentum. */
 /** The page's smooth scroller while it runs (for in-page links); null under reduced motion or before it loads. */
 let activeScroller: { scrollTo: (target: HTMLElement | number, options?: { offset?: number }) => void } | null = null;
 export function smoothScroller() { return activeScroller; }
@@ -61,15 +64,19 @@ export function useSmoothScroll() {
     let dispose = () => {};
     Promise.all([loadGsap(), import("lenis"), import("gsap/ScrollTrigger")]).then(([gsap, { default: Lenis }, { ScrollTrigger }]) => {
       if (cancelled) return;
-      // In-page links are handled by `useLandingNavigation`, which scrolls through this instance.
-      const lenis = new Lenis({ lerp: 0.1 });
-      activeScroller = lenis;
-      const onScroll = () => ScrollTrigger.update();
-      lenis.on("scroll", onScroll);
-      const tick = (time: number) => lenis.raf(time * 1000);
-      gsap.ticker.add(tick);
-      gsap.ticker.lagSmoothing(500, 33);
-      dispose = () => { gsap.ticker.remove(tick); lenis.off("scroll", onScroll); lenis.destroy(); if (activeScroller === lenis) activeScroller = null; };
+      const media = gsap.matchMedia();
+      media.add(DESKTOP_SCROLL, () => {
+        // In-page links use this on desktop; phones retain native momentum scrolling.
+        const lenis = new Lenis({ lerp: 0.1 });
+        activeScroller = lenis;
+        const onScroll = () => ScrollTrigger.update();
+        lenis.on("scroll", onScroll);
+        const tick = (time: number) => lenis.raf(time * 1000);
+        gsap.ticker.add(tick);
+        gsap.ticker.lagSmoothing(500, 33);
+        return () => { gsap.ticker.remove(tick); lenis.off("scroll", onScroll); lenis.destroy(); if (activeScroller === lenis) activeScroller = null; };
+      });
+      dispose = () => media.revert();
     }).catch(() => { /* Native scrolling is fine. */ });
     return () => { cancelled = true; dispose(); };
   }, []);
@@ -136,7 +143,7 @@ export function useSheetHandoff(paper: RefObject<HTMLElement | null>, ink: RefOb
       const tweens = [gsap.to(sheet, { y: () => window.innerHeight * 0.34, ease: "none", scrollTrigger: { ...scrub, invalidateOnRefresh: true } })];
       if (dim) tweens.push(gsap.fromTo(dim, { opacity: 0 }, { opacity: 0.55, ease: "none", scrollTrigger: scrub }));
       return () => tweens.forEach((tween) => { tween.scrollTrigger?.kill(); tween.kill(); });
-    });
+    }, loadGsap, DESKTOP_SCROLL);
   }, [paper, ink]);
 }
 
@@ -147,17 +154,25 @@ export function useHeroScene(root: RefObject<HTMLElement | null>) {
     return withGsap((gsap) => {
       const letters = Array.from(element.querySelectorAll<SVGPathElement>("[data-letter]"));
       const beacon = element.querySelector<HTMLElement>("[data-hero-beacon]");
-      const layers = Array.from(element.querySelectorAll<HTMLElement>("[data-layer]"));
-      const wordmark = element.querySelector<HTMLElement>("[data-hero-wordmark]");
-      const fading = Array.from(element.querySelectorAll<HTMLElement>("[data-hero-fade]"));
-      const dim = element.querySelector<HTMLElement>("[data-hero-dim]");
-      const scrub = { trigger: element, start: "top top", end: "bottom top", scrub: true };
-      const parallax: ReturnType<typeof gsap.to>[] = [];
-      // The scroll-bound fades wait for the entrance to finish and state their own start values, so they
-      // never snapshot a half-arrived element and the opening always comes back whole when scrolled up to.
+      const scrollMedia = gsap.matchMedia();
+      // GSAP owns and reverts these transforms when the viewport/input changes.
+      scrollMedia.add(DESKTOP_SCROLL, () => {
+        const layers = Array.from(element.querySelectorAll<HTMLElement>("[data-layer]"));
+        const dim = element.querySelector<HTMLElement>("[data-hero-dim]");
+        const scrub = { trigger: element, start: "top top", end: "bottom top", scrub: true };
+        layers.forEach((layer) => gsap.to(layer, { yPercent: Number(layer.dataset.speed ?? 0) * 40, ease: "none", scrollTrigger: scrub }));
+        gsap.to(element, { yPercent: 34, ease: "none", scrollTrigger: scrub });
+        if (dim) gsap.fromTo(dim, { opacity: 0 }, { opacity: 0.6, ease: "none", scrollTrigger: scrub });
+      });
+      // Arm fades after entrance so they never capture half-arrived content.
       const armFades = () => {
-        if (wordmark) parallax.push(gsap.fromTo(wordmark, { scale: 1, opacity: 1, yPercent: 0 }, { scale: 0.92, opacity: 0, yPercent: -12, ease: "none", immediateRender: false, scrollTrigger: { ...scrub, end: "70% top" } }));
-        if (fading.length) parallax.push(gsap.fromTo(fading, { opacity: 1, y: 0 }, { opacity: 0, ease: "none", immediateRender: false, scrollTrigger: { ...scrub, end: "45% top" } }));
+        scrollMedia.add(DESKTOP_SCROLL, () => {
+          const wordmark = element.querySelector<HTMLElement>("[data-hero-wordmark]");
+          const fading = Array.from(element.querySelectorAll<HTMLElement>("[data-hero-fade]"));
+          const scrub = { trigger: element, start: "top top", end: "bottom top", scrub: true };
+          if (wordmark) gsap.fromTo(wordmark, { scale: 1, opacity: 1, yPercent: 0 }, { scale: 0.92, opacity: 0, yPercent: -12, ease: "none", immediateRender: false, scrollTrigger: { ...scrub, end: "70% top" } });
+          if (fading.length) gsap.fromTo(fading, { opacity: 1, y: 0 }, { opacity: 0, ease: "none", immediateRender: false, scrollTrigger: { ...scrub, end: "45% top" } });
+        });
       };
       // Every entrant states both ends, so the first rendered frame already matches the stylesheet's waiting
       // pose and nothing blinks when the library arrives; `data-motion` then hands the pose over to the tweens.
@@ -167,11 +182,7 @@ export function useHeroScene(root: RefObject<HTMLElement | null>) {
       const apex = element.querySelector<HTMLElement>("[data-hero-apex]");
       if (apex) entrance.fromTo(apex, { opacity: 0, scale: 0.4, transformOrigin: "50% 50%" }, { opacity: 1, scale: 1, duration: 0.9 }, 1.1);
       element.dataset.motion = "gsap";
-      // Depth is live from the first frame: the layers drift, the whole opening recedes at a third of the scroll and darkens under the sheet.
-      layers.forEach((layer) => parallax.push(gsap.to(layer, { yPercent: Number(layer.dataset.speed ?? 0) * 40, ease: "none", scrollTrigger: scrub })));
-      parallax.push(gsap.to(element, { yPercent: 34, ease: "none", scrollTrigger: scrub }));
-      if (dim) parallax.push(gsap.fromTo(dim, { opacity: 0 }, { opacity: 0.6, ease: "none", scrollTrigger: scrub }));
-      return () => { delete element.dataset.motion; entrance.kill(); parallax.forEach((tween) => { tween.scrollTrigger?.kill(); tween.kill(); }); };
+      return () => { delete element.dataset.motion; entrance.kill(); scrollMedia.revert(); };
     });
   }, [root]);
 }

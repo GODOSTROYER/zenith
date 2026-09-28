@@ -37,6 +37,9 @@ export async function POST(request: NextRequest) {
   const form = await request.formData().catch(() => null);
   const value = form?.get("next");
   const next = safeNextPath(typeof value === "string" ? value : undefined);
+  // The owner console has its own public sign-in page. Return there after
+  // switching accounts while keeping all session cleanup above intact.
+  if (next === "/admin") return NextResponse.redirect(new URL("/admin", request.nextUrl.origin), { status: 303 });
   const login = new URL("/login", request.nextUrl.origin);
   if (next) login.searchParams.set("next", next);
   return NextResponse.redirect(login, { status: 303 });

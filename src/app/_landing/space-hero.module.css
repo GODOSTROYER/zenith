@@ -167,3 +167,9 @@
 @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
 @keyframes appear { to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .nebula, .apexStar svg { animation: none; } }
+
+/* Native mobile scrolling keeps the scene in normal flow. Avoid retaining a
+   separate GPU surface for every ridge when no scroll transform uses it. */
+@media (max-width: 900px), (hover: none), (pointer: coarse) {
+  .layer, .ridge { will-change: auto; }
+}

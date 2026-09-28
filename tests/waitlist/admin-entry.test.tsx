@@ -21,7 +21,7 @@ function fill() {
   host.querySelector<HTMLInputElement>('[name="email"]')!.value = "owner@example.test";
   host.querySelector<HTMLInputElement>('[name="password"]')!.value = "test-only-password";
 }
-function submit() { host.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); }
+function submit() { host.querySelector("form:not([action])")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); }
 
 it("starts with empty credentials, owner guidance, reset link and creator attribution", () => {
   expect(host.querySelector<HTMLInputElement>('[name="email"]')!.value).toBe("");
@@ -39,7 +39,7 @@ it("signs in with entered credentials and refreshes the server authorization bou
   expect(mocks.signIn).toHaveBeenCalledWith({ email: "owner@example.test", password: "test-only-password" });
   expect(mocks.replace).toHaveBeenCalledWith("/admin");
   expect(mocks.refresh).toHaveBeenCalledOnce();
-  expect(host.querySelector("button")!.disabled).toBe(true);
+  expect(host.querySelector("button")!.disabled).toBe(false);
 });
 
 it("prevents duplicate submissions while sign-in is pending", async () => {
@@ -72,4 +72,25 @@ it("recovers from a network rejection", async () => {
   expect(host.querySelector('[role="alert"]')?.textContent).toContain("Connection interrupted");
   expect(host.querySelector("button")!.disabled).toBe(false);
   expect(mocks.replace).not.toHaveBeenCalled();
+});
+
+it("shows access denied without the console and lets another owner sign in", async () => {
+  await act(async () => root.render(<AdminEntry accessDenied />));
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain("This account cannot open mission control");
+  expect(host.textContent).not.toContain("Approval history");
+  expect(host.querySelector('a[href="/forgot-password?next=%2Fadmin"]')).not.toBeNull();
+  mocks.signIn.mockResolvedValue({ error: null });
+  fill();
+  await act(async () => submit());
+  expect(mocks.replace).toHaveBeenCalledWith("/admin");
+  expect(mocks.refresh).toHaveBeenCalledOnce();
+});
+
+it("offers server sign-out with return to the dedicated admin entry", async () => {
+  await act(async () => root.render(<AdminEntry accessDenied />));
+  const form = host.querySelector<HTMLFormElement>('form[action="/auth/signout"]')!;
+  expect(form.method).toBe("post");
+  expect(form.querySelector<HTMLInputElement>('[name="next"]')?.value).toBe("/admin");
+  expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.textContent).toContain("Sign out");
+  expect(mocks.refresh).not.toHaveBeenCalled();
 });

@@ -28,3 +28,11 @@ it("keeps ordinary body-less signout working", async () => {
   const response = await POST(new NextRequest("https://zenith.test/auth/signout", { method: "POST" }));
   expect(response.headers.get("location")).toBe("https://zenith.test/login");
 });
+
+it("returns account switching to the branded admin entry", async () => {
+  const response = await POST(new NextRequest("https://zenith.test/auth/signout", {
+    method: "POST", body: new URLSearchParams({ next: "/admin" }),
+  }));
+  expect(response.status).toBe(303);
+  expect(response.headers.get("location")).toBe("https://zenith.test/admin");
+});

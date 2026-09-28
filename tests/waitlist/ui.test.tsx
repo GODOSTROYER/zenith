@@ -446,10 +446,14 @@ it("keeps intake public while requiring operator authorization for administratio
   expect(host.querySelector<HTMLInputElement>('[name="email"]')?.readOnly).toBe(false);
   auth.user = { id: "member", email: "member@example.test", name: "Member" };
   auth.operator = false;
-  await expect(AdminPage()).rejects.toThrow("not-found");
-  await expect(WaitlistAdminPage()).rejects.toThrow("not-found");
+  const denied = await AdminPage();
+  expect(denied.type).toBe(AdminEntry);
+  expect(denied.props).toMatchObject({ accessDenied: true });
+  await expect(WaitlistAdminPage()).rejects.toThrow("redirect:/admin");
   auth.operator = true;
-  await expect(AdminPage()).resolves.toBeTruthy();
+  const owner = await AdminPage();
+  expect(owner.type).not.toBe(AdminEntry);
+  expect(owner.props.children.props.operatorId).toBe("member");
   await expect(WaitlistAdminPage()).rejects.toThrow("redirect:/admin#waitlist");
 });
 

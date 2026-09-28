@@ -65,7 +65,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-static";
 
 /** Gimbal's panel sits above the keyboard on phones instead of behind it. */
-export const viewport: Viewport = { width: "device-width", initialScale: 1, interactiveWidget: "resizes-content" };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#08090d", interactiveWidget: "resizes-content" };
 
 export default async function LandingPage() {
   // registers the provider adapters the honesty table reads below

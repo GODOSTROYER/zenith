@@ -11,7 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import theme from "./admin.module.css";
 import styles from "./admin-entry.module.css";
 
-export function AdminEntry() {
+export function AdminEntry({ accessDenied = false }: { accessDenied?: boolean }) {
   const router = useRouter();
   const inFlight = useRef(false);
   const [busy, setBusy] = useState(false);
@@ -32,6 +32,8 @@ export function AdminEntry() {
       if (authError) {
         setError("Could not sign in. Check your email and password, then try again.");
       } else {
+        inFlight.current = false;
+        setBusy(false);
         router.replace("/admin");
         router.refresh();
         return;
@@ -59,8 +61,16 @@ export function AdminEntry() {
         </section>
         <section className={styles.login} aria-labelledby="admin-signin">
           <span className={styles.eyebrow}>01 / IDENTIFY YOURSELF</span>
-          <h2 id="admin-signin">Welcome back, <br />commander.</h2>
-          <p>Sign in to manage early access to Zenith.</p>
+          <h2 id="admin-signin">{accessDenied ? "Owner access required." : <>Welcome back, <br />commander.</>}</h2>
+          {accessDenied ? (
+            <div className={styles.denied} role="alert">
+              <p>This account cannot open mission control. Sign in with the owner account below, or sign out to start over.</p>
+              <form action="/auth/signout" method="post">
+                <input type="hidden" name="next" value="/admin" />
+                <Button type="submit" variant="ghost" disabled={busy}>Sign out</Button>
+              </form>
+            </div>
+          ) : <p>Sign in to manage early access to Zenith.</p>}
           <form onSubmit={signIn} aria-busy={busy}>
             <label htmlFor="admin-email">Email address</label>
             <Input id="admin-email" name="email" type="email" autoComplete="username" required disabled={busy} />

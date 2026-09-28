@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     return response;
   };
   const fail = (code: string) => {
+    if (!linking && code === "waitlist_required") return redirect(waitlistDestination(next));
     const url = new URL(linking ? "/account" : "/login", origin);
     url.searchParams.set(linking ? "identity_error" : "error", code);
     if (!linking && next) url.searchParams.set("next", next);

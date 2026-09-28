@@ -224,13 +224,17 @@ it("routes new visitors to the waitlist while keeping existing sign-in available
   expect(host.textContent).toContain("Continue with Google");
 });
 
-it("explains admission on signup without blocking approved users from creating an account", async () => {
+it("replaces gated signup with a waitlist notice and sign-in link without a creation form", async () => {
   await act(async () => root.render(<AuthForm mode="signup" waitlistRequired />));
-  expect(host.textContent).toContain("Use the email approved for Zenith early access.");
-  expect(host.textContent).toContain("New accounts need waitlist approval. Existing accounts keep their access.");
+  expect(host.textContent).toContain("Join the waitlist to request early access.");
   expect(host.querySelector('a[href^="/waitlist"]')).not.toBeNull();
-  expect(submitButton().disabled).toBe(false);
-  expect(host.textContent).toContain("Continue with Google");
+  expect(host.querySelector('a[href^="/login"]')?.textContent).toBe("Sign in");
+  expect(host.querySelector("form")).toBeNull();
+  expect(host.querySelector("input")).toBeNull();
+  expect(host.querySelector("button")).toBeNull();
+  expect(host.textContent).not.toContain("Create account");
+  expect(host.textContent).not.toContain("Continue with Google");
+  expect(calls.createClient).not.toHaveBeenCalled();
 });
 
 it("keeps a workspace invitation when gated auth sends a visitor to the waitlist", async () => {
@@ -240,4 +244,21 @@ it("keeps a workspace invitation when gated auth sends a visitor to the waitlist
     expect(host.querySelector<HTMLAnchorElement>('a[href^="/waitlist"]')?.getAttribute("href"))
       .toBe("/waitlist?next=%2Finvite%3Finvite%3Dworkspace-token");
   }
+});
+
+it("keeps existing password sign-in available while new access is gated", async () => {
+  await act(async () => root.render(<AuthForm mode="login" waitlistRequired />));
+  calls.signIn.mockResolvedValue({ error: null });
+  await submit();
+  expect(calls.signIn).toHaveBeenCalledWith({ email: "builder@example.test", password: "synthetic-test-password" });
+  expect(calls.replace).toHaveBeenCalledWith("/p/demo/activity");
+});
+
+it("sends an admission-hook rejection to the waitlist with its safe continuation", async () => {
+  await act(async () => root.render(<AuthForm mode="login" waitlistRequired />));
+  calls.oauth.mockResolvedValue({ error: new Error("ZENITH_WAITLIST_REQUIRED: provider detail") });
+  const google = [...host.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Continue with Google")!;
+  await act(async () => google.click());
+  expect(calls.replace).toHaveBeenCalledWith("/waitlist?next=%2Fp%2Fdemo%2Factivity");
+  expect(host.textContent).not.toContain("provider detail");
 });

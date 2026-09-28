@@ -50,7 +50,7 @@ export function CloseChapter({ cta }: { cta: Cta }) {
             <h2 id="close-title" data-reveal>Reach<br /><em>the zenith.</em></h2>
             <p className={local.tagline} data-reveal>Make your next change <em>a clear one.</em></p>
             <p className={local.body} data-reveal>Start with an editable blueprint.<br />Make the next decision with the whole system in view.</p>
-            <div className={local.actions} data-reveal><LandingCta cta={cta} /><Link href="/guide" className="zenith-text-link">Explore the guide <ArrowUpRight size={16} aria-hidden="true" /></Link></div>
+            <div className={local.actions} data-reveal>{cta.signedIn && cta.href !== "/waitlist" && <LandingCta cta={cta} />}<Link href="/guide" className="zenith-text-link">Explore the guide <ArrowUpRight size={16} aria-hidden="true" /></Link></div>
           </div>
           <div className={local.symbol} aria-hidden="true" data-reveal><OrbitMark size={320} /></div>
         </div>

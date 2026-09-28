@@ -162,6 +162,17 @@ html:has(.zenith-landing)::-webkit-scrollbar { width: 0; height: 0; display: non
 .zenith-cta svg { transition: transform 220ms var(--zenith-ease); }
 .zenith-cta:hover svg { transform: translate(2px,-2px); }
 .zenith-header-cta { min-height: 44px; padding: 8px 18px; font-size: 13px; gap: 14px; }
+.zenith-header-inner .zenith-mobile-waitlist { display: none; }
+.zenith-header-inner .zenith-cta-waitlist {
+  color: #fff !important; background-color: rgba(12, 13, 18, .88); border-color: rgba(255, 255, 255, .16);
+  background-image: var(--lg-light, linear-gradient(145deg, rgba(255, 255, 255, .12), transparent 60%));
+  background-size: 100% 100%; background-repeat: no-repeat;
+  -webkit-backdrop-filter: blur(18px) saturate(1.35); backdrop-filter: blur(18px) saturate(1.35);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 9px 26px -14px rgba(0,0,0,.8);
+}
+.zenith-header-inner .zenith-cta-waitlist:hover { background-color: rgba(20, 20, 25, .96); border-color: rgba(239,137,95,.4); }
+.zenith-header-inner .zenith-cta-waitlist:focus-visible { outline: 2px solid #ffad85; outline-offset: 4px; }
+.zenith-header-inner .zenith-waitlist-dot { width: 5px; height: 5px; flex-shrink: 0; border-radius: 50%; background: #ef895f; box-shadow: 0 0 0 3px rgba(239,137,95,.08), 0 0 10px rgba(239,137,95,.28); }
 .zenith-menu-button, .zenith-mobile-nav { display: none; }
 .zenith-text-link { display: inline-flex; align-items: center; justify-content: space-between; gap: 18px; min-height: 44px; text-decoration: none; border-bottom: 1px solid var(--zenith-rule); font-size: 14px; font-weight: 600; transition: color 160ms ease, border-color 160ms ease; }
 .zenith-text-link:hover { border-color: var(--zenith-accent); color: var(--zenith-accent-text); }
@@ -184,15 +195,18 @@ html:has(.zenith-landing)::-webkit-scrollbar { width: 0; height: 0; display: non
   .zenith-footer p { display: none; }
   .zenith-desktop-nav { display: none; }
   .zenith-header-actions { margin-left: auto; gap: 6px; }
-  /* Keep one account action visible in the masthead at every breakpoint. */
+  /* Early access moves from the hero to the masthead; sign-in remains in the menu. */
   .zenith-header-cta { display: inline-flex; min-height: 36px; padding: 6px 12px; font-size: 12px; gap: 8px; }
+  .zenith-header-inner .zenith-header-sign-in { display: none; }
+  .zenith-header-inner .zenith-mobile-waitlist { display: inline-flex; min-height: 42px; }
   .zenith-header-cta svg { width: 14px; height: 14px; }
   .zenith-sign-in { padding: 0 6px; }
   .zenith-menu-button { display: grid; }
-  .zenith-mobile-nav { display: flex; position: absolute; top: 86px; right: var(--zenith-gutter); left: var(--zenith-gutter); padding: 10px 22px 16px; pointer-events: auto; background: var(--zenith-paper); color: var(--zenith-ink); border: 1px solid var(--zenith-rule); border-radius: 26px; box-shadow: 0 24px 60px -28px rgba(0, 0, 0, .5); flex-direction: column; }
+  .zenith-mobile-nav { display: flex; position: absolute; top: 86px; right: var(--zenith-gutter); left: var(--zenith-gutter); max-height: calc(100dvh - 106px); overflow-y: auto; overscroll-behavior: contain; padding: 10px 22px 16px; pointer-events: auto; background: var(--zenith-paper); color: var(--zenith-ink); border: 1px solid var(--zenith-rule); border-radius: 26px; box-shadow: 0 24px 60px -28px rgba(0, 0, 0, .5); flex-direction: column; animation: zenith-nav-enter 220ms var(--zenith-ease) both; }
   .zenith-mobile-nav > a { display: flex; justify-content: space-between; align-items: center; min-height: 52px; font-size: 17px; font-weight: 600; text-decoration: none; }
   .zenith-mobile-nav > .zenith-cta { margin-top: 16px; font-size: 14px; }
 }
+@keyframes zenith-nav-enter { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 @media (max-width: 560px) {
   .zenith-landing { --zenith-gutter: 20px; --zenith-r-card: 22px; --zenith-r-tile: 16px; }
   .zenith-header { padding-top: 10px; }
@@ -209,6 +223,7 @@ html:has(.zenith-landing)::-webkit-scrollbar { width: 0; height: 0; display: non
 /* Reduced transparency: every glass surface becomes solid in its tone. */
 @media (prefers-reduced-transparency: reduce) {
   .zenith-header-inner { background: var(--zenith-paper); -webkit-backdrop-filter: none; backdrop-filter: none !important; box-shadow: inset 0 0 0 1px var(--zenith-rule), 0 18px 44px -24px rgba(0, 0, 0, .45); }
+  .zenith-header-inner .zenith-cta-waitlist { background: #121318; -webkit-backdrop-filter: none; backdrop-filter: none !important; }
 }
 @media (prefers-reduced-motion: reduce) {
   .zenith-landing *, .zenith-landing *::before, .zenith-landing *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }

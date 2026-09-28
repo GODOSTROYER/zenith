@@ -52,6 +52,10 @@
 # and waitlist migrations explicitly revoke their table/function privileges;
 # the contract suites use SET ROLE to verify those application boundaries.
 #
+# `supabase_auth_admin` is also a NOLOGIN, non-BYPASSRLS stand-in. Migration
+# 0011 grants it only the signup hook and admitted email/status reads. The
+# contract tests SET ROLE to verify that hook boundary without running Auth.
+#
 # No extensions are required. `gen_random_uuid()` in the waitlist migration is
 # built into the PostgreSQL version used by this lane.
 #
@@ -76,6 +80,8 @@ MIGRATIONS=(
   "0008_workspace_ownership.sql"
   "0009_waitlist.sql"
   "0010_waitlist_profile.sql"
+  "0011_waitlist_signup_hook.sql"
+  "0012_waitlist_admin.sql"
 )
 
 if [ -z "${SUPABASE_DB_URL:-}" ]; then
@@ -140,10 +146,13 @@ begin
   if not exists (select 1 from pg_roles where rolname = 'authenticated') then
     create role authenticated nologin noinherit;
   end if;
+  if not exists (select 1 from pg_roles where rolname = 'supabase_auth_admin') then
+    create role supabase_auth_admin nologin noinherit;
+  end if;
 end
 $$;
 SQL
-echo "service_role, anon and authenticated stand-ins present."
+echo "service_role, anon, authenticated and supabase_auth_admin stand-ins present."
 
 # --- apply, each file in its own transaction --------------------------------
 #
@@ -279,6 +288,11 @@ begin
     'public.zenith_waitlist_list(text,bigint,integer)',
     'public.zenith_waitlist_admit(integer,text,text)',
     'public.zenith_waitlist_admitted(text)',
+    'public.zenith_waitlist_preview(text,text,integer,uuid[])',
+    'public.zenith_waitlist_admit_preview(uuid,text,text)',
+    'public.zenith_waitlist_history(integer)',
+    'public.zenith_waitlist_history_detail(text,integer,integer)',
+    'public.zenith_waitlist_list_filtered(text,bigint,integer,text)',
     'public.zenith_waitlist_rate_limit(text,integer,integer)'
   ] loop
     routine := to_regprocedure(signature);
@@ -292,9 +306,18 @@ begin
     end if;
   end loop;
 
+  routine := to_regprocedure('public.zenith_before_user_created(jsonb)');
+  if routine is null
+     or not has_function_privilege('supabase_auth_admin', routine, 'EXECUTE')
+     or has_function_privilege('anon', routine, 'EXECUTE')
+     or has_function_privilege('authenticated', routine, 'EXECUTE')
+     or has_function_privilege('service_role', routine, 'EXECUTE') then
+    raise exception 'Waitlist signup hook must be executable only by Supabase Auth';
+  end if;
+
   if (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'public' and c.relkind = 'r' and c.relrowsecurity
-        and c.relname in ('waitlist_entries', 'waitlist_admission_batches', 'waitlist_rate_limits')) <> 3 then
+        and c.relname in ('waitlist_entries', 'waitlist_admission_batches', 'waitlist_rate_limits', 'waitlist_admission_previews')) <> 4 then
     raise exception 'Waitlist tables are missing or row level security is disabled';
   end if;
 end

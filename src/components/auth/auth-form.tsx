@@ -13,15 +13,16 @@ import { Field } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { authCallbackUrl, authPageUrl } from "@/lib/auth/oauth";
-import { destinationAfterSignIn } from "@/lib/auth/destination";
+import { destinationAfterSignIn, waitlistDestination } from "@/lib/auth/destination";
 import { createClient } from "@/lib/supabase/client";
 import {
   OAUTH_PROVIDER_LABEL,
   SUPABASE_OAUTH_PROVIDERS,
   type OAuthProvider,
 } from "@/lib/supabase/env";
-import { explain, isUnconfirmedEmail, messageForErrorCode } from "./messages";
+import { explain, isUnconfirmedEmail, isWaitlistRequiredError, messageForErrorCode } from "./messages";
 import { OAuthButton } from "./oauth-button";
+import { SignupWaitlistNotice } from "./signup-waitlist-notice";
 
 export type AuthMode = "login" | "signup" | "forgot" | "reset";
 
@@ -128,6 +129,10 @@ export function AuthForm({ mode, waitlistRequired = false }: { mode: AuthMode; w
 
   const fail = (err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
+    if (isWaitlistRequiredError(message)) {
+      router.replace(waitlistDestination(next));
+      return;
+    }
     setUnconfirmed(isUnconfirmedEmail(message));
     setError(explain(message));
   };
@@ -246,18 +251,12 @@ export function AuthForm({ mode, waitlistRequired = false }: { mode: AuthMode; w
     </Button>
   ) : null;
 
+  if (mode === "signup" && waitlistRequired) return <SignupWaitlistNotice next={next} />;
+
   return (
     <div className="rounded-card border border-line bg-bg2 p-6 sm:p-8">
       <h1 className="app-page-title">{c.title}</h1>
-      <p className="mt-2 text-[14px] leading-relaxed text-ink-mute">
-        {mode === "signup" && waitlistRequired ? "Use the email approved for Zenith early access." : c.body}
-      </p>
-      {mode === "signup" && waitlistRequired && (
-        <p className="mt-4 border-y border-line py-3 text-[13px] leading-relaxed text-ink-mute">
-          New accounts need waitlist approval. Existing accounts keep their access.{" "}
-          <Link href={authPageUrl("/waitlist", next)} className="text-signal underline underline-offset-4">Join the waitlist</Link>.
-        </p>
-      )}
+      <p className="mt-2 text-[14px] leading-relaxed text-ink-mute">{c.body}</p>
 
       {/* Above the form, and only while the form is the thing on screen: once
           `done` replaces it with "check your inbox", a provider button would be

@@ -80,7 +80,7 @@ const INTENDED = [
     id: "waitlist-pg-contract",
     label: "tests/waitlist/pg-contract.test.ts (waitlist queue and batch admissions)",
     match: (fullName) => /^'?WaitlistPostgres'?(?:\s|$)/.test(fullName),
-    why: "Queue ordering, duplicate joins, service-role boundaries and concurrent batch admissions (supabase/migrations/0009_waitlist.sql).",
+    why: "Queue ordering, duplicate joins, signup admission hook, role boundaries and concurrent batch admissions (supabase/migrations/0009–0011).",
   },
 ];
 

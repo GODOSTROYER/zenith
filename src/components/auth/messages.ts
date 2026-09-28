@@ -11,6 +11,8 @@
 
 /** Codes auth redirects may put in `?error=`. Nothing else is honoured. */
 export const AUTH_ERROR_CODES: Record<string, string> = {
+  waitlist_required:
+    "Zenith is opening in small batches. Join the waitlist to request access, then sign in with your approved email.",
   identity_link_mismatch:
     "Your sign-in changed while connecting that provider. Sign in to the intended account, then connect Google again from Account settings.",
   auth_unavailable:
@@ -37,6 +39,11 @@ export function messageForErrorCode(raw: string | null | undefined): string | un
   return Object.hasOwn(AUTH_ERROR_CODES, raw) ? AUTH_ERROR_CODES[raw] : AUTH_ERROR_FALLBACK;
 }
 
+/** Stable marker supplied by Zenith's before-user-created admission hook. */
+export function isWaitlistRequiredError(message: string | undefined): boolean {
+  return /\bZENITH_WAITLIST_REQUIRED\b/i.test(message ?? "");
+}
+
 /**
  * Supabase's callback error → a stable code, so no provider text enters the URL.
  *
@@ -45,6 +52,7 @@ export function messageForErrorCode(raw: string | null | undefined): string | un
  * tell the user to request a fresh one that does not exist.
  */
 export function callbackErrorCode(message: string | undefined): keyof typeof AUTH_ERROR_CODES {
+  if (isWaitlistRequiredError(message)) return "waitlist_required";
   const m = (message ?? "").toLowerCase();
   if (m.includes("missing its confirmation code")) return "link_missing_code";
   if (m.includes("denied") || m.includes("cancel")) return "oauth_denied";
@@ -66,6 +74,7 @@ export function isUnconfirmedEmail(message: string): boolean {
 
 /** Translate Supabase auth errors into calm, fix-naming copy. */
 export function explain(message: string): string {
+  if (isWaitlistRequiredError(message)) return AUTH_ERROR_CODES.waitlist_required;
   const m = message.toLowerCase();
   if (m.includes("invalid login credentials"))
     return "That email and password do not match. Check both, or reset your password below.";

@@ -278,7 +278,9 @@ max_frequency = "5s"
 # This hook runs before a new user is created and allows developers to reject the request based on the incoming user object.
 # [auth.hook.before_user_created]
 # enabled = true
-# uri = "pg-functions://postgres/auth/before-user-created-hook"
+# uri = "pg-functions://postgres/public/zenith_before_user_created"
+# Apply 0011_waitlist_signup_hook.sql first. Requires the Postgres waitlist;
+# enable this hook separately from the application access gate. See docs/waitlist.md.
 
 # This hook runs before a token is issued and allows you to add additional claims based on the authentication method used.
 # [auth.hook.custom_access_token]

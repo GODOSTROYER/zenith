@@ -42,7 +42,7 @@ export function Landing({ providers }: { providers: ProviderRow[] }) {
   useSheetHandoff(paper, ink);
   useLandingNavigation(page);
   return (
-    <LandingExperienceProvider proactiveSuggestions={cta.href !== "/waitlist"}>
+    <LandingExperienceProvider>
       <div ref={page} className="zenith-landing">
         <a href="#main" className="zenith-skip">Skip to content</a>
         <LandingHeader cta={cta} />
@@ -65,7 +65,7 @@ export function Landing({ providers }: { providers: ProviderRow[] }) {
             <CloseChapter cta={cta} />
           </div>
         </main>
-        <GimbalCompanion docked={cta.href === "/waitlist"} />
+        <GimbalCompanion />
         {cta.href === "/waitlist" && <LandingWaitlist signedIn={cta.signedIn} />}
       </div>
     </LandingExperienceProvider>

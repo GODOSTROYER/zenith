@@ -20,6 +20,7 @@ import { GimbalChapter } from "@/app/_landing/gimbal-chapter";
 import { AgentsChapter } from "@/app/_landing/agents-chapter";
 import { CloseChapter } from "@/app/_landing/close-chapter";
 import { GimbalCompanion } from "@/app/_landing/gimbal-companion";
+import type { Cta } from "@/app/_landing/cta";
 import { AUTONOMY_MEANING } from "@/lib/navigator/shared";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -31,10 +32,10 @@ const providers = [
   { id: "aws", displayName: "Amazon Web Services", availability: "preview" as const, tagline: "Preview: exports Terraform." },
   { id: "kubernetes", displayName: "Kubernetes", availability: "planned" as const, tagline: "Planned." },
 ];
-function Page({ docked = false }: { docked?: boolean }) {
-  return <LandingExperienceProvider proactiveSuggestions={!docked}><AgentsChapter /><BeforeChapter /><ScenarioChapter /><GimbalChapter /><CloudOrbit providers={providers} /><CloseChapter cta={{ href: "/signup", label: "Create account" }} /><GimbalCompanion docked={docked} /></LandingExperienceProvider>;
+function Page({ cta = { href: "/signup", label: "Create account" } }: { cta?: Cta }) {
+  return <LandingExperienceProvider><AgentsChapter /><BeforeChapter /><ScenarioChapter /><GimbalChapter /><CloudOrbit providers={providers} /><CloseChapter cta={cta} /><GimbalCompanion /></LandingExperienceProvider>;
 }
-function render(docked = false) { host = document.createElement("div"); document.body.append(host); root = createRoot(host); act(() => root!.render(<Page docked={docked} />)); }
+function render(cta?: Cta) { host = document.createElement("div"); document.body.append(host); root = createRoot(host); act(() => root!.render(<Page cta={cta} />)); }
 function button(text: string, within: ParentNode = host!) { const element = [...within.querySelectorAll("button")].find((item) => item.textContent?.trim() === text || item.textContent?.includes(text) || item.getAttribute("aria-label") === text); if (!element) throw new Error(`Missing button: ${text}`); return element; }
 function click(element: HTMLElement) { act(() => element.click()); }
 async function type(input: HTMLTextAreaElement, value: string) {
@@ -173,18 +174,26 @@ describe("landing chapters over one shared state", () => {
     expect(host!.querySelector('[data-testid="gimbal"]')).not.toBeNull();
   });
 
-  it("preserves the waitlist corner without counting unseen automatic offers", () => {
+  it("keeps Gimbal's original proactive guide available during early access", () => {
     vi.useFakeTimers();
     const geometry = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ top: 0, bottom: 1000, left: 0, right: 1200, width: 1200, height: 1000, x: 0, y: 0, toJSON() {} });
     const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
-    render(true);
-    act(() => vi.advanceTimersByTime(14000));
-    expect(JSON.parse(sessionStorage.getItem("zenith-landing-guide")!).suggestionsShown).toBe(0);
-    expect(host!.querySelector('[role="status"]')).toBeNull();
-    act(() => root!.render(<Page />));
+    render({ href: "/waitlist", label: "Join waitlist", signedIn: false });
     act(() => vi.advanceTimersByTime(14000));
     expect(JSON.parse(sessionStorage.getItem("zenith-landing-guide")!).suggestionsShown).toBe(1);
+    expect(host!.querySelector('[role="status"]')).not.toBeNull();
     geometry.mockRestore();
     visibility.mockRestore();
+  });
+
+  it("keeps the close free of repeat enrollment while preserving admitted users' workspace action", () => {
+    render({ href: "/waitlist", label: "Join waitlist", signedIn: false });
+    expect(host!.querySelector('#close [data-zenith-cta]')).toBeNull();
+    expect(host!.querySelector('#close a[href="/waitlist"]')).toBeNull();
+    expect(host!.querySelector('#close a[href="/guide"]')?.textContent).toContain("Explore the guide");
+    act(() => root!.render(<Page cta={{ href: "/waitlist", label: "Check access", signedIn: true }} />));
+    expect(host!.querySelector('#close [data-zenith-cta]')).toBeNull();
+    act(() => root!.render(<Page cta={{ href: "/overview", label: "Open Zenith", signedIn: true }} />));
+    expect(host!.querySelector('#close [data-zenith-cta]')?.getAttribute("href")).toBe("/overview");
   });
 });

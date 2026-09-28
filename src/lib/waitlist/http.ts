@@ -18,11 +18,11 @@ export function sameOrigin(request: NextRequest): void {
 }
 
 /** Enforce actual streamed bytes; Content-Length is only an early refusal. */
-export async function readWaitlistJson(request: NextRequest): Promise<unknown> {
+export async function readWaitlistJson(request: NextRequest, maxBytes = WAITLIST_BODY_BYTES): Promise<unknown> {
   if (request.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase() !== "application/json")
     throw new ApiError("Send a JSON request.", 415);
   const length = request.headers.get("content-length");
-  if (length && Number(length) > WAITLIST_BODY_BYTES)
+  if (length && Number(length) > maxBytes)
     throw new ApiError("The request is too large.", 413);
   const reader = request.body?.getReader();
   if (!reader) throw new ApiError("A JSON request body is required.", 400);
@@ -33,7 +33,7 @@ export async function readWaitlistJson(request: NextRequest): Promise<unknown> {
       const { value, done } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > WAITLIST_BODY_BYTES) {
+      if (size > maxBytes) {
         await reader.cancel();
         throw new ApiError("The request is too large.", 413);
       }

@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { authPageUrl } from "@/lib/auth/oauth";
-import { ArrowUpRight, Check, ChevronDown, LoaderCircle, Plus } from "lucide-react";
+import { ArrowUpRight, Check, LoaderCircle, Plus } from "lucide-react";
 import styles from "./waitlist.module.css";
 
 const PROFESSIONS = ["Developer", "Founder", "Designer", "Student", "Cloud engineer"];
@@ -76,7 +76,7 @@ export function WaitlistJoinForm({ email: initialEmail = "", name: initialName =
     <h2>You’re on the list.</h2>
     <p>Your request has been received. Access opens in small batches.</p>
     <p className={styles.successNote}>Already joined? Your place is safe. Sending another request never moves you back.</p>
-    <p className={styles.successNote}>Once you’re admitted, <Link href={authPageUrl("/login", next)}>sign in</Link> or <Link href={authPageUrl("/signup", next)}>create an account</Link> with the same email.</p>
+    <p className={styles.successNote}>Once you’re admitted, <Link href={authPageUrl("/login", next)}>sign in</Link> with the same email.</p>
     {onDismiss ? <button type="button" className={styles.submit} onClick={onDismiss}>Keep exploring <ArrowUpRight size={18} aria-hidden="true" /></button> : <Link className={styles.submit} href="/">Explore Zenith <ArrowUpRight size={18} aria-hidden="true" /></Link>}
   </div>;
 
@@ -86,8 +86,9 @@ export function WaitlistJoinForm({ email: initialEmail = "", name: initialName =
       <input id={`${id}-email`} type="email" name="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@company.com" maxLength={254} required readOnly={emailReadOnly} autoComplete="email" inputMode="email" spellCheck={false} disabled={busy} aria-describedby={emailReadOnly ? `${id}-email-note` : undefined} />
       {emailReadOnly && <p id={`${id}-email-note`} className={styles.fieldNote}>Your invitation will be linked to this account.</p>}
     </div>
-    <details className={styles.preferences}>
-      <summary><span><strong>Make it yours</strong><span className={styles.optional}>Optional · Tell us a little about you</span></span><ChevronDown size={18} aria-hidden="true" /></summary>
+    <section className={styles.preferences} aria-labelledby={`${id}-preferences-title`} aria-describedby={`${id}-preferences-note`}>
+      <div className={styles.preferenceHeading}><h3 id={`${id}-preferences-title`}>Make it yours</h3><span className={styles.optional}>Optional</span></div>
+      <p id={`${id}-preferences-note`} className={styles.priorityNote}>Share a little about yourself to <strong>improve your chances of getting early access sooner.</strong></p>
       <div className={styles.preferenceBody}>
         <div className={styles.field}>
           <label htmlFor={`${id}-name`}>Your name <span>Optional</span></label>
@@ -107,7 +108,7 @@ export function WaitlistJoinForm({ email: initialEmail = "", name: initialName =
           {customizingFeature && <div className={`${styles.field} ${styles.customField}`} id={`${id}-custom-feature`}><label htmlFor={`${id}-feature`}>Your idea</label><input id={`${id}-feature`} name="customFeature" value={customFeature} onChange={(event) => setCustomFeature(event.target.value)} placeholder="What would you love to do?" maxLength={120} /></div>}
         </fieldset>
       </div>
-    </details>
+    </section>
     {error && <p role="alert" className={styles.error}>{error}</p>}
     <button type="submit" className={styles.submit} disabled={busy}>{busy ? <>Saving your place <LoaderCircle className={styles.spinner} size={18} aria-hidden="true" /></> : <>Join the waitlist <ArrowUpRight size={18} aria-hidden="true" /></>}</button>
     <p className={styles.privacy}>By joining, you agree to our <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.</p>

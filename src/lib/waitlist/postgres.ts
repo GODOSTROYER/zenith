@@ -1,7 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ApiError } from "@/lib/server/errors";
-import type { WaitlistEntry, WaitlistPage, WaitlistRepository } from "./types";
-import { waitlistSubmissionSchema } from "./validation";
+import type { WaitlistAdmissionHistory, WaitlistAdmissionPreview, WaitlistAdmissionResult, WaitlistEntry, WaitlistPage, WaitlistRepository } from "./types";
+import { waitlistHistoryDetailSchema, waitlistHistorySchema, waitlistListSchema, waitlistPreviewIdSchema, waitlistPreviewSchema, waitlistSubmissionSchema } from "./validation";
+import { WaitlistPreviewExpiredError } from "./errors";
 
 type EntryRow = {
   id: string;
@@ -41,8 +42,9 @@ export function postgresWaitlistRepository(): WaitlistRepository {
     client ??= createAdminClient();
     const { data, error } = await client.rpc(name, parameters);
     // Do not propagate database detail that can contain submitted email addresses.
+    if (error?.code === "ZW410") throw new WaitlistPreviewExpiredError();
     if (error?.code === "ZW409") {
-      throw new ApiError("This request ID was already used for another admission.", 409);
+      throw new ApiError("This approval request conflicts with an earlier action or an unavailable preview. Refresh the queue and review a new approval.", 409);
     }
     if (error && ["22023", "22001", "22P02", "23502", "23514"].includes(error.code)) {
       throw new ApiError("Invalid waitlist input.", 400);
@@ -64,16 +66,19 @@ export function postgresWaitlistRepository(): WaitlistRepository {
     },
 
     async list(options) {
+      const parsed = waitlistListSchema.parse(options);
       const result = await rpc<{
         entries: EntryRow[];
         total: number;
         queued: number;
         admitted: number;
+        matched: number;
         nextCursor: number | null;
-      }>("zenith_waitlist_list", {
-        p_status: options.status ?? null,
-        p_after: options.after ?? 0,
-        p_limit: options.limit,
+      }>("zenith_waitlist_list_filtered", {
+        p_status: parsed.status ?? null,
+        p_after: parsed.after ?? 0,
+        p_limit: parsed.limit,
+        p_query: parsed.q ?? "",
       });
       return { ...result, entries: result.entries.map(entry) } satisfies WaitlistPage;
     },
@@ -85,6 +90,56 @@ export function postgresWaitlistRepository(): WaitlistRepository {
         p_request_id: requestId,
       });
       return rows.map(entry);
+    },
+
+    async preview(selection, actorId) {
+      const parsed = waitlistPreviewSchema.safeParse(selection);
+      if (!parsed.success || !actorId.trim() || actorId.length > 200)
+        throw new ApiError("Invalid waitlist approval preview.", 400);
+      const result = await rpc<Omit<WaitlistAdmissionPreview, "entries"> & { entries: EntryRow[] }>(
+        "zenith_waitlist_preview", {
+          p_mode: parsed.data.mode,
+          p_actor_id: actorId,
+          p_count: parsed.data.mode === "next" ? parsed.data.count : null,
+          p_entry_ids: parsed.data.mode === "selected" ? parsed.data.entryIds : null,
+        },
+      );
+      return {
+        ...result, entries: result.entries.map(entry),
+        createdAt: new Date(result.createdAt).toISOString(),
+        expiresAt: new Date(result.expiresAt).toISOString(),
+      };
+    },
+
+    async admitPreview(previewId, actorId, requestId) {
+      if (!waitlistPreviewIdSchema.safeParse(previewId).success
+        || !actorId.trim() || actorId.length > 200 || !requestId.trim() || requestId.length > 128)
+        throw new ApiError("Invalid waitlist admission request.", 400);
+      return rpc<WaitlistAdmissionResult>("zenith_waitlist_admit_preview", {
+        p_preview_id: previewId.toLowerCase(), p_actor_id: actorId, p_request_id: requestId,
+      });
+    },
+
+    async history(options) {
+      const parsed = waitlistHistorySchema.safeParse(options);
+      if (!parsed.success) throw new ApiError("Invalid approval history query.", 400);
+      const result = await rpc<WaitlistAdmissionHistory>("zenith_waitlist_history", { p_limit: parsed.data.limit });
+      return { batches: result.batches.map((batch) => ({ ...batch, createdAt: new Date(batch.createdAt).toISOString() })) };
+    },
+
+    async historyDetail(requestId, options = {}) {
+      const parsed = waitlistHistoryDetailSchema.safeParse(options);
+      if (!parsed.success || !requestId.trim() || requestId.length > 128)
+        throw new ApiError("Invalid approval history request.", 400);
+      const result = await rpc<{ batch: WaitlistAdmissionHistory["batches"][number]; entries: EntryRow[]; nextOffset: number | null } | null>(
+        "zenith_waitlist_history_detail", { p_request_id: requestId, p_offset: parsed.data.offset, p_limit: parsed.data.limit },
+      );
+      if (!result) throw new ApiError("This approval batch was not found.", 404);
+      return {
+        batch: { ...result.batch, createdAt: new Date(result.batch.createdAt).toISOString() },
+        entries: result.entries.map(entry),
+        nextOffset: result.nextOffset,
+      };
     },
 
     async admitted(email) {

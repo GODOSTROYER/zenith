@@ -309,6 +309,6 @@ describe("file waitlist repository", () => {
     await expect(repository.join({ email: "invalid", occupation: "Engineer", useCase: "Deploy" })).rejects.toThrow();
     await expect(repository.join({ email: "valid@example.test", occupation: "x".repeat(121), useCase: "Deploy" })).rejects.toThrow();
     await expect(repository.join({ email: "valid@example.test", occupation: "Engineer", features: ["x".repeat(121)], useCase: "" })).rejects.toThrow();
-    expect(await repository.list({ limit: 100 })).toEqual({ entries: [], total: 0, queued: 0, admitted: 0, nextCursor: null });
+    expect(await repository.list({ limit: 100 })).toEqual({ entries: [], total: 0, queued: 0, admitted: 0, matched: 0, nextCursor: null });
   });
 });

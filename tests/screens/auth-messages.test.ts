@@ -93,3 +93,10 @@ describe("isUnconfirmedEmail", () => {
     expect(isUnconfirmedEmail("Invalid login credentials")).toBe(false);
   });
 });
+
+it("recognizes the admission hook before generic provider errors and uses fixed guidance", () => {
+  const providerError = "access_denied ZENITH_WAITLIST_REQUIRED: untrusted provider detail";
+  expect(callbackErrorCode(providerError)).toBe("waitlist_required");
+  expect(explain(providerError)).toBe(AUTH_ERROR_CODES.waitlist_required);
+  expect(explain(providerError)).not.toContain("untrusted provider detail");
+});

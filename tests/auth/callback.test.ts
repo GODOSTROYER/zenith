@@ -194,3 +194,29 @@ describe("waitlist continuation preservation", () => {
     }
   });
 });
+
+describe("signup admission hook feedback", () => {
+  it("turns a Google admission rejection into a safe waitlist continuation", async () => {
+    const next = "/invite?invite=workspace-token";
+    const message = "ZENITH_WAITLIST_REQUIRED: untrusted provider detail";
+    const response = await callback(`error=access_denied&error_description=${encodeURIComponent(message)}&next=${encodeURIComponent(next)}`);
+    expect(location(response).pathname).toBe("/waitlist");
+    expect(location(response).searchParams.get("next")).toBe(next);
+    expect(response.headers.get("location")).not.toContain("untrusted");
+    expect(mocks.exchange).not.toHaveBeenCalled();
+    expect(mocks.destination).not.toHaveBeenCalled();
+  });
+  it("also handles admission rejections returned during code exchange", async () => {
+    mocks.exchange.mockResolvedValue({ error: { message: "ZENITH_WAITLIST_REQUIRED: wait for admission" } });
+    const response = await callback("code=google-code&next=%2F%2Fevil.test");
+    expect(location(response).pathname).toBe("/waitlist");
+    expect(location(response).search).toBe("");
+    expect(mocks.getUser).not.toHaveBeenCalled();
+  });
+  it("keeps account-linking failures inside account settings", async () => {
+    const link = intent();
+    const response = await callback(`intent=link&error=server_error&error_description=ZENITH_WAITLIST_REQUIRED&link_state=${link.state}`, link);
+    expect(location(response).pathname).toBe("/account");
+    expect(location(response).searchParams.get("identity_error")).toBe("identity_link_failed");
+  });
+});

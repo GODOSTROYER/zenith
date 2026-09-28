@@ -203,7 +203,7 @@ export const TOPICS: Topic[] = [
   { id: "live-ai", question: "Are you a live AI?", keywords: ["ai", "live", "real", "model", "llm", "chatbot", "bot", "human", "curated"],
     answer: "On this page, no. My answers are written by the Zenith team and matched to your question, so they reflect what actually ships. Inside the product, Navigator plans through typed actions; an optional model only rewrites your request into that grammar, and nothing here can execute anything." },
   { id: "get-started", question: "How do I get started?", keywords: ["start", "started", "begin", "sign", "signup", "account", "onboarding", "try", "demo"],
-    answer: "Create an account, then Gimbal walks you through a workspace, a starting point and a first system: a blueprint, a Docker Compose import or a blank project. Nothing is deployed until you choose to deploy it.", mood: "pleased" },
+    answer: "Join the waitlist for early access. Already have access? Sign in with your admitted email. Once inside, Gimbal walks you through a workspace, a starting point and a first system: a blueprint, a Docker Compose import or a blank project. Nothing is deployed until you choose to deploy it.", mood: "pleased" },
 ];
 
 /** Suggested questions per chapter, in the order the chips appear. */

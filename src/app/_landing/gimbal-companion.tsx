@@ -23,7 +23,7 @@ const INVITE_ID = "hero-invite";
  * it says comes from the curated guide and the shared page state, and nothing
  * it does can execute a real action.
  */
-export function GimbalCompanion({ docked = false }: { docked?: boolean }) {
+export function GimbalCompanion() {
   const { state, dispatch } = useLanding();
   const { start } = useWalkthroughs();
   const { companion, suggestion, walkthrough } = state;
@@ -108,7 +108,7 @@ export function GimbalCompanion({ docked = false }: { docked?: boolean }) {
   const base: GimbalMood = step ? (step.mood ?? "engaged") : companion.open ? "attentive" : suggestion || hovering ? "attentive" : "idle";
   const mood = transient ?? base;
   const tempo = companion.open || hovering || step ? 2.6 : 1.9;
-  const hidden = (onHero || docked) && !companion.open && !closing && !walkthrough;
+  const hidden = onHero && !companion.open && !closing && !walkthrough;
   useEffect(() => { if (!hidden) setShownOnce(true); }, [hidden]);
   // Liquid glass for the guide and its pop-outs; each reads what it floats over and sets its text tone to contrast.
   useLiquidGlass(panel, GLASS.panel, { active: companion.open, tone: true });
@@ -123,7 +123,7 @@ export function GimbalCompanion({ docked = false }: { docked?: boolean }) {
     dispatch({ type: "companion-open" });
     pulse("engaged", 1800);
   }, [dispatch, pulse]);
-  const focusLauncher = useCallback(() => (docked ? document.querySelector<HTMLButtonElement>("[data-waitlist-gimbal]") : launcher.current?.querySelector<HTMLButtonElement>(".gimbal-greeting"))?.focus({ preventScroll: true }), [docked]);
+  const focusLauncher = useCallback(() => launcher.current?.querySelector<HTMLButtonElement>(".gimbal-greeting")?.focus({ preventScroll: true }), []);
   /* The panel leaves with a short beat of its own before it unmounts; under a reduced-motion preference it simply goes. */
   const close = useCallback(() => {
     const finish = () => { closeTimer.current = null; setClosing(false); dispatch({ type: "companion-close" }); setTimeout(focusLauncher, 0); };
@@ -222,7 +222,6 @@ export function GimbalCompanion({ docked = false }: { docked?: boolean }) {
   };
 
   if (companion.minimized) {
-    if (docked) return null;
     return (
       <div className={`zenith-ink-tokens ${styles.companion}`} data-mood="idle">
         <button type="button" className={styles.restore} onClick={() => dispatch({ type: "companion-minimize", minimized: false })} aria-label="Show Gimbal"><RotateCcw size={14} aria-hidden="true" />Restore Gimbal</button>
@@ -239,7 +238,7 @@ export function GimbalCompanion({ docked = false }: { docked?: boolean }) {
             <div><h2 id={`${panelId}-title`}>A little perspective.</h2><span id={`${panelId}-kind`} className={styles.guideLabel}>Ask Gimbal · Answers from the Zenith team</span></div>
             <div className={styles.actions}>
               <button type="button" aria-pressed={companion.quiet} aria-label={companion.quiet ? "Quiet mode on" : "Quiet mode off"} title={companion.quiet ? "Quiet mode is on: no unprompted suggestions" : "Turn on quiet mode: no unprompted suggestions"} onClick={() => dispatch({ type: "companion-quiet", quiet: !companion.quiet })}><BellOff size={16} aria-hidden="true" /></button>
-              <button type="button" aria-label="Minimize Gimbal" title="Minimize Gimbal" onClick={() => { dispatch({ type: "companion-minimize", minimized: true }); if (docked) setTimeout(focusLauncher, 0); }}><Minus size={17} aria-hidden="true" /></button>
+              <button type="button" aria-label="Minimize Gimbal" title="Minimize Gimbal" onClick={() => dispatch({ type: "companion-minimize", minimized: true })}><Minus size={17} aria-hidden="true" /></button>
               <button type="button" aria-label="Close" title="Close" onClick={close}><X size={17} aria-hidden="true" /></button>
             </div>
           </header>
@@ -265,7 +264,7 @@ export function GimbalCompanion({ docked = false }: { docked?: boolean }) {
           </div>
         </div>
       )}
-      {!docked && !companion.open && !walkthrough && suggestion && (
+      {!companion.open && !walkthrough && suggestion && (
         <div ref={bubble} className={styles.bubble} data-tone="dark" role="status" aria-live="polite">
           <p>{suggestion.prompt}</p>
           <div className={styles.bubbleActions}>

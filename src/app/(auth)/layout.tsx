@@ -12,6 +12,8 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         <Link href="/" className="transition-colors hover:text-ink">
           ← Back to the front page
         </Link>
+        <span aria-hidden="true" className="mx-3">·</span>
+        <Link href="/privacy" className="transition-colors hover:text-ink">Privacy policy</Link>
       </p>
     </AuthShell>
   );

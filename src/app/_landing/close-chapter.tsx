@@ -54,7 +54,7 @@ export function CloseChapter({ cta }: { cta: Cta }) {
           </div>
           <div className={local.symbol} aria-hidden="true" data-reveal><OrbitMark size={320} /></div>
         </div>
-        <footer className="zenith-footer"><a href="#main" aria-label="Zenith home"><Wordmark size={26} /></a><p>The next change, made tangible.</p><nav aria-label="Footer navigation"><Link href="/login">Sign in</Link><Link href="/guide">Guide</Link></nav></footer>
+        <footer className="zenith-footer"><a href="#main" aria-label="Zenith home"><Wordmark size={26} /></a><p>The next change, made tangible.</p><nav aria-label="Footer navigation"><Link href="/login">Sign in</Link><Link href="/guide">Guide</Link><Link href="/privacy">Privacy</Link></nav></footer>
       </div>
     </section>
   );

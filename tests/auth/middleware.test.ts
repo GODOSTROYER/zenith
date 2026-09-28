@@ -57,6 +57,12 @@ describe("middleware matcher", () => {
 });
 
 describe("public paths", () => {
+  it("makes the privacy policy public without exposing nested routes", () => {
+    expect(isPublicPath("/privacy")).toBe(true);
+    expect(isPublicPath("/privacy/export")).toBe(false);
+    expect(isPublicPath("/privacy-settings")).toBe(false);
+  });
+
   it("keeps the sandbox activation page public", () => {
     expect(isPublicPath("/preview/dep-1/svc-1")).toBe(true);
   });

@@ -50,3 +50,10 @@ it("server navigation fallback uses the Zenith mark and accessible status", asyn
   expect(host.querySelector('[role="status"]')?.textContent).toContain("Loading Zenith");
   expect(host.querySelector("svg.zl")).not.toBeNull();
 });
+
+it("preserves navigation link side effects such as closing mobile menus", () => {
+  const onNavigate=vi.fn(); host.addEventListener("click",onNavigate);
+  click("/overview");
+  expect(onNavigate).toHaveBeenCalledOnce();
+  expect(mocks.curtain).toHaveBeenCalledOnce();
+});

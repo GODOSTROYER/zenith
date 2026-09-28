@@ -17,7 +17,8 @@ export function NavigationTransitions() {
       if (url.origin !== window.location.origin || /^(\/preview|\/api|\/auth)(?:\/|$)/.test(url.pathname) || window.location.pathname.startsWith("/preview")) return;
       if (url.pathname === window.location.pathname && url.search === window.location.search) return;
       event.preventDefault();
-      event.stopPropagation();
+      // Let React click handlers run (for example, close the mobile menu).
+      // Next Link observes defaultPrevented and leaves navigation to the curtain.
       const href = url.pathname + url.search + url.hash;
       router.prefetch(href);
       curtainNavigate(href, to => router.push(to), {

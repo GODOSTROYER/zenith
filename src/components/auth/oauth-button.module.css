@@ -1,0 +1,112 @@
+.provider {
+  min-height: 44px;
+}
+
+/* These colors belong to Google identity, separate from Zenith's status tokens. */
+.google {
+  --google-blue: #4285f4;
+  --google-red: #ea4335;
+  --google-yellow: #fbbc05;
+  --google-green: #34a853;
+  --google-surface: #131314;
+  --google-hover: #202124;
+  --google-ink: #e3e3e3;
+  --google-border: #8e918f;
+  --google-focus: #a8c7fa;
+
+  overflow: hidden;
+  min-width: 168px;
+  padding-inline: 12px;
+  background: var(--google-surface);
+  border-color: var(--google-border);
+  color: var(--google-ink);
+  font-size: 14px;
+  line-height: 20px;
+  transition: background-color var(--dur-fast) var(--ease-swift),
+    border-color var(--dur-fast) var(--ease-swift);
+}
+
+:global([data-theme="light"]) .google {
+  --google-surface: #ffffff;
+  --google-hover: #f5f8ff;
+  --google-ink: #1f1f1f;
+  --google-border: #747775;
+  --google-focus: #0b57d0;
+}
+
+.google > span:first-child {
+  gap: 10px;
+  opacity: 1;
+}
+
+.google:not(:disabled):hover,
+.google:focus-visible {
+  background: var(--google-hover);
+  border-color: var(--google-focus);
+}
+
+.google:focus-visible {
+  outline: 2px solid var(--google-focus);
+  outline-offset: 3px;
+}
+
+/* Keep the shared button label; the four-color edge replaces its generic spinner. */
+.google[data-pending] > span:nth-child(2) {
+  display: none;
+}
+
+.google[data-pending] {
+  opacity: 1;
+  cursor: progress;
+  background: var(--google-hover);
+}
+
+.colors {
+  position: absolute;
+  inset: auto 0 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  height: 2px;
+  opacity: 0;
+  transform: scaleX(0.35);
+  transition: opacity var(--dur-fast) var(--ease-swift),
+    transform var(--dur-base) var(--ease-swift);
+  pointer-events: none;
+}
+
+.colors > span:nth-child(1) { background: var(--google-blue); }
+.colors > span:nth-child(2) { background: var(--google-red); }
+.colors > span:nth-child(3) { background: var(--google-yellow); }
+.colors > span:nth-child(4) { background: var(--google-green); }
+
+.google:not(:disabled):hover .colors,
+.google:focus-visible .colors,
+.google[data-pending] .colors {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.google[data-pending] .colors > span {
+  animation: handoff 1200ms ease-in-out infinite;
+}
+
+.google[data-pending] .colors > span:nth-child(2) { animation-delay: 150ms; }
+.google[data-pending] .colors > span:nth-child(3) { animation-delay: 300ms; }
+.google[data-pending] .colors > span:nth-child(4) { animation-delay: 450ms; }
+
+@keyframes handoff {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .google, .colors { transition: none; }
+  .colors { transform: none; }
+  .google[data-pending] .colors > span { animation: none; }
+}
+
+@media (forced-colors: active) {
+  .google:focus-visible { outline-color: Highlight; }
+  .google[data-pending] { border-style: dashed; }
+  .colors { display: none; }
+}

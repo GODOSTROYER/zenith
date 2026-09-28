@@ -75,6 +75,7 @@ MIGRATIONS=(
   "0007_agent_control.sql"
   "0008_workspace_ownership.sql"
   "0009_waitlist.sql"
+  "0010_waitlist_profile.sql"
 )
 
 if [ -z "${SUPABASE_DB_URL:-}" ]; then
@@ -274,6 +275,7 @@ begin
   foreach signature in array array[
     'public.zenith_workspace_sharing(text,text,text,text,text,text,text,text,text,text)',
     'public.zenith_waitlist_join(text,text,text)',
+    'public.zenith_waitlist_join_profile(text,text,text,jsonb,text)',
     'public.zenith_waitlist_list(text,bigint,integer)',
     'public.zenith_waitlist_admit(integer,text,text)',
     'public.zenith_waitlist_admitted(text)',

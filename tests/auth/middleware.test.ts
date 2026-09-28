@@ -95,7 +95,8 @@ describe("public paths", () => {
 describe("waitlist public intake boundary", () => {
   it("opens only the exact intake endpoint and keeps account/operator data private", () => {
     expect(isPublicPath("/api/waitlist")).toBe(true);
-    for (const path of ["/api/waitlist/status", "/api/waitlist/export", "/api/admin/waitlist", "/admin/waitlist", "/waitlist"]) {
+    expect(isPublicPath("/waitlist")).toBe(true);
+    for (const path of ["/api/waitlist/status", "/api/waitlist/export", "/api/admin/waitlist", "/admin/waitlist", "/waitlist/status", "/waitlist/export", "/waitlist-admin"]) {
       expect(isPublicPath(path), path).toBe(false);
     }
   });

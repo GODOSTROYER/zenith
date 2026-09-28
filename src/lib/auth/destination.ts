@@ -83,7 +83,8 @@ export async function destinationAfterSignIn(next?: string | null): Promise<stri
   try {
     const res = await fetch("/api/me", { cache: "no-store" });
     if (!res.ok) throw new Error(`/api/me answered ${res.status}`);
-    const me = (await res.json()) as { hasWorkspace?: unknown };
+    const me = (await res.json()) as { hasWorkspace?: unknown; waitlistRequired?: unknown };
+    if (me.waitlistRequired === true) return "/waitlist";
     return postAuthDestination({ hasWorkspace: me.hasWorkspace === true, next });
   } catch {
     return postAuthDestination({ hasWorkspace: true, next });

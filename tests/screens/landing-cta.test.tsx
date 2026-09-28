@@ -13,3 +13,10 @@ describe("Zenith entry paths", () => {
     expect(ctaFor({ configured: false, signedIn: false, hasWorkspace: false }).text).toBe("Start with Gimbal");
   });
 });
+
+it("routes waiting visitors and accounts to the waitlist, while admitted accounts keep their destination", () => {
+  expect(ctaFor({ configured: true, signedIn: false, hasWorkspace: false, waitlistRequired: true })).toEqual({ href: "/waitlist", text: "Join waitlist" });
+  expect(ctaFor({ configured: true, signedIn: true, hasWorkspace: true, waitlistRequired: true })).toEqual({ href: "/waitlist", text: "Check access" });
+  expect(ctaFor({ configured: true, signedIn: true, hasWorkspace: true, waitlistRequired: false })).toEqual({ href: "/overview", text: "Open Zenith" });
+  expect(ctaFor({ configured: true, signedIn: true, hasWorkspace: false, waitlistRequired: false })).toEqual({ href: "/onboarding", text: "Continue setup" });
+});

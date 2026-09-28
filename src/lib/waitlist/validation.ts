@@ -2,8 +2,11 @@ import { z } from "zod";
 
 export const waitlistSubmissionSchema = z.object({
   email: z.string().trim().toLowerCase().max(254).email(),
-  occupation: z.string().trim().min(1).max(120),
-  useCase: z.string().trim().min(1).max(2000),
+  name: z.string().trim().max(120).default(""),
+  occupation: z.string().trim().max(120).default(""),
+  features: z.array(z.string().trim().min(1).max(120)).max(12).default([])
+    .transform((values) => [...new Set(values)]),
+  useCase: z.string().trim().max(2000).default(""),
 }).strict();
 
 export const waitlistAdmissionSchema = z.object({

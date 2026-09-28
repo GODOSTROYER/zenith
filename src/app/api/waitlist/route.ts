@@ -17,7 +17,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     const refusal = await throttleWaitlist(request, repository);
     if (refusal) return refusal;
     const parsed = waitlistSubmissionSchema.safeParse(await readWaitlistJson(request));
-    if (!parsed.success) throw new ApiError("Enter a valid email, your occupation (up to 120 characters), and your primary use case (up to 2000 characters).", 400);
+    if (!parsed.success) throw new ApiError("Enter a valid email. Optional name and profession may contain up to 120 characters, with up to 12 features of 120 characters each and notes up to 2000 characters.", 400);
     await repository.join(parsed.data);
     return json({ accepted: true }, 202);
   } catch (error) { return errorResponse(error); }

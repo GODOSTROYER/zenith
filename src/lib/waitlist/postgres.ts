@@ -1,10 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ApiError } from "@/lib/server/errors";
 import type { WaitlistEntry, WaitlistPage, WaitlistRepository } from "./types";
+import { waitlistSubmissionSchema } from "./validation";
 
 type EntryRow = {
   id: string;
   email: string;
+  name?: string;
+  features?: string[];
   occupation: string;
   use_case: string;
   position: number;
@@ -18,6 +21,8 @@ function entry(row: EntryRow): WaitlistEntry {
   return {
     id: row.id,
     email: row.email,
+    name: row.name ?? "",
+    features: row.features ?? [],
     occupation: row.occupation,
     useCase: row.use_case,
     position: row.position,
@@ -48,10 +53,13 @@ export function postgresWaitlistRepository(): WaitlistRepository {
 
   return {
     async join(input) {
-      await rpc("zenith_waitlist_join", {
-        p_email: input.email.trim().toLowerCase(),
-        p_occupation: input.occupation,
-        p_use_case: input.useCase,
+      const parsed = waitlistSubmissionSchema.parse(input);
+      await rpc("zenith_waitlist_join_profile", {
+        p_email: parsed.email,
+        p_name: parsed.name,
+        p_occupation: parsed.occupation,
+        p_features: parsed.features,
+        p_use_case: parsed.useCase,
       });
     },
 

@@ -1,0 +1,31 @@
+.pill { position: fixed; right: max(22px,env(safe-area-inset-right)); bottom: max(22px,env(safe-area-inset-bottom)); z-index: 70; display: flex; align-items: center; padding: 5px; border-radius: 999px; color: var(--zenith-ink); background-color: color-mix(in srgb,var(--zenith-paper) 48%,transparent); background-image: var(--lg-light,linear-gradient(145deg,#ffffff32,transparent 60%)); background-size: 100% 100%; background-repeat: no-repeat; -webkit-backdrop-filter: blur(18px) saturate(1.5); backdrop-filter: blur(18px) saturate(1.5); box-shadow: inset 0 1px 0 #ffffff38,inset 0 0 0 1px var(--zenith-rule),0 12px 40px -15px #0008; transition: opacity 240ms ease,transform 300ms cubic-bezier(.2,.75,.25,1),color 320ms ease,background-color 320ms ease; animation: arrive 700ms cubic-bezier(.2,.75,.25,1) both; }
+.pill { animation-fill-mode: backwards; }
+.pill[data-hidden] { opacity: 0; transform: translateY(16px) scale(.96); pointer-events: none; }
+.pill a { color: inherit; font-family: var(--zenith-font-ui),sans-serif; text-decoration: none; }
+.pill button { border: 0; background: none; color: inherit; cursor: pointer; font-family: var(--zenith-font-ui),sans-serif; }
+.guide { display: grid; place-items: center; width: 43px; height: 43px; border-radius: 50%; position: relative; }
+.guide::after { position: absolute; content: ""; right: 0; height: 20px; width: 1px; background: var(--zenith-rule); }
+.guide:hover { background: var(--zenith-soft); }
+.join { display: inline-flex; align-items: center; gap: 10px; min-height: 43px; padding: 9px 17px 9px 15px; border-radius: 999px; font-size: 12px; font-weight: 650; }
+.join > svg { margin-left: 10px; transition: transform 220ms ease; }
+.join:hover > svg { transform: translate(2px,-2px); }
+.dot { width: 6px; height: 6px; background: #e87650; border-radius: 50%; box-shadow: 0 0 0 4px #e8765014; }
+.dialog { position: fixed; inset: var(--waitlist-top,0px) 0 auto; margin: 0; width: 100%; max-width: none; height: var(--waitlist-viewport,100dvh); max-height: none; border: 0; padding: 24px; background: transparent; overflow: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.dialog[open] { display: flex; align-items: safe center; justify-content: center; }
+.dialog::backdrop { background: #090b14a8; -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); animation: dim 300ms ease both; }
+.window { width: min(100%,490px); flex-shrink: 0; margin-block: auto; border: 1px solid #ffffff73; border-radius: 28px; background: #f7f5eff5; overflow: hidden; box-shadow: 0 40px 120px #0005,0 4px 16px #0002,inset 0 1px 0 #fff; transform-origin: 80% 90%; animation: open 460ms cubic-bezier(.2,.75,.25,1) both; }
+.windowTop { display: flex; align-items: center; gap: 10px; padding: 18px 22px 0; color: #1b1b20; }
+.windowTop > span { font-size: 9px; font-weight: 650; letter-spacing: .14em; color: #77736e; }
+.close { width: 38px; height: 38px; display: grid; place-items: center; margin-left: auto; border: 1px solid #1b1b2012; border-radius: 50%; background: transparent; color: #67615e; cursor: pointer; transition: background 180ms ease,transform 220ms ease; }
+.close:hover { background: #1b1b2007; transform: rotate(90deg); }
+.windowBody { padding: 26px 36px 30px; }
+.dialog[data-closing]::backdrop { animation: undim 220ms ease both; }
+.dialog[data-closing] .window { animation: close 220ms cubic-bezier(.4,0,1,1) both; }
+@keyframes arrive { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes dim { from { background: #090b1400; backdrop-filter: blur(0); } to { background: #090b14a8; backdrop-filter: blur(12px); } }
+@keyframes undim { to { background: #090b1400; backdrop-filter: blur(0); } }
+@keyframes open { from { opacity: 0; transform: translateY(24px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes close { to { opacity: 0; transform: translateY(16px) scale(.985); } }
+@media (max-width: 560px) { .pill { right: max(16px,env(safe-area-inset-right)); bottom: max(16px,env(safe-area-inset-bottom)); } .dialog { padding: max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom)); } .window { border-radius: 24px; } .windowBody { padding: 24px 25px 26px; } .windowTop { padding: 14px 16px 0; } }
+@media (max-width: 360px) { .windowBody { padding-inline: 20px; } }
+@media (prefers-reduced-motion: reduce) { .pill, .pill *, .dialog, .dialog *, .dialog::backdrop { animation: none !important; transition: none !important; } }

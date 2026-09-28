@@ -11,6 +11,8 @@ import {
   type OAuthProvider,
 } from "@/lib/supabase/env";
 import { explain } from "@/components/auth/messages";
+import { GoogleMark } from "@/components/auth/google-mark";
+import { OAuthButton } from "@/components/auth/oauth-button";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
@@ -187,7 +189,10 @@ export function IdentitiesCard() {
               return (
                 <li key={identity.identity_id} className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-3.5 last:border-b-0">
                   <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-medium text-ink">{providerLabel(identity.provider)}</p>
+                    <p className="flex items-center gap-2 text-[13px] font-medium text-ink">
+                      {identity.provider === "google" && <GoogleMark />}
+                      {providerLabel(identity.provider)}
+                    </p>
                     {email && <p className="break-all font-mono text-[12px] text-ink-mute">{email}</p>}
                   </div>
                   {last && <Chip tone="neutral">only way in</Chip>}
@@ -215,7 +220,8 @@ export function IdentitiesCard() {
         {linkable.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 border-t border-line px-5 py-3.5">
             {linkable.map((provider) => (
-              <Button
+              <OAuthButton
+                provider={provider}
                 key={provider}
                 size="sm"
                 icon={<Link2 className="h-3.5 w-3.5" />}
@@ -225,7 +231,7 @@ export function IdentitiesCard() {
                 onClick={() => void link(provider)}
               >
                 Connect {OAUTH_PROVIDER_LABEL[provider]}
-              </Button>
+              </OAuthButton>
             ))}
           </div>
         )}

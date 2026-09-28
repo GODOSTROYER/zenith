@@ -28,15 +28,14 @@ export function LandingHeader({ cta }: { cta: Cta }) {
           <Link href="/guide">Guide <ArrowUpRight size={12} aria-hidden="true" /></Link>
         </nav>
         <div className="zenith-header-actions">
-          <Link href="/login" className="zenith-sign-in">Sign in</Link>
-          <LandingCta cta={cta} className="zenith-header-cta" />
+          {cta.signedIn ? <LandingCta cta={cta} className="zenith-header-cta" /> : <Link href="/login" className="zenith-cta zenith-header-cta">Sign in<ArrowUpRight size={18} aria-hidden="true" /></Link>}
           <button type="button" className="zenith-icon-button zenith-menu-button" aria-expanded={open} aria-controls="zenith-mobile-nav" aria-label={open ? "Close navigation" : "Open navigation"} onClick={() => setOpen(!open)}>{open ? <X size={22} aria-hidden="true" /> : <Menu size={22} aria-hidden="true" />}</button>
         </div>
       </div>
       {open && <nav id="zenith-mobile-nav" className="zenith-mobile-nav" aria-label="Mobile navigation" onKeyDown={(event) => { if (event.key === "Escape") { setOpen(false); document.querySelector<HTMLButtonElement>('.zenith-menu-button')?.focus(); } }}>
         {LINKS.map((link) => <a key={link.href} href={link.href} onClick={() => setOpen(false)}>{link.label}<ArrowUpRight size={18} aria-hidden="true" /></a>)}
         <Link href="/guide" onClick={() => setOpen(false)}>Workspace guide<ArrowUpRight size={18} aria-hidden="true" /></Link>
-        <Link href="/login" onClick={() => setOpen(false)}>Sign in<ArrowUpRight size={18} aria-hidden="true" /></Link>
+        <Link href={cta.signedIn ? cta.href : "/login"} onClick={() => setOpen(false)}>{cta.signedIn ? cta.label : "Sign in"}<ArrowUpRight size={18} aria-hidden="true" /></Link>
       </nav>}
     </header>
   );

@@ -23,7 +23,7 @@ const INVITE_ID = "hero-invite";
  * it says comes from the curated guide and the shared page state, and nothing
  * it does can execute a real action.
  */
-export function GimbalCompanion() {
+export function GimbalCompanion({ docked = false }: { docked?: boolean }) {
   const { state, dispatch } = useLanding();
   const { start } = useWalkthroughs();
   const { companion, suggestion, walkthrough } = state;
@@ -108,7 +108,7 @@ export function GimbalCompanion() {
   const base: GimbalMood = step ? (step.mood ?? "engaged") : companion.open ? "attentive" : suggestion || hovering ? "attentive" : "idle";
   const mood = transient ?? base;
   const tempo = companion.open || hovering || step ? 2.6 : 1.9;
-  const hidden = onHero && !companion.open && !closing && !walkthrough;
+  const hidden = (docked ? !suggestion : onHero) && !companion.open && !closing && !walkthrough;
   useEffect(() => { if (!hidden) setShownOnce(true); }, [hidden]);
   // Liquid glass for the guide and its pop-outs; each reads what it floats over and sets its text tone to contrast.
   useLiquidGlass(panel, GLASS.panel, { active: companion.open, tone: true });
@@ -123,7 +123,7 @@ export function GimbalCompanion() {
     dispatch({ type: "companion-open" });
     pulse("engaged", 1800);
   }, [dispatch, pulse]);
-  const focusLauncher = () => launcher.current?.querySelector<HTMLButtonElement>(".gimbal-greeting")?.focus({ preventScroll: true });
+  const focusLauncher = useCallback(() => (docked ? document.querySelector<HTMLButtonElement>("[data-waitlist-gimbal]") : launcher.current?.querySelector<HTMLButtonElement>(".gimbal-greeting"))?.focus({ preventScroll: true }), [docked]);
   /* The panel leaves with a short beat of its own before it unmounts; under a reduced-motion preference it simply goes. */
   const close = useCallback(() => {
     const finish = () => { closeTimer.current = null; setClosing(false); dispatch({ type: "companion-close" }); setTimeout(focusLauncher, 0); };
@@ -131,7 +131,7 @@ export function GimbalCompanion() {
     if (!animated || closeTimer.current) { if (!closeTimer.current) finish(); return; }
     setClosing(true);
     closeTimer.current = setTimeout(finish, 260);
-  }, [dispatch]);
+  }, [dispatch, focusLauncher]);
   useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
   useLayoutEffect(() => {
     if (!companion.open) return;
@@ -146,12 +146,12 @@ export function GimbalCompanion() {
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
       if (companion.open) { event.preventDefault(); close(); }
-      else if (walkthrough) { dispatch({ type: "walkthrough-end" }); pulse("pleased", 1600); focusLauncher(); }
+      else if (walkthrough) { dispatch({ type: "walkthrough-end" }); pulse("pleased", 1600); setTimeout(focusLauncher, 0); }
       else if (suggestion) dispatch({ type: "suggestion-dismiss" });
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [companion.open, walkthrough, suggestion, close, dispatch, pulse]);
+  }, [companion.open, walkthrough, suggestion, close, dispatch, pulse, focusLauncher]);
 
   /* On phones the sheet is modal: the page behind it holds still and focus stays inside. */
   useEffect(() => {
@@ -217,11 +217,12 @@ export function GimbalCompanion() {
   const invited = state.restored && state.chapter === "hero" && !companion.open && !suggestion && !walkthrough && !companion.quiet && !state.dismissed.includes(INVITE_ID) && !state.offered.includes(INVITE_ID);
   const nextStep = () => {
     if (!walkthrough || !definition) return;
-    if (walkthrough.step + 1 >= definition.steps.length) { dispatch({ type: "walkthrough-end" }); pulse("pleased", 2000); focusLauncher(); }
+    if (walkthrough.step + 1 >= definition.steps.length) { dispatch({ type: "walkthrough-end" }); pulse("pleased", 2000); setTimeout(focusLauncher, 0); }
     else dispatch({ type: "walkthrough-step", step: walkthrough.step + 1 });
   };
 
   if (companion.minimized) {
+    if (docked) return null;
     return (
       <div className={`zenith-ink-tokens ${styles.companion}`} data-mood="idle">
         <button type="button" className={styles.restore} onClick={() => dispatch({ type: "companion-minimize", minimized: false })} aria-label="Show Gimbal"><RotateCcw size={14} aria-hidden="true" />Restore Gimbal</button>
@@ -230,7 +231,7 @@ export function GimbalCompanion() {
   }
 
   return (
-    <div className={`zenith-ink-tokens ${styles.companion}`} data-mood={mood} data-open={companion.open || undefined} data-hidden={hidden || undefined} data-glass-skip>
+    <div className={`zenith-ink-tokens ${styles.companion}`} data-mood={mood} data-open={companion.open || undefined} data-hidden={hidden || undefined} inert={hidden} data-glass-skip>
       {companion.open && mobile && <div className={styles.scrim} data-closing={closing || undefined} aria-hidden="true" onClick={close} />}
       {companion.open && (
         <section ref={panel} className={styles.panel} data-closing={closing || undefined} data-tone="dark" role="dialog" aria-modal={mobile || undefined} aria-label="Ask Gimbal" aria-describedby={`${panelId}-kind`} tabIndex={-1} onKeyDown={trapTab} onPointerMove={followLight} onPointerLeave={restLight}>
@@ -238,7 +239,7 @@ export function GimbalCompanion() {
             <div><h2 id={`${panelId}-title`}>A little perspective.</h2><span id={`${panelId}-kind`} className={styles.guideLabel}>Ask Gimbal · Answers from the Zenith team</span></div>
             <div className={styles.actions}>
               <button type="button" aria-pressed={companion.quiet} aria-label={companion.quiet ? "Quiet mode on" : "Quiet mode off"} title={companion.quiet ? "Quiet mode is on: no unprompted suggestions" : "Turn on quiet mode: no unprompted suggestions"} onClick={() => dispatch({ type: "companion-quiet", quiet: !companion.quiet })}><BellOff size={16} aria-hidden="true" /></button>
-              <button type="button" aria-label="Minimize Gimbal" title="Minimize Gimbal" onClick={() => dispatch({ type: "companion-minimize", minimized: true })}><Minus size={17} aria-hidden="true" /></button>
+              <button type="button" aria-label="Minimize Gimbal" title="Minimize Gimbal" onClick={() => { dispatch({ type: "companion-minimize", minimized: true }); if (docked) setTimeout(focusLauncher, 0); }}><Minus size={17} aria-hidden="true" /></button>
               <button type="button" aria-label="Close" title="Close" onClick={close}><X size={17} aria-hidden="true" /></button>
             </div>
           </header>
@@ -256,7 +257,7 @@ export function GimbalCompanion() {
       )}
       {!companion.open && step && definition && walkthrough && (
         <div ref={callout} className={styles.callout} data-tone="dark" role="dialog" aria-label={`Walkthrough: ${definition.title}`}>
-          <div className={styles.calloutHead}><span>{definition.title} · {walkthrough.step + 1} / {definition.steps.length}</span><button type="button" className={styles.closeSmall} aria-label="Close walkthrough" onClick={() => { dispatch({ type: "walkthrough-end" }); pulse("pleased", 1400); }}><X size={16} aria-hidden="true" /></button></div>
+          <div className={styles.calloutHead}><span>{definition.title} · {walkthrough.step + 1} / {definition.steps.length}</span><button type="button" className={styles.closeSmall} aria-label="Close walkthrough" onClick={() => { dispatch({ type: "walkthrough-end" }); pulse("pleased", 1400); setTimeout(focusLauncher, 0); }}><X size={16} aria-hidden="true" /></button></div>
           <p aria-live="polite">{step.text(state)}</p>
           <div className={styles.bubbleActions}>
             <button type="button" className={styles.step} disabled={walkthrough.step === 0} onClick={() => dispatch({ type: "walkthrough-step", step: walkthrough.step - 1 })}>Back</button>

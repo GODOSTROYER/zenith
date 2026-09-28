@@ -1,5 +1,5 @@
 /**
- * Real PostgreSQL contracts for migration 0009. The two explicit environment
+ * Real PostgreSQL contracts for migrations 0009 and 0010. The two explicit environment
  * gates are required; the lane report recognizes the WaitlistPostgres label.
  * Each connection has its own single-socket pool, so races reach the database.
  * Fixtures use a unique email/actor namespace and cleanup never truncates data.
@@ -17,6 +17,8 @@ const email = (label: string) => `${prefix}-${label}@example.test`;
 const tables = ["waitlist_entries", "waitlist_admission_batches", "waitlist_rate_limits"] as const;
 const signatures = [
   "public.zenith_waitlist_join(text,text,text)",
+  "public.zenith_waitlist_join_profile(text,text,text,jsonb,text)",
+  "public.zenith_waitlist_features_valid(jsonb)",
   "public.zenith_waitlist_list(text,bigint,integer)",
   "public.zenith_waitlist_admit(integer,text,text)",
   "public.zenith_waitlist_admitted(text)",
@@ -156,7 +158,7 @@ describe.skipIf(!enabled)("WaitlistPostgres", () => {
       const rows = await sql<{ present: boolean }[]>`
         select to_regprocedure(${signature}) is not null as present
       `;
-      expect(rows[0].present, "Apply supabase/migrations/0009_waitlist.sql before this suite.").toBe(true);
+      expect(rows[0].present, "Apply supabase/migrations/0009_waitlist.sql and 0010_waitlist_profile.sql before this suite.").toBe(true);
     }
     schemaReady = true;
     const roles = await sql<{ rolname: string; rolbypassrls: boolean; rolsuper: boolean }[]>`
@@ -217,8 +219,6 @@ describe.skipIf(!enabled)("WaitlistPostgres", () => {
       [atLength(255), "Engineer", "Deploy"],
       [email("occupation-overflow"), "o".repeat(121), "Deploy"],
       [email("use-case-overflow"), "Engineer", "u".repeat(2001)],
-      [email("empty-occupation"), "   ", "Deploy"],
-      [email("empty-use-case"), "Engineer", "   "],
       [`${prefix}-invalid`, "Engineer", "Deploy"],
       [`${prefix}-space @example.test`, "Engineer", "Deploy"],
     ];
@@ -229,6 +229,24 @@ describe.skipIf(!enabled)("WaitlistPostgres", () => {
     const page = await asService(alpha, (tx) => list(tx, "queued"));
     expect(page.entries).toHaveLength(1);
     expect(page.entries[0]).toMatchObject({ email: atLength(254), occupation: "o".repeat(120), use_case: "u".repeat(2000) });
+  });
+
+  it("accepts email alone and persists bounded optional profile answers", async () => {
+    await asService(alpha, async (tx) => {
+      await tx`select public.zenith_waitlist_join_profile(${email("minimal")})`;
+      await tx`select public.zenith_waitlist_join_profile(${email("profile")}, ' Alex ', ' Founder ', ${tx.json(["Deployments", "Custom workflow"])}, '')`;
+      await tx`select public.zenith_waitlist_join_profile(${email("profile")}, 'Replacement', '', ${tx.json(["Changed"])}, '')`;
+    });
+    expect((await asService(alpha, (tx) => list(tx, "queued"))).entries).toMatchObject([
+      { email: email("minimal"), name: "", occupation: "", features: [], use_case: "" },
+      { email: email("profile"), name: "Alex", occupation: "Founder", features: ["Deployments", "Custom workflow"], use_case: "" },
+    ]);
+    for (const features of [[""], ["x".repeat(121)], [12], {}, Array(13).fill("Custom")]) {
+      await expect(asService(alpha, (tx) => tx`select public.zenith_waitlist_join_profile(${email("invalid-profile")}, '', '', ${tx.json(features)}, '')`))
+        .rejects.toMatchObject({ code: "23514" });
+    }
+    await expect(asService(alpha, (tx) => tx`select public.zenith_waitlist_join_profile(${email("name-overflow")}, ${"x".repeat(121)})`))
+      .rejects.toMatchObject({ code: "23514" });
   });
 
   it("lists stable FIFO pages with global counts and admits the oldest queued positions", async () => {

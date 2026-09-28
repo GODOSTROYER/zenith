@@ -20,7 +20,9 @@ The operator allowlist is independent of workspace roles. Being a workspace
 owner or admin does not grant waitlist administration. Use Supabase user UUIDs,
 not email addresses, in `ZENITH_WAITLIST_ADMIN_IDS`.
 
-Set the cutoff to a fixed ISO timestamp, for example `2026-09-26T00:00:00.000Z`.
+At activation, set the cutoff to the current UTC timestamp and keep it fixed.
+Do not copy an old example date or recompute it on each deployment: a past
+cutoff can incorrectly exclude people who have already created accounts.
 Accounts created before it retain access regardless of workspace membership.
 Accounts created at or after the cutoff need admission, except allowlisted
 operators. Accepting a workspace invitation never bypasses the gate. Admission
@@ -45,7 +47,9 @@ File mode stores entries and counters in a dedicated
 `<ZENITH_DATA>/waitlist.sqlite` database. Use a durable data directory for a
 single local instance, or Postgres for shared deployment state. Apply
 [`supabase/migrations/0009_waitlist.sql`](../supabase/migrations/0009_waitlist.sql)
-before using the Postgres backend, which uses service-role RPCs. The application
+and then [`supabase/migrations/0010_waitlist_profile.sql`](../supabase/migrations/0010_waitlist_profile.sql)
+before using the Postgres backend, which uses service-role RPCs. Both migrations
+are additive and preserve existing entries, positions and admissions. The application
 does not apply this migration automatically. **Serverless deployments require
 `ZENITH_STORE=postgres`; the runtime refuses file storage on serverless hosts.**
 
@@ -75,8 +79,9 @@ the new tables; no destructive rollback SQL or data deletion is needed.
 ```json
 {
   "email": "person@example.com",
+  "name": "Alex",
   "occupation": "Software engineer",
-  "useCase": "Deploy and operate an application with my team."
+  "features": ["Deployments", "Custom workflow"]
 }
 ```
 
@@ -84,9 +89,13 @@ Both this endpoint and `POST /api/admin/waitlist/admit` require JSON requests.
 When a browser sends an `Origin` header, it must match the request's origin;
 cross-site browser mutations are rejected.
 
-All three fields are required and trimmed. `email` must be a valid address of
-at most 254 characters and is normalized to lowercase; `occupation` accepts
-1–120 characters and `useCase` accepts 1–2,000. Unknown fields are rejected.
+Only `email` is required: it must be valid, at most 254 characters, and is
+trimmed and normalized to lowercase. Optional `name` and `occupation` (profession)
+accept up to 120 characters each. Optional `features` is an array of up to 12
+nonempty strings, each up to 120 characters; preset and custom selections are
+accepted, trimmed and deduplicated. The optional legacy `useCase` field accepts
+up to 2,000 characters. Omitted profile strings become empty strings and omitted
+features become an empty array. Unknown fields are rejected.
 The JSON body is limited to 8 KiB. Persistent rate limits allow 10 requests per
 client per hour and 1,000 globally per hour. Successful new and duplicate
 submissions return HTTP 202 with `{"accepted":true}`, so the endpoint does not reveal
@@ -94,8 +103,8 @@ whether an email is already queued or admitted. Duplicate submissions preserve
 the original answers, queue position and admission status.
 
 Authenticated users denied access can visit `/waitlist` to see their status,
-join using their current account email and provide their occupation and use
-case. After an operator admits them, they can recheck access on that page.
+join using their current account email and optionally share their name,
+profession and feature interests. After an operator admits them, they can recheck access on that page.
 Public intake must be enabled for new submissions.
 
 No waitlist confirmation emails, admission emails or other notifications are

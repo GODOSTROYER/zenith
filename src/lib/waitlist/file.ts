@@ -7,13 +7,14 @@ import type { WaitlistEntry, WaitlistPage, WaitlistRepository, WaitlistStatus, W
 import { waitlistListSchema, waitlistSubmissionSchema } from "./validation";
 
 type Row = {
-  id: string; email: string; occupation: string; use_case: string; position: number;
+  id: string; email: string; name: string; features_json: string; occupation: string; use_case: string; position: number;
   status: WaitlistStatus; created_at: string; admitted_at: string | null; admitted_by: string | null;
 };
 
 function entry(row: Row): WaitlistEntry {
   return {
-    id: row.id, email: row.email, occupation: row.occupation, useCase: row.use_case,
+    id: row.id, email: row.email, name: row.name, features: JSON.parse(row.features_json) as string[],
+    occupation: row.occupation, useCase: row.use_case,
     position: row.position, status: row.status, createdAt: row.created_at,
     admittedAt: row.admitted_at, admittedBy: row.admitted_by,
   };
@@ -68,6 +69,15 @@ export class FileWaitlistRepository implements WaitlistRepository {
       );
       CREATE INDEX IF NOT EXISTS waitlist_rate_expiry ON waitlist_rate_limits(expires_at);
     `);
+    // Upgrade existing local queues without rewriting entries or admission history.
+    // The write lock also serializes first-open upgrades across processes.
+    this.transaction(() => {
+      const columns = this.sql.prepare("PRAGMA table_info(waitlist_entries)").all() as Array<{ name: string }>;
+      if (!columns.some((column) => column.name === "name"))
+        this.sql.exec("ALTER TABLE waitlist_entries ADD COLUMN name TEXT NOT NULL DEFAULT ''");
+      if (!columns.some((column) => column.name === "features_json"))
+        this.sql.exec("ALTER TABLE waitlist_entries ADD COLUMN features_json TEXT NOT NULL DEFAULT '[]'");
+    });
   }
 
   close(): void { this.sql.close(); }
@@ -87,9 +97,9 @@ export class FileWaitlistRepository implements WaitlistRepository {
   async join(input: WaitlistSubmission): Promise<void> {
     const parsed = waitlistSubmissionSchema.parse(input);
     this.sql.prepare(`INSERT INTO waitlist_entries
-      (id,email,occupation,use_case,created_at) VALUES(?,?,?,?,?)
+      (id,email,name,occupation,features_json,use_case,created_at) VALUES(?,?,?,?,?,?,?)
       ON CONFLICT(email) DO NOTHING`).run(
-      randomUUID(), parsed.email, parsed.occupation, parsed.useCase, new Date(this.clock()).toISOString()
+      randomUUID(), parsed.email, parsed.name, parsed.occupation, JSON.stringify(parsed.features), parsed.useCase, new Date(this.clock()).toISOString()
     );
   }
 
@@ -120,7 +130,8 @@ export class FileWaitlistRepository implements WaitlistRepository {
       if (previous) {
         if (previous.actor_id !== actorId || previous.requested_count !== count)
           throw new ApiError("This admission request was already used with different parameters.", 409);
-        return JSON.parse(previous.entries_json) as WaitlistEntry[];
+        return (JSON.parse(previous.entries_json) as WaitlistEntry[])
+          .map((saved) => ({ ...saved, name: saved.name ?? "", features: saved.features ?? [] }));
       }
       const queued = this.sql.prepare("SELECT * FROM waitlist_entries WHERE status='queued' ORDER BY position LIMIT ?")
         .all(count) as Row[];

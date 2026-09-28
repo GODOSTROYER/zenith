@@ -49,7 +49,7 @@ export default function PrivacyPage() {
                 <li><strong>Account information.</strong> Your email address, account identifier, display name, profile image when supplied by a sign-in provider, linked sign-in methods and authentication records. Supabase handles sign-in credentials and sessions.</li>
                 <li><strong>Workspace content.</strong> Workspace names, memberships, invitations and roles; project definitions, source you submit, infrastructure settings, revisions, deployment records, logs, activity history and configured secrets.</li>
                 <li><strong>Requests and integrations.</strong> Instructions you give Navigator or a connected agent, and the connection details and permissions you provide for integrations.</li>
-                <li><strong>Waitlist information.</strong> If waitlist registration is available and you join, we store your email, occupation, primary use case, submission time and admission status.</li>
+                <li><strong>Waitlist information.</strong> If waitlist registration is available and you join, we store your email, submission time and admission status, together with any optional name, occupation, feature interests or primary use case you provide.</li>
                 <li><strong>Technical information.</strong> Requests to the service generate operational and security logs, which can include IP addresses, browser information, request times and errors. Where enabled, waitlist abuse protection uses a keyed hash of your IP address for rate limiting.</li>
               </ul>
             </section>

@@ -3,7 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LandingWaitlist } from "@/app/_landing/landing-waitlist";
 
-const state = vi.hoisted(() => ({ companion: { open: false }, walkthrough: null as object | null }));
+const state = vi.hoisted(() => ({ companion: { open: false }, walkthrough: null as object | null, suggestion: null as object | null }));
 const dispatch = vi.hoisted(() => vi.fn());
 vi.mock("@/app/_landing/landing-experience", () => ({ useLanding: () => ({ state, dispatch }) }));
 vi.mock("@/app/_landing/liquid-glass", () => ({ GLASS: { bar: {} }, useLiquidGlass() {} }));
@@ -19,6 +19,7 @@ const render = (signedIn = false) => act(() => root.render(<div className="zenit
 beforeEach(() => {
   state.companion.open = false;
   state.walkthrough = null;
+  state.suggestion = null;
   dispatch.mockClear();
   vi.stubGlobal("matchMedia", () => ({ matches: true }));
   showModal = vi.fn(function (this: HTMLDialogElement) { this.open = true; });
@@ -80,9 +81,16 @@ describe("landing waitlist dialog", () => {
 
   it("makes Gimbal available from the capsule and keeps the capsule out of an active guide", () => {
     render();
+    state.suggestion = { id: "automatic-offer" };
+    render();
+    expect(button("Join waitlist").closest("[inert]")).toBeNull();
     act(() => button("Ask Gimbal").click());
     expect(dispatch).toHaveBeenCalledWith({ type: "companion-open" });
     state.companion.open = true;
+    render();
+    expect(button("Join waitlist").closest("[inert]")).not.toBeNull();
+    state.companion.open = false;
+    state.walkthrough = { id: "overview" };
     render();
     expect(button("Join waitlist").closest("[inert]")).not.toBeNull();
   });

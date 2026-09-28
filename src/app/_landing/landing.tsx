@@ -42,7 +42,7 @@ export function Landing({ providers }: { providers: ProviderRow[] }) {
   useSheetHandoff(paper, ink);
   useLandingNavigation(page);
   return (
-    <LandingExperienceProvider>
+    <LandingExperienceProvider proactiveSuggestions={cta.href !== "/waitlist"}>
       <div ref={page} className="zenith-landing">
         <a href="#main" className="zenith-skip">Skip to content</a>
         <LandingHeader cta={cta} />

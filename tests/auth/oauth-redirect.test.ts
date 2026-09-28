@@ -27,3 +27,7 @@ it("carries safe invitation destinations through the waitlist", () => {
     .toBe("/waitlist?next=%2Finvite%3Finvite%3Dworkspace-token");
   expect(authPageUrl("/waitlist", "//evil.test")).toBe("/waitlist");
 });
+
+it("never nests a waitlist return when switching auth pages", () => {
+  expect(authPageUrl("/waitlist", "/waitlist?next=/invite")).toBe("/waitlist");
+});

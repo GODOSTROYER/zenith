@@ -178,13 +178,13 @@ html:has(.zenith-landing)::-webkit-scrollbar { width: 0; height: 0; display: non
 @media (max-width: 1150px) {
   .zenith-header-inner { gap: 20px; }
   .zenith-desktop-nav { gap: 18px; }
-  .zenith-header-cta { display: none; }
+  .zenith-header-cta { display: inline-flex; padding-inline: 12px; }
 }
 @media (max-width: 900px) {
   .zenith-footer p { display: none; }
   .zenith-desktop-nav { display: none; }
   .zenith-header-actions { margin-left: auto; gap: 6px; }
-  /* On phones the real CTA sits in the masthead beside "Sign in", compact; the opening keeps its foot clear. */
+  /* Keep one account action visible in the masthead at every breakpoint. */
   .zenith-header-cta { display: inline-flex; min-height: 36px; padding: 6px 12px; font-size: 12px; gap: 8px; }
   .zenith-header-cta svg { width: 14px; height: 14px; }
   .zenith-sign-in { padding: 0 6px; }

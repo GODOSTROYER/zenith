@@ -2,7 +2,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
-import { safeNextPath } from "@/lib/auth/destination";
+import { safeNextPath, waitlistDestination } from "@/lib/auth/destination";
 import { resolveAuthDestination } from "@/lib/auth/server-destination";
 import { IDENTITY_LINK_COOKIE, readIdentityLinkIntent } from "@/lib/auth/identity-link";
 import { callbackErrorCode } from "@/components/auth/messages";
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
     // reset session must be allowed to finish even while its user is waiting.
     if (!linking && next && new URL(next, origin).pathname === "/reset-password") return redirect(next);
     const access = await getWaitlistAccess({ id: data.user.id, email: data.user.email ?? "" });
-    if (!access.allowed) return redirect("/waitlist");
+    if (!access.allowed) return redirect(waitlistDestination(next));
     if (intent) return redirect("/account?identity=linked#sign-in");
     return redirect(await resolveAuthDestination(next));
   } catch {

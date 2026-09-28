@@ -56,6 +56,12 @@ export function safeNextPath(next: string | null | undefined): string | undefine
   return `${resolved.pathname}${resolved.search}${resolved.hash}`;
 }
 
+/** Carry a safe destination through admission without nesting waitlist redirects. */
+export function waitlistDestination(next?: string | null): string {
+  const requested = safeNextPath(next);
+  if (!requested || underPrefix(requested.split(/[?#]/)[0], ["/waitlist"])) return "/waitlist";
+  return `/waitlist?next=${encodeURIComponent(requested)}`;
+}
 export interface DestinationInput {
   /** Does this account belong to at least one workspace? (`workspacesFor`) */
   hasWorkspace: boolean;
@@ -84,7 +90,7 @@ export async function destinationAfterSignIn(next?: string | null): Promise<stri
     const res = await fetch("/api/me", { cache: "no-store" });
     if (!res.ok) throw new Error(`/api/me answered ${res.status}`);
     const me = (await res.json()) as { hasWorkspace?: unknown; waitlistRequired?: unknown };
-    if (me.waitlistRequired === true) return "/waitlist";
+    if (me.waitlistRequired === true) return waitlistDestination(next);
     return postAuthDestination({ hasWorkspace: me.hasWorkspace === true, next });
   } catch {
     return postAuthDestination({ hasWorkspace: true, next });

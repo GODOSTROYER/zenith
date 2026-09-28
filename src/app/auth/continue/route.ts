@@ -11,7 +11,7 @@
  */
 import { NextResponse, type NextRequest } from "next/server";
 import { getSessionUser } from "@/lib/auth/session";
-import { safeNextPath } from "@/lib/auth/destination";
+import { safeNextPath, waitlistDestination } from "@/lib/auth/destination";
 import { resolveAuthDestination } from "@/lib/auth/server-destination";
 import { getWaitlistAccess } from "@/lib/waitlist/access";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -30,6 +30,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(url);
   }
   if (!(await getWaitlistAccess(user)).allowed)
-    return NextResponse.redirect(new URL("/waitlist", origin));
+    return NextResponse.redirect(new URL(waitlistDestination(next), origin));
   return NextResponse.redirect(new URL(await resolveAuthDestination(next), origin));
 }

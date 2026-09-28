@@ -168,3 +168,29 @@ describe("already signed in continuation", () => {
     expect(mocks.access).not.toHaveBeenCalled();
   });
 });
+
+describe("waitlist continuation preservation", () => {
+  it.each(["callback", "continue"])("keeps invitations through the %s admission redirect", async (door) => {
+    mocks.access.mockResolvedValue({ allowed: false });
+    const next = "/invite?invite=a%26b";
+    const query = `next=${encodeURIComponent(next)}`;
+    const response = door === "callback"
+      ? await callback(`code=google-code&${query}`)
+      : await CONTINUE(new NextRequest(`https://zenith.test/auth/continue?${query}`));
+    expect(location(response).pathname).toBe("/waitlist");
+    expect(location(response).searchParams.get("next")).toBe(next);
+    expect(mocks.destination).not.toHaveBeenCalled();
+    expect(mocks.flush).not.toHaveBeenCalled();
+  });
+  it.each(["/waitlist", "/waitlist?next=/invite", "//evil.test"])("does not wrap recursive or unsafe next %j", async (next) => {
+    mocks.access.mockResolvedValue({ allowed: false });
+    const query = `next=${encodeURIComponent(next)}`;
+    for (const response of [
+      await callback(`code=google-code&${query}`),
+      await CONTINUE(new NextRequest(`https://zenith.test/auth/continue?${query}`)),
+    ]) {
+      expect(location(response).pathname).toBe("/waitlist");
+      expect(location(response).search).toBe("");
+    }
+  });
+});

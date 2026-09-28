@@ -1,0 +1,112 @@
+/* One quiet, shared eight-second timeline: arrive → review/hold → approve → run → rest.
+   All faces are overlaid so neither the gate nor the surrounding card changes size. */
+.loop { --cycle: 8s; position: relative; margin-top: auto; padding-top: 25px; }
+.scene { padding-bottom: 34px; }
+.request { display: flex; gap: 12px; align-items: center; width: fit-content; max-width: 100%; margin: 0 0 24px auto; padding: 12px 18px 12px 12px; border: 1px solid #48524b; border-radius: 16px 16px 4px 16px; background: #343f39; box-shadow: 0 16px 35px -28px #000; }
+.avatar { display: grid; place-items: center; flex-shrink: 0; width: 33px; height: 33px; border-radius: 50%; background: #b4c4a8; color: #25352a; }
+.request small { font-size: 9px; color: #bfcabb; }
+.request p { margin: 2px 0 0; font-size: 12px; letter-spacing: -.02em; }
+.flow { display: flex; align-items: center; min-height: 96px; }
+.origins { flex-shrink: 0; display: flex; flex-direction: column; gap: 5px; }
+.origins > span { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 7px 10px; border: 1px solid #4d5750; border-radius: 10px; color: #c1c9bf; font-size: 11px; }
+.origins .agent { background: #344235; border-color: #77876e; color: #d8e1ce; animation-name: agentSource; }
+.merge { width: 20px; height: 96px; flex-shrink: 0; stroke: #576158; stroke-width: 1; }
+.rail { flex: 1; height: 1px; min-width: 6px; background: #576158; position: relative; }
+.pulse { position: absolute; left: 0; top: -2px; height: 5px; width: 100%; opacity: 0; transform: translateX(-100%); pointer-events: none; }
+.pulse::after { content: ""; position: absolute; right: 0; width: 5px; height: 5px; border-radius: 50%; background: #efbb94; box-shadow: 0 0 8px rgba(239, 187, 148, .4); }
+.pulse::before { content: ""; position: absolute; right: 3px; top: 1px; width: 12px; height: 3px; background: linear-gradient(90deg, transparent, rgba(239, 187, 148, .3)); }
+.leadPulse { animation-name: toPlan; }
+.reviewPulse { animation-name: toReview; }
+.runPulse { animation-name: toRun; }
+.runPulse::after { background: #cfdec3; box-shadow: 0 0 8px rgba(207, 222, 195, .25); }
+.plan { color: #c1c9bf; font-size: 12px; padding: 10px; animation-name: planLight; }
+.gate { display: grid; flex-shrink: 0; min-height: 44px; padding: 10px 12px; border: 1px solid #b9906f; border-radius: 12px; color: #f4bc95; background: #3c3930; font-size: 12px; animation-name: gateLight; }
+.gate > span { grid-area: 1 / 1; display: inline-flex; justify-content: center; align-items: center; gap: 7px; }
+.reviewFace { opacity: 1; animation-name: reviewFace; }
+.approvedFace { opacity: 0; color: #d8e7ca; animation-name: approvedFace; }
+.run { display: flex; flex-direction: column; align-items: center; gap: 3px; color: #a5afa4; font-size: 9px; padding-left: 8px; animation-name: runLight; }
+/* CSS drives the loop without per-frame React updates. JS only changes the play state. */
+.animated { animation-duration: var(--cycle); animation-timing-function: cubic-bezier(.4, 0, .2, 1); animation-iteration-count: infinite; animation-fill-mode: both; animation-play-state: paused; }
+.loop[data-loop="running"] .animated { animation-play-state: running; }
+.loop[data-loop="still"] .animated { animation: none; }
+.motionControl { position: absolute; right: -7px; bottom: -4px; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid transparent; border-radius: 50%; background: none; color: #aebcad; cursor: pointer; }
+.motionControl:hover { border-color: #53624f; background: rgba(213, 226, 202, .06); color: #e1e8d8; }
+.motionControl:focus-visible { outline: 2px solid #f9c19f; outline-offset: 3px; }
+.loop[data-loop="still"] .motionControl { display: none; }
+
+@keyframes agentSource {
+  0%, 30%, 100% { background: #344235; border-color: #77876e; }
+  10%, 23% { background: #44523c; border-color: #b1c39c; }
+}
+@keyframes toPlan {
+  0%, 8%, 100% { opacity: 0; transform: translateX(-100%); }
+  11% { opacity: 1; transform: translateX(-100%); }
+  25% { opacity: 1; transform: translateX(0); }
+  28%, 99% { opacity: 0; transform: translateX(0); }
+}
+@keyframes planLight {
+  0%, 14%, 40%, 100% { color: #c1c9bf; }
+  23%, 32% { color: #f4dfc5; }
+}
+@keyframes toReview {
+  0%, 26%, 100% { opacity: 0; transform: translateX(-100%); }
+  29% { opacity: 1; transform: translateX(-100%); }
+  /* The pulse stays still at the gate for 1.52 seconds before approval. */
+  44%, 63% { opacity: 1; transform: translateX(0); }
+  66%, 99% { opacity: 0; transform: translateX(0); }
+}
+@keyframes gateLight {
+  0%, 34%, 100% { border-color: #b9906f; background: #3c3930; box-shadow: 0 0 0 0 rgba(222, 166, 129, 0); }
+  44%, 58% { border-color: #efbd95; background: #484032; box-shadow: 0 0 0 5px rgba(222, 166, 129, .06); }
+  64%, 87% { border-color: #9dae94; background: #354731; box-shadow: 0 0 0 3px rgba(177, 201, 157, .04); }
+}
+@keyframes reviewFace {
+  0%, 58%, 97%, 100% { opacity: 1; }
+  64%, 90% { opacity: 0; }
+}
+@keyframes approvedFace {
+  0%, 58%, 97%, 100% { opacity: 0; }
+  64%, 90% { opacity: 1; }
+}
+@keyframes toRun {
+  0%, 64%, 100% { opacity: 0; transform: translateX(-100%); }
+  67% { opacity: 1; transform: translateX(-100%); }
+  79% { opacity: 1; transform: translateX(0); }
+  84%, 99% { opacity: 0; transform: translateX(0); }
+}
+@keyframes runLight {
+  0%, 71%, 100% { color: #a5afa4; }
+  79%, 90% { color: #e1f0d1; }
+}
+@media (max-width: 1150px) {
+  .plan { padding: 6px; }
+  .gate { padding: 9px; }
+  .gate > span { gap: 5px; }
+  .origins > span { padding: 7px; }
+  .merge { width: 16px; }
+}
+@media (max-width: 720px) {
+  .loop { padding-top: 26px; }
+  .request { padding-right: 12px; }
+  .request p { font-size: 11px; }
+  .plan, .gate { font-size: 11px; }
+}
+@media (pointer: coarse) { .motionControl { width: 44px; height: 44px; } }
+@media (max-width: 360px) {
+  .origins > span { font-size: 10px; gap: 5px; }
+  .plan { padding: 5px; }
+  .gate { padding: 8px; }
+  .gate > span { gap: 4px; }
+  .merge { width: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loop .animated { animation: none !important; }
+  .motionControl { display: none; }
+}
+@media (forced-colors: active) {
+  .request, .origins > span, .gate { background: Canvas; color: CanvasText; border-color: CanvasText; }
+  .merge { stroke: CanvasText; }
+  .rail { background: CanvasText; }
+  .pulse::after { background: Highlight; }
+  .motionControl { color: ButtonText; border-color: ButtonText; }
+}

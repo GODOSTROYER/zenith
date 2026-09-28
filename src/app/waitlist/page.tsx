@@ -39,7 +39,7 @@ export default async function WaitlistPage({ searchParams }: { searchParams?: Pr
         <p className={styles.pageNote}>We’re opening access in small batches. Leave your email and help shape what comes next.</p>
       </div>
       <section className={styles.pageForm} aria-label="Join the Zenith waitlist">
-        {user && <p className={styles.account}>You’re signed in. We’re opening access in batches.<br /><a href={continuation}>Check your access again <span aria-hidden="true">↗</span></a></p>}
+        {user && <p className={styles.account}>Your email is verified. Product access still needs approval. Join the waitlist below.<br /><a href={continuation}>Check your access again <span aria-hidden="true">↗</span></a></p>}
         {intakeEnabled ? <WaitlistJoinForm email={user?.email || ""} name={user?.name || ""} emailReadOnly={Boolean(user?.email)} next={next} /> : <p className={styles.paused}>New waitlist requests are paused for now. If you’ve already joined, your place is safe. Please check back soon.</p>}
       </section>
     </main>

@@ -283,8 +283,15 @@ describe.skipIf(!enabled)("WaitlistPostgres", () => {
     });
     const refusal = { error: { http_code: 403, message: "ZENITH_WAITLIST_REQUIRED: Join the Zenith waitlist before signing in." } };
     const address = email("hook-flow");
-    const event = { user: { email: address, app_metadata: { provider: "google" } } };
+    const event = { user: { email: address, app_metadata: { provider: "email" } } };
     expect(await invoke(event)).toEqual(refusal);
+    // Only Auth's Google provider may create a waiting identity. This does
+    // not insert or admit a waitlist entry, nor create product membership.
+    expect(await invoke({ user: { email: address, app_metadata: { provider: "google" } } })).toEqual({});
+    expect(await invoke({ user: { email: address, app_metadata: { provider: "github" } } })).toEqual(refusal);
+    expect(await invoke({ user: { email: address, user_metadata: { provider: "google", app_metadata: { provider: "google" } } } })).toEqual(refusal);
+    expect(await invoke({ user: { email: "", app_metadata: { provider: "google" } } })).toEqual(refusal);
+    expect((await asService(beta, (tx) => list(tx, "queued"))).entries).toHaveLength(0);
     await fixtures(["hook-flow"]);
     expect(await invoke(event)).toEqual(refusal);
     // A caller cannot bypass this new-account hook using identity metadata,

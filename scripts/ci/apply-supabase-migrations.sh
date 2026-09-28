@@ -82,6 +82,7 @@ MIGRATIONS=(
   "0010_waitlist_profile.sql"
   "0011_waitlist_signup_hook.sql"
   "0012_waitlist_admin.sql"
+  "0013_google_waitlist_identity.sql"
 )
 
 if [ -z "${SUPABASE_DB_URL:-}" ]; then

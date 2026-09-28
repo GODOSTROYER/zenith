@@ -74,83 +74,48 @@ Retain the additive Postgres tables or dedicated SQLite database to preserve
 the queue, admission history and idempotent replay records. Older builds ignore
 the new tables; no destructive rollback SQL or data deletion is needed.
 
-## Blocking account creation at Supabase
+## Google identity and product admission
 
-The application access gate controls product access after authentication. To also
-reject **new, unadmitted accounts before Auth creates them**, install
-[`0011_waitlist_signup_hook.sql`](../supabase/migrations/0011_waitlist_signup_hook.sql)
-and enable Supabase's **Before User Created** hook. The migration alone does not
-enable the hook. This requires `ZENITH_STORE=postgres`: Supabase must read the
-same admission records as the application, not a separate SQLite queue.
+Keep the Supabase **Before User Created** hook enabled at
+`pg-functions://postgres/public/zenith_before_user_created` and apply migration
+`0013_google_waitlist_identity.sql` after 0012. Google may now establish an Auth
+identity and session before admission so the application receives the verified
+email. The callback checks admission before creating any workspace or accepting
+invitations. Unadmitted identities go directly to /waitlist, where the session
+email and name prefill the form. Email is read-only; it is never copied from URL
+parameters. The visitor still explicitly submits their waitlist request.
 
-The hook accepts only an incoming `user.email` that already has an `admitted`
-waitlist entry. It normalizes case and surrounding whitespace; queued, missing,
-blank and malformed emails all receive the same refusal. Profile metadata,
-claimed timestamps and roles cannot grant access. The function has invoker
-security. Supabase Auth receives execution and `SELECT(email, status)` privileges
-with an admitted-only RLS policy; it cannot read name or other profile answers.
-Browser roles and the API service role cannot invoke this function.
+An Auth identity is not a product account with access. Keep
+`ZENITH_WAITLIST_GATE_ENABLED=1` and preserve the fixed existing-user cutoff.
+The canonical Auth creation time, verified email, operator IDs and admitted
+waitlist entries remain the only access decisions. Product pages, API routes,
+server actions and agent paths enforce admission. Browser database roles have
+no product table or waitlist RPC access. A waiting Google session cannot provision
+a workspace, accept an invitation, read tenant data or enter /admin.
 
-Existing users do not pass through account creation again. Their password and
-Google sign-ins, sessions and recovery continue normally, and the application
-keeps its fixed existing-account cutoff. The hook introduces no user deletions,
-updates, session revocations or admission changes. After an operator admits an
-email, that person can use **Sign in with Google** with the same email to activate
-access. No public Create account form is needed.
+The hook trusts only Auth-owned `user.app_metadata.provider = google` with a
+nonempty canonical email. It never trusts user_metadata provider claims. Other
+new accounts still require an admitted email; password, phone, anonymous and
+other-provider creation cannot bypass this rule. Refusals retain the stable
+`ZENITH_WAITLIST_REQUIRED` marker and safe redirect behavior. Existing users
+and their sessions are unchanged. Approved Google users can continue to Zenith
+and set a password in Account.
 
-### Installation
+The migration preserves SECURITY INVOKER, the admitted-only RLS policy, and
+Auth-only execution privileges. Supabase must read the same Postgres queue as
+the app. Keep global `disable_signup` false so Google can establish identity;
+the hook and application gate perform their distinct checks. Privileged Auth
+administration remains trusted and never substitutes for product admission.
 
-1. Apply migrations 0009, 0010 and 0011 in order, each transactionally. Keep the
-   existing application cutoff and operator IDs unchanged.
-2. In **Supabase Dashboard â†’ Authentication â†’ Hooks**, add a **Before User
-   Created** Postgres hook and select `public.zenith_before_user_created`.
-3. Confirm that the hook is enabled and its URI is
-   `pg-functions://postgres/public/zenith_before_user_created`. The corresponding
-   Auth Management API properties are `hook_before_user_created_enabled: true`
-   and `hook_before_user_created_uri` with that URI. No HTTP-hook secret is needed.
-4. Keep Supabase's global `disable_signup` setting **false**. Globally disabling
-   signup also prevents an admitted person from activating through Google; the
-   installed hook supplies the selective admission rule instead.
-5. Verify existing-account sign-in, refusal of a new unadmitted email without an
-   `auth.users` row, and activation after admitting the same email. Keep the
-   application access gate enabled as a second check after authentication.
-
-For local Supabase the equivalent `[auth.hook.before_user_created]` block is
-shown, commented out, in `supabase/config.toml`. Enable it only with the Postgres
-waitlist and the migration applied. Bare-Postgres CI uses an explicit
-`supabase_auth_admin` stand-in to verify invocation and RLS.
-
-### Refusal and recovery
-
-The hook returns HTTP 403 with the stable marker
-`ZENITH_WAITLIST_REQUIRED: Join the Zenith waitlist before signing in.`
-Direct Auth signup reports that message. Google returns to the application with
-`error=access_denied` and the marker in `error_description`; `error_code` may be
-empty. The callback redirects only this marker to the waitlist, preserving a safe
-requested destination. Generic consent refusal and hook/storage failures must
-remain ordinary authentication errors, not be mislabeled as waitlist decisions.
-The public waitlist works without an account.
-
-Supabase's privileged `auth.admin.createUser()` bypasses creation hooks; access
-to that server credential remains trusted administration. An account created
-that way still needs the application admission check unless it is grandfathered
-or an explicitly configured operator. New-user admin invitation/link generation
-can invoke the hook. Do not depend on either path to bypass admission.
-
-### Rollback
-
-Disable the **Before User Created** hook in Supabase Auth first. Keep the additive
-function, grants and policy installed so re-enabling it is safe. No account or
-queue data needs to be removed. Disabling this hook restores Auth's account
-creation behavior; the independently configured application gate still prevents
-unadmitted accounts from entering Zenith. Turning off the application gate alone
-does not disable this provider hook.
+Deploy the UI and verify the production access gate before applying 0013. Test
+Google identity -> waitlist prefill, blocked product/API requests, unchanged
+existing access, and admission -> continuation. Never run the destructive
+queue contract suite against production. To restore the prior strict signup
+policy, reapply 0011 transactionally; retain the application gate and all queue
+and identity records. No deletion or cutoff changes are required.
 
 References: [Supabase hook contract](https://supabase.com/docs/guides/auth/auth-hooks/before-user-created-hook),
-[hook permissions](https://supabase.com/docs/guides/auth/auth-hooks#security-model),
-[Auth configuration API](https://supabase.com/docs/reference/api/v1-update-auth-service-config),
-[OAuth account decisions](https://github.com/supabase/auth/blob/v2.197.0/internal/api/hooks.go),
-[OAuth error redirects](https://github.com/supabase/auth/blob/v2.197.0/internal/api/external.go).
+[hook permissions](https://supabase.com/docs/guides/auth/auth-hooks#security-model).
 
 ## Joining and checking access
 
@@ -198,11 +163,11 @@ provides overview counts, a searchable queue with full profile review, and
 approval history. Customer workspace roles never grant platform access.
 
 Choose an individual request, selected people, the next 50, a custom next batch
-of 1–1,000, or everyone currently waiting. Every console approval first creates
+of 1ï¿½1,000, or everyone currently waiting. Every console approval first creates
 an actor-bound, persistent preview of exact queued IDs. Approve-all captures the
 queue at preview time; later arrivals are excluded. Review the count and sample
 of people before confirming. The preview expires after 24 hours. Selected
-previews accept 1–1,000 unique entry IDs. An overlapping approval admits only
+previews accept 1ï¿½1,000 unique entry IDs. An overlapping approval admits only
 people still queued, so the final count can be smaller than the preview.
 
 The browser retains the preview and a unique request ID for a pending approval,
@@ -225,7 +190,7 @@ credentials remain server-only.
 
 - `GET /api/admin/waitlist?status=queued&limit=100&q=engineer` searches names,
   email, profession, interests and notes. `status` is optional (`queued` or
-  `admitted`); `limit` is 1–200 and defaults to 100. `q` is at most 254 characters.
+  `admitted`); `limit` is 1ï¿½200 and defaults to 100. `q` is at most 254 characters.
   Results include global counts, the matching count and `nextCursor`. Send that
   immutable queue position as `after` for the next page.
 - `POST /api/admin/waitlist/preview` accepts `{"mode":"selected","entryIds":[...]}`,

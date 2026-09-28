@@ -27,10 +27,11 @@ export function curtainNavigate(href: string, navigate: (href: string) => void, 
   const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   if (running || reduce || typeof document.body.animate !== "function") { navigate(href); return; }
   running = true;
-  const destination = new URL(href, window.location.href).pathname;
+  const source = window.location.pathname + window.location.search;
 
   const sheet = document.createElement("div");
-  sheet.setAttribute("aria-hidden", "true");
+  sheet.setAttribute("role", "status");
+  sheet.setAttribute("aria-label", "Loading Zenith");
   sheet.dataset.pageCurtain = "";
   sheet.style.cssText = `position:fixed;inset:0;z-index:2147483000;pointer-events:auto;background:${color};border-radius:40px 40px 0 0;box-shadow:0 -30px 90px rgba(8,9,13,.38);transform:translateY(100%);will-change:transform`;
   // If the next page takes a moment, the Zenith loader assembles in the middle of the sheet.
@@ -39,27 +40,27 @@ export function curtainNavigate(href: string, navigate: (href: string) => void, 
   mark.innerHTML = zenithLoaderMarkup(`curtain-${Date.now()}`, 60, isLight(color) ? "light" : "dark");
   sheet.appendChild(mark);
   document.body.appendChild(sheet);
-  mark.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 320, delay: RISE_MS + 220, fill: "forwards", easing: "ease-out" });
+  mark.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 320, delay: 120, fill: "forwards", easing: "ease-out" });
 
   const rise = sheet.animate(
     [{ transform: "translateY(100%)", borderRadius: "40px 40px 0 0" }, { transform: "translateY(0)", borderRadius: "0px 0px 0 0" }],
     { duration: RISE_MS, easing: EASE, fill: "forwards" },
   );
-  recede?.animate(
+  const recession = recede?.animate(
     [{ transform: "none", filter: "brightness(1)" }, { transform: "translateY(-3%) scale(.965)", filter: "brightness(.55)" }],
     { duration: RISE_MS, easing: EASE, fill: "forwards" },
   );
 
   const dissolve = () => {
     const out = sheet.animate([{ opacity: 1 }, { opacity: 0 }], { duration: REVEAL_MS, easing: "ease-out", fill: "forwards" });
-    out.finished.catch(() => undefined).finally(() => { sheet.remove(); running = false; });
+    out.finished.catch(() => undefined).finally(() => { sheet.remove(); recession?.cancel(); running = false; });
   };
   rise.finished.catch(() => undefined).then(() => {
-    navigate(href);
+    try { navigate(href); } catch { dissolve(); return; }
     const started = performance.now();
     // The URL changes when the next page commits; give it two frames to paint, then dissolve.
     const wait = () => {
-      if (window.location.pathname === destination) { requestAnimationFrame(() => requestAnimationFrame(() => window.setTimeout(dissolve, 60))); return; }
+      if (window.location.pathname + window.location.search !== source) { requestAnimationFrame(() => requestAnimationFrame(() => window.setTimeout(dissolve, 60))); return; }
       if (performance.now() - started > 8000) { dissolve(); return; }
       requestAnimationFrame(wait);
     };

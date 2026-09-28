@@ -70,7 +70,10 @@ describe("Google and email authentication callback", () => {
   });
   it("routes unapproved people to waitlist before accepting workspace invites", async () => {
     mocks.access.mockResolvedValue({ allowed: false, reason: "waiting" });
-    expect(location(await callback("code=google-code")).pathname).toBe("/waitlist");
+    const response = await callback("code=google-code");
+    expect(location(response).pathname).toBe("/waitlist");
+    expect(response.headers.get("location")).not.toContain(user.email);
+    expect(mocks.signOut).not.toHaveBeenCalled();
     expect(mocks.destination).not.toHaveBeenCalled();
     expect(mocks.flush).not.toHaveBeenCalled();
   });

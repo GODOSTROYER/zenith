@@ -1,6 +1,7 @@
 /** Rebuild the original vector identity from the shared master geometry. */
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import sharp from "sharp";
 import { ZENITH_SYMBOL_PATHS, ZENITH_LETTER_PATHS } from "../src/components/shell/brand-geometry";
 
 const output = path.join(process.cwd(), "public/brand");
@@ -11,7 +12,9 @@ async function build() {
   const mark = paths(ZENITH_SYMBOL_PATHS);
   const letters = paths(ZENITH_LETTER_PATHS);
   const lockup = `<g transform="translate(0 3) scale(1.875)">${mark}</g><g transform="translate(82 0)">${letters}</g>`;
+  const oauth = svg("0 0 120 120", `<rect width="120" height="120" rx="16" fill="#08090d"/><g transform="translate(28 10) scale(2)" fill="#ff7859">${mark}</g><g transform="translate(12 79) scale(.375)" fill="#f5f3ee">${letters}</g>`);
   const assets = {
+    "zenith-oauth.svg": oauth,
     "zenith-symbol.svg": svg("0 0 32 32", mark),
     "zenith-symbol-inverse.svg": svg("0 0 32 32", mark, "#f4f3ee"),
     "zenith-symbol-vermilion.svg": svg("0 0 32 32", mark, "#cc3d25"),
@@ -23,6 +26,8 @@ async function build() {
     "zenith-symbol-32.svg": svg("0 0 32 32", mark),
   };
   await Promise.all(Object.entries(assets).map(([name, content]) => writeFile(path.join(output, name), content)));
+  // Google requires a square raster asset; keep its source reproducible.
+  await sharp(Buffer.from(oauth)).resize(120, 120).png().toFile(path.join(output, "zenith-oauth.png"));
   console.log(`Wrote ${Object.keys(assets).length} original Zenith vector assets.`);
 }
 void build();

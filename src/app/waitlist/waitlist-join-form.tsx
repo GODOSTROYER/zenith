@@ -3,8 +3,9 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { authPageUrl } from "@/lib/auth/oauth";
-import { ArrowUpRight, Check, LoaderCircle, Plus } from "lucide-react";
+import { ArrowUpRight, Check, Plus } from "lucide-react";
 import styles from "./waitlist.module.css";
+import { ZenithLoader } from "@/components/brand/zenith-loader";
 
 const PROFESSIONS = ["Developer", "Founder", "Designer", "Student", "Cloud engineer"];
 const FEATURES = ["Deploy my app", "See my architecture", "Control cloud costs", "Build with AI agents", "Work across clouds"];
@@ -110,7 +111,7 @@ export function WaitlistJoinForm({ email: initialEmail = "", name: initialName =
       </div>
     </section>
     {error && <p role="alert" className={styles.error}>{error}</p>}
-    <button type="submit" className={styles.submit} disabled={busy}>{busy ? <>Saving your place <LoaderCircle className={styles.spinner} size={18} aria-hidden="true" /></> : <>Join the waitlist <ArrowUpRight size={18} aria-hidden="true" /></>}</button>
+    <button type="submit" className={styles.submit} disabled={busy}>{busy ? <>Saving your place <ZenithLoader id={`${id}-saving`} size={22} tone="dark" /></> : <>Join the waitlist <ArrowUpRight size={18} aria-hidden="true" /></>}</button>
     <p className={styles.privacy}>By joining, you agree to our <a href="/terms">Terms</a> and <a href="/privacy">Privacy Policy</a>.</p>
   </form>;
 }

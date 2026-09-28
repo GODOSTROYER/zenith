@@ -558,3 +558,5 @@ input, textarea { caret-color: var(--signal); }
   .zenith-boot[data-phase="lift"] { animation: zenith-boot-away 240ms ease forwards; }
 }
 @keyframes zl-calm { from { opacity: .55; } to { opacity: 1; } }
+
+.zenith-route-loading { position: fixed; inset: 0; z-index: 2147482999; display: grid; place-items: center; background: #08090d; }

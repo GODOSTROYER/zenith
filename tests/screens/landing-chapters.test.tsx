@@ -158,7 +158,7 @@ describe("landing chapters over one shared state", () => {
     expect(before.querySelector('[data-node="process-jobs"]')?.getAttribute("data-hot")).toBe("true");
     expect(before.querySelector('[data-node="results"]')?.getAttribute("data-soft")).toBe("true");
     click(button("Next")); click(button("Next"));
-    expect(host!.querySelector('[aria-label^="Walkthrough"]')?.textContent).toContain("$22.00 to $30.00");
+    expect(host!.querySelector('[aria-label^="Walkthrough"]')?.textContent).toContain("Open the growth scenario");
     click(button("Done"));
     expect(host!.querySelector('[aria-label^="Walkthrough"]')).toBeNull();
     expect(before.querySelector('[data-node="results"]')?.getAttribute("aria-pressed")).toBe("true");

@@ -7,7 +7,8 @@ import type { Cta } from "./cta";
 import { GLASS, useLiquidGlass } from "./liquid-glass";
 
 export function LandingCta({ cta, className = "" }: { cta: Cta; className?: string }) {
-  return <Link href={cta.href} className={`zenith-cta ${className}`} data-zenith-cta>{cta.label}<ArrowUpRight size={18} aria-hidden="true" /></Link>;
+  const waitlist = cta.href === "/waitlist" && !cta.signedIn;
+  return <Link href={cta.href} className={`zenith-cta ${className}`} data-zenith-cta data-waitlist-trigger={waitlist ? "" : undefined} aria-haspopup={waitlist ? "dialog" : undefined}>{cta.label}<ArrowUpRight size={18} aria-hidden="true" /></Link>;
 }
 
 /** The same CTA as a clear liquid-glass lens, for the opening's sky. */

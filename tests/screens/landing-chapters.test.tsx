@@ -154,11 +154,11 @@ describe("landing chapters over one shared state", () => {
     await ask(dialog, "what happens before deployment");
     click(button("Read the plan with me", dialog));
     const callout = host!.querySelector('[role="dialog"][aria-label^="Walkthrough"]')!;
-    expect(callout.textContent).toContain("Two additions");
+    expect(callout.textContent).toContain("plan preview compares your current system");
     expect(before.querySelector('[data-node="process-jobs"]')?.getAttribute("data-hot")).toBe("true");
     expect(before.querySelector('[data-node="results"]')?.getAttribute("data-soft")).toBe("true");
     click(button("Next")); click(button("Next"));
-    expect(host!.querySelector('[aria-label^="Walkthrough"]')?.textContent).toContain("$22.00 to $30.00");
+    expect(host!.querySelector('[aria-label^="Walkthrough"]')?.textContent).toContain("Open the growth scenario");
     click(button("Done"));
     expect(host!.querySelector('[aria-label^="Walkthrough"]')).toBeNull();
     expect(before.querySelector('[data-node="results"]')?.getAttribute("aria-pressed")).toBe("true");

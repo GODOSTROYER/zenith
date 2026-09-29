@@ -14,7 +14,7 @@ import type { AutonomyLevel } from "@/lib/domain/types";
 import type { GimbalMood } from "@/components/navigator/gimbal-renderer";
 import { AUTONOMY_LEVELS, AUTONOMY_MEANING } from "@/lib/navigator/shared";
 import { chapterTitle, type ChapterId, type Highlight, type LandingState, type Suggestion } from "./landing-state";
-import { AGENT_STEPS, ESTIMATE, NODE_META, PROPOSED_BINDING_IDS, PROPOSED_IDS, SCALE_STEPS, costDriver, nodeCost } from "./scenario";
+import { AGENT_STEPS, ESTIMATE, NODE_META, PROPOSED_IDS, SCALE_STEPS } from "./scenario";
 
 /* --------------------------------- autonomy --------------------------------- */
 
@@ -68,38 +68,38 @@ export const WALKTHROUGHS: Record<string, Walkthrough> = {
     id: "overview", title: "What you are looking at",
     steps: [
       { chapter: "before", text: () => "This is an application as Zenith sees it: a public address, a service, the storage and database it uses, and every connection between them, each one explained.", highlight: () => ({ nodes: ["public-route", "upload-api", "uploads", "results"] }) },
-      { chapter: "before", text: () => "The highlighted parts are proposed. They do not exist yet; Zenith shows the change before anything runs, with its cost and risk.", highlight: () => ({ nodes: PROPOSED_IDS, bindings: PROPOSED_BINDING_IDS }), mood: "engaged" },
+      { chapter: "before", text: () => "The highlighted parts are proposed. They do not exist yet; Zenith shows the change before anything runs, with its cost and risk.", highlight: () => ({ nodes: PROPOSED_IDS }), mood: "engaged" },
     ],
   },
   "why-queue": {
     id: "why-queue", title: "Why this system uses a queue",
     steps: [
-      { chapter: "before", text: () => "This queue lets uploads arrive without forcing processing to happen immediately. Work waits here until a worker is free.", highlight: () => ({ nodes: ["process-jobs"], bindings: ["api-jobs", "worker-jobs"] }) },
-      { chapter: "before", text: () => "The upload API only records the job and answers right away. Without the queue it would process every file before responding, so slow files made slow responses.", highlight: () => ({ nodes: ["upload-api"], bindings: ["api-jobs"] }) },
-      { chapter: "before", text: () => "Workers take jobs at their own pace. When the queue grows, you add workers; the API and the visitors never wait for that decision.", highlight: () => ({ nodes: ["process-worker"], bindings: ["worker-jobs", "worker-uploads", "worker-results"] }), mood: "pleased" },
+      { chapter: "before", text: () => "This queue lets uploads arrive without forcing processing to happen immediately. Work waits here until a worker is free.", highlight: () => ({ nodes: ["process-jobs"] }) },
+      { chapter: "before", text: () => "The upload API only records the job and answers right away. Without the queue it would process every file before responding, so slow files made slow responses.", highlight: () => ({ nodes: ["upload-api"] }) },
+      { chapter: "before", text: () => "Workers take jobs at their own pace. When the queue grows, you add workers; the API and the visitors never wait for that decision.", highlight: () => ({ nodes: ["process-worker"] }), mood: "pleased" },
     ],
   },
   "read-plan": {
     id: "read-plan", title: "How to read this plan",
     steps: [
-      { chapter: "before", text: () => "Two additions: the queue and the worker. Each item carries the product’s own explanation and a risk label. Both are low risk: nothing existing is touched.", highlight: () => ({ items: ["resource:process-jobs", "service:process-worker"], nodes: PROPOSED_IDS }) },
-      { chapter: "before", text: () => "Four new connections. A connection is explicit: it says which service may publish, consume, read or write, and Zenith injects that configuration for you.", highlight: () => ({ items: PROPOSED_BINDING_IDS.map((id) => `binding:${id}`), bindings: PROPOSED_BINDING_IDS }) },
-      { chapter: "before", text: () => `The estimate moves from ${fmtUsd(ESTIMATE.current)} to ${fmtUsd(ESTIMATE.proposed)} a month, ${fmtUsd(ESTIMATE.delta, { sign: true })}. It is a static estimate for this configuration, shown before anything runs.`, highlight: () => ({ region: "estimate" }), mood: "pleased" },
+      { chapter: "before", text: () => "The plan preview compares your current system with the proposed queue and worker. Each proposed part includes its own explanation and risk label; nothing existing is touched.", highlight: () => ({ nodes: PROPOSED_IDS, region: "preview" }) },
+      { chapter: "scenarios", text: () => `The estimate card compares ${fmtUsd(ESTIMATE.current)} with ${fmtUsd(ESTIMATE.proposed)} a month for the proposed change. It is an estimate for this example, not a bill or forecast.`, highlight: () => ({ region: "estimate" }) },
+      { chapter: "scenarios", text: () => "Open the growth scenario and move the slider to see the illustrative estimate change with upload volume. It is a sizing example, not a traffic forecast.", highlight: () => ({ region: "scenario" }), mood: "pleased" },
     ],
   },
   "cost-driver": {
-    id: "cost-driver", title: "What drives this estimate",
+    id: "cost-driver", title: "How to read the estimate",
     steps: [
-      { chapter: "scenarios", text: (state) => { const step = SCALE_STEPS[state.scale]; const driver = costDriver(step.manifest); return `At ${step.uploadsPerDay} uploads a day, ${label(driver).toLowerCase()} drives most of the estimate: ${fmtUsd(nodeCost(step.manifest, driver))} of ${fmtUsd(step.estimate)} a month.`; }, highlight: (state) => ({ nodes: [costDriver(SCALE_STEPS[state.scale].manifest)], region: "estimate" }) },
-      { chapter: "scenarios", text: () => "That number rests on the assumptions listed under the controls: how long a job takes and how much a replica handles. Change the assumption and the configuration changes with it. Zenith prices the configuration; the assumptions are this page’s.", highlight: () => ({ region: "assumptions" }), mood: "attentive" },
+      { chapter: "scenarios", text: (state) => { const step = SCALE_STEPS[state.scale]; return `At ${step.uploadsPerDay} uploads a day, the illustrative estimate is ${fmtUsd(step.estimate)} a month. The slider changes the example’s sizing input; it does not predict your real traffic or bill.`; }, highlight: () => ({ region: "estimate" }) },
+      { chapter: "scenarios", text: () => "The estimate uses Zenith’s static product tables for this example. The card shows the total, not a per-service cost breakdown.", highlight: () => ({ region: "scenario" }), mood: "attentive" },
     ],
   },
   linking: {
     id: "linking", title: "Linking and approval",
     steps: [
-      { chapter: "agents", text: () => "Linking starts in your terminal and finishes in your browser. You check the code, sign in, and choose the workspace, projects and scopes. Read is the minimum; write and publish are yours to grant.", highlight: () => ({ steps: [1, 2] }) },
-      { chapter: "agents", text: () => "Then the agent works: it reads the real workspace and prepares an exact change, with a digest of what would run.", highlight: () => ({ steps: [3] }) },
-      { chapter: "agents", text: () => "Nothing executes until you approve that exact digest in the browser. The agent cannot approve its own work, and linking on its own deploys nothing.", highlight: () => ({ steps: [4, 5] }), mood: "pleased" },
+      { chapter: "agents", text: () => "The card shows the shared path for people and linked agents: the request becomes one plan and reaches the same review gate.", highlight: () => ({ region: "flow" }) },
+      { chapter: "agents", text: () => "The moving diagram is an illustration, not a live agent session. In the product, the agent prepares a change from its linked workspace.", highlight: () => ({ region: "flow" }) },
+      { chapter: "agents", text: () => "A person approves before the plan runs. The agent cannot approve its own work; linking alone does not deploy anything.", highlight: () => ({ region: "flow" }), mood: "pleased" },
     ],
   },
   path: {

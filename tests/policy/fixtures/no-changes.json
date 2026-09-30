@@ -1,0 +1,30 @@
+{
+  "tofuVersion": "1.12.5",
+  "formatVersion": "1.2",
+  "configDigest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "lockDigest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "planDigest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "resourceChanges": [
+    {
+      "address": "aws_db_instance.main",
+      "type": "aws_db_instance",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "no-op",
+      "destroysData": false,
+      "changes": [{ "path": "publicly_accessible", "before": true, "after": true, "sensitive": false, "forcesReplacement": false }]
+    },
+    {
+      "address": "data.aws_iam_policy_document.admin",
+      "type": "aws_iam_policy_document",
+      "providerName": "registry.opentofu.org/hashicorp/aws",
+      "action": "read",
+      "destroysData": false,
+      "changes": []
+    }
+  ],
+  "outputChanges": [],
+  "summary": { "create": 0, "update": 0, "delete": 0, "replace": 0, "noop": 1 },
+  "empty": true,
+  "diagnostics": [],
+  "createdAt": "2026-09-30T10:00:00.000Z"
+}

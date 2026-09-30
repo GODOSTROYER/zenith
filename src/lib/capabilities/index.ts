@@ -10,7 +10,8 @@
  *                     ./policy-settings    workspace policy parameters
  *   ports             ./ports              BrokerStore · ScopeResolver · RoleResolver · GrantSigner · Clock
  *   implementations   ./memory-store       MemoryBrokerStore (tests / local dev only)
- *                     ./grant-signer       JoseGrantSigner (replaceable)
+ *                     ./credential-signer  CredentialGrantSigner (the credential broker's control-plane signer)
+ *                     ./platform-store     PlatformBrokerStore (platform control store: Postgres / PGlite)
  *                     ./product-adapters   product-store ScopeResolver / RoleResolver
  *   wiring            ./platform           createBroker · platformBroker · registerPlatformBrokerStore
  *   product bridge    ./action-bridge      checkActionThroughBroker (not wired into runAction)
@@ -54,7 +55,8 @@ export {
 export { getWorkspacePolicy, setWorkspacePolicy, type WorkspacePolicyView } from "./policy-settings";
 export { evaluate, applyGuards, buildPlanFacts, raiseRisk, originFor, type Evaluation, type EvaluationRequest } from "./evaluate";
 export { MemoryBrokerStore } from "./memory-store";
-export { JoseGrantSigner, verifyGrantJws, GRANT_TYP, MAX_GRANT_LIFETIME_SEC, SIGNING_JWK_ENV } from "./grant-signer";
+export { CredentialGrantSigner } from "./credential-signer";
+export { PlatformBrokerStore, mapStoreError } from "./platform-store";
 export { productRoleResolver, productScopeResolver, credentialDirectory, type IntegrationDirectory, type IntegrationGrant } from "./product-adapters";
 export { ACTION_CAPABILITY_MAP, checkActionThroughBroker, mappingFor, principalFromAction, type ActionMapping, type BridgeResult } from "./action-bridge";
 export { findSecret, scrubSecrets } from "./secret-guard";

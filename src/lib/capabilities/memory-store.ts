@@ -7,11 +7,13 @@
  *    is a `null` / `not_found`, indistinguishable from a missing one.
  *  - **Digests are computed here** from the proposal, never accepted.
  *  - **Idempotency** is reserved in the same critical section as the insert.
- *  - **Conditional transitions.** `transition` moves an operation only from one
- *    of the stated statuses along a legal edge; of two racing writers exactly
- *    one gets a row back. `running` is reachable only through
- *    `claimForExecution`; `awaiting_approval → approved` only through
+ *  - **Conditional transitions.** `cancelOperation`, `expireOperation` and
+ *    `completeOperation` move an operation only from the statuses they name; of
+ *    two racing writers exactly one gets a row back. `running` is reachable only
+ *    through `claimForExecution`; `awaiting_approval → approved` only through
  *    `recordApproval`. Terminal is terminal.
+ *  - **Ledger events** are appended in the same critical section as the change,
+ *    with the same types and data shapes the platform store's services append.
  *  - **Approvals are single-use.** `claimForExecution` consumes each valid
  *    approval exactly once, atomically with the move to `running`.
  *  - **Grants are single-use.** `consumeGrant` is true exactly once.
@@ -28,13 +30,14 @@
  */
 import { digest } from "@/lib/controlplane/digest";
 import {
-  TERMINAL_OPERATION_STATUSES,
   type ApprovalRecord,
   type ApprovalRequirement,
   type OperationRecord,
   type OperationStatus,
   type PlatformEvent,
+  type PlatformEventType,
   type PolicyDecisionRecord,
+  type Principal,
 } from "@/lib/controlplane/types";
 import type { AutonomyLevel } from "@/lib/policy";
 import { BrokerError, notFound } from "./errors";
@@ -54,26 +57,11 @@ import {
   type PageRequest,
   type RecordApprovalRequest,
   type RecordApprovalResult,
-  type TransitionRequest,
+  type CompleteRequest,
   type ClaimRequest,
   type WorkspacePolicySettings,
 } from "./ports";
 import { findSecret } from "./secret-guard";
-
-const ALLOWED_TRANSITIONS: Readonly<Record<OperationStatus, readonly OperationStatus[]>> = {
-  proposed: ["awaiting_approval", "approved", "denied", "cancelled", "expired"],
-  awaiting_approval: ["approved", "rejected", "cancelled", "expired"],
-  approved: ["queued", "running", "cancelled", "expired"],
-  queued: ["running", "cancelled", "expired"],
-  running: ["succeeded", "failed", "uncertain"],
-  rejected: [],
-  denied: [],
-  succeeded: [],
-  failed: [],
-  uncertain: [],
-  cancelled: [],
-  expired: [],
-};
 
 const ROLE_RANK = { viewer: 0, editor: 1, admin: 2 } as const;
 const DIGEST = /^[0-9a-f]{64}$/;
@@ -83,7 +71,7 @@ const MAX_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_EVENT_BYTES = 64 * 1024;
 
-const isTerminal = (status: OperationStatus): boolean => TERMINAL_OPERATION_STATUSES.includes(status);
+const PRE_EXECUTION: readonly OperationStatus[] = ["proposed", "awaiting_approval", "approved", "queued"];
 const clone = <T>(value: T): T => structuredClone(value);
 const opKey = (workspaceId: string, id: string): string => `${workspaceId}\u0000${id}`;
 
@@ -231,7 +219,16 @@ export class MemoryBrokerStore implements BrokerStore {
     };
     this.operations.set(opKey(workspaceId, input.id), { seq: ++this.seq, record });
     this.decisions.set(decision.id, decision);
-    for (const event of input.events) this.appendEventSync(event);
+    // The same events the platform store's proposeOperation + recordPolicyOutcome append.
+    this.emitFor(record, "operation.proposed", {
+      actor: principal,
+      data: { capability: record.capability, status: "proposed", proposalDigest: record.proposalDigest, risk: proposal.risk, summary: proposal.summary },
+    });
+    this.emitFor(record, "policy.evaluated", {
+      data: { outcome: decision.outcome, policyVersion: decision.policyVersion, reasons: decision.reasons.map((r) => r.code) },
+    });
+    if (input.status === "approved") this.emitFor(record, "operation.approved", { data: { by: "policy" } });
+    if (input.status === "denied") this.emitFor(record, "operation.denied", { data: { reasons: decision.reasons.map((r) => r.code) } });
     return { operation: clone(record), decision: clone(decision), created: true };
   }
 
@@ -264,42 +261,76 @@ export class MemoryBrokerStore implements BrokerStore {
     return { items: items.map((s) => clone(s.record)), nextCursor };
   }
 
-  async transition(input: TransitionRequest): Promise<OperationRecord | null> {
-    if (input.from.length === 0) throw new BrokerError("invalid_request", "transition needs at least one `from` status.");
-    for (const from of input.from) {
-      if (!ALLOWED_TRANSITIONS[from].includes(input.to)) throw new BrokerError("invalid_state", `Illegal operation transition ${from} to ${input.to}.`);
-    }
-    if (input.to === "running") throw new BrokerError("invalid_state", "An operation becomes running only through claimForExecution.");
-    if (input.to === "approved" && input.from.includes("awaiting_approval")) {
-      throw new BrokerError("invalid_state", "An operation awaiting approval is approved only by recordApproval.");
-    }
-    const patch = input.patch ?? {};
-    if (patch.result !== undefined) {
-      const secret = findSecret(patch.result, "result");
+  async cancelOperation(input: { workspaceId: string; id: string; reason?: string; actor?: Principal }): Promise<OperationRecord | null> {
+    const stored = this.operations.get(opKey(input.workspaceId, input.id));
+    if (!stored || !PRE_EXECUTION.includes(stored.record.status)) return null;
+    const op = stored.record;
+    op.status = "cancelled";
+    op.updatedAt = this.nowIso();
+    op.finishedAt = op.updatedAt;
+    if (input.reason !== undefined) op.error = input.reason.slice(0, 4000);
+    this.revokeLiveGrants(input.workspaceId, op.id);
+    this.emitFor(op, "operation.cancelled", { actor: input.actor, data: input.reason ? { reason: input.reason.slice(0, 500) } : {} });
+    return clone(op);
+  }
+
+  async expireOperation(input: { workspaceId: string; id: string }): Promise<OperationRecord | null> {
+    const stored = this.operations.get(opKey(input.workspaceId, input.id));
+    if (!stored || !PRE_EXECUTION.includes(stored.record.status) || Date.parse(stored.record.expiresAt) > this.nowMs()) return null;
+    const op = stored.record;
+    op.status = "expired";
+    op.updatedAt = this.nowIso();
+    op.finishedAt = op.updatedAt;
+    this.revokeLiveGrants(input.workspaceId, op.id);
+    this.emitFor(op, "operation.cancelled", { data: { reason: "expired" } });
+    return clone(op);
+  }
+
+  async completeOperation(input: CompleteRequest): Promise<OperationRecord | null> {
+    if (input.outcome !== "succeeded" && input.outcome !== "failed" && input.outcome !== "uncertain") throw new BrokerError("invalid_request", "outcome must be succeeded, failed or uncertain.");
+    if (input.result !== undefined) {
+      const secret = findSecret(input.result, "result");
       if (secret) throw new BrokerError("secret_material", `Refusing to store ${secret.what} at ${secret.path}.`);
     }
-    if (patch.error !== undefined && patch.error.length > 4000) throw new BrokerError("invalid_request", "error is too long (max 4000 characters).");
+    if (input.error !== undefined && input.error.length > 4000) throw new BrokerError("invalid_request", "error is too long (max 4000 characters).");
     if (input.fence) this.assertFence(input.fence.scope, input.fence.fenceToken);
-
     const stored = this.operations.get(opKey(input.workspaceId, input.id));
-    if (!stored) return null;
+    if (!stored || stored.record.status !== "running") return null;
     const op = stored.record;
-    const terminal = isTerminal(input.to);
-    if (!input.from.includes(op.status)) return null;
-    if (input.to === "approved" && op.approvalRequired) return null;
-    if (!terminal && Date.parse(op.expiresAt) <= this.nowMs()) return null;
     if (input.fence && !(op.leaseScope === input.fence.scope && op.fenceToken === input.fence.fenceToken)) return null;
-
-    op.status = input.to;
+    op.status = input.outcome;
     op.updatedAt = this.nowIso();
-    if (patch.result !== undefined) op.result = clone(patch.result);
-    if (patch.error !== undefined) op.error = patch.error;
-    if (terminal) {
-      op.finishedAt = this.nowIso();
-      stored.leaseHolder = undefined;
-      stored.leaseUntilMs = undefined;
-    }
+    op.finishedAt = op.updatedAt;
+    if (input.result !== undefined) op.result = clone(input.result);
+    if (input.error !== undefined) op.error = input.error;
+    stored.leaseHolder = undefined;
+    stored.leaseUntilMs = undefined;
+    this.emitFor(op, input.outcome === "succeeded" ? "operation.succeeded" : input.outcome === "failed" ? "operation.failed" : "operation.uncertain", {
+      actor: input.actor,
+      data: input.error ? { error: input.error.slice(0, 500) } : {},
+    });
     return clone(op);
+  }
+
+  private revokeLiveGrants(workspaceId: string, operationId: string): void {
+    for (const grant of this.grants.values()) {
+      if (grant.workspaceId === workspaceId && grant.operationId === operationId && !grant.revokedAt && !grant.consumedAt) grant.revokedAt = this.nowIso();
+    }
+  }
+
+  /** Append a ledger event about an operation, like the platform store's emitForOperation. */
+  private emitFor(op: OperationRecord, type: PlatformEventType, extra: { actor?: Principal; data?: Record<string, unknown> } = {}): void {
+    this.appendEventSync({
+      type,
+      workspaceId: op.workspaceId,
+      projectId: op.projectId,
+      environmentId: op.environmentId,
+      resourceId: op.resourceId,
+      operationId: op.id,
+      correlationId: op.correlationId,
+      actor: extra.actor,
+      data: extra.data ?? {},
+    });
   }
 
   async claimForExecution(input: ClaimRequest): Promise<OperationRecord> {
@@ -337,6 +368,7 @@ export class MemoryBrokerStore implements BrokerStore {
     op.fenceToken = input.lease?.fenceToken;
     stored.leaseHolder = input.holder;
     stored.leaseUntilMs = this.nowMs() + leaseMs;
+    this.emitFor(op, "operation.started", { data: { holder: input.holder, leaseScope: op.leaseScope, fenceToken: op.fenceToken } });
     return clone(op);
   }
 
@@ -458,6 +490,13 @@ export class MemoryBrokerStore implements BrokerStore {
         (a) => a.record.workspaceId === input.workspaceId && a.record.operationId === op.id && a.record.decision === "approve" && a.record.proposalDigest === input.proposalDigest
       ).length;
       if (have >= need) this.moveAwaiting(stored, "approved");
+    }
+    const after: OperationStatus = stored.record.status;
+    if (after === "approved" || after === "rejected") {
+      this.emitFor(op, after === "approved" ? "operation.approved" : "operation.rejected", {
+        actor: approver,
+        data: { approvalId: record.id, approverRole: input.approverRole, approvals: { have, need }, proposalDigest: input.proposalDigest, policyVersion: input.policyVersion },
+      });
     }
     return { approval: clone(record), operation: clone(op), approvals: { have, need } };
   }

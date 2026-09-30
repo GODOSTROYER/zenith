@@ -6,7 +6,8 @@
  *
  *   propose        validate → resolve scope server-side → decide → persist the
  *                  decision and an operation (approved | awaiting_approval |
- *                  denied), idempotently, with events
+ *                  denied), idempotently; the store appends the ledger events
+ *                  (operation.proposed, policy.evaluated, operation.approved|denied)
  *   check          the same decision, dry-run: nothing persisted, nothing logged
  *   authorizeRead  read-only capabilities: an ephemeral decision and a short
  *                  grant, NO operation row (no write amplification); the
@@ -23,7 +24,7 @@ import { capability as catalogEntry, CapabilityRequestSchema, type CapabilityDef
 import { BrokerError } from "./errors";
 import { evaluate, raiseRisk, buildPlanFacts, type Evaluation } from "./evaluate";
 import { newId, requesterOf } from "./internal";
-import type { BrokerDeps, NewEvent } from "./ports";
+import type { BrokerDeps } from "./ports";
 import { findSecret } from "./secret-guard";
 import type { BrokerProposal, CheckResult, ConstraintValue, DecisionView, ProposeContext, ProposeResult, ReadAuthorization } from "./types";
 import { decisionView, operationView } from "./views";
@@ -211,26 +212,6 @@ export async function propose(deps: BrokerDeps, rawRequest: unknown, principalIn
   const decisionId = newId(deps, "pol");
   const correlationId = ctx.correlationId ?? newId(deps, "corr");
   const scope = evaluation.resolved.scope;
-  const base = { workspaceId: scope.workspaceId, projectId: scope.projectId, environmentId: scope.environmentId, resourceId: scope.resourceId, operationId, correlationId, actor: principal };
-
-  const events: NewEvent[] = [
-    { ...base, type: "operation.proposed", data: { capability: parsed.def.name, risk: evaluation.risk, status, via: ctx.via ?? null, proposalDigest: digest(proposal) } },
-    {
-      ...base,
-      type: "policy.evaluated",
-      data: {
-        kind: "propose",
-        outcome: decision.outcome,
-        reasons: reasonCodes(decision.reasons),
-        policyVersion: evaluated.policyVersion,
-        inputDigest: evaluated.inputDigest,
-        ...(decision.approval ? { approval: decision.approval } : {}),
-        autonomyLevel: evaluation.autonomy?.level ?? null,
-        autonomyIsDefault: evaluation.autonomy?.defaulted ?? null,
-      },
-    },
-  ];
-  if (status === "denied") events.push({ ...base, type: "operation.denied", data: { capability: parsed.def.name, reasons: reasonCodes(decision.reasons) } });
 
   const idempotencyKey = parsed.request.idempotencyKey
     ? `idem_${digest({ k: principal.kind, p: principal.id, c: parsed.def.name, key: parsed.request.idempotencyKey })}`
@@ -268,7 +249,6 @@ export async function propose(deps: BrokerDeps, rawRequest: unknown, principalIn
     requestHash,
     correlationId,
     ttlMs: ctx.ttlMs ?? 24 * 60 * 60 * 1000,
-    events,
   });
 
   return {

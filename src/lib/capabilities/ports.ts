@@ -13,6 +13,16 @@
  * store, the credential broker's signer) implement them; `MemoryBrokerStore`
  * implements `BrokerStore` for tests and development with the same semantics.
  *
+ * LEDGER EVENTS BELONG TO THE STORE. The store appends the lifecycle events of
+ * every ledger change, in the same transaction as the change, so a row and its
+ * event can never disagree: `operation.proposed`, `policy.evaluated` and
+ * `operation.approved`/`operation.denied` (on create), `operation.approved`/
+ * `operation.rejected` (on a deciding approval), `operation.cancelled`,
+ * `operation.started` (claim), `operation.succeeded`/`failed`/`uncertain`. The
+ * broker appends only events the ledger does not imply (`appendEvent`):
+ * refused approvals, partial approvals, refused executions, read
+ * authorizations and settings changes.
+ *
  * Every `BrokerStore` method that reads or writes tenant data takes the
  * `workspaceId` and MUST filter on it (in SQL, for a database adapter). A
  * wrong-tenant id is indistinguishable from a missing one: `null`, or a
@@ -146,8 +156,6 @@ export interface NewOperation {
   correlationId: string;
   /** proposal / approval validity (1 min – 7 days) */
   ttlMs: number;
-  /** appended in the same transaction, and only when the operation is newly created */
-  events: NewEvent[];
 }
 
 export interface CreateOperationResult {
@@ -178,18 +186,16 @@ export interface OperationPage {
   nextCursor?: string;
 }
 
-export interface OperationPatch {
-  result?: unknown;
-  error?: string;
-}
-
-export interface TransitionRequest {
+export interface CompleteRequest {
   workspaceId: string;
   id: string;
-  from: readonly OperationStatus[];
-  to: OperationStatus;
-  patch?: OperationPatch;
+  outcome: "succeeded" | "failed" | "uncertain";
+  /** redacted, bounded summary (the broker scrubs it first) */
+  result?: unknown;
+  error?: string;
+  /** the environment-lease fence the execution ran under; a stale fence changes nothing (`lease_lost`) */
   fence?: { scope: string; fenceToken: number };
+  actor?: Principal;
 }
 
 export interface ClaimRequest {
@@ -278,12 +284,21 @@ export interface BrokerStore {
   getOperation(workspaceId: string, id: string): Promise<OperationRecord | null>;
   listOperations(workspaceId: string, filters?: OperationFilters, page?: PageRequest): Promise<OperationPage>;
   /**
-   * Conditional status change; `null` when the operation is missing, in another
-   * workspace, or not in one of the `from` statuses. Refuses `running` (only
-   * `claimForExecution` may set it) and, for an operation awaiting approval,
-   * `approved` (only `recordApproval` may).
+   * Cancel an operation that has not started (`proposed`, `awaiting_approval`,
+   * `approved`, `queued`): one conditional transition that also revokes its live
+   * grants. `null` when it is missing, in another workspace, or already
+   * running/terminal.
    */
-  transition(input: TransitionRequest): Promise<OperationRecord | null>;
+  cancelOperation(input: { workspaceId: string; id: string; reason?: string; actor?: Principal }): Promise<OperationRecord | null>;
+  /** Move a pre-execution operation that is past its `expiresAt` to `expired`. `null` when it is not in such a state. */
+  expireOperation(input: { workspaceId: string; id: string }): Promise<OperationRecord | null>;
+  /**
+   * End a RUNNING operation (`running → succeeded | failed | uncertain`) with a
+   * conditional transition. `null` when it is not running (the reconciler
+   * already made it `uncertain`, or it was finished): the caller must not report
+   * success. `lease_lost` when `fence` is stale.
+   */
+  completeOperation(input: CompleteRequest): Promise<OperationRecord | null>;
   /**
    * The single-use gate to execution. Atomically: require `approved`/`queued`,
    * digest equality, not expired, live lease fence (when given), consume the

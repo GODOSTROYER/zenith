@@ -149,7 +149,7 @@ export async function beginExecution(deps: BrokerDeps, input: BeginExecutionInpu
     throw new BrokerError("invalid_state", `This operation is ${op.status}; only an approved operation can begin execution.`, undefined, { status: op.status });
   }
   if (Date.parse(op.expiresAt) <= deps.clock.now().getTime()) {
-    await deps.store.transition({ workspaceId, id: op.id, from: [op.status], to: "expired" });
+    await deps.store.expireOperation({ workspaceId, id: op.id });
     throw new BrokerError("operation_expired", "The operation expired before it could be executed.", "Propose it again.");
   }
   const proposal = op.proposal as BrokerProposal;
@@ -179,14 +179,13 @@ export async function beginExecution(deps: BrokerDeps, input: BeginExecutionInpu
         reasons: re.evaluation.decision.reasons,
       });
     }
-    await deps.store.transition({
+    // `denied` is reachable only from `proposed`; an approved operation that policy now denies is cancelled
+    // (which also revokes its grants) and the denial is recorded as a decision and an event.
+    await deps.store.cancelOperation({
       workspaceId,
       id: op.id,
-      from: ["approved", "queued"],
-      to: "cancelled",
-      patch: { error: `Denied at execution by current policy: ${codes(reasons).join(", ")}. Nothing was executed.` },
+      reason: `Denied at execution by current policy: ${codes(reasons).join(", ")}. Nothing was executed.`,
     });
-    await deps.store.revokeGrantsForOperation(workspaceId, op.id);
     const base = eventBase(op);
     await tryAppend(deps, { ...base, type: "policy.evaluated", data: { kind: "execution_refused", outcome: "deny", reasons: codes(reasons) } });
     await tryAppend(deps, { ...base, type: "operation.denied", data: { at: "execution", reasons: codes(reasons) } });
@@ -286,17 +285,18 @@ export async function beginExecution(deps: BrokerDeps, input: BeginExecutionInpu
       issuedAt: new Date(iat * 1000).toISOString(),
       expiresAt: new Date(exp * 1000).toISOString(),
     });
+    // The store appended operation.started with the claim; this records what was handed out.
     await tryAppend(deps, {
       ...eventBase(claimed),
-      type: "operation.started",
+      type: "policy.evaluated",
       actor: claimed.principal,
-      data: { holder: input.holder, audience: input.audience, grantId: jti, grantExpiresAt: new Date(exp * 1000).toISOString(), policyVersion: evaluation.evaluated.policyVersion, fence: input.lease?.fenceToken ?? null },
+      data: { kind: "grant_issued", grantId: jti, audience: input.audience, expiresAt: new Date(exp * 1000).toISOString(), policyVersion: evaluation.evaluated.policyVersion, fence: input.lease?.fenceToken ?? null },
     });
     return { grant, claims, operation: operationView(claimed) };
   } catch (error) {
     // Nothing has run: no executor ever received a grant. Say so truthfully.
     await deps.store
-      .transition({ workspaceId, id: op.id, from: ["running"], to: "failed", patch: { error: "Grant issuance failed before any execution began; nothing was executed." } })
+      .completeOperation({ workspaceId, id: op.id, outcome: "failed", error: "Grant issuance failed before any execution began; nothing was executed." })
       .catch(() => null);
     await deps.store.revokeGrantsForOperation(workspaceId, op.id).catch(() => 0);
     if (isBrokerError(error)) throw new BrokerError("grant_issue_failed", error.message, "Propose again once the signing key is available.");
@@ -340,24 +340,20 @@ export async function completeExecution(deps: BrokerDeps, input: CompleteExecuti
   if (op.status === outcome) return operationView(op);
 
   const error = input.error === undefined ? undefined : String(scrubSecrets(input.error)).slice(0, 4000);
-  const moved = await deps.store.transition({
+  const moved = await deps.store.completeOperation({
     workspaceId,
     id: operationId,
-    from: ["running"],
-    to: outcome,
-    patch: { result: boundedResult(input.result), error },
+    outcome,
+    result: boundedResult(input.result),
+    error,
     fence: input.fence,
+    actor: op.principal,
   });
   if (!moved) {
     throw new BrokerError("invalid_state", `This operation is ${op.status}; only a running operation can be completed.`, undefined, { status: op.status });
   }
+  // The store appended operation.succeeded / failed / uncertain with the change.
   await deps.store.revokeGrantsForOperation(workspaceId, operationId);
-  await tryAppend(deps, {
-    ...eventBase(moved),
-    type: outcome === "succeeded" ? "operation.succeeded" : outcome === "failed" ? "operation.failed" : "operation.uncertain",
-    actor: moved.principal,
-    data: { outcome, ...(error ? { error: error.slice(0, 500) } : {}) },
-  });
   return operationView(moved);
 }
 

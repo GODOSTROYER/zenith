@@ -122,7 +122,7 @@ async function decide(deps: BrokerDeps, input: DecideInput, decision: "approve" 
       throw new BrokerError("invalid_state", `This operation is ${op.status}; only an operation awaiting approval can be approved or rejected.`, undefined, { status: op.status });
     }
     if (Date.parse(op.expiresAt) <= deps.clock.now().getTime()) {
-      await deps.store.transition({ workspaceId, id: op.id, from: ["awaiting_approval"], to: "expired" });
+      await deps.store.expireOperation({ workspaceId, id: op.id });
       throw new BrokerError("operation_expired", "The operation expired before it was reviewed.", "Propose it again.");
     }
     if (op.proposalDigest !== input.proposalDigest) {
@@ -165,13 +165,20 @@ async function decide(deps: BrokerDeps, input: DecideInput, decision: "approve" 
     });
 
     const finalized = recorded.operation.status !== "awaiting_approval";
-    const base = { workspaceId, projectId: op.projectId, environmentId: op.environmentId, resourceId: op.resourceId, operationId, correlationId: op.correlationId, actor: approver };
-    if (recorded.operation.status === "approved") {
-      await deps.store.appendEvent({ ...base, type: "operation.approved", data: { approvals: recorded.approvals, policyVersion, approvalId: recorded.approval.id } });
-    } else if (recorded.operation.status === "rejected") {
-      await deps.store.appendEvent({ ...base, type: "operation.rejected", data: { approvalId: recorded.approval.id, by: approver.id } });
-    } else {
-      await deps.store.appendEvent({ ...base, type: "policy.evaluated", data: { kind: "approval_recorded", approvals: recorded.approvals, policyVersion, approvalId: recorded.approval.id } });
+    // The store appended operation.approved / operation.rejected with the decision. A partial
+    // multi-approver set changes no status, so the broker records that it happened.
+    if (!finalized) {
+      await deps.store.appendEvent({
+        workspaceId,
+        projectId: op.projectId,
+        environmentId: op.environmentId,
+        resourceId: op.resourceId,
+        operationId,
+        correlationId: op.correlationId,
+        actor: approver,
+        type: "policy.evaluated",
+        data: { kind: "approval_recorded", approvals: recorded.approvals, policyVersion, approvalId: recorded.approval.id },
+      });
     }
     return {
       operation: operationView(recorded.operation),
@@ -226,29 +233,16 @@ export async function revokeApproval(
       op,
     });
   }
-  const reason = scrubSecrets((input.reason ?? "").replace(/[\r\n\t]+/g, " ").slice(0, 300));
-  const moved = await deps.store.transition({
+  const reason = scrubSecrets((input.reason ?? "").replace(/\s+/g, " ").slice(0, 300));
+  const moved = await deps.store.cancelOperation({
     workspaceId,
     id: operationId,
-    from: ["awaiting_approval", "approved"],
-    to: "cancelled",
-    patch: { error: `Approval revoked by ${actor.id}${reason ? `: ${reason}` : ""}. Propose again if the change is still wanted.` },
+    reason: `Approval revoked by ${actor.id}${reason ? `: ${reason}` : ""}. Propose again if the change is still wanted.`,
+    actor,
   });
   if (!moved) {
     throw new BrokerError("invalid_state", `This operation is ${op.status}; approval can be withdrawn only before execution starts.`, undefined, { status: op.status });
   }
-  await deps.store.revokeGrantsForOperation(workspaceId, operationId);
-  await deps.store.appendEvent({
-    type: "operation.cancelled",
-    workspaceId,
-    projectId: op.projectId,
-    environmentId: op.environmentId,
-    resourceId: op.resourceId,
-    operationId,
-    correlationId: op.correlationId,
-    actor,
-    data: { reason: "approval_revoked", by: actor.id },
-  });
   return { operation: operationView(moved) };
 }
 

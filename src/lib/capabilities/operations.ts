@@ -9,7 +9,7 @@
  */
 import type { OperationRecord, Principal } from "@/lib/controlplane/types";
 import { BrokerError, notFound } from "./errors";
-import { memberAccess, newId, requesterOf } from "./internal";
+import { memberAccess, requesterOf } from "./internal";
 import { ROLE_RANK, type BrokerDeps, type OperationFilters, type ResolvedAccess } from "./ports";
 import { scrubSecrets } from "./secret-guard";
 import type { DecisionView, OperationView } from "./types";
@@ -123,28 +123,15 @@ export async function cancelOperation(deps: BrokerDeps, input: { workspaceId: st
   if (!isRequester && !isRequestersHuman && !isStaff) {
     throw new BrokerError("role_insufficient", "Only the requester, or an editor or admin, can cancel this operation.", "Ask one of them.");
   }
-  const reason = scrubSecrets((input.reason ?? "").replace(/[\r\n\t]+/g, " ").slice(0, 300));
-  const moved = await deps.store.transition({
+  const reason = scrubSecrets((input.reason ?? "").replace(/\s+/g, " ").slice(0, 300));
+  const moved = await deps.store.cancelOperation({
     workspaceId,
     id: op.id,
-    from: ["proposed", "awaiting_approval", "approved", "queued"],
-    to: "cancelled",
-    patch: { error: `Cancelled by ${principal.kind} ${principal.id}${reason ? `: ${reason}` : ""}.` },
+    reason: `Cancelled by ${principal.kind} ${principal.id}${reason ? `: ${reason}` : ""}.`,
+    actor: principal,
   });
   if (!moved) {
     throw new BrokerError("invalid_state", `This operation is ${op.status}; only an operation that has not started can be cancelled.`, undefined, { status: op.status });
   }
-  await deps.store.revokeGrantsForOperation(workspaceId, op.id);
-  await deps.store.appendEvent({
-    type: "operation.cancelled",
-    workspaceId,
-    projectId: op.projectId,
-    environmentId: op.environmentId,
-    resourceId: op.resourceId,
-    operationId: op.id,
-    correlationId: op.correlationId ?? newId(deps, "corr"),
-    actor: principal,
-    data: { reason: "cancelled", by: principal.id },
-  });
   return operationView(moved);
 }

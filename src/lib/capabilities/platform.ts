@@ -6,17 +6,23 @@
  *  - `ZENITH_PLATFORM_BROKER_MEMORY=1` → a process-wide `MemoryBrokerStore`.
  *    For tests and local development ONLY: state is per-process and lost on
  *    restart, and two instances share nothing. Never set it in production.
- *  - otherwise, if the orchestrator has called `registerPlatformBrokerStore()`
- *    with the platform control store adapter, that store is used.
- *  - otherwise it throws `platform_store_unavailable`. It NEVER falls back to
- *    memory silently: an authorization ledger that quietly lives in RAM is
- *    worse than one that refuses to start.
+ *  - otherwise, a store the orchestrator registered with
+ *    `registerPlatformBrokerStore()` (tests, or a pre-opened adapter).
+ *  - otherwise the PLATFORM CONTROL STORE: `PlatformBrokerStore` over
+ *    `platformDb()` (Postgres from `ZENITH_PLATFORM_DB_URL`, or PGlite). In a
+ *    production build a store that was not configured explicitly (no
+ *    `ZENITH_PLATFORM_DB`, no URL) is refused rather than defaulting to a
+ *    local PGlite directory: `platform_store_unavailable`.
+ *  If the store cannot be opened the broker answers `platform_store_unavailable`;
+ *  it NEVER falls back to memory silently — an authorization ledger that quietly
+ *  lives in RAM is worse than one that refuses to start.
  *
  * The other ports default to the product store (`productScopeResolver`,
- * `productRoleResolver`), the jose signer over `ZENITH_CONTROL_SIGNING_JWK`
- * (replaceable through `registerPlatformBrokerPorts`), the system clock and the
- * committed OPA bundle.
+ * `productRoleResolver`), the credential broker's control-plane signer
+ * (`CredentialGrantSigner`, key from `ZENITH_CONTROL_SIGNING_JWK`), the system
+ * clock and the committed OPA bundle.
  */
+import { platformDb, platformDbConfigFromEnv } from "@/lib/controlplane/db";
 import { loadPolicyEngine } from "@/lib/policy";
 import type { Principal } from "@/lib/controlplane/types";
 import { approve, reject, revokeApproval } from "./approvals";
@@ -24,8 +30,9 @@ import { getEnvironmentAutonomy, setEnvironmentAutonomy } from "./autonomy";
 import { authorizeRead, check, propose } from "./broker";
 import { BrokerError } from "./errors";
 import { beginExecution, completeExecution, markUncertain } from "./execution";
-import { JoseGrantSigner } from "./grant-signer";
+import { CredentialGrantSigner } from "./credential-signer";
 import { MemoryBrokerStore } from "./memory-store";
+import { PlatformBrokerStore } from "./platform-store";
 import { cancelOperation, getOperationDetail, listOperationEvents, listOperations } from "./operations";
 import { getWorkspacePolicy, setWorkspacePolicy } from "./policy-settings";
 import { systemClock, type BrokerDeps, type BrokerStore, type GrantSigner, type RoleResolver, type ScopeResolver } from "./ports";
@@ -126,28 +133,46 @@ export function resetPlatformBrokerForTests(): void {
 
 export const isMemoryStoreEnabled = (): boolean => process.env[MEMORY_STORE_ENV] === "1";
 
-export function platformBroker(): Broker {
+async function defaultStore(): Promise<BrokerStore> {
+  let config;
+  try {
+    config = platformDbConfigFromEnv();
+  } catch {
+    throw storeUnavailable("The platform control store is misconfigured (check ZENITH_PLATFORM_DB and ZENITH_PLATFORM_DB_URL).");
+  }
+  if (process.env.NODE_ENV === "production" && config.source === "default") {
+    throw storeUnavailable("This production build has no platform control store configured (ZENITH_PLATFORM_DB_URL), and will not default to a local PGlite directory.");
+  }
+  try {
+    return new PlatformBrokerStore(await platformDb());
+  } catch {
+    // The store's own error may name hosts or paths; the operator reads the server log.
+    throw storeUnavailable("The platform control store could not be opened.");
+  }
+}
+
+const storeUnavailable = (message: string): BrokerError =>
+  new BrokerError(
+    "platform_store_unavailable",
+    `${message} Capability requests are refused until it is available.`,
+    `An operator must configure the platform store. For local development only, ${MEMORY_STORE_ENV}=1 uses a per-process in-memory store.`
+  );
+
+export async function platformBroker(): Promise<Broker> {
   const s = state();
   if (s.override) return s.override;
 
-  let store: BrokerStore | undefined;
+  let store: BrokerStore;
   if (isMemoryStoreEnabled()) store = s.memoryStore ??= new MemoryBrokerStore();
-  else store = s.registeredStore;
-  if (!store) {
-    throw new BrokerError(
-      "platform_store_unavailable",
-      "The platform control store is not connected to the capability broker in this deployment, so capability requests are refused.",
-      `An operator must connect the platform store (registerPlatformBrokerStore). For local development only, set ${MEMORY_STORE_ENV}=1.`
-    );
-  }
+  else if (s.registeredStore) store = s.registeredStore;
+  else store = await defaultStore();
   if (s.cached && s.cached.key === store) return s.cached.broker;
 
-  const signer = s.ports.signer ?? new JoseGrantSigner();
   const broker = createBroker({
     store,
     scopes: s.ports.scopes ?? productScopeResolver(),
     roles: s.ports.roles ?? productRoleResolver(),
-    signer,
+    signer: s.ports.signer ?? new CredentialGrantSigner(),
     clock: systemClock,
     policy: () => loadPolicyEngine(),
   });

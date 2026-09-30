@@ -12,7 +12,11 @@ export async function middleware(request: NextRequest) {
   // `/login?next=…` redirect (src/lib/supabase/middleware.ts:57-70).
   if (["/api/agent/v1/mcp", "/api/agent/v2/mcp", "/api/agent/v2/tools", "/api/agent/v2/source",
     "/api/agent/link/start", "/api/agent/link/token",
-    "/.well-known/oauth-protected-resource/api/agent/v2/mcp"].includes(request.nextUrl.pathname)) return NextResponse.next({ request });
+    "/.well-known/oauth-protected-resource/api/agent/v2/mcp",
+    // The workload-identity OIDC issuer (ADR-0006): cloud STS services fetch
+    // discovery and JWKS anonymously. Public keys only; see src/lib/credentials/oidc.
+    "/api/oidc/.well-known/openid-configuration", "/api/oidc/jwks",
+  ].includes(request.nextUrl.pathname)) return NextResponse.next({ request });
   return updateSession(request);
 }
 export const config = { matcher: ["/((?!_next/static|_next/image).*)"] };

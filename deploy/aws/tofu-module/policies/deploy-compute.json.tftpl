@@ -1,0 +1,145 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "EcsCreateTaggedClustersAndServices",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:CreateCluster",
+        "ecs:CreateService",
+        "ecs:CreateCapacityProvider"
+      ],
+      "Resource": [
+        "arn:${partition}:ecs:*:${account_id}:cluster/zenith-*",
+        "arn:${partition}:ecs:*:${account_id}:service/zenith-*/*",
+        "arn:${partition}:ecs:*:${account_id}:capacity-provider/zenith-*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/zenith:managed": "true"
+        }
+      }
+    },
+    {
+      "Sid": "EcsManageZenithResources",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:UpdateCluster",
+        "ecs:UpdateClusterSettings",
+        "ecs:PutClusterCapacityProviders",
+        "ecs:DeleteCluster",
+        "ecs:UpdateService",
+        "ecs:DeleteService",
+        "ecs:UpdateCapacityProvider",
+        "ecs:DeleteCapacityProvider",
+        "ecs:RunTask",
+        "ecs:StopTask",
+        "ecs:TagResource",
+        "ecs:UntagResource"
+      ],
+      "Resource": [
+        "arn:${partition}:ecs:*:${account_id}:cluster/zenith-*",
+        "arn:${partition}:ecs:*:${account_id}:service/zenith-*/*",
+        "arn:${partition}:ecs:*:${account_id}:capacity-provider/zenith-*",
+        "arn:${partition}:ecs:*:${account_id}:task/zenith-*/*",
+        "arn:${partition}:ecs:*:${account_id}:task-definition/zenith-*:*"
+      ]
+    },
+    {
+      "Sid": "EcsTaskDefinitionRevisions",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:RegisterTaskDefinition",
+        "ecs:DeregisterTaskDefinition"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "EcrManageZenithRepositories",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:CreateRepository",
+        "ecr:DeleteRepository",
+        "ecr:PutLifecyclePolicy",
+        "ecr:DeleteLifecyclePolicy",
+        "ecr:SetRepositoryPolicy",
+        "ecr:DeleteRepositoryPolicy",
+        "ecr:PutImageScanningConfiguration",
+        "ecr:PutImageTagMutability",
+        "ecr:BatchDeleteImage",
+        "ecr:TagResource",
+        "ecr:UntagResource"
+      ],
+      "Resource": "arn:${partition}:ecr:*:${account_id}:repository/zenith-*"
+    },
+    {
+      "Sid": "LambdaCreateTaggedFunctions",
+      "Effect": "Allow",
+      "Action": "lambda:CreateFunction",
+      "Resource": "arn:${partition}:lambda:*:${account_id}:function:zenith-*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/zenith:managed": "true"
+        }
+      }
+    },
+    {
+      "Sid": "LambdaManageZenithFunctions",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:UpdateFunctionCode",
+        "lambda:UpdateFunctionConfiguration",
+        "lambda:DeleteFunction",
+        "lambda:PublishVersion",
+        "lambda:CreateAlias",
+        "lambda:UpdateAlias",
+        "lambda:DeleteAlias",
+        "lambda:AddPermission",
+        "lambda:RemovePermission",
+        "lambda:PutFunctionConcurrency",
+        "lambda:DeleteFunctionConcurrency",
+        "lambda:TagResource",
+        "lambda:UntagResource",
+        "lambda:InvokeFunction",
+        "lambda:GetFunction",
+        "lambda:GetPolicy"
+      ],
+      "Resource": [
+        "arn:${partition}:lambda:*:${account_id}:function:zenith-*",
+        "arn:${partition}:lambda:*:${account_id}:function:zenith-*:*"
+      ]
+    },
+    {
+      "Sid": "EventBridgeManageZenithRules",
+      "Effect": "Allow",
+      "Action": [
+        "events:PutRule",
+        "events:DeleteRule",
+        "events:EnableRule",
+        "events:DisableRule",
+        "events:PutTargets",
+        "events:RemoveTargets",
+        "events:TagResource",
+        "events:UntagResource"
+      ],
+      "Resource": [
+        "arn:${partition}:events:*:${account_id}:rule/zenith-*",
+        "arn:${partition}:events:*:${account_id}:rule/*/zenith-*"
+      ]
+    },
+    {
+      "Sid": "CodeBuildManageZenithProjects",
+      "Effect": "Allow",
+      "Action": [
+        "codebuild:CreateProject",
+        "codebuild:UpdateProject",
+        "codebuild:DeleteProject",
+        "codebuild:StartBuild",
+        "codebuild:StopBuild",
+        "codebuild:BatchGetBuilds",
+        "codebuild:BatchGetProjects"
+      ],
+      "Resource": "arn:${partition}:codebuild:*:${account_id}:project/zenith-*"
+    }
+  ]
+}

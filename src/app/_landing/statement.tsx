@@ -3,21 +3,25 @@
 import { useRef } from "react";
 import { useCountOnView, useReveal, useStatementReveal } from "./landing-motion";
 import styles from "./statement.module.css";
+import { StartupPrograms } from "./startup-programs";
 
 const STATEMENT = "Zenith turns the app you’re building into infrastructure you can see, change and run. Before anything runs. And long after.";
 const ACCENT_FROM = 12; // "Before anything runs. And long after."
 
-/** One sentence, lit word by word as it scrolls. The only paragraph the page asks anyone to read. */
+/** Logos hand off to the statement in one centered stage before the product tour. */
 export function Statement() {
   const section = useRef<HTMLElement>(null);
   useStatementReveal(section);
   const words = STATEMENT.split(" ");
   return (
-    <section ref={section} id="statement" className={styles.statement} data-chapter="hero" aria-label="What Zenith does">
+    <section ref={section} id="startup-programs" className={styles.statement} data-chapter="hero" aria-label="Zenith introduction">
       <div className={styles.sticky}>
-        <p className={styles.words}>
-          {words.map((word, index) => <span key={index} data-word className={index >= ACCENT_FROM ? styles.accent : undefined}>{word} </span>)}
-        </p>
+        <div className={styles.scene} data-program-scene><StartupPrograms /></div>
+        <div id="statement" className={styles.scene} data-statement-scene role="region" aria-label="What Zenith does">
+          <p className={styles.words}>
+            {words.map((word, index) => <span key={index} data-word className={index >= ACCENT_FROM ? styles.accent : undefined}>{word} </span>)}
+          </p>
+        </div>
       </div>
     </section>
   );

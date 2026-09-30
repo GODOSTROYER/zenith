@@ -203,18 +203,27 @@ export function useHeaderState(root: RefObject<HTMLElement | null>) {
   }, [root]);
 }
 
-/** Words light up one after another as the pinned statement scrolls. */
+/** One centered stage: program recognition, crossfade, then word-by-word reveal. */
 export function useStatementReveal(root: RefObject<HTMLElement | null>) {
   useEffect(() => {
     const element = root.current;
     if (!element) return;
     return withGsap((gsap) => {
       const words = Array.from(element.querySelectorAll<HTMLElement>("[data-word]"));
-      if (!words.length) return;
+      const programs = element.querySelector<HTMLElement>("[data-program-scene]");
+      const statement = element.querySelector<HTMLElement>("[data-statement-scene]");
+      if (!words.length || !programs || !statement) return;
+      gsap.set(element, { attr: { "data-intro-motion": "true" } });
+      gsap.set(programs, { autoAlpha: 1, y: 0 });
+      gsap.set(statement, { autoAlpha: 0, y: 32 });
       gsap.set(words, { opacity: 0.16 });
-      const tween = gsap.to(words, { opacity: 1, ease: "none", stagger: 0.6, scrollTrigger: { trigger: element, start: "top 55%", end: "bottom 80%", scrub: 0.6 } });
-      return () => { tween.scrollTrigger?.kill(); tween.kill(); };
-    });
+      const timeline = gsap.timeline({ scrollTrigger: { trigger: element, start: "top top", end: "bottom bottom", scrub: true, invalidateOnRefresh: true } });
+      timeline.to(programs, { autoAlpha: 0, y: -32, duration: 0.55, ease: "power1.inOut" }, 0.3)
+        .to(statement, { autoAlpha: 1, y: 0, duration: 0.55, ease: "power1.out" }, 0.6)
+        .to(words, { opacity: 1, duration: 0.12, stagger: 0.075, ease: "none" }, 1.2)
+        .to({}, { duration: 0.35 });
+      return () => { timeline.scrollTrigger?.kill(); timeline.kill(); element.removeAttribute("data-intro-motion"); };
+    }, loadGsap, DESKTOP_SCROLL);
   }, [root]);
 }
 

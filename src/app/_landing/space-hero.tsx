@@ -193,7 +193,7 @@ export function SpaceHero({ cta }: { cta: Cta }) {
           {MARKS.map((mark) => <li key={mark.id} data-brand={mark.id} data-hero-mark data-enter="4">{mark.asset ? <Image src={`/cloud-logos/${mark.asset}.svg`} alt={mark.label} width={72} height={30} unoptimized /> : <span>{mark.label}</span>}</li>)}
         </ul>
       </div>
-      <a href="#statement" className={styles.scrollCue} aria-label="Scroll to the next section"><ArrowDown size={18} aria-hidden="true" /></a>
+      <a href="#startup-programs" className={styles.scrollCue} aria-label="Scroll to the next section"><ArrowDown size={18} aria-hidden="true" /></a>
     </section>
   );
 }

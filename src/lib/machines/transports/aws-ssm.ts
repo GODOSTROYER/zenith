@@ -53,12 +53,14 @@ import { redactText, truncateUtf8 } from "../redact";
 import type { MachineDriver, MachineOperation, MachineRequest, MachineResult } from "../types";
 import {
   AWS_RUN_SHELL_SCRIPT,
+  buildSsmDocuments,
   checkDocumentParameters,
   documentNameFor,
   OPERATION_DOCUMENTS,
-  ZENITH_SSM_DOCUMENTS,
   DEFAULT_SSM_DOCUMENT_PREFIX,
+  type SsmCommandDocument,
   type SsmDocumentOperation,
+  type ZenithSsmDocumentSuffix,
 } from "./aws-ssm-docs";
 import { parseSsmOutput } from "./aws-ssm-parse";
 
@@ -69,6 +71,8 @@ export interface AwsSsmDriverOptions {
   documentPrefix?: string;
   /** must match the FileRead document's deployed allowlist (default {@link DEFAULT_FILE_READ_PREFIXES}) */
   fileReadPrefixes?: readonly string[];
+  /** must match the ServiceRestart document's deployed unit allowlist, when one was set */
+  restartAllow?: readonly string[];
   /** seconds SSM may take to START the command before giving up (SendCommand.TimeoutSeconds, ≥ 30) */
   deliveryTimeoutSec?: number;
   /** poll backoff; the first poll happens after `initialMs` */
@@ -167,7 +171,14 @@ function documentParameters(req: MachineRequest, args: Record<string, unknown>, 
   }
 }
 
-function buildPlan(req: MachineRequest, args: Record<string, unknown>, o: Required<Pick<AwsSsmDriverOptions, "documentPrefix" | "fileReadPrefixes">>): Plan {
+interface PlanOptions {
+  documentPrefix: string;
+  fileReadPrefixes: readonly string[];
+  /** the documents as deployed for this environment (prefix allowlists applied), used for the local pre-check */
+  documents: Readonly<Record<ZenithSsmDocumentSuffix, SsmCommandDocument>>;
+}
+
+function buildPlan(req: MachineRequest, args: Record<string, unknown>, o: PlanOptions): Plan {
   const pollTimeout = Math.max(1, Math.min(req.timeoutSec, 999));
   if (req.operation === "machine.exec") {
     const argv = args.argv as string[];
@@ -188,7 +199,7 @@ function buildPlan(req: MachineRequest, args: Record<string, unknown>, o: Requir
   }
   if (!isDocOperation(req.operation)) throw new MachineOperationError("unsupported_operation", `${req.operation} is not implemented for aws_ssm`);
   const suffix = OPERATION_DOCUMENTS[req.operation];
-  const doc = ZENITH_SSM_DOCUMENTS[suffix];
+  const doc = o.documents[suffix];
   const values = { ...documentParameters(req, args, o.fileReadPrefixes), executionTimeout: String(pollTimeout) };
   const problems = checkDocumentParameters(doc, values);
   if (problems.length) throw new MachineOperationError("invalid_args", `parameters rejected by the ${documentNameFor(suffix, o.documentPrefix)} document contract`, { issues: problems });
@@ -291,6 +302,7 @@ const EXIT_CODE_FAILURES: Record<number, MachineFailureCode> = { 64: "invalid_pa
 export function createAwsSsmMachineDriver(options: AwsSsmDriverOptions = {}): MachineDriver {
   const prefix = options.documentPrefix ?? DEFAULT_SSM_DOCUMENT_PREFIX;
   const fileReadPrefixes = options.fileReadPrefixes ?? DEFAULT_FILE_READ_PREFIXES;
+  const documents = Object.fromEntries(buildSsmDocuments({ fileReadPrefixes, restartAllow: options.restartAllow }).map((d) => [d.suffix, d.document])) as Record<ZenithSsmDocumentSuffix, SsmCommandDocument>;
   const delivery = Math.max(30, options.deliveryTimeoutSec ?? DEFAULTS.deliveryTimeoutSec);
   const backoff = options.backoff ?? DEFAULTS.backoff;
   const sleep = options.sleep ?? defaultSleep;
@@ -308,7 +320,7 @@ export function createAwsSsmMachineDriver(options: AwsSsmDriverOptions = {}): Ma
     if (!parsed.ok) throw new MachineOperationError("invalid_args", "arguments failed validation", { issues: parsed.issues });
     const args = parsed.args as Record<string, unknown>;
 
-    const plan = buildPlan(req, args, { documentPrefix: prefix, fileReadPrefixes });
+    const plan = buildPlan(req, args, { documentPrefix: prefix, fileReadPrefixes, documents });
     const comment = ssmCommentFor(req);
     const mutating = capability(req.operation).mutates;
     const instanceId = req.target.targetId;

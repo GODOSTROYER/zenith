@@ -111,12 +111,30 @@ describe("SendCommand: exactly what the document allows", () => {
     }
   });
 
-  it("honours a custom document prefix and a custom file allowlist", async () => {
-    succeed(OUT.fileRead("x", 1, false, "/srv/app/a.txt"));
-    const { run } = setup({ documentPrefix: "Acme-", fileReadPrefixes: ["/srv/app/"] });
-    await run(requestFor("file.read", { path: "/srv/app/a.txt" })).catch(() => undefined);
-    // the FileRead document shipped with the default allowlist would refuse this pattern; the driver sends to the prefixed name
-    expect(sent()[0].DocumentName).toBe("Acme-FileRead");
+  it("honours a custom document prefix and validates against the document as specialized for the environment", async () => {
+    succeed(OUT.fileRead("x", 1, false, "/home/app/a.txt"));
+    const { run } = setup({ documentPrefix: "Acme-", fileReadPrefixes: ["/home/app/"] });
+    // /home/app/ is not in the shipped default document; the environment's specialized document allows it
+    await expect(run(requestFor("file.read", { path: "/home/app/a.txt" }))).resolves.toMatchObject({ ok: true });
+    expect(sent()[0]).toMatchObject({ DocumentName: "Acme-FileRead", Parameters: { path: ["/home/app/a.txt"] } });
+    // and the default allowlist no longer applies
+    await expect(run(requestFor("file.read", { path: "/var/log/a.log" }))).rejects.toMatchObject({ code: "denied" });
+  });
+
+  it("a restart allowlist on the environment's document is enforced locally too", async () => {
+    succeed(OUT.serviceRestart);
+    const { run } = setup({ restartAllow: ["nginx.service"] });
+    await expect(run(requestFor("machine.service.restart", { unit: "nginx.service" }))).resolves.toMatchObject({ ok: true });
+    await expect(run(requestFor("machine.service.restart", { unit: "postgresql.service" }))).rejects.toMatchObject({ code: "invalid_args", detail: { issues: ["unit: does not match the document's allowedPattern"] } });
+    expect(sent()).toHaveLength(1);
+  });
+
+  it("a value that passes argument validation but not the document's own pattern is refused locally, not by SSM", async () => {
+    const { run } = setup();
+    // 1005 characters after /var/log/ is a valid path for args (<= 1024) but longer than the document's pattern allows
+    const path = `/var/log/${"a".repeat(1005)}`;
+    await expect(run(requestFor("file.read", { path }))).rejects.toMatchObject({ code: "invalid_args" });
+    expect(ssm.calls()).toHaveLength(0);
   });
 });
 

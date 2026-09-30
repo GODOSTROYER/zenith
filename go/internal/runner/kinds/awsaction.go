@@ -44,8 +44,19 @@ var (
 // parameter, or more than one Action parameter, could be interpreted as a
 // different operation by the AWS service than the one the runner authorized
 // (parameter pollution), so it is rejected outright.
+//
+// An RPC-style claim (X-Amz-Target or Action) is only believed when the request
+// has the SHAPE of an RPC call: the JSON protocol is POST to "/", the query
+// protocol is GET or POST to "/" (SQS queue operations use /<account>/<queue>).
+// Otherwise a REST service could be handed a fake "Action=ListThings" while it
+// routes on method and path to a destructive operation; such a request is
+// refused, never reinterpreted. Services that are REST-only (restOnlyServices)
+// never accept an RPC-style claim at all.
 func ExtractAction(service, method string, u *url.URL, h http.Header, body []byte) (Action, error) {
 	act := Action{Service: strings.ToLower(service)}
+	if len(h.Values("X-Amz-Target")) > 1 {
+		return act, protocol.Errorf(protocol.CodeNotAllowed, "the request carries more than one X-Amz-Target header")
+	}
 	target := h.Get("X-Amz-Target")
 
 	var actions []string
@@ -63,6 +74,16 @@ func ExtractAction(service, method string, u *url.URL, h http.Header, body []byt
 			return act, err
 		}
 		actions = append(actions, vals["Action"]...)
+	}
+
+	rpc := target != "" || len(actions) > 0
+	if rpc {
+		if restOnlyServices[act.Service] {
+			return act, protocol.Errorf(protocol.CodeNotAllowed, "%s is a REST service: an X-Amz-Target or Action claim is not accepted; use a method+path rule", act.Service)
+		}
+		if err := rpcShapeOK(act.Service, strings.ToUpper(method), u.EscapedPath(), target != ""); err != nil {
+			return act, err
+		}
 	}
 
 	switch {
@@ -94,6 +115,39 @@ func ExtractAction(service, method string, u *url.URL, h http.Header, body []byt
 		act.Name = act.Method + " " + p
 	}
 	return act, nil
+}
+
+// restOnlyServices are SigV4 signing names of services whose API is REST
+// (routed on method and path). They can never be authorized by an
+// X-Amz-Target or Action claim, only by a "service:METHOD /path" rule.
+var restOnlyServices = map[string]bool{
+	"s3": true, "s3-outposts": true, "s3express": true, "s3-object-lambda": true, "lambda": true, "route53": true,
+	"apigateway": true, "execute-api": true, "cloudfront": true, "elasticfilesystem": true, "eks": true, "glacier": true,
+	"iot": true, "amplify": true, "appsync": true, "batch": true, "backup": true,
+}
+
+var sqsQueuePathRe = regexp.MustCompile(`^/[0-9]{12}/[A-Za-z0-9_-]{1,80}(\.fifo)?$`)
+
+// rpcShapeOK checks that a request making an RPC-style claim is shaped like an
+// RPC call.
+func rpcShapeOK(service, method, escapedPath string, jsonStyle bool) error {
+	path := escapedPath
+	if path == "" {
+		path = "/"
+	}
+	if jsonStyle {
+		if method != "POST" || path != "/" {
+			return protocol.Errorf(protocol.CodeNotAllowed, "an X-Amz-Target request must be POST to /")
+		}
+		return nil
+	}
+	if method != "POST" && method != "GET" {
+		return protocol.Errorf(protocol.CodeNotAllowed, "an Action request must be GET or POST")
+	}
+	if path == "/" || (service == "sqs" && sqsQueuePathRe.MatchString(path)) {
+		return nil
+	}
+	return protocol.Errorf(protocol.CodeNotAllowed, "an Action request must target /, not a resource path")
 }
 
 // rejectCaseVariants refuses parameters such as "action" or "ACTION": the

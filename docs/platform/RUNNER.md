@@ -218,6 +218,15 @@ Payload: `{command: plan|apply|show, files:[{path,contentB64}], lockfile, config
    being truncated. Timeouts send SIGINT to the process group (so OpenTofu can
    finish writing state and release its lock), then kill after 30 s.
 
+**Provider downloads.** Every job starts in a fresh directory, so without a cache
+each `init` downloads the providers again (the AWS provider is several hundred
+MB). Set `pluginCacheDir` to a path on the state volume (for example
+`/var/lib/zenith-runner/plugin-cache`) to reuse them. Providers are still
+verified against the pinned lockfile; verified with a real provider
+(`hashicorp/random` from the public registry): a lockfile with wrong hashes makes
+the job fail on a checksum mismatch (at `init` without the cache, when the
+provider is first used with it).
+
 Settings: `binary`, `version`, `workDir`, `pluginCacheDir`, `cliConfigFile`,
 `passEnv`, `planMaxAgeSec`, `allowUnsafeConfig`, `allowEphemeralState`,
 `maxConcurrent` (default 1), `maxPlanJsonBytes`, `maxFiles`, `maxTotalBytes`,
@@ -258,9 +267,20 @@ Checks, in order:
      form-encoded body;
    * REST — `METHOD /decoded/path` (dot segments are refused).
    A request with both an `X-Amz-Target` and an `Action`, more than one
-   `Action`, or a case variant such as `action=` is **refused as ambiguous**
-   (parameter pollution would let the service run a different operation than the
-   one authorized).
+   `Action` or `X-Amz-Target`, or a case variant such as `action=` is **refused
+   as ambiguous** (parameter pollution would let the service run a different
+   operation than the one authorized).
+
+   An RPC-style claim is only believed on an RPC-shaped request: the JSON
+   protocol is `POST /`, the query protocol is `GET` or `POST` to `/` (SQS queue
+   operations use `/<account>/<queue>`). A REST service routes on method and path
+   and ignores unknown parameters, so believing a fake `Action=ListHostedZones`
+   on `POST /2013-04-01/hostedzone` would authorize a read while Route 53
+   executes `CreateHostedZone`. Such requests are refused, and the REST-only
+   services (`s3`, `lambda`, `route53`, `apigateway`, `execute-api`,
+   `cloudfront`, `elasticfilesystem`, `eks`, `glacier`, `iot`, `amplify`,
+   `appsync`, `batch`, `backup`) never accept an RPC-style claim at all: they are
+   authorized only by `service:METHOD /path` rules.
 4. `service:Action` (or the REST form) must be in the allowlist for the job's
    **capability** (`kinds.aws.http.allow`). **Default deny**: a capability with
    no entry runs nothing.
@@ -299,6 +319,13 @@ allow-listed (`content-*`, `x-amz-*`, `x-amzn-*`, `etag`, `date`, …; never
 the control plane interprets it. A body above the limit (`maxOutputBytes`, and
 `aws.http.maxResponseBytes`, default 8 MiB) fails the job with
 `response_too_large` and `truncated: true` instead of returning a partial body.
+
+REST rules match the URL **path** only. S3 in virtual-hosted style
+(`bucket.s3.region.amazonaws.com/key`) carries the bucket in the host, so the
+path is just `/key`: use path-style requests if you want rules to name buckets,
+or allow `s3:GET /**` and scope buckets with the role's IAM policy. SDKs that use
+the Smithy RPC v2 (CBOR) protocol, such as recent CloudWatch clients, appear as
+REST requests of the form `POST /service/<ServiceName>/operation/<Operation>`.
 
 Other settings: `maxRequestBytes`, `endpointOverride` (send to LocalStack or a VPC
 endpoint proxy; the job's URL is still validated and signed), `stsEndpoint`,
@@ -470,7 +497,9 @@ refuses a `tofu.run` job with no files.
   sensitive values; see "Plan contents".
 * Verified by automated tests in this repository: everything above, using fake
   control planes, local listeners, a fake `tofu` for logic tests, **real OpenTofu
-  1.12.5** for plan / show / apply of a `terraform_data` resource, and the real
-  Docker image (build, checksum enforcement, read-only run). Not verified: any
+  1.12.5** for plan / show / apply of a `terraform_data` resource and (gated on
+  network access) of a real `hashicorp/random` provider with a real lockfile and
+  provider cache, and the real Docker image (build, checksum enforcement,
+  read-only run). Not verified: any
   real cloud account (AWS, GCP, Azure), EKS/GKE/AKS, a live Zenith control plane,
   or IRSA/Workload Identity end to end.

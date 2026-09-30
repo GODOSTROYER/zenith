@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -623,5 +624,85 @@ func TestRealOpenTofuPlanShowApply(t *testing.T) {
 	ao, _ := h.run("infrastructure.apply", ap)
 	if ao.Status != agent.StatusSucceeded || !strings.Contains(resultMap(t, ao)["output"].(string), "Apply complete!") {
 		t.Fatalf("apply: %+v\n%v", ao, resultMap(t, ao)["output"])
+	}
+}
+
+// Real OpenTofu with a real provider from the public registry, gated:
+// ZENITH_TEST_TOFU=/path/to/tofu and ZENITH_TEST_TOFU_NETWORK=1. It proves the
+// lockfile is enforced (-lockfile=readonly: a wrong hash makes the job fail), the
+// optional provider cache works, and apply of a retained plan works with a real
+// provider. It downloads hashicorp/random (a few MB) from registry.opentofu.org.
+func TestRealOpenTofuWithProviderAndLockfile(t *testing.T) {
+	bin := os.Getenv("ZENITH_TEST_TOFU")
+	if bin == "" || os.Getenv("ZENITH_TEST_TOFU_NETWORK") != "1" {
+		t.Skip("set ZENITH_TEST_TOFU=/path/to/tofu and ZENITH_TEST_TOFU_NETWORK=1 to run against the public registry")
+	}
+	dir := t.TempDir()
+	files := []wsFile{
+		{"versions.tf.json", `{"terraform":{"required_providers":{"random":{"source":"hashicorp/random","version":"= 3.7.2"}}}}`},
+		{"main.tf.json", `{"resource":{"random_pet":{"p":{"length":2}}}}`},
+	}
+	// Produce a real lockfile the way the control plane would: init + providers lock.
+	seed := filepath.Join(dir, "seed")
+	if err := os.MkdirAll(seed, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range files {
+		if err := os.WriteFile(filepath.Join(seed, f.path), []byte(f.content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, args := range [][]string{{"init", "-input=false", "-no-color"}, {"providers", "lock", "-platform=linux_amd64", "-platform=linux_arm64"}} {
+		cmd := exec.Command(bin, args...)
+		cmd.Dir = seed
+		cmd.Env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "HOME=" + dir, "TF_IN_AUTOMATION=1"}
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("tofu %v: %v\n%s", args, err, out)
+		}
+	}
+	lock, err := os.ReadFile(filepath.Join(seed, ".terraform.lock.hcl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	h := &tofuHarness{t: t, work: filepath.Join(dir, "work"), stateDir: filepath.Join(dir, "state"), env: map[string]string{}}
+	_ = os.MkdirAll(h.work, 0o700)
+	cache := filepath.Join(dir, "plugin-cache")
+	_ = os.MkdirAll(cache, 0o700)
+	tofu, err := NewTofu(TofuConfig{Binary: bin, WorkDir: h.work, PluginCacheDir: cache, AllowEphemeralState: true}, h.stateDir, TofuDeps{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.tofu = tofu
+
+	p := payload("plan", files, map[string]any{"lockfile": string(lock)})
+	o, _ := h.runWith("infrastructure.plan", p, 0, 4*time.Minute)
+	if o.Status != agent.StatusSucceeded {
+		t.Fatalf("plan: %+v\n%v", o, resultMap(t, o)["output"])
+	}
+	res := resultMap(t, o)
+	changes, _ := res["planJson"].(map[string]any)["resource_changes"].([]any)
+	if len(changes) != 1 || changes[0].(map[string]any)["type"] != "random_pet" {
+		t.Fatalf("plan JSON: %v", res["planJson"])
+	}
+	if entries, _ := os.ReadDir(cache); len(entries) == 0 {
+		t.Fatal("the provider cache should have been populated")
+	}
+	sha := res["planFileSha256"].(string)
+
+	ap := payload("apply", files, map[string]any{"lockfile": string(lock), "planFileSha256": sha})
+	ao, _ := h.runWith("infrastructure.apply", ap, 0, 4*time.Minute)
+	if ao.Status != agent.StatusSucceeded || !strings.Contains(resultMap(t, ao)["output"].(string), "Apply complete!") {
+		t.Fatalf("apply: %+v\n%v", ao, resultMap(t, ao)["output"])
+	}
+
+	// A lockfile whose hashes do not match the downloaded provider must fail init.
+	bad := strings.ReplaceAll(string(lock), "h1:", "h1:AAAA")
+	badPlan := payload("plan", files, map[string]any{"lockfile": bad})
+	bo, _ := h.runWith("infrastructure.plan", badPlan, 0, 4*time.Minute)
+	if bo.Status != agent.StatusFailed || !strings.Contains(resultMap(t, bo)["output"].(string), "checksum") {
+		// With the shared cache OpenTofu verifies the recorded hashes when the provider is
+		// instantiated (plan), without it during init; either way the job must fail.
+		t.Fatalf("a tampered lockfile must make the job fail on a checksum mismatch: %+v", bo)
 	}
 }

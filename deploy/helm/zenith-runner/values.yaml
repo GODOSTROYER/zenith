@@ -136,6 +136,9 @@ config:
     # OpenTofu. The image ships the pinned version at /usr/local/bin/tofu.
     # `apply` needs a remote state backend (s3, http, ...) in the compiled
     # configuration: the runner keeps no state between jobs.
+    #
+    # Set pluginCacheDir (on the state volume) to avoid re-downloading providers
+    # for every job, e.g. pluginCacheDir: /var/lib/zenith-runner/plugin-cache
     tofu.run:
       enabled: false
       binary: /usr/local/bin/tofu

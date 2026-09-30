@@ -623,3 +623,86 @@ func TestExtractActionTable(t *testing.T) {
 		})
 	}
 }
+
+// A REST service routes on method and path and ignores unknown parameters. If
+// the runner believed an Action parameter there, a caller could be authorized
+// for ListHostedZones while Route 53 executes the POST to /hostedzone
+// (CreateHostedZone). RPC-style claims are only believed on RPC-shaped requests.
+func TestExtractActionDoesNotBelieveRPCClaimsOnRESTShapedRequests(t *testing.T) {
+	mk := func(service, method, rawurl, ct, target, body string) error {
+		u, _ := url.Parse(rawurl)
+		h := http.Header{}
+		if ct != "" {
+			h.Set("Content-Type", ct)
+		}
+		if target != "" {
+			h.Add("X-Amz-Target", target)
+		}
+		_, err := ExtractAction(service, method, u, h, []byte(body))
+		return err
+	}
+	form := "application/x-www-form-urlencoded"
+	rejected := map[string]error{
+		"route53 create with a fake Action":      mk("route53", "POST", "https://route53.amazonaws.com/2013-04-01/hostedzone", form, "", "Action=ListHostedZones"),
+		"route53 at root with a fake Action":     mk("route53", "POST", "https://route53.amazonaws.com/", form, "", "Action=ListHostedZones"),
+		"s3 bucket delete with a fake Action":    mk("s3", "GET", "https://b.s3.amazonaws.com/?Action=ListThings", "", "", ""),
+		"lambda with a fake target":              mk("lambda", "POST", "https://lambda.us-east-1.amazonaws.com/", "", "Foo_1.ListFunctions", "{}"),
+		"unknown service, resource path, Action": mk("quux", "POST", "https://quux.amazonaws.com/things/123", form, "", "Action=Describe"),
+		"JSON claim over GET":                    mk("dynamodb", "GET", "https://dynamodb.us-east-1.amazonaws.com/", "", "DynamoDB_20120810.ListTables", ""),
+		"JSON claim over DELETE":                 mk("dynamodb", "DELETE", "https://dynamodb.us-east-1.amazonaws.com/", "", "DynamoDB_20120810.ListTables", ""),
+		"JSON claim on a resource path":          mk("dynamodb", "POST", "https://dynamodb.us-east-1.amazonaws.com/tables/x", "", "DynamoDB_20120810.ListTables", "{}"),
+		"query claim over PUT":                   mk("ec2", "PUT", "https://ec2.us-east-1.amazonaws.com/?Action=DescribeVpcs", "", "", ""),
+		"query claim over DELETE":                mk("ec2", "DELETE", "https://ec2.us-east-1.amazonaws.com/?Action=DescribeVpcs", "", "", ""),
+		"query claim on a resource path":         mk("ec2", "GET", "https://ec2.us-east-1.amazonaws.com/vpcs?Action=DescribeVpcs", "", "", ""),
+		"sqs-shaped path on another service":     mk("sns", "POST", "https://sns.us-east-1.amazonaws.com/123456789012/queue", form, "", "Action=Publish"),
+		"sqs path with a bad account":            mk("sqs", "POST", "https://sqs.us-east-1.amazonaws.com/12345/queue", form, "", "Action=SendMessage"),
+		"two X-Amz-Target headers": func() error {
+			u, _ := url.Parse("https://x.amazonaws.com/")
+			h := http.Header{}
+			h.Add("X-Amz-Target", "A_1.Read")
+			h.Add("X-Amz-Target", "A_1.Delete")
+			_, err := ExtractAction("x", "POST", u, h, nil)
+			return err
+		}(),
+	}
+	for name, err := range rejected {
+		if err == nil {
+			t.Errorf("%s must be refused", name)
+		}
+	}
+	accepted := map[string]error{
+		"ec2 query over POST":            mk("ec2", "POST", "https://ec2.us-east-1.amazonaws.com/", form, "", "Action=DescribeVpcs"),
+		"ec2 query over GET":             mk("ec2", "GET", "https://ec2.us-east-1.amazonaws.com/?Action=DescribeVpcs", "", "", ""),
+		"dynamodb JSON":                  mk("dynamodb", "POST", "https://dynamodb.us-east-1.amazonaws.com/", "", "DynamoDB_20120810.ListTables", "{}"),
+		"dynamodb JSON with empty path":  mk("dynamodb", "POST", "https://dynamodb.us-east-1.amazonaws.com", "", "DynamoDB_20120810.ListTables", "{}"),
+		"sqs queue operation":            mk("sqs", "POST", "https://sqs.us-east-1.amazonaws.com/123456789012/my-queue", form, "", "Action=SendMessage"),
+		"sqs fifo queue operation":       mk("sqs", "POST", "https://sqs.us-east-1.amazonaws.com/123456789012/my-queue.fifo", form, "", "Action=SendMessage"),
+		"s3 REST without any claim":      mk("s3", "GET", "https://b.s3.amazonaws.com/key", "", "", ""),
+		"route53 REST without any claim": mk("route53", "GET", "https://route53.amazonaws.com/2013-04-01/hostedzone", "", "", ""),
+	}
+	for name, err := range accepted {
+		if err != nil {
+			t.Errorf("%s should be accepted: %v", name, err)
+		}
+	}
+}
+
+func TestAWSRoute53ConfusedDeputyIsRefusedEndToEnd(t *testing.T) {
+	h := newAWSHarness(t, AWSConfig{Allow: map[string][]string{
+		"infrastructure.observe": {"route53:ListHostedZones", "route53:GET /2013-04-01/hostedzone"},
+	}}, nil)
+	attack := map[string]any{
+		"service": "route53", "region": "us-east-1", "method": "POST", "url": "https://route53.amazonaws.com/2013-04-01/hostedzone",
+		"headers": map[string]any{"Content-Type": "application/x-www-form-urlencoded"}, "bodyB64": b64("Action=ListHostedZones"),
+	}
+	_, err := h.prepare("infrastructure.observe", attack, 0)
+	expectPrepareCode(t, err, protocol.CodeNotAllowed)
+	// the honest REST form of the read is what the allowlist authorizes
+	good := map[string]any{"service": "route53", "region": "us-east-1", "method": "GET", "url": "https://route53.amazonaws.com/2013-04-01/hostedzone"}
+	if o := h.run("infrastructure.observe", good); o.Status != agent.StatusSucceeded {
+		t.Fatalf("%+v", o)
+	}
+	if h.seen.count() != 1 {
+		t.Fatalf("only the honest request may have been sent, saw %d", h.seen.count())
+	}
+}

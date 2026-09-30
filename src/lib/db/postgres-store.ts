@@ -559,21 +559,43 @@ function stripPromoted(row: { id: string }, collection: PgCollection): Record<st
   return out;
 }
 
+/**
+ * The install-global settings row, guarded exactly like `writeRow` guards every
+ * other collection: a row that existed at load is updated only `where version =
+ * <the version loaded>`, and matching nothing is the same 409. This used to be
+ * an unguarded upsert, so two requests that read the same version each
+ * "succeeded" and the later flush silently replaced the earlier edit.
+ *
+ * Version 0 is "no row at load" (see `loadSnapshot`), so the first write is an
+ * insert, and a unique violation — somebody inserted it first — is the same 409.
+ */
 async function writeSettings(client: SupabaseClient, snap: Snapshot): Promise<void> {
   const data = withoutInvites(snap.data.settings);
   const baseline = snap.baseline.get(bkey("settings", INSTALL_SETTINGS_ID));
   if (baseline && baseline.json === canonical(data)) return;
-  const next = (baseline?.version ?? 0) + 1;
-  const { error } = await client.from("settings").upsert(
-    {
-      workspace_id: INSTALL_SETTINGS_ID,
-      data,
-      version: next,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "workspace_id" }
-  );
-  if (error) throw storeError("settings", "write", error.message);
+  const loaded = baseline?.version ?? 0;
+  const next = loaded + 1;
+  const now = new Date().toISOString();
+
+  if (loaded === 0) {
+    const { error } = await client
+      .from("settings")
+      .insert({ workspace_id: INSTALL_SETTINGS_ID, data, version: next, updated_at: now });
+    if (error) {
+      // 23505 unique_violation: the row appeared after this snapshot loaded.
+      if (error.code === "23505") await conflict();
+      throw storeError("settings", "insert into", error.message);
+    }
+  } else {
+    const { data: updated, error } = await client
+      .from("settings")
+      .update({ data, version: next, updated_at: now })
+      .eq("workspace_id", INSTALL_SETTINGS_ID)
+      .eq("version", loaded)
+      .select("workspace_id");
+    if (error) throw storeError("settings", "update", error.message);
+    if (!updated || updated.length === 0) await conflict();
+  }
   snap.settingsVersion = next;
   snap.baseline.set(bkey("settings", INSTALL_SETTINGS_ID), { version: next, json: canonical(data) });
 }

@@ -38,6 +38,17 @@ export function checkTarget(who: Principal, target: Target, scope: string, now =
     throw new ControlError('scope_denied', 'This integration cannot access this operation or target.', 403);
 }
 
+/**
+ * Why unapprove refused an operation that is not approved. Shared by both
+ * stores so the two say the same thing: once claimed there is nothing to
+ * withdraw, because dispatch has started or finished.
+ */
+export function notWithdrawable(phase: Phase): ControlError {
+  return ['running', 'succeeded', 'failed', 'uncertain'].includes(phase)
+    ? new ControlError('invalid_phase', 'This approval can no longer be withdrawn: the operation has already been claimed for dispatch.')
+    : new ControlError('invalid_phase', 'This proposal is not approved, so there is no approval to withdraw.');
+}
+
 /** A durable OAuth client grant, as both stores hand it back. */
 export type Grant = Principal & { clientId: string; revoked?: boolean };
 /** What `putUpload` returns on either store. */
@@ -69,6 +80,15 @@ export interface AgentJournal {
   get(who: Principal, id: string): Promise<Operation>;
   review(id: string, subject: string, workspace: string, expectedDigest: string, approve: boolean,
     approver?: string, role?: 'editor' | 'admin'): Promise<Operation>;
+  /**
+   * Withdraw an approval before dispatch: `approved` back to `prepared`, with
+   * who approved it, in what role and when cleared. Only while the operation has
+   * not been claimed, and only for the exact proposal that was approved; scoped
+   * to `workspace` like `review`. `by` is who withdrew it, recorded in the event
+   * log. The caller (a browser route) decides who may — this is the journal's
+   * half, exactly as `review` is.
+   */
+  unapprove(operationId: string, expectedDigest: string, by: string, workspace: string): Promise<Operation>;
   claim(who: Principal, id: string, fingerprint: string, applicationAuthorizationDigest?: string): Promise<{ operation: Operation; claimed: boolean }>;
   finishIfValid(who: Principal, id: string, result: unknown, success: boolean, applicationAuthorizationDigest?: string): Promise<Operation>;
   finish(id: string, result: unknown, success: boolean): Promise<Operation>;
@@ -134,11 +154,11 @@ export class Journal {
     if (!row) throw new ControlError('operation_not_found', 'Operation not found in this scope.', 404);
     return JSON.parse(row.document) as Operation;
   }
-  private write(op: Operation, kind: string): Operation {
+  private write(op: Operation, kind: string, extra: Record<string, unknown> = {}): Operation {
     this.sql.prepare('UPDATE agent_operations SET phase=?, document=? WHERE id=?').run(op.phase, JSON.stringify(op), op.id);
     const at = new Date(this.clock()).toISOString();
     this.sql.prepare('INSERT INTO agent_events(operation_id,kind,at,document) VALUES (?,?,?,?)')
-      .run(op.id, kind, at, JSON.stringify({ operationId: op.id, phase: op.phase, digest: op.digest, integrationId: op.integrationId }));
+      .run(op.id, kind, at, JSON.stringify({ operationId: op.id, phase: op.phase, digest: op.digest, integrationId: op.integrationId, ...extra }));
     return op;
   }
   private authorizationDigest(who: Principal): string | undefined {
@@ -196,6 +216,24 @@ export class Journal {
       if (approve && op.plan.blocked) throw new ControlError('plan_blocked', 'Resolve blockers and prepare a new plan.');
       op.phase = approve ? 'approved' : 'rejected'; op.approvedBy = approver; op.approvalRole = role; op.approvedAt = new Date(this.clock()).toISOString();
       return this.write(op, op.phase);
+    });
+  }
+  /**
+   * Withdraw an approval that has not been claimed. One transaction, so a claim
+   * either happened first (the operation is running and this refuses) or after
+   * (it finds prepared and refuses to dispatch). Nothing else about the
+   * proposal moves: same digest, same plan, same expiry - approving it again is
+   * review() on the same exact proposal.
+   */
+  unapprove(id: string, expectedDigest: string, by: string, workspace: string): Operation {
+    return this.transaction(() => {
+      const op = this.row(id);
+      if (op.target.workspaceId !== workspace) throw new ControlError('operation_not_found', 'Operation not found.', 404);
+      if (op.digest !== expectedDigest) throw new ControlError('review_changed', 'Reload and review the exact proposal.');
+      if (op.phase !== 'approved') throw notWithdrawable(op.phase);
+      if (Date.parse(op.expiresAt) <= this.clock()) throw new ControlError('plan_expired', 'Prepare a fresh plan.');
+      op.phase = 'prepared'; delete op.approvedBy; delete op.approvalRole; delete op.approvedAt;
+      return this.write(op, 'unapproved', { by });
     });
   }
   /** Called under the application's mutation gate after fresh authorization and fingerprint validation. */
@@ -282,8 +320,14 @@ export class Journal {
     if (op.target.workspaceId !== workspace) throw new ControlError('operation_not_found', 'Operation not found.', 404);
     return op;
   }
+  /**
+   * What the review screen lists: proposals awaiting a decision, approvals not
+   * yet dispatched, and - read-only - operations whose outcome is unknown, so
+   * somebody is shown them. An uncertain row can be neither approved, rejected,
+   * claimed nor un-approved (review, claim and unapprove all refuse it).
+   */
   reviewQueue(workspace: string, subject: string, admin: boolean): Operation[] {
-    return (this.sql.prepare("SELECT document FROM agent_operations WHERE workspace=? AND phase IN ('prepared','approved') ORDER BY created_at DESC LIMIT 100")
+    return (this.sql.prepare("SELECT document FROM agent_operations WHERE workspace=? AND phase IN ('prepared','approved','uncertain') ORDER BY created_at DESC LIMIT 100")
       .all(workspace) as JsonRow[]).map(r => JSON.parse(r.document) as Operation).filter(op => admin || op.subject === subject);
   }
   private expirePending(): { expired: number; uploads: number } {
@@ -373,6 +417,9 @@ export class SqliteAgentJournal implements AgentJournal {
   async review(id: string, subject: string, workspace: string, expectedDigest: string, approve: boolean,
     approver?: string, role: 'editor' | 'admin' = 'editor'): Promise<Operation> {
     return this.inner.review(id, subject, workspace, expectedDigest, approve, approver ?? subject, role);
+  }
+  async unapprove(operationId: string, expectedDigest: string, by: string, workspace: string): Promise<Operation> {
+    return this.inner.unapprove(operationId, expectedDigest, by, workspace);
   }
   async claim(who: Principal, id: string, fingerprint: string, applicationAuthorizationDigest?: string): Promise<{ operation: Operation; claimed: boolean }> {
     return this.inner.claim(who, id, fingerprint, applicationAuthorizationDigest);

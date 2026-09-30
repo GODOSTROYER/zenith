@@ -244,10 +244,10 @@ const snapshot: NativeOperation<GcpSession> = async (ctx, node, input) => {
   const base = `${SQLADMIN}/projects/${ctx.session.projectId}/instances/${name}/backupRuns`;
   const description = `zenith:${token}`;
   const existing = await gcpCall(ctx, "GET", `${base}?maxResults=20`);
-  if (existing.outcome === "ok") {
-    const found = arr(existing.json.items).map((b) => rec(b)).find((b) => b.description === description);
-    if (found) return { ok: true, summary: "A backup for this operation already exists.", data: { instance: name, backupId: str(found.id), status: str(found.status), changed: false }, requestIds: existing.requestId ? [existing.requestId] : [], simulated: false };
-  }
+  // if we cannot tell whether this operation already took a backup, do not risk a second one
+  if (existing.outcome !== "ok") return { ...fail(`database.snapshot: could not check for an existing backup of this operation (${existing.outcome}${existing.detail ? `: ${existing.detail}` : ""}).`), requestIds: existing.requestId ? [existing.requestId] : [] };
+  const found = arr(existing.json.items).map((b) => rec(b)).find((b) => b.description === description);
+  if (found) return { ok: true, summary: "A backup for this operation already exists.", data: { instance: name, backupId: str(found.id), status: str(found.status), changed: false }, requestIds: existing.requestId ? [existing.requestId] : [], simulated: false };
   const res = await gcpCall(ctx, "POST", base, { description });
   if (res.outcome !== "ok") return { ...fail(`database.snapshot: Cloud SQL rejected the backup (${res.outcome}${res.detail ? `: ${res.detail}` : ""}).`), requestIds: res.requestId ? [res.requestId] : [] };
   return {

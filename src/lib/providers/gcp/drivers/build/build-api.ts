@@ -86,11 +86,13 @@ export async function startBuild(ctx: GcpDriverContext, input: StartBuildInput):
   const tag = opTag(op);
 
   const existing = await gcpGet(ctx, `${base}?pageSize=1&filter=${encodeURIComponent(`tags="${tag}"`)}`);
-  if (existing.outcome === "ok") {
-    const b = Array.isArray(existing.json.builds) ? (existing.json.builds[0] as Record<string, unknown> | undefined) : undefined;
-    if (b && typeof b.id === "string" && BUILD_ID.test(b.id)) {
-      return { ok: true, summary: "A build for this operation already exists.", buildId: b.id, reused: true, requestIds: existing.requestId ? [existing.requestId] : [] };
-    }
+  // if we cannot tell whether this operation already started a build, do not risk a second one
+  if (existing.outcome !== "ok") {
+    return { ok: false, summary: `build: could not check for an existing build of this operation (${existing.outcome}${existing.detail ? `: ${existing.detail}` : ""}).`, requestIds: existing.requestId ? [existing.requestId] : [] };
+  }
+  const prior = Array.isArray(existing.json.builds) ? (existing.json.builds[0] as Record<string, unknown> | undefined) : undefined;
+  if (prior && typeof prior.id === "string" && BUILD_ID.test(prior.id)) {
+    return { ok: true, summary: "A build for this operation already exists.", buildId: prior.id, reused: true, requestIds: existing.requestId ? [existing.requestId] : [] };
   }
 
   const dockerfile = input.dockerfile ?? "Dockerfile";

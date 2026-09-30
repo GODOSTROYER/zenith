@@ -107,13 +107,16 @@ const spec: ReadSpec = {
     const self = str(o.selfLink);
     const id = self ? computePath(self) : undefined;
     if (!id) throw new Error("no selfLink");
-    const rule = rec(arr(o.allowed)[0]);
-    const ports = arr(rule.ports);
-    const port = ports.length === 1 && /^\d+$/.test(String(ports[0])) ? Number(ports[0]) : undefined;
+    const allowed = arr(o.allowed).map((a) => rec(a));
+    const rule = allowed[0] ?? {};
+    const ports = arr(rule.ports).map(String);
+    // a rule that allows several ports, several protocols, or every port is reported as such, so it cannot
+    // look like the single-port rule that was asked for
+    const port: number | string | undefined = ports.length === 0 ? (allowed.length > 0 ? "all" : undefined) : ports.length === 1 && /^\d+$/.test(ports[0]) ? Number(ports[0]) : ports.join(",");
     return {
       externalId: id,
       name: tail(id),
-      attributes: { protocol: str(rule.IPProtocol), port, disabled: o.disabled === true },
+      attributes: { protocol: allowed.length > 1 ? "multiple" : str(rule.IPProtocol), port, disabled: o.disabled === true },
       native: {
         direction: str(o.direction),
         priority: o.priority,

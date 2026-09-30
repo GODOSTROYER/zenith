@@ -100,7 +100,15 @@ export async function withLease<T>(
   let lastRenewed = performance.now();
   let renewing = false;
   const tick = async (): Promise<void> => {
-    if (renewing || lost) return;
+    if (lost) return;
+    // Checked on EVERY tick, before the in-flight guard: a renewal that hangs
+    // (stalled connection, exhausted pool) must not keep the worker believing
+    // it still holds a lease the database is about to hand to someone else.
+    if (performance.now() - lastRenewed >= (ttlMs * 2) / 3) {
+      fail();
+      return;
+    }
+    if (renewing) return;
     renewing = true;
     try {
       const renewed = await renew(db, lease, ttlMs);

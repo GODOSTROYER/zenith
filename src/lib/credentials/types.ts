@@ -204,10 +204,103 @@ export interface CredentialBroker {
    * `credential.assumed` / `credential.denied` events with no secret data.
    */
   withSession<T>(req: CredentialRequest, fn: (session: ProviderSession) => Promise<T>): Promise<T>;
-  /** Verify a connection can be assumed (read-only identity call). */
-  verifyConnection(connectionId: string): Promise<{ ok: boolean; detail: string; accountId?: string }>;
+  /**
+   * Verify a connection can be assumed (read-only identity call). When
+   * `opts.workspaceId` is given the connection must belong to that workspace,
+   * otherwise it is reported as not found (no cross-tenant probing).
+   */
+  verifyConnection(
+    connectionId: string,
+    opts?: { workspaceId?: string }
+  ): Promise<{ ok: boolean; detail: string; accountId?: string }>;
 }
+
+/**
+ * Stable machine codes for why the broker refused. Messages are for humans and
+ * never carry credential material; branch on `reason`, not on the message.
+ */
+export type DenialReason =
+  | "grant_expired"
+  | "grant_invalid"
+  | "workspace_mismatch"
+  | "connection_not_found"
+  | "connection_revoked"
+  | "connection_not_verified"
+  | "provider_unsupported"
+  | "mode_unsupported"
+  | "unknown_capability"
+  | "purpose_capability_mismatch"
+  | "role_arn_invalid"
+  | "role_account_mismatch"
+  | "external_id_missing"
+  | "endpoint_not_permitted"
+  | "duration_invalid"
+  | "session_policy_invalid"
+  | "session_policy_unavailable"
+  | "sts_failed"
+  | "issuer_unavailable"
+  | "runner_unavailable"
+  | "audit_failed";
 
 export class CredentialDeniedError extends Error {
   readonly code = "credential_denied";
+  readonly reason?: DenialReason;
+  constructor(message?: string, options?: ErrorOptions & { reason?: DenialReason }) {
+    super(message, options);
+    this.name = "CredentialDeniedError";
+    this.reason = options?.reason;
+  }
+}
+
+/* ------------------------------ injected hooks ---------------------------- */
+
+/**
+ * Connection lookup, injected so this module does not depend on the control
+ * store (the repository lands in another workstream). Implementations must not
+ * throw for "missing" — return null. The broker (not the resolver) enforces
+ * the workspace boundary against the grant.
+ */
+export type ConnectionResolver = (connectionId: string) => Promise<ProviderConnection | null>;
+
+/**
+ * An event the broker wants recorded. The event store assigns `seq`, `id` and
+ * `ts`; the shape otherwise matches `PlatformEvent` for these two types.
+ * `data` never contains keys, tokens or session policies — only identifiers.
+ */
+export interface CredentialEventDraft {
+  type: "credential.assumed" | "credential.denied";
+  /** always the GRANT's workspace, never the (possibly foreign) connection's */
+  workspaceId: string;
+  projectId?: string;
+  environmentId?: string;
+  resourceId?: string;
+  operationId?: string;
+  correlationId: string;
+  data: Record<string, unknown>;
+}
+
+export type CredentialEventSink = (event: CredentialEventDraft) => void | Promise<void>;
+
+/**
+ * Transport hook for `runner` mode (ADR-0006): credentials never leave the
+ * customer environment; SDK requests are relayed to the customer's
+ * zenith-runner. The runner workstream provides the implementation.
+ */
+export interface RunnerAwsTransport {
+  /** Build an SDK client whose requests are executed by the runner. */
+  client<C>(ctor: AwsClientCtor<C>, overrides?: { region?: string }): C;
+  close?(): void | Promise<void>;
+}
+
+export interface RunnerAwsTransportFactory {
+  open(input: {
+    connection: ProviderConnection;
+    config: AwsConnectionConfig;
+    grant: CapabilityGrantClaims;
+    purpose: CredentialPurpose;
+    roleArn: string;
+    expiresAt: Date;
+    /** compact inline session policy the runner should apply if it assumes a role itself */
+    sessionPolicy?: string;
+  }): Promise<RunnerAwsTransport> | RunnerAwsTransport;
 }

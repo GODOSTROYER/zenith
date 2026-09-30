@@ -7,6 +7,7 @@
  */
 import { sha256Hex } from "@/lib/controlplane/digest";
 import { migration0001Core } from "./0001_core";
+import { migration0002Reconcile } from "./0002_reconcile";
 
 export interface PlatformMigration {
   /** contiguous from 1 */
@@ -16,7 +17,7 @@ export interface PlatformMigration {
   sql: string;
 }
 
-export const PLATFORM_MIGRATIONS: readonly PlatformMigration[] = [migration0001Core];
+export const PLATFORM_MIGRATIONS: readonly PlatformMigration[] = [migration0001Core, migration0002Reconcile];
 
 /** The highest version this build knows. */
 export const PLATFORM_SCHEMA_VERSION: number = PLATFORM_MIGRATIONS[PLATFORM_MIGRATIONS.length - 1].version;

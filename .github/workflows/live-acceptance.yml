@@ -1,0 +1,171 @@
+name: Live acceptance (sandbox AWS)
+
+# Live cloud acceptance: the Zenith acceptance scenarios run against a REAL AWS
+# sandbox account. A person starts it, by hand, from the Actions tab.
+#
+# ## Live cloud tests never run on contributor pull requests
+#
+# This workflow's only trigger is `workflow_dispatch`. It is not wired to
+# `push`, `pull_request`, `pull_request_target`, `schedule` or `workflow_run`,
+# and tests/ci/release-gates.test.ts fails CI if that ever changes or if
+# `pull_request_target` appears in any workflow. `ci.yml` - the workflow that
+# does run on every pull request - holds no AWS credentials, no `id-token`
+# permission and no reference to this workflow's variables, and the same test
+# asserts that too. A fork's pull request can therefore never obtain a role in
+# the sandbox account, and never spends money in it.
+#
+# ## What must exist OUTSIDE this repository (not created by this change)
+#
+#   1. A GitHub environment named `live-sandbox` (Settings > Environments) with
+#      protection rules. Both are required; the second is what actually stops a
+#      branch from minting a token:
+#        - Required reviewers: at least one person other than whoever dispatches
+#          the run ("Prevent self-review" on). The job waits for approval before
+#          it starts, so no credential exists until somebody has said yes.
+#        - Deployment branches: restricted to protected branches (or an explicit
+#          allow-list). Without this, anyone with write access could push a
+#          branch that edits THIS file and dispatch it from there; the
+#          environment rule is what refuses that run.
+#      Optionally a wait timer. Environment variables (not secrets - nothing
+#      here is secret; see below): LIVE_SANDBOX_AWS_ROLE_ARN,
+#      LIVE_SANDBOX_AWS_ACCOUNT_ID and, optionally, LIVE_SANDBOX_AWS_REGION
+#      (default ap-south-1).
+#
+#   2. In the sandbox AWS account: the IAM OIDC identity provider for
+#      https://token.actions.githubusercontent.com (audience sts.amazonaws.com)
+#      and a role whose trust policy requires BOTH
+#        token.actions.githubusercontent.com:aud = sts.amazonaws.com
+#        token.actions.githubusercontent.com:sub = repo:GODOSTROYER/zenith:environment:live-sandbox
+#      (GitHub puts the environment name in `sub` when the job uses one, so the
+#      role can only be assumed by a job that passed the environment's
+#      protection rules). Give the role a permissions policy scoped to what the
+#      scenarios create, a permissions boundary, and a one-hour maximum session.
+#      Do not reuse a role from any account that holds real workloads.
+#
+#   3. `scripts/acceptance/aws-live.ts`, written by another workstream. This
+#      file references it and does not define it. Until it exists the job fails
+#      at its first step, before assuming any role, with a message saying so: a
+#      dispatch that silently did nothing would look like a pass.
+#
+# ## No long-lived credentials
+#
+# There is no access key, no secret and no stored token anywhere in this file or
+# in the repository settings it relies on. The job authenticates with GitHub's
+# OIDC token (`permissions: id-token: write`) through the official
+# aws-actions/configure-aws-credentials action, pinned by commit SHA, and gets
+# short-lived session credentials that expire with the run. The role ARN is a
+# repository/environment VARIABLE, not a secret: an ARN is an identifier, and
+# what protects the role is its trust policy, not the secrecy of its name.
+#
+# ## Honest status
+#
+# Nothing in this workflow has ever been executed: no sandbox account exists yet
+# (ledger blocker B-AWS-LIVE), so neither the role, nor the environment, nor
+# aws-live.ts has been exercised. What IS checked on every pull request is that
+# it parses under actionlint and that its shape (dispatch-only, environment,
+# id-token, pinned SHAs, guards) is what this comment says.
+on:
+  workflow_dispatch:
+
+# Source read only at the workflow level; the one job that needs more asks for
+# it below.
+permissions:
+  contents: read
+
+# One live run at a time. Two runs would create and destroy resources in the
+# same sandbox account at once, and a cancelled run would leave its resources
+# behind - so never cancel one in progress.
+concurrency:
+  group: live-acceptance
+  cancel-in-progress: false
+
+jobs:
+  aws-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # Pauses here for the environment's reviewers, and scopes `vars` to it.
+    environment: live-sandbox
+
+    permissions:
+      contents: read
+      # Lets this job request a GitHub OIDC token. It is what
+      # configure-aws-credentials exchanges for AWS session credentials.
+      id-token: write
+
+    env:
+      LIVE_SANDBOX_AWS_ROLE_ARN: ${{ vars.LIVE_SANDBOX_AWS_ROLE_ARN }}
+      LIVE_SANDBOX_AWS_ACCOUNT_ID: ${{ vars.LIVE_SANDBOX_AWS_ACCOUNT_ID }}
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Fail if the acceptance script does not exist yet
+        # Not a skip: see "No long-lived credentials" above. Checked before any
+        # credential is requested.
+        if: hashFiles('scripts/acceptance/aws-live.ts') == ''
+        shell: bash
+        run: |
+          echo "::error::scripts/acceptance/aws-live.ts does not exist yet (it belongs to the live-acceptance workstream), so there is nothing to run against the sandbox account."
+          exit 1
+
+      - name: Check the sandbox account configuration
+        if: hashFiles('scripts/acceptance/aws-live.ts') != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${LIVE_SANDBOX_AWS_ROLE_ARN:-}" ] || [ -z "${LIVE_SANDBOX_AWS_ACCOUNT_ID:-}" ]; then
+            echo "::error::LIVE_SANDBOX_AWS_ROLE_ARN and LIVE_SANDBOX_AWS_ACCOUNT_ID must both be set as variables on the live-sandbox environment."
+            exit 1
+          fi
+          case "$LIVE_SANDBOX_AWS_ACCOUNT_ID" in
+            [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]) ;;
+            *)
+              echo "::error::LIVE_SANDBOX_AWS_ACCOUNT_ID must be a 12-digit AWS account id."
+              exit 1
+              ;;
+          esac
+          # The role must live in the account declared as the sandbox. The action
+          # below also refuses credentials for any other account; this catches a
+          # copy-paste of the wrong ARN before an OIDC token is requested at all.
+          case "$LIVE_SANDBOX_AWS_ROLE_ARN" in
+            "arn:aws:iam::${LIVE_SANDBOX_AWS_ACCOUNT_ID}:role/"*) ;;
+            *)
+              echo "::error::LIVE_SANDBOX_AWS_ROLE_ARN is not a role in account ${LIVE_SANDBOX_AWS_ACCOUNT_ID}."
+              exit 1
+              ;;
+          esac
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        if: hashFiles('scripts/acceptance/aws-live.ts') != ''
+        with:
+          node-version: '22.16.0'
+          cache: npm
+
+      # Installed BEFORE any AWS credential exists, so no dependency code runs in
+      # a process that could read one (and `--ignore-scripts` means none runs at
+      # install time anyway).
+      - name: Install dependencies
+        if: hashFiles('scripts/acceptance/aws-live.ts') != ''
+        run: npm ci --ignore-scripts
+
+      - name: Assume the sandbox role through GitHub OIDC
+        if: hashFiles('scripts/acceptance/aws-live.ts') != ''
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.LIVE_SANDBOX_AWS_ROLE_ARN }}
+          aws-region: ${{ vars.LIVE_SANDBOX_AWS_REGION || 'ap-south-1' }}
+          # Refuse credentials for any account but the declared sandbox.
+          allowed-account-ids: ${{ vars.LIVE_SANDBOX_AWS_ACCOUNT_ID }}
+          role-session-name: zenith-live-acceptance-${{ github.run_id }}
+          # Matches the job timeout and the role's one-hour maximum session.
+          role-duration-seconds: 3600
+
+      - name: Live acceptance against the sandbox account
+        if: hashFiles('scripts/acceptance/aws-live.ts') != ''
+        # The script's own inputs, flags and cleanup are defined by the
+        # workstream that owns it; if it needs more than the ambient session
+        # credentials the action just exported, add them here. It is expected to
+        # clean up what it creates: nothing in this workflow does.
+        run: npx tsx scripts/acceptance/aws-live.ts

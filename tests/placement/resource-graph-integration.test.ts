@@ -47,7 +47,7 @@ describe("cost engine over expandManifest output", () => {
   it("prices a production AWS graph without throwing and sees HA, backups and NAT", () => {
     const v2 = upgradeManifest(manifest, { provider: "aws", region: "ap-south-1" });
     const graph = expandManifest(v2, env("production"));
-    const estimate = estimateGraphCost(graph, { catalog: loadDefaultCatalog(), now: new Date("2026-09-30T00:00:00Z") });
+    const estimate = estimateGraphCost(graph, { catalog: loadDefaultCatalog(), now: "2026-09-30T00:00:00Z" });
 
     expect(estimate.kind).toBe("estimate");
     expect(estimate.monthlyUsd).toBeGreaterThan(0);
@@ -72,7 +72,7 @@ describe("cost engine over expandManifest output", () => {
       ...graph,
       nodes: graph.nodes.map((n) => (n === net ? { ...n, spec: { ...n.spec, egress: { natGateways: mode } } } : n)),
     });
-    const now = new Date("2026-09-30T00:00:00Z");
+    const now = "2026-09-30T00:00:00Z";
     const natHours = (mode: "none" | "single" | "per_az") =>
       estimateGraphCost(withMode(mode), { catalog: loadDefaultCatalog(), now })
         .lines.filter((l) => /NAT gateway hours/i.test(l.description))

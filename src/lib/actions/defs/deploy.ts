@@ -101,8 +101,16 @@ async function deployBlock(env: Environment, project: Project, cs: Changeset): P
  *
  * Only *managed* resources count. A referenced one was never provisioned by
  * Zenith, so dropping it from the manifest forgets it rather than deleting it.
+ *
+ * `deploy.rollback` — and `deploy.promote`, which runs through it — deploys an
+ * older saved revision over the live one, so it asks the same question of the
+ * same diff (`via: "rollback"` only changes which way out the sentence names).
  */
-async function statefulDeletionBlock(env: Environment, cs: Changeset): Promise<string | undefined> {
+async function statefulDeletionBlock(
+  env: Environment,
+  cs: Changeset,
+  via: "deploy" | "rollback" = "deploy"
+): Promise<string | undefined> {
   if (env.policies.allowStatefulDeletion) return undefined;
   const deployed = await deployedManifestAsync(env);
   const doomed = cs.items
@@ -114,7 +122,11 @@ async function statefulDeletionBlock(env: Environment, cs: Changeset): Promise<s
   return (
     `This plan removes ${names} from ${env.name}, which destroys the data in ${doomed.length > 1 ? "them" : "it"} — ` +
     `and a rollback restores the system definition, not the data. ` +
-    `Put ${doomed.length > 1 ? "them" : "it"} back in the editor, or turn on "Allow stateful deletion" for ${env.name} in Settings → Environments if you mean to lose the data.`
+    `${
+      via === "rollback"
+        ? `Pick a revision that still has ${doomed.length > 1 ? "them" : "it"}`
+        : `Put ${doomed.length > 1 ? "them" : "it"} back in the editor`
+    }, or turn on "Allow stateful deletion" for ${env.name} in Settings → Environments if you mean to lose the data.`
   );
 }
 
@@ -511,7 +523,7 @@ defineAction<RollbackInput>({
   requiredRole: "editor",
   mutates: true,
   input: RollbackInput,
-  plan(ctx, input) {
+  async plan(ctx, input) {
     const env = requireEnvironment(ctx, input.environmentId);
     const resolved = rollbackTarget(ctx, env, input.toRevisionId);
     const current = env.deployedRevisionId ? q.revision(env.deployedRevisionId) : undefined;
@@ -529,7 +541,10 @@ defineAction<RollbackInput>({
       };
     const target = resolved.revision;
     const cs = diffManifests(current?.manifest ?? emptyManifest(), target.manifest);
-    const blocked = providerBlock(env) ?? connectionBlock(env);
+    const blocked =
+      [providerBlock(env) ?? connectionBlock(env), await statefulDeletionBlock(env, cs, "rollback")]
+        .filter((r): r is string => Boolean(r))
+        .join(" ") || undefined;
     return {
       summary: blocked
         ? `${env.name} cannot be rolled back — this deploy would be refused.`
@@ -575,6 +590,25 @@ defineAction<RollbackInput>({
     const blocked = providerBlock(env) ?? connectionBlock(env);
     if (blocked) return refuse(blocked);
     if ("refusal" in resolved) return refuse(resolved.refusal);
+
+    // The same wall `deploy.apply` enforces, against the same live revision: a
+    // rollback (or a promotion, which runs through here) whose target predates
+    // a data-bearing resource would have the provider destroy it. Plan mode
+    // renders this as `blocked`; execute enforces it because execute can be
+    // called without a plan.
+    const current = env.deployedRevisionId ? q.revision(env.deployedRevisionId) : undefined;
+    const statefulRefusal = await statefulDeletionBlock(
+      env,
+      diffManifests(current?.manifest ?? emptyManifest(), resolved.revision.manifest),
+      "rollback"
+    );
+    if (statefulRefusal)
+      return {
+        ok: false,
+        summary: `${env.name} does not allow removing a resource that holds data.`,
+        error: statefulRefusal,
+      };
+
     const engine = await getEngine();
     // The resolved id, never the caller's string: `engine.rollback` deploys
     // whatever revision it is handed straight into this environment.

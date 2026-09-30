@@ -67,7 +67,11 @@ jobs:
         # Every workflow, not only this one. `tick.yml` drives production
         # background work and `agent-control.yml` is a merge gate; a typo in
         # either used to reach the default branch unchecked.
-        run: '"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml .github/workflows/tick.yml .github/workflows/agent-control.yml'
+        #
+        # `live-acceptance.yml` is on the list on purpose: it is the one
+        # workflow that assumes an AWS role, and it is dispatch-only, so nothing
+        # would otherwise parse it until somebody needed it and it was broken.
+        run: '"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml .github/workflows/tick.yml .github/workflows/agent-control.yml .github/workflows/live-acceptance.yml'
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -348,3 +352,563 @@ jobs:
       # public URL into an artifact CI then throws away.
       - name: Build image (no push)
         run: docker build -t zenith:ci .
+
+  # ===========================================================================
+  # Platform module gates: policy, tofu, go, workflows, platform-postgres,
+  # ledger, supply-chain.
+  #
+  # Every tool these jobs download is pinned by version AND sha256, fetched with
+  # the same bounded `curl` + `sha256sum --check --strict` sequence the
+  # actionlint installer in `verify` uses, and asserted verbatim by
+  # tests/ci/release-gates.test.ts. There is no "skip verification" path: a
+  # download that fails its checksum fails the job before anything is extracted
+  # or executed. Where each checksum came from (fetched 2026-09-30, and each
+  # also cross-checked against the sha256 that GitHub itself reports for the
+  # release asset, and against the bytes actually downloaded):
+  #
+  #   OPA 1.19.1         opa_linux_amd64_static
+  #                      c9f985ce0d345f5484006ade2c695ed9e3f308e4441139e46695c5c182ac0839
+  #                      release asset opa_linux_amd64_static.sha256
+  #   OpenTofu 1.12.5    tofu_1.12.5_linux_amd64.tar.gz
+  #                      a6894d45ae7a17ce83189cce8fe04b5a65f68cefceb62455b5a6a89fa53ab38f
+  #                      release asset tofu_1.12.5_SHA256SUMS
+  #   Temporal CLI 1.9.1 temporal_cli_1.9.1_linux_amd64.tar.gz
+  #                      09a0326a51db84d02735e53542b9ebd8c4758daf47482a9ab0abce15844e60d5
+  #                      release asset checksums.txt
+  #
+  # The tarball is used for OpenTofu (not the .zip) because `tar` is on every
+  # runner and `unzip` is not something this file should have to assume; both are
+  # official release assets listed in the same SHA256SUMS.
+  #
+  # Two more pinned actions (full commit SHA, version in the trailing comment,
+  # which Dependabot maintains): actions/setup-go v6.5.0 and actions/cache v6.1.0.
+  # The Node pin is the one every job in this file shares. Jobs that only read
+  # the repository or only need node built-ins skip `npm ci` and `cache: npm`.
+  #
+  # Two conventions worth knowing before adding a lane:
+  #
+  #   - A lane that has nothing to run YET must say so, not pass silently. The
+  #     ones whose tests live in another workstream use `--passWithNoTests` so
+  #     the job is valid before they land, and `scripts/ci/lane-report.mjs`
+  #     turns the requirement on the moment the implementation exists.
+  #   - `hashFiles()` is not available in a job-level `if`, only in step
+  #     conditions, so a lane that is skipped until a path exists (the `go`
+  #     job) puts the guard on its steps and reports the skip in the summary.
+  # ===========================================================================
+
+  # The policy lane (ADR-0008).
+  #
+  # ## What it proves
+  #
+  #   - The Rego under policy/rego passes `opa check --strict` and `opa test`
+  #     under exactly OPA 1.19.1, and the committed policy/dist/{policy.wasm,
+  #     manifest.json} is byte-identical to a fresh build of those sources
+  #     (`node policy/build.mjs --check`). The wasm's sha256 is the
+  #     `policyVersion` written on every decision, so a stale or hand-edited
+  #     bundle would stamp decisions with a version no source produces.
+  #   - That build is reproducible across operating systems. policy/build.mjs
+  #     records that it had only been verified on the machine that produced the
+  #     committed files. On 2026-09-30 `node policy/build.mjs --check` was run on
+  #     Linux (WSL2, Node 26, which the script does not care about: it uses only
+  #     built-ins) with this same checksum-verified linux/amd64 static binary,
+  #     against the bundle committed from a Windows machine, and it matched (wasm
+  #     sha256 e04961bb7fe8b76aa3601985d40592d294fa46dc9d2a86952d0818a96032305b).
+  #     This job is what keeps that true.
+  #   - The wasm evaluator the application embeds and the OPA interpreter agree
+  #     on the parity scenarios. tests/policy/parity.test.ts is skipped, silently,
+  #     when `opa` is missing, so the lane report below fails the job if it did
+  #     not run.
+  #
+  # ## What it does not prove
+  #
+  #   - That the rules are the right rules where no scenario says so.
+  #   - Any other OPA version, or any platform but linux/amd64.
+  #   - How the wasm behaves inside a serverless function (memory, cold start).
+  policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.16.0'
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: Install pinned OPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          mkdir -p opa-bin
+          curl --fail --silent --show-error --location --retry 3 --connect-timeout 15 --max-time 300 --output opa-bin/opa https://github.com/open-policy-agent/opa/releases/download/v1.19.1/opa_linux_amd64_static
+          printf '%s  %s\n' 'c9f985ce0d345f5484006ade2c695ed9e3f308e4441139e46695c5c182ac0839' 'opa-bin/opa' | sha256sum --check --strict
+          chmod 0755 opa-bin/opa
+          # An absolute path through ZENITH_OPA_BIN, which policy/build.mjs and
+          # tests/policy/parity.test.ts both honour, rather than PATH: nothing
+          # earlier on PATH can shadow the verified binary.
+          echo "ZENITH_OPA_BIN=$RUNNER_TEMP/opa-bin/opa" >> "$GITHUB_ENV"
+          "$RUNNER_TEMP/opa-bin/opa" version
+
+      - name: Policy bundle is reproducible
+        run: node policy/build.mjs --check
+
+      - name: Policy suites
+        run: npx vitest run tests/policy --reporter=default --reporter=json --outputFile.json=.data-ci-lane/policy-lane.json
+
+      - name: Lane report - fail if a required suite ran zero tests
+        # `always()` so the not-verified table reaches the summary even when the
+        # suites above failed; the step still fails the job on its own terms.
+        if: always()
+        run: node scripts/ci/lane-report.mjs policy .data-ci-lane/policy-lane.json
+
+  # The OpenTofu lane (ADR-0005).
+  #
+  # ## What it proves
+  #
+  #   - The pinned OpenTofu 1.12.5 installs real providers from
+  #     registry.opentofu.org through the committed lockfiles
+  #     (src/lib/tofu/locks/*.terraform.lock.hcl) with `init -lockfile=readonly`,
+  #     then plans and applies a digest-verified plan: the path every approved
+  #     infrastructure change takes. That is tests/tofu/network.test.ts, which
+  #     is gated on ZENITH_TEST_TOFU_NETWORK=1 and a tofu binary and is skipped,
+  #     silently, without both. The rest of tests/tofu (runner, env allowlist,
+  #     plan normalisation) also runs against the real binary rather than its
+  #     skipIf branch. The lane report fails the job if either file ran nothing.
+  #   - The AWS driver suites under tests/providers/aws/drivers (mocked SDK,
+  #     no tofu) pass. `--passWithNoTests` keeps the job valid until they land.
+  #
+  # ## What it does not prove
+  #
+  #   - Anything about a real cloud. There are no cloud credentials in this job
+  #     and nothing in tests/tofu calls a cloud API (see the header of
+  #     tests/tofu/network.test.ts). Providers install and their schemas load; an
+  #     AWS apply is not exercised here. live-acceptance.yml is where that goes.
+  #   - Registry availability. An outage of registry.opentofu.org fails this job;
+  #     it is not skipped and not retried into a pass.
+  #
+  # The provider plugin cache is restored from a key made of the lockfiles, so a
+  # provider bump busts it and an unchanged lockfile reuses the ~160 MB AWS
+  # provider. It is an optimisation, not a trust anchor: `init -lockfile=readonly`
+  # still checks what it installs against the lockfile's hashes.
+  tofu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      # Enables the network suites; see tests/tofu/network.test.ts.
+      ZENITH_TEST_TOFU_NETWORK: "1"
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.16.0'
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: Install pinned OpenTofu
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          mkdir -p tofu-bin
+          curl --fail --silent --show-error --location --retry 3 --connect-timeout 15 --max-time 300 --output tofu.tar.gz https://github.com/opentofu/opentofu/releases/download/v1.12.5/tofu_1.12.5_linux_amd64.tar.gz
+          printf '%s  %s\n' 'a6894d45ae7a17ce83189cce8fe04b5a65f68cefceb62455b5a6a89fa53ab38f' 'tofu.tar.gz' | sha256sum --check --strict
+          tar -xzf tofu.tar.gz -C tofu-bin tofu
+          # src/lib/tofu/binary.ts resolves the binary from ZENITH_TOFU_BIN and
+          # refuses any version but the pinned one.
+          echo "ZENITH_TOFU_BIN=$RUNNER_TEMP/tofu-bin/tofu" >> "$GITHUB_ENV"
+          "$RUNNER_TEMP/tofu-bin/tofu" version
+
+      - name: Choose the provider plugin cache directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/tofu-plugin-cache"
+          echo "ZENITH_TOFU_PLUGIN_CACHE=$RUNNER_TEMP/tofu-plugin-cache" >> "$GITHUB_ENV"
+
+      - name: Cache provider plugins
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/tofu-plugin-cache
+          # Exact match only, no `restore-keys`: a partial hit from an older
+          # lockfile would hold the wrong provider versions and save nothing.
+          key: tofu-plugins-${{ runner.os }}-${{ hashFiles('src/lib/tofu/locks/*.terraform.lock.hcl') }}
+
+      - name: OpenTofu and AWS driver suites
+        # Serial: every test shares one plugin cache directory and a first-time
+        # provider install is not something two processes should race on.
+        run: npx vitest run tests/tofu tests/providers/aws/drivers --passWithNoTests --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/tofu-lane.json
+
+      - name: Lane report - fail if a required suite ran zero tests
+        if: always()
+        run: node scripts/ci/lane-report.mjs tofu .data-ci-lane/tofu-lane.json
+
+  # The Go lane (ADR-0010): zenith-runner and zenithd.
+  #
+  # ## What it proves
+  #
+  #   - `gofmt -l` is empty, `go vet ./...` is clean and `go test -race ./...`
+  #     passes on Go 1.27.1 exactly (GOTOOLCHAIN=local, so a go.mod that asks for
+  #     something newer fails instead of silently downloading another toolchain).
+  #   - The module cross-compiles for linux/amd64 and linux/arm64 with
+  #     CGO_ENABLED=0, which is how the runner and zenithd ship (static binaries
+  #     in a minimal image). `-race` needs cgo, so the tests run with it on and
+  #     the release build runs with it off; both are exercised.
+  #
+  # ## What it does not prove
+  #
+  #   - That the arm64 build RUNS: it is compiled, never executed. The race
+  #     detector only sees races the tests happen to provoke.
+  #   - That the container images build (docker/runner.Dockerfile and
+  #     docker/zenithd.Dockerfile are not built here).
+  #
+  # ## The guard
+  #
+  # Skipped, visibly, until go/go.mod exists. The guard is on the steps because
+  # `hashFiles()` is unavailable in a job-level `if`. When the module is absent
+  # the job still passes, and its summary says plainly that the Go lane did NOT
+  # run, so a skipped lane is never mistaken for a green one. The moment go/go.mod
+  # lands, every gate below is live with no edit to this file.
+  go:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    defaults:
+      run:
+        working-directory: go
+
+    env:
+      # Never let the go command fetch a different toolchain than the pinned one.
+      GOTOOLCHAIN: local
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - name: Say so when there is no Go module yet
+        if: hashFiles('go/go.mod') == ''
+        # `defaults.run.working-directory: go` would point at a directory that
+        # does not exist on the very runs this step is for.
+        working-directory: .
+        shell: bash
+        run: |
+          echo "::warning::The Go lane did NOT run: go/go.mod does not exist yet, so nothing was formatted, vetted, tested or cross-built."
+          {
+            echo "## Go lane"
+            echo
+            echo "**NOT RUN** - \`go/go.mod\` does not exist yet. Nothing was formatted, vetted, tested or cross-built."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        if: hashFiles('go/go.mod') != ''
+        with:
+          go-version: '1.27.1'
+          # Two patterns: go.sum does not exist for a module with no
+          # dependencies, and setup-go fails the step when its cache key has no
+          # file to hash. `hashFiles` ignores a pattern that matches nothing.
+          cache-dependency-path: |
+            go/go.mod
+            go/go.sum
+
+      - name: Toolchain is exactly the pinned one
+        if: hashFiles('go/go.mod') != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(go env GOVERSION)" = "go1.27.1"
+
+      - name: gofmt
+        if: hashFiles('go/go.mod') != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "::error::gofmt would change these files; run gofmt -w:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        if: hashFiles('go/go.mod') != ''
+        run: go vet ./...
+
+      - name: go test with the race detector
+        if: hashFiles('go/go.mod') != ''
+        # The race detector needs cgo; the release build below turns it off.
+        env:
+          CGO_ENABLED: "1"
+        run: go test -race -count=1 ./...
+
+      - name: Cross-build linux/amd64 and linux/arm64 without cgo
+        if: hashFiles('go/go.mod') != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          for target in linux/amd64 linux/arm64; do
+            echo "--- ${target}"
+            CGO_ENABLED=0 GOOS="${target%/*}" GOARCH="${target#*/}" go build -trimpath ./...
+          done
+
+  # The Temporal workflows lane (ADR-0009).
+  #
+  # ## What it proves
+  #
+  #   - The workflow definitions, the worker and the client run on a real
+  #     Temporal server: tests/workflows start their own dev server / test
+  #     environment from the pinned CLI, whose path reaches them as
+  #     ZENITH_TEMPORAL_CLI. Whatever those tests exercise - workflows,
+  #     activities, signals, timers, retries - runs against the real engine, not
+  #     a mock.
+  #   - The lane report fails the job once src/lib/workflows/definitions exists
+  #     if tests/workflows ran zero tests. `--passWithNoTests` keeps the job
+  #     valid until they land.
+  #
+  # ## What it does not prove
+  #
+  #   - Temporal Cloud or a clustered, persistent server. A dev server is one
+  #     process with in-memory state; multi-worker contention, namespace auth and
+  #     TLS are not exercised (ledger blocker B-TEMPORAL-CLOUD).
+  #   - Replay compatibility with a previous release's histories.
+  #   - That CLI 1.9.1 is the version the workflow tests were first written
+  #     against. The machine this lane was authored on runs CLI 1.8.2; the pin
+  #     here is 1.9.1 (current at the time of writing), so the first run of this
+  #     job on real tests is also the first time they meet 1.9.1.
+  workflows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.16.0'
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: Install pinned Temporal CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          mkdir -p temporal-cli
+          curl --fail --silent --show-error --location --retry 3 --connect-timeout 15 --max-time 300 --output temporal_cli.tar.gz https://github.com/temporalio/cli/releases/download/v1.9.1/temporal_cli_1.9.1_linux_amd64.tar.gz
+          printf '%s  %s\n' '09a0326a51db84d02735e53542b9ebd8c4758daf47482a9ab0abce15844e60d5' 'temporal_cli.tar.gz' | sha256sum --check --strict
+          tar -xzf temporal_cli.tar.gz -C temporal-cli temporal
+          version="$("$RUNNER_TEMP/temporal-cli/temporal" --version)"
+          case "$version" in
+            "temporal version 1.9.1 "*) ;;
+            *)
+              echo "::error::Expected temporal version 1.9.1, got: ${version}" >&2
+              exit 1
+              ;;
+          esac
+          echo "$version"
+          echo "ZENITH_TEMPORAL_CLI=$RUNNER_TEMP/temporal-cli/temporal" >> "$GITHUB_ENV"
+
+      - name: Workflow suites
+        # Serial: each suite starts its own dev server, and two of them on a
+        # two-core runner only make both slower and flakier.
+        run: npx vitest run tests/workflows --passWithNoTests --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/workflows-lane.json
+
+      - name: Lane report - fail if a required suite ran zero tests
+        if: always()
+        run: node scripts/ci/lane-report.mjs workflows .data-ci-lane/workflows-lane.json
+
+  # The platform control store on real PostgreSQL (ADR-0002).
+  #
+  # This is the platform's own lane, separate from `postgres` above, which is
+  # the hosted/agent/waitlist lane over `supabase/migrations`. The two databases
+  # are different services on different runners and neither depends on the other.
+  #
+  # ## What it proves
+  #
+  #   - The platform migrations apply to an empty PostgreSQL 16.15 through the
+  #     production migrator (scripts/platform/migrate.ts, via
+  #     scripts/ci/apply-platform-migrations.sh), and the ledger then reports
+  #     current. The application never runs DDL against Postgres by itself, so
+  #     this is the path a real database takes.
+  #   - tests/controlplane, tests/capabilities and tests/runners pass with
+  #     ZENITH_TEST_PLATFORM_PG_URL set, which adds the `[postgres]` half of the
+  #     `describe.each(LANES)` suites: real transactions, real independent
+  #     connections for the race tests, leases, idempotency, the outbox. The
+  #     same suites run on PGlite in `verify`; this adds the engine that
+  #     production uses.
+  #   - Once src/lib/controlplane/db exists, scripts/ci/lane-report.mjs fails the
+  #     job if tests/controlplane ran zero tests, or ran none of them on
+  #     Postgres (a job without the URL is green having touched no Postgres).
+  #     `--passWithNoTests` keeps the job valid until the suites land.
+  #
+  # ## What it does not prove
+  #
+  #   - Supabase's deployed role graph, PostgREST exposure or pooler. The
+  #     database is a bare container and the suites connect as its superuser,
+  #     which bypasses row level security: what is proven about tenant isolation
+  #     is the `workspace_id` scoping in SQL, not RLS.
+  #   - Any PostgreSQL version but 16.15.
+  platform-postgres:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        # The same digest as the `postgres` job: two lanes on two different
+        # Postgres builds would make "green" mean two things.
+        image: postgres:16.15-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+        env:
+          POSTGRES_USER: postgres
+          # Not a secret; see the `postgres` job. The database lives and dies
+          # inside this job and is reachable only from it.
+          POSTGRES_PASSWORD: zenith-ci-throwaway
+          POSTGRES_DB: zenith_platform_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready --username postgres --dbname zenith_platform_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
+    env:
+      ZENITH_DATA: ${{ github.workspace }}/.data-ci-platform
+      ZENITH_FAST: "1"
+      # The one switch that adds the Postgres lane to tests/controlplane's
+      # describe.each(LANES). Loopback only: apply-platform-migrations.sh
+      # refuses any other host.
+      ZENITH_TEST_PLATFORM_PG_URL: postgresql://postgres:zenith-ci-throwaway@127.0.0.1:5432/zenith_platform_ci
+      # SUPABASE_DB_URL / ZENITH_PLATFORM_DB* are deliberately unset so nothing
+      # can resolve the platform database to anything but the URL above.
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.16.0'
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: Say so when there is no platform migrator yet
+        if: hashFiles('scripts/platform/migrate.ts') == ''
+        shell: bash
+        run: |
+          echo "::warning::scripts/platform/migrate.ts does not exist yet, so the platform migrations were NOT applied by this job."
+          {
+            echo "## Platform PostgreSQL lane"
+            echo
+            echo "**Migrations NOT applied** - \`scripts/platform/migrate.ts\` does not exist yet."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Apply the platform migrations
+        if: hashFiles('scripts/platform/migrate.ts') != ''
+        run: bash scripts/ci/apply-platform-migrations.sh
+
+      - name: Platform control store suites
+        # Serialize suites that share the database. Race tests open their own
+        # independent connections to exercise database concurrency.
+        run: npx vitest run tests/controlplane tests/capabilities tests/runners --passWithNoTests --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/platform-lane.json
+
+      - name: Lane report - fail if the control store ran zero tests, or none on Postgres
+        if: always()
+        run: node scripts/ci/lane-report.mjs platform-postgres .data-ci-lane/platform-lane.json
+
+  # The implementation ledger (docs/build).
+  #
+  # ## What it proves
+  #
+  #   - docs/build/IMPLEMENTATION-LEDGER.md is exactly what
+  #     `node scripts/build/ledger.mjs` renders from docs/build/ledger.json, so
+  #     the human-readable table cannot drift from the machine-readable source or
+  #     be edited by hand.
+  #
+  # ## What it does not prove
+  #
+  #   - That what the ledger says is true. A workstream marked `integrated`, a
+  #     commit SHA or a test count is whatever the last editor typed; nothing
+  #     here runs the tests or resolves the commit.
+  ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      # Node built-ins only, so no `npm ci` and no npm cache.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.16.0'
+
+      - name: Ledger markdown is current
+        run: node scripts/build/ledger.mjs --check
+
+  # Dependency supply chain.
+  #
+  # Two checks with deliberately different authority:
+  #
+  #   - The lockfile check is BLOCKING. It is deterministic - a function of
+  #     package-lock.json alone - so a failure is always a real change in this
+  #     pull request. It requires every lockfile entry to resolve to
+  #     https://registry.npmjs.org with a sha512 integrity hash (scripts/ci/
+  #     lockfile-integrity.mjs explains the attack it guards against). It does
+  #     not prove a registry tarball is benign.
+  #   - `npm audit` is INFORMATIONAL (`continue-on-error`). Its verdict depends
+  #     on an advisory database that changes without any commit here: a required
+  #     gate on it turns every unrelated pull request red the day an advisory is
+  #     published against a transitive dependency, and the fix is an upgrade that
+  #     is not the author's to make. So it reports, loudly, in the job summary
+  #     and as a warning annotation, and never blocks; Dependabot
+  #     (.github/dependabot.yml) is the path that acts on it. It audits
+  #     production dependencies only (`--omit=dev`) at severity high and above,
+  #     and needs no install because it reads the lockfile.
+  supply-chain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.16.0'
+
+      - name: Lockfile pins only registry tarballs with integrity hashes
+        run: node scripts/ci/lockfile-integrity.mjs
+
+      - name: npm audit (informational, never blocks)
+        id: audit
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Surface a failed audit without failing the job
+        if: steps.audit.outcome == 'failure'
+        shell: bash
+        run: |
+          echo "::warning::npm audit reported production advisories at high severity or above. This job is informational and did not fail; see the audit step's log."
+          {
+            echo "## npm audit"
+            echo
+            echo "**Advisories found** at high severity or above in production dependencies. This check is informational and does not block the build; see the audit step's log."
+          } >> "$GITHUB_STEP_SUMMARY"

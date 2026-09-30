@@ -411,14 +411,16 @@
       "title": "MCP v3 semantic tools, CLI, SDK, connectors",
       "wave": 3,
       "owner": "worker",
-      "state": "planned",
+      "state": "in_progress",
       "deps": [
         "WS-CAP"
       ],
       "paths": [
         "src/app/api/agent/v3/**",
         "packages/cli/**"
-      ]
+      ],
+      "branch": "ws/mcp",
+      "notes": "branched from ws/cap WIP"
     },
     {
       "id": "WS-UI",
@@ -512,15 +514,19 @@
       "id": "WS-CI",
       "title": "CI gates: policy, tofu, Go, Temporal, platform Postgres, provider contracts",
       "wave": 4,
-      "owner": "orchestrator",
-      "state": "in_progress",
+      "owner": "worker",
+      "state": "integrated",
       "deps": [
         "WS-ACT"
       ],
       "paths": [
         ".github/workflows/**"
       ],
-      "branch": "ws/ci"
+      "branch": "ws/ci",
+      "commit": "2e430af",
+      "tests": "133 passed (+14 bash tests pass under Git Bash)",
+      "review": "orchestrator: merged",
+      "notes": "no job has run on GitHub yet; live-acceptance needs live-sandbox environment + OIDC role"
     },
     {
       "id": "WS-DOCS",

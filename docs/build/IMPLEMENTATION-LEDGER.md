@@ -33,14 +33,14 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-ACT | Workflow activities + AWS deploy journey + LocalStack acceptance + live harness | 3 | in_progress | WS-AWS-NET, WS-AWS-CMP, WS-AWS-DATA, WS-CAP, WS-WF | ws/act |  |  |  |  |
 | WS-INC | Incident engine and remediation workflow | 3 | in_progress | WS-OBS, WS-AWS-NET, WS-CAP | ws/inc |  |  |  |  |
 | WS-REC | Reconciliation controller and persisted drift | 3 | in_progress | WS-DB, WS-AWS-NET | ws/rec |  |  |  |  |
-| WS-MCP | MCP v3 semantic tools, CLI, SDK, connectors | 3 | planned | WS-CAP |  |  |  |  |  |
+| WS-MCP | MCP v3 semantic tools, CLI, SDK, connectors | 3 | in_progress | WS-CAP | ws/mcp |  |  |  | branched from ws/cap WIP |
 | WS-UI | UI components: plans/approvals, operations, resources, drift, incidents, cost, autonomy, connections | 3 | in_progress | WS-CAP, WS-DB | ws/ui |  |  |  |  |
 | WS-GCP | GCP drivers (Cloud Run, GKE, Cloud SQL, GCS, Pub/Sub, LB, DNS, Secret Manager, Logging/Monitoring) | 4 | in_progress | WS-ACT | ws/gcp |  |  |  |  |
 | WS-AZURE | Azure drivers (Container Apps, AKS, Postgres Flexible, Blob, Service Bus, DNS, Key Vault, Monitor) | 4 | in_progress | WS-ACT | ws/azure |  |  |  |  |
 | WS-OCI | OCI drivers through the same contracts | 4 | in_progress | WS-ACT | ws/oci |  |  |  |  |
 | WS-ZM | Zenith-managed provider (provider=zenith) | 4 | in_progress | WS-K8S | ws/zm |  |  |  |  |
 | WS-SEC | Threat model, tenant-isolation matrix, secret-leak and chaos tests | 4 | in_progress | WS-CAP, WS-ACT | ws/sec |  |  |  |  |
-| WS-CI | CI gates: policy, tofu, Go, Temporal, platform Postgres, provider contracts | 4 | in_progress | WS-ACT | ws/ci |  |  |  |  |
+| WS-CI | CI gates: policy, tofu, Go, Temporal, platform Postgres, provider contracts | 4 | integrated | WS-ACT | ws/ci | 2e430af | 133 passed (+14 bash tests pass under Git Bash) | orchestrator: merged | no job has run on GitHub yet; live-acceptance needs live-sandbox environment + OIDC role |
 | WS-DOCS | Operator docs, runbooks, capability matrix, acceptance evidence | 4 | in_progress | WS-ACT | ws/docs |  |  |  |  |
 | WS-LIVE | Live-cloud acceptance harness, scenarios A-J, cleanup, evidence | 3 | in_progress | WS-CRED, WS-TOFU | ws/live |  |  |  |  |
 

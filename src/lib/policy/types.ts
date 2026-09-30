@@ -38,6 +38,14 @@ export interface PlanFacts {
   /** firewall/security group changes */
   firewallChanges: string[];
   dnsChanges: string[];
+  /**
+   * Security-relevant values the plan cannot settle before apply (a public-access
+   * flag, an ingress CIDR or port, an IAM policy document that is masked, unknown
+   * until apply, or unparseable), as `<address>:<attribute>`. The policy asks a
+   * person to review a plan that has any. Additive and optional: facts built
+   * without it are valid and mean "none reported".
+   */
+  unresolved?: string[];
 }
 
 export interface WorkspacePolicyParams {
@@ -74,6 +82,12 @@ export interface PolicyInput {
     escapeHatch: boolean;
     /** minimum autonomy level for unattended execution, from the catalog */
     defaultAutonomy: number;
+    /**
+     * The coarse credential scope the capability needs (catalog `integrationScope`).
+     * The engine fills it from the catalog when absent and rejects a value that
+     * disagrees with the catalog, so a broker cannot understate what it asks for.
+     */
+    integrationScope?: "read" | "plan" | "logs" | "write" | "publish";
     scope: { workspaceId: string; projectId?: string; environmentId?: string; resourceId?: string };
     requestedDurationSec?: number;
     constraints?: Record<string, unknown>;

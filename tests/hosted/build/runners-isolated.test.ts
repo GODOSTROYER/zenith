@@ -665,10 +665,15 @@ describe("DockerRunner argument vector", () => {
       root: "/tmp/src-1",
       out: "/tmp/out-1",
       image: IMAGE_DIGEST,
+      name: "zenith-build-job-1",
     });
     expect(args).toEqual([
       "run",
       "--rm",
+      // Named after the job, so a timeout or cancel can kill the container
+      // itself (tests/hosted/build/docker-reap.test.ts), not only the CLI.
+      "--name",
+      "zenith-build-job-1",
       "--network",
       "none",
       "--memory",

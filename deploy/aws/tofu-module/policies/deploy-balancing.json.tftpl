@@ -1,0 +1,81 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ElbCreateTaggedLoadBalancersAndTargetGroups",
+      "Effect": "Allow",
+      "Action": [
+        "elasticloadbalancing:CreateLoadBalancer",
+        "elasticloadbalancing:CreateTargetGroup"
+      ],
+      "Resource": [
+        "arn:${partition}:elasticloadbalancing:*:${account_id}:loadbalancer/app/zenith-*/*",
+        "arn:${partition}:elasticloadbalancing:*:${account_id}:loadbalancer/net/zenith-*/*",
+        "arn:${partition}:elasticloadbalancing:*:${account_id}:targetgroup/zenith-*/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/zenith:managed": "true"
+        }
+      }
+    },
+    {
+      "Sid": "ElbManageZenithResources",
+      "Effect": "Allow",
+      "Action": [
+        "elasticloadbalancing:DeleteLoadBalancer",
+        "elasticloadbalancing:ModifyLoadBalancerAttributes",
+        "elasticloadbalancing:SetSecurityGroups",
+        "elasticloadbalancing:SetSubnets",
+        "elasticloadbalancing:SetIpAddressType",
+        "elasticloadbalancing:DeleteTargetGroup",
+        "elasticloadbalancing:ModifyTargetGroup",
+        "elasticloadbalancing:ModifyTargetGroupAttributes",
+        "elasticloadbalancing:RegisterTargets",
+        "elasticloadbalancing:DeregisterTargets",
+        "elasticloadbalancing:CreateListener",
+        "elasticloadbalancing:DeleteListener",
+        "elasticloadbalancing:ModifyListener",
+        "elasticloadbalancing:AddListenerCertificates",
+        "elasticloadbalancing:RemoveListenerCertificates",
+        "elasticloadbalancing:CreateRule",
+        "elasticloadbalancing:DeleteRule",
+        "elasticloadbalancing:ModifyRule",
+        "elasticloadbalancing:SetRulePriorities",
+        "elasticloadbalancing:AddTags",
+        "elasticloadbalancing:RemoveTags"
+      ],
+      "Resource": [
+        "arn:${partition}:elasticloadbalancing:*:${account_id}:loadbalancer/app/zenith-*/*",
+        "arn:${partition}:elasticloadbalancing:*:${account_id}:loadbalancer/net/zenith-*/*",
+        "arn:${partition}:elasticloadbalancing:*:${account_id}:targetgroup/zenith-*/*",
+        "arn:${partition}:elasticloadbalancing:*:${account_id}:listener/app/zenith-*/*/*",
+        "arn:${partition}:elasticloadbalancing:*:${account_id}:listener/net/zenith-*/*/*",
+        "arn:${partition}:elasticloadbalancing:*:${account_id}:listener-rule/app/zenith-*/*/*/*",
+        "arn:${partition}:elasticloadbalancing:*:${account_id}:listener-rule/net/zenith-*/*/*/*"
+      ]
+    },
+    {
+      "Sid": "AutoScalingManageZenithGroups",
+      "Effect": "Allow",
+      "Action": [
+        "autoscaling:CreateAutoScalingGroup",
+        "autoscaling:UpdateAutoScalingGroup",
+        "autoscaling:DeleteAutoScalingGroup",
+        "autoscaling:SetDesiredCapacity",
+        "autoscaling:PutScalingPolicy",
+        "autoscaling:DeletePolicy",
+        "autoscaling:PutLifecycleHook",
+        "autoscaling:DeleteLifecycleHook",
+        "autoscaling:CreateOrUpdateTags",
+        "autoscaling:DeleteTags",
+        "autoscaling:AttachLoadBalancerTargetGroups",
+        "autoscaling:DetachLoadBalancerTargetGroups",
+        "autoscaling:StartInstanceRefresh",
+        "autoscaling:CancelInstanceRefresh",
+        "autoscaling:TerminateInstanceInAutoScalingGroup"
+      ],
+      "Resource": "arn:${partition}:autoscaling:*:${account_id}:autoScalingGroup:*:autoScalingGroupName/zenith-*"
+    }
+  ]
+}

@@ -331,9 +331,18 @@ export class TofuRun {
     return { result: out.result, valid, diagnostics };
   }
 
-  /** `tofu plan -out=tfplan …`; exit 0 = no changes, 2 = changes, anything else throws. */
-  async plan(): Promise<{ result: TofuRunResult; hasChanges: boolean; diagnostics: PlanDiagnostic[] }> {
-    const out = await this.command("plan", ["plan", `-out=${PLAN_FILE}`, "-input=false", "-detailed-exitcode", "-lock-timeout=60s", "-no-color", "-json"], {
+  /**
+   * `tofu plan -out=tfplan …`; exit 0 = no changes, 2 = changes, anything else throws.
+   *
+   * `lock: false` skips OpenTofu's state lock. Only the observe-purpose plan
+   * uses it: the read-only role cannot write the S3 lock object, and every
+   * plan and apply of an environment already runs under Zenith's fenced
+   * `env:<id>` lease, which is the lock that actually serialises mutations.
+   * Apply always locks.
+   */
+  async plan(opts: { lock?: boolean } = {}): Promise<{ result: TofuRunResult; hasChanges: boolean; diagnostics: PlanDiagnostic[] }> {
+    const lockArgs = opts.lock === false ? ["-lock=false"] : ["-lock-timeout=60s"];
+    const out = await this.command("plan", ["plan", `-out=${PLAN_FILE}`, "-input=false", "-detailed-exitcode", ...lockArgs, "-no-color", "-json"], {
       okExitCodes: [0, 2],
       uiStream: true,
     });

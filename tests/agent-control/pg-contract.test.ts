@@ -195,7 +195,11 @@ const claim = (
   `;
 };
 
-/** The finalize of §4: guarded on the fence and on both authority digests. */
+/**
+ * The finalize of §4: guarded on the fence, on the lease still holding, and on
+ * both authority digests. `lease_until > now` is what stops a frozen instance
+ * that thaws after its lease ran out from racing reconciliation to `succeeded`.
+ */
 const finalize = (
   sql: Sql,
   op: Approved,
@@ -212,6 +216,7 @@ const finalize = (
        and fence_token = ${fence}
        and phase = 'running'
        and expires_at > ${iso()}
+       and lease_until > ${iso()}
        and authorization_digest = ${digests.authorization ?? op.digest}
        and application_authorization_digest = ${digests.application ?? op.fingerprint}
     returning id
@@ -345,6 +350,25 @@ describe.skipIf(!enabled())("AgentControlPostgres", () => {
 
       expect((await finalize(alpha, op, fence, "succeeded")).length).toBe(1);
       expect(await phaseOf(op.id)).toBe("succeeded");
+    });
+
+    it("refuses a finalize after the lease has lapsed, and reconciliation then owns the row", async () => {
+      const ns = namespace("late-finalize");
+      const op = await approved({ ns });
+      const fence = Number((await claim(alpha, op, "instance-a"))[0].fence_token);
+
+      // The instance froze past its lease and thawed: same fence, same digests,
+      // nothing else moved — only the clock.
+      await alpha`update agent.agent_operations set lease_until = ${iso(-1_000)} where id = ${op.id}`;
+      expect(
+        (await finalize(alpha, op, fence, "succeeded")).length,
+        "a lapsed lease writes nothing, whatever the dispatch did"
+      ).toBe(0);
+      expect(await phaseOf(op.id)).toBe("running");
+
+      // Which leaves the row for the tick pass, and it resolves to uncertain.
+      expect((await reconcile(beta, ns)).map((row) => row.id)).toEqual([op.id]);
+      expect(await phaseOf(op.id)).toBe("uncertain");
     });
 
     it("refuses a finalize whose authority moved while the action ran", async () => {

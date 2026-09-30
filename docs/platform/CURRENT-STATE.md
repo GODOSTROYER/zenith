@@ -47,12 +47,12 @@ This is the audit the platform build started from. It is kept as history;
 
 ## Defects found by the audit (to fix as part of the build)
 
-1. `deploy.rollback` / `deploy.promote` skip the stateful-deletion block that `deploy.apply` enforces.
-2. A cancelled/superseded rollback leaves the origin deployment `rolling_back` forever.
-3. LocalStack's verify step is a sleep; its simulated outputs are labelled `simulated:false`.
+1. `deploy.rollback` / `deploy.promote` skip the stateful-deletion block that `deploy.apply` enforces. (fixed on ws/fix)
+2. A cancelled/superseded rollback leaves the origin deployment `rolling_back` forever. (fixed on ws/fix)
+3. LocalStack's verify step is a sleep; its simulated outputs are labelled `simulated:false`. (deferred: LocalStack on hold)
 4. No cross-instance step claim in the engine; `rt.signal` is ignored by adapters.
-5. `deploy.approve` has no requester/approver separation.
-6. Agent journal: no un-approve path; `uncertain` operations never reach the review queue; the Postgres finalize does not check `lease_until`.
-7. Exported AWS target-group names are not truncated to 32 characters.
-8. `writeSettings` on the Postgres store is last-writer-wins.
-9. Docker build runner timeout kills the CLI, not the container.
+5. `deploy.approve` has no requester/approver separation. (fixed on ws/fix)
+6. Agent journal: no un-approve path; `uncertain` operations never reach the review queue; the Postgres finalize does not check `lease_until`. (fixed on ws/fix; the un-approve is a journal method only, with no browser route or screen control yet)
+7. Exported AWS target-group names are not truncated to 32 characters. (fixed on ws/fix)
+8. `writeSettings` on the Postgres store is last-writer-wins. (fixed on ws/fix)
+9. Docker build runner timeout kills the CLI, not the container. (fixed on ws/fix)

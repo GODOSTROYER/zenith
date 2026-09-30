@@ -49,7 +49,7 @@ import { pgAuthorityClient, type Sql, type TransactionSql } from '@/lib/hosted/a
 import { transactPg } from '@/lib/hosted/authority/pg/tx';
 import { readNumber } from '@/lib/hosted/authority/pg/rows';
 import {
-  ControlError, checkTarget, digest,
+  ControlError, checkTarget, digest, notWithdrawable,
   type AgentJournal, type Grant, type JournalEvent, type Operation, type Principal,
   type Proposal, type Target, type UploadReceipt,
 } from './journal';
@@ -153,7 +153,37 @@ export const claimStatement = (
      and (document ->> 'fingerprint') = ${p.fingerprint}
   returning id, fence_token, document`;
 
-/** Finalization, fenced. A stale fence changes zero rows and never a phase. */
+/**
+ * Withdraw an approval. One statement, and every precondition is in its WHERE:
+ * phase = 'approved' is what the claim also requires, so whichever of the two
+ * takes the row lock first wins and the other changes zero rows - an approval
+ * cannot be withdrawn out from under a dispatch, nor a dispatch start on an
+ * approval that was withdrawn. The stored Operation loses the same three fields
+ * the denormalised columns do, in the same statement, so the two cannot drift.
+ */
+export const unapproveStatement = (
+  sql: AnySql,
+  p: { id: string; workspaceId: string; digest: string; now: string }
+) => sql`
+  update agent.agent_operations
+     set phase = 'prepared', approved_by = null, approval_role = null, approved_at = null,
+         document = jsonb_set(document - 'approvedBy' - 'approvalRole' - 'approvedAt', '{phase}', '"prepared"')
+   where id = ${p.id}
+     and workspace_id = ${p.workspaceId}
+     and phase = 'approved'
+     and digest = ${p.digest}
+     and expires_at > ${p.now}
+  returning id, document`;
+
+/**
+ * Finalization, fenced. A stale fence changes zero rows and never a phase - and
+ * neither does a lapsed lease. lease_until is compared with the finalize
+ * instant itself: once it has passed, reconciliation is entitled to call the row
+ * uncertain, and a frozen instance thawing late must not be able to race it to
+ * succeeded. The row is then resolved as uncertain by the coordinator's
+ * ordinary refusal path (or by the next reconciliation pass), never as a
+ * success - the dispatch may well have happened, which is what uncertain says.
+ */
 export const finalizeStatement = (
   sql: AnySql,
   p: { id: string; fence: number; phase: 'succeeded' | 'failed'; finishedAt: string; document: Operation;
@@ -164,6 +194,7 @@ export const finalizeStatement = (
          lease_owner = null, lease_until = null
    where id = ${p.id} and fence_token = ${p.fence} and phase = 'running'
      and expires_at > ${p.finishedAt}
+     and lease_until > ${p.finishedAt}
      and authorization_digest is not distinct from ${p.authorizationDigest}
      and application_authorization_digest is not distinct from ${p.applicationAuthorizationDigest}
   returning id, document`;
@@ -291,10 +322,10 @@ export class PgAgentJournal implements AgentJournal {
     return { op: rows[0].document, fence: readNumber(rows[0] as unknown as Record<string, unknown>, 'fence_token') };
   }
 
-  private async event(sql: AnySql, op: Operation, kind: string): Promise<void> {
+  private async event(sql: AnySql, op: Operation, kind: string, extra: Record<string, unknown> = {}): Promise<void> {
     await sql`insert into agent.agent_operation_events (operation_id, kind, at, document) values (
       ${op.id}, ${kind}, ${iso(this.clock())},
-      ${asJson(sql, { operationId: op.id, phase: op.phase, digest: op.digest, integrationId: op.integrationId })})`;
+      ${asJson(sql, { operationId: op.id, phase: op.phase, digest: op.digest, integrationId: op.integrationId, ...extra })})`;
   }
 
   /** Write the document and its denormalised phase, then record the event. */
@@ -399,6 +430,34 @@ export class PgAgentJournal implements AgentJournal {
     });
   }
 
+  /**
+   * Withdraw an approval that has not been claimed. The decision is the
+   * database's: one conditional update carries every precondition
+   * (`unapproveStatement`), so it races a claim on the row lock and exactly one
+   * of the two wins. Zero rows is never guessed at - the row is read once and
+   * the refusal names what stopped it, with the codes the file store raises.
+   */
+  async unapprove(id: string, expectedDigest: string, by: string, workspace: string): Promise<Operation> {
+    return this.tx(async (sql) => {
+      const rows = (await unapproveStatement(sql, {
+        id, workspaceId: workspace, digest: expectedDigest, now: iso(this.clock()),
+      })) as unknown as OperationRow[];
+      if (!rows.length) {
+        const op = await this.row(sql, id);
+        if (op.target.workspaceId !== workspace) throw new ControlError('operation_not_found', 'Operation not found.', 404);
+        if (op.digest !== expectedDigest) throw new ControlError('review_changed', 'Reload and review the exact proposal.');
+        if (op.phase !== 'approved') throw notWithdrawable(op.phase);
+        if (Date.parse(op.expiresAt) <= this.clock()) throw new ControlError('plan_expired', 'Prepare a fresh plan.');
+        // Every precondition read as true a moment after the update saw one
+        // false: a claim landed in between. It is claimed; there is nothing to withdraw.
+        throw notWithdrawable('running');
+      }
+      const operation = rows[0].document;
+      await this.event(sql, operation, 'unapproved', { by });
+      return operation;
+    });
+  }
+
   /* --------------------------------- claim -------------------------------- */
 
   async claim(who: Principal, id: string, fingerprint: string, applicationAuthorizationDigest?: string): Promise<{ operation: Operation; claimed: boolean }> {
@@ -478,10 +537,20 @@ export class PgAgentJournal implements AgentJournal {
     if (!rows.length) {
       // The guards are in the WHERE, so zero rows means one of them moved. Read
       // once and name it; every one of these paths ends as `uncertain` upstream.
-      const after = await this.row(sql, id);
+      const leased = (await sql`select document, lease_until from agent.agent_operations where id = ${id}`) as unknown as
+        { document: Operation; lease_until: string | null }[];
+      if (!leased.length) throw new ControlError('operation_not_found', 'Operation not found in this scope.', 404);
+      const after = leased[0].document;
       if (after.phase !== 'running') throw new ControlError('operation_not_owned', 'This worker does not own the operation.');
       if (Date.parse(after.expiresAt) <= this.clock())
         throw new ControlError('plan_expired', 'The approved operation expired before it could be finalized.', 409);
+      // The lease is what a crash or a freeze leaves behind, and it has run out:
+      // reconciliation may already own this row. It is not finalized as a
+      // success, whatever the dispatch did.
+      const until = leased[0].lease_until;
+      if (until === null || Date.parse(until) <= this.clock())
+        throw new ControlError('lease_expired',
+          'The lease this worker held on the operation ran out before it could be finalized, so the outcome is recorded as uncertain and is never retried automatically. Inspect the linked deployment or job.', 409);
       throw new ControlError('authorization_changed', 'The integration grant, membership or role changed during dispatch.', 403);
     }
     this.fences.delete(id);
@@ -562,11 +631,17 @@ export class PgAgentJournal implements AgentJournal {
     });
   }
 
+  /**
+   * The review screen's list. `uncertain` rows are included so somebody is shown
+   * them; they are read-only, since review, claim and unapprove all refuse a row
+   * that is not in the phase they act on. (The partial review index only covers
+   * prepared/approved; the workspace index serves this at the LIMIT.)
+   */
   async reviewQueue(workspace: string, subject: string, admin: boolean): Promise<Operation[]> {
     return this.sql(async (sql) => {
       const rows = (await sql`
         select document from agent.agent_operations
-         where workspace_id = ${workspace} and phase in ('prepared','approved')
+         where workspace_id = ${workspace} and phase in ('prepared','approved','uncertain')
          order by created_at desc limit 100`) as unknown as OperationRow[];
       return rows.map((r) => r.document).filter((op) => admin || op.subject === subject);
     });

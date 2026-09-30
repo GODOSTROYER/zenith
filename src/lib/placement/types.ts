@@ -6,20 +6,42 @@
  * every estimate says it is an estimate — never an invoice.
  */
 
+/**
+ * How a catalog number was obtained (additive to the original contract).
+ * Anything other than `official_api` / `official_page` is weaker evidence and
+ * the estimate says so.
+ */
+export type PriceVerification =
+  | "official_api" // read from the provider's own public price feed / API
+  | "official_page" // parsed from the provider's official pricing page
+  | "third_party_mirror" // read from a third-party mirror of the official API
+  | "derived" // arithmetic on other catalog numbers (documented in `note`)
+  | "model_knowledge" // remembered list price, NOT read from any feed; refresh before relying on it
+  | "internal_assumption"; // Zenith managed tier planning price; not a published rate
+
 export interface PriceEntry {
   provider: string;
   region: string;
   /** SKU-ish key, e.g. `aws.fargate.vcpu_hour`, `aws.nat_gateway.hour`, `aws.ipv4.hour` */
   sku: string;
-  unit: "hour" | "month" | "gb_month" | "gb" | "million_requests" | "iops_month" | "request";
+  /** `ratio` is a dimensionless multiplier (HA factors); every other unit is a per-unit USD price. */
+  unit: "hour" | "month" | "gb_month" | "gb" | "million_requests" | "iops_month" | "request" | "ratio";
   usd: number;
+  /** additive: how this number was obtained */
+  verification?: PriceVerification;
+  /** additive: what exactly is priced (instance class, tier, caveats) */
+  note?: string;
 }
 
 export interface PriceCatalog {
   /** catalog identity: e.g. `2026-09-30.1` */
   version: string;
-  /** where the numbers came from (URLs, API, manual transcription) and when */
-  sources: { provider: string; source: string; retrievedAt: string }[];
+  /**
+   * where the numbers came from (URLs, API, manual transcription) and when.
+   * `url` and `verification` are additive: a catalog entry is covered by the
+   * source with the same provider and `verification`.
+   */
+  sources: { provider: string; source: string; retrievedAt: string; url?: string; verification?: PriceVerification }[];
   entries: PriceEntry[];
 }
 
@@ -33,6 +55,8 @@ export interface CostLine {
   monthlyUsd: number;
   /** why this quantity: "730 h/month × 2 tasks × 0.5 vCPU" */
   basis: string;
+  /** additive: how the unit price was obtained (weaker classes are flagged in the estimate's assumptions) */
+  priceVerification?: PriceVerification;
 }
 
 export interface CostEstimate {
@@ -48,6 +72,22 @@ export interface CostEstimate {
   /** costs not modeled, stated explicitly */
   excluded: string[];
   computedAt: string;
+}
+
+/** Monthly usage the estimate is modeled on (additive superset of the original `usage`). */
+export interface UsageAssumptions {
+  /** internet egress GB per month (default 50) */
+  egressGb?: number;
+  /** requests to the app per month, in millions (default 5); drives load-balancer capacity units */
+  requestsMillions?: number;
+  /** object storage GB per object store (default 10) */
+  storageGb?: number;
+  /** log GB ingested per compute service per month (default 5) */
+  logGbPerService?: number;
+  /** database storage GB per database (default 20) */
+  dbStorageGb?: number;
+  /** fraction of egress that flows between components across a region/provider boundary (default 0.2) */
+  interComponentFraction?: number;
 }
 
 export interface PlacementConstraints {
@@ -68,7 +108,7 @@ export interface PlacementConstraints {
   tolerateSingleFailure?: boolean;
   managedDatabaseRequired?: boolean;
   /** assumed monthly usage for cost modeling */
-  usage?: { egressGb?: number; requestsMillions?: number; storageGb?: number };
+  usage?: UsageAssumptions;
 }
 
 export interface PlacementCandidate {
@@ -78,12 +118,28 @@ export interface PlacementCandidate {
   cost: CostEstimate;
   /** estimated p95 latency per user region, from the latency table */
   latencyMs: Record<string, number>;
-  /** cross-cloud / cross-region implications, costed */
+  /**
+   * cross-cloud / cross-region implications, costed. `from` and `to` are the
+   * component addresses at the two ends of a data-plane edge; `egressUsdMonthly`
+   * is the transfer cost on the sending side and `addedLatencyMs` the extra
+   * round trip the boundary adds to a request.
+   */
   crossBoundary: { from: string; to: string; kind: "cross_region" | "cross_cloud"; egressUsdMonthly: number; addedLatencyMs: number }[];
+  /** weighted penalty; LOWER IS BETTER (the chosen candidate has the lowest score) */
   score: number;
   /** score components, for explanation */
   scoreBreakdown: Record<string, number>;
   warnings: string[];
+  /** additive: shape of the candidate */
+  topology?: "single_region" | "multi_region" | "cross_cloud";
+  /** additive: availability zones the priced topology uses per region */
+  availabilityZones?: number;
+  /**
+   * additive: spec keys the solver changed to satisfy availability
+   * constraints (replicas, azCount, ha), per component address. Apply these
+   * to the graph to get exactly what was priced.
+   */
+  specOverrides?: Record<string, Record<string, unknown>>;
 }
 
 export interface PlacementResult {
@@ -93,4 +149,23 @@ export interface PlacementResult {
   assumptions: string[];
   catalogVersion: string;
   deterministicSeed: string;
+}
+
+/** Result of `diffCost(before, after)` (additive). */
+export interface CostDiff {
+  beforeMonthlyUsd: number;
+  afterMonthlyUsd: number;
+  deltaMonthlyUsd: number;
+  /** one entry per changed / added / removed line, keyed by address + sku + description */
+  lines: {
+    address?: string;
+    sku: string;
+    description: string;
+    beforeUsd: number;
+    afterUsd: number;
+    deltaUsd: number;
+    change: "added" | "removed" | "changed";
+  }[];
+  /** true when the two estimates used different catalog versions (the delta then mixes price changes with usage changes) */
+  catalogChanged: boolean;
 }

@@ -112,14 +112,42 @@ export interface QueryResult<T> {
   simulated: boolean;
   /** backends that could not be queried and why — partial answers are labeled */
   unavailable: { source: string; reason: string }[];
+  /**
+   * Additive (WS-OBS): coverage caveats that do not make a backend unavailable,
+   * e.g. "searched back to 2026-09-30T10:00:00Z only (page budget reached)".
+   * Absent when there is nothing to say.
+   */
+  notes?: string[];
 }
 
 export interface ObservabilitySource {
   id: string;
   provider: string;
   supports: SignalType[];
+  /**
+   * Additive (WS-OBS): can this source answer anything for this scope? The
+   * fabric only calls sources that return true. Absent = covers every scope.
+   * Must be a cheap, synchronous, side-effect-free check (it inspects the
+   * source's own view of the resource graph, never the network).
+   */
+  covers?(scope: SignalScope): boolean;
   searchLogs?(q: LogQuery, signal: AbortSignal): Promise<QueryResult<NormalizedLog>>;
   queryMetrics?(q: MetricQuery, signal: AbortSignal): Promise<QueryResult<MetricSeries>>;
   searchEvents?(q: EventQuery, signal: AbortSignal): Promise<QueryResult<NormalizedEvent>>;
   searchTraces?(q: { scope: SignalScope; range: TimeRange; limit?: number }, signal: AbortSignal): Promise<QueryResult<TraceSpanSummary>>;
+}
+
+/**
+ * Additive (WS-OBS): the federated query surface. Every method validates its
+ * input (throws `ObservabilityInputError` for a malformed query), fans out to
+ * the sources that support the signal and cover the scope, and returns a
+ * merged, bounded, redacted answer in which a slow or failing source is an
+ * `unavailable` entry — never an exception. Only a caller-initiated abort
+ * rejects (with the signal's reason), because then nobody wants the answer.
+ */
+export interface ObservabilityFabric {
+  searchLogs(q: LogQuery, signal?: AbortSignal): Promise<QueryResult<NormalizedLog>>;
+  queryMetrics(q: MetricQuery, signal?: AbortSignal): Promise<QueryResult<MetricSeries>>;
+  searchEvents(q: EventQuery, signal?: AbortSignal): Promise<QueryResult<NormalizedEvent>>;
+  searchTraces(q: { scope: SignalScope; range: TimeRange; limit?: number }, signal?: AbortSignal): Promise<QueryResult<TraceSpanSummary>>;
 }

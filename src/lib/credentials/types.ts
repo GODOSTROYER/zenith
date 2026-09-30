@@ -55,6 +55,15 @@ export interface AwsConnectionConfig {
   stateBucket?: string;
   /** KMS key for OpenTofu state encryption, optional */
   stateKmsKeyArn?: string;
+  /**
+   * The ZenithWorkloadBoundary policy ARN from the bootstrap stack/module
+   * (output `WorkloadBoundaryArn`). Every IAM role OpenTofu creates in this
+   * account must set it as `permissions_boundary`; the deploy role cannot
+   * create a role without it.
+   */
+  permissionsBoundaryArn?: string;
+  /** The `zenith-codebuild` service role ARN from the bootstrap stack (builds run in the customer account). */
+  codeBuildRoleArn?: string;
   /** endpoint override — LocalStack only; refused for production environments */
   endpoint?: string;
   runnerId?: string;

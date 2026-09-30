@@ -47,6 +47,13 @@ export interface PlanAttributeChange {
   after: unknown;
   sensitive: boolean;
   forcesReplacement: boolean;
+  /**
+   * Additive (WS-TOFU): present only when `sensitive`. HMAC-SHA256 of the raw
+   * before/after values, so a sensitive value that changes between approval
+   * and apply still changes `planDigest` although the plan only shows
+   * "(sensitive)". Server-side only; `planView` never exposes it.
+   */
+  fingerprint?: string;
 }
 
 export interface PlanResourceChange {

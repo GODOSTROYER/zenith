@@ -29,12 +29,20 @@ const MAX_ENV_PER_SERVICE = 200;
 
 const RESOURCE_NAME: Record<ResourceKind, string> = { postgres: "db", redis: "cache", object_store: "storage", queue: "jobs", email: "mail" };
 const CAPABILITY: Record<ResourceKind, BindingCapability> = { postgres: "sql", redis: "cache", object_store: "blob", queue: "queue_publish", email: "smtp" };
-const WHY: Record<ResourceKind, string> = {
-  postgres: "reads and writes relational data",
-  redis: "uses it as a cache or job store",
-  object_store: "stores and serves files",
-  queue: "exchanges background jobs",
-  email: "sends email",
+/** Why a service is bound to a resource, in words the System Map can show on the edge. */
+const bindingSentence = (svc: string, res: string, kind: ResourceKind, cap: BindingCapability): string => {
+  switch (kind) {
+    case "postgres":
+      return `${svc} reads and writes relational data in ${res} (${cap})`;
+    case "redis":
+      return `${svc} uses ${res} as a cache or job store (${cap})`;
+    case "object_store":
+      return `${svc} stores and serves files in ${res} (${cap})`;
+    case "queue":
+      return cap === "queue_consume" ? `${svc} receives background jobs from ${res} (${cap})` : `${svc} sends background jobs to ${res} (${cap})`;
+    case "email":
+      return `${svc} sends email through ${res} (${cap})`;
+  }
 };
 
 const cite = (e: Evidence | undefined): string => (e ? `${e.path}${e.line ? `:${e.line}` : ""}` : "no location");
@@ -211,7 +219,7 @@ export function proposeArchitecture(req: AppRequirements, intent: ProposalIntent
         }
       } else capabilities.push(CAPABILITY[kind]);
       for (const cap of capabilities) {
-        addBinding(svc.id, plan.resource.id, cap, `${svc.name} ${WHY[kind]} in ${plan.resource.name} (${cap}); inferred from ${cite(top.evidence[0])}.`);
+        addBinding(svc.id, plan.resource.id, cap, `${bindingSentence(svc.name, plan.resource.name, kind, cap)}; inferred from ${cite(top.evidence[0])}.`);
         bound.add(kind);
       }
     }

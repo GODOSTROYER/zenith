@@ -33,12 +33,35 @@ function unquote(v: string): string {
   return hash === -1 ? t : t.slice(0, hash).trim();
 }
 
+/** Index of the first unescaped `quote` in `s` at or after `from`, or -1. */
+function closingQuote(s: string, quote: string, from: number): number {
+  for (let i = from; i < s.length; i++) {
+    if (s[i] === "\\") i++;
+    else if (s[i] === quote) return i;
+  }
+  return -1;
+}
+
 export function parseEnvFile(content: string): EnvAssignment[] {
   const out: EnvAssignment[] = [];
+  // A quoted value may run over several lines (a PEM key, a JSON blob). Its continuation lines are
+  // part of the value: they are skipped so that no fragment of it can be mistaken for a name.
+  let openQuote: string | undefined;
   for (const { n, text } of lines(content)) {
+    if (openQuote !== undefined) {
+      if (closingQuote(text, openQuote, 0) !== -1) openQuote = undefined;
+      continue;
+    }
     const m = ASSIGNMENT.exec(text);
     if (!m || !isEnvName(m[1])) continue;
-    const value = unquote(m[2]);
+    const raw = m[2].trim();
+    const q = raw[0];
+    let value: string;
+    if ((q === '"' || q === "'") && closingQuote(raw, q, 1) === -1) {
+      openQuote = q; // unterminated on this line: the value continues
+      value = raw.slice(1);
+      if (value === "") value = ENV_SET; // `NAME="` then a block: there is a value, whatever it is
+    } else value = unquote(m[2]);
     const marker = value === ENV_SET_SECRETLIKE;
     out.push({
       name: m[1],

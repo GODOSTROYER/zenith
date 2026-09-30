@@ -153,11 +153,35 @@ const SECRET_PREFIXES =
   /^(?:sk_(?:live|test)_|pk_live_|rk_live_|ghp_|gho_|ghu_|ghs_|github_pat_|xox[abprs]-|AKIA|ASIA|AIza|eyJ|-----BEGIN)/;
 const USERINFO_URL = /:\/\/[^\s/@:]{1,64}:[^\s/@]{1,128}@/;
 
-/** Heuristic: does this string look like a credential rather than configuration? */
+/** Shannon entropy in bits per character. */
+function entropy(s: string): number {
+  const counts = new Map<string, number>();
+  for (const ch of s) counts.set(ch, (counts.get(ch) ?? 0) + 1);
+  let bits = 0;
+  for (const c of counts.values()) {
+    const p = c / s.length;
+    bits -= p * Math.log2(p);
+  }
+  return bits;
+}
+
+const PLAIN_URL = /^[a-z][a-z0-9+.-]{1,20}:\/\/[^\s]{1,200}$/i;
+
+/**
+ * Heuristic: does this string look like a credential rather than configuration?
+ * Errs toward "yes": a default that is wrongly refused is listed for the user to
+ * supply, a credential that is wrongly carried lands in a manifest.
+ */
 export function looksLikeSecretValue(v: string): boolean {
   if (SECRET_PREFIXES.test(v)) return true;
   if (USERINFO_URL.test(v)) return true;
   if (v.length >= 20 && /^[A-Za-z0-9+/=_.-]+$/.test(v) && /[0-9]/.test(v) && /[A-Za-z]/.test(v)) return true;
+  if (!/\s/.test(v) && !PLAIN_URL.test(v) && !v.startsWith("/")) {
+    // mixed case plus digits in one unbroken token reads as a password or key
+    if (v.length >= 12 && /[a-z]/.test(v) && /[A-Z]/.test(v) && /[0-9]/.test(v)) return true;
+    // a long, random-looking token
+    if (v.length >= 16 && entropy(v) > 3.7) return true;
+  }
   return false;
 }
 

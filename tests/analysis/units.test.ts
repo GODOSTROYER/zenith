@@ -150,3 +150,52 @@ describe("snapshot builders are pure over their input", () => {
     expect(JSON.stringify(files)).toBe(before);
   });
 });
+
+describe("multi-line quoted values in env files", () => {
+  const pem = 'API_KEY=plain\nPRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7\nx9Kp2=\nDEBUG=fragment\n-----END RSA PRIVATE KEY-----"\nAFTER=1\n';
+
+  it("skips the continuation lines, so no key fragment becomes a name, and still reads what follows", () => {
+    const parsed = parseEnvFile(pem);
+    expect(parsed.map((a) => a.name)).toEqual(["API_KEY", "PRIVATE_KEY", "AFTER"]);
+    expect(parsed.find((a) => a.name === "PRIVATE_KEY")).toMatchObject({ hasValue: true, secretLike: true });
+  });
+
+  it("the redacted file carries neither the key material nor fragments of it", () => {
+    const out = redactEnvFile(pem);
+    for (const piece of ["MIIEvQ", "x9Kp2", "fragment", "BEGIN", "END RSA"]) expect(out).not.toContain(piece);
+    expect(out.split("\n").filter((l) => l !== "")).toEqual(["API_KEY=<set>", "PRIVATE_KEY=<set:secret-like>", "AFTER=<set>"]);
+    // line numbers are preserved
+    expect(out.split("\n")).toHaveLength(pem.split("\n").length);
+  });
+
+  it("an unterminated quote swallows the rest of the file rather than guessing", () => {
+    expect(parseEnvFile('A="never closed\nB=2\nC=3\n').map((a) => a.name)).toEqual(["A"]);
+  });
+
+  it("escaped and single quotes are honoured", () => {
+    expect(parseEnvFile("A=\"he said \\\"hi\\\" and left\"\nB='it''s'\nC=3\n").map((a) => a.name)).toEqual(["A", "B", "C"]);
+  });
+});
+
+describe("defaults that look like credentials are not carried, whatever the variable is called", () => {
+  it("refuses unbroken mixed-case-and-digit tokens and long random-looking tokens", () => {
+    for (const v of ["s3cr3tPassw0rd", "Xk9mQ2vL8nB4", "hunterTWO2024x", "qL8vN3xT5zR7wK1mP9", "a8f3k2j9d7s6h5g4f3d2"]) expect(looksLikeSecretValue(v), v).toBe(true);
+  });
+
+  it("still accepts ordinary configuration values", () => {
+    for (const v of ["production", "info", "Shop", "smtp.internal", "us-east-1", "localhost:5432", "https://api.example.com/v1/items?limit=10", "/var/lib/app/data", "a short sentence here", "redis-7", "UTC", "8080", "true", "Europe/Paris", "noreply@example.com", "app.example.com"]) {
+      expect(looksLikeSecretValue(v), v).toBe(false);
+      expect(isPlainDefault(v), v).toBe(true);
+    }
+  });
+
+  it("does not put such a default into a proposal; the name is listed for the user instead", () => {
+    const { req } = analyzeFiles({
+      "package.json": JSON.stringify({ dependencies: { express: "4" } }),
+      "server.js": ["require('express')().listen(3000);", "const a = process.env.SERVICE_ACCOUNT || 's3cr3tPassw0rd';", "const b = process.env.REGION || 'us-east-1';"].join("\n"),
+    });
+    expect(req.envVars.find((e) => e.value.name === "SERVICE_ACCOUNT")?.value.defaultValue).toBeUndefined();
+    expect(req.envVars.find((e) => e.value.name === "REGION")?.value.defaultValue).toBe("us-east-1");
+    expect(JSON.stringify(req)).not.toContain("s3cr3t");
+  });
+});

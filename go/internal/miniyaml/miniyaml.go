@@ -11,8 +11,8 @@
 // Deliberately rejected with an error: anchors, aliases, tags, merge keys,
 // block scalars (`|`, `>`), multi-line flow collections, multiple documents,
 // duplicate keys, tab indentation, non-string keys. A config that needs
-// these features should be written as JSON (every JSON document is also
-// valid input here).
+// these features should be written as JSON, which the agents decode directly
+// (agent.DecodeConfig sends a file to this parser only when it is not JSON).
 package miniyaml
 
 import (
@@ -71,6 +71,9 @@ func Parse(src []byte) (any, error) {
 	}
 	if len(lines) == 0 {
 		return nil, fmt.Errorf("document is empty")
+	}
+	if len(lines) == 1 && (strings.HasPrefix(lines[0].text, "{") || strings.HasPrefix(lines[0].text, "[")) {
+		return parseInline(lines[0].text, lines[0].num) // a one-line flow document
 	}
 	p := &parser{lines: lines}
 	v, err := p.block(lines[0].indent)
@@ -381,10 +384,13 @@ func parseInline(s string, num int) (any, error) {
 }
 
 type flow struct {
-	s   string
-	i   int
-	num int
+	s     string
+	i     int
+	num   int
+	depth int
 }
+
+const maxFlowDepth = 32
 
 func (f *flow) skip() {
 	for f.i < len(f.s) && (f.s[f.i] == ' ' || f.s[f.i] == '\t') {
@@ -426,6 +432,10 @@ func (f *flow) value(inFlow bool) (any, error) {
 }
 
 func (f *flow) seq() (any, error) {
+	if f.depth++; f.depth > maxFlowDepth {
+		return nil, fmt.Errorf("line %d: flow collections nested deeper than %d levels", f.num, maxFlowDepth)
+	}
+	defer func() { f.depth-- }()
 	f.i++ // [
 	out := []any{}
 	for {
@@ -437,19 +447,29 @@ func (f *flow) seq() (any, error) {
 			f.i++
 			return out, nil
 		}
+		startPos := f.i
 		v, err := f.value(true)
 		if err != nil {
 			return nil, err
+		}
+		if f.i == startPos {
+			return nil, fmt.Errorf("line %d: unexpected %q in flow sequence", f.num, f.s[f.i])
 		}
 		out = append(out, v)
 		f.skip()
 		if f.i < len(f.s) && f.s[f.i] == ',' {
 			f.i++
+		} else if f.i < len(f.s) && f.s[f.i] != ']' {
+			return nil, fmt.Errorf("line %d: expected ',' or ']' in flow sequence", f.num)
 		}
 	}
 }
 
 func (f *flow) mapp() (any, error) {
+	if f.depth++; f.depth > maxFlowDepth {
+		return nil, fmt.Errorf("line %d: flow collections nested deeper than %d levels", f.num, maxFlowDepth)
+	}
+	defer func() { f.depth-- }()
 	f.i++ // {
 	out := map[string]any{}
 	for {
@@ -461,9 +481,13 @@ func (f *flow) mapp() (any, error) {
 			f.i++
 			return out, nil
 		}
+		startPos := f.i
 		kv, err := f.value(true)
 		if err != nil {
 			return nil, err
+		}
+		if f.i == startPos {
+			return nil, fmt.Errorf("line %d: unexpected %q in flow mapping", f.num, f.s[f.i])
 		}
 		key, ok := kv.(string)
 		if !ok {
@@ -485,6 +509,8 @@ func (f *flow) mapp() (any, error) {
 		f.skip()
 		if f.i < len(f.s) && f.s[f.i] == ',' {
 			f.i++
+		} else if f.i < len(f.s) && f.s[f.i] != '}' {
+			return nil, fmt.Errorf("line %d: expected ',' or '}' in flow mapping", f.num)
 		}
 	}
 }

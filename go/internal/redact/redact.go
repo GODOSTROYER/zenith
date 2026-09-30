@@ -62,7 +62,9 @@ func String(s string) string {
 			return m
 		}
 		v := strings.TrimSpace(sub[3])
-		if benignValues[strings.ToLower(v)] || strings.HasPrefix(v, "[REDACTED") || strings.Contains(v, "[REDACTED") {
+		// Placeholders such as "(sensitive value)" and "(known after apply)" that
+		// OpenTofu prints in place of a value are not secrets.
+		if benignValues[strings.ToLower(v)] || strings.HasPrefix(v, "(") || strings.Contains(v, "[REDACTED") {
 			return m
 		}
 		q := ""

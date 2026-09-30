@@ -79,7 +79,7 @@ func (e *Executor) Capabilities() []string { return ops.Supported(e.cfg.Config) 
 func (e *Executor) Verify(_ context.Context, token string) (agent.Job, *agent.Rejection) {
 	hintJTI := protocol.UnverifiedJTI(token)
 	vm, err := e.verifier.VerifyMachine(token, e.self, func(env *protocol.MachineEnvelope) error {
-		if ops.Unsupported[env.Operation] {
+		if ops.Unsupported[env.Operation] || !ops.Known(env.Operation) {
 			return protocol.Errorf(protocol.CodeUnsupportedOp, "%s is not implemented by zenithd", clip(env.Operation, 40))
 		}
 		if !e.enabled[env.Operation] {
@@ -89,8 +89,8 @@ func (e *Executor) Verify(_ context.Context, token string) (agent.Job, *agent.Re
 	})
 	if err != nil {
 		code := protocol.CodeOf(err)
-		e.auditReject(hintJTI, "", nil, code, err.Error(), false)
-		rej := &agent.Rejection{ID: hintJTI, Code: code, Message: err.Error()}
+		e.auditReject(hintJTI, "", nil, code, protocol.MessageOf(err), false)
+		rej := &agent.Rejection{ID: hintJTI, Code: code, Message: protocol.MessageOf(err)}
 		if code == protocol.CodeReplay {
 			rej.ID = "" // never race the original delivery's real result
 		}
@@ -100,8 +100,8 @@ func (e *Executor) Verify(_ context.Context, token string) (agent.Job, *agent.Re
 
 	timeout, maxOut, err := e.limits(&env, &vm.Grant)
 	if err != nil {
-		e.auditReject(env.JTI, env.Operation, env.Args, protocol.CodeOf(err), err.Error(), true)
-		return nil, &agent.Rejection{ID: env.JTI, Code: protocol.CodeOf(err), Message: err.Error()}
+		e.auditReject(env.JTI, env.Operation, env.Args, protocol.CodeOf(err), protocol.MessageOf(err), true)
+		return nil, &agent.Rejection{ID: env.JTI, Code: protocol.CodeOf(err), Message: protocol.MessageOf(err)}
 	}
 	run, err := e.env.Prepare(env.Operation, &ops.Request{JTI: env.JTI, Args: env.Args, Timeout: timeout, MaxOutputBytes: maxOut})
 	if err != nil {
@@ -109,8 +109,8 @@ func (e *Executor) Verify(_ context.Context, token string) (agent.Job, *agent.Re
 		if code == protocol.CodeInternal {
 			code = protocol.CodeInvalidPayload
 		}
-		e.auditReject(env.JTI, env.Operation, env.Args, code, err.Error(), true)
-		return nil, &agent.Rejection{ID: env.JTI, Code: code, Message: err.Error()}
+		e.auditReject(env.JTI, env.Operation, env.Args, code, protocol.MessageOf(err), true)
+		return nil, &agent.Rejection{ID: env.JTI, Code: code, Message: protocol.MessageOf(err)}
 	}
 	entry := AuditEntry{
 		TS: e.now().UTC().Format(time.RFC3339Nano), Phase: "start", RequestID: env.JTI, Operation: env.Operation, Verified: true,

@@ -117,7 +117,7 @@ func (e *Executor) Verify(_ context.Context, token string) (agent.Job, *agent.Re
 	})
 	if err != nil {
 		code := protocol.CodeOf(err)
-		rej := &agent.Rejection{ID: jti, Code: code, Message: err.Error()}
+		rej := &agent.Rejection{ID: jti, Code: code, Message: protocol.MessageOf(err)}
 		if code == protocol.CodeReplay {
 			// The original delivery is running or already settled; a second
 			// "rejected" result could win the control plane's first-writer race
@@ -130,7 +130,7 @@ func (e *Executor) Verify(_ context.Context, token string) (agent.Job, *agent.Re
 
 	timeout, maxOut, err := e.limits(&vj.Envelope, &vj.Grant)
 	if err != nil {
-		return nil, &agent.Rejection{ID: env.JTI, Code: protocol.CodeOf(err), Message: err.Error()}
+		return nil, &agent.Rejection{ID: env.JTI, Code: protocol.CodeOf(err), Message: protocol.MessageOf(err)}
 	}
 	kind := e.kinds[env.Kind]
 	run, err := kind.Prepare(&kinds.Request{
@@ -142,7 +142,7 @@ func (e *Executor) Verify(_ context.Context, token string) (agent.Job, *agent.Re
 		if code == protocol.CodeInternal {
 			code = protocol.CodeInvalidPayload
 		}
-		return nil, &agent.Rejection{ID: env.JTI, Code: code, Message: err.Error()}
+		return nil, &agent.Rejection{ID: env.JTI, Code: code, Message: protocol.MessageOf(err)}
 	}
 	return &job{id: env.JTI, kind: env.Kind, run: run, timeout: timeout, now: e.now}, nil
 }

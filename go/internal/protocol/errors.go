@@ -63,3 +63,13 @@ func CodeOf(err error) string {
 	}
 	return CodeInternal
 }
+
+// MessageOf returns the human message of err without the code prefix (the
+// code is reported separately), or err.Error() for other errors.
+func MessageOf(err error) string {
+	var pe *Error
+	if errors.As(err, &pe) {
+		return pe.Msg
+	}
+	return err.Error()
+}

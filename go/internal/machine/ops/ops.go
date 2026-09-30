@@ -179,6 +179,10 @@ func Supported(cfg Config) []string {
 	return out
 }
 
+// Known reports whether name is an operation zenithd implements (whether or
+// not it is enabled locally).
+func Known(name string) bool { _, ok := registry[name]; return ok }
+
 // Prepare validates a request for the named operation.
 func (e *Env) Prepare(name string, req *Request) (Runnable, error) {
 	if Unsupported[name] {

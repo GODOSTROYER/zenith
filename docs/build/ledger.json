@@ -36,7 +36,7 @@
       "title": "Resource model: Manifest V2, upgrade, graph expansion, drift v2",
       "wave": 1,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-FOUND"
       ],
@@ -44,7 +44,11 @@
         "src/lib/resources/**",
         "tests/resources/**"
       ],
-      "branch": "ws/res"
+      "branch": "ws/res",
+      "commit": "188db18",
+      "tests": "159 passed",
+      "review": "orchestrator: merged 770e245",
+      "notes": "specs.ts + native-types.ts pinned contracts"
     },
     {
       "id": "WS-DB",
@@ -69,7 +73,7 @@
       "title": "Policy engine: Rego, wasm bundle, evaluator, plan facts",
       "wave": 1,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-FOUND"
       ],
@@ -78,7 +82,11 @@
         "src/lib/policy/**",
         "tests/policy/**"
       ],
-      "branch": "ws/pol"
+      "branch": "ws/pol",
+      "commit": "a080e24",
+      "tests": "opa 205/205; vitest 215",
+      "review": "orchestrator: merged cb72738",
+      "notes": "policy/dist sha e04961bb…; cross-OS wasm determinism unverified"
     },
     {
       "id": "WS-CRED",
@@ -102,7 +110,7 @@
       "title": "OpenTofu engine: workspace assembly, runner, plan normalization, digests, lockfiles",
       "wave": 1,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-FOUND"
       ],
@@ -110,7 +118,11 @@
         "src/lib/tofu/**",
         "tests/tofu/**"
       ],
-      "branch": "ws/tofu"
+      "branch": "ws/tofu",
+      "commit": "5ac7f15",
+      "tests": "110 passed + 4 network-gated (4/4 when enabled)",
+      "review": "orchestrator: merged deeb3bc",
+      "notes": "aws 6.66.0 pinned; fingerprintKey must be server-secret-derived in activities (follow-up)"
     },
     {
       "id": "WS-GO",
@@ -180,7 +192,7 @@
       "title": "Fix baseline audit defects (engine rollback, approvals, journal, naming, docker runner)",
       "wave": 1,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-FOUND"
       ],
@@ -189,7 +201,11 @@
         "src/lib/engine/**",
         "src/lib/actions/defs/{deploy,promote}.ts",
         "src/lib/agent-access/control/journal*.ts"
-      ]
+      ],
+      "commit": "bbf2f0a",
+      "tests": "full suite 3784 passed on branch",
+      "review": "orchestrator: merged 19e48b2",
+      "notes": "LocalStack defect deferred; unapprove not wired to UI"
     },
     {
       "id": "WS-ANALYZE",
@@ -210,7 +226,7 @@
       "title": "AWS drivers: VPC, subnets, IGW/NAT, security groups, ALB, Route53, ACM",
       "wave": 2,
       "owner": "worker",
-      "state": "planned",
+      "state": "in_progress",
       "deps": [
         "WS-RES",
         "WS-TOFU",
@@ -218,14 +234,15 @@
       ],
       "paths": [
         "src/lib/providers/aws/drivers/network/**"
-      ]
+      ],
+      "branch": "ws/aws-net"
     },
     {
       "id": "WS-AWS-CMP",
       "title": "AWS drivers: ECS/Fargate, ECR, EC2/ASG, Lambda, EventBridge, CodeBuild",
       "wave": 2,
       "owner": "worker",
-      "state": "planned",
+      "state": "in_progress",
       "deps": [
         "WS-RES",
         "WS-TOFU",
@@ -233,14 +250,15 @@
       ],
       "paths": [
         "src/lib/providers/aws/drivers/compute/**"
-      ]
+      ],
+      "branch": "ws/aws-cmp"
     },
     {
       "id": "WS-AWS-DATA",
       "title": "AWS drivers: RDS, ElastiCache, S3, SQS, Secrets Manager, IAM, log groups",
       "wave": 2,
       "owner": "worker",
-      "state": "planned",
+      "state": "in_progress",
       "deps": [
         "WS-RES",
         "WS-TOFU",
@@ -248,14 +266,15 @@
       ],
       "paths": [
         "src/lib/providers/aws/drivers/data/**"
-      ]
+      ],
+      "branch": "ws/aws-data"
     },
     {
       "id": "WS-CAP",
       "title": "Capability broker, approvals, grants, autonomy, REST /api/platform/v1",
       "wave": 2,
       "owner": "worker",
-      "state": "planned",
+      "state": "in_progress",
       "deps": [
         "WS-DB",
         "WS-POL"
@@ -263,14 +282,15 @@
       "paths": [
         "src/lib/capabilities/**",
         "src/app/api/platform/v1/**"
-      ]
+      ],
+      "branch": "ws/cap"
     },
     {
       "id": "WS-RUNSRV",
       "title": "Runner/zenithd control-plane side and AWS-SDK-over-runner transport",
       "wave": 2,
       "owner": "worker",
-      "state": "planned",
+      "state": "in_progress",
       "deps": [
         "WS-DB",
         "WS-GO"
@@ -279,35 +299,38 @@
         "src/lib/runners/**",
         "src/app/api/platform/v1/runners/**",
         "src/app/api/platform/v1/machines/**"
-      ]
+      ],
+      "branch": "ws/runsrv"
     },
     {
       "id": "WS-MACH",
       "title": "Machine plane: SSM, Kubernetes exec, zenithd transport",
       "wave": 2,
       "owner": "worker",
-      "state": "planned",
+      "state": "in_progress",
       "deps": [
         "WS-RUNSRV",
         "WS-CRED"
       ],
       "paths": [
         "src/lib/machines/**"
-      ]
+      ],
+      "branch": "ws/mach"
     },
     {
       "id": "WS-K8S",
       "title": "Kubernetes provider drivers (server-side apply, ownership)",
       "wave": 2,
       "owner": "worker",
-      "state": "planned",
+      "state": "in_progress",
       "deps": [
         "WS-RES",
         "WS-CRED"
       ],
       "paths": [
         "src/lib/providers/kubernetes/**"
-      ]
+      ],
+      "branch": "ws/k8s"
     },
     {
       "id": "WS-ACT",
@@ -332,7 +355,7 @@
       "title": "Incident engine and remediation workflow",
       "wave": 3,
       "owner": "worker",
-      "state": "planned",
+      "state": "in_progress",
       "deps": [
         "WS-OBS",
         "WS-AWS-NET",
@@ -340,7 +363,8 @@
       ],
       "paths": [
         "src/lib/incidents/**"
-      ]
+      ],
+      "branch": "ws/inc"
     },
     {
       "id": "WS-REC",
@@ -390,26 +414,28 @@
       "title": "GCP drivers (Cloud Run, GKE, Cloud SQL, GCS, Pub/Sub, LB, DNS, Secret Manager, Logging/Monitoring)",
       "wave": 4,
       "owner": "worker",
-      "state": "planned",
+      "state": "in_progress",
       "deps": [
         "WS-ACT"
       ],
       "paths": [
         "src/lib/providers/gcp/**"
-      ]
+      ],
+      "branch": "ws/gcp"
     },
     {
       "id": "WS-AZURE",
       "title": "Azure drivers (Container Apps, AKS, Postgres Flexible, Blob, Service Bus, DNS, Key Vault, Monitor)",
       "wave": 4,
       "owner": "worker",
-      "state": "planned",
+      "state": "in_progress",
       "deps": [
         "WS-ACT"
       ],
       "paths": [
         "src/lib/providers/azure/**"
-      ]
+      ],
+      "branch": "ws/azure"
     },
     {
       "id": "WS-OCI",
@@ -442,7 +468,7 @@
       "title": "Threat model, tenant-isolation matrix, secret-leak and chaos tests",
       "wave": 4,
       "owner": "worker",
-      "state": "planned",
+      "state": "in_progress",
       "deps": [
         "WS-CAP",
         "WS-ACT"
@@ -450,20 +476,22 @@
       "paths": [
         "tests/security/**",
         "docs/platform/THREAT-MODEL.md"
-      ]
+      ],
+      "branch": "ws/sec"
     },
     {
       "id": "WS-CI",
       "title": "CI gates: policy, tofu, Go, Temporal, platform Postgres, provider contracts",
       "wave": 4,
       "owner": "orchestrator",
-      "state": "planned",
+      "state": "in_progress",
       "deps": [
         "WS-ACT"
       ],
       "paths": [
         ".github/workflows/**"
-      ]
+      ],
+      "branch": "ws/ci"
     },
     {
       "id": "WS-DOCS",

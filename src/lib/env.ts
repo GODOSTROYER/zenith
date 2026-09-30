@@ -110,6 +110,18 @@ const Schema = z.object({
    * validation error below.
    */
   SUPABASE_DB_URL: z.string().url().optional(),
+  /* -------------------------- platform control store ------------------------- */
+  /*
+   * The platform control store (ADR-0002, `src/lib/controlplane/db`). Its one
+   * reader is `platformDbConfigFromEnv()` in `controlplane/db/open.ts`; these
+   * entries exist so a malformed value fails at boot with the others.
+   */
+  /** "pglite" (in-process, local) or "postgres". Unset: postgres when a URL is set, else pglite. */
+  ZENITH_PLATFORM_DB: z.enum(["pglite", "postgres"]).optional(),
+  /** Postgres URL for schema `platform`; falls back to SUPABASE_DB_URL. Carries a password — redacted below. */
+  ZENITH_PLATFORM_DB_URL: z.string().url().optional(),
+  /** Connection pool size for the platform store (default 5). */
+  ZENITH_PLATFORM_DB_MAX: z.coerce.number().int().positive().max(100).optional(),
   /* ------------------------------ agent access ------------------------------ */
   /*
    * The `ZENITH_AGENT_*` family, which until now was read straight out of
@@ -185,6 +197,9 @@ const RAW_KEYS = [
   "ZENITH_SMTP_URL",
   "ZENITH_ALERT_FROM",
   "SUPABASE_DB_URL",
+  "ZENITH_PLATFORM_DB",
+  "ZENITH_PLATFORM_DB_URL",
+  "ZENITH_PLATFORM_DB_MAX",
   "ZENITH_AGENT_CONTROL",
   "ZENITH_AGENT_WRITES",
   "ZENITH_AGENT_READER",
@@ -234,7 +249,7 @@ export function env(): ZenithEnv {
         // it in the boot log. Say how long it was; that is what makes the error
         // actionable.
         const secretish =
-          key === "ZENITH_SECRET_KEY" || key === "ZENITH_SMTP_URL" || key === "SUPABASE_DB_URL";
+          key === "ZENITH_SECRET_KEY" || key === "ZENITH_SMTP_URL" || key === "SUPABASE_DB_URL" || key === "ZENITH_PLATFORM_DB_URL";
         const shown = secretish ? `(${rawValue.length} chars, hidden)` : JSON.stringify(rawValue);
         return `  ${key}=${shown} — ${i.message}`;
       });

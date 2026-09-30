@@ -39,6 +39,7 @@ import { observeNodes, type ObservableNode } from "./observe";
 import { proposeRepairs, selectRepairCandidates } from "./repair";
 import {
   DEFAULT_RECONCILE_OPTIONS,
+  type FenceRef,
   type ReconcileEnvironment,
   type ReconcileOptions,
   type ReconcilePorts,
@@ -101,6 +102,10 @@ export interface ReconcileEnvironmentInput {
   graph: ResourceGraph;
   ports: ReconcilePorts;
   options?: ReconcileOptions;
+  /** the `reconcile:<environmentId>` lease this pass holds, if any: asserted at commit */
+  fence?: FenceRef;
+  /** aborts when the lease is lost: outstanding reads are cancelled and the rest are reported unread */
+  signal?: AbortSignal;
 }
 
 export async function reconcileEnvironment(input: ReconcileEnvironmentInput): Promise<ReconcileResult> {
@@ -140,7 +145,7 @@ export async function reconcileEnvironment(input: ReconcileEnvironmentInput): Pr
 
   // A shared id for this pass's observation session (credential audit joins on it).
   const observeCorrelation = `reconcile-${environment.environmentId}-${startedAt.toISOString()}`;
-  const observed = await observeNodes({ environment, items, ports, options, correlationId: observeCorrelation, deadlineAt });
+  const observed = await observeNodes({ environment, items, ports, options, correlationId: observeCorrelation, deadlineAt, ...(input.signal ? { signal: input.signal } : {}) });
 
   const reconciledGraph: ResourceGraph = { ...graph, nodes: reconcile.map((r) => r.node) };
   const drivers = new Map(items.map((i) => [i.node.address, i.driver]));
@@ -160,6 +165,7 @@ export async function reconcileEnvironment(input: ReconcileEnvironmentInput): Pr
 
   await ports.store.commit({
     environment,
+    ...(input.fence ? { fence: input.fence } : {}),
     observations: observed.map((o) => ({ resourceId: o.resource.id, observation: o.observation })),
     runtime: observed.flatMap((o) => (o.runtime ? [{ resourceId: o.resource.id, runtime: o.runtime }] : [])),
     report,

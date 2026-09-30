@@ -31,7 +31,7 @@
  */
 import type { DriftReport, Observation, ResourceGraph, RuntimeState } from "@/lib/resources/types";
 import { ReconcileError } from "./errors";
-import type { EnvironmentGuard, GuardResult, ReconcilePassPorts, ReconcileSignalsPort } from "./pass-types";
+import type { EnvironmentGuard, GuardResult, HeldLease, ReconcilePassPorts, ReconcileSignalsPort } from "./pass-types";
 import { applyNudge, DEFAULT_SCHEDULER_CONFIG, eligibility, priorityOf, selectDue, type ClaimedEnvironment, type ReconcileSchedule, type ReconcileStatePort, type SchedulerConfig } from "./scheduler";
 import type {
   PreviousReconcile,
@@ -207,14 +207,14 @@ export class MemoryReconcileBackend {
   /* ------------------------------- guard ------------------------------- */
 
   readonly guard: EnvironmentGuard = {
-    run: async <T>(env: ReconcileEnvironment, fn: () => Promise<T>): Promise<GuardResult<T>> => {
+    run: async <T>(env: ReconcileEnvironment, fn: (held: HeldLease) => Promise<T>): Promise<GuardResult<T>> => {
       this.assertTenant(env);
       if (this.mutating.has(env.environmentId)) return { ran: false, reason: "mutation_in_flight" };
       const scope = `reconcile:${env.environmentId}`;
       if (this.leases.has(scope)) return { ran: false, reason: "reconcile_lease_held" };
       this.leases.add(scope);
       try {
-        return { ran: true, value: await fn() };
+        return { ran: true, value: await fn({}) };
       } finally {
         this.leases.delete(scope);
       }

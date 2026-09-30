@@ -7,18 +7,24 @@
  *   diff         report diff, drift.detected / drift.cleared events, correlation ids
  *   repair       candidate selection, pacing, `drift.repair` proposals (never executes)
  *   scheduler    backoff, jitter, priority, eligibility (pure) + the state port
+ *   activity     `reconcileObserveOnce` — the Temporal `reconcileObserve` activity body
  *   pass         `reconcilePass` — one bounded pass across the fleet (the cron route)
  *   ports        `wireReconcilePorts` / `reconcilePassPorts` (memory mode: ZENITH_RECONCILE_MEMORY=1)
  *   memory       in-memory store/state/guard/signals for tests and local development
+ *
+ * The platform-store adapter (Postgres / PGlite) is `@/lib/reconcile/platform`: kept out of
+ * this barrel so the pure controller never imports a database.
  *
  * The controller never repairs anything itself: a repair is a capability
  * request to the broker, and an allowed operation is handed to the workflow.
  */
 export { reconcileEnvironment, resolveOptions, type ReconcileEnvironmentInput } from "./core";
+export { createReconcileObserveActivity, reconcileObserveOnce, type ReconcileOnceDeps, type ReconcileOnceInput, type ReconcileOnceResult } from "./activity";
 export { reconcilePass, emptyPassResult, RECONCILE_BUDGET_MS, RECONCILE_HARD_CAP_MS, DEFAULT_MAX_ENVIRONMENTS, DEFAULT_ENVIRONMENT_CONCURRENCY } from "./pass";
 export type {
   EnvironmentGuard,
   GuardResult,
+  HeldLease,
   ReconcilePassOptions,
   ReconcilePassPorts,
   ReconcilePassResult,
@@ -46,6 +52,6 @@ export {
   type ScheduleOutcome,
   type SchedulerConfig,
 } from "./scheduler";
-export { describeError, isAccessDenied, redactText } from "./redact";
+export { describeError, isAccessDenied, redactText, scrubValue } from "./redact";
 export { ReconcileError, type ReconcileErrorCode } from "./errors";
 export * from "./types";

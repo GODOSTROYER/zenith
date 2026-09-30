@@ -104,9 +104,17 @@ export interface PreviousReconcile {
   findingSince: Record<string, string>;
 }
 
+/** The fenced lease a reconciliation runs under: the commit asserts it is still the live fence before writing. */
+export interface FenceRef {
+  scope: string;
+  token: number;
+}
+
 /** Everything one reconciliation persists. The adapter writes it in ONE transaction. */
 export interface ReconcileCommit {
   environment: ReconcileEnvironment;
+  /** when present, the adapter asserts this fence first in the same transaction (lease loss throws; nothing is written) */
+  fence?: FenceRef;
   observations: { resourceId: string; observation: Observation }[];
   runtime: { resourceId: string; runtime: RuntimeState }[];
   report: DriftReport;

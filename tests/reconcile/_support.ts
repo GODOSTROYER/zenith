@@ -81,6 +81,8 @@ export interface Cloud {
   error?: string;
   /** answer for a different address */
   wrongAddress?: boolean;
+  /** the driver's bounded raw bag */
+  native?: Record<string, unknown>;
   runtime?: Partial<RuntimeState> | "throw";
 }
 
@@ -135,6 +137,7 @@ export class World {
           source: "fake.driver@1",
           simulated: c.simulated ?? false,
           ...(c.error ? { error: c.error } : {}),
+          ...(c.native ? { native: c.native } : {}),
         };
         return obs;
       } finally {

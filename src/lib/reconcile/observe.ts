@@ -20,7 +20,7 @@
  */
 import type { DriverContext, ResourceDriver } from "@/lib/drivers/types";
 import type { Observation, Presence, ProviderKey, ResourceNode, RuntimeState } from "@/lib/resources/types";
-import { describeError, isAccessDenied, redactText } from "./redact";
+import { describeError, isAccessDenied, redactText, scrubValue } from "./redact";
 import type { ReconcileEnvironment, ReconcilePorts, ResolvedReconcileOptions, StoredResourceRef } from "./types";
 import { cmp, mapPool, raceTimeout, TimeoutError } from "./util";
 
@@ -87,7 +87,9 @@ function normalizeObservation(raw: Observation, item: ObservableNode, at: Date):
   const observedAt = typeof raw.observedAt === "string" && !Number.isNaN(Date.parse(raw.observedAt)) ? raw.observedAt : at.toISOString();
   return {
     ...raw,
-    attributes: raw.attributes !== null && typeof raw.attributes === "object" ? raw.attributes : {},
+    // Defense in depth: a credential-shaped string in an attribute or the native bag is replaced before it is compared, stored or echoed.
+    attributes: raw.attributes !== null && typeof raw.attributes === "object" ? scrubValue(raw.attributes) : {},
+    ...(raw.native !== undefined && raw.native !== null ? { native: scrubValue(raw.native) } : {}),
     observedAt,
     source: typeof raw.source === "string" && raw.source ? raw.source : (item.driver?.id ?? "reconciler"),
     simulated: raw.simulated === true,
@@ -130,10 +132,12 @@ interface ObserveArgs {
   correlationId: string;
   /** epoch ms: nothing may start, and nothing may run past, this instant */
   deadlineAt: number;
+  /** aborts the whole observation (the lease was lost); reads stop and the rest are reported unread */
+  signal?: AbortSignal;
 }
 
 export async function observeNodes(args: ObserveArgs): Promise<ObservedNode[]> {
-  const { environment, items, ports, options, correlationId, deadlineAt } = args;
+  const { environment, items, ports, options, correlationId, deadlineAt, signal: outer } = args;
   const results = new Map<string, ObservedNode>();
   const readable: ReadableNode[] = [];
   for (const item of items) {
@@ -149,6 +153,9 @@ export async function observeNodes(args: ObserveArgs): Promise<ObservedNode[]> {
     const groupBudget = Math.max(0, deadlineAt - Date.now());
     const groupAbort = new AbortController();
     const groupTimer = setTimeout(() => groupAbort.abort(new TimeoutError(groupBudget)), groupBudget);
+    const onOuterAbort = (): void => groupAbort.abort(outer?.reason ?? new TimeoutError(0));
+    if (outer?.aborted) onOuterAbort();
+    else outer?.addEventListener("abort", onOuterAbort, { once: true });
     try {
       await ports.withObserveSession(
         {
@@ -174,6 +181,7 @@ export async function observeNodes(args: ObserveArgs): Promise<ObservedNode[]> {
         if (!results.has(item.node.address)) results.set(item.node.address, { ...item, observation: failureObservation(item, err, ports.now()) });
     } finally {
       clearTimeout(groupTimer);
+      outer?.removeEventListener("abort", onOuterAbort);
       // The abandoned callback (a hung session acquisition) must not keep reading after we return.
       if (!groupAbort.signal.aborted) groupAbort.abort(new TimeoutError(0));
     }

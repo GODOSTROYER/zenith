@@ -35,8 +35,8 @@ export const RECONCILE_BUDGET_MS = 20_000;
 export const RECONCILE_HARD_CAP_MS = 50_000;
 export const DEFAULT_MAX_ENVIRONMENTS = 25;
 export const DEFAULT_ENVIRONMENT_CONCURRENCY = 3;
-/** An environment is not started with less than this left of the budget. */
-const MIN_START_MS = 1_000;
+/** An environment is not started with less than this left of the budget (unless `minStartMs` says otherwise). */
+const DEFAULT_MIN_START_MS = 1_000;
 const DEFAULT_SIGNAL_LOOKBACK_MS = 15 * 60_000;
 
 export const emptyPassResult = (): ReconcilePassResult => ({
@@ -97,6 +97,7 @@ export async function reconcilePass(options: ReconcilePassOptions = {}): Promise
   const startGate = started + budgetMs;
   const hardDeadline = started + RECONCILE_HARD_CAP_MS;
   const maxEnvironments = bounded(options.maxEnvironments, DEFAULT_MAX_ENVIRONMENTS, 500);
+  const minStartMs = bounded(options.minStartMs, DEFAULT_MIN_START_MS, RECONCILE_BUDGET_MS);
   const config = resolveSchedulerConfig({ ...(options.scheduler ?? {}), ...(options.includeSandbox !== undefined ? { includeSandbox: options.includeSandbox } : {}) });
   const holder = options.holder ?? `reconcile:${crypto.randomUUID()}`;
 
@@ -131,7 +132,7 @@ export async function reconcilePass(options: ReconcilePassOptions = {}): Promise
   await mapPool(claimed, bounded(options.environmentConcurrency, DEFAULT_ENVIRONMENT_CONCURRENCY, 16) || 1, async (c) => {
     const { environment } = c;
     try {
-      if (startGate - Date.now() < MIN_START_MS) {
+      if (startGate - Date.now() < minStartMs) {
         await release(c);
         result.deferred++;
         return;
@@ -144,11 +145,11 @@ export async function reconcilePass(options: ReconcilePassOptions = {}): Promise
 
       let outcome: ScheduleOutcome;
       try {
-        const guarded = await ports.guard.run(environment, async () => {
+        const guarded = await ports.guard.run(environment, async (held) => {
           const graph = await ports.loadGraph(environment);
           if (!graph) return null;
           const deadlineAt = Math.min(hardDeadline, options.reconcile?.deadlineAt ?? Number.POSITIVE_INFINITY);
-          return reconcileEnvironment({ environment, graph, ports, options: { ...options.reconcile, deadlineAt } });
+          return reconcileEnvironment({ environment, graph, ports, options: { ...options.reconcile, deadlineAt }, ...(held.fence ? { fence: held.fence } : {}), ...(held.signal ? { signal: held.signal } : {}) });
         });
         if (!guarded.ran) {
           result.busy++;

@@ -358,6 +358,20 @@ describe("reconcileEnvironment: tenancy and secrets", () => {
     expect(r.report?.findings.find((f) => f.address === "log_group/web")?.explanation).toContain("[redacted");
   });
 
+  it("credential shapes a driver put in an attribute value or the native bag are scrubbed before they are compared or stored", async () => {
+    const h = harness();
+    const KEY_ID = "AKIAIOSFODNN7EXAMPLE";
+    h.world.patch("container_service/web", { attrs: { note: `rotated ${KEY_ID}` }, expected: { note: "clean" }, native: { env: { BOOT: "url=postgres://admin:hunter2-canary@db:5432/app" }, tags: { "zenith:managed": "true" } } });
+    const r = await reconcileEnvironment({ environment: ENV, graph: graph(), ports: h.ports });
+    const text = persistedText(h.backend) + JSON.stringify(r);
+    expect(text).not.toContain(KEY_ID);
+    expect(text).not.toContain("hunter2-canary");
+    // the legitimate parts of the native bag survive, and the drift is still found
+    const stored = h.backend.observations.find((o) => o.observation.address === "container_service/web");
+    expect(stored?.observation.native).toMatchObject({ tags: { "zenith:managed": "true" } });
+    expect(r.report?.findings.find((f) => f.address === "container_service/web")).toMatchObject({ class: "changed" });
+  });
+
   it("events carry names and classes, never a desired or observed value", async () => {
     const h = harness();
     h.world.patch("container_service/web", { attrs: { image: "OBSERVED-VALUE-xyz" }, expected: { image: "DESIRED-VALUE-abc" } });

@@ -4,7 +4,7 @@
  */
 import type { ResourceGraph } from "@/lib/resources/types";
 import type { SchedulerConfig, ReconcileStatePort } from "./scheduler";
-import type { ReconcileEnvironment, ReconcileOptions, ReconcilePorts } from "./types";
+import type { FenceRef, ReconcileEnvironment, ReconcileOptions, ReconcilePorts } from "./types";
 
 export type GuardResult<T> = { ran: true; value: T } | { ran: false; reason: "reconcile_lease_held" | "mutation_in_flight" };
 
@@ -16,7 +16,13 @@ export type GuardResult<T> = { ran: true; value: T } | { ran: false; reason: "re
  * deploy's own half-finished changes as drift. Never hold `env:<id>` here.
  */
 export interface EnvironmentGuard {
-  run<T>(environment: ReconcileEnvironment, fn: () => Promise<T>): Promise<GuardResult<T>>;
+  run<T>(environment: ReconcileEnvironment, fn: (held: HeldLease) => Promise<T>): Promise<GuardResult<T>>;
+}
+
+/** What the guard hands the work: the fence to assert at commit, and a signal that aborts if the lease is lost. */
+export interface HeldLease {
+  fence?: FenceRef;
+  signal?: AbortSignal;
 }
 
 /** Deploy signals, pulled (stateless): the lookback may overlap the previous pass; `applyNudge` is idempotent. */
@@ -42,6 +48,8 @@ export interface ReconcilePassOptions {
   maxEnvironments?: number;
   /** environments reconciled at once (default 3) */
   environmentConcurrency?: number;
+  /** an environment is not started with less than this left of the budget (default 1 000 ms) */
+  minStartMs?: number;
   /** include sandbox-class / sandbox-provider environments (default false) */
   includeSandbox?: boolean;
   scheduler?: Partial<SchedulerConfig>;

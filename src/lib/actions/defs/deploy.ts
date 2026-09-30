@@ -5,13 +5,14 @@
  * engine's state machine.
  */
 import { z } from "zod";
-import { defineAction, type ActionContext, type ActionPlan } from "@/lib/actions/core";
+import { defineAction, roleOf, type ActionContext, type ActionPlan } from "@/lib/actions/core";
 import { db, q, revisionManifestAsync, save } from "@/lib/db/store";
 import { diffManifests, isStatefulKind, validateManifest } from "@/lib/domain/graph";
 import {
   emptyManifest,
   id,
   type Changeset,
+  type Deployment,
   type Environment,
   type Manifest,
   type Project,
@@ -375,6 +376,44 @@ type DeploymentRef = z.infer<typeof DeploymentRef>;
  * refuses, and an execute that runs is the whole estate.
  */
 
+/**
+ * Requester/approver separation for production.
+ *
+ * An approval gate only gates if the person who asked for the change is not the
+ * one who lets it through; `deploy.approve` used to ask for the admin role and
+ * nothing else, so an admin could start a production deployment and approve it
+ * in the next click. For an environment of class `production` the approver must
+ * not be the actor who started the deployment (compared by actor id, so a
+ * Navigator cannot approve its own deployment either).
+ *
+ * The one exception is the only admin in the workspace, who has nobody else to
+ * ask: they may approve their own, and the audit summary says so
+ * ("self-approved (sole admin)") so the record shows it was not a second pair
+ * of eyes. Only a signed-in user can be that sole admin, never the Navigator.
+ * "Sole" means no *other* admin member: a workspace with no member rows at all
+ * (the local single-user store) has nobody else either.
+ *
+ * Every other environment class is unchanged.
+ */
+function approvalSeparation(
+  ctx: ActionContext,
+  d: Deployment,
+  env: Environment | undefined
+): { blocked?: string; selfApproved?: boolean } {
+  if (!env || env.class !== "production" || d.actor.id !== ctx.actor.id) return {};
+  const otherAdmins = db().members.filter(
+    (m) => m.workspaceId === ctx.workspaceId && m.role === "admin" && m.id !== ctx.actor.id
+  );
+  if (ctx.actor.type === "user" && otherAdmins.length === 0 && roleOf(ctx.actor, ctx.workspaceId) === "admin")
+    return { selfApproved: true };
+  return {
+    blocked:
+      `${env.name} is a production environment and you started this deployment, so you cannot also approve it — ` +
+      `on production the approval has to come from a second person. ` +
+      `Ask another admin to approve it from the Deploys page, or add one in Settings → Members.`,
+  };
+}
+
 defineAction<DeploymentRef>({
   id: "deploy.approve",
   title: "Approve deployment",
@@ -386,16 +425,26 @@ defineAction<DeploymentRef>({
   plan(ctx, input) {
     const d = requireDeployment(ctx, input.deploymentId);
     const env = q.environment(d.environmentId);
+    const separation = approvalSeparation(ctx, d, env);
     return {
       summary: `Approve and apply this deployment to ${env?.name ?? "its environment"}.`,
-      details: [d.changeSummary, `${d.steps.length} step(s) will run.`, "This starts changing the environment immediately."],
+      details: [
+        d.changeSummary,
+        `${d.steps.length} step(s) will run.`,
+        "This starts changing the environment immediately.",
+        ...(separation.selfApproved
+          ? [
+              `You started this deployment and are the only admin of this workspace, so you may approve it; the audit log will record it as self-approved (sole admin).`,
+            ]
+          : []),
+      ],
       costDeltaUsd: d.estCostDeltaUsd,
       risk: "high",
       warnings: [],
       requiresApproval: false,
       blocked:
         d.status === "awaiting_approval"
-          ? undefined
+          ? separation.blocked
           : `This deployment is ${d.status}, not awaiting approval, so there is nothing to approve. Start a new deployment from the Changes drawer instead.`,
     };
   },
@@ -403,9 +452,22 @@ defineAction<DeploymentRef>({
     // Resolve first. The engine approves and immediately starts applying, so an
     // unresolved id here is a deployment running in someone else's account.
     const deployment = requireDeployment(ctx, input.deploymentId);
+    // The same rule the plan renders as `blocked`, enforced again here: execute
+    // can be called without a plan, and this is the wall.
+    const separation = approvalSeparation(ctx, deployment, q.environment(deployment.environmentId));
+    if (separation.blocked && deployment.status === "awaiting_approval")
+      return {
+        ok: false,
+        summary: "You started this production deployment, so someone else has to approve it.",
+        error: separation.blocked,
+      };
     const engine = await getEngine();
     const d = await engine.approve(deployment.id);
-    return { ok: true, summary: `Approved. Applying ${d.changeSummary}.`, data: { deploymentId: d.id, status: d.status } };
+    return {
+      ok: true,
+      summary: `Approved${separation.selfApproved ? " — self-approved (sole admin)" : ""}. Applying ${d.changeSummary}.`,
+      data: { deploymentId: d.id, status: d.status },
+    };
   },
 });
 

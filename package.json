@@ -43,7 +43,13 @@
     "hosted:browser": "tsx scripts/hosted-browser.ts",
     "agent:acceptance": "tsx scripts/agent-acceptance.ts",
     "agent:browser": "tsx scripts/agent-browser.ts",
-    "test:contract": "vitest run tests/db/contract --no-file-parallelism"
+    "test:contract": "vitest run tests/db/contract --no-file-parallelism",
+    "migrate:platform": "tsx --env-file-if-exists=.env.local scripts/platform/migrate.ts",
+    "platform:emit-sql": "tsx scripts/platform/emit-sql.ts",
+    "policy:build": "node policy/build.mjs",
+    "policy:check": "node policy/build.mjs --check",
+    "ledger": "node scripts/build/ledger.mjs",
+    "worker": "tsx --env-file-if-exists=.env.local workers/execution/worker.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",

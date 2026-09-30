@@ -1,0 +1,165 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "RdsCreateTaggedResources",
+      "Effect": "Allow",
+      "Action": [
+        "rds:CreateDBInstance",
+        "rds:CreateDBCluster",
+        "rds:CreateDBInstanceReadReplica",
+        "rds:CreateDBSubnetGroup",
+        "rds:CreateDBParameterGroup",
+        "rds:CreateDBClusterParameterGroup",
+        "rds:CreateOptionGroup",
+        "rds:RestoreDBInstanceFromDBSnapshot",
+        "rds:RestoreDBClusterFromSnapshot"
+      ],
+      "Resource": [
+        "arn:${partition}:rds:*:${account_id}:db:zenith-*",
+        "arn:${partition}:rds:*:${account_id}:cluster:zenith-*",
+        "arn:${partition}:rds:*:${account_id}:subgrp:zenith-*",
+        "arn:${partition}:rds:*:${account_id}:pg:zenith-*",
+        "arn:${partition}:rds:*:${account_id}:cluster-pg:zenith-*",
+        "arn:${partition}:rds:*:${account_id}:og:zenith-*",
+        "arn:${partition}:rds:*:${account_id}:snapshot:zenith-*",
+        "arn:${partition}:rds:*:${account_id}:cluster-snapshot:zenith-*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/zenith:managed": "true"
+        }
+      }
+    },
+    {
+      "Sid": "RdsManageZenithResources",
+      "Effect": "Allow",
+      "Action": [
+        "rds:ModifyDBInstance",
+        "rds:DeleteDBInstance",
+        "rds:RebootDBInstance",
+        "rds:StartDBInstance",
+        "rds:StopDBInstance",
+        "rds:ModifyDBCluster",
+        "rds:DeleteDBCluster",
+        "rds:ModifyDBSubnetGroup",
+        "rds:DeleteDBSubnetGroup",
+        "rds:ModifyDBParameterGroup",
+        "rds:ResetDBParameterGroup",
+        "rds:DeleteDBParameterGroup",
+        "rds:ModifyDBClusterParameterGroup",
+        "rds:DeleteDBClusterParameterGroup",
+        "rds:ModifyOptionGroup",
+        "rds:DeleteOptionGroup",
+        "rds:CreateDBSnapshot",
+        "rds:CreateDBClusterSnapshot",
+        "rds:DeleteDBSnapshot",
+        "rds:DeleteDBClusterSnapshot",
+        "rds:AddTagsToResource",
+        "rds:RemoveTagsFromResource"
+      ],
+      "Resource": [
+        "arn:${partition}:rds:*:${account_id}:db:zenith-*",
+        "arn:${partition}:rds:*:${account_id}:cluster:zenith-*",
+        "arn:${partition}:rds:*:${account_id}:subgrp:zenith-*",
+        "arn:${partition}:rds:*:${account_id}:pg:zenith-*",
+        "arn:${partition}:rds:*:${account_id}:cluster-pg:zenith-*",
+        "arn:${partition}:rds:*:${account_id}:og:zenith-*",
+        "arn:${partition}:rds:*:${account_id}:snapshot:zenith-*",
+        "arn:${partition}:rds:*:${account_id}:cluster-snapshot:zenith-*"
+      ]
+    },
+    {
+      "Sid": "ElastiCacheCreateTaggedResources",
+      "Effect": "Allow",
+      "Action": [
+        "elasticache:CreateCacheCluster",
+        "elasticache:CreateReplicationGroup",
+        "elasticache:CreateCacheSubnetGroup",
+        "elasticache:CreateCacheParameterGroup"
+      ],
+      "Resource": [
+        "arn:${partition}:elasticache:*:${account_id}:cluster:zenith-*",
+        "arn:${partition}:elasticache:*:${account_id}:replicationgroup:zenith-*",
+        "arn:${partition}:elasticache:*:${account_id}:subnetgroup:zenith-*",
+        "arn:${partition}:elasticache:*:${account_id}:parametergroup:zenith-*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/zenith:managed": "true"
+        }
+      }
+    },
+    {
+      "Sid": "ElastiCacheManageZenithResources",
+      "Effect": "Allow",
+      "Action": [
+        "elasticache:ModifyCacheCluster",
+        "elasticache:DeleteCacheCluster",
+        "elasticache:RebootCacheCluster",
+        "elasticache:ModifyReplicationGroup",
+        "elasticache:DeleteReplicationGroup",
+        "elasticache:IncreaseReplicaCount",
+        "elasticache:DecreaseReplicaCount",
+        "elasticache:ModifyCacheSubnetGroup",
+        "elasticache:DeleteCacheSubnetGroup",
+        "elasticache:ModifyCacheParameterGroup",
+        "elasticache:ResetCacheParameterGroup",
+        "elasticache:DeleteCacheParameterGroup",
+        "elasticache:CreateSnapshot",
+        "elasticache:DeleteSnapshot",
+        "elasticache:AddTagsToResource",
+        "elasticache:RemoveTagsFromResource"
+      ],
+      "Resource": [
+        "arn:${partition}:elasticache:*:${account_id}:cluster:zenith-*",
+        "arn:${partition}:elasticache:*:${account_id}:replicationgroup:zenith-*",
+        "arn:${partition}:elasticache:*:${account_id}:subnetgroup:zenith-*",
+        "arn:${partition}:elasticache:*:${account_id}:parametergroup:zenith-*",
+        "arn:${partition}:elasticache:*:${account_id}:snapshot:zenith-*"
+      ]
+    },
+    {
+      "Sid": "S3ManageZenithBuckets",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket",
+        "s3:DeleteBucket",
+        "s3:PutBucketTagging",
+        "s3:PutBucketVersioning",
+        "s3:PutBucketPolicy",
+        "s3:DeleteBucketPolicy",
+        "s3:PutEncryptionConfiguration",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:PutLifecycleConfiguration",
+        "s3:PutBucketCORS",
+        "s3:PutBucketOwnershipControls"
+      ],
+      "Resource": "arn:${partition}:s3:::zenith-*"
+    },
+    {
+      "Sid": "SqsManageZenithQueues",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:CreateQueue",
+        "sqs:DeleteQueue",
+        "sqs:SetQueueAttributes",
+        "sqs:TagQueue",
+        "sqs:UntagQueue"
+      ],
+      "Resource": "arn:${partition}:sqs:*:${account_id}:zenith-*"
+    },
+    {
+      "Sid": "SecretContainersOnly",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:CreateSecret",
+        "secretsmanager:UpdateSecret",
+        "secretsmanager:DeleteSecret",
+        "secretsmanager:TagResource",
+        "secretsmanager:UntagResource"
+      ],
+      "Resource": "arn:${partition}:secretsmanager:*:${account_id}:secret:zenith/*"
+    }
+  ]
+}

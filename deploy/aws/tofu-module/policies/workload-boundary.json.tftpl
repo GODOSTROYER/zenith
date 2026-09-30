@@ -1,0 +1,126 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "WorkloadLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "logs:DescribeLogStreams"
+      ],
+      "Resource": [
+        "arn:${partition}:logs:*:${account_id}:log-group:/zenith/*",
+        "arn:${partition}:logs:*:${account_id}:log-group:/aws/*/zenith-*"
+      ]
+    },
+    {
+      "Sid": "WorkloadImagePull",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage"
+      ],
+      "Resource": "arn:${partition}:ecr:*:${account_id}:repository/zenith-*"
+    },
+    {
+      "Sid": "WorkloadEcrAuth",
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    },
+    {
+      "Sid": "WorkloadObjectsAndQueues",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:ListBucket",
+        "s3:GetBucketLocation",
+        "sqs:SendMessage",
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:ChangeMessageVisibility",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl"
+      ],
+      "Resource": [
+        "arn:${partition}:s3:::zenith-*",
+        "arn:${partition}:s3:::zenith-*/*",
+        "arn:${partition}:sqs:*:${account_id}:zenith-*"
+      ]
+    },
+    {
+      "Sid": "WorkloadReadItsOwnSecrets",
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:DescribeSecret",
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:GetParametersByPath"
+      ],
+      "Resource": [
+        "arn:${partition}:secretsmanager:*:${account_id}:secret:zenith/*",
+        "arn:${partition}:ssm:*:${account_id}:parameter/zenith/*"
+      ]
+    },
+    {
+      "Sid": "WorkloadKmsViaServices",
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:GenerateDataKey",
+        "kms:DescribeKey"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "kms:CallerAccount": "${account_id}"
+        },
+        "StringLike": {
+          "kms:ViaService": [
+            "secretsmanager.*.amazonaws.com",
+            "ssm.*.amazonaws.com",
+            "s3.*.amazonaws.com",
+            "sqs.*.amazonaws.com"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "WorkloadVpcNetworkInterfaces",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateNetworkInterface",
+        "ec2:DescribeNetworkInterfaces",
+        "ec2:DeleteNetworkInterface",
+        "ec2:AssignPrivateIpAddresses",
+        "ec2:UnassignPrivateIpAddresses"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyIdentityOrgAndAccountAdministration",
+      "Effect": "Deny",
+      "Action": [
+        "iam:*",
+        "organizations:*",
+        "account:*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "DenyStateBucket",
+      "Effect": "Deny",
+      "Action": "s3:*",
+      "Resource": [
+        "${state_bucket_arn}",
+        "${state_bucket_arn}/*"
+      ]
+    }
+  ]
+}

@@ -92,6 +92,8 @@ export type StepName =
   | "verify_infrastructure"
   | "verify_application"
   | "observe"
+  /** day-two and remediation workflows: the one capability the operation exists to run */
+  | "execute_capability"
   | "finalize"
   | "release";
 
@@ -103,11 +105,82 @@ export interface StepProgress {
   endedAt?: string;
 }
 
+/**
+ * Statuses a workflow may write with `markOperation` and report in `progress`.
+ * A subset of the control plane's `OperationStatus`: the workflow only ever
+ * drives an operation from `running` onwards. `expired` is an approval that was
+ * not recorded inside the wait window. `rejected` and `denied` are folded into
+ * `failed` with the reason in `error`.
+ */
+export type WorkflowOperationStatus =
+  | "running"
+  | "awaiting_approval"
+  | "succeeded"
+  | "failed"
+  | "uncertain"
+  | "cancelled"
+  | "expired";
+
+export type WorkflowTerminalStatus = Exclude<WorkflowOperationStatus, "running" | "awaiting_approval">;
+
 export interface WorkflowProgress {
   operationId: string;
   steps: StepProgress[];
-  status: "running" | "awaiting_approval" | "succeeded" | "failed" | "uncertain" | "cancelled";
+  status: WorkflowOperationStatus;
 }
+
+/** What `deploy`, `dayTwo` and `remediation` workflows return. Never contains secret values. */
+export interface WorkflowResult {
+  operationId: string;
+  status: WorkflowTerminalStatus;
+  /** short redacted reason; absent on success */
+  error?: string;
+  steps: StepProgress[];
+}
+
+export interface ReconcileWorkflowResult {
+  environmentId: string;
+  /**
+   * `observed`  — the pass ran and reported.
+   * `skipped`   — another reconcile pass holds the lease; nothing was done.
+   * `failed`    — the pass could not observe (`error` says why).
+   */
+  status: "observed" | "skipped" | "failed";
+  drift?: number;
+  unknown?: number;
+  /** auto-repair is not implemented by this workflow; drift is only ever reported */
+  repair: "not_requested" | "not_implemented";
+  error?: string;
+}
+
+/**
+ * Failure `type`s an activity throws (as `ApplicationFailure`) and the workflow
+ * understands. Anything else is an "unknown error": retried per the activity's
+ * policy, and — if the step may have acted — finalized as `uncertain`.
+ * `activities/failures.ts` maps the control-plane error classes onto these.
+ */
+export const FAILURE_TYPES = {
+  /** the fence moved / the lease expired; non-retryable, finalizes `uncertain` if anything may have acted */
+  leaseLost: "LeaseLost",
+  /** another live holder owns the lease; nothing acted */
+  leaseBusy: "LeaseBusy",
+  /** the re-plan differs from the approved plan; nothing was applied; re-approval required */
+  planChanged: "plan_changed",
+  /** the step ran to a clean, definitive failure (tofu exited non-zero, capability said not ok) */
+  stepFailed: "StepFailed",
+  /** the activity is a stub in this worker build; nothing acted */
+  notImplemented: "not_implemented",
+} as const;
+
+export const RECONCILE_WORKFLOW_ID = (environmentId: string) => `reconcile-${environmentId}`;
+
+/** Workflow type names (the exported function names in `definitions/`). Clients start by name. */
+export const WORKFLOW_TYPES = {
+  deploy: "infrastructureDeployWorkflow",
+  dayTwo: "dayTwoOperationWorkflow",
+  remediation: "remediationWorkflow",
+  reconcile: "reconcileEnvironmentWorkflow",
+} as const;
 
 /* ------------------------------- activities ------------------------------- */
 
@@ -150,7 +223,7 @@ export interface VerifyStepResult {
  */
 export interface ExecutionActivities {
   recordStep(input: { operationId: string; deploymentId?: string; step: StepName; status: StepProgress["status"]; detail?: string }): Promise<void>;
-  markOperation(input: { operationId: string; status: "running" | "awaiting_approval" | "succeeded" | "failed" | "uncertain" | "cancelled"; error?: string }): Promise<void>;
+  markOperation(input: { operationId: string; status: WorkflowOperationStatus; error?: string }): Promise<void>;
 
   acquireLease(input: { operationId: string; scope: string; ttlMs: number }): Promise<LeaseRef>;
   renewLease(input: { lease: LeaseRef; ttlMs: number }): Promise<void>;
@@ -172,3 +245,22 @@ export interface ExecutionActivities {
   observeEnvironment(input: { operationId: string }): Promise<{ drift: number; unknown: number }>;
   executeCapability(input: { operationId: string; lease: LeaseRef }): Promise<{ ok: boolean; summary: string }>;
 }
+
+/**
+ * Activities only the reconcile workflow calls. Kept out of `ExecutionActivities`
+ * so adding them does not break existing implementers; the worker registers
+ * `WorkerActivities`. A reconcile pass has no operation record, so it cannot use
+ * `observeEnvironment({ operationId })`.
+ */
+export interface ReconcileActivities {
+  /**
+   * Observe one environment against its desired state and record the result
+   * (drift / unknown counts) in the control store. Read-only against the cloud.
+   * `passId` is the workflow id (`reconcile-<environmentId>`); it identifies the
+   * pass, and is the lease holder for `reconcile:<environmentId>`.
+   */
+  reconcileObserve(input: { passId: string; workspaceId: string; environmentId: string; lease: LeaseRef }): Promise<{ drift: number; unknown: number }>;
+}
+
+/** Everything the execution worker registers. */
+export type WorkerActivities = ExecutionActivities & ReconcileActivities;

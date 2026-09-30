@@ -190,8 +190,13 @@ These are the corners this generator cuts, and what to do about each:
   state and is stable across applies.
 - **Service-to-service HTTP** relies on public routes. Add ECS Service Connect
   or an internal ALB for private traffic.
-- **ALB target group names** are \`<name_prefix>-<service>\` and AWS caps them
-  at 32 characters. Shorten \`name_prefix\` if a plan complains.
+- **ALB and target group names** start as \`<name_prefix>-alb\` and
+  \`<name_prefix>-<service>\`, and AWS caps both at 32 characters. A name that
+  would be longer is cut to its first 25 characters, \`-\`, and the first 6 hex
+  characters of the SHA-1 of the full name (see \`local.lb_names\` in
+  \`alb.tf\`): stable across applies, and different for different services.
+  Names of 32 characters or fewer are used as they are. A short \`name_prefix\`
+  keeps them readable.
 
 Re-exporting from Zenith regenerates these files from the current manifest. If
 you have edited them by hand, diff before overwriting — your edits are yours.

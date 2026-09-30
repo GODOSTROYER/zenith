@@ -13,6 +13,10 @@
  * store that number comes from this process's own map; on Postgres the log is
  * shared, so the store's delegate assigns it (see `seqFor`).
  *
+ * A rollback marks the deployment it undoes `rolling_back`; if the rollback ends
+ * without landing (failed, cancelled, superseded) the origin gets its previous
+ * status back — see `handBackOrigin`.
+ *
  * Import `engine` (EngineApi) and `ensureEngine()`. A tick from outside a
  * request — boot on serverless, a cron route — uses `engineTickAsync()`, whose
  * snapshot-and-409 contract is documented on the function.
@@ -66,6 +70,13 @@ type StoredDeployment = Deployment & {
   estMs?: Record<string, number>;
   /** deployment this one rolls back, marked rolled_back on success */
   rollbackOf?: string;
+  /**
+   * What `rollbackOf` was when this rollback started (before it became
+   * `rolling_back`). If this rollback ends without succeeding, the origin gets
+   * that status back — see `settleRollbackOrigin`. Absent on records written
+   * before it existed, which is "unknown".
+   */
+  rollbackOfPreviousStatus?: DeploymentStatus;
 };
 
 type EventBody =
@@ -206,6 +217,8 @@ function setStatus(d: StoredDeployment, status: DeploymentStatus): void {
   if (status === "applying" || status === "verifying") active().add(d.id);
   else active().delete(d.id);
   emit(d.id, { type: "status", status });
+  // A rollback that ends any way but landing has to give its origin back.
+  if (TERMINAL.includes(status)) settleRollbackOrigin(d);
   save(d.projectId);
 }
 
@@ -311,6 +324,75 @@ function recordSuperseded(d: StoredDeployment, byId: string | undefined): void {
 const MISSING_ENVIRONMENT =
   "The environment this deployment targets no longer exists, so nothing was published. " +
   "Re-create it in Settings → Environments, then deploy again.";
+
+/* ---------------------------- rollback origins ---------------------------- */
+
+/**
+ * A rollback marks the deployment it undoes `rolling_back`, which is not a
+ * terminal status: the origin leaves it only when something says how the
+ * rollback ended. Landing is `finish`'s job (`rolled_back`). Every other end —
+ * failed, cancelled by an operator, displaced by a deploy that took the
+ * environment, or failed for want of an environment — passes through
+ * `setStatus` with a terminal status, and lands here.
+ */
+function settleRollbackOrigin(rollback: StoredDeployment): void {
+  if (!rollback.rollbackOf || rollback.status === "succeeded") return;
+  const origin = stored(rollback.rollbackOf);
+  if (origin) handBackOrigin(origin, rollback);
+}
+
+/**
+ * Give a `rolling_back` origin its status back. `rollback` is the rollback
+ * deployment that ended, or undefined when its record is gone.
+ *
+ * The rollback never published, so the environment still runs what the origin
+ * left it, and the origin goes back to exactly what it was:
+ *   - it was `succeeded` / `failed`: that status, with its own error and end
+ *     time untouched;
+ *   - it was still running when the rollback stopped it: its steps were skipped
+ *     and its runner aborted, so it cannot be put back in flight — it is
+ *     `cancelled`, with the reason on the record;
+ *   - it is not known (a record from before `rollbackOfPreviousStatus`, or no
+ *     rollback record at all): `failed`, saying so, rather than a guess.
+ *
+ * A rollback that was itself displaced by a later rollback ends `rolled_back`
+ * when that later rollback lands. The environment has moved off both, so the
+ * origin is `rolled_back` too rather than restored.
+ *
+ * Acts only on an origin that is still `rolling_back`, so it is safe to call
+ * twice and never rewrites a status somebody else has since decided.
+ */
+function handBackOrigin(origin: StoredDeployment, rollback: StoredDeployment | undefined): void {
+  if (origin.status !== "rolling_back") return;
+  if (rollback?.status === "rolled_back") {
+    setStatus(origin, "rolled_back");
+    return;
+  }
+  const prior = rollback?.rollbackOfPreviousStatus;
+  if (prior === "succeeded" || prior === "failed") {
+    // `setStatus` would stamp a new end time over the real one.
+    const endedAt = origin.endedAt;
+    setStatus(origin, prior);
+    if (endedAt) origin.endedAt = endedAt;
+    return;
+  }
+  const envName = q.environment(origin.environmentId)?.name ?? "the environment";
+  const by = rollback ? `deployment ${rollback.id}` : "a deployment whose record is gone";
+  if (prior && prior !== "rolling_back") {
+    origin.error =
+      `A rollback (${by}) took ${envName} from this deployment while it was ${prior.replace("_", " ")}, ` +
+      `so it stopped without publishing r${q.revision(origin.revisionId)?.number ?? "?"}. ` +
+      `That rollback then ended ${rollback?.status ?? "without finishing"}, so ${envName} is left where the rollback found it — ` +
+      `deploy again, or roll back, to make it consistent.`;
+    setStatus(origin, "cancelled");
+    return;
+  }
+  origin.error =
+    `A rollback of this deployment (${by}) ended ${rollback?.status ?? "without a record"}, ` +
+    `and Zenith did not record what this deployment was before the rollback started, so it cannot say how this one ended. ` +
+    `Check what ${envName} runs now, then deploy again or roll back.`;
+  setStatus(origin, "failed");
+}
 
 /* ------------------------------ provider setup ---------------------------- */
 
@@ -581,12 +663,8 @@ function failStep(d: StoredDeployment, step: DeploymentStep, message: string): v
     }
   }
   d.error = message;
+  // A rollback deployment that fails hands its origin back (see setStatus).
   setStatus(d, "failed");
-  // A rollback deployment that fails leaves its target where it was.
-  if (d.rollbackOf) {
-    const origin = stored(d.rollbackOf);
-    if (origin && origin.status === "rolling_back") setStatus(origin, "failed");
-  }
 }
 
 function finish(d: StoredDeployment): void {
@@ -795,6 +873,7 @@ async function rollback(
         100
     ) / 100;
 
+  const lastStatus = last?.status;
   if (last && !TERMINAL.includes(last.status)) {
     // An in-flight deployment is aborted and taken off the board *before* the
     // replacement starts, not merely relabelled: `rolling_back` is not a
@@ -826,6 +905,9 @@ async function rollback(
 
   if (last) {
     d.rollbackOf = last.id;
+    // Recorded so that if this rollback ends without landing, `last` can be
+    // given the status it had (see handBackOrigin).
+    d.rollbackOfPreviousStatus = lastStatus;
     save(d.projectId);
   }
   return d;
@@ -843,6 +925,10 @@ async function rollback(
  * dropped, and a deployment that really is still mid-flight takes the lease
  * back. The environment ends up leased to the one runner about to resume, or
  * to nobody.
+ *
+ * Rollback origins are reconciled last: a deployment left `rolling_back` whose
+ * rollback is terminal or missing is handed back (`handBackOrigin`), or marked
+ * `rolled_back` if its rollback did land.
  */
 function resumeInFlight(): void {
   ensureEngine();
@@ -884,6 +970,22 @@ function resumeInFlight(): void {
         line: `Server restarted while "${running.title}" was in flight — re-running it.`,
         stream: "info",
       });
+  }
+
+  // An origin left `rolling_back` by a rollback that ended without telling it
+  // (a process killed between the two writes, or a record from before the
+  // hand-back existed), or whose rollback record is gone.
+  const all = db().deployments as StoredDeployment[];
+  for (const origin of all) {
+    if (origin.status !== "rolling_back") continue;
+    const rollbacks = all.filter((x) => x.rollbackOf === origin.id);
+    if (rollbacks.some((r) => !isTerminal(r))) continue; // still running: nothing to repair
+    if (rollbacks.some((r) => r.status === "succeeded")) {
+      setStatus(origin, "rolled_back");
+      continue;
+    }
+    const latest = [...rollbacks].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
+    handBackOrigin(origin, latest);
   }
   if (dirty) save();
 }

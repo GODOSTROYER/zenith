@@ -48,7 +48,8 @@
     "platform:emit-sql": "tsx scripts/platform/emit-sql.ts",
     "policy:build": "node policy/build.mjs",
     "policy:check": "node policy/build.mjs --check",
-    "ledger": "node scripts/build/ledger.mjs"
+    "ledger": "node scripts/build/ledger.mjs",
+    "worker": "tsx --env-file-if-exists=.env.local workers/execution/worker.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.123.0",

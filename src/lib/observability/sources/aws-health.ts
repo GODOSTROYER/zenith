@@ -155,6 +155,8 @@ export interface EcsFacts {
   targets?: TargetSummary;
   /** reason → number of recently stopped tasks */
   stoppedReasons: Map<string, number>;
+  /** non-zero container exit code → number of recently stopped tasks that ended with it */
+  exitCodes?: Map<number, number>;
 }
 
 /** Health classification for one ECS service from facts already read. Pure. Exported for tests. */
@@ -174,6 +176,8 @@ export function classifyEcs(f: EcsFacts): { health: HealthState; counts: Record<
     stoppedTotal += n;
   }
   if (stoppedTotal > 0) counts.tasks_stopped_recent = stoppedTotal;
+  if (f.stoppedReasons.has("CannotPullContainerError")) signals.push("image_pull_failed");
+  for (const [code] of [...(f.exitCodes ?? new Map<number, number>())].sort(([a], [b]) => a - b)) signals.push(`task_exit_code:${code}`);
   if (f.deploymentFailed) signals.push("deployment_failed");
   if (f.deploymentInProgress) signals.push("deployment_in_progress");
   if (f.status === "INACTIVE" || f.status === "DRAINING") signals.push(`service_${f.status.toLowerCase()}`);
@@ -192,26 +196,39 @@ export function classifyEcs(f: EcsFacts): { health: HealthState; counts: Record<
 export function taskFailureReason(t: Task): string | undefined {
   const text = [t.stoppedReason, ...(t.containers ?? []).map((c) => c.reason)].filter(Boolean).join(" ");
   if (/out ?of ?memory|oomkill|exit code 137/i.test(text)) return "OutOfMemory";
+  // ECS reports image pull failures as stopCode TaskFailedToStart with this
+  // error name in stoppedReason; name it so incident rules can tell it apart.
+  if (/CannotPullContainerError/i.test(text)) return "CannotPullContainerError";
   if (t.stopCode && FAILURE_STOP_CODES.has(t.stopCode)) return t.stopCode;
   return undefined;
 }
 
-async function recentStoppedReasons(ecs: ECSClient, cluster: string, service: string, nowMs: number, signal: AbortSignal): Promise<Map<string, number>> {
+async function recentStoppedReasons(
+  ecs: ECSClient,
+  cluster: string,
+  service: string,
+  nowMs: number,
+  signal: AbortSignal
+): Promise<{ reasons: Map<string, number>; exitCodes: Map<number, number> }> {
   const reasons = new Map<string, number>();
+  const exitCodes = new Map<number, number>();
   const listed = await abortable(
     ecs.send(new ListTasksCommand({ cluster, serviceName: service, desiredStatus: "STOPPED", maxResults: 10 }), { abortSignal: signal }),
     signal
   );
   const arns = listed.taskArns ?? [];
-  if (arns.length === 0) return reasons;
+  if (arns.length === 0) return { reasons, exitCodes };
   const described = await abortable(ecs.send(new DescribeTasksCommand({ cluster, tasks: arns }), { abortSignal: signal }), signal);
   for (const t of described.tasks ?? []) {
     const stoppedAt = t.stoppedAt instanceof Date ? t.stoppedAt.getTime() : NaN;
     if (!Number.isFinite(stoppedAt) || nowMs - stoppedAt > STOPPED_WINDOW_MS) continue;
     const reason = taskFailureReason(t);
     if (reason) reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
+    for (const c of t.containers ?? []) {
+      if (typeof c.exitCode === "number" && Number.isInteger(c.exitCode) && c.exitCode !== 0) exitCodes.set(c.exitCode, (exitCodes.get(c.exitCode) ?? 0) + 1);
+    }
   }
-  return reasons;
+  return { reasons, exitCodes };
 }
 
 async function ecsHealth(nodes: ResourceNode[], ctx: AwsContext, deps: AwsHealthDeps): Promise<RuntimeState[]> {
@@ -290,7 +307,9 @@ async function ecsServiceState(
     }
   }
   try {
-    facts.stoppedReasons = await recentStoppedReasons(ecs, cluster, service, deps.now().getTime(), deps.signal);
+    const stopped = await recentStoppedReasons(ecs, cluster, service, deps.now().getTime(), deps.signal);
+    facts.stoppedReasons = stopped.reasons;
+    facts.exitCodes = stopped.exitCodes;
   } catch (err) {
     throwIfAborted(deps.signal);
     partial.push(`stopped_tasks_${readFailedSignal(err)}`);

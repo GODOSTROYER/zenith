@@ -122,6 +122,24 @@ const Schema = z.object({
   ZENITH_PLATFORM_DB_URL: z.string().url().optional(),
   /** Connection pool size for the platform store (default 5). */
   ZENITH_PLATFORM_DB_MAX: z.coerce.number().int().positive().max(100).optional(),
+  /* ---------------------- workload identity and signing ---------------------- */
+  /*
+   * Read in exactly one place, `loadCredentialsConfig()` in
+   * `src/lib/credentials/config.ts`, which wraps every private key in a
+   * SecretString and names variables — never values — in errors. Kept loose
+   * here (like the agent family) because that reader validates them.
+   */
+  /** OIDC issuer URL for cloud workload-identity federation; required wherever tokens are minted. */
+  ZENITH_OIDC_ISSUER: z.string().url().optional(),
+  /** RS256 private JWK (JSON or base64 JSON) for the OIDC issuer. Secret. Prefer the KMS variant in production. */
+  ZENITH_OIDC_SIGNING_JWK: z.string().optional(),
+  ZENITH_OIDC_KMS_KEY_ID: z.string().optional(),
+  /** Extra PUBLIC keys to publish in the JWKS during rotation (private members are refused). */
+  ZENITH_OIDC_EXTRA_PUBLIC_JWKS: z.string().optional(),
+  /** Ed25519 private JWK that signs capability grants, runner jobs and machine requests. Secret. */
+  ZENITH_CONTROL_SIGNING_JWK: z.string().optional(),
+  ZENITH_CONTROL_KMS_KEY_ID: z.string().optional(),
+  ZENITH_CONTROL_EXTRA_PUBLIC_JWKS: z.string().optional(),
   /* ------------------------------ agent access ------------------------------ */
   /*
    * The `ZENITH_AGENT_*` family, which until now was read straight out of
@@ -200,6 +218,13 @@ const RAW_KEYS = [
   "ZENITH_PLATFORM_DB",
   "ZENITH_PLATFORM_DB_URL",
   "ZENITH_PLATFORM_DB_MAX",
+  "ZENITH_OIDC_ISSUER",
+  "ZENITH_OIDC_SIGNING_JWK",
+  "ZENITH_OIDC_KMS_KEY_ID",
+  "ZENITH_OIDC_EXTRA_PUBLIC_JWKS",
+  "ZENITH_CONTROL_SIGNING_JWK",
+  "ZENITH_CONTROL_KMS_KEY_ID",
+  "ZENITH_CONTROL_EXTRA_PUBLIC_JWKS",
   "ZENITH_AGENT_CONTROL",
   "ZENITH_AGENT_WRITES",
   "ZENITH_AGENT_READER",
@@ -249,7 +274,8 @@ export function env(): ZenithEnv {
         // it in the boot log. Say how long it was; that is what makes the error
         // actionable.
         const secretish =
-          key === "ZENITH_SECRET_KEY" || key === "ZENITH_SMTP_URL" || key === "SUPABASE_DB_URL" || key === "ZENITH_PLATFORM_DB_URL";
+          key === "ZENITH_SECRET_KEY" || key === "ZENITH_SMTP_URL" || key === "SUPABASE_DB_URL" || key === "ZENITH_PLATFORM_DB_URL" ||
+          key === "ZENITH_OIDC_SIGNING_JWK" || key === "ZENITH_CONTROL_SIGNING_JWK";
         const shown = secretish ? `(${rawValue.length} chars, hidden)` : JSON.stringify(rawValue);
         return `  ${key}=${shown} — ${i.message}`;
       });

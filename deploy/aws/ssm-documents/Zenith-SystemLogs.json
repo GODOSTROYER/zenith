@@ -1,0 +1,99 @@
+{
+  "schemaVersion": "2.2",
+  "description": "Zenith system.logs: the newest journal lines (optionally for one unit), at most 20000 bytes. Read-only. Output format zenith.system.logs/v1.",
+  "parameters": {
+    "unit": {
+      "type": "String",
+      "description": "Optional systemd unit name; empty for the whole journal.",
+      "default": "",
+      "allowedPattern": "^([A-Za-z0-9@._:-]{1,128}\\.(service|socket|timer))?$",
+      "maxChars": 160,
+      "interpolationType": "ENV_VAR"
+    },
+    "since": {
+      "type": "String",
+      "description": "Relative duration such as 15m, 2h, 1d or 900s (at most 7d).",
+      "default": "1h",
+      "allowedPattern": "^[1-9][0-9]{0,5}[smhd]$",
+      "maxChars": 7,
+      "interpolationType": "ENV_VAR"
+    },
+    "lines": {
+      "type": "String",
+      "description": "Lines from the end (1-5000).",
+      "allowedPattern": "^[1-9][0-9]{0,3}$",
+      "maxChars": 4,
+      "interpolationType": "ENV_VAR"
+    },
+    "executionTimeout": {
+      "type": "String",
+      "description": "Seconds before the command is considered failed (1-999).",
+      "default": "60",
+      "allowedPattern": "^[1-9][0-9]{0,2}$",
+      "maxChars": 3
+    }
+  },
+  "mainSteps": [
+    {
+      "action": "aws:runShellScript",
+      "name": "zenith",
+      "precondition": {
+        "StringEquals": [
+          "platformType",
+          "Linux"
+        ]
+      },
+      "inputs": {
+        "timeoutSeconds": "{{ executionTimeout }}",
+        "runCommand": [
+          "#!/bin/sh",
+          "set -u",
+          "set -f",
+          "LC_ALL=C",
+          "export LC_ALL",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "export PATH",
+          "die() { printf '%s\\n' \"$2\" >&2; exit \"$1\"; }",
+          "unit=\"${SSM_unit-}\"",
+          "since=\"${SSM_since-}\"",
+          "lines=\"${SSM_lines-}\"",
+          "case \"$unit\" in",
+          "  '') ;;",
+          "  -*|*[!A-Za-z0-9@._:-]*) die 64 'invalid unit name' ;;",
+          "  *.service|*.socket|*.timer) [ \"${#unit}\" -le 160 ] || die 64 'invalid unit name' ;;",
+          "  *) die 64 'invalid unit name' ;;",
+          "esac",
+          "case \"$lines\" in ''|*[!0-9]*) die 64 'invalid lines (SSM Agent >= 3.3.2746.0 is required for ENV_VAR parameters)' ;; esac",
+          "[ \"$lines\" -ge 1 ] && [ \"$lines\" -le 5000 ] || die 64 'lines out of range'",
+          "case \"$since\" in",
+          "  *[smhd])",
+          "    n=\"${since%[smhd]}\"",
+          "    u=\"${since#\"$n\"}\"",
+          "    case \"$n\" in ''|*[!0-9]*) die 64 'invalid since' ;; esac",
+          "    [ \"$n\" -ge 1 ] && [ \"$n\" -le 100000 ] || die 64 'invalid since'",
+          "    case \"$u\" in s) m=1 ;; m) m=60 ;; h) m=3600 ;; d) m=86400 ;; esac",
+          "    secs=$((n * m)) ;;",
+          "  *) die 64 'invalid since' ;;",
+          "esac",
+          "[ \"$secs\" -le 604800 ] || die 64 'since is limited to 7d'",
+          "command -v journalctl >/dev/null 2>&1 || die 69 'journalctl is not available on this machine'",
+          "set -- --no-pager -q -o short-iso -n \"$lines\" --since \"-${secs}s\"",
+          "[ -n \"$unit\" ] && set -- \"$@\" -u \"$unit\"",
+          "tmp=$(mktemp) || die 69 'mktemp failed'",
+          "trap 'rm -f \"$tmp\"' EXIT",
+          "journalctl \"$@\" >\"$tmp\" 2>&1",
+          "rc=$?",
+          "[ \"$rc\" -eq 0 ] || die 69 \"journalctl failed: $(head -c 300 \"$tmp\")\"",
+          "size=$(wc -c <\"$tmp\")",
+          "echo 'zenith.system.logs/v1'",
+          "printf 'bytes=%s\\n' \"$size\"",
+          "printf 'lines=%s\\n' \"$(wc -l <\"$tmp\" | tr -d ' ')\"",
+          "if [ \"$size\" -gt 20000 ]; then echo 'truncated=true'; else echo 'truncated=false'; fi",
+          "echo '---'",
+          "tail -c 20000 \"$tmp\"",
+          "exit 0"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,106 @@
+{
+  "schemaVersion": "2.2",
+  "description": "Zenith container.logs: the newest docker logs, at most 20000 bytes. Read-only. Output format zenith.container.logs/v1.",
+  "parameters": {
+    "container": {
+      "type": "String",
+      "description": "Docker container id or name.",
+      "allowedPattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+      "maxChars": 128,
+      "interpolationType": "ENV_VAR"
+    },
+    "since": {
+      "type": "String",
+      "description": "Relative duration such as 15m, 2h, 1d or 900s; empty for no bound.",
+      "default": "",
+      "allowedPattern": "^([1-9][0-9]{0,5}[smhd])?$",
+      "maxChars": 7,
+      "interpolationType": "ENV_VAR"
+    },
+    "lines": {
+      "type": "String",
+      "description": "Lines from the end of the log (1-5000).",
+      "allowedPattern": "^[1-9][0-9]{0,3}$",
+      "maxChars": 4,
+      "interpolationType": "ENV_VAR"
+    },
+    "timestamps": {
+      "type": "String",
+      "description": "Prefix each line with its timestamp (true or false).",
+      "allowedPattern": "^(true|false)$",
+      "maxChars": 5,
+      "interpolationType": "ENV_VAR"
+    },
+    "executionTimeout": {
+      "type": "String",
+      "description": "Seconds before the command is considered failed (1-999).",
+      "default": "60",
+      "allowedPattern": "^[1-9][0-9]{0,2}$",
+      "maxChars": 3
+    }
+  },
+  "mainSteps": [
+    {
+      "action": "aws:runShellScript",
+      "name": "zenith",
+      "precondition": {
+        "StringEquals": [
+          "platformType",
+          "Linux"
+        ]
+      },
+      "inputs": {
+        "timeoutSeconds": "{{ executionTimeout }}",
+        "runCommand": [
+          "#!/bin/sh",
+          "set -u",
+          "set -f",
+          "LC_ALL=C",
+          "export LC_ALL",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "export PATH",
+          "die() { printf '%s\\n' \"$2\" >&2; exit \"$1\"; }",
+          "container=\"${SSM_container-}\"",
+          "since=\"${SSM_since-}\"",
+          "lines=\"${SSM_lines-}\"",
+          "timestamps=\"${SSM_timestamps-}\"",
+          "case \"$container\" in ''|-*|*[!A-Za-z0-9_.-]*) die 64 'invalid container (SSM Agent >= 3.3.2746.0 is required for ENV_VAR parameters)' ;; esac",
+          "[ \"${#container}\" -le 128 ] || die 64 'invalid container'",
+          "case \"$lines\" in ''|*[!0-9]*) die 64 'invalid lines' ;; esac",
+          "[ \"$lines\" -ge 1 ] && [ \"$lines\" -le 5000 ] || die 64 'lines out of range'",
+          "case \"$timestamps\" in true|false) ;; *) die 64 'invalid timestamps' ;; esac",
+          "case \"$since\" in",
+          "  '') ;;",
+          "  *[smhd])",
+          "    n=\"${since%[smhd]}\"",
+          "    u=\"${since#\"$n\"}\"",
+          "    case \"$n\" in ''|*[!0-9]*) die 64 'invalid since' ;; esac",
+          "    [ \"$n\" -ge 1 ] && [ \"$n\" -le 100000 ] || die 64 'invalid since'",
+          "    case \"$u\" in d) since=\"$((n * 24))h\" ;; esac ;;",
+          "  *) die 64 'invalid since' ;;",
+          "esac",
+          "command -v docker >/dev/null 2>&1 || die 69 'docker is not available on this machine'",
+          "set -- logs --tail \"$lines\"",
+          "[ \"$timestamps\" = true ] && set -- \"$@\" --timestamps",
+          "[ -n \"$since\" ] && set -- \"$@\" --since \"$since\"",
+          "set -- \"$@\" -- \"$container\"",
+          "tmp=$(mktemp) || die 69 'mktemp failed'",
+          "trap 'rm -f \"$tmp\"' EXIT",
+          "docker \"$@\" >\"$tmp\" 2>&1",
+          "rc=$?",
+          "if [ \"$rc\" -ne 0 ]; then",
+          "  case \"$(head -c 300 \"$tmp\")\" in *[Nn]o\\ such\\ container*) die 66 'no such container' ;; esac",
+          "  die 69 \"docker logs failed: $(head -c 300 \"$tmp\")\"",
+          "fi",
+          "size=$(wc -c <\"$tmp\")",
+          "echo 'zenith.container.logs/v1'",
+          "printf 'bytes=%s\\n' \"$size\"",
+          "if [ \"$size\" -gt 20000 ]; then echo 'truncated=true'; else echo 'truncated=false'; fi",
+          "echo '---'",
+          "tail -c 20000 \"$tmp\"",
+          "exit 0"
+        ]
+      }
+    }
+  ]
+}

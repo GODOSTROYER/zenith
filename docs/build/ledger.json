@@ -146,7 +146,7 @@
       "title": "Cost engine v2, price catalog, placement solver",
       "wave": 1,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-FOUND"
       ],
@@ -154,14 +154,18 @@
         "src/lib/placement/**",
         "tests/placement/**"
       ],
-      "branch": "ws/place"
+      "branch": "ws/place",
+      "commit": "15313bf",
+      "tests": "114 + 2 integration (116)",
+      "review": "orchestrator: merged; fixed spec-key mismatch 2a4690a",
+      "notes": "AWS/Azure/OCI prices mostly from official APIs; GCP partly third-party mirror; zenith tier is internal assumption"
     },
     {
       "id": "WS-OBS",
       "title": "Observability fabric: sandbox, CloudWatch, Prometheus, Loki",
       "wave": 1,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-FOUND"
       ],
@@ -169,7 +173,11 @@
         "src/lib/observability/**",
         "tests/observability/**"
       ],
-      "branch": "ws/obs"
+      "branch": "ws/obs",
+      "commit": "fd0c098",
+      "tests": "401 passed",
+      "review": "orchestrator: merged",
+      "notes": "all sources contract-level; no trace/CloudTrail source; drivers must publish externalId + native ids"
     },
     {
       "id": "WS-WF",
@@ -337,7 +345,7 @@
       "title": "Workflow activities + AWS deploy journey + LocalStack acceptance + live harness",
       "wave": 3,
       "owner": "worker",
-      "state": "planned",
+      "state": "in_progress",
       "deps": [
         "WS-AWS-NET",
         "WS-AWS-CMP",
@@ -348,7 +356,8 @@
       "paths": [
         "src/lib/workflows/activities/**",
         "scripts/acceptance/**"
-      ]
+      ],
+      "branch": "ws/act"
     },
     {
       "id": "WS-INC",
@@ -371,14 +380,15 @@
       "title": "Reconciliation controller and persisted drift",
       "wave": 3,
       "owner": "worker",
-      "state": "planned",
+      "state": "in_progress",
       "deps": [
         "WS-DB",
         "WS-AWS-NET"
       ],
       "paths": [
         "src/lib/reconcile/**"
-      ]
+      ],
+      "branch": "ws/rec"
     },
     {
       "id": "WS-MCP",
@@ -396,10 +406,10 @@
     },
     {
       "id": "WS-UI",
-      "title": "UI: connections, plans/approvals, autonomy/policy, operations, incidents, resources",
+      "title": "UI components: plans/approvals, operations, resources, drift, incidents, cost, autonomy, connections",
       "wave": 3,
       "owner": "worker",
-      "state": "planned",
+      "state": "in_progress",
       "deps": [
         "WS-CAP",
         "WS-DB"
@@ -407,7 +417,8 @@
       "paths": [
         "src/app/(product)/platform/**",
         "src/components/platform/**"
-      ]
+      ],
+      "branch": "ws/ui"
     },
     {
       "id": "WS-GCP",
@@ -442,7 +453,7 @@
       "title": "OCI drivers through the same contracts",
       "wave": 4,
       "owner": "worker",
-      "state": "planned",
+      "state": "queued",
       "deps": [
         "WS-ACT"
       ],

@@ -25,6 +25,15 @@ const nextConfig: NextConfig = {
     "vite",
     "@vitejs/plugin-react",
     "e2b",
+    // The platform control store's local engine ships wasm and data files that
+    // must not be bundled; the executor imports it dynamically, so the Postgres
+    // path never loads it.
+    "@electric-sql/pglite",
+    // Native Temporal core bridge and the OPA wasm runtime (policy engine).
+    "@temporalio/worker",
+    "@temporalio/client",
+    "@open-policy-agent/opa-wasm",
+    "@kubernetes/client-node",
   ],
 
   // `env.ts` defaults ZENITH_DATA to path.join(process.cwd(), ".data"), which

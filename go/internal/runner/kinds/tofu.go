@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/GODOSTROYER/zenith/go/internal/agent"
+	"github.com/GODOSTROYER/zenith/go/internal/proc"
 	"github.com/GODOSTROYER/zenith/go/internal/protocol"
 	"github.com/GODOSTROYER/zenith/go/internal/redact"
 )
@@ -551,7 +552,7 @@ func (t *Tofu) exec(ctx context.Context, dir string, env []string, args []string
 	cmd.Dir = dir
 	cmd.Env = env
 	cmd.Stdin = nil
-	prepareCmd(cmd)
+	proc.Prepare(cmd, proc.Interrupt, 30*time.Second)
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
 		return -1, nil, err
@@ -573,7 +574,7 @@ func (t *Tofu) exec(ctx context.Context, dir string, env []string, args []string
 			select {
 			case <-done:
 			case <-time.After(45 * time.Second):
-				killGroup(cmd)
+				proc.KillGroup(cmd)
 			}
 		case <-done:
 		}
@@ -596,7 +597,7 @@ func (t *Tofu) exec(ctx context.Context, dir string, env []string, args []string
 	}()
 	wg.Wait()
 	werr := cmd.Wait()
-	killGroup(cmd)
+	proc.KillGroup(cmd)
 	code := 0
 	if werr != nil {
 		var ee *exec.ExitError

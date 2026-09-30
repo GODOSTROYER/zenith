@@ -23,6 +23,8 @@ type Deps struct {
 	Resolver netguard.Resolver // probes (tests inject a fake to simulate DNS rebinding)
 	AWSCreds awsauth.Provider
 	AWSHTTP  *http.Client
+	// HeartbeatEvery overrides the configured heartbeat period (tests).
+	HeartbeatEvery time.Duration
 }
 
 // Executor is the runner's agent.Processor: it verifies dispatched jobs and

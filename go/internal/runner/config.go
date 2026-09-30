@@ -50,6 +50,16 @@ type LimitsConfig struct {
 // LoadConfig reads, defaults, applies environment overrides to and validates
 // the config file.
 func LoadConfig(path string, getenv func(string) string) (*Config, error) {
+	return loadConfig(path, getenv, true)
+}
+
+// LoadConfigForRegister is LoadConfig without the requirement that a job kind
+// is enabled, so an agent can register before it is fully configured.
+func LoadConfigForRegister(path string, getenv func(string) string) (*Config, error) {
+	return loadConfig(path, getenv, false)
+}
+
+func loadConfig(path string, getenv func(string) string, requireKinds bool) (*Config, error) {
 	if getenv == nil {
 		getenv = os.Getenv
 	}
@@ -62,7 +72,7 @@ func LoadConfig(path string, getenv func(string) string) (*Config, error) {
 	c.ApplyDefaults(DefaultStateDir)
 	c.applyDefaults()
 	c.ApplyEnv(getenv)
-	if err := c.Validate(); err != nil {
+	if err := c.validate(requireKinds); err != nil {
 		return nil, err
 	}
 	return &c, nil
@@ -85,7 +95,9 @@ func (c *Config) applyDefaults() {
 }
 
 // Validate checks the shared and runner-specific settings.
-func (c *Config) Validate() error {
+func (c *Config) Validate() error { return c.validate(true) }
+
+func (c *Config) validate(requireKinds bool) error {
 	if err := c.Common.Validate(); err != nil {
 		return err
 	}
@@ -96,7 +108,7 @@ func (c *Config) Validate() error {
 	if l.DefaultOutputBytes < 1024 || l.MaxOutputBytes < l.DefaultOutputBytes || l.MaxOutputBytes > 64<<20 {
 		return fmt.Errorf("limits: defaultOutputBytes must be >= 1024 and <= maxOutputBytes (<= 64 MiB)")
 	}
-	if len(c.EnabledKinds()) == 0 {
+	if requireKinds && len(c.EnabledKinds()) == 0 {
 		return fmt.Errorf("no job kind is enabled: add at least one block under \"kinds\" (see docs/platform/RUNNER.md)")
 	}
 	return nil

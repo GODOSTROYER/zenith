@@ -226,7 +226,7 @@ export interface ArmRoute {
   body?: unknown;
   headers?: Record<string, string>;
   /** dynamic response */
-  handler?: (req: { method: string; pathname: string; query: URLSearchParams; body: string; headers: http.IncomingHttpHeaders }) => { status: number; body?: unknown; headers?: Record<string, string> };
+  handler?: (req: { method: string; pathname: string; query: URLSearchParams; body: string; headers: http.IncomingHttpHeaders }) => { status: number; body?: unknown; raw?: string; headers?: Record<string, string> };
 }
 
 export interface FakeArm {
@@ -257,7 +257,7 @@ export async function fakeArm(routes: ArmRoute[] = [], entra: FakeEntra = fakeEn
       );
       const out = route?.handler ? route.handler({ method, pathname: url.pathname, query: url.searchParams, body, headers: req.headers }) : route ? { status: route.status ?? 200, body: route.body, headers: route.headers } : { status: 404, body: { error: { code: "ResourceNotFound", message: `no route for ${method} ${url.pathname}` } } };
       res.writeHead(out.status, { "content-type": "application/json", "x-ms-request-id": "req-fake-1", ...(out.headers ?? {}) });
-      res.end(out.body === undefined ? "" : JSON.stringify(out.body));
+      res.end("raw" in out && out.raw !== undefined ? out.raw : out.body === undefined ? "" : JSON.stringify(out.body));
     });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));

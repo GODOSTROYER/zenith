@@ -28,12 +28,9 @@ export interface Operation extends Proposal {
   /** Application membership/role snapshot held by the worker claim. */
   applicationAuthorizationDigest?: string;
 }
-export function canonical(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null';
-  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
-  return `{${Object.entries(value).filter(([, v]) => v !== undefined).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(',')}}`;
-}
-export function digest(value: unknown): string { return createHash('sha256').update(canonical(value)).digest('hex'); }
+/** One canonical digest rule for the whole control plane (`src/lib/controlplane/digest.ts`). */
+import { canonical, digest } from '@/lib/controlplane/digest';
+export { canonical, digest };
 export function checkTarget(who: Principal, target: Target, scope: string, now = Date.now()): void {
   if (Date.parse(who.expiresAt) <= now || !Number.isFinite(Date.parse(who.expiresAt))) throw new ControlError('credential_expired', 'Re-authenticate before continuing.', 401);
   if (!who.scopes.includes(scope) || target.workspaceId !== who.workspaceId || !who.projectIds.includes(target.projectId)

@@ -380,7 +380,7 @@
       "title": "Incident engine and remediation workflow",
       "wave": 3,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-OBS",
         "WS-AWS-NET",
@@ -389,7 +389,11 @@
       "paths": [
         "src/lib/incidents/**"
       ],
-      "branch": "ws/inc"
+      "branch": "ws/inc",
+      "commit": "a5489f0",
+      "tests": "262",
+      "review": "orchestrator: merged; obs signals image_pull_failed/task_exit_code added ce789a2",
+      "notes": "rule weights are judgement; live providers unverified"
     },
     {
       "id": "WS-REC",
@@ -556,6 +560,25 @@
       "paths": [
         "scripts/acceptance/**",
         "docs/platform/ACCEPTANCE.md"
+      ]
+    },
+    {
+      "id": "WS-BRIDGE",
+      "title": "Bridge existing deploy/connection actions and engine to the control plane (workflow-executed deployments)",
+      "wave": 3,
+      "owner": "worker",
+      "state": "in_progress",
+      "deps": [
+        "WS-CAP",
+        "WS-WF",
+        "WS-DB",
+        "WS-CRED"
+      ],
+      "branch": "ws/bridge",
+      "paths": [
+        "src/lib/bridge/**",
+        "src/lib/actions/defs/{deploy,promote,connection,connection-aws}.ts",
+        "src/lib/engine/engine.ts"
       ]
     }
   ],

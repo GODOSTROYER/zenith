@@ -31,7 +31,7 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-MACH | Machine plane: SSM, Kubernetes exec, zenithd transport | 2 | in_progress | WS-RUNSRV, WS-CRED | ws/mach |  |  |  |  |
 | WS-K8S | Kubernetes provider drivers (server-side apply, ownership) | 2 | in_progress | WS-RES, WS-CRED | ws/k8s |  |  |  |  |
 | WS-ACT | Workflow activities + AWS deploy journey + LocalStack acceptance + live harness | 3 | in_progress | WS-AWS-NET, WS-AWS-CMP, WS-AWS-DATA, WS-CAP, WS-WF | ws/act |  |  |  |  |
-| WS-INC | Incident engine and remediation workflow | 3 | in_progress | WS-OBS, WS-AWS-NET, WS-CAP | ws/inc |  |  |  |  |
+| WS-INC | Incident engine and remediation workflow | 3 | integrated | WS-OBS, WS-AWS-NET, WS-CAP | ws/inc | a5489f0 | 262 | orchestrator: merged; obs signals image_pull_failed/task_exit_code added ce789a2 | rule weights are judgement; live providers unverified |
 | WS-REC | Reconciliation controller and persisted drift | 3 | in_progress | WS-DB, WS-AWS-NET | ws/rec |  |  |  |  |
 | WS-MCP | MCP v3 semantic tools, CLI, SDK, connectors | 3 | in_progress | WS-CAP | ws/mcp |  |  |  | branched from ws/cap WIP |
 | WS-UI | UI components: plans/approvals, operations, resources, drift, incidents, cost, autonomy, connections | 3 | in_progress | WS-CAP, WS-DB | ws/ui |  |  |  |  |
@@ -43,6 +43,7 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-CI | CI gates: policy, tofu, Go, Temporal, platform Postgres, provider contracts | 4 | integrated | WS-ACT | ws/ci | 2e430af | 133 passed (+14 bash tests pass under Git Bash) | orchestrator: merged | no job has run on GitHub yet; live-acceptance needs live-sandbox environment + OIDC role |
 | WS-DOCS | Operator docs, runbooks, capability matrix, acceptance evidence | 4 | in_progress | WS-ACT | ws/docs |  |  |  |  |
 | WS-LIVE | Live-cloud acceptance harness, scenarios A-J, cleanup, evidence | 3 | in_progress | WS-CRED, WS-TOFU | ws/live |  |  |  |  |
+| WS-BRIDGE | Bridge existing deploy/connection actions and engine to the control plane (workflow-executed deployments) | 3 | in_progress | WS-CAP, WS-WF, WS-DB, WS-CRED | ws/bridge |  |  |  |  |
 
 ## External blockers
 

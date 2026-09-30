@@ -248,12 +248,15 @@ export function analyzeRepository(snapshot: RepoSnapshot): AppRequirements {
 
   /* snapshot-level risks */
   if (snapshot.truncated || idx.dropped > 0) ctx.risks.add("The repository exceeded an intake limit, so this analysis is partial.");
-  const refused = (snapshot.skipped ?? []).filter((s) => SECURITY_SKIPS[s.reason] !== undefined);
+  const skippedList = Array.isArray(snapshot.skipped) ? snapshot.skipped : [];
+  const refused = skippedList.filter((s) => Object.hasOwn(SECURITY_SKIPS, s.reason) && Number.isInteger(s.count) && s.count > 0);
   if (refused.length > 0) {
     const parts = refused.map((s) => `${s.count} ${SECURITY_SKIPS[s.reason]}${s.count === 1 ? "" : "s"}`);
     ctx.risks.add(`The archive contained entries that were refused and never read: ${parts.join(", ")}.`);
   }
-  const oversize = (snapshot.skipped ?? []).find((s) => s.reason === "oversize");
+  const sensitive = skippedList.find((s) => s.reason === "sensitive" && Number.isInteger(s.count) && s.count > 0);
+  if (sensitive) ctx.risks.add(`The archive contains ${sensitive.count} file(s) that commonly hold secrets (private keys, Terraform state or variables, .npmrc). They were not read. Check they are not committed on purpose.`);
+  const oversize = skippedList.find((s) => s.reason === "oversize" && Number.isInteger(s.count) && s.count > 0);
   if (oversize) ctx.unknowns.add(`${oversize.count} file(s) larger than the per-file limit were skipped and not analysed.`);
 
   const out: AppRequirements = {

@@ -166,7 +166,8 @@ export function detectMigrations(ctx: Ctx, f: RootFacts): Mig[] {
   // scripts that already spell the command out
   for (const [name, body] of [...(f.pkg?.scripts ?? new Map<string, string>()).entries()].sort(([a], [b]) => (a < b ? -1 : 1))) {
     const hit = SCRIPT_MIGRATIONS.find((s) => s.re.test(body));
-    if (hit && f.pkg) out.push({ tool: hit.tool, command: `npm run ${name}`, conf: "high", note: `package.json script "${sanitizeInline(name, 40)}" runs ${hit.tool} migrations`, evidence: ev(f.pkg.path, `script:${name}`) });
+    // the script NAME becomes part of a command line, so it must be a plain identifier
+    if (hit && f.pkg && /^[A-Za-z0-9:_.-]{1,60}$/.test(name)) out.push({ tool: hit.tool, command: `npm run ${name}`, conf: "high", note: `package.json script "${name}" runs ${hit.tool} migrations`, evidence: ev(f.pkg.path, `script:${name}`) });
   }
 
   const prismaSchema = first((p) => basename(p) === "schema.prisma");

@@ -62,6 +62,7 @@ export type SkipReason =
   | "binary"
   | "duplicate"
   | "irrelevant"
+  | "sensitive"
   | "limit_kept_files"
   | "limit_kept_bytes"
   | "limit_entries";

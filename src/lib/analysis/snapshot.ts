@@ -70,18 +70,28 @@ const IGNORED_DIRS = new Set([
   "fixtures",
   "fixture",
   "testdata",
-  "docs",
-  "doc",
-  "example",
-  "examples",
-  "sample",
-  "samples",
 ]);
+
+/**
+ * Ignored only as the first path segment: a top-level `docs/` or `examples/` is
+ * documentation and demos, but `apps/docs` is very often a real deployable site.
+ */
+const IGNORED_TOP_DIRS = new Set(["docs", "doc", "example", "examples", "sample", "samples"]);
 
 export function isIgnoredPath(path: string): boolean {
   const segments = path.split("/");
+  if (segments.length > 1 && IGNORED_TOP_DIRS.has(segments[0])) return true;
   for (let i = 0; i < segments.length - 1; i++) if (IGNORED_DIRS.has(segments[i])) return true;
   return false;
+}
+
+const SENSITIVE_BASENAMES = new Set(["id_rsa", "id_dsa", "id_ecdsa", "id_ed25519", ".npmrc", ".pypirc", ".netrc", ".git-credentials", "credentials", "terraform.tfvars", "secrets.yml", "secrets.yaml", "secrets.json"]);
+const SENSITIVE_SUFFIXES = [".pem", ".key", ".p12", ".pfx", ".jks", ".keystore", ".tfstate", ".tfstate.backup", ".auto.tfvars", ".kdbx"];
+
+/** Private keys, Terraform state and variables, package-manager credentials: present is a finding, content is never wanted. */
+export function isSensitivePath(path: string): boolean {
+  const lower = basename(path).toLowerCase();
+  return SENSITIVE_BASENAMES.has(lower) || SENSITIVE_SUFFIXES.some((s) => lower.endsWith(s));
 }
 
 export type FileClass = "source" | "config" | "env" | "marker";
@@ -145,7 +155,7 @@ export function classifyPath(path: string): FileClass | undefined {
   if (isEnvFileName(lower)) return "env";
   if (CONFIG_BASENAMES.has(lower)) return "config";
   if (MARKER_BASENAMES.has(lower)) return "marker";
-  if (lower === "index.html" && !path.includes("/")) return "config";
+  if (lower === "index.html" && path.split("/").length <= 4) return "config";
   if (lower.startsWith("dockerfile.") || lower.endsWith(".dockerfile")) return "config";
   if (/^(?:docker-)?compose(?:\.[a-z0-9_-]{1,30})?\.ya?ml$/.test(lower)) return "config";
   if (/^requirements(?:[-_.][a-z0-9_.-]{1,40})?\.txt$/.test(lower)) return "config";
@@ -235,6 +245,9 @@ export class SnapshotBuilder {
   /** Offer one regular file (already path-normalised) to the snapshot. */
   add(path: string, bytes: Uint8Array): void {
     if (this.kept.has(path)) return this.skip("duplicate", path);
+    if (isIgnoredPath(path)) return this.skip("irrelevant", path);
+    // Files that usually hold secrets are never read; they are counted so the analysis can say they exist.
+    if (isSensitivePath(path)) return this.skip("sensitive", path);
     const cls = classifyPath(path);
     if (cls === undefined) return this.skip("irrelevant", path);
     // A marker's bytes are dropped, so its size and encoding do not matter.

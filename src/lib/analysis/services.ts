@@ -12,7 +12,7 @@
 import { slugify } from "@/lib/importers/types";
 import { mergeEvidence, rootBase, rootLabel, rootWhere, type Ctx, type RootFacts } from "./model";
 import { ev } from "./record";
-import { confidenceRank, joinPath, sanitizeInline } from "./text";
+import { compareStrings, confidenceRank, joinPath, portFromCommand, sanitizeInline } from "./text";
 import type { BuildPlan, Confidence, Evidence, Inference, Language, ServiceCandidate } from "./types";
 
 const WORKER_CMD = /\b(?:celery\b.{0,80}\bworker|sidekiq|resque|rq worker|dramatiq|bullmq|delayed_job|horizon|asynq|queue:work|worker\.(?:js|py|rb))\b/i;
@@ -49,9 +49,20 @@ const best = <T extends { conf: Confidence }>(list: T[]): T | undefined => [...l
 
 /* ---------------------------------- port ----------------------------------- */
 
-function choosePort(ctx: Ctx, f: RootFacts, label: string): Inference<number> | undefined {
+/** What a launcher binds when the command names no port. Text only. */
+const LAUNCHER_DEFAULTS: [RegExp, number, string][] = [
+  [/\b(?:gunicorn|uvicorn|hypercorn|daphne)\b/, 8000, "python server default"],
+  [/\brunserver\b/, 8000, "runserver default"],
+  [/\bflask run\b/, 5000, "flask run default"],
+];
+
+function choosePort(ctx: Ctx, f: RootFacts, label: string, launch: { text: string; evidence: Evidence } | undefined): Inference<number> | undefined {
   const cands = [...f.ports];
   for (const fw of f.webFrameworks) if (fw.defaultPort !== undefined) cands.push({ port: fw.defaultPort, rank: 1, source: `${fw.name} default`, evidence: fw.evidence });
+  if (launch && portFromCommand(launch.text) === undefined) {
+    const hit = LAUNCHER_DEFAULTS.find(([re]) => re.test(launch.text));
+    if (hit) cands.push({ port: hit[1], rank: 2, source: hit[2], evidence: launch.evidence });
+  }
   if (cands.length === 0) return undefined;
   cands.sort((a, b) => b.rank - a.rank || a.port - b.port);
   const top = cands[0];
@@ -99,6 +110,11 @@ const pyWsgi = (f: RootFacts): string | undefined => {
   return SAFE_TOKEN.test(mod) ? mod : undefined;
 };
 
+/** `src/app/main.py` is importable as `app.main` from `src/`, not as `src.app.main`. */
+function srcLayout(module: string): { dirFlag: boolean; module: string } {
+  return module.startsWith("src.") ? { dirFlag: true, module: module.slice(4) } : { dirFlag: false, module };
+}
+
 function webRecipes(f: RootFacts, port: number | undefined): Cmd[] {
   const out: Cmd[] = [];
   const p = port ?? 8000;
@@ -107,11 +123,17 @@ function webRecipes(f: RootFacts, port: number | undefined): Cmd[] {
   if (next && !f.pkg?.scripts.has("start")) out.push({ command: "npx next start", conf: "medium", evidence: next.evidence });
   if (f.pkg?.main && SAFE_TOKEN.test(f.pkg.main) && !f.pkg.scripts.has("start")) out.push({ command: `node ${f.pkg.main}`, conf: "low", evidence: ev(f.pkg.path, "package.json:main") });
   const fastapi = f.pyApps.find((a) => a.kind === "fastapi");
-  if (fastapi && SAFE_TOKEN.test(fastapi.module) && SAFE_TOKEN.test(fastapi.variable)) out.push({ command: `uvicorn ${fastapi.module}:${fastapi.variable} --host 0.0.0.0 --port ${p}`, conf: "medium", evidence: fastapi.evidence });
+  if (fastapi && SAFE_TOKEN.test(fastapi.module) && SAFE_TOKEN.test(fastapi.variable)) {
+    const { dirFlag, module } = srcLayout(fastapi.module);
+    out.push({ command: `uvicorn ${dirFlag ? "--app-dir src " : ""}${module}:${fastapi.variable} --host 0.0.0.0 --port ${p}`, conf: "medium", evidence: fastapi.evidence });
+  }
   const wsgi = dep("pip:django") ? pyWsgi(f) : undefined;
   if (wsgi) out.push({ command: `gunicorn ${wsgi}:application --bind 0.0.0.0:${p}`, conf: dep("pip:gunicorn") ? "medium" : "low", evidence: dep("pip:django")!.evidence });
   const flask = f.pyApps.find((a) => a.kind === "flask");
-  if (flask && SAFE_TOKEN.test(flask.module) && SAFE_TOKEN.test(flask.variable)) out.push({ command: `gunicorn ${flask.module}:${flask.variable} --bind 0.0.0.0:${p}`, conf: dep("pip:gunicorn") ? "medium" : "low", evidence: flask.evidence });
+  if (flask && SAFE_TOKEN.test(flask.module) && SAFE_TOKEN.test(flask.variable)) {
+    const { dirFlag, module } = srcLayout(flask.module);
+    out.push({ command: `gunicorn ${dirFlag ? "--chdir src " : ""}${module}:${flask.variable} --bind 0.0.0.0:${p}`, conf: dep("pip:gunicorn") ? "medium" : "low", evidence: flask.evidence });
+  }
   const rails = dep("gem:rails");
   if (rails) out.push({ command: f.fileSet.has(joinPath(f.root.dir, "config/puma.rb")) ? "bundle exec puma -C config/puma.rb" : `bundle exec rails server -b 0.0.0.0 -p ${p}`, conf: "medium", evidence: rails.evidence });
   const sinatra = dep("gem:sinatra");
@@ -182,7 +204,9 @@ function draftsForRoot(ctx: Ctx, f: RootFacts): Draft[] {
   for (const fw of f.webFrameworks) webSigs.push({ conf: fw.confidence, evidence: fw.evidence });
   if (f.listenFiles.size > 0) webSigs.push({ conf: "medium", evidence: ev([...f.listenFiles].sort()[0], "listen-call") });
   if (f.ports.some((p) => p.source === "compose ports")) webSigs.push({ conf: "medium", evidence: f.ports.find((p) => p.source === "compose ports")!.evidence });
-  for (const s of f.staticFrameworks) staticSigs.push({ conf: s.confidence, evidence: s.evidence });
+  // A Vite/CRA package is a site only if it has an HTML entry point; otherwise it is a library or tool.
+  const hasHtmlEntry = f.fileSet.has(joinPath(dir, "index.html")) || f.fileSet.has(joinPath(dir, "public/index.html"));
+  if (hasHtmlEntry) for (const s of f.staticFrameworks) staticSigs.push({ conf: s.confidence, evidence: s.evidence });
   if (webSigs.length === 0 && staticSigs.length === 0 && f.pkg?.scripts.has("start")) webSigs.push({ conf: "low", evidence: ev(f.pkg.path, "script:start") });
   if (webSigs.length === 0 && staticSigs.length === 0 && f.root.markers.has("index.html") && dir === "" && proc.length === 0) staticSigs.push({ conf: "low", evidence: ev("index.html", "file:index.html") });
 
@@ -195,7 +219,8 @@ function draftsForRoot(ctx: Ctx, f: RootFacts): Draft[] {
     const kind = isStatic ? "static" : "web";
     const sigs = isStatic ? staticSigs : webSigs;
     const label = `${rootLabel(dir)} (${kind})`;
-    const port = kind === "web" ? choosePort(ctx, f, label) : undefined;
+    const launchText = procWeb && f.procfile ? { text: procWeb.command, evidence: ev(f.procfile.path, "procfile:web", procWeb.line) } : d && (d.cmd || d.entrypoint) ? { text: dockerCmd, evidence: ev(d.path, "dockerfile:CMD", (d.cmd ?? d.entrypoint)!.line) } : undefined;
+    const port = kind === "web" ? choosePort(ctx, f, label, launchText) : undefined;
     const draft: Draft = {
       name: dir === "" ? "web" : slugify(rootBase(dir), "web"),
       root: dir,
@@ -223,7 +248,7 @@ function draftsForRoot(ctx: Ctx, f: RootFacts): Draft[] {
     }
   } else {
     const seen = new Set<string>();
-    const signals = [...f.workers].sort((a, b) => confidenceRank(b.confidence) - confidenceRank(a.confidence) || (a.tech < b.tech ? -1 : a.tech > b.tech ? 1 : 0) || (a.command ?? "").localeCompare(b.command ?? ""));
+    const signals = [...f.workers].sort((a, b) => confidenceRank(b.confidence) - confidenceRank(a.confidence) || compareStrings(a.tech, b.tech) || compareStrings(a.command ?? "", b.command ?? ""));
     for (const w of signals) {
       const key = `${w.tech}\u0000${w.command ?? ""}`;
       if (seen.has(key)) continue;
@@ -254,25 +279,28 @@ function draftsForRoot(ctx: Ctx, f: RootFacts): Draft[] {
   /* cron */
   if (procOthers.length === 0 || !f.procfile) {
     const seen = new Set<string>();
-    const sorted = [...f.crons].sort((a, b) => (a.mechanism < b.mechanism ? -1 : a.mechanism > b.mechanism ? 1 : 0) || (a.schedule ?? "").localeCompare(b.schedule ?? "") || (a.target ?? "").localeCompare(b.target ?? ""));
-    let inProcessDone = false;
+    const sorted = [...f.crons].sort((a, b) => compareStrings(a.mechanism, b.mechanism) || compareStrings(a.schedule ?? "", b.schedule ?? "") || compareStrings(a.target ?? "", b.target ?? ""));
+    // In-process schedulers share one draft: they are one fact about one process, however many libraries name it.
+    const inProc = sorted.filter((c) => c.inProcess);
+    if (inProc.length > 0) {
+      const withSchedule = inProc.find((c) => c.schedule !== undefined);
+      const top = [...inProc].sort((x, y) => confidenceRank(y.confidence) - confidenceRank(x.confidence))[0];
+      const mechanisms = [...new Set(inProc.map((c) => c.mechanism))].join(", ");
+      const evidence = mergeEvidence(inProc.map((c) => c.evidence));
+      drafts.push({
+        name: nameFor(dir, "scheduler"),
+        root: dir,
+        kind: "cron",
+        confidence: top.confidence,
+        evidence,
+        inProcess: true,
+        ...(withSchedule?.schedule ? { schedule: { value: withSchedule.schedule, confidence: "medium" as Confidence, evidence: [withSchedule.evidence] } } : {}),
+        note: `${mechanisms} runs inside another service's process; every replica of that service will fire it.`,
+      });
+      ctx.risks.add(`In-process scheduler (${mechanisms}) at ${(withSchedule ?? inProc[0]).evidence.path}: it runs inside the web process, so with more than one replica each job fires once per replica.`);
+    }
     for (const c of sorted) {
-      if (c.inProcess) {
-        if (inProcessDone) continue;
-        inProcessDone = true;
-        drafts.push({
-          name: nameFor(dir, "scheduler"),
-          root: dir,
-          kind: "cron",
-          confidence: c.confidence,
-          evidence: [c.evidence],
-          inProcess: true,
-          ...(c.schedule ? { schedule: { value: c.schedule, confidence: "medium" as Confidence, evidence: [c.evidence] } } : {}),
-          note: `${c.mechanism} runs inside another service's process; every replica of that service will fire it.`,
-        });
-        ctx.risks.add(`In-process scheduler (${c.mechanism}) at ${c.evidence.path}: it runs inside the web process, so with more than one replica each job fires once per replica.`);
-        continue;
-      }
+      if (c.inProcess) continue;
       const key = c.target ? `${c.mechanism}\u0000${c.target}\u0000${c.schedule ?? ""}` : `${c.mechanism}\u0000${c.schedule ?? ""}`;
       if (seen.has(key) && !c.target) continue;
       seen.add(key);

@@ -147,7 +147,8 @@ export function readDockerfile(ctx: Ctx, f: RootFacts, path: string): void {
 
   // The importer answers port + env. It throws when there is no FROM.
   try {
-    const imported = importDockerfile(content, "app");
+    // the importer reads line by line; hand it the instructions with backslash continuations already joined
+    const imported = importDockerfile(ins.map((i) => `${i.keyword} ${i.rest}`).join("\n"), "app");
     const service = imported.manifest.services[0];
     const exactPort = imported.report.mapped.some((m) => m.source === "Dockerfile" && m.confidence === "exact");
     if (service && exactPort && service.port !== undefined) {

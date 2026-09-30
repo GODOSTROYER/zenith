@@ -210,7 +210,7 @@ function scanJs(s: FileScan, ls: Line[], content: string): void {
     if (hasBullmq && /\bnew Worker\(/.test(text)) s.f.workers.push({ tech: "bullmq", confidence: "high", evidence: ev(s.path, "bullmq-worker", n), file: s.path });
     else if (hasBull && /\.process\(/.test(text)) s.f.workers.push({ tech: "bull", confidence: "medium", evidence: ev(s.path, "bull-process", n), file: s.path });
     const c = JS_CRON.exec(text);
-    if (c && /(?:node-cron|node-schedule|cron|agenda|@nestjs\/schedule)/.test(content)) {
+    if (c && /(?:node-cron|node-schedule|cron|agenda|@nestjs\/schedule)/i.test(content)) {
       const valid = looksLikeCron(c[1]);
       s.f.crons.push({ mechanism: "in-process scheduler", confidence: "medium", evidence: ev(s.path, "cron-literal", n), inProcess: true, ...(valid ? { schedule: c[1].trim() } : {}) });
     }

@@ -20,6 +20,8 @@ import { basename, dirname, displayPath, isRecord, lines, parseJson, sanitizeInl
 import type { DatastoreKind } from "./types";
 
 const YAML_CAP = 256 * 1024;
+const MAX_COMPOSE_SERVICES = 60;
+const MAX_COMPOSE_ENV_ENTRIES = 1500;
 
 const looksLikeCron = (s: string): boolean => /^[0-9*/,?LW#A-Za-z@-]{1,20}(?: [0-9*/,?LW#A-Za-z-]{1,20}){4,6}$/.test(s.trim());
 
@@ -56,6 +58,25 @@ function readCompose(ctx: Ctx, path: string): void {
     ctx.unknowns.add(`${path} is larger than ${YAML_CAP} bytes and was not parsed.`);
     return;
   }
+  let doc: unknown;
+  try {
+    doc = load(content);
+  } catch {
+    ctx.unknowns.add(`${path} could not be parsed as a docker-compose file.`);
+    return;
+  }
+  const rawServices = isRecord(doc) && isRecord(doc.services) ? doc.services : {};
+  const keys = Object.keys(rawServices);
+  // The importer's second pass is quadratic in services x environment entries; bound the input before calling it.
+  let envEntries = 0;
+  for (const key of keys) {
+    const env = isRecord(rawServices[key]) ? (rawServices[key] as Record<string, unknown>).environment : undefined;
+    envEntries += Array.isArray(env) ? env.length : isRecord(env) ? Object.keys(env).length : 0;
+  }
+  if (keys.length > MAX_COMPOSE_SERVICES || envEntries > MAX_COMPOSE_ENV_ENTRIES) {
+    ctx.unknowns.add(`${path} is too large to analyse (more than ${MAX_COMPOSE_SERVICES} services or ${MAX_COMPOSE_ENV_ENTRIES} environment entries).`);
+    return;
+  }
   let imported: ReturnType<typeof importCompose>;
   try {
     imported = importCompose(content);
@@ -63,16 +84,9 @@ function readCompose(ctx: Ctx, path: string): void {
     ctx.unknowns.add(`${path} could not be parsed as a docker-compose file.`);
     return;
   }
-  let doc: unknown;
-  try {
-    doc = load(content);
-  } catch {
-    doc = undefined;
-  }
-  const rawServices = isRecord(doc) && isRecord(doc.services) ? doc.services : {};
   const images = new Map<string, string>();
   const commands = new Map<string, string>();
-  for (const key of Object.keys(rawServices)) {
+  for (const key of keys) {
     const svc = rawServices[key];
     if (!isRecord(svc)) continue;
     const name = slugify(key, "service");
@@ -81,10 +95,16 @@ function readCompose(ctx: Ctx, path: string): void {
     if (typeof cmd === "string") commands.set(name, sanitizeInline(cmd, 300));
     else if (Array.isArray(cmd) && cmd.every((c) => typeof c === "string")) commands.set(name, sanitizeInline(cmd.join(" "), 300));
   }
-  const lineOfService = (name: string): number | undefined => {
-    for (const { n, text } of lines(content)) if (new RegExp(`^\\s{0,10}["']?${name.replace(/[^a-z0-9-]/g, "")}["']?\\s{0,3}:\\s{0,3}$`).test(text)) return n;
-    return undefined;
-  };
+  // one pass for evidence line numbers: the first line that is just `<name>:`
+  const serviceLines = new Map<string, number>();
+  for (const { n, text } of lines(content)) {
+    const m = /^\s{0,10}["']?([A-Za-z0-9._-]{1,60})["']?\s{0,3}:\s{0,3}$/.exec(text);
+    if (m) {
+      const key = slugify(m[1], "service");
+      if (!serviceLines.has(key)) serviceLines.set(key, n);
+    }
+  }
+  const lineOfService = (name: string): number | undefined => serviceLines.get(name);
 
   const composeDir = dirname(path);
   const composeRoot = ownerOf(ctx.roots, path).dir;
@@ -185,9 +205,14 @@ function readTerraform(ctx: Ctx, paths: string[]): void {
     const result = importTerraform(text);
     const root = ownerOf(ctx.roots, path).dir;
     ctx.infrastructure.add(`terraform\u0000${path}`, { kind: "terraform", path, detail: `${result.manifest.resources.length} recognised resource(s)` }, "high", ev(path, "file:terraform"));
+    const resourceLines = new Map<string, number>();
+    for (const { n, text: t } of lines(raw)) {
+      const m = /^\s{0,10}resource\s{1,5}"([A-Za-z0-9_]{1,80})"\s{1,5}"([A-Za-z0-9_-]{1,80})"/.exec(t);
+      if (m && !resourceLines.has(`${m[1]}.${m[2]}`)) resourceLines.set(`${m[1]}.${m[2]}`, n);
+    }
     for (const r of result.manifest.resources) {
       const type = (r.externalRef ?? "").split(".")[0];
-      const line = lines(raw).find((l) => l.text.includes(`"${r.externalRef?.split(".")[1] ?? ""}"`) && l.text.includes(type))?.n;
+      const line = resourceLines.get(r.externalRef ?? "");
       const kind: DatastoreKind = r.kind === "postgres" || r.kind === "redis" || r.kind === "object_store" || r.kind === "queue" || r.kind === "email" ? r.kind : "postgres";
       addDatastore(ctx, root, kind, "medium", ev(path, `terraform:${type || "resource"}`, line), { engine: kind === "queue" ? "sqs" : kind === "object_store" ? "s3" : undefined });
     }

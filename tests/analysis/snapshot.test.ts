@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import zlib from "node:zlib";
-import { AnalysisInputError, DEFAULT_SNAPSHOT_LIMITS, checkEntryPath, classifyPath, snapshotFromFiles, snapshotFromGithub, snapshotFromTarball } from "@/lib/analysis";
+import { AnalysisInputError, DEFAULT_SNAPSHOT_LIMITS, analyzeRepository, checkEntryPath, classifyPath, snapshotFromFiles, snapshotFromGithub, snapshotFromTarball } from "@/lib/analysis";
 import { gzip, paxRecord, writeTar, type TarEntry } from "../_support/tar";
 
 const text = (s: string): Buffer => Buffer.from(s, "utf8");
@@ -371,5 +371,27 @@ describe("snapshotFromGithub", () => {
     const bomb = zlib.gzipSync(Buffer.alloc(8 * 1024 * 1024, 0));
     const f = vi.fn(async () => okResponse(bomb)) as unknown as typeof fetch;
     await expect(snapshotFromGithub({ owner: "acme", repo: "app", ref: "main", fetchImpl: f, limits: { maxUncompressedBytes: 1024 * 1024 } })).rejects.toMatchObject({ code: "uncompressed_too_large" });
+  });
+});
+
+describe("files that usually hold secrets", () => {
+  it("are counted, never read or kept, and surface as a risk without naming values", () => {
+    const snap = snapshotFromTarball(
+      writeTar([
+        file("id_rsa", "-----BEGIN OPENSSH PRIVATE KEY-----\nSECRETKEYMATERIAL\n"),
+        file("deploy/prod.pem", "SECRETKEYMATERIAL"),
+        file("infra/terraform.tfstate", '{"secret":"SECRETKEYMATERIAL"}'),
+        file("infra/prod.auto.tfvars", 'db_password = "SECRETKEYMATERIAL"'),
+        file(".npmrc", "//registry.npmjs.org/:_authToken=SECRETKEYMATERIAL"),
+        file("node_modules/pkg/test.pem", "x"),
+        file("package.json", "{}"),
+      ])
+    );
+    expect(paths(snap)).toEqual(["package.json"]);
+    expect(skipped(snap, "sensitive")).toBe(5);
+    expect(JSON.stringify(snap)).not.toContain("SECRETKEYMATERIAL");
+    const req = analyzeRepository(snap);
+    expect(req.risks).toContain("The archive contains 5 file(s) that commonly hold secrets (private keys, Terraform state or variables, .npmrc). They were not read. Check they are not committed on purpose.");
+    expect(JSON.stringify(req)).not.toContain("SECRETKEYMATERIAL");
   });
 });

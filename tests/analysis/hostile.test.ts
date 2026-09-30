@@ -203,6 +203,7 @@ describe("attacker text in fields that do flow into outputs stays data", () => {
 });
 
 describe("resource exhaustion: hostile input costs time proportional to its size", () => {
+  const rows = (n: number, f: (i: number) => string): string => Array.from({ length: n }, (_, i) => f(i)).join("\n");
   const MIB = 1024 * 1024 - 1024;
   const inputs: Record<string, Record<string, string>> = {
     "one 1 MB line": { "server.js": "a".repeat(MIB) },
@@ -218,7 +219,17 @@ describe("resource exhaustion: hostile input costs time proportional to its size
     "bracket soup requirements": { "requirements.txt": "[".repeat(MIB) },
     "extras soup requirements": { "requirements.txt": "a[".repeat(Math.floor(MIB / 2)) },
     "bracket soup package.json": { "package.json": "[".repeat(MIB) },
-    "30k dependencies": { "package.json": JSON.stringify({ dependencies: Object.fromEntries(Array.from({ length: 30_000 }, (_, i) => [`dep-${i}`, "1.0.0"])) }) },
+    "18k dependencies": { "package.json": JSON.stringify({ dependencies: Object.fromEntries(Array.from({ length: 18_000 }, (_, i) => [`dep-${i}`, "1.0.0"])) }) },
+    "30k requirements lines": { "requirements.txt": rows(30_000, (i) => `package-${i}==1.0.0`) },
+    "10k go requires": { "go.mod": `module x\nrequire (\n${rows(10_000, (i) => `\tgithub.com/a/b${i} v1.0.0`)}\n)\n` },
+    "8000 compose services": { "docker-compose.yml": `services:\n${rows(8000, (i) => `  s${i}:\n    image: nginx`)}\n` },
+    "compose with thousands of environment entries": {
+      "docker-compose.yml": `services:\n${rows(40, (i) => `  s${i}:\n    image: x\n    environment:\n${rows(1000, (j) => `      V${j}: s${(i + j) % 40}`)}`)}\n`,
+    },
+    "compose just under the caps": {
+      "docker-compose.yml": `services:\n${rows(55, (i) => `  s${i}:\n    image: x\n    environment:\n${rows(25, (j) => `      V${j}: s${(i + j) % 55}`)}`)}\n`,
+    },
+    "3000 terraform resources": { "main.tf": rows(3000, (i) => `resource "aws_s3_bucket" "b${i}" {}`) },
     "pyproject array on one line": { "pyproject.toml": `[project]\ndependencies = [${'"a", '.repeat(Math.floor(MIB / 5))}]\n` },
     "toml header soup": { "pyproject.toml": "[".repeat(MIB) },
     "yaml alias bomb": { "docker-compose.yml": `a: &a ["lol","lol","lol","lol","lol","lol","lol","lol","lol"]\n${"bcdefghi".split("").map((k, i) => `${k}: &${k} [${Array(9).fill(`*${i === 0 ? "a" : "bcdefghi"[i - 1]}`).join(",")}]`).join("\n")}\nservices:\n  web:\n    image: nginx\n` },

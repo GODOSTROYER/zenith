@@ -29,6 +29,17 @@
 # exposes it here either: the agent journal and credential authority speak
 # direct Postgres through `postgres.js`.
 #
+# ## 0014 — the `platform` schema
+#
+# `supabase/migrations/0014_platform_core.sql` is GENERATED from the TypeScript
+# migrations of the platform control store (`npx tsx scripts/platform/emit-sql.ts`;
+# `tests/controlplane/migrations.test.ts` keeps it byte-identical). It creates the
+# `platform` schema and its own `platform.schema_migrations` ledger — checksummed,
+# unlike `hosted`/`agent` — turns RLS on for every table with no policies, and
+# grants only `service_role`. The application never runs DDL against Postgres; it
+# checks that ledger on start (`assertPlatformSchemaCurrent`) and fails closed.
+# The verification block below asks the same questions as for `agent`.
+#
 # ## Supabase role stand-ins
 #
 # `service_role`. The migrations include grant blocks naming it
@@ -83,6 +94,7 @@ MIGRATIONS=(
   "0011_waitlist_signup_hook.sql"
   "0012_waitlist_admin.sql"
   "0013_google_waitlist_identity.sql"
+  "0014_platform_core.sql"
 )
 
 if [ -z "${SUPABASE_DB_URL:-}" ]; then
@@ -200,7 +212,7 @@ fi
 echo "app_invites_pending_email = ${index_def}"
 
 counts="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
-  --command "select schemaname || '=' || count(*) from pg_tables where schemaname in ('public','hosted','agent') group by schemaname order by schemaname" "$SUPABASE_DB_URL")"
+  --command "select schemaname || '=' || count(*) from pg_tables where schemaname in ('public','hosted','agent','platform') group by schemaname order by schemaname" "$SUPABASE_DB_URL")"
 echo "tables: $(echo "$counts" | tr '\n' ' ')"
 
 # --- the agent schema (0006, 0007) ------------------------------------------
@@ -267,6 +279,77 @@ if [ -n "$unprotected" ]; then
   exit 1
 fi
 echo "row level security enabled on every table in schema agent."
+
+# --- the platform schema (0014) ---------------------------------------------
+#
+# The platform control store's ledger: `platform.schema_migrations` holds version
+# 1 ("core") with a SHA-256 checksum, which is what `assertPlatformSchemaCurrent`
+# verifies against the TypeScript migration text at application start. Only the
+# version, the name and the checksum's shape are checkable here (the checksum
+# itself is computed by TypeScript; tests/controlplane/migrations.test.ts compares
+# it). A lane that applied the DDL but not the ledger row would boot-fail later
+# with a less useful message, so it is checked by exact string.
+platform_ledger="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+  --command "select string_agg(version || ':' || name, ', ' order by version) from platform.schema_migrations" "$SUPABASE_DB_URL")"
+echo "platform.schema_migrations = ${platform_ledger}"
+if [ "$platform_ledger" != "1:core" ]; then
+  echo "::error::platform.schema_migrations is not 1:core; the platform control store will refuse to start (assertPlatformSchemaCurrent)." >&2
+  exit 1
+fi
+bad_checksums="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+  --command "select count(*) from platform.schema_migrations where checksum !~ '^[0-9a-f]{64}\$'" "$SUPABASE_DB_URL")"
+if [ "$bad_checksums" != "0" ]; then
+  echo "::error::platform.schema_migrations holds a row whose checksum is not a SHA-256 hex digest." >&2
+  exit 1
+fi
+
+# Tables the runtime code addresses by name. A subset check, like the agent one.
+PLATFORM_TABLES=(
+  operations idempotency_keys leases approvals policy_decisions capability_grants events evidence
+  environment_settings workspace_policy provider_connections resources resource_observations
+  resource_runtime drift_reports runners runner_registration_tokens runner_jobs runner_job_logs
+  agent_nonces machines incidents investigations cost_estimates
+)
+platform_present="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+  --command "select tablename from pg_tables where schemaname = 'platform' order by 1" "$SUPABASE_DB_URL")"
+echo "platform tables: $(echo "$platform_present" | tr '\n' ' ')"
+for table in "${PLATFORM_TABLES[@]}"; do
+  if ! printf '%s\n' "$platform_present" | grep -qx -- "$table"; then
+    echo "::error::platform.${table} is missing; 0014 did not create it." >&2
+    exit 1
+  fi
+done
+
+platform_usage="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+  --command "select has_schema_privilege('service_role','platform','USAGE')" "$SUPABASE_DB_URL")"
+if [ "$platform_usage" != "t" ]; then
+  echo "::error::service_role has no USAGE on schema platform; the hardening block at the tail of 0014 did not apply." >&2
+  exit 1
+fi
+echo "service_role USAGE on schema platform = ${platform_usage}"
+
+# anon and authenticated must hold nothing on the platform schema.
+platform_leak="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+  --command "select has_schema_privilege('anon','platform','USAGE') or has_schema_privilege('authenticated','platform','USAGE')" "$SUPABASE_DB_URL")"
+if [ "$platform_leak" != "f" ]; then
+  echo "::error::anon or authenticated has USAGE on schema platform; the revoke block at the tail of 0014 did not apply." >&2
+  exit 1
+fi
+
+# RLS on with no policies: the `hosted`/`agent` rule, repeated for `platform`.
+platform_unprotected="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+  --command "select string_agg(relname, ', ' order by relname) from pg_class c join pg_namespace n on n.oid = c.relnamespace where n.nspname = 'platform' and c.relkind = 'r' and not c.relrowsecurity" "$SUPABASE_DB_URL")"
+if [ -n "$platform_unprotected" ]; then
+  echo "::error::row level security is off on platform.{${platform_unprotected}}; every table in the platform schema must enable it." >&2
+  exit 1
+fi
+platform_policies="$(psql --no-align --tuples-only --set ON_ERROR_STOP=1 \
+  --command "select count(*) from pg_policies where schemaname = 'platform'" "$SUPABASE_DB_URL")"
+if [ "$platform_policies" != "0" ]; then
+  echo "::error::the platform schema has RLS policies; it is service-role-only by design (RLS on, no policies)." >&2
+  exit 1
+fi
+echo "platform schema verified: ledger, tables, service-role-only grants, RLS on with no policies."
 
 # Verify the new public RPC boundary independently of the TypeScript tests.
 psql --quiet --set ON_ERROR_STOP=1 "$SUPABASE_DB_URL" <<'SQL'

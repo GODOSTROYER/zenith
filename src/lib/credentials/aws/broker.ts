@@ -285,7 +285,7 @@ export class AwsCredentialBroker implements CredentialBroker {
   /** Validate the connection's static configuration for `purpose`; returns the role ARN to assume. */
   #checkConfig(config: AwsConnectionConfig, purpose: CredentialPurpose): string {
     if (config.mode === "static_dev") {
-      throw new Denial("mode_unsupported", "static_dev credentials are not supported by this broker.");
+      throw new Denial("not_supported", "static_dev credentials are not supported by this broker.");
     }
     if (config.mode !== "oidc_web_identity" && config.mode !== "aws_assume_role" && config.mode !== "runner") {
       throw new Denial("mode_unsupported", "The connection's auth mode is not supported for AWS.");

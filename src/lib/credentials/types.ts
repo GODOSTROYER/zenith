@@ -228,6 +228,7 @@ export type DenialReason =
   | "connection_not_verified"
   | "provider_unsupported"
   | "mode_unsupported"
+  | "not_supported"
   | "unknown_capability"
   | "purpose_capability_mismatch"
   | "role_arn_invalid"

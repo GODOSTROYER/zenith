@@ -1,0 +1,17 @@
+apiVersion: v2
+name: zenith-runner
+description: >-
+  Zenith runner: an outbound-only agent that executes signed infrastructure
+  jobs (OpenTofu, an AWS SigV4 signing proxy, a Kubernetes API proxy, network
+  probes) with the workload identity of the cluster it runs in.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+kubeVersion: ">=1.27.0-0"
+home: https://github.com/GODOSTROYER/zenith
+sources:
+  - https://github.com/GODOSTROYER/zenith
+keywords:
+  - zenith
+  - opentofu
+  - runner

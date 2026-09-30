@@ -18,8 +18,8 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-CRED | Credential broker, OIDC issuer, AWS STS, customer bootstrap templates | 1 | in_progress | WS-FOUND | ws/cred |  |  |  |  |
 | WS-TOFU | OpenTofu engine: workspace assembly, runner, plan normalization, digests, lockfiles | 1 | integrated | WS-FOUND | ws/tofu | 5ac7f15 | 110 passed + 4 network-gated (4/4 when enabled) | orchestrator: merged deeb3bc | aws 6.66.0 pinned; fingerprintKey must be server-secret-derived in activities (follow-up) |
 | WS-GO | Go zenith-runner and zenithd | 1 | in_progress | WS-FOUND | ws/go |  |  |  |  |
-| WS-PLACE | Cost engine v2, price catalog, placement solver | 1 | in_progress | WS-FOUND | ws/place |  |  |  |  |
-| WS-OBS | Observability fabric: sandbox, CloudWatch, Prometheus, Loki | 1 | in_progress | WS-FOUND | ws/obs |  |  |  |  |
+| WS-PLACE | Cost engine v2, price catalog, placement solver | 1 | integrated | WS-FOUND | ws/place | 15313bf | 114 + 2 integration (116) | orchestrator: merged; fixed spec-key mismatch 2a4690a | AWS/Azure/OCI prices mostly from official APIs; GCP partly third-party mirror; zenith tier is internal assumption |
+| WS-OBS | Observability fabric: sandbox, CloudWatch, Prometheus, Loki | 1 | integrated | WS-FOUND | ws/obs | fd0c098 | 401 passed | orchestrator: merged | all sources contract-level; no trace/CloudTrail source; drivers must publish externalId + native ids |
 | WS-WF | Temporal workflows, worker, client, test environment | 1 | in_progress | WS-FOUND | ws/wf |  |  |  |  |
 | WS-FIX | Fix baseline audit defects (engine rollback, approvals, journal, naming, docker runner) | 1 | integrated | WS-FOUND | ws/fix | bbf2f0a | full suite 3784 passed on branch | orchestrator: merged 19e48b2 | LocalStack defect deferred; unapprove not wired to UI |
 | WS-ANALYZE | Repository analysis to requirements and proposed architecture | 1 | in_progress | WS-FOUND | ws/analyze |  |  |  |  |
@@ -30,14 +30,14 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-RUNSRV | Runner/zenithd control-plane side and AWS-SDK-over-runner transport | 2 | in_progress | WS-DB, WS-GO | ws/runsrv |  |  |  |  |
 | WS-MACH | Machine plane: SSM, Kubernetes exec, zenithd transport | 2 | in_progress | WS-RUNSRV, WS-CRED | ws/mach |  |  |  |  |
 | WS-K8S | Kubernetes provider drivers (server-side apply, ownership) | 2 | in_progress | WS-RES, WS-CRED | ws/k8s |  |  |  |  |
-| WS-ACT | Workflow activities + AWS deploy journey + LocalStack acceptance + live harness | 3 | planned | WS-AWS-NET, WS-AWS-CMP, WS-AWS-DATA, WS-CAP, WS-WF |  |  |  |  |  |
+| WS-ACT | Workflow activities + AWS deploy journey + LocalStack acceptance + live harness | 3 | in_progress | WS-AWS-NET, WS-AWS-CMP, WS-AWS-DATA, WS-CAP, WS-WF | ws/act |  |  |  |  |
 | WS-INC | Incident engine and remediation workflow | 3 | in_progress | WS-OBS, WS-AWS-NET, WS-CAP | ws/inc |  |  |  |  |
-| WS-REC | Reconciliation controller and persisted drift | 3 | planned | WS-DB, WS-AWS-NET |  |  |  |  |  |
+| WS-REC | Reconciliation controller and persisted drift | 3 | in_progress | WS-DB, WS-AWS-NET | ws/rec |  |  |  |  |
 | WS-MCP | MCP v3 semantic tools, CLI, SDK, connectors | 3 | planned | WS-CAP |  |  |  |  |  |
-| WS-UI | UI: connections, plans/approvals, autonomy/policy, operations, incidents, resources | 3 | planned | WS-CAP, WS-DB |  |  |  |  |  |
+| WS-UI | UI components: plans/approvals, operations, resources, drift, incidents, cost, autonomy, connections | 3 | in_progress | WS-CAP, WS-DB | ws/ui |  |  |  |  |
 | WS-GCP | GCP drivers (Cloud Run, GKE, Cloud SQL, GCS, Pub/Sub, LB, DNS, Secret Manager, Logging/Monitoring) | 4 | in_progress | WS-ACT | ws/gcp |  |  |  |  |
 | WS-AZURE | Azure drivers (Container Apps, AKS, Postgres Flexible, Blob, Service Bus, DNS, Key Vault, Monitor) | 4 | in_progress | WS-ACT | ws/azure |  |  |  |  |
-| WS-OCI | OCI drivers through the same contracts | 4 | planned | WS-ACT |  |  |  |  |  |
+| WS-OCI | OCI drivers through the same contracts | 4 | queued | WS-ACT |  |  |  |  |  |
 | WS-ZM | Zenith-managed provider (provider=zenith) | 4 | planned | WS-K8S |  |  |  |  |  |
 | WS-SEC | Threat model, tenant-isolation matrix, secret-leak and chaos tests | 4 | in_progress | WS-CAP, WS-ACT | ws/sec |  |  |  |  |
 | WS-CI | CI gates: policy, tofu, Go, Temporal, platform Postgres, provider contracts | 4 | in_progress | WS-ACT | ws/ci |  |  |  |  |

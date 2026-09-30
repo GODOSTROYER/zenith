@@ -73,7 +73,8 @@ const REFERENCE_PREFIXES = ["vault:", "arn:", "secretsmanager:", "ssm:", "ref:"]
 
 function isReferenceValue(value: string): boolean {
   const v = value.trim().toLowerCase();
-  return v.length === 0 || REFERENCE_PREFIXES.some((prefix) => v.startsWith(prefix));
+  // `[redacted]` is what scrubSecrets leaves behind; a scrubbed value must pass the same check it was scrubbed for.
+  return v.length === 0 || v === "[redacted]" || REFERENCE_PREFIXES.some((prefix) => v.startsWith(prefix));
 }
 
 const normalizeKey = (key: string): string => key.toLowerCase().replace(/[^a-z0-9]/g, "");

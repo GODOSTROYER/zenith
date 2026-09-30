@@ -35,12 +35,13 @@
  * Every store refusal is translated to a `BrokerError` (`mapStoreError`), so the
  * broker answers identically whichever store is behind it: a wrong-tenant id is
  * `not_found`, `policy_changed` is `reapproval_required`, an idempotency
- * conflict is `idempotency_conflict`, a lost lease is `lease_lost`, a behind or
+ * conflict is `idempotency_conflict`, a lost lease is `lease_lost`, a foreign-key
+ * violation on (workspace_id, operation_id) is `not_found`, a behind or
  * tampered schema is `platform_store_unavailable`. Unexpected database errors
  * are rethrown untouched (the store already strips parameters and row values
  * from them) and `route()` answers them with a generic 500.
  */
-import { ControlStoreError, IdempotencyConflictError } from "@/lib/controlplane/db/errors";
+import { ControlStoreError, IdempotencyConflictError, PlatformDbError } from "@/lib/controlplane/db/errors";
 import * as approvalRepo from "@/lib/controlplane/db/repos/approvals";
 import * as eventRepo from "@/lib/controlplane/db/repos/events";
 import * as grantRepo from "@/lib/controlplane/db/repos/grants";
@@ -79,6 +80,9 @@ export function mapStoreError(error: unknown): never {
   if (error instanceof IdempotencyConflictError) {
     throw new BrokerError("idempotency_conflict", "This idempotency key was already used for a different request.", "Send a new idempotency key for a new request, or resend the original request unchanged.");
   }
+  // A composite foreign key (workspace_id, operation_id) rejected a row naming an operation of another
+  // workspace (or none): that is a wrong-tenant id, and it answers like one.
+  if (error instanceof PlatformDbError && error.sqlstate === "23503") throw notFound();
   if (error instanceof ControlStoreError) {
     switch (error.code) {
       case "invalid_input":

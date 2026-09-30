@@ -161,9 +161,11 @@ export class MemoryBrokerStore implements BrokerStore {
   async createOperation(input: NewOperation): Promise<CreateOperationResult> {
     const { workspaceId, proposal, principal } = input;
     if (!workspaceId) throw new BrokerError("invalid_request", "workspaceId is required.");
-    if (proposal.scope.workspaceId !== workspaceId) throw new BrokerError("invalid_request", "The proposal's scope names a different workspace than the operation.");
+    if (proposal.scope.workspaceId !== workspaceId) throw notFound(); // the platform store answers tenant_mismatch (404)
     if (!principal.id) throw new BrokerError("invalid_request", "principal.id is required.");
-    if (input.status === "approved" && input.approvalRequired) throw new BrokerError("invalid_state", "An operation that requires approval cannot be created already approved.");
+    if (!["allow", "deny", "require_approval"].includes(input.decision.outcome)) throw new BrokerError("invalid_request", "outcome must be allow, deny or require_approval.");
+    const status = input.decision.outcome === "allow" ? "approved" : input.decision.outcome === "deny" ? "denied" : "awaiting_approval";
+    const approvalRequired = input.decision.outcome === "require_approval";
     if (input.ttlMs < MIN_TTL_MS || input.ttlMs > MAX_TTL_MS) throw new BrokerError("invalid_request", "ttlMs must be between 1 minute and 7 days.");
     const secret = findSecret(proposal, "proposal");
     if (secret) throw new BrokerError("secret_material", `Refusing to store ${secret.what} at ${secret.path}.`);
@@ -191,18 +193,18 @@ export class MemoryBrokerStore implements BrokerStore {
       resourceId: proposal.scope.resourceId,
       capability: proposal.capability,
       principal: clone(principal),
-      status: input.status,
+      status,
       proposal: clone(proposal),
       proposalDigest: digest(proposal),
       inputDigest: digest(proposal.input ?? null),
       planDigest: proposal.planDigest,
       policyDecisionId: input.decisionId,
-      approvalRequired: input.approvalRequired,
+      approvalRequired,
       idempotencyKey: input.idempotencyKey,
       correlationId: input.correlationId,
       createdAt: nowIso,
       updatedAt: nowIso,
-      finishedAt: input.status === "denied" ? nowIso : undefined,
+      finishedAt: status === "denied" ? nowIso : undefined,
       expiresAt: new Date(now + input.ttlMs).toISOString(),
     };
     const decision: PolicyDecisionRecord = {
@@ -227,8 +229,8 @@ export class MemoryBrokerStore implements BrokerStore {
     this.emitFor(record, "policy.evaluated", {
       data: { outcome: decision.outcome, policyVersion: decision.policyVersion, reasons: decision.reasons.map((r) => r.code) },
     });
-    if (input.status === "approved") this.emitFor(record, "operation.approved", { data: { by: "policy" } });
-    if (input.status === "denied") this.emitFor(record, "operation.denied", { data: { reasons: decision.reasons.map((r) => r.code) } });
+    if (status === "approved") this.emitFor(record, "operation.approved", { data: { by: "policy" } });
+    if (status === "denied") this.emitFor(record, "operation.denied", { data: { reasons: decision.reasons.map((r) => r.code) } });
     return { operation: clone(record), decision: clone(decision), created: true };
   }
 

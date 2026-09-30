@@ -207,7 +207,6 @@ export async function propose(deps: BrokerDeps, rawRequest: unknown, principalIn
   const { decision, evaluated } = evaluation;
 
   const proposal = buildProposal({ parsed, evaluation, ctx, planDigest: ctx.plan?.planDigest });
-  const status = decision.outcome === "allow" ? "approved" : decision.outcome === "require_approval" ? "awaiting_approval" : "denied";
   const operationId = newId(deps, "op");
   const decisionId = newId(deps, "pol");
   const correlationId = ctx.correlationId ?? newId(deps, "corr");
@@ -235,8 +234,6 @@ export async function propose(deps: BrokerDeps, rawRequest: unknown, principalIn
     workspaceId: scope.workspaceId,
     principal,
     proposal: proposal as OperationProposal,
-    status,
-    approvalRequired: status === "awaiting_approval",
     decision: {
       policyVersion: evaluated.policyVersion,
       inputDigest: evaluated.inputDigest,

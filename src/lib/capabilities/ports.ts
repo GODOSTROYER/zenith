@@ -145,9 +145,11 @@ export interface NewOperation {
   workspaceId: string;
   principal: Principal;
   proposal: OperationProposal;
-  /** decided by policy: allow → approved, require_approval → awaiting_approval, deny → denied */
-  status: "approved" | "awaiting_approval" | "denied";
-  approvalRequired: boolean;
+  /**
+   * The decision decides the initial state: allow → `approved`, require_approval →
+   * `awaiting_approval` (approval required, counted from `decision.approval`),
+   * deny → `denied`. There is no separate status to get wrong.
+   */
   decision: NewDecision;
   /** already scoped to workspace + principal + capability by the broker; absent = not idempotent */
   idempotencyKey?: string;

@@ -20,13 +20,13 @@
  *   container_service / scheduled_job: size, replicas (default 1), publicIp
  *   compute_instance: size, count|replicas, volumeGb (20), iops, publicIp,
  *     backupRetentionDays (snapshots only when set)
- *   postgres / mysql: size, ha|multiAz, storageGb, iops, backupRetentionDays, backup:false
+ *   postgres / mysql: size, highAvailability|ha|multiAz, storageGb, iops, backupRetentionDays, backup (false | "none" | "daily" | "hourly")
  *   redis: size, ha, replicas (nodes)
  *   object_store: storageGb, requestsMillions
  *   queue / pubsub: requestsMillions
  *   volume: sizeGb|storageGb, iops
  *   dns_zone: queriesMillions
- *   network: natGateways ("none" | "single" default | "per_az"), azCount | zones[]
+ *   network: natGateways | egress.natGateways ("none" | "single" default | "per_az"), azCount | zones (count) | zones[]
  * Only `ownership: "managed"` nodes are billed (referenced and external
  * resources are not Zenith's bill), matching the legacy model.
  *
@@ -359,7 +359,10 @@ export function estimateGraphCost(graph: CostGraph, options: CostOptions): CostE
       const privateReplicas = privateCompute.reduce((s, n) => s + replicasOf(n), 0);
       const privateFraction = totalReplicas > 0 ? privateReplicas / totalReplicas : 0;
       for (const net of nets) {
-        const rawMode = net ? specOf(net).natGateways : undefined;
+        const netSpec = net ? specOf(net) : undefined;
+        // top-level `natGateways`, or the resource model's `egress.natGateways` (NetworkSpec)
+        const egress = netSpec?.egress as { natGateways?: unknown } | undefined;
+        const rawMode = netSpec ? (netSpec.natGateways ?? egress?.natGateways) : undefined;
         const mode = rawMode === undefined ? "single" : rawMode;
         if (mode !== "none" && mode !== "single" && mode !== "per_az") {
           throw new CostInputError(`${net?.address ?? "network"}: spec.natGateways must be "none", "single" or "per_az".`);

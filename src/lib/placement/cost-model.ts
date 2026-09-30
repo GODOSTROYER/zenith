@@ -147,6 +147,8 @@ export function sizeOf(n: CostNode): PlacementSize {
 export function azCountOf(n: CostNode): number {
   const s = specOf(n);
   if (s.azCount !== undefined) return num(n, "azCount", DEFAULT_AZ_COUNT, { int: true, min: 1 });
+  // `NetworkSpec.zones` (src/lib/resources/specs.ts) is a count.
+  if (typeof s.zones === "number") return num(n, "zones", DEFAULT_AZ_COUNT, { int: true, min: 1 });
   if (Array.isArray(s.zones) && s.zones.length > 0) return s.zones.length;
   return DEFAULT_AZ_COUNT;
 }
@@ -307,7 +309,7 @@ export function priceVm(l: Ledger, n: CostNode) {
 
 export function priceDatabase(l: Ledger, n: CostNode, usage: Required<UsageAssumptions>, policyRetention: number) {
   const size = sizeOf(n);
-  const ha = bool(n, "ha", "multiAz") === true;
+  const ha = bool(n, "highAvailability", "ha", "multiAz") === true;
   const role = `pg_${size}_hour` as SkuRole;
   const who = n.address;
   const mult = ha ? l.ratio(n.provider, n.region, "pg_ha_multiplier", who) : 1;
@@ -345,7 +347,13 @@ export function priceDatabase(l: Ledger, n: CostNode, usage: Required<UsageAssum
       basis: `${fmt(iops)} provisioned IOPS above baseline`,
     });
   }
-  const backupOff = bool(n, "backup") === false;
+  // `backup` is either the legacy boolean or the resource model's
+  // "none" | "daily" | "hourly" (src/lib/resources/specs.ts PostgresSpec).
+  const backupSpec = specOf(n).backup;
+  if (backupSpec !== undefined && typeof backupSpec !== "boolean" && backupSpec !== "none" && backupSpec !== "daily" && backupSpec !== "hourly") {
+    throw new CostInputError(`${n.address}: spec.backup must be a boolean or "none" | "daily" | "hourly".`);
+  }
+  const backupOff = backupSpec === false || backupSpec === "none";
   const retention = specOf(n).backupRetentionDays === undefined ? policyRetention : num(n, "backupRetentionDays", policyRetention, { int: true });
   if (!backupOff && retention > 0) {
     l.charge({
@@ -362,7 +370,7 @@ export function priceDatabase(l: Ledger, n: CostNode, usage: Required<UsageAssum
 
 export function priceCache(l: Ledger, n: CostNode) {
   const size = sizeOf(n);
-  const nodes = num(n, "replicas", bool(n, "ha") === true ? 2 : 1, { int: true, min: 1 });
+  const nodes = num(n, "replicas", bool(n, "highAvailability", "ha") === true ? 2 : 1, { int: true, min: 1 });
   const m = nodes <= 1 ? 1 : (l.ratio(n.provider, n.region, "cache_ha_multiplier", n.address) * nodes) / 2;
   l.charge({
     address: n.address,

@@ -129,13 +129,23 @@ conditional update); a duplicate returns `409 already_settled`.
 ### Job kinds
 
 **`tofu.run`** — payload `{ "command": "plan|apply|show", "files": [{"path","contentB64"}],
-"lockfile": "…", "configDigest": "…", "planDigest": "…" }`. The runner
-recomputes `configDigest` (same rule as `src/lib/tofu`: sha256 over sorted
-`path\0sha256(content)\n`) and refuses a mismatch; runs its pinned OpenTofu
-with `-lockfile=readonly` in a fresh temp dir; for `apply` it requires a plan
-file it produced itself for the same `configDigest` and whose normalized
-digest equals `planDigest`. Result: `{ exitCode, output (redacted, truncated),
-planJson? }`.
+"lockfile": "…", "configDigest": "…", "planFileSha256": "…" }`. The runner
+recomputes `configDigest` and refuses a mismatch. The rule, identical in
+`src/lib/tofu/workspace.ts` (`configDigestOf`) and Go: files sorted by path
+bytes (paths are ASCII), then
+`sha256( concat( path ‖ 0x00 ‖ lowercase-hex(sha256(content)) ‖ 0x0A ) )`,
+lockfile excluded; golden vector `tests/tofu/fixtures/config-digest-vector.json`.
+It runs its pinned OpenTofu with `-lockfile=readonly` in a fresh temp dir.
+- `plan` keeps the binary plan file it produced (keyed by `configDigest` and
+  the file's sha256, retained ≤ 24 h) and returns `{ exitCode, output,
+  planJson, planFileSha256 }`.
+- The **control plane** normalizes `planJson` (`normalizePlan`) and computes
+  the plan digest; the runner never re-implements normalization.
+- `apply` requires a retained plan file the runner itself produced for the
+  same `configDigest` whose sha256 equals `planFileSha256`, and applies
+  exactly that file. The control plane only issues an apply job after a
+  fresh `plan` job whose normalized digest equals the approved digest.
+Result: `{ exitCode, output (redacted, truncated), planJson?, planFileSha256? }`.
 
 **`aws.http`** — the SigV4 signing proxy. Payload `{ "service", "region", "method",
 "url", "headers", "bodyB64" }` is an *unsigned* AWS API request serialized by

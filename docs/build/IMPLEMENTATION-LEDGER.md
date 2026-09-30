@@ -11,16 +11,18 @@ States: planned → in_progress → review → integrated (or blocked).
 
 | ID | Workstream | Wave | State | Depends on | Branch | Commit | Tests | Review | Notes |
 |---|---|---|---|---|---|---|---|---|---|
-| WS-FOUND | Contracts, ADRs, ledger, dependencies | 0 | done |  |  |  |  |  |  |
-| WS-RES | Resource model: Manifest V2, upgrade, graph expansion, drift v2 | 1 | planned | WS-FOUND |  |  |  |  |  |
-| WS-DB | Platform control store: executor, migrations, repositories, leases, idempotency, events | 1 | planned | WS-FOUND |  |  |  |  |  |
-| WS-POL | Policy engine: Rego, wasm bundle, evaluator, plan facts | 1 | planned | WS-FOUND |  |  |  |  |  |
-| WS-CRED | Credential broker, OIDC issuer, AWS STS, customer bootstrap templates | 1 | planned | WS-FOUND |  |  |  |  |  |
-| WS-TOFU | OpenTofu engine: workspace assembly, runner, plan normalization, digests, lockfiles | 1 | planned | WS-FOUND |  |  |  |  |  |
-| WS-GO | Go zenith-runner and zenithd | 1 | planned | WS-FOUND |  |  |  |  |  |
-| WS-PLACE | Cost engine v2, price catalog, placement solver | 1 | planned | WS-FOUND |  |  |  |  |  |
-| WS-OBS | Observability fabric: sandbox, CloudWatch, Prometheus, Loki | 1 | planned | WS-FOUND |  |  |  |  |  |
-| WS-WF | Temporal workflows, worker, client, test environment | 1 | planned | WS-FOUND |  |  |  |  |  |
+| WS-FOUND | Contracts, ADRs, ledger, dependencies | 0 | done |  | platform/integration | e07669a |  | orchestrator |  |
+| WS-RES | Resource model: Manifest V2, upgrade, graph expansion, drift v2 | 1 | in_progress | WS-FOUND | ws/res |  |  |  |  |
+| WS-DB | Platform control store: executor, migrations, repositories, leases, idempotency, events | 1 | in_progress | WS-FOUND | ws/db |  |  |  |  |
+| WS-POL | Policy engine: Rego, wasm bundle, evaluator, plan facts | 1 | in_progress | WS-FOUND | ws/pol |  |  |  |  |
+| WS-CRED | Credential broker, OIDC issuer, AWS STS, customer bootstrap templates | 1 | in_progress | WS-FOUND | ws/cred |  |  |  |  |
+| WS-TOFU | OpenTofu engine: workspace assembly, runner, plan normalization, digests, lockfiles | 1 | in_progress | WS-FOUND | ws/tofu |  |  |  |  |
+| WS-GO | Go zenith-runner and zenithd | 1 | in_progress | WS-FOUND | ws/go |  |  |  |  |
+| WS-PLACE | Cost engine v2, price catalog, placement solver | 1 | in_progress | WS-FOUND | ws/place |  |  |  |  |
+| WS-OBS | Observability fabric: sandbox, CloudWatch, Prometheus, Loki | 1 | in_progress | WS-FOUND | ws/obs |  |  |  |  |
+| WS-WF | Temporal workflows, worker, client, test environment | 1 | in_progress | WS-FOUND | ws/wf |  |  |  |  |
+| WS-FIX | Fix baseline audit defects (engine rollback, approvals, journal, naming, docker runner) | 1 | in_progress | WS-FOUND | ws/fix |  |  |  |  |
+| WS-ANALYZE | Repository analysis to requirements and proposed architecture | 1 | in_progress | WS-FOUND | ws/analyze |  |  |  |  |
 | WS-AWS-NET | AWS drivers: VPC, subnets, IGW/NAT, security groups, ALB, Route53, ACM | 2 | planned | WS-RES, WS-TOFU, WS-CRED |  |  |  |  |  |
 | WS-AWS-CMP | AWS drivers: ECS/Fargate, ECR, EC2/ASG, Lambda, EventBridge, CodeBuild | 2 | planned | WS-RES, WS-TOFU, WS-CRED |  |  |  |  |  |
 | WS-AWS-DATA | AWS drivers: RDS, ElastiCache, S3, SQS, Secrets Manager, IAM, log groups | 2 | planned | WS-RES, WS-TOFU, WS-CRED |  |  |  |  |  |
@@ -32,7 +34,6 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-INC | Incident engine and remediation workflow | 3 | planned | WS-OBS, WS-AWS-NET, WS-CAP |  |  |  |  |  |
 | WS-REC | Reconciliation controller and persisted drift | 3 | planned | WS-DB, WS-AWS-NET |  |  |  |  |  |
 | WS-MCP | MCP v3 semantic tools, CLI, SDK, connectors | 3 | planned | WS-CAP |  |  |  |  |  |
-| WS-ANALYZE | Repository analysis to architecture proposal | 3 | planned | WS-RES |  |  |  |  |  |
 | WS-UI | UI: connections, plans/approvals, autonomy/policy, operations, incidents, resources | 3 | planned | WS-CAP, WS-DB |  |  |  |  |  |
 | WS-GCP | GCP drivers (Cloud Run, GKE, Cloud SQL, GCS, Pub/Sub, LB, DNS, Secret Manager, Logging/Monitoring) | 4 | planned | WS-ACT |  |  |  |  |  |
 | WS-AZURE | Azure drivers (Container Apps, AKS, Postgres Flexible, Blob, Service Bus, DNS, Key Vault, Monitor) | 4 | planned | WS-ACT |  |  |  |  |  |
@@ -46,6 +47,6 @@ States: planned → in_progress → review → integrated (or blocked).
 
 | ID | What | Blocks | Workaround |
 |---|---|---|---|
-| B-AWS-LIVE | No AWS sandbox account credentials on this machine | live AWS acceptance (Demos A-F on real AWS) | LocalStack emulation + contract tests + live harness scripts/acceptance/aws-live |
+| B-AWS-LIVE | No AWS sandbox account credentials on this machine | live AWS acceptance (Demos A-F on real AWS) | mocked-SDK contract tests + live harness scripts/acceptance/aws-live (LocalStack on hold per user, 2026-09-30) |
 | B-GCP-AZ-OCI-LIVE | No GCP / Azure / OCI accounts | live verification of those providers | contract tests with recorded HTTP; live harness |
 | B-TEMPORAL-CLOUD | No Temporal Cloud namespace | production workflow hosting | temporal server start-dev locally and in CI |

@@ -1,0 +1,368 @@
+{
+  "rule": "planDigest = sha256(canonical({configDigest, lockDigest, tofuVersion, resourceChanges, outputChanges})) with canonical() as in src/lib/controlplane/digest.ts (object keys sorted by UTF-16 code unit, undefined dropped, JSON.stringify primitives, no whitespace). resourceChanges sorted by address, changes by path, outputChanges by name. Sensitive changes carry fingerprint = hex(HMAC-SHA256(fingerprintKey, canonical([address, path, rawBefore ?? null, unknownAfter ? \"(unknown)\" : (rawAfter ?? null)]))). Attribute paths: a.b[0].c, map keys that are not identifiers as [\"quoted\"]. The show-json input is plan-mixed.json in this directory.",
+  "showJson": "plan-mixed.json",
+  "options": {
+    "configDigest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "lockDigest": "llllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll",
+    "addressMap": {
+      "resource/assets": [
+        "aws_s3_bucket.assets"
+      ],
+      "service/web": [
+        "aws_ecs_service.web"
+      ],
+      "resource/db": [
+        "aws_db_instance.main"
+      ],
+      "dns_record/a.example.com": [
+        "aws_route53_record.r"
+      ]
+    },
+    "fingerprintKey": "vector-fingerprint-key"
+  },
+  "expected": {
+    "planDigest": "6b512358c2b75d26a728fa5b03c47aded4c0ee92fc9c1c06b9996290151af63f",
+    "summary": {
+      "create": 3,
+      "update": 2,
+      "delete": 2,
+      "replace": 2,
+      "noop": 1
+    },
+    "empty": false,
+    "resourceChanges": [
+      {
+        "address": "aws_db_instance.main",
+        "nodeAddress": "resource/db",
+        "type": "aws_db_instance",
+        "providerName": "registry.opentofu.org/hashicorp/aws",
+        "action": "replace",
+        "changes": [
+          {
+            "path": "arn",
+            "before": null,
+            "after": "(known after apply)",
+            "sensitive": false,
+            "forcesReplacement": false
+          },
+          {
+            "path": "connection_string",
+            "before": "(sensitive)",
+            "after": "(known after apply)",
+            "sensitive": true,
+            "forcesReplacement": false,
+            "fingerprint": "88c35449c6f67c0990797594bf2c58fa50b5b4c142061fdabf055513e62da5ed"
+          },
+          {
+            "path": "endpoint",
+            "before": null,
+            "after": "(known after apply)",
+            "sensitive": false,
+            "forcesReplacement": false
+          },
+          {
+            "path": "engine_version",
+            "before": "15.4",
+            "after": "16.1",
+            "sensitive": false,
+            "forcesReplacement": true
+          },
+          {
+            "path": "password",
+            "before": "(sensitive)",
+            "after": "(sensitive)",
+            "sensitive": true,
+            "forcesReplacement": false,
+            "fingerprint": "fe0e12bd0ef1bde8459ceac8a2cf25eb83d34260f9f31d991e5f394ee4df4752"
+          }
+        ],
+        "destroysData": true
+      },
+      {
+        "address": "aws_ecs_service.web",
+        "nodeAddress": "service/web",
+        "type": "aws_ecs_service",
+        "providerName": "registry.opentofu.org/hashicorp/aws",
+        "action": "update",
+        "changes": [
+          {
+            "path": "desired_count",
+            "before": 2,
+            "after": 3,
+            "sensitive": false,
+            "forcesReplacement": false
+          },
+          {
+            "path": "task_definition",
+            "before": "arn:aws:ecs:ap-south-1:111122223333:task-definition/web:1",
+            "after": "(known after apply)",
+            "sensitive": false,
+            "forcesReplacement": false
+          }
+        ],
+        "destroysData": false
+      },
+      {
+        "address": "aws_lambda_function.fn",
+        "type": "aws_lambda_function",
+        "providerName": "registry.opentofu.org/hashicorp/aws",
+        "action": "update",
+        "changes": [
+          {
+            "path": "environment[0].variables",
+            "before": "(sensitive)",
+            "after": "(sensitive)",
+            "sensitive": true,
+            "forcesReplacement": false,
+            "fingerprint": "8b85f675c2259459feb046640214eedb768542c02cf09ffb3c7b74a05964f6ae"
+          },
+          {
+            "path": "memory_size",
+            "before": 128,
+            "after": 256,
+            "sensitive": false,
+            "forcesReplacement": false
+          }
+        ],
+        "destroysData": false
+      },
+      {
+        "address": "aws_lb.old",
+        "type": "aws_lb",
+        "providerName": "registry.opentofu.org/hashicorp/aws",
+        "action": "delete",
+        "changes": [
+          {
+            "path": "internal",
+            "before": false,
+            "after": null,
+            "sensitive": false,
+            "forcesReplacement": false
+          },
+          {
+            "path": "name",
+            "before": "old-lb",
+            "after": null,
+            "sensitive": false,
+            "forcesReplacement": false
+          }
+        ],
+        "destroysData": false
+      },
+      {
+        "address": "aws_route53_record.r[\"a.example.com\"]",
+        "nodeAddress": "dns_record/a.example.com",
+        "type": "aws_route53_record",
+        "providerName": "registry.opentofu.org/hashicorp/aws",
+        "action": "create",
+        "changes": [
+          {
+            "path": "id",
+            "before": null,
+            "after": "(known after apply)",
+            "sensitive": false,
+            "forcesReplacement": false
+          },
+          {
+            "path": "name",
+            "before": null,
+            "after": "a.example.com",
+            "sensitive": false,
+            "forcesReplacement": false
+          },
+          {
+            "path": "records[0]",
+            "before": null,
+            "after": "lb.example.com",
+            "sensitive": false,
+            "forcesReplacement": false
+          },
+          {
+            "path": "ttl",
+            "before": null,
+            "after": 60,
+            "sensitive": false,
+            "forcesReplacement": false
+          },
+          {
+            "path": "type",
+            "before": null,
+            "after": "CNAME",
+            "sensitive": false,
+            "forcesReplacement": false
+          }
+        ],
+        "destroysData": false
+      },
+      {
+        "address": "aws_s3_bucket.assets",
+        "nodeAddress": "resource/assets",
+        "type": "aws_s3_bucket",
+        "providerName": "registry.opentofu.org/hashicorp/aws",
+        "action": "create",
+        "changes": [
+          {
+            "path": "arn",
+            "before": null,
+            "after": "(known after apply)",
+            "sensitive": false,
+            "forcesReplacement": false
+          },
+          {
+            "path": "bucket",
+            "before": null,
+            "after": "zenith-acme-assets",
+            "sensitive": false,
+            "forcesReplacement": false
+          },
+          {
+            "path": "force_destroy",
+            "before": null,
+            "after": false,
+            "sensitive": false,
+            "forcesReplacement": false
+          },
+          {
+            "path": "id",
+            "before": null,
+            "after": "(known after apply)",
+            "sensitive": false,
+            "forcesReplacement": false
+          },
+          {
+            "path": "tags.Name",
+            "before": null,
+            "after": "assets",
+            "sensitive": false,
+            "forcesReplacement": false
+          },
+          {
+            "path": "tags[\"zenith:workspace\"]",
+            "before": null,
+            "after": "w1",
+            "sensitive": false,
+            "forcesReplacement": false
+          }
+        ],
+        "destroysData": false
+      },
+      {
+        "address": "aws_secretsmanager_secret_version.v",
+        "type": "aws_secretsmanager_secret_version",
+        "providerName": "registry.opentofu.org/hashicorp/aws",
+        "action": "create",
+        "changes": [
+          {
+            "path": "id",
+            "before": null,
+            "after": "(known after apply)",
+            "sensitive": false,
+            "forcesReplacement": false
+          },
+          {
+            "path": "secret_string",
+            "before": null,
+            "after": "(sensitive)",
+            "sensitive": true,
+            "forcesReplacement": false,
+            "fingerprint": "5a330230e766a841eba46bdbfdf96fc4fc99ae1a8e0c97f61e5f215e4d75e994"
+          },
+          {
+            "path": "version_id",
+            "before": null,
+            "after": "(known after apply)",
+            "sensitive": false,
+            "forcesReplacement": false
+          },
+          {
+            "path": "version_stages[0]",
+            "before": null,
+            "after": "AWSCURRENT",
+            "sensitive": false,
+            "forcesReplacement": false
+          }
+        ],
+        "destroysData": false
+      },
+      {
+        "address": "aws_security_group.web",
+        "type": "aws_security_group",
+        "providerName": "registry.opentofu.org/hashicorp/aws",
+        "action": "replace",
+        "changes": [
+          {
+            "path": "id",
+            "before": null,
+            "after": "(known after apply)",
+            "sensitive": false,
+            "forcesReplacement": false
+          },
+          {
+            "path": "vpc_id",
+            "before": "vpc-1",
+            "after": "vpc-2",
+            "sensitive": false,
+            "forcesReplacement": true
+          }
+        ],
+        "destroysData": false
+      },
+      {
+        "address": "aws_sqs_queue.jobs",
+        "type": "aws_sqs_queue",
+        "providerName": "registry.opentofu.org/hashicorp/aws",
+        "action": "delete",
+        "changes": [
+          {
+            "path": "name",
+            "before": "jobs",
+            "after": null,
+            "sensitive": false,
+            "forcesReplacement": false
+          },
+          {
+            "path": "visibility_timeout_seconds",
+            "before": 30,
+            "after": null,
+            "sensitive": false,
+            "forcesReplacement": false
+          }
+        ],
+        "destroysData": true
+      },
+      {
+        "address": "aws_vpc.main",
+        "type": "aws_vpc",
+        "providerName": "registry.opentofu.org/hashicorp/aws",
+        "action": "no-op",
+        "changes": [],
+        "destroysData": false
+      },
+      {
+        "address": "data.aws_caller_identity.current",
+        "type": "aws_caller_identity",
+        "providerName": "registry.opentofu.org/hashicorp/aws",
+        "action": "read",
+        "changes": [],
+        "destroysData": false
+      }
+    ],
+    "outputChanges": [
+      {
+        "name": "stable",
+        "action": "no-op",
+        "sensitive": false
+      },
+      {
+        "name": "token",
+        "action": "update",
+        "sensitive": true
+      },
+      {
+        "name": "url",
+        "action": "create",
+        "sensitive": false
+      }
+    ]
+  }
+}

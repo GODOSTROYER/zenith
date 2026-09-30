@@ -1,0 +1,188 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.12.5",
+  "timestamp": "2026-09-30T10:00:00Z",
+  "errored": false,
+  "resource_changes": [
+    {
+      "address": "aws_s3_bucket.assets",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "assets",
+      "provider_name": "registry.opentofu.org/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": { "bucket": "zenith-acme-assets", "force_destroy": false, "tags": { "zenith:workspace": "w1", "Name": "assets" } },
+        "after_unknown": { "arn": true, "id": true, "tags": {} },
+        "before_sensitive": false,
+        "after_sensitive": { "tags": {} }
+      }
+    },
+    {
+      "address": "aws_ecs_service.web",
+      "mode": "managed",
+      "type": "aws_ecs_service",
+      "name": "web",
+      "provider_name": "registry.opentofu.org/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": { "name": "web", "desired_count": 2, "task_definition": "arn:aws:ecs:ap-south-1:111122223333:task-definition/web:1", "load_balancer": [{ "container_port": 8080, "target_group_arn": "arn:tg/1" }] },
+        "after": { "name": "web", "desired_count": 3, "task_definition": "arn:aws:ecs:ap-south-1:111122223333:task-definition/web:1", "load_balancer": [{ "container_port": 8080, "target_group_arn": "arn:tg/1" }] },
+        "after_unknown": { "task_definition": true, "load_balancer": [{}] },
+        "before_sensitive": { "load_balancer": [{}] },
+        "after_sensitive": { "load_balancer": [{}] }
+      }
+    },
+    {
+      "address": "aws_db_instance.main",
+      "mode": "managed",
+      "type": "aws_db_instance",
+      "name": "main",
+      "provider_name": "registry.opentofu.org/hashicorp/aws",
+      "action_reason": "replace_because_cannot_update",
+      "change": {
+        "actions": ["delete", "create"],
+        "before": {
+          "identifier": "db1",
+          "engine_version": "15.4",
+          "password": "CANARY-DB-PASSWORD-OLD-1",
+          "connection_string": "postgres://admin:CANARY-DB-PASSWORD-OLD-1@db1.example.internal:5432/app",
+          "tags": { "zenith:workspace": "w1" }
+        },
+        "after": {
+          "identifier": "db1",
+          "engine_version": "16.1",
+          "password": "CANARY-DB-PASSWORD-NEW-2",
+          "tags": { "zenith:workspace": "w1" }
+        },
+        "after_unknown": { "arn": true, "endpoint": true, "connection_string": true, "tags": {} },
+        "before_sensitive": { "password": true, "tags": {} },
+        "after_sensitive": { "password": true, "tags": {} },
+        "replace_paths": [["engine_version"]]
+      }
+    },
+    {
+      "address": "aws_sqs_queue.jobs",
+      "mode": "managed",
+      "type": "aws_sqs_queue",
+      "name": "jobs",
+      "provider_name": "registry.opentofu.org/hashicorp/aws",
+      "action_reason": "delete_because_no_resource_config",
+      "change": {
+        "actions": ["delete"],
+        "before": { "name": "jobs", "visibility_timeout_seconds": 30 },
+        "after": null,
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "aws_lb.old",
+      "mode": "managed",
+      "type": "aws_lb",
+      "name": "old",
+      "provider_name": "registry.opentofu.org/hashicorp/aws",
+      "change": {
+        "actions": ["delete"],
+        "before": { "name": "old-lb", "internal": false },
+        "after": null,
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "aws_security_group.web",
+      "mode": "managed",
+      "type": "aws_security_group",
+      "name": "web",
+      "provider_name": "registry.opentofu.org/hashicorp/aws",
+      "action_reason": "replace_because_cannot_update",
+      "change": {
+        "actions": ["create", "delete"],
+        "before": { "name": "web-sg", "vpc_id": "vpc-1" },
+        "after": { "name": "web-sg", "vpc_id": "vpc-2" },
+        "after_unknown": { "id": true },
+        "before_sensitive": {},
+        "after_sensitive": {},
+        "replace_paths": [["vpc_id"]]
+      }
+    },
+    {
+      "address": "data.aws_caller_identity.current",
+      "mode": "data",
+      "type": "aws_caller_identity",
+      "name": "current",
+      "provider_name": "registry.opentofu.org/hashicorp/aws",
+      "change": { "actions": ["read"], "before": null, "after": { "account_id": "111122223333" }, "after_unknown": {}, "before_sensitive": false, "after_sensitive": {} }
+    },
+    {
+      "address": "aws_vpc.main",
+      "mode": "managed",
+      "type": "aws_vpc",
+      "name": "main",
+      "provider_name": "registry.opentofu.org/hashicorp/aws",
+      "change": {
+        "actions": ["no-op"],
+        "before": { "cidr_block": "10.0.0.0/16", "id": "vpc-1" },
+        "after": { "cidr_block": "10.0.0.0/16", "id": "vpc-1" },
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "aws_route53_record.r[\"a.example.com\"]",
+      "mode": "managed",
+      "type": "aws_route53_record",
+      "name": "r",
+      "index": "a.example.com",
+      "provider_name": "registry.opentofu.org/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": { "name": "a.example.com", "type": "CNAME", "ttl": 60, "records": ["lb.example.com"] },
+        "after_unknown": { "id": true, "records": [false] },
+        "before_sensitive": false,
+        "after_sensitive": { "records": [false] }
+      }
+    },
+    {
+      "address": "aws_secretsmanager_secret_version.v",
+      "mode": "managed",
+      "type": "aws_secretsmanager_secret_version",
+      "name": "v",
+      "provider_name": "registry.opentofu.org/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": { "secret_string": "CANARY-TOKEN-77b1", "version_stages": ["AWSCURRENT"] },
+        "after_unknown": { "id": true, "version_id": true, "version_stages": [false] },
+        "before_sensitive": false,
+        "after_sensitive": { "secret_string": true, "version_stages": [false] }
+      }
+    },
+    {
+      "address": "aws_lambda_function.fn",
+      "mode": "managed",
+      "type": "aws_lambda_function",
+      "name": "fn",
+      "provider_name": "registry.opentofu.org/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": { "memory_size": 128, "environment": [{ "variables": { "API_KEY": "CANARY-LIST-SECRET-aa12", "MODE": "a" } }] },
+        "after": { "memory_size": 256, "environment": [{ "variables": { "API_KEY": "CANARY-LIST-SECRET-bb34", "MODE": "b" } }] },
+        "after_unknown": {},
+        "before_sensitive": { "environment": [{ "variables": true }] },
+        "after_sensitive": { "environment": [{ "variables": true }] }
+      }
+    }
+  ],
+  "output_changes": {
+    "url": { "actions": ["create"], "before": null, "after_unknown": true, "before_sensitive": false, "after_sensitive": false },
+    "token": { "actions": ["update"], "before": "CANARY-OUT-1", "after": "CANARY-OUT-2", "after_unknown": false, "before_sensitive": true, "after_sensitive": true },
+    "stable": { "actions": ["no-op"], "before": "same", "after": "same", "after_unknown": false, "before_sensitive": false, "after_sensitive": false }
+  }
+}

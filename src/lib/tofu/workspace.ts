@@ -1,0 +1,458 @@
+/**
+ * Workspace assembly: `TofuFragment`s → a pinned, deterministic `TofuWorkspace`.
+ *
+ * Drivers emit fragments (`resource`/`data`/`output`/`locals` + the tofu
+ * addresses they own). Only this module writes the parts of a workspace that
+ * are about the *environment* rather than a node: `versions.tf.json`
+ * (`required_version` + exact `required_providers`), `providers.tf.json`
+ * (region, default tags — never credentials), `backend.tf.json` (state
+ * location, native S3 lockfile, optional client-side KMS state/plan
+ * encryption) and `main.tf.json` (the merged fragments).
+ *
+ * `TofuFragment.addresses` are BASE addresses (`aws_route53_record.r`, no
+ * `[key]` suffix): the plan normalizer strips instance keys from
+ * `for_each`/`count` addresses before joining them to nodes.
+ *
+ * Invariants enforced here, because fragments are built from
+ * manifest-derived strings and a workspace runs with real credentials:
+ *   - determinism: fragments merge with sorted keys; input order is irrelevant;
+ *   - no duplicate resource/data/output/local names or claimed addresses;
+ *   - every claimed address is actually defined by its fragment;
+ *   - a fragment belongs to a node of the graph; a node Zenith does not
+ *     manage (`referenced`/`external`) may only contribute `data`/`output`/`locals`;
+ *   - resource types must belong to the provider set (or be `terraform_data`);
+ *   - no `provisioner`/`connection` blocks (they run arbitrary commands on the
+ *     runner), no `terraform_remote_state`, no file/path-reading HCL functions
+ *     inside interpolations (a manifest string like `${file("/proc/self/environ")}`
+ *     must never be evaluated), no credential-shaped provider config;
+ *   - credentials never appear in any file: providers read the environment the
+ *     runner builds from the broker session.
+ *
+ * Limits (honest): fragment *semantics* are not validated here — a resource
+ * with the wrong arguments only fails at `validate`/`plan`. Only `aws` and
+ * `random` provider blocks have been exercised by real `tofu validate` runs;
+ * the google/azurerm/oci/kubernetes blocks are minimal and unverified.
+ */
+import type { TofuFragment } from "@/lib/drivers/types";
+import type { ResourceGraph } from "@/lib/resources/types";
+import { configDigestOf, isSafeRelativePath, lockDigestOf, MAX_WORKSPACE_FILE_BYTES } from "@/lib/tofu/config-digest";
+import { LOCKFILES } from "@/lib/tofu/locks.generated";
+import {
+  PROVIDER_PINS,
+  PROVIDER_SET_PROVIDERS,
+  providerOfType,
+  requiredProviders,
+  type ProviderLocalName,
+  type ProviderSetName,
+  type ProviderSetSpec,
+} from "@/lib/tofu/providers";
+import { stableJson } from "@/lib/tofu/stable";
+import { TOFU_VERSION, type TofuFile, type TofuWorkspace } from "@/lib/tofu/types";
+
+export { configDigestOf, lockDigestOf } from "@/lib/tofu/config-digest";
+
+export class TofuWorkspaceError extends Error {
+  readonly code: "invalid_input" | "invalid_fragment" | "duplicate_address" | "unknown_node" | "forbidden_construct" | "digest_mismatch" | "unknown_provider_set";
+  constructor(code: TofuWorkspaceError["code"], message: string) {
+    super(message);
+    this.name = "TofuWorkspaceError";
+    this.code = code;
+  }
+}
+
+/* --------------------------------- inputs --------------------------------- */
+
+export type BackendConfig =
+  | {
+      kind: "local";
+      /** state file path; relative paths resolve inside the (throw-away) run dir */
+      path?: string;
+    }
+  | {
+      kind: "s3";
+      bucket: string;
+      /** defaults to the workspace region */
+      region?: string;
+      /**
+       * KMS key for CLIENT-SIDE state and plan encryption (OpenTofu
+       * `encryption` block, `aws_kms` key provider + `aes_gcm`, enforced).
+       * The runner's brokered role needs kms:GenerateDataKey and kms:Decrypt.
+       */
+      encryptionKmsKeyArn?: string;
+      /** KMS key for S3 server-side encryption of the state object */
+      sseKmsKeyId?: string;
+    }
+  | {
+      kind: "http";
+      address: string;
+      lockAddress?: string;
+      unlockAddress?: string;
+    };
+
+export interface AssembleWorkspaceInput {
+  graph: ResourceGraph;
+  /** node address → compiled fragment */
+  fragments: Map<string, TofuFragment>;
+  providerSet: ProviderSetName | ProviderSetSpec;
+  region: string;
+  backend: BackendConfig;
+  /** state object key for the S3 backend, e.g. `zenith/<workspace>/<environment>/terraform.tfstate` */
+  stateKey?: string;
+  /** provider default tags (AWS `default_tags`) */
+  tags: Record<string, string>;
+  /**
+   * Extra non-secret provider arguments, e.g. `{ google: { project } }`,
+   * `{ azurerm: { subscription_id } }`. Credential-shaped keys are refused.
+   */
+  providerConfig?: Partial<Record<ProviderLocalName, Record<string, unknown>>>;
+}
+
+/* ----------------------------- provider sets ------------------------------ */
+
+export function resolveProviderSet(set: ProviderSetName | ProviderSetSpec): ProviderSetSpec {
+  if (typeof set !== "string") return set;
+  const providers = PROVIDER_SET_PROVIDERS[set];
+  const lockfile = LOCKFILES[set];
+  if (!providers || lockfile === undefined) {
+    throw new TofuWorkspaceError("unknown_provider_set", `No committed lockfile for provider set "${set}". Run src/lib/tofu/scripts/lock.ts.`);
+  }
+  return { name: set, providers, lockfile };
+}
+
+/* ------------------------------- validation ------------------------------- */
+
+const LABEL = /^[A-Za-z_][A-Za-z0-9_-]*$/;
+const TYPE_NAME = /^[a-z][a-z0-9_]*$/;
+const OUTPUT_NAME = /^[A-Za-z_][A-Za-z0-9_-]*$/;
+const BUCKET = /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/;
+const STATE_KEY = /^[A-Za-z0-9!_.*'()/=+@:-]+$/;
+const REGION = /^[a-z0-9-]{3,40}$/;
+const ARN = /^arn:[a-z-]+:kms:[a-z0-9-]+:\d{12}:(?:key|alias)\/[A-Za-z0-9/_-]+$/;
+const KEY_ID = /^(?:[0-9a-f-]{36}|mrk-[0-9a-f]{32}|alias\/[A-Za-z0-9/_-]+|arn:[a-z-]+:kms:[a-z0-9-]+:\d{12}:(?:key|alias)\/[A-Za-z0-9/_-]+)$/;
+
+const FRAGMENT_KEYS = new Set(["resource", "data", "output", "locals", "addresses"]);
+const FORBIDDEN_RESOURCE_KEYS = ["provisioner", "connection"];
+const FORBIDDEN_DATA_TYPES = new Set(["terraform_remote_state"]);
+const BUILTIN_TYPE_PREFIX = "terraform";
+
+/** HCL functions and references that read the runner's filesystem or process. */
+const FORBIDDEN_CALL = /\b(file|filebase64|filebase64sha256|filebase64sha512|fileexists|fileset|filemd5|filesha1|filesha256|filesha512|templatefile|pathexpand|abspath)\s*\(/;
+const FORBIDDEN_REF = /\b(path\.(module|root|cwd)|terraform\.workspace)\b/;
+
+const CREDENTIAL_KEY =
+  /(secret|passw(or)?d|token|private[_-]?key|access[_-]?key|client[_-]?key|client[_-]?certificate|credential|sas[_-]?token|key[_-]?data|api[_-]?key|kubeconfig|config[_-]?content|auth[_-]?token|bearer)/i;
+
+function fail(code: TofuWorkspaceError["code"], message: string): never {
+  throw new TofuWorkspaceError(code, message);
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
+}
+
+/** Walk every key and string value of a fragment looking for forbidden expressions. */
+function scanExpressions(value: unknown, where: string): void {
+  if (typeof value === "string") {
+    if (value.includes("${") || value.includes("%{")) {
+      const call = FORBIDDEN_CALL.exec(value);
+      if (call) fail("forbidden_construct", `${where}: interpolation calls ${call[1]}(), which reads the runner's filesystem or environment.`);
+      const ref = FORBIDDEN_REF.exec(value);
+      if (ref) fail("forbidden_construct", `${where}: interpolation references ${ref[0]}, which exposes runner paths.`);
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((v, i) => scanExpressions(v, `${where}[${i}]`));
+    return;
+  }
+  if (isPlainObject(value)) {
+    for (const [k, v] of Object.entries(value)) {
+      scanExpressions(k, `${where}.<key>`);
+      scanExpressions(v, `${where}.${k}`);
+    }
+  }
+}
+
+function assertNoCredentialKeys(value: unknown, where: string): void {
+  if (Array.isArray(value)) {
+    value.forEach((v, i) => assertNoCredentialKeys(v, `${where}[${i}]`));
+    return;
+  }
+  if (isPlainObject(value)) {
+    for (const [k, v] of Object.entries(value)) {
+      if (CREDENTIAL_KEY.test(k)) fail("forbidden_construct", `${where}.${k}: credentials are never written into workspace files; providers read them from the runner environment.`);
+      assertNoCredentialKeys(v, `${where}.${k}`);
+    }
+  }
+}
+
+function allowedPrefixes(providers: readonly ProviderLocalName[]): Set<string> {
+  return new Set<string>([BUILTIN_TYPE_PREFIX, ...providers]);
+}
+
+interface CheckedFragment {
+  nodeAddress: string;
+  fragment: TofuFragment;
+}
+
+function checkFragment(nodeAddress: string, fragment: TofuFragment, graph: ResourceGraph, prefixes: Set<string>, setName: string): void {
+  const node = graph.nodes.find((n) => n.address === nodeAddress);
+  if (!node) fail("unknown_node", `Fragment for "${nodeAddress}" does not belong to any node of the graph.`);
+  if (!isPlainObject(fragment)) fail("invalid_fragment", `Fragment for "${nodeAddress}" is not an object.`);
+  for (const k of Object.keys(fragment)) {
+    if (!FRAGMENT_KEYS.has(k)) fail("invalid_fragment", `Fragment for "${nodeAddress}" has unsupported key "${k}" (drivers emit only resource, data, output, locals, addresses).`);
+  }
+  if (!Array.isArray(fragment.addresses) || fragment.addresses.some((a) => typeof a !== "string")) {
+    fail("invalid_fragment", `Fragment for "${nodeAddress}" must list the tofu addresses it owns.`);
+  }
+  if (node.ownership !== "managed" && fragment.resource && Object.keys(fragment.resource).length > 0) {
+    fail("invalid_fragment", `Node "${nodeAddress}" is ${node.ownership}, not managed: its fragment may read data but must not declare resources.`);
+  }
+  for (const [kind, blocks] of [
+    ["resource", fragment.resource],
+    ["data", fragment.data],
+  ] as const) {
+    if (blocks === undefined) continue;
+    if (!isPlainObject(blocks)) fail("invalid_fragment", `Fragment for "${nodeAddress}": ${kind} must be an object.`);
+    for (const [type, named] of Object.entries(blocks)) {
+      if (!TYPE_NAME.test(type)) fail("invalid_fragment", `Fragment for "${nodeAddress}": invalid ${kind} type "${type}".`);
+      const prefix = providerOfType(type);
+      if (!prefixes.has(prefix)) {
+        fail("invalid_fragment", `Fragment for "${nodeAddress}": ${kind} type "${type}" needs provider "${prefix}", which is not in provider set "${setName}".`);
+      }
+      if (kind === "data" && FORBIDDEN_DATA_TYPES.has(type)) fail("forbidden_construct", `Fragment for "${nodeAddress}": data source ${type} is not allowed.`);
+      if (!isPlainObject(named)) fail("invalid_fragment", `Fragment for "${nodeAddress}": ${kind}.${type} must be an object.`);
+      for (const [name, body] of Object.entries(named)) {
+        if (!LABEL.test(name)) fail("invalid_fragment", `Fragment for "${nodeAddress}": invalid ${kind} name "${name}".`);
+        if (!isPlainObject(body)) fail("invalid_fragment", `Fragment for "${nodeAddress}": ${kind}.${type}.${name} must be an object.`);
+        for (const forbidden of FORBIDDEN_RESOURCE_KEYS) {
+          if (forbidden in body) fail("forbidden_construct", `Fragment for "${nodeAddress}": ${type}.${name} declares a ${forbidden} block, which runs commands on the runner.`);
+        }
+      }
+    }
+  }
+  for (const name of Object.keys(fragment.output ?? {})) {
+    if (!OUTPUT_NAME.test(name)) fail("invalid_fragment", `Fragment for "${nodeAddress}": invalid output name "${name}".`);
+  }
+  for (const name of Object.keys(fragment.locals ?? {})) {
+    if (!LABEL.test(name)) fail("invalid_fragment", `Fragment for "${nodeAddress}": invalid local name "${name}".`);
+  }
+  scanExpressions({ resource: fragment.resource, data: fragment.data, output: fragment.output, locals: fragment.locals }, `fragment "${nodeAddress}"`);
+}
+
+/** The tofu addresses a fragment defines, as `type.name` / `data.type.name`. */
+function definedAddresses(fragment: TofuFragment): Set<string> {
+  const out = new Set<string>();
+  for (const [type, named] of Object.entries(fragment.resource ?? {})) for (const name of Object.keys(named)) out.add(`${type}.${name}`);
+  for (const [type, named] of Object.entries(fragment.data ?? {})) for (const name of Object.keys(named)) out.add(`data.${type}.${name}`);
+  return out;
+}
+
+/* -------------------------------- merging --------------------------------- */
+
+function mergeFragments(checked: CheckedFragment[]): { main: Record<string, unknown>; addressMap: Record<string, string[]> } {
+  const resource: Record<string, Record<string, unknown>> = {};
+  const data: Record<string, Record<string, unknown>> = {};
+  const output: Record<string, unknown> = {};
+  const locals: Record<string, unknown> = {};
+  const owner = new Map<string, string>(); // tofu address / output / local → node address
+  const addressMap: Record<string, string[]> = {};
+
+  const claim = (key: string, nodeAddress: string, what: string) => {
+    const prior = owner.get(key);
+    if (prior !== undefined) {
+      fail("duplicate_address", `${what} "${key}" is defined by both "${prior}" and "${nodeAddress}".`);
+    }
+    owner.set(key, nodeAddress);
+  };
+
+  for (const { nodeAddress, fragment } of checked) {
+    const defined = definedAddresses(fragment);
+    for (const a of fragment.addresses) {
+      if (!defined.has(a)) fail("invalid_fragment", `Fragment for "${nodeAddress}" claims address "${a}" but does not define it.`);
+    }
+    for (const [type, named] of Object.entries(fragment.resource ?? {})) {
+      for (const [name, body] of Object.entries(named)) {
+        claim(`${type}.${name}`, nodeAddress, "Resource address");
+        (resource[type] ??= {})[name] = body;
+      }
+    }
+    for (const [type, named] of Object.entries(fragment.data ?? {})) {
+      for (const [name, body] of Object.entries(named)) {
+        claim(`data.${type}.${name}`, nodeAddress, "Data address");
+        (data[type] ??= {})[name] = body;
+      }
+    }
+    for (const [name, body] of Object.entries(fragment.output ?? {})) {
+      claim(`output.${name}`, nodeAddress, "Output");
+      output[name] = body;
+    }
+    for (const [name, body] of Object.entries(fragment.locals ?? {})) {
+      claim(`local.${name}`, nodeAddress, "Local");
+      locals[name] = body;
+    }
+    // claimed addresses must also be unique across fragments; already covered
+    // by the definition check above, since a claim needs a definition.
+    const list = (addressMap[nodeAddress] ??= []);
+    for (const a of fragment.addresses) if (!list.includes(a)) list.push(a);
+  }
+  for (const list of Object.values(addressMap)) list.sort();
+
+  const main: Record<string, unknown> = {};
+  if (Object.keys(data).length) main.data = data;
+  if (Object.keys(locals).length) main.locals = locals;
+  if (Object.keys(output).length) main.output = output;
+  if (Object.keys(resource).length) main.resource = resource;
+  return { main, addressMap };
+}
+
+/* ---------------------------- environment files --------------------------- */
+
+function versionsFile(providers: readonly ProviderLocalName[]): Record<string, unknown> {
+  const terraform: Record<string, unknown> = { required_version: `= ${TOFU_VERSION}` };
+  if (providers.length) terraform.required_providers = requiredProviders(providers);
+  return { terraform };
+}
+
+function providersFile(providers: readonly ProviderLocalName[], region: string, tags: Record<string, string>, extra: AssembleWorkspaceInput["providerConfig"]): Record<string, unknown> {
+  const provider: Record<string, unknown> = {};
+  for (const name of providers) {
+    const more = extra?.[name] ?? {};
+    assertNoCredentialKeys(more, `providerConfig.${name}`);
+    scanExpressions(more, `providerConfig.${name}`);
+    switch (name) {
+      case "aws":
+        provider.aws = { ...more, region, ...(Object.keys(tags).length ? { default_tags: { tags } } : {}) };
+        break;
+      case "google":
+        provider.google = { ...more, region };
+        break;
+      case "azurerm":
+        provider.azurerm = { features: {}, ...more };
+        break;
+      case "oci":
+        provider.oci = { ...more, region };
+        break;
+      case "kubernetes":
+        if (Object.keys(more).length) provider.kubernetes = more;
+        break;
+      case "random":
+        if (Object.keys(more).length) provider.random = more;
+        break;
+    }
+  }
+  return Object.keys(provider).length ? { provider } : {};
+}
+
+function backendFile(backend: BackendConfig, region: string, stateKey: string | undefined): { file: Record<string, unknown>; kind: TofuWorkspace["backend"] } {
+  if (backend.kind === "local") {
+    return { file: { terraform: { backend: { local: { path: backend.path ?? "terraform.tfstate" } } } }, kind: "local" };
+  }
+  if (backend.kind === "http") {
+    let url: URL;
+    try {
+      url = new URL(backend.address);
+    } catch {
+      return fail("invalid_input", "http backend address is not a URL.");
+    }
+    if (url.username || url.password) fail("invalid_input", "http backend URLs must not embed credentials; pass them in the runner environment.");
+    if (url.protocol !== "https:") fail("invalid_input", "http backend address must be https.");
+    const block: Record<string, unknown> = { address: backend.address };
+    if (backend.lockAddress) block.lock_address = backend.lockAddress;
+    if (backend.unlockAddress) block.unlock_address = backend.unlockAddress;
+    return { file: { terraform: { backend: { http: block } } }, kind: "http" };
+  }
+
+  if (!BUCKET.test(backend.bucket)) fail("invalid_input", `Invalid S3 state bucket name "${backend.bucket}".`);
+  if (!stateKey || !STATE_KEY.test(stateKey) || stateKey.includes("..") || stateKey.startsWith("/")) {
+    fail("invalid_input", "The s3 backend needs a stateKey of safe characters, without \"..\" or a leading slash.");
+  }
+  const bucketRegion = backend.region ?? region;
+  if (!REGION.test(bucketRegion)) fail("invalid_input", `Invalid backend region "${bucketRegion}".`);
+  const s3: Record<string, unknown> = {
+    bucket: backend.bucket,
+    key: stateKey,
+    region: bucketRegion,
+    encrypt: true,
+    use_lockfile: true,
+  };
+  if (backend.sseKmsKeyId) {
+    if (!KEY_ID.test(backend.sseKmsKeyId)) fail("invalid_input", "sseKmsKeyId is not a KMS key id, alias or ARN.");
+    s3.kms_key_id = backend.sseKmsKeyId;
+  }
+  const terraform: Record<string, unknown> = { backend: { s3 } };
+  if (backend.encryptionKmsKeyArn) {
+    if (!ARN.test(backend.encryptionKmsKeyArn)) fail("invalid_input", "encryptionKmsKeyArn is not a KMS key or alias ARN.");
+    // Static references are plain traversal strings here: OpenTofu rejects
+    // `${…}` templates inside the encryption block.
+    terraform.encryption = {
+      key_provider: { aws_kms: { zenith: { kms_key_id: backend.encryptionKmsKeyArn, region: bucketRegion, key_spec: "AES_256" } } },
+      method: { aes_gcm: { zenith: { keys: "key_provider.aws_kms.zenith" } } },
+      state: { method: "method.aes_gcm.zenith", enforced: true },
+      plan: { method: "method.aes_gcm.zenith", enforced: true },
+    };
+  }
+  return { file: { terraform }, kind: "s3" };
+}
+
+/* -------------------------------- assembly -------------------------------- */
+
+export function assembleWorkspace(input: AssembleWorkspaceInput): TofuWorkspace {
+  if (!REGION.test(input.region)) fail("invalid_input", `Invalid region "${input.region}".`);
+  for (const [k, v] of Object.entries(input.tags)) {
+    if (typeof v !== "string" || typeof k !== "string") fail("invalid_input", "Tags must be string → string.");
+  }
+  scanExpressions(input.tags, "tags");
+
+  const set = resolveProviderSet(input.providerSet);
+  for (const p of set.providers) if (!(p in PROVIDER_PINS)) fail("unknown_provider_set", `Provider "${p}" has no pin.`);
+  const prefixes = allowedPrefixes(set.providers);
+
+  // deterministic order: node address, code-unit order
+  const entries = [...input.fragments.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  const checked: CheckedFragment[] = [];
+  for (const [nodeAddress, fragment] of entries) {
+    checkFragment(nodeAddress, fragment, input.graph, prefixes, set.name);
+    checked.push({ nodeAddress, fragment });
+  }
+  const { main, addressMap } = mergeFragments(checked);
+
+  const backend = backendFile(input.backend, input.region, input.stateKey);
+  const files: TofuFile[] = [
+    { path: "backend.tf.json", content: stableJson(backend.file) },
+    { path: "main.tf.json", content: stableJson(main) },
+    { path: "providers.tf.json", content: stableJson(providersFile(set.providers, input.region, input.tags, input.providerConfig)) },
+    { path: "versions.tf.json", content: stableJson(versionsFile(set.providers)) },
+  ];
+  for (const f of files) {
+    if (!isSafeRelativePath(f.path)) fail("invalid_input", `Unsafe workspace path ${f.path}.`);
+    if (Buffer.byteLength(f.content) > MAX_WORKSPACE_FILE_BYTES) fail("invalid_input", `${f.path} exceeds ${MAX_WORKSPACE_FILE_BYTES} bytes.`);
+  }
+  return {
+    files,
+    lockfile: set.lockfile,
+    configDigest: configDigestOf(files),
+    lockDigest: lockDigestOf(set.lockfile),
+    addressMap,
+    backend: backend.kind,
+  };
+}
+
+/**
+ * Recompute a workspace's digests from its bytes. A workspace crosses queues
+ * and databases before it runs; the runner calls this so a tampered or
+ * truncated workspace cannot execute under a stale approval.
+ */
+export function assertWorkspaceIntact(ws: TofuWorkspace): void {
+  const seen = new Set<string>();
+  for (const f of ws.files) {
+    if (!isSafeRelativePath(f.path)) fail("invalid_input", `Unsafe workspace path "${f.path}".`);
+    if (seen.has(f.path)) fail("invalid_input", `Duplicate workspace path "${f.path}".`);
+    seen.add(f.path);
+    if (Buffer.byteLength(f.content) > MAX_WORKSPACE_FILE_BYTES) fail("invalid_input", `${f.path} exceeds ${MAX_WORKSPACE_FILE_BYTES} bytes.`);
+  }
+  const config = configDigestOf(ws.files);
+  if (config !== ws.configDigest) fail("digest_mismatch", `Workspace files do not match configDigest (${ws.configDigest.slice(0, 12)} ≠ ${config.slice(0, 12)}).`);
+  const lock = lockDigestOf(ws.lockfile);
+  if (lock !== ws.lockDigest) fail("digest_mismatch", `Workspace lockfile does not match lockDigest (${ws.lockDigest.slice(0, 12)} ≠ ${lock.slice(0, 12)}).`);
+}

@@ -15,7 +15,7 @@
 import type { AwsSession } from "@/lib/credentials/types";
 import type { DriverContext } from "@/lib/drivers/types";
 import type { HealthState, Observation, ObservedValue, Presence, ResourceNode, RuntimeState } from "@/lib/resources/types";
-import { presenceOfFailure, scrubErrorText, unknownReasonOf, type AwsFailure } from "./errors";
+import { presenceOfFailure, scrubErrorText, unknownReasonOf, type Attempt, type AwsFailure } from "./errors";
 
 export type AwsDriverContext = DriverContext<AwsSession>;
 
@@ -133,4 +133,20 @@ export function boundNative(native: Record<string, unknown>, opts: { maxBytes?: 
 
 export function runtimeState(ctx: { now(): Date }, node: ResourceNode, source: string, health: HealthState, counts: Record<string, number>, signals: string[]): RuntimeState {
   return { address: node.address, health, counts, signals, observedAt: nowIso(ctx), source, simulated: false };
+}
+
+/**
+ * Attributes from independent reads: `known` when the read succeeded and
+ * produced a value, `unknown` (access_denied / error, with the scrubbed
+ * failure) when it failed, `not_inspected` when there was no read at all.
+ */
+export function attributesFromAttempts(ctx: { now(): Date }, names: readonly string[], reads: Record<string, Attempt<unknown> | undefined>): Record<string, ObservedValue> {
+  const out: Record<string, ObservedValue> = {};
+  for (const name of names) {
+    const r = reads[name];
+    if (r === undefined) out[name] = unknownValue("not_inspected");
+    else if (!r.ok) out[name] = unknownValue(unknownReasonOf(r.failure), r.failure.summary);
+    else out[name] = r.value === undefined ? unknownValue("not_inspected") : knownValue(ctx, r.value);
+  }
+  return out;
 }

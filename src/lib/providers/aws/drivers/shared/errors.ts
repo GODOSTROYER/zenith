@@ -108,3 +108,22 @@ export class DriverCompileError extends Error {
     this.address = address;
   }
 }
+
+/* --------------------------------- attempts -------------------------------- */
+
+export type Attempt<T> = { ok: true; value: T } | { ok: false; failure: AwsFailure };
+
+/**
+ * Run one read and capture a classified failure instead of throwing, so one
+ * denied or throttled call degrades ONE attribute to `unknown` instead of
+ * discarding the whole observation. An abort is not a result: it is rethrown.
+ */
+export async function attempt<T>(fn: () => Promise<T>, signal?: AbortSignal): Promise<Attempt<T>> {
+  try {
+    return { ok: true, value: await fn() };
+  } catch (error) {
+    const failure = classifyAwsError(error, signal);
+    if (failure.kind === "aborted") throw error;
+    return { ok: false, failure };
+  }
+}

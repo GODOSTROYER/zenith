@@ -14,6 +14,7 @@
  *   fragment.ts        FragmentBuilder
  *   topology.ts        subnetsOf, networkAddressOf
  *   security-group.ts  the one-security-group-per-node contract
+ *   verify.ts          existsCheck, attributeChecks, standardVerification
  */
 export * from "./names";
 export * from "./tags";
@@ -25,3 +26,4 @@ export * from "./refs";
 export * from "./fragment";
 export * from "./topology";
 export * from "./security-group";
+export * from "./verify";

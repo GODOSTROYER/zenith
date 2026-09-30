@@ -90,3 +90,8 @@ export function ec2TagFilters(scope: TagScope, address: string): { Name: string;
     { Name: `tag:${TAG_WORKSPACE}`, Values: [want.workspace] },
   ];
 }
+
+/** True when the tags say Zenith created the object (any workspace/environment): what discovery marks `zenithTagged`. */
+export function hasZenithManagedTag(tags: Record<string, string>): boolean {
+  return tags[TAG_MANAGED] === "true";
+}

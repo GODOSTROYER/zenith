@@ -67,7 +67,7 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-SECRET-SYNC | Secret values delivered to cloud secret stores under brokered secret.write; vault:generated | 6 | in_progress |  | ws/secret-sync |  |  |  |  |
 | WS-OBS-WIRE | Credential broker + incident investigator registered in the app; observability for all providers | 6 | in_progress |  | ws/obs-wire |  |  |  |  |
 | WS-OPS | Housekeeping passes (prunes, expiry, uncertain, plan janitor); worker health | 6 | in_progress |  | ws/ops |  |  |  |  |
-| WS-CI-2 | CI covers every suite and gate; Node engines pin (SEC-F9) | 6 | in_progress |  | ws/ci-2 |  |  |  |  |
+| WS-CI-2 | CI covers every suite and gate; Node engines pin (SEC-F9) | 6 | integrated |  | ws/ci-2 |  | tests/ci + runtime-sanity + matrix 231 passed | orchestrator: set package.json/lock engines >=22.16 <23 (SEC-F9 closed) |  |
 | WS-AZURE-MORE | Azure VM, managed disk, MySQL, Static Web Apps, Functions, AKS drivers | 6 | in_progress |  | ws/azure-more |  |  |  |  |
 | WS-AWS-MORE | AWS SNS topic, EBS volume, EKS cluster drivers | 6 | in_progress |  | ws/aws-more |  |  |  |  |
 | WS-K8S-IDENTITY | Kubernetes grants to RBAC and cloud workload identity | 6 | in_progress |  | ws/k8s-identity |  |  |  |  |

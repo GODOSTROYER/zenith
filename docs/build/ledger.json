@@ -970,10 +970,12 @@
       "title": "CI covers every suite and gate; Node engines pin (SEC-F9)",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [],
       "paths": [],
-      "branch": "ws/ci-2"
+      "branch": "ws/ci-2",
+      "tests": "tests/ci + runtime-sanity + matrix 231 passed",
+      "review": "orchestrator: set package.json/lock engines >=22.16 <23 (SEC-F9 closed)"
     },
     {
       "id": "WS-AZURE-MORE",

@@ -219,7 +219,9 @@ describe("POST capabilities/propose and check", () => {
     expect(hostile.body.error.code).toBe("invalid_request");
     const viaInput = await proposeAs("eve", restart("env-sbx", { input: { plan: { destroysData: false }, costDeltaUsdMonthly: -999 } }));
     const plain = await proposeAs("eve", restart("env-sbx"));
-    expect(viaInput.body.decision.inputDigest).toBe(plain.body.decision.inputDigest);
+    // the input digest includes the evaluation time, so compare what was decided
+    const decided = (r: { body: Json }) => ({ outcome: r.body.decision.outcome, reasons: r.body.decision.reasons, approval: r.body.decision.approval, constraints: r.body.decision.constraints });
+    expect(decided(viaInput)).toEqual(decided(plain));
   });
 
   it("validates the body: malformed JSON, oversized bodies, unknown capabilities, incomplete scope", async () => {

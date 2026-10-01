@@ -66,6 +66,8 @@ export interface AwsVerifyResult {
 }
 
 export interface AwsConnectionSetupProps extends AsyncSurfaceProps {
+  /** Optional host gate, e.g. identifiers must be saved before verification. */
+  verifyDisabledReason?: string;
   /** the values to paste into the template; without them step 1 cannot be completed */
   trust?: AwsTrust;
   initialValues?: Partial<AwsFormValues>;
@@ -182,6 +184,7 @@ export function AwsConnectionSetup({
   loading,
   error,
   onRetry,
+  verifyDisabledReason,
 }: AwsConnectionSetupProps) {
   const ids = useId();
   const [values, setValues] = useState<AwsFormValues>({
@@ -217,7 +220,7 @@ export function AwsConnectionSetup({
   const shown = (key: keyof AwsFormValues) => (touched[key] ? validation.errors[key] : undefined);
 
   const verify = async () => {
-    if (!validation.valid || inflight.current) return;
+    if (!validation.valid || inflight.current || verifyDisabledReason) return;
     inflight.current = true;
     setVerifying(true);
     setResult(null);
@@ -232,9 +235,9 @@ export function AwsConnectionSetup({
     }
   };
 
-  const verifyBlocked = validation.valid
+  const verifyBlocked = verifyDisabledReason ?? (validation.valid
     ? undefined
-    : "Fill in the account, region and both role ARNs correctly before verifying.";
+    : "Fill in the account, region and both role ARNs correctly before verifying.");
   const hintId = `${ids}-verify-hint`;
   const accountMismatch =
     result?.kind === "ok" && result.accountId !== undefined && result.accountId !== values.accountId.trim();
@@ -353,7 +356,7 @@ export function AwsConnectionSetup({
               <Button
                 variant="primary"
                 busy={verifying}
-                disabled={!validation.valid}
+                disabled={Boolean(verifyBlocked)}
                 disabledReason={verifyBlocked}
                 aria-describedby={verifyBlocked ? hintId : undefined}
                 onClick={() => void verify()}

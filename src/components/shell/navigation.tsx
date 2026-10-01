@@ -40,6 +40,7 @@ export function ShellNavigation({ pathname, slug, projectName, collapsed = false
     <nav aria-label="Main navigation" className="workbench-navigation" data-collapsed={collapsed}>
       {item("/overview", "Overview", LayoutDashboard)}
       {item("/apps", "Apps", AppWindow)}
+      {item("/platform", "Platform", Boxes)}
       {slug && <div className="workbench-nav-group" aria-label="Project sections">
         {!collapsed && <p className="workbench-nav-caption" title={projectName}>{projectName ?? "Project"}</p>}
         {PROJECT_DESTINATIONS.map(({ seg, label, icon }) => item(`/p/${slug}${seg ? `/${seg}` : ""}`, label, icon, !seg, seg === "navigator"))}

@@ -35,6 +35,12 @@ export const NAME_PREFIX = "zenith-";
 export const BUILD_ROLE_SUFFIX = "-build";
 export const BUILD_ROLE_NAME_PATTERN = `${NAME_PREFIX}*${BUILD_ROLE_SUFFIX}`;
 
+/** EventBridge invocation and EC2 agent roles reserve these after truncation too. */
+export const EVENTS_ROLE_SUFFIX = "-events";
+export const EVENTS_ROLE_NAME_PATTERN = `${NAME_PREFIX}*${EVENTS_ROLE_SUFFIX}`;
+export const EC2_ROLE_SUFFIX = "-ec2";
+export const EC2_ROLE_NAME_PATTERN = `${NAME_PREFIX}*${EC2_ROLE_SUFFIX}`;
+
 /** Environment ids embedded in ARN patterns: no wildcards, no policy variables, no separators. */
 export const ENVIRONMENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 

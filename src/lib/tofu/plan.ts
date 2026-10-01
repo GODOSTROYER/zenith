@@ -522,6 +522,12 @@ export function normalizePlan(showJson: ShowJson, opts: NormalizePlanOptions): N
 export interface PlanViewChange {
   path: string;
   forcesReplacement: boolean;
+  /**
+   * True when the plan marked this attribute sensitive, so a UI can say
+   * "(sensitive)" rather than "(not shown)" for an absent value. Values are
+   * absent either way.
+   */
+  sensitive?: boolean;
   /** present only for non-sensitive, known scalars of ≤ 200 characters */
   before?: string | number | boolean | null;
   after?: string | number | boolean | null;
@@ -585,6 +591,7 @@ export function planView(plan: NormalizedPlan): PlanView {
   const resources = shown.slice(0, VIEW_MAX_RESOURCES).map((r): PlanViewResource => {
     const changes = r.changes.slice(0, VIEW_MAX_CHANGES).map((c): PlanViewChange => {
       const out: PlanViewChange = { path: viewText(c.path), forcesReplacement: c.forcesReplacement };
+      if (c.sensitive) out.sensitive = true;
       if (!c.sensitive && !SECRETISH_PATH.test(c.path)) {
         const b = viewScalar(c.before);
         const a = viewScalar(c.after);

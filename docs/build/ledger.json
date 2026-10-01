@@ -55,7 +55,7 @@
       "title": "Platform control store: executor, migrations, repositories, leases, idempotency, events",
       "wave": 1,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-FOUND"
       ],
@@ -66,7 +66,11 @@
         "supabase/migrations/0014_platform_*.sql",
         "scripts/platform/**"
       ],
-      "branch": "ws/db"
+      "branch": "ws/db",
+      "commit": "97483a9",
+      "tests": "383 (PGlite + real PG16)",
+      "review": "orchestrator: merged 4b9e115; fixed hung-renewal lease bug c817404",
+      "notes": "Supavisor pooler + real Supabase grants unverified"
     },
     {
       "id": "WS-POL",
@@ -93,7 +97,7 @@
       "title": "Credential broker, OIDC issuer, AWS STS, customer bootstrap templates",
       "wave": 1,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-FOUND"
       ],
@@ -103,7 +107,11 @@
         "deploy/aws/**",
         "tests/credentials/**"
       ],
-      "branch": "ws/cred"
+      "branch": "ws/cred",
+      "commit": "a414b06",
+      "tests": "194 + tofu module test (gated)",
+      "review": "orchestrator: merged 2bfab3b; OIDC routes public e7eb3a7",
+      "notes": "no live AWS; KMS Ed25519/ES256 paths unverified live"
     },
     {
       "id": "WS-TOFU",
@@ -184,7 +192,7 @@
       "title": "Temporal workflows, worker, client, test environment",
       "wave": 1,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-FOUND"
       ],
@@ -193,7 +201,11 @@
         "workers/execution/**",
         "tests/workflows/**"
       ],
-      "branch": "ws/wf"
+      "branch": "ws/wf",
+      "commit": "1dd4fe1",
+      "tests": "205 on real temporal dev server (1 load-sensitive timeout on busy host)",
+      "review": "orchestrator: merged 562589a",
+      "notes": "activities stubbed until WS-ACT; docker image not built"
     },
     {
       "id": "WS-FIX",
@@ -220,14 +232,18 @@
       "title": "Repository analysis to requirements and proposed architecture",
       "wave": 1,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-FOUND"
       ],
       "branch": "ws/analyze",
       "paths": [
         "src/lib/analysis/**"
-      ]
+      ],
+      "commit": "4c7f9aa",
+      "tests": "352",
+      "review": "orchestrator: merged",
+      "notes": "text-pattern analysis; live GitHub intake untested"
     },
     {
       "id": "WS-AWS-NET",
@@ -364,7 +380,7 @@
       "title": "Incident engine and remediation workflow",
       "wave": 3,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-OBS",
         "WS-AWS-NET",
@@ -373,7 +389,11 @@
       "paths": [
         "src/lib/incidents/**"
       ],
-      "branch": "ws/inc"
+      "branch": "ws/inc",
+      "commit": "a5489f0",
+      "tests": "262",
+      "review": "orchestrator: merged; obs signals image_pull_failed/task_exit_code added ce789a2",
+      "notes": "rule weights are judgement; live providers unverified"
     },
     {
       "id": "WS-REC",
@@ -395,21 +415,23 @@
       "title": "MCP v3 semantic tools, CLI, SDK, connectors",
       "wave": 3,
       "owner": "worker",
-      "state": "planned",
+      "state": "in_progress",
       "deps": [
         "WS-CAP"
       ],
       "paths": [
         "src/app/api/agent/v3/**",
         "packages/cli/**"
-      ]
+      ],
+      "branch": "ws/mcp",
+      "notes": "branched from ws/cap WIP"
     },
     {
       "id": "WS-UI",
       "title": "UI components: plans/approvals, operations, resources, drift, incidents, cost, autonomy, connections",
       "wave": 3,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-CAP",
         "WS-DB"
@@ -418,7 +440,11 @@
         "src/app/(product)/platform/**",
         "src/components/platform/**"
       ],
-      "branch": "ws/ui"
+      "branch": "ws/ui",
+      "commit": "854fd53",
+      "tests": "574",
+      "review": "orchestrator: merged; storage label + sensitive flag",
+      "notes": "presentational only; pages not wired yet"
     },
     {
       "id": "WS-GCP",
@@ -453,26 +479,28 @@
       "title": "OCI drivers through the same contracts",
       "wave": 4,
       "owner": "worker",
-      "state": "queued",
+      "state": "in_progress",
       "deps": [
         "WS-ACT"
       ],
       "paths": [
         "src/lib/providers/oci/**"
-      ]
+      ],
+      "branch": "ws/oci"
     },
     {
       "id": "WS-ZM",
       "title": "Zenith-managed provider (provider=zenith)",
       "wave": 4,
       "owner": "worker",
-      "state": "planned",
+      "state": "in_progress",
       "deps": [
         "WS-K8S"
       ],
       "paths": [
         "src/lib/providers/zenith/**"
-      ]
+      ],
+      "branch": "ws/zm"
     },
     {
       "id": "WS-SEC",
@@ -494,27 +522,67 @@
       "id": "WS-CI",
       "title": "CI gates: policy, tofu, Go, Temporal, platform Postgres, provider contracts",
       "wave": 4,
-      "owner": "orchestrator",
-      "state": "in_progress",
+      "owner": "worker",
+      "state": "integrated",
       "deps": [
         "WS-ACT"
       ],
       "paths": [
         ".github/workflows/**"
       ],
-      "branch": "ws/ci"
+      "branch": "ws/ci",
+      "commit": "2e430af",
+      "tests": "133 passed (+14 bash tests pass under Git Bash)",
+      "review": "orchestrator: merged",
+      "notes": "no job has run on GitHub yet; live-acceptance needs live-sandbox environment + OIDC role"
     },
     {
       "id": "WS-DOCS",
       "title": "Operator docs, runbooks, capability matrix, acceptance evidence",
       "wave": 4,
       "owner": "worker",
-      "state": "planned",
+      "state": "in_progress",
       "deps": [
         "WS-ACT"
       ],
       "paths": [
         "docs/platform/**"
+      ],
+      "branch": "ws/docs"
+    },
+    {
+      "id": "WS-LIVE",
+      "title": "Live-cloud acceptance harness, scenarios A-J, cleanup, evidence",
+      "wave": 3,
+      "owner": "worker",
+      "state": "in_progress",
+      "deps": [
+        "WS-CRED",
+        "WS-TOFU"
+      ],
+      "branch": "ws/live",
+      "paths": [
+        "scripts/acceptance/**",
+        "docs/platform/ACCEPTANCE.md"
+      ]
+    },
+    {
+      "id": "WS-BRIDGE",
+      "title": "Bridge existing deploy/connection actions and engine to the control plane (workflow-executed deployments)",
+      "wave": 3,
+      "owner": "worker",
+      "state": "in_progress",
+      "deps": [
+        "WS-CAP",
+        "WS-WF",
+        "WS-DB",
+        "WS-CRED"
+      ],
+      "branch": "ws/bridge",
+      "paths": [
+        "src/lib/bridge/**",
+        "src/lib/actions/defs/{deploy,promote,connection,connection-aws}.ts",
+        "src/lib/engine/engine.ts"
       ]
     }
   ],
@@ -542,6 +610,10 @@
     {
       "date": "2026-09-30",
       "decision": "LocalStack on hold per user; no new LocalStack code/tests; existing provider untouched"
+    },
+    {
+      "date": "2026-10-01",
+      "decision": "Claude session limit interrupted all Sonnet workers (reset 00:20 IST); all 19 resumed from partial worktree state at 13:01 IST. A peer session proposed Codex CLI as the build lane; kept Sonnet per the user instruction, Codex held as fallback if the limit recurs."
     }
   ]
 }

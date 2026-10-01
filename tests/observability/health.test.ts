@@ -119,7 +119,8 @@ describe("ECS services", () => {
       stoppedTask(90, { stopCode: "EssentialContainerExited" }),
     ]);
     const [s] = await health();
-    expect(s.signals).toEqual(["task_stopped:EssentialContainerExited", "task_stopped:OutOfMemory", "task_stopped:TaskFailedToStart"]);
+    // an image pull failure is named (not just TaskFailedToStart) so incident rules can tell it apart
+    expect(s.signals).toEqual(["task_stopped:CannotPullContainerError", "task_stopped:EssentialContainerExited", "task_stopped:OutOfMemory", "image_pull_failed"]);
     expect(s.counts.tasks_stopped_recent).toBe(3);
     expect(s.health).toBe("healthy"); // replaced already: history is a signal, not the current state
     expect(ecs.commandCalls(ListTasksCommand)[0].args[0].input).toMatchObject({ cluster: "prod", serviceName: "web", desiredStatus: "STOPPED" });
@@ -343,6 +344,23 @@ describe("pure classification", () => {
     const t = summarizeTargets([target("healthy", "Target.NotInUse"), target("unhealthy", "Target.Timeout"), target("unavailable", "Elb.InternalError"), target("unused", "Target.NotInUse")]);
     expect(t).toMatchObject({ healthy: 1, unhealthy: 2, registered: 4, reasons: { "Target.Timeout": 1, "Elb.InternalError": 1 } });
     expect(t.counts).toMatchObject({ targets_healthy: 1, targets_unhealthy: 1, targets_unavailable: 1, targets_unused: 1 });
+  });
+
+  it("names image pull failures and reports non-zero exit codes as signals", () => {
+    expect(
+      taskFailureReason({ stopCode: "TaskFailedToStart", stoppedReason: "CannotPullContainerError: pull image manifest has been retried 5 time(s)" })
+    ).toBe("CannotPullContainerError");
+    const c = classifyEcs({
+      desired: 2,
+      running: 0,
+      deploymentFailed: false,
+      deploymentInProgress: false,
+      stoppedReasons: new Map([["CannotPullContainerError", 2]]),
+      exitCodes: new Map([[1, 1], [137, 1]]),
+    });
+    // the exact strings the incident engine parses (src/lib/incidents/probe-util.ts)
+    expect(c.signals).toEqual(expect.arrayContaining(["task_stopped:CannotPullContainerError", "image_pull_failed", "task_exit_code:1", "task_exit_code:137"]));
+    expect(c.health).toBe("unhealthy");
   });
 
   it("taskFailureReason recognizes OOM before stop codes and ignores normal stops", () => {

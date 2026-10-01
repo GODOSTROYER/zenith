@@ -1,4 +1,5 @@
 /** Release checks must fail CI when they fail, including image assembly. */
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { load } from "js-yaml";
@@ -10,6 +11,9 @@ interface Step {
   uses?: string;
   run?: string;
   if?: unknown;
+  id?: string;
+  env?: Record<string, unknown>;
+  "working-directory"?: string;
   "continue-on-error"?: unknown;
   with?: Record<string, unknown>;
 }
@@ -24,7 +28,11 @@ interface Service {
 interface Job {
   if?: unknown;
   "continue-on-error"?: unknown;
+  "timeout-minutes"?: unknown;
   permissions?: unknown;
+  environment?: unknown;
+  concurrency?: unknown;
+  defaults?: { run?: { "working-directory"?: string } };
   env?: Record<string, unknown>;
   services?: Record<string, Service>;
   steps: Step[];
@@ -33,6 +41,7 @@ interface Job {
 interface Workflow {
   on: Record<string, unknown>;
   permissions: unknown;
+  concurrency?: unknown;
   jobs: Record<string, Job>;
 }
 
@@ -44,6 +53,25 @@ const read = (file: string): Workflow =>
 // malformed YAML and duplicate keys before evaluating the release policy.
 const workflow = read("ci.yml");
 const agentControl = read("agent-control.yml");
+const liveAcceptance = read("live-acceptance.yml");
+
+/** Every workflow in the repository, by file name. */
+const ALL_WORKFLOWS: Record<string, Workflow> = {
+  "ci.yml": workflow,
+  "agent-control.yml": agentControl,
+  "tick.yml": read("tick.yml"),
+  "live-acceptance.yml": liveAcceptance,
+};
+
+/** The raw text of a workflow with its comment lines removed, for scans that parsed YAML cannot answer. */
+const code = (file: string): string =>
+  fs
+    .readFileSync(path.join(process.cwd(), ".github/workflows", file), "utf8")
+    .split(/\r?\n/)
+    .filter((line) => !line.trim().startsWith("#"))
+    .join("\n");
+
+const stepsOf = (w: Workflow): Step[] => Object.values(w.jobs).flatMap((job) => job.steps);
 
 /**
  * The install line, exactly, in every job that installs.
@@ -60,12 +88,26 @@ const INSTALL = "npm ci --ignore-scripts";
 /** One Node pin for the whole repository. See the ci.yml header for why this one. */
 const NODE_VERSION = "22.16.0";
 
-/** One checkout pin for the whole repository. */
-const CHECKOUT = "actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5";
+/**
+ * The commit `actions/checkout` was pinned to when this file was last reviewed.
+ * Kept for the assertion that every workflow shares ONE checkout commit; it is
+ * deliberately not compared against a literal any more, because Dependabot
+ * (.github/dependabot.yml) now rewrites action SHAs and a literal here would
+ * turn every one of its pull requests red for a reason it cannot fix.
+ */
+const CHECKOUT_PREFIX = "actions/checkout@";
+
+/** The vitest invocations the platform lanes run, written once so the job and its lane-report step cannot drift. */
+const vitestLane = (paths: string, extra: string, lane: string): string =>
+  `npx vitest run ${paths}${extra} --reporter=default --reporter=json --outputFile.json=.data-ci-lane/${lane}-lane.json`;
+const POLICY_VITEST = vitestLane("tests/policy", "", "policy");
+const TOFU_VITEST = vitestLane("tests/tofu tests/providers/aws/drivers", " --passWithNoTests --no-file-parallelism", "tofu");
+const WORKFLOWS_VITEST = vitestLane("tests/workflows", " --passWithNoTests --no-file-parallelism", "workflows");
+const PLATFORM_VITEST = vitestLane("tests/controlplane tests/capabilities tests/runners", " --passWithNoTests --no-file-parallelism", "platform");
 
 const requiredCommands: Record<string, string[]> = {
   verify: [
-    '"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml .github/workflows/tick.yml .github/workflows/agent-control.yml',
+    '"$RUNNER_TEMP/actionlint" .github/workflows/ci.yml .github/workflows/tick.yml .github/workflows/agent-control.yml .github/workflows/live-acceptance.yml',
     INSTALL,
     "npm run typecheck",
     "npm run lint",
@@ -87,6 +129,14 @@ const requiredCommands: Record<string, string[]> = {
     "npx vitest run tests/hosted/authority/contract tests/scripts/migrate-hosted-to-postgres.test.ts tests/agent-link/pg-contract.test.ts tests/agent-control/pg-contract.test.ts tests/db/contract/workspace-sharing.test.ts tests/waitlist/pg-contract.test.ts --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/postgres-lane.json",
   ],
   agent: [INSTALL, "npm run agent:acceptance", "npm run agent:browser"],
+  // The platform module gates. Steps behind a `hashFiles` guard (the Go lane's,
+  // the platform migration step) are asserted in their own describe blocks.
+  policy: [INSTALL, "node policy/build.mjs --check", POLICY_VITEST],
+  tofu: [INSTALL, TOFU_VITEST],
+  workflows: [INSTALL, WORKFLOWS_VITEST],
+  "platform-postgres": [INSTALL, PLATFORM_VITEST],
+  ledger: ["node scripts/build/ledger.mjs --check"],
+  "supply-chain": ["node scripts/ci/lockfile-integrity.mjs"],
 };
 
 describe("release gate policy", () => {
@@ -122,7 +172,7 @@ describe("release gate policy", () => {
     const actions = Object.values(workflow.jobs).flatMap((job) => job.steps).filter((step) => step.uses);
     expect(actions.length).toBeGreaterThan(0);
     for (const step of actions) {
-      expect(step.uses).toMatch(/^actions\/(checkout|setup-node)@[a-f0-9]{40}$/);
+      expect(step.uses).toMatch(/^actions\/(checkout|setup-node|setup-go|cache)@[a-f0-9]{40}$/);
     }
   });
 
@@ -280,25 +330,29 @@ describe("release gate policy", () => {
         .filter((step) => step.uses?.startsWith("actions/setup-node@"));
 
     it("pins one exact Node version in every job that sets one up", () => {
-      const steps = [...nodeSteps(workflow), ...nodeSteps(agentControl)];
-      // Four in ci.yml (verify, postgres, hosted, build) plus agent-control.
-      expect(steps.length).toBeGreaterThanOrEqual(5);
+      const steps = [...nodeSteps(workflow), ...nodeSteps(agentControl), ...nodeSteps(liveAcceptance)];
+      // Every node-using job in ci.yml, agent-control and live-acceptance. The
+      // "runs node => sets node up first" rule below is what stops a new job
+      // from quietly using whatever node the runner image happens to ship.
+      expect(steps.length).toBeGreaterThanOrEqual(12);
       for (const step of steps) expect(String(step.with?.["node-version"])).toBe(NODE_VERSION);
     });
 
     it("pins one checkout commit in every workflow that checks out", () => {
-      const checkouts = [...Object.values(workflow.jobs), ...Object.values(agentControl.jobs)]
-        .flatMap((job) => job.steps)
-        .filter((step) => step.uses?.startsWith("actions/checkout@"));
+      const checkouts = Object.values(ALL_WORKFLOWS)
+        .flatMap(stepsOf)
+        .filter((step) => step.uses?.startsWith(CHECKOUT_PREFIX));
       expect(checkouts.length).toBeGreaterThanOrEqual(5);
+      const pinned = checkouts[0].uses;
+      expect(pinned).toMatch(/^actions\/checkout@[a-f0-9]{40}$/);
       for (const step of checkouts) {
-        expect(step.uses).toBe(CHECKOUT);
+        expect(step.uses).toBe(pinned);
         expect(step.with?.["persist-credentials"]).toBe(false);
       }
     });
 
     it("installs with --ignore-scripts everywhere, and never with a bare npm ci", () => {
-      const installs = [...Object.values(workflow.jobs), ...Object.values(agentControl.jobs)]
+      const installs = [...Object.values(workflow.jobs), ...Object.values(agentControl.jobs), ...Object.values(liveAcceptance.jobs)]
         .flatMap((job) => job.steps)
         .map((step) => step.run?.trim() ?? "")
         .filter((run) => run.startsWith("npm ci"));
@@ -416,5 +470,638 @@ describe("release gate policy", () => {
       expect(step?.run, `actionlint must be given .github/workflows/${name}`).toContain(
         `.github/workflows/${name}`
       );
+  });
+});
+
+/*
+ * =============================================================================
+ * The platform module gates (WS-CI)
+ *
+ * policy, tofu, go, workflows, platform-postgres, ledger and supply-chain in
+ * ci.yml, the dispatch-only live-acceptance workflow, and Dependabot. The
+ * structure asserted here is what the comment blocks in those files promise:
+ * every downloaded binary verified by checksum before use, every action pinned,
+ * node pinned wherever it runs, live cloud access reachable only from a
+ * reviewed, dispatch-only workflow, and lanes that cannot be green while
+ * having run nothing.
+ * =============================================================================
+ */
+
+const jobOf = (name: string): Job => {
+  const found = workflow.jobs[name];
+  expect(found, `ci.yml must define a \`${name}\` job`).toBeDefined();
+  return found;
+};
+const cmd = (step: Step): string => step.run?.trim() ?? "";
+const indexOfCommand = (j: Job, command: string): number => j.steps.findIndex((step) => cmd(step) === command);
+const indexOfName = (j: Job, name: string): number => j.steps.findIndex((step) => step.name === name);
+const stepNamed = (j: Job, name: string): Step => {
+  const found = j.steps.find((step) => step.name === name);
+  expect(found, `step "${name}" must exist`).toBeDefined();
+  return found as Step;
+};
+const lines = (text: string | undefined): string[] => (text ?? "").split(/\r?\n/).map((line) => line.trim());
+
+/**
+ * Every binary the workflows download, with the checksum that was reviewed.
+ *
+ * The values come from each project's own release, fetched 2026-09-30 and
+ * cross-checked against the sha256 GitHub reports for the asset: OPA's
+ * `opa_linux_amd64_static.sha256`, OpenTofu's `tofu_1.12.5_SHA256SUMS`,
+ * Temporal's `checksums.txt`, actionlint's `actionlint_1.7.12_checksums.txt`.
+ * Bumping a version is a deliberate edit to the workflow AND to this table;
+ * Dependabot does not manage them.
+ */
+const DOWNLOADS = [
+  {
+    job: "verify",
+    url: "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz",
+    file: "actionlint.tar.gz",
+    sha256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8",
+  },
+  {
+    job: "policy",
+    url: "https://github.com/open-policy-agent/opa/releases/download/v1.19.1/opa_linux_amd64_static",
+    file: "opa-bin/opa",
+    sha256: "c9f985ce0d345f5484006ade2c695ed9e3f308e4441139e46695c5c182ac0839",
+  },
+  {
+    job: "tofu",
+    url: "https://github.com/opentofu/opentofu/releases/download/v1.12.5/tofu_1.12.5_linux_amd64.tar.gz",
+    file: "tofu.tar.gz",
+    sha256: "a6894d45ae7a17ce83189cce8fe04b5a65f68cefceb62455b5a6a89fa53ab38f",
+  },
+  {
+    job: "workflows",
+    url: "https://github.com/temporalio/cli/releases/download/v1.9.1/temporal_cli_1.9.1_linux_amd64.tar.gz",
+    file: "temporal_cli.tar.gz",
+    sha256: "09a0326a51db84d02735e53542b9ebd8c4758daf47482a9ab0abce15844e60d5",
+  },
+] as const;
+
+const VERIFY_LINE = /^printf '%s {2}%s\\n' '([0-9a-f]{64})' '([^']+)' \| sha256sum --check --strict$/;
+
+interface Fetch {
+  workflow: string;
+  job: string;
+  step: string;
+  output: string;
+  url: string;
+  sha256?: string;
+  verifiedFile?: string;
+}
+
+/** Every `curl` that downloads something (tick.yml only POSTs to the project's own deployment). */
+function fetches(): Fetch[] {
+  const found: Fetch[] = [];
+  for (const [file, w] of Object.entries(ALL_WORKFLOWS)) {
+    if (file === "tick.yml") continue;
+    for (const [jobName, j] of Object.entries(w.jobs)) {
+      for (const step of j.steps) {
+        const body = lines(step.run);
+        body.forEach((line, at) => {
+          if (!line.startsWith("curl ")) return;
+          const output = line.match(/--output (\S+)/)?.[1] ?? "";
+          const url = line.match(/(https?:\/\/\S+)$/)?.[1] ?? "";
+          const verify = body.slice(at + 1).map((next) => next.match(VERIFY_LINE)).find((match) => match);
+          found.push({
+            workflow: file,
+            job: jobName,
+            step: step.name ?? "(unnamed)",
+            output,
+            url,
+            sha256: verify?.[1],
+            verifiedFile: verify?.[2],
+          });
+        });
+      }
+    }
+  }
+  return found;
+}
+
+describe("downloaded tools are checksum-verified before anything touches them", () => {
+  it("has a pinned URL, output name and sha256 for every curl in every workflow, and no others", () => {
+    const seen = fetches()
+      .map((one) => ({ job: one.job, url: one.url, file: one.output, sha256: one.sha256 }))
+      .sort((a, b) => a.url.localeCompare(b.url));
+    const expected = DOWNLOADS.map((one) => ({ ...one })).sort((a, b) => a.url.localeCompare(b.url));
+    expect(seen).toEqual(expected);
+  });
+
+  it("downloads only over https from github.com releases, bounded, with retries and redirects explicit", () => {
+    for (const one of fetches()) {
+      expect(one.url, `${one.job}: ${one.step}`).toMatch(/^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/releases\/download\/v[\d.]+\/[\w.-]+$/);
+      const line = lines(stepNamed(jobOf(one.job), one.step).run).find((candidate) => candidate.startsWith("curl "));
+      for (const flag of ["--fail", "--location", "--retry 3", "--connect-timeout 15", "--max-time"])
+        expect(line, `${one.job}: ${one.step} must pass ${flag}`).toContain(flag);
+      expect(line).not.toMatch(/(--insecure|\s-k\s|--proto-redir|--no-verify)/);
+    }
+  });
+
+  it("puts a sha256sum --check --strict for exactly the downloaded file after every curl and before any other use of it", () => {
+    for (const one of fetches()) {
+      const label = `${one.job}: ${one.step}`;
+      expect(one.sha256, `${label} must verify its download`).toMatch(/^[0-9a-f]{64}$/);
+      expect(one.verifiedFile, `${label} must verify the file it downloaded`).toBe(one.output);
+
+      const body = lines(stepNamed(jobOf(one.job), one.step).run);
+      const curl = body.findIndex((line) => line.startsWith("curl "));
+      const verified = body.findIndex((line) => VERIFY_LINE.test(line));
+      expect(verified, label).toBeGreaterThan(curl);
+      // Nothing between the download and the check may read, execute or unpack the file.
+      for (const between of body.slice(curl + 1, verified))
+        expect(between, `${label}: ${between} touches ${one.output} before it is verified`).not.toContain(one.output);
+      // After it, unpacking must name the one member it wants, not extract everything.
+      for (const after of body.slice(verified + 1).filter((line) => line.startsWith("tar ")))
+        expect(after, label).toMatch(/^tar -x\w+ \S+ -C \S+ \S+$/);
+    }
+  });
+
+  it("never pipes a download into a shell, never uses wget, and never runs sha256sum without --check --strict", () => {
+    for (const [file, w] of Object.entries(ALL_WORKFLOWS))
+      for (const step of stepsOf(w)) {
+        const text = step.run ?? "";
+        expect(text, `${file}: ${step.name}`).not.toMatch(/curl[^\n|]*\|\s*(sudo\s+)?(ba|z|da)?sh\b/);
+        expect(text, `${file}: ${step.name}`).not.toMatch(/\bwget\b/);
+        for (const line of lines(text).filter((candidate) => candidate.includes("sha256sum")))
+          expect(line, `${file}: ${step.name}`).toContain("sha256sum --check --strict");
+      }
+  });
+
+  it("installs the exact OPA and OpenTofu versions the code itself refuses to run without", () => {
+    // policy/build.mjs aborts on any other OPA; src/lib/tofu/binary.ts on any other tofu.
+    const opa = fs.readFileSync(path.join(process.cwd(), "policy/build.mjs"), "utf8").match(/OPA_VERSION = "([^"]+)"/)?.[1];
+    const tofu = fs.readFileSync(path.join(process.cwd(), "src/lib/tofu/types.ts"), "utf8").match(/TOFU_VERSION\s*=\s*"([^"]+)"/)?.[1];
+    expect(opa).toBeDefined();
+    expect(tofu).toBeDefined();
+    expect(DOWNLOADS.find((one) => one.job === "policy")?.url).toContain(`/v${opa}/`);
+    expect(DOWNLOADS.find((one) => one.job === "tofu")?.url).toContain(`/v${tofu}/`);
+  });
+});
+
+describe("toolchain and trust rules that hold for every workflow", () => {
+  it("pins every `uses:` to a full commit SHA with its version in a trailing comment", () => {
+    for (const file of Object.keys(ALL_WORKFLOWS)) {
+      const uses = code(file).split(/\r?\n/).filter((line) => /^\s*(-\s+)?uses:/.test(line));
+      for (const line of uses)
+        expect(line, `${file}: ${line.trim()}`).toMatch(/uses:\s+[\w.-]+\/[\w./-]+@[0-9a-f]{40}\s+#\s*v\d+(\.\d+){0,2}\s*$/);
+    }
+  });
+
+  it("uses one commit per action across all workflows", () => {
+    const byAction = new Map<string, Set<string>>();
+    for (const w of Object.values(ALL_WORKFLOWS))
+      for (const step of stepsOf(w).filter((one) => one.uses)) {
+        const [action, sha] = String(step.uses).split("@");
+        byAction.set(action, (byAction.get(action) ?? new Set()).add(sha));
+      }
+    expect([...byAction.keys()].sort()).toEqual([
+      "actions/cache",
+      "actions/checkout",
+      "actions/setup-go",
+      "actions/setup-node",
+      "aws-actions/configure-aws-credentials",
+    ]);
+    for (const [action, shas] of byAction) expect([...shas], `${action} must have one pin`).toHaveLength(1);
+  });
+
+  it("pins Node exactly in every job that runs npm, npx, node or tsx, before the first time it does", () => {
+    const usesNode = /(^|[\s;&|(])(npm|npx|node|tsx)(\s|$)/;
+    let jobsChecked = 0;
+    for (const [file, w] of Object.entries(ALL_WORKFLOWS))
+      for (const [name, j] of Object.entries(w.jobs)) {
+        const first = j.steps.findIndex((step) => usesNode.test(step.run ?? ""));
+        if (first < 0) continue;
+        jobsChecked += 1;
+        const setup = j.steps.findIndex((step) => step.uses?.startsWith("actions/setup-node@"));
+        expect(setup, `${file}: ${name} runs node tools but never sets Node up`).toBeGreaterThanOrEqual(0);
+        expect(setup, `${file}: ${name} sets Node up after it first uses it`).toBeLessThan(first);
+        expect(String(j.steps[setup].with?.["node-version"])).toBe(NODE_VERSION);
+      }
+    // ci.yml: verify, postgres, hosted, agent, build, policy, tofu, workflows,
+    // platform-postgres, ledger, supply-chain; agent-control; live-acceptance.
+    expect(jobsChecked).toBeGreaterThanOrEqual(13);
+  });
+
+  it("has no pull_request_target trigger in any workflow", () => {
+    for (const [file, w] of Object.entries(ALL_WORKFLOWS)) {
+      expect(Object.keys(w.on), file).not.toContain("pull_request_target");
+      expect(code(file), file).not.toContain("pull_request_target");
+    }
+  });
+
+  it("gives every ci.yml job a timeout, so a hung lane cannot hold a runner for six hours", () => {
+    for (const [name, j] of Object.entries(workflow.jobs)) {
+      expect(typeof j["timeout-minutes"], name).toBe("number");
+      expect(Number(j["timeout-minutes"]), name).toBeLessThanOrEqual(45);
+    }
+  });
+
+  it("allows exactly one continue-on-error in ci.yml: the informational npm audit", () => {
+    const tolerant = Object.entries(workflow.jobs).flatMap(([name, j]) => {
+      expect(j["continue-on-error"] ?? false, `${name} must not continue on error`).toBe(false);
+      return j.steps.filter((step) => step["continue-on-error"]).map((step) => `${name}: ${step.name}`);
+    });
+    expect(tolerant).toEqual(["supply-chain: npm audit (informational, never blocks)"]);
+  });
+
+  it("keeps every cloud credential and the live sandbox out of ci.yml, agent-control.yml and tick.yml", () => {
+    for (const file of ["ci.yml", "agent-control.yml", "tick.yml"])
+      for (const forbidden of [
+        "configure-aws-credentials",
+        "id-token",
+        "role-to-assume",
+        "live-sandbox",
+        "LIVE_SANDBOX",
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+      ])
+        expect(code(file), `${file} must not mention ${forbidden}`).not.toContain(forbidden);
+  });
+
+  it("names every lane-report lane the script knows, and reads the file its own vitest step wrote", () => {
+    const usage = spawnSync(process.execPath, [path.resolve("scripts/ci/lane-report.mjs"), "no-such-lane", "x.json"], { encoding: "utf8" });
+    const known = usage.stderr.match(/<([\w|-]+)>/)?.[1]?.split("|") ?? [];
+    expect(known.sort()).toEqual(["platform-postgres", "policy", "tofu", "workflows"]);
+
+    const reports = Object.entries(workflow.jobs).flatMap(([name, j]) =>
+      j.steps
+        .filter((step) => cmd(step).startsWith("node scripts/ci/lane-report.mjs "))
+        .map((step) => ({ name, j, step, args: cmd(step).split(/\s+/).slice(2) }))
+    );
+    expect(reports.map((one) => one.args[0]).sort()).toEqual(["platform-postgres", "policy", "tofu", "workflows"]);
+    for (const { name, j, step, args } of reports) {
+      expect(known, `${name} names an unknown lane`).toContain(args[0]);
+      expect(step.if, `${name}: the lane report must run even when the suites failed`).toBe("always()");
+      expect(step["continue-on-error"] ?? false).toBe(false);
+      const vitest = j.steps.map(cmd).find((command) => command.startsWith("npx vitest run"));
+      expect(vitest, `${name} must write the report it reads`).toContain(`--outputFile.json=${args[1]}`);
+      expect(vitest).toContain("--reporter=json");
+      expect(args).toHaveLength(2);
+      expect(indexOfCommand(j, cmd(step))).toBeGreaterThan(j.steps.map(cmd).findIndex((command) => command.startsWith("npx vitest run")));
+    }
+  });
+});
+
+describe("the policy job", () => {
+  const policy = (): Job => jobOf("policy");
+
+  it("installs OPA, then proves the bundle reproducible, then runs the suites, in that order", () => {
+    const install = indexOfName(policy(), "Install pinned OPA");
+    const bundle = indexOfCommand(policy(), "node policy/build.mjs --check");
+    const suites = indexOfCommand(policy(), POLICY_VITEST);
+    expect(install).toBeGreaterThan(indexOfCommand(policy(), INSTALL));
+    expect(bundle).toBeGreaterThan(install);
+    expect(suites).toBeGreaterThan(bundle);
+  });
+
+  it("hands the verified binary to the build and the parity suite by absolute path, not PATH", () => {
+    const install = stepNamed(policy(), "Install pinned OPA");
+    expect(install.shell).toBe("bash");
+    expect(install.run).toContain('echo "ZENITH_OPA_BIN=$RUNNER_TEMP/opa-bin/opa" >> "$GITHUB_ENV"');
+    // Both consumers read ZENITH_OPA_BIN, which is what makes the above sufficient.
+    for (const file of ["policy/build.mjs", "tests/policy/parity.test.ts"])
+      expect(fs.readFileSync(path.join(process.cwd(), file), "utf8"), file).toContain("ZENITH_OPA_BIN");
+  });
+});
+
+describe("the tofu job", () => {
+  const tofu = (): Job => jobOf("tofu");
+
+  it("turns the network suites on and never runs against a tofu it did not verify", () => {
+    expect(tofu().env?.ZENITH_TEST_TOFU_NETWORK).toBe("1");
+    const install = stepNamed(tofu(), "Install pinned OpenTofu");
+    expect(install.run).toContain('echo "ZENITH_TOFU_BIN=$RUNNER_TEMP/tofu-bin/tofu" >> "$GITHUB_ENV"');
+    expect(indexOfName(tofu(), "Install pinned OpenTofu")).toBeLessThan(indexOfCommand(tofu(), TOFU_VITEST));
+  });
+
+  it("runs the AWS driver suites too, valid before they exist, and serially", () => {
+    const command = cmd(tofu().steps[indexOfCommand(tofu(), TOFU_VITEST)]);
+    expect(command).toContain("tests/tofu tests/providers/aws/drivers");
+    expect(command).toContain("--passWithNoTests");
+    // One plugin cache shared by every test; a first install is not something to race on.
+    expect(command).toContain("--no-file-parallelism");
+  });
+
+  it("caches provider plugins on the lockfiles, exact match only, restored before the tests run", () => {
+    const cache = tofu().steps.find((step) => step.uses?.startsWith("actions/cache@"));
+    expect(cache, "the job must cache provider plugins").toBeDefined();
+    const key = String(cache?.with?.key);
+    expect(key).toContain("hashFiles('src/lib/tofu/locks/*.terraform.lock.hcl')");
+    expect(cache?.with?.["restore-keys"], "a prefix hit would restore the wrong provider versions").toBeUndefined();
+    expect(String(cache?.with?.path)).toBe("${{ runner.temp }}/tofu-plugin-cache");
+    expect(stepNamed(tofu(), "Choose the provider plugin cache directory").run).toContain(
+      'echo "ZENITH_TOFU_PLUGIN_CACHE=$RUNNER_TEMP/tofu-plugin-cache" >> "$GITHUB_ENV"'
+    );
+    expect(tofu().steps.indexOf(cache as Step)).toBeLessThan(indexOfCommand(tofu(), TOFU_VITEST));
+    // hashFiles of a glob that matches nothing is the empty string: a key that never changes.
+    const locks = fs.readdirSync(path.join(process.cwd(), "src/lib/tofu/locks")).filter((name) => name.endsWith(".terraform.lock.hcl"));
+    expect(locks.length).toBeGreaterThan(0);
+  });
+});
+
+describe("the Go job", () => {
+  const go = (): Job => jobOf("go");
+  const GUARD = "hashFiles('go/go.mod') != ''";
+
+  it("works in go/ and refuses to fetch another toolchain", () => {
+    expect(go().defaults?.run?.["working-directory"]).toBe("go");
+    expect(go().env?.GOTOOLCHAIN).toBe("local");
+    expect(go().if, "hashFiles is not available in a job-level if").toBeUndefined();
+    expect(go()["continue-on-error"] ?? false).toBe(false);
+  });
+
+  it("is skipped visibly, step by step, until go/go.mod exists", () => {
+    const [checkout, ...rest] = go().steps;
+    expect(checkout.uses).toMatch(/^actions\/checkout@/);
+    const skipNotice = rest.filter((step) => step.if === "hashFiles('go/go.mod') == ''");
+    expect(skipNotice, "exactly one step says the lane did not run").toHaveLength(1);
+    expect(skipNotice[0].run).toContain("did NOT run");
+    expect(skipNotice[0].run).toContain("GITHUB_STEP_SUMMARY");
+    // `defaults.run.working-directory: go` would point at a directory that does not exist yet.
+    expect(skipNotice[0]["working-directory"]).toBe(".");
+    for (const step of rest.filter((one) => !skipNotice.includes(one)))
+      expect(step.if, `${step.name ?? step.uses} must be guarded`).toBe(GUARD);
+  });
+
+  it("sets up exactly Go 1.27.1 and checks it", () => {
+    const setup = go().steps.find((step) => step.uses?.startsWith("actions/setup-go@"));
+    expect(setup?.with?.["go-version"]).toBe("1.27.1");
+    // go.sum does not exist for a module with no dependencies; setup-go fails on a cache key with nothing to hash.
+    expect(String(setup?.with?.["cache-dependency-path"])).toContain("go/go.mod");
+    expect(String(setup?.with?.["cache-dependency-path"])).toContain("go/go.sum");
+    expect(stepNamed(go(), "Toolchain is exactly the pinned one").run).toContain('test "$(go env GOVERSION)" = "go1.27.1"');
+  });
+
+  it("checks gofmt, vet, the race detector and a cgo-free cross-build for both linux targets", () => {
+    const gofmt = stepNamed(go(), "gofmt").run ?? "";
+    expect(gofmt).toContain('unformatted="$(gofmt -l .)"');
+    expect(gofmt).toContain('if [ -n "$unformatted" ]');
+    expect(gofmt).toContain("exit 1");
+
+    expect(indexOfCommand(go(), "go vet ./...")).toBeGreaterThan(0);
+
+    const race = go().steps[indexOfCommand(go(), "go test -race -count=1 ./...")];
+    expect(race, "go test -race ./... must run").toBeDefined();
+    expect(race.env?.CGO_ENABLED, "the race detector needs cgo").toBe("1");
+
+    const build = stepNamed(go(), "Cross-build linux/amd64 and linux/arm64 without cgo").run ?? "";
+    expect(build).toContain("for target in linux/amd64 linux/arm64; do");
+    expect(build).toContain('CGO_ENABLED=0 GOOS="${target%/*}" GOARCH="${target#*/}" go build -trimpath ./...');
+    expect(build).toContain("set -euo pipefail");
+
+    const order = ["gofmt", "go vet", "go test with the race detector", "Cross-build linux/amd64 and linux/arm64 without cgo"].map((name) =>
+      indexOfName(go(), name)
+    );
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(order.every((at) => at > 0)).toBe(true);
+  });
+});
+
+describe("the workflows job", () => {
+  const wf = (): Job => jobOf("workflows");
+
+  it("installs a verified Temporal CLI, asserts its version, and exports its path to the tests", () => {
+    const install = stepNamed(wf(), "Install pinned Temporal CLI");
+    expect(install.shell).toBe("bash");
+    expect(install.run).toContain('echo "ZENITH_TEMPORAL_CLI=$RUNNER_TEMP/temporal-cli/temporal" >> "$GITHUB_ENV"');
+    // The version the URL downloads is the one the step insists on.
+    const pinned = DOWNLOADS.find((one) => one.job === "workflows")?.url.match(/\/v([\d.]+)\//)?.[1];
+    expect(install.run).toContain(`"temporal version ${pinned} "*) ;;`);
+    expect(indexOfName(wf(), "Install pinned Temporal CLI")).toBeLessThan(indexOfCommand(wf(), WORKFLOWS_VITEST));
+  });
+
+  it("runs serially and is valid before the suites land", () => {
+    const command = cmd(wf().steps[indexOfCommand(wf(), WORKFLOWS_VITEST)]);
+    expect(command).toContain("--passWithNoTests");
+    expect(command).toContain("--no-file-parallelism");
+  });
+});
+
+describe("the platform PostgreSQL job", () => {
+  const pg = (): Job => jobOf("platform-postgres");
+
+  it("uses the same pinned Postgres image as the hosted lane", () => {
+    expect(pg().services?.postgres?.image).toBe(workflow.jobs.postgres.services?.postgres?.image);
+    expect(pg().services?.postgres?.image).toMatch(/^postgres:16\.15-alpine@sha256:[a-f0-9]{64}$/);
+    expect(pg().services?.postgres?.options).toContain("pg_isready");
+    expect(pg().services?.postgres?.ports).toEqual(["5432:5432"]);
+  });
+
+  it("points the suites at a loopback lane database and nothing else can resolve to a different one", () => {
+    const url = String(pg().env?.ZENITH_TEST_PLATFORM_PG_URL);
+    const database = pg().services?.postgres?.env?.POSTGRES_DB;
+    expect(url).toBe(`postgresql://postgres:zenith-ci-throwaway@127.0.0.1:5432/${database}`);
+    // A stray URL in the environment must not be able to win over the lane database.
+    for (const name of ["SUPABASE_DB_URL", "ZENITH_PLATFORM_DB", "ZENITH_PLATFORM_DB_URL", "ZENITH_CONTRACT_POSTGRES"])
+      expect(pg().env?.[name], name).toBeUndefined();
+    expect(pg().env?.ZENITH_DATA).toBe("${{ github.workspace }}/.data-ci-platform");
+    for (const other of ["verify", "postgres", "hosted", "agent"])
+      expect(pg().env?.ZENITH_DATA).not.toBe(workflow.jobs[other].env?.ZENITH_DATA);
+  });
+
+  it("applies the platform migrations with the new script once the migrator exists, and says so when it does not", () => {
+    const apply = pg().steps[indexOfCommand(pg(), "bash scripts/ci/apply-platform-migrations.sh")];
+    expect(apply, "the job must run the platform migration script").toBeDefined();
+    expect(apply.if).toBe("hashFiles('scripts/platform/migrate.ts') != ''");
+    const notice = pg().steps.find((step) => step.if === "hashFiles('scripts/platform/migrate.ts') == ''");
+    expect(notice?.run).toContain("NOT applied");
+    expect(notice?.run).toContain("GITHUB_STEP_SUMMARY");
+    // After the install and before any suite.
+    expect(pg().steps.indexOf(apply)).toBeGreaterThan(indexOfCommand(pg(), INSTALL));
+    expect(pg().steps.indexOf(apply)).toBeLessThan(indexOfCommand(pg(), PLATFORM_VITEST));
+  });
+
+  it("leaves scripts/ci/apply-supabase-migrations.sh to the workstream that owns each migration", () => {
+    // The hosted lane's script is a separate one with a pinned manifest; this lane must not
+    // depend on it, or on a psql replay of SQL the platform migrator is the real path for.
+    expect(pg().steps.map(cmd)).not.toContain("bash scripts/ci/apply-supabase-migrations.sh");
+  });
+
+  it("runs the control store, capabilities and runners serially and is valid before they land", () => {
+    const command = cmd(pg().steps[indexOfCommand(pg(), PLATFORM_VITEST)]);
+    for (const dir of ["tests/controlplane", "tests/capabilities", "tests/runners"]) expect(command).toContain(dir);
+    expect(command).toContain("--passWithNoTests");
+    expect(command).toContain("--no-file-parallelism");
+  });
+
+  it("keeps the helper scripts every new lane depends on", () => {
+    for (const file of [
+      "scripts/ci/apply-platform-migrations.sh",
+      "scripts/ci/lane-report.mjs",
+      "scripts/ci/lockfile-integrity.mjs",
+      "scripts/build/ledger.mjs",
+      "policy/build.mjs",
+    ])
+      expect(fs.existsSync(path.join(process.cwd(), file)), `${file} must exist`).toBe(true);
+  });
+});
+
+describe("the ledger and supply-chain jobs", () => {
+  it("checks the ledger markdown is current, on built-ins alone", () => {
+    const ledger = jobOf("ledger");
+    expect(indexOfCommand(ledger, "node scripts/build/ledger.mjs --check")).toBeGreaterThan(0);
+    // Nothing is installed, so nothing is cached either.
+    expect(ledger.steps.map(cmd)).not.toContain(INSTALL);
+  });
+
+  it("blocks on the lockfile check and only reports on npm audit", () => {
+    const supply = jobOf("supply-chain");
+    const lockfile = supply.steps[indexOfCommand(supply, "node scripts/ci/lockfile-integrity.mjs")];
+    expect(lockfile["continue-on-error"] ?? false).toBe(false);
+    expect(lockfile.if).toBeUndefined();
+
+    const audit = supply.steps[indexOfCommand(supply, "npm audit --omit=dev --audit-level=high")];
+    expect(audit, "the job must run npm audit for production dependencies at high severity").toBeDefined();
+    expect(audit["continue-on-error"]).toBe(true);
+    expect(audit.id).toBe("audit");
+
+    const surface = supply.steps.find((step) => step.if === "steps.audit.outcome == 'failure'");
+    expect(surface?.run, "a failed audit must still be visible").toContain("::warning::");
+    expect(surface?.run).toContain("GITHUB_STEP_SUMMARY");
+    expect(surface?.["continue-on-error"] ?? false).toBe(false);
+  });
+});
+
+/*
+ * The live acceptance workflow. It is the only place in the repository that can
+ * assume an AWS role, so what matters is what can reach it: a person, by hand,
+ * through an environment with reviewers, never a pull request.
+ */
+describe("the live acceptance workflow", () => {
+  const live = (): Job => liveAcceptance.jobs["aws-live"];
+  const GUARD = "hashFiles('scripts/acceptance/aws-live.ts') != ''";
+
+  it("can be started only by workflow_dispatch", () => {
+    expect(Object.keys(liveAcceptance.on)).toEqual(["workflow_dispatch"]);
+    for (const trigger of ["push", "pull_request", "pull_request_target", "schedule", "workflow_run", "workflow_call"])
+      expect(Object.keys(liveAcceptance.on)).not.toContain(trigger);
+  });
+
+  it("waits on the live-sandbox environment, where the reviewers and branch rules live", () => {
+    expect(live(), "the workflow must define an `aws-live` job").toBeDefined();
+    expect(live().environment).toBe("live-sandbox");
+  });
+
+  it("requests an OIDC token for this one job and nothing broader anywhere", () => {
+    expect(liveAcceptance.permissions).toEqual({ contents: "read" });
+    expect(live().permissions).toEqual({ contents: "read", "id-token": "write" });
+    // The only `id-token` in any workflow.
+    for (const [file, w] of Object.entries(ALL_WORKFLOWS))
+      if (file !== "live-acceptance.yml") {
+        expect(JSON.stringify(w.permissions ?? {}), file).not.toContain("id-token");
+        for (const j of Object.values(w.jobs)) expect(JSON.stringify(j.permissions ?? {}), file).not.toContain("id-token");
+      }
+  });
+
+  it("never runs two live suites at once, and never cancels one half way", () => {
+    expect(liveAcceptance.concurrency).toEqual({ group: "live-acceptance", "cancel-in-progress": false });
+    expect(typeof live()["timeout-minutes"]).toBe("number");
+    expect(Number(live()["timeout-minutes"])).toBeLessThanOrEqual(60);
+  });
+
+  it("assumes the role through the official action, pinned, from a variable, with no stored credentials", () => {
+    const assume = live().steps.find((step) => step.uses?.startsWith("aws-actions/configure-aws-credentials@"));
+    expect(assume, "the job must use aws-actions/configure-aws-credentials").toBeDefined();
+    expect(assume?.uses).toMatch(/^aws-actions\/configure-aws-credentials@[a-f0-9]{40}$/);
+    expect(assume?.with?.["role-to-assume"]).toBe("${{ vars.LIVE_SANDBOX_AWS_ROLE_ARN }}");
+    expect(String(assume?.with?.["allowed-account-ids"])).toContain("vars.LIVE_SANDBOX_AWS_ACCOUNT_ID");
+    for (const input of ["aws-access-key-id", "aws-secret-access-key", "aws-session-token", "web-identity-token-file"])
+      expect(assume?.with?.[input], input).toBeUndefined();
+    // No secret of any kind is read: the role's trust policy is the control, not a stored key.
+    expect(code("live-acceptance.yml")).not.toMatch(/secrets\./);
+  });
+
+  it("installs dependencies before any AWS credential exists, then assumes the role, then runs the script", () => {
+    const steps = live().steps;
+    const install = indexOfCommand(live(), INSTALL);
+    const assume = steps.findIndex((step) => step.uses?.startsWith("aws-actions/configure-aws-credentials@"));
+    const script = indexOfCommand(live(), "npx tsx scripts/acceptance/aws-live.ts");
+    expect(install).toBeGreaterThan(0);
+    expect(assume).toBeGreaterThan(install);
+    expect(script).toBeGreaterThan(assume);
+  });
+
+  it("fails loudly, before assuming any role, when the acceptance script does not exist", () => {
+    const missing = live().steps.find((step) => step.if === "hashFiles('scripts/acceptance/aws-live.ts') == ''");
+    expect(missing?.run, "a dispatch that silently did nothing would look like a pass").toContain("exit 1");
+    expect(live().steps.indexOf(missing as Step)).toBeLessThan(
+      live().steps.findIndex((step) => step.uses?.startsWith("aws-actions/configure-aws-credentials@"))
+    );
+    // Every later step is behind the same guard, so reordering cannot request credentials for a script that is not there.
+    const afterCheckout = live().steps.slice(1).filter((step) => step !== missing);
+    for (const step of afterCheckout) expect(step.if, `${step.name ?? step.uses}`).toBe(GUARD);
+  });
+
+  it("checks the account configuration before requesting a token", () => {
+    const preflight = stepNamed(live(), "Check the sandbox account configuration");
+    expect(live().steps.indexOf(preflight)).toBeLessThan(
+      live().steps.findIndex((step) => step.uses?.startsWith("aws-actions/configure-aws-credentials@"))
+    );
+    expect(preflight.run).toContain("LIVE_SANDBOX_AWS_ROLE_ARN");
+    expect(preflight.run).toContain("LIVE_SANDBOX_AWS_ACCOUNT_ID");
+    expect(preflight.run).toContain('"arn:aws:iam::${LIVE_SANDBOX_AWS_ACCOUNT_ID}:role/"*');
+  });
+
+  it("keeps a checkout that retains no token", () => {
+    const checkout = live().steps[0];
+    expect(checkout.uses).toMatch(/^actions\/checkout@/);
+    expect(checkout.with?.["persist-credentials"]).toBe(false);
+  });
+});
+
+describe("Dependabot", () => {
+  interface Update {
+    "package-ecosystem": string;
+    directory: string;
+    schedule: { interval: string; day?: string };
+    groups?: Record<string, { patterns?: string[]; "update-types"?: string[]; "dependency-type"?: string }>;
+    cooldown?: { "default-days"?: number };
+  }
+  const config = load(fs.readFileSync(path.join(process.cwd(), ".github/dependabot.yml"), "utf8")) as {
+    version: number;
+    updates: Update[];
+  };
+  const byEcosystem = (name: string): Update => {
+    const found = config.updates.find((update) => update["package-ecosystem"] === name);
+    expect(found, `dependabot.yml must update ${name}`).toBeDefined();
+    return found as Update;
+  };
+
+  it("updates npm, GitHub Actions and the Go module weekly", () => {
+    expect(config.version).toBe(2);
+    expect(config.updates.map((update) => [update["package-ecosystem"], update.directory]).sort()).toEqual([
+      ["github-actions", "/"],
+      ["gomod", "/go"],
+      ["npm", "/"],
+    ]);
+    for (const update of config.updates) expect(update.schedule.interval).toBe("weekly");
+  });
+
+  it("groups every ecosystem so related updates arrive together", () => {
+    for (const update of config.updates) expect(Object.keys(update.groups ?? {}).length, update["package-ecosystem"]).toBeGreaterThan(0);
+  });
+
+  it("keeps the packages that must move together in their own groups, ahead of the catch-alls", () => {
+    const groups = byEcosystem("npm").groups ?? {};
+    const order = Object.keys(groups);
+    expect(groups.temporal?.patterns).toEqual(["@temporalio/*"]);
+    expect(groups["aws-sdk"]?.patterns).toContain("@aws-sdk/*");
+    for (const coupled of ["temporal", "aws-sdk", "nextjs", "react"])
+      for (const catchAll of ["production-minor-and-patch", "development-minor-and-patch"])
+        expect(order.indexOf(coupled), `${coupled} must come before ${catchAll}`).toBeLessThan(order.indexOf(catchAll));
+  });
+
+  it("never folds a major version into a grouped minor/patch update", () => {
+    for (const catchAll of ["production-minor-and-patch", "development-minor-and-patch"])
+      expect(byEcosystem("npm").groups?.[catchAll]?.["update-types"]).toEqual(["minor", "patch"]);
+    expect(byEcosystem("github-actions").groups?.["github-actions-minor-and-patch"]?.["update-types"]).toEqual(["minor", "patch"]);
+    expect(byEcosystem("gomod").groups?.["go-minor-and-patch"]?.["update-types"]).toEqual(["minor", "patch"]);
+  });
+
+  it("waits a few days before proposing a brand-new release", () => {
+    for (const update of config.updates) expect(update.cooldown?.["default-days"], update["package-ecosystem"]).toBeGreaterThanOrEqual(3);
   });
 });

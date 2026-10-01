@@ -299,8 +299,9 @@ async function resolveGroup(ctx: AwsDriverContext, node: ResourceNode, externalI
   const ids = matches.flatMap((m) => (isArnOf(m.arn, "elasticache", "replicationgroup") ? [m.arn] : []));
   if (ids.length === 0) return "missing";
   if (ids.length > 1) return { ambiguous: `${ids.length} replication groups carry the Zenith tags for ${node.address}; refusing to choose one` };
-  const found = await describeGroup(ctx, replicationGroupIdOf(ids[0]) ?? "");
-  return found ?? "missing";
+  const foundId = replicationGroupIdOf(ids[0]);
+  if (foundId === undefined) return { ambiguous: "the tagged object's ARN is not a replication group ARN" };
+  return (await describeGroup(ctx, foundId)) ?? "missing";
 }
 
 async function readTags(ctx: AwsDriverContext, arn: string): Promise<{ tags?: Record<string, string>; failure?: string }> {

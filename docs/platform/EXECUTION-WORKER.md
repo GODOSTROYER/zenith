@@ -292,7 +292,8 @@ fail fast with a message that never contains a secret.
 | `ZENITH_WORKER_HEALTH_LOG_INTERVAL_MS` | `60000` | worker | periodic health log line; `0` disables |
 | `ZENITH_WORKER_IDENTITY` | `zenith-exec:<host>:<pid>` | worker | worker identity in Temporal |
 | `ZENITH_WORKER_PLAN_DIR` | `<ZENITH_DATA or .data>/platform-plans` | worker | private binary-plan directory, created with mode `0700`; plans may contain secrets |
-| `ZENITH_SECRET_KEY` | unset | worker | required 64-hex secret; no public plan fingerprint default |
+| `ZENITH_SECRET_KEY` | unset | client, worker | 64-hex secret for payload encryption; required in production; worker also requires it for plan fingerprints |
+| `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS` | unset | client, worker | private JSON array of previous 64-hex keys for decrypting retained histories; see payload encryption below |
 
 Tests never read the real environment and never use `localhost:7233`.
 
@@ -355,9 +356,51 @@ are operator choices; the worker only needs the key in its environment. Keep the
 key in a secret store and out of images and logs (`describeTemporalConfig`
 reports only whether one is set).
 
-History payloads are not encrypted (no data converter / codec is configured).
-They hold ids, digests, counts and redacted messages by contract; if that ever
-stops being enough, add a payload codec on both the client and the worker.
+### Payload encryption
+
+`src/lib/workflows/codec.ts` configures the same Temporal `PayloadCodec` on the
+control-plane client and execution-worker process, following the SDK's
+[client/worker codec wiring](https://docs.temporal.io/develop/typescript/best-practices/data-handling/data-encryption).
+Set `ZENITH_SECRET_KEY` to the same 64-hex secret on both processes. Production
+workflow-client creation and worker startup refuse a missing or invalid key
+before connecting. Without a key, development/test clients use the SDK's
+plaintext converter; the execution worker's existing startup checks still
+require its plan fingerprint key in every environment. A supplied invalid key
+is always an error, including in development.
+
+The codec derives a separate 32-byte encryption key with HKDF-SHA256, empty
+salt and info `zenith.temporal.payload.v1`. Each complete protobuf payload,
+including its original metadata, is encrypted with AES-256-GCM and a fresh
+12-byte nonce. Wire metadata contains only `encoding=binary/zenith.temporal.v1`
+and `zenith.temporal.key-id`, the first 32 hex characters of SHA-256 of the
+derived key. Both values are authenticated as associated data. The wire data
+is nonce (12 bytes), authentication tag (16 bytes), then ciphertext. Unknown
+keys, invalid envelopes and failed authentication raise fixed errors without
+including payloads, key ids or secrets.
+
+For rotation, set `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS` on **both** processes
+to a private JSON array of previous 64-hex secret keys. New payloads use only
+the current `ZENITH_SECRET_KEY`; the retained keys are decrypt-only and retain
+their original fingerprint ids. Restart clients/workers together after a
+rotation; client caching also distinguishes the active and retained key set.
+Keep old keys as long as their histories, retries, queries or archived histories
+must be readable. Removing a key makes those encrypted payloads unreadable;
+there is no automatic history re-encryption. This config rotates Temporal
+payloads only; other stores using `ZENITH_SECRET_KEY` have their own migration
+requirements.
+
+Legacy plaintext histories remain readable, including by encrypted workers.
+Encryption/decryption runs outside the deterministic workflow sandbox and
+does not change workflow definitions or their command sequence. Replay of an
+encrypted history must pass `dataConverter: temporalDataConverterFromEnv()`
+to `Worker.runReplayHistory`; the existing plaintext replay suites remain
+valid. Workflow ids, task queues, visibility/search attributes and default
+failure messages/stack traces are **not encrypted** by a payload codec.
+The existing ids-only and redaction contracts still apply: cloud credentials
+must never enter workflow payloads. No codec server for UI/CLI decryption is
+provided, and live Temporal Cloud acceptance has not been run. The gated
+`tests/workflows/codec-replay.test.ts` covers encrypted execution and replay
+against a local Temporal server with scripted activities.
 
 ## Scaling and operations
 
@@ -459,7 +502,7 @@ time-skipping server's fidelity to a production server (it is used only for the
 - `proposeRepair` and auto-repair in the reconcile workflow.
 - Search attributes (workspace, environment, capability) for listing operations
   in Temporal visibility.
-- Payload encryption and frozen golden replay histories.
+- Frozen golden replay histories.
 - Live acceptance of composed execution, provider sessions/state backends and
   replica failover. The HTTP reconcile controller is already scheduled by
   `.github/workflows/tick.yml`; this does not schedule the observe-only Temporal

@@ -24,6 +24,7 @@
  */
 
 import { createHash } from "node:crypto";
+import { temporalDataConverterFromEnv } from "@/lib/workflows/codec";
 import type { DestroyWorkflowInput } from "./definitions/destroy";
 import { credentialPatternsIn } from "@/lib/credentials/redact";
 import {
@@ -87,12 +88,13 @@ function scrub(message: string, config: TemporalConnectionConfig): string {
  * A failed connect is not cached, so the next call retries.
  */
 export async function workflowClient(config: TemporalConnectionConfig = temporalConfigFromEnv()): Promise<Client> {
-  const key = cacheKey(config);
+  const dataConverter = temporalDataConverterFromEnv();
+  const key = `${cacheKey(config)}|${dataConverter.payloadCodecs[0]?.cacheKey ?? "plaintext"}`;
   let pending = clients.get(key);
   if (!pending) {
     pending = Connection.connect({ ...connectionOptionsFor(config), connectTimeout: CONNECT_TIMEOUT_MS }).then((connection) => ({
       connection,
-      client: new Client({ connection, namespace: config.namespace }),
+      client: new Client({ connection, namespace: config.namespace, dataConverter }),
     }));
     clients.set(key, pending);
     pending.catch(() => clients.delete(key));

@@ -59,9 +59,18 @@ Referenced/external resources do not become managed during teardown.
   lacks an `allow`/`approval` deletion policy. Retention can leave infrastructure
   and ongoing charges. See [POLICY.md](POLICY.md#deletion-approvals).
 - AWS Route53 deletions require a live target ownership check before planning
-  and applying. Other cloud DNS deletions are refused until an equivalent
-  provider target ownership guard exists (`src/lib/execution/destroy.ts`,
-  `src/lib/execution/plan.ts`). Approval never overrides ownership guards.
+  and applying. Normal deploy delete/replace also checks GCP Cloud DNS A records
+  against the scoped managed forwarding rule, Azure DNS A/CNAME and companion
+  asuid TXT against scoped managed endpoints, and OCI DNS A rrsets against the
+  scoped managed load balancer through read-only `oci.http` runner requests
+  (`src/lib/execution/plan.ts`, `src/lib/providers/{gcp,azure,oci}/dns-ownership.ts`).
+  Every record value must be owned. Unmapped types, foreign targets, malformed
+  responses, ambiguous or truncated searches and unreadable ownership refuse.
+  OCI requires a readable compartment zone and treats any rrset 404 as unknown;
+  a complete empty rrset proves absence. These guards have contract evidence,
+  with no live cloud verification. Explicit non-AWS DNS **teardown still refuses**
+  in `src/lib/execution/destroy.ts`; its separate dispatch is not integrated.
+  Human digest-bound approval remains required and never overrides ownership guards.
 - Kubernetes deletes only environment-owned objects, rechecking ownership with
   UID/resourceVersion preconditions. Namespaces are **always retained** to avoid
   cascading into foreign or uninventoried objects. Finalizers are not removed;
@@ -75,6 +84,27 @@ Referenced/external resources do not become managed during teardown.
   incomplete discovery, foreign supported objects or uncertainty prevent namespace
   deletion (`src/lib/providers/zenith/teardown.ts`). Unknown custom kinds are not
   inventoried; the managed namespace must belong exclusively to that tenant.
+
+### OCI normal-deploy DNS read rules
+
+This additive operator contract supplements the capability table in
+[RUNNER-PROTOCOL-OCI.md](../RUNNER-PROTOCOL-OCI.md). For `infrastructure.plan`,
+`infrastructure.apply`, `deployment.deploy` and `deployment.rollback`, the
+DNS ownership guard permits exactly these read-only requests:
+
+```text
+dns GET /20180115/zones/{}
+dns GET /20180115/zones/{}/records/{}/{}
+loadbalancer GET /20170115/loadBalancers
+loadbalancer GET /20170115/loadBalancers/{}
+```
+
+No OCI HTTP mutation is authorized by these additions. The runner still checks
+the signed grant, region and owner-maintained compartment bindings, including
+the DNS zone name and load-balancer OCID. Missing local bindings fail closed.
+The TS allowlist and embedded Go testdata carry the same rules; a rebuilt runner
+is required to consume the updated embedded contract. The protocol table itself
+and explicit teardown dispatch require orchestrator follow-up.
 
 ## Evidence and unsuccessful outcomes
 

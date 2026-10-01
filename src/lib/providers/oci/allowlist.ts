@@ -56,8 +56,17 @@ export const OBSERVE_RULES: readonly OciAllowRule[] = [
 const FIREWALL_INSPECT: readonly OciAllowRule[] = get("core", "networkSecurityGroups", "networkSecurityGroups/{}/securityRules");
 const LOG_READ_RULE: OciAllowRule = { service: "loggingsearch", method: "POST", pattern: "search" };
 const METRIC_READ_RULE: OciAllowRule = { service: "monitoring", method: "POST", pattern: "metrics/actions/summarizeMetricsData" };
+/** Live DNS target checks during normal plan/final-plan/exact apply; GET only. */
+const DNS_DELETION_READS: readonly OciAllowRule[] = [
+  ...get("dns", "zones/{}", "zones/{}/records/{}/{}"),
+  ...get("loadbalancer", "loadBalancers", "loadBalancers/{}"),
+];
 
 export const OCI_ALLOWLIST: Readonly<Record<string, readonly OciAllowRule[]>> = {
+  "infrastructure.plan": DNS_DELETION_READS,
+  "infrastructure.apply": DNS_DELETION_READS,
+  "deployment.deploy": DNS_DELETION_READS,
+  "deployment.rollback": DNS_DELETION_READS,
   "infrastructure.observe": [
     ...OBSERVE_RULES,
     // Read-only query APIs; POST does not imply a mutation.

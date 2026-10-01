@@ -920,10 +920,12 @@
       "title": "Operator docs and drift tests match what is wired",
       "wave": 5,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [],
       "paths": [],
-      "branch": "ws/docs-sync"
+      "branch": "ws/docs-sync",
+      "tests": "tests/docs 93 passed after merge",
+      "review": "orchestrator: merged; SEC-F9 docs/test updated to closed; acceptance F/H/I diagnostics and worker default identity noted"
     },
     {
       "id": "WS-DESTROY",
@@ -1002,10 +1004,12 @@
       "title": "Kubernetes grants to RBAC and cloud workload identity",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [],
       "paths": [],
-      "branch": "ws/k8s-identity"
+      "branch": "ws/k8s-identity",
+      "tests": "kubernetes+zenith 680 passed (worker); docs+k8s sweep 805 passed",
+      "review": "orchestrator: merged; cloud-side trust (IRSA trust policy, GKE WI binding, AKS federated credential) -> follow-up job"
     },
     {
       "id": "WS-MACH-CLOUDS",
@@ -1032,10 +1036,12 @@
       "title": "Managed hosting TLS: per-environment certificates and Gateway listeners",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [],
       "paths": [],
-      "branch": "ws/zm-tls"
+      "branch": "ws/zm-tls",
+      "tests": "zenith+kubernetes+platform 769 passed",
+      "review": "orchestrator: merged; teardownZenithTls to be called by the destroy path (WS-DESTROY)"
     },
     {
       "id": "WS-OCI-MORE",

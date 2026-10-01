@@ -99,10 +99,12 @@ describe("renderZenithEnvironment: the pipeline", () => {
     expect(r.databases[0].spec).toMatchObject({ engineVersion: 16, size: "small", deletionPolicy: "deny", workspaceId: TENANT.workspaceId, environmentId: TENANT.environmentId });
   });
 
-  it("does not even hand the postgres node to the Kubernetes renderer", () => {
+  it("preserves the full graph for lookup without rendering platform-managed nodes or databases", () => {
     const toolkit = new FakeToolkit();
     render(TYPICAL_GRAPH, toolkit);
-    const seen = toolkit.renderCalls[0].nodes.map((n) => n.address);
+    const graph = toolkit.renderCalls[0].nodes;
+    expect(graph.map((n) => n.address).sort()).toEqual(TYPICAL_GRAPH.map((n) => n.address).sort());
+    const seen = graph.filter((n) => n.ownership === "managed").map((n) => n.address);
     expect(seen).not.toContain("postgres/db");
     expect(seen).not.toContain("network/main");
     expect(seen).not.toContain("dns_record/app.customer.com");
@@ -119,7 +121,7 @@ describe("renderZenithEnvironment: the pipeline", () => {
     expect(call.base.environmentId).toBe(TENANT.environmentId);
     expect(call.base.ingressControllerNamespace).toBe(sub.gateway.namespace);
     expect(call.base.automountServiceAccountToken).toBe(false);
-    for (const n of call.nodes) expect((n.spec as { namespace: string }).namespace, n.address).toBe(NS);
+    for (const n of call.nodes.filter((n) => n.ownership === "managed")) expect((n.spec as { namespace: string }).namespace, n.address).toBe(NS);
     // the caller's nodes are not mutated
     expect(input).toEqual(TYPICAL_GRAPH);
   });

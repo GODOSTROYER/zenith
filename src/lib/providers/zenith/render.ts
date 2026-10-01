@@ -32,7 +32,7 @@ import type { ArtifactSpec } from "@/lib/resources/specs";
 import type { ResourceNode } from "@/lib/resources/types";
 import { databaseSpecFromNode, managedDatabaseConnectionRef, type ManagedDatabaseSpec } from "./database";
 import { assertTenantObjects } from "./isolation";
-import { OWNERSHIP, isRecord, podSpecsOf, type K8sObject, type KubernetesToolkit } from "./k8s-port";
+import { OWNERSHIP, isRecord, podSpecsOf, renderToolkitGraph, type K8sObject, type KubernetesToolkit, type ToolkitRenderBase } from "./k8s-port";
 import { planLimits } from "./plans";
 import { NOT_OFFERED, PLATFORM_MANAGED, UNSUPPORTED, firewallPlatformReason } from "./platform";
 import { ingressToRoutes, rewriteRoutes, sourceHostsByManaged, type HostMapping } from "./routing";
@@ -142,7 +142,7 @@ export interface ManagedDatabaseIntent {
   notes: string[];
 }
 
-export interface ZenithRenderInput {
+export interface ZenithRenderInput extends Pick<ToolkitRenderBase, "workloadIdentity" | "resolveAttribute"> {
   tenant: ZenithTenant;
   substrate: ZenithSubstrate;
   nodes: readonly ResourceNode[];
@@ -215,17 +215,16 @@ export function renderZenithEnvironment(input: ZenithRenderInput): ZenithRenderR
   const views = assessed.render.map((n) => zenithNodeView(n, tenant, substrate));
   const mappings = hostMappingsOf(assessed.render, tenant, substrate);
   const sources = sourceHostsByManaged(mappings);
-  const rendered =
-    views.length === 0
-      ? { objects: [] as K8sObject[], notes: [] as string[] }
-      : input.toolkit.renderGraph(views, {
-          environmentId: tenant.environmentId,
-          namespace,
-          resolveImage: imageResolver(substrate, input.builtImages),
-          ingressControllerNamespace: substrate.gateway.namespace,
-          automountServiceAccountToken: false,
-          clusterIssuers: { dns01: substrate.certManager.clusterIssuer, http01: substrate.certManager.clusterIssuer },
-        });
+  const rendered = renderToolkitGraph(input.toolkit, input.nodes, views, {
+    environmentId: tenant.environmentId,
+    namespace,
+    resolveImage: imageResolver(substrate, input.builtImages),
+    ingressControllerNamespace: substrate.gateway.namespace,
+    automountServiceAccountToken: false,
+    workloadIdentity: input.workloadIdentity,
+    resolveAttribute: input.resolveAttribute,
+    clusterIssuers: { dns01: substrate.certManager.clusterIssuer, http01: substrate.certManager.clusterIssuer },
+  });
 
   const notes: string[] = [...tenancy.notes, ...rendered.notes];
   const workloads: K8sObject[] = [];

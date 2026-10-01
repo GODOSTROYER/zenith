@@ -38,9 +38,15 @@ secret request bodies exist. All provider proof is contract evidence, not live.
   These provider IAM/RBAC permissions have not been verified live.
 - `createSecretResolver(scope)` and `createConnectionSecretSink(scope)` are the
   store implementations for Kubernetes apply and the Zenith-managed Neon adapter.
-  The deployment sync wires the Kubernetes resolver. A caller constructing
-  `DatabaseProviderDeps` (`src/lib/providers/zenith/database.ts:181-183`) must inject
-  both factories; no managed-provider composition root currently does so here.
+  The deployment sync wires the Kubernetes resolver. The managed-provider
+  `createVaultDatabaseRuntime` factory in `src/lib/providers/zenith/database-factory.ts`
+  pairs the encrypted connection sink with the workload resolver for one tenant's
+  current managed Postgres addresses. Pass its `databases` to `openZenithSession`
+  and its `resolveSecret` to `applyZenithEnvironment`: database convergence awaits
+  vault persistence before baseline/TLS/workload apply. Platform API-key resolution
+  is separately injected and never exposed to workloads. The default platform
+  worker still does not open Zenith sessions; this factory does not claim to wire
+  that outside-owned-path worker lifecycle.
 - `src/lib/platform/release.ts:56-65` says manifest-pinned images were already
   applied by OpenTofu, and `src/lib/execution/apply.ts:109-...` applies whole
   workloads. This worker gates the mandated post-infrastructure deploy activity;

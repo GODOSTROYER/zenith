@@ -126,13 +126,14 @@ describe("exportKubernetesBundle", () => {
     expect(custom.files.find((f) => f.path === "README.md")!.content).toContain("`my-issuer`");
   });
 
-  it("hands the renderer the original nodes' hosts and the chosen namespace, and never a postgres or DNS node", () => {
+  it("keeps original hosts and the chosen namespace while databases and DNS are lookup-only", () => {
     const toolkit = new FakeToolkit();
     input({}, toolkit);
     const call = toolkit.renderCalls[0];
     expect(call.base.namespace).toBe("app");
     expect(call.base.ingressControllerNamespace).toBe("ingress-nginx");
-    const seen = call.nodes.map((n) => n.address);
+    expect(call.nodes.map((n) => n.address).sort()).toEqual(TYPICAL_GRAPH.map((n) => n.address).sort());
+    const seen = call.nodes.filter((n) => n.ownership === "managed").map((n) => n.address);
     for (const hidden of ["postgres/db", "dns_record/app.customer.com", "firewall/web-to-db"]) expect(seen).not.toContain(hidden);
     expect(JSON.stringify(call.nodes.find((n) => n.kind === "load_balancer")!.spec)).toContain("app.customer.com");
   });

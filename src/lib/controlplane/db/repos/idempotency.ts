@@ -79,14 +79,20 @@ export async function complete(sql: Sql, workspaceId: string, key: string, respo
   return rows.length > 0;
 }
 
-/** Delete expired keys (bounded). Returns how many were removed. */
+/**
+ * Delete expired keys (bounded). Returns how many were removed. Rows are locked
+ * (`skip locked`) and expiry is re-checked at delete time, so a concurrent
+ * refresh that extended a key is never pruned underneath its writer.
+ */
 export async function prune(sql: Sql, limit = 1000): Promise<number> {
   const rows = await sql.query<{ key: string }>(
-    `delete from platform.idempotency_keys
-      where (workspace_id, key) in (
-        select workspace_id, key from platform.idempotency_keys
-         where expires_at <= clock_timestamp() order by expires_at limit $1)
-      returning key`,
+    `delete from platform.idempotency_keys k using (
+       select workspace_id, key from platform.idempotency_keys
+        where expires_at <= clock_timestamp() order by expires_at
+        limit $1::bigint for update skip locked
+     ) stale where k.workspace_id = stale.workspace_id and k.key = stale.key
+       and k.expires_at <= clock_timestamp()
+     returning k.key`,
     [Math.max(1, Math.min(10_000, Math.trunc(limit)))]
   );
   return rows.length;

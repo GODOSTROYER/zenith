@@ -38,12 +38,13 @@ export async function remember(sql: Sql, agentId: string, nonce: string, windowM
 export async function prune(sql: Sql, olderThanMs: number = NONCE_WINDOW_MS * 2, limit = 10_000): Promise<number> {
   const age = boundedMs("olderThanMs", olderThanMs, 1000, 30 * 24 * 60 * 60 * 1000);
   const rows = await sql.query<{ nonce: string }>(
-    `delete from platform.agent_nonces
-      where (agent_id, nonce) in (
-        select agent_id, nonce from platform.agent_nonces
-         where seen_at <= clock_timestamp() - ($1::bigint * interval '1 millisecond')
-         order by seen_at limit $2::bigint)
-      returning nonce`,
+    `delete from platform.agent_nonces n using (
+       select agent_id, nonce from platform.agent_nonces
+        where seen_at <= clock_timestamp() - ($1::bigint * interval '1 millisecond')
+        order by seen_at limit $2::bigint for update skip locked
+     ) stale where n.agent_id = stale.agent_id and n.nonce = stale.nonce
+       and n.seen_at <= clock_timestamp() - ($1::bigint * interval '1 millisecond')
+     returning n.nonce`,
     [age, Math.max(1, Math.min(100_000, Math.trunc(limit)))]
   );
   return rows.length;

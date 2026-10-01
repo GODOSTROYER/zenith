@@ -55,7 +55,7 @@ jobs:
             exit 1
           fi
 
-      - name: Tick
+      - name: Tick and maintain the platform control store
         shell: bash
         run: |
           set -euo pipefail
@@ -66,8 +66,13 @@ jobs:
           printf 'Authorization: Bearer %s\n' "$CRON_SECRET" > "$header_file"
 
           failed=0
-          for pass in engine alerts outbox jobs agent reconcile; do
-            url="${BASE_URL}/api/internal/tick/${pass}"
+          # Housekeeping prunes expired keys/nonces and reconciles operation
+          # expiry under a lease. The jobs route exposes this separate bounded
+          # pass without booting the legacy product; local plans are worker-only.
+          for pass in engine alerts outbox jobs agent reconcile housekeeping; do
+            endpoint="$pass"
+            if [ "$pass" = housekeeping ]; then endpoint='jobs?housekeeping=1'; fi
+            url="${BASE_URL}/api/internal/tick/${endpoint}"
             echo "--- ${pass}"
             status=0
             # --fail-with-body keeps the JSON error envelope visible on a 4xx/5xx

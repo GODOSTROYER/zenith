@@ -14,7 +14,8 @@
  *                   oci:object_storage_bucket, oci:queue, oci:vault_secret,
  *                   oci:dynamic_group (+ policy), oci:log_group
  *   minimal         oci:redis_cluster, oci:block_volume
- *   unsupported     oci:oke_cluster, oci:mysql_db_system, oci:compute_instance
+ *   private compute oci:oke_cluster, oci:compute_instance
+ *   reads only      oci:mysql_db_system (no safe provider-side password reference)
  */
 import { registerDriver, type ResourceDriver } from "@/lib/drivers/types";
 import type { OciSession } from "../transport";

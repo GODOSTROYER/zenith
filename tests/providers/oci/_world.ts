@@ -26,6 +26,7 @@ import { retentionFor } from "@/lib/providers/oci/drivers/platform/log-group";
 import { queueSettings } from "@/lib/providers/oci/drivers/data/queue";
 import { FakeOci, NOW, json, ocid, zenithTagsFor } from "./_support";
 import { compileGraph } from "./_support";
+import { populateMoreWorld } from "./_more";
 
 export interface World {
   oci: FakeOci;
@@ -237,5 +238,6 @@ export function healthyWorld(graph: ResourceGraph): World {
   oci.route("POST", /^\/20210415\/containerInstances\/[^/]+\/actions\/restart$/, json({}, { "opc-work-request-id": "wr" }, 202));
   oci.route("POST", "/20220915/backups", json({}, { "opc-work-request-id": "wr" }, 202));
 
+  populateMoreWorld(oci, graph, ids);
   return { oci, graph, ids, db };
 }

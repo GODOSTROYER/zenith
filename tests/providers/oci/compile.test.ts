@@ -637,11 +637,12 @@ describe("identity, secrets, logs", () => {
   });
 });
 
-describe("explicitly unsupported", () => {
-  it.each(["oci:oke_cluster", "oci:mysql_db_system", "oci:compute_instance"])("%s is registered, declares nothing, and has no compile implementation", (nativeType) => {
-    const d = ociDrivers.find((x) => x.nativeType === nativeType)!;
-    expect(d.capabilities).toMatchObject({ compile: false, observe: false, runtime: false, verify: false, discover: false, operations: [], evidence: {} });
-    expect(d.observe).toBeUndefined();
+describe("compile limits", () => {
+  it("MySQL has no compiler until the provider supports a safe Vault password reference", () => {
+    const d = ociDrivers.find((x) => x.nativeType === "oci:mysql_db_system")!;
+    expect(d.capabilities).toMatchObject({ compile: false, observe: true, runtime: true, verify: true, discover: true, operations: [] });
+    expect(d.capabilities.evidence).not.toHaveProperty("compile");
+    expect(d.observe).toBeDefined();
     expect(d.compile).toBeUndefined();
   });
 

@@ -51,6 +51,16 @@
       "pattern": "volumes/{}"
     },
     {
+      "service": "core",
+      "method": "GET",
+      "pattern": "instances"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "instances/{}"
+    },
+    {
       "service": "loadbalancer",
       "method": "GET",
       "pattern": "loadBalancers"
@@ -209,6 +219,36 @@
       "service": "redis",
       "method": "GET",
       "pattern": "redisClusters/{}"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "clusters"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "clusters/{}"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "nodePools"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "nodePools/{}"
+    },
+    {
+      "service": "mysql",
+      "method": "GET",
+      "pattern": "dbSystems"
+    },
+    {
+      "service": "mysql",
+      "method": "GET",
+      "pattern": "dbSystems/{}"
     }
   ],
   "topology.read": [
@@ -263,6 +303,16 @@
       "pattern": "volumes/{}"
     },
     {
+      "service": "core",
+      "method": "GET",
+      "pattern": "instances"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "instances/{}"
+    },
+    {
       "service": "loadbalancer",
       "method": "GET",
       "pattern": "loadBalancers"
@@ -421,6 +471,36 @@
       "service": "redis",
       "method": "GET",
       "pattern": "redisClusters/{}"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "clusters"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "clusters/{}"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "nodePools"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "nodePools/{}"
+    },
+    {
+      "service": "mysql",
+      "method": "GET",
+      "pattern": "dbSystems"
+    },
+    {
+      "service": "mysql",
+      "method": "GET",
+      "pattern": "dbSystems/{}"
     }
   ],
   "incident.investigate": [
@@ -475,6 +555,16 @@
       "pattern": "volumes/{}"
     },
     {
+      "service": "core",
+      "method": "GET",
+      "pattern": "instances"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "instances/{}"
+    },
+    {
       "service": "loadbalancer",
       "method": "GET",
       "pattern": "loadBalancers"
@@ -633,6 +723,36 @@
       "service": "redis",
       "method": "GET",
       "pattern": "redisClusters/{}"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "clusters"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "clusters/{}"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "nodePools"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "nodePools/{}"
+    },
+    {
+      "service": "mysql",
+      "method": "GET",
+      "pattern": "dbSystems"
+    },
+    {
+      "service": "mysql",
+      "method": "GET",
+      "pattern": "dbSystems/{}"
     }
   ],
   "firewall.inspect": [

@@ -34,7 +34,7 @@ const get = (service: OciServiceId, ...patterns: string[]): OciAllowRule[] => pa
 
 /** Read-only calls behind observe / runtime / verify / discover. */
 export const OBSERVE_RULES: readonly OciAllowRule[] = [
-  ...get("core", "vcns", "vcns/{}", "subnets", "subnets/{}", "internetGateways", "natGateways", "networkSecurityGroups", "networkSecurityGroups/{}/securityRules", "volumes", "volumes/{}"),
+  ...get("core", "vcns", "vcns/{}", "subnets", "subnets/{}", "internetGateways", "natGateways", "networkSecurityGroups", "networkSecurityGroups/{}/securityRules", "volumes", "volumes/{}", "instances", "instances/{}"),
   ...get("loadbalancer", "loadBalancers", "loadBalancers/{}", "loadBalancers/{}/health", "loadBalancers/{}/backendSets/{}/health"),
   ...get("certificates", "certificates", "certificates/{}"),
   ...get("dns", "zones", "zones/{}", "zones/{}/records/{}/{}"),
@@ -48,6 +48,8 @@ export const OBSERVE_RULES: readonly OciAllowRule[] = [
   ...get("identity", "dynamicGroups", "dynamicGroups/{}", "policies"),
   ...get("logging", "logGroups", "logGroups/{}", "logGroups/{}/logs"),
   ...get("redis", "redisClusters", "redisClusters/{}"),
+  ...get("containerengine", "clusters", "clusters/{}", "nodePools", "nodePools/{}"),
+  ...get("mysql", "dbSystems", "dbSystems/{}"),
 ];
 
 const FIREWALL_INSPECT: readonly OciAllowRule[] = get("core", "networkSecurityGroups", "networkSecurityGroups/{}/securityRules");

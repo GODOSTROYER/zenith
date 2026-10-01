@@ -80,6 +80,7 @@ const READ_ACTIONS = [
   "lambda:ListTags",
   "events:Describe*",
   "events:List*",
+  "cloudfront:GetDistribution",
   "autoscaling:Describe*",
   "application-autoscaling:Describe*",
   "tag:GetResources",

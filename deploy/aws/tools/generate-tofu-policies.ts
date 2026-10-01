@@ -17,7 +17,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { BUILD_ROLE_NAME_PATTERN } from "../../../src/lib/credentials/aws/naming";
+import { BUILD_ROLE_NAME_PATTERN, EC2_ROLE_NAME_PATTERN, EVENTS_ROLE_NAME_PATTERN } from "../../../src/lib/credentials/aws/naming";
 import { loadTemplate, makeEvaluator, resolveResource, statementsOf, type Statement } from "../../../tests/credentials/cfn";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -75,11 +75,16 @@ export function generate(): Record<string, string> {
   for (const [logicalId, file] of Object.entries(POLICY_RESOURCES)) {
     const props = resolveResource(base.template, base.evaluator, logicalId)!;
     if (logicalId === "WorkloadBoundary") {
-      // YAML cannot import TS; fail generation/checking if its reserved build
-      // principal drifts from the constant the CodeBuild driver uses.
-      for (const statement of statementsOf(props.PolicyDocument).filter((s) => s.Sid?.startsWith("Build"))) {
-        if (statement.Condition?.ArnLike?.["aws:PrincipalArn"] !== `arn:\${partition}:iam::\${account_id}:role/${BUILD_ROLE_NAME_PATTERN}`) {
-          throw new Error(`Build principal naming drift in ${statement.Sid}`);
+      // YAML cannot import TS; verify every reserved service-role discriminator.
+      for (const statement of statementsOf(props.PolicyDocument)) {
+        const actions = Array.isArray(statement.Action) ? statement.Action : [statement.Action];
+        const pattern = actions.some((a) => a && ["ecr:PutImage", "s3:GetObjectVersion", "cloudfront:CreateInvalidation"].includes(a)) ? BUILD_ROLE_NAME_PATTERN
+          : actions.some((a) => a && ["ecs:RunTask", "iam:PassRole"].includes(a)) || statement.Condition?.ArnNotLike ? EVENTS_ROLE_NAME_PATTERN
+          : actions.some((a) => a === "ssm:UpdateInstanceInformation" || a === "ssm:GetManifest" || a === "ssm:GetDocument") ? EC2_ROLE_NAME_PATTERN : undefined;
+        if (!pattern) continue;
+        const operator = statement.Effect === "Deny" ? "ArnNotLike" : "ArnLike";
+        if (statement.Condition?.[operator]?.["aws:PrincipalArn"] !== `arn:\${partition}:iam::\${account_id}:role/${pattern}`) {
+          throw new Error(`Service-role principal naming drift for ${actions.join(", ")}`);
         }
       }
     }

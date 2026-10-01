@@ -134,7 +134,46 @@ output resources and source prefix. CloudFront supports that resource-tag
 condition for [CreateInvalidation](https://docs.aws.amazon.com/service-authorization/latest/reference/list_cloudfront.html).
 CodeBuild project names must start with `zenith-`, so their logs fit the existing
 `/aws/*/zenith-*` boundary. The deploy role cannot modify this boundary.
-Coverage tests evaluate these policies locally; no live AWS build was run.
+Scheduled-job invocation roles use the reserved `-events` suffix and EC2
+agent roles use `-ec2`, both appended after truncation/hashing. Their grants
+require this account's matching `aws:PrincipalArn`; application, execution,
+function and build roles cannot acquire them, including workloads named
+`web-events` or `web-ec2`. Short role names stay stable; review replacements
+when upgrading previously truncated names.
+
+Events roles can run only this account's `task-definition/zenith-*`, with
+`ecs:cluster` restricted to `cluster/zenith-*` ([AWS authorization support](https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonelasticcontainerservice.html)).
+They can pass only this account's `role/zenith-*` to
+`ecs-tasks.amazonaws.com`; their inline policy narrows this further to the
+job's task revision, cluster and exact roles. IAM administration remains
+explicitly denied, as do other role families' PassRole requests, missing or
+wrong destination services, Organizations, Account and state-bucket access.
+
+EC2's [SSM managed core v2](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AmazonSSMManagedInstanceCore.html)
+actions intersect the boundary at tagged, same-account EC2 instances,
+same-account associations, AWS-owned documents and this account's
+`document/Zenith-*`. Unscoped core inventory/manifest/list/package/patch calls
+and agent message channels require the EC2 principal. Resource/condition
+support for each action is recorded in the
+[bootstrap boundary matrix](../../../deploy/aws/README.md#what-each-permission-is-for)
+and [AWS's SSM authorization reference](https://docs.aws.amazon.com/service-authorization/latest/reference/list_awssystemsmanager.html).
+`GetParameter(s)` remain confined to `parameter/zenith/*`; the agent needs no
+additional parameter path for Zenith's command transport. This does not grant
+the control plane `ssm:SendCommand` or `ecs:ExecuteCommand`.
+
+Compatible statements share action/resource lists, while service ARN types
+preserve scopes. Optional Sids and repeated core action names are compacted
+to fit IAM's 6,144-character limit. Default `aws`/`aws-cn`/`aws-us-gov` sizes
+are 5,724/5,835/5,983 characters (`eu-west-1`); GovCloud has 161 characters
+of headroom. Longer environment-tag values or name suffixes consume this
+space: inspect the fully rendered policy before deploying custom values.
+
+Coverage tests evaluate every scheduled-job inline action, all 25 EC2 core
+actions and other-role denials in all three partitions. No live AWS acceptance
+was run. Remaining blocked families include identity grants for S3 multipart,
+log reads, database/cache IAM authentication and RDS-managed credential
+secrets; EKS cluster service permissions and node ECR metadata remain partly
+blocked. The boundary was not widened for those families.
 
 Known limits of what IAM can express, from the template (not hidden): task
 definition registration accepts only `Resource: "*"` in IAM, so Zenith can add

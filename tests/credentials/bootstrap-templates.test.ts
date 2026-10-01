@@ -130,6 +130,13 @@ describe("template structure", () => {
   });
 });
 
+describe.each(["aws", "aws-cn", "aws-us-gov"])("boundary size in %s", (partition) => {
+  it.each(Object.keys(SCENARIOS))("fits IAM's 6,144-character limit for %s", (scenario) => {
+    const ev = makeEvaluator(template, { params: SCENARIOS[scenario], pseudo: { partition, accountId: ACCOUNT, region: "eu-west-1" } });
+    expect(compactSize(policyDoc(ev, "WorkloadBoundary"))).toBeLessThanOrEqual(6144);
+  });
+});
+
 describe.each(Object.keys(SCENARIOS))("IAM policies (%s)", (scenario) => {
   const ev = evaluatorFor(scenario);
   const docs = allPolicyDocuments(ev);
@@ -172,14 +179,14 @@ describe.each(Object.keys(SCENARIOS))("IAM policies (%s)", (scenario) => {
 
   it("permits native CNI ENIs without Zenith tags while protecting node and resource tags", () => {
     const statements = statementsOf(policyDoc(ev, "WorkloadBoundary"));
-    const eni = statements.find((s) => s.Sid === "WorkloadEksNetworkInterfaces")!;
-    expect(asList(eni.Resource)).toEqual([`arn:aws:ec2:*:${ACCOUNT}:network-interface/*`]);
+    const eni = statements.find((s) => asList(s.Action).includes("ec2:AttachNetworkInterface") && !s.Condition)!;
+    expect(asList(eni.Resource).filter((r) => r.split(":")[2] === "ec2")).toEqual([`arn:aws:ec2:*:${ACCOUNT}:network-interface/*`]);
     expect(eni.Condition).toBeUndefined();
-    const node = statements.find((s) => s.Sid === "WorkloadEksTaggedNodes")!;
+    const node = statements.find((s) => asList(s.Action).includes("ec2:AttachNetworkInterface") && s.Condition)!;
     expect(asList(node.Resource)).toEqual([`arn:aws:ec2:*:${ACCOUNT}:instance/*`]);
     expect(node.Condition?.StringEquals?.["aws:ResourceTag/zenith:managed"]).toBe("true");
     expect(node.Condition?.StringLike?.["aws:ResourceTag/zenith:environment"]).toBe(scenario === "everything" ? "env_prod1" : "*");
-    const tagging = statements.find((s) => s.Sid === "WorkloadEksCniTags")!;
+    const tagging = statements.find((s) => s.Action === "ec2:CreateTags")!;
     expect(asList(tagging.Resource)).toEqual([`arn:aws:ec2:*:${ACCOUNT}:network-interface/*`]);
     expect(asList(tagging.Condition?.["ForAllValues:StringEquals"]?.["aws:TagKeys"] as string[])).toEqual([
       "node.k8s.amazonaws.com/instance_id", "node.k8s.amazonaws.com/createdAt", "cluster.k8s.amazonaws.com/name", "eks:eni:owner",
@@ -313,24 +320,30 @@ describe.each(Object.keys(SCENARIOS))("IAM policies (%s)", (scenario) => {
     expect(asList(oidc.Action)).toEqual(expect.arrayContaining(["iam:DeleteOpenIDConnectProvider", "iam:CreateUser", "iam:CreateAccessKey", "organizations:*"]));
   });
 
-  it("permission boundary allows workload access only and denies IAM, organizations and the state bucket", () => {
+  it("permission boundary allows only events PassRole in IAM and denies administration and the state bucket", () => {
     const statements = statementsOf(policyDoc(ev, "WorkloadBoundary"));
     const denied = statements.filter((s) => s.Effect === "Deny");
     expect(denied.flatMap((s) => asList(s.Action))).toEqual(expect.arrayContaining(["iam:*", "organizations:*", "account:*", "s3:*"]));
-    const stateDeny = denied.find((s) => s.Sid === "DenyStateBucket")!;
+    const stateDeny = denied.find((s) => s.Action === "s3:*")!;
     expect(asList(stateDeny.Resource).some((r) => r.includes("zenith-state-"))).toBe(true);
     const actions = allows(statements).flatMap((s) => asList(s.Action));
-    expect(actions.filter((a) => a.startsWith("iam:") || a.startsWith("sts:") || a.startsWith("organizations:"))).toEqual([]);
+    expect(actions.filter((a) => a.startsWith("iam:") || a.startsWith("sts:") || a.startsWith("organizations:"))).toEqual(["iam:PassRole"]);
+    const events = { "aws:PrincipalArn": `arn:aws:iam::${ACCOUNT}:role/zenith-env-nightly-events` };
+    for (const action of ["iam:CreateRole", "iam:PutRolePolicy", "iam:AttachRolePolicy", "iam:DeleteRolePermissionsBoundary", "iam:UpdateAssumeRolePolicy", "organizations:ListAccounts", "account:GetContactInformation"]) {
+      expect(boundaryAllows(statements, action, events["aws:PrincipalArn"], events), action).toBe(false);
+    }
     // secret reads exist only for the workload's own secrets, by ARN prefix
-    const secretStmt = allows(statements).find((s) => s.Sid === "WorkloadReadItsOwnSecrets")!;
-    expect(asList(secretStmt.Resource).every((r) => r.includes("zenith/"))).toBe(true);
+    const secretStmt = allows(statements).find((s) => asList(s.Action).includes("secretsmanager:GetSecretValue"))!;
+    expect(asList(secretStmt.Resource).filter((r) => ["ssm", "secretsmanager"].includes(r.split(":")[2]))).toEqual([
+      `arn:aws:secretsmanager:*:${ACCOUNT}:secret:zenith/*`, `arn:aws:ssm:*:${ACCOUNT}:parameter/zenith/*`,
+    ]);
   });
 
   it("conditions every new build grant on the shared role discriminator and narrow resources", () => {
     const statements = statementsOf(policyDoc(ev, "WorkloadBoundary"));
-    const grants = statements.filter((s) => s.Sid?.startsWith("Build"));
-    expect(grants.map((s) => s.Sid)).toEqual(["BuildImagePush", "BuildSourceVersions", "BuildSiteInvalidation"]);
     const principalPattern = `arn:aws:iam::${ACCOUNT}:role/${BUILD_ROLE_NAME_PATTERN}`;
+    const grants = statements.filter((s) => s.Effect === "Allow" && s.Condition?.ArnLike?.["aws:PrincipalArn"] === principalPattern);
+    expect(grants).toHaveLength(3);
     for (const grant of grants) {
       expect(grant.Effect).toBe("Allow");
       expect(grant.Condition?.ArnLike).toEqual({ "aws:PrincipalArn": principalPattern });

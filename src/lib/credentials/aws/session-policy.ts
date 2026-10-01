@@ -118,7 +118,7 @@ function observePolicy(ctx: SessionPolicyContext): SessionPolicyDocument {
     { Effect: "Allow", Action: READ_ACTIONS, Resource: "*" },
     {
       Effect: "Allow",
-      Action: ["sns:GetTopicAttributes", "sns:GetSubscriptionAttributes", "sns:ListTagsForResource", "sns:ListSubscriptionsByTopic", "eks:Describe*", "eks:List*"],
+      Action: ["sns:GetTopicAttributes", "sns:GetSubscriptionAttributes", "sns:ListTagsForResource", "sns:ListSubscriptionsByTopic", "eks:Describe*", "eks:List*", "eks:DescribeCluster", "eks:ListNodegroups", "eks:DescribeNodegroup", "eks:ListTagsForResource"],
       Resource: [`arn:${p}:sns:*:${ctx.accountId}:zenith-*`, `arn:${p}:eks:*:${ctx.accountId}:cluster/zenith-*`,
         `arn:${p}:eks:*:${ctx.accountId}:nodegroup/zenith-*/*/*`, `arn:${p}:eks:*:${ctx.accountId}:addon/zenith-*/*/*`],
     },

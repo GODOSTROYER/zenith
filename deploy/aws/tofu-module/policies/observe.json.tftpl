@@ -64,7 +64,11 @@
         "sns:ListTagsForResource",
         "sns:ListSubscriptionsByTopic",
         "eks:Describe*",
-        "eks:List*"
+        "eks:List*",
+        "eks:DescribeCluster",
+        "eks:ListNodegroups",
+        "eks:DescribeNodegroup",
+        "eks:ListTagsForResource"
       ],
       "Resource": [
         "arn:${partition}:sns:*:${account_id}:zenith-*",

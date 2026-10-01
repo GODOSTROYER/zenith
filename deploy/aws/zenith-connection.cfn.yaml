@@ -412,7 +412,7 @@ Resources:
             Resource: "*"
           - Sid: ReadZenithMessagingAndClusters
             Effect: Allow
-            Action: [sns:GetTopicAttributes, sns:GetSubscriptionAttributes, sns:ListTagsForResource, sns:ListSubscriptionsByTopic, eks:Describe*, eks:List*]
+            Action: [sns:GetTopicAttributes, sns:GetSubscriptionAttributes, sns:ListTagsForResource, sns:ListSubscriptionsByTopic, eks:Describe*, eks:List*, eks:DescribeCluster, eks:ListNodegroups, eks:DescribeNodegroup, eks:ListTagsForResource]
             Resource:
               - !Sub "arn:${AWS::Partition}:sns:*:${AWS::AccountId}:zenith-*"
               - !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:cluster/zenith-*"

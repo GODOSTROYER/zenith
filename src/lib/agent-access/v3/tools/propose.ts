@@ -83,7 +83,8 @@ export function proposalOutput(ctx: Pick<ToolContext, "ports">, result: ProposeR
     },
     untrusted: { proposal: { summary: op.proposal.summary, details: op.proposal.details, input: op.proposal.input } },
     notes: [
-      "This call only proposed. Nothing was executed and nothing has been approved.",
+      "This call only proposed. Nothing was executed.",
+      ...(op.status === "approved" ? ["Current policy allows execution without a human approval; a separate execute call is still required."] : []),
       ...(result.replayed ? ["This idempotency key already produced this operation; the earlier operation is returned."] : []),
     ],
   };

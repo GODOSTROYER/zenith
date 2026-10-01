@@ -72,7 +72,7 @@ export function registerInvestigator(investigator: Investigator | undefined): vo
 
 /* ------------------------------- product reads ------------------------------- */
 
-const PROVIDERS: ReadonlySet<string> = new Set(["aws", "gcp", "azure", "oci", "kubernetes", "zenith", "sandbox", "localstack"]);
+const PROVIDERS: ReadonlySet<string> = new Set(["aws", "gcp", "azure", "oci", "kubernetes", "zenith", "sandbox"]);
 
 function environmentInfo(workspaceId: string, projectId: string, environmentId: string): EnvironmentInfo | null {
   const d = db();

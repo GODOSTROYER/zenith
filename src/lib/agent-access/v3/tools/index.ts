@@ -19,7 +19,7 @@ import type { ToolContext } from "../context";
 import { buildEnvelope, buildErrorEnvelope, type Envelope, type ToolOutput } from "../envelope";
 import { mapError, McpToolError } from "../errors";
 import type { McpPrincipal } from "../principal";
-import { requireScope } from "../principal";
+import { assertInGrant, requireScope, type TargetLike } from "../principal";
 import type { McpPorts } from "../ports";
 import { executeApprovedOperation } from "./execute";
 import { getOperation, getOperationEvents } from "./operations";
@@ -58,7 +58,12 @@ export async function invokeTool(name: string, rawArgs: unknown, options: Invoke
   if (!tool || !(TOOL_NAMES as readonly string[]).includes(name)) throw new McpToolError("unknown_tool", "There is no such tool.", 404);
   requireScope(options.principal, tool.name, tool.requiredScope);
 
-  const args = TOOL_SCHEMAS[tool.name].parse(rawArgs ?? {});
+  // All fourteen strict schemas have one of these two explicit scope shapes.
+  const args = TOOL_SCHEMAS[tool.name].parse(rawArgs ?? {}) as { target: TargetLike } | { workspaceId: string };
+  // Check the explicit target before even resolving the broker or entering a
+  // product-store snapshot. Grant-restricted ids must never touch tenant data.
+  const target = "target" in args ? args.target : { workspaceId: args.workspaceId };
+  assertInGrant(options.principal, target);
   return options.ports.scope(options.principal.identity, async () => {
     const broker = await options.ports.broker();
     const output = await HANDLERS[tool.name](args as never, { principal: options.principal, ports: options.ports, broker, tool, signal: options.signal });

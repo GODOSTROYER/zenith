@@ -27,8 +27,9 @@ export function nextStepFor(op: Pick<OperationView, "status" | "id" | "proposalD
     case "approved":
       return "Approved and not yet running. Call zenith_execute_approved_operation with the operationId and the exact proposalDigest to start it.";
     case "queued":
+      return "The operation is queued. Call zenith_execute_approved_operation with its operationId and exact proposalDigest to claim and start it, or poll for the worker's progress.";
     case "running":
-      return "In progress. Poll zenith_get_operation and zenith_get_operation_events. Do not execute it again.";
+      return "The operation is claimed. Poll zenith_get_operation and zenith_get_operation_events. If workflow start failed or its response was lost, repeat execute with the same operationId and digest to find or start the existing workflow.";
     case "succeeded":
       return "The workflow finished successfully. That is not proof the system is healthy: check logs and metrics.";
     case "uncertain":
@@ -49,6 +50,7 @@ async function loadAuthorized(ctx: ToolContext, workspaceId: string, operationId
   assertInGrant(ctx.principal, { workspaceId });
   const detail = await ctx.broker.getOperationDetail({ workspaceId, operationId, principal: ctx.principal.principal });
   const op = detail.operation;
+  assertInGrant(ctx.principal, op);
   await authorizeReadOrThrow(
     ctx,
     op.environmentId ? "events.read" : "topology.read",
@@ -71,7 +73,7 @@ export async function getOperation(args: GetOperationArgs, ctx: ToolContext): Pr
       if (p) {
         progress = { status: p.status, steps: p.steps.map((s) => ({ step: s.step, status: s.status, ...(s.startedAt ? { startedAt: s.startedAt } : {}), ...(s.endedAt ? { endedAt: s.endedAt } : {}) })) };
         progressDetails = p.steps.filter((s) => s.detail).map((s) => ({ step: s.step, detail: s.detail as string }));
-      }
+      } else unavailable.push({ source: "workflow-progress", reason: "No workflow progress is available for this operation. Its ledger status does not prove that a workflow started." });
     } catch {
       unavailable.push({ source: "workflow-progress", reason: "The workflow engine did not answer a progress query. The operation record above is still authoritative." });
     }

@@ -9,8 +9,8 @@
  *  2. its proposal digest equals `expectedDigest` — what the model was shown and
  *     what a person approved is what runs;
  *  3. its capability is one the workflow layer can run (deploy, restart, scale);
- *  4. its status is `approved` (first execution), or `queued`/`running` (a retry
- *     of an execution this server already claimed);
+ *  4. its status is `approved`/`queued` (claim before starting), or `running`
+ *     (a retry of an execution already claimed);
  *  5. the workflow engine is reachable — probed BEFORE the claim, so an outage
  *     does not consume an approval.
  *
@@ -107,6 +107,7 @@ export async function executeApprovedOperation(args: ExecuteApprovedOperationArg
 
   const detail = await ctx.broker.getOperationDetail({ workspaceId: args.workspaceId, operationId: args.operationId, principal: ctx.principal.principal });
   const op = detail.operation;
+  assertInGrant(ctx.principal, op);
 
   // Only what was proposed for the person this connection acts for, and only by an integration (not a person in the UI or the Navigator).
   const requester = op.principal.onBehalfOf ?? op.principal.id;
@@ -124,6 +125,8 @@ export async function executeApprovedOperation(args: ExecuteApprovedOperationArg
   }
 
   const approvalUrl = `${ctx.ports.origin()}/integrations/operations/${encodeURIComponent(op.id)}`;
+
+  if (op.status === "expired") throw new BrokerError("operation_expired", "The operation expired before it could be executed.", "Propose it again.");
 
   if (FINISHED_AFTER_START.has(op.status)) {
     // Answering a retry whose first response was lost. Nothing is started: the workflow id is derived from the operation id.
@@ -146,7 +149,7 @@ export async function executeApprovedOperation(args: ExecuteApprovedOperationArg
       "execution_unavailable",
       "The workflow engine is not reachable, so nothing was started and no approval was consumed.",
       503,
-      "Try again later; the operation stays approved.",
+      "Try again later with the same arguments; this call did not claim the operation.",
       { operationStatus: op.status, reason: availability.reason },
       true
     );
@@ -155,7 +158,7 @@ export async function executeApprovedOperation(args: ExecuteApprovedOperationArg
   const start = await prepareStart(ctx, kind, op);
 
   let startedNow = false;
-  if (op.status === "approved") {
+  if (op.status === "approved" || op.status === "queued") {
     try {
       // The returned grant is deliberately not kept: it is a bearer for executing surfaces and has no business in a model-visible process.
       await ctx.broker.beginExecution({ workspaceId: op.workspaceId, operationId: op.id, holder: `mcp:${ctx.principal.principal.integrationId ?? ctx.principal.principal.id}`, audience: "worker" });
@@ -193,7 +196,7 @@ export async function executeApprovedOperation(args: ExecuteApprovedOperationArg
       },
     },
     notes: startedNow
-      ? ["The approval was consumed and the workflow started."]
-      : ["The operation was already claimed; this call found the existing workflow and started nothing new."],
+      ? ["The operation was claimed and its workflow start was confirmed."]
+      : ["The operation was already claimed; this call requested the same workflow, returning any existing execution."],
   };
 }

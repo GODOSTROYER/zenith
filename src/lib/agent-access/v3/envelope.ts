@@ -28,7 +28,7 @@
  *    present, so "nothing came back" is distinguishable from "nothing could be
  *    asked".
  */
-import { scrubSecrets } from "@/lib/capabilities/secret-guard";
+import { scrubMcpValue } from "./redaction";
 import { CONTRACT_VERSION, UNTRUSTED_NOTE } from "./contract";
 import { McpToolError, type ErrorBody } from "./errors";
 
@@ -77,7 +77,7 @@ const bytes = (value: unknown): number => Buffer.byteLength(JSON.stringify(value
 function baseEnvelope(tool: ToolRef): Omit<Envelope, "ok" | "data"> {
   return {
     contractVersion: CONTRACT_VERSION,
-    tool: tool.name,
+    tool: scrubMcpValue(tool.name),
     schemaVersion: tool.schemaVersion,
     note: UNTRUSTED_NOTE,
     simulated: false,
@@ -122,23 +122,24 @@ function fitToBudget(envelope: Envelope, limit: number): boolean {
 
 /** Wrap a handler's output in the contract. Scrubs, bounds and labels; never throws for size alone unless nothing can be cut. */
 export function buildEnvelope(tool: ToolRef, output: ToolOutput, limit = MAX_RESULT_BYTES): Envelope {
-  const scrubbed = scrubSecrets({ data: output.data, untrusted: output.untrusted });
+  const scrubbed = scrubMcpValue({ data: output.data, untrusted: output.untrusted });
   const envelope: Envelope = {
     ...baseEnvelope(tool),
     ok: true,
     simulated: output.simulated === true,
-    unavailable: scrubSecrets(output.unavailable ?? []),
+    unavailable: scrubMcpValue(output.unavailable ?? []),
     truncated: output.truncated === true,
-    notes: scrubSecrets(output.notes ?? []),
+    notes: scrubMcpValue(output.notes ?? []),
     data: scrubbed.data,
     ...(scrubbed.untrusted && Object.keys(scrubbed.untrusted).length > 0
       ? { untrusted_data: { label: "untrusted_data" as const, content: scrubbed.untrusted as Record<string, unknown> } }
       : {}),
   };
   if (bytes(envelope) > limit) {
+    // Include the explanatory note in the budget while fitting, not afterwards.
+    envelope.notes.push(`The result was cut to fit ${Math.floor(limit / 1024)} KiB; ask for a narrower window, service or limit to see the rest.`);
     if (fitToBudget(envelope, limit)) {
       envelope.truncated = true;
-      envelope.notes.push(`The result was cut to fit ${Math.floor(limit / 1024)} KiB; ask for a narrower window, service or limit to see the rest.`);
     }
     if (bytes(envelope) > limit) throw new McpToolError("response_too_large", "The result is too large to return; narrow the request.", 413);
   }
@@ -147,7 +148,17 @@ export function buildEnvelope(tool: ToolRef, output: ToolOutput, limit = MAX_RES
 
 /** An error envelope: same contract, `ok: false`, no data. */
 export function buildErrorEnvelope(tool: ToolRef, error: ErrorBody): Envelope {
-  return { ...baseEnvelope(tool), ok: false, data: {}, error };
+  const { details, ...safeError } = scrubMcpValue(error);
+  const envelope: Envelope = { ...baseEnvelope(tool), ok: false, data: {},
+    error: { ...safeError, code: safeError.code.slice(0, 120), message: safeError.message.slice(0, 2000), fix: safeError.fix?.slice(0, 2000) },
+    ...(details ? { untrusted_data: { label: "untrusted_data", content: { errorDetails: details } } } : {}) };
+  if (bytes(envelope) > MAX_RESULT_BYTES) {
+    envelope.truncated = true;
+    envelope.notes.push("Error details were cut to fit the result byte limit.");
+    fitToBudget(envelope, MAX_RESULT_BYTES);
+    if (bytes(envelope) > MAX_RESULT_BYTES) envelope.untrusted_data = { label: "untrusted_data", content: { errorDetails: { omitted: true } } };
+  }
+  return envelope;
 }
 
 /** The MCP `CallToolResult` for an envelope: the JSON as text plus the same object as structured content. */

@@ -1,0 +1,75 @@
+{
+  "catalogDigest": "sha256:e1c5622c1d3e937c68c59c4b3cf1931a021a820c5df98968056d1b5a8686e9eb",
+  "tools": [
+    {
+      "name": "zenith_get_topology",
+      "schemaVersion": 1,
+      "schemaDigest": "sha256:d6b09287564a8742981af93a18c4d1ab9b54b579222385e3884ac3b17e0932b5"
+    },
+    {
+      "name": "zenith_get_capabilities",
+      "schemaVersion": 1,
+      "schemaDigest": "sha256:7d4597c4e6618be0a63b5ae9924eff69893d3c9ffcff678b5a76e2c8be11a9cf"
+    },
+    {
+      "name": "zenith_plan_change",
+      "schemaVersion": 1,
+      "schemaDigest": "sha256:6ac3b87d9e1b32b4735c28bdd6571aaccc39a78a845edbe9212158d5f1415434"
+    },
+    {
+      "name": "zenith_prepare_deploy",
+      "schemaVersion": 1,
+      "schemaDigest": "sha256:531fc6bc385c9f63888704ad9032ee709eb7ed3a773b837c4528d09875f356a6"
+    },
+    {
+      "name": "zenith_execute_approved_operation",
+      "schemaVersion": 1,
+      "schemaDigest": "sha256:a387ea5d2601b2d0ec2240b8ca0c63cda76f9562b0ea1d84cd101b50926eb955"
+    },
+    {
+      "name": "zenith_query_logs",
+      "schemaVersion": 1,
+      "schemaDigest": "sha256:c6d18ddb96c8b9931fd97b8f351c8df9cf14861531a56a63bcb06091bed8cf1d"
+    },
+    {
+      "name": "zenith_query_metrics",
+      "schemaVersion": 1,
+      "schemaDigest": "sha256:962a93b073c9f004aedd1963d8553b171053f038a732553f896e52ed6c3e4ad8"
+    },
+    {
+      "name": "zenith_investigate_incident",
+      "schemaVersion": 1,
+      "schemaDigest": "sha256:d9753d2c3ce60bae654deb6ab299cd7bd5e8e4244f843b0ade9f619172252feb"
+    },
+    {
+      "name": "zenith_restart_service",
+      "schemaVersion": 1,
+      "schemaDigest": "sha256:84354f5c9f1dc45ebd6f1f63b0c157a0a71308fb0e1459517b84267ff511a3a5"
+    },
+    {
+      "name": "zenith_scale_service",
+      "schemaVersion": 1,
+      "schemaDigest": "sha256:f354b1a42cc7e0518104d4165ffb5b2c28a7a85d6304436c66c629a119cac2af"
+    },
+    {
+      "name": "zenith_compare_revisions",
+      "schemaVersion": 1,
+      "schemaDigest": "sha256:79d58bbeafa06a161f05be543f35033a5cc539682385d44c194b92a873781041"
+    },
+    {
+      "name": "zenith_estimate_cost",
+      "schemaVersion": 1,
+      "schemaDigest": "sha256:91147926bc353350dd1aa6f6fbbb52428cd9e4b9f936e06bb71e613ce906b100"
+    },
+    {
+      "name": "zenith_get_operation",
+      "schemaVersion": 1,
+      "schemaDigest": "sha256:f4b70d19715c6ede1e984d584a5400f78d077a0a8adbfb49e1f29fb68eaa921d"
+    },
+    {
+      "name": "zenith_get_operation_events",
+      "schemaVersion": 1,
+      "schemaDigest": "sha256:ffe7fb3194c7573d8045a3fe7b708b1a2bf3338ee4f293e3117278b408ef20f9"
+    }
+  ]
+}

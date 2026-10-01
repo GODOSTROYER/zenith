@@ -19,6 +19,7 @@
 import { randomUUID } from "node:crypto";
 import { BrokerError, isBrokerError, notFound } from "@/lib/capabilities/errors";
 import { log } from "@/lib/log";
+import { scrubMcpValue } from "./redaction";
 
 export { notFound };
 
@@ -122,7 +123,8 @@ export function mapError(error: unknown, requestId: string = randomUUID().slice(
   if (isCoded(error)) {
     return { status: error.status, body: { code: error.code, message: error.message.slice(0, 600), retryable: error.status >= 500 } };
   }
-  log.error("mcp v3 request failed", { scope: "agent", requestId, error });
+  const diagnostic = error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : { type: typeof error };
+  log.error("mcp v3 request failed", { scope: "agent", requestId, error: scrubMcpValue(diagnostic) });
   return {
     status: 500,
     body: { code: "internal", message: "The request failed. Nothing is shown here; the server log has the detail.", retryable: false, requestId },

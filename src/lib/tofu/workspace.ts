@@ -22,9 +22,10 @@
  *     manage (`referenced`/`external`) may only contribute `data`/`output`/`locals`;
  *   - resource types must belong to the provider set (or be `terraform_data`);
  *   - no `provisioner`/`connection` blocks (they run arbitrary commands on the
- *     runner), no `terraform_remote_state`, no file/path-reading HCL functions
- *     inside interpolations (a manifest string like `${file("/proc/self/environ")}`
- *     must never be evaluated), no credential-shaped provider config;
+ *     runner), no `terraform_remote_state`; HCL templates use a closed set of
+ *     pure functions and known variable roots (no filesystem/process access,
+ *     namespaces, nondeterminism or `nonsensitive`), no credential-shaped
+ *     provider config; templates are rechecked before runner materialization;
  *   - credentials never appear in any file: providers read the environment the
  *     runner builds from the broker session.
  *
@@ -37,6 +38,8 @@ import type { TofuFragment } from "@/lib/drivers/types";
 import type { ResourceGraph } from "@/lib/resources/types";
 import { configDigestOf, isSafeRelativePath, lockDigestOf, MAX_WORKSPACE_FILE_BYTES } from "@/lib/tofu/config-digest";
 import { LOCKFILES } from "@/lib/tofu/locks.generated";
+import { expressionRefusal } from "@/lib/tofu/expression-policy";
+import { HclTemplateError } from "@/lib/tofu/hcl-template";
 import {
   PROVIDER_PINS,
   PROVIDER_SET_PROVIDERS,
@@ -135,10 +138,6 @@ const FORBIDDEN_RESOURCE_KEYS = ["provisioner", "connection"];
 const FORBIDDEN_DATA_TYPES = new Set(["terraform_remote_state"]);
 const BUILTIN_TYPE_PREFIX = "terraform";
 
-/** HCL functions and references that read the runner's filesystem or process. */
-const FORBIDDEN_CALL = /\b(file|filebase64|filebase64sha256|filebase64sha512|fileexists|fileset|filemd5|filesha1|filesha256|filesha512|templatefile|pathexpand|abspath)\s*\(/;
-const FORBIDDEN_REF = /\b(path\.(module|root|cwd)|terraform\.workspace)\b/;
-
 const CREDENTIAL_KEY =
   /(secret|passw(or)?d|token|private[_-]?key|access[_-]?key|client[_-]?key|client[_-]?certificate|credential|sas[_-]?token|key[_-]?data|api[_-]?key|kubeconfig|config[_-]?content|auth[_-]?token|bearer)/i;
 
@@ -151,24 +150,29 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 }
 
 /** Walk every key and string value of a fragment looking for forbidden expressions. */
-function scanExpressions(value: unknown, where: string): void {
+function scanExpressions(value: unknown, where: string, resourceTypes: ReadonlySet<string>, depth = 0): void {
+  if (depth > 128) fail("forbidden_construct", `${where}: workspace expression nesting exceeds the limit.`);
   if (typeof value === "string") {
-    if (value.includes("${") || value.includes("%{")) {
-      const call = FORBIDDEN_CALL.exec(value);
-      if (call) fail("forbidden_construct", `${where}: interpolation calls ${call[1]}(), which reads the runner's filesystem or environment.`);
-      const ref = FORBIDDEN_REF.exec(value);
-      if (ref) fail("forbidden_construct", `${where}: interpolation references ${ref[0]}, which exposes runner paths.`);
+    try {
+      const reason = expressionRefusal(value, resourceTypes);
+      if (reason) fail("forbidden_construct", `${where}: ${reason}.`);
+    } catch (error) {
+      if (!(error instanceof HclTemplateError)) throw error;
+      fail("forbidden_construct", `${where}: ${error.message}`);
     }
     return;
   }
   if (Array.isArray(value)) {
-    value.forEach((v, i) => scanExpressions(v, `${where}[${i}]`));
+    value.forEach((v, i) => scanExpressions(v, `${where}[${i}]`, resourceTypes, depth + 1));
     return;
   }
   if (isPlainObject(value)) {
+    let i = 0;
     for (const [k, v] of Object.entries(value)) {
-      scanExpressions(k, `${where}.<key>`);
-      scanExpressions(v, `${where}.${k}`);
+      // Keys can themselves be hostile templates or secret-bearing data.
+      // Locate by entry index, never include the key's text in diagnostics.
+      scanExpressions(k, `${where}.entry[${i}].key`, resourceTypes, depth + 1);
+      scanExpressions(v, `${where}.entry[${i++}].value`, resourceTypes, depth + 1);
     }
   }
 }
@@ -195,10 +199,13 @@ interface CheckedFragment {
   fragment: TofuFragment;
 }
 
-function checkFragment(nodeAddress: string, fragment: TofuFragment, graph: ResourceGraph, prefixes: Set<string>, setName: string): void {
+function checkFragment(nodeAddress: string, fragment: TofuFragment, graph: ResourceGraph, prefixes: Set<string>, setName: string, resourceTypes: ReadonlySet<string>): void {
   const node = graph.nodes.find((n) => n.address === nodeAddress);
   if (!node) fail("unknown_node", `Fragment for "${nodeAddress}" does not belong to any node of the graph.`);
   if (!isPlainObject(fragment)) fail("invalid_fragment", `Fragment for "${nodeAddress}" is not an object.`);
+  // Check template-bearing labels before structural diagnostics can quote a
+  // hostile key. The expression walker uses indexed, redaction-safe locations.
+  scanExpressions({ resource: fragment.resource, data: fragment.data, output: fragment.output, locals: fragment.locals }, "fragment", resourceTypes);
   for (const k of Object.keys(fragment)) {
     if (!FRAGMENT_KEYS.has(k)) fail("invalid_fragment", `Fragment for "${nodeAddress}" has unsupported key "${k}" (drivers emit only resource, data, output, locals, addresses).`);
   }
@@ -237,7 +244,6 @@ function checkFragment(nodeAddress: string, fragment: TofuFragment, graph: Resou
   for (const name of Object.keys(fragment.locals ?? {})) {
     if (!LABEL.test(name)) fail("invalid_fragment", `Fragment for "${nodeAddress}": invalid local name "${name}".`);
   }
-  scanExpressions({ resource: fragment.resource, data: fragment.data, output: fragment.output, locals: fragment.locals }, `fragment "${nodeAddress}"`);
 }
 
 /** The tofu addresses a fragment defines, as `type.name` / `data.type.name`. */
@@ -314,12 +320,12 @@ function versionsFile(providers: readonly ProviderLocalName[]): Record<string, u
   return { terraform };
 }
 
-function providersFile(providers: readonly ProviderLocalName[], region: string, tags: Record<string, string>, extra: AssembleWorkspaceInput["providerConfig"]): Record<string, unknown> {
+function providersFile(providers: readonly ProviderLocalName[], region: string, tags: Record<string, string>, extra: AssembleWorkspaceInput["providerConfig"], resourceTypes: ReadonlySet<string>): Record<string, unknown> {
   const provider: Record<string, unknown> = {};
   for (const name of providers) {
     const more = extra?.[name] ?? {};
     assertNoCredentialKeys(more, `providerConfig.${name}`);
-    scanExpressions(more, `providerConfig.${name}`);
+    scanExpressions(more, `providerConfig.${name}`, resourceTypes);
     switch (name) {
       case "aws":
         provider.aws = { ...more, region, ...(Object.keys(tags).length ? { default_tags: { tags } } : {}) };
@@ -402,7 +408,14 @@ export function assembleWorkspace(input: AssembleWorkspaceInput): TofuWorkspace 
   for (const [k, v] of Object.entries(input.tags)) {
     if (typeof v !== "string" || typeof k !== "string") fail("invalid_input", "Tags must be string → string.");
   }
-  scanExpressions(input.tags, "tags");
+  const resourceTypes = new Set<string>(["terraform_data"]);
+  for (const fragment of input.fragments.values()) {
+    if (isPlainObject(fragment) && isPlainObject(fragment.resource)) {
+      for (const type of Object.keys(fragment.resource)) resourceTypes.add(type);
+    }
+  }
+  scanExpressions(input.tags, "tags", resourceTypes);
+  scanExpressions(input.providerConfig, "providerConfig", resourceTypes);
 
   const set = resolveProviderSet(input.providerSet);
   for (const p of set.providers) if (!(p in PROVIDER_PINS)) fail("unknown_provider_set", `Provider "${p}" has no pin.`);
@@ -412,7 +425,7 @@ export function assembleWorkspace(input: AssembleWorkspaceInput): TofuWorkspace 
   const entries = [...input.fragments.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
   const checked: CheckedFragment[] = [];
   for (const [nodeAddress, fragment] of entries) {
-    checkFragment(nodeAddress, fragment, input.graph, prefixes, set.name);
+    checkFragment(nodeAddress, fragment, input.graph, prefixes, set.name, resourceTypes);
     checked.push({ nodeAddress, fragment });
   }
   const { main, addressMap } = mergeFragments(checked);
@@ -421,14 +434,14 @@ export function assembleWorkspace(input: AssembleWorkspaceInput): TofuWorkspace 
   const files: TofuFile[] = [
     { path: "backend.tf.json", content: stableJson(backend.file) },
     { path: "main.tf.json", content: stableJson(main) },
-    { path: "providers.tf.json", content: stableJson(providersFile(set.providers, input.region, input.tags, input.providerConfig)) },
+    { path: "providers.tf.json", content: stableJson(providersFile(set.providers, input.region, input.tags, input.providerConfig, resourceTypes)) },
     { path: "versions.tf.json", content: stableJson(versionsFile(set.providers)) },
   ];
   for (const f of files) {
     if (!isSafeRelativePath(f.path)) fail("invalid_input", `Unsafe workspace path ${f.path}.`);
     if (Buffer.byteLength(f.content) > MAX_WORKSPACE_FILE_BYTES) fail("invalid_input", `${f.path} exceeds ${MAX_WORKSPACE_FILE_BYTES} bytes.`);
   }
-  return {
+  const ws: TofuWorkspace = {
     files,
     lockfile: set.lockfile,
     configDigest: configDigestOf(files),
@@ -436,23 +449,42 @@ export function assembleWorkspace(input: AssembleWorkspaceInput): TofuWorkspace 
     addressMap,
     backend: backend.kind,
   };
+  assertWorkspaceIntact(ws);
+  return ws;
 }
 
 /**
  * Recompute a workspace's digests from its bytes. A workspace crosses queues
  * and databases before it runs; the runner calls this so a tampered or
- * truncated workspace cannot execute under a stale approval.
+ * truncated workspace cannot execute under a stale approval. Matching digests
+ * do not establish trust: serialized keys/values are scanned again, even for
+ * workspaces assembled elsewhere. Native config/variable files are refused
+ * because they could otherwise bypass the JSON-template scanner.
  */
 export function assertWorkspaceIntact(ws: TofuWorkspace): void {
   const seen = new Set<string>();
+  const configs: { value: unknown; where: string }[] = [];
+  const resourceTypes = new Set<string>(["terraform_data"]);
   for (const f of ws.files) {
     if (!isSafeRelativePath(f.path)) fail("invalid_input", `Unsafe workspace path "${f.path}".`);
     if (seen.has(f.path)) fail("invalid_input", `Duplicate workspace path "${f.path}".`);
     seen.add(f.path);
     if (Buffer.byteLength(f.content) > MAX_WORKSPACE_FILE_BYTES) fail("invalid_input", `${f.path} exceeds ${MAX_WORKSPACE_FILE_BYTES} bytes.`);
+    // Native HCL cannot bypass the JSON-template scanner. Auxiliary files are
+    // data, but every executable OpenTofu config must use the guarded syntax.
+    if (/\.(?:tf|tofu|tfvars|tofuvars)$/i.test(f.path)) fail("forbidden_construct", `${f.path}: native HCL workspace files are not allowed.`);
+    if (/\.json$/i.test(f.path)) {
+      let value: unknown;
+      try { value = JSON.parse(f.content); }
+      catch { fail("forbidden_construct", `${f.path}: malformed workspace JSON.`); }
+      if (!isPlainObject(value)) fail("forbidden_construct", `${f.path}: workspace JSON must be an object.`);
+      configs.push({ value, where: f.path });
+      if (isPlainObject(value.resource)) for (const type of Object.keys(value.resource)) resourceTypes.add(type);
+    }
   }
   const config = configDigestOf(ws.files);
   if (config !== ws.configDigest) fail("digest_mismatch", `Workspace files do not match configDigest (${ws.configDigest.slice(0, 12)} ≠ ${config.slice(0, 12)}).`);
   const lock = lockDigestOf(ws.lockfile);
   if (lock !== ws.lockDigest) fail("digest_mismatch", `Workspace lockfile does not match lockDigest (${ws.lockDigest.slice(0, 12)} ≠ ${lock.slice(0, 12)}).`);
+  for (const config of configs) scanExpressions(config.value, config.where, resourceTypes);
 }

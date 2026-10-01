@@ -64,15 +64,26 @@ outputs is an identifier, not a secret.
 `<prefix>-deployer` is a custom role, **not Owner and not Contributor**:
 
 * only the resource providers Zenith's drivers use: Network (VNets, NSGs, private endpoints, private DNS, DNS),
-  App (Container Apps), DBforPostgreSQL, Cache, Storage, ServiceBus, KeyVault, ContainerRegistry, ManagedIdentity,
+  App (Container Apps), DBforPostgreSQL, DBforMySQL, Compute (VMs/disks), ContainerService (AKS),
+  Web (Linux Functions/Static Web Apps), ARM deployments, Cache, Storage, ServiceBus, KeyVault, ContainerRegistry, ManagedIdentity,
   OperationalInsights, resource groups, resource locks;
 * the actions that list or regenerate keys, SAS tokens and registry credentials are removed (`not_actions`);
   Zenith's storage accounts and Service Bus namespaces have key/SAS access disabled anyway;
 * Key Vault **data** actions limited to get/set/readMetadata of secrets (it writes the secret values Zenith syncs);
 * it can write role assignments **only** through the built-in `Role Based Access Control Administrator` role
-  restricted by an ABAC condition to seven roles (AcrPull, Storage Blob Data Reader/Contributor, Service Bus Data
-  Sender/Receiver, Key Vault Secrets User/Officer) and to service principals. It cannot assign Owner, Contributor or
+  restricted by an ABAC condition to nine roles (AcrPull, Storage Blob Data Reader/Contributor/Owner,
+  Storage Queue Data Contributor, Service Bus Data Sender/Receiver, Key Vault Secrets User/Officer)
+  and to service principals. The added Blob Owner/Queue Contributor assignments are scoped only to
+  a Function's private host account. It cannot assign Owner, Contributor or
   anything to a user, and cannot delete other assignments.
+
+The added provider actions are explicit read/write/delete operations rather than whole-provider
+wildcards. The deploy role does not list SWA deployment keys, Function publishing credentials,
+cluster user/admin credentials or execute arbitrary VM commands. The three service primaries use
+incremental ARM template deployments to avoid AzureRM refresh paths that fetch those credentials;
+leave AzureRM's default nested-resource deletion enabled. See
+`src/lib/providers/azure/README.md` for graph inputs, customer-prepared AKS/MySQL identities,
+private DNS prerequisites, and the fresh-MySQL/SWA-artifact limitations.
 
 ### The one trade-off: subscription scope
 

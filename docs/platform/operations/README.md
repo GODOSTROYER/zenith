@@ -84,8 +84,8 @@ Reference material these guides lean on (not duplicated here):
 
 These limits are present in code; they are not promises about delivery dates:
 
-- Non-AWS identity verification, OCI platform ProviderSession integration and
-  non-AWS runner sessions (`src/lib/platform/credentials.ts`).
+- OCI platform ProviderSession integration and non-AWS runner sessions
+  (`src/lib/platform/credentials.ts`); non-AWS connection verification is wired.
 - The standalone REST connections route; AWS setup already uses the product's
   browser action adapter and page.
 - A readable matching PlanView artifact for plan-bound UI approvals.

@@ -34,6 +34,7 @@ import { cloudName, fnv6, tagDescription, tfLabel, tfSub, SUBSCRIPTION_SUFFIX } 
 import { contractCapabilities, managedOnly, specOf } from "../../driver-util";
 import { dataFragment, expr, lastSegment, lit, ref } from "../../hcl";
 import { makeReaders, str, tail, type ReadSpec } from "../../read-kit";
+import { workloadTrust } from "./workload-trust";
 
 export const DRIVER_ID = "gcp.service_account@1";
 const IAM = "https://iam.googleapis.com/v1";
@@ -67,6 +68,14 @@ function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
     (resource[type] ??= {})[label] = body;
     addresses.push(`${type}.${label}`);
   };
+  const trust = workloadTrust(node, ctx);
+  if (trust.state === "ready") {
+    add("google_service_account_iam_member", tfSub(node.address, "workload_trust"), {
+      service_account_id: expr(`${sa}.name`),
+      role: "roles/iam.workloadIdentityUser",
+      member: `serviceAccount:${ref(ctx, trust.cluster.address, "project")}.svc.id.goog[${trust.namespace}/${trust.name}]`,
+    });
+  }
 
   for (const grant of s.grants ?? []) {
     const target = ctx.node(grant.target);
@@ -131,7 +140,10 @@ function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
       }
     }
   }
-  return { resource, output: { [`${L}_email`]: { value: expr(`${sa}.email`), description: "workload service account email" } }, addresses };
+  return { resource, output: {
+    [`${L}_email`]: { value: expr(`${sa}.email`), description: "workload service account email" },
+    ...(trust.state === "unresolved" ? { [`${L}_trust_note`]: { value: lit(trust.note) } } : {}),
+  }, addresses };
 }
 
 const spec: ReadSpec = {

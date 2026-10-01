@@ -888,20 +888,22 @@
       "title": "Plan-level approval gate end to end; reviewable gated plan",
       "wave": 5,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "staged",
       "deps": [],
       "paths": [],
-      "branch": "ws/approval-flow"
+      "branch": "ws/approval-flow",
+      "review": "orchestrator: committed and merged into ws/integrate-w6 staging; integration fixes in WS-INTEGRATE-W6"
     },
     {
       "id": "WS-MANIFEST-V2",
       "title": "Product store accepts Manifest V2 (placement, release, provider tuning)",
       "wave": 5,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "staged",
       "deps": [],
       "paths": [],
-      "branch": "ws/manifest-v2"
+      "branch": "ws/manifest-v2",
+      "review": "orchestrator: committed and merged into ws/integrate-w6 staging; integration fixes in WS-INTEGRATE-W6"
     },
     {
       "id": "WS-DRIVER-FIX",
@@ -932,20 +934,22 @@
       "title": "Environment teardown: tofu destroy, destroy workflow, stateful guards, harness run tags",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "staged",
       "deps": [],
       "paths": [],
-      "branch": "ws/destroy"
+      "branch": "ws/destroy",
+      "review": "orchestrator: committed and merged into ws/integrate-w6 staging; integration fixes in WS-INTEGRATE-W6"
     },
     {
       "id": "WS-SECRET-SYNC",
       "title": "Secret values delivered to cloud secret stores under brokered secret.write; vault:generated",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "staged",
       "deps": [],
       "paths": [],
-      "branch": "ws/secret-sync"
+      "branch": "ws/secret-sync",
+      "review": "orchestrator: committed and merged into ws/integrate-w6 staging; integration fixes in WS-INTEGRATE-W6"
     },
     {
       "id": "WS-OBS-WIRE",
@@ -988,20 +992,23 @@
       "title": "Azure VM, managed disk, MySQL, Static Web Apps, Functions, AKS drivers",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [],
       "paths": [],
-      "branch": "ws/azure-more"
+      "branch": "ws/azure-more",
+      "tests": "azure 366 passed incl. real tofu validate (azurerm 5.7.0) outside sandbox",
+      "review": "orchestrator: fixed VM NSG inline security_rule attributes (caught only by real tofu validate); MySQL create refused pending ephemeral resources; Function/SWA/AKS via ARM template deployments"
     },
     {
       "id": "WS-AWS-MORE",
       "title": "AWS SNS topic, EBS volume, EKS cluster drivers",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "staged",
       "deps": [],
       "paths": [],
-      "branch": "ws/aws-more"
+      "branch": "ws/aws-more",
+      "review": "orchestrator: committed and merged into ws/integrate-w6 staging; integration fixes in WS-INTEGRATE-W6"
     },
     {
       "id": "WS-K8S-IDENTITY",
@@ -1020,20 +1027,22 @@
       "title": "Azure Run Command and GCP OS management machine transports",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "staged",
       "deps": [],
       "paths": [],
-      "branch": "ws/mach-clouds"
+      "branch": "ws/mach-clouds",
+      "review": "orchestrator: committed and merged into ws/integrate-w6 staging; integration fixes in WS-INTEGRATE-W6"
     },
     {
       "id": "WS-BUILD-MULTI",
       "title": "GCP Cloud Build and Azure ACR release ports (digest-pinned rollout)",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "staged",
       "deps": [],
       "paths": [],
-      "branch": "ws/build-multi"
+      "branch": "ws/build-multi",
+      "review": "orchestrator: committed and merged into ws/integrate-w6 staging; integration fixes in WS-INTEGRATE-W6"
     },
     {
       "id": "WS-ZM-TLS",
@@ -1052,12 +1061,37 @@
       "title": "OCI OKE, MySQL DB system and compute instance drivers",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "staged",
       "deps": [
         "WS-DRIVER-FIX"
       ],
       "paths": [],
-      "branch": "ws/oci-more"
+      "branch": "ws/oci-more",
+      "review": "orchestrator: committed and merged into ws/integrate-w6 staging; integration fixes in WS-INTEGRATE-W6"
+    },
+    {
+      "id": "WS-INTEGRATE-W6",
+      "title": "Wave-6 staging green: V2 consumers, seams (plan digest, secret.write grants, AWS perms, OCI golden)",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/integrate-w6"
+    },
+    {
+      "id": "WS-TRUST-WIRE",
+      "title": "Cloud-side workload identity trust (IRSA/GKE WI/AKS federated) + non-AWS connection verification",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [
+        "WS-K8S-IDENTITY"
+      ],
+      "paths": [],
+      "branch": "ws/trust-wire",
+      "tests": "azure+aws/gcp identity+credentials 431 passed incl. real tofu validate; kubernetes/platform/docs 586+89 passed",
+      "review": "orchestrator: fixed AKS federated credential for azurerm 5.x (caught by real tofu validate); docs claims updated; zenith callers must forward full graph to trust (follow-up)"
     }
   ],
   "blockers": [

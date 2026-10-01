@@ -19,6 +19,7 @@ import { resolveTofuBinary } from "@/lib/tofu/binary";
 import { AZURE_DRIVERS } from "@/lib/providers/azure/drivers";
 import type { ResourceNode } from "@/lib/resources/types";
 import { compileAll, graphOf, mkNode, sampleGraph } from "./_helpers";
+import { moreGraph } from "./_more-fixtures";
 
 const enabled = process.env.ZENITH_TEST_TOFU_NETWORK === "1" && (() => { try { resolveTofuBinary(); return true; } catch { return false; } })();
 const driverFor = (n: ResourceNode) => AZURE_DRIVERS.find((d) => d.nativeType === n.nativeType);
@@ -45,6 +46,11 @@ async function validate(nodes: ResourceNode[]) {
 const errorsOf = (v: Awaited<ReturnType<typeof validate>>) => v.diagnostics.filter((d) => d.severity === "error").map((d) => `${d.summary}${d.detail ? `: ${d.detail}` : ""}`);
 
 describe.skipIf(!enabled)("compiled Azure OpenTofu validates against the real azurerm 5.7.0 schema (network)", () => {
+  it("additional drivers, delegated subnets, ARM deployments, custom domains and Function host endpoints", async () => {
+    const v = await validate(moreGraph());
+    expect(errorsOf(v)).toEqual([]);
+    expect(v.valid).toBe(true);
+  }, 900_000);
   it(
     "a full environment: landing zone, subnets, firewall, Container App + job, postgres HA, redis, storage, service bus, key vault, identity, registry, logs, DNS, managed certificate",
     async () => {

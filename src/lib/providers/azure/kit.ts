@@ -105,7 +105,8 @@ export async function getById(arm: ArmClient, id: string, apiVersion: string, qu
 export async function findTagged(ctx: AzureCtx, address: string, arm: ArmClient, type: string): Promise<{ matches: ArmResource[] } | Located> {
   const filter = `tagName eq ${odataString("zenith:resource")} and tagValue eq ${odataString(address)}`;
   try {
-    const { items } = await arm.list<ArmResource>(`/subscriptions/${ctx.session.subscriptionId}/resources`, { apiVersion: RESOURCES_API, query: { $filter: filter } }, 5);
+    const { items, truncated } = await arm.list<ArmResource>(`/subscriptions/${ctx.session.subscriptionId}/resources`, { apiVersion: RESOURCES_API, query: { $filter: filter } }, 5);
+    if (truncated) return { state: "unknown", detail: "tag search was truncated; uniqueness and absence cannot be established" };
     const env = expectedEnvironment(ctx);
     const matches = items.filter(
       (i) => typeof i.id === "string" && typeof i.type === "string" && sameArmType(i.type, type) && i.tags?.["zenith:resource"] === address && i.tags?.["zenith:environment"] === env
@@ -209,6 +210,8 @@ export interface AzureDriverDef {
   evidence?: Record<string, EvidenceLevel>;
   /** attributes of a discovered candidate, from the generic list item */
   discoverAttributes?: (item: ArmResource) => Record<string, string | number | boolean>;
+  /** Shared ARM types (Microsoft.Web/sites) need a kind discriminator. */
+  accepts?: (item: ArmResource) => boolean;
 }
 
 function unknownAttributes(keys: string[], reason: Extract<ObservedValue, { state: "unknown" }>["reason"], detail?: string): Record<string, ObservedValue> {
@@ -216,7 +219,12 @@ function unknownAttributes(keys: string[], reason: Extract<ObservedValue, { stat
 }
 
 export function defineAzureDriver(def: AzureDriverDef): ResourceDriver<AzureSession> {
-  const locate = def.locate ?? (def.arm ? (ctx: AzureCtx, node: ResourceNode, externalId?: string) => locateByTags(ctx, node, def.arm!, externalId) : undefined);
+  const baseLocate = def.locate ?? (def.arm ? (ctx: AzureCtx, node: ResourceNode, externalId?: string) => locateByTags(ctx, node, def.arm!, externalId) : undefined);
+  const locate = baseLocate ? async (ctx: AzureCtx, node: ResourceNode, externalId?: string): Promise<Located> => {
+    const found = await baseLocate(ctx, node, externalId);
+    if (found.state === "found" && def.accepts && !def.accepts(found.resource)) return { state: "unknown", detail: "the ARM resource does not identify the driver's service kind" };
+    return found;
+  } : undefined;
   const operations = def.operations ? Object.keys(def.operations).sort() : [];
   const evidence: Record<string, EvidenceLevel> = { compile: "contract", observe: "contract", verify: "contract" };
   if (def.runtime) evidence.runtime = "contract";
@@ -312,8 +320,8 @@ export function defineAzureDriver(def: AzureDriverDef): ResourceDriver<AzureSess
         checks.push({
           id: "configuration",
           description: "observed configuration matches the desired spec",
-          passed: compared === 0 ? "unknown" : mismatches.length === 0,
-          detail: compared === 0 ? "no attribute could be compared" : mismatches.length ? `differs: ${mismatches.join(", ")}` : `${compared} attribute${compared === 1 ? "" : "s"} compared`,
+          passed: mismatches.length > 0 ? false : compared < Object.keys(expected).length ? "unknown" : compared > 0 ? true : "unknown",
+          detail: mismatches.length ? `differs: ${mismatches.join(", ")}` : `${compared} of ${Object.keys(expected).length} attributes compared`,
         });
         if (def.checks || def.serving) {
           const located = await locate(ctx, node, observation.externalId);
@@ -351,15 +359,17 @@ export function defineAzureDriver(def: AzureDriverDef): ResourceDriver<AzureSess
     const t = def.arm;
     driver.discover = async (ctx): Promise<DiscoveredResource[]> => {
       const arm = armClient(ctx.session, ctx.signal);
-      const { items } = await arm.list<ArmResource>(`/subscriptions/${ctx.session.subscriptionId}/resources`, {
+      const { items, truncated } = await arm.list<ArmResource>(`/subscriptions/${ctx.session.subscriptionId}/resources`, {
         apiVersion: RESOURCES_API,
         query: { $filter: `resourceType eq ${odataString(t.type)}` },
       }, 5);
+      if (truncated || items.length > 500) throw new Error("Azure discovery was truncated; candidates cannot be presented as a complete list");
       const env = expectedEnvironment(ctx);
       const out: DiscoveredResource[] = [];
       for (const item of items.slice(0, 500)) {
         if (typeof item.id !== "string" || typeof item.name !== "string" || !sameArmType(item.type ?? "", t.type)) continue;
         if (!inSubscription(item.id, ctx.session.subscriptionId)) continue;
+        if (def.accepts && !def.accepts(item)) continue;
         const parsed = parseArmId(item.id);
         out.push({
           provider: "azure",

@@ -2,6 +2,10 @@
  * `aws:iam_role` driver (kind `identity`): one least-privilege workload role.
  *
  * Compile:
+ *   EKS IRSA uses the exact rendered ServiceAccount subject and STS audience.
+ *   The cluster's spec.oidcProviderOwner names one IAM role owning its OIDC
+ *   provider; its ARN is a cluster-keyed local. External/missing prerequisites
+ *   emit only a note, never an ECS service trust for a Kubernetes workload.
  *   aws_iam_role          trust for the workload's service principal
  *                         (`ecs-tasks` for container services and scheduled
  *                         jobs, `lambda`, `codebuild`, `ec2`), constrained to
@@ -52,6 +56,7 @@ import type { CompileContext, DiscoveredResource, ResourceDriver, TofuFragment }
 import type { AwsSession } from "@/lib/credentials/types";
 import type { IdentityGrant, IdentitySpec } from "@/lib/resources/specs";
 import type { Observation, ResourceNode } from "@/lib/resources/types";
+import { workloadTrust } from "@/lib/providers/gcp/drivers/identity/workload-trust";
 import {
   cloudName,
   DriverCompileError,
@@ -63,7 +68,9 @@ import {
   parseArn,
   REF,
   resourceTags,
+  refLocalName,
   tfLabel,
+  tfLiteral,
 } from "@/lib/providers/aws/drivers/shared";
 import {
   compileGrantStatements,
@@ -153,7 +160,22 @@ export function compileIamRole(node: ResourceNode, ctx: CompileContext): TofuFra
   const spec = readIdentitySpec(node);
   const label = tfLabel(node.address);
   const name = roleNameFor(ctx, node.address);
-  const principal = trustPrincipalFor(node, ctx, spec.workload);
+  const trust = workloadTrust(node, ctx);
+  const note = (detail: string): TofuFragment => ({ addresses: [], output: { [`${label}_trust_note`]: { value: tfLiteral(detail) } } });
+  if (trust.state === "unresolved") return note(trust.note);
+  // Without graph enumeration an implicit owner could create the same OIDC
+  // provider in multiple fragments. The cluster explicitly names ONE managed
+  // IAM role as owner; every role references the same cluster-keyed ARN local.
+  let oidcOwner: ResourceNode | undefined;
+  if (trust.state === "ready") {
+    const owner = trust.cluster.spec.oidcProviderOwner;
+    oidcOwner = typeof owner === "string" ? ctx.node(owner) : undefined;
+    const ownerTrust = oidcOwner && workloadTrust(oidcOwner, ctx);
+    if (!oidcOwner || oidcOwner.ownership !== "managed" || oidcOwner.provider !== "aws" || oidcOwner.nativeType !== "aws:iam_role" || ownerTrust?.state !== "ready" || ownerTrust.cluster.address !== trust.cluster.address) {
+      return note(`${node.address}: EKS cluster spec.oidcProviderOwner must select one managed IAM role for this cluster; no cloud workload trust rendered.`);
+    }
+  }
+  const principal = trust.state === "none" ? trustPrincipalFor(node, ctx, spec.workload) : undefined;
   const acct: AccountRefs = {
     partition: `\${data.aws_partition.${label}_partition.partition}`,
     accountId: `\${data.aws_caller_identity.${label}_account.account_id}`,
@@ -182,16 +204,39 @@ export function compileIamRole(node: ResourceNode, ctx: CompileContext): TofuFra
   }
   b.data("aws_caller_identity", `${label}_account`, {});
   b.data("aws_partition", `${label}_partition`, {});
+  let trustStatement: Record<string, unknown>;
+  if (trust.state === "ready") {
+    const clusterLabel = tfLabel(trust.cluster.address);
+    const providerLabel = `${clusterLabel}_workload_oidc`;
+    const issuer = ctx.ref(trust.cluster.address, "identity[0].oidc[0].issuer");
+    const issuerHost = `\${replace(${issuer.slice(2, -1)}, "https://", "")}`;
+    const providerArn = `\${local.${refLocalName(trust.cluster.address, "oidc_provider_arn")}}`;
+    if (oidcOwner?.address === node.address) {
+      b.resource("aws_iam_openid_connect_provider", providerLabel, {
+        url: issuer,
+        client_id_list: ["sts.amazonaws.com"],
+        // AWS retrieves the CA thumbprint when omitted; never pin a made-up certificate.
+        tags: resourceTags(ctx.tags, trust.cluster.address),
+      });
+      b.local(refLocalName(trust.cluster.address, "oidc_provider_arn"), `\${aws_iam_openid_connect_provider.${providerLabel}.arn}`);
+    }
+    trustStatement = {
+      sid: "AssumeByServiceAccount", effect: "Allow", actions: ["sts:AssumeRoleWithWebIdentity"],
+      principals: [{ type: "Federated", identifiers: [providerArn] }],
+      condition: [
+        { test: "StringEquals", variable: `${issuerHost}:sub`, values: [trust.subject] },
+        { test: "StringEquals", variable: `${issuerHost}:aud`, values: ["sts.amazonaws.com"] },
+      ],
+    };
+  } else {
+    trustStatement = {
+      sid: "AssumeByWorkload", effect: "Allow", actions: ["sts:AssumeRole"],
+      principals: [{ type: "Service", identifiers: [principal] }],
+      ...(principal && SOURCE_ACCOUNT_CAPABLE.has(principal) ? { condition: [{ test: "StringEquals", variable: "aws:SourceAccount", values: [acct.accountId] }] } : {}),
+    };
+  }
   b.data("aws_iam_policy_document", `${label}_trust`, {
-    statement: [
-      {
-        sid: "AssumeByWorkload",
-        effect: "Allow",
-        actions: ["sts:AssumeRole"],
-        principals: [{ type: "Service", identifiers: [principal] }],
-        ...(SOURCE_ACCOUNT_CAPABLE.has(principal) ? { condition: [{ test: "StringEquals", variable: "aws:SourceAccount", values: [acct.accountId] }] } : {}),
-      },
-    ],
+    statement: [trustStatement],
   });
   if (statements.length > 0) {
     b.data("aws_iam_policy_document", `${label}_grants`, {
@@ -221,7 +266,9 @@ export function expectedIamAttributes(node: ResourceNode): Record<string, unknow
     out.inlinePolicyActions = expectedGrantActions(node.address, spec.grants);
     const workloadKind = nodeKindPrefix(spec.workload);
     const principal = TRUST_PRINCIPAL_BY_WORKLOAD[workloadKind];
-    if (principal) out.trustPrincipals = [principal];
+    // Explicit Kubernetes links do not select the native service principal.
+    // The issuer ARN and namespace are graph facts unavailable to this method.
+    if (principal && node.spec.cluster === undefined && node.spec.serviceAccount === undefined) out.trustPrincipals = [principal];
   } catch (err) {
     // An invalid spec has no defined action set; drift then compares only the fixed attributes instead of failing for every node.
     if (!(err instanceof DriverCompileError)) throw err;
@@ -495,4 +542,3 @@ export const iamRoleDriver: ResourceDriver<AwsSession> = {
   },
   discover: discoverRoles,
 };
-

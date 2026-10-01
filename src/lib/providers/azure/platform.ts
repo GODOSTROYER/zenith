@@ -133,6 +133,8 @@ export const ROLE = {
   keyVaultSecretsOfficer: "Key Vault Secrets Officer",
   blobReader: "Storage Blob Data Reader",
   blobContributor: "Storage Blob Data Contributor",
+  blobOwner: "Storage Blob Data Owner",
+  storageQueueContributor: "Storage Queue Data Contributor",
   serviceBusSender: "Azure Service Bus Data Sender",
   serviceBusReceiver: "Azure Service Bus Data Receiver",
   acrPull: "AcrPull",

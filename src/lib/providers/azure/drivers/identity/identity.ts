@@ -36,6 +36,8 @@ import { defineAzureDriver, findTagged, getById, pick, props, type AzureCtx, typ
 import { armClient, type ArmResource, type Json } from "@/lib/providers/azure/arm";
 import { azureTags, cloudName, hash6, nodeKindOf, tfLabel } from "@/lib/providers/azure/naming";
 import { API, FORBIDDEN_ROLE_NAMES, ROLE } from "@/lib/providers/azure/platform";
+import { workloadTrust } from "@/lib/providers/gcp/drivers/identity/workload-trust";
+import { tfLiteral } from "@/lib/providers/azure/drivers/more-util";
 
 export const USER_ASSIGNED_IDENTITY = { type: "Microsoft.ManagedIdentity/userAssignedIdentities", apiVersion: API.identity } as const;
 
@@ -45,6 +47,8 @@ export const BUILTIN_ROLE_IDS: Readonly<Record<string, string>> = {
   "b86a8fe4-44ce-4948-aee5-eccb2c155cd7": ROLE.keyVaultSecretsOfficer,
   "2a2b9908-6ea1-4ae2-8e65-a410df84e7d1": ROLE.blobReader,
   "ba92f5b4-2d11-453d-a403-e96b0029c9fe": ROLE.blobContributor,
+  "b7e6dc6d-f1e8-4753-8033-0f276bb0955b": ROLE.blobOwner,
+  "974c5e8b-45b9-4653-ba55-5f855dd0fb88": ROLE.storageQueueContributor,
   "69a216fc-b8fb-44d8-bc22-1f3c2cd27a39": ROLE.serviceBusSender,
   "4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0": ROLE.serviceBusReceiver,
   "7f951dda-4ed3-4680-a7ca-43fe172d538d": ROLE.acrPull,
@@ -108,8 +112,39 @@ export function compileIdentity(node: ResourceNode, ctx: CompileContext): TofuFr
   const isReferencedSecret = (address: string) => ctx.node(address)?.ownership !== "managed";
   for (const g of spec.grants) requireNode(ctx, g.target, "a grant target", a);
   const roles = rolesForGrants(spec.grants, isReferencedSecret, a);
+  const trust = workloadTrust(node, ctx);
+  const federation: NonNullable<TofuFragment["resource"]> = {};
+  if (trust.state === "ready") {
+    const issuerLabel = tfLabel(a, "cluster_issuer");
+    const issuerDeployment = `azurerm_resource_group_template_deployment.${issuerLabel}`;
+    // The AKS driver uses an ARM template to avoid kubeconfig LIST calls.
+    // An outputs-only deployment reads ONLY its public issuer; no azurerm
+    // cluster data source, extra provider or guessed issuer URL is needed.
+    federation.azurerm_resource_group_template_deployment = { [issuerLabel]: {
+      name: cloudName(ctx, a, { max: 64, suffix: "issuer" }),
+      resource_group_name: exportRef(resolveNetwork(trust.cluster, ctx), "rg_name"),
+      deployment_mode: "Incremental",
+      template_content: JSON.stringify({
+        $schema: "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+        contentVersion: "1.0.0.0",
+        parameters: { clusterId: { type: "string" } },
+        resources: [],
+        outputs: { issuer: { type: "string", value: "[reference(parameters('clusterId'), '2024-10-01').oidcIssuerProfile.issuerURL]" } },
+      }),
+      parameters_content: JSON.stringify({ clusterId: { value: exportRef(trust.cluster.address, "id") } }),
+    } };
+    federation.azurerm_federated_identity_credential = { [tfLabel(a, "workload_trust")]: {
+      name: cloudName(ctx, a, { max: 120, suffix: "trust" }),
+      // azurerm 5.x: the credential hangs off the identity by id (parent_id/resource_group_name are gone)
+      user_assigned_identity_id: `\${azurerm_user_assigned_identity.${L}.id}`,
+      issuer: `\${jsondecode(${issuerDeployment}.output_content).issuer.value}`,
+      subject: trust.subject,
+      audience: ["api://AzureADTokenExchange"],
+    } };
+  }
 
   const resource = mergeBlocks(
+    federation,
     block("azurerm_user_assigned_identity", L, {
       name: cloudName(ctx, a, { max: 128, suffix: "id" }),
       location: node.region,
@@ -128,6 +163,7 @@ export function compileIdentity(node: ResourceNode, ctx: CompileContext): TofuFr
   );
   return fragment({
     resource,
+    ...(trust.state === "unresolved" ? { output: { [`${tfLabel(a)}_trust_note`]: { value: tfLiteral(trust.note) } } } : {}),
     locals: exportLocals(a, {
       id: `\${azurerm_user_assigned_identity.${L}.id}`,
       principal_id: `\${azurerm_user_assigned_identity.${L}.principal_id}`,

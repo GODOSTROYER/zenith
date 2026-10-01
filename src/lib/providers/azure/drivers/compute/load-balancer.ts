@@ -42,7 +42,12 @@ function routesOf(node: ResourceNode): LoadBalancerRoute[] {
 }
 
 export function compileLoadBalancer(node: ResourceNode, ctx: CompileContext): TofuFragment {
+  const spec = specOf<LoadBalancerSpec>(node);
+  if (spec.scheme !== "internet-facing" || spec.tier !== "public" || node.spec.waf !== undefined || node.spec.backendPools !== undefined) {
+    throw new AzureCompileError("Container Apps ingress only supports the public portable entry point; Application Gateway/WAF/private frontend specs need a separate driver.", node.address);
+  }
   for (const route of routesOf(node)) {
+    if (route.pathPrefix !== "/") throw new AzureCompileError("Container Apps ingress does not implement path-based routing.", node.address);
     const target = requireNode(ctx, route.target, `the target of ${route.host}`, node.address);
     if (target.provider !== "azure" || target.kind !== "container_service") {
       throw new AzureCompileError(`route ${route.host} targets ${route.target} (${target.provider} ${target.kind}); Azure ingress only reaches Azure container services.`, node.address);

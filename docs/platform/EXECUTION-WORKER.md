@@ -320,8 +320,9 @@ The integrated `package.json` script reads `.env.local` when present:
 
 The worker can invoke provider APIs through composed activities. Startup
 failure is an operator configuration/schema error, never a silent selection of
-stubs. Non-AWS identity verification and OCI platform sessions are still
-unavailable (`src/lib/platform/credentials.ts`); use the provider limits and
+stubs. Non-AWS connections are verified (GCP, Azure, Kubernetes; OCI by runner
+registration only), but OCI platform sessions are still refused
+(`src/lib/platform/credentials.ts`); use the provider limits and
 [state backend reference](operations/DEPLOYING.md#214-customer-state-backends).
 
 **Bundling.** The worker bundles `src/lib/workflows/definitions/index.ts` with

@@ -1,7 +1,7 @@
 /**
  * `azure:postgresql_flexible_server` — portable `postgres` on Azure Database
  * for PostgreSQL flexible server. (`mysql` has its own native type,
- * `azure:mysql_flexible_server`, which is not implemented.)
+ * `azure:mysql_flexible_server`; see mysql.ts for its passwordless limits.)
  *
  * Security posture, all compile-time and all asserted by tests:
  *   - PRIVATE ONLY: VNet-integrated in the dedicated delegated subnet, private

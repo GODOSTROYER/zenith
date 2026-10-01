@@ -58,7 +58,7 @@ This matrix covers the **resource-driver** path (`src/lib/drivers`). The product
 | `aws:ecr_repository` | `container_registry` | `aws.ecr_repository@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
 | `aws:ecs_scheduled_task` | `scheduled_job` | `aws.ecs_scheduled_task@1` | yes | `contract` | `contract` | `contract` | `contract` | — | — |
 | `aws:ecs_service` | `container_service` | `aws.ecs_service@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | `deployment.deploy`: `contract`<br>`service.restart`: `contract`<br>`service.scale`: `contract` |
-| `aws:eks_cluster` | `kubernetes_cluster` | `aws.eks_cluster@1` | yes | `contract` | — | — | — | — | — |
+| `aws:eks_cluster` | `kubernetes_cluster` | `aws.eks_cluster@1` | yes | `contract` | `contract` | `contract` | `contract` | — | — |
 | `aws:elasticache_replication_group` | `redis` | `aws.elasticache_replication_group@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
 | `aws:iam_role` | `identity` | `aws.iam_role@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
 | `aws:lambda_function` | `function` | `aws.lambda_function@1` (experimental) | yes | `contract` | `contract` | `contract` | `contract` | `contract` | `function.invoke`: `contract` |

@@ -3,11 +3,14 @@
  * IMPORTANT: no compile method. The pinned oracle/oci 9.7.1 resource accepts
  * admin_password, not PostgreSQL's VAULT_SECRET password_details. Fetching a
  * Vault bundle into admin_password would persist the password in plans/state.
- * The pinned schema also has no admin_password_wo argument. C5 ephemeral
- * blocks cannot be consumed by admin_password: OpenTofu rejects ephemeral
- * values in state-backed attributes. A write-only argument or provider-side
- * Vault reference is required before enabling compile. See mysql.test.ts
- * for the checked-in schema proof and a gated real-tofu negative control.
+ * The checked-in oracle/oci 9.7.1 schema lists no admin_password_wo argument
+ * or provider-side Vault reference. The fixture is a projection, without
+ * sensitivity/write-only metadata: a suffix or successful validate alone is
+ * not proof that a password stays out of plans/state. OpenTofu requires an
+ * explicitly write-only sink for an ephemeral password. Keep CREATE disabled
+ * until the real pinned schema and plan/state behaviour prove a safe path.
+ * See mysql.test.ts for fixture checks, gated live-schema verification and
+ * ephemeral persistence negative controls. Real cloud apply is unverified.
  * MySQL's scheduled backups are daily; hourly is never claimed as achieved.
  * Runner reads require the mysql service entry in the Go endpoint fixture.
  */

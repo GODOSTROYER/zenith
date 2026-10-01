@@ -20,3 +20,4 @@ export type { ApplyOptions, DiffItem, PruneInput, PruneReport, RollbackOptions, 
 export { generatedCredentialRef, credentialsSecretName, dataVolumeName } from "./renderers/data";
 export { kubernetesDrivers, driversFor, registerKubernetesDrivers, registerZenithManagedDrivers } from "./drivers";
 export { targetFor, externalIdFor, parseExternalId } from "./target";
+export { teardownKubernetesEnvironment, type KubernetesTeardownInput, type KubernetesTeardownReport } from "./teardown";

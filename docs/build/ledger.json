@@ -90,7 +90,7 @@
       "commit": "a080e24",
       "tests": "opa 205/205; vitest 215",
       "review": "orchestrator: merged cb72738",
-      "notes": "policy/dist sha e04961bb\u2026; cross-OS wasm determinism unverified"
+      "notes": "policy/dist sha e04961bb…; cross-OS wasm determinism unverified"
     },
     {
       "id": "WS-CRED",
@@ -454,7 +454,7 @@
       "id": "WS-MCP",
       "title": "MCP v3 semantic tools, CLI, SDK, connectors",
       "wave": 3,
-      "owner": "sonnet \u2192 codex gpt-6.1-sol xhigh",
+      "owner": "sonnet → codex gpt-6.1-sol xhigh",
       "state": "integrated",
       "deps": [
         "WS-CAP"
@@ -565,7 +565,7 @@
       "id": "WS-SEC",
       "title": "Threat model, tenant-isolation matrix, secret-leak and chaos tests",
       "wave": 4,
-      "owner": "sonnet \u2192 codex gpt-6.1-sol xhigh",
+      "owner": "sonnet → codex gpt-6.1-sol xhigh",
       "state": "integrated",
       "deps": [
         "WS-CAP",
@@ -620,7 +620,7 @@
       "id": "WS-LIVE",
       "title": "Live-cloud acceptance harness, scenarios A-J, cleanup, evidence",
       "wave": 3,
-      "owner": "sonnet \u2192 codex gpt-6.1-sol xhigh",
+      "owner": "sonnet → codex gpt-6.1-sol xhigh",
       "state": "integrated",
       "deps": [
         "WS-CRED",
@@ -640,7 +640,7 @@
       "id": "WS-BRIDGE",
       "title": "Bridge existing deploy/connection actions and engine to the control plane (workflow-executed deployments)",
       "wave": 3,
-      "owner": "sonnet \u2192 codex gpt-6.1-sol xhigh",
+      "owner": "sonnet → codex gpt-6.1-sol xhigh",
       "state": "integrated",
       "deps": [
         "WS-CAP",
@@ -759,7 +759,7 @@
         "tests/execution/compile-refs*"
       ],
       "branch": "ws/ref",
-      "notes": "orchestrator review: execution ctx.ref returned ${primary.attr}; AWS refs like target_group_arn:<t> only exist as locals and fail the ATTRIBUTE regex \u2014 blocks any real AWS deploy with a load balancer",
+      "notes": "orchestrator review: execution ctx.ref returned ${primary.attr}; AWS refs like target_group_arn:<t> only exist as locals and fail the ATTRIBUTE regex — blocks any real AWS deploy with a load balancer",
       "tests": "real tofu outside sandbox: compile-refs-providers 18/18 (AWS/OCI/GCP expanded graphs through the execution path validate); execution+providers sweep 5877 passed",
       "review": "orchestrator: resumed 3x with approvals (two-phase refs, GCP read_credentials, shared GCP network-of)"
     },
@@ -777,7 +777,7 @@
     },
     {
       "id": "WS-PLACE-WIRE",
-      "title": "provider:auto \u2014 placement recommendation via REST, action, MCP tool and page",
+      "title": "provider:auto — placement recommendation via REST, action, MCP tool and page",
       "wave": 5,
       "owner": "codex gpt-6.1-sol xhigh",
       "state": "integrated",
@@ -844,7 +844,7 @@
       "branch": "ws/sec-policy",
       "deps": [],
       "paths": [],
-      "tests": "policy 207/207 (opa 1.19.1, rebuilt outside sandbox, sha 4d024850\u2026); security/policy/credentials/agent-access/capabilities 1092 passed",
+      "tests": "policy 207/207 (opa 1.19.1, rebuilt outside sandbox, sha 4d024850…); security/policy/credentials/agent-access/capabilities 1092 passed",
       "review": "orchestrator: rebuilt bundle; removed F1/F10 characterisation tests per the suite procedure"
     },
     {
@@ -1436,25 +1436,25 @@
       "id": "WS-DESTROY-REVIEW",
       "title": "a first, read-only destroy review anyone authorized can start",
       "wave": 8,
-      "owner": "codex gpt-6.1-sol xhigh",
+      "owner": "codex gpt-6.1-sol high",
       "state": "in_progress",
       "deps": [],
       "paths": [],
       "branch": "ws/destroy-review",
-      "tests": "Implementation resumed; verification pending",
-      "review": "Resumed from saved patch in an isolated worktree on Saivedant Hava's Mac; independent checks required before merge."
+      "tests": "Independent typecheck/lint and 983 passed,1 skipped. Local kind baseline found SSA drift and undersized test deadlines; fixes under WS-KIND-GATE. UI type import corrected after independent check.",
+      "review": "Orchestrator reviewed source and ran independent checks on Saivedant Hava's Mac. Nothing merged on worker reports alone."
     },
     {
       "id": "WS-AZURE-SOURCE-WIRE",
       "title": "default composition builds Azure workloads from C3 source bundles",
       "wave": 8,
-      "owner": "codex gpt-6.1-sol xhigh",
+      "owner": "codex gpt-6.1-sol high",
       "state": "in_progress",
       "deps": [],
       "paths": [],
       "branch": "ws/azure-source-wire",
-      "tests": "Implementation resumed; verification pending",
-      "review": "Resumed from saved patch in an isolated worktree on Saivedant Hava's Mac; independent checks required before merge."
+      "tests": "Independent typecheck/lint and 904 passed,1 skipped. Generic SQL mock typing corrected after independent check; kind regression verification pending.",
+      "review": "Orchestrator reviewed source and ran independent checks on Saivedant Hava's Mac. Nothing merged on worker reports alone."
     },
     {
       "id": "WS-RELEASE-K8S",
@@ -1556,15 +1556,15 @@
       "id": "WS-AWS-BOUNDARY-SPLIT",
       "title": "One permissions boundary per AWS role family, so every Zenith role can do its job",
       "wave": 8,
-      "owner": "codex gpt-6.1-sol xhigh",
+      "owner": "codex gpt-6.1-sol high",
       "state": "in_progress",
       "deps": [
         "WS-AWS-BOUNDARY-MORE"
       ],
       "paths": [],
       "branch": "ws/aws-boundary-split",
-      "tests": "Implementation resumed; verification pending",
-      "review": "Resumed from saved patch in an isolated worktree on Saivedant Hava's Mac; independent checks required before merge."
+      "tests": "Worker1728 passed,0 failed/skipped; independent typecheck caught invalid native SNS test fixture, corrected. Independent recheck pending.",
+      "review": "Orchestrator reviewed source and ran independent checks on Saivedant Hava's Mac. Nothing merged on worker reports alone."
     },
     {
       "id": "WS-GATE-W8",
@@ -1588,8 +1588,8 @@
       "id": "WS-GITHUB-MIGRATION",
       "title": "Integrate GitHub source schema as platform migration 6",
       "wave": 8,
-      "owner": "worker",
-      "state": "planned",
+      "owner": "codex gpt-6.1-sol high",
+      "state": "in_progress",
       "deps": [
         "WS-GITHUB-SOURCE"
       ],
@@ -1600,17 +1600,17 @@
         "supabase/migrations/0014_platform_core.sql",
         "src/app/(product)/platform/layout.tsx"
       ],
-      "tests": "",
+      "tests": "Worker107 passed,13 skipped. Independent typecheck/lint passed; broader944-test lane found stale read-jobs migration assertion, corrected. Recheck pending.",
       "commit": "",
-      "review": "Orchestrator maintains verification evidence.",
+      "review": "Orchestrator reviewed source and ran independent checks on Saivedant Hava's Mac. Nothing merged on worker reports alone.",
       "notes": "Register immutable additive migration, regenerate SQL, update deployment docs and product navigation."
     },
     {
       "id": "WS-MACHINE-DOCS",
       "title": "Correct default machine-port documentation",
       "wave": 8,
-      "owner": "worker",
-      "state": "planned",
+      "owner": "codex gpt-6.1-sol high",
+      "state": "in_progress",
       "deps": [
         "WS-MACHINE-PORT"
       ],
@@ -1619,17 +1619,17 @@
         "docs/platform/operations/README.md",
         "docs/platform/operations/AWS-SETUP.md"
       ],
-      "tests": "",
+      "tests": "Independent typecheck/lint/docs56 passed. Extra real Go provider gate reproduces checkpoint scratch-path failure; WS-GO-TEMP fixes it.",
       "commit": "",
-      "review": "Orchestrator maintains verification evidence.",
+      "review": "Orchestrator reviewed source and ran independent checks on Saivedant Hava's Mac. Nothing merged on worker reports alone.",
       "notes": "Replace stale claims with default-composition behavior and remaining provider limits."
     },
     {
       "id": "WS-OCI-CLEANUP",
       "title": "Bind created OCI migration instances and clean up finished jobs",
       "wave": 8,
-      "owner": "worker",
-      "state": "planned",
+      "owner": "codex gpt-6.1-sol high",
+      "state": "in_progress",
       "deps": [
         "WS-RELEASE-OCI"
       ],
@@ -1640,10 +1640,40 @@
         "src/lib/providers/oci/release",
         "src/lib/providers/oci/allowlist.ts"
       ],
-      "tests": "",
+      "tests": "Worker211 TS tests passed; OCI race26 subtests passed. Independent typecheck/lint and provider suites passed; Go real provider gate pending scratch-path fix.",
       "commit": "",
-      "review": "Orchestrator maintains verification evidence.",
+      "review": "Orchestrator reviewed source and ran independent checks on Saivedant Hava's Mac. Nothing merged on worker reports alone.",
       "notes": "Restrict cleanup to runner-created migration instances for the owning signed job context; no general DELETE capability."
+    },
+    {
+      "id": "WS-GO-TEMP",
+      "title": "Keep OpenTofu provider scratch paths short and private",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol high",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [
+        "go/internal/runner/kinds/tofu.go",
+        "go/internal/runner/kinds/tofu_test.go"
+      ],
+      "branch": "ws/gate-runtime",
+      "tests": "Real random-provider handshake failure independently reproduced; macOS AF_UNIX path limit diagnosed. Fix and independent checks pending.",
+      "review": "Independent orchestrator verification required before merge."
+    },
+    {
+      "id": "WS-KIND-GATE",
+      "title": "Repair real Kubernetes apply and acceptance checks",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol high",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [
+        "src/lib/providers/kubernetes",
+        "tests/providers/kubernetes"
+      ],
+      "branch": "ws/kind-gates",
+      "tests": "Initial local kind6 tests:2 passed,4 failed. Second apply drift and test deadlines under investigation; release suite pending.",
+      "review": "Independent orchestrator verification required before merge."
     }
   ],
   "blockers": [

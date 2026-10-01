@@ -61,6 +61,8 @@ const FactsSchema = z
     replace: count,
     destroysData: z.boolean(),
     destroyedStatefulAddresses: z.array(text).max(10_000),
+    statefulDeletes: z.array(text).max(10_000).optional(),
+    dnsDeletes: z.array(text).max(10_000).optional(),
     regions: z.array(text).max(1000),
     publicDatabases: z.array(text).max(10_000),
     openIngress: z.array(z.object({ address: text, port: text, cidr: text })).max(10_000),

@@ -201,7 +201,13 @@ async function runPlanStage(rt: Runtime, ec: ExecContext, lease: Parameters<Exec
   // Facts come from the plan we just produced, here, and nowhere else.
   const deletions = deployDeletionFacts(result.plan, deletionNodes);
   const extracted = extractPlanFacts(result.plan);
-  const facts = { ...extracted, destroysData: deletions.statefulDeletes.length > 0, destroyedStatefulAddresses: deletions.statefulDeletes, dnsChanges: [...new Set([...extracted.dnsChanges, ...deletions.dnsDeletes])].sort() };
+  const facts: PlanFacts = {
+    ...extracted,
+    ...deletions,
+    destroysData: deletions.statefulDeletes.length > 0,
+    destroyedStatefulAddresses: deletions.statefulDeletes,
+    dnsChanges: [...new Set([...extracted.dnsChanges, ...deletions.dnsDeletes])].sort(),
+  };
   const cost = await costOf(rt, ec, graph);
   return { plan: result.plan, planFilePath: result.planFilePath, facts, cost, graphDigest: graph.graphDigest, deletions };
 }
@@ -265,9 +271,6 @@ export function createPlanActivities(rt: Runtime): PlanActivities {
         }
         decision = await rt.d.broker.reevaluate(op.id, {
           ...derived.facts,
-          // Strict shared policy schemas currently accept the legacy names.
-          // Deletion-specific lists remain additive evidence fields; the same
-          // safety facts reach policy via destroyedStatefulAddresses/dnsChanges.
           ...(derived.cost.deltaUsdMonthly !== undefined ? { costDeltaUsdMonthly: derived.cost.deltaUsdMonthly } : {}),
           ...(derived.cost.projectedMonthlyUsd !== undefined ? { projectedMonthlyUsd: derived.cost.projectedMonthlyUsd } : {}),
         });

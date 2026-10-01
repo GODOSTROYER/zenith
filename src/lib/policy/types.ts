@@ -25,6 +25,10 @@ export interface PlanFacts {
   /** any delete/replace of a stateful resource */
   destroysData: boolean;
   destroyedStatefulAddresses: string[];
+  /** Stateful resources deleted or replaced; optional for legacy plan evidence. */
+  statefulDeletes?: string[];
+  /** DNS records deleted or replaced, distinct from creates and updates. */
+  dnsDeletes?: string[];
   /** regions any created/updated resource lands in */
   regions: string[];
   /** a database/cache made publicly accessible */

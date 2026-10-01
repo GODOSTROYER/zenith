@@ -126,6 +126,8 @@ describe("extractPlanFacts: stateful destroys", () => {
 
   it("reports stateful deletes and replaces, by type table or by the normalizer's flag", () => {
     expect(facts.destroysData).toBe(true);
+    expect(facts.statefulDeletes).toEqual(facts.destroyedStatefulAddresses);
+    expect(facts.dnsDeletes).toEqual(["aws_route53_record.old"]);
     expect(facts.destroyedStatefulAddresses).toEqual([
       "aws_db_instance.legacy",
       "aws_ebs_volume.data",
@@ -151,6 +153,16 @@ describe("extractPlanFacts: stateful destroys", () => {
 
   it("takes no regions from resources being destroyed", () => {
     expect(facts.regions).toEqual([]);
+  });
+
+  it("reports only DNS record deletes and replacements across provider types, sorted and unique", () => {
+    const types = ["aws_route53_record", "google_dns_record_set", "azurerm_dns_a_record", "oci_dns_rrset"];
+    const deletions = types.flatMap((type) => [resource(type, "delete", [], `${type}.old`), resource(type, "replace", [], `${type}.replaced`)]);
+    const changes = types.flatMap((type) => [resource(type, "create", [], `${type}.new`), resource(type, "update", [], `${type}.updated`), resource(type, "no-op", [], `${type}.same`), resource(type, "read", [], `${type}.read`)]);
+    const plan = planWith(...deletions, ...changes, deletions[0], resource("aws_route53_zone", "delete", []));
+    const result = extractPlanFacts(plan);
+    expect(result.dnsDeletes).toEqual(deletions.map((r) => r.address).sort());
+    expect(result).toEqual(extractPlanFacts({ ...plan, resourceChanges: [...plan.resourceChanges].reverse() }));
   });
 });
 
@@ -207,6 +219,8 @@ describe("extractPlanFacts: nothing to do", () => {
       replace: 0,
       destroysData: false,
       destroyedStatefulAddresses: [],
+      statefulDeletes: [],
+      dnsDeletes: [],
       regions: [],
       publicDatabases: [],
       openIngress: [],
@@ -296,6 +310,12 @@ describe("plan facts through the policy", () => {
     const decision = await decide("stateful-destroy", { environment: { class: "production", autonomyLevel: 5 } });
     expect(decision.outcome).toBe("deny");
     expect(decision.reasons.map((r) => r.code)).toContain("production_destroys_data");
+  });
+
+  it("stateful and DNS deletions in development need human review even at full autonomy", async () => {
+    const decision = await decide("stateful-destroy");
+    expect(decision.outcome).toBe("require_approval");
+    expect(decision.reasons.map((r) => r.code)).toEqual(["dns_deletes_require_approval", "stateful_deletes_require_approval"]);
   });
 
   it("unresolved security values ask for review", async () => {

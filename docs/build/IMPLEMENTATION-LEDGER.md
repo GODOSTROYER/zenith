@@ -103,8 +103,18 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-BUILD-AWS-SOURCE | AWS CodeBuild consumes the C3 source bundles | 7 | staged |  | ws/build-aws-source |  | source-bundle/codebuild/credentials 736 passed (job); staging re-run green | orchestrator: resumed after a model-capacity error; IAM boundary gap handed to WS-AWS-BUILD-BOUNDARY |  |
 | WS-OCI-SIGNALS-WIRE | make OCI log/metric reads work end to end through the runner | 7 | staged |  | ws/oci-signals-wire |  | OCI/runner/observability/docs 1473 passed; go vet/test all packages passed (outside sandbox) | orchestrator: gofmt; golden allowlist sizes for logs.read/metrics.read; reviewed the Monitoring and LQL guards |  |
 | WS-AWS-BUILD-BOUNDARY | Workload permissions boundary lets build roles (only) push images and publish sites | 7 | staged |  | ws/aws-build-boundary |  | AWS + credentials 1631 passed with real OpenTofu (orchestrator) | orchestrator: reviewed principal-conditioned statements; fixture name prefix aligned with production zenith-; scheduled-job and EC2 SSM gaps handed to WS-AWS-BOUNDARY-MORE |  |
-| WS-DOCS-SYNC-2 | Operator docs tell the truth about wave 7 | 7 | in_progress |  | ws/docs-sync-2 |  | running |  |  |
+| WS-DOCS-SYNC-2 | Operator docs tell the truth about wave 7 | 7 | staged |  | ws/docs-sync-2 |  | tests/docs 106 passed (job); staging docs+ci 330 passed | orchestrator: merged; its open-gap list seeded wave 8 |  |
 | WS-AWS-BOUNDARY-MORE | Scheduled jobs and EC2 machines (SSM agent) work under the workload boundary | 7 | in_progress | WS-AWS-BUILD-BOUNDARY | ws/aws-boundary-more |  | running |  |  |
+| WS-DESTROY-REVIEW | a first, read-only destroy review anyone authorized can start | 8 | in_progress |  | ws/destroy-review |  | running |  |  |
+| WS-AZURE-SOURCE-WIRE | default composition builds Azure workloads from C3 source bundles | 8 | in_progress |  | ws/azure-source-wire |  | running |  |  |
+| WS-RELEASE-K8S | release ports for Kubernetes environments (image rollout + migration jobs) | 8 | in_progress |  | ws/release-k8s |  | running |  |  |
+| WS-RELEASE-OCI | release ports for OCI environments (container image rollout + migrations through the runner) | 8 | in_progress |  | ws/release-oci |  | running |  |  |
+| WS-DNS-GUARDS-CLOUDS | DNS deletion target-ownership guards for GCP, Azure and OCI | 8 | in_progress |  | ws/dns-guards-clouds |  | running |  |  |
+| WS-IMAGE-PINS | every build/tool image Zenith runs is digest-pinned, with a guard | 8 | in_progress |  | ws/image-pins |  | running |  |  |
+| WS-VAULT-REWRAP | product-vault key rotation: re-wrap tooling and runbook | 8 | in_progress |  | ws/vault-rewrap |  | running |  |  |
+| WS-TEMPORAL-MTLS | Temporal client/worker mTLS configuration | 8 | in_progress |  | ws/temporal-mtls |  | running |  |  |
+| WS-MACHINE-PORT | default composition supplies the machine port | 8 | in_progress |  | ws/machine-port |  | running |  |  |
+| WS-GITHUB-SOURCE | tenant-scoped GitHub App connector for private source repositories | 8 | in_progress |  | ws/github-source |  | running |  |  |
 
 ## External blockers
 

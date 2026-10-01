@@ -25,7 +25,7 @@ type State = { boot?: Promise<boolean>; db?: Sql };
 type G = typeof globalThis & { __zenithPlatformApp?: State };
 const state = (): State => (globalThis as G).__zenithPlatformApp ??= {};
 const runnerPorts = (sql: Sql): Pick<RunnerRuntime, "store" | "events"> => ({ store: createPlatformRunnerStore(sql), events: { async emit(event) {
-  await repos.events.append(sql, { type: event.type, workspaceId: event.workspaceId, operationId: event.operationId, correlationId: event.operationId ?? event.agentId, actor: event.actorId ? { kind: "user", id: event.actorId, name: "Workspace operator" } : undefined, data: { ...event.data, agentId: event.agentId } });
+  await repos.events.append(sql, { type: event.type, workspaceId: event.workspaceId, operationId: event.operationId || undefined, correlationId: event.operationId || event.agentId, actor: event.actorId ? { kind: "user", id: event.actorId, name: "Workspace operator" } : undefined, data: { ...event.data, agentId: event.agentId } });
 } } });
 
 /** Explicit injection also lets contract tests use a fresh in-memory store. */
@@ -64,7 +64,11 @@ export async function platformRunnerReaperPass(): Promise<{ ran: boolean; jobs: 
     const expired = await reapExpiredJobs(runnerPorts(tx));
     const ops = createOperationsPort(tx);
     const jobs = [...expired.runnerJobs, ...expired.machineRequests];
-    for (const job of jobs) await ops.markUncertain({ workspaceId: job.workspaceId, operationId: job.operationId, reason: "An owning runner or machine job expired; the external outcome is unknown." });
+    // Read jobs (C4) own no operation: nothing to mark, and marking "" would roll back the reap.
+    for (const job of jobs) {
+      if (!job.operationId) continue;
+      await ops.markUncertain({ workspaceId: job.workspaceId, operationId: job.operationId, reason: "An owning runner or machine job expired; the external outcome is unknown." });
+    }
     return { ran: true, jobs: jobs.length };
   });
 }

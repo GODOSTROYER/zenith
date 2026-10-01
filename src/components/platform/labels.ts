@@ -148,6 +148,7 @@ export const HOP_LABEL: Record<Hop, string> = {
   database: "Database",
   cache: "Cache",
   queue: "Queue",
+  storage: "Object storage",
   secret: "Secret",
   identity: "Identity",
   deployment: "Deployment",

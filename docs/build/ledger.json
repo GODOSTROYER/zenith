@@ -788,20 +788,24 @@
       "title": "zenith CLI over the SDK and MCP v3",
       "wave": 5,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "branch": "ws/cli",
       "deps": [],
-      "paths": []
+      "paths": [],
+      "tests": "tests/cli 215 passed; zenith --help smoke",
+      "review": "orchestrator: added package.json bin + cli script; bin.ts executable"
     },
     {
       "id": "WS-UI-WIRE",
       "title": "Platform pages wired to REST; resource/drift read routes",
       "wave": 5,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "branch": "ws/ui-wire",
       "deps": [],
-      "paths": []
+      "paths": [],
+      "tests": "platform-ui/screens/capabilities 1049 passed (worker); broad sweep 6835 passed",
+      "review": "orchestrator: merged; plan-bound approval disabled until WS-APPROVAL-FLOW exposes the gated plan"
     },
     {
       "id": "WS-K8S-CONTRACT",
@@ -856,10 +860,44 @@
       "title": "oci.http runner job kind in Go",
       "wave": 5,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "branch": "ws/go-oci",
       "deps": [],
-      "paths": []
+      "paths": [],
+      "tests": "go test ./... all packages pass (oci, runner, kinds); runners/oci/machines 1198 passed",
+      "review": "orchestrator: wired NewOCI in executor (opt-in), dispatch defaults, OCI protocol doc/test updated"
+    },
+    {
+      "id": "WS-TOFU-2",
+      "title": "SEC-F2/F3/F6/F7 + GCS/azurerm/OCI state backends",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/tofu-2",
+      "tests": "real tofu outside sandbox: tofu+gcp+env security 875 passed",
+      "review": "orchestrator: fixed operator proxy allowlist (lowercase names) caught by the GCP offline plan; compile.ts backendFor delegation pending WS-REF merge"
+    },
+    {
+      "id": "WS-APPROVAL-FLOW",
+      "title": "Plan-level approval gate end to end; reviewable gated plan",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/approval-flow"
+    },
+    {
+      "id": "WS-MANIFEST-V2",
+      "title": "Product store accepts Manifest V2 (placement, release, provider tuning)",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/manifest-v2"
     }
   ],
   "blockers": [

@@ -4,9 +4,9 @@
 ([RUNNER-PROTOCOL.md](RUNNER-PROTOCOL.md)) with one new job kind. Request validation,
 principal loading, RSA signing, HTTP execution, bounded results and local audit
 are implemented in `go/internal/oci/` and `go/internal/runner/kinds/ocihttp*.go`.
-The TS vocabulary and payload schema include `oci.http`. The executor construction
-and dispatch defaults additions in §10 are required before enabling it in a
-deployed runner. Those files belong to other workstreams and were left untouched.
+The TS vocabulary and payload schema include `oci.http`. Executor construction
+and dispatch defaults are wired as described in §10. An operator must explicitly
+enable and configure the local principal before the runner advertises the kind.
 No live OCI tenancy has been exercised. The change is additive to the envelope,
 heartbeat and result protocol.
 
@@ -339,58 +339,28 @@ and synced. An audit failure fails the job with a fixed error, possibly after a
 request took effect; the result retains any known HTTP status. The control plane
 log stream is not used for these audit records.
 
-## 10. Open points
+## 10. Integration status and remaining limits
 
-Before deploying, the orchestrator must add these two wiring points outside the
-workstream's owned paths. Do not deploy with OCI advertised but unconstructed.
+`src/lib/runners/dispatch.ts` includes `oci.http` in `KIND_DEFAULTS` with a
+60-second timeout, 1 MiB output and 120-second queue TTL. The opt-in construction
+in `go/internal/runner/executor.go` calls `kinds.NewOCI` and advertises the kind
+only when configured with `enabled: true`. `go/internal/runner/config.go`
+validates it and binds the registration labels to local tenancy/region/auth.
+These are source-verified wiring claims, not a live OCI run. See the runnable
+configuration in [RUNNER.md](RUNNER.md#ocihttp--the-oci-signing-proxy).
 
-In `src/lib/runners/dispatch.ts`, add to `KIND_DEFAULTS` after `aws.http`:
-
-```ts
-  "oci.http": { timeoutSec: 60, maxOutputBytes: 1024 * 1024, queueTtlSec: 120 },
-```
-
-In `go/internal/runner/executor.go`, add after the AWS construction block in
-`NewExecutor` (the names below need no additional imports):
-
-```go
-if k := cfg.Kinds.OCIHTTP; k != nil && k.Enabled {
-    o, err := kinds.NewOCI(*k, kinds.OCIDeps{Getenv: deps.Getenv, Now: deps.Now})
-    if err != nil { return nil, err }
-    e.kinds[kinds.KindOCIHTTP] = o
-}
-```
-
-The TS union currently makes the omitted defaults entry a type error; it was
-left visible rather than weakened with casts or suppression. Executor and
-dispatch integration must be verified by their owning workstreams.
-
-`tests/providers/oci/allowlist.test.ts:247–252` also hard-codes the former proposal
-status. Its owner must replace that test with current implementation assertions
-while retaining the sealing and disabled-secret-write assertions:
-
-```ts
-it("states implemented scope and the sensitive-payload requirement", () => {
-  expect(doc).toMatch(/IMPLEMENTED MODULE; INTEGRATION PENDING/);
-  expect(doc).toMatch(/sealedBodyB64/);
-  expect(doc).toMatch(/oci\.secretWrite: false/);
-  expect(doc).toContain("go/internal/oci/");
-  expect(doc).toContain("go/internal/runner/kinds/ocihttp*.go");
-});
-```
-
-That test file is outside this workstream's owned paths. The existing provider
-compile/static suites also refuse the sample stack's `redis/cache` identity grant
-because the OCI identity driver has no Redis policy mapping. Keep that fail-closed
-behavior until its owner supplies a verified mapping or corrects the sample grant.
-
-- The service table (§5) and several API paths are taken from the OCI reference
-  and SDK conventions and are unverified against a live tenancy.
-- Resource-principal and OKE-workload runners need the OpenTofu child-env
-  allowlist described in §4; `tofu*.go` is outside this workstream's owned paths
-  and was not changed. This `oci.http` implementation launches no child process.
-- A second, observe-only runner (`oci.enabled` with an allowlist limited to
-  §6's read set) is the OCI equivalent of ADR-0006's separate observe role.
-- OCI Object Storage's S3-compatible API as an OpenTofu state backend needs a
-  static customer secret key and endpoint flags the workspace assembler does not
-  emit yet (see `deploy/oci/README.md`).
+- The service table and API paths remain unverified against a live tenancy.
+- `secret.write` remains disabled (`oci.secretWrite: false`): `sealedBodyB64`
+  is the required sensitive-payload contract, not implemented sealed-body
+  transport. `logs.read` remains unsupported.
+- `src/lib/platform/credentials.ts` still refuses OCI ProviderSession creation;
+  wiring the HTTP executor does not complete platform deploy/observe sessions.
+- The state assembler now emits OCI S3-compatible endpoint/compatibility flags
+  (`src/lib/tofu/backends.ts`, `src/lib/tofu/backend-config.ts`). Authentication
+  still requires a customer S3 secret key kept on the runner; native principals
+  cannot authenticate the S3 backend. No live state locking/restore is verified.
+- Resource/OKE credentials for a `tofu.run` child need a separately verified Go
+  child-environment allowlist; this HTTP extension launches no child process.
+- An observe-only identity needs customer IAM limited to reads and local
+  compartment/region bindings. The built-in capability method/path allowlist
+  does not substitute for customer IAM or a verified connection.

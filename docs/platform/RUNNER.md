@@ -157,6 +157,9 @@ probes:
 Any block accepts `enabled: false` to keep its settings but switch it off.
 Capabilities registered with Zenith are the enabled kinds.
 
+`oci.http` is stricter: it requires **explicit `enabled: true`**, plus a valid
+local principal configuration. Omitting `enabled` never advertises OCI.
+
 ## 4. Job kinds
 
 Every kind checks its payload strictly (**unknown fields are rejected**) before
@@ -330,6 +333,47 @@ REST requests of the form `POST /service/<ServiceName>/operation/<Operation>`.
 Other settings: `maxRequestBytes`, `endpointOverride` (send to LocalStack or a VPC
 endpoint proxy; the job's URL is still validated and signed), `stsEndpoint`,
 `imdsEndpoint`.
+
+### `oci.http` — the OCI signing proxy
+
+The Go executor constructs this kind and TypeScript dispatch supplies bounded
+defaults (60 seconds, 1 MiB output, 120-second queue TTL). It signs locally with
+instance principals, resource principals or OKE workload identity. No credential
+or arbitrary endpoint is supplied by a job. Code:
+`go/internal/runner/kinds/ocihttp.go`, `go/internal/runner/executor.go` and
+`src/lib/runners/dispatch.ts`. This is contract evidence; live OCI is not verified.
+
+Example YAML with illustrative identifiers (replace them with customer values):
+
+```yaml
+kinds:
+  oci.http:
+    enabled: true
+    auth: instance_principal
+    region: us-ashburn-1
+    tenancy: ocid1.tenancy.oc1..replace_with_customer_tenancy
+    allowedCompartments: ["ocid1.compartment.oc1..replace_with_allowed_compartment"]
+    allowedRegions: ["us-ashburn-1"]
+    resourceCompartments: {}
+    secretWrite: false
+```
+
+Run `zenith-runner check --config <file>` before registration. Allowed auth
+values are `instance_principal`, `resource_principal`, `oke_workload_identity`.
+Instance mode needs customer IAM/federation and access to its fixed IMDSv2
+identity endpoint. Resource mode requires OCI's v2.2 environment/file material;
+OKE requires its local service-account token and CA. Keep material on the runner;
+the exact env/file rules are in
+[RUNNER-PROTOCOL-OCI.md](RUNNER-PROTOCOL-OCI.md#4-signing).
+
+`resourceCompartments` binds resource OCIDs or service/region/encoded-path keys
+to allowed compartments for requests lacking an explicit compartment; refresh
+bindings after resource moves. The default audit file is
+`<stateDir>/oci-audit.jsonl`; an audit write failure refuses successful completion.
+`secretWrite: true` is rejected until sealed-body support exists; `logs.read` is
+unsupported. OCI S3 state needs a separate customer S3 secret key, and the
+platform credential broker still refuses OCI ProviderSession creation. This
+HTTP configuration alone does not enable a platform OCI deployment.
 
 ### `k8s.http`
 

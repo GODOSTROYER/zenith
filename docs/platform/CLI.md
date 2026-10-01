@@ -15,8 +15,8 @@ npx --no-install tsx src/cli/bin.ts --help
 npx --no-install tsx src/cli/bin.ts whoami --url https://zenith.example --json
 ```
 
-The examples below use `zenith` for that entry point. Package wiring is an
-orchestrator step; it has **not** been added by this workstream. Add:
+The examples below use `zenith` for that entry point. The current `package.json`
+already contains the integrated wiring:
 
 ```json
 {
@@ -25,8 +25,9 @@ orchestrator step; it has **not** been added by this workstream. Add:
 }
 ```
 
-Keep other package scripts and fields. Then `npm run cli -- --help` runs the
-CLI. A local npm link can expose `zenith`. The entry point has the shebang
+`npm run cli -- --help` runs the CLI. An installed/link-created npm bin can
+expose `zenith`; its presence on an operator's PATH is not verified here.
+The entry point has the shebang
 `#!/usr/bin/env -S npx --no-install tsx`; source execution requires the existing
 `tsx` and project `tsconfig.json` for aliases. On POSIX, record the executable
 file mode `100755` during integration; Windows does not expose that mode.

@@ -5,15 +5,17 @@ an operation when something crashes, how leases and fence tokens behave, and how
 to rotate keys and migrate the schema. For where each component runs, see
 [DEPLOYING.md](DEPLOYING.md).
 
-Written against branch `ws/docs`, merged with `platform/integration` at `1f46549` (2026-10-01).
+Written against branch `ws/docs-sync`, based on `platform/integration` at `e3ea61a` (2026-10-01).
 
 **Read this first.** The recovery machinery in the store (leases, fence tokens,
 `uncertain`, the reconciler) is built and was exercised against a real PostgreSQL
 (see [What was rehearsed](#8-what-was-rehearsed)). The capability broker now opens
 the platform store behind `/api/platform/v1`, so proposals, approvals and
-cancellations are written for real; but the activities the worker registers are stubs (real ones exist in `src/lib/execution`
-and are not wired), nothing starts a workflow from an approved operation, and nothing calls
-`reconcileOperations` or the runner-job reaper on a timer. So this page describes the
+cancellations use the ledger. The worker registers composed execution activities;
+product deploys and MCP v3 start workflows. Environment reconciliation and runner
+job reaping are driven by ticks (`src/lib/platform/app.ts`,
+`src/lib/server/cron.ts`, `.github/workflows/tick.yml`). The standalone ledger
+backstop `reconcileOperations` still has no timer caller. This page describes the
 contract the code enforces, plus the operator steps around it; it is not a record of
 a production recovery. The places where a statement is reasoning from the code
 rather than something observed are marked **reasoned**.
@@ -26,10 +28,10 @@ rather than something observed are marked **reasoned**.
 | **Product store** | `<ZENITH_DATA>` (file) or Supabase Postgres via PostgREST | Workspaces, projects, revisions, deployments, the product's audit log | No | Out of scope here; see [RUNNING.md](../../RUNNING.md) and [HOSTED-POSTGRES.md](../../HOSTED-POSTGRES.md) |
 | **Product secret store** | `<ZENITH_DATA>/secrets.json`, encrypted under `ZENITH_SECRET_KEY` | Secret values behind `vault:` references | **No, and the key cannot be recovered**: values written under a lost key cannot be read back; there is no re-wrap tool ([LIMITATIONS.md](../../LIMITATIONS.md#secrets)) | Back up the file and the key **separately** |
 | **Temporal history** | Temporal Cloud or your cluster | In-flight workflow state: ids, digests, counts, redacted messages | No, but nothing permanent lives only here; the ledger holds the operation record | Temporal's own; Cloud retention is a namespace setting (section 2.3) |
-| **Customer OpenTofu state** | The customer's S3 bucket `zenith-state-<account>-<region>` | What Zenith applied in that account | No | The customer's bucket (versioned); Zenith does not back it up (section 2.4) |
+| **Customer OpenTofu state** | S3 (AWS or OCI-compatible), GCS or Azure Blob, selected from connection identifiers | What OpenTofu applied | No | Customer-managed versioning/backups; no live backend restore is verified (section 2.4 and DEPLOYING.md section 2.14) |
 | **Signing keys and the result-sealing key** | Secret manager or KMS | Zenith's OIDC identity, grant signatures, and the key that seals runner and `zenithd` results at rest (`ZENITH_RUNNER_RESULT_KEY`, or derived from the control signing key) | Replaceable, not recoverable (section 6); results sealed under a lost sealing key are unreadable | Your secret manager's backup; KMS keys have their own deletion protection |
 | **Policy bundle, price catalog** | The repository (`policy/dist`, `src/lib/placement/catalog`) | Rules and prices | Yes: `npm run policy:check` reproduces the bundle | Git |
-| **Execution worker** | Nowhere: stateless | | Yes | None needed |
+| **Execution worker** | Process plus private binary plans in `ZENITH_WORKER_PLAN_DIR` | Local plan artifacts before apply | Process yes; artifact availability across replicas is not verified | Keep plan storage private; plans may contain secrets. Do not put them in logs or model-visible backups. |
 | **Cloud credentials** | Nowhere: never stored | | Not applicable: minted per operation inside `withSession` | None |
 
 The store holds references (`vault:...`, ARNs, secret names), digests and
@@ -86,8 +88,10 @@ not die with the host, because losing it loses every stored secret value.
 - **`temporal server start-dev`:** history is **in memory** unless you pass
   `--db-filename`; it is for development only.
 
-Workflow history holds no secrets and no plans, so a leaked history is an
-inventory of operation ids and digests, not credentials.
+Workflow payloads are intended to hold ids, digests and redacted summaries;
+history has no configured payload encryption. Runtime serialization and
+arbitrary secret redaction are not a blanket guarantee. Restrict history access
+and retention; this sync does not run the opt-in history security checks.
 
 ### 2.4 Customer OpenTofu state
 
@@ -111,10 +115,16 @@ same bucket, which is the point of keeping it in the customer's account. This
 design property is from the template and the OpenTofu backend settings
 (`encrypt`, `use_lockfile`); no real state has been written.
 
+That retention policy describes the AWS bootstrap only. For GCS, Azure Blob and
+OCI Object Storage, see [state selection](DEPLOYING.md#214-customer-state-backends),
+provision backup/versioning on the customer's storage and rehearse restore
+before relying on it. No corresponding live backup/restore is verified here.
+
 ### 2.5 Keys and configuration
 
-Back up nothing from the worker. Back up the **secret manager entries** for the
-signing keys, `ZENITH_RUNNER_RESULT_KEY` (if you set it) and the database URL, and the
+Keep local worker plan files private; their availability after a replica loss
+is not verified. Back up the **secret manager entries** for the signing keys,
+`ZENITH_SECRET_KEY`, `ZENITH_RUNNER_RESULT_KEY` (if you set it) and the database URL, and the
 list of variables in
 [DEPLOYING.md section 2](DEPLOYING.md#2-environment-variables). A KMS signing key
 is recovered by your KMS account's controls, not by Zenith.
@@ -208,9 +218,12 @@ requirement (`approval_required` or `reapproval_required`), checks the signer wo
 before anything is consumed, then atomically verifies the digest, consumes the
 approvals and moves the operation to `running` (`already_claimed` for every concurrent
 caller but one), and issues a single-use grant. `completeExecution` ends a running
-operation and revokes any grant still live; `markUncertain` ends it `uncertain`. Nothing
-calls `beginExecution` yet (the activities are stubs), so on this branch operations stop
-at `approved`.
+operation and revokes any grant still live; `markUncertain` ends it `uncertain`.
+Product deploys (`src/lib/bridge/lifecycle.ts`), MCP approved execution
+(`src/lib/agent-access/v3/tools/execute.ts`) and allowed repair dispatch
+(`src/lib/platform/reconcile.ts`) call the claim gate before starting workflows.
+`src/lib/platform/broker.ts` checks running operations and consumed approvals for
+activity grants; it does not treat a claim as a successful mutation.
 
 ### 4.3 Moment by moment
 
@@ -239,9 +252,14 @@ side now exists (`src/lib/runners`, routes under `/api/platform/v1/runners` and
 the reaper for both the runner queue and the `zenithd` queue, and
 `awaitRunnerJob` (`dispatch.ts`) never re-dispatches: a job it stops waiting for is
 cancelled, so a late result from the agent gets `409 already_settled` and is
-discarded, and the operation is reconciled by observing reality. Gaps on this branch:
-**no timer calls `reapExpiredJobs`** (like `reconcileOperations`) and no activity
-enqueues a job. The `zenithd` queue's table, `platform.machine_requests`, is migration 3
+discarded, and the operation is reconciled by observing reality.
+`src/lib/server/cron.ts` calls `platformRunnerReaperPass` from cron passes and its
+long-lived scheduler. `src/lib/platform/app.ts` calls `reapExpiredJobs` and marks
+owning operations uncertain in the same transaction. AWS runner credential
+sessions enqueue/await through `src/lib/runners/aws-runner-transport.ts`;
+the machine activity path requires an injected port absent from default worker
+composition. The separate
+`reconcileOperations` ledger backstop remains unscheduled. The `zenithd` queue's table, `platform.machine_requests`, is migration 3
 ([DEPLOYING.md](DEPLOYING.md#32-migrating)). Results are sealed at rest; a result that cannot be
 opened (lost or rotated sealing key) leaves its operation `uncertain`.
 
@@ -252,8 +270,11 @@ store function above) moves stale **operations** to `uncertain` or `expired`. Th
 **reconciliation controller** (`src/lib/reconcile`, `POST /api/internal/tick/reconcile`)
 observes an environment, diffs it against its desired graph, records drift and files
 `drift.repair` *proposals* through the broker; it never changes an operation's
-status and it never repairs anything itself. The controller is merged but not
-driven: production ports are not wired and no schedule calls its route
+status and it never mutates infrastructure itself. Production ports are wired
+in `src/lib/platform/app.ts`, and the five-minute tick includes its route.
+Allowed repair proposals dispatch through `src/lib/platform/reconcile.ts` to
+day-two workflows; unsupported execution may still fail. An uncertain operation
+is not resumed by that dispatch
 ([DEPLOYING.md](DEPLOYING.md#29-reconciliation-tick)).
 
 1. Read its events (`operation.uncertain`, `lease.lost`, step events) and its
@@ -268,8 +289,8 @@ driven: production ports are not wired and no schedule calls its route
 
 ### 4.6 Restoring to an earlier point in time is not free
 
-**Reasoned from the schema and the code; not rehearsed**, because the activities
-that would exercise it do not exist yet. A restore to time T rewinds everything
+**Reasoned from the schema and the code; not rehearsed with the composed execution
+activities** (`src/lib/platform/execution.ts`). A restore to time T rewinds everything
 written after T, including state that exists only to be single-use or monotonic:
 
 - **Approvals and grants.** An approval is consumed when an operation is claimed
@@ -413,7 +434,8 @@ Procedure for a release that adds a migration:
 
 ## 8. What was rehearsed
 
-On 2026-09-30 against PostgreSQL 16.15 (the `zenith-dev-postgres` container;
+Historical WS-DOCS rehearsal record, not rerun in this sync: on 2026-09-30
+against PostgreSQL 16.15 (the `zenith-dev-postgres` container;
 scratch databases, dropped afterwards), using the store's own functions:
 
 | Step | Observed |
@@ -439,5 +461,5 @@ above, were not re-observed on Postgres.
 
 **Not rehearsed:** a restore to an earlier point in time with live workers and
 workflows (section 4.6); Supabase's own backup and restore; Temporal Cloud; any
-recovery with real activities, because none exist; a runner reaping jobs against a
+recovery with the now-composed execution activities; a runner reaping jobs against a
 live control plane; a load of realistic size (the drill wrote a handful of rows).

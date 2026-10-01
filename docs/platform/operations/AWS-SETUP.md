@@ -7,17 +7,18 @@ Zenith, what it does not, and how to take it back. **The commands and the
 parameter tables are in [`deploy/aws/README.md`](../../../deploy/aws/README.md);
 this page does not repeat them.**
 
-Written against branch `ws/docs`, merged with `platform/integration` at `1f46549` (2026-10-01).
+Written against branch `ws/docs-sync`, based on `platform/integration` at `e3ea61a` (2026-10-01).
 
 **Status, stated up front.** The bootstrap template and module, the broker and the
 issuer are built and tested without an AWS account. **Nothing has been applied to
 a real account and no real token has been exchanged with real STS.** The IAM
 policies are written from the AWS documentation; expect that a first real
 deployment may hit an `AccessDenied` that needs one more statement. The
-deny-by-default posture makes that the safe direction. The Zenith-side step of
-entering your role ARNs has no screen and no route on this branch yet (the REST
-surface covers operations, approvals, autonomy and workspace policy, but has no
-connections route); see [What is not built](#what-is-not-built).
+deny-by-default posture makes that the safe direction. The Zenith-side form is
+`/platform/connections/aws`, using the browser action adapter in
+`src/app/(product)/platform/connections/aws/action/route.ts`. A standalone
+`/api/platform/v1/connections` route remains absent; see
+[What is not built](#what-is-not-built).
 
 ## What you run, and what it creates
 
@@ -156,6 +157,14 @@ CodeBuild role outputs). Zenith verifies by assuming the observe role and callin
 connection stays `pending_verification` and nothing runs. That check is
 `AwsCredentialBroker.verifyConnection`.
 
+In the browser, save the non-secret identifiers, deploy the generated trust
+bootstrap in the customer account, then verify using `connection.createAws`
+and `connection.verifyAws`. The page's adapter checks the reviewed workspace
+against the current workspace cookie and requires a live browser session.
+The product connection is mirrored to `platform.provider_connections` by the
+connection actions. Verification establishes observe-role identity only;
+deploy permissions, runner availability and worker health remain unverified.
+
 If assuming the role is denied, work through
 [Troubleshooting `AccessDenied` on assume](../../../deploy/aws/README.md#troubleshooting-accessdenied-on-assume)
 in the deploy README: the OIDC provider for exactly that issuer URL, the exact
@@ -186,32 +195,21 @@ applyable IaC if you want to carry on without Zenith.
 
 ## What is not built
 
-- **The Zenith side of "Finish in Zenith".** Entering the outputs, seeing
-  `pending_verification` turn to `verified`, and choosing which environments use
-  the connection need a connections route in the REST surface (`/api/platform/v1`
-  has none) and a page. The building blocks exist: `platform.provider_connections`,
-  `AwsCredentialBroker.verifyConnection`, the OIDC endpoints, and a presentational
-  component for the form (`AwsConnectionSetup` in `src/components/platform`, which
-  takes the verify callback as a prop, refuses a pasted access key, and calls
-  nothing itself). No page renders that component yet.
-- **Anything beyond AWS.** GCP, Azure, OCI and Kubernetes connections are in
-  progress; `ProviderConnection` has types for them, but nothing is documented or
-  verified.
-- **Drivers that can act on the account.** The AWS drivers (network and edge, compute,
-  data) are merged as modules and registered by nothing (there is no AWS provider-level
-  index), and carry `contract` evidence only ([CAPABILITY-MATRIX.md](../CAPABILITY-MATRIX.md)).
-  The machine plane's AWS SSM transport and its fixed documents (`deploy/aws/ssm-documents/`)
-  are merged too, but the shipped bootstrap template grants no `ssm:SendCommand`, so
-  enabling it is a deliberate extension of the deploy role, not something this setup does.
-- **Real deploys.** The worker's activities are stubs
-  ([DEPLOYING.md](DEPLOYING.md#status-what-actually-runs-on-this-branch)), so a
-  connected account cannot yet be changed by Zenith through the platform path.
-- **Runner mode.** Jobs executed by a customer-side runner with local identity
-  (credentials never leave your network) are specified in
-  [RUNNER-PROTOCOL.md](../RUNNER-PROTOCOL.md), and the Go runner is built
-  ([RUNNER.md](../RUNNER.md), including an EKS IRSA example). The control-plane side
-  that registers it and queues jobs for it is merged (`src/lib/runners`, routes under
-  `/api/platform/v1/runners`), but no activity enqueues a job and the session
-  middleware does not yet let a runner's cookie-less calls through
-  ([DEPLOYING.md](DEPLOYING.md#7-the-web--api-control-plane)), so nothing connects an
-  account in runner mode yet.
+- **A standalone connections REST endpoint.** Browser AWS setup exists; bearer
+  clients cannot infer a `/api/platform/v1/connections` API from that page.
+- **Non-AWS identity verification.** Six providers' drivers are registered,
+  but `src/lib/platform/credentials.ts` returns unsuccessful verification for
+  non-AWS connections. OCI and non-AWS runner ProviderSession modes are refused.
+- **Live deploy acceptance.** The worker registers execution implementations
+  and the AWS registrar composes all driver groups (`src/lib/platform/drivers.ts`).
+  They carry contract evidence, not a live-account run. An approved dispatch
+  is not a verified deployment.
+- **SSM permission by default.** The activity's machine path requires an
+  injected machine port (absent from default composition), and the shipped
+  bootstrap grants no `ssm:SendCommand`. Install
+  the fixed documents in `deploy/aws/ssm-documents/` and deliberately extend
+  permissions if enabling that transport.
+- **Live runner end-to-end verification.** AWS runner sessions enqueue/await
+  through `src/lib/runners/aws-runner-transport.ts`; signed paths pass session
+  middleware, and cron reaps expired jobs. See [RUNNER.md](../RUNNER.md).
+  That wiring has not been exercised against a customer runner and AWS here.

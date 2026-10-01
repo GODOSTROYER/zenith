@@ -219,10 +219,11 @@ or product store (response imports are type-only; redaction is pure).
 
 ## Current limits and integration
 
-- Workflow activities are stubs in this build: starting a workflow does not
-  change real infrastructure. They fail with “nothing was changed”; stub
-  finalization can also leave the broker ledger claimed until real activities
-  are wired. Tests use fake workflow starts; no live Temporal run is claimed.
+- The worker registers composed execution activities through
+  `src/lib/workflows/activities/index.ts` and `src/lib/platform/execution.ts`.
+  Product deploys and MCP approved execution start workflows, but dispatch is
+  not live-cloud acceptance. MCP tests use fake workflow starts; no cloud or
+  Temporal Cloud run is claimed by this docs sync.
 - Cloud reads require `registerCredentialBroker()` in `v3/adapters.ts`. Without
   it, AWS/Kubernetes reads report `unavailable`. No real cloud session is wired
   or exercised here. Other provider sources may also be unavailable.
@@ -235,17 +236,18 @@ or product store (response imports are type-only; redaction is pure).
   OpenTofu plan. LocalStack is unsupported by this endpoint.
 - `/integrations/operations/<id>` is the UI workstream's approval page. MCP
   creates neither UI pages nor product Deployment rows. Deploy workflow input
-  uses `deploymentId: dep-<operationId>`; execution must own that projection.
+  uses `deploymentId: dep-<operationId>`; the composed execution product port
+  owns that projection (`src/lib/platform/execution.ts`).
 - MCP claims an approved operation before starting its workflow and drops the
-  grant. Activity implementers must accept a running operation whose approval
-  was already consumed for this digest, or the orchestrator must move claiming
-  into the workflow's first activity. Do not consume an approval twice.
+  grant. `src/lib/platform/broker.ts` validates a running operation and its
+  digest-bound approval when issuing activity grants, without consuming the
+  initial approval twice. A new concrete plan may still require reapproval.
 - Operation progress needs a Temporal worker; queries time out after 3 seconds
   and report unavailable. Ledger status alone does not prove a workflow started.
-- OAuth `.well-known` discovery, plugin v3 bridging, real execution activities
-  and cloud/incident wiring remain integration work. No dependency, broker,
-  REST-route or v2 contracts were changed by this workstream.
-- The existing platform REST generic error logger emitted raw injected
-  exception text during broker tests, including a secret-shaped test canary.
-  Its owner should sanitize that diagnostic path; it is outside the MCP-owned
-  paths. MCP's own unexpected-error diagnostics are redacted and tested.
+- OAuth `.well-known` discovery, plugin v3 bridging and the MCP cloud-read /
+  investigator hooks remain integration work. Worker execution composition is
+  already wired; its credential broker does not register the MCP read hook.
+- Request diagnostics now pass through `safeRequestError` in
+  `src/lib/server/errors.ts` before logging or responding (SEC-R2).
+  MCP diagnostics also use their redaction boundary. These detect known shapes;
+  arbitrary unknown secrets are not guaranteed to be detected.

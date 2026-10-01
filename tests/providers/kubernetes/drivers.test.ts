@@ -99,8 +99,13 @@ describe("observe + verify across every kind", () => {
       for (const k of Object.keys(d.expectedAttributes(n))) expect(obs.attributes, k).toHaveProperty(k);
       const runtime = d.runtime ? await d.runtime(ctx, n) : undefined;
       const v = await d.verify(ctx, n, obs, runtime);
-      expect(v.checks.filter((c: any) => c.passed !== true), JSON.stringify(v.checks)).toEqual([]);
-      expect(v.status).toBe("passed");
+      if (n.kind === "identity" && Array.isArray(n.spec.grants) && n.spec.grants.length) {
+        expect(v.checks.filter((c: any) => c.passed !== true)).toEqual([expect.objectContaining({ id: "grants", passed: "unknown" })]);
+        expect(v.status).toBe("unknown");
+      } else {
+        expect(v.checks.filter((c: any) => c.passed !== true), JSON.stringify(v.checks)).toEqual([]);
+        expect(v.status).toBe("passed");
+      }
       expect(v.simulated).toBe(false);
     });
   }

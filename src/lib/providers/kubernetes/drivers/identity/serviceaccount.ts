@@ -1,10 +1,9 @@
 /**
  * `k8s:ServiceAccount` — identity.
  *
- * The account is a stable handle for workloads; this driver does not translate
- * `IdentitySpec.grants` into RBAC or cloud workload-identity bindings, so a
- * passing verify says the account exists and does not auto-mount a token, not
- * that any grant is in force.
+ * Rendering translates grants, but this reader observes only the account.
+ * Effective RBAC/cloud access is unknown until separately inspected. A bound
+ * token is enabled only for rendered RBAC (or an explicit context opt-in).
  */
 import { dig } from "../../util";
 import { makeKubernetesDriver, type KindDef } from "../shared";
@@ -15,7 +14,12 @@ export const serviceAccountDef: KindDef = {
   kind: "ServiceAccount",
   portable: ["identity"],
   attributes: (live) => ({ automountServiceAccountToken: dig(live, "automountServiceAccountToken") === true }),
-  expected: () => ({ automountServiceAccountToken: false }),
+  // A driver has no graph/context: it cannot know which grants rendered RBAC.
+  expected: (node) => Array.isArray(node.spec.grants) && node.spec.grants.length ? {} : { automountServiceAccountToken: false },
+  extraChecks: (node) => Array.isArray(node.spec.grants) && node.spec.grants.length ? [{
+    id: "grants", description: "identity grants are effective", passed: "unknown",
+    detail: "ServiceAccount observation alone does not inspect RBAC, cloud trust/federation, admission wiring or effective permissions.",
+  }] : [],
   summary: (live) => ({ automountServiceAccountToken: dig(live, "automountServiceAccountToken") === true }),
   skipDiscovery: (live) => dig(live, "metadata", "name") === "default",
 };

@@ -98,6 +98,8 @@ export interface ObjectRef {
 export const KIND_INFO = {
   Namespace: { apiVersion: "v1", namespaced: false },
   ServiceAccount: { apiVersion: "v1", namespaced: true },
+  Role: { apiVersion: "rbac.authorization.k8s.io/v1", namespaced: true },
+  RoleBinding: { apiVersion: "rbac.authorization.k8s.io/v1", namespaced: true },
   ResourceQuota: { apiVersion: "v1", namespaced: true },
   LimitRange: { apiVersion: "v1", namespaced: true },
   Secret: { apiVersion: "v1", namespaced: true },
@@ -123,6 +125,8 @@ export type SupportedKind = keyof typeof KIND_INFO;
 export const APPLY_ORDER: readonly SupportedKind[] = [
   "Namespace",
   "ServiceAccount",
+  "Role",
+  "RoleBinding",
   "ResourceQuota",
   "LimitRange",
   "Secret",
@@ -254,6 +258,10 @@ export interface K8sRenderContext {
   runAsUser?: number;
   /** default false */
   automountServiceAccountToken?: boolean;
+  /** Explicit cluster and authentication mechanism; never inferred from a cloud resource's name. */
+  workloadIdentity?: { cluster: string; mechanism: "eks-irsa" | "eks-pod-identity" | "gke" | "aks" };
+  /** Resolved, non-secret published cloud attributes: AWS `arn`, GCP `email`, Azure `client_id`. Unresolved values render no annotation. */
+  resolveAttribute?(address: string, attribute: string): unknown;
 }
 
 export interface RenderResult {

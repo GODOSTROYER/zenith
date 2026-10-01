@@ -18,6 +18,7 @@
 import type { ResourceNode } from "@/lib/resources/types";
 import { APPLY_ORDER, ANNOTATION, KIND_INFO, LABEL, MANAGED_BY_VALUE, K8sError, isSupportedKind, refKey, type K8sObject, type K8sRenderContext, type RenderResult, type SupportedKind } from "./types";
 import { isDnsLabel } from "./naming";
+import { validateRbac } from "./rbac";
 import { renderDataStore } from "./renderers/data";
 import { renderIdentity, renderSecret, renderVolume } from "./renderers/identity";
 import { renderCertificate, renderDnsRecord, renderFirewall, renderLoadBalancer, renderNamespace } from "./renderers/network";
@@ -65,6 +66,7 @@ function validateRendered(node: ResourceNode, ctx: K8sRenderContext, objects: re
     if (o.metadata.annotations?.[ANNOTATION.environment] !== ctx.environmentId) throw new K8sError("render_error", `${where}: missing ${ANNOTATION.environment}.`);
     if (o.metadata.annotations?.[ANNOTATION.resource] !== node.address) throw new K8sError("render_error", `${where}: missing ${ANNOTATION.resource}.`);
     if (o.kind === "Secret" && ("data" in o || "stringData" in o)) throw new K8sError("render_error", `${where}: a rendered Secret must not carry data.`);
+    validateRbac(o, "render_error");
     if (Buffer.byteLength(JSON.stringify(o), "utf8") > MAX_OBJECT_BYTES) throw new K8sError("render_error", `${where}: object exceeds ${MAX_OBJECT_BYTES} bytes.`);
   }
 }
@@ -112,6 +114,7 @@ export function renderGraph(
   base: Omit<K8sRenderContext, "node" | "nodes" | "namespace">
 ): RenderResult {
   const byAddress = new Map(nodes.map((n) => [n.address, n]));
+  if (byAddress.size !== nodes.length) throw new K8sError("render_error", "Graph has duplicate node addresses.");
   const ctx: K8sRenderContext = { ...base, node: (a) => byAddress.get(a), nodes: () => nodes };
   const owner = new Map<string, string>();
   const objects: K8sObject[] = [];
@@ -129,5 +132,5 @@ export function renderGraph(
       objects.push(o);
     }
   }
-  return { objects: applyOrder(objects), notes };
+  return { objects: applyOrder(objects), notes: [...new Set(notes)] };
 }

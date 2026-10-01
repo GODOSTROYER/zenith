@@ -27,6 +27,7 @@ import type { ResourceNode } from "@/lib/resources/types";
 import { LABEL, MANAGED_BY_VALUE, SECRET_DATA_KEY, type K8sObject, type K8sRenderContext, type RenderResult } from "../types";
 import { looksLikeSecretRef, objectName, secretObjectName } from "../naming";
 import { isRecord } from "../util";
+import { identityAccess } from "./identity";
 import {
   TMP_MOUNT,
   TMP_VOLUME,
@@ -87,21 +88,25 @@ export function renderEnv(node: ResourceNode, env: readonly EnvEntry[] | undefin
   });
 }
 
-function identityServiceAccount(node: ResourceNode, ctx: K8sRenderContext): string | undefined {
-  const match = ctx.nodes?.().find(
+function workloadIdentityNode(node: ResourceNode, ctx: K8sRenderContext): ResourceNode | undefined {
+  const matches = ctx.nodes?.().filter(
     (n) =>
       n.kind === "identity" &&
       n.ownership === "managed" &&
       (n.provider === "kubernetes" || n.provider === "zenith") &&
       isRecord(n.spec) &&
       n.spec.workload === node.address
-  );
-  return match ? objectName(match) : undefined;
+  ) ?? [];
+  if (matches.length > 1) throw renderError(`${node.address}: several Kubernetes identities select this workload.`);
+  const match = matches[0];
+  if (match && ctxNamespace(match, ctx) !== ctxNamespace(node, ctx)) throw renderError(`${node.address}: its ServiceAccount must be in the workload namespace.`);
+  return match;
 }
 
 interface PodParts {
   labels: Record<string, string>;
   spec: Record<string, unknown>;
+  notes: string[];
 }
 
 function podParts(
@@ -112,7 +117,9 @@ function podParts(
 ): PodParts {
   const ro = readOnlyRoot(ctx);
   const sec = { readOnlyRootFilesystem: ro, runAsUser: ctx.runAsUser };
-  const sa = identityServiceAccount(node, ctx);
+  const identity = workloadIdentityNode(node, ctx);
+  const access = identity && identityAccess(identity, ctx);
+  const sa = identity && objectName(identity);
   const selector = selectorLabels(node, ctx);
   const c = {
     ...container,
@@ -121,7 +128,7 @@ function podParts(
   };
   const spec: Record<string, unknown> = {
     ...(sa ? { serviceAccountName: sa } : {}),
-    automountServiceAccountToken: ctx.automountServiceAccountToken === true,
+    automountServiceAccountToken: access?.automount ?? ctx.automountServiceAccountToken === true,
     enableServiceLinks: false,
     ...(extra.restartPolicy ? { restartPolicy: extra.restartPolicy } : {}),
     securityContext: podSecurityContext(sec),
@@ -136,8 +143,9 @@ function podParts(
       : {}),
   };
   return {
-    labels: { ...selector, [LABEL.managedBy]: MANAGED_BY_VALUE, [LABEL.component]: extra.component },
+    labels: { ...selector, [LABEL.managedBy]: MANAGED_BY_VALUE, [LABEL.component]: extra.component, ...access?.podLabels },
     spec,
+    notes: access?.notes ?? [],
   };
 }
 
@@ -188,6 +196,7 @@ export function renderContainerService(node: ResourceNode, ctx: K8sRenderContext
   }
 
   const pod = podParts(node, ctx, container, { component: isSite ? "static-site" : (s.workload ?? "web"), zones, replicas });
+  notes.push(...pod.notes);
   const selector = selectorLabels(node, ctx);
   const autoscale = ctx.autoscale === true && replicas > 1;
 
@@ -248,6 +257,7 @@ export function renderScheduledJob(node: ResourceNode, ctx: K8sRenderContext): R
   const resources = computeResources(node, reqNumber(node, "vcpu", { min: 0.001, max: 256 }), reqNumber(node, "memoryMb", { min: 4, max: 1_048_576 }));
   const container: Record<string, unknown> = { name: "job", image: imageOf(node, ctx), env: renderEnv(node, s.env), resources };
   const pod = podParts(node, ctx, container, { component: "job", restartPolicy: "Never" });
+  notes.push(...pod.notes);
   if (schedule === undefined) notes.push(`${node.address}: no schedule in the spec, so the CronJob is suspended; run it on demand.`);
   const cron: K8sObject = {
     apiVersion: "batch/v1",

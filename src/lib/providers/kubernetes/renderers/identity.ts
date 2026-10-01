@@ -1,5 +1,6 @@
 /**
- * identity → ServiceAccount; secret → Secret (metadata only); volume → PVC.
+ * identity → ServiceAccount + exact namespaced RBAC and cloud annotations;
+ * secret → Secret (metadata only); volume → PVC.
  *
  * Secret: the rendered object has NO `data` and never will. It carries the
  * reference in `zenith.dev/secret-ref`; the execution worker resolves that
@@ -7,34 +8,37 @@
  * the value into the request body in memory only (`apply.ts`). This file never
  * sees a value.
  *
- * ServiceAccount: `automountServiceAccountToken: false` unless the render
- * context asks for a token (`ctx.automountServiceAccountToken`). The grants in an
- * `IdentitySpec` target cloud resources; turning them into RBAC or cloud
- * workload-identity annotations (IRSA, GKE WI) needs role ARNs the compile step
- * produces and is NOT done here. The account exists so workloads reference a
- * stable identity; it does not itself grant anything.
+ * Tokens default off; rendered RBAC opts the identity and its workload into a
+ * bound API token. Cloud annotation values come only from resolved published
+ * attributes. Missing counterparts render no cloud annotation and emit notes.
  */
-import type { IdentitySpec, SecretSpec } from "@/lib/resources/specs";
+import type { SecretSpec } from "@/lib/resources/specs";
 import type { ResourceNode } from "@/lib/resources/types";
 import { ANNOTATION, LABEL, type K8sObject, type K8sRenderContext, type RenderResult } from "../types";
 import { looksLikeSecretRef, objectName, secretObjectName } from "../naming";
 import { isRecord } from "../util";
 import { ctxNamespace, metadata, renderError, specOf } from "./common";
+import { identityGrants, renderIdentityRbac } from "./identity-grants";
+import { cloudIdentity } from "./cloud-identity";
+
+export function identityAccess(node: ResourceNode, ctx: K8sRenderContext) {
+  const grants = identityGrants(node);
+  const rbac = renderIdentityRbac(node, ctx, grants);
+  const cloud = cloudIdentity(node, ctx, grants);
+  return { objects: rbac.objects, annotations: cloud.annotations, podLabels: cloud.podLabels,
+    automount: ctx.automountServiceAccountToken === true || rbac.objects.length > 0,
+    notes: [...rbac.notes, ...cloud.notes] };
+}
 
 export function renderIdentity(node: ResourceNode, ctx: K8sRenderContext): RenderResult {
-  const spec = specOf(node) as unknown as Partial<IdentitySpec>;
-  const notes: string[] = [];
-  const grants = Array.isArray(spec.grants) ? spec.grants.length : 0;
-  if (grants > 0) {
-    notes.push(`${node.address}: ${grants} grant(s) target other resources; this driver renders the ServiceAccount only and does not translate grants into RBAC or cloud workload-identity bindings.`);
-  }
+  const access = identityAccess(node, ctx);
   const sa: K8sObject = {
     apiVersion: "v1",
     kind: "ServiceAccount",
-    metadata: metadata(node, ctx, { name: objectName(node), namespace: ctxNamespace(node, ctx), labels: { [LABEL.name]: objectName(node) } }),
-    automountServiceAccountToken: ctx.automountServiceAccountToken === true,
+    metadata: metadata(node, ctx, { name: objectName(node), namespace: ctxNamespace(node, ctx), labels: { [LABEL.name]: objectName(node) }, annotations: access.annotations }),
+    automountServiceAccountToken: access.automount,
   };
-  return { objects: [sa], notes };
+  return { objects: [sa, ...access.objects], notes: access.notes };
 }
 
 export function renderSecret(node: ResourceNode, ctx: K8sRenderContext): RenderResult {

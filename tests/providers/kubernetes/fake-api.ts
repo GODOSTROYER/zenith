@@ -89,6 +89,10 @@ const GROUPS: Record<string, ResourceDef[]> = {
     { name: "replicasets", kind: "ReplicaSet", namespaced: true },
   ],
   "batch/v1": [{ name: "cronjobs", kind: "CronJob", namespaced: true }],
+  "rbac.authorization.k8s.io/v1": [
+    { name: "roles", kind: "Role", namespaced: true },
+    { name: "rolebindings", kind: "RoleBinding", namespaced: true },
+  ],
   "networking.k8s.io/v1": [
     { name: "networkpolicies", kind: "NetworkPolicy", namespaced: true },
     { name: "ingresses", kind: "Ingress", namespaced: true },

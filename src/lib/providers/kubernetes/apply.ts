@@ -128,7 +128,7 @@ interface PreflightOutcome {
   secretValues: string[];
 }
 
-async function preflight(client: K8sClient, objects: readonly K8sObject[], opts: ApplyOptions): Promise<PreflightOutcome> {
+async function preflight(client: K8sClient, objects: readonly K8sObject[], opts: ApplyOptions, environmentId: string | undefined): Promise<PreflightOutcome> {
   const prepared: Prepared[] = [];
   const failures: ApplyItemResult[] = [];
   const secretValues: string[] = [];
@@ -136,7 +136,7 @@ async function preflight(client: K8sClient, objects: readonly K8sObject[], opts:
   for (const obj of applyOrder(objects)) {
     let v: { ref: ObjectRef; environment: string };
     try {
-      v = validate(obj, opts.environmentId);
+      v = validate(obj, environmentId);
     } catch (e) {
       const err = toK8sError(e);
       failures.push({ ref: refOf(obj ?? {}), status: "error", errorCode: err.code, message: err.message });
@@ -260,11 +260,29 @@ interface RunOutcome {
   secretChanged: Set<string>;
 }
 
+/**
+ * The environment a batch acts for: the caller's, else the one every object
+ * names. A batch that names several and is not told which is refused, so the
+ * namespace guard and ownership checks are never bound to "whatever the
+ * objects say".
+ */
+function batchEnvironment(objects: readonly K8sObject[], given: string | undefined): string | undefined {
+  if (given !== undefined) return given;
+  const envs = new Set<string>();
+  for (const o of objects) {
+    const e = o?.metadata?.annotations?.[ANNOTATION.environment];
+    if (typeof e === "string" && e !== "") envs.add(e);
+  }
+  if (envs.size > 1) throw new K8sError("invalid_object", "Objects belong to several environments; pass environmentId to say which one this apply is for.");
+  return envs.size === 1 ? [...envs][0] : undefined;
+}
+
 async function run(objects: readonly K8sObject[], session: KubernetesSession, opts: ApplyOptions): Promise<RunOutcome> {
   assertNoForce(opts);
   const dryRun = opts.dryRun === true;
-  const client = createK8sClient(session, { signal: opts.signal, environmentId: opts.environmentId, requestTimeoutMs: opts.requestTimeoutMs });
-  const pre = await preflight(client, objects, opts);
+  const environmentId = batchEnvironment(objects, opts.environmentId);
+  const client = createK8sClient(session, { signal: opts.signal, environmentId, requestTimeoutMs: opts.requestTimeoutMs });
+  const pre = await preflight(client, objects, opts, environmentId);
   const applied = new Map<string, Record<string, unknown>>();
   const lives = new Map<string, Record<string, unknown> | undefined>();
   const secretChanged = new Set<string>();

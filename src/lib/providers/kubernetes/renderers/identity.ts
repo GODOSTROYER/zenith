@@ -7,7 +7,8 @@
  * the value into the request body in memory only (`apply.ts`). This file never
  * sees a value.
  *
- * ServiceAccount: `automountServiceAccountToken: false`. The grants in an
+ * ServiceAccount: `automountServiceAccountToken: false` unless the render
+ * context asks for a token (`ctx.automountServiceAccountToken`). The grants in an
  * `IdentitySpec` target cloud resources; turning them into RBAC or cloud
  * workload-identity annotations (IRSA, GKE WI) needs role ARNs the compile step
  * produces and is NOT done here. The account exists so workloads reference a
@@ -31,7 +32,7 @@ export function renderIdentity(node: ResourceNode, ctx: K8sRenderContext): Rende
     apiVersion: "v1",
     kind: "ServiceAccount",
     metadata: metadata(node, ctx, { name: objectName(node), namespace: ctxNamespace(node, ctx), labels: { [LABEL.name]: objectName(node) } }),
-    automountServiceAccountToken: false,
+    automountServiceAccountToken: ctx.automountServiceAccountToken === true,
   };
   return { objects: [sa], notes };
 }

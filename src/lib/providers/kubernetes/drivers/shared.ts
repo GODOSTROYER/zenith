@@ -161,7 +161,7 @@ export function makeKubernetesDriver(def: KindDef, provider: ProviderKey = "kube
       const wanted = Object.keys(expectedOf(node));
       try {
         const { ref, live } = await locate(ctx, node, externalId);
-        if (!live) return { ...base(node, at), externalId: externalIdFor(ref), presence: "missing", attributes: {} };
+        if (!live) return { ...base(node, at), presence: "missing", attributes: {} };
         const attrs: Record<string, unknown> = { managedByZenith: isOwned(live, ctx.environmentId), ...def.attributes(live) };
         const attributes: Record<string, ObservedValue> = {};
         for (const [k, v] of Object.entries(attrs)) if (v !== undefined) attributes[k] = known(v, at);

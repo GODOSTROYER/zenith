@@ -49,7 +49,7 @@ export function addressLeaf(address: string): string {
 
 /** The Kubernetes object name a node renders its primary object under. */
 export function objectName(node: Pick<ResourceNode, "address">): string {
-  return dnsLabel(addressLeaf(node.address).replace(/\//g, "-"));
+  return dnsLabel(addressLeaf(node.address));
 }
 
 /** A valid label VALUE: `[A-Za-z0-9._-]`, alphanumeric at both ends, ≤ 63. */

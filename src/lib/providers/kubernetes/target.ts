@@ -10,8 +10,9 @@
  */
 import type { ResourceNode } from "@/lib/resources/types";
 import { K8sError, KIND_INFO, type ObjectRef, type SupportedKind } from "./types";
-import { addressLeaf, dnsLabel, isDnsLabel, objectName, secretObjectName } from "./naming";
+import { isDnsLabel, objectName, secretObjectName } from "./naming";
 import { namespaceOf } from "./renderers/common";
+import { certificateObjectName, dnsObjectName, firewallObjectName } from "./renderers/network";
 import { isRecord } from "./util";
 
 /** The object name each native kind's primary object is rendered under. Mirrors the renderers. */
@@ -21,11 +22,11 @@ export function primaryName(kind: SupportedKind, node: ResourceNode, environment
     case "Namespace":
       return namespaceOf(node, environmentId);
     case "NetworkPolicy":
-      return dnsLabel(`fw-${addressLeaf(node.address)}`);
+      return firewallObjectName(node);
     case "Certificate":
-      return dnsLabel(`cert-${typeof spec.domain === "string" ? spec.domain : node.address}`);
+      return certificateObjectName(typeof spec.domain === "string" ? spec.domain : node.address);
     case "DNSEndpoint":
-      return dnsLabel(`dns-${typeof spec.name === "string" ? spec.name : node.address}`);
+      return dnsObjectName(typeof spec.name === "string" ? spec.name : node.address);
     case "Secret":
       return typeof spec.secretRef === "string" ? secretObjectName(spec.secretRef) : objectName(node);
     default:

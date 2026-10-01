@@ -105,6 +105,8 @@ function backendsOf(lb: ResourceNode, ctx: K8sRenderContext): Backend[] {
   return [...out.values()];
 }
 
+export const firewallObjectName = (node: Pick<ResourceNode, "address">): string => dnsLabel(`fw-${addressLeaf(node.address)}`);
+
 export function renderFirewall(node: ResourceNode, ctx: K8sRenderContext): RenderResult {
   const spec = specOf(node) as unknown as Partial<FirewallSpec>;
   const notes: string[] = [];
@@ -162,7 +164,7 @@ export function renderFirewall(node: ResourceNode, ctx: K8sRenderContext): Rende
     apiVersion: "networking.k8s.io/v1",
     kind: "NetworkPolicy",
     metadata: metadata(node, ctx, {
-      name: dnsLabel(`fw-${addressLeaf(node.address)}`),
+      name: firewallObjectName(node),
       namespace,
       annotations: typeof spec.description === "string" ? { "zenith.dev/description": spec.description.slice(0, 200) } : undefined,
     }),
@@ -275,7 +277,7 @@ export function renderCertificate(node: ResourceNode, ctx: K8sRenderContext): Re
   const cert: K8sObject = {
     apiVersion: "cert-manager.io/v1",
     kind: "Certificate",
-    metadata: metadata(node, ctx, { name: dnsLabel(`cert-${spec.domain}`), namespace: ctxNamespace(node, ctx) }),
+    metadata: metadata(node, ctx, { name: certificateObjectName(spec.domain), namespace: ctxNamespace(node, ctx) }),
     spec: {
       secretName: tlsSecretName(spec.domain),
       dnsNames: [spec.domain],
@@ -313,7 +315,7 @@ export function renderDnsRecord(node: ResourceNode, ctx: K8sRenderContext): Rend
     apiVersion: "externaldns.k8s.io/v1alpha1",
     kind: "DNSEndpoint",
     metadata: metadata(node, ctx, {
-      name: dnsLabel(`dns-${spec.name}`),
+      name: dnsObjectName(spec.name),
       namespace: ctxNamespace(node, ctx),
       annotations: typeof spec.zone === "string" ? { [ANNOTATION.dnsZone]: spec.zone } : undefined,
     }),

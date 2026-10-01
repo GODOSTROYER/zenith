@@ -102,7 +102,11 @@ type Credential = { token: string } | { certData: string; keyData: string };
 
 const TOKEN_RE = /^[A-Za-z0-9._~+/=-]{8,8192}$/;
 
+/** A stored kubeconfig larger than this is refused before parsing (YAML alias bombs, pasted bundles). */
+const MAX_KUBECONFIG_BYTES = 256 * 1024;
+
 function parseKubeconfigCredential(text: string): Credential {
+  if (Buffer.byteLength(text, "utf8") > MAX_KUBECONFIG_BYTES) throw new K8sError("session_invalid", "Stored kubeconfig is too large.");
   let doc: unknown;
   try {
     doc = yamlLoad(text);
@@ -138,7 +142,7 @@ function validateToken(raw: string): string {
 
 function parseCredential(text: string): Credential {
   const t = text.trim();
-  if (/^(apiVersion|kind|clusters|users|contexts|current-context)\s*:/m.test(t) && t.includes(":")) return parseKubeconfigCredential(t);
+  if (/^(apiVersion|kind|clusters|users|contexts|current-context)\s*:/m.test(t)) return parseKubeconfigCredential(t);
   return { token: validateToken(t) };
 }
 

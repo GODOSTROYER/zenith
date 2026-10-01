@@ -6,7 +6,7 @@
  * byte-identical objects, which is what makes server-side apply idempotent.
  */
 import type { ResourceNode } from "@/lib/resources/types";
-import { ANNOTATION, K8sError, LABEL, MANAGED_BY_VALUE, TIER_DEV_ONLY, type K8sMetadata, type K8sObject, type K8sRenderContext } from "../types";
+import { ANNOTATION, K8sError, LABEL, MANAGED_BY_VALUE, TIER_DEV_ONLY, type K8sMetadata, type K8sRenderContext } from "../types";
 import { defaultNamespace, labelValue, objectName } from "../naming";
 import { isRecord } from "../util";
 
@@ -179,6 +179,3 @@ export function computeResources(node: ResourceNode, vcpu: number, memoryMb: num
 const ENV_KEY = /^[-._a-zA-Z][-._a-zA-Z0-9]*$/;
 export const validEnvKey = (k: string): boolean => ENV_KEY.test(k) && k.length <= 253;
 
-export function emptyObject(kind: string, apiVersion: string, meta: K8sMetadata): K8sObject {
-  return { apiVersion, kind, metadata: meta };
-}

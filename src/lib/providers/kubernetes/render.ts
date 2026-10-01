@@ -109,7 +109,7 @@ export function applyOrder<T extends { kind: string; metadata: { name: string; n
  */
 export function renderGraph(
   nodes: readonly ResourceNode[],
-  base: Omit<K8sRenderContext, "node" | "nodes">
+  base: Omit<K8sRenderContext, "node" | "nodes" | "namespace">
 ): RenderResult {
   const byAddress = new Map(nodes.map((n) => [n.address, n]));
   const ctx: K8sRenderContext = { ...base, node: (a) => byAddress.get(a), nodes: () => nodes };

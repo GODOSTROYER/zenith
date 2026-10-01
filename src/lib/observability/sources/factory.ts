@@ -8,7 +8,9 @@
  *   sandbox            → `sandbox.logsim` (simulated)
  *   aws | localstack   → `aws.cloudwatch-logs`, `aws.cloudwatch-metrics`, `aws.events`
  *   kubernetes         → `kubernetes` (pod logs and events)
- *   gcp|azure|oci|zenith → none implemented yet: an `unavailable` source says so
+ *   gcp / azure        → Cloud Logging/Monitoring / Log Analytics/Monitor
+ *   zenith             → tenant namespace pod logs and events (Kubernetes session)
+ *   oci                → explicit gaps: runner lacks Logging Search/Monitoring
  *   endpoints.prometheus → `prometheus`;  endpoints.loki → `loki`
  *
  * A provider whose prerequisite is missing (no AWS session, no kube session)
@@ -24,8 +26,13 @@
  * metadata host) but private addresses are legitimately allowed, so if tenants
  * ever supply endpoints the caller must apply its own SSRF policy first.
  */
-import type { AwsSession, KubernetesSession } from "@/lib/credentials/types";
+import type { AwsSession, AzureSession, GcpSession, KubernetesSession } from "@/lib/credentials/types";
 import type { Observation, ProviderKey, ResourceGraph } from "@/lib/resources/types";
+import { createGcpObservabilitySource, SOURCE_ID as GCP_SOURCE_ID } from "@/lib/providers/gcp/observability";
+import { createAzureLogsSource, createAzureMetricsSource, AZURE_LOGS_SOURCE_ID, AZURE_METRICS_SOURCE_ID } from "@/lib/providers/azure/observability";
+import type { OciSession } from "@/lib/providers/oci/transport";
+import { sessionNamespaces } from "@/lib/providers/kubernetes/session";
+import { tenantNamespace } from "@/lib/providers/zenith/tenancy";
 import type { ObservabilitySource } from "../types";
 import { createAwsEventsSource } from "./aws-events";
 import { createCloudWatchLogsSource, CLOUDWATCH_LOGS_SOURCE_ID, type CloudWatchLogsLimits, type CloudWatchLogsSource } from "./aws-cloudwatch-logs";
@@ -36,6 +43,9 @@ import { createLokiSource, LOKI_SOURCE_ID, type LokiConfig } from "./loki";
 import { createPrometheusSource, PROMETHEUS_SOURCE_ID, type PrometheusConfig } from "./prometheus";
 import { createSandboxSource, SANDBOX_SOURCE_ID, type SandboxDeps, type SandboxSource } from "./sandbox";
 import { createUnavailableSource } from "./unavailable";
+import { createOciLoggingSource, OCI_LOGGING_SOURCE_ID } from "./oci-logging";
+import { createOciMonitoringSource, OCI_MONITORING_SOURCE_ID } from "./oci-monitoring";
+import { bindSource, kubernetesSignalGraph, scopedKubernetesApi } from "./provider-scope";
 
 export type PrometheusEndpoint = Omit<PrometheusConfig, "graph" | "workspaceId">;
 export type LokiEndpoint = Omit<LokiConfig, "graph" | "workspaceId">;
@@ -48,6 +58,9 @@ export interface SourceEndpoints {
 export interface SourceSessions {
   aws?: AwsSession;
   kubernetes?: KubernetesSession;
+  gcp?: GcpSession;
+  azure?: AzureSession;
+  oci?: OciSession;
 }
 
 export interface SourcesForEnvironmentInput {
@@ -107,32 +120,75 @@ export function sourcesForEnvironment(input: SourcesForEnvironmentInput): Observ
       break;
     }
 
+    case "gcp": {
+      const session = sessions.gcp;
+      if (!session) {
+        sources.push(createUnavailableSource({ id: GCP_SOURCE_ID, provider, supports: ["log", "metric"], reason: "no GCP session: signals need a credential-broker session" }));
+        break;
+      }
+      const observed = new Map((input.observations ?? []).filter((o) => o.presence === "present").map((o) => [o.address, o.externalId]));
+      sources.push(createGcpObservabilitySource({
+        withSession: (fn) => fn(session),
+        resources: async (scope) => graph.nodes.filter((n) => n.provider === "gcp" && n.ownership !== "external" && (!scope.addresses?.length || scope.addresses.includes(n.address)))
+          .flatMap((n) => { const externalId = observed.get(n.address) ?? n.externalRef; return externalId ? [{ address: n.address, nativeType: n.nativeType, externalId }] : []; }),
+      }));
+      break;
+    }
+
+    case "azure": {
+      const session = sessions.azure;
+      if (!session) {
+        const reason = "no Azure session: signals need a credential-broker session";
+        sources.push(createUnavailableSource({ id: AZURE_LOGS_SOURCE_ID, provider, supports: ["log"], reason }), createUnavailableSource({ id: AZURE_METRICS_SOURCE_ID, provider, supports: ["metric"], reason }));
+        break;
+      }
+      const cfg = { ...base, session, observations: input.observations };
+      sources.push(createAzureLogsSource(cfg), createAzureMetricsSource(cfg));
+      break;
+    }
+
+    case "oci":
+      sources.push(createOciLoggingSource(sessions.oci), createOciMonitoringSource(sessions.oci));
+      break;
+
+    case "zenith":
     case "kubernetes": {
       const session = sessions.kubernetes;
-      if (!session) {
+      const managed = provider === "zenith";
+      const sourceId = managed ? "zenith.kubernetes" : KUBERNETES_SOURCE_ID;
+      if (!session || (managed && !workspaceId)) {
         sources.push(
           createUnavailableSource({
-            id: KUBERNETES_SOURCE_ID,
+            id: sourceId,
             provider,
             supports: ["log", "event"],
-            reason: "no Kubernetes session: reading cluster signals needs a credential-broker session",
+            reason: managed ? "Zenith-managed signals need a workspace and a credential-broker Kubernetes session for the tenant namespace" : "no Kubernetes session: reading cluster signals needs a credential-broker session",
           })
         );
         break;
       }
-      sources.push(
-        createKubernetesSource({
+      const namespaces = input.kubernetes?.allowedNamespaces ?? sessionNamespaces(session);
+      if (managed && (!sessionNamespaces(session).includes(tenantNamespace(workspaceId!, graph.environmentId)) || !namespaces.includes(tenantNamespace(workspaceId!, graph.environmentId)))) {
+        sources.push(createUnavailableSource({ id: sourceId, provider, supports: ["log", "event"], reason: "The broker session does not allow this tenant's managed namespace." }));
+        break;
+      }
+      const source = createKubernetesSource({
           ...base,
+          graph: kubernetesSignalGraph(graph, workspaceId, managed),
           session,
-          ...(input.kubernetes?.allowedNamespaces ? { allowedNamespaces: input.kubernetes.allowedNamespaces } : {}),
-          ...(input.kubernetes?.api ? { api: input.kubernetes.api } : {}),
-        })
-      );
+          allowedNamespaces: managed ? [tenantNamespace(workspaceId!, graph.environmentId)] : namespaces,
+          api: input.kubernetes?.api ?? (() => scopedKubernetesApi(session, graph)),
+        });
+      sources.push(managed ? {
+        ...source, id: sourceId, provider,
+        searchLogs: async (q, signal) => { const r = await source.searchLogs!(q, signal); return { ...r, items: r.items.map((l) => ({ ...l, provider })), sources: r.sources.map(() => sourceId), unavailable: r.unavailable.map((u) => ({ ...u, source: sourceId })) }; },
+        searchEvents: async (q, signal) => { const r = await source.searchEvents!(q, signal); return { ...r, items: r.items.map((e) => ({ ...e, provider })), sources: r.sources.map(() => sourceId), unavailable: r.unavailable.map((u) => ({ ...u, source: sourceId })) }; },
+      } : source);
       break;
     }
 
     default:
-      // gcp / azure / oci / zenith: nothing implemented; say so instead of returning silence
+      // An unsupported provider never turns into a successful empty read.
       sources.push(
         createUnavailableSource({
           id: `observability.${provider}`,
@@ -145,7 +201,7 @@ export function sourcesForEnvironment(input: SourcesForEnvironmentInput): Observ
 
   if (input.endpoints?.prometheus) sources.push(createPrometheusSource({ ...input.endpoints.prometheus, ...base }));
   if (input.endpoints?.loki) sources.push(createLokiSource({ ...input.endpoints.loki, ...base }));
-  return sources;
+  return sources.map((source) => bindSource(source, graph, workspaceId));
 }
 
 export const KNOWN_SOURCE_IDS = [
@@ -156,4 +212,10 @@ export const KNOWN_SOURCE_IDS = [
   KUBERNETES_SOURCE_ID,
   PROMETHEUS_SOURCE_ID,
   LOKI_SOURCE_ID,
+  GCP_SOURCE_ID,
+  AZURE_LOGS_SOURCE_ID,
+  AZURE_METRICS_SOURCE_ID,
+  OCI_LOGGING_SOURCE_ID,
+  OCI_MONITORING_SOURCE_ID,
+  "zenith.kubernetes",
 ] as const;

@@ -80,11 +80,13 @@ describe("missing prerequisites are reported, not silent", () => {
     expect(r.unavailable).toEqual([{ source: "kubernetes", reason: expect.stringContaining("no Kubernetes session") }]);
   });
 
-  it("providers without a native source say so for logs, metrics and events", async () => {
+  it("providers without a session report the missing prerequisite for logs and metrics", async () => {
     for (const provider of ["gcp", "azure", "oci", "zenith"] as ProviderKey[]) {
       const fabric = createObservabilityFabric(sourcesForEnvironment({ provider, graph: graph([]), sessions: {} }), { now: () => new Date(NOW) });
       const r = await fabric.searchLogs({ scope: scope(), range: range() });
-      expect(r.unavailable).toEqual([{ source: `observability.${provider}`, reason: `no native observability source is implemented for provider "${provider}"` }]);
+      expect(r.items).toEqual([]);
+      expect(r.unavailable).toHaveLength(1);
+      expect(r.unavailable[0].reason).toMatch(/session/);
       expect((await fabric.queryMetrics({ scope: scope(), range: range(), metrics: ["cpu.utilization"] })).unavailable).toHaveLength(1);
     }
   });

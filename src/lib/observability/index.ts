@@ -40,4 +40,6 @@ export { createPrometheusSource, DEFAULT_PROMETHEUS_METRICS, type PrometheusConf
 export { createLokiSource, type LokiConfig } from "./sources/loki";
 export { createKubernetesSource, type KubernetesSourceConfig, type KubernetesCoreApi } from "./sources/kubernetes";
 export { createUnavailableSource } from "./sources/unavailable";
+export { createOciLoggingSource, OCI_LOGGING_SOURCE_ID } from "./sources/oci-logging";
+export { createOciMonitoringSource, OCI_MONITORING_SOURCE_ID } from "./sources/oci-monitoring";
 export type { FetchLike, TokenProvider } from "./sources/http";

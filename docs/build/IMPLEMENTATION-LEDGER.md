@@ -104,7 +104,7 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-OCI-SIGNALS-WIRE | make OCI log/metric reads work end to end through the runner | 7 | staged |  | ws/oci-signals-wire |  | OCI/runner/observability/docs 1473 passed; go vet/test all packages passed (outside sandbox) | orchestrator: gofmt; golden allowlist sizes for logs.read/metrics.read; reviewed the Monitoring and LQL guards |  |
 | WS-AWS-BUILD-BOUNDARY | Workload permissions boundary lets build roles (only) push images and publish sites | 7 | staged |  | ws/aws-build-boundary |  | AWS + credentials 1631 passed with real OpenTofu (orchestrator) | orchestrator: reviewed principal-conditioned statements; fixture name prefix aligned with production zenith-; scheduled-job and EC2 SSM gaps handed to WS-AWS-BOUNDARY-MORE |  |
 | WS-DOCS-SYNC-2 | Operator docs tell the truth about wave 7 | 7 | staged |  | ws/docs-sync-2 |  | tests/docs 106 passed (job); staging docs+ci 330 passed | orchestrator: merged; its open-gap list seeded wave 8 |  |
-| WS-AWS-BOUNDARY-MORE | Scheduled jobs and EC2 machines (SSM agent) work under the workload boundary | 7 | in_progress | WS-AWS-BUILD-BOUNDARY | ws/aws-boundary-more |  | running |  |  |
+| WS-AWS-BOUNDARY-MORE | Scheduled jobs and EC2 machines (SSM agent) work under the workload boundary | 7 | staged | WS-AWS-BUILD-BOUNDARY | ws/aws-boundary-more |  | credentials + AWS 1691 passed with real OpenTofu; tsc 0 (orchestrator) | orchestrator: merged; size headroom 161 chars (GovCloud) and remaining blocked families handed to WS-AWS-BOUNDARY-SPLIT |  |
 | WS-DESTROY-REVIEW | a first, read-only destroy review anyone authorized can start | 8 | in_progress |  | ws/destroy-review |  | running |  |  |
 | WS-AZURE-SOURCE-WIRE | default composition builds Azure workloads from C3 source bundles | 8 | in_progress |  | ws/azure-source-wire |  | running |  |  |
 | WS-RELEASE-K8S | release ports for Kubernetes environments (image rollout + migration jobs) | 8 | in_progress |  | ws/release-k8s |  | running |  |  |
@@ -115,6 +115,7 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-TEMPORAL-MTLS | Temporal client/worker mTLS configuration | 8 | in_progress |  | ws/temporal-mtls |  | running |  |  |
 | WS-MACHINE-PORT | default composition supplies the machine port | 8 | in_progress |  | ws/machine-port |  | running |  |  |
 | WS-GITHUB-SOURCE | tenant-scoped GitHub App connector for private source repositories | 8 | in_progress |  | ws/github-source |  | running |  |  |
+| WS-AWS-BOUNDARY-SPLIT | One permissions boundary per AWS role family, so every Zenith role can do its job | 8 | in_progress | WS-AWS-BOUNDARY-MORE | ws/aws-boundary-split |  | running |  |  |
 
 ## External blockers
 

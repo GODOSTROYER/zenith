@@ -1422,14 +1422,14 @@
       "title": "Scheduled jobs and EC2 machines (SSM agent) work under the workload boundary",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "staged",
       "deps": [
         "WS-AWS-BUILD-BOUNDARY"
       ],
       "paths": [],
       "branch": "ws/aws-boundary-more",
-      "tests": "running",
-      "review": ""
+      "tests": "credentials + AWS 1691 passed with real OpenTofu; tsc 0 (orchestrator)",
+      "review": "orchestrator: merged; size headroom 161 chars (GovCloud) and remaining blocked families handed to WS-AWS-BOUNDARY-SPLIT"
     },
     {
       "id": "WS-DESTROY-REVIEW",
@@ -1548,6 +1548,20 @@
       "deps": [],
       "paths": [],
       "branch": "ws/github-source",
+      "tests": "running",
+      "review": ""
+    },
+    {
+      "id": "WS-AWS-BOUNDARY-SPLIT",
+      "title": "One permissions boundary per AWS role family, so every Zenith role can do its job",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-AWS-BOUNDARY-MORE"
+      ],
+      "paths": [],
+      "branch": "ws/aws-boundary-split",
       "tests": "running",
       "review": ""
     }

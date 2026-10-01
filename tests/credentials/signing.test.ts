@@ -118,7 +118,9 @@ describe("LocalJwkSigner", () => {
     const b64 = Buffer.from(serializePrivateJwk(keys.rsa)).toString("base64");
     const signer = LocalJwkSigner.fromSecret("V", new SecretString(b64), { alg: "RS256" });
     expect(signer.kid).toBe(keys.rsa.kid);
-    assertNoCredentialLeak(signer, { secrets: [keys.rsa.privateJwk.d, keys.rsa.privateJwk.p, keys.rsa.privateJwk.q] });
+    // The kid is the public RFC 7638 thumbprint of a random test key; about one in four look like an AWS
+    // secret key to the pattern scan. Private material is checked exactly, and the next line proves only kid/alg serialise.
+    assertNoCredentialLeak(signer, { secrets: [keys.rsa.privateJwk.d, keys.rsa.privateJwk.p, keys.rsa.privateJwk.q], allow: ["aws-secret-access-key"] });
     expect(JSON.stringify(signer)).toBe(JSON.stringify({ kid: keys.rsa.kid, alg: "RS256" }));
   });
 });

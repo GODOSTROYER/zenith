@@ -70,6 +70,7 @@ describe("the mapping table", () => {
         "connection.createAws",
         "connection.disconnect",
         "connection.verifyAws",
+        "placement.apply",
         "project.delete",
         "workspace.setAutonomy",
       ].sort()

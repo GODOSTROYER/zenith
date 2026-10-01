@@ -9,7 +9,9 @@ tempDataDir("zenith-placement-route-");
 const auth = vi.hoisted(() => ({ verify: vi.fn(), authorize: vi.fn(), session: vi.fn(), configured: vi.fn() }));
 vi.mock("@/lib/agent-access/authority", () => ({ requireCredentialAuthority: async () => ({ verify: auth.verify }) }));
 vi.mock("@/lib/capabilities/platform", () => ({ platformBroker: async () => ({ authorizeRead: auth.authorize }) }));
-vi.mock("@/lib/server/request", () => ({ currentRequest: () => auth.session(), route: (fn: (req: RequestType, params: { id: string }) => Promise<Response>) => (req: RequestType, context: { params: Promise<{ id: string }> }) => context.params.then((p) => fn(req, p)) }));
+type RouteHandler = (req: RequestType, params: { id: string }) => Promise<Response>;
+// route(handler) or route(options, handler), as src/lib/server/request.ts accepts
+vi.mock("@/lib/server/request", () => ({ currentRequest: () => auth.session(), route: (a: RouteHandler | object, b?: RouteHandler) => { const fn = (typeof a === "function" ? a : b) as RouteHandler; return (req: RequestType, context: { params: Promise<{ id: string }> }) => context.params.then((p) => fn(req, p)); } }));
 vi.mock("@/lib/server/actor", () => ({ resolveActor: async () => ({ type: "user", id: "bob", name: "Bob" }) }));
 vi.mock("@/lib/server/workspace", () => ({ requireWorkspace: () => ({ id: "ws-a" }) }));
 vi.mock("@/lib/supabase/env", () => ({ isSupabaseConfigured: () => auth.configured() }));

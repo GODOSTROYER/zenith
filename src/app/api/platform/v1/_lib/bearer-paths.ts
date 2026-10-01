@@ -21,6 +21,9 @@ export const PLATFORM_PATHS: readonly {
   { path: new RegExp(`^${ROOT}/operations/${ID}/cancel$`), methods: { POST: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/operations/${ID}/(?:approve|reject)$`), methods: { POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/environments/${ID}/autonomy$`), methods: { GET: "bearer-capable", PUT: "browser-only" } },
+  // reads authorised by the broker (authorizeRead); placement is a POST only to carry constraints
+  { path: new RegExp(`^${ROOT}/environments/${ID}/(?:resources|drift|incidents)$`), methods: { GET: "bearer-capable" } },
+  { path: new RegExp(`^${ROOT}/environments/${ID}/placement$`), methods: { POST: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/workspace/policy$`), methods: { GET: "bearer-capable", PUT: "browser-only" } },
   { path: new RegExp(`^${ROOT}/(?:runners|machines)$`), methods: { GET: "admin" } },
   { path: new RegExp(`^${ROOT}/runners/tokens$`), methods: { POST: "admin" } },

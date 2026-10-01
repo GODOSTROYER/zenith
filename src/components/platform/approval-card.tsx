@@ -45,6 +45,8 @@ export interface ApprovalDecisionInput {
 }
 
 export interface ApprovalCardProps extends AsyncSurfaceProps {
+  /** Optional host gate when the reviewed artifact is unavailable; rejection remains possible. */
+  approveDisabledReason?: string;
   operation: OperationRecord;
   /** the policy decision for this operation; without it nobody can be offered a decision */
   decision?: PolicyDecisionRecord;
@@ -95,6 +97,7 @@ export function ApprovalCard({
   loading,
   error,
   onRetry,
+  approveDisabledReason,
 }: ApprovalCardProps) {
   const nowMs = useNow(now);
   const ids = useId();
@@ -132,7 +135,7 @@ export function ApprovalCard({
   const dataLoss = plan ? plan.resources.filter((r) => r.destroysData) : [];
 
   const submit = async (kind: "approve" | "reject") => {
-    if (blocked || inflight.current) return;
+    if (blocked || inflight.current || (kind === "approve" && approveDisabledReason)) return;
     inflight.current = true;
     setPending(kind);
     setLocalError(undefined);
@@ -190,13 +193,14 @@ export function ApprovalCard({
               {shownError}
             </Callout>
           )}
+          {approveDisabledReason && <p id={`${ids}-approve-blocked`} className="text-[12.5px] text-ink-mute">{approveDisabledReason}</p>}
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="primary"
-              disabled={Boolean(blocked) || pending !== null}
+              disabled={Boolean(blocked || approveDisabledReason) || pending !== null}
               busy={pending === "approve"}
-              disabledReason={blocked}
-              aria-describedby={blocked ? reasonId : undefined}
+              disabledReason={blocked ?? approveDisabledReason}
+              aria-describedby={blocked ? reasonId : approveDisabledReason ? `${ids}-approve-blocked` : undefined}
               aria-label={`Approve ${title}`}
               onClick={() => void submit("approve")}
             >

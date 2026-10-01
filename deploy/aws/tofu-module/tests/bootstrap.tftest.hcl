@@ -36,7 +36,7 @@ run "oidc_only_defaults" {
   }
 
   assert {
-    condition = jsondecode(aws_iam_role.deploy.assume_role_policy).Statement[0].Condition.StringEquals["app.example.com/api/oidc:sub"] == "zenith:ws:ws_1:conn:conn_1"
+    condition     = jsondecode(aws_iam_role.deploy.assume_role_policy).Statement[0].Condition.StringEquals["app.example.com/api/oidc:sub"] == "zenith:ws:ws_1:conn:conn_1"
     error_message = "the trust policy must pin the exact subject"
   }
 
@@ -56,8 +56,18 @@ run "oidc_only_defaults" {
   }
 
   assert {
-    condition     = alltrue([for p in concat([aws_iam_policy.workload_boundary.policy], [for k, v in aws_iam_policy.zenith : v.policy]) : !strcontains(p, "$${")])
+    condition     = alltrue([for p in concat([aws_iam_policy.workload_boundary.policy], [for k, v in aws_iam_policy.family_boundary : v.policy], [for k, v in aws_iam_policy.zenith : v.policy]) : !strcontains(p, "$${")])
     error_message = "unresolved template variables in a policy"
+  }
+
+  assert {
+    condition     = length(aws_iam_policy.family_boundary) == 6 && alltrue([for key, policy in aws_iam_policy.family_boundary : length(replace(policy.policy, "/\\s+/", "")) <= 5800])
+    error_message = "six role-family boundaries must preserve the 5,800-character budget"
+  }
+
+  assert {
+    condition     = alltrue([for statement in jsondecode(aws_iam_policy.zenith["deploy-iam"].policy).Statement : toset(statement.Condition.StringEquals["iam:PermissionsBoundary"]) == toset(values(local.family_boundary_arns)) if statement.Effect == "Allow" && contains(try(keys(statement.Condition.StringEquals), []), "iam:PermissionsBoundary")])
+    error_message = "bounded IAM operations require the exact six family boundary ARNs"
   }
 
   assert {

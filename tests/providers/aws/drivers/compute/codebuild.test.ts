@@ -13,7 +13,7 @@ import { startBuild, stopBuild, waitForBuild } from "@/lib/providers/aws/drivers
 import { DriverCompileError, hash6, refLocalName } from "@/lib/providers/aws/drivers/shared";
 import { buildFullFixture, mkCompileContext, mkDriverContext, zenithTagList } from "./fixtures";
 import { ACCOUNT } from "./ecs-mocks";
-import { boundaryAllows, workloadBoundary } from "../../../../credentials/workload-boundary";
+import { boundaryAllows, familyBoundary } from "../../../../credentials/workload-boundary";
 import { BOUNDARY_ACCOUNT, BOUNDARY_PREFIX, policyRequests } from "./boundary-fixtures";
 
 const cb = mockClient(CodeBuildClient);
@@ -50,7 +50,7 @@ describe("build role policy intersects the bootstrap boundary", () => {
     const requests = policyRequests(fragment, refs);
     expect(requests.length).toBeGreaterThan(0);
     for (const request of requests) {
-      expect(boundaryAllows(workloadBoundary(), request.action, request.resource, {
+      expect(boundaryAllows(familyBoundary("build"), request.action, request.resource, {
         "aws:PrincipalArn": principal, "aws:ResourceTag/zenith:managed": "true", "s3:ResourceAccount": BOUNDARY_ACCOUNT,
       }), `${request.action} ${request.resource}`).toBe(true);
     }
@@ -168,7 +168,7 @@ describe("compile: registry output", () => {
   it("the role is a boundary-carrying CodeBuild role and the logs go to a tofu-owned group", () => {
     const role = res(docker, "aws_iam_role", "build_pipeline_web");
     expect(JSON.parse(role.assume_role_policy as string).Statement[0].Principal).toEqual({ Service: "codebuild.amazonaws.com" });
-    expect(role.permissions_boundary).toMatch(/ZenithWorkloadBoundary$/);
+    expect(role.permissions_boundary).toMatch(/ZenithBuildBoundary$/);
     const logs = res(docker, "aws_cloudwatch_log_group", "build_pipeline_web_logs");
     expect(logs).toMatchObject({ name: `/aws/codebuild/${BOUNDARY_PREFIX}-web`, retention_in_days: 30 });
     const cfg = (res(docker, "aws_codebuild_project", "build_pipeline_web").logs_config as Body[])[0];

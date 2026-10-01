@@ -17,8 +17,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { BUILD_ROLE_NAME_PATTERN, EC2_ROLE_NAME_PATTERN, EVENTS_ROLE_NAME_PATTERN } from "../../../src/lib/credentials/aws/naming";
-import { loadTemplate, makeEvaluator, resolveResource, statementsOf, type Statement } from "../../../tests/credentials/cfn";
+import { AWS_ROLE_BOUNDARIES, BUILD_ROLE_NAME_PATTERN, EC2_ROLE_NAME_PATTERN, EVENTS_ROLE_NAME_PATTERN, roleFamilyPatterns, type AwsRoleFamily } from "../../../src/lib/credentials/aws/naming";
+import { compactSize, loadTemplate, makeEvaluator, resolveResource, statementsOf, type Statement } from "../../../tests/credentials/cfn";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const TEMPLATE_PATH = path.resolve(HERE, "../zenith-connection.cfn.yaml");
@@ -34,6 +34,7 @@ const POLICY_RESOURCES: Record<string, string> = {
   DeployStatePolicy: "deploy-state",
   DeployIamPolicy: "deploy-iam",
   WorkloadBoundary: "workload-boundary",
+  ...Object.fromEntries(Object.values(AWS_ROLE_BOUNDARIES).map((family) => [family.logicalId, family.template])),
 };
 
 /** Statements that only exist when an optional parameter is set, keyed for the module's HCL. */
@@ -45,10 +46,36 @@ const OPTIONAL: Record<string, { policy: string; sid: string }> = {
 
 const ZONES_MARKER = "__ROUTE53_ZONES__";
 
+/** Include the retained legacy policy in the guard during the migration window. */
+export function boundarySizes(): { partition: string; logicalId: string; size: number; limit: number }[] {
+  const template = loadTemplate(TEMPLATE_PATH);
+  return ["aws", "aws-cn", "aws-us-gov"].flatMap((partition) => {
+    const evaluator = makeEvaluator(template, {
+      pseudo: { partition, accountId: "123456789012", region: "cn-northwest-1" },
+      params: {
+        NameSuffix: `-${"x".repeat(19)}`, EnvironmentTagValue: "x".repeat(64),
+        StateBucketKmsKeyArn: `arn:${partition}:kms:cn-northwest-1:123456789012:key/11111111-2222-3333-4444-555555555555`,
+        Route53HostedZoneArns: [`arn:${partition}:route53:::hostedzone/Z0123456789ABC`, `arn:${partition}:route53:::hostedzone/Z9876543210XYZ`],
+      },
+    });
+    return Object.keys(POLICY_RESOURCES).map((logicalId) => ({
+      partition, logicalId, size: compactSize(resolveResource(template, evaluator, logicalId)!.PolicyDocument),
+      // Legacy grants remain equivalent (its state deny is stronger); new families keep 344 characters free.
+      limit: logicalId !== "WorkloadBoundary" && logicalId.endsWith("Boundary") ? 5800 : 6144,
+    }));
+  });
+}
+
+export function checkBoundarySizes(): void {
+  for (const { partition, logicalId, size, limit } of boundarySizes()) {
+    if (size > limit) throw new Error(`${logicalId} in ${partition}: ${size} characters exceeds policy budget ${limit} (IAM maximum 6144)`);
+  }
+}
+
 function tokenEvaluator(optionalOn: boolean) {
   const template = loadTemplate(TEMPLATE_PATH);
   const evaluator = makeEvaluator(template, {
-    pseudo: { partition: "${partition}", accountId: "${account_id}", region: "${region}" },
+    pseudo: { partition: "${partition}", accountId: "${account_id}", region: "${region}", urlSuffix: "${dns_suffix}" },
     tokenParams: {
       EnvironmentTagValue: "${environment_tag_value}",
       StateBucketKmsKeyArn: "${kms_key_arn}",
@@ -57,6 +84,7 @@ function tokenEvaluator(optionalOn: boolean) {
     forceConditions: { HasKmsKey: optionalOn, HasHostedZones: optionalOn, HasOidc: true, HasAssumeRole: false, CreateProvider: true },
     resourceOverrides: {
       WorkloadBoundary: { ref: "${boundary_arn}" },
+      ...Object.fromEntries(Object.entries(AWS_ROLE_BOUNDARIES).map(([family, spec]) => [spec.logicalId, { ref: `\${${family}_boundary_arn}` }])),
       StateBucket: { ref: "${state_bucket}", attrs: { Arn: "${state_bucket_arn}" } },
     },
   });
@@ -68,12 +96,22 @@ const render = (value: unknown): string =>
     .replaceAll(`"${ZONES_MARKER}"`, "${jsonencode(route53_hosted_zone_arns)}")}\n`;
 
 export function generate(): Record<string, string> {
+  checkBoundarySizes();
   const base = tokenEvaluator(false);
   const full = tokenEvaluator(true);
   const files: Record<string, string> = {};
 
   for (const [logicalId, file] of Object.entries(POLICY_RESOURCES)) {
     const props = resolveResource(base.template, base.evaluator, logicalId)!;
+    const family = (Object.keys(AWS_ROLE_BOUNDARIES) as AwsRoleFamily[]).find((key) => AWS_ROLE_BOUNDARIES[key].logicalId === logicalId);
+    if (family) {
+      const expected = roleFamilyPatterns(family).map((pattern) => `arn:\${partition}:iam::\${account_id}:role/${pattern}`);
+      if (props.ManagedPolicyName !== `${AWS_ROLE_BOUNDARIES[family].policyName}`) throw new Error(`Boundary policy naming drift: ${family}`);
+      for (const statement of statementsOf(props.PolicyDocument)) {
+        if (statement.Effect !== "Allow") continue;
+        if (JSON.stringify(statement.Condition?.ArnLike?.["aws:PrincipalArn"]) !== JSON.stringify(expected)) throw new Error(`Boundary principal naming drift: ${family}`);
+      }
+    }
     if (logicalId === "WorkloadBoundary") {
       // YAML cannot import TS; verify every reserved service-role discriminator.
       for (const statement of statementsOf(props.PolicyDocument)) {

@@ -32,7 +32,7 @@ parameters: [deploy/aws/README.md, Option A and B](../../../deploy/aws/README.md
 | An IAM OIDC provider | Lets AWS verify Zenith's tokens (client id `sts.amazonaws.com`). One exists per issuer URL per account. |
 | `ZenithObserveRole` | Read-only inspection. |
 | `ZenithDeployRole` | The only role that changes things, and only things it is allowed to see as Zenith's. |
-| `ZenithWorkloadBoundary` | A permission boundary every IAM role Zenith creates must carry; build roles alone can push images, read source object versions and invalidate managed sites. |
+| Six family boundaries | App/identity, build, machine, scheduler, EKS cluster and EKS node roles each carry their own immutable boundary; the legacy `ZenithWorkloadBoundary` remains for migration. |
 | A state bucket, `zenith-state-<account>-<region>` | OpenTofu state and build artifacts. Yours, and kept if you delete the stack. |
 | `zenith-codebuild` role | Lets image builds run in **your** account, pushing only to `zenith-*` ECR repositories. |
 
@@ -74,7 +74,7 @@ Create, change and delete **only** resources that carry the tag
 | Data | RDS, ElastiCache, S3 buckets, SQS queues and Secrets Manager **containers** (create, update, delete, tag), all `zenith-*` |
 | Edge | Log groups and alarms named `zenith-*`, ACM certificates tagged `zenith:managed`, DNS record changes **only in the hosted zones you list** (an empty list means no DNS write access at all) |
 | State | Read and write objects in the state bucket |
-| IAM | Create, change and delete roles named `zenith-*` **only with the permission boundary attached**; attach only `zenith-*` policies plus three AWS task and execution policies; `iam:PassRole` only to `zenith-*` roles for ECS tasks, CodeBuild and Lambda |
+| IAM | Create, change and delete roles named `zenith-*` **only with one exact family boundary ARN attached**; attach only `zenith-*` policies plus enumerated AWS task/Lambda/EKS/SSM policies; `iam:PassRole` only to `zenith-*` roles for ECS tasks, CodeBuild and Lambda |
 
 ### How narrow a session is
 
@@ -122,7 +122,7 @@ As written in the template's explicit denies and its absence of grants:
   `container.exec`) are a separate, critical-risk class that policy denies in
   production by default ([POLICY.md](POLICY.md)).
 
-The workload boundary distinguishes CodeBuild roles through
+The build family boundary distinguishes CodeBuild roles through
 `aws:PrincipalArn = arn:<partition>:iam::<account>:role/zenith-*-build` with
 `ArnLike`. The driver reserves `-build` after shortening the role name, and
 the generator checks the pattern against the shared naming constant.
@@ -133,7 +133,7 @@ this account's `zenith-*` ECR repositories, `zenith-*/*` S3 object versions
 output resources and source prefix. CloudFront supports that resource-tag
 condition for [CreateInvalidation](https://docs.aws.amazon.com/service-authorization/latest/reference/list_cloudfront.html).
 CodeBuild project names must start with `zenith-`, so their logs fit the existing
-`/aws/*/zenith-*` boundary. The deploy role cannot modify this boundary.
+`/aws/*/zenith-*` boundary. The deploy role cannot modify any family boundary policy.
 Scheduled-job invocation roles use the reserved `-events` suffix and EC2
 agent roles use `-ec2`, both appended after truncation/hashing. Their grants
 require this account's matching `aws:PrincipalArn`; application, execution,
@@ -161,19 +161,39 @@ and [AWS's SSM authorization reference](https://docs.aws.amazon.com/service-auth
 additional parameter path for Zenith's command transport. This does not grant
 the control plane `ssm:SendCommand` or `ecs:ExecuteCommand`.
 
-Compatible statements share action/resource lists, while service ARN types
-preserve scopes. Optional Sids and repeated core action names are compacted
-to fit IAM's 6,144-character limit. Default `aws`/`aws-cn`/`aws-us-gov` sizes
-are 5,724/5,835/5,983 characters (`eu-west-1`); GovCloud has 161 characters
-of headroom. Longer environment-tag values or name suffixes consume this
-space: inspect the fully rendered policy before deploying custom values.
+The six family policies are selected centrally in `credentials/aws/naming.ts`.
+App/identity roles also cover multipart uploads, log reads, both database engines'
+IAM/credential grants, SNS/KMS publish and cache resource pairs. EKS cluster/node
+policies cover every action in the frozen cluster v10, worker v3, CNI v6 and
+registry read-only v3 inventories at the supported scoped request resources.
+Every role-creating driver has local evaluator coverage in all three partitions.
+Shared ECR login/pull, logs and EC2 reads are legitimate in multiple families;
+a foreign-family principal is refused by a given family's boundary, while its
+own boundary may permit a shared action. This is not live AWS acceptance.
 
-Coverage tests evaluate every scheduled-job inline action, all 25 EC2 core
-actions and other-role denials in all three partitions. No live AWS acceptance
-was run. Remaining blocked families include identity grants for S3 multipart,
-log reads, database/cache IAM authentication and RDS-managed credential
-secrets; EKS cluster service permissions and node ECR metadata remain partly
-blocked. The boundary was not widened for those families.
+The generator checks all managed policies at maximum environment-id/suffix
+lengths, with optional KMS and two hosted zones enabled. Larger custom zone lists
+need checking against the fully rendered deploy-edge policy.
+Every new family boundary stays within 5,800 characters, legacy within 6,144,
+and deploy policies within IAM's 6,144-character limit. Deploy's allow conditions
+still enumerate exactly six policy ARNs; removing optional Allow Sids saves
+space without changing permissions. Legacy keeps both IAM escalation denies;
+its single state-ARN suffix pattern also denies bucket-name prefix collisions.
+At maximum parameters GovCloud legacy uses 6,136/6,144 characters; only this
+migration artifact is excepted from the 5,800 family budget. Foreign referenced targets and resources
+outside the documented family scopes remain blocked; EKS cluster mutations
+use same-account resource/principal fences where native resources lack Zenith
+tags. See the [full scope and limitations](../../../deploy/aws/README.md#what-each-permission-is-for).
+
+For existing connections, update the CloudFormation stack or bootstrap module
+**first**. It creates the six family policies and updates deploy's allowlist,
+while retaining the legacy policy. On the next environment apply, drivers move
+each role to its family boundary; inspect previously truncated names and the
+flow-log role's new `-flow` suffix, which can require replacements.
+Never remove the boundary between steps. A customer administrator may retire the
+legacy policy only after all roles have moved. Current compilers use default
+unsuffixed policy names; nonempty bootstrap name suffixes need an as-yet unwired
+connection-to-compiler family ARN mapping and are unsupported for workload apply.
 
 Known limits of what IAM can express, from the template (not hidden): task
 definition registration accepts only `Resource: "*"` in IAM, so Zenith can add
@@ -193,7 +213,7 @@ boundary where the AWS service supports it. Fixed-width ids (UUIDs) cannot overl
 ## What Zenith stores about your account
 
 Only non-secret identifiers: account id, region, the two role ARNs, the state
-bucket name, optionally a KMS key ARN, the boundary and CodeBuild role ARNs
+bucket name, optionally a KMS key ARN, the optional legacy boundary and CodeBuild role ARNs
 (`AwsConnectionConfig` in `src/lib/credentials/types.ts`, persisted in
 `platform.provider_connections`). The store refuses a connection config that has
 a member named like a secret (`secretAccessKey`, `password`, `token`, `apiKey`...)
@@ -204,8 +224,8 @@ production uses a KMS-backed one ([RECOVERY.md](RECOVERY.md#6-key-rotation)).
 ## Verifying the connection
 
 You give Zenith the stack outputs: **account id, region, observe role ARN, deploy
-role ARN, state bucket name** (and, for the OpenTofu module, the boundary and
-CodeBuild role outputs). Zenith verifies by assuming the observe role and calling
+role ARN, state bucket name** (and optional legacy boundary/CodeBuild outputs). Family boundary outputs are
+bootstrap artifacts; current drivers select the unsuffixed family map. Zenith verifies by assuming the observe role and calling
 `sts:GetCallerIdentity`; the account id must match. Until that passes the
 connection stays `pending_verification` and nothing runs. That check is
 `AwsCredentialBroker.verifyConnection`.

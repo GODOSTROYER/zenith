@@ -11,7 +11,7 @@
  *                         jobs, `lambda`, `codebuild`, `ec2`), constrained to
  *                         this account (`aws:SourceAccount`), and
  *                         `permissions_boundary` = the bootstrap
- *                         `ZenithWorkloadBoundary` policy
+ *                         `ZenithAppBoundary` policy
  *   aws_iam_role_policy   ONE inline policy compiled from
  *                         `IdentitySpec.grants` (see `iam-grants.ts`): exact
  *                         actions on exact ARNs, no wildcard action, no
@@ -22,12 +22,12 @@
  * Permissions boundary: the workspace assembler cannot declare tofu
  * `variable`s (`TofuFragment` has no variable member), so the boundary ARN is
  * assembled in the fragment as
- * `arn:<partition>:iam::<account>:policy/ZenithWorkloadBoundary` from two data
+ * `arn:<partition>:iam::<account>:policy/ZenithAppBoundary` from two data
  * sources instead of the `workload_permissions_boundary_arn` variable the
  * design named. The name is the platform convention (DRIVER-CONVENTIONS); the
  * policy is assumed to sit at path `/`. When the assembler grows a variable
- * channel only `boundaryArn()` below changes. The bootstrap template is not in
- * this repository, so the boundary's existence is NOT verified here.
+ * channel only `boundaryArn()` below changes. Bootstrap policy parity is
+ * tested locally; policy existence in a customer account is not live-verified.
  *
  * Observe: GetRole, ListRolePolicies + GetRolePolicy (policy documents are
  * URL-decoded and normalized to sorted actions), ListAttachedRolePolicies.
@@ -42,6 +42,7 @@
  * action set, wildcard check, boundary and attachments are. `contract` evidence
  * only.
  */
+import { AWS_ROLE_BOUNDARIES, awsBoundaryArn } from "@/lib/credentials/aws/naming";
 import {
   GetRoleCommand,
   GetRolePolicyCommand,
@@ -99,7 +100,7 @@ import {
 } from "./support";
 
 export const IAM_ROLE_SOURCE = "aws.iam_role@1";
-export const PERMISSIONS_BOUNDARY_NAME = "ZenithWorkloadBoundary";
+export const PERMISSIONS_BOUNDARY_NAME = AWS_ROLE_BOUNDARIES.app.policyName;
 /** IAM caps the aggregate size of a role's inline policies at 10,240 characters (whitespace excluded). */
 const MAX_INLINE_POLICY_CHARS = 10_000;
 
@@ -137,11 +138,11 @@ export function trustPrincipalFor(node: ResourceNode, ctx: Pick<CompileContext, 
   return principal;
 }
 
-export const roleNameFor = (ctx: Pick<CompileContext, "namePrefix">, address: string): string => cloudName(ctx.namePrefix, `${nodeName(address)}-role`, 64);
+export const roleNameFor = (ctx: Pick<CompileContext, "namePrefix">, address: string): string => `${cloudName(ctx.namePrefix, nodeName(address), 64 - "-role".length)}-role`;
 
 /** The boundary policy ARN as a tofu template (see the module comment for why it is not a variable). */
 function boundaryArn(acct: AccountRefs): string {
-  return `arn:${acct.partition}:iam::${acct.accountId}:policy/${PERMISSIONS_BOUNDARY_NAME}`;
+  return awsBoundaryArn("app", acct.partition, acct.accountId);
 }
 
 /** Characters an inline policy will occupy, estimated generously (40 per unresolved ARN). */

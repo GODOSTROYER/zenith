@@ -5,14 +5,15 @@
  * README promises. They do not — cannot — prove the policies work against real
  * AWS; see the README's "verified vs unverified" section.
  */
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
-import { checkPolicies, generate, POLICIES_DIR, TEMPLATE_PATH } from "../../deploy/aws/tools/generate-tofu-policies";
+import { boundarySizes, checkBoundarySizes, checkPolicies, generate, POLICIES_DIR, TEMPLATE_PATH } from "../../deploy/aws/tools/generate-tofu-policies";
 import { sessionPolicyFor } from "@/lib/credentials/aws";
-import { BUILD_ROLE_NAME_PATTERN } from "@/lib/credentials/aws/naming";
+import { AWS_ROLE_BOUNDARIES, BUILD_ROLE_NAME_PATTERN } from "@/lib/credentials/aws/naming";
 import { boundaryAllows } from "./workload-boundary";
 import {
   asList,
@@ -29,6 +30,7 @@ import { ACCOUNT } from "./helpers";
 
 const template = loadTemplate(TEMPLATE_PATH);
 const MODULE_DIR = path.resolve(path.dirname(TEMPLATE_PATH), "tofu-module");
+const execFileAsync = promisify(execFile);
 
 const ISSUER_HOST = "app.tryzenith.cloud/api/oidc";
 const SUBJECT = "zenith:ws:ws_1:conn:conn_1";
@@ -133,8 +135,35 @@ describe("template structure", () => {
 describe.each(["aws", "aws-cn", "aws-us-gov"])("boundary size in %s", (partition) => {
   it.each(Object.keys(SCENARIOS))("fits IAM's 6,144-character limit for %s", (scenario) => {
     const ev = makeEvaluator(template, { params: SCENARIOS[scenario], pseudo: { partition, accountId: ACCOUNT, region: "eu-west-1" } });
-    expect(compactSize(policyDoc(ev, "WorkloadBoundary"))).toBeLessThanOrEqual(6144);
+    for (const id of MANAGED) expect(compactSize(policyDoc(ev, id)), id).toBeLessThanOrEqual(6144);
   });
+});
+
+it("all selectable family boundaries preserve headroom at maximum suffix/environment lengths, and all deploy policies fit in every partition", () => {
+  expect(checkBoundarySizes).not.toThrow();
+  const sizes = boundarySizes();
+  expect(sizes).toHaveLength(MANAGED.length * 3);
+  for (const { logicalId, size, limit } of sizes) {
+    expect(size, logicalId).toBeLessThanOrEqual(limit);
+    if (Object.values(AWS_ROLE_BOUNDARIES).some((spec) => spec.logicalId === logicalId)) expect(limit).toBe(5800);
+  }
+});
+
+it("legacy retains every pre-split grant and escalation deny, strengthening only the state namespace deny", () => {
+  const prior = fs.readFileSync(path.resolve("tests/credentials/legacy-workload-boundary.json"), "utf8");
+  for (const partition of ["aws", "aws-cn", "aws-us-gov"]) {
+    const ev = makeEvaluator(template, { pseudo: { partition, accountId: ACCOUNT, region: "eu-west-1" } });
+    const stateArn = `arn:${partition}:s3:::${ev.resourceRef("StateBucket")}`;
+    const vars: Record<string, string> = { partition, account_id: ACCOUNT, region: "eu-west-1", environment_tag_value: "*", state_bucket_arn: stateArn };
+    const baseline = JSON.parse(prior.replace(/\$\{(\w+)\}/g, (_match, key: string) => vars[key]));
+    const actual = JSON.parse(JSON.stringify(policyDoc(ev, "WorkloadBoundary")));
+    const stateDeny = actual.Statement.find((statement: Statement) => statement.Effect === "Deny" && statement.Action === "s3:*");
+    expect(stateDeny.Resource).toBe(`${stateArn}*`);
+    const principal = { "aws:PrincipalArn": `arn:${partition}:iam::${ACCOUNT}:role/zenith-env-web-build`, "s3:ResourceAccount": ACCOUNT };
+    for (const resource of [stateArn, `${stateArn}/state.tf`, `${stateArn}-prefix-collision/object`]) expect(boundaryAllows(statementsOf(actual), "s3:GetObject", resource, principal)).toBe(false);
+    stateDeny.Resource = [stateArn, `${stateArn}/*`];
+    expect(actual).toEqual(baseline);
+  }
 });
 
 describe.each(Object.keys(SCENARIOS))("IAM policies (%s)", (scenario) => {
@@ -279,7 +308,6 @@ describe.each(Object.keys(SCENARIOS))("IAM policies (%s)", (scenario) => {
       "iam:CreateLoginProfile",
       "iam:CreateOpenIDConnectProvider",
       "sts:AssumeRole",
-      "iam:PutRolePermissionsBoundary",
       "iam:DeleteRolePermissionsBoundary",
     ]) {
       expect(actions, forbidden).not.toContain(forbidden);
@@ -288,26 +316,26 @@ describe.each(Object.keys(SCENARIOS))("IAM policies (%s)", (scenario) => {
 
   it("IAM: roles are created/changed only with the permission boundary, PassRole is service-limited, self-modification is denied", () => {
     const statements = statementsOf(policyDoc(ev, "DeployIamPolicy"));
-    const boundary = evaluatorForRef(ev, "WorkloadBoundary");
+    const boundary = Object.values(AWS_ROLE_BOUNDARIES).map((spec) => evaluatorForRef(ev, spec.logicalId));
     const byActionAllowed = (action: string) => allows(statements).filter((s) => asList(s.Action).includes(action));
 
     for (const action of ["iam:CreateRole", "iam:PutRolePolicy", "iam:AttachRolePolicy", "iam:DetachRolePolicy", "iam:DeleteRolePolicy", "iam:DeleteRole"]) {
       const found = byActionAllowed(action);
       expect(found.length, action).toBe(1);
-      expect(found[0].Condition?.StringEquals?.["iam:PermissionsBoundary"], action).toBe(boundary);
+      expect(found[0].Condition?.StringEquals?.["iam:PermissionsBoundary"], action).toEqual(boundary);
       expect(asList(found[0].Resource), action).toEqual([`arn:aws:iam::${ACCOUNT}:role/zenith-*`]);
     }
     const attach = byActionAllowed("iam:AttachRolePolicy")[0];
-    expect(asList(attach.Condition?.ArnLike?.["iam:PolicyARN"] as string[]).every((a) => /policy\/zenith-\*$|policy\/(AmazonEKSClusterPolicy|AmazonEKSWorkerNodePolicy|AmazonEKS_CNI_Policy|AmazonEC2ContainerRegistryReadOnly)$|policy\/service-role\/(AmazonECSTaskExecutionRolePolicy|AWSLambda(Basic|VPCAccess)ExecutionRole)$/.test(a))).toBe(true);
+    expect(asList(attach.Condition?.ArnLike?.["iam:PolicyARN"] as string[]).every((a) => /policy\/zenith-\*$|policy\/(AmazonEKSClusterPolicy|AmazonEKSWorkerNodePolicy|AmazonEKS_CNI_Policy|AmazonEC2ContainerRegistryReadOnly|AmazonSSMManagedInstanceCore)$|policy\/service-role\/(AmazonECSTaskExecutionRolePolicy|AWSLambda(Basic|VPCAccess)ExecutionRole)$/.test(a))).toBe(true);
 
     const pass = byActionAllowed("iam:PassRole")[0];
     expect(pass.Condition?.StringEquals?.["iam:PassedToService"]).toEqual(["ecs-tasks.amazonaws.com", "codebuild.amazonaws.com", "lambda.amazonaws.com", "eks.amazonaws.com", "ec2.amazonaws.com"]);
     expect(asList(pass.Resource)).toEqual([`arn:aws:iam::${ACCOUNT}:role/zenith-*`]);
 
-    const self = statements.find((s) => s.Sid === "DenyModifyingZenithBootstrapRolesAndPolicies")!;
+    const self = statements.find((s) => s.Sid === "DenyBootstrapChanges")!;
     expect(self.Effect).toBe("Deny");
     const resources = asList(self.Resource).join(" ");
-    for (const p of ["role/ZenithDeploy*", "role/ZenithObserve*", "role/zenith-codebuild*", "policy/ZenithDeploy*", "policy/ZenithObserve*", "policy/ZenithWorkloadBoundary*"]) {
+    for (const p of ["role/ZenithDeploy*", "role/ZenithObserve*", "role/zenith-codebuild*", "policy/Zenith*"]) {
       expect(resources).toContain(p);
     }
     expect(asList(self.Action)).toEqual(expect.arrayContaining(["iam:AttachRolePolicy", "iam:PutRolePolicy", "iam:UpdateAssumeRolePolicy", "iam:DeleteRole", "iam:CreatePolicyVersion", "iam:SetDefaultPolicyVersion"]));
@@ -315,8 +343,20 @@ describe.each(Object.keys(SCENARIOS))("IAM policies (%s)", (scenario) => {
     const boundaryGuard = statements.find((s) => s.Sid === "DenyRemovingAnyPermissionsBoundary")!;
     expect(asList(boundaryGuard.Action)).toEqual(["iam:DeleteRolePermissionsBoundary", "iam:PutRolePermissionsBoundary"]);
     expect(boundaryGuard.Resource).toBe("*");
+    expect(boundaryGuard.Condition?.StringNotEquals?.["iam:PermissionsBoundary"]).toEqual(boundary);
+    const role = `arn:aws:iam::${ACCOUNT}:role/zenith-env-web-role`;
+    for (const action of ["iam:CreateRole", "iam:PutRolePolicy", "iam:PutRolePermissionsBoundary"]) {
+      for (const arn of boundary) expect(boundaryAllows(statements, action, role, { "iam:PermissionsBoundary": arn, "aws:RequestTag/zenith:managed": "true" })).toBe(true);
+      for (const arn of [undefined, ev.resourceRef("WorkloadBoundary"), `arn:aws:iam::${ACCOUNT}:policy/ZenithOtherBoundary`, boundary[0].replace(ACCOUNT, "210987654321")]) {
+        expect(boundaryAllows(statements, action, role, { ...(arn ? { "iam:PermissionsBoundary": arn } : {}), "aws:RequestTag/zenith:managed": "true" }), `${action} ${arn}`).toBe(false);
+      }
+    }
+    for (const arn of [undefined, ...boundary]) expect(boundaryAllows(statements, "iam:DeleteRolePermissionsBoundary", role, arn ? { "iam:PermissionsBoundary": arn } : {})).toBe(false);
+    for (const arn of boundary) {
+      for (const action of ["iam:CreatePolicy", "iam:CreatePolicyVersion", "iam:SetDefaultPolicyVersion", "iam:DeletePolicy", "iam:DeletePolicyVersion", "iam:TagPolicy", "iam:UntagPolicy"]) expect(boundaryAllows(statements, action, arn)).toBe(false);
+    }
 
-    const oidc = statements.find((s) => s.Sid === "DenyOidcProviderAndPrincipalCreation")!;
+    const oidc = statements.find((s) => s.Sid === "DenyPrincipalCreation")!;
     expect(asList(oidc.Action)).toEqual(expect.arrayContaining(["iam:DeleteOpenIDConnectProvider", "iam:CreateUser", "iam:CreateAccessKey", "organizations:*"]));
   });
 
@@ -567,6 +607,8 @@ describe("OpenTofu module", () => {
       state_bucket_arn: `arn:aws:s3:::zenith-state-${ACCOUNT}-ap-south-1`,
       boundary_arn: ev.resourceRef("WorkloadBoundary"),
       environment_tag_value: "*",
+      dns_suffix: "amazonaws.com",
+      ...Object.fromEntries(Object.entries(AWS_ROLE_BOUNDARIES).map(([family, spec]) => [`${family}_boundary_arn`, ev.resourceRef(spec.logicalId)])),
     };
     const render = (file: string) => JSON.parse(strip(fs.readFileSync(path.join(POLICIES_DIR, file), "utf8")).replace(/\$\{(\w+)\}/g, (_m, k: string) => vars[k]));
     const files: Record<string, string> = {
@@ -577,6 +619,7 @@ describe("OpenTofu module", () => {
       DeployStatePolicy: "deploy-state.json.tftpl",
       DeployIamPolicy: "deploy-iam.json.tftpl",
       WorkloadBoundary: "workload-boundary.json.tftpl",
+      ...Object.fromEntries(Object.values(AWS_ROLE_BOUNDARIES).map((spec) => [spec.logicalId, `${spec.template}.json.tftpl`])),
     };
     for (const [id, file] of Object.entries(files)) {
       expect(render(file), id).toEqual(JSON.parse(JSON.stringify(policyDoc(ev, id))));
@@ -608,12 +651,14 @@ describe("OpenTofu module", () => {
 
   const tofuAvailable = spawnSync("tofu", ["version"], { encoding: "utf8" }).status === 0;
   // Needs the AWS provider from registry.opentofu.org (~60 s the first time).
-  it.skipIf(!process.env.ZENITH_TEST_TOFU || !tofuAvailable)("tofu init + validate + test (mock provider, offline after init)", () => {
+  it.skipIf(!process.env.ZENITH_TEST_TOFU || !tofuAvailable)("tofu init + validate + test (mock provider, offline after init)", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-tofu-"));
     fs.cpSync(MODULE_DIR, dir, { recursive: true });
-    const run = (...args: string[]) => execFileSync("tofu", args, { cwd: dir, encoding: "utf8", timeout: 240_000 });
-    run("init", "-backend=false", "-input=false");
-    expect(run("validate")).toContain("valid");
-    expect(run("test")).toMatch(/Success!/);
+    // Provider installation can exceed Vitest's RPC timeout. Awaiting the
+    // child keeps this worker responsive while preserving the real gates.
+    const run = async (...args: string[]) => (await execFileAsync("tofu", args, { cwd: dir, encoding: "utf8", timeout: 240_000 })).stdout;
+    await run("init", "-backend=false", "-input=false");
+    expect(await run("validate")).toContain("valid");
+    expect(await run("test")).toMatch(/Success!/);
   }, 300_000);
 });

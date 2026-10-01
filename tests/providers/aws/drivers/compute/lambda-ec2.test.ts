@@ -50,7 +50,7 @@ describe("aws:lambda_function compile", () => {
     expect(res(f, "aws_cloudwatch_log_group", "function_resize_logs")).toMatchObject({ name: "/aws/lambda/zn-acme-resize", retention_in_days: 30 });
     const role = res(f, "aws_iam_role", "function_resize");
     expect(JSON.parse(role.assume_role_policy as string).Statement[0].Principal).toEqual({ Service: "lambda.amazonaws.com" });
-    expect(role.permissions_boundary).toMatch(/ZenithWorkloadBoundary$/);
+    expect(role.permissions_boundary).toMatch(/ZenithAppBoundary$/);
   });
 
   it("the role can write only its own log group's streams: no wildcard action, one trailing stream wildcard", () => {
@@ -292,7 +292,7 @@ describe("aws:ec2_instance compile", () => {
   it("its role trusts EC2, carries the boundary and gets the managed SSM core policy, nothing else", () => {
     const role = res(f, "aws_iam_role", "compute_instance_bastion");
     expect(JSON.parse(role.assume_role_policy as string).Statement[0].Principal).toEqual({ Service: "ec2.amazonaws.com" });
-    expect(role.permissions_boundary).toMatch(/ZenithWorkloadBoundary$/);
+    expect(role.permissions_boundary).toMatch(/ZenithMachineBoundary$/);
     expect(res(f, "aws_iam_role_policy_attachment", "compute_instance_bastion_ssm").policy_arn).toBe("arn:${data.aws_partition.compute_instance_bastion.partition}:iam::aws:policy/AmazonSSMManagedInstanceCore");
     expect(f.resource).not.toHaveProperty("aws_iam_role_policy");
   });

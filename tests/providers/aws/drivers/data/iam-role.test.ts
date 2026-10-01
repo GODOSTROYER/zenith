@@ -201,7 +201,7 @@ describe("aws:iam_role compile", () => {
     const role = (f.resource!.aws_iam_role as Record<string, Record<string, unknown>>).identity_web;
     expect(role).toMatchObject({
       name: "zen-prod-web-role",
-      permissions_boundary: "arn:${data.aws_partition.identity_web_partition.partition}:iam::${data.aws_caller_identity.identity_web_account.account_id}:policy/ZenithWorkloadBoundary",
+      permissions_boundary: "arn:${data.aws_partition.identity_web_partition.partition}:iam::${data.aws_caller_identity.identity_web_account.account_id}:policy/ZenithAppBoundary",
       assume_role_policy: "${data.aws_iam_policy_document.identity_web_trust.json}",
     });
     expect(f.resource!.aws_iam_role_policy).toEqual({ identity_web_grants: { name: "zenith-grants", role: "${aws_iam_role.identity_web.id}", policy: "${data.aws_iam_policy_document.identity_web_grants.json}" } });
@@ -280,7 +280,7 @@ function healthyRole(actions = expectedActions) {
       CreateDate: new Date(),
       Arn: ROLE_ARN,
       AssumeRolePolicyDocument: enc(trustDoc),
-      PermissionsBoundary: { PermissionsBoundaryType: "PermissionsBoundaryPolicy", PermissionsBoundaryArn: "arn:aws:iam::123456789012:policy/ZenithWorkloadBoundary" },
+      PermissionsBoundary: { PermissionsBoundaryType: "PermissionsBoundaryPolicy", PermissionsBoundaryArn: "arn:aws:iam::123456789012:policy/ZenithAppBoundary" },
       Tags: tagList("identity/web"),
     },
   });
@@ -295,7 +295,7 @@ describe("aws:iam_role observe", () => {
     const obs = await driver.observe!(driverCtx(), id, ROLE_ARN);
     expect(obs).toMatchObject({ presence: "present", externalId: ROLE_ARN, source: "aws.iam_role@1" });
     const v = (n: string) => (obs.attributes[n] as { value: unknown }).value;
-    expect(v("permissionsBoundaryName")).toBe("ZenithWorkloadBoundary");
+    expect(v("permissionsBoundaryName")).toBe("ZenithAppBoundary");
     expect(v("trustPrincipals")).toEqual(["ecs-tasks.amazonaws.com"]);
     expect(v("wildcardAccess")).toBe(false);
     expect(v("attachedPolicyCount")).toBe(0);
@@ -339,7 +339,7 @@ describe("aws:iam_role observe", () => {
     expect(obs.presence).toBe("present");
     expect(obs.attributes.inlinePolicyActions).toMatchObject({ state: "unknown", reason: "access_denied" });
     expect(obs.attributes.wildcardAccess).toMatchObject({ state: "unknown", reason: "access_denied" });
-    expect(obs.attributes.permissionsBoundaryName).toMatchObject({ state: "known", value: "ZenithWorkloadBoundary" });
+    expect(obs.attributes.permissionsBoundaryName).toMatchObject({ state: "known", value: "ZenithAppBoundary" });
     expect(obs.attributes.attachedPolicyCount).toMatchObject({ state: "known", value: 0 });
   });
 
@@ -409,14 +409,14 @@ describe("aws:iam_role observe", () => {
     const broken = identity([grant("object_store/uploads", "frobnicate")]);
     const expected = driver.expectedAttributes!(broken);
     expect(expected).not.toHaveProperty("inlinePolicyActions");
-    expect(expected).toMatchObject({ permissionsBoundaryName: "ZenithWorkloadBoundary", wildcardAccess: false, attachedPolicyCount: 0 });
+    expect(expected).toMatchObject({ permissionsBoundaryName: "ZenithAppBoundary", wildcardAccess: false, attachedPolicyCount: 0 });
   });
 
   it("discover skips service-linked and reserved roles, reads tags within a bound, marks Zenith-tagged ones", async () => {
     iam.on(ListRolesCommand).resolves({
       IsTruncated: false,
       Roles: [
-        { RoleName: "zen-prod-web-role", Path: "/", Arn: ROLE_ARN, RoleId: "a", CreateDate: new Date(), PermissionsBoundary: { PermissionsBoundaryArn: "arn:aws:iam::123456789012:policy/ZenithWorkloadBoundary" } },
+        { RoleName: "zen-prod-web-role", Path: "/", Arn: ROLE_ARN, RoleId: "a", CreateDate: new Date(), PermissionsBoundary: { PermissionsBoundaryArn: "arn:aws:iam::123456789012:policy/ZenithAppBoundary" } },
         { RoleName: "AWSServiceRoleForX", Path: "/aws-service-role/x.amazonaws.com/", Arn: "arn:aws:iam::123456789012:role/aws-service-role/x.amazonaws.com/AWSServiceRoleForX", RoleId: "b", CreateDate: new Date() },
         { RoleName: "AWSReservedSSO_Admin_1", Path: "/", Arn: "arn:aws:iam::123456789012:role/AWSReservedSSO_Admin_1", RoleId: "c", CreateDate: new Date() },
         { RoleName: "app-role", Path: "/", Arn: "arn:aws:iam::123456789012:role/app-role", RoleId: "d", CreateDate: new Date() },

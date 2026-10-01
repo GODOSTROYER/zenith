@@ -77,6 +77,7 @@ The composed control plane (`docs/platform/`) is separate from the legacy provid
 Still-open gaps at source snapshot `3c1fa66` (2026-10-01), one line per gap:
 
 - 🟡 Live clouds, customer builds/registry pushes, STS/KMS, IAM and state locking/encryption/restore are unverified; nothing here is labelled `real` without live acceptance.
+- 🟡 AWS role-family boundaries have local policy/driver coverage and retain the legacy policy for stack-first migration. Foreign referenced targets outside the family scopes remain blocked. Nonempty bootstrap name suffixes are size-tested but cannot yet reach driver family-ARN selection through the connection/compiler contract; workload apply supports the default unsuffixed policy names only. AWS-managed attachment defaults can change after the frozen policy survey; no live IAM/EKS acceptance is claimed ([AWS bootstrap](../deploy/aws/README.md#migrating-an-existing-connection)).
 - 🟡 The real Postgres lane (`ZENITH_TEST_PLATFORM_PG_URL`) was not run in this sync; historical rehearsals do not verify the current migrations, pooler/TLS or production recovery.
 - 🟡 Kind/real Kubernetes was not run here; WSL/Docker are unavailable in this worker sandbox.
 - 🟡 The Go runner/daemon transport was not run here; source assertions do not prove executor or customer-network behavior.

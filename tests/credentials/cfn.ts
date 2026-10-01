@@ -60,7 +60,7 @@ export const NOVALUE = Symbol("AWS::NoValue");
 export interface EvalOptions {
   params?: Record<string, string | string[]>;
   /** pseudo parameters */
-  pseudo?: { partition: string; accountId: string; region: string };
+  pseudo?: { partition: string; accountId: string; region: string; urlSuffix?: string };
   /** force a condition's value (used when generating the OpenTofu templates) */
   forceConditions?: Record<string, boolean>;
   /** override what `Ref`/`GetAtt` return for a resource (used when generating the OpenTofu templates) */
@@ -100,6 +100,8 @@ export function makeEvaluator(template: Template, options: EvalOptions = {}): Ev
         return pseudo.accountId;
       case "AWS::Region":
         return pseudo.region;
+      case "AWS::URLSuffix":
+        return options.pseudo?.urlSuffix ?? (pseudo.partition === "aws-cn" ? "amazonaws.com.cn" : "amazonaws.com");
       case "AWS::NoValue":
         return NOVALUE;
       default:

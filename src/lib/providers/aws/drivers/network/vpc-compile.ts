@@ -29,7 +29,7 @@
  *     traffic that explains a broken security group. Switching to ALL traffic is a
  *     one-word change (`traffic_type`) and can cost far more on a busy VPC.
  *
- * The flow-log service role carries the `ZenithWorkloadBoundary` permission
+ * The flow-log service role carries the `ZenithAppBoundary` permission
  * boundary (DRIVER-CONVENTIONS). ASSUMPTION, unverified against a live account:
  * that managed policy exists in the account (created by the customer bootstrap)
  * and permits logs:CreateLogStream / DescribeLogStreams / PutLogEvents on the
@@ -39,6 +39,7 @@
  * `cidr_block`, `internet_gateway_id`, `public_route_table_id`,
  * `private_route_table_id:<zone letter>` (every zone letter, whatever the NAT mode).
  */
+import { AWS_ROLE_BOUNDARIES, awsBoundaryArn } from "@/lib/credentials/aws/naming";
 import type { CompileContext, TofuFragment } from "@/lib/drivers/types";
 import type { NetworkSpec } from "@/lib/resources/specs";
 import type { ResourceNode } from "@/lib/resources/types";
@@ -48,7 +49,7 @@ import { requireSubnet, zoneLetters } from "./zones";
 
 export const FLOW_LOG_RETENTION_DAYS = 30;
 export const FLOW_LOG_TRAFFIC_TYPE = "REJECT";
-export const PERMISSIONS_BOUNDARY_NAME = "ZenithWorkloadBoundary";
+export const PERMISSIONS_BOUNDARY_NAME = AWS_ROLE_BOUNDARIES.app.policyName;
 export type NatMode = "none" | "single" | "per_az";
 
 export interface ValidNetworkSpec {
@@ -193,9 +194,9 @@ export function compileVpc(node: ResourceNode, ctx: CompileContext): TofuFragmen
     ],
   };
   b.resource("aws_iam_role", flow, {
-    name: cloudName(ctx.namePrefix, `flowlogs-${nodeName(node.address)}`, 64),
+    name: `${cloudName(ctx.namePrefix, `flowlogs-${nodeName(node.address)}`, 64 - "-flow".length)}-flow`,
     assume_role_policy: json(assumeRole),
-    permissions_boundary: `arn:${partition}:iam::${account}:policy/${PERMISSIONS_BOUNDARY_NAME}`,
+    permissions_boundary: awsBoundaryArn("app", partition, account),
     tags: tag("flow-logs-role"),
   });
   const logGroupArn = `\${aws_cloudwatch_log_group.${flow}.arn}`;

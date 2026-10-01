@@ -1441,8 +1441,8 @@
       "deps": [],
       "paths": [],
       "branch": "ws/destroy-review",
-      "tests": "running",
-      "review": ""
+      "tests": "PAUSED mid-work",
+      "review": "PAUSED 2026-10-01 20:45 IST at user request; uncommitted work saved as docs/build/paused/ws-destroy-review.patch (resume per docs/build/RESUME.md)"
     },
     {
       "id": "WS-AZURE-SOURCE-WIRE",
@@ -1453,104 +1453,104 @@
       "deps": [],
       "paths": [],
       "branch": "ws/azure-source-wire",
-      "tests": "running",
-      "review": ""
+      "tests": "PAUSED mid-work",
+      "review": "PAUSED 2026-10-01 20:45 IST at user request; uncommitted work saved as docs/build/paused/ws-azure-source-wire.patch (resume per docs/build/RESUME.md)"
     },
     {
       "id": "WS-RELEASE-K8S",
       "title": "release ports for Kubernetes environments (image rollout + migration jobs)",
       "wave": 8,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "staged",
       "deps": [],
       "paths": [],
       "branch": "ws/release-k8s",
-      "tests": "running",
-      "review": ""
+      "tests": "job checks + orchestrator: tsc 0, go vet/test, targeted suites (real OpenTofu where relevant) green on staging; full gate NOT yet re-run after wave-8 merges",
+      "review": "merged into ws/integrate-w6 2026-10-01; see docs/build/RESUME.md"
     },
     {
       "id": "WS-RELEASE-OCI",
       "title": "release ports for OCI environments (container image rollout + migrations through the runner)",
       "wave": 8,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "staged",
       "deps": [],
       "paths": [],
       "branch": "ws/release-oci",
-      "tests": "running",
-      "review": ""
+      "tests": "job checks + orchestrator: tsc 0, go vet/test, targeted suites (real OpenTofu where relevant) green on staging; full gate NOT yet re-run after wave-8 merges",
+      "review": "merged into ws/integrate-w6 2026-10-01; see docs/build/RESUME.md"
     },
     {
       "id": "WS-DNS-GUARDS-CLOUDS",
       "title": "DNS deletion target-ownership guards for GCP, Azure and OCI",
       "wave": 8,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "staged",
       "deps": [],
       "paths": [],
       "branch": "ws/dns-guards-clouds",
-      "tests": "running",
-      "review": ""
+      "tests": "job checks + orchestrator: tsc 0, go vet/test, targeted suites (real OpenTofu where relevant) green on staging; full gate NOT yet re-run after wave-8 merges",
+      "review": "merged into ws/integrate-w6 2026-10-01; see docs/build/RESUME.md"
     },
     {
       "id": "WS-IMAGE-PINS",
       "title": "every build/tool image Zenith runs is digest-pinned, with a guard",
       "wave": 8,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "staged",
       "deps": [],
       "paths": [],
       "branch": "ws/image-pins",
-      "tests": "running",
-      "review": ""
+      "tests": "job checks + orchestrator: tsc 0, go vet/test, targeted suites (real OpenTofu where relevant) green on staging; full gate NOT yet re-run after wave-8 merges",
+      "review": "merged into ws/integrate-w6 2026-10-01; see docs/build/RESUME.md"
     },
     {
       "id": "WS-VAULT-REWRAP",
       "title": "product-vault key rotation: re-wrap tooling and runbook",
       "wave": 8,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "staged",
       "deps": [],
       "paths": [],
       "branch": "ws/vault-rewrap",
-      "tests": "running",
-      "review": ""
+      "tests": "job checks + orchestrator: tsc 0, go vet/test, targeted suites (real OpenTofu where relevant) green on staging; full gate NOT yet re-run after wave-8 merges",
+      "review": "merged into ws/integrate-w6 2026-10-01; see docs/build/RESUME.md"
     },
     {
       "id": "WS-TEMPORAL-MTLS",
       "title": "Temporal client/worker mTLS configuration",
       "wave": 8,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "staged",
       "deps": [],
       "paths": [],
       "branch": "ws/temporal-mtls",
-      "tests": "running",
-      "review": ""
+      "tests": "job checks + orchestrator: tsc 0, go vet/test, targeted suites (real OpenTofu where relevant) green on staging; full gate NOT yet re-run after wave-8 merges",
+      "review": "merged into ws/integrate-w6 2026-10-01; see docs/build/RESUME.md"
     },
     {
       "id": "WS-MACHINE-PORT",
       "title": "default composition supplies the machine port",
       "wave": 8,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "staged",
       "deps": [],
       "paths": [],
       "branch": "ws/machine-port",
-      "tests": "running",
-      "review": ""
+      "tests": "job checks + orchestrator: tsc 0, go vet/test, targeted suites (real OpenTofu where relevant) green on staging; full gate NOT yet re-run after wave-8 merges",
+      "review": "merged into ws/integrate-w6 2026-10-01; see docs/build/RESUME.md"
     },
     {
       "id": "WS-GITHUB-SOURCE",
       "title": "tenant-scoped GitHub App connector for private source repositories",
       "wave": 8,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "staged",
       "deps": [],
       "paths": [],
       "branch": "ws/github-source",
-      "tests": "running",
-      "review": ""
+      "tests": "job checks + orchestrator: tsc 0, go vet/test, targeted suites (real OpenTofu where relevant) green on staging; full gate NOT yet re-run after wave-8 merges",
+      "review": "merged into ws/integrate-w6 2026-10-01; see docs/build/RESUME.md"
     },
     {
       "id": "WS-AWS-BOUNDARY-SPLIT",
@@ -1563,8 +1563,8 @@
       ],
       "paths": [],
       "branch": "ws/aws-boundary-split",
-      "tests": "running",
-      "review": ""
+      "tests": "PAUSED mid-work",
+      "review": "PAUSED 2026-10-01 20:45 IST at user request; uncommitted work saved as docs/build/paused/ws-aws-boundary-split.patch (resume per docs/build/RESUME.md)"
     }
   ],
   "blockers": [

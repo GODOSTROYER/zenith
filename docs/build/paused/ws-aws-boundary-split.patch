@@ -1,0 +1,3421 @@
+diff --git a/deploy/aws/tofu-module/main.tf b/deploy/aws/tofu-module/main.tf
+index 9f44303..e1b41b1 100644
+--- a/deploy/aws/tofu-module/main.tf
++++ b/deploy/aws/tofu-module/main.tf
+@@ -37,8 +37,19 @@ locals {
+   boundary_arn      = "arn:${local.partition}:iam::${local.account_id}:policy/${local.boundary_name}"
+   oidc_provider_arn = "arn:${local.partition}:iam::${local.account_id}:oidc-provider/${var.zenith_issuer_host}"
+ 
+-  policy_vars = {
++  family_boundaries = {
++    app = { name = "ZenithAppBoundary", file = "app-boundary" }
++    build = { name = "ZenithBuildBoundary", file = "build-boundary" }
++    machine = { name = "ZenithMachineBoundary", file = "machine-boundary" }
++    scheduler = { name = "ZenithSchedulerBoundary", file = "scheduler-boundary" }
++    eksCluster = { name = "ZenithEksClusterBoundary", file = "eks-cluster-boundary" }
++    eksNode = { name = "ZenithEksNodeBoundary", file = "eks-node-boundary" }
++  }
++  family_boundary_arns = { for key, spec in local.family_boundaries : key => "arn:${local.partition}:iam::${local.account_id}:policy/${spec.name}${var.name_suffix}" }
++
++  policy_vars = merge({
+     partition                = local.partition
++    dns_suffix               = data.aws_partition.current.dns_suffix
+     account_id               = local.account_id
+     region                   = local.region
+     state_bucket             = local.state_bucket_name
+@@ -47,7 +58,7 @@ locals {
+     environment_tag_value    = var.environment_tag_value
+     kms_key_arn              = var.state_bucket_kms_key_arn
+     route53_hosted_zone_arns = var.route53_hosted_zone_arns
+-  }
++  }, { for key, arn in local.family_boundary_arns : "${key}_boundary_arn" => arn })
+ 
+   optional = jsondecode(templatefile("${path.module}/policies/optional-statements.json.tftpl", local.policy_vars))
+ 
+@@ -254,6 +265,14 @@ resource "aws_s3_bucket_policy" "state" {
+ # Scheduled RunTask/PassRole require role/zenith-*-events; core SSM agent
+ # actions require role/zenith-*-ec2. IAM administration remains explicitly denied.
+ # naming.ts defines reserved suffixes; the generator checks them for drift.
++resource "aws_iam_policy" "family_boundary" {
++  for_each = local.family_boundaries
++  name = "${each.value.name}${var.name_suffix}"
++  description = "Permission boundary for Zenith ${each.key} roles. Do not edit; Zenith cannot."
++  policy = templatefile("${path.module}/policies/${each.value.file}.json.tftpl", local.policy_vars)
++}
++
++# Retain the legacy policy during migration; the deploy role cannot select it.
+ resource "aws_iam_policy" "workload_boundary" {
+   name        = local.boundary_name
+   description = "Permission boundary for roles created by Zenith. Do not edit; Zenith cannot."
+diff --git a/deploy/aws/tofu-module/outputs.tf b/deploy/aws/tofu-module/outputs.tf
+index 2d84688..1a38b81 100644
+--- a/deploy/aws/tofu-module/outputs.tf
++++ b/deploy/aws/tofu-module/outputs.tf
+@@ -24,7 +24,7 @@ output "codebuild_role_arn" {
+ }
+ 
+ output "workload_boundary_arn" {
+-  description = "Permission boundary every Zenith-created role must carry."
++  description = "Legacy permission boundary retained for existing roles during migration."
+   value       = aws_iam_policy.workload_boundary.arn
+ }
+ 
+@@ -42,3 +42,8 @@ output "region" {
+   description = "The region of the state bucket."
+   value       = local.region
+ }
++
++output "family_boundary_arns" {
++  description = "Permission boundary ARN by role family."
++  value = { for key, policy in aws_iam_policy.family_boundary : key => policy.arn }
++}
+diff --git a/deploy/aws/tofu-module/policies/app-boundary.json.tftpl b/deploy/aws/tofu-module/policies/app-boundary.json.tftpl
+new file mode 100644
+index 0000000..6b69841
+--- /dev/null
++++ b/deploy/aws/tofu-module/policies/app-boundary.json.tftpl
+@@ -0,0 +1,240 @@
++{
++  "Version": "2012-10-17",
++  "Statement": [
++    {
++      "Effect": "Allow",
++      "Action": [
++        "logs:CreateLogGroup",
++        "logs:CreateLogStream",
++        "logs:PutLogEvents",
++        "logs:DescribeLogStreams",
++        "logs:FilterLogEvents",
++        "logs:GetLogEvents",
++        "ecr:BatchCheckLayerAvailability",
++        "ecr:GetDownloadUrlForLayer",
++        "ecr:BatchGetImage",
++        "sqs:SendMessage",
++        "sqs:ReceiveMessage",
++        "sqs:DeleteMessage",
++        "sqs:ChangeMessageVisibility",
++        "sqs:GetQueueAttributes",
++        "sqs:GetQueueUrl"
++      ],
++      "Resource": [
++        "arn:${partition}:logs:*:${account_id}:log-group:/zenith/*",
++        "arn:${partition}:logs:*:${account_id}:log-group:/aws/*/zenith-*",
++        "arn:${partition}:ecr:*:${account_id}:repository/zenith-*",
++        "arn:${partition}:sqs:*:${account_id}:zenith-*"
++      ],
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-role",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-fn",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-flow"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": "ecr:GetAuthorizationToken",
++      "Resource": "*",
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-role",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-fn",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-flow"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": [
++        "s3:GetObject",
++        "s3:PutObject",
++        "s3:DeleteObject",
++        "s3:ListBucket",
++        "s3:GetBucketLocation",
++        "s3:AbortMultipartUpload",
++        "s3:ListMultipartUploadParts"
++      ],
++      "Resource": [
++        "arn:${partition}:s3:::zenith-*",
++        "arn:${partition}:s3:::zenith-*/*"
++      ],
++      "Condition": {
++        "StringEquals": {
++          "s3:ResourceAccount": "${account_id}"
++        },
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-role",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-fn",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-flow"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": "sns:Publish",
++      "Resource": "arn:${partition}:sns:*:${account_id}:zenith-${environment_tag_value}-*",
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-role",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-fn",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-flow"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": [
++        "secretsmanager:GetSecretValue",
++        "secretsmanager:DescribeSecret"
++      ],
++      "Resource": [
++        "arn:${partition}:secretsmanager:*:${account_id}:secret:zenith/*",
++        "arn:${partition}:secretsmanager:*:${account_id}:secret:rds!db-*"
++      ],
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-role",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-fn",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-flow"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": [
++        "ssm:GetParameter",
++        "ssm:GetParameters",
++        "ssm:GetParametersByPath"
++      ],
++      "Resource": "arn:${partition}:ssm:*:${account_id}:parameter/zenith/*",
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-role",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-fn",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-flow"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": [
++        "kms:Decrypt",
++        "kms:GenerateDataKey",
++        "kms:DescribeKey"
++      ],
++      "Resource": "arn:${partition}:kms:*:${account_id}:key/*",
++      "Condition": {
++        "StringEquals": {
++          "kms:CallerAccount": "${account_id}"
++        },
++        "StringLike": {
++          "kms:ViaService": [
++            "secretsmanager.*.${dns_suffix}",
++            "ssm.*.${dns_suffix}",
++            "s3.*.${dns_suffix}",
++            "sqs.*.${dns_suffix}",
++            "sns.*.${dns_suffix}"
++          ]
++        },
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-role",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-fn",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-flow"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": "rds-db:connect",
++      "Resource": "arn:${partition}:rds-db:*:${account_id}:dbuser:db-*/*",
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-role",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-fn",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-flow"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": "elasticache:Connect",
++      "Resource": [
++        "arn:${partition}:elasticache:*:${account_id}:replicationgroup:zenith-*",
++        "arn:${partition}:elasticache:*:${account_id}:user:zenith-*"
++      ],
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-role",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-fn",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-flow"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Deny",
++      "Action": "*",
++      "Resource": "*",
++      "Condition": {
++        "ArnNotLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-role",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-exec",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-fn",
++            "arn:${partition}:iam::${account_id}:role/zenith-*-flow"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Deny",
++      "Action": [
++        "organizations:*",
++        "account:*"
++      ],
++      "Resource": "*"
++    },
++    {
++      "Effect": "Deny",
++      "Action": "iam:*",
++      "Resource": "*"
++    },
++    {
++      "Effect": "Deny",
++      "Action": "s3:*",
++      "Resource": [
++        "${state_bucket_arn}",
++        "${state_bucket_arn}/*"
++      ]
++    }
++  ]
++}
+diff --git a/deploy/aws/tofu-module/policies/build-boundary.json.tftpl b/deploy/aws/tofu-module/policies/build-boundary.json.tftpl
+new file mode 100644
+index 0000000..db19190
+--- /dev/null
++++ b/deploy/aws/tofu-module/policies/build-boundary.json.tftpl
+@@ -0,0 +1,131 @@
++{
++  "Version": "2012-10-17",
++  "Statement": [
++    {
++      "Effect": "Allow",
++      "Action": [
++        "logs:CreateLogStream",
++        "logs:PutLogEvents"
++      ],
++      "Resource": [
++        "arn:${partition}:logs:*:${account_id}:log-group:/zenith/*",
++        "arn:${partition}:logs:*:${account_id}:log-group:/aws/*/zenith-*"
++      ],
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-build"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": [
++        "ecr:BatchCheckLayerAvailability",
++        "ecr:GetDownloadUrlForLayer",
++        "ecr:BatchGetImage",
++        "ecr:InitiateLayerUpload",
++        "ecr:UploadLayerPart",
++        "ecr:CompleteLayerUpload",
++        "ecr:PutImage",
++        "ecr:DescribeImages"
++      ],
++      "Resource": [
++        "arn:${partition}:ecr:*:${account_id}:repository/zenith-*"
++      ],
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-build"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": "ecr:GetAuthorizationToken",
++      "Resource": "*",
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-build"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": [
++        "s3:GetObject",
++        "s3:GetObjectVersion",
++        "s3:GetBucketLocation",
++        "s3:PutObject",
++        "s3:DeleteObject",
++        "s3:ListBucket"
++      ],
++      "Resource": [
++        "arn:${partition}:s3:::zenith-*",
++        "arn:${partition}:s3:::zenith-*/*"
++      ],
++      "Condition": {
++        "StringEquals": {
++          "s3:ResourceAccount": "${account_id}"
++        },
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-build"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": "cloudfront:CreateInvalidation",
++      "Resource": "arn:${partition}:cloudfront::${account_id}:distribution/*",
++      "Condition": {
++        "StringEquals": {
++          "aws:ResourceTag/zenith:managed": "true"
++        },
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-build"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Deny",
++      "Action": "*",
++      "Resource": "*",
++      "Condition": {
++        "ArnNotLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-build"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Deny",
++      "Action": [
++        "organizations:*",
++        "account:*"
++      ],
++      "Resource": "*"
++    },
++    {
++      "Effect": "Deny",
++      "Action": "iam:*",
++      "Resource": "*"
++    },
++    {
++      "Effect": "Deny",
++      "Action": "s3:*",
++      "Resource": [
++        "${state_bucket_arn}",
++        "${state_bucket_arn}/*"
++      ]
++    }
++  ]
++}
+diff --git a/deploy/aws/tofu-module/policies/deploy-iam.json.tftpl b/deploy/aws/tofu-module/policies/deploy-iam.json.tftpl
+index 426a782..64e7fa5 100644
+--- a/deploy/aws/tofu-module/policies/deploy-iam.json.tftpl
++++ b/deploy/aws/tofu-module/policies/deploy-iam.json.tftpl
+@@ -8,7 +8,14 @@
+       "Resource": "arn:${partition}:iam::${account_id}:role/zenith-*",
+       "Condition": {
+         "StringEquals": {
+-          "iam:PermissionsBoundary": "${boundary_arn}",
++          "iam:PermissionsBoundary": [
++            "${app_boundary_arn}",
++            "${build_boundary_arn}",
++            "${machine_boundary_arn}",
++            "${scheduler_boundary_arn}",
++            "${eksCluster_boundary_arn}",
++            "${eksNode_boundary_arn}"
++          ],
+           "aws:RequestTag/zenith:managed": "true"
+         }
+       }
+@@ -20,12 +27,20 @@
+         "iam:PutRolePolicy",
+         "iam:DeleteRolePolicy",
+         "iam:DetachRolePolicy",
+-        "iam:DeleteRole"
++        "iam:DeleteRole",
++        "iam:PutRolePermissionsBoundary"
+       ],
+       "Resource": "arn:${partition}:iam::${account_id}:role/zenith-*",
+       "Condition": {
+         "StringEquals": {
+-          "iam:PermissionsBoundary": "${boundary_arn}"
++          "iam:PermissionsBoundary": [
++            "${app_boundary_arn}",
++            "${build_boundary_arn}",
++            "${machine_boundary_arn}",
++            "${scheduler_boundary_arn}",
++            "${eksCluster_boundary_arn}",
++            "${eksNode_boundary_arn}"
++          ]
+         }
+       }
+     },
+@@ -36,7 +51,14 @@
+       "Resource": "arn:${partition}:iam::${account_id}:role/zenith-*",
+       "Condition": {
+         "StringEquals": {
+-          "iam:PermissionsBoundary": "${boundary_arn}"
++          "iam:PermissionsBoundary": [
++            "${app_boundary_arn}",
++            "${build_boundary_arn}",
++            "${machine_boundary_arn}",
++            "${scheduler_boundary_arn}",
++            "${eksCluster_boundary_arn}",
++            "${eksNode_boundary_arn}"
++          ]
+         },
+         "ArnLike": {
+           "iam:PolicyARN": [
+@@ -47,7 +69,8 @@
+             "arn:${partition}:iam::aws:policy/AmazonEKSClusterPolicy",
+             "arn:${partition}:iam::aws:policy/AmazonEKSWorkerNodePolicy",
+             "arn:${partition}:iam::aws:policy/AmazonEKS_CNI_Policy",
+-            "arn:${partition}:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
++            "arn:${partition}:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
++            "arn:${partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
+           ]
+         }
+       }
+@@ -131,7 +154,7 @@
+       }
+     },
+     {
+-      "Sid": "DenyModifyingZenithBootstrapRolesAndPolicies",
++      "Sid": "DenyBootstrapChanges",
+       "Effect": "Deny",
+       "Action": [
+         "iam:AttachRolePolicy",
+@@ -149,15 +172,16 @@
+         "iam:CreatePolicyVersion",
+         "iam:SetDefaultPolicyVersion",
+         "iam:DeletePolicy",
+-        "iam:DeletePolicyVersion"
++        "iam:DeletePolicyVersion",
++        "iam:CreatePolicy",
++        "iam:TagPolicy",
++        "iam:UntagPolicy"
+       ],
+       "Resource": [
+         "arn:${partition}:iam::${account_id}:role/ZenithDeploy*",
+         "arn:${partition}:iam::${account_id}:role/ZenithObserve*",
+         "arn:${partition}:iam::${account_id}:role/zenith-codebuild*",
+-        "arn:${partition}:iam::${account_id}:policy/ZenithDeploy*",
+-        "arn:${partition}:iam::${account_id}:policy/ZenithObserve*",
+-        "arn:${partition}:iam::${account_id}:policy/ZenithWorkloadBoundary*"
++        "arn:${partition}:iam::${account_id}:policy/Zenith*"
+       ]
+     },
+     {
+@@ -170,12 +194,19 @@
+       "Resource": "*",
+       "Condition": {
+         "StringNotEquals": {
+-          "iam:PermissionsBoundary": "${boundary_arn}"
++          "iam:PermissionsBoundary": [
++            "${app_boundary_arn}",
++            "${build_boundary_arn}",
++            "${machine_boundary_arn}",
++            "${scheduler_boundary_arn}",
++            "${eksCluster_boundary_arn}",
++            "${eksNode_boundary_arn}"
++          ]
+         }
+       }
+     },
+     {
+-      "Sid": "DenyOidcProviderAndPrincipalCreation",
++      "Sid": "DenyPrincipalCreation",
+       "Effect": "Deny",
+       "Action": [
+         "iam:CreateOpenIDConnectProvider",
+diff --git a/deploy/aws/tofu-module/policies/eks-cluster-boundary.json.tftpl b/deploy/aws/tofu-module/policies/eks-cluster-boundary.json.tftpl
+new file mode 100644
+index 0000000..d9f0165
+--- /dev/null
++++ b/deploy/aws/tofu-module/policies/eks-cluster-boundary.json.tftpl
+@@ -0,0 +1,207 @@
++{
++  "Version": "2012-10-17",
++  "Statement": [
++    {
++      "Effect": "Allow",
++      "Action": [
++        "autoscaling:DescribeAutoScalingGroups",
++        "ec2:DescribeInstances",
++        "ec2:DescribeRouteTables",
++        "ec2:DescribeSecurityGroups",
++        "ec2:DescribeSubnets",
++        "ec2:DescribeVolumes",
++        "ec2:DescribeVolumesModifications",
++        "ec2:DescribeVpcs",
++        "ec2:DescribeDhcpOptions",
++        "ec2:DescribeNetworkInterfaces",
++        "ec2:DescribeAvailabilityZones",
++        "ec2:DescribeAccountAttributes",
++        "ec2:DescribeAddresses",
++        "ec2:DescribeInternetGateways",
++        "ec2:DescribeInstanceTopology",
++        "elasticloadbalancing:DescribeListeners",
++        "elasticloadbalancing:DescribeLoadBalancerAttributes",
++        "elasticloadbalancing:DescribeLoadBalancerPolicies",
++        "elasticloadbalancing:DescribeLoadBalancers",
++        "elasticloadbalancing:DescribeTargetGroupAttributes",
++        "elasticloadbalancing:DescribeTargetGroups",
++        "elasticloadbalancing:DescribeTargetHealth"
++      ],
++      "Resource": "*",
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-cluster"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": [
++        "ec2:AttachVolume",
++        "ec2:AuthorizeSecurityGroupIngress",
++        "ec2:CreateRoute",
++        "ec2:CreateSecurityGroup",
++        "ec2:CreateTags",
++        "ec2:CreateVolume",
++        "ec2:DeleteRoute",
++        "ec2:DeleteSecurityGroup",
++        "ec2:DeleteVolume",
++        "ec2:DetachVolume",
++        "ec2:ModifyInstanceAttribute",
++        "ec2:ModifyVolume",
++        "ec2:RevokeSecurityGroupIngress"
++      ],
++      "Resource": [
++        "arn:${partition}:ec2:*:${account_id}:instance/*",
++        "arn:${partition}:ec2:*:${account_id}:volume/*",
++        "arn:${partition}:ec2:*:${account_id}:security-group/*",
++        "arn:${partition}:ec2:*:${account_id}:route-table/*",
++        "arn:${partition}:ec2:*:${account_id}:subnet/*",
++        "arn:${partition}:ec2:*:${account_id}:vpc/*"
++      ],
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-cluster"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": "autoscaling:UpdateAutoScalingGroup",
++      "Resource": "arn:${partition}:autoscaling:*:${account_id}:autoScalingGroup:*:autoScalingGroupName/eks-*",
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-cluster"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": [
++        "elasticloadbalancing:AddTags",
++        "elasticloadbalancing:ApplySecurityGroupsToLoadBalancer",
++        "elasticloadbalancing:AttachLoadBalancerToSubnets",
++        "elasticloadbalancing:ConfigureHealthCheck",
++        "elasticloadbalancing:CreateListener",
++        "elasticloadbalancing:CreateLoadBalancer",
++        "elasticloadbalancing:CreateLoadBalancerListeners",
++        "elasticloadbalancing:CreateLoadBalancerPolicy",
++        "elasticloadbalancing:CreateTargetGroup",
++        "elasticloadbalancing:DeleteListener",
++        "elasticloadbalancing:DeleteLoadBalancer",
++        "elasticloadbalancing:DeleteLoadBalancerListeners",
++        "elasticloadbalancing:DeleteTargetGroup",
++        "elasticloadbalancing:DeregisterInstancesFromLoadBalancer",
++        "elasticloadbalancing:DeregisterTargets",
++        "elasticloadbalancing:DetachLoadBalancerFromSubnets",
++        "elasticloadbalancing:ModifyListener",
++        "elasticloadbalancing:ModifyLoadBalancerAttributes",
++        "elasticloadbalancing:ModifyTargetGroup",
++        "elasticloadbalancing:ModifyTargetGroupAttributes",
++        "elasticloadbalancing:RegisterInstancesWithLoadBalancer",
++        "elasticloadbalancing:RegisterTargets",
++        "elasticloadbalancing:SetLoadBalancerPoliciesForBackendServer",
++        "elasticloadbalancing:SetLoadBalancerPoliciesOfListener"
++      ],
++      "Resource": [
++        "arn:${partition}:elasticloadbalancing:*:${account_id}:loadbalancer/*",
++        "arn:${partition}:elasticloadbalancing:*:${account_id}:targetgroup/*",
++        "arn:${partition}:elasticloadbalancing:*:${account_id}:listener/*",
++        "arn:${partition}:elasticloadbalancing:*:${account_id}:listener-rule/*"
++      ],
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-cluster"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": "iam:CreateServiceLinkedRole",
++      "Resource": "arn:${partition}:iam::${account_id}:role/aws-service-role/elasticloadbalancing.amazonaws.com/*",
++      "Condition": {
++        "StringEquals": {
++          "iam:AWSServiceName": "elasticloadbalancing.amazonaws.com"
++        },
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-cluster"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": "ec2:DeleteNetworkInterface",
++      "Resource": "arn:${partition}:ec2:*:${account_id}:network-interface/*",
++      "Condition": {
++        "StringEquals": {
++          "ec2:ResourceTag/eks:eni:owner": "amazon-vpc-cni"
++        },
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-cluster"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": "kms:DescribeKey",
++      "Resource": "arn:${partition}:kms:*:${account_id}:key/*",
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-cluster"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Deny",
++      "Action": "*",
++      "Resource": "*",
++      "Condition": {
++        "ArnNotLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-cluster"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Deny",
++      "Action": [
++        "organizations:*",
++        "account:*"
++      ],
++      "Resource": "*"
++    },
++    {
++      "Effect": "Deny",
++      "Action": "iam:*",
++      "Resource": "*",
++      "Condition": {
++        "StringNotEqualsIfExists": {
++          "iam:AWSServiceName": "elasticloadbalancing.amazonaws.com"
++        }
++      }
++    },
++    {
++      "Effect": "Deny",
++      "Action": "s3:*",
++      "Resource": [
++        "${state_bucket_arn}",
++        "${state_bucket_arn}/*"
++      ]
++    }
++  ]
++}
+diff --git a/deploy/aws/tofu-module/policies/eks-node-boundary.json.tftpl b/deploy/aws/tofu-module/policies/eks-node-boundary.json.tftpl
+new file mode 100644
+index 0000000..f97052f
+--- /dev/null
++++ b/deploy/aws/tofu-module/policies/eks-node-boundary.json.tftpl
+@@ -0,0 +1,182 @@
++{
++  "Version": "2012-10-17",
++  "Statement": [
++    {
++      "Effect": "Allow",
++      "Action": [
++        "ec2:DescribeInstances",
++        "ec2:DescribeInstanceTypes",
++        "ec2:DescribeRouteTables",
++        "ec2:DescribeSecurityGroups",
++        "ec2:DescribeSubnets",
++        "ec2:DescribeVolumes",
++        "ec2:DescribeVolumesModifications",
++        "ec2:DescribeVpcs",
++        "ec2:DescribeTags",
++        "ec2:DescribeNetworkInterfaces"
++      ],
++      "Resource": "*",
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-nodes"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": [
++        "eks:DescribeCluster",
++        "eks-auth:AssumeRoleForPodIdentity"
++      ],
++      "Resource": "arn:${partition}:eks:*:${account_id}:cluster/zenith-${environment_tag_value}-*",
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-nodes"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": [
++        "ec2:AssignPrivateIpAddresses",
++        "ec2:AttachNetworkInterface",
++        "ec2:CreateNetworkInterface",
++        "ec2:DeleteNetworkInterface",
++        "ec2:DetachNetworkInterface",
++        "ec2:ModifyNetworkInterfaceAttribute",
++        "ec2:UnassignPrivateIpAddresses"
++      ],
++      "Resource": [
++        "arn:${partition}:ec2:*:${account_id}:network-interface/*",
++        "arn:${partition}:ec2:*:${account_id}:subnet/*",
++        "arn:${partition}:ec2:*:${account_id}:security-group/*"
++      ],
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-nodes"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": [
++        "ec2:AttachNetworkInterface",
++        "ec2:DetachNetworkInterface",
++        "ec2:ModifyNetworkInterfaceAttribute"
++      ],
++      "Resource": "arn:${partition}:ec2:*:${account_id}:instance/*",
++      "Condition": {
++        "StringEquals": {
++          "aws:ResourceTag/zenith:managed": "true"
++        },
++        "StringLike": {
++          "aws:ResourceTag/zenith:environment": "${environment_tag_value}"
++        },
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-nodes"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": "ec2:CreateTags",
++      "Resource": "arn:${partition}:ec2:*:${account_id}:network-interface/*",
++      "Condition": {
++        "ForAllValues:StringEquals": {
++          "aws:TagKeys": [
++            "node.k8s.amazonaws.com/instance_id",
++            "node.k8s.amazonaws.com/createdAt",
++            "cluster.k8s.amazonaws.com/name",
++            "eks:eni:owner"
++          ]
++        },
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-nodes"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": "ecr:GetAuthorizationToken",
++      "Resource": "*",
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-nodes"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": [
++        "ecr:BatchCheckLayerAvailability",
++        "ecr:GetDownloadUrlForLayer",
++        "ecr:BatchGetImage",
++        "ecr:GetRepositoryPolicy",
++        "ecr:DescribeRepositories",
++        "ecr:ListImages",
++        "ecr:DescribeImages",
++        "ecr:GetLifecyclePolicy",
++        "ecr:GetLifecyclePolicyPreview",
++        "ecr:ListTagsForResource",
++        "ecr:DescribeImageScanFindings"
++      ],
++      "Resource": [
++        "arn:${partition}:ecr:*:${account_id}:repository/zenith-*",
++        "arn:${partition}:ecr:*:*:repository/eks/*",
++        "arn:${partition}:ecr:*:*:repository/amazon-k8s-cni"
++      ],
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-nodes"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Deny",
++      "Action": "*",
++      "Resource": "*",
++      "Condition": {
++        "ArnNotLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-nodes"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Deny",
++      "Action": [
++        "organizations:*",
++        "account:*"
++      ],
++      "Resource": "*"
++    },
++    {
++      "Effect": "Deny",
++      "Action": "iam:*",
++      "Resource": "*"
++    },
++    {
++      "Effect": "Deny",
++      "Action": "s3:*",
++      "Resource": [
++        "${state_bucket_arn}",
++        "${state_bucket_arn}/*"
++      ]
++    }
++  ]
++}
+diff --git a/deploy/aws/tofu-module/policies/machine-boundary.json.tftpl b/deploy/aws/tofu-module/policies/machine-boundary.json.tftpl
+new file mode 100644
+index 0000000..25a287b
+--- /dev/null
++++ b/deploy/aws/tofu-module/policies/machine-boundary.json.tftpl
+@@ -0,0 +1,125 @@
++{
++  "Version": "2012-10-17",
++  "Statement": [
++    {
++      "Effect": "Allow",
++      "Action": [
++        "ssm:UpdateInstanceInformation",
++        "ssm:ListInstanceAssociations",
++        "ssm:PutComplianceItems",
++        "ssm:DescribeAssociation",
++        "ssm:UpdateAssociationStatus",
++        "ssm:UpdateInstanceAssociationStatus"
++      ],
++      "Resource": "arn:${partition}:ec2:*:${account_id}:instance/*",
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-ec2"
++          ]
++        },
++        "StringEquals": {
++          "aws:ResourceTag/zenith:managed": "true"
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": [
++        "ssm:ListAssociations",
++        "ssm:GetManifest",
++        "ssm:PutInventory",
++        "ssm:PutConfigurePackageResult",
++        "ssm:GetDeployablePatchSnapshotForInstance",
++        "ec2messages:GetEndpoint",
++        "ec2messages:GetMessages",
++        "ec2messages:SendReply",
++        "ssmmessages:CreateControlChannel",
++        "ssmmessages:CreateDataChannel",
++        "ssmmessages:OpenControlChannel",
++        "ssmmessages:OpenDataChannel",
++        "ec2messages:AcknowledgeMessage",
++        "ec2messages:DeleteMessage",
++        "ec2messages:FailMessage"
++      ],
++      "Resource": "*",
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-ec2"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": [
++        "ssm:DescribeAssociation",
++        "ssm:UpdateAssociationStatus",
++        "ssm:UpdateInstanceAssociationStatus",
++        "ssm:GetDocument",
++        "ssm:DescribeDocument"
++      ],
++      "Resource": [
++        "arn:${partition}:ssm:*:${account_id}:association/*",
++        "arn:${partition}:ssm:*::document/*",
++        "arn:${partition}:ssm:*:${account_id}:document/Zenith-*"
++      ],
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-ec2"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": [
++        "ssm:GetParameter",
++        "ssm:GetParameters"
++      ],
++      "Resource": "arn:${partition}:ssm:*:${account_id}:parameter/zenith/*",
++      "Condition": {
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-ec2"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Deny",
++      "Action": "*",
++      "Resource": "*",
++      "Condition": {
++        "ArnNotLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-ec2"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Deny",
++      "Action": [
++        "organizations:*",
++        "account:*"
++      ],
++      "Resource": "*"
++    },
++    {
++      "Effect": "Deny",
++      "Action": "iam:*",
++      "Resource": "*"
++    },
++    {
++      "Effect": "Deny",
++      "Action": "s3:*",
++      "Resource": [
++        "${state_bucket_arn}",
++        "${state_bucket_arn}/*"
++      ]
++    }
++  ]
++}
+diff --git a/deploy/aws/tofu-module/policies/scheduler-boundary.json.tftpl b/deploy/aws/tofu-module/policies/scheduler-boundary.json.tftpl
+new file mode 100644
+index 0000000..42b1a17
+--- /dev/null
++++ b/deploy/aws/tofu-module/policies/scheduler-boundary.json.tftpl
+@@ -0,0 +1,71 @@
++{
++  "Version": "2012-10-17",
++  "Statement": [
++    {
++      "Effect": "Allow",
++      "Action": "ecs:RunTask",
++      "Resource": "arn:${partition}:ecs:*:${account_id}:task-definition/zenith-*",
++      "Condition": {
++        "ArnLike": {
++          "ecs:cluster": "arn:${partition}:ecs:*:${account_id}:cluster/zenith-*",
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-events"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": "iam:PassRole",
++      "Resource": "arn:${partition}:iam::${account_id}:role/zenith-*",
++      "Condition": {
++        "StringEquals": {
++          "iam:PassedToService": "ecs-tasks.amazonaws.com"
++        },
++        "ArnLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-events"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Deny",
++      "Action": "*",
++      "Resource": "*",
++      "Condition": {
++        "ArnNotLike": {
++          "aws:PrincipalArn": [
++            "arn:${partition}:iam::${account_id}:role/zenith-*-events"
++          ]
++        }
++      }
++    },
++    {
++      "Effect": "Deny",
++      "Action": [
++        "organizations:*",
++        "account:*"
++      ],
++      "Resource": "*"
++    },
++    {
++      "Effect": "Deny",
++      "Action": "iam:*",
++      "Resource": "*",
++      "Condition": {
++        "StringNotEqualsIfExists": {
++          "iam:PassedToService": "ecs-tasks.amazonaws.com"
++        }
++      }
++    },
++    {
++      "Effect": "Deny",
++      "Action": "s3:*",
++      "Resource": [
++        "${state_bucket_arn}",
++        "${state_bucket_arn}/*"
++      ]
++    }
++  ]
++}
+diff --git a/deploy/aws/tofu-module/policies/workload-boundary.json.tftpl b/deploy/aws/tofu-module/policies/workload-boundary.json.tftpl
+index 1ea773b..ba98f92 100644
+--- a/deploy/aws/tofu-module/policies/workload-boundary.json.tftpl
++++ b/deploy/aws/tofu-module/policies/workload-boundary.json.tftpl
+@@ -143,16 +143,6 @@
+         }
+       }
+     },
+-    {
+-      "Effect": "Deny",
+-      "Action": "iam:*",
+-      "Resource": "*",
+-      "Condition": {
+-        "ArnNotLike": {
+-          "aws:PrincipalArn": "arn:${partition}:iam::${account_id}:role/zenith-*-events"
+-        }
+-      }
+-    },
+     {
+       "Effect": "Deny",
+       "Action": [
+diff --git a/deploy/aws/tools/generate-tofu-policies.ts b/deploy/aws/tools/generate-tofu-policies.ts
+index d8c5208..b182fa0 100644
+--- a/deploy/aws/tools/generate-tofu-policies.ts
++++ b/deploy/aws/tools/generate-tofu-policies.ts
+@@ -17,8 +17,8 @@
+ import fs from "node:fs";
+ import path from "node:path";
+ import { fileURLToPath } from "node:url";
+-import { BUILD_ROLE_NAME_PATTERN, EC2_ROLE_NAME_PATTERN, EVENTS_ROLE_NAME_PATTERN } from "../../../src/lib/credentials/aws/naming";
+-import { loadTemplate, makeEvaluator, resolveResource, statementsOf, type Statement } from "../../../tests/credentials/cfn";
++import { AWS_ROLE_BOUNDARIES, BUILD_ROLE_NAME_PATTERN, EC2_ROLE_NAME_PATTERN, EVENTS_ROLE_NAME_PATTERN, roleFamilyPatterns, type AwsRoleFamily } from "../../../src/lib/credentials/aws/naming";
++import { compactSize, loadTemplate, makeEvaluator, resolveResource, statementsOf, type Statement } from "../../../tests/credentials/cfn";
+ 
+ const HERE = path.dirname(fileURLToPath(import.meta.url));
+ export const TEMPLATE_PATH = path.resolve(HERE, "../zenith-connection.cfn.yaml");
+@@ -34,6 +34,7 @@ const POLICY_RESOURCES: Record<string, string> = {
+   DeployStatePolicy: "deploy-state",
+   DeployIamPolicy: "deploy-iam",
+   WorkloadBoundary: "workload-boundary",
++  ...Object.fromEntries(Object.values(AWS_ROLE_BOUNDARIES).map((family) => [family.logicalId, family.template])),
+ };
+ 
+ /** Statements that only exist when an optional parameter is set, keyed for the module's HCL. */
+@@ -45,10 +46,32 @@ const OPTIONAL: Record<string, { policy: string; sid: string }> = {
+ 
+ const ZONES_MARKER = "__ROUTE53_ZONES__";
+ 
++/** Include the frozen legacy policy in the guard during the migration window. */
++export function boundarySizes(): { partition: string; logicalId: string; size: number; limit: number }[] {
++  const template = loadTemplate(TEMPLATE_PATH);
++  return ["aws", "aws-cn", "aws-us-gov"].flatMap((partition) => {
++    const evaluator = makeEvaluator(template, {
++      pseudo: { partition, accountId: "123456789012", region: "cn-northwest-1" },
++      params: { NameSuffix: `-${"x".repeat(19)}`, EnvironmentTagValue: "x".repeat(64) },
++    });
++    return ["WorkloadBoundary", ...Object.values(AWS_ROLE_BOUNDARIES).map((spec) => spec.logicalId)].map((logicalId) => ({
++      partition, logicalId, size: compactSize(resolveResource(template, evaluator, logicalId)!.PolicyDocument),
++      // Legacy grants remain equivalent; new selectable boundaries keep 344 characters free.
++      limit: logicalId === "WorkloadBoundary" ? 6100 : 5800,
++    }));
++  });
++}
++
++export function checkBoundarySizes(): void {
++  for (const { partition, logicalId, size, limit } of boundarySizes()) {
++    if (size > limit) throw new Error(`${logicalId} in ${partition}: ${size} characters exceeds boundary budget ${limit} (IAM maximum 6144)`);
++  }
++}
++
+ function tokenEvaluator(optionalOn: boolean) {
+   const template = loadTemplate(TEMPLATE_PATH);
+   const evaluator = makeEvaluator(template, {
+-    pseudo: { partition: "${partition}", accountId: "${account_id}", region: "${region}" },
++    pseudo: { partition: "${partition}", accountId: "${account_id}", region: "${region}", urlSuffix: "${dns_suffix}" },
+     tokenParams: {
+       EnvironmentTagValue: "${environment_tag_value}",
+       StateBucketKmsKeyArn: "${kms_key_arn}",
+@@ -57,6 +80,7 @@ function tokenEvaluator(optionalOn: boolean) {
+     forceConditions: { HasKmsKey: optionalOn, HasHostedZones: optionalOn, HasOidc: true, HasAssumeRole: false, CreateProvider: true },
+     resourceOverrides: {
+       WorkloadBoundary: { ref: "${boundary_arn}" },
++      ...Object.fromEntries(Object.entries(AWS_ROLE_BOUNDARIES).map(([family, spec]) => [spec.logicalId, { ref: `\${${family}_boundary_arn}` }])),
+       StateBucket: { ref: "${state_bucket}", attrs: { Arn: "${state_bucket_arn}" } },
+     },
+   });
+@@ -68,12 +92,22 @@ const render = (value: unknown): string =>
+     .replaceAll(`"${ZONES_MARKER}"`, "${jsonencode(route53_hosted_zone_arns)}")}\n`;
+ 
+ export function generate(): Record<string, string> {
++  checkBoundarySizes();
+   const base = tokenEvaluator(false);
+   const full = tokenEvaluator(true);
+   const files: Record<string, string> = {};
+ 
+   for (const [logicalId, file] of Object.entries(POLICY_RESOURCES)) {
+     const props = resolveResource(base.template, base.evaluator, logicalId)!;
++    const family = (Object.keys(AWS_ROLE_BOUNDARIES) as AwsRoleFamily[]).find((key) => AWS_ROLE_BOUNDARIES[key].logicalId === logicalId);
++    if (family) {
++      const expected = roleFamilyPatterns(family).map((pattern) => `arn:\${partition}:iam::\${account_id}:role/${pattern}`);
++      if (props.ManagedPolicyName !== `${AWS_ROLE_BOUNDARIES[family].policyName}`) throw new Error(`Boundary policy naming drift: ${family}`);
++      for (const statement of statementsOf(props.PolicyDocument)) {
++        if (statement.Effect !== "Allow") continue;
++        if (JSON.stringify(statement.Condition?.ArnLike?.["aws:PrincipalArn"]) !== JSON.stringify(expected)) throw new Error(`Boundary principal naming drift: ${family}`);
++      }
++    }
+     if (logicalId === "WorkloadBoundary") {
+       // YAML cannot import TS; verify every reserved service-role discriminator.
+       for (const statement of statementsOf(props.PolicyDocument)) {
+diff --git a/deploy/aws/zenith-connection.cfn.yaml b/deploy/aws/zenith-connection.cfn.yaml
+index e318c0f..f35ab77 100644
+--- a/deploy/aws/zenith-connection.cfn.yaml
++++ b/deploy/aws/zenith-connection.cfn.yaml
+@@ -228,23 +228,11 @@ Resources:
+   WorkloadBoundary:
+     Type: AWS::IAM::ManagedPolicy
+     Properties:
+-      ManagedPolicyName: !Sub "ZenithWorkloadBoundary${NameSuffix}"
++      ManagedPolicyName:
++        Fn::Sub: ZenithWorkloadBoundary${NameSuffix}
+       Description: Permission boundary for roles created by Zenith. Do not edit; Zenith cannot.
+-      # Statements share conditions only when their service/resource types are
+-      # disjoint; action/resource unions preserve AWS authorization scopes.
+-      # Optional Sids are omitted to stay under IAM's 6,144-character limit.
+-      # *Channel = four ssmmessages APIs; *Message = Acknowledge/Delete/FailMessage.
+-      # Update*AssociationStatus = the two core association-status reports.
+-      # Resource support and condition keys for every core agent action:
+-      # https://docs.aws.amazon.com/service-authorization/latest/reference/list_awssystemsmanager.html
+-      # https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonmessagegatewayservice.html
+-      # https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonmessagedeliveryservice.html
+-      # RunTask supports task-definition ARNs plus ecs:cluster:
+-      # https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonelasticcontainerservice.html
+-      # Only PassRole supplies iam:PassedToService; negated IfExists denies missing keys:
+-      # https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html
+       PolicyDocument:
+-        Version: "2012-10-17"
++        Version: '2012-10-17'
+         Statement:
+           - Effect: Allow
+             Action:
+@@ -266,55 +254,847 @@ Resources:
+             Condition:
+               ArnLike:
+                 aws:PrincipalArn:
+-                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-build
+-              StringEquals:
+-                s3:ResourceAccount:
+-                  Ref: AWS::AccountId
++                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-build
++              StringEquals:
++                s3:ResourceAccount:
++                  Ref: AWS::AccountId
++          - Effect: Allow
++            Action: cloudfront:CreateInvalidation
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/*
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-build
++              StringEquals:
++                aws:ResourceTag/zenith:managed: 'true'
++          - Effect: Allow
++            Action: ecs:RunTask
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:ecs:*:${AWS::AccountId}:task-definition/zenith-*
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-events
++                ecs:cluster:
++                  Fn::Sub: arn:${AWS::Partition}:ecs:*:${AWS::AccountId}:cluster/zenith-*
++          - Effect: Allow
++            Action: iam:PassRole
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-events
++              StringEquals:
++                iam:PassedToService: ecs-tasks.amazonaws.com
++          - Effect: Allow
++            Action:
++              - ssm:UpdateInstanceInformation
++              - ssm:ListInstanceAssociations
++              - ssm:PutComplianceItems
++              - ssm:DescribeAssociation
++              - ssm:Update*AssociationStatus
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:instance/*
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-ec2
++              StringEquals:
++                aws:ResourceTag/zenith:managed: 'true'
++          - Effect: Allow
++            Action:
++              - ec2:AttachNetworkInterface
++              - ec2:DetachNetworkInterface
++              - ec2:ModifyNetworkInterfaceAttribute
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:instance/*
++            Condition:
++              StringEquals:
++                aws:ResourceTag/zenith:managed: 'true'
++              StringLike:
++                aws:ResourceTag/zenith:environment:
++                  Ref: EnvironmentTagValue
++          - Effect: Allow
++            Action: ec2:CreateTags
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:network-interface/*
++            Condition:
++              ForAllValues:StringEquals:
++                aws:TagKeys:
++                  - node.k8s.amazonaws.com/instance_id
++                  - node.k8s.amazonaws.com/createdAt
++                  - cluster.k8s.amazonaws.com/name
++                  - eks:eni:owner
++          - Effect: Allow
++            Action:
++              - kms:Decrypt
++              - kms:GenerateDataKey
++              - kms:DescribeKey
++            Resource: '*'
++            Condition:
++              StringEquals:
++                kms:CallerAccount:
++                  Ref: AWS::AccountId
++              StringLike:
++                kms:ViaService:
++                  - secretsmanager.*.amazonaws.com
++                  - ssm.*.amazonaws.com
++                  - s3.*.amazonaws.com
++                  - sqs.*.amazonaws.com
++                  - sns.*.amazonaws.com
++                  - ec2.*.amazonaws.com
++                  - eks.*.amazonaws.com
++          - Effect: Deny
++            Action:
++              - organizations:*
++              - account:*
++              - iam:*
++            Resource: '*'
++            Condition:
++              StringNotEqualsIfExists:
++                iam:PassedToService: ecs-tasks.amazonaws.com
++          - Effect: Deny
++            Action: s3:*
++            Resource:
++              - Fn::GetAtt:
++                  - StateBucket
++                  - Arn
++              - Fn::Sub: ${StateBucket.Arn}/*
++          - Effect: Allow
++            Action:
++              - logs:CreateLogGroup
++              - logs:CreateLogStream
++              - logs:PutLogEvents
++              - logs:DescribeLogStreams
++              - ecr:BatchCheckLayerAvailability
++              - ecr:GetDownloadUrlForLayer
++              - ecr:BatchGetImage
++              - eks:DescribeCluster
++              - eks-auth:AssumeRoleForPodIdentity
++              - ec2:AttachNetworkInterface
++              - ec2:DetachNetworkInterface
++              - ec2:ModifyNetworkInterfaceAttribute
++              - kms:DescribeKey
++              - sns:Publish
++              - s3:GetObject
++              - s3:PutObject
++              - s3:DeleteObject
++              - s3:ListBucket
++              - s3:GetBucketLocation
++              - sqs:SendMessage
++              - sqs:ReceiveMessage
++              - sqs:DeleteMessage
++              - sqs:ChangeMessageVisibility
++              - sqs:GetQueueAttributes
++              - sqs:GetQueueUrl
++              - secretsmanager:GetSecretValue
++              - secretsmanager:DescribeSecret
++              - ssm:GetParameter
++              - ssm:GetParameters
++              - ssm:GetParametersByPath
++            Resource:
++              - Fn::Sub: arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/zenith/*
++              - Fn::Sub: arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/*/zenith-*
++              - Fn::Sub: arn:${AWS::Partition}:ecr:*:${AWS::AccountId}:repository/zenith-*
++              - Fn::Sub: arn:${AWS::Partition}:ecr:*:*:repository/eks/*
++              - Fn::Sub: arn:${AWS::Partition}:ecr:*:*:repository/amazon-k8s-cni
++              - Fn::Sub: arn:${AWS::Partition}:eks:*:${AWS::AccountId}:cluster/zenith-${EnvironmentTagValue}-*
++              - Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:network-interface/*
++              - Fn::Sub: arn:${AWS::Partition}:kms:*:${AWS::AccountId}:key/*
++              - Fn::Sub: arn:${AWS::Partition}:sns:*:${AWS::AccountId}:zenith-${EnvironmentTagValue}-*
++              - Fn::Sub: arn:${AWS::Partition}:s3:::zenith-*
++              - Fn::Sub: arn:${AWS::Partition}:s3:::zenith-*/*
++              - Fn::Sub: arn:${AWS::Partition}:sqs:*:${AWS::AccountId}:zenith-*
++              - Fn::Sub: arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:zenith/*
++              - Fn::Sub: arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:parameter/zenith/*
++          - Effect: Allow
++            Action:
++              - ecr:GetAuthorizationToken
++              - ec2:DescribeInstances
++              - ec2:DescribeInstanceTypes
++              - ec2:DescribeRouteTables
++              - ec2:DescribeSecurityGroups
++              - ec2:DescribeSubnets
++              - ec2:DescribeVolumes
++              - ec2:DescribeVolumesModifications
++              - ec2:DescribeVpcs
++              - ec2:DescribeTags
++              - ec2:DescribeAvailabilityZones
++              - ec2:CreateNetworkInterface
++              - ec2:DescribeNetworkInterfaces
++              - ec2:DeleteNetworkInterface
++              - ec2:AssignPrivateIpAddresses
++              - ec2:UnassignPrivateIpAddresses
++            Resource: '*'
++          - Effect: Allow
++            Action:
++              - ssm:ListAssociations
++              - ssm:GetManifest
++              - ssm:PutInventory
++              - ssm:PutConfigurePackageResult
++              - ssm:GetDeployablePatchSnapshotForInstance
++              - ec2messages:GetEndpoint
++              - ec2messages:GetMessages
++              - ec2messages:SendReply
++              - ssmmessages:*Channel
++              - ec2messages:*Message
++            Resource: '*'
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-ec2
++          - Effect: Allow
++            Action:
++              - ssm:DescribeAssociation
++              - ssm:Update*AssociationStatus
++              - ssm:GetDocument
++              - ssm:DescribeDocument
++            Resource:
++              - Fn::Sub: arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:association/*
++              - Fn::Sub: arn:${AWS::Partition}:ssm:*::document/*
++              - Fn::Sub: arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:document/Zenith-*
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-ec2
++  # Family boundaries enforce reserved principals as well as action/resource scopes.
++  AppBoundary:
++    Type: AWS::IAM::ManagedPolicy
++    Properties:
++      ManagedPolicyName:
++        Fn::Sub: ZenithAppBoundary${NameSuffix}
++      Description: Permission boundary for Zenith app roles. Do not edit; Zenith cannot.
++      PolicyDocument:
++        Version: '2012-10-17'
++        Statement:
++          - Effect: Allow
++            Action:
++              - logs:CreateLogGroup
++              - logs:CreateLogStream
++              - logs:PutLogEvents
++              - logs:DescribeLogStreams
++              - logs:FilterLogEvents
++              - logs:GetLogEvents
++              - ecr:BatchCheckLayerAvailability
++              - ecr:GetDownloadUrlForLayer
++              - ecr:BatchGetImage
++              - sqs:SendMessage
++              - sqs:ReceiveMessage
++              - sqs:DeleteMessage
++              - sqs:ChangeMessageVisibility
++              - sqs:GetQueueAttributes
++              - sqs:GetQueueUrl
++            Resource:
++              - Fn::Sub: arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/zenith/*
++              - Fn::Sub: arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/*/zenith-*
++              - Fn::Sub: arn:${AWS::Partition}:ecr:*:${AWS::AccountId}:repository/zenith-*
++              - Fn::Sub: arn:${AWS::Partition}:sqs:*:${AWS::AccountId}:zenith-*
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-role
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-exec
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-fn
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-flow
++          - Effect: Allow
++            Action: ecr:GetAuthorizationToken
++            Resource: '*'
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-role
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-exec
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-fn
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-flow
++          - Effect: Allow
++            Action:
++              - s3:GetObject
++              - s3:PutObject
++              - s3:DeleteObject
++              - s3:ListBucket
++              - s3:GetBucketLocation
++              - s3:AbortMultipartUpload
++              - s3:ListMultipartUploadParts
++            Resource:
++              - Fn::Sub: arn:${AWS::Partition}:s3:::zenith-*
++              - Fn::Sub: arn:${AWS::Partition}:s3:::zenith-*/*
++            Condition:
++              StringEquals:
++                s3:ResourceAccount:
++                  Ref: AWS::AccountId
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-role
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-exec
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-fn
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-flow
++          - Effect: Allow
++            Action: sns:Publish
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:sns:*:${AWS::AccountId}:zenith-${EnvironmentTagValue}-*
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-role
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-exec
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-fn
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-flow
++          - Effect: Allow
++            Action:
++              - secretsmanager:GetSecretValue
++              - secretsmanager:DescribeSecret
++            Resource:
++              - Fn::Sub: arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:zenith/*
++              - Fn::Sub: arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:rds!db-*
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-role
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-exec
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-fn
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-flow
++          - Effect: Allow
++            Action:
++              - ssm:GetParameter
++              - ssm:GetParameters
++              - ssm:GetParametersByPath
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:parameter/zenith/*
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-role
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-exec
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-fn
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-flow
++          - Effect: Allow
++            Action:
++              - kms:Decrypt
++              - kms:GenerateDataKey
++              - kms:DescribeKey
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:kms:*:${AWS::AccountId}:key/*
++            Condition:
++              StringEquals:
++                kms:CallerAccount:
++                  Ref: AWS::AccountId
++              StringLike:
++                kms:ViaService:
++                  - Fn::Sub: secretsmanager.*.${AWS::URLSuffix}
++                  - Fn::Sub: ssm.*.${AWS::URLSuffix}
++                  - Fn::Sub: s3.*.${AWS::URLSuffix}
++                  - Fn::Sub: sqs.*.${AWS::URLSuffix}
++                  - Fn::Sub: sns.*.${AWS::URLSuffix}
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-role
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-exec
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-fn
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-flow
++          - Effect: Allow
++            Action: rds-db:connect
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:rds-db:*:${AWS::AccountId}:dbuser:db-*/*
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-role
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-exec
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-fn
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-flow
++          - Effect: Allow
++            Action: elasticache:Connect
++            Resource:
++              - Fn::Sub: arn:${AWS::Partition}:elasticache:*:${AWS::AccountId}:replicationgroup:zenith-*
++              - Fn::Sub: arn:${AWS::Partition}:elasticache:*:${AWS::AccountId}:user:zenith-*
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-role
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-exec
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-fn
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-flow
++          - Effect: Deny
++            Action: '*'
++            Resource: '*'
++            Condition:
++              ArnNotLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-role
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-exec
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-fn
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-flow
++          - Effect: Deny
++            Action:
++              - organizations:*
++              - account:*
++            Resource: '*'
++          - Effect: Deny
++            Action: iam:*
++            Resource: '*'
++          - Effect: Deny
++            Action: s3:*
++            Resource:
++              - Fn::GetAtt:
++                  - StateBucket
++                  - Arn
++              - Fn::Sub: ${StateBucket.Arn}/*
++  BuildBoundary:
++    Type: AWS::IAM::ManagedPolicy
++    Properties:
++      ManagedPolicyName:
++        Fn::Sub: ZenithBuildBoundary${NameSuffix}
++      Description: Permission boundary for Zenith build roles. Do not edit; Zenith cannot.
++      PolicyDocument:
++        Version: '2012-10-17'
++        Statement:
++          - Effect: Allow
++            Action:
++              - logs:CreateLogStream
++              - logs:PutLogEvents
++            Resource:
++              - Fn::Sub: arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/zenith/*
++              - Fn::Sub: arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/*/zenith-*
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-build
++          - Effect: Allow
++            Action:
++              - ecr:BatchCheckLayerAvailability
++              - ecr:GetDownloadUrlForLayer
++              - ecr:BatchGetImage
++              - ecr:InitiateLayerUpload
++              - ecr:UploadLayerPart
++              - ecr:CompleteLayerUpload
++              - ecr:PutImage
++              - ecr:DescribeImages
++            Resource:
++              - Fn::Sub: arn:${AWS::Partition}:ecr:*:${AWS::AccountId}:repository/zenith-*
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-build
++          - Effect: Allow
++            Action: ecr:GetAuthorizationToken
++            Resource: '*'
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-build
++          - Effect: Allow
++            Action:
++              - s3:GetObject
++              - s3:GetObjectVersion
++              - s3:GetBucketLocation
++              - s3:PutObject
++              - s3:DeleteObject
++              - s3:ListBucket
++            Resource:
++              - Fn::Sub: arn:${AWS::Partition}:s3:::zenith-*
++              - Fn::Sub: arn:${AWS::Partition}:s3:::zenith-*/*
++            Condition:
++              StringEquals:
++                s3:ResourceAccount:
++                  Ref: AWS::AccountId
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-build
++          - Effect: Allow
++            Action: cloudfront:CreateInvalidation
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/*
++            Condition:
++              StringEquals:
++                aws:ResourceTag/zenith:managed: 'true'
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-build
++          - Effect: Deny
++            Action: '*'
++            Resource: '*'
++            Condition:
++              ArnNotLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-build
++          - Effect: Deny
++            Action:
++              - organizations:*
++              - account:*
++            Resource: '*'
++          - Effect: Deny
++            Action: iam:*
++            Resource: '*'
++          - Effect: Deny
++            Action: s3:*
++            Resource:
++              - Fn::GetAtt:
++                  - StateBucket
++                  - Arn
++              - Fn::Sub: ${StateBucket.Arn}/*
++  SchedulerBoundary:
++    Type: AWS::IAM::ManagedPolicy
++    Properties:
++      ManagedPolicyName:
++        Fn::Sub: ZenithSchedulerBoundary${NameSuffix}
++      Description: Permission boundary for Zenith scheduler roles. Do not edit; Zenith cannot.
++      PolicyDocument:
++        Version: '2012-10-17'
++        Statement:
++          - Effect: Allow
++            Action: ecs:RunTask
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:ecs:*:${AWS::AccountId}:task-definition/zenith-*
++            Condition:
++              ArnLike:
++                ecs:cluster:
++                  Fn::Sub: arn:${AWS::Partition}:ecs:*:${AWS::AccountId}:cluster/zenith-*
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-events
++          - Effect: Allow
++            Action: iam:PassRole
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*
++            Condition:
++              StringEquals:
++                iam:PassedToService: ecs-tasks.amazonaws.com
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-events
++          - Effect: Deny
++            Action: '*'
++            Resource: '*'
++            Condition:
++              ArnNotLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-events
++          - Effect: Deny
++            Action:
++              - organizations:*
++              - account:*
++            Resource: '*'
++          - Effect: Deny
++            Action: iam:*
++            Resource: '*'
++            Condition:
++              StringNotEqualsIfExists:
++                iam:PassedToService: ecs-tasks.amazonaws.com
++          - Effect: Deny
++            Action: s3:*
++            Resource:
++              - Fn::GetAtt:
++                  - StateBucket
++                  - Arn
++              - Fn::Sub: ${StateBucket.Arn}/*
++  MachineBoundary:
++    Type: AWS::IAM::ManagedPolicy
++    Properties:
++      ManagedPolicyName:
++        Fn::Sub: ZenithMachineBoundary${NameSuffix}
++      Description: Permission boundary for Zenith machine roles. Do not edit; Zenith cannot.
++      PolicyDocument:
++        Version: '2012-10-17'
++        Statement:
++          - Effect: Allow
++            Action:
++              - ssm:UpdateInstanceInformation
++              - ssm:ListInstanceAssociations
++              - ssm:PutComplianceItems
++              - ssm:DescribeAssociation
++              - ssm:UpdateAssociationStatus
++              - ssm:UpdateInstanceAssociationStatus
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:instance/*
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-ec2
++              StringEquals:
++                aws:ResourceTag/zenith:managed: 'true'
++          - Effect: Allow
++            Action:
++              - ssm:ListAssociations
++              - ssm:GetManifest
++              - ssm:PutInventory
++              - ssm:PutConfigurePackageResult
++              - ssm:GetDeployablePatchSnapshotForInstance
++              - ec2messages:GetEndpoint
++              - ec2messages:GetMessages
++              - ec2messages:SendReply
++              - ssmmessages:CreateControlChannel
++              - ssmmessages:CreateDataChannel
++              - ssmmessages:OpenControlChannel
++              - ssmmessages:OpenDataChannel
++              - ec2messages:AcknowledgeMessage
++              - ec2messages:DeleteMessage
++              - ec2messages:FailMessage
++            Resource: '*'
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-ec2
++          - Effect: Allow
++            Action:
++              - ssm:DescribeAssociation
++              - ssm:UpdateAssociationStatus
++              - ssm:UpdateInstanceAssociationStatus
++              - ssm:GetDocument
++              - ssm:DescribeDocument
++            Resource:
++              - Fn::Sub: arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:association/*
++              - Fn::Sub: arn:${AWS::Partition}:ssm:*::document/*
++              - Fn::Sub: arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:document/Zenith-*
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-ec2
++          - Effect: Allow
++            Action:
++              - ssm:GetParameter
++              - ssm:GetParameters
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:parameter/zenith/*
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-ec2
++          - Effect: Deny
++            Action: '*'
++            Resource: '*'
++            Condition:
++              ArnNotLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-ec2
++          - Effect: Deny
++            Action:
++              - organizations:*
++              - account:*
++            Resource: '*'
++          - Effect: Deny
++            Action: iam:*
++            Resource: '*'
++          - Effect: Deny
++            Action: s3:*
++            Resource:
++              - Fn::GetAtt:
++                  - StateBucket
++                  - Arn
++              - Fn::Sub: ${StateBucket.Arn}/*
++  EksClusterBoundary:
++    Type: AWS::IAM::ManagedPolicy
++    Properties:
++      ManagedPolicyName:
++        Fn::Sub: ZenithEksClusterBoundary${NameSuffix}
++      Description: Permission boundary for Zenith eksCluster roles. Do not edit; Zenith cannot.
++      PolicyDocument:
++        Version: '2012-10-17'
++        Statement:
++          - Effect: Allow
++            Action:
++              - autoscaling:DescribeAutoScalingGroups
++              - ec2:DescribeInstances
++              - ec2:DescribeRouteTables
++              - ec2:DescribeSecurityGroups
++              - ec2:DescribeSubnets
++              - ec2:DescribeVolumes
++              - ec2:DescribeVolumesModifications
++              - ec2:DescribeVpcs
++              - ec2:DescribeDhcpOptions
++              - ec2:DescribeNetworkInterfaces
++              - ec2:DescribeAvailabilityZones
++              - ec2:DescribeAccountAttributes
++              - ec2:DescribeAddresses
++              - ec2:DescribeInternetGateways
++              - ec2:DescribeInstanceTopology
++              - elasticloadbalancing:DescribeListeners
++              - elasticloadbalancing:DescribeLoadBalancerAttributes
++              - elasticloadbalancing:DescribeLoadBalancerPolicies
++              - elasticloadbalancing:DescribeLoadBalancers
++              - elasticloadbalancing:DescribeTargetGroupAttributes
++              - elasticloadbalancing:DescribeTargetGroups
++              - elasticloadbalancing:DescribeTargetHealth
++            Resource: '*'
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-cluster
++          - Effect: Allow
++            Action:
++              - ec2:AttachVolume
++              - ec2:AuthorizeSecurityGroupIngress
++              - ec2:CreateRoute
++              - ec2:CreateSecurityGroup
++              - ec2:CreateTags
++              - ec2:CreateVolume
++              - ec2:DeleteRoute
++              - ec2:DeleteSecurityGroup
++              - ec2:DeleteVolume
++              - ec2:DetachVolume
++              - ec2:ModifyInstanceAttribute
++              - ec2:ModifyVolume
++              - ec2:RevokeSecurityGroupIngress
++            Resource:
++              - Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:instance/*
++              - Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:volume/*
++              - Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:security-group/*
++              - Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:route-table/*
++              - Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:subnet/*
++              - Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:vpc/*
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-cluster
++          - Effect: Allow
++            Action: autoscaling:UpdateAutoScalingGroup
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:autoscaling:*:${AWS::AccountId}:autoScalingGroup:*:autoScalingGroupName/eks-*
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-cluster
++          - Effect: Allow
++            Action:
++              - elasticloadbalancing:AddTags
++              - elasticloadbalancing:ApplySecurityGroupsToLoadBalancer
++              - elasticloadbalancing:AttachLoadBalancerToSubnets
++              - elasticloadbalancing:ConfigureHealthCheck
++              - elasticloadbalancing:CreateListener
++              - elasticloadbalancing:CreateLoadBalancer
++              - elasticloadbalancing:CreateLoadBalancerListeners
++              - elasticloadbalancing:CreateLoadBalancerPolicy
++              - elasticloadbalancing:CreateTargetGroup
++              - elasticloadbalancing:DeleteListener
++              - elasticloadbalancing:DeleteLoadBalancer
++              - elasticloadbalancing:DeleteLoadBalancerListeners
++              - elasticloadbalancing:DeleteTargetGroup
++              - elasticloadbalancing:DeregisterInstancesFromLoadBalancer
++              - elasticloadbalancing:DeregisterTargets
++              - elasticloadbalancing:DetachLoadBalancerFromSubnets
++              - elasticloadbalancing:ModifyListener
++              - elasticloadbalancing:ModifyLoadBalancerAttributes
++              - elasticloadbalancing:ModifyTargetGroup
++              - elasticloadbalancing:ModifyTargetGroupAttributes
++              - elasticloadbalancing:RegisterInstancesWithLoadBalancer
++              - elasticloadbalancing:RegisterTargets
++              - elasticloadbalancing:SetLoadBalancerPoliciesForBackendServer
++              - elasticloadbalancing:SetLoadBalancerPoliciesOfListener
++            Resource:
++              - Fn::Sub: arn:${AWS::Partition}:elasticloadbalancing:*:${AWS::AccountId}:loadbalancer/*
++              - Fn::Sub: arn:${AWS::Partition}:elasticloadbalancing:*:${AWS::AccountId}:targetgroup/*
++              - Fn::Sub: arn:${AWS::Partition}:elasticloadbalancing:*:${AWS::AccountId}:listener/*
++              - Fn::Sub: arn:${AWS::Partition}:elasticloadbalancing:*:${AWS::AccountId}:listener-rule/*
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-cluster
++          - Effect: Allow
++            Action: iam:CreateServiceLinkedRole
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/elasticloadbalancing.amazonaws.com/*
++            Condition:
++              StringEquals:
++                iam:AWSServiceName: elasticloadbalancing.amazonaws.com
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-cluster
++          - Effect: Allow
++            Action: ec2:DeleteNetworkInterface
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:network-interface/*
++            Condition:
++              StringEquals:
++                ec2:ResourceTag/eks:eni:owner: amazon-vpc-cni
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-cluster
+           - Effect: Allow
+-            Action: cloudfront:CreateInvalidation
++            Action: kms:DescribeKey
+             Resource:
+-              Fn::Sub: arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/*
++              Fn::Sub: arn:${AWS::Partition}:kms:*:${AWS::AccountId}:key/*
+             Condition:
+               ArnLike:
+                 aws:PrincipalArn:
+-                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-build
+-              StringEquals:
+-                aws:ResourceTag/zenith:managed: "true"
+-          - Effect: Allow
+-            Action: ecs:RunTask
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-cluster
++          - Effect: Deny
++            Action: '*'
++            Resource: '*'
++            Condition:
++              ArnNotLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-cluster
++          - Effect: Deny
++            Action:
++              - organizations:*
++              - account:*
++            Resource: '*'
++          - Effect: Deny
++            Action: iam:*
++            Resource: '*'
++            Condition:
++              StringNotEqualsIfExists:
++                iam:AWSServiceName: elasticloadbalancing.amazonaws.com
++          - Effect: Deny
++            Action: s3:*
+             Resource:
+-              Fn::Sub: arn:${AWS::Partition}:ecs:*:${AWS::AccountId}:task-definition/zenith-*
++              - Fn::GetAtt:
++                  - StateBucket
++                  - Arn
++              - Fn::Sub: ${StateBucket.Arn}/*
++  EksNodeBoundary:
++    Type: AWS::IAM::ManagedPolicy
++    Properties:
++      ManagedPolicyName:
++        Fn::Sub: ZenithEksNodeBoundary${NameSuffix}
++      Description: Permission boundary for Zenith eksNode roles. Do not edit; Zenith cannot.
++      PolicyDocument:
++        Version: '2012-10-17'
++        Statement:
++          - Effect: Allow
++            Action:
++              - ec2:DescribeInstances
++              - ec2:DescribeInstanceTypes
++              - ec2:DescribeRouteTables
++              - ec2:DescribeSecurityGroups
++              - ec2:DescribeSubnets
++              - ec2:DescribeVolumes
++              - ec2:DescribeVolumesModifications
++              - ec2:DescribeVpcs
++              - ec2:DescribeTags
++              - ec2:DescribeNetworkInterfaces
++            Resource: '*'
+             Condition:
+               ArnLike:
+                 aws:PrincipalArn:
+-                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-events
+-                ecs:cluster:
+-                  Fn::Sub: arn:${AWS::Partition}:ecs:*:${AWS::AccountId}:cluster/zenith-*
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-nodes
+           - Effect: Allow
+-            Action: iam:PassRole
++            Action:
++              - eks:DescribeCluster
++              - eks-auth:AssumeRoleForPodIdentity
+             Resource:
+-              Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*
++              Fn::Sub: arn:${AWS::Partition}:eks:*:${AWS::AccountId}:cluster/zenith-${EnvironmentTagValue}-*
+             Condition:
+               ArnLike:
+                 aws:PrincipalArn:
+-                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-events
+-              StringEquals:
+-                iam:PassedToService: ecs-tasks.amazonaws.com
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-nodes
+           - Effect: Allow
+             Action:
+-              - ssm:UpdateInstanceInformation
+-              - ssm:ListInstanceAssociations
+-              - ssm:PutComplianceItems
+-              - ssm:DescribeAssociation
+-              - ssm:Update*AssociationStatus
++              - ec2:AssignPrivateIpAddresses
++              - ec2:AttachNetworkInterface
++              - ec2:CreateNetworkInterface
++              - ec2:DeleteNetworkInterface
++              - ec2:DetachNetworkInterface
++              - ec2:ModifyNetworkInterfaceAttribute
++              - ec2:UnassignPrivateIpAddresses
+             Resource:
+-              Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:instance/*
++              - Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:network-interface/*
++              - Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:subnet/*
++              - Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:security-group/*
+             Condition:
+               ArnLike:
+                 aws:PrincipalArn:
+-                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-ec2
+-              StringEquals:
+-                aws:ResourceTag/zenith:managed: "true"
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-nodes
+           - Effect: Allow
+             Action:
+               - ec2:AttachNetworkInterface
+@@ -324,10 +1104,13 @@ Resources:
+               Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:instance/*
+             Condition:
+               StringEquals:
+-                aws:ResourceTag/zenith:managed: "true"
++                aws:ResourceTag/zenith:managed: 'true'
+               StringLike:
+                 aws:ResourceTag/zenith:environment:
+                   Ref: EnvironmentTagValue
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-nodes
+           - Effect: Allow
+             Action: ec2:CreateTags
+             Resource:
+@@ -339,41 +1122,52 @@ Resources:
+                   - node.k8s.amazonaws.com/createdAt
+                   - cluster.k8s.amazonaws.com/name
+                   - eks:eni:owner
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-nodes
++          - Effect: Allow
++            Action: ecr:GetAuthorizationToken
++            Resource: '*'
++            Condition:
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-nodes
+           - Effect: Allow
+             Action:
+-              - kms:Decrypt
+-              - kms:GenerateDataKey
+-              - kms:DescribeKey
+-            Resource: "*"
++              - ecr:BatchCheckLayerAvailability
++              - ecr:GetDownloadUrlForLayer
++              - ecr:BatchGetImage
++              - ecr:GetRepositoryPolicy
++              - ecr:DescribeRepositories
++              - ecr:ListImages
++              - ecr:DescribeImages
++              - ecr:GetLifecyclePolicy
++              - ecr:GetLifecyclePolicyPreview
++              - ecr:ListTagsForResource
++              - ecr:DescribeImageScanFindings
++            Resource:
++              - Fn::Sub: arn:${AWS::Partition}:ecr:*:${AWS::AccountId}:repository/zenith-*
++              - Fn::Sub: arn:${AWS::Partition}:ecr:*:*:repository/eks/*
++              - Fn::Sub: arn:${AWS::Partition}:ecr:*:*:repository/amazon-k8s-cni
+             Condition:
+-              StringEquals:
+-                kms:CallerAccount:
+-                  Ref: AWS::AccountId
+-              StringLike:
+-                kms:ViaService:
+-                  - secretsmanager.*.amazonaws.com
+-                  - ssm.*.amazonaws.com
+-                  - s3.*.amazonaws.com
+-                  - sqs.*.amazonaws.com
+-                  - sns.*.amazonaws.com
+-                  - ec2.*.amazonaws.com
+-                  - eks.*.amazonaws.com
++              ArnLike:
++                aws:PrincipalArn:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-nodes
+           - Effect: Deny
+-            Action: iam:*
+-            Resource: "*"
++            Action: '*'
++            Resource: '*'
+             Condition:
+               ArnNotLike:
+                 aws:PrincipalArn:
+-                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-events
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-nodes
+           - Effect: Deny
+             Action:
+               - organizations:*
+               - account:*
+-              - iam:*
+-            Resource: "*"
+-            Condition:
+-              StringNotEqualsIfExists:
+-                iam:PassedToService: ecs-tasks.amazonaws.com
++            Resource: '*'
++          - Effect: Deny
++            Action: iam:*
++            Resource: '*'
+           - Effect: Deny
+             Action: s3:*
+             Resource:
+@@ -381,103 +1175,6 @@ Resources:
+                   - StateBucket
+                   - Arn
+               - Fn::Sub: ${StateBucket.Arn}/*
+-          - Effect: Allow
+-            Action:
+-              - logs:CreateLogGroup
+-              - logs:CreateLogStream
+-              - logs:PutLogEvents
+-              - logs:DescribeLogStreams
+-              - ecr:BatchCheckLayerAvailability
+-              - ecr:GetDownloadUrlForLayer
+-              - ecr:BatchGetImage
+-              - eks:DescribeCluster
+-              - eks-auth:AssumeRoleForPodIdentity
+-              - ec2:AttachNetworkInterface
+-              - ec2:DetachNetworkInterface
+-              - ec2:ModifyNetworkInterfaceAttribute
+-              - kms:DescribeKey
+-              - sns:Publish
+-              - s3:GetObject
+-              - s3:PutObject
+-              - s3:DeleteObject
+-              - s3:ListBucket
+-              - s3:GetBucketLocation
+-              - sqs:SendMessage
+-              - sqs:ReceiveMessage
+-              - sqs:DeleteMessage
+-              - sqs:ChangeMessageVisibility
+-              - sqs:GetQueueAttributes
+-              - sqs:GetQueueUrl
+-              - secretsmanager:GetSecretValue
+-              - secretsmanager:DescribeSecret
+-              - ssm:GetParameter
+-              - ssm:GetParameters
+-              - ssm:GetParametersByPath
+-            Resource:
+-              - Fn::Sub: arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/zenith/*
+-              - Fn::Sub: arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/*/zenith-*
+-              - Fn::Sub: arn:${AWS::Partition}:ecr:*:${AWS::AccountId}:repository/zenith-*
+-              - Fn::Sub: arn:${AWS::Partition}:ecr:*:*:repository/eks/*
+-              - Fn::Sub: arn:${AWS::Partition}:ecr:*:*:repository/amazon-k8s-cni
+-              - Fn::Sub: arn:${AWS::Partition}:eks:*:${AWS::AccountId}:cluster/zenith-${EnvironmentTagValue}-*
+-              - Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:network-interface/*
+-              - Fn::Sub: arn:${AWS::Partition}:kms:*:${AWS::AccountId}:key/*
+-              - Fn::Sub: arn:${AWS::Partition}:sns:*:${AWS::AccountId}:zenith-${EnvironmentTagValue}-*
+-              - Fn::Sub: arn:${AWS::Partition}:s3:::zenith-*
+-              - Fn::Sub: arn:${AWS::Partition}:s3:::zenith-*/*
+-              - Fn::Sub: arn:${AWS::Partition}:sqs:*:${AWS::AccountId}:zenith-*
+-              - Fn::Sub: arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:zenith/*
+-              - Fn::Sub: arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:parameter/zenith/*
+-          - Effect: Allow
+-            Action:
+-              - ecr:GetAuthorizationToken
+-              - ec2:DescribeInstances
+-              - ec2:DescribeInstanceTypes
+-              - ec2:DescribeRouteTables
+-              - ec2:DescribeSecurityGroups
+-              - ec2:DescribeSubnets
+-              - ec2:DescribeVolumes
+-              - ec2:DescribeVolumesModifications
+-              - ec2:DescribeVpcs
+-              - ec2:DescribeTags
+-              - ec2:DescribeAvailabilityZones
+-              - ec2:CreateNetworkInterface
+-              - ec2:DescribeNetworkInterfaces
+-              - ec2:DeleteNetworkInterface
+-              - ec2:AssignPrivateIpAddresses
+-              - ec2:UnassignPrivateIpAddresses
+-            Resource: "*"
+-          - Effect: Allow
+-            Action:
+-              - ssm:ListAssociations
+-              - ssm:GetManifest
+-              - ssm:PutInventory
+-              - ssm:PutConfigurePackageResult
+-              - ssm:GetDeployablePatchSnapshotForInstance
+-              - ec2messages:GetEndpoint
+-              - ec2messages:GetMessages
+-              - ec2messages:SendReply
+-              - ssmmessages:*Channel
+-              - ec2messages:*Message
+-            Resource: "*"
+-            Condition:
+-              ArnLike:
+-                aws:PrincipalArn:
+-                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-ec2
+-          - Effect: Allow
+-            Action:
+-              - ssm:DescribeAssociation
+-              - ssm:Update*AssociationStatus
+-              - ssm:GetDocument
+-              - ssm:DescribeDocument
+-            Resource:
+-              - Fn::Sub: arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:association/*
+-              - Fn::Sub: arn:${AWS::Partition}:ssm:*::document/*
+-              - Fn::Sub: arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:document/Zenith-*
+-            Condition:
+-              ArnLike:
+-                aws:PrincipalArn:
+-                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-ec2
+ 
+   # ---------------------------------------------------------- observe policy
+   # Read-only. Attached to BOTH roles: OpenTofu needs to read the world to plan
+@@ -1274,19 +1971,27 @@ Resources:
+   DeployIamPolicy:
+     Type: AWS::IAM::ManagedPolicy
+     Properties:
+-      ManagedPolicyName: !Sub "ZenithDeployIam${NameSuffix}"
++      ManagedPolicyName:
++        Fn::Sub: ZenithDeployIam${NameSuffix}
+       Description: Zenith deploy role - bounded IAM for zenith-* roles, PassRole, and self-protection denies.
+       PolicyDocument:
+-        Version: "2012-10-17"
++        Version: '2012-10-17'
+         Statement:
+           - Sid: IamCreateBoundedRoles
+             Effect: Allow
+             Action: iam:CreateRole
+-            Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*"
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*
+             Condition:
+               StringEquals:
+-                "iam:PermissionsBoundary": !Ref WorkloadBoundary
+-                "aws:RequestTag/zenith:managed": "true"
++                iam:PermissionsBoundary:
++                  - Ref: AppBoundary
++                  - Ref: BuildBoundary
++                  - Ref: MachineBoundary
++                  - Ref: SchedulerBoundary
++                  - Ref: EksClusterBoundary
++                  - Ref: EksNodeBoundary
++                aws:RequestTag/zenith:managed: 'true'
+           - Sid: IamChangeBoundedRolePolicies
+             Effect: Allow
+             Action:
+@@ -1294,37 +1999,64 @@ Resources:
+               - iam:DeleteRolePolicy
+               - iam:DetachRolePolicy
+               - iam:DeleteRole
+-            Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*"
++              - iam:PutRolePermissionsBoundary
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*
+             Condition:
+-              StringEquals: { "iam:PermissionsBoundary": !Ref WorkloadBoundary }
++              StringEquals:
++                iam:PermissionsBoundary:
++                  - Ref: AppBoundary
++                  - Ref: BuildBoundary
++                  - Ref: MachineBoundary
++                  - Ref: SchedulerBoundary
++                  - Ref: EksClusterBoundary
++                  - Ref: EksNodeBoundary
+           - Sid: IamAttachOnlyKnownPolicies
+             Effect: Allow
+             Action: iam:AttachRolePolicy
+-            Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*"
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*
+             Condition:
+-              StringEquals: { "iam:PermissionsBoundary": !Ref WorkloadBoundary }
++              StringEquals:
++                iam:PermissionsBoundary:
++                  - Ref: AppBoundary
++                  - Ref: BuildBoundary
++                  - Ref: MachineBoundary
++                  - Ref: SchedulerBoundary
++                  - Ref: EksClusterBoundary
++                  - Ref: EksNodeBoundary
+               ArnLike:
+-                "iam:PolicyARN":
+-                  - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/zenith-*"
+-                  - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+-                  - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+-                  - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+-                  - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonEKSClusterPolicy"
+-                  - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+-                  - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonEKS_CNI_Policy"
+-                  - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
++                iam:PolicyARN:
++                  - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/zenith-*
++                  - Fn::Sub: arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
++                  - Fn::Sub: arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
++                  - Fn::Sub: arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole
++                  - Fn::Sub: arn:${AWS::Partition}:iam::aws:policy/AmazonEKSClusterPolicy
++                  - Fn::Sub: arn:${AWS::Partition}:iam::aws:policy/AmazonEKSWorkerNodePolicy
++                  - Fn::Sub: arn:${AWS::Partition}:iam::aws:policy/AmazonEKS_CNI_Policy
++                  - Fn::Sub: arn:${AWS::Partition}:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
++                  - Fn::Sub: arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore
+           - Sid: IamTagRolesOnCreation
+             Effect: Allow
+             Action: iam:TagRole
+-            Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*"
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*
+             Condition:
+-              StringEquals: { "aws:RequestTag/zenith:managed": "true" }
++              StringEquals:
++                aws:RequestTag/zenith:managed: 'true'
+           - Sid: IamRoleMetadata
+             Effect: Allow
+-            Action: [iam:TagRole, iam:UntagRole, iam:UpdateRole, iam:UpdateRoleDescription, iam:UpdateAssumeRolePolicy]
+-            Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*"
++            Action:
++              - iam:TagRole
++              - iam:UntagRole
++              - iam:UpdateRole
++              - iam:UpdateRoleDescription
++              - iam:UpdateAssumeRolePolicy
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*
+             Condition:
+-              StringEquals: { "aws:ResourceTag/zenith:managed": "true" }
++              StringEquals:
++                aws:ResourceTag/zenith:managed: 'true'
+           - Sid: IamManageZenithPolicies
+             Effect: Allow
+             Action:
+@@ -1335,21 +2067,29 @@ Resources:
+               - iam:SetDefaultPolicyVersion
+               - iam:TagPolicy
+               - iam:UntagPolicy
+-            Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/zenith-*"
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/zenith-*
+           - Sid: IamPassRoleToWorkloadServices
+             Effect: Allow
+             Action: iam:PassRole
+-            Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*"
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*
+             Condition:
+               StringEquals:
+-                "iam:PassedToService": [ecs-tasks.amazonaws.com, codebuild.amazonaws.com, lambda.amazonaws.com, eks.amazonaws.com, ec2.amazonaws.com]
++                iam:PassedToService:
++                  - ecs-tasks.amazonaws.com
++                  - codebuild.amazonaws.com
++                  - lambda.amazonaws.com
++                  - eks.amazonaws.com
++                  - ec2.amazonaws.com
+           - Sid: IamServiceLinkedRolesForSupportedServices
+             Effect: Allow
+             Action: iam:CreateServiceLinkedRole
+-            Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/*"
++            Resource:
++              Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/aws-service-role/*
+             Condition:
+               StringEquals:
+-                "iam:AWSServiceName":
++                iam:AWSServiceName:
+                   - ecs.amazonaws.com
+                   - elasticloadbalancing.amazonaws.com
+                   - autoscaling.amazonaws.com
+@@ -1357,7 +2097,7 @@ Resources:
+                   - elasticache.amazonaws.com
+                   - eks.amazonaws.com
+                   - eks-nodegroup.amazonaws.com
+-          - Sid: DenyModifyingZenithBootstrapRolesAndPolicies
++          - Sid: DenyBootstrapChanges
+             Effect: Deny
+             Action:
+               - iam:AttachRolePolicy
+@@ -1376,20 +2116,30 @@ Resources:
+               - iam:SetDefaultPolicyVersion
+               - iam:DeletePolicy
+               - iam:DeletePolicyVersion
++              - iam:CreatePolicy
++              - iam:TagPolicy
++              - iam:UntagPolicy
+             Resource:
+-              - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/ZenithDeploy*"
+-              - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/ZenithObserve*"
+-              - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-codebuild*"
+-              - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/ZenithDeploy*"
+-              - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/ZenithObserve*"
+-              - !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/ZenithWorkloadBoundary*"
++              - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/ZenithDeploy*
++              - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/ZenithObserve*
++              - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-codebuild*
++              - Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:policy/Zenith*
+           - Sid: DenyRemovingAnyPermissionsBoundary
+             Effect: Deny
+-            Action: [iam:DeleteRolePermissionsBoundary, iam:PutRolePermissionsBoundary]
+-            Resource: "*"
++            Action:
++              - iam:DeleteRolePermissionsBoundary
++              - iam:PutRolePermissionsBoundary
++            Resource: '*'
+             Condition:
+-              StringNotEquals: { "iam:PermissionsBoundary": !Ref WorkloadBoundary }
+-          - Sid: DenyOidcProviderAndPrincipalCreation
++              StringNotEquals:
++                iam:PermissionsBoundary:
++                  - Ref: AppBoundary
++                  - Ref: BuildBoundary
++                  - Ref: MachineBoundary
++                  - Ref: SchedulerBoundary
++                  - Ref: EksClusterBoundary
++                  - Ref: EksNodeBoundary
++          - Sid: DenyPrincipalCreation
+             Effect: Deny
+             Action:
+               - iam:CreateOpenIDConnectProvider
+@@ -1403,8 +2153,7 @@ Resources:
+               - iam:CreateLoginProfile
+               - organizations:*
+               - account:*
+-            Resource: "*"
+-
++            Resource: '*'
+   # ------------------------------------------------------------------ roles
+   ObserveRole:
+     Type: AWS::IAM::Role
+@@ -1602,6 +2351,24 @@ Outputs:
+   CodeBuildRoleArn:
+     Description: Service role for Zenith CodeBuild projects.
+     Value: !GetAtt CodeBuildRole.Arn
++  AppBoundaryArn:
++    Description: Permission boundary for app roles.
++    Value: !Ref AppBoundary
++  BuildBoundaryArn:
++    Description: Permission boundary for build roles.
++    Value: !Ref BuildBoundary
++  MachineBoundaryArn:
++    Description: Permission boundary for machine roles.
++    Value: !Ref MachineBoundary
++  SchedulerBoundaryArn:
++    Description: Permission boundary for scheduler roles.
++    Value: !Ref SchedulerBoundary
++  EksClusterBoundaryArn:
++    Description: Permission boundary for eksCluster roles.
++    Value: !Ref EksClusterBoundary
++  EksNodeBoundaryArn:
++    Description: Permission boundary for eksNode roles.
++    Value: !Ref EksNodeBoundary
+   WorkloadBoundaryArn:
+     Description: Permission boundary every Zenith-created role must carry.
+     Value: !Ref WorkloadBoundary
+diff --git a/src/lib/credentials/aws/naming.ts b/src/lib/credentials/aws/naming.ts
+index 32ab7bb..c3a9b5b 100644
+--- a/src/lib/credentials/aws/naming.ts
++++ b/src/lib/credentials/aws/naming.ts
+@@ -41,6 +41,20 @@ export const EVENTS_ROLE_NAME_PATTERN = `${NAME_PREFIX}*${EVENTS_ROLE_SUFFIX}`;
+ export const EC2_ROLE_SUFFIX = "-ec2";
+ export const EC2_ROLE_NAME_PATTERN = `${NAME_PREFIX}*${EC2_ROLE_SUFFIX}`;
+ 
++/** Bootstrap owns these immutable policies. Drivers select only from this map. */
++export const AWS_ROLE_BOUNDARIES = {
++  app: { logicalId: "AppBoundary", policyName: "ZenithAppBoundary", template: "app-boundary", suffixes: ["-role", "-exec", "-fn", "-flow"] },
++  build: { logicalId: "BuildBoundary", policyName: "ZenithBuildBoundary", template: "build-boundary", suffixes: [BUILD_ROLE_SUFFIX] },
++  machine: { logicalId: "MachineBoundary", policyName: "ZenithMachineBoundary", template: "machine-boundary", suffixes: [EC2_ROLE_SUFFIX] },
++  scheduler: { logicalId: "SchedulerBoundary", policyName: "ZenithSchedulerBoundary", template: "scheduler-boundary", suffixes: [EVENTS_ROLE_SUFFIX] },
++  eksCluster: { logicalId: "EksClusterBoundary", policyName: "ZenithEksClusterBoundary", template: "eks-cluster-boundary", suffixes: ["-cluster"] },
++  eksNode: { logicalId: "EksNodeBoundary", policyName: "ZenithEksNodeBoundary", template: "eks-node-boundary", suffixes: ["-nodes"] },
++} as const;
++export type AwsRoleFamily = keyof typeof AWS_ROLE_BOUNDARIES;
++export const roleFamilyPatterns = (family: AwsRoleFamily): string[] => AWS_ROLE_BOUNDARIES[family].suffixes.map((suffix) => `${NAME_PREFIX}*${suffix}`);
++export const awsBoundaryArn = (family: AwsRoleFamily, partition: string, accountId: string): string =>
++  `arn:${partition}:iam::${accountId}:policy/${AWS_ROLE_BOUNDARIES[family].policyName}`;
++
+ /** Environment ids embedded in ARN patterns: no wildcards, no policy variables, no separators. */
+ export const ENVIRONMENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+ 
+diff --git a/src/lib/providers/aws/drivers/compute/codebuild-project.ts b/src/lib/providers/aws/drivers/compute/codebuild-project.ts
+index 6b296c2..1f14574 100644
+--- a/src/lib/providers/aws/drivers/compute/codebuild-project.ts
++++ b/src/lib/providers/aws/drivers/compute/codebuild-project.ts
+@@ -189,7 +189,7 @@ const compile = (node: ResourceNode, ctx: CompileContext) =>
+     const role = b.resource("aws_iam_role", label, {
+       name: roleName,
+       assume_role_policy: assumeRoleJson("codebuild.amazonaws.com"),
+-      permissions_boundary: boundaryArn(env),
++      permissions_boundary: boundaryArn(env, "build"),
+       tags: tagsFor(ctx, node, roleName),
+     });
+     const statements: PolicyStatement[] = [
+diff --git a/src/lib/providers/aws/drivers/compute/ec2-instance.ts b/src/lib/providers/aws/drivers/compute/ec2-instance.ts
+index 7c0b847..c60f5e7 100644
+--- a/src/lib/providers/aws/drivers/compute/ec2-instance.ts
++++ b/src/lib/providers/aws/drivers/compute/ec2-instance.ts
+@@ -87,7 +87,7 @@ const compile = (node: ResourceNode, ctx: CompileContext) =>
+     const role = b.resource("aws_iam_role", label, {
+       name: roleName,
+       assume_role_policy: assumeRoleJson("ec2.amazonaws.com"),
+-      permissions_boundary: boundaryArn(env),
++      permissions_boundary: boundaryArn(env, "machine"),
+       tags: tagsFor(ctx, node, roleName),
+     });
+     const ssm = b.resource("aws_iam_role_policy_attachment", `${label}_ssm`, {
+diff --git a/src/lib/providers/aws/drivers/compute/ecs-scheduled-task.ts b/src/lib/providers/aws/drivers/compute/ecs-scheduled-task.ts
+index e1029b0..806d034 100644
+--- a/src/lib/providers/aws/drivers/compute/ecs-scheduled-task.ts
++++ b/src/lib/providers/aws/drivers/compute/ecs-scheduled-task.ts
+@@ -69,7 +69,7 @@ const compile = (node: ResourceNode, ctx: CompileContext): TofuFragment =>
+     const eventsRole = b.resource("aws_iam_role", `${label}_events`, {
+       name: eventsName,
+       assume_role_policy: assumeRoleJson("events.amazonaws.com"),
+-      permissions_boundary: boundaryArn(t.env),
++      permissions_boundary: boundaryArn(t.env, "scheduler"),
+       tags: tagsFor(ctx, node, eventsName),
+     });
+     const statements: PolicyStatement[] = [
+diff --git a/src/lib/providers/aws/drivers/compute/ecs-task.ts b/src/lib/providers/aws/drivers/compute/ecs-task.ts
+index 41db60d..45d9f9d 100644
+--- a/src/lib/providers/aws/drivers/compute/ecs-task.ts
++++ b/src/lib/providers/aws/drivers/compute/ecs-task.ts
+@@ -224,7 +224,7 @@ export function emitTask(b: Frag, node: ResourceNode, ctx: CompileContext, spec:
+   const securityGroup = rawRef(`aws_security_group.${securityGroupLabel(node.address)}.id`);
+ 
+   // execution role + its policy
+-  const execName = cloudName(ctx.namePrefix, `${name}-exec`, 64);
++  const execName = `${cloudName(ctx.namePrefix, name, 64 - "-exec".length)}-exec`;
+   const execRole = b.resource("aws_iam_role", `${label}_exec`, {
+     name: execName,
+     assume_role_policy: assumeRoleJson("ecs-tasks.amazonaws.com"),
+diff --git a/src/lib/providers/aws/drivers/compute/lambda-function.ts b/src/lib/providers/aws/drivers/compute/lambda-function.ts
+index 4249297..03eb801 100644
+--- a/src/lib/providers/aws/drivers/compute/lambda-function.ts
++++ b/src/lib/providers/aws/drivers/compute/lambda-function.ts
+@@ -8,7 +8,7 @@
+  * driver marks itself experimental with `capabilities.experimental`.
+  *
+  * Compile: `aws_lambda_function` (Zip package from an S3 object), its own
+- * role (trust lambda.amazonaws.com, `ZenithWorkloadBoundary`, permission to
++ * role (trust lambda.amazonaws.com, `ZenithAppBoundary`, permission to
+  * write streams of ITS log group only), its log group `/aws/lambda/<name>`
+  * (30 days). No VPC, no layers, no public URL. Environment values are plain:
+  * Lambda has no `valueFrom`, so a `secretRef` is a compile error (read the
+@@ -81,7 +81,7 @@ const compile = (node: ResourceNode, ctx: CompileContext) =>
+     const env = environmentData(b, label, ctx.region);
+     const fname = cloudName(ctx.namePrefix, name, 64);
+     const logs = b.resource("aws_cloudwatch_log_group", `${label}_logs`, { name: `/aws/lambda/${fname}`, retention_in_days: 30, tags: tagsFor(ctx, node) });
+-    const roleName = cloudName(ctx.namePrefix, `${name}-fn`, 64);
++    const roleName = `${cloudName(ctx.namePrefix, name, 64 - "-fn".length)}-fn`;
+     const role = b.resource("aws_iam_role", label, {
+       name: roleName,
+       assume_role_policy: assumeRoleJson("lambda.amazonaws.com"),
+diff --git a/src/lib/providers/aws/drivers/compute/support/tf.ts b/src/lib/providers/aws/drivers/compute/support/tf.ts
+index 6a8d5ca..997953f 100644
+--- a/src/lib/providers/aws/drivers/compute/support/tf.ts
++++ b/src/lib/providers/aws/drivers/compute/support/tf.ts
+@@ -24,6 +24,7 @@
+  * its value.
+  */
+ import type { CompileContext, TofuFragment } from "@/lib/drivers/types";
++import { AWS_ROLE_BOUNDARIES, type AwsRoleFamily } from "@/lib/credentials/aws/naming";
+ import type { ResourceNode } from "@/lib/resources/types";
+ import { bareExpr, tfLiteral, FragmentBuilder as SharedFragmentBuilder } from "@/lib/providers/aws/drivers/shared";
+ 
+@@ -280,9 +281,7 @@ export function environmentData(b: Frag, label: string, region: string): Env {
+ }
+ 
+ /** The permissions boundary every role Zenith creates carries (DRIVER-CONVENTIONS.md, IAM). */
+-export const WORKLOAD_BOUNDARY_NAME = "ZenithWorkloadBoundary";
+-
+-export const boundaryArn = (env: Env): TfCat => cat("arn:", env.partition, ":iam::", env.account, `:policy/${WORKLOAD_BOUNDARY_NAME}`);
++export const boundaryArn = (env: Env, family: AwsRoleFamily = "app"): TfCat => cat("arn:", env.partition, ":iam::", env.account, `:policy/${AWS_ROLE_BOUNDARIES[family].policyName}`);
+ 
+ /** `arn:<partition>:<service>:<region>:<account>:<resource>` */
+ export const arnOf = (env: Env, service: string, resource: string | (string | TfRef)[], opts: { region?: boolean } = {}): TfCat =>
+diff --git a/src/lib/providers/aws/drivers/data/iam-role.ts b/src/lib/providers/aws/drivers/data/iam-role.ts
+index e3be9c3..3242ac7 100644
+--- a/src/lib/providers/aws/drivers/data/iam-role.ts
++++ b/src/lib/providers/aws/drivers/data/iam-role.ts
+@@ -11,7 +11,7 @@
+  *                         jobs, `lambda`, `codebuild`, `ec2`), constrained to
+  *                         this account (`aws:SourceAccount`), and
+  *                         `permissions_boundary` = the bootstrap
+- *                         `ZenithWorkloadBoundary` policy
++ *                         `ZenithAppBoundary` policy
+  *   aws_iam_role_policy   ONE inline policy compiled from
+  *                         `IdentitySpec.grants` (see `iam-grants.ts`): exact
+  *                         actions on exact ARNs, no wildcard action, no
+@@ -22,12 +22,12 @@
+  * Permissions boundary: the workspace assembler cannot declare tofu
+  * `variable`s (`TofuFragment` has no variable member), so the boundary ARN is
+  * assembled in the fragment as
+- * `arn:<partition>:iam::<account>:policy/ZenithWorkloadBoundary` from two data
++ * `arn:<partition>:iam::<account>:policy/ZenithAppBoundary` from two data
+  * sources instead of the `workload_permissions_boundary_arn` variable the
+  * design named. The name is the platform convention (DRIVER-CONVENTIONS); the
+  * policy is assumed to sit at path `/`. When the assembler grows a variable
+- * channel only `boundaryArn()` below changes. The bootstrap template is not in
+- * this repository, so the boundary's existence is NOT verified here.
++ * channel only `boundaryArn()` below changes. Bootstrap policy parity is
++ * tested locally; policy existence in a customer account is not live-verified.
+  *
+  * Observe: GetRole, ListRolePolicies + GetRolePolicy (policy documents are
+  * URL-decoded and normalized to sorted actions), ListAttachedRolePolicies.
+@@ -42,6 +42,7 @@
+  * action set, wildcard check, boundary and attachments are. `contract` evidence
+  * only.
+  */
++import { AWS_ROLE_BOUNDARIES, awsBoundaryArn } from "@/lib/credentials/aws/naming";
+ import {
+   GetRoleCommand,
+   GetRolePolicyCommand,
+@@ -99,7 +100,7 @@ import {
+ } from "./support";
+ 
+ export const IAM_ROLE_SOURCE = "aws.iam_role@1";
+-export const PERMISSIONS_BOUNDARY_NAME = "ZenithWorkloadBoundary";
++export const PERMISSIONS_BOUNDARY_NAME = AWS_ROLE_BOUNDARIES.app.policyName;
+ /** IAM caps the aggregate size of a role's inline policies at 10,240 characters (whitespace excluded). */
+ const MAX_INLINE_POLICY_CHARS = 10_000;
+ 
+@@ -137,11 +138,11 @@ export function trustPrincipalFor(node: ResourceNode, ctx: Pick<CompileContext,
+   return principal;
+ }
+ 
+-export const roleNameFor = (ctx: Pick<CompileContext, "namePrefix">, address: string): string => cloudName(ctx.namePrefix, `${nodeName(address)}-role`, 64);
++export const roleNameFor = (ctx: Pick<CompileContext, "namePrefix">, address: string): string => `${cloudName(ctx.namePrefix, nodeName(address), 64 - "-role".length)}-role`;
+ 
+ /** The boundary policy ARN as a tofu template (see the module comment for why it is not a variable). */
+ function boundaryArn(acct: AccountRefs): string {
+-  return `arn:${acct.partition}:iam::${acct.accountId}:policy/${PERMISSIONS_BOUNDARY_NAME}`;
++  return awsBoundaryArn("app", acct.partition, acct.accountId);
+ }
+ 
+ /** Characters an inline policy will occupy, estimated generously (40 per unresolved ARN). */
+diff --git a/src/lib/providers/aws/drivers/eks/eks-cluster.ts b/src/lib/providers/aws/drivers/eks/eks-cluster.ts
+index 2651995..fc88803 100644
+--- a/src/lib/providers/aws/drivers/eks/eks-cluster.ts
++++ b/src/lib/providers/aws/drivers/eks/eks-cluster.ts
+@@ -16,6 +16,7 @@
+  * hand-built graphs can instead carry direct subnet dependencies.
+  */
+ import { z } from "zod";
++import { awsBoundaryArn, type AwsRoleFamily } from "@/lib/credentials/aws/naming";
+ import {
+   DescribeClusterCommand, DescribeNodegroupCommand, EKSClient,
+   ListNodegroupsCommand, ListTagsForResourceCommand,
+@@ -142,9 +143,9 @@ export function compileEksCluster(node: ResourceNode, ctx: CompileContext): Tofu
+     lifecycle: { prevent_destroy: true },
+   });
+   b.resource("aws_cloudwatch_log_group", label, { name: `/aws/eks/${name}/cluster`, retention_in_days: 30, tags });
+-  const boundary = `arn:${refExpr(partition)}:iam::${refExpr(account)}:policy/ZenithWorkloadBoundary`;
+-  const role = (suffix: string, principal: string) => b.resource("aws_iam_role", `${label}_${suffix}`, {
+-    name: cloudName(ctx.namePrefix, `${nodeName(node.address)}-${suffix}`, 64), permissions_boundary: boundary,
++  const role = (suffix: "cluster" | "nodes", principal: string) => b.resource("aws_iam_role", `${label}_${suffix}`, {
++    name: `${cloudName(ctx.namePrefix, nodeName(node.address), 64 - suffix.length - 1)}-${suffix}`,
++    permissions_boundary: awsBoundaryArn(({ cluster: "eksCluster", nodes: "eksNode" } as const satisfies Record<string, AwsRoleFamily>)[suffix], refExpr(partition), refExpr(account)),
+     assume_role_policy: JSON.stringify({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Principal: { Service: principal }, Action: "sts:AssumeRole" }] }), tags,
+   });
+   const clusterRole = role("cluster", "eks.amazonaws.com");
+diff --git a/src/lib/providers/aws/drivers/network/vpc-compile.ts b/src/lib/providers/aws/drivers/network/vpc-compile.ts
+index 2150189..9356656 100644
+--- a/src/lib/providers/aws/drivers/network/vpc-compile.ts
++++ b/src/lib/providers/aws/drivers/network/vpc-compile.ts
+@@ -29,7 +29,7 @@
+  *     traffic that explains a broken security group. Switching to ALL traffic is a
+  *     one-word change (`traffic_type`) and can cost far more on a busy VPC.
+  *
+- * The flow-log service role carries the `ZenithWorkloadBoundary` permission
++ * The flow-log service role carries the `ZenithAppBoundary` permission
+  * boundary (DRIVER-CONVENTIONS). ASSUMPTION, unverified against a live account:
+  * that managed policy exists in the account (created by the customer bootstrap)
+  * and permits logs:CreateLogStream / DescribeLogStreams / PutLogEvents on the
+@@ -39,6 +39,7 @@
+  * `cidr_block`, `internet_gateway_id`, `public_route_table_id`,
+  * `private_route_table_id:<zone letter>` (every zone letter, whatever the NAT mode).
+  */
++import { AWS_ROLE_BOUNDARIES, awsBoundaryArn } from "@/lib/credentials/aws/naming";
+ import type { CompileContext, TofuFragment } from "@/lib/drivers/types";
+ import type { NetworkSpec } from "@/lib/resources/specs";
+ import type { ResourceNode } from "@/lib/resources/types";
+@@ -48,7 +49,7 @@ import { requireSubnet, zoneLetters } from "./zones";
+ 
+ export const FLOW_LOG_RETENTION_DAYS = 30;
+ export const FLOW_LOG_TRAFFIC_TYPE = "REJECT";
+-export const PERMISSIONS_BOUNDARY_NAME = "ZenithWorkloadBoundary";
++export const PERMISSIONS_BOUNDARY_NAME = AWS_ROLE_BOUNDARIES.app.policyName;
+ export type NatMode = "none" | "single" | "per_az";
+ 
+ export interface ValidNetworkSpec {
+@@ -193,9 +194,9 @@ export function compileVpc(node: ResourceNode, ctx: CompileContext): TofuFragmen
+     ],
+   };
+   b.resource("aws_iam_role", flow, {
+-    name: cloudName(ctx.namePrefix, `flowlogs-${nodeName(node.address)}`, 64),
++    name: `${cloudName(ctx.namePrefix, `flowlogs-${nodeName(node.address)}`, 64 - "-flow".length)}-flow`,
+     assume_role_policy: json(assumeRole),
+-    permissions_boundary: `arn:${partition}:iam::${account}:policy/${PERMISSIONS_BOUNDARY_NAME}`,
++    permissions_boundary: awsBoundaryArn("app", partition, account),
+     tags: tag("flow-logs-role"),
+   });
+   const logGroupArn = `\${aws_cloudwatch_log_group.${flow}.arn}`;
+diff --git a/tests/credentials/bootstrap-templates.test.ts b/tests/credentials/bootstrap-templates.test.ts
+index fa6f74c..d4c77e2 100644
+--- a/tests/credentials/bootstrap-templates.test.ts
++++ b/tests/credentials/bootstrap-templates.test.ts
+@@ -12,7 +12,7 @@ import path from "node:path";
+ import { describe, expect, it } from "vitest";
+ import { checkPolicies, generate, POLICIES_DIR, TEMPLATE_PATH } from "../../deploy/aws/tools/generate-tofu-policies";
+ import { sessionPolicyFor } from "@/lib/credentials/aws";
+-import { BUILD_ROLE_NAME_PATTERN } from "@/lib/credentials/aws/naming";
++import { AWS_ROLE_BOUNDARIES, BUILD_ROLE_NAME_PATTERN } from "@/lib/credentials/aws/naming";
+ import { boundaryAllows } from "./workload-boundary";
+ import {
+   asList,
+@@ -279,7 +279,6 @@ describe.each(Object.keys(SCENARIOS))("IAM policies (%s)", (scenario) => {
+       "iam:CreateLoginProfile",
+       "iam:CreateOpenIDConnectProvider",
+       "sts:AssumeRole",
+-      "iam:PutRolePermissionsBoundary",
+       "iam:DeleteRolePermissionsBoundary",
+     ]) {
+       expect(actions, forbidden).not.toContain(forbidden);
+@@ -288,26 +287,26 @@ describe.each(Object.keys(SCENARIOS))("IAM policies (%s)", (scenario) => {
+ 
+   it("IAM: roles are created/changed only with the permission boundary, PassRole is service-limited, self-modification is denied", () => {
+     const statements = statementsOf(policyDoc(ev, "DeployIamPolicy"));
+-    const boundary = evaluatorForRef(ev, "WorkloadBoundary");
++    const boundary = Object.values(AWS_ROLE_BOUNDARIES).map((spec) => evaluatorForRef(ev, spec.logicalId));
+     const byActionAllowed = (action: string) => allows(statements).filter((s) => asList(s.Action).includes(action));
+ 
+     for (const action of ["iam:CreateRole", "iam:PutRolePolicy", "iam:AttachRolePolicy", "iam:DetachRolePolicy", "iam:DeleteRolePolicy", "iam:DeleteRole"]) {
+       const found = byActionAllowed(action);
+       expect(found.length, action).toBe(1);
+-      expect(found[0].Condition?.StringEquals?.["iam:PermissionsBoundary"], action).toBe(boundary);
++      expect(found[0].Condition?.StringEquals?.["iam:PermissionsBoundary"], action).toEqual(boundary);
+       expect(asList(found[0].Resource), action).toEqual([`arn:aws:iam::${ACCOUNT}:role/zenith-*`]);
+     }
+     const attach = byActionAllowed("iam:AttachRolePolicy")[0];
+-    expect(asList(attach.Condition?.ArnLike?.["iam:PolicyARN"] as string[]).every((a) => /policy\/zenith-\*$|policy\/(AmazonEKSClusterPolicy|AmazonEKSWorkerNodePolicy|AmazonEKS_CNI_Policy|AmazonEC2ContainerRegistryReadOnly)$|policy\/service-role\/(AmazonECSTaskExecutionRolePolicy|AWSLambda(Basic|VPCAccess)ExecutionRole)$/.test(a))).toBe(true);
++    expect(asList(attach.Condition?.ArnLike?.["iam:PolicyARN"] as string[]).every((a) => /policy\/zenith-\*$|policy\/(AmazonEKSClusterPolicy|AmazonEKSWorkerNodePolicy|AmazonEKS_CNI_Policy|AmazonEC2ContainerRegistryReadOnly|AmazonSSMManagedInstanceCore)$|policy\/service-role\/(AmazonECSTaskExecutionRolePolicy|AWSLambda(Basic|VPCAccess)ExecutionRole)$/.test(a))).toBe(true);
+ 
+     const pass = byActionAllowed("iam:PassRole")[0];
+     expect(pass.Condition?.StringEquals?.["iam:PassedToService"]).toEqual(["ecs-tasks.amazonaws.com", "codebuild.amazonaws.com", "lambda.amazonaws.com", "eks.amazonaws.com", "ec2.amazonaws.com"]);
+     expect(asList(pass.Resource)).toEqual([`arn:aws:iam::${ACCOUNT}:role/zenith-*`]);
+ 
+-    const self = statements.find((s) => s.Sid === "DenyModifyingZenithBootstrapRolesAndPolicies")!;
++    const self = statements.find((s) => s.Sid === "DenyBootstrapChanges")!;
+     expect(self.Effect).toBe("Deny");
+     const resources = asList(self.Resource).join(" ");
+-    for (const p of ["role/ZenithDeploy*", "role/ZenithObserve*", "role/zenith-codebuild*", "policy/ZenithDeploy*", "policy/ZenithObserve*", "policy/ZenithWorkloadBoundary*"]) {
++    for (const p of ["role/ZenithDeploy*", "role/ZenithObserve*", "role/zenith-codebuild*", "policy/Zenith*"]) {
+       expect(resources).toContain(p);
+     }
+     expect(asList(self.Action)).toEqual(expect.arrayContaining(["iam:AttachRolePolicy", "iam:PutRolePolicy", "iam:UpdateAssumeRolePolicy", "iam:DeleteRole", "iam:CreatePolicyVersion", "iam:SetDefaultPolicyVersion"]));
+@@ -316,7 +315,7 @@ describe.each(Object.keys(SCENARIOS))("IAM policies (%s)", (scenario) => {
+     expect(asList(boundaryGuard.Action)).toEqual(["iam:DeleteRolePermissionsBoundary", "iam:PutRolePermissionsBoundary"]);
+     expect(boundaryGuard.Resource).toBe("*");
+ 
+-    const oidc = statements.find((s) => s.Sid === "DenyOidcProviderAndPrincipalCreation")!;
++    const oidc = statements.find((s) => s.Sid === "DenyPrincipalCreation")!;
+     expect(asList(oidc.Action)).toEqual(expect.arrayContaining(["iam:DeleteOpenIDConnectProvider", "iam:CreateUser", "iam:CreateAccessKey", "organizations:*"]));
+   });
+ 
+@@ -567,6 +566,8 @@ describe("OpenTofu module", () => {
+       state_bucket_arn: `arn:aws:s3:::zenith-state-${ACCOUNT}-ap-south-1`,
+       boundary_arn: ev.resourceRef("WorkloadBoundary"),
+       environment_tag_value: "*",
++      dns_suffix: "amazonaws.com",
++      ...Object.fromEntries(Object.entries(AWS_ROLE_BOUNDARIES).map(([family, spec]) => [`${family}_boundary_arn`, ev.resourceRef(spec.logicalId)])),
+     };
+     const render = (file: string) => JSON.parse(strip(fs.readFileSync(path.join(POLICIES_DIR, file), "utf8")).replace(/\$\{(\w+)\}/g, (_m, k: string) => vars[k]));
+     const files: Record<string, string> = {
+diff --git a/tests/credentials/cfn.ts b/tests/credentials/cfn.ts
+index f40f0e0..65381f8 100644
+--- a/tests/credentials/cfn.ts
++++ b/tests/credentials/cfn.ts
+@@ -60,7 +60,7 @@ export const NOVALUE = Symbol("AWS::NoValue");
+ export interface EvalOptions {
+   params?: Record<string, string | string[]>;
+   /** pseudo parameters */
+-  pseudo?: { partition: string; accountId: string; region: string };
++  pseudo?: { partition: string; accountId: string; region: string; urlSuffix?: string };
+   /** force a condition's value (used when generating the OpenTofu templates) */
+   forceConditions?: Record<string, boolean>;
+   /** override what `Ref`/`GetAtt` return for a resource (used when generating the OpenTofu templates) */
+@@ -100,6 +100,8 @@ export function makeEvaluator(template: Template, options: EvalOptions = {}): Ev
+         return pseudo.accountId;
+       case "AWS::Region":
+         return pseudo.region;
++      case "AWS::URLSuffix":
++        return options.pseudo?.urlSuffix ?? (pseudo.partition === "aws-cn" ? "amazonaws.com.cn" : "amazonaws.com");
+       case "AWS::NoValue":
+         return NOVALUE;
+       default:
+diff --git a/tests/credentials/workload-boundary.ts b/tests/credentials/workload-boundary.ts
+index 958c622..c3dd332 100644
+--- a/tests/credentials/workload-boundary.ts
++++ b/tests/credentials/workload-boundary.ts
+@@ -5,6 +5,13 @@
+  */
+ import { asList, iamGlob, loadTemplate, makeEvaluator, resolveResource, statementsOf, type Statement } from "./cfn";
+ import { TEMPLATE_PATH } from "../../deploy/aws/tools/generate-tofu-policies";
++import { AWS_ROLE_BOUNDARIES, type AwsRoleFamily } from "@/lib/credentials/aws/naming";
++
++export function familyBoundary(family: AwsRoleFamily, partition = "aws", params: Record<string, string> = {}): Statement[] {
++  const template = loadTemplate(TEMPLATE_PATH);
++  const evaluator = makeEvaluator(template, { params, pseudo: { partition, accountId: "123456789012", region: "eu-west-1" } });
++  return statementsOf(resolveResource(template, evaluator, AWS_ROLE_BOUNDARIES[family].logicalId)!.PolicyDocument);
++}
+ 
+ export function workloadBoundary(partition = "aws", accountId = "123456789012"): Statement[] {
+   const template = loadTemplate(TEMPLATE_PATH);
+@@ -12,7 +19,7 @@ export function workloadBoundary(partition = "aws", accountId = "123456789012"):
+   return statementsOf(resolveResource(template, evaluator, "WorkloadBoundary")!.PolicyDocument);
+ }
+ 
+-export function boundaryAllows(statements: Statement[], action: string, resource: string, context: Record<string, string> = {}): boolean {
++export function boundaryAllows(statements: Statement[], action: string, resource: string, context: Record<string, string | string[]> = {}): boolean {
+   const matches = (statement: Statement) =>
+     asList(statement.Action).some((pattern) => iamGlob(pattern.toLowerCase(), action.toLowerCase())) &&
+     asList(statement.Resource).some((pattern) => iamGlob(pattern, resource)) &&
+@@ -20,12 +27,14 @@ export function boundaryAllows(statements: Statement[], action: string, resource
+       Object.entries(entries).every(([key, expected]) => {
+         const actual = context[key];
+         const values = asList(expected).map(String);
+-        if (operator === "StringEquals" || operator === "ArnEquals") return actual !== undefined && values.includes(actual);
+-        if (operator === "StringLike" || operator === "ArnLike") return actual !== undefined && values.some((pattern) => iamGlob(pattern, actual));
++        const actualValues = asList(actual);
++        if (operator === "StringEquals" || operator === "ArnEquals") return actualValues.some((value) => values.includes(value));
++        if (operator === "StringLike" || operator === "ArnLike") return actualValues.some((value) => values.some((pattern) => iamGlob(pattern, value)));
++        if (operator === "ForAllValues:StringEquals") return actualValues.every((value) => values.includes(value));
+         // IAM negation matches missing keys too; IfExists in a negated Deny
+         // does not turn a missing PassedToService into a PassRole exemption.
+-        if (operator === "StringNotEqualsIfExists") return actual === undefined || !values.includes(actual);
+-        if (operator === "ArnNotLike") return actual === undefined || !values.some((pattern) => iamGlob(pattern, actual));
++        if (operator === "StringNotEquals" || operator === "StringNotEqualsIfExists") return actualValues.every((value) => !values.includes(value));
++        if (operator === "ArnNotLike") return actualValues.every((value) => !values.some((pattern) => iamGlob(pattern, value)));
+         throw new Error(`Unsupported boundary condition operator: ${operator}`);
+       })
+     );
+diff --git a/tests/providers/aws/drivers/compute/boundary-fixtures.ts b/tests/providers/aws/drivers/compute/boundary-fixtures.ts
+index cf82d53..4976b5a 100644
+--- a/tests/providers/aws/drivers/compute/boundary-fixtures.ts
++++ b/tests/providers/aws/drivers/compute/boundary-fixtures.ts
+@@ -8,19 +8,24 @@ export const BOUNDARY_PREFIX = "zenith-env-1";
+ export function policyRequests(fragment: TofuFragment, refs: Record<string, string> = {}, partition = "aws"): { action: string; resource: string; context: Record<string, string> }[] {
+   const resolve = (value: string): string => value.replace(/\$\{([^}]+)\}/g, (_match, expr: string) => {
+     if (expr in refs) return refs[expr];
++    const trim = /^trimsuffix\(([^,]+), ":\*"\)$/.exec(expr);
++    if (trim) return resolve(`\${${trim[1]}}`).replace(/:\*$/, "");
+     if (/^data\.aws_partition\.[\w]+\.partition$/.test(expr)) return partition;
+     if (/^data\.aws_caller_identity\.[\w]+\.account_id$/.test(expr)) return BOUNDARY_ACCOUNT;
+     if (/^data\.aws_region\.[\w]+\.(name|region)$/.test(expr)) return "eu-west-1";
+     if (/^random_id\.[\w]+\.hex$/.test(expr)) return "abcdef12";
+     const [type, label, attr] = expr.split(".");
+     const body = fragment.resource?.[type]?.[label];
+-    if (type === "aws_cloudwatch_log_group" && attr === "name" && body) return resolve(String(body.name));
++    if (type === "aws_cloudwatch_log_group" && body) {
++      if (attr === "name") return resolve(String(body.name));
++      if (attr === "arn") return `arn:${partition}:logs:eu-west-1:${BOUNDARY_ACCOUNT}:log-group:${resolve(String(body.name))}`;
++    }
+     if (type === "aws_s3_bucket" && body && (attr === "arn" || attr === "bucket")) {
+       const bucket = resolve(String(body.bucket));
+       return attr === "arn" ? `arn:${partition}:s3:::${bucket}` : bucket;
+     }
+     if (type === "aws_iam_role" && body) {
+-      if (attr === "name") return resolve(String(body.name));
++      if (attr === "name" || attr === "id") return resolve(String(body.name));
+       if (attr === "arn") return `arn:${partition}:iam::${BOUNDARY_ACCOUNT}:role/${resolve(String(body.name))}`;
+     }
+     if (type === "aws_ecs_cluster" && body && attr === "arn") return `arn:${partition}:ecs:eu-west-1:${BOUNDARY_ACCOUNT}:cluster/${resolve(String(body.name))}`;
+@@ -29,7 +34,9 @@ export function policyRequests(fragment: TofuFragment, refs: Record<string, stri
+   });
+   return Object.values(fragment.resource?.aws_iam_role_policy ?? {}).flatMap((body) => {
+     const principal = `arn:${partition}:iam::${BOUNDARY_ACCOUNT}:role/${resolve(String(body.role))}`;
+-    return statementsOf(body.policy).flatMap((statement) => {
++    const dataPolicy = /^\$\{data\.aws_iam_policy_document\.([\w]+)\.json\}$/.exec(String(body.policy));
++    const policy = dataPolicy ? { Statement: (fragment.data!.aws_iam_policy_document[dataPolicy[1]].statement as { effect: string; actions: string[]; resources: string[] }[]).map((statement) => ({ Effect: statement.effect, Action: statement.actions, Resource: statement.resources })) } : body.policy;
++    return statementsOf(policy).flatMap((statement) => {
+       const context = { "aws:PrincipalArn": principal, ...Object.fromEntries(
+         Object.values(statement.Condition ?? {}).flatMap((entries) => Object.entries(entries).map(([key, value]) => [key, resolve(String(value))]))
+       ) };
+diff --git a/tests/providers/aws/drivers/compute/codebuild.test.ts b/tests/providers/aws/drivers/compute/codebuild.test.ts
+index 2cd7711..0b9e103 100644
+--- a/tests/providers/aws/drivers/compute/codebuild.test.ts
++++ b/tests/providers/aws/drivers/compute/codebuild.test.ts
+@@ -168,7 +168,7 @@ describe("compile: registry output", () => {
+   it("the role is a boundary-carrying CodeBuild role and the logs go to a tofu-owned group", () => {
+     const role = res(docker, "aws_iam_role", "build_pipeline_web");
+     expect(JSON.parse(role.assume_role_policy as string).Statement[0].Principal).toEqual({ Service: "codebuild.amazonaws.com" });
+-    expect(role.permissions_boundary).toMatch(/ZenithWorkloadBoundary$/);
++    expect(role.permissions_boundary).toMatch(/ZenithBuildBoundary$/);
+     const logs = res(docker, "aws_cloudwatch_log_group", "build_pipeline_web_logs");
+     expect(logs).toMatchObject({ name: `/aws/codebuild/${BOUNDARY_PREFIX}-web`, retention_in_days: 30 });
+     const cfg = (res(docker, "aws_codebuild_project", "build_pipeline_web").logs_config as Body[])[0];
+diff --git a/tests/providers/aws/drivers/compute/ecs-compile.test.ts b/tests/providers/aws/drivers/compute/ecs-compile.test.ts
+index 4338544..9878ef3 100644
+--- a/tests/providers/aws/drivers/compute/ecs-compile.test.ts
++++ b/tests/providers/aws/drivers/compute/ecs-compile.test.ts
+@@ -250,7 +250,7 @@ describe("aws:ecs_service compile", () => {
+     it("carries the permissions boundary and trusts only ecs-tasks", () => {
+       const { fragment } = compileService();
+       const role = res(fragment, "aws_iam_role", "container_service_web_exec");
+-      expect(role.permissions_boundary).toMatch(/:policy\/ZenithWorkloadBoundary$/);
++      expect(role.permissions_boundary).toMatch(/:policy\/ZenithAppBoundary$/);
+       expect(JSON.parse(role.assume_role_policy as string).Statement).toEqual([{ Effect: "Allow", Principal: { Service: "ecs-tasks.amazonaws.com" }, Action: "sts:AssumeRole" }]);
+     });
+   });
+@@ -435,7 +435,7 @@ describe("aws:ecs_scheduled_task compile", () => {
+     }
+     const role = res(fragment, "aws_iam_role", "scheduled_job_nightly_events");
+     expect(JSON.parse(role.assume_role_policy as string).Statement[0].Principal).toEqual({ Service: "events.amazonaws.com" });
+-    expect(role.permissions_boundary).toMatch(/ZenithWorkloadBoundary$/);
++    expect(role.permissions_boundary).toMatch(/ZenithSchedulerBoundary$/);
+   });
+ 
+   it("a public image job has an execution role that can only write logs, and no wildcard resource at all except the log-stream suffix", () => {
+diff --git a/tests/providers/aws/drivers/compute/lambda-ec2.test.ts b/tests/providers/aws/drivers/compute/lambda-ec2.test.ts
+index bfe3bb8..e983979 100644
+--- a/tests/providers/aws/drivers/compute/lambda-ec2.test.ts
++++ b/tests/providers/aws/drivers/compute/lambda-ec2.test.ts
+@@ -50,7 +50,7 @@ describe("aws:lambda_function compile", () => {
+     expect(res(f, "aws_cloudwatch_log_group", "function_resize_logs")).toMatchObject({ name: "/aws/lambda/zn-acme-resize", retention_in_days: 30 });
+     const role = res(f, "aws_iam_role", "function_resize");
+     expect(JSON.parse(role.assume_role_policy as string).Statement[0].Principal).toEqual({ Service: "lambda.amazonaws.com" });
+-    expect(role.permissions_boundary).toMatch(/ZenithWorkloadBoundary$/);
++    expect(role.permissions_boundary).toMatch(/ZenithAppBoundary$/);
+   });
+ 
+   it("the role can write only its own log group's streams: no wildcard action, one trailing stream wildcard", () => {
+@@ -292,7 +292,7 @@ describe("aws:ec2_instance compile", () => {
+   it("its role trusts EC2, carries the boundary and gets the managed SSM core policy, nothing else", () => {
+     const role = res(f, "aws_iam_role", "compute_instance_bastion");
+     expect(JSON.parse(role.assume_role_policy as string).Statement[0].Principal).toEqual({ Service: "ec2.amazonaws.com" });
+-    expect(role.permissions_boundary).toMatch(/ZenithWorkloadBoundary$/);
++    expect(role.permissions_boundary).toMatch(/ZenithMachineBoundary$/);
+     expect(res(f, "aws_iam_role_policy_attachment", "compute_instance_bastion_ssm").policy_arn).toBe("arn:${data.aws_partition.compute_instance_bastion.partition}:iam::aws:policy/AmazonSSMManagedInstanceCore");
+     expect(f.resource).not.toHaveProperty("aws_iam_role_policy");
+   });
+diff --git a/tests/providers/aws/drivers/compute/workload-boundary.test.ts b/tests/providers/aws/drivers/compute/workload-boundary.test.ts
+index d9b2376..4565303 100644
+--- a/tests/providers/aws/drivers/compute/workload-boundary.test.ts
++++ b/tests/providers/aws/drivers/compute/workload-boundary.test.ts
+@@ -203,7 +203,7 @@ describe("reserved principal names", () => {
+       const role = fragment.resource!.aws_iam_role[label];
+       expect(role.name).toBe(`${cloudName(PREFIX, name, 64 - suffix.length)}${suffix}`);
+       expect(String(role.name).length).toBeLessThanOrEqual(64);
+-      expect(role.permissions_boundary).toContain("ZenithWorkloadBoundary");
++      expect(role.permissions_boundary).toContain(driver === ecsScheduledTaskDriver ? "ZenithSchedulerBoundary" : "ZenithMachineBoundary");
+       expect(role.tags).toMatchObject({ Name: role.name, "zenith:managed": "true" });
+       expect(driver.compile!(renamed, ctx)).toEqual(fragment);
+     }
+diff --git a/tests/providers/aws/drivers/data/iam-role.test.ts b/tests/providers/aws/drivers/data/iam-role.test.ts
+index 7407acf..96b3ca0 100644
+--- a/tests/providers/aws/drivers/data/iam-role.test.ts
++++ b/tests/providers/aws/drivers/data/iam-role.test.ts
+@@ -201,7 +201,7 @@ describe("aws:iam_role compile", () => {
+     const role = (f.resource!.aws_iam_role as Record<string, Record<string, unknown>>).identity_web;
+     expect(role).toMatchObject({
+       name: "zen-prod-web-role",
+-      permissions_boundary: "arn:${data.aws_partition.identity_web_partition.partition}:iam::${data.aws_caller_identity.identity_web_account.account_id}:policy/ZenithWorkloadBoundary",
++      permissions_boundary: "arn:${data.aws_partition.identity_web_partition.partition}:iam::${data.aws_caller_identity.identity_web_account.account_id}:policy/ZenithAppBoundary",
+       assume_role_policy: "${data.aws_iam_policy_document.identity_web_trust.json}",
+     });
+     expect(f.resource!.aws_iam_role_policy).toEqual({ identity_web_grants: { name: "zenith-grants", role: "${aws_iam_role.identity_web.id}", policy: "${data.aws_iam_policy_document.identity_web_grants.json}" } });
+@@ -280,7 +280,7 @@ function healthyRole(actions = expectedActions) {
+       CreateDate: new Date(),
+       Arn: ROLE_ARN,
+       AssumeRolePolicyDocument: enc(trustDoc),
+-      PermissionsBoundary: { PermissionsBoundaryType: "PermissionsBoundaryPolicy", PermissionsBoundaryArn: "arn:aws:iam::123456789012:policy/ZenithWorkloadBoundary" },
++      PermissionsBoundary: { PermissionsBoundaryType: "PermissionsBoundaryPolicy", PermissionsBoundaryArn: "arn:aws:iam::123456789012:policy/ZenithAppBoundary" },
+       Tags: tagList("identity/web"),
+     },
+   });
+@@ -295,7 +295,7 @@ describe("aws:iam_role observe", () => {
+     const obs = await driver.observe!(driverCtx(), id, ROLE_ARN);
+     expect(obs).toMatchObject({ presence: "present", externalId: ROLE_ARN, source: "aws.iam_role@1" });
+     const v = (n: string) => (obs.attributes[n] as { value: unknown }).value;
+-    expect(v("permissionsBoundaryName")).toBe("ZenithWorkloadBoundary");
++    expect(v("permissionsBoundaryName")).toBe("ZenithAppBoundary");
+     expect(v("trustPrincipals")).toEqual(["ecs-tasks.amazonaws.com"]);
+     expect(v("wildcardAccess")).toBe(false);
+     expect(v("attachedPolicyCount")).toBe(0);
+@@ -339,7 +339,7 @@ describe("aws:iam_role observe", () => {
+     expect(obs.presence).toBe("present");
+     expect(obs.attributes.inlinePolicyActions).toMatchObject({ state: "unknown", reason: "access_denied" });
+     expect(obs.attributes.wildcardAccess).toMatchObject({ state: "unknown", reason: "access_denied" });
+-    expect(obs.attributes.permissionsBoundaryName).toMatchObject({ state: "known", value: "ZenithWorkloadBoundary" });
++    expect(obs.attributes.permissionsBoundaryName).toMatchObject({ state: "known", value: "ZenithAppBoundary" });
+     expect(obs.attributes.attachedPolicyCount).toMatchObject({ state: "known", value: 0 });
+   });
+ 
+@@ -409,14 +409,14 @@ describe("aws:iam_role observe", () => {
+     const broken = identity([grant("object_store/uploads", "frobnicate")]);
+     const expected = driver.expectedAttributes!(broken);
+     expect(expected).not.toHaveProperty("inlinePolicyActions");
+-    expect(expected).toMatchObject({ permissionsBoundaryName: "ZenithWorkloadBoundary", wildcardAccess: false, attachedPolicyCount: 0 });
++    expect(expected).toMatchObject({ permissionsBoundaryName: "ZenithAppBoundary", wildcardAccess: false, attachedPolicyCount: 0 });
+   });
+ 
+   it("discover skips service-linked and reserved roles, reads tags within a bound, marks Zenith-tagged ones", async () => {
+     iam.on(ListRolesCommand).resolves({
+       IsTruncated: false,
+       Roles: [
+-        { RoleName: "zen-prod-web-role", Path: "/", Arn: ROLE_ARN, RoleId: "a", CreateDate: new Date(), PermissionsBoundary: { PermissionsBoundaryArn: "arn:aws:iam::123456789012:policy/ZenithWorkloadBoundary" } },
++        { RoleName: "zen-prod-web-role", Path: "/", Arn: ROLE_ARN, RoleId: "a", CreateDate: new Date(), PermissionsBoundary: { PermissionsBoundaryArn: "arn:aws:iam::123456789012:policy/ZenithAppBoundary" } },
+         { RoleName: "AWSServiceRoleForX", Path: "/aws-service-role/x.amazonaws.com/", Arn: "arn:aws:iam::123456789012:role/aws-service-role/x.amazonaws.com/AWSServiceRoleForX", RoleId: "b", CreateDate: new Date() },
+         { RoleName: "AWSReservedSSO_Admin_1", Path: "/", Arn: "arn:aws:iam::123456789012:role/AWSReservedSSO_Admin_1", RoleId: "c", CreateDate: new Date() },
+         { RoleName: "app-role", Path: "/", Arn: "arn:aws:iam::123456789012:role/app-role", RoleId: "d", CreateDate: new Date() },
+diff --git a/tests/providers/aws/drivers/eks/amazon-ec2-container-registry-read-only-v3.json b/tests/providers/aws/drivers/eks/amazon-ec2-container-registry-read-only-v3.json
+new file mode 100644
+index 0000000..f292b84
+--- /dev/null
++++ b/tests/providers/aws/drivers/eks/amazon-ec2-container-registry-read-only-v3.json
+@@ -0,0 +1,23 @@
++{
++  "Version": "2012-10-17",
++  "Statement": [
++    {
++      "Effect": "Allow",
++      "Action": [
++        "ecr:GetAuthorizationToken",
++        "ecr:BatchCheckLayerAvailability",
++        "ecr:GetDownloadUrlForLayer",
++        "ecr:BatchGetImage",
++        "ecr:GetRepositoryPolicy",
++        "ecr:DescribeRepositories",
++        "ecr:ListImages",
++        "ecr:DescribeImages",
++        "ecr:GetLifecyclePolicy",
++        "ecr:GetLifecyclePolicyPreview",
++        "ecr:ListTagsForResource",
++        "ecr:DescribeImageScanFindings"
++      ],
++      "Resource": "*"
++    }
++  ]
++}
+diff --git a/tests/providers/aws/drivers/eks/amazon-eks-cluster-policy-v10.json b/tests/providers/aws/drivers/eks/amazon-eks-cluster-policy-v10.json
+new file mode 100644
+index 0000000..5e2169f
+--- /dev/null
++++ b/tests/providers/aws/drivers/eks/amazon-eks-cluster-policy-v10.json
+@@ -0,0 +1,92 @@
++{
++  "Version": "2012-10-17",
++  "Statement": [
++    {
++      "Effect": "Allow",
++      "Action": [
++        "autoscaling:DescribeAutoScalingGroups",
++        "autoscaling:UpdateAutoScalingGroup",
++        "ec2:AttachVolume",
++        "ec2:AuthorizeSecurityGroupIngress",
++        "ec2:CreateRoute",
++        "ec2:CreateSecurityGroup",
++        "ec2:CreateTags",
++        "ec2:CreateVolume",
++        "ec2:DeleteRoute",
++        "ec2:DeleteSecurityGroup",
++        "ec2:DeleteVolume",
++        "ec2:DescribeInstances",
++        "ec2:DescribeRouteTables",
++        "ec2:DescribeSecurityGroups",
++        "ec2:DescribeSubnets",
++        "ec2:DescribeVolumes",
++        "ec2:DescribeVolumesModifications",
++        "ec2:DescribeVpcs",
++        "ec2:DescribeDhcpOptions",
++        "ec2:DescribeNetworkInterfaces",
++        "ec2:DescribeAvailabilityZones",
++        "ec2:DetachVolume",
++        "ec2:ModifyInstanceAttribute",
++        "ec2:ModifyVolume",
++        "ec2:RevokeSecurityGroupIngress",
++        "ec2:DescribeAccountAttributes",
++        "ec2:DescribeAddresses",
++        "ec2:DescribeInternetGateways",
++        "ec2:DescribeInstanceTopology",
++        "elasticloadbalancing:AddTags",
++        "elasticloadbalancing:ApplySecurityGroupsToLoadBalancer",
++        "elasticloadbalancing:AttachLoadBalancerToSubnets",
++        "elasticloadbalancing:ConfigureHealthCheck",
++        "elasticloadbalancing:CreateListener",
++        "elasticloadbalancing:CreateLoadBalancer",
++        "elasticloadbalancing:CreateLoadBalancerListeners",
++        "elasticloadbalancing:CreateLoadBalancerPolicy",
++        "elasticloadbalancing:CreateTargetGroup",
++        "elasticloadbalancing:DeleteListener",
++        "elasticloadbalancing:DeleteLoadBalancer",
++        "elasticloadbalancing:DeleteLoadBalancerListeners",
++        "elasticloadbalancing:DeleteTargetGroup",
++        "elasticloadbalancing:DeregisterInstancesFromLoadBalancer",
++        "elasticloadbalancing:DeregisterTargets",
++        "elasticloadbalancing:DescribeListeners",
++        "elasticloadbalancing:DescribeLoadBalancerAttributes",
++        "elasticloadbalancing:DescribeLoadBalancerPolicies",
++        "elasticloadbalancing:DescribeLoadBalancers",
++        "elasticloadbalancing:DescribeTargetGroupAttributes",
++        "elasticloadbalancing:DescribeTargetGroups",
++        "elasticloadbalancing:DescribeTargetHealth",
++        "elasticloadbalancing:DetachLoadBalancerFromSubnets",
++        "elasticloadbalancing:ModifyListener",
++        "elasticloadbalancing:ModifyLoadBalancerAttributes",
++        "elasticloadbalancing:ModifyTargetGroup",
++        "elasticloadbalancing:ModifyTargetGroupAttributes",
++        "elasticloadbalancing:RegisterInstancesWithLoadBalancer",
++        "elasticloadbalancing:RegisterTargets",
++        "elasticloadbalancing:SetLoadBalancerPoliciesForBackendServer",
++        "elasticloadbalancing:SetLoadBalancerPoliciesOfListener",
++        "kms:DescribeKey"
++      ],
++      "Resource": "*"
++    },
++    {
++      "Effect": "Allow",
++      "Action": "iam:CreateServiceLinkedRole",
++      "Resource": "*",
++      "Condition": {
++        "StringEquals": {
++          "iam:AWSServiceName": "elasticloadbalancing.amazonaws.com"
++        }
++      }
++    },
++    {
++      "Effect": "Allow",
++      "Action": "ec2:DeleteNetworkInterface",
++      "Resource": "*",
++      "Condition": {
++        "StringEquals": {
++          "ec2:ResourceTag/eks:eni:owner": "amazon-vpc-cni"
++        }
++      }
++    }
++  ]
++}
+diff --git a/tests/providers/aws/drivers/eks/amazon-eks-cni-policy-v6.json b/tests/providers/aws/drivers/eks/amazon-eks-cni-policy-v6.json
+new file mode 100644
+index 0000000..280a69a
+--- /dev/null
++++ b/tests/providers/aws/drivers/eks/amazon-eks-cni-policy-v6.json
+@@ -0,0 +1,31 @@
++{
++  "Version": "2012-10-17",
++  "Statement": [
++    {
++      "Effect": "Allow",
++      "Action": [
++        "ec2:AssignPrivateIpAddresses",
++        "ec2:AttachNetworkInterface",
++        "ec2:CreateNetworkInterface",
++        "ec2:DeleteNetworkInterface",
++        "ec2:DescribeInstances",
++        "ec2:DescribeTags",
++        "ec2:DescribeNetworkInterfaces",
++        "ec2:DescribeInstanceTypes",
++        "ec2:DescribeSubnets",
++        "ec2:DescribeSecurityGroups",
++        "ec2:DetachNetworkInterface",
++        "ec2:ModifyNetworkInterfaceAttribute",
++        "ec2:UnassignPrivateIpAddresses"
++      ],
++      "Resource": "*"
++    },
++    {
++      "Effect": "Allow",
++      "Action": "ec2:CreateTags",
++      "Resource": [
++        "arn:aws:ec2:*:*:network-interface/*"
++      ]
++    }
++  ]
++}
+diff --git a/tests/providers/aws/drivers/eks/amazon-eks-worker-node-policy-v3.json b/tests/providers/aws/drivers/eks/amazon-eks-worker-node-policy-v3.json
+new file mode 100644
+index 0000000..1ad4bcd
+--- /dev/null
++++ b/tests/providers/aws/drivers/eks/amazon-eks-worker-node-policy-v3.json
+@@ -0,0 +1,21 @@
++{
++  "Version": "2012-10-17",
++  "Statement": [
++    {
++      "Effect": "Allow",
++      "Action": [
++        "ec2:DescribeInstances",
++        "ec2:DescribeInstanceTypes",
++        "ec2:DescribeRouteTables",
++        "ec2:DescribeSecurityGroups",
++        "ec2:DescribeSubnets",
++        "ec2:DescribeVolumes",
++        "ec2:DescribeVolumesModifications",
++        "ec2:DescribeVpcs",
++        "eks:DescribeCluster",
++        "eks-auth:AssumeRoleForPodIdentity"
++      ],
++      "Resource": "*"
++    }
++  ]
++}
+diff --git a/tests/providers/aws/drivers/eks/eks-cluster.test.ts b/tests/providers/aws/drivers/eks/eks-cluster.test.ts
+index 775f7ac..1009625 100644
+--- a/tests/providers/aws/drivers/eks/eks-cluster.test.ts
++++ b/tests/providers/aws/drivers/eks/eks-cluster.test.ts
+@@ -60,7 +60,8 @@ describe("EKS secure declarative cluster", () => {
+   });
+   it("bounds both IAM roles and does not grant the cluster creator implicit admin", () => {
+     const f = compile();
+-    for (const role of Object.values(f.resource!.aws_iam_role)) expect(role.permissions_boundary).toContain(":policy/ZenithWorkloadBoundary");
++    expect(f.resource!.aws_iam_role.kubernetes_cluster_apps_cluster.permissions_boundary).toContain(":policy/ZenithEksClusterBoundary");
++    expect(f.resource!.aws_iam_role.kubernetes_cluster_apps_nodes.permissions_boundary).toContain(":policy/ZenithEksNodeBoundary");
+     expect(f.resource!.aws_eks_cluster.kubernetes_cluster_apps.access_config).toEqual([{ authentication_mode: "API", bootstrap_cluster_creator_admin_permissions: false }]);
+     for (const role of Object.values(f.resource!.aws_iam_role)) expect(String(role.assume_role_policy)).not.toMatch(/\*/);
+   });
+diff --git a/tests/providers/aws/drivers/network/compile-graph.test.ts b/tests/providers/aws/drivers/network/compile-graph.test.ts
+index 3498305..eb839f8 100644
+--- a/tests/providers/aws/drivers/network/compile-graph.test.ts
++++ b/tests/providers/aws/drivers/network/compile-graph.test.ts
+@@ -184,7 +184,7 @@ describe("fixture graph: hygiene", () => {
+       }
+     }
+     expect(Object.keys(resources).filter((t) => t === "aws_iam_policy" || t === "aws_iam_user")).toEqual([]);
+-    for (const [, , b] of allResources().filter(([t]) => t === "aws_iam_role")) expect(b.permissions_boundary).toContain("policy/ZenithWorkloadBoundary");
++    for (const [, , b] of allResources().filter(([t]) => t === "aws_iam_role")) expect(b.permissions_boundary).toContain("policy/ZenithAppBoundary");
+   });
+ 
+   it("every taggable resource carries the Zenith tags and the address of the node that owns it", () => {
+diff --git a/tests/providers/aws/drivers/network/vpc.test.ts b/tests/providers/aws/drivers/network/vpc.test.ts
+index f0ccf3b..8df1116 100644
+--- a/tests/providers/aws/drivers/network/vpc.test.ts
++++ b/tests/providers/aws/drivers/network/vpc.test.ts
+@@ -101,7 +101,7 @@ describe("aws:vpc compile", () => {
+     expect(f.resource!.aws_cloudwatch_log_group.network_main_flow).toMatchObject({ name: "/zenith/acme-prod/main/vpc-flow-logs", retention_in_days: 30 });
+     expect(f.resource!.aws_flow_log.network_main_flow).toMatchObject({ traffic_type: "REJECT", log_destination_type: "cloud-watch-logs", max_aggregation_interval: 600 });
+     const role = f.resource!.aws_iam_role.network_main_flow as { permissions_boundary: string; assume_role_policy: string };
+-    expect(role.permissions_boundary).toContain("policy/ZenithWorkloadBoundary");
++    expect(role.permissions_boundary).toContain("policy/ZenithAppBoundary");
+     const trust = JSON.parse(role.assume_role_policy);
+     expect(trust.Statement[0].Principal).toEqual({ Service: "vpc-flow-logs.amazonaws.com" });
+     expect(trust.Statement[0].Condition.StringEquals["aws:SourceAccount"]).toContain("aws_caller_identity");

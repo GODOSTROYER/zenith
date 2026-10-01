@@ -21,6 +21,10 @@
         "sqs:GetQueueUrl",
         "sqs:ListQueues",
         "sqs:ListQueueTags",
+        "sns:ListTopics",
+        "eks:ListClusters",
+        "eks:DescribeAddonVersions",
+        "kms:ListAliases",
         "route53:Get*",
         "route53:List*",
         "acm:Describe*",
@@ -50,6 +54,35 @@
         "s3:ListAllMyBuckets"
       ],
       "Resource": "*"
+    },
+    {
+      "Sid": "ReadZenithMessagingAndClusters",
+      "Effect": "Allow",
+      "Action": [
+        "sns:GetTopicAttributes",
+        "sns:GetSubscriptionAttributes",
+        "sns:ListTagsForResource",
+        "sns:ListSubscriptionsByTopic",
+        "eks:Describe*",
+        "eks:List*"
+      ],
+      "Resource": [
+        "arn:${partition}:sns:*:${account_id}:zenith-*",
+        "arn:${partition}:eks:*:${account_id}:cluster/zenith-*",
+        "arn:${partition}:eks:*:${account_id}:nodegroup/zenith-*/*/*",
+        "arn:${partition}:eks:*:${account_id}:addon/zenith-*/*/*"
+      ]
+    },
+    {
+      "Sid": "ReadKeyMetadata",
+      "Effect": "Allow",
+      "Action": [
+        "kms:DescribeKey",
+        "kms:GetKeyPolicy",
+        "kms:GetKeyRotationStatus",
+        "kms:ListResourceTags"
+      ],
+      "Resource": "arn:${partition}:kms:*:${account_id}:key/*"
     },
     {
       "Sid": "ReadZenithLogs",

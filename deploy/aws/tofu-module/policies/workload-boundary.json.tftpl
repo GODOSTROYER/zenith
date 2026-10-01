@@ -32,6 +32,101 @@
       "Resource": "*"
     },
     {
+      "Sid": "WorkloadEksSystemImages",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage"
+      ],
+      "Resource": [
+        "arn:${partition}:ecr:*:*:repository/eks/*",
+        "arn:${partition}:ecr:*:*:repository/amazon-k8s-cni"
+      ]
+    },
+    {
+      "Sid": "WorkloadEksDescribe",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeInstances",
+        "ec2:DescribeInstanceTypes",
+        "ec2:DescribeRouteTables",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeVolumes",
+        "ec2:DescribeVolumesModifications",
+        "ec2:DescribeVpcs",
+        "ec2:DescribeTags",
+        "ec2:DescribeAvailabilityZones"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "WorkloadEksClusterReadAndPodIdentity",
+      "Effect": "Allow",
+      "Action": [
+        "eks:DescribeCluster",
+        "eks-auth:AssumeRoleForPodIdentity"
+      ],
+      "Resource": "arn:${partition}:eks:*:${account_id}:cluster/zenith-${environment_tag_value}-*"
+    },
+    {
+      "Sid": "WorkloadEksNetworkInterfaces",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:AttachNetworkInterface",
+        "ec2:DetachNetworkInterface",
+        "ec2:ModifyNetworkInterfaceAttribute"
+      ],
+      "Resource": "arn:${partition}:ec2:*:${account_id}:network-interface/*"
+    },
+    {
+      "Sid": "WorkloadEksTaggedNodes",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:AttachNetworkInterface",
+        "ec2:DetachNetworkInterface",
+        "ec2:ModifyNetworkInterfaceAttribute"
+      ],
+      "Resource": "arn:${partition}:ec2:*:${account_id}:instance/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:ResourceTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
+    },
+    {
+      "Sid": "WorkloadEksCniTags",
+      "Effect": "Allow",
+      "Action": "ec2:CreateTags",
+      "Resource": "arn:${partition}:ec2:*:${account_id}:network-interface/*",
+      "Condition": {
+        "ForAllValues:StringEquals": {
+          "aws:TagKeys": [
+            "node.k8s.amazonaws.com/instance_id",
+            "node.k8s.amazonaws.com/createdAt",
+            "cluster.k8s.amazonaws.com/name",
+            "eks:eni:owner"
+          ]
+        }
+      }
+    },
+    {
+      "Sid": "WorkloadEksKeyMetadata",
+      "Effect": "Allow",
+      "Action": "kms:DescribeKey",
+      "Resource": "arn:${partition}:kms:*:${account_id}:key/*"
+    },
+    {
+      "Sid": "WorkloadSnsPublish",
+      "Effect": "Allow",
+      "Action": "sns:Publish",
+      "Resource": "arn:${partition}:sns:*:${account_id}:zenith-${environment_tag_value}-*"
+    },
+    {
       "Sid": "WorkloadObjectsAndQueues",
       "Effect": "Allow",
       "Action": [
@@ -86,7 +181,10 @@
             "secretsmanager.*.amazonaws.com",
             "ssm.*.amazonaws.com",
             "s3.*.amazonaws.com",
-            "sqs.*.amazonaws.com"
+            "sqs.*.amazonaws.com",
+            "sns.*.amazonaws.com",
+            "ec2.*.amazonaws.com",
+            "eks.*.amazonaws.com"
           ]
         }
       }

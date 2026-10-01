@@ -69,6 +69,16 @@ describe("sessionPolicyFor", () => {
     const iam = statements(sessionPolicyFor("infrastructure.observe", ctx)).find((s) => asArray(s.Action).some((a) => a.startsWith("iam:")))!;
     expect(iam.Resource).toBe(`arn:aws:iam::${ACCOUNT}:role/zenith-*`);
   });
+  it("scopes SNS/EKS metadata to this account's Zenith ARNs and leaves EBS describe read-only", () => {
+    const policy = statements(sessionPolicyFor("infrastructure.observe", ctx));
+    const scoped = policy.find((s) => asArray(s.Action).includes("sns:GetTopicAttributes"))!;
+    expect(asArray(scoped.Resource)).toEqual([
+      `arn:aws:sns:*:${ACCOUNT}:zenith-*`, `arn:aws:eks:*:${ACCOUNT}:cluster/zenith-*`,
+      `arn:aws:eks:*:${ACCOUNT}:nodegroup/zenith-*/*/*`, `arn:aws:eks:*:${ACCOUNT}:addon/zenith-*/*/*`,
+    ]);
+    expect(asArray(scoped.Action)).toContain("eks:Describe*");
+    expect(policy.flatMap((s) => asArray(s.Action))).toContain("ec2:Describe*");
+  });
 
   it("logs.read is limited to the environment's log-group prefixes by ARN", () => {
     const policy = sessionPolicyFor("logs.read", ctx)!;

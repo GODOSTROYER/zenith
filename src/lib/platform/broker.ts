@@ -4,6 +4,8 @@
  * running operation, current authorization, live fence and digest-bound human
  * approvals. Proposal approvals authorize planning; only a later approval round
  * can authorize its concrete, write-once plan. Proposals remain immutable.
+ * Deploy/apply/rollback secret sync also requires the secret capability's own
+ * policy and approval checks; exact reviewed targets are signed server-side.
  */
 import { randomUUID } from "node:crypto";
 import { platformBroker, type Broker } from "@/lib/capabilities/platform";
@@ -16,6 +18,7 @@ import { approvalRoundOf, operationPlanReview } from "@/lib/controlplane/db/repo
 import type { ApprovalRequirement, CapabilityGrantClaims, OperationRecord, Sql } from "@/lib/controlplane/types";
 import { createOperationsPort, workerStoreScope, StepFailedError, type BrokerPort, type PlanPolicyInput } from "@/lib/execution";
 import { readPlanEvidence } from "@/lib/execution/plan-evidence";
+import { secretResourcesForOperation } from "./secret-grants";
 
 type BrokerFactory = () => Promise<Broker>;
 
@@ -81,10 +84,20 @@ export function createExecutionBroker(db: Sql, getBroker: BrokerFactory = platfo
       const op = await load(id);
       if (op.status !== "running") throw new StepFailedError("Only a running operation can receive an activity grant.");
       const cap = opts?.capability ?? op.capability;
-      if (!isCapability(cap) || (cap !== op.capability && !["infrastructure.plan", "infrastructure.observe"].includes(cap))) throw new StepFailedError("Requested grant does not attenuate this operation.");
+      const secretSync = cap === "secret.write" && ["deployment.deploy", "infrastructure.apply", "deployment.rollback"].includes(op.capability);
+      if (!isCapability(cap) || (cap !== op.capability && !secretSync && !["infrastructure.plan", "infrastructure.observe"].includes(cap))) throw new StepFailedError("Requested grant does not attenuate this operation.");
       if (cap !== op.capability && (!op.environmentId || !capability(op.capability).mutates)) throw new StepFailedError("This operation cannot issue an environment read grant.");
       const broker = await getBroker();
-      const facts = cap === op.capability ? await latestFacts(op) : undefined;
+      const facts = cap === op.capability || secretSync ? await latestFacts(op) : undefined;
+      let parentDuration = 3600;
+      let parentTargets: unknown;
+      if (secretSync) {
+        if (!facts || audience !== "worker") throw new StepFailedError("Secret sync requires a reviewed plan and a worker grant.");
+        const original = (await decisionFor(broker, op, facts)).decision;
+        if (original.outcome === "deny" || (original.outcome === "require_approval" && (!original.approval || !(await approvals(broker, op, original.approval)).approved))) throw new StepFailedError("Current policy or approval denies this deployment's secret sync.");
+        parentDuration = typeof original.constraints?.grantDurationSec === "number" ? original.constraints.grantDurationSec : 900;
+        parentTargets = original.constraints?.secretResources;
+      }
       const { decision } = await decisionFor(broker, op, facts, cap);
       if (decision.outcome === "deny") throw new StepFailedError("Current policy denies this activity grant.");
       if (decision.outcome === "require_approval") {
@@ -95,13 +108,24 @@ export function createExecutionBroker(db: Sql, getBroker: BrokerFactory = platfo
         if (fence.scope !== `env:${op.environmentId}`) throw new StepFailedError("Grant fence does not protect this environment.");
         await repos.leases.assertFence(db, fence.scope, fence.fenceToken);
       }
+      let constraints = decision.constraints;
+      if (secretSync) {
+        const targets = await secretResourcesForOperation(db, op);
+        for (const allowed of [parentTargets, decision.constraints?.secretResources]) {
+          if (allowed !== undefined && (!Array.isArray(allowed) || targets.some((id) => !allowed.includes(id)))) throw new StepFailedError("Policy constraints deny these secret targets.");
+        }
+        constraints = { ...constraints, secretResources: targets };
+        if ((await load(id)).status !== "running") throw new StepFailedError("The operation stopped before secret grant issuance.");
+      }
+      // Target reads may take time; never sign after this environment fence is lost.
+      if (secretSync && fence) await repos.leases.assertFence(db, fence.scope, fence.fenceToken);
       const iat = Math.floor(broker.deps.clock.now().getTime() / 1000);
       const requested = opts?.durationSec ?? 900;
       const policySec = typeof decision.constraints?.grantDurationSec === "number" ? decision.constraints.grantDurationSec : 900;
-      if (!Number.isInteger(requested) || requested < 1 || !Number.isFinite(policySec) || policySec < 1) throw new StepFailedError("Grant duration is invalid.");
-      const exp = Math.min(iat + Math.max(1, Math.min(3600, requested, policySec)), Math.floor(Date.parse(op.expiresAt) / 1000));
+      if (!Number.isInteger(requested) || requested < 1 || !Number.isFinite(policySec) || policySec < 1 || !Number.isFinite(parentDuration) || parentDuration < 1) throw new StepFailedError("Grant duration is invalid.");
+      const exp = Math.min(iat + Math.max(1, Math.min(3600, requested, policySec, parentDuration)), Math.floor(Date.parse(op.expiresAt) / 1000));
       if (exp <= iat) throw new StepFailedError("Operation expired before grant issuance.");
-      const claims: CapabilityGrantClaims = { jti: randomUUID(), iss: broker.deps.issuer ?? "zenith-control", aud: audience, sub: op.principal.onBehalfOf ?? op.principal.id, iat, exp, cap, op: op.id, digest: op.proposalDigest, ws: op.workspaceId, proj: op.projectId, env: op.environmentId, res: op.resourceId, fence: fence?.fenceToken, constraints: decision.constraints };
+      const claims: CapabilityGrantClaims = { jti: randomUUID(), iss: broker.deps.issuer ?? "zenith-control", aud: audience, sub: op.principal.onBehalfOf ?? op.principal.id, iat, exp, cap, op: op.id, digest: op.proposalDigest, ws: op.workspaceId, proj: op.projectId, env: op.environmentId, res: op.resourceId, fence: fence?.fenceToken, constraints };
       await broker.deps.signer.ready();
       const jws = await broker.deps.signer.sign(claims);
       await broker.deps.store.insertGrant({ jti: claims.jti, workspaceId: op.workspaceId, operationId: op.id, capability: cap, audience, issuedAt: new Date(iat * 1000).toISOString(), expiresAt: new Date(exp * 1000).toISOString() });

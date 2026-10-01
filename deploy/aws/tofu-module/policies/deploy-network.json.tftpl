@@ -46,6 +46,7 @@
             "CreateNatGateway",
             "CreateVpcEndpoint",
             "CreateLaunchTemplate",
+            "CreateVolume",
             "AllocateAddress",
             "RunInstances"
           ]
@@ -101,6 +102,43 @@
         "ec2:ModifyInstanceAttribute"
       ],
       "Resource": "arn:${partition}:ec2:*:${account_id}:*/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:ResourceTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
+    },
+    {
+      "Sid": "EbsCreateTaggedVolumes",
+      "Effect": "Allow",
+      "Action": "ec2:CreateVolume",
+      "Resource": "arn:${partition}:ec2:*:${account_id}:volume/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/zenith:managed": "true",
+          "ec2:Encrypted": "true"
+        },
+        "StringLike": {
+          "aws:RequestTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
+    },
+    {
+      "Sid": "EbsManageTaggedVolumesAndInstances",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:ModifyVolume",
+        "ec2:DeleteVolume",
+        "ec2:AttachVolume",
+        "ec2:DetachVolume"
+      ],
+      "Resource": [
+        "arn:${partition}:ec2:*:${account_id}:volume/*",
+        "arn:${partition}:ec2:*:${account_id}:instance/*"
+      ],
       "Condition": {
         "StringEquals": {
           "aws:ResourceTag/zenith:managed": "true"

@@ -20,8 +20,9 @@ cost from authoritative plan evidence (`src/lib/execution/plan-evidence.ts`).
 Product deploys and MCP v3 start workflows. Plan facts never come from a REST
 request body: a REST apply/destroy proposal without an execution-supplied plan
 is still denied `plan_required`. A revision approval cannot approve a new
-concrete plan that changes its authority; the execution broker can return
-`reapproval_required`. Every statement here is about the
+concrete plan that changes its authority; the execution broker requires human
+approval of the exact proposal and plan in the current approval round. Proposal
+round zero cannot authorize a subsequently gated plan. Every statement here is about the
 contract verified by tests, not about a decision made on a production request, and
 nothing has been evaluated against a plan from a real AWS account (see
 [Plan facts](#plan-facts-and-what-they-cannot-see)).

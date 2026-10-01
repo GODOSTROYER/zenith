@@ -215,6 +215,12 @@ Read by `executionWorkerConfigFromEnv`. Details and defaults:
 
 ### 2.6 OpenTofu engine
 
+The Azure machine transport supplies `ZENITH_ARGV_B64` (protected, base64 JSON
+argv), `ZENITH_CWD` (protected working directory) and `ZENITH_TIMEOUT_SEC`
+(bounded execution time) as per-command guest parameters. They are internal
+inputs to the fixed collector, not operator configuration on the control plane
+or worker. Request values remain data; they are never interpolated into a script.
+
 | Variable | Default | Meaning |
 |---|---|---|
 | `ZENITH_TOFU_BIN` | `tofu` found on `PATH` | Absolute path to the binary. The runner refuses any binary whose `tofu version -json` is not exactly the pinned `1.12.5` (`TOFU_VERSION` in `src/lib/tofu/types.ts`). The worker image installs 1.12.5 at `/usr/local/bin/tofu`, checksum-verified at build time. |

@@ -19,7 +19,7 @@ import type { CompileContext, ResourceDriver, TofuFragment } from "@/lib/drivers
 import type { ResourceNode } from "@/lib/resources/types";
 import {
   DriverCompileError, FragmentBuilder, cloudName, nodeName, refExpr, resourceTags,
-  securityGroupLabel, securityGroupName, subnetsOf, tfLabel,
+  addSecurityGroup, securityGroupLabel, subnetsOf, tfLabel,
 } from "@/lib/providers/aws/drivers/shared";
 import { parseCidr } from "@/lib/providers/aws/drivers/network/cidr";
 import { assertAwsNode, KMS_KEY_ARN, neighbour, readSpec } from "@/lib/providers/aws/drivers/messaging/support";
@@ -42,21 +42,14 @@ export type EksClusterSpec = z.input<typeof EKS_CLUSTER_SCHEMA>;
 export const EKS_LOG_TYPES = ["api", "audit", "authenticator", "controllerManager", "scheduler"] as const;
 
 /**
- * Use the shared group's label/name/tags/reference contract. addSecurityGroup
- * currently refuses kubernetes_cluster, and its file is outside this job's
- * ownership. This small adapter creates the same rule-free group without lying
- * about the node's kind. The orchestrator can add the kind to the shared helper
- * and replace the resource/expose pair below with addSecurityGroup(...).
+ * The shared helper owns the rule-free group. EKS adds its explicit self-only
+ * traffic and outbound HTTPS rules without introducing inline or public ingress.
  */
 function addClusterSecurityGroup(b: FragmentBuilder, node: ResourceNode, ctx: CompileContext, network: string): string[] {
   const label = securityGroupLabel(node.address);
-  const sg = b.resource("aws_security_group", label, {
-    name: securityGroupName(ctx, node.address),
-    description: "Zenith EKS control plane and managed nodes",
-    vpc_id: refExpr(ctx.ref(network, "id")),
-    tags: resourceTags(ctx.tags, node.address, securityGroupName(ctx, node.address)),
-  });
-  b.expose("security_group_id", `${sg}.id`);
+  // Native config.subnets need not appear in dependsOn. The validated network
+  // is a local topology view; the caller's node and its graph remain untouched.
+  const sg = addSecurityGroup(b, { ...node, dependsOn: [...node.dependsOn, network] }, ctx, { egress: "none" });
   const group = refExpr(`${sg}.id`);
   const tags = resourceTags(ctx.tags, node.address);
   // Self-only traffic covers kubelet, DNS, webhooks and pod-to-pod networking.

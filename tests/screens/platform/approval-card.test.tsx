@@ -143,7 +143,7 @@ describe("<ApprovalCard> decisions", () => {
     typeInto(el.querySelector("textarea")!, "  Reviewed the plan and the rollback notes.  ");
     click(button(el, "Approve"));
     await flush();
-    expect(onApprove).toHaveBeenCalledWith({ operationId: "op_1", proposalDigest: DIGEST, reason: "Reviewed the plan and the rollback notes." });
+    expect(onApprove).toHaveBeenCalledWith({ operationId: "op_1", proposalDigest: DIGEST, planDigest: PLAN_DIGEST, reason: "Reviewed the plan and the rollback notes." });
   });
 
   it("sends a rejection without a reason when none was typed", async () => {

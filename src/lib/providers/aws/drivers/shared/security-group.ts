@@ -26,9 +26,10 @@
  * baseline below. AWS creates a VPC security group with an allow-all egress
  * rule; the provider removes it on create when no `egress` is configured.
  *
- *   load_balancer, postgres, mysql, redis
+ *   load_balancer, postgres, mysql, redis, kubernetes_cluster / native EKS
  *       no baseline egress. The load balancer's egress to its targets is added
  *       by the firewall rule for each (LB → workload); datastores never initiate.
+ *       EKS adds its explicit self and HTTPS rules in its own driver.
  *   container_service, scheduled_job, compute_instance
  *       tcp/443 to 0.0.0.0/0 (ECR, CloudWatch, Secrets Manager, STS and other
  *       AWS APIs through NAT, plus outbound HTTPS). Egress to datastores and
@@ -49,11 +50,15 @@ import { resourceTags } from "./tags";
 import { networkAddressOf } from "./topology";
 import type { TofuFragment } from "@/lib/drivers/types";
 
-export const SECURITY_GROUP_KINDS: readonly PortableKind[] = ["load_balancer", "container_service", "scheduled_job", "compute_instance", "postgres", "mysql", "redis"];
+export const SECURITY_GROUP_KINDS: readonly PortableKind[] = ["load_balancer", "container_service", "scheduled_job", "compute_instance", "postgres", "mysql", "redis", "kubernetes_cluster"];
 
 export type SecurityGroupEgress = "none" | "https_anywhere";
 
 export const isSecurityGroupKind = (kind: string): boolean => (SECURITY_GROUP_KINDS as readonly string[]).includes(kind);
+
+/** Native escape-hatch nodes may own a group only for the exact EKS type. */
+export const isSecurityGroupNode = (node: Pick<ResourceNode, "kind" | "nativeType">): boolean =>
+  isSecurityGroupKind(node.kind) || (node.kind === "provider_native" && node.nativeType === "aws:eks_cluster");
 
 /** The baseline egress for a node kind (see the module comment). */
 export function defaultSecurityGroupEgress(kind: string): SecurityGroupEgress {
@@ -77,7 +82,7 @@ export const securityGroupExpr = (ctx: Pick<CompileContext, "ref">, address: str
 export function addSecurityGroup(b: FragmentBuilder, node: ResourceNode, ctx: CompileContext, opts: { egress?: SecurityGroupEgress } = {}): string {
   if (node.provider !== "aws") throw new DriverCompileError("unsupported", node.address, `an AWS security group cannot be created for a ${node.provider} node.`);
   if (node.ownership !== "managed") throw new DriverCompileError("policy_refused", node.address, `Zenith does not create security groups for ${node.ownership} nodes.`);
-  if (!isSecurityGroupKind(node.kind)) throw new DriverCompileError("unsupported", node.address, `kind ${node.kind} does not own a security group.`);
+  if (!isSecurityGroupNode(node)) throw new DriverCompileError("unsupported", node.address, `kind ${node.kind} does not own a security group.`);
 
   const label = securityGroupLabel(node.address);
   const name = securityGroupName(ctx, node.address);

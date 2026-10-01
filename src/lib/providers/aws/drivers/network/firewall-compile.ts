@@ -28,7 +28,7 @@
 import type { CompileContext, TofuFragment } from "@/lib/drivers/types";
 import type { FirewallSpec } from "@/lib/resources/specs";
 import type { ResourceNode } from "@/lib/resources/types";
-import { DriverCompileError, FragmentBuilder, isSecurityGroupKind, resourceTags, securityGroupExpr, tfLabel } from "../shared";
+import { DriverCompileError, FragmentBuilder, isSecurityGroupNode, resourceTags, securityGroupExpr, tfLabel } from "../shared";
 import { isPrivateCidr, parseCidr } from "./cidr";
 
 export const PUBLIC_HTTP_CAPABILITY = "public_http";
@@ -49,7 +49,7 @@ function requireAwsSecurityGroupNode(ctx: CompileContext, owner: string, role: s
   if (!n) throw new DriverCompileError("missing_node", owner, `the ${role} ${address} is not in the graph.`);
   if (n.provider !== "aws") throw new DriverCompileError("unsupported", owner, `the ${role} ${address} is a ${n.provider} node; a security group rule cannot reach another provider.`);
   if (n.ownership !== "managed") throw new DriverCompileError("unsupported", owner, `the ${role} ${address} is ${n.ownership}: Zenith owns no security group for it, so it cannot add a rule.`);
-  if (!isSecurityGroupKind(n.kind)) throw new DriverCompileError("unsupported", owner, `the ${role} ${address} is a ${n.kind}, which has no security group.`);
+  if (!isSecurityGroupNode(n)) throw new DriverCompileError("unsupported", owner, `the ${role} ${address} is a ${n.kind}, which has no security group.`);
   if (n.region !== region) throw new DriverCompileError("unsupported", owner, `the ${role} ${address} is in ${n.region}, not ${region}; security groups only reference groups of their own region.`);
   return n;
 }

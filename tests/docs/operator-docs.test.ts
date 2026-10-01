@@ -130,6 +130,7 @@ const NOT_ENVIRONMENT: Record<string, string> = {
   ZENITH_SSM_DOCUMENT_SUFFIXES: "a constant list in machines/transports/aws-ssm-docs.ts",
   ZENITH_TEST_KIND: "a test-only gate for the kind-cluster test, named in a comment",
   ZENITH_EXTRA_KINDS: "a constant table of extra Kubernetes kinds in providers/zenith/k8s-port.ts",
+  ZENITH_FIXED_PYTHON: "a fixed heredoc delimiter in machines/transports/azure-scripts.ts, never an environment variable",
 };
 
 describe("environment variables", () => {
@@ -368,7 +369,7 @@ describe("operator claims match current wiring", () => {
       expect(drivers).toMatch(new RegExp(`\\bregister${provider}Drivers\\(`));
     }
     const aws = source("src/lib/providers/aws/drivers/index.ts");
-    expect(aws).toContain("[...networkDrivers, ...COMPUTE_DRIVERS, ...awsDataDrivers]");
+    expect(aws).toContain("[...networkDrivers, ...COMPUTE_DRIVERS, ...awsDataDrivers, snsTopicDriver, ebsVolumeDriver, eksClusterDriver]");
     expect(aws).toContain("for (const driver of awsDrivers) registerDriver(");
     for (const file of ["app.ts", "execution.ts"]) expect(source(`src/lib/platform/${file}`)).toContain("registerAllDrivers();");
     expect(deploying).toContain("src/lib/platform/drivers.ts");
@@ -440,8 +441,11 @@ describe("operator claims match current wiring", () => {
     expect(source("src/app/api/platform/v1/capabilities/propose/route.ts")).toContain('via: "rest"');
     expect(source("src/lib/capabilities/evaluate.ts")).toContain("plan_required");
     expect(deploying).toContain("`plan_required`");
-    expect(source("src/lib/platform/broker.ts")).toContain("reapproval_required");
-    expect(guide("POLICY.md")).toContain("`reapproval_required`");
+    const broker = source("src/lib/platform/broker.ts");
+    expect(broker).toContain("operationPlanReview(reviewed)");
+    expect(broker).toContain("approvalRoundOf(a) === round");
+    expect(broker).toContain("if (op.planDigest && round === 0) return { approved: false, rejected }");
+    expect(guide("POLICY.md")).toContain("current approval round");
   });
 
   it("closed middleware/bundle gaps stay closed and four migrations are documented", () => {
@@ -494,7 +498,12 @@ describe("operator claims match current wiring", () => {
     expect(aws).toContain('"connection.createAws", "connection.verifyAws"');
     expect(exists("src/app/api/platform/v1/connections")).toBe(false);
     expect(deploying).toContain("No standalone `/api/platform/v1/connections` route exists");
-    expect(source("src/app/(product)/platform/operations/[id]/operation-actions.tsx")).toContain("approveDisabledReason={(operation.planDigest || operation.proposal.planDigest) && !plan");
+    const actions = source("src/app/(product)/platform/operations/[id]/operation-actions.tsx");
+    expect(actions).toContain("plan={plan}");
+    const card = source("src/components/platform/approval-card.tsx");
+    expect(card).toContain("const missingPlan = boundPlanDigest && !plan");
+    expect(card).toContain("plan.planDigest !== boundPlanDigest");
+    expect(card).toContain("const approveBlocked = approveDisabledReason ?? missingPlan");
     expect(deploying).toContain("plan-bound approval stays disabled");
   });
 

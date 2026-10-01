@@ -284,6 +284,8 @@ defineAction<ApplyInput>({
 
 const DeploymentRef = z.object({ deploymentId: z.string().min(1) });
 type DeploymentRef = z.infer<typeof DeploymentRef>;
+const DeploymentApproval = DeploymentRef.extend({ planDigest: z.string().regex(/^[a-f0-9]{64}$/).optional() });
+type DeploymentApproval = z.infer<typeof DeploymentApproval>;
 
 /*
  * These three take an id and nothing else, which is exactly the shape that used
@@ -297,14 +299,14 @@ type DeploymentRef = z.infer<typeof DeploymentRef>;
  * refuses, and an execute that runs is the whole estate.
  */
 
-defineAction<DeploymentRef>({
+defineAction<DeploymentApproval>({
   id: "deploy.approve",
   title: "Approve deployment",
   category: "deploy",
   risk: "high",
   requiredRole: "admin",
   mutates: true,
-  input: DeploymentRef,
+  input: DeploymentApproval,
   async plan(ctx, input) {
     const d = requireDeployment(ctx, input.deploymentId);
     const env = q.environment(d.environmentId);
@@ -351,7 +353,7 @@ defineAction<DeploymentRef>({
         error: separation.blocked,
       };
     if (deployment.executor === "workflow") {
-      const result = await approveWorkflowDeployment(ctx, deployment);
+      const result = await approveWorkflowDeployment(ctx, deployment, input.planDigest);
       if (result.ok && separation.selfApproved) result.summary += " Self-approved (sole admin).";
       return result;
     }

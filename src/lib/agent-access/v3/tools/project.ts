@@ -13,7 +13,7 @@
  */
 import { digest } from "@/lib/controlplane/digest";
 import { diffManifests } from "@/lib/domain/graph";
-import type { Manifest } from "@/lib/domain/types";
+import type { AnyManifest } from "@/lib/domain/types";
 import { catalogDigest, catalogFor, TOOL_CATALOG } from "../catalog";
 import { CONTRACT_VERSION, SERVER_NAME, SERVER_VERSION } from "../contract";
 import { authorizeReadOrThrow, graphFor, pickManifest, requireEnvironment, requireProject, requireRevision, type ToolContext } from "../context";
@@ -27,7 +27,7 @@ const REVISIONS_LISTED = 20;
 const MAX_CHANGE_ITEMS = 200;
 
 /** Structure only: no env values, no config values, no source credentials. */
-function manifestSummary(manifest: Manifest) {
+function manifestSummary(manifest: AnyManifest) {
   return {
     services: manifest.services.map((s) => ({
       id: s.id,

@@ -123,6 +123,13 @@ describe("approval and cancellation", () => {
     expect((await exec("deploy.approve", { deploymentId: latest().id }, browserCtx)).ok).toBe(true);
     expect(approve).toHaveBeenCalledTimes(1); expect((await h.store.listApprovals(ctx.workspaceId, latest().operationId!))[0].consumedAt).toBeTruthy(); expect(gateway.startDeploy).toHaveBeenCalledTimes(1);
   });
+  it("product approval forwards the browser's reviewed plan digest without substituting the current digest", async () => {
+    h.setEngine(scriptedEngine("approval", () => requireApproval(1, "admin", true))); await exec("deploy.apply");
+    const approve = vi.spyOn(broker, "approve"); browser();
+    const planDigest = "a".repeat(64);
+    await exec("deploy.approve", { deploymentId: latest().id, planDigest }, browserCtx);
+    expect(approve).toHaveBeenCalledWith(expect.objectContaining({ planDigest }));
+  });
   it("a projected workflow approval gate records approval then signals, never starts twice", async () => {
     h.setEngine(scriptedEngine("approval", () => requireApproval(1))); await exec("deploy.apply"); const d = latest();
     // Represents a worker that already started and parked at its plan gate.

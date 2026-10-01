@@ -66,6 +66,9 @@ export async function syncEnvironmentSecrets(rt: Runtime, ec: ExecContext, graph
           const readSignal = AbortSignal.any([signal, AbortSignal.timeout(rt.limits.nodeTimeoutMs)]);
           const observation = await driver.observe(driverContext(rt, ec, session, readSignal, { node, fence: lease }), node, row?.externalId);
           if (observation.simulated || observation.address !== node.address || observation.presence !== "present" || !observation.externalId) throw new SecretDeliveryError(observation.presence === "inaccessible" ? "denied" : "missing");
+          // The broker independently joins these observations to the reviewed
+          // graph and compiled identities before signing the exact target set.
+          if (row) await rt.d.resources.appendObservation({ workspaceId: ec.workspaceId, resourceId: row.id, observation });
           const ref = node.spec.secretRef as string;
           if (session.provider === "azure") {
             const id = observation.externalId;

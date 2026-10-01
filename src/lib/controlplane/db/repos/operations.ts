@@ -76,6 +76,9 @@ export interface OperationRow {
 export const OPERATION_COLUMNS =
   "seq, id, workspace_id, project_id, environment_id, resource_id, capability, principal, status, proposal, proposal_digest, input_digest, plan_digest, policy_decision_id, approval_required, approval_round, idempotency_key, workflow_id, runner_job_id, lease_scope, fence_token, correlation_id, result, error, created_at, updated_at, started_at, finished_at, expires_at";
 
+// Creation also supports pre-round schemas; only this constant enters SQL text.
+const OPERATION_CREATE_COLUMNS = OPERATION_COLUMNS.replace(", approval_round", "");
+
 export function toOperation(row: OperationRow): ReviewedOperation {
   return {
     id: row.id,
@@ -207,7 +210,7 @@ export async function create(sql: Sql, input: CreateOperationInput): Promise<Cre
        values ($1, $2, $3, $4, $5, $6, $7::text::jsonb, $8::text, $9::text::jsonb, $10, $11, $12, $13, $14::boolean, $15, $16, $17,
          clock_timestamp() + ($18::bigint * interval '1 millisecond'),
          case when $8::text = 'denied' then clock_timestamp() else null end)
-       returning ${OPERATION_COLUMNS.replace(", approval_round", "")},
+       returning ${OPERATION_CREATE_COLUMNS},
          coalesce((to_jsonb(operations)->>'approval_round')::integer, 0) as approval_round`,
       [
         id,

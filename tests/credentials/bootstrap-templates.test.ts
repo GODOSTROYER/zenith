@@ -131,6 +131,41 @@ describe("template structure", () => {
 describe.each(Object.keys(SCENARIOS))("IAM policies (%s)", (scenario) => {
   const ev = evaluatorFor(scenario);
   const docs = allPolicyDocuments(ev);
+  it("SNS/EBS/EKS mutations require creation or resource tags and account/environment ARN scopes", () => {
+    const statement = (policy: string, sid: string) => statementsOf(policyDoc(ev, policy)).find((s) => s.Sid === sid)!;
+    for (const [policy, sid, tag] of [
+      ["DeployDataPolicy", "SnsCreateTaggedTopics", "RequestTag"], ["DeployDataPolicy", "SnsManageTaggedTopics", "ResourceTag"],
+      ["DeployNetworkPolicy", "EbsCreateTaggedVolumes", "RequestTag"], ["DeployNetworkPolicy", "EbsManageTaggedVolumesAndInstances", "ResourceTag"],
+      ["DeployComputePolicy", "EksCreateTaggedCluster", "RequestTag"], ["DeployComputePolicy", "EksCreateTaggedChildren", "RequestTag"],
+      ["DeployComputePolicy", "EksManageTaggedResources", "ResourceTag"],
+    ]) {
+      const s = statement(policy, sid);
+      expect(s.Condition?.StringEquals?.[`aws:${tag}/zenith:managed`], sid).toBe("true");
+      expect(s.Condition?.StringLike?.[`aws:${tag}/zenith:environment`], sid).toBe(scenario === "everything" ? "env_prod1" : "*");
+      if (sid !== "EksCreateTaggedCluster") expect(asList(s.Resource).every((arn) => arn.includes(ACCOUNT) && arn !== "*"), sid).toBe(true);
+    }
+    const attach = statement("DeployNetworkPolicy", "EbsManageTaggedVolumesAndInstances");
+    expect(asList(attach.Resource)).toEqual([`arn:aws:ec2:*:${ACCOUNT}:volume/*`, `arn:aws:ec2:*:${ACCOUNT}:instance/*`]);
+    expect(statement("DeployComputePolicy", "EksCreateTaggedCluster").Condition?.Bool).toEqual({ "eks:bootstrapClusterCreatorAdminPermissions": "false" });
+    expect(statement("DeployEdgePolicy", "KmsGrantToAwsResources").Condition?.Bool).toEqual({ "kms:GrantIsForAWSResource": "true" });
+    expect(asList(statement("DeployNetworkPolicy", "Ec2TagOnCreate").Condition?.StringEquals?.["ec2:CreateAction"] as string[])).toContain("CreateVolume");
+  });
+
+  it("permits native CNI ENIs without Zenith tags while protecting node and resource tags", () => {
+    const statements = statementsOf(policyDoc(ev, "WorkloadBoundary"));
+    const eni = statements.find((s) => s.Sid === "WorkloadEksNetworkInterfaces")!;
+    expect(asList(eni.Resource)).toEqual([`arn:aws:ec2:*:${ACCOUNT}:network-interface/*`]);
+    expect(eni.Condition).toBeUndefined();
+    const node = statements.find((s) => s.Sid === "WorkloadEksTaggedNodes")!;
+    expect(asList(node.Resource)).toEqual([`arn:aws:ec2:*:${ACCOUNT}:instance/*`]);
+    expect(node.Condition?.StringEquals?.["aws:ResourceTag/zenith:managed"]).toBe("true");
+    expect(node.Condition?.StringLike?.["aws:ResourceTag/zenith:environment"]).toBe(scenario === "everything" ? "env_prod1" : "*");
+    const tagging = statements.find((s) => s.Sid === "WorkloadEksCniTags")!;
+    expect(asList(tagging.Resource)).toEqual([`arn:aws:ec2:*:${ACCOUNT}:network-interface/*`]);
+    expect(asList(tagging.Condition?.["ForAllValues:StringEquals"]?.["aws:TagKeys"] as string[])).toEqual([
+      "node.k8s.amazonaws.com/instance_id", "node.k8s.amazonaws.com/createdAt", "cluster.k8s.amazonaws.com/name", "eks:eni:owner",
+    ]);
+  });
 
   it("never allows Action * or service:* — and never Action * on Resource *", () => {
     for (const { where, doc } of docs) {
@@ -237,10 +272,10 @@ describe.each(Object.keys(SCENARIOS))("IAM policies (%s)", (scenario) => {
       expect(asList(found[0].Resource), action).toEqual([`arn:aws:iam::${ACCOUNT}:role/zenith-*`]);
     }
     const attach = byActionAllowed("iam:AttachRolePolicy")[0];
-    expect(asList(attach.Condition?.ArnLike?.["iam:PolicyARN"] as string[]).every((a) => /policy\/zenith-\*$|policy\/service-role\/(AmazonECSTaskExecutionRolePolicy|AWSLambda(Basic|VPCAccess)ExecutionRole)$/.test(a))).toBe(true);
+    expect(asList(attach.Condition?.ArnLike?.["iam:PolicyARN"] as string[]).every((a) => /policy\/zenith-\*$|policy\/(AmazonEKSClusterPolicy|AmazonEKSWorkerNodePolicy|AmazonEKS_CNI_Policy|AmazonEC2ContainerRegistryReadOnly)$|policy\/service-role\/(AmazonECSTaskExecutionRolePolicy|AWSLambda(Basic|VPCAccess)ExecutionRole)$/.test(a))).toBe(true);
 
     const pass = byActionAllowed("iam:PassRole")[0];
-    expect(pass.Condition?.StringEquals?.["iam:PassedToService"]).toEqual(["ecs-tasks.amazonaws.com", "codebuild.amazonaws.com", "lambda.amazonaws.com"]);
+    expect(pass.Condition?.StringEquals?.["iam:PassedToService"]).toEqual(["ecs-tasks.amazonaws.com", "codebuild.amazonaws.com", "lambda.amazonaws.com", "eks.amazonaws.com", "ec2.amazonaws.com"]);
     expect(asList(pass.Resource)).toEqual([`arn:aws:iam::${ACCOUNT}:role/zenith-*`]);
 
     const self = statements.find((s) => s.Sid === "DenyModifyingZenithBootstrapRolesAndPolicies")!;

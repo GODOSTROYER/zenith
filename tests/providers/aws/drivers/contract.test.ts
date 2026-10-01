@@ -7,9 +7,15 @@ import { NATIVE_TYPE_TABLE } from "@/lib/resources/native-types";
 import { classifyAwsError, resourceTags, tfLiteral } from "@/lib/providers/aws/drivers/shared";
 import { buildFullFixture } from "./compute/fixtures";
 import { compileContext, expanded, TAGS } from "./_integration";
+import { mkNode } from "./data/_helpers";
 
 const graph = expanded("production");
-const extras = buildFullFixture().nodes;
+const extras = [
+  ...buildFullFixture().nodes,
+  mkNode("pubsub/events", "pubsub", {}),
+  mkNode("volume/data", "volume", { sizeGb: 64, availabilityZone: "ap-south-1a" }),
+  mkNode("kubernetes_cluster/apps", "kubernetes_cluster", { version: "1.35" }, { dependsOn: ["subnet/private-a", "subnet/private-b"] }),
+];
 const nodes = [...new Map([...extras, ...graph.nodes].map((n) => [n.address, n])).values()];
 const ctx = compileContext({ ...graph, nodes });
 
@@ -64,7 +70,7 @@ describe("the consolidated AWS registry", () => {
     }
   });
 
-  it.each(awsDrivers)("$id never reports desired attributes as known after an empty or denied SDK read", async (driver) => {
+  it.each(awsDrivers.filter((driver) => driver.capabilities.observe))("$id never reports desired attributes as known after an empty or denied SDK read", async (driver) => {
     const node = graph.nodes.find((n) => n.nativeType === driver.nativeType) ?? nodes.find((n) => n.nativeType === driver.nativeType)!;
     for (const denied of [false, true]) {
       let sends = 0;

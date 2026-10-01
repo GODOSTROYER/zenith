@@ -244,6 +244,51 @@ Resources:
             Effect: Allow
             Action: ecr:GetAuthorizationToken
             Resource: "*"
+          # EKS system images live in AWS-owned accounts. These repository names
+          # cover managed add-ons; this is pull-only and grants no registry writes.
+          - Sid: WorkloadEksSystemImages
+            Effect: Allow
+            Action: [ecr:BatchCheckLayerAvailability, ecr:GetDownloadUrlForLayer, ecr:BatchGetImage]
+            Resource:
+              - !Sub "arn:${AWS::Partition}:ecr:*:*:repository/eks/*"
+              - !Sub "arn:${AWS::Partition}:ecr:*:*:repository/amazon-k8s-cni"
+          - Sid: WorkloadEksDescribe
+            Effect: Allow
+            Action: [ec2:DescribeInstances, ec2:DescribeInstanceTypes, ec2:DescribeRouteTables, ec2:DescribeSecurityGroups, ec2:DescribeSubnets, ec2:DescribeVolumes, ec2:DescribeVolumesModifications, ec2:DescribeVpcs, ec2:DescribeTags, ec2:DescribeAvailabilityZones]
+            Resource: "*"
+          - Sid: WorkloadEksClusterReadAndPodIdentity
+            Effect: Allow
+            Action: [eks:DescribeCluster, eks-auth:AssumeRoleForPodIdentity]
+            Resource: !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:cluster/zenith-${EnvironmentTagValue}-*"
+          # The VPC CNI creates ENIs with native node/cluster tags, not Zenith
+          # tags. Bound ENI actions to this account; attaching to a node still
+          # requires its Zenith environment tags in the separate statement.
+          - Sid: WorkloadEksNetworkInterfaces
+            Effect: Allow
+            Action: [ec2:AttachNetworkInterface, ec2:DetachNetworkInterface, ec2:ModifyNetworkInterfaceAttribute]
+            Resource: !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:network-interface/*"
+          - Sid: WorkloadEksTaggedNodes
+            Effect: Allow
+            Action: [ec2:AttachNetworkInterface, ec2:DetachNetworkInterface, ec2:ModifyNetworkInterfaceAttribute]
+            Resource: !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:instance/*"
+            Condition:
+              StringEquals: { "aws:ResourceTag/zenith:managed": "true" }
+              StringLike: { "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: WorkloadEksCniTags
+            Effect: Allow
+            Action: ec2:CreateTags
+            Resource: !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:network-interface/*"
+            Condition:
+              "ForAllValues:StringEquals":
+                "aws:TagKeys": ["node.k8s.amazonaws.com/instance_id", "node.k8s.amazonaws.com/createdAt", "cluster.k8s.amazonaws.com/name", "eks:eni:owner"]
+          - Sid: WorkloadEksKeyMetadata
+            Effect: Allow
+            Action: kms:DescribeKey
+            Resource: !Sub "arn:${AWS::Partition}:kms:*:${AWS::AccountId}:key/*"
+          - Sid: WorkloadSnsPublish
+            Effect: Allow
+            Action: sns:Publish
+            Resource: !Sub "arn:${AWS::Partition}:sns:*:${AWS::AccountId}:zenith-${EnvironmentTagValue}-*"
           - Sid: WorkloadObjectsAndQueues
             Effect: Allow
             Action:
@@ -280,6 +325,9 @@ Resources:
                   - "ssm.*.amazonaws.com"
                   - "s3.*.amazonaws.com"
                   - "sqs.*.amazonaws.com"
+                  - "sns.*.amazonaws.com"
+                  - "ec2.*.amazonaws.com"
+                  - "eks.*.amazonaws.com"
           - Sid: WorkloadVpcNetworkInterfaces
             Effect: Allow
             Action:
@@ -330,6 +378,10 @@ Resources:
               - sqs:GetQueueUrl
               - sqs:ListQueues
               - sqs:ListQueueTags
+              - sns:ListTopics
+              - eks:ListClusters
+              - eks:DescribeAddonVersions
+              - kms:ListAliases
               - route53:Get*
               - route53:List*
               - acm:Describe*
@@ -358,6 +410,18 @@ Resources:
               - tag:GetResources
               - s3:ListAllMyBuckets
             Resource: "*"
+          - Sid: ReadZenithMessagingAndClusters
+            Effect: Allow
+            Action: [sns:GetTopicAttributes, sns:GetSubscriptionAttributes, sns:ListTagsForResource, sns:ListSubscriptionsByTopic, eks:Describe*, eks:List*]
+            Resource:
+              - !Sub "arn:${AWS::Partition}:sns:*:${AWS::AccountId}:zenith-*"
+              - !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:cluster/zenith-*"
+              - !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:nodegroup/zenith-*/*/*"
+              - !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:addon/zenith-*/*/*"
+          - Sid: ReadKeyMetadata
+            Effect: Allow
+            Action: [kms:DescribeKey, kms:GetKeyPolicy, kms:GetKeyRotationStatus, kms:ListResourceTags]
+            Resource: !Sub "arn:${AWS::Partition}:kms:*:${AWS::AccountId}:key/*"
           - Sid: ReadZenithLogs
             Effect: Allow
             Action: [logs:FilterLogEvents, logs:GetLogEvents, logs:StartQuery]
@@ -459,6 +523,7 @@ Resources:
                   - CreateNatGateway
                   - CreateVpcEndpoint
                   - CreateLaunchTemplate
+                  - CreateVolume
                   - AllocateAddress
                   - RunInstances
           - Sid: Ec2ModifyTaggedResources
@@ -508,6 +573,22 @@ Resources:
               - ec2:TerminateInstances
               - ec2:ModifyInstanceAttribute
             Resource: !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:*/*"
+            Condition:
+              StringEquals: { "aws:ResourceTag/zenith:managed": "true" }
+              StringLike: { "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: EbsCreateTaggedVolumes
+            Effect: Allow
+            Action: ec2:CreateVolume
+            Resource: !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:volume/*"
+            Condition:
+              StringEquals: { "aws:RequestTag/zenith:managed": "true", "ec2:Encrypted": "true" }
+              StringLike: { "aws:RequestTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: EbsManageTaggedVolumesAndInstances
+            Effect: Allow
+            Action: [ec2:ModifyVolume, ec2:DeleteVolume, ec2:AttachVolume, ec2:DetachVolume]
+            Resource:
+              - !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:volume/*"
+              - !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:instance/*"
             Condition:
               StringEquals: { "aws:ResourceTag/zenith:managed": "true" }
               StringLike: { "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue }
@@ -636,6 +717,42 @@ Resources:
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
+          - Sid: EksCreateTaggedCluster
+            # CreateCluster has no resource-level IAM support; require both tags.
+            Effect: Allow
+            Action: eks:CreateCluster
+            Resource: "*"
+            Condition:
+              StringEquals: { "aws:RequestTag/zenith:managed": "true", "eks:authenticationMode": "API" }
+              Bool: { "eks:bootstrapClusterCreatorAdminPermissions": "false" }
+              StringLike: { "aws:RequestTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: EksCreateTaggedChildren
+            Effect: Allow
+            Action: [eks:CreateNodegroup, eks:CreateAddon]
+            Resource: !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:cluster/zenith-${EnvironmentTagValue}-*"
+            Condition:
+              StringEquals: { "aws:RequestTag/zenith:managed": "true", "aws:ResourceTag/zenith:managed": "true" }
+              StringLike: { "aws:RequestTag/zenith:environment": !Ref EnvironmentTagValue, "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: EksTagOnCreate
+            Effect: Allow
+            Action: eks:TagResource
+            Resource:
+              - !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:cluster/zenith-${EnvironmentTagValue}-*"
+              - !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:nodegroup/zenith-${EnvironmentTagValue}-*/*/*"
+              - !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:addon/zenith-${EnvironmentTagValue}-*/*/*"
+            Condition:
+              StringEquals: { "aws:RequestTag/zenith:managed": "true" }
+              StringLike: { "aws:RequestTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: EksManageTaggedResources
+            Effect: Allow
+            Action: [eks:DeleteCluster, eks:UpdateClusterConfig, eks:UpdateClusterVersion, eks:AssociateEncryptionConfig, eks:DeleteNodegroup, eks:UpdateNodegroupConfig, eks:UpdateNodegroupVersion, eks:DeleteAddon, eks:UpdateAddon, eks:TagResource, eks:UntagResource]
+            Resource:
+              - !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:cluster/zenith-${EnvironmentTagValue}-*"
+              - !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:nodegroup/zenith-${EnvironmentTagValue}-*/*/*"
+              - !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:addon/zenith-${EnvironmentTagValue}-*/*/*"
+            Condition:
+              StringEquals: { "aws:ResourceTag/zenith:managed": "true" }
+              StringLike: { "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue }
           - Sid: EcsCreateTaggedClustersAndServices
             Effect: Allow
             Action: [ecs:CreateCluster, ecs:CreateService, ecs:CreateCapacityProvider]
@@ -863,6 +980,20 @@ Resources:
             Effect: Allow
             Action: [sqs:CreateQueue, sqs:DeleteQueue, sqs:SetQueueAttributes, sqs:TagQueue, sqs:UntagQueue]
             Resource: !Sub "arn:${AWS::Partition}:sqs:*:${AWS::AccountId}:zenith-*"
+          - Sid: SnsCreateTaggedTopics
+            Effect: Allow
+            Action: [sns:CreateTopic, sns:TagResource]
+            Resource: !Sub "arn:${AWS::Partition}:sns:*:${AWS::AccountId}:zenith-${EnvironmentTagValue}-*"
+            Condition:
+              StringEquals: { "aws:RequestTag/zenith:managed": "true" }
+              StringLike: { "aws:RequestTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: SnsManageTaggedTopics
+            Effect: Allow
+            Action: [sns:DeleteTopic, sns:SetTopicAttributes, sns:Subscribe, sns:Unsubscribe, sns:SetSubscriptionAttributes, sns:TagResource, sns:UntagResource]
+            Resource: !Sub "arn:${AWS::Partition}:sns:*:${AWS::AccountId}:zenith-${EnvironmentTagValue}-*"
+            Condition:
+              StringEquals: { "aws:ResourceTag/zenith:managed": "true" }
+              StringLike: { "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue }
           - Sid: SecretContainersOnly
             Effect: Allow
             Action:
@@ -882,6 +1013,36 @@ Resources:
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
+          - Sid: KmsCreateTaggedKeys
+            Effect: Allow
+            Action: kms:CreateKey
+            Resource: "*"
+            Condition:
+              StringEquals: { "aws:RequestTag/zenith:managed": "true" }
+              StringLike: { "aws:RequestTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: KmsManageTaggedKeys
+            Effect: Allow
+            Action: [kms:EnableKeyRotation, kms:DisableKeyRotation, kms:UpdateKeyDescription, kms:TagResource, kms:UntagResource]
+            Resource: !Sub "arn:${AWS::Partition}:kms:*:${AWS::AccountId}:key/*"
+            Condition:
+              StringEquals: { "aws:ResourceTag/zenith:managed": "true" }
+              StringLike: { "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue }
+          # CreateKey with Tags also authorizes TagResource on the new key.
+          - Sid: KmsTagOnCreate
+            Effect: Allow
+            Action: kms:TagResource
+            Resource: !Sub "arn:${AWS::Partition}:kms:*:${AWS::AccountId}:key/*"
+            Condition:
+              StringEquals: { "aws:RequestTag/zenith:managed": "true" }
+              StringLike: { "aws:RequestTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: KmsGrantToAwsResources
+            Effect: Allow
+            Action: kms:CreateGrant
+            Resource: !Sub "arn:${AWS::Partition}:kms:*:${AWS::AccountId}:key/*"
+            Condition:
+              Bool: { "kms:GrantIsForAWSResource": "true" }
+              StringEquals: { "aws:ResourceTag/zenith:managed": "true" }
+              StringLike: { "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue }
           - Sid: LogsManageZenithGroups
             Effect: Allow
             Action:
@@ -1009,6 +1170,10 @@ Resources:
                   - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
                   - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
                   - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+                  - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonEKSClusterPolicy"
+                  - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+                  - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonEKS_CNI_Policy"
+                  - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
           - Sid: IamTagRolesOnCreation
             Effect: Allow
             Action: iam:TagRole
@@ -1038,7 +1203,7 @@ Resources:
             Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*"
             Condition:
               StringEquals:
-                "iam:PassedToService": [ecs-tasks.amazonaws.com, codebuild.amazonaws.com, lambda.amazonaws.com]
+                "iam:PassedToService": [ecs-tasks.amazonaws.com, codebuild.amazonaws.com, lambda.amazonaws.com, eks.amazonaws.com, ec2.amazonaws.com]
           - Sid: IamServiceLinkedRolesForSupportedServices
             Effect: Allow
             Action: iam:CreateServiceLinkedRole
@@ -1051,6 +1216,8 @@ Resources:
                   - autoscaling.amazonaws.com
                   - rds.amazonaws.com
                   - elasticache.amazonaws.com
+                  - eks.amazonaws.com
+                  - eks-nodegroup.amazonaws.com
           - Sid: DenyModifyingZenithBootstrapRolesAndPolicies
             Effect: Deny
             Action:

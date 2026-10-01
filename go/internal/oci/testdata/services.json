@@ -57,5 +57,9 @@
   "containerengine": {
     "host": "containerengine.{region}.oraclecloud.com",
     "version": "20180222"
+  },
+  "mysql": {
+    "host": "mysql.{region}.ocp.oraclecloud.com",
+    "version": "20190415"
   }
 }

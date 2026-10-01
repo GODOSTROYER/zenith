@@ -43,7 +43,11 @@
             "arn:${partition}:iam::${account_id}:policy/zenith-*",
             "arn:${partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy",
             "arn:${partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
-            "arn:${partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+            "arn:${partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole",
+            "arn:${partition}:iam::aws:policy/AmazonEKSClusterPolicy",
+            "arn:${partition}:iam::aws:policy/AmazonEKSWorkerNodePolicy",
+            "arn:${partition}:iam::aws:policy/AmazonEKS_CNI_Policy",
+            "arn:${partition}:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
           ]
         }
       }
@@ -100,7 +104,9 @@
           "iam:PassedToService": [
             "ecs-tasks.amazonaws.com",
             "codebuild.amazonaws.com",
-            "lambda.amazonaws.com"
+            "lambda.amazonaws.com",
+            "eks.amazonaws.com",
+            "ec2.amazonaws.com"
           ]
         }
       }
@@ -117,7 +123,9 @@
             "elasticloadbalancing.amazonaws.com",
             "autoscaling.amazonaws.com",
             "rds.amazonaws.com",
-            "elasticache.amazonaws.com"
+            "elasticache.amazonaws.com",
+            "eks.amazonaws.com",
+            "eks-nodegroup.amazonaws.com"
           ]
         }
       }

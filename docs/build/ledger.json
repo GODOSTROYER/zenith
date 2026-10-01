@@ -137,7 +137,7 @@
       "title": "Go zenith-runner and zenithd",
       "wave": 1,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-FOUND"
       ],
@@ -147,7 +147,11 @@
         "docker/runner.Dockerfile",
         "docker/zenithd.Dockerfile"
       ],
-      "branch": "ws/go"
+      "branch": "ws/go",
+      "commit": "534289e",
+      "tests": "go vet + go test all packages pass (WSL); SigV4 AWS suite 26/26",
+      "review": "orchestrator: merged ffc87c2, Go tests re-run on integration",
+      "notes": "images built locally, not published"
     },
     {
       "id": "WS-PLACE",
@@ -250,7 +254,7 @@
       "title": "AWS drivers: VPC, subnets, IGW/NAT, security groups, ALB, Route53, ACM",
       "wave": 2,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-RES",
         "WS-TOFU",
@@ -259,14 +263,18 @@
       "paths": [
         "src/lib/providers/aws/drivers/network/**"
       ],
-      "branch": "ws/aws-net"
+      "branch": "ws/aws-net",
+      "commit": "d2563f0",
+      "tests": "part of 915 AWS driver tests",
+      "review": "orchestrator: merged",
+      "notes": ""
     },
     {
       "id": "WS-AWS-CMP",
       "title": "AWS drivers: ECS/Fargate, ECR, EC2/ASG, Lambda, EventBridge, CodeBuild",
       "wave": 2,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-RES",
         "WS-TOFU",
@@ -275,14 +283,18 @@
       "paths": [
         "src/lib/providers/aws/drivers/compute/**"
       ],
-      "branch": "ws/aws-cmp"
+      "branch": "ws/aws-cmp",
+      "commit": "409875e",
+      "tests": "part of 915",
+      "review": "orchestrator: merged",
+      "notes": "support/aws-shared copy removed by WS-AWS-INTEGRATE"
     },
     {
       "id": "WS-AWS-DATA",
       "title": "AWS drivers: RDS, ElastiCache, S3, SQS, Secrets Manager, IAM, log groups",
       "wave": 2,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-RES",
         "WS-TOFU",
@@ -291,14 +303,18 @@
       "paths": [
         "src/lib/providers/aws/drivers/data/**"
       ],
-      "branch": "ws/aws-data"
+      "branch": "ws/aws-data",
+      "commit": "b56da98",
+      "tests": "280 + tofu validate (gated, passed)",
+      "review": "orchestrator: merged",
+      "notes": "_shared copy removed by WS-AWS-INTEGRATE"
     },
     {
       "id": "WS-CAP",
       "title": "Capability broker, approvals, grants, autonomy, REST /api/platform/v1",
       "wave": 2,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-DB",
         "WS-POL"
@@ -307,14 +323,18 @@
         "src/lib/capabilities/**",
         "src/app/api/platform/v1/**"
       ],
-      "branch": "ws/cap"
+      "branch": "ws/cap",
+      "commit": "d8effd7",
+      "tests": "355",
+      "review": "orchestrator: merged; browser-only approval guards checked",
+      "notes": ""
     },
     {
       "id": "WS-RUNSRV",
       "title": "Runner/zenithd control-plane side and AWS-SDK-over-runner transport",
       "wave": 2,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-DB",
         "WS-GO"
@@ -324,14 +344,18 @@
         "src/app/api/platform/v1/runners/**",
         "src/app/api/platform/v1/machines/**"
       ],
-      "branch": "ws/runsrv"
+      "branch": "ws/runsrv",
+      "commit": "fcb7eb2",
+      "tests": "231",
+      "review": "orchestrator: merged; machine_requests as migration 3 + middleware bypass fc92018",
+      "notes": "Go golden vectors cross-checked"
     },
     {
       "id": "WS-MACH",
       "title": "Machine plane: SSM, Kubernetes exec, zenithd transport",
       "wave": 2,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-RUNSRV",
         "WS-CRED"
@@ -339,14 +363,18 @@
       "paths": [
         "src/lib/machines/**"
       ],
-      "branch": "ws/mach"
+      "branch": "ws/mach",
+      "commit": "3332e06",
+      "tests": "merged suite green",
+      "review": "orchestrator: merged",
+      "notes": ""
     },
     {
       "id": "WS-K8S",
       "title": "Kubernetes provider drivers (server-side apply, ownership)",
       "wave": 2,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-RES",
         "WS-CRED"
@@ -354,14 +382,18 @@
       "paths": [
         "src/lib/providers/kubernetes/**"
       ],
-      "branch": "ws/k8s"
+      "branch": "ws/k8s",
+      "commit": "e68db91",
+      "tests": "part of 588 (k8s+zenith)",
+      "review": "orchestrator: merged",
+      "notes": "kind tests gated, not run"
     },
     {
       "id": "WS-ACT",
       "title": "Workflow activities + AWS deploy journey + LocalStack acceptance + live harness",
       "wave": 3,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-AWS-NET",
         "WS-AWS-CMP",
@@ -373,7 +405,11 @@
         "src/lib/workflows/activities/**",
         "scripts/acceptance/**"
       ],
-      "branch": "ws/act"
+      "branch": "ws/act",
+      "commit": "30ae76a",
+      "tests": "286",
+      "review": "orchestrator: merged; leak test updated e5c1518",
+      "notes": "composed into the worker by WS-COMPOSE"
     },
     {
       "id": "WS-INC",
@@ -400,7 +436,7 @@
       "title": "Reconciliation controller and persisted drift",
       "wave": 3,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-DB",
         "WS-AWS-NET"
@@ -408,7 +444,11 @@
       "paths": [
         "src/lib/reconcile/**"
       ],
-      "branch": "ws/rec"
+      "branch": "ws/rec",
+      "commit": "101d8a4",
+      "tests": "168 (+PG lane)",
+      "review": "orchestrator: merged c64871e",
+      "notes": "migration 0002 reconcile_state; ports wired by WS-COMPOSE"
     },
     {
       "id": "WS-MCP",
@@ -424,7 +464,7 @@
         "packages/cli/**"
       ],
       "branch": "ws/mcp",
-      "notes": "branched from ws/cap WIP"
+      "notes": "handed to Codex gpt-6.1-sol xhigh (Sonnet session limit; user switched all agents to Codex)"
     },
     {
       "id": "WS-UI",
@@ -451,56 +491,72 @@
       "title": "GCP drivers (Cloud Run, GKE, Cloud SQL, GCS, Pub/Sub, LB, DNS, Secret Manager, Logging/Monitoring)",
       "wave": 4,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-ACT"
       ],
       "paths": [
         "src/lib/providers/gcp/**"
       ],
-      "branch": "ws/gcp"
+      "branch": "ws/gcp",
+      "commit": "847fa97",
+      "tests": "merged suite green",
+      "review": "orchestrator: merged",
+      "notes": "contract only"
     },
     {
       "id": "WS-AZURE",
       "title": "Azure drivers (Container Apps, AKS, Postgres Flexible, Blob, Service Bus, DNS, Key Vault, Monitor)",
       "wave": 4,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-ACT"
       ],
       "paths": [
         "src/lib/providers/azure/**"
       ],
-      "branch": "ws/azure"
+      "branch": "ws/azure",
+      "commit": "9fba0e5",
+      "tests": "222",
+      "review": "orchestrator: merged; DenialReason fix d6ba4a3",
+      "notes": "contract only"
     },
     {
       "id": "WS-OCI",
       "title": "OCI drivers through the same contracts",
       "wave": 4,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-ACT"
       ],
       "paths": [
         "src/lib/providers/oci/**"
       ],
-      "branch": "ws/oci"
+      "branch": "ws/oci",
+      "commit": "0be47b2",
+      "tests": "merged suite green",
+      "review": "orchestrator: merged",
+      "notes": "runner-only; oci.http protocol proposal"
     },
     {
       "id": "WS-ZM",
       "title": "Zenith-managed provider (provider=zenith)",
       "wave": 4,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-K8S"
       ],
       "paths": [
         "src/lib/providers/zenith/**"
       ],
-      "branch": "ws/zm"
+      "branch": "ws/zm",
+      "commit": "9439d15",
+      "tests": "part of 588",
+      "review": "orchestrator: merged",
+      "notes": "not operated anywhere; managed Postgres adapter contract-only"
     },
     {
       "id": "WS-SEC",
@@ -516,7 +572,8 @@
         "tests/security/**",
         "docs/platform/THREAT-MODEL.md"
       ],
-      "branch": "ws/sec"
+      "branch": "ws/sec",
+      "notes": "handed to Codex gpt-6.1-sol xhigh (Sonnet session limit; user switched all agents to Codex)"
     },
     {
       "id": "WS-CI",
@@ -564,7 +621,8 @@
       "paths": [
         "scripts/acceptance/**",
         "docs/platform/ACCEPTANCE.md"
-      ]
+      ],
+      "notes": "handed to Codex gpt-6.1-sol xhigh (Sonnet session limit; user switched all agents to Codex)"
     },
     {
       "id": "WS-BRIDGE",
@@ -583,7 +641,44 @@
         "src/lib/bridge/**",
         "src/lib/actions/defs/{deploy,promote,connection,connection-aws}.ts",
         "src/lib/engine/engine.ts"
-      ]
+      ],
+      "notes": "handed to Codex gpt-6.1-sol xhigh (Sonnet session limit; user switched all agents to Codex)"
+    },
+    {
+      "id": "WS-AWS-INTEGRATE",
+      "deps": [
+        "WS-AWS-NET",
+        "WS-AWS-CMP",
+        "WS-AWS-DATA"
+      ],
+      "paths": [
+        "src/lib/providers/aws/drivers/**"
+      ],
+      "wave": 3,
+      "owner": "worker",
+      "title": "Consolidate AWS driver groups, provider registry, expansion gaps, end-to-end compile test",
+      "state": "in_progress",
+      "branch": "ws/aws-integrate",
+      "notes": "Codex job"
+    },
+    {
+      "id": "WS-COMPOSE",
+      "deps": [
+        "WS-ACT",
+        "WS-CAP",
+        "WS-RUNSRV",
+        "WS-REC"
+      ],
+      "paths": [
+        "src/lib/platform/**",
+        "workers/execution/**"
+      ],
+      "wave": 3,
+      "owner": "worker",
+      "title": "Composition roots: real activities in the worker, app-side wiring, deploy e2e test",
+      "state": "in_progress",
+      "branch": "ws/compose",
+      "notes": "Codex job"
     }
   ],
   "blockers": [
@@ -614,6 +709,24 @@
     {
       "date": "2026-10-01",
       "decision": "Claude session limit interrupted all Sonnet workers (reset 00:20 IST); all 19 resumed from partial worktree state at 13:01 IST. A peer session proposed Codex CLI as the build lane; kept Sonnet per the user instruction, Codex held as fallback if the limit recurs."
+    },
+    {
+      "date": "2026-10-01",
+      "decision": "User: switch all agents to Codex CLI gpt-6.1-sol at xhigh reasoning; workstreams >80% done finish on Sonnet. Codex jobs run headless with workspace-write (no .git writes: orchestrator verifies and commits)."
+    }
+  ],
+  "verification": [
+    {
+      "date": "2026-10-01T13:45+05:30",
+      "head": "2fc0198",
+      "result": "full suite 10811 passed / 5 failed / 222 skipped (559 files) under heavy machine load; all 5 failing files pass in isolation (131/131)",
+      "loadSensitive": [
+        "tests/capabilities/platform.test.ts",
+        "tests/machines/ssm-transport.test.ts (real sh)",
+        "tests/providers/kubernetes/rollout.test.ts",
+        "tests/workflows/operations.test.ts",
+        "tests/workflows/replay.test.ts"
+      ]
     }
   ]
 }

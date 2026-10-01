@@ -1,8 +1,5 @@
 /** Composition of the contract-tested provider drivers. No registration performs I/O. */
-import { registerDriver, type ResourceDriver } from "@/lib/drivers/types";
-import { networkDrivers } from "@/lib/providers/aws/drivers/network";
-import { COMPUTE_DRIVERS } from "@/lib/providers/aws/drivers/compute";
-import { awsDataDrivers } from "@/lib/providers/aws/drivers/data";
+import { registerAwsDrivers } from "@/lib/providers/aws/drivers";
 import { registerKubernetesDrivers, renderGraph, serverSideApply } from "@/lib/providers/kubernetes";
 import { createK8sClient, readObject, listObjects } from "@/lib/providers/kubernetes/client";
 import { isSupportedKind, K8sError } from "@/lib/providers/kubernetes/types";
@@ -13,7 +10,7 @@ import { registerOciDrivers } from "@/lib/providers/oci";
 
 /** Re-registering the same set is idempotent, including after Next HMR. */
 export function registerAllDrivers(): void {
-  for (const driver of [...networkDrivers, ...COMPUTE_DRIVERS, ...awsDataDrivers]) registerDriver(driver as ResourceDriver);
+  registerAwsDrivers();
   registerKubernetesDrivers();
   // This package owns the managed substrate; never register the k8s package's zenith aliases.
   registerZenithDrivers({ toolkit: {

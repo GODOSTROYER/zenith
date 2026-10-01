@@ -9,7 +9,7 @@ import { StepFailedError, type BuildPort, type MigrationsPort, type WorkloadsPor
 import { startBuild, waitForBuild, deployImage, waitForServiceSteady } from "@/lib/providers/aws/drivers/compute";
 import { describeService, locateService } from "@/lib/providers/aws/drivers/compute/ecs-read";
 import { assertNodeTags, lowerTagMap, sleep } from "@/lib/providers/aws/drivers/compute/support/sdk";
-import { nodeName } from "@/lib/providers/aws/drivers/compute/support/aws-shared";
+import { nodeName } from "@/lib/providers/aws/drivers/shared";
 
 const awsContext = (ctx: DriverContext): DriverContext<AwsSession> => {
   const session = ctx.session as Partial<AwsSession> | undefined;

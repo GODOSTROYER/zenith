@@ -1,6 +1,6 @@
 /**
  * Applying one managed environment: render, converge the managed databases,
- * then server-side apply in two phases through the Kubernetes provider's apply
+ * then server-side apply through the Kubernetes provider's apply
  * (field manager `zenith`, `force: false`, ownership guard, namespace
  * allowlist — all of it the Kubernetes provider's, reused, not reimplemented).
  *
@@ -11,7 +11,9 @@
  *                   NetworkPolicies. Applied FIRST and on their own so a
  *                   workload can never exist in a namespace without its
  *                   isolation, whatever order the apply layer sorts kinds in.
- *   3. workloads  — Deployments, Services, Secrets, CronJobs, routes.
+ *   3. TLS        — platform Certificate and per-environment Gateway, through
+ *                   a separate gateway-namespace operator session.
+ *   4. workloads  — Deployments, Services, Secrets, CronJobs, routes.
  *
  * It stops at the first phase that does not fully succeed and says which
  * (`blockedBy`); nothing is half-applied silently. Each apply phase is the
@@ -32,6 +34,8 @@ import { ensureManagedDatabases, type EnsureDatabaseOutcome } from "./database-l
 import { renderZenithEnvironment, type ZenithRenderResult } from "./render";
 import { assertSessionMatches, type ZenithSession } from "./session";
 import type { HostMapping } from "./routing";
+import { ensureZenithTls, type ZenithTlsReport } from "./tls-lifecycle";
+import type { TlsObjectClient } from "./tls-client";
 
 export interface ZenithApplyInput {
   session: ZenithSession;
@@ -45,9 +49,11 @@ export interface ZenithApplyInput {
   dryRun?: boolean;
   signal?: AbortSignal;
   log?: (line: string) => void;
+  /** Contract test port; production uses session.gatewayKubernetes. */
+  tlsClient?: TlsObjectClient;
 }
 
-export type ZenithApplyBlocker = "database" | "baseline" | "workloads";
+export type ZenithApplyBlocker = "database" | "baseline" | "tls" | "workloads";
 
 export interface ZenithApplyReport {
   ok: boolean;
@@ -57,6 +63,7 @@ export interface ZenithApplyReport {
   blockedBy?: ZenithApplyBlocker;
   databases: EnsureDatabaseOutcome[];
   baseline?: ToolkitApplyReport;
+  tls?: ZenithTlsReport;
   workloads?: ToolkitApplyReport;
   hostnames: HostMapping[];
   notes: string[];
@@ -98,7 +105,12 @@ export async function applyZenithEnvironment(input: ZenithApplyInput): Promise<Z
     input.log?.("zenith apply blocked: the tenancy baseline did not apply");
     return { ...base, ok: false, blockedBy: "baseline", databases, baseline };
   }
+  const tls = await ensureZenithTls({ session, expect: input.expect, tlsClient: input.tlsClient, dryRun, signal: input.signal });
+  if (!tls.ok) {
+    input.log?.("zenith apply blocked: platform TLS objects did not apply");
+    return { ...base, ok: false, blockedBy: "tls", databases, baseline, tls };
+  }
   const workloads = await toolkit.apply(rendered.workloads, session.kubernetes, opts);
-  if (!workloads.ok) return { ...base, ok: false, blockedBy: "workloads", databases, baseline, workloads };
-  return { ...base, ok: true, databases, baseline, workloads };
+  if (!workloads.ok) return { ...base, ok: false, blockedBy: "workloads", databases, baseline, tls, workloads };
+  return { ...base, ok: true, databases, baseline, tls, workloads };
 }

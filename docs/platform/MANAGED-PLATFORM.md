@@ -228,23 +228,61 @@ delegating to hosted-apps. Why:
 A future bridge (graph `static_site` publishing into hosted-apps with grants) is
 a product decision, not a driver one. Nothing in this module prevents it.
 
-## Hostnames and TLS (open design question)
+## Hostnames and TLS
 
 Managed hostnames are `<service>.<env-slug>.<workspace-slug>.<ZENITH_MANAGED_APP_DOMAIN>`,
 each label validated (never sanitized: a changed name could collide with another
 tenant's). That is **three labels below the base domain**, and a wildcard
 certificate covers exactly one label. A single `*.<domain>` certificate does not
-cover these names. Real options, none built:
+cover these names.
 
-- a listener and a wildcard certificate per environment zone
-  (`*.<env>.<workspace>.<domain>`), with listeners added dynamically (Gateway API
-  `ListenerSet`, if your implementation supports it, or an operator);
-- a Gateway per environment (cheap if the implementation merges data planes, a
-  load balancer each if not);
-- flattening the scheme to one label per tenant (a product decision that changes
-  the specified format).
+**Implemented, contract evidence only; never run against a live gateway or ACME
+issuer:** `renderEnvironmentTls` emits a cert-manager `Certificate` for
+`*.<env>.<workspace>.<domain>` and one Gateway API **v1 Gateway per environment**
+in the configured gateway namespace. The configured ClusterIssuer must have a
+DNS-01 solver. Certificate renewal and key rotation belong to cert-manager;
+Zenith holds only Secret names and never creates key values. No gateway-shim
+annotation is added, so it cannot compete with the explicit Certificate.
 
-DNS and TLS nodes are therefore reported **platform-managed**: Zenith writes no
+The Gateway has one HTTPS listener on 443 (name from
+`ZENITH_MANAGED_GATEWAY_LISTENER`, default `https`), referencing the same-namespace
+TLS Secret. It accepts only HTTPRoutes from the exact tenant namespace, using
+the immutable `kubernetes.io/metadata.name` label and `zenith.dev/tenant=true`.
+Every route specifies that environment Gateway and its `sectionName`; isolation
+lint refuses other parents, other listeners, wildcards and hosts outside the
+tenant suffix. Certificates and Gateways are never accepted by tenant object lint.
+Names derive from full workspace/environment ids, with
+`ZENITH_MANAGED_GATEWAY_NAME` as the Gateway naming prefix.
+
+A per-environment Gateway uses the standard v1 API without requiring ListenerSet
+support or concurrent edits to one shared listener list. The tradeoff is
+implementation-specific infrastructure: a controller may allocate a load balancer
+per Gateway or share a data plane. It must run the data plane in the platform
+gateway namespace, and DNS must point each environment zone at its serving
+address. Shared IPs, DNS coverage and cost are **not verified** by this code.
+See the [Gateway deployment models](https://gateway-api.sigs.k8s.io/reference/api-types/gateway/)
+and [listener selection rules](https://gateway-api.sigs.k8s.io/docs/concepts/traffic-matching/).
+
+`openZenithSession` opens a separate gateway-namespace operator connection; the
+tenant connection keeps its one-namespace scope. `applyZenithEnvironment` runs
+databases, isolation baseline, TLS, then workloads, stopping on a failed phase.
+TLS preflight refuses objects or target Secrets without the exact workspace,
+environment and platform ownership marks. Missing objects use atomic create to
+avoid adoption races; existing objects use server-side apply (`zenith`,
+`force=false`) with resourceVersion. Successful apply means desired objects were
+accepted; TLS readiness remains **unknown**, without polling or a public probe.
+
+`teardownZenithTls` removes the environment Gateway (and its listener), its
+Certificate, then its labeled TLS Secret. It is idempotent for absent objects,
+refuses foreign ownership, and uses UID/resourceVersion deletion preconditions.
+Apply and teardown must run under the same environment lease; they are not
+transactional across objects. Dry runs use API `dryRun=All` and persist nothing.
+The operator Role grants Certificate/Gateway get/create/patch/delete only in the
+gateway namespace; no issuer, status or cluster-wide TLS grants are added.
+The existing tenant ClusterRole still has the broad Secret permissions described
+above. Ingress mode retains operator-provisioned TLS and has no such automation.
+
+DNS and TLS graph nodes are still reported **platform-managed**: Zenith writes no
 per-app record and issues no per-app certificate. `observe` returns `present`
 exactly when a managed route in the tenant namespace stands in for the node's host
 (recorded as `zenith.dev/source-hosts`), never because DNS or a certificate was

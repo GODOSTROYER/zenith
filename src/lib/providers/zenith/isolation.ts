@@ -32,6 +32,7 @@ import { WORKLOAD_KINDS, dig, isRecord, podSpecsOf, OWNERSHIP, type K8sObject } 
 import { tenantNamespace } from "./tenancy";
 import { isManagedHost, type ZenithSubstrate } from "./substrate";
 import { TENANCY_ADDRESS, TENANT_SERVICE_ACCOUNT, ZenithError, type ZenithTenant } from "./types";
+import { isEnvironmentGatewayParent } from "./tls";
 
 export interface IsolationViolation {
   /** `Kind/name` of the offending object */
@@ -176,10 +177,9 @@ export function validateTenantObjects(objects: readonly K8sObject[], ctx: Isolat
     if (obj.kind === "HTTPRoute") {
       const spec = isRecord(obj.spec) ? obj.spec : {};
       const parents = Array.isArray(spec.parentRefs) ? spec.parentRefs : [];
-      if (parents.length === 0) push("route_parent", "HTTPRoute has no parentRefs.");
+      if (parents.length !== 1) push("route_parent", "HTTPRoute must attach to exactly one environment HTTPS listener.");
       for (const p of parents) {
-        const ok = isRecord(p) && p.name === substrate.gateway.name && p.namespace === substrate.gateway.namespace && (p.kind === undefined || p.kind === "Gateway");
-        if (!ok) push("route_parent", "HTTPRoute may attach only to the platform Gateway.");
+        if (!isEnvironmentGatewayParent(p, tenant, substrate)) push("route_parent", "HTTPRoute may attach only to this environment's platform HTTPS listener.");
       }
       const hosts = Array.isArray(spec.hostnames) ? spec.hostnames : [];
       if (hosts.length === 0) push("route_hostname", "HTTPRoute has no hostnames; it would match every host.");

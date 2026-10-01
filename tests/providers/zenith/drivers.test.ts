@@ -8,6 +8,7 @@ import { OBJECT_STORE_UNSUPPORTED_REASON, PROPOSED_OBJECT_STORE_NATIVE_TYPE } fr
 import { createNeonProvider } from "@/lib/providers/zenith/neon";
 import { renderZenithEnvironment } from "@/lib/providers/zenith/render";
 import { routeObjectName } from "@/lib/providers/zenith/routing";
+import { environmentGatewayParent } from "@/lib/providers/zenith/tls";
 import type { ZenithSession } from "@/lib/providers/zenith/session";
 import { TENANCY_OBJECTS } from "@/lib/providers/zenith/types";
 import { unavailableDatabaseProvider, managedDatabaseConnectionRef } from "@/lib/providers/zenith/database";
@@ -370,7 +371,7 @@ describe("zenith.http_route@1", () => {
     apiVersion: "gateway.networking.k8s.io/v1",
     kind: "HTTPRoute",
     metadata: { name: routeObjectName(HOST), namespace: NS, labels: { "zenith.dev/route": "true" } },
-    spec: { hostnames: [HOST], parentRefs: [over.parent ?? { name: "zenith-gateway", namespace: "zenith-gateway", kind: "Gateway" }] },
+    spec: { hostnames: [HOST], parentRefs: [over.parent ?? environmentGatewayParent(TENANT, substrate())] },
     ...(over.conditions === null
       ? {}
       : { status: { parents: [{ conditions: over.conditions ?? [{ type: "Accepted", status: "True" }, { type: "ResolvedRefs", status: "True" }] }] } }),

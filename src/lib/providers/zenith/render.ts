@@ -39,6 +39,7 @@ import { ingressToRoutes, rewriteRoutes, sourceHostsByManaged, type HostMapping 
 import { assertTenant, type ZenithSubstrate } from "./substrate";
 import { renderTenancy, tenantNamespace } from "./tenancy";
 import { TENANT_SERVICE_ACCOUNT, ZenithError, type ZenithTenant } from "./types";
+import { renderEnvironmentTls } from "./tls";
 
 /* ------------------------------- assessment -------------------------------- */
 
@@ -156,6 +157,8 @@ export interface ZenithRenderResult {
   baseline: K8sObject[];
   /** workloads, services, secrets, routes */
   workloads: K8sObject[];
+  /** Platform-owned Certificate/Gateway in the gateway namespace; never tenant toolkit input. */
+  platformTls: K8sObject[];
   hostnames: HostMapping[];
   databases: ManagedDatabaseIntent[];
   platformManaged: AssessedNode[];
@@ -256,6 +259,7 @@ export function renderZenithEnvironment(input: ZenithRenderInput): ZenithRenderR
     namespace,
     baseline: tenancy.objects,
     workloads,
+    platformTls: renderEnvironmentTls(tenant, substrate),
     hostnames: mappings,
     databases,
     platformManaged: assessed.platformManaged,

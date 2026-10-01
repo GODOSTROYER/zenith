@@ -21,14 +21,14 @@
  * Custom domains are NOT served on the managed platform today: a host outside
  * the tenant's managed suffix is rewritten to the managed hostname and the
  * mapping is reported (`HostMapping`) so the UI can say where the app really
- * lives. Nothing here issues certificates or writes DNS; the platform's wildcard
- * DNS and the gateway's certificates are operator-provisioned (see
- * docs/platform/MANAGED-PLATFORM.md).
+ * lives. The TLS lifecycle provisions an environment wildcard Certificate and
+ * Gateway; wildcard DNS and the DNS-01 ClusterIssuer remain operator-provisioned.
  */
 import { OWNERSHIP, dig, isRecord, type K8sObject } from "./k8s-port";
 import { dnsLabelOf } from "./tenancy";
 import { isManagedHost, managedHostname, serviceLabelOf, type ZenithSubstrate } from "./substrate";
 import { TENANT_ANNOTATION, TENANT_LABEL, ZenithError, type ZenithTenant } from "./types";
+import { environmentGatewayParent, environmentTlsNames } from "./tls";
 
 export interface HostMapping {
   /** the host the manifest asked for */
@@ -103,7 +103,7 @@ function pathsOf(rule: unknown): IngressPath[] {
  * Translate a rendered Ingress into the managed platform's routing objects.
  * Returns the replacement objects (HTTPRoutes, or the retargeted Ingress).
  */
-export function ingressToRoutes(ingress: K8sObject, substrate: ZenithSubstrate, sources: ReadonlyMap<string, string[]>, tenant: Pick<ZenithTenant, "workspaceId">): { objects: K8sObject[]; notes: string[] } {
+export function ingressToRoutes(ingress: K8sObject, substrate: ZenithSubstrate, sources: ReadonlyMap<string, string[]>, tenant: ZenithTenant): { objects: K8sObject[]; notes: string[] } {
   const address = ingress.metadata.annotations?.[OWNERSHIP.resourceAnnotation] ?? "";
   const spec = isRecord(ingress.spec) ? ingress.spec : {};
   const rules = Array.isArray(spec.rules) ? spec.rules : [];
@@ -146,15 +146,7 @@ export function ingressToRoutes(ingress: K8sObject, substrate: ZenithSubstrate, 
         },
       },
       spec: {
-        parentRefs: [
-          {
-            group: "gateway.networking.k8s.io",
-            kind: "Gateway",
-            name: substrate.gateway.name,
-            namespace: substrate.gateway.namespace,
-            ...(substrate.gateway.listener ? { sectionName: substrate.gateway.listener } : {}),
-          },
-        ],
+        parentRefs: [environmentGatewayParent(tenant, substrate)],
         hostnames: [host],
         rules: paths.map((p) => ({
           matches: [{ path: { type: "PathPrefix", value: p.path } }],
@@ -163,5 +155,5 @@ export function ingressToRoutes(ingress: K8sObject, substrate: ZenithSubstrate, 
       },
     });
   }
-  return { objects, notes: [`${address}: Ingress translated to ${objects.length} Gateway API HTTPRoute(s) attached to ${substrate.gateway.namespace}/${substrate.gateway.name}; TLS terminates at the platform gateway.`] };
+  return { objects, notes: [`${address}: Ingress translated to ${objects.length} Gateway API HTTPRoute(s) attached to ${substrate.gateway.namespace}/${environmentTlsNames(tenant, substrate).gateway}; TLS terminates at the environment's platform gateway.`] };
 }

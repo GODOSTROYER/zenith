@@ -20,11 +20,9 @@
  *     and non-secret shape only.
  *
  * Hostnames: `<service>.<environment-slug>.<workspace-slug>.<base domain>`.
- * TLS implication (see docs/platform/MANAGED-PLATFORM.md, "Open design
- * questions"): a wildcard certificate covers ONE label, so these names need a
- * wildcard per `*.<env>.<workspace>.<domain>` zone or per-listener certificates,
- * not a single `*.<domain>` certificate. That is an operator/gateway concern
- * this module does not hide.
+ * TLS: the platform TLS lifecycle renders a wildcard Certificate and Gateway
+ * per `*.<env>.<workspace>.<domain>` zone. The operator still configures DNS-01
+ * on the ClusterIssuer and provisions DNS; issuance is not proven by apply.
  */
 import { createHash } from "node:crypto";
 import type { KubernetesConnectionConfig } from "@/lib/credentials/types";
@@ -54,12 +52,13 @@ export interface ZenithSubstrate {
   baseDomain: string;
   gateway: {
     mode: GatewayMode;
-    /** GatewayClass the platform Gateway uses (informational for routes; set by the baseline manifests) */
+    /** GatewayClass every environment Gateway uses; installed by the operator */
     className: string;
     /** namespace of the platform Gateway, and the only namespace tenants accept ingress from */
     namespace: string;
+    /** Naming prefix for per-environment Gateways (not a shared route parent). */
     name: string;
-    /** optional listener `sectionName` routes attach to */
+    /** HTTPS listener name on each environment Gateway (default https); always attached explicitly */
     listener?: string;
     /** required when `mode` is `ingress` */
     ingressClass?: string;

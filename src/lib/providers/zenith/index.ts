@@ -28,5 +28,8 @@ export { createNeonProvider, NEON_SIZE_CU, NEON_DATABASE_NAME, NEON_ROLE_NAME, N
 export * from "./render";
 export * from "./session";
 export * from "./apply";
+export * from "./tls";
+export * from "./tls-client";
+export * from "./tls-lifecycle";
 export * from "./export";
 export * from "./drivers";

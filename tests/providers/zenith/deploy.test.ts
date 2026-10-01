@@ -4,6 +4,7 @@ import { loadAll, load } from "js-yaml";
 import { describe, expect, it } from "vitest";
 import { renderZenithEnvironment } from "@/lib/providers/zenith/render";
 import { TENANT_LABEL } from "@/lib/providers/zenith/types";
+import { renderEnvironmentTls } from "@/lib/providers/zenith/tls";
 import { FakeToolkit, TENANT, TYPICAL_GRAPH, substrate } from "./support";
 
 const DIR = path.resolve(__dirname, "../../../deploy/zenith-managed");
@@ -33,22 +34,23 @@ describe("deploy/zenith-managed", () => {
     expect(ns.find((n) => n.metadata.name === "cert-manager")!.metadata.labels?.["pod-security.kubernetes.io/enforce"]).toBe("restricted");
   });
 
-  it("the Gateway is the one routes attach to, and it admits routes only from tenant namespaces", () => {
+  it("installs only the GatewayClass; environment Gateways admit exactly their tenant namespace", () => {
     const docs = read("10-gateway.yaml");
-    const gw = docs.find((d) => d.kind === "Gateway")!;
+    const gw = renderEnvironmentTls(TENANT, sub).find((d) => d.kind === "Gateway")!;
     const cls = docs.find((d) => d.kind === "GatewayClass")!;
-    expect(gw.metadata.name).toBe(sub.gateway.name);
+    expect(docs.map((d) => d.kind)).toEqual(["GatewayClass"]);
     expect(gw.metadata.namespace).toBe(sub.gateway.namespace);
     expect(cls.metadata.name).toBe(sub.gateway.className);
-    expect(gw.spec.gatewayClassName).toBe(cls.metadata.name);
-    for (const l of gw.spec.listeners) {
+    expect(gw.spec!.gatewayClassName).toBe(cls.metadata.name);
+    const out = renderZenithEnvironment({ tenant: TENANT, substrate: sub, nodes: TYPICAL_GRAPH, toolkit: new FakeToolkit() });
+    for (const l of gw.spec!.listeners as { allowedRoutes: { namespaces: { from: string; selector: { matchLabels: Record<string, string> } } } }[]) {
       expect(l.allowedRoutes.namespaces.from).toBe("Selector");
-      expect(l.allowedRoutes.namespaces.selector.matchLabels).toEqual({ [TENANT_LABEL.tenant]: "true" });
+      expect(l.allowedRoutes.namespaces.selector.matchLabels).toEqual({ [TENANT_LABEL.tenant]: "true", "kubernetes.io/metadata.name": out.namespace });
     }
   });
 
   it("flags every placeholder as one", () => {
-    for (const [file, kind] of [["10-gateway.yaml", "GatewayClass"], ["10-gateway.yaml", "Gateway"], ["20-clusterissuer.yaml", "ClusterIssuer"]] as const) {
+    for (const [file, kind] of [["10-gateway.yaml", "GatewayClass"], ["20-clusterissuer.yaml", "ClusterIssuer"]] as const) {
       expect(read(file).find((d) => d.kind === kind)!.metadata.annotations?.["zenith.dev/placeholder"], `${file} ${kind}`).toBe("true");
     }
     const text = fs.readFileSync(path.join(DIR, "20-clusterissuer.yaml"), "utf8");
@@ -128,6 +130,22 @@ describe("deploy/zenith-managed", () => {
       const rule = rules.find((r) => r.resources.includes("pods"))!;
       expect(rule.verbs.sort()).toEqual(["get", "list", "watch"]);
       expect(rule.resources.sort()).toEqual(["events", "pods", "pods/log"]);
+    });
+
+    it("grants TLS writes only through a Role bound in the platform gateway namespace", () => {
+      const docs = read("40-operator-rbac.yaml");
+      const tlsRole = docs.find((d) => d.kind === "Role")!;
+      const tlsBinding = docs.find((d) => d.kind === "RoleBinding")!;
+      expect(tlsRole.metadata.namespace).toBe(sub.gateway.namespace);
+      expect(tlsBinding.metadata.namespace).toBe(sub.gateway.namespace);
+      expect(JSON.stringify(tlsBinding)).toContain('"kind":"Role"');
+      expect(JSON.stringify(tlsBinding)).toContain('"name":"zenith-operator"');
+      expect(tlsRole.rules).toEqual([
+        { apiGroups: ["cert-manager.io"], resources: ["certificates"], verbs: ["get", "create", "patch", "delete"] },
+        { apiGroups: ["gateway.networking.k8s.io"], resources: ["gateways"], verbs: ["get", "create", "patch", "delete"] },
+        { apiGroups: [""], resources: ["secrets"], verbs: ["get", "delete"] },
+      ]);
+      expect(rules.some((r) => r.resources.some((resource: string) => ["certificates", "gateways"].includes(resource)))).toBe(false);
     });
   });
 

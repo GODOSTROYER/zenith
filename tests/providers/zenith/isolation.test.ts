@@ -3,6 +3,7 @@ import { assertTenantObjects, validateTenantObjects } from "@/lib/providers/zeni
 import type { K8sObject } from "@/lib/providers/zenith/k8s-port";
 import { renderTenancy } from "@/lib/providers/zenith/tenancy";
 import { ZenithError } from "@/lib/providers/zenith/types";
+import { environmentGatewayParent } from "@/lib/providers/zenith/tls";
 import { FULL_ENV, NS, TENANT, substrate } from "./support";
 
 const sub = substrate();
@@ -115,7 +116,7 @@ describe("validateTenantObjects: scope and kinds", () => {
     expect(v[0].detail).toMatch(/managed service/);
   });
 
-  it.each(["DaemonSet", "Pod", "Job", "ClusterRole", "ClusterRoleBinding", "Role", "RoleBinding", "Node", "PersistentVolume", "CustomResourceDefinition", "MutatingWebhookConfiguration", "Certificate", "DNSEndpoint"])("refuses %s", (kind) => {
+  it.each(["DaemonSet", "Pod", "Job", "ClusterRole", "ClusterRoleBinding", "Role", "RoleBinding", "Node", "PersistentVolume", "CustomResourceDefinition", "MutatingWebhookConfiguration", "Certificate", "Gateway", "DNSEndpoint"])("refuses %s", (kind) => {
     const o: K8sObject = { apiVersion: "v1", kind, metadata: marks("x") };
     expect(rules([o])).toContain("kind_not_allowed");
   });
@@ -185,7 +186,7 @@ describe("validateTenantObjects: routes", () => {
     kind: "HTTPRoute",
     metadata: marks("route-web"),
     spec: {
-      parentRefs: [over.parent ?? { group: "gateway.networking.k8s.io", kind: "Gateway", name: sub.gateway.name, namespace: sub.gateway.namespace }],
+      parentRefs: [over.parent ?? environmentGatewayParent(TENANT, sub)],
       hostnames: over.hostnames ?? ["web.production.acme.apps.example.com"],
       rules: [{ backendRefs: [{ name: "web", port: 8080 }] }],
     },
@@ -198,6 +199,16 @@ describe("validateTenantObjects: routes", () => {
   it("refuses a route attached to any other gateway", () => {
     expect(rules([route({ parent: { kind: "Gateway", name: "evil", namespace: "kube-system" } })])).toContain("route_parent");
     expect(rules([route({ parent: { kind: "Gateway", name: sub.gateway.name, namespace: "other" } })])).toContain("route_parent");
+  });
+
+  it("refuses unscoped parents, other listeners, API groups and ports", () => {
+    const expected = environmentGatewayParent(TENANT, sub);
+    for (const parent of [{ ...expected, sectionName: undefined }, { ...expected, sectionName: "http" }, { ...expected, group: "evil.io" }, { ...expected, port: 80 }]) {
+      expect(rules([route({ parent })])).toContain("route_parent");
+    }
+    const duplicate = route();
+    duplicate.spec!.parentRefs = [expected, expected];
+    expect(rules([duplicate])).toContain("route_parent");
   });
 
   it("refuses hostnames outside the tenant's managed suffix, wildcards, another tenant's names and an empty list", () => {

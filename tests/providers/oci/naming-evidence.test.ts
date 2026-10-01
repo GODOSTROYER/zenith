@@ -90,7 +90,8 @@ describe("references", () => {
     for (const d of ociDrivers.filter((x) => x.capabilities.compile)) expect(OCI_PRIMARY_TYPE[d.nativeType], d.nativeType).toBeDefined();
     expect(ociPrimaryAddress({ address: "network/main", nativeType: "oci:vcn" })).toBe("oci_core_vcn.network_main");
     expect(ociPrimaryAddress({ address: "tls_certificate/a.b.c", nativeType: "oci:certificate" })).toBe("data.oci_certificates_management_certificates.tls_certificate_a_b_c");
-    expect(ociPrimaryAddress({ address: "x/y", nativeType: "oci:oke_cluster" })).toBeUndefined();
+    expect(ociPrimaryAddress({ address: "x/y", nativeType: "oci:oke_cluster" })).toBe("oci_containerengine_cluster.x_y");
+    expect(ociPrimaryAddress({ address: "x/y", nativeType: "oci:mysql_db_system" })).toBeUndefined();
   });
 
   it("networkOf picks the first subnet of the tier, sorted, and its network", () => {

@@ -124,7 +124,7 @@ This matrix covers the **resource-driver** path (`src/lib/drivers`). The product
 |---|---|---|---|---|---|---|---|---|---|
 | `oci:block_volume` | `volume` | `oci.block_volume@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
 | `oci:certificate` | `tls_certificate` | `oci.certificate@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
-| `oci:compute_instance` | `compute_instance` | `oci.compute_instance@1` | yes | — | — | — | — | — | — |
+| `oci:compute_instance` | `compute_instance` | `oci.compute_instance@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
 | `oci:container_instance` | `container_service` | `oci.container_instance@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | `service.restart`: `contract` |
 | `oci:container_repository` | `container_registry` | `oci.container_repository@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
 | `oci:dns_rrset` | `dns_record` | `oci.dns_rrset@1` | yes | `contract` | `contract` | — | `contract` | — | — |
@@ -132,9 +132,9 @@ This matrix covers the **resource-driver** path (`src/lib/drivers`). The product
 | `oci:dynamic_group` | `identity` | `oci.dynamic_group@1` | yes | `contract` | `contract` | — | `contract` | — | — |
 | `oci:load_balancer` | `load_balancer` | `oci.load_balancer@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
 | `oci:log_group` | `log_group` | `oci.log_group@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
-| `oci:mysql_db_system` | `mysql` | `oci.mysql_db_system@1` | yes | — | — | — | — | — | — |
+| `oci:mysql_db_system` | `mysql` | `oci.mysql_db_system@1` | yes | — | `contract` | `contract` | `contract` | `contract` | — |
 | `oci:object_storage_bucket` | `object_store` | `oci.object_storage_bucket@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
-| `oci:oke_cluster` | `kubernetes_cluster` | `oci.oke_cluster@1` | yes | — | — | — | — | — | — |
+| `oci:oke_cluster` | `kubernetes_cluster` | `oci.oke_cluster@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
 | `oci:postgresql_db_system` | `postgres` | `oci.postgresql_db_system@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | `database.snapshot`: `contract` |
 | `oci:queue` | `queue` | `oci.queue@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
 | `oci:redis_cluster` | `redis` | `oci.redis_cluster@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |

@@ -12,7 +12,7 @@
  *
  * A volume lives in ONE availability domain; this driver uses AD 1. It is not
  * attached to anything: attachment belongs to a compute instance driver, which
- * does not exist (`oci:compute_instance` is unsupported).
+ * is not wired by this driver (VM boot volumes are managed by the VM driver).
  */
 import type { CompileContext, ResourceDriver, TofuFragment } from "@/lib/drivers/types";
 import type { Observation, ResourceNode } from "@/lib/resources/types";

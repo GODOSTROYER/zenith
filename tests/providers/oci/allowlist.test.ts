@@ -17,6 +17,7 @@ import type { OciApiRequest, OciApiResponse, OciApiTransport } from "@/lib/provi
 import type { Observation, ResourceNode } from "@/lib/resources";
 import { driverContext, driverFor, expandOci, nodeOf, REGION, webStack, type FakeOci } from "./_support";
 import { healthyWorld } from "./_world";
+import { moreGraph } from "./_more";
 
 const graph = expandOci();
 const observable = (n: { nativeType: string; ownership: string }) => !n.nativeType.startsWith("unsupported:") && !(n.nativeType === "oci:vault_secret" && n.ownership !== "managed");
@@ -28,7 +29,7 @@ function richGraphs() {
   m.services[1] = { ...m.services[1], source: { type: "git", repo: "github.com/acme/worker", ref: "main" } };
   const withRepo = expandOci(m);
   const volume = { ...nodeOf(graph, "object_store/assets"), address: "volume/data", kind: "volume", nativeType: "oci:block_volume", spec: { sizeGb: 100, deletionPolicy: "deny" } } as ResourceNode;
-  return [graph, { ...withRepo, nodes: [...withRepo.nodes, volume] }];
+  return [graph, moreGraph({ ...withRepo, nodes: [...withRepo.nodes, volume] })];
 }
 
 class Recording implements OciApiTransport {
@@ -226,7 +227,9 @@ describe("end to end through the runner-backed transport", () => {
 });
 
 describe("the protocol document and the code agree", () => {
-  const doc = fs.readFileSync(path.join(process.cwd(), "docs", "platform", "RUNNER-PROTOCOL-OCI.md"), "utf8");
+  // The scoped workstream documents additive rules in deploy/oci; the shared
+  // protocol remains owned by the orchestrator. Both must describe every rule.
+  const doc = ["docs/platform/RUNNER-PROTOCOL-OCI.md", "deploy/oci/DRIVERS-MORE.md"].map((file) => fs.readFileSync(path.join(process.cwd(), file), "utf8")).join("\n");
 
   it("lists every allowlist rule of every capability", () => {
     for (const [cap, rules] of Object.entries(OCI_ALLOWLIST)) {
@@ -237,7 +240,6 @@ describe("the protocol document and the code agree", () => {
 
   it("lists every service with its host and API version", () => {
     for (const [id, h] of Object.entries(OCI_SERVICE_HOSTS)) {
-      if (id === "containerengine") continue; // reserved: no driver calls it
       expect(doc, id).toContain(`| \`${id}\` |`);
       if (id !== "queue-data") expect(doc, id).toContain(h.host);
       if (h.version) expect(doc, id).toContain(`\`${h.version}\``);

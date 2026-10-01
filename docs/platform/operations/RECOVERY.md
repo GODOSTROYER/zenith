@@ -405,9 +405,10 @@ Also:
   opens). With a KMS-backed control signer it must be set (there is no private scalar
   to derive from). Source: `src/lib/runners/seal.ts`.
 - **`ZENITH_SECRET_KEY`** also encrypts the product secret store and derives plan
-  fingerprints; nothing re-wraps existing vault values. The Temporal previous-key
-  option covers Temporal only. Arrange vault migration and fresh review of plans
-  before changing this shared key. For a coordinated payload rotation, first give
+  fingerprints. [Product-vault key re-wrap](#product-vault-key-re-wrap) migrates
+  existing vault rows; the Temporal previous-key option covers Temporal only.
+  Arrange vault migration and fresh review of plans before resuming operations
+  after changing this shared key. For a coordinated payload rotation, first give
   all clients/workers both old and next keys as decrypt-capable keys, then switch
   the current key while retaining the old one. Keep keys outside histories,
   logs and tickets; test replay in the isolated environment before rolling out.
@@ -418,6 +419,86 @@ Also:
 - **The Temporal API key and the database password** are plain secrets: rotate in
   the secret manager and restart the processes that read them. Both are read at
   start-up; the worker does not hot-reload.
+
+### Product-vault key re-wrap
+
+`scripts/vault-rewrap.ts` rotates the encryption key of existing product-vault
+values without changing their references, plaintext values, value versions,
+timestamps or actors. The AES-256-GCM format and workspace/reference AAD stay
+compatible with existing rows. It supports `<ZENITH_DATA>/secrets.json` and
+`public.secrets`; it does not migrate platform rows or Temporal histories.
+Local file and PGlite tests cover this path. Production Postgres, pooler/TLS,
+multi-process crash recovery and coordinated rollout are **not rehearsed** here.
+
+1. Back up the product store and keep every required old key in the secret
+   manager separately from the backup. Existing backups still need their old
+   keys after the current store is re-wrapped. Check the actual product backend:
+   `ZENITH_STORE=file` uses `ZENITH_DATA`; `ZENITH_STORE=postgres` requires
+   `SUPABASE_DB_URL` and access to `public.secrets` and `public.audit_events`.
+   A platform-only database URL is insufficient; the command runs no migrations.
+2. Deploy the previous-key-capable readers to every vault consumer. Before
+   switching the current key, include the next key in
+   `ZENITH_VAULT_PREVIOUS_SECRET_KEYS` so readers can open either generation.
+   This private JSON array accepts 32-byte hex or base64 keys; use 64-hex keys
+   when sharing them with Temporal and plan-fingerprint consumers. Inject keys
+   through protected environment configuration; never put them in CLI arguments,
+   shell history, logs, screenshots or tickets.
+3. Pause new operations, drain in-flight work, and stop all product-vault writers
+   (web processes, workers and maintenance scripts). Keep them stopped through
+   preflight and apply. Set the operator process's `ZENITH_SECRET_KEY` to the new
+   key and its `ZENITH_VAULT_PREVIOUS_SECRET_KEYS` to all required old keys.
+   Configure Temporal overlap separately with
+   `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS`; changing the shared current key also
+   invalidates old plan fingerprints, so obtain fresh browser review of plans.
+4. For each workspace id from the product workspace inventory, run a rehearsal:
+
+   ```powershell
+   npx tsx --env-file-if-exists=.env.local scripts/vault-rewrap.ts --workspace <workspace-id> --batch-size 100 --dry-run
+   ```
+
+   The command refuses missing/invalid workspace ids, duplicate/unknown flags,
+   and batch sizes outside 1–1000. It authenticates every selected workspace row
+   in bounded pages before changing anything. A missing/wrong key or altered
+   row fails preflight without partial writes, even on the last page. Dry-run
+   neither writes ciphertext nor appends audit or drains the audit outbox.
+5. Apply with the same protected environment, omitting `--dry-run`:
+
+   ```powershell
+   npx tsx --env-file-if-exists=.env.local scripts/vault-rewrap.ts --workspace <workspace-id> --batch-size 100
+   ```
+
+   Output is JSON with numeric counts only: `inspected`, `candidates`,
+   `rewrapped`, `unchanged`, and `batches`. Dry-run reports candidates but
+   `rewrapped=0` and `batches=0`; apply emits cumulative counts after each
+   committed batch and a final report. Exit codes are 0 for success, 1 for a
+   sanitized failure, and 2 for invalid CLI usage. No values, references,
+   workspace names, key ids or connection strings are printed.
+6. Repeat dry-run and require `candidates=0` for **every workspace**, then test
+   vault resolution through the application. Restart all consumers with the new
+   current key and old decrypt-only keys. Retain old vault keys until no current
+   rows need them and the associated backups expire; retain Temporal keys for
+   as long as their active, retained or archived histories need them.
+
+Postgres locks each page's rows and commits ciphertext plus a count-only
+`system.rewrapVault` audit event in the **same transaction**. An audit failure
+rolls back that batch. The file backend holds the existing exclusive
+`secrets.json.lock` while it commits each batch by atomic rename, including a
+`pendingRewrapAudit` outbox in that snapshot. It appends those events to
+`audit.jsonl` and drains the outbox after commit. This is **at least once** audit
+delivery: a crash after append but before outbox removal can duplicate an event
+with the same id; deduplicate those ids when consuming the trail. There is no
+transaction spanning two filesystem files, and the file store still loads and
+rewrites the whole snapshot even though crypto work is bounded per batch.
+
+After interruption, rerun the same command with the same keys and workspace.
+Completed batches remain committed; rows already authenticated by the current
+key are skipped without rewriting their bytes, and pending file audit events
+are delivered on the next apply, even when no ciphertext needs changing. On a
+hard process crash a stale file lock can remain. Verify that every writer is
+stopped before removing only `<ZENITH_DATA>/secrets.json.lock`; the tool never
+breaks a lock automatically. If a row changes to an unreadable value after
+preflight, its batch fails but previous committed batches remain; quiescing
+writers is required for the preflight guarantee across the whole run.
 
 ## 7. Migrating the platform schema forward
 

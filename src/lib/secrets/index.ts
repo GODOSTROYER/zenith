@@ -155,8 +155,12 @@ export type Sealed = Pick<SecretRecord, "iv" | "authTag" | "ciphertext">;
  * Throws when there is no usable key. It never degrades to writing plaintext.
  */
 export function seal(workspaceId: string, ref: string, value: string): Sealed {
+  return sealWithKey(requireKey(), workspaceId, ref, value);
+}
+
+function sealWithKey(key: Buffer, workspaceId: string, ref: string, value: string): Sealed {
   const iv = crypto.randomBytes(12);
-  const c = crypto.createCipheriv("aes-256-gcm", requireKey(), iv);
+  const c = crypto.createCipheriv("aes-256-gcm", key, iv);
   c.setAAD(aad(workspaceId, ref));
   const ct = Buffer.concat([c.update(value, "utf8"), c.final()]);
   return {
@@ -195,6 +199,70 @@ export function unseal(workspaceId: string, ref: string, sealed: Sealed): string
   }
 }
 
+/** A private rotation snapshot. Previous keys are used only by `open`. */
+export interface VaultCipher {
+  seal(workspaceId: string, ref: string, value: string): Sealed;
+  open(workspaceId: string, ref: string, sealed: Sealed): { value: string; current: boolean };
+}
+
+/**
+ * Capture validated vault keys once per re-wrap run, or once per vault read.
+ * Read this variable here because env.ts is outside the rotation workstream.
+ * No key ids are persisted: successful GCM authentication identifies the writer.
+ * Malformed configuration and authentication errors never echo input or refs.
+ */
+export function vaultCipherFromEnv(
+  source: Readonly<Record<string, string | undefined>> = process.env
+): VaultCipher {
+  const decode = (raw: unknown, variable: string): Buffer => {
+    if (typeof raw !== "string" || !/^(?:[a-fA-F0-9]{64}|[A-Za-z0-9+/]{43}=?)$/.test(raw.trim()))
+      throw new Error(`${variable} must contain 32-byte hex or base64 keys.`);
+    const key = decodeSecretKey(raw);
+    if (!key) throw new Error(`${variable} must contain 32-byte hex or base64 keys.`);
+    return key;
+  };
+  const current = decode(source.ZENITH_SECRET_KEY, "ZENITH_SECRET_KEY");
+  let previous: unknown = [];
+  const raw = source.ZENITH_VAULT_PREVIOUS_SECRET_KEYS;
+  if (raw !== undefined) {
+    try { previous = JSON.parse(raw); } catch {
+      throw new Error("ZENITH_VAULT_PREVIOUS_SECRET_KEYS must be a JSON array of 32-byte keys.");
+    }
+  }
+  if (!Array.isArray(previous))
+    throw new Error("ZENITH_VAULT_PREVIOUS_SECRET_KEYS must be a JSON array of 32-byte keys.");
+  const keys = [current];
+  for (const rawKey of previous) {
+    const key = decode(rawKey, "ZENITH_VAULT_PREVIOUS_SECRET_KEYS");
+    if (!keys.some((prior) => prior.equals(key))) keys.push(key);
+  }
+  return {
+    seal(workspaceId, ref, value) {
+      return sealWithKey(current, workspaceId, ref, value);
+    },
+    open(workspaceId, ref, sealed) {
+      for (const [index, key] of keys.entries()) {
+        try {
+          const iv = Buffer.from(sealed.iv, "base64");
+          const tag = Buffer.from(sealed.authTag, "base64");
+          if (iv.length !== 12 || tag.length !== 16) break;
+          const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+          decipher.setAAD(aad(workspaceId, ref));
+          decipher.setAuthTag(tag);
+          const value = Buffer.concat([decipher.update(Buffer.from(sealed.ciphertext, "base64")), decipher.final()]).toString("utf8");
+          return { value, current: index === 0 };
+        } catch { /* Authentication must succeed before any plaintext is returned. */ }
+      }
+      throw new Error("A stored vault value cannot be opened with the configured keys. Restore the required key or an intact backup.");
+    },
+  };
+}
+
+/** Vault-only read overlap. Generic `unseal` retains its current-key contract. */
+export function unsealVault(workspaceId: string, ref: string, sealed: Sealed): string {
+  return vaultCipherFromEnv().open(workspaceId, ref, sealed).value;
+}
+
 /* ---------------------------------- reads --------------------------------- */
 
 /** Metadata for one reference. Never the value. */
@@ -220,7 +288,7 @@ export function listSecrets(workspaceId: string): SecretMeta[] {
  */
 export function readSecretValue(workspaceId: string, ref: string): string | undefined {
   const record = secretsBackend().get(workspaceId, ref);
-  return record && unseal(workspaceId, ref, record);
+  return record && unsealVault(workspaceId, ref, record);
 }
 
 /** Non-blocking metadata read for request/provider paths. */
@@ -243,7 +311,7 @@ export async function readSecretValueAsync(
   ref: string
 ): Promise<string | undefined> {
   const record = await asyncSecretsBackend().get(workspaceId, ref);
-  return record && unseal(workspaceId, ref, record);
+  return record && unsealVault(workspaceId, ref, record);
 }
 
 /* --------------------------------- writes --------------------------------- */

@@ -114,6 +114,7 @@ guidance rather than secret values; it does not verify live provider readiness:
 | Broker store selection | `defaultStore` and `isMemoryStoreEnabled` in `src/lib/capabilities/platform.ts` | No |
 | Browser origin for approvals | `src/app/api/platform/v1/_lib/browser.ts` | No |
 | Runner result sealing key | `createResultSealerFromEnv` in `src/lib/runners/seal.ts` | No |
+| Product vault previous keys | `vaultCipherFromEnv` in `src/lib/secrets/index.ts` | No; validated when a vault value is read or the re-wrap command starts |
 | Zenith-managed provider substrate | `readSubstrateConfig` in `src/lib/providers/zenith/substrate.ts` | No |
 
 A variable that `env()` validates makes the **product** refuse to start when it
@@ -253,6 +254,7 @@ Read by `executionWorkerConfigFromEnv`. Details and defaults:
 | `ZENITH_WORKER_PLAN_DIR` | `<ZENITH_DATA or .data>/platform-plans` | Worker-local binary plan directory, resolved to an absolute path and created with mode `0700`. Keep it private; binary plans may contain secrets. Cross-replica filesystem access and Windows ACL equivalence are not verified. |
 | `ZENITH_SECRET_KEY` | unset | **Secret**, required: 64 hex characters. `derivePlanFingerprintKey` uses HKDF-SHA256 with `zenith.tofu.plan.fingerprint.v1`; there is no public default. The key also protects product vault secrets and encrypts Temporal workflow payloads (AES-256-GCM, HKDF info `zenith.temporal.payload.v1`); give the web app and cooperating workers the same key and back it up separately. |
 | `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS` | unset | **Secret**, optional: a JSON array of earlier 64-hex `ZENITH_SECRET_KEY` values. Payloads carry a key id; after rotating `ZENITH_SECRET_KEY`, list the old keys here (on the web app and every worker) so workflow histories written under them still decode. A malformed value is refused at startup. |
+| `ZENITH_VAULT_PREVIOUS_SECRET_KEYS` | unset | **Secret**, optional: a private JSON array of previous product-vault keys, each 32 bytes encoded as hex or base64. Vault reads try the current key and then these decrypt-only keys; writes use only `ZENITH_SECRET_KEY`. Invalid JSON or keys fail closed on vault reads and command startup, without echoing values. This is separate from Temporal history keys. The operator command uses `ZENITH_STORE` (`file` by default; `postgres` for `public.secrets` via `SUPABASE_DB_URL`), requires an explicit workspace, and never uses `ZENITH_PLATFORM_DB_URL` to select the product database. See [vault key re-wrap](RECOVERY.md#product-vault-key-re-wrap). |
 
 ### 2.6 OpenTofu engine
 
@@ -426,6 +428,7 @@ broker session; the price catalog is a bundled JSON file.
 | `ZENITH_RUNNER_RESULT_KEY` | yes (seals results) | yes, when an activity awaits runner jobs (opens them; must match) | no |
 | `ZENITH_SECRET_KEY` | yes (product vault and Temporal payloads) | yes (plan fingerprints, vault and Temporal payloads) | no |
 | `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS` | when decrypting retained Temporal histories | same key set as the client | no |
+| `ZENITH_VAULT_PREVIOUS_SECRET_KEYS` | when reading vault rows during rotation | when resolving vault references during rotation | no |
 
 ### 2.13 Zenith-managed provider substrate
 

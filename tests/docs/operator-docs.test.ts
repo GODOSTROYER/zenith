@@ -425,12 +425,14 @@ describe("environment variables", () => {
     "src/lib/providers/kubernetes",
     "src/lib/providers/zenith",
     "src/lib/execution",
+    "src/lib/secrets",
     "src/lib/machines",
     "src/lib/analysis",
     "src/lib/capabilities",
     "src/lib/drivers",
     "workers/execution",
     "scripts/platform",
+    "scripts/vault-rewrap.ts",
   ];
   const TOKEN = /\bZENITH_[A-Z][A-Z0-9_]*[A-Z0-9]\b/g;
 

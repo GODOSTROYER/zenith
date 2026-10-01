@@ -65,8 +65,8 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-DOCS-SYNC | Operator docs and drift tests match what is wired | 5 | integrated |  | ws/docs-sync |  | tests/docs 93 passed after merge | orchestrator: merged; SEC-F9 docs/test updated to closed; acceptance F/H/I diagnostics and worker default identity noted |  |
 | WS-DESTROY | Environment teardown: tofu destroy, destroy workflow, stateful guards, harness run tags | 6 | in_progress |  | ws/destroy |  |  |  |  |
 | WS-SECRET-SYNC | Secret values delivered to cloud secret stores under brokered secret.write; vault:generated | 6 | in_progress |  | ws/secret-sync |  |  |  |  |
-| WS-OBS-WIRE | Credential broker + incident investigator registered in the app; observability for all providers | 6 | in_progress |  | ws/obs-wire |  |  |  |  |
-| WS-OPS | Housekeeping passes (prunes, expiry, uncertain, plan janitor); worker health | 6 | in_progress |  | ws/ops |  |  |  |  |
+| WS-OBS-WIRE | Credential broker + incident investigator registered in the app; observability for all providers | 6 | integrated |  | ws/obs-wire |  | observability/incidents/platform/agent-v3/docs 909 passed | orchestrator: merged; OCI reads pending OCI sessions + operation-less runner read jobs (follow-up) |  |
+| WS-OPS | Housekeeping passes (prunes, expiry, uncertain, plan janitor); worker health | 6 | integrated |  | ws/ops |  | server/workers/controlplane/sql-scoping/runners 607 passed | orchestrator: moved locked prune SQL into repos; fixed worker default identity (colons rejected by runtime) + startup validation; docs |  |
 | WS-CI-2 | CI covers every suite and gate; Node engines pin (SEC-F9) | 6 | integrated |  | ws/ci-2 |  | tests/ci + runtime-sanity + matrix 231 passed | orchestrator: set package.json/lock engines >=22.16 <23 (SEC-F9 closed) |  |
 | WS-AZURE-MORE | Azure VM, managed disk, MySQL, Static Web Apps, Functions, AKS drivers | 6 | in_progress |  | ws/azure-more |  |  |  |  |
 | WS-AWS-MORE | AWS SNS topic, EBS volume, EKS cluster drivers | 6 | in_progress |  | ws/aws-more |  |  |  |  |

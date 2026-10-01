@@ -952,20 +952,24 @@
       "title": "Credential broker + incident investigator registered in the app; observability for all providers",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [],
       "paths": [],
-      "branch": "ws/obs-wire"
+      "branch": "ws/obs-wire",
+      "tests": "observability/incidents/platform/agent-v3/docs 909 passed",
+      "review": "orchestrator: merged; OCI reads pending OCI sessions + operation-less runner read jobs (follow-up)"
     },
     {
       "id": "WS-OPS",
       "title": "Housekeeping passes (prunes, expiry, uncertain, plan janitor); worker health",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [],
       "paths": [],
-      "branch": "ws/ops"
+      "branch": "ws/ops",
+      "tests": "server/workers/controlplane/sql-scoping/runners 607 passed",
+      "review": "orchestrator: moved locked prune SQL into repos; fixed worker default identity (colons rejected by runtime) + startup validation; docs"
     },
     {
       "id": "WS-CI-2",

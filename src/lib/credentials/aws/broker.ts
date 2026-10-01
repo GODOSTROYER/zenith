@@ -55,6 +55,7 @@ import { isAccountId, isExternalId, isRegion, parseRoleArn } from "./arn";
 import { validateSessionPolicy, SessionPolicyError } from "./policy";
 import { createDirectAwsSession, createRunnerAwsSession, type SessionHandle, type TemporaryCredentials } from "./session";
 import { sessionPolicyFor } from "./session-policy";
+import { secretWritePolicy } from "./secret-policy";
 import { roleSessionName, sessionTagList, sessionTagRecord } from "./tags";
 
 export const DEFAULT_SESSION_SEC = 900;
@@ -126,7 +127,7 @@ export class AwsCredentialBroker implements CredentialBroker {
     if (!grant || typeof grant.ws !== "string" || !grant.ws || typeof grant.op !== "string" || !grant.op) {
       throw new CredentialDeniedError("The credential request has no usable capability grant.", { reason: "grant_invalid" });
     }
-    const purpose: CredentialPurpose = req.purpose === "deploy" ? "deploy" : "observe";
+    const purpose: CredentialPurpose = req.purpose;
     let plan: Plan;
     try {
       plan = await this.#plan(req, grant);
@@ -209,7 +210,7 @@ export class AwsCredentialBroker implements CredentialBroker {
     if (!Number.isFinite(grant.exp) || grant.exp <= nowSec) {
       throw new Denial("grant_expired", "The capability grant has expired.");
     }
-    if (req.purpose !== "observe" && req.purpose !== "deploy") {
+    if (req.purpose !== "observe" && req.purpose !== "deploy" && req.purpose !== "secret.write") {
       throw new Denial("purpose_capability_mismatch", 'The credential purpose must be "observe" or "deploy".');
     }
     if (typeof req.connectionId !== "string" || !req.connectionId) {
@@ -226,6 +227,9 @@ export class AwsCredentialBroker implements CredentialBroker {
     }
     if (!isCapability(grant.cap)) throw new Denial("unknown_capability", "The grant names an unknown capability.");
     const mutates = lookupCapability(grant.cap).mutates;
+    if ((req.purpose === "secret.write") !== (grant.cap === "secret.write")) {
+      throw new Denial("purpose_capability_mismatch", "secret.write requires its separate writer purpose and role.");
+    }
     if (req.purpose === "deploy" && !mutates) {
       throw new Denial("purpose_capability_mismatch", `Capability ${grant.cap} does not change anything, so it cannot use the deploy role.`);
     }
@@ -238,6 +242,9 @@ export class AwsCredentialBroker implements CredentialBroker {
     }
 
     const config = connection.config;
+    if (req.purpose === "secret.write" && (config.mode === "runner" || !config.secretWriterRoleArn || [config.deployRoleArn, config.observeRoleArn].includes(config.secretWriterRoleArn))) {
+      throw new Denial("not_supported", "secret.write needs a distinct direct-session writer role; runner value bodies are not sealed.");
+    }
     const roleArn = this.#checkConfig(config, req.purpose);
 
     const requested = req.durationSec ?? config.sessionDurationSec ?? DEFAULT_SESSION_SEC;
@@ -297,7 +304,7 @@ export class AwsCredentialBroker implements CredentialBroker {
     if (!isAccountId(config.accountId) || !isRegion(config.region)) {
       throw new Denial("role_arn_invalid", "The connection's account id or region is malformed.");
     }
-    const roleArn = purpose === "deploy" ? config.deployRoleArn : config.observeRoleArn;
+    const roleArn = purpose === "secret.write" ? config.secretWriterRoleArn ?? "" : purpose === "deploy" ? config.deployRoleArn : config.observeRoleArn;
     const parsed = parseRoleArn(roleArn);
     if (!parsed) throw new Denial("role_arn_invalid", `The ${purpose} role ARN is not a valid IAM role ARN.`);
     if (parsed.accountId !== config.accountId) {
@@ -311,6 +318,10 @@ export class AwsCredentialBroker implements CredentialBroker {
 
   #sessionPolicy(req: CredentialRequest, grant: CapabilityGrantClaims, config: AwsConnectionConfig): string | undefined {
     try {
+      if (req.purpose === "secret.write") {
+        if (req.sessionPolicy !== undefined) throw new SessionPolicyError("secret.write policies are derived only from signed resource constraints.");
+        return secretWritePolicy(grant, config.accountId, config.region, req.secretResources);
+      }
       if (req.sessionPolicy !== undefined) return validateSessionPolicy(req.sessionPolicy);
       if (this.#o.deriveSessionPolicy === false) return undefined;
       const derived = sessionPolicyFor(grant.cap, { accountId: config.accountId, region: config.region, environmentId: grant.env });
@@ -477,7 +488,10 @@ export class AwsCredentialBroker implements CredentialBroker {
       sessionToken: c.SessionToken,
       expiration: c.Expiration ?? new Date(now.getTime() + plan.durationSec * 1000),
     };
-    return createDirectAwsSession({ ...common, credentials, expiresAt: credentials.expiration });
+    const expiresAt = plan.purpose === "secret.write" && grant
+      ? new Date(Math.min(credentials.expiration.getTime(), grant.exp * 1000))
+      : credentials.expiration;
+    return createDirectAwsSession({ ...common, credentials, expiresAt });
   }
 
   /* --------------------------------- events -------------------------------- */

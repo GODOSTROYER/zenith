@@ -77,6 +77,8 @@ export function generate(): Record<string, string> {
   }
   const cb = resolveResource(base.template, base.evaluator, "CodeBuildRole")!;
   files["codebuild.json.tftpl"] = render((cb.Policies as { PolicyDocument: unknown }[])[0].PolicyDocument);
+  const writer = resolveResource(base.template, base.evaluator, "SecretWriterRole")!;
+  files["secret-writer.json.tftpl"] = render((writer.Policies as { PolicyDocument: unknown }[])[0].PolicyDocument);
 
   // The CodeBuild role's optional KMS statement.
   const cbFull = resolveResource(full.template, full.evaluator, "CodeBuildRole")!;

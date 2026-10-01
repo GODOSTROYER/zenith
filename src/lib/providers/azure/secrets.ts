@@ -28,6 +28,7 @@
 import type { AzureSession } from "@/lib/credentials/types";
 import { ArmError, safeText, sendJson, type Json } from "@/lib/providers/azure/arm";
 import { API } from "@/lib/providers/azure/platform";
+import { sameSecret } from "@/lib/secrets/delivery";
 import { kvSecretName } from "@/lib/providers/azure/drivers/identity/key-vault-secret";
 
 export const MAX_SECRET_BYTES = 25 * 1024;
@@ -104,7 +105,7 @@ export async function syncSecretValue(session: AzureSession, input: SyncSecretIn
   } catch (e) {
     if (!(e instanceof ArmError && e.kind === "not_found")) fail(e);
   }
-  if (current && typeof current.value === "string" && current.value === input.value) {
+  if (current && typeof current.value === "string" && sameSecret(current.value, input.value)) {
     return { status: "unchanged", secretName, version: versionOf(current.id) };
   }
   try {

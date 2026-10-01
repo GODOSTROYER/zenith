@@ -8,6 +8,11 @@ output "deploy_role_arn" {
   value       = aws_iam_role.deploy.arn
 }
 
+output "secret_writer_role_arn" {
+  description = "Give this to Zenith as secretWriterRoleArn, separate from deployRoleArn."
+  value       = aws_iam_role.secret_writer.arn
+}
+
 output "state_bucket_name" {
   description = "Bucket for OpenTofu state and build artifacts."
   value       = aws_s3_bucket.state.bucket

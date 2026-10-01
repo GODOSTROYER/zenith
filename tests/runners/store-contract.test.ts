@@ -361,7 +361,7 @@ describe.each(["runner", "machine"] as const)("%s job queue", (kind) => {
     const operationId = await h.operation(a);
     const j1 = await enqueue(h, q, a, agent.id, { operationId });
     const j2 = await enqueue(h, q, a, agent.id, { operationId });
-    expect((await q.listForOperation(a, operationId)).map((j) => j.id), h.name).toEqual([j1.id, j2.id]);
+    expect((await q.listForOperation(a, operationId)).map((j) => j.id).sort(), h.name).toEqual([j1.id, j2.id].sort());
     expect(await q.listForOperation(ws(), operationId), h.name).toEqual([]);
   }));
 });

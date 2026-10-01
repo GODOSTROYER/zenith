@@ -21,12 +21,13 @@ import { digest } from "@/lib/controlplane/digest";
 import type { CapabilityGrantClaims, OperationProposal, Principal } from "@/lib/controlplane/types";
 import type { ZodError } from "zod";
 import { capability as catalogEntry, CapabilityRequestSchema, type CapabilityDef, type CapabilityRequest } from "./catalog";
-import { BrokerError } from "./errors";
+import { BrokerError, notFound } from "./errors";
 import { evaluate, raiseRisk, buildPlanFacts, type Evaluation } from "./evaluate";
-import { newId, requesterOf } from "./internal";
+import { newId, requesterOf, requireHumanSession } from "./internal";
+import { loadDestroyPlan } from "./destroy-plan";
 import type { BrokerDeps } from "./ports";
 import { findSecret } from "./secret-guard";
-import type { BrokerProposal, CheckResult, ConstraintValue, DecisionView, ProposeContext, ProposeResult, ReadAuthorization } from "./types";
+import type { BrokerProposal, CheckResult, ConstraintValue, DecisionView, PlanFactsWithCost, ProposeContext, ProposeResult, ReadAuthorization } from "./types";
 import { decisionView, operationView } from "./views";
 
 const MAX_INPUT_JSON = 64 * 1024;
@@ -117,7 +118,7 @@ function describeScope(scope: { projectId?: string; environmentId?: string; reso
   return parts.length ? ` on ${parts.join(" in ")}` : "";
 }
 
-export function buildProposal(args: { parsed: ParsedRequest; evaluation: Evaluation; ctx: ProposeContext; planDigest?: string }): BrokerProposal {
+export function buildProposal(args: { parsed: ParsedRequest; evaluation: Evaluation; ctx: ProposeContext; planDigest?: string; destroyPlan?: Awaited<ReturnType<typeof loadDestroyPlan>> }): BrokerProposal {
   const { parsed, evaluation, ctx } = args;
   const { def } = parsed;
   const scope = evaluation.resolved.scope;
@@ -138,6 +139,7 @@ export function buildProposal(args: { parsed: ParsedRequest; evaluation: Evaluat
     if (plan.destroysData) details.push(`Destroys stateful data: ${plan.destroyedStatefulAddresses.slice(0, 10).join(", ")}${plan.destroyedStatefulAddresses.length > 10 ? ", …" : ""}`);
     if (plan.costDeltaUsdMonthly !== undefined) details.push(`Estimated monthly cost change: ${plan.costDeltaUsdMonthly >= 0 ? "+" : "-"}$${Math.abs(plan.costDeltaUsdMonthly).toFixed(2)}`);
   }
+  if (args.destroyPlan) details.push(`Retained (${args.destroyPlan.retained.length}): ${args.destroyPlan.retained.slice(0, 10).join(", ") || "none"}${args.destroyPlan.retained.length > 10 ? ", …" : ""}`);
   if (parsed.reason) details.push(`Reason given by the requester (unverified text): ${oneLine(parsed.reason, MAX_REASON_DETAIL)}`);
 
   const proposal: BrokerProposal = {
@@ -157,9 +159,27 @@ export function buildProposal(args: { parsed: ParsedRequest; evaluation: Evaluat
       ...(parsed.request.requestedDurationSec !== undefined ? { requestedDurationSec: parsed.request.requestedDurationSec } : {}),
       risk: evaluation.risk,
       ...(plan ? { plan } : {}),
+      ...(args.destroyPlan ? { destroyPlan: { operationId: args.destroyPlan.operationId, evidenceId: args.destroyPlan.evidenceId, retained: args.destroyPlan.retained } } : {}),
     },
   };
   return proposal;
+}
+
+async function trustedEvaluationRequest(deps: BrokerDeps, parsed: ParsedRequest, principal: Principal, ctx: ProposeContext) {
+  if (parsed.def.name !== "infrastructure.destroy") return { ...evaluationRequest(parsed, principal, ctx), destroyPlan: undefined };
+  // A normalized caller context cannot stand in for recorded destroy evidence.
+  const base = evaluationRequest(parsed, principal, { ...ctx, plan: undefined, cost: undefined });
+  if (!ctx.destroyPlan || principal.kind !== "user") return { ...base, destroyPlan: undefined };
+  requireHumanSession(principal, ctx.session, "propose teardown");
+  const access = await deps.roles.resolve(principal, parsed.request.scope.workspaceId);
+  const resolved = await deps.scopes.resolve(parsed.request.scope);
+  if (access.role === "none" || !resolved ||
+      (access.allowedProjectIds && (!resolved.scope.projectId || !access.allowedProjectIds.includes(resolved.scope.projectId))) ||
+      (access.allowedEnvironmentIds && (!resolved.scope.environmentId || !access.allowedEnvironmentIds.includes(resolved.scope.environmentId)))) throw notFound();
+  const destroyPlan = await loadDestroyPlan(deps, parsed.request.scope, ctx.destroyPlan);
+  const facts: PlanFactsWithCost = destroyPlan.facts;
+  return { facts, planDigest: destroyPlan.planDigest,
+    req: { ...base.req, plan: destroyPlan.facts, planDigest: destroyPlan.planDigest }, destroyPlan };
 }
 
 const cleanPrincipal = (p: Principal): Principal => ({
@@ -202,11 +222,11 @@ const reasonCodes = (reasons: { code: string }[]): string[] => reasons.slice(0, 
 export async function propose(deps: BrokerDeps, rawRequest: unknown, principalIn: Principal, ctx: ProposeContext = {}): Promise<ProposeResult> {
   const principal = cleanPrincipal(principalIn);
   const parsed = parseRequest(rawRequest);
-  const { req, facts } = evaluationRequest(parsed, principal, ctx);
+  const { req, facts, planDigest, destroyPlan } = await trustedEvaluationRequest(deps, parsed, principal, ctx);
   const evaluation = await evaluate(deps, req);
   const { decision, evaluated } = evaluation;
 
-  const proposal = buildProposal({ parsed, evaluation, ctx, planDigest: ctx.plan?.planDigest });
+  const proposal = buildProposal({ parsed, evaluation, ctx, planDigest, destroyPlan });
   const operationId = newId(deps, "op");
   const decisionId = newId(deps, "pol");
   const correlationId = ctx.correlationId ?? newId(deps, "corr");
@@ -223,7 +243,8 @@ export async function propose(deps: BrokerDeps, rawRequest: unknown, principalIn
     requestedDurationSec: parsed.request.requestedDurationSec ?? null,
     reason: parsed.reason ?? null,
     principal: { kind: principal.kind, id: principal.id },
-    planDigest: ctx.plan?.planDigest ?? null,
+    planDigest: planDigest ?? null,
+    ...(destroyPlan ? { destroyPlan: { operationId: destroyPlan.operationId, evidenceId: destroyPlan.evidenceId } } : {}),
     cost: facts ? { d: facts.costDeltaUsdMonthly ?? null, p: facts.projectedMonthlyUsd ?? null } : null,
     risk: ctx.risk ?? null,
   });
@@ -261,7 +282,7 @@ export async function propose(deps: BrokerDeps, rawRequest: unknown, principalIn
 export async function check(deps: BrokerDeps, rawRequest: unknown, principalIn: Principal, ctx: ProposeContext = {}): Promise<CheckResult> {
   const principal = cleanPrincipal(principalIn);
   const parsed = parseRequest(rawRequest);
-  const { req } = evaluationRequest(parsed, principal, ctx);
+  const { req } = await trustedEvaluationRequest(deps, parsed, principal, ctx);
   const evaluation = await evaluate(deps, req);
   return {
     decision: decisionView(
@@ -391,4 +412,3 @@ export async function authorizeRead(
     throw new BrokerError("signer_unavailable", "The read grant could not be signed.");
   }
 }
-

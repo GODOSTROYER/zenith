@@ -46,10 +46,11 @@ import * as approvalRepo from "@/lib/controlplane/db/repos/approvals";
 import * as eventRepo from "@/lib/controlplane/db/repos/events";
 import * as grantRepo from "@/lib/controlplane/db/repos/grants";
 import * as operationRepo from "@/lib/controlplane/db/repos/operations";
+import * as evidenceRepo from "@/lib/controlplane/db/repos/evidence";
 import * as policyDecisionRepo from "@/lib/controlplane/db/repos/policy-decisions";
 import * as settingsRepo from "@/lib/controlplane/db/repos/settings";
 import { decide } from "@/lib/controlplane/approvals";
-import { cancelOperation as cancelOperationService, claimOperation, completeOperation as completeOperationService, proposeOperation, recordPolicyOutcome } from "@/lib/controlplane/operations";
+import { cancelOperation as cancelOperationService, denyOperation as denyOperationService, claimOperation, completeOperation as completeOperationService, proposeOperation, recordPolicyOutcome } from "@/lib/controlplane/operations";
 import { emitForOperation } from "@/lib/controlplane/events";
 import { LeaseLostError, type ApprovalRecord, type OperationRecord, type PlatformEvent, type PolicyDecisionRecord, type Principal, type Sql } from "@/lib/controlplane/types";
 import type { AutonomyLevel } from "@/lib/policy";
@@ -177,6 +178,20 @@ export class PlatformBrokerStore implements BrokerStore {
 
   getOperation(workspaceId: string, id: string): Promise<OperationRecord | null> {
     return this.run(() => operationRepo.get(this.db, workspaceId, id));
+  }
+
+  getPlanEvidence(workspaceId: string, operationId: string, planDigest: string) {
+    return this.run(async () => {
+      const rows = await this.db.query<{ id: string }>(
+        `select id from platform.evidence where workspace_id = $1 and operation_id = $2
+           and kind = 'tofu_plan' and digest = $3 and simulated = false and summary->>'stage' = 'plan'
+           order by created_at, id limit 1`, [workspaceId, operationId, planDigest]);
+      return rows[0] ? evidenceRepo.get(this.db, workspaceId, rows[0].id) : null;
+    });
+  }
+
+  denyOperation(input: Parameters<BrokerStore["denyOperation"]>[0]): Promise<OperationRecord | null> {
+    return this.run(() => denyOperationService(this.db, input));
   }
 
   listOperations(workspaceId: string, filters: OperationFilters = {}, page: PageRequest = {}): Promise<OperationPage> {

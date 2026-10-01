@@ -138,6 +138,9 @@ export async function approveWorkflowDeployment(ctx: ActionContext, d: Deploymen
 
 /** Signalling only wakes the workflow; a failed delivery does not undo the decision. */
 export async function deliverPlanApproval(op: OperationView): Promise<{ delivered: boolean; reason?: "not_found" | "unavailable" } | undefined> {
+  if (op.capability === "infrastructure.destroy" && !approvalRoundOf(op) && ["approved", "queued"].includes(op.status)) {
+    return (await import("./destroy")).startApprovedDestroy(op);
+  }
   if (!op.planDigest || !approvalRoundOf(op) || !["approved", "rejected"].includes(op.status)) return undefined;
   try { return await bridgeDeps().workflows.signalApproval(op.id); }
   catch { return { delivered: false, reason: "unavailable" }; }

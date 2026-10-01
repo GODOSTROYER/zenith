@@ -24,8 +24,101 @@ import { planEvidence, toPlanSummary } from "./plan-evidence";
 import type { Runtime } from "./runtime";
 import { driverContext, LONG_SESSION_SEC, OBSERVE_CAPABILITY, PLAN_CAPABILITY, withProviderSession } from "./session";
 import { safeText } from "./text";
+import { buildDesiredState } from "./graph";
+import { z } from "zod";
 
 const HEX64 = /^[0-9a-f]{64}$/;
+
+/** C1 object references; injected transports are contract fakes, never live proof. */
+export interface TeardownInput {
+  workspaceId: string; environmentId: string; session: unknown; retainStateful: boolean;
+  dryRun?: boolean; signal?: AbortSignal;
+}
+export interface TeardownResult { deleted: string[]; retained: string[]; skipped: string[]; uncertain: string[] }
+export interface DestroyProviderPorts {
+  teardownKubernetesEnvironment?: (input: TeardownInput) => Promise<TeardownResult>;
+  teardownZenithEnvironment?: (input: TeardownInput) => Promise<TeardownResult>;
+  /** Managed sessions need a platform opener: the customer credential broker has no zenith config. */
+  withZenithSession?<T>(input: { workspaceId: string; environmentId: string; signal: AbortSignal }, fn: (session: unknown) => Promise<T>): Promise<T>;
+}
+const ObjectRef = z.string().min(1).max(500).regex(/^[A-Za-z][A-Za-z0-9]*\/[^/\s]*\/[^/\s]+$/);
+const ResultSchema = z.object({ deleted: z.array(ObjectRef).max(10_000), retained: z.array(ObjectRef).max(10_000), skipped: z.array(ObjectRef).max(10_000), uncertain: z.array(ObjectRef).max(10_000) }).strict();
+const isDirect = (ec: ExecContext) => ["kubernetes", "zenith"].includes(ec.product.environment.provider);
+
+async function teardown(ports: DestroyProviderPorts, provider: string, input: TeardownInput): Promise<TeardownResult> {
+  let fn = provider === "kubernetes" ? ports.teardownKubernetesEnvironment : ports.teardownZenithEnvironment;
+  if (!fn) {
+    // These pinned modules belong to parallel jobs and are absent at this base.
+    // Lazy resolution fails closed without generating a fake implementation.
+    try {
+      fn = provider === "kubernetes"
+        ? (await import("@/lib/providers/kubernetes/teardown")).teardownKubernetesEnvironment
+        : (await import("@/lib/providers/zenith/teardown")).teardownZenithEnvironment;
+    } catch { throw new StepFailedError("The provider teardown module is not integrated in this worker."); }
+  }
+  if (typeof fn !== "function") throw new StepFailedError("The provider teardown contract is unavailable.");
+  let reply: unknown;
+  try { reply = await fn(input); }
+  catch (error) {
+    if (error instanceof LeaseLostError) throw error;
+    throw new StepFailedError(input.dryRun ? "Provider destroy review failed; nothing was applied." : "Provider teardown outcome is unconfirmed; partial deletion is possible.");
+  }
+  const parsed = ResultSchema.safeParse(reply);
+  if (!parsed.success) throw new StepFailedError("The provider returned an invalid teardown result.");
+  const result = Object.fromEntries(Object.entries(parsed.data).map(([key, refs]) => [key, [...new Set(refs)].sort()])) as unknown as TeardownResult;
+  const all = [...result.deleted, ...result.retained, ...result.skipped, ...result.uncertain];
+  if (new Set(all).size !== all.length) throw new StepFailedError("The provider reported conflicting teardown results.");
+  return result;
+}
+
+function retainStateful(ec: ExecContext, graph: ResourceGraph): boolean {
+  return !ec.product.environment.policies.allowStatefulDeletion || graph.nodes.some((node) =>
+    node.ownership === "managed" && ["postgres", "mysql", "redis", "object_store", "queue", "pubsub", "volume", "secret"].includes(node.kind) &&
+    node.spec.deletionPolicy !== "allow" && node.spec.deletionPolicy !== "approval");
+}
+
+async function directCall(rt: Runtime, ec: ExecContext, graph: ResourceGraph, lease: LeaseRef, ports: DestroyProviderPorts, dryRun: boolean): Promise<TeardownResult> {
+  return withKeepAlive(rt, { lease, detail: dryRun ? "provider destroy review" : "provider teardown", operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, async (signal) => {
+    const invoke = (session: unknown) => teardown(ports, ec.product.environment.provider,
+      { workspaceId: ec.workspaceId, environmentId: ec.environmentId, session, retainStateful: retainStateful(ec, graph), dryRun, signal });
+    if (ec.product.environment.provider === "zenith") {
+      if (!ports.withZenithSession) throw new StepFailedError("Managed Zenith teardown requires a platform-scoped session opener.");
+      // A grant still gates platform credentials even though they use a separate opener.
+      await rt.d.broker.issueGrant(ec.op.id, "worker", lease, { capability: dryRun ? PLAN_CAPABILITY : "infrastructure.destroy" });
+      return ports.withZenithSession({ workspaceId: ec.workspaceId, environmentId: ec.environmentId, signal }, invoke);
+    }
+    const connection = await resolveConnection(rt, ec);
+    return withProviderSession(rt, ec, { purpose: dryRun ? "observe" : "deploy", capability: dryRun ? PLAN_CAPABILITY : "infrastructure.destroy", fence: lease, connection }, (session) => {
+      if (session.provider !== "kubernetes") throw new StepFailedError("The provider session does not match this environment.");
+      return invoke(session);
+    });
+  });
+}
+
+function directPlan(rt: Runtime, ec: ExecContext, graph: ResourceGraph, result: TeardownResult): NormalizedPlan {
+  const provider = ec.product.environment.provider;
+  const stateful = (ref: string) => /^(PersistentVolumeClaim|PersistentVolume|StatefulSet|Secret|Postgres|Database)\//i.test(ref);
+  return { tofuVersion: "provider-teardown/C1", formatVersion: "C1", configDigest: graph.graphDigest,
+    lockDigest: digest({ provider, contract: "C1" }),
+    planDigest: digest({ provider, graphDigest: graph.graphDigest, retainStateful: retainStateful(ec, graph), ...result }),
+    resourceChanges: result.deleted.map((address) => ({ address, type: address.split("/")[0], providerName: provider, action: "delete", changes: [], destroysData: stateful(address) })),
+    outputChanges: [], summary: { create: 0, update: 0, delete: result.deleted.length, replace: 0, noop: 0 },
+    empty: result.deleted.length === 0, diagnostics: [], createdAt: rt.now().toISOString() };
+}
+
+async function directPlanStage(rt: Runtime, ec: ExecContext, graph: ResourceGraph, lease: LeaseRef, ports: DestroyProviderPorts, approvedDigest?: string): Promise<PlanSummary> {
+  const result = await directCall(rt, ec, graph, lease, ports, true);
+  await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
+  if (result.uncertain.length || result.skipped.length) throw new StepFailedError("The provider could not completely review teardown; skipped or uncertain objects require investigation.");
+  const plan = directPlan(rt, ec, graph, result), facts = extractPlanFacts(plan);
+  const evidence = planEvidence({ plan, facts, cost: {}, graphDigest: graph.graphDigest, stage: approvedDigest ? "final_plan" : "plan", approvedDigest });
+  await rt.evidence(ec.scope, { kind: "tofu_plan", digest: plan.planDigest, key: `destroy:${evidence.key}`, simulated: false,
+    summary: { ...evidence.summary, engine: "provider-teardown", destroy: true, destroyAddresses: result.deleted, retained: result.retained, statefulDeletes: facts.destroyedStatefulAddresses } }, { critical: false });
+  const expected = approvedDigest ?? ec.op.planDigest;
+  if (expected && expected !== plan.planDigest) throw new TofuPlanChangedError(expected, plan.planDigest);
+  if (!approvedDigest) await rt.d.ops.setPlanDigest({ workspaceId: ec.workspaceId, operationId: ec.op.id, planDigest: plan.planDigest });
+  return toPlanSummary(plan, facts, {});
+}
 
 async function context(rt: Runtime, operationId: string, lease: LeaseRef, planning = false): Promise<{ ec: ExecContext; graph: ResourceGraph }> {
   const ec = await loadExecContext(rt, operationId);
@@ -40,7 +133,11 @@ async function context(rt: Runtime, operationId: string, lease: LeaseRef, planni
     if (!revision) throw new StepFailedError("The deployed revision could not be loaded; refusing teardown.");
     ec.product = { ...ec.product, revision };
   }
-  const { graph } = requireExecutable(rt, ec);
+  // C1 discovers owned live objects itself; teardown does not need every
+  // deployment driver to compile (e.g. the derived log_group on Kubernetes).
+  const desired = isDirect(ec) ? buildDesiredState(ec.product) : undefined;
+  const graph = isDirect(ec) ? desired?.graph : requireExecutable(rt, ec).graph;
+  if (!graph || graph.nodes.some((node) => node.ownership === "managed" && node.provider !== ec.product.environment.provider)) throw new StepFailedError("The deployed graph cannot be safely reviewed for teardown.");
   const nodes = new Map(graph.nodes.map((node) => [node.address, node]));
   // Retain removed nodes from earlier revisions, using workspace-scoped rows.
   for (const row of await rt.d.resources.list(ec.workspaceId, ec.environmentId)) {
@@ -71,9 +168,10 @@ async function guardDns(rt: Runtime, ec: ExecContext, nodes: readonly ResourceNo
   }
 }
 
-async function planStage(rt: Runtime, operationId: string, lease: LeaseRef, approvedDigest?: string): Promise<PlanSummary> {
+async function planStage(rt: Runtime, operationId: string, lease: LeaseRef, ports: DestroyProviderPorts, approvedDigest?: string): Promise<PlanSummary> {
   if (approvedDigest !== undefined && !HEX64.test(approvedDigest)) throw new StepFailedError("The approved plan digest is invalid.");
   const { ec, graph } = await context(rt, operationId, lease, true);
+  if (isDirect(ec)) return directPlanStage(rt, ec, graph, lease, ports, approvedDigest);
   const connection = await resolveConnection(rt, ec);
   const { ws } = buildWorkspace({ ec, graph, connection, drivers: rt.drivers, overrides: rt.d.tofuWorkspace });
   const result = await withKeepAlive(rt, { lease, detail: "tofu destroy plan", operation: { workspaceId: ec.workspaceId, operationId } }, (signal) =>
@@ -100,7 +198,7 @@ async function reviewedPlan(rt: Runtime, ec: ExecContext, planDigest: string): P
   if (!HEX64.test(planDigest) || ec.op.planDigest !== planDigest) throw new StepFailedError("The destroy digest does not match this operation's reviewed plan.");
   const row = await rt.d.evidence.find({ workspaceId: ec.workspaceId, operationId: ec.op.id, kind: "tofu_plan", digest: planDigest });
   const addresses = row?.summary.destroyAddresses;
-  if (!row || row.summary.destroy !== true || !Array.isArray(addresses) || addresses.some((a) => typeof a !== "string")) throw new StepFailedError("No reviewed destroy plan evidence with a verifiable node list was recorded.");
+  if (!row || row.simulated || row.summary.destroy !== true || !Array.isArray(addresses) || addresses.some((a) => typeof a !== "string")) throw new StepFailedError("No reviewed destroy plan evidence with a verifiable node list was recorded.");
   return addresses as string[];
 }
 
@@ -113,15 +211,32 @@ export async function checkDestroyApproval(rt: Runtime, operationId: string): Pr
   return { approved: status.approved === true && !!approvalId && !status.rejected, rejected: status.rejected === true, ...(approvalId ? { approvalId } : {}) };
 }
 
-export function createDestroyActivities(rt: Runtime): DestroyActivities {
+export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts = (rt.d as typeof rt.d & { destroyProviders?: DestroyProviderPorts }).destroyProviders ?? {}): DestroyActivities {
   return {
-    planDestroyInfrastructure: ({ operationId, lease }) => planStage(rt, operationId, lease),
-    finalDestroyPlan: ({ operationId, approvedPlanDigest, lease }) => planStage(rt, operationId, lease, approvedPlanDigest),
+    planDestroyInfrastructure: ({ operationId, lease }) => planStage(rt, operationId, lease, ports),
+    finalDestroyPlan: ({ operationId, approvedPlanDigest, lease }) => planStage(rt, operationId, lease, ports, approvedPlanDigest),
     async applyDestroyInfrastructure({ operationId, planDigest, lease }) {
       const { ec, graph } = await context(rt, operationId, lease);
-      await reviewedPlan(rt, ec, planDigest);
+      const reviewedAddresses = await reviewedPlan(rt, ec, planDigest);
       const approval = await checkDestroyApproval(rt, operationId);
       if (!approval.approved || approval.rejected) throw new StepFailedError("Teardown requires a current digest-bound human approval.");
+      if (isDirect(ec)) {
+        await directPlanStage(rt, ec, graph, lease, ports, planDigest);
+        await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
+        const freshApproval = await checkDestroyApproval(rt, operationId);
+        if (!freshApproval.approved || freshApproval.rejected) throw new StepFailedError("The human approval is no longer valid.");
+        try {
+          const result = await directCall(rt, ec, graph, lease, ports, false);
+          await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
+          await rt.evidence(ec.scope, { kind: "tofu_apply", digest: digest({ destroy: true, planDigest, ...result }), key: `destroy:${planDigest}`,
+            summary: { engine: "provider-teardown", destroy: true, planDigest, matchesReviewed: result.deleted.every((ref) => reviewedAddresses.includes(ref)), ...result }, simulated: false }, { critical: true });
+          return { deleted: result.deleted.length };
+        } catch (error) {
+          await rt.d.ops.markUncertain({ workspaceId: ec.workspaceId, operationId, reason: "Provider teardown outcome is unconfirmed; partial deletion is possible." }).catch(() => undefined);
+          if (error instanceof LeaseLostError) throw error;
+          throw new StepFailedError("Provider teardown ended without a confirmed outcome; partial deletion is possible.");
+        }
+      }
       const connection = await resolveConnection(rt, ec);
       const { ws } = buildWorkspace({ ec, graph, connection, drivers: rt.drivers, overrides: rt.d.tofuWorkspace });
       let started = false;
@@ -154,6 +269,20 @@ export function createDestroyActivities(rt: Runtime): DestroyActivities {
     async verifyDestroyedInfrastructure({ operationId, planDigest, lease }) {
       const { ec, graph } = await context(rt, operationId, lease);
       const addresses = await reviewedPlan(rt, ec, planDigest);
+      if (isDirect(ec)) {
+        const remaining = await directCall(rt, ec, graph, lease, ports, true);
+        await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
+        const applied = await rt.d.evidence.find({ workspaceId: ec.workspaceId, operationId, kind: "tofu_apply" });
+        const unresolved = !applied || applied.simulated || applied.summary.planDigest !== planDigest || applied.summary.matchesReviewed === false || remaining.uncertain.length > 0 || remaining.skipped.length > 0 ||
+          (Array.isArray(applied.summary.uncertain) && applied.summary.uncertain.length > 0) ||
+          (Array.isArray(applied.summary.skipped) && applied.summary.skipped.length > 0);
+        const failed = new Set([...remaining.deleted, ...remaining.retained.filter((ref) => addresses.includes(ref))]).size;
+        // C1 dry-run enumerates deletable live objects; retained objects are not absence targets.
+        const status = unresolved ? "unknown" : failed ? "failed" : "passed";
+        await rt.evidence(ec.scope, { kind: "verification", digest: digest({ destroy: true, planDigest, status, ...remaining }), key: `destroy:${planDigest}`,
+          summary: { destroy: true, planDigest, engine: "provider-teardown", status, ...remaining }, simulated: false }, { critical: false });
+        return { status, checks: addresses.length, failed };
+      }
       const connection = await resolveConnection(rt, ec);
       let failed = 0, unknown = 0;
       const checks: { address: string; presence: string; simulated: boolean }[] = [];

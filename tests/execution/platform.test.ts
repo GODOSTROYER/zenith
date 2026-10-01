@@ -119,21 +119,22 @@ describe("operations port", () => {
     expect(unchanged?.approvalRequired).toBe(false);
   });
 
-  it("cancels a pre-execution operation through the ledger, and ends a running one by whether a mutating call had begun", async () => {
+  it("cancels pre-execution and running operations, including after changes began, without claiming rollback", async () => {
     const pre = await seed();
     expect((await ports.ops.transition({ workspaceId: pre.ws, operationId: pre.op.id, to: "cancelled", error: "user cancelled" }))?.status).toBe("cancelled");
     expect(await eventTypes(pre.ws, pre.op.id)).toContain("operation.cancelled");
 
     const clean = await seed();
     await ports.ops.transition({ workspaceId: clean.ws, operationId: clean.op.id, to: "running" });
-    const failed = await ports.ops.transition({ workspaceId: clean.ws, operationId: clean.op.id, to: "cancelled", error: "Cancelled by request." });
-    expect(failed).toMatchObject({ status: "failed", error: "Cancelled by request." }); // nothing had been touched
+    const cancelled = await ports.ops.transition({ workspaceId: clean.ws, operationId: clean.op.id, to: "cancelled", error: "Cancelled by request." });
+    expect(cancelled).toMatchObject({ status: "cancelled", error: "Cancelled by request." });
 
     const acted = await seed();
     await ports.ops.transition({ workspaceId: acted.ws, operationId: acted.op.id, to: "running" });
     await repos.events.append(db, { type: "resource.applying", workspaceId: acted.ws, operationId: acted.op.id, correlationId: acted.op.correlationId, data: {} });
-    const uncertain = await ports.ops.transition({ workspaceId: acted.ws, operationId: acted.op.id, to: "cancelled", error: "Cancelled by request. Steps that change the environment had started." });
-    expect(uncertain?.status).toBe("uncertain");
+    const stopped = await ports.ops.transition({ workspaceId: acted.ws, operationId: acted.op.id, to: "cancelled", error: "Cancelled by request. Steps that change the environment had started." });
+    expect(stopped?.status).toBe("cancelled");
+    expect(await eventTypes(acted.ws, acted.op.id)).toContain("operation.cancelled");
   });
 
   it("expires an operation whose approval never came", async () => {

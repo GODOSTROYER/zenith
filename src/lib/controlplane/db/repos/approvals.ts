@@ -19,7 +19,7 @@
  *  - A viewer cannot decide (`approver_role_insufficient`); the policy
  *    decision's `minRole` and `separationOfDuties` are enforced when the
  *    operation has one (`separation_of_duties`).
- *  - One decision per approver per operation (`duplicate_decision`).
+ *  - One decision per approver per approval round (`duplicate_decision`).
  *  - An approval expires (at most when the operation does) and is consumed
  *    exactly once by `operations.claimForExecution`.
  */
@@ -116,8 +116,8 @@ export async function record(sql: Sql, input: RecordApprovalInput): Promise<Reco
   const ttl = boundedMs("ttlMs", input.ttlMs ?? 60 * 60 * 1000, 1000, 7 * 24 * 60 * 60 * 1000);
 
   return sql.tx(async (tx) => {
-    const locked = await tx.query<{ status: OperationStatus; proposal_digest: string; principal: Principal; policy_decision_id: string | null; is_expired: boolean }>(
-      `select status, proposal_digest, principal, policy_decision_id, (expires_at <= clock_timestamp()) as is_expired
+    const locked = await tx.query<{ status: OperationStatus; proposal_digest: string; principal: Principal; policy_decision_id: string | null; approval_round: number; is_expired: boolean }>(
+      `select status, proposal_digest, principal, policy_decision_id, approval_round, (expires_at <= clock_timestamp()) as is_expired
          from platform.operations where workspace_id = $1 and id = $2 for update`,
       [workspaceId, operationId]
     );
@@ -146,16 +146,17 @@ export async function record(sql: Sql, input: RecordApprovalInput): Promise<Reco
 
     const inserted = await tx.query<ApprovalRow>(
       `insert into platform.approvals (id, operation_id, workspace_id, proposal_digest, decision, approver, approver_id,
-                                       approver_role, reason, policy_version, expires_at)
+                                       approver_role, reason, policy_version, approval_round, expires_at)
        select $1, o.id, o.workspace_id, $4, $5, $6::text::jsonb, $7, $8, $9, $10,
+              o.approval_round,
               least(o.expires_at, clock_timestamp() + ($11::bigint * interval '1 millisecond'))
          from platform.operations o where o.workspace_id = $2 and o.id = $3
-       on conflict (operation_id, approver_id) do nothing
+       on conflict (operation_id, approval_round, approver_id) do nothing
        returning ${APPROVAL_COLUMNS}`,
       [newId("apr"), workspaceId, operationId, proposalDigest, input.decision, json(approver), approverId, input.approverRole, input.reason ?? null, policyVersion, ttl]
     );
     if (inserted.length === 0)
-      throw new ControlStoreError("duplicate_decision", "This approver has already decided on this operation.", { id: operationId });
+      throw new ControlStoreError("duplicate_decision", "This approver has already decided in this approval round.", { id: operationId });
     const approval = toApproval(inserted[0]);
 
     let have = 0;
@@ -165,8 +166,10 @@ export async function record(sql: Sql, input: RecordApprovalInput): Promise<Reco
     } else {
       const counted = await tx.query<{ n: number }>(
         `select count(*)::int as n from platform.approvals
-          where workspace_id = $1 and operation_id = $2 and decision = 'approve' and proposal_digest = $3`,
-        [workspaceId, operationId, proposalDigest]
+          where workspace_id = $1 and operation_id = $2 and decision = 'approve' and proposal_digest = $3
+            and approval_round = $4::integer and consumed_at is null and expires_at > clock_timestamp()
+            and policy_version = $5`,
+        [workspaceId, operationId, proposalDigest, op.approval_round, policyVersion]
       );
       have = counted[0]?.n ?? 0;
       moved = have >= need ? await moveOperation(tx, workspaceId, operationId, "approved") : await currentOperation(tx, workspaceId, operationId);

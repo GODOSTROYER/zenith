@@ -33,11 +33,14 @@ export {
   claimForExecution,
   create,
   get,
+  getForSystem,
   heartbeat,
   list,
   markUncertainExpired,
   transition,
 } from "@/lib/controlplane/db/repos/operations";
+export { suspendForApproval, setPlanDigest, setPolicyDecision, cancelRunningOperation, denyOperation } from "./execution";
+export type { ExecutionWriteInput } from "./execution";
 export type {
   ClaimInput,
   CreateOperationInput,

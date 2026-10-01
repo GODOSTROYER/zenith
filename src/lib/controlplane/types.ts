@@ -118,6 +118,11 @@ export class LeaseLostError extends Error {
  *      ├─▶ denied      ├─▶ rejected      │          │          └─▶ uncertain
  *      └─▶ approved (policy allow)       └──────────┴─▶ cancelled / expired
  *
+ * A running operation may suspend to awaiting_approval for a concrete plan:
+ * its claim is cleared and a fresh human approval round is required before
+ * re-claiming. Running cancellation records a stop without proving rollback.
+ * An approved operation may be denied by a new execution-time policy decision.
+ *
  * `uncertain` means the control plane cannot prove whether an external side
  * effect happened (a worker crashed mid-call, a lease was lost, a timeout).
  * It is terminal for automation: nothing re-dispatches an uncertain operation;

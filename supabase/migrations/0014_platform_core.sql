@@ -582,6 +582,21 @@ insert into platform.schema_migrations (version, name, checksum)
 values (3, 'machine_requests', 'e1eccac97c7852592bcad8cd0e441b67a442c7405735ee9e2619e9e9b100bec6')
 on conflict (version) do nothing;
 
+-- ============================ migration 4: approval_rounds ============================
+
+alter table platform.operations
+  add column if not exists approval_round integer not null default 0 check (approval_round >= 0);
+alter table platform.approvals
+  add column if not exists approval_round integer not null default 0 check (approval_round >= 0);
+alter table platform.approvals
+  drop constraint if exists approvals_operation_id_approver_id_key;
+create unique index if not exists approvals_op_round_approver
+  on platform.approvals (operation_id, approval_round, approver_id);
+
+insert into platform.schema_migrations (version, name, checksum)
+values (4, 'approval_rounds', '1e5d84e018bd35c3638bbd23bab8e5b0e7d9b6c3173a430259480508aca6f311')
+on conflict (version) do nothing;
+
 -- ============================ hardening (Supabase roles) ============================
 
 do $$

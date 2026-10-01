@@ -29,7 +29,7 @@ export interface ConsumeApprovalsInput {
 }
 
 /**
- * Mark every valid, unconsumed `approve` row for the operation as consumed, in
+ * Mark every valid, unconsumed `approve` row in the current round as consumed, in
  * one UPDATE, and return them. Single-use: a second call returns an empty list
  * because `consumed_at IS NULL` no longer matches. Valid means: same workspace,
  * same operation, same digest, not expired, (optionally) same policy version.
@@ -39,6 +39,7 @@ export async function consumeApprovals(sql: Sql, input: ConsumeApprovalsInput): 
     `update platform.approvals set consumed_at = clock_timestamp()
       where workspace_id = $1 and operation_id = $2 and decision = 'approve'
         and proposal_digest = $3 and consumed_at is null and expires_at > clock_timestamp()
+        and approval_round = (select approval_round from platform.operations where workspace_id = $1 and id = $2)
         and ($4::text is null or policy_version = $4::text)
       returning id, approver_id`,
     [input.workspaceId, input.operationId, input.proposalDigest, input.expectedPolicyVersion ?? null]
@@ -46,12 +47,13 @@ export async function consumeApprovals(sql: Sql, input: ConsumeApprovalsInput): 
   return rows.map((r) => ({ id: r.id, approverId: r.approver_id }));
 }
 
-/** Valid unconsumed approvals ignoring policy version — distinguishes "none" from "wrong policy bundle". */
+/** Current-round valid unconsumed approvals ignoring policy version — distinguishes "none" from "wrong policy bundle". */
 export async function countUnconsumedApprovals(sql: Sql, input: Omit<ConsumeApprovalsInput, "expectedPolicyVersion">): Promise<number> {
   const rows = await sql.query<{ n: number }>(
     `select count(*)::int as n from platform.approvals
       where workspace_id = $1 and operation_id = $2 and decision = 'approve'
-        and proposal_digest = $3 and consumed_at is null and expires_at > clock_timestamp()`,
+        and proposal_digest = $3 and consumed_at is null and expires_at > clock_timestamp()
+        and approval_round = (select approval_round from platform.operations where workspace_id = $1 and id = $2)`,
     [input.workspaceId, input.operationId, input.proposalDigest]
   );
   return rows[0]?.n ?? 0;

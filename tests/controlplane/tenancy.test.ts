@@ -12,7 +12,7 @@ import * as repos from "@/lib/controlplane/db/repos";
 import { bindRepos } from "@/lib/controlplane/db/repos";
 import { ControlStoreError } from "@/lib/controlplane/db";
 import type { ResourceNode } from "@/lib/resources/types";
-import { LANES, approve, newWorkspace, openLane, seedAwaitingApproval, uid, user } from "./_support/harness";
+import { LANES, approve, newWorkspace, openLane, seedApprovedOperation, seedAwaitingApproval, uid, user } from "./_support/harness";
 
 /** Functions exercised by the sweep (each named `namespace.function`). */
 const SWEPT = new Set([
@@ -29,6 +29,7 @@ const SWEPT = new Set([
   "machines.getMachine", "machines.heartbeatMachine", "machines.listMachines", "machines.revokeMachine",
   "observations.getRuntime", "observations.latestObservation", "observations.latestObservationsByEnvironment", "observations.listRuntimeByEnvironment", "observations.observationHistory", "observations.pruneObservations",
   "operations.claimForExecution", "operations.get", "operations.heartbeat", "operations.list", "operations.transition",
+  "operationExecution.suspendForApproval", "operationExecution.setPlanDigest", "operationExecution.setPolicyDecision", "operationExecution.deny",
   "policyDecisions.get", "policyDecisions.listForOperation",
   "resources.changeOwnership", "resources.get", "resources.getByAddress", "resources.listByEnvironment", "resources.setStatus",
   "runners.getRunner", "runners.heartbeat", "runners.listRunners", "runners.revokeRunner",
@@ -54,6 +55,7 @@ const EXEMPT: Record<string, string> = {
   "idempotency.prune": "system maintenance",
   "operations.markUncertainExpired": "system reconciler; every returned record carries its workspace",
   "operations.expireOverdue": "system reconciler",
+  "operations.getForSystem": "trusted worker lookup by id only; tests/execution/ledger-approval.test.ts uses the returned workspace for all later calls",
   "jobs.expireStale": "system reaper",
   "operations.toOperation": "pure row mapper",
   "runners.generateRegistrationToken": "pure helper",
@@ -142,6 +144,10 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
     const decided = await approve(db, seeded, user("approver"));
     const strict = await seedAwaitingApproval(db, { workspaceId: A, count: 3 }); // A's decision that demands three approvers
     const opId = seeded.operation.id;
+    const active = await seedApprovedOperation(db, A);
+    await repos.operations.claimForExecution(db, { workspaceId: A, id: active.operation.id, expectedDigest: active.operation.proposalDigest, holder: "worker" });
+    const activeDecision = await repos.policyDecisions.insert(db, { workspaceId: A, operationId: active.operation.id, outcome: "require_approval", policyVersion: "v", inputDigest: hex("a"), reasons: [] });
+    const denyDecision = await repos.policyDecisions.insert(db, { workspaceId: A, operationId: opId, outcome: "deny", policyVersion: "v", inputDigest: hex("a"), reasons: [] });
     const envId = seeded.operation.environmentId as string;
     const now = Date.now();
 
@@ -179,6 +185,10 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
     // ------------------------ workspace B tries everything -------------------------
     const dig = seeded.operation.proposalDigest;
     const attempts: Record<string, () => Promise<unknown>> = {
+      "operationExecution.suspendForApproval": () => repos.operationExecution.suspendForApproval(db, { workspaceId: B, id: active.operation.id }),
+      "operationExecution.setPlanDigest": () => repos.operationExecution.setPlanDigest(db, { workspaceId: B, id: opId, planDigest: hex("d") }),
+      "operationExecution.setPolicyDecision": () => repos.operationExecution.setPolicyDecision(db, { workspaceId: B, id: active.operation.id, decisionId: activeDecision.id }),
+      "operationExecution.deny": () => repos.operationExecution.deny(db, { workspaceId: B, id: opId, decisionId: denyDecision.id }),
       "approvals.consume": () => repos.approvals.consume(db, { workspaceId: B, operationId: opId, proposalDigest: dig }),
       "approvals.consumeApprovals": () => repos.approvals.consumeApprovals(db, { workspaceId: B, operationId: opId, proposalDigest: dig }),
       "approvals.listForOperation": () => repos.approvals.listForOperation(db, B, opId),
@@ -254,6 +264,9 @@ describe.each(LANES)("tenant isolation sweep [$name]", (lane) => {
 
     // ------------------------ and A's data is exactly as it was -------------------------
     expect((await repos.operations.get(db, A, opId))?.status).toBe("approved");
+    expect((await repos.operations.get(db, A, opId))?.planDigest).toBeUndefined();
+    expect((await repos.operations.get(db, A, active.operation.id))?.status).toBe("running");
+    expect((await repos.operations.get(db, A, active.operation.id))?.policyDecisionId).toBeUndefined();
     expect(await repos.approvals.listForOperation(db, A, opId)).toHaveLength(1);
     expect((await repos.approvals.listForOperation(db, A, opId))[0].consumedAt).toBeUndefined();
     expect(decided.approval.id).toBeDefined();

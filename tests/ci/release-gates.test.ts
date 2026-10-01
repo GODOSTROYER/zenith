@@ -85,8 +85,8 @@ const stepsOf = (w: Workflow): Step[] => Object.values(w.jobs).flatMap((job) => 
  */
 const INSTALL = "npm ci --ignore-scripts";
 
-/** One Node pin for the whole repository. See the ci.yml header for why this one. */
-const NODE_VERSION = "22.16.0";
+/** One supported Node 22 patch, above locked jsdom's 22.22.2 minimum. See ci.yml. */
+const NODE_VERSION = "22.23.3";
 
 /**
  * The commit `actions/checkout` was pinned to when this file was last reviewed.
@@ -319,10 +319,9 @@ describe("release gate policy", () => {
   /*
    * One Node version and one checkout SHA across the repository.
    *
-   * Before this, `ci.yml` floated on `22` while `agent-control.yml` pinned
-   * `22.16.0`, and the two pinned different `actions/checkout` commits. The
-   * cost of two pins is not the duplication; it is that a merge gate and a
-   * release gate could disagree about what "green" was measured on.
+   * The locked dependencies require Node >=22.22.2 within the supported
+   * Node 22 line. Every workflow uses the same exact patch and checkout commit
+   * so merge and release gates agree about what "green" was measured on.
    */
   describe("the toolchain pins", () => {
     const nodeSteps = (w: Workflow): Step[] =>

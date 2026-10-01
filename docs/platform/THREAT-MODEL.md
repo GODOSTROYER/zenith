@@ -32,7 +32,7 @@ and contract evidence do not establish a production security certification.
 | SEC-R1 | Compose audit omits source blobs; summary/error text passes redaction (`src/lib/actions/core.ts`) | `tests/security/audit-secret-leakage.test.ts` |
 | SEC-R2 | Responses/logs use bounded `safeRequestError` diagnostics (`src/lib/server/errors.ts`) | `tests/security/request-error-logging.test.ts` |
 
-SEC-F9 is closed by a runtime pin: `package.json` `engines.node` is `>=22.16 <23`,
+SEC-F9 is closed by a runtime pin: `package.json` `engines.node` is `>=22.22.2 <23`,
 which excludes the Node 24.x releases with the JSON.parse key defect; CI, the
 Dockerfiles and Vercel run Node 22, and `tests/security/runtime-sanity.test.ts`
 asserts the range as a blocking test. A host that ignores `engines` (npm only

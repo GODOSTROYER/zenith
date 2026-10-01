@@ -15,18 +15,18 @@ import { isTerminalStatus, waitForOperation, type ControlPlaneClient, type Opera
 import { requireClient, type PassCriterion, type Prerequisite, type ScenarioContext, type ScenarioId } from "../types";
 
 /** Record results against a scenario's declared pass criteria (an unknown id is a programming error). */
-export function checker(scenario: ScenarioId, criteria: readonly PassCriterion[]) {
+export function checker(scenario: ScenarioId, criteria: readonly PassCriterion[], defaultMode?: CheckMode) {
   const text = (id: string): string => {
     const c = criteria.find((x) => x.id === id);
     if (!c) throw new Error(`Scenario ${scenario} has no pass criterion "${id}".`);
     return c.text;
   };
   return {
-    pass: (ctx: ScenarioContext, id: string, detail?: string, mode?: CheckMode) => ctx.evidence.pass(scenario, id, text(id), detail, mode),
-    fail: (ctx: ScenarioContext, id: string, detail?: string, mode?: CheckMode) => ctx.evidence.fail(scenario, id, text(id), detail, mode),
+    pass: (ctx: ScenarioContext, id: string, detail?: string, mode?: CheckMode) => ctx.evidence.pass(scenario, id, text(id), detail, mode ?? defaultMode),
+    fail: (ctx: ScenarioContext, id: string, detail?: string, mode?: CheckMode) => ctx.evidence.fail(scenario, id, text(id), detail, mode ?? defaultMode),
     skip: (ctx: ScenarioContext, id: string, reason: string) => ctx.evidence.skip(scenario, id, text(id), reason),
     /** pass when `ok`, fail otherwise; the detail says what was observed either way */
-    expect: (ctx: ScenarioContext, id: string, ok: boolean, detail: string, mode?: CheckMode) => (ok ? ctx.evidence.pass(scenario, id, text(id), detail, mode) : ctx.evidence.fail(scenario, id, text(id), detail, mode)),
+    expect: (ctx: ScenarioContext, id: string, ok: boolean, detail: string, mode?: CheckMode) => (ok ? ctx.evidence.pass(scenario, id, text(id), detail, mode ?? defaultMode) : ctx.evidence.fail(scenario, id, text(id), detail, mode ?? defaultMode)),
   };
 }
 

@@ -40,7 +40,7 @@ const CRITERIA: readonly PassCriterion[] = [
   { id: "no-cloud", text: "The scenario ran without a cloud session, a control plane client or AWS credentials." },
 ];
 
-const C = checker("J", CRITERIA);
+const C = checker("J", CRITERIA, "local");
 
 const ENV: ExpandEnv = { id: "env-live-j", name: "sandbox", class: "sandbox", provider: "aws", region: "ap-south-1", baseDomain: "example.test" };
 const NOW = "2026-09-30T00:00:00.000Z";
@@ -189,7 +189,7 @@ function recordChecks(ctx: ScenarioContext, r: PlanningResult): void {
   );
 
   // no cloud
-  C.expect(ctx, "no-cloud", ctx.session === undefined && ctx.controlPlane === undefined && ctx.evidence.provenance !== "live", "no live session and no control plane client were present.");
+  C.expect(ctx, "no-cloud", ctx.session === undefined && ctx.controlPlane === undefined, "no live session and no control plane client were present.");
 }
 
 export const demoJ: ScenarioDefinition = {

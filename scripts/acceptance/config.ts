@@ -109,7 +109,7 @@ function idOf(env: EnvLike, name: string): string | undefined {
   return v;
 }
 
-export function parseApiUrl(raw: string | undefined, name: string): string | undefined {
+export function parseApiUrl(raw: string | undefined, name: string, opts: { preservePath?: boolean } = {}): string | undefined {
   const v = clean(raw);
   if (v === undefined) return undefined;
   let url: URL;
@@ -123,7 +123,8 @@ export function parseApiUrl(raw: string | undefined, name: string): string | und
     throw new LiveConfigError(`${name} must be https (plain http is accepted only for localhost): a bearer token must not cross the network in the clear.`);
   }
   if (url.username || url.password) throw new LiveConfigError(`${name} must not embed credentials.`);
-  return url.origin;
+  if (opts.preservePath && (url.search || url.hash)) throw new LiveConfigError(`${name} must not contain query credentials or fragments; use a bearer header.`);
+  return opts.preservePath ? url.href : url.origin;
 }
 
 function kubeContext(env: EnvLike): string | undefined {
@@ -180,7 +181,7 @@ export function loadLiveConfig(env: EnvLike = process.env, overrides: { region?:
     kubeContext: kubeContext(env),
     kubeConnectionId: idOf(env, "ZENITH_LIVE_KUBE_CONNECTION_ID"),
     managedConnectionId: idOf(env, "ZENITH_LIVE_MANAGED_CONNECTION_ID"),
-    mcpUrl: parseApiUrl(env.ZENITH_LIVE_MCP_URL, "ZENITH_LIVE_MCP_URL"),
+    mcpUrl: parseApiUrl(env.ZENITH_LIVE_MCP_URL, "ZENITH_LIVE_MCP_URL", { preservePath: true }),
     mcpToken: clean(env.ZENITH_LIVE_MCP_TOKEN),
     mcpTools,
     managedApiUrl: parseApiUrl(env.ZENITH_LIVE_MANAGED_API_URL, "ZENITH_LIVE_MANAGED_API_URL"),

@@ -45,6 +45,7 @@ import { isInUse, parseArn, type Arn, type Handler, type HandlerCtx } from "./cl
 import { destroyRunWorkspace, type DestroyResult } from "./tofu-destroy";
 import type { RunState } from "./run-state";
 import type { AwsAccess } from "./types";
+import { redactDeep } from "@/lib/credentials/redact";
 
 export type ResourceStatus =
   | "would_delete"
@@ -87,7 +88,7 @@ export interface CleanupReport {
   /** tag values seen under `zenith:live-run` that are not run ids: never touched */
   ignoredTagValues: string[];
   runs: RunCleanup[];
-  summary: { runs: number; found: number; deleted: number; wouldDelete: number; alreadyGone: number; coveredByParent: number; refused: number; unsupported: number; failed: number; remaining: number };
+  summary: { runs: number; found: number; deleted: number; wouldDelete: number; alreadyGone: number; coveredByParent: number; unverified: number; refused: number; unsupported: number; failed: number; remaining: number };
   ok: boolean;
 }
 
@@ -184,14 +185,15 @@ export async function cleanupRuns(opts: CleanupOptions): Promise<CleanupReport> 
     found: all.length,
     deleted: count("deleted"),
     wouldDelete: count("would_delete"),
-    alreadyGone: count("already_gone") + count("not_listed_on_recheck"),
+    alreadyGone: count("already_gone"),
     coveredByParent: count("covered_by_parent"),
+    unverified: count("not_listed_on_recheck"),
     refused,
     unsupported: count("unsupported"),
     failed: count("failed"),
     remaining: runs.reduce((n, r) => n + r.remaining.length, 0),
   };
-  return {
+  return redactDeep({
     schema: 1,
     mode: dryRun ? "dry-run" : "execute",
     accountId: access.accountId,
@@ -203,7 +205,7 @@ export async function cleanupRuns(opts: CleanupOptions): Promise<CleanupReport> 
     runs,
     summary,
     ok: runs.every((r) => r.ok),
-  };
+  });
 }
 
 type RunInput = CleanupOptions & { dryRun: boolean; now: () => Date; log: (m: string) => void; regions: string[] };
@@ -237,9 +239,14 @@ async function cleanRun(runId: string, o: RunInput): Promise<RunCleanup> {
     else {
       const destroy = o.destroy ?? destroyRunWorkspace;
       for (const environmentId of envIds) {
-        const r = await destroy({ access, runId, workspaceId, environmentId, region: access.region, stateBucket, stateKmsKeyArn: o.stateKmsKeyArn, dryRun });
-        out.tofu.push({ status: r.status, detail: r.detail, deletes: r.deletes.length, refused: r.refused.length });
-        if (r.status === "failed" || r.status === "refused") out.ok = false;
+        try {
+          const r = await destroy({ access, runId, workspaceId, environmentId, region: access.region, stateBucket, stateKmsKeyArn: o.stateKmsKeyArn, dryRun });
+          out.tofu.push({ status: r.status, detail: r.detail, deletes: r.deletes.length, refused: r.refused.length });
+          if (r.status === "failed" || r.status === "refused") out.ok = false;
+        } catch (err) {
+          out.tofu.push({ status: "failed", detail: `Destroy threw (${err instanceof Error ? err.name : "error"}); attempting native sweep.`, deletes: 0, refused: 0 });
+          out.ok = false;
+        }
       }
     }
   } else {
@@ -325,7 +332,7 @@ async function cleanRun(runId: string, o: RunInput): Promise<RunCleanup> {
     out.remaining = after.map((a) => a.arn);
   }
 
-  const badResource = out.resources.some((r) => r.status === "failed" || r.status === "unsupported" || r.status.startsWith("refused_"));
+  const badResource = out.resources.some((r) => r.status === "failed" || r.status === "unsupported" || r.status === "not_listed_on_recheck" || r.status.startsWith("refused_"));
   const badDns = out.dns.some((d) => d.status === "failed" || d.status === "refused");
   out.ok = out.ok && !badResource && !badDns && out.remaining.length === 0;
   return out;

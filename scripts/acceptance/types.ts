@@ -137,6 +137,8 @@ export interface ScenarioContext {
   evidence: EvidenceRecorder;
   /** present for live cloud runs, absent for local ones */
   session?: LiveSession;
+  /** Required for non-AWS mutations too; set only from the CLI flag. */
+  confirmBillable?: boolean;
   controlPlane?: ControlPlaneClient;
   workflows?: WorkflowClient;
   worker?: WorkerController;

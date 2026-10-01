@@ -12,6 +12,7 @@
  */
 import dns from "node:dns/promises";
 import tls from "node:tls";
+import { redactCredentials } from "@/lib/credentials/redact";
 
 export interface ProbeResult {
   url: string;
@@ -82,7 +83,7 @@ async function readSnippet(res: Response): Promise<string> {
   } finally {
     void reader.cancel().catch(() => undefined);
   }
-  return Buffer.concat(chunks).toString("utf8").slice(0, SNIPPET_CHARS);
+  return redactCredentials(Buffer.concat(chunks).toString("utf8")).slice(0, SNIPPET_CHARS);
 }
 
 /** Node error codes that mean "the peer answered but its certificate is not acceptable", as opposed to "could not connect". */

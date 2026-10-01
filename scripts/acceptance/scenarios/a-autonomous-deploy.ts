@@ -23,6 +23,7 @@ import { awsOf, type PassCriterion, type ScenarioContext, type ScenarioDefinitio
 import { adoptNow, awaitApproval, awaitTerminal, checker, configPrerequisite, controlPlaneReachable, cp, liveControlPlaneConfig, awsTargetConfig, toolPrerequisite } from "./_shared";
 import { countEnvironmentResources, recentEnvironmentLogs, runResourcesOfType } from "./_aws";
 import { buildLiveManifest } from "./_manifest";
+import { listTagged, regionsFor } from "../cleanup";
 
 const CRITERIA: readonly PassCriterion[] = [
   { id: "analysis", text: "The sample app is analysed into a manifest with a web service, a health path and a Postgres resource, and the local cost estimate is within the budget." },
@@ -170,11 +171,12 @@ export const demoA: ScenarioDefinition = {
         await adoptNow(ctx, S);
         C.expect(ctx, "deployed", op.status === "succeeded", `deploy operation ended ${op.status}${op.error ? `: ${op.error}` : ""}.`);
         const envId = ctx.state.get("a.environmentId") as string;
-        const [envCount, runCount] = [await countEnvironmentResources(ctx, envId), (await runResourcesOfType(ctx, "ecs:service")).length];
-        const all = envCount;
-        // Count of environment-tagged resources versus run-tagged ones, per the tagging index.
-        const tagged = await countRunTagged(ctx);
-        C.expect(ctx, "tagged", all > 0 && tagged >= all, `${tagged} run-tagged resource(s) against ${all} environment-tagged (${runCount} ECS service(s) among them); the tagging index can lag.`);
+        const envCount = await countEnvironmentResources(ctx, envId);
+        const services = (await runResourcesOfType(ctx, "ecs:service")).length;
+        // Count the intersection, not unrelated resources of the same run.
+        const resources = await listTagged(awsOf(ctx), regionsFor(awsOf(ctx).region), ctx.runId);
+        const tagged = resources.filter((r) => r.tags["zenith:environment"] === envId).length;
+        C.expect(ctx, "tagged", envCount > 0 && tagged === envCount, `${tagged} environment resources carry the run tag against ${envCount} environment-tagged (${services} ECS services); the tagging index can lag.`);
         if (op.status !== "succeeded") throw new Error(`The deploy ended ${op.status}.`);
       },
     },
@@ -255,12 +257,6 @@ export const demoA: ScenarioDefinition = {
   runsLocally: false,
   costNote: "about $0.15-0.30 for a one-hour run (NAT gateway, load balancer, a nano database and a small Fargate task at list prices; the local estimate is checked against ZENITH_LIVE_MAX_MONTHLY_USD)",
 };
-
-/** How many resources currently carry this run's tag, across every type (tagging index). */
-async function countRunTagged(ctx: ScenarioContext): Promise<number> {
-  const { listTagged, regionsFor } = await import("../cleanup");
-  return (await listTagged(awsOf(ctx), regionsFor(awsOf(ctx).region), ctx.runId)).length;
-}
 
 /** Record the route host's DNS records in run-state.json so a native cleanup can delete them (records cannot be tagged). */
 async function recordDnsRecords(ctx: ScenarioContext, host: string): Promise<void> {

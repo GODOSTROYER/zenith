@@ -14,6 +14,7 @@ import { cleanupRuns } from "./cleanup";
 import { LiveConfigError, defaultStateBucket, loadLiveConfig } from "./config";
 import { defaultEvidenceRoot } from "./evidence";
 import { readRunState, runStatePath } from "./run-state";
+import { redactCredentials } from "@/lib/credentials/redact";
 import { LiveSafetyError, establishLiveSession, resolveLiveTarget } from "./safety";
 
 export const CLEANUP_USAGE = `Usage: npx tsx scripts/acceptance/cleanup.ts (--run-id <id> | --older-than <hours>) [options]
@@ -35,6 +36,7 @@ export async function runCleanupCli(argv: readonly string[], env: Readonly<Recor
       io.out(`${CLEANUP_USAGE}\n`);
       return 0;
     }
+    if (args.positional.length) throw new UsageError("Positional arguments are not accepted.");
     const runId = args.values.get("run-id");
     const olderRaw = args.values.get("older-than");
     if ((runId === undefined) === (olderRaw === undefined)) throw new UsageError("Give exactly one of --run-id or --older-than.");
@@ -73,7 +75,7 @@ export async function runCleanupCli(argv: readonly string[], env: Readonly<Recor
       await writeFile(path.join(dir, `cleanup-report-${execute ? "execute" : "dry-run"}.json`), text, { mode: 0o600 });
     }
     io.out(text);
-    if (!report.ok) io.err(`CLEANUP INCOMPLETE: ${report.summary.failed} failed, ${report.summary.unsupported} unsupported, ${report.summary.refused} refused, ${report.summary.remaining} still listed. Read the report; resources may still be costing money.\n`);
+    if (!report.ok) io.err(`CLEANUP INCOMPLETE: ${report.summary.failed} failed, ${report.summary.unsupported} unsupported, ${report.summary.refused} refused, ${report.summary.unverified} unverified, ${report.summary.remaining} still listed. Read the report; resources may still be costing money.\n`);
     return report.ok ? 0 : 1;
   } catch (err) {
     if (err instanceof UsageError || err instanceof LiveConfigError) {
@@ -84,7 +86,7 @@ export async function runCleanupCli(argv: readonly string[], env: Readonly<Recor
       io.err(`REFUSED (${err.code}): ${err.message}\n`);
       return 2;
     }
-    io.err(`Cleanup failed unexpectedly: ${err instanceof Error ? err.name : "error"}: ${err instanceof Error ? err.message.slice(0, 300) : ""}\n`);
+    io.err(redactCredentials(`Cleanup failed unexpectedly: ${err instanceof Error ? err.name : "error"}: ${err instanceof Error ? err.message : ""}`).slice(0, 400));
     return 1;
   }
 }

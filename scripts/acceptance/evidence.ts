@@ -33,6 +33,8 @@ import { appendFile, mkdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { redactDeep } from "@/lib/credentials/redact";
+import { assertRunId } from "./safety";
+import { redactAcceptance } from "./redact";
 
 export type Provenance = "live" | "local" | "simulated" | "dry_run";
 export type CheckStatus = "passed" | "failed" | "skipped";
@@ -138,6 +140,8 @@ export interface EvidenceOptions {
   /** parent directory of `<runId>/`; default `<os tmp>/zenith-acceptance` */
   outDir?: string;
   now?: () => Date;
+  /** Known integration tokens stay in memory and are removed before storage. */
+  secrets?: readonly string[];
 }
 
 const MAX_LOG_LINES = 500;
@@ -145,7 +149,12 @@ const MAX_LINE_CHARS = 2_000;
 const MAX_BODY_CHARS = 500;
 const MAX_DETAIL_CHARS = 2_000;
 
-const cap = (s: string | undefined, n: number): string | undefined => (s === undefined ? undefined : s.length > n ? `${s.slice(0, n)}…` : s);
+// Redact first: truncating halfway through a key defeats pattern detection.
+const cap = (s: string | undefined, n: number): string | undefined => {
+  if (s === undefined) return undefined;
+  const safe = redactDeep(s);
+  return safe.length > n ? `${safe.slice(0, n)}…` : safe;
+};
 
 export function defaultEvidenceRoot(): string {
   return path.join(os.tmpdir(), "zenith-acceptance");
@@ -168,11 +177,13 @@ export class EvidenceRecorder {
   #ready = false;
   #finalized = false;
   #queue: Promise<void> = Promise.resolve();
+  #pending: { kind: string; data: unknown }[] = [];
+  #writeError: unknown;
 
   constructor(options: EvidenceOptions) {
     this.#o = options;
     this.#now = options.now ?? (() => new Date());
-    this.runId = options.runId;
+    this.runId = assertRunId(options.runId);
     this.provenance = options.provenance;
     this.dir = path.join(options.outDir ?? defaultEvidenceRoot(), options.runId);
     this.#startedAt = this.#now().toISOString();
@@ -190,11 +201,13 @@ export class EvidenceRecorder {
     await mkdir(this.dir, { recursive: true, mode: 0o700 });
     this.#ready = true;
     this.#emit("run", { runId: this.runId, startedAt: this.#startedAt, provenance: this.provenance, scenarios: this.#o.scenarios, account: this.#o.account, region: this.#o.region });
+    for (const event of this.#pending.splice(0)) this.#emit(event.kind, event.data);
   }
 
   /* ---------------------------------- checks --------------------------------- */
 
   check(input: Omit<CheckRecord, "at"> & { at?: string }): CheckRecord {
+    input = redactAcceptance(input, this.#o.secrets);
     this.#assertOpen();
     if (!input.id || !input.scenario) throw new EvidenceError("A check needs a scenario and an id.");
     if (this.#checks.some((c) => c.scenario === input.scenario && c.id === input.id)) {
@@ -287,6 +300,7 @@ export class EvidenceRecorder {
   }
 
   #pushStep(step: StepRecord): void {
+    step = redactAcceptance(step, this.#o.secrets);
     const record = redactDeep({ ...step, ...(step.detail ? { detail: cap(step.detail, MAX_DETAIL_CHARS) } : {}) });
     this.#steps.push(record);
     this.#emit("step", record);
@@ -295,6 +309,7 @@ export class EvidenceRecorder {
   /* ------------------------------- other evidence ----------------------------- */
 
   operation(scenario: string, op: { operationId: string; capability?: string; status?: string; detail?: string }): void {
+    op = redactAcceptance(op, this.#o.secrets);
     this.#assertOpen();
     const record: OperationRecordEntry = redactDeep({ scenario, ...op, at: this.#now().toISOString() });
     this.#operations.push(record);
@@ -302,6 +317,8 @@ export class EvidenceRecorder {
   }
 
   planDigest(scenario: string, label: string, digest: string): void {
+    label = redactAcceptance(label, this.#o.secrets);
+    digest = redactAcceptance(digest, this.#o.secrets);
     this.#assertOpen();
     const record: PlanDigestEntry = redactDeep({ scenario, label, digest, at: this.#now().toISOString() });
     this.#digests.push(record);
@@ -309,6 +326,7 @@ export class EvidenceRecorder {
   }
 
   httpProbe(scenario: string, probe: Omit<HttpProbeEntry, "scenario" | "at">): void {
+    probe = redactAcceptance(probe, this.#o.secrets);
     this.#assertOpen();
     const record: HttpProbeEntry = redactDeep({
       scenario,
@@ -323,6 +341,7 @@ export class EvidenceRecorder {
 
   /** Log lines are redacted and bounded: at most 500 lines of 2,000 characters. */
   logQuery(scenario: string, q: { source: string; query: string; lines: readonly string[] }): void {
+    q = redactAcceptance(q, this.#o.secrets);
     this.#assertOpen();
     const lines = q.lines.slice(0, MAX_LOG_LINES).map((l) => cap(String(l), MAX_LINE_CHARS) ?? "");
     const record: LogQueryEntry = redactDeep({ scenario, source: q.source, query: cap(q.query, 400) ?? "", lines, truncated: q.lines.length > MAX_LOG_LINES, at: this.#now().toISOString() });
@@ -331,6 +350,7 @@ export class EvidenceRecorder {
   }
 
   note(text: string, scenario?: string): void {
+    text = redactAcceptance(text, this.#o.secrets);
     this.#assertOpen();
     const record = redactDeep({ at: this.#now().toISOString(), ...(scenario ? { scenario } : {}), text: cap(text, MAX_DETAIL_CHARS) ?? "" });
     this.#notes.push(record);
@@ -374,7 +394,7 @@ export class EvidenceRecorder {
     if (verdict === "dry_run") return "DRY RUN: no cloud was contacted and nothing was checked. Every check below was skipped on purpose; none of it counts as passed.";
     const parts: string[] = [];
     if (this.provenance === "live") {
-      parts.push(n.live > 0 ? `${n.live} check(s) passed LIVE against AWS account ${this.#o.account ?? "(unknown)"} in ${this.#o.region ?? "(unknown region)"}.` : "NOTHING was verified live: no check ran against a real cloud.");
+      parts.push(n.live > 0 ? (this.#o.account ? `${n.live} check(s) passed LIVE against AWS account ${this.#o.account} in ${this.#o.region ?? "(unknown region)"}.` : `${n.live} check(s) passed against configured live service endpoints; this does not establish an AWS account identity.`) : "NOTHING was verified live: no check ran against a real cloud or service.");
     } else if (this.provenance === "simulated") {
       parts.push("SIMULATED run: the checks used fakes and prove nothing about a real cloud.");
     } else {
@@ -417,14 +437,15 @@ export class EvidenceRecorder {
 
   /** Append one line to events.jsonl; writes are chained so order is preserved. */
   #emit(kind: string, data: unknown): void {
-    if (!this.#ready) return;
+    if (!this.#ready) { this.#pending.push({ kind, data }); return; }
     const line = `${JSON.stringify({ kind, data })}\n`;
     const file = path.join(this.dir, "events.jsonl");
-    this.#queue = this.#queue.then(() => appendFile(file, line, { mode: 0o600 })).catch(() => undefined);
+    this.#queue = this.#queue.then(() => appendFile(file, line, { mode: 0o600 })).catch((err: unknown) => { this.#writeError ??= err; });
   }
 
   async #drain(): Promise<void> {
     await this.#queue;
+    if (this.#writeError) throw new EvidenceError("Evidence event writes failed; the durable record is incomplete.");
   }
 }
 

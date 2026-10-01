@@ -88,10 +88,12 @@ function stamp(now: Date): string {
 
 /** A fresh run id. `random` is injectable for tests; it must return at least 4 bytes. */
 export function newRunId(now: Date = new Date(), random: (n: number) => Uint8Array = randomBytes): string {
+  if (!Number.isFinite(now.getTime())) throw new LiveSafetyError("run_id_invalid", "A run needs a valid UTC timestamp.");
   const bytes = random(4);
+  if (bytes.length < 4) throw new LiveSafetyError("run_id_invalid", "A run id needs four random bytes.");
   let suffix = "";
   for (let i = 0; i < 4; i++) suffix += RAND_ALPHABET[bytes[i]! % RAND_ALPHABET.length];
-  return `zlive-${stamp(now)}-${suffix}`;
+  return assertRunId(`zlive-${stamp(now)}-${suffix}`);
 }
 
 /** The creation time encoded in a run id, or null when `id` is not a run id. */

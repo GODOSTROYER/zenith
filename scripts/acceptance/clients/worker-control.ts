@@ -23,6 +23,8 @@
  */
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
+import { createInterface } from "node:readline/promises";
+import { redactCredentials } from "@/lib/credentials/redact";
 
 export interface WorkerController {
   readonly kind: "docker" | "process" | "manual";
@@ -59,14 +61,14 @@ function run(file: string, args: string[], timeoutMs = 30_000): Promise<{ code: 
     });
     child.once("close", (code) => {
       clearTimeout(timer);
-      resolve({ code, out: out.trim().slice(0, 400) });
+      resolve({ code, out: redactCredentials(out.trim()).slice(0, 400) });
     });
   });
 }
 
 export function createWorkerController(spec: string | undefined, hooks: { confirm?: (what: string) => Promise<void> } = {}): WorkerController {
   if (spec === undefined || spec === "manual") {
-    const confirm = hooks.confirm ?? (async () => undefined);
+    const confirm = hooks.confirm ?? (async () => { throw new Error("Manual worker control requires an explicit operator confirmation hook; no kill or restart was observed."); });
     return {
       kind: "manual",
       describe: () => "manual: the operator kills and restarts the execution worker",
@@ -82,7 +84,7 @@ export function createWorkerController(spec: string | undefined, hooks: { confir
   }
   if (spec.startsWith("docker:")) {
     const name = spec.slice("docker:".length);
-    if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,100}$/.test(name)) throw new Error("Invalid docker container name in ZENITH_LIVE_WORKER_CONTROL.");
+    if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,100}$/.test(name) || name.startsWith("ssc-")) throw new Error("Invalid or reserved docker container name in ZENITH_LIVE_WORKER_CONTROL.");
     return {
       kind: "docker",
       describe: () => `docker container ${name}`,
@@ -98,23 +100,40 @@ export function createWorkerController(spec: string | undefined, hooks: { confir
   }
   if (spec.startsWith("process:")) {
     const pidFile = spec.slice("process:".length);
+    if (!pidFile || pidFile.length > 400 || pidFile.includes("\0")) throw new Error("Invalid worker pidfile.");
+    let killedPid: number | undefined;
     return {
       kind: "process",
       describe: () => `process from ${pidFile}`,
       async kill() {
         const pid = Number((await readFile(pidFile, "utf8")).trim());
-        if (!Number.isInteger(pid) || pid <= 1) return { done: false, detail: "the pidfile does not hold a usable pid" };
+        if (!Number.isInteger(pid) || pid <= 1 || pid === process.pid) return { done: false, detail: "the pidfile does not hold a usable worker pid" };
         try {
           process.kill(pid, "SIGKILL");
+          killedPid = pid;
           return { done: true, detail: `killed pid ${pid}` };
         } catch (err) {
           return { done: false, detail: `could not kill pid ${pid}: ${err instanceof Error ? err.name : "error"}` };
         }
       },
       async start() {
-        return { done: false, detail: "a process-controlled worker is restarted by its supervisor; the harness does not start it" };
+        if (!hooks.confirm) return { done: false, detail: "a process-controlled worker needs explicit supervisor/operator restart confirmation" };
+        await hooks.confirm("Restart the dedicated worker through its supervisor and update its pidfile, then confirm.");
+        const pid = Number((await readFile(pidFile, "utf8")).trim());
+        if (!Number.isInteger(pid) || pid <= 1 || pid === killedPid || pid === process.pid) return { done: false, detail: "no new worker pid was recorded after restart" };
+        try { process.kill(pid, 0); return { done: true, detail: "operator confirmed restart and the new pid is alive" }; }
+        catch { return { done: false, detail: "restarted worker pid is not alive or cannot be verified" }; }
       },
     };
   }
   throw new Error('ZENITH_LIVE_WORKER_CONTROL must be "manual", "docker:<container>" or "process:<pidfile>".');
+}
+
+/** CLI manual mode must receive an actual typed acknowledgement. No TTY means
+ * no confirmation; an automated run cannot fabricate operator action. */
+export async function confirmWorkerChange(message: string, runId: string): Promise<void> {
+  if (!process.stdin.isTTY) throw new Error("Worker confirmation requires an interactive terminal.");
+  const input = createInterface({ input: process.stdin, output: process.stdout });
+  try { const answer = await input.question(`${message}\nType ${runId} to confirm: `); if (answer.trim() !== runId) throw new Error("Worker action was not confirmed."); }
+  finally { input.close(); }
 }

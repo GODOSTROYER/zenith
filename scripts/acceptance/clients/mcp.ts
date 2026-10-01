@@ -15,8 +15,10 @@
  * Not verified against a real endpoint: the v3 MCP server was unmerged when this
  * was written. Covered by tests against a fake JSON-RPC server only.
  */
-import { redactCredentials } from "@/lib/credentials/redact";
+import { redactCredentials, credentialPatternsIn, assertNoCredentialLeak } from "@/lib/credentials/redact";
 import { parseApiUrl } from "../config";
+import { responseText, removeToken } from "./response";
+import { redactAcceptance } from "../redact";
 
 export interface McpTool {
   name: string;
@@ -27,6 +29,8 @@ export interface McpToolResult {
   isError: boolean;
   text: string;
   structured?: unknown;
+  /** Pattern names only, captured BEFORE redaction; a leak cannot become a pass. */
+  credentialPatterns?: string[];
 }
 
 export interface McpClient {
@@ -70,16 +74,18 @@ function parseBody(text: string, contentType: string, id: number): RpcResponse {
     throw new McpError("The MCP server's event stream carried no response for the request.");
   }
   try {
-    return JSON.parse(text) as RpcResponse;
+    const msg = JSON.parse(text) as RpcResponse;
+    if (msg.jsonrpc !== "2.0" || msg.id !== id) throw new McpError("MCP JSON-RPC response id/version does not match the request.");
+    return msg;
   } catch {
     throw new McpError("The MCP server did not return JSON.");
   }
 }
 
 export function createMcpClient(opts: { url: string; token?: string; fetch?: typeof fetch; timeoutMs?: number }): McpClient {
-  const url = parseApiUrl(opts.url, "the MCP URL");
+  const url = parseApiUrl(opts.url, "the MCP URL", { preservePath: true });
   if (!url) throw new McpError("The MCP URL is empty.");
-  const endpoint = new URL(opts.url).href;
+  const endpoint = url;
   const doFetch = opts.fetch ?? fetch;
   const timeoutMs = opts.timeoutMs ?? 60_000;
   let nextId = 1;
@@ -97,11 +103,11 @@ export function createMcpClient(opts: { url: string; token?: string; fetch?: typ
     const res = await doFetch(endpoint, { method: "POST", headers, body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs), redirect: "manual" });
     const sid = res.headers.get("mcp-session-id");
     if (sid) sessionId = sid;
-    const text = (await res.text()).slice(0, 2 * 1024 * 1024);
-    if (!res.ok) throw new McpError(`The MCP endpoint answered HTTP ${res.status}: ${redactCredentials(text).slice(0, 200)}`, { status: res.status });
+    const text = await responseText(res, 2 * 1024 * 1024);
+    if (!res.ok) throw new McpError(`The MCP endpoint answered HTTP ${res.status}: ${redactCredentials(removeToken(text, opts.token)).slice(0, 200)}`, { status: res.status });
     if (id === undefined || text.trim() === "") return undefined;
     const msg = parseBody(text, res.headers.get("content-type") ?? "", id);
-    if (msg.error) throw new McpError(redactCredentials(msg.error.message ?? "MCP error").slice(0, 300), { rpcCode: msg.error.code });
+    if (msg.error) throw new McpError(redactCredentials(removeToken(msg.error.message ?? "MCP error", opts.token)).slice(0, 300), { rpcCode: msg.error.code });
     return msg;
   }
 
@@ -119,17 +125,22 @@ export function createMcpClient(opts: { url: string; token?: string; fetch?: typ
         capabilities: {},
         clientInfo: { name: "zenith-live-acceptance", version: "1" },
       });
+      assertNoCredentialLeak(r, { secrets: opts.token ? [opts.token] : [] });
       await post({ jsonrpc: "2.0", method: "notifications/initialized" });
       return { serverName: r.serverInfo?.name, protocolVersion: r.protocolVersion };
     },
     async listTools() {
       const r = await rpc<{ tools?: { name?: unknown; description?: unknown }[] }>("tools/list", {});
+      assertNoCredentialLeak(r, { secrets: opts.token ? [opts.token] : [] });
       return (r.tools ?? []).flatMap((t) => (typeof t.name === "string" ? [{ name: t.name, ...(typeof t.description === "string" ? { description: t.description.slice(0, 300) } : {}) }] : []));
     },
     async callTool(name, args) {
       const r = await rpc<{ isError?: boolean; content?: { type?: string; text?: string }[]; structuredContent?: unknown }>("tools/call", { name, arguments: args });
       const text = (r.content ?? []).map((c) => (c.type === "text" && typeof c.text === "string" ? c.text : "")).join("\n");
-      return { isError: r.isError === true, text: redactCredentials(text).slice(0, 8_000), ...(r.structuredContent !== undefined ? { structured: r.structuredContent } : {}) };
+      const raw = JSON.stringify(r);
+      const credentialPatterns = credentialPatternsIn(raw);
+      if (opts.token && raw.includes(opts.token)) credentialPatterns.push("configured-mcp-token");
+      return { isError: r.isError === true, text: redactCredentials(removeToken(text, opts.token)).slice(0, 8_000), credentialPatterns, ...(r.structuredContent !== undefined ? { structured: redactAcceptance(r.structuredContent, opts.token ? [opts.token] : []) } : {}) };
     },
   };
 }

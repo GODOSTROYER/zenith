@@ -29,6 +29,7 @@ import type { CapabilityRequest } from "@/lib/capabilities/catalog";
 import { TERMINAL_OPERATION_STATUSES, type OperationStatus } from "@/lib/controlplane/types";
 import { redactCredentials } from "@/lib/credentials/redact";
 import { parseApiUrl } from "../config";
+import { responseText, removeToken } from "./response";
 
 export interface DecisionViewLike {
   outcome: "allow" | "deny" | "require_approval";
@@ -160,14 +161,16 @@ export class HttpControlPlaneClient implements ControlPlaneClient {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.#timeoutMs);
     let res: Response;
+    let text: string;
     try {
       res = await this.#fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: controller.signal, redirect: "manual" });
+      text = await responseText(res, MAX_RESPONSE_BYTES);
     } catch (err) {
       throw new ControlPlaneError(0, controller.signal.aborted ? `${method} ${path} timed out after ${this.#timeoutMs} ms.` : `${method} ${path} failed (${err instanceof Error ? err.name : "error"}).`, "unreachable");
     } finally {
       clearTimeout(timer);
     }
-    const text = (await res.text()).slice(0, MAX_RESPONSE_BYTES);
+    const safe = (value: string) => redactCredentials(removeToken(value, this.#token));
     let parsed: unknown;
     if (text.trim() !== "") {
       try {
@@ -181,10 +184,10 @@ export class HttpControlPlaneClient implements ControlPlaneClient {
       const err = (parsed as { error?: unknown } | undefined)?.error;
       if (err && typeof err === "object") {
         const e = err as { code?: unknown; message?: unknown; fix?: unknown };
-        throw new ControlPlaneError(res.status, redactCredentials(String(e.message ?? `HTTP ${res.status}`)).slice(0, 400), typeof e.code === "string" ? e.code : undefined, typeof e.fix === "string" ? redactCredentials(e.fix).slice(0, 300) : undefined);
+        throw new ControlPlaneError(res.status, safe(String(e.message ?? `HTTP ${res.status}`)).slice(0, 400), typeof e.code === "string" ? safe(e.code) : undefined, typeof e.fix === "string" ? safe(e.fix).slice(0, 300) : undefined);
       }
       const message = typeof err === "string" ? err : (parsed as { message?: unknown } | undefined)?.message;
-      throw new ControlPlaneError(res.status, redactCredentials(typeof message === "string" ? message : `HTTP ${res.status}`).slice(0, 400));
+      throw new ControlPlaneError(res.status, safe(typeof message === "string" ? message : `HTTP ${res.status}`).slice(0, 400));
     }
     return parsed as T;
   }
@@ -230,8 +233,21 @@ export class HttpControlPlaneClient implements ControlPlaneClient {
     });
   }
 
-  listOperationEvents(id: string, afterSeq?: number) {
-    return this.#request<{ events: OperationEventLike[] }>("GET", `/api/platform/v1/operations/${encodeURIComponent(id)}/events`, undefined, { afterSeq: afterSeq === undefined ? undefined : String(afterSeq) });
+  async listOperationEvents(id: string, afterSeq?: number) {
+    const events: OperationEventLike[] = [];
+    let cursor = afterSeq;
+    // WS-CAP defaults to 100 events. A truncated first page cannot establish
+    // Demo E's no-replay criterion; drain explicit bounded pages instead.
+    for (let page = 0; page < 100; page++) {
+      const response = await this.#request<{ events: OperationEventLike[] }>("GET", `/api/platform/v1/operations/${encodeURIComponent(id)}/events`, undefined, { afterSeq: cursor === undefined ? undefined : String(cursor), limit: "100" });
+      if (!Array.isArray(response?.events)) throw new ControlPlaneError(200, "The event response has no events array.", "invalid_response");
+      events.push(...response.events);
+      if (response.events.length < 100) return { events };
+      const last = response.events.at(-1)?.seq;
+      if (typeof last !== "number" || !Number.isSafeInteger(last) || last <= (cursor ?? -1)) throw new ControlPlaneError(200, "Event pagination has no advancing sequence.", "invalid_response");
+      cursor = last;
+    }
+    throw new ControlPlaneError(200, "Event history exceeds the acceptance limit; replay safety is unknown.", "invalid_response");
   }
 
   cancelOperation(id: string, reason?: string) {

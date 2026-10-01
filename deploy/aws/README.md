@@ -16,7 +16,8 @@ Both create the same things:
 | IAM OIDC provider | lets AWS verify Zenith's tokens (client id `sts.amazonaws.com`) |
 | `ZenithObserveRole` | **read-only** inspection: describe / list / get. Cannot read secret values. |
 | `ZenithDeployRole` | changes **only** resources tagged `zenith:managed=true` or named `zenith-*`; creates IAM roles **only** with the permission boundary attached; cannot modify itself |
-| `ZenithWorkloadBoundary` | permission boundary every role Zenith creates must carry (denies IAM, Organizations and the state bucket) |
+| Six family boundaries | `ZenithAppBoundary`, `ZenithBuildBoundary`, `ZenithMachineBoundary`, `ZenithSchedulerBoundary`, `ZenithEksClusterBoundary`, `ZenithEksNodeBoundary`; each role carries its own family policy. |
+| `ZenithWorkloadBoundary` | legacy policy retained while existing roles migrate; deploy cannot select it for new roles. |
 | state bucket `zenith-state-<account>-<region>` | OpenTofu state + build artifacts: versioned, private, encrypted, TLS-only, **kept if you delete the stack** |
 | `zenith-codebuild` role | image builds run in *your* account; pushes only to `zenith-*` ECR repositories |
 
@@ -128,8 +129,22 @@ below.
 | `ZenithDeployData` | deploy | RDS, ElastiCache, S3 buckets, SQS queues, Secrets Manager **containers** (create/update/delete/tag — **never** values) named `zenith-*` |
 | `ZenithDeployEdge` | deploy | log groups and alarms named `zenith-*`, ACM certificates tagged `zenith:managed`, DNS record changes **only in zones you list** |
 | `ZenithDeployState` | deploy | read/write objects in the state bucket; **denies** deleting or reconfiguring the bucket and deleting object versions |
-| `ZenithDeployIam` | deploy | `iam:CreateRole` / `Put|Attach|Detach|DeleteRolePolicy` / `DeleteRole` on `role/zenith-*` **only with the boundary attached**; attach only `zenith-*` policies plus three AWS task/lambda execution policies; `iam:PassRole` only to `zenith-*` roles for `ecs-tasks`, `codebuild`, `lambda`; service-linked roles for ecs/elbv2/autoscaling/rds/elasticache. **Denies**: changing `ZenithDeploy*`/`ZenithObserve*`/`zenith-codebuild*` roles and policies or the boundary, removing any permission boundary, creating users/access keys/login profiles, touching OIDC/SAML providers, Organizations, Account. |
-| `ZenithWorkloadBoundary` | roles Zenith creates | logs, ECR pull, `zenith-*` buckets and queues, secret **reads**, KMS via those services, VPC ENIs. Build roles: ECR push, source-version reads, tagged CloudFront invalidations. Events roles: scoped `RunTask`/`PassRole`. EC2 roles: SSM agent core. Denies IAM administration, Organizations, Account and the state bucket. |
+| `ZenithDeployIam` | deploy | `iam:CreateRole` / `Put|Attach|Detach|DeleteRolePolicy` / `DeleteRole` on `role/zenith-*` **only with one of the six exact family boundary ARNs attached**; attach only `zenith-*` policies plus the enumerated AWS task/Lambda/EKS/SSM managed policies; `iam:PassRole` only to `zenith-*` roles for `ecs-tasks`, `codebuild`, `lambda`, `eks`, `ec2`; service-linked roles for ecs/elbv2/autoscaling/rds/elasticache/eks/eks-nodegroup. **Denies**: changing `ZenithDeploy*`/`ZenithObserve*`/`zenith-codebuild*` roles and policies or the boundary, removing any permission boundary, creating users/access keys/login profiles, touching OIDC/SAML providers, Organizations, Account. |
+| `ZenithAppBoundary` | identities, ECS/Lambda execution, flow logs | exact driver-policy intersections for logs/read streams, ECR pull, S3 (including multipart), queues, SNS and service-mediated KMS, secret reads (including RDS-managed credentials), database IAM users and cache IAM resource pairs. |
+| `ZenithBuildBoundary` | CodeBuild service roles | log writes, scoped ECR pull/push, own-account source/version reads and site publish, tagged CloudFront invalidations. |
+| `ZenithMachineBoundary` | EC2 agent roles | scoped SSM managed core v2 and agent message channels; parameter reads stay under `/zenith/`. |
+| `ZenithSchedulerBoundary` | EventBridge invocation roles | scoped ECS `RunTask` and exact-role `PassRole` to ECS tasks. |
+| `ZenithEksClusterBoundary` | EKS cluster roles | cluster-policy v10 actions at same-account EC2/KMS/ELB resources, EKS auto-scaling groups and ELB service-linked-role creation. |
+| `ZenithEksNodeBoundary` | EKS node roles | worker v3, CNI v6, registry read-only v3 intersections; tagged node instances, CNI ENIs, Zenith clusters/repositories and AWS EKS/CNI image repositories. |
+| `ZenithWorkloadBoundary` | existing roles during migration | legacy grants; deliberately retains the former identity/EKS gaps. Never selected by current drivers. |
+
+Every family policy explicitly denies foreign/missing family principals,
+Organizations, Account and the state bucket. IAM administration is denied;
+only the scheduler's scoped PassRole and EKS cluster's ELB service-linked-role
+creation are exceptions. Boundary policy documents are immutable to deploy.
+The deploy policy still requires the exact six ARNs, never an ARN wildcard.
+Optional Allow statement Sids are omitted to fit the IAM managed-policy quota;
+actions, resources and conditions are preserved.
 
 Build-only statements require `aws:PrincipalArn` to match
 `arn:<partition>:iam::<account>:role/zenith-*-build`. The CodeBuild driver
@@ -194,27 +209,66 @@ transport and remain blocked. The AMI parameter lookup is performed by the
 deploy session, not the EC2 agent. This does not enable `ssm:SendCommand` or
 `ecs:ExecuteCommand` on the control-plane roles.
 
-Compatible statements are consolidated and optional Sids omitted to fit
-IAM's 6,144-character limit. Service-specific ARN types preserve the common
-resource scopes; scoped agent statements keep their own principal/tag fences.
-Compact action patterns cover the four channel methods, three singular
-message methods and two association-status reports in the published policy.
-With default parameters and `eu-west-1`, sizes are 5,724 (`aws`), 5,835
-(`aws-cn`) and 5,983 (`aws-us-gov`): GovCloud has 161 characters of headroom.
-Long environment-tag values or connection suffixes increase the rendered size;
-check that rendered policy before deployment. Tests also check configured
-bootstrap scenarios in all three partitions.
+The generator checks every boundary and deploy policy in `aws`, `aws-cn`
+and `aws-us-gov`, using maximum supported environment-id and connection-suffix
+lengths, with optional KMS and two hosted zones enabled. Larger custom zone
+lists still require checking their fully rendered deploy-edge policy. New family boundaries have a 5,800-character budget; legacy has a
+6,144-character migration budget; all managed policies stay below IAM's 6,144
+non-whitespace-character limit. Run
+`npx tsx deploy/aws/tools/generate-tofu-policies.ts --check` before stack updates.
 
-These intersections are evaluated locally, not exercised against live AWS.
-Every scheduled inline action and all 25 managed EC2 core actions have local
-coverage. Other gaps remain deliberately unchanged: identity grants for S3
-multipart operations, log reads, RDS/ElastiCache IAM connections and RDS-managed
-credential secrets are blocked. EKS cluster roles still lose autoscaling,
-load-balancer and several EC2 permissions plus service-linked-role creation
-from [AmazonEKSClusterPolicy](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AmazonEKSClusterPolicy.html).
-EKS node registry metadata reads are also restricted by the boundary; image
-pull is covered. This is a representative sweep, not live acceptance or an
-exhaustive review of every AWS-managed attachment.
+Local tests compile every role-creating AWS driver and evaluate every inline
+action/resource and every action in the attached SSM/EKS policy inventories.
+They check all resources needed by the modeled multi-resource requests, every
+identity grant (both database engines, multipart/log/cache/SNS/KMS), and all
+other-family principals against the role's own boundary in all three partitions.
+Shared permissions remain honest: ECR login/pull, log writes and some EC2 reads
+are needed by multiple families. Another family's own boundary may permit those
+same actions; it cannot use this family's boundary. Unique build push, scheduling
+and machine-agent grants remain isolated. Managed policy `Resource: "*"` is
+intentionally narrowed to these supported requests, rather than copied wholesale.
+
+AWS-managed policy fixtures are frozen versions checked against published
+[cluster v10](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AmazonEKSClusterPolicy.html),
+[worker v3](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AmazonEKSWorkerNodePolicy.html),
+[CNI v6](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AmazonEKS_CNI_Policy.html), and
+[registry read-only v3](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AmazonEC2ContainerRegistryReadOnly.html).
+AWS can change defaults: re-survey attachment actions and resource support when
+upgrading. EKS cluster EC2/ELB mutation resources cannot consistently inherit
+Zenith tags; those grants rely on the same-account scope and reserved cluster
+principal. CNI-generated ENIs similarly use same-account scope and the exact
+four native tag keys, while instance operations still require Zenith tags.
+The legacy IAM principal/service denies are preserved. Its state-bucket deny
+uses one `${StateBucket.Arn}*` pattern covering the bucket and contents; this
+also denies bucket-name prefix collisions, strengthening protection without
+adding a grant. With maximal parameters its GovCloud rendering is 6,136
+characters (8 characters of headroom); the legacy budget is an explicit migration
+exception to the new families' 5,800 target.
+
+Foreign/non-Zenith referenced identity targets, other image repositories,
+non-Zenith SSM parameters, cross-account EC2/KMS/ELB resources and EBS snapshot
+restore outside the modeled volume-creation request remain blocked. No live
+AWS authorization, build or cluster acceptance is claimed.
+
+### Migrating an existing connection
+
+1. Update the customer's CloudFormation stack or apply the bootstrap OpenTofu
+   module first, using the same parameters. This creates all six family policies
+   and updates deploy's exact ARN allowlist; the old policy and output remain.
+2. Plan and apply the environment with the current drivers. Each existing role
+   moves to its family boundary on this next apply. Review any role replacement
+   caused by previously truncated names and the flow-log role's new `-flow` suffix;
+   new suffixes are preserved after hashing.
+3. Keep the old boundary during migration. Do not detach a boundary as an interim
+   step: deploy cannot remove one or substitute a foreign ARN. Only a customer
+   administrator can retire the legacy policy after no role uses it.
+
+Current driver selection uses the default unsuffixed family policy names.
+A nonempty bootstrap `NameSuffix`/`name_suffix` is rendered and size-tested, but
+its ARNs are not passed into `CompileContext`; compiling workloads for such a
+connection remains unsupported until the connection-to-compiler mapping is
+wired. Do not claim that changing a stored legacy `permissionsBoundaryArn`
+overrides the family map.
 
 ### Known limits (not hidden)
 

@@ -189,7 +189,7 @@ const compile = (node: ResourceNode, ctx: CompileContext) =>
     const role = b.resource("aws_iam_role", label, {
       name: roleName,
       assume_role_policy: assumeRoleJson("codebuild.amazonaws.com"),
-      permissions_boundary: boundaryArn(env),
+      permissions_boundary: boundaryArn(env, "build"),
       tags: tagsFor(ctx, node, roleName),
     });
     const statements: PolicyStatement[] = [

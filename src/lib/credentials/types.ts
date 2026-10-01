@@ -59,10 +59,11 @@ export interface AwsConnectionConfig {
   /** KMS key for OpenTofu state encryption, optional */
   stateKmsKeyArn?: string;
   /**
-   * The ZenithWorkloadBoundary policy ARN from the bootstrap stack/module
-   * (output `WorkloadBoundaryArn`). Every IAM role OpenTofu creates in this
-   * account must set it as `permissions_boundary`; the deploy role cannot
-   * create a role without it.
+   * Legacy ZenithWorkloadBoundary ARN retained during stack-first migration
+   * (output `WorkloadBoundaryArn`). Current AWS drivers select their family
+   * from credentials/aws/naming.ts and do not consume this legacy override.
+   * Custom bootstrap name suffixes need a connection-to-compiler family ARN
+   * mapping; the current compiler supports unsuffixed family policy names.
    */
   permissionsBoundaryArn?: string;
   /** The `zenith-codebuild` service role ARN from the bootstrap stack (builds run in the customer account). */

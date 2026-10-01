@@ -101,7 +101,7 @@ describe("aws:vpc compile", () => {
     expect(f.resource!.aws_cloudwatch_log_group.network_main_flow).toMatchObject({ name: "/zenith/acme-prod/main/vpc-flow-logs", retention_in_days: 30 });
     expect(f.resource!.aws_flow_log.network_main_flow).toMatchObject({ traffic_type: "REJECT", log_destination_type: "cloud-watch-logs", max_aggregation_interval: 600 });
     const role = f.resource!.aws_iam_role.network_main_flow as { permissions_boundary: string; assume_role_policy: string };
-    expect(role.permissions_boundary).toContain("policy/ZenithWorkloadBoundary");
+    expect(role.permissions_boundary).toContain("policy/ZenithAppBoundary");
     const trust = JSON.parse(role.assume_role_policy);
     expect(trust.Statement[0].Principal).toEqual({ Service: "vpc-flow-logs.amazonaws.com" });
     expect(trust.Statement[0].Condition.StringEquals["aws:SourceAccount"]).toContain("aws_caller_identity");

@@ -55,14 +55,19 @@ OCI and `zenith` stay interchangeable behind `src/lib/drivers/types.ts`.
 - IAM: least privilege from `IdentitySpec.grants` only — exact resource
   ARNs/ids via `ctx.ref`, explicit actions, never `"*"` actions or resources
   (policy will deny wildcard IAM). Roles Zenith creates carry the
-  `ZenithWorkloadBoundary` permission boundary (AWS). CodeBuild roles alone
-  reserve the `-build` suffix **after** name truncation/hashing (64-character
-  IAM limit). The boundary's `ArnLike aws:PrincipalArn` uses the shared
-  `BUILD_ROLE_NAME_PATTERN` from `credentials/aws/naming.ts`, checked by the
-  bootstrap policy generator. Application identities must never use this
-  suffix. Build policies remain scoped to the exact source prefix, repository
-  and distribution; boundary grants do not replace that scoping. Build log
-  groups use `/aws/codebuild/zenith-*`, inside the existing workload log grant.
+  family permission boundary (AWS), selected from `AWS_ROLE_BOUNDARIES` in
+  `credentials/aws/naming.ts`: app/identity, build, machine, scheduler, EKS
+  cluster and EKS node. Reserved suffixes are appended after truncation/hashing
+  to preserve the 64-character IAM limit. The generator verifies each family's
+  `aws:PrincipalArn` patterns; each boundary refuses other-family principals.
+  Shared actions remain shared only through each principal's own family policy.
+  The deploy role requires an exact family ARN and cannot edit/remove boundaries.
+  Role policies still narrow each boundary to exact output/source resources.
+  Existing stacks must be updated first; roles move on the next environment
+  apply. Legacy grants stay intact during migration; its state deny also protects
+  bucket-name prefix collisions. Default
+  unsuffixed names are supported; custom bootstrap suffixes need connection ARN
+  mapping that is not yet passed into the compiler.
 - Secrets: compile references only (Secrets Manager/SSM ARN, Secret Manager
   resource name, Key Vault secret id). No secret value is ever in a
   fragment. Generated credentials (DB master password) use the provider's

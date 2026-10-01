@@ -2,41 +2,60 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "IamCreateBoundedRoles",
       "Effect": "Allow",
       "Action": "iam:CreateRole",
       "Resource": "arn:${partition}:iam::${account_id}:role/zenith-*",
       "Condition": {
         "StringEquals": {
-          "iam:PermissionsBoundary": "${boundary_arn}",
+          "iam:PermissionsBoundary": [
+            "${app_boundary_arn}",
+            "${build_boundary_arn}",
+            "${machine_boundary_arn}",
+            "${scheduler_boundary_arn}",
+            "${eksCluster_boundary_arn}",
+            "${eksNode_boundary_arn}"
+          ],
           "aws:RequestTag/zenith:managed": "true"
         }
       }
     },
     {
-      "Sid": "IamChangeBoundedRolePolicies",
       "Effect": "Allow",
       "Action": [
         "iam:PutRolePolicy",
         "iam:DeleteRolePolicy",
         "iam:DetachRolePolicy",
-        "iam:DeleteRole"
+        "iam:DeleteRole",
+        "iam:PutRolePermissionsBoundary"
       ],
       "Resource": "arn:${partition}:iam::${account_id}:role/zenith-*",
       "Condition": {
         "StringEquals": {
-          "iam:PermissionsBoundary": "${boundary_arn}"
+          "iam:PermissionsBoundary": [
+            "${app_boundary_arn}",
+            "${build_boundary_arn}",
+            "${machine_boundary_arn}",
+            "${scheduler_boundary_arn}",
+            "${eksCluster_boundary_arn}",
+            "${eksNode_boundary_arn}"
+          ]
         }
       }
     },
     {
-      "Sid": "IamAttachOnlyKnownPolicies",
       "Effect": "Allow",
       "Action": "iam:AttachRolePolicy",
       "Resource": "arn:${partition}:iam::${account_id}:role/zenith-*",
       "Condition": {
         "StringEquals": {
-          "iam:PermissionsBoundary": "${boundary_arn}"
+          "iam:PermissionsBoundary": [
+            "${app_boundary_arn}",
+            "${build_boundary_arn}",
+            "${machine_boundary_arn}",
+            "${scheduler_boundary_arn}",
+            "${eksCluster_boundary_arn}",
+            "${eksNode_boundary_arn}"
+          ]
         },
         "ArnLike": {
           "iam:PolicyARN": [
@@ -47,13 +66,13 @@
             "arn:${partition}:iam::aws:policy/AmazonEKSClusterPolicy",
             "arn:${partition}:iam::aws:policy/AmazonEKSWorkerNodePolicy",
             "arn:${partition}:iam::aws:policy/AmazonEKS_CNI_Policy",
-            "arn:${partition}:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+            "arn:${partition}:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly",
+            "arn:${partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
           ]
         }
       }
     },
     {
-      "Sid": "IamTagRolesOnCreation",
       "Effect": "Allow",
       "Action": "iam:TagRole",
       "Resource": "arn:${partition}:iam::${account_id}:role/zenith-*",
@@ -64,7 +83,6 @@
       }
     },
     {
-      "Sid": "IamRoleMetadata",
       "Effect": "Allow",
       "Action": [
         "iam:TagRole",
@@ -81,7 +99,6 @@
       }
     },
     {
-      "Sid": "IamManageZenithPolicies",
       "Effect": "Allow",
       "Action": [
         "iam:CreatePolicy",
@@ -95,7 +112,6 @@
       "Resource": "arn:${partition}:iam::${account_id}:policy/zenith-*"
     },
     {
-      "Sid": "IamPassRoleToWorkloadServices",
       "Effect": "Allow",
       "Action": "iam:PassRole",
       "Resource": "arn:${partition}:iam::${account_id}:role/zenith-*",
@@ -112,7 +128,6 @@
       }
     },
     {
-      "Sid": "IamServiceLinkedRolesForSupportedServices",
       "Effect": "Allow",
       "Action": "iam:CreateServiceLinkedRole",
       "Resource": "arn:${partition}:iam::${account_id}:role/aws-service-role/*",
@@ -131,7 +146,7 @@
       }
     },
     {
-      "Sid": "DenyModifyingZenithBootstrapRolesAndPolicies",
+      "Sid": "DenyBootstrapChanges",
       "Effect": "Deny",
       "Action": [
         "iam:AttachRolePolicy",
@@ -149,15 +164,16 @@
         "iam:CreatePolicyVersion",
         "iam:SetDefaultPolicyVersion",
         "iam:DeletePolicy",
-        "iam:DeletePolicyVersion"
+        "iam:DeletePolicyVersion",
+        "iam:CreatePolicy",
+        "iam:TagPolicy",
+        "iam:UntagPolicy"
       ],
       "Resource": [
         "arn:${partition}:iam::${account_id}:role/ZenithDeploy*",
         "arn:${partition}:iam::${account_id}:role/ZenithObserve*",
         "arn:${partition}:iam::${account_id}:role/zenith-codebuild*",
-        "arn:${partition}:iam::${account_id}:policy/ZenithDeploy*",
-        "arn:${partition}:iam::${account_id}:policy/ZenithObserve*",
-        "arn:${partition}:iam::${account_id}:policy/ZenithWorkloadBoundary*"
+        "arn:${partition}:iam::${account_id}:policy/Zenith*"
       ]
     },
     {
@@ -170,12 +186,19 @@
       "Resource": "*",
       "Condition": {
         "StringNotEquals": {
-          "iam:PermissionsBoundary": "${boundary_arn}"
+          "iam:PermissionsBoundary": [
+            "${app_boundary_arn}",
+            "${build_boundary_arn}",
+            "${machine_boundary_arn}",
+            "${scheduler_boundary_arn}",
+            "${eksCluster_boundary_arn}",
+            "${eksNode_boundary_arn}"
+          ]
         }
       }
     },
     {
-      "Sid": "DenyOidcProviderAndPrincipalCreation",
+      "Sid": "DenyPrincipalCreation",
       "Effect": "Deny",
       "Action": [
         "iam:CreateOpenIDConnectProvider",

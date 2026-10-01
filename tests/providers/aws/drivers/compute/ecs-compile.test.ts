@@ -250,7 +250,7 @@ describe("aws:ecs_service compile", () => {
     it("carries the permissions boundary and trusts only ecs-tasks", () => {
       const { fragment } = compileService();
       const role = res(fragment, "aws_iam_role", "container_service_web_exec");
-      expect(role.permissions_boundary).toMatch(/:policy\/ZenithWorkloadBoundary$/);
+      expect(role.permissions_boundary).toMatch(/:policy\/ZenithAppBoundary$/);
       expect(JSON.parse(role.assume_role_policy as string).Statement).toEqual([{ Effect: "Allow", Principal: { Service: "ecs-tasks.amazonaws.com" }, Action: "sts:AssumeRole" }]);
     });
   });
@@ -435,7 +435,7 @@ describe("aws:ecs_scheduled_task compile", () => {
     }
     const role = res(fragment, "aws_iam_role", "scheduled_job_nightly_events");
     expect(JSON.parse(role.assume_role_policy as string).Statement[0].Principal).toEqual({ Service: "events.amazonaws.com" });
-    expect(role.permissions_boundary).toMatch(/ZenithWorkloadBoundary$/);
+    expect(role.permissions_boundary).toMatch(/ZenithSchedulerBoundary$/);
   });
 
   it("a public image job has an execution role that can only write logs, and no wildcard resource at all except the log-stream suffix", () => {

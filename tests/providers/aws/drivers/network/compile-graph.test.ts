@@ -184,7 +184,7 @@ describe("fixture graph: hygiene", () => {
       }
     }
     expect(Object.keys(resources).filter((t) => t === "aws_iam_policy" || t === "aws_iam_user")).toEqual([]);
-    for (const [, , b] of allResources().filter(([t]) => t === "aws_iam_role")) expect(b.permissions_boundary).toContain("policy/ZenithWorkloadBoundary");
+    for (const [, , b] of allResources().filter(([t]) => t === "aws_iam_role")) expect(b.permissions_boundary).toContain("policy/ZenithAppBoundary");
   });
 
   it("every taggable resource carries the Zenith tags and the address of the node that owns it", () => {

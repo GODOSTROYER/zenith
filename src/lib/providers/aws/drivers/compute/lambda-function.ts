@@ -8,7 +8,7 @@
  * driver marks itself experimental with `capabilities.experimental`.
  *
  * Compile: `aws_lambda_function` (Zip package from an S3 object), its own
- * role (trust lambda.amazonaws.com, `ZenithWorkloadBoundary`, permission to
+ * role (trust lambda.amazonaws.com, `ZenithAppBoundary`, permission to
  * write streams of ITS log group only), its log group `/aws/lambda/<name>`
  * (30 days). No VPC, no layers, no public URL. Environment values are plain:
  * Lambda has no `valueFrom`, so a `secretRef` is a compile error (read the
@@ -81,7 +81,7 @@ const compile = (node: ResourceNode, ctx: CompileContext) =>
     const env = environmentData(b, label, ctx.region);
     const fname = cloudName(ctx.namePrefix, name, 64);
     const logs = b.resource("aws_cloudwatch_log_group", `${label}_logs`, { name: `/aws/lambda/${fname}`, retention_in_days: 30, tags: tagsFor(ctx, node) });
-    const roleName = cloudName(ctx.namePrefix, `${name}-fn`, 64);
+    const roleName = `${cloudName(ctx.namePrefix, name, 64 - "-fn".length)}-fn`;
     const role = b.resource("aws_iam_role", label, {
       name: roleName,
       assume_role_policy: assumeRoleJson("lambda.amazonaws.com"),

@@ -37,8 +37,19 @@ locals {
   boundary_arn      = "arn:${local.partition}:iam::${local.account_id}:policy/${local.boundary_name}"
   oidc_provider_arn = "arn:${local.partition}:iam::${local.account_id}:oidc-provider/${var.zenith_issuer_host}"
 
-  policy_vars = {
+  family_boundaries = {
+    app        = { name = "ZenithAppBoundary", file = "app-boundary" }
+    build      = { name = "ZenithBuildBoundary", file = "build-boundary" }
+    machine    = { name = "ZenithMachineBoundary", file = "machine-boundary" }
+    scheduler  = { name = "ZenithSchedulerBoundary", file = "scheduler-boundary" }
+    eksCluster = { name = "ZenithEksClusterBoundary", file = "eks-cluster-boundary" }
+    eksNode    = { name = "ZenithEksNodeBoundary", file = "eks-node-boundary" }
+  }
+  family_boundary_arns = { for key, spec in local.family_boundaries : key => "arn:${local.partition}:iam::${local.account_id}:policy/${spec.name}${var.name_suffix}" }
+
+  policy_vars = merge({
     partition                = local.partition
+    dns_suffix               = data.aws_partition.current.dns_suffix
     account_id               = local.account_id
     region                   = local.region
     state_bucket             = local.state_bucket_name
@@ -47,7 +58,7 @@ locals {
     environment_tag_value    = var.environment_tag_value
     kms_key_arn              = var.state_bucket_kms_key_arn
     route53_hosted_zone_arns = var.route53_hosted_zone_arns
-  }
+  }, { for key, arn in local.family_boundary_arns : "${key}_boundary_arn" => arn })
 
   optional = jsondecode(templatefile("${path.module}/policies/optional-statements.json.tftpl", local.policy_vars))
 
@@ -246,14 +257,17 @@ resource "aws_s3_bucket_policy" "state" {
   depends_on = [aws_s3_bucket_public_access_block.state]
 }
 
-# ------------------------------------------------- permission boundary
-# Every IAM role Zenith creates must carry this boundary; effective permissions
-# are the role's own policies INTERSECT this list.
-# The generated policy mirrors CFN byte-for-byte: build-only ECR push, S3
-# version reads and tagged CloudFront invalidations require role/zenith-*-build.
-# Scheduled RunTask/PassRole require role/zenith-*-events; core SSM agent
-# actions require role/zenith-*-ec2. IAM administration remains explicitly denied.
-# naming.ts defines reserved suffixes; the generator checks them for drift.
+# ------------------------------------------------- permission boundaries
+# Family policies intersect driver role policies and enforce reserved principals.
+# naming.ts centralizes selection; the generator verifies principal patterns.
+resource "aws_iam_policy" "family_boundary" {
+  for_each    = local.family_boundaries
+  name        = "${each.value.name}${var.name_suffix}"
+  description = "Permission boundary for Zenith ${each.key} roles. Do not edit; Zenith cannot."
+  policy      = templatefile("${path.module}/policies/${each.value.file}.json.tftpl", local.policy_vars)
+}
+
+# Retain the legacy policy during migration; the deploy role cannot select it.
 resource "aws_iam_policy" "workload_boundary" {
   name        = local.boundary_name
   description = "Permission boundary for roles created by Zenith. Do not edit; Zenith cannot."

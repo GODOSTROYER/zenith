@@ -60,7 +60,8 @@ describe("EKS secure declarative cluster", () => {
   });
   it("bounds both IAM roles and does not grant the cluster creator implicit admin", () => {
     const f = compile();
-    for (const role of Object.values(f.resource!.aws_iam_role)) expect(role.permissions_boundary).toContain(":policy/ZenithWorkloadBoundary");
+    expect(f.resource!.aws_iam_role.kubernetes_cluster_apps_cluster.permissions_boundary).toContain(":policy/ZenithEksClusterBoundary");
+    expect(f.resource!.aws_iam_role.kubernetes_cluster_apps_nodes.permissions_boundary).toContain(":policy/ZenithEksNodeBoundary");
     expect(f.resource!.aws_eks_cluster.kubernetes_cluster_apps.access_config).toEqual([{ authentication_mode: "API", bootstrap_cluster_creator_admin_permissions: false }]);
     for (const role of Object.values(f.resource!.aws_iam_role)) expect(String(role.assume_role_policy)).not.toMatch(/\*/);
   });

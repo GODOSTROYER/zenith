@@ -91,6 +91,48 @@ describe("Kubernetes release image rollout", () => {
     expect(w.fake.get("Deployment", NS, "web")!.spec.template.spec.containers[0].image).toBe(IMAGE);
   });
 
+  it("retries controller status races with fresh preconditions, with a three-attempt bound", async () => {
+    for (const races of [1, 3]) {
+      const w = await world();
+      let updates = 0;
+      w.fake.inject({ match: (request) => {
+        if (request.method === "PATCH" && request.path.endsWith("/deployments/web") && updates < races) {
+          w.fake.setStatus("Deployment", NS, "web", { readyReplicas: ++updates });
+        }
+        return false;
+      }, status: 200, message: "" });
+      const apply = w.ports.workloads.deployImage(w.ctx, w.node, { uri: NEXT_IMAGE, digest: NEXT_DIGEST }, { idempotencyKey: "deploy" });
+      if (races === 1) await expect(apply).resolves.toBeDefined();
+      else await expect(apply).rejects.toThrow("field_conflict");
+      expect(updates).toBe(races);
+      expect(w.fake.get("Deployment", NS, "web")!.spec.template.spec.containers[0].image).toBe(races === 1 ? NEXT_IMAGE : IMAGE);
+      const patches = w.fake.requests.filter((request) => request.method === "PATCH" && request.path.endsWith("/deployments/web")).slice(1);
+      expect(patches).toHaveLength(races === 1 ? 2 : 3);
+      for (const patch of patches) expect(patch.query.force).toBe("false");
+      expect(new Set(patches.map((patch) => patch.body.metadata.resourceVersion)).size).toBe(patches.length);
+    }
+  });
+
+  it("never retries against a replacement workload after a precondition conflict", async () => {
+    const w = await world();
+    let replaced = false;
+    w.fake.inject({ match: (request) => {
+      if (!replaced && request.method === "PATCH" && request.path.endsWith("/deployments/web")) {
+        replaced = true;
+        const replacement = w.fake.get("Deployment", NS, "web")!;
+        replacement.metadata.uid = "replacement-uid";
+        delete replacement.metadata.resourceVersion;
+        delete replacement.metadata.managedFields;
+        w.fake.remove("Deployment", NS, "web");
+        w.fake.seed(replacement);
+      }
+      return false;
+    }, status: 200, message: "" });
+    await expect(w.ports.workloads.deployImage(w.ctx, w.node, { uri: NEXT_IMAGE, digest: NEXT_DIGEST }, { idempotencyKey: "deploy" })).rejects.toThrow("field_conflict");
+    expect(w.fake.get("Deployment", NS, "web")!.spec.template.spec.containers[0].image).toBe(IMAGE);
+    expect(w.fake.requests.filter((request) => request.method === "PATCH" && request.path.endsWith("/deployments/web"))).toHaveLength(2);
+  });
+
   it("does not force an image owned by another manager or echo API secrets", async () => {
     const w = await world();
     w.fake.foreignUpdate("Deployment", NS, "web", "other", { spec: { template: { spec: { containers: [{ name: "app", image: "ghcr.io/acme/web:other" }] } } } });
@@ -117,6 +159,9 @@ describe("Kubernetes migration Jobs", () => {
     finishJobs(w);
     const result = await w.ports.migrations.runOneOffTask(w.ctx, w.node, COMMAND, OPTIONS);
     expect(result).toMatchObject({ exitCode: 0, logsRef: expect.stringContaining("k8s-job:shop/zenith-migrate-") });
+    const claim = w.fake.requests.find((r) => r.method === "PATCH" && r.query.fieldManager === "zenith-release")!;
+    expect(claim.contentType).toBe("application/merge-patch+json");
+    expect(claim.query).not.toHaveProperty("force");
     const job = w.fake.list("Job", NS)[0];
     const source = w.fake.get("Deployment", NS, "web")!.spec.template.spec;
     expect(job.spec).toMatchObject({ ttlSecondsAfterFinished: 3600, activeDeadlineSeconds: 2, backoffLimit: 0, completions: 1, parallelism: 1 });

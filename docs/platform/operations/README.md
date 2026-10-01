@@ -1,0 +1,118 @@
+# Operating the platform control plane
+
+Operator documentation for the control plane described in
+[ARCHITECTURE.md](../ARCHITECTURE.md): how to deploy it, recover it, connect a
+customer cloud, run its policy and read its costs. It covers the modules that
+have merged. The modules still being built are listed below and **deliberately not
+documented**: a page written before the code exists is a promise, and this
+documentation does not make promises.
+
+Written against branch `ws/docs` at commit `fd2ce9f` (2026-09-30).
+
+## Read this first: what is real
+
+The pieces below are built and tested, but the path that joins them is not built
+yet. The execution worker's activities are stubs that fail with `not_implemented`,
+no route opens the platform store, nothing calls the policy engine, and nothing
+has run against a real AWS account, Temporal Cloud or a Docker build. Each page
+says which of its statements were verified and which were not, and the capability
+matrix says, per driver operation, what evidence stands behind it (today: no
+driver has merged, and no entry claims `real`).
+
+## The guides
+
+| Guide | For | Covers |
+|---|---|---|
+| [DEPLOYING.md](DEPLOYING.md) | Whoever runs the install | Topology, every environment variable per component, the platform database and its migrations, signing keys, Temporal (local, Cloud, self-hosted), the execution worker, what must never run on Vercel, first-install order |
+| [RECOVERY.md](RECOVERY.md) | Whoever is on call | What state lives where and how to back it up, disaster recovery order, what happens to an operation when something crashes (`uncertain`, the reconciler, the reaper), leases and fence tokens, key rotation, migrating the schema forward, and what was rehearsed |
+| [AWS-SETUP.md](AWS-SETUP.md) | The owner of a customer AWS account | What connecting an account creates, what Zenith can and cannot do in it, how narrow a session is, and how to revoke. Commands live in [`deploy/aws/README.md`](../../../deploy/aws/README.md) |
+| [POLICY.md](POLICY.md) | Whoever tunes authorization | How a decision is made, the rules in summary, workspace parameters, autonomy levels 0 to 5, decision records, changing a rule and rebuilding the bundle |
+| [COST.md](COST.md) | Whoever shows a number to a user | Estimates versus forecasts versus actuals (only estimates exist), what an estimate includes and excludes, the price catalog, its evidence classes and how to refresh it |
+| [CAPABILITY-MATRIX.md](../CAPABILITY-MATRIX.md) | Anyone deciding what to trust | **Generated.** Provider by native type by operation, with the evidence level each driver declares, the observability sources and the capability catalog |
+
+Reference material these guides lean on (not duplicated here):
+
+| Document | What it is |
+|---|---|
+| [ARCHITECTURE.md](../ARCHITECTURE.md) | The control-plane design and its invariants |
+| [CURRENT-STATE.md](../CURRENT-STATE.md) | The baseline audit the build started from |
+| [EXECUTION-WORKER.md](../EXECUTION-WORKER.md) | Workflows, retries, leases, approval, cancellation, worker configuration |
+| [DRIVER-CONVENTIONS.md](../DRIVER-CONVENTIONS.md) | How every provider's resource drivers must behave |
+| [RUNNER-PROTOCOL.md](../RUNNER-PROTOCOL.md) | The wire protocol for `zenith-runner` and `zenithd` (the agents are in progress) |
+| [`src/lib/credentials/OPERATIONS.md`](../../../src/lib/credentials/OPERATIONS.md) | The credential broker's environment, key generation, KMS and rotation |
+| [`policy/README.md`](../../../policy/README.md) | Every policy rule, its condition and its reason code |
+| [`docs/adr/`](../../adr/README.md) | The decisions, ADR-0001 to ADR-0016 |
+
+## What is merged, and where it is documented
+
+| Module | Code | Documented in |
+|---|---|---|
+| Control store | `src/lib/controlplane/**`, `scripts/platform/**`, `supabase/migrations/0014_platform_core.sql` | [DEPLOYING.md](DEPLOYING.md#3-the-platform-database), [RECOVERY.md](RECOVERY.md) |
+| Credential broker and OIDC issuer | `src/lib/credentials/**`, `src/app/api/oidc/**`, `deploy/aws/**` | [`OPERATIONS.md`](../../../src/lib/credentials/OPERATIONS.md), [DEPLOYING.md](DEPLOYING.md#23-workload-identity-and-control-plane-signing), [AWS-SETUP.md](AWS-SETUP.md), [RECOVERY.md](RECOVERY.md#6-key-rotation) |
+| OpenTofu engine | `src/lib/tofu/**` | [DEPLOYING.md](DEPLOYING.md#26-opentofu-engine), [ADR-0005](../../adr/0005-opentofu-hybrid.md) |
+| Policy engine | `policy/**`, `src/lib/policy/**` | [POLICY.md](POLICY.md) |
+| Resource model | `src/lib/resources/**` | [ADR-0003](../../adr/0003-resource-model-v2.md). A pure library with nothing to operate |
+| Placement and cost | `src/lib/placement/**` | [COST.md](COST.md) |
+| Observability fabric | `src/lib/observability/**` | [CAPABILITY-MATRIX.md](../CAPABILITY-MATRIX.md#observability-sources), [ADR-0011](../../adr/0011-observability-federated.md). Reads no environment variables; no operator guide yet (planned) |
+| Temporal workflows and worker | `src/lib/workflows/**`, `workers/execution/**`, `docker/worker.Dockerfile` | [EXECUTION-WORKER.md](../EXECUTION-WORKER.md), [DEPLOYING.md](DEPLOYING.md#5-temporal) |
+
+## In progress, not documented here
+
+These are being built in other workstreams. Until they merge, nothing on this
+branch behaves the way a guide could describe, so there is no guide:
+
+- resource drivers, including the AWS, Kubernetes, GCP, Azure, OCI and managed
+  `zenith` provider sets
+- the capability broker, approvals and autonomy enforcement
+- `zenith-runner`, `zenithd` and the Go agents
+- the machine plane
+- the incident engine
+- reconciliation (the reconcile workflow observes only; repair is not built)
+- the REST surface `/api/platform/v1` and MCP v3
+- the UI for connections, approvals and the platform
+- the real worker activities
+
+## Planned guides
+
+Not written, because the module each describes is not merged. Names are
+placeholders.
+
+| Planned guide | Waits for |
+|---|---|
+| `RUNNERS.md` | `zenith-runner` and the runner routes |
+| `MACHINES.md` | The machine plane and `zenithd` |
+| `INCIDENTS.md` | The incident engine |
+| `OBSERVABILITY.md` | Source configuration, partial answers and redaction, once sources are wired to a route |
+| `CAPABILITY-BROKER.md` | The broker, approvals and the REST and MCP surfaces |
+| `GCP-SETUP.md`, `AZURE-SETUP.md`, `OCI-SETUP.md`, `KUBERNETES.md` | Their providers and credential exchanges |
+
+## Commands these guides use
+
+| Command | What it does | Guide |
+|---|---|---|
+| `npm run migrate:platform` (`-- --status`, `-- --dry-run`, `-- --url <uri>`) | Apply, inspect or preview platform schema migrations | [DEPLOYING.md](DEPLOYING.md#32-migrating) |
+| `npm run platform:emit-sql` (`-- --check`) | Regenerate or check the Supabase SQL file | [DEPLOYING.md](DEPLOYING.md#32-migrating) |
+| `npm run worker` | Run the execution worker (development) | [DEPLOYING.md](DEPLOYING.md#51-locally) |
+| `temporal server start-dev --headless --port <p>` | A local Temporal | [DEPLOYING.md](DEPLOYING.md#51-locally) |
+| `npm run policy:build`, `npm run policy:check` | Build, or verify, the policy bundle | [POLICY.md](POLICY.md#changing-a-rule) |
+| `npx tsx scripts/docs/capability-matrix.ts` (`--check`) | Regenerate or check the capability matrix | [CAPABILITY-MATRIX.md](../CAPABILITY-MATRIX.md) |
+| `npx vitest run tests/docs` | Check these docs against the code (see below) | this page |
+
+## How these docs are kept honest
+
+- **The matrix is generated**, from the driver registry, the observability
+  evidence table and the capability catalog; it is never edited by hand.
+- **`tests/docs/` checks the rest.** Every relative link and heading anchor under
+  `docs/platform/` must resolve; every file path these guides name in code spans
+  must exist; every environment variable the modules read must appear in
+  [DEPLOYING.md](DEPLOYING.md#2-environment-variables) and every variable named
+  there must exist in the code; the policy rule counts, the price catalog counts and
+  the cost engine's included and excluded lists on these pages must equal what the
+  code says now; and no matrix entry may claim `real`. A change to the code that
+  makes a page wrong fails the test, which is the point.
+- **Verified versus reasoned.** A statement that was checked by running something
+  says what was run. A statement reasoned from the code but not run is marked
+  **reasoned**. Anything that needs a real cloud account, Temporal Cloud or a
+  Docker build says it is not verified.
+- **Stale by design.** Each page names the commit it was written against. When a
+  module in the list above merges, its page is written then, not before.

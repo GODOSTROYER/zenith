@@ -20,6 +20,7 @@ import { platformDriverLookup } from "./driver-lookup";
 import { createReleasePorts } from "./release";
 import { composeReconcilePorts } from "./reconcile";
 import { createSourceBundles, type SourceBundleDeps } from "./source-bundle";
+import { createDefaultMachinePort } from "@/lib/machines/composition";
 
 export interface ComposeExecutionOptions {
   db: Sql;
@@ -50,6 +51,7 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
     observability: ({ session, ...input }) => createObservabilityFabric(sourcesForEnvironment({ ...input, sessions: session.provider === "aws" ? { aws: session } : session.provider === "kubernetes" ? { kubernetes: session } : {} })),
     prober: createSafeProber(), ...createReleasePorts({ db: opts.db }),
     sourceBundle: opts.ports?.sourceBundle ?? createSourceBundles({ ...opts.sourceBundles, resources: opts.ports?.resources ?? platformPorts.resources }).port,
+    machines: opts.ports?.machines ?? createDefaultMachinePort(opts.db, opts.secretKey ?? process.env.ZENITH_SECRET_KEY!),
     ...opts.ports,
     fingerprintKey, workerId: opts.workerIdentity, planDir: opts.planDir,
   };

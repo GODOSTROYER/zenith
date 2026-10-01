@@ -119,6 +119,9 @@ function postProcess(req: MachineRequest, driver: MachineDriver, result: Machine
     output = { ...output, stdout: out.text, stderr: err.text, truncated: output.truncated || exceeded || out.truncated || err.truncated };
   }
   if (state.changed && REDACTABLE_OPS.has(req.operation)) data = { ...data, redacted: true };
+  if (typeof content !== "string" && Buffer.byteLength(JSON.stringify(data)) > max) {
+    return { ...result, ok: false, data: { error: "output_limit" }, ...(output ? { output } : {}) };
+  }
   return { ...result, data, ...(output ? { output } : {}) };
 }
 
@@ -167,18 +170,21 @@ export async function executeMachineOperation(req: MachineRequest, ctx: MachineE
     enforceConstraints(request.operation, parsedArgs, constraints);
 
     const effective: MachineRequest = { ...request, args: parsedArgs, timeoutSec, maxOutputBytes };
-    const raw = await ctx.sessions.withSession(
-      { target: request.target, operation: request.operation, operationId: request.operationId, grant: ctx.grant },
-      (session) => driver.execute(effective, session, ctx.signal)
-    );
-    const result = postProcess(effective, driver, raw);
+    const execute = async (): Promise<MachineResult> => {
+      const raw = await ctx.sessions.withSession(
+        { target: request.target, operation: request.operation, operationId: request.operationId, grant: ctx.grant },
+        (session) => driver.execute(effective, session, ctx.signal)
+      );
+      const result = postProcess(effective, driver, raw);
 
-    try {
-      const record = await ctx.evidence.record(evidenceForResult(effective, parsedArgs, result));
-      return { ...result, evidenceId: record.id };
-    } catch (cause) {
-      throw new MachineOperationError("evidence_failed", "the request completed but its evidence record could not be written", { result, cause });
-    }
+      try {
+        const record = await ctx.evidence.record(evidenceForResult(effective, parsedArgs, result));
+        return { ...result, evidenceId: record.id };
+      } catch (cause) {
+        throw new MachineOperationError("evidence_failed", "the request completed but its evidence record could not be written", { result, cause });
+      }
+    };
+    return ctx.evidence.runOnce ? await ctx.evidence.runOnce(effective, execute, driver.simulated === true) : await execute();
   } catch (e) {
     if (isMachineOperationError(e)) {
       if (e.code === "evidence_failed") throw e;

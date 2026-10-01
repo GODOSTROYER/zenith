@@ -181,6 +181,8 @@ export type MachineEvidenceInput = Omit<EvidenceRecord, "id" | "createdAt" | "bl
 };
 export interface MachineEvidenceSink {
   record(input: MachineEvidenceInput): Promise<EvidenceRecord>;
+  /** Default composition journals dispatch after all local checks; no credential or grant is persisted. */
+  runOnce?(request: MachineRequest, execute: () => Promise<MachineResult>, simulated?: boolean): Promise<MachineResult>;
 }
 
 /**

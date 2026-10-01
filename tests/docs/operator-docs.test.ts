@@ -794,12 +794,14 @@ describe("operator claims match current wiring", () => {
     expect(source("docs/platform/RUNNER-PROTOCOL-OCI.md")).toContain("IMPLEMENTED AND WIRED; NOT LIVE-VERIFIED");
   });
 
-  it("machine execution has an activity call but no machine port in default composition", () => {
+  it("default machine composition wires brokered transports and the signed machine queue", () => {
     expect(source("src/lib/execution/capability.ts")).toContain("executeMachineOperation(");
     expect(source("src/lib/execution/capability.ts")).toContain("if (!plane) throw new StepFailedError");
     const composition = source("src/lib/platform/execution.ts");
-    expect(composition).not.toMatch(/^\s*machines:/m);
-    expect(deploying).toContain("default composition supplies no `machines` port");
+    expect(composition).toContain("machines: opts.ports?.machines ?? createDefaultMachinePort(");
+    const machines = source("src/lib/machines/composition.ts");
+    for (const token of ["repos.observations.latestObservation(db, ws, resourceId)", "store.machines.list(ws)", "createRunnerMachineDispatcher", "createMachineEvidenceSink"]) expect(machines).toContain(token);
+    expect(deploying).toContain("Default composition supplies the `machines` port");
     expect(source("src/lib/machines/transports/azure-run-command.ts")).toContain("export function createAzureRunCommandMachineDriver(");
     expect(source("src/lib/machines/transports/gcp-os-management.ts")).toContain('const supports = ["machine.inspect"] as const');
     expect(squash(source("docs/platform/operations/README.md"))).toContain("Azure managed Run Command and GCP Compute/OS Inventory drivers exist");

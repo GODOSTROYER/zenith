@@ -2,28 +2,37 @@
  * Process wiring of the runner plane: which store, signer, result sealer,
  * event sink and clock the routes and `dispatch.ts` use.
  *
- * Nothing is guessed in production:
- *  - store   — the platform control-store adapter must be registered with
- *              `configureRunnerRuntime({ store })` at boot. Outside production
- *              a process-wide in-memory store is the default; in production it
- *              is used only when `ZENITH_RUNNER_STORE=memory` says so (a single
- *              long-lived host, never serverless).
- *  - signer  — `ZENITH_CONTROL_SIGNING_JWK` (or an injected KMS-backed signer).
- *  - sealer  — `ZENITH_RUNNER_RESULT_KEY`, else derived from the signing JWK.
- * A missing piece is a `RunnerConfigError` (HTTP 503 `runner_plane_unconfigured`).
+ * Defaults (nothing is guessed, and a missing piece is a `RunnerConfigError` —
+ * HTTP 503 `runner_plane_unconfigured` — never a silent fallback):
+ *  - store     `createPlatformRunnerStore(await platformDb())`, the platform control
+ *              store (Postgres, or PGlite when no URL is configured; `ZENITH_PLATFORM_DB*`).
+ *  - signer    `getControlSigner()` from the credential module: a local Ed25519 JWK
+ *              (`ZENITH_CONTROL_SIGNING_JWK`) or KMS (`ZENITH_CONTROL_KMS_KEY_ID`).
+ *  - keys      `getControlVerificationKeys()`: the active key plus
+ *              `ZENITH_CONTROL_EXTRA_PUBLIC_JWKS` (announced next / retiring keys).
+ *  - sealer    `ZENITH_RUNNER_RESULT_KEY`, else derived from the local signing JWK (`seal.ts`).
+ *  - events    a no-op until the orchestrator wires the event store (`events.append`).
+ * Tests and the composition root inject pieces with `configureRunnerRuntime`.
  */
-import { createMemoryRunnerStore } from "@/lib/runners/memory-store";
+import { createHash } from "node:crypto";
+import { platformDb } from "@/lib/controlplane/db";
+import { getControlSigner, getControlVerificationKeys } from "@/lib/credentials/signing";
+import type { JwtSigner, PublicJwk } from "@/lib/credentials/signing/types";
+import { createPlatformRunnerStore } from "@/lib/runners/db/pg-store";
 import type { RunnerEventSink, RunnerStore } from "@/lib/runners/ports";
 import { createResultSealerFromEnv, type ResultSealer } from "@/lib/runners/seal";
-import { createControlSignerFromEnv, type ControlSigner } from "@/lib/runners/signing";
+import { controlKeyOf, type ControlKey } from "@/lib/runners/signing";
 import { POLL_STEP_MS, RunnerConfigError } from "@/lib/runners/types";
 
 export interface RunnerRuntime {
   store: RunnerStore;
-  signer: ControlSigner;
+  /** the EdDSA control-plane signer (local JWK or KMS) */
+  signer: JwtSigner;
+  /** pinned control-plane public keys: the active key plus announced next/previous ones */
+  verificationKeys(): Promise<PublicJwk[]>;
   sealer: ResultSealer;
   events: RunnerEventSink;
-  /** epoch milliseconds (must be the same clock the store uses when tests fake it) */
+  /** epoch milliseconds (tests fake it; it must be the clock the store uses when they do) */
   now(): number;
   /** wait `ms`, rejecting with an AbortError when `signal` aborts */
   sleep(ms: number, signal?: AbortSignal): Promise<void>;
@@ -54,11 +63,11 @@ export function abortError(): Error {
 
 const noopEvents: RunnerEventSink = { emit: () => undefined };
 
-type G = typeof globalThis & { __zenithRunnerMemoryStore?: RunnerStore; __zenithRunnerEnvCache?: { key: string; signer: ControlSigner; sealer: ResultSealer } };
+type G = typeof globalThis & { __zenithRunnerStore?: { db: unknown; store: RunnerStore }; __zenithRunnerSealer?: { key: string; sealer: ResultSealer } };
 
 let override: Partial<RunnerRuntime> = {};
 
-/** Register the production adapters at boot, or fakes in tests. Replaces any earlier override. */
+/** Register the composition root's adapters at boot, or fakes in tests. Replaces any earlier override. */
 export function configureRunnerRuntime(next: Partial<RunnerRuntime>): void {
   override = { ...next };
 }
@@ -66,37 +75,44 @@ export function configureRunnerRuntime(next: Partial<RunnerRuntime>): void {
 export function resetRunnerRuntime(): void {
   override = {};
   const g = globalThis as G;
-  delete g.__zenithRunnerEnvCache;
+  delete g.__zenithRunnerStore;
+  delete g.__zenithRunnerSealer;
 }
 
-function defaultStore(): RunnerStore {
+async function defaultStore(): Promise<RunnerStore> {
   const g = globalThis as G;
-  if (process.env.NODE_ENV === "production" && process.env.ZENITH_RUNNER_STORE !== "memory")
-    throw new RunnerConfigError("The runner plane has no platform-store adapter registered (configureRunnerRuntime({ store })); refusing to fall back to memory in production.");
-  return (g.__zenithRunnerMemoryStore ??= createMemoryRunnerStore());
+  const db = await platformDb();
+  if (g.__zenithRunnerStore?.db !== db) g.__zenithRunnerStore = { db, store: createPlatformRunnerStore(db) };
+  return g.__zenithRunnerStore.store;
 }
 
-function envCrypto(): { signer: ControlSigner; sealer: ResultSealer } {
+function defaultSealer(): ResultSealer {
   const g = globalThis as G;
-  const key = `${process.env.ZENITH_CONTROL_SIGNING_JWK ?? ""}|${process.env.ZENITH_CONTROL_SIGNING_KID ?? ""}|${process.env.ZENITH_CONTROL_NEXT_KEYS ?? ""}|${process.env.ZENITH_RUNNER_RESULT_KEY ?? ""}`;
-  if (g.__zenithRunnerEnvCache?.key === key) return g.__zenithRunnerEnvCache;
-  const fresh = { key, signer: createControlSignerFromEnv(), sealer: createResultSealerFromEnv() };
-  g.__zenithRunnerEnvCache = fresh;
-  return fresh;
+  const key = createHash("sha256").update(`${process.env.ZENITH_RUNNER_RESULT_KEY ?? ""}|${process.env.ZENITH_CONTROL_SIGNING_JWK ?? ""}`).digest("hex");
+  if (g.__zenithRunnerSealer?.key !== key) g.__zenithRunnerSealer = { key, sealer: createResultSealerFromEnv() };
+  return g.__zenithRunnerSealer.sealer;
 }
 
-export function getRunnerRuntime(): RunnerRuntime {
+export async function getRunnerRuntime(): Promise<RunnerRuntime> {
   const o = override;
-  // resolve env crypto only for the pieces not injected, so a test that injects both needs no env
-  const needsEnv = !o.signer || !o.sealer;
-  const env = needsEnv ? envCrypto() : undefined;
+  const signer = o.signer ?? (await getControlSigner());
+  if (!signer) throw new RunnerConfigError("No control-plane signing key is configured (ZENITH_CONTROL_SIGNING_JWK or ZENITH_CONTROL_KMS_KEY_ID); the runner plane cannot sign jobs.");
   return {
-    store: o.store ?? defaultStore(),
-    signer: o.signer ?? env!.signer,
-    sealer: o.sealer ?? env!.sealer,
+    store: o.store ?? (await defaultStore()),
+    signer,
+    verificationKeys: o.verificationKeys ?? (o.signer ? async () => [o.signer!.publicJwk()] : () => getControlVerificationKeys()),
+    sealer: o.sealer ?? defaultSealer(),
     events: o.events ?? noopEvents,
     now: o.now ?? Date.now,
     sleep: o.sleep ?? realSleep,
     pollStepMs: o.pollStepMs ?? POLL_STEP_MS,
   };
+}
+
+/** The keys an agent pins at registration: the active signing key. */
+export const controlPlaneKeys = (rt: Pick<RunnerRuntime, "signer">): ControlKey[] => [controlKeyOf(rt.signer.publicJwk())];
+
+/** Announced rotation keys (heartbeat `nextKeys`): every verification key that is not the active one. */
+export async function announcedNextKeys(rt: Pick<RunnerRuntime, "signer" | "verificationKeys">): Promise<ControlKey[]> {
+  return (await rt.verificationKeys()).filter((k) => k.kid !== rt.signer.kid && k.x).map(controlKeyOf);
 }

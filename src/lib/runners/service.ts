@@ -14,7 +14,7 @@
  *    `claimed`/`queued` was provably never handed over.
  *  - A result settles a job at most once; a duplicate is `409 already_settled`.
  *  - The whole result is sealed (`seal.ts`) before it reaches the store; error
- *    strings and log lines are redacted (`@/lib/tofu/redact`).
+ *    strings and log lines are redacted (`redact.ts`).
  *  - A result or log for a job that is not this agent's is `404 job_not_found`
  *    (never a hint that the job exists for someone else).
  */
@@ -22,9 +22,9 @@ import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { sha256Hex } from "@/lib/controlplane/digest";
 import { log } from "@/lib/log";
-import { redactOutput } from "@/lib/tofu/redact";
 import { queueOf, registryOf, RunnerStoreError, type AgentJob, type AgentRecord, type JobLogLine, type RunnerEvent } from "@/lib/runners/ports";
-import type { RunnerRuntime } from "@/lib/runners/runtime";
+import { redactText } from "@/lib/runners/redact";
+import { announcedNextKeys, controlPlaneKeys, type RunnerRuntime } from "@/lib/runners/runtime";
 import { unverifiedClaims } from "@/lib/runners/signing";
 import {
   AGENT_KINDS,
@@ -169,7 +169,7 @@ export async function registerAgent(rt: RunnerRuntime, kind: AgentKind, body: un
     throw error;
   }
   await emit(rt, { type: kind === "runner" ? "runner.registered" : "machine.registered", workspaceId: agent.workspaceId, agentId: agent.id, data: { name: agent.name, version: agent.version, capabilities: agent.capabilities } });
-  return { id: agent.id, workspaceId: agent.workspaceId, controlPlaneKeys: rt.signer.publicKeys(), pollIntervalSec: DEFAULT_POLL_INTERVAL_SEC, protocol: agent.protocol };
+  return { id: agent.id, workspaceId: agent.workspaceId, controlPlaneKeys: controlPlaneKeys(rt), pollIntervalSec: DEFAULT_POLL_INTERVAL_SEC, protocol: agent.protocol };
 }
 
 /* ---------------------------------- heartbeat ---------------------------------- */
@@ -178,7 +178,7 @@ export async function heartbeatAgent(rt: RunnerRuntime, agent: AgentRecord, body
   const b = parse(HeartbeatBody, body);
   const res = await registryOf(rt.store, agent.kind).heartbeat({ workspaceId: agent.workspaceId, id: agent.id, version: b.version, capabilities: b.capabilities, host: b.host });
   if (!res || res.revoked) return { revoked: true, pollIntervalSec: DEFAULT_POLL_INTERVAL_SEC };
-  const next = rt.signer.nextKeys();
+  const next = await announcedNextKeys(rt);
   return { revoked: false, ...(next.length > 0 ? { nextKeys: next } : {}), pollIntervalSec: DEFAULT_POLL_INTERVAL_SEC };
 }
 
@@ -253,8 +253,9 @@ const isoOrUndefined = (s: string | undefined): string | undefined => {
 };
 
 const MAX_ERROR_CHARS = 4000;
+const NOT_AWAITING = "This job is not awaiting a result: it already has one, was cancelled or timed out, or was never delivered.";
 
-export const redactError = (s: string): string => redactOutput(s).slice(0, MAX_ERROR_CHARS);
+export const redactError = (s: string): string => redactText(s).slice(0, MAX_ERROR_CHARS);
 
 /** `POST /{runners|machines}/{id}/jobs/{jti}/result` — exactly one result per job. */
 export async function settleResult(rt: RunnerRuntime, agent: AgentRecord, jobId: string, body: unknown): Promise<{ status: "accepted" }> {
@@ -263,7 +264,7 @@ export async function settleResult(rt: RunnerRuntime, agent: AgentRecord, jobId:
   const queue = queueOf(rt.store, agent.kind);
   const job = await queue.get(agent.workspaceId, jobId);
   if (!job || job.agentId !== agent.id) throw new AgentApiError(404, "job_not_found", "No such job for this agent.");
-  if (job.status !== "claimed" && job.status !== "running") throw new AgentApiError(409, "already_settled", "This job already has a result (or was cancelled or timed out).");
+  if (job.status !== "claimed" && job.status !== "running") throw new AgentApiError(409, "already_settled", NOT_AWAITING);
 
   const stored: StoredResult = {
     startedAt: isoOrUndefined(b.startedAt),
@@ -279,7 +280,7 @@ export async function settleResult(rt: RunnerRuntime, agent: AgentRecord, jobId:
     result: stored,
     error: b.error === undefined ? undefined : redactError(b.error),
   });
-  if (!won) throw new AgentApiError(409, "already_settled", "This job already has a result (or was cancelled or timed out).");
+  if (!won) throw new AgentApiError(409, "already_settled", NOT_AWAITING);
   await emit(rt, {
     type: agent.kind === "runner" ? "runner.job.completed" : "machine.request.completed",
     workspaceId: agent.workspaceId,
@@ -319,7 +320,7 @@ export async function appendAgentLogs(rt: RunnerRuntime, agent: AgentRecord, job
   let truncated = false;
   const nowIso = new Date(rt.now()).toISOString();
   for (const l of b.lines) {
-    const text = redactOutput(l.line.length > MAX_LOG_LINE_CHARS ? l.line.slice(0, MAX_LOG_LINE_CHARS) : l.line);
+    const text = redactText(l.line.length > MAX_LOG_LINE_CHARS ? l.line.slice(0, MAX_LOG_LINE_CHARS) : l.line);
     const size = Buffer.byteLength(text, "utf8");
     if (linesLeft <= 0 || size > bytesLeft) {
       truncated = true;

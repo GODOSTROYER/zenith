@@ -40,9 +40,9 @@ export interface RunnerTofuTarget {
   workspaceId: string;
   runnerId: string;
   operationId: string;
-  /** capability grant for the apply (or, for a plan-only call, the plan) */
+  /** capability grant for the apply (for a plan-only call with no `planGrant`, the plan's) */
   grant: string;
-  /** grant for the fresh plan job of `applyVerifiedOnRunner`, when it differs (default: `grant`) */
+  /** grant for plan jobs (`planOnRunner`, and the fresh plan of `applyVerifiedOnRunner`) when it differs from `grant` */
   planGrant?: string;
   timeoutSec?: number;
   queueTtlSec?: number;
@@ -121,9 +121,9 @@ async function runJob(rt: RunnerRuntime, target: RunnerTofuTarget, grant: string
 
 /** Run `tofu plan` on the runner and normalize the result here. */
 export async function planOnRunner(ws: TofuWorkspace, target: RunnerTofuTarget, opts: { destroy?: boolean; grant?: string } = {}): Promise<RunnerPlanResult> {
-  const rt = target.runtime ?? getRunnerRuntime();
+  const rt = target.runtime ?? (await getRunnerRuntime());
   const payload = buildTofuRunPayload(ws, "plan", { destroy: opts.destroy });
-  const { jobId, result } = await runJob(rt, target, opts.grant ?? target.grant, payload);
+  const { jobId, result } = await runJob(rt, target, opts.grant ?? target.planGrant ?? target.grant, payload);
   if (typeof result.planFileSha256 !== "string" || !HEX64.test(result.planFileSha256)) throw new DispatchError("invalid_payload", "The runner's plan result carries no planFileSha256; it cannot be applied.");
   if (result.planJson === null || typeof result.planJson !== "object" || Array.isArray(result.planJson)) throw new DispatchError("invalid_payload", "The runner's plan result carries no planJson.");
   const plan = normalizePlan(result.planJson as ShowJson, {
@@ -175,7 +175,7 @@ export interface RunnerApplyResult {
  * with `uncertain === true`: mark the operation `uncertain`, never retry.
  */
 export async function applyVerifiedOnRunner(ws: TofuWorkspace, target: RunnerTofuTarget & { approvedDigest: string; destroy?: boolean }): Promise<RunnerApplyResult> {
-  const rt = target.runtime ?? getRunnerRuntime();
+  const rt = target.runtime ?? (await getRunnerRuntime());
   const planned = await planOnRunner(ws, { ...target, runtime: rt }, { destroy: target.destroy, grant: target.planGrant ?? target.grant });
   assertApplyAllowed(planned, { approvedDigest: target.approvedDigest, ws, runnerId: target.runnerId });
   const payload = buildTofuRunPayload(ws, "apply", { planFileSha256: planned.planFileSha256 });

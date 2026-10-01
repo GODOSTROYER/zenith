@@ -53,7 +53,7 @@ interface SignedCall {
 function signedRoute(kind: AgentKind, maxBodyBytes: number, handle: (c: SignedCall) => Promise<unknown>): Handler {
   return async (req, ctx) => {
     try {
-      const rt = getRunnerRuntime();
+      const rt = await getRunnerRuntime();
       const params = await ctx.params;
       const auth = await authenticateAgentRequest(req, kind, { store: rt.store, now: rt.now }, { maxBodyBytes });
       assertPathAgent(auth.agent, params.id);
@@ -68,7 +68,7 @@ function signedRoute(kind: AgentKind, maxBodyBytes: number, handle: (c: SignedCa
 export function registerHandler(kind: AgentKind): Handler {
   return async (req) => {
     try {
-      const rt = getRunnerRuntime();
+      const rt = await getRunnerRuntime();
       const body = parseJsonBody(await readBodyBytes(req, MAX_SMALL_BODY_BYTES));
       return agentJson(await registerAgent(rt, kind, body), 201);
     } catch (error) {

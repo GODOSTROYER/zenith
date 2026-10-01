@@ -150,6 +150,7 @@ export function createMemoryRunnerStore(options: MemoryStoreOptions = {}): Runne
   function makeQueue(kind: AgentKind): { queue: JobQueue; cancelOpenFor: (workspaceId: string, agentId: string) => number } {
     const jobs = new Map<string, JobRow>();
     const logs = new Map<string, LogRow[]>();
+    const logKeys = new Map<string, Set<string>>();
     let seq = 0;
 
     const toJob = (row: JobRow): AgentJob => ({
@@ -260,14 +261,6 @@ export function createMemoryRunnerStore(options: MemoryStoreOptions = {}): Runne
         return toJob(j);
       },
 
-      async expireOne(workspaceId, jobId, reason) {
-        const j = jobs.get(jobId);
-        if (!j || j.workspaceId !== workspaceId) return null;
-        if (j.status !== "queued" && j.status !== "claimed" && j.status !== "running") return null;
-        settleRow(j, j.status === "queued" ? "expired" : "timed_out", reason);
-        return toJob(j);
-      },
-
       async get(workspaceId, jobId) {
         const j = jobs.get(jobId);
         return j && j.workspaceId === workspaceId ? toJob(j) : null;
@@ -296,17 +289,21 @@ export function createMemoryRunnerStore(options: MemoryStoreOptions = {}): Runne
         const j = jobs.get(input.jobId);
         if (!j || j.workspaceId !== input.workspaceId || j.agentId !== input.agentId) return null;
         const rows = logs.get(j.id) ?? [];
+        const keys = logKeys.get(j.id) ?? new Set<string>();
         let room = MAX_LOG_LINES_PER_JOB - rows.length;
         let stored = 0;
         for (let i = 0; i < input.lines.length && room > 0; i++) {
           const l = input.lines[i];
           if (!["stdout", "stderr", "info"].includes(l.stream)) throw new RunnerStoreError("invalid_input", "stream must be stdout, stderr or info.");
-          if (rows.some((r) => r.batchSeq === input.batchSeq && r.lineNo === i)) continue;
+          const key = `${input.batchSeq}:${i}`;
+          if (keys.has(key)) continue;
+          keys.add(key);
           rows.push({ id: ++logSeq, jobId: j.id, batchSeq: input.batchSeq, lineNo: i, ts: l.ts, stream: l.stream, line: String(l.line).slice(0, MAX_LOG_LINE_CHARS) });
           stored++;
           room--;
         }
         logs.set(j.id, rows);
+        logKeys.set(j.id, keys);
         return stored;
       },
 

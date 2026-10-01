@@ -11,7 +11,8 @@
  * The orchestrator wires this into the middleware bypass (see the WS-RUNSRV
  * handoff; `src/middleware.ts` is outside this workstream's paths).
  */
-const SEGMENT = "[A-Za-z0-9_.:-]{1,128}";
+// an id segment; never `.` or `..` (the URL parser resolves those, but the pattern should not rely on it)
+const SEGMENT = String.raw`(?!\.{1,2}(?:/|$))[A-Za-z0-9_.:-]{1,128}`;
 const COLLECTION = "(?:runners|machines)";
 
 const AGENT_SIGNED_PATHS: readonly RegExp[] = [

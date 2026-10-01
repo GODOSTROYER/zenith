@@ -36,10 +36,12 @@
  *   - waiting for a runner adds its poll latency (long-poll makes it near zero,
  *     but it is not a socket to AWS).
  */
+import { randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
 import { buildQueryString, HttpResponse } from "@smithy/core/protocols";
 import type { HttpHandlerOptions, HttpRequest } from "@smithy/types";
-import { CredentialDeniedError, type AwsClientCtor, type AwsSession } from "@/lib/credentials/types";
+import { signCapabilityGrant } from "@/lib/credentials/grants";
+import type { AwsClientCtor, AwsSession, RunnerAwsTransport, RunnerAwsTransportFactory } from "@/lib/credentials/types";
 import { awaitRunnerJob, DispatchError, enqueueRunnerJob, requireSucceeded } from "@/lib/runners/dispatch";
 import { getRunnerRuntime, type RunnerRuntime } from "@/lib/runners/runtime";
 import { unverifiedClaims } from "@/lib/runners/signing";
@@ -85,12 +87,16 @@ export class RunnerTransportError extends Error {
   }
 }
 
-async function readBody(body: unknown): Promise<Uint8Array> {
-  if (body === undefined || body === null) return new Uint8Array(0);
+/**
+ * The request body as bytes. Byte views are wrapped, never passed to `Buffer.from(view)`: the SDK's JSON
+ * serializer hands out a Uint8Array subclass with string-like methods, and `Buffer.from` would call its
+ * `valueOf()` and decode it to a string (a needless round trip that also trips an SDK deprecation warning).
+ */
+async function readBody(body: unknown): Promise<Buffer> {
+  if (body === undefined || body === null) return Buffer.alloc(0);
   if (typeof body === "string") return Buffer.from(body, "utf8");
-  if (body instanceof Uint8Array) return body;
-  if (body instanceof ArrayBuffer) return new Uint8Array(body);
-  if (ArrayBuffer.isView(body)) return new Uint8Array(body.buffer, body.byteOffset, body.byteLength);
+  if (ArrayBuffer.isView(body)) return Buffer.from(body.buffer, body.byteOffset, body.byteLength);
+  if (body instanceof ArrayBuffer) return Buffer.from(body);
   const chunks: Buffer[] = [];
   let total = 0;
   const take = (c: unknown): void => {
@@ -161,7 +167,7 @@ export class RunnerHttpHandler {
     const body = await readBody(request.body);
     if (body.length > MAX_REQUEST_BYTES) throw new RunnerTransportError("request_too_large", `The request body exceeds ${MAX_REQUEST_BYTES} bytes; the runner transport buffers bodies.`);
 
-    const rt = opts.runtime ?? getRunnerRuntime();
+    const rt = opts.runtime ?? (await getRunnerRuntime());
     const capability = opts.capability ?? String(unverifiedClaims(opts.grant)?.cap ?? "");
     const jobId = await enqueueRunnerJob(
       {
@@ -180,7 +186,7 @@ export class RunnerHttpHandler {
           method: request.method.toUpperCase(),
           url,
           headers,
-          ...(body.length > 0 ? { bodyB64: Buffer.from(body).toString("base64") } : {}),
+          ...(body.length > 0 ? { bodyB64: body.toString("base64") } : {}),
         },
       },
       rt
@@ -199,8 +205,9 @@ export class RunnerHttpHandler {
 }
 
 /**
- * Build the `client()` of an `AwsSession` whose clients talk through a runner.
- * `WS-CRED`'s `runner` auth mode plugs this into its session.
+ * Build the `client()` of an `AwsSession` whose clients talk through a runner
+ * (the lower-level piece; `createRunnerAwsTransportFactory` is what the
+ * credential broker's `runner` mode plugs in).
  */
 export function createRunnerAwsSessionClientFactory(opts: RunnerAwsTransportOptions): AwsSession["client"] {
   return <C>(ctor: AwsClientCtor<C>, overrides?: { region?: string }): C => {
@@ -217,22 +224,57 @@ export function createRunnerAwsSessionClientFactory(opts: RunnerAwsTransportOpti
   };
 }
 
-export interface RunnerAwsSessionOptions extends RunnerAwsTransportOptions {
-  accountId: string;
-  expiresAt: string;
+export interface RunnerTransportFactoryOptions {
+  runtime?: RunnerRuntime;
+  timeoutSec?: number;
+  maxOutputBytes?: number;
+  queueTtlSec?: number;
+  maxAttempts?: number;
 }
 
-/** A complete `AwsSession` for `transport: "runner"`. There is no credential to hand to a child process. */
-export function createRunnerAwsSession(opts: RunnerAwsSessionOptions): AwsSession {
+/**
+ * The credential broker's `RunnerAwsTransportFactory` (`runnerTransport` option of
+ * `AwsCredentialBroker`), implemented over `aws.http` jobs.
+ *
+ * The broker hands over the WORKER's grant (audience `worker`), which a runner
+ * rejects. The transport therefore derives a grant for the runner from it: the
+ * same claims (capability, operation, workspace, digest, constraints, fence) with
+ * `aud: runner:<id>`, a new `jti`, and an expiry no later than the grant's or the
+ * session's — the broker has already verified the original, and nothing is widened.
+ *
+ * `roleArn` and `sessionPolicy` from the broker are not sent: the `aws.http`
+ * payload has no field for them, because the runner signs with ITS OWN local
+ * identity. What bounds the job is the runner's per-capability action allowlist.
+ */
+export function createRunnerAwsTransportFactory(options: RunnerTransportFactoryOptions = {}): RunnerAwsTransportFactory {
   return {
-    provider: "aws",
-    accountId: opts.accountId,
-    region: opts.region,
-    expiresAt: opts.expiresAt,
-    transport: "runner",
-    client: createRunnerAwsSessionClientFactory(opts),
-    childProcessEnv() {
-      throw new CredentialDeniedError("A runner session holds no AWS credentials; run OpenTofu with a `tofu.run` job on the runner instead.");
+    async open({ config, grant, expiresAt }): Promise<RunnerAwsTransport> {
+      const runnerId = config.runnerId;
+      if (!runnerId) throw new DispatchError("invalid_input", "A runner-mode AWS connection must name its runner (config.runnerId).");
+      const rt = options.runtime ?? (await getRunnerRuntime());
+      const iat = Math.floor(rt.now() / 1000);
+      const exp = Math.min(grant.exp, Math.floor(expiresAt.getTime() / 1000));
+      const runnerGrant = await signCapabilityGrant({ ...grant, jti: `grt_${randomUUID()}`, aud: `runner:${runnerId}`, iat, exp }, { signer: rt.signer });
+      let closed = false;
+      return {
+        client: createRunnerAwsSessionClientFactory({
+          runnerId,
+          workspaceId: grant.ws,
+          operationId: grant.op,
+          grant: runnerGrant,
+          capability: grant.cap,
+          region: config.region,
+          timeoutSec: options.timeoutSec,
+          maxOutputBytes: options.maxOutputBytes,
+          queueTtlSec: options.queueTtlSec,
+          maxAttempts: options.maxAttempts,
+          isActive: () => !closed && rt.now() < expiresAt.getTime(),
+          runtime: rt,
+        }),
+        close() {
+          closed = true;
+        },
+      };
     },
   };
 }

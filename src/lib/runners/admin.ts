@@ -47,7 +47,7 @@ export const createTokenRoute = route({ workspaceRole: "admin" }, async (req, _p
   const workspace = requireWorkspace();
   // a machine bound to an environment must be bound to one of THIS workspace's
   if (binding?.environmentId) scopedEnvironment(binding.environmentId);
-  const created = await createRegistrationToken(getRunnerRuntime(), { workspaceId: workspace.id, kind, createdBy: grant.actor.id, ttlSec: ttlMinutes * 60, binding });
+  const created = await createRegistrationToken(await getRunnerRuntime(), { workspaceId: workspace.id, kind, createdBy: grant.actor.id, ttlSec: ttlMinutes * 60, binding });
   return json({ token: created.token, kind: created.kind, workspaceId: created.workspaceId, expiresAt: created.expiresAt, shownOnce: true }, 201);
 });
 
@@ -71,11 +71,11 @@ const view = (a: AgentRecord) => ({
 
 export const listRoute = (kind: AgentKind) =>
   route({ workspaceRole: "viewer" }, async () => {
-    const agents = await registryOf(getRunnerRuntime().store, kind).list(requireWorkspace().id);
+    const agents = await registryOf((await getRunnerRuntime()).store, kind).list(requireWorkspace().id);
     return { [kind === "runner" ? "runners" : "machines"]: agents.map(view) };
   });
 
 export const revokeRoute = (kind: AgentKind) =>
   route<{ id: string }>({ workspaceRole: "admin" }, async (_req, params, grant) =>
-    asApiError(async () => json(await revokeAgent(getRunnerRuntime(), kind, requireWorkspace().id, params.id, grant.actor.id)))
+    asApiError(async () => json(await revokeAgent(await getRunnerRuntime(), kind, requireWorkspace().id, params.id, grant.actor.id)))
   );

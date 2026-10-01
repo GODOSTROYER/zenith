@@ -1,150 +1,157 @@
 /**
- * Control-plane JWS signing (docs/platform/RUNNER-PROTOCOL.md sections 1, 4).
+ * Control-plane signing of jobs (docs/platform/RUNNER-PROTOCOL.md sections 1, 4).
  *
- * Ground truth is the Go side: `fixtures/go-jws-vector.json` is a job JWS produced by the Go
- * tests (copied from go/internal/protocol/testdata at ws-go d133a96). Ed25519 is deterministic,
- * so this signer, given the same key, header order and payload bytes, must reproduce the Go
- * token BYTE FOR BYTE — that pins the header serialization, the payload encoding and the
- * signature encoding against the verifier the agents actually run.
+ * The key and signer are the credential module's (`LocalJwkSigner`, EdDSA); this file pins what the
+ * RUNNER PLANE relies on, against the Go side as ground truth:
+ *   - `fixtures/go-jws-vector.json` is a job JWS produced by the Go tests (copied from
+ *     go/internal/protocol/testdata at ws-go d133a96). It verifies with the published key, and our
+ *     signer, given the same key and payload, produces a token with the same payload bytes, a header
+ *     made of exactly `alg`, `kid`, `typ` (the Go decoder refuses any other member), and a signature
+ *     that verifies under the same key. (The header member ORDER differs from the Go test's
+ *     (`alg,typ,kid` vs `alg,kid,typ`); JWS verification is over the exact bytes of each token, so
+ *     order does not matter to either verifier.)
+ *   - announced rotation keys, sealing-key derivation, and fail-closed configuration.
  */
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { verify as cryptoVerify, createPublicKey } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import {
-  createControlSignerFromEnv,
-  createControlSignerFromJwk,
-  generateControlSigningJwk,
-  jwsFinish,
-  jwsSigningInput,
-  JwsError,
-  unverifiedClaims,
-  verifyControlJws,
-} from "@/lib/runners/signing";
-import { RunnerConfigError, TYP_GRANT, TYP_JOB, TYP_MACHINE } from "@/lib/runners/types";
+import { LocalJwkSigner } from "@/lib/credentials/signing";
+import { announcedNextKeys, controlPlaneKeys } from "@/lib/runners/runtime";
+import { createAesResultSealer, createResultSealerFromEnv } from "@/lib/runners/seal";
+import { controlKeyOf, signEnvelope, unverifiedClaims, verifyEd25519 } from "@/lib/runners/signing";
+import { RunnerConfigError, TYP_JOB, TYP_MACHINE } from "@/lib/runners/types";
+import { newSigner } from "./_support";
 
 const vector = JSON.parse(readFileSync(path.resolve(__dirname, "fixtures/go-jws-vector.json"), "utf8")) as {
   controlPlanePublicKey: string;
   controlPlaneSeedHex: string;
   kid: string;
   jobToken: string;
-  jobPayload: { grant: string };
 };
 
-const b64uSeed = Buffer.from(vector.controlPlaneSeedHex, "hex").toString("base64url");
-const goSigner = () => createControlSignerFromJwk({ kty: "OKP", crv: "Ed25519", d: b64uSeed, x: vector.controlPlanePublicKey, kid: vector.kid });
 const segment = (token: string, i: number): string => Buffer.from(token.split(".")[i], "base64url").toString("utf8");
+const verifyCompact = (token: string, x: string): boolean => {
+  const [h, p, s] = token.split(".");
+  const key = createPublicKey({ key: { kty: "OKP", crv: "Ed25519", x }, format: "jwk" });
+  return cryptoVerify(null, Buffer.from(`${h}.${p}`), key, Buffer.from(s, "base64url"));
+};
+
+function goSigner(): LocalJwkSigner {
+  const d = Buffer.from(vector.controlPlaneSeedHex, "hex").toString("base64url");
+  return LocalJwkSigner.fromJwk("vector", { kty: "OKP", crv: "Ed25519", d, x: vector.controlPlanePublicKey, kid: vector.kid }, { alg: "EdDSA", kid: vector.kid });
+}
 
 describe("Go golden vector", () => {
-  it("verifies the Go-produced job token with the published public key", () => {
-    const v = verifyControlJws(vector.jobToken, TYP_JOB, [{ kid: vector.kid, publicKey: vector.controlPlanePublicKey }]);
-    expect(v.header).toEqual({ alg: "EdDSA", kid: "cp-golden", typ: "zenith-job+jwt" });
-    expect(v.payload.jti).toBe("job_golden");
-    expect(v.payload.runnerId).toBe("run_golden");
+  it("the Go-produced job token verifies with the published public key", () => {
+    expect(verifyCompact(vector.jobToken, vector.controlPlanePublicKey)).toBe(true);
+    expect(JSON.parse(segment(vector.jobToken, 0))).toEqual({ alg: "EdDSA", kid: "cp-golden", typ: "zenith-job+jwt" });
   });
 
-  it("reproduces the Go job token byte for byte from the same seed, header and payload", async () => {
+  it("our signer reproduces the Go token's payload and signs it verifiably under the same key", async () => {
     const payload = JSON.parse(segment(vector.jobToken, 1)) as object;
     expect(JSON.stringify(payload)).toBe(segment(vector.jobToken, 1)); // key order and escaping survive the round trip
-    expect(await goSigner().sign(TYP_JOB, payload)).toBe(vector.jobToken);
+    const token = await signEnvelope(goSigner(), TYP_JOB, payload);
+    expect(segment(token, 1)).toBe(segment(vector.jobToken, 1));
+    expect(verifyCompact(token, vector.controlPlanePublicKey)).toBe(true);
   });
 
-  it("reproduces the embedded Go grant byte for byte too (typ zenith-grant+jwt)", async () => {
-    const grant = vector.jobPayload.grant;
-    expect(await goSigner().sign(TYP_GRANT, JSON.parse(segment(grant, 1)) as object)).toBe(grant);
-    expect(verifyControlJws(grant, TYP_GRANT, [{ kid: vector.kid, publicKey: vector.controlPlanePublicKey }]).payload.cap).toBe("infrastructure.plan");
-  });
-
-  it("the KMS helpers (signing input + finish) produce the same token as the JWK signer", () => {
-    const payload = JSON.parse(segment(vector.jobToken, 1)) as object;
-    const input = jwsSigningInput(TYP_JOB, vector.kid, payload);
-    // a stand-in for a KMS Sign call: the signature is the last segment of the known-good token
-    const sig = Buffer.from(vector.jobToken.split(".")[2], "base64url");
-    expect(jwsFinish(input, sig)).toBe(vector.jobToken);
-    expect(() => jwsFinish(input, new Uint8Array(10))).toThrow(/64 bytes/);
+  it("our header has exactly alg, kid and typ — the only members the Go decoder accepts", async () => {
+    const header = JSON.parse(segment(await signEnvelope(goSigner(), TYP_JOB, { a: 1 }), 0)) as Record<string, unknown>;
+    expect(Object.keys(header).sort()).toEqual(["alg", "kid", "typ"]);
+    expect(header).toEqual({ alg: "EdDSA", kid: "cp-golden", typ: "zenith-job+jwt" });
   });
 });
 
-describe("signing", () => {
-  const signer = createControlSignerFromJwk(generateControlSigningJwk("cp-a"));
-  const keys = signer.publicKeys();
-
-  it("emits exactly {alg, kid, typ} in that order, for each typ", async () => {
-    for (const typ of [TYP_JOB, TYP_MACHINE, TYP_GRANT] as const) {
-      const token = await signer.sign(typ, { hello: "world" });
-      expect(segment(token, 0)).toBe(JSON.stringify({ alg: "EdDSA", kid: "cp-a", typ }));
-      expect(verifyControlJws(token, typ, keys).payload).toEqual({ hello: "world" });
+describe("signing envelopes", () => {
+  it("signs jobs and machine requests with their own typ, verifiable with the published key", async () => {
+    const signer = await newSigner("cp-a");
+    const key = controlKeyOf(signer.publicJwk());
+    for (const typ of [TYP_JOB, TYP_MACHINE] as const) {
+      const token = await signEnvelope(signer, typ, { hello: "world" });
+      expect(JSON.parse(segment(token, 0))).toMatchObject({ alg: "EdDSA", kid: "cp-a", typ });
+      expect(verifyCompact(token, key.publicKey)).toBe(true);
+      expect(unverifiedClaims(token)).toEqual({ hello: "world" });
     }
   });
 
-  it("refuses a wrong typ, an unknown kid, a tampered payload and a tampered signature", async () => {
-    const token = await signer.sign(TYP_JOB, { a: 1 });
-    expect(() => verifyControlJws(token, TYP_MACHINE, keys)).toThrowError(expect.objectContaining({ code: "bad_typ" }));
-    expect(() => verifyControlJws(token, TYP_JOB, [{ kid: "cp-other", publicKey: keys[0].publicKey }])).toThrowError(expect.objectContaining({ code: "unknown_key" }));
-    const [h, p, s] = token.split(".");
-    const forged = `${h}.${Buffer.from(JSON.stringify({ a: 2 })).toString("base64url")}.${s}`;
-    expect(() => verifyControlJws(forged, TYP_JOB, keys)).toThrowError(expect.objectContaining({ code: "bad_signature" }));
-    const badSig = `${h}.${p}.${Buffer.alloc(64).toString("base64url")}`;
-    expect(() => verifyControlJws(badSig, TYP_JOB, keys)).toThrow(JwsError);
+  it("a token signed by another key does not verify under the published one", async () => {
+    const a = await newSigner("cp-a");
+    const impostor = await newSigner("cp-a");
+    expect(verifyCompact(await signEnvelope(impostor, TYP_JOB, { a: 1 }), controlKeyOf(a.publicJwk()).publicKey)).toBe(false);
   });
 
-  it("refuses a token signed by another key even when the kid matches", async () => {
-    const impostor = createControlSignerFromJwk(generateControlSigningJwk("cp-a"));
-    const token = await impostor.sign(TYP_JOB, { a: 1 });
-    expect(() => verifyControlJws(token, TYP_JOB, keys)).toThrowError(expect.objectContaining({ code: "bad_signature" }));
-  });
-
-  it("refuses alg none / extra header members / non-object payloads / malformed input", () => {
-    const enc = (o: unknown) => Buffer.from(JSON.stringify(o)).toString("base64url");
-    const sig = Buffer.alloc(64).toString("base64url");
-    expect(() => verifyControlJws(`${enc({ alg: "none", kid: "cp-a", typ: TYP_JOB })}.${enc({})}.${sig}`, TYP_JOB, keys)).toThrowError(expect.objectContaining({ code: "bad_header" }));
-    expect(() => verifyControlJws(`${enc({ alg: "EdDSA", kid: "cp-a", typ: TYP_JOB, crit: ["b64"] })}.${enc({})}.${sig}`, TYP_JOB, keys)).toThrowError(expect.objectContaining({ code: "bad_header" }));
-    expect(() => verifyControlJws("a.b", TYP_JOB, keys)).toThrowError(expect.objectContaining({ code: "malformed" }));
-    expect(() => verifyControlJws("a.b.c.d", TYP_JOB, keys)).toThrow(JwsError);
-  });
-
-  it("derives a stable kid from the key when none is given", () => {
-    const { kid: _kid, ...bare } = generateControlSigningJwk("ignored");
-    const a = createControlSignerFromJwk(bare);
-    expect(a.kid).toMatch(/^cp-[A-Za-z0-9_-]{12}$/);
-    expect(createControlSignerFromJwk(bare).kid).toBe(a.kid);
-  });
-
-  it("rejects a JWK whose public half does not match its private half, and non-Ed25519 keys", () => {
-    const a = generateControlSigningJwk("cp-a");
-    const b = generateControlSigningJwk("cp-b");
-    expect(() => createControlSignerFromJwk({ ...a, x: b.x })).toThrow(RunnerConfigError);
-    expect(() => createControlSignerFromJwk({ kty: "RSA" })).toThrow(RunnerConfigError);
-    expect(() => createControlSignerFromJwk({ ...a, d: undefined })).toThrow(RunnerConfigError);
-  });
-
-  it("announces rotation keys separately from the active key", () => {
-    const next = generateControlSigningJwk("cp-next");
-    const s = createControlSignerFromJwk(generateControlSigningJwk("cp-now"), { nextKeys: [{ kid: "cp-next", publicKey: next.x }] });
-    expect(s.publicKeys().map((k) => k.kid)).toEqual(["cp-now"]);
-    expect(s.nextKeys()).toEqual([{ kid: "cp-next", publicKey: next.x }]);
-    expect(() => createControlSignerFromJwk(generateControlSigningJwk("cp-now"), { nextKeys: [{ kid: "cp-now", publicKey: next.x }] })).toThrow(RunnerConfigError);
-  });
-
-  it("reads ZENITH_CONTROL_SIGNING_JWK, _KID and _NEXT_KEYS from the environment and fails closed without a key", () => {
-    const jwk = generateControlSigningJwk("cp-env");
-    const next = generateControlSigningJwk("n");
-    const s = createControlSignerFromEnv({ ZENITH_CONTROL_SIGNING_JWK: JSON.stringify(jwk), ZENITH_CONTROL_SIGNING_KID: "cp-renamed", ZENITH_CONTROL_NEXT_KEYS: JSON.stringify([{ kid: "cp-2", publicKey: next.x }]) });
-    expect(s.kid).toBe("cp-renamed");
-    expect(s.nextKeys()).toHaveLength(1);
-    expect(() => createControlSignerFromEnv({})).toThrow(RunnerConfigError);
-    expect(() => createControlSignerFromEnv({ ZENITH_CONTROL_SIGNING_JWK: "{not json" })).toThrow(RunnerConfigError);
-    expect(() => createControlSignerFromEnv({ ZENITH_CONTROL_SIGNING_JWK: JSON.stringify(jwk), ZENITH_CONTROL_NEXT_KEYS: "nope" })).toThrow(RunnerConfigError);
-  });
-
-  it("never exposes private key material through the signer's surface", () => {
-    const jwk = generateControlSigningJwk("cp-a");
-    const s = createControlSignerFromJwk(jwk);
-    expect(JSON.stringify({ kid: s.kid, pub: s.publicKeys(), next: s.nextKeys() })).not.toContain(jwk.d);
+  it("refuses a non-EdDSA signer", async () => {
+    const rsa = { kid: "k", alg: "RS256", publicJwk: () => ({}), sign: async () => "" } as unknown as Parameters<typeof signEnvelope>[0];
+    expect(() => signEnvelope(rsa, TYP_JOB, {})).toThrow(/EdDSA/);
   });
 
   it("unverifiedClaims reads claims without trusting them", async () => {
-    const token = await signer.sign(TYP_JOB, { jti: "job_1" });
+    const token = await signEnvelope(await newSigner(), TYP_JOB, { jti: "job_1" });
     expect(unverifiedClaims(token)).toEqual({ jti: "job_1" });
     expect(unverifiedClaims("x.y")).toBeUndefined();
+    expect(unverifiedClaims("a.!!!.c")).toBeUndefined();
+  });
+
+  it("verifyEd25519 is false for malformed keys and signatures instead of throwing", () => {
+    expect(verifyEd25519("short", new Uint8Array(3), new Uint8Array(64))).toBe(false);
+    expect(verifyEd25519(vector.controlPlanePublicKey, new Uint8Array(3), new Uint8Array(10))).toBe(false);
+    expect(verifyEd25519(vector.controlPlanePublicKey, new Uint8Array(3), new Uint8Array(64))).toBe(false);
+  });
+});
+
+describe("pinned and announced keys", () => {
+  it("registration pins the active key only; every other verification key is announced as next", async () => {
+    const active = await newSigner("cp-now");
+    const next = await newSigner("cp-next");
+    const rt = { signer: active, verificationKeys: async () => [active.publicJwk(), next.publicJwk()] };
+    expect(controlPlaneKeys(rt).map((k) => k.kid)).toEqual(["cp-now"]);
+    expect((await announcedNextKeys(rt)).map((k) => k.kid)).toEqual(["cp-next"]);
+    expect(await announcedNextKeys({ signer: active, verificationKeys: async () => [active.publicJwk()] })).toEqual([]);
+  });
+
+  it("the published key material never contains the private scalar", async () => {
+    const key = await (await import("@/lib/credentials/signing")).generateSigningJwk("EdDSA", { kid: "cp-x" });
+    const signer = LocalJwkSigner.fromJwk("t", key.privateJwk, { alg: "EdDSA", kid: "cp-x" });
+    expect(JSON.stringify(controlPlaneKeys({ signer }))).not.toContain(key.privateJwk.d);
+  });
+});
+
+describe("result sealing key", () => {
+  it("derives a stable key from the local signing JWK and seals/opens under it", async () => {
+    const key = await (await import("@/lib/credentials/signing")).generateSigningJwk("EdDSA", { kid: "cp-x" });
+    const env = { ZENITH_CONTROL_SIGNING_JWK: JSON.stringify(key.privateJwk) };
+    const a = createResultSealerFromEnv(env);
+    const b = createResultSealerFromEnv(env);
+    expect(b.open("ws|job", a.seal("ws|job", { secret: "x" }))).toEqual({ secret: "x" });
+  });
+
+  it("prefers an explicit ZENITH_RUNNER_RESULT_KEY, which a different JWK cannot open", async () => {
+    const gen = (await import("@/lib/credentials/signing")).generateSigningJwk;
+    const k1 = (await gen("EdDSA", { kid: "a" })).privateJwk;
+    const k2 = (await gen("EdDSA", { kid: "b" })).privateJwk;
+    const explicit = Buffer.alloc(32, 7).toString("base64url");
+    const s1 = createResultSealerFromEnv({ ZENITH_RUNNER_RESULT_KEY: explicit, ZENITH_CONTROL_SIGNING_JWK: JSON.stringify(k1) });
+    const s2 = createResultSealerFromEnv({ ZENITH_RUNNER_RESULT_KEY: explicit, ZENITH_CONTROL_SIGNING_JWK: JSON.stringify(k2) });
+    expect(s2.open("x", s1.seal("x", 1))).toBe(1);
+  });
+
+  it("fails closed with neither a result key nor a local signing key, and on a malformed key", () => {
+    expect(() => createResultSealerFromEnv({})).toThrow(RunnerConfigError);
+    expect(() => createResultSealerFromEnv({ ZENITH_RUNNER_RESULT_KEY: "short" })).toThrow(RunnerConfigError);
+    expect(() => createResultSealerFromEnv({ ZENITH_CONTROL_SIGNING_JWK: "{not json" })).toThrow(RunnerConfigError);
+    expect(() => createResultSealerFromEnv({ ZENITH_CONTROL_KMS_KEY_ID: "arn:aws:kms:us-east-1:111122223333:key/x" })).toThrow(RunnerConfigError);
+  });
+
+  it("a sealed box is bound to its context and tamper-evident", () => {
+    const sealer = createAesResultSealer(Buffer.alloc(32, 1));
+    const box = sealer.seal("w-a|job_1", { planJson: { secret: "hunter2-secret-value" } });
+    expect(JSON.stringify(box)).not.toContain("hunter2");
+    expect(sealer.open("w-a|job_1", box)).toEqual({ planJson: { secret: "hunter2-secret-value" } });
+    expect(() => sealer.open("w-b|job_1", box)).toThrow(); // moved to another tenant's job
+    expect(() => sealer.open("w-a|job_2", box)).toThrow(); // moved to another job
+    expect(() => sealer.open("w-a|job_1", { ...box, ct: Buffer.from("tampered").toString("base64url") })).toThrow();
+    expect(() => createAesResultSealer(Buffer.alloc(32, 2)).open("w-a|job_1", box)).toThrow(); // another key
+    expect(() => sealer.open("x", { not: "a box" })).toThrow();
   });
 });

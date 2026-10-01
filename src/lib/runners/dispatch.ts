@@ -18,23 +18,25 @@
  *   expired                         never claimed before its expiry: provably not delivered
  *   cancelled                       cancelled by the control plane; uncertain only if it had been handed over
  * When the control plane stops waiting (queue window over, or the lease of a
- * running job lapsed) it settles the job itself (`expireOne`), so a late result
- * from the agent gets `409 already_settled` and is discarded — the operation is
- * reconciled by observing reality, not by trusting a stale report.
+ * running job lapsed) it cancels the job itself, so a late result from the agent
+ * gets `409 already_settled` and is discarded — the operation is reconciled by
+ * observing reality, not by trusting a stale report. A job it cancelled that had
+ * been handed over reads `timed_out` (uncertain); one never handed over reads `expired`.
  */
 import { randomUUID } from "node:crypto";
 import { isCapability } from "@/lib/capabilities/catalog";
+import { GrantVerificationError } from "@/lib/credentials/errors";
+import { verifyCapabilityGrant } from "@/lib/credentials/grants";
 import type { MachineResult } from "@/lib/machines/types";
 import { PayloadError, validateMachineArgs, validateRunnerPayload } from "@/lib/runners/payloads";
 import { queueOf, registryOf, RunnerStoreError, TERMINAL_JOB_STATUSES, type AgentJob, type AgentRecord } from "@/lib/runners/ports";
 import { abortError, getRunnerRuntime, type RunnerRuntime } from "@/lib/runners/runtime";
 import { sealAad, type StoredResult } from "@/lib/runners/service";
-import { unverifiedClaims, verifyControlJws, type ControlKey } from "@/lib/runners/signing";
+import { signEnvelope, unverifiedClaims } from "@/lib/runners/signing";
 import {
   AGENT_KINDS,
   MAX_ENVELOPE_BYTES,
   RUNNER_JOB_KINDS,
-  TYP_GRANT,
   isValidId,
   type AgentKind,
   type JobEnvelope,
@@ -107,29 +109,27 @@ async function requireDispatchable(rt: RunnerRuntime, kind: AgentKind, workspace
   return agent;
 }
 
-function controlKeys(rt: RunnerRuntime): ControlKey[] {
-  return [...rt.signer.publicKeys(), ...rt.signer.nextKeys()];
-}
-
-/** The grant must be ours and must bind exactly this agent, capability, operation and workspace. Returns its `exp`. */
-function checkGrant(rt: RunnerRuntime, grant: string, want: { audience: string; capability: string; operationId: string; workspaceId: string }): number {
-  let claims: Record<string, unknown>;
+/**
+ * The grant must be ours (pinned control-plane key, EdDSA, `zenith-grant+jwt`, unexpired — the
+ * credential module's `verifyCapabilityGrant`) and must bind exactly this agent, capability,
+ * operation and workspace. Returns its `exp`.
+ */
+async function checkGrant(rt: RunnerRuntime, grant: string, want: { audience: string; capability: string; operationId: string; workspaceId: string }): Promise<number> {
+  let claims;
   try {
-    claims = verifyControlJws(grant, TYP_GRANT, controlKeys(rt)).payload;
+    claims = await verifyCapabilityGrant(grant, {
+      audience: want.audience,
+      expectedCapability: want.capability,
+      expectedOperationId: want.operationId,
+      keys: await rt.verificationKeys(),
+      now: new Date(rt.now()),
+    });
   } catch (error) {
-    throw new DispatchError("grant_invalid", `The capability grant does not verify: ${error instanceof Error ? error.message : "invalid"}`);
+    if (error instanceof GrantVerificationError) throw new DispatchError("grant_invalid", `The capability grant was refused (${error.code}): ${error.message}`);
+    throw error;
   }
-  const bad = (what: string): never => {
-    throw new DispatchError("grant_invalid", `The capability grant ${what}.`);
-  };
-  if (claims.aud !== want.audience) bad("is not addressed to this agent");
-  if (claims.cap !== want.capability) bad("does not authorize this capability");
-  if (claims.op !== want.operationId) bad("is bound to another operation");
-  if (claims.ws !== want.workspaceId) bad("is bound to another workspace");
-  if (typeof claims.jti !== "string" || claims.jti.length === 0) bad("has no id");
-  const exp = claims.exp;
-  if (typeof exp !== "number" || !Number.isFinite(exp)) return bad("has no expiry");
-  return exp as number;
+  if (claims.ws !== want.workspaceId) throw new DispatchError("grant_invalid", "The capability grant is bound to another workspace.");
+  return claims.exp;
 }
 
 /* --------------------------------- enqueue --------------------------------- */
@@ -160,7 +160,7 @@ async function enqueueCommon(
   kind: AgentKind,
   args: { workspaceId: string; agentId: string; operationId: string; capability: string; jobKind: string; envelope: (b: { jti: string; iat: number; exp: number }) => JobEnvelope | MachineEnvelope; grant: string; ttlSec: number }
 ): Promise<Built> {
-  const grantExp = checkGrant(rt, args.grant, {
+  const grantExp = await checkGrant(rt, args.grant, {
     audience: `${kind}:${args.agentId}`,
     capability: args.capability,
     operationId: args.operationId,
@@ -170,7 +170,7 @@ async function enqueueCommon(
   const ttlSec = Math.min(args.ttlSec, grantExp - iat);
   if (ttlSec < MIN_GRANT_REMAINING_SEC) throw new DispatchError("grant_invalid", "The capability grant has expired or is about to expire.");
   const jti = `${AGENT_KINDS[kind].jobPrefix}_${randomUUID()}`;
-  const envelope = await rt.signer.sign(AGENT_KINDS[kind].jobTyp, args.envelope({ jti, iat, exp: iat + ttlSec }));
+  const envelope = await signEnvelope(rt.signer, AGENT_KINDS[kind].jobTyp, args.envelope({ jti, iat, exp: iat + ttlSec }));
   if (envelope.length > MAX_ENVELOPE_BYTES) throw new DispatchError("payload_too_large", `The signed job is ${envelope.length} bytes; the store keeps at most ${MAX_ENVELOPE_BYTES}. Split the work or reduce the workspace files.`);
   try {
     await queueOf(rt.store, kind).enqueue({ id: jti, workspaceId: args.workspaceId, agentId: args.agentId, operationId: args.operationId, kind: args.jobKind, capability: args.capability, envelope, ttlMs: ttlSec * 1000 });
@@ -182,7 +182,8 @@ async function enqueueCommon(
 }
 
 /** Sign a job for `runnerId` and queue it. Returns the job id (`job_…`). */
-export async function enqueueRunnerJob(input: EnqueueRunnerJobInput, rt: RunnerRuntime = getRunnerRuntime()): Promise<string> {
+export async function enqueueRunnerJob(input: EnqueueRunnerJobInput, runtime?: RunnerRuntime): Promise<string> {
+  const rt = runtime ?? (await getRunnerRuntime());
   for (const [name, v] of [
     ["workspaceId", input.workspaceId],
     ["runnerId", input.runnerId],
@@ -247,7 +248,8 @@ export interface EnqueueMachineRequestInput {
 }
 
 /** Sign a request for a zenithd machine and queue it. Returns the request id (`mreq_…`). */
-export async function enqueueMachineRequest(input: EnqueueMachineRequestInput, rt: RunnerRuntime = getRunnerRuntime()): Promise<string> {
+export async function enqueueMachineRequest(input: EnqueueMachineRequestInput, runtime?: RunnerRuntime): Promise<string> {
+  const rt = runtime ?? (await getRunnerRuntime());
   for (const [name, v] of [
     ["workspaceId", input.workspaceId],
     ["machineId", input.machineId],
@@ -327,8 +329,13 @@ export interface AwaitOptions {
   deadlineMs?: number;
 }
 
-function outcomeOf<R>(rt: RunnerRuntime, job: AgentJob): AwaitedJob<R> {
-  const status = job.status as AwaitedStatus;
+/**
+ * `stoppedWaiting`: the control plane itself cancelled the job because it stopped waiting.
+ * A job handed over by then (`startedAt`) is `timed_out` — unknown outcome — and one never
+ * handed over is `expired`.
+ */
+function outcomeOf<R>(rt: RunnerRuntime, job: AgentJob, stoppedWaiting = false): AwaitedJob<R> {
+  const status = (stoppedWaiting ? (job.startedAt !== undefined ? "timed_out" : "expired") : job.status) as AwaitedStatus;
   const stored = job.result as StoredResult | undefined;
   let result: R | undefined;
   let openFailed = false;
@@ -368,10 +375,11 @@ async function awaitJob<R>(rt: RunnerRuntime, kind: AgentKind, jobId: string, op
     const impatient = opts.deadlineMs !== undefined && t >= opts.deadlineMs;
     if (queueOver || leaseOver || impatient) {
       const reason = queueOver ? "the job was not claimed before its expiry" : leaseOver ? "the agent did not report before the job's lease ended" : "the caller stopped waiting";
-      const settled = await queue.expireOne(opts.workspaceId, jobId, reason);
-      job = settled ?? (await queue.get(opts.workspaceId, jobId));
+      const cancelled = await queue.cancel(opts.workspaceId, jobId, reason);
+      // null: the agent's result landed first; report what it reported
+      job = cancelled ?? (await queue.get(opts.workspaceId, jobId));
       if (!job) throw new DispatchError("job_not_found", `No ${kind === "runner" ? "job" : "request"} ${jobId} in this workspace.`);
-      return outcomeOf<R>(rt, job);
+      return outcomeOf<R>(rt, job, cancelled !== null);
     }
 
     try {
@@ -384,13 +392,13 @@ async function awaitJob<R>(rt: RunnerRuntime, kind: AgentKind, jobId: string, op
 }
 
 /** Wait for a runner job to settle. Never re-dispatches; see the module header for outcomes. */
-export function awaitRunnerJob<R = unknown>(jobId: string, opts: AwaitOptions, rt: RunnerRuntime = getRunnerRuntime()): Promise<AwaitedJob<R>> {
-  return awaitJob<R>(rt, "runner", jobId, opts);
+export async function awaitRunnerJob<R = unknown>(jobId: string, opts: AwaitOptions, runtime?: RunnerRuntime): Promise<AwaitedJob<R>> {
+  return awaitJob<R>(runtime ?? (await getRunnerRuntime()), "runner", jobId, opts);
 }
 
 /** Wait for a zenithd request to settle. */
-export function awaitMachineRequest<R = unknown>(requestId: string, opts: AwaitOptions, rt: RunnerRuntime = getRunnerRuntime()): Promise<AwaitedJob<R>> {
-  return awaitJob<R>(rt, "machine", requestId, opts);
+export async function awaitMachineRequest<R = unknown>(requestId: string, opts: AwaitOptions, runtime?: RunnerRuntime): Promise<AwaitedJob<R>> {
+  return awaitJob<R>(runtime ?? (await getRunnerRuntime()), "machine", requestId, opts);
 }
 
 /* ------------------------------- result helpers ------------------------------- */

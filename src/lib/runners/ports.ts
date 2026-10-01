@@ -182,15 +182,12 @@ export interface JobQueue {
   markRunning(input: { workspaceId: string; agentId: string; jobId: string; leaseMs: number }): Promise<boolean>;
   /** First result of a job this agent holds (claimed/running) wins: true. Anything else: false. */
   settle(input: { workspaceId: string; agentId: string; jobId: string; status: AgentJobResultStatus; result?: unknown; error?: string }): Promise<boolean>;
-  /** Cancel a job that has not finished (control-plane initiated). Null when unknown or already settled. */
-  cancel(workspaceId: string, jobId: string, reason?: string): Promise<AgentJob | null>;
   /**
-   * NEW (not in ws-db yet): the control plane stops waiting. queued → `expired`
-   * (never delivered), claimed/running → `timed_out` (outcome unknown). Null
-   * when the job is unknown or already settled. A late result then gets
-   * `settle() === false` (HTTP 409 `already_settled`).
+   * Cancel a job that has not finished (control-plane initiated — also how the
+   * awaiting side stops waiting). Null when unknown or already settled; a late
+   * result then gets `settle() === false` (HTTP 409 `already_settled`).
    */
-  expireOne(workspaceId: string, jobId: string, reason: string): Promise<AgentJob | null>;
+  cancel(workspaceId: string, jobId: string, reason?: string): Promise<AgentJob | null>;
   get(workspaceId: string, jobId: string): Promise<AgentJob | null>;
   listForOperation(workspaceId: string, operationId: string): Promise<AgentJob[]>;
   /**
@@ -206,7 +203,7 @@ export interface JobQueue {
    * At most `STORE_LOG_BATCH_LINES` lines per call.
    */
   appendLogs(input: { workspaceId: string; agentId: string; jobId: string; batchSeq: number; lines: readonly JobLogLine[] }): Promise<number | null>;
-  /** NEW (not in ws-db yet): stored log volume of a job, one aggregate query. */
+  /** Stored log volume of a job: one aggregate query (an addition over the ws-db repository). */
   logUsage(workspaceId: string, jobId: string): Promise<{ lines: number; bytes: number }>;
   listLogs(input: { workspaceId: string; jobId: string; afterId?: number; limit?: number }): Promise<JobLogEntry[]>;
 }

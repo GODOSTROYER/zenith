@@ -22,6 +22,7 @@
  * `uncertain` — short-lived rows, acceptable).
  */
 import { createCipheriv, createDecipheriv, hkdfSync, randomBytes } from "node:crypto";
+import { loadCredentialsConfig } from "@/lib/credentials/config";
 import { RunnerConfigError } from "@/lib/runners/types";
 
 export interface SealedBox {
@@ -65,21 +66,23 @@ export function createAesResultSealer(key: Uint8Array): ResultSealer {
   };
 }
 
-/** Derive the sealing key from `ZENITH_RUNNER_RESULT_KEY`, else from the signing JWK's private scalar. */
-export function createResultSealerFromEnv(env: Record<string, string | undefined> = process.env): ResultSealer {
-  const explicit = env.ZENITH_RUNNER_RESULT_KEY;
+/** `ZENITH_RUNNER_RESULT_KEY`, else HKDF of the private scalar of `ZENITH_CONTROL_SIGNING_JWK` (JSON or base64 of JSON). */
+export function createResultSealerFromEnv(env: Readonly<Record<string, string | undefined>> = process.env): ResultSealer {
+  const explicit = env.ZENITH_RUNNER_RESULT_KEY?.trim();
   if (explicit) {
     const key = Buffer.from(explicit, "base64url");
     if (key.length !== 32) throw new RunnerConfigError("ZENITH_RUNNER_RESULT_KEY must be 32 bytes, base64url.");
     return createAesResultSealer(key);
   }
-  const raw = env.ZENITH_CONTROL_SIGNING_JWK;
-  if (!raw) throw new RunnerConfigError("Neither ZENITH_RUNNER_RESULT_KEY nor ZENITH_CONTROL_SIGNING_JWK is set; job results cannot be sealed.");
+  const secret = loadCredentialsConfig(env).controlSigningJwk;
+  if (!secret)
+    throw new RunnerConfigError("ZENITH_RUNNER_RESULT_KEY is not set and there is no local ZENITH_CONTROL_SIGNING_JWK to derive a sealing key from (a KMS-backed signer exposes no private scalar); job results cannot be sealed.");
   let d: unknown;
   try {
-    d = (JSON.parse(raw) as { d?: unknown }).d;
+    const text = secret.reveal().trim();
+    d = (JSON.parse(text.startsWith("{") ? text : Buffer.from(text, "base64").toString("utf8")) as { d?: unknown }).d;
   } catch {
-    throw new RunnerConfigError("ZENITH_CONTROL_SIGNING_JWK is not valid JSON.");
+    throw new RunnerConfigError("ZENITH_CONTROL_SIGNING_JWK is not valid JSON (or base64 of JSON).");
   }
   if (typeof d !== "string" || d.length !== 43) throw new RunnerConfigError("ZENITH_CONTROL_SIGNING_JWK has no private scalar to derive the sealing key from; set ZENITH_RUNNER_RESULT_KEY.");
   const key = hkdfSync("sha256", Buffer.from(d, "base64url"), Buffer.alloc(0), "zenith.runner.result-seal.v1", 32);

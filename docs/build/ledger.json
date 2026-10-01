@@ -703,7 +703,7 @@
       "title": "Align zenithd results with the TS machine contract; dispatcher, session provider, machine capabilities in execution",
       "wave": 3,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-MACH",
         "WS-GO",
@@ -718,7 +718,9 @@
         "tests/runners/**",
         "tests/execution/**"
       ],
-      "branch": "ws/mach-align"
+      "branch": "ws/mach-align",
+      "tests": "go test ./... all packages pass on Windows (incl. probe fix); TS machines/runners/execution 1462 passed",
+      "review": "orchestrator: merged; target resolution strict; uncertain never retried; docs claim updated"
     },
     {
       "id": "WS-TOFU-SEC",
@@ -762,10 +764,12 @@
       "title": "Bearer access to platform REST, waitlist gate for bearer, SEC-R2, policy bundle shipping",
       "wave": 5,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "branch": "ws/appwire",
       "deps": [],
-      "paths": []
+      "paths": [],
+      "tests": "server/middleware/capabilities/agent-v3/security 674 passed",
+      "review": "orchestrator: completed SEC-R2 centrally in errors.ts (safeRequestError for every errorResponse); DEPLOYING gaps rewritten as closed"
     },
     {
       "id": "WS-PLACE-WIRE",
@@ -802,10 +806,12 @@
       "title": "K8s apply accepts ResourceQuota/LimitRange/HTTPRoute; namespace spec field; zenith native-type row",
       "wave": 5,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "branch": "ws/k8s-contract",
       "deps": [],
-      "paths": []
+      "paths": [],
+      "tests": "1061 passed (worker); integration broad sweep 6455 passed / 0 failed incl. real tofu",
+      "review": "orchestrator: merged; capability matrix regenerated"
     },
     {
       "id": "WS-DB-LEDGER",
@@ -822,10 +828,12 @@
       "title": "Fix SEC-F8, SEC-F10, SEC-F1",
       "wave": 5,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "branch": "ws/sec-policy",
       "deps": [],
-      "paths": []
+      "paths": [],
+      "tests": "policy 207/207 (opa 1.19.1, rebuilt outside sandbox, sha 4d024850…); security/policy/credentials/agent-access/capabilities 1092 passed",
+      "review": "orchestrator: rebuilt bundle; removed F1/F10 characterisation tests per the suite procedure"
     },
     {
       "id": "WS-SEC-LEAKS",

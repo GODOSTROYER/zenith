@@ -405,11 +405,13 @@ describe("the 'in progress' claims still hold", () => {
   });
 
   it("the integration gaps the guides report are still there, and the migration count is what they say", () => {
-    // 1. the session middleware does not let the agent and bearer routes through
-    expect(read(path.join(REPO_ROOT, "src", "middleware.ts"))).not.toContain("/api/platform");
-    expect(read(path.join(REPO_ROOT, "src", "lib", "supabase", "env.ts"))).not.toContain("/api/platform");
-    // 2. the policy bundle is not traced into serverless builds
-    expect(read(path.join(REPO_ROOT, "next.config.ts"))).not.toContain("outputFileTracingIncludes");
+    // 1. CLOSED: the middleware lets classified bearer and agent-signed platform paths through
+    expect(read(path.join(REPO_ROOT, "src", "middleware.ts"))).toContain("isPlatformBearerRequest");
+    expect(read(path.join(REPO_ROOT, "src", "middleware.ts"))).toContain("isAgentSignedPath");
+    // 2. CLOSED: the policy bundle is traced into serverless builds and copied into the worker image
+    expect(read(path.join(REPO_ROOT, "next.config.ts"))).toContain("outputFileTracingIncludes");
+    expect(read(path.join(REPO_ROOT, "next.config.ts"))).toContain("policy/dist");
+    expect(read(path.join(REPO_ROOT, "docker", "worker.Dockerfile"))).toContain("policy/dist");
     // 3. the migrations the guides count: core, reconcile and machine_requests (3)
     const index = read(path.join(REPO_ROOT, "src", "lib", "controlplane", "db", "migrations", "index.ts"));
     expect(index).toContain("[migration0001Core, migration0002Reconcile, migration0003MachineRequests]");

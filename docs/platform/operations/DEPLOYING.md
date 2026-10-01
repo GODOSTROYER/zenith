@@ -20,7 +20,7 @@ doing work yet.
 | Credential broker and OIDC issuer | Built and tested with mocks. The two public routes (`/api/oidc/jwks`, `/api/oidc/.well-known/openid-configuration`) are live in the Next app, and the control signing key now signs the capability grants the broker issues. Nothing has run against real AWS STS or KMS. |
 | OpenTofu engine (`src/lib/tofu`) | Built and tested with the real `tofu` binary; only builtin `terraform_data` and `hashicorp/random` have been applied. No cloud provider has been run against a cloud. Not called by the worker yet. |
 | Policy engine (`policy/`, `src/lib/policy`) | Built and tested; the bundle is committed and reproducible. **Called by the capability broker** (`loadPolicyEngine()`) for every proposal, check, approval and execution; the worker's `evaluatePolicy` activity is still a stub. See the bundle-tracing gap in section 2.7. |
-| Capability broker and REST `/api/platform/v1` (`src/lib/capabilities`, `src/app/api/platform/v1`) | Merged and tested. Routes: `capabilities/check` and `propose`; `operations` (list, get, events, approve, reject, cancel); `environments/[id]/autonomy`; `workspace/policy`. Approve, reject and the two admin settings are **browser-only**: any `Authorization` header is refused, the identity is verified live and the `Origin` must match (section 2.8). Integrations call with a `za_` bearer. **Not wired:** nothing starts a Temporal workflow from an approved operation (no code outside the workflows module imports the workflow client), so an approved operation waits; and over REST an `infrastructure.apply` or `infrastructure.destroy` proposal is always denied `plan_required`, because the reviewed plan can only come from the execution side. **Gap:** these routes are not in the session middleware's allow list (`src/middleware.ts`), so with Supabase configured a request without a browser session, which is every integration bearer call and every agent call, is answered `401 Sign in to use the API` before it reaches the route (section 7). |
+| Capability broker and REST `/api/platform/v1` (`src/lib/capabilities`, `src/app/api/platform/v1`) | Merged and tested. Routes: `capabilities/check` and `propose`; `operations` (list, get, events, approve, reject, cancel); `environments/[id]/autonomy`; `workspace/policy`. Approve, reject and the two admin settings are **browser-only**: any `Authorization` header is refused, the identity is verified live and the `Origin` must match (section 2.8). Integrations call with a `za_` bearer. **Over REST** (workflows are started by the product deploy bridge and MCP v3, not by these routes) an `infrastructure.apply` or `infrastructure.destroy` proposal is always denied `plan_required`, because the reviewed plan can only come from the execution side. Integration bearer calls and runner/`zenithd` calls pass the session middleware only on their classified paths (section 2.8). |
 | Runner and `zenithd` control-plane side (`src/lib/runners`, routes under `runners/*` and `machines/*`) | Merged and tested against the in-memory store and the store contract. Registration tokens, signed-request authentication with replay protection, poll, heartbeat, results sealed at rest, logs, revoke, and `dispatch.ts` for enqueueing and awaiting jobs. The `zenithd` queue's table (`platform.machine_requests`) is migration 3. **Gaps:** nothing calls `reapExpiredJobs` on a timer; no activity enqueues jobs; and the middleware gap above applies to every agent route. |
 | Resource model, placement and cost, observability | Built as pure libraries (no environment, no I/O except the observability sources' own clients). Not wired into any route. |
 | Incident engine (`src/lib/incidents`), repository analysis (`src/lib/analysis`), platform UI components (`src/components/platform`) | Merged and tested. The incident engine and the analysis module are libraries that read no environment variables and are called by nothing yet; the UI components are presentational (data and callbacks come in as props) and no page or route renders them. Nothing here needs deploying. |
@@ -239,18 +239,17 @@ applies will be cut at 30 minutes; there is no such activity yet.
 |---|---|---|
 | `ZENITH_POLICY_WASM` | `<cwd>/policy/dist/policy.wasm` | Path of the compiled bundle. A missing, empty or tampered bundle makes `loadPolicyEngine()` reject with `PolicyLoadError`; callers must treat that as "deny everything". |
 
-Two gaps. The first bites now that the broker calls the engine on every request:
+How the bundle ships:
 
-- `next.config.ts` has **no `outputFileTracingIncludes`** for `policy/dist/**`, so a
-  Vercel build would not ship the bundle to the routes that evaluate policy; the
-  engine would fail to load and the broker would answer `policy_unavailable` (refuse
-  everything) rather than allow. Add the include, or set `ZENITH_POLICY_WASM` to a
-  path that exists on the host. This is from reading the config and the code; no
-  Vercel build was run.
-- `docker/worker.Dockerfile` copies only `src/lib` and `workers/execution`, so the
-  **worker image does not contain the policy bundle** either. Either copy
-  `policy/dist/` into the image and set `ZENITH_POLICY_WASM`, or mount it, before the
-  real `evaluatePolicy` activity exists.
+- `next.config.ts` traces `policy/dist/**` into every route that evaluates policy
+  (`outputFileTracingIncludes`), so a serverless build carries the bundle and its
+  manifest. Checked by `tests/server/appwire-policy-bundle.test.ts`; no Vercel build
+  has been run.
+- `docker/worker.Dockerfile` copies `policy/dist/` into the worker's runtime image at
+  the path the engine resolves, so the `evaluatePolicy` activity loads the same bundle.
+  Not built with Docker here.
+- Either way `ZENITH_POLICY_WASM` overrides the path; a missing or tampered bundle still
+  makes the broker refuse everything (`policy_unavailable`), never allow.
 
 ### 2.8 Capability broker, approvals and the agent routes
 
@@ -538,16 +537,16 @@ What happens when a worker dies mid-operation is in
   agent routes; section 1 and the status table list them) and `/api/agent/v3/mcp`
   (MCP v3, [MCP.md](../MCP.md)). The pages for connections and approvals are in
   progress and not described here.
-- **Authentication has a gap you must close before the agent routes can work.**
-  Browser routes (approve, reject, autonomy, workspace policy) need a signed-in
-  session, which the middleware handles. The integration bearer calls and every
-  runner and `zenithd` call (registration, poll, heartbeat, result, logs) carry no
-  session cookie; `src/middleware.ts` allow-lists the agent MCP and OIDC paths but not
-  `/api/platform/v1/...`, and `updateSession` answers `401 Sign in to use the API` to
-  a cookie-less request to a non-public `/api/` path. So with Supabase configured they
-  never reach the route. The routes authenticate themselves (signed request or `za_`
-  bearer), so the fix is to add them to the allow list the way the agent MCP paths
-  are. From reading the middleware; not reproduced.
+- **How the agent and integration routes get past the session middleware.** Browser
+  routes (approve, reject, autonomy and policy writes, runner/machine administration)
+  need a signed-in session, which the middleware enforces. Runner and `zenithd` calls
+  (registration, poll, heartbeat, result, logs) are let through by exact path
+  (`src/lib/runners/paths.ts`) and authenticate with their request signature.
+  Integration calls are let through only for the exact method/path pairs classified
+  `bearer-capable` in `src/app/api/platform/v1/_lib/bearer-paths.ts`, and only with a
+  `Bearer` header; the route then verifies the `za_` credential before waitlist
+  admission or any tenant read. A new route fails `tests/middleware` until it is
+  classified. From tests; not reproduced against a live Supabase.
 - Set `ZENITH_PLATFORM_ORIGIN` (or `ZENITH_AGENT_ORIGIN`) to your public origin:
   approvals demand an exact `Origin` match, and the fallback is the request's own origin.
 - The broker needs a platform database URL in production (section 2.2), the control

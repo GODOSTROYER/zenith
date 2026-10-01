@@ -27,11 +27,25 @@ doing work yet.
 | Temporal workflows, client and execution worker | `workers/execution/worker.ts` opens the store and calls `createActivities`, which delegates to `composeExecutionActivities` in `src/lib/platform/execution.ts`. Product deploy bridge and MCP v3 start workflows. `createStubActivities` is an explicit test factory, never a production fallback. Startup requirements are section 6.2; this wiring has not been live-cloud verified. |
 | Reconciliation controller (`src/lib/reconcile`, migration 2, `POST /api/internal/tick/reconcile`) | `ensurePlatformApp` registers `wireReconcilePorts`; the route boots composition after cron authentication. `.github/workflows/tick.yml` includes reconcile every five minutes. The controller observes and proposes repairs; allowed proposals dispatch day-two workflows through `src/lib/platform/reconcile.ts`. Unsupported execution can still fail. See section 2.9. |
 | `zenith-runner` and `zenithd` (Go, `go/`, Helm chart, Dockerfiles) | Built by another workstream, with their own operator guides: [RUNNER.md](../RUNNER.md) and [ZENITHD.md](../ZENITHD.md). The control-plane side is the row above, with the gaps listed there. I did not run or verify the agents. |
-| Machine plane (`src/lib/machines`) | Execution activities contain the `executeMachineOperation` path, but default composition supplies no `machines` port and refuses it. Injected ports can use AWS SSM fixed documents, Kubernetes exec, `zenithd`, Azure Run Command or read-only GCP Compute/OS Inventory (`src/lib/machines/transports/azure-run-command.ts`, `src/lib/machines/transports/gcp-os-management.ts`). GCP guest mutations require `zenithd`. No live transport was verified. See [AWS-SETUP.md](AWS-SETUP.md) for customer permissions. |
+| Machine plane (`src/lib/machines`) | Default composition supplies the `machines` port: workspace-scoped observations select AWS SSM fixed documents, Azure managed Run Command or read-only GCP Compute/OS Inventory; a uniquely bound, active registered machine selects the signed `zenithd` queue. Cloud calls use the operation's credential-broker session and existing policy/approval gates; `machine.exec` remains an admin-approved escape hatch. GCP guest mutations require `zenithd`. Kubernetes guest execution still requires an injected credential resolver. No live transport was verified. See [AWS-SETUP.md](AWS-SETUP.md) for customer permissions. |
 | Provider drivers | `src/lib/platform/drivers.ts` calls all six provider registrars; evidence remains contract-only. `src/lib/platform/credentials.ts` verifies GCP, Azure and Kubernetes connections; OCI verification checks runner registration only, and OCI sessions require that runner. Runner modes for other non-AWS providers remain refused. A hosted managed substrate is not verified ([MANAGED-PLATFORM.md](../MANAGED-PLATFORM.md)). |
 | Environment teardown | Browser admin action `env.teardown` consumes trusted recorded destroy evidence, proposes for approval and starts the destroy workflow after browser approval. The first destroy-review trigger and matching readable approval artifact remain entry-point gaps; see [TEARDOWN.md](TEARDOWN.md). |
 | Builds from source | Default source preparation uploads canonical ZIP to customer S3 for AWS CodeBuild, or tar.gz to GCS for GCP Cloud Build. Azure ACR adapters require injected source wiring; default composition refuses. See [BUILDS.md](BUILDS.md). |
 | Connections and approvals | `/platform/connections/aws` saves/verifies via its browser action adapter. No standalone `/api/platform/v1/connections` route exists. `/platform/operations/[id]` renders review; plan-bound approval stays disabled without a readable matching PlanView artifact. See `src/app/(product)/platform/README.md`. |
+
+Machine dispatch stores an immutable, tenant-scoped evidence marker before contacting
+the transport. Repeated completed requests replay a sealed result; a competing,
+interrupted or unreadable request is uncertain and is never dispatched again. An
+operation id cannot be reused with changed arguments, target, simulation mode or
+budgets. Local grant, constraint and argument checks still run on every retry.
+Outputs are bounded and redacted; evidence summaries exclude file contents, log
+lines and DNS answers. Escape-hatch output is retained as a sealed artifact in the
+existing idempotency store, referenced by `blobRef`, rather than placed in summaries
+or workflow history. Replay results and artifacts use a separate HKDF domain of
+`ZENITH_SECRET_KEY`; rotating that key makes older artifacts unreadable. The cache
+may be pruned after 30 days; the dispatch marker remains and prevents re-execution.
+An operator must reconcile an uncertain operation and submit a newly authorized
+operation to try again. Sandbox transports remain explicitly simulated.
 
 The execution path is composed, but no live-cloud success is recorded. Configure
 the worker and a verified connection before dispatching; a started workflow is

@@ -19,8 +19,10 @@ import { registerAllDrivers } from "./drivers";
 import { platformDriverLookup } from "./driver-lookup";
 import { createReleasePorts } from "./release";
 import { composeReconcilePorts } from "./reconcile";
+import { createAzureSourceStorageResolver } from "@/lib/providers/azure/release/source-binding";
 import { createSourceBundles, type SourceBundleDeps } from "./source-bundle";
 import { createDefaultMachinePort } from "@/lib/machines/composition";
+import { createAzureSourceStorage, type AzureBuildOptions } from "./release-azure";
 
 export interface ComposeExecutionOptions {
   db: Sql;
@@ -29,7 +31,7 @@ export interface ComposeExecutionOptions {
   secretKey?: string;
   /** Deliberate dependency overrides for contract tests or source acquisition. */
   ports?: Partial<Omit<ExecutionDeps, "fingerprintKey" | "workerId" | "planDir">>;
-  /** Optional tenant-scoped GitHub connector and bounded download settings. */
+  /** Optional tenant-scoped GitHub connector, Azure storage binding and download bounds. */
   sourceBundles?: Omit<SourceBundleDeps, "resources">;
 }
 
@@ -43,14 +45,22 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
   registerAllDrivers();
   const credentials = opts.ports?.credentials ?? platformCredentialBroker(opts.db);
   const platformPorts = createPlatformPorts(opts.db);
+  const azureStorage = opts.sourceBundles?.azureStorage ?? createAzureSourceStorageResolver(opts.db);
+  const sourceBundles = opts.ports?.sourceBundle ? undefined : createSourceBundles({ ...opts.sourceBundles, azureStorage, resources: opts.ports?.resources ?? platformPorts.resources });
+  const azure: AzureBuildOptions = {
+    readSource: sourceBundles?.readAzureSource ?? ((ctx, source) => createAzureSourceStorage({
+      resolveStorage: azureStorage,
+      maxBytes: opts.sourceBundles?.limits?.maxArchiveBytes, timeoutMs: opts.sourceBundles?.timeoutMs,
+    }).readSource(ctx, source)),
+  };
   const deps: ExecutionDeps = {
     ...platformPorts,
     drivers: platformDriverLookup,
     product: createProductPort(), broker: createExecutionBroker(opts.db), credentials,
     tofu: { planWorkspace, applyVerifiedPlan }, cost: defaultCostPort(),
     observability: ({ session, ...input }) => createObservabilityFabric(sourcesForEnvironment({ ...input, sessions: session.provider === "aws" ? { aws: session } : session.provider === "kubernetes" ? { kubernetes: session } : {} })),
-    prober: createSafeProber(), ...createReleasePorts({ db: opts.db }),
-    sourceBundle: opts.ports?.sourceBundle ?? createSourceBundles({ ...opts.sourceBundles, resources: opts.ports?.resources ?? platformPorts.resources }).port,
+    prober: createSafeProber(), ...createReleasePorts({ db: opts.db, azure }),
+    sourceBundle: opts.ports?.sourceBundle ?? sourceBundles!.port,
     machines: opts.ports?.machines ?? createDefaultMachinePort(opts.db, opts.secretKey ?? process.env.ZENITH_SECRET_KEY!),
     ...opts.ports,
     fingerprintKey, workerId: opts.workerIdentity, planDir: opts.planDir,

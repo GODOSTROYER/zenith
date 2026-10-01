@@ -185,9 +185,9 @@ describe("wave 7 operator claims retain their implementation wiring", () => {
     expect(deploying).toContain("administrator_password_wo");
   });
 
-  it("default source preparation dispatches canonical ZIP to AWS and tar.gz to GCP", () => {
+  it("default source preparation dispatches canonical ZIP to AWS and tar.gz to GCP/Azure", () => {
     const bundle = source("src/lib/platform/source-bundle.ts");
-    for (const value of ['ctx.provider === "aws" ? "zip" : "tar.gz"', "packZip(entries, limits, signal)", "sha256Hex(archive)", 'ContentType: "application/zip"', 'IfNoneMatch: "*"', 'ifGenerationMatch: "0"', "ChecksumSHA256: checksum", "ExpectedBucketOwner: ctx.session.accountId", "deps.withGithubAccess", 'refuse("Source preparation requires a matching AWS or GCP brokered session.")']) expect(bundle).toContain(value);
+    for (const value of ['ctx.provider === "aws" ? "zip" : "tar.gz"', "packZip(entries, limits, signal)", "sha256Hex(archive)", 'ContentType: "application/zip"', 'IfNoneMatch: "*"', 'ifGenerationMatch: "0"', "ChecksumSHA256: checksum", "ExpectedBucketOwner: ctx.session.accountId", "deps.withGithubAccess", 'refuse("Source preparation requires a matching AWS, GCP or Azure brokered session.")']) expect(bundle).toContain(value);
     expect(source("src/lib/platform/execution.ts")).toContain("createSourceBundles({ ...opts.sourceBundles");
     expect(source("src/lib/providers/aws/drivers/compute/codebuild-project.ts")).toContain('type: "S3"');
     expect(source("src/lib/providers/gcp/drivers/build/build-api.ts")).toContain("source: { storageSource:");
@@ -196,14 +196,21 @@ describe("wave 7 operator claims retain their implementation wiring", () => {
     expect(builds).toContain("Private repositories require");
   });
 
-  it("Azure builds require explicit source wiring, scoped launch receipts and SAS upload", () => {
+  it("Azure builds compose trusted stored-source reads, scoped launch receipts and SAS upload", () => {
     const build = source("src/lib/providers/azure/release/build.ts");
     for (const value of ["(!options.sourceBundles && !options.readSource) || !options.launches", "options.launches.claim(journalScope)", "readArchive(options.sourceBundles, spec.source, ctx.signal)", "sha256Hex(source) !== input.source.digest", "options.launches.record(journalScope, encoded)"]) expect(build).toContain(value);
     const acr = source("src/lib/providers/azure/release/acr-task.ts");
     for (const value of ["/listBuildSourceUploadUrl", "assertUploadUrl(up.body.uploadUrl)", 'redirect: "error"', 'type: "DockerBuildRequest"', "imageNames: [`${input.repository}:${input.tag}`]"]) expect(acr).toContain(value);
     expect(source("src/lib/providers/azure/release/source.ts")).toContain("await readArchive(reader, input.source, ctx.signal)");
-    expect(source("src/lib/platform/execution.ts")).toContain("createReleasePorts({ db: opts.db })");
-    expect(builds).toContain("default worker composition supplies neither the Azure source reader");
+    expect(source("src/lib/platform/execution.ts")).toContain("createReleasePorts({ db: opts.db, azure })");
+    const execution = source("src/lib/platform/execution.ts");
+    expect(execution).toContain("opts.sourceBundles?.azureStorage ?? createAzureSourceStorageResolver(opts.db)");
+    expect(execution).toContain("readSource: sourceBundles?.readAzureSource");
+    expect(source("workers/execution/worker.ts")).toContain("azureStorage: createAzureSourceStorageResolver(db)");
+    expect(source("src/lib/providers/azure/credentials.ts")).toContain('storage: "https://storage.azure.com/.default"');
+    expect(builds).toContain("Default composition supplies preparation, stored-source reading");
+    expect(source("docs/LIMITATIONS.md")).toContain("Azure source preparation and stored-bundle reading are composed");
+    expect(source("docs/LIMITATIONS.md")).not.toContain("default composition supplies neither");
   });
 
   it("GCP and Azure workload bootstrap images stay pinned and AWS avoids latest", () => {

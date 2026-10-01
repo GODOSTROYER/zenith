@@ -98,6 +98,13 @@ export interface AzureConnectionConfig {
   /** Customer Entra-only OpenTofu state account and container. */
   stateStorageAccount?: string;
   stateContainer?: string;
+  /** Trusted C3 bindings by environment id; never derived from manifests or state storage. */
+  sourceStorage?: Record<string, {
+    accountResourceId: string;
+    container: string;
+    resourceAddress: string;
+    cloud?: "public" | "usgov" | "china";
+  }>;
   region: string;
   runnerId?: string;
 }

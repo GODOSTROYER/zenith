@@ -62,6 +62,8 @@ const execData = z.object({ exitCode: z.number().int().nullable(), timedOut: z.b
 
 export const MachineResultDataSchemas = {
   "machine.inspect": z.object({
+    /** OS Inventory is a cached snapshot, not current guest runtime state. */
+    inventory: z.object({ state: z.enum(["available", "missing", "inaccessible", "unavailable"]), observedAt: str(64).optional() }).optional(),
     hostname: str(253).optional(),
     os: z.object({ id: str(64).optional(), version: str(64).optional(), pretty: str(200).optional() }).optional(),
     kernel: str(128).optional(),

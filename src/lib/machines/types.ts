@@ -58,7 +58,9 @@ export interface MachineTarget {
   transport: MachineTransport;
   /**
    * EC2 instance id (`i-…`, `mi-…`) for aws_ssm; `namespace`, `namespace/pod`
-   * or `namespace/pod/container` for kubernetes; zenithd machine id for zenithd.
+   * or `namespace/pod/container` for kubernetes; zenithd machine id for zenithd;
+   * full virtual machine ARM id for Azure; `projects/{project}/zones/{zone}/instances/{instance}`
+   * (or the corresponding Compute selfLink) for GCP. Bare names lack scope and are refused.
    */
   targetId: string;
 }
@@ -138,7 +140,8 @@ export type MachineDrivers = Partial<Record<MachineTransport, MachineDriver>>;
 /**
  * Supplies the transport-specific `session` for one request, inside a scope
  * that ends when the request settles. The composition root builds this from
- * the credential broker: `aws_ssm` → an `AwsSession`, `kubernetes` → a
+ * the credential broker: `aws_ssm` → an `AwsSession`, Azure/GCP → their brokered
+ * provider sessions, `kubernetes` → a
  * `KubernetesMachineSession`, `zenithd` → a `ZenithdSession` carrying the
  * compact grant JWS, sandbox → `undefined`. Machine code never sees
  * credentials; it only receives the session object the broker already scoped.

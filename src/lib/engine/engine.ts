@@ -144,6 +144,38 @@ const collapse = (ms: number) => (fast() ? Math.min(ms, 40) : ms);
 const now = () => new Date().toISOString();
 
 /**
+ * A deployment a Temporal workflow executes (`Deployment.executor === "workflow"`,
+ * ADR-0001/0009) is owned by the execution worker: the engine never ticks it,
+ * resumes it, claims or supersedes its lease, approves or cancels it. The
+ * worker projects progress onto the record; this process only displays it.
+ * Absent `executor` is the engine, so every record written before the field
+ * existed keeps behaving exactly as it did.
+ */
+const ownedByWorkflow = (d: Deployment | undefined): boolean => d?.executor === "workflow";
+
+function refuseWorkflowOwned(d: Deployment, verb: string): void {
+  if (ownedByWorkflow(d))
+    throw new Error(
+      `This deployment is executed by a workflow on the execution worker, not by this server's engine, so it cannot be ${verb} here. ` +
+        `Use the deployment's own actions (deploy.approve / deploy.cancel), which route it through the platform operation.`
+    );
+}
+
+/**
+ * An environment whose lease a live workflow deployment holds must not be
+ * written by the engine: superseding it would mark a deployment cancelled while
+ * its workflow keeps applying real infrastructure.
+ */
+function refuseWorkflowLease(env: Environment): void {
+  const holder = env.activeDeploymentId ? stored(env.activeDeploymentId) : undefined;
+  if (holder && ownedByWorkflow(holder) && !isTerminal(holder))
+    throw new Error(
+      `${env.name} is being deployed by a workflow (deployment ${holder.id}, ${holder.status.replace("_", " ")}), so the engine will not start another deployment on it. ` +
+        `Wait for that deployment to finish, or cancel it from the Deploys page, then deploy again.`
+    );
+}
+
+/**
  * How long one provider step may take before the engine stops waiting.
  * Without this a hung adapter pins a deployment in `applying` forever, with no
  * way out. The default and the validation live in `lib/env.ts` with every
@@ -500,7 +532,9 @@ function tick(): void {
   const inflight = g().__zenithInflight!;
   for (const deploymentId of running) {
     const d = stored(deploymentId);
-    if (!d || (d.status !== "applying" && d.status !== "verifying")) {
+    // A workflow-executed deployment is never the ticker's, even if its id found
+    // its way into the active set.
+    if (!d || ownedByWorkflow(d) || (d.status !== "applying" && d.status !== "verifying")) {
       running.delete(deploymentId);
       continue;
     }
@@ -731,6 +765,7 @@ async function start(input: StartDeploymentInput): Promise<Deployment> {
       `Revision "${input.revisionId}" no longer exists. Pick a revision from the Revisions page and deploy that.`
     );
 
+  refuseWorkflowLease(env);
   const previous = env.deployedRevisionId
     ? q.revision(env.deployedRevisionId)
     : undefined;
@@ -806,6 +841,7 @@ async function approve(deploymentId: string): Promise<Deployment> {
     throw new Error(
       `Deployment "${deploymentId}" was not found. Open the Deploys page and pick a deployment from the list.`
     );
+  refuseWorkflowOwned(d, "approved");
   if (d.status !== "awaiting_approval")
     throw new Error(
       `This deployment is ${d.status}, not awaiting approval. Start a new deployment from the Changes drawer instead.`
@@ -826,6 +862,7 @@ async function cancel(deploymentId: string): Promise<Deployment> {
     throw new Error(
       `Deployment "${deploymentId}" was not found. Open the Deploys page and pick a deployment from the list.`
     );
+  refuseWorkflowOwned(d, "cancelled");
   if (TERMINAL.includes(d.status))
     throw new Error(
       `This deployment already finished as ${d.status}; there is nothing to cancel. Deploy again to change the environment.`
@@ -849,8 +886,11 @@ async function rollback(
       `Environment "${environmentId}" no longer exists. Create it in Settings → Environments, then deploy again.`
     );
 
+  refuseWorkflowLease(env);
   const history = q.deploymentsOf(environmentId) as StoredDeployment[];
   const last = history[0];
+  // `last` is about to be stopped and relabelled below; a workflow's is not ours to stop.
+  if (last && ownedByWorkflow(last) && !isTerminal(last)) refuseWorkflowOwned(last, "rolled back");
   const targetId = toRevisionId ?? last?.previousRevisionId;
   if (!targetId)
     throw new Error(
@@ -946,6 +986,8 @@ function resumeInFlight(): void {
 
   for (const raw of db().deployments) {
     const d = raw as StoredDeployment;
+    // Owned by Temporal: not claimed, not superseded, not put on the ticker.
+    if (ownedByWorkflow(d)) continue;
     if (d.status !== "applying" && d.status !== "verifying") continue;
     const env = q.environment(d.environmentId);
     if (env && !env.activeDeploymentId) {

@@ -1,5 +1,5 @@
 {
-  "catalogDigest": "sha256:e1c5622c1d3e937c68c59c4b3cf1931a021a820c5df98968056d1b5a8686e9eb",
+  "catalogDigest": "sha256:46f221424bd1f455b01f0498631c97fadac09537ecc42e9fad6b8c38f9aa2604",
   "tools": [
     {
       "name": "zenith_get_topology",
@@ -60,6 +60,11 @@
       "name": "zenith_estimate_cost",
       "schemaVersion": 1,
       "schemaDigest": "sha256:91147926bc353350dd1aa6f6fbbb52428cd9e4b9f936e06bb71e613ce906b100"
+    },
+    {
+      "name": "zenith_recommend_placement",
+      "schemaVersion": 1,
+      "schemaDigest": "sha256:78e1049dc738e078f695692906abec01e75f83615cedc581d4f562630c4d811a"
     },
     {
       "name": "zenith_get_operation",

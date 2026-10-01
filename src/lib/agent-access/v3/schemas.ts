@@ -1,5 +1,5 @@
 /**
- * Strict input schemas for the fourteen MCP v3 tools.
+ * Strict input schemas for the fifteen MCP v3 tools.
  *
  * One definition per tool, written once in zod and rendered to the JSON Schema
  * a client receives (`catalog.ts`). Two rules hold for every schema:
@@ -158,6 +158,32 @@ export const EstimateCostInput = z.strictObject({
   revisionId: Id.optional().describe("Estimate this saved revision (default: the environment's deployed revision, else the working copy)."),
 });
 
+const PlacementToken = z.string().min(1).max(64).regex(/^[A-Za-z0-9 _./-]+$/);
+const nonnegativeUsage = () => z.number().finite().nonnegative().optional();
+
+/** Placement constraints are bounded data, never executable expressions. */
+export const RecommendPlacementInput = z.strictObject({
+  target: ProjectTarget,
+  includeUnconnected: z.boolean().optional(),
+  constraints: z.strictObject({
+    userRegions: z.array(PlacementToken).max(32).optional(),
+    budgetUsdMonthly: z.number().finite().positive().optional(),
+    residency: z.array(PlacementToken).max(16).optional(),
+    latencyTargetMs: z.number().finite().positive().optional(),
+    availabilityTarget: z.number().finite().positive().max(100).optional(),
+    tolerateSingleFailure: z.boolean().optional(),
+    managedDatabaseRequired: z.boolean().optional(),
+    providerPreference: z.array(PlacementToken).max(8).optional(),
+    providerDenylist: z.array(PlacementToken).max(8).optional(),
+    componentProviders: z.record(PlacementToken, PlacementToken).optional(),
+    usage: z.strictObject({
+      egressGb: nonnegativeUsage(), requestsMillions: nonnegativeUsage(),
+      storageGb: nonnegativeUsage(), logGbPerService: nonnegativeUsage(), dbStorageGb: nonnegativeUsage(),
+      interComponentFraction: z.number().finite().min(0).max(1).optional(),
+    }).optional(),
+  }).optional(),
+});
+
 export const GetOperationInput = z.strictObject({
   workspaceId: Id,
   operationId: OperationId,
@@ -182,5 +208,6 @@ export type RestartServiceArgs = z.infer<typeof RestartServiceInput>;
 export type ScaleServiceArgs = z.infer<typeof ScaleServiceInput>;
 export type CompareRevisionsArgs = z.infer<typeof CompareRevisionsInput>;
 export type EstimateCostArgs = z.infer<typeof EstimateCostInput>;
+export type RecommendPlacementArgs = z.infer<typeof RecommendPlacementInput>;
 export type GetOperationArgs = z.infer<typeof GetOperationInput>;
 export type GetOperationEventsArgs = z.infer<typeof GetOperationEventsInput>;

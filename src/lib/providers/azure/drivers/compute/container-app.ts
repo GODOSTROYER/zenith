@@ -23,7 +23,7 @@
  * (update replica counts), both guarded by the Zenith tag check in `ops.ts`.
  *
  * Honest limits: exercised with schema validation and a fake ARM server only.
- * `built` artifacts deploy the `latest` tag (see workload.ts).
+ * Built images are bootstrapped then owned by the digest release path (see workload.ts).
  */
 import type { AzureSession } from "@/lib/credentials/types";
 import type { CompileContext, NativeOperation, TofuFragment } from "@/lib/drivers/types";
@@ -35,7 +35,7 @@ import { defineAzureDriver, locateByTags, pick, props, type AzureCtx, type Locat
 import { armClient, pollOperation, type ArmClient, type ArmResource, type Json } from "@/lib/providers/azure/arm";
 import { azureTags, tfLabel } from "@/lib/providers/azure/naming";
 import { acaSize, API } from "@/lib/providers/azure/platform";
-import { buildWorkload, isRouted, memoryToMb } from "@/lib/providers/azure/drivers/compute/workload";
+import { bootstrapArgs, buildWorkload, isRouted, memoryToMb, RELEASE_ARGS_PATH, RELEASE_IMAGE_PATH } from "@/lib/providers/azure/drivers/compute/workload";
 import { clientRequestId, intInRange, notManagedHere, opFailure, opFailureFromError } from "@/lib/providers/azure/ops";
 
 export const CONTAINER_APP = { type: "Microsoft.App/containerApps", apiVersion: API.containerApps } as const;
@@ -65,6 +65,7 @@ export function compileContainerApp(node: ResourceNode, ctx: CompileContext): To
     image: w.image,
     cpu: w.cpu,
     memory: w.memory,
+    ...(spec.artifact.type === "built" ? { args: bootstrapArgs(spec.port) } : {}),
     ...(w.env.length ? { env: w.env } : {}),
     ...(hasIngress && spec.healthPath ? { liveness_probe: [probe("liveness")], readiness_probe: [probe("readiness")] } : {}),
   };
@@ -90,6 +91,7 @@ export function compileContainerApp(node: ResourceNode, ctx: CompileContext): To
         }
       : {}),
     template: { min_replicas: replicas, max_replicas: replicas, container: [container] },
+    ...(spec.artifact.type === "built" ? { lifecycle: { ignore_changes: [RELEASE_IMAGE_PATH, RELEASE_ARGS_PATH] } } : {}),
     tags: azureTags(ctx, node),
   };
 
@@ -282,4 +284,3 @@ export const containerAppDriver = defineAzureDriver({
   serving: true,
   operations: { "service.restart": restart, "service.scale": scale },
 });
-

@@ -1,8 +1,7 @@
 /**
- * ACR Tasks build adapter, reusing runAcrBuild's isolated source upload/build.
- * BuildPort.startBuild waits for that helper; waitForBuild rereads native ACR
- * run metadata, so handles survive worker replacement. Only digest references
- * leave this adapter, even though the helper also pushes its historical tag.
+ * ACR Tasks build adapter. startBuild uploads verified archive bytes and
+ * records the scheduled run before polling. Only an operation tag is pushed;
+ * waitForBuild returns its verified digest, never a mutable image reference.
  * Source loading and a durable launch journal MUST be supplied: AzureSession
  * currently has no Blob Storage audience, and scheduleRun has no launch token.
  * No live Azure account has verified this path; evidence is contract only.
@@ -13,17 +12,21 @@ import type { DriverContext } from "@/lib/drivers/types";
 import type { AzureSession } from "@/lib/credentials/types";
 import { StepFailedError } from "@/lib/execution/errors";
 import { digest, sha256Hex } from "@/lib/controlplane/digest";
-import { runAcrBuild, MAX_SOURCE_BYTES } from "@/lib/providers/azure/acr-build";
+import { MAX_SOURCE_BYTES } from "@/lib/providers/azure/acr-build";
 import { armClient, type ArmResource } from "@/lib/providers/azure/arm";
 import { API } from "@/lib/providers/azure/platform";
 import { nodeNameOf } from "@/lib/providers/azure/naming";
 import { context, managed, locate, validId, assertResource, bounded, pause, rec, arr, IMAGE_DIGEST, type Ctx, type LaunchJournal } from "./support";
+import { scheduleBuild, ACR_RUN_ID } from "./acr-task";
+import { readArchive, type AzureSourceReader } from "./source";
 
 export interface AzureBuildOptions {
+  /** C3 createSourceBundles(deps); Azure uses read(), not its S3/GCS upload port. */
+  sourceBundles?: AzureSourceReader;
   /** Load bundle bytes inside the current broker callback; never return signed URLs or credentials. */
   readSource?(ctx: DriverContext<AzureSession>, source: { s3Key: string; digest: string; bucket?: string }): Promise<Uint8Array>;
   launches?: LaunchJournal;
-  /** Plain SAS upload transport; receives NO broker credential. Default the helper's fetch. */
+  /** Plain SAS upload transport; receives NO broker credential. Defaults to fetch. */
   uploadFetch?: typeof fetch;
 }
 interface Handle { version: 1; scope: string; runId: string; registryId: string; registryAddress: string; loginServer: string; repository: string; tag: string }
@@ -31,7 +34,7 @@ const scope = (ctx: Ctx) => digest([ctx.workspaceId, ctx.environmentId, ctx.sess
 function decode(ctx: Ctx, raw: string): Handle {
   let h: Handle;
   try { if (raw.length > 4000) throw new Error(); h = JSON.parse(raw) as Handle; } catch { throw new StepFailedError("Invalid Azure build handle."); }
-  if (h.version !== 1 || h.scope !== scope(ctx) || typeof h.registryId !== "string" || !validId(ctx, h.registryId, "Microsoft.ContainerRegistry/registries") || typeof h.runId !== "string" || !/^[A-Za-z0-9]{1,32}$/.test(h.runId) || typeof h.registryAddress !== "string" || !/^[a-z_]+\/[A-Za-z0-9_.-]+$/.test(h.registryAddress) || typeof h.loginServer !== "string" || !/^[a-z0-9]{5,50}\.azurecr\.io$/.test(h.loginServer) || typeof h.repository !== "string" || !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(h.repository) || typeof h.tag !== "string" || !/^zn-[a-f0-9]{64}$/.test(h.tag)) throw new StepFailedError("Azure build handle is outside this environment or malformed.");
+  if (!h || h.version !== 1 || h.scope !== scope(ctx) || typeof h.registryId !== "string" || !validId(ctx, h.registryId, "Microsoft.ContainerRegistry/registries") || typeof h.runId !== "string" || !ACR_RUN_ID.test(h.runId) || typeof h.registryAddress !== "string" || !/^[a-z_]+\/[A-Za-z0-9_.-]+$/.test(h.registryAddress) || typeof h.loginServer !== "string" || !/^[a-z0-9]{5,50}\.azurecr\.io$/.test(h.loginServer) || typeof h.repository !== "string" || !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(h.repository) || typeof h.tag !== "string" || !/^zn-[a-f0-9]{64}$/.test(h.tag)) throw new StepFailedError("Azure build handle is outside this environment or malformed.");
   return h;
 }
 async function verifyRegistry(ctx: Ctx, h: Handle): Promise<void> {
@@ -47,7 +50,7 @@ export function createBuildPort(options: AzureBuildOptions = {}): BuildPort {
       const ctx = context(raw); managed(ctx, input.service); managed(ctx, input.pipeline, "build_pipeline");
       const spec = input.pipeline.spec as unknown as BuildPipelineSpec; const artifact = rec(input.service.spec.artifact);
       if (!input.registry || spec.location !== "customer_account" || rec(spec.output).registry !== input.registry.address || artifact.type !== "built" || artifact.pipeline !== input.pipeline.address || artifact.registry !== input.registry.address || !input.idempotencyKey || !/^(?:sha256:)?[a-f0-9]{64}$/.test(input.source.digest) || typeof input.source.s3Key !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._/-]{0,1023}$/.test(input.source.s3Key) || input.source.s3Key.split("/").some((p) => p === "." || p === "..") || (input.source.bucket !== undefined && !/^[A-Za-z0-9._/-]{1,300}$/.test(input.source.bucket))) throw new StepFailedError("Azure build inputs do not identify this workload's source/pipeline/registry.");
-      if (!options.readSource || !options.launches) throw new StepFailedError("Azure builds require a source reader and durable tenant-scoped launch journal.");
+      if ((!options.sourceBundles && !options.readSource) || !options.launches) throw new StepFailedError("Azure builds require a source reader and durable tenant-scoped launch journal.");
       const registry = await locate(ctx, input.registry, "Microsoft.ContainerRegistry/registries");
       const loginServer = rec(registry.properties).loginServer; const repository = nodeNameOf(input.service.address);
       if (typeof loginServer !== "string" || !/^[a-z0-9]{5,50}\.azurecr\.io$/.test(loginServer) || !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(repository)) throw new StepFailedError("Azure build output registry/repository is malformed.");
@@ -64,13 +67,17 @@ export function createBuildPort(options: AzureBuildOptions = {}): BuildPort {
         return { buildId: saved };
       }
       let source: Uint8Array;
-      try { source = await options.readSource(ctx, input.source); } catch { throw new Error("Azure source bundle could not be read; no build was launched."); }
+      if (options.sourceBundles) source = (await readArchive(options.sourceBundles, spec.source, ctx.signal)).archive;
+      else {
+        try { source = await options.readSource!(ctx, input.source); } catch { ctx.signal.throwIfAborted(); throw new Error("Azure source bundle could not be read; no build was launched."); }
+      }
+      ctx.signal.throwIfAborted();
       if (!(source instanceof Uint8Array) || source.byteLength === 0 || source.byteLength > MAX_SOURCE_BYTES || sha256Hex(source) !== input.source.digest.replace(/^sha256:/, "")) throw new StepFailedError("Source bundle bytes do not match the recorded digest/size bounds.");
-      let result;
-      try { result = await runAcrBuild(ctx.session, { registryId: registry.id, loginServer, repository, source, tags: [`zn-${key}`], dockerfilePath: spec.source?.dockerfile, uploadFetch: options.uploadFetch, clientRequestId: key }, ctx.signal); } catch { ctx.signal.throwIfAborted(); throw new Error("ACR build did not complete; reconcile the consumed launch key before retrying."); }
-      const h: Handle = { version: 1, scope: scope(ctx), registryId: registry.id, registryAddress: input.registry.address, loginServer, repository, runId: result.runId, tag: `zn-${key}` };
+      let runId;
+      try { runId = await scheduleBuild(ctx, { registryId: registry.id, loginServer, repository, source, tag: `zn-${key}`, dockerfilePath: spec.source?.dockerfile, uploadFetch: options.uploadFetch }); } catch { ctx.signal.throwIfAborted(); throw new Error("ACR build launch was not confirmed; reconcile the consumed launch key before retrying."); }
+      const h: Handle = { version: 1, scope: scope(ctx), registryId: registry.id, registryAddress: input.registry.address, loginServer, repository, runId, tag: `zn-${key}` };
       const encoded = JSON.stringify(h);
-      try { await options.launches.record(journalScope, encoded); } catch { throw new Error("ACR build finished but its launch receipt was not persisted; reconcile before retrying."); }
+      try { await options.launches.record(journalScope, encoded); } catch { throw new Error("ACR build was scheduled but its launch receipt was not persisted; reconcile before retrying."); }
       return { buildId: encoded };
     },
     async waitForBuild(raw, handle, opts): Promise<BuildResult> {

@@ -9,6 +9,7 @@
 import type { Sql } from "@/lib/controlplane/types";
 import { digest } from "@/lib/controlplane/digest";
 import type { LaunchJournal, LaunchScope } from "./support";
+import { ACR_RUN_ID } from "./acr-task";
 
 function identity(scope: LaunchScope): { key: string; hash: string } {
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(scope.workspaceId) || !/^[A-Za-z0-9_-]{1,128}$/.test(scope.environmentId) || !/^[a-f0-9]{64}$/.test(scope.key)) throw new Error("Invalid Azure launch journal scope.");
@@ -22,9 +23,9 @@ function validateReference(raw: string): void {
     return;
   }
   let obj: Record<string, unknown>;
-  try { obj = JSON.parse(raw); } catch { throw new Error("Invalid Azure build reference."); }
+  try { obj = JSON.parse(raw); if (!obj || typeof obj !== "object" || Array.isArray(obj)) throw new Error(); } catch { throw new Error("Invalid Azure build reference."); }
   const keys = ["version", "scope", "runId", "registryId", "registryAddress", "loginServer", "repository", "tag"];
-  if (Object.keys(obj).length !== keys.length || Object.keys(obj).some((k) => !keys.includes(k)) || obj.version !== 1 || typeof obj.scope !== "string" || !/^[a-f0-9]{64}$/.test(obj.scope) || typeof obj.runId !== "string" || !/^[A-Za-z0-9]{1,32}$/.test(obj.runId) || typeof obj.registryId !== "string" || !/^\/subscriptions\/[a-f0-9-]{36}\/resourceGroups\/[A-Za-z0-9_.()-]+\/providers\/Microsoft\.ContainerRegistry\/registries\/[a-z0-9]{5,50}$/i.test(obj.registryId) || typeof obj.registryAddress !== "string" || !/^[a-z_]+\/[A-Za-z0-9_.-]+$/.test(obj.registryAddress) || typeof obj.loginServer !== "string" || !/^[a-z0-9]{5,50}\.azurecr\.io$/.test(obj.loginServer) || typeof obj.repository !== "string" || !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(obj.repository) || typeof obj.tag !== "string" || !/^zn-[a-f0-9]{64}$/.test(obj.tag)) throw new Error("Invalid Azure build reference.");
+  if (Object.keys(obj).length !== keys.length || Object.keys(obj).some((k) => !keys.includes(k)) || obj.version !== 1 || typeof obj.scope !== "string" || !/^[a-f0-9]{64}$/.test(obj.scope) || typeof obj.runId !== "string" || !ACR_RUN_ID.test(obj.runId) || typeof obj.registryId !== "string" || !/^\/subscriptions\/[a-f0-9-]{36}\/resourceGroups\/[A-Za-z0-9_.()-]+\/providers\/Microsoft\.ContainerRegistry\/registries\/[a-z0-9]{5,50}$/i.test(obj.registryId) || typeof obj.registryAddress !== "string" || !/^[a-z_]+\/[A-Za-z0-9_.-]+$/.test(obj.registryAddress) || typeof obj.loginServer !== "string" || !/^[a-z0-9]{5,50}\.azurecr\.io$/.test(obj.loginServer) || typeof obj.repository !== "string" || !/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(obj.repository) || typeof obj.tag !== "string" || !/^zn-[a-f0-9]{64}$/.test(obj.tag)) throw new Error("Invalid Azure build reference.");
 }
 
 export function createLaunchJournal(sql: Sql): LaunchJournal {

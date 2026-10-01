@@ -23,7 +23,7 @@ import { defineAzureDriver, pick, props, type RuntimeRead } from "@/lib/provider
 import type { ArmClient, ArmResource, Json } from "@/lib/providers/azure/arm";
 import { azureTags, tfLabel } from "@/lib/providers/azure/naming";
 import { acaSize, API } from "@/lib/providers/azure/platform";
-import { buildWorkload, memoryToMb } from "@/lib/providers/azure/drivers/compute/workload";
+import { bootstrapArgs, buildWorkload, memoryToMb, RELEASE_ARGS_PATH, RELEASE_IMAGE_PATH } from "@/lib/providers/azure/drivers/compute/workload";
 
 export const CONTAINER_JOB = { type: "Microsoft.App/jobs", apiVersion: API.containerApps } as const;
 
@@ -43,7 +43,7 @@ export function compileContainerAppJob(node: ResourceNode, ctx: CompileContext):
   const w = buildWorkload(node, ctx, spec);
   const L = tfLabel(a, "job");
 
-  const container: Record<string, unknown> = { name: w.containerName, image: w.image, cpu: w.cpu, memory: w.memory, ...(w.env.length ? { env: w.env } : {}) };
+  const container: Record<string, unknown> = { name: w.containerName, image: w.image, cpu: w.cpu, memory: w.memory, ...(w.env.length ? { env: w.env } : {}), ...(spec.artifact.type === "built" ? { args: bootstrapArgs() } : {}) };
   const body: Record<string, unknown> = {
     name: w.name,
     location: node.region,
@@ -59,6 +59,7 @@ export function compileContainerAppJob(node: ResourceNode, ctx: CompileContext):
     ...(w.registry.length ? { registry: w.registry } : {}),
     ...(w.secrets.length ? { secret: w.secrets } : {}),
     template: { container: [container] },
+    ...(spec.artifact.type === "built" ? { lifecycle: { ignore_changes: [RELEASE_IMAGE_PATH, RELEASE_ARGS_PATH] } } : {}),
     tags: azureTags(ctx, node),
   };
   return fragment({

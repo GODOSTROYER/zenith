@@ -4,6 +4,7 @@ import { StepFailedError } from "@/lib/execution/errors";
 import { digest } from "@/lib/controlplane/digest";
 import { armClient } from "@/lib/providers/azure/arm";
 import { API } from "@/lib/providers/azure/platform";
+import { BOOTSTRAP_IMAGE } from "@/lib/providers/azure/drivers/compute/workload";
 import { context, locate, workloadType, pinned, container, rec, select, bounded, pause } from "./support";
 
 export const TEMPLATE_KEYS = ["containers", "initContainers", "scale", "volumes", "revisionSuffix", "terminationGracePeriodSeconds"] as const;
@@ -16,11 +17,15 @@ export function createWorkloadsPort(): WorkloadsPort {
       const res = await locate(ctx, node, workloadType(node));
       if (node.kind === "container_service" && rec(rec(res.properties).configuration).activeRevisionsMode !== "Single") throw new StepFailedError("Azure release requires Single revision mode before rollout.");
       const template = rec(rec(res.properties).template); const current = container(template);
-      if (current.image === image.uri) return { detail: "Azure workload already targets the pinned image." };
-      const next = { ...select(template, TEMPLATE_KEYS), containers: [{ ...current, image: image.uri }], ...(node.kind === "container_service" ? { revisionSuffix: `zn-${digest([ctx.workspaceId, ctx.environmentId, node.address, opts.idempotencyKey, image.digest]).slice(0, 32)}` } : {}) };
-      try {
-        await armClient(ctx.session, ctx.signal).patch(res.id, { apiVersion: API.containerApps, headers: res.etag ? { "if-match": res.etag } : undefined, body: { location: res.location, properties: { template: next } } });
-      } catch { ctx.signal.throwIfAborted(); throw new Error("Azure image update was not confirmed; reconcile its outcome."); }
+      const unchanged = current.image === image.uri;
+      if (!unchanged) {
+        // Bootstrap argv belongs to the responder, not the customer's image.
+        const nextContainer = { ...current, image: image.uri, ...(rec(node.spec.artifact).type === "built" && current.image === BOOTSTRAP_IMAGE ? { args: [] } : {}) };
+        const next = { ...select(template, TEMPLATE_KEYS), containers: [nextContainer], ...(node.kind === "container_service" ? { revisionSuffix: `zn-${digest([ctx.workspaceId, ctx.environmentId, node.address, opts.idempotencyKey, image.digest]).slice(0, 32)}` } : {}) };
+        try {
+          await armClient(ctx.session, ctx.signal).patch(res.id, { apiVersion: API.containerApps, headers: res.etag ? { "if-match": res.etag } : undefined, body: { location: res.location, properties: { template: next } } });
+        } catch { ctx.signal.throwIfAborted(); throw new Error("Azure image update was not confirmed; reconcile its outcome."); }
+      }
       if (node.kind === "scheduled_job") {
         const wait = bounded(ctx, 60_000);
         for (;;) {
@@ -31,7 +36,7 @@ export function createWorkloadsPort(): WorkloadsPort {
           await pause(wait.ctx, wait.deadline);
         }
       }
-      return { detail: "Azure accepted the digest-pinned workload update." };
+      return { detail: unchanged ? "Azure workload already targets the pinned image." : "Azure accepted the digest-pinned workload update." };
     },
     async waitSteady(raw, node, opts) {
       const original = context(raw); const wait = bounded(original, opts.timeoutMs); const ctx = wait.ctx;

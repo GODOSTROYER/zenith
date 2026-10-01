@@ -9,11 +9,11 @@ const migration = { idempotencyKey: "op-1:migrate", timeoutMs: 1000 };
 const command = ["node", "migrate.js", "$(external-data)"];
 
 describe("Azure customer-account ACR build", () => {
-  it("reuses runAcrBuild, verifies source bytes, sends SAS only to plain upload fetch, and recovers the native digest on another port", async () => {
+  it("verifies source bytes, sends SAS only to plain upload fetch, and recovers the native digest on another port", async () => {
     const w = world(); const h = await createAzureBuildPort(w.options).startBuild(w.ctx, buildInput());
     expect(w.state.schedules).toBe(1); expect(w.readSource).toHaveBeenCalledWith(expect.objectContaining({ session: w.ctx.session }), bundle);
     const schedule = w.fetcher.mock.calls.find(([u]) => u.includes("scheduleRun"))!;
-    expect(JSON.parse(String(schedule[1]?.body))).toMatchObject({ type: "DockerBuildRequest", isPushEnabled: true, dockerFilePath: "docker/Dockerfile", sourceLocation: "source/upload.tar.gz", imageNames: ["web:latest", expect.stringMatching(/^web:zn-[a-f0-9]{64}$/)] });
+    expect(JSON.parse(String(schedule[1]?.body))).toMatchObject({ type: "DockerBuildRequest", isPushEnabled: true, dockerFilePath: "docker/Dockerfile", sourceLocation: "source/upload.tar.gz", imageNames: [expect.stringMatching(/^web:zn-[a-f0-9]{64}$/)] });
     expect(w.uploadFetch).toHaveBeenCalledWith(expect.stringContaining("sig=secret-sas-sentinel"), expect.objectContaining({ method: "PUT", redirect: "error", headers: { "x-ms-blob-type": "BlockBlob", "content-type": "application/octet-stream" } }));
     expect(w.fetcher.mock.calls.every(([u]) => !u.includes("sig="))).toBe(true);
     expect(await createAzureBuildPort().waitForBuild(w.ctx, h, { timeoutMs: 1000 })).toEqual({ status: "succeeded", imageUri: IMAGE, digest: DIGEST });

@@ -43,28 +43,6 @@
       "pattern": "loadBalancers/{}"
     }
   ],
-  "deployment.deploy": [
-    {
-      "service": "dns",
-      "method": "GET",
-      "pattern": "zones/{}"
-    },
-    {
-      "service": "dns",
-      "method": "GET",
-      "pattern": "zones/{}/records/{}/{}"
-    },
-    {
-      "service": "loadbalancer",
-      "method": "GET",
-      "pattern": "loadBalancers"
-    },
-    {
-      "service": "loadbalancer",
-      "method": "GET",
-      "pattern": "loadBalancers/{}"
-    }
-  ],
   "deployment.rollback": [
     {
       "service": "dns",
@@ -890,6 +868,26 @@
     }
   ],
   "deployment.deploy": [
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}/records/{}/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}"
+    },
     {
       "service": "containerinstances",
       "method": "GET",

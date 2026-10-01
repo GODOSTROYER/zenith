@@ -15,7 +15,8 @@ describe("OCI DNS deletion target ownership", () => {
       expect(job.headers).toEqual({});
       expect(isAllowed(capability, job)).toBe(true);
     }
-    expect(OCI_ALLOWLIST[capability].every((r) => r.method === "GET")).toBe(true);
+    // DNS ownership reads stay read-only; deployment.deploy separately holds the migration-launch write (WS-RELEASE-OCI).
+    expect(OCI_ALLOWLIST[capability].filter((r) => r.service === "dns" || r.service === "loadbalancer").every((r) => r.method === "GET")).toBe(true);
     expect(isAllowed(capability, { service: "loadbalancer", method: "POST", path: "/20170115/loadBalancers" })).toBe(false);
     expect(isAllowed(capability, { service: "vault", method: "GET", path: "/20190301/secrets/foreign" })).toBe(false);
     expect(w.ctx.log).not.toHaveBeenCalled();

@@ -65,7 +65,6 @@ const DNS_DELETION_READS: readonly OciAllowRule[] = [
 export const OCI_ALLOWLIST: Readonly<Record<string, readonly OciAllowRule[]>> = {
   "infrastructure.plan": DNS_DELETION_READS,
   "infrastructure.apply": DNS_DELETION_READS,
-  "deployment.deploy": DNS_DELETION_READS,
   "deployment.rollback": DNS_DELETION_READS,
   "infrastructure.observe": [
     ...OBSERVE_RULES,
@@ -81,6 +80,7 @@ export const OCI_ALLOWLIST: Readonly<Record<string, readonly OciAllowRule[]>> = 
   // Images are immutable; only the migration launch needs a write. Workload
   // replacement stays in the reviewed OpenTofu plan, never a fabricated PUT.
   "deployment.deploy": [
+    ...DNS_DELETION_READS,
     ...get("containerinstances", "containerInstances", "containerInstances/{}", "containers/{}"),
     ...get("core", "vnics/{}"),
     { service: "containerinstances", method: "POST", pattern: "containerInstances" },

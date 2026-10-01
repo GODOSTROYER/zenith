@@ -3,7 +3,7 @@
  * grant restrictions and the shared capability broker enforce authority. */
 import { createMcpHandler, fromJsonSchema, isLegacyRequest, McpServer, WebStandardStreamableHTTPServerTransport, type JsonSchemaType } from "@modelcontextprotocol/server";
 import { boundedBody } from "../control/boundary";
-import { authenticateMcp, resourceFor } from "./auth";
+import { authenticateMcp, authenticationChallengeFor, resourceFor } from "./auth";
 import { catalogFor, toolMeta } from "./catalog";
 import { INTEGRATION_SCOPES, SERVER_INSTRUCTIONS, SERVER_NAME, SERVER_VERSION } from "./contract";
 import { buildErrorEnvelope, toCallToolResult } from "./envelope";
@@ -20,7 +20,7 @@ export function failure(error: unknown, origin?: string): Response {
   const mapped = mapError(error);
   const response = json({ error: scrubMcpValue(mapped.body) }, mapped.status);
   if (mapped.status === 401 && origin) {
-    response.headers.set("www-authenticate", `Bearer resource_metadata="${resourceFor(origin)}?metadata=oauth-protected-resource", scope="zenith:read"`);
+    response.headers.set("www-authenticate", authenticationChallengeFor(origin));
   }
   return response;
 }

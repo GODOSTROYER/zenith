@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -36,8 +35,9 @@ const DefaultDockerSocket = "/var/run/docker.sock"
 // plus exec are used; nothing here can create, start, stop or remove
 // containers, or touch images, volumes or networks.
 type Docker struct {
-	socket string
-	hc     *http.Client
+	socket      string
+	hc          *http.Client
+	dialContext func(context.Context, string, string) (net.Conn, error)
 }
 
 // NewDocker builds a client for the socket path.
@@ -142,8 +142,9 @@ func (e *Env) docker() *Docker {
 /* ---------------------------------- list ----------------------------------- */
 
 type listArgs struct {
-	All   bool `json:"all"`
-	Limit int  `json:"limit"`
+	All           bool   `json:"all"`
+	Limit         int    `json:"limit"`
+	LabelSelector string `json:"labelSelector"`
 }
 
 func prepareContainerList(e *Env, req *Request) (Runnable, error) {
@@ -157,8 +158,11 @@ func prepareContainerList(e *Env, req *Request) (Runnable, error) {
 	if a.Limit == 0 {
 		a.Limit = 100
 	}
-	if a.Limit < 1 || a.Limit > 500 {
-		return nil, invalid("limit must be between 1 and 500")
+	if a.Limit < 1 || a.Limit > 200 {
+		return nil, invalid("limit must be between 1 and 200")
+	}
+	if a.LabelSelector != "" {
+		return nil, invalid("labelSelector is Kubernetes-only")
 	}
 	return func(ctx context.Context) (Result, error) {
 		var cs []struct {
@@ -190,48 +194,17 @@ func prepareContainerList(e *Env, req *Request) (Runnable, error) {
 		}
 		out := make([]map[string]any, 0, len(cs))
 		for _, c := range cs {
-			names := make([]string, len(c.Names))
-			for i, n := range c.Names {
-				names[i] = strings.TrimPrefix(n, "/")
+			name := ""
+			if len(c.Names) > 0 {
+				name = strings.TrimPrefix(c.Names[0], "/")
 			}
-			ports := []map[string]any{}
-			for _, p := range c.Ports {
-				pm := map[string]any{"privatePort": p.PrivatePort, "type": p.Type}
-				if p.PublicPort != 0 {
-					pm["publicPort"] = p.PublicPort
-				}
-				if p.IP != "" {
-					pm["ip"] = p.IP
-				}
-				ports = append(ports, pm)
-			}
-			out = append(out, map[string]any{
-				"id": short(c.ID), "fullId": c.ID, "names": names, "image": clip(c.Image, 200), "imageId": short(strings.TrimPrefix(c.ImageID, "sha256:")),
-				"created": c.Created, "state": c.State, "status": clip(c.Status, 100), "ports": ports, "labels": safeLabels(c.Labels),
-			})
+			out = append(out, map[string]any{"id": clip(c.ID, 300), "name": clip(name, 200), "image": clip(c.Image, 300), "createdAt": time.Unix(c.Created, 0).UTC().Format(time.RFC3339), "state": clip(c.State, 64), "status": clip(c.Status, 200)})
 		}
-		return Result{OK: true, Data: map[string]any{"count": len(out), "truncated": truncated, "containers": out}}, nil
+		return Result{OK: true, Data: map[string]any{"truncated": truncated, "containers": out}}, nil
 	}, nil
 }
 
 func short(id string) string { return clip(id, 12) }
-
-// safeLabels returns at most 10 labels, values clipped and redacted.
-func safeLabels(in map[string]string) map[string]string {
-	keys := make([]string, 0, len(in))
-	for k := range in {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	out := map[string]string{}
-	for _, k := range keys {
-		if len(out) >= 10 {
-			break
-		}
-		out[clip(k, 100)] = redact.String(clip(in[k], 100))
-	}
-	return out
-}
 
 /* --------------------------------- inspect --------------------------------- */
 
@@ -308,36 +281,11 @@ func prepareContainerInspect(e *Env, req *Request) (Runnable, error) {
 		if err := e.docker().getJSON(ctx, "/containers/"+url.PathEscape(a.Container)+"/json", &d); err != nil {
 			return Result{}, err
 		}
-		state := map[string]any{
-			"status": d.State.Status, "running": d.State.Running, "paused": d.State.Paused, "restarting": d.State.Restarting,
-			"oomKilled": d.State.OOMKilled, "dead": d.State.Dead, "pid": d.State.Pid, "exitCode": d.State.ExitCode,
-			"startedAt": d.State.StartedAt, "finishedAt": d.State.FinishedAt,
-		}
-		if d.State.Error != "" {
-			state["error"] = redact.String(clip(d.State.Error, 300))
-		}
+		data := map[string]any{"id": clip(d.ID, 300), "name": clip(strings.TrimPrefix(d.Name, "/"), 200), "image": clip(d.Config.Image, 300), "state": clip(d.State.Status, 64), "running": d.State.Running, "oomKilled": d.State.OOMKilled, "exitCode": d.State.ExitCode, "startedAt": clip(d.State.StartedAt, 64), "finishedAt": clip(d.State.FinishedAt, 64), "restartCount": max(0, d.RestartCount)}
 		if d.State.Health != nil {
-			state["health"] = d.State.Health.Status
+			data["health"] = clip(d.State.Health.Status, 64)
 		}
-		mounts := []map[string]any{}
-		for i, m := range d.Mounts {
-			if i >= 32 {
-				break
-			}
-			mounts = append(mounts, map[string]any{"type": m.Type, "source": clip(m.Source, 200), "destination": clip(m.Destination, 200), "mode": m.Mode, "readWrite": m.RW})
-		}
-		nets := map[string]string{}
-		for name, n := range d.NetworkSettings.Networks {
-			nets[clip(name, 64)] = n.IPAddress
-		}
-		return Result{OK: true, Data: map[string]any{
-			"id": short(d.ID), "fullId": d.ID, "name": strings.TrimPrefix(d.Name, "/"), "image": clip(d.Config.Image, 200), "imageId": short(strings.TrimPrefix(d.Image, "sha256:")),
-			"created": d.Created, "state": state, "restartCount": d.RestartCount,
-			"restartPolicy":    map[string]any{"name": d.HostConfig.RestartPolicy.Name, "maximumRetryCount": d.HostConfig.RestartPolicy.MaximumRetryCount},
-			"memoryLimitBytes": d.HostConfig.Memory, "privileged": d.HostConfig.Privileged, "networkMode": d.HostConfig.NetworkMode,
-			"tty": d.Config.Tty, "labels": safeLabels(d.Config.Labels), "mounts": mounts, "networks": nets,
-			"envOmitted": true,
-		}}, nil
+		return Result{OK: true, Data: data}, nil
 	}, nil
 }
 
@@ -345,11 +293,9 @@ func prepareContainerInspect(e *Env, req *Request) (Runnable, error) {
 
 type containerLogsArgs struct {
 	Container  string `json:"container"`
-	Tail       int    `json:"tail"`
+	Lines      int    `json:"lines"`
 	Since      string `json:"since"`
-	Stdout     *bool  `json:"stdout"`
-	Stderr     *bool  `json:"stderr"`
-	Timestamps *bool  `json:"timestamps"`
+	Timestamps bool   `json:"timestamps"`
 }
 
 func prepareContainerLogs(e *Env, req *Request) (Runnable, error) {
@@ -363,30 +309,14 @@ func prepareContainerLogs(e *Env, req *Request) (Runnable, error) {
 	if err := checkContainer(a.Container); err != nil {
 		return nil, err
 	}
-	if a.Tail == 0 {
-		a.Tail = 200
+	if a.Lines == 0 {
+		a.Lines = 200
 	}
-	if a.Tail < 1 || a.Tail > 2000 {
-		return nil, invalid("tail must be between 1 and 2000")
+	if a.Lines < 1 || a.Lines > 5000 {
+		return nil, invalid("lines must be between 1 and 5000")
 	}
-	yes := func(b *bool, def bool) bool {
-		if b == nil {
-			return def
-		}
-		return *b
-	}
-	stdout, stderr, ts := yes(a.Stdout, true), yes(a.Stderr, true), yes(a.Timestamps, true)
-	if !stdout && !stderr {
-		return nil, invalid("at least one of stdout and stderr must be requested")
-	}
-	q := url.Values{"tail": {strconv.Itoa(a.Tail)}}
-	if stdout {
-		q.Set("stdout", "1")
-	}
-	if stderr {
-		q.Set("stderr", "1")
-	}
-	if ts {
+	q := url.Values{"tail": {strconv.Itoa(a.Lines)}, "stdout": {"1"}, "stderr": {"1"}}
+	if a.Timestamps {
 		q.Set("timestamps", "1")
 	}
 	if a.Since != "" {
@@ -421,21 +351,16 @@ func prepareContainerLogs(e *Env, req *Request) (Runnable, error) {
 			return Result{}, fmt.Errorf("docker_stream_error: %v", err)
 		}
 		out, lines, cut := redactedTail(text.String(), limit)
-		return Result{OK: true, Data: map[string]any{"container": a.Container, "tty": doc.Config.Tty, "lineCount": lines, "truncated": cut || trunc, "text": out}}, nil
+		return Result{OK: true, Data: map[string]any{"container": a.Container, "lines": lines, "truncated": cut || trunc, "content": out}}, nil
 	}, nil
 }
 
 func sinceUnix(s string, now time.Time) (int64, error) {
-	if m := relTimeRe.FindStringSubmatch(s); m != nil {
-		n, _ := strconv.Atoi(m[1])
-		unit := map[string]time.Duration{"s": time.Second, "m": time.Minute, "h": time.Hour, "d": 24 * time.Hour}[m[2]]
-		return now.Add(-time.Duration(n) * unit).Unix(), nil
-	}
-	t, err := time.Parse(time.RFC3339, s)
+	d, err := relativeSince(s)
 	if err != nil {
-		return 0, invalid("since must be RFC 3339 or relative like -15m, -2h, -1d")
+		return 0, err
 	}
-	return t.Unix(), nil
+	return now.Add(-d).Unix(), nil
 }
 
 // demuxTo reads Docker's multiplexed log/exec stream (8-byte frame headers:
@@ -510,10 +435,9 @@ func demuxTo(r io.Reader, tty bool, readCap int64, emit func(stream byte, p []by
 /* ----------------------------------- exec ---------------------------------- */
 
 type containerExecArgs struct {
-	Container string   `json:"container"`
-	Argv      []string `json:"argv"`
-	User      string   `json:"user"`
-	Workdir   string   `json:"workdir"`
+	Container  string   `json:"container"`
+	Argv       []string `json:"argv"`
+	TimeoutSec int      `json:"timeoutSec"`
 }
 
 var (
@@ -522,8 +446,8 @@ var (
 )
 
 func validateArgv(argv []string) error {
-	if len(argv) == 0 || len(argv) > 64 {
-		return invalid("argv must contain between 1 and 64 elements")
+	if len(argv) == 0 || len(argv) > 32 {
+		return invalid("argv must contain between 1 and 32 elements")
 	}
 	total := 0
 	for _, a := range argv {
@@ -535,7 +459,7 @@ func validateArgv(argv []string) error {
 	if argv[0] == "" {
 		return invalid("argv[0] must not be empty")
 	}
-	if total > 64<<10 {
+	if total > 32<<10 {
 		return invalid("argv is too large")
 	}
 	return nil
@@ -558,27 +482,18 @@ func prepareContainerExec(e *Env, req *Request) (Runnable, error) {
 	if err := validateArgv(a.Argv); err != nil {
 		return nil, err
 	}
-	if a.User != "" && !execUserRe.MatchString(a.User) {
-		return nil, invalid("user is malformed")
-	}
-	if a.Workdir != "" {
-		if _, err := absClean(a.Workdir); err != nil {
-			return nil, err
-		}
+	if err := checkExecTimeout(a.TimeoutSec, req.Timeout); err != nil {
+		return nil, err
 	}
 	limit := req.MaxOutputBytes
 	return func(ctx context.Context) (Result, error) {
+		ctx, cancel := execContext(ctx, a.TimeoutSec)
+		defer cancel()
 		d := e.docker()
 		var created struct {
 			ID string `json:"Id"`
 		}
 		body := map[string]any{"AttachStdout": true, "AttachStderr": true, "AttachStdin": false, "Tty": false, "Cmd": a.Argv}
-		if a.User != "" {
-			body["User"] = a.User
-		}
-		if a.Workdir != "" {
-			body["WorkingDir"] = a.Workdir
-		}
 		resp, err := d.do(ctx, http.MethodPost, "/containers/"+url.PathEscape(a.Container)+"/exec", body)
 		if err != nil {
 			return Result{}, err
@@ -615,11 +530,19 @@ func prepareContainerExec(e *Env, req *Request) (Runnable, error) {
 		if err := d.getJSON(ictx, "/exec/"+created.ID+"/json", &info); err != nil {
 			return Result{}, err
 		}
+		if info.Running {
+			return Result{}, errors.New("output_limit: Docker exec is still running after the stream closed")
+		}
 		code := info.ExitCode
-		res := Result{OK: code == 0, Data: map[string]any{"container": a.Container, "argv0": clip(a.Argv[0], 200)}, Output: &Output{
+		res := Result{OK: code == 0, Data: map[string]any{"exitCode": code}, Output: &Output{
 			Stdout: redact.String(strings.ToValidUTF8(so.buf.String(), "?")), Stderr: redact.String(strings.ToValidUTF8(se.buf.String(), "?")),
 			ExitCode: &code, Truncated: so.trunc || se.trunc || trunc,
 		}}
+		if !res.OK {
+			f := Failure("command_failed", fmt.Sprintf("command exited %d", code))
+			f.Data["exitCode"] = code
+			res.Data, res.Err = f.Data, f.Err
+		}
 		return res, nil
 	}, nil
 }
@@ -630,7 +553,11 @@ func prepareContainerExec(e *Env, req *Request) (Runnable, error) {
 // the connection is closed; the Docker Engine has no API to kill an exec'd
 // process, so a timed-out command may keep running inside the container.
 func (d *Docker) execStream(ctx context.Context, execID string, emit func(stream byte, p []byte), readCap int64) (bool, error) {
-	conn, err := (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, "unix", d.socket)
+	dial := (&net.Dialer{Timeout: 5 * time.Second}).DialContext
+	if d.dialContext != nil {
+		dial = d.dialContext
+	}
+	conn, err := dial(ctx, "unix", d.socket)
 	if err != nil {
 		return false, fmt.Errorf("docker_unavailable: %s", redact.String(clip(err.Error(), 200)))
 	}

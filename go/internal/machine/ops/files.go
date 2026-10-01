@@ -3,7 +3,6 @@ package ops
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -19,16 +18,16 @@ import (
 func init() { register(Operation{Name: OpFileRead, Prepare: prepareFileRead}) }
 
 type fileReadArgs struct {
-	Path   string `json:"path"`
-	Offset int64  `json:"offset"`
-	Length int64  `json:"length"`
+	Path     string `json:"path"`
+	MaxBytes int64  `json:"maxBytes"`
 }
 
 // ValidateReadAllow checks files.readAllow at startup: absolute, cleaned, and
 // not the filesystem root.
 func ValidateReadAllow(prefixes []string) error {
 	for _, p := range prefixes {
-		if !filepath.IsAbs(p) || filepath.Clean(p) != p || p == "/" {
+		clean, err := absClean(p)
+		if err != nil || clean != p || p == "/" {
 			return fmt.Errorf("files.readAllow entry %q must be a clean absolute path other than /", clip(p, 60))
 		}
 	}
@@ -130,8 +129,8 @@ func prepareFileRead(e *Env, req *Request) (Runnable, error) {
 	if a.Path == "" {
 		return nil, invalid("path is required")
 	}
-	if a.Offset < 0 || a.Length < 0 {
-		return nil, invalid("offset and length must not be negative")
+	if a.MaxBytes < 0 || a.MaxBytes > 1<<20 {
+		return nil, invalid("maxBytes must be between 1 and 1048576")
 	}
 	if len(e.Cfg.Files.ReadAllow) == 0 {
 		return nil, disabled("file.read is disabled: files.readAllow is empty on this machine")
@@ -148,7 +147,10 @@ func prepareFileRead(e *Env, req *Request) (Runnable, error) {
 		limit = 1 << 20
 	}
 	limit = min(limit, req.MaxOutputBytes)
-	length := a.Length
+	length := a.MaxBytes
+	if length == 0 {
+		length = 64 << 10
+	}
 	if length == 0 || length > limit {
 		length = limit
 	}
@@ -171,12 +173,6 @@ func prepareFileRead(e *Env, req *Request) (Runnable, error) {
 		if !st.Mode().IsRegular() {
 			return Result{}, fmt.Errorf("not_a_regular_file: only regular files can be read")
 		}
-		if a.Offset > st.Size() {
-			return Result{OK: false, Data: map[string]any{"path": resolved, "sizeBytes": st.Size(), "offset": a.Offset}, Err: "offset_beyond_end"}, nil
-		}
-		if _, err := f.Seek(a.Offset, io.SeekStart); err != nil {
-			return Result{}, fmt.Errorf("file_unreadable: %v", pathErr(err))
-		}
 		buf, err := io.ReadAll(io.LimitReader(f, length+1))
 		if err != nil {
 			return Result{}, fmt.Errorf("file_unreadable: %v", pathErr(err))
@@ -185,22 +181,7 @@ func prepareFileRead(e *Env, req *Request) (Runnable, error) {
 		if more {
 			buf = buf[:length]
 		}
-		sum := sha256.Sum256(buf)
-		data := map[string]any{
-			"path": resolved, "sizeBytes": st.Size(), "offset": a.Offset, "length": len(buf),
-			"truncated": more, "sha256": hex.EncodeToString(sum[:]),
-		}
-		if isText(buf) {
-			red := redact.String(string(buf))
-			data["encoding"] = "utf8"
-			data["content"] = red
-			data["redacted"] = red != string(buf)
-		} else {
-			data["encoding"] = "base64"
-			data["content"] = base64.StdEncoding.EncodeToString(buf)
-			data["redacted"] = false
-		}
-		return Result{OK: true, Data: data}, nil
+		return fileReadResult(clean, st.Size(), buf, more), nil
 	}, nil
 }
 
@@ -222,4 +203,24 @@ func isText(b []byte) bool {
 		}
 	}
 	return false
+}
+
+// fileReadResult maps a bounded read; binary bytes are never encoded into content.
+func fileReadResult(path string, size int64, buf []byte, more bool) Result {
+	sum := sha256.Sum256(buf)
+	data := map[string]any{
+		"path": path, "sizeBytes": size, "bytesRead": len(buf), "encoding": "utf8",
+		"truncated": more, "sha256": hex.EncodeToString(sum[:]),
+	}
+	if isText(buf) {
+		red := redact.String(strings.ToValidUTF8(string(buf), "�"))
+		data["encoding"] = "utf8"
+		data["content"] = red
+		data["redacted"] = red != string(buf)
+	} else {
+		data["binary"] = true
+		data["content"] = ""
+		data["redacted"] = false
+	}
+	return Result{OK: true, Data: data}
 }

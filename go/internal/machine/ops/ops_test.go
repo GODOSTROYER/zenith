@@ -132,7 +132,7 @@ func TestServiceStatusUsesFixedArgvAndParsesOutput(t *testing.T) {
 		}
 	}
 	d := res.Data
-	if !res.OK || d["activeState"] != "active" || d["subState"] != "running" || d["active"] != true || d["found"] != true || d["mainPid"] != int64(1234) || d["nRestarts"] != int64(2) || d["memoryCurrentBytes"] != int64(52428800) {
+	if !res.OK || d["activeState"] != "active" || d["subState"] != "running" || d["mainPid"] != int64(1234) || d["restarts"] != int64(2) {
 		t.Fatalf("%v", d)
 	}
 	if _, ok := d["inactiveEnterTimestamp"]; ok {
@@ -144,7 +144,7 @@ func TestServiceStatusUsesFixedArgvAndParsesOutput(t *testing.T) {
 		return ops.CmdResult{Stdout: []byte("Id=ghost.service\nLoadState=not-found\nActiveState=inactive\nSubState=dead\nMemoryCurrent=18446744073709551615\nMainPID=0\n")}, nil
 	}
 	res = runOp(t, e, ops.OpServiceStatus, map[string]any{"unit": "ghost.service"})
-	if res.Data["found"] != false || res.Data["active"] != false {
+	if res.Data["loadState"] != "not-found" || res.Data["activeState"] != "inactive" {
 		t.Fatalf("%v", res.Data)
 	}
 	if _, ok := res.Data["memoryCurrentBytes"]; ok {
@@ -180,7 +180,7 @@ func TestServiceRestartGuard(t *testing.T) {
 	e := &ops.Env{Runner: fr, Cfg: ops.Config{Services: ops.ServicesConfig{RestartAllow: []string{"nginx.service", "app@*.service"}}}}
 
 	res := runOp(t, e, ops.OpServiceRestart, map[string]any{"unit": "nginx.service"})
-	if !res.OK || res.Data["restarted"] != true || res.Data["active"] != true || len(restarts) != 1 {
+	if !res.OK || res.Data["restarted"] != true || res.Data["activeState"] != "active" || len(restarts) != 1 {
 		t.Fatalf("%+v", res)
 	}
 	var restartSpec ops.CmdSpec
@@ -224,7 +224,7 @@ func TestServiceRestartFailureIsReported(t *testing.T) {
 	if err != nil || res.OK || !strings.HasPrefix(res.Err, "restart_failed") {
 		t.Fatalf("%+v %v", res, err)
 	}
-	if strings.Contains(res.Data["stderr"].(string), "hunter2") {
+	if strings.Contains(res.Data["reason"].(string), "hunter2") {
 		t.Fatal("stderr must be redacted")
 	}
 	// a unit that does not exist is not restarted
@@ -248,14 +248,14 @@ func TestSystemLogsArgvIsBuiltFromValidatedFieldsOnly(t *testing.T) {
 		return ops.CmdResult{Stdout: []byte("2026-09-30T11:59:00+0000 host nginx[1]: started\n2026-09-30T11:59:01+0000 host nginx[1]: token=abcdef1234567890SECRET accepted\n")}, nil
 	}}
 	e := &ops.Env{Runner: fr, Now: func() time.Time { return now }, Cfg: ops.Config{JournalctlPath: "/usr/bin/journalctl"}}
-	res := runOp(t, e, ops.OpLogs, map[string]any{"unit": "nginx.service", "since": "-15m", "until": "2026-09-30T11:59:30Z", "lines": 50, "priority": "err"})
+	res := runOp(t, e, ops.OpLogs, map[string]any{"unit": "nginx.service", "since": "15m", "lines": 50})
 	got := strings.Join(fr.last().Args, "|")
-	want := "--no-pager|--quiet|--utc|--output=short-iso|--lines=50|--unit=nginx.service|--since=2026-09-30 11:45:00 UTC|--until=2026-09-30 11:59:30 UTC|--priority=3"
+	want := "--no-pager|--quiet|--utc|--output=short-iso|--lines=50|--unit=nginx.service|--since=2026-09-30 11:45:00 UTC"
 	if got != want {
 		t.Fatalf("argv\n got: %s\nwant: %s", got, want)
 	}
-	text := res.Data["text"].(string)
-	if strings.Contains(text, "abcdef1234567890SECRET") || !strings.Contains(text, "REDACTED") || res.Data["lineCount"] != 2 {
+	text := res.Data["content"].(string)
+	if strings.Contains(text, "abcdef1234567890SECRET") || !strings.Contains(text, "REDACTED") || res.Data["lines"] != 2 {
 		t.Fatalf("logs must be redacted: %v", res.Data)
 	}
 
@@ -265,11 +265,14 @@ func TestSystemLogsArgvIsBuiltFromValidatedFieldsOnly(t *testing.T) {
 		"free-text since":           {"since": "yesterday; id"},
 		"command substitution":      {"since": "$(id)"},
 		"since flag injection":      {"since": "--all"},
-		"lines too many":            {"lines": 5000},
+		"lines too many":            {"lines": 5001},
 		"negative lines":            {"lines": -1},
 		"bad priority":              {"priority": "9; id"},
 		"unknown field":             {"grep": "x"},
-		"relative overflow":         {"since": "-999999d"},
+		"relative overflow":         {"since": "8d"},
+		"zero duration":             {"since": "0s"},
+		"old duration format":       {"since": "-15m"},
+		"absolute timestamp":        {"since": "2026-09-30T12:00:00Z"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := prep(t, e, ops.OpLogs, args)
@@ -291,7 +294,7 @@ func TestSystemLogsKeepsTheNewestLinesWithinTheByteBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	text := res.Data["text"].(string)
+	text := res.Data["content"].(string)
 	if len(text) > 1000 || !strings.HasSuffix(text, "the newest line") || res.Data["truncated"] != true {
 		t.Fatalf("len=%d truncated=%v tail=%q", len(text), res.Data["truncated"], text[max(0, len(text)-30):])
 	}

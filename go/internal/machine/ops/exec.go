@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/GODOSTROYER/zenith/go/internal/redact"
 )
@@ -13,8 +13,9 @@ import (
 func init() { register(Operation{Name: OpExec, Prepare: prepareExec}) }
 
 type execArgs struct {
-	Argv []string `json:"argv"`
-	Cwd  string   `json:"cwd"`
+	Argv       []string `json:"argv"`
+	Cwd        string   `json:"cwd"`
+	TimeoutSec int      `json:"timeoutSec"`
 }
 
 // prepareExec implements machine.exec, the escape hatch. It runs an argv
@@ -43,7 +44,8 @@ func prepareExec(e *Env, req *Request) (Runnable, error) {
 	if len(e.Cfg.Exec.AllowArgv0) > 0 {
 		ok := false
 		for _, allowed := range e.Cfg.Exec.AllowArgv0 {
-			if argv0 == filepath.Clean(allowed) {
+			clean, _ := absClean(allowed)
+			if argv0 == clean {
 				ok = true
 				break
 			}
@@ -58,8 +60,13 @@ func prepareExec(e *Env, req *Request) (Runnable, error) {
 			return nil, err
 		}
 	}
+	if err := checkExecTimeout(a.TimeoutSec, req.Timeout); err != nil {
+		return nil, err
+	}
 	limit := req.MaxOutputBytes
 	return func(ctx context.Context) (Result, error) {
+		ctx, cancel := execContext(ctx, a.TimeoutSec)
+		defer cancel()
 		if cwd != "" {
 			if st, err := os.Stat(cwd); err != nil || !st.IsDir() {
 				return Result{}, fmt.Errorf("cwd_not_found: %s", clip(cwd, 120))
@@ -76,15 +83,34 @@ func prepareExec(e *Env, req *Request) (Runnable, error) {
 			return Result{}, fmt.Errorf("exec_failed: %s", redact.String(clip(err.Error(), 200)))
 		}
 		code := res.ExitCode
-		return Result{
+		result := Result{
 			OK:   code == 0,
-			Data: map[string]any{"argv0": argv0, "argc": len(a.Argv)},
+			Data: map[string]any{"exitCode": code},
 			Output: &Output{
 				Stdout:    redact.String(strings.ToValidUTF8(string(res.Stdout), "?")),
 				Stderr:    redact.String(strings.ToValidUTF8(string(res.Stderr), "?")),
 				ExitCode:  &code,
 				Truncated: res.StdoutTrunc || res.StderrTrunc,
 			},
-		}, nil
+		}
+		if !result.OK {
+			f := Failure("command_failed", fmt.Sprintf("command exited %d", code))
+			f.Data["exitCode"] = code
+			result.Data, result.Err = f.Data, f.Err
+		}
+		return result, nil
 	}, nil
+}
+
+func checkExecTimeout(sec int, budget time.Duration) error {
+	if sec < 0 || sec > 300 || (sec > 0 && budget > 0 && time.Duration(sec)*time.Second > budget) {
+		return invalid("timeoutSec must be within the request budget and at most 300")
+	}
+	return nil
+}
+func execContext(ctx context.Context, sec int) (context.Context, context.CancelFunc) {
+	if sec == 0 {
+		sec = 30
+	}
+	return context.WithTimeout(ctx, time.Duration(sec)*time.Second)
 }

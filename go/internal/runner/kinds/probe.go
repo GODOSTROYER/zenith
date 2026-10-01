@@ -16,6 +16,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/GODOSTROYER/zenith/go/internal/agent"
@@ -536,6 +537,8 @@ func classifyNetError(err error) string {
 	switch {
 	case err == nil:
 		return "unknown"
+	case errors.Is(err, syscall.ECONNREFUSED), errors.Is(err, syscall.Errno(10061)):
+		return "connection_refused"
 	case errors.As(err, &dns):
 		if dns.IsNotFound {
 			return "dns_not_found"

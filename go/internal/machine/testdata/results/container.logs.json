@@ -1,0 +1,18 @@
+{
+  "args": {
+    "container": "web",
+    "lines": 200,
+    "since": "15m",
+    "timestamps": false
+  },
+  "operation": "container.logs",
+  "result": {
+    "ok": true,
+    "data": {
+      "container": "web",
+      "content": "fixture log",
+      "lines": 1,
+      "truncated": false
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "args": {},
+  "operation": "system.metrics",
+  "result": {
+    "ok": true,
+    "data": {
+      "cpuCount": 2,
+      "disks": [
+        {
+          "availKb": 4096,
+          "mount": "/",
+          "sizeKb": 8192,
+          "usedKb": 4096
+        }
+      ],
+      "load": [
+        0.5,
+        0.2,
+        0.1
+      ],
+      "memory": {
+        "availableKb": 4096,
+        "swapFreeKb": 512,
+        "swapTotalKb": 1024,
+        "totalKb": 8192
+      },
+      "network": {
+        "rxBytes": 123,
+        "txBytes": 456
+      },
+      "openFiles": 90,
+      "uptimeSec": 12345
+    }
+  }
+}

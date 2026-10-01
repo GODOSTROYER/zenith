@@ -55,7 +55,7 @@ func TestMachineExecNonZeroExitIsAnObservation(t *testing.T) {
 	}}
 	e := &ops.Env{Runner: fr, Cfg: ops.Config{Exec: ops.ExecConfig{Enabled: true}}}
 	res := runOp(t, e, ops.OpExec, map[string]any{"argv": []string{"/bin/false"}})
-	if res.OK || *res.Output.ExitCode != 3 || res.Output.Stderr != "nope" || !res.Output.Truncated || res.Err != "" {
+	if res.OK || *res.Output.ExitCode != 3 || res.Output.Stderr != "nope" || !res.Output.Truncated || res.Data["error"] != "command_failed" || res.Data["exitCode"] != 3 {
 		t.Fatalf("%+v", res)
 	}
 }

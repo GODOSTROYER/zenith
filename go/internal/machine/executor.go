@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
+	"regexp"
 	"time"
 
 	"github.com/GODOSTROYER/zenith/go/internal/agent"
@@ -198,28 +198,30 @@ func (j *job) Run(ctx context.Context, _ agent.LogSink) agent.ResultBody {
 
 	body := agent.ResultBody{StartedAt: started.Format(time.RFC3339Nano)}
 	switch {
-	case err != nil && errors.Is(rctx.Err(), context.DeadlineExceeded):
+	case err != nil && (errors.Is(rctx.Err(), context.DeadlineExceeded) || errors.Is(err, context.DeadlineExceeded)):
 		body.Status, body.Error = agent.StatusTimedOut, fmt.Sprintf("the operation exceeded its %s timeout", j.timeout)
+		body.Result = j.resultBody(ops.Failure("timeout", body.Error))
 	case err != nil && ctx.Err() != nil:
 		body.Status, body.Error = agent.StatusFailed, "the operation was cancelled because zenithd is stopping"
+		body.Result = j.resultBody(ops.Failure("cancelled", body.Error))
 	case err != nil:
 		code := protocol.CodeOf(err)
 		msg := redact.String(clip(err.Error(), 400))
 		switch code {
 		case protocol.CodeNotAllowed, protocol.CodeDisabledByConfig, protocol.CodeGuardDenied, protocol.CodeInvalidPayload:
 			body.Status, body.Error = agent.StatusRejected, msg
-			body.Result = map[string]any{"reason": code}
 		default:
 			body.Status, body.Error = agent.StatusFailed, msg
-			if strings.HasPrefix(msg, "unsupported_platform") {
-				body.Result = map[string]any{"reason": "unsupported_platform"}
-			}
 		}
+		body.Result = j.resultBody(ops.FailureFromError(err))
 	case res.Err != "":
 		body.Status, body.Error = agent.StatusFailed, redact.String(clip(res.Err, 400))
 		body.Result = j.resultBody(res)
 	default:
 		body.Status = agent.StatusSucceeded
+		if !res.OK {
+			body.Status = agent.StatusFailed
+		}
 		body.Result = j.resultBody(res)
 	}
 	if res.Output != nil && res.Output.ExitCode != nil {
@@ -246,6 +248,15 @@ func (j *job) Run(ctx context.Context, _ agent.LogSink) agent.ResultBody {
 }
 
 func (j *job) resultBody(r ops.Result) map[string]any {
+	if j.op == ops.OpExec || j.op == ops.OpContainerExec {
+		if r.Data == nil {
+			r.Data = map[string]any{}
+		}
+		if r.Output == nil {
+			r.Output = &ops.Output{}
+		}
+		r.Data["exitCode"] = r.Output.ExitCode
+	}
 	m := map[string]any{"ok": r.OK, "operation": j.op, "data": r.Data}
 	if r.Data == nil {
 		m["data"] = map[string]any{}
@@ -270,7 +281,9 @@ func clip(s string, n int) string {
 
 // auditTarget summarizes what an operation is aimed at, from its raw args.
 // File paths are recorded (never their contents); exec argv is recorded in
-// full because that is the point of auditing an escape hatch.
+// full with credential values redacted for auditing an escape hatch.
+var secretArgFlag = regexp.MustCompile(`(?i)^--?[A-Za-z0-9_.-]*(?:password|passwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credential|authorization)[A-Za-z0-9_.-]*$`)
+
 func auditTarget(op string, raw json.RawMessage) map[string]any {
 	var a struct {
 		Unit      string   `json:"unit"`
@@ -287,7 +300,7 @@ func auditTarget(op string, raw json.RawMessage) map[string]any {
 	t := map[string]any{}
 	set := func(k, v string) {
 		if v != "" {
-			t[k] = clip(v, 300)
+			t[k] = redact.String(clip(v, 300))
 		}
 	}
 	set("unit", a.Unit)
@@ -304,7 +317,11 @@ func auditTarget(op string, raw json.RawMessage) map[string]any {
 			if i >= 64 {
 				break
 			}
-			argv = append(argv, clip(s, 512))
+			if i > 0 && secretArgFlag.MatchString(a.Argv[i-1]) {
+				argv = append(argv, "[REDACTED]")
+			} else {
+				argv = append(argv, redact.String(clip(s, 512)))
+			}
 		}
 		t["argv"] = argv
 	}

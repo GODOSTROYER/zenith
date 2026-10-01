@@ -37,6 +37,8 @@ export {
 export { createKubernetesMachineDriver, defaultK8sClientFactory, type K8sClients, type KubernetesDriverOptions } from "./transports/kubernetes";
 export { createZenithdMachineDriver, type ZenithdDriverOptions } from "./transports/zenithd";
 export { createSimulatedMachineDriver } from "./transports/simulated";
+export { createRunnerMachineDispatcher } from "./dispatcher";
+export { createMachineSessionProvider, type MachineSessionOptions } from "./sessions";
 
 export interface MachineDriverOptions {
   /** sandbox environments: every transport is simulated and nothing real is contacted */

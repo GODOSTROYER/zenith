@@ -31,6 +31,9 @@ import type {
   PlatformEvent,
 } from "@/lib/controlplane/types";
 import type { CredentialBroker, ProviderConnection, ProviderSession } from "@/lib/credentials/types";
+import type { MachineDrivers, MachineEvidenceSink, MachineRequestDispatcher } from "@/lib/machines/types";
+import type { KubernetesSessionDeps } from "@/lib/providers/kubernetes/session";
+import type { AgentRecord } from "@/lib/runners/ports";
 import type { DriverContext, ResourceDriver } from "@/lib/drivers/types";
 import type { ManifestPolicies } from "@/lib/domain/types";
 import type { ObservabilityFabric } from "@/lib/observability/types";
@@ -490,6 +493,18 @@ export const DEFAULT_LIMITS: ExecutionLimits = {
   probeIntervalMs: 10_000,
 };
 
+/** Composition root supplies tenant-scoped observation/registration reads and blob-capable evidence. */
+export interface MachineExecutionPort {
+  latestObservation(workspaceId: string, resourceId: string): Promise<Observation | null>;
+  /** Return the uniquely bound machine, or null. Never choose arbitrarily among multiple bindings. */
+  boundMachine(workspaceId: string, environmentId: string, address: string): Promise<AgentRecord | null>;
+  evidence: MachineEvidenceSink;
+  dispatcher?: MachineRequestDispatcher;
+  kubernetes?: KubernetesSessionDeps;
+  /** Tests may inject fake transports; default the merged transports (simulated in sandbox). */
+  drivers?: MachineDrivers;
+}
+
 export interface ExecutionDeps {
   /* platform store */
   ops: OperationsPort;
@@ -503,6 +518,7 @@ export interface ExecutionDeps {
   /* broker and credentials */
   broker: BrokerPort;
   credentials: CredentialBroker;
+  machines?: MachineExecutionPort;
   /* engine */
   /** default: the global driver registry */
   drivers?: DriverLookup;

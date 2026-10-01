@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -33,7 +34,7 @@ func readSmall(path string, max int64) ([]byte, error) {
 	buf := make([]byte, 0, 4096)
 	tmp := make([]byte, 4096)
 	for int64(len(buf)) < max {
-		n, err := f.Read(tmp)
+		n, err := f.Read(tmp[:min(int64(len(tmp)), max-int64(len(buf)))])
 		buf = append(buf, tmp[:n]...)
 		if err != nil {
 			break
@@ -62,27 +63,30 @@ func prepareInspect(e *Env, req *Request) (Runnable, error) {
 		}
 		root := e.procRoot()
 		data := map[string]any{
-			"arch":           runtime.GOARCH,
-			"cpuCount":       runtime.NumCPU(),
-			"zenithdVersion": e.version(),
+			"arch":     e.hostArch(),
+			"cpuCount": e.hostCPUCount(),
 		}
-		if h, err := os.Hostname(); err == nil {
-			data["hostname"] = h
+		hostname := os.Hostname
+		if e.hostname != nil {
+			hostname = e.hostname
+		}
+		if h, err := hostname(); err == nil {
+			data["hostname"] = clip(h, 253)
 		}
 		if b, err := readSmall(e.osRelease(), 16<<10); err == nil {
 			data["os"] = parseOSRelease(b)
 		}
 		if b, err := readSmall(filepath.Join(root, "sys/kernel/osrelease"), 256); err == nil {
-			data["kernel"] = strings.TrimSpace(string(b))
+			data["kernel"] = clip(strings.TrimSpace(string(b)), 128)
 		}
 		if b, err := readSmall(filepath.Join(root, "uptime"), 256); err == nil {
 			if up, err := parseUptime(b); err == nil {
-				data["uptimeSec"] = up
+				data["uptimeSec"] = int64(up)
 			}
 		}
 		if b, err := readSmall(filepath.Join(root, "loadavg"), 256); err == nil {
 			if l, err := parseLoadavg(b); err == nil {
-				data["loadAvg"] = l
+				data["load"] = l
 			}
 		}
 		if b, err := readSmall(filepath.Join(root, "meminfo"), 64<<10); err == nil {
@@ -104,13 +108,11 @@ func parseOSRelease(b []byte) map[string]string {
 		v = strings.Trim(v, `"'`)
 		switch k {
 		case "ID":
-			out["id"] = v
-		case "NAME":
-			out["name"] = v
+			out["id"] = clip(v, 64)
 		case "VERSION_ID":
-			out["versionId"] = v
+			out["version"] = clip(v, 64)
 		case "PRETTY_NAME":
-			out["prettyName"] = v
+			out["pretty"] = clip(v, 200)
 		}
 	}
 	return out
@@ -121,7 +123,11 @@ func parseUptime(b []byte) (float64, error) {
 	if len(f) < 1 {
 		return 0, fmt.Errorf("bad uptime")
 	}
-	return strconv.ParseFloat(f[0], 64)
+	v, err := strconv.ParseFloat(f[0], 64)
+	if err != nil || math.IsNaN(v) || math.IsInf(v, 0) || v < 0 || v >= math.MaxInt64 {
+		return 0, fmt.Errorf("bad uptime")
+	}
+	return v, nil
 }
 
 func parseLoadavg(b []byte) ([]float64, error) {
@@ -132,8 +138,8 @@ func parseLoadavg(b []byte) ([]float64, error) {
 	out := make([]float64, 3)
 	for i := 0; i < 3; i++ {
 		v, err := strconv.ParseFloat(f[i], 64)
-		if err != nil {
-			return nil, err
+		if err != nil || math.IsNaN(v) || math.IsInf(v, 0) || v < 0 {
+			return nil, fmt.Errorf("bad loadavg")
 		}
 		out[i] = v
 	}
@@ -154,10 +160,13 @@ func parseMeminfo(b []byte) map[string]int64 {
 			continue
 		}
 		n, err := strconv.ParseInt(f[0], 10, 64)
-		if err != nil {
+		if err != nil || n < 0 {
 			continue
 		}
 		if len(f) > 1 && strings.EqualFold(f[1], "kB") {
+			if n > math.MaxInt64/1024 {
+				continue
+			}
 			n *= 1024
 		}
 		out[name] = n
@@ -166,17 +175,21 @@ func parseMeminfo(b []byte) map[string]int64 {
 }
 
 func memoryInfo(m map[string]int64) map[string]any {
-	avail, ok := m["MemAvailable"]
-	if !ok { // very old kernels
-		avail = m["MemFree"] + m["Buffers"] + m["Cached"]
+	out := map[string]any{}
+	for _, field := range []struct{ native, key string }{{"MemTotal", "totalKb"}, {"MemAvailable", "availableKb"}, {"SwapTotal", "swapTotalKb"}, {"SwapFree", "swapFreeKb"}} {
+		if v, ok := m[field.native]; ok && v >= 0 {
+			out[field.key] = v / 1024
+		}
 	}
-	return map[string]any{
-		"totalBytes":     m["MemTotal"],
-		"availableBytes": avail,
-		"freeBytes":      m["MemFree"],
-		"swapTotalBytes": m["SwapTotal"],
-		"swapFreeBytes":  m["SwapFree"],
+	if _, ok := out["availableKb"]; !ok {
+		free, a := m["MemFree"]
+		buffers, b := m["Buffers"]
+		cached, c := m["Cached"]
+		if a && b && c && free >= 0 && buffers >= 0 && cached >= 0 {
+			out["availableKb"] = free/1024 + buffers/1024 + cached/1024
+		}
 	}
+	return out
 }
 
 /* -------------------------------- process.list ----------------------------- */
@@ -192,15 +205,15 @@ func prepareProcessList(e *Env, req *Request) (Runnable, error) {
 		return nil, err
 	}
 	if a.Limit == 0 {
-		a.Limit = 100
+		a.Limit = 50
 	}
-	if a.Limit < 1 || a.Limit > 1000 {
-		return nil, invalid("limit must be between 1 and 1000")
+	if a.Limit < 1 || a.Limit > 500 {
+		return nil, invalid("limit must be between 1 and 500")
 	}
 	switch a.SortBy {
-	case "", "rss", "cpu", "pid":
+	case "", "memory", "cpu":
 	default:
-		return nil, invalid("sortBy must be rss, cpu or pid")
+		return nil, invalid("sortBy must be memory or cpu")
 	}
 	return func(ctx context.Context) (Result, error) {
 		if err := e.requireProc(); err != nil {
@@ -210,28 +223,30 @@ func prepareProcessList(e *Env, req *Request) (Runnable, error) {
 		if err != nil {
 			return Result{}, err
 		}
+		if a.SortBy == "" {
+			a.SortBy = "cpu"
+		}
 		sortProcesses(procs, a.SortBy)
-		total := len(procs)
 		truncated := false
 		if len(procs) > a.Limit {
 			procs, truncated = procs[:a.Limit], true
 		}
 		list := make([]map[string]any, len(procs))
 		for i, p := range procs {
-			m := map[string]any{"pid": p.PID, "ppid": p.PPID, "name": p.Name, "state": p.State, "uid": p.UID, "rssBytes": p.RSS, "cpuTicks": p.CPUTicks, "startTicks": p.StartTicks, "threads": p.Threads}
-			if p.Exe != "" {
-				m["exe"] = p.Exe
+			m := map[string]any{"pid": p.PID, "command": clip(p.Name, 256)}
+			if p.PPID >= 0 {
+				m["ppid"] = p.PPID
+			}
+			if p.UID >= 0 {
+				m["user"] = strconv.Itoa(p.UID)
+			}
+			if p.RSS >= 0 {
+				m["rssKb"] = p.RSS / 1024
 			}
 			list[i] = m
 		}
-		return Result{OK: true, Data: map[string]any{
-			"count": total, "returned": len(list), "truncated": truncated,
-			"clockTicksPerSec": 100, // USER_HZ is 100 on every supported Linux platform
-			"processes":        list,
-			// Command lines are deliberately not reported: arguments routinely
-			// carry passwords and tokens.
-			"argvOmitted": true,
-		}}, nil
+		// Only comm is returned as command, never argv (arguments can contain secrets).
+		return Result{OK: true, Data: map[string]any{"truncated": truncated, "processes": list}}, nil
 	}, nil
 }
 
@@ -301,14 +316,16 @@ func parseProcStat(b []byte) (procInfo, bool) {
 	if l < 0 || r < l {
 		return procInfo{}, false
 	}
-	p := procInfo{Name: clip(s[l+1:r], 64)}
+	p := procInfo{Name: clip(s[l+1:r], 64), PPID: -1, UID: -1, RSS: -1}
 	f := strings.Fields(s[r+1:])
 	// f[0]=state f[1]=ppid ... f[11]=utime f[12]=stime ... f[19]=starttime (0-based after ')')
 	if len(f) < 20 {
 		return procInfo{}, false
 	}
 	p.State = f[0]
-	p.PPID, _ = strconv.Atoi(f[1])
+	if ppid, err := strconv.Atoi(f[1]); err == nil && ppid >= 0 {
+		p.PPID = ppid
+	}
 	ut, _ := strconv.ParseUint(f[11], 10, 64)
 	st, _ := strconv.ParseUint(f[12], 10, 64)
 	p.CPUTicks = ut + st
@@ -329,10 +346,13 @@ func parseProcStatus(b []byte, p *procInfo) {
 		}
 		switch k {
 		case "Uid":
-			p.UID, _ = strconv.Atoi(f[0])
+			if uid, err := strconv.Atoi(f[0]); err == nil && uid >= 0 {
+				p.UID = uid
+			}
 		case "VmRSS":
-			n, _ := strconv.ParseInt(f[0], 10, 64)
-			p.RSS = n * 1024
+			if n, err := strconv.ParseInt(f[0], 10, 64); err == nil && n >= 0 && n <= math.MaxInt64/1024 {
+				p.RSS = n * 1024
+			}
 		case "Threads":
 			p.Threads, _ = strconv.Atoi(f[0])
 		}
@@ -351,7 +371,7 @@ func prepareMetrics(e *Env, req *Request) (Runnable, error) {
 			return Result{}, err
 		}
 		root := e.procRoot()
-		data := map[string]any{"cpuCount": runtime.NumCPU()}
+		data := map[string]any{"cpuCount": e.hostCPUCount()}
 		if b, err := readSmall(filepath.Join(root, "stat"), 64<<10); err == nil {
 			if c1, ok := parseCPUStat(b); ok {
 				select {
@@ -361,32 +381,39 @@ func prepareMetrics(e *Env, req *Request) (Runnable, error) {
 				}
 				if b2, err := readSmall(filepath.Join(root, "stat"), 64<<10); err == nil {
 					if c2, ok := parseCPUStat(b2); ok {
-						data["cpu"] = cpuUsage(c1, c2)
+						if c2.total > c1.total {
+							data["cpuUsagePct"] = cpuUsage(c1, c2)["usagePercent"]
+						}
 					}
 				}
 			}
 		}
 		if b, err := readSmall(filepath.Join(root, "loadavg"), 256); err == nil {
 			if l, err := parseLoadavg(b); err == nil {
-				data["loadAvg"] = l
+				data["load"] = l
 			}
 		}
 		if b, err := readSmall(filepath.Join(root, "uptime"), 256); err == nil {
 			if up, err := parseUptime(b); err == nil {
-				data["uptimeSec"] = up
+				data["uptimeSec"] = int64(up)
 			}
 		}
 		if b, err := readSmall(filepath.Join(root, "meminfo"), 64<<10); err == nil {
 			data["memory"] = memoryInfo(parseMeminfo(b))
 		}
 		if b, err := readSmall(filepath.Join(root, "net/dev"), 64<<10); err == nil {
-			data["network"] = parseNetDev(b)
+			var rx, tx uint64
+			for _, n := range parseNetDev(b) {
+				rx += n["rxBytes"].(uint64)
+				tx += n["txBytes"].(uint64)
+			}
+			data["network"] = map[string]any{"rxBytes": rx, "txBytes": tx}
 		}
 		if b, err := readSmall(filepath.Join(root, "sys/fs/file-nr"), 256); err == nil {
 			if f := strings.Fields(string(b)); len(f) >= 3 {
 				alloc, _ := strconv.ParseInt(f[0], 10, 64)
-				maxFD, _ := strconv.ParseInt(f[2], 10, 64)
-				data["fileDescriptors"] = map[string]any{"allocated": alloc, "max": maxFD}
+				unused, _ := strconv.ParseInt(f[1], 10, 64)
+				data["openFiles"] = max(int64(0), alloc-unused)
 			}
 		}
 		data["disks"] = e.disks()
@@ -524,14 +551,30 @@ func (e *Env) disks() []map[string]any {
 	}
 	out := []map[string]any{}
 	for _, m := range parseMounts(b) {
-		total, free, ok := statfsBytes(m.Mount)
+		statfs := statfsBytes
+		if e.statfs != nil {
+			statfs = e.statfs
+		}
+		total, used, avail, ok := statfs(m.Mount)
 		if !ok {
 			continue
 		}
 		out = append(out, map[string]any{
-			"mount": m.Mount, "device": m.Device, "fsType": m.FSType,
-			"totalBytes": total, "freeBytes": free, "usedBytes": total - free,
+			"mount": clip(m.Mount, 512), "sizeKb": total / 1024, "availKb": avail / 1024, "usedKb": used / 1024,
 		})
 	}
 	return out
+}
+
+func (e *Env) hostCPUCount() int {
+	if e.cpuCount != nil {
+		return e.cpuCount()
+	}
+	return runtime.NumCPU()
+}
+func (e *Env) hostArch() string {
+	if e.arch != "" {
+		return e.arch
+	}
+	return runtime.GOARCH
 }

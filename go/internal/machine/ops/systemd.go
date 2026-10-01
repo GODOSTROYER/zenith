@@ -134,25 +134,16 @@ func parseShow(unit, out string) map[string]any {
 		if v == "" || v == "[not set]" {
 			return 0, false
 		}
-		n, err := strconv.ParseUint(v, 10, 64)
-		if err != nil || n == 1<<64-1 { // systemd's "unset" sentinel
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil || n < 0 { // Includes systemd's unsigned "unset" sentinel.
 			return 0, false
 		}
-		return int64(n), true
+		return n, true
 	}
-	d := map[string]any{
-		"unit":        unit,
-		"description": clip(kv["Description"], 200),
-		"loadState":   kv["LoadState"],
-		"activeState": kv["ActiveState"],
-		"subState":    kv["SubState"],
-		"active":      kv["ActiveState"] == "active",
-		"found":       kv["LoadState"] != "" && kv["LoadState"] != "not-found",
-	}
-	for _, k := range []struct{ prop, key string }{{"UnitFileState", "unitFileState"}, {"Result", "result"}, {"FragmentPath", "fragmentPath"},
-		{"ActiveEnterTimestamp", "activeEnterTimestamp"}, {"InactiveEnterTimestamp", "inactiveEnterTimestamp"}} {
+	d := map[string]any{"unit": unit, "loadState": clip(kv["LoadState"], 64), "activeState": clip(kv["ActiveState"], 64)}
+	for _, k := range []struct{ prop, key string }{{"SubState", "subState"}, {"UnitFileState", "unitFileState"}, {"Result", "result"}, {"ActiveEnterTimestamp", "since"}} {
 		if v := kv[k.prop]; v != "" {
-			d[k.key] = clip(v, 200)
+			d[k.key] = clip(v, 64)
 		}
 	}
 	if n, ok := num("MainPID"); ok {
@@ -162,13 +153,7 @@ func parseShow(unit, out string) map[string]any {
 		d["execMainStatus"] = n
 	}
 	if n, ok := num("NRestarts"); ok {
-		d["nRestarts"] = n
-	}
-	if n, ok := num("MemoryCurrent"); ok {
-		d["memoryCurrentBytes"] = n
-	}
-	if n, ok := num("TasksCurrent"); ok {
-		d["tasksCurrent"] = n
+		d["restarts"] = n
 	}
 	return d
 }
@@ -194,8 +179,8 @@ func prepareServiceRestart(e *Env, req *Request) (Runnable, error) {
 		if err != nil {
 			return Result{}, err
 		}
-		if found, _ := before["found"].(bool); !found {
-			return Result{OK: false, Data: map[string]any{"unit": a.Unit, "restarted": false, "reason": "unit not found"}, Err: "unit_not_found: " + a.Unit}, nil
+		if before["loadState"] == "not-found" || before["loadState"] == "" {
+			return Failure("not_found", "unit_not_found: "+a.Unit), nil
 		}
 		res, err := e.runner().Run(ctx, CmdSpec{
 			Path: e.systemctl(), Args: []string{"restart", "--no-pager", "--", a.Unit}, Env: SafeEnv(),
@@ -208,61 +193,52 @@ func prepareServiceRestart(e *Env, req *Request) (Runnable, error) {
 		sctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 		defer cancel()
 		after, aerr := e.unitStatus(sctx, a.Unit)
-		data := map[string]any{"unit": a.Unit, "before": brief(before)}
-		if aerr == nil {
-			data["after"] = brief(after)
-		}
 		if res.ExitCode != 0 {
-			data["restarted"] = false
-			data["stderr"] = redact.String(clip(strings.TrimSpace(string(res.Stderr)), 500))
-			return Result{OK: false, Data: data, Err: fmt.Sprintf("restart_failed: systemctl exited %d", res.ExitCode)}, nil
+			return Failure("command_failed", fmt.Sprintf("restart_failed: systemctl exited %d: %s", res.ExitCode, redact.String(clip(string(res.Stderr), 500)))), nil
 		}
-		active := aerr == nil && after["active"] == true
-		data["restarted"] = true
-		data["active"] = active
+		if aerr != nil {
+			return Result{}, aerr
+		}
+		data := map[string]any{"unit": a.Unit, "restarted": true, "activeState": after["activeState"]}
+		for _, k := range []string{"subState", "mainPid"} {
+			if v, ok := after[k]; ok {
+				data[k] = v
+			}
+		}
 		return Result{OK: true, Data: data}, nil
 	}, nil
 }
 
-func brief(m map[string]any) map[string]any {
-	out := map[string]any{}
-	for _, k := range []string{"activeState", "subState", "mainPid", "nRestarts", "activeEnterTimestamp"} {
-		if v, ok := m[k]; ok {
-			out[k] = v
-		}
-	}
-	return out
-}
-
 /* --------------------------------- system.logs ----------------------------- */
 
-var relTimeRe = regexp.MustCompile(`^-(\d{1,5})([smhd])$`)
+var relTimeRe = regexp.MustCompile(`^([1-9][0-9]{0,5})([smhd])$`)
 
 type logsArgs struct {
-	Unit     string `json:"unit"`
-	Since    string `json:"since"`
-	Until    string `json:"until"`
-	Lines    int    `json:"lines"`
-	Priority string `json:"priority"`
+	Unit  string `json:"unit"`
+	Since string `json:"since"`
+	Lines int    `json:"lines"`
 }
 
-var priorities = map[string]string{"emerg": "0", "alert": "1", "crit": "2", "err": "3", "warning": "4", "notice": "5", "info": "6", "debug": "7",
-	"0": "0", "1": "1", "2": "2", "3": "3", "4": "4", "5": "5", "6": "6", "7": "7"}
+// relativeSince is the normalized TS wire duration: positive, at most 7d.
+func relativeSince(s string) (time.Duration, error) {
+	m := relTimeRe.FindStringSubmatch(s)
+	if m == nil {
+		return 0, invalid("since must be a relative duration like 15m or 2d, at most 7d")
+	}
+	n, _ := strconv.Atoi(m[1])
+	d := time.Duration(n) * map[string]time.Duration{"s": time.Second, "m": time.Minute, "h": time.Hour, "d": 24 * time.Hour}[m[2]]
+	if d <= 0 || d > 7*24*time.Hour {
+		return 0, invalid("since must be positive and at most 7d")
+	}
+	return d, nil
+}
 
-// journalTime converts an RFC 3339 timestamp or a relative "-15m" into the
-// absolute UTC form journalctl accepts. Free-form strings are refused, so
-// nothing but a timestamp can reach journalctl's --since.
 func journalTime(s string, now time.Time) (string, error) {
-	if m := relTimeRe.FindStringSubmatch(s); m != nil {
-		n, _ := strconv.Atoi(m[1])
-		unit := map[string]time.Duration{"s": time.Second, "m": time.Minute, "h": time.Hour, "d": 24 * time.Hour}[m[2]]
-		return now.Add(-time.Duration(n)*unit).UTC().Format("2006-01-02 15:04:05") + " UTC", nil
-	}
-	t, err := time.Parse(time.RFC3339, s)
+	d, err := relativeSince(s)
 	if err != nil {
-		return "", invalid("time must be RFC 3339 (2026-09-30T12:00:00Z) or relative like -15m, -2h, -1d")
+		return "", err
 	}
-	return t.UTC().Format("2006-01-02 15:04:05") + " UTC", nil
+	return now.Add(-d).UTC().Format("2006-01-02 15:04:05") + " UTC", nil
 }
 
 func prepareSystemLogs(e *Env, req *Request) (Runnable, error) {
@@ -278,12 +254,15 @@ func prepareSystemLogs(e *Env, req *Request) (Runnable, error) {
 	if a.Lines == 0 {
 		a.Lines = 200
 	}
-	if a.Lines < 1 || a.Lines > 2000 {
-		return nil, invalid("lines must be between 1 and 2000")
+	if a.Lines < 1 || a.Lines > 5000 {
+		return nil, invalid("lines must be between 1 and 5000")
 	}
 	args := []string{"--no-pager", "--quiet", "--utc", "--output=short-iso", "--lines=" + strconv.Itoa(a.Lines)}
 	if a.Unit != "" {
 		args = append(args, "--unit="+a.Unit)
+	}
+	if a.Since == "" {
+		a.Since = "1h"
 	}
 	now := e.now()
 	if a.Since != "" {
@@ -292,20 +271,6 @@ func prepareSystemLogs(e *Env, req *Request) (Runnable, error) {
 			return nil, err
 		}
 		args = append(args, "--since="+s)
-	}
-	if a.Until != "" {
-		s, err := journalTime(a.Until, now)
-		if err != nil {
-			return nil, err
-		}
-		args = append(args, "--until="+s)
-	}
-	if a.Priority != "" {
-		p, ok := priorities[strings.ToLower(a.Priority)]
-		if !ok {
-			return nil, invalid("priority must be 0-7 or one of emerg, alert, crit, err, warning, notice, info, debug")
-		}
-		args = append(args, "--priority="+p)
 	}
 	limit := req.MaxOutputBytes
 	return func(ctx context.Context) (Result, error) {
@@ -321,7 +286,7 @@ func prepareSystemLogs(e *Env, req *Request) (Runnable, error) {
 		}
 		text, count, truncated := redactedTail(string(res.Stdout), limit)
 		truncated = truncated || res.StdoutTrunc
-		data := map[string]any{"lineCount": count, "truncated": truncated, "text": text}
+		data := map[string]any{"lines": count, "truncated": truncated, "content": text}
 		if a.Unit != "" {
 			data["unit"] = a.Unit
 		}

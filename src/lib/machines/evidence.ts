@@ -14,7 +14,7 @@
  * Redaction is best-effort (see `redact.ts`).
  */
 import { digest } from "@/lib/controlplane/digest";
-import { redactDeep, redactText } from "./redact";
+import { redactArgv, redactDeep, redactText } from "./redact";
 import type { MachineErrorCode, MachineEvidenceInput, MachineOperation, MachineRequest, MachineResult } from "./types";
 
 const clip = (s: string, n = 512): string => redactText(s).text.slice(0, n);
@@ -64,7 +64,7 @@ const RESULT_KEYS: Partial<Record<MachineOperation, readonly string[]>> = {
 const argsSummary = (op: MachineOperation, args: Record<string, unknown> | undefined): Record<string, unknown> => {
   const out = pickScalars(args, ARG_KEYS[op] ?? []);
   if ((op === "machine.exec" || op === "container.exec") && Array.isArray(args?.argv)) {
-    out.argv = (args.argv as unknown[]).slice(0, 32).map((a) => clip(String(a), 512));
+    out.argv = redactArgv((args.argv as unknown[]).slice(0, 32).map(String)).map((a) => clip(a, 512));
   }
   return out;
 };

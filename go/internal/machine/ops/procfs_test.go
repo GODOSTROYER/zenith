@@ -45,19 +45,19 @@ func TestMachineInspectParsesProcFixture(t *testing.T) {
 	e := &ops.Env{ProcRoot: proc, OSRelease: osr, Version: "9.9.9"}
 	res := runOp(t, e, ops.OpInspect, map[string]any{})
 	d := res.Data
-	if !res.OK || d["kernel"] != "6.8.0-test" || d["uptimeSec"] != 12345.67 || d["zenithdVersion"] != "9.9.9" {
+	if !res.OK || d["kernel"] != "6.8.0-test" || d["uptimeSec"] != int64(12345) {
 		t.Fatalf("%v", d)
 	}
 	osInfo := d["os"].(map[string]string)
-	if osInfo["id"] != "ubuntu" || osInfo["versionId"] != "26.04" || osInfo["prettyName"] != "Ubuntu 26.04 LTS" || len(osInfo) != 4 {
+	if osInfo["id"] != "ubuntu" || osInfo["version"] != "26.04" || osInfo["pretty"] != "Ubuntu 26.04 LTS" || len(osInfo) != 3 {
 		t.Fatalf("%v", osInfo)
 	}
-	load := d["loadAvg"].([]float64)
+	load := d["load"].([]float64)
 	if load[0] != 0.52 || load[2] != 0.30 {
 		t.Fatal(load)
 	}
 	mem := d["memory"].(map[string]any)
-	if mem["totalBytes"] != int64(16384000)*1024 || mem["availableBytes"] != int64(8192000)*1024 || mem["swapFreeBytes"] != int64(2000000)*1024 {
+	if mem["totalKb"] != int64(16384000) || mem["availableKb"] != int64(8192000) || mem["swapFreeKb"] != int64(2000000) {
 		t.Fatalf("%v", mem)
 	}
 	if _, ok := d["disks"]; !ok {
@@ -80,21 +80,60 @@ func TestInspectOnAHostWithoutProcIsAFailedResultNotACrash(t *testing.T) {
 	}
 }
 
+func TestInspectBoundsStringsAndOmitsInvalidMeasurements(t *testing.T) {
+	proc, osr := fixtureProc(t)
+	writeFile(t, osr, "ID="+strings.Repeat("i", 100)+"\nVERSION_ID="+strings.Repeat("v", 100)+"\nPRETTY_NAME="+strings.Repeat("p", 300)+"\n")
+	writeFile(t, filepath.Join(proc, "sys/kernel/osrelease"), strings.Repeat("k", 300))
+	writeFile(t, filepath.Join(proc, "meminfo"), "MemTotal: -1 kB\nMemAvailable: 9223372036854775807 kB\n")
+	for _, invalid := range []string{"NaN", "Inf", "-1", "9223372036854775808"} {
+		writeFile(t, filepath.Join(proc, "uptime"), invalid+" 0\n")
+		writeFile(t, filepath.Join(proc, "loadavg"), "NaN -1 Inf 0/0 0\n")
+		d := runOp(t, &ops.Env{ProcRoot: proc, OSRelease: osr}, ops.OpInspect, map[string]any{}).Data
+		if _, ok := d["uptimeSec"]; ok {
+			t.Fatalf("invalid uptime %s must be absent: %v", invalid, d)
+		}
+		if _, ok := d["load"]; ok || len(d["memory"].(map[string]any)) != 0 {
+			t.Fatalf("invalid measurements must be absent: %v", d)
+		}
+		osInfo := d["os"].(map[string]string)
+		if len(d["kernel"].(string)) != 128 || len(osInfo["id"]) != 64 || len(osInfo["version"]) != 64 || len(osInfo["pretty"]) != 200 {
+			t.Fatalf("strings must respect the TS result bounds: %v", d)
+		}
+	}
+}
+
+func TestProcessListOmitsUnreadStatusInsteadOfGuessingRootAndZeroRSS(t *testing.T) {
+	proc, _ := fixtureProc(t)
+	if err := os.Remove(filepath.Join(proc, "1/status")); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(proc, "42/status"), "Uid: invalid\nVmRSS: -100 kB\n")
+	list := runOp(t, &ops.Env{ProcRoot: proc}, ops.OpProcessList, map[string]any{}).Data["processes"].([]map[string]any)
+	if len(list) != 2 {
+		t.Fatalf("process identity is still known: %v", list)
+	}
+	for _, p := range list {
+		if _, ok := p["user"]; ok {
+			t.Fatalf("unread UID must be absent: %v", p)
+		}
+		if _, ok := p["rssKb"]; ok {
+			t.Fatalf("unread RSS must be absent: %v", p)
+		}
+	}
+}
+
 func TestProcessListParsesStatAndOmitsCommandLines(t *testing.T) {
 	proc, _ := fixtureProc(t)
 	e := &ops.Env{ProcRoot: proc}
-	res := runOp(t, e, ops.OpProcessList, map[string]any{})
+	res := runOp(t, e, ops.OpProcessList, map[string]any{"sortBy": "memory"})
 	list := res.Data["processes"].([]map[string]any)
-	if res.Data["count"] != 2 || len(list) != 2 {
+	if len(list) != 2 {
 		t.Fatalf("pid 99 has no stat and must be skipped, 'self' is not a pid: %v", res.Data)
 	}
-	if list[0]["pid"] != 42 || list[0]["name"] != "my (weird) name" || list[0]["rssBytes"] != int64(50000*1024) || list[0]["uid"] != 1000 || list[0]["threads"] != 4 || list[0]["state"] != "R" || list[0]["ppid"] != 1 || list[0]["cpuTicks"] != uint64(10) {
-		t.Fatalf("sorted by rss, parenthesised comm handled: %v", list[0])
+	if list[0]["pid"] != 42 || list[0]["command"] != "my (weird) name" || list[0]["rssKb"] != int64(50000) || list[0]["user"] != "1000" || list[0]["ppid"] != 1 {
+		t.Fatalf("sorted by memory; parenthesised comm handled: %v", list[0])
 	}
-	if list[0]["exe"] != "/usr/sbin/nginx" {
-		t.Fatalf("exe: %v", list[0]["exe"])
-	}
-	if list[1]["pid"] != 1 || list[1]["cpuTicks"] != uint64(200) || list[1]["startTicks"] != uint64(100) {
+	if list[1]["pid"] != 1 || list[1]["command"] != "systemd" {
 		t.Fatalf("%v", list[1])
 	}
 	for _, p := range list {
@@ -104,10 +143,7 @@ func TestProcessListParsesStatAndOmitsCommandLines(t *testing.T) {
 			}
 		}
 	}
-	if res.Data["argvOmitted"] != true {
-		t.Fatal("the result must say arguments are omitted")
-	}
-	res = runOp(t, e, ops.OpProcessList, map[string]any{"limit": 1, "sortBy": "pid"})
+	res = runOp(t, e, ops.OpProcessList, map[string]any{"limit": 1, "sortBy": "cpu"})
 	if l := res.Data["processes"].([]map[string]any); len(l) != 1 || l[0]["pid"] != 1 || res.Data["truncated"] != true {
 		t.Fatalf("%v", res.Data)
 	}
@@ -127,19 +163,17 @@ func TestSystemMetricsFromFixture(t *testing.T) {
 	e := &ops.Env{ProcRoot: proc}
 	res := runOp(t, e, ops.OpMetrics, map[string]any{})
 	d := res.Data
-	cpu := d["cpu"].(map[string]any)
-	if cpu["usagePercent"] != 0.0 { // the fixture does not change between samples
-		t.Fatalf("%v", cpu)
+	if _, ok := d["cpuUsagePct"]; ok {
+		t.Fatal("unchanged sample has no measurable CPU usage")
 	}
-	net := d["network"].([]map[string]any)
-	if len(net) != 2 || net[1]["interface"] != "eth0" || net[1]["rxBytes"] != uint64(987654321) || net[1]["txErrors"] != uint64(4) || net[1]["rxDropped"] != uint64(3) {
-		t.Fatalf("%v", net)
+	network := d["network"].(map[string]any)
+	if network["rxBytes"] != uint64(987655321) || network["txBytes"] != uint64(123457789) {
+		t.Fatalf("%v", network)
 	}
-	fds := d["fileDescriptors"].(map[string]any)
-	if fds["allocated"] != int64(1024) {
-		t.Fatalf("%v", fds)
+	if d["openFiles"] != int64(1024) {
+		t.Fatalf("%v", d)
 	}
-	if d["uptimeSec"] != 12345.67 || d["memory"].(map[string]any)["freeBytes"] != int64(1024000)*1024 {
+	if d["uptimeSec"] != int64(12345) || d["memory"].(map[string]any)["totalKb"] != int64(16384000) {
 		t.Fatalf("%v", d)
 	}
 }
@@ -154,11 +188,11 @@ func TestDisksComeFromRealFilesystemsOnly(t *testing.T) {
 	e := &ops.Env{ProcRoot: proc, OSRelease: osr}
 	res := runOp(t, e, ops.OpInspect, map[string]any{})
 	disks := res.Data["disks"].([]map[string]any)
-	if len(disks) != 1 || disks[0]["fsType"] == "tmpfs" {
+	if len(disks) != 1 {
 		t.Fatalf("pseudo filesystems must be skipped: %v", disks)
 	}
-	total, free, used := disks[0]["totalBytes"].(uint64), disks[0]["freeBytes"].(uint64), disks[0]["usedBytes"].(uint64)
-	if total == 0 || free > total || used != total-free {
+	total, free, used := disks[0]["sizeKb"].(uint64), disks[0]["availKb"].(uint64), disks[0]["usedKb"].(uint64)
+	if total == 0 || free > total || used > total || used+free > total+1 {
 		t.Fatalf("%v", disks[0])
 	}
 }
@@ -186,20 +220,20 @@ func TestProcfsAgainstTheRealHost(t *testing.T) {
 	}
 	e := &ops.Env{}
 	res := runOp(t, e, ops.OpInspect, map[string]any{})
-	if res.Data["kernel"] == "" || res.Data["uptimeSec"].(float64) <= 0 || res.Data["memory"].(map[string]any)["totalBytes"].(int64) <= 0 {
+	if res.Data["kernel"] == "" || res.Data["uptimeSec"].(int64) <= 0 || res.Data["memory"].(map[string]any)["totalKb"].(int64) <= 0 {
 		t.Fatalf("%v", res.Data)
 	}
 	res = runOp(t, e, ops.OpProcessList, map[string]any{"limit": 5})
-	if res.Data["count"].(int) < 1 {
+	if len(res.Data["processes"].([]map[string]any)) < 1 {
 		t.Fatalf("%v", res.Data)
 	}
 	self := os.Getpid()
-	all := runOp(t, e, ops.OpProcessList, map[string]any{"limit": 1000, "sortBy": "pid"})
+	all := runOp(t, e, ops.OpProcessList, map[string]any{"limit": 500, "sortBy": "cpu"})
 	found := false
 	for _, p := range all.Data["processes"].([]map[string]any) {
 		if p["pid"] == self {
 			found = true
-			if p["rssBytes"].(int64) <= 0 {
+			if p["rssKb"].(int64) <= 0 {
 				t.Fatalf("own rss: %v", p)
 			}
 		}
@@ -208,7 +242,7 @@ func TestProcfsAgainstTheRealHost(t *testing.T) {
 		t.Fatal("the test process itself must be listed")
 	}
 	m := runOp(t, e, ops.OpMetrics, map[string]any{})
-	if _, ok := m.Data["cpu"].(map[string]any)["usagePercent"].(float64); !ok {
+	if _, ok := m.Data["cpuUsagePct"].(float64); !ok {
 		t.Fatalf("%v", m.Data)
 	}
 }

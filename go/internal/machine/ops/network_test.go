@@ -54,7 +54,7 @@ func TestPortCheckOpenClosedAndMetadataDenial(t *testing.T) {
 		"app.internal":       {netip.MustParseAddr("127.0.0.1")},
 	}}
 	res := runOp(t, e, ops.OpPortCheck, map[string]any{"host": "127.0.0.1", "port": port})
-	if res.Data["open"] != true || res.Data["remoteAddr"] != "127.0.0.1" {
+	if res.Data["open"] != true {
 		t.Fatalf("%v", res.Data)
 	}
 	res = runOp(t, e, ops.OpPortCheck, map[string]any{"host": "app.internal", "port": port})
@@ -62,8 +62,8 @@ func TestPortCheckOpenClosedAndMetadataDenial(t *testing.T) {
 		t.Fatalf("loopback targets are legitimate on the host itself: %v", res.Data)
 	}
 	l.Close()
-	res = runOp(t, e, ops.OpPortCheck, map[string]any{"host": "127.0.0.1", "port": port, "timeoutMs": 1000})
-	if res.Data["open"] != false || res.Data["errorCode"] != "connection_refused" {
+	res = runOp(t, e, ops.OpPortCheck, map[string]any{"host": "127.0.0.1", "port": port, "timeoutSec": 1})
+	if res.Data["open"] != false || res.Data["reason"] != "connection_refused" {
 		t.Fatalf("%v", res.Data)
 	}
 
@@ -96,12 +96,12 @@ func TestDNSCheck(t *testing.T) {
 	if res.Data["resolved"] != true || len(answers) != 2 || answers[0] != "10.0.1.4" {
 		t.Fatalf("%v", res.Data)
 	}
-	res = runOp(t, e, ops.OpDNSCheck, map[string]any{"name": "api.example.com", "type": "AAAA"})
+	res = runOp(t, e, ops.OpDNSCheck, map[string]any{"name": "api.example.com", "recordType": "AAAA"})
 	if a := res.Data["answers"].([]string); len(a) != 1 || a[0] != "2001:db8::1" {
 		t.Fatalf("%v", res.Data)
 	}
 	res = runOp(t, e, ops.OpDNSCheck, map[string]any{"name": "missing.example.com"})
-	if res.Data["resolved"] != false || res.Data["errorCode"] != "dns_not_found" {
+	if res.Data["resolved"] != false || len(res.Data["answers"].([]string)) != 0 || len(res.Data) != 4 {
 		t.Fatalf("%v", res.Data)
 	}
 	run, _ := prep(t, e, ops.OpDNSCheck, map[string]any{"name": "rebind.example.com"})
@@ -109,7 +109,7 @@ func TestDNSCheck(t *testing.T) {
 	wantCode(t, err, protocol.CodeGuardDenied)
 	_, err = prep(t, e, ops.OpDNSCheck, map[string]any{"name": "metadata.google.internal"})
 	wantCode(t, err, protocol.CodeGuardDenied)
-	for _, args := range []map[string]any{{"name": "x.example.com", "type": "SRV"}, {"name": "bad name"}, {"name": "x.example.com", "server": "8.8.8.8"}} {
+	for _, args := range []map[string]any{{"name": "x.example.com", "recordType": "BAD"}, {"name": "bad name"}, {"name": "x.example.com", "server": "8.8.8.8"}} {
 		if _, err := prep(t, e, ops.OpDNSCheck, args); err == nil {
 			t.Errorf("%v must be rejected", args)
 		}
@@ -130,15 +130,15 @@ func TestRealSystemctlAndJournalctl(t *testing.T) {
 	}
 	e := &ops.Env{}
 	res := runOp(t, e, ops.OpServiceStatus, map[string]any{"unit": "systemd-journald.service"})
-	if res.Data["found"] != true || res.Data["activeState"] != "active" {
+	if res.Data["loadState"] != "loaded" || res.Data["activeState"] != "active" {
 		t.Fatalf("%v", res.Data)
 	}
 	res = runOp(t, e, ops.OpServiceStatus, map[string]any{"unit": "zenith-no-such-unit-xyz.service"})
-	if res.Data["found"] != false {
+	if res.Data["loadState"] != "not-found" {
 		t.Fatalf("%v", res.Data)
 	}
-	res = runOp(t, e, ops.OpLogs, map[string]any{"lines": 5, "since": "-1d"})
-	if res.Data["lineCount"].(int) < 1 && !strings.Contains(res.Data["text"].(string), "No entries") {
+	res = runOp(t, e, ops.OpLogs, map[string]any{"lines": 5, "since": "1d"})
+	if res.Data["lines"].(int) < 1 && !strings.Contains(res.Data["content"].(string), "No entries") {
 		t.Fatalf("%v", res.Data)
 	}
 	res = runOp(t, e, ops.OpLogs, map[string]any{"unit": "systemd-journald.service", "lines": 3})

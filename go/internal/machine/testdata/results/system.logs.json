@@ -1,0 +1,17 @@
+{
+  "args": {
+    "lines": 200,
+    "since": "2d",
+    "unit": "nginx.service"
+  },
+  "operation": "system.logs",
+  "result": {
+    "ok": true,
+    "data": {
+      "content": "fixture output",
+      "lines": 1,
+      "truncated": false,
+      "unit": "nginx.service"
+    }
+  }
+}

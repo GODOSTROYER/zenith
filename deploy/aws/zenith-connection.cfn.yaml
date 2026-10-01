@@ -222,6 +222,8 @@ Resources:
   # role Zenith attaches AdministratorAccess to cannot exceed it. It grants
   # workload-level access (logs, image pull, zenith-* buckets/queues, secret
   # READS for injection) and denies IAM, Organizations and the state bucket.
+  # Build-only grants use role/zenith-*-build; naming.ts defines the reserved
+  # suffix and generate-tofu-policies.ts checks the principal pattern for drift.
   WorkloadBoundary:
     Type: AWS::IAM::ManagedPolicy
     Properties:
@@ -244,6 +246,29 @@ Resources:
             Effect: Allow
             Action: ecr:GetAuthorizationToken
             Resource: "*"
+          - Sid: BuildImagePush
+            Effect: Allow
+            Action: [ecr:InitiateLayerUpload, ecr:UploadLayerPart, ecr:CompleteLayerUpload, ecr:PutImage, ecr:DescribeImages]
+            Resource: !Sub "arn:${AWS::Partition}:ecr:*:${AWS::AccountId}:repository/zenith-*"
+            Condition:
+              ArnLike: { "aws:PrincipalArn": !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-build" }
+          - Sid: BuildSourceVersions
+            Effect: Allow
+            Action: s3:GetObjectVersion
+            Resource: !Sub "arn:${AWS::Partition}:s3:::zenith-*/*"
+            Condition:
+              ArnLike: { "aws:PrincipalArn": !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-build" }
+              StringEquals: { "s3:ResourceAccount": !Ref "AWS::AccountId" }
+          # CreateInvalidation supports aws:ResourceTag/${TagKey} on distributions:
+          # https://docs.aws.amazon.com/service-authorization/latest/reference/list_cloudfront.html
+          # The role policy further limits this to the site's exact distribution ARN.
+          - Sid: BuildSiteInvalidation
+            Effect: Allow
+            Action: cloudfront:CreateInvalidation
+            Resource: !Sub "arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/*"
+            Condition:
+              ArnLike: { "aws:PrincipalArn": !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-build" }
+              StringEquals: { "aws:ResourceTag/zenith:managed": "true" }
           # EKS system images live in AWS-owned accounts. These repository names
           # cover managed add-ons; this is pull-only and grants no registry writes.
           - Sid: WorkloadEksSystemImages

@@ -129,7 +129,33 @@ below.
 | `ZenithDeployEdge` | deploy | log groups and alarms named `zenith-*`, ACM certificates tagged `zenith:managed`, DNS record changes **only in zones you list** |
 | `ZenithDeployState` | deploy | read/write objects in the state bucket; **denies** deleting or reconfiguring the bucket and deleting object versions |
 | `ZenithDeployIam` | deploy | `iam:CreateRole` / `Put|Attach|Detach|DeleteRolePolicy` / `DeleteRole` on `role/zenith-*` **only with the boundary attached**; attach only `zenith-*` policies plus three AWS task/lambda execution policies; `iam:PassRole` only to `zenith-*` roles for `ecs-tasks`, `codebuild`, `lambda`; service-linked roles for ecs/elbv2/autoscaling/rds/elasticache. **Denies**: changing `ZenithDeploy*`/`ZenithObserve*`/`zenith-codebuild*` roles and policies or the boundary, removing any permission boundary, creating users/access keys/login profiles, touching OIDC/SAML providers, Organizations, Account. |
-| `ZenithWorkloadBoundary` | roles Zenith creates | logs, ECR pull, `zenith-*` buckets and queues, secret **reads** for injection into the workload's own secrets, KMS via those services, VPC ENIs. Denies `iam:*`, `organizations:*`, `account:*` and the state bucket. |
+| `ZenithWorkloadBoundary` | roles Zenith creates | logs, ECR pull, `zenith-*` buckets and queues, secret **reads** for injection into the workload's own secrets, KMS via those services, VPC ENIs. Build roles only: ECR push, S3 source-version reads, tagged CloudFront invalidations. Denies `iam:*`, `organizations:*`, `account:*` and the state bucket. |
+
+Build-only statements require `aws:PrincipalArn` to match
+`arn:<partition>:iam::<account>:role/zenith-*-build`. The CodeBuild driver
+reserves the `-build` suffix after shortening/hashing the name to 64 characters;
+application roles use other suffixes and do not match. The shared naming
+constant in `src/lib/credentials/aws/naming.ts` is checked by the policy
+generator and bootstrap tests. Long or rewritten build-role names can change
+from earlier compiler output; review the resulting role replacement plan.
+
+ECR writes are limited to this account's `repository/zenith-*`; S3
+`GetObjectVersion` is limited to `zenith-*/*` objects in this account.
+CloudFront invalidations require this account's distribution ARN and
+`zenith:managed=true` ([supported by AWS for CreateInvalidation](https://docs.aws.amazon.com/service-authorization/latest/reference/list_cloudfront.html)).
+The build role's own policy further restricts each grant to its exact repository,
+source prefix and site distribution. CodeBuild project names must start with
+`zenith-`, keeping `/aws/codebuild/<project>` inside the existing log boundary.
+The deploy role still cannot modify the boundary, and state-bucket access
+remains explicitly denied to every boundary-carrying role.
+
+These intersections are evaluated locally in the bootstrap and compute tests;
+they have not been exercised against live AWS. The additional role checks
+confirm ECS execution and Lambda log grants are covered. Existing gaps remain:
+scheduled-job event roles cannot use `ecs:RunTask` or `iam:PassRole`, and EC2's
+`AmazonSSMManagedInstanceCore` attachment is largely blocked (23 unsupported
+actions; its two parameter-read actions work only under `parameter/zenith/*`).
+This build fix does not expand those permissions.
 
 ### Known limits (not hidden)
 

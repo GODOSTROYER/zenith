@@ -32,7 +32,7 @@ parameters: [deploy/aws/README.md, Option A and B](../../../deploy/aws/README.md
 | An IAM OIDC provider | Lets AWS verify Zenith's tokens (client id `sts.amazonaws.com`). One exists per issuer URL per account. |
 | `ZenithObserveRole` | Read-only inspection. |
 | `ZenithDeployRole` | The only role that changes things, and only things it is allowed to see as Zenith's. |
-| `ZenithWorkloadBoundary` | A permission boundary every IAM role Zenith creates must carry. |
+| `ZenithWorkloadBoundary` | A permission boundary every IAM role Zenith creates must carry; build roles alone can push images, read source object versions and invalidate managed sites. |
 | A state bucket, `zenith-state-<account>-<region>` | OpenTofu state and build artifacts. Yours, and kept if you delete the stack. |
 | `zenith-codebuild` role | Lets image builds run in **your** account, pushing only to `zenith-*` ECR repositories. |
 
@@ -121,6 +121,20 @@ As written in the template's explicit denies and its absence of grants:
   are not enabled by it. The command-execution capabilities (`machine.exec`,
   `container.exec`) are a separate, critical-risk class that policy denies in
   production by default ([POLICY.md](POLICY.md)).
+
+The workload boundary distinguishes CodeBuild roles through
+`aws:PrincipalArn = arn:<partition>:iam::<account>:role/zenith-*-build` with
+`ArnLike`. The driver reserves `-build` after shortening the role name, and
+the generator checks the pattern against the shared naming constant.
+Application role names do not match this pattern. Build-only grants cover
+this account's `zenith-*` ECR repositories, `zenith-*/*` S3 object versions
+(with `s3:ResourceAccount`), and this account's CloudFront distributions tagged
+`zenith:managed=true`. The build's own policy narrows those grants to its exact
+output resources and source prefix. CloudFront supports that resource-tag
+condition for [CreateInvalidation](https://docs.aws.amazon.com/service-authorization/latest/reference/list_cloudfront.html).
+CodeBuild project names must start with `zenith-`, so their logs fit the existing
+`/aws/*/zenith-*` boundary. The deploy role cannot modify this boundary.
+Coverage tests evaluate these policies locally; no live AWS build was run.
 
 Known limits of what IAM can express, from the template (not hidden): task
 definition registration accepts only `Resource: "*"` in IAM, so Zenith can add

@@ -13,6 +13,8 @@ import { startBuild, stopBuild, waitForBuild } from "@/lib/providers/aws/drivers
 import { DriverCompileError, hash6, refLocalName } from "@/lib/providers/aws/drivers/shared";
 import { buildFullFixture, mkCompileContext, mkDriverContext, zenithTagList } from "./fixtures";
 import { ACCOUNT } from "./ecs-mocks";
+import { boundaryAllows, workloadBoundary } from "../../../../credentials/workload-boundary";
+import { BOUNDARY_ACCOUNT, BOUNDARY_PREFIX, policyRequests } from "./boundary-fixtures";
 
 const cb = mockClient(CodeBuildClient);
 const tagging = mockClient(ResourceGroupsTaggingAPIClient);
@@ -28,11 +30,44 @@ beforeEach(() => {
 type Body = Record<string, unknown>;
 const res = (f: TofuFragment, type: string, label: string): Body => (f.resource as Record<string, Record<string, Body>>)[type][label];
 const fx = buildFullFixture();
-const ctx = () => mkCompileContext(fx.byAddress);
+const ctx = () => mkCompileContext(fx.byAddress, { namePrefix: BOUNDARY_PREFIX });
 const docker = driver.compile!(fx.pipeline, ctx());
 const site = driver.compile!(fx.siteBuild, ctx());
 const asList = (v: unknown): string[] => (Array.isArray(v) ? (v as string[]) : [v as string]);
 const policy = (f: TofuFragment, label: string): Body[] => JSON.parse(res(f, "aws_iam_role_policy", label).policy as string).Statement;
+
+describe("build role policy intersects the bootstrap boundary", () => {
+  it.each(["registry", "static site"])("allows every compiled %s action and resource for the build principal", (output) => {
+    const node = output === "registry" ? fx.pipeline : fx.siteBuild;
+    const label = output === "registry" ? "build_pipeline_web" : "build_pipeline_docs";
+    const fragment = driver.compile!(node, mkCompileContext(fx.byAddress, { namePrefix: BOUNDARY_PREFIX }));
+    const principal = `arn:aws:iam::${BOUNDARY_ACCOUNT}:role/${res(fragment, "aws_iam_role", label).name}`;
+    const refs = {
+      [`local.${refLocalName(fx.registry.address, "arn")}`]: `arn:aws:ecr:eu-west-1:${BOUNDARY_ACCOUNT}:repository/${BOUNDARY_PREFIX}-web`,
+      [`local.${refLocalName(fx.site.address, "bucket_arn")}`]: `arn:aws:s3:::${BOUNDARY_PREFIX}-docs-abcdef12`,
+      [`local.${refLocalName(fx.site.address, "distribution_arn")}`]: `arn:aws:cloudfront::${BOUNDARY_ACCOUNT}:distribution/EDOCS`,
+    };
+    const requests = policyRequests(fragment, refs);
+    expect(requests.length).toBeGreaterThan(0);
+    for (const request of requests) {
+      expect(boundaryAllows(workloadBoundary(), request.action, request.resource, {
+        "aws:PrincipalArn": principal, "aws:ResourceTag/zenith:managed": "true", "s3:ResourceAccount": BOUNDARY_ACCOUNT,
+      }), `${request.action} ${request.resource}`).toBe(true);
+    }
+  });
+
+  it.each(["web", "x".repeat(200), "web.with/odd_chars"])("keeps the build discriminator after cloudName sanitization/truncation: %s", (name) => {
+    const node = { ...fx.pipeline, address: `build_pipeline/${name}` };
+    const fragment = driver.compile!(node, mkCompileContext(fx.byAddress, { namePrefix: BOUNDARY_PREFIX }));
+    const role = Object.values(fragment.resource!.aws_iam_role)[0];
+    expect(role.name).toMatch(/^zenith-.*-build$/);
+    expect(String(role.name).length).toBeLessThanOrEqual(64);
+  });
+
+  it.each(["zn-acme", "", "foreign-env"])("refuses a prefix outside the boundary log scope: %j", (namePrefix) => {
+    expect(() => driver.compile!(fx.pipeline, mkCompileContext(fx.byAddress, { namePrefix }))).toThrow(/must start with zenith-/);
+  });
+});
 
 describe("compile: registry output", () => {
   it("is a LINUX_CONTAINER on the pinned standard image, privileged for Docker, 30 minutes, no VPC, no artifacts", () => {
@@ -135,7 +170,7 @@ describe("compile: registry output", () => {
     expect(JSON.parse(role.assume_role_policy as string).Statement[0].Principal).toEqual({ Service: "codebuild.amazonaws.com" });
     expect(role.permissions_boundary).toMatch(/ZenithWorkloadBoundary$/);
     const logs = res(docker, "aws_cloudwatch_log_group", "build_pipeline_web_logs");
-    expect(logs).toMatchObject({ name: "/aws/codebuild/zn-acme-web", retention_in_days: 30 });
+    expect(logs).toMatchObject({ name: `/aws/codebuild/${BOUNDARY_PREFIX}-web`, retention_in_days: 30 });
     const cfg = (res(docker, "aws_codebuild_project", "build_pipeline_web").logs_config as Body[])[0];
     expect(cfg.cloudwatch_logs).toEqual([{ status: "ENABLED", group_name: "${aws_cloudwatch_log_group.build_pipeline_web_logs.name}", stream_name: "build" }]);
   });
@@ -150,7 +185,7 @@ describe("compile: registry output", () => {
   });
 
   it("binds IAM reads, expiry and bootstrap location to a different environment", () => {
-    const other = driver.compile!(fx.pipeline, mkCompileContext(fx.byAddress, { environmentId: "env-other" }));
+    const other = driver.compile!(fx.pipeline, { ...ctx(), environmentId: "env-other" });
     expect(policy(other, "build_pipeline_web").find((s) => s.Sid === "ReadSourceBundle")!.Resource).toBe("${aws_s3_bucket.build_pipeline_web_src.arn}/zenith/env-other/*");
     expect(res(other, "aws_s3_bucket_lifecycle_configuration", "build_pipeline_web_src").rule).toMatchObject([{ filter: [{ prefix: "zenith/env-other/" }] }]);
     expect(res(other, "aws_codebuild_project", "build_pipeline_web").source).toMatchObject([{ location: "${aws_s3_bucket.build_pipeline_web_src.bucket}/zenith/env-other/bootstrap.zip" }]);

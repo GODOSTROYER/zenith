@@ -40,7 +40,7 @@ export function expanded(envClass: ExpandEnv["class"]): ResourceGraph {
 
 export function compileContext(graph: Pick<ResourceGraph, "nodes" | "environmentId">): CompileContext {
   return {
-    environmentId: graph.environmentId, namePrefix: "zen-integration", region: REGION, tags: TAGS,
+    environmentId: graph.environmentId, namePrefix: "zenith-integration", region: REGION, tags: TAGS,
     node: (address) => graph.nodes.find((n) => n.address === address),
     ref: (address, attribute) => {
       expect(graph.nodes.some((n) => n.address === address), `reference to absent node ${address}`).toBe(true);

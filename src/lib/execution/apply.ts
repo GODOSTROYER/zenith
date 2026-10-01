@@ -33,7 +33,7 @@ import { TofuCommandError } from "@/lib/tofu/runner";
 import type { ExecutionActivities } from "@/lib/workflows/types";
 import { loadExecContext, resolveConnection, type ExecContext } from "./context";
 import { assertLeaseFor, requireExecutable, tofuSession } from "./desired";
-import { buildWorkspace } from "./compile";
+import { assertDeployDeletionApproval, buildDeployWorkspace, inspectDeployDeletions } from "./plan";
 import { LeaseLostError, StepFailedError, TofuPlanChangedError } from "./errors";
 import { withKeepAlive } from "./keepalive";
 import { outputsDigest } from "./plan-evidence";
@@ -42,6 +42,7 @@ import { LONG_SESSION_SEC, withProviderSession } from "./session";
 import { errorText, safeText } from "./text";
 import type { ApplyVerifiedResult } from "@/lib/tofu/engine";
 import type { NormalizedPlan } from "@/lib/tofu/types";
+import { TofuDeletionRefusedError } from "@/lib/tofu/plan";
 
 const HEX64 = /^[0-9a-f]{64}$/;
 
@@ -111,7 +112,7 @@ export function createApplyActivities(rt: Runtime): Pick<ExecutionActivities, "a
         assertLeaseFor(ec, lease);
         const { graph } = requireExecutable(rt, ec);
         const connection = await resolveConnection(rt, ec);
-        const { ws } = buildWorkspace({ ec, graph, connection, drivers: rt.drivers, overrides: rt.d.tofuWorkspace });
+        const { ws, deletionNodes, dnsNodes } = await buildDeployWorkspace(rt, ec, graph, connection);
 
         await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
         await rt.emit(ec.scope, "resource.applying", `apply:${planDigest}`, { planDigest });
@@ -119,7 +120,12 @@ export function createApplyActivities(rt: Runtime): Pick<ExecutionActivities, "a
         const result = await withKeepAlive(rt, { lease, detail: "tofu apply", operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, (signal) =>
           withProviderSession(rt, ec, { purpose: "deploy", fence: lease, connection, durationSec: LONG_SESSION_SEC }, async (session) => {
             toolStarted = true;
-            finished = await rt.tofu.applyVerifiedPlan(ws, { approvedDigest: planDigest, session: tofuSession(session), signal, normalize: { fingerprintKey: rt.d.fingerprintKey } });
+            const guard = inspectDeployDeletions(rt, ec, deletionNodes, dnsNodes, session, signal, lease);
+            finished = await rt.tofu.applyVerifiedPlan(ws, { approvedDigest: planDigest, session: tofuSession(session), signal, deletionNodes, normalize: { fingerprintKey: rt.d.fingerprintKey }, inspectPlan: async (plan, raw) => {
+              await guard(plan, raw);
+              await assertDeployDeletionApproval(rt, ec, plan, deletionNodes, planDigest);
+              await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
+            } });
             return finished;
           })
         );
@@ -138,6 +144,7 @@ export function createApplyActivities(rt: Runtime): Pick<ExecutionActivities, "a
 
 async function classifyApplyFailure(rt: Runtime, ec: ExecContext, err: unknown, toolStarted: boolean): Promise<unknown> {
   if (err instanceof TofuPlanChangedError || err instanceof StepFailedError) return err;
+  if (err instanceof TofuDeletionRefusedError) return new StepFailedError(err.message);
   if (err instanceof LeaseLostError) {
     if (toolStarted) await markUncertain(rt, ec, "The environment lease was lost while OpenTofu was applying.");
     return err;

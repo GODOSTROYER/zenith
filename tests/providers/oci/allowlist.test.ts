@@ -233,9 +233,9 @@ describe("end to end through the runner-backed transport", () => {
 });
 
 describe("the protocol document and the code agree", () => {
-  // The scoped workstream documents additive rules in deploy/oci; the shared
-  // protocol remains owned by the orchestrator. Both must describe every rule.
-  const doc = ["docs/platform/RUNNER-PROTOCOL-OCI.md", "deploy/oci/DRIVERS-MORE.md"].map((file) => fs.readFileSync(path.join(process.cwd(), file), "utf8")).join("\n");
+  // Scoped workstreams document additive rules in their owned operator guides;
+  // the shared protocol stays orchestrator-owned. Every rule remains checked.
+  const doc = ["docs/platform/RUNNER-PROTOCOL-OCI.md", "deploy/oci/DRIVERS-MORE.md", "docs/platform/operations/TEARDOWN.md"].map((file) => fs.readFileSync(path.join(process.cwd(), file), "utf8")).join("\n");
 
   it("lists every allowlist rule of every capability", () => {
     for (const [cap, rules] of Object.entries(OCI_ALLOWLIST)) {

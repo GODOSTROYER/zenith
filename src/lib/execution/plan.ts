@@ -45,6 +45,9 @@ import type { ProviderSession } from "@/lib/credentials/types";
 import { PORTABLE_KINDS, STATEFUL_KINDS, type ResourceGraph, type ResourceNode } from "@/lib/resources/types";
 import { resolvePolicies } from "@/lib/resources/manifest-v2";
 import { assessRecordDeletion } from "@/lib/providers/aws/drivers/network/route53-record";
+import { assessRecordDeletion as assessGcpRecordDeletion } from "@/lib/providers/gcp/dns-ownership";
+import { assessRecordDeletion as assessAzureRecordDeletion } from "@/lib/providers/azure/dns-ownership";
+import { assessRecordDeletion as assessOciRecordDeletion } from "@/lib/providers/oci/dns-ownership";
 import { assertDeletionAllowed, TofuDeletionRefusedError } from "@/lib/tofu/plan";
 import type { PlanInspector } from "@/lib/tofu/runner";
 import type { LeaseRef } from "@/lib/workflows/types";
@@ -150,9 +153,26 @@ export function inspectDeployDeletions(rt: Runtime, ec: ExecContext, nodes: read
       const node = byAddress.get(change.nodeAddress ?? change.address);
       if (!node || node.kind !== "dns_record" || node.ownership !== "managed") throw new StepFailedError("DNS deletion has no trusted managed resource node.");
       if (!["allow", "approval"].includes(String(node.spec.deletionPolicy))) throw new StepFailedError("DNS deletion is refused by its deletionPolicy.");
-      if (node.provider !== "aws" || node.nativeType !== "aws:route53_record" || session.provider !== "aws") throw new StepFailedError("DNS deletion is unsupported without a provider target ownership guard.");
-      // Never surface the guard's reason: it can contain an external target value.
-      const result = await assessRecordDeletion({ ...driverContext(rt, ec, session, signal, { node, fence: lease }), session }, node);
+      const ctx = driverContext(rt, ec, session, signal, { node, fence: lease });
+      // Dispatch only exact mapped native types with a matching broker session.
+      // Never surface guard reasons or external exception payloads.
+      let result: { safe: boolean; reason: string };
+      try {
+        if (node.provider === "aws" && node.nativeType === "aws:route53_record" && session.provider === "aws") {
+          result = await assessRecordDeletion({ ...ctx, session }, node);
+        } else if (node.provider === "gcp" && node.nativeType === "gcp:dns_record_set" && session.provider === "gcp") {
+          result = await assessGcpRecordDeletion({ ...ctx, session }, node, dnsNodes);
+        } else if (node.provider === "azure" && node.nativeType === "azure:dns_record_set" && session.provider === "azure") {
+          result = await assessAzureRecordDeletion({ ...ctx, session }, node, dnsNodes);
+        } else if (node.provider === "oci" && node.nativeType === "oci:dns_rrset" && session.provider === "oci") {
+          result = await assessOciRecordDeletion({ ...ctx, session }, node, dnsNodes);
+        } else {
+          throw new StepFailedError("DNS deletion is unsupported without a provider target ownership guard.");
+        }
+      } catch (err) {
+        if (err instanceof StepFailedError) throw err;
+        throw new StepFailedError("DNS record target ownership could not be confirmed; refusing deletion.");
+      }
       if (!result.safe) throw new StepFailedError("DNS record target ownership could not be confirmed; refusing deletion.");
     }
     await rt.d.leases.assertFence(lease.scope, lease.fenceToken);

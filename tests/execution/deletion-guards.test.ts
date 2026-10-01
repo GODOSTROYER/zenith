@@ -277,7 +277,7 @@ describe("DNS deletion ownership", () => {
     await expect(plan(w)).rejects.toThrow(/trusted managed resource/);
   });
 
-  it.each(["gcp", "azure", "oci"] as const)("fails closed for %s until its DNS target guard exists", async (provider) => {
+  it.each(["gcp", "azure", "oci"] as const)("fails closed for %s with a mismatched broker session", async (provider) => {
     const { w } = world(); drop(w, empty());
     w.product.base.environment.provider = provider;
     w.deps.tofuWorkspace = { providerSet: () => "builtin", backend: () => ({ backend: { kind: "local", path: path.join(w.planDir, "state") } }) };

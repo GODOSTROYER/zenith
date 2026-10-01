@@ -86,7 +86,7 @@ Still-open gaps at source snapshot `3c1fa66` (2026-10-01), one line per gap:
 - ⬜ Default source-build release ports for OCI, Kubernetes and managed Zenith are absent; registered drivers and the separate hosted builder do not supply them.
 - ⬜ Non-AWS runner-mode sessions other than OCI are unsupported; OCI verification checks registered runner labels, not OCI permission or reachability.
 - 🟡 OCI signal readers supply retry tokens required by the TypeScript payload schema, while the Go executor permits token-free read POSTs; live service acceptance is unverified.
-- ⬜ Non-AWS cloud DNS deletion lacks a provider target ownership guard and refuses; approval cannot override it.
+- 🟡 Normal deploy DNS delete/replace has contract-tested target ownership guards for GCP Cloud DNS, Azure DNS (including companion TXT) and OCI DNS through runner reads. Unmapped types and unreadable/foreign targets refuse; human approval remains required. Explicit non-AWS DNS teardown still refuses in `src/lib/execution/destroy.ts`; live cloud verification is unperformed ([TEARDOWN.md](platform/operations/TEARDOWN.md)).
 - ⬜ Default composition has no machine port; Azure Run Command and read-only GCP OS Inventory drivers exist, but GCP guest mutations require `zenithd` and live machine transport is unverified.
 - ⬜ Standalone REST connections administration remains absent; AWS setup uses browser actions instead.
 - 🟡 Worker Docker/Vercel deployment and Linux shutdown/load remain unverified.

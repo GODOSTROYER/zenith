@@ -1,4 +1,92 @@
 {
+  "infrastructure.plan": [
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}/records/{}/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}"
+    }
+  ],
+  "infrastructure.apply": [
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}/records/{}/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}"
+    }
+  ],
+  "deployment.deploy": [
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}/records/{}/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}"
+    }
+  ],
+  "deployment.rollback": [
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}/records/{}/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}"
+    }
+  ],
   "infrastructure.observe": [
     {
       "service": "core",

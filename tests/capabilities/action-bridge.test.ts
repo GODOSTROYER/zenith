@@ -67,7 +67,9 @@ describe("the mapping table", () => {
         "app.suspend",
         "connection.check",
         "connection.create",
+        "connection.createAws",
         "connection.disconnect",
+        "connection.verifyAws",
         "project.delete",
         "workspace.setAutonomy",
       ].sort()

@@ -1019,6 +1019,7 @@ function resumeInFlight(): void {
   // hand-back existed), or whose rollback record is gone.
   const all = db().deployments as StoredDeployment[];
   for (const origin of all) {
+    if (ownedByWorkflow(origin)) continue;
     if (origin.status !== "rolling_back") continue;
     const rollbacks = all.filter((x) => x.rollbackOf === origin.id);
     if (rollbacks.some((r) => !isTerminal(r))) continue; // still running: nothing to repair

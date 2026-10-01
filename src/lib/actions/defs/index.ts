@@ -17,6 +17,7 @@ import "./ops";
 import "./navigator";
 import "./security";
 import "./connection";
+import "./connection-aws";
 import "./workspace";
 import "./alerts-rules";
 import "./alerts-channels";

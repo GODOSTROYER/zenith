@@ -206,10 +206,9 @@ async function credentialsProbe(): Promise<{ controlKey: ProbeAnswer; oidcKey: P
   let config;
   try {
     config = loadCredentialsConfig();
-  } catch (err) {
+  } catch {
     // CredentialConfigError names the variable and the problem, never the value.
-    const message = err instanceof Error ? err.message.slice(0, 200) : "invalid";
-    const bad: ProbeAnswer = { ok: false, detail: `The credential configuration is invalid: ${message}`, fix: "Correct that variable (see src/lib/credentials/OPERATIONS.md) and restart." };
+    const bad: ProbeAnswer = { ok: false, detail: "The credential configuration is invalid.", fix: "Correct the credential variables (see src/lib/credentials/OPERATIONS.md) and restart." };
     return { controlKey: bad, oidcKey: bad, issuer: bad };
   }
   const controlKey: ProbeAnswer =
@@ -262,13 +261,24 @@ async function compute(provider: string, probes: ReadinessProbes | undefined): P
       provider,
       ready: false,
       checkedAt,
-      checks: [{ id: "provider", ok: false, detail: `"${provider}" is not a provider the execution plane knows.`, fix: `Use one of: ${REAL_PROVIDERS.join(", ")}.` }],
+      checks: [{ id: "provider", ok: false, detail: "This provider is not one the execution plane knows.", fix: `Use one of: ${REAL_PROVIDERS.join(", ")}.` }],
     };
   }
 
   const p = probes ?? defaultProbes;
-  const [store, schema, temporal, creds] = await Promise.all([p.platformStore(), p.platformSchema(), p.temporal(), p.credentials()]);
-  const driverCount = await p.drivers(provider);
+  // A probe's thrown error can contain a connection string or credential.
+  // Preserve all other checks and expose fixed text rather than that error.
+  const safe = async (name: string, probe: () => Promise<ProbeAnswer>): Promise<ProbeAnswer> => {
+    try { return await probe(); } catch { return { ok: false, detail: `${name} could not be checked.`, fix: `Restore ${name} and check again.` }; }
+  };
+  const [store, schema, temporal, creds] = await Promise.all([
+    safe("platform store", () => p.platformStore()), safe("platform schema", () => p.platformSchema()), safe("Temporal", () => p.temporal()),
+    Promise.resolve().then(() => p.credentials()).catch(() => {
+      const bad = { ok: false, detail: "Credential settings could not be checked.", fix: "Correct the credential configuration and restart." };
+      return { controlKey: bad, oidcKey: bad, issuer: bad };
+    }),
+  ]);
+  const driverCount = await Promise.resolve().then(() => p.drivers(provider)).catch(() => 0);
 
   const checks: ReadinessCheck[] = [
     ok("provider", `${provider} runs through the execution plane when it is ready.`),

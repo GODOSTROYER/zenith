@@ -1,10 +1,10 @@
 /**
- * AWS provider — Preview.
+ * AWS legacy adapter — plan/export; execution belongs to the workflow bridge.
  *
  * What "preview" honestly means here: Zenith produces a real ECS/Fargate-shaped
  * plan and generates genuinely runnable Terraform for the whole system, both
  * from your manifest alone. It never calls AWS — it cannot apply the plan, and
- * it cannot read your account either. `executeStep`, `observe` and `discover`
+ * this adapter cannot read your account either. `executeStep`, `observe` and `discover`
  * therefore refuse, loudly and with the alternative named, and the access this
  * connection asks for is nothing at all (`PREVIEW_ACCESS`).
  */
@@ -18,6 +18,7 @@ import type {
 } from "@/lib/providers/types";
 import { configured } from "@/lib/env";
 import { fargateSpec, terraformFiles, terraformReadme } from "@/lib/providers/aws/terraform";
+import { cachedReadiness, executionPlaneReadiness, fixList, missingSummary } from "@/lib/bridge/readiness";
 
 /**
  * Terraform identifiers cannot hold a dash, so the exporter rewrites them.
@@ -29,7 +30,7 @@ const tfName = (s: string) => s.replace(/[^A-Za-z0-9_]/g, "_").replace(/^(\d)/, 
 
 /** The exact message the Engine surfaces when someone tries to apply. */
 export const AWS_PREVIEW_MESSAGE =
-  "AWS execution requires credentials. Zenith Preview generates and exports the full Terraform for this system — run it with your own tooling, or connect credentials in a later release.";
+  "AWS is a Preview provider on the engine: it generates and exports Terraform but never executes AWS steps. Use connection.createAws, verify its keyless trust and restore execution-plane readiness to deploy through the workflow bridge, or run the export with your own tooling.";
 
 /**
  * What this connection can actually do — derived from the code below, not from
@@ -209,12 +210,12 @@ async function executeStep(_rt: StepRuntime): Promise<void> {
  *
  * These two methods exist, and refuse, on purpose. Omitting them would say
  * "not built yet", which is what a Planned provider says. The truth here is
- * sharper and worth stating: reading an account is built — it is deliberately
- * not wired to anything, because no credential path exists. So the refusal is
+ * sharper and worth stating: this legacy adapter has no account read path. The
+ * workflow/driver path uses a separate credential broker. So the refusal is
  * the feature, and it names the tool that answers the question today.
  */
 export const AWS_NO_READ_MESSAGE =
-  "Zenith does not read your AWS account. The AWS provider is Preview: it plans and exports Terraform, and no code path in Zenith calls AWS — so it cannot report drift or discover existing resources, and will not invent either. To see real drift today, export the bundle from Settings → Export and run `terraform plan` against it with your own credentials.";
+  "This AWS adapter does not read your AWS account. The legacy Preview provider plans and exports Terraform; its observe and discover surfaces cannot report real drift or inventory. Keyless execution uses the separate workflow/driver path. Export the bundle from Settings → Export and run `terraform plan` with your own credentials for this legacy connection.";
 
 async function observe(): Promise<never> {
   throw new Error(AWS_NO_READ_MESSAGE);
@@ -225,6 +226,21 @@ async function discover(): Promise<never> {
 }
 
 async function preflight(conn: CloudConnection): Promise<PreflightReport> {
+  if (conn.platformConnectionId) {
+    const { bridgeDeps } = await import("@/lib/bridge/deps");
+    const deps = bridgeDeps();
+    const readiness = await deps.readiness("aws");
+    let status = "unknown";
+    try { status = (await deps.platformConnection(conn.workspaceId, conn.platformConnectionId))?.status ?? "missing"; } catch { /* unknown is honest */ }
+    const verified = status === "verified";
+    return {
+      ok: readiness.ready && verified,
+      checks: [
+        ...readiness.checks.map((c) => ({ id: `aws.${c.id}`, label: c.id, status: c.ok ? "pass" as const : "fail" as const, detail: c.detail, fix: c.fix })),
+        { id: "aws.verification", label: "Recorded observe-role identity verification", status: verified ? "pass" : "fail", detail: `Platform connection is ${status}; this preflight does not call STS or verify deploy-role permissions.`, fix: verified ? "Nothing to do; deploy-role permissions remain unverified." : "Bootstrap keyless trust and run connection.verifyAws." },
+      ], permissions: conn.grantedPermissions,
+    };
+  }
   const hasCreds = configured().awsCredentials;
   const region = conn.region || "us-east-1";
 
@@ -305,9 +321,17 @@ function exportBundle(env: Environment, manifest: Manifest): ExportBundle {
 export const awsProvider: ProviderAdapter = {
   id: "aws",
   displayName: "Amazon Web Services",
-  availability: "preview",
-  tagline:
-    "Preview: Zenith plans your system as ECS/Fargate and exports real, runnable Terraform. It does not apply changes to your account yet.",
+  get availability() { return cachedReadiness("aws")?.ready ? "available" : "preview"; },
+  get tagline() {
+    const readiness = cachedReadiness("aws");
+    return readiness?.ready
+      ? "Linked, verified AWS connections deploy through workflows with keyless short-lived credentials. Readiness does not verify live account access or worker polling."
+      : `Preview: plan and Terraform export are available. Workflow execution is missing ${missingSummary(readiness)}.`;
+  },
+  async probe() {
+    const readiness = await executionPlaneReadiness("aws");
+    return { reachable: readiness.ready, detail: readiness.ready ? "Execution prerequisites are ready; live account access and worker polling remain unverified." : `Missing: ${missingSummary(readiness)}.`, fix: readiness.ready ? undefined : fixList(readiness).join(" ") };
+  },
   regions: [
     { id: "us-east-1", label: "US East (N. Virginia)" },
     { id: "us-west-2", label: "US West (Oregon)" },

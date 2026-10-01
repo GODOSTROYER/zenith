@@ -58,16 +58,18 @@ defineAction<CreateConn>({
     const adapter = await adapterFor(input.provider);
     const access = adapter.accessExplanation();
     const region = resolveRegion(adapter, input.region);
+    const availability = input.provider === "aws" ? "preview" : adapter.availability;
     const planned = adapter.availability === "planned";
     return {
       summary: planned
         ? `${adapter.displayName} cannot be connected yet.`
         : `Connect ${adapter.displayName} in ${region}.`,
       details: [
-        `${adapter.displayName} is ${adapter.availability}: ${adapter.tagline}`,
+        ...(input.provider === "aws" ? ["This creates a legacy Preview connection for plan/export. Use connection.createAws for keyless platform execution."] : []),
+        `${adapter.displayName} is ${availability}: ${input.provider === "aws" ? "This legacy connection plans and exports Terraform only." : adapter.tagline}`,
         access.summary,
         ...access.permissions.map((p) => `Grants: ${p}`),
-        adapter.availability === "preview"
+        availability === "preview"
           ? "Preview means Zenith plans and exports for this provider, but does not apply changes to it."
           : "",
       ].filter(Boolean),
@@ -124,7 +126,7 @@ defineAction<CreateConn>({
     return {
       ok: true,
       summary:
-        `Connected ${conn.label} (${adapter.availability}). ${passed} of ${report.checks.length} preflight check(s) passed` +
+        `Connected ${conn.label} (${input.provider === "aws" ? "preview" : adapter.availability}). ${passed} of ${report.checks.length} preflight check(s) passed` +
         (warned ? `, ${warned} with a caveat.` : "."),
       data: { connectionId: conn.id, status: conn.status, checks: report.checks, permissions: report.permissions },
     };

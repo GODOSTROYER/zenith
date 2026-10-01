@@ -26,6 +26,7 @@ import { dig, isRecord, type KubernetesToolkit } from "../../k8s-port";
 import { HTTPROUTE_API_VERSION, rewriteRoutes, routeObjectName } from "../../routing";
 import { assertSessionMatches, type ZenithSession } from "../../session";
 import { tenantNamespace } from "../../tenancy";
+import { isEnvironmentGatewayParent } from "../../tls";
 import { wrapKubernetesDriver } from "../kubernetes/wrap";
 import { contractEvidence, known, observation, presenceFromError, runtimeState, unknownValue, verifyAgainst } from "../common";
 
@@ -91,10 +92,9 @@ export function createHttpRouteDriver(toolkit: KubernetesToolkit, baseIngress?: 
         if (hosts.length === 0) return observation({ ctx, node, source: id, presence: "unknown", error: "The load balancer declares no routes." });
         if (found.length === 0) return observation({ ctx, node, source: id, presence: "missing", native: { expectedHosts: hosts.slice(0, 20) } });
         const now = ctx.now();
-        const gw = ctx.session.substrate.gateway;
         const attached = found.every(({ route }) => {
           const parents = dig(route, "spec", "parentRefs");
-          return Array.isArray(parents) && parents.length > 0 && parents.every((p) => isRecord(p) && p.name === gw.name && p.namespace === gw.namespace);
+          return Array.isArray(parents) && parents.length === 1 && isEnvironmentGatewayParent(parents[0], ctx.session.tenant, ctx.session.substrate);
         });
         const accepted = found.map(({ route }) => acceptance(route));
         const acceptedAttr: ObservedValue =

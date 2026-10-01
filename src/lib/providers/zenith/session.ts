@@ -12,8 +12,9 @@
  * own: it holds the (opaque, expiring) Kubernetes session, the tenant, the
  * non-secret substrate and the managed-database port.
  *
- * Every session is pinned to ONE tenant, and its Kubernetes connection allows
- * exactly that tenant's namespace (`substrateConnectionConfig`). Drivers call
+ * Every session is pinned to ONE tenant. The workload connection allows exactly
+ * that tenant's namespace; a separate TLS operator connection allows only the
+ * gateway namespace. It is never handed to workload drivers. Drivers call
  * `assertSessionMatches` so a session opened for one environment can never be
  * used to observe or operate another.
  *
@@ -35,6 +36,8 @@ export interface ZenithSession {
   readonly substrate: ZenithSubstrate;
   /** scoped to the tenant namespace; expires */
   readonly kubernetes: KubernetesSession;
+  /** Separate operator scope for platform TLS; absent in ingress mode or older injected sessions. */
+  readonly gatewayKubernetes?: KubernetesSession;
   readonly databases: ManagedDatabaseProvider;
   readonly expiresAt: string;
   toJSON(): Record<string, unknown>;
@@ -52,14 +55,20 @@ export async function openZenithSession(tenantInput: ZenithTenant, deps: ZenithS
   const tenant = assertTenant(tenantInput);
   const config = substrateConnectionConfig(deps.substrate, tenantNamespace(tenant.workspaceId, tenant.environmentId));
   const kubernetes = await deps.createKubernetesSession(config, signal);
+  const gatewayKubernetes = deps.substrate.gateway.mode === "gateway_api"
+    ? await deps.createKubernetesSession(substrateConnectionConfig(deps.substrate, deps.substrate.gateway.namespace), signal)
+    : undefined;
+  const expiresAt = gatewayKubernetes && Date.parse(gatewayKubernetes.expiresAt) < Date.parse(kubernetes.expiresAt)
+    ? gatewayKubernetes.expiresAt : kubernetes.expiresAt;
   return {
     provider: "zenith",
     tenant: { ...tenant },
     substrate: deps.substrate,
     kubernetes,
+    ...(gatewayKubernetes ? { gatewayKubernetes } : {}),
     databases: deps.databases,
-    expiresAt: kubernetes.expiresAt,
-    toJSON: () => ({ provider: "zenith", workspaceId: tenant.workspaceId, environmentId: tenant.environmentId, expiresAt: kubernetes.expiresAt }),
+    expiresAt,
+    toJSON: () => ({ provider: "zenith", workspaceId: tenant.workspaceId, environmentId: tenant.environmentId, expiresAt }),
   };
 }
 

@@ -5,6 +5,7 @@ import { createNeonProvider } from "@/lib/providers/zenith/neon";
 import { assertSessionMatches, openZenithSession } from "@/lib/providers/zenith/session";
 import { tenantNamespace } from "@/lib/providers/zenith/tenancy";
 import { ZenithError } from "@/lib/providers/zenith/types";
+import { FakeTlsClient } from "./tls-support";
 import { DB, DB_PASSWORD, FakeNeon, FakeToolkit, K8S_SESSION, MemorySink, NEON_KEY, NS, SECRET, TENANT, TYPICAL_GRAPH, WEB, resolver, session, substrate } from "./support";
 
 const KEY_REF = "vault:zenith-managed/neon-api-key";
@@ -13,12 +14,14 @@ const DB_REF = managedDatabaseConnectionRef(TENANT.environmentId, "postgres/db")
 let neon: FakeNeon;
 let sink: MemorySink;
 let toolkit: FakeToolkit;
+let tlsClient: FakeTlsClient;
 
 beforeEach(async () => {
   neon = new FakeNeon();
   await neon.start();
   sink = new MemorySink();
   toolkit = new FakeToolkit();
+  tlsClient = new FakeTlsClient();
 });
 afterEach(async () => {
   await neon.stop();
@@ -35,7 +38,7 @@ const expectTenant = { workspaceId: TENANT.workspaceId, environmentId: TENANT.en
 describe("applyZenithEnvironment", () => {
   it("ensures the database, then applies the baseline, then the workloads, each as its own apply", async () => {
     const s = session(neonProvider());
-    const report = await applyZenithEnvironment({ session: s, expect: expectTenant, toolkit, nodes: TYPICAL_GRAPH, resolveSecret: vault });
+    const report = await applyZenithEnvironment({ session: s, expect: expectTenant, toolkit, tlsClient, nodes: TYPICAL_GRAPH, resolveSecret: vault });
     expect(report.ok).toBe(true);
     expect(report.blockedBy).toBeUndefined();
     expect(report.databases.map((d) => d.status)).toEqual(["created"]);
@@ -50,7 +53,7 @@ describe("applyZenithEnvironment", () => {
 
   it("stores the connection secret before the workloads need it, so their Secret objects resolve", async () => {
     const s = session(neonProvider());
-    const report = await applyZenithEnvironment({ session: s, expect: expectTenant, toolkit, nodes: [...TYPICAL_GRAPH], resolveSecret: vault });
+    const report = await applyZenithEnvironment({ session: s, expect: expectTenant, toolkit, tlsClient, nodes: [...TYPICAL_GRAPH], resolveSecret: vault });
     expect(report.ok).toBe(true);
     expect(sink.values.get(DB_REF)).toMatch(/^postgresql:/);
     expect(toolkit.applyCalls[1].objects.some((o) => o.kind === "Secret")).toBe(true);
@@ -58,15 +61,15 @@ describe("applyZenithEnvironment", () => {
 
   it("converges: applying twice creates the database once", async () => {
     const s = session(neonProvider());
-    await applyZenithEnvironment({ session: s, expect: expectTenant, toolkit, nodes: TYPICAL_GRAPH, resolveSecret: vault });
-    const second = await applyZenithEnvironment({ session: s, expect: expectTenant, toolkit, nodes: TYPICAL_GRAPH, resolveSecret: vault });
+    await applyZenithEnvironment({ session: s, expect: expectTenant, toolkit, tlsClient, nodes: TYPICAL_GRAPH, resolveSecret: vault });
+    const second = await applyZenithEnvironment({ session: s, expect: expectTenant, toolkit, tlsClient, nodes: TYPICAL_GRAPH, resolveSecret: vault });
     expect(second.databases.map((d) => d.status)).toEqual(["exists"]);
     expect(neon.requests.filter((q) => q.method === "POST")).toHaveLength(1);
   });
 
   it("applies nothing at all when the database provider is unavailable", async () => {
     const s = session(unavailableDatabaseProvider("no provider configured"));
-    const report = await applyZenithEnvironment({ session: s, expect: expectTenant, toolkit, nodes: TYPICAL_GRAPH, resolveSecret: vault });
+    const report = await applyZenithEnvironment({ session: s, expect: expectTenant, toolkit, tlsClient, nodes: TYPICAL_GRAPH, resolveSecret: vault });
     expect(report.ok).toBe(false);
     expect(report.blockedBy).toBe("database");
     expect(report.databases[0].error?.code).toBe("unavailable");
@@ -75,14 +78,14 @@ describe("applyZenithEnvironment", () => {
 
   it("applies nothing when creating the database fails", async () => {
     neon.failures.push({ match: "GET /projects", status: 500, times: 1 });
-    const report = await applyZenithEnvironment({ session: session(neonProvider()), expect: expectTenant, toolkit, nodes: TYPICAL_GRAPH, resolveSecret: vault });
+    const report = await applyZenithEnvironment({ session: session(neonProvider()), expect: expectTenant, toolkit, tlsClient, nodes: TYPICAL_GRAPH, resolveSecret: vault });
     expect(report.blockedBy).toBe("database");
     expect(toolkit.applyCalls).toHaveLength(0);
   });
 
   it("does not apply workloads when the baseline did not apply, and says so", async () => {
     toolkit.failApplyAt = 0;
-    const report = await applyZenithEnvironment({ session: session(neonProvider()), expect: expectTenant, toolkit, nodes: TYPICAL_GRAPH, resolveSecret: vault });
+    const report = await applyZenithEnvironment({ session: session(neonProvider()), expect: expectTenant, toolkit, tlsClient, nodes: TYPICAL_GRAPH, resolveSecret: vault });
     expect(report.ok).toBe(false);
     expect(report.blockedBy).toBe("baseline");
     expect(report.baseline?.refused).toBe(true);
@@ -92,7 +95,7 @@ describe("applyZenithEnvironment", () => {
 
   it("reports a workload ownership conflict as blocked by workloads, with the baseline already in place", async () => {
     toolkit.failApplyAt = 1;
-    const report = await applyZenithEnvironment({ session: session(neonProvider()), expect: expectTenant, toolkit, nodes: TYPICAL_GRAPH, resolveSecret: vault });
+    const report = await applyZenithEnvironment({ session: session(neonProvider()), expect: expectTenant, toolkit, tlsClient, nodes: TYPICAL_GRAPH, resolveSecret: vault });
     expect(report.blockedBy).toBe("workloads");
     expect(report.baseline?.ok).toBe(true);
     expect(report.workloads?.results[0].status).toBe("ownership_conflict");
@@ -100,7 +103,7 @@ describe("applyZenithEnvironment", () => {
 
   it("surfaces the apply layer's refusal of a kind it does not know (the documented dependency on the Kubernetes provider)", async () => {
     toolkit.refuseKinds = new Set(["ResourceQuota", "LimitRange", "HTTPRoute"]);
-    const report = await applyZenithEnvironment({ session: session(neonProvider()), expect: expectTenant, toolkit, nodes: [WEB], resolveSecret: vault });
+    const report = await applyZenithEnvironment({ session: session(neonProvider()), expect: expectTenant, toolkit, tlsClient, nodes: [WEB], resolveSecret: vault });
     expect(report.ok).toBe(false);
     expect(report.blockedBy).toBe("baseline");
     expect(JSON.stringify(report.baseline)).toMatch(/does not apply/);
@@ -108,15 +111,15 @@ describe("applyZenithEnvironment", () => {
 
   it("refuses to act for a different tenant than the session was opened for", async () => {
     const s = session(neonProvider());
-    await expect(applyZenithEnvironment({ session: s, expect: { workspaceId: "ws_other", environmentId: TENANT.environmentId }, toolkit, nodes: TYPICAL_GRAPH, resolveSecret: vault })).rejects.toMatchObject({ code: "tenant_mismatch" });
-    await expect(applyZenithEnvironment({ session: s, expect: { workspaceId: TENANT.workspaceId, environmentId: "env_other" }, toolkit, nodes: TYPICAL_GRAPH, resolveSecret: vault })).rejects.toMatchObject({ code: "tenant_mismatch" });
+    await expect(applyZenithEnvironment({ session: s, expect: { workspaceId: "ws_other", environmentId: TENANT.environmentId }, toolkit, tlsClient, nodes: TYPICAL_GRAPH, resolveSecret: vault })).rejects.toMatchObject({ code: "tenant_mismatch" });
+    await expect(applyZenithEnvironment({ session: s, expect: { workspaceId: TENANT.workspaceId, environmentId: "env_other" }, toolkit, tlsClient, nodes: TYPICAL_GRAPH, resolveSecret: vault })).rejects.toMatchObject({ code: "tenant_mismatch" });
     expect(toolkit.applyCalls).toHaveLength(0);
     expect(neon.requests).toHaveLength(0);
   });
 
   it("rejects a render error before touching the database or the cluster", async () => {
     const redis = { ...DB, address: "redis/cache", kind: "redis" as const, nativeType: "k8s:StatefulSet" };
-    await expect(applyZenithEnvironment({ session: session(neonProvider()), expect: expectTenant, toolkit, nodes: [WEB, redis], resolveSecret: vault })).rejects.toBeInstanceOf(ZenithError);
+    await expect(applyZenithEnvironment({ session: session(neonProvider()), expect: expectTenant, toolkit, tlsClient, nodes: [WEB, redis], resolveSecret: vault })).rejects.toBeInstanceOf(ZenithError);
     expect(toolkit.applyCalls).toHaveLength(0);
     expect(neon.requests).toHaveLength(0);
   });
@@ -124,7 +127,7 @@ describe("applyZenithEnvironment", () => {
   it("honors a cancelled signal on the database call and applies nothing", async () => {
     const ac = new AbortController();
     ac.abort();
-    const report = await applyZenithEnvironment({ session: session(neonProvider()), expect: expectTenant, toolkit, nodes: TYPICAL_GRAPH, resolveSecret: vault, signal: ac.signal });
+    const report = await applyZenithEnvironment({ session: session(neonProvider()), expect: expectTenant, toolkit, tlsClient, nodes: TYPICAL_GRAPH, resolveSecret: vault, signal: ac.signal });
     expect(report.ok).toBe(false);
     expect(report.blockedBy).toBe("database");
     expect(toolkit.applyCalls).toHaveLength(0);
@@ -133,7 +136,7 @@ describe("applyZenithEnvironment", () => {
 
 describe("applyZenithEnvironment: dry run", () => {
   it("creates and calls no database, and runs both phases as dry runs", async () => {
-    const report = await applyZenithEnvironment({ session: session(neonProvider()), expect: expectTenant, toolkit, nodes: TYPICAL_GRAPH, resolveSecret: vault, dryRun: true });
+    const report = await applyZenithEnvironment({ session: session(neonProvider()), expect: expectTenant, toolkit, tlsClient, nodes: TYPICAL_GRAPH, resolveSecret: vault, dryRun: true });
     expect(report.ok).toBe(true);
     expect(report.dryRun).toBe(true);
     expect(report.databases.map((d) => d.status)).toEqual(["planned"]);
@@ -148,6 +151,7 @@ describe("applyZenithEnvironment: dry run", () => {
       session: session(neonProvider()),
       expect: expectTenant,
       toolkit,
+      tlsClient,
       nodes: [SECRET, DB],
       resolveSecret: async (ref) => (seen.push(ref), undefined),
       dryRun: true,
@@ -160,7 +164,7 @@ describe("applyZenithEnvironment: dry run", () => {
 
   it("does NOT paper over a missing secret that is not the managed database's", async () => {
     const other = { ...SECRET, address: "secret/other", spec: { ...SECRET.spec, secretRef: "vault:p/s/OTHER" } };
-    const report = await applyZenithEnvironment({ session: session(neonProvider()), expect: expectTenant, toolkit, nodes: [other], resolveSecret: async () => undefined, dryRun: true });
+    const report = await applyZenithEnvironment({ session: session(neonProvider()), expect: expectTenant, toolkit, tlsClient, nodes: [other], resolveSecret: async () => undefined, dryRun: true });
     expect(report.ok).toBe(false);
     expect(report.blockedBy).toBe("workloads");
     expect(JSON.stringify(report.workloads)).toMatch(/could not be resolved/);
@@ -170,7 +174,7 @@ describe("applyZenithEnvironment: dry run", () => {
 describe("no secret in any report", () => {
   it("keeps connection details, keys and placeholders out of everything it returns", async () => {
     const logs: string[] = [];
-    const report = await applyZenithEnvironment({ session: session(neonProvider()), expect: expectTenant, toolkit, nodes: TYPICAL_GRAPH, resolveSecret: vault, log: (l) => logs.push(l) });
+    const report = await applyZenithEnvironment({ session: session(neonProvider()), expect: expectTenant, toolkit, tlsClient, nodes: TYPICAL_GRAPH, resolveSecret: vault, log: (l) => logs.push(l) });
     const text = JSON.stringify(report) + logs.join("\n");
     for (const canary of [DB_PASSWORD, NEON_KEY, "postgresql://", "neon.tech", "app_owner"]) expect(text, canary).not.toContain(canary);
     // the Secret OBJECTS handed to the apply layer carry only the reference
@@ -190,8 +194,9 @@ describe("sessions", () => {
         databases: neonProvider(),
       }
     );
-    expect(configs).toHaveLength(1);
+    expect(configs).toHaveLength(2);
     expect(configs[0]).toMatchObject({ provider: "kubernetes", mode: "kubeconfig_ref", credentialRef: "vault:zenith-managed/kubeconfig", namespaces: [tenantNamespace(TENANT.workspaceId, TENANT.environmentId)] });
+    expect(configs[1]).toMatchObject({ provider: "kubernetes", mode: "kubeconfig_ref", namespaces: ["zenith-gateway"] });
     expect(s.tenant).toEqual(TENANT);
     expect(JSON.stringify(s)).not.toMatch(/kubeconfig|token|vault:/i);
     expect(s.expiresAt).toBe(K8S_SESSION.expiresAt);
@@ -205,6 +210,29 @@ describe("sessions", () => {
     expect(opened).toBe(0);
   });
 
+  it("expires with the earlier operator session and keeps both credentials out of serialization", async () => {
+    let opened = 0;
+    const operator = { ...K8S_SESSION, expiresAt: "2027-01-01T00:00:00.000Z" };
+    const s = await openZenithSession(TENANT, {
+      substrate: substrate(), databases: neonProvider(),
+      createKubernetesSession: async () => (++opened === 1 ? K8S_SESSION : operator),
+    });
+    expect(s.expiresAt).toBe(operator.expiresAt);
+    expect(s.kubernetes).toBe(K8S_SESSION);
+    expect(s.gatewayKubernetes).toBe(operator);
+    expect(JSON.stringify(s)).not.toMatch(/vault:|kubeconfig|gatewayKubernetes/);
+  });
+
+  it("opens only the tenant scope in ingress mode", async () => {
+    const configs: unknown[] = [];
+    const s = await openZenithSession(TENANT, {
+      substrate: { ...substrate(), gateway: { ...substrate().gateway, mode: "ingress", ingressClass: "nginx" } },
+      databases: neonProvider(), createKubernetesSession: async (config) => (configs.push(config), K8S_SESSION),
+    });
+    expect(configs).toHaveLength(1);
+    expect(s.gatewayKubernetes).toBeUndefined();
+  });
+
   it("assertSessionMatches refuses another workspace or environment", () => {
     const s = session(neonProvider());
     expect(() => assertSessionMatches(s, { workspaceId: TENANT.workspaceId, environmentId: TENANT.environmentId })).not.toThrow();
@@ -213,7 +241,7 @@ describe("sessions", () => {
   });
 
   it("the namespace the session allows is the namespace the pipeline renders into", async () => {
-    const report = await applyZenithEnvironment({ session: session(neonProvider()), expect: expectTenant, toolkit, nodes: [WEB], resolveSecret: vault });
+    const report = await applyZenithEnvironment({ session: session(neonProvider()), expect: expectTenant, toolkit, tlsClient, nodes: [WEB], resolveSecret: vault });
     expect(report.namespace).toBe(NS);
   });
 });

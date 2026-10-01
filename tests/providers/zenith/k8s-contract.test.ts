@@ -13,6 +13,7 @@ import { unavailableDatabaseProvider } from "@/lib/providers/zenith/database";
 import { OWNERSHIP, ZENITH_EXTRA_KINDS, type KubernetesToolkit } from "@/lib/providers/zenith/k8s-port";
 import { renderZenithEnvironment } from "@/lib/providers/zenith/render";
 import type { ZenithSession } from "@/lib/providers/zenith/session";
+import { FakeTlsClient } from "./tls-support";
 import { startFakeK8s, type FakeK8s } from "../kubernetes/fake-api";
 import { SECRET_CANARY, sessionFor } from "../kubernetes/helpers";
 import { DNS, FW_LB_TO_WEB, FW_PUBLIC, FW_WEB_TO_WORKER, LB, NET, NS, SECRET, TENANT, TLS, WEB, WORKER, session, substrate } from "./support";
@@ -64,9 +65,11 @@ describe("the managed provider's Kubernetes vocabulary", () => {
 describe("managed hosting through the Kubernetes HTTP contract API", () => {
   let fake: FakeK8s;
   let managed: ZenithSession;
+  let tlsClient: FakeTlsClient;
 
   beforeEach(async () => {
     fake = await startFakeK8s();
+    tlsClient = new FakeTlsClient();
     const kubernetes = await sessionFor(fake, [NS]);
     managed = session(unavailableDatabaseProvider("No database nodes in this contract test."), { kubernetes, expiresAt: kubernetes.expiresAt });
   });
@@ -77,6 +80,7 @@ describe("managed hosting through the Kubernetes HTTP contract API", () => {
     expect: TENANT,
     nodes,
     toolkit,
+    tlsClient,
     resolveSecret: async () => SECRET_CANARY,
     ...over,
   });

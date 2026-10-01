@@ -4,6 +4,7 @@ import { ZENITH_EXTRA_KINDS } from "@/lib/providers/zenith/k8s-port";
 import { PLAN_LIMITS } from "@/lib/providers/zenith/plans";
 import { assessZenithGraph, hostMappingsOf, renderZenithEnvironment, zenithNodeView } from "@/lib/providers/zenith/render";
 import { routeObjectName } from "@/lib/providers/zenith/routing";
+import { environmentGatewayParent } from "@/lib/providers/zenith/tls";
 import { TENANCY_OBJECTS, ZenithError } from "@/lib/providers/zenith/types";
 import {
   DB,
@@ -186,7 +187,7 @@ describe("renderZenithEnvironment: hostnames and routes", () => {
     expect(route.apiVersion).toBe("gateway.networking.k8s.io/v1");
     expect(route.metadata.name).toBe(routeObjectName("web.production.acme.apps.example.com"));
     expect(route.spec).toMatchObject({
-      parentRefs: [{ group: "gateway.networking.k8s.io", kind: "Gateway", name: "zenith-gateway", namespace: "zenith-gateway" }],
+      parentRefs: [environmentGatewayParent(TENANT, sub)],
       hostnames: ["web.production.acme.apps.example.com"],
       rules: [{ matches: [{ path: { type: "PathPrefix", value: "/" } }], backendRefs: [{ name: "web", port: 8080 }] }],
     });

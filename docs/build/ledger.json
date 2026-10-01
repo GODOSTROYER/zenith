@@ -1078,6 +1078,18 @@
       "deps": [],
       "paths": [],
       "branch": "ws/integrate-w6"
+    },
+    {
+      "id": "WS-TRUST-WIRE",
+      "title": "Cloud-side workload identity trust (IRSA/GKE WI/AKS federated) + non-AWS connection verification",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-K8S-IDENTITY"
+      ],
+      "paths": [],
+      "branch": "ws/trust-wire"
     }
   ],
   "blockers": [

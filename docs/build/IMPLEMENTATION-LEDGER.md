@@ -76,6 +76,7 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-ZM-TLS | Managed hosting TLS: per-environment certificates and Gateway listeners | 6 | integrated |  | ws/zm-tls |  | zenith+kubernetes+platform 769 passed | orchestrator: merged; teardownZenithTls to be called by the destroy path (WS-DESTROY) |  |
 | WS-OCI-MORE | OCI OKE, MySQL DB system and compute instance drivers | 6 | staged | WS-DRIVER-FIX | ws/oci-more |  |  | orchestrator: committed and merged into ws/integrate-w6 staging; integration fixes in WS-INTEGRATE-W6 |  |
 | WS-INTEGRATE-W6 | Wave-6 staging green: V2 consumers, seams (plan digest, secret.write grants, AWS perms, OCI golden) | 6 | in_progress |  | ws/integrate-w6 |  |  |  |  |
+| WS-TRUST-WIRE | Cloud-side workload identity trust (IRSA/GKE WI/AKS federated) + non-AWS connection verification | 6 | in_progress | WS-K8S-IDENTITY | ws/trust-wire |  |  |  |  |
 
 ## External blockers
 

@@ -37,8 +37,9 @@ describe("current security documentation", () => {
 
   it("keeps live gates and runtime limits distinct from source fixes and historical counts", () => {
     expect(current).toContain("This sync did not run the security suites");
-    expect(current).toContain("SEC-F9 remains a runtime finding");
-    expect(source("tests/security/runtime-sanity.test.ts")).toContain('it.fails("SEC-F9');
+    expect(current).toContain("SEC-F9 is closed by a runtime pin");
+    expect(source("tests/security/runtime-sanity.test.ts")).toContain('it("SEC-F9');
+    expect(source("tests/security/runtime-sanity.test.ts")).not.toContain('it.fails("SEC-F9');
     const archived = source("docs/platform/THREAT-MODEL.md").split("## Archived WS-SEC audit")[1];
     expect(archived).toContain("verification count below is historical");
     expect(current).toContain("no payload codec encrypts Temporal history");

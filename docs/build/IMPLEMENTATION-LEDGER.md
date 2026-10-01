@@ -63,6 +63,17 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-MANIFEST-V2 | Product store accepts Manifest V2 (placement, release, provider tuning) | 5 | in_progress |  | ws/manifest-v2 |  |  |  |  |
 | WS-DRIVER-FIX | Driver declaration mismatches; EventBridge/CloudFront reads | 5 | in_progress |  | ws/driver-fix |  |  |  |  |
 | WS-DOCS-SYNC | Operator docs and drift tests match what is wired | 5 | in_progress |  | ws/docs-sync |  |  |  |  |
+| WS-DESTROY | Environment teardown: tofu destroy, destroy workflow, stateful guards, harness run tags | 6 | in_progress |  | ws/destroy |  |  |  |  |
+| WS-SECRET-SYNC | Secret values delivered to cloud secret stores under brokered secret.write; vault:generated | 6 | in_progress |  | ws/secret-sync |  |  |  |  |
+| WS-OBS-WIRE | Credential broker + incident investigator registered in the app; observability for all providers | 6 | in_progress |  | ws/obs-wire |  |  |  |  |
+| WS-OPS | Housekeeping passes (prunes, expiry, uncertain, plan janitor); worker health | 6 | in_progress |  | ws/ops |  |  |  |  |
+| WS-CI-2 | CI covers every suite and gate; Node engines pin (SEC-F9) | 6 | in_progress |  | ws/ci-2 |  |  |  |  |
+| WS-AZURE-MORE | Azure VM, managed disk, MySQL, Static Web Apps, Functions, AKS drivers | 6 | in_progress |  | ws/azure-more |  |  |  |  |
+| WS-AWS-MORE | AWS SNS topic, EBS volume, EKS cluster drivers | 6 | in_progress |  | ws/aws-more |  |  |  |  |
+| WS-K8S-IDENTITY | Kubernetes grants to RBAC and cloud workload identity | 6 | in_progress |  | ws/k8s-identity |  |  |  |  |
+| WS-MACH-CLOUDS | Azure Run Command and GCP OS management machine transports | 6 | in_progress |  | ws/mach-clouds |  |  |  |  |
+| WS-BUILD-MULTI | GCP Cloud Build and Azure ACR release ports (digest-pinned rollout) | 6 | in_progress |  | ws/build-multi |  |  |  |  |
+| WS-ZM-TLS | Managed hosting TLS: per-environment certificates and Gateway listeners | 6 | in_progress |  | ws/zm-tls |  |  |  |  |
 
 ## External blockers
 

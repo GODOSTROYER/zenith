@@ -922,6 +922,116 @@
       "deps": [],
       "paths": [],
       "branch": "ws/docs-sync"
+    },
+    {
+      "id": "WS-DESTROY",
+      "title": "Environment teardown: tofu destroy, destroy workflow, stateful guards, harness run tags",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/destroy"
+    },
+    {
+      "id": "WS-SECRET-SYNC",
+      "title": "Secret values delivered to cloud secret stores under brokered secret.write; vault:generated",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/secret-sync"
+    },
+    {
+      "id": "WS-OBS-WIRE",
+      "title": "Credential broker + incident investigator registered in the app; observability for all providers",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/obs-wire"
+    },
+    {
+      "id": "WS-OPS",
+      "title": "Housekeeping passes (prunes, expiry, uncertain, plan janitor); worker health",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/ops"
+    },
+    {
+      "id": "WS-CI-2",
+      "title": "CI covers every suite and gate; Node engines pin (SEC-F9)",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/ci-2"
+    },
+    {
+      "id": "WS-AZURE-MORE",
+      "title": "Azure VM, managed disk, MySQL, Static Web Apps, Functions, AKS drivers",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/azure-more"
+    },
+    {
+      "id": "WS-AWS-MORE",
+      "title": "AWS SNS topic, EBS volume, EKS cluster drivers",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/aws-more"
+    },
+    {
+      "id": "WS-K8S-IDENTITY",
+      "title": "Kubernetes grants to RBAC and cloud workload identity",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/k8s-identity"
+    },
+    {
+      "id": "WS-MACH-CLOUDS",
+      "title": "Azure Run Command and GCP OS management machine transports",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/mach-clouds"
+    },
+    {
+      "id": "WS-BUILD-MULTI",
+      "title": "GCP Cloud Build and Azure ACR release ports (digest-pinned rollout)",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/build-multi"
+    },
+    {
+      "id": "WS-ZM-TLS",
+      "title": "Managed hosting TLS: per-environment certificates and Gateway listeners",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/zm-tls"
     }
   ],
   "blockers": [

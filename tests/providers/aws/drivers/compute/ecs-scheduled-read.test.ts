@@ -1,9 +1,10 @@
 /**
  * `aws:ecs_scheduled_task` read side: the task definition through ECS, the
- * EventBridge rule / cluster through the tagging API (no EventBridge client is
- * installed, so the schedule itself is never claimed to match).
+ * EventBridge rule and RunTask target through mocked SDK clients. No live AWS
+ * acceptance is claimed.
  */
 import { DescribeTaskDefinitionCommand, DescribeTasksCommand, ECSClient, ListTasksCommand } from "@aws-sdk/client-ecs";
+import { DescribeRuleCommand, EventBridgeClient, ListTargetsByRuleCommand, type Target } from "@aws-sdk/client-eventbridge";
 import { GetResourcesCommand, ResourceGroupsTaggingAPIClient } from "@aws-sdk/client-resource-groups-tagging-api";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
@@ -12,13 +13,16 @@ import { buildFixture, mkDriverContext, zenithTagList } from "./fixtures";
 import { ACCOUNT, stoppedTask, taskDefinition } from "./ecs-mocks";
 
 const ecs = mockClient(ECSClient);
+const events = mockClient(EventBridgeClient);
 const tagging = mockClient(ResourceGroupsTaggingAPIClient);
 afterAll(() => {
   ecs.restore();
+  events.restore();
   tagging.restore();
 });
 beforeEach(() => {
   ecs.reset();
+  events.reset();
   tagging.reset();
 });
 
@@ -28,8 +32,13 @@ const RULE_ARN = `arn:aws:events:eu-west-1:${ACCOUNT}:rule/zn-acme-nightly`;
 const CLUSTER_ARN = `arn:aws:ecs:eu-west-1:${ACCOUNT}:cluster/zn-acme-nightly`;
 const td = (rev: number) => `arn:aws:ecs:eu-west-1:${ACCOUNT}:task-definition/zn-acme-nightly:${rev}`;
 const tags = () => zenithTagList("scheduled_job/nightly");
+const SCHEDULE = "cron(0 2 ? * 2-6 *)";
+const ROLE_ARN = `arn:aws:iam::${ACCOUNT}:role/zn-acme-nightly-events`;
+const runTarget = (over: Partial<Target> = {}): Target => ({ Id: "run-task", Arn: CLUSTER_ARN, RoleArn: ROLE_ARN, EcsParameters: { TaskDefinitionArn: td(12), TaskCount: 1, LaunchType: "FARGATE" }, ...over });
 
 function installFound(over: { rule?: boolean; revisions?: number[]; cluster?: boolean } = {}) {
+  events.on(DescribeRuleCommand).resolves({ Arn: RULE_ARN, Name: "zn-acme-nightly", ScheduleExpression: SCHEDULE, State: "ENABLED" });
+  events.on(ListTargetsByRuleCommand).resolves({ Targets: [runTarget()] });
   tagging.on(GetResourcesCommand).callsFake((input: { ResourceTypeFilters?: string[] }) => {
     const type = input.ResourceTypeFilters?.[0];
     const arns =
@@ -52,7 +61,14 @@ describe("observe", () => {
     installFound();
     const obs = await driver.observe!(mkDriverContext(), node);
     expect(obs).toMatchObject({ presence: "present", externalId: RULE_ARN, source: "aws.ecs_scheduled_task@1", simulated: false });
-    expect(Object.fromEntries(Object.entries(obs.attributes).map(([k, v]) => [k, (v as { value: unknown }).value]))).toEqual({ cpu: 256, memoryMb: 512, image: "ghcr.io/acme/job:1.4.2" });
+    expect(Object.fromEntries(Object.entries(obs.attributes).map(([k, v]) => [k, (v as { value: unknown }).value]))).toEqual({
+      cpu: 256, memoryMb: 512, image: "ghcr.io/acme/job:1.4.2", scheduleExpression: SCHEDULE, ruleState: "ENABLED",
+      targetPresent: true, targetClusterMatches: true, targetTaskDefinitionMatches: true, targetRolePresent: true, targetLaunchType: "FARGATE", targetTaskCount: 1,
+    });
+    expect(events.commandCalls(DescribeRuleCommand)[0].args[0].input).toEqual({ Name: "zn-acme-nightly" });
+    expect(events.commandCalls(ListTargetsByRuleCommand)[0].args[0].input).toEqual({ Rule: "zn-acme-nightly", Limit: 100 });
+    expect((events.commandCalls(DescribeRuleCommand)[0].args as unknown[])[1]).toMatchObject({ abortSignal: expect.any(AbortSignal) });
+    expect(obs.native?.target).toEqual({ id: "run-task", clusterArn: CLUSTER_ARN, taskDefinitionArn: td(12), roleArn: ROLE_ARN, launchType: "FARGATE", taskCount: 1 });
     expect(ecs.commandCalls(DescribeTaskDefinitionCommand)[0].args[0].input.taskDefinition).toBe(td(12));
     expect(obs.native).toMatchObject({ ruleArn: RULE_ARN, taskDefinitionArn: td(12), clusterArn: CLUSTER_ARN, clusterName: "zn-acme-nightly", logGroupName: "/zenith/nightly", tags: expect.objectContaining({ "zenith:managed": "true" }) });
     expect(Object.keys(obs.attributes).sort()).toEqual(Object.keys(driver.expectedAttributes!(node)).sort());
@@ -91,7 +107,8 @@ describe("observe", () => {
     ecs.on(DescribeTaskDefinitionCommand).rejects(Object.assign(new Error("denied"), { name: "AccessDeniedException" }));
     const obs = await driver.observe!(mkDriverContext(), node);
     expect(obs.presence).toBe("present");
-    for (const a of Object.values(obs.attributes)) expect(a).toMatchObject({ state: "unknown", reason: "access_denied" });
+    for (const name of ["cpu", "memoryMb", "image"]) expect(obs.attributes[name]).toMatchObject({ state: "unknown", reason: "access_denied" });
+    expect(obs.attributes.scheduleExpression).toMatchObject({ state: "known", value: SCHEDULE });
   });
 
   it("classifies tag-lookup failures and re-throws an abort", async () => {
@@ -112,13 +129,123 @@ describe("observe", () => {
 });
 
 describe("verify", () => {
-  it("never passes: the rule's schedule cannot be read, so that check stays unknown", async () => {
+  it.each([
+    ["ResourceNotFoundException", "missing", "failed"],
+    ["AccessDeniedException", "inaccessible", "unknown"],
+    ["ThrottlingException", "unknown", "unknown"],
+  ])("classifies DescribeRule %s even when the tag index still contains the rule", async (name, presence, status) => {
+    installFound();
+    events.on(DescribeRuleCommand).rejects(Object.assign(new Error("read failed"), { name }));
+    const ctx = mkDriverContext();
+    const obs = await driver.observe!(ctx, node);
+    expect(obs.presence).toBe(presence);
+    expect(Object.values(obs.attributes).every((a) => a.state === "unknown")).toBe(true);
+    expect((await driver.verify!(ctx, node, obs)).status).toBe(status);
+    expect(events.commandCalls(ListTargetsByRuleCommand)).toHaveLength(0);
+  });
+
+  it.each(["AccessDeniedException", "ThrottlingException", "ResourceNotFoundException"])("keeps independent reads when ListTargetsByRule returns %s", async (name) => {
+    installFound();
+    events.on(ListTargetsByRuleCommand).rejects(Object.assign(new Error("read failed"), { name }));
+    const ctx = mkDriverContext();
+    const obs = await driver.observe!(ctx, node);
+    expect(obs.attributes.cpu).toMatchObject({ state: "known", value: 256 });
+    expect(obs.attributes.ruleState).toMatchObject({ state: "known", value: "ENABLED" });
+    expect(obs.attributes.targetPresent).toMatchObject({ state: "unknown", reason: name === "AccessDeniedException" ? "access_denied" : "error" });
+    expect((await driver.verify!(ctx, node, obs)).status).toBe("unknown");
+  });
+
+  it.each([
+    ["disabled rule", "attr:ruleState"], ["wrong schedule", "attr:scheduleExpression"],
+    ["missing target", "attr:targetPresent"], ["wrong cluster", "attr:targetClusterMatches"],
+    ["wrong definition", "attr:targetTaskDefinitionMatches"], ["invalid role", "attr:targetRolePresent"],
+  ])("fails for %s", async (which, check) => {
+    installFound();
+    if (which === "disabled rule") events.on(DescribeRuleCommand).resolves({ ScheduleExpression: SCHEDULE, State: "DISABLED" });
+    if (which === "wrong schedule") events.on(DescribeRuleCommand).resolves({ ScheduleExpression: "rate(1 hour)", State: "ENABLED" });
+    if (which === "missing target") events.on(ListTargetsByRuleCommand).resolves({ Targets: [] });
+    if (which === "wrong cluster") events.on(ListTargetsByRuleCommand).resolves({ Targets: [runTarget({ Arn: `${CLUSTER_ARN}-other` })] });
+    if (which === "wrong definition") events.on(ListTargetsByRuleCommand).resolves({ Targets: [runTarget({ EcsParameters: { TaskDefinitionArn: td(9), LaunchType: "FARGATE", TaskCount: 1 } })] });
+    if (which === "invalid role") events.on(ListTargetsByRuleCommand).resolves({ Targets: [runTarget({ RoleArn: "arn:aws:iam::999999999999:role/other" })] });
+    const ctx = mkDriverContext();
+    const v = await driver.verify!(ctx, node, await driver.observe!(ctx, node));
+    expect(v.status).toBe("failed");
+    expect(v.checks.find((c) => c.id === check)?.passed).toBe(false);
+  });
+
+  it("keeps partial rule and target fields unknown rather than substituting desired values", async () => {
+    installFound();
+    events.on(DescribeRuleCommand).resolves({ Arn: RULE_ARN });
+    events.on(ListTargetsByRuleCommand).resolves({ Targets: [{ Id: "run-task", Arn: CLUSTER_ARN }] });
+    const ctx = mkDriverContext();
+    const obs = await driver.observe!(ctx, node);
+    for (const name of ["scheduleExpression", "ruleState", "targetRolePresent", "targetTaskDefinitionMatches", "targetLaunchType", "targetTaskCount"]) expect(obs.attributes[name].state).toBe("unknown");
+    expect((await driver.verify!(ctx, node, obs)).status).toBe("unknown");
+    events.on(ListTargetsByRuleCommand).resolves({});
+    expect((await driver.observe!(ctx, node)).attributes.targetPresent.state).toBe("unknown");
+  });
+
+  it("reads the target on later pages; bounded/stuck pagination cannot claim complete verification", async () => {
+    installFound();
+    events.on(ListTargetsByRuleCommand).resolvesOnce({ Targets: [{ Id: "other", Arn: CLUSTER_ARN }], NextToken: "page2" }).resolves({ Targets: [runTarget()] });
+    const ctx = mkDriverContext();
+    expect((await driver.verify!(ctx, node, await driver.observe!(ctx, node))).status).toBe("passed");
+    expect(events.commandCalls(ListTargetsByRuleCommand)[1].args[0].input.NextToken).toBe("page2");
+    events.reset();
+    installFound();
+    events.on(ListTargetsByRuleCommand).callsFake((input: { NextToken?: string }) => ({ Targets: [runTarget()], NextToken: input.NextToken ? `${input.NextToken}n` : "n" }));
+    expect((await driver.observe!(ctx, node)).attributes.targetPresent.state).toBe("unknown");
+    expect(events.commandCalls(ListTargetsByRuleCommand)).toHaveLength(3);
+    events.reset();
+    installFound();
+    events.on(ListTargetsByRuleCommand).resolves({ Targets: [runTarget()], NextToken: "stuck" });
+    expect((await driver.observe!(ctx, node)).attributes.targetPresent.state).toBe("unknown");
+    expect(events.commandCalls(ListTargetsByRuleCommand)).toHaveLength(2);
+  });
+
+  it("omits schedule checks and EventBridge reads when the schedule is absent or blank", async () => {
+    installFound();
+    const ctx = mkDriverContext();
+    for (const schedule of [undefined, "", "   "]) {
+      const unscheduled = { ...node, spec: { ...node.spec, schedule } };
+      const obs = await driver.observe!(ctx, unscheduled);
+      expect(Object.keys(obs.attributes).sort()).toEqual(["cpu", "image", "memoryMb"]);
+      expect((await driver.verify!(ctx, unscheduled, obs)).status).toBe("passed");
+    }
+    expect(events.calls()).toHaveLength(0);
+  });
+
+  it("passes explicit event-bus names to both reads and never emits target payloads", async () => {
+    installFound();
+    const marker = "private-target-payload";
+    events.on(ListTargetsByRuleCommand).resolves({ Targets: [runTarget({ Input: marker, InputTransformer: { InputTemplate: marker } })] });
+    const ctx = mkDriverContext();
+    const obs = await driver.observe!(ctx, node, RULE_ARN.replace("rule/", "rule/custom/"));
+    expect(events.commandCalls(DescribeRuleCommand)[0].args[0].input.EventBusName).toBe("custom");
+    expect(events.commandCalls(ListTargetsByRuleCommand)[0].args[0].input.EventBusName).toBe("custom");
+    expect(JSON.stringify(obs)).not.toContain(marker);
+    expect(Buffer.byteLength(JSON.stringify(obs.native))).toBeLessThanOrEqual(4096);
+    expect(ctx.logs).toEqual([]);
+  });
+
+  it.each(["DescribeRule", "ListTargetsByRule"])("rethrows an abort from %s", async (command) => {
+    installFound();
+    const ac = new AbortController();
+    const aborted = () => {
+      ac.abort();
+      throw Object.assign(new Error("aborted"), { name: "AbortError" });
+    };
+    if (command === "DescribeRule") events.on(DescribeRuleCommand).callsFake(aborted);
+    else events.on(ListTargetsByRuleCommand).callsFake(aborted);
+    await expect(driver.observe!(mkDriverContext({ signal: ac.signal }), node)).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("passes when the rule is enabled, the schedule matches and RunTask targets this job", async () => {
     installFound();
     const obs = await driver.observe!(mkDriverContext(), node);
     const v = await driver.verify!(mkDriverContext(), node, obs);
-    expect(v.status).toBe("unknown");
-    expect(v.checks.find((c) => c.id === "schedule_observable")).toMatchObject({ passed: "unknown", detail: expect.stringMatching(/client-eventbridge is not installed/) });
-    expect(v.checks.filter((c) => c.id !== "schedule_observable").every((c) => c.passed === true)).toBe(true);
+    expect(v.status).toBe("passed");
+    expect(v.checks.every((c) => c.passed === true)).toBe(true);
   });
 
   it("fails when the task definition is the wrong size, and when the rule is missing", async () => {

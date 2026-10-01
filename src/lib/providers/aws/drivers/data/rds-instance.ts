@@ -287,9 +287,8 @@ export const rdsInstanceDriver: ResourceDriver<AwsSession> = {
     runtime: true,
     verify: true,
     discover: true,
-    // `database.restore` and `database.delete` exist only as refusing stubs in `operations`; they are
-    // deliberately NOT listed here, so the generated capability matrix never advertises them as executable.
     operations: ["database.snapshot"],
+    refuses: ["database.delete", "database.restore"],
     evidence: { compile: "contract", observe: "contract", runtime: "contract", verify: "contract", discover: "contract", "database.snapshot": "contract",
       // Evidence covers the refusal paths too; they are not executable capabilities.
       "database.restore": "contract", "database.delete": "contract" },

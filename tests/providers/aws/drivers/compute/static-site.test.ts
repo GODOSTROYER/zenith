@@ -1,8 +1,10 @@
 /**
  * `aws:s3_static_site`: a private bucket behind CloudFront with an Origin
- * Access Control. Compile structure and the (tag + S3 based) read side.
+ * Access Control. Compile structure and mocked tagging, S3 and CloudFront reads;
+ * no live AWS acceptance is claimed.
  */
 import { GetBucketEncryptionCommand, GetPublicAccessBlockCommand, S3Client } from "@aws-sdk/client-s3";
+import { CloudFrontClient, GetDistributionCommand, type Distribution, type DistributionConfig } from "@aws-sdk/client-cloudfront";
 import { GetResourcesCommand, ResourceGroupsTaggingAPIClient } from "@aws-sdk/client-resource-groups-tagging-api";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
@@ -12,13 +14,16 @@ import { DriverCompileError, refLocalName } from "@/lib/providers/aws/drivers/sh
 import { TLS_ADDRESS, buildFullFixture, mkCompileContext, mkDriverContext, zenithTagList } from "./fixtures";
 
 const s3 = mockClient(S3Client);
+const cloudfront = mockClient(CloudFrontClient);
 const tagging = mockClient(ResourceGroupsTaggingAPIClient);
 afterAll(() => {
   s3.restore();
+  cloudfront.restore();
   tagging.restore();
 });
 beforeEach(() => {
   s3.reset();
+  cloudfront.reset();
   tagging.reset();
 });
 
@@ -128,8 +133,23 @@ describe("compile", () => {
 
 const DIST_ARN = "arn:aws:cloudfront::123456789012:distribution/E2ABCDEF12345";
 const tagMap = (arn: string) => ({ ResourceARN: arn, Tags: zenithTagList("static_site/docs") });
+const BUCKET = "zn-acme-docs-1a2b3c4d";
+const CERT_ARN = "arn:aws:acm:us-east-1:123456789012:certificate/abcd";
+const distribution = (config: Partial<DistributionConfig> = {}, over: Partial<Distribution> = {}): Distribution => ({
+  Id: "E2ABCDEF12345", ARN: DIST_ARN, Status: "Deployed", DomainName: "docs.cloudfront.net",
+  LastModifiedTime: new Date("2026-10-01T00:00:00Z"), InProgressInvalidationBatches: 0,
+  DistributionConfig: {
+    CallerReference: "site", Comment: "site", Enabled: true, DefaultRootObject: "index.html", PriceClass: "PriceClass_100",
+    Origins: { Quantity: 1, Items: [{ Id: "site", DomainName: `${BUCKET}.s3.eu-west-1.amazonaws.com`, OriginAccessControlId: "E-OAC" }] },
+    DefaultCacheBehavior: { TargetOriginId: "site", ViewerProtocolPolicy: "redirect-to-https" },
+    Aliases: { Quantity: 1, Items: ["docs.example.com"] },
+    ViewerCertificate: { ACMCertificateArn: CERT_ARN, SSLSupportMethod: "sni-only", MinimumProtocolVersion: "TLSv1.2_2021" },
+    ...config,
+  }, ...over,
+});
 
 function installFound() {
+  cloudfront.on(GetDistributionCommand).resolves({ Distribution: distribution() });
   tagging.on(GetResourcesCommand).callsFake((input: { ResourceTypeFilters?: string[] }) => ({
     ResourceTagMappingList: [input.ResourceTypeFilters?.[0] === "cloudfront:distribution" ? tagMap(DIST_ARN) : tagMap("arn:aws:s3:::zn-acme-docs-1a2b3c4d")],
   }));
@@ -138,25 +158,132 @@ function installFound() {
 }
 
 describe("observe / verify", () => {
+  it.each([
+    ["NoSuchDistribution", "missing", "failed"],
+    ["AccessDenied", "inaccessible", "unknown"],
+    ["ThrottlingException", "unknown", "unknown"],
+  ])("classifies GetDistribution %s instead of trusting stale tags", async (name, presence, status) => {
+    installFound();
+    cloudfront.on(GetDistributionCommand).rejects(Object.assign(new Error("read failed"), { name }));
+    const ctx = mkDriverContext();
+    const obs = await driver.observe!(ctx, node);
+    expect(obs.presence).toBe(presence);
+    expect(Object.values(obs.attributes).every((a) => a.state === "unknown")).toBe(true);
+    expect((await driver.verify!(ctx, node, obs)).status).toBe(status);
+  });
+
+  it.each([
+    ["disabled", "attr:enabled"], ["deploying", "attr:distributionStatus"],
+    ["no OAC", "attr:originAccessControl"], ["wrong bucket", "attr:originMatchesBucket"],
+    ["wrong origin", "attr:originId"], ["allows HTTP", "attr:viewerProtocolPolicy"],
+    ["wrong certificate region", "attr:viewerCertificateConfigured"], ["default certificate with alias", "attr:viewerCertificateConfigured"],
+  ])("fails when distribution configuration is %s", async (which, check) => {
+    installFound();
+    let config: Partial<DistributionConfig> = {};
+    if (which === "disabled") config = { Enabled: false };
+    if (which === "no OAC" || which === "wrong bucket") config = { Origins: { Quantity: 1, Items: [{ Id: "site", DomainName: which === "wrong bucket" ? "other.s3.eu-west-1.amazonaws.com" : `${BUCKET}.s3.eu-west-1.amazonaws.com`, OriginAccessControlId: which === "no OAC" ? "" : "E-OAC" }] } };
+    if (which === "wrong origin") config = { DefaultCacheBehavior: { TargetOriginId: "other", ViewerProtocolPolicy: "redirect-to-https" } };
+    if (which === "allows HTTP") config = { DefaultCacheBehavior: { TargetOriginId: "site", ViewerProtocolPolicy: "allow-all" } };
+    if (which === "wrong certificate region") config = { ViewerCertificate: { ACMCertificateArn: CERT_ARN.replace("us-east-1", "eu-west-1"), SSLSupportMethod: "sni-only", MinimumProtocolVersion: "TLSv1.2_2021" } };
+    if (which === "default certificate with alias") config = { ViewerCertificate: { CloudFrontDefaultCertificate: true } };
+    cloudfront.on(GetDistributionCommand).resolves({ Distribution: distribution(config, which === "deploying" ? { Status: "InProgress" } : {}) });
+    const ctx = mkDriverContext();
+    const v = await driver.verify!(ctx, node, await driver.observe!(ctx, node));
+    expect(v.status).toBe("failed");
+    expect(v.checks.find((c) => c.id === check)?.passed).toBe(false);
+  });
+
+  it("supports the default certificate with an explicitly empty alias list", async () => {
+    installFound();
+    cloudfront.on(GetDistributionCommand).resolves({ Distribution: distribution({ Aliases: { Quantity: 0 }, ViewerCertificate: { CloudFrontDefaultCertificate: true } }) });
+    const ctx = mkDriverContext();
+    const bare = { ...node, dependsOn: ["build_pipeline/docs"] };
+    expect((await driver.verify!(ctx, bare, await driver.observe!(ctx, bare))).status).toBe("passed");
+  });
+
+  it("keeps missing configuration fields and inconsistent lists unknown", async () => {
+    installFound();
+    cloudfront.on(GetDistributionCommand).resolves({ Distribution: distribution({
+      Enabled: undefined, Origins: { Quantity: 1, Items: undefined }, Aliases: { Quantity: 1 }, ViewerCertificate: {},
+      DefaultCacheBehavior: undefined, DefaultRootObject: undefined, PriceClass: undefined,
+    }, { Status: undefined }) });
+    const ctx = mkDriverContext();
+    const obs = await driver.observe!(ctx, node);
+    for (const name of ["enabled", "distributionStatus", "originCount", "originId", "originMatchesBucket", "originAccessControl", "viewerCertificateConfigured", "viewerProtocolPolicy", "defaultRootObject", "priceClass"]) expect(obs.attributes[name].state).toBe("unknown");
+    expect(obs.attributes.blockPublicAccess).toMatchObject({ state: "known", value: true });
+    expect((await driver.verify!(ctx, node, obs)).status).toBe("unknown");
+    cloudfront.on(GetDistributionCommand).resolves({});
+    expect((await driver.observe!(ctx, node)).presence).toBe("unknown");
+  });
+
+  it("a partial S3 privacy response does not become a known desired value", async () => {
+    installFound();
+    s3.on(GetPublicAccessBlockCommand).resolves({ PublicAccessBlockConfiguration: { BlockPublicAcls: true } });
+    s3.on(GetBucketEncryptionCommand).resolves({});
+    const ctx = mkDriverContext();
+    const obs = await driver.observe!(ctx, node);
+    expect(obs.attributes.blockPublicAccess.state).toBe("unknown");
+    expect(obs.attributes.encryption.state).toBe("unknown");
+    expect((await driver.verify!(ctx, node, obs)).status).toBe("unknown");
+  });
+
+  it("uses the session's global-region override and emits only bounded, allowlisted CloudFront fields", async () => {
+    installFound();
+    const marker = "private-origin-header";
+    const base = distribution().DistributionConfig!;
+    cloudfront.on(GetDistributionCommand).resolves({ Distribution: distribution({ Origins: { Quantity: 1, Items: [{ ...base.Origins!.Items![0], CustomHeaders: { Quantity: 1, Items: [{ HeaderName: "Authorization", HeaderValue: marker }] } }] } }, { DomainName: "docs.cloudfront.net" }) });
+    const ctx = mkDriverContext();
+    const created: { name: string; region?: string }[] = [];
+    const session = ctx.session;
+    ctx.session = { ...session, client: (ctor, overrides) => {
+      created.push({ name: ctor.name, region: overrides?.region });
+      return session.client(ctor, overrides);
+    } };
+    const obs = await driver.observe!(ctx, node);
+    expect(created).toContainEqual({ name: "CloudFrontClient", region: "us-east-1" });
+    expect(JSON.stringify(obs)).not.toContain(marker);
+    expect(obs.native?.distribution).toMatchObject({ aliases: ["docs.example.com"], viewerCertificate: { acmCertificateArn: CERT_ARN } });
+    expect(Buffer.byteLength(JSON.stringify(obs.native))).toBeLessThanOrEqual(4096);
+    expect(ctx.logs).toEqual([]);
+    cloudfront.on(GetDistributionCommand).resolves({ Distribution: distribution({ Aliases: { Quantity: 100, Items: Array.from({ length: 100 }, (_, i) => `${i}.${"x".repeat(200)}.example.com`) } }) });
+    expect(Buffer.byteLength(JSON.stringify((await driver.observe!(ctx, node)).native))).toBeLessThanOrEqual(4096);
+  });
+
+  it("rethrows an abort from GetDistribution", async () => {
+    installFound();
+    const ac = new AbortController();
+    cloudfront.on(GetDistributionCommand).callsFake(() => {
+      ac.abort();
+      throw Object.assign(new Error("aborted"), { name: "AbortError" });
+    });
+    await expect(driver.observe!(mkDriverContext({ signal: ac.signal }), node)).rejects.toMatchObject({ name: "AbortError" });
+  });
+
   it("finds the distribution (from us-east-1, where the tagging API serves CloudFront) and the bucket by tags, and reads the bucket's privacy", async () => {
     installFound();
     const obs = await driver.observe!(mkDriverContext(), node);
     expect(obs).toMatchObject({ presence: "present", externalId: "E2ABCDEF12345", source: "aws.s3_static_site@1" });
-    expect(Object.fromEntries(Object.entries(obs.attributes).map(([k, v]) => [k, (v as { value: unknown }).value]))).toEqual({ distributionPresent: true, blockPublicAccess: true, encryption: "AES256" });
+    expect(Object.fromEntries(Object.entries(obs.attributes).map(([k, v]) => [k, (v as { value: unknown }).value]))).toEqual({
+      distributionPresent: true, blockPublicAccess: true, encryption: "AES256", distributionStatus: "Deployed", enabled: true,
+      originCount: 1, originId: "site", originMatchesBucket: true, originAccessControl: true, viewerProtocolPolicy: "redirect-to-https",
+      defaultRootObject: "index.html", priceClass: "PriceClass_100", viewerCertificateConfigured: true,
+    });
     expect(obs.native).toMatchObject({ distributionId: "E2ABCDEF12345", distributionArn: DIST_ARN, bucketName: "zn-acme-docs-1a2b3c4d" });
     expect(Object.keys(obs.attributes).sort()).toEqual(Object.keys(driver.expectedAttributes!(node)).sort());
     const types = tagging.commandCalls(GetResourcesCommand).map((c) => c.args[0].input.ResourceTypeFilters![0]);
     expect(types).toEqual(["cloudfront:distribution", "s3:bucket"]);
     expect(s3.commandCalls(GetPublicAccessBlockCommand)[0].args[0].input).toEqual({ Bucket: "zn-acme-docs-1a2b3c4d" });
+    expect(cloudfront.commandCalls(GetDistributionCommand)[0].args[0].input).toEqual({ Id: "E2ABCDEF12345" });
+    expect((cloudfront.commandCalls(GetDistributionCommand)[0].args as unknown[])[1]).toMatchObject({ abortSignal: expect.any(AbortSignal) });
+    expect(obs.native?.distribution).toMatchObject({ status: "Deployed", enabled: true, aliases: ["docs.example.com"], origins: [{ originAccessControlId: "E-OAC" }], viewerCertificate: { acmCertificateArn: CERT_ARN } });
   });
 
-  it("never claims the distribution is healthy or correctly configured: verify keeps an unknown check for what it cannot read", async () => {
+  it("passes after GetDistribution confirms deployed configuration and S3 confirms bucket privacy", async () => {
     installFound();
     const obs = await driver.observe!(mkDriverContext(), node);
     const v = await driver.verify!(mkDriverContext(), node, obs);
-    expect(v.status).toBe("unknown");
-    expect(v.checks.find((c) => c.id === "distribution_serving")).toMatchObject({ passed: "unknown", detail: expect.stringMatching(/@aws-sdk\/client-cloudfront is not installed/) });
-    expect(v.checks.filter((c) => c.id !== "distribution_serving").every((c) => c.passed === true)).toBe(true);
+    expect(v.status).toBe("passed");
+    expect(v.checks.every((c) => c.passed === true)).toBe(true);
   });
 
   it("verification FAILS when the bucket is not fully blocked from public access", async () => {

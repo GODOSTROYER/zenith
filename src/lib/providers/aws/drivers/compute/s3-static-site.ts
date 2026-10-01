@@ -31,12 +31,16 @@
  *
  * Observe: the distribution is found through the Resource Groups Tagging API
  * (CloudFront is global; that API answers for it from us-east-1) and the
- * bucket through S3. HONEST LIMIT: `@aws-sdk/client-cloudfront` is not an
- * installed dependency, so the distribution's configuration (status, aliases,
- * root object, price class, origin access) and whether it is serving CANNOT be
- * read; `verify` reports those as `unknown` checks instead of passing.
+ * bucket through S3. GetDistribution reads deployment status, enabled state,
+ * origins/OAC, aliases and viewer certificate. Native data is an allowlist:
+ * origin custom headers (which may contain secrets) are never retained.
+ * Partial reads stay unknown; evidence is mocked SDK contracts, not live AWS.
+ * A passing check confirms deployed configuration, not an HTTP/content probe,
+ * OAC signing settings or certificate/alias identity against dependency specs
+ * (those specs are unavailable in DriverContext).
  */
 import { GetBucketEncryptionCommand, GetPublicAccessBlockCommand, S3Client } from "@aws-sdk/client-s3";
+import { CloudFrontClient, GetDistributionCommand } from "@aws-sdk/client-cloudfront";
 import type { AwsSession } from "@/lib/credentials/types";
 import type { CompileContext, ResourceDriver } from "@/lib/drivers/types";
 import type { Observation, ResourceNode } from "@/lib/resources/types";
@@ -149,7 +153,20 @@ const compile = (node: ResourceNode, ctx: CompileContext) =>
 /* --------------------------------- expected ------------------------------- */
 
 function expected(_node: ResourceNode): Record<string, unknown> {
-  return { distributionPresent: true, blockPublicAccess: true, encryption: "AES256" };
+  return {
+    distributionPresent: true, blockPublicAccess: true, encryption: "AES256",
+    distributionStatus: "Deployed", enabled: true, originCount: 1,
+    originId: "site", originMatchesBucket: true, originAccessControl: true,
+    viewerProtocolPolicy: "redirect-to-https", defaultRootObject: "index.html",
+    priceClass: "PriceClass_100", viewerCertificateConfigured: true,
+  };
+}
+
+/** AWS may omit Items for Quantity=0; mismatched or missing nonempty lists are partial. */
+function completeItems<T>(list: { Quantity: number | undefined; Items?: T[] } | undefined): T[] | undefined {
+  if (!list || typeof list.Quantity !== "number" || !Number.isInteger(list.Quantity) || list.Quantity < 0) return undefined;
+  const items = list.Items ?? (list.Quantity === 0 ? [] : undefined);
+  return items?.length === list.Quantity ? items : undefined;
 }
 
 /* --------------------------------- observe -------------------------------- */
@@ -183,14 +200,47 @@ const observe: NonNullable<ResourceDriver<AwsSession>["observe"]> = async (ctx, 
     return failedObservation(ctx, node, ID, names, { kind: "missing", code: "NotFoundByTags", summary: `${!id ? "The CloudFront distribution" : "The bucket"} of ${node.address} was not found by its Zenith tags (the tag index is eventually consistent).` }, id);
   }
 
+  const cf = ctx.session.client(CloudFrontClient, { region: CLOUDFRONT_CERT_REGION });
+  const read = await attempt(() => cf.send(new GetDistributionCommand({ Id: id }), { abortSignal: ctx.signal }), ctx.signal);
+  if (!read.ok) return failedObservation(ctx, node, ID, names, read.failure, id);
+  const distribution = read.value.Distribution;
+  if (!distribution) return failedObservation(ctx, node, ID, names, { kind: "error", code: "IncompleteResponse", summary: "GetDistribution returned no distribution." }, id);
+  const config = distribution.DistributionConfig;
+  const origins = completeItems(config?.Origins);
+  const aliases = completeItems(config?.Aliases);
+  const cert = config?.ViewerCertificate;
+  const values: Record<string, unknown> = { distributionPresent: true };
+  if (distribution.Status !== undefined) values.distributionStatus = distribution.Status;
+  if (config?.Enabled !== undefined) values.enabled = config.Enabled;
+  if (config?.DefaultRootObject !== undefined) values.defaultRootObject = config.DefaultRootObject;
+  if (config?.PriceClass !== undefined) values.priceClass = config.PriceClass;
+  if (config?.DefaultCacheBehavior?.ViewerProtocolPolicy !== undefined) values.viewerProtocolPolicy = config.DefaultCacheBehavior.ViewerProtocolPolicy;
+  if (origins) {
+    values.originCount = origins.length;
+    const origin = origins.length === 1 ? origins[0] : undefined;
+    if (origin?.Id !== undefined && config?.DefaultCacheBehavior?.TargetOriginId !== undefined) values.originId = origin.Id === config.DefaultCacheBehavior.TargetOriginId ? origin.Id : "mismatched";
+    if (origin?.DomainName !== undefined) {
+      const suffix = parseArn(distributionArn!)?.partition === "aws-cn" ? "amazonaws.com.cn" : "amazonaws.com";
+      values.originMatchesBucket = origin.DomainName === `${bucketName}.s3.${node.region}.${suffix}`;
+    }
+    if (origin?.OriginAccessControlId !== undefined) values.originAccessControl = origin.OriginAccessControlId.length > 0;
+  }
+  if (aliases && cert) {
+    if (cert.CloudFrontDefaultCertificate === true) values.viewerCertificateConfigured = aliases.length === 0;
+    else if (cert.ACMCertificateArn !== undefined && cert.SSLSupportMethod !== undefined && cert.MinimumProtocolVersion !== undefined) {
+      const arn = parseArn(cert.ACMCertificateArn);
+      values.viewerCertificateConfigured = aliases.length > 0 && arn?.service === "acm" && arn.region === CLOUDFRONT_CERT_REGION && arn.accountId === ctx.session.accountId && cert.SSLSupportMethod === "sni-only" && cert.MinimumProtocolVersion === "TLSv1.2_2021";
+    } else if (cert.IAMCertificateId !== undefined) values.viewerCertificateConfigured = false;
+  }
   const s3 = ctx.session.client(S3Client);
   const pab = await attempt(() => s3.send(new GetPublicAccessBlockCommand({ Bucket: bucketName }), { abortSignal: ctx.signal }), ctx.signal);
   const enc = await attempt(() => s3.send(new GetBucketEncryptionCommand({ Bucket: bucketName }), { abortSignal: ctx.signal }), ctx.signal);
-  const values: Record<string, unknown> = { distributionPresent: true };
   const attributes = attributesOf(ctx, names, values);
   if (pab.ok) {
     const c = pab.value.PublicAccessBlockConfiguration;
-    attributes.blockPublicAccess = knownValue(ctx, Boolean(c?.BlockPublicAcls && c.IgnorePublicAcls && c.BlockPublicPolicy && c.RestrictPublicBuckets));
+    if (c && [c.BlockPublicAcls, c.IgnorePublicAcls, c.BlockPublicPolicy, c.RestrictPublicBuckets].every((v) => v !== undefined)) {
+      attributes.blockPublicAccess = knownValue(ctx, Boolean(c.BlockPublicAcls && c.IgnorePublicAcls && c.BlockPublicPolicy && c.RestrictPublicBuckets));
+    }
   } else if (pab.failure.code === "NoSuchPublicAccessBlockConfiguration") {
     attributes.blockPublicAccess = knownValue(ctx, false); // the API said: no public-access block configured
   } else attributes.blockPublicAccess = unknownValue(unknownReasonOf(pab.failure), pab.failure.summary);
@@ -204,7 +254,15 @@ const observe: NonNullable<ResourceDriver<AwsSession>["observe"]> = async (ctx, 
     externalId: id,
     presence: "present",
     attributes,
-    native: boundNative({ distributionId: id, distributionArn, bucketName, tags }, { priority: ["distributionId", "distributionArn", "bucketName", "tags"] }),
+    native: boundNative({
+      distributionId: id, distributionArn, bucketName, tags,
+      distribution: {
+        status: distribution.Status, enabled: config?.Enabled, domainName: distribution.DomainName,
+        origins: origins?.map((o) => ({ id: o.Id, domainName: o.DomainName, originAccessControlId: o.OriginAccessControlId })),
+        aliases,
+        viewerCertificate: cert ? { cloudFrontDefaultCertificate: cert.CloudFrontDefaultCertificate, acmCertificateArn: cert.ACMCertificateArn, iamCertificateId: cert.IAMCertificateId, sslSupportMethod: cert.SSLSupportMethod, minimumProtocolVersion: cert.MinimumProtocolVersion } : undefined,
+      },
+    }, { priority: ["distributionId", "distributionArn", "bucketName", "tags"] }),
     observedAt: ctx.now().toISOString(),
     source: ID,
     simulated: false,
@@ -228,18 +286,5 @@ export const s3StaticSiteDriver: ResourceDriver<AwsSession> = {
   compile,
   observe,
   expectedAttributes: expected,
-  verify: async (ctx, node, observation) => {
-    const result = standardVerification(ctx, node, observation, expected(node), "The static site");
-    if (observation.presence !== "present") return result;
-    const checks = [
-      ...result.checks,
-      {
-        id: "distribution_serving",
-        description: "The CloudFront distribution is deployed and serving with the desired configuration",
-        passed: "unknown" as const,
-        detail: "The distribution's status and configuration cannot be read: @aws-sdk/client-cloudfront is not installed. Only its existence (by tags) and the bucket's privacy are verified.",
-      },
-    ];
-    return { ...result, checks, status: checks.some((c) => c.passed === false) ? "failed" : "unknown" };
-  },
+  verify: async (ctx, node, observation) => standardVerification(ctx, node, observation, expected(node), "The static site"),
 };

@@ -43,9 +43,13 @@ export interface DriverCapabilities {
   runtime: boolean;
   verify: boolean;
   discover: boolean;
+  /** Experimental driver; independent of per-operation verification evidence. */
+  experimental?: boolean;
   /** capability names (from the capability catalog) this driver can execute natively */
   operations: string[];
-  /** per-operation verification evidence, keyed by `compile`/`observe`/…/capability */
+  /** Implemented refusal-only operations; disjoint from executable operations. */
+  refuses?: string[];
+  /** per-operation verification evidence, including refusal paths */
   evidence: Record<string, EvidenceLevel>;
 }
 

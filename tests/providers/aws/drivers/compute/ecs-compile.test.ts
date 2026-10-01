@@ -449,7 +449,10 @@ describe("aws:ecs_scheduled_task compile", () => {
     const { fragment, fx } = compileJob();
     const td = res(fragment, "aws_ecs_task_definition", "scheduled_job_nightly");
     expect([td.cpu, td.memory]).toEqual(["256", "512"]);
-    expect(ecsScheduledTaskDriver.expectedAttributes!(fx.job)).toEqual({ cpu: 256, memoryMb: 512, image: "ghcr.io/acme/job:1.4.2" });
+    expect(ecsScheduledTaskDriver.expectedAttributes!(fx.job)).toEqual({
+      cpu: 256, memoryMb: 512, image: "ghcr.io/acme/job:1.4.2", scheduleExpression: "cron(0 2 ? * 2-6 *)", ruleState: "ENABLED",
+      targetPresent: true, targetClusterMatches: true, targetTaskDefinitionMatches: true, targetRolePresent: true, targetLaunchType: "FARGATE", targetTaskCount: 1,
+    });
     expect((JSON.parse(td.container_definitions as string)[0] as Body).image).toBe("ghcr.io/acme/job:1.4.2");
   });
 
@@ -479,4 +482,3 @@ describe("aws:ecs_scheduled_task compile", () => {
     expect(Object.values(ecsScheduledTaskDriver.capabilities.evidence).every((v) => v === "contract")).toBe(true);
   });
 });
-

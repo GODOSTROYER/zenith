@@ -8,14 +8,10 @@ import { repositoryDriver } from "./container-repository";
 export const computeDrivers: ResourceDriver<OciSession>[] = [
   containerInstanceDriver,
   repositoryDriver,
-  unsupportedDriver(
-    "oci:oke_cluster",
-    "kubernetes_cluster",
-    "An OKE cluster without node pools, networking add-ons and access wiring would be a cluster nobody can use, so none is compiled or observed. Kubernetes workloads on OKE belong to the Kubernetes provider once a cluster exists."
-  ),
-  unsupportedDriver(
-    "oci:compute_instance",
-    "compute_instance",
-    "Compute instances are never produced by expansion today and need image, boot volume and key handling that this workstream does not model. Use a container instance."
-  ),
+  // OKE needs node pools, networking add-ons and access wiring. Kubernetes
+  // workloads belong to the Kubernetes provider once a cluster exists.
+  unsupportedDriver("oci:oke_cluster", "kubernetes_cluster"),
+  // Expansion does not produce compute instances; image, boot volume and key
+  // handling are not modeled. Use a container instance.
+  unsupportedDriver("oci:compute_instance", "compute_instance"),
 ];

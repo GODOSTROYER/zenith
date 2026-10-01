@@ -23,6 +23,16 @@ OCI and `zenith` stay interchangeable behind `src/lib/drivers/types.ts`.
 
 - Pure and deterministic; no I/O, no clock, no randomness (use tofu
   `random_*` resources when a random value is needed).
+- Core capability flags agree with method presence. A driver that cannot
+  compile declares `compile: false` and omits `compile`, including the
+  unsupported OCI compute instance, MySQL and OKE registrations. A supported
+  compiler may still refuse individual invalid or unsupported specs.
+- `capabilities.experimental` is optional driver metadata, never an evidence
+  key. `operations` lists executable native capabilities; optional `refuses`
+  lists implemented refusal-only handlers, disjoint from `operations`.
+  Refusals require catalog entries and evidence just like executable handlers,
+  but the capability matrix displays them separately and excludes them from
+  provider support. Evidence for a refusal proves the refusal, not execution.
 - tofu resource names: `ctx.namePrefix`-free *labels* derived from the node
   address, sanitized to `[a-z0-9_]` (`service/web` → `service_web`); suffixes
   for multiple resources per node (`service_web_task`, `service_web_svc`).
@@ -131,6 +141,30 @@ access or broad role; SQL table privileges still require database migrations.
   steady state, endpoint status).
 - `discover` lists candidates, marks `zenithTagged`, never adopts.
 - Honour `ctx.signal`; paginate with a bounded page count.
+
+`aws:ecs_scheduled_task` reads the EventBridge rule and its RunTask target
+through `DescribeRule` / `ListTargetsByRule`. Verification compares the cron
+expression and enabled state, joins the target to the tagged cluster and
+newest task definition, and checks a same-account role reference. It does not
+inspect that role's permissions or trust policy. Target pages are bounded at
+three; incomplete or truncated reads remain unknown. Input payloads and
+transformers are omitted from native data.
+
+`aws:s3_static_site` uses `GetDistribution` to read deployed/enabled state,
+origins and OAC references, aliases and viewer-certificate configuration.
+Verification also checks the private bucket and HTTPS behavior. It does not
+probe content, inspect OAC signing settings, or compare certificate/alias
+identities to dependency specs, which are unavailable in `DriverContext`.
+Origin custom headers are omitted. Both composite drivers retain
+`discover: false`; candidate grouping/adoption is outside these read fixes.
+All of these reads have mocked SDK contract evidence only.
+
+Integration still needs `cloudfront:GetDistribution` in the broker's
+`src/lib/credentials/aws/session-policy.ts` read actions and the bootstrap
+`ObservePolicy` in `deploy/aws/zenith-connection.cfn.yaml`, followed by
+regenerating its OpenTofu policy templates. Those files are outside
+WS-DRIVER-FIX ownership; without the permission the read is inaccessible.
+Runner-mode operator allowlists also need the corresponding read routes.
 
 ## Day-two operations
 

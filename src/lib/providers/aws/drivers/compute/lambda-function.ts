@@ -5,8 +5,7 @@
  * reads the private `FunctionSpec` (types.ts) from hand-built graphs. It is a
  * minimal, honest version: a zip from S3, its own execution role and log
  * group, nothing else. Evidence for every operation is `contract`, and the
- * driver marks itself experimental with the extra evidence key
- * `experimental` (DriverCapabilities has no dedicated flag; see the handoff).
+ * driver marks itself experimental with `capabilities.experimental`.
  *
  * Compile: `aws_lambda_function` (Zip package from an S3 object), its own
  * role (trust lambda.amazonaws.com, `ZenithWorkloadBoundary`, permission to
@@ -310,13 +309,14 @@ export const lambdaFunctionDriver: ResourceDriver<AwsSession> = {
   kind: "function",
   nativeType: "aws:lambda_function",
   capabilities: {
+    experimental: true,
     compile: true,
     observe: true,
     runtime: true,
     verify: true,
     discover: true,
     operations: ["function.invoke"],
-    evidence: { compile: "contract", observe: "contract", runtime: "contract", verify: "contract", discover: "contract", "function.invoke": "contract", experimental: "contract" },
+    evidence: { compile: "contract", observe: "contract", runtime: "contract", verify: "contract", discover: "contract", "function.invoke": "contract" },
   },
   compile,
   observe,

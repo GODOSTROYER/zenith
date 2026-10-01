@@ -248,6 +248,15 @@ export interface CloudConnection {
   declaredPermissions?: string[];
   createdAt: string;
   lastCheckedAt?: string;
+  /**
+   * The platform control store's `ProviderConnection` this record extends
+   * (`platform.provider_connections`), when the account is connected keylessly
+   * (ADR-0006). Absent for sandbox/LocalStack and for legacy Preview AWS
+   * connections. The platform record carries the role ARNs and verification
+   * state; this record stays what the product screens render. A pointer only:
+   * never a credential.
+   */
+  platformConnectionId?: string;
 }
 
 export interface Project {
@@ -368,6 +377,18 @@ export interface Deployment {
   error?: string;
   /** revision live before this deployment; rollback target */
   previousRevisionId?: string;
+  /**
+   * Who executes this deployment. Absent means `"engine"`: the in-process state
+   * machine (`engine/engine.ts`) that runs sandbox and LocalStack. `"workflow"`
+   * means a Temporal workflow owns it (ADR-0001, ADR-0009): the engine's
+   * ticker, resume pass and lease logic must never touch it; the execution
+   * worker projects step progress onto this record.
+   */
+  executor?: "engine" | "workflow";
+  /** The platform operation (`platform.operations`) this deployment projects; set when `executor` is `"workflow"`. */
+  operationId?: string;
+  /** When the Temporal workflow was started for this deployment (absent while it is still waiting for an approval). */
+  workflowStartedAt?: string;
 }
 
 /* --------------------------------- events --------------------------------- */

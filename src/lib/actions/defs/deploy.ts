@@ -1,26 +1,28 @@
 /**
  * Deployment actions. `deploy.plan` is read-only and returns the Changeset the
  * Changes drawer renders; `deploy.apply` snapshots a Revision and hands it to
- * the engine. Approval, cancel and rollback are thin, honest wrappers over the
- * engine's state machine.
+ * the engine for simulated providers or the broker/workflow bridge for linked,
+ * verified real providers. Product approval and deletion policies still apply.
  */
 import { z } from "zod";
-import { defineAction, roleOf, type ActionContext, type ActionPlan } from "@/lib/actions/core";
+import { defineAction, type ActionContext, type ActionPlan } from "@/lib/actions/core";
 import { db, q, revisionManifestAsync, save } from "@/lib/db/store";
-import { diffManifests, isStatefulKind, validateManifest } from "@/lib/domain/graph";
+import { diffManifests, validateManifest } from "@/lib/domain/graph";
 import {
   emptyManifest,
   id,
   type Changeset,
-  type Deployment,
   type Environment,
   type Manifest,
   type Project,
   type Revision,
 } from "@/lib/domain/types";
-import { providerRegistry } from "@/lib/providers/types";
 import { getEngine } from "./_engine";
 import { fmtUsd } from "@/lib/format";
+import { executionRoute, addWorkflowCheck, startWorkflowDeployment, startWorkflowRollback } from "@/lib/bridge/deploy";
+import { approveWorkflowDeployment, cancelWorkflowDeployment, workflowApprovalPlan } from "@/lib/bridge/lifecycle";
+import { providerBlock, connectionBlock, statefulDeletionBlock, approvalSeparation } from "@/lib/bridge/guards";
+import { findSecret } from "@/lib/capabilities/secret-guard";
 import {
   clone,
   maxRisk,
@@ -30,105 +32,18 @@ import {
   requireRevision,
 } from "./_shared";
 
-/* ---------------------------- provider honesty ---------------------------- */
-
-/**
- * What this environment's provider can really do, decided BEFORE anything is
- * written. Previously the AWS adapter refused inside executeStep and the
- * planned stubs threw out of planSteps — by then a revision was snapshotted and
- * a deployment record existed, which is a lie about what happened.
- */
-function providerBlock(env: Environment): string | undefined {
-  const providerId = q.connection(env.connectionId)?.provider ?? "sandbox";
-  const provider = providerRegistry().get(providerId);
-  // Not registered yet (engine not booted): the engine still refuses honestly.
-  if (!provider || provider.availability === "available") return undefined;
-  if (provider.availability === "preview")
-    return (
-      `${provider.displayName} is a Preview provider: Zenith plans this deployment and exports runnable Terraform for it, but it never applies changes to your account. ` +
-      `Export the Terraform from Source → Export (or Settings → Export) and run it with your own tooling, or point ${env.name} at a Sandbox connection to watch the full flow.`
-    );
-  return (
-    `${provider.displayName} is a Planned provider: Zenith cannot plan, apply or export for it yet. ` +
-    `Point ${env.name} at a Sandbox connection to deploy now, or at AWS to export runnable Terraform.`
-  );
-}
-
-/**
- * The connection's own health, which `availability` says nothing about: a
- * LocalStack adapter is "available" whether or not Docker is running. Deploying
- * through a dead connection used to write a revision and a deployment record,
- * then die at the first step.
- */
-function connectionBlock(env: Environment): string | undefined {
-  const conn = q.connection(env.connectionId);
-  if (!conn)
-    return (
-      `${env.name} is not pointed at a cloud connection, so there is nothing to deploy through. ` +
-      `Pick one for ${env.name} in Settings → Environments, or connect a cloud in Settings → Connections first.`
-    );
-  if (conn.status === "disconnected")
-    return (
-      `${conn.label} is disconnected, so ${env.name} cannot be deployed to. ` +
-      `Start the service behind it (LocalStack needs Docker running), re-run the check in Settings → Connections, or point ${env.name} at a healthy connection.`
-    );
-  return undefined;
-}
-
 /**
  * Everything that makes `deploy.apply` refuse, decided once and rendered as
  * `plan.blocked` so no surface has to infer it from warning prose.
  */
 async function deployBlock(env: Environment, project: Project, cs: Changeset): Promise<string | undefined> {
   const reasons = [
-    providerBlock(env),
+    await providerBlock(env),
     connectionBlock(env),
     await statefulDeletionBlock(env, cs),
     ...blockingIssues(project.workingManifest),
   ].filter((r): r is string => Boolean(r));
   return reasons.length ? reasons.join(" ") : undefined;
-}
-
-/**
- * The environment's `allowStatefulDeletion` policy, enforced where Settings
- * says it is enforced: "a plan that would destroy a database, cache, queue or
- * bucket here is blocked before it starts".
- *
- * Before this, the toggle changed a label and a security finding but nothing
- * else — the only thing standing between a removed resource and its data was
- * whatever the provider happened to do mid-deploy. Deciding it here keeps the
- * promise the switch makes, and keeps it plan-first: the button is disabled
- * with a reason, rather than the deployment failing halfway through.
- *
- * Only *managed* resources count. A referenced one was never provisioned by
- * Zenith, so dropping it from the manifest forgets it rather than deleting it.
- *
- * `deploy.rollback` — and `deploy.promote`, which runs through it — deploys an
- * older saved revision over the live one, so it asks the same question of the
- * same diff (`via: "rollback"` only changes which way out the sentence names).
- */
-async function statefulDeletionBlock(
-  env: Environment,
-  cs: Changeset,
-  via: "deploy" | "rollback" = "deploy"
-): Promise<string | undefined> {
-  if (env.policies.allowStatefulDeletion) return undefined;
-  const deployed = await deployedManifestAsync(env);
-  const doomed = cs.items
-    .filter((i) => i.op === "delete" && i.nodeType === "resource")
-    .map((i) => deployed.resources.find((r) => r.id === i.nodeId))
-    .filter((r): r is NonNullable<typeof r> => !!r && r.ownership === "managed" && isStatefulKind(r.kind));
-  if (!doomed.length) return undefined;
-  const names = doomed.map((r) => `"${r.name}" (${r.kind})`).join(", ");
-  return (
-    `This plan removes ${names} from ${env.name}, which destroys the data in ${doomed.length > 1 ? "them" : "it"} — ` +
-    `and a rollback restores the system definition, not the data. ` +
-    `${
-      via === "rollback"
-        ? `Pick a revision that still has ${doomed.length > 1 ? "them" : "it"}`
-        : `Put ${doomed.length > 1 ? "them" : "it"} back in the editor`
-    }, or turn on "Allow stateful deletion" for ${env.name} in Settings → Environments if you mean to lose the data.`
-  );
 }
 
 /**
@@ -177,14 +92,14 @@ function blockingIssues(m: Manifest): string[] {
     .map((i) => `${i.message}${i.fix ? ` ${i.fix}` : ""}`);
 }
 
-async function deployPlan(env: Environment, project: Project): Promise<ActionPlan> {
+async function deployPlan(ctx: ActionContext, env: Environment, project: Project): Promise<ActionPlan> {
   const cs = await changesetForAsync(env, project);
   const blocked = await deployBlock(env, project, cs);
   const warnings = validateManifest(project.workingManifest)
     .filter((i) => i.level === "warning")
     .map((i) => `${i.message}${i.fix ? ` ${i.fix}` : ""}`);
 
-  return {
+  const plan: ActionPlan = {
     summary: blocked
       ? `${project.name} cannot be deployed to ${env.name} — ${tally(cs)} is what would change, but this deploy would be refused.`
       : `Deploy ${project.name} to ${env.name} — ${tally(cs)}.`,
@@ -210,6 +125,8 @@ async function deployPlan(env: Environment, project: Project): Promise<ActionPla
      */
     requiredRole: "editor",
   };
+  if ((await executionRoute(env)).kind === "workflow") await addWorkflowCheck(ctx, env, plan);
+  return plan;
 }
 
 /* -------------------------------- deploy.plan ------------------------------ */
@@ -230,7 +147,7 @@ defineAction<PlanInput>({
   input: PlanInput,
   async plan(ctx, input) {
     const env = requireEnvironment(ctx, input.environmentId);
-    return await deployPlan(env, requireProject(ctx, input.projectId ?? env.projectId));
+    return await deployPlan(ctx, env, requireProject(ctx, input.projectId ?? env.projectId));
   },
   async execute(ctx, input) {
     const env = requireEnvironment(ctx, input.environmentId);
@@ -263,7 +180,7 @@ defineAction<ApplyInput>({
   input: ApplyInput,
   async plan(ctx, input) {
     const env = requireEnvironment(ctx, input.environmentId);
-    return await deployPlan(env, requireProject(ctx, input.projectId ?? env.projectId));
+    return await deployPlan(ctx, env, requireProject(ctx, input.projectId ?? env.projectId));
   },
   async execute(ctx, input) {
     const env = requireEnvironment(ctx, input.environmentId);
@@ -271,7 +188,8 @@ defineAction<ApplyInput>({
     const working = project.workingManifest;
 
     // Refuse before a revision is snapshotted or a deployment record exists.
-    const providerRefusal = providerBlock(env) ?? connectionBlock(env);
+    const route = await executionRoute(env);
+    const providerRefusal = (await providerBlock(env, route)) ?? connectionBlock(env);
     if (providerRefusal)
       return {
         ok: false,
@@ -313,6 +231,8 @@ defineAction<ApplyInput>({
         error: statefulRefusal,
       };
 
+    if (route.kind === "workflow" && findSecret(input.message))
+      return { ok: false, summary: "Deployment message refused.", error: "Remove secret material from the message; use references only." };
     const number = q.revisionsOf(project.id).reduce((max, r) => Math.max(max, r.number), 0) + 1;
     const changeSummary = tally(changeset);
     const revision: Revision = {
@@ -329,6 +249,7 @@ defineAction<ApplyInput>({
     // reading it back through the store's accessor.
     save(project.id);
 
+    if (route.kind === "workflow") return startWorkflowDeployment({ ctx, env, revision, changeset, changeSummary });
     const engine = await getEngine();
     const deployment = await engine.start({
       projectId: project.id,
@@ -376,44 +297,6 @@ type DeploymentRef = z.infer<typeof DeploymentRef>;
  * refuses, and an execute that runs is the whole estate.
  */
 
-/**
- * Requester/approver separation for production.
- *
- * An approval gate only gates if the person who asked for the change is not the
- * one who lets it through; `deploy.approve` used to ask for the admin role and
- * nothing else, so an admin could start a production deployment and approve it
- * in the next click. For an environment of class `production` the approver must
- * not be the actor who started the deployment (compared by actor id, so a
- * Navigator cannot approve its own deployment either).
- *
- * The one exception is the only admin in the workspace, who has nobody else to
- * ask: they may approve their own, and the audit summary says so
- * ("self-approved (sole admin)") so the record shows it was not a second pair
- * of eyes. Only a signed-in user can be that sole admin, never the Navigator.
- * "Sole" means no *other* admin member: a workspace with no member rows at all
- * (the local single-user store) has nobody else either.
- *
- * Every other environment class is unchanged.
- */
-function approvalSeparation(
-  ctx: ActionContext,
-  d: Deployment,
-  env: Environment | undefined
-): { blocked?: string; selfApproved?: boolean } {
-  if (!env || env.class !== "production" || d.actor.id !== ctx.actor.id) return {};
-  const otherAdmins = db().members.filter(
-    (m) => m.workspaceId === ctx.workspaceId && m.role === "admin" && m.id !== ctx.actor.id
-  );
-  if (ctx.actor.type === "user" && otherAdmins.length === 0 && roleOf(ctx.actor, ctx.workspaceId) === "admin")
-    return { selfApproved: true };
-  return {
-    blocked:
-      `${env.name} is a production environment and you started this deployment, so you cannot also approve it — ` +
-      `on production the approval has to come from a second person. ` +
-      `Ask another admin to approve it from the Deploys page, or add one in Settings → Members.`,
-  };
-}
-
 defineAction<DeploymentRef>({
   id: "deploy.approve",
   title: "Approve deployment",
@@ -422,10 +305,16 @@ defineAction<DeploymentRef>({
   requiredRole: "admin",
   mutates: true,
   input: DeploymentRef,
-  plan(ctx, input) {
+  async plan(ctx, input) {
     const d = requireDeployment(ctx, input.deploymentId);
     const env = q.environment(d.environmentId);
     const separation = approvalSeparation(ctx, d, env);
+    if (d.executor === "workflow") {
+      const plan = await workflowApprovalPlan(ctx, d);
+      if (separation.blocked) plan.blocked = separation.blocked;
+      if (separation.selfApproved) plan.details.push("Self-approved (sole admin): recorded in the audit summary.");
+      return plan;
+    }
     return {
       summary: `Approve and apply this deployment to ${env?.name ?? "its environment"}.`,
       details: [
@@ -461,6 +350,11 @@ defineAction<DeploymentRef>({
         summary: "You started this production deployment, so someone else has to approve it.",
         error: separation.blocked,
       };
+    if (deployment.executor === "workflow") {
+      const result = await approveWorkflowDeployment(ctx, deployment);
+      if (result.ok && separation.selfApproved) result.summary += " Self-approved (sole admin).";
+      return result;
+    }
     const engine = await getEngine();
     const d = await engine.approve(deployment.id);
     return {
@@ -486,10 +380,11 @@ defineAction<DeploymentRef>({
     return {
       summary: "Cancel this deployment.",
       details: [
+        ...(d.executor === "workflow" ? [`Cancellation routes through platform operation ${d.operationId}; running workflows stop by signal, and the worker records the outcome.`] : []),
         `${done} of ${d.steps.length} step(s) already finished; remaining steps are skipped.`,
         done > 0
           ? "Work already applied stays applied — cancelling stops the deployment, it does not undo it. Use rollback for that."
-          : "Nothing has been applied yet, so the environment is untouched.",
+          : d.executor === "workflow" && d.workflowStartedAt ? "No completed steps are projected yet; cloud changes may already be underway." : "Nothing has been applied yet, so the environment is untouched.",
       ],
       costDeltaUsd: 0,
       risk: done > 0 ? "medium" : "low",
@@ -504,6 +399,7 @@ defineAction<DeploymentRef>({
     // Cancelling someone else's in-flight deployment leaves their environment
     // stranded between two revisions. Resolve inside the tenant first.
     const deployment = requireDeployment(ctx, input.deploymentId);
+    if (deployment.executor === "workflow") return cancelWorkflowDeployment(ctx, deployment);
     const engine = await getEngine();
     const d = await engine.cancel(deployment.id);
     return { ok: true, summary: `Deployment cancelled after ${d.steps.filter((s) => s.status === "done").length} completed step(s).`, data: { deploymentId: d.id, status: d.status } };
@@ -604,10 +500,10 @@ defineAction<RollbackInput>({
     const target = resolved.revision;
     const cs = diffManifests(current?.manifest ?? emptyManifest(), target.manifest);
     const blocked =
-      [providerBlock(env) ?? connectionBlock(env), await statefulDeletionBlock(env, cs, "rollback")]
+      [(await providerBlock(env)) ?? connectionBlock(env), await statefulDeletionBlock(env, cs, "rollback")]
         .filter((r): r is string => Boolean(r))
         .join(" ") || undefined;
-    return {
+    const plan: ActionPlan = {
       summary: blocked
         ? `${env.name} cannot be rolled back — this deploy would be refused.`
         : `Roll ${env.name} back to revision ${target.number}${current ? ` (from ${current.number})` : ""}.`,
@@ -629,6 +525,8 @@ defineAction<RollbackInput>({
       requiresApproval: env.policies.approvalRequired,
       blocked,
     };
+    if ((await executionRoute(env)).kind === "workflow") await addWorkflowCheck(ctx, env, plan, "deployment.rollback");
+    return plan;
   },
   async execute(ctx, input) {
     const env = requireEnvironment(ctx, input.environmentId);
@@ -649,7 +547,8 @@ defineAction<RollbackInput>({
     // an environment that cannot be deployed to should say so before it starts
     // discussing what it might roll back to.
     if (input.toRevisionId && "refusal" in resolved) return refuse(resolved.refusal);
-    const blocked = providerBlock(env) ?? connectionBlock(env);
+    const route = await executionRoute(env);
+    const blocked = (await providerBlock(env, route)) ?? connectionBlock(env);
     if (blocked) return refuse(blocked);
     if ("refusal" in resolved) return refuse(resolved.refusal);
 
@@ -671,6 +570,7 @@ defineAction<RollbackInput>({
         error: statefulRefusal,
       };
 
+    if (route.kind === "workflow") return startWorkflowRollback({ ctx, env, revision: resolved.revision, changeset: diffManifests(current?.manifest ?? emptyManifest(), resolved.revision.manifest) });
     const engine = await getEngine();
     // The resolved id, never the caller's string: `engine.rollback` deploys
     // whatever revision it is handed straight into this environment.

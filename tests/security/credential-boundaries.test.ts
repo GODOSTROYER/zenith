@@ -119,19 +119,7 @@ describe("credential broker composed boundaries", () => {
     assertNoCanaries([error, h.events], [access, secret, token], "STS message credentials must be absent from broker errors and events");
   });
 
-  it("SEC-F10 characterization: STS name is copied verbatim into denial message and event", async () => {
-    const h = harness();
-    const upstream = new Error("exchange denied");
-    upstream.name = access;
-    sts.on(AssumeRoleCommand).rejects(upstream);
-    const error: unknown = await h.broker.withSession(request(), async () => true).catch((e: unknown) => e);
-    expect(error).toMatchObject({ reason: "sts_failed" });
-    expect(sts.commandCalls(AssumeRoleCommand)).toHaveLength(1);
-    expect(deepScanForCanaries(error, [access]).length).toBeGreaterThan(0);
-    expect(deepScanForCanaries(h.events, [access]).length).toBeGreaterThan(0);
-  });
-
-  it.fails("SEC-F10 (MED): external STS Error.name must not leak credentials into errors or events", async () => {
+  it("SEC-F10 (MED): external STS Error.name must not leak credentials into errors or events", async () => {
     const h = harness();
     const upstream = new Error("exchange denied");
     upstream.name = access;

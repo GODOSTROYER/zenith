@@ -295,7 +295,7 @@ describe("P7: agents do not run high-risk work on their own authority", () => {
    * one mislabelled field is one broker bug from an unattended production
    * apply by a model. When the rule also keys on `principal.kind`, flip these.
    */
-  it.fails("SEC-F8 (MEDIUM): an integration principal's high-risk mutation needs approval even if the input claims a human origin", async () => {
+  it("SEC-F8 (MEDIUM): an integration principal's high-risk mutation needs approval even if the input claims a human origin", async () => {
     const offenders: string[] = [];
     for (const cap of highRisk) {
       const input = policyInputFor(cap.name, { principal: { kind: "integration", role: "admin", integrationScopes: ["write", "read", "plan", "logs", "publish"] }, environment: { class: "development", autonomyLevel: 5 }, context: { origin: "human" } });
@@ -304,7 +304,7 @@ describe("P7: agents do not run high-risk work on their own authority", () => {
     expect(offenders, "an integration principal with a human-labelled origin ran these unattended").toEqual([]);
   });
 
-  it.fails("SEC-F8 (MEDIUM): a navigator principal's high-risk mutation needs approval in PRODUCTION even if the input claims a human origin", async () => {
+  it("SEC-F8 (MEDIUM): a navigator principal's high-risk mutation needs approval in PRODUCTION even if the input claims a human origin", async () => {
     const offenders: string[] = [];
     for (const cap of highRisk) {
       const input = policyInputFor(cap.name, { principal: { kind: "navigator", role: "admin" }, environment: { class: "production", autonomyLevel: 5 }, context: { origin: "human" } });

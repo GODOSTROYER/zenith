@@ -1,4 +1,4 @@
-/** Durable integration intent journal. It does not replace Zenith's application store. */
+/** Durable integration intent journal. Caller lookups are workspace-scoped before authorization. */
 import { DatabaseSync } from 'node:sqlite';
 import { createHash, randomUUID } from 'node:crypto';
 import { chmodSync, existsSync, lstatSync, mkdirSync, openSync, closeSync } from 'node:fs';
@@ -149,8 +149,17 @@ export class Journal {
     try { const result = fn(); this.sql.exec('COMMIT'); return result; }
     catch (error) { this.sql.exec('ROLLBACK'); throw error; }
   }
+  /** Worker-only lookup for methods whose frozen contract carries no workspace. */
   private row(id: string): Operation {
     const row = this.sql.prepare('SELECT document FROM agent_operations WHERE id=?').get(id) as JsonRow | undefined;
+    if (!row) throw new ControlError('operation_not_found', 'Operation not found in this scope.', 404);
+    return JSON.parse(row.document) as Operation;
+  }
+  /** Tenant-facing lookups never load another workspace or subject's document. */
+  private scopedRow(id: string, workspace: string, subject?: string): Operation {
+    const row = (subject === undefined
+      ? this.sql.prepare('SELECT document FROM agent_operations WHERE id=? AND workspace=?').get(id, workspace)
+      : this.sql.prepare('SELECT document FROM agent_operations WHERE id=? AND workspace=? AND subject=?').get(id, workspace, subject)) as JsonRow | undefined;
     if (!row) throw new ControlError('operation_not_found', 'Operation not found in this scope.', 404);
     return JSON.parse(row.document) as Operation;
   }
@@ -200,7 +209,7 @@ export class Journal {
     return row ? this.get(who, row.id) : undefined;
   }
   get(who: Principal, id: string): Operation {
-    const op = this.row(id);
+    const op = this.scopedRow(id, who.workspaceId, who.subject);
     checkTarget(who, op.target, 'read', this.clock());
     if (op.subject !== who.subject) throw new ControlError('operation_not_found', 'Operation not found in this scope.', 404);
     return op;
@@ -208,7 +217,7 @@ export class Journal {
   /** Browser-only caller resolves a fresh live user, scope and role before using this method. */
   review(id: string, subject: string, workspace: string, expectedDigest: string, approve: boolean, approver = subject, role: 'editor' | 'admin' = 'editor'): Operation {
     return this.transaction(() => {
-      const op = this.row(id);
+      const op = this.scopedRow(id, workspace, subject);
       if (op.subject !== subject || op.target.workspaceId !== workspace) throw new ControlError('operation_not_found', 'Operation not found.', 404);
       if (op.digest !== expectedDigest) throw new ControlError('review_changed', 'Reload and review the exact proposal.');
       if (op.phase !== 'prepared') throw new ControlError('invalid_phase', 'This proposal is no longer awaiting review.');
@@ -227,7 +236,7 @@ export class Journal {
    */
   unapprove(id: string, expectedDigest: string, by: string, workspace: string): Operation {
     return this.transaction(() => {
-      const op = this.row(id);
+      const op = this.scopedRow(id, workspace);
       if (op.target.workspaceId !== workspace) throw new ControlError('operation_not_found', 'Operation not found.', 404);
       if (op.digest !== expectedDigest) throw new ControlError('review_changed', 'Reload and review the exact proposal.');
       if (op.phase !== 'approved') throw notWithdrawable(op.phase);
@@ -259,7 +268,7 @@ export class Journal {
    */
   finishIfValid(who: Principal, id: string, result: unknown, success: boolean, applicationAuthorizationDigest?: string): Operation {
     return this.transaction(() => {
-      const op = this.row(id);
+      const op = this.scopedRow(id, who.workspaceId);
       if (op.phase !== 'running' || op.workerId !== this.workerId)
         throw new ControlError('operation_not_owned', 'This worker does not own the operation.');
       if (op.subject !== who.subject || op.target.workspaceId !== who.workspaceId || op.executedByIntegration !== who.integrationId)
@@ -311,12 +320,15 @@ export class Journal {
   events(who: Principal, id: string, after = 0, limit = 50): unknown[] {
     this.get(who, id);
     if (!Number.isSafeInteger(after) || after < 0 || !Number.isInteger(limit) || limit < 1 || limit > 100) throw new ControlError('invalid_page', 'Use a bounded event page.', 400);
-    return this.sql.prepare('SELECT seq,kind,at,document FROM agent_events WHERE operation_id=? AND seq>? ORDER BY seq LIMIT ?').all(id, after, limit)
+    return this.sql.prepare(`SELECT e.seq,e.kind,e.at,e.document FROM agent_events e
+      JOIN agent_operations o ON o.id=e.operation_id
+      WHERE e.operation_id=? AND o.workspace=? AND o.subject=? AND e.seq>? ORDER BY e.seq LIMIT ?`)
+      .all(id, who.workspaceId, who.subject, after, limit)
       .map(row => ({ sequence: row.seq, kind: row.kind, at: row.at, data: JSON.parse(String(row.document)) as unknown }));
   }
   /** Trusted browser service only. Never expose this lookup without separate authorization. */
   forReview(id: string, workspace: string): Operation {
-    const op = this.row(id);
+    const op = this.scopedRow(id, workspace);
     if (op.target.workspaceId !== workspace) throw new ControlError('operation_not_found', 'Operation not found.', 404);
     return op;
   }

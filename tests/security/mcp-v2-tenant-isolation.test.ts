@@ -248,18 +248,11 @@ describe("MCP v2 operations: one principal's operation ids are worthless to anot
      * cross-tenant read.
      * Fix (journal.ts, journal-pg.ts): look up `WHERE id = $1 AND workspace = $2
      * AND subject = $3` and answer `operation_not_found` for everything else.
-     * The characterization below documents today's behaviour; the `it.fails`
-     * states the invariant. When the fix lands the `it.fails` starts failing:
-     * flip it to `it` and delete the characterization.
+     * FIXED (WS-SEC-POLICY): journal lookups are scoped by workspace and subject in
+     * the query, so a foreign id and a phantom id both answer 404
+     * `operation_not_found`; the invariant below is now a plain test.
      */
-    it(`${tool}: CHARACTERIZATION of SEC-F1 - a foreign id is 403 scope_denied while a phantom is 404 operation_not_found`, async () => {
-      const m = await matrix(`${tool}[existence]`, operationTargets(), (p, t) => call(tool, { operationId: t.id }, p));
-      const alice = (target: string) => m.cell("alice", target).outcome;
-      expect(alice(operationIds.bravo)).toMatchObject({ kind: "forbidden", code: "scope_denied", status: 403 });
-      expect(alice("op_00000000-0000-4000-8000-000000000000")).toMatchObject({ kind: "not_found", code: "operation_not_found", status: 404 });
-    });
-
-    it.fails(`${tool}: a foreign operation id is indistinguishable from one that never existed (KNOWN FINDING SEC-F1)`, async () => {
+    it(`${tool}: a foreign operation id is indistinguishable from one that never existed (KNOWN FINDING SEC-F1)`, async () => {
       const m = await matrix(`${tool}[existence]`, operationTargets(), (p, t) => call(tool, { operationId: t.id }, p));
       m.assertIsolated({ ...isolation, noExistenceLeak: true });
     });

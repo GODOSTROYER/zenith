@@ -325,6 +325,34 @@ test_two_person_production_does_not_gate_reads if {
 
 # ------------------------------------------ agent_high_risk_requires_approval
 
+test_agent_principal_cannot_claim_non_agent_origin if {
+	every kind in ["integration", "navigator"] {
+		every origin in ["human", "system", "reconciler"] {
+			every risk in ["high", "critical"] {
+				r := approval.agent_high_risk_requires_approval with input as fx.with_patch({
+					"principal": {"kind": kind},
+					"context": {"origin": origin},
+					"request": {"risk": risk},
+				})
+				r.code == "agent_high_risk_requires_approval"
+				r.requirement == editor
+			}
+		}
+	}
+}
+
+test_agent_principal_low_and_medium_risk_are_not_gated if {
+	every kind in ["integration", "navigator"] {
+		every risk in ["low", "medium"] {
+			not approval.agent_high_risk_requires_approval with input as fx.with_patch({
+				"principal": {"kind": kind},
+				"context": {"origin": "human"},
+				"request": {"risk": risk},
+			})
+		}
+	}
+}
+
 test_agent_high_risk_needs_an_editor if {
 	r := approval.agent_high_risk_requires_approval with input as fx.with_patch({
 		"context": {"origin": "agent"},

@@ -139,7 +139,7 @@ agent_high_risk_requires_approval := {
 	"message": "High- and critical-risk work proposed by an agent needs a person's approval.",
 	"requirement": {"count": 1, "minRole": "editor", "separationOfDuties": false},
 } if {
-	input.context.origin in {"agent", "navigator"}
+	lib.agent_initiated
 	lib.effective_risk_rank >= 2
 }
 

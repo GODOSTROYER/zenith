@@ -113,12 +113,28 @@ OCIDs would either deny all resources or allow callers to forge the binding.
 
 For Monitoring, `compartmentId` must be an allowed, unique URL query parameter;
 placing it only in the JSON body cannot authorize `summarizeMetricsData`.
-`compartmentIdInSubtree` must be absent or exactly `false`.
+`compartmentIdInSubtree` must be absent or exactly `false`; duplicate selectors,
+case variants and other URL parameters are refused. The JSON body has exactly
+`namespace`, `query`, `resolution`, `startTime` and `endTime`. Only namespace
+`oci_computeagent` and this byte-exact query shape are accepted:
+
+```
+<CpuUtilization|MemoryUtilization>[<1m|5m|1h|1d>]{resourceId = "<instanceOCID>"}.mean()
+```
+
+`resolution` must equal the query interval. Both timestamps must be RFC 3339,
+with `endTime` after `startTime`. The instance OCID must have a trusted local
+`resourceCompartments` binding to the **exact URL compartment**, even if several
+compartments are allowed. Other namespaces, metrics, aggregations, dimensions,
+fields, unbound/foreign instances and query-language injection are refused.
 Logging Search instead selects scope inside the JSON `searchQuery`. The runner
 accepts the minimal query `search "<compartmentOCID>[/<logGroupOCID>[/<logOCID>]]"`:
 one explicit compartment from local `allowedCompartments`, with every optional
-log-group/log OCID locally bound to that same compartment. Names, wildcards,
-multiple scopes, pipelines and comments are refused rather than interpreted.
+log-group/log OCID locally bound to that same compartment. The sole accepted
+suffix is exactly ` | sort by datetime desc`, as emitted by the TS log reader.
+Whitespace is not normalized: double spaces, altered sorting, another pipe,
+trailing text and controls are refused. Names, wildcards, multiple scopes,
+other pipelines and comments are refused rather than interpreted.
 Only `limit` and `page` URL parameters are accepted for Logging Search. A caller's
 URL/body `compartmentId` assertion never authorizes a foreign search scope.
 This is a deliberately limited subset of Oracle's
@@ -263,9 +279,11 @@ redis GET /20220315/redisClusters
 redis GET /20220315/redisClusters/{}
 ```
 
-**`infrastructure.observe` only** additionally allows these two read-only POST
-queries. `topology.read`, `incident.investigate`, `firewall.inspect`, mutation
-capabilities and the reserved `logs.read` gain no access to them:
+**Signal reads:** `infrastructure.observe` and `incident.investigate`
+additionally allow both fixed read-only POST queries below. `logs.read` allows
+only Logging Search; `metrics.read` allows only Monitoring, without metadata
+GETs. `topology.read`, `firewall.inspect` and every mutating capability gain no
+signal POST access:
 
 ```
 loggingsearch POST /20190909/search
@@ -279,18 +297,19 @@ cross-checked against the [Oracle Logging Search client](https://github.com/orac
 and [Oracle Monitoring client](https://github.com/oracle/oci-go-sdk/blob/master/monitoring/monitoring_client.go).
 Monitoring uses the read endpoint `telemetry`, never `telemetry-ingestion`.
 No log ingestion, metric publication, alarm mutation or broader path wildcard is
-allowed. The embedded contracts contain 7 capabilities and 18 services;
-`infrastructure.observe` has 52 rules, while `topology.read` and
-`incident.investigate` retain their 50 driver-read rules. Regenerate both golden
+allowed. The embedded contracts contain 9 capabilities and 18 services;
+`infrastructure.observe` and `incident.investigate` each have 52 rules,
+`topology.read` retains 50 driver-read rules, and `logs.read` / `metrics.read`
+each have one signal rule. Regenerate both golden
 files with `npx tsx scripts/generate-oci-allowlist.ts`; TS/Go parity is tested.
 
-The shared executor currently requires `opc-retry-token` on **every** POST
-(`go/internal/runner/kinds/ocihttp.go`, `Prepare`), including these reads.
-Without a token it rejects the job before principal lookup. A supplied token
-satisfies that local check; the APIs are read-only and expose no retry-token
-parameter in Oracle's reference. The executor owner must exempt exactly these
-two allowlisted read POSTs from that check before token-free reads can run.
-Neither POST is automatically retried by the current executor (§8).
+The Go executor exempts exactly these two read POSTs from its retry-token
+requirement (`go/internal/runner/kinds/ocihttp.go`, `readOnlyPost`); other POSTs
+still require a token. The control-plane payload schema currently requires
+`opc-retry-token` on every POST, so the TS readers supply it. Neither signal
+POST is automatically retried by the current executor (§8). Offline reader
+tests exercise the production tables, runner serialization and payload schema
+with synthetic responses; this does not establish live tenancy access.
 
 **`firewall.inspect`**
 

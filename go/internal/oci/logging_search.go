@@ -2,8 +2,9 @@ package oci
 
 import "strings"
 
-// bindLoggingSearch accepts the minimal OCI query: one quoted OCID scope with
-// optional log-group/log OCIDs. Scope is inside searchQuery, not compartmentId.
+// bindLoggingSearch accepts one quoted OCID scope with optional log-group/log
+// OCIDs and only the reader's fixed newest-first suffix. No whitespace is normalized.
+// Scope is inside searchQuery, not compartmentId.
 // More complex query language is deliberately refused rather than guessed at;
 // this boundary is not a Logging Query Language interpreter. No live verification.
 func bindLoggingSearch(r Request, body []byte, allowed map[string]bool, bindings map[string]string) error {
@@ -21,11 +22,11 @@ func bindLoggingSearch(r Request, body []byte, allowed map[string]bool, bindings
 	if !ok || control(query) {
 		return ErrCompartment
 	}
-	query = strings.TrimSpace(query)
-	if !strings.HasPrefix(query, "search ") {
+	query = strings.TrimSuffix(query, " | sort by datetime desc")
+	if !strings.HasPrefix(query, "search \"") {
 		return ErrCompartment
 	}
-	scope := strings.TrimSpace(strings.TrimPrefix(query, "search "))
+	scope := strings.TrimPrefix(query, "search ")
 	if len(scope) < 2 || scope[0] != '"' || scope[len(scope)-1] != '"' {
 		return ErrCompartment
 	}

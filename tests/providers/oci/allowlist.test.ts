@@ -15,6 +15,7 @@ import { createRunnerOciTransport, type OciHttpJobPayload, type OciHttpJobResult
 import { OCI_SERVICE_HOSTS } from "@/lib/providers/oci/services";
 import type { OciApiRequest, OciApiResponse, OciApiTransport } from "@/lib/providers/oci/transport";
 import type { Observation, ResourceNode } from "@/lib/resources";
+import { capability } from "@/lib/capabilities/catalog";
 import { driverContext, driverFor, expandOci, nodeOf, REGION, webStack, type FakeOci } from "./_support";
 import { healthyWorld } from "./_world";
 import { moreGraph } from "./_more";
@@ -75,7 +76,7 @@ describe("what is never allowed", () => {
     expect(all.filter((r) => r.method === ("DELETE" as string))).toEqual([]);
     expect(all.map(describeRule).join("\n")).not.toMatch(/secretbundles|\/o\/|changeCompartment/);
     expect(all.filter((r) => r.service === "identity" && r.method !== "GET")).toEqual([]);
-    for (const cap of ["topology.read", "incident.investigate", "firewall.inspect"]) {
+    for (const cap of ["topology.read", "firewall.inspect"]) {
       expect(OCI_ALLOWLIST[cap].every((r) => r.method === "GET"), cap).toBe(true);
     }
     expect(OCI_ALLOWLIST["infrastructure.observe"].filter((r) => r.method !== "GET").map(describeRule)).toEqual([
@@ -85,8 +86,8 @@ describe("what is never allowed", () => {
   });
 
   it("each mutating rule belongs to exactly the capability that needs it", () => {
-    // The two explicitly asserted observe POSTs above are reads; other POST/PUTs mutate.
-    const mutating = Object.entries(OCI_ALLOWLIST).filter(([cap]) => cap !== "infrastructure.observe").flatMap(([cap, rules]) => rules.filter((r) => r.method !== "GET").map((r) => `${cap}: ${describeRule(r)}`));
+    // Capability metadata distinguishes fixed read POSTs from mutations.
+    const mutating = Object.entries(OCI_ALLOWLIST).filter(([cap]) => capability(cap).mutates).flatMap(([cap, rules]) => rules.filter((r) => r.method !== "GET").map((r) => `${cap}: ${describeRule(r)}`));
     expect(mutating.sort()).toEqual([
       "database.snapshot: postgresql POST /20220915/backups",
       "secret.write: vault PUT /20180608/secrets/{}",

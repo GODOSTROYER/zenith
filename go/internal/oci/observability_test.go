@@ -1,6 +1,7 @@
 package oci
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -11,12 +12,11 @@ func TestObserveReadQueries(t *testing.T) {
 		{Service: "monitoring", Method: "POST", Path: "/20180401/metrics/actions/summarizeMetricsData"},
 	} {
 		t.Run(r.Service, func(t *testing.T) {
-			if template, ok := Match("infrastructure.observe", r.Service, r.Method, r.Path); !ok || template != r.Path {
-				t.Fatal("observe query refused or wrong audit template")
-			}
-			for _, capability := range []string{"topology.read", "incident.investigate", "firewall.inspect", "service.restart", "database.snapshot", "secret.write", "logs.read", "unknown"} {
-				if _, ok := Match(capability, r.Service, r.Method, r.Path); ok {
-					t.Fatal("read query escaped observe capability")
+			for _, capability := range []string{"infrastructure.observe", "incident.investigate", "logs.read", "metrics.read", "topology.read", "firewall.inspect", "service.restart", "database.snapshot", "secret.write", "infrastructure.apply", "unknown"} {
+				want := capability == "infrastructure.observe" || capability == "incident.investigate" ||
+					(capability == "logs.read" && r.Service == "loggingsearch") || (capability == "metrics.read" && r.Service == "monitoring")
+				if template, ok := Match(capability, r.Service, r.Method, r.Path); ok != want || (ok && template != r.Path) {
+					t.Fatal("read query capability split or audit template is incorrect")
 				}
 			}
 			for _, method := range []string{"GET", "HEAD", "PUT", "DELETE"} {
@@ -51,12 +51,14 @@ func TestLoggingCompartmentScopes(t *testing.T) {
 	bindings := map[string]string{group: compartment, log: compartment}
 	r := Request{Service: "loggingsearch", Region: "us-ashburn-1", Method: "POST", Path: "/20190909/search"}
 	for _, scope := range []string{compartment, compartment + "/" + group, compartment + "/" + group + "/" + log} {
-		t.Run("allowed/"+scope, func(t *testing.T) {
-			body := []byte(`{"searchQuery":"search \"` + scope + `\"","timeStart":"2026-10-01T00:00:00Z","timeEnd":"2026-10-01T00:01:00Z"}`)
-			if err := BindCompartments(r, body, []string{compartment}, bindings, r.Path); err != nil {
-				t.Fatal(err)
-			}
-		})
+		for _, suffix := range []string{"", " | sort by datetime desc"} {
+			t.Run("allowed/"+scope+suffix, func(t *testing.T) {
+				body := []byte(`{"searchQuery":"search \"` + scope + `\"` + suffix + `","timeStart":"2026-10-01T00:00:00Z","timeEnd":"2026-10-01T00:01:00Z","isReturnFieldInfo":false}`)
+				if err := BindCompartments(r, body, []string{compartment}, bindings, r.Path); err != nil {
+					t.Fatal(err)
+				}
+			})
+		}
 	}
 	body := []byte(`{"searchQuery":"search \"` + compartment + `\""}`)
 	r.Query = [][2]string{{"limit", "10"}, {"page", "synthetic-page"}}
@@ -96,14 +98,58 @@ func TestLoggingCompartmentScopes(t *testing.T) {
 		"conflicting-allowed-group": {group: foreign, log: compartment},
 		"foreign-log":               {group: compartment, log: foreign},
 	} {
+		for _, suffix := range []string{"", " | sort by datetime desc"} {
+			t.Run(name+suffix, func(t *testing.T) {
+				body := []byte(`{"searchQuery":"search \"` + compartment + `/` + group + `/` + log + `\"` + suffix + `"}`)
+				allowed := []string{compartment}
+				if name == "conflicting-allowed-group" {
+					allowed = append(allowed, foreign)
+				}
+				if BindCompartments(r, body, allowed, localBindings, r.Path) != ErrCompartment {
+					t.Fatal("log resource binding was ignored")
+				}
+			})
+		}
+	}
+}
+
+func TestLoggingFixedSuffix(t *testing.T) {
+	compartment := "ocid1.compartment.oc1..fixture"
+	foreign := "ocid1.compartment.oc1..foreign"
+	group := "ocid1.loggroup.oc1.iad.fixture"
+	r := Request{Service: "loggingsearch", Method: "POST", Path: "/20190909/search"}
+	base := `search "` + compartment + `/` + group + `"`
+	for name, query := range map[string]string{
+		"extra-pipe":                base + " | sort by datetime desc | where level = 'ERROR'",
+		"repeated-suffix":           base + " | sort by datetime desc | sort by datetime desc",
+		"different-sort":            base + " | sort by datetime asc",
+		"different-field":           base + " | sort by time desc",
+		"trailing-text":             base + " | sort by datetime desc ignored",
+		"trailing-space":            base + " | sort by datetime desc ",
+		"double-space-before-pipe":  base + "  | sort by datetime desc",
+		"double-space-after-pipe":   base + " |  sort by datetime desc",
+		"double-space-before-by":    base + " | sort  by datetime desc",
+		"double-space-before-field": base + " | sort by  datetime desc",
+		"double-space-before-desc":  base + " | sort by datetime  desc",
+		"double-space-after-search": strings.Replace(base, "search ", "search  ", 1) + " | sort by datetime desc",
+		"leading-space":             " " + base + " | sort by datetime desc",
+		"uppercase-sort":            base + " | SORT by datetime desc",
+		"tab":                       base + "\t| sort by datetime desc",
+		"newline":                   base + " | sort by datetime desc\n",
+		"foreign-compartment":       `search "` + foreign + `/` + group + `" | sort by datetime desc`,
+		"forged-compartment-body":   base + " | sort by datetime desc",
+	} {
 		t.Run(name, func(t *testing.T) {
-			body := []byte(`{"searchQuery":"search \"` + compartment + `/` + group + `/` + log + `\""}`)
-			allowed := []string{compartment}
-			if name == "conflicting-allowed-group" {
-				allowed = append(allowed, foreign)
+			obj := map[string]any{"searchQuery": query}
+			if name == "forged-compartment-body" {
+				obj["compartmentId"] = foreign
 			}
-			if BindCompartments(r, body, allowed, localBindings, r.Path) != ErrCompartment {
-				t.Fatal("log resource binding was ignored")
+			body, err := json.Marshal(obj)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if BindCompartments(r, body, []string{compartment}, map[string]string{group: compartment}, r.Path) != ErrCompartment {
+				t.Fatal("unsafe suffix or compartment assertion accepted")
 			}
 		})
 	}
@@ -112,28 +158,36 @@ func TestLoggingCompartmentScopes(t *testing.T) {
 func TestMonitoringRequiresURLCompartment(t *testing.T) {
 	compartment := "ocid1.compartment.oc1..fixture"
 	foreign := "ocid1.compartment.oc1..foreign"
+	instance := "ocid1.instance.oc1.iad.fixture"
+	bindings := map[string]string{instance: compartment}
 	r := Request{Service: "monitoring", Region: "us-ashburn-1", Method: "POST", Path: "/20180401/metrics/actions/summarizeMetricsData"}
-	body := []byte(`{"namespace":"oci_computeagent","query":"CpuUtilization[1m].mean()"}`)
+	body := []byte(`{"namespace":"oci_computeagent","query":"CpuUtilization[1m]{resourceId = \"` + instance + `\"}.mean()","resolution":"1m","startTime":"2026-10-01T00:00:00Z","endTime":"2026-10-01T00:01:00Z"}`)
 	for _, subtree := range []bool{false, true} {
 		r.Query = [][2]string{{"compartmentId", compartment}}
 		if subtree {
 			r.Query = append(r.Query, [2]string{"compartmentIdInSubtree", "false"})
 		}
-		if err := BindCompartments(r, body, []string{compartment}, nil, r.Path); err != nil {
+		if err := BindCompartments(r, body, []string{compartment}, bindings, r.Path); err != nil {
 			t.Fatal("scoped monitoring query refused")
 		}
 	}
 	for name, query := range map[string][][2]string{
 		"missing": nil, "foreign": {{"compartmentId", foreign}},
-		"duplicate":            {{"compartmentId", compartment}, {"compartmentId", foreign}},
-		"case-variant":         {{"CompartmentId", compartment}},
-		"subtree":              {{"compartmentId", compartment}, {"compartmentIdInSubtree", "true"}},
-		"case-variant-subtree": {{"compartmentId", compartment}, {"CompartmentIdInSubtree", "true"}},
+		"duplicate":                  {{"compartmentId", compartment}, {"compartmentId", foreign}},
+		"case-variant":               {{"CompartmentId", compartment}},
+		"subtree":                    {{"compartmentId", compartment}, {"compartmentIdInSubtree", "true"}},
+		"case-variant-subtree":       {{"compartmentId", compartment}, {"CompartmentIdInSubtree", "true"}},
+		"case-variant-false-subtree": {{"compartmentId", compartment}, {"CompartmentIdInSubtree", "false"}},
+		"duplicate-subtree":          {{"compartmentId", compartment}, {"compartmentIdInSubtree", "false"}, {"compartmentIdInSubtree", "false"}},
+		"extra-selector":             {{"compartmentId", compartment}, {"resourceGroup", "another"}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			r.Query = query
+			if BindCompartments(r, body, []string{compartment}, bindings, r.Path) != ErrCompartment {
+				t.Fatal("invalid URL selector accepted")
+			}
 			assertedBody := []byte(`{"compartmentId":"` + compartment + `","namespace":"oci_computeagent","query":"CpuUtilization[1m].mean()"}`)
-			if BindCompartments(r, assertedBody, []string{compartment}, nil, r.Path) != ErrCompartment {
+			if BindCompartments(r, assertedBody, []string{compartment}, bindings, r.Path) != ErrCompartment {
 				t.Fatal("body compartment asserted ownership of an unscoped metrics query")
 			}
 		})

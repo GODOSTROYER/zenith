@@ -112,13 +112,21 @@ client/subject claim settings if needed). Select the browser grant's workspace
 with `x-zenith-workspace`. Signed token scopes intersect browser grant scopes.
 The broker recognizes live OAuth grants through the journal role adapter.
 
-Protected-resource discovery is public, origin-checked
-`GET /api/agent/v3/mcp?metadata=oauth-protected-resource`. A 401 advertises this
-URL in `WWW-Authenticate`. Discovery lists the v3 resource, issuer, scopes and
-header bearer method, or returns `503 oauth_unavailable` when unconfigured.
-This query endpoint is deliberate: the middleware exemption permitted to this
-workstream is exact-path only. A standard `.well-known` route is an orchestrator
-follow-up requiring an additional middleware exemption.
+Protected-resource discovery is public and origin-checked at
+`GET /.well-known/oauth-protected-resource/api/agent/v3/mcp`, following
+[RFC 9728](https://www.rfc-editor.org/rfc/rfc9728.html). Its exact path bypasses
+the browser cookie gate; adjacent paths remain gated. Discovery lists the v3
+resource, configured issuer, supported scopes and header bearer method, or
+returns `503 oauth_unavailable` when unconfigured. Invalid OAuth configuration
+returns `503 oauth_configuration` without exposing configuration values.
+Discovery does not require a bearer, integration grant or enabled control plane,
+and does not probe the authorization server's availability.
+
+`GET /api/agent/v3/mcp?metadata=oauth-protected-resource` remains available for
+existing clients. Until the orchestrator wires `authenticationChallengeFor`
+from `v3/auth.ts` into `v3/server.ts`, HTTP 401 responses still advertise this
+query URL in `WWW-Authenticate`. The canonical challenge helper advertises the
+standard well-known URL with `scope="zenith:read"`.
 
 ## Result and input contracts
 

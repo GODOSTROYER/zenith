@@ -138,8 +138,12 @@ const safeCode = (err: unknown): string | undefined => {
   return typeof code === "string" && CODE.test(code) ? code : undefined;
 };
 
-/** The real transport: `https.request` with a `lookup` pinned to the validated address. */
-export function httpsTransport(opts: { ca?: string | Buffer | (string | Buffer)[] } = {}): ProbeTransport {
+/**
+ * The real transport: `https.request` with a `lookup` pinned to the validated address.
+ * `ca` and `port` exist so tests can talk to a local TLS server with its own certificate;
+ * production wiring passes neither (system trust store, port 443).
+ */
+export function httpsTransport(opts: { ca?: string | Buffer | (string | Buffer)[]; port?: number } = {}): ProbeTransport {
   return ({ ip, family, host, path, timeoutMs, maxBodyBytes }) =>
     new Promise<RawResponse>((resolve, reject) => {
       const started = performance.now();
@@ -152,7 +156,7 @@ export function httpsTransport(opts: { ca?: string | Buffer | (string | Buffer)[
       };
       const req = https.request({
         host,
-        port: 443,
+        port: opts.port ?? 443,
         method: "GET",
         path,
         agent: false,

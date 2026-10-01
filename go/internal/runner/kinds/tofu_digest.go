@@ -238,12 +238,15 @@ func guardTerraformBlock(path string, tf any, facts *configFacts) error {
 				for typ, cfg := range m {
 					facts.Backend = typ
 					if typ == "local" {
+						// The compiler emits a local backend with a relative state path
+						// (terraform.tfstate) for test workspaces. A path that could leave
+						// the job directory would let a configuration read or overwrite
+						// arbitrary files on the runner host.
 						for _, c := range asMaps(cfg) {
-							if _, has := c["path"]; has {
-								return fmt.Errorf("%s: the local backend 'path' setting is not allowed", clip(path, 60))
-							}
-							if _, has := c["workspace_dir"]; has {
-								return fmt.Errorf("%s: the local backend 'workspace_dir' setting is not allowed", clip(path, 60))
+							for _, key := range []string{"path", "workspace_dir"} {
+								if v, has := c[key]; has && !relativeInside(v) {
+									return fmt.Errorf("%s: the local backend %q setting must be a relative path inside the workspace", clip(path, 60), key)
+								}
 							}
 						}
 					}
@@ -271,4 +274,19 @@ func asMaps(v any) []map[string]any {
 		return out
 	}
 	return nil
+}
+
+// relativeInside reports whether v is a string naming a relative path that
+// stays inside the directory it is relative to.
+func relativeInside(v any) bool {
+	p, ok := v.(string)
+	if !ok || p == "" || len(p) > 200 || strings.HasPrefix(p, "/") || strings.Contains(p, "\\") || strings.ContainsRune(p, 0) {
+		return false
+	}
+	for _, seg := range strings.Split(p, "/") {
+		if seg == ".." {
+			return false
+		}
+	}
+	return true
 }

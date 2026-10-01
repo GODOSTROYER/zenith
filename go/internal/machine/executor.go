@@ -53,6 +53,9 @@ func NewExecutor(cfg *Config, id *agent.Identity, keys *protocol.KeySet, replay 
 	if deps.Now == nil {
 		deps.Now = time.Now
 	}
+	if deps.Docker == nil && cfg.Containers.Enabled {
+		deps.Docker = ops.NewDocker(cfg.Containers.Socket)
+	}
 	e := &Executor{
 		cfg:      cfg,
 		verifier: &protocol.Verifier{Keys: keys, Now: deps.Now, Replay: replay},

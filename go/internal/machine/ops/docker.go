@@ -53,6 +53,9 @@ func NewDocker(socket string) *Docker {
 					return (&net.Dialer{Timeout: 5 * time.Second}).DialContext(ctx, "unix", socket)
 				},
 				DisableCompression: true,
+				// One short request per operation: never keep sockets to the
+				// daemon open between operations.
+				DisableKeepAlives: true,
 			},
 			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 		},

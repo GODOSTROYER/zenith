@@ -165,6 +165,11 @@ func TestGuardConfigAcceptsOrdinaryConfigAndReportsBackend(t *testing.T) {
 	if facts.Backend != "s3" {
 		t.Fatalf("backend %q", facts.Backend)
 	}
+	// the compiler's own local backend (relative path) is accepted for test workspaces
+	facts, err = GuardConfig([]ConfigFile{cfgFile("backend.tf.json", `{"terraform":{"backend":{"local":{"path":"terraform.tfstate"}}}}`)})
+	if err != nil || facts.Backend != "local" {
+		t.Fatalf("%v %q", err, facts.Backend)
+	}
 	facts, err = GuardConfig([]ConfigFile{cfgFile("main.tf.json", `{"resource":{}}`)})
 	if err != nil || facts.Backend != "" {
 		t.Fatalf("no backend block means an implicit local backend: %v %q", err, facts.Backend)

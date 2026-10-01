@@ -169,7 +169,7 @@ html:has(.zenith-landing)::-webkit-scrollbar { width: 0; height: 0; display: non
 .zenith-header-inner .zenith-mobile-waitlist { display: none; }
 .zenith-header-inner .zenith-cta-waitlist {
   color: #fff !important; background-color: rgba(12, 13, 18, .88); border-color: rgba(255, 255, 255, .16);
-  background-image: var(--lg-light, linear-gradient(145deg, rgba(255, 255, 255, .12), transparent 60%));
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, .045), transparent 70%);
   background-size: 100% 100%; background-repeat: no-repeat;
   -webkit-backdrop-filter: blur(18px) saturate(1.35); backdrop-filter: blur(18px) saturate(1.35);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 9px 26px -14px rgba(0,0,0,.8);

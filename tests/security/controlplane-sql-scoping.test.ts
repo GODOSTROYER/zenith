@@ -70,6 +70,7 @@ const UNSCOPED: Record<string, string> = {
   "machines.registerMachine": "the workspace comes from the registration token, never from the caller",
   "runners.findRunnerForAuth": "the one documented unscoped lookup: a signed request names only the agent id",
   "machines.findMachineForAuth": "the one documented unscoped lookup: a signed request names only the machine id",
+  "operations.getForSystem": "execution worker only: a workflow carries just the operation id; every later call uses the workspace of the returned row (callers pinned below)",
 };
 
 describe("control-store repositories: workspace scoping is present in every function that touches a tenant table", () => {
@@ -97,6 +98,19 @@ describe("control-store repositories: workspace scoping is present in every func
       offenders.push(`${key(fn)} touches ${hit.join(", ")} but never mentions workspace_id`);
     }
     expect(offenders, "SECURITY INVARIANT (tenancy in SQL): scope these queries by workspace_id or add a reviewed entry to UNSCOPED with its reason").toEqual([]);
+  });
+
+  it("operations.getForSystem is called only by the execution worker's platform ports (never from a tenant-facing path)", () => {
+    const callers: string[] = [];
+    const walk = (dir: string): void => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) walk(p);
+        else if (/\.tsx?$/.test(e.name) && readFileSync(p, "utf8").includes("getForSystem")) callers.push(path.relative(process.cwd(), p).split(path.sep).join("/"));
+      }
+    };
+    walk(path.join(process.cwd(), "src"));
+    expect(callers.filter((f) => !f.startsWith("src/lib/controlplane/")).sort()).toEqual(["src/lib/execution/platform.ts"]);
   });
 
   it("every UNSCOPED entry still exists (a stale exemption would hide a future function of the same name)", () => {

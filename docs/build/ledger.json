@@ -842,10 +842,12 @@
       "title": "Fix SEC-R1, SEC-F11, SEC-F12, SEC-F13",
       "wave": 5,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "branch": "ws/sec-leaks",
       "deps": [],
-      "paths": []
+      "paths": [],
+      "tests": "outside sandbox incl. real Temporal: security/actions/observability/workflows/reconcile/bridge/agent-v3/execution/docs 2072 passed",
+      "review": "orchestrator: merged; each fix mutation-checked by the worker; operations.getForSystem added to the reviewed SQL-scoping exemptions with a caller-pin test (execution worker only)"
     },
     {
       "id": "WS-GO-OCI",

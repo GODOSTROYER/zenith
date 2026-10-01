@@ -38,7 +38,8 @@ not deployment evidence.
 | GCP | Deterministic **tar.gz**, uploaded to the pipeline's GCS bucket, then Cloud Build uses `storageSource` and publishes to Artifact Registry. | Upload identity/size/integrity and scope are checked. No live Cloud Build acceptance. |
 | Azure | Deterministic **tar.gz** through the shared reader, uploaded to ACR's short-lived Blob SAS URL, then a `DockerBuildRequest` is scheduled in the customer registry. | The build adapter and durable tenant-scoped launch journal exist, but default worker composition supplies neither the Azure source reader nor a provider-dispatched source preparation port. It refuses; operators cannot enable this with an environment variable alone. |
 | Kubernetes | Pre-built image digests; owned Deployment/StatefulSet image rollout and migration Jobs are wired into release dispatch. | The default build port refuses source builds. Supply an image pinned by SHA-256, or explicitly inject external build and source ports. Contract evidence only. |
-| OCI, Zenith-managed | No source-build release adapter in the default composed worker. | Supply an existing image supported by the relevant path; do not infer source-build readiness from driver registration or the separate hosted-apps builder. |
+| OCI | Build port explicitly refuses: bring a pre-built OCIR image pinned to a SHA-256 digest. | Runner-backed release ports verify the manifest image applied by OpenTofu and wait for ACTIVE replicas; one-off migrations require trusted runner-local resource bindings. No OCI DevOps build or live acceptance. |
+| Zenith-managed | No source-build release adapter in the default composed worker. | Supply an existing image supported by the relevant path; do not infer source-build readiness from driver registration or the separate hosted-apps builder. |
 
 AWS's assembler uploads with `application/zip`, expected bucket owner, checksum
 and create-only semantics. An existing key must match its size/checksum. GCP
@@ -60,6 +61,40 @@ never receives the broker's ARM bearer. A consumed launch key without a receipt
 is unknown and is not launched again automatically; investigate the ACR run.
 
 ## Bootstrap and release
+
+### OCI images and migrations
+
+`src/lib/platform/release-oci.ts` is selected by `createReleasePorts` for OCI.
+Source-build start/wait refuse clearly; there is no OCI DevOps build adapter.
+Use an image such as `iad.ocir.io/<namespace>/<repo>@sha256:<64 hex digits>`.
+OCI does not support changing `imageUrl` with UpdateContainer or
+UpdateContainerInstance; pin the digest in the manifest, then approve and apply
+the OpenTofu replacement. The release port reads every replica/container through
+`oci.http`, checks workspace/environment/compartment ownership and the digest,
+and waits for all expected instances and containers to be ACTIVE. ACTIVE is
+provider lifecycle evidence, not a live application health acceptance test.
+
+`src/lib/providers/oci/release/migrations.ts` creates one private instance from
+the workload's supported single-container template and VNIC, preserving subnet,
+NSGs, manifest env and Vault OCID pointers. It passes argv directly and disables
+container restarts (`NEVER`). A stable retry token and `zenith_release` tag bind
+the execution to its workspace, environment, operation, service, image and argv.
+Observed executions are recovered without re-launching. Completion requires an
+observed INACTIVE container and integer exit code; timeouts and lost responses
+remain unknown. Cloud diagnostics and raw container logs are suppressed; the
+driver emits only a fixed exit-code summary. No logs reference is fabricated.
+
+The runner's local `resourceCompartments` map must bind the workload instance,
+container, VNIC, subnet, NSGs and Vault pointers, and newly created migration
+instance/container IDs before by-id polling succeeds. Automatic trusted binding
+refresh is not wired. Migrations share the workload's identity tags and need
+customer IAM that actually grants the same exact-resource access; that path is
+unverified. Extra volumes, registry pull secrets and security overrides refuse.
+Completed or timed-out one-off instances are retained for operator cleanup; no
+DELETE grant is added. All of this has synthetic contract evidence only.
+See [OCI runner release rules](../RUNNER-PROTOCOL-OCI.md).
+
+### Other provider releases
 
 GCP Cloud Run uses fixed service/job image digests
 (`src/lib/providers/gcp/drivers/compute/run-image.ts`). Azure Container Apps/jobs

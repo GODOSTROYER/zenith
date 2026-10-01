@@ -801,6 +801,33 @@
       "pattern": "networkSecurityGroups/{}/securityRules"
     }
   ],
+  "deployment.deploy": [
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containerInstances"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containerInstances/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containers/{}"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "vnics/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "POST",
+      "pattern": "containerInstances"
+    }
+  ],
   "service.restart": [
     {
       "service": "containerinstances",

@@ -341,12 +341,55 @@ vault GET /20180608/secrets/{}
 vault PUT /20180608/secrets/{}
 ```
 
+**`deployment.deploy`** (manifest image verification and one-off migrations)
+
+```
+containerinstances GET /20210415/containerInstances
+containerinstances GET /20210415/containerInstances/{}
+containerinstances GET /20210415/containers/{}
+core GET /20160918/vnics/{}
+containerinstances POST /20210415/containerInstances
+```
+
+The sole added write creates a migration instance with `opc-retry-token` and
+`containerRestartPolicy: NEVER`. It uses the owning workload's private subnet,
+NSGs, manifest environment and Vault OCID pointers. The command is an argv
+vector, never a shell string. Workspace/environment/resource/managed tags are
+checked together with the compartment; `zenith_release` identifies the one-off
+execution and excludes it from workload replica reads, discovery and restart.
+Recovery checks that tag, the image, argv and an observed exit code; absent,
+duplicate, truncated or unreadable execution state is unknown. The timeout
+includes launch, API reads and polling (at most 30 minutes).
+
+OCI's [UpdateContainerDetails API](https://docs.oracle.com/en-us/iaas/tools/go/latest/containerinstances/index.html#UpdateContainerDetails)
+accepts names/tags, not an image change. The workload port verifies the digest
+already applied by the reviewed OpenTofu replacement, and waits for every
+expected instance and container to be ACTIVE. It rejects a different image
+instead of inventing an unsupported PUT or bypassing load-balancer/state
+ownership. Mutable tags are refused. No release write is granted to observe,
+restart or rollback capabilities.
+
+Raw container logs are fully suppressed; only a fixed exit-code summary reaches
+the driver log. The current runner persists raw HTTP result bodies, so adding a
+logs endpoint would expose log contents before TypeScript could redact them.
+No log retrieval rule is added. One-off instances are retained; cleanup is an
+operator action, not a DELETE granted by this extension.
+
+By-id reads still need trusted local `resourceCompartments` bindings for every
+instance, container and VNIC, and launch-body pointers (subnet, NSGs, Vault
+secrets). New migration instance/container IDs require a trusted binding update
+before polling can succeed; automatic refresh of that local map is **not wired**.
+The synthetic transport tests do not prove the Go executor accepts new IDs.
+Likewise, the existing workload resource-principal policy must actually match
+the migration's workload tags; customer IAM/defined-tag setup is unverified.
+These release paths have contract evidence only, not live OCI acceptance.
+
 **Never allowed for any capability**, by absence from every list: secret-bundle
 retrieval (`/20190301/secretbundles/…`: Zenith and the runner never read a
 secret value back), object-level Object Storage (`/n/{ns}/b/{bucket}/o/…`:
 customer data), any IAM write, `…/actions/changeCompartment`, secret deletion,
-and every `DELETE`. Infrastructure changes go through `tofu.run`, not this
-kind. Signal reads use the capability split above: `logs.read` permits only
+and every `DELETE`. Infrastructure changes go through `tofu.run`; the exact
+migration creation above is the release exception. Signal reads use the capability split above: `logs.read` permits only
 Logging Search, `metrics.read` only Monitoring, and `incident.investigate`
 both signal queries plus driver metadata reads.
 

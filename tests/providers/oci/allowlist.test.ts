@@ -90,6 +90,7 @@ describe("what is never allowed", () => {
     const mutating = Object.entries(OCI_ALLOWLIST).filter(([cap]) => capability(cap).mutates).flatMap(([cap, rules]) => rules.filter((r) => r.method !== "GET").map((r) => `${cap}: ${describeRule(r)}`));
     expect(mutating.sort()).toEqual([
       "database.snapshot: postgresql POST /20220915/backups",
+      "deployment.deploy: containerinstances POST /20210415/containerInstances",
       "secret.write: vault PUT /20180608/secrets/{}",
       "service.restart: containerinstances POST /20210415/containerInstances/{}/actions/restart",
     ]);

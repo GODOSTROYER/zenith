@@ -12,6 +12,7 @@ import { describeService, locateService } from "@/lib/providers/aws/drivers/comp
 import { assertNodeTags, lowerTagMap, sleep } from "@/lib/providers/aws/drivers/compute/support/sdk";
 import { nodeName } from "@/lib/providers/aws/drivers/shared";
 import { createGcpBuildPort, createGcpWorkloadsPort, createGcpMigrationsPort } from "./release-gcp";
+import { createOciBuildPort, createOciWorkloadsPort, createOciMigrationsPort } from "./release-oci";
 import { createAzureBuildPort, createAzureWorkloadsPort, createAzureMigrationsPort, createAzureReleaseLaunchJournal, type AzureBuildOptions } from "./release-azure";
 import { createKubernetesBuildPort, createKubernetesWorkloadsPort, createKubernetesMigrationsPort } from "./release-k8s";
 
@@ -23,9 +24,10 @@ export function createReleasePorts(options: { db?: Sql; azure?: AzureBuildOption
     gcp: { build: createGcpBuildPort(), workloads: createGcpWorkloadsPort(), migrations: createGcpMigrationsPort() },
     azure: { build: createAzureBuildPort(azure), workloads: createAzureWorkloadsPort(), migrations: createAzureMigrationsPort(azure.launches) },
     kubernetes: { build: createKubernetesBuildPort(), workloads: createKubernetesWorkloadsPort(), migrations: createKubernetesMigrationsPort() },
+    oci: { build: createOciBuildPort(), workloads: createOciWorkloadsPort(), migrations: createOciMigrationsPort() },
   };
   const select = (ctx: DriverContext) => {
-    if (ctx.provider !== "aws" && ctx.provider !== "gcp" && ctx.provider !== "azure" && ctx.provider !== "kubernetes") throw new StepFailedError("Release ports are unavailable for this provider.");
+    if (ctx.provider !== "aws" && ctx.provider !== "gcp" && ctx.provider !== "azure" && ctx.provider !== "kubernetes" && ctx.provider !== "oci") throw new StepFailedError("Release ports are unavailable for this provider.");
     if ((ctx.session as { provider?: string } | undefined)?.provider !== ctx.provider) throw new StepFailedError("Release provider does not match the broker session.");
     return ports[ctx.provider];
   };

@@ -694,9 +694,11 @@
       "wave": 3,
       "owner": "worker",
       "title": "Composition roots: real activities in the worker, app-side wiring, deploy e2e test",
-      "state": "in_progress",
+      "state": "integrated",
       "branch": "ws/compose",
-      "notes": "Codex job"
+      "notes": "Codex job",
+      "tests": "outside sandbox: tests/platform + tests/workflows 291 passed incl. deploy-e2e 9/9 on the Temporal test env",
+      "review": "orchestrator: merged; fixed stale aws-shared import, registerAwsDrivers; found plan-level approval seam (adapter predates approval rounds) -> WS-APPROVAL-FLOW; tests/docs claims stale until WS-DOCS-SYNC"
     },
     {
       "id": "WS-MACH-ALIGN",

@@ -21,8 +21,9 @@ doing work yet.
 | OpenTofu engine (`src/lib/tofu`) | Built and tested with the real `tofu` binary; only builtin `terraform_data` and `hashicorp/random` have been applied. No cloud provider has been run against a cloud. Not called by the worker yet. |
 | Policy engine (`policy/`, `src/lib/policy`) | Built and tested; the bundle is committed and reproducible. **No caller yet**: the capability broker that builds the input is in progress. |
 | Resource model, placement and cost, observability | Built as pure libraries (no environment, no I/O except the observability sources' own clients). Not wired into any route. |
+| Incident engine (`src/lib/incidents`), repository analysis (`src/lib/analysis`), platform UI components (`src/components/platform`) | Merged and tested. The incident engine and the analysis module are libraries that read no environment variables and are called by nothing yet; the UI components are presentational (data and callbacks come in as props) and no page or route renders them. Nothing here needs deploying. |
 | Temporal workflows, client and execution worker | The workflows, client, worker process and image recipe are built and tested against real Temporal servers. **Every activity is a stub** that fails with `not_implemented` ("nothing was changed"): the worker boots, polls and runs workflows, and no operation can do real work. |
-| Resource drivers, capability broker, runners (`zenith-runner`), machines and `zenithd`, incident engine, reconciliation, REST `/api/platform/v1`, MCP v3, UI, Go agents, and the Kubernetes, GCP, Azure, OCI and managed `zenith` providers | **In progress in other workstreams. Not documented here.** When they merge they get their own sections. |
+| Resource drivers, capability broker, runners (`zenith-runner`), machines and `zenithd`, reconciliation, REST `/api/platform/v1`, MCP v3, the platform screens and routes, Go agents, and the Kubernetes, GCP, Azure, OCI and managed `zenith` providers | **In progress in other workstreams. Not documented here.** When they merge they get their own sections. |
 
 The honest summary: today you can stand up the store, the OIDC issuer and the
 worker, and you can see the pieces connect. You cannot yet run a deploy to a
@@ -471,6 +472,15 @@ Run on this machine (Windows 11, Node 24.19) while writing this page:
   ready` and kept logging `health` with state `RUNNING`.
 - The migration ledger, leases, operations and `reconcileOperations` against a
   real PostgreSQL 16.15 (see [RECOVERY.md](RECOVERY.md#8-what-was-rehearsed)).
+
+Written but **not run by me**: the platform CI lanes in `.github/workflows/ci.yml`
+(`policy`, `tofu`, `go`, `workflows`, `platform-postgres`, `ledger`,
+`supply-chain`) and `.github/workflows/live-acceptance.yml`. The lane that applies
+the platform migrations with the production migrator and runs the control-store
+suites with `ZENITH_TEST_PLATFORM_PG_URL` set is `platform-postgres`; it targets a
+bare PostgreSQL 16.15 container, so it says nothing about Supabase's role graph,
+PostgREST or pooler. `live-acceptance.yml` is dispatch-only and has never been
+executed (no sandbox AWS account exists); until it has, nothing is `real`.
 
 **Not verified**, and stated once here instead of hedged everywhere:
 

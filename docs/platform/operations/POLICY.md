@@ -235,9 +235,13 @@ deploy to invalidate every approval that has not been used yet.
 
 **Build reproducibility.** The build compiles LF-normalised copies of the sources under
 bare names in a temp directory so the wasm does not depend on the working directory
-or path separators; repeated builds here are byte-identical. It has only been run on
-Windows. If `policy:check` fails in CI with an unchanged `regoSha256`, OPA's wasm
-output is not host-independent and the committed bundle should be produced by CI.
+or path separators; repeated builds here are byte-identical. The bundle was built on
+Windows; a Linux (WSL2) build with a checksum-verified static OPA 1.19.1 matched it,
+per the comment on the `policy` lane in `.github/workflows/ci.yml`, and that lane
+re-checks it on every pull request (I did not run the lane). Only linux/amd64 and
+Windows have been seen. If `policy:check` fails in CI with an unchanged `regoSha256`,
+OPA's wasm output is not host-independent for that platform and the committed bundle
+should be produced by CI.
 
 Verified while writing this page (2026-09-30): `npm run policy:check` passes 205 of 205
 Rego tests under OPA 1.19.1 and reports that `policy/dist` matches a fresh build.

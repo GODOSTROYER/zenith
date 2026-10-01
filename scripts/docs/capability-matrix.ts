@@ -294,7 +294,7 @@ export function renderMatrix(data: MatrixData): string {
     table(
       ["Level", "Meaning", "Evidence that backs it"],
       [
-        [code("real"), "Exercised against the real provider in a live acceptance run.", "A recorded live run with real credentials. **None exists yet.**"],
+        [code("real"), "Exercised against the real provider in a live acceptance run.", "A recorded live run with real credentials, started by hand through the dispatch-only workflow `.github/workflows/live-acceptance.yml`. **No such run exists yet.**"],
         [code("emulated"), "Exercised against an emulator (LocalStack, kind, PGlite).", "A recorded run against that emulator."],
         [code("contract"), "Only mocked SDK or HTTP contract tests.", "Unit tests with `aws-sdk-client-mock`, fake clients or a local fake HTTP server. Shows the code matches the documented API shape, nothing about a real account."],
         [code("simulated"), "Generated data; nothing outside Zenith was inspected.", "The sandbox. Never presented as real."],

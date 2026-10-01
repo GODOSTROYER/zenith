@@ -55,6 +55,10 @@ Reference material these guides lean on (not duplicated here):
 | Placement and cost | `src/lib/placement/**` | [COST.md](COST.md) |
 | Observability fabric | `src/lib/observability/**` | [CAPABILITY-MATRIX.md](../CAPABILITY-MATRIX.md#observability-sources), [ADR-0011](../../adr/0011-observability-federated.md). Reads no environment variables; no operator guide yet (planned) |
 | Temporal workflows and worker | `src/lib/workflows/**`, `workers/execution/**`, `docker/worker.Dockerfile` | [EXECUTION-WORKER.md](../EXECUTION-WORKER.md), [DEPLOYING.md](DEPLOYING.md#5-temporal) |
+| Incident engine | `src/lib/incidents/**` | [ADR-0014](../../adr/0014-incident-engine.md). A library that reads no environment, takes its probes as injected ports and is called by nothing yet; no operator guide (planned) |
+| Repository analysis | `src/lib/analysis/**` | Not part of the control plane's operation: it turns a repository snapshot into a proposed manifest. Reads no environment; nothing to operate |
+| Platform UI components | `src/components/platform/**` | [README](../../../src/components/platform/README.md) in that folder. Presentational only (data and callbacks arrive as props); no page renders them yet |
+| CI gates | `.github/workflows/ci.yml`, `.github/workflows/live-acceptance.yml`, `scripts/ci/**` | [DEPLOYING.md](DEPLOYING.md#9-what-was-and-was-not-verified); see "Where `real` evidence will come from" below |
 
 ## In progress, not documented here
 
@@ -66,11 +70,12 @@ branch behaves the way a guide could describe, so there is no guide:
 - the capability broker, approvals and autonomy enforcement
 - `zenith-runner`, `zenithd` and the Go agents
 - the machine plane
-- the incident engine
 - reconciliation (the reconcile workflow observes only; repair is not built)
 - the REST surface `/api/platform/v1` and MCP v3
-- the UI for connections, approvals and the platform
+- the platform screens and routes (the presentational components have merged;
+  nothing renders them)
 - the real worker activities
+- wiring the incident engine to real probes and to the broker
 
 ## Planned guides
 
@@ -81,7 +86,7 @@ placeholders.
 |---|---|
 | `RUNNERS.md` | `zenith-runner` and the runner routes |
 | `MACHINES.md` | The machine plane and `zenithd` |
-| `INCIDENTS.md` | The incident engine |
+| `INCIDENTS.md` | The incident engine being wired to real probes, the broker and a route |
 | `OBSERVABILITY.md` | Source configuration, partial answers and redaction, once sources are wired to a route |
 | `CAPABILITY-BROKER.md` | The broker, approvals and the REST and MCP surfaces |
 | `GCP-SETUP.md`, `AZURE-SETUP.md`, `OCI-SETUP.md`, `KUBERNETES.md` | Their providers and credential exchanges |
@@ -98,6 +103,17 @@ placeholders.
 | `npx tsx scripts/docs/capability-matrix.ts` (`--check`) | Regenerate or check the capability matrix | [CAPABILITY-MATRIX.md](../CAPABILITY-MATRIX.md) |
 | `npx vitest run tests/docs` | Check these docs against the code (see below) | this page |
 
+## Where `real` evidence will come from
+
+Every evidence level is a claim about a run. `real` means a live acceptance run
+against a real provider account, and the only path to one in the repository is
+`.github/workflows/live-acceptance.yml`: dispatch-only, gated by a protected GitHub
+environment named `live-sandbox`, authenticating to AWS with GitHub's OIDC token and
+no stored credential. It has **never been executed**: there is no sandbox AWS account
+(ledger blocker B-AWS-LIVE), and the harness it calls, `scripts/acceptance/aws-live.ts`,
+is not present on this branch. Until a run is recorded and linked, the capability
+matrix has no `real` entry and `tests/docs/` fails if one appears.
+
 ## How these docs are kept honest
 
 - **The matrix is generated**, from the driver registry, the observability
@@ -108,8 +124,10 @@ placeholders.
   [DEPLOYING.md](DEPLOYING.md#2-environment-variables) and every variable named
   there must exist in the code; the policy rule counts, the price catalog counts and
   the cost engine's included and excluded lists on these pages must equal what the
-  code says now; and no matrix entry may claim `real`. A change to the code that
-  makes a page wrong fails the test, which is the point.
+  code says now; this page must list every guide in the folder; the statement above
+  about the live-acceptance harness must match the filesystem; and no matrix entry
+  may claim `real`. A change to the code that makes a page wrong fails the test,
+  which is the point.
 - **Verified versus reasoned.** A statement that was checked by running something
   says what was run. A statement reasoned from the code but not run is marked
   **reasoned**. Anything that needs a real cloud account, Temporal Cloud or a

@@ -187,9 +187,12 @@ applyable IaC if you want to carry on without Zenith.
 
 - **The Zenith side of "Finish in Zenith".** Entering the outputs, seeing
   `pending_verification` turn to `verified`, and choosing which environments use
-  the connection need the REST surface (`/api/platform/v1`) and the UI, which are
+  the connection need the REST surface (`/api/platform/v1`) and a page, which are
   in progress. The building blocks exist: `platform.provider_connections`,
-  `AwsCredentialBroker.verifyConnection`, and the OIDC endpoints.
+  `AwsCredentialBroker.verifyConnection`, the OIDC endpoints, and a presentational
+  component for the form (`AwsConnectionSetup` in `src/components/platform`, which
+  takes the verify callback as a prop, refuses a pasted access key, and calls
+  nothing itself). No page renders that component yet.
 - **Anything beyond AWS.** GCP, Azure, OCI and Kubernetes connections are in
   progress; `ProviderConnection` has types for them, but nothing is documented or
   verified.

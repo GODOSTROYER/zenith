@@ -58,6 +58,14 @@ Status legend: ✅ implemented · 🟡 partial · ⬜ not yet built
 - 🟡 Keyboard focus in the System Map does not pan the viewport, so a node scrolled out of view can be focused invisibly; the import report is rendered by two separate components (onboarding and the map dialog) rather than one shared one; activity search covers the actions loaded so far, while the actor/action/result filters run against the whole trail
 - ⬜ `project.delete` action (Settings danger zone shows an honest disabled state)
 
+## Platform control plane (in progress)
+The deterministic control plane being built beside the product (`docs/platform/`). Nothing below changes what the product above does today. Operator guides: [docs/platform/operations](platform/operations/README.md); per-driver evidence: [capability matrix](platform/CAPABILITY-MATRIX.md).
+- 🟡 **Control store, credential broker and OIDC issuer, OpenTofu engine, policy engine, cost/placement, observability fabric, incident engine, Temporal workflows and worker: merged and tested, not joined.** The worker's activities are stubs that fail with `not_implemented`; no route opens the platform store, calls the policy engine or the incident engine; the platform UI components are presentational and no page renders them. The OIDC discovery and JWKS routes are the only part reachable over HTTP
+- 🟡 **No cloud evidence.** The credential broker and the bootstrap template have never been exchanged with real STS, KMS or IAM; only builtin `terraform_data` and `hashicorp/random` have been applied by OpenTofu; every observability source is `contract` (mocked SDK or fake HTTP); the live acceptance workflow has never run. Nothing is labelled `real`
+- 🟡 **Cost is an estimate, and only that.** List prices from a hand-transcribed snapshot (`2026-09-30.1`); no forecast from usage, no actual from a bill. Part of the catalog is remembered, derived or an internal assumption (the managed `zenith` tier has no real price), and each estimate flags the share that rests on it. The product's own cost screens still use the older static table
+- 🟡 **Operations that crash end `uncertain`, and nothing recovers them on a schedule.** The store marks them (`reconcileOperations`, `jobs.expireStale`) but no timer calls those yet, and nothing prunes events, operations or approvals
+- ⬜ Resource drivers (none merged), the capability broker and approvals, `zenith-runner` and `zenithd`, the machine plane, reconciliation with repair, the REST surface and MCP v3, the platform screens and routes, and the Kubernetes, GCP, Azure, OCI and managed `zenith` providers
+
 ## Testing
 - ✅ Engine state-machine tests, action/importer/deploy/navigator/role/provider/store unit tests (1,216 across 119 files at `ffb2753`; hosted R3 adds its own suites under `tests/hosted/`), e2e smoke (happy + failure/rollback), `npm run lint` clean
 - ⬜ Visual regression, accessibility automation, load tests (structure noted in docs/ARCHITECTURE.md)

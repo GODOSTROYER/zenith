@@ -5,8 +5,21 @@ import { world as gcpWorld, service as gcpService } from "../providers/gcp/relea
 import { world as azureWorld, service as azureService } from "../providers/azure/release-fixtures";
 import { buildFullFixture, mkDriverContext } from "../providers/aws/drivers/compute/fixtures";
 import { IMAGE, DIGEST } from "../providers/aws/drivers/compute/ecs-mocks";
+import { releaseWorld } from "../providers/kubernetes/release-fixtures";
 
 describe("release provider composition", () => {
+  it("dispatches Kubernetes rollout reads and explicitly refuses an unconfigured builder", async () => {
+    const w = await releaseWorld();
+    try {
+      const ports = createReleasePorts();
+      expect(await ports.workloads.waitSteady(w.ctx, w.node, { timeoutMs: 1000 })).toMatchObject({ steady: true });
+      const reads = w.fake.requests.length;
+      await expect(ports.build.startBuild(w.ctx, { service: w.node, pipeline: w.node, source: { s3Key: "source", digest: "source-digest" }, idempotencyKey: "build" })).rejects.toThrow("pre-built");
+      await expect(ports.build.waitForBuild(w.ctx, { buildId: "invented" }, { timeoutMs: 1000 })).rejects.toThrow("external builder");
+      await expect(ports.workloads.waitSteady({ ...w.ctx, session: { provider: "aws" } }, w.node, { timeoutMs: 1000 })).rejects.toThrow("broker session");
+      expect(w.fake.requests).toHaveLength(reads);
+    } finally { await w.fake.close(); }
+  });
   it("dispatches GCP and Azure steady waits by environment provider", async () => {
     const ports = createReleasePorts(); const gcp = gcpWorld(); const azure = azureWorld();
     expect(await ports.workloads.waitSteady(gcp.ctx, gcpService, { timeoutMs: 1000 })).toMatchObject({ steady: true });

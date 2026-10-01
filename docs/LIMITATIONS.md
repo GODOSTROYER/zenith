@@ -85,7 +85,8 @@ Still-open gaps at source snapshot `3c1fa66` (2026-10-01), one line per gap:
 - ⬜ Default managed Zenith execution has no session opener/substrate integration; managed teardown needs injected `withZenithSession` plus a trusted database inventory and current approval flags.
 - ⬜ Azure source builds require a source reader and provider-dispatched preparation port; default composition supplies neither.
 - ⬜ Private GitHub source access needs a tenant-scoped connector; default composition supplies none.
-- ⬜ Default source-build release ports for OCI, Kubernetes and managed Zenith are absent; registered drivers and the separate hosted builder do not supply them.
+- ⬜ Default source-build release ports for OCI and managed Zenith are absent; registered drivers and the separate hosted builder do not supply them.
+- 🟡 Kubernetes release ports support owned Deployment/StatefulSet image digests and bounded one-off migration Jobs (contract evidence only); source builds require injected external build/source ports, and CronJob release is unsupported. Job retries retain up to 128 workload launch receipts; an absent claimed Job stays unknown after TTL cleanup. See [BUILDS.md](platform/operations/BUILDS.md#kubernetes-releases).
 - ⬜ Non-AWS runner-mode sessions other than OCI are unsupported; OCI verification checks registered runner labels, not OCI permission or reachability.
 - 🟡 OCI signal readers supply retry tokens required by the TypeScript payload schema, while the Go executor permits token-free read POSTs; live service acceptance is unverified.
 - ⬜ Non-AWS cloud DNS deletion lacks a provider target ownership guard and refuses; approval cannot override it.

@@ -37,7 +37,8 @@ not deployment evidence.
 | AWS | Deterministic **ZIP**, uploaded to the customer's tagged S3 source bucket. CodeBuild uses native `S3` source and the exact object key; image output goes to ECR. | Pipeline and bucket ownership/account/region are checked before upload. No live CodeBuild acceptance. |
 | GCP | Deterministic **tar.gz**, uploaded to the pipeline's GCS bucket, then Cloud Build uses `storageSource` and publishes to Artifact Registry. | Upload identity/size/integrity and scope are checked. No live Cloud Build acceptance. |
 | Azure | Deterministic **tar.gz** through the shared reader, uploaded to ACR's short-lived Blob SAS URL, then a `DockerBuildRequest` is scheduled in the customer registry. | The build adapter and durable tenant-scoped launch journal exist, but default worker composition supplies neither the Azure source reader nor a provider-dispatched source preparation port. It refuses; operators cannot enable this with an environment variable alone. |
-| OCI, Kubernetes, Zenith-managed | No source-build release adapter in the default composed worker. | Supply an existing image supported by the relevant path; do not infer source-build readiness from driver registration or the separate hosted-apps builder. |
+| Kubernetes | Pre-built image digests; owned Deployment/StatefulSet image rollout and migration Jobs are wired into release dispatch. | The default build port refuses source builds. Supply an image pinned by SHA-256, or explicitly inject external build and source ports. Contract evidence only. |
+| OCI, Zenith-managed | No source-build release adapter in the default composed worker. | Supply an existing image supported by the relevant path; do not infer source-build readiness from driver registration or the separate hosted-apps builder. |
 
 AWS's assembler uploads with `application/zip`, expected bucket owner, checksum
 and create-only semantics. An existing key must match its size/checksum. GCP
@@ -75,3 +76,51 @@ After release, inspect the operation's build evidence, source digest, image
 digest and steady-state/verification outcome. Failed uploads, unconfirmed
 launches, missing digests and unknown status remain failures or unknown; they
 must not produce a successful release.
+
+## Kubernetes releases
+
+Set `artifact: { type: "image", ref: "<registry>/<repository>@sha256:<64 hex>" }`.
+The Kubernetes build port explicitly requires a pre-built image; it never builds
+customer code in the worker or simulates a successful build. An external builder
+requires explicit `ComposeExecutionOptions.ports.build` and `.sourceBundle`
+adapters; registry registration alone does not configure one.
+
+`createReleasePorts` selects the Kubernetes adapters in
+`src/lib/platform/release-k8s.ts`. Image release checks the namespace allowlist,
+managed ownership, environment and resource address, then applies under field
+manager `zenith` with `force: false`. It extracts the manager's full field set
+before changing the image so probes, replicas and other managed fields survive.
+UID/resourceVersion preconditions refuse stale writes. Steady waits check owned
+Deployment/StatefulSet rollout status with a bounded deadline; missing state,
+controller failure and timeouts never imply readiness. CronJob release is not
+implemented by these ports. These adapters do not replace infrastructure apply
+or supply the still-required durable OpenTofu state backend.
+
+Migration Jobs copy the owned workload's pod settings, service account, resources,
+security context, volumes and secret references. A single regular container is
+required; command arguments are sent as an argv array, with existing args,
+service probes and lifecycle hooks removed. The image must already be pinned.
+Jobs have `backoffLimit: 0`, `restartPolicy: Never`, an active deadline and a
+3600-second TTL after completion. Migration pods remove the workload's selector
+labels so they do not serve application traffic; cluster NetworkPolicies must
+explicitly allow the migration pods' database access. No policy bypass is added.
+
+A resourceVersion-guarded workload annotation claims each deterministic Job
+launch before creation. Retries recover that Job; a claimed Job that is absent,
+including after TTL cleanup or an interrupted launch, is unknown and is never
+automatically relaunched. The command is represented only by its digest in the
+receipt. At most 128 receipts are retained per workload; reconcile operation
+history before pruning receipts. Deleting the workload removes its retry history.
+Only an observed terminated container exit code on a UID-owned Job pod completes
+the migration. A bounded log tail is credential-pattern redacted and scrubs known
+argv/inline environment values; the Job reference is returned as evidence.
+The Kubernetes Job controller can still start duplicate pods during failures;
+the migration itself must be idempotent. Multiple observed pods remain unknown.
+
+The connection identity needs workload reads/patches, namespaced Job create/get,
+pod list and pod-log read permissions. The ports do not grant RBAC. Tests use the
+existing fake API server, providing contract evidence only. The real-cluster lane
+is gated by `ZENITH_TEST_KIND=1` and `KUBECONFIG`; the release-specific test also
+requires `ZENITH_TEST_KIND_RELEASE_IMAGE`, a pinned non-root image with `/bin/sh`.
+It requires a disposable cluster and was not run in this sandbox. No live
+Kubernetes release is claimed.

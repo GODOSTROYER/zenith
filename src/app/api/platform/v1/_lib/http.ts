@@ -21,7 +21,9 @@ import type { ZodTypeAny, z } from "zod";
 import { AgentError } from "@/lib/agent-access/security";
 import { BrokerError, isBrokerError } from "@/lib/capabilities/errors";
 import { json } from "@/lib/server/errors";
-import { route } from "@/lib/server/request";
+import { route, safeRequestError } from "@/lib/server/request";
+import { isPlatformBearerRequest } from "./bearer-paths";
+import { callerOf } from "./principal";
 
 export const MAX_BODY_BYTES = 64 * 1024;
 
@@ -60,7 +62,12 @@ export function parseWith<S extends ZodTypeAny>(schema: S, raw: unknown): z.infe
 
 function failure(error: unknown): Response | undefined {
   if (isBrokerError(error)) return json(errorBody(error), error.status);
-  if (error instanceof AgentError) return json({ error: { code: error.code, message: error.message } }, error.status);
+  if (error instanceof AgentError) {
+    // Authority availability errors can wrap external provider diagnostics.
+    // They bypass route()'s catch, so redact them at this response boundary too.
+    const safe = safeRequestError(error) as { message: string };
+    return json({ error: { code: error.code, message: safe.message } }, error.status);
+  }
   return undefined;
 }
 
@@ -69,7 +76,22 @@ function failure(error: unknown): Response | undefined {
  * flush) and translate broker failures into the platform error body.
  */
 export function platformRoute<P extends Record<string, string> = Record<string, string>>(fn: (req: NextRequest, params: P) => Promise<Answer>) {
-  return route<P>(async (req, params) => {
+  return route<P>({
+    integrationAccess: async (req) => {
+      if (!isPlatformBearerRequest(req.nextUrl.pathname, req.method, req.headers.get("authorization"))) return undefined;
+      try {
+        const caller = await callerOf(req);
+        if (caller.via !== "bearer" || !caller.principal.onBehalfOf) {
+          throw new BrokerError("unauthenticated", "Present a valid integration credential.");
+        }
+        return { subject: caller.principal.onBehalfOf };
+      } catch (error) {
+        const response = failure(error);
+        if (response) return response;
+        throw error;
+      }
+    },
+  }, async (req, params) => {
     try {
       const out = await fn(req, params);
       return json(out.body, out.status ?? 200);

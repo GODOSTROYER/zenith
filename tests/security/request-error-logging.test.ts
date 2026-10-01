@@ -6,7 +6,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { errorResponse } from "@/lib/server/errors";
 import { withRequestId } from "@/lib/log";
-import { assertNoCanaries, canarySecret, deepScanForCanaries } from "../_support/security";
+import { assertNoCanaries, canarySecret } from "../_support/security";
 
 const password = canarySecret("request-error/password", "password", { stable: true });
 const access = canarySecret("request-error/access", "aws-access-key-id", { stable: true });
@@ -26,17 +26,11 @@ describe("unexpected request errors at wire and log boundaries", () => {
     expect(logged(), "the real logger must have written to the captured sink").toHaveLength(1);
   });
 
-  it("SEC-R2 characterization: the same credentials survive in server log message and stack", () => {
-    errorResponse(failure());
-    expect(logged()).toHaveLength(1);
-    const record = JSON.parse(String(logged()[0])) as { error: { message: string; stack: string } };
-    for (const text of [record.error.message, record.error.stack]) {
-      expect(deepScanForCanaries(text, [password, access]).length, "unexpected error message and stack both reach stderr unchanged").toBeGreaterThan(0);
-    }
-  });
-
-  it.fails("SEC-R2 (MED): an unexpected request error must not write credentials to the server log", () => {
+  it("SEC-R2 (MED): an unexpected request error must not write credentials to the server log", () => {
     errorResponse(failure());
     assertNoCanaries(logged(), [password, access], "server logs must redact external error messages and stacks, even when the HTTP response is generic");
+    // the detail is still there for operators, just without the credentials
+    const record = JSON.parse(String(logged()[0])) as { error: { message: string; stack?: string } };
+    expect(record.error.message).toContain("upstream refused");
   });
 });

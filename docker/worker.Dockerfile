@@ -97,6 +97,9 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY --from=tofu /usr/local/bin/tofu /usr/local/bin/tofu
 COPY --from=build --chown=zenith:zenith /app/dist/execution ./dist/execution
+# loadPolicyEngine resolves <cwd>/policy/dist/policy.wasm and verifies the
+# sibling manifest. Ship the committed bundle; no OPA compiler is needed here.
+COPY --chown=zenith:zenith policy/dist ./policy/dist
 
 # /var/lib/zenith is the only place the worker (and OpenTofu working
 # directories) should write besides /tmp; a read-only root filesystem works with

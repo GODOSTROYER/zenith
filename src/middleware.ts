@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { hostedRewrite, isPlatformStaticPath } from "@/lib/hosted/edge";
 import { updateSession } from "@/lib/supabase/middleware";
 import { isAgentSignedPath } from "@/lib/runners/paths";
+import { isPlatformBearerRequest } from "@/app/api/platform/v1/_lib/bearer-paths";
 
 export async function middleware(request: NextRequest) {
   const hosted = hostedRewrite(request);
@@ -23,6 +24,12 @@ export async function middleware(request: NextRequest) {
   // a session cookie means nothing to them. Token creation, revoke and the
   // list routes are NOT in this set and keep the browser gate.
   if (isAgentSignedPath(request.nextUrl.pathname)) return NextResponse.next({ request });
+  // Only these method/path pairs accept integrations. Their route wrapper
+  // verifies the credential before admission or tenant reads; browser-only
+  // approvals, settings writes and runner/machine administration stay gated.
+  if (isPlatformBearerRequest(request.nextUrl.pathname, request.method, request.headers.get("authorization"))) {
+    return NextResponse.next({ request });
+  }
   return updateSession(request);
 }
 export const config = { matcher: ["/((?!_next/static|_next/image).*)"] };

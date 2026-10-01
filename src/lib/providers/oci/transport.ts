@@ -30,7 +30,8 @@
  */
 import type { OciServiceId } from "./services";
 
-export type OciHttpMethod = "GET" | "HEAD" | "POST" | "PUT" | "DELETE";
+/** No DELETE: infrastructure changes go through OpenTofu, never through this port. */
+export type OciHttpMethod = "GET" | "HEAD" | "POST" | "PUT";
 
 /** Request headers a driver may set; the runner enforces the same allowlist. */
 export const OCI_REQUEST_HEADER_ALLOWLIST = ["opc-retry-token", "if-match", "if-none-match", "opc-request-id"] as const;
@@ -87,7 +88,7 @@ export type OciResult =
 /** Strip control characters, collapse whitespace, bound the length. */
 export function cleanText(s: unknown, max = 200): string {
   if (typeof s !== "string") return "";
-  // eslint-disable-next-line no-control-regex
+   
   return s.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
 }
 

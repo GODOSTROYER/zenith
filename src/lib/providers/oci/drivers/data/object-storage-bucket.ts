@@ -46,7 +46,7 @@ import { addressList, isManaged, protectFromDestroy, readOnlyFragment, res, spec
 
 export const BUCKET_NATIVE_TYPE = "oci:object_storage_bucket";
 const ID = ociDriverId(BUCKET_NATIVE_TYPE);
-const BUCKET_NAME = /^[A-Za-z0-9._-]{1,256}$/;
+const BUCKET_NAME = /^(?![.]+$)[A-Za-z0-9._-]{1,256}$/;
 
 export function compileBucket(node: ResourceNode, ctx: CompileContext): TofuFragment {
   if (!isManaged(node)) return readOnlyFragment();

@@ -72,10 +72,32 @@ export interface RunnerTransportLimits {
   maxResponseBytes?: number;
 }
 
-const METHODS = new Set<OciHttpMethod>(["GET", "HEAD", "POST", "PUT", "DELETE"]);
+const METHODS = new Set<OciHttpMethod>(["GET", "HEAD", "POST", "PUT"]);
 const FORBIDDEN_HEADERS = /^(authorization|host|date|x-date|x-content-sha256|content-length|content-type|signature|cookie|proxy-.*)$/i;
-// eslint-disable-next-line no-control-regex
-const BAD_PATH = /[\u0000-\u001f\u007f\\?#]|\.\.|\/\//;
+const CONTROL_OR_BAD = /[\u0000-\u001f\u007f\\?#]/;
+const CONTROL = /[\u0000-\u001f\u007f]/;
+
+/**
+ * A plain absolute path: no query or fragment, no backslash or control
+ * characters, no empty segment, and no `.` / `..` segment. NOTE: `..` INSIDE a
+ * segment is legitimate: tenancy-scoped OCIDs have an empty region
+ * (`ocid1.compartment.oc1..aaaa`), so only a segment that IS dots is a traversal.
+ * Encoded slashes, backslashes and dots are checked after decoding.
+ */
+export function isPlainPath(path: unknown): path is string {
+  if (typeof path !== "string" || !path.startsWith("/") || path.length > 2048 || CONTROL_OR_BAD.test(path)) return false;
+  return path.slice(1).split("/").every((seg) => {
+    if (seg === "") return false;
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(seg);
+    } catch {
+      return false;
+    }
+    return !/^[.]+$/.test(decoded) && !/[/\\]/.test(decoded) && !CONTROL.test(decoded);
+  });
+}
+
 const HOST = /^[a-z0-9]([a-z0-9.-]{0,200}[a-z0-9])?\.oraclecloud\.com$/i;
 
 export const DEFAULT_MAX_REQUEST_BYTES = 1024 * 1024;
@@ -86,7 +108,7 @@ export function toJobPayload(req: OciApiRequest, limits: RunnerTransportLimits =
   if (!(req.service in OCI_SERVICE_HOSTS)) throw new OciTransportRefused(`Unknown OCI service "${String(req.service)}".`);
   if (!isRegionId(req.region)) throw new OciTransportRefused(`"${String(req.region).slice(0, 40)}" is not an OCI region id.`);
   if (!METHODS.has(req.method)) throw new OciTransportRefused(`Method ${String(req.method)} is not allowed.`);
-  if (typeof req.path !== "string" || !req.path.startsWith("/") || req.path.length > 2048 || BAD_PATH.test(req.path)) throw new OciTransportRefused("The request path is not a plain absolute path.");
+  if (!isPlainPath(req.path)) throw new OciTransportRefused("The request path is not a plain absolute path.");
 
   const headers: Record<string, string> = {};
   for (const [k, v] of Object.entries(req.headers ?? {})) {

@@ -54,7 +54,7 @@ Envelope as in RUNNER-PROTOCOL.md §4 with `"kind": "oci.http"`. Payload:
 | `service` | one of the logical ids in §5; **no host is ever sent** |
 | `region` | `^[a-z]{2}-[a-z0-9-]{3,30}-\d$`; the runner may further restrict to `oci.allowedRegions` |
 | `method` | `GET` `HEAD` `POST` `PUT` (no `DELETE`; see §6) |
-| `path` | absolute, percent-encoded, at most 2048 bytes, **no** `..`, `//`, `?`, `#`, `\`, control characters |
+| `path` | absolute, percent-encoded, at most 2048 bytes; no empty segment, no segment that is `.` or `..` (after decoding), no encoded `/` or backslash, no `?`, `#`, backslash or control character. `..` *inside* a segment is legal: tenancy-scoped OCIDs look like `ocid1.compartment.oc1..aaaa` |
 | `query` | ordered `[name, value]` pairs, sorted by name; the runner signs and sends exactly these |
 | `headers` | only `opc-retry-token`, `if-match`, `if-none-match`, `opc-request-id`; `Authorization`, `Host`, `Date`, `x-date`, `x-content-sha256`, `Content-Length`, `Content-Type`, `Signature`, `Cookie` and `Proxy-*` are **refused** (not stripped) |
 | `bodyB64` | JSON body bytes, at most 1 MiB; never on `GET`/`HEAD` |

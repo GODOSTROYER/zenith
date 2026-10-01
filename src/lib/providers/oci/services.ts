@@ -75,7 +75,12 @@ export const isRegionId = (s: unknown): s is string => typeof s === "string" && 
  */
 export function ociPath(service: OciServiceId, ...segments: (string | number)[]): string {
   const version = OCI_SERVICE_HOSTS[service].version;
-  const enc = segments.map((s) => encodeURIComponent(String(s)));
+  const enc = segments.map((s) => {
+    const raw = String(s);
+    // `encodeURIComponent` leaves "." and ".." alone; a dot-only segment is a path traversal, never a name
+    if (raw === "" || /^[.]+$/.test(raw)) throw new Error("A path segment is empty or made only of dots.");
+    return encodeURIComponent(raw);
+  });
   return `/${[...(version ? [version] : []), ...enc].join("/")}`;
 }
 

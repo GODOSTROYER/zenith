@@ -206,8 +206,10 @@ Read by `executionWorkerConfigFromEnv`. Details and defaults:
 | `ZENITH_WORKER_HEARTBEAT_THROTTLE_MS` | `10000` | Longest gap between heartbeats reaching Temporal; bounds how long a cancel takes to reach a running activity (100 to 60000). |
 | `ZENITH_WORKER_WORKFLOW_BUNDLE` | unset | Path to a prebuilt workflow bundle. The image sets it to `/app/dist/execution/workflow-bundle.js`; unset, the worker bundles the TypeScript at start-up (development). |
 | `ZENITH_WORKER_LOG_LEVEL` | `INFO` | `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`. |
-| `ZENITH_WORKER_HEALTH_LOG_INTERVAL_MS` | `60000` | Period of the `health` log line; `0` disables. There is no HTTP health endpoint. |
-| `ZENITH_WORKER_IDENTITY` | `zenith-exec:<host>:<pid>` | Worker identity shown in Temporal. |
+| `ZENITH_WORKER_HEALTH_LOG_INTERVAL_MS` | `60000` | Period of the `health` log line; `0` disables. The HTTP endpoints are on `ZENITH_WORKER_HEALTH_PORT`. |
+| `ZENITH_WORKER_IDENTITY` | `zenith-exec-<host>-<pid>` (sanitised, at most 64 characters) | Worker identity shown in Temporal and used in every lease holder: 1-64 letters, digits, `.`, `_` or `-`; any other explicit value is refused at startup. |
+| `ZENITH_WORKER_HEALTH_PORT` | `9464` | Loopback port for `/healthz` (process up) and `/readyz` (Temporal, platform store, policy bundle, drivers). |
+| `ZENITH_WORKER_PLAN_MAX_AGE_HOURS` | `24` | The plan janitor deletes binary plans of terminal operations older than this; plans of active operations are never touched. |
 | `ZENITH_WORKER_PLAN_DIR` | `<ZENITH_DATA or .data>/platform-plans` | Worker-local binary plan directory, resolved to an absolute path and created with mode `0700`. Keep it private; binary plans may contain secrets. Cross-replica filesystem access and Windows ACL equivalence are not verified. |
 | `ZENITH_SECRET_KEY` | unset | **Secret**, required: 64 hex characters. `derivePlanFingerprintKey` uses HKDF-SHA256 with `zenith.tofu.plan.fingerprint.v1`; there is no public default. The key also protects product vault secrets; give cooperating workers the same key and back it up separately. |
 
@@ -299,7 +301,9 @@ on the default branch; this configuration is not proof that a tick ran live.
 
 The ordinary cron passes also call `platformRunnerReaperPass`, which expires
 runner/machine jobs and marks their owning operations uncertain in a transaction.
-The standalone ledger function `reconcileOperations` has no timer caller.
+The ledger backstop `reconcileOperations` (overdue proposals expire, lapsed running operations
+become uncertain) runs in the leased housekeeping pass (`src/lib/platform/housekeeping.ts`),
+triggered by the jobs tick with `?housekeeping=1`, together with idempotency-key and nonce pruning.
 
 Reconciliation is paced by a backoff ladder (5, 15, 60, then 180
 minutes while nothing changes; open drift never backs off past 60 minutes and an
@@ -577,10 +581,9 @@ were run; `docker build`, the `apt` and OpenTofu downloads inside it, the Linux
   sealing keys where needed, the policy bundle and product-store configuration.
   Secrets arrive at run time; none is baked into the image. Startup does not
   verify cloud deploy permissions or every provider session.
-- Set `ZENITH_WORKER_IDENTITY` to a stable value of 1–64 letters, digits,
-  dots, underscores or hyphens: the execution runtime uses it in lease holders.
-  The Temporal config's default contains colons and is rejected by that runtime;
-  use an explicit value such as `zenith-exec-01` for this composition.
+- `ZENITH_WORKER_IDENTITY` is optional: the default (`zenith-exec-<host>-<pid>`) already satisfies
+  the lease-holder rule (1–64 letters, digits, dots, underscores or hyphens). Set a stable value
+  if you want the same identity across restarts; an invalid value stops the worker at startup.
 - Read-only root filesystem works with `/tmp` and `/var/lib/zenith` writable
   (OpenTofu working directories and the plugin cache go to the temp directory).
 - Stop timeout: set the orchestrator's stop timeout (Kubernetes

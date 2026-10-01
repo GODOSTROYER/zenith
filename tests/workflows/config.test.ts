@@ -118,7 +118,8 @@ describe("executionWorkerConfigFromEnv", () => {
       temporal: { address: "localhost:7233", namespace: "default", tls: false },
     });
     expect(c.workflowBundlePath).toBeUndefined();
-    expect(c.identity).toMatch(/^zenith-exec:.+:\d+$/);
+    expect(c.identity).toMatch(/^zenith-exec-[A-Za-z0-9._-]*-\d+$/);
+    expect(c.identity.length).toBeLessThanOrEqual(64);
   });
 
   it("reads overrides", () => {
@@ -205,5 +206,12 @@ describe("workerOptions", () => {
   it("says what to do when neither a bundle nor the sources are there", async () => {
     await expect(workflowSource({ workflowBundlePath: "/definitely/not/here.js" })).rejects.toThrow(/does not exist/);
     await expect(workflowSource({}, "/definitely/not/here/index.ts")).rejects.toThrow(/set ZENITH_WORKER_WORKFLOW_BUNDLE/);
+  });
+});
+
+describe("worker identity", () => {
+  it("refuses an explicit identity the execution runtime would reject (it is part of every lease holder)", () => {
+    expect(() => executionWorkerConfigFromEnv({ ZENITH_WORKER_IDENTITY: "worker:with:colons" } as unknown as NodeJS.ProcessEnv)).toThrow(/ZENITH_WORKER_IDENTITY/);
+    expect(executionWorkerConfigFromEnv({ ZENITH_WORKER_IDENTITY: "zenith-exec-01" } as unknown as NodeJS.ProcessEnv).identity).toBe("zenith-exec-01");
   });
 });

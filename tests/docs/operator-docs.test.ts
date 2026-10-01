@@ -414,11 +414,10 @@ describe("operator claims match current wiring", () => {
     expect(deploying).toContain("64 hex characters");
   });
 
-  it("the documented identity workaround matches the current incompatible defaults", () => {
-    expect(source("workers/execution/config.ts")).toContain("`zenith-exec:${hostname()}:${process.pid}`");
+  it("the worker identity default satisfies the runtime's lease-holder rule, and the guide says so", () => {
+    expect(source("workers/execution/config.ts")).toContain("const WORKER_IDENTITY = /^[A-Za-z0-9._-]{1,64}$/");
     expect(source("src/lib/execution/runtime.ts")).toContain("const WORKER_ID = /^[A-Za-z0-9._-]{1,64}$/");
-    expect(deploying).toContain("default contains colons");
-    expect(deploying).toContain("`zenith-exec-01`");
+    expect(squash(deploying)).toContain("`ZENITH_WORKER_IDENTITY` is optional");
   });
 
   it("deploy bridge, MCP and allowed reconcile repairs claim and start workflows", () => {
@@ -479,9 +478,9 @@ describe("operator claims match current wiring", () => {
     expect(app).toContain("await reapExpiredJobs(runnerPorts(tx))");
     expect(app).toContain("await ops.markUncertain(");
     expect(guide("RECOVERY.md")).toContain("same transaction");
-    // Environment reconciliation and job reaping do not schedule the separate ledger backstop.
-    expect(callers(/\breconcileOperations\s*\(/, ["src/app", "src/lib/platform", "src/lib/server", "workers", "scripts"])).toEqual([]);
-    expect(deploying).toContain("`reconcileOperations` has no timer caller");
+    // The ledger backstop runs only in the leased housekeeping pass.
+    expect(callers(/\breconcileOperations\s*\(/, ["src/app", "src/lib/platform", "src/lib/server", "workers", "scripts"])).toEqual(["src/lib/platform/housekeeping.ts"]);
+    expect(deploying).toContain("runs in the leased housekeeping pass");
   });
 
   it("platform pages render stored state and protect browser AWS/policy actions", () => {

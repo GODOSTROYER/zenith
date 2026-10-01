@@ -15,7 +15,7 @@
  *                                                unset -> bundle the TypeScript definitions at start-up
  *   ZENITH_WORKER_LOG_LEVEL                      TRACE|DEBUG|INFO|WARN|ERROR   (default INFO)
  *   ZENITH_WORKER_HEALTH_LOG_INTERVAL_MS         periodic health line; 0 disables (default 60000)
- *   ZENITH_WORKER_IDENTITY                       worker identity in Temporal   (default zenith-exec:<host>:<pid>)
+ *   ZENITH_WORKER_IDENTITY                       worker identity in Temporal   (default zenith-exec-<host>-<pid>, sanitised)
  */
 
 import { hostname } from "node:os";
@@ -52,6 +52,23 @@ function intFrom(env: Env, name: string, fallback: number, min: number, max: num
 
 const LEVELS = ["TRACE", "DEBUG", "INFO", "WARN", "ERROR"] as const;
 
+/**
+ * The identity is part of every lease holder, so it must satisfy the execution
+ * runtime's rule (1-64 of letters, digits, '.', '_' or '-'). An explicit value
+ * that does not is refused at startup; the default is sanitised and bounded.
+ */
+const WORKER_IDENTITY = /^[A-Za-z0-9._-]{1,64}$/;
+function workerIdentity(explicit: string | undefined): string {
+  const value = explicit?.trim();
+  if (value) {
+    if (!WORKER_IDENTITY.test(value)) throw new WorkerConfigError("ZENITH_WORKER_IDENTITY must be 1-64 letters, digits, '.', '_' or '-' (it is part of every lease holder)");
+    return value;
+  }
+  const host = hostname().replace(/[^A-Za-z0-9._-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "host";
+  const suffix = `-${process.pid}`;
+  return `zenith-exec-${host}`.slice(0, 64 - suffix.length) + suffix;
+}
+
 export function executionWorkerConfigFromEnv(env: Env = process.env): ExecutionWorkerConfig {
   const level = (env.ZENITH_WORKER_LOG_LEVEL?.trim().toUpperCase() || "INFO") as (typeof LEVELS)[number];
   if (!LEVELS.includes(level)) throw new WorkerConfigError(`ZENITH_WORKER_LOG_LEVEL must be one of ${LEVELS.join(", ")}`);
@@ -67,6 +84,6 @@ export function executionWorkerConfigFromEnv(env: Env = process.env): ExecutionW
     workflowBundlePath: env.ZENITH_WORKER_WORKFLOW_BUNDLE?.trim() || undefined,
     logLevel: level,
     healthLogIntervalMs: intFrom(env, "ZENITH_WORKER_HEALTH_LOG_INTERVAL_MS", 60_000, 0, 24 * 3600_000),
-    identity: env.ZENITH_WORKER_IDENTITY?.trim() || `zenith-exec:${hostname()}:${process.pid}`,
+    identity: workerIdentity(env.ZENITH_WORKER_IDENTITY),
   };
 }

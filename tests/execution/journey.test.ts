@@ -13,6 +13,9 @@
  * the engine/store/activity wiring and the plan-digest safety net; it proves
  * nothing about AWS.
  *
+ * Convergence is planned by a fresh operation: the applied operation keeps its
+ * immutable plan digest. Every acquired test lease is released in `finally`.
+ *
  * Skipped, with a reason, when no `tofu` binary is available.
  */
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
@@ -127,7 +130,7 @@ describe.skipIf(!hasTofu)("deploy journey on the real OpenTofu engine, platform 
         { id: "rev-1", projectId: PROJECT, number: 1, manifest: bucketsManifest("assets"), message: "one", author, createdAt: at },
         { id: "rev-2", projectId: PROJECT, number: 2, manifest: bucketsManifest("assets", "uploads"), message: "two", author, createdAt: at },
       ],
-      deployments: [deployment("dep-1", "rev-1"), deployment("dep-2", "rev-2")],
+      deployments: [deployment("dep-1", "rev-1"), deployment("dep-1-convergence", "rev-1"), deployment("dep-2", "rev-2")],
     });
     save();
 
@@ -179,54 +182,53 @@ describe.skipIf(!hasTofu)("deploy journey on the real OpenTofu engine, platform 
       expect((await ports.resources.list(WS, ENVIRONMENT)).map((r) => r.address)).toEqual(["object_store/assets"]);
 
       const lease = await activities.acquireLease({ operationId, scope: `env:${ENVIRONMENT}`, ttlMs: 300_000 });
-      expect(lease.holder).toBe(`worker:journey-worker:${operationId}`);
+      try {
+        expect(lease.holder).toBe(`worker:journey-worker:${operationId}`);
 
-      // plan: a real `tofu plan`
-      await step("plan", "running");
-      const plan = await activities.planInfrastructure({ operationId, lease });
-      expect(plan).toMatchObject({ create: 1, update: 0, delete: 0, replace: 0, empty: false, destroysData: false });
-      expect(plan.planDigest).toMatch(/^[0-9a-f]{64}$/);
-      await step("plan", "done");
-      expect(existsSync(path.join(planDir, `${plan.planDigest}.tfplan`))).toBe(true); // the plan file is in planDir
-      expect(existsSync(statePath)).toBe(false); // planning changed nothing
+        // plan: a real `tofu plan`
+        await step("plan", "running");
+        const plan = await activities.planInfrastructure({ operationId, lease });
+        expect(plan).toMatchObject({ create: 1, update: 0, delete: 0, replace: 0, empty: false, destroysData: false });
+        expect(plan.planDigest).toMatch(/^[0-9a-f]{64}$/);
+        await step("plan", "done");
+        expect(existsSync(path.join(planDir, `${plan.planDigest}.tfplan`))).toBe(true); // the plan file is in planDir
+        expect(existsSync(statePath)).toBe(false); // planning changed nothing
 
-      const evidence = await repos.evidence.list(db, WS, { operationId });
-      const planRow = evidence.find((e) => e.kind === "tofu_plan")!;
-      expect(planRow).toMatchObject({ digest: plan.planDigest });
-      expect((planRow.summary.view as { resources: { address: string; action: string }[] }).resources).toEqual([expect.objectContaining({ address: "terraform_data.object_store_assets", action: "create" })]);
-      expect((await repos.operations.get(db, WS, operationId))?.planDigest).toBe(plan.planDigest);
+        const evidence = await repos.evidence.list(db, WS, { operationId });
+        const planRow = evidence.find((e) => e.kind === "tofu_plan")!;
+        expect(planRow).toMatchObject({ digest: plan.planDigest });
+        expect((planRow.summary.view as { resources: { address: string; action: string }[] }).resources).toEqual([expect.objectContaining({ address: "terraform_data.object_store_assets", action: "create" })]);
+        expect((await repos.operations.get(db, WS, operationId))?.planDigest).toBe(plan.planDigest);
 
-      // policy: the facts come from the plan we just made
-      const policy = await activities.evaluatePolicy({ operationId, planDigest: plan.planDigest });
-      expect(policy.outcome).toBe("allow");
-      expect(broker.reevaluations.at(-1)?.plan).toMatchObject({ create: 1, destroysData: false });
-      expect((await activities.checkApproval({ operationId })).approved).toBe(false);
+        // policy: the facts come from the plan we just made
+        const policy = await activities.evaluatePolicy({ operationId, planDigest: plan.planDigest });
+        expect(policy.outcome).toBe("allow");
+        expect(broker.reevaluations.at(-1)?.plan).toMatchObject({ create: 1, destroysData: false });
+        expect((await activities.checkApproval({ operationId })).approved).toBe(false);
 
-      // final plan: an independent re-plan has the SAME digest
-      const final = await activities.finalPlan({ operationId, approvedPlanDigest: plan.planDigest, lease });
-      expect(final.planDigest).toBe(plan.planDigest);
+        // final plan: an independent re-plan has the SAME digest
+        const final = await activities.finalPlan({ operationId, approvedPlanDigest: plan.planDigest, lease });
+        expect(final.planDigest).toBe(plan.planDigest);
 
-      // apply: a real `tofu apply` of the verified plan
-      await step("apply_infrastructure", "running", undefined);
-      const applied = await activities.applyInfrastructure({ operationId, planDigest: plan.planDigest, lease });
-      expect(applied.applied).toBe(1);
-      await step("apply_infrastructure", "done", `${applied.applied} change(s) applied`);
-      expect(existsSync(statePath)).toBe(true);
-      expect(existsSync(path.join(planDir, `${plan.planDigest}.tfplan`))).toBe(false); // removed after the apply
-      expect((await ports.resources.list(WS, ENVIRONMENT))[0].status).toBe("active");
+        // apply: a real `tofu apply` of the verified plan
+        await step("apply_infrastructure", "running", undefined);
+        const applied = await activities.applyInfrastructure({ operationId, planDigest: plan.planDigest, lease });
+        expect(applied.applied).toBe(1);
+        await step("apply_infrastructure", "done", `${applied.applied} change(s) applied`);
+        expect(existsSync(statePath)).toBe(true);
+        expect(existsSync(path.join(planDir, `${plan.planDigest}.tfplan`))).toBe(false); // removed after the apply
+        expect((await ports.resources.list(WS, ENVIRONMENT))[0].status).toBe("active");
 
-      // the world now equals the config: a new plan is empty
-      const again = await activities.planInfrastructure({ operationId, lease });
-      expect(again.empty).toBe(true);
+        expect(await activities.verifyInfrastructure({ operationId })).toMatchObject({ status: "passed", checks: 1, failed: 0 });
+        expect(await activities.verifyApplication({ operationId })).toMatchObject({ status: "passed", checks: 0 }); // no public route
+        expect(await activities.observeEnvironment({ operationId })).toEqual({ drift: 0, unknown: 0 });
 
-      expect(await activities.verifyInfrastructure({ operationId })).toMatchObject({ status: "passed", checks: 1, failed: 0 });
-      expect(await activities.verifyApplication({ operationId })).toMatchObject({ status: "passed", checks: 0 }); // no public route
-      expect(await activities.observeEnvironment({ operationId })).toEqual({ drift: 0, unknown: 0 });
-
-      await step("finalize", "running");
-      await activities.markOperation({ operationId, status: "succeeded" });
-      await step("finalize", "done");
-      await activities.releaseLease({ lease });
+        await step("finalize", "running");
+        await activities.markOperation({ operationId, status: "succeeded" });
+        await step("finalize", "done");
+      } finally {
+        await activities.releaseLease({ lease });
+      }
       await step("release", "done");
 
       // ledger
@@ -253,6 +255,26 @@ describe.skipIf(!hasTofu)("deploy journey on the real OpenTofu engine, platform 
         deployment: d,
       });
       for (const secret of [CANARY_SECRET, CANARY_SESSION_KEY, PLAN_FILE_CANARY, "session-token-canary", "ASIATESTSESSION0001"]) expect(stored).not.toContain(secret);
+
+      // The world now equals the config. Plan the same revision in a NEW operation:
+      // its empty plan must not replace the digest bound to the applied operation.
+      const appliedPlanDigest = (await ports.ops.get(operationId))!.planDigest;
+      const convergence = await newOperation("rev-1", "dep-1-convergence");
+      expect(convergence.id).not.toBe(operationId);
+      await activities.markOperation({ operationId: convergence.id, status: "running" });
+      expect(await activities.validateDesiredState({ operationId: convergence.id })).toMatchObject({ problems: [], nodes: 1 });
+      const convergenceLease = await activities.acquireLease({ operationId: convergence.id, scope: `env:${ENVIRONMENT}`, ttlMs: 300_000 });
+      try {
+        const again = await activities.planInfrastructure({ operationId: convergence.id, lease: convergenceLease });
+        expect(again).toMatchObject({ create: 0, update: 0, delete: 0, replace: 0, empty: true });
+        expect(again.planDigest).not.toBe(appliedPlanDigest);
+        expect((await ports.ops.get(operationId))!.planDigest).toBe(appliedPlanDigest);
+        expect((await ports.ops.get(convergence.id))!.planDigest).toBe(again.planDigest);
+        await activities.markOperation({ operationId: convergence.id, status: "succeeded" });
+      } finally {
+        await activities.releaseLease({ lease: convergenceLease });
+      }
+      expect(await repos.leases.current(db, `env:${ENVIRONMENT}`)).toBeNull();
     },
     300_000
   );
@@ -265,36 +287,39 @@ describe.skipIf(!hasTofu)("deploy journey on the real OpenTofu engine, platform 
       await activities.markOperation({ operationId, status: "running" });
       await activities.validateDesiredState({ operationId });
       const lease = await activities.acquireLease({ operationId, scope: `env:${ENVIRONMENT}`, ttlMs: 300_000 });
-
-      const approved = await activities.planInfrastructure({ operationId, lease });
-      expect(approved).toMatchObject({ create: 1, replace: 0 }); // "uploads" is new; "assets" already exists
-
-      compileSalt = "v2"; // someone changed what the drivers compile (and so the configuration) after the approval
       try {
-        const err = await activities.finalPlan({ operationId, approvedPlanDigest: approved.planDigest, lease }).catch((e: unknown) => e);
-        expect(err).toBeInstanceOf(TofuPlanChangedError);
-        expect((err as TofuPlanChangedError).code).toBe("plan_changed");
-        expect((err as TofuPlanChangedError).approvedDigest).toBe(approved.planDigest);
+        const approved = await activities.planInfrastructure({ operationId, lease });
+        expect(approved).toMatchObject({ create: 1, replace: 0 }); // "uploads" is new; "assets" already exists
 
-        const applyErr = await activities.applyInfrastructure({ operationId, planDigest: approved.planDigest, lease }).catch((e: unknown) => e);
-        expect(applyErr).toBeInstanceOf(TofuPlanChangedError);
+        compileSalt = "v2"; // someone changed what the drivers compile (and so the configuration) after the approval
+        try {
+          const err = await activities.finalPlan({ operationId, approvedPlanDigest: approved.planDigest, lease }).catch((e: unknown) => e);
+          expect(err).toBeInstanceOf(TofuPlanChangedError);
+          expect((err as TofuPlanChangedError).code).toBe("plan_changed");
+          expect((err as TofuPlanChangedError).approvedDigest).toBe(approved.planDigest);
 
-        // nothing was applied: no apply evidence, the operation is not uncertain, "uploads" still does not exist
-        const kinds = (await repos.evidence.list(db, WS, { operationId })).map((e) => e.kind);
-        expect(kinds).not.toContain("tofu_apply");
-        expect((await ports.ops.get(operationId))?.status).toBe("running");
-        compileSalt = "v1";
-        const stillPending = await activities.planInfrastructure({ operationId, lease });
-        expect(stillPending.planDigest).toBe(approved.planDigest); // back to the approved config: the same plan, still unapplied
+          const applyErr = await activities.applyInfrastructure({ operationId, planDigest: approved.planDigest, lease }).catch((e: unknown) => e);
+          expect(applyErr).toBeInstanceOf(TofuPlanChangedError);
+
+          // nothing was applied: no apply evidence, the operation is not uncertain, "uploads" still does not exist
+          const kinds = (await repos.evidence.list(db, WS, { operationId })).map((e) => e.kind);
+          expect(kinds).not.toContain("tofu_apply");
+          expect((await ports.ops.get(operationId))?.status).toBe("running");
+          compileSalt = "v1";
+          const stillPending = await activities.planInfrastructure({ operationId, lease });
+          expect(stillPending.planDigest).toBe(approved.planDigest); // back to the approved config: the same plan, still unapplied
+        } finally {
+          compileSalt = "v1";
+        }
+
+        // and with the approved configuration restored, the approved plan applies
+        const applied = await activities.applyInfrastructure({ operationId, planDigest: approved.planDigest, lease });
+        expect(applied.applied).toBe(1);
+        await activities.markOperation({ operationId, status: "succeeded" });
       } finally {
         compileSalt = "v1";
+        await activities.releaseLease({ lease });
       }
-
-      // and with the approved configuration restored, the approved plan applies
-      const applied = await activities.applyInfrastructure({ operationId, planDigest: approved.planDigest, lease });
-      expect(applied.applied).toBe(1);
-      await activities.markOperation({ operationId, status: "succeeded" });
-      await activities.releaseLease({ lease });
     },
     300_000
   );
@@ -335,19 +360,22 @@ describe.skipIf(!hasTofu)("deploy journey on the real OpenTofu engine, platform 
       await localActivities.markOperation({ operationId, status: "running" });
       await localActivities.validateDesiredState({ operationId });
       const lease = await localActivities.acquireLease({ operationId, scope: `env:${ENVIRONMENT}`, ttlMs: 300_000 });
-      const approved = await localActivities.planInfrastructure({ operationId, lease });
-      expect(approved.create).toBe(1);
+      try {
+        const approved = await localActivities.planInfrastructure({ operationId, lease });
+        expect(approved.create).toBe(1);
 
-      // somebody applies something else into the same state meanwhile
-      const rogue = builtinWorkspace(state2, { "resource/rogue": dataFragment("rogue", "out-of-band") });
-      const roguePlan = await planWorkspace(rogue);
-      const { applyVerifiedPlan } = await import("@/lib/tofu/engine");
-      await applyVerifiedPlan(rogue, { approvedDigest: roguePlan.plan.planDigest });
+        // somebody applies something else into the same state meanwhile
+        const rogue = builtinWorkspace(state2, { "resource/rogue": dataFragment("rogue", "out-of-band") });
+        const roguePlan = await planWorkspace(rogue);
+        const { applyVerifiedPlan } = await import("@/lib/tofu/engine");
+        await applyVerifiedPlan(rogue, { approvedDigest: roguePlan.plan.planDigest });
 
-      const err = await localActivities.applyInfrastructure({ operationId, planDigest: approved.planDigest, lease }).catch((e: unknown) => e);
-      expect(err).toBeInstanceOf(TofuPlanChangedError);
-      expect((await repos.evidence.list(db, WS, { operationId })).map((e) => e.kind)).not.toContain("tofu_apply");
-      await localActivities.releaseLease({ lease });
+        const err = await localActivities.applyInfrastructure({ operationId, planDigest: approved.planDigest, lease }).catch((e: unknown) => e);
+        expect(err).toBeInstanceOf(TofuPlanChangedError);
+        expect((await repos.evidence.list(db, WS, { operationId })).map((e) => e.kind)).not.toContain("tofu_apply");
+      } finally {
+        await localActivities.releaseLease({ lease });
+      }
     },
     300_000
   );

@@ -49,6 +49,56 @@ OCI and `zenith` stay interchangeable behind `src/lib/drivers/types.ts`.
 - `referenced` / `external` nodes compile to `data` sources at most — never
   `resource` blocks (the workspace assembler rejects them).
 
+## Cross-node references
+
+The execution compiler implements `ctx.ref(target, attribute)` with one rule:
+
+1. Compile the target on demand. A reference cycle is an error, even when the
+   target would publish a local. An external node contributes no fragment.
+2. If its fragment declares the own local `refLocalName(target, attribute)`,
+   return `${local.<that name>}`. Published locals take precedence even for
+   native attributes such as `id` or `arn` (e.g. an ACM validated ARN).
+3. Otherwise, accept only an identifier path with optional numeric indexes
+   (`id`, `metadata[0].name`) and return `${<primary address>.<attribute>}`.
+   The primary address is a resource with the sanitized node label, else the
+   first resource address, else the matching/first data address.
+4. Refuse invalid keys, unpublished semantic keys, or a target without an
+   address. Errors name the source node, target and attribute with bounded,
+   sanitized text; arbitrary manifest text never becomes an expression.
+
+Published reference keys use ASCII letters, digits, `_`, `-`, `.`, `/`, `:`,
+`[` and `]`, start with a letter or `_`, and are at most 512 characters.
+Colons/slashes are lookup syntax only: `target_group_arn:container_service/web:3000`
+and `private_route_table_id:a` require declared locals. Traversal fallback
+allows identifier segments starting with a letter or `_`, optional numeric
+indexes, and dots; no functions, quoted indexes, splats or template syntax.
+
+`refLocalName` currently lives in
+`src/lib/providers/aws/drivers/shared/refs.ts` and is reused unchanged by the
+execution compiler: `ref_<tfLabel(target)>__<normalized attribute>`. Attribute
+normalization lowercases and replaces each non-`[a-z0-9_]` character with `_`.
+The label helper preserves the AWS hash/truncation convention; this is not
+the compiler's simpler primary-address label sanitizer.
+
+AWS publishes these locals, including attributes absent from its primary
+resource. OCI and GCP use primary-resource traversals for `ctx.ref`; OCI's
+compile calls additionally require `ociCompileContext` with the connection's
+non-secret compartment/tenancy identifiers. OCI's auxiliary locals and
+Azure's export locals are referenced directly through their provider helpers;
+Azure has no live `ctx.ref` call. Kubernetes and `zenith` do not compile via
+this path. Provider-schema validation is separate from reference resolution;
+the opt-in OpenTofu tests do not prove a cloud deploy succeeds.
+
+Current integration limits exposed by `tests/execution/compile-refs-providers.test.ts`:
+the full AWS staging/production graphs have a compile-reference cycle between
+the VPC NAT gateway's subnet lookup (`network/vpc-compile.ts:137`) and the
+subnet's VPC lookup (`network/subnet.ts:83`). The cycle guard deliberately
+refuses these graphs. OCI's expanded fixture is refused by its identity
+driver's missing Redis grant mapping (`oci/drivers/platform/identity.ts:108`);
+expanded GCP database grants include `read_credentials`, which is refused by
+`gcp/iam-roles.ts:81`. Those driver/expansion changes remain outside WS-REF;
+the full-graph acceptance tests stay strict and expose the refusals.
+
 ## Observe / runtime / verify / discover
 
 - Read-only native API calls through `ctx.session` (`AwsSession.client()`,

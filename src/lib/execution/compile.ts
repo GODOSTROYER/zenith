@@ -9,10 +9,15 @@
  * not manage); `external` nodes never.
  *
  * `CompileContext.ref(address, attribute)` is implemented here, because drivers
- * are told never to hard-code another node's tofu label. It returns the
- * INTERPOLATION form, ready to use as a value or to embed in a longer string:
+ * are told never to hard-code another node's tofu label. It first compiles the
+ * target and resolves a declared `refLocalName(address, attribute)` local. If
+ * none is published, a plain attribute path resolves on the primary address.
+ * Unpublished semantic keys (e.g. `target_group_arn:service/web`) are refused.
+ * It returns the INTERPOLATION form, ready to use as a value or to embed in a
+ * longer string:
  *
- *     ctx.ref("network/main", "id")  →  "${aws_vpc.network_main.id}"
+ *     published local → "${local.ref_network_main__id}"
+ *     plain fallback  → "${oci_core_vcn.network_main.id}"
  *
  * The node's tofu address is its PRIMARY address: the entry of the fragment's
  * `addresses` whose label equals the sanitized node address (`network/main` →
@@ -29,6 +34,7 @@
 import type { CompileContext, TofuFragment } from "@/lib/drivers/types";
 import type { AwsConnectionConfig, ProviderConnection } from "@/lib/credentials/types";
 import type { ProviderKey, ResourceGraph } from "@/lib/resources/types";
+import { refLocalName } from "@/lib/providers/aws/drivers/shared/refs";
 import { assembleWorkspace, TofuWorkspaceError, type BackendConfig } from "@/lib/tofu/workspace";
 import type { ProviderSetName, ProviderSetSpec } from "@/lib/tofu/providers";
 import type { TofuWorkspace } from "@/lib/tofu/types";
@@ -38,7 +44,14 @@ import type { DriverLookup, WorkspaceOverrides } from "./ports";
 import { baseTags, namePrefix, nodeTags } from "./session";
 import { errorText, safeText } from "./text";
 
-const ATTRIBUTE = /^[A-Za-z0-9_.[\]-]+$/;
+// Semantic keys include AWS's colon-separated target addresses and ports.
+// These are lookup keys only, never inserted into an HCL expression. Reuse the
+// publisher's canonical helper unchanged; no provider driver is rewritten.
+const REFERENCE_KEY = /^[A-Za-z_][A-Za-z0-9_./:[\]-]*(?![\s\S])/;
+// Identifier segments with optional numeric indexes; no calls, splats, quoted
+// keys or template syntax. The end assertions also reject a final newline.
+const ATTRIBUTE = /^[A-Za-z_][A-Za-z0-9_-]*(?:\[\d+\])*(?:\.[A-Za-z_][A-Za-z0-9_-]*(?:\[\d+\])*)*(?![\s\S])/;
+const TOFU_ADDRESS = /^(?:data\.)?[A-Za-z_][A-Za-z0-9_-]*\.[A-Za-z_][A-Za-z0-9_-]*(?![\s\S])/;
 
 /** `service/web` → `service_web`, per DRIVER-CONVENTIONS ("labels derived from the node address"). */
 export const sanitizeLabel = (address: string): string => address.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
@@ -87,10 +100,18 @@ export function compileGraph(input: { graph: ResourceGraph; environmentId: strin
       tags: nodeTags(input.tags, node),
       node: (a) => nodes.get(a),
       ref: (target, attribute) => {
-        if (!ATTRIBUTE.test(attribute)) throw new StepFailedError(`Driver ${driver.id} asked for an invalid attribute reference "${safeText(attribute, 60)}".`);
+        const refuse = (): never => {
+          throw new StepFailedError(`${safeText(node.address, 120)} references ${safeText(target, 120)} with an invalid or unpublished attribute reference "${safeText(attribute, 60)}".`);
+        };
+        if (!nodes.has(target)) return refuse();
         const fragment = compileNode(target);
+        if (typeof attribute !== "string" || attribute.length > 512 || !REFERENCE_KEY.test(attribute)) return refuse();
+        const local = refLocalName(target, attribute);
+        if (fragment?.locals && Object.hasOwn(fragment.locals, local)) return `\${local.${local}}`;
+        if (!ATTRIBUTE.test(attribute)) return refuse();
         const primary = fragment ? primaryAddress(target, fragment) : undefined;
-        if (!primary) throw new StepFailedError(`${node.address} references ${safeText(target, 120)}, which has no OpenTofu address (it is external, or its driver cannot compile).`);
+        if (!primary) throw new StepFailedError(`${safeText(node.address, 120)} references ${safeText(target, 120)} with attribute "${safeText(attribute, 60)}", which has no OpenTofu address (it is external, or its driver cannot compile).`);
+        if (!TOFU_ADDRESS.test(primary)) return refuse();
         return `\${${primary}.${attribute}}`;
       },
     };
@@ -168,4 +189,3 @@ export function buildWorkspace(input: {
     throw err;
   }
 }
-

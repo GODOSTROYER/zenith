@@ -68,6 +68,7 @@ The composed control plane (`docs/platform/`) is separate from the legacy provid
 - ✅ **Maintenance is wired.** Leased housekeeping (`src/lib/platform/housekeeping.ts`) prunes expired idempotency keys/nonces with skip-locked expiry rechecks and runs the operation-ledger backstop. The worker has loopback liveness/readiness and terminal-owner binary-plan cleanup. None establishes provider readiness or production recovery.
 - ✅ **Destruction requires human review.** `env.teardown` consumes trusted recorded evidence; stateful/DNS delete or replace always needs a human at every autonomy and environment. A moved final plan fails `plan_changed` before deletion guards; ownership/deletion-policy refusals still apply ([TEARDOWN.md](platform/operations/TEARDOWN.md), [POLICY.md](platform/operations/POLICY.md#deletion-approvals)).
 - ✅ **Source and secret boundaries are implemented.** AWS source uploads are canonical ZIP, GCP tar.gz; Azure adapters use tar.gz with injected readers. Database credentials use service-managed/passwordless paths or ephemeral write-only sinks; Temporal client/worker payloads use AES-256-GCM with decrypt-only previous keys. These are code/contract claims, not live evidence ([BUILDS.md](platform/operations/BUILDS.md), [DEPLOYING.md](platform/operations/DEPLOYING.md)).
+- ✅ **Temporal custom TLS/mTLS configuration is wired.** Web clients/probes and execution workers share bounded, process-cached CA/client-certificate/private-key file loading and an optional server-name override. Descriptions expose only set/unset; file errors and custom TLS transport errors do not expose key material. Local file tests and mocked SDK wiring are not a live TLS handshake ([DEPLOYING.md](platform/operations/DEPLOYING.md#24-temporal)).
 - 🟡 **Cost and placement are estimates.** `2026-09-30.1` is a static list-price snapshot, partly remembered, derived or internally assumed. Placement is exposed by REST, actions, MCP and `/platform/placement`; staging edits the working manifest, not cloud infrastructure. Legacy cost screens still use their older table. No forecast or billing actual is produced.
 - ✅ **MCP registration and OAuth discovery are wired.** App composition registers cloud-read and investigator ports; OCI Logging Search/Monitoring use scoped runner read jobs without operations. Protected-resource metadata and the 401 challenge advertise the exact v3 resource. Missing evidence stays unavailable ([MCP.md](platform/MCP.md), [OCI-SIGNALS.md](platform/operations/OCI-SIGNALS.md)).
 
@@ -77,7 +78,7 @@ Still-open gaps at source snapshot `3c1fa66` (2026-10-01), one line per gap:
 - 🟡 The real Postgres lane (`ZENITH_TEST_PLATFORM_PG_URL`) was not run in this sync; historical rehearsals do not verify the current migrations, pooler/TLS or production recovery.
 - 🟡 Kind/real Kubernetes was not run here; WSL/Docker are unavailable in this worker sandbox.
 - 🟡 The Go runner/daemon transport was not run here; source assertions do not prove executor or customer-network behavior.
-- 🟡 Temporal Cloud, API-key authentication, encrypted production replay/rotation/recovery and a production self-hosted cluster were not run here.
+- 🟡 Temporal Cloud, API-key and mTLS authentication, encrypted production replay/rotation/recovery and a production self-hosted cluster were not run here.
 - ⬜ OCI MySQL creation is disabled: pinned `oracle/oci` 9.7.1 lacks a proven write-only password or Vault-reference sink (`src/lib/providers/oci/drivers/data/mysql.ts`).
 - ⬜ Teardown has no public first read-only destroy-review trigger; the browser requires current execution evidence and an authorized readable matching PlanView artifact for plan approval.
 - ⬜ Default managed Zenith execution has no session opener/substrate integration; managed teardown needs injected `withZenithSession` plus a trusted database inventory and current approval flags.
@@ -94,7 +95,6 @@ Still-open gaps at source snapshot `3c1fa66` (2026-10-01), one line per gap:
 - ⬜ GCP's build-tool image is not digest-pinned.
 - ⬜ Events, evidence, operations, approvals, decisions, grants and runner jobs have no pruning.
 - ⬜ Product-vault key re-wrap tooling is absent; Temporal previous keys do not migrate vault data.
-- ⬜ Temporal mTLS configuration is absent.
 - ⬜ A UI/CLI Temporal payload codec server is absent.
 - ⬜ Managed database export is absent.
 - ⬜ Managed FQDN-aware egress isolation is absent.

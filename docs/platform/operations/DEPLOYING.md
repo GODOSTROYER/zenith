@@ -192,7 +192,40 @@ Read by `temporalConfigFromEnv`, for **both** the web app's client and the worke
 | `ZENITH_TEMPORAL_ADDRESS` | `localhost:7233` | no | Frontend `host:port`. |
 | `ZENITH_TEMPORAL_NAMESPACE` | `default` | no | Namespace. Must already exist. |
 | `ZENITH_TEMPORAL_API_KEY` | unset | **yes** | Temporal Cloud API key. Setting it forces TLS. Never logged; `describeTemporalConfig` reports only "set" or "unset". |
-| `ZENITH_TEMPORAL_TLS` | `false` | no | `true` or `1` forces TLS without an API key, with the SDK's default TLS settings. There is no option for a custom CA or for client certificates (mTLS is not wired). |
+| `ZENITH_TEMPORAL_TLS` | `false` | no | `true` or `1` forces TLS without an API key. Without custom settings, the SDK's default TLS settings apply. API keys and any custom TLS setting force TLS even when this flag is `false` or `0`. |
+| `ZENITH_TEMPORAL_TLS_CA_FILE` | unset | path only; contents kept private | Path to a PEM server CA bundle, passed as `serverRootCACertificate`. Optional for certificates trusted by the SDK defaults. |
+| `ZENITH_TEMPORAL_TLS_CERT_FILE` | unset | path only; contents kept private | Path to a PEM client certificate chain for mTLS. Requires `ZENITH_TEMPORAL_TLS_KEY_FILE`. |
+| `ZENITH_TEMPORAL_TLS_KEY_FILE` | unset | **private-key contents** | Path to the PEM client private key for mTLS. Requires `ZENITH_TEMPORAL_TLS_CERT_FILE`; keep the file readable only by the process account. |
+| `ZENITH_TEMPORAL_TLS_SERVER_NAME` | unset | no; presence only in logs | Optional DNS hostname for TLS server identity/SNI (`serverNameOverride`), without a scheme, port or path. Defaults to the address host when unset; certificate verification remains enabled. |
+
+Both `Connection.connect` (web client and availability probe) and
+`NativeConnection.connect` (worker) receive these settings through
+`connectionOptionsFor`. Cert and key must be configured together; a custom CA
+can be used without a client identity, and mTLS can use the SDK's default trust
+without a custom CA. API-key authentication may also be configured with these
+TLS settings.
+
+Files are read on the first configuration load (worker startup or the web
+client's first use), must be readable regular files with nonblank contents, and
+are bounded to **1 MiB per file**, including a bounded read if the file grows.
+Successful reads are cached by absolute path for the process lifetime; neither
+connection creation nor a status probe re-reads a cached file. **Restart the web
+process and every worker after certificate/key rotation**. Mount files at
+runtime on each host; the web process needs access to its own TLS files too.
+The SDK checks PEM format, key/certificate compatibility and server trust when
+connecting; successful file loading does not prove a working TLS handshake.
+
+`describeTemporalConfig` reports only **set/unset** for API keys, CA, certificate,
+key and server-name overrides. It never reports file paths or PEM. File-loading
+errors identify only the variable, and custom TLS transport errors exposed by
+the web client/probe use fixed guidance to avoid leaking SDK error contents.
+Local file tests and mocked SDK wiring cover this configuration; **live mTLS
+authentication is unverified**.
+`tests/workflows/mtls-live.test.ts` is opt-in via
+`ZENITH_TEST_TEMPORAL_MTLS=1`; it requires explicit address, namespace and client
+cert/key file variables, then checks both SDK transports against that endpoint.
+Leave the gate unset for offline runs. The target server must require client
+certificates to establish that the handshake enforced mTLS authentication.
 
 Payload encryption uses the shared `ZENITH_SECRET_KEY` and decrypt-only
 `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS`, documented in the worker table below.
@@ -586,8 +619,8 @@ worker/cloud run is claimed by this docs sync.
 
 | | Temporal Cloud | Self-hosted |
 |---|---|---|
-| What you set | `ZENITH_TEMPORAL_ADDRESS=<namespace>.<account>.tmprl.cloud:7233`, `ZENITH_TEMPORAL_NAMESPACE=<namespace>.<account>`, `ZENITH_TEMPORAL_API_KEY` | `ZENITH_TEMPORAL_ADDRESS` (and `ZENITH_TEMPORAL_TLS=true` if the frontend serves TLS with a publicly trusted certificate) |
-| Authentication | API key only; it forces TLS. mTLS is not wired. | None in this configuration: no API key and no client certificates. Put it on a private network. |
+| What you set | `ZENITH_TEMPORAL_ADDRESS=<namespace>.<account>.tmprl.cloud:7233`, `ZENITH_TEMPORAL_NAMESPACE=<namespace>.<account>`, plus API key or client cert/key files (section 2.4) | `ZENITH_TEMPORAL_ADDRESS`, namespace, and TLS settings from section 2.4: TLS flag for default trust, custom CA for private trust, cert/key files for mTLS. |
+| Authentication | API key and/or mTLS client identity; either forces TLS. Configure the namespace's authentication requirements in Temporal Cloud. | Configure client-certificate authentication on the server and supply the cert/key pair here. Without an API key or client identity, TLS encrypts transport only; restrict access to the private network. |
 | History | Held by Temporal; retention is a namespace setting. | Held in the database you run under it. Backing that up is yours. |
 | What was verified | Nothing live. There is no Cloud account on the build machine; the option shapes follow the SDK's documented API-key and TLS options. | The dev server, locally. No production-shaped cluster. |
 | Cost of operating | A subscription. | A cluster and its database to run, patch and back up. ADR-0009 names a Postgres-native engine as the fallback if this proves disproportionate. |
@@ -783,7 +816,7 @@ executed (no sandbox AWS account exists); until it has, nothing is `real`.
 - Anything against a real AWS account: STS `AssumeRoleWithWebIdentity`, KMS
   `Sign` and `GetPublicKey` (Ed25519 in particular), IAM accepting Zenith's
   tokens, the bootstrap template applied for real.
-- Temporal Cloud and API-key authentication; mTLS (not built); a production-shaped
+- Temporal Cloud, API-key and mTLS authentication; a production-shaped
   self-hosted cluster.
 - `docker build` of the worker image; SIGTERM handling on Linux; behaviour of the
   worker under load.

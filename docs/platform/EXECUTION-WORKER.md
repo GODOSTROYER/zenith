@@ -295,6 +295,10 @@ fail fast with a message that never contains a secret.
 | `ZENITH_TEMPORAL_NAMESPACE` | `default` | client, worker | Temporal namespace |
 | `ZENITH_TEMPORAL_API_KEY` | unset | client, worker | Temporal Cloud API key; **secret**, never logged; implies TLS |
 | `ZENITH_TEMPORAL_TLS` | `false` | client, worker | force TLS without an API key |
+| `ZENITH_TEMPORAL_TLS_CA_FILE` | unset | client, worker | PEM server CA bundle path (custom CA) |
+| `ZENITH_TEMPORAL_TLS_CERT_FILE` | unset | client, worker | mTLS client certificate path; set together with the key file |
+| `ZENITH_TEMPORAL_TLS_KEY_FILE` | unset | client, worker | mTLS client private key path; **secret**, contents never logged |
+| `ZENITH_TEMPORAL_TLS_SERVER_NAME` | unset | client, worker | TLS server name (SNI) override; verification stays on |
 | `ZENITH_WORKER_TASK_QUEUE` | `zenith-execution` | worker | task queue to poll |
 | `ZENITH_WORKER_MAX_CONCURRENT_ACTIVITIES` | `8` | worker | parallel activity executions (1–1000) |
 | `ZENITH_WORKER_MAX_CONCURRENT_WORKFLOW_TASKS` | `40` | worker | parallel workflow tasks (1–1000) |
@@ -363,8 +367,10 @@ Set `ZENITH_TEMPORAL_ADDRESS=<namespace>.<account>.tmprl.cloud:7233`,
 `ZENITH_TEMPORAL_NAMESPACE=<namespace>.<account>` and
 `ZENITH_TEMPORAL_API_KEY`. The key forces TLS. For a regional endpoint
 (`*.api.temporal.io`) the connection also sends the `temporal-namespace`
-metadata header the API-key flow requires. mTLS client certificates are not
-wired (only API-key auth). **None of this has been run against Temporal Cloud**:
+metadata header the API-key flow requires. mTLS client certificates are also
+supported (`ZENITH_TEMPORAL_TLS_CERT_FILE` + `ZENITH_TEMPORAL_TLS_KEY_FILE`, optional
+CA and server name; files are read once at startup, so rotating them needs a restart;
+see [DEPLOYING.md](operations/DEPLOYING.md)). **None of this has been run against Temporal Cloud**:
 there is no account on this machine; the option shapes follow the SDK's
 documented API-key and TLS options. Namespace, retention and API-key rotation
 are operator choices; the worker only needs the key in its environment. Keep the

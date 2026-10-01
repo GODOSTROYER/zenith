@@ -39,10 +39,11 @@ import type { ResourceNode } from "@/lib/resources/types";
 import { GcpCompileError } from "../../errors";
 import { cloudName, labelsMatch, nodeLabels, tfLabel } from "../../naming";
 import { contractCapabilities, deletionGuard, managedOnly, nameResolver, specOf } from "../../driver-util";
-import { dataFragment, depsOfKind, expr, lastSegment, lit, ref, safeRegion } from "../../hcl";
+import { dataFragment, expr, lastSegment, lit, ref, safeRegion } from "../../hcl";
 import { arr, fetchObject, makeReaders, rec, str, tail, type ReadSpec } from "../../read-kit";
 import { gcpCall } from "../../rest";
 import { psaConnectionAddress } from "../network/vpc-network";
+import { networkOf } from "../network/network-of";
 
 export const DRIVER_ID = "gcp.cloud_sql_instance@1";
 const SQLADMIN = "https://sqladmin.googleapis.com/v1";
@@ -97,8 +98,7 @@ function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
   safeRegion(ctx.region);
   const s = specOf<PostgresSpec>(node);
   if (s.engine !== "postgres") throw new GcpCompileError("unsupported_engine", `${node.address}: this driver realizes postgres only.`);
-  const network = depsOfKind(node, ctx, "network")[0];
-  if (!network) throw new GcpCompileError("missing_network", `${node.address}: a private-IP-only database needs a network node among its dependencies.`);
+  const network = networkOf(node, ctx);
   const { tier, diskGb } = sqlTier(s, node.address);
   const guard = deletionGuard(s);
   const backups = s.backup !== "none";

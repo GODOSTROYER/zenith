@@ -99,7 +99,16 @@ export interface CompileContext {
   namePrefix: string;
   region: string;
   tags: Record<string, string>;
-  /** look up another node's compiled tofu address/attribute reference */
+  /**
+   * Record a cross-node reference as a single provisional `${...}`
+   * interpolation; execution resolves it after every node has compiled,
+   * including within longer expressions. Reciprocal node references need no
+   * compile order. The declared `refLocalName(address, attribute)` local wins;
+   * otherwise a plain identifier path with optional numeric indexes resolves
+   * on its primary resource/data address. Semantic keys such as
+   * `target_group_arn:container_service/web:3000` require a published local;
+   * invalid/unpublished keys and targets without an address fail closed.
+   */
   ref(address: string, attribute: string): string;
   /** all nodes, for drivers that need a neighbour's spec */
   node(address: string): ResourceNode | undefined;

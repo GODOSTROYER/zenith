@@ -36,9 +36,10 @@ import type { ResourceNode } from "@/lib/resources/types";
 import { GcpCompileError } from "../../errors";
 import { cloudName, nodeLabels, tfLabel } from "../../naming";
 import { contractCapabilities, deletionGuard, managedOnly, nameResolver, specOf } from "../../driver-util";
-import { dataFragment, depsOfKind, expr, lastSegment, lit, ref, safeRegion } from "../../hcl";
+import { dataFragment, expr, lastSegment, lit, ref, safeRegion } from "../../hcl";
 import { makeReaders, num, rec, str, tail, type ReadSpec } from "../../read-kit";
 import { psaConnectionAddress } from "../network/vpc-network";
+import { networkOf } from "../network/network-of";
 
 export const DRIVER_ID = "gcp.memorystore_instance@1";
 const REDIS = "https://redis.googleapis.com/v1";
@@ -78,8 +79,7 @@ function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
   safeRegion(ctx.region);
   const s = specOf<RedisSpec>(node);
   if (s.engine !== "redis") throw new GcpCompileError("unsupported_engine", `${node.address}: this driver realizes redis only.`);
-  const network = depsOfKind(node, ctx, "network")[0];
-  if (!network) throw new GcpCompileError("missing_network", `${node.address}: a private-only Redis instance needs a network node among its dependencies.`);
+  const network = networkOf(node, ctx);
   const guard = deletionGuard(s);
   const body: Record<string, unknown> = {
     name: cloudName(ctx.namePrefix, node.address, { max: 40, suffix: "redis" }),

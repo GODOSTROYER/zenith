@@ -49,6 +49,71 @@ OCI and `zenith` stay interchangeable behind `src/lib/drivers/types.ts`.
 - `referenced` / `external` nodes compile to `data` sources at most — never
   `resource` blocks (the workspace assembler rejects them).
 
+## Cross-node references
+
+The execution compiler resolves `ctx.ref(target, attribute)` in two phases.
+First, it compiles every eligible node once. `ctx.ref` validates that the target
+is a graph node and the attribute is a valid reference key, then returns a
+unique provisional interpolation (`${__zenith_ref_<n>__}`). It records the
+source, target and attribute without compiling the target recursively.
+
+Once all fragments exist, it resolves every recorded request with one rule:
+
+1. The target must have compiled. External/uncompilable targets fail closed.
+2. If its fragment declares the own local `refLocalName(target, attribute)`,
+   return `${local.<that name>}`. Published locals take precedence even for
+   native attributes such as `id` or `arn` (e.g. an ACM validated ARN).
+3. Otherwise, accept only an identifier path with optional numeric indexes
+   (`id`, `metadata[0].name`) and return `${<primary address>.<attribute>}`.
+   The primary address is a resource with the sanitized node label, else the
+   first resource address, else the matching/first data address.
+4. Refuse invalid keys, unpublished semantic keys, or a target without an
+   address. Errors name the source node, target and attribute with bounded,
+   sanitized text; arbitrary manifest text never becomes an expression.
+
+The second pass substitutes tokens in every fragment string, including keys,
+arrays, nested values, outputs and locals. A driver may strip `${...}` to
+embed a reference in an HCL expression; its bare token is resolved there too.
+The shared HCL grammar scanner preserves escaped `$${...}` and literal text,
+even when they contain the same identifier as a live token. Unresolved active
+tokens, malformed token templates and key collisions after substitution are
+errors. Token numbering never enters the assembled workspace/configDigest.
+
+Reciprocal node references (e.g. VPC NAT gateway → subnet and subnet → VPC)
+require no compile order: dependencies are between individual OpenTofu
+resources. No driver in this path needs another fragment during compilation;
+true resource dependency cycles are left to OpenTofu validation/planning.
+
+Published reference keys use ASCII letters, digits, `_`, `-`, `.`, `/`, `:`,
+`[` and `]`, start with a letter or `_`, and are at most 512 characters.
+Colons/slashes are lookup syntax only: `target_group_arn:container_service/web:3000`
+and `private_route_table_id:a` require declared locals. Traversal fallback
+allows identifier segments starting with a letter or `_`, optional numeric
+indexes, and dots; no functions, quoted indexes, splats or template syntax.
+
+`refLocalName` currently lives in
+`src/lib/providers/aws/drivers/shared/refs.ts` and is reused unchanged by the
+execution compiler: `ref_<tfLabel(target)>__<normalized attribute>`. Attribute
+normalization lowercases and replaces each non-`[a-z0-9_]` character with `_`.
+The label helper preserves the AWS hash/truncation convention; this is not
+the compiler's simpler primary-address label sanitizer.
+
+AWS publishes these locals, including attributes absent from its primary
+resource. OCI and GCP use primary-resource traversals for `ctx.ref`; OCI's
+compile calls additionally require `ociCompileContext` with the connection's
+non-secret compartment/tenancy identifiers. OCI's auxiliary locals and
+Azure's export locals are referenced directly through their provider helpers;
+Azure has no live `ctx.ref` call. Kubernetes and `zenith` do not compile via
+this path. Provider-schema validation is separate from reference resolution;
+the opt-in OpenTofu tests do not prove a cloud deploy succeeds.
+
+Execution-path acceptance tests cover the full AWS and OCI staging/production
+graphs and both GCP provider fixtures and expanded manifests. GCP's portable
+Postgres `read_credentials` grant maps to its existing Cloud SQL IAM login
+class (instance-conditioned client/instanceUser roles and an IAM database
+user). GCP creates no database password secret, so this verb adds no secret
+access or broad role; SQL table privileges still require database migrations.
+
 ## Observe / runtime / verify / discover
 
 - Read-only native API calls through `ctx.session` (`AwsSession.client()`,

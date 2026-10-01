@@ -9,17 +9,23 @@
  * not manage); `external` nodes never.
  *
  * `CompileContext.ref(address, attribute)` is implemented here, because drivers
- * are told never to hard-code another node's tofu label. It returns the
- * INTERPOLATION form, ready to use as a value or to embed in a longer string:
+ * are told never to hard-code another node's tofu label. Compilation records
+ * references as inert interpolation tokens; a second pass resolves them once
+ * all fragments exist. A declared `refLocalName(address, attribute)` local wins;
+ * otherwise a plain attribute path resolves on the primary address.
+ * Unpublished semantic keys (e.g. `target_group_arn:service/web`) are refused.
+ * It returns the INTERPOLATION form, ready to use as a value or to embed in a
+ * longer string:
  *
- *     ctx.ref("network/main", "id")  →  "${aws_vpc.network_main.id}"
+ *     published local → "${local.ref_network_main__id}"
+ *     plain fallback  → "${oci_core_vcn.network_main.id}"
  *
  * The node's tofu address is its PRIMARY address: the entry of the fragment's
  * `addresses` whose label equals the sanitized node address (`network/main` →
  * `network_main`, per DRIVER-CONVENTIONS), else the first resource address the
- * fragment lists. Referencing a node that has not compiled yet compiles it on
- * demand (a dependency cycle is an error), so a driver may reference any node
- * of the graph, not only those it declared in `dependsOn`.
+ * fragment lists. Reciprocal references between nodes do not require a compile
+ * order: OpenTofu evaluates dependencies between the individual resources.
+ * A driver may reference any node, not only those it declared in `dependsOn`.
  *
  * State backend (default, AWS only): the S3 bucket and optional KMS key of the
  * connection, key `zenith/<workspace>/<environment>/terraform.tfstate`. The
@@ -29,16 +35,25 @@
 import type { CompileContext, TofuFragment } from "@/lib/drivers/types";
 import type { AwsConnectionConfig, ProviderConnection } from "@/lib/credentials/types";
 import type { ProviderKey, ResourceGraph } from "@/lib/resources/types";
+import { refLocalName } from "@/lib/providers/aws/drivers/shared/refs";
 import { assembleWorkspace, TofuWorkspaceError, type BackendConfig } from "@/lib/tofu/workspace";
 import type { ProviderSetName, ProviderSetSpec } from "@/lib/tofu/providers";
 import type { TofuWorkspace } from "@/lib/tofu/types";
+import { scanHclTemplate } from "@/lib/tofu/hcl-template";
 import type { ExecContext } from "./context";
 import { StepFailedError } from "./errors";
 import type { DriverLookup, WorkspaceOverrides } from "./ports";
 import { baseTags, namePrefix, nodeTags } from "./session";
 import { errorText, safeText } from "./text";
 
-const ATTRIBUTE = /^[A-Za-z0-9_.[\]-]+$/;
+// Semantic keys include AWS's colon-separated target addresses and ports.
+// These are lookup keys only, never inserted into an HCL expression. Reuse the
+// publisher's canonical helper unchanged; no provider driver is rewritten.
+const REFERENCE_KEY = /^[A-Za-z_][A-Za-z0-9_./:[\]-]*(?![\s\S])/;
+// Identifier segments with optional numeric indexes; no calls, splats, quoted
+// keys or template syntax. The end assertions also reject a final newline.
+const ATTRIBUTE = /^[A-Za-z_][A-Za-z0-9_-]*(?:\[\d+\])*(?:\.[A-Za-z_][A-Za-z0-9_-]*(?:\[\d+\])*)*(?![\s\S])/;
+const TOFU_ADDRESS = /^(?:data\.)?[A-Za-z_][A-Za-z0-9_-]*\.[A-Za-z_][A-Za-z0-9_-]*(?![\s\S])/;
 
 /** `service/web` → `service_web`, per DRIVER-CONVENTIONS ("labels derived from the node address"). */
 export const sanitizeLabel = (address: string): string => address.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
@@ -55,19 +70,63 @@ export interface CompiledGraph {
   fragments: Map<string, TofuFragment>;
 }
 
+interface PendingReference { source: string; target: string; attribute: string }
+
+const REFERENCE_TOKEN = /^__zenith_ref_/;
+
+function refuseReference({ source, target, attribute }: PendingReference): never {
+  throw new StepFailedError(`${safeText(source, 120)} references ${safeText(target, 120)} with an invalid or unpublished attribute reference "${safeText(attribute, 60)}".`);
+}
+
+/**
+ * Replace generated identifiers only where HCL evaluates them. Drivers may
+ * strip `${...}` to embed a reference inside a larger expression. The shared
+ * grammar scanner distinguishes those roots from escaped/literal template
+ * text, including nested quoted/heredoc strings and comments. Probing one
+ * occurrence at a time preserves a literal copy even when the same string
+ * also contains a live reference. No manifest text becomes an expression.
+ */
+function substituteReferences(value: unknown, source: string, resolved: ReadonlyMap<string, string>): unknown {
+  const refuse = (): never => { throw new StepFailedError(`${safeText(source, 120)} contains an unresolved or malformed OpenTofu reference token.`); };
+  if (typeof value === "string") {
+    if (!value.includes("__zenith_ref_")) return value;
+    try {
+      const roots = scanHclTemplate(value).roots;
+      for (const root of roots) if (REFERENCE_TOKEN.test(root) && !resolved.has(root)) return refuse();
+      const replaced = value.replace(/\b__zenith_ref_[0-9]+__\b/g, (token: string, offset: number) => {
+        if (!roots.has(token)) return token; // literal data, never a reference
+        let probe = `__zenith_probe_${offset}__`;
+        while (value.includes(probe)) probe += "_";
+        const probed = value.slice(0, offset) + probe + value.slice(offset + token.length);
+        return scanHclTemplate(probed).roots.has(probe) ? resolved.get(token) ?? refuse() : token;
+      });
+      if ([...scanHclTemplate(replaced).roots].some((root) => REFERENCE_TOKEN.test(root))) return refuse();
+      return replaced;
+    } catch (error) {
+      if (error instanceof StepFailedError) throw error;
+      return refuse(); // scanner diagnostics never reflect external string values
+    }
+  }
+  if (Array.isArray(value)) return value.map((item) => substituteReferences(item, source, resolved));
+  if (value !== null && typeof value === "object") {
+    const entries = Object.entries(value).map(([key, item]) => [substituteReferences(key, source, resolved) as string, substituteReferences(item, source, resolved)] as const);
+    if (new Set(entries.map(([key]) => key)).size !== entries.length) throw new StepFailedError(`${safeText(source, 120)} contains duplicate keys after OpenTofu reference resolution.`);
+    return Object.fromEntries(entries);
+  }
+  return value;
+}
+
 export function compileGraph(input: { graph: ResourceGraph; environmentId: string; region: string; tags: Record<string, string>; drivers: DriverLookup }): CompiledGraph {
   const { graph, drivers } = input;
   const nodes = new Map(graph.nodes.map((n) => [n.address, n]));
-  const done = new Map<string, TofuFragment | null>();
-  const inFlight: string[] = [];
+  const pending = new Map<string, PendingReference>();
+  const fragments = new Map<string, TofuFragment>();
   const prefix = namePrefix(input.environmentId);
 
   const compileNode = (address: string): TofuFragment | null => {
-    if (done.has(address)) return done.get(address) ?? null;
     const node = nodes.get(address);
     if (!node) throw new StepFailedError(`A driver referenced ${safeText(address, 120)}, which is not a node of this graph.`);
     if (node.ownership === "external") {
-      done.set(address, null);
       return null;
     }
     const driver = drivers(node.provider, node.nativeType);
@@ -75,11 +134,8 @@ export function compileGraph(input: { graph: ResourceGraph; environmentId: strin
       if (node.ownership === "managed") {
         throw new StepFailedError(`${node.address}: ${driver ? `driver ${driver.id} cannot compile` : `no driver is registered for ${node.provider} ${node.nativeType}`}.`);
       }
-      done.set(address, null); // a referenced node nobody can read contributes nothing
-      return null;
+      return null; // a referenced node nobody can read contributes nothing
     }
-    if (inFlight.includes(address)) throw new StepFailedError(`Drivers reference each other in a cycle: ${[...inFlight.slice(inFlight.indexOf(address)), address].join(" → ")}.`);
-    inFlight.push(address);
     const ctx: CompileContext = {
       environmentId: input.environmentId,
       namePrefix: prefix,
@@ -87,11 +143,11 @@ export function compileGraph(input: { graph: ResourceGraph; environmentId: strin
       tags: nodeTags(input.tags, node),
       node: (a) => nodes.get(a),
       ref: (target, attribute) => {
-        if (!ATTRIBUTE.test(attribute)) throw new StepFailedError(`Driver ${driver.id} asked for an invalid attribute reference "${safeText(attribute, 60)}".`);
-        const fragment = compileNode(target);
-        const primary = fragment ? primaryAddress(target, fragment) : undefined;
-        if (!primary) throw new StepFailedError(`${node.address} references ${safeText(target, 120)}, which has no OpenTofu address (it is external, or its driver cannot compile).`);
-        return `\${${primary}.${attribute}}`;
+        const reference = { source: node.address, target, attribute };
+        if (!nodes.has(target) || typeof attribute !== "string" || attribute.length > 512 || !REFERENCE_KEY.test(attribute)) return refuseReference(reference);
+        const token = `__zenith_ref_${pending.size}__`;
+        pending.set(token, reference);
+        return `\${${token}}`;
       },
     };
     let fragment: TofuFragment;
@@ -100,18 +156,34 @@ export function compileGraph(input: { graph: ResourceGraph; environmentId: strin
     } catch (err) {
       if (err instanceof StepFailedError) throw err;
       throw new StepFailedError(`Driver ${driver.id} failed to compile ${node.address}: ${errorText(err)}`);
-    } finally {
-      inFlight.pop();
     }
-    done.set(address, fragment);
     return fragment;
   };
 
-  const fragments = new Map<string, TofuFragment>();
+  // Phase 1 is flat: ctx.ref records a reference, never invokes a driver.
   for (const node of graph.nodes) {
     const fragment = compileNode(node.address);
     if (fragment) fragments.set(node.address, fragment);
   }
+
+  // Phase 2 resolves every request, even one the driver ultimately discarded.
+  const resolved = new Map<string, string>();
+  for (const [token, reference] of pending) {
+    const { source, target, attribute } = reference;
+    const fragment = fragments.get(target);
+    if (!fragment) throw new StepFailedError(`${safeText(source, 120)} references ${safeText(target, 120)} with attribute "${safeText(attribute, 60)}", which has no OpenTofu address (it is external, or its driver cannot compile).`);
+    const local = refLocalName(target, attribute);
+    if (fragment.locals && Object.hasOwn(fragment.locals, local)) {
+      resolved.set(token, `local.${local}`);
+      continue;
+    }
+    if (!ATTRIBUTE.test(attribute)) return refuseReference(reference);
+    const primary = primaryAddress(target, fragment);
+    if (!primary) throw new StepFailedError(`${safeText(source, 120)} references ${safeText(target, 120)} with attribute "${safeText(attribute, 60)}", which has no OpenTofu address.`);
+    if (!TOFU_ADDRESS.test(primary)) return refuseReference(reference);
+    resolved.set(token, `${primary}.${attribute}`);
+  }
+  for (const [address, fragment] of fragments) fragments.set(address, substituteReferences(fragment, address, resolved) as TofuFragment);
   return { fragments };
 }
 
@@ -168,4 +240,3 @@ export function buildWorkspace(input: {
     throw err;
   }
 }
-

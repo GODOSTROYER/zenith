@@ -562,8 +562,8 @@
       "id": "WS-SEC",
       "title": "Threat model, tenant-isolation matrix, secret-leak and chaos tests",
       "wave": 4,
-      "owner": "worker",
-      "state": "in_progress",
+      "owner": "sonnet → codex gpt-6.1-sol xhigh",
+      "state": "integrated",
       "deps": [
         "WS-CAP",
         "WS-ACT"
@@ -573,7 +573,10 @@
         "docs/platform/THREAT-MODEL.md"
       ],
       "branch": "ws/sec",
-      "notes": "handed to Codex gpt-6.1-sol xhigh (Sonnet session limit; user switched all agents to Codex)"
+      "notes": "handed to Codex gpt-6.1-sol xhigh (Sonnet session limit; user switched all agents to Codex)",
+      "commit": "fa88a2d",
+      "tests": "tests/security 23 files 268 passed / 4 skipped outside the Codex sandbox (real tofu exploit tests + process tests ran); tests/docs 67 passed",
+      "review": "orchestrator: merged; no production code; findings F1-F13, R1-R2 pinned as expected failures; F5 fix in WS-TOFU-SEC (flip SEC it.fails on merge)"
     },
     {
       "id": "WS-CI",

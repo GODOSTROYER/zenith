@@ -9,7 +9,7 @@ with its brief. Read this file first, then `docs/build/IMPLEMENTATION-LEDGER.md`
 | Thing | Where |
 |---|---|
 | This checkpoint (all done work, wave 1–8) | branch `platform/checkpoint-2026-10-01` (= local `ws/integrate-w6` staging) |
-| Last fully-gated integration point (waves 1–7) | commit `848532c` "Merge wave-7 staging (ws/integrate-w6) into platform/integration" (local branch `platform/integration`, not pushed separately) |
+| Last fully-gated integration point (waves 1–7) | commit `6595294` "Merge wave-7 staging (ws/integrate-w6) into platform/integration" (an ancestor of this branch) |
 | Durable program state | `docs/build/ledger.json` → `node scripts/build/ledger.mjs` renders `docs/build/IMPLEMENTATION-LEDGER.md` |
 | Honest list of what is and is not done | `docs/LIMITATIONS.md` ("Still-open gaps") |
 | Codex job briefs (all waves) | `docs/build/handoffs/WS-*.md` |
@@ -18,7 +18,7 @@ with its brief. Read this file first, then `docs/build/IMPLEMENTATION-LEDGER.md`
 
 ## 2. Status
 
-- **Waves 1–7: integrated and fully gated** at `848532c`: tsc 0, eslint 0, gofmt/vet/go test green, policy (OPA 1.19.1, 213 Rego
+- **Waves 1–7: integrated and fully gated** at `6595294`: tsc 0, eslint 0, gofmt/vet/go test green, policy (OPA 1.19.1, 213 Rego
   tests, bundle byte-identical), `platform:emit-sql --check`, `capability-matrix --strict`, AWS policy templates `--check`,
   full vitest with real OpenTofu 1.12.5 + Temporal time-skipping: 15,219 passed, 210 skipped, 0 failed (one flaky test fixed).
 - **Wave 8 merged into this branch (8 jobs)**, each verified outside the Codex sandbox with tsc, Go, and the affected suites
@@ -28,9 +28,9 @@ with its brief. Read this file first, then `docs/build/IMPLEMENTATION-LEDGER.md`
 
 | Job | Brief | Patch (base commit) | Where it stopped |
 |---|---|---|---|
-| WS-DESTROY-REVIEW | `handoffs/WS-DESTROY-REVIEW.md` | `paused/ws-destroy-review.patch` (base `53d5e2d`) | Focused tests passed (86); found a race: review replacement could cancel an already-approved proposal; was adding a conditional cancellation guard. Then: lint, tsc, docs. |
-| WS-AZURE-SOURCE-WIRE | `handoffs/WS-AZURE-SOURCE-WIRE.md` + `paused/WS-AZURE-SOURCE-WIRE.resume-prompt.md` | `paused/ws-azure-source-wire.patch` (base `53d5e2d`) | First pass complete (Azure C3 storage helper, ACR wiring, 209 tests). Was doing the follow-ups in the resume prompt: Storage-audience token + strict Blob host policy + no redirects in `src/lib/providers/azure/credentials.ts`; trusted `sourceBundles.azureStorage` resolver in `workers/execution/worker.ts`/`src/lib/platform/execution.ts`; docs guards. |
-| WS-AWS-BOUNDARY-SPLIT | `handoffs/WS-AWS-BOUNDARY-SPLIT.md` | `paused/ws-aws-boundary-split.patch` (base `2dfc58c`) | One permissions boundary per AWS role family (38 files). Was fixing: the deploy-role IAM policy went over IAM's 6,144-char limit after listing six boundary ARNs; compacting statements. Coverage for identity/EKS families not finished. |
+| WS-DESTROY-REVIEW | `handoffs/WS-DESTROY-REVIEW.md` | `paused/ws-destroy-review.patch` (base `fb122dd`) | Focused tests passed (86); found a race: review replacement could cancel an already-approved proposal; was adding a conditional cancellation guard. Then: lint, tsc, docs. |
+| WS-AZURE-SOURCE-WIRE | `handoffs/WS-AZURE-SOURCE-WIRE.md` + `paused/WS-AZURE-SOURCE-WIRE.resume-prompt.md` | `paused/ws-azure-source-wire.patch` (base `fb122dd`) | First pass complete (Azure C3 storage helper, ACR wiring, 209 tests). Was doing the follow-ups in the resume prompt: Storage-audience token + strict Blob host policy + no redirects in `src/lib/providers/azure/credentials.ts`; trusted `sourceBundles.azureStorage` resolver in `workers/execution/worker.ts`/`src/lib/platform/execution.ts`; docs guards. |
+| WS-AWS-BOUNDARY-SPLIT | `handoffs/WS-AWS-BOUNDARY-SPLIT.md` | `paused/ws-aws-boundary-split.patch` (base `39a4de9`) | One permissions boundary per AWS role family (38 files). Was fixing: the deploy-role IAM policy went over IAM's 6,144-char limit after listing six boundary ARNs; compacting statements. Coverage for identity/EKS families not finished. |
 
 Apply a patch: `git checkout -b ws/<name> platform/checkpoint-2026-10-01 && git apply --3way docs/build/paused/ws-<name>.patch`
 (bases are ancestors of this branch; resolve the usual `docs/LIMITATIONS.md` conflicts by keeping both sides' lines).
@@ -55,6 +55,16 @@ Apply a patch: `git checkout -b ws/<name> platform/checkpoint-2026-10-01 && git 
    (`ZENITH_TEST_PLATFORM_PG_URL`), Docker.
 
 ## 4. Rules of the program (keep them)
+
+- **GitHub push protection on this public repo.** The first push of this checkpoint was refused (GH013) because test fixtures
+  contained fake values in the Stripe secret-key format (`sk_live_` followed by 24+ characters) in `tests/analysis/hostile.test.ts`,
+  `tests/analysis/units.test.ts` and `tests/runners/e2e-platform-store.test.ts`. They were canaries and Stripe's public docs example,
+  never real keys. With the user's explicit approval, those fixtures are now written as runtime concatenations (`"sk_" + "live_..."`,
+  same value at runtime) and the unpushed history was rewritten with `git filter-branch` so no commit contains the literal; commit
+  IDs on this branch therefore differ from the old machine's local branches. When adding a fake credential to a test, do not write a
+  full provider-format literal (Stripe, GitHub, Slack, cloud keys); build it at runtime or use a value that is clearly not that
+  format. If a push is ever refused for a secret, stop and show the user what was flagged: never push a real credential, and do not
+  allow or rewrite around a finding without the user's decision.
 
 - Deterministic code owns credentials, policy, approvals, state and execution; LLMs only propose. Approvals are human, browser-only,
   bound to an immutable plan digest (approval rounds). No secret value in logs, state, evidence, errors, URLs or tests. Nothing is

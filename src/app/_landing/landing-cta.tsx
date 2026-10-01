@@ -15,6 +15,7 @@ export function LandingCta({ cta, className = "" }: { cta: Cta; className?: stri
 export function GlassCta({ cta, className = "", onClick }: { cta: Cta; className?: string; onClick?: MouseEventHandler<HTMLAnchorElement> }) {
   const lens = useRef<HTMLAnchorElement>(null);
   const waitlist = cta.href === "/waitlist" && !cta.signedIn;
-  useLiquidGlass(lens, GLASS.button);
+  // Dark waitlist invitations use a quiet CSS surface; lens highlights distort the pill.
+  useLiquidGlass(lens, GLASS.button, { active: !waitlist });
   return <Link ref={lens} href={cta.href} className={`zenith-cta zenith-cta-glass ${waitlist ? "zenith-cta-waitlist" : ""} ${className}`} aria-haspopup={waitlist ? "dialog" : undefined} data-waitlist-trigger={waitlist ? "" : undefined} onClick={onClick} data-zenith-cta>{waitlist && <span className="zenith-waitlist-dot" aria-hidden="true" />}{cta.label}<ArrowUpRight size={18} aria-hidden="true" /></Link>;
 }

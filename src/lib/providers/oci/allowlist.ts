@@ -13,13 +13,13 @@
  *
  * Pattern syntax: `/`-separated segments after the API version; `{}` matches
  * exactly one non-empty, already-encoded segment. There is deliberately NO
- * wildcard segment and NO `DELETE` anywhere.
+ * wildcard segment. DELETE has one migration cleanup rule with an additional runner receipt guard.
  *
  * Never allowed, for any capability (enforced by absence, asserted in tests):
  *   - secret BUNDLE retrieval (`/20190301/secretbundles`): Zenith and the
  *     runner never read a secret value back;
  *   - object-level Object Storage (`/n/{ns}/b/{bucket}/o/…`): customer data;
- *   - IAM writes, `changeCompartment`, `DELETE` of anything, secret deletion.
+ *   - IAM writes, `changeCompartment`, general resource deletion, secret deletion.
  */
 import { OCI_SERVICE_HOSTS, type OciServiceId } from "./services";
 import type { OciApiRequest, OciHttpMethod } from "./transport";
@@ -84,6 +84,7 @@ export const OCI_ALLOWLIST: Readonly<Record<string, readonly OciAllowRule[]>> = 
     ...get("containerinstances", "containerInstances", "containerInstances/{}", "containers/{}"),
     ...get("core", "vnics/{}"),
     { service: "containerinstances", method: "POST", pattern: "containerInstances" },
+    { service: "containerinstances", method: "DELETE", pattern: "containerInstances/{}" },
   ],
   "service.restart": [...get("containerinstances", "containerInstances"), { service: "containerinstances", method: "POST", pattern: "containerInstances/{}/actions/restart" }],
   "database.snapshot": [...get("postgresql", "dbSystems", "dbSystems/{}"), { service: "postgresql", method: "POST", pattern: "backups" }],

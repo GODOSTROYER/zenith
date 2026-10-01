@@ -15,6 +15,7 @@ import (
 const MaxRequestBytes = 1 << 20
 
 var ErrInvalidRequest = errors.New("OCI request does not match the unsigned request schema")
+var migrationKeyID = regexp.MustCompile(`^[a-f0-9]{48}$`)
 var regionID = regexp.MustCompile(`^[a-z]{2}-[a-z0-9-]{3,30}-\d$`)
 var oracleHost = regexp.MustCompile(`^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+oraclecloud\.com$`)
 var ocid = regexp.MustCompile(`^ocid1\.[a-z0-9_]+\.[a-z0-9]+\.[a-z0-9-]*\.[A-Za-z0-9]{6,120}$`)
@@ -32,6 +33,7 @@ type Request struct {
 	Headers      map[string]string `json:"headers"`
 	BodyB64      *string           `json:"bodyB64,omitempty"`
 	EndpointHost string            `json:"endpointHost,omitempty"`
+	MigrationKey string            `json:"migrationKey,omitempty"`
 }
 
 func control(s string) bool {
@@ -177,8 +179,14 @@ func ParseRequest(raw []byte, limit int64) (Request, []byte, error) {
 		return r, nil, ErrInvalidRequest
 	}
 	switch r.Method {
-	case "GET", "HEAD", "POST", "PUT":
+	case "GET", "HEAD", "POST", "PUT", "DELETE":
 	default:
+		return r, nil, ErrInvalidRequest
+	}
+	if _, exists := obj["migrationKey"]; exists && !migrationKeyID.MatchString(r.MigrationKey) {
+		return r, nil, ErrInvalidRequest
+	}
+	if r.Method == "DELETE" && (r.MigrationKey == "" || len(r.Query) != 0 || r.BodyB64 != nil) {
 		return r, nil, ErrInvalidRequest
 	}
 	seen := map[string]bool{}

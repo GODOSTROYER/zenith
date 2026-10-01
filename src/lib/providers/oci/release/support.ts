@@ -113,20 +113,20 @@ export async function instances(ctx: ReleaseContext): Promise<RecordValue[]> {
   throw new Error("OCI release listing is incomplete; outcome is unknown.");
 }
 
-export async function instance(ctx: ReleaseContext, instanceId: string, address: string): Promise<RecordValue> {
+export async function instance(ctx: ReleaseContext, instanceId: string, address: string, migrationKey?: string): Promise<RecordValue> {
   const res = await request(ctx, { service: "containerinstances", region: ctx.region, method: "GET",
-    path: ociPath("containerinstances", "containerInstances", id(instanceId, "computecontainerinstance")) });
+    path: ociPath("containerinstances", "containerInstances", id(instanceId, "computecontainerinstance")), ...(migrationKey ? { migrationKey } : {}) });
   const item = asRecord(res.body);
   if (!item || item.id !== instanceId || !owned(ctx, item, address)) throw new Error("OCI release instance ownership is unknown.");
   return item;
 }
 
-export async function container(ctx: ReleaseContext, item: RecordValue, image: string): Promise<RecordValue> {
+export async function container(ctx: ReleaseContext, item: RecordValue, image: string, migrationKey?: string): Promise<RecordValue> {
   const refs = item.containers;
   if (!Array.isArray(refs) || refs.length !== 1) throw new Error("OCI release requires exactly one container per instance.");
   const containerId = id(asRecord(refs[0])?.containerId, "computecontainer");
   const res = await request(ctx, { service: "containerinstances", region: ctx.region, method: "GET",
-    path: ociPath("containerinstances", "containers", containerId) });
+    path: ociPath("containerinstances", "containers", containerId), ...(migrationKey ? { migrationKey } : {}) });
   const c = asRecord(res.body);
   if (!c || c.id !== containerId || c.containerInstanceId !== item.id ||
       c.compartmentId !== ctx.session.compartmentOcid || c.imageUrl !== image) {

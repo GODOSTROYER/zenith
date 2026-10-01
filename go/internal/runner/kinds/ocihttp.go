@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/GODOSTROYER/zenith/go/internal/agent"
@@ -48,8 +49,11 @@ type OCIDeps struct {
 }
 
 type OCI struct {
-	cfg  OCIConfig
-	deps OCIDeps
+	cfg           OCIConfig
+	deps          OCIDeps
+	runtimeMu     sync.Mutex
+	receipts      map[string]ociReceipt
+	receiptBroken bool
 }
 
 func ValidateOCIConfig(cfg OCIConfig) error {
@@ -142,7 +146,11 @@ func NewOCI(cfg OCIConfig, deps OCIDeps) (*OCI, error) {
 		}
 		deps.Audit = newOCIAudit(cfg.AuditPath)
 	}
-	return &OCI{cfg: cfg, deps: deps}, nil
+	k := &OCI{cfg: cfg, deps: deps, receipts: map[string]ociReceipt{}}
+	if err := k.loadReceipts(); err != nil {
+		return nil, err
+	}
+	return k, nil
 }
 
 func (*OCI) Name() string { return KindOCIHTTP }
@@ -177,8 +185,25 @@ func (k *OCI) Prepare(req *Request) (Runnable, error) {
 	if !allowed {
 		return nil, notAllowed("OCI request is outside the capability allowlist")
 	}
-	if oci.BindCompartments(pl, body, k.cfg.AllowedCompartments, k.cfg.ResourceCompartments, template) != nil {
+	k.runtimeMu.Lock()
+	bindingErr := oci.BindCompartments(pl, body, k.cfg.AllowedCompartments, k.cfg.ResourceCompartments, template)
+	k.runtimeMu.Unlock()
+	if bindingErr != nil {
 		return nil, notAllowed("OCI compartment binding is absent or outside the local allowlist")
+	}
+	if pl.MigrationKey != "" && (req.JTI == "" || req.WorkspaceID == "" || req.OperationID == "" || req.Capability != "deployment.deploy" || pl.Service != "containerinstances" || (template != "/20210415/containerInstances" && template != "/20210415/containerInstances/{}" && template != "/20210415/containers/{}")) {
+		return nil, notAllowed("OCI migration requires its signed workspace and operation context")
+	}
+	if pl.Method == "DELETE" && pl.MigrationKey == "" {
+		return nil, notAllowed("OCI cleanup requires a trusted migration receipt")
+	}
+	if pl.Method == "DELETE" {
+		k.runtimeMu.Lock()
+		r, exists := k.receipts[ociScope(req.WorkspaceID, req.OperationID, pl.MigrationKey)]
+		k.runtimeMu.Unlock()
+		if !exists || r.ExitCode == nil || r.Region != pl.Region || pl.Path != "/20210415/containerInstances/"+r.InstanceID {
+			return nil, notAllowed("OCI cleanup requires an owned terminal creation receipt")
+		}
 	}
 	headers := http.Header{}
 	for name, value := range pl.Headers {
@@ -194,9 +219,22 @@ func (k *OCI) Prepare(req *Request) (Runnable, error) {
 	maxOutput = min(maxOutput, k.cfg.MaxResponseBytes)
 	// Copy trusted envelope fields; the caller cannot mutate the audit identity.
 	jobID, capability := req.JTI, req.Capability
+	identity := *req
 	return func(ctx context.Context, _ agent.LogSink) Outcome {
 		audit := OCIAudit{JobID: jobID, Capability: capability, Service: pl.Service, Method: pl.Method, PathTemplate: template, Sealed: false}
-		return k.execute(ctx, pl, body, host, headers, maxOutput, audit)
+		k.runtimeMu.Lock()
+		defer k.runtimeMu.Unlock()
+		if out, done := ctxOutcome(ctx); done {
+			return k.auditOutcome(audit, out)
+		}
+		if oci.BindCompartments(pl, body, k.cfg.AllowedCompartments, k.cfg.ResourceCompartments, template) != nil {
+			return k.auditOutcome(audit, failed("oci_compartment_unknown: resource binding changed"))
+		}
+		receipt, local := k.migrationBefore(&identity, pl, body)
+		if local != nil {
+			return k.auditOutcome(audit, *local)
+		}
+		return k.execute(ctx, pl, body, host, headers, maxOutput, audit, receipt)
 	}, nil
 }
 
@@ -213,7 +251,7 @@ func (k *OCI) auditOutcome(audit OCIAudit, outcome Outcome) Outcome {
 	return outcome
 }
 
-func (k *OCI) execute(ctx context.Context, pl oci.Request, body []byte, host string, headers http.Header, maxOutput int64, audit OCIAudit) Outcome {
+func (k *OCI) execute(ctx context.Context, pl oci.Request, body []byte, host string, headers http.Header, maxOutput int64, audit OCIAudit, receipt *ociReceipt) Outcome {
 	query := oci.QueryString(pl.Query)
 	target := "https://" + host + pl.Path
 	if query != "" {
@@ -276,6 +314,9 @@ func (k *OCI) execute(ctx context.Context, pl oci.Request, body []byte, host str
 		if truncated {
 			data = data[:maxOutput]
 		}
+		if k.migrationAfter(pl, body, data, response.StatusCode, truncated, receipt) != nil {
+			return k.auditOutcome(audit, failed("oci_receipt_failed: provider identity or durable migration outcome is unknown"))
+		}
 		return k.auditOutcome(audit, Outcome{Status: agent.StatusSucceeded, Result: map[string]any{
 			"status": response.StatusCode, "headers": ociResponseHeaders(response.Header), "bodyB64": base64.StdEncoding.EncodeToString(data), "truncated": truncated,
 		}})
@@ -305,4 +346,8 @@ func readOnlyPost(service, template string) bool {
 		return true
 	}
 	return false
+}
+
+func ociJSONOutcome(status int, data []byte) Outcome {
+	return Outcome{Status: agent.StatusSucceeded, Result: map[string]any{"status": status, "headers": map[string]string{}, "bodyB64": base64.StdEncoding.EncodeToString(data), "truncated": false}}
 }

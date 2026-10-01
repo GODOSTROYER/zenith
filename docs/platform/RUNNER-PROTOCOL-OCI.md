@@ -69,7 +69,7 @@ Envelope as in RUNNER-PROTOCOL.md §4 with `"kind": "oci.http"`. Payload:
 |---|---|
 | `service` | one of the logical ids in §5; **no host is ever sent** |
 | `region` | `^[a-z]{2}-[a-z0-9-]{3,30}-\d$`; the runner may further restrict to `oci.allowedRegions` |
-| `method` | `GET` `HEAD` `POST` `PUT` (no `DELETE`; see §6) |
+| `method` | `GET` `HEAD` `POST` `PUT` `DELETE` (receipt-scoped cleanup only; see §6) |
 | `path` | absolute, percent-encoded, at most 2048 bytes; no empty segment, no segment that is `.` or `..` (after decoding), no encoded `/` or backslash, no `?`, `#`, backslash or control character. `..` *inside* a segment is legal: tenancy-scoped OCIDs look like `ocid1.compartment.oc1..aaaa` |
 | `query` | ordered `[name, value]` pairs, sorted by name; at most 128 pairs, names 1–128 UTF-8 bytes, values at most 2048 bytes, no controls; order and repeated non-compartment keys are preserved with RFC 3986 escaping (`%20` for spaces) |
 | `headers` | only `opc-retry-token`, `if-match`, `if-none-match`, `opc-request-id`; at most 256 UTF-8 bytes per value, no controls or case-insensitive duplicates; `Authorization`, `Host`, `Date`, `x-date`, `x-content-sha256`, `Content-Length`, `Content-Type`, `Signature`, `Cookie` and `Proxy-*` are **refused** (not stripped) |
@@ -149,7 +149,7 @@ workstream forbids dependency changes. Signed headers: `(request-target) host da
 plus `x-content-sha256 content-type content-length` for POST/PUT, even without a
 body. `keyId` is `ST$<security token>`. A Node-crypto-generated synthetic RSA
 vector in `go/internal/oci/testdata/signing-vector.json` independently checks GET,
-DELETE signer behavior, non-ASCII JSON byte lengths and empty PUT. DELETE is still
+DELETE signer behavior, non-ASCII JSON byte lengths and empty PUT. General DELETE is still
 always refused at the request boundary. Oracle's example does not contain a
 complete expected signature, so it is not claimed as a published signature vector.
 
@@ -349,6 +349,7 @@ containerinstances GET /20210415/containerInstances/{}
 containerinstances GET /20210415/containers/{}
 core GET /20160918/vnics/{}
 containerinstances POST /20210415/containerInstances
+containerinstances DELETE /20210415/containerInstances/{}
 ```
 
 The sole added write creates a migration instance with `opc-retry-token` and
@@ -372,14 +373,35 @@ restart or rollback capabilities.
 Raw container logs are fully suppressed; only a fixed exit-code summary reaches
 the driver log. The current runner persists raw HTTP result bodies, so adding a
 logs endpoint would expose log contents before TypeScript could redact them.
-No log retrieval rule is added. One-off instances are retained; cleanup is an
-operator action, not a DELETE granted by this extension.
+No log retrieval rule is added. Finished migrations request cleanup, including
+nonzero exits; running, timed-out and unproven instances are not deleted.
+
+The optional `migrationKey` is exactly 48 lowercase hexadecimal characters. It is
+a runner-local receipt selector, never sent to OCI. Its namespace is the verified
+signed workspace plus operation plus key, independently of the per-RPC JTI.
+Collection GET with that key and the exact compartment returns only safe receipt
+state (`absent`, `unknown`, `running`, `completed`), instance ID, terminal exit and
+cleanup state. The runner durably appends and fsyncs create intents before POST
+and owned terminal exits before DELETE to `<auditPath>.oci-receipts`. Preserve
+this dedicated journal and route retries to the same runner; no retention or
+pruning policy is introduced. An incomplete intent stays unknown and cannot
+launch again. A completed receipt survives deletion and runner restart.
+
+DELETE requires a receipt created by this runner for the exact signed workspace,
+operation, region and migration key, with an observed INACTIVE owned container
+and integer exit 0..255 matching its launch image and argv. Tags, local static
+bindings and caller completion assertions never authorize DELETE. The runner
+rechecks the receipt at execution. Cleanup errors preserve the observed exit and
+report unknown cleanup; HTTP acceptance means only cleanup requested, not
+verified deletion completion. Repeated accepted cleanup does not resend DELETE.
 
 By-id reads still need trusted local `resourceCompartments` bindings for every
 instance, container and VNIC, and launch-body pointers (subnet, NSGs, Vault
-secrets). New migration instance/container IDs require a trusted binding update
-before polling can succeed; automatic refresh of that local map is **not wired**.
-The synthetic transport tests do not prove the Go executor accepts new IDs.
+secrets). The runner validates OCI create response ID types, exact requested
+compartment and container references before establishing trusted bindings for
+new migration instance/container IDs. Foreign, malformed, conflicting or truncated
+responses cannot establish bindings or deletion rights. Runtime binding/receipt
+state is synchronized; synthetic Go tests exercise creation, polling and cleanup.
 Likewise, the existing workload resource-principal policy must actually match
 the migration's workload tags; customer IAM/defined-tag setup is unverified.
 These release paths have contract evidence only, not live OCI acceptance.
@@ -388,8 +410,8 @@ These release paths have contract evidence only, not live OCI acceptance.
 retrieval (`/20190301/secretbundles/…`: Zenith and the runner never read a
 secret value back), object-level Object Storage (`/n/{ns}/b/{bucket}/o/…`:
 customer data), any IAM write, `…/actions/changeCompartment`, secret deletion,
-and every `DELETE`. Infrastructure changes go through `tofu.run`; the exact
-migration creation above is the release exception. Signal reads use the capability split above: `logs.read` permits only
+and general resource `DELETE`. Infrastructure changes go through `tofu.run`; exact
+migration creation and receipt-authorized terminal cleanup above are the release exceptions. Signal reads use the capability split above: `logs.read` permits only
 Logging Search, `metrics.read` only Monitoring, and `incident.investigate`
 both signal queries plus driver metadata reads.
 

@@ -133,8 +133,13 @@ describe("planInfrastructure", () => {
 
     const view = w.evidence.ofKind("tofu_plan")[0].summary.view as { resources: { changes: { path: string; after?: unknown }[] }[] };
     const changes = view.resources[0].changes;
-    expect(changes.find((c) => c.path === "password")).toEqual({ path: "password", forcesReplacement: false });
-    expect(changes.find((c) => c.path === "master_password")).toEqual({ path: "master_password", forcesReplacement: false });
+    // a sensitive attribute is FLAGGED (so the UI can say "(sensitive)") but carries no before/after value
+    expect(changes.find((c) => c.path === "password")).toEqual({ path: "password", forcesReplacement: false, sensitive: true });
+    // a secret-looking path withheld by the view (not marked sensitive by the plan) has neither value nor flag
+    const master = changes.find((c) => c.path === "master_password");
+    expect(master).toMatchObject({ path: "master_password", forcesReplacement: false });
+    expect(master).not.toHaveProperty("before");
+    expect(master).not.toHaveProperty("after");
     expect(changes.find((c) => c.path === "allocated_storage")).toMatchObject({ after: 20 }); // ordinary values stay visible
   });
 

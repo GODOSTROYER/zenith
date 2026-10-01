@@ -1,0 +1,78 @@
+# zenithd: Zenith's outbound-only machine agent.
+# Install: see deploy/zenithd/INSTALL.md and docs/platform/ZENITHD.md.
+#
+# The agent runs as the unprivileged system user "zenithd" with an EMPTY
+# capability bounding set. What it may do on the host is granted explicitly:
+#   - read the system journal:        SupplementaryGroups=systemd-journal
+#   - restart specific units:         a polkit rule (50-zenithd-restart.rules)
+#   - read files under /var/log:      add the "adm" group (see INSTALL.md)
+#   - Docker operations:              the docker group, which is root-equivalent;
+#                                     off unless you enable containers in config
+# See docs/platform/ZENITHD.md, "Privilege model", for the trade-offs, including
+# when running as root is the honest choice.
+
+[Unit]
+Description=Zenith machine agent (zenithd)
+Documentation=https://github.com/GODOSTROYER/zenith/blob/master/docs/platform/ZENITHD.md
+After=network-online.target
+Wants=network-online.target
+# Do not start before the agent has been configured.
+ConditionPathExists=/etc/zenithd/config.yaml
+
+[Service]
+Type=simple
+User=zenithd
+Group=zenithd
+SupplementaryGroups=systemd-journal
+ExecStart=/usr/local/bin/zenithd --config /etc/zenithd/config.yaml run
+
+# Restart on crashes and network trouble. Exit code 3 means the control plane
+# REVOKED this agent and 4 means it needs a newer protocol version: neither
+# recovers by restarting, so systemd must not loop on them.
+Restart=on-failure
+RestartSec=5s
+RestartPreventExitStatus=3 4
+# In-flight operations get their grace period (shutdownGraceSec, default 30 s).
+TimeoutStopSec=45s
+
+# Identity key, replay cache and audit log live here (mode 0700, owned by the
+# service user). ProtectSystem=strict makes everything else read-only.
+StateDirectory=zenithd
+StateDirectoryMode=0700
+ReadWritePaths=/var/lib/zenithd
+Environment=ZENITH_STATE_DIR=/var/lib/zenithd
+UMask=0077
+
+# --- sandbox ---------------------------------------------------------------
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+ProtectSystem=strict
+# Hides /home, /root and /run/user. If file.read must serve something under
+# /home, relax this to read-only in a drop-in and add the path to files.readAllow.
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+# /proc stays fully visible: process.list and system.metrics need it.
+ProtectProc=default
+ProcSubset=all
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+# IPv4/IPv6 to the control plane, unix sockets for D-Bus (systemctl) and the
+# Docker socket.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+
+[Install]
+WantedBy=multi-user.target

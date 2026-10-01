@@ -1,0 +1,217 @@
+# zenith-runner Helm chart values.
+#
+# Install (after creating a registration token in Zenith and storing it in a
+# Secret):
+#
+#   kubectl create secret generic zenith-runner-registration \
+#     --from-literal=token='zrt_...'
+#   helm install zenith-runner deploy/helm/zenith-runner \
+#     --set controlPlane.url=https://zenith.example.com \
+#     --set registration.existingSecret=zenith-runner-registration
+#
+# One release = one runner = one identity (one registration token). To run
+# more runners (for example one per VPC or per cluster) install the chart again
+# under another release name with its own token.
+
+## Image. The default image is built from docker/runner.Dockerfile and contains
+## the pinned OpenTofu. There is no public registry yet: build it, push it to
+## your own registry and set repository/tag here.
+image:
+  repository: zenith-runner
+  # Defaults to the chart appVersion.
+  tag: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+## The Zenith control plane (required). Must be https (the runner refuses
+## plain http except for a loopback host).
+controlPlane:
+  url: ""
+
+## Registration. The token is single use and expires (at most an hour). It is
+## read from an existing Secret and is only needed on the FIRST start: after
+## registering, the runner's identity lives in the state volume and the Secret
+## can be deleted. Until then it is passed as ZENITH_REGISTRATION_TOKEN, which
+## the runner never forwards to OpenTofu.
+registration:
+  existingSecret: ""
+  secretKey: token
+
+## State volume: the runner's identity key, replay cache and saved plans.
+## IMPORTANT: with persistence disabled the state is an emptyDir, so a pod
+## restart loses the identity and the runner must be re-registered with a new
+## token. Keep persistence enabled outside of experiments.
+persistence:
+  enabled: true
+  size: 1Gi
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  # Use an existing claim instead of creating one.
+  existingClaim: ""
+  annotations: {}
+
+## Scratch space for per-job OpenTofu working directories and provider
+## downloads (the root filesystem is read-only).
+tmp:
+  sizeLimit: 2Gi
+
+## Optional CA bundle for a control plane with a private CA. Provide a Secret
+## with the PEM under key ca.crt; the chart mounts it and sets tls.caFile.
+## Certificate verification is never disabled.
+tls:
+  ca:
+    existingSecret: ""
+
+## ServiceAccount. The runner's cloud identity comes from annotations here:
+##
+## AWS (EKS IAM Roles for Service Accounts, IRSA):
+##   serviceAccount.annotations:
+##     eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/zenith-runner
+##   (the EKS webhook projects the web identity token; the runner calls STS
+##    AssumeRoleWithWebIdentity itself and OpenTofu gets the same variables)
+##
+## GCP (GKE Workload Identity):
+##   serviceAccount.annotations:
+##     iam.gke.io/gcp-service-account: zenith-runner@PROJECT.iam.gserviceaccount.com
+##
+## Azure (Workload Identity):
+##   serviceAccount.annotations:
+##     azure.workload.identity/client-id: 00000000-0000-0000-0000-000000000000
+##   podLabels:
+##     azure.workload.identity/use: "true"
+##
+## Note: aws.http speaks SigV4 to AWS. GCP and Azure identities are available to
+## OpenTofu providers running inside tofu.run; there is no GCP/Azure proxy kind.
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+  # The token is needed by the k8s.http kind. Leave true unless k8s.http is off.
+  automountServiceAccountToken: true
+
+podLabels: {}
+podAnnotations: {}
+
+## Extra environment variables for the runner (and, where listed in the
+## built-in passthrough set, for OpenTofu), for example the AWS region:
+##   extraEnv:
+##     - name: AWS_REGION
+##       value: ap-south-1
+extraEnv: []
+
+## Runner configuration, rendered to /etc/zenith-runner/config.json. See
+## docs/platform/RUNNER.md for every option. controlPlane.url, stateDir, the
+## agent name (unless set here) and tls.caFile are managed by the chart.
+config:
+  name: ""
+  labels: {}
+  log:
+    level: info
+    format: json
+  pollWaitSec: 20
+  heartbeatSec: 30
+  maxConcurrent: 4
+  shutdownGraceSec: 30
+  kinds:
+    # Network probes: safe defaults, refuse metadata and link-local targets.
+    probe.http: {}
+    probe.tcp: {}
+    probe.dns: {}
+    # The AWS signing proxy. Disabled until you list what each capability may
+    # do; the default is deny. Example (read-only observation):
+    #   aws.http:
+    #     allow:
+    #       infrastructure.observe:
+    #         - "ec2:Describe*"
+    #         - "ecs:Describe*"
+    #         - "ecs:List*"
+    #         - "rds:Describe*"
+    #         - "s3:GET /*"
+    aws.http:
+      enabled: false
+    # OpenTofu. The image ships the pinned version at /usr/local/bin/tofu.
+    # `apply` needs a remote state backend (s3, http, ...) in the compiled
+    # configuration: the runner keeps no state between jobs.
+    #
+    # Set pluginCacheDir (on the state volume) to avoid re-downloading providers
+    # for every job, e.g. pluginCacheDir: /var/lib/zenith-runner/plugin-cache
+    tofu.run:
+      enabled: false
+      binary: /usr/local/bin/tofu
+    # The Kubernetes API proxy (the pod's own ServiceAccount). Disabled until
+    # you list what each capability may do; grant the ServiceAccount matching
+    # RBAC. Example:
+    #   k8s.http:
+    #     allow:
+    #       infrastructure.observe:
+    #         - "GET /api/v1/namespaces/*/pods"
+    #         - "GET /apis/apps/v1/namespaces/*/deployments/**"
+    k8s.http:
+      enabled: false
+  probes:
+    allowLoopback: false
+
+## Pod and container hardening. The defaults satisfy the Pod Security
+## "restricted" profile.
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  fsGroup: 65532
+  seccompProfile:
+    type: RuntimeDefault
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+## OpenTofu plans and provider plugins need memory; raise limits for large
+## estates. There is deliberately no CPU limit (throttling slows plans).
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 2Gi
+
+# Must exceed config.shutdownGraceSec so in-flight jobs can finish on SIGTERM.
+terminationGracePeriodSeconds: 60
+
+priorityClassName: ""
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+## NetworkPolicy: ingress is denied entirely (the runner listens on nothing);
+## egress is limited to DNS and HTTPS. The runner only ever connects outward:
+## to the control plane, to cloud APIs, to the OpenTofu provider registry and
+## to whatever probe targets you use.
+networkPolicy:
+  enabled: true
+  # Allow DNS to the cluster DNS service.
+  allowDNS: true
+  dnsNamespaceSelector:
+    kubernetes.io/metadata.name: kube-system
+  dnsPodSelector:
+    k8s-app: kube-dns
+  # Allow HTTPS (443) to these destinations. The default, 0.0.0.0/0 minus the
+  # cloud metadata address, suits a runner that talks to the public control
+  # plane and cloud APIs. Narrow it (for example to VPC endpoint CIDRs) for a
+  # tighter posture.
+  httpsCIDRs:
+    - 0.0.0.0/0
+  # Always excluded from the CIDRs above. The instance metadata service
+  # (169.254.169.254) would hand the node's IAM credentials to a compromised
+  # pod; leave it blocked and use IRSA / Workload Identity instead.
+  blockMetadata: true
+  # EKS Pod Identity agent (169.254.170.23:80); enable only when you use Pod Identity.
+  allowPodIdentityAgent: false
+  # Extra egress rules, in NetworkPolicy egress syntax (for example a proxy or
+  # an in-cluster probe target on a non-443 port).
+  extraEgress: []

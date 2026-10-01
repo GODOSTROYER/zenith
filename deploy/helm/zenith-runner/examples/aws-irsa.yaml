@@ -1,0 +1,36 @@
+# EKS with IAM Roles for Service Accounts (IRSA): the runner observes AWS
+# read-only through the SigV4 signing proxy and runs OpenTofu with the same role.
+#
+#   helm install zenith-runner deploy/helm/zenith-runner -f examples/aws-irsa.yaml \
+#     --set controlPlane.url=https://zenith.example.com \
+#     --set registration.existingSecret=zenith-runner-registration
+serviceAccount:
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/zenith-runner
+extraEnv:
+  - name: AWS_REGION
+    value: ap-south-1
+config:
+  labels:
+    cloud: aws
+    region: ap-south-1
+  kinds:
+    aws.http:
+      enabled: true
+      allow:
+        infrastructure.observe:
+          - "ec2:Describe*"
+          - "ecs:Describe*"
+          - "ecs:List*"
+          - "rds:Describe*"
+          - "elasticloadbalancing:Describe*"
+          - "logs:FilterLogEvents"
+          - "s3:GET /*"
+          - "s3:HEAD /*"
+        logs.read:
+          - "logs:FilterLogEvents"
+          - "logs:GetLogEvents"
+          - "logs:DescribeLogGroups"
+    tofu.run:
+      enabled: true
+      binary: /usr/local/bin/tofu

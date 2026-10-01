@@ -23,11 +23,15 @@ import { BOOTSTRAP_SQL } from "@/lib/controlplane/db/migrations/bootstrap";
 import { PG_URL, withScratchDatabase } from "./_support/harness";
 
 const core = PLATFORM_MIGRATIONS[0];
+/** Every shipped version; the suite must not assume how many migrations exist. */
+const ALL = PLATFORM_MIGRATIONS.map((m) => m.version);
+/** The next free version, for the synthetic migrations some tests append. */
+const NEXT = PLATFORM_MIGRATIONS.length + 1;
 
 const EXPECTED_TABLES = [
   "agent_nonces", "approvals", "capability_grants", "cost_estimates", "drift_reports", "environment_settings", "events", "evidence",
   "idempotency_keys", "incidents", "investigations", "leases", "machines", "operations", "policy_decisions", "provider_connections",
-  "resource_observations", "resource_runtime", "resources", "runner_job_logs", "runner_jobs", "runner_registration_tokens", "runners",
+  "reconcile_state", "resource_observations", "resource_runtime", "resources", "runner_job_logs", "runner_jobs", "runner_registration_tokens", "runners",
   "schema_migrations", "workspace_policy",
 ];
 
@@ -111,17 +115,17 @@ describe.each(lanes)("migrator [$name]", (lane) => {
       const db = await open(false);
       const before = await platformSchemaStatus(db);
       expect(before).toMatchObject({ ledgerPresent: false, current: false });
-      expect(before.pending.map((m) => m.version)).toEqual([1]);
+      expect(before.pending.map((m) => m.version)).toEqual(ALL);
 
       const first = await migratePlatformDb(db);
-      expect(first).toEqual({ applied: [1], alreadyApplied: [] });
+      expect(first).toEqual({ applied: ALL, alreadyApplied: [] });
       const status = await platformSchemaStatus(db);
       expect(status).toMatchObject({ ledgerPresent: true, current: true, pending: [], tampered: [], ahead: [] });
       expect(status.applied[0]).toMatchObject({ version: 1, name: "core", checksum: migrationChecksum(core) });
       expect(status.applied[0].appliedAt).toMatch(/^\d{4}-\d{2}-\d{2}T.*Z$/);
 
       const second = await migratePlatformDb(db);
-      expect(second).toEqual({ applied: [], alreadyApplied: [1] });
+      expect(second).toEqual({ applied: [], alreadyApplied: ALL });
       await assertPlatformSchemaCurrent(db);
 
       const tables = await db.query<{ table_name: string }>("select table_name from information_schema.tables where table_schema = 'platform' order by table_name");
@@ -168,8 +172,8 @@ describe.each(lanes)("migrator [$name]", (lane) => {
         { version: 1, name: "core", expected: migrationChecksum(tampered), actual: migrationChecksum(core) },
       ]);
       // and a pending second migration in the same call is NOT applied behind a tampered first
-      const extra: PlatformMigration = { version: 2, name: "extra", sql: "create table platform.zz_never (id int);" };
-      await expect(migratePlatformDb(db, [tampered, extra])).rejects.toMatchObject({ code: "schema_tampered" });
+      const extra: PlatformMigration = { version: NEXT, name: "extra", sql: "create table platform.zz_never (id int);" };
+      await expect(migratePlatformDb(db, [tampered, ...PLATFORM_MIGRATIONS.slice(1), extra])).rejects.toMatchObject({ code: "schema_tampered" });
       expect(await db.query("select 1 from information_schema.tables where table_schema = 'platform' and table_name = 'zz_never'")).toEqual([]);
     });
   }, 60_000);
@@ -184,23 +188,23 @@ describe.each(lanes)("migrator [$name]", (lane) => {
       expect((missingLedger as Error).message).toContain("supabase/migrations/0014_platform_core.sql");
 
       await migratePlatformDb(db);
-      const second: PlatformMigration = { version: 2, name: "second", sql: "create table if not exists platform.zz_second (id int primary key);" };
-      const behind = await assertPlatformSchemaCurrent(db, [core, second]).catch((e: unknown) => e);
+      const second: PlatformMigration = { version: NEXT, name: "second", sql: "create table if not exists platform.zz_second (id int primary key);" };
+      const behind = await assertPlatformSchemaCurrent(db, [...PLATFORM_MIGRATIONS, second]).catch((e: unknown) => e);
       expect((behind as PlatformSchemaError).code).toBe("schema_behind");
-      expect((behind as Error).message).toContain('2 ("second")');
+      expect((behind as Error).message).toContain(`${NEXT} ("second")`);
 
-      expect(await migratePlatformDb(db, [core, second])).toEqual({ applied: [2], alreadyApplied: [1] });
-      await assertPlatformSchemaCurrent(db, [core, second]);
+      expect(await migratePlatformDb(db, [...PLATFORM_MIGRATIONS, second])).toEqual({ applied: [NEXT], alreadyApplied: ALL });
+      await assertPlatformSchemaCurrent(db, [...PLATFORM_MIGRATIONS, second]);
     });
   }, 60_000);
 
   it("tolerates a database that is ahead of this build (a newer deploy already migrated)", async () => {
     await lane.withFresh(async (open) => {
       const db = await open(true);
-      const newer: PlatformMigration = { version: 2, name: "newer", sql: "create table if not exists platform.zz_newer (id int primary key);" };
-      await migratePlatformDb(db, [core, newer]);
-      const status = await platformSchemaStatus(db); // this build only knows version 1
-      expect(status).toMatchObject({ current: true, ahead: [2], pending: [], tampered: [] });
+      const newer: PlatformMigration = { version: NEXT, name: "newer", sql: "create table if not exists platform.zz_newer (id int primary key);" };
+      await migratePlatformDb(db, [...PLATFORM_MIGRATIONS, newer]);
+      const status = await platformSchemaStatus(db); // this build does not know the newest version
+      expect(status).toMatchObject({ current: true, ahead: [NEXT], pending: [], tampered: [] });
       await assertPlatformSchemaCurrent(db);
     });
   }, 60_000);
@@ -208,15 +212,15 @@ describe.each(lanes)("migrator [$name]", (lane) => {
   it("applies each migration atomically with its ledger row: a failing migration leaves nothing behind", async () => {
     await lane.withFresh(async (open) => {
       const db = await open(true);
-      const ok: PlatformMigration = { version: 2, name: "ok", sql: "create table platform.zz_ok (id int primary key);" };
+      const ok: PlatformMigration = { version: NEXT, name: "ok", sql: "create table platform.zz_ok (id int primary key);" };
       const broken: PlatformMigration = {
-        version: 3,
+        version: NEXT + 1,
         name: "broken",
         sql: "create table platform.zz_half (id int primary key);\ncreate table platform.zz_bad (id int references platform.does_not_exist (id));",
       };
-      await expect(migratePlatformDb(db, [core, ok, broken])).rejects.toMatchObject({ code: "db_error" });
-      const status = await platformSchemaStatus(db, [core, ok, broken]);
-      expect(status.applied.map((a) => a.version)).toEqual([1, 2]); // 2 stays applied, 3 left no trace
+      await expect(migratePlatformDb(db, [...PLATFORM_MIGRATIONS, ok, broken])).rejects.toMatchObject({ code: "db_error" });
+      const status = await platformSchemaStatus(db, [...PLATFORM_MIGRATIONS, ok, broken]);
+      expect(status.applied.map((a) => a.version)).toEqual([...ALL, NEXT]); // `ok` stays applied, `broken` left no trace
       expect(await db.query("select 1 from information_schema.tables where table_schema = 'platform' and table_name = 'zz_half'")).toEqual([]);
     });
   }, 60_000);
@@ -232,7 +236,7 @@ describe.each(lanes)("migrator [$name]", (lane) => {
       expect(status.applied.map((a) => ({ v: a.version, n: a.name, c: a.checksum }))).toEqual(
         PLATFORM_MIGRATIONS.map((m) => ({ v: m.version, n: m.name, c: migrationChecksum(m) }))
       );
-      expect(await migratePlatformDb(db)).toEqual({ applied: [], alreadyApplied: [1] });
+      expect(await migratePlatformDb(db)).toEqual({ applied: [], alreadyApplied: ALL });
       const tables = await db.query<{ table_name: string }>("select table_name from information_schema.tables where table_schema = 'platform' order by table_name");
       expect(tables.map((t) => t.table_name)).toEqual(EXPECTED_TABLES);
 
@@ -293,10 +297,10 @@ describe.skipIf(!PG_URL)("migrator [postgres] concurrency and fail-closed open",
       const b = await openPlatformDb({ kind: "postgres", url, migrate: false, max: 2 });
       try {
         const results = await Promise.all([migratePlatformDb(a), migratePlatformDb(b), migratePlatformDb(a), migratePlatformDb(b)]);
-        expect(results.flatMap((r) => r.applied)).toEqual([1]);
+        expect(results.flatMap((r) => r.applied)).toEqual(ALL);
         expect(await platformSchemaStatus(a)).toMatchObject({ current: true });
         const ledger = await a.query<{ n: number }>("select count(*)::int as n from platform.schema_migrations");
-        expect(ledger[0].n).toBe(1);
+        expect(ledger[0].n).toBe(ALL.length);
       } finally {
         await a.close();
         await b.close();

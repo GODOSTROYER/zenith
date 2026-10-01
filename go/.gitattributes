@@ -1,0 +1,10 @@
+# Go sources, scripts and JSON vectors are LF everywhere so gofmt and the
+# golden-vector comparisons behave the same on Windows and Linux.
+*.go text eol=lf
+*.json text eol=lf
+*.sh text eol=lf
+*.md text eol=lf
+*.py text eol=lf
+go.mod text eol=lf
+# The AWS Signature V4 test suite files are copied byte for byte.
+internal/awsauth/testdata/aws4_testsuite/** -text

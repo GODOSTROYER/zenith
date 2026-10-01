@@ -15,6 +15,17 @@ import { defineAzureDriver, pick, props, type RuntimeRead } from "@/lib/provider
 import { privateSubnet, workloadIdentity, integerSpec, invalid, textSpec, rejectCredentials, readString, readBool } from "@/lib/providers/azure/drivers/more-util";
 import type { ArmResource, Json } from "@/lib/providers/azure/arm";
 
+/** JSON-syntax inline `security_rule` is attributes-as-blocks: every attribute must be present. */
+const INLINE_RULE_DEFAULTS = {
+  description: "",
+  destination_address_prefixes: [],
+  destination_application_security_group_ids: [],
+  destination_port_ranges: [],
+  source_address_prefixes: [],
+  source_application_security_group_ids: [],
+  source_port_ranges: [],
+} as const;
+
 export const VIRTUAL_MACHINE = { type: "Microsoft.Compute/virtualMachines", apiVersion: "2024-07-01" } as const;
 const SIZE: Record<string, string> = { nano: "Standard_B1s", small: "Standard_B2s", standard: "Standard_D2s_v5", performance: "Standard_D4s_v5" };
 const SSH_OFF = Buffer.from("#cloud-config\nruncmd:\n  - [systemctl, mask, --now, ssh.service, ssh.socket, sshd.service]\n").toString("base64");
@@ -65,7 +76,7 @@ export const virtualMachineDriver = defineAzureDriver({
     const nsg = `azurerm_network_security_group.${L("nsg")}`;
     return fragment({ resource: mergeBlocks(
       block("azurerm_network_interface", L("nic"), { ...common, name: cloudName(ctx, node.address, { max: 80, suffix: "nic" }), ip_configuration: [{ name: "private", subnet_id: exportRef(subnet.address, "id"), private_ip_address_allocation: "Dynamic" }] }),
-      block("azurerm_network_security_group", L("nsg"), { ...common, name: cloudName(ctx, node.address, { max: 80, suffix: "nsg" }), security_rule: [{ name: "deny-ssh", priority: 100, direction: "Inbound", access: "Deny", protocol: "*", source_port_range: "*", destination_port_range: "22", source_address_prefix: "*", destination_address_prefix: "*" }, { name: "deny-inbound", priority: 4096, direction: "Inbound", access: "Deny", protocol: "*", source_port_range: "*", destination_port_range: "*", source_address_prefix: "*", destination_address_prefix: "*" }] }),
+      block("azurerm_network_security_group", L("nsg"), { ...common, name: cloudName(ctx, node.address, { max: 80, suffix: "nsg" }), security_rule: [{ name: "deny-ssh", priority: 100, direction: "Inbound", access: "Deny", protocol: "*", source_port_range: "*", destination_port_range: "22", source_address_prefix: "*", destination_address_prefix: "*", ...INLINE_RULE_DEFAULTS }, { name: "deny-inbound", priority: 4096, direction: "Inbound", access: "Deny", protocol: "*", source_port_range: "*", destination_port_range: "*", source_address_prefix: "*", destination_address_prefix: "*", ...INLINE_RULE_DEFAULTS }] }),
       block("azurerm_network_interface_security_group_association", L("nsg_assoc"), { network_interface_id: `\${${nic}.id}`, network_security_group_id: `\${${nsg}.id}` }),
       block("azurerm_linux_virtual_machine", L("vm"), {
         ...common, name: cloudName(ctx, node.address, { max: 64, suffix: "vm" }), size: vmSize(node), admin_username: "zenith",

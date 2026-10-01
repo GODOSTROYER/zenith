@@ -376,7 +376,7 @@ describe("operator claims match current wiring", () => {
 
   it("app composition configures durable broker, scope, runner and reconcile ports", () => {
     const app = source("src/lib/platform/app.ts");
-    for (const call of ["assertPlatformSchemaCurrent(sql)", "registerPlatformBrokerStore(new PlatformBrokerStore(sql))", "registerPlatformBrokerPorts({ scopes: platformScopeResolver(sql) })", "configureRunnerRuntime(runnerPorts(sql))", "wireReconcilePorts(() => composeReconcilePorts(sql, platformCredentialBroker(sql)))"]) {
+    for (const call of ["assertPlatformSchemaCurrent(sql)", "registerPlatformBrokerStore(new PlatformBrokerStore(sql))", "registerPlatformBrokerPorts({ scopes: platformScopeResolver(sql) })", "configureRunnerRuntime(runnerPorts(sql))", "wireReconcilePorts(() => composeReconcilePorts(sql, credentials))", "registerCredentialBroker(credentials, agentPorts.observability)", "registerInvestigator(agentPorts.investigator)"]) {
       expect(app).toContain(call);
     }
     expect(app).toContain('platformDbConfigFromEnv().source === "default"');
@@ -560,11 +560,11 @@ describe("operator claims match current wiring", () => {
     expect(guide("README.md")).toContain("CLI.md");
   });
 
-  it("unregistered MCP read/investigator hooks remain unavailable, despite worker credentials", () => {
+  it("the app registers the MCP read hook and the incident investigator (and only the app does)", () => {
     expect(source("src/lib/agent-access/v3/adapters.ts")).toContain("export function registerCredentialBroker(");
     expect(source("src/lib/agent-access/v3/adapters.ts")).toContain("export function registerInvestigator(");
-    expect(callers(/(?<!function )\bregister(?:CredentialBroker|Investigator)\s*\(/, ["src/app", "src/lib/platform", "workers"])).toEqual([]);
-    expect(source("docs/platform/MCP.md")).toContain("does not register the MCP read hook");
+    expect(callers(/(?<!function )\bregister(?:CredentialBroker|Investigator)\s*\(/, ["src/app", "src/lib/platform", "workers"])).toEqual(["src/lib/platform/app.ts"]);
+    expect(squash(source("docs/platform/MCP.md"))).toContain("registers the MCP cloud-read hook");
   });
 
   it("Go guides and live-acceptance harness exist without claiming live verification", () => {

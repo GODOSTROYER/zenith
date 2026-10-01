@@ -244,9 +244,11 @@ or product store (response imports are type-only; redaction is pure).
   initial approval twice. A new concrete plan may still require reapproval.
 - Operation progress needs a Temporal worker; queries time out after 3 seconds
   and report unavailable. Ledger status alone does not prove a workflow started.
-- OAuth `.well-known` discovery, plugin v3 bridging and the MCP cloud-read /
-  investigator hooks remain integration work. Worker execution composition is
-  already wired; its credential broker does not register the MCP read hook.
+- OAuth `.well-known` discovery and plugin v3 bridging remain integration work.
+  The app composition (`src/lib/platform/app.ts`) registers the MCP cloud-read
+  hook (`registerCredentialBroker`, observe-purpose, tenant-scoped sessions) and
+  the incident investigator (`registerInvestigator`); OCI sources stay
+  `unavailable` until OCI sessions and runner read jobs exist.
 - Request diagnostics now pass through `safeRequestError` in
   `src/lib/server/errors.ts` before logging or responding (SEC-R2).
   MCP diagnostics also use their redaction boundary. These detect known shapes;

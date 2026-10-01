@@ -27,18 +27,19 @@
  * order: OpenTofu evaluates dependencies between the individual resources.
  * A driver may reference any node, not only those it declared in `dependsOn`.
  *
- * State backend (default, AWS only): the S3 bucket and optional KMS key of the
+ * State backend: `backendForConnection` (src/lib/tofu/backends.ts) per provider; for AWS the S3 bucket and optional KMS key of the
  * connection, key `zenith/<workspace>/<environment>/terraform.tfstate`. The
  * connection holds only non-secret identifiers; credentials never enter a
  * workspace file (the assembler refuses credential-shaped keys).
  */
 import type { CompileContext, TofuFragment } from "@/lib/drivers/types";
-import type { AwsConnectionConfig, ProviderConnection } from "@/lib/credentials/types";
+import type { ProviderConnection } from "@/lib/credentials/types";
 import type { ProviderKey, ResourceGraph } from "@/lib/resources/types";
 import { refLocalName } from "@/lib/providers/aws/drivers/shared/refs";
 import { assembleWorkspace, TofuWorkspaceError, type BackendConfig } from "@/lib/tofu/workspace";
 import type { ProviderSetName, ProviderSetSpec } from "@/lib/tofu/providers";
 import type { TofuWorkspace } from "@/lib/tofu/types";
+import { backendForConnection } from "@/lib/tofu/backends";
 import { scanHclTemplate } from "@/lib/tofu/hcl-template";
 import type { ExecContext } from "./context";
 import { StepFailedError } from "./errors";
@@ -206,16 +207,14 @@ function providerSetFor(provider: ProviderKey, overrides?: WorkspaceOverrides): 
 
 function backendFor(ec: ExecContext, connection: ProviderConnection, overrides?: WorkspaceOverrides): { backend: BackendConfig; stateKey?: string } {
   if (overrides?.backend) return overrides.backend({ connection, workspaceId: ec.workspaceId, environmentId: ec.environmentId });
-  const config = connection.config;
-  if (config.provider !== "aws") {
-    throw new StepFailedError(`No OpenTofu state backend is implemented for ${config.provider} connections; only AWS (S3 in the customer's account) is.`);
+  try {
+    // aws: S3 (key unchanged: zenith/<ws>/<env>/terraform.tfstate); gcp: GCS; azure: azurerm (Entra);
+    // oci: S3-compatible Object Storage. Kubernetes needs an explicit override.
+    return backendForConnection(connection, { workspaceId: ec.workspaceId, environmentId: ec.environmentId });
+  } catch (err) {
+    if (err instanceof TofuWorkspaceError) throw new StepFailedError(`State backend refused: ${safeText(err.message, 400)}`);
+    throw err;
   }
-  const aws: AwsConnectionConfig = config;
-  if (!aws.stateBucket) throw new StepFailedError("The AWS connection has no state bucket. Run the bootstrap that creates one in the customer account, then record it on the connection.");
-  return {
-    backend: { kind: "s3", bucket: aws.stateBucket, region: aws.region, ...(aws.stateKmsKeyArn ? { encryptionKmsKeyArn: aws.stateKmsKeyArn } : {}) },
-    stateKey: `zenith/${ec.workspaceId}/${ec.environmentId}/terraform.tfstate`,
-  };
 }
 
 export function buildWorkspace(input: {

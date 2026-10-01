@@ -33,6 +33,7 @@
  *     workspace matches the connection's workspace.
  */
 import type { CapabilityGrantClaims } from "@/lib/controlplane/types";
+import type { OciSession as NativeOciSession } from "@/lib/providers/oci/transport";
 
 /* --------------------------- connection configs --------------------------- */
 
@@ -201,7 +202,26 @@ export interface KubernetesSession {
   kubeConfig(): unknown;
 }
 
-export type ProviderSession = AwsSession | GcpSession | AzureSession | KubernetesSession;
+/** Non-secret, authoritative resource bindings for one OCI environment. */
+export interface OciResourceBinding {
+  readonly address: string;
+  readonly nativeType: string;
+  readonly externalId: string;
+}
+
+/** Runner-only OCI session. The runner's principal never enters the control plane. */
+export interface OciSession extends NativeOciSession {
+  readonly expiresAt: string;
+  readonly capability: string;
+  readonly scope: {
+    readonly workspaceId: string;
+    readonly projectId?: string;
+    readonly environmentId?: string;
+    readonly resources: readonly OciResourceBinding[];
+  };
+}
+
+export type ProviderSession = AwsSession | GcpSession | AzureSession | KubernetesSession | OciSession;
 
 /* --------------------------------- broker --------------------------------- */
 

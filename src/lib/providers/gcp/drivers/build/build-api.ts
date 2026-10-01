@@ -26,6 +26,12 @@ import { gcpCall, gcpGet } from "../../rest";
 import type { GcpDriverContext } from "../../types";
 import { SA_EMAIL_RE } from "../../validate";
 
+/** gcr.io/cloud-builders/docker:latest; registry HEAD resolved by the orchestrator
+ * on 2026-10-01 (Docker-Content-Digest, single-platform Docker v2 manifest).
+ * Image pull and Cloud Build execution have not been live-verified here.
+ */
+export const CLOUD_BUILD_DOCKER_IMAGE = "gcr.io/cloud-builders/docker@sha256:40c2fb4fcd0ad51376eef166c2e7b2b40a3508d5776e2bf33db3783ab39d0f2e";
+
 const CLOUDBUILD = "https://cloudbuild.googleapis.com/v1";
 const BUCKET = /^[a-z0-9][a-z0-9._-]{1,220}[a-z0-9]$/;
 const OBJECT = /^[A-Za-z0-9][A-Za-z0-9._=+@/-]{0,1023}$/;
@@ -98,7 +104,7 @@ export async function startBuild(ctx: GcpDriverContext, input: StartBuildInput):
   const dockerfile = input.dockerfile ?? "Dockerfile";
   const body = {
     source: { storageSource: { bucket: input.sourceBucket, object: input.sourceObject, ...(input.sourceGeneration ? { generation: input.sourceGeneration } : {}) } },
-    steps: [{ name: "gcr.io/cloud-builders/docker", args: ["build", `--file=${dockerfile}`, `--tag=${input.imageRef}`, "."] }],
+    steps: [{ name: CLOUD_BUILD_DOCKER_IMAGE, args: ["build", `--file=${dockerfile}`, `--tag=${input.imageRef}`, "."] }],
     images: [input.imageRef],
     serviceAccount: `projects/${ctx.session.projectId}/serviceAccounts/${input.buildServiceAccount}`,
     options: { logging: "CLOUD_LOGGING_ONLY" },

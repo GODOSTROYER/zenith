@@ -7,7 +7,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { ControlStoreError, PlatformDbError, openPlatformDb, platformDb, platformDbConfigFromEnv, resetPlatformDbForTests } from "@/lib/controlplane/db";
+import { ControlStoreError, PLATFORM_MIGRATIONS, PlatformDbError, openPlatformDb, platformDb, platformDbConfigFromEnv, resetPlatformDbForTests } from "@/lib/controlplane/db";
 import { PG_URL, uid, withScratchDatabase } from "./_support/harness";
 
 const ENV_KEYS = ["ZENITH_PLATFORM_DB", "ZENITH_PLATFORM_DB_URL", "ZENITH_PLATFORM_DB_MAX", "SUPABASE_DB_URL", "ZENITH_DATA"] as const;
@@ -106,7 +106,7 @@ describe("platformDb()", () => {
       expect(b).toBe(a);
       expect(a.kind).toBe("pglite");
       expect(a.identity).toBe(`pglite://${path.join(data, "platform-pg")}`);
-      expect((await a.query<{ n: number }>("select count(*)::int as n from platform.schema_migrations"))[0].n).toBe(1);
+      expect((await a.query<{ n: number }>("select count(*)::int as n from platform.schema_migrations"))[0].n).toBe(PLATFORM_MIGRATIONS.length);
       await resetPlatformDbForTests();
       const c = await platformDb();
       expect(c).not.toBe(a);
@@ -129,7 +129,7 @@ describe("platformDb()", () => {
       const second = await platformDb();
       const rows = await second.query<{ workspace_id: string }>("select workspace_id from platform.workspace_policy where workspace_id = $1", [id]);
       expect(rows).toHaveLength(1);
-      expect((await second.query<{ n: number }>("select count(*)::int as n from platform.schema_migrations"))[0].n).toBe(1); // not re-applied
+      expect((await second.query<{ n: number }>("select count(*)::int as n from platform.schema_migrations"))[0].n).toBe(PLATFORM_MIGRATIONS.length); // not re-applied
     } finally {
       await resetPlatformDbForTests();
       removeQuietly(data);
@@ -221,7 +221,7 @@ describe.skipIf(!PG_URL)("platformDb() against PostgreSQL", () => {
       // migrate it out of band; the very next call succeeds (the failure was not cached)
       await (await openPlatformDb({ kind: "postgres", url, migrate: true, max: 1 })).close();
       const db = await platformDb();
-      expect((await db.query<{ n: number }>("select count(*)::int as n from platform.schema_migrations"))[0].n).toBe(1);
+      expect((await db.query<{ n: number }>("select count(*)::int as n from platform.schema_migrations"))[0].n).toBe(PLATFORM_MIGRATIONS.length);
       await resetPlatformDbForTests();
     });
   }, 60_000);

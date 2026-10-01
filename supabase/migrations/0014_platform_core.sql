@@ -490,6 +490,49 @@ insert into platform.schema_migrations (version, name, checksum)
 values (1, 'core', 'ec4e2c1a7185e25ea6afa803e87abcc1fe8a06cb65651773f573f0b66de13764')
 on conflict (version) do nothing;
 
+-- ============================ migration 2: reconcile ============================
+
+/* ----------------------------- reconcile state ----------------------------- */
+
+create table if not exists platform.reconcile_state (
+  environment_id       text        not null primary key,
+  workspace_id         text        not null,
+  project_id           text,
+  -- descriptor: what the scheduler filters on (sandbox / no verified connection are not reconciled)
+  env_class            text        not null check (env_class in ('sandbox','development','staging','production')),
+  provider             text        not null,
+  region               text        not null,
+  connection_id        text,
+  -- schedule: index into the backoff ladder (5 -> 15 -> 60 -> 180 min) and the next run
+  step_index           integer     not null default 0 check (step_index >= 0),
+  next_run_at          timestamptz not null,
+  priority             integer     not null default 0,
+  last_run_at          timestamptz,
+  last_changed_at      timestamptz,
+  last_deploy_at       timestamptz,
+  last_graph_digest    text,
+  last_outcome         text,
+  consecutive_failures integer     not null default 0 check (consecutive_failures >= 0),
+  -- the claim a pass holds while it reconciles this environment
+  claimed_by           text,
+  claimed_until        timestamptz,
+  -- open findings: "<class>|<address>" -> first-seen timestamp (correlation ids)
+  finding_since        jsonb       not null default '{}'::jsonb,
+  registered_at        timestamptz not null,
+  updated_at           timestamptz not null,
+  unique (workspace_id, environment_id)
+);
+create index if not exists reconcile_state_due on platform.reconcile_state (next_run_at);
+create index if not exists reconcile_state_ws on platform.reconcile_state (workspace_id);
+
+create index if not exists operations_deploy_finished
+  on platform.operations (finished_at)
+  where status = 'succeeded' and capability in ('deployment.deploy', 'deployment.rollback', 'infrastructure.apply');
+
+insert into platform.schema_migrations (version, name, checksum)
+values (2, 'reconcile', 'af708ba78998ba35b05966afc4f037bacec9b38905853e6f43c8fdab92cb47f0')
+on conflict (version) do nothing;
+
 -- ============================ hardening (Supabase roles) ============================
 
 do $$

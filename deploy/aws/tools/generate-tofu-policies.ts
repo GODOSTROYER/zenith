@@ -17,6 +17,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { BUILD_ROLE_NAME_PATTERN } from "../../../src/lib/credentials/aws/naming";
 import { loadTemplate, makeEvaluator, resolveResource, statementsOf, type Statement } from "../../../tests/credentials/cfn";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -73,6 +74,15 @@ export function generate(): Record<string, string> {
 
   for (const [logicalId, file] of Object.entries(POLICY_RESOURCES)) {
     const props = resolveResource(base.template, base.evaluator, logicalId)!;
+    if (logicalId === "WorkloadBoundary") {
+      // YAML cannot import TS; fail generation/checking if its reserved build
+      // principal drifts from the constant the CodeBuild driver uses.
+      for (const statement of statementsOf(props.PolicyDocument).filter((s) => s.Sid?.startsWith("Build"))) {
+        if (statement.Condition?.ArnLike?.["aws:PrincipalArn"] !== `arn:\${partition}:iam::\${account_id}:role/${BUILD_ROLE_NAME_PATTERN}`) {
+          throw new Error(`Build principal naming drift in ${statement.Sid}`);
+        }
+      }
+    }
     files[`${file}.json.tftpl`] = render(props.PolicyDocument);
   }
   const cb = resolveResource(base.template, base.evaluator, "CodeBuildRole")!;
@@ -104,4 +114,19 @@ function write(): void {
   console.log(`wrote ${Object.keys(generate()).length} policy templates to ${POLICIES_DIR}`);
 }
 
+/** Byte-for-byte drift check; missing files are failures too. */
+export function checkPolicies(directory = POLICIES_DIR): string[] {
+  return Object.entries(generate()).filter(([name, expected]) => {
+    const file = path.join(directory, name);
+    return !fs.existsSync(file) || fs.readFileSync(file, "utf8") !== expected;
+  }).map(([name]) => name);
+}
+
 if (process.argv.includes("--write")) write();
+if (process.argv.includes("--check")) {
+  const mismatches = checkPolicies();
+  if (mismatches.length) {
+    console.error(`Policy template drift: ${mismatches.join(", ")}`);
+    process.exitCode = 1;
+  } else console.log(`checked ${Object.keys(generate()).length} policy templates; no drift`);
+}

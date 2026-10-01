@@ -249,6 +249,9 @@ resource "aws_s3_bucket_policy" "state" {
 # ------------------------------------------------- permission boundary
 # Every IAM role Zenith creates must carry this boundary; effective permissions
 # are the role's own policies INTERSECT this list.
+# The generated policy mirrors CFN byte-for-byte: build-only ECR push, S3
+# version reads and tagged CloudFront invalidations require role/zenith-*-build.
+# naming.ts defines the reserved suffix; the generator checks it for drift.
 resource "aws_iam_policy" "workload_boundary" {
   name        = local.boundary_name
   description = "Permission boundary for roles created by Zenith. Do not edit; Zenith cannot."

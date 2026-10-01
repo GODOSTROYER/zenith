@@ -22,7 +22,7 @@ import path from "node:path";
 
 function fullWorkspace(opts: Parameters<typeof buildFullFixture>[0] = {}, statePath = "terraform.tfstate") {
   const fx = buildFullFixture(opts);
-  const ctx = mkCompileContext(fx.byAddress);
+  const ctx = mkCompileContext(fx.byAddress, { namePrefix: "zenith-env-1" });
   const fragments = stubFragments(fx);
   const compiled: string[] = [];
   for (const node of fx.nodes) {
@@ -146,4 +146,3 @@ describe.skipIf(!enabled)("real `tofu validate` against hashicorp/aws 6.66.0 (ne
     900_000
   );
 });
-

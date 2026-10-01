@@ -32,6 +32,51 @@
       "Resource": "*"
     },
     {
+      "Sid": "BuildImagePush",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:InitiateLayerUpload",
+        "ecr:UploadLayerPart",
+        "ecr:CompleteLayerUpload",
+        "ecr:PutImage",
+        "ecr:DescribeImages"
+      ],
+      "Resource": "arn:${partition}:ecr:*:${account_id}:repository/zenith-*",
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": "arn:${partition}:iam::${account_id}:role/zenith-*-build"
+        }
+      }
+    },
+    {
+      "Sid": "BuildSourceVersions",
+      "Effect": "Allow",
+      "Action": "s3:GetObjectVersion",
+      "Resource": "arn:${partition}:s3:::zenith-*/*",
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": "arn:${partition}:iam::${account_id}:role/zenith-*-build"
+        },
+        "StringEquals": {
+          "s3:ResourceAccount": "${account_id}"
+        }
+      }
+    },
+    {
+      "Sid": "BuildSiteInvalidation",
+      "Effect": "Allow",
+      "Action": "cloudfront:CreateInvalidation",
+      "Resource": "arn:${partition}:cloudfront::${account_id}:distribution/*",
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": "arn:${partition}:iam::${account_id}:role/zenith-*-build"
+        },
+        "StringEquals": {
+          "aws:ResourceTag/zenith:managed": "true"
+        }
+      }
+    },
+    {
       "Sid": "WorkloadEksSystemImages",
       "Effect": "Allow",
       "Action": [

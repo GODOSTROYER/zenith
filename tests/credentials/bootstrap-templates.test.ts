@@ -10,8 +10,10 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { generate, POLICIES_DIR, TEMPLATE_PATH } from "../../deploy/aws/tools/generate-tofu-policies";
+import { checkPolicies, generate, POLICIES_DIR, TEMPLATE_PATH } from "../../deploy/aws/tools/generate-tofu-policies";
 import { sessionPolicyFor } from "@/lib/credentials/aws";
+import { BUILD_ROLE_NAME_PATTERN } from "@/lib/credentials/aws/naming";
+import { boundaryAllows } from "./workload-boundary";
 import {
   asList,
   compactSize,
@@ -324,6 +326,51 @@ describe.each(Object.keys(SCENARIOS))("IAM policies (%s)", (scenario) => {
     expect(asList(secretStmt.Resource).every((r) => r.includes("zenith/"))).toBe(true);
   });
 
+  it("conditions every new build grant on the shared role discriminator and narrow resources", () => {
+    const statements = statementsOf(policyDoc(ev, "WorkloadBoundary"));
+    const grants = statements.filter((s) => s.Sid?.startsWith("Build"));
+    expect(grants.map((s) => s.Sid)).toEqual(["BuildImagePush", "BuildSourceVersions", "BuildSiteInvalidation"]);
+    const principalPattern = `arn:aws:iam::${ACCOUNT}:role/${BUILD_ROLE_NAME_PATTERN}`;
+    for (const grant of grants) {
+      expect(grant.Effect).toBe("Allow");
+      expect(grant.Condition?.ArnLike).toEqual({ "aws:PrincipalArn": principalPattern });
+      expect(iamGlob(principalPattern, `arn:aws:iam::${ACCOUNT}:role/zenith-env-web-build`)).toBe(true);
+      for (const role of ["zenith-env-web", "zenith-env-web-exec", "zenith-env-web-fn", "zenith-env-web-ec2", "zenith-env-web-build-exec"]) {
+        expect(iamGlob(principalPattern, `arn:aws:iam::${ACCOUNT}:role/${role}`), role).toBe(false);
+      }
+      expect(iamGlob(principalPattern, `arn:aws:iam::210987654321:role/zenith-env-web-build`)).toBe(false);
+    }
+    expect(grants[0].Resource).toBe(`arn:aws:ecr:*:${ACCOUNT}:repository/zenith-*`);
+    expect(asList(grants[0].Action)).toEqual(["ecr:InitiateLayerUpload", "ecr:UploadLayerPart", "ecr:CompleteLayerUpload", "ecr:PutImage", "ecr:DescribeImages"]);
+    expect(grants[1]).toMatchObject({ Action: "s3:GetObjectVersion", Resource: "arn:aws:s3:::zenith-*/*", Condition: { StringEquals: { "s3:ResourceAccount": ACCOUNT } } });
+    expect(grants[2]).toMatchObject({ Action: "cloudfront:CreateInvalidation", Resource: `arn:aws:cloudfront::${ACCOUNT}:distribution/*`, Condition: { StringEquals: { "aws:ResourceTag/zenith:managed": "true" } } });
+  });
+
+  it("build grants fail closed for apps, foreign resources and missing conditions; state denial still wins", () => {
+    const statements = statementsOf(policyDoc(ev, "WorkloadBoundary"));
+    const build = { "aws:PrincipalArn": `arn:aws:iam::${ACCOUNT}:role/zenith-env-web-build`, "s3:ResourceAccount": ACCOUNT, "aws:ResourceTag/zenith:managed": "true" };
+    const requests = [
+      ...["ecr:InitiateLayerUpload", "ecr:UploadLayerPart", "ecr:CompleteLayerUpload", "ecr:PutImage", "ecr:DescribeImages"].map((action) => [action, `arn:aws:ecr:eu-west-1:${ACCOUNT}:repository/zenith-env-web`]),
+      ["s3:GetObjectVersion", "arn:aws:s3:::zenith-env-web-src/zenith/env/web.zip"],
+      ["cloudfront:CreateInvalidation", `arn:aws:cloudfront::${ACCOUNT}:distribution/EWEB`],
+    ];
+    for (const [action, resource] of requests) {
+      expect(boundaryAllows(statements, action, resource, build), action).toBe(true);
+      expect(boundaryAllows(statements, action, resource, { ...build, "aws:PrincipalArn": build["aws:PrincipalArn"].replace(/-build$/, "-exec") }), action).toBe(false);
+      expect(boundaryAllows(statements, action, resource, {}), action).toBe(false);
+      expect(boundaryAllows(statements, action, resource.replace(ACCOUNT, "210987654321").replace("zenith-env", "foreign-env"), build), action).toBe(false);
+    }
+    expect(boundaryAllows(statements, "s3:GetObjectVersion", requests[5][1], { ...build, "s3:ResourceAccount": "210987654321" })).toBe(false);
+    expect(boundaryAllows(statements, "cloudfront:CreateInvalidation", requests[6][1], { ...build, "aws:ResourceTag/zenith:managed": "false" })).toBe(false);
+    expect(boundaryAllows(statements, "cloudfront:CreateInvalidation", requests[6][1], { "aws:PrincipalArn": build["aws:PrincipalArn"] })).toBe(false);
+    const state = `${ev.resourceRef("StateBucket")}/artifacts/source.zip`;
+    expect(boundaryAllows(statements, "s3:GetObjectVersion", `arn:aws:s3:::${state}`, build)).toBe(false);
+    expect(boundaryAllows(statements, "iam:PutRolePolicy", build["aws:PrincipalArn"], build)).toBe(false);
+    for (const action of ["ecr:BatchGetImage", "ecr:BatchCheckLayerAvailability", "ecr:GetDownloadUrlForLayer"]) {
+      expect(boundaryAllows(statements, action, requests[0][1], { "aws:PrincipalArn": build["aws:PrincipalArn"].replace(/-build$/, "-exec") })).toBe(true);
+    }
+  });
+
   it("state bucket policy denies plain HTTP and TLS < 1.2; deploy role cannot administer or shorten its history", () => {
     const bucket = statementsOf(policyDoc(ev, "StateBucketPolicy"));
     expect(bucket.find((s) => s.Sid === "DenyInsecureTransport")).toMatchObject({ Effect: "Deny", Condition: { Bool: { "aws:SecureTransport": "false" } } });
@@ -473,6 +520,20 @@ describe("the broker's session policies stay inside the roles they narrow", () =
 
 describe("OpenTofu module", () => {
   const strip = (s: string) => s.replace(/\r\n/g, "\n");
+
+  it("the --check implementation detects edited and missing generated files", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "zenith-policy-check-"));
+    try {
+      for (const [name, content] of Object.entries(generate())) fs.writeFileSync(path.join(dir, name), content);
+      expect(checkPolicies(dir)).toEqual([]);
+      fs.appendFileSync(path.join(dir, "workload-boundary.json.tftpl"), "\n");
+      expect(checkPolicies(dir)).toEqual(["workload-boundary.json.tftpl"]);
+      fs.unlinkSync(path.join(dir, "workload-boundary.json.tftpl"));
+      expect(checkPolicies(dir)).toEqual(["workload-boundary.json.tftpl"]);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 
   it("policy templates are exactly what the generator derives from the CloudFormation template", () => {
     const generated = generate();

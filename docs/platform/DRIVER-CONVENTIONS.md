@@ -50,7 +50,14 @@ OCI and `zenith` stay interchangeable behind `src/lib/drivers/types.ts`.
 - IAM: least privilege from `IdentitySpec.grants` only — exact resource
   ARNs/ids via `ctx.ref`, explicit actions, never `"*"` actions or resources
   (policy will deny wildcard IAM). Roles Zenith creates carry the
-  `ZenithWorkloadBoundary` permission boundary (AWS).
+  `ZenithWorkloadBoundary` permission boundary (AWS). CodeBuild roles alone
+  reserve the `-build` suffix **after** name truncation/hashing (64-character
+  IAM limit). The boundary's `ArnLike aws:PrincipalArn` uses the shared
+  `BUILD_ROLE_NAME_PATTERN` from `credentials/aws/naming.ts`, checked by the
+  bootstrap policy generator. Application identities must never use this
+  suffix. Build policies remain scoped to the exact source prefix, repository
+  and distribution; boundary grants do not replace that scoping. Build log
+  groups use `/aws/codebuild/zenith-*`, inside the existing workload log grant.
 - Secrets: compile references only (Secrets Manager/SSM ARN, Secret Manager
   resource name, Key Vault secret id). No secret value is ever in a
   fragment. Generated credentials (DB master password) use the provider's

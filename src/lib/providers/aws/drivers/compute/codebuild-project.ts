@@ -52,6 +52,7 @@
  */
 import { BatchGetProjectsCommand, CodeBuildClient, ListProjectsCommand, type Project } from "@aws-sdk/client-codebuild";
 import type { AwsSession } from "@/lib/credentials/types";
+import { BUILD_ROLE_SUFFIX, NAME_PREFIX } from "@/lib/credentials/aws/naming";
 import type { CompileContext, DiscoveredResource, ResourceDriver } from "@/lib/drivers/types";
 import type { Observation, ResourceNode } from "@/lib/resources/types";
 import type { BuildPipelineSpec } from "@/lib/resources/specs";
@@ -165,6 +166,10 @@ const compile = (node: ResourceNode, ctx: CompileContext) =>
     const sourcePrefix = sourcePrefixFor(ctx.environmentId);
     if (!sourcePrefix) throw new ComputeCompileError("invalid_spec", "source environment must be a safe identifier without path or wildcard characters.");
     const name = nodeName(node.address);
+    const projectName = cloudName(ctx.namePrefix, name, 255);
+    // WorkloadLogs allows /aws/*/zenith-*; refuse an unusable project rather
+    // than broadening the boundary for arbitrary application log groups.
+    if (!projectName.startsWith(NAME_PREFIX)) throw new ComputeCompileError("invalid_spec", "build project names must start with zenith- to satisfy the workload boundary.");
     const b = new Frag(node.address);
     const env = environmentData(b, label, ctx.region);
 
@@ -176,10 +181,11 @@ const compile = (node: ResourceNode, ctx: CompileContext) =>
     if (!registry && !site) throw new ComputeCompileError("invalid_spec", "the pipeline has no output (a registry or a static site).");
 
     const src = emitPrivateBucket(b, node, ctx, { label: `${label}_src`, nameBase: `${name}-src`, expireAfterDays: SOURCE_EXPIRY_DAYS, expirePrefix: sourcePrefix });
-    const projectName = cloudName(ctx.namePrefix, name, 255);
     const logs = b.resource("aws_cloudwatch_log_group", `${label}_logs`, { name: `/aws/codebuild/${projectName}`, retention_in_days: 30, tags: tagsFor(ctx, node) });
 
-    const roleName = cloudName(ctx.namePrefix, `${name}-build`, 64);
+    // Preserve the principal discriminator even when cloudName hashes a long
+    // or rewritten name. Short, already valid role names remain unchanged.
+    const roleName = `${cloudName(ctx.namePrefix, name, 64 - BUILD_ROLE_SUFFIX.length)}${BUILD_ROLE_SUFFIX}`;
     const role = b.resource("aws_iam_role", label, {
       name: roleName,
       assume_role_policy: assumeRoleJson("codebuild.amazonaws.com"),

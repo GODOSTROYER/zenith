@@ -27,6 +27,14 @@ export const TAG_CAPABILITY = "zenith:capability";
 
 export const NAME_PREFIX = "zenith-";
 
+/**
+ * Reserved for CodeBuild service roles, never application identities. The
+ * driver appends this suffix AFTER cloudName truncates/hashes the base. The
+ * bootstrap policy generator verifies its PrincipalArn against this pattern.
+ */
+export const BUILD_ROLE_SUFFIX = "-build";
+export const BUILD_ROLE_NAME_PATTERN = `${NAME_PREFIX}*${BUILD_ROLE_SUFFIX}`;
+
 /** Environment ids embedded in ARN patterns: no wildcards, no policy variables, no separators. */
 export const ENVIRONMENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 

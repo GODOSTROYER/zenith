@@ -43,7 +43,7 @@ import type { CompileContext } from "@/lib/drivers/types";
 import type { PortableKind, ResourceNode } from "@/lib/resources/types";
 import { DriverCompileError } from "./errors";
 import { FragmentBuilder } from "./fragment";
-import { addressSlug, cloudName, tfLabel } from "./names";
+import { addressSlug, cloudName, tfLabel, tfLiteral } from "./names";
 import { REF, refExpr } from "./refs";
 import { resourceTags } from "./tags";
 import { networkAddressOf } from "./topology";
@@ -85,7 +85,7 @@ export function addSecurityGroup(b: FragmentBuilder, node: ResourceNode, ctx: Co
   const tags = resourceTags(ctx.tags, node.address, name);
   const address = b.resource("aws_security_group", label, {
     name,
-    description: `Zenith managed security group for ${node.address}`.slice(0, 255),
+    description: tfLiteral(`Zenith managed security group for ${node.address}`).slice(0, 255),
     vpc_id: vpc,
     tags,
   });

@@ -102,7 +102,7 @@ export class DriverCompileError extends Error {
   readonly code: CompileErrorCode;
   readonly address: string;
   constructor(code: CompileErrorCode, address: string, message: string) {
-    super(`${address}: ${message}`);
+    super(scrubErrorText(`${address}: ${message}`, 400));
     this.name = "DriverCompileError";
     this.code = code;
     this.address = address;

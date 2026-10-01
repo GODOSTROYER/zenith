@@ -81,3 +81,13 @@ export function cloudName(prefix: string, name: string, max: number): string {
 export function addressSlug(address: string): string {
   return address.replace(/[/_.]/g, "-");
 }
+
+/**
+ * Make `text` a LITERAL inside a tofu string: `${` and `%{` would otherwise start
+ * an interpolation or directive, evaluated by tofu on the runner. Manifest- and
+ * graph-derived text (descriptions, addresses in tags) is data, never an expression.
+ * `$${` and `%%{` are tofu's escapes for the literal characters.
+ */
+export function tfLiteral(text: string): string {
+  return text.replace(/\$\{/g, () => "$${").replace(/%\{/g, () => "%%{");
+}

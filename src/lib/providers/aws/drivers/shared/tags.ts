@@ -11,6 +11,8 @@
  * defaults (ALB deletion protection). An absent tag means "not production".
  */
 
+import { tfLiteral } from "./names";
+
 export const TAG_WORKSPACE = "zenith:workspace";
 export const TAG_ENVIRONMENT = "zenith:environment";
 export const TAG_RESOURCE = "zenith:resource";
@@ -50,7 +52,8 @@ export function fromAwsTagList(list: AwsTag[] | undefined): Record<string, strin
 export function resourceTags(ctxTags: Record<string, string>, address: string, name?: string): Record<string, string> {
   const tags: Record<string, string> = { ...ctxTags, [TAG_RESOURCE]: address };
   if (name !== undefined) tags.Name = name;
-  return Object.fromEntries(sortedEntries(tags));
+  // Values are data: escape interpolation so a hostile address or tag can never run as an expression.
+  return Object.fromEntries(sortedEntries(tags).map(([k, v]) => [k, tfLiteral(String(v))]));
 }
 
 export function isProductionEnvironment(ctxTags: Record<string, string>): boolean {

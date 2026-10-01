@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "zenith-runner.fullname" . }}
+  labels:
+    {{- include "zenith-runner.labels" . | nindent 4 }}
+data:
+  config.json: |
+    {{- include "zenith-runner.config" . | nindent 4 }}

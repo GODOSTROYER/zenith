@@ -1,0 +1,48 @@
+# /etc/zenithd/config.yaml: zenithd example configuration.
+# Everything not listed here is OFF: zenithd can inspect the machine and run
+# checks, and nothing else, until you open a guard below.
+controlPlane:
+  url: https://zenith.example.com
+name: web-1
+labels:
+  environment: production
+
+# Only these units may be restarted (exact names or * wildcards). Keep the list
+# identical to the polkit rule. Empty or absent: machine.service.restart is off.
+services:
+  restartAllow:
+    - nginx.service
+    - myapp@*.service
+
+# Only files under these paths may be read (symbolic links are resolved first and
+# may not lead outside). zenithd's own state directory is never readable.
+files:
+  readAllow:
+    - /var/log/nginx
+    - /etc/nginx/nginx.conf
+  maxReadBytes: 1048576
+
+# Docker Engine operations (list, inspect, logs). Off by default: access to the
+# Docker socket is root-equivalent on the host, see docs/platform/ZENITHD.md.
+containers:
+  enabled: false
+  # socket: /var/run/docker.sock
+
+# machine.exec and container.exec: the escape hatch. Off by default. Enabling it
+# lets the control plane run programs as this service user (argv only, no shell,
+# bounded time and output). allowArgv0 narrows it to specific executables.
+exec:
+  enabled: false
+  # allowArgv0:
+  #   - /usr/bin/ss
+  #   - /usr/bin/df
+
+limits:
+  defaultTimeoutSec: 30
+  maxTimeoutSec: 300
+  defaultOutputBytes: 65536
+  maxOutputBytes: 1048576
+
+log:
+  level: info
+  format: json

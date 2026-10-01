@@ -1,0 +1,15 @@
+# Adds the Kubernetes API proxy with a read-only allowlist. Grant the runner's
+# ServiceAccount matching RBAC (get/list on these resources) separately.
+config:
+  kinds:
+    k8s.http:
+      enabled: true
+      allow:
+        infrastructure.observe:
+          - "GET /api/v1/namespaces"
+          - "GET /api/v1/namespaces/*/pods"
+          - "GET /api/v1/namespaces/*/pods/*"
+          - "GET /api/v1/namespaces/*/events"
+          - "GET /apis/apps/v1/namespaces/*/deployments/**"
+        logs.read:
+          - "GET /api/v1/namespaces/*/pods/*/log"

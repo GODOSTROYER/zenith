@@ -620,8 +620,8 @@
       "id": "WS-LIVE",
       "title": "Live-cloud acceptance harness, scenarios A-J, cleanup, evidence",
       "wave": 3,
-      "owner": "worker",
-      "state": "in_progress",
+      "owner": "sonnet → codex gpt-6.1-sol xhigh",
+      "state": "integrated",
       "deps": [
         "WS-CRED",
         "WS-TOFU"
@@ -631,7 +631,10 @@
         "scripts/acceptance/**",
         "docs/platform/ACCEPTANCE.md"
       ],
-      "notes": "handed to Codex gpt-6.1-sol xhigh (Sonnet session limit; user switched all agents to Codex)"
+      "notes": "handed to Codex gpt-6.1-sol xhigh (Sonnet session limit; user switched all agents to Codex)",
+      "commit": "00d7c03",
+      "tests": "tests/acceptance 101+ passed (real tofu-destroy test ran outside the Codex sandbox); Demo J ran locally 10/10; A-I dry-run only",
+      "review": "orchestrator: merged; README harness statement updated; no live run (B-AWS-LIVE)"
     },
     {
       "id": "WS-BRIDGE",
@@ -696,6 +699,28 @@
       "notes": "Codex job"
     },
     {
+      "id": "WS-MACH-ALIGN",
+      "title": "Align zenithd results with the TS machine contract; dispatcher, session provider, machine capabilities in execution",
+      "wave": 3,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-MACH",
+        "WS-GO",
+        "WS-RUNSRV",
+        "WS-ACT"
+      ],
+      "paths": [
+        "go/internal/machine/**",
+        "src/lib/machines/**",
+        "src/lib/execution/capability.ts",
+        "tests/machines/**",
+        "tests/runners/**",
+        "tests/execution/**"
+      ],
+      "branch": "ws/mach-align"
+    },
+    {
       "id": "WS-TOFU-SEC",
       "title": "Fix SEC-F5: HCL template scanner + function allowlist replaces the regex expression guard",
       "wave": 4,
@@ -710,6 +735,24 @@
       ],
       "branch": "ws/tofu-sec",
       "notes": "SEC-F5 HIGH: comment between file and ( bypassed the regex; real tofu read the file. Allowlist also closes SEC-F4 (nonsensitive)."
+    },
+    {
+      "id": "WS-REF",
+      "title": "Execution compile resolves cross-node refs the way drivers publish them (AWS locals, OCI primary address)",
+      "wave": 3,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-ACT",
+        "WS-AWS-INTEGRATE"
+      ],
+      "paths": [
+        "src/lib/execution/compile.ts",
+        "src/lib/drivers/refs.ts",
+        "tests/execution/compile-refs*"
+      ],
+      "branch": "ws/ref",
+      "notes": "orchestrator review: execution ctx.ref returned ${primary.attr}; AWS refs like target_group_arn:<t> only exist as locals and fail the ATTRIBUTE regex — blocks any real AWS deploy with a load balancer"
     }
   ],
   "blockers": [

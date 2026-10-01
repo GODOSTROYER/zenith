@@ -24,7 +24,7 @@ import type { AwsSession } from "@/lib/credentials/types";
 import { attributesOf, boundNative, cloudName, failedObservation, hasZenithManagedTag, nodeName, paginate, parseArn, standardVerification, tfLabel, unknownValue } from "./support/aws-shared";
 import { compileNode, specOf } from "./support/driver-util";
 import { failureOf, findByTags, listByType, tagsOf, type AwsCtx } from "./support/sdk";
-import { Frag, attr, renderJsonText, tagsFor } from "./support/tf";
+import { Frag, attr, renderJsonText, tagsFor, type TfText } from "./support/tf";
 import { DRIVER_IDS } from "./types";
 
 const ID = DRIVER_IDS.ecrRepository;
@@ -36,7 +36,7 @@ const ATTRIBUTES = ["scanOnPush", "tagMutability", "encryption", "lifecycleKeepL
 
 /* --------------------------------- compile -------------------------------- */
 
-export function lifecyclePolicyText(): string {
+export function lifecyclePolicyText(): TfText {
   return renderJsonText({
     rules: [
       {

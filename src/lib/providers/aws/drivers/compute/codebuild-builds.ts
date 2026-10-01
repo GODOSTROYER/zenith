@@ -88,7 +88,7 @@ export async function startBuild(ctx: Ctx, node: ResourceNode, input: StartBuild
   const build = res.build;
   if (!build?.id) throw new Error("StartBuild returned no build id.");
   ctx.log(`build started for ${node.address}: ${build.id}`);
-  return { buildId: build.id, status: build.buildStatus ?? "IN_PROGRESS", ...(build.buildNumber !== undefined ? { buildNumber: build.buildNumber } : {}), requestIds: res.$metadata.requestId ? [res.$metadata.requestId] : [] };
+  return { buildId: build.id, status: build.buildStatus ?? "IN_PROGRESS", ...(build.buildNumber !== undefined ? { buildNumber: build.buildNumber } : {}), requestIds: res.$metadata?.requestId ? [res.$metadata?.requestId] : [] };
 }
 
 /* ---------------------------------- waiting -------------------------------- */
@@ -166,5 +166,5 @@ export async function stopBuild(ctx: Ctx, buildId: string): Promise<{ status?: s
   if (typeof buildId !== "string" || !BUILD_ID.test(buildId)) throw new OperationRefused("buildId is not a CodeBuild build id (<project>:<uuid>).");
   const cb = ctx.session.client(CodeBuildClient);
   const res = await cb.send(new StopBuildCommand({ id: buildId }), { abortSignal: ctx.signal });
-  return { status: res.build?.buildStatus, requestIds: res.$metadata.requestId ? [res.$metadata.requestId] : [] };
+  return { status: res.build?.buildStatus, requestIds: res.$metadata?.requestId ? [res.$metadata?.requestId] : [] };
 }

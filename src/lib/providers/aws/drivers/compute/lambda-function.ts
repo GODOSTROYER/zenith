@@ -294,7 +294,7 @@ export const invokeFunction: NativeOperation<AwsSession> = async (ctx, node, inp
       ok: !failed,
       summary: failed ? `${node.address} ${res.FunctionError ? `returned ${res.FunctionError}` : `answered HTTP ${res.StatusCode}`}.` : `Invoked ${node.address}${dryRun ? " (dry run)" : ""}.`,
       data: { statusCode: res.StatusCode, ...(res.FunctionError ? { functionError: res.FunctionError } : {}), ...(res.ExecutedVersion ? { executedVersion: res.ExecutedVersion } : {}), dryRun, responseBytes: bounded.bytes, ...(bounded.response !== undefined ? { response: bounded.response } : {}), truncated: bounded.truncated },
-      ...(res.$metadata.requestId ? { requestIds: [res.$metadata.requestId] } : {}),
+      ...(res.$metadata?.requestId ? { requestIds: [res.$metadata?.requestId] } : {}),
       simulated: false,
     };
   } catch (e) {

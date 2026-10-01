@@ -25,9 +25,18 @@
  * When a load balancer routes to this node the service gets one
  * `load_balancer` block per routed container port, attached to the target
  * group the load balancer node published for this target (`ctx.ref(lb,
- * "target_group_arn:<this address>")`). ECS refuses to create a service whose
- * target group is not yet attached to a listener, so the service waits for a
- * readiness value the load balancer node publishes (`lbReadiness` below).
+ * "target_group_arn:<this address>")`, one per port when several are routed).
+ *
+ * ORDERING LIMIT: ECS refuses CreateService for a target group that no
+ * listener rule forwards to yet, and the listener rule lives in the load
+ * balancer node's fragment, which this node can only reference through the
+ * published target-group ARN. So on the FIRST apply the service depends on the
+ * target group but not on its listener rule; OpenTofu creates them in
+ * parallel and the provider's CreateService retries the "does not have an
+ * associated load balancer" error until the rule exists (from the provider's
+ * behaviour as recalled, NOT verified against an account). If that proves
+ * wrong, the load balancer driver should publish a `rule_ready:<target>`
+ * attribute for this node to gate on (handoff: integration notes).
  */
 import type { CompileContext, TofuFragment } from "@/lib/drivers/types";
 import type { ResourceNode } from "@/lib/resources/types";
@@ -35,7 +44,7 @@ import type { ContainerServiceSpec, LoadBalancerSpec } from "@/lib/resources/spe
 import { cloudName, nodeName, targetGroupAttribute, tfLabel } from "./support/aws-shared";
 import { compileNode, intField, specOf } from "./support/driver-util";
 import { dependencies } from "./support/refs";
-import { ComputeCompileError, Frag, attr, dependsOnTarget, rawRef, refOf, tagsFor } from "./support/tf";
+import { ComputeCompileError, Frag, attr, refOf, tagsFor } from "./support/tf";
 import { emitTask } from "./ecs-task";
 import { fargateSize } from "./support/fargate";
 import { parseImageRef } from "./support/image";
@@ -87,11 +96,6 @@ export function compileEcsService(node: ResourceNode, ctx: CompileContext): Tofu
           container_port: port,
         });
       }
-      const gate = lbReadiness(ctx, routed.lb, node);
-      if (gate) {
-        const ready = b.resource("terraform_data", `${label}_lb_ready`, { input: gate });
-        dependsOn.push(dependsOnTarget(ready));
-      }
       healthGrace = 60;
     }
 
@@ -120,20 +124,6 @@ export function compileEcsService(node: ResourceNode, ctx: CompileContext): Tofu
     b.expose("name", attr(service, "name"));
     return b.build(service);
   });
-}
-
-/**
- * The readiness value a load balancer node publishes once the target group
- * for `target` is attached to a listener (`ready:<target address>`). The ECS
- * service waits for it through a `terraform_data` gate. Returns `undefined`
- * when the load balancer does not publish one (the service then relies on the
- * target-group reference alone).
- */
-function lbReadiness(ctx: CompileContext, lb: ResourceNode, target: ResourceNode) {
-  void ctx;
-  void lb;
-  void target;
-  return undefined as ReturnType<typeof rawRef> | undefined;
 }
 
 /* --------------------------------- expected ------------------------------- */

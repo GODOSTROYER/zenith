@@ -25,7 +25,7 @@
  */
 import type { CompileContext, TofuFragment } from "@/lib/drivers/types";
 import type { ResourceNode } from "@/lib/resources/types";
-import { bareExpr, FragmentBuilder as SharedFragmentBuilder, resourceTags } from "./aws-shared";
+import { bareExpr, FragmentBuilder as SharedFragmentBuilder } from "./aws-shared";
 
 export class ComputeCompileError extends Error {
   readonly code: "invalid_spec" | "missing_neighbour" | "unsupported" | "invalid_reference";
@@ -39,7 +39,19 @@ export class ComputeCompileError extends Error {
 /* ------------------------------ escaping / refs --------------------------- */
 
 /** Escape text so HCL renders it literally. */
-export const escapeTemplate = (s: string): string => s.replace(/\$\{/g, "$${").replace(/%\{/g, "%%{");
+// Replacer FUNCTIONS, not strings: in a replacement string `$$` means one literal `$`,
+// so `"$${"` would silently turn `${` into `${` again and escape nothing.
+export const escapeTemplate = (s: string): string => s.replace(/\$\{/g, () => "$${").replace(/%\{/g, () => "%%{");
+
+/**
+ * Template text that has ALREADY been rendered (a JSON document with its
+ * interpolations in place). `render` passes it through untouched: rendering it
+ * a second time would escape the interpolations and turn every reference into
+ * literal text.
+ */
+export class TfText {
+  constructor(readonly text: string) {}
+}
 
 /** A reference: an HCL expression that is meant to be evaluated, not printed. */
 export class TfRef {
@@ -89,6 +101,7 @@ export function render(value: unknown, json = false): unknown {
   if (value === undefined) return undefined;
   if (value === null || typeof value === "number" || typeof value === "boolean") return value;
   if (typeof value === "string") return escapeTemplate(value);
+  if (value instanceof TfText) return value.text;
   if (value instanceof TfRef) return interpolation(value, json);
   if (value instanceof TfCat) return value.parts.map((p) => (typeof p === "string" ? escapeTemplate(p) : interpolation(p, json))).join("");
   if (Array.isArray(value)) return value.map((v) => render(v, json) ?? null);
@@ -107,15 +120,19 @@ export function render(value: unknown, json = false): unknown {
  * A JSON document handed to tofu as a string. Refs inside become
  * interpolations, so they must not evaluate to text containing quotes.
  */
-export function renderJsonText(value: unknown): string {
-  return JSON.stringify(render(value, true));
+export function renderJsonText(value: unknown): TfText {
+  return new TfText(JSON.stringify(render(value, true)));
 }
 
 /* ---------------------------------- tags ---------------------------------- */
 
 /** Tags for a taggable resource: `ctx.tags` + `zenith:resource` (+ `Name`), keys sorted. */
 export function tagsFor(ctx: CompileContext, node: ResourceNode, name?: string): Record<string, string> {
-  return resourceTags(ctx.tags, node.address, name);
+  // Raw values on purpose: `render()` escapes every string in a body exactly once. The shared
+  // `resourceTags` now escapes template text itself (for builders that do not render), which
+  // would escape a hostile value twice here.
+  const tags: Record<string, string> = { ...ctx.tags, "zenith:resource": node.address, ...(name !== undefined ? { Name: name } : {}) };
+  return Object.fromEntries(Object.entries(tags).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
 }
 
 /* ----------------------------- fragment builder --------------------------- */
@@ -222,7 +239,7 @@ export function assertLeastPrivilege(statements: readonly PolicyStatement[], whe
 }
 
 /** Render statements to the JSON text of an IAM policy document (after the least-privilege check). */
-export function policyJson(statements: readonly PolicyStatement[], where: string): string {
+export function policyJson(statements: readonly PolicyStatement[], where: string): TfText {
   assertLeastPrivilege(statements, where);
   return renderJsonText({
     Version: "2012-10-17",
@@ -235,7 +252,7 @@ export function policyJson(statements: readonly PolicyStatement[], where: string
 }
 
 /** Trust policy text for a service principal. */
-export function assumeRoleJson(servicePrincipal: string): string {
+export function assumeRoleJson(servicePrincipal: string): TfText {
   return renderJsonText({
     Version: "2012-10-17",
     Statement: [{ Effect: "Allow", Principal: { Service: servicePrincipal }, Action: "sts:AssumeRole" }],

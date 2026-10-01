@@ -1,6 +1,6 @@
 /**
  * SNAPSHOT of WS-AWS-NET's `src/lib/providers/aws/drivers/shared/**` (branch
- * ws/aws-net, commit 123f0f5 plus its working-tree changes at 2026-09-30, re-sync before handoff), copied verbatim into this group because the
+ * ws/aws-net, commit ac70f4e plus its uncommitted working-tree changes, re-synced 2026-10-01), copied verbatim into this group because the
  * compute branch cannot import a module that only exists on another branch.
  *
  * CONSOLIDATION: delete this directory and change `./aws-shared` imports in

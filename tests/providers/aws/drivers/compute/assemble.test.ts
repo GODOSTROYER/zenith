@@ -68,6 +68,14 @@ describe("compute drivers assemble into one workspace", () => {
     expect(all).not.toMatch(/provisioner|"connection"|file\(|templatefile\(/);
     expect(all).not.toMatch(/AKIA[0-9A-Z]{16}/);
   });
+
+  it("no reference is double-escaped: nothing in the graph carries user text with `${`, so no `$${` may appear", () => {
+    const { ws } = fullWorkspace();
+    const main = ws.files.find((f) => f.path === "main.tf.json")!.content;
+    expect(main).not.toContain("$${");
+    // and the interpolations inside JSON documents are live
+    expect(main).toMatch(/\\"valueFrom\\":\\"\$\{local\./);
+  });
 });
 
 const enabled = process.env.ZENITH_TEST_TOFU_NETWORK === "1" && tofuOnPath();

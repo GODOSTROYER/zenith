@@ -818,10 +818,12 @@
       "title": "Ledger edges (suspend for approval, plan digest, policy decision, cancel running); no raw SQL in execution",
       "wave": 5,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "branch": "ws/db-ledger",
       "deps": [],
-      "paths": []
+      "paths": [],
+      "tests": "controlplane/execution/capabilities/docs/ci/agent-v3/bridge 1396+ passed; emit-sql --check current; real-Postgres lane NOT run (Docker down)",
+      "review": "orchestrator: merged; migration 4 reviewed (per-round approver uniqueness, history kept); DEPLOYING migration count updated; WS-CAP denyOperation wiring left as follow-up"
     },
     {
       "id": "WS-SEC-POLICY",

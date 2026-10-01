@@ -385,8 +385,10 @@ applied), turns row level security on for every table with no policies, and
 revokes `anon` and `authenticated`. **`platform` must never be added to the Data
 API's exposed schemas.**
 
-Three migrations exist today: `core` (1), `reconcile` (2) and `machine_requests` (3,
-the `zenithd` request queue). A database that applied the emitted SQL before a later
+Four migrations exist today: `core` (1), `reconcile` (2), `machine_requests` (3,
+the `zenithd` request queue) and `approval_rounds` (4: a plan-level approval after
+execution starts opens a new approval round, so the same human can review again once
+per round while earlier decisions stay as immutable history). A database that applied the emitted SQL before a later
 migration landed is behind and the application refuses to use it until you re-apply
 the file or run `npm run migrate:platform`.
 

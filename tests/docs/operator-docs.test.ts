@@ -412,11 +412,11 @@ describe("the 'in progress' claims still hold", () => {
     expect(read(path.join(REPO_ROOT, "next.config.ts"))).toContain("outputFileTracingIncludes");
     expect(read(path.join(REPO_ROOT, "next.config.ts"))).toContain("policy/dist");
     expect(read(path.join(REPO_ROOT, "docker", "worker.Dockerfile"))).toContain("policy/dist");
-    // 3. the migrations the guides count: core, reconcile and machine_requests (3)
+    // 3. the migrations the guides count: core, reconcile, machine_requests and approval_rounds (4)
     const index = read(path.join(REPO_ROOT, "src", "lib", "controlplane", "db", "migrations", "index.ts"));
-    expect(index).toContain("[migration0001Core, migration0002Reconcile, migration0003MachineRequests]");
-    expect(read(path.join(REPO_ROOT, "src", "lib", "controlplane", "db", "migrations", "0003_machine_requests.ts"))).toContain("version: 3,");
-    expect(squash(guide("DEPLOYING.md"))).toContain("Three migrations exist today");
+    expect(index).toContain("[migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds]");
+    expect(read(path.join(REPO_ROOT, "src", "lib", "controlplane", "db", "migrations", "0004_approval_rounds.ts"))).toContain("version: 4,");
+    expect(squash(guide("DEPLOYING.md"))).toContain("Four migrations exist today");
     expect(guide("DEPLOYING.md")).toContain("src/middleware.ts");
   });
 

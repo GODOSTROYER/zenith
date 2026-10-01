@@ -54,7 +54,7 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-CLI | zenith CLI over the SDK and MCP v3 | 5 | in_progress |  | ws/cli |  |  |  |  |
 | WS-UI-WIRE | Platform pages wired to REST; resource/drift read routes | 5 | in_progress |  | ws/ui-wire |  |  |  |  |
 | WS-K8S-CONTRACT | K8s apply accepts ResourceQuota/LimitRange/HTTPRoute; namespace spec field; zenith native-type row | 5 | integrated |  | ws/k8s-contract |  | 1061 passed (worker); integration broad sweep 6455 passed / 0 failed incl. real tofu | orchestrator: merged; capability matrix regenerated |  |
-| WS-DB-LEDGER | Ledger edges (suspend for approval, plan digest, policy decision, cancel running); no raw SQL in execution | 5 | in_progress |  | ws/db-ledger |  |  |  |  |
+| WS-DB-LEDGER | Ledger edges (suspend for approval, plan digest, policy decision, cancel running); no raw SQL in execution | 5 | integrated |  | ws/db-ledger |  | controlplane/execution/capabilities/docs/ci/agent-v3/bridge 1396+ passed; emit-sql --check current; real-Postgres lane NOT run (Docker down) | orchestrator: merged; migration 4 reviewed (per-round approver uniqueness, history kept); DEPLOYING migration count updated; WS-CAP denyOperation wiring left as follow-up |  |
 | WS-SEC-POLICY | Fix SEC-F8, SEC-F10, SEC-F1 | 5 | integrated |  | ws/sec-policy |  | policy 207/207 (opa 1.19.1, rebuilt outside sandbox, sha 4d024850…); security/policy/credentials/agent-access/capabilities 1092 passed | orchestrator: rebuilt bundle; removed F1/F10 characterisation tests per the suite procedure |  |
 | WS-SEC-LEAKS | Fix SEC-R1, SEC-F11, SEC-F12, SEC-F13 | 5 | in_progress |  | ws/sec-leaks |  |  |  |  |
 | WS-GO-OCI | oci.http runner job kind in Go | 5 | in_progress |  | ws/go-oci |  |  |  |  |

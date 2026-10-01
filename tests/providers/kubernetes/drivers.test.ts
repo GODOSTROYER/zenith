@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { isCapability } from "@/lib/capabilities/catalog";
-import { getDriver, listDrivers } from "@/lib/drivers/types";
+import { findDriver, getDriver, listDrivers } from "@/lib/drivers/types";
 import { serverSideApply } from "@/lib/providers/kubernetes/apply";
 import { kubernetesDrivers, registerKubernetesDrivers, registerZenithManagedDrivers } from "@/lib/providers/kubernetes/drivers";
 import { renderGraph } from "@/lib/providers/kubernetes/render";
@@ -56,18 +56,20 @@ describe("registration", () => {
     }
   });
 
-  it("registers the same drivers under provider zenith, idempotently, without touching the kubernetes ones", () => {
+  it("registers legacy raw Kubernetes aliases idempotently without claiming managed-service coverage", () => {
     const before = listDrivers("kubernetes").length;
     const first = registerZenithManagedDrivers();
     registerZenithManagedDrivers();
     expect(first).toHaveLength(kubernetesDrivers.length);
     expect(listDrivers("zenith")).toHaveLength(kubernetesDrivers.length);
     expect(listDrivers("kubernetes")).toHaveLength(before);
-    for (const nativeType of new Set(Object.values(NATIVE_TYPE_TABLE.zenith))) {
+    for (const nativeType of new Set(Object.values(NATIVE_TYPE_TABLE.kubernetes))) {
       const d = getDriver("zenith", nativeType);
       expect(d.id.startsWith("zenith.")).toBe(true);
       expect(d.provider).toBe("zenith");
     }
+    expect(findDriver("zenith", "zenith:managed_postgres")).toBeUndefined();
+    expect(findDriver("zenith", "zenith:object_store")).toBeUndefined();
     expect(getDriver("kubernetes", "k8s:Deployment").id).toBe("kubernetes.deployment@1");
     expect(getDriver("zenith", "k8s:Deployment").capabilities.operations).toEqual(getDriver("kubernetes", "k8s:Deployment").capabilities.operations);
   });

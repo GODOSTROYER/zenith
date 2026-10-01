@@ -98,6 +98,8 @@ export interface ObjectRef {
 export const KIND_INFO = {
   Namespace: { apiVersion: "v1", namespaced: false },
   ServiceAccount: { apiVersion: "v1", namespaced: true },
+  ResourceQuota: { apiVersion: "v1", namespaced: true },
+  LimitRange: { apiVersion: "v1", namespaced: true },
   Secret: { apiVersion: "v1", namespaced: true },
   PersistentVolumeClaim: { apiVersion: "v1", namespaced: true },
   Service: { apiVersion: "v1", namespaced: true },
@@ -108,6 +110,7 @@ export const KIND_INFO = {
   HorizontalPodAutoscaler: { apiVersion: "autoscaling/v2", namespaced: true },
   Certificate: { apiVersion: "cert-manager.io/v1", namespaced: true },
   Ingress: { apiVersion: "networking.k8s.io/v1", namespaced: true },
+  HTTPRoute: { apiVersion: "gateway.networking.k8s.io/v1", namespaced: true },
   DNSEndpoint: { apiVersion: "externaldns.k8s.io/v1alpha1", namespaced: true },
 } as const;
 export type SupportedKind = keyof typeof KIND_INFO;
@@ -120,6 +123,8 @@ export type SupportedKind = keyof typeof KIND_INFO;
 export const APPLY_ORDER: readonly SupportedKind[] = [
   "Namespace",
   "ServiceAccount",
+  "ResourceQuota",
+  "LimitRange",
   "Secret",
   "PersistentVolumeClaim",
   "NetworkPolicy",
@@ -130,6 +135,7 @@ export const APPLY_ORDER: readonly SupportedKind[] = [
   "HorizontalPodAutoscaler",
   "Certificate",
   "Ingress",
+  "HTTPRoute",
   "DNSEndpoint",
 ];
 

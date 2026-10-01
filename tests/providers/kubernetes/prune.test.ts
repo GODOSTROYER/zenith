@@ -158,7 +158,7 @@ describe("pruneOrphans", () => {
     await deployAll([networkNode()]);
     fake.setCrds(false);
     const r = await prune([]);
-    expect(r.skippedKinds).toEqual(["Certificate", "DNSEndpoint"]);
+    expect(r.skippedKinds).toEqual(["Certificate", "DNSEndpoint", "HTTPRoute"]);
     expect(r.failed).toEqual([]);
   });
 

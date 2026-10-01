@@ -8,9 +8,10 @@
  * `expectedAttributes` / `compile`. Every spec is plain JSON and holds NO
  * secret value: a secret appears only as `{ key, secretRef }`.
  *
- * Kinds not listed (compute_instance, function, mysql, pubsub, volume,
- * kubernetes_*) are never produced by expansion today; `provider_native` nodes
- * carry `{ type, config }` where `config` is validated by the native registry.
+ * Kinds not listed (compute_instance, function, mysql, pubsub, kubernetes_*)
+ * and the typed volume kind are never produced by expansion today;
+ * `provider_native` nodes carry `{ type, config }` where `config` is validated
+ * by the native registry.
  */
 
 /** Where a workload's runnable artifact comes from. */
@@ -39,6 +40,7 @@ export interface SubnetSpec {
 }
 
 export interface FirewallSpec {
+  namespace?: string;
   direction: "ingress";
   protocol: "tcp";
   port: number;
@@ -63,6 +65,7 @@ export interface LoadBalancerRoute {
 }
 
 export interface LoadBalancerSpec {
+  namespace?: string;
   scheme: "internet-facing";
   tier: "public";
   listeners: { port: number; protocol: "http" | "https"; redirectToHttps?: boolean }[];
@@ -76,6 +79,7 @@ export interface DnsZoneSpec {
 }
 
 export interface DnsRecordSpec {
+  namespace?: string;
   name: string;
   /** `alias` = provider alias/CNAME to the target node; the driver picks the record type */
   type: "alias";
@@ -84,6 +88,7 @@ export interface DnsRecordSpec {
 }
 
 export interface TlsCertificateSpec {
+  namespace?: string;
   domain: string;
   /** `dns_manual`: the route sets managedDns=false, so the user creates the validation record */
   validation: "dns_automatic" | "dns_manual";
@@ -91,6 +96,8 @@ export interface TlsCertificateSpec {
 }
 
 interface WorkloadCommon {
+  /** Kubernetes namespace carried on the node so reads and operations need no graph. */
+  namespace?: string;
   size: string;
   vcpu: number;
   memoryMb: number;
@@ -115,12 +122,14 @@ export interface ScheduledJobSpec extends WorkloadCommon {
 }
 
 export interface StaticSiteSpec {
+  namespace?: string;
   size: string;
   artifact: ArtifactSpec;
 }
 
 /** Declared attributes only, for a `referenced`/`external` service Zenith does not run. */
 export interface ForeignServiceSpec {
+  namespace?: string;
   workload: string;
   size: string;
   replicas?: number;
@@ -129,6 +138,7 @@ export interface ForeignServiceSpec {
 }
 
 export interface DataStoreCommon {
+  namespace?: string;
   size: string;
   /** the manifest's kind-specific settings, verbatim */
   config?: Record<string, string | number | boolean>;
@@ -170,6 +180,7 @@ export interface ObjectStoreSpec extends ManagedDataCommon {
 export type QueueSpec = ManagedDataCommon;
 
 export interface SecretSpec {
+  namespace?: string;
   /** the reference, never a value */
   secretRef: string;
   store: "zenith_vault" | "provider_secret_manager";
@@ -185,6 +196,7 @@ export interface IdentityGrant {
 }
 
 export interface IdentitySpec {
+  namespace?: string;
   principal: "workload";
   workload: string;
   grants: IdentityGrant[];
@@ -205,4 +217,12 @@ export interface BuildPipelineSpec {
   output: { registry: string } | { staticSite: string };
   /** builds run in the customer's account (ADR-0016) */
   location: "customer_account";
+}
+
+/** Desired volume attributes; expansion does not emit volume nodes yet. */
+export interface VolumeSpec {
+  namespace?: string;
+  sizeGb: number;
+  storageClass?: string;
+  accessModes?: ("ReadWriteOnce" | "ReadOnlyMany" | "ReadWriteMany" | "ReadWriteOncePod")[];
 }

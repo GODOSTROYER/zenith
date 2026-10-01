@@ -18,7 +18,7 @@ import { PROD, bind, fullManifest, manifest, res, route, svc, v1Fixtures } from 
 type Shape = { required: string[]; optional?: string[] };
 
 const WORKLOAD = ["size", "vcpu", "memoryMb", "artifact", "env", "zones", "subnetTier"];
-const WORKLOAD_OPT = ["platformVersion", "shape", "ingress"];
+const WORKLOAD_OPT = ["platformVersion", "shape", "ingress", "namespace"];
 const MANAGED_DATA = ["size", "deletionPolicy", "encryption"];
 
 const shapeOf = (n: ResourceNode): Shape => {
@@ -26,33 +26,33 @@ const shapeOf = (n: ResourceNode): Shape => {
   switch (n.kind) {
     case "network": return { required: ["zones"], optional: ["cidr", "egress", "namespace"] };
     case "subnet": return { required: ["tier", "zone", "cidr", "network"] };
-    case "firewall": return { required: ["direction", "protocol", "port", "source", "target", "capability", "description"], optional: ["crossBoundary"] };
-    case "load_balancer": return { required: ["scheme", "tier", "listeners", "routes"], optional: ["ingressClass"] };
+    case "firewall": return { required: ["direction", "protocol", "port", "source", "target", "capability", "description"], optional: ["crossBoundary", "namespace"] };
+    case "load_balancer": return { required: ["scheme", "tier", "listeners", "routes"], optional: ["ingressClass", "namespace"] };
     case "dns_zone": return { required: ["name", "private"] };
-    case "dns_record": return { required: ["name", "type", "target", "zone"] };
-    case "tls_certificate": return { required: ["domain", "validation"], optional: ["zone"] };
+    case "dns_record": return { required: ["name", "type", "target", "zone"], optional: ["namespace"] };
+    case "tls_certificate": return { required: ["domain", "validation"], optional: ["zone", "namespace"] };
     case "container_service":
       return managed
         ? { required: [...WORKLOAD, "workload", "replicas"], optional: [...WORKLOAD_OPT, "port", "healthPath"] }
-        : { required: ["workload", "size"], optional: ["replicas", "port", "healthPath"] };
+        : { required: ["workload", "size"], optional: ["replicas", "port", "healthPath", "namespace"] };
     case "scheduled_job":
-      return managed ? { required: WORKLOAD, optional: [...WORKLOAD_OPT, "schedule"] } : { required: ["workload", "size"], optional: ["replicas", "port", "healthPath"] };
+      return managed ? { required: WORKLOAD, optional: [...WORKLOAD_OPT, "schedule"] } : { required: ["workload", "size"], optional: ["replicas", "port", "healthPath", "namespace"] };
     case "static_site":
-      return managed ? { required: ["size", "artifact"] } : { required: ["workload", "size"], optional: ["replicas", "port", "healthPath"] };
+      return managed ? { required: ["size", "artifact"], optional: ["namespace"] } : { required: ["workload", "size"], optional: ["replicas", "port", "healthPath", "namespace"] };
     case "postgres":
       return managed
-        ? { required: [...MANAGED_DATA, "engine", "version", "highAvailability", "backup", "credentials", "subnetTier", "zones"], optional: ["config", "instanceClass", "storageClass"] }
-        : { required: ["size"], optional: ["engine", "config"] };
+        ? { required: [...MANAGED_DATA, "engine", "version", "highAvailability", "backup", "credentials", "subnetTier", "zones"], optional: ["config", "instanceClass", "storageClass", "namespace"] }
+        : { required: ["size"], optional: ["engine", "config", "namespace"] };
     case "redis":
       return managed
-        ? { required: [...MANAGED_DATA, "engine", "highAvailability", "backup", "subnetTier", "zones"], optional: ["config", "instanceClass", "storageClass"] }
-        : { required: ["size"], optional: ["engine", "config"] };
+        ? { required: [...MANAGED_DATA, "engine", "highAvailability", "backup", "subnetTier", "zones"], optional: ["config", "instanceClass", "storageClass", "namespace"] }
+        : { required: ["size"], optional: ["engine", "config", "namespace"] };
     case "object_store":
-      return managed ? { required: [...MANAGED_DATA, "versioning", "publicAccess"], optional: ["config"] } : { required: ["size"], optional: ["config"] };
+      return managed ? { required: [...MANAGED_DATA, "versioning", "publicAccess"], optional: ["config", "namespace"] } : { required: ["size"], optional: ["config", "namespace"] };
     case "queue":
-      return managed ? { required: MANAGED_DATA, optional: ["config"] } : { required: ["size"], optional: ["config"] };
-    case "secret": return { required: ["secretRef", "store", "purpose"] };
-    case "identity": return { required: ["principal", "workload", "grants"] };
+      return managed ? { required: MANAGED_DATA, optional: ["config", "namespace"] } : { required: ["size"], optional: ["config", "namespace"] };
+    case "secret": return { required: ["secretRef", "store", "purpose"], optional: ["namespace"] };
+    case "identity": return { required: ["principal", "workload", "grants"], optional: ["namespace"] };
     case "log_group": return { required: ["workload", "retentionDays"] };
     case "container_registry": return { required: ["scanOnPush", "immutableTags"] };
     case "build_pipeline": return { required: ["source", "output", "location"] };
@@ -78,6 +78,7 @@ describe("expandManifest honours the pinned spec shapes (specs.ts)", () => {
     PROD,
     { ...PROD, class: "staging", name: "staging" },
     { ...PROD, provider: "kubernetes", region: "kind" },
+    { ...PROD, provider: "zenith", region: "zenith-managed" },
     { ...PROD, provider: "gcp", region: "us-central1" },
     { ...PROD, provider: "sandbox", region: "sim-1" },
   ];

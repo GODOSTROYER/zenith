@@ -74,7 +74,7 @@ import { findInlineSecretPaths, looksSecretKey, stripUrlCredentials } from "./se
 import { parseNativeConfig } from "./native-registry";
 import { buildContext, placesNeedingNetwork, tuningFor, type Ctx, type ExpandEnv, type SvcInfo } from "./expand-context";
 import { analyzeBindings, analyzeEnv, analyzeRoutes, grant, LB_ADDRESS } from "./expand-analyze";
-import { contain, emitTopology, netDeps, networkOrigins, type Topologies } from "./expand-topology";
+import { contain, emitTopology, netDeps, networkOrigins, propagateNamespaces, type Topologies } from "./expand-topology";
 import { emitFirewalls, emitRouting } from "./expand-routing";
 import { cmp, finalizeGraph, manifestDigest, ManifestExpansionError, secretAddress, uniqSorted } from "./expand-support";
 import type {
@@ -425,6 +425,7 @@ export function expandManifest(manifest: AnyManifest, env: ExpandEnv): ResourceG
   emitRouting(ctx, uses, topo, firewalls);
   emitFirewalls(ctx, firewalls);
   emitNatives(ctx);
+  propagateNamespaces(ctx, topo);
   noteCrossings(ctx);
   noteUnusedProviderConfig(ctx);
 

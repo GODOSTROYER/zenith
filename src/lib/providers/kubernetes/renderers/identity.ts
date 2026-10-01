@@ -60,7 +60,7 @@ export function renderSecret(node: ResourceNode, ctx: K8sRenderContext): RenderR
 
 const VOLUME_SIZES: Record<string, number> = { nano: 1, small: 5, standard: 20, performance: 100 };
 
-/** Spec shape of a `volume` node: not pinned in specs.ts (expansion does not emit volumes yet); read defensively. */
+/** Read VolumeSpec defensively, retaining the legacy size-tier fallback for hand-built nodes. */
 export function volumeStorageGi(node: ResourceNode): number {
   const s = specOf(node);
   if (s.sizeGb !== undefined) {

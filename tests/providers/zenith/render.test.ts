@@ -56,8 +56,14 @@ describe("assessZenithGraph", () => {
   });
 
   it("treats a node whose native type is unsupported as blocking", () => {
+    const n = mkNode("container_service/web", "container_service", WEB.spec, { nativeType: "unsupported:zenith:container_service" });
+    expect(n.nativeType).toBe("unsupported:zenith:container_service");
+    expect(assessZenithGraph([n]).unsupported).toHaveLength(1);
+  });
+
+  it("keeps object storage unsupported despite its explicit managed native type", () => {
     const n = mkNode("object_store/files", "object_store", {});
-    expect(n.nativeType).toBe("unsupported:zenith:object_store");
+    expect(n.nativeType).toBe("zenith:object_store");
     expect(assessZenithGraph([n]).unsupported).toHaveLength(1);
   });
 

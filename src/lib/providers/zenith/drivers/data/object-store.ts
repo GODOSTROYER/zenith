@@ -20,10 +20,9 @@
  * instead of a missing-driver error: observe is `unknown` with the reason,
  * verify is `failed` with the reason, and nothing is ever created or read.
  *
- * Registered under the contract table's native type for `object_store` on
- * `zenith` when it has one; today it has none, so expansion marks the node
- * `unsupported:zenith:object_store` and never reaches a driver. The string
- * below is the proposed contract value (see handoff).
+ * Registered under the contract table's `zenith:object_store` type so expanded
+ * nodes reach this explicit refusal. A native mapping is vocabulary, never
+ * a claim that the service has been implemented or verified.
  */
 import type { ResourceDriver } from "@/lib/drivers/types";
 import { assertSessionMatches, type ZenithSession } from "../../session";
@@ -31,6 +30,7 @@ import { tenantObjectPrefix } from "../../substrate";
 import { contractEvidence, observation, unknownValue } from "../common";
 
 export const OBJECT_STORE_DRIVER_ID = "zenith.object_store@1";
+/** Retained export for compatibility; this is now the accepted contract value. */
 export const PROPOSED_OBJECT_STORE_NATIVE_TYPE = "zenith:object_store";
 
 export const OBJECT_STORE_UNSUPPORTED_REASON =

@@ -10,7 +10,7 @@
  *   k8s:Ingress                 load_balancer            zenith.http_route@1         (own; Ingress driver in ingress mode)
  *   k8s:DNSEndpoint             dns_record               zenith.platform_dns@1       (platform-managed)
  *   k8s:Certificate             tls_certificate          zenith.platform_tls@1       (platform-managed)
- *   k8s:StatefulSet             postgres                 zenith.managed_postgres@1   (managed database; never a StatefulSet)
+ *   zenith:managed_postgres     postgres                 zenith.managed_postgres@1   (managed database)
  *   zenith:object_store         object_store             zenith.object_store@1       (unsupported, with the reason)
  *   k8s:Deployment              container_service,       zenith.deployment@1         (wraps the k8s driver)
  *                               static_site
@@ -62,7 +62,7 @@ export function createZenithDrivers(opts: ZenithDriverOptions): ZenithDriverSet 
     createHttpRouteDriver(toolkit, byType.get("k8s:Ingress")),
     createPlatformManagedDriver(toolkit, PLATFORM_DNS),
     createPlatformManagedDriver(toolkit, PLATFORM_TLS),
-    createManagedPostgresDriver(nativeTypeFor("zenith", "postgres") ?? "k8s:StatefulSet"),
+    createManagedPostgresDriver(nativeTypeFor("zenith", "postgres") ?? "zenith:managed_postgres"),
     createObjectStoreDriver(nativeTypeFor("zenith", "object_store") ?? PROPOSED_OBJECT_STORE_NATIVE_TYPE),
   ];
   const missing: string[] = [];

@@ -18,9 +18,10 @@
 import { PORTABLE_KINDS, type PortableKind, type ProviderKey } from "./types";
 
 /**
- * Prefix each provider's native types carry. Kubernetes (and Zenith-managed
- * clusters, which are Kubernetes underneath) use the object's `kind` as the
- * type, e.g. `k8s:Deployment`.
+ * Prefix for provider-native escape hatches. Kubernetes and Zenith-managed
+ * workloads use the object's kind, e.g. `k8s:Deployment`. Zenith's portable
+ * managed services also have `zenith:` types; they are not native Kubernetes
+ * objects or escape hatches.
  */
 export const NATIVE_PREFIX: Readonly<Record<ProviderKey, string>> = {
   aws: "aws",
@@ -48,6 +49,24 @@ const KUBERNETES: Partial<Record<PortableKind, string>> = {
   postgres: "k8s:StatefulSet",
   mysql: "k8s:StatefulSet",
   redis: "k8s:StatefulSet",
+  secret: "k8s:Secret",
+  identity: "k8s:ServiceAccount",
+  volume: "k8s:PersistentVolumeClaim",
+};
+
+/** Managed hosting reuses Kubernetes workloads, but never offers in-cluster databases. */
+const ZENITH: Partial<Record<PortableKind, string>> = {
+  network: "k8s:Namespace",
+  kubernetes_namespace: "k8s:Namespace",
+  firewall: "k8s:NetworkPolicy",
+  load_balancer: "k8s:Ingress",
+  dns_record: "k8s:DNSEndpoint",
+  tls_certificate: "k8s:Certificate",
+  container_service: "k8s:Deployment",
+  static_site: "k8s:Deployment",
+  scheduled_job: "k8s:CronJob",
+  postgres: "zenith:managed_postgres",
+  object_store: "zenith:object_store",
   secret: "k8s:Secret",
   identity: "k8s:ServiceAccount",
   volume: "k8s:PersistentVolumeClaim",
@@ -174,7 +193,7 @@ export const NATIVE_TYPE_TABLE: NativeTypeTable = {
     volume: "oci:block_volume",
   },
   kubernetes: KUBERNETES,
-  zenith: KUBERNETES,
+  zenith: ZENITH,
   sandbox: Object.fromEntries(PORTABLE_KINDS.map((k) => [k, `sandbox:${k}`])) as Partial<Record<PortableKind, string>>,
   localstack: LOCALSTACK,
 };

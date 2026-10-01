@@ -44,7 +44,7 @@ import {
 
 /* ------------------------------ event emission ------------------------------ */
 
-async function emit(rt: RunnerRuntime, event: RunnerEvent): Promise<void> {
+async function emit(rt: Pick<RunnerRuntime, "events">, event: RunnerEvent): Promise<void> {
   try {
     await rt.events.emit(event);
   } catch (error) {
@@ -357,7 +357,7 @@ export async function revokeAgent(rt: RunnerRuntime, kind: AgentKind, workspaceI
  * caller reconciles each owning operation to `uncertain`. Never re-queues.
  * Wire this to a periodic tick (`/api/internal/tick/*`) or a Temporal schedule.
  */
-export async function reapExpiredJobs(rt: RunnerRuntime, limit = 100): Promise<{ runnerJobs: AgentJob[]; machineRequests: AgentJob[] }> {
+export async function reapExpiredJobs(rt: Pick<RunnerRuntime, "store" | "events">, limit = 100): Promise<{ runnerJobs: AgentJob[]; machineRequests: AgentJob[] }> {
   const runnerJobs = await rt.store.jobs.expireStale(limit);
   const machineRequests = await rt.store.machineRequests.expireStale(limit);
   for (const [jobs, kind] of [

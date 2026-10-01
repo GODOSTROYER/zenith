@@ -10,7 +10,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { NativeConnection } from "@temporalio/worker";
 import { connectionOptionsFor, describeTemporalConfig, temporalConfigFromEnv, TemporalConfigError } from "@/lib/workflows/config";
-import { createActivities } from "@/lib/workflows/activities";
+import { createStubActivities as createActivities } from "@/lib/workflows/activities";
 import { TASK_QUEUE } from "@/lib/workflows/types";
 import { executionWorkerConfigFromEnv, WorkerConfigError } from "../../workers/execution/config";
 import { workerOptions, workflowSource } from "../../workers/execution/run";

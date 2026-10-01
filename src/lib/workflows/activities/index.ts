@@ -1,13 +1,8 @@
 /**
  * The activity set the execution worker registers.
  *
- * STATUS: every activity is a stub that fails with a non-retryable
- * `not_implemented` failure. The real implementations (store, lease service,
- * OpenTofu runner, policy engine, drivers, credential broker) are built in
- * their own workstreams and plug in here through `ActivityDeps`. The stubs
- * exist so the worker boots, the workflows bundle, and an accidental run
- * against this build ends `failed` with a clear message ("nothing was
- * changed") instead of hanging or, worse, appearing to work.
+ * Production delegates to the platform composition root. The explicit stub
+ * factory is retained for workflow contract tests only; the worker never uses it.
  *
  * Rules every real activity must follow (the workflows depend on them):
  *
@@ -30,18 +25,21 @@
 
 import { withFailureMapping, notImplemented } from "./failures";
 import type { WorkerActivities } from "../types";
+import { composeExecutionActivities, type ComposeExecutionOptions } from "@/lib/platform/execution";
 
 /** What the real activities will need. Extended by the workstreams that implement them. */
-export interface ActivityDeps {
-  /** worker identity, e.g. `zenith-exec:<host>:<pid>`; used as the lease holder tag in logs */
-  workerIdentity: string;
-}
+export type ActivityDeps = ComposeExecutionOptions;
 
 const stub = (name: keyof WorkerActivities) => async (): Promise<never> => {
   throw notImplemented(name);
 };
 
-export function createActivities(_deps: ActivityDeps): WorkerActivities {
+export function createActivities(deps: ActivityDeps): WorkerActivities {
+  return composeExecutionActivities(deps);
+}
+
+/** Explicit test factory. Never selects a stub as a production fallback. */
+export function createStubActivities(_deps?: { workerIdentity: string }): WorkerActivities {
   const activities: { [K in keyof WorkerActivities]: WorkerActivities[K] } = {
     recordStep: stub("recordStep"),
     markOperation: stub("markOperation"),

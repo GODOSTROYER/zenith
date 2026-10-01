@@ -1,0 +1,105 @@
+/** Handwritten AWS responses for the V1 web/postgres/TLS contract test. No cloud I/O. */
+import { mockClient } from "aws-sdk-client-mock";
+import * as EC2 from "@aws-sdk/client-ec2";
+import * as ECS from "@aws-sdk/client-ecs";
+import * as RDS from "@aws-sdk/client-rds";
+import * as IAM from "@aws-sdk/client-iam";
+import * as Logs from "@aws-sdk/client-cloudwatch-logs";
+import * as STS from "@aws-sdk/client-sts";
+import * as ECR from "@aws-sdk/client-ecr";
+import * as CB from "@aws-sdk/client-codebuild";
+import * as ELB from "@aws-sdk/client-elastic-load-balancing-v2";
+import * as DNS from "@aws-sdk/client-route-53";
+import * as ACM from "@aws-sdk/client-acm";
+import * as Tagging from "@aws-sdk/client-resource-groups-tagging-api";
+import type { ResourceGraph } from "@/lib/resources/types";
+import type { FirewallSpec } from "@/lib/resources/specs";
+import { FakeAlb, LB_ARN, TG_WEB, L443, L80 } from "../providers/aws/drivers/fixtures/alb";
+
+export const SESSION_CANARY = "temporary-session-contract-canary";
+const A = "123456789012";
+const r = "us-east-1";
+const vpcId = "vpc-0abc1234def567890";
+export function mockAwsCloud(graph: ResourceGraph, ws: string, env: string, image: string) {
+  const ec2 = mockClient(EC2.EC2Client), ecs = mockClient(ECS.ECSClient), rds = mockClient(RDS.RDSClient);
+  const iam = mockClient(IAM.IAMClient), logs = mockClient(Logs.CloudWatchLogsClient), sts = mockClient(STS.STSClient);
+  const ecr = mockClient(ECR.ECRClient), cb = mockClient(CB.CodeBuildClient), elb = mockClient(ELB.ElasticLoadBalancingV2Client);
+  const dns = mockClient(DNS.Route53Client), acm = mockClient(ACM.ACMClient), tagging = mockClient(Tagging.ResourceGroupsTaggingAPIClient);
+  const mocks = [ec2, ecs, rds, iam, logs, sts, ecr, cb, elb, dns, acm, tagging];
+  const unexpected = new Error("Unexpected AWS SDK call in contract fixture");
+  ec2.onAnyCommand().rejects(unexpected); ecs.onAnyCommand().rejects(unexpected); rds.onAnyCommand().rejects(unexpected);
+  iam.onAnyCommand().rejects(unexpected); logs.onAnyCommand().rejects(unexpected); sts.onAnyCommand().rejects(unexpected);
+  ecr.onAnyCommand().rejects(unexpected); cb.onAnyCommand().rejects(unexpected); elb.onAnyCommand().rejects(unexpected);
+  dns.onAnyCommand().rejects(unexpected); acm.onAnyCommand().rejects(unexpected); tagging.onAnyCommand().rejects(unexpected);
+  const node = (kind: string) => graph.nodes.find((n) => n.kind === kind)!;
+  const tags = (address: string) => ({ "zenith:managed": "true", "zenith:workspace": ws, "zenith:environment": env, "zenith:resource": address });
+  const awsTags = (address: string) => Object.entries(tags(address)).map(([Key, Value]) => ({ Key, Value }));
+  const lowerTags = (address: string) => Object.entries(tags(address)).map(([key, value]) => ({ key, value }));
+  sts.on(STS.AssumeRoleCommand).resolves({ Credentials: { AccessKeyId: "ASIA0000000000000000", SecretAccessKey: SESSION_CANARY, SessionToken: SESSION_CANARY, Expiration: new Date(Date.now() + 3600_000) } });
+  const network = node("network");
+  ec2.on(EC2.DescribeVpcsCommand).resolves({ Vpcs: [{ VpcId: vpcId, CidrBlock: String(network.spec.cidr), State: "available", Tags: awsTags(network.address) }] });
+  ec2.on(EC2.DescribeVpcAttributeCommand).resolves({ EnableDnsSupport: { Value: true }, EnableDnsHostnames: { Value: true } });
+  ec2.on(EC2.DescribeInternetGatewaysCommand).resolves({ InternetGateways: [{ InternetGatewayId: "igw-0123456789abcdef0", Attachments: [{ VpcId: vpcId, State: "attached" }] }] });
+  ec2.on(EC2.DescribeNatGatewaysCommand).resolves({ NatGateways: [{ NatGatewayId: "nat-0123456789abcdef0", VpcId: vpcId, State: "available" }] });
+  ec2.on(EC2.DescribeFlowLogsCommand).resolves({ FlowLogs: [{ ResourceId: vpcId, FlowLogStatus: "ACTIVE", DeliverLogsStatus: "SUCCESS", LogDestinationType: "cloud-watch-logs" }] });
+  ec2.on(EC2.DescribeAvailabilityZonesCommand).resolves({ AvailabilityZones: ["a", "b"].map((z) => ({ ZoneName: `${r}${z}`, State: "available" })) });
+  const subnets = graph.nodes.filter((n) => n.kind === "subnet").map((n, i) => ({ SubnetId: `subnet-${(i + 1).toString(16).padStart(17, "0")}`, VpcId: vpcId, CidrBlock: String(n.spec.cidr), AvailabilityZone: `${r}${n.spec.zone}`, State: "available" as const, MapPublicIpOnLaunch: n.spec.tier === "public", Tags: awsTags(n.address) }));
+  ec2.on(EC2.DescribeSubnetsCommand).callsFake((input: EC2.DescribeSubnetsCommandInput) => {
+    const address = input.Filters?.find((f) => f.Name === "tag:zenith:resource")?.Values?.[0];
+    return { Subnets: subnets.filter((s) => (!input.SubnetIds || input.SubnetIds.includes(s.SubnetId)) && (!address || s.Tags.some((t) => t.Key === "zenith:resource" && t.Value === address))) };
+  });
+  const sgNodes = graph.nodes.filter((n) => ["container_service", "postgres", "load_balancer"].includes(n.kind));
+  const groups = sgNodes.map((n, i) => ({ GroupId: `sg-${(i + 1).toString(16).padStart(17, "0")}`, VpcId: vpcId, Tags: awsTags(n.address) }));
+  const sg = (address: string) => groups[sgNodes.findIndex((n) => n.address === address)]?.GroupId;
+  ec2.on(EC2.DescribeSecurityGroupsCommand).callsFake((input: EC2.DescribeSecurityGroupsCommandInput) => {
+    const address = input.Filters?.find((f) => f.Name === "tag:zenith:resource")?.Values?.[0];
+    return { SecurityGroups: groups.filter((g) => (!input.GroupIds || input.GroupIds.includes(g.GroupId)) && (!address || g.Tags.some((t) => t.Key === "zenith:resource" && t.Value === address))) };
+  });
+  const rules: EC2.SecurityGroupRule[] = [];
+  for (const n of graph.nodes.filter((n) => n.kind === "firewall")) {
+    const s = n.spec as unknown as FirewallSpec;
+    rules.push({ SecurityGroupRuleId: `sgr-${rules.length}`, GroupId: sg(s.target), IsEgress: false, IpProtocol: "tcp", FromPort: s.port, ToPort: s.port, ...("cidr" in s.source ? { CidrIpv4: s.source.cidr } : { ReferencedGroupInfo: { GroupId: sg(s.source.address) } }) });
+    if ("address" in s.source) rules.push({ SecurityGroupRuleId: `sgr-${rules.length}`, GroupId: sg(s.source.address), IsEgress: true, IpProtocol: "tcp", FromPort: s.port, ToPort: s.port, ReferencedGroupInfo: { GroupId: sg(s.target) } });
+  }
+  ec2.on(EC2.DescribeSecurityGroupRulesCommand).callsFake((input: EC2.DescribeSecurityGroupRulesCommandInput) => ({ SecurityGroupRules: rules.filter((rule) => !input.Filters?.[0]?.Values || input.Filters[0].Values.includes(rule.GroupId!)) }));
+  const alb = new FakeAlb();
+  alb.tags[LB_ARN] = tags(node("load_balancer").address);
+  alb.tags[TG_WEB] = { ...tags(node("load_balancer").address), "zenith:target": node("container_service").address };
+  alb.groups = [alb.groups[0]];
+  alb.rules[L443] = [{ RuleArn: `${L443}/r1`, Priority: "1", Conditions: [{ Field: "host-header", HostHeaderConfig: { Values: ["app.atlas.zenith.test"] } }], Actions: [{ Type: "forward", TargetGroupArn: TG_WEB }], IsDefault: false }];
+  alb.rules[L80] = [];
+  alb.lb.SecurityGroups = [sg(node("load_balancer").address)!];
+  alb.install(elb);
+  const svc = node("container_service"), pg = node("postgres"), role = node("identity"), log = node("log_group");
+  const serviceArn = `arn:aws:ecs:${r}:${A}:service/zenith-${env}/web`;
+  const taskArn = `arn:aws:ecs:${r}:${A}:task-definition/zenith-${env}-web:1`;
+  const roleArn = `arn:aws:iam::${A}:role/zenith-${env}-web`;
+  const logName = `/zenith/${env}/web`, logArn = `arn:aws:logs:${r}:${A}:log-group:${logName}`;
+  tagging.on(Tagging.GetResourcesCommand).callsFake((input: Tagging.GetResourcesCommandInput) => {
+    const resources = [{ arn: serviceArn, n: svc }, { arn: roleArn, n: role }, { arn: logArn, n: log }];
+    return { ResourceTagMappingList: resources.filter(({ n }) => (input.TagFilters ?? []).every((f) => !f.Values || f.Values.includes(tags(n.address)[f.Key as keyof ReturnType<typeof tags>]))).map(({ arn, n }) => ({ ResourceARN: arn, Tags: awsTags(n.address) })) };
+  });
+  ecs.on(ECS.DescribeServicesCommand).resolves({ services: [{ serviceArn, serviceName: "web", clusterArn: `arn:aws:ecs:${r}:${A}:cluster/zenith-${env}`, taskDefinition: taskArn, status: "ACTIVE", desiredCount: 2, runningCount: 2, pendingCount: 0, launchType: "FARGATE", tags: lowerTags(svc.address), networkConfiguration: { awsvpcConfiguration: { assignPublicIp: "DISABLED", subnets: subnets.filter((s) => !s.MapPublicIpOnLaunch).map((s) => s.SubnetId), securityGroups: [sg(svc.address)!] } }, loadBalancers: [{ targetGroupArn: TG_WEB, containerName: "web", containerPort: 3000 }], deployments: [{ status: "PRIMARY", rolloutState: "COMPLETED", desiredCount: 2, runningCount: 2, pendingCount: 0 }] }] });
+  ecs.on(ECS.DescribeTaskDefinitionCommand).resolves({ taskDefinition: { taskDefinitionArn: taskArn, cpu: "512", memory: "1024", taskRoleArn: roleArn, executionRoleArn: roleArn, networkMode: "awsvpc", containerDefinitions: [{ name: "web", image, essential: true, portMappings: [{ containerPort: 3000 }], logConfiguration: { logDriver: "awslogs", options: { "awslogs-group": logName } } }] } });
+  ecs.on(ECS.ListTasksCommand).resolves({ taskArns: [] });
+  rds.on(RDS.DescribeDBInstancesCommand).resolves({ DBInstances: [{ DBInstanceIdentifier: `zenith-${env}-db`, DBInstanceArn: `arn:aws:rds:${r}:${A}:db:zenith-${env}-db`, DBInstanceStatus: "available", Engine: "postgres", EngineVersion: "16.3", DBInstanceClass: "db.t4g.small", MultiAZ: false, StorageEncrypted: true, PubliclyAccessible: false, DeletionProtection: true, BackupRetentionPeriod: 7, IAMDatabaseAuthenticationEnabled: true, StorageType: "gp3", MasterUserSecret: { SecretArn: `arn:aws:secretsmanager:${r}:${A}:secret:rds/master-000000`, SecretStatus: "active" }, TagList: awsTags(pg.address) }] });
+  const roleValue = { RoleName: `zenith-${env}-web`, RoleId: "fixture", Arn: roleArn, Path: "/", CreateDate: new Date(), Tags: awsTags(role.address), PermissionsBoundary: { PermissionsBoundaryArn: `arn:aws:iam::${A}:policy/ZenithWorkloadBoundary`, PermissionsBoundaryType: "PermissionsBoundaryPolicy" as const }, AssumeRolePolicyDocument: JSON.stringify({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Principal: { Service: "ecs-tasks.amazonaws.com" }, Action: "sts:AssumeRole" }] }) };
+  iam.on(IAM.ListRolesCommand).resolves({ Roles: [roleValue] });
+  iam.on(IAM.GetRoleCommand).resolves({ Role: roleValue });
+  iam.on(IAM.ListRoleTagsCommand).resolves({ Tags: awsTags(role.address) });
+  iam.on(IAM.ListRolePoliciesCommand).resolves({ PolicyNames: ["workload"] });
+  iam.on(IAM.GetRolePolicyCommand).resolves({ RoleName: roleValue.RoleName, PolicyName: "workload", PolicyDocument: JSON.stringify({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Action: ["logs:CreateLogStream", "logs:PutLogEvents"], Resource: `${logArn}:log-stream:*` }, { Effect: "Allow", Action: ["secretsmanager:DescribeSecret", "secretsmanager:GetSecretValue"], Resource: `arn:aws:secretsmanager:${r}:${A}:secret:rds/master-000000` }] }) });
+  iam.on(IAM.ListAttachedRolePoliciesCommand).resolves({ AttachedPolicies: [] });
+  logs.on(Logs.DescribeLogGroupsCommand).resolves({ logGroups: [{ logGroupName: logName, logGroupArn: logArn, arn: `${logArn}:*`, retentionInDays: 30 }] });
+  logs.on(Logs.ListTagsForResourceCommand).resolves({ tags: tags(log.address) });
+  logs.on(Logs.ListTagsLogGroupCommand).resolves({ tags: tags(log.address) });
+  logs.on(Logs.FilterLogEventsCommand).resolves({ events: [] });
+  dns.on(DNS.ListHostedZonesByNameCommand).resolves({ HostedZones: [{ Id: "/hostedzone/Z123TEST", Name: "atlas.zenith.test.", CallerReference: "fixture", Config: { PrivateZone: false } }], IsTruncated: false, MaxItems: 100, DNSName: "atlas.zenith.test." });
+  dns.on(DNS.GetHostedZoneCommand).resolves({ HostedZone: { Id: "/hostedzone/Z123TEST", Name: "atlas.zenith.test.", CallerReference: "fixture", Config: { PrivateZone: false } }, DelegationSet: { NameServers: ["ns-1.awsdns.test"] } });
+  dns.on(DNS.ListResourceRecordSetsCommand).resolves({ ResourceRecordSets: [{ Name: "app.atlas.zenith.test.", Type: "A", AliasTarget: { DNSName: `${alb.lb.DNSName}.`, HostedZoneId: alb.lb.CanonicalHostedZoneId!, EvaluateTargetHealth: true } }], IsTruncated: false, MaxItems: 100 });
+  const certArn = `arn:aws:acm:${r}:${A}:certificate/00000000-0000-0000-0000-000000000001`;
+  acm.on(ACM.ListCertificatesCommand).resolves({ CertificateSummaryList: [{ CertificateArn: certArn, DomainName: "app.atlas.zenith.test", Status: "ISSUED" }] });
+  acm.on(ACM.DescribeCertificateCommand).resolves({ Certificate: { CertificateArn: certArn, DomainName: "app.atlas.zenith.test", Status: "ISSUED", Type: "AMAZON_ISSUED", InUseBy: [LB_ARN], NotAfter: new Date(Date.now() + 365 * 86400_000), DomainValidationOptions: [{ DomainName: "app.atlas.zenith.test", ValidationMethod: "DNS", ValidationStatus: "SUCCESS" }] } });
+  acm.on(ACM.ListTagsForCertificateCommand).resolves({ Tags: awsTags(node("tls_certificate").address) });
+  return { ec2, ecs, rds, iam, logs, sts, ecr, cb, elb, dns, acm, alb, restore: () => mocks.forEach((m) => m.restore()) };
+}

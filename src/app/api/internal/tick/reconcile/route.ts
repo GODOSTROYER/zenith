@@ -21,7 +21,7 @@
  * pass's own ceilings. Counts come back, not prose: see `ReconcilePassResult`.
  */
 import type { NextRequest } from "next/server";
-import { authorizeCron } from "@/lib/server/cron";
+import { authorizeCron, ensurePlatformCron } from "@/lib/server/cron";
 import { ApiError, errorResponse, json } from "@/lib/server/errors";
 import { intParam } from "@/lib/server/request";
 import { log, withRequestId } from "@/lib/log";
@@ -36,6 +36,7 @@ export const POST = async (req: NextRequest): Promise<Response> => {
   return withRequestId(requestId, async () => {
     try {
       authorizeCron(req);
+      await ensurePlatformCron(); // this route deliberately bypasses legacy boot
       const started = Date.now();
       const counts = await reconcilePass({
         budgetMs: intParam(req, "budgetMs", RECONCILE_BUDGET_MS, { min: 0, max: RECONCILE_BUDGET_MS }),

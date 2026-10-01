@@ -19,6 +19,7 @@ import { registerAllDrivers } from "./drivers";
 import { platformDriverLookup } from "./driver-lookup";
 import { createReleasePorts } from "./release";
 import { composeReconcilePorts } from "./reconcile";
+import { createSourceBundles, type SourceBundleDeps } from "./source-bundle";
 
 export interface ComposeExecutionOptions {
   db: Sql;
@@ -27,6 +28,8 @@ export interface ComposeExecutionOptions {
   secretKey?: string;
   /** Deliberate dependency overrides for contract tests or source acquisition. */
   ports?: Partial<Omit<ExecutionDeps, "fingerprintKey" | "workerId" | "planDir">>;
+  /** Optional tenant-scoped GitHub connector and bounded download settings. */
+  sourceBundles?: Omit<SourceBundleDeps, "resources">;
 }
 
 export function derivePlanFingerprintKey(secretKey = process.env.ZENITH_SECRET_KEY): string {
@@ -38,13 +41,15 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
   const fingerprintKey = derivePlanFingerprintKey(opts.secretKey);
   registerAllDrivers();
   const credentials = opts.ports?.credentials ?? platformCredentialBroker(opts.db);
+  const platformPorts = createPlatformPorts(opts.db);
   const deps: ExecutionDeps = {
-    ...createPlatformPorts(opts.db),
+    ...platformPorts,
     drivers: platformDriverLookup,
     product: createProductPort(), broker: createExecutionBroker(opts.db), credentials,
     tofu: { planWorkspace, applyVerifiedPlan }, cost: defaultCostPort(),
     observability: ({ session, ...input }) => createObservabilityFabric(sourcesForEnvironment({ ...input, sessions: session.provider === "aws" ? { aws: session } : session.provider === "kubernetes" ? { kubernetes: session } : {} })),
     prober: createSafeProber(), ...createReleasePorts({ db: opts.db }),
+    sourceBundle: opts.ports?.sourceBundle ?? createSourceBundles({ ...opts.sourceBundles, resources: opts.ports?.resources ?? platformPorts.resources }).port,
     ...opts.ports,
     fingerprintKey, workerId: opts.workerIdentity, planDir: opts.planDir,
   };

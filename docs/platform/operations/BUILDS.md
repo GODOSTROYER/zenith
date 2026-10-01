@@ -130,7 +130,7 @@ Neither that lane nor the existing public network check was run in this sandbox.
 | AWS | Deterministic **ZIP**, uploaded to the customer's tagged S3 source bucket. CodeBuild uses native `S3` source and the exact object key; image output goes to ECR. | Pipeline and bucket ownership/account/region are checked before upload. No live CodeBuild acceptance. |
 | GCP | Deterministic **tar.gz**, uploaded to the pipeline's GCS bucket, then Cloud Build uses `storageSource` and publishes to Artifact Registry. | Upload identity/size/integrity and scope are checked. No live Cloud Build acceptance. |
 | Azure | Deterministic **tar.gz** uploaded by C3 to a bound customer Blob container. Build start rereads and hashes that object, uploads the verified bytes to ACR's short-lived Blob SAS URL, then schedules a `DockerBuildRequest` in the customer registry. | Default composition supplies preparation, stored-source reading and the durable launch journal. A trusted environment storage binding is required. The broker requests the Storage audience for exactly the trusted account host and refuses redirects. No live Azure build acceptance. |
-| Kubernetes | Pre-built image digests; owned Deployment/StatefulSet image rollout and migration Jobs are wired into release dispatch. | The default build port refuses source builds. Supply an image pinned by SHA-256, or explicitly inject external build and source ports. Contract evidence only. |
+| Kubernetes | Pre-built image digests; owned Deployment/StatefulSet image rollout and migration Jobs are wired into release dispatch. | The default build port refuses source builds. Supply an image pinned by SHA-256, or explicitly inject external build and source ports. Deployment rollout/rollback and migration Jobs have local kind cluster evidence; StatefulSet and managed-cluster acceptance remain unverified. |
 | OCI | Build port explicitly refuses: bring a pre-built OCIR image pinned to a SHA-256 digest. | Runner-backed release ports verify the manifest image applied by OpenTofu and wait for ACTIVE replicas; one-off migrations use trusted runner-created bindings and durable execution receipts. No OCI DevOps build or live acceptance. |
 | Zenith-managed | No source-build release adapter in the default composed worker. | Supply an existing image supported by the relevant path; do not infer source-build readiness from driver registration or the separate hosted-apps builder. |
 
@@ -339,9 +339,16 @@ The Kubernetes Job controller can still start duplicate pods during failures;
 the migration itself must be idempotent. Multiple observed pods remain unknown.
 
 The connection identity needs workload reads/patches, namespaced Job create/get,
-pod list and pod-log read permissions. The ports do not grant RBAC. Tests use the
-existing fake API server, providing contract evidence only. The real-cluster lane
-is gated by `ZENITH_TEST_KIND=1` and `KUBECONFIG`; the release-specific test also
-requires `ZENITH_TEST_KIND_RELEASE_IMAGE`, a pinned non-root image with `/bin/sh`.
-It requires a disposable cluster and was not run in this sandbox. No live
-Kubernetes release is claimed.
+pod list and pod-log read permissions. The ports do not grant RBAC. Contracts use
+the existing fake API server. Both real-cluster suites also passed on a local
+fresh disposable kind cluster on 2026-10-02 after the full gate: provider
+operations 6/6 and release acceptance 1/1, with no failures or skips. The cluster
+and its dedicated kubeconfig were deleted. The release suite checks Deployment image rollout/rollback, non-root
+migration execution and retry recovery retaining the same Job UID. These are
+local kind cluster results; real StatefulSet, managed cloud and NetworkPolicy
+enforcement remain unverified.
+
+The real-cluster lane is gated by `ZENITH_TEST_KIND=1` and a dedicated
+`KUBECONFIG`; release acceptance also requires `ZENITH_TEST_KIND_RELEASE_IMAGE`,
+a digest-pinned image with `/bin/sh`. The workload runs as non-root. Delete the
+disposable cluster afterward. No live-cloud Kubernetes release is claimed.

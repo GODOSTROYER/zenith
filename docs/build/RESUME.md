@@ -1,95 +1,164 @@
-# Resume here — platform build checkpoint (2026-10-01, 20:50 IST)
+# Resume here: wave 8 integration (2026-10-02)
 
-This branch (`platform/checkpoint-2026-10-01`) is the complete state of the agentic multi-cloud control-plane build
-(the "Master Build Prompt" program). Everything finished is merged here; everything unfinished is saved here as a patch
-with its brief. Read this file first, then `docs/build/IMPLEMENTATION-LEDGER.md` (rendered from `docs/build/ledger.json`).
+Source checkpoint: `platform/checkpoint-2026-10-01` at `6d1359a`.
+Resumed staging: `ws/integrate-w8`, `/Users/saivedanthava/Desktop/zenith`,
+on Saivedant Hava's Mac. Read this first, then `IMPLEMENTATION-LEDGER.md`
+and `../LIMITATIONS.md`.
 
 ## 1. Where things are
 
 | Thing | Where |
 |---|---|
-| This checkpoint (all done work, wave 1–8) | branch `platform/checkpoint-2026-10-01` (= local `ws/integrate-w6` staging) |
-| Last fully-gated integration point (waves 1–7) | commit `6595294` "Merge wave-7 staging (ws/integrate-w6) into platform/integration" (an ancestor of this branch) |
-| Durable program state | `docs/build/ledger.json` → `node scripts/build/ledger.mjs` renders `docs/build/IMPLEMENTATION-LEDGER.md` |
-| Honest list of what is and is not done | `docs/LIMITATIONS.md` ("Still-open gaps") |
-| Codex job briefs (all waves) | `docs/build/handoffs/WS-*.md` |
-| Paused work (uncommitted diffs) | `docs/build/paused/ws-*.patch` (+ any `*.resume-prompt.md`) |
-| Codex lane scripts used on the old machine | `docs/build/codex-lane/` (paths inside are the old machine's; adapt them) |
+| Immutable source checkpoint | `platform/checkpoint-2026-10-01` at `6d1359a` |
+| Resumed staging | `ws/integrate-w8` |
+| Integration destination | `platform/integration` |
+| New publication branch | `codex/wave8-integration-2026-10-02` |
+| Previous fully gated integration | `6595294`, waves 1 through 7 |
+| Durable program state | `ledger.json`; render with `node scripts/build/ledger.mjs` |
+| Current limits | `../LIMITATIONS.md`, control-plane gaps |
+| Job briefs | `handoffs/WS-*.md` |
+| Historical paused diffs | `paused/ws-*.patch` and Azure resume prompt; all three jobs have now landed |
+| Local tools and command logs | `/Users/saivedanthava/.codex/zenith-w8/{tools,logs}` |
+| Worker worktrees | `/Users/saivedanthava/.codex/zenith-w8/worktrees/` |
+
+Old `codex-lane` scripts describe another machine. Do not copy their paths or
+commit identity. The checkpoint and saved patches remain for historical
+comparison; do not apply those patches again to the integrated tree.
 
 ## 2. Status
 
-- **Waves 1–7: integrated and fully gated** at `6595294`: tsc 0, eslint 0, gofmt/vet/go test green, policy (OPA 1.19.1, 213 Rego
-  tests, bundle byte-identical), `platform:emit-sql --check`, `capability-matrix --strict`, AWS policy templates `--check`,
-  full vitest with real OpenTofu 1.12.5 + Temporal time-skipping: 15,219 passed, 210 skipped, 0 failed (one flaky test fixed).
-- **Wave 8 merged into this branch (8 jobs)**, each verified outside the Codex sandbox with tsc, Go, and the affected suites
-  (real OpenTofu where relevant), but **the full gate has NOT been re-run since these merges**:
-  TEMPORAL-MTLS, VAULT-REWRAP, RELEASE-K8S, RELEASE-OCI, IMAGE-PINS, MACHINE-PORT, GITHUB-SOURCE, DNS-GUARDS-CLOUDS.
-- **Wave 8 paused (3 jobs)** — work saved as patches, not merged:
+All eight original wave 8 jobs and requested follow-ups are merged into staging.
+The three resumed jobs cover teardown review and its approval race, trusted
+Azure source storage, and six AWS role-family permissions boundaries. Additional
+work integrates GitHub source migration 6, corrects machine transport docs, and
+adds trusted OCI migration bindings with finished-instance cleanup.
 
-| Job | Brief | Patch (base commit) | Where it stopped |
-|---|---|---|---|
-| WS-DESTROY-REVIEW | `handoffs/WS-DESTROY-REVIEW.md` | `paused/ws-destroy-review.patch` (base `fb122dd`) | Focused tests passed (86); found a race: review replacement could cancel an already-approved proposal; was adding a conditional cancellation guard. Then: lint, tsc, docs. |
-| WS-AZURE-SOURCE-WIRE | `handoffs/WS-AZURE-SOURCE-WIRE.md` + `paused/WS-AZURE-SOURCE-WIRE.resume-prompt.md` | `paused/ws-azure-source-wire.patch` (base `fb122dd`) | First pass complete (Azure C3 storage helper, ACR wiring, 209 tests). Was doing the follow-ups in the resume prompt: Storage-audience token + strict Blob host policy + no redirects in `src/lib/providers/azure/credentials.ts`; trusted `sourceBundles.azureStorage` resolver in `workers/execution/worker.ts`/`src/lib/platform/execution.ts`; docs guards. |
-| WS-AWS-BOUNDARY-SPLIT | `handoffs/WS-AWS-BOUNDARY-SPLIT.md` | `paused/ws-aws-boundary-split.patch` (base `39a4de9`) | One permissions boundary per AWS role family (38 files). Was fixing: the deploy-role IAM policy went over IAM's 6,144-char limit after listing six boundary ARNs; compacting statements. Coverage for identity/EKS families not finished. |
+Independent verification also repaired a dependency lockfile gap, quadratic
+password redaction, GitHub callback route classification, long macOS OpenTofu
+provider socket paths, a timestamp-order assumption in runner tests, and real
+Kubernetes apply/release races and migration patch semantics. CI and package
+metadata now require a compatible Node 22 patch; the worker build includes its
+SSM JSON imports and has a successful local ARM64 image build with isolated CLI
+probes. No Zenith worker or server was started.
 
-Apply a patch: `git checkout -b ws/<name> platform/checkpoint-2026-10-01 && git apply --3way docs/build/paused/ws-<name>.patch`
-(bases are ancestors of this branch; resolve the usual `docs/LIMITATIONS.md` conflicts by keeping both sides' lines).
+Final full gate passed: 15,854 tests passed, 0 failed, 194 skipped across 788
+files. Go passed 226 top-level tests plus 539 subtests with 3 Linux-only skips;
+OPA passed 213/213. Both fresh local kind suites passed (provider 6/6, release
+1/1) and the cluster/kubeconfig were deleted. Integration and publication are
+being finalized. Exact commands, prior failures and evidence are recorded in
+`verification/2026-10-02-wave8.md`, its compact JSON and `ledger.json`.
 
-## 3. Orchestrator follow-ups not yet done
+## 3. Remaining work and decisions
 
-1. **Run the full gate on this branch**, then merge it into `platform/integration` (see §5 for the commands).
-2. **GitHub source schema → platform migration 6.** WS-GITHUB-SOURCE ships its own schema (`src/lib/sources/github/{schema,migrate}.ts`)
-   with a documented installer. Convert it to `src/lib/controlplane/db/migrations/0006_*.ts`, register it in `migrations/index.ts`,
-   regenerate `supabase/migrations/0014_platform_core.sql` (`npm run platform:emit-sql`), update the "Five migrations" text in
-   `docs/platform/operations/DEPLOYING.md` and its docs guard. Also add the GitHub page link in `src/app/(product)/platform/layout.tsx`.
-3. **WS-MACHINE-PORT doc follow-ups:** stale default-port claims in `docs/platform/operations/README.md:83` and
-   `docs/platform/operations/AWS-SETUP.md:221`.
-4. **WS-RELEASE-OCI:** (a) the runner must add trusted compartment bindings for container instances it just created
-   (`go/internal/runner/kinds/ocihttp.go` ~180) or migration polling fails closed; (b) nothing deletes finished one-off migration
-   container instances — add a DELETE rule restricted to instances the runner created for that job, plus cleanup.
-5. **AWS boundary:** until WS-AWS-BOUNDARY-SPLIT lands, the single `ZenithWorkloadBoundary` is 5,983/6,144 chars (GovCloud) and still
-   blocks identity (multipart upload, log reads, DB/cache grants) and parts of EKS role policies.
-6. **Needs the user:** retention/pruning policy for events, evidence, approvals, decisions, grants, runner jobs (audit-history decision);
-   managed Zenith session opener (needs the hosted substrate); installing `kind` (real-cluster Kubernetes tests) needs approval.
-7. **Externally blocked:** live AWS/GCP/Azure/OCI accounts, Temporal Cloud, GitHub `live-sandbox` environment, a real Postgres server
-   (`ZENITH_TEST_PLATFORM_PG_URL`), Docker.
+No requested implementation workstream remains paused. Remaining acceptance
+needs real cloud accounts, Temporal Cloud or production self-hosted Temporal,
+live private GitHub access, and a real Postgres server. Local kind evidence does
+not establish live-cloud readiness, StatefulSet acceptance or enforced
+NetworkPolicy behavior. The default managed Zenith session opener and hosted
+substrate are still absent.
 
-## 4. Rules of the program (keep them)
+Ask the user before selecting audit retention or pruning, using live cloud
+accounts, force-pushing or rewriting history. Events, evidence, approvals,
+decisions, grants, operations and runner jobs currently have no pruning policy.
+OCI migration receipt persistence also has no new retention policy.
 
-- **GitHub push protection on this public repo.** The first push of this checkpoint was refused (GH013) because test fixtures
-  contained fake values in the Stripe secret-key format (`sk_live_` followed by 24+ characters) in `tests/analysis/hostile.test.ts`,
-  `tests/analysis/units.test.ts` and `tests/runners/e2e-platform-store.test.ts`. They were canaries and Stripe's public docs example,
-  never real keys. With the user's explicit approval, those fixtures are now written as runtime concatenations (`"sk_" + "live_..."`,
-  same value at runtime) and the unpushed history was rewritten with `git filter-branch` so no commit contains the literal; commit
-  IDs on this branch therefore differ from the old machine's local branches. When adding a fake credential to a test, do not write a
-  full provider-format literal (Stripe, GitHub, Slack, cloud keys); build it at runtime or use a value that is clearly not that
-  format. If a push is ever refused for a secret, stop and show the user what was flagged: never push a real credential, and do not
-  allow or rewrite around a finding without the user's decision.
+AWS boundary migration is stack-first. Apply with default unsuffixed boundary
+names; a nonempty bootstrap suffix is size-tested but not propagated through
+connection/compiler role selection. The largest tested legacy boundary is
+6,136 characters and deploy policy is 5,951, below IAM's 6,144 limit. Recheck
+rendered sizes after changing names, partitions or hosted-zone inputs.
 
-- Deterministic code owns credentials, policy, approvals, state and execution; LLMs only propose. Approvals are human, browser-only,
-  bound to an immutable plan digest (approval rounds). No secret value in logs, state, evidence, errors, URLs or tests. Nothing is
-  labelled live-verified without live acceptance.
-- Commits: `git -c user.name="Arnav Bule" -c user.email="arnav.bule05@gmail.com" commit ...`, no Co-Authored-By trailer.
-- Workers were Codex `gpt-6.1-sol` at `xhigh` reasoning, one git worktree + branch per job (`zenith-wt/ws-<name>` on `ws/<name>`,
-  node_modules junctioned to the integration worktree), launched with `codex exec` using `codex-lane/PREAMBLE.md` + the brief +
-  `codex-lane/BATCH4-ETIQUETTE.md`. The Codex sandbox cannot run tofu/opa/go/temporal or write `.git`: the orchestrator commits and
-  re-runs those checks outside the sandbox before every merge — this repeatedly caught real bugs. "Model at capacity" exits are
-  common: resume the same thread with `codex exec resume <thread>` and a short "continue from where you stopped" prompt.
-- Merge order: job branch → staging (`ws/integrate-w6`) with outside-sandbox checks → full gate → `platform/integration`.
-- Never touch the `ssc-*` containers or ports 4566/54329/7233/8181 on the old machine (another project). LocalStack work is on hold
-  (`src/lib/providers/localstack/**`).
+## 4. Rules of the program
 
-## 5. Verification commands (the full gate)
+- Deterministic code owns credentials, policy, approvals, state and execution.
+  LLMs only propose. Approvals are human, browser-only, and bound to an immutable
+  plan digest. Review refresh must never cancel an already-approved proposal.
+- No secret values in code, logs, state, evidence, errors, URLs or tests. Build
+  provider-format fake keys at runtime. A previous checkpoint push was refused
+  for full fake-key literals; that historical repair required user approval.
+  If a new push is refused for a secret, stop and show the user. Never bypass
+  protection or rewrite history without the user's decision.
+- New author and committer identity is **Saivedant Hava**
+  `<saivedant169@gmail.com>`, on this Mac. Preserve historical authors.
+  Use `git -c user.name="Saivedant Hava" -c user.email="saivedant169@gmail.com" commit ...`.
+  Use clear, organized messages with no em dashes or Co-Authored-By trailer.
+- Orchestrator plans, reviews, verifies, merges and keeps the ledger. Delegate
+  implementation to `gpt-6.1-sol`, **high** reasoning, one worktree and `ws/<name>`
+  branch per workstream. Reuse briefs; workers stay within owned paths and list
+  other changes as follow-ups. Resume interrupted workers in the same thread.
+- Keep compiler checks serialized on this 8 GB Mac. Workers use touched Vitest
+  suites with `--maxWorkers=1`. Before merging, orchestrator independently runs
+  typecheck, lint, affected suites, real OpenTofu and Go checks; policy changes
+  also require OPA build/check. Kubernetes and managed Zenith changes require
+  real local kind checks. Never merge on worker reports alone.
+- Merge workers into `ws/integrate-w8`, pass the full gate and fresh kind suites,
+  then merge into `platform/integration` and publish a new GitHub branch. Keep
+  still-open limitations and remove only verified closed gaps. Edit `ledger.json`
+  and render its Markdown.
+- Do not start or restart a Zenith server unless the user explicitly requests
+  it. Disposable test services and kind clusters are authorized for these gates.
+  Delete every cluster created. Use its dedicated kubeconfig only.
+- LocalStack remains on hold. Do not touch unrelated containers or services.
+  Nothing is labelled live-verified without live cloud acceptance.
 
-Tools: Node 22.16–22.x, OpenTofu 1.12.5 on PATH, OPA 1.19.1, Go (GOTOOLCHAIN=local), network for provider downloads.
+## 5. Verification commands: full gate
+
+Verified local tools: Node **22.23.3**, OpenTofu **1.12.5**, OPA **1.19.1**, Go
+**1.27.1** with `GOTOOLCHAIN=local`, Docker **29.1.3**, kind **0.33.0**, kubectl
+**1.34.1**. Node 22.23.3 satisfies the requested 22.x range and locked jsdom's
+newer patch requirement. Set a 4 GB Node heap for the whole-tree typecheck. The full suite uses one
+worker on this 8 GB Mac; three workers caused heavy swap and setup timeouts.
+Test coverage and functional/security deadlines are unchanged.
 
 ```bash
+export PATH="/Users/saivedanthava/.codex/zenith-w8/tools/node-current/bin:/Users/saivedanthava/.codex/zenith-w8/tools/go/bin:/Users/saivedanthava/.codex/zenith-w8/tools:$PATH"
+export GOTOOLCHAIN=local
+export NODE_OPTIONS=--max-old-space-size=4096
+export ZENITH_TOFU_BIN=/Users/saivedanthava/.codex/zenith-w8/tools/tofu
+export ZENITH_OPA_BIN=/Users/saivedanthava/.codex/zenith-w8/tools/opa
+export ZENITH_TEST_TOFU="$ZENITH_TOFU_BIN"
+export ZENITH_TEST_TOFU_NETWORK=1
+export TF_REGISTRY_CLIENT_TIMEOUT=60
+export ZENITH_TOFU_PLUGIN_CACHE=/Users/saivedanthava/.codex/zenith-w8/tofu-plugin-cache
+export TF_PLUGIN_CACHE_DIR="$ZENITH_TOFU_PLUGIN_CACHE"
+export ZENITH_COMPOSE_TEMPORAL_MODE=time-skipping
+export ZENITH_TEST_TEMPORAL_DOWNLOAD=1
+export ZENITH_SEC_TEMPORAL=1
+
+npm ci
 npx tsc --noEmit
 npx eslint .
-(cd go && gofmt -l . && go vet ./... && go test ./...)
+(cd go && test -z "$(gofmt -l .)" && go vet ./... && go test ./...)
 npm run policy:check
 npm run platform:emit-sql -- --check
 npx tsx scripts/docs/capability-matrix.ts --strict
 npx tsx deploy/aws/tools/generate-tofu-policies.ts --check
-ZENITH_TEST_TOFU_NETWORK=1 ZENITH_COMPOSE_TEMPORAL_MODE=time-skipping ZENITH_TEST_TEMPORAL_DOWNLOAD=1 ZENITH_SEC_TEMPORAL=1 npx vitest run --maxWorkers=3
+npx vitest run --maxWorkers=1
+node scripts/build/ledger.mjs --check
 ```
+
+Prefetch the official SDK Temporal test server before the full suite if its
+first download is cold. Local logs identify the binary used. Policy check
+builds the bundle, runs Rego tests and verifies generated bytes.
+
+## 6. Fresh disposable kind gate
+
+Both suites are required after the full gate. Docker must be running. This
+verified BusyBox 1.37 ARM64 manifest contains `/bin/sh`; the test configures a
+non-root workload.
+
+```bash
+export KUBECONFIG="$PWD/.kind-kubeconfig"
+kind create cluster --name zenith-w8-final --wait 120s --kubeconfig "$KUBECONFIG"
+test "$(kubectl config current-context)" = kind-zenith-w8-final
+export ZENITH_TEST_KIND_RELEASE_IMAGE=busybox@sha256:d82c2ab94640ded77cf76514ce6a84870761105058a4a9e51b05a8a79be97a6c
+docker pull "$ZENITH_TEST_KIND_RELEASE_IMAGE"
+kind load docker-image "$ZENITH_TEST_KIND_RELEASE_IMAGE" --name zenith-w8-final
+ZENITH_TEST_KIND=1 npx vitest run --maxWorkers=1 tests/providers/kubernetes/kind.test.ts
+ZENITH_TEST_KIND=1 npx vitest run --maxWorkers=1 tests/providers/kubernetes/release-kind.test.ts
+kind delete cluster --name zenith-w8-final
+rm .kind-kubeconfig
+```
+
+Keep the kubeconfig out of Git. Cleanup is required on success and failure.
+Record these results as **local kind cluster** evidence, never live-cloud evidence.

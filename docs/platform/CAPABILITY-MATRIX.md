@@ -32,7 +32,7 @@ No entry claims `real`: there is no live-account acceptance evidence yet.
 |---|---|---|---|---|---|---|
 | aws | `src/lib/providers/aws/drivers/index.ts` | `compute`, `data`, `network` | 21 | 21 | 0 | 0 |
 | gcp | `src/lib/providers/gcp/drivers/index.ts` | `build`, `compute`, `data`, `edge`, `identity`, `network`, `observability` | 18 | 18 | 0 | 0 |
-| azure | `src/lib/providers/azure/drivers/index.ts` | `compute`, `data`, `dns`, `identity`, `network`, `platform` | 19 | 19 | 0 | 0 |
+| azure | `src/lib/providers/azure/drivers/index.ts` | `compute`, `data`, `dns`, `identity`, `network`, `platform` | 25 | 25 | 0 | 0 |
 | oci | `src/lib/providers/oci/drivers/index.ts` | `compute`, `data`, `edge`, `network`, `platform` | 20 | 20 | 0 | 0 |
 | kubernetes | `src/lib/providers/kubernetes/drivers/index.ts` | `identity`, `network`, `storage`, `workload` | 11 | 11 | 0 | 0 |
 | zenith | `src/lib/providers/zenith/drivers/index.ts` | none | 12 | 12 | 0 | 0 |
@@ -99,23 +99,29 @@ This matrix covers the **resource-driver** path (`src/lib/drivers`). The product
 | Native type | Kind | Driver | Registered | compile | observe | runtime | verify | discover | Day-two operations |
 |---|---|---|---|---|---|---|---|---|---|
 | `azure:acr_task` | `build_pipeline` | `azure.acr_task@1` | yes | `contract` | `contract` | — | `contract` | — | — |
+| `azure:aks_cluster` | `kubernetes_cluster` | `azure.aks_cluster@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
 | `azure:application_gateway` | `load_balancer` | `azure.application_gateway@1` | yes | `contract` | `contract` | `contract` | `contract` | — | — |
 | `azure:container_app` | `container_service` | `azure.container_app@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | `service.restart`: `contract`<br>`service.scale`: `contract` |
 | `azure:container_app_job` | `scheduled_job` | `azure.container_app_job@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
 | `azure:container_registry` | `container_registry` | `azure.container_registry@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
 | `azure:dns_record_set` | `dns_record` | `azure.dns_record_set@1` | yes | `contract` | `contract` | — | `contract` | — | — |
 | `azure:dns_zone` | `dns_zone` | `azure.dns_zone@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `azure:function_app` | `function` | `azure.function_app@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
 | `azure:key_vault_secret` | `secret` | `azure.key_vault_secret@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
 | `azure:log_analytics_workspace` | `log_group` | `azure.log_analytics_workspace@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
 | `azure:managed_certificate` | `tls_certificate` | `azure.managed_certificate@1` | yes | `contract` | `contract` | — | `contract` | — | — |
+| `azure:managed_disk` | `volume` | `azure.managed_disk@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `azure:mysql_flexible_server` | `mysql` | `azure.mysql_flexible_server@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
 | `azure:network_security_rule` | `firewall` | `azure.network_security_rule@1` | yes | `contract` | `contract` | — | `contract` | — | — |
 | `azure:postgresql_flexible_server` | `postgres` | `azure.postgresql_flexible_server@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | `database.snapshot`: `contract` |
 | `azure:redis_cache` | `redis` | `azure.redis_cache@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
 | `azure:service_bus_queue` | `queue` | `azure.service_bus_queue@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
 | `azure:service_bus_topic` | `pubsub` | `azure.service_bus_topic@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
+| `azure:static_web_app` | `static_site` | `azure.static_web_app@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
 | `azure:storage_container` | `object_store` | `azure.storage_container@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
 | `azure:subnet` | `subnet` | `azure.subnet@1` | yes | `contract` | `contract` | — | `contract` | — | — |
 | `azure:user_assigned_identity` | `identity` | `azure.user_assigned_identity@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `azure:virtual_machine` | `compute_instance` | `azure.virtual_machine@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
 | `azure:virtual_network` | `network` | `azure.virtual_network@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
 
 ### oci

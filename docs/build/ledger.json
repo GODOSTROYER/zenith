@@ -2,7 +2,7 @@
   "schema": 1,
   "program": "Zenith agentic multi-cloud control plane",
   "integrationBranch": "platform/integration",
-  "integrationWorktree": "zenith-wt/platform",
+  "integrationWorktree": "/Users/saivedanthava/Desktop/zenith",
   "baseline": {
     "commit": "c1049f6",
     "date": "2026-09-30",
@@ -10,8 +10,8 @@
     "typecheck": "clean",
     "lint": "clean"
   },
-  "orchestrator": "Opus 5.5 (architecture, contracts, review, integration)",
-  "workerModel": "Sonnet 5.5, medium effort",
+  "orchestrator": "Codex (planning, review, verification and integration)",
+  "workerModel": "gpt-6.1-sol, high reasoning effort",
   "workstreams": [
     {
       "id": "WS-FOUND",
@@ -90,7 +90,7 @@
       "commit": "a080e24",
       "tests": "opa 205/205; vitest 215",
       "review": "orchestrator: merged cb72738",
-      "notes": "policy/dist sha e04961bb…; cross-OS wasm determinism unverified"
+      "notes": "policy/dist sha e04961bb\u2026; cross-OS wasm determinism unverified"
     },
     {
       "id": "WS-CRED",
@@ -454,7 +454,7 @@
       "id": "WS-MCP",
       "title": "MCP v3 semantic tools, CLI, SDK, connectors",
       "wave": 3,
-      "owner": "sonnet → codex gpt-6.1-sol xhigh",
+      "owner": "sonnet \u2192 codex gpt-6.1-sol xhigh",
       "state": "integrated",
       "deps": [
         "WS-CAP"
@@ -565,7 +565,7 @@
       "id": "WS-SEC",
       "title": "Threat model, tenant-isolation matrix, secret-leak and chaos tests",
       "wave": 4,
-      "owner": "sonnet → codex gpt-6.1-sol xhigh",
+      "owner": "sonnet \u2192 codex gpt-6.1-sol xhigh",
       "state": "integrated",
       "deps": [
         "WS-CAP",
@@ -620,7 +620,7 @@
       "id": "WS-LIVE",
       "title": "Live-cloud acceptance harness, scenarios A-J, cleanup, evidence",
       "wave": 3,
-      "owner": "sonnet → codex gpt-6.1-sol xhigh",
+      "owner": "sonnet \u2192 codex gpt-6.1-sol xhigh",
       "state": "integrated",
       "deps": [
         "WS-CRED",
@@ -640,7 +640,7 @@
       "id": "WS-BRIDGE",
       "title": "Bridge existing deploy/connection actions and engine to the control plane (workflow-executed deployments)",
       "wave": 3,
-      "owner": "sonnet → codex gpt-6.1-sol xhigh",
+      "owner": "sonnet \u2192 codex gpt-6.1-sol xhigh",
       "state": "integrated",
       "deps": [
         "WS-CAP",
@@ -759,7 +759,7 @@
         "tests/execution/compile-refs*"
       ],
       "branch": "ws/ref",
-      "notes": "orchestrator review: execution ctx.ref returned ${primary.attr}; AWS refs like target_group_arn:<t> only exist as locals and fail the ATTRIBUTE regex — blocks any real AWS deploy with a load balancer",
+      "notes": "orchestrator review: execution ctx.ref returned ${primary.attr}; AWS refs like target_group_arn:<t> only exist as locals and fail the ATTRIBUTE regex \u2014 blocks any real AWS deploy with a load balancer",
       "tests": "real tofu outside sandbox: compile-refs-providers 18/18 (AWS/OCI/GCP expanded graphs through the execution path validate); execution+providers sweep 5877 passed",
       "review": "orchestrator: resumed 3x with approvals (two-phase refs, GCP read_credentials, shared GCP network-of)"
     },
@@ -777,7 +777,7 @@
     },
     {
       "id": "WS-PLACE-WIRE",
-      "title": "provider:auto — placement recommendation via REST, action, MCP tool and page",
+      "title": "provider:auto \u2014 placement recommendation via REST, action, MCP tool and page",
       "wave": 5,
       "owner": "codex gpt-6.1-sol xhigh",
       "state": "integrated",
@@ -844,7 +844,7 @@
       "branch": "ws/sec-policy",
       "deps": [],
       "paths": [],
-      "tests": "policy 207/207 (opa 1.19.1, rebuilt outside sandbox, sha 4d024850…); security/policy/credentials/agent-access/capabilities 1092 passed",
+      "tests": "policy 207/207 (opa 1.19.1, rebuilt outside sandbox, sha 4d024850\u2026); security/policy/credentials/agent-access/capabilities 1092 passed",
       "review": "orchestrator: rebuilt bundle; removed F1/F10 characterisation tests per the suite procedure"
     },
     {
@@ -1441,8 +1441,8 @@
       "deps": [],
       "paths": [],
       "branch": "ws/destroy-review",
-      "tests": "PAUSED mid-work",
-      "review": "PAUSED 2026-10-01 20:45 IST at user request; uncommitted work saved as docs/build/paused/ws-destroy-review.patch (resume per docs/build/RESUME.md)"
+      "tests": "Implementation resumed; verification pending",
+      "review": "Resumed from saved patch in an isolated worktree on Saivedant Hava's Mac; independent checks required before merge."
     },
     {
       "id": "WS-AZURE-SOURCE-WIRE",
@@ -1453,8 +1453,8 @@
       "deps": [],
       "paths": [],
       "branch": "ws/azure-source-wire",
-      "tests": "PAUSED mid-work",
-      "review": "PAUSED 2026-10-01 20:45 IST at user request; uncommitted work saved as docs/build/paused/ws-azure-source-wire.patch (resume per docs/build/RESUME.md)"
+      "tests": "Implementation resumed; verification pending",
+      "review": "Resumed from saved patch in an isolated worktree on Saivedant Hava's Mac; independent checks required before merge."
     },
     {
       "id": "WS-RELEASE-K8S",
@@ -1563,8 +1563,87 @@
       ],
       "paths": [],
       "branch": "ws/aws-boundary-split",
-      "tests": "PAUSED mid-work",
-      "review": "PAUSED 2026-10-01 20:45 IST at user request; uncommitted work saved as docs/build/paused/ws-aws-boundary-split.patch (resume per docs/build/RESUME.md)"
+      "tests": "Implementation resumed; verification pending",
+      "review": "Resumed from saved patch in an isolated worktree on Saivedant Hava's Mac; independent checks required before merge."
+    },
+    {
+      "id": "WS-GATE-W8",
+      "title": "Repair checkpoint dependency and verification defects",
+      "wave": 8,
+      "owner": "worker",
+      "state": "staged",
+      "deps": [],
+      "branch": "ws/gate-fixes",
+      "paths": [
+        "package-lock.json",
+        "src/lib/observability/redact.ts",
+        "src/app/api/platform/v1/_lib/bearer-paths.ts"
+      ],
+      "tests": "Independent targeted checks:104 passed,0 failed,0 skipped; typecheck,eslint,gofmt,go vet and go test passed. OPA213/213 on baseline.",
+      "commit": "007716e,641c989,d0137d6",
+      "review": "Orchestrator maintains verification evidence.",
+      "notes": "Baseline full suite:15636 passed,2 failed,208 skipped plus a Temporal hook timeout. Both code defects fixed;14 deployment cases pass after cold test-server download. Final full gate pending."
+    },
+    {
+      "id": "WS-GITHUB-MIGRATION",
+      "title": "Integrate GitHub source schema as platform migration 6",
+      "wave": 8,
+      "owner": "worker",
+      "state": "planned",
+      "deps": [
+        "WS-GITHUB-SOURCE"
+      ],
+      "branch": "ws/github-migration",
+      "paths": [
+        "src/lib/controlplane/db/migrations",
+        "src/lib/sources/github",
+        "supabase/migrations/0014_platform_core.sql",
+        "src/app/(product)/platform/layout.tsx"
+      ],
+      "tests": "",
+      "commit": "",
+      "review": "Orchestrator maintains verification evidence.",
+      "notes": "Register immutable additive migration, regenerate SQL, update deployment docs and product navigation."
+    },
+    {
+      "id": "WS-MACHINE-DOCS",
+      "title": "Correct default machine-port documentation",
+      "wave": 8,
+      "owner": "worker",
+      "state": "planned",
+      "deps": [
+        "WS-MACHINE-PORT"
+      ],
+      "branch": "ws/machine-docs",
+      "paths": [
+        "docs/platform/operations/README.md",
+        "docs/platform/operations/AWS-SETUP.md"
+      ],
+      "tests": "",
+      "commit": "",
+      "review": "Orchestrator maintains verification evidence.",
+      "notes": "Replace stale claims with default-composition behavior and remaining provider limits."
+    },
+    {
+      "id": "WS-OCI-CLEANUP",
+      "title": "Bind created OCI migration instances and clean up finished jobs",
+      "wave": 8,
+      "owner": "worker",
+      "state": "planned",
+      "deps": [
+        "WS-RELEASE-OCI"
+      ],
+      "branch": "ws/oci-cleanup",
+      "paths": [
+        "go/internal/runner/kinds/ocihttp.go",
+        "go/internal/oci",
+        "src/lib/providers/oci/release",
+        "src/lib/providers/oci/allowlist.ts"
+      ],
+      "tests": "",
+      "commit": "",
+      "review": "Orchestrator maintains verification evidence.",
+      "notes": "Restrict cleanup to runner-created migration instances for the owning signed job context; no general DELETE capability."
     }
   ],
   "blockers": [

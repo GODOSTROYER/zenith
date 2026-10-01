@@ -390,7 +390,11 @@ export function createAwsSsmMachineDriver(options: AwsSsmDriverOptions = {}): Ma
       throw new MachineOperationError("uncertain", `command ${commandId} did not finish within the request's time budget; it may still be running or may have completed`, { transportRef: commandId });
     }
     // read-only: stop the work we started, best effort
-    await ssm.send(new CancelCommandCommand({ CommandId: commandId, InstanceIds: [req.target.targetId] })).catch(() => undefined);
+    try {
+      await ssm.send(new CancelCommandCommand({ CommandId: commandId, InstanceIds: [req.target.targetId] }));
+    } catch {
+      /* cancellation is best effort (it needs ssm:CancelCommand); the timeout result below stands either way */
+    }
     return {
       ok: false,
       operation: req.operation,

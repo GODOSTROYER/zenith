@@ -227,7 +227,9 @@ describe("polling GetCommandInvocation", () => {
     ssm.on(GetCommandInvocationCommand).rejects(awsError("AccessDeniedException"));
     const err = await run(requestFor("machine.inspect", {})).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(MachineOperationError);
-    expect(err).toMatchObject({ code: "transport_error", transportRef: COMMAND_ID });
+    expect(err).toMatchObject({ code: "transport_error", transportRef: COMMAND_ID, message: expect.stringContaining("AWS denied the SSM call") });
+    // a non-transient poll error stops the loop at once instead of retrying until the deadline
+    expect(ssm.commandCalls(GetCommandInvocationCommand)).toHaveLength(1);
   });
 
   it("read-only request past its deadline: ok:false timeout, and the command is cancelled", async () => {

@@ -254,8 +254,11 @@ describe("container.exec: argv, never a shell; bounded", () => {
         for (let i = 0; i < 40; i++) out.write(Buffer.alloc(10_000, "x"));
       },
     });
+    const t0 = Date.now();
     const err = await f.run(req("container.exec", { container: "app", argv: ["yes"], timeoutSec: 10 }, "prod/web-1", { maxOutputBytes: 100 })).catch((e: unknown) => e);
-    expect(err).toMatchObject({ code: "uncertain" });
+    expect(err).toMatchObject({ code: "uncertain", message: expect.stringContaining("runaway output") });
+    // cut off by the overflow guard, not by waiting out the 10 s command timeout
+    expect(Date.now() - t0).toBeLessThan(3000);
   });
 
   it("a command that outlives its timeout is uncertain (closing the socket does not prove the process stopped)", async () => {

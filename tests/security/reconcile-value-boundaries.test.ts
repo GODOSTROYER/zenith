@@ -21,7 +21,7 @@ describe("reconciliation value-scrubbing boundary", () => {
     assertNoCanaries([out, persistedText(h.backend)], [canary, SESSION_CANARY], "controller must scrub credential shapes and keep sessions out of every persisted surface");
   });
 
-  it.fails("SEC-F13 (LOW, driver contract): credential-shaped expected attributes must not reach drift desired values", async () => {
+  it("SEC-F13 (LOW, driver contract): credential-shaped expected attributes must not reach drift desired values", async () => {
     const canary = canarySecret("reconcile/expected", "aws-access-key-id");
     const h = harness({ graph: tinyGraph(ENV.environmentId), world: (w, g) => w.allPresent(g, { diagnostic: canary }) });
     const g = await h.ports.loadGraph(ENV);
@@ -29,16 +29,16 @@ describe("reconciliation value-scrubbing boundary", () => {
     assertNoCanaries([out, persistedText(h.backend)], [canary], "scrubbing must cover driver expectedAttributes as well as observe results");
   });
 
-  it("SEC-F13 characterization: observation is scrubbed while desired drift field retains the same driver canary", async () => {
+  it("SEC-F13: both observed and desired credentials are absent from persisted, emitted and returned values", async () => {
     const canary = canarySecret("reconcile/expected-control", "aws-access-key-id");
     const h = harness({ graph: tinyGraph(ENV.environmentId), world: (w, g) => w.allPresent(g, { diagnostic: canary }) });
     const g = await h.ports.loadGraph(ENV);
     const out = await reconcileEnvironment({ environment: ENV, graph: g!, ports: h.ports });
     if (!out.report) throw new Error("SEC-F13 characterization requires a completed drift report");
     expect(out.report.findings.length).toBeGreaterThan(0);
-    assertNoCanaries(h.backend.observations, [canary], "the observed side of the finding was actually scrubbed");
-    expect(deepScanForCanaries(out.report.findings, [canary]).map((hit) => hit.path).every((p) => p.endsWith(".desired"))).toBe(true);
-    expect(deepScanForCanaries(out.report.findings, [canary]).length).toBeGreaterThan(0);
+    expect(h.backend.observations.length, "scanner must inspect persisted observations").toBeGreaterThan(0);
+    expect(h.backend.events.some((event) => event.type === "drift.detected"), "scanner must inspect actual emitted drift events").toBe(true);
+    assertNoCanaries([out, h.backend.events, persistedText(h.backend)], [canary, SESSION_CANARY], "both sides of drift findings are scrubbed across every output boundary");
   });
 
   it("characterizes a neutral opaque driver value: it survives observations; events omit attribute values", async () => {

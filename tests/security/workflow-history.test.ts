@@ -11,13 +11,15 @@ import { describe, expect, it, vi } from "vitest";
 import { digest } from "@/lib/controlplane/digest";
 import { startDayTwo, startDeploy, startReconcile, startRemediation } from "@/lib/workflows/client";
 import { WORKFLOW_ID, WORKFLOW_TYPES } from "@/lib/workflows/types";
-import { assertNoCanaries, canarySecret, deepScanForCanaries } from "../_support/security";
+import { assertNoCanaries, canarySecret } from "../_support/security";
 import { deployInput, serverSuite } from "../workflows/support";
 
 const canary = canarySecret("temporal/spec", "password", { stable: true });
 const starts = [
-  { name: "deploy", start: startDeploy }, { name: "day-two", start: startDayTwo },
-  { name: "remediation", start: startRemediation }, { name: "reconcile", start: startReconcile },
+  { name: "deploy", start: startDeploy, fields: ["operationId", "workspaceId", "projectId", "environmentId", "revisionId", "deploymentId", "connectionId", "preApproved", "build"] },
+  { name: "day-two", start: startDayTwo, fields: ["operationId", "workspaceId", "environmentId", "capability"] },
+  { name: "remediation", start: startRemediation, fields: ["operationId", "workspaceId", "environmentId", "incidentId"] },
+  { name: "reconcile", start: startReconcile, fields: ["workspaceId", "environmentId", "allowAutoRepair"] },
 ] as const;
 function interceptedClient() {
   const start = vi.fn(async (_type: string, _options: { args: unknown[] }) => ({ firstExecutionRunId: "synthetic-run" }));
@@ -27,20 +29,22 @@ const input = () => ({ ...deployInput(), capability: "workload.restart", inciden
 
 for (const surface of starts) {
   describe(`workflow start boundary: ${surface.name}`, () => {
-    it("CONTROL: well-typed ids-only input forwards no node specs or secret values", async () => {
+    it("CONTROL: every allowed id/scalar reaches the workflow; unrelated fields are omitted", async () => {
       const h = interceptedClient();
       const request = input();
       await surface.start(request, { client: h.client });
       expect(h.start).toHaveBeenCalledOnce();
-      expect(h.start.mock.calls[0][1].args).toEqual([request]);
+      const expected = Object.fromEntries(surface.fields.map((field) => [field, request[field]]));
+      expect(h.start.mock.calls[0][1].args).toEqual([expected]);
       assertNoCanaries(h.start.mock.calls[0], [canary], "well-typed workflow request contains references only");
     });
 
-    it.fails(`SEC-F12 (MED, caller boundary): ${surface.name} must refuse or omit runtime node specs before serialization`, async () => {
+    it(`SEC-F12 (MED, caller boundary): ${surface.name} must refuse or omit runtime node specs before serialization`, async () => {
       const h = interceptedClient();
       // TypeScript structural typing cannot protect a deserialized request.
       const request = { ...input(), nodes: [{ spec: { diagnostic: canary } }], inputs: { value: canary } };
       await surface.start(request, { client: h.client });
+      expect(h.start).toHaveBeenCalledOnce();
       assertNoCanaries(h.start.mock.calls, [canary], "workflow starts must not forward secret-bearing extra runtime properties into durable history");
     });
   });
@@ -63,11 +67,13 @@ describe.skipIf(process.env.ZENITH_SEC_TEMPORAL !== "1")("real Temporal history 
     assertNoCanaries([history, result, h.fake.calls], [canary], "contract-compliant payloads leave node-spec secrets outside Temporal history");
   });
 
-  scenario("SEC-F12 characterization: runtime node-spec extras reach actual durable history", async (h) => {
+  scenario("SEC-F12: runtime node-spec extras are absent from actual durable history", async (h) => {
     const request = { ...deployInput(), nodes: [{ spec: { diagnostic: canary } }] };
     const { handle } = await startDeploy(request, { client: h.client, taskQueue: h.taskQueue });
     const result = await h.run(() => handle.result());
     expect(result).toMatchObject({ status: "succeeded" });
-    expect(deepScanForCanaries(await handle.fetchHistory(), [canary]).length, "Temporal serializes the forwarded extras before workflow code can ignore them").toBeGreaterThan(0);
+    const history = await handle.fetchHistory();
+    expect(history.events!.length, "must scan nonempty real server history").toBeGreaterThan(0);
+    assertNoCanaries([history, result, h.fake.calls], [canary], "runtime node specs are omitted before Temporal serializes the workflow request");
   });
 });

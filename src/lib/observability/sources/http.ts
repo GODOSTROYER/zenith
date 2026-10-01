@@ -49,7 +49,22 @@ const HEADER_NAME = /^[A-Za-z0-9-]{1,64}$/;
  * out credentials and no metrics backend lives there.
  */
 export function isMetadataHost(hostname: string): boolean {
-  const h = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  let h = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (h.includes(":")) {
+    // WHATWG URL canonicalizes compressed, expanded and dotted IPv6 spellings.
+    // Classification is local; this performs no DNS lookup or network request.
+    try {
+      h = new URL(`http://[${h}]`).hostname.slice(1, -1);
+    } catch {
+      return false;
+    }
+    const mapped = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(h);
+    if (mapped) {
+      const high = Number.parseInt(mapped[1], 16);
+      const low = Number.parseInt(mapped[2], 16);
+      h = `${high >>> 8}.${high & 255}.${low >>> 8}.${low & 255}`;
+    }
+  }
   return /^169\.254\./.test(h) || h === "metadata.google.internal" || h === "metadata" || h.startsWith("fd00:ec2:") || h === "100.100.100.200";
 }
 

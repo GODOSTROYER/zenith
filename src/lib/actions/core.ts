@@ -19,6 +19,7 @@ import { appendAuditAsync, db, flushPendingAsync, isPostgres, save } from "@/lib
 import { id, type Actor, type AutonomyLevel } from "@/lib/domain/types";
 import { membershipPolicy } from "@/lib/auth/policy";
 import { WORKSPACE_ROLE_RANK, type WorkspaceRole } from "@/lib/domain/roles";
+import { redactAuditText } from "@/lib/audit/redact";
 
 export interface ActionContext {
   workspaceId: string;
@@ -691,6 +692,16 @@ async function audit(
   error?: string
 ) {
   if (!action.mutates && result === "ok") return; // don't audit reads
+  const compose = action.id === "project.importCompose";
+  const fields = input && typeof input === "object" ? input as Record<string, unknown> : {};
+  // Compose is a source blob, including arbitrary plaintext env values. Its
+  // contents and parser diagnostics cannot be made safe by key heuristics.
+  const auditInput = compose ? {
+    projectId: fields.projectId,
+    name: fields.name,
+    connectionId: fields.connectionId,
+    composeYaml: { omitted: true, characters: typeof fields.composeYaml === "string" ? fields.composeYaml.length : 0 },
+  } : input;
   await appendAuditAsync({
     ts: new Date().toISOString(),
     id: id(),
@@ -699,10 +710,10 @@ async function audit(
     environmentId: ctx.environmentId,
     actor: ctx.actor,
     actionId: action.id,
-    input: capSnapshot(redact(ctx.integration ? { integration: ctx.integration, inputStoredInReceipt: true } : input)),
+    input: capSnapshot(redact(ctx.integration ? { integration: ctx.integration, inputStoredInReceipt: true } : auditInput)),
     result,
-    summary,
-    error,
+    summary: compose ? `Compose import: ${result}. Source text omitted.` : redactAuditText(summary, input),
+    error: error === undefined ? undefined : compose ? "Compose import diagnostic omitted because source text may contain secrets." : redactAuditText(error, input),
   });
 }
 

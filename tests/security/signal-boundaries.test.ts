@@ -92,7 +92,7 @@ describe("operator observability endpoints (no network access in these tests)", 
     // Injected fetch verifies request options; it does not prove live redirect behavior.
   });
 
-  it.fails("SEC-F11 (LOW, operator config): equivalent IPv4-mapped metadata literals must be refused", () => {
+  it("SEC-F11 (LOW, operator config): equivalent IPv4-mapped metadata literals must be refused", () => {
     for (const host of ["[::ffff:169.254.169.254]", "[::ffff:100.100.100.200]"]) {
       expect(() => normalizeBaseUrl(`http://${host}`), "metadata classification must cover equivalent IPv6-mapped addresses").toThrow(/metadata/);
     }

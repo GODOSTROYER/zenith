@@ -55,7 +55,7 @@ describe("audit rows written by real actions that are handed a secret", () => {
    * SEC-R1. The importer drops the value, the audit log keeps it. Flip to `it`
    * when `core.ts` stops recording blob inputs verbatim.
    */
-  it.fails("SEC-R1 (MEDIUM): importing a compose file with a plaintext secret never writes the plaintext into the audit log", async () => {
+  it("SEC-R1 (MEDIUM): importing a compose file with a plaintext secret never writes the plaintext into the audit log", async () => {
     const secret = canarySecret("compose-audit", "password");
     const compose = `services:\n  api:\n    image: node:22\n    environment:\n      API_KEY: ${secret}`;
     await execute("project.importCompose", { composeYaml: compose, name: "Compose2" });

@@ -147,6 +147,10 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
       if (!connection) return deny("connection_not_found", "Connection not found in this workspace.");
       if (connection.status === "revoked") return deny("connection_revoked", "Connection revoked.");
       if (connection.status !== "verified") return deny("connection_not_verified", "Connection has not been verified.");
+      // Only AWS has a separate, scoped value-writer session today. Never use
+      // another provider's observe/deploy identity for a secret-write request.
+      if (req.purpose === "secret.write") return deny("provider_unsupported", "Secret-write sessions are currently supported only for AWS connections.");
+      if (grant.cap === "secret.write") return deny("purpose_capability_mismatch", "secret.write requires its separate writer purpose and role.");
       if ((req.purpose === "deploy") !== capability(grant.cap).mutates) return deny("purpose_capability_mismatch", "Credential purpose does not match capability.");
       if (connection.config.provider === "oci") return deny("provider_unsupported", "OCI is runner-only; oci.http does not yet implement ProviderSession. No direct credentials can be issued.");
       if (connection.config.mode === "runner") return deny("mode_unsupported", "This provider's runner transport is not configured.");

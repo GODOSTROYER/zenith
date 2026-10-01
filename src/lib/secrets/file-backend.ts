@@ -19,6 +19,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { env } from "@/lib/env";
 import type { AsyncSecretsBackend, SecretRecord, SecretsBackend } from "./backend";
+import type { AuditEvent } from "@/lib/domain/types";
+import type { VaultRewrapStore } from "./rewrap";
 
 /** What one row looks like on disk. `cipher` is the combined string. */
 interface StoredSecret {
@@ -36,6 +38,8 @@ interface StoreFile {
   version: 1;
   /** workspaceId → ref → row */
   workspaces: Record<string, Record<string, StoredSecret>>;
+  /** Durable count-only outbox, committed atomically with a re-wrap batch. */
+  pendingRewrapAudit?: AuditEvent[];
 }
 
 const EMPTY: StoreFile = { version: 1, workspaces: {} };
@@ -98,12 +102,12 @@ const storePath = (): string => {
  */
 let fileCache: { file: string; mtimeMs: number; size: number; data: StoreFile } | undefined;
 
-function read(): StoreFile {
+function read(strict = false): StoreFile {
   const file = storePath();
   const stat = fs.statSync(file, { throwIfNoEntry: false });
   if (!stat) return structuredClone(EMPTY);
   if (
-    fileCache &&
+    !strict && fileCache &&
     fileCache.file === file &&
     fileCache.mtimeMs === stat.mtimeMs &&
     fileCache.size === stat.size
@@ -111,6 +115,9 @@ function read(): StoreFile {
     return fileCache.data;
   try {
     const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as StoreFile;
+    if (strict && (!parsed || parsed.version !== 1 || !parsed.workspaces ||
+      typeof parsed.workspaces !== "object" || Array.isArray(parsed.workspaces)))
+      throw new Error("Unsupported vault file shape.");
     const data: StoreFile = { ...EMPTY, ...parsed, workspaces: parsed.workspaces ?? {} };
     fileCache = { file, mtimeMs: stat.mtimeMs, size: stat.size, data };
     return data;
@@ -133,7 +140,11 @@ function write(data: StoreFile): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.tmp`;
   // 0600 on create; chmod after in case the file already existed at 0644.
-  fs.writeFileSync(tmp, JSON.stringify(data), { encoding: "utf8", mode: 0o600 });
+  const fd = fs.openSync(tmp, "w", 0o600);
+  try {
+    fs.writeFileSync(fd, JSON.stringify(data), { encoding: "utf8" });
+    fs.fsyncSync(fd);
+  } finally { fs.closeSync(fd); }
   fs.renameSync(tmp, file);
   try {
     fs.chmodSync(file, 0o600);
@@ -217,4 +228,70 @@ export const FileSecretsAsync: AsyncSecretsBackend = {
     }
   },
   async remove(workspaceId, ref) { return FileSecrets.remove(workspaceId, ref); },
+};
+
+/** Rotation validates the file shape rather than silently treating it as empty. */
+function rewrapPage(data: StoreFile, workspaceId: string, after: string, limit: number): SecretRecord[] {
+  if (data.version !== 1 || typeof data.workspaces !== "object" || Array.isArray(data.workspaces))
+    throw new Error("The vault file has an unsupported shape.");
+  const workspace = Object.hasOwn(data.workspaces, workspaceId) ? data.workspaces[workspaceId] : {};
+  if (!workspace || typeof workspace !== "object" || Array.isArray(workspace))
+    throw new Error("The vault workspace has an unsupported shape.");
+  const refs = Object.keys(workspace).sort();
+  if (refs.some((ref) => !ref)) throw new Error("The vault file contains an invalid row.");
+  return refs.filter((ref) => ref > after).slice(0, limit).map((ref) => {
+    const row = workspace[ref];
+    if (!ref || row.ref !== ref || typeof row.cipher !== "string" || row.cipher.split(".").length !== 3)
+      throw new Error("The vault file contains an invalid row.");
+    return toRecord(row);
+  });
+}
+
+/**
+ * File transactions use the same exclusive lock as ordinary secret writers and
+ * one atomic rename per batch. The audit outbox survives a crash between that
+ * rename and audit.jsonl append. Delivery is at least once, with stable event ids
+ * for deduplication; it is not a transaction spanning two filesystem files.
+ */
+export const FileVaultRewrap: VaultRewrapStore = {
+  async listBatch(workspaceId, after, limit) {
+    return rewrapPage(read(true), workspaceId, after, limit);
+  },
+  async applyBatch(workspaceId, after, limit, transform, audit) {
+    return withWriteLock(() => {
+      const data = structuredClone(read(true));
+      const records = rewrapPage(data, workspaceId, after, limit);
+      const changed = records.map(transform).filter((record) => record !== undefined);
+      if (changed.length) {
+        for (const record of changed) data.workspaces[workspaceId][record.ref] = toStored(record);
+        (data.pendingRewrapAudit ??= []).push(audit(changed.length));
+        write(data);
+      }
+      return { records, rewrapped: changed.length };
+    });
+  },
+  async flushAudit(workspaceId) {
+    withWriteLock(() => {
+      const data = structuredClone(read(true));
+      const pending = data.pendingRewrapAudit?.filter((event) => event.workspaceId === workspaceId) ?? [];
+      if (!pending.length) return;
+      const fd = fs.openSync(path.join(path.dirname(storePath()), "audit.jsonl"), "a+", 0o600);
+      try {
+        // A crash may have left an incomplete line. Separate it from replayed
+        // events so readers can skip the remnant without losing the next event.
+        const size = fs.fstatSync(fd).size;
+        if (size) {
+          const last = Buffer.alloc(1);
+          fs.readSync(fd, last, 0, 1, size - 1);
+          if (last[0] !== 0x0a) fs.writeFileSync(fd, "\n");
+        }
+        // writeFileSync retries short writes; a single writeSync need not finish.
+        for (const event of pending) fs.writeFileSync(fd, `${JSON.stringify(event)}\n`);
+        fs.fsyncSync(fd);
+      } finally { fs.closeSync(fd); }
+      data.pendingRewrapAudit = data.pendingRewrapAudit!.filter((event) => event.workspaceId !== workspaceId);
+      if (!data.pendingRewrapAudit.length) delete data.pendingRewrapAudit;
+      write(data);
+    });
+  },
 };

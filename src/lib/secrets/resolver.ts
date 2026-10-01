@@ -9,7 +9,7 @@
 import { randomBytes } from "node:crypto";
 import type { ConnectionSecretSink } from "@/lib/providers/zenith/database";
 import { asyncSecretsBackend, KEY_VERSION, type AsyncSecretsBackend } from "./backend";
-import { seal, unseal } from "./index";
+import { seal, unsealVault } from "./index";
 import { SecretDeliveryError, sameSecret, type SecretTenant } from "./delivery";
 
 export interface SecretResolverScope extends SecretTenant {
@@ -40,7 +40,7 @@ async function insertOnce(backend: AsyncSecretsBackend, scope: SecretResolverSco
     ref, createdAt: now, updatedAt: now, createdBy: "secret-sync", updatedBy: "secret-sync", version: 1, keyVersion: KEY_VERSION,
     ...seal(scope.workspaceId, ref, value),
   });
-  return unseal(scope.workspaceId, ref, record);
+  return unsealVault(scope.workspaceId, ref, record);
 }
 
 export function createSecretResolver(scope: SecretResolverScope, backend: AsyncSecretsBackend = asyncSecretsBackend()): (ref: string) => Promise<string | undefined> {
@@ -48,7 +48,7 @@ export function createSecretResolver(scope: SecretResolverScope, backend: AsyncS
     const kind = assertVaultScope(ref, scope);
     try {
       const record = await backend.get(scope.workspaceId, ref);
-      if (record) return unseal(scope.workspaceId, ref, record);
+      if (record) return unsealVault(scope.workspaceId, ref, record);
       if (kind === "password") return await insertOnce(backend, scope, ref, randomBytes(32).toString("hex"));
       return undefined;
     } catch {

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=22.16"
+    "node": ">=22.16 <23"
   },
   "description": "Zenith — a bring-your-own-cloud deployment and operations platform. Your infrastructure, in motion.",
   "scripts": {

@@ -2,13 +2,13 @@
   "schema": 1,
   "opaVersion": "1.19.1",
   "entrypoint": "zenith/decision/result",
-  "wasmSha256": "e04961bb7fe8b76aa3601985d40592d294fa46dc9d2a86952d0818a96032305b",
-  "wasmBytes": 178549,
-  "regoSha256": "431b535073dc81b1ae48819c24c5bcbde0e2da8d9d95dcd338d89b30d34192f1",
+  "wasmSha256": "4d02485069e5482a941c9b223484e6545423956d41dc0c2527c8d9b354d31ef1",
+  "wasmBytes": 178945,
+  "regoSha256": "76f41e38b337ad433a42a1bf76e528c43f087dcbb7e68e715e2c3e151343b0a6",
   "sources": [
     {
       "name": "approval.rego",
-      "sha256": "3b0de5c224234e97f18133a631c6d2736506c0e7286d7a38b1be680bc1315929"
+      "sha256": "c16dc3fee3a54d6d49d63c0e4e0175d832476d869044a558a608c94eb44a149f"
     },
     {
       "name": "constraints.rego",
@@ -24,7 +24,7 @@
     },
     {
       "name": "lib.rego",
-      "sha256": "2e7e719cd50e0dde66b381abf8b496098a110d157caf2f0a493a99e176b64308"
+      "sha256": "bc231f5de7a085ce887a9268a96582664051e338862512302fe072a9b5e4d4d6"
     }
   ]
 }

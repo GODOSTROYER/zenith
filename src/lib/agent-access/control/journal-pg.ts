@@ -309,8 +309,18 @@ export class PgAgentJournal implements AgentJournal {
     return transactPg(this.client, fn);
   }
 
+  /** Worker-only lookup for methods whose frozen contract carries no workspace. */
   private async row(sql: AnySql, id: string): Promise<Operation> {
     const rows = (await sql`select document from agent.agent_operations where id = ${id}`) as unknown as OperationRow[];
+    if (!rows.length) throw new ControlError('operation_not_found', 'Operation not found in this scope.', 404);
+    return rows[0].document;
+  }
+
+  /** Tenant-facing lookups never load another workspace or subject's document. */
+  private async scopedRow(sql: AnySql, id: string, workspace: string, subject?: string): Promise<Operation> {
+    const rows = (subject === undefined
+      ? await sql`select document from agent.agent_operations where id = ${id} and workspace_id = ${workspace}`
+      : await sql`select document from agent.agent_operations where id = ${id} and workspace_id = ${workspace} and subject = ${subject}`) as unknown as OperationRow[];
     if (!rows.length) throw new ControlError('operation_not_found', 'Operation not found in this scope.', 404);
     return rows[0].document;
   }
@@ -406,7 +416,7 @@ export class PgAgentJournal implements AgentJournal {
   }
 
   async get(who: Principal, id: string): Promise<Operation> {
-    return this.sql(async (sql) => this.scoped(who, await this.row(sql, id)));
+    return this.sql(async (sql) => this.scoped(who, await this.scopedRow(sql, id, who.workspaceId, who.subject)));
   }
 
   /* -------------------------------- review -------------------------------- */
@@ -415,8 +425,9 @@ export class PgAgentJournal implements AgentJournal {
   async review(id: string, subject: string, workspace: string, expectedDigest: string, approve: boolean,
     approver = subject, role: 'editor' | 'admin' = 'editor'): Promise<Operation> {
     return this.tx(async (sql) => {
-      const locked = (await sql`select document from agent.agent_operations where id = ${id} for update`) as unknown as OperationRow[];
-      if (!locked.length) throw new ControlError('operation_not_found', 'Operation not found.', 404);
+      const locked = (await sql`select document from agent.agent_operations
+        where id = ${id} and workspace_id = ${workspace} and subject = ${subject} for update`) as unknown as OperationRow[];
+      if (!locked.length) throw new ControlError('operation_not_found', 'Operation not found in this scope.', 404);
       const op = locked[0].document;
       if (op.subject !== subject || op.target.workspaceId !== workspace)
         throw new ControlError('operation_not_found', 'Operation not found.', 404);
@@ -443,7 +454,7 @@ export class PgAgentJournal implements AgentJournal {
         id, workspaceId: workspace, digest: expectedDigest, now: iso(this.clock()),
       })) as unknown as OperationRow[];
       if (!rows.length) {
-        const op = await this.row(sql, id);
+        const op = await this.scopedRow(sql, id, workspace);
         if (op.target.workspaceId !== workspace) throw new ControlError('operation_not_found', 'Operation not found.', 404);
         if (op.digest !== expectedDigest) throw new ControlError('review_changed', 'Reload and review the exact proposal.');
         if (op.phase !== 'approved') throw notWithdrawable(op.phase);
@@ -463,7 +474,7 @@ export class PgAgentJournal implements AgentJournal {
   async claim(who: Principal, id: string, fingerprint: string, applicationAuthorizationDigest?: string): Promise<{ operation: Operation; claimed: boolean }> {
     await this.ready();
     const sql = this.client;
-    const current = this.scoped(who, await this.row(sql, id));
+    const current = this.scoped(who, await this.scopedRow(sql, id, who.workspaceId, who.subject));
     checkTarget(who, current.target, current.action.startsWith('app.') ? 'publish' : 'write', this.clock());
     // Already terminal, or already dispatched by somebody: the same branch the
     // SQLite journal takes, with the same answer — the row, unchanged.
@@ -484,7 +495,7 @@ export class PgAgentJournal implements AgentJournal {
     if (!rows.length) {
       // Zero rows is never guessed at. Read the row once and say which
       // precondition failed, with the codes the file store already raises.
-      const after = await this.row(sql, id);
+      const after = await this.scopedRow(sql, id, who.workspaceId, who.subject);
       if (['running', 'succeeded', 'failed', 'uncertain'].includes(after.phase)) return { operation: after, claimed: false };
       if (after.phase !== 'approved' || !after.approvedBy || !after.approvalRole)
         throw new ControlError('approval_required', 'Review and approve this exact proposal in Zenith.');
@@ -523,7 +534,7 @@ export class PgAgentJournal implements AgentJournal {
     const fence = this.fences.get(id);
     if (fence === undefined)
       throw new ControlError('operation_not_owned', 'This worker does not own the operation.');
-    const op = await this.row(sql, id);
+    const op = await this.scopedRow(sql, id, who.workspaceId);
     if (op.subject !== who.subject || op.target.workspaceId !== who.workspaceId || op.executedByIntegration !== who.integrationId)
       throw new ControlError('authorization_changed', 'The authorized integration changed during dispatch.', 403);
     checkTarget(who, op.target, op.action.startsWith('app.') ? 'publish' : 'write', this.clock());
@@ -537,7 +548,8 @@ export class PgAgentJournal implements AgentJournal {
     if (!rows.length) {
       // The guards are in the WHERE, so zero rows means one of them moved. Read
       // once and name it; every one of these paths ends as `uncertain` upstream.
-      const leased = (await sql`select document, lease_until from agent.agent_operations where id = ${id}`) as unknown as
+      const leased = (await sql`select document, lease_until from agent.agent_operations
+        where id = ${id} and workspace_id = ${who.workspaceId}`) as unknown as
         { document: Operation; lease_until: string | null }[];
       if (!leased.length) throw new ControlError('operation_not_found', 'Operation not found in this scope.', 404);
       const after = leased[0].document;
@@ -612,8 +624,10 @@ export class PgAgentJournal implements AgentJournal {
       throw new ControlError('invalid_page', 'Use a bounded event page.', 400);
     return this.sql(async (sql) => {
       const rows = (await sql`
-        select seq, kind, at, document from agent.agent_operation_events
-         where operation_id = ${id} and seq > ${after} order by seq limit ${limit}`) as unknown as
+        select e.seq, e.kind, e.at, e.document from agent.agent_operation_events e
+          join agent.agent_operations o on o.id = e.operation_id
+         where e.operation_id = ${id} and o.workspace_id = ${who.workspaceId} and o.subject = ${who.subject}
+           and e.seq > ${after} order by e.seq limit ${limit}`) as unknown as
         { seq: unknown; kind: string; at: string; document: unknown }[];
       return rows.map((row) => ({
         sequence: readNumber(row as unknown as Record<string, unknown>, 'seq'),
@@ -625,7 +639,7 @@ export class PgAgentJournal implements AgentJournal {
   /** Trusted browser service only. Never expose this lookup without separate authorization. */
   async forReview(id: string, workspace: string): Promise<Operation> {
     return this.sql(async (sql) => {
-      const op = await this.row(sql, id);
+      const op = await this.scopedRow(sql, id, workspace);
       if (op.target.workspaceId !== workspace) throw new ControlError('operation_not_found', 'Operation not found.', 404);
       return op;
     });

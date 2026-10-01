@@ -15,6 +15,12 @@ package zenith.lib
 
 import rego.v1
 
+# Authenticated agent principals cannot opt out through an origin label.
+# Retain the origin guard for callers that already mark work as agent-initiated.
+agent_initiated if input.principal.kind in {"integration", "navigator"}
+
+agent_initiated if input.context.origin in {"agent", "navigator"}
+
 # Ordinal ranks. Unknown values are handled by the callers (fail closed).
 risk_rank := {"low": 0, "medium": 1, "high": 2, "critical": 3}
 

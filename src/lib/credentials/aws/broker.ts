@@ -530,8 +530,20 @@ export class AwsCredentialBroker implements CredentialBroker {
   }
 }
 
+// External names are data: accept exact, bounded diagnostic codes only. A
+// syntax check or truncation would still leak opaque secrets placed in a name.
+const SAFE_ERROR_NAMES = new Set([
+  "AccessDenied", "AccessDeniedException", "ExpiredToken", "ExpiredTokenException",
+  "IDPCommunicationError", "IDPCommunicationErrorException", "IDPRejectedClaim", "IDPRejectedClaimException",
+  "InvalidIdentityToken", "InvalidIdentityTokenException", "MalformedPolicyDocument", "MalformedPolicyDocumentException",
+  "PackedPolicyTooLarge", "PackedPolicyTooLargeException", "RegionDisabled", "RegionDisabledException",
+  "Throttling", "ThrottlingException", "TooManyRequestsException", "ServiceUnavailable", "InternalFailure",
+  "TimeoutError", "NetworkingError",
+]);
+
 function errorName(e: unknown): string {
-  return e instanceof Error && e.name ? e.name : "Error";
+  const name = e instanceof Error ? e.name : "Error";
+  return SAFE_ERROR_NAMES.has(name) ? name : "Error";
 }
 
 function sanitizeMessage(e: unknown): string {

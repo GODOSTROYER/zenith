@@ -33,7 +33,7 @@ const NEXT = PLATFORM_MIGRATIONS.length + 1;
 
 const EXPECTED_TABLES = [
   "agent_nonces", "approvals", "capability_grants", "cost_estimates", "drift_reports", "environment_settings", "events", "evidence",
-  "idempotency_keys", "incidents", "investigations", "leases", "machine_request_logs", "machine_requests", "machines", "operations", "policy_decisions", "provider_connections",
+  "github_install_intents", "github_source_bindings", "idempotency_keys", "incidents", "investigations", "leases", "machine_request_logs", "machine_requests", "machines", "operations", "policy_decisions", "provider_connections",
   "reconcile_state", "resource_observations", "resource_runtime", "resources", "runner_job_logs", "runner_jobs", "runner_registration_tokens", "runners",
   "schema_migrations", "workspace_policy",
 ];
@@ -93,6 +93,16 @@ describe("migration set", () => {
     expect(migrationChecksum(core)).toMatch(/^[0-9a-f]{64}$/);
     expect(migrationChecksum(core)).toBe(migrationChecksum({ ...core }));
     expect(migrationChecksum({ ...core, sql: `${core.sql} ` })).not.toBe(migrationChecksum(core));
+  });
+
+  it("preserves the checksums of shipped migrations 1 through 5", () => {
+    expect(PLATFORM_MIGRATIONS.slice(0, 5).map(migrationChecksum)).toEqual([
+      "ec4e2c1a7185e25ea6afa803e87abcc1fe8a06cb65651773f573f0b66de13764",
+      "af708ba78998ba35b05966afc4f037bacec9b38905853e6f43c8fdab92cb47f0",
+      "e1eccac97c7852592bcad8cd0e441b67a442c7405735ee9e2619e9e9b100bec6",
+      "1e5d84e018bd35c3638bbd23bab8e5b0e7d9b6c3173a430259480508aca6f311",
+      "e8349e5ddf50a5396304850bd84bbffe81be1f4b0b7189677c1c1ad36ad4a387",
+    ]);
   });
 
   it("the emitted Supabase file is byte-identical to what the emitter renders now", () => {
@@ -295,7 +305,11 @@ describe.each(lanes)("migrator [$name]", (lane) => {
                     has_schema_privilege('anon', 'platform', 'USAGE') as anon_usage,
                     has_schema_privilege('authenticated', 'platform', 'USAGE') as auth_usage,
                     has_table_privilege('anon', 'platform.operations', 'SELECT') as anon_select,
-                    has_table_privilege('authenticated', 'platform.events', 'SELECT') as auth_select`
+                    has_table_privilege('authenticated', 'platform.events', 'SELECT') as auth_select,
+                    has_table_privilege('service_role', 'platform.github_source_bindings', 'SELECT,INSERT,UPDATE,DELETE') as github_binding_dml,
+                    has_table_privilege('service_role', 'platform.github_install_intents', 'SELECT,INSERT,UPDATE,DELETE') as github_intent_dml,
+                    has_table_privilege('anon', 'platform.github_source_bindings', 'SELECT') as anon_github_select,
+                    has_table_privilege('authenticated', 'platform.github_install_intents', 'SELECT') as auth_github_select`
           );
           throw Object.assign(rollback, { rows });
         })
@@ -309,6 +323,10 @@ describe.each(lanes)("migrator [$name]", (lane) => {
         auth_usage: false,
         anon_select: false,
         auth_select: false,
+        github_binding_dml: true,
+        github_intent_dml: true,
+        anon_github_select: false,
+        auth_github_select: false,
       });
       // the rollback left no roles and no schema behind
       expect(await db.query("select 1 from pg_roles where rolname = 'service_role'")).toEqual([]);

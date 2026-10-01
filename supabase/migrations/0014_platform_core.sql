@@ -621,6 +621,37 @@ insert into platform.schema_migrations (version, name, checksum)
 values (5, 'read_jobs', 'e8349e5ddf50a5396304850bd84bbffe81be1f4b0b7189677c1c1ad36ad4a387')
 on conflict (version) do nothing;
 
+-- ============================ migration 6: github_sources ============================
+
+create table if not exists platform.github_source_bindings (
+  workspace_id text primary key,
+  app_id text not null,
+  installation_id bigint not null check (installation_id > 0),
+  repository_id bigint not null check (repository_id > 0),
+  owner text not null,
+  repo text not null,
+  version integer not null check (version > 0),
+  bound_by text not null,
+  updated_at timestamptz not null default clock_timestamp()
+);
+create table if not exists platform.github_install_intents (
+  workspace_id text not null,
+  state_digest text not null check (state_digest ~ '^[a-f0-9]{64}$'),
+  actor_id text not null,
+  browser_digest text not null check (browser_digest ~ '^[a-f0-9]{64}$'),
+  owner text not null,
+  repo text not null,
+  expected_version integer not null check (expected_version >= 0),
+  installation_id bigint,
+  phase text not null check (phase in ('install', 'oauth')),
+  expires_at timestamptz not null,
+  primary key (workspace_id, state_digest)
+);
+
+insert into platform.schema_migrations (version, name, checksum)
+values (6, 'github_sources', '0e256ace8f784b996b2e6687dc42bb4705f91c4579b4ecb1da38987d9f68d78d')
+on conflict (version) do nothing;
+
 -- ============================ hardening (Supabase roles) ============================
 
 do $$

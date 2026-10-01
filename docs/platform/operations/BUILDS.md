@@ -54,23 +54,31 @@ on both web and worker hosts. Set `ZENITH_GITHUB_APP_CLIENT_ID` and
 The worker does not need an OAuth client secret. See the configuration rows in
 [DEPLOYING.md](DEPLOYING.md).
 
-Apply the core platform migrations first, then explicitly install the additive
-source-binding tables against the **same platform database used by web and worker**:
+Apply the normal platform migrations against the **same platform database used by
+web and worker** before rolling out the application:
 
 ```sh
-npx tsx --env-file-if-exists=.env.local src/lib/sources/github/migrate.ts
+npm run migrate:platform
+npm run migrate:platform -- --status
 ```
 
-The installer is idempotent and transactional. Runtime requests never run DDL.
-This schema is currently separate from the platform migration ledger; integrating
-`src/lib/sources/github/schema.ts` into that registry and emitted SQL is an
-orchestrator follow-up. A missing table or failed database read refuses source
-access rather than silently switching a configured workspace to anonymous access.
+Platform migration 6 (`github_sources`) includes the source-binding tables and
+expiring install intents. Alternatively, re-apply the generated
+`supabase/migrations/0014_platform_core.sql` as described in
+[DEPLOYING.md](DEPLOYING.md#32-migrating). No separate GitHub schema installer is
+required. Migration 6 is additive and idempotent: it preserves tables and rows
+from earlier manual installations and records its checksum in the platform ledger.
+The old `src/lib/sources/github/migrate.ts` command remains a compatibility
+entrypoint that now applies the normal platform migrations. Runtime requests never
+run GitHub schema DDL; a Postgres ledger behind migration 6 fails closed before
+source access. A failed database read refuses source access rather than silently
+switching a configured workspace to anonymous access.
 Production uses shared Postgres; a PGlite directory still belongs to one process.
 
-As a signed-in **workspace admin**, select the workspace, then open
-`/api/platform/v1/github/callback` in the browser. Enter `owner/repository`, install
-the App for that repository and authorize the GitHub user-access check. This
+As a signed-in **workspace admin**, select the workspace, then choose **GitHub source**
+in the Platform navigation (opens `/api/platform/v1/github/callback` in the browser).
+Enter `owner/repository`, install the App for that repository and authorize the
+GitHub user-access check. This
 single endpoint serves the form, starts installation via a same-origin POST,
 handles GitHub's setup redirect, and exchanges the OAuth code server-side.
 The binding saves only workspace, App, installation and repository identifiers.
@@ -98,9 +106,8 @@ again on acquisition. See GitHub's
 [installation token contract](https://docs.github.com/en/rest/apps/apps#create-an-installation-access-token-for-an-app).
 
 Limits: one repository binding per workspace; reconnecting replaces it. The
-form is at the endpoint above; a navigation link in the product settings is an
-orchestrator follow-up. There is no uninstall webhook or unbind UI. The connector
-uses GitHub.com, not Enterprise Server. Standalone private readers must inject
+form is at the endpoint above and linked from Platform navigation. There is no
+uninstall webhook or unbind UI. The connector uses GitHub.com, not Enterprise Server. Standalone private readers must inject
 an explicitly workspace-bound callback. Authorization, archive transport and
 production Postgres behavior have **not** been verified against live GitHub or
 production services here. OAuth callback codes and state arrive in query strings;

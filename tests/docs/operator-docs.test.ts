@@ -718,7 +718,7 @@ describe("operator claims match current wiring", () => {
     expect(guide("POLICY.md")).toContain("current approval round");
   });
 
-  it("closed middleware/bundle gaps stay closed and five migrations are documented", () => {
+  it("closed middleware/bundle gaps stay closed and six migrations are documented", () => {
     const middleware = source("src/middleware.ts");
     expect(middleware).toContain("isPlatformBearerRequest");
     expect(middleware).toContain("isAgentSignedPath");
@@ -726,9 +726,30 @@ describe("operator claims match current wiring", () => {
     expect(next).toContain("outputFileTracingIncludes");
     expect(next).toContain("policy/dist");
     expect(source("docker/worker.Dockerfile")).toContain("policy/dist");
-    expect(source("src/lib/controlplane/db/migrations/index.ts")).toContain("[migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs]");
-    expect(deploying).toContain("Five migrations exist today");
-    expect(deploying).toContain("all five migrations");
+    expect(source("src/lib/controlplane/db/migrations/index.ts")).toContain("[migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs, migration0006GithubSources]");
+    expect(deploying).toContain("Six migrations exist today");
+    expect(deploying).toContain("all six migrations");
+    expect(deploying).toContain("`github_sources` (6:");
+  });
+
+  it("GitHub source setup uses the platform ledger and links the browser form", () => {
+    const builds = squash(guide("BUILDS.md"));
+    expect(builds).toContain("npm run migrate:platform");
+    expect(builds).toContain("Platform migration 6 (`github_sources`)");
+    expect(builds).toContain("No separate GitHub schema installer is required");
+    expect(builds).toContain("preserves tables and rows from earlier manual installations");
+    expect(builds).toContain("**GitHub source** in the Platform navigation");
+    expect(builds).not.toContain("separate from the platform migration ledger");
+    expect(builds).not.toContain("navigation link in the product settings is an orchestrator follow-up");
+    expect(source("src/lib/sources/github/migrate.ts")).toContain("await migratePlatformDb(db)");
+    expect(source("src/lib/sources/github/migrate.ts")).not.toContain("installGithubSourceSchema");
+    const layout = source("src/app/(product)/platform/layout.tsx");
+    expect(layout).toContain('<Link href="/api/platform/v1/github/callback">GitHub source</Link>');
+    const callback = source("src/app/api/platform/v1/github/callback/route.ts");
+    expect(callback).toContain('export const GET = route({ workspaceRole: "admin" }');
+    expect(callback).toContain("Install and bind repository");
+    const limitations = source("docs/LIMITATIONS.md");
+    expect(limitations).not.toContain("Platform migration-ledger integration and a product navigation link remain");
   });
 
   it("reconcile ports are composed after cron auth and its tick is scheduled", () => {

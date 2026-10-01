@@ -2,7 +2,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { openPlatformDb } from "@/lib/controlplane/db";
 import type { PlatformDb } from "@/lib/controlplane/types";
-import { installGithubSourceSchema } from "@/lib/sources/github/schema";
 import { createGithubSourceStore, type InstallCaller } from "@/lib/sources/github/store";
 import { binding } from "./fixtures";
 
@@ -10,7 +9,6 @@ function contracts(kind: "pglite" | "postgres") {
   let db: PlatformDb; let store: ReturnType<typeof createGithubSourceStore>;
   beforeAll(async () => {
     db = await openPlatformDb({ kind, url: kind === "postgres" ? process.env.ZENITH_TEST_PLATFORM_PG_URL : undefined, migrate: true });
-    await installGithubSourceSchema(db); await installGithubSourceSchema(db);
     store = createGithubSourceStore(db);
   });
   beforeEach(async () => {

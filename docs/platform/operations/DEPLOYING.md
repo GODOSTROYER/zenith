@@ -354,7 +354,7 @@ How the bundle ships:
 | `ZENITH_PLATFORM_BROKER_MEMORY` | unset | no | `1` makes the broker use a per-process in-memory store. Tests and local development **only**: state is lost on restart and two instances share nothing. Never set it in production. Without it the broker uses the platform store and answers `platform_store_unavailable` when it cannot open it; it never falls back to memory silently. |
 | `ZENITH_PLATFORM_ORIGIN` | `ZENITH_AGENT_ORIGIN`, then the request's own origin | no | The exact origin a browser approval, rejection or admin-setting request must come from: the `Origin` header must equal it (no prefix, no subdomain, not `null`) and `Sec-Fetch-Site`, when the browser sends it, must be `same-origin`. Set it to your public origin in production. |
 | `ZENITH_RUNNER_RESULT_KEY` | derived from `ZENITH_CONTROL_SIGNING_JWK` | **yes** | base64url, 32 bytes. Seals runner and `zenithd` job results at rest (AES-256-GCM, bound to the workspace and job id), because a result can carry exactly what must never be stored in the clear (an AWS response body, a plan with sensitive values). Unset, the key is derived (HKDF-SHA256) from the private scalar of the local control signing JWK; with a KMS-backed control signer it **must** be set. Whoever opens results, an activity in the worker, needs the same key as the routes that seal them. Rotating it, or the signing key it was derived from, makes results still in flight unreadable; their operations end `uncertain`. |
-| `ZENITH_GITHUB_APP_ID` | unset | no | Numeric GitHub App id, on web and worker. Together with the private-key file enables C3's tenant-scoped source binding. Unset keeps public reads anonymous. Register the App and apply the additive schema as described in [BUILDS.md](BUILDS.md#github-app-registration-and-workspace-binding). |
+| `ZENITH_GITHUB_APP_ID` | unset | no | Numeric GitHub App id, on web and worker. Together with the private-key file enables C3's tenant-scoped source binding. Unset keeps public reads anonymous. Register the App and apply platform migration 6 as described in [BUILDS.md](BUILDS.md#github-app-registration-and-workspace-binding). |
 | `ZENITH_GITHUB_APP_PRIVATE_KEY_FILE` | unset | path only; file contents are **secret** | Absolute server path to the RSA App PEM, on web and worker. Read on demand to sign bounded RS256 JWTs. Never copy the PEM into an environment value or diagnostics. Partial/invalid configuration refuses access. |
 | `ZENITH_GITHUB_APP_CLIENT_ID` | unset | no | GitHub App OAuth client id, web host only. Required by the browser install/bind flow to verify that the initiating GitHub user can access the installation repository. |
 | `ZENITH_GITHUB_APP_CLIENT_SECRET_FILE` | unset | path only; file contents are **secret** | Absolute server path to the GitHub App OAuth client secret, web host only. Codes exchange server-side with PKCE; user tokens are discarded after verification and never stored or sent to the browser. |
@@ -549,12 +549,16 @@ applied), turns row level security on for every table with no policies, and
 revokes `anon` and `authenticated`. **`platform` must never be added to the Data
 API's exposed schemas.**
 
-Five migrations exist today: `core` (1), `reconcile` (2), `machine_requests` (3,
+Six migrations exist today: `core` (1), `reconcile` (2), `machine_requests` (3,
 the `zenithd` request queue), `approval_rounds` (4: a plan-level approval after
 execution starts opens a new approval round, so the same human can review again once
-per round while earlier decisions stay as immutable history) and `read_jobs` (5:
+per round while earlier decisions stay as immutable history), `read_jobs` (5:
 runner read jobs, such as OCI log and metric reads, that belong to no operation and
-store a NULL operation). A database that applied the emitted SQL before a later
+store a NULL operation) and `github_sources` (6: tenant-scoped GitHub App source
+bindings and expiring install intents, storing identifiers and proof digests only).
+Migration 6 also accepts tables installed by the former explicit GitHub schema
+installer, preserving bindings and intents while recording the platform ledger.
+A database that applied the emitted SQL before a later
 migration landed is behind and the application refuses to use it until you re-apply
 the file or run `npm run migrate:platform`.
 
@@ -562,8 +566,8 @@ The emitted file keeps one name as migrations are added; it grows. If you apply
 migrations through the Supabase CLI's migration history, which records an applied
 file by its version number and will not re-run a changed file, use
 `npm run migrate:platform` (ledger-based) or apply the file by hand for any
-schema version after the first. The emitted file holds all five
-migrations, so a database that applied it before migration 2, 3, 4 or 5 landed is exactly
+schema version after the first. The emitted file holds all six
+migrations, so a database that applied it before migration 2, 3, 4, 5 or 6 landed is exactly
 this case. I did not exercise it through the Supabase CLI.
 
 ### 3.3 What the application does about the schema

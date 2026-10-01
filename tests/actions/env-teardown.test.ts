@@ -4,7 +4,8 @@ import { tempDataDir } from "../_support/data-dir";
 import { seed, ctx, ready } from "../bridge/support";
 import { makePlan, change } from "../execution/fakes/fixtures";
 import { allowDecision, scriptedEngine, sessionFor } from "../capabilities/support";
-import { createBroker, type Broker } from "@/lib/capabilities/platform";
+import { createBroker, setPlatformBrokerForTests, type Broker } from "@/lib/capabilities/platform";
+import { setDestroyReviewDispatcherForTests } from "@/lib/capabilities/destroy-review-dispatch";
 import { MemoryBrokerStore } from "@/lib/capabilities/memory-store";
 import { productRoleResolver, productScopeResolver } from "@/lib/capabilities/product-adapters";
 import { systemClock } from "@/lib/capabilities/ports";
@@ -27,6 +28,7 @@ beforeEach(async () => {
   const store = new MemoryBrokerStore();
   broker = createBroker({ store, scopes: productScopeResolver(), roles: productRoleResolver(), clock: systemClock,
     policy: async () => scriptedEngine("allow", () => allowDecision()), signer: { ready: async () => undefined, sign: async () => "fake-grant-never-returned" } });
+  setPlatformBrokerForTests(broker);
   const scope = { workspaceId: ctx.workspaceId, projectId: ctx.projectId, environmentId: ctx.environmentId };
   const plan = makePlan({ changes: [change({ address: "aws_s3_bucket.assets", type: "aws_s3_bucket", action: "delete", destroysData: true })] });
   const facts = buildPlanFacts(plan)!;
@@ -36,7 +38,7 @@ beforeEach(async () => {
   setBridgeDepsForTests({ broker: async () => broker, readiness: async () => ready, platformConnection: async () => ({ status: "verified" }),
     teardownSession: async (context) => sessionFor(context.actor.id), workflows: { startDestroy, startDeploy: async () => undefined, signalApproval, cancelOperation: async () => ({ delivered: true }) } });
 });
-afterEach(() => { setBridgeDepsForTests(null); vi.restoreAllMocks(); });
+afterEach(() => { setBridgeDepsForTests(null); setPlatformBrokerForTests(null); setDestroyReviewDispatcherForTests(undefined); vi.restoreAllMocks(); });
 
 async function proposal() {
   const { result } = await runAction("env.teardown", ctx, input, { mode: "execute" });
@@ -101,5 +103,33 @@ describe("env.teardown", () => {
     db().deployments.push({ id: "busy", projectId: ctx.projectId!, environmentId: ctx.environmentId!, revisionId: "bridge-r1", status: "applying", steps: [], outputs: [], actor: ctx.actor, changeSummary: "busy", estCostDeltaUsd: 0, createdAt: new Date().toISOString() });
     expect((await runAction("env.teardown", ctx, input, { mode: "plan" })).plan?.blocked).toContain("active deployment");
     expect((await runAction("env.teardown", ctx, input, { mode: "execute" })).result?.ok).toBe(false);
+  });
+});
+
+describe("env.reviewTeardown", () => {
+  it("a viewer can plan and request a read-only worker review without proposing a mutation", async () => {
+    const viewer = { ...ctx, actor: { type: "user" as const, id: "viewer", name: "Viewer" } };
+    const dispatch = vi.fn(async () => undefined); setDestroyReviewDispatcherForTests(dispatch);
+    const reviewInput = { ...input, idempotencyKey: "browser-review-001" };
+    const before = (await broker.deps.store.listOperations(ctx.workspaceId)).items.length;
+    expect((await runAction("env.reviewTeardown", viewer, reviewInput, { mode: "plan" })).plan).toMatchObject({ risk: "low", requiresApproval: false });
+    expect((await broker.deps.store.listOperations(ctx.workspaceId)).items).toHaveLength(before);
+    const executed = await runAction("env.reviewTeardown", viewer, reviewInput, { mode: "execute" });
+    expect(executed.result?.ok).toBe(true); expect(dispatch).toHaveBeenCalledTimes(1);
+    expect((await broker.deps.store.listOperations(ctx.workspaceId, { capability: "infrastructure.destroy" })).items).toHaveLength(0);
+    expect(startDestroy).not.toHaveBeenCalled();
+  });
+  it("refuses active deployment and approval fields before worker dispatch", async () => {
+    const dispatch = vi.fn(async () => undefined); setDestroyReviewDispatcherForTests(dispatch);
+    expect((await runAction("env.reviewTeardown", ctx, { ...input, idempotencyKey: "browser-review-001", approved: true }, { mode: "execute" })).result?.ok).toBe(false);
+    db().deployments.push({ id: "busy", projectId: ctx.projectId!, environmentId: ctx.environmentId!, revisionId: "bridge-r1", status: "applying", steps: [], outputs: [], actor: ctx.actor, changeSummary: "busy", estCostDeltaUsd: 0, createdAt: new Date().toISOString() });
+    expect((await runAction("env.reviewTeardown", ctx, { ...input, idempotencyKey: "browser-review-002" }, { mode: "execute" })).result?.ok).toBe(false);
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+  it("the legacy browser path refuses another proposal while a first review is still pending", async () => {
+    setDestroyReviewDispatcherForTests(async () => undefined);
+    expect((await runAction("env.reviewTeardown", ctx, { ...input, idempotencyKey: "pending-review-001" }, { mode: "execute" })).result?.ok).toBe(true);
+    expect((await runAction("env.teardown", ctx, input, { mode: "execute" })).result).toMatchObject({ ok: false, error: expect.stringContaining("current teardown review") });
+    expect((await broker.deps.store.listOperations(ctx.workspaceId, { capability: "infrastructure.destroy" })).items).toHaveLength(0);
   });
 });

@@ -176,6 +176,7 @@ export const RECONCILE_WORKFLOW_ID = (environmentId: string) => `reconcile-${env
 
 /** Workflow type names (the exported function names in `definitions/`). Clients start by name. */
 export const WORKFLOW_TYPES = {
+  destroyReview: "teardownReviewWorkflow",
   deploy: "infrastructureDeployWorkflow",
   dayTwo: "dayTwoOperationWorkflow",
   remediation: "remediationWorkflow",

@@ -1,7 +1,9 @@
 /** Self-contained MCP harness. The broker/store and Ed25519 grant signer are
  * real; policy, product rows, cloud sessions and workflows are explicit fakes.
  * No live cloud, database server, Temporal server or network is required. */
-import { vi } from "vitest";
+import { afterEach, vi } from "vitest";
+import { setDestroyReviewDispatcherForTests } from "@/lib/capabilities/destroy-review-dispatch";
+afterEach(() => setDestroyReviewDispatcherForTests(undefined));
 import { digest } from "@/lib/controlplane/digest";
 import type { Principal, Scope } from "@/lib/controlplane/types";
 import { CredentialGrantSigner } from "@/lib/capabilities/credential-signer";
@@ -79,6 +81,7 @@ let key: Promise<Record<string, string>> | undefined;
 const controlKey = () => (key ??= generateSigningJwk("EdDSA").then((k) => ({ ZENITH_CONTROL_SIGNING_JWK: serializePrivateJwk(k) })));
 
 export async function makeHarness(decide: (input: PolicyInput) => PolicyDecision = () => allowDecision()) {
+  setDestroyReviewDispatcherForTests(async () => undefined);
   const world = new World();
   const clock = new FakeClock();
   const store = new MemoryBrokerStore(clock);
@@ -148,6 +151,7 @@ export async function approve(h: Harness, id: string, proposalDigest: string) {
 export function argsFor(name: ToolName, operationId = "op-missing", expectedDigest = "a".repeat(64)): Record<string, unknown> {
   const base = { target: { ...target } };
   switch (name) {
+    case "zenith_review_teardown": return { ...base, idempotencyKey: "intent-review-0001" };
     case "zenith_plan_change": return { ...base, revisionId: ids.revision, description: "Propose this saved change.", idempotencyKey: "intent-plan-0001" };
     case "zenith_prepare_deploy": return { ...base, revisionId: ids.revision, idempotencyKey: "intent-deploy-0001" };
     case "zenith_restart_service": return { ...base, serviceId: ids.service, idempotencyKey: "intent-restart-0001" };
@@ -159,7 +163,7 @@ export function argsFor(name: ToolName, operationId = "op-missing", expectedDige
     default: return base;
   }
 }
-export const READ_TOOLS = TOOL_NAMES.filter((name) => !["zenith_execute_approved_operation", "zenith_plan_change", "zenith_prepare_deploy", "zenith_restart_service", "zenith_scale_service"].includes(name));
+export const READ_TOOLS = TOOL_NAMES.filter((name) => !["zenith_execute_approved_operation", "zenith_review_teardown", "zenith_plan_change", "zenith_prepare_deploy", "zenith_restart_service", "zenith_scale_service"].includes(name));
 export async function proposeDeploy(h: Harness) {
   const result = await h.invoke("zenith_prepare_deploy", argsFor("zenith_prepare_deploy"));
   if (!result.ok) throw new Error(`Proposal failed: ${result.error?.code}`);

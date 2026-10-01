@@ -294,9 +294,10 @@ export interface BrokerStore {
    * Cancel an operation that has not started (`proposed`, `awaiting_approval`,
    * `approved`, `queued`): one conditional transition that also revokes its live
    * grants. `null` when it is missing, in another workspace, or already
-   * running/terminal.
+   * running/terminal. Teardown supersession supplies `expectedStatus`; the
+   * check is atomic with cancellation, so a concurrent approval wins safely.
    */
-  cancelOperation(input: { workspaceId: string; id: string; reason?: string; actor?: Principal }): Promise<OperationRecord | null>;
+  cancelOperation(input: { workspaceId: string; id: string; reason?: string; actor?: Principal; expectedStatus?: "awaiting_approval" }): Promise<OperationRecord | null>;
   /** Move a pre-execution operation that is past its `expiresAt` to `expired`. `null` when it is not in such a state. */
   expireOperation(input: { workspaceId: string; id: string }): Promise<OperationRecord | null>;
   /**

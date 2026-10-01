@@ -164,17 +164,19 @@ export async function completeOperation(
  * Cancel an operation that has not started (`proposed`, `awaiting_approval`,
  * `approved`, `queued`), revoke its live grants and append the event. Null when
  * it is missing, of another workspace, or already running/terminal — a running
- * operation cannot be "cancelled", only stopped and reconciled.
+ * operation cannot be "cancelled", only stopped and reconciled. An expected
+ * status narrows the transition atomically; a moved operation keeps its grants
+ * and event history untouched.
  */
 export async function cancelOperation(
   db: Sql,
-  input: { workspaceId: string; id: string; reason?: string; actor?: Principal }
+  input: { workspaceId: string; id: string; reason?: string; actor?: Principal; expectedStatus?: "awaiting_approval" }
 ): Promise<OperationRecord | null> {
   return db.tx(async (tx) => {
     const op = await transition(tx, {
       workspaceId: input.workspaceId,
       id: input.id,
-      from: ["proposed", "awaiting_approval", "approved", "queued"],
+      from: input.expectedStatus ? [input.expectedStatus] : ["proposed", "awaiting_approval", "approved", "queued"],
       to: "cancelled",
       patch: { error: input.reason },
     });

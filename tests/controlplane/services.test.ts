@@ -255,6 +255,30 @@ describe.each(LANES)("services [$name]", (lane) => {
       expect(await cancelOperation(db(), { workspaceId: other.workspaceId, id: other.operation.id })).toBeNull(); // running: cannot be "cancelled"
     });
 
+    it("conditional cancellation leaves approved and queued operations and their ledger intact", async () => {
+      const seeded = await seedAwaitingApproval(db());
+      const { workspaceId, operation } = seeded;
+      expect((await repos.operations.get(db(), workspaceId, operation.id))?.status).toBe("awaiting_approval");
+      await decide(db(), { workspaceId, operationId: operation.id, approver: user(), approverRole: "editor", decision: "approve",
+        proposalDigest: operation.proposalDigest, policyVersion: seeded.decision.policyVersion });
+      const jti = uid("jti");
+      await repos.grants.insert(db(), { jti, workspaceId, operationId: operation.id, capability: "infrastructure.destroy", audience: "worker",
+        issuedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 60_000).toISOString() });
+      const approvals = await repos.approvals.listForOperation(db(), workspaceId, operation.id);
+      const events = await repos.events.list(db(), workspaceId, { operationId: operation.id });
+      for (const status of ["approved", "queued"] as const) {
+        if (status === "queued") await repos.operations.transition(db(), { workspaceId, id: operation.id, from: ["approved"], to: "queued" });
+        const current = await repos.operations.get(db(), workspaceId, operation.id);
+        expect(current?.status).toBe(status);
+        expect(await cancelOperation(db(), { workspaceId, id: operation.id, expectedStatus: "awaiting_approval", reason: "Superseded" })).toBeNull();
+        expect(await repos.operations.get(db(), workspaceId, operation.id)).toEqual(current);
+        expect(await repos.approvals.listForOperation(db(), workspaceId, operation.id)).toEqual(approvals);
+        expect(await repos.events.list(db(), workspaceId, { operationId: operation.id })).toEqual(events);
+        const grants = await db().query<{ revoked_at: string | null }>("select revoked_at from platform.capability_grants where workspace_id = $1 and jti = $2", [workspaceId, jti]);
+        expect(grants).toEqual([{ revoked_at: null }]);
+      }
+    });
+
     it("reconcile expires overdue proposals and revokes their grants, idempotently", async () => {
       const seeded = await seedApprovedOperation(db());
       const { workspaceId: ws, operation } = seeded;

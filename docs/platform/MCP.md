@@ -1,6 +1,6 @@
 # MCP v3 and the platform REST SDK
 
-Zenith exposes fifteen semantic infrastructure tools at
+Zenith exposes sixteen semantic infrastructure tools at
 `<origin>/api/agent/v3/mcp`. Every read, proposal and execution uses the same
 capability broker as UI and REST. There is no unrestricted shell, cloud CLI,
 OpenTofu, kubectl, database administration or approval tool.
@@ -24,6 +24,7 @@ also require `read`. Hints describe a tool, and never confer authorization.
 | `zenith_get_topology` | `topology.read` | read | `read` | T/F/T/F |
 | `zenith_get_capabilities` | `topology.read` | read | `read` | T/F/T/F |
 | `zenith_plan_change` | `infrastructure.plan` | propose | `plan` | F/F/T/F |
+| `zenith_review_teardown` | `infrastructure.plan` | propose | `plan` | F/F/T/T |
 | `zenith_prepare_deploy` | `deployment.deploy` | propose | `write` | F/F/T/F |
 | `zenith_execute_approved_operation` | operation capability | execute | `write` | F/T/T/T |
 | `zenith_query_logs` | `logs.read` | read | `logs` | T/F/T/T |
@@ -37,6 +38,14 @@ also require `read`. Hints describe a tool, and never confer authorization.
 | `zenith_get_operation` | `events.read` | read | `read` | T/F/T/T |
 | `zenith_get_operation_events` | `events.read` | read | `read` | T/F/T/F |
 <!-- catalog:end -->
+
+`zenith_review_teardown` requires `plan` scope and requests a dedicated read-only
+Temporal workflow under observe credentials and the environment lease. It returns
+the review operation id; the worker records a destroy PlanView and a pending
+proposal for separate browser admin approval. Optional `refresh: true` supersedes
+an awaiting review with a recorded reason. An approval that wins the refresh race
+keeps its operation and authority; refresh refuses without a replacement. The tool
+never applies or approves. See [teardown](operations/TEARDOWN.md).
 
 Targets are explicit: `{ workspaceId, projectId, environmentId? }` for project
 reads, all three ids for environment tools, and `{ workspaceId, operationId }`

@@ -2,7 +2,9 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { decodeJwt } from "jose";
 import { ApiException } from "@kubernetes/client-node";
-import type { ConnectionConfig, ProviderSession, KubernetesConnectionConfig } from "@/lib/credentials/types";
+import { AssumeRoleCommand, AssumeRoleWithWebIdentityCommand, STSClient } from "@aws-sdk/client-sts";
+import { mockClient } from "aws-sdk-client-mock";
+import type { ConnectionConfig, ProviderSession, KubernetesConnectionConfig, CredentialPurpose } from "@/lib/credentials/types";
 import type { CapabilityGrantClaims } from "@/lib/controlplane/types";
 import { tempDataDir } from "../_support/data-dir";
 import { CONNECTION as gcp } from "../providers/gcp/_fake-google";
@@ -15,6 +17,7 @@ const { openPlatformDb, repos } = await import("@/lib/controlplane/db");
 const { platformCredentialBroker } = await import("@/lib/platform/credentials");
 const { generateSigningJwk, LocalJwkSigner } = await import("@/lib/credentials/signing");
 const { putSecretAsync } = await import("@/lib/secrets");
+const { awsConfig, grant: credentialGrant, FAKE_CREDS, FAKE_SECRETS } = await import("../credentials/helpers");
 let db: Awaited<ReturnType<typeof openPlatformDb>>;
 let signer: ReturnType<typeof LocalJwkSigner.fromJwk>;
 const ws = "ws-verification";
@@ -52,6 +55,99 @@ async function assertNoSecret(result: unknown) {
   expect(JSON.stringify(await repos.events.list(db, ws, { limit: 100 }))).not.toContain(secret);
   expect(JSON.stringify(await repos.connections.list(db, ws))).not.toContain(secret);
 }
+
+describe("credential purpose routing", () => {
+  const nonAws = [gcp, azure, { ...kubernetes, mode: "oidc_web_identity" as const }, oci];
+  const oidcToken = vi.fn(async () => ({ token: secret, expiresAt: new Date(Date.now() + 900_000).toISOString() }));
+  const options = (fetchImpl: typeof fetch) => ({ oidc: { signer, issuer: "https://zenith.test/api/oidc" }, fetchImpl, kubernetes: { oidcToken } });
+  async function verified(config: ConnectionConfig) {
+    const c = await connection(config);
+    await repos.connections.recordVerification(db, { workspaceId: ws, id: c.id, ok: true, detail: "Synthetic fixture, not live verification." });
+    return c;
+  }
+  async function expectRefusal(config: ConnectionConfig, purpose: CredentialPurpose, cap: string, reason: string, message: string) {
+    const c = await verified(config);
+    const fetchImpl = cloudFetch(config.provider === "azure" ? "azure" : "gcp");
+    const callback = vi.fn(async () => undefined);
+    oidcToken.mockClear();
+    await expect(platformCredentialBroker(db, options(fetchImpl)).withSession({ connectionId: c.id, purpose, grant: credentialGrant({ ws, cap }) }, callback)).rejects.toMatchObject({ reason, message });
+    expect(callback).not.toHaveBeenCalled();
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(oidcToken).not.toHaveBeenCalled();
+    const events = (await repos.events.list(db, ws, { limit: 100 })).filter((event) => event.data.connectionId === c.id);
+    expect(events).toEqual([expect.objectContaining({ workspaceId: ws, type: "credential.denied", data: { connectionId: c.id, reason } })]);
+    await assertNoSecret(events);
+  }
+
+  it.each(nonAws.flatMap((config) => ["secret.write", "infrastructure.observe", "infrastructure.apply"].map((cap) => ({ config, provider: config.provider, cap }))))("refuses $provider secret.write purpose with $cap before credentials", async ({ config, cap }) => {
+    await expectRefusal(config, "secret.write", cap, "provider_unsupported", "Secret-write sessions are currently supported only for AWS connections.");
+  });
+  it.each(nonAws.flatMap((config) => (["observe", "deploy"] as const).map((purpose) => ({ config, provider: config.provider, purpose }))))("refuses a secret.write grant through $provider $purpose credentials", async ({ config, purpose }) => {
+    await expectRefusal(config, purpose, "secret.write", "purpose_capability_mismatch", "secret.write requires its separate writer purpose and role.");
+  });
+  it.each([gcp, azure, kubernetes])("refuses $provider runner secret.write without falling back to direct sessions", async (config) => {
+    await expectRefusal({ ...config, mode: "runner", runnerId: "run-purpose" }, "secret.write", "secret.write", "provider_unsupported", "Secret-write sessions are currently supported only for AWS connections.");
+  });
+  it.each(nonAws.filter((config) => config.provider !== "oci").flatMap((config) => (["observe", "deploy"] as const).map((purpose) => ({ config, provider: config.provider, purpose }))))("preserves normal $provider $purpose callbacks", async ({ config, purpose }) => {
+    const c = await verified(config);
+    const fetchImpl = cloudFetch(config.provider === "azure" ? "azure" : "gcp");
+    const callback = vi.fn(async (session: ProviderSession) => session.provider);
+    expect(await platformCredentialBroker(db, options(fetchImpl)).withSession({ connectionId: c.id, purpose, grant: credentialGrant({ ws, cap: purpose === "deploy" ? "infrastructure.apply" : "infrastructure.observe" }) }, callback)).toBe(config.provider);
+    expect(callback).toHaveBeenCalledOnce();
+    if (config.provider === "gcp") expect(String(fetchImpl.mock.calls[1][0])).toContain(encodeURIComponent(purpose === "deploy" ? gcp.deployServiceAccount : gcp.observeServiceAccount));
+    await assertNoSecret(config.provider);
+  });
+  it.each(["observe", "secret.write"] as const)("keeps foreign-workspace connections hidden for %s purposes", async (purpose) => {
+    const c = await verified(gcp);
+    const fetchImpl = cloudFetch("gcp");
+    const callback = vi.fn(async () => undefined);
+    await expect(platformCredentialBroker(db, options(fetchImpl)).withSession({ connectionId: c.id, purpose, grant: credentialGrant({ ws: "foreign", cap: "secret.write" }) }, callback)).rejects.toMatchObject({ reason: "connection_not_found", message: "Connection not found in this workspace." });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(callback).not.toHaveBeenCalled();
+  });
+
+  it.each(["oidc_web_identity", "aws_assume_role"] as const)("delegates AWS secret.write to its distinct scoped writer role in %s mode", async (mode) => {
+    const config = awsConfig({ mode, externalId: "zenith-purpose-external-id", secretWriterRoleArn: "arn:aws:iam::123456789012:role/ZenithSecretWriter" });
+    const c = await verified(config);
+    const target = `arn:aws:secretsmanager:${config.region}:${config.accountId}:secret:zenith/env1/DB_PASSWORD-AbCdEf`;
+    const other = `arn:aws:secretsmanager:${config.region}:${config.accountId}:secret:zenith/env1/API_KEY-AbCdEf`;
+    const sts = new STSClient({ region: config.region, credentials: { accessKeyId: "synthetic-worker-key", secretAccessKey: secret } });
+    const stsMock = mockClient(sts);
+    const response = { Credentials: { ...FAKE_CREDS, Expiration: new Date(Date.now() + 900_000) } };
+    stsMock.on(AssumeRoleCommand).resolves(response);
+    stsMock.on(AssumeRoleWithWebIdentityCommand).resolves(response);
+    try {
+      const fetchImpl = vi.fn<typeof fetch>();
+      const callback = vi.fn(async (session: ProviderSession) => session.provider);
+      const oidc = { signer, issuer: "https://zenith.test/api/oidc" };
+      const result = await platformCredentialBroker(db, { ...options(fetchImpl), aws: { oidc, stsClient: () => sts } }).withSession({ connectionId: c.id, purpose: "secret.write", grant: credentialGrant({ ws, cap: "secret.write", fence: 1, constraints: { secretResources: [target, other] } }), secretResources: [target] }, callback);
+      expect(result).toBe("aws");
+      expect(callback).toHaveBeenCalledOnce();
+      expect(stsMock.calls()).toHaveLength(1);
+      const input = mode === "oidc_web_identity" ? stsMock.commandCalls(AssumeRoleWithWebIdentityCommand)[0].args[0].input : stsMock.commandCalls(AssumeRoleCommand)[0].args[0].input;
+      expect(input.RoleArn).toBe(config.secretWriterRoleArn);
+      expect(JSON.parse(input.Policy!)).toEqual({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Action: ["secretsmanager:DescribeSecret", "secretsmanager:PutSecretValue", "secretsmanager:UpdateSecretVersionStage"], Resource: [target], Condition: { StringEquals: { "aws:ResourceTag/zenith:managed": "true", "aws:ResourceTag/zenith:workspace": ws, "aws:ResourceTag/zenith:environment": "env1" } } }] });
+      expect(fetchImpl).not.toHaveBeenCalled();
+      const events = (await repos.events.list(db, ws, { limit: 100 })).filter((event) => event.data.connectionId === c.id);
+      expect(events).toEqual([expect.objectContaining({ type: "credential.assumed", data: expect.objectContaining({ purpose: "secret.write", capability: "secret.write", roleArn: config.secretWriterRoleArn }) })]);
+      const persisted = JSON.stringify({ result, events, connections: await repos.connections.list(db, ws) });
+      for (const value of [secret, ...FAKE_SECRETS]) expect(persisted).not.toContain(value);
+    } finally { stsMock.restore(); sts.destroy(); }
+  });
+  it.each([
+    { label: "missing writer", secretWriterRoleArn: undefined },
+    { label: "deploy role alias", secretWriterRoleArn: awsConfig().deployRoleArn },
+    { label: "observe role alias", secretWriterRoleArn: awsConfig().observeRoleArn },
+    { label: "runner transport", mode: "runner" as const, runnerId: "run-purpose", secretWriterRoleArn: "arn:aws:iam::123456789012:role/ZenithSecretWriter" },
+  ])("preserves AWS secret.write refusal for $label", async ({ label: _label, ...overrides }) => {
+    const c = await verified(awsConfig(overrides));
+    const stsClient = vi.fn();
+    const callback = vi.fn(async () => undefined);
+    await expect(platformCredentialBroker(db, { aws: { stsClient } }).withSession({ connectionId: c.id, purpose: "secret.write", grant: credentialGrant({ ws, cap: "secret.write" }) }, callback)).rejects.toMatchObject({ reason: "not_supported" });
+    expect(stsClient).not.toHaveBeenCalled();
+    expect(callback).not.toHaveBeenCalled();
+  });
+});
 
 describe("non-AWS onboarding verification", () => {
   it("exchanges the exact scoped GCP subject, impersonates observe only and reads projects.get", async () => {

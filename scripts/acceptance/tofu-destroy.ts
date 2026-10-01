@@ -1,55 +1,24 @@
 /**
- * `tofu destroy` of a live run's workspace, with a tag check on the PLAN.
- *
- * Why this lives in the harness: the merged tofu engine (`src/lib/tofu`) plans
- * and applies but has no destroy command (reported in the handoff as a contract
- * request). This module reuses the engine's pieces — binary resolution and
- * version pin, the allowlisted child environment, the bounded process runner,
- * the pinned provider lockfiles and the workspace assembler — and adds only the
- * destroy sequence.
- *
- * What it destroys: whatever the run's OpenTofu STATE holds. The workspace is
- * assembled with NO resources — only the pinned providers, the region and the
- * state backend (`zenith/<workspace>/<environment>/terraform.tfstate` in the
- * sandbox account's state bucket) — so `plan -destroy` proposes deleting every
- * resource recorded in that state.
- *
- * The safety check that makes that acceptable: before anything is applied the
- * destroy plan is read (`tofu show -json`) and EVERY resource it would delete
- * must be provably this run's — its refreshed `tags_all`/`tags` carry
- * `zenith:live-run=<runId>` — or be a child type that has no tags at all and is
- * on a short allowlist (route table associations, IAM policy attachments, S3
- * bucket sub-resources, DNS records, local-only `random_*`/`terraform_data`). A
- * resource that has tags but not this run's tag, an unknown untagged type, or
- * any action other than delete refuses the whole destroy and applies nothing.
- * Nothing is applied in a dry run.
- *
- * Refresh: `plan -destroy` refreshes the state first, so `before` holds the
- * resource's CURRENT tags. That is what lets tags added out-of-band by
- * `adopt.ts` count.
- *
- * Verified by a real `tofu` run against a local backend and the built-in
- * `terraform_data` resource (tests/acceptance); the AWS path has never been run
- * against an account.
+ * Live-run cleanup through the shared destroy engine. Every refreshed deletion
+ * must carry this run's tag or be an allowlisted untagged child. The same guard
+ * runs on the fresh digest-bound plan used for apply. Stateful policies are
+ * allowed only after tag ownership is proved. Unmapped DNS is refused: the
+ * tag sweeper remains the last resort. Local tofu is tested; AWS is not live verified.
  */
-import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
+import { stat } from "node:fs/promises";
 import { HeadObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { checkTofuVersion, resolveTofuBinary } from "@/lib/tofu/binary";
-import { buildChildEnv, type HostEnv } from "@/lib/tofu/env";
-import { parseShowJson, type ShowJson } from "@/lib/tofu/plan";
-import { redactOutput, secretValuesOf } from "@/lib/tofu/redact";
-import { runProcess } from "@/lib/tofu/process";
+import { planDestroy, applyVerifiedPlan } from "@/lib/tofu/engine";
+import { TofuRunner } from "@/lib/tofu/runner";
+import type { HostEnv } from "@/lib/tofu/env";
+import { TofuDeletionRefusedError, type ShowJson } from "@/lib/tofu/plan";
 import { assembleWorkspace, type BackendConfig } from "@/lib/tofu/workspace";
 import type { ProviderSetName } from "@/lib/tofu/providers";
-import { LOCKFILE_NAME } from "@/lib/tofu/config-digest";
-import type { ResourceGraph } from "@/lib/resources/types";
+import type { ResourceGraph, ResourceNode } from "@/lib/resources/types";
 import { TAG_LIVE_RUN, assertRunId, liveRunTags } from "./safety";
 import { isNotFound } from "./cleanup-util";
 import type { AwsAccess } from "./types";
 
-/** Resource types that carry no tags and no data of their own: children of a tagged resource, or local-only. */
+/** Untagged children hold no independent data; ownership still needs the run state. */
 export const UNTAGGED_CHILD_TYPES: ReadonlySet<string> = new Set([
   "aws_route",
   "aws_route_table_association",
@@ -123,7 +92,7 @@ export function verifyDestroyPlan(show: ShowJson, runId: string, untaggedTypes: 
     const tags = [before.tags_all, before.tags].find(isObject);
     const value = tags?.[TAG_LIVE_RUN];
     if (value === runId) out.deletes.push({ address, type });
-    else refuse(address, type, value === undefined ? `it is not tagged ${TAG_LIVE_RUN}` : `it is tagged ${TAG_LIVE_RUN}=${String(value).slice(0, 40)}, another run`);
+    else refuse(address, type, value === undefined ? `it is not tagged ${TAG_LIVE_RUN}` : "its run tag does not match this run");
   }
   return out;
 }
@@ -170,11 +139,12 @@ async function stateObjectExists(input: DestroyInput, backend: BackendConfig, ke
   if (backend.kind === "local") {
     try {
       return (await stat(backend.path ?? "")).isFile();
-    } catch {
-      return false;
+    } catch (err) {
+      if ((err as { code?: string }).code === "ENOENT") return false;
+      throw err; // unreadable state is unknown, never "no state"
     }
   }
-  if (backend.kind !== "s3") return false;
+  if (backend.kind !== "s3") throw new Error("The cleanup state probe does not support this backend.");
   const s3 = input.access.client(S3Client, { region: backend.region ?? input.region });
   try {
     await s3.send(new HeadObjectCommand({ Bucket: backend.bucket, Key: key }));
@@ -203,67 +173,40 @@ export async function destroyRunWorkspace(input: DestroyInput): Promise<DestroyR
   }
   if (!exists) return { status: "no_state", detail: backend.kind === "s3" ? `No state object at s3://${backend.bucket}/${key}.` : "No state file.", deletes: [], refused: [] };
 
-  const hostEnv = input.hostEnv ?? process.env;
-  let bin: string;
-  try {
-    bin = resolveTofuBinary(hostEnv);
-    await checkTofuVersion(bin);
-  } catch (err) {
-    return fail(err instanceof Error ? err.message : "OpenTofu is not available.");
-  }
-
   const ws = assembleWorkspace({
-    graph: emptyGraph(input.environmentId),
-    fragments: new Map(),
-    providerSet: input.providerSet ?? "aws",
-    region: input.region,
-    backend,
-    ...(backend.kind === "s3" ? { stateKey: key } : {}),
-    tags: liveRunTags(input.runId),
+    graph: emptyGraph(input.environmentId), fragments: new Map(),
+    providerSet: input.providerSet ?? "aws", region: input.region, backend,
+    ...(backend.kind === "s3" ? { stateKey: key } : {}), tags: liveRunTags(input.runId),
   });
-
-  const root = await mkdtemp(path.join(os.tmpdir(), "zenith-live-destroy-"));
+  const runner = new TofuRunner({ hostEnv: input.hostEnv, limits: { timeoutMs: input.timeoutMs ?? 45 * 60_000 } });
+  const nodes: ResourceNode[] = [];
+  let check: DestroyCheck = { ok: true, deletes: [], refused: [] };
   try {
-    const work = path.join(root, "work");
-    const home = path.join(root, "home");
-    const tmp = path.join(root, "tmp");
-    const cache = hostEnv.ZENITH_TOFU_PLUGIN_CACHE ?? path.join(os.tmpdir(), "zenith-tofu-plugin-cache");
-    for (const d of [work, home, tmp, cache]) await mkdir(d, { recursive: true });
-    const cli = path.join(root, "tofu.rc");
-    await writeFile(cli, "# generated: registry + shared plugin cache only\n", { mode: 0o600 });
-    for (const f of ws.files) {
-      const target = path.join(work, ...f.path.split("/"));
-      await mkdir(path.dirname(target), { recursive: true });
-      await writeFile(target, f.content, { mode: 0o600 });
-    }
-    await writeFile(path.join(work, LOCKFILE_NAME), ws.lockfile, { mode: 0o600 });
-
     const sessionEnv = input.noCredentials ? {} : await input.access.childProcessEnv();
-    const secrets = secretValuesOf(sessionEnv);
-    const env = buildChildEnv({ homeDir: home, tmpDir: tmp, cliConfigFile: cli, pluginCacheDir: cache, sessionEnv, hostEnv });
-    const limits = { timeoutMs: input.timeoutMs ?? 45 * 60_000, maxOutputBytes: 1024 * 1024 };
-    const tofu = (args: string[], capture = 0) =>
-      runProcess({ file: bin, args, cwd: work, env, signal: input.signal, ...limits, ...(capture > 0 ? { captureStdoutBytes: capture } : {}) });
-    const say = (r: { output: string }) => redactOutput(r.output, secrets).slice(-600);
-
-    const init = await tofu(["init", "-input=false", "-no-color", "-lockfile=readonly"]);
-    if (init.exitCode !== 0) return fail(`tofu init failed: ${say(init)}`);
-    const plan = await tofu(["plan", "-destroy", "-out=tfplan", "-input=false", "-detailed-exitcode", "-lock-timeout=60s", "-no-color"]);
-    if (plan.exitCode === 0) return { status: "nothing_to_destroy", detail: "The state holds no resources.", deletes: [], refused: [] };
-    if (plan.exitCode !== 2) return fail(`tofu plan -destroy failed: ${say(plan)}`);
-    const shown = await tofu(["show", "-json", "-no-color", "tfplan"], 64 * 1024 * 1024);
-    if (shown.exitCode !== 0 || shown.stdoutOverflow) return fail(`tofu show failed: ${say(shown)}`);
-    const check = verifyDestroyPlan(parseShowJson(shown.stdout ?? ""), input.runId);
-    if (!check.ok) {
-      return { status: "refused", detail: `Refusing to apply: ${check.refused.length} resource(s) in the destroy plan are not provably this run's (${check.refused[0]!.address}: ${check.refused[0]!.reason}). Nothing was deleted.`, deletes: check.deletes, refused: check.refused };
-    }
-    if (input.dryRun) return { status: "planned", detail: `Dry run: the destroy plan would delete ${check.deletes.length} resource(s), all tagged for this run.`, deletes: check.deletes, refused: [] };
-    const apply = await tofu(["apply", "-input=false", "-lock-timeout=60s", "-no-color", "tfplan"]);
-    if (apply.exitCode !== 0) return fail(`tofu apply of the destroy plan failed: ${say(apply)}`, { deletes: check.deletes });
-    return { status: "destroyed", detail: `Destroyed ${check.deletes.length} resource(s) through OpenTofu.`, deletes: check.deletes, refused: [] };
+    const session = { provider: "aws" as const, childProcessEnv: () => sessionEnv };
+    const inspectPlan = (_plan: unknown, raw: ShowJson): void => {
+      check = verifyDestroyPlan(raw, input.runId);
+      // State alone has no logical target graph for assessRecordDeletion.
+      // Refuse DNS here; the existing sweeper checks the recorded DNS target.
+      for (const item of check.deletes.filter((c) => c.type === "aws_route53_record")) {
+        check.ok = false;
+        check.refused.push({ ...item, reason: "DNS target ownership needs the deployed graph; use the guarded record sweeper." });
+      }
+      if (!check.ok) throw new TofuDeletionRefusedError("The destroy plan is not provably owned by this run.");
+      nodes.splice(0, nodes.length, ...check.deletes.map((item): ResourceNode => ({
+        address: item.address, kind: "provider_native", provider: "aws", region: input.region,
+        nativeType: item.type, ownership: "managed", spec: { deletionPolicy: "allow" },
+        specDigest: "destroy", labels: {}, origin: [], dependsOn: [],
+      })));
+    };
+    const options = { runner, signal: input.signal, deletionNodes: nodes, inspectPlan };
+    const planned = await planDestroy(ws, session, options);
+    if (planned.plan.empty) return { status: "nothing_to_destroy", detail: "The state holds no resources.", deletes: [], refused: [] };
+    if (input.dryRun) return { status: "planned", detail: `Dry run: ${check.deletes.length} deletion(s) owned by this run.`, deletes: check.deletes, refused: [] };
+    await applyVerifiedPlan(ws, { ...options, destroy: true, session, approvedDigest: planned.plan.planDigest });
+    return { status: "destroyed", detail: `OpenTofu applied ${check.deletes.length} deletion(s); cloud absence is not independently verified.`, deletes: check.deletes, refused: [] };
   } catch (err) {
-    return fail(`The destroy did not complete (${err instanceof Error ? err.name : "error"}): ${err instanceof Error ? redactOutput(err.message).slice(0, 300) : ""}`);
-  } finally {
-    await rm(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }).catch(() => undefined);
+    if (err instanceof TofuDeletionRefusedError) return { status: "refused", detail: "The destroy ownership guard refused deletion. Nothing was applied.", deletes: check.deletes, refused: check.refused };
+    return fail(`The destroy did not complete (${err instanceof Error ? err.name : "error"}); outcome may be partial.`, { deletes: check.deletes });
   }
 }

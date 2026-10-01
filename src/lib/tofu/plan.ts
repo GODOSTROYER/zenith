@@ -29,6 +29,7 @@
 import { createHmac } from "node:crypto";
 import { canonical, digest, sha256Hex } from "@/lib/controlplane/digest";
 import { redactExact, redactOutput } from "@/lib/tofu/redact";
+import { STATEFUL_KINDS, type ResourceNode } from "@/lib/resources/types";
 import { TOFU_VERSION, type NormalizedPlan, type PlanAttributeChange, type PlanResourceChange, type TofuAction } from "@/lib/tofu/types";
 
 export const SENSITIVE_MASK = "(sensitive)";
@@ -60,10 +61,15 @@ export const DEFAULT_STATEFUL_TYPES: readonly string[] = [
   // GCP
   "google_sql_database_instance",
   "google_sql_database",
+  "google_sql_user",
   "google_storage_bucket",
   "google_redis_instance",
   "google_secret_manager_secret",
+  "google_secret_manager_secret_version",
+  "google_artifact_registry_repository",
+  "google_dns_managed_zone",
   "google_pubsub_topic",
+  "google_pubsub_subscription",
   "google_compute_disk",
   // Azure
   "azurerm_postgresql_flexible_server",
@@ -73,11 +79,22 @@ export const DEFAULT_STATEFUL_TYPES: readonly string[] = [
   "azurerm_storage_container",
   "azurerm_redis_cache",
   "azurerm_key_vault",
+  "azurerm_key_vault_secret",
+  "azurerm_servicebus_namespace",
+  "azurerm_servicebus_queue",
+  "azurerm_servicebus_topic",
+  "azurerm_servicebus_subscription",
+  "azurerm_dns_zone",
+  "azurerm_private_dns_zone",
   "azurerm_managed_disk",
   // OCI
   "oci_database_db_system",
   "oci_objectstorage_bucket",
   "oci_core_volume",
+  "oci_core_boot_volume",
+  "oci_vault_secret",
+  "oci_kms_vault",
+  "oci_queue_queue",
   // Kubernetes
   "kubernetes_persistent_volume_claim",
   "kubernetes_persistent_volume_claim_v1",
@@ -86,6 +103,26 @@ export const DEFAULT_STATEFUL_TYPES: readonly string[] = [
   "kubernetes_secret",
   "kubernetes_secret_v1",
 ];
+
+/** Refusals expose addresses and reasons, never resource values. */
+export class TofuDeletionRefusedError extends Error {
+  readonly code = "deletion_refused";
+  constructor(message: string) { super(message); this.name = "TofuDeletionRefusedError"; }
+}
+
+/** Stateful deletes/replacements need an explicit allow on their managed node. */
+export function assertDeletionAllowed(plan: NormalizedPlan, nodes: readonly ResourceNode[]): void {
+  const byAddress = new Map(nodes.map((node) => [node.address, node]));
+  for (const change of plan.resourceChanges) {
+    if (change.action !== "delete" && change.action !== "replace") continue;
+    const node = byAddress.get(change.nodeAddress ?? change.address);
+    if (node && node.ownership !== "managed") throw new TofuDeletionRefusedError(`Refusing to delete non-managed resource ${change.address}.`);
+    const stateful = change.destroysData || DEFAULT_STATEFUL_TYPES.includes(change.type) || (node && STATEFUL_KINDS.includes(node.kind as (typeof STATEFUL_KINDS)[number]));
+    if (stateful && (!node || node.spec.deletionPolicy !== "allow")) {
+      throw new TofuDeletionRefusedError(`Stateful resource ${change.address} requires an explicit deletionPolicy of allow on its managed node.`);
+    }
+  }
+}
 
 export class TofuPlanFormatError extends Error {
   readonly code: "unsupported_format" | "unsupported_version" | "errored_plan" | "unsupported_action" | "malformed";

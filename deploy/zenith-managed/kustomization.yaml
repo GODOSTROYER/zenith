@@ -1,0 +1,10 @@
+# Applies the platform baseline: kubectl apply -k deploy/zenith-managed
+# (apiserver/ is NOT included: it configures the API server, not a cluster object.)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - 00-namespaces.yaml
+  - 10-gateway.yaml
+  - 20-clusterissuer.yaml
+  - 30-networkpolicy-baseline.yaml
+  - 40-operator-rbac.yaml

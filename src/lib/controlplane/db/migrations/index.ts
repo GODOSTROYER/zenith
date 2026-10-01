@@ -11,6 +11,7 @@ import { migration0002Reconcile } from "./0002_reconcile";
 import { migration0003MachineRequests } from "./0003_machine_requests";
 import { migration0004ApprovalRounds } from "./0004_approval_rounds";
 import { migration0005ReadJobs } from "./0005_read_jobs";
+import { migration0006GithubSources } from "./0006_github_sources";
 
 export interface PlatformMigration {
   /** contiguous from 1 */
@@ -20,7 +21,7 @@ export interface PlatformMigration {
   sql: string;
 }
 
-export const PLATFORM_MIGRATIONS: readonly PlatformMigration[] = [migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs];
+export const PLATFORM_MIGRATIONS: readonly PlatformMigration[] = [migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs, migration0006GithubSources];
 
 /** The highest version this build knows. */
 export const PLATFORM_SCHEMA_VERSION: number = PLATFORM_MIGRATIONS[PLATFORM_MIGRATIONS.length - 1].version;

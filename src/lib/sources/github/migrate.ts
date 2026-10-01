@@ -1,12 +1,13 @@
-/** Explicit operator entrypoint for the additive source schema; no runtime DDL. */
-import { platformDb } from "@/lib/controlplane/db/open";
-import { installGithubSourceSchema } from "./schema";
+/** Legacy operator entrypoint; now applies the complete platform migration ledger. */
+import { openPlatformDb, platformDbConfigFromEnv } from "@/lib/controlplane/db/open";
+import { migratePlatformDb } from "@/lib/controlplane/db/migrator";
 
 async function main(): Promise<void> {
-  const db = await platformDb();
+  const config = platformDbConfigFromEnv();
+  const db = await openPlatformDb({ ...config, migrate: false });
   try {
-    await installGithubSourceSchema(db);
-    process.stdout.write("GitHub source schema applied.\n");
+    await migratePlatformDb(db);
+    process.stdout.write("Platform migrations applied, including GitHub source schema.\n");
   } finally { await db.close(); }
 }
 void main().catch(() => {

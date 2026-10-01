@@ -21,7 +21,7 @@ it("upgrades migration 4 without changing existing operation jobs and reapplies 
     const runner = await repos.runners.registerRunner(db, { tokenHash: token.tokenHash, name: "upgrade", publicKey: "A".repeat(43) });
     const { operation } = await seedApprovedOperation(db, workspaceId);
     const job = await repos.jobs.enqueue(db, { id: uid("job"), workspaceId, runnerId: runner.id, operationId: operation.id, kind: "tofu.run", capability: "infrastructure.apply", envelope: "signed-test-envelope" });
-    expect((await migratePlatformDb(db)).applied).toEqual([5]);
+    expect((await migratePlatformDb(db)).applied).toEqual(PLATFORM_MIGRATIONS.filter((migration) => migration.version > 4).map((migration) => migration.version));
     await db.exec(migration0005ReadJobs.sql);
     expect((await migratePlatformDb(db)).applied).toEqual([]);
     expect(await repos.jobs.get(db, workspaceId, job.id)).toEqual(job);

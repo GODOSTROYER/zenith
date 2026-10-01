@@ -22,7 +22,6 @@ vi.mock("@/lib/controlplane/db/open", async (original) => ({ ...await original<t
 const { resetDb } = await import("@/lib/db/store");
 const { NextRequest } = await import("next/server");
 const { openPlatformDb } = await import("@/lib/controlplane/db");
-const { installGithubSourceSchema } = await import("@/lib/sources/github/schema");
 const { createGithubSourceStore } = await import("@/lib/sources/github/store");
 const { digest } = await import("@/lib/sources/github/store");
 const { GET, POST } = await import("@/app/api/platform/v1/github/callback/route");
@@ -31,7 +30,7 @@ const AGENT_HEADERS: Record<string, string>[] = [{ authorization: "Bearer synthe
 const CROSS_SITE_HEADERS: Record<string, string>[] = [{ origin: "https://evil.test" }, { origin: "null" }, { origin: "" }, { "sec-fetch-site": "cross-site" }];
 let material: Awaited<ReturnType<typeof keys>>;
 let fetchImpl: ReturnType<typeof api>;
-beforeAll(async () => { material = await keys(); state.db = await openPlatformDb({ kind: "pglite" }); await installGithubSourceSchema(state.db); });
+beforeAll(async () => { material = await keys(); state.db = await openPlatformDb({ kind: "pglite" }); });
 afterAll(async () => { await state.db?.close(); await material.close(); });
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 beforeEach(async () => {

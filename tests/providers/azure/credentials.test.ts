@@ -208,7 +208,7 @@ describe("host allowlist", () => {
       return base(u, i);
     }) as typeof fetch;
     const session = await createAzureSession({ connection, purpose: "observe", fetchImpl: a.fetchImpl, mintClientAssertion: minter() });
-    await expect(session.authorizedFetch("https://management.azure.com/subscriptions")).rejects.toMatchObject({ reason: "redirect_refused" });
+    await expect(session.authorizedFetch("https://management.azure.com/subscriptions")).rejects.toMatchObject({ refusal: "redirect_refused", reason: "endpoint_not_permitted" });
     expect(leaked).toEqual([]);
     expect(entra.requests).toHaveLength(1);
   });
@@ -279,7 +279,7 @@ describe("session lifetime and canaries", () => {
     const s = await createAzureSession({ connection, purpose: "observe", fetchImpl: a.fetchImpl, now: () => new Date(t), durationSec: 120, mintClientAssertion: minter(3600) });
     await s.authorizedFetch("https://management.azure.com/subscriptions");
     t += 121_000;
-    await expect(s.authorizedFetch("https://management.azure.com/subscriptions")).rejects.toMatchObject({ reason: "session_expired" });
+    await expect(s.authorizedFetch("https://management.azure.com/subscriptions")).rejects.toMatchObject({ refusal: "session_expired", reason: "session_ended" });
 
     const s2 = await createAzureSession({ connection, purpose: "observe", fetchImpl: a.fetchImpl, mintClientAssertion: minter() });
     s2.revoke();

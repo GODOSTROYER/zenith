@@ -86,13 +86,20 @@ export class AzureTokenError extends Error {
   }
 }
 
-/** A request was refused by the session itself (host allowlist, redirect, revoked). */
+export type AzureRefusal = "host_not_allowed" | "insecure_url" | "redirect_refused" | "session_revoked" | "session_expired" | "invalid_request";
+
+/**
+ * A request was refused by the session itself (host allowlist, redirect,
+ * revoked). `refusal` is the Azure-specific cause; the inherited `reason` is
+ * the broker-wide `DenialReason` it maps to, so callers that handle every
+ * credential denial the same way still can.
+ */
 export class AzureRequestRefusedError extends CredentialDeniedError {
-  readonly reason: "host_not_allowed" | "insecure_url" | "redirect_refused" | "session_revoked" | "session_expired" | "invalid_request";
-  constructor(reason: AzureRequestRefusedError["reason"], message: string) {
-    super(message);
+  readonly refusal: AzureRefusal;
+  constructor(refusal: AzureRefusal, message: string) {
+    super(message, { reason: refusal === "session_revoked" || refusal === "session_expired" ? "session_ended" : "endpoint_not_permitted" });
     this.name = "AzureRequestRefusedError";
-    this.reason = reason;
+    this.refusal = refusal;
   }
 }
 

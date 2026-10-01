@@ -1,7 +1,7 @@
 /** Server page rendering with explicit loader fakes: empty/error/honesty contracts, not live API evidence. */
 import type { ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mount, text } from "../screens/platform/render";
+import { button, mount, text } from "../screens/platform/render";
 import type { PageContext } from "@/app/(product)/platform/_lib/loaders";
 import OperationsPage from "@/app/(product)/platform/page";
 import OperationPage from "@/app/(product)/platform/operations/[id]/page";
@@ -12,7 +12,7 @@ import PolicyPage from "@/app/(product)/platform/settings/page";
 import AwsPage from "@/app/(product)/platform/connections/aws/page";
 import Loading from "@/app/(product)/platform/loading";
 import ErrorPage from "@/app/(product)/platform/error";
-import { operation } from "../screens/platform/fixtures";
+import { decision, operation, planView } from "../screens/platform/fixtures";
 
 const state = vi.hoisted(() => ({ value: {} as unknown }));
 vi.mock("@/app/(product)/platform/_lib/loaders", () => ({
@@ -61,7 +61,15 @@ describe("page states", () => {
   it("renders an honest plan/cost gap instead of inferred records", async () => {
     state.value = { context, data: { operation: operation(), approvals: [], events: [], timelineTruncated: false } };
     const el = mount(await OperationPage({ params }));
-    expect(text(el)).toContain("no readable plan artifact"); expect(text(el)).toContain("No estimate yet"); expect(text(el)).toContain("No events recorded yet");
+    expect(text(el)).toContain("plan is unavailable for review"); expect(text(el)).toContain("No estimate yet"); expect(text(el)).toContain("No events recorded yet");
+  });
+  it("renders recorded plan addresses, attributes, policy and cost and enables its approval", async () => {
+    const view = planView();
+    const facts = { create: 1, update: 1, delete: 0, replace: 1, destroysData: true, destroyedStatefulAddresses: ["aws_db_instance.main"], regions: [], publicDatabases: [], openIngress: [], wildcardIam: [], identityChanges: [], firewallChanges: [], dnsChanges: [] };
+    state.value = { context: { ...context, role: "admin" }, data: { operation: { ...operation({ expiresAt: new Date(Date.now() + 3600000).toISOString() }), approvalRound: 1, planReview: { planDigest: view.planDigest, view, facts, cost: { deltaUsdMonthly: 7 } } }, decision: decision(), approvals: [], events: [], timelineTruncated: false } };
+    const el = mount(await OperationPage({ params }));
+    expect(text(el)).toContain("aws_ecs_service.web"); expect(text(el)).toContain("desired_count"); expect(text(el)).toContain("$7");
+    expect(text(el)).not.toContain("plan is unavailable"); expect(button(el, "Approve").disabled).toBe(false);
   });
   it("shows loading and a recoverable generic error without raw error values", () => {
     expect(mount(<Loading />).querySelector('[role="status"]')).not.toBeNull();

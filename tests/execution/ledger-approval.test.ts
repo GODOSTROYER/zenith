@@ -31,7 +31,7 @@ describe.each(LANES)("execution plan approval journey [$name]", (lane) => {
     const s = await seedAwaitingApproval(db, { count: 2 });
     const { workspaceId, operation: op } = s;
     const a = user(); const b = user();
-    const review = (approver: ReturnType<typeof user>, policyVersion: string) => decide(db, { workspaceId, operationId: op.id, approver, approverRole: "admin", decision: "approve", proposalDigest: op.proposalDigest, policyVersion });
+    const review = (approver: ReturnType<typeof user>, policyVersion: string, planDigest?: string) => decide(db, { workspaceId, operationId: op.id, approver, approverRole: "admin", decision: "approve", proposalDigest: op.proposalDigest, policyVersion, planDigest });
     await review(a, s.decision.policyVersion);
     await review(b, s.decision.policyVersion);
     await claimOperation(db, { workspaceId, id: op.id, expectedDigest: op.proposalDigest, holder: executionHolder(op.id), expectedPolicyVersion: s.decision.policyVersion });
@@ -45,9 +45,9 @@ describe.each(LANES)("execution plan approval journey [$name]", (lane) => {
     expect(await ports.ops.heartbeat({ workspaceId, operationId: op.id })).toBe(false);
 
     await expect(ports.ops.transition({ workspaceId, operationId: op.id, to: "running" })).resolves.toMatchObject({ status: "awaiting_approval" });
-    expect((await review(a, planPolicy.policyVersion)).approvals).toEqual({ have: 1, need: 2 });
+    expect((await review(a, planPolicy.policyVersion, planDigest)).approvals).toEqual({ have: 1, need: 2 });
     expect((await ports.ops.transition({ workspaceId, operationId: op.id, to: "running" }))?.status).toBe("awaiting_approval");
-    const approved = await review(b, planPolicy.policyVersion);
+    const approved = await review(b, planPolicy.policyVersion, planDigest);
     expect(approved.operation).toMatchObject({ status: "approved", planDigest, policyDecisionId: planPolicy.id });
     expect((await ports.ops.transition({ workspaceId, operationId: op.id, to: "running" }))?.status).toBe("running");
     const approvals = await repos.approvals.listForOperation(db, workspaceId, op.id);

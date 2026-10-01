@@ -49,15 +49,17 @@ export async function suspendForApproval(sql: Sql, input: ExecutionWriteInput): 
      returning ${OPERATION_COLUMNS}`);
 }
 
-/** Write-once plan digest. A different digest never overwrites the plan already recorded. */
+/** Write-once plan digest. A reviewed plan round cannot acquire a plan after its human decision. */
 export async function setPlanDigest(sql: Sql, input: ExecutionWriteInput & { planDigest: string }): Promise<OperationRecord | null> {
   const planDigest = requireDigest("planDigest", input.planDigest);
   return write(sql, input,
-    `update platform.operations set plan_digest = $5, updated_at = clock_timestamp()
+    `update platform.operations o set plan_digest = $5, updated_at = clock_timestamp()
      where workspace_id = $1 and id = $2 and plan_digest is null
        and status in ('proposed','awaiting_approval','approved','queued','running')
        and expires_at > clock_timestamp() and ${FENCE}
-     returning ${OPERATION_COLUMNS}`, [planDigest]);
+       and (approval_round = 0 or not exists (select 1 from platform.approvals a
+             where a.workspace_id = $1 and a.operation_id = $2 and a.approval_round = o.approval_round))
+     returning ${OPERATION_COLUMNS}`, [planDigest], true);
 }
 
 /**

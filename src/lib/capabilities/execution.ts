@@ -36,6 +36,7 @@
  * and revokes any grant still live. `uncertain` is terminal for automation.
  */
 import { digest } from "@/lib/controlplane/digest";
+import { approvalRoundOf } from "@/lib/controlplane/db/repos/operation-review";
 import type { ApprovalRecord, CapabilityGrantClaims, OperationRecord, PolicyDecisionRecord } from "@/lib/controlplane/types";
 import type { NormalizedPlan } from "@/lib/tofu/types";
 import { BrokerError, isBrokerError, notFound } from "./errors";
@@ -116,7 +117,7 @@ async function checkApprovals(
   }
   const now = deps.clock.now().getTime();
   const all: ApprovalRecord[] = await deps.store.listApprovals(op.workspaceId, op.id);
-  const live = all.filter((a) => a.decision === "approve" && a.proposalDigest === op.proposalDigest && !a.consumedAt && Date.parse(a.expiresAt) > now);
+  const live = all.filter((a) => approvalRoundOf(a) === approvalRoundOf(op) && a.approver.kind === "user" && a.decision === "approve" && a.proposalDigest === op.proposalDigest && !a.consumedAt && Date.parse(a.expiresAt) > now);
   if (live.length === 0) {
     throw new BrokerError("approval_required", "No unconsumed, unexpired approval covers this operation.", "Have an editor or admin approve the exact proposal.");
   }

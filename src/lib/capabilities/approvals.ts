@@ -14,7 +14,7 @@
  *  5. The digest the approver reviewed equals the operation's proposal digest.
  *  6. Separation of duties: when required, approver ≠ the requesting human
  *     (`principal.onBehalfOf ?? principal.id`).
- *  7. One decision per approver per operation. A second approval by the same
+ *  7. One decision per approver per round. A second approval by the same
  *     user is refused (`duplicate_decision`) and counts once.
  *  8. `count > 1` needs N DISTINCT approvers; the operation becomes `approved`
  *     only when the Nth lands.
@@ -35,10 +35,12 @@
  * fresh proposal is needed.
  */
 import type { ApprovalRequirement, OperationRecord, Principal } from "@/lib/controlplane/types";
+import { approvalRoundOf, operationPlanReview, type ApprovalRoundMetadata } from "@/lib/controlplane/db/repos/operation-review";
 import { BrokerError, isBrokerError, notFound } from "./errors";
 import { requireHumanSession } from "./internal";
 import { ROLE_RANK, type BrokerDeps } from "./ports";
-import { reevaluate } from "./reevaluate";
+import { reevaluate, requestFromOperation } from "./reevaluate";
+import { evaluate } from "./evaluate";
 import { scrubSecrets } from "./secret-guard";
 import type { BrowserSessionProof, OperationView } from "./types";
 import { operationView } from "./views";
@@ -48,13 +50,15 @@ export interface DecideInput {
   operationId: string;
   /** the digest the approver reviewed */
   proposalDigest: string;
+  /** The concrete plan the browser reviewed, required at a plan gate. */
+  planDigest?: string;
   approver: Principal;
   session: BrowserSessionProof;
   reason?: string;
 }
 
 export interface ApprovalOutcome {
-  operation: OperationView;
+  operation: OperationView & Partial<ApprovalRoundMetadata>;
   approval: {
     id: string;
     decision: "approve" | "reject";
@@ -128,6 +132,15 @@ async function decide(deps: BrokerDeps, input: DecideInput, decision: "approve" 
     if (op.proposalDigest !== input.proposalDigest) {
       throw new BrokerError("digest_mismatch", "The digest you reviewed does not match the operation's current proposal.", "Reload the operation and review the exact proposal.");
     }
+    const round = approvalRoundOf(op);
+    const review = operationPlanReview(op);
+    if ((input.planDigest !== undefined && input.planDigest !== op.planDigest) ||
+        (decision === "approve" && round > 0 && op.planDigest && input.planDigest !== op.planDigest)) {
+      throw new BrokerError("digest_mismatch", "The reviewed plan digest does not match the gated plan.", "Reload and review the current plan.");
+    }
+    if (decision === "approve" && round > 0 && op.planDigest && !review) {
+      throw new BrokerError("invalid_state", "The gated plan is unavailable for review.", "Restore its planning evidence before approving.");
+    }
     const stored = op.policyDecisionId ? await deps.store.getPolicyDecision(workspaceId, op.policyDecisionId) : null;
     if (!stored?.approval) {
       throw new BrokerError("invalid_state", "This operation has no recorded approval requirement, so it cannot be approved.");
@@ -139,7 +152,14 @@ async function decide(deps: BrokerDeps, input: DecideInput, decision: "approve" 
       if (re.gone) {
         throw new BrokerError("policy_denied", "The requester no longer has access, or the target no longer exists.", "Reject this proposal and propose again if it is still wanted.");
       }
-      const current = re.evaluation.decision;
+      const evaluation = review ? await evaluate(deps, {
+        ...requestFromOperation(op), planDigest: op.planDigest,
+        plan: { ...review.facts,
+          ...(review.cost.deltaUsdMonthly !== undefined ? { costDeltaUsdMonthly: review.cost.deltaUsdMonthly } : {}),
+          ...(review.cost.projectedMonthlyUsd !== undefined ? { projectedMonthlyUsd: review.cost.projectedMonthlyUsd } : {}),
+        },
+      }) : re.evaluation;
+      const current = evaluation.decision;
       if (current.outcome === "deny") {
         throw new BrokerError("policy_denied", "Policy no longer allows this proposal.", "Reject it and propose again if it is still wanted.", { reasons: current.reasons.map((r) => r.code).slice(0, 20) });
       }
@@ -148,12 +168,14 @@ async function decide(deps: BrokerDeps, input: DecideInput, decision: "approve" 
           now: current.approval,
         });
       }
-      policyVersion = re.evaluation.evaluated.policyVersion;
+      policyVersion = evaluation.evaluated.policyVersion;
     } else {
       policyVersion = stored.policyVersion;
     }
 
-    const recorded = await deps.store.recordApproval({
+    // The store adapter forwards additive ledger preconditions unchanged;
+    // SQL validates them again under the operation row lock.
+    const recordInput = {
       workspaceId,
       operationId,
       approver,
@@ -162,7 +184,10 @@ async function decide(deps: BrokerDeps, input: DecideInput, decision: "approve" 
       proposalDigest: input.proposalDigest,
       policyVersion,
       reason: input.reason === undefined ? undefined : input.reason.slice(0, 2000),
-    });
+      planDigest: input.planDigest,
+      expectedApprovalRound: round,
+    };
+    const recorded = await deps.store.recordApproval(recordInput);
 
     const finalized = recorded.operation.status !== "awaiting_approval";
     // The store appended operation.approved / operation.rejected with the decision. A partial
@@ -181,7 +206,7 @@ async function decide(deps: BrokerDeps, input: DecideInput, decision: "approve" 
       });
     }
     return {
-      operation: operationView(recorded.operation),
+      operation: { ...operationView(recorded.operation), approvalRound: approvalRoundOf(recorded.operation) },
       approval: {
         id: recorded.approval.id,
         decision,
@@ -245,4 +270,3 @@ export async function revokeApproval(
   }
   return { operation: operationView(moved) };
 }
-

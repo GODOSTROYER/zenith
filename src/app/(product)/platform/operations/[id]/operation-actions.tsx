@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
 import { browserMutation, mutationError } from "../../_lib/browser-api";
 
-export function OperationActions({ operation, decision, approvals, viewer, workspaceId, plan }: {
-  operation: OperationRecord; decision?: PolicyDecisionRecord; approvals: ApprovalRecord[]; viewer: ApprovalViewer; workspaceId: string; plan?: PlanView;
+export function OperationActions({ operation, decision, approvals, viewer, workspaceId, plan, planCostDeltaUsd }: {
+  operation: OperationRecord; decision?: PolicyDecisionRecord; approvals: ApprovalRecord[]; viewer: ApprovalViewer; workspaceId: string; plan?: PlanView; planCostDeltaUsd?: number | null;
 }) {
   const router = useRouter();
   const [recorded, setRecorded] = useState(false);
@@ -22,7 +22,7 @@ export function OperationActions({ operation, decision, approvals, viewer, works
     if (inFlight.current || recorded) return;
     inFlight.current = true; setPending(true);
     try {
-      await browserMutation(workspaceId, `/api/platform/v1/operations/${encodeURIComponent(operation.id)}/${kind}`, { proposalDigest: input.proposalDigest, ...(input.reason ? { reason: input.reason } : {}) });
+      await browserMutation(workspaceId, `/api/platform/v1/operations/${encodeURIComponent(operation.id)}/${kind}`, { proposalDigest: input.proposalDigest, ...(kind === "approve" && input.planDigest ? { planDigest: input.planDigest } : {}), ...(input.reason ? { reason: input.reason } : {}) });
       setRecorded(true); router.refresh();
     } catch (failure) { throw new Error(mutationError(failure)); }
     finally { inFlight.current = false; setPending(false); }
@@ -40,7 +40,7 @@ export function OperationActions({ operation, decision, approvals, viewer, works
     finally { inFlight.current = false; setPending(false); }
   };
   return <div className="space-y-4">
-    <ApprovalCard operation={operation} decision={decision} approvals={approvals} viewer={viewer} plan={plan} approveDisabledReason={(operation.planDigest || operation.proposal.planDigest) && !plan ? "The bound plan is unavailable for review. Approval is disabled until its detailed changes can be read. You can still reject this proposal." : undefined} onApprove={(input) => decide("approve", input)} onReject={(input) => decide("reject", input)} loading={recorded || pending} />
+    <ApprovalCard operation={operation} decision={decision} approvals={approvals} viewer={viewer} plan={plan} planCostDeltaUsd={planCostDeltaUsd} onApprove={(input) => decide("approve", input)} onReject={(input) => decide("reject", input)} loading={recorded || pending} />
     {recorded && <p role="status" className="text-[13px] text-ink-mute">Decision recorded. Refreshing the latest state…</p>}
     <Button onClick={() => void cancel()} busy={pending} disabled={Boolean(cancelReason) || recorded} disabledReason={cancelReason}>Cancel operation</Button>
     {cancelReason && <p className="text-[12px] text-ink-mute">{cancelReason}</p>}

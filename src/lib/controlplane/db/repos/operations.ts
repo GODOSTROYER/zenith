@@ -37,6 +37,7 @@ import { boundedMs, clampLimit, decodeCursor, encodeCursor, json, jsonOrNull, ne
 import { consumeApprovals, countUnconsumedApprovals, requiredApprovalCount } from "./approval-core";
 import { reserve } from "./idempotency";
 import { assertFence } from "./leases";
+import { withPlanReview, type ReviewedOperation } from "./operation-review";
 
 /* --------------------------------- rows ------------------------------------ */
 
@@ -56,6 +57,7 @@ export interface OperationRow {
   plan_digest: string | null;
   policy_decision_id: string | null;
   approval_required: boolean;
+  approval_round: number;
   idempotency_key: string | null;
   workflow_id: string | null;
   runner_job_id: string | null;
@@ -72,9 +74,9 @@ export interface OperationRow {
 }
 
 export const OPERATION_COLUMNS =
-  "seq, id, workspace_id, project_id, environment_id, resource_id, capability, principal, status, proposal, proposal_digest, input_digest, plan_digest, policy_decision_id, approval_required, idempotency_key, workflow_id, runner_job_id, lease_scope, fence_token, correlation_id, result, error, created_at, updated_at, started_at, finished_at, expires_at";
+  "seq, id, workspace_id, project_id, environment_id, resource_id, capability, principal, status, proposal, proposal_digest, input_digest, plan_digest, policy_decision_id, approval_required, approval_round, idempotency_key, workflow_id, runner_job_id, lease_scope, fence_token, correlation_id, result, error, created_at, updated_at, started_at, finished_at, expires_at";
 
-export function toOperation(row: OperationRow): OperationRecord {
+export function toOperation(row: OperationRow): ReviewedOperation {
   return {
     id: row.id,
     workspaceId: row.workspace_id,
@@ -90,6 +92,7 @@ export function toOperation(row: OperationRow): OperationRecord {
     planDigest: opt(row.plan_digest),
     policyDecisionId: opt(row.policy_decision_id),
     approvalRequired: row.approval_required,
+    approvalRound: row.approval_round,
     idempotencyKey: opt(row.idempotency_key),
     workflowId: opt(row.workflow_id),
     runnerJobId: opt(row.runner_job_id),
@@ -204,7 +207,8 @@ export async function create(sql: Sql, input: CreateOperationInput): Promise<Cre
        values ($1, $2, $3, $4, $5, $6, $7::text::jsonb, $8::text, $9::text::jsonb, $10, $11, $12, $13, $14::boolean, $15, $16, $17,
          clock_timestamp() + ($18::bigint * interval '1 millisecond'),
          case when $8::text = 'denied' then clock_timestamp() else null end)
-       returning ${OPERATION_COLUMNS}`,
+       returning ${OPERATION_COLUMNS.replace(", approval_round", "")},
+         coalesce((to_jsonb(operations)->>'approval_round')::integer, 0) as approval_round`,
       [
         id,
         workspaceId,
@@ -237,7 +241,7 @@ export async function get(sql: Sql, workspaceId: string, id: string): Promise<Op
     `select ${OPERATION_COLUMNS} from platform.operations where workspace_id = $1 and id = $2`,
     [requireText("workspaceId", workspaceId), requireText("id", id)]
   );
-  return rows.length ? toOperation(rows[0]) : null;
+  return rows.length ? withPlanReview(sql, toOperation(rows[0])) : null;
 }
 
 /**

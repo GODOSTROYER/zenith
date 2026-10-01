@@ -123,6 +123,7 @@ export function createPlanActivities(rt: Runtime): PlanActivities {
       if (planDigest === undefined) {
         decision = await rt.d.broker.reevaluate(op.id);
       } else {
+        if (op.planDigest !== planDigest) throw new StepFailedError("plan_changed: policy must evaluate the operation's recorded plan.");
         const row = await rt.d.evidence.find({ workspaceId: op.workspaceId, operationId: op.id, kind: "tofu_plan", digest: planDigest });
         const derived = row ? readPlanEvidence(row.summary) : undefined;
         if (!row || !derived) {

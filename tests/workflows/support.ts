@@ -143,8 +143,12 @@ export async function startTestServer(kind: "local" | "time-skipping"): Promise<
   };
 
   if (kind === "time-skipping") {
+    const executable = process.env.ZENITH_TEST_TEMPORAL_SERVER;
+    if (!executable && process.env.ZENITH_TEST_TEMPORAL_DOWNLOAD !== "1") {
+      return { skipReason: "Time-skipping server unavailable offline. Set ZENITH_TEST_TEMPORAL_SERVER to an existing test-server binary, or ZENITH_TEST_TEMPORAL_DOWNLOAD=1 to permit downloads." };
+    }
     try {
-      return done(await TestWorkflowEnvironment.createTimeSkipping(), "time-skipping");
+      return done(await TestWorkflowEnvironment.createTimeSkipping(executable ? { server: { executable: { type: "existing-path", path: executable } } } : undefined), "time-skipping");
     } catch (err) {
       return { skipReason: `createTimeSkipping failed: ${(err as Error).message}` };
     }
@@ -161,10 +165,14 @@ export async function startTestServer(kind: "local" | "time-skipping"): Promise<
   } else {
     attempts.push("no `temporal` CLI on PATH (set ZENITH_TEST_TEMPORAL_CLI)");
   }
-  try {
-    return done(await TestWorkflowEnvironment.createLocal(), "local-download");
-  } catch (err) {
-    attempts.push(`createLocal(download): ${(err as Error).message}`);
+  if (process.env.ZENITH_TEST_TEMPORAL_DOWNLOAD === "1") {
+    try {
+      return done(await TestWorkflowEnvironment.createLocal(), "local-download");
+    } catch (err) {
+      attempts.push(`createLocal(download): ${(err as Error).message}`);
+    }
+  } else {
+    attempts.push("downloads disabled (set ZENITH_TEST_TEMPORAL_DOWNLOAD=1 to permit them)");
   }
   if (cli) {
     try {

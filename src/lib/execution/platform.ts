@@ -116,7 +116,9 @@ export function createOperationsPort(sql: Sql): OperationsPort {
 
     async setPlanDigest({ workspaceId, operationId, planDigest }) {
       if (!HEX64.test(planDigest)) throw new StepFailedError("The plan digest is not a SHA-256 hex digest.");
-      await setPlanDigest(sql, { workspaceId, id: operationId, planDigest });
+      const recorded = await setPlanDigest(sql, { workspaceId, id: operationId, planDigest });
+      const op = recorded ?? await current(workspaceId, operationId);
+      if (op && op.planDigest !== planDigest) throw new StepFailedError("plan_changed: the recorded plan cannot be replaced. Review a new operation.");
     },
 
     async setPolicyDecision({ workspaceId, operationId, decisionId }) {

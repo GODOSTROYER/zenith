@@ -75,13 +75,18 @@ describe("what is never allowed", () => {
     expect(all.filter((r) => r.method === ("DELETE" as string))).toEqual([]);
     expect(all.map(describeRule).join("\n")).not.toMatch(/secretbundles|\/o\/|changeCompartment/);
     expect(all.filter((r) => r.service === "identity" && r.method !== "GET")).toEqual([]);
-    for (const cap of ["infrastructure.observe", "topology.read", "incident.investigate", "firewall.inspect"]) {
+    for (const cap of ["topology.read", "incident.investigate", "firewall.inspect"]) {
       expect(OCI_ALLOWLIST[cap].every((r) => r.method === "GET"), cap).toBe(true);
     }
+    expect(OCI_ALLOWLIST["infrastructure.observe"].filter((r) => r.method !== "GET").map(describeRule)).toEqual([
+      "loggingsearch POST /20190909/search",
+      "monitoring POST /20180401/metrics/actions/summarizeMetricsData",
+    ]);
   });
 
   it("each mutating rule belongs to exactly the capability that needs it", () => {
-    const mutating = Object.entries(OCI_ALLOWLIST).flatMap(([cap, rules]) => rules.filter((r) => r.method !== "GET").map((r) => `${cap}: ${describeRule(r)}`));
+    // The two explicitly asserted observe POSTs above are reads; other POST/PUTs mutate.
+    const mutating = Object.entries(OCI_ALLOWLIST).filter(([cap]) => cap !== "infrastructure.observe").flatMap(([cap, rules]) => rules.filter((r) => r.method !== "GET").map((r) => `${cap}: ${describeRule(r)}`));
     expect(mutating.sort()).toEqual([
       "database.snapshot: postgresql POST /20220915/backups",
       "secret.write: vault PUT /20180608/secrets/{}",

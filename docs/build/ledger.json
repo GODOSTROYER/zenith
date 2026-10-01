@@ -1437,12 +1437,12 @@
       "title": "a first, read-only destroy review anyone authorized can start",
       "wave": 8,
       "owner": "codex gpt-6.1-sol high",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "paths": [],
       "branch": "ws/destroy-review",
       "tests": "Independent typecheck/lint and 983 passed,0 failed,1 skipped, including disposable Temporal review workflow. Go formatting/vet/tests with real OpenTofu passed. Local kind provider6/6 and release1/1 passed.",
-      "review": "Orchestrator reviewed code and independently verified before merging into ws/integrate-w8 on Saivedant Hava's Mac.",
+      "review": "Orchestrator reviewed code and independently verified before merging into ws/integrate-w8 on Saivedant Hava's Mac. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "commit": "58843d5",
       "notes": "Atomic cancellation only accepts awaiting_approval; already-approved proposals and immutable approval digests survive refresh."
     },
@@ -1451,12 +1451,12 @@
       "title": "default composition builds Azure workloads from C3 source bundles",
       "wave": 8,
       "owner": "codex gpt-6.1-sol high",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "paths": [],
       "branch": "ws/azure-source-wire",
       "tests": "Independent typecheck/lint and 904 passed,0 failed,1 skipped. Go formatting/vet/tests with real OpenTofu passed. Local kind provider6/6 and release1/1 passed.",
-      "review": "Orchestrator reviewed code and independently verified before merging into ws/integrate-w8 on Saivedant Hava's Mac.",
+      "review": "Orchestrator reviewed code and independently verified before merging into ws/integrate-w8 on Saivedant Hava's Mac. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "commit": "a83cdbe",
       "notes": "Trusted tenant storage bindings, Storage audience, exact Blob host policy and redirect refusal; no live Azure acceptance."
     },
@@ -1465,12 +1465,12 @@
       "title": "release ports for Kubernetes environments (image rollout + migration jobs)",
       "wave": 8,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "paths": [],
       "branch": "ws/release-k8s",
       "tests": "Final full gate: 15,854 passed, 0 failed, 194 skipped in 788 files; typecheck and lint clean; Go 226 top-level tests plus 539 subtests passed, 3 Linux-only skips; OPA 213/213; SQL/matrix/templates clean.",
-      "review": "Historical checkpoint merge 7eee16e; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02.",
+      "review": "Historical checkpoint merge 7eee16e; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "commit": "bdb4762"
     },
     {
@@ -1478,12 +1478,12 @@
       "title": "release ports for OCI environments (container image rollout + migrations through the runner)",
       "wave": 8,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "paths": [],
       "branch": "ws/release-oci",
       "tests": "Final full gate: 15,854 passed, 0 failed, 194 skipped in 788 files; typecheck and lint clean; Go 226 top-level tests plus 539 subtests passed, 3 Linux-only skips; OPA 213/213; SQL/matrix/templates clean.",
-      "review": "Historical checkpoint merge 0078228; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02.",
+      "review": "Historical checkpoint merge 0078228; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "commit": "72046a4"
     },
     {
@@ -1491,12 +1491,12 @@
       "title": "DNS deletion target-ownership guards for GCP, Azure and OCI",
       "wave": 8,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "paths": [],
       "branch": "ws/dns-guards-clouds",
       "tests": "Final full gate: 15,854 passed, 0 failed, 194 skipped in 788 files; typecheck and lint clean; Go 226 top-level tests plus 539 subtests passed, 3 Linux-only skips; OPA 213/213; SQL/matrix/templates clean.",
-      "review": "Historical checkpoint merge fef65c5; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02.",
+      "review": "Historical checkpoint merge fef65c5; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "commit": "7f8e64c"
     },
     {
@@ -1504,12 +1504,12 @@
       "title": "every build/tool image Zenith runs is digest-pinned, with a guard",
       "wave": 8,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "paths": [],
       "branch": "ws/image-pins",
       "tests": "Final full gate: 15,854 passed, 0 failed, 194 skipped in 788 files; typecheck and lint clean; Go 226 top-level tests plus 539 subtests passed, 3 Linux-only skips; OPA 213/213; SQL/matrix/templates clean.",
-      "review": "Historical checkpoint merge f8ab8f8; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02.",
+      "review": "Historical checkpoint merge f8ab8f8; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "commit": "2e4d351"
     },
     {
@@ -1517,12 +1517,12 @@
       "title": "product-vault key rotation: re-wrap tooling and runbook",
       "wave": 8,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "paths": [],
       "branch": "ws/vault-rewrap",
       "tests": "Final full gate: 15,854 passed, 0 failed, 194 skipped in 788 files; typecheck and lint clean; Go 226 top-level tests plus 539 subtests passed, 3 Linux-only skips; OPA 213/213; SQL/matrix/templates clean.",
-      "review": "Historical checkpoint merge 1b9198c; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02.",
+      "review": "Historical checkpoint merge 1b9198c; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "commit": "3ad2661"
     },
     {
@@ -1530,12 +1530,12 @@
       "title": "Temporal client/worker mTLS configuration",
       "wave": 8,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "paths": [],
       "branch": "ws/temporal-mtls",
       "tests": "Final full gate: 15,854 passed, 0 failed, 194 skipped in 788 files; typecheck and lint clean; Go 226 top-level tests plus 539 subtests passed, 3 Linux-only skips; OPA 213/213; SQL/matrix/templates clean.",
-      "review": "Historical checkpoint merge f83abf9; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02.",
+      "review": "Historical checkpoint merge f83abf9; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "commit": "2e93617"
     },
     {
@@ -1543,12 +1543,12 @@
       "title": "default composition supplies the machine port",
       "wave": 8,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "paths": [],
       "branch": "ws/machine-port",
       "tests": "Final full gate: 15,854 passed, 0 failed, 194 skipped in 788 files; typecheck and lint clean; Go 226 top-level tests plus 539 subtests passed, 3 Linux-only skips; OPA 213/213; SQL/matrix/templates clean.",
-      "review": "Historical checkpoint merge 21e65f2; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02.",
+      "review": "Historical checkpoint merge 21e65f2; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "commit": "b5254a7"
     },
     {
@@ -1556,12 +1556,12 @@
       "title": "tenant-scoped GitHub App connector for private source repositories",
       "wave": 8,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "paths": [],
       "branch": "ws/github-source",
       "tests": "Final full gate: 15,854 passed, 0 failed, 194 skipped in 788 files; typecheck and lint clean; Go 226 top-level tests plus 539 subtests passed, 3 Linux-only skips; OPA 213/213; SQL/matrix/templates clean.",
-      "review": "Historical checkpoint merge 27af346; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02.",
+      "review": "Historical checkpoint merge 27af346; independently included in the final full gate and fresh local kind provider 6/6, release 1/1 on 2026-10-02. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "commit": "5a0dfa4"
     },
     {
@@ -1569,14 +1569,14 @@
       "title": "One permissions boundary per AWS role family, so every Zenith role can do its job",
       "wave": 8,
       "owner": "codex gpt-6.1-sol high",
-      "state": "staged",
+      "state": "integrated",
       "deps": [
         "WS-AWS-BOUNDARY-MORE"
       ],
       "paths": [],
       "branch": "ws/aws-boundary-split",
       "tests": "Independent typecheck/lint and 1728 passed,0 failed,0 skipped. Go formatting/vet/tests with real OpenTofu passed; generated templates unchanged. Local kind provider6/6 and release1/1 passed.",
-      "review": "Orchestrator reviewed code and independently verified before merging into ws/integrate-w8 on Saivedant Hava's Mac.",
+      "review": "Orchestrator reviewed code and independently verified before merging into ws/integrate-w8 on Saivedant Hava's Mac. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "commit": "8421fae",
       "notes": "Six family boundaries; own-family coverage and cross-family principal denial. Largest rendered legacy boundary6136 and deploy policy5951 characters in GovCloud, below6144."
     },
@@ -1585,7 +1585,7 @@
       "title": "Repair checkpoint dependency and verification defects",
       "wave": 8,
       "owner": "worker",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "branch": "ws/gate-fixes",
       "paths": [
@@ -1595,7 +1595,7 @@
       ],
       "tests": "Independent targeted checks:104 passed,0 failed,0 skipped; typecheck,eslint,gofmt,go vet and go test passed. OPA213/213 on baseline.",
       "commit": "007716e,641c989,d0137d6",
-      "review": "Orchestrator maintains verification evidence.",
+      "review": "Orchestrator maintains verification evidence. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "notes": "Baseline full suite:15636 passed,2 failed,208 skipped plus a Temporal hook timeout. Both code defects fixed;14 deployment cases pass after cold test-server download. Final full gate passed on 2026-10-02: 15,854 passed, 0 failed, 194 skipped; both fresh local kind suites passed."
     },
     {
@@ -1603,7 +1603,7 @@
       "title": "Integrate GitHub source schema as platform migration 6",
       "wave": 8,
       "owner": "codex gpt-6.1-sol high",
-      "state": "staged",
+      "state": "integrated",
       "deps": [
         "WS-GITHUB-SOURCE"
       ],
@@ -1616,7 +1616,7 @@
       ],
       "tests": "Independent broad lane943 passed,1 stale migration assertion failed,17 skipped. Corrected assertion rerun22/22; final migration/source/docs lane148 passed,0 failed,14 skipped. Typecheck/lint, Go with real OpenTofu and emitted SQL check passed.",
       "commit": "c1bfcf4",
-      "review": "Orchestrator reviewed code and independently verified before merging into ws/integrate-w8 on Saivedant Hava's Mac.",
+      "review": "Orchestrator reviewed code and independently verified before merging into ws/integrate-w8 on Saivedant Hava's Mac. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "notes": "Immutable additive migration6; manual installations and migration1-5 checksums preserved; browser navigation link added."
     },
     {
@@ -1624,7 +1624,7 @@
       "title": "Correct default machine-port documentation",
       "wave": 8,
       "owner": "codex gpt-6.1-sol high",
-      "state": "staged",
+      "state": "integrated",
       "deps": [
         "WS-MACHINE-PORT"
       ],
@@ -1635,7 +1635,7 @@
       ],
       "tests": "Independent typecheck/lint/docs56 passed,0 failed,0 skipped. Go formatting/vet/tests with real OpenTofu passed after scratch-path repair.",
       "commit": "84ea407",
-      "review": "Orchestrator reviewed code and independently verified before merging into ws/integrate-w8 on Saivedant Hava's Mac.",
+      "review": "Orchestrator reviewed code and independently verified before merging into ws/integrate-w8 on Saivedant Hava's Mac. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "notes": "Default AWS/Azure/GCP/zenithd transports documented with provider-specific execution limits."
     },
     {
@@ -1643,7 +1643,7 @@
       "title": "Bind created OCI migration instances and clean up finished jobs",
       "wave": 8,
       "owner": "codex gpt-6.1-sol high",
-      "state": "staged",
+      "state": "integrated",
       "deps": [
         "WS-RELEASE-OCI"
       ],
@@ -1656,7 +1656,7 @@
       ],
       "tests": "Independent typecheck/lint and OCI/provider contracts693 passed,0 failed,0 skipped. Go formatting/vet/tests with real OpenTofu passed. Targeted Go race lane8 top-level and18 subtests passed.",
       "commit": "898b61c",
-      "review": "Orchestrator reviewed code and independently verified before merging into ws/integrate-w8 on Saivedant Hava's Mac.",
+      "review": "Orchestrator reviewed code and independently verified before merging into ws/integrate-w8 on Saivedant Hava's Mac. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "notes": "Runner-created compartment bindings and durable job-scoped receipts. Finished migrations request narrow cleanup; lost create responses remain unknown without relaunch. No live OCI acceptance."
     },
     {
@@ -1664,7 +1664,7 @@
       "title": "Keep OpenTofu provider scratch paths short and private",
       "wave": 8,
       "owner": "codex gpt-6.1-sol high",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "paths": [
         "go/internal/runner/kinds/tofu.go",
@@ -1672,7 +1672,7 @@
       ],
       "branch": "ws/gate-runtime",
       "tests": "Independent typecheck, full eslint, gofmt, Go vet passed; Go218 top-level +521 subtests passed (3 Linux-only tests skipped,6 packages without tests). Both real OpenTofu tests passed. TS runtime/teardown lane335 passed with1 unrelated runner membership assertion failure under separate repair.",
-      "review": "Source reviewed and independently checked before merge ca7a84e into staging.",
+      "review": "Source reviewed and independently checked before merge ca7a84e into staging. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "commit": "d043460"
     },
     {
@@ -1680,7 +1680,7 @@
       "title": "Repair real Kubernetes apply and acceptance checks",
       "wave": 8,
       "owner": "codex gpt-6.1-sol high",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "paths": [
         "src/lib/providers/kubernetes",
@@ -1688,7 +1688,7 @@
       ],
       "branch": "ws/kind-gates",
       "tests": "Independent386 Kubernetes contract tests passed; local kind provider6/6 and release1/1 passed,0 failures/skips. Typecheck,eslint,gofmt and real Go checks passed.",
-      "review": "Reviewed and merged fc6e538 after independent real local cluster checks. Final fresh-cluster gate remains pending.",
+      "review": "Reviewed and merged fc6e538 after independent real local cluster checks. Final fresh-cluster gate remains pending. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "commit": "359bb92"
     },
     {
@@ -1696,14 +1696,14 @@
       "title": "Make operation job membership checks independent of timestamp ties",
       "wave": 8,
       "owner": "codex gpt-6.1-sol high",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "paths": [
         "tests/runners/store-contract.test.ts"
       ],
       "branch": "ws/runner-contract",
       "tests": "Independent44 passed,0 failed/skipped; typecheck,eslint,gofmt,Go vet/test with real OpenTofu passed.",
-      "review": "Reviewed and merged after independent verification.",
+      "review": "Reviewed and merged after independent verification. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "commit": "36aa390"
     },
     {
@@ -1711,7 +1711,7 @@
       "title": "Refresh composed AWS fixtures and bound database setup hooks",
       "wave": 8,
       "owner": "codex gpt-6.1-sol high",
-      "state": "staged",
+      "state": "integrated",
       "deps": [
         "WS-AWS-BOUNDARY-SPLIT",
         "WS-GITHUB-MIGRATION"
@@ -1723,7 +1723,7 @@
       ],
       "branch": "ws/final-deploy-gate",
       "tests": "Independent typecheck/lint and7 affected suites115 passed,0 failed,1 skipped. Go formatting/vet/tests with real OpenTofu passed. Worker4-suite42/42 result independently broadened before merge.",
-      "review": "Orchestrator reviewed and merged b9baf61 after independent verification.",
+      "review": "Orchestrator reviewed and merged b9baf61 after independent verification. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "commit": "d8b18d6,924e4f0",
       "notes": "Shared fixture uses app-family boundary and matching role names;2 regressions preserve refusal of legacy/build boundaries. Hook budget60s; functional20s and lease safety/performance limits unchanged."
     },
@@ -1732,7 +1732,7 @@
       "title": "Make rollout polling evidence independent of setup timing",
       "wave": 8,
       "owner": "codex gpt-6.1-sol high",
-      "state": "staged",
+      "state": "integrated",
       "deps": [
         "WS-KIND-GATE"
       ],
@@ -1741,7 +1741,7 @@
       ],
       "branch": "ws/kind-gates",
       "tests": "Independent typecheck/lint, rollout22 passed,0 failed/skipped, Go formatting/vet/tests with real OpenTofu passed; both local kind suites provider6/6 and release1/1 passed before merge.",
-      "review": "Orchestrator merged7b17a19 after independent checks, then deleted disposable zenith-w8-rollout cluster.",
+      "review": "Orchestrator merged7b17a19 after independent checks, then deleted disposable zenith-w8-rollout cluster. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "commit": "643708c"
     },
     {
@@ -1749,7 +1749,7 @@
       "title": "Align Node minimum, CI and worker base with locked dependencies",
       "wave": 8,
       "owner": "codex gpt-6.1-sol high",
-      "state": "staged",
+      "state": "integrated",
       "deps": [
         "WS-GATE-W8"
       ],
@@ -1766,7 +1766,7 @@
       ],
       "branch": "ws/node-runtime",
       "tests": "127 passed, 0 failed, 0 skipped in 4 focused suites; Go 226 top-level tests plus 539 subtests passed, 3 Linux-only skips. Local ARM64 Docker build passed; Node version, UID 10001, policy hash and OpenTofu CLI probes passed.",
-      "review": "Orchestrator independently verified install, typecheck, lint, 127 tests, Go and real OpenTofu, ARM64 image build and isolated CLI probes; merged 3f1213d.",
+      "review": "Orchestrator independently verified install, typecheck, lint, 127 tests, Go and real OpenTofu, ARM64 image build and isolated CLI probes; merged 3f1213d. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "notes": "Node metadata and 15 CI pins: b2f316d. Worker image packaging and build-layout regression: 2a65956. Node minimum >=22.22.2 <23; exact patch 22.23.3. Dependency versions and integrities unchanged. Image ce29c543b822 uses verified base index 43ac6c60. No worker/server startup; AMD64 image, Temporal polling and cloud transports remain unverified. Legacy setup/doctor and separate hosted SQLite/recipe admission are follow-ups.",
       "commit": "2a65956"
     },
@@ -1775,7 +1775,7 @@
       "title": "Verify persisted teardown review in environment page wiring",
       "wave": 8,
       "owner": "codex gpt-6.1-sol high",
-      "state": "staged",
+      "state": "integrated",
       "deps": [
         "WS-DESTROY-REVIEW"
       ],
@@ -1785,7 +1785,7 @@
       "branch": "ws/final-ui-gate",
       "commit": "a4fc524",
       "tests": "Independent typecheck, lint and 53 passed, 0 failed, 0 skipped in 3 adjacent UI suites. Go formatting/vet/tests with real OpenTofu passed: 226 top-level tests plus 539 subtests, 3 Linux-only skips.",
-      "review": "Orchestrator reviewed and independently verified; merged b9e1b2f.",
+      "review": "Orchestrator reviewed and independently verified; merged b9e1b2f. Integrated via 7bd6798 after full gate and fresh local kind acceptance.",
       "notes": "The full gate exposed an outdated expectation of no initial request. Page wiring now asserts the persisted read-only review GET, exact environment/workspace/browser context, plan target and typed-name gate. Production code is unchanged."
     }
   ],
@@ -1845,7 +1845,9 @@
       "head": "b9e1b2fc54a77b2346e0ff6a9f7589267a6afb2e",
       "result": "Final full gate passed: Vitest 15,854 passed, 0 failed, 194 skipped across 788 files; Go 226 top-level tests plus 539 subtests passed, 3 Linux-only skips; OPA 213/213; typecheck/lint/formatting and SQL/matrix/18 policy templates clean. Fresh local kind provider 6/6 and release 1/1, no failures/skips; cluster and kubeconfig deleted.",
       "evidence": "docs/build/verification/2026-10-02-wave8.md",
-      "classification": "Local macOS, ARM64 worker image and disposable kind cluster evidence; no live-cloud acceptance."
+      "classification": "Local macOS, ARM64 worker image and disposable kind cluster evidence; no live-cloud acceptance.",
+      "integrationMerge": "7bd6798f4058cd2c9af57e80fa4c4090f05d1420",
+      "documentation": "109 passed, 0 failed, 0 skipped in 4 documentation suites; ledger render/check and diff check passed."
     }
   ]
 }

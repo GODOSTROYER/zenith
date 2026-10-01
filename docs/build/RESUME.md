@@ -44,8 +44,10 @@ probes. No Zenith worker or server was started.
 Final full gate passed: 15,854 tests passed, 0 failed, 194 skipped across 788
 files. Go passed 226 top-level tests plus 539 subtests with 3 Linux-only skips;
 OPA passed 213/213. Both fresh local kind suites passed (provider 6/6, release
-1/1) and the cluster/kubeconfig were deleted. Integration and publication are
-being finalized. Exact commands, prior failures and evidence are recorded in
+1/1) and the cluster/kubeconfig were deleted. Integration is
+complete at `7bd6798`; all 22 wave 8 rows are integrated. Publication branch:
+`codex/wave8-integration-2026-10-02`. Exact commands, prior failures and evidence
+are recorded in
 `verification/2026-10-02-wave8.md`, its compact JSON and `ledger.json`.
 
 ## 3. Remaining work and decisions

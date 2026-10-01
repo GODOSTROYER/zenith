@@ -447,5 +447,7 @@
     "files": 4,
     "ledgerCheckExitCode": 0,
     "diffCheckExitCode": 0
-  }
+  },
+  "integrationMerge": "7bd6798f4058cd2c9af57e80fa4c4090f05d1420",
+  "integratedWave8Rows": 22
 }

@@ -61,7 +61,7 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-TOFU-2 | SEC-F2/F3/F6/F7 + GCS/azurerm/OCI state backends | 5 | integrated |  | ws/tofu-2 |  | real tofu outside sandbox: tofu+gcp+env security 875 passed | orchestrator: fixed operator proxy allowlist (lowercase names) caught by the GCP offline plan; compile.ts backendFor delegation pending WS-REF merge |  |
 | WS-APPROVAL-FLOW | Plan-level approval gate end to end; reviewable gated plan | 5 | in_progress |  | ws/approval-flow |  |  |  |  |
 | WS-MANIFEST-V2 | Product store accepts Manifest V2 (placement, release, provider tuning) | 5 | in_progress |  | ws/manifest-v2 |  |  |  |  |
-| WS-DRIVER-FIX | Driver declaration mismatches; EventBridge/CloudFront reads | 5 | in_progress |  | ws/driver-fix |  |  |  |  |
+| WS-DRIVER-FIX | Driver declaration mismatches; EventBridge/CloudFront reads | 5 | integrated |  | ws/driver-fix |  | aws/oci/credentials/bootstrap/matrix 1674 passed; matrix --strict 0 problems | orchestrator: added cloudfront:GetDistribution to broker read actions and bootstrap observe policy (events:List* already present); regenerated tofu bootstrap policies |  |
 | WS-DOCS-SYNC | Operator docs and drift tests match what is wired | 5 | in_progress |  | ws/docs-sync |  |  |  |  |
 | WS-DESTROY | Environment teardown: tofu destroy, destroy workflow, stateful guards, harness run tags | 6 | in_progress |  | ws/destroy |  |  |  |  |
 | WS-SECRET-SYNC | Secret values delivered to cloud secret stores under brokered secret.write; vault:generated | 6 | in_progress |  | ws/secret-sync |  |  |  |  |

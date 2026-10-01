@@ -908,10 +908,12 @@
       "title": "Driver declaration mismatches; EventBridge/CloudFront reads",
       "wave": 5,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [],
       "paths": [],
-      "branch": "ws/driver-fix"
+      "branch": "ws/driver-fix",
+      "tests": "aws/oci/credentials/bootstrap/matrix 1674 passed; matrix --strict 0 problems",
+      "review": "orchestrator: added cloudfront:GetDistribution to broker read actions and bootstrap observe policy (events:List* already present); regenerated tofu bootstrap policies"
     },
     {
       "id": "WS-DOCS-SYNC",

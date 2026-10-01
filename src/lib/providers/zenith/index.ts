@@ -31,5 +31,6 @@ export * from "./apply";
 export * from "./tls";
 export * from "./tls-client";
 export * from "./tls-lifecycle";
+export * from "./teardown";
 export * from "./export";
 export * from "./drivers";

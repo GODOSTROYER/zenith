@@ -1,0 +1,41 @@
+# Platform namespaces of the Zenith-managed cluster.
+#
+# PLACEHOLDER MANIFESTS: nobody operates this cluster yet. Nothing here has been
+# applied to a real cluster. Every value marked REPLACE or example.com is a
+# placeholder the operator must set. See ../../docs/platform/MANAGED-PLATFORM.md.
+#
+# Names are the defaults of the ZENITH_MANAGED_* configuration
+# (ZENITH_MANAGED_GATEWAY_NAMESPACE=zenith-gateway). Tenant namespaces
+# (zt-<workspace>-<env>-<hash>) are created by Zenith, never here.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zenith-gateway
+  labels:
+    zenith.dev/platform: "true"
+    # The gateway data plane is platform code, not tenant code. Many gateway
+    # implementations need capabilities `restricted` forbids; start at baseline
+    # and tighten to restricted only if your implementation allows it.
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/audit: restricted
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cert-manager
+  labels:
+    zenith.dev/platform: "true"
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zenith-system
+  labels:
+    zenith.dev/platform: "true"
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted

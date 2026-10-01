@@ -30,7 +30,7 @@ import {
 } from "@/lib/domain/types";
 import { findNativeType, parseNativeConfig } from "./native-registry";
 import { NATIVE_PREFIX } from "./native-types";
-import { findInlineSecretPaths } from "./secrets";
+import { findInlineSecretPaths, urlHasCredentials } from "./secrets";
 
 /* ------------------------------ vocabulary ------------------------------- */
 
@@ -182,6 +182,41 @@ export const NativeNode = z
   .strict();
 export type NativeNode = z.infer<typeof NativeNode>;
 
+/* ------------------------------- release --------------------------------- */
+
+/** One argv element of a release command: bounded, no control characters, no credentials in a URL. */
+const ReleaseArg = z
+  .string()
+  .min(1, "an argv element cannot be empty")
+  .max(1024)
+  .regex(/^[^\u0000-\u001f\u007f]*$/, "an argv element cannot contain control characters")
+  .refine((a) => !urlHasCredentials(a), "an argv element embeds credentials in a URL; pass secrets through the service's environment references, never on the command line");
+
+/**
+ * A database migration (or any other one-off release task) run after the
+ * workloads deploy: the `command` argv runs ONCE as a one-off task of the named
+ * service, in that service's image, network and environment. It is an argv
+ * vector, never a shell string: Zenith does not interpret it, so there is
+ * nothing to quote and nothing to inject into.
+ */
+export const MigrateHook = z
+  .object({
+    /** service NAME; must be a managed web, worker or cron service (a static site has nothing to run a task in) */
+    service: z.string().regex(NODE_NAME, "service: the name of a service in this manifest"),
+    command: z.array(ReleaseArg).min(1).max(32),
+    /** how long the one-off task may run; the deploy's own step deadline still applies */
+    timeoutSec: z.number().int().min(1).max(3600).optional(),
+  })
+  .strict();
+export type MigrateHook = z.infer<typeof MigrateHook>;
+
+/**
+ * V2 addition (additive): steps that run as part of a release. Only `migrate`
+ * exists today. Absent means "no release steps"; nothing is defaulted.
+ */
+export const Release = z.object({ migrate: MigrateHook.optional() }).strict();
+export type Release = z.infer<typeof Release>;
+
 /* ------------------------------- manifest -------------------------------- */
 
 /** The strict object, before cross-field checks (`.shape` stays reachable). */
@@ -199,6 +234,8 @@ export const ManifestV2Object = z
     nodePlacement: z.record(NodePlacementEntry).optional(),
     providerConfig: ProviderConfig.optional(),
     native: z.array(NativeNode).optional(),
+    /** release-time steps (migrations); see `Release` */
+    release: Release.optional(),
   })
   .strict();
 
@@ -269,6 +306,15 @@ function crossChecks(m: z.infer<typeof ManifestV2Object>, ctx: z.RefinementCtx):
   for (const key of Object.keys(m.nodePlacement ?? {}))
     if (!nodeKeys.has(key) && !nativeIds.has(key))
       issue(["nodePlacement", key], `"${key}" is not a service, resource or native id in this manifest`);
+
+  const migrate = m.release?.migrate;
+  if (migrate) {
+    const target = m.services.find((s) => s.name === migrate.service);
+    if (!target) issue(["release", "migrate", "service"], `"${migrate.service}" is not a service in this manifest`);
+    else if (target.kind === "static") issue(["release", "migrate", "service"], `"${migrate.service}" is a static site; a migration needs a web, worker or cron service to run in`);
+    else if (target.ownership !== "managed")
+      issue(["release", "migrate", "service"], `"${migrate.service}" is ${target.ownership}; Zenith does not run it, so it cannot run a migration task there`);
+  }
 }
 
 export const ManifestV2 = ManifestV2Object.superRefine(crossChecks);

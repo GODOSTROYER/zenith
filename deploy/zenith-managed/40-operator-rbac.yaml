@@ -1,0 +1,62 @@
+# The identity Zenith uses to operate tenant namespaces: PLACEHOLDER, review it.
+#
+# Zenith-managed server-side apply needs real write access to the objects it
+# renders. RBAC cannot scope "only namespaces labeled zenith.dev/tenant", so this
+# is a ClusterRole bound cluster-wide. Its blast radius is every tenant's
+# workloads and Secrets: treat the credential for zenith-operator as the most
+# sensitive thing in the platform (ZENITH_MANAGED_KUBECONFIG_REF points at it,
+# never inline), rotate it, and keep it out of tenant reach. The Zenith
+# application also enforces a one-namespace allowlist per session; that is
+# defense in depth, not a substitute for this role being small.
+#
+# Deliberately absent: RBAC objects (no escalate/bind), pods/exec, pods/attach,
+# pods/portforward, nodes, persistentvolumes, webhooks, CRDs, wildcards.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: zenith-operator
+  namespace: zenith-system
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: zenith-managed-operator
+rules:
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [get, list, watch, create, patch]
+  - apiGroups: [""]
+    resources: [serviceaccounts, secrets, services, persistentvolumeclaims, resourcequotas, limitranges]
+    verbs: [get, list, watch, create, patch, delete]
+  - apiGroups: [""]
+    resources: [pods, pods/log, events]
+    verbs: [get, list, watch]
+  - apiGroups: [apps]
+    resources: [deployments, replicasets]
+    verbs: [get, list, watch, create, patch, delete]
+  - apiGroups: [batch]
+    resources: [cronjobs, jobs]
+    verbs: [get, list, watch, create, patch, delete]
+  - apiGroups: [autoscaling]
+    resources: [horizontalpodautoscalers]
+    verbs: [get, list, watch, create, patch, delete]
+  - apiGroups: [networking.k8s.io]
+    resources: [networkpolicies, ingresses]
+    verbs: [get, list, watch, create, patch, delete]
+  - apiGroups: [gateway.networking.k8s.io]
+    resources: [httproutes]
+    verbs: [get, list, watch, create, patch, delete]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: zenith-managed-operator
+subjects:
+  - kind: ServiceAccount
+    name: zenith-operator
+    namespace: zenith-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: zenith-managed-operator

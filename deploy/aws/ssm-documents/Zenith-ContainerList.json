@@ -1,0 +1,68 @@
+{
+  "schemaVersion": "2.2",
+  "description": "Zenith container.list: docker ps. Read-only. Output format zenith.container.list/v1.",
+  "parameters": {
+    "all": {
+      "type": "String",
+      "description": "Include stopped containers (true or false).",
+      "allowedPattern": "^(true|false)$",
+      "maxChars": 5,
+      "interpolationType": "ENV_VAR"
+    },
+    "limit": {
+      "type": "String",
+      "description": "Maximum containers to return (1-200).",
+      "allowedPattern": "^[1-9][0-9]{0,2}$",
+      "maxChars": 3,
+      "interpolationType": "ENV_VAR"
+    },
+    "executionTimeout": {
+      "type": "String",
+      "description": "Seconds before the command is considered failed (1-999).",
+      "default": "60",
+      "allowedPattern": "^[1-9][0-9]{0,2}$",
+      "maxChars": 3
+    }
+  },
+  "mainSteps": [
+    {
+      "action": "aws:runShellScript",
+      "name": "zenith",
+      "precondition": {
+        "StringEquals": [
+          "platformType",
+          "Linux"
+        ]
+      },
+      "inputs": {
+        "timeoutSeconds": "{{ executionTimeout }}",
+        "runCommand": [
+          "#!/bin/sh",
+          "set -u",
+          "set -f",
+          "LC_ALL=C",
+          "export LC_ALL",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "export PATH",
+          "die() { printf '%s\\n' \"$2\" >&2; exit \"$1\"; }",
+          "all=\"${SSM_all-}\"",
+          "limit=\"${SSM_limit-}\"",
+          "case \"$all\" in true|false) ;; *) die 64 'invalid all (SSM Agent >= 3.3.2746.0 is required for ENV_VAR parameters)' ;; esac",
+          "case \"$limit\" in ''|*[!0-9]*) die 64 'invalid limit' ;; esac",
+          "[ \"$limit\" -ge 1 ] && [ \"$limit\" -le 200 ] || die 64 'limit out of range'",
+          "command -v docker >/dev/null 2>&1 || die 69 'docker is not available on this machine'",
+          "g() { printf '%s%s%s%s%s' '{' '{' \"$1\" '}' '}'; }",
+          "t=$(printf '\\t')",
+          "fmt=\"$(g .ID)$t$(g .Names)$t$(g .Image)$t$(g .State)$t$(g .Status)$t$(g .CreatedAt)\"",
+          "flag=''",
+          "[ \"$all\" = true ] && flag='-a'",
+          "out=$(docker ps $flag --no-trunc --format \"$fmt\" 2>&1) || die 69 \"docker ps failed: $(printf '%s' \"$out\" | head -c 300)\"",
+          "echo 'zenith.container.list/v1'",
+          "printf 'total=%s\\n' \"$(printf '%s\\n' \"$out\" | grep -c .)\"",
+          "printf '%s\\n' \"$out\" | head -n \"$limit\" | sed 's/^/container=/'",
+          "exit 0"
+        ]
+      }
+    }
+  ]
+}

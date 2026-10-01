@@ -1,0 +1,70 @@
+# GatewayClass and Gateway: PLACEHOLDERS.
+#
+# Install a Gateway API implementation first (Envoy Gateway, Cilium, NGINX
+# Gateway Fabric, Istio, ... your choice) and the Gateway API CRDs. This file
+# only shows the shape Zenith expects; it is not a working gateway until the
+# controller name, the hostname and the certificate are real.
+#
+# What Zenith relies on (and tests assert):
+#   - the Gateway is named zenith-gateway in namespace zenith-gateway
+#     (ZENITH_MANAGED_GATEWAY_NAME / _NAMESPACE);
+#   - tenant HTTPRoutes attach to it from namespaces labeled
+#     zenith.dev/tenant=true, and ONLY from those (allowedRoutes selector);
+#   - tenant namespaces accept ingress only from the zenith-gateway namespace
+#     (the tenancy NetworkPolicy), so the gateway's data-plane pods must run
+#     in that namespace.
+#
+# OPEN DESIGN QUESTION (docs/platform/MANAGED-PLATFORM.md, "Hostnames and TLS"):
+# managed hostnames are <service>.<env>.<workspace>.<base domain>, THREE labels
+# below the base domain. A wildcard certificate covers exactly one label, so a
+# single *.apps.example.com certificate does NOT cover them. The listener below
+# is the shape for ONE environment zone; the platform needs a listener and a
+# wildcard certificate per environment zone (*.production.acme.apps.example.com),
+# for example via Gateway API ListenerSet (check your implementation's support)
+# or an operator that adds listeners. Nobody has built that yet.
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: zenith
+  annotations:
+    zenith.dev/placeholder: "true"
+spec:
+  controllerName: example.net/REPLACE-gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: zenith-gateway
+  namespace: zenith-gateway
+  annotations:
+    zenith.dev/placeholder: "true"
+    # cert-manager gateway-shim: issues the listener certificates below
+    cert-manager.io/cluster-issuer: zenith-letsencrypt-dns01
+spec:
+  gatewayClassName: zenith
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              zenith.dev/tenant: "true"
+    - name: https-example-zone
+      protocol: HTTPS
+      port: 443
+      # one environment zone, as the placeholder shape (see the note above)
+      hostname: "*.production.acme.apps.example.com"
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: zenith-example-zone-tls
+      allowedRoutes:
+        namespaces:
+          from: Selector
+          selector:
+            matchLabels:
+              zenith.dev/tenant: "true"

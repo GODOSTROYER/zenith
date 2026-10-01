@@ -250,7 +250,9 @@ export type DenialReason =
   | "sts_failed"
   | "issuer_unavailable"
   | "runner_unavailable"
-  | "audit_failed";
+  | "audit_failed"
+  /** the session was revoked or outlived its credentials (provider sessions refuse further calls) */
+  | "session_ended";
 
 export class CredentialDeniedError extends Error {
   readonly code = "credential_denied";

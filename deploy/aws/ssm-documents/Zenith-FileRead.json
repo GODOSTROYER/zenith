@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "2.2",
+  "description": "Zenith file.read: read at most 16384 bytes of one regular file under an allowlisted prefix, refusing symlink escapes and secret-like names. Read-only. Output format zenith.file.read/v1 (content is base64).",
+  "parameters": {
+    "path": {
+      "type": "String",
+      "description": "Absolute path under an allowed prefix; no '..'.",
+      "allowedPattern": "^((/var/log/|/etc/nginx/|/etc/systemd/system/|/opt/|/srv/)[A-Za-z0-9._@:+=,/-]{0,1000})$",
+      "maxChars": 1024,
+      "interpolationType": "ENV_VAR"
+    },
+    "maxBytes": {
+      "type": "String",
+      "description": "Maximum bytes to read; the document clamps it to 16384.",
+      "allowedPattern": "^[1-9][0-9]{0,6}$",
+      "maxChars": 7,
+      "interpolationType": "ENV_VAR"
+    },
+    "executionTimeout": {
+      "type": "String",
+      "description": "Seconds before the command is considered failed (1-999).",
+      "default": "60",
+      "allowedPattern": "^[1-9][0-9]{0,2}$",
+      "maxChars": 3
+    }
+  },
+  "mainSteps": [
+    {
+      "action": "aws:runShellScript",
+      "name": "zenith",
+      "precondition": {
+        "StringEquals": [
+          "platformType",
+          "Linux"
+        ]
+      },
+      "inputs": {
+        "timeoutSeconds": "{{ executionTimeout }}",
+        "runCommand": [
+          "#!/bin/sh",
+          "set -u",
+          "set -f",
+          "LC_ALL=C",
+          "export LC_ALL",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "export PATH",
+          "die() { printf '%s\\n' \"$2\" >&2; exit \"$1\"; }",
+          "path=\"${SSM_path-}\"",
+          "maxb=\"${SSM_maxBytes-}\"",
+          "[ -n \"$path\" ] || die 64 'parameter path is empty (SSM Agent >= 3.3.2746.0 is required for ENV_VAR parameters)'",
+          "case \"$path\" in /*) ;; *) die 64 'path must be absolute' ;; esac",
+          "case \"$path\" in *[!A-Za-z0-9._@:+=,/-]*) die 64 'path contains forbidden characters' ;; esac",
+          "case \"$path\" in *..*) die 65 'path may not contain ..' ;; esac",
+          "[ \"${#path}\" -le 1024 ] || die 64 'path too long'",
+          "case \"$maxb\" in ''|*[!0-9]*) die 64 'invalid maxBytes' ;; esac",
+          "[ \"$maxb\" -ge 1 ] || die 64 'invalid maxBytes'",
+          "[ \"$maxb\" -le 16384 ] || maxb=16384",
+          "allow='/var/log/ /etc/nginx/ /etc/systemd/system/ /opt/ /srv/'",
+          "deny() { l=$(printf '%s' \"$1\" | tr 'A-Z' 'a-z'); case \"$l\" in *.pem|*.key|*.pfx|*.p12|*id_rsa*|*id_ed25519*|*.env|*/.env*|*/.ssh/*|*/.aws/*|*/.kube/*|*/.docker/*|*/shadow*|*/gshadow*|*/sudoers*|*credentials*|*secret*|/proc/*|/sys/*|/dev/*) return 0 ;; esac; return 1; }",
+          "deny \"$path\" && die 65 'path matches a never-readable pattern'",
+          "command -v readlink >/dev/null 2>&1 || die 69 'readlink is not available on this machine'",
+          "resolved=$(readlink -f -- \"$path\" 2>/dev/null) || die 66 'file not found'",
+          "[ -n \"$resolved\" ] || die 66 'file not found'",
+          "deny \"$resolved\" && die 65 'path resolves to a never-readable pattern'",
+          "ok=0",
+          "for p in $allow; do",
+          "  case \"$p\" in",
+          "    */) case \"$resolved\" in \"$p\"*) ok=1 ;; esac ;;",
+          "    *) [ \"$resolved\" = \"$p\" ] && ok=1 ;;",
+          "  esac",
+          "done",
+          "[ \"$ok\" = 1 ] || die 65 'path is not under an allowed prefix'",
+          "[ -f \"$resolved\" ] || die 66 'not a regular file'",
+          "[ -r \"$resolved\" ] || die 65 'file is not readable'",
+          "size=$(wc -c <\"$resolved\" | tr -d ' ')",
+          "echo 'zenith.file.read/v1'",
+          "printf 'path=%s\\n' \"$resolved\"",
+          "printf 'size=%s\\n' \"$size\"",
+          "if [ \"$size\" -gt \"$maxb\" ]; then echo 'truncated=true'; else echo 'truncated=false'; fi",
+          "printf 'content_b64=%s\\n' \"$(head -c \"$maxb\" -- \"$resolved\" | base64 | tr -d '\\n')\"",
+          "exit 0"
+        ]
+      }
+    }
+  ]
+}

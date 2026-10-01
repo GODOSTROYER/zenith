@@ -533,6 +533,55 @@ insert into platform.schema_migrations (version, name, checksum)
 values (2, 'reconcile', 'af708ba78998ba35b05966afc4f037bacec9b38905853e6f43c8fdab92cb47f0')
 on conflict (version) do nothing;
 
+-- ============================ migration 3: machine_requests ============================
+
+/* ------------------------ zenithd requests (mirror of runner_jobs) ------------------------ */
+
+create table if not exists platform.machine_requests (
+  id           text        not null primary key,   -- the signed envelope's jti (mreq_…)
+  machine_id   text        not null,
+  workspace_id text        not null,
+  operation_id text        not null,
+  operation    text        not null,               -- the machine operation (also the grant's capability)
+  capability   text        not null,
+  envelope     text        not null,
+  status       text        not null default 'queued' check (status in (
+                 'queued','claimed','running','succeeded','failed','rejected','timed_out','expired','cancelled')),
+  lease_until  timestamptz,
+  result       jsonb,
+  error        text,
+  created_at   timestamptz not null default clock_timestamp(),
+  claimed_at   timestamptz,
+  started_at   timestamptz,
+  expires_at   timestamptz not null,
+  settled_at   timestamptz,
+  unique (workspace_id, id),
+  foreign key (workspace_id, machine_id)   references platform.machines (workspace_id, id),
+  foreign key (workspace_id, operation_id) references platform.operations (workspace_id, id)
+);
+create index if not exists machine_requests_queue on platform.machine_requests (machine_id, created_at, id) where status = 'queued';
+create index if not exists machine_requests_ws_op on platform.machine_requests (workspace_id, operation_id);
+create index if not exists machine_requests_inflight on platform.machine_requests (lease_until) where status in ('claimed','running');
+
+create table if not exists platform.machine_request_logs (
+  id           bigint generated always as identity primary key,
+  request_id   text        not null,
+  workspace_id text        not null,
+  batch_seq    integer     not null,
+  line_no      integer     not null,
+  ts           timestamptz not null,
+  stream       text        not null check (stream in ('stdout','stderr','info')),
+  line         text        not null check (char_length(line) <= 8192),
+  recorded_at  timestamptz not null default clock_timestamp(),
+  unique (request_id, batch_seq, line_no),
+  foreign key (workspace_id, request_id) references platform.machine_requests (workspace_id, id) on delete cascade
+);
+create index if not exists machine_request_logs_ws_req on platform.machine_request_logs (workspace_id, request_id, id);
+
+insert into platform.schema_migrations (version, name, checksum)
+values (3, 'machine_requests', 'e1eccac97c7852592bcad8cd0e441b67a442c7405735ee9e2619e9e9b100bec6')
+on conflict (version) do nothing;
+
 -- ============================ hardening (Supabase roles) ============================
 
 do $$

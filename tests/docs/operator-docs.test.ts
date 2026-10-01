@@ -383,6 +383,7 @@ describe("environment variables", () => {
   const MODULE_ROOTS = [
     "src/lib/controlplane",
     "src/lib/platform",
+    "src/lib/sources/github",
     "src/lib/bridge",
     "src/lib/sdk",
     "src/cli",

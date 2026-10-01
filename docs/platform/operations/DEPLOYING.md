@@ -305,6 +305,11 @@ How the bundle ships:
 | `ZENITH_PLATFORM_BROKER_MEMORY` | unset | no | `1` makes the broker use a per-process in-memory store. Tests and local development **only**: state is lost on restart and two instances share nothing. Never set it in production. Without it the broker uses the platform store and answers `platform_store_unavailable` when it cannot open it; it never falls back to memory silently. |
 | `ZENITH_PLATFORM_ORIGIN` | `ZENITH_AGENT_ORIGIN`, then the request's own origin | no | The exact origin a browser approval, rejection or admin-setting request must come from: the `Origin` header must equal it (no prefix, no subdomain, not `null`) and `Sec-Fetch-Site`, when the browser sends it, must be `same-origin`. Set it to your public origin in production. |
 | `ZENITH_RUNNER_RESULT_KEY` | derived from `ZENITH_CONTROL_SIGNING_JWK` | **yes** | base64url, 32 bytes. Seals runner and `zenithd` job results at rest (AES-256-GCM, bound to the workspace and job id), because a result can carry exactly what must never be stored in the clear (an AWS response body, a plan with sensitive values). Unset, the key is derived (HKDF-SHA256) from the private scalar of the local control signing JWK; with a KMS-backed control signer it **must** be set. Whoever opens results, an activity in the worker, needs the same key as the routes that seal them. Rotating it, or the signing key it was derived from, makes results still in flight unreadable; their operations end `uncertain`. |
+| `ZENITH_GITHUB_APP_ID` | unset | no | Numeric GitHub App id, on web and worker. Together with the private-key file enables C3's tenant-scoped source binding. Unset keeps public reads anonymous. Register the App and apply the additive schema as described in [BUILDS.md](BUILDS.md#github-app-registration-and-workspace-binding). |
+| `ZENITH_GITHUB_APP_PRIVATE_KEY_FILE` | unset | path only; file contents are **secret** | Absolute server path to the RSA App PEM, on web and worker. Read on demand to sign bounded RS256 JWTs. Never copy the PEM into an environment value or diagnostics. Partial/invalid configuration refuses access. |
+| `ZENITH_GITHUB_APP_CLIENT_ID` | unset | no | GitHub App OAuth client id, web host only. Required by the browser install/bind flow to verify that the initiating GitHub user can access the installation repository. |
+| `ZENITH_GITHUB_APP_CLIENT_SECRET_FILE` | unset | path only; file contents are **secret** | Absolute server path to the GitHub App OAuth client secret, web host only. Codes exchange server-side with PKCE; user tokens are discarded after verification and never stored or sent to the browser. |
+| `ZENITH_TEST_SOURCE_GITHUB_APP`, `ZENITH_TEST_SOURCE_GITHUB_BINDING`, `ZENITH_TEST_SOURCE_REF` | private gate unset | no; identifiers only | Tests only: set the gate to `1` to authorize the opt-in private GitHub archive check, a strict JSON binding of non-secret identifiers, and a pinned 40-hex commit. Live private access was not run here. The existing public gate is `ZENITH_TEST_SOURCE_GITHUB` with `ZENITH_TEST_SOURCE_REPO` and the same ref variable. |
 
 Identity is not new configuration: browsers use the product's Supabase setup
 ([RUNNING.md](../../RUNNING.md#supabase-auth-and-test-accounts)), and integration
@@ -393,6 +398,8 @@ broker session; the price catalog is a bundled JSON file.
 | `ZENITH_RUNNER_RESULT_KEY` | yes (seals results) | yes, when an activity awaits runner jobs (opens them; must match) | no |
 | `ZENITH_SECRET_KEY` | yes (product vault and Temporal payloads) | yes (plan fingerprints, vault and Temporal payloads) | no |
 | `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS` | when decrypting retained Temporal histories | same key set as the client | no |
+| GitHub App id/private-key file | yes (install verification) | yes (private source acquisition) | no |
+| GitHub App OAuth client id/client-secret file | yes (browser binding only) | no | no |
 
 ### 2.13 Zenith-managed provider substrate
 

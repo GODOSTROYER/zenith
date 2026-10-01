@@ -4,15 +4,42 @@ What Zenith's cost engine produces, what it does not, where its numbers come fro
 and how to refresh them. Design: [ADR-0013](../../adr/0013-placement-and-cost.md).
 Code: `src/lib/placement/`.
 
-Written against branch `ws/docs`, merged with `platform/integration` at `1f46549` (2026-10-01).
+Written against branch `ws/docs-sync`, based on `platform/integration` at `e3ea61a` (2026-10-01).
 
 **Status.** The price catalog, the cost engine and the placement solver are built as
-pure libraries and tested. **They are not wired into anything a user sees.** The
+pure libraries with contract tests. They are exposed by MCP v3, placement REST
+and actions, and `/platform/placement`. Worker composition supplies
+`defaultCostPort()` and execution persists estimates in `platform.cost_estimates`;
+the operation detail page reads the persisted estimate. The
 product's cost card (`src/app/(product)/p/[slug]/observe/cost-card.tsx`), the
 onboarding preview and the deploy panel all still use the original static table in
 `src/lib/cost/pricing.ts`, a static table of service sizes, five resource kinds and
-routes that has no NAT, public IPv4, load balancer or egress. No route or workflow calls the new engine yet; the place that will keep
-its output is `platform.cost_estimates`.
+routes that has no NAT, public IPv4, load balancer or egress. Those legacy screens
+have not migrated to the new catalog. No estimate is a cloud bill.
+
+## Placement recommendations (`provider: auto`)
+
+Open `/platform/placement`, choose the project and optional environment, then
+compare its working manifest. `src/lib/placement/recommend.ts` expands with
+`provider: "auto"`, evaluates constraints and uses stored verified connections.
+It does not recheck cloud permissions. Budget, residency, latency, availability,
+provider preferences and usage constrain the estimate; infeasible or unknown
+pricing is reported rather than guessed.
+
+The same read is available through `placement.recommend`
+(`src/lib/actions/defs/placement.ts`), POST
+`/api/platform/v1/environments/<id>/placement` and MCP
+`zenith_recommend_placement` (requires the integration's `plan` scope).
+`includeUnconnected` lists discovery options separately as
+`requiresConnection: true`; they never displace a connected recommendation.
+
+Review a candidate before staging `placement.apply` in the browser. It rechecks
+the working-manifest hash, deterministic seed and connection eligibility, then
+delegates to `project.updateManifest`. It edits desired state and keeps the
+environment's existing connection. Multi-region application is refused; the
+current V1-only manifest editor can also refuse V2 placement edits. Compare is
+wired, but saving every suggested topology is not supported. Costs and latency
+are estimates, and no provider change or deployment is performed by this read.
 
 ## Estimates, forecasts and actuals
 

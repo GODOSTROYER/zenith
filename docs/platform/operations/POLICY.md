@@ -7,18 +7,21 @@ mean, how to change a rule and rebuild the bundle, and what a decision record is
 Design: [ADR-0007](../../adr/0007-capability-broker-and-autonomy.md) and
 [ADR-0008](../../adr/0008-policy-opa-wasm.md).
 
-Written against branch `ws/docs`, merged with `platform/integration` at `1f46549` (2026-10-01).
+Written against branch `ws/docs-sync`, based on `platform/integration` at `e3ea61a` (2026-10-01).
 
 **Status.** The engine, the Rego rules, the plan-fact extraction, the workspace
 parameter resolver, the decision-record store and the capability broker that calls
 the engine are built and tested. The broker (`src/lib/capabilities`, behind
 `/api/platform/v1`) builds the policy input from authoritative state (the catalog,
 the caller's role, the environment's autonomy, the stored workspace policy) and
-evaluates on every proposal, check, approval and execution. What is **not** joined:
-the worker still registers a stub for `evaluatePolicy` (a real one exists in
-`src/lib/execution` but is not wired), nothing starts a workflow from an approved operation, and plan facts and costs reach the broker only in-process from
-the execution side (`ProposeContext`), never from a request body, so over REST the
-plan- and cost-based rules cannot fire today. Every statement here is about the
+evaluates on every proposal, check, approval and execution. The worker's
+`evaluatePolicy` delegates through `src/lib/platform/broker.ts`, using facts and
+cost from authoritative plan evidence (`src/lib/execution/plan-evidence.ts`).
+Product deploys and MCP v3 start workflows. Plan facts never come from a REST
+request body: a REST apply/destroy proposal without an execution-supplied plan
+is still denied `plan_required`. A revision approval cannot approve a new
+concrete plan that changes its authority; the execution broker can return
+`reapproval_required`. Every statement here is about the
 contract verified by tests, not about a decision made on a production request, and
 nothing has been evaluated against a plan from a real AWS account (see
 [Plan facts](#plan-facts-and-what-they-cannot-see)).
@@ -136,8 +139,11 @@ writer gets `conflict` instead of overwriting. Only the **overrides** are stored
    secret-shaped values, so anything that writes there directly can store an invalid
    policy. An invalid stored policy is `policy_unavailable`: **every request in that
    workspace is refused** until an admin saves a valid one.
-2. **There is no page to change them on this branch.** The REST route exists; the
-   screens (`src/components/platform` has the presentational pieces) do not.
+2. **Use `/platform/settings` for browser editing.** Its editor in
+   `src/app/(product)/platform/settings/policy-editor.tsx` sends versioned
+   replacements through the same browser-only REST route. A stale version is a
+   conflict, not an overwrite. UI wiring is source-verified; no live browser
+   session was exercised in this sync.
 
 **Per-environment `policy_params` are not read.** The column exists and the autonomy
 setting preserves it, but the broker builds its policy input from the workspace policy

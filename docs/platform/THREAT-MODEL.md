@@ -1,16 +1,62 @@
-# Platform threat model (WS-SEC)
+# Platform threat model
 
-Prepared 2026-10-01 against `ws/sec` at `9c177b7`, plus the uncommitted WS-SEC
-continuation. Scope: the deterministic infrastructure control plane, its merged
-libraries and legacy agent-control surfaces. This is an implementation model,
-not production certification or live-cloud acceptance. Findings below are
-reproduced library/test-boundary defects; conditional reachability is stated.
+## Current operator status (WS-DOCS-SYNC)
 
-The structure follows [the hosted threat model](../hosted/THREAT-MODEL.md) and
-[production-hardening's evidence matrix](../production-hardening/FINDING-MATRIX.md):
-attack, verified control, executable evidence, residual risk. Older documents
-contain historical implementation states; their claims are not inherited as
-current evidence. Contracts and ADRs remain unchanged.
+Source snapshot: `platform/integration` at `e3ea61a` (2026-10-01). The platform
+is composed in `src/lib/platform/app.ts` and `src/lib/platform/execution.ts`:
+broker/store, six provider registrars, execution activities, runner queues and
+reconciliation ports are wired. Product deploys and MCP v3 dispatch workflows;
+platform pages render stored evidence. Middleware classifies bearer/signed-agent
+paths, `next.config.ts` traces the policy bundle, and cron reaps runner/machine
+jobs. The reconcile HTTP tick is scheduled; the separate `reconcileOperations`
+ledger backstop is not. See [DEPLOYING.md](operations/DEPLOYING.md).
+
+The following fixes are present in source and have ordinary regression
+assertions in the named suites. **This sync did not run the security suites**,
+OpenTofu semantic gates, real Temporal history gate or any live provider. Source
+and contract evidence do not establish a production security certification.
+
+| Original finding | Current source control | Regression evidence (not rerun here) |
+|---|---|---|
+| SEC-F1 | Legacy journal SQL includes workspace and subject; foreign and missing operations share not-found behavior (`src/lib/agent-access/control/journal-pg.ts`, `src/lib/agent-access/control/coordinator.ts`) | `tests/security/mcp-v2-tenant-isolation.test.ts` |
+| SEC-F2 | Workspace labels reject `__proto__` (`src/lib/tofu/workspace.ts`) | `tests/security/tofu-workspace-injection.test.ts` |
+| SEC-F3 | Provider arguments use a closed non-secret, non-routing vocabulary (`src/lib/tofu/provider-config.ts`) | `tests/security/tofu-workspace-injection.test.ts` |
+| SEC-F4 / SEC-F5 | HCL template scanner and pure-function allowlist refuse `nonsensitive`, file/template/path access and namespace escapes (`src/lib/tofu/expression-policy.ts`, `src/lib/tofu/hcl-template.ts`) | `tests/security/tofu-workspace-injection.test.ts`; real binary gates remain opt-in |
+| SEC-F6 | Session environment is provider-specific; operator extras permit only explicit upper/lowercase proxy settings (`src/lib/tofu/env.ts`) | `tests/security/tofu-runner-env.test.ts` |
+| SEC-F7 | Plan-view text removes invisible Unicode and remains untrusted (`src/lib/tofu/plan.ts`) | `tests/security/tofu-secrets.test.ts` |
+| SEC-F8 | Agent approval derives from authenticated principal kind, not an asserted human origin (`policy/rego/lib.rego`, `policy/rego/approval.rego`) | `tests/security/policy-invariants.test.ts` |
+| SEC-F10 | External STS error names use a fixed allowlist (`src/lib/credentials/aws/broker.ts`) | `tests/security/credential-boundaries.test.ts` |
+| SEC-F11 | Metadata-host classification normalizes mapped IPv6 literals (`src/lib/observability/sources/http.ts`) | `tests/security/signal-boundaries.test.ts` |
+| SEC-F12 | Workflow starts project allowed runtime fields before serialization (`src/lib/workflows/client.ts`) | `tests/security/workflow-history.test.ts`; live history remains gated |
+| SEC-F13 | Drift reports scrub both desired and observed values before persistence/emission (`src/lib/reconcile/core.ts`) | `tests/security/reconcile-value-boundaries.test.ts` |
+| SEC-R1 | Compose audit omits source blobs; summary/error text passes redaction (`src/lib/actions/core.ts`) | `tests/security/audit-secret-leakage.test.ts` |
+| SEC-R2 | Responses/logs use bounded `safeRequestError` diagnostics (`src/lib/server/errors.ts`) | `tests/security/request-error-logging.test.ts` |
+
+SEC-F9 remains a runtime finding in `tests/security/runtime-sanity.test.ts`:
+the engine-range assertion is still an expected failure. This sync does not
+establish whether a different host's runtime is affected. No package/runtime
+pin was changed by this docs workstream.
+
+Remaining operator limits: no payload codec encrypts Temporal history; heuristic
+redaction cannot detect arbitrary unknown secrets; cloud IAM, state locking,
+backup/restore, KMS and production load remain unverified. The worker requires a
+private plan fingerprint key, explicit store/schema and usable signer before
+polling. Its identity needs an explicit compatible value; default composition
+supplies no machine port. Non-AWS identity verification and OCI platform
+ProviderSession are refused; hosted Zenith serving is not verified. MCP cloud
+read and investigator registration hooks have no application caller. A plan
+approval UI needs an authorized readable matching artifact; a digest alone is
+insufficient. Unknown/uncertain outcomes are never proof of a healthy fleet.
+
+## Archived WS-SEC audit
+
+The rest of this file preserves the audit prepared on `ws/sec` at `9c177b7`
+and its restricted continuation. **Every inventory, pending-work statement,
+reproduced-defect description and verification count below is historical**,
+not current platform availability or a new run. The source controls above
+supersede its fixed findings and pre-composition status. Preserving the record
+keeps the reproduction and test limitations visible without treating old
+expected failures as current successful enforcement.
 
 ## Method and evidence
 

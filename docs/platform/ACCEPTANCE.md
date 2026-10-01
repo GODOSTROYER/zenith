@@ -28,15 +28,15 @@ npx tsx scripts/acceptance/aws-live.ts --scenario J
 
 | Demo | Real-run command suffix after `npx tsx scripts/acceptance/aws-live.ts` | Status / external blockers |
 |---|---|---|
-| A autonomous AWS deploy | `--scenario A --confirm-billable` | No sandbox credentials; WS-CAP REST, WS-ACT real activities, AWS drivers and fixture source upload/build/binding path must be integrated; requires DNS zone for complete DNS/TLS evidence |
-| B incident diagnosis | `--scenario "A,B" --confirm-billable` | A first; incident engine/executor unmerged; breaks only run-tagged DB ingress |
-| C approved remediation | `--scenario "A,B,C" --confirm-billable` | A/B first; remediation/approval/execution integration, human approver |
-| D external drift | `--scenario "A,D" --confirm-billable` | A first; real observers/reconciler required; simulated drift fails |
-| E crash recovery | `--scenario "A,E" --confirm-billable` | A first; Temporal, WS-ACT lease/fence handling and a dedicated controlled worker |
-| F token revocation | `--scenario F` | Live API, disposable integration token, operator revocation; runner/AWS connection phase explicitly skipped until zenith-runner exists |
+| A autonomous AWS deploy | `--scenario A --confirm-billable` | No sandbox credentials; REST, execution activities and AWS drivers are composed, but the harness fixture source-upload/build/binding path is not live-verified; requires DNS zone for complete DNS/TLS evidence |
+| B incident diagnosis | `--scenario "A,B" --confirm-billable` | A first; incident library exists, MCP investigator registration remains unavailable; breaks only run-tagged DB ingress |
+| C approved remediation | `--scenario "A,B,C" --confirm-billable` | A/B first; live remediation/approval acceptance and a human approver; composed execution does not prove this journey |
+| D external drift | `--scenario "A,D" --confirm-billable` | A first; observer/reconcile composition and tick exist, but live observation remains unverified; simulated drift fails |
+| E crash recovery | `--scenario "A,E" --confirm-billable` | A first; configured Temporal and composed worker, dedicated controlled crash test; live lease/fence recovery unverified |
+| F token revocation | `--scenario F` | Live API, disposable integration token and operator revocation; harness still skips runner/AWS connection phase, although zenith-runner is implemented |
 | G Kubernetes | `--scenario G --confirm-billable` | No kube contexts here; opted-in kind/sandbox cluster, Kubernetes driver/runner, Node build path and run-labelled namespace support required |
-| H MCP | `--scenario H --confirm-billable` | v3 MCP unmerged; role map/schema adapter, sandbox workspace, approval-required plan policy and separate human approver |
-| I managed provider | `--scenario I --confirm-billable` | Prerequisite fails deliberately: managed drivers/Node source support and cleanup contract unimplemented; hosted source contract is React+Vite |
+| H MCP | `--scenario H --confirm-billable` | MCP v3 has fifteen tools; live harness adapter/role map, sandbox workspace, approval-required plan policy and separate human approver remain prerequisites |
+| I managed provider | `--scenario I --confirm-billable` | Prerequisite fails deliberately: managed drivers are registered, but no live substrate, Node source/cleanup contract or default managed session is verified; hosted source contract is React+Vite |
 | J multi-cloud planning | `--scenario J` | **Local only**; ten criteria through merged code, no cloud/API/Temporal; cross-cloud egress/latency, determinism, residency and impossible-budget refusal |
 
 Quote comma-separated selections in PowerShell. Append `--dry-run` to any suffix to inspect it safely. Dependencies must complete
@@ -193,8 +193,17 @@ discoverable by this harness; use sandbox inventory/billing as a cross-check.
 Integration gaps: WS-ACT should allowlist extra run tags at resource creation
 instead of relying on after-the-fact adoption; WS-TOFU should expose destroy;
 the source-upload/build path must resolve the analysed fixture repository;
-G needs namespace labels/UID-safe teardown; I needs Node support, drivers and a
-managed cleanup API. The harness does not invent these missing contracts.
+G needs namespace labels/UID-safe teardown; I needs Node support, a managed
+session/substrate and cleanup API. Driver registration has landed. These harness
+limits are separate from composition (`src/lib/platform`) and are not a claim
+that its worker, driver registry, MCP or reconcile tick is absent.
+
+Some harness diagnostics still say "unmerged" for code that now exists
+(`scripts/acceptance/scenarios/f-credential-revocation.ts`,
+`scripts/acceptance/scenarios/h-mcp.ts`,
+`scripts/acceptance/scenarios/i-managed-provider.ts`). Their owners need to
+update those diagnostics and prerequisite contracts. This docs workstream does
+not change the harness or claim a previously skipped/blocked scenario passed.
 
 ## Verification without a cloud
 

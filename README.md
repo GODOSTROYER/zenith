@@ -508,16 +508,17 @@ mirrors `src/`.
 ## Platform control plane (in progress)
 
 Beside the product described above, a deterministic infrastructure control plane
-is being built: a platform database with leases and fence tokens, a keyless
-credential broker, an OpenTofu engine, a policy engine, durable Temporal
-workflows and cost, placement, observability and incident libraries. **It is not a
-shipped feature.** Several modules have merged and are tested, and the web half is
-joined (a capability broker behind `/api/platform/v1` calls the policy engine and
-writes the platform store), but the path from an approved operation to a cloud is not
-built: the worker's activities are stubs, nothing starts a workflow, the only resource
-drivers merged (AWS network and edge) are registered by nothing, and nothing has run
-against a real cloud account. The product's AWS provider is still Preview, exactly as
-the ceilings below say.
+is composed in code: the capability broker behind `/api/platform/v1` uses the
+platform store and policy engine; product deploys and MCP v3 dispatch Temporal
+workflows; the worker registers execution activities through
+`src/lib/platform/execution.ts`. `src/lib/platform/drivers.ts` registers AWS,
+GCP, Azure, OCI, Kubernetes and Zenith-managed drivers. The platform pages,
+placement recommendations, CLI, scheduled reconcile tick and runner-job reaper
+are wired. **This is contract evidence, not live-cloud acceptance.** No live
+cloud run is recorded, non-AWS connection verification remains unavailable,
+and OCI platform sessions are refused. The product's legacy AWS provider still
+has the Preview limits described below; the composed platform execution path
+is separate.
 
 Where to read: [docs/platform/ARCHITECTURE.md](docs/platform/ARCHITECTURE.md) (the
 design), [docs/platform/operations/](docs/platform/operations/README.md) (operator

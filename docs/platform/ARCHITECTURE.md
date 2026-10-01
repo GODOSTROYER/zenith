@@ -3,8 +3,10 @@
 This document describes the deterministic infrastructure control plane being
 built on top of the existing Zenith product (see `docs/ARCHITECTURE.md` for the
 product it extends). Decisions are in `docs/adr/`. Progress is in
-`docs/build/IMPLEMENTATION-LEDGER.md`. What exists today versus the target is
-in `docs/platform/CURRENT-STATE.md`.
+`docs/build/IMPLEMENTATION-LEDGER.md`. `docs/platform/CURRENT-STATE.md` records
+the initial audit; current source-verified wiring and deployment limits are in
+[DEPLOYING.md](operations/DEPLOYING.md). The diagram and invariants below describe
+the intended boundaries, not a live acceptance result.
 
 **The rule everything else follows:** models propose intent; deterministic
 Zenith code owns credentials, authorization, state, policy, approvals, locking,
@@ -91,7 +93,7 @@ All new server code lives under `src/lib`, following the existing layering
 | Component | Runs on | State |
 |---|---|---|
 | Web/API control plane | Vercel or any Node host | product store, platform store |
-| Execution worker | long-running container (`docker/worker.Dockerfile`) | none (stateless); talks to Temporal, platform store, clouds |
+| Execution worker | long-running container (`docker/worker.Dockerfile`) | private binary plans in `ZENITH_WORKER_PLAN_DIR`; ledger in platform store; cross-replica plan availability not verified (`workers/execution/worker.ts`, `src/lib/platform/execution.ts`) |
 | Temporal | Temporal Cloud or self-hosted; `temporal server start-dev` locally | workflow history |
 | zenith-runner | customer VPC / cluster (Helm, container, binary) | replay cache only |
 | zenithd | customer VMs | local audit log only |

@@ -106,7 +106,7 @@ is the most sensitive thing in the platform.
 | Tenancy rendering, naming, quotas, isolation gate | implemented, pure, unit tested |
 | Substrate config from `ZENITH_MANAGED_*` | implemented, unit tested |
 | Managed hostnames, route rewriting, Gateway API `HTTPRoute` (and `Ingress` mode) | implemented against the fake toolkit; not run against a gateway |
-| Server-side apply in two phases, with databases first | implemented over the toolkit port; real apply refuses 3 kinds until WS-K8S adds them (below) |
+| Server-side apply in two phases, with databases first | implemented over the toolkit port; Kubernetes vocabulary now includes ResourceQuota, LimitRange and HTTPRoute; no live apply is verified |
 | Managed Postgres via Neon: create, get, delete, secret reference | implemented against a fake Neon HTTP server (`contract`) |
 | Drivers: tenant namespace, network policy, http route, platform dns and tls, managed postgres, object store (refusal), plus wrapped Kubernetes drivers | implemented, `contract` evidence |
 | Export bundle and README | implemented, deterministic |
@@ -279,47 +279,27 @@ and there is no database dump operation. Until a platform operation exists
    for the three-label hostnames.
 6. Run a live acceptance (below) before any tenant.
 
-## Integration (for the orchestrator)
+## Integration status and remaining contracts
 
-Wire the Kubernetes provider's exports into the toolkit port (one object):
+`src/lib/platform/drivers.ts` now calls `registerZenithDrivers` with the real
+Kubernetes toolkit (`renderGraph`, `serverSideApply`, scoped read/list clients).
+`ResourceQuota`, `LimitRange` and `HTTPRoute` are included in the Kubernetes
+kind/apply vocabulary (`src/lib/providers/kubernetes/types.ts`), and the native
+resource map has a separate Zenith row for managed Postgres and object storage
+(`src/lib/resources/native-types.ts`). These are source-verified composition
+changes, not live tenant serving.
 
-```ts
-import { renderGraph } from "@/lib/providers/kubernetes/render";
-import { serverSideApply } from "@/lib/providers/kubernetes/apply";
-import { createK8sClient, listObjects, readObject } from "@/lib/providers/kubernetes/client";
-import { createKubernetesSession } from "@/lib/providers/kubernetes/session";
+Registration does not open a managed session or provision a substrate. The
+platform credential contract still has no `zenith` connection/session;
+`openZenithSession` exists as a provider API but the default worker composition
+does not call it. No managed cluster, gateway, registry, storage or database
+service has been verified live by this sync.
 
-const toolkit: KubernetesToolkit = {
-  renderGraph,
-  apply: serverSideApply,
-  read: (session, ref, signal) => readObject(createK8sClient(session, { signal }), ref),
-  list: (session, q, signal) => listObjects(createK8sClient(session, { signal }), q.kind as never, q.namespace, q),
-};
-registerZenithDrivers({ toolkit });           // wraps whatever is registered under "kubernetes"
-const session = await openZenithSession(tenant, { substrate, databases, createKubernetesSession: (config, signal) => createKubernetesSession(config, deps, signal) });
-```
-
-Contract changes this module needs (nothing was edited outside its paths):
-
-1. **WS-K8S:** `KIND_INFO`/`APPLY_ORDER` must accept `ResourceQuota` (v1),
-   `LimitRange` (v1) and `HTTPRoute` (`gateway.networking.k8s.io/v1`), all
-   namespaced. Until then the real apply refuses the tenancy baseline
-   (`ZENITH_EXTRA_KINDS` names them).
-2. **`native-types.ts`:** give `zenith` its own row instead of aliasing the
-   Kubernetes one: `postgres: "zenith:managed_postgres"` (today `k8s:StatefulSet`,
-   which implies an in-cluster database), `object_store: "zenith:object_store"`,
-   and no `mysql`/`redis` row. The drivers are table-aware and follow the change.
-3. **`credentials/types.ts`:** a `zenith` connection config and session if the
-   broker should audit managed sessions (today the platform worker opens them
-   with `openZenithSession`).
-4. **Capability catalog:** a `database.export` (dump) capability.
-5. **Vault:** a `ConnectionSecretSink` over the secret store, and resolution of
-   `vault:generated/<env>/<address>/connection-uri`.
-6. **Expansion/bindings:** wire a service's database env `secretRef` to
-   `managedDatabaseConnectionRef(environmentId, address)`
-   (`ManagedDatabaseIntent.connectionSecretRef` carries it).
-7. **Control plane:** workspace slugs globally unique; an environment slug unique
-   per workspace.
+Remaining contracts include a database dump/export capability, generated
+connection-secret persistence/resolution, service secret-reference bindings and
+verified workspace/environment hostname uniqueness. Do not infer these from
+the registered drivers. The database export and hostname/TLS limits above
+remain; complete live acceptance before serving tenants.
 
 ## Verification, and what a live acceptance must prove
 

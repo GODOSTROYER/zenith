@@ -10,8 +10,8 @@
  *    table match the Rego and the catalog;
  *  - the price-catalog counts and the cost engine's included / excluded lists on
  *    COST.md equal what the engine says now;
- *  - the "in progress" claims still hold (when a module lands, a test here fails
- *    and the docs and this table get updated together);
+ *  - composition, worker startup, scheduled passes, UI and provider limits
+ *    match the current code, so removing wiring fails a documented claim;
  *  - the index lists every guide, and no "planned" guide already exists.
  */
 import fs from "node:fs";
@@ -42,10 +42,11 @@ describe("the guide set", () => {
     expect(linked).toContain("../CAPABILITY-MATRIX.md");
   });
 
-  it("every guide says what commit it was written against and has an honesty section", () => {
+  it("every guide names this sync snapshot and the deployment/recovery limits", () => {
     for (const file of GUIDES) {
       const text = read(file);
-      expect(text, path.basename(file)).toMatch(/Written against branch `ws\/docs`/);
+      expect(text, path.basename(file)).toContain("Written against branch `ws/docs-sync`");
+      expect(text, path.basename(file)).toContain("`e3ea61a`");
     }
     for (const name of ["DEPLOYING.md", "RECOVERY.md"]) {
       expect(guide(name), name).toMatch(/not verified|Not verified|not rehearsed|Not rehearsed/);
@@ -71,9 +72,6 @@ describe("the guide set", () => {
 
 /* ------------------------------ paths & scripts ---------------------------- */
 
-/** Paths a guide names precisely because they do NOT exist; their absence is asserted elsewhere. */
-const ABSENT_ON_PURPOSE = new Set(["scripts/acceptance/aws-live.ts", "src/lib/runners"]);
-
 const PATH_PREFIX = /^(?:src|docs|scripts|tests|deploy|policy|workers|docker|supabase|\.github)\//;
 
 describe("paths and commands named in the guides", () => {
@@ -87,7 +85,6 @@ describe("paths and commands named in the guides", () => {
           const token = raw.replace(/^["'(]+|["'),.;:]+$/g, "");
           if (!PATH_PREFIX.test(token)) continue;
           if (/[<>*{}$|]|\.\.\./.test(token)) continue;
-          if (ABSENT_ON_PURPOSE.has(token)) continue;
           checked++;
           if (!exists(token.replace(/\/$/, ""))) missing.push(`${path.basename(file)}: ${token}`);
         }
@@ -138,6 +135,10 @@ const NOT_ENVIRONMENT: Record<string, string> = {
 describe("environment variables", () => {
   const MODULE_ROOTS = [
     "src/lib/controlplane",
+    "src/lib/platform",
+    "src/lib/bridge",
+    "src/lib/sdk",
+    "src/cli",
     "src/lib/credentials",
     "src/lib/tofu",
     "src/lib/policy",
@@ -339,20 +340,18 @@ describe("COST.md matches the catalog and the engine", () => {
     expect(cost).toContain("25 %");
   });
 
-  it("is right that only estimates exist: the store refuses anything else, and the product still uses the old table", () => {
+  it("is right that only estimates exist: the store refuses bills, and legacy cost screens keep the old table", () => {
     expect(read(path.join(REPO_ROOT, "src", "lib", "controlplane", "db", "repos", "cost.ts"))).toContain('estimate.kind !== "estimate"');
     expect(read(path.join(REPO_ROOT, "src", "app", "(product)", "p", "[slug]", "observe", "cost-card.tsx"))).toContain("@/lib/cost");
   });
 });
 
-/* ------------------------- "in progress" claims hold ----------------------- */
+/* ------------------------- current wiring claims -------------------------- */
 
-/**
- * Each row is a statement the guides make about what has NOT landed. When one
- * fails, the module landed: write its guide, update README.md's lists and the
- * status tables in DEPLOYING.md, then change this table.
- */
-describe("the 'in progress' claims still hold", () => {
+/** Current guide claims pin the actual composition calls, plus honest remaining limits. */
+describe("operator claims match current wiring", () => {
+  const source = (rel: string): string => read(path.join(REPO_ROOT, rel));
+  const deploying = squash(guide("DEPLOYING.md"));
   const callers = (needle: RegExp, roots: string[]): string[] => {
     const hits: string[] = [];
     for (const root of roots) {
@@ -363,116 +362,215 @@ describe("the 'in progress' claims still hold", () => {
     return hits;
   };
 
-  it("drivers are merged and nothing in the application registers them", () => {
-    const providers = path.join(REPO_ROOT, "src", "lib", "providers");
-    const dirs = fs.readdirSync(providers, { withFileTypes: true }).filter((d) => d.isDirectory());
-    const indexes = dirs.filter((d) => fs.existsSync(path.join(providers, d.name, "drivers", "index.ts"))).map((d) => d.name);
-    // every provider has a provider-level index (AWS's composes its network, compute and data groups)
-    expect(indexes).toEqual(["aws", "azure", "gcp", "kubernetes", "oci", "zenith"]);
-    expect(fs.readdirSync(path.join(providers, "aws", "drivers"), { withFileTypes: true }).filter((d) => d.isDirectory() && d.name !== "shared").map((d) => d.name).sort()).toEqual(["compute", "data", "network"]);
-    // nothing outside the provider modules calls a register function
-    const register = /^(?!\s*(?:\*|\/\/)).*\bregister(?:Aws|Gcp|Azure|Oci|Kubernetes|Zenith|ZenithManaged)Drivers\s*\(/m;
-    const hits = callers(register, ["src/app", "src/components", "workers", "src/lib/workflows", "src/lib/capabilities", "src/lib/runners", "src/lib/execution", "src/lib/reconcile", "src/lib/machines", "src/lib/controlplane"]);
-    expect(hits).toEqual([]);
-  });
-
-  it("the broker, REST, the runner plane, the machine plane and MCP v3 have merged; the connections route has not", () => {
-    expect(exists("src/lib/capabilities/broker.ts")).toBe(true);
-    expect(exists("src/lib/runners/service.ts")).toBe(true);
-    for (const route of ["capabilities/propose", "operations/[id]/approve", "environments/[id]/autonomy", "workspace/policy", "runners/register", "machines/register"]) {
-      expect(exists(`src/app/api/platform/v1/${route}/route.ts`), route).toBe(true);
+  it("the application and execution root call all six provider registrars", () => {
+    const drivers = source("src/lib/platform/drivers.ts");
+    for (const provider of ["Aws", "Gcp", "Azure", "Oci", "Kubernetes", "Zenith"]) {
+      expect(drivers).toMatch(new RegExp(`\\bregister${provider}Drivers\\(`));
     }
-    expect(exists("src/lib/machines/service.ts")).toBe(true);
-    expect(exists("src/lib/machines/transports/aws-ssm.ts")).toBe(true);
-    // only the execution activities call it (machine capabilities run inside a workflow, with a grant)
-    expect(callers(/executeMachineOperation|createMachineDrivers/, ["src/app", "src/components", "workers", "src/lib/workflows", "src/lib/capabilities", "src/lib/runners", "src/lib/execution", "src/lib/reconcile"])).toEqual(["src/lib/execution/capability.ts"]);
+    const aws = source("src/lib/providers/aws/drivers/index.ts");
+    expect(aws).toContain("[...networkDrivers, ...COMPUTE_DRIVERS, ...awsDataDrivers]");
+    expect(aws).toContain("for (const driver of awsDrivers) registerDriver(");
+    for (const file of ["app.ts", "execution.ts"]) expect(source(`src/lib/platform/${file}`)).toContain("registerAllDrivers();");
+    expect(deploying).toContain("src/lib/platform/drivers.ts");
+  });
+
+  it("app composition configures durable broker, scope, runner and reconcile ports", () => {
+    const app = source("src/lib/platform/app.ts");
+    for (const call of ["assertPlatformSchemaCurrent(sql)", "registerPlatformBrokerStore(new PlatformBrokerStore(sql))", "registerPlatformBrokerPorts({ scopes: platformScopeResolver(sql) })", "configureRunnerRuntime(runnerPorts(sql))", "wireReconcilePorts(() => composeReconcilePorts(sql, platformCredentialBroker(sql)))"]) {
+      expect(app).toContain(call);
+    }
+    expect(app).toContain('platformDbConfigFromEnv().source === "default"');
+    expect(source("src/lib/capabilities/platform.ts")).toContain("loadPolicyEngine(");
+    expect(source("src/lib/platform/broker.ts")).toContain("readPlanEvidence(");
+    expect(guide("POLICY.md")).toContain("src/lib/platform/broker.ts");
+  });
+
+  it("worker activities delegate to composed implementations; stubs are test-only", () => {
+    const factory = source("src/lib/workflows/activities/index.ts");
+    const production = factory.slice(factory.indexOf("export function createActivities("), factory.indexOf("export function createStubActivities("));
+    expect(production).toContain("return composeExecutionActivities(deps)");
+    expect(production).not.toContain("stub(");
+    expect(factory).toContain("export function createStubActivities(");
+    const worker = source("workers/execution/worker.ts");
+    for (const call of ["validateExecutionConfiguration()", "openExecutionStore()", "ensurePlatformApp(db)", "createActivities({ db", "Context.current().heartbeat(detail)", "Context.current().cancellationSignal"]) expect(worker).toContain(call);
+    expect(worker).not.toContain("createStubActivities");
+    const composition = source("src/lib/platform/execution.ts");
+    for (const call of ["derivePlanFingerprintKey(opts.secretKey)", "createExecutionActivities(deps)", "createPlatformPorts(opts.db)", "createExecutionBroker(opts.db)", "platformCredentialBroker(opts.db)", "createReconcileObserveActivity("]) expect(composition).toContain(call);
+    expect(composition).toContain("tofu: { planWorkspace, applyVerifiedPlan }");
+    expect(deploying).toContain("createStubActivities");
+  });
+
+  it("startup validates explicit configuration and schema before connecting to Temporal", () => {
+    const startup = source("workers/execution/startup.ts");
+    for (const value of ["ZENITH_TEMPORAL_ADDRESS", "ZENITH_SECRET_KEY", "getControlSigner(env)", 'platformDbConfigFromEnv(env).source !== "default"', "assertPlatformSchemaCurrent(db)", "MIGRATE_COMMAND"]) expect(startup).toContain(value);
+    const worker = source("workers/execution/worker.ts");
+    expect(worker.indexOf("await validateExecutionConfiguration()")).toBeLessThan(worker.indexOf("await NativeConnection.connect("));
+    expect(worker.indexOf("await openExecutionStore()")).toBeLessThan(worker.indexOf("await NativeConnection.connect("));
+    const execution = source("src/lib/platform/execution.ts");
+    expect(execution).toContain('/^[a-f0-9]{64}$/i.test(secretKey)');
+    expect(execution).toContain('"zenith.tofu.plan.fingerprint.v1"');
+    expect(worker).toContain('process.env.ZENITH_WORKER_PLAN_DIR ?? path.join(process.env.ZENITH_DATA ?? ".data", "platform-plans")');
+    expect(deploying).toContain("`ZENITH_WORKER_PLAN_DIR`");
+    expect(deploying).toContain("64 hex characters");
+  });
+
+  it("the documented identity workaround matches the current incompatible defaults", () => {
+    expect(source("workers/execution/config.ts")).toContain("`zenith-exec:${hostname()}:${process.pid}`");
+    expect(source("src/lib/execution/runtime.ts")).toContain("const WORKER_ID = /^[A-Za-z0-9._-]{1,64}$/");
+    expect(deploying).toContain("default contains colons");
+    expect(deploying).toContain("`zenith-exec-01`");
+  });
+
+  it("deploy bridge, MCP and allowed reconcile repairs claim and start workflows", () => {
+    const bridge = source("src/lib/bridge/lifecycle.ts");
+    expect(bridge).toContain("beginExecution(");
+    expect(bridge).toContain("deps.workflows.startDeploy(");
+    expect(source("src/lib/bridge/deps.ts")).toContain('import("@/lib/workflows/client")');
+    const mcp = source("src/lib/agent-access/v3/tools/execute.ts");
+    expect(mcp).toContain("beginExecution(");
+    expect(mcp).toContain("ctx.ports.workflows.startDeploy(");
+    expect(mcp).toContain("ctx.ports.workflows.startDayTwo(");
+    const reconcile = source("src/lib/platform/reconcile.ts");
+    expect(reconcile).toContain("beginExecution(");
+    expect(reconcile).toContain("await startDayTwo(");
+    expect(source("src/lib/reconcile/repair.ts")).toContain("ports.startRepair(");
+    expect(deploying).toContain("Allowed repairs call `startDayTwo`");
+  });
+
+  it("REST apply/destroy still requires execution-supplied plan facts", () => {
+    expect(source("src/app/api/platform/v1/capabilities/propose/route.ts")).toContain('via: "rest"');
+    expect(source("src/lib/capabilities/evaluate.ts")).toContain("plan_required");
+    expect(deploying).toContain("`plan_required`");
+    expect(source("src/lib/platform/broker.ts")).toContain("reapproval_required");
+    expect(guide("POLICY.md")).toContain("`reapproval_required`");
+  });
+
+  it("closed middleware/bundle gaps stay closed and four migrations are documented", () => {
+    const middleware = source("src/middleware.ts");
+    expect(middleware).toContain("isPlatformBearerRequest");
+    expect(middleware).toContain("isAgentSignedPath");
+    const next = source("next.config.ts");
+    expect(next).toContain("outputFileTracingIncludes");
+    expect(next).toContain("policy/dist");
+    expect(source("docker/worker.Dockerfile")).toContain("policy/dist");
+    expect(source("src/lib/controlplane/db/migrations/index.ts")).toContain("[migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds]");
+    expect(deploying).toContain("Four migrations exist today");
+    expect(deploying).toContain("all four migrations");
+  });
+
+  it("reconcile ports are composed after cron auth and its tick is scheduled", () => {
+    const route = source("src/app/api/internal/tick/reconcile/route.ts");
+    expect(route).toContain("await ensurePlatformCron()");
+    expect(route.indexOf("authorizeCron(req)")).toBeLessThan(route.indexOf("await ensurePlatformCron()"));
+    expect(route).toContain("await reconcilePass(");
+    const tick = source(".github/workflows/tick.yml");
+    expect(tick).toMatch(/for pass in [^\n]*\breconcile\b/);
+    expect(tick).toContain('cron: "*/5 * * * *"');
+    expect(deploying).toContain("every five minutes");
+    expect(deploying).toContain("`.github/workflows/tick.yml`");
+  });
+
+  it("cron reaps expired jobs and atomically marks owning operations uncertain", () => {
+    const cron = source("src/lib/server/cron.ts");
+    expect(cron).toContain("await platformRunnerReaperPass()");
+    expect([...cron.matchAll(/await reapPlatformJobs\(\)/g)]).toHaveLength(2);
+    const app = source("src/lib/platform/app.ts");
+    expect(app).toContain("return db.tx(async (tx)");
+    expect(app).toContain("await reapExpiredJobs(runnerPorts(tx))");
+    expect(app).toContain("await ops.markUncertain(");
+    expect(guide("RECOVERY.md")).toContain("same transaction");
+    // Environment reconciliation and job reaping do not schedule the separate ledger backstop.
+    expect(callers(/\breconcileOperations\s*\(/, ["src/app", "src/lib/platform", "src/lib/server", "workers", "scripts"])).toEqual([]);
+    expect(deploying).toContain("`reconcileOperations` has no timer caller");
+  });
+
+  it("platform pages render stored state and protect browser AWS/policy actions", () => {
+    const rendered = callers(/@\/components\/platform/, ["src/app/(product)/platform"]);
+    for (const file of ["page.tsx", "operations/[id]/page.tsx", "environments/[id]/environment-state.tsx", "environments/[id]/incidents/page.tsx", "connections/aws/aws-flow.tsx", "settings/policy-editor.tsx", "placement/placement-planner.tsx"]) {
+      expect(rendered).toContain(`src/app/(product)/platform/${file}`);
+    }
+    const aws = source("src/app/(product)/platform/connections/aws/action/route.ts");
+    expect(aws).toContain("await assertBrowserSession(req)");
+    expect(aws).toContain("requireWorkspace().id !== caller.workspaceId");
+    expect(aws).toContain('"connection.createAws", "connection.verifyAws"');
     expect(exists("src/app/api/platform/v1/connections")).toBe(false);
-    expect(exists("src/app/api/agent/v3/mcp/route.ts")).toBe(true);
-    expect(exists("docs/platform/MCP.md")).toBe(true);
+    expect(deploying).toContain("No standalone `/api/platform/v1/connections` route exists");
+    expect(source("src/app/(product)/platform/operations/[id]/operation-actions.tsx")).toContain("approveDisabledReason={(operation.planDigest || operation.proposal.planDigest) && !plan");
+    expect(deploying).toContain("plan-bound approval stays disabled");
   });
 
-  it("the broker is joined to the store and the policy engine, and to nothing that executes", () => {
-    const platform = read(path.join(REPO_ROOT, "src", "lib", "capabilities", "platform.ts"));
-    expect(platform).toContain("platformDb");
-    expect(platform).toContain("loadPolicyEngine");
-    expect(platform).toContain("ZENITH_PLATFORM_BROKER_MEMORY");
-    // nothing starts a workflow: only the workflows module and the worker import the client
-    expect(callers(/@\/lib\/workflows\/client/, ["src/app", "src/components", "src/lib/capabilities", "src/lib/runners", "src/lib/reconcile", "workers"])).toEqual([]);
-    expect(callers(/startDeploy|startDayTwo|startRemediation/, ["src/app", "src/lib/capabilities", "src/lib/runners"])).toEqual([]);
-    // over REST the plan never comes from the body
-    expect(read(path.join(REPO_ROOT, "src", "app", "api", "platform", "v1", "capabilities", "propose", "route.ts"))).toContain('via: "rest"');
-    expect(read(path.join(REPO_ROOT, "src", "lib", "capabilities", "evaluate.ts"))).toContain("plan_required");
+  it("placement is exposed by REST, actions, MCP and the browser without cloud mutation", () => {
+    const route = source("src/app/api/platform/v1/environments/[id]/placement/route.ts");
+    expect(route).toContain("authorizeRead(");
+    expect(route).toContain("await recommendPlacement(");
+    const action = source("src/lib/actions/defs/placement.ts");
+    for (const value of ['id: "placement.recommend"', 'id: "placement.apply"', 'getAction("project.updateManifest")', 'candidate.topology === "multi_region"']) expect(action).toContain(value);
+    expect(source("src/lib/placement/recommend.ts")).toContain('provider: "auto"');
+    expect(source("src/app/(product)/platform/placement/placement-planner.tsx")).toContain('executeAction("placement.recommend"');
+    expect(source("src/lib/agent-access/v3/tools/placement.ts")).toContain("recommendPlacement(");
+    expect(guide("COST.md")).toContain("current V1-only manifest editor");
   });
 
-  it("the integration gaps the guides report are still there, and the migration count is what they say", () => {
-    // 1. CLOSED: the middleware lets classified bearer and agent-signed platform paths through
-    expect(read(path.join(REPO_ROOT, "src", "middleware.ts"))).toContain("isPlatformBearerRequest");
-    expect(read(path.join(REPO_ROOT, "src", "middleware.ts"))).toContain("isAgentSignedPath");
-    // 2. CLOSED: the policy bundle is traced into serverless builds and copied into the worker image
-    expect(read(path.join(REPO_ROOT, "next.config.ts"))).toContain("outputFileTracingIncludes");
-    expect(read(path.join(REPO_ROOT, "next.config.ts"))).toContain("policy/dist");
-    expect(read(path.join(REPO_ROOT, "docker", "worker.Dockerfile"))).toContain("policy/dist");
-    // 3. the migrations the guides count: core, reconcile, machine_requests and approval_rounds (4)
-    const index = read(path.join(REPO_ROOT, "src", "lib", "controlplane", "db", "migrations", "index.ts"));
-    expect(index).toContain("[migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds]");
-    expect(read(path.join(REPO_ROOT, "src", "lib", "controlplane", "db", "migrations", "0004_approval_rounds.ts"))).toContain("version: 4,");
-    expect(squash(guide("DEPLOYING.md"))).toContain("Four migrations exist today");
-    expect(guide("DEPLOYING.md")).toContain("src/middleware.ts");
+  it("worker compile selects state backends per provider and documents exact object keys", () => {
+    expect(source("src/lib/execution/compile.ts")).toContain("backendForConnection(connection,");
+    const backends = source("src/lib/tofu/backends.ts");
+    for (const token of ['case "aws"', 'case "gcp"', 'case "azure"', 'case "oci"', 'kind: "gcs"', 'kind: "azurerm"', "config.stateNamespace", "config.stateStorageAccount", "config.stateContainer", 'stateKey = `${prefix}/default.tfstate`', '`${prefix}/terraform.tfstate`', "Kubernetes connections need an explicit durable OpenTofu state backend override"]) expect(backends).toContain(token);
+    const backendConfig = source("src/lib/tofu/backend-config.ts");
+    expect(backendConfig).toContain("use_azuread_auth: true, use_cli: false");
+    expect(backendConfig).toContain("OCI_ENDPOINT.exec(backend.endpoint)");
+    for (const field of ["`stateBucket`", "`stateKmsKey`", "`stateStorageAccount`", "`stateContainer`", "`stateNamespace`", "`default.tfstate`", "`terraform.tfstate`", "zenith/<workspace>/<environment>/terraform.tfstate"]) expect(deploying).toContain(field);
   });
 
-  it("the Go agents have merged and have operator guides of their own (the guides link them rather than describe them)", () => {
-    expect(exists("go/cmd/zenith-runner/main.go")).toBe(true);
-    expect(exists("go/cmd/zenithd/main.go")).toBe(true);
-    expect(exists("docs/platform/RUNNER.md")).toBe(true);
-    expect(exists("docs/platform/ZENITHD.md")).toBe(true);
-    for (const name of ["DEPLOYING.md", "README.md"]) expect(guide(name), name).toContain("RUNNER.md");
+  it("OCI HTTP is opt-in and constructed, while platform sessions/verification stay refused", () => {
+    const executor = source("go/internal/runner/executor.go");
+    expect(executor).toContain("cfg.Kinds.OCIHTTP; k != nil && k.Enabled");
+    expect(executor).toContain("kinds.NewOCI(");
+    expect(executor).toContain("e.kinds[kinds.KindOCIHTTP] = o");
+    expect(source("src/lib/runners/dispatch.ts")).toContain('"oci.http": { timeoutSec: 60, maxOutputBytes: 1024 * 1024, queueTtlSec: 120 }');
+    expect(source("go/internal/runner/kinds/ocihttp.go")).toContain("if cfg.SecretWrite");
+    const credentials = source("src/lib/platform/credentials.ts");
+    expect(credentials).toContain('connection.config.provider === "oci"');
+    expect(credentials).toContain("oci.http does not yet implement ProviderSession");
+    expect(credentials).toContain("Non-AWS identity verification is not wired");
+    const runner = source("docs/platform/RUNNER.md");
+    expect(runner).toContain("enabled: true");
+    expect(runner).toContain("secretWrite: false");
+    expect(source("docs/platform/RUNNER-PROTOCOL-OCI.md")).toContain("IMPLEMENTED AND WIRED; NOT LIVE-VERIFIED");
   });
 
-  it("the reconciliation controller is merged but not driven: no wiring, no schedule", () => {
-    expect(exists("src/lib/reconcile/index.ts")).toBe(true);
-    expect(exists("src/app/api/internal/tick/reconcile/route.ts")).toBe(true);
-    expect(callers(/^(?!\s*\*|\s*\/\/).*\bwireReconcilePorts\(/m, ["src/app", "src/components", "workers", "scripts"])).toEqual([]);
-    const tick = read(path.join(REPO_ROOT, ".github", "workflows", "tick.yml"));
-    expect(/for pass in [^\n]*reconcile/.test(tick)).toBe(false);
-    expect(read(path.join(REPO_ROOT, "vercel.json"))).not.toContain("reconcile");
+  it("machine execution has an activity call but no machine port in default composition", () => {
+    expect(source("src/lib/execution/capability.ts")).toContain("executeMachineOperation(");
+    expect(source("src/lib/execution/capability.ts")).toContain("if (!plane) throw new StepFailedError");
+    const composition = source("src/lib/platform/execution.ts");
+    expect(composition).not.toMatch(/^\s*machines:/m);
+    expect(deploying).toContain("default composition supplies no `machines` port");
   });
 
-  it("the real activities exist as a library and the worker still registers the stubs", () => {
-    expect(exists("src/lib/execution/activities.ts")).toBe(true);
-    const worker = read(path.join(REPO_ROOT, "workers", "execution", "worker.ts"));
-    expect(worker).toContain("createActivities(");
-    expect(worker).not.toContain("createExecutionActivities");
-    expect(callers(/createExecutionActivities\s*\(/, ["src/app", "workers", "src/lib/capabilities", "src/lib/runners", "src/lib/workflows"])).toEqual([]);
+  it("CLI entry points and all fifteen MCP tools are documented", () => {
+    const pkg = JSON.parse(source("package.json")) as { scripts: Record<string, string>; bin: Record<string, string> };
+    expect(pkg.scripts.cli).toBe("tsx src/cli/bin.ts");
+    expect(pkg.bin.zenith).toBe("src/cli/bin.ts");
+    expect(source("docs/platform/CLI.md")).toContain("already contains the integrated wiring");
+    const catalog = source("src/lib/agent-access/v3/catalog.ts");
+    const names = [...new Set([...catalog.matchAll(/\bzenith_[a-z_]+\b/g)].map((m) => m[0]))].sort();
+    const mcp = source("docs/platform/MCP.md");
+    const listed = [...mcp.matchAll(/^\| `(zenith_[a-z_]+)` \|/gm)].map((m) => m[1]).sort();
+    expect(names).toHaveLength(15);
+    expect(listed).toEqual(names);
+    expect(mcp).toContain("fifteen");
+    expect(guide("README.md")).toContain("CLI.md");
   });
 
-  it("every activity the worker registers is still a stub", () => {
-    const activities = read(path.join(REPO_ROOT, "src", "lib", "workflows", "activities", "index.ts"));
-    const body = activities.slice(activities.indexOf("const activities:"), activities.indexOf("return withFailureMapping"));
-    const entries = [...body.matchAll(/^\s+(\w+): (.+),$/gm)];
-    expect(entries.length).toBeGreaterThanOrEqual(19);
-    expect(entries.filter((e) => !e[2].startsWith("stub("))).toEqual([]);
-    expect(activities).toContain("notImplemented");
+  it("unregistered MCP read/investigator hooks remain unavailable, despite worker credentials", () => {
+    expect(source("src/lib/agent-access/v3/adapters.ts")).toContain("export function registerCredentialBroker(");
+    expect(source("src/lib/agent-access/v3/adapters.ts")).toContain("export function registerInvestigator(");
+    expect(callers(/(?<!function )\bregister(?:CredentialBroker|Investigator)\s*\(/, ["src/app", "src/lib/platform", "workers"])).toEqual([]);
+    expect(source("docs/platform/MCP.md")).toContain("does not register the MCP read hook");
   });
 
-  it("the worker and the workflows open neither the platform store nor the policy engine, and nothing calls the incident engine", () => {
-    // `import type` is a contract, not a call: the UI components take control-plane types as props
-    const runtimeImport = (module: string): RegExp => new RegExp(`^import\\s+(?!type\\b)[^;]*?from\\s+["']${module}`, "m");
-    expect(callers(runtimeImport("@/lib/controlplane/db"), ["workers", "src/lib/workflows", "src/components"])).toEqual([]);
-    expect(callers(/loadPolicyEngine/, ["src/components", "workers", "src/lib/workflows"])).toEqual([]);
-    expect(callers(runtimeImport("@/lib/incidents"), ["src/app", "workers", "src/lib/workflows", "src/lib/controlplane", "src/lib/capabilities", "src/lib/runners"])).toEqual([]);
-  });
-
-  it("no page or route renders the platform UI components", () => {
-    expect(callers(/@\/components\/platform/, ["src/app"])).toEqual([]);
-  });
-
-  it("nothing calls the reconciler or the job reaper on a timer", () => {
-    expect(callers(/reconcileOperations|expireStale|reapExpiredJobs/, ["src/app", "workers", "scripts"])).toEqual([]);
-  });
-
-  it("the live-acceptance harness statement in README.md matches the filesystem", () => {
-    const present = exists("scripts/acceptance/aws-live.ts");
-    expect(squash(guide("README.md")).includes("is not present on this branch")).toBe(!present);
-    expect(exists(".github/workflows/live-acceptance.yml")).toBe(true);
+  it("Go guides and live-acceptance harness exist without claiming live verification", () => {
+    for (const file of ["go/cmd/zenith-runner/main.go", "go/cmd/zenithd/main.go", "docs/platform/RUNNER.md", "docs/platform/ZENITHD.md", "scripts/acceptance/aws-live.ts", ".github/workflows/live-acceptance.yml"]) expect(exists(file), file).toBe(true);
+    expect(squash(guide("README.md"))).toContain("never against a cloud");
+    expect(guide("README.md")).toContain("not a live-cloud acceptance run");
   });
 });

@@ -6,13 +6,16 @@ activities, and the small client the control plane uses to start, signal and
 query them. Decision record: `docs/adr/0009-temporal-workflows.md`. Contract:
 `src/lib/workflows/types.ts`.
 
-**Honest status.** The workflows, client, worker bootstrap, image recipe and
-tests are real and tested. The *activities* are stubs: every one fails with a
-non-retryable `not_implemented` ("nothing was changed") until the workstreams
-that own the store, lease service, OpenTofu runner, policy engine, drivers and
-credential broker plug their implementations into `createActivities`. Nothing
-here has run against a cloud, a real store, OpenTofu, Temporal Cloud or a
-Docker build. See [What was and was not verified](#what-was-and-was-not-verified).
+**Honest status (source snapshot `e3ea61a`, 2026-10-01).** The worker opens an
+explicitly configured platform store, validates startup requirements and calls
+`createActivities`, which delegates to `composeExecutionActivities` in
+`src/lib/platform/execution.ts`. That composition supplies the stores, broker,
+credential sessions, driver registry, OpenTofu, cost, observability and AWS
+release ports. `createStubActivities` remains an explicit test factory; it is
+never the worker's fallback. Product deploys and MCP v3 start workflows.
+This wiring is not live-cloud acceptance. No Temporal Cloud, cloud or Docker
+run is claimed by this sync. See
+[What was and was not verified](#what-was-and-was-not-verified).
 
 ## Topology
 
@@ -22,11 +25,11 @@ Docker build. See [What was and was not verified](#what-was-and-was-not-verified
      startDeploy / startDayTwo / startRemediation ───────▶  workflow history (ids, digests, counts only)
      signalApproval / cancelOperation / getProgress ─────▶          │
                                                                     │ polls
- execution worker (long-running container, stateless)  ◀──────────┘
+ execution worker (long-running container; private local plans) ◀┘
    workers/execution/worker.ts
      workflows  = src/lib/workflows/definitions/**   (deterministic; runs in the Temporal sandbox)
-     activities = src/lib/workflows/activities/**    (the ONLY code touching store, drivers,
-                                                      OpenTofu, credential broker)
+     activities = createActivities → src/lib/platform/execution.ts → src/lib/execution/**
+                                                    (store, drivers, OpenTofu, credential broker)
 ```
 
 - The control plane only **starts, signals and queries** workflows. It never
@@ -129,7 +132,7 @@ cancelled operations) and writes the same status with `markOperation`.
 | verification `failed` | `failed` | changes stay applied |
 | verification `unknown` | `uncertain` | never reported as success |
 | cancelled | `cancelled` | says whether mutating steps had started; nothing is rolled back or destroyed |
-| `not_implemented` (stub activity) | `failed` | "nothing was changed" |
+| `not_implemented` (explicit test factory or refused unsupported path) | `failed` | No supported implementation ran; production does not select test stubs |
 | terminal status cannot be written at all | the workflow itself fails | the store is down; retried for up to an hour first |
 
 `uncertain` is terminal for automation: nothing re-dispatches it. Reconciliation
@@ -250,6 +253,24 @@ the SDK throttles to 80 % of the heartbeat timeout (48 s).
 
 ## Configuration
 
+Before polling, `workers/execution/startup.ts` requires:
+
+- Explicit `ZENITH_TEMPORAL_ADDRESS` (even for a local server).
+- `ZENITH_SECRET_KEY`: 64 hex characters, used to derive a private plan
+  fingerprint key via HKDF. Do not print it or put it in workflow payloads.
+- A usable `ZENITH_CONTROL_SIGNING_JWK` or `ZENITH_CONTROL_KMS_KEY_ID`.
+- An explicitly configured platform store (`ZENITH_PLATFORM_DB` or a database
+  URL, including its Supabase fallback), opened with current schema. Postgres
+  migrations must be applied with `npm run migrate:platform` before startup.
+
+Set `ZENITH_WORKER_IDENTITY` to 1–64 letters, digits, dots, underscores or
+hyphens. The Temporal config default contains colons, while
+`src/lib/execution/runtime.ts` rejects them in lease-holder identities.
+An explicit `zenith-exec-01` works with both contracts; the default mismatch
+needs a source-owner fix. The policy bundle, product store and OIDC signer
+must also be configured for the activities that use them. Startup does not
+prove deploy permissions or live cloud readiness.
+
 Read in **one function per concern**: `temporalConfigFromEnv`
 (`src/lib/workflows/config.ts`, used by both the client and the worker) and
 `executionWorkerConfigFromEnv` (`workers/execution/config.ts`). Invalid values
@@ -270,6 +291,8 @@ fail fast with a message that never contains a secret.
 | `ZENITH_WORKER_LOG_LEVEL` | `INFO` | worker | `TRACE`…`ERROR` |
 | `ZENITH_WORKER_HEALTH_LOG_INTERVAL_MS` | `60000` | worker | periodic health log line; `0` disables |
 | `ZENITH_WORKER_IDENTITY` | `zenith-exec:<host>:<pid>` | worker | worker identity in Temporal |
+| `ZENITH_WORKER_PLAN_DIR` | `<ZENITH_DATA or .data>/platform-plans` | worker | private binary-plan directory, created with mode `0700`; plans may contain secrets |
+| `ZENITH_SECRET_KEY` | unset | worker | required 64-hex secret; no public plan fingerprint default |
 
 Tests never read the real environment and never use `localhost:7233`.
 
@@ -282,20 +305,24 @@ temporal server start-dev --headless --port 7233
 #    then set ZENITH_TEMPORAL_ADDRESS=127.0.0.1:<port> for the worker and the app.
 
 # 2. the worker (from the repo root)
-npx tsx workers/execution/worker.ts
+$env:ZENITH_TEMPORAL_ADDRESS = "127.0.0.1:7233"
+$env:ZENITH_WORKER_IDENTITY = "zenith-exec-01"
+# Supply the secret key, control signer and explicitly configured store privately.
+# Migrate Postgres before starting; do not share a PGlite directory with the app.
+npm run worker
 ```
 
-Desired `package.json` script (not added here; `package.json` is not in this
-workstream's paths):
+The integrated `package.json` script reads `.env.local` when present:
 
 ```json
 "worker": "tsx --env-file-if-exists=.env.local workers/execution/worker.ts"
 ```
 
-Until the activities are implemented, starting a deploy makes the workflow fail
-fast with "Activity markOperation is not implemented in this worker build;
-nothing was changed" (a reconcile pass returns `status: "failed"` with the same
-reason). That is the expected behaviour of the stub build.
+The worker can invoke provider APIs through composed activities. Startup
+failure is an operator configuration/schema error, never a silent selection of
+stubs. Non-AWS identity verification and OCI platform sessions are still
+unavailable (`src/lib/platform/credentials.ts`); use the provider limits and
+[state backend reference](operations/DEPLOYING.md#214-customer-state-backends).
 
 **Bundling.** The worker bundles `src/lib/workflows/definitions/index.ts` with
 Temporal's bundler. The definitions use relative imports only, so the repo's
@@ -333,10 +360,11 @@ stops being enough, add a payload codec on both the client and the worker.
 
 ## Scaling and operations
 
-- The worker is stateless. Run as many replicas as needed against the same task
-  queue; Temporal load-balances. Add replicas when the task queue's
-  schedule-to-start latency grows (Temporal metric
-  `temporal_activity_schedule_to_start_latency`), not on CPU alone: most
+- Temporal load-balances workers on the same queue. Binary plans remain in
+  `ZENITH_WORKER_PLAN_DIR`; filesystem sharing and failover between replicas
+  have not been verified. Capacity planning can use the task queue's
+  schedule-to-start latency (Temporal metric
+  `temporal_activity_schedule_to_start_latency`); CPU alone is insufficient: most
   activity time is waiting on tofu or a cloud API.
 - `ZENITH_WORKER_MAX_CONCURRENT_ACTIVITIES` bounds parallel activities *per
   replica*. `tofu` plans and applies are memory-hungry (provider processes);
@@ -411,7 +439,8 @@ npx vitest run tests/workflows
 
 ## What was and was not verified
 
-Verified here (Windows 11, Node 24.19, Temporal CLI 1.8.2 dev server, SDK 1.24.0):
+Historical WS-WF record, not rerun by this sync (Windows 11, Node 24.19,
+Temporal CLI 1.8.2 dev server, SDK 1.24.0; before activity composition):
 everything in [Testing](#testing); the esbuild command and the workflow bundle
 build that `docker/worker.Dockerfile` uses; `node dist/execution/worker.cjs`
 booting from that bundle, polling, running a stub workflow to its
@@ -420,14 +449,17 @@ booting from that bundle, polling, running a stub workflow to its
 Not verified: a Docker build of the image (Docker is unavailable here); the
 Linux `@swc/core` binding; SIGTERM handling on Linux (Windows cannot deliver
 SIGTERM; the handler logic is unit-tested with a fake process); Temporal Cloud
-and API-key auth; mTLS; any real activity; behaviour under real load; the
+and API-key auth; mTLS; composed activities against live providers; behaviour under real load; the
 time-skipping server's fidelity to a production server (it is used only for the
 24 h approval window and the periodic re-check).
 
 ## Not built (next steps)
 
-- The real activities (owned by other workstreams) and their `ActivityDeps`.
 - `proposeRepair` and auto-repair in the reconcile workflow.
 - Search attributes (workspace, environment, capability) for listing operations
   in Temporal visibility.
-- Payload encryption, golden replay histories, a schedule for reconcile passes.
+- Payload encryption and frozen golden replay histories.
+- Live acceptance of composed execution, provider sessions/state backends and
+  replica failover. The HTTP reconcile controller is already scheduled by
+  `.github/workflows/tick.yml`; this does not schedule the observe-only Temporal
+  reconcile workflow.

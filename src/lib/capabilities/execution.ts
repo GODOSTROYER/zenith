@@ -199,6 +199,14 @@ export async function beginExecution(deps: BrokerDeps, input: BeginExecutionInpu
     try {
       await checkApprovals(deps, op, decision.approval);
     } catch (error) {
+      if (isBrokerError(error) && (error.code === "approval_required" || error.code === "reapproval_required")) {
+        // A concurrent executor may have claimed the operation (and so consumed its approvals) since we read it:
+        // that is "already claimed", not a missing approval.
+        const fresh = await deps.store.getOperation(workspaceId, op.id);
+        if (fresh && fresh.status !== "approved" && fresh.status !== "queued") {
+          throw new BrokerError("already_claimed", "Another executor claimed this operation first.", undefined, { status: fresh.status });
+        }
+      }
       if (isBrokerError(error)) {
         await tryAppend(deps, { ...eventBase(op), type: "policy.evaluated", data: { kind: "execution_refused", outcome: "require_approval", code: error.code, policyVersion: evaluation.evaluated.policyVersion } });
       }

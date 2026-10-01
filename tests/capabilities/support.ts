@@ -6,6 +6,8 @@
  *   - "pglite": `PlatformBrokerStore` over a real PGlite platform store (the
  *     same SQL the production Postgres store runs). One PGlite per test file;
  *     every harness gets its own id prefix, so tests never see each other's rows.
+ *   - "postgres": the same adapter over real PostgreSQL, when
+ *     `ZENITH_TEST_PLATFORM_PG_URL` is set.
  *
  * Everything else is shared and real: the committed OPA policy bundle, the
  * broker logic, the credential broker's signer (with a generated Ed25519 key).
@@ -26,8 +28,11 @@ import type { BrowserSessionProof } from "@/lib/capabilities/types";
 import { generateSigningJwk, serializePrivateJwk } from "@/lib/credentials";
 import { loadPolicyEngine, type PolicyDecision, type PolicyEngine, type PolicyInput } from "@/lib/policy";
 
-export type StoreKind = "memory" | "pglite";
-export const STORE_KINDS: StoreKind[] = ["memory", "pglite"];
+/** Real PostgreSQL lane: runs only when `ZENITH_TEST_PLATFORM_PG_URL` is set (the same variable tests/controlplane uses). */
+export const PG_URL = process.env.ZENITH_TEST_PLATFORM_PG_URL?.trim() || undefined;
+
+export type StoreKind = "memory" | "pglite" | "postgres";
+export const STORE_KINDS: StoreKind[] = ["memory", "pglite", ...(PG_URL ? (["postgres"] as const) : [])];
 
 /* ---------------------------------- clock ---------------------------------- */
 
@@ -170,25 +175,33 @@ export interface Harness {
   acquireLease(environmentId: string): Promise<{ scope: string; fenceToken: number }>;
   /** release it, so its fence is stale */
   loseLease(scope: string): Promise<void>;
-  /** the PGlite handle, when `kind` is "pglite" */
+  /** the database handle, when `kind` is "pglite" or "postgres" */
   db?: PlatformDbHandle;
   signerEnv: Record<string, string>;
   publicJwk: () => Promise<Record<string, unknown>>;
 }
 
-let sharedDb: Promise<PlatformDbHandle> | undefined;
+const shared = new Map<"pglite" | "postgres", Promise<PlatformDbHandle>>();
 
-/** One PGlite per test file. Call `closeSharedPgliteAfterAll()` once at the top level of the file. */
-export function sharedPglite(): Promise<PlatformDbHandle> {
-  sharedDb ??= openPlatformDb({ kind: "pglite" });
-  return sharedDb;
+/**
+ * One database handle per engine per test file. Call `closeSharedPgliteAfterAll()`
+ * once at the top level of the file. Tests isolate themselves with fresh ids,
+ * so the real-Postgres lane never drops or cleans anything.
+ */
+export function sharedDatabase(kind: "pglite" | "postgres"): Promise<PlatformDbHandle> {
+  let db = shared.get(kind);
+  if (!db) {
+    db = kind === "pglite" ? openPlatformDb({ kind: "pglite" }) : openPlatformDb({ kind: "postgres", url: PG_URL as string, migrate: true, max: 5 });
+    shared.set(kind, db);
+  }
+  return db;
 }
 
 export function closeSharedPgliteAfterAll(): void {
   afterAll(async () => {
-    const db = sharedDb;
-    sharedDb = undefined;
-    if (db) await (await db).close();
+    const open = [...shared.values()];
+    shared.clear();
+    for (const db of open) await (await db).close();
   });
 }
 
@@ -256,8 +269,8 @@ export async function makeHarness(options: { kind?: StoreKind; engine?: PolicyEn
   const clock = new FakeClock();
   let db: PlatformDbHandle | undefined;
   let store: BrokerStore;
-  if (kind === "pglite") {
-    db = await sharedPglite();
+  if (kind === "pglite" || kind === "postgres") {
+    db = await sharedDatabase(kind);
     store = new PlatformBrokerStore(db);
   } else {
     store = new MemoryBrokerStore(clock);

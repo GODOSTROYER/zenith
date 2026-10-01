@@ -62,7 +62,7 @@ stateful or publicly exposed resource, or one whose plan destroys data.
 ## The rules, in summary
 
 Each rule is one named complete rule in a Rego package and is reported as
-`zenith.rules.<kind>.<name>` in every reason. There are **14 deny rules, 12
+`zenith.rules.<kind>.<name>` in every reason. There are **14 deny rules, 14
 approval rules and 3 constraint rules**. For the exact condition of each, read
 [policy/README.md](../../../policy/README.md#decision-semantics).
 
@@ -73,7 +73,7 @@ approval rules and 3 constraint rules**. For the exact condition of each, read
 `region_not_approved`, `unowned_resource_mutation`,
 `mutation_environment_unresolved`, `malformed_input`.
 
-**Require approval** (12), with who may approve:
+**Require approval** (14), with who may approve:
 
 | Rule | Approver at least | In one line |
 |---|---|---|
@@ -89,6 +89,8 @@ approval rules and 3 constraint rules**. For the exact condition of each, read
 | `two_person_production` | editor, separation of duties | The workspace asked for it, production, mutating |
 | `agent_high_risk_requires_approval` | editor | An agent or the Navigator wants a high or critical effective-risk change |
 | `production_destructive_requires_admin` | admin, separation of duties | Production destructive change (the path for production `infrastructure.destroy`) |
+| `stateful_deletes_require_approval` | editor | The plan deletes or replaces a stateful resource, in every environment and at any autonomy level (agents never auto-apply a deletion) |
+| `dns_deletes_require_approval` | editor | The plan deletes or replaces a DNS record, in every environment and at any autonomy level |
 
 **Constraints** (3): `log_read_limits` (at most 1000 lines and a 24 hour window),
 `exec_limits` (300 seconds and 1 MiB of output), `grant_duration` (at most one hour;

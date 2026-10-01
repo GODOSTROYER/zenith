@@ -266,9 +266,17 @@ describe("assembleWorkspace: provisioners, connections, remote state and foreign
   }
 
   it("a fragment may not bring its own terraform/provider/module/variable blocks", () => {
-    for (const key of ["terraform", "provider", "module", "variable", "ephemeral", "import", "moved", "removed", "check"]) {
+    for (const key of ["terraform", "provider", "module", "variable", "import", "moved", "removed", "check"]) {
       expect(refusedBy(() => builtinWorkspace(STATE, { "resource/a": { ...dataFragment("a", "x"), [key]: {} } as TofuFragment })), key).toBe("invalid_fragment");
     }
+  });
+
+  it("an ephemeral block (C5) gets the same guards: a pinned provider only, never the builtin terraform_data, well-formed types and bodies", () => {
+    const withEphemeral = (ephemeral: unknown) => () => builtinWorkspace(STATE, { "resource/a": { ...dataFragment("a", "x"), ephemeral } as TofuFragment });
+    expect(refusedBy(withEphemeral({ terraform_data: { e: {} } }))).toBe("invalid_fragment");
+    expect(refusedBy(withEphemeral({ random_password: { e: { length: 16 } } }))).toBe("invalid_fragment"); // random is not in the builtin provider set
+    expect(refusedBy(withEphemeral({ "../x": { e: {} } }))).toBe("invalid_fragment");
+    expect(refusedBy(withEphemeral([]))).toBe("invalid_fragment");
   });
 });
 

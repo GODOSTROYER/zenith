@@ -88,6 +88,8 @@ must never be defined inside a rules package (they would be iterated as rules).
 | `two_person_production` | editor, separation of duties | `twoPersonProduction` + production + mutating |
 | `agent_high_risk_requires_approval` | editor | origin `agent`/`navigator` and effective risk high/critical |
 | `production_destructive_requires_admin` | admin, separation of duties | production + mutating + destructive (the approval path for production `infrastructure.destroy`) |
+| `stateful_deletes_require_approval` | editor | mutating + plan `statefulDeletes` non-empty, in every environment class and at any autonomy level (deny still wins) |
+| `dns_deletes_require_approval` | editor | mutating + plan `dnsDeletes` non-empty, in every environment class and at any autonomy level |
 
 *Effective risk* is the catalog risk, raised to at least `high` for a production
 mutation of a stateful or publicly exposed resource or one whose plan destroys

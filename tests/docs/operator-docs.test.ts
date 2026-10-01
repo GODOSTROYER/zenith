@@ -448,7 +448,7 @@ describe("operator claims match current wiring", () => {
     expect(guide("POLICY.md")).toContain("current approval round");
   });
 
-  it("closed middleware/bundle gaps stay closed and four migrations are documented", () => {
+  it("closed middleware/bundle gaps stay closed and five migrations are documented", () => {
     const middleware = source("src/middleware.ts");
     expect(middleware).toContain("isPlatformBearerRequest");
     expect(middleware).toContain("isAgentSignedPath");
@@ -456,9 +456,9 @@ describe("operator claims match current wiring", () => {
     expect(next).toContain("outputFileTracingIncludes");
     expect(next).toContain("policy/dist");
     expect(source("docker/worker.Dockerfile")).toContain("policy/dist");
-    expect(source("src/lib/controlplane/db/migrations/index.ts")).toContain("[migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds]");
-    expect(deploying).toContain("Four migrations exist today");
-    expect(deploying).toContain("all four migrations");
+    expect(source("src/lib/controlplane/db/migrations/index.ts")).toContain("[migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs]");
+    expect(deploying).toContain("Five migrations exist today");
+    expect(deploying).toContain("all five migrations");
   });
 
   it("reconcile ports are composed after cron auth and its tick is scheduled", () => {
@@ -529,7 +529,7 @@ describe("operator claims match current wiring", () => {
     for (const field of ["`stateBucket`", "`stateKmsKey`", "`stateStorageAccount`", "`stateContainer`", "`stateNamespace`", "`default.tfstate`", "`terraform.tfstate`", "zenith/<workspace>/<environment>/terraform.tfstate"]) expect(deploying).toContain(field);
   });
 
-  it("OCI HTTP is opt-in and constructed; OCI platform sessions stay refused and verification is runner registration only", () => {
+  it("OCI HTTP is opt-in and constructed; OCI platform sessions go only through a registered runner and verification is runner registration only", () => {
     const executor = source("go/internal/runner/executor.go");
     expect(executor).toContain("cfg.Kinds.OCIHTTP; k != nil && k.Enabled");
     expect(executor).toContain("kinds.NewOCI(");
@@ -538,7 +538,7 @@ describe("operator claims match current wiring", () => {
     expect(source("go/internal/runner/kinds/ocihttp.go")).toContain("if cfg.SecretWrite");
     const credentials = source("src/lib/platform/credentials.ts");
     expect(credentials).toContain('connection.config.provider === "oci"');
-    expect(credentials).toContain("oci.http does not yet implement ProviderSession");
+    expect(credentials).toContain("createRunnerOciTransport"); // sessions are runner-backed; no OCI credentials in the control plane
     // non-AWS verification is wired; OCI verification is runner registration only
     expect(credentials).toContain("OCI verification checks runner registration only");
     const runner = source("docs/platform/RUNNER.md");

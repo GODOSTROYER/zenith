@@ -211,7 +211,8 @@ Read by `executionWorkerConfigFromEnv`. Details and defaults:
 | `ZENITH_WORKER_HEALTH_PORT` | `9464` | Loopback port for `/healthz` (process up) and `/readyz` (Temporal, platform store, policy bundle, drivers). |
 | `ZENITH_WORKER_PLAN_MAX_AGE_HOURS` | `24` | The plan janitor deletes binary plans of terminal operations older than this; plans of active operations are never touched. |
 | `ZENITH_WORKER_PLAN_DIR` | `<ZENITH_DATA or .data>/platform-plans` | Worker-local binary plan directory, resolved to an absolute path and created with mode `0700`. Keep it private; binary plans may contain secrets. Cross-replica filesystem access and Windows ACL equivalence are not verified. |
-| `ZENITH_SECRET_KEY` | unset | **Secret**, required: 64 hex characters. `derivePlanFingerprintKey` uses HKDF-SHA256 with `zenith.tofu.plan.fingerprint.v1`; there is no public default. The key also protects product vault secrets; give cooperating workers the same key and back it up separately. |
+| `ZENITH_SECRET_KEY` | unset | **Secret**, required: 64 hex characters. `derivePlanFingerprintKey` uses HKDF-SHA256 with `zenith.tofu.plan.fingerprint.v1`; there is no public default. The key also protects product vault secrets and encrypts Temporal workflow payloads (AES-256-GCM, HKDF info `zenith.temporal.payload.v1`); give the web app and cooperating workers the same key and back it up separately. |
+| `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS` | unset | **Secret**, optional: a JSON array of earlier 64-hex `ZENITH_SECRET_KEY` values. Payloads carry a key id; after rotating `ZENITH_SECRET_KEY`, list the old keys here (on the web app and every worker) so workflow histories written under them still decode. A malformed value is refused at startup. |
 
 ### 2.6 OpenTofu engine
 
@@ -393,7 +394,7 @@ environment and must never be written in backend configuration.
 | AWS | `s3`: `stateBucket`, connection `region`; optional `stateKmsKeyArn` | Existing key remains `zenith/<workspace>/<environment>/terraform.tfstate`. Uses state locking; the optional KMS ARN configures OpenTofu state/plan encryption. |
 | GCP | `gcs`: `stateBucket`; optional `stateKmsKey` | Prefix `zenith/<workspace>/<environment>`; the default workspace object is `default.tfstate`, not `terraform.tfstate`. |
 | Azure | `azurerm`: `stateStorageAccount`, `stateContainer` | Key `zenith/<workspace>/<environment>/terraform.tfstate`; Entra auth, CLI auth disabled, OIDC enabled for OIDC connections. |
-| OCI | S3-compatible: `stateBucket`, `stateNamespace`, connection `region` | Oracle-only endpoint `https://<namespace>.compat.objectstorage.<region>.oraclecloud.com`, path style and compatibility flags; no AWS KMS. Customer S3 secret key stays on the runner. Native principals used by `oci.http` cannot authenticate this backend. Platform OCI sessions remain refused. |
+| OCI | S3-compatible: `stateBucket`, `stateNamespace`, connection `region` | Oracle-only endpoint `https://<namespace>.compat.objectstorage.<region>.oraclecloud.com`, path style and compatibility flags; no AWS KMS. Customer S3 secret key stays on the runner. Native principals used by `oci.http` cannot authenticate this backend. Platform OCI sessions go through the runner (`oci.http`), never through control-plane credentials. |
 | Kubernetes | No automatic durable backend | An explicit execution backend override is required; no local fallback is silently selected. |
 
 Unsafe scope segments, foreign-workspace connections, missing fields and
@@ -455,10 +456,12 @@ applied), turns row level security on for every table with no policies, and
 revokes `anon` and `authenticated`. **`platform` must never be added to the Data
 API's exposed schemas.**
 
-Four migrations exist today: `core` (1), `reconcile` (2), `machine_requests` (3,
-the `zenithd` request queue) and `approval_rounds` (4: a plan-level approval after
+Five migrations exist today: `core` (1), `reconcile` (2), `machine_requests` (3,
+the `zenithd` request queue), `approval_rounds` (4: a plan-level approval after
 execution starts opens a new approval round, so the same human can review again once
-per round while earlier decisions stay as immutable history). A database that applied the emitted SQL before a later
+per round while earlier decisions stay as immutable history) and `read_jobs` (5:
+runner read jobs, such as OCI log and metric reads, that belong to no operation and
+store a NULL operation). A database that applied the emitted SQL before a later
 migration landed is behind and the application refuses to use it until you re-apply
 the file or run `npm run migrate:platform`.
 
@@ -466,8 +469,8 @@ The emitted file keeps one name as migrations are added; it grows. If you apply
 migrations through the Supabase CLI's migration history, which records an applied
 file by its version number and will not re-run a changed file, use
 `npm run migrate:platform` (ledger-based) or apply the file by hand for any
-schema version after the first. The emitted file holds all four
-migrations, so a database that applied it before migration 2, 3 or 4 landed is exactly
+schema version after the first. The emitted file holds all five
+migrations, so a database that applied it before migration 2, 3, 4 or 5 landed is exactly
 this case. I did not exercise it through the Supabase CLI.
 
 ### 3.3 What the application does about the schema

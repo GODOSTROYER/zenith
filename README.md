@@ -515,8 +515,9 @@ workflows; the worker registers execution activities through
 GCP, Azure, OCI, Kubernetes and Zenith-managed drivers. The platform pages,
 placement recommendations, CLI, scheduled reconcile tick and runner-job reaper
 are wired. **This is contract evidence, not live-cloud acceptance.** No live
-cloud run is recorded, non-AWS connection verification remains unavailable,
-and OCI platform sessions are refused. The product's legacy AWS provider still
+cloud run is recorded; non-AWS connection verification is contract-tested only
+(OCI checks runner registration), and OCI platform sessions run only through an
+active registered runner. The product's legacy AWS provider still
 has the Preview limits described below; the composed platform execution path
 is separate.
 

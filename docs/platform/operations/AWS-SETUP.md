@@ -199,7 +199,7 @@ applyable IaC if you want to carry on without Zenith.
   clients cannot infer a `/api/platform/v1/connections` API from that page.
 - **Non-AWS connections.** Six providers' drivers are registered, and
   `src/lib/platform/credentials.ts` performs connection verification for GCP (STS exchange + projects.get), Azure (ARM token + subscription read), Kubernetes (namespaced read) and OCI (runner registration only; cloud permissions unverified).
-  OCI and non-AWS runner ProviderSession modes are still refused.
+  OCI ProviderSessions run only through an active registered runner (`oci.http`); runner-mode sessions for the other non-AWS providers are still refused.
 - **Live deploy acceptance.** The worker registers execution implementations
   and the AWS registrar composes all driver groups (`src/lib/platform/drivers.ts`).
   They carry contract evidence, not a live-account run. An approved dispatch

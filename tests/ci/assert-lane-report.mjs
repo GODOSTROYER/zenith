@@ -33,6 +33,9 @@ export const TOFU_SUITES = [
   ["tests/security/tofu-runner-env.test.ts", "part 1: a provisioner inside real tofu inherits nothing of the control plane's environment"],
   ["tests/security/tofu-workspace-injection.test.ts", "what the assembler ACCEPTS, real OpenTofu must not turn into a file read or a path leak (SEC-F5)"],
   ["tests/execution/journey.test.ts", "deploy journey on the real OpenTofu engine, platform store and product store"],
+  ["tests/tofu/ephemeral-network.test.ts", "real ephemeral resources (network)"],
+  ["tests/providers/azure/mysql.test.ts", "Azure MySQL real pinned tofu validate (network, no Azure account)"],
+  ["tests/providers/oci/mysql.test.ts", "OCI MySQL real pinned tofu schema and persistence controls (network)"],
 ];
 
 /** @param {string} root @param {string} directory @returns {string[]} */

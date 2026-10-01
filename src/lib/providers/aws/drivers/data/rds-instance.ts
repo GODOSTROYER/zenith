@@ -31,7 +31,7 @@ import { DescribeDBInstancesCommand, RDSClient, type DBInstance } from "@aws-sdk
 import type { DiscoveredResource, ResourceDriver } from "@/lib/drivers/types";
 import type { AwsSession } from "@/lib/credentials/types";
 import type { HealthState, Observation, ResourceNode, RuntimeState } from "@/lib/resources/types";
-import { paginate } from "./_shared";
+import { paginate } from "@/lib/providers/aws/drivers/shared";
 import {
   backupRetentionFor,
   compileRdsInstance,
@@ -290,7 +290,9 @@ export const rdsInstanceDriver: ResourceDriver<AwsSession> = {
     // `database.restore` and `database.delete` exist only as refusing stubs in `operations`; they are
     // deliberately NOT listed here, so the generated capability matrix never advertises them as executable.
     operations: ["database.snapshot"],
-    evidence: { compile: "contract", observe: "contract", runtime: "contract", verify: "contract", discover: "contract", "database.snapshot": "contract" },
+    evidence: { compile: "contract", observe: "contract", runtime: "contract", verify: "contract", discover: "contract", "database.snapshot": "contract",
+      // Evidence covers the refusal paths too; they are not executable capabilities.
+      "database.restore": "contract", "database.delete": "contract" },
   },
   compile: compileRdsInstance,
   observe: observeRds,

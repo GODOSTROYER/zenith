@@ -3,7 +3,7 @@ import { GetResourcesCommand, ResourceGroupsTaggingAPIClient } from "@aws-sdk/cl
 import { mockClient } from "aws-sdk-client-mock";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { elasticacheReplicationGroupDriver as driver } from "@/lib/providers/aws/drivers/data";
-import { DriverCompileError } from "@/lib/providers/aws/drivers/data/_shared";
+import { DriverCompileError } from "@/lib/providers/aws/drivers/shared";
 import { APP_USER_ACCESS, DEFAULT_USER_ACCESS, snapshotRetentionFor } from "@/lib/providers/aws/drivers/data/elasticache-replication-group";
 import { driftOf } from "./_drift";
 import { awsError, compileCtx, driverCtx, mkNode, networkNodes, redisSpec, tagRecord } from "./_helpers";

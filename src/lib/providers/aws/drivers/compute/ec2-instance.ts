@@ -12,7 +12,7 @@
  *     `ami` is in `ignore_changes`, so a newer AMI never replaces a running
  *     instance (patching is the machine plane's job, not a re-create);
  *   - no key pair, no inbound rule, no public IP; its security group (shared
- *     contract, see aws-shared/security-group.ts) allows outbound HTTPS only,
+ *     contract, see shared/security-group.ts) allows outbound HTTPS only,
  *     which is all the SSM agent needs through NAT;
  *   - an instance profile whose role has the AWS-managed
  *     `AmazonSSMManagedInstanceCore` policy (a named managed policy, not a
@@ -44,7 +44,7 @@ import {
   subnetsOf,
   addSecurityGroup,
   tfLabel,
-} from "./support/aws-shared";
+} from "@/lib/providers/aws/drivers/shared";
 import { compileNode, intField, specOf } from "./support/driver-util";
 import { ComputeCompileError, Frag, TfRef, assumeRoleJson, attr, boundaryArn, cat, environmentData, rawRef, refOf, tagsFor } from "./support/tf";
 import { failureOf, tagsOf, type AwsCtx } from "./support/sdk";

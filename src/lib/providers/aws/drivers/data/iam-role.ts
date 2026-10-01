@@ -64,7 +64,7 @@ import {
   REF,
   resourceTags,
   tfLabel,
-} from "./_shared";
+} from "@/lib/providers/aws/drivers/shared";
 import {
   compileGrantStatements,
   expectedGrantActions,
@@ -84,7 +84,6 @@ import {
   isManaged,
   matchesExpectedCheck,
   MAX_TAG_READS,
-  safeTags,
   scalars,
   tagMap,
   verificationOf,
@@ -172,7 +171,7 @@ export function compileIamRole(node: ResourceNode, ctx: CompileContext): TofuFra
     assume_role_policy: `\${data.aws_iam_policy_document.${label}_trust.json}`,
     permissions_boundary: boundaryArn(acct),
     force_detach_policies: true,
-    tags: safeTags(resourceTags(ctx.tags, node.address)),
+    tags: resourceTags(ctx.tags, node.address),
   });
   if (statements.length > 0) {
     b.resource("aws_iam_role_policy", `${label}_grants`, {

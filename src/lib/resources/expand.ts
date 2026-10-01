@@ -14,7 +14,8 @@
  *  topology   One `network/main` in the environment's place, plus
  *             `subnet/public-<z>` and `subnet/private-<z>` per zone. Zones:
  *             `placement.zones`, else 2 for production and 1 otherwise, raised
- *             to 2 when `tolerateSingleFailure` or `availabilityTarget >= 99.9`.
+ *             to 2 when `tolerateSingleFailure` or `availabilityTarget >= 99.9`,
+ *             or AWS RDS / highly available Redis requires two private AZs.
  *             A network exists only if something needs one (services, cron
  *             jobs, postgres, redis, the load balancer): a bucket-and-queue
  *             manifest gets none. Kubernetes has no subnets: its network is a
@@ -39,7 +40,8 @@
  *             infrastructure and say so.
  *  bindings   sql → firewall on 5432, cache → 6379, service→service http →
  *             the target's port; blob and queue bindings reach cloud APIs, so
- *             they become identity grants, not firewall rules. No firewall rule
+ *             they become identity grants, not firewall rules. Redis cache
+ *             bindings also grant `connect` for IAM authentication. No firewall rule
  *             is derived into a non-managed target (Zenith never mutates it).
  *  secrets    An env var with a `secretRef` → a `secret/<key>-<digest>` node
  *             (managed for `vault:` refs, referenced otherwise) whose spec is

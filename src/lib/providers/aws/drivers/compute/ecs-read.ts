@@ -34,7 +34,7 @@ import {
   unknownReasonOf,
   unknownValue,
   type AwsFailure,
-} from "./support/aws-shared";
+} from "@/lib/providers/aws/drivers/shared";
 import { expectedEcsService } from "./ecs-service-compile";
 import { failureOf, findByTags, lowerTagMap, type AwsCtx } from "./support/sdk";
 import { DRIVER_IDS } from "./types";

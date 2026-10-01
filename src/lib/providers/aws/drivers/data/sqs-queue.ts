@@ -37,7 +37,7 @@ import {
 import type { CompileContext, DiscoveredResource, ResourceDriver, TofuFragment } from "@/lib/drivers/types";
 import type { AwsSession } from "@/lib/credentials/types";
 import type { HealthState, Observation, ResourceNode } from "@/lib/resources/types";
-import { cloudName, FragmentBuilder, nodeName, paginate, parseArn, REF, resourceTags, tfLabel } from "./_shared";
+import { cloudName, FragmentBuilder, nodeName, paginate, parseArn, REF, resourceTags, tfLabel } from "@/lib/providers/aws/drivers/shared";
 import {
   classifyAwsError,
   attrCheck,
@@ -53,7 +53,6 @@ import {
   isManaged,
   matchesExpectedCheck,
   MAX_TAG_READS,
-  safeTags,
   scalars,
   tagMap,
   validId,
@@ -91,7 +90,7 @@ export function compileSqsQueue(node: ResourceNode, ctx: CompileContext): TofuFr
   const cfg = readSqsConfig(node);
   const label = tfLabel(node.address);
   const name = cloudName(ctx.namePrefix, nodeName(node.address), 80 - 4);
-  const tags = safeTags(resourceTags(ctx.tags, node.address));
+  const tags = resourceTags(ctx.tags, node.address);
   const b = new FragmentBuilder(node.address);
 
   b.resource("aws_sqs_queue", label, {
@@ -107,7 +106,7 @@ export function compileSqsQueue(node: ResourceNode, ctx: CompileContext): TofuFr
     sqs_managed_sse_enabled: true,
     message_retention_seconds: DLQ_RETENTION_SECONDS,
     // The DLQ carries the node's tags too (it belongs to the node); `zenith:role` tells the tag lookup it is not the queue itself.
-    tags: safeTags({ ...resourceTags(ctx.tags, node.address, `${name}-dlq`), [DLQ_ROLE_TAG]: DLQ_ROLE_VALUE }),
+    tags: { ...resourceTags(ctx.tags, node.address, `${name}-dlq`), [DLQ_ROLE_TAG]: DLQ_ROLE_VALUE },
   });
   b.resource("aws_sqs_queue_redrive_allow_policy", `${label}_dlq_allow`, {
     queue_url: `\${aws_sqs_queue.${label}_dlq.url}`,

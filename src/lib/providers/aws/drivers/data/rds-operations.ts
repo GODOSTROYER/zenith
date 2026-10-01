@@ -27,7 +27,7 @@ import { CreateDBSnapshotCommand, DescribeDBSnapshotsCommand, RDSClient, type DB
 import { createHash } from "node:crypto";
 import type { NativeOperation, NativeOperationResult } from "@/lib/drivers/types";
 import type { AwsSession } from "@/lib/credentials/types";
-import { TAG_RESOURCE, toAwsTagList } from "./_shared";
+import { TAG_RESOURCE, toAwsTagList } from "@/lib/providers/aws/drivers/shared";
 import { rdsIdentifierOf, resolveInstance } from "./rds-read";
 import { call, classifyAwsError, tagMap, tagsMatchNode, type AwsDriverContext } from "./support";
 

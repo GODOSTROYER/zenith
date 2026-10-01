@@ -35,7 +35,7 @@ import type { AwsSession } from "@/lib/credentials/types";
 import type { CompileContext, ResourceDriver, TofuFragment } from "@/lib/drivers/types";
 import type { HealthState, Observation, ResourceNode, RuntimeState } from "@/lib/resources/types";
 import type { ScheduledJobSpec } from "@/lib/resources/specs";
-import { attempt, attributesOf, boundNative, cloudName, failedObservation, nodeName, parseArn, runtimeState, standardVerification, tfLabel, unknownReasonOf, unknownValue } from "./support/aws-shared";
+import { attempt, attributesOf, boundNative, cloudName, failedObservation, nodeName, parseArn, runtimeState, standardVerification, tfLabel, unknownReasonOf, unknownValue } from "@/lib/providers/aws/drivers/shared";
 import { toEventBridgeCron } from "./support/cron";
 import { compileNode, specOf } from "./support/driver-util";
 import { dependencies } from "./support/refs";

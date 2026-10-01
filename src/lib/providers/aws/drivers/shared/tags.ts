@@ -53,7 +53,12 @@ export function resourceTags(ctxTags: Record<string, string>, address: string, n
   const tags: Record<string, string> = { ...ctxTags, [TAG_RESOURCE]: address };
   if (name !== undefined) tags.Name = name;
   // Values are data: escape interpolation so a hostile address or tag can never run as an expression.
-  return Object.fromEntries(sortedEntries(tags).map(([k, v]) => [k, tfLiteral(String(v))]));
+  return safeTags(Object.fromEntries(sortedEntries(tags)));
+}
+
+/** Escape raw tag keys and values exactly once when writing a tofu body. */
+export function safeTags(tags: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(sortedEntries(tags).map(([k, v]) => [tfLiteral(k), tfLiteral(String(v))]));
 }
 
 export function isProductionEnvironment(ctxTags: Record<string, string>): boolean {

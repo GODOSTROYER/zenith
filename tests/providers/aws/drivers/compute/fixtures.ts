@@ -13,7 +13,7 @@ import type { CompileContext, DriverContext, TofuFragment } from "@/lib/drivers/
 import type { AwsSession } from "@/lib/credentials/types";
 import type { PortableKind, ResourceGraph, ResourceNode } from "@/lib/resources/types";
 import type { ContainerServiceSpec, IdentitySpec, LoadBalancerSpec, ScheduledJobSpec } from "@/lib/resources/specs";
-import { refLocalName, tfLabel } from "@/lib/providers/aws/drivers/compute/support/aws-shared";
+import { refLocalName, tfLabel } from "@/lib/providers/aws/drivers/shared";
 
 export const REGION = "eu-west-1";
 export const ENV_ID = "env_1";

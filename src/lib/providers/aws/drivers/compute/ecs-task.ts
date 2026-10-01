@@ -48,7 +48,7 @@
 import type { CompileContext } from "@/lib/drivers/types";
 import type { ResourceNode } from "@/lib/resources/types";
 import type { ContainerServiceSpec, EnvEntry, IdentitySpec, ScheduledJobSpec } from "@/lib/resources/specs";
-import { addSecurityGroup, cloudName, nodeName, securityGroupLabel, subnetsOf, tfLabel } from "./support/aws-shared";
+import { addSecurityGroup, cloudName, nodeName, securityGroupLabel, subnetsOf, tfLabel } from "@/lib/providers/aws/drivers/shared";
 import { dependencies, requireOne } from "./support/refs";
 import { fargateSize, type FargateSize } from "./support/fargate";
 import { ecrCoordinates, parseImageRef } from "./support/image";

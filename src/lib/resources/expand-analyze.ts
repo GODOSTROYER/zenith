@@ -93,6 +93,17 @@ const PORT: Partial<Record<Binding["capability"], number>> = { sql: 5432, cache:
 
 const BLOB_ACCESS = ["delete", "list", "read", "write"];
 
+/** A referenced AWS API target needs an exact ARN before IAM can name it. */
+function canGrant(ctx: Ctx, from: SvcInfo, to: ResInfo): boolean {
+  if (from.place.provider !== "aws" || to.managed) return true;
+  const service = to.r.kind === "object_store" ? "s3" : "sqs";
+  const arn = to.r.externalRef;
+  if (to.place.provider === "aws" && arn !== undefined &&
+      /^arn:[a-z-]+:[a-z0-9-]+:[a-z0-9-]*:(?:\d{12})?:[A-Za-z0-9_+=,.@:/!-]+$/.test(arn) && arn.split(":")[2] === service) return true;
+  ctx.b.note("identity", `${from.address} → ${to.address}: no IAM grant derived because this ${to.r.ownership} target has no exact ${service} ARN; supply externalRef before Zenith can scope access. The binding remains a runtime dependency.`);
+  return false;
+}
+
 /**
  * Turn service→service and service→resource bindings into edges, ordering
  * dependencies, identity grants and firewall candidates. Route bindings are
@@ -100,8 +111,8 @@ const BLOB_ACCESS = ["delete", "list", "read", "write"];
  *
  * Least privilege: a grant names ONE target address and explicit verbs. Only
  * capabilities that reach a cloud API (blob, queues) or need generated
- * credentials (managed postgres) produce grants; network capabilities produce
- * firewall rules instead. `blob` is not split into read/write in V1, so it
+ * credentials (managed postgres) or IAM cache authentication produce grants;
+ * network capabilities also produce firewall rules. `blob` is not split into read/write in V1, so it
  * grants the four verbs the existing AWS export grants.
  */
 export function analyzeBindings(ctx: Ctx): FirewallCandidate[] {
@@ -154,10 +165,11 @@ export function analyzeBindings(ctx: Ctx): FirewallCandidate[] {
     if (toRes && to.managed) from.deps.add(to.address);
 
     // Identity grants: exact target, explicit verbs.
-    if (bd.capability === "blob") grant(from, to.address, BLOB_ACCESS, "binding:blob", to.managed);
-    else if (bd.capability === "queue_publish") grant(from, to.address, ["publish"], "binding:queue_publish", to.managed);
-    else if (bd.capability === "queue_consume") grant(from, to.address, ["consume"], "binding:queue_consume", to.managed);
+    if (bd.capability === "blob" && canGrant(ctx, from, toRes!)) grant(from, to.address, BLOB_ACCESS, "binding:blob", to.managed);
+    else if (bd.capability === "queue_publish" && canGrant(ctx, from, toRes!)) grant(from, to.address, ["publish"], "binding:queue_publish", to.managed);
+    else if (bd.capability === "queue_consume" && canGrant(ctx, from, toRes!)) grant(from, to.address, ["consume"], "binding:queue_consume", to.managed);
     else if (bd.capability === "sql" && to.managed) grant(from, to.address, ["read_credentials"], "binding:sql", true);
+    else if (bd.capability === "cache" && to.managed) grant(from, to.address, ["connect"], "binding:cache", true);
 
     // Firewall: only capabilities that travel over the network.
     if (bd.capability !== "sql" && bd.capability !== "cache" && bd.capability !== "http") continue;

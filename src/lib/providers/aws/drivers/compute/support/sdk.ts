@@ -1,7 +1,7 @@
 /**
  * Read-side helpers specific to the compute group (everything generic —
  * error classification, observed values, `boundNative`, pagination — comes
- * from the shared snapshot in `./aws-shared`).
+ * from `@/lib/providers/aws/drivers/shared`).
  *
  * Conventions the drivers follow (DRIVER-CONVENTIONS):
  *   - objects are found by `externalId`, else by the Zenith tags
@@ -12,7 +12,7 @@
  *     (`assertNodeTags`).
  */
 import { GetResourcesCommand, ResourceGroupsTaggingAPIClient } from "@aws-sdk/client-resource-groups-tagging-api";
-import { classifyAwsError, fromAwsTagList, matchesNodeTags, paginate, scopeTagValues, throwIfAborted, type AwsDriverContext, type AwsFailure, type AwsTag } from "./aws-shared";
+import { classifyAwsError, fromAwsTagList, matchesNodeTags, paginate, scopeTagValues, throwIfAborted, type AwsDriverContext, type AwsFailure, type AwsTag } from "@/lib/providers/aws/drivers/shared";
 import type { ResourceNode } from "@/lib/resources/types";
 
 export type AwsCtx = AwsDriverContext;

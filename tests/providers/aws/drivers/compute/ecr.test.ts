@@ -8,7 +8,7 @@ import { mockClient } from "aws-sdk-client-mock";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { TofuFragment } from "@/lib/drivers/types";
 import { ECR_KEEP_LAST, ecrRepositoryDriver as driver } from "@/lib/providers/aws/drivers/compute/ecr-repository";
-import { refLocalName } from "@/lib/providers/aws/drivers/compute/support/aws-shared";
+import { refLocalName } from "@/lib/providers/aws/drivers/shared";
 import { buildFixture, mkCompileContext, mkDriverContext, zenithTagList, zenithTagMap } from "./fixtures";
 import { ACCOUNT, REGISTRY_ARN } from "./ecs-mocks";
 

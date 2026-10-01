@@ -71,7 +71,7 @@ describe("hygiene", () => {
       const p = path.join(dir, f);
       return statSync(p).isDirectory() ? files(p) : p.endsWith(".ts") ? [p] : [];
     });
-  const own = files(root).filter((f) => !f.includes(`${path.sep}aws-shared${path.sep}`));
+  const own = files(root);
 
   it("never reads process.env, imports the app layer, or builds shell commands from data", () => {
     for (const f of own) {

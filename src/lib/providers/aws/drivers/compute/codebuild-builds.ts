@@ -33,7 +33,7 @@ import { BatchGetBuildsCommand, CodeBuildClient, StartBuildCommand, StopBuildCom
 import type { AwsSession } from "@/lib/credentials/types";
 import type { DriverContext } from "@/lib/drivers/types";
 import type { ResourceNode } from "@/lib/resources/types";
-import { hash6 } from "./support/aws-shared";
+import { hash6 } from "@/lib/providers/aws/drivers/shared";
 import { OperationRefused, assertNodeTags, lowerTagMap, sleep } from "./support/sdk";
 import { SOURCE_PREFIX, loadProject, sourceBucketOf } from "./codebuild-project";
 

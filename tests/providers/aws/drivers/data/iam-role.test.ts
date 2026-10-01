@@ -11,7 +11,7 @@ import { GetResourcesCommand, ResourceGroupsTaggingAPIClient } from "@aws-sdk/cl
 import { mockClient } from "aws-sdk-client-mock";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { GRANT_RULES, iamRoleDriver as driver } from "@/lib/providers/aws/drivers/data";
-import { DriverCompileError } from "@/lib/providers/aws/drivers/data/_shared";
+import { DriverCompileError } from "@/lib/providers/aws/drivers/shared";
 import { assertNoWildcards, compileGrantStatements, expectedGrantActions, type PolicyStatement } from "@/lib/providers/aws/drivers/data/iam-grants";
 import { normalizePolicyDocument, roleNameOf, summarizePolicies, trustPrincipalsOf } from "@/lib/providers/aws/drivers/data/iam-role";
 import type { IdentityGrant } from "@/lib/resources/specs";

@@ -3,7 +3,7 @@ import { GetResourcesCommand, ResourceGroupsTaggingAPIClient } from "@aws-sdk/cl
 import { mockClient } from "aws-sdk-client-mock";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { cloudwatchLogGroupDriver as driver } from "@/lib/providers/aws/drivers/data";
-import { DriverCompileError } from "@/lib/providers/aws/drivers/data/_shared";
+import { DriverCompileError } from "@/lib/providers/aws/drivers/shared";
 import { ALLOWED_RETENTION_DAYS, cleanLogGroupArn, logGroupNameOf, retentionDaysFor } from "@/lib/providers/aws/drivers/data/cloudwatch-log-group";
 import { driftOf } from "./_drift";
 import { awsError, compileCtx, driverCtx, mkNode, tagRecord } from "./_helpers";

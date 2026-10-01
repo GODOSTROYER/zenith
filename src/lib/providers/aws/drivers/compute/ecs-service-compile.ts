@@ -41,7 +41,7 @@
 import type { CompileContext, TofuFragment } from "@/lib/drivers/types";
 import type { ResourceNode } from "@/lib/resources/types";
 import type { ContainerServiceSpec, LoadBalancerSpec } from "@/lib/resources/specs";
-import { cloudName, nodeName, targetGroupAttribute, tfLabel } from "./support/aws-shared";
+import { cloudName, nodeName, targetGroupAttribute, tfLabel } from "@/lib/providers/aws/drivers/shared";
 import { compileNode, intField, specOf } from "./support/driver-util";
 import { dependencies } from "./support/refs";
 import { ComputeCompileError, Frag, attr, refOf, tagsFor } from "./support/tf";

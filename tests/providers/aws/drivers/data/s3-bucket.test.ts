@@ -14,7 +14,7 @@ import { mockClient } from "aws-sdk-client-mock";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { s3BucketDriver as driver } from "@/lib/providers/aws/drivers/data";
 import { bucketNameOf, NONCURRENT_EXPIRATION_DAYS } from "@/lib/providers/aws/drivers/data/s3-bucket";
-import { DriverCompileError } from "@/lib/providers/aws/drivers/data/_shared";
+import { DriverCompileError } from "@/lib/providers/aws/drivers/shared";
 import { driftOf } from "./_drift";
 import { awsError, bucketSpec, compileCtx, driverCtx, mkNode, tagList } from "./_helpers";
 

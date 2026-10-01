@@ -28,6 +28,7 @@
  */
 import type { CompileContext } from "@/lib/drivers/types";
 import type { PortableKind, ResourceNode } from "@/lib/resources/types";
+import { subnetsOf } from "@/lib/providers/aws/drivers/shared";
 import { ComputeCompileError } from "./tf";
 
 /** Neighbours a node depends on, resolved through the compile context, sorted by address. */
@@ -48,5 +49,5 @@ export function requireOne(ctx: CompileContext, node: ResourceNode, kind: Portab
 
 /** The private subnets of this node's network, in address order. */
 export function privateSubnets(ctx: CompileContext, node: ResourceNode): ResourceNode[] {
-  return dependencies(ctx, node, "subnet").filter((s) => (s.spec as { tier?: string }).tier === "private");
+  return subnetsOf(node, ctx, "private");
 }

@@ -27,7 +27,7 @@ import { DescribeLogGroupsCommand, CloudWatchLogsClient, ListTagsForResourceComm
 import type { CompileContext, DiscoveredResource, ResourceDriver, TofuFragment } from "@/lib/drivers/types";
 import type { AwsSession } from "@/lib/credentials/types";
 import type { Observation, ResourceNode } from "@/lib/resources/types";
-import { cloudName, DriverCompileError, FragmentBuilder, isArnOf, nodeName, paginate, parseArn, REF, resourceTags, tfLabel } from "./_shared";
+import { cloudName, DriverCompileError, FragmentBuilder, isArnOf, nodeName, paginate, parseArn, REF, resourceTags, tfLabel } from "@/lib/providers/aws/drivers/shared";
 import {
   classifyAwsError,
   attrCheck,
@@ -41,7 +41,6 @@ import {
   isManaged,
   matchesExpectedCheck,
   MAX_TAG_READS,
-  safeTags,
   scalars,
   tagMap,
   verificationOf,
@@ -74,7 +73,7 @@ export function compileLogGroup(node: ResourceNode, ctx: CompileContext): TofuFr
   b.resource("aws_cloudwatch_log_group", label, {
     name: logGroupNameFor(ctx, node.address),
     retention_in_days: retentionDaysFor(node),
-    tags: safeTags(resourceTags(ctx.tags, node.address)),
+    tags: resourceTags(ctx.tags, node.address),
   });
   b.expose(REF.arn, `aws_cloudwatch_log_group.${label}.arn`);
   b.expose(REF.id, `aws_cloudwatch_log_group.${label}.id`);

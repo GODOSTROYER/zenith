@@ -11,7 +11,7 @@
  *   aws_db_parameter_group   `rds.force_ssl=1` (PostgreSQL) /
  *                            `require_secure_transport=ON` (MySQL); family from
  *                            engine + major version
- *   aws_security_group       the node's own group (see `_shared/security-group`),
+ *   aws_security_group       the node's own group (see `shared/security-group`),
  *                            attached here; rules come from firewall nodes
  *   aws_db_instance          gp3 + storage autoscaling, encrypted (AWS-managed
  *                            KMS key), never public, IAM database auth on,
@@ -57,7 +57,7 @@ import {
   securityGroupExpr,
   subnetsOf,
   tfLabel,
-} from "./_shared";
+} from "@/lib/providers/aws/drivers/shared";
 import {
   BACKUPS,
   configInt,
@@ -65,7 +65,6 @@ import {
   EMPTY_FRAGMENT,
   escapeTemplate,
   isManaged,
-  safeTags,
   sizeOf,
   specBool,
   specEnum,
@@ -198,7 +197,7 @@ export function compileRdsInstance(node: ResourceNode, ctx: CompileContext): Tof
     );
   }
 
-  const tags = safeTags(resourceTags(ctx.tags, node.address, identifier));
+  const tags = resourceTags(ctx.tags, node.address, identifier);
   const b = new FragmentBuilder(node.address);
 
   // The primary resource goes first: `TofuFragment.addresses[0]` is what `ctx.ref` falls back to.

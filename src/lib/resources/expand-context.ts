@@ -14,7 +14,7 @@ import {
   type ManifestV2,
 } from "./manifest-v2";
 import { v1View } from "./upgrade";
-import { assertHost, assertName, cmp, GraphBuilder, ManifestExpansionError, placeKey, type Place } from "./expand-support";
+import { assertHost, assertName, cmp, GraphBuilder, ManifestExpansionError, placeKey, uniqSorted, type Place } from "./expand-support";
 import type { PortableKind, ProviderKey } from "./types";
 
 export interface ExpandEnv {
@@ -243,11 +243,44 @@ export function buildContext(manifest: AnyManifest, env: ExpandEnv): Ctx {
     });
   }
 
+  // RDS subnet groups require two AZs even for a single-AZ DB instance.
+  // ElastiCache failover also needs distinct AZs. This is a provider minimum,
+  // independent of the environment class or an explicit one-zone placement.
+  const awsData = [...ress.values()].filter((i) => {
+    if (!i.managed || i.place.provider !== "aws") return false;
+    if (i.r.kind === "postgres") return true;
+    return i.r.kind === "redis" && (tuningFor(v2, "aws").highAvailability ?? availabilityDemand !== undefined);
+  });
+  if (awsData.length > 0) {
+    const reason = `AWS RDS (Postgres/MySQL) subnet groups and highly available Redis require private subnets in at least 2 AZs (${awsData.map((i) => i.address).join(", ")})`;
+    if (zones < 2) {
+      zoneNote = `${zoneNote} ${explicitZones === undefined ? `${env.class} default` : `placement.zones=${explicitZones}`} raised to 2 because ${reason}.`;
+      zones = 2;
+    } else zoneNote += ` ${reason}.`;
+  }
+
   const nm = (id: string): string =>
     svcs.get(id)?.name ?? ress.get(id)?.name ?? routes.find((r) => r.id === id)?.host.toLowerCase() ?? id;
   const bindings = [...view.bindings].sort((x, y) =>
     cmp(`${nm(x.from)}\0${nm(x.to)}\0${x.capability}\0${x.id}`, `${nm(y.from)}\0${nm(y.to)}\0${y.capability}\0${y.id}`)
   );
+
+  // An AWS Application Load Balancer must span public subnets in at least 2
+  // AZs. Expansion derives one from any http route to a managed web service
+  // (see `emitRouting`), so the same condition raises the zone count here.
+  if (defaultPlace.provider === "aws") {
+    const routeIds = new Set(routes.map((r) => r.id));
+    const lbTargets = uniqSorted(bindings
+      .filter((bd) => routeIds.has(bd.from) && bd.capability === "http")
+      .flatMap((bd) => { const s = svcs.get(bd.to); return s && s.managed && s.s.kind === "web" ? [s.address] : []; }));
+    if (lbTargets.length > 0) {
+      const reason = `an AWS Application Load Balancer requires public subnets in at least 2 AZs (routes to ${lbTargets.join(", ")})`;
+      if (zones < 2) {
+        zoneNote = `${zoneNote} ${explicitZones === undefined ? `${env.class} default` : `placement.zones=${explicitZones}`} raised to 2 because ${reason}.`;
+        zones = 2;
+      } else zoneNote += ` ${reason}.`;
+    }
+  }
 
   const addrByKey = new Map<string, string>();
   for (const i of [...svcs.values(), ...ress.values()].filter((i) => !("modelled" in i) || i.modelled)) {

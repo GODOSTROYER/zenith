@@ -597,6 +597,30 @@ insert into platform.schema_migrations (version, name, checksum)
 values (4, 'approval_rounds', '1e5d84e018bd35c3638bbd23bab8e5b0e7d9b6c3173a430259480508aca6f311')
 on conflict (version) do nothing;
 
+-- ============================ migration 5: read_jobs ============================
+
+alter table platform.runner_jobs alter column operation_id drop not null;
+do $$
+begin
+  if not exists (select 1 from pg_constraint
+                  where conrelid = 'platform.runner_jobs'::regclass
+                    and conname = 'runner_jobs_read_capability') then
+    alter table platform.runner_jobs add constraint runner_jobs_read_capability
+      check (operation_id is not null or capability in ('infrastructure.observe', 'topology.read', 'logs.read', 'metrics.read', 'traces.read', 'events.read', 'incident.investigate', 'cost.estimate', 'firewall.inspect', 'infrastructure.plan', 'placement.solve', 'machine.inspect', 'process.list', 'service.status', 'container.list', 'container.inspect', 'container.logs', 'file.read', 'network.portCheck', 'network.dnsCheck', 'system.metrics', 'system.logs'));
+  end if;
+  if not exists (select 1 from pg_constraint
+                  where conrelid = 'platform.runner_jobs'::regclass
+                    and conname = 'runner_jobs_read_expiry') then
+    alter table platform.runner_jobs add constraint runner_jobs_read_expiry
+      check (operation_id is not null or expires_at <= created_at + interval '1 hour');
+  end if;
+end
+$$;
+
+insert into platform.schema_migrations (version, name, checksum)
+values (5, 'read_jobs', 'e8349e5ddf50a5396304850bd84bbffe81be1f4b0b7189677c1c1ad36ad4a387')
+on conflict (version) do nothing;
+
 -- ============================ hardening (Supabase roles) ============================
 
 do $$

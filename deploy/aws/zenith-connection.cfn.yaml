@@ -976,6 +976,14 @@ Resources:
               - s3:PutBucketCORS
               - s3:PutBucketOwnershipControls
             Resource: !Sub "arn:${AWS::Partition}:s3:::zenith-*"
+          # C3 uploads immutable ZIPs into the customer project's source bucket.
+          # HeadObject on duplicate upload uses GetObject; no list/delete grant.
+          - Sid: S3SourceBundleObjects
+            Effect: Allow
+            Action: [s3:PutObject, s3:GetObject, s3:GetObjectVersion]
+            Resource: !Sub "arn:${AWS::Partition}:s3:::zenith-*/zenith/${EnvironmentTagValue}/*"
+            Condition:
+              StringEquals: { "s3:ResourceAccount": !Ref "AWS::AccountId" }
           - Sid: SqsManageZenithQueues
             Effect: Allow
             Action: [sqs:CreateQueue, sqs:DeleteQueue, sqs:SetQueueAttributes, sqs:TagQueue, sqs:UntagQueue]

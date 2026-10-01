@@ -1,5 +1,7 @@
 /**
- * C3: bounded GitHub source archives, canonical tar.gz, and customer-bucket uploads.
+ * C3: bounded GitHub source archives and canonical customer-bucket uploads.
+ * AWS uses deterministic ZIP for CodeBuild's native S3 source; GCP and standalone
+ * reads keep tar.gz. Both preserve binary bytes, paths and executable intent.
  * Uses the product intake's codeload endpoint/header-only source access convention
  * (analysis/github.ts); its lossy analysis snapshot is deliberately not build input.
  * Files, binary assets and executable bits are preserved. Links/special entries and
@@ -7,14 +9,11 @@
  * Only identifiers leave prepare; sessions and optional GitHub tokens stay inside
  * callbacks. Anonymous GitHub access is the default; private access needs an injected,
  * workspace-scoped connector. HTTP/SDK tests are contract evidence, not live evidence.
- * AWS integration still needs deploy-role source-object permissions, alignment of
- * the source/-only build policy with C3's zenith/ key, and a tar.gz intake step:
- * CodeBuild's native S3 source accepts ZIP/folders, not this pinned archive format
- * (https://docs.aws.amazon.com/codebuild/latest/APIReference/API_ProjectSource.html).
- * Those adapters/policies belong to other workstreams; no live build is claimed.
+ * CodeBuild source consumption and bootstrap IAM are covered by contract tests;
+ * no live customer build is claimed.
  */
 import { createHash } from "node:crypto";
-import { gunzipSync, gzipSync } from "node:zlib";
+import { crc32, deflateRawSync, gunzipSync, gzipSync } from "node:zlib";
 import { GetBucketTaggingCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import type { AwsSession, GcpSession } from "@/lib/credentials/types";
 import { canonical, sha256Hex } from "@/lib/controlplane/digest";
@@ -246,6 +245,39 @@ function pack(entries: Entry[], limits: SourceBundleLimits, signal: AbortSignal)
   checkSignal(signal); return archive;
 }
 
+/** Classic ZIP: the hard ceilings fit its 16-bit entry count and 32-bit sizes.
+ * Fixed DOS epoch, UTF-8 names, Unix file types/modes, no host-specific extras.
+ * CodeBuild extracts it directly; no source or unpack command is executed here.
+ */
+function packZip(entries: Entry[], limits: SourceBundleLimits, signal: AbortSignal): Buffer {
+  const local: Buffer[] = []; const central: Buffer[] = [];
+  let offset = 0; let centralBytes = 0;
+  for (const entry of entries) {
+    checkSignal(signal);
+    const name = Buffer.from(entry.path + (entry.directory ? "/" : ""));
+    const data = entry.directory ? entry.data : deflateRawSync(entry.data, { level: 9 });
+    const method = entry.directory ? 0 : 8; const checksum = crc32(entry.data);
+    const head = Buffer.alloc(30);
+    head.writeUInt32LE(0x04034b50, 0); head.writeUInt16LE(20, 4);
+    head.writeUInt16LE(0x800, 6); head.writeUInt16LE(method, 8);
+    head.writeUInt16LE(0x21, 12); // 1980-01-01, 00:00:00
+    head.writeUInt32LE(checksum, 14); head.writeUInt32LE(data.length, 18);
+    head.writeUInt32LE(entry.data.length, 22); head.writeUInt16LE(name.length, 26);
+    const record = Buffer.alloc(46);
+    record.writeUInt32LE(0x02014b50, 0); record.writeUInt16LE(0x314, 4);
+    head.copy(record, 6, 4, 30);
+    record.writeUInt32LE(((entry.directory ? 0o040000 : 0o100000) | entry.mode) * 0x10000 + (entry.directory ? 0x10 : 0), 38);
+    record.writeUInt32LE(offset, 42);
+    offset += head.length + name.length + data.length; centralBytes += record.length + name.length;
+    if (offset + centralBytes + 22 > limits.maxArchiveBytes) refuse("Canonical source ZIP exceeds its compressed size bound.");
+    local.push(head, name, data); central.push(record, name);
+  }
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(entries.length, 8); end.writeUInt16LE(entries.length, 10);
+  end.writeUInt32LE(centralBytes, 12); end.writeUInt32LE(offset, 16);
+  checkSignal(signal); return Buffer.concat([...local, ...central, end], offset + centralBytes + end.length);
+}
+
 function managed(ctx: DriverContext, node: ResourceNode | StoredResource): void {
   if (node.provider !== ctx.provider || node.region !== ctx.region || node.ownership !== "managed") refuse("Source target is outside this managed provider and region.");
 }
@@ -287,7 +319,7 @@ async function awsBucket(ctx: DriverContext<AwsSession>, pipeline: ResourceNode)
 async function uploadAws(ctx: DriverContext<AwsSession>, bucket: string, key: string, bundle: SourceBundle): Promise<void> {
   const s3 = ctx.session.client(S3Client); const checksum = Buffer.from(bundle.sha256, "hex").toString("base64");
   try {
-    await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: bundle.archive, ContentType: "application/gzip", ContentLength: bundle.bytes, ChecksumSHA256: checksum, ExpectedBucketOwner: ctx.session.accountId, IfNoneMatch: "*" }), { abortSignal: ctx.signal });
+    await s3.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: bundle.archive, ContentType: "application/zip", ContentLength: bundle.bytes, ChecksumSHA256: checksum, ExpectedBucketOwner: ctx.session.accountId, IfNoneMatch: "*" }), { abortSignal: ctx.signal });
   } catch (err) {
     if ((err as { $metadata?: { httpStatusCode?: number } } | undefined)?.$metadata?.httpStatusCode !== 412) throw err;
     const existing = await s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key, ExpectedBucketOwner: ctx.session.accountId, ChecksumMode: "ENABLED" }), { abortSignal: ctx.signal });
@@ -321,12 +353,12 @@ export function createSourceBundles(deps: SourceBundleDeps = {}): {
   for (const key of Object.keys(SOURCE_BUNDLE_LIMITS) as (keyof SourceBundleLimits)[]) if (!Number.isSafeInteger(limits[key]) || limits[key] <= 0 || limits[key] > SOURCE_BUNDLE_LIMITS[key]) refuse("Source limits must be positive integers within the hard ceilings.");
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > 300_000) refuse("Source deadline must be 1–300000 milliseconds.");
   const boundedSignal = (signal?: AbortSignal) => AbortSignal.any([...(signal ? [signal] : []), AbortSignal.timeout(timeoutMs)]);
-  const acquire = async (source: BundleSource, signal: AbortSignal, scope: { workspaceId?: string; environmentId?: string } = {}): Promise<SourceBundle> => {
+  const acquire = async (source: BundleSource, signal: AbortSignal, scope: { workspaceId?: string; environmentId?: string } = {}, format: "tar.gz" | "zip" = "tar.gz"): Promise<SourceBundle> => {
     checkSignal(signal); const location = coordinates(source);
     const read = async (token?: string) => {
       const entries = unpack(await download(source, token, deps, limits, signal), limits, signal);
       if (source.dockerfile && !entries.some((e) => e.path === source.dockerfile && !e.directory)) refuse("The requested Dockerfile is absent from the source ref.");
-      const archive = pack(entries, limits, signal);
+      const archive = format === "zip" ? packZip(entries, limits, signal) : pack(entries, limits, signal);
       return { archive, sha256: sha256Hex(archive), bytes: archive.length };
     };
     try { return await abortable(deps.withGithubAccess ? deps.withGithubAccess({ ...location, ...scope }, read) : read(), signal); }
@@ -355,8 +387,9 @@ export function createSourceBundles(deps: SourceBundleDeps = {}): {
             if (metadata.name !== bucket) refuse("Source bucket identity does not match the pipeline.");
             assertLabels(gcp, pipeline, metadata);
           }
-          const bundle = await acquire(input.source, ctx.signal, { workspaceId: ctx.workspaceId, environmentId: ctx.environmentId });
-          const key = `zenith/${ctx.environmentId}/${input.service.address.split("/")[1]}/${bundle.sha256}.tar.gz`;
+          const format = ctx.provider === "aws" ? "zip" : "tar.gz";
+          const bundle = await acquire(input.source, ctx.signal, { workspaceId: ctx.workspaceId, environmentId: ctx.environmentId }, format);
+          const key = `zenith/${ctx.environmentId}/${input.service.address.split("/")[1]}/${bundle.sha256}.${format}`;
           checkSignal(ctx.signal);
           if (ctx.provider === "aws") await abortable(uploadAws(ctx as DriverContext<AwsSession>, bucket, key, bundle), ctx.signal);
           else await abortable(uploadGcp(ctx as DriverContext<GcpSession>, bucket, key, bundle, limits), ctx.signal);

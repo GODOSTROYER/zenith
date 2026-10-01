@@ -138,6 +138,21 @@
       "Resource": "arn:${partition}:s3:::zenith-*"
     },
     {
+      "Sid": "S3SourceBundleObjects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:GetObjectVersion"
+      ],
+      "Resource": "arn:${partition}:s3:::zenith-*/zenith/${environment_tag_value}/*",
+      "Condition": {
+        "StringEquals": {
+          "s3:ResourceAccount": "${account_id}"
+        }
+      }
+    },
+    {
       "Sid": "SqsManageZenithQueues",
       "Effect": "Allow",
       "Action": [

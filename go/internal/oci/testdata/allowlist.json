@@ -763,6 +763,30 @@
       "service": "mysql",
       "method": "GET",
       "pattern": "dbSystems/{}"
+    },
+    {
+      "service": "loggingsearch",
+      "method": "POST",
+      "pattern": "search"
+    },
+    {
+      "service": "monitoring",
+      "method": "POST",
+      "pattern": "metrics/actions/summarizeMetricsData"
+    }
+  ],
+  "logs.read": [
+    {
+      "service": "loggingsearch",
+      "method": "POST",
+      "pattern": "search"
+    }
+  ],
+  "metrics.read": [
+    {
+      "service": "monitoring",
+      "method": "POST",
+      "pattern": "metrics/actions/summarizeMetricsData"
     }
   ],
   "firewall.inspect": [

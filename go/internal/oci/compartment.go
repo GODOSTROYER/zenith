@@ -68,6 +68,9 @@ func BindCompartments(r Request, body []byte, allowed []string, bindings map[str
 				return ErrCompartment
 			}
 		}
+		if bindMonitoring(r, body, permitted, bindings) != nil {
+			return ErrCompartment
+		}
 	}
 	if r.Service == "loggingsearch" {
 		if bindLoggingSearch(r, body, permitted, bindings) != nil {

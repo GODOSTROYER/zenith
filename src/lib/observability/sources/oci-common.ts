@@ -1,8 +1,8 @@
 /**
  * OCI signal reads use broker-owned environment bindings, never a whole
  * compartment as a substitute. External responses remain bounded data.
- * Service/allowlist additions are owned by the OCI runner workstream;
- * absent entries fail closed. No OCI tenancy was exercised live.
+ * Requests use the production service/allowlist tables and fail closed for
+ * unsupported capabilities. No OCI tenancy was exercised live.
  */
 import type { OciSession as BrokerOciSession, OciResourceBinding } from "@/lib/credentials/types";
 import { capability, isCapability } from "@/lib/capabilities/catalog";

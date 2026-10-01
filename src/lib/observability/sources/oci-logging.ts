@@ -2,8 +2,8 @@
  * OCI Logging Search over a runner session. One environment-owned log group
  * per query; user text is a local substring filter, never Logging Query Language.
  * Pages, jobs, bytes and messages are capped. Partial coverage is labeled.
- * Cloud text is redacted data, never instructions. Contract tests are synthetic;
- * runner service and allowlist additions must land before live reads work.
+ * Cloud text is redacted data, never instructions. Contract tests use production
+ * runner tables with synthetic responses; no OCI tenancy was exercised live.
  * API shape: https://docs.oracle.com/en-us/iaas/tools/go/latest/loggingsearch/
  */
 import { randomUUID } from "node:crypto";

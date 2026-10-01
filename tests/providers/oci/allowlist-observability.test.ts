@@ -1,9 +1,10 @@
-/** Logging/metric queries are read-only POSTs, scoped solely to observe. No live OCI calls. */
+/** Fixed signal POSTs are restricted to their read capabilities. No live OCI calls. */
 import { describe, expect, it } from "vitest";
-import { isAllowed, OCI_ALLOWLIST } from "@/lib/providers/oci/allowlist";
+import { isAllowed, OCI_ALLOWLIST, OBSERVE_RULES } from "@/lib/providers/oci/allowlist";
 import { createRunnerOciTransport, type OciHttpJobPayload } from "@/lib/providers/oci/runner-transport";
 import { OCI_SERVICE_HOSTS, ociPath } from "@/lib/providers/oci/services";
 import type { OciApiRequest } from "@/lib/providers/oci/transport";
+import { CAPABILITIES } from "@/lib/capabilities/catalog";
 
 const reads = [
   { service: "loggingsearch", method: "POST", path: "/20190909/search" },
@@ -11,16 +12,31 @@ const reads = [
 ] as const;
 
 describe("OCI observability read allowlist", () => {
-  it.each(reads)("allows only the exact $service POST for observe", (request) => {
-    expect(isAllowed("infrastructure.observe", request)).toBe(true);
-    for (const capability of [...Object.keys(OCI_ALLOWLIST).filter((cap) => cap !== "infrastructure.observe"), "logs.read", "unknown"]) {
-      expect(isAllowed(capability, request), capability).toBe(false);
+  it.each(reads)("splits the exact $service POST by read capability", (request) => {
+    const permitted = ["infrastructure.observe", "incident.investigate", request.service === "loggingsearch" ? "logs.read" : "metrics.read"];
+    for (const capability of [...Object.keys(CAPABILITIES), "unknown"]) {
+      expect(isAllowed(capability, request), capability).toBe(permitted.includes(capability));
     }
-    for (const method of ["GET", "HEAD", "PUT"] as const) {
-      expect(isAllowed("infrastructure.observe", { ...request, method })).toBe(false);
+    for (const capability of permitted) {
+      for (const method of ["GET", "HEAD", "PUT"] as const) {
+        expect(isAllowed(capability, { ...request, method })).toBe(false);
+      }
+      for (const path of [request.path + "/extra", request.path + "/", request.path.replace(/\/\d{8}\//, "/20000101/"), request.path.replace(/\/\d{8}/, "")]) {
+        expect(isAllowed(capability, { ...request, path }), path).toBe(false);
+      }
     }
-    for (const path of [request.path + "/extra", request.path + "/", request.path.replace(/\/\d{8}\//, "/20000101/"), request.path.replace(/\/\d{8}/, "")]) {
-      expect(isAllowed("infrastructure.observe", { ...request, path }), path).toBe(false);
+  });
+  it("keeps narrow signal capabilities separate from metadata and mutations", () => {
+    expect(OCI_ALLOWLIST["logs.read"]).toEqual([{ service: "loggingsearch", method: "POST", pattern: "search" }]);
+    expect(OCI_ALLOWLIST["metrics.read"]).toEqual([{ service: "monitoring", method: "POST", pattern: "metrics/actions/summarizeMetricsData" }]);
+    expect(OCI_ALLOWLIST["incident.investigate"]).toEqual(OCI_ALLOWLIST["infrastructure.observe"]);
+    expect(OCI_ALLOWLIST["topology.read"]).toEqual(OBSERVE_RULES);
+    for (const rule of OBSERVE_RULES) {
+      const version = OCI_SERVICE_HOSTS[rule.service].version;
+      const request = { ...rule, path: `/${[version, rule.pattern.replaceAll("{}", "fixture")].filter(Boolean).join("/")}` };
+      expect(isAllowed("incident.investigate", request)).toBe(true);
+      expect(isAllowed("logs.read", request)).toBe(false);
+      expect(isAllowed("metrics.read", request)).toBe(false);
     }
   });
 
@@ -46,7 +62,7 @@ describe("OCI observability read allowlist", () => {
     const compartmentId = "ocid1.compartment.oc1..fixture";
     const body = request.service === "loggingsearch"
       ? { searchQuery: `search "${compartmentId}"`, timeStart: "2026-10-01T00:00:00Z", timeEnd: "2026-10-01T00:01:00Z" }
-      : { namespace: "oci_computeagent", query: "CpuUtilization[1m].mean()", startTime: "2026-10-01T00:00:00Z", endTime: "2026-10-01T00:01:00Z" };
+      : { namespace: "oci_computeagent", query: 'CpuUtilization[1m]{resourceId = "ocid1.instance.oc1.iad.fixture"}.mean()', resolution: "1m", startTime: "2026-10-01T00:00:00Z", endTime: "2026-10-01T00:01:00Z" };
     const jobs: OciHttpJobPayload[] = [];
     const transport = createRunnerOciTransport(async (payload) => {
       jobs.push(payload);

@@ -1,0 +1,71 @@
+/**
+ * The per-operation session of the Zenith-managed provider: the drivers'
+ * `Session` type.
+ *
+ * A managed session is NOT produced by the credential broker. The broker mints
+ * short-lived credentials for CUSTOMER clouds from a customer's connection;
+ * here the platform itself is the operator and holds its own cluster
+ * credential. What it shares with the broker path is the discipline: the
+ * credential is a reference (`ZENITH_MANAGED_KUBECONFIG_REF`), resolved in
+ * memory by the Kubernetes provider's `createKubernetesSession`, scoped to one
+ * operation, and never serialized. `ZenithSession` carries no secret of its
+ * own: it holds the (opaque, expiring) Kubernetes session, the tenant, the
+ * non-secret substrate and the managed-database port.
+ *
+ * Every session is pinned to ONE tenant, and its Kubernetes connection allows
+ * exactly that tenant's namespace (`substrateConnectionConfig`). Drivers call
+ * `assertSessionMatches` so a session opened for one environment can never be
+ * used to observe or operate another.
+ *
+ * Honest note for the orchestrator: `credentials/types.ts` has no `zenith`
+ * connection config and the broker refuses unknown providers. Managed sessions
+ * are opened by the platform worker with this function; whether a
+ * `ZenithConnectionConfig` should exist so the broker can audit them is a
+ * contract question (see docs/platform/MANAGED-PLATFORM.md, "Integration").
+ */
+import type { KubernetesConnectionConfig, KubernetesSession } from "@/lib/credentials/types";
+import type { ManagedDatabaseProvider } from "./database";
+import { assertTenant, substrateConnectionConfig, type ZenithSubstrate } from "./substrate";
+import { tenantNamespace } from "./tenancy";
+import { ZenithError, type ZenithTenant } from "./types";
+
+export interface ZenithSession {
+  readonly provider: "zenith";
+  readonly tenant: ZenithTenant;
+  readonly substrate: ZenithSubstrate;
+  /** scoped to the tenant namespace; expires */
+  readonly kubernetes: KubernetesSession;
+  readonly databases: ManagedDatabaseProvider;
+  readonly expiresAt: string;
+  toJSON(): Record<string, unknown>;
+}
+
+export interface ZenithSessionDeps {
+  substrate: ZenithSubstrate;
+  /** the Kubernetes provider's `createKubernetesSession` with its resolver bound (`vault:` reference → credential) */
+  createKubernetesSession(config: KubernetesConnectionConfig, signal?: AbortSignal): Promise<KubernetesSession>;
+  databases: ManagedDatabaseProvider;
+}
+
+/** Open a session for one tenant. The credential is resolved inside `createKubernetesSession`, never here. */
+export async function openZenithSession(tenantInput: ZenithTenant, deps: ZenithSessionDeps, signal?: AbortSignal): Promise<ZenithSession> {
+  const tenant = assertTenant(tenantInput);
+  const config = substrateConnectionConfig(deps.substrate, tenantNamespace(tenant.workspaceId, tenant.environmentId));
+  const kubernetes = await deps.createKubernetesSession(config, signal);
+  return {
+    provider: "zenith",
+    tenant: { ...tenant },
+    substrate: deps.substrate,
+    kubernetes,
+    databases: deps.databases,
+    expiresAt: kubernetes.expiresAt,
+    toJSON: () => ({ provider: "zenith", workspaceId: tenant.workspaceId, environmentId: tenant.environmentId, expiresAt: kubernetes.expiresAt }),
+  };
+}
+
+/** Refuse to act when the session belongs to a different workspace or environment than the call. */
+export function assertSessionMatches(session: ZenithSession, ctx: { workspaceId: string; environmentId: string }): void {
+  if (session.tenant.workspaceId !== ctx.workspaceId || session.tenant.environmentId !== ctx.environmentId) {
+    throw new ZenithError("tenant_mismatch", "The Zenith-managed session was opened for a different workspace or environment than this operation; refusing to act across tenants.");
+  }
+}

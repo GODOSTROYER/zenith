@@ -7,7 +7,7 @@ Zenith, what it does not, and how to take it back. **The commands and the
 parameter tables are in [`deploy/aws/README.md`](../../../deploy/aws/README.md);
 this page does not repeat them.**
 
-Written against branch `ws/docs`, merged with `platform/integration` at `e5c1518` (2026-10-01).
+Written against branch `ws/docs`, merged with `platform/integration` at `1f46549` (2026-10-01).
 
 **Status, stated up front.** The bootstrap template and module, the broker and the
 issuer are built and tested without an AWS account. **Nothing has been applied to

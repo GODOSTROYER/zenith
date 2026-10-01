@@ -5,7 +5,7 @@ an operation when something crashes, how leases and fence tokens behave, and how
 to rotate keys and migrate the schema. For where each component runs, see
 [DEPLOYING.md](DEPLOYING.md).
 
-Written against branch `ws/docs`, merged with `platform/integration` at `e5c1518` (2026-10-01).
+Written against branch `ws/docs`, merged with `platform/integration` at `1f46549` (2026-10-01).
 
 **Read this first.** The recovery machinery in the store (leases, fence tokens,
 `uncertain`, the reconciler) is built and was exercised against a real PostgreSQL

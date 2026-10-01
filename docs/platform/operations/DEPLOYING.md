@@ -4,7 +4,7 @@ How the pieces of the platform control plane fit together, what each one needs
 in its environment, and how to run them. This is for whoever operates a Zenith
 install; the design is in [ARCHITECTURE.md](../ARCHITECTURE.md) and the ADRs.
 
-Written against branch `ws/docs`, merged with `platform/integration` at `e5c1518` (2026-10-01). Everything
+Written against branch `ws/docs`, merged with `platform/integration` at `1f46549` (2026-10-01). Everything
 here is checked against the code on that branch; anything that is not verified
 live says so, and the last section collects them.
 

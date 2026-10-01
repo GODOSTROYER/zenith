@@ -7,7 +7,7 @@ have merged. The modules still being built are listed below and **deliberately n
 documented**: a page written before the code exists is a promise, and this
 documentation does not make promises.
 
-Written against branch `ws/docs`, merged with `platform/integration` at `e5c1518` (2026-10-01).
+Written against branch `ws/docs`, merged with `platform/integration` at `1f46549` (2026-10-01).
 
 ## Read this first: what is real
 

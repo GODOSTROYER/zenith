@@ -37,6 +37,13 @@ export interface EngineOptions {
 export interface PlanWorkspaceOptions extends EngineOptions {
   /** keep the binary plan file here as `<planDigest>.tfplan` (mode 0600) */
   planDir?: string;
+  /**
+   * Take OpenTofu's state lock (default true). Pass false for a plan made with
+   * observe-purpose (read-only) credentials, which cannot write the lock
+   * object; the caller must hold the environment's Zenith lease. See
+   * `TofuRun.plan`.
+   */
+  lock?: boolean;
 }
 
 export interface PlanWorkspaceResult {
@@ -63,7 +70,7 @@ export async function planWorkspace(ws: TofuWorkspace, session?: TofuSessionEnv,
   const runner = opts.runner ?? defaultRunner();
   const result = await runner.run(ws, { session, signal: opts.signal, limits: opts.limits }, async (run) => {
     await run.init();
-    await run.plan();
+    await run.plan({ lock: opts.lock });
     const plan = await run.normalizedPlan(opts.normalize);
     const planFile = await run.readPlanFile();
     return { plan, planFile };

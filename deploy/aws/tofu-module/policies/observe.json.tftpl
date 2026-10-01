@@ -1,0 +1,133 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DescribeAndList",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:Describe*",
+        "ecs:Describe*",
+        "ecs:List*",
+        "ecr:Describe*",
+        "ecr:List*",
+        "ecr:GetLifecyclePolicy",
+        "ecr:GetRepositoryPolicy",
+        "elasticloadbalancing:Describe*",
+        "rds:Describe*",
+        "rds:ListTagsForResource",
+        "elasticache:Describe*",
+        "elasticache:ListTagsForResource",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl",
+        "sqs:ListQueues",
+        "sqs:ListQueueTags",
+        "route53:Get*",
+        "route53:List*",
+        "acm:Describe*",
+        "acm:List*",
+        "cloudwatch:Describe*",
+        "cloudwatch:Get*",
+        "cloudwatch:List*",
+        "logs:Describe*",
+        "logs:ListTagsForResource",
+        "ssm:Describe*",
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:ListSecrets",
+        "codebuild:BatchGet*",
+        "codebuild:List*",
+        "lambda:GetFunctionConfiguration",
+        "lambda:ListFunctions",
+        "lambda:ListTags",
+        "lambda:ListVersionsByFunction",
+        "lambda:ListAliases",
+        "lambda:GetAlias",
+        "events:Describe*",
+        "events:List*",
+        "autoscaling:Describe*",
+        "application-autoscaling:Describe*",
+        "tag:GetResources",
+        "s3:ListAllMyBuckets"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ReadZenithLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:FilterLogEvents",
+        "logs:GetLogEvents",
+        "logs:StartQuery"
+      ],
+      "Resource": [
+        "arn:${partition}:logs:*:${account_id}:log-group:/zenith/*",
+        "arn:${partition}:logs:*:${account_id}:log-group:/aws/*/zenith-*"
+      ]
+    },
+    {
+      "Sid": "ReadLogQueryResults",
+      "Effect": "Allow",
+      "Action": [
+        "logs:GetQueryResults",
+        "logs:StopQuery",
+        "logs:DescribeQueries"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ReadZenithBuckets",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetBucket*",
+        "s3:ListBucket",
+        "s3:GetEncryptionConfiguration",
+        "s3:GetLifecycleConfiguration",
+        "s3:GetAccelerateConfiguration",
+        "s3:GetReplicationConfiguration"
+      ],
+      "Resource": "arn:${partition}:s3:::zenith-*"
+    },
+    {
+      "Sid": "ReadZenithIam",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetRole",
+        "iam:GetRolePolicy",
+        "iam:ListRolePolicies",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListRoleTags",
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:ListPolicyVersions"
+      ],
+      "Resource": [
+        "arn:${partition}:iam::${account_id}:role/zenith-*",
+        "arn:${partition}:iam::${account_id}:policy/zenith-*"
+      ]
+    },
+    {
+      "Sid": "ReadTofuState",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:GetObjectVersion",
+        "s3:ListBucket",
+        "s3:ListBucketVersions"
+      ],
+      "Resource": [
+        "${state_bucket_arn}",
+        "${state_bucket_arn}/*"
+      ]
+    },
+    {
+      "Sid": "NeverReadSecretValues",
+      "Effect": "Deny",
+      "Action": [
+        "secretsmanager:GetSecretValue",
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:GetParametersByPath"
+      ],
+      "Resource": "*"
+    }
+  ]
+}

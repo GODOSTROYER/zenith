@@ -1,0 +1,50 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "StateObjects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:GetObjectVersion",
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "${state_bucket_arn}/*"
+    },
+    {
+      "Sid": "StateBucketRead",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket",
+        "s3:ListBucketVersions",
+        "s3:GetBucketLocation",
+        "s3:GetBucketVersioning"
+      ],
+      "Resource": "${state_bucket_arn}"
+    },
+    {
+      "Sid": "DenyStateBucketAdministration",
+      "Effect": "Deny",
+      "Action": [
+        "s3:DeleteBucket",
+        "s3:PutBucketPolicy",
+        "s3:DeleteBucketPolicy",
+        "s3:PutBucketVersioning",
+        "s3:PutEncryptionConfiguration",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:PutLifecycleConfiguration",
+        "s3:PutBucketOwnershipControls",
+        "s3:PutBucketAcl",
+        "s3:PutBucketTagging"
+      ],
+      "Resource": "${state_bucket_arn}"
+    },
+    {
+      "Sid": "DenyStateHistoryDeletion",
+      "Effect": "Deny",
+      "Action": "s3:DeleteObjectVersion",
+      "Resource": "${state_bucket_arn}/*"
+    }
+  ]
+}

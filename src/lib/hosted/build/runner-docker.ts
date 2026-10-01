@@ -13,6 +13,11 @@
  * `spawn` is injectable so the exact argument vector — the part that carries
  * the isolation — is asserted by a test without a daemon.
  *
+ * The container is named after its job (`zenith-build-<jobId>`), because killing
+ * the `docker run` process does not stop the container: the CLI is only a
+ * client, and the daemon carries on. A timeout or a cancel therefore follows the
+ * CLI kill with `docker kill <name>` and `docker rm -f <name>`.
+ *
  * Honest limitation: the image has not been built and no container has been run
  * from this repository. The argv, the mount modes and the availability probe are
  * tested; the runtime behaviour is **unverified live**.
@@ -76,6 +81,17 @@ export function resolveRecipeImage(raw: string | undefined = process.env[RECIPE_
   };
 }
 
+/**
+ * The container's name: deterministic per job, so the runner can find it again
+ * to kill it, and safe to hand to docker whatever the job id holds. Docker names
+ * are `[a-zA-Z0-9][a-zA-Z0-9_.-]*`; anything else in the id becomes `-`, and the
+ * fixed prefix guarantees a legal first character. Only ever an argv element,
+ * never part of a shell string.
+ */
+export function buildContainerName(jobId: string): string {
+  return `zenith-build-${String(jobId).replace(/[^A-Za-z0-9_.-]/g, "-").slice(0, 100)}`;
+}
+
 /** Paths inside the container. Fixed, so the image entrypoint needs no arguments. */
 export const CONTAINER_SOURCE = "/src";
 export const CONTAINER_OUT = "/out";
@@ -90,10 +106,13 @@ export type SpawnFn = (command: string, args: readonly string[], options: SpawnO
  * `--network none` and the build can reach the internet, drop `:ro` and it can
  * rewrite the source it was given.
  */
-export function dockerRunArgs(input: { memoryMb: number; root: string; out: string; image: string }): string[] {
+export function dockerRunArgs(input: { memoryMb: number; root: string; out: string; image: string; name: string }): string[] {
   return [
     "run",
     "--rm",
+    // Named so a timeout or cancel can kill the container itself, not just the CLI.
+    "--name",
+    input.name,
     "--network",
     "none",
     "--memory",
@@ -119,7 +138,19 @@ export interface DockerOptions {
   image?: string;
   /** the `docker` executable, for a host that installs it under another name */
   docker?: string;
+  /** how long `docker kill` / `docker rm -f` may take after a timeout or cancel (default 10 s) */
+  reapTimeoutMs?: number;
 }
+
+/** How long each of the two reaping commands may take. Well under any job's own budget. */
+const REAP_TIMEOUT_MS = 10_000;
+
+/**
+ * The answers that mean "nothing left to do", not "something went wrong": the
+ * container already finished (`--rm` took it), was never created, is already
+ * stopped, or is already being removed.
+ */
+const ALREADY_GONE = /no such container|is not running|already in progress/i;
 
 interface Capture {
   code: number | null;
@@ -131,7 +162,8 @@ interface Capture {
 
 /**
  * Run one docker command to completion, killing it on the timeout or on the
- * caller's abort signal. `--rm` means a killed container takes itself away.
+ * caller's abort signal. That kills the *client*: for `docker run` the container
+ * is the daemon's and outlives it, which is what `DockerRunner.reap` is for.
  */
 function capture(
   spawnFn: SpawnFn,
@@ -193,11 +225,43 @@ export class DockerRunner implements BuildRunner {
   /** what the constructor was given, if anything; `undefined` means read the env */
   private readonly imageOverride: string | undefined;
   private readonly docker: string;
+  private readonly reapTimeoutMs: number;
 
   constructor(options: DockerOptions = {}) {
     this.spawnFn = options.spawn ?? (nodeSpawn as SpawnFn);
     this.imageOverride = options.image;
     this.docker = options.docker ?? "docker";
+    this.reapTimeoutMs = options.reapTimeoutMs ?? REAP_TIMEOUT_MS;
+  }
+
+  /**
+   * Stop and remove the job's container after a timeout or a cancel.
+   *
+   * Killing the `docker run` process only ends the client; the container keeps
+   * running under the daemon. So: `docker kill <name>`, then `docker rm -f
+   * <name>` (which also covers a container `--rm` did not get to remove). Both
+   * are always attempted, each bounded, each an argv with no shell. "No such
+   * container" is the ordinary answer and says nothing; anything else is
+   * written to the build log with the command to finish the job by hand, and
+   * never changes the outcome the caller reports.
+   */
+  private async reap(name: string, note: (stream: BuildLogLine["stream"], text: string) => void): Promise<void> {
+    const problems: string[] = [];
+    for (const args of [["kill", name], ["rm", "-f", name]]) {
+      const answer = await capture(this.spawnFn, this.docker, args, this.reapTimeoutMs);
+      const command = `${this.docker} ${args.join(" ")}`;
+      if (answer.stopped === "timeout") problems.push(`${command} did not answer within ${this.reapTimeoutMs} ms`);
+      else if (answer.error) problems.push(`${command} could not run: ${answer.error.message}`);
+      else if (answer.code !== 0 && !ALREADY_GONE.test(answer.stderr)) {
+        const reason = answer.stderr.trim().split("\n")[0].trim() || `exit code ${answer.code ?? "unknown"}`;
+        problems.push(`${command} failed: ${reason}`);
+      }
+    }
+    if (problems.length)
+      note(
+        "stderr",
+        `The container ${name} may still be running (${problems.join("; ")}). Remove it with: ${this.docker} rm -f ${name}`
+      );
   }
 
   /** Resolved per call, not per construction: the env may be set after boot. */
@@ -270,9 +334,14 @@ export class DockerRunner implements BuildRunner {
         })
       );
 
-      const args = dockerRunArgs({ memoryMb: req.limits.memoryMb, root, out: mount, image: pinned.image });
+      const name = buildContainerName(req.jobId);
+      const args = dockerRunArgs({ memoryMb: req.limits.memoryMb, root, out: mount, image: pinned.image, name });
       note("info", `${this.docker} ${args.join(" ")}`);
       const result = await capture(this.spawnFn, this.docker, args, req.limits.timeoutMs, { onLine: note, signal });
+
+      // `capture` has killed the CLI; the container is the daemon's and is still
+      // running unless it is told to stop.
+      if (result.stopped) await this.reap(name, note);
 
       if (result.stopped === "cancelled")
         return done({ ok: false, error: "The build was cancelled; the container was killed." });

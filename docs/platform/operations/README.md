@@ -85,7 +85,8 @@ branch behaves the way a guide could describe, so there is no guide:
 - application-level registration of the drivers (nothing calls any `register<Provider>Drivers`)
 - repair: the reconcile workflow and the controller observe, diff and *propose*;
   nothing executes a repair, and the controller's production ports are not wired
-- the REST connections route (the rest of `/api/platform/v1` has merged) and MCP v3
+- the REST connections route (the rest of `/api/platform/v1` has merged; MCP v3 has merged, see [MCP.md](../MCP.md))
+- real activities in the worker: product deploys (`src/lib/bridge`) and MCP v3 start workflows, and the worker still registers stubs
 - the platform screens and pages (the presentational components have merged;
   nothing renders them)
 - the real worker activities

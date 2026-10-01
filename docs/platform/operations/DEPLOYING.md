@@ -29,7 +29,7 @@ doing work yet.
 | `zenith-runner` and `zenithd` (Go, `go/`, Helm chart, Dockerfiles) | Built by another workstream, with their own operator guides: [RUNNER.md](../RUNNER.md) and [ZENITHD.md](../ZENITHD.md). The control-plane side is the row above, with the gaps listed there. I did not run or verify the agents. |
 | Machine plane (`src/lib/machines`) | Merged and tested: `executeMachineOperation` and a transport table (AWS SSM with fixed documents, Kubernetes exec, `zenithd` through an injected dispatcher, and an all-simulated one for sandbox environments). Azure Run Command and GCP OS management are declared in the contract but have **no driver**, and a target using them is refused. Called by nothing outside the module. The AWS SSM documents it needs are in `deploy/aws/ssm-documents/`; the shipped bootstrap template grants no `ssm:SendCommand` ([AWS-SETUP.md](AWS-SETUP.md)). |
 | Resource drivers for AWS (network, compute and data groups), GCP, Azure, OCI, Kubernetes and the Zenith-managed provider (`src/lib/providers/*/drivers`) | Merged and tested with mocked SDKs and fake HTTP (plus `tofu validate` against the real provider schema where `ZENITH_TEST_TOFU_NETWORK=1`). The [capability matrix](../CAPABILITY-MATRIX.md) lists every driver and every operation, **all `contract`**. **None is registered by the application**: GCP, Azure, OCI, Kubernetes and the managed provider have a provider-level `register<Provider>Drivers` that nothing calls, and AWS has group modules and no provider-level index at all, so `getDriver()` finds no driver at runtime. The managed provider's own guide says nobody operates a hosted cluster ([MANAGED-PLATFORM.md](../MANAGED-PLATFORM.md)); its configuration is section 2.13. |
-| MCP v3, starting a workflow from an approved operation and wiring the real activities into the worker, the REST connections route, application-level registration of the drivers, and the platform screens and pages | **In progress or unwired. Not documented here beyond what the rows above say.** When they land they get their own sections. |
+| Wiring the real activities into the worker, the REST connections route, application-level registration of the drivers, and the platform screens and pages | **In progress or unwired. Not documented here beyond what the rows above say.** When they land they get their own sections. MCP v3 (`/api/agent/v3/mcp`, see [MCP.md](../MCP.md)) and the product deploy bridge (`src/lib/bridge`) have merged and start workflows for approved operations, but the worker still registers stub activities, so a started workflow fails at its first activity until the composition root lands. |
 
 The honest summary: today you can stand up the store, the OIDC issuer, the
 broker with its REST surface, and the worker; you can propose, approve and cancel an
@@ -535,8 +535,9 @@ What happens when a worker dies mid-operation is in
 ## 7. The web / API control plane
 
 - The Next app serves `/api/oidc/*` and `/api/platform/v1/*` (the broker and the
-  agent routes; section 1 and the status table list them). MCP v3 and the pages for
-  connections and approvals are in progress and not described here.
+  agent routes; section 1 and the status table list them) and `/api/agent/v3/mcp`
+  (MCP v3, [MCP.md](../MCP.md)). The pages for connections and approvals are in
+  progress and not described here.
 - **Authentication has a gap you must close before the agent routes can work.**
   Browser routes (approve, reject, autonomy, workspace policy) need a signed-in
   session, which the middleware handles. The integration bearer calls and every

@@ -376,7 +376,7 @@ describe("the 'in progress' claims still hold", () => {
     expect(hits).toEqual([]);
   });
 
-  it("the broker, REST, the runner plane and the machine plane have merged; MCP v3 and the connections route have not", () => {
+  it("the broker, REST, the runner plane, the machine plane and MCP v3 have merged; the connections route has not", () => {
     expect(exists("src/lib/capabilities/broker.ts")).toBe(true);
     expect(exists("src/lib/runners/service.ts")).toBe(true);
     for (const route of ["capabilities/propose", "operations/[id]/approve", "environments/[id]/autonomy", "workspace/policy", "runners/register", "machines/register"]) {
@@ -387,7 +387,8 @@ describe("the 'in progress' claims still hold", () => {
     // nothing outside the machine plane calls it
     expect(callers(/executeMachineOperation|createMachineDrivers/, ["src/app", "src/components", "workers", "src/lib/workflows", "src/lib/capabilities", "src/lib/runners", "src/lib/execution", "src/lib/reconcile"])).toEqual([]);
     expect(exists("src/app/api/platform/v1/connections")).toBe(false);
-    expect(exists("src/app/api/agent/v3")).toBe(false);
+    expect(exists("src/app/api/agent/v3/mcp/route.ts")).toBe(true);
+    expect(exists("docs/platform/MCP.md")).toBe(true);
   });
 
   it("the broker is joined to the store and the policy engine, and to nothing that executes", () => {

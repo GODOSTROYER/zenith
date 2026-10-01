@@ -454,8 +454,8 @@
       "id": "WS-MCP",
       "title": "MCP v3 semantic tools, CLI, SDK, connectors",
       "wave": 3,
-      "owner": "worker",
-      "state": "in_progress",
+      "owner": "sonnet → codex gpt-6.1-sol xhigh",
+      "state": "integrated",
       "deps": [
         "WS-CAP"
       ],
@@ -464,7 +464,10 @@
         "packages/cli/**"
       ],
       "branch": "ws/mcp",
-      "notes": "handed to Codex gpt-6.1-sol xhigh (Sonnet session limit; user switched all agents to Codex)"
+      "notes": "handed to Codex gpt-6.1-sol xhigh (Sonnet session limit; user switched all agents to Codex)",
+      "commit": "6541dd4",
+      "tests": "agent-v3/agent-access/capabilities/docs/security 889 passed / 4 skipped on integration",
+      "review": "orchestrator: merged; exact middleware bypass; execute starts only approved ops via beginExecution; docs claims updated (MCP v3 merged, workflows start, worker still stubs)"
     },
     {
       "id": "WS-UI",
@@ -634,8 +637,8 @@
       "id": "WS-BRIDGE",
       "title": "Bridge existing deploy/connection actions and engine to the control plane (workflow-executed deployments)",
       "wave": 3,
-      "owner": "worker",
-      "state": "in_progress",
+      "owner": "sonnet → codex gpt-6.1-sol xhigh",
+      "state": "integrated",
       "deps": [
         "WS-CAP",
         "WS-WF",
@@ -648,7 +651,10 @@
         "src/lib/actions/defs/{deploy,promote,connection,connection-aws}.ts",
         "src/lib/engine/engine.ts"
       ],
-      "notes": "handed to Codex gpt-6.1-sol xhigh (Sonnet session limit; user switched all agents to Codex)"
+      "notes": "handed to Codex gpt-6.1-sol xhigh (Sonnet session limit; user switched all agents to Codex)",
+      "commit": "2e5fc4f",
+      "tests": "bridge/engine/actions/capabilities/docs 865 passed on integration",
+      "review": "orchestrator: merged; preApproved confirmed informational (workflow re-evaluates policy on the concrete plan); agent-refused createAws/verifyAws"
     },
     {
       "id": "WS-AWS-INTEGRATE",

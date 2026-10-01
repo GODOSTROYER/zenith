@@ -5,8 +5,8 @@
  * a second fragment claiming that queue policy is rejected by the assembler,
  * rather than having AWS silently replace another topic's delivery grant.
  *
- * The SNS SDK is not installed. Observe uses the tagging index ONLY: encryption
- * and subscriptions remain unknown, and an empty/eventually-consistent index
+ * Observe resolves tenant tags before reading SNS encryption, policy counts,
+ * and confirmed bound SQS subscriptions. An empty/eventually-consistent index
  * is unknown, never proof of deletion. No native health/discovery is claimed.
  * All evidence is contract; nothing here has been exercised in a live account.
  */
@@ -16,10 +16,12 @@ import type { CompileContext, ResourceDriver, TofuFragment } from "@/lib/drivers
 import type { ResourceNode } from "@/lib/resources/types";
 import {
   DriverCompileError, FragmentBuilder, cloudName, matchesNodeTags, nodeName,
-  parseArn, refExpr, resourceTags, standardVerification, tfLabel,
+  parseArn, partitionOfRegion, refExpr, resourceTags, standardVerification, tfLabel,
 } from "@/lib/providers/aws/drivers/shared";
-import { Attributes, expectedFor, findByTags, guardObserve } from "@/lib/providers/aws/drivers/data/support";
+import { expectedFor, findByTags, guardObserve } from "@/lib/providers/aws/drivers/data/support";
 import { assertAwsNode, KMS_KEY_ARN, neighbour, readSpec, SNS_TOPIC_ARN } from "./support";
+import { readSnsTopic, safeMetadataRead, SNS_ATTRIBUTES } from "./sns-observe";
+export { SNS_ATTRIBUTES } from "./sns-observe";
 
 const SOURCE = "aws.sns_topic@1";
 export const SNS_TOPIC_SCHEMA = z.object({
@@ -83,11 +85,15 @@ export function compileSnsTopic(node: ResourceNode, ctx: CompileContext): TofuFr
   return b.build();
 }
 
-export const SNS_ATTRIBUTES = ["encrypted", "kmsKeyArn", "subscriptions"] as const;
+/** Portable queue dependencies identify their type by address; native edges need explicit bindings. */
+function subscriptionAddresses(node: ResourceNode): string[] {
+  const spec = readSpec(node, SNS_TOPIC_SCHEMA);
+  return [...new Set([...spec.subscriptions, ...node.dependsOn.filter((address) => address.startsWith("queue/"))])].sort();
+}
 export function expectedSnsAttributes(node: ResourceNode): Record<string, unknown> {
   return expectedFor(node, () => {
     const spec = readSpec(node, SNS_TOPIC_SCHEMA);
-    return { encrypted: true, ...(spec.kmsKeyArn ? { kmsKeyArn: spec.kmsKeyArn } : {}) };
+    return { encrypted: true, ...(spec.kmsKeyArn ? { kmsKeyArn: spec.kmsKeyArn } : {}), subscriptions: subscriptionAddresses(node) };
   });
 }
 
@@ -100,21 +106,29 @@ export const snsTopicDriver: ResourceDriver<AwsSession> = {
   compile: compileSnsTopic,
   expectedAttributes: expectedSnsAttributes,
   async observe(ctx, node, externalId) {
-    return guardObserve(ctx, node, SOURCE, SNS_ATTRIBUTES, undefined, async () => {
+    return guardObserve(ctx, node, SOURCE, SNS_ATTRIBUTES, undefined, () => safeMetadataRead(ctx, async () => {
+      if (ctx.provider !== "aws" || node.provider !== "aws" || node.region !== ctx.region) {
+        return { kind: "ambiguous", detail: "the SNS node must be in this AWS provider region" };
+      }
       const hint = externalId ?? node.externalRef;
-      if (hint !== undefined && (!SNS_TOPIC_ARN.test(hint) || parseArn(hint)?.region !== ctx.region || parseArn(hint)?.accountId !== ctx.session.accountId)) {
+      if (hint !== undefined && (!SNS_TOPIC_ARN.test(hint) || parseArn(hint)?.region !== ctx.region || parseArn(hint)?.accountId !== ctx.session.accountId || parseArn(hint)?.partition !== partitionOfRegion(ctx.region))) {
         return { kind: "ambiguous", detail: "the SNS identifier must be an exact topic ARN in this session's account and region" };
       }
       const { matches, truncated } = await findByTags(ctx, node, "sns:topic");
       const scoped = [...new Map(matches.filter((m) => SNS_TOPIC_ARN.test(m.arn) && matchesNodeTags(m.tags, ctx, node.address)
-        && parseArn(m.arn)?.region === ctx.region && parseArn(m.arn)?.accountId === ctx.session.accountId).map((m) => [m.arn, m])).values()];
+        && parseArn(m.arn)?.region === ctx.region && parseArn(m.arn)?.accountId === ctx.session.accountId
+        && parseArn(m.arn)?.partition === partitionOfRegion(ctx.region)).map((m) => [m.arn, m])).values()];
       if (truncated || scoped.length !== 1 || (hint !== undefined && scoped[0].arn !== hint)) {
         return { kind: "ambiguous", detail: "the eventually-consistent tagging index did not resolve exactly one scoped SNS topic" };
       }
-      const a = new Attributes(ctx);
-      for (const name of SNS_ATTRIBUTES) a.unknown(name, "not_supported", "the SNS SDK is not installed; the tagging API does not read topic configuration");
-      return { kind: "present", externalId: scoped[0].arn, attributes: a.finish(SNS_ATTRIBUTES), native: { tags: scoped[0].tags, lookup: "tagging_index" } };
-    });
+      const read = await readSnsTopic(ctx, node, scoped[0].arn, subscriptionAddresses(node));
+      // Arbitrary tag values can contain secrets. Preserve only verified scope
+      // fields and the closed managed flag, rather than copying provider tags.
+      const tags = Object.fromEntries(Object.entries(scoped[0].tags).filter(([key, value]) =>
+        ["zenith:workspace", "zenith:environment", "zenith:resource"].includes(key)
+        || (key === "zenith:managed" && (value === "true" || value === "false"))));
+      return { kind: "present", externalId: scoped[0].arn, attributes: read.attributes, native: { ...read.native, tags, lookup: "tagging_index+sns" } };
+    }));
   },
   async verify(ctx, node, observation) {
     return standardVerification(ctx, node, observation, { encrypted: true, ...expectedSnsAttributes(node) }, "the SNS topic");

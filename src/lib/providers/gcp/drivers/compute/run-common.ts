@@ -68,17 +68,6 @@ export function parseMemoryMb(s: string | undefined): number | undefined {
   return Math.round(n * factor[unit]);
 }
 
-/* ------------------------------- artifact ---------------------------------- */
-
-export function imageOf(artifact: unknown, where: string): string {
-  const a = artifact as { type?: string; ref?: string } | undefined;
-  if (a?.type === "image" && typeof a.ref === "string" && a.ref !== "") return lit(a.ref);
-  throw new GcpCompileError(
-    "unresolved_artifact",
-    `${where}: artifact of type "${String(a?.type)}" has no image reference yet. A built or blueprint artifact must be resolved to { type: "image", ref } (an Artifact Registry digest) after the build and before compile (ADR-0016).`
-  );
-}
-
 /* ----------------------------- environment --------------------------------- */
 
 const RESERVED_ENV = /^(PORT|K_SERVICE|K_REVISION|K_CONFIGURATION|CLOUD_RUN_JOB|CLOUD_RUN_EXECUTION|CLOUD_RUN_TASK_INDEX|CLOUD_RUN_TASK_ATTEMPT|CLOUD_RUN_TASK_COUNT)$/;

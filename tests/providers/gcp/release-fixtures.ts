@@ -5,6 +5,7 @@ import type { GcpSession } from "@/lib/credentials/types";
 import type { ResourceNode } from "@/lib/resources/types";
 import { cloudName, gcpLabels, tagDescription } from "@/lib/providers/gcp/naming";
 import { sha256Hex } from "@/lib/controlplane/digest";
+import { IMAGE_DIGEST_ANNOTATION } from "@/lib/providers/gcp/drivers/compute/run-image";
 
 export const PROJECT = "acme-prod-123456", REGION = "asia-south1", WS = "ws-1", ENV = "env-1";
 export const DIGEST = `sha256:${"a".repeat(64)}`;
@@ -44,6 +45,7 @@ export function world() {
     before: undefined as ((url: URL, init?: RequestInit) => Response | undefined | Promise<Response | undefined>) | undefined,
   };
   state.service.traffic = [{ type: "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST", percent: 100 }];
+  (state.service.template as Record<string, unknown>).annotations = { [IMAGE_DIGEST_ANNOTATION]: DIGEST };
   state.service.trafficStatuses = [{ revision: revisionName, percent: 100 }];
   const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
   const fetcher = vi.fn(async (raw: string, init?: RequestInit) => {

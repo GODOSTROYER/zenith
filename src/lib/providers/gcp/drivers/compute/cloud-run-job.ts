@@ -7,6 +7,9 @@
  *                                    env, Direct VPC egress (see run-common.ts),
  *                                    runtime service account, max_retries 1,
  *                                    600 s task timeout, deletion_protection off
+ *                                    built artifacts bootstrap by digest; release
+ *                                    owns the image and digest annotation, which
+ *                                    OpenTofu retains on subsequent applies
  *   google_service_account (runtime) only when the node has no identity node
  *   when `schedule` is set:
  *     google_service_account         dedicated scheduler identity
@@ -32,7 +35,8 @@ import { RUN, cloudRunJobName, contractCapabilities, managedOnly, specOf } from 
 import { dataFragment, expr, lastSegment, safeRegion } from "../../hcl";
 import { arr, makeReaders, num, rec, str, tail, type ReadSpec } from "../../read-kit";
 import { gcpList } from "../../rest";
-import { cpuString, directVpcEgress, envBlocks, imageOf, parseCpu, parseMemoryMb, runCpu, runMemoryMb, runtimeIdentity } from "./run-common";
+import { cpuString, directVpcEgress, envBlocks, parseCpu, parseMemoryMb, runCpu, runMemoryMb, runtimeIdentity } from "./run-common";
+import { imageOf, ignoredImageChanges } from "./run-image";
 
 export const DRIVER_ID = "gcp.cloud_run_job@1";
 const SCHEDULER = "https://cloudscheduler.googleapis.com/v1";
@@ -79,7 +83,7 @@ function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
   const vpc = directVpcEgress(node, ctx);
   const container: Record<string, unknown> = {
     name: "job",
-    image: imageOf(s.artifact, node.address),
+    image: imageOf(node, ctx),
     resources: [{ limits: { cpu: cpuString(cpu), memory: `${memoryMb}Mi` } }],
   };
   const env = envBlocks(s.env, node, ctx);
@@ -102,6 +106,7 @@ function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
         labels: nodeLabels(ctx.tags, node),
         deletion_protection: false,
         template: [{ template: [task] }],
+        ...(ignoredImageChanges(node).length ? { lifecycle: { ignore_changes: ignoredImageChanges(node) } } : {}),
       },
     },
   };

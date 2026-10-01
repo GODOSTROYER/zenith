@@ -70,6 +70,8 @@ describe("the mapping table", () => {
         "connection.createAws",
         "connection.disconnect",
         "connection.verifyAws",
+        // Integrated placement writes require a human; agents remain refused.
+        "placement.apply",
         "project.delete",
         "workspace.setAutonomy",
       ].sort()

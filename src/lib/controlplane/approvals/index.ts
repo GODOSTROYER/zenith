@@ -8,6 +8,7 @@
 import type { Sql } from "@/lib/controlplane/types";
 import { record, listForOperation, consume, type RecordApprovalInput, type RecordApprovalResult } from "@/lib/controlplane/db/repos/approvals";
 import { emitForOperation } from "@/lib/controlplane/events";
+import { approvalRoundOf } from "@/lib/controlplane/db/repos/operation-review";
 
 export { record, listForOperation, consume };
 export type { RecordApprovalInput, RecordApprovalResult };
@@ -30,6 +31,8 @@ export async function decide(db: Sql, input: RecordApprovalInput): Promise<Recor
           approvals: result.approvals,
           proposalDigest: input.proposalDigest,
           policyVersion: input.policyVersion,
+          approvalRound: approvalRoundOf(result.operation),
+          ...(input.planDigest ? { planDigest: input.planDigest } : {}),
           ...(input.reason ? { reason: input.reason.slice(0, 500) } : {}),
         },
       });

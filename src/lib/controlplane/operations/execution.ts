@@ -11,6 +11,7 @@ import { transition } from "@/lib/controlplane/db/repos/operations";
 import { revokeForOperation } from "@/lib/controlplane/db/repos/grants";
 import { get as getPolicyDecision } from "@/lib/controlplane/db/repos/policy-decisions";
 import { emitForOperation } from "@/lib/controlplane/events";
+import { approvalRoundOf } from "@/lib/controlplane/db/repos/operation-review";
 
 export type ExecutionWriteInput = execution.ExecutionWriteInput;
 type Input = ExecutionWriteInput & { actor?: Principal };
@@ -20,7 +21,7 @@ export async function suspendForApproval(db: Sql, input: Input): Promise<Operati
     const op = await execution.suspendForApproval(tx, input);
     if (!op) return null;
     await revokeForOperation(tx, input.workspaceId, input.id);
-    await emitForOperation(tx, op, "operation.prepared", { actor: input.actor, data: { kind: "approval_gate", status: op.status, planDigest: op.planDigest, policyDecisionId: op.policyDecisionId, message: "Execution suspended for a fresh human approval." } });
+    await emitForOperation(tx, op, "operation.prepared", { actor: input.actor, data: { kind: "approval_gate", status: op.status, approvalRound: approvalRoundOf(op), planDigest: op.planDigest, policyDecisionId: op.policyDecisionId, message: "Execution suspended for a fresh human approval." } });
     return op;
   });
 }

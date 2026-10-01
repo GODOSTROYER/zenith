@@ -10,6 +10,7 @@
 import { z } from "zod";
 import { notFound } from "@/lib/capabilities/errors";
 import { platformBroker } from "@/lib/capabilities/platform";
+import { deliverPlanApproval } from "@/lib/bridge/lifecycle";
 import { assertBrowserSession } from "../../../_lib/browser";
 import { parseWith, platformRoute, readJson } from "../../../_lib/http";
 
@@ -23,14 +24,14 @@ export const POST = platformRoute<{ id: string }>(async (req, { id }) => {
   const caller = await assertBrowserSession(req);
   const body = parseWith(Body, await readJson(req));
   if (!ID.test(id)) throw notFound();
-  return {
-    body: await (await platformBroker()).reject({
+  const outcome = await (await platformBroker()).reject({
       workspaceId: caller.workspaceId,
       operationId: id,
       proposalDigest: body.proposalDigest,
       approver: caller.principal,
       session: caller.session,
       reason: body.reason,
-    }),
-  };
+    });
+  const signal = await deliverPlanApproval(outcome.operation);
+  return { body: { ...outcome, ...(signal ? { signal } : {}) } };
 });

@@ -2,8 +2,8 @@
  * Worker adapter over the capability broker's SAME evaluation/signing pipeline.
  * Read grants may only attenuate to plan/observe. Mutation grants require a
  * running operation, current authorization, live fence and digest-bound human
- * approvals. An approval of a revision without its concrete plan cannot approve
- * a subsequently discovered plan: propose that plan again. Proposals are immutable.
+ * approvals. Proposal approvals authorize planning; only a later approval round
+ * can authorize its concrete, write-once plan. Proposals remain immutable.
  */
 import { randomUUID } from "node:crypto";
 import { platformBroker, type Broker } from "@/lib/capabilities/platform";
@@ -11,18 +11,13 @@ import { capability, isCapability } from "@/lib/capabilities/catalog";
 import { evaluate } from "@/lib/capabilities/evaluate";
 import { requestFromOperation } from "@/lib/capabilities/reevaluate";
 import { ROLE_RANK } from "@/lib/capabilities/ports";
-import type { BrokerProposal } from "@/lib/capabilities/types";
 import { repos } from "@/lib/controlplane/db";
-import { digest } from "@/lib/controlplane/digest";
+import { approvalRoundOf, operationPlanReview } from "@/lib/controlplane/db/repos/operation-review";
 import type { ApprovalRequirement, CapabilityGrantClaims, OperationRecord, Sql } from "@/lib/controlplane/types";
 import { createOperationsPort, workerStoreScope, StepFailedError, type BrokerPort, type PlanPolicyInput } from "@/lib/execution";
 import { readPlanEvidence } from "@/lib/execution/plan-evidence";
 
 type BrokerFactory = () => Promise<Broker>;
-const structural = (facts: object | undefined): string => {
-  const { costDeltaUsdMonthly: _delta, projectedMonthlyUsd: _cost, ...rest } = (facts ?? {}) as Record<string, unknown>;
-  return digest(rest);
-};
 
 export function createExecutionBroker(db: Sql, getBroker: BrokerFactory = platformBroker): BrokerPort {
   const ops = createOperationsPort(db);
@@ -33,9 +28,9 @@ export function createExecutionBroker(db: Sql, getBroker: BrokerFactory = platfo
   };
   const latestFacts = async (op: OperationRecord): Promise<PlanPolicyInput | undefined> => {
     if (!op.planDigest) return undefined;
-    const evidence = await repos.evidence.list(db, op.workspaceId, { operationId: op.id, limit: 200 });
-    const row = evidence.find((e) => e.kind === "tofu_plan" && e.digest === op.planDigest);
-    const parsed = row ? readPlanEvidence(row.summary) : undefined;
+    const reviewed = await repos.operations.get(db, op.workspaceId, op.id);
+    const review = reviewed ? operationPlanReview(reviewed) : undefined;
+    const parsed = review ? readPlanEvidence({ ...review }) : undefined;
     if (!parsed) throw new StepFailedError("The operation's plan has no authoritative evidence.");
     return { ...parsed.facts, ...(parsed.cost.deltaUsdMonthly !== undefined ? { costDeltaUsdMonthly: parsed.cost.deltaUsdMonthly } : {}), ...(parsed.cost.projectedMonthlyUsd !== undefined ? { projectedMonthlyUsd: parsed.cost.projectedMonthlyUsd } : {}) };
   };
@@ -46,9 +41,12 @@ export function createExecutionBroker(db: Sql, getBroker: BrokerFactory = platfo
   const approvals = async (broker: Broker, op: OperationRecord, requirement?: ApprovalRequirement) => {
     const all = await broker.deps.store.listApprovals(op.workspaceId, op.id);
     const time = broker.deps.clock.now().getTime();
-    const live = all.filter((a) => a.proposalDigest === op.proposalDigest && Date.parse(a.expiresAt) > time);
+    const round = approvalRoundOf(op);
+    const live = all.filter((a) => approvalRoundOf(a) === round && a.proposalDigest === op.proposalDigest && Date.parse(a.expiresAt) > time);
     const rejected = live.some((a) => a.decision === "reject") || ["rejected", "cancelled", "denied"].includes(op.status);
     if (!requirement) return { approved: !rejected, rejected };
+    // Round zero cannot authorize the subsequently gated concrete plan.
+    if (op.planDigest && round === 0) return { approved: false, rejected };
     const users = new Set<string>();
     let approvalId: string | undefined;
     for (const a of live) {
@@ -61,21 +59,12 @@ export function createExecutionBroker(db: Sql, getBroker: BrokerFactory = platfo
     }
     return { approved: !rejected && users.size >= requirement.count, rejected, approvalId };
   };
-  const approvalCoversPlan = (op: OperationRecord, facts?: PlanPolicyInput): boolean => {
-    if (!facts) return true;
-    const proposal = op.proposal as BrokerProposal;
-    return proposal.planDigest === op.planDigest && structural(proposal.broker?.plan) === structural(facts);
-  };
-
   return {
     reevaluate: (id, facts) => workerStoreScope(async () => {
       const op = await load(id);
       const broker = await getBroker();
       const evaluation = await decisionFor(broker, op, facts);
-      let decision = evaluation.decision;
-      if (decision.outcome === "require_approval" && !approvalCoversPlan(op, facts)) {
-        decision = { outcome: "deny", reasons: [{ code: "reapproval_required", message: "The concrete plan was not part of this proposal. Propose the reviewed plan again for human approval." }] };
-      }
+      const decision = evaluation.decision;
       const recorded = await broker.deps.store.recordPolicyDecision({ workspaceId: op.workspaceId, operationId: op.id, policyVersion: evaluation.evaluated.policyVersion, inputDigest: evaluation.evaluated.inputDigest, ...decision });
       return { outcome: decision.outcome, decisionId: recorded.id, reasons: decision.reasons.map((r) => r.code) };
     }),
@@ -84,7 +73,8 @@ export function createExecutionBroker(db: Sql, getBroker: BrokerFactory = platfo
       const broker = await getBroker();
       const facts = await latestFacts(op);
       const { decision } = await decisionFor(broker, op, facts);
-      if (decision.outcome === "deny" || !approvalCoversPlan(op, facts)) return { approved: false, rejected: true };
+      if (decision.outcome === "deny") return { approved: false, rejected: true };
+      if (decision.outcome === "require_approval" && !decision.approval) throw new StepFailedError("Current policy did not specify an approval requirement.");
       return approvals(broker, op, decision.approval);
     }),
     issueGrant: (id, audience, fence, opts) => workerStoreScope(async () => {
@@ -98,7 +88,7 @@ export function createExecutionBroker(db: Sql, getBroker: BrokerFactory = platfo
       const { decision } = await decisionFor(broker, op, facts, cap);
       if (decision.outcome === "deny") throw new StepFailedError("Current policy denies this activity grant.");
       if (decision.outcome === "require_approval") {
-        if (!decision.approval || !approvalCoversPlan(op, facts) || !(await approvals(broker, op, decision.approval)).approved) throw new StepFailedError("Current policy requires human approval of this exact proposal and plan.");
+        if (!decision.approval || !(await approvals(broker, op, decision.approval)).approved) throw new StepFailedError("Current policy requires human approval of this exact proposal and plan in the current round.");
       }
       if (capability(cap).mutates && !fence) throw new StepFailedError("Mutating activity grants require an environment fence.");
       if (fence) {

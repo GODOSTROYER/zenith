@@ -41,12 +41,15 @@ export interface ApprovalDecisionInput {
   operationId: string;
   /** the digest the viewer reviewed; the control plane refuses the decision if it moved */
   proposalDigest: string;
+  planDigest?: string;
   reason?: string;
 }
 
 export interface ApprovalCardProps extends AsyncSurfaceProps {
   /** Optional host gate when the reviewed artifact is unavailable; rejection remains possible. */
   approveDisabledReason?: string;
+  /** Cost of the gated plan; null means the estimate is unknown. */
+  planCostDeltaUsd?: number | null;
   operation: OperationRecord;
   /** the policy decision for this operation; without it nobody can be offered a decision */
   decision?: PolicyDecisionRecord;
@@ -98,6 +101,7 @@ export function ApprovalCard({
   error,
   onRetry,
   approveDisabledReason,
+  planCostDeltaUsd,
 }: ApprovalCardProps) {
   const nowMs = useNow(now);
   const ids = useId();
@@ -113,7 +117,9 @@ export function ApprovalCard({
   const boundPlanDigest = operation.planDigest ?? proposal.planDigest;
   const planMismatch = Boolean(plan && boundPlanDigest && plan.planDigest !== boundPlanDigest);
 
-  const base = approvalEligibility(viewer, operation, decision, approvals, nowMs);
+  const roundOf = (record: object) => (record as { approvalRound?: number }).approvalRound ?? 0;
+  const currentApprovals = approvals.filter((a) => roundOf(a) === roundOf(operation));
+  const base = approvalEligibility(viewer, operation, decision, currentApprovals, nowMs);
   const eligibility: ApprovalEligibility =
     base.eligible && planMismatch
       ? {
@@ -129,19 +135,23 @@ export function ApprovalCard({
       : undefined
     : eligibility.message;
 
-  const progress = approvalProgress(operation, decision, approvals, nowMs);
+  const progress = approvalProgress(operation, decision, currentApprovals, nowMs);
+  const costDelta = planCostDeltaUsd === undefined ? proposal.costDeltaUsd : planCostDeltaUsd ?? undefined;
+  const missingPlan = boundPlanDigest && !plan ? "The bound plan is unavailable for review. You can still reject this proposal." : undefined;
+  const approveBlocked = approveDisabledReason ?? missingPlan;
   const expiresMs = parseTime(operation.expiresAt);
   const remaining = expiresMs === undefined ? undefined : expiresMs - nowMs;
   const dataLoss = plan ? plan.resources.filter((r) => r.destroysData) : [];
 
   const submit = async (kind: "approve" | "reject") => {
-    if (blocked || inflight.current || (kind === "approve" && approveDisabledReason)) return;
+    if (blocked || inflight.current || (kind === "approve" && approveBlocked)) return;
     inflight.current = true;
     setPending(kind);
     setLocalError(undefined);
     const input: ApprovalDecisionInput = {
       operationId: operation.id,
       proposalDigest: operation.proposalDigest,
+      ...(kind === "approve" && plan ? { planDigest: plan.planDigest } : {}),
       ...(reason.trim() ? { reason: reason.trim() } : {}),
     };
     try {
@@ -193,14 +203,14 @@ export function ApprovalCard({
               {shownError}
             </Callout>
           )}
-          {approveDisabledReason && <p id={`${ids}-approve-blocked`} className="text-[12.5px] text-ink-mute">{approveDisabledReason}</p>}
+          {approveBlocked && <p id={`${ids}-approve-blocked`} className="text-[12.5px] text-ink-mute">{approveBlocked}</p>}
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="primary"
-              disabled={Boolean(blocked || approveDisabledReason) || pending !== null}
+              disabled={Boolean(blocked || approveBlocked) || pending !== null}
               busy={pending === "approve"}
-              disabledReason={blocked ?? approveDisabledReason}
-              aria-describedby={blocked ? reasonId : approveDisabledReason ? `${ids}-approve-blocked` : undefined}
+              disabledReason={blocked ?? approveBlocked}
+              aria-describedby={blocked ? reasonId : approveBlocked ? `${ids}-approve-blocked` : undefined}
               aria-label={`Approve ${title}`}
               onClick={() => void submit("approve")}
             >
@@ -240,11 +250,11 @@ export function ApprovalCard({
           <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
             <Fact label="Requested by">{requestedBy(operation.principal)}</Fact>
             <Fact label="Cost change (estimate)">
-              {proposal.costDeltaUsd === undefined ? (
+              {costDelta === undefined ? (
                 <span className="text-ink-mute">Not estimated for this proposal</span>
               ) : (
                 <span className="inline-flex flex-wrap items-baseline gap-x-2">
-                  <CostDelta usd={proposal.costDeltaUsd} />
+                  <CostDelta usd={costDelta} />
                   <span className="text-[12px] text-ink-faint">estimate from catalog prices, not an invoice</span>
                 </span>
               )}
@@ -274,6 +284,7 @@ export function ApprovalCard({
           {plan && (
             <section aria-label="Plan summary" className="space-y-2">
               <h4 className="text-[13px] font-medium text-ink-mute">Plan summary</h4>
+              <DigestValue digest={plan.planDigest} what="reviewed plan digest" />
               {plan.empty ? (
                 <p className="text-[13px] text-ink-mute">This plan contains no changes.</p>
               ) : (

@@ -748,7 +748,7 @@
       "title": "Execution compile resolves cross-node refs the way drivers publish them (AWS locals, OCI primary address)",
       "wave": 3,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-ACT",
         "WS-AWS-INTEGRATE"
@@ -759,7 +759,9 @@
         "tests/execution/compile-refs*"
       ],
       "branch": "ws/ref",
-      "notes": "orchestrator review: execution ctx.ref returned ${primary.attr}; AWS refs like target_group_arn:<t> only exist as locals and fail the ATTRIBUTE regex — blocks any real AWS deploy with a load balancer"
+      "notes": "orchestrator review: execution ctx.ref returned ${primary.attr}; AWS refs like target_group_arn:<t> only exist as locals and fail the ATTRIBUTE regex — blocks any real AWS deploy with a load balancer",
+      "tests": "real tofu outside sandbox: compile-refs-providers 18/18 (AWS/OCI/GCP expanded graphs through the execution path validate); execution+providers sweep 5877 passed",
+      "review": "orchestrator: resumed 3x with approvals (two-phase refs, GCP read_credentials, shared GCP network-of)"
     },
     {
       "id": "WS-APPWIRE",
@@ -778,10 +780,12 @@
       "title": "provider:auto — placement recommendation via REST, action, MCP tool and page",
       "wave": 5,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "branch": "ws/place-wire",
       "deps": [],
-      "paths": []
+      "paths": [],
+      "tests": "placement/agent-v3/actions 701 passed; merge fixes for APPWIRE route() shape and bearer path table",
+      "review": "orchestrator: placement.apply left for people; V2 save pending WS-MANIFEST-V2"
     },
     {
       "id": "WS-CLI",
@@ -898,6 +902,26 @@
       "deps": [],
       "paths": [],
       "branch": "ws/manifest-v2"
+    },
+    {
+      "id": "WS-DRIVER-FIX",
+      "title": "Driver declaration mismatches; EventBridge/CloudFront reads",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/driver-fix"
+    },
+    {
+      "id": "WS-DOCS-SYNC",
+      "title": "Operator docs and drift tests match what is wired",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/docs-sync"
     }
   ],
   "blockers": [

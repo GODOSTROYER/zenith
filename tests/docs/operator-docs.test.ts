@@ -384,8 +384,8 @@ describe("the 'in progress' claims still hold", () => {
     }
     expect(exists("src/lib/machines/service.ts")).toBe(true);
     expect(exists("src/lib/machines/transports/aws-ssm.ts")).toBe(true);
-    // nothing outside the machine plane calls it
-    expect(callers(/executeMachineOperation|createMachineDrivers/, ["src/app", "src/components", "workers", "src/lib/workflows", "src/lib/capabilities", "src/lib/runners", "src/lib/execution", "src/lib/reconcile"])).toEqual([]);
+    // only the execution activities call it (machine capabilities run inside a workflow, with a grant)
+    expect(callers(/executeMachineOperation|createMachineDrivers/, ["src/app", "src/components", "workers", "src/lib/workflows", "src/lib/capabilities", "src/lib/runners", "src/lib/execution", "src/lib/reconcile"])).toEqual(["src/lib/execution/capability.ts"]);
     expect(exists("src/app/api/platform/v1/connections")).toBe(false);
     expect(exists("src/app/api/agent/v3/mcp/route.ts")).toBe(true);
     expect(exists("docs/platform/MCP.md")).toBe(true);

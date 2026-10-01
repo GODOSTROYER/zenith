@@ -175,7 +175,7 @@ This matrix covers the **resource-driver** path (`src/lib/drivers`). The product
 | `k8s:PersistentVolumeClaim` | `volume` | `zenith.persistentvolumeclaim@1` | registrable | — | `contract` | `contract` | `contract` | — | — |
 | `k8s:Secret` | `secret` | `zenith.secret@1` | registrable | — | `contract` | — | `contract` | — | — |
 | `k8s:ServiceAccount` | `identity` | `zenith.serviceaccount@1` | registrable | — | `contract` | — | `contract` | — | — |
-| `k8s:StatefulSet` | `postgres` | `zenith.managed_postgres@1` | registrable | — | `contract` | `contract` | `contract` | — | — |
+| `zenith:managed_postgres` | `postgres` | `zenith.managed_postgres@1` | registrable | — | `contract` | `contract` | `contract` | — | — |
 | `zenith:object_store` | `object_store` | `zenith.object_store@1` | registrable | — | `contract` | — | `contract` | — | — |
 
 ## Observability sources

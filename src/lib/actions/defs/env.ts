@@ -7,6 +7,7 @@
  */
 import { z } from "zod";
 import { defineAction, type ActionContext } from "@/lib/actions/core";
+import { v1View } from "@/lib/resources/upgrade";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { db, q, save } from "@/lib/db/store";
 import {
@@ -160,7 +161,7 @@ export function envPlanDetails(project: Project, env: Environment, conn: CloudCo
     env.policies.budgetUsdMonthly
       ? `Budget ${fmtUsd(env.policies.budgetUsdMonthly)}/month; plans that exceed it are flagged before you deploy.`
       : "No budget set. Set one with env.setBudget to get warned before a plan gets expensive.",
-    `Creating an environment costs nothing on its own — the current system would cost ${fmtUsd(monthlyCostUsd(project.workingManifest))}/month once deployed (estimate).`,
+    `Creating an environment costs nothing on its own — the current system would cost ${fmtUsd(monthlyCostUsd(v1View(project.workingManifest)))}/month once deployed (estimate).`,
   ];
 }
 
@@ -298,7 +299,7 @@ defineAction<SetBudget>({
   plan(ctx, input) {
     const env = requireEnvironment(ctx, input.environmentId);
     const project = requireProject(ctx, env.projectId);
-    const { details, warnings } = budgetDetails(env, monthlyCostUsd(project.workingManifest), input.budgetUsdMonthly);
+    const { details, warnings } = budgetDetails(env, monthlyCostUsd(v1View(project.workingManifest)), input.budgetUsdMonthly);
     return {
       summary: input.budgetUsdMonthly === null ? `Remove the budget on "${env.name}".` : `Set a ${fmtUsd(input.budgetUsdMonthly)}/month budget on "${env.name}".`,
       details,

@@ -17,6 +17,7 @@
  */
 import { computeDrift, type DriftResponse } from "@/lib/drift";
 import { inWorkspace, q } from "@/lib/db/store";
+import { v1View } from "@/lib/resources/upgrade";
 import { ensureEngine } from "@/lib/engine/engine";
 import { providerRegistry, type LiveState } from "@/lib/providers/types";
 import { ApiError, notFound, requireWorkspace, route } from "@/lib/server/context";
@@ -72,9 +73,10 @@ export const GET = route<{ id: string }>(async (_req, { id }) => {
       { fix: "Deploy the environment again to re-establish a known-good revision." }
     );
 
+  const manifest = v1View(revision.manifest);
   let live: LiveState;
   try {
-    live = await adapter.observe(env, revision.manifest);
+    live = await adapter.observe(env, manifest);
   } catch (err) {
     // A provider that refuses on principle (AWS Preview reads no account) is
     // not the same failure as one that was asked and could not answer
@@ -89,7 +91,7 @@ export const GET = route<{ id: string }>(async (_req, { id }) => {
   return {
     simulated: live.simulated,
     observedAt: live.observedAt,
-    items: computeDrift(revision.manifest, live),
+    items: computeDrift(manifest, live),
     provider,
     /** what the comparison was made against, so the UI never has to guess */
     revision: { id: revision.id, number: revision.number },

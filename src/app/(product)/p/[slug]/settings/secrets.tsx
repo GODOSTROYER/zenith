@@ -17,7 +17,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { KeyRound } from "lucide-react";
 import type { Role } from "@/lib/actions/core";
-import type { Manifest } from "@/lib/domain/types";
+import type { AnyManifest } from "@/lib/domain/types";
 import { isOurs, useSecrets } from "@/lib/client/secrets";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
@@ -33,7 +33,7 @@ const REDEPLOY_NOTE =
   "Services already running keep the copy they were given at deploy time. They pick a new value up on the next deploy, not now.";
 
 /** The service and variable a reference is wired to, when one in this project is. */
-function referencedBy(manifest: Manifest, ref: string): { id: string; name: string; key: string } | undefined {
+function referencedBy(manifest: AnyManifest, ref: string): { id: string; name: string; key: string } | undefined {
   for (const s of manifest.services) {
     const entry = s.env.find((e) => e.secretRef === ref);
     if (entry) return { id: s.id, name: s.name, key: entry.key };
@@ -54,7 +54,7 @@ export function SecretsSection({
   projectId: string | undefined;
   slug: string;
   /** the working copy — which service a reference is wired to is read from it */
-  manifest: Manifest;
+  manifest: AnyManifest;
   role: Role | null | undefined;
 }) {
   const gate = useGate();

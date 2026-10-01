@@ -10,6 +10,8 @@
  * than changing the meaning of an existing one.
  */
 import { z } from "zod";
+import type { AnyManifest } from "@/lib/resources/manifest-v2";
+export type { AnyManifest } from "@/lib/resources/manifest-v2";
 
 /* --------------------------- ids and fingerprints ------------------------- */
 
@@ -265,7 +267,7 @@ export interface Project {
   name: string;
   slug: string;
   /** the editable working copy */
-  workingManifest: Manifest;
+  workingManifest: AnyManifest;
   createdAt: string;
   /** how this project came to exist — shown in UI, used by importer */
   origin:
@@ -301,7 +303,7 @@ export interface Revision {
   projectId: string;
   /** monotonically increasing per project */
   number: number;
-  manifest: Manifest;
+  manifest: AnyManifest;
   message: string;
   author: Actor;
   createdAt: string;
@@ -431,8 +433,8 @@ export type ChangeOp = "create" | "update" | "delete";
 
 export interface ChangeItem {
   op: ChangeOp;
-  /** "service" | "resource" | "route" | "binding" */
-  nodeType: "service" | "resource" | "route" | "binding";
+  /** Whole-document V2 settings use "manifest" rather than a fabricated node. */
+  nodeType: "service" | "resource" | "route" | "binding" | "manifest";
   nodeId: string;
   nodeName: string;
   /** field-level detail for updates */

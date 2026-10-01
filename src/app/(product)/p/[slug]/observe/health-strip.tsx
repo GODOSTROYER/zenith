@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { Activity, RotateCw, Scaling } from "lucide-react";
 import { useJson } from "@/lib/client/api";
-import { ServiceSize, type Manifest, type Revision, type Service } from "@/lib/domain/types";
+import { ServiceSize, type AnyManifest, type Revision, type Service } from "@/lib/domain/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -69,7 +69,7 @@ export interface HealthStripProps {
   environmentId: string;
   environmentName: string;
   projectId: string | undefined;
-  working: Manifest;
+  working: AnyManifest;
   running: Revision | undefined;
   deployed: boolean;
 }

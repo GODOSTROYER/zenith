@@ -14,6 +14,7 @@ import { plannedProviders } from "@/lib/providers/planned";
 import { computeDrift } from "@/lib/drift";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import type { Manifest } from "@/lib/domain/types";
+import { v1View, v2OnlySections } from "@/lib/resources/upgrade";
 import { AgentError, redact, type Credential, type SelectedScope } from "./security";
 import { createReaderHandler, type ReaderTool } from "./http";
 import { requireAgentWaitlistAccess } from "./waitlist";
@@ -96,7 +97,7 @@ export async function callReader(name: string, args: Record<string, unknown>, gr
     case "zenith_get_capabilities": return { contractVersion: 1, mode: "read-only", providers: providers.map(p => ({ id: p.id, availability: p.availability, description: p.tagline })),
       unavailable: { execute: "Durable receipts, atomic execution and trusted approvals are not integrated.", remoteOAuth: "Not implemented; this endpoint is loopback development only.", publishing: "Hosted source uploads and app-owner authorization are not integrated.", logs: "Free-form logs are excluded to reduce secret leakage.", metrics: "No metrics ingestion or automatic provider verification is implied." } };
     case "zenith_list_projects": return page(db().projects.filter(p => p.workspaceId === grant.workspaceId && grant.projectIds.includes(p.id) && (!selected.projectId || selected.projectId === p.id)).sort((a, b) => a.id.localeCompare(b.id)).map(p => ({ id: p.id, name: p.name, slug: p.slug })), args);
-    case "zenith_get_project": { const p = project(args, grant, selected); return { id: p.id, name: p.name, slug: p.slug, workspaceId: p.workspaceId, workingMonthlyUsd: monthlyCostUsd(p.workingManifest), costIsEstimate: true }; }
+    case "zenith_get_project": { const p = project(args, grant, selected); return { id: p.id, name: p.name, slug: p.slug, workspaceId: p.workspaceId, workingMonthlyUsd: monthlyCostUsd(v1View(p.workingManifest)), costIsEstimate: true }; }
     case "zenith_get_manifest": {
       const p = project(args, grant, selected);
       if (args.view !== "deployed") return { view: "working", manifest: p.workingManifest, redaction: "All literal environment values are removed; vault references remain." };
@@ -124,13 +125,18 @@ export async function callReader(name: string, args: Record<string, unknown>, gr
       if (!provider?.observe || provider.availability !== "available") throw new AgentError("provider_unavailable", "This provider cannot supply live read-back here. AWS Preview does not inspect an AWS account.", 501);
       const manifest = e.deployedRevisionId ? await revisionManifestAsync(e.deployedRevisionId) : undefined;
       if (!manifest) throw new AgentError("not_deployed", "Deploy a revision through Zenith before requesting drift.", 409);
-      const live = await provider.observe(e, manifest);
-      return { provider: provider.id, simulated: live.simulated, observedAt: live.observedAt, revisionId: e.deployedRevisionId, items: computeDrift(manifest, live) };
+      const view = v1View(manifest);
+      const live = await provider.observe(e, view);
+      return { provider: provider.id, simulated: live.simulated, observedAt: live.observedAt, revisionId: e.deployedRevisionId, items: computeDrift(view, live) };
     }
     case "zenith_export_project": {
       const p = project(args, grant, selected), e = environment(args, grant, selected), provider = providers.find(p => p.id === q.connection(e.connectionId)?.provider);
       if (!provider || provider.availability === "planned") throw new AgentError("provider_unavailable", "This provider cannot export. Select an available or Preview provider in Zenith.", 501);
-      return { ...provider.exportBundle(e, redact(p.workingManifest) as Manifest), valuesRedacted: true, notice: "Supply environment values separately. Exporting does not apply infrastructure or write a local file." };
+      const bundle = provider.exportBundle(e, redact(v1View(p.workingManifest)) as Manifest);
+      const omitted = p.workingManifest.version === 2 ? v2OnlySections(p.workingManifest) : [];
+      const loss = omitted.length ? `V1 provider export omits V2 sections: ${omitted.join(", ")}.` : "";
+      return { ...bundle, ...(loss ? { readme: `${bundle.readme}\n\n${loss}`, v2OnlySections: omitted } : {}),
+        valuesRedacted: true, notice: ["Supply environment values separately. Exporting does not apply infrastructure or write a local file.", loss].filter(Boolean).join(" ") };
     }
     default: throw new AgentError("capability_unavailable", "This endpoint exposes read-only tools only.");
   }

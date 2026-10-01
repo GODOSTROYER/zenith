@@ -1,4 +1,5 @@
 "use client";
+import { v1View } from "@/lib/resources/upgrade";
 /** One connection, opened on its own from the map or from a node's list. */
 import { useState } from "react";
 import { ArrowRight, Pencil } from "lucide-react";
@@ -37,7 +38,7 @@ export interface BindingEditorProps {
  */
 export function BindingEditor({ binding }: BindingEditorProps) {
   const { project } = useProjectData();
-  const m = project.workingManifest;
+  const m = v1View(project.workingManifest);
   const [editing, setEditing] = useState(false);
   const [capability, setCapability] = useState<string>(binding.capability);
   const [note, setNote] = useState(binding.note ?? "");

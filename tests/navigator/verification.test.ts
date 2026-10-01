@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { NavigatorRun } from "@/lib/domain/types";
+import type { AnyManifest, NavigatorRun } from "@/lib/domain/types";
+import { v1, v2 } from "../actions/manifest-v2-fixture";
 import { gimbalPresentationFor } from "@/components/navigator/gimbal-state";
 
 const fake = vi.hoisted(() => ({
+  manifest: { version: 1, services: [], resources: [], bindings: [], routes: [] } as AnyManifest,
+  previous: undefined as AnyManifest | undefined,
   deployment: { id: "d1", projectId: "p1", environmentId: "e1", revisionId: "r1", status: "succeeded", previousRevisionId: undefined as string | undefined },
   environment: { id: "e1", projectId: "p1", connectionId: "c1", deployedRevisionId: "r1" },
   provider: { id: "localstack", displayName: "LocalStack", verify: vi.fn() },
@@ -10,10 +13,10 @@ const fake = vi.hoisted(() => ({
 vi.mock("@/lib/db/store", () => ({ q: {
   deployment: (id: string) => id === "d1" ? fake.deployment : undefined,
   environment: () => fake.environment,
-  revision: () => ({ id: "r1", manifest: { version: 1, services: [], resources: [], bindings: [], routes: [] } }),
+  revision: () => ({ id: "r1", manifest: fake.manifest }),
   revisionManifest: () => undefined,
   connection: () => ({ provider: fake.provider.id }),
-}, revisionManifestAsync: async () => undefined }));
+}, revisionManifestAsync: async () => fake.previous }));
 vi.mock("@/lib/providers/types", () => ({ getProvider: () => fake.provider }));
 const { verifyRun } = await import("@/lib/navigator/verification");
 const run = (): NavigatorRun => ({ id: "n1", projectId: "p1", status: "done", goal: "deploy staging",
@@ -22,12 +25,21 @@ const run = (): NavigatorRun => ({ id: "n1", projectId: "p1", status: "done", go
 const report = () => ({ status: "passed", simulated: false, checkedAt: new Date().toISOString(), detail: "Matched",
   checks: [{ detail: "bucket present", passed: true }] });
 beforeEach(() => {
+  fake.manifest = { version: 1, services: [], resources: [], bindings: [], routes: [] };
+  fake.previous = undefined;
   fake.deployment.status = "succeeded"; fake.deployment.previousRevisionId = undefined;
   fake.environment.deployedRevisionId = "r1"; fake.provider.id = "localstack";
   fake.environment.connectionId = "c1";
   fake.provider.verify.mockReset().mockImplementation(async () => report());
 });
 describe("whole-run provider evidence", () => {
+  it.each([v1, v2])("gives the legacy verifier current and previous V1 views without changing revisions (%#)", async (make) => {
+    fake.manifest = make(); fake.previous = make(); fake.deployment.previousRevisionId = "r0";
+    const before = JSON.stringify([fake.manifest, fake.previous]);
+    expect((await verifyRun(run())).verification?.status).toBe("passed");
+    expect(fake.provider.verify).toHaveBeenCalledWith(fake.environment, v1(), v1());
+    expect(JSON.stringify([fake.manifest, fake.previous])).toBe(before);
+  });
   it("records fresh referenced checks and makes Verified reachable", async () => {
     const value = run(), result = await verifyRun(value);
     expect(result.verification).toMatchObject({ status: "passed", simulated: false, checks: [{ deploymentId: "d1", revisionId: "r1", provider: "localstack", passed: true }] });

@@ -75,6 +75,8 @@ const GROUPS: Record<string, ResourceDef[]> = {
   "v1": [
     { name: "namespaces", kind: "Namespace", namespaced: false },
     { name: "serviceaccounts", kind: "ServiceAccount", namespaced: true },
+    { name: "resourcequotas", kind: "ResourceQuota", namespaced: true },
+    { name: "limitranges", kind: "LimitRange", namespaced: true },
     { name: "secrets", kind: "Secret", namespaced: true },
     { name: "persistentvolumeclaims", kind: "PersistentVolumeClaim", namespaced: true },
     { name: "services", kind: "Service", namespaced: true },
@@ -94,8 +96,9 @@ const GROUPS: Record<string, ResourceDef[]> = {
   "autoscaling/v2": [{ name: "horizontalpodautoscalers", kind: "HorizontalPodAutoscaler", namespaced: true }],
   "cert-manager.io/v1": [{ name: "certificates", kind: "Certificate", namespaced: true }],
   "externaldns.k8s.io/v1alpha1": [{ name: "dnsendpoints", kind: "DNSEndpoint", namespaced: true }],
+  "gateway.networking.k8s.io/v1": [{ name: "httproutes", kind: "HTTPRoute", namespaced: true }],
 };
-const CRD_GROUPS = new Set(["cert-manager.io/v1", "externaldns.k8s.io/v1alpha1"]);
+const CRD_GROUPS = new Set(["cert-manager.io/v1", "externaldns.k8s.io/v1alpha1", "gateway.networking.k8s.io/v1"]);
 
 /* ------------------------------- json helpers ------------------------------ */
 

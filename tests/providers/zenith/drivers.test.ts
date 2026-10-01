@@ -141,7 +141,7 @@ describe("registration under provider zenith", () => {
   it("registers a driver for every native type the contract table gives zenith for the kinds it realizes", () => {
     const set = registerZenithDrivers({ toolkit, kubernetesDrivers: bases() });
     expect(set.missingKubernetesDrivers).toEqual([]);
-    const realized = ["network", "kubernetes_namespace", "firewall", "load_balancer", "dns_record", "tls_certificate", "container_service", "static_site", "scheduled_job", "postgres", "mysql", "redis", "secret", "identity", "volume"] as const;
+    const realized = ["network", "kubernetes_namespace", "firewall", "load_balancer", "dns_record", "tls_certificate", "container_service", "static_site", "scheduled_job", "postgres", "object_store", "secret", "identity", "volume"] as const;
     for (const kind of realized) {
       const t = nativeTypeFor("zenith", kind)!;
       const d = getDriver("zenith", t);
@@ -150,8 +150,15 @@ describe("registration under provider zenith", () => {
     }
   });
 
-  it("the native types are exactly the Kubernetes row (the contract's `zenith` row equals the Kubernetes row)", () => {
-    expect(NATIVE_TYPE_TABLE.zenith).toEqual(NATIVE_TYPE_TABLE.kubernetes);
+  it("registers unique managed data types and shares only the Kubernetes workload types", () => {
+    const { drivers } = createZenithDrivers({ toolkit, kubernetesDrivers: bases() });
+    expect(new Set(drivers.map((d) => d.nativeType)).size).toBe(drivers.length);
+    expect(NATIVE_TYPE_TABLE.zenith.postgres).toBe("zenith:managed_postgres");
+    expect(NATIVE_TYPE_TABLE.zenith.object_store).toBe("zenith:object_store");
+    expect(NATIVE_TYPE_TABLE.zenith.mysql).toBeUndefined();
+    expect(NATIVE_TYPE_TABLE.zenith.redis).toBeUndefined();
+    expect(drivers.some((d) => d.nativeType === "k8s:StatefulSet")).toBe(false);
+    expect(NATIVE_TYPE_TABLE.kubernetes.postgres).toBe("k8s:StatefulSet");
   });
 
   it("registers the zenith drivers without touching the kubernetes provider's registry entries", () => {

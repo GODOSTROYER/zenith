@@ -1,9 +1,10 @@
 /**
  * Kubernetes resource drivers: one per native type in the KUBERNETES row of
  * `src/lib/resources/native-types.ts`, registered under provider `kubernetes`,
- * and — from the same definitions — under provider `zenith` for clusters
- * Zenith manages itself (those are Kubernetes underneath; `NATIVE_PREFIX.zenith`
- * is `k8s` too).
+ * with a legacy helper for raw aliases under `zenith`. Managed hosting uses
+ * `providers/zenith/drivers` instead: its tenant guards and managed data types
+ * are not supplied by these raw aliases. Do not combine the registrars; their
+ * shared (provider, nativeType) keys must have exactly one driver.
  *
  *   k8s:Namespace            network, kubernetes_namespace
  *   k8s:NetworkPolicy        firewall
@@ -77,7 +78,10 @@ export function registerKubernetesDrivers(providers: readonly KubernetesProvider
   return registered;
 }
 
-/** Register the same drivers for Zenith-managed clusters (provider `zenith`). */
+/**
+ * Register raw Kubernetes aliases under `zenith` (no managed-service coverage).
+ * @deprecated Managed hosting must use the Zenith provider's `registerZenithDrivers`.
+ */
 export const registerZenithManagedDrivers = (): KubernetesDriver[] => registerKubernetesDrivers(["zenith"]);
 
 export type { KubernetesDriver } from "./shared";

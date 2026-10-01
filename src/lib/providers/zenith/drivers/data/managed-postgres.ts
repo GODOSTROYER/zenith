@@ -2,14 +2,10 @@
  * `postgres` on the managed platform: a managed database service, NEVER an
  * in-cluster StatefulSet.
  *
- * The contract table maps `postgres` (and `mysql`, `redis`) to
- * `k8s:StatefulSet` for the `zenith` provider, because that row was copied from
- * Kubernetes. This driver is registered under that string so expansion's nodes
- * find a driver, but it never renders, observes or creates a StatefulSet: it
- * talks to the `ManagedDatabaseProvider` port. `mysql` and `redis` nodes that
- * reach it are answered `unsupported`, never treated as postgres. (Contract
- * change requested in the handoff: give `zenith` its own native types so the
- * `k8s:StatefulSet` string stops implying an in-cluster database.)
+ * Registered under `zenith:managed_postgres` from the contract table. It talks
+ * to the `ManagedDatabaseProvider` port; it never renders, observes or creates
+ * a StatefulSet. The Zenith row has no mysql or redis mapping; a node of either
+ * kind handed directly to this driver is still answered `unsupported`.
  *
  * Declarative lifecycle is `applyZenithEnvironment` (create-or-converge via the
  * port, then the vault holds the connection URI). This driver is the read side:

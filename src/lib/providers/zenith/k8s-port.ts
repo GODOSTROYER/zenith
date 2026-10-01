@@ -16,20 +16,13 @@
  *     list: (session, q, signal) => listObjects(createK8sClient(session, { signal }), q.kind, q.namespace, q),
  *   };
  *
- * The same boundary is what makes the provider testable without a cluster: the
- * tests inject a recording fake toolkit. A fake is a fake: it proves this
- * module's own behavior (what it renders, what it refuses, what it hands to
- * apply), never that a real API server accepts the objects.
+ * Tests inject a recording fake toolkit for unit coverage and wire the real
+ * Kubernetes renderer/apply to a local fake HTTP API for integration coverage.
+ * Both provide contract evidence, never proof of real-cluster admission.
  *
- * DEPENDENCIES ON THE KUBERNETES PROVIDER (recorded for the orchestrator):
- *   1. `KIND_INFO`/`APPLY_ORDER` must accept three kinds the tenancy layer
- *      renders: `ResourceQuota` (v1), `LimitRange` (v1) and `HTTPRoute`
- *      (gateway.networking.k8s.io/v1), all namespaced. Until then the real
- *      apply refuses them ("Zenith does not apply ..."). `ZENITH_EXTRA_KINDS`
- *      names exactly which.
- *   2. The ownership vocabulary below (ADR-0015) is restated, not imported.
- *      `OWNERSHIP` is pinned by a test here; an integration test should assert
- *      it equals `kubernetes/types.ts`.
+ * The integration contract is pinned in `k8s-contract.test.ts`: every
+ * `ZENITH_EXTRA_KINDS` entry must be accepted and ordered by the Kubernetes
+ * provider, and the restated `OWNERSHIP` vocabulary must match its constants.
  */
 import type { KubernetesSession } from "@/lib/credentials/types";
 import type { ArtifactSpec } from "@/lib/resources/specs";
@@ -48,7 +41,7 @@ export const OWNERSHIP = {
   secretRefAnnotation: "zenith.dev/secret-ref",
 } as const;
 
-/** Kinds the tenancy layer renders that the Kubernetes provider's `KIND_INFO` did not list when this was written. */
+/** Additional namespaced kinds required by managed tenancy and routing. */
 export const ZENITH_EXTRA_KINDS: readonly { apiVersion: string; kind: string; namespaced: true }[] = [
   { apiVersion: "v1", kind: "ResourceQuota", namespaced: true },
   { apiVersion: "v1", kind: "LimitRange", namespaced: true },

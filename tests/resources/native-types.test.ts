@@ -44,11 +44,12 @@ describe("native type table", () => {
     expect(nativeTypeFor("azure", "container_service")).toBe("azure:container_app");
   });
 
-  it("uses only real portable kinds as keys and each provider's own prefix as values", () => {
+  it("uses only portable kinds and the provider's prefix or a Zenith managed-service type", () => {
     for (const provider of PROVIDERS) {
       for (const [kind, type] of Object.entries(NATIVE_TYPE_TABLE[provider])) {
         expect((PORTABLE_KINDS as readonly string[]).includes(kind), `${provider}.${kind}`).toBe(true);
-        expect(type.startsWith(`${NATIVE_PREFIX[provider]}:`), `${provider}.${kind} → ${type}`).toBe(true);
+        const prefix = provider === "zenith" && (kind === "postgres" || kind === "object_store") ? "zenith" : NATIVE_PREFIX[provider];
+        expect(type.startsWith(`${prefix}:`), `${provider}.${kind} → ${type}`).toBe(true);
         expect(type).toMatch(/^[a-z0-9]+:[A-Za-z][A-Za-z0-9_]*$/);
       }
     }
@@ -61,6 +62,19 @@ describe("native type table", () => {
       "object_store", "queue", "secret", "identity", "log_group", "build_pipeline",
     ] as const;
     for (const k of produced) expect(nativeTypeFor("aws", k), k).toBeDefined();
+  });
+
+  it("gives managed hosting its own data types without changing Kubernetes databases", () => {
+    expect(NATIVE_TYPE_TABLE.zenith).not.toBe(NATIVE_TYPE_TABLE.kubernetes);
+    expect(nativeTypeFor("zenith", "postgres")).toBe("zenith:managed_postgres");
+    expect(nativeTypeFor("zenith", "object_store")).toBe("zenith:object_store");
+    for (const kind of ["postgres", "mysql", "redis"] as const) expect(nativeTypeFor("kubernetes", kind)).toBe("k8s:StatefulSet");
+    for (const kind of ["mysql", "redis"] as const) {
+      expect(resolveNativeType("zenith", kind)).toEqual({ nativeType: `unsupported:zenith:${kind}`, supported: false });
+    }
+    expect(kindsForNativeType("zenith", "zenith:managed_postgres")).toEqual(["postgres"]);
+    expect(kindsForNativeType("zenith", "zenith:object_store")).toEqual(["object_store"]);
+    expect(kindsForNativeType("zenith", "k8s:StatefulSet")).toEqual([]);
   });
 
   it("marks a missing mapping visibly, never blank", () => {
@@ -88,6 +102,7 @@ describe("expansion across providers and a random manifest population", () => {
   const envs: ExpandEnv[] = [
     { ...PROD, provider: "gcp", region: "us-central1" },
     { ...PROD, provider: "kubernetes", region: "kind" },
+    { ...PROD, provider: "zenith", region: "zenith-managed" },
     { ...PROD, provider: "sandbox", region: "sim-1" },
     { ...PROD, provider: "localstack" },
   ];

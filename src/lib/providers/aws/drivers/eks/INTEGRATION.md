@@ -1,4 +1,128 @@
-# WS-AWS-MORE integration handoff
+# WS-AWS-EKS-READS continuation — 2026-10-01
+
+Branch `ws/aws-eks-reads`, starting/final HEAD
+`ec3176f316de63a5e98656a57b43563e027cf9af`. All changes are in the working
+tree for the orchestrator to review and commit. No Git metadata, dependencies,
+fixed contracts or files outside the owned paths were edited.
+
+## Current implementation
+
+- `eks-cluster.ts`: broker-bound `DescribeCluster`, bounded/paginated
+  `ListNodegroups`/`DescribeNodegroup`, and fallback `ListTagsForResource` reads.
+  Exact names/ARNs and current tenant tags are checked before retaining data.
+  Missing identifiers resolve through the existing tenant-scoped tagging index;
+  an empty, ambiguous or incomplete index remains unknown because it is
+  eventually consistent. Unrelated/mismatched nodegroups cannot produce a
+  healthy result. SDK error bodies and health issue messages are not retained.
+- Added desired/observed attributes for cluster version, endpoint access/CIDRs,
+  logging, encryption/KMS key, access configuration, nodegroup count, scaling,
+  version and instance types. Unread fields remain unknown. Secondary nodegroup
+  read failures preserve successfully read cluster configuration.
+- Verification compares the desired attributes and checks an active cluster,
+  HTTPS endpoint, a regional EKS OIDC issuer, and supplied nodegroup runtime
+  health. Missing, simulated or mismatched runtime/observation evidence cannot
+  pass. The existing compilation decisions and emitted resources are preserved.
+- Runtime reports EKS cluster/group status and issue presence plus configured
+  min/desired/max totals. It does not report Kubernetes Ready/running nodes,
+  private endpoint reachability, launch-template disk/IMDS compliance, or add-on
+  health. Those require other read surfaces. Discovery remains unimplemented.
+- Session and bootstrap observe policies now explicitly name the four EKS read
+  actions in their existing account/name-scoped statement. Existing EKS read
+  wildcards are retained for compatibility; this adds no broader ARN scopes or
+  write permissions. Regeneration changes only `observe.json.tftpl`.
+- `eks-cluster.test.ts` preserves the compiler coverage and updates the old
+  compile-only capability assertion. `eks-reads.test.ts` adds 101 mocked SDK
+  contracts; `eks-policy.test.ts` adds 4 static IAM contracts across partitions.
+  All capability evidence remains `contract`, with no live AWS acceptance.
+
+AWS references used to verify resource-level read authorization and supported
+OIDC issuer hostnames:
+- https://docs.aws.amazon.com/service-authorization/latest/reference/list_eks.html
+- https://docs.aws.amazon.com/general/latest/gr/eks.html
+- https://docs.amazonaws.cn/en_us/general/latest/gr/endpoints-Beijing.html
+
+## Verification actually executed
+
+`npx vitest run --maxWorkers=1 tests/providers/aws/drivers/eks tests/credentials`
+
+Three runs, in order (passed / failed / skipped): `343 / 0 / 1`,
+`354 / 0 / 1`, **`356 / 0 / 1`**. Final: 11 passing files; EKS compiler 37,
+SDK reads 101, IAM scopes 4, credentials 214 passing plus 1 skipped.
+The skip is the existing `ZENITH_TEST_TOFU`-gated bootstrap init/validate/test;
+the gate was not enabled. No live AWS, network acceptance, WSL, Docker, OPA,
+Go or Temporal checks were run. Existing OIDC failure-path log lines are
+expected fixture output and are not test failures.
+
+`npx eslint src/lib/providers/aws/drivers/eks tests/providers/aws/drivers/eks src/lib/credentials/aws/session-policy.ts deploy/aws/tools/generate-tofu-policies.ts`
+
+Three runs: `1 error / 0 warnings` (unused test import, fixed), then
+`0 errors / 0 warnings`, then **`0 errors / 0 warnings`**.
+YAML and generated policy syntax/permissions are checked by the bootstrap and
+EKS policy contract suites above, rather than by ESLint.
+
+`npx tsc --noEmit`
+
+Two whole-repo runs: first `3 errors` (two test typing errors fixed; one
+pre-existing out-of-scope platform error), final **`1 error`**:
+
+```text
+src/lib/platform/credentials.ts(161,54): error TS2345:
+Argument of type 'CredentialPurpose' is not assignable to parameter of type
+'"observe" | "deploy"'. Type '"secret.write"' is not assignable to that type.
+```
+
+`npx tsx deploy/aws/tools/generate-tofu-policies.ts --write`
+
+Executed twice; both exited 0 and generated 12 templates. Only the observe
+template's content changed. The final focused suites verify all templates are
+in sync with CloudFormation.
+
+Intermediate session-policy size diagnostic (before listing all four actions):
+
+```powershell
+npx tsx -e 'import {sessionPolicyFor} from "./src/lib/credentials/aws/session-policy.ts"; for(const partition of ["aws","aws-us-gov"] as const) { console.log(partition,JSON.stringify(sessionPolicyFor("infrastructure.observe",{accountId:"123456789012",region:"us-gov-west-1",partition})).length); }'
+```
+
+Exited 0; compact sizes were 1620 and 1662. The final policy size is checked
+against the 2048-character ceiling in the passing credential/EKS policy tests.
+
+`git diff --check`: clean on all three runs (0 whitespace errors).
+
+## Required orchestrator follow-ups outside ownership
+
+1. **Whole-repo typecheck blocker:** `src/lib/platform/credentials.ts:150`.
+   AWS requests already delegate to the AWS broker above this branch. Before
+   the existing non-AWS purpose/capability check, explicitly refuse the
+   unsupported secret writer purpose:
+
+   ```ts
+   if (req.purpose === "secret.write") return deny("purpose_capability_mismatch", "Secret writer sessions are supported only for AWS connections.");
+   ```
+
+   This narrows `req.purpose` to the session factories' existing
+   `"observe" | "deploy"` contract at line 161 without casting or accidentally
+   treating a non-AWS secret writer as an observe session. Both the offending
+   call and the absence of this guard were confirmed in `git show HEAD`;
+   `git diff -- src/lib/platform/credentials.ts` is empty. This job did not
+   edit that file. Re-run typecheck and platform credential tests after fixing.
+2. `src/lib/providers/aws/drivers/index.ts:23`: replace the EKS native-schema
+   description `Private EKS cluster and managed node group (compile only)`
+   with `Private EKS cluster and managed node group with EKS SDK reads`.
+   Registration and runtime wiring already include this same driver object.
+3. Regenerate `docs/platform/CAPABILITY-MATRIX.md` (current EKS row at line 61)
+   with `npx tsx scripts/docs/capability-matrix.ts` during integration so it
+   shows contract evidence for observe/runtime/verify. This generated document
+   is outside this job's ownership and was not modified.
+
+No changes to the handoff's compiler/security decisions or fixed contracts.
+The supplied continuation mentioned existing `expectedAttributes`, but the
+actual EKS driver at HEAD had none; this continuation adds that projection in
+the existing driver interface. Compile-only EKS limits in the historical note
+below are superseded by this continuation.
+
+---
+
+# Historical WS-AWS-MORE integration handoff
 
 Branch `ws/aws-more`; starting HEAD `4c7a652`. All work is uncommitted, as requested.
 The starting checkout had none of the three new drivers or their tests.

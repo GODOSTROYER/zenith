@@ -107,8 +107,11 @@ describe("EKS secure declarative cluster", () => {
   it.each(["referenced", "external"] as const)("never creates resources for a %s cluster", (ownership) => {
     expect(driver.compile!({ ...cluster(), ownership }, compileCtx([]))).toEqual({ addresses: [] });
   });
-  it("claims compile-only evidence and never implies the missing EKS SDK reads work", () => {
-    expect(driver.capabilities).toEqual({ compile: true, observe: false, runtime: false, verify: false, discover: false, operations: [], evidence: { compile: "contract" } });
-    expect(driver.observe).toBeUndefined();
+  it("declares read implementations with contract evidence and keeps discovery unimplemented", () => {
+    expect(driver.capabilities).toEqual({ compile: true, observe: true, runtime: true, verify: true, discover: false, operations: [], evidence: { compile: "contract", observe: "contract", runtime: "contract", verify: "contract" } });
+    expect(driver.observe).toBeTypeOf("function");
+    expect(driver.runtime).toBeTypeOf("function");
+    expect(driver.verify).toBeTypeOf("function");
+    expect(driver.discover).toBeUndefined();
   });
 });

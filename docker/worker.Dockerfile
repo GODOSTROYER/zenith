@@ -6,21 +6,20 @@
 #
 # Build context is the repository root.
 #
-# STATUS: written and command-checked, NOT built. Docker is not available on the
-# machine this was authored on, so `docker build` has never been run against
-# this file. What WAS run, on Windows/Node 24 with the repository's own
-# node_modules: the esbuild bundle command, the workflow-bundle build, and the
-# resulting `node dist/execution/worker.cjs` booting and polling a Temporal dev
-# server. What was NOT run: apt, the OpenTofu download inside this build, the
-# Linux `@swc/core` binding, `npm ci --omit=dev` from this Dockerfile.
+# STATUS: local linux/arm64 image built successfully on 2026-10-02. CLI probes
+# with networking disabled and a read-only root filesystem verified Node
+# v22.23.3, non-root uid 10001, OpenTofu 1.12.5/linux_arm64, and the packaged
+# policy WASM SHA-256 matching its manifest. No Zenith worker/server was started.
+# The AMD64 image build, worker startup/Temporal polling, cloud transports, and
+# production operation remain unverified for this image.
 #
-# Contents: Node 22.16 (Debian slim) + OpenTofu 1.12.5 + the bundled worker +
+# Contents: Node 22.23.3 (Debian slim) + OpenTofu 1.12.5 + the bundled worker +
 # a prebuilt workflow bundle. The worker runs as a non-root user and needs no
 # inbound port: it only dials Temporal and the cloud/store APIs.
 #
 # Everything downloaded is pinned and verified:
 #   - the base image by tag AND digest (the multi-arch index digest of
-#     node:22.16.0-slim, read from the registry on 2026-09-30);
+#     node:22.23.3-slim, read from the registry on 2026-10-02);
 #   - OpenTofu by version AND SHA-256, from the official release's
 #     tofu_1.12.5_SHA256SUMS. The build FAILS when a checksum is empty or does
 #     not match. To bump OpenTofu, change TOFU_VERSION and BOTH checksums from
@@ -28,7 +27,7 @@
 #     (the SHA256SUMS file is also cosign-signed; that signature is not
 #     verified here).
 #
-ARG NODE_IMAGE=node:22.16.0-slim@sha256:048ed02c5fd52e86fda6fbd2f6a76cf0d4492fd6c6fee9e2c463ed5108da0e34
+ARG NODE_IMAGE=node:22.23.3-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c
 ARG TOFU_VERSION=1.12.5
 ARG TOFU_SHA256_AMD64=dade9650e6b74fc7a8b986bd8717497d32f9e09cf82e479afef4977fa3085536
 ARG TOFU_SHA256_ARM64=528f4eea63452bbddb30fa4f1780b57fac8d7676f9dda0f772e847bb62c1260a
@@ -71,6 +70,8 @@ RUN npm ci --ignore-scripts
 COPY tsconfig.json ./
 COPY src/lib ./src/lib
 COPY workers/execution ./workers/execution
+# SSM command documents are JSON imports compiled into the worker bundle.
+COPY deploy/aws/ssm-documents ./deploy/aws/ssm-documents
 # `@/` imports are resolved from tsconfig `paths` and bundled; every package
 # import stays external and is satisfied by node_modules in the runtime stage.
 RUN npx esbuild workers/execution/worker.ts \

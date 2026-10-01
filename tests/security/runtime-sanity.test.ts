@@ -7,9 +7,9 @@
  * every boundary and digests the PARSED value, so on an affected runtime the
  * digest, the policy input and the executed action can all silently disagree
  * with the bytes the sender wrote and the approver reviewed. CI
- * (.github/workflows, node 22.16.0) and the Dockerfile (node:22) are not
- * affected, but `package.json` only says `>=22.16`, so nothing stops a deployment
- * from running on an affected 24.x.
+ * (.github/workflows, node 22.23.3) and the Dockerfile (node:22) use the
+ * unaffected Node 22 line. `package.json` and the lockfile keep the runtime
+ * below Node 23 while requiring the 22.22.2 minimum of locked jsdom 30.0.1.
  *
  * This file does two things: it says, in the test output, whether the current
  * runtime is affected; and it fails when the repository's own runtime pin would
@@ -52,12 +52,17 @@ describe("runtime: JSON.parse fidelity", () => {
 
   /**
    * SEC-F9 is a release gate. Pin the supported Node 22 range explicitly: an
-   * open-ended floor admits the affected Node 24 runtime. This permits the
-   * bounded >= floor, unlike the old assertion that rejected every >= range.
+   * open-ended floor admits the affected Node 24 runtime. The lower bound
+   * also meets locked jsdom's Node 22 minimum; the upper bound preserves the
+   * JSON.parse and policy WASM runtime guards.
    */
   it("SEC-F9: package.json's engine range excludes runtimes with the JSON.parse key defect", () => {
     const pkg = JSON.parse(readFileSync(path.join(process.cwd(), "package.json"), "utf8")) as { engines?: { node?: string } };
     const range = pkg.engines?.node ?? "";
-    expect(range, `engines.node is "${range}"; pin Node 22 with >=22.16 <23`).toBe(">=22.16 <23");
+    expect(range, `engines.node is "${range}"; pin Node 22 with >=22.22.2 <23`).toBe(">=22.22.2 <23");
+    const lock = JSON.parse(readFileSync(path.join(process.cwd(), "package-lock.json"), "utf8")) as {
+      packages: Record<string, { engines?: { node?: string } }>;
+    };
+    expect(lock.packages[""].engines?.node, "lockfile root engines must match package.json").toBe(range);
   });
 });

@@ -1,10 +1,11 @@
 /**
- * Source packaging assertions and real wasm loads from copied deployment
- * layouts. No Docker/Next production image is built by these tests.
+ * Worker compilation from its copied build layout and real wasm loads from
+ * copied deployment layouts. No Docker/Next production image is built here.
  */
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { build } from "esbuild";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import nextConfig from "../../next.config";
 import { loadPolicyEngine, policyWasmPath, resetPolicyEngineCache } from "@/lib/policy/engine";
@@ -34,6 +35,45 @@ function copyBundle(root: string): string {
 }
 
 describe("policy deployment packaging", () => {
+  it("bundles the worker from only the source files copied into its Docker build stage", async () => {
+    const root = path.join(scratch, "build");
+    mkdirSync(root);
+    const dockerfile = readFileSync(path.join(repository, "docker", "worker.Dockerfile"), "utf8");
+    const stage = dockerfile.split(/^FROM .* AS build\r?$/m)[1]?.split(/^FROM /m)[0];
+    expect(stage, "the worker must have a build stage").toBeDefined();
+    const copies = [...stage!.matchAll(/^COPY ([^\r\n]+)$/gm)];
+    expect(copies.length).toBeGreaterThan(0);
+    // Recreate the declared source layout, rather than compiling against the
+    // complete checkout, where missing Docker inputs would be hidden.
+    for (const copy of copies) {
+      const args = copy[1].trim().split(/\s+/);
+      expect(args.some((arg) => arg.startsWith("--") || arg.startsWith("[")), "extend this layout helper when COPY syntax changes").toBe(false);
+      const destination = path.resolve(root, args.pop()!);
+      expect(destination === root || destination.startsWith(root + path.sep)).toBe(true);
+      mkdirSync(destination, { recursive: true });
+      for (const source of args) {
+        const input = path.join(repository, source);
+        const output = statSync(input).isDirectory() ? destination : path.join(destination, path.basename(source));
+        cpSync(input, output, { recursive: true });
+      }
+    }
+    const result = await build({
+      absWorkingDir: root,
+      entryPoints: ["workers/execution/worker.ts"],
+      bundle: true,
+      platform: "node",
+      target: "node22",
+      format: "cjs",
+      packages: "external",
+      tsconfig: "tsconfig.json",
+      outfile: "dist/execution/worker.cjs",
+      write: false,
+      logLevel: "silent",
+    });
+    expect(result.outputFiles).toHaveLength(1);
+    expect(result.outputFiles![0].contents.length).toBeGreaterThan(0);
+  });
+
   it("traces the committed bundle for REST, MCP v3 and every product API that can call the broker", () => {
     expect(nextConfig.output).toBe("standalone");
     for (const route of ["/api/platform/v1/**", "/api/agent/v3/**", "/api/**"]) {

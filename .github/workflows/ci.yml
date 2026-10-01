@@ -18,11 +18,11 @@ concurrency:
 # in each job rather than through an expression so that `tests/ci/release-gates.test.ts`
 # can assert them by parsing the YAML:
 #
-#   node-version: '22.16.0'  — package.json's `engines.node` floor is >=22.16,
-#     and `node:sqlite` (the hosted authority's embedded store) is experimental,
-#     so the exact patch is part of what a green run means. `.github/workflows/
-#     agent-control.yml` already pinned it; ci.yml floated on `22`. One of the
-#     two had to go, and the pin is the one that makes a run reproducible.
+#   node-version: '22.23.3' matches the supported Node 22 line. The locked
+#     jsdom 30.0.1 requires >=22.22.2 on that line, which is package.json's
+#     `engines.node` floor. Keep <23 for the JSON.parse and policy WASM runtime
+#     guards. `node:sqlite` is experimental, so one exact patch makes every
+#     workflow's green result reproducible.
 #
 #   actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  (v4.3.1) — the
 #     newer of the two SHAs that were in use; agent-control.yml pinned
@@ -75,7 +75,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '22.16.0'
+          node-version: '22.23.3'
           cache: npm
 
       - run: npm ci --ignore-scripts
@@ -188,7 +188,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '22.16.0'
+          node-version: '22.23.3'
           cache: npm
 
       - run: npm ci --ignore-scripts
@@ -235,7 +235,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '22.16.0'
+          node-version: '22.23.3'
           cache: npm
 
       - run: npm ci --ignore-scripts
@@ -292,7 +292,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '22.16.0'
+          node-version: '22.23.3'
           cache: npm
 
       - run: npm ci --ignore-scripts
@@ -328,7 +328,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '22.16.0'
+          node-version: '22.23.3'
           cache: npm
 
       - run: npm ci --ignore-scripts
@@ -437,7 +437,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '22.16.0'
+          node-version: '22.23.3'
           cache: npm
 
       - run: npm ci --ignore-scripts
@@ -514,7 +514,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '22.16.0'
+          node-version: '22.23.3'
           cache: npm
 
       - run: npm ci --ignore-scripts
@@ -690,7 +690,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         if: hashFiles('go/go.mod') != ''
         with:
-          node-version: '22.16.0'
+          node-version: '22.23.3'
           cache: npm
 
       - run: npm ci --ignore-scripts
@@ -755,7 +755,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '22.16.0'
+          node-version: '22.23.3'
           cache: npm
 
       - run: npm ci --ignore-scripts
@@ -865,7 +865,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '22.16.0'
+          node-version: '22.23.3'
           cache: npm
 
       - run: npm ci --ignore-scripts
@@ -911,7 +911,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '22.16.0'
+          node-version: '22.23.3'
           cache: npm
 
       - run: npm ci --ignore-scripts
@@ -951,7 +951,7 @@ jobs:
       # Node built-ins only, so no `npm ci` and no npm cache.
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '22.16.0'
+          node-version: '22.23.3'
 
       - name: Ledger markdown is current
         run: node scripts/build/ledger.mjs --check
@@ -986,7 +986,7 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '22.16.0'
+          node-version: '22.23.3'
 
       - name: Lockfile pins only registry tarballs with integrity hashes
         run: node scripts/ci/lockfile-integrity.mjs

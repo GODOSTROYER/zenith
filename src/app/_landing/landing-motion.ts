@@ -217,12 +217,24 @@ export function useStatementReveal(root: RefObject<HTMLElement | null>) {
       gsap.set(programs, { autoAlpha: 1, y: 0 });
       gsap.set(statement, { autoAlpha: 0, y: 32 });
       gsap.set(words, { opacity: 0.16 });
-      const timeline = gsap.timeline({ scrollTrigger: { trigger: element, start: "top top", end: "bottom bottom", scrub: true, invalidateOnRefresh: true } });
-      timeline.to(programs, { autoAlpha: 0, y: -32, duration: 0.55, ease: "power1.inOut" }, 0.3)
-        .to(statement, { autoAlpha: 1, y: 0, duration: 0.55, ease: "power1.out" }, 0.6)
-        .to(words, { opacity: 1, duration: 0.12, stagger: 0.075, ease: "none" }, 1.2)
+      // Keep entrance and handoff on one scroll clock. A separate section-top
+      // entrance finishes offscreen because these scenes are vertically centered.
+      const programItems = Array.from(programs.querySelectorAll<HTMLElement>("[data-program-reveal]"));
+      gsap.set(programItems, { autoAlpha: 0, y: 36 });
+      const timeline = gsap.timeline({ scrollTrigger: {
+        trigger: element, start: "top 40%", end: "bottom bottom",
+        scrub: true, invalidateOnRefresh: true,
+      } });
+      timeline.to(programItems, { autoAlpha: 1, y: 0, duration: 0.65, stagger: 0.1, ease: "none" }, 0)
+        .to(programs, { autoAlpha: 0, y: -32, duration: 0.55, ease: "power1.inOut" }, 1.55)
+        .to(statement, { autoAlpha: 1, y: 0, duration: 0.55, ease: "power1.out" }, 1.9)
+        .to(words, { opacity: 1, duration: 0.12, stagger: 0.075, ease: "none" }, 2.5)
         .to({}, { duration: 0.35 });
-      return () => { timeline.scrollTrigger?.kill(); timeline.kill(); element.removeAttribute("data-intro-motion"); };
+      return () => {
+        timeline.scrollTrigger?.kill();
+        timeline.kill();
+        element.removeAttribute("data-intro-motion");
+      };
     }, loadGsap, DESKTOP_SCROLL);
   }, [root]);
 }

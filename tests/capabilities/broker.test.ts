@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { verifyCapabilityGrant, type PublicJwk } from "@/lib/credentials";
 import { loadPlanFixture } from "../policy/plan-fixtures";
-import { STORE_KINDS, allowDecision, closeSharedPgliteAfterAll, expectBrokerError, integrationOf, makeHarness, navigator, proposeOk, requestFor, requireApproval, scriptedEngine, systemPrincipal, user } from "./support";
+import { STORE_KINDS, allowDecision, closeSharedPgliteAfterAll, expectBrokerError, integrationOf, makeHarness, navigator, proposeOk, requestFor, scriptedEngine, systemPrincipal, user } from "./support";
 
 closeSharedPgliteAfterAll();
 

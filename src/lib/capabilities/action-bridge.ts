@@ -95,6 +95,23 @@ export const ACTION_CAPABILITY_MAP: Readonly<Record<string, ActionMapping>> = {
   "project.applyBlueprint": local(MANIFEST_EDIT),
   "project.importCompose": local(MANIFEST_EDIT),
   "project.importResources": local(MANIFEST_EDIT),
+  /* findings and alert rules are Zenith's own state */
+  "security.resolveFinding": local("Changes the state of a finding inside Zenith."),
+  "security.dismissFinding": local("Changes the state of a finding inside Zenith."),
+  "security.reopenFinding": local("Changes the state of a finding inside Zenith."),
+  "alerts.createRule": local("Edits an alert rule inside Zenith."),
+  "alerts.updateRule": local("Edits an alert rule inside Zenith."),
+  "alerts.deleteRule": local("Edits an alert rule inside Zenith."),
+  "alerts.acknowledge": local("Acknowledges an alert inside Zenith."),
+  "project.create": local("Creates a project record inside Zenith; nothing is provisioned until a deploy."),
+  "workspace.rename": local("Renames the workspace inside Zenith."),
+  // DELIBERATELY ABSENT — refused for agents until each has a capability of its own:
+  //   alerts.createChannel / updateChannel / deleteChannel / testChannel
+  //       a channel points Zenith at an external endpoint and a test sends data to it
+  //   connection.create / check / disconnect      cloud credentials and connections
+  //   workspace.setAutonomy                       the Navigator's own dial: only a person turns it
+  //   project.delete                              destroys a project and its history
+  //   app.create / publish / rollback / suspend / resume   hosted apps have their own reviewed flow
 };
 
 export const mappingFor = (actionId: string): ActionMapping | undefined =>

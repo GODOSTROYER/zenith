@@ -817,6 +817,15 @@ describe("operator claims match current wiring", () => {
     expect(source("docs/platform/RUNNER-PROTOCOL-OCI.md")).toContain("IMPLEMENTED AND WIRED; NOT LIVE-VERIFIED");
   });
 
+  it("OCI migrations learn trusted bindings and retain durable completion across narrow cleanup", () => {
+    const protocol = squash(source("docs/platform/RUNNER-PROTOCOL-OCI.md"));
+    expect(protocol).toContain("Tags, local static bindings and caller completion assertions never authorize DELETE");
+    expect(protocol).toContain("completed receipt survives deletion and runner restart");
+    const builds = squash(guide("BUILDS.md"));
+    expect(builds).toContain("Lost create responses remain explicitly unknown and never trigger another launch");
+    expect(builds).toContain("delete request, not completed deletion");
+  });
+
   it("default machine composition wires brokered transports and the signed machine queue", () => {
     expect(source("src/lib/execution/capability.ts")).toContain("executeMachineOperation(");
     expect(source("src/lib/execution/capability.ts")).toContain("if (!plane) throw new StepFailedError");

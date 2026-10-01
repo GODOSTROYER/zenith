@@ -30,8 +30,8 @@
  */
 import type { OciServiceId } from "./services";
 
-/** No DELETE: infrastructure changes go through OpenTofu, never through this port. */
-export type OciHttpMethod = "GET" | "HEAD" | "POST" | "PUT";
+/** DELETE is reserved for receipt-authorized terminal one-off migration cleanup. */
+export type OciHttpMethod = "GET" | "HEAD" | "POST" | "PUT" | "DELETE";
 
 /** Request headers a driver may set; the runner enforces the same allowlist. */
 export const OCI_REQUEST_HEADER_ALLOWLIST = ["opc-retry-token", "if-match", "if-none-match", "opc-request-id"] as const;
@@ -51,6 +51,8 @@ export interface OciApiRequest {
   body?: unknown;
   /** only for `queue-data`: the queue's `messagesEndpoint` host, checked by the runner against `*.oraclecloud.com` */
   endpointHost?: string;
+  /** Runner-local receipt selector, scoped by the verified workspace and operation. */
+  migrationKey?: string;
 }
 
 export interface OciApiResponse {

@@ -36,6 +36,7 @@ export function world(capability = "deployment.deploy") {
   const state: { launches: number; exitCode?: number; lifecycle: string; throwAfterLaunch: boolean;
     override?: (req: OciApiRequest) => OciApiResponse | undefined } = { launches: 0, exitCode: 0, lifecycle: "INACTIVE", throwAfterLaunch: false };
   const tokens = new Map<string, string>();
+  const receipts = new Map<string, Native>();
   const ok = (body: unknown, status = 200): OciApiResponse => ({ status, body, headers: {} });
   const dispatch = vi.fn(async (p: OciHttpJobPayload) => {
     jobs.push(p);
@@ -43,12 +44,19 @@ export function world(capability = "deployment.deploy") {
       body: p.bodyB64 ? JSON.parse(Buffer.from(p.bodyB64, "base64").toString("utf8")) : undefined };
     let res = state.override?.(req);
     if (!res) {
-      if (p.method === "GET" && p.path === "/20210415/containerInstances") res = ok({ items: [...objects.values()] });
+      if (p.method === "GET" && p.path === "/20210415/containerInstances" && p.migrationKey) res = ok(receipts.get(p.migrationKey) ?? { state: "absent" });
+      else if (p.method === "GET" && p.path === "/20210415/containerInstances") res = ok({ items: [...objects.values()] });
       else if (p.method === "GET" && p.path.startsWith("/20210415/containerInstances/")) res = ok(objects.get(p.path.split("/").at(-1)!));
-      else if (p.method === "GET" && p.path.startsWith("/20210415/containers/")) res = ok(containers.get(p.path.split("/").at(-1)!));
+      else if (p.method === "GET" && p.path.startsWith("/20210415/containers/")) {
+        const c = containers.get(p.path.split("/").at(-1)!);
+        if (p.migrationKey && c?.lifecycleState === "INACTIVE" && Number.isSafeInteger(c.exitCode) && (c.exitCode as number) >= 0 && (c.exitCode as number) <= 255) receipts.set(p.migrationKey, { state: "completed", instanceId: c.containerInstanceId, exitCode: c.exitCode, cleanup: "pending" });
+        res = ok(c);
+      }
       else if (p.method === "GET" && p.path === `/20160918/vnics/${vnicId}`) res = ok(vnic);
       else if (p.method === "POST" && p.path === "/20210415/containerInstances") {
         const token = p.headers["opc-retry-token"];
+        if (p.migrationKey && receipts.has(p.migrationKey)) throw new Error("Execution already has a durable intent; outcome is unknown.");
+        if (p.migrationKey) receipts.set(p.migrationKey, { state: "unknown" });
         let iid = tokens.get(token);
         if (!iid) {
           iid = ocid("computecontainerinstance", `migration${++state.launches}`);
@@ -60,7 +68,14 @@ export function world(capability = "deployment.deploy") {
             containerInstanceId: iid, lifecycleState: state.lifecycle, exitCode: state.exitCode });
         }
         if (state.throwAfterLaunch) throw new Error("PRIVATE_PROVIDER_BODY_CANARY");
-        res = ok({ id: iid }, 202);
+        if (p.migrationKey) receipts.set(p.migrationKey, { state: "running", instanceId: iid });
+        res = ok(objects.get(iid), 202);
+      } else if (p.method === "DELETE" && p.migrationKey) {
+        const receipt = receipts.get(p.migrationKey);
+        if (receipt?.state !== "completed" || p.path !== `/20210415/containerInstances/${receipt.instanceId}`) throw new Error("No owned terminal receipt.");
+        objects.delete(String(receipt.instanceId));
+        receipt.cleanup = "requested";
+        res = ok(undefined, 204);
       } else res = { status: 404, headers: {}, body: { message: "PRIVATE_PROVIDER_BODY_CANARY" } };
     }
     return { status: res.status, headers: res.headers,
@@ -71,5 +86,5 @@ export function world(capability = "deployment.deploy") {
     scope: { workspaceId: "ws_1", environmentId: ENV_ID, resources: [] }, transport: createRunnerOciTransport(dispatch, { capability }) };
   const ctx: DriverContext<OciSession> = { provider: "oci", region: REGION, workspaceId: "ws_1", environmentId: ENV_ID,
     operationId: "op_oci", signal: new AbortController().signal, session, now: () => new Date(), log: vi.fn(), tags: {} };
-  return { ctx, jobs, objects, containers, vnic, state, dispatch };
+  return { ctx, jobs, objects, containers, vnic, state, dispatch, receipts };
 }

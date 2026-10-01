@@ -2,8 +2,8 @@
  * One-off OCI Container Instances, argv only, restart policy NEVER. Stable retry
  * tokens and tagged recovery avoid automatic relaunch of an observed execution.
  * Raw logs are fully suppressed (runner result bodies are persisted). New IDs
- * require trusted runner-local compartment bindings before by-id polling works.
- * Instances are retained for reconciliation/operator cleanup; no DELETE grant.
+ * receive trusted runner-created bindings. Terminal outcomes are durable runner
+ * receipts; cleanup is limited to the receipt-owning signed workspace/operation.
  */
 import { digest } from "@/lib/controlplane/digest";
 import type { MigrationsPort } from "@/lib/execution/ports";
@@ -75,6 +75,16 @@ async function launchBody(ctx: ReleaseContext, node: ResourceNode, source: Recor
   };
 }
 
+async function cleanup(ctx: ReleaseContext, migrationId: string, token: string): Promise<void> {
+  try {
+    await request(ctx, { service: "containerinstances", region: ctx.region, method: "DELETE",
+      path: ociPath("containerinstances", "containerInstances", migrationId), migrationKey: token });
+    ctx.log("OCI migration cleanup requested; deletion completion is not verified.", "info");
+  } catch {
+    ctx.log("OCI migration cleanup failed or was cancelled; cleanup remains unknown. The observed migration exit is preserved.", "info");
+  }
+}
+
 export function createMigrationsPort(): MigrationsPort {
   return {
     async runOneOffTask(ctx, node, command, opts) {
@@ -89,13 +99,24 @@ export function createMigrationsPort(): MigrationsPort {
       const bounded = { ...oci, signal: timeoutSignal(oci, opts.timeoutMs) };
       const token = digest({ workspace: ctx.workspaceId, environment: ctx.environmentId, operation: ctx.operationId,
         service: node.address, spec: node.specDigest, image: desired.image, command, key: opts.idempotencyKey }).slice(0, 48);
+      const receiptResponse = await request(bounded, { service: "containerinstances", region: bounded.region, method: "GET",
+        path: ociPath("containerinstances", "containerInstances"), query: { compartmentId: bounded.session.compartmentOcid }, migrationKey: token });
+      const receipt = asRecord(receiptResponse.body);
+      if (!receipt || !["absent", "running", "completed"].includes(String(receipt.state))) throw new Error("OCI migration durable execution intent is unresolved; outcome is unknown.");
+      if (receipt.state === "completed") {
+        if (!Number.isSafeInteger(receipt.exitCode) || (receipt.exitCode as number) < 0 || (receipt.exitCode as number) > 255) throw new Error("OCI migration receipt is malformed; outcome is unknown.");
+        await cleanup(bounded, id(receipt.instanceId, "computecontainerinstance"), token);
+        return { exitCode: receipt.exitCode as number };
+      }
       const all = await instances(bounded);
       const existing = all.filter((item) => owned(bounded, item, node.address) && tagsOf(item)[MIGRATION_TAG] === token);
       if (existing.length > 1) throw new Error("OCI migration has duplicate executions; outcome is unknown.");
       let migrationId: string;
-      if (existing.length) {
-        migrationId = id(existing[0].id, "computecontainerinstance");
+      if (receipt.state === "running") {
+        migrationId = id(receipt.instanceId, "computecontainerinstance");
+        if (existing.length && existing[0].id !== migrationId) throw new Error("OCI migration receipt disagrees with cloud execution; outcome is unknown.");
       } else {
+        if (existing.length) throw new Error("OCI migration has no trusted creation receipt; outcome is unknown.");
         const sources = liveWorkloads(bounded, all, node).sort((a, b) => String(a.id).localeCompare(String(b.id)));
         if (sources.length !== desired.replicas || !sources.length) throw new StepFailedError("OCI migration requires all desired workload replicas to exist.");
         const full = await instance(bounded, id(sources[0].id, "computecontainerinstance"), node.address);
@@ -103,13 +124,13 @@ export function createMigrationsPort(): MigrationsPort {
         if (full.lifecycleState !== "ACTIVE" || c.lifecycleState !== "ACTIVE") throw new StepFailedError("OCI migration source workload is not ACTIVE.");
         const body = await launchBody(bounded, node, full, c, desired.image, command, token);
         const launched = await request(bounded, { service: "containerinstances", region: bounded.region, method: "POST",
-          path: ociPath("containerinstances", "containerInstances"), headers: { "opc-retry-token": `zenith-${token}` }, body });
+          path: ociPath("containerinstances", "containerInstances"), headers: { "opc-retry-token": `zenith-${token}` }, body, migrationKey: token });
         migrationId = id(asRecord(launched.body)?.id, "computecontainerinstance");
       }
       for (;;) {
-        const full = await instance(bounded, migrationId, node.address);
+        const full = await instance(bounded, migrationId, node.address, token);
         if (tagsOf(full)[MIGRATION_TAG] !== token || full.containerRestartPolicy !== "NEVER") throw new Error("OCI migration execution identity is unknown.");
-        const c = await container(bounded, full, desired.image);
+        const c = await container(bounded, full, desired.image, token);
         if (digest(c.command) !== digest(command) || !Array.isArray(c.arguments) || c.arguments.length !== 0) {
           throw new Error("OCI migration command does not match its execution identity; outcome is unknown.");
         }
@@ -119,6 +140,7 @@ export function createMigrationsPort(): MigrationsPort {
             throw new Error("OCI migration stopped without an observed exit code; outcome is unknown.");
           }
           ctx.log(`OCI migration exited with code ${exitCode}; container logs suppressed.`, "info");
+          await cleanup(bounded, migrationId, token);
           return { exitCode };
         }
         if (["FAILED", "DELETING", "DELETED"].includes(String(full.lifecycleState)) ||

@@ -123,7 +123,7 @@ Neither that lane nor the existing public network check was run in this sandbox.
 | GCP | Deterministic **tar.gz**, uploaded to the pipeline's GCS bucket, then Cloud Build uses `storageSource` and publishes to Artifact Registry. | Upload identity/size/integrity and scope are checked. No live Cloud Build acceptance. |
 | Azure | Deterministic **tar.gz** through the shared reader, uploaded to ACR's short-lived Blob SAS URL, then a `DockerBuildRequest` is scheduled in the customer registry. | The build adapter and durable tenant-scoped launch journal exist, but default worker composition supplies neither the Azure source reader nor a provider-dispatched source preparation port. It refuses; operators cannot enable this with an environment variable alone. |
 | Kubernetes | Pre-built image digests; owned Deployment/StatefulSet image rollout and migration Jobs are wired into release dispatch. | The default build port refuses source builds. Supply an image pinned by SHA-256, or explicitly inject external build and source ports. Contract evidence only. |
-| OCI | Build port explicitly refuses: bring a pre-built OCIR image pinned to a SHA-256 digest. | Runner-backed release ports verify the manifest image applied by OpenTofu and wait for ACTIVE replicas; one-off migrations require trusted runner-local resource bindings. No OCI DevOps build or live acceptance. |
+| OCI | Build port explicitly refuses: bring a pre-built OCIR image pinned to a SHA-256 digest. | Runner-backed release ports verify the manifest image applied by OpenTofu and wait for ACTIVE replicas; one-off migrations use trusted runner-created bindings and durable execution receipts. No OCI DevOps build or live acceptance. |
 | Zenith-managed | No source-build release adapter in the default composed worker. | Supply an existing image supported by the relevant path; do not infer source-build readiness from driver registration or the separate hosted-apps builder. |
 
 AWS's assembler uploads with `application/zip`, expected bucket owner, checksum
@@ -170,13 +170,20 @@ remain unknown. Cloud diagnostics and raw container logs are suppressed; the
 driver emits only a fixed exit-code summary. No logs reference is fabricated.
 
 The runner's local `resourceCompartments` map must bind the workload instance,
-container, VNIC, subnet, NSGs and Vault pointers, and newly created migration
-instance/container IDs before by-id polling succeeds. Automatic trusted binding
-refresh is not wired. Migrations share the workload's identity tags and need
+container, VNIC, subnet, NSGs and Vault pointers. The runner learns newly created
+migration instance/container bindings only from validated OCI create responses. Migrations share the workload's identity tags and need
 customer IAM that actually grants the same exact-resource access; that path is
 unverified. Extra volumes, registry pull secrets and security overrides refuse.
-Completed or timed-out one-off instances are retained for operator cleanup; no
-DELETE grant is added. All of this has synthetic contract evidence only.
+Finished one-off migrations, including nonzero exits, request cleanup through a
+DELETE restricted to the runner-created instance and its signed workspace, operation
+and migration key. Running, timed-out or unproven instances remain untouched.
+The runner appends and fsyncs durable intents and terminal receipts beside its audit
+file (`<auditPath>.oci-receipts`); preserve that journal and use the same runner
+for retries. Receipts keep completed outcomes after deletion. Lost create responses
+remain explicitly unknown and never trigger another launch. Cleanup failure preserves
+the observed exit and reports unknown cleanup; an accepted DELETE proves only a
+delete request, not completed deletion. No receipt pruning policy is added. All of
+this has synthetic contract evidence only.
 See [OCI runner release rules](../RUNNER-PROTOCOL-OCI.md).
 
 ### Other provider releases

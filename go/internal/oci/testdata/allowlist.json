@@ -912,6 +912,11 @@
       "service": "containerinstances",
       "method": "POST",
       "pattern": "containerInstances"
+    },
+    {
+      "service": "containerinstances",
+      "method": "DELETE",
+      "pattern": "containerInstances/{}"
     }
   ],
   "service.restart": [

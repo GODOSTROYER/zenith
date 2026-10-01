@@ -45,6 +45,7 @@ export interface OciHttpJobPayload {
   bodyB64?: string;
   /** only for `queue-data` */
   endpointHost?: string;
+  migrationKey?: string;
 }
 
 /** What the runner returns for an `oci.http` job. */
@@ -72,7 +73,7 @@ export interface RunnerTransportLimits {
   maxResponseBytes?: number;
 }
 
-const METHODS = new Set<OciHttpMethod>(["GET", "HEAD", "POST", "PUT"]);
+const METHODS = new Set<OciHttpMethod>(["GET", "HEAD", "POST", "PUT", "DELETE"]);
 const FORBIDDEN_HEADERS = /^(authorization|host|date|x-date|x-content-sha256|content-length|content-type|signature|cookie|proxy-.*)$/i;
 const CONTROL_OR_BAD = /[\u0000-\u001f\u007f\\?#]/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
@@ -110,6 +111,10 @@ export function toJobPayload(req: OciApiRequest, limits: RunnerTransportLimits =
   if (!METHODS.has(req.method)) throw new OciTransportRefused(`Method ${String(req.method)} is not allowed.`);
   if (!isPlainPath(req.path)) throw new OciTransportRefused("The request path is not a plain absolute path.");
 
+  if (req.migrationKey !== undefined && (typeof req.migrationKey !== "string" || !/^[a-f0-9]{48}$/.test(req.migrationKey) || req.service !== "containerinstances" ||
+      !["/20210415/containerInstances", "/20210415/containerInstances/", "/20210415/containers/"].some((p) => req.path === p || (p.endsWith("/") && req.path.startsWith(p))))) throw new OciTransportRefused("Invalid OCI migration receipt selector.");
+  if (req.method === "DELETE" && (!req.migrationKey || req.body !== undefined || Object.values(req.query ?? {}).some((v) => v !== undefined))) throw new OciTransportRefused("OCI cleanup needs a receipt selector and no query or body.");
+
   const headers: Record<string, string> = {};
   for (const [k, v] of Object.entries(req.headers ?? {})) {
     const name = k.toLowerCase();
@@ -139,7 +144,7 @@ export function toJobPayload(req: OciApiRequest, limits: RunnerTransportLimits =
     if (bytes.length > (limits.maxRequestBytes ?? DEFAULT_MAX_REQUEST_BYTES)) throw new OciTransportRefused("The request body is too large.");
     bodyB64 = bytes.toString("base64");
   }
-  return { service: req.service, region: req.region, method: req.method, path: req.path, query, headers, ...(bodyB64 !== undefined ? { bodyB64 } : {}), ...(endpointHost ? { endpointHost } : {}) };
+  return { service: req.service, region: req.region, method: req.method, path: req.path, query, headers, ...(bodyB64 !== undefined ? { bodyB64 } : {}), ...(endpointHost ? { endpointHost } : {}), ...(req.migrationKey ? { migrationKey: req.migrationKey } : {}) };
 }
 
 /** Decode a runner result into an `OciApiResponse` (allowlisted headers, parsed JSON). */
@@ -170,6 +175,7 @@ export interface RunnerTransportOptions extends RunnerTransportLimits {
 export function createRunnerOciTransport(dispatch: OciRunnerDispatch, limits: RunnerTransportOptions): OciApiTransport {
   return {
     async request(req, opts) {
+      if (req.migrationKey !== undefined && limits.capability !== "deployment.deploy") throw new OciTransportRefused("OCI migration receipts require deployment.deploy.");
       if (!isAllowed(limits.capability, req)) throw new OciTransportRefused(`${req.method} ${req.service} request is not in the allowlist of capability ${limits.capability}.`);
       const payload = toJobPayload(req, limits);
       const result = await dispatch(payload, { signal: opts?.signal });

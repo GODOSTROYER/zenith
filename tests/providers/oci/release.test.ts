@@ -1,5 +1,5 @@
 /** OCI release contract tests exercise serialized runner jobs, never label fakes live. */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { StepFailedError } from "@/lib/execution/errors";
 import { createReleasePorts } from "@/lib/platform/release";
 import { isAllowed, OCI_ALLOWLIST } from "@/lib/providers/oci/allowlist";
@@ -110,21 +110,22 @@ describe("OCI one-off migrations", () => {
   });
   it("concurrent launches use the same retry token and create one instance", async () => {
     const w = world();
-    const results = await Promise.all([
+    const results = await Promise.allSettled([
       ports().migrations.runOneOffTask(w.ctx, service, command, migrationOpts),
       ports().migrations.runOneOffTask(w.ctx, service, command, migrationOpts),
     ]);
-    expect(results).toEqual([{ exitCode: 0 }, { exitCode: 0 }]);
+    expect(results.some((r) => r.status === "fulfilled" && r.value.exitCode === 0)).toBe(true);
+    expect(results.filter((r) => r.status === "rejected").every((r) => String(r.reason).includes("unknown"))).toBe(true);
     expect(w.state.launches).toBe(1);
     expect(new Set(w.jobs.filter((j) => j.method === "POST").map((j) => j.headers["opc-retry-token"])).size).toBe(1);
   });
-  it("a lost launch response stays uncertain and can be observed without relaunch", async () => {
+  it("a lost launch response retains an unknown durable intent and never relaunches", async () => {
     const w = world(); w.state.throwAfterLaunch = true;
     const failure = await ports().migrations.runOneOffTask(w.ctx, service, command, migrationOpts).catch((e: unknown) => e);
     expect(failure).toBeInstanceOf(Error); expect(failure).not.toBeInstanceOf(StepFailedError);
     expect(String(failure)).toContain("unknown"); expect(String(failure)).not.toContain("CANARY");
     w.state.throwAfterLaunch = false;
-    expect(await ports().migrations.runOneOffTask(w.ctx, service, command, migrationOpts)).toEqual({ exitCode: 0 });
+    await expect(ports().migrations.runOneOffTask(w.ctx, service, command, migrationOpts)).rejects.toThrow("unknown");
     expect(w.state.launches).toBe(1);
   });
   it("uses stable launch tokens bound to tenant, command and operation", async () => {
@@ -139,6 +140,23 @@ describe("OCI one-off migrations", () => {
     const argv = world(); await ports().migrations.runOneOffTask(argv.ctx, service, ["node", "different.js"], migrationOpts);
     expect(token(argv)).not.toBe(token(a));
   });
+  it.each([0, 7])("cleans up observed exit %s and preserves durable retries after deletion", async (exitCode) => {
+    const w = world(); w.state.exitCode = exitCode;
+    expect(await ports().migrations.runOneOffTask(w.ctx, service, command, migrationOpts)).toEqual({ exitCode });
+    expect(w.jobs.filter((j) => j.method === "DELETE")).toHaveLength(1);
+    expect(w.objects.size).toBe(2);
+    expect(await ports().migrations.runOneOffTask(w.ctx, service, command, migrationOpts)).toEqual({ exitCode });
+    expect(w.state.launches).toBe(1);
+  });
+  it.each([403, 404, 500])("reports cleanup HTTP %s honestly without losing the proven exit", async (status) => {
+    const w = world(); w.state.exitCode = 7;
+    w.state.override = (req) => req.method === "DELETE" ? { status, headers: {}, body: { message: "CANARY" } } : undefined;
+    expect(await ports().migrations.runOneOffTask(w.ctx, service, command, migrationOpts)).toEqual({ exitCode: 7 });
+    expect(w.ctx.log).toHaveBeenCalledWith(expect.stringContaining("cleanup remains unknown"), "info");
+    expect(await ports().migrations.runOneOffTask(w.ctx, service, command, migrationOpts)).toEqual({ exitCode: 7 });
+    expect(w.state.launches).toBe(1);
+    expect(JSON.stringify(vi.mocked(w.ctx.log).mock.calls)).not.toContain("CANARY");
+  });
   it("returns observed nonzero exits without claiming successful migration", async () => {
     const w = world(); w.state.exitCode = 7;
     expect(await ports().migrations.runOneOffTask(w.ctx, service, command, migrationOpts)).toEqual({ exitCode: 7 });
@@ -152,7 +170,7 @@ describe("OCI one-off migrations", () => {
     const w = world(); w.state.lifecycle = "ACTIVE";
     await expect(ports().migrations.runOneOffTask(w.ctx, service, command, { ...migrationOpts, timeoutMs: 25 })).rejects.toThrow("unknown");
     expect(w.state.launches).toBe(1); expect(w.ctx.log).not.toHaveBeenCalled();
-    expect(w.jobs.some((j) => j.path.includes("/actions/"))).toBe(false);
+    expect(w.jobs.some((j) => j.path.includes("/actions/") || j.method === "DELETE")).toBe(false);
   });
   it.each([
     { argv: [] }, { argv: [""] }, { argv: ["node", "bad\0arg"] },
@@ -178,7 +196,7 @@ describe("OCI one-off migrations", () => {
     expect(w.state.launches).toBe(0); expect(w.ctx.log).not.toHaveBeenCalled();
   });
   it("refuses a truncated prelaunch listing without using absence as permission", async () => {
-    const w = world(); w.state.override = (req) => req.path === "/20210415/containerInstances" ?
+    const w = world(); w.state.override = (req) => req.path === "/20210415/containerInstances" && !req.migrationKey ?
       { status: 200, headers: { "opc-next-page": "repeated" }, body: { items: [] } } : undefined;
     await expect(ports().migrations.runOneOffTask(w.ctx, service, command, migrationOpts)).rejects.toThrow("incomplete");
     expect(w.state.launches).toBe(0);
@@ -196,9 +214,10 @@ describe("OCI one-off migrations", () => {
     expect(w.jobs.filter((j) => j.path.endsWith("/actions/restart"))).toHaveLength(2);
   });
   it.each(["image", "command", "tag", "restart policy"])("refuses recovered execution with changed %s without relaunch", async (which) => {
-    const w = world(); await ports().migrations.runOneOffTask(w.ctx, service, command, migrationOpts);
+    const w = world(); w.state.lifecycle = "ACTIVE";
+    await expect(ports().migrations.runOneOffTask(w.ctx, service, command, { ...migrationOpts, timeoutMs: 20 })).rejects.toThrow("unknown");
     const migration = [...w.objects.values()].find((o) => (o.freeformTags as Native)[MIGRATION_TAG])!;
-    const c = [...w.containers.values()].find((o) => o.containerInstanceId === migration.id)!;
+    const c = [...w.containers.values()].find((o) => o.containerInstanceId === migration.id)!; c.lifecycleState = "INACTIVE";
     if (which === "image") c.imageUrl = IMAGE.replace(DIGEST, `sha256:${"b".repeat(64)}`);
     if (which === "command") c.command = ["different-command"];
     if (which === "tag") w.state.override = (req) => req.path.endsWith(String(migration.id)) ?
@@ -208,7 +227,8 @@ describe("OCI one-off migrations", () => {
     expect(w.state.launches).toBe(1);
   });
   it("duplicate recovered executions are unknown and never relaunched", async () => {
-    const w = world(); await ports().migrations.runOneOffTask(w.ctx, service, command, migrationOpts);
+    const w = world(); w.state.lifecycle = "ACTIVE";
+    await expect(ports().migrations.runOneOffTask(w.ctx, service, command, { ...migrationOpts, timeoutMs: 20 })).rejects.toThrow("unknown");
     const migration = [...w.objects.values()].find((o) => (o.freeformTags as Native)[MIGRATION_TAG])!;
     w.objects.set(ocid("computecontainerinstance", "duplicate"), { ...migration, id: ocid("computecontainerinstance", "duplicate") });
     await expect(ports().migrations.runOneOffTask(w.ctx, service, command, migrationOpts)).rejects.toThrow("duplicate");
@@ -220,7 +240,7 @@ describe("OCI release capability boundary", () => {
   it("adds only migration creation to deploy; all other capabilities refuse it", () => {
     const launch = { service: "containerinstances", method: "POST", path: "/20210415/containerInstances" } as const;
     expect(Object.entries(OCI_ALLOWLIST).filter(([cap]) => isAllowed(cap, launch)).map(([cap]) => cap)).toEqual(["deployment.deploy"]);
-    expect(OCI_ALLOWLIST["deployment.deploy"].filter((r) => r.method !== "GET")).toEqual([{ service: "containerinstances", method: "POST", pattern: "containerInstances" }]);
+    expect(OCI_ALLOWLIST["deployment.deploy"].filter((r) => r.method !== "GET")).toEqual([{ service: "containerinstances", method: "POST", pattern: "containerInstances" }, { service: "containerinstances", method: "DELETE", pattern: "containerInstances/{}" }]);
   });
   it("an observe-only transport refuses the migration POST even with a forged session capability", async () => {
     const w = world("infrastructure.observe"); w.ctx.session = { ...w.ctx.session, capability: "deployment.deploy" };

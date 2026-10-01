@@ -20,6 +20,6 @@ export const NOT_YET_IMPLEMENTED = new Set<string>();
 export function registerAwsDrivers(): void {
   registerNativeType("aws", "aws:sns_topic", SNS_TOPIC_SCHEMA, "KMS-encrypted SNS topic and SQS subscriptions");
   registerNativeType("aws", "aws:ebs_volume", EBS_VOLUME_SCHEMA, "Encrypted standalone gp3 EBS volume");
-  registerNativeType("aws", "aws:eks_cluster", EKS_CLUSTER_SCHEMA, "Private EKS cluster and managed node group (compile only)");
+  registerNativeType("aws", "aws:eks_cluster", EKS_CLUSTER_SCHEMA, "Private EKS cluster and managed node group with EKS SDK reads");
   for (const driver of awsDrivers) registerDriver(driver as unknown as ResourceDriver);
 }

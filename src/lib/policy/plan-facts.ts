@@ -25,6 +25,8 @@ import type { PlanFacts } from "./types";
 const CHANGING: ReadonlySet<TofuAction> = new Set(["create", "update", "delete", "replace"]);
 const DESTROYING: ReadonlySet<TofuAction> = new Set(["delete", "replace"]);
 const CREATING: ReadonlySet<TofuAction> = new Set(["create", "update", "replace"]);
+// Records only: deleting a zone or another DNS object is not a record deletion.
+const DNS_RECORD_TYPE = /^(?:aws_route53_record|google_dns_record_set|azurerm_dns_[a-z0-9_]+_record|oci_dns_rrset)$/;
 
 const compare = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 const sortedUnique = (values: Iterable<string>): string[] => [...new Set(values)].sort(compare);
@@ -54,6 +56,7 @@ function analyzePlannedResource(change: PlanResourceChange, findings: Findings, 
 export function extractPlanFacts(plan: NormalizedPlan): PlanFacts {
   const counts = { create: 0, update: 0, delete: 0, replace: 0 };
   const destroyedStateful = new Set<string>();
+  const deletedDns = new Set<string>();
   const regions = new Set<string>();
   const categories: Record<ChangeCategory, Set<string>> = { identity: new Set(), firewall: new Set(), dns: new Set() };
   const findings = newFindings();
@@ -65,6 +68,7 @@ export function extractPlanFacts(plan: NormalizedPlan): PlanFacts {
     const rule = ruleFor(change.type);
     if (rule.category) categories[rule.category].add(change.address);
     if (DESTROYING.has(change.action) && (change.destroysData || rule.stateful)) destroyedStateful.add(change.address);
+    if (DESTROYING.has(change.action) && DNS_RECORD_TYPE.test(change.type)) deletedDns.add(change.address);
     if (CREATING.has(change.action)) analyzePlannedResource(change, findings, regions);
   }
 
@@ -76,6 +80,8 @@ export function extractPlanFacts(plan: NormalizedPlan): PlanFacts {
     ...counts,
     destroysData: destroyedStateful.size > 0,
     destroyedStatefulAddresses: sortedUnique(destroyedStateful),
+    statefulDeletes: sortedUnique(destroyedStateful),
+    dnsDeletes: sortedUnique(deletedDns),
     regions: sortedUnique(regions),
     publicDatabases: sortedUnique(findings.publicDatabases),
     openIngress,

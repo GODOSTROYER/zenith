@@ -15,6 +15,7 @@ const count = z.number().int().min(0).max(1_000_000);
 export const ReviewFactsSchema = z.object({
   create: count, update: count, delete: count, replace: count, destroysData: z.boolean(),
   destroyedStatefulAddresses: z.array(factText).max(10_000), regions: z.array(factText).max(1000),
+  statefulDeletes: z.array(factText).max(10_000).optional(), dnsDeletes: z.array(factText).max(10_000).optional(),
   publicDatabases: z.array(factText).max(10_000),
   openIngress: z.array(z.object({ address: factText, port: factText, cidr: factText })).max(10_000),
   wildcardIam: z.array(factText).max(10_000), identityChanges: z.array(factText).max(10_000),

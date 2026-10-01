@@ -34,11 +34,12 @@ import type { ResourceNode } from "@/lib/resources/types";
 import { bareExpr, DriverCompileError, isArnOf, nodeKindPrefix, parseArn, refExpr, REF } from "@/lib/providers/aws/drivers/shared";
 import { configOf, interp } from "./support";
 
-export type GrantTargetKind = "object_store" | "queue" | "secret" | "log_group" | "container_registry" | "postgres" | "mysql" | "redis";
+export type GrantTargetKind = "object_store" | "queue" | "pubsub" | "secret" | "log_group" | "container_registry" | "postgres" | "mysql" | "redis";
 
 /** Where on the target an action applies. */
 export type ResourceShape =
   | "self" //              the resource's own ARN
+  | "sns_key" //           the SNS topic's exact KMS key ARN (SSE publish)
   | "objects" //           `<arn>/*`: objects inside a bucket
   | "streams" //           `<arn>:*`: log streams inside a log group
   | "group_and_streams" // both `<arn>` and `<arn>:*`
@@ -70,6 +71,12 @@ export const GRANT_RULES: Readonly<Record<GrantTargetKind, Readonly<Record<strin
   queue: {
     publish: [{ sid: "Publish", actions: ["sqs:GetQueueAttributes", "sqs:GetQueueUrl", "sqs:SendMessage"], on: "self" }],
     consume: [{ sid: "Consume", actions: ["sqs:ChangeMessageVisibility", "sqs:DeleteMessage", "sqs:GetQueueAttributes", "sqs:GetQueueUrl", "sqs:ReceiveMessage"], on: "self" }],
+  },
+  pubsub: {
+    publish: [
+      { sid: "Publish", actions: ["sns:Publish"], on: "self" },
+      { sid: "EncryptTopicMessages", actions: ["kms:Decrypt", "kms:GenerateDataKey"], on: "sns_key" },
+    ],
   },
   secret: {
     read: [{ sid: "ReadSecret", actions: SECRET_READ, on: "self" }],
@@ -141,6 +148,8 @@ function targetKindOf(identity: ResourceNode, ctx: CompileContext, grant: Identi
   }
   const node = ctx.node(grant.target);
   if (!node) throw new DriverCompileError("missing_node", identity.address, `grant target ${grant.target} is not in the graph.`);
+  // Native SNS entries have provider_native/<id> addresses, not pubsub/<id>.
+  if (node.nativeType === "aws:sns_topic") return { node, kind: "pubsub" };
   const kind = node.kind === "provider_native" ? nodeKindPrefix(node.address) : node.kind;
   if (!isTargetKind(kind)) {
     throw new DriverCompileError("unsupported", identity.address, `grants to ${grant.target} (kind ${node.kind}) are not supported: no IAM mapping exists for that kind.`);
@@ -168,6 +177,7 @@ function literalArn(identity: ResourceNode, target: ResourceNode, service: strin
 const SERVICE_OF: Record<GrantTargetKind, string> = {
   object_store: "s3",
   queue: "sqs",
+  pubsub: "sns",
   secret: "secretsmanager",
   log_group: "logs",
   container_registry: "ecr",
@@ -186,6 +196,15 @@ function resourcesFor(on: ResourceShape, identity: ResourceNode, ctx: CompileCon
   switch (on) {
     case "self":
       return [arnOf(identity, ctx, target, kind)];
+    case "sns_key": {
+      if (target.ownership === "managed") return [refExpr(ctx.ref(target.address, "kms_key_arn"))];
+      // A foreign topic's encryption key cannot be inferred from its ARN.
+      const key = target.spec.kmsKeyArn ?? configOf(target).kmsKeyArn;
+      if (typeof key !== "string" || !/^arn:aws(?:-cn|-us-gov)?:kms:[a-z0-9-]+:\d{12}:key\/[a-f0-9-]{36}$/.test(key) || parseArn(key)?.region !== target.region) {
+        throw new DriverCompileError("unsupported", identity.address, "a referenced SNS topic needs its exact regional KMS key ARN to compile a publish grant.");
+      }
+      return [key];
+    }
     case "objects":
       return [`${arnOf(identity, ctx, target, kind)}/*`];
     case "streams":

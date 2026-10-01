@@ -18,8 +18,9 @@ import type { Role } from "@/lib/actions/core";
 import type { Actor, Member, Workspace } from "@/lib/domain/types";
 import type { SessionUser } from "@/lib/auth/session";
 import { withRequestId } from "@/lib/log";
-import { errorResponse, json } from "@/lib/server/errors";
+import { ApiError, errorResponse, json } from "@/lib/server/errors";
 import type { MemberDenial } from "@/lib/server/membership";
+import { redactCredentials } from "@/lib/credentials/redact";
 
 export interface RequestState {
   /** signed-in user, or null in demo mode / signed out */
@@ -101,7 +102,7 @@ async function flushMutation(req: NextRequest): Promise<void> {
  * plus the install-global settings row and the change-feed versions. Handlers
  * then read entirely from memory.
  */
-async function prefetch(req: NextRequest): Promise<unknown> {
+async function prefetch(req: NextRequest, integration?: IntegrationRequestAccess): Promise<unknown> {
   const { isPostgres } = await import("@/lib/db/store");
   if (!isPostgres()) return undefined;
   // The session is read here rather than taken from `resolveRequest`, because
@@ -109,13 +110,30 @@ async function prefetch(req: NextRequest): Promise<unknown> {
   // and the member row all come out of the snapshot this call is loading. The
   // JWT read is local (no round trip), so asking twice costs nothing.
   const { sessionUserFromRequest } = await import("@/lib/supabase/route");
-  const user = await sessionUserFromRequest(req).catch(() => null);
+  // A bearer request reads only its verified subject's memberships. Never
+  // turn a missing browser cookie into loadSnapshot(null), which loads ALL
+  // tenants for scripts. The empty email cannot accept an invitation.
+  const user = integration
+    ? { id: integration.subject, email: "" }
+    : await sessionUserFromRequest(req).catch(() => null);
   const { loadSnapshot, pgClient } = await import("@/lib/db/postgres-store");
   return loadSnapshot(pgClient(), user ? { id: user.id, email: user.email } : null);
 }
 
 /** The permission a route needs, stated once instead of re-typed per handler. */
+export interface IntegrationRequestAccess {
+  /** Verified credential subject, never taken from a caller-supplied header. */
+  subject: string;
+}
+
 export interface RouteOptions {
+  /**
+   * Optional transport authentication, before admission/boot/tenant reads.
+   * Return a verified integration subject to bypass browser admission, a
+   * refusal Response to stop, or undefined to preserve session admission.
+   * Only principal-aware handlers may use this; workspaceRole stays human-only.
+   */
+  integrationAccess?: (req: NextRequest) => Promise<IntegrationRequestAccess | Response | undefined>;
   /**
    * Refuse a caller whose role in the resolved workspace is below this, before
    * the handler runs — the same refusal `requireAdmin`/`workspaceRole` threw
@@ -123,6 +141,8 @@ export interface RouteOptions {
    */
   workspaceRole?: Role;
 }
+
+export { safeRequestError } from "@/lib/server/errors";
 
 /** What the options above settled, handed to the handler rather than re-derived. */
 export interface RouteGrant {
@@ -164,19 +184,30 @@ export function route<P extends Record<string, string> = Record<string, string>>
   return async (req: NextRequest, ctx: RouteCtx<P>): Promise<Response> => {
     // One id per request, carried through every log line it produces and
     // handed back to the caller on a 500 so a report can be matched to a log.
-    const requestId = req.headers.get("x-request-id") ?? crypto.randomUUID().slice(0, 8);
+    const suppliedId = req.headers.get("x-request-id");
+    const requestId = suppliedId && /^[A-Za-z0-9_-]{1,64}$/.test(suppliedId) && redactCredentials(suppliedId) === suppliedId
+      ? suppliedId : crypto.randomUUID().slice(0, 8);
     return withRequestId(requestId, async () => {
       try {
-        // Admission precedes workspace reads and automatic invitation joins.
-        const { requireProductRequestAccess } = await import("@/lib/waitlist/enforcement");
-        await requireProductRequestAccess(req);
+        const access = await options.integrationAccess?.(req);
+        if (access instanceof Response) {
+          access.headers.set("x-request-id", requestId);
+          return access;
+        }
+        if (access && options.workspaceRole) throw new ApiError("This route requires a browser session.", 403);
+        // Session admission still precedes workspace reads and invitation joins.
+        // A transport may skip it only AFTER verifying an integration credential.
+        if (!access) {
+          const { requireProductRequestAccess } = await import("@/lib/waitlist/enforcement");
+          await requireProductRequestAccess(req);
+        }
         // Server-rendered reads also use context helpers. Only API handling
         // needs to load/resume the action and provider runtime.
         const { ensureBoot } = await import("@/lib/server/boot");
         await ensureBoot();
         // BEFORE the actor is resolved, and therefore before the handler: on
         // Postgres, `resolveRequest` is itself a store read.
-        const snapshot = await prefetch(req);
+        const snapshot = await prefetch(req, access);
         const { runWithSnapshot } = await import("@/lib/db/request-snapshot");
         const { withActionOutcomes } = await import("@/lib/actions/core");
         const out = await runWithSnapshot(snapshot, async () =>
@@ -188,7 +219,9 @@ export function route<P extends Record<string, string> = Record<string, string>>
           // was never committed.
           withActionOutcomes(async (outcomes) => {
             const { resolveRequest, routeGrant } = await import("@/lib/server/actor");
-            const state: RequestState = { ...(await resolveRequest(req)), snapshot };
+            // Integration principals are resolved by their transport, never by
+            // browser membership helpers (which can accept invitations).
+            const state: RequestState = { ...(access ? { user: null } : await resolveRequest(req)), snapshot };
             const result = await requestState.run(state, async () => {
               const params = ctx?.params ? await ctx.params : ({} as P);
               // A route that demands nothing must not resolve an actor: the

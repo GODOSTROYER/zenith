@@ -714,5 +714,19 @@
       "date": "2026-10-01",
       "decision": "User: switch all agents to Codex CLI gpt-6.1-sol at xhigh reasoning; workstreams >80% done finish on Sonnet. Codex jobs run headless with workspace-write (no .git writes: orchestrator verifies and commits)."
     }
+  ],
+  "verification": [
+    {
+      "date": "2026-10-01T13:45+05:30",
+      "head": "2fc0198",
+      "result": "full suite 10811 passed / 5 failed / 222 skipped (559 files) under heavy machine load; all 5 failing files pass in isolation (131/131)",
+      "loadSensitive": [
+        "tests/capabilities/platform.test.ts",
+        "tests/machines/ssm-transport.test.ts (real sh)",
+        "tests/providers/kubernetes/rollout.test.ts",
+        "tests/workflows/operations.test.ts",
+        "tests/workflows/replay.test.ts"
+      ]
+    }
   ]
 }

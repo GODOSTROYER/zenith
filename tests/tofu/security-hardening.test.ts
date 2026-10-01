@@ -94,3 +94,12 @@ describe("model view Unicode", () => {
     expect(JSON.stringify(plan)).toBe(original);
   });
 });
+
+describe("operator runner environment (proxy only)", () => {
+  it("accepts both spellings of the proxy variables and nothing else", () => {
+    const env = { HTTPS_PROXY: "http://proxy.test:3128", https_proxy: "http://proxy.test:3128", NO_PROXY: "localhost", no_proxy: "localhost", HTTP_PROXY: "http://proxy.test:3128", http_proxy: "http://proxy.test:3128" };
+    expect(validateExtraEnv(env, "Runner")).toEqual(env);
+    expect(() => validateExtraEnv({ https_proxy: "http://p.test", LD_PRELOAD: "/tmp/x.so" }, "Runner")).toThrow(/operator proxy allowlist/);
+    expect(() => validateExtraEnv({ AWS_ENDPOINT_URL: "http://evil.test" }, "Runner")).toThrow(/operator proxy allowlist/);
+  });
+});

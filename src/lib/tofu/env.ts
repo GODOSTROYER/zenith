@@ -61,7 +61,9 @@ const SESSION_ENV: Record<SessionEnvProvider, readonly string[]> = {
   oci: [...AWS_ENV, "OCI_RESOURCE_PRINCIPAL_VERSION", "OCI_RESOURCE_PRINCIPAL_RPST", "OCI_RESOURCE_PRINCIPAL_PRIVATE_PEM", "OCI_RESOURCE_PRINCIPAL_REGION"],
   kubernetes: [],
 };
-const OPERATOR_ENV = new Set(["HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"]);
+// Operator-supplied proxy settings only. Both spellings: Go's net/http (providers) and most
+// tooling honour the lowercase forms too, and operators set either.
+const OPERATOR_ENV = new Set(["HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy"]);
 
 /** Names the runner owns; a session may not set them. */
 const RESERVED = new Set([

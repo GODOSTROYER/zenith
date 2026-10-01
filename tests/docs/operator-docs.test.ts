@@ -367,8 +367,8 @@ describe("the 'in progress' claims still hold", () => {
     const providers = path.join(REPO_ROOT, "src", "lib", "providers");
     const dirs = fs.readdirSync(providers, { withFileTypes: true }).filter((d) => d.isDirectory());
     const indexes = dirs.filter((d) => fs.existsSync(path.join(providers, d.name, "drivers", "index.ts"))).map((d) => d.name);
-    // AWS has driver group modules and no provider-level index
-    expect(indexes).toEqual(["azure", "gcp", "kubernetes", "oci", "zenith"]);
+    // every provider has a provider-level index (AWS's composes its network, compute and data groups)
+    expect(indexes).toEqual(["aws", "azure", "gcp", "kubernetes", "oci", "zenith"]);
     expect(fs.readdirSync(path.join(providers, "aws", "drivers"), { withFileTypes: true }).filter((d) => d.isDirectory() && d.name !== "shared").map((d) => d.name).sort()).toEqual(["compute", "data", "network"]);
     // nothing outside the provider modules calls a register function
     const register = /^(?!\s*(?:\*|\/\/)).*\bregister(?:Aws|Gcp|Azure|Oci|Kubernetes|Zenith|ZenithManaged)Drivers\s*\(/m;

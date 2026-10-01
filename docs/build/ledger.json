@@ -658,11 +658,14 @@
         "src/lib/providers/aws/drivers/**"
       ],
       "wave": 3,
-      "owner": "worker",
+      "owner": "codex gpt-6.1-sol xhigh",
       "title": "Consolidate AWS driver groups, provider registry, expansion gaps, end-to-end compile test",
-      "state": "in_progress",
+      "state": "integrated",
       "branch": "ws/aws-integrate",
-      "notes": "Codex job"
+      "notes": "Codex job",
+      "commit": "68052dd",
+      "tests": "tests/providers/aws + tests/resources 1406 passed / 12 skipped; real tofu validate (aws 6.66.0) prod+staging 8/8",
+      "review": "orchestrator: added ALB 2-AZ expansion rule + test; removed empty snapshot dirs; docs drift guards updated (AWS index exists; RDS refusal-stub evidence recorded in ratchet)"
     },
     {
       "id": "WS-COMPOSE",

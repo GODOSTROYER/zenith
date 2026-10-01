@@ -119,6 +119,10 @@ describe("the committed capability matrix", () => {
       "aws.lambda_function@1 declares evidence for `experimental`, which is neither a core operation nor a declared operation",
       "aws.rds_instance@1 implements the operation `database.delete` but does not declare it in capabilities.operations",
       "aws.rds_instance@1 implements the operation `database.restore` but does not declare it in capabilities.operations",
+      // RDS restore/delete are refusing stubs: deliberately undeclared (never advertised as executable),
+      // while the AWS contract test requires evidence for every key in `operations`, refusals included.
+      "aws.rds_instance@1 declares evidence for `database.delete`, which is neither a core operation nor a declared operation",
+      "aws.rds_instance@1 declares evidence for `database.restore`, which is neither a core operation nor a declared operation",
       "oci.compute_instance@1 has a `compile` implementation but declares `compile: false`",
       "oci.mysql_db_system@1 has a `compile` implementation but declares `compile: false`",
       "oci.oke_cluster@1 has a `compile` implementation but declares `compile: false`",

@@ -30,7 +30,7 @@ No entry claims `real`: there is no live-account acceptance evidence yet.
 
 | Provider | Provider-level drivers index | Driver group modules | Drivers merged | Registered by the app | Registrable, not registered | Module only |
 |---|---|---|---|---|---|---|
-| aws | none | `compute`, `data`, `network` | 21 | 0 | 0 | 21 |
+| aws | `src/lib/providers/aws/drivers/index.ts` | `compute`, `data`, `network` | 21 | 0 | 21 | 0 |
 | gcp | `src/lib/providers/gcp/drivers/index.ts` | `build`, `compute`, `data`, `edge`, `identity`, `network`, `observability` | 18 | 0 | 18 | 0 |
 | azure | `src/lib/providers/azure/drivers/index.ts` | `compute`, `data`, `dns`, `identity`, `network`, `platform` | 19 | 0 | 19 | 0 |
 | oci | `src/lib/providers/oci/drivers/index.ts` | `compute`, `data`, `edge`, `network`, `platform` | 20 | 0 | 20 | 0 |
@@ -41,7 +41,7 @@ No entry claims `real`: there is no live-account acceptance evidence yet.
 
 **No resource drivers are merged yet for:** sandbox, localstack. Driver sets are delivered by separate workstreams and appear here once they are merged and this file is regenerated.
 
-**101 of 101 merged drivers are not registered by the application:** 80 are registrable (their provider's `register<Provider>Drivers` exists) but nothing in the application calls it; 21 are modules only (no provider-level index registers anything). Until application code registers them, `getDriver()` finds none of them at runtime and no operation can use them. (The registration column below describes the application; generating this file calls the registrars itself.)
+**101 of 101 merged drivers are not registered by the application:** 101 are registrable (their provider's `register<Provider>Drivers` exists) but nothing in the application calls it. Until application code registers them, `getDriver()` finds none of them at runtime and no operation can use them. (The registration column below describes the application; generating this file calls the registrars itself.)
 
 This matrix covers the **resource-driver** path (`src/lib/drivers`). The product engine's sandbox, LocalStack and AWS Preview providers use the older `ProviderAdapter` interface and have no per-operation evidence table; their honest status is in [`docs/LIMITATIONS.md`](../LIMITATIONS.md#providers).
 
@@ -51,27 +51,27 @@ This matrix covers the **resource-driver** path (`src/lib/drivers`). The product
 
 | Native type | Kind | Driver | Registered | compile | observe | runtime | verify | discover | Day-two operations |
 |---|---|---|---|---|---|---|---|---|---|
-| `aws:acm_certificate` | `tls_certificate` | `aws.acm_certificate@1` | no | `contract` | `contract` | — | `contract` | `contract` | — |
-| `aws:alb` | `load_balancer` | `aws.alb@1` | no | `contract` | `contract` | `contract` | `contract` | `contract` | — |
-| `aws:cloudwatch_log_group` | `log_group` | `aws.cloudwatch_log_group@1` | no | `contract` | `contract` | — | `contract` | `contract` | — |
-| `aws:codebuild_project` | `build_pipeline` | `aws.codebuild_project@1` | no | `contract` | `contract` | — | `contract` | `contract` | — |
-| `aws:ec2_instance` | `compute_instance` | `aws.ec2_instance@1` | no | `contract` | `contract` | `contract` | `contract` | `contract` | — |
-| `aws:ecr_repository` | `container_registry` | `aws.ecr_repository@1` | no | `contract` | `contract` | — | `contract` | `contract` | — |
-| `aws:ecs_scheduled_task` | `scheduled_job` | `aws.ecs_scheduled_task@1` | no | `contract` | `contract` | `contract` | `contract` | — | — |
-| `aws:ecs_service` | `container_service` | `aws.ecs_service@1` | no | `contract` | `contract` | `contract` | `contract` | `contract` | `deployment.deploy`: `contract`<br>`service.restart`: `contract`<br>`service.scale`: `contract` |
-| `aws:elasticache_replication_group` | `redis` | `aws.elasticache_replication_group@1` | no | `contract` | `contract` | `contract` | `contract` | `contract` | — |
-| `aws:iam_role` | `identity` | `aws.iam_role@1` | no | `contract` | `contract` | — | `contract` | `contract` | — |
-| `aws:lambda_function` | `function` | `aws.lambda_function@1` | no | `contract` | `contract` | `contract` | `contract` | `contract` | `function.invoke`: `contract` |
-| `aws:rds_instance` | `postgres` | `aws.rds_instance@1` | no | `contract` | `contract` | `contract` | `contract` | `contract` | `database.snapshot`: `contract` |
-| `aws:route53_record` | `dns_record` | `aws.route53_record@1` | no | `contract` | `contract` | — | `contract` | — | — |
-| `aws:route53_zone` | `dns_zone` | `aws.route53_zone@1` | no | `contract` | `contract` | — | `contract` | `contract` | — |
-| `aws:s3_bucket` | `object_store` | `aws.s3_bucket@1` | no | `contract` | `contract` | — | `contract` | `contract` | — |
-| `aws:s3_static_site` | `static_site` | `aws.s3_static_site@1` | no | `contract` | `contract` | — | `contract` | — | — |
-| `aws:secretsmanager_secret` | `secret` | `aws.secretsmanager_secret@1` | no | `contract` | `contract` | — | `contract` | `contract` | — |
-| `aws:security_group_rule` | `firewall` | `aws.security_group_rule@1` | no | `contract` | `contract` | — | `contract` | `contract` | `firewall.inspect`: `contract` |
-| `aws:sqs_queue` | `queue` | `aws.sqs_queue@1` | no | `contract` | `contract` | `contract` | `contract` | `contract` | — |
-| `aws:subnet` | `subnet` | `aws.subnet@1` | no | `contract` | `contract` | — | `contract` | `contract` | — |
-| `aws:vpc` | `network` | `aws.vpc@1` | no | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:acm_certificate` | `tls_certificate` | `aws.acm_certificate@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:alb` | `load_balancer` | `aws.alb@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | — |
+| `aws:cloudwatch_log_group` | `log_group` | `aws.cloudwatch_log_group@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:codebuild_project` | `build_pipeline` | `aws.codebuild_project@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:ec2_instance` | `compute_instance` | `aws.ec2_instance@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | — |
+| `aws:ecr_repository` | `container_registry` | `aws.ecr_repository@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:ecs_scheduled_task` | `scheduled_job` | `aws.ecs_scheduled_task@1` | registrable | `contract` | `contract` | `contract` | `contract` | — | — |
+| `aws:ecs_service` | `container_service` | `aws.ecs_service@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | `deployment.deploy`: `contract`<br>`service.restart`: `contract`<br>`service.scale`: `contract` |
+| `aws:elasticache_replication_group` | `redis` | `aws.elasticache_replication_group@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | — |
+| `aws:iam_role` | `identity` | `aws.iam_role@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:lambda_function` | `function` | `aws.lambda_function@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | `function.invoke`: `contract` |
+| `aws:rds_instance` | `postgres` | `aws.rds_instance@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | `database.snapshot`: `contract` |
+| `aws:route53_record` | `dns_record` | `aws.route53_record@1` | registrable | `contract` | `contract` | — | `contract` | — | — |
+| `aws:route53_zone` | `dns_zone` | `aws.route53_zone@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:s3_bucket` | `object_store` | `aws.s3_bucket@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:s3_static_site` | `static_site` | `aws.s3_static_site@1` | registrable | `contract` | `contract` | — | `contract` | — | — |
+| `aws:secretsmanager_secret` | `secret` | `aws.secretsmanager_secret@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:security_group_rule` | `firewall` | `aws.security_group_rule@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | `firewall.inspect`: `contract` |
+| `aws:sqs_queue` | `queue` | `aws.sqs_queue@1` | registrable | `contract` | `contract` | `contract` | `contract` | `contract` | — |
+| `aws:subnet` | `subnet` | `aws.subnet@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:vpc` | `network` | `aws.vpc@1` | registrable | `contract` | `contract` | — | `contract` | `contract` | — |
 
 ### gcp
 
@@ -267,6 +267,8 @@ Each line is an inconsistency between a driver's declaration and its shape. Fix 
 
 - `aws.ec2_instance@1` declares evidence for `experimental`, which is neither a core operation nor a declared operation.
 - `aws.lambda_function@1` declares evidence for `experimental`, which is neither a core operation nor a declared operation.
+- `aws.rds_instance@1` declares evidence for `database.delete`, which is neither a core operation nor a declared operation.
+- `aws.rds_instance@1` declares evidence for `database.restore`, which is neither a core operation nor a declared operation.
 - `aws.rds_instance@1` implements the operation `database.delete` but does not declare it in capabilities.operations.
 - `aws.rds_instance@1` implements the operation `database.restore` but does not declare it in capabilities.operations.
 - `oci.compute_instance@1` has a `compile` implementation but declares `compile: false`.

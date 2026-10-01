@@ -25,13 +25,13 @@ function escapeRegExp(s: string): string {
 }
 
 /** Remove exact secret values and known credential shapes; bound the length. */
-export function scrub(text: string, exact: readonly string[] = [], max = 400): string {
+export function scrub(text: string, exact: readonly string[] = [], max = 400, keepWhitespace = false): string {
   let out = String(text);
   for (const s of [...new Set(exact.filter((x) => typeof x === "string" && x.length >= EXACT_MIN))].sort((a, b) => b.length - a.length)) {
     out = out.replace(new RegExp(escapeRegExp(s), "g"), "[REDACTED]");
   }
   for (const [re, rep] of PATTERNS) out = out.replace(re, rep);
-  out = out.replace(/\s+/g, " ").trim();
+  out = keepWhitespace ? out.trim() : out.replace(/\s+/g, " ").trim();
   return out.length > max ? `${out.slice(0, max)}…` : out;
 }
 

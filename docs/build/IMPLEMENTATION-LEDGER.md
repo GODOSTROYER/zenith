@@ -47,8 +47,17 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-AWS-INTEGRATE | Consolidate AWS driver groups, provider registry, expansion gaps, end-to-end compile test | 3 | integrated | WS-AWS-NET, WS-AWS-CMP, WS-AWS-DATA | ws/aws-integrate | 68052dd | tests/providers/aws + tests/resources 1406 passed / 12 skipped; real tofu validate (aws 6.66.0) prod+staging 8/8 | orchestrator: added ALB 2-AZ expansion rule + test; removed empty snapshot dirs; docs drift guards updated (AWS index exists; RDS refusal-stub evidence recorded in ratchet) | Codex job |
 | WS-COMPOSE | Composition roots: real activities in the worker, app-side wiring, deploy e2e test | 3 | in_progress | WS-ACT, WS-CAP, WS-RUNSRV, WS-REC | ws/compose |  |  |  | Codex job |
 | WS-MACH-ALIGN | Align zenithd results with the TS machine contract; dispatcher, session provider, machine capabilities in execution | 3 | in_progress | WS-MACH, WS-GO, WS-RUNSRV, WS-ACT | ws/mach-align |  |  |  |  |
-| WS-TOFU-SEC | Fix SEC-F5: HCL template scanner + function allowlist replaces the regex expression guard | 4 | in_progress | WS-TOFU | ws/tofu-sec |  |  |  | SEC-F5 HIGH: comment between file and ( bypassed the regex; real tofu read the file. Allowlist also closes SEC-F4 (nonsensitive). |
+| WS-TOFU-SEC | Fix SEC-F5: HCL template scanner + function allowlist replaces the regex expression guard | 4 | integrated | WS-TOFU | ws/tofu-sec | 5a8f0bb | outside sandbox with real tofu: tofu/providers/execution/security/acceptance/docs 3873 passed after fixes; differential scanner-vs-tofu test ran | orchestrator: SEC F5/F4 pins flipped to it(); GCP escaped-literal test corrected; found+fixed AWS-INTEGRATE regression (cache connect grant now AWS-only; OCI refused unmapped redis grant); OCI bootstrap validate runs tofu directly (native HCL is not a workspace) | SEC-F5 HIGH: comment between file and ( bypassed the regex; real tofu read the file. Allowlist also closes SEC-F4 (nonsensitive). |
 | WS-REF | Execution compile resolves cross-node refs the way drivers publish them (AWS locals, OCI primary address) | 3 | in_progress | WS-ACT, WS-AWS-INTEGRATE | ws/ref |  |  |  | orchestrator review: execution ctx.ref returned ${primary.attr}; AWS refs like target_group_arn:<t> only exist as locals and fail the ATTRIBUTE regex — blocks any real AWS deploy with a load balancer |
+| WS-APPWIRE | Bearer access to platform REST, waitlist gate for bearer, SEC-R2, policy bundle shipping | 5 | in_progress |  | ws/appwire |  |  |  |  |
+| WS-PLACE-WIRE | provider:auto — placement recommendation via REST, action, MCP tool and page | 5 | in_progress |  | ws/place-wire |  |  |  |  |
+| WS-CLI | zenith CLI over the SDK and MCP v3 | 5 | in_progress |  | ws/cli |  |  |  |  |
+| WS-UI-WIRE | Platform pages wired to REST; resource/drift read routes | 5 | in_progress |  | ws/ui-wire |  |  |  |  |
+| WS-K8S-CONTRACT | K8s apply accepts ResourceQuota/LimitRange/HTTPRoute; namespace spec field; zenith native-type row | 5 | in_progress |  | ws/k8s-contract |  |  |  |  |
+| WS-DB-LEDGER | Ledger edges (suspend for approval, plan digest, policy decision, cancel running); no raw SQL in execution | 5 | in_progress |  | ws/db-ledger |  |  |  |  |
+| WS-SEC-POLICY | Fix SEC-F8, SEC-F10, SEC-F1 | 5 | in_progress |  | ws/sec-policy |  |  |  |  |
+| WS-SEC-LEAKS | Fix SEC-R1, SEC-F11, SEC-F12, SEC-F13 | 5 | in_progress |  | ws/sec-leaks |  |  |  |  |
+| WS-GO-OCI | oci.http runner job kind in Go | 5 | in_progress |  | ws/go-oci |  |  |  |  |
 
 ## External blockers
 

@@ -40,7 +40,7 @@
  *             infrastructure and say so.
  *  bindings   sql → firewall on 5432, cache → 6379, service→service http →
  *             the target's port; blob and queue bindings reach cloud APIs, so
- *             they become identity grants, not firewall rules. Redis cache
+ *             they become identity grants, not firewall rules. On AWS, Redis cache
  *             bindings also grant `connect` for IAM authentication. No firewall rule
  *             is derived into a non-managed target (Zenith never mutates it).
  *  secrets    An env var with a `secretRef` → a `secret/<key>-<digest>` node

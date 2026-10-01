@@ -50,6 +50,17 @@ describe("AWS data topology", () => {
     expect(referenced.nodes.some((n) => n.kind === "network")).toBe(false);
   });
 
+  it("emits the cache connect grant only on AWS (IAM-authenticated ElastiCache)", () => {
+    const m = manifest({ services: [svc({ id: "web", name: "web", kind: "web" })],
+      resources: [res({ id: "cache", name: "cache", kind: "redis" })], bindings: [bind("cache", "web", "cache", "cache")] });
+    for (const provider of ["gcp", "azure", "oci"] as const) {
+      const graph = expandManifest(m, { ...STAGING, provider });
+      const grants = graph.nodes.filter((n) => n.kind === "identity").flatMap((n) => (n.spec as unknown as IdentitySpec).grants);
+      expect(grants.some((g) => g.target === "redis/cache"), provider).toBe(false);
+      expect(graph.nodes.some((n) => n.kind === "firewall" && n.spec.port === 6379), provider).toBe(true);
+    }
+  });
+
   it("emits the cache connect grant as well as its firewall rule", () => {
     const graph = expandManifest(manifest({ services: [svc({ id: "web", name: "web", kind: "web" })],
       resources: [res({ id: "cache", name: "cache", kind: "redis" })], bindings: [bind("cache", "web", "cache", "cache")] }), STAGING);

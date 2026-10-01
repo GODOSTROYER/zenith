@@ -725,7 +725,7 @@
       "title": "Fix SEC-F5: HCL template scanner + function allowlist replaces the regex expression guard",
       "wave": 4,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-TOFU"
       ],
@@ -734,7 +734,10 @@
         "tests/tofu/**"
       ],
       "branch": "ws/tofu-sec",
-      "notes": "SEC-F5 HIGH: comment between file and ( bypassed the regex; real tofu read the file. Allowlist also closes SEC-F4 (nonsensitive)."
+      "notes": "SEC-F5 HIGH: comment between file and ( bypassed the regex; real tofu read the file. Allowlist also closes SEC-F4 (nonsensitive).",
+      "commit": "5a8f0bb",
+      "tests": "outside sandbox with real tofu: tofu/providers/execution/security/acceptance/docs 3873 passed after fixes; differential scanner-vs-tofu test ran",
+      "review": "orchestrator: SEC F5/F4 pins flipped to it(); GCP escaped-literal test corrected; found+fixed AWS-INTEGRATE regression (cache connect grant now AWS-only; OCI refused unmapped redis grant); OCI bootstrap validate runs tofu directly (native HCL is not a workspace)"
     },
     {
       "id": "WS-REF",
@@ -753,6 +756,96 @@
       ],
       "branch": "ws/ref",
       "notes": "orchestrator review: execution ctx.ref returned ${primary.attr}; AWS refs like target_group_arn:<t> only exist as locals and fail the ATTRIBUTE regex — blocks any real AWS deploy with a load balancer"
+    },
+    {
+      "id": "WS-APPWIRE",
+      "title": "Bearer access to platform REST, waitlist gate for bearer, SEC-R2, policy bundle shipping",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "branch": "ws/appwire",
+      "deps": [],
+      "paths": []
+    },
+    {
+      "id": "WS-PLACE-WIRE",
+      "title": "provider:auto — placement recommendation via REST, action, MCP tool and page",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "branch": "ws/place-wire",
+      "deps": [],
+      "paths": []
+    },
+    {
+      "id": "WS-CLI",
+      "title": "zenith CLI over the SDK and MCP v3",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "branch": "ws/cli",
+      "deps": [],
+      "paths": []
+    },
+    {
+      "id": "WS-UI-WIRE",
+      "title": "Platform pages wired to REST; resource/drift read routes",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "branch": "ws/ui-wire",
+      "deps": [],
+      "paths": []
+    },
+    {
+      "id": "WS-K8S-CONTRACT",
+      "title": "K8s apply accepts ResourceQuota/LimitRange/HTTPRoute; namespace spec field; zenith native-type row",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "branch": "ws/k8s-contract",
+      "deps": [],
+      "paths": []
+    },
+    {
+      "id": "WS-DB-LEDGER",
+      "title": "Ledger edges (suspend for approval, plan digest, policy decision, cancel running); no raw SQL in execution",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "branch": "ws/db-ledger",
+      "deps": [],
+      "paths": []
+    },
+    {
+      "id": "WS-SEC-POLICY",
+      "title": "Fix SEC-F8, SEC-F10, SEC-F1",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "branch": "ws/sec-policy",
+      "deps": [],
+      "paths": []
+    },
+    {
+      "id": "WS-SEC-LEAKS",
+      "title": "Fix SEC-R1, SEC-F11, SEC-F12, SEC-F13",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "branch": "ws/sec-leaks",
+      "deps": [],
+      "paths": []
+    },
+    {
+      "id": "WS-GO-OCI",
+      "title": "oci.http runner job kind in Go",
+      "wave": 5,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "branch": "ws/go-oci",
+      "deps": [],
+      "paths": []
     }
   ],
   "blockers": [

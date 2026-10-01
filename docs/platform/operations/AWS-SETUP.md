@@ -277,9 +277,11 @@ applyable IaC if you want to carry on without Zenith.
   and the AWS registrar composes all driver groups (`src/lib/platform/drivers.ts`).
   They carry contract evidence, not a live-account run. An approved dispatch
   is not a verified deployment.
-- **SSM permission by default.** The activity's machine path requires an
-  injected machine port (absent from default composition), and the shipped
-  bootstrap grants no `ssm:SendCommand`. Install
+- **SSM permission by default.** Default composition supplies the `machines`
+  port and selects AWS SSM fixed documents for observed EC2 targets. Calls use
+  the operation's credential-broker session and existing policy/approval gates;
+  `machine.exec` remains an admin-approved escape hatch. This wiring has no live
+  transport evidence. The shipped bootstrap grants no `ssm:SendCommand`. Install
   the fixed documents in `deploy/aws/ssm-documents/` and deliberately extend
   permissions if enabling that transport.
 - **Live runner end-to-end verification.** AWS runner sessions enqueue/await

@@ -848,7 +848,12 @@ describe("operator claims match current wiring", () => {
     expect(deploying).toContain("Default composition supplies the `machines` port");
     expect(source("src/lib/machines/transports/azure-run-command.ts")).toContain("export function createAzureRunCommandMachineDriver(");
     expect(source("src/lib/machines/transports/gcp-os-management.ts")).toContain('const supports = ["machine.inspect"] as const');
-    expect(squash(source("docs/platform/operations/README.md"))).toContain("Azure managed Run Command and GCP Compute/OS Inventory drivers exist");
+    const readme = squash(source("docs/platform/operations/README.md"));
+    for (const token of ["Default composition supplies the `machines` port", "AWS SSM fixed documents", "Azure managed Run Command", "read-only GCP Compute/OS Inventory", "active registered `zenithd` machines", "guest mutations require `zenithd`", "Kubernetes guest execution requires an injected credential resolver", "No live transport evidence"]) expect(readme).toContain(token);
+    expect(readme).not.toContain("default composition supplies none");
+    const awsSetup = squash(source("docs/platform/operations/AWS-SETUP.md"));
+    for (const token of ["Default composition supplies the `machines` port", "AWS SSM fixed documents for observed EC2 targets", "operation's credential-broker session and existing policy/approval gates", "shipped bootstrap grants no `ssm:SendCommand`", "no live transport evidence"]) expect(awsSetup).toContain(token);
+    expect(awsSetup).not.toContain("absent from default composition");
   });
 
   it("CLI entry points and all fifteen MCP tools are documented", () => {

@@ -1074,10 +1074,11 @@
       "title": "Wave-6 staging green: V2 consumers, seams (plan digest, secret.write grants, AWS perms, OCI golden)",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "staged",
       "deps": [],
       "paths": [],
-      "branch": "ws/integrate-w6"
+      "branch": "ws/integrate-w6",
+      "review": "staging verified outside sandbox: tsc 1 error (credentials purpose), journey real-tofu 3 failures (immutable plan binding), CI coverage 1; 14078 tests passed; Go, policy, SQL, matrix green -> fixes in WS-FIX-*"
     },
     {
       "id": "WS-TRUST-WIRE",
@@ -1092,6 +1093,246 @@
       "branch": "ws/trust-wire",
       "tests": "azure+aws/gcp identity+credentials 431 passed incl. real tofu validate; kubernetes/platform/docs 586+89 passed",
       "review": "orchestrator: fixed AKS federated credential for azurerm 5.x (caught by real tofu validate); docs claims updated; zenith callers must forward full graph to trust (follow-up)"
+    },
+    {
+      "id": "WS-FIX-JOURNEY",
+      "title": "batch 4 (see handoff WS-FIX-JOURNEY.md)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-INTEGRATE-W6"
+      ],
+      "paths": [],
+      "branch": "ws/fix-journey"
+    },
+    {
+      "id": "WS-FIX-CREDS",
+      "title": "batch 4 (see handoff WS-FIX-CREDS.md)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-INTEGRATE-W6"
+      ],
+      "paths": [],
+      "branch": "ws/fix-creds"
+    },
+    {
+      "id": "WS-FIX-CI",
+      "title": "batch 4 (see handoff WS-FIX-CI.md)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-INTEGRATE-W6"
+      ],
+      "paths": [],
+      "branch": "ws/fix-ci"
+    },
+    {
+      "id": "WS-DESTROY-PROPOSE",
+      "title": "batch 4 (see handoff WS-DESTROY-PROPOSE.md)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-INTEGRATE-W6"
+      ],
+      "paths": [],
+      "branch": "ws/destroy-propose"
+    },
+    {
+      "id": "WS-DESTROY-GUARDS",
+      "title": "batch 4 (see handoff WS-DESTROY-GUARDS.md)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-INTEGRATE-W6"
+      ],
+      "paths": [],
+      "branch": "ws/destroy-guards"
+    },
+    {
+      "id": "WS-DESTROY-K8S",
+      "title": "batch 4 (see handoff WS-DESTROY-K8S.md)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-INTEGRATE-W6"
+      ],
+      "paths": [],
+      "branch": "ws/destroy-k8s"
+    },
+    {
+      "id": "WS-DESTROY-UI",
+      "title": "batch 4 (see handoff WS-DESTROY-UI.md)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-INTEGRATE-W6"
+      ],
+      "paths": [],
+      "branch": "ws/destroy-ui"
+    },
+    {
+      "id": "WS-BUILD-SOURCE",
+      "title": "batch 4 (see handoff WS-BUILD-SOURCE.md)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-INTEGRATE-W6"
+      ],
+      "paths": [],
+      "branch": "ws/build-source"
+    },
+    {
+      "id": "WS-BUILD-GCP",
+      "title": "batch 4 (see handoff WS-BUILD-GCP.md)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-INTEGRATE-W6"
+      ],
+      "paths": [],
+      "branch": "ws/build-gcp"
+    },
+    {
+      "id": "WS-BUILD-AZURE",
+      "title": "batch 4 (see handoff WS-BUILD-AZURE.md)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-INTEGRATE-W6"
+      ],
+      "paths": [],
+      "branch": "ws/build-azure"
+    },
+    {
+      "id": "WS-ZM-TEARDOWN",
+      "title": "batch 4 (see handoff WS-ZM-TEARDOWN.md)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-INTEGRATE-W6"
+      ],
+      "paths": [],
+      "branch": "ws/zm-teardown"
+    },
+    {
+      "id": "WS-ZM-WIRE",
+      "title": "batch 4 (see handoff WS-ZM-WIRE.md)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-INTEGRATE-W6"
+      ],
+      "paths": [],
+      "branch": "ws/zm-wire"
+    },
+    {
+      "id": "WS-OCI-READJOBS",
+      "title": "batch 4 (see handoff WS-OCI-READJOBS.md)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-INTEGRATE-W6"
+      ],
+      "paths": [],
+      "branch": "ws/oci-readjobs"
+    },
+    {
+      "id": "WS-OCI-SESSIONS",
+      "title": "batch 4 (see handoff WS-OCI-SESSIONS.md)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-INTEGRATE-W6"
+      ],
+      "paths": [],
+      "branch": "ws/oci-sessions"
+    },
+    {
+      "id": "WS-OCI-GO",
+      "title": "batch 4 (see handoff WS-OCI-GO.md)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-INTEGRATE-W6"
+      ],
+      "paths": [],
+      "branch": "ws/oci-go"
+    },
+    {
+      "id": "WS-EPHEMERAL",
+      "title": "batch 4 (see handoff WS-EPHEMERAL.md)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-INTEGRATE-W6"
+      ],
+      "paths": [],
+      "branch": "ws/ephemeral"
+    },
+    {
+      "id": "WS-TEMPORAL-CODEC",
+      "title": "batch 4 (see handoff WS-TEMPORAL-CODEC.md)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-INTEGRATE-W6"
+      ],
+      "paths": [],
+      "branch": "ws/temporal-codec"
+    },
+    {
+      "id": "WS-MCP-OAUTH",
+      "title": "batch 4 (see handoff WS-MCP-OAUTH.md)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-INTEGRATE-W6"
+      ],
+      "paths": [],
+      "branch": "ws/mcp-oauth"
+    },
+    {
+      "id": "WS-AWS-EKS-READS",
+      "title": "batch 4 (see handoff WS-AWS-EKS-READS.md)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-INTEGRATE-W6"
+      ],
+      "paths": [],
+      "branch": "ws/aws-eks-reads"
+    },
+    {
+      "id": "WS-AWS-SNS-READS",
+      "title": "batch 4 (see handoff WS-AWS-SNS-READS.md)",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-INTEGRATE-W6"
+      ],
+      "paths": [],
+      "branch": "ws/aws-sns-reads"
     }
   ],
   "blockers": [

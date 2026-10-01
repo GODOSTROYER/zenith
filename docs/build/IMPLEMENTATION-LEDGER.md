@@ -75,8 +75,28 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-BUILD-MULTI | GCP Cloud Build and Azure ACR release ports (digest-pinned rollout) | 6 | staged |  | ws/build-multi |  |  | orchestrator: committed and merged into ws/integrate-w6 staging; integration fixes in WS-INTEGRATE-W6 |  |
 | WS-ZM-TLS | Managed hosting TLS: per-environment certificates and Gateway listeners | 6 | integrated |  | ws/zm-tls |  | zenith+kubernetes+platform 769 passed | orchestrator: merged; teardownZenithTls to be called by the destroy path (WS-DESTROY) |  |
 | WS-OCI-MORE | OCI OKE, MySQL DB system and compute instance drivers | 6 | staged | WS-DRIVER-FIX | ws/oci-more |  |  | orchestrator: committed and merged into ws/integrate-w6 staging; integration fixes in WS-INTEGRATE-W6 |  |
-| WS-INTEGRATE-W6 | Wave-6 staging green: V2 consumers, seams (plan digest, secret.write grants, AWS perms, OCI golden) | 6 | in_progress |  | ws/integrate-w6 |  |  |  |  |
+| WS-INTEGRATE-W6 | Wave-6 staging green: V2 consumers, seams (plan digest, secret.write grants, AWS perms, OCI golden) | 6 | staged |  | ws/integrate-w6 |  |  | staging verified outside sandbox: tsc 1 error (credentials purpose), journey real-tofu 3 failures (immutable plan binding), CI coverage 1; 14078 tests passed; Go, policy, SQL, matrix green -> fixes in WS-FIX-* |  |
 | WS-TRUST-WIRE | Cloud-side workload identity trust (IRSA/GKE WI/AKS federated) + non-AWS connection verification | 6 | integrated | WS-K8S-IDENTITY | ws/trust-wire |  | azure+aws/gcp identity+credentials 431 passed incl. real tofu validate; kubernetes/platform/docs 586+89 passed | orchestrator: fixed AKS federated credential for azurerm 5.x (caught by real tofu validate); docs claims updated; zenith callers must forward full graph to trust (follow-up) |  |
+| WS-FIX-JOURNEY | batch 4 (see handoff WS-FIX-JOURNEY.md) | 7 | in_progress | WS-INTEGRATE-W6 | ws/fix-journey |  |  |  |  |
+| WS-FIX-CREDS | batch 4 (see handoff WS-FIX-CREDS.md) | 7 | in_progress | WS-INTEGRATE-W6 | ws/fix-creds |  |  |  |  |
+| WS-FIX-CI | batch 4 (see handoff WS-FIX-CI.md) | 7 | in_progress | WS-INTEGRATE-W6 | ws/fix-ci |  |  |  |  |
+| WS-DESTROY-PROPOSE | batch 4 (see handoff WS-DESTROY-PROPOSE.md) | 7 | in_progress | WS-INTEGRATE-W6 | ws/destroy-propose |  |  |  |  |
+| WS-DESTROY-GUARDS | batch 4 (see handoff WS-DESTROY-GUARDS.md) | 7 | in_progress | WS-INTEGRATE-W6 | ws/destroy-guards |  |  |  |  |
+| WS-DESTROY-K8S | batch 4 (see handoff WS-DESTROY-K8S.md) | 7 | in_progress | WS-INTEGRATE-W6 | ws/destroy-k8s |  |  |  |  |
+| WS-DESTROY-UI | batch 4 (see handoff WS-DESTROY-UI.md) | 7 | in_progress | WS-INTEGRATE-W6 | ws/destroy-ui |  |  |  |  |
+| WS-BUILD-SOURCE | batch 4 (see handoff WS-BUILD-SOURCE.md) | 7 | in_progress | WS-INTEGRATE-W6 | ws/build-source |  |  |  |  |
+| WS-BUILD-GCP | batch 4 (see handoff WS-BUILD-GCP.md) | 7 | in_progress | WS-INTEGRATE-W6 | ws/build-gcp |  |  |  |  |
+| WS-BUILD-AZURE | batch 4 (see handoff WS-BUILD-AZURE.md) | 7 | in_progress | WS-INTEGRATE-W6 | ws/build-azure |  |  |  |  |
+| WS-ZM-TEARDOWN | batch 4 (see handoff WS-ZM-TEARDOWN.md) | 7 | in_progress | WS-INTEGRATE-W6 | ws/zm-teardown |  |  |  |  |
+| WS-ZM-WIRE | batch 4 (see handoff WS-ZM-WIRE.md) | 7 | in_progress | WS-INTEGRATE-W6 | ws/zm-wire |  |  |  |  |
+| WS-OCI-READJOBS | batch 4 (see handoff WS-OCI-READJOBS.md) | 7 | in_progress | WS-INTEGRATE-W6 | ws/oci-readjobs |  |  |  |  |
+| WS-OCI-SESSIONS | batch 4 (see handoff WS-OCI-SESSIONS.md) | 7 | in_progress | WS-INTEGRATE-W6 | ws/oci-sessions |  |  |  |  |
+| WS-OCI-GO | batch 4 (see handoff WS-OCI-GO.md) | 7 | in_progress | WS-INTEGRATE-W6 | ws/oci-go |  |  |  |  |
+| WS-EPHEMERAL | batch 4 (see handoff WS-EPHEMERAL.md) | 7 | in_progress | WS-INTEGRATE-W6 | ws/ephemeral |  |  |  |  |
+| WS-TEMPORAL-CODEC | batch 4 (see handoff WS-TEMPORAL-CODEC.md) | 7 | in_progress | WS-INTEGRATE-W6 | ws/temporal-codec |  |  |  |  |
+| WS-MCP-OAUTH | batch 4 (see handoff WS-MCP-OAUTH.md) | 7 | in_progress | WS-INTEGRATE-W6 | ws/mcp-oauth |  |  |  |  |
+| WS-AWS-EKS-READS | batch 4 (see handoff WS-AWS-EKS-READS.md) | 7 | in_progress | WS-INTEGRATE-W6 | ws/aws-eks-reads |  |  |  |  |
+| WS-AWS-SNS-READS | batch 4 (see handoff WS-AWS-SNS-READS.md) | 7 | in_progress | WS-INTEGRATE-W6 | ws/aws-sns-reads |  |  |  |  |
 
 ## External blockers
 

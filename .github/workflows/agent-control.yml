@@ -49,9 +49,9 @@ jobs:
       # directory the Postgres contract suite lives in. That suite has no
       # database here, so it skips itself loudly and is proved in ci.yml's
       # `postgres` job instead — the same split `tests/hosted/authority` uses.
-      - run: npm test -- tests/agent-control --no-file-parallelism
+      - run: npm test -- tests/agent-control --maxWorkers=2 --no-file-parallelism
       # The link flow: protocol, authority, routes, and the file-store journey
       # that ties them to a simulated deployment read back through the project
       # payload. Separate from the line above so that a failure names which
       # half of the feature broke.
-      - run: npm test -- tests/agent-link tests/agent-journey.test.ts --no-file-parallelism
+      - run: npm test -- tests/agent-link tests/agent-journey.test.ts --maxWorkers=2 --no-file-parallelism

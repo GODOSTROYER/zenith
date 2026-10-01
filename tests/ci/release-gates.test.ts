@@ -100,10 +100,10 @@ const CHECKOUT_PREFIX = "actions/checkout@";
 /** The vitest invocations the platform lanes run, written once so the job and its lane-report step cannot drift. */
 const vitestLane = (paths: string, extra: string, lane: string): string =>
   `npx vitest run ${paths}${extra} --reporter=default --reporter=json --outputFile.json=.data-ci-lane/${lane}-lane.json`;
-const POLICY_VITEST = vitestLane("tests/policy", "", "policy");
-const TOFU_VITEST = vitestLane("tests/tofu tests/providers/aws/drivers", " --passWithNoTests --no-file-parallelism", "tofu");
-const WORKFLOWS_VITEST = vitestLane("tests/workflows", " --passWithNoTests --no-file-parallelism", "workflows");
-const PLATFORM_VITEST = vitestLane("tests/controlplane tests/capabilities tests/runners", " --passWithNoTests --no-file-parallelism", "platform");
+const POLICY_VITEST = vitestLane("tests/policy", " --maxWorkers=2", "policy");
+const TOFU_VITEST = vitestLane("tests/tofu tests/providers/aws/drivers tests/providers/gcp tests/providers/azure tests/providers/oci tests/execution/compile-refs-providers.test.ts tests/execution/journey.test.ts tests/security/tofu-secrets.test.ts tests/security/tofu-runner-env.test.ts tests/security/tofu-workspace-injection.test.ts", " --maxWorkers=2 --no-file-parallelism", "tofu");
+const WORKFLOWS_VITEST = vitestLane("tests/workflows tests/platform tests/security/workflow-history.test.ts", " --maxWorkers=2 --no-file-parallelism", "workflows");
+const PLATFORM_VITEST = vitestLane("tests/controlplane tests/capabilities tests/runners tests/reconcile/platform.test.ts", " --maxWorkers=2 --no-file-parallelism", "platform");
 
 const requiredCommands: Record<string, string[]> = {
   verify: [
@@ -111,7 +111,7 @@ const requiredCommands: Record<string, string[]> = {
     INSTALL,
     "npm run typecheck",
     "npm run lint",
-    "npm test",
+    "npx vitest run --project=node --project=dom --maxWorkers=2",
     "npm run smoke",
     "npm run gimbal:verify",
   ],
@@ -119,22 +119,23 @@ const requiredCommands: Record<string, string[]> = {
   docker: ["docker build -t zenith:ci ."],
   hosted: [
     INSTALL,
-    "npx vitest run tests/hosted",
+    "npx vitest run tests/hosted --maxWorkers=2",
     "npx tsx scripts/hosted-acceptance.ts",
     "npx tsx scripts/hosted-browser.ts",
   ],
   postgres: [
     INSTALL,
     "bash scripts/ci/apply-supabase-migrations.sh",
-    "npx vitest run tests/hosted/authority/contract tests/scripts/migrate-hosted-to-postgres.test.ts tests/agent-link/pg-contract.test.ts tests/agent-control/pg-contract.test.ts tests/db/contract/workspace-sharing.test.ts tests/waitlist/pg-contract.test.ts --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/postgres-lane.json",
+    "npx vitest run tests/hosted/authority/contract tests/scripts/migrate-hosted-to-postgres.test.ts tests/agent-link/pg-contract.test.ts tests/agent-control/pg-contract.test.ts tests/db/contract/workspace-sharing.test.ts tests/waitlist/pg-contract.test.ts --maxWorkers=2 --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/postgres-lane.json",
   ],
   agent: [INSTALL, "npm run agent:acceptance", "npm run agent:browser"],
   // The platform module gates. Steps behind a `hashFiles` guard (the Go lane's,
   // the platform migration step) are asserted in their own describe blocks.
-  policy: [INSTALL, "node policy/build.mjs --check", POLICY_VITEST],
+  policy: [INSTALL, "npm run policy:check", POLICY_VITEST],
   tofu: [INSTALL, TOFU_VITEST],
   workflows: [INSTALL, WORKFLOWS_VITEST],
   "platform-postgres": [INSTALL, PLATFORM_VITEST],
+  generated: [INSTALL, "npm run platform:emit-sql -- --check", "npx tsx scripts/docs/capability-matrix.ts --check", "npx vitest run tests/docs --maxWorkers=2"],
   ledger: ["node scripts/build/ledger.mjs --check"],
   "supply-chain": ["node scripts/ci/lockfile-integrity.mjs"],
 };
@@ -252,9 +253,9 @@ describe("release gate policy", () => {
     it("runs the hosted suites before the journey, and the journey before the browser", () => {
       const order = hosted().steps.map((one) => one.run ?? "");
       const at = (command: string): number => order.findIndex((run) => run.trim() === command);
-      expect(at("npx vitest run tests/hosted")).toBeGreaterThan(at("npm ci"));
+      expect(at("npx vitest run tests/hosted --maxWorkers=2")).toBeGreaterThan(at(INSTALL));
       expect(at("npx tsx scripts/hosted-acceptance.ts")).toBeGreaterThan(
-        at("npx vitest run tests/hosted")
+        at("npx vitest run tests/hosted --maxWorkers=2")
       );
       expect(at("npx tsx scripts/hosted-browser.ts")).toBeGreaterThan(
         at("npx tsx scripts/hosted-acceptance.ts")
@@ -750,7 +751,7 @@ describe("the policy job", () => {
 
   it("installs OPA, then proves the bundle reproducible, then runs the suites, in that order", () => {
     const install = indexOfName(policy(), "Install pinned OPA");
-    const bundle = indexOfCommand(policy(), "node policy/build.mjs --check");
+    const bundle = indexOfCommand(policy(), "npm run policy:check");
     const suites = indexOfCommand(policy(), POLICY_VITEST);
     expect(install).toBeGreaterThan(indexOfCommand(policy(), INSTALL));
     expect(bundle).toBeGreaterThan(install);
@@ -777,10 +778,11 @@ describe("the tofu job", () => {
     expect(indexOfName(tofu(), "Install pinned OpenTofu")).toBeLessThan(indexOfCommand(tofu(), TOFU_VITEST));
   });
 
-  it("runs the AWS driver suites too, valid before they exist, and serially", () => {
+  it("runs all provider suites and fails when no suites exist, serially", () => {
     const command = cmd(tofu().steps[indexOfCommand(tofu(), TOFU_VITEST)]);
     expect(command).toContain("tests/tofu tests/providers/aws/drivers");
-    expect(command).toContain("--passWithNoTests");
+    expect(command).not.toContain("--passWithNoTests");
+    for (const provider of ["gcp", "azure", "oci"]) expect(command).toContain(`tests/providers/${provider}`);
     // One plugin cache shared by every test; a first install is not something to race on.
     expect(command).toContain("--no-file-parallelism");
   });
@@ -866,16 +868,16 @@ describe("the workflows job", () => {
   it("installs a verified Temporal CLI, asserts its version, and exports its path to the tests", () => {
     const install = stepNamed(wf(), "Install pinned Temporal CLI");
     expect(install.shell).toBe("bash");
-    expect(install.run).toContain('echo "ZENITH_TEMPORAL_CLI=$RUNNER_TEMP/temporal-cli/temporal" >> "$GITHUB_ENV"');
+    expect(install.run).toContain('echo "ZENITH_TEST_TEMPORAL_CLI=$RUNNER_TEMP/temporal-cli/temporal" >> "$GITHUB_ENV"');
     // The version the URL downloads is the one the step insists on.
     const pinned = DOWNLOADS.find((one) => one.job === "workflows")?.url.match(/\/v([\d.]+)\//)?.[1];
     expect(install.run).toContain(`"temporal version ${pinned} "*) ;;`);
     expect(indexOfName(wf(), "Install pinned Temporal CLI")).toBeLessThan(indexOfCommand(wf(), WORKFLOWS_VITEST));
   });
 
-  it("runs serially and is valid before the suites land", () => {
+  it("runs serially and fails when the committed suites are absent", () => {
     const command = cmd(wf().steps[indexOfCommand(wf(), WORKFLOWS_VITEST)]);
-    expect(command).toContain("--passWithNoTests");
+    expect(command).not.toContain("--passWithNoTests");
     expect(command).toContain("--no-file-parallelism");
   });
 });
@@ -920,10 +922,10 @@ describe("the platform PostgreSQL job", () => {
     expect(pg().steps.map(cmd)).not.toContain("bash scripts/ci/apply-supabase-migrations.sh");
   });
 
-  it("runs the control store, capabilities and runners serially and is valid before they land", () => {
+  it("runs the control store, capabilities, runners and reconciliation serially", () => {
     const command = cmd(pg().steps[indexOfCommand(pg(), PLATFORM_VITEST)]);
-    for (const dir of ["tests/controlplane", "tests/capabilities", "tests/runners"]) expect(command).toContain(dir);
-    expect(command).toContain("--passWithNoTests");
+    for (const dir of ["tests/controlplane", "tests/capabilities", "tests/runners", "tests/reconcile/platform.test.ts"]) expect(command).toContain(dir);
+    expect(command).not.toContain("--passWithNoTests");
     expect(command).toContain("--no-file-parallelism");
   });
 

@@ -86,8 +86,10 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Test
-        run: npm test
+      - name: Unit suites (Node and DOM projects)
+        # No path filter: this includes agent-v3, cli, placement, platform-ui,
+        # security and every other suite in both committed Vitest projects.
+        run: npx vitest run --project=node --project=dom --maxWorkers=2
 
       - name: Smoke
         # scripts/smoke.ts sets its own ZENITH_DATA (.data-smoke) and clears it
@@ -197,7 +199,7 @@ jobs:
       - name: Postgres contract lanes
         # Serialize suites that share database fixtures. Individual race tests
         # open independent connections to verify database concurrency.
-        run: npx vitest run tests/hosted/authority/contract tests/scripts/migrate-hosted-to-postgres.test.ts tests/agent-link/pg-contract.test.ts tests/agent-control/pg-contract.test.ts tests/db/contract/workspace-sharing.test.ts tests/waitlist/pg-contract.test.ts --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/postgres-lane.json
+        run: npx vitest run tests/hosted/authority/contract tests/scripts/migrate-hosted-to-postgres.test.ts tests/agent-link/pg-contract.test.ts tests/agent-control/pg-contract.test.ts tests/db/contract/workspace-sharing.test.ts tests/waitlist/pg-contract.test.ts --maxWorkers=2 --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/postgres-lane.json
 
       - name: Lane report - fail if a lane ran zero tests, and list what is blocked
         # `always()` so the blocked-lane table reaches the summary even when the
@@ -239,7 +241,7 @@ jobs:
       - run: npm ci --ignore-scripts
 
       - name: Hosted suites
-        run: npx vitest run tests/hosted
+        run: npx vitest run tests/hosted --maxWorkers=2
 
       - name: Hosted acceptance journey
         # scripts/hosted-acceptance.ts sets its own ZENITH_DATA
@@ -387,10 +389,10 @@ jobs:
   #
   # Two conventions worth knowing before adding a lane:
   #
-  #   - A lane that has nothing to run YET must say so, not pass silently. The
-  #     ones whose tests live in another workstream use `--passWithNoTests` so
-  #     the job is valid before they land, and `scripts/ci/lane-report.mjs`
-  #     turns the requirement on the moment the implementation exists.
+  #   - The platform suites have landed: a missing suite must now fail. The
+  #     original lane reports still run; tests/ci/assert-lane-report.mjs also
+  #     requires the gated scenarios themselves to pass, rather than counting
+  #     unrelated unit tests in the same file as evidence of a real engine.
   #   - `hashFiles()` is not available in a job-level `if`, only in step
   #     conditions, so a lane that is skipped until a path exists (the `go`
   #     job) puts the guard on its steps and reports the skip in the summary.
@@ -456,10 +458,10 @@ jobs:
           "$RUNNER_TEMP/opa-bin/opa" version
 
       - name: Policy bundle is reproducible
-        run: node policy/build.mjs --check
+        run: npm run policy:check
 
       - name: Policy suites
-        run: npx vitest run tests/policy --reporter=default --reporter=json --outputFile.json=.data-ci-lane/policy-lane.json
+        run: npx vitest run tests/policy --maxWorkers=2 --reporter=default --reporter=json --outputFile.json=.data-ci-lane/policy-lane.json
 
       - name: Lane report - fail if a required suite ran zero tests
         # `always()` so the not-verified table reaches the summary even when the
@@ -480,8 +482,9 @@ jobs:
   #     silently, without both. The rest of tests/tofu (runner, env allowlist,
   #     plan normalisation) also runs against the real binary rather than its
   #     skipIf branch. The lane report fails the job if either file ran nothing.
-  #   - The AWS driver suites under tests/providers/aws/drivers (mocked SDK,
-  #     no tofu) pass. `--passWithNoTests` keeps the job valid until they land.
+  #   - AWS, GCP, Azure and OCI compiled workspaces and bootstrap modules validate
+  #     with real provider schemas. Driver API reads remain mocked; this lane
+  #     installs providers and never applies infrastructure to a cloud account.
   #
   # ## What it does not prove
   #
@@ -545,14 +548,34 @@ jobs:
           # lockfile would hold the wrong provider versions and save nothing.
           key: tofu-plugins-${{ runner.os }}-${{ hashFiles('src/lib/tofu/locks/*.terraform.lock.hcl') }}
 
-      - name: OpenTofu and AWS driver suites
+      - name: OpenTofu and all provider suites
         # Serial: every test shares one plugin cache directory and a first-time
         # provider install is not something two processes should race on.
-        run: npx vitest run tests/tofu tests/providers/aws/drivers --passWithNoTests --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/tofu-lane.json
+        run: npx vitest run tests/tofu tests/providers/aws/drivers tests/providers/gcp tests/providers/azure tests/providers/oci tests/execution/compile-refs-providers.test.ts tests/execution/journey.test.ts tests/security/tofu-secrets.test.ts tests/security/tofu-runner-env.test.ts tests/security/tofu-workspace-injection.test.ts --maxWorkers=2 --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/tofu-lane.json
 
       - name: Lane report - fail if a required suite ran zero tests
         if: always()
         run: node scripts/ci/lane-report.mjs tofu .data-ci-lane/tofu-lane.json
+
+      - name: Every real provider validation must pass
+        if: always()
+        run: node tests/ci/assert-lane-report.mjs tofu .data-ci-lane/tofu-lane.json
+
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6.5.0
+        with:
+          go-version: '1.27.1'
+          cache-dependency-path: |
+            go/go.mod
+            go/go.sum
+
+      - name: Go runner exercises real OpenTofu and provider lock enforcement
+        shell: bash
+        env:
+          GOTOOLCHAIN: local
+        run: |
+          set -euo pipefail
+          test "$(go env GOVERSION)" = "go1.27.1"
+          ZENITH_TEST_TOFU="$ZENITH_TOFU_BIN" go -C go test -count=1 ./internal/runner/kinds -run '^TestRealOpenTofu(PlanShowApply|WithProviderAndLockfile)$'
 
   # The Go lane (ADR-0010): zenith-runner and zenithd.
   #
@@ -565,6 +588,9 @@ jobs:
   #     CGO_ENABLED=0, which is how the runner and zenithd ship (static binaries
   #     in a minimal image). `-race` needs cgo, so the tests run with it on and
   #     the release build runs with it off; both are exercised.
+  #   - Machine fixtures regenerate through the Go result mappers, stay byte
+  #     identical to the committed goldens, and satisfy the TypeScript schemas.
+  #     These are fixture contracts, not observations of a live machine.
   #
   # ## What it does not prove
   #
@@ -652,6 +678,30 @@ jobs:
           CGO_ENABLED: "1"
         run: go test -race -count=1 ./...
 
+      - name: Regenerate and compare machine result goldens
+        if: hashFiles('go/go.mod') != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZENITH_UPDATE_MACHINE_GOLDENS=1 go test -count=1 ./internal/machine/ops -run '^TestResultGoldens$'
+          git diff --exit-code -- internal/machine/testdata/results
+          test -z "$(git --no-optional-locks status --porcelain -- internal/machine/testdata/results)"
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        if: hashFiles('go/go.mod') != ''
+        with:
+          node-version: '22.16.0'
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+        if: hashFiles('go/go.mod') != ''
+        working-directory: .
+
+      - name: TypeScript validates the Go machine result goldens
+        if: hashFiles('go/go.mod') != ''
+        working-directory: .
+        run: npx vitest run tests/machines/go-results.test.ts --maxWorkers=2
+
       - name: Cross-build linux/amd64 and linux/arm64 without cgo
         if: hashFiles('go/go.mod') != ''
         shell: bash
@@ -669,12 +719,13 @@ jobs:
   #   - The workflow definitions, the worker and the client run on a real
   #     Temporal server: tests/workflows start their own dev server / test
   #     environment from the pinned CLI, whose path reaches them as
-  #     ZENITH_TEMPORAL_CLI. Whatever those tests exercise - workflows,
+  #     ZENITH_TEST_TEMPORAL_CLI. Whatever those tests exercise - workflows,
   #     activities, signals, timers, retries - runs against the real engine, not
   #     a mock.
-  #   - The lane report fails the job once src/lib/workflows/definitions exists
-  #     if tests/workflows ran zero tests. `--passWithNoTests` keeps the job
-  #     valid until they land.
+  #   - Platform composition e2e runs on the SDK time-skipping test environment.
+  #     AWS responses and OpenTofu are test doubles in those scenarios. The
+  #     report gate fails if any Temporal scenario skips, including the tests
+  #     for approval expiry and a worker going silent mid-apply.
   #
   # ## What it does not prove
   #
@@ -689,6 +740,13 @@ jobs:
   workflows:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
+    env:
+      # Time skipping uses the SDK's cached/downloaded test-server binary;
+      # download/start failures must fail the report gate rather than skip green.
+      ZENITH_COMPOSE_TEMPORAL_MODE: time-skipping
+      ZENITH_TEST_TEMPORAL_DOWNLOAD: "1"
+      ZENITH_SEC_TEMPORAL: "1"
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
@@ -720,16 +778,20 @@ jobs:
               ;;
           esac
           echo "$version"
-          echo "ZENITH_TEMPORAL_CLI=$RUNNER_TEMP/temporal-cli/temporal" >> "$GITHUB_ENV"
+          echo "ZENITH_TEST_TEMPORAL_CLI=$RUNNER_TEMP/temporal-cli/temporal" >> "$GITHUB_ENV"
 
       - name: Workflow suites
         # Serial: each suite starts its own dev server, and two of them on a
         # two-core runner only make both slower and flakier.
-        run: npx vitest run tests/workflows --passWithNoTests --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/workflows-lane.json
+        run: npx vitest run tests/workflows tests/platform tests/security/workflow-history.test.ts --maxWorkers=2 --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/workflows-lane.json
 
       - name: Lane report - fail if a required suite ran zero tests
         if: always()
         run: node scripts/ci/lane-report.mjs workflows .data-ci-lane/workflows-lane.json
+
+      - name: Every Temporal and platform e2e scenario must pass
+        if: always()
+        run: node tests/ci/assert-lane-report.mjs workflows .data-ci-lane/workflows-lane.json
 
   # The platform control store on real PostgreSQL (ADR-0002).
   #
@@ -749,11 +811,12 @@ jobs:
   #     `describe.each(LANES)` suites: real transactions, real independent
   #     connections for the race tests, leases, idempotency, the outbox. The
   #     same suites run on PGlite in `verify`; this adds the engine that
-  #     production uses.
+  #     production uses. The reconciliation adapter also runs both store lanes.
   #   - Once src/lib/controlplane/db exists, scripts/ci/lane-report.mjs fails the
   #     job if tests/controlplane ran zero tests, or ran none of them on
   #     Postgres (a job without the URL is green having touched no Postgres).
-  #     `--passWithNoTests` keeps the job valid until the suites land.
+  #     A second report gate requires a passing Postgres half for every suite
+  #     that imports the platform store harness, including capabilities/reconcile.
   #
   # ## What it does not prove
   #
@@ -825,11 +888,42 @@ jobs:
       - name: Platform control store suites
         # Serialize suites that share the database. Race tests open their own
         # independent connections to exercise database concurrency.
-        run: npx vitest run tests/controlplane tests/capabilities tests/runners --passWithNoTests --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/platform-lane.json
+        run: npx vitest run tests/controlplane tests/capabilities tests/runners tests/reconcile/platform.test.ts --maxWorkers=2 --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/platform-lane.json
 
       - name: Lane report - fail if the control store ran zero tests, or none on Postgres
         if: always()
         run: node scripts/ci/lane-report.mjs platform-postgres .data-ci-lane/platform-lane.json
+
+      - name: Every platform Postgres contract must pass
+        if: always()
+        run: node tests/ci/assert-lane-report.mjs platform-postgres .data-ci-lane/platform-lane.json
+
+  # Generated SQL, capability documentation and operator-doc/link drift. The
+  # check modes compare committed bytes without rewriting the checkout.
+  generated:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22.16.0'
+          cache: npm
+
+      - run: npm ci --ignore-scripts
+
+      - name: Platform SQL is current
+        run: npm run platform:emit-sql -- --check
+
+      - name: Capability matrix is current
+        run: npx tsx scripts/docs/capability-matrix.ts --check
+
+      - name: Documentation drift suites
+        run: npx vitest run tests/docs --maxWorkers=2
 
   # The implementation ledger (docs/build).
   #

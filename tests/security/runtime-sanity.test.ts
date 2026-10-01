@@ -51,15 +51,13 @@ describe("runtime: JSON.parse fidelity", () => {
   });
 
   /**
-   * The repo's engine floor (`>=22.16`) admits Node 24.x and 26.x. Until a patched
-   * runtime is known, the engine range should exclude the affected majors or the
-   * app should refuse to start on one. When package.json is tightened (or a
-   * startup self-check lands) flip this to `it`.
+   * SEC-F9 is a release gate. Pin the supported Node 22 range explicitly: an
+   * open-ended floor admits the affected Node 24 runtime. This permits the
+   * bounded >= floor, unlike the old assertion that rejected every >= range.
    */
-  it.fails("SEC-F9: package.json's engine range excludes runtimes with the JSON.parse key defect (or the app self-checks at startup)", () => {
+  it("SEC-F9: package.json's engine range excludes runtimes with the JSON.parse key defect", () => {
     const pkg = JSON.parse(readFileSync(path.join(process.cwd(), "package.json"), "utf8")) as { engines?: { node?: string } };
     const range = pkg.engines?.node ?? "";
-    // an open-ended floor (">=22.16") admits Node 24 and 26
-    expect(range, `engines.node is "${range}"`).not.toMatch(/^>=/);
+    expect(range, `engines.node is "${range}"; pin Node 22 with >=22.16 <23`).toBe(">=22.16 <23");
   });
 });

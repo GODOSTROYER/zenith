@@ -15,13 +15,16 @@
  *    operation with a new id), and this module turns that refusal into the
  *    existing (closed) handle.
  *
- * Both cases return the existing execution's ids. Payloads carry ids only.
+ * Both cases return the existing execution's ids. Each start snapshots only
+ * its declared ids and scalar flags before transport. Runtime extra fields,
+ * accessors and serialization hooks never enter workflow arguments.
  *
  * Connection settings come from `config.ts` (ZENITH_TEMPORAL_* env vars, read
  * in one function). The API key is never logged or put in an error.
  */
 
 import { createHash } from "node:crypto";
+import { credentialPatternsIn } from "@/lib/credentials/redact";
 import {
   Client,
   Connection,
@@ -132,6 +135,38 @@ const clientFor = (opts: CallOptions | undefined): Promise<Client> => (opts?.cli
 
 /* --------------------------------- starting -------------------------------- */
 
+export class InvalidWorkflowInputError extends Error {
+  readonly code = "invalid_workflow_input";
+  constructor(field?: string) {
+    // Field names come only from the fixed contract, never from caller data.
+    super(field ? `Invalid workflow input field: ${field}` : "Invalid workflow input");
+  }
+}
+
+const ID_SCALAR = /^[A-Za-z0-9_.:-]{1,128}$/;
+
+/**
+ * TypeScript types cannot constrain deserialized objects. Build a fresh plain
+ * payload with own scalar data properties only, before connecting to Temporal.
+ * Id syntax and credential shapes are tripwires, not proof an id exists; the
+ * activities still enforce workspace ownership against stored records.
+ */
+function workflowPayload<T extends object>(input: T, fields: Record<keyof T, "id" | "boolean">): T {
+  if (input === null || typeof input !== "object" || Array.isArray(input)) throw new InvalidWorkflowInputError();
+  const payload: Record<string, string | boolean> = {};
+  for (const [field, kind] of Object.entries(fields)) {
+    const property = Object.getOwnPropertyDescriptor(input, field);
+    const value: unknown = property && "value" in property ? property.value : undefined;
+    if (kind === "boolean") {
+      if (typeof value !== "boolean") throw new InvalidWorkflowInputError(field);
+    } else if (typeof value !== "string" || !ID_SCALAR.test(value) || credentialPatternsIn(value).length > 0) {
+      throw new InvalidWorkflowInputError(field);
+    }
+    payload[field] = value as string | boolean;
+  }
+  return payload as T;
+}
+
 export interface StartedWorkflow {
   workflowId: string;
   /** run id of the execution this call started or found */
@@ -172,24 +207,31 @@ async function startOnce(
 }
 
 /** Start (or find) the deploy workflow for an operation. Duplicate starts return the existing execution. */
-export function startDeploy(input: DeployWorkflowInput, opts?: CallOptions): Promise<StartedWorkflow> {
-  return startOnce(WORKFLOW_TYPES.deploy, WORKFLOW_ID(input.operationId), [input], WorkflowIdReusePolicy.REJECT_DUPLICATE, opts);
+export async function startDeploy(input: DeployWorkflowInput, opts?: CallOptions): Promise<StartedWorkflow> {
+  const payload = workflowPayload(input, {
+    operationId: "id", workspaceId: "id", projectId: "id", environmentId: "id",
+    revisionId: "id", deploymentId: "id", connectionId: "id", preApproved: "boolean", build: "boolean",
+  });
+  return startOnce(WORKFLOW_TYPES.deploy, WORKFLOW_ID(payload.operationId), [payload], WorkflowIdReusePolicy.REJECT_DUPLICATE, opts);
 }
 
-export function startDayTwo(input: DayTwoWorkflowInput, opts?: CallOptions): Promise<StartedWorkflow> {
-  return startOnce(WORKFLOW_TYPES.dayTwo, WORKFLOW_ID(input.operationId), [input], WorkflowIdReusePolicy.REJECT_DUPLICATE, opts);
+export async function startDayTwo(input: DayTwoWorkflowInput, opts?: CallOptions): Promise<StartedWorkflow> {
+  const payload = workflowPayload(input, { operationId: "id", workspaceId: "id", environmentId: "id", capability: "id" });
+  return startOnce(WORKFLOW_TYPES.dayTwo, WORKFLOW_ID(payload.operationId), [payload], WorkflowIdReusePolicy.REJECT_DUPLICATE, opts);
 }
 
-export function startRemediation(input: RemediationWorkflowInput, opts?: CallOptions): Promise<StartedWorkflow> {
-  return startOnce(WORKFLOW_TYPES.remediation, WORKFLOW_ID(input.operationId), [input], WorkflowIdReusePolicy.REJECT_DUPLICATE, opts);
+export async function startRemediation(input: RemediationWorkflowInput, opts?: CallOptions): Promise<StartedWorkflow> {
+  const payload = workflowPayload(input, { operationId: "id", workspaceId: "id", environmentId: "id", incidentId: "id" });
+  return startOnce(WORKFLOW_TYPES.remediation, WORKFLOW_ID(payload.operationId), [payload], WorkflowIdReusePolicy.REJECT_DUPLICATE, opts);
 }
 
 /**
  * Start one reconcile pass. At most one pass per environment runs at a time
  * (`USE_EXISTING`); a finished pass does not block the next one.
  */
-export function startReconcile(input: ReconcileWorkflowInput, opts?: CallOptions): Promise<StartedWorkflow> {
-  return startOnce(WORKFLOW_TYPES.reconcile, RECONCILE_WORKFLOW_ID(input.environmentId), [input], WorkflowIdReusePolicy.ALLOW_DUPLICATE, opts);
+export async function startReconcile(input: ReconcileWorkflowInput, opts?: CallOptions): Promise<StartedWorkflow> {
+  const payload = workflowPayload(input, { workspaceId: "id", environmentId: "id", allowAutoRepair: "boolean" });
+  return startOnce(WORKFLOW_TYPES.reconcile, RECONCILE_WORKFLOW_ID(payload.environmentId), [payload], WorkflowIdReusePolicy.ALLOW_DUPLICATE, opts);
 }
 
 /* --------------------------- signalling and queries ------------------------- */

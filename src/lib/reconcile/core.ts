@@ -36,6 +36,7 @@ import type { DriftClass, DriftReport, ResourceGraph, ResourceNode } from "@/lib
 import { diffFindings, driftEvents, findingKey, nextFindingSince } from "./diff";
 import { ReconcileError } from "./errors";
 import { observeNodes, type ObservableNode } from "./observe";
+import { redactText, scrubValue } from "./redact";
 import { proposeRepairs, selectRepairCandidates } from "./repair";
 import {
   DEFAULT_RECONCILE_OPTIONS,
@@ -149,6 +150,9 @@ export async function reconcileEnvironment(input: ReconcileEnvironmentInput): Pr
 
   const reconciledGraph: ResourceGraph = { ...graph, nodes: reconcile.map((r) => r.node) };
   const drivers = new Map(items.map((i) => [i.node.address, i.driver]));
+  // Compare first, then scrub the complete report before diffing, persistence,
+  // repair proposals or return. Driver expected values need the same boundary
+  // as observations; replacing them before comparison can hide real drift.
   const report: DriftReport = computeDriftV2(
     reconciledGraph,
     observed.map((o) => o.observation),
@@ -157,6 +161,15 @@ export async function reconcileEnvironment(input: ReconcileEnvironmentInput): Pr
       computedAt: ports.now().toISOString(),
     }
   );
+  report.findings = report.findings.map((finding) => ({
+    ...finding,
+    explanation: redactText(finding.explanation, 400),
+    ...(finding.fields ? { fields: finding.fields.map((field) => ({
+      ...field,
+      desired: scrubValue(field.desired),
+      observed: scrubValue(field.observed),
+    })) } : {}),
+  }));
 
   const reconciledAddresses = new Set(reconcile.map((r) => r.node.address));
   const diff = diffFindings(previous?.report.findings ?? null, report.findings, reconciledAddresses);

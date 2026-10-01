@@ -264,6 +264,32 @@ describe("composed deploy workflow (contract evidence)", () => {
 });
 
 describe("composed activities against local stores (no Temporal fallback)", () => {
+  it.each(["ZenithWorkloadBoundary", "ZenithBuildBoundary"])("refuses infrastructure verification when an application identity carries %s", async (boundaryName) => {
+    activities = composed(false);
+    const operationId = await approvedOperation();
+    await activities.validateDesiredState({ operationId });
+    let lease = await activities.acquireLease({ operationId, scope: `env:${ENV}`, ttlMs: 180_000 });
+    const plan = await activities.planInfrastructure({ operationId, lease });
+    expect((await activities.evaluatePolicy({ operationId, planDigest: plan.planDigest })).outcome).toBe("require_approval");
+    lease = await planRound(operationId, lease);
+    try {
+      await activities.finalPlan({ operationId, approvedPlanDigest: plan.planDigest, lease });
+      await activities.applyInfrastructure({ operationId, planDigest: plan.planDigest, lease });
+      expect(await activities.verifyInfrastructure({ operationId })).toMatchObject({ status: "passed", failed: 0 });
+
+      cloud.setIdentityBoundary(`arn:aws:iam::123456789012:policy/${boundaryName}`);
+      const verified = await activities.verifyInfrastructure({ operationId });
+      expect(verified.status).toBe("failed");
+      expect(verified.failed).toBeGreaterThan(0);
+      expect(verified.evidenceId).toBeTruthy();
+      const evidence = await repos.evidence.get(db, WS, verified.evidenceId!);
+      expect(evidence?.summary.nodes).toEqual(expect.arrayContaining([
+        expect.objectContaining({ address: "identity/web", status: "failed", failed: expect.arrayContaining(["boundary_attached"]) }),
+      ]));
+      expect(await broker.deps.store.listApprovals(WS, operationId)).toHaveLength(2);
+      expect(tofu.applyCalls).toHaveLength(1);
+    } finally { await activities.releaseLease({ lease }); }
+  }, 60_000);
   it("runs a real bridge proposal and two browser rounds through the complete activity chain (gateway is fake)", async () => {
     activities = composed(false);
     const { setBridgeDepsForTests } = await import("@/lib/bridge/deps");

@@ -14,6 +14,7 @@ import * as ACM from "@aws-sdk/client-acm";
 import * as Tagging from "@aws-sdk/client-resource-groups-tagging-api";
 import type { ResourceGraph } from "@/lib/resources/types";
 import type { FirewallSpec } from "@/lib/resources/specs";
+import { awsBoundaryArn } from "@/lib/credentials/aws/naming";
 import { FakeAlb, LB_ARN, TG_WEB, L443, L80 } from "../providers/aws/drivers/fixtures/alb";
 
 export const SESSION_CANARY = "temporary-session-contract-canary";
@@ -35,7 +36,7 @@ export function mockAwsCloud(graph: ResourceGraph, ws: string, env: string, imag
   const tags = (address: string) => ({ "zenith:managed": "true", "zenith:workspace": ws, "zenith:environment": env, "zenith:resource": address });
   const awsTags = (address: string) => Object.entries(tags(address)).map(([Key, Value]) => ({ Key, Value }));
   const lowerTags = (address: string) => Object.entries(tags(address)).map(([key, value]) => ({ key, value }));
-  sts.on(STS.AssumeRoleCommand).resolves({ Credentials: { AccessKeyId: "ASIA0000000000000000", SecretAccessKey: SESSION_CANARY, SessionToken: SESSION_CANARY, Expiration: new Date(Date.now() + 3600_000) } });
+  sts.on(STS.AssumeRoleCommand).resolves({ Credentials: { AccessKeyId: "ASIA" + "0".repeat(16), SecretAccessKey: SESSION_CANARY, SessionToken: SESSION_CANARY, Expiration: new Date(Date.now() + 3600_000) } });
   const network = node("network");
   ec2.on(EC2.DescribeVpcsCommand).resolves({ Vpcs: [{ VpcId: vpcId, CidrBlock: String(network.spec.cidr), State: "available", Tags: awsTags(network.address) }] });
   ec2.on(EC2.DescribeVpcAttributeCommand).resolves({ EnableDnsSupport: { Value: true }, EnableDnsHostnames: { Value: true } });
@@ -73,7 +74,7 @@ export function mockAwsCloud(graph: ResourceGraph, ws: string, env: string, imag
   const svc = node("container_service"), pg = node("postgres"), role = node("identity"), log = node("log_group");
   const serviceArn = `arn:aws:ecs:${r}:${A}:service/zenith-${env}/web`;
   const taskArn = `arn:aws:ecs:${r}:${A}:task-definition/zenith-${env}-web:1`;
-  const roleArn = `arn:aws:iam::${A}:role/zenith-${env}-web`;
+  const roleArn = `arn:aws:iam::${A}:role/zenith-${env}-web-role`;
   const logName = `/zenith/${env}/web`, logArn = `arn:aws:logs:${r}:${A}:log-group:${logName}`;
   tagging.on(Tagging.GetResourcesCommand).callsFake((input: Tagging.GetResourcesCommandInput) => {
     const resources = [{ arn: serviceArn, n: svc }, { arn: roleArn, n: role }, { arn: logArn, n: log }];
@@ -83,9 +84,13 @@ export function mockAwsCloud(graph: ResourceGraph, ws: string, env: string, imag
   ecs.on(ECS.DescribeTaskDefinitionCommand).resolves({ taskDefinition: { taskDefinitionArn: taskArn, cpu: "512", memory: "1024", taskRoleArn: roleArn, executionRoleArn: roleArn, networkMode: "awsvpc", containerDefinitions: [{ name: "web", image, essential: true, portMappings: [{ containerPort: 3000 }], logConfiguration: { logDriver: "awslogs", options: { "awslogs-group": logName } } }] } });
   ecs.on(ECS.ListTasksCommand).resolves({ taskArns: [] });
   rds.on(RDS.DescribeDBInstancesCommand).resolves({ DBInstances: [{ DBInstanceIdentifier: `zenith-${env}-db`, DBInstanceArn: `arn:aws:rds:${r}:${A}:db:zenith-${env}-db`, DBInstanceStatus: "available", Engine: "postgres", EngineVersion: "16.3", DBInstanceClass: "db.t4g.small", MultiAZ: false, StorageEncrypted: true, PubliclyAccessible: false, DeletionProtection: true, BackupRetentionPeriod: 7, IAMDatabaseAuthenticationEnabled: true, StorageType: "gp3", MasterUserSecret: { SecretArn: `arn:aws:secretsmanager:${r}:${A}:secret:rds/master-000000`, SecretStatus: "active" }, TagList: awsTags(pg.address) }] });
-  const roleValue = { RoleName: `zenith-${env}-web`, RoleId: "fixture", Arn: roleArn, Path: "/", CreateDate: new Date(), Tags: awsTags(role.address), PermissionsBoundary: { PermissionsBoundaryArn: `arn:aws:iam::${A}:policy/ZenithWorkloadBoundary`, PermissionsBoundaryType: "PermissionsBoundaryPolicy" as const }, AssumeRolePolicyDocument: JSON.stringify({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Principal: { Service: "ecs-tasks.amazonaws.com" }, Action: "sts:AssumeRole" }] }) };
-  iam.on(IAM.ListRolesCommand).resolves({ Roles: [roleValue] });
-  iam.on(IAM.GetRoleCommand).resolves({ Role: roleValue });
+  const roleValue = { RoleName: `zenith-${env}-web-role`, RoleId: "fixture", Arn: roleArn, Path: "/", CreateDate: new Date(), Tags: awsTags(role.address), PermissionsBoundary: { PermissionsBoundaryArn: awsBoundaryArn("app", "aws", A), PermissionsBoundaryType: "PermissionsBoundaryPolicy" as const }, AssumeRolePolicyDocument: JSON.stringify({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Principal: { Service: "ecs-tasks.amazonaws.com" }, Action: "sts:AssumeRole" }] }) };
+  const setIdentityBoundary = (boundaryArn: string) => {
+    const value = { ...roleValue, PermissionsBoundary: { ...roleValue.PermissionsBoundary, PermissionsBoundaryArn: boundaryArn } };
+    iam.on(IAM.ListRolesCommand).resolves({ Roles: [value] });
+    iam.on(IAM.GetRoleCommand).resolves({ Role: value });
+  };
+  setIdentityBoundary(roleValue.PermissionsBoundary.PermissionsBoundaryArn);
   iam.on(IAM.ListRoleTagsCommand).resolves({ Tags: awsTags(role.address) });
   iam.on(IAM.ListRolePoliciesCommand).resolves({ PolicyNames: ["workload"] });
   iam.on(IAM.GetRolePolicyCommand).resolves({ RoleName: roleValue.RoleName, PolicyName: "workload", PolicyDocument: JSON.stringify({ Version: "2012-10-17", Statement: [{ Effect: "Allow", Action: ["logs:CreateLogStream", "logs:PutLogEvents"], Resource: `${logArn}:log-stream:*` }, { Effect: "Allow", Action: ["secretsmanager:DescribeSecret", "secretsmanager:GetSecretValue"], Resource: `arn:aws:secretsmanager:${r}:${A}:secret:rds/master-000000` }] }) });
@@ -101,5 +106,5 @@ export function mockAwsCloud(graph: ResourceGraph, ws: string, env: string, imag
   acm.on(ACM.ListCertificatesCommand).resolves({ CertificateSummaryList: [{ CertificateArn: certArn, DomainName: "app.atlas.zenith.test", Status: "ISSUED" }] });
   acm.on(ACM.DescribeCertificateCommand).resolves({ Certificate: { CertificateArn: certArn, DomainName: "app.atlas.zenith.test", Status: "ISSUED", Type: "AMAZON_ISSUED", InUseBy: [LB_ARN], NotAfter: new Date(Date.now() + 365 * 86400_000), DomainValidationOptions: [{ DomainName: "app.atlas.zenith.test", ValidationMethod: "DNS", ValidationStatus: "SUCCESS" }] } });
   acm.on(ACM.ListTagsForCertificateCommand).resolves({ Tags: awsTags(node("tls_certificate").address) });
-  return { ec2, ecs, rds, iam, logs, sts, ecr, cb, elb, dns, acm, alb, restore: () => mocks.forEach((m) => m.restore()) };
+  return { ec2, ecs, rds, iam, logs, sts, ecr, cb, elb, dns, acm, alb, setIdentityBoundary, restore: () => mocks.forEach((m) => m.restore()) };
 }

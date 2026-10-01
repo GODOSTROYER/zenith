@@ -78,6 +78,7 @@ interface KindDefaults {
 const KIND_DEFAULTS: Record<RunnerJobKind, KindDefaults> = {
   "tofu.run": { timeoutSec: 1800, maxOutputBytes: 1024 * 1024, queueTtlSec: 300 },
   "aws.http": { timeoutSec: 60, maxOutputBytes: 2 * 1024 * 1024, queueTtlSec: 120 },
+  "oci.http": { timeoutSec: 60, maxOutputBytes: 1024 * 1024, queueTtlSec: 120 },
   "k8s.http": { timeoutSec: 60, maxOutputBytes: 2 * 1024 * 1024, queueTtlSec: 120 },
   "probe.http": { timeoutSec: 30, maxOutputBytes: 64 * 1024, queueTtlSec: 120 },
   "probe.tcp": { timeoutSec: 30, maxOutputBytes: 64 * 1024, queueTtlSec: 120 },

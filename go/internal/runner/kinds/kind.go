@@ -23,6 +23,7 @@ import (
 const (
 	KindTofuRun   = "tofu.run"
 	KindAWSHTTP   = "aws.http"
+	KindOCIHTTP   = "oci.http"
 	KindK8sHTTP   = "k8s.http"
 	KindProbeHTTP = "probe.http"
 	KindProbeTCP  = "probe.tcp"
@@ -30,7 +31,7 @@ const (
 )
 
 // AllKinds lists every kind in a stable order.
-var AllKinds = []string{KindTofuRun, KindAWSHTTP, KindK8sHTTP, KindProbeHTTP, KindProbeTCP, KindProbeDNS}
+var AllKinds = []string{KindTofuRun, KindAWSHTTP, KindOCIHTTP, KindK8sHTTP, KindProbeHTTP, KindProbeTCP, KindProbeDNS}
 
 // Request is one verified job handed to a kind.
 type Request struct {

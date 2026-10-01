@@ -4,6 +4,7 @@ package runner
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/GODOSTROYER/zenith/go/internal/agent"
 	"github.com/GODOSTROYER/zenith/go/internal/runner/kinds"
@@ -33,6 +34,7 @@ type Config struct {
 type KindsConfig struct {
 	TofuRun   *kinds.TofuConfig `json:"tofu.run"`
 	AWSHTTP   *kinds.AWSConfig  `json:"aws.http"`
+	OCIHTTP   *kinds.OCIConfig  `json:"oci.http"`
 	K8sHTTP   *kinds.K8sConfig  `json:"k8s.http"`
 	ProbeHTTP *kinds.Toggle     `json:"probe.http"`
 	ProbeTCP  *kinds.Toggle     `json:"probe.tcp"`
@@ -98,6 +100,23 @@ func (c *Config) applyDefaults() {
 func (c *Config) Validate() error { return c.validate(true) }
 
 func (c *Config) validate(requireKinds bool) error {
+	if k := c.Kinds.OCIHTTP; k != nil && k.Enabled {
+		if err := kinds.ValidateOCIConfig(*k); err != nil {
+			return err
+		}
+		if k.AuditPath == "" {
+			k.AuditPath = filepath.Join(c.StateDir, "oci-audit.jsonl")
+		}
+		if c.Labels == nil {
+			c.Labels = map[string]string{}
+		}
+		for name, value := range map[string]string{"oci.auth": k.Auth, "oci.region": k.Region, "oci.tenancy": k.Tenancy} {
+			if old, ok := c.Labels[name]; ok && old != value {
+				return fmt.Errorf("OCI registration label conflicts with local configuration")
+			}
+			c.Labels[name] = value
+		}
+	}
 	if err := c.Common.Validate(); err != nil {
 		return err
 	}
@@ -122,6 +141,9 @@ func (c *Config) EnabledKinds() []string {
 	}
 	if c.Kinds.AWSHTTP != nil && c.Kinds.AWSHTTP.IsOn() {
 		out = append(out, kinds.KindAWSHTTP)
+	}
+	if c.Kinds.OCIHTTP != nil && c.Kinds.OCIHTTP.Enabled {
+		out = append(out, kinds.KindOCIHTTP)
 	}
 	if c.Kinds.K8sHTTP != nil && c.Kinds.K8sHTTP.IsOn() {
 		out = append(out, kinds.KindK8sHTTP)

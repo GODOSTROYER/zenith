@@ -45,8 +45,8 @@ describe("the guide set", () => {
   it("every guide names this sync snapshot and the deployment/recovery limits", () => {
     for (const file of GUIDES) {
       const text = read(file);
-      expect(text, path.basename(file)).toContain("Written against branch `ws/docs-sync`");
-      expect(text, path.basename(file)).toContain("`e3ea61a`");
+      expect(text, path.basename(file)).toContain("Written against branch `ws/docs-sync-2`");
+      expect(text, path.basename(file)).toContain("`3c1fa66`");
     }
     for (const name of ["DEPLOYING.md", "RECOVERY.md"]) {
       expect(guide(name), name).toMatch(/not verified|Not verified|not rehearsed|Not rehearsed/);
@@ -67,6 +67,252 @@ describe("the guide set", () => {
     const names = [...section.matchAll(/`([A-Z][A-Z-]*\.md)`/g)].map((m) => m[1]);
     expect(names.length).toBeGreaterThanOrEqual(5);
     for (const name of names) expect(fs.existsSync(path.join(OPS, name)), `${name} is listed as planned but exists`).toBe(false);
+  });
+});
+
+/* ------------------------------ wave 7 ----------------------------------- */
+
+describe("wave 7 operator claims retain their implementation wiring", () => {
+  const source = (rel: string): string => read(path.join(REPO_ROOT, rel));
+  const deploying = squash(guide("DEPLOYING.md"));
+  const teardown = squash(guide("TEARDOWN.md"));
+  const builds = squash(guide("BUILDS.md"));
+  const signals = squash(guide("OCI-SIGNALS.md"));
+  const managed = squash(source("docs/platform/MANAGED-PLATFORM.md"));
+
+  it("admin browser teardown consumes recorded evidence and starts only after approval", () => {
+    expect(source("src/lib/actions/defs/index.ts")).toContain('import "./env-teardown"');
+    const action = source("src/lib/actions/defs/env-teardown.ts");
+    for (const value of ['id: "env.teardown"', 'requiredRole: "admin"', "teardownPlan(ctx, env)", "proposeTeardown(ctx, env)", "if (inFlight(env.id))"]) expect(action).toContain(value);
+    const proof = source("src/lib/bridge/teardown-session.ts");
+    for (const value of ['"authorization", "x-zenith-actor", "x-zenith-actor-key"', 'h.get("origin") !== origin', "verifyRequestIdentity("]) expect(proof).toContain(value);
+    const bridge = source("src/lib/bridge/destroy.ts");
+    for (const value of ['capability: "infrastructure.plan"', "loadDestroyPlan(broker.deps, scope, ref)", 'via: "ui", destroyPlan: ref, session', "await broker.beginExecution(", "await deps.workflows.startDestroy("]) expect(bridge).toContain(value);
+    const approve = source("src/app/api/platform/v1/operations/[id]/approve/route.ts");
+    expect(approve).toContain("await assertBrowserSession(req)");
+    expect(approve).toContain("await deliverPlanApproval(outcome.operation)");
+    expect(source("src/lib/bridge/lifecycle.ts")).toContain('import("./destroy")).startApprovedDestroy(op)');
+    expect(teardown).toContain("requires an **admin**");
+    expect(teardown).toContain("there is no public UI, REST or MCP trigger");
+    expect(source("src/app/(product)/platform/environments/[id]/page.tsx")).toContain("<EnvironmentTeardown");
+    const ui = source("src/app/(product)/platform/environments/[id]/environment-teardown.tsx");
+    expect(ui).toContain('planAction("env.teardown"');
+    expect(ui).toContain('executeAction("env.teardown"');
+  });
+
+  it("destroy review rejects foreign, expired, simulated or inconsistent evidence", () => {
+    const review = source("src/lib/capabilities/destroy-plan.ts");
+    for (const value of ["deps.store.getOperation(scope.workspaceId, ref.operationId)", "op.environmentId !== scope.environmentId", "Date.parse(op.expiresAt) <= deps.clock.now().getTime()", "deps.store.getPlanEvidence(scope.workspaceId, op.id, ref.planDigest)", "row.simulated", "parsed.data.planDigest !== ref.planDigest", "facts.create || facts.update || facts.replace"]) expect(review).toContain(value);
+    expect(teardown).toContain("caller-supplied plan facts");
+    expect(teardown).toContain("current recorded destroy review");
+  });
+
+  it("destroy always gates on a human and verifies absence with durable evidence", () => {
+    const workflow = source("src/lib/workflows/definitions/destroy.ts");
+    for (const value of ["await run.approvalGate()", "destroy.finalDestroyPlan(", "destroy.applyDestroyInfrastructure(", "destroy.verifyDestroyedInfrastructure("]) expect(workflow).toContain(value);
+    expect(source("src/lib/workflows/definitions/index.ts")).toContain('infrastructureDestroyWorkflow } from "./destroy"');
+    const destroy = source("src/lib/execution/destroy.ts");
+    for (const value of ["ec.product.environment.deployedRevisionId", "rt.d.resources.list(ec.workspaceId, ec.environmentId)", "if (!node || node.ownership !== \"managed\")", "await checkDestroyApproval(rt, operationId)", "status.approved === true && !!approvalId", 'presence === "missing" ? "deleted" : "unknown"', 'kind: "verification"', 'kind: "tofu_apply"']) expect(destroy).toContain(value);
+    expect(teardown).toContain("teardown does not delete the product environment");
+    expect(teardown).toContain("non-simulated observation reports `missing`");
+  });
+
+  it("direct teardown guards ownership, retention and managed session requirements", () => {
+    const k8s = source("src/lib/providers/kubernetes/teardown.ts");
+    expect(k8s).toContain("resourceVersion");
+    expect(k8s).toContain("Namespaces are always retained");
+    expect(k8s).toContain("ownedBy(");
+    const zenith = source("src/lib/providers/zenith/teardown.ts");
+    for (const value of ["session.teardown?.databases", "destroyManagedDatabase(", "teardownZenithTls(", "input.retainStateful || !discoveryComplete || foreign"]) expect(zenith).toContain(value);
+    expect(source("src/lib/execution/destroy.ts")).toContain("if (!ports.withZenithSession)");
+    expect(source("src/lib/platform/execution.ts")).not.toContain("withZenithSession:");
+    expect(teardown).toContain("Namespaces are **always retained**");
+    expect(managed).toContain("Missing inventory is unknown");
+  });
+
+  it("stateful and DNS delete/replace approvals apply at every autonomy and environment", () => {
+    const rego = source("policy/rego/approval.rego");
+    for (const [rule, facts] of [["stateful_deletes_require_approval", "statefulDeletes"], ["dns_deletes_require_approval", "dnsDeletes"]]) {
+      const body = new RegExp(`${rule} := \\{[\\s\\S]*?\\n\\} if \\{([^}]+)\\}`).exec(rego)?.[1];
+      expect(body, rule).toBeDefined();
+      expect(body).toContain("lib.mutating");
+      expect(body).toContain(`lib.plan_count("${facts}") > 0`);
+      expect(body).not.toMatch(/autonomy|is_production|environment/);
+    }
+    const plan = source("src/lib/execution/plan.ts");
+    for (const value of ['action === "delete" || action === "replace"', "statefulDeletes: [...stateful].sort()", "dnsDeletes: [...dns].sort()", "async function assertDeployDeletionApproval(", 'typeof status.approvalId !== "string"', "readDeletionFacts(row.summary)"]) expect(plan).toContain(value);
+    const broker = source("src/lib/platform/broker.ts");
+    expect(broker).toContain("readPlanEvidence({ ...review })");
+    expect(broker).toContain("return { ...parsed.facts,");
+    expect(broker).toContain("...(facts ? { plan: facts, planDigest: op.planDigest } : {})");
+    const evidence = source("src/lib/execution/plan-evidence.ts");
+    expect(evidence).toContain("statefulDeletes: z.array(text).max(10_000).optional()");
+    expect(evidence).toContain("dnsDeletes: z.array(text).max(10_000).optional()");
+    expect(source("src/lib/capabilities/evaluate.ts")).toContain("...(req.plan ? { plan: req.plan } : {})");
+    expect(squash(guide("POLICY.md"))).toContain("in every environment and at every autonomy level");
+  });
+
+  it("a moved final plan is rejected before deletion inspectors execute", () => {
+    const engine = source("src/lib/tofu/engine.ts");
+    const inspector = engine.slice(engine.indexOf("function inspector("), engine.indexOf("export function planDestroy("));
+    const mismatch = inspector.indexOf("if (opts.expectedDigest !== undefined && plan.planDigest !== opts.expectedDigest) return");
+    expect(mismatch).toBeGreaterThanOrEqual(0);
+    expect(mismatch).toBeLessThan(inspector.indexOf("await opts.inspectPlan?.(plan, raw)"));
+    expect(mismatch).toBeLessThan(inspector.indexOf("assertDeletionAllowed("));
+    const runner = source("src/lib/tofu/runner.ts");
+    const apply = runner.slice(runner.indexOf("async apply(args:"));
+    const refuse = apply.indexOf("if (current.planDigest !== args.expectedPlanDigest) throw new TofuPlanChangedError");
+    expect(refuse).toBeGreaterThanOrEqual(0);
+    expect(refuse).toBeLessThan(apply.indexOf("await args.inspectPlan?.(current, raw)"));
+    expect(source("src/lib/execution/plan.ts")).toContain("expectedDigest, deletionNodes, inspectPlan: inspectDeployDeletions(");
+    expect(squash(guide("POLICY.md"))).toContain("before deletion guards run");
+  });
+
+  it("ephemeral fragments and database sinks avoid persistent password configuration", () => {
+    const workspace = source("src/lib/tofu/workspace.ts");
+    expect(workspace).toContain("Object.entries(fragment.ephemeral ?? {})");
+    expect(workspace).toContain("main.ephemeral = ephemeral");
+    expect(workspace).toContain('!a.startsWith("ephemeral.")');
+    const mysql = source("src/lib/providers/azure/drivers/data/mysql-bootstrap.ts");
+    for (const value of ["random_password:", "value_wo:", "administrator_password_wo:", "ephemeral.azurerm_key_vault_secret", "value_wo_version:"]) expect(mysql).toContain(value);
+    expect(source("src/lib/providers/azure/drivers/data/mysql.ts")).toContain("result.ephemeral = bootstrap.ephemeral");
+    expect(source("src/lib/providers/aws/drivers/data/rds-compile.ts")).toContain("manage_master_user_password: true");
+    expect(source("src/lib/providers/azure/drivers/data/postgres.ts")).toContain("password_auth_enabled: false");
+    const oci = source("src/lib/providers/oci/drivers/data/mysql.ts");
+    expect(oci).toContain("Keep CREATE disabled");
+    expect(oci.slice(oci.indexOf("export const mysqlDriver"))).not.toMatch(/\bcompile\s*:/);
+    expect(deploying).toContain("OCI MySQL **creation remains disabled**");
+    expect(deploying).toContain("administrator_password_wo");
+  });
+
+  it("default source preparation dispatches canonical ZIP to AWS and tar.gz to GCP", () => {
+    const bundle = source("src/lib/platform/source-bundle.ts");
+    for (const value of ['ctx.provider === "aws" ? "zip" : "tar.gz"', "packZip(entries, limits, signal)", "sha256Hex(archive)", 'ContentType: "application/zip"', 'IfNoneMatch: "*"', 'ifGenerationMatch: "0"', "ChecksumSHA256: checksum", "ExpectedBucketOwner: ctx.session.accountId", "deps.withGithubAccess", 'refuse("Source preparation requires a matching AWS or GCP brokered session.")']) expect(bundle).toContain(value);
+    expect(source("src/lib/platform/execution.ts")).toContain("createSourceBundles({ ...opts.sourceBundles");
+    expect(source("src/lib/providers/aws/drivers/compute/codebuild-project.ts")).toContain('type: "S3"');
+    expect(source("src/lib/providers/gcp/drivers/build/build-api.ts")).toContain("source: { storageSource:");
+    expect(builds).toContain("Deterministic **ZIP**");
+    expect(builds).toContain("Deterministic **tar.gz**");
+    expect(builds).toContain("Private repositories require");
+  });
+
+  it("Azure builds require explicit source wiring, scoped launch receipts and SAS upload", () => {
+    const build = source("src/lib/providers/azure/release/build.ts");
+    for (const value of ["(!options.sourceBundles && !options.readSource) || !options.launches", "options.launches.claim(journalScope)", "readArchive(options.sourceBundles, spec.source, ctx.signal)", "sha256Hex(source) !== input.source.digest", "options.launches.record(journalScope, encoded)"]) expect(build).toContain(value);
+    const acr = source("src/lib/providers/azure/release/acr-task.ts");
+    for (const value of ["/listBuildSourceUploadUrl", "assertUploadUrl(up.body.uploadUrl)", 'redirect: "error"', 'type: "DockerBuildRequest"', "imageNames: [`${input.repository}:${input.tag}`]"]) expect(acr).toContain(value);
+    expect(source("src/lib/providers/azure/release/source.ts")).toContain("await readArchive(reader, input.source, ctx.signal)");
+    expect(source("src/lib/platform/execution.ts")).toContain("createReleasePorts({ db: opts.db })");
+    expect(builds).toContain("default worker composition supplies neither the Azure source reader");
+  });
+
+  it("GCP and Azure workload bootstrap images stay pinned and AWS avoids latest", () => {
+    for (const file of ["src/lib/providers/gcp/drivers/compute/run-image.ts", "src/lib/providers/azure/drivers/compute/workload.ts"]) {
+      expect(source(file)).toMatch(/(?:BOOTSTRAP_[A-Z_]*|BUILT_[A-Z_]*)\s*=\s*"[^"\n]+@sha256:[a-f0-9]{64}"/);
+    }
+    expect(source("src/lib/providers/aws/drivers/compute/ecs-task.ts")).toContain('BOOTSTRAP_TAG = "zenith-bootstrap"');
+    expect(builds).toContain("Bootstrap presence or health is never evidence");
+  });
+
+  it("OCI signal sources receive runner sessions and keep the capability split", () => {
+    expect(source("src/lib/platform/agent-ports.ts")).toContain('case "oci": return { oci: session }');
+    expect(source("src/lib/observability/sources/factory.ts")).toContain("createOciLoggingSource(sessions.oci), createOciMonitoringSource(sessions.oci)");
+    const allowlist = source("src/lib/providers/oci/allowlist.ts");
+    for (const value of ['"logs.read": [LOG_READ_RULE]', '"metrics.read": [METRIC_READ_RULE]', '"incident.investigate": [...OBSERVE_RULES, LOG_READ_RULE, METRIC_READ_RULE]']) expect(allowlist).toContain(value);
+    const logging = source("src/lib/observability/sources/oci-logging.ts");
+    expect(logging).toContain('"loggingsearch", "/20190909/search"');
+    expect(logging).toContain(" | sort by datetime desc");
+    const metrics = source("src/lib/observability/sources/oci-monitoring.ts");
+    expect(metrics).toContain("compartmentId: session.compartmentOcid, compartmentIdInSubtree: false");
+    expect(metrics).toContain('resourceId = "${instance.externalId}"');
+    for (const reader of [logging, metrics]) expect(reader).toContain('headers: { "opc-retry-token": randomUUID() }');
+    const executor = source("go/internal/runner/kinds/ocihttp.go");
+    expect(executor).toContain('pl.Method == "POST" && !readOnlyPost(pl.Service, template)');
+    expect(executor).toContain('case "loggingsearch /20190909/search", "monitoring /20180401/metrics/actions/summarizeMetricsData":');
+    expect(squash(source("docs/platform/RUNNER-PROTOCOL-OCI.md"))).toContain("are wired through runner sessions");
+    expect(signals).toContain("Logging Search only");
+    expect(signals).toContain("Monitoring only");
+    expect(signals).toContain("Live service acceptance of that request shape is unverified");
+    expect(signals).toContain("Connection verification checks runner registration and labels");
+  });
+
+  it("OCI read jobs verify stateless grants and do not fabricate operation rows", () => {
+    const reads = source("src/lib/runners/read-jobs.ts");
+    for (const value of ["verifyCapabilityGrant(input.grant", "expectedCapability: input.capability", "claims.ws !== input.workspaceId || claims.env !== input.environmentId", "claims.op !== `read:${claims.jti}`", "isOciRequestAllowed(input.capability", "return enqueueRunnerJob("]) expect(reads).toContain(value);
+    expect(source("src/lib/controlplane/db/migrations/0005_read_jobs.ts")).toContain("operation_id");
+    expect(signals).toContain("NULL operation foreign key");
+    expect(deploying).toContain("`read_jobs` (5");
+  });
+
+  it("Temporal codec and decrypt-only previous keys are configured on client and worker", () => {
+    const codec = source("src/lib/workflows/codec.ts");
+    for (const value of ['createCipheriv("aes-256-gcm"', "WirePayload.encode(payload)", "randomBytes(NONCE_BYTES)", "cipher.setAAD(aad(this.keyId))", "env.ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS", "new TemporalPayloadCodec(secretKey, previousKeys)", 'env.NODE_ENV === "production"']) expect(codec).toContain(value);
+    for (const file of ["src/lib/workflows/client.ts", "workers/execution/worker.ts"]) {
+      expect(source(file)).toContain("const dataConverter = temporalDataConverterFromEnv()");
+      expect(source(file)).toContain("dataConverter");
+    }
+    expect(source("src/lib/workflows/client.ts")).toContain('dataConverter.payloadCodecs[0]?.cacheKey ?? "plaintext"');
+    expect(deploying).toContain("AES-256-GCM");
+    expect(squash(guide("RECOVERY.md"))).toContain("This overlap does not re-wrap the product vault");
+    expect(deploying).toContain("default failure messages/stack traces are outside payload encryption");
+  });
+
+  it("MCP 401s advertise the public exact protected-resource metadata path", () => {
+    const auth = source("src/lib/agent-access/v3/auth.ts");
+    expect(auth).toContain("/.well-known/oauth-protected-resource${MCP_PATH}");
+    expect(auth).toContain('Bearer resource_metadata="${resourceMetadataFor(origin)}", scope="zenith:read"');
+    expect(source("src/lib/agent-access/v3/server.ts")).toContain('response.headers.set("www-authenticate", authenticationChallengeFor(origin))');
+    expect(source("src/app/.well-known/oauth-protected-resource/api/agent/v3/mcp/route.ts")).toContain("export const GET = metadata");
+    const metadata = source("src/lib/agent-access/v3/auth-metadata.ts");
+    expect(metadata).toContain("checkRequestOrigin(request)");
+    expect(metadata).toContain("resource: resourceFor(origin)");
+    expect(source("src/middleware.ts")).toContain('"/.well-known/oauth-protected-resource/api/agent/v3/mcp"');
+    expect(squash(source("docs/platform/MCP.md"))).toContain("HTTP 401 responses for a trusted origin now use");
+  });
+
+  it("managed Neon credentials, full-graph trust and TLS retain their safe ports", () => {
+    const neon = source("src/lib/providers/zenith/neon.ts");
+    for (const value of ["await deps.sink.put(ref, uri)", "await deps.sink.exists(ref)", "return storeUri(ref, uri.value)", 'dbError("secret_store_failed"']) expect(neon).toContain(value);
+    const toolkit = source("src/lib/providers/zenith/k8s-port.ts");
+    expect(toolkit).toContain("const graph = toolkitGraphView(nodes, views)");
+    expect(toolkit).toContain('{ ...node, ownership: "referenced" as const }');
+    expect(source("src/lib/providers/zenith/render.ts")).toContain("renderToolkitGraph(input.toolkit, input.nodes, views");
+    expect(source("src/lib/providers/zenith/apply.ts")).toContain("await ensureZenithTls(");
+    expect(source("src/lib/providers/zenith/teardown.ts")).toContain("await teardownZenithTls(");
+    const tls = source("src/lib/providers/zenith/tls.ts");
+    for (const value of ['kind: "Certificate"', "secretName: names.secret, dnsNames: [wildcard]", 'kind: "Gateway"', 'protocol: "HTTPS", port: 443, hostname: wildcard']) expect(tls).toContain(value);
+    expect(managed).toContain("repairs a missing sink entry on a converged create");
+    expect(managed).toContain("complete resource graph");
+    expect(managed).toContain("Implemented with cert-manager `Certificate` and Gateway API HTTPS resources");
+    expect(squash(managed)).toContain("Cloud trust/federation and cluster admission wiring must already exist");
+  });
+
+  it("AWS EKS, SNS, EventBridge and CloudFront SDK reads remain contract evidence", () => {
+    const eks = source("src/lib/providers/aws/drivers/eks/eks-cluster.ts");
+    for (const value of ["new DescribeClusterCommand(", "new DescribeNodegroupCommand(", 'observe: "contract"', 'verify: "contract"']) expect(eks).toContain(value);
+    const sns = source("src/lib/providers/aws/drivers/messaging/sns-topic.ts");
+    expect(sns).toContain('observe: "contract", verify: "contract"');
+    expect(sns).toContain("runtime: false, discover: false");
+    expect(source("src/lib/providers/aws/drivers/messaging/sns-observe.ts")).toContain("new GetTopicAttributesCommand(");
+    expect(source("src/lib/providers/aws/drivers/compute/ecs-scheduled-task.ts")).toContain("new DescribeRuleCommand(");
+    expect(source("src/lib/providers/aws/drivers/compute/s3-static-site.ts")).toContain("new GetDistributionCommand(");
+    expect(squash(guide("README.md"))).toContain("EKS, SNS, EventBridge and CloudFront");
+  });
+
+  it("worker health and plan cleanup are started and housekeeping prunes with locks", () => {
+    const worker = source("workers/execution/worker.ts");
+    for (const value of ["await startHealthServer(", "await loadPolicyEngine()", "connection!.workflowService.getSystemInfo({})", 'db.query("select 1")', "startPlanJanitor(db", "await janitor?.stop()", "await endpoint.close()"]) expect(worker).toContain(value);
+    const health = source("workers/execution/health.ts");
+    for (const value of ['"/healthz"', '"/readyz"', 'server.listen(options.port, "127.0.0.1"', 'env.ZENITH_WORKER_HEALTH_PORT?.trim() || "9464"', "HEALTH_CHECK_TIMEOUT_MS = 2000", "result.ready ? 200 : 503"]) expect(health).toContain(value);
+    const janitor = source("src/lib/execution/plan-janitor.ts");
+    for (const value of ["PLAN_JANITOR_INTERVAL_MS = 5 * 60_000", "await terminalOwners(db, match[1])", "after.mtimeMs !== before.mtimeMs", "await unlink(file)"]) expect(janitor).toContain(value);
+    const housekeeping = source("src/lib/platform/housekeeping.ts");
+    for (const value of ["repos.leases.assertFence(tx", "repos.idempotency.prune(tx, limit)", "repos.nonces.prune(tx", "reconcileOperations(tx, { limit })"]) expect(housekeeping).toContain(value);
+    for (const file of ["idempotency.ts", "nonces.ts"]) expect(source(`src/lib/controlplane/db/repos/${file}`)).toContain("for update skip locked");
+    expect(source(".github/workflows/tick.yml")).toContain("jobs?housekeeping=1");
+    expect(deploying).toContain("`/healthz` returns 200");
+    expect(deploying).toContain("**every** known owner is terminal");
+    expect(deploying).toContain("rechecks expiry before deletion");
   });
 });
 
@@ -419,6 +665,7 @@ describe("operator claims match current wiring", () => {
     expect(source("workers/execution/config.ts")).toContain("const WORKER_IDENTITY = /^[A-Za-z0-9._-]{1,64}$/");
     expect(source("src/lib/execution/runtime.ts")).toContain("const WORKER_ID = /^[A-Za-z0-9._-]{1,64}$/");
     expect(squash(deploying)).toContain("`ZENITH_WORKER_IDENTITY` is optional");
+    expect(squash(source("docs/platform/EXECUTION-WORKER.md"))).toContain("`zenith-exec-<host>-<pid>` satisfies both the Temporal config and runtime lease-holder rules");
   });
 
   it("deploy bridge, MCP and allowed reconcile repairs claim and start workflows", () => {
@@ -553,6 +800,9 @@ describe("operator claims match current wiring", () => {
     const composition = source("src/lib/platform/execution.ts");
     expect(composition).not.toMatch(/^\s*machines:/m);
     expect(deploying).toContain("default composition supplies no `machines` port");
+    expect(source("src/lib/machines/transports/azure-run-command.ts")).toContain("export function createAzureRunCommandMachineDriver(");
+    expect(source("src/lib/machines/transports/gcp-os-management.ts")).toContain('const supports = ["machine.inspect"] as const');
+    expect(squash(source("docs/platform/operations/README.md"))).toContain("Azure managed Run Command and GCP Compute/OS Inventory drivers exist");
   });
 
   it("CLI entry points and all fifteen MCP tools are documented", () => {

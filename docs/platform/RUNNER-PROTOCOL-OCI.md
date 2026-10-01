@@ -346,8 +346,9 @@ retrieval (`/20190301/secretbundles/…`: Zenith and the runner never read a
 secret value back), object-level Object Storage (`/n/{ns}/b/{bucket}/o/…`:
 customer data), any IAM write, `…/actions/changeCompartment`, secret deletion,
 and every `DELETE`. Infrastructure changes go through `tofu.run`, not this
-kind. The separate `logs.read` capability is reserved and **not implemented**;
-the two queries above belong solely to `infrastructure.observe`.
+kind. Signal reads use the capability split above: `logs.read` permits only
+Logging Search, `metrics.read` only Monitoring, and `incident.investigate`
+both signal queries plus driver metadata reads.
 
 ## 7. Secret writes carry a secret
 
@@ -416,15 +417,18 @@ configuration in [RUNNER.md](RUNNER.md#ocihttp--the-oci-signing-proxy).
 - The service table and API paths remain unverified against a live tenancy.
 - Logging Search and Monitoring method/path contracts and compartment checks
   are implemented and covered by synthetic tests. Logging query syntax is
-  limited to the single OCID scope described in §3. Token-free POST execution
-  still needs the narrowly scoped executor change described in §6; observability
-  source adapters in `src/lib/observability/sources/oci-{logging,monitoring}.ts`
-  remain unavailable until their separate workstream wires the new reads.
+  limited to the single OCID scope described in §3. The Go executor's exact
+  read-only POST exemption is implemented (§6); current TypeScript readers
+  still supply retry tokens to satisfy the payload schema. Observability source
+  adapters in `src/lib/observability/sources/oci-{logging,monitoring}.ts` are
+  wired through runner sessions. No live service acceptance is established.
 - `secret.write` remains disabled (`oci.secretWrite: false`): `sealedBodyB64`
   is the required sensitive-payload contract, not implemented sealed-body
-  transport. `logs.read` remains unsupported.
-- `src/lib/platform/credentials.ts` still refuses OCI ProviderSession creation;
-  wiring the HTTP executor does not complete platform deploy/observe sessions.
+  transport. Logging Search and Monitoring reads are implemented through
+  runner-backed sessions; neither query is a secret-write transport.
+- `src/lib/platform/credentials.ts` creates OCI platform sessions only through
+  an active registered runner. Verification checks runner registration/labels,
+  not OCI permissions; platform deploy/observe sessions remain unverified live.
 - The state assembler now emits OCI S3-compatible endpoint/compatibility flags
   (`src/lib/tofu/backends.ts`, `src/lib/tofu/backend-config.ts`). Authentication
   still requires a customer S3 secret key kept on the runner; native principals

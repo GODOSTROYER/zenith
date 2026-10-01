@@ -115,8 +115,9 @@ is the most sensitive thing in the platform.
 | Custom domains | **not offered**: any host outside the tenant's managed suffix is rewritten to the managed hostname and reported |
 | redis, mysql, queue, pubsub, functions, VMs, clusters | **not offered**: the render refuses with a named list |
 | Builds | **not run**: a `built` artifact needs a digest-pinned image in the platform registry supplied by the caller |
-| Logs, metrics, tracing (OpenTelemetry), autoscaling (HPA), backups | **not implemented**; named in the design as possible substrate, nothing wired |
-| Per-environment wildcard TLS and listeners | **not built** (open question below) |
+| Logs/events | Kubernetes observability sources can read the managed namespace with an authorized tenant-scoped session (`src/lib/observability/sources/factory.ts`); no live managed signal read verified |
+| Metrics, tracing (OpenTelemetry), autoscaling (HPA), backups | No managed automation supplied by this provider; external observability endpoints can be injected; live substrate unverified |
+| Per-environment wildcard TLS and listeners | Implemented with cert-manager `Certificate` and Gateway API HTTPS resources through a separate gateway-namespace session; contract evidence only, live DNS/ACME unverified |
 | Database data export | **not built**; the main remaining lock-in gap |
 | Billing, plan assignment, workspace and slug management | not part of this module |
 | Any live acceptance run | **none** |
@@ -188,12 +189,17 @@ Behaviour that matters:
   vault) under `vault:generated/<env>/<address>/connection-uri` and is never
   returned, logged, observed or put in an error. Results carry the reference only.
   The API key is resolved per call and not cached. Redirects are refused so the
-  key cannot be forwarded.
+  key cannot be forwarded. `src/lib/providers/zenith/neon.ts` checks whether the
+  reference exists and repairs a missing sink entry on a converged create by
+  reading the owned project's URI. A sink failure returns `secret_store_failed`
+  with fixed guidance; the database may already exist, so retry to converge
+  rather than assume it was rolled back. The caller must inject a durable sink;
+  default worker composition does not wire a managed provider session.
 - **Deletion.** Never automatic. `deletionPolicy` `deny` never deletes,
   `approval` needs an explicit approval, `allow` permits; the adapter additionally
-  refuses to delete a project that is not the one it created for that tuple. Neon
-  keeps deleted projects recoverable for 7 days; that is a safety net, not the
-  control.
+  refuses to delete a project that is not the one it created for that tuple.
+  Provider recovery windows are not configured or verified by this adapter;
+  do not treat them as a backup or approval control.
 - **Not configured** means `unavailable`, naming the variables, and the apply
   blocks before touching the cluster.
 - **Not mapped:** `highAvailability` and `backup` requests are reported as
@@ -205,6 +211,46 @@ reaching a SaaS database means allowing a CIDR and port (`ZENITH_MANAGED_DB_EGRE
 With Neon that is effectively the public address space on 5432, which is broad.
 Fail closed by default (none configured, with a warning). The recommended
 hardening is an FQDN-aware policy (for example Cilium `toFQDNs`), not implemented.
+
+## Full-graph identity trust
+
+Rendering a selected managed workload keeps the complete resource graph
+available for identity and neighbour lookup. `renderToolkitGraph` in
+`src/lib/providers/zenith/k8s-port.ts`, called by
+`src/lib/providers/zenith/render.ts`, makes unselected managed Kubernetes/Zenith
+nodes lookup-only in a temporary referenced view. It never changes persisted
+ownership or applies those nodes. Cloud identity nodes can therefore provide
+trust context without accidentally provisioning the rest of the graph.
+
+Pass an explicit `workloadIdentity` cluster/mechanism and the pure
+`resolveAttribute` lookup of resolved non-secret attributes. Identity annotations
+do not prove effective access. The Kubernetes renderer checks the explicit
+workload identity and grant coverage; a mismatched cluster/mechanism or missing
+resolved attributes produces notes and omits the cloud annotation. Cloud
+trust/federation and cluster admission wiring must already exist. EKS Pod
+Identity additionally needs an external cloud-side association. No live
+identity exchange is verified here.
+
+## Environment teardown
+
+`src/lib/providers/zenith/teardown.ts` implements C1 teardown under a caller-held
+environment lease. It deletes owned workloads with UID/resourceVersion
+preconditions, retains stateful objects when requested, and keeps isolation until
+the last namespace delete. TLS teardown uses the separate operator session;
+database teardown goes through `destroyManagedDatabase` and the adapter's
+ownership gate, never a raw project delete.
+
+The worker integration must attach a complete trusted database inventory,
+including removed resources, to `session.teardown.databases`, with approval flags
+for the exact operation. Missing inventory is unknown; an explicit empty array
+is required to assert there are no managed databases. Incomplete discovery,
+foreign supported objects, retention or uncertainty prevents namespace deletion.
+Unknown custom kinds are not inventoried, so tenant namespaces must be exclusive.
+The adapter's `deleted` means accepted deletion, not confirmed absence; the
+execution workflow verifies afterwards. Default composition lacks the managed
+session opener. See [TEARDOWN.md](operations/TEARDOWN.md) for the browser flow,
+human approvals, entry-point limits and preserved evidence. No live teardown is
+verified.
 
 ## `static_site` and the hosted-apps subsystem
 
@@ -333,11 +379,12 @@ platform credential contract still has no `zenith` connection/session;
 does not call it. No managed cluster, gateway, registry, storage or database
 service has been verified live by this sync.
 
-Remaining contracts include a database dump/export capability, generated
-connection-secret persistence/resolution, service secret-reference bindings and
-verified workspace/environment hostname uniqueness. Do not infer these from
-the registered drivers. The database export and hostname/TLS limits above
-remain; complete live acceptance before serving tenants.
+Remaining integration includes a database dump/export capability and wiring a
+durable `ConnectionSecretSink`/resolver and service secret-reference bindings
+into the default managed execution path. The Neon sink contract already exists;
+registered drivers do not supply that composition. Workspace/environment hostname
+uniqueness and live hostname/TLS serving remain unverified; complete live
+acceptance before serving tenants.
 
 ## Verification, and what a live acceptance must prove
 

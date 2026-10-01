@@ -7,7 +7,7 @@ mean, how to change a rule and rebuild the bundle, and what a decision record is
 Design: [ADR-0007](../../adr/0007-capability-broker-and-autonomy.md) and
 [ADR-0008](../../adr/0008-policy-opa-wasm.md).
 
-Written against branch `ws/docs-sync`, based on `platform/integration` at `e3ea61a` (2026-10-01).
+Written against branch `ws/docs-sync-2`, based on `ws/integrate-w6` at `3c1fa66` (2026-10-01).
 
 **Status.** The engine, the Rego rules, the plan-fact extraction, the workspace
 parameter resolver, the decision-record store and the capability broker that calls
@@ -101,6 +101,33 @@ Approvals are **human-only**: a browser session, never a bearer token. A model's
 "yes" is never an approval. An approval is bound to exactly one proposal digest, is
 single-use, expires, and is re-checked against the current policy version when the
 operation is claimed ([RECOVERY.md](RECOVERY.md#4-what-happens-to-an-operation-when-something-crashes)).
+
+## Deletion approvals
+
+Deleting or replacing a **stateful resource or DNS record always requires a
+human**, in every environment and at every autonomy level. The rules
+`stateful_deletes_require_approval` and `dns_deletes_require_approval` in
+`policy/rego/approval.rego` are independent of production and autonomy. The
+minimum is an editor; other rules can raise the role/count or require a
+different approver. A denial takes precedence. `infrastructure.destroy` itself
+has default autonomy 6 and is never unattended; production destructive work
+requires an admin other than the requester. The product `env.teardown` action
+requires an admin to request it ([TEARDOWN.md](TEARDOWN.md)).
+
+`src/lib/execution/plan.ts` maps both delete and replace actions to trusted
+current/deployed resource nodes, preserving historical ownership and deletion
+policy. It records `statefulDeletes` and `dnsDeletes` as plan evidence;
+`src/lib/platform/broker.ts` passes those facts to policy. Removing a node from
+the working manifest does not remove its deployed deletion protection.
+
+Before destructive deploy apply, `assertDeployDeletionApproval` requires the
+same operation's reviewed digest, non-simulated evidence covering the exact
+deletion lists and a current human approval id. A policy-only allow or ordinary
+mutation grant is insufficient. The final OpenTofu plan uses `expectedDigest`
+in `src/lib/tofu/engine.ts`: a moved plan is refused as `plan_changed` **before
+deletion guards run**. Approval cannot bypass `deletionPolicy`, unmapped state,
+foreign ownership or the AWS Route53 target check; non-AWS cloud DNS deletion
+still refuses without an equivalent ownership guard.
 
 ## Workspace parameters
 

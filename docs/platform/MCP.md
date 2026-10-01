@@ -123,10 +123,27 @@ Discovery does not require a bearer, integration grant or enabled control plane,
 and does not probe the authorization server's availability.
 
 `GET /api/agent/v3/mcp?metadata=oauth-protected-resource` remains available for
-existing clients. Until the orchestrator wires `authenticationChallengeFor`
-from `v3/auth.ts` into `v3/server.ts`, HTTP 401 responses still advertise this
-query URL in `WWW-Authenticate`. The canonical challenge helper advertises the
-standard well-known URL with `scope="zenith:read"`.
+existing clients. HTTP 401 responses for a trusted origin now use
+`authenticationChallengeFor` from `src/lib/agent-access/v3/auth.ts`, wired in
+`src/lib/agent-access/v3/server.ts`, and advertise the standard well-known URL
+with `scope="zenith:read"` in `WWW-Authenticate`.
+
+To inspect discovery without exposing a token:
+
+```bash
+curl -i https://<host>/.well-known/oauth-protected-resource/api/agent/v3/mcp
+curl -i https://<host>/api/agent/v3/mcp
+```
+
+Configure the trusted origin and OAuth issuer/JWKS first. Confirm metadata's
+`resource` is the exact v3 MCP URL and `authorization_servers` is your configured
+issuer; an unauthenticated request to the enabled MCP endpoint should return
+401 with `Bearer resource_metadata="<origin>/.well-known/oauth-protected-resource/api/agent/v3/mcp", scope="zenith:read"`.
+A disabled control plane or rejected origin can refuse before authentication;
+discovery is not a health check for the issuer. Acquire an audience-bound token
+through the configured authorization server, keep it in client secret-header
+storage, and select the authorized workspace with `x-zenith-workspace`. No live
+OAuth issuer/client journey was verified in this sync.
 
 ## Result and input contracts
 
@@ -232,13 +249,15 @@ or product store (response imports are type-only; redaction is pure).
   Product deploys and MCP approved execution start workflows, but dispatch is
   not live-cloud acceptance. MCP tests use fake workflow starts; no cloud or
   Temporal Cloud run is claimed by this docs sync.
-- Cloud reads require `registerCredentialBroker()` in `v3/adapters.ts`. Without
-  it, AWS/Kubernetes reads report `unavailable`. No real cloud session is wired
-  or exercised here. Other provider sources may also be unavailable.
+- App composition (`src/lib/platform/app.ts`) registers the MCP cloud-read hook
+  (`registerCredentialBroker`) and incident investigator (`registerInvestigator`)
+  through `src/lib/platform/agent-ports.ts`. They validate tenant scope and use
+  observe-purpose broker sessions. Missing connections/transports or evidence
+  report unavailable/unknown; the registration is not live cloud evidence.
 - `connectionId` is a product-store id; the credential resolver must map it to
   `ProviderConnection.legacyConnectionId` and enforce the tenant boundary.
-- `registerInvestigator()` is the WS-INC wiring point. Until registered,
-  investigations report unavailable and invent no hypothesis.
+- Investigation traverses deterministic read-only probes and preserves missing
+  evidence. Stored incidents or a registered hook do not prove a fresh diagnosis.
 - Topology, revision comparison, planning and cost describe desired state.
   Cost is a static-catalog list-price estimate, not a verified bill or a fresh
   OpenTofu plan. LocalStack is unsupported by this endpoint.
@@ -252,11 +271,10 @@ or product store (response imports are type-only; redaction is pure).
   initial approval twice. A new concrete plan may still require reapproval.
 - Operation progress needs a Temporal worker; queries time out after 3 seconds
   and report unavailable. Ledger status alone does not prove a workflow started.
-- OAuth `.well-known` discovery and plugin v3 bridging remain integration work.
-  The app composition (`src/lib/platform/app.ts`) registers the MCP cloud-read
-  hook (`registerCredentialBroker`, observe-purpose, tenant-scoped sessions) and
-  the incident investigator (`registerInvestigator`); OCI sources stay
-  `unavailable` until OCI sessions and runner read jobs exist.
+- OAuth `.well-known` discovery and its challenge are wired; plugin v3 bridging
+  remains separate work. OCI sessions and operationless runner read jobs exist;
+  Logging Search and Monitoring preserve capability/compartment/resource scope.
+  See [OCI-SIGNALS.md](operations/OCI-SIGNALS.md) for setup and coverage limits.
 - Request diagnostics now pass through `safeRequestError` in
   `src/lib/server/errors.ts` before logging or responding (SEC-R2).
   MCP diagnostics also use their redaction boundary. These detect known shapes;

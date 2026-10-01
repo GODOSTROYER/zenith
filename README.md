@@ -521,6 +521,21 @@ active registered runner. The product's legacy AWS provider still
 has the Preview limits described below; the composed platform execution path
 is separate.
 
+Operator coverage includes [environment teardown](docs/platform/operations/TEARDOWN.md),
+[deletion approvals](docs/platform/operations/POLICY.md#deletion-approvals),
+[source builds](docs/platform/operations/BUILDS.md) and
+[OCI runner signal reads](docs/platform/operations/OCI-SIGNALS.md). Stateful/DNS
+deletions always require a human; teardown consumes trusted reviewed evidence.
+AWS CodeBuild receives ZIP; GCP Cloud Build and the Azure ACR adapters use tar.gz
+(Azure requires explicit source integration). Database credentials use
+passwordless/service-managed paths or ephemeral write-only sinks; OCI MySQL
+creation stays disabled. Temporal client/worker payload encryption and rotation,
+worker health/plan cleanup and leased housekeeping are documented in
+[DEPLOYING.md](docs/platform/operations/DEPLOYING.md).
+[MCP.md](docs/platform/MCP.md) covers the wired read/investigation hooks and OAuth
+protected-resource metadata/401 challenge. These features retain contract
+evidence; the guides list entry-point and live-verification gaps.
+
 Where to read: [docs/platform/ARCHITECTURE.md](docs/platform/ARCHITECTURE.md) (the
 design), [docs/platform/operations/](docs/platform/operations/README.md) (operator
 guides, each stating what was and was not verified) and the generated

@@ -1,15 +1,15 @@
 # Platform threat model
 
-## Current operator status (WS-DOCS-SYNC)
+## Current operator status (WS-DOCS-SYNC-2)
 
-Source snapshot: `platform/integration` at `e3ea61a` (2026-10-01). The platform
+Source snapshot: `ws/integrate-w6` at `3c1fa66` (2026-10-01). The platform
 is composed in `src/lib/platform/app.ts` and `src/lib/platform/execution.ts`:
 broker/store, six provider registrars, execution activities, runner queues and
 reconciliation ports are wired. Product deploys and MCP v3 dispatch workflows;
 platform pages render stored evidence. Middleware classifies bearer/signed-agent
 paths, `next.config.ts` traces the policy bundle, and cron reaps runner/machine
 jobs. The reconcile HTTP tick is scheduled; the separate `reconcileOperations`
-ledger backstop is not. See [DEPLOYING.md](operations/DEPLOYING.md).
+ledger backstop runs in leased housekeeping. See [DEPLOYING.md](operations/DEPLOYING.md).
 
 The following fixes are present in source and have ordinary regression
 assertions in the named suites. **This sync did not run the security suites**,
@@ -38,16 +38,24 @@ Dockerfiles and Vercel run Node 22, and `tests/security/runtime-sanity.test.ts`
 asserts the range as a blocking test. A host that ignores `engines` (npm only
 warns) can still run Node 24; the pin documents and enforces intent, not hosts.
 
-Remaining operator limits: no payload codec encrypts Temporal history; heuristic
-redaction cannot detect arbitrary unknown secrets; cloud IAM, state locking,
-backup/restore, KMS and production load remain unverified. The worker requires a
-private plan fingerprint key, explicit store/schema and usable signer before
-polling. Its identity needs an explicit compatible value; default composition
-supplies no machine port. Non-AWS identity verification and OCI platform
-ProviderSession are refused; hosted Zenith serving is not verified. MCP cloud
-read and investigator registration hooks have no application caller. A plan
-approval UI needs an authorized readable matching artifact; a digest alone is
-insufficient. Unknown/uncertain outcomes are never proof of a healthy fleet.
+Temporal payload encryption is wired on client and worker through
+`src/lib/workflows/codec.ts` (AES-256-GCM with previous decrypt-only keys).
+Workflow ids, visibility/search fields and default failure text remain outside
+the codec; heuristic redaction cannot detect arbitrary unknown secrets. Cloud
+IAM, state locking, backup/restore, KMS and production load remain unverified.
+The worker requires a private plan fingerprint key, explicit store/schema and
+usable signer before polling; its default identity satisfies the lease-holder
+rule. Loopback readiness and plan cleanup exist, but default composition still
+supplies no machine port. Non-AWS connection verification and runner-backed OCI
+sessions are wired, as are MCP cloud-read/investigator registration hooks.
+Hosted Zenith serving is not verified. Teardown requires trusted review evidence
+and human approval; stateful/DNS deletions require a human in every environment
+at any autonomy. A plan approval UI needs an authorized readable matching artifact;
+a digest alone is insufficient. OCI MySQL creation lacks a proven write-only
+password sink and remains disabled. See
+[TEARDOWN.md](operations/TEARDOWN.md), [POLICY.md](operations/POLICY.md#deletion-approvals)
+and [DEPLOYING.md](operations/DEPLOYING.md). Unknown/uncertain outcomes are never
+proof of a healthy fleet.
 
 ## Archived WS-SEC audit
 

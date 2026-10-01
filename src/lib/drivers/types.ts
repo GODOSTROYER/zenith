@@ -91,9 +91,11 @@ export interface DriverContext<Session = unknown> {
 export interface TofuFragment {
   resource?: Record<string, Record<string, Record<string, unknown>>>;
   data?: Record<string, Record<string, Record<string, unknown>>>;
+  /** OpenTofu 1.12 temporary resources; values never enter saved plans/state. */
+  ephemeral?: Record<string, Record<string, unknown>>;
   output?: Record<string, { value: unknown; sensitive?: boolean; description?: string }>;
   locals?: Record<string, unknown>;
-  /** tofu addresses (`aws_ecs_service.web`) this node owns — joins plans to nodes */
+  /** State-backed tofu addresses (`aws_ecs_service.web`) — joins plans to nodes. */
   addresses: string[];
 }
 

@@ -1,14 +1,16 @@
 /**
  * Gated disposable-cluster acceptance for release SSA and one-off Jobs.
- * NOT RUN in this sandbox. Requires ZENITH_TEST_KIND=1, KUBECONFIG and a
+ * Local disposable-kind acceptance ran on 2026-10-01 (emulated evidence).
+ * Requires ZENITH_TEST_KIND=1, KUBECONFIG and a
  * ZENITH_TEST_KIND_RELEASE_IMAGE digest for a non-root image with /bin/sh.
  * Works only in its random namespace and deletes it afterwards.
  */
 import { randomBytes } from "node:crypto";
 import { KubeConfig, PatchStrategy, type KubernetesObject } from "@kubernetes/client-node";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createReleasePorts } from "@/lib/platform/release";
-import { createK8sClient } from "@/lib/providers/kubernetes/client";
+import { createK8sClient, listByKind } from "@/lib/providers/kubernetes/client";
+import { dig } from "@/lib/providers/kubernetes/util";
 import { FIELD_MANAGER, ANNOTATION } from "@/lib/providers/kubernetes/types";
 import { sessionFromKubeConfig, type ScopedKubernetesSession } from "@/lib/providers/kubernetes/session";
 import { driverCtx, inNs, serviceNode } from "./helpers";
@@ -22,6 +24,9 @@ describe.skipIf(!enabled)("Kubernetes release ports against a disposable kind cl
   const node = inNs(serviceNode({ env: [], artifact: { type: "image", ref: image } }), namespace);
   let session: ScopedKubernetesSession | undefined;
   let namespaceCreated = false;
+  let controller: AbortController;
+  beforeEach(() => { controller = new AbortController(); });
+  afterEach(() => { controller.abort(); });
   beforeAll(async () => {
     expect(image).toMatch(/@sha256:[a-f0-9]{64}$/);
     const config = new KubeConfig(); config.loadFromFile(process.env.KUBECONFIG as string);
@@ -36,7 +41,10 @@ describe.skipIf(!enabled)("Kubernetes release ports against a disposable kind cl
     if (session && namespaceCreated) await createK8sClient(session, { signal: AbortSignal.timeout(30_000) }).objects.delete({ apiVersion: "v1", kind: "Namespace", metadata: { name: namespace } });
   }, 30_000);
   it("rolls out a pre-built digest, observes readiness and runs exactly one migration Job across retries", async () => {
-    const ctx = driverCtx(session!, { environmentId });
+    // Cover the 180s rollout and both 120s Job calls; cancellation precedes
+    // the test runner deadline, and failed tests cancel outstanding requests.
+    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(480_000)]);
+    const ctx = driverCtx(session!, { environmentId, signal });
     const ports = createReleasePorts();
     const digest = image!.split("@")[1];
     await ports.workloads.deployImage(ctx, node, { uri: image!, digest }, { idempotencyKey: `deploy-${suffix}` });
@@ -44,6 +52,13 @@ describe.skipIf(!enabled)("Kubernetes release ports against a disposable kind cl
     const opts = { timeoutMs: 120_000, idempotencyKey: `migrate-${suffix}` };
     const first = await ports.migrations.runOneOffTask(ctx, node, ["/bin/sh", "-c", "exit 0"], opts);
     expect(first.exitCode).toBe(0);
+    const client = createK8sClient(session!, { environmentId, signal });
+    const jobKind = { apiVersion: "batch/v1", kind: "Job", namespaced: true };
+    const jobs = await listByKind(client, jobKind, namespace);
+    expect(jobs.items).toHaveLength(1);
     expect(await ports.migrations.runOneOffTask(ctx, node, ["/bin/sh", "-c", "exit 0"], opts)).toEqual(first);
-  }, 360_000);
+    const retried = await listByKind(client, jobKind, namespace);
+    expect(retried.items).toHaveLength(1);
+    expect(dig(retried.items[0], "metadata", "uid")).toBe(dig(jobs.items[0], "metadata", "uid"));
+  }, 510_000);
 });

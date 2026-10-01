@@ -571,6 +571,9 @@ export async function startFakeK8s(options: FakeK8sOptions = {}): Promise<FakeK8
       const sendStatus = (s: { code: number; body: Plain }) => send(s.code, s.body);
 
       if (!recorded.authorized) return sendStatus(status(401, "Unauthorized", "Unauthorized"));
+      if (recorded.method === "PATCH" && !(recorded.contentType ?? "").startsWith("application/apply-patch") && query.force !== undefined) {
+        return sendStatus(status(422, "force may not be specified for non-apply patch", "Invalid"));
+      }
 
       const rule = rules.find((r) => r.times !== 0 && r.match(recorded));
       if (rule) {

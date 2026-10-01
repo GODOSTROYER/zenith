@@ -89,7 +89,7 @@ async function claim(ctx: ReleaseContext, node: ResourceNode, workload: OwnedWor
       await workload.client.objects.patch({
         apiVersion: workload.ref.apiVersion, kind: workload.kind,
         metadata: { name: workload.ref.name, namespace: workload.ref.namespace, uid, resourceVersion: dig(workload.live, "metadata", "resourceVersion"), annotations: { [marker]: JSON.stringify(receipt) } },
-      } as KubernetesObject, undefined, undefined, "zenith-release", false, PatchStrategy.MergePatch);
+      } as KubernetesObject, undefined, undefined, "zenith-release", undefined, PatchStrategy.MergePatch);
       return { workload, receipt, job };
     } catch (e) {
       if (!(e instanceof ApiException) || e.code !== 409) throw e;

@@ -123,6 +123,16 @@ const NOT_ENVIRONMENT: Record<string, string> = {
   ZENITH_CHAOS: "a manifest env key for sandbox failure injection, not read from the process environment",
   ZENITH_SKUS: "a constant table in placement/capabilities.ts",
   ZENITH_RUNNER_STORE: "named in a stale comment in runners/memory-store.ts; no code reads it",
+  ZENITH_IMAGE_DIGEST: "a variable inside the customer-account CodeBuild build (the buildspec), not the control plane's environment",
+  ZENITH_SOURCE_DIGEST: "a variable inside the customer-account CodeBuild build (the buildspec), not the control plane's environment",
+  ZENITH_DOCKERFILE: "a variable inside the customer-account CodeBuild build (the buildspec), not the control plane's environment",
+  ZENITH_REPO_URL: "a variable inside the customer-account CodeBuild build (the buildspec), not the control plane's environment",
+  ZENITH_SITE_BUCKET: "a variable inside the customer-account CodeBuild build (the buildspec), not the control plane's environment",
+  ZENITH_DISTRIBUTION_ID: "a variable inside the customer-account CodeBuild build (the buildspec), not the control plane's environment",
+  ZENITH_SSM_DOCUMENTS: "a constant table of SSM document definitions in machines/transports/aws-ssm-docs.ts",
+  ZENITH_SSM_DOCUMENT_SUFFIXES: "a constant list in machines/transports/aws-ssm-docs.ts",
+  ZENITH_TEST_KIND: "a test-only gate for the kind-cluster test, named in a comment",
+  ZENITH_EXTRA_KINDS: "a constant table of extra Kubernetes kinds in providers/zenith/k8s-port.ts",
 };
 
 describe("environment variables", () => {
@@ -141,6 +151,13 @@ describe("environment variables", () => {
     "src/lib/runners",
     "src/app/api/platform",
     "src/lib/providers/aws/drivers",
+    "src/lib/providers/gcp",
+    "src/lib/providers/azure",
+    "src/lib/providers/oci",
+    "src/lib/providers/kubernetes",
+    "src/lib/providers/zenith",
+    "src/lib/execution",
+    "src/lib/machines",
     "src/lib/analysis",
     "src/lib/capabilities",
     "src/lib/drivers",
@@ -346,27 +363,29 @@ describe("the 'in progress' claims still hold", () => {
     return hits;
   };
 
-  it("no provider-level drivers index has merged, and the only driver group is the AWS network one", () => {
+  it("drivers are merged and nothing in the application registers them", () => {
     const providers = path.join(REPO_ROOT, "src", "lib", "providers");
     const dirs = fs.readdirSync(providers, { withFileTypes: true }).filter((d) => d.isDirectory());
-    const indexes = dirs.filter((d) => fs.existsSync(path.join(providers, d.name, "drivers", "index.ts")));
-    expect(indexes.map((d) => d.name)).toEqual([]);
-    const groups: string[] = [];
-    for (const d of dirs) {
-      const drivers = path.join(providers, d.name, "drivers");
-      if (!fs.existsSync(drivers)) continue;
-      for (const g of fs.readdirSync(drivers, { withFileTypes: true })) if (g.isDirectory() && g.name !== "shared") groups.push(`${d.name}/${g.name}`);
-    }
-    expect(groups).toEqual(["aws/network"]);
+    const indexes = dirs.filter((d) => fs.existsSync(path.join(providers, d.name, "drivers", "index.ts"))).map((d) => d.name);
+    // AWS has driver group modules and no provider-level index
+    expect(indexes).toEqual(["azure", "gcp", "kubernetes", "oci", "zenith"]);
+    expect(fs.readdirSync(path.join(providers, "aws", "drivers"), { withFileTypes: true }).filter((d) => d.isDirectory() && d.name !== "shared").map((d) => d.name).sort()).toEqual(["compute", "data", "network"]);
+    // nothing outside the provider modules calls a register function
+    const register = /^(?!\s*(?:\*|\/\/)).*\bregister(?:Aws|Gcp|Azure|Oci|Kubernetes|Zenith|ZenithManaged)Drivers\s*\(/m;
+    const hits = callers(register, ["src/app", "src/components", "workers", "src/lib/workflows", "src/lib/capabilities", "src/lib/runners", "src/lib/execution", "src/lib/reconcile", "src/lib/machines", "src/lib/controlplane"]);
+    expect(hits).toEqual([]);
   });
 
-  it("the broker, REST and the runner plane have merged; the machine plane, MCP v3 and the connections route have not", () => {
+  it("the broker, REST, the runner plane and the machine plane have merged; MCP v3 and the connections route have not", () => {
     expect(exists("src/lib/capabilities/broker.ts")).toBe(true);
     expect(exists("src/lib/runners/service.ts")).toBe(true);
     for (const route of ["capabilities/propose", "operations/[id]/approve", "environments/[id]/autonomy", "workspace/policy", "runners/register", "machines/register"]) {
       expect(exists(`src/app/api/platform/v1/${route}/route.ts`), route).toBe(true);
     }
-    expect(fs.readdirSync(path.join(REPO_ROOT, "src", "lib", "machines"))).toEqual(["types.ts"]);
+    expect(exists("src/lib/machines/service.ts")).toBe(true);
+    expect(exists("src/lib/machines/transports/aws-ssm.ts")).toBe(true);
+    // nothing outside the machine plane calls it
+    expect(callers(/executeMachineOperation|createMachineDrivers/, ["src/app", "src/components", "workers", "src/lib/workflows", "src/lib/capabilities", "src/lib/runners", "src/lib/execution", "src/lib/reconcile"])).toEqual([]);
     expect(exists("src/app/api/platform/v1/connections")).toBe(false);
     expect(exists("src/app/api/agent/v3")).toBe(false);
   });
@@ -384,21 +403,17 @@ describe("the 'in progress' claims still hold", () => {
     expect(read(path.join(REPO_ROOT, "src", "lib", "capabilities", "evaluate.ts"))).toContain("plan_required");
   });
 
-  it("the integration gaps the guides report are still there", () => {
+  it("the integration gaps the guides report are still there, and the migration count is what they say", () => {
     // 1. the session middleware does not let the agent and bearer routes through
     expect(read(path.join(REPO_ROOT, "src", "middleware.ts"))).not.toContain("/api/platform");
     expect(read(path.join(REPO_ROOT, "src", "lib", "supabase", "env.ts"))).not.toContain("/api/platform");
     // 2. the policy bundle is not traced into serverless builds
     expect(read(path.join(REPO_ROOT, "next.config.ts"))).not.toContain("outputFileTracingIncludes");
-    // 3. machine_requests is not among the applied migrations, and its file claims a version `reconcile` already holds
+    // 3. the migrations the guides count: core, reconcile and machine_requests (3)
     const index = read(path.join(REPO_ROOT, "src", "lib", "controlplane", "db", "migrations", "index.ts"));
-    expect(index).not.toContain("machine");
-    expect(index).toContain("migration0002Reconcile");
-    const pending = read(path.join(REPO_ROOT, "src", "lib", "runners", "db", "machine-requests-migration.ts"));
-    expect(pending).toMatch(/version: 2,/);
-    expect(pending).toContain("machine_requests");
-    // the docs say so
-    expect(guide("DEPLOYING.md")).toContain("platform.machine_requests");
+    expect(index).toContain("[migration0001Core, migration0002Reconcile, migration0003MachineRequests]");
+    expect(read(path.join(REPO_ROOT, "src", "lib", "controlplane", "db", "migrations", "0003_machine_requests.ts"))).toContain("version: 3,");
+    expect(squash(guide("DEPLOYING.md"))).toContain("Three migrations exist today");
     expect(guide("DEPLOYING.md")).toContain("src/middleware.ts");
   });
 
@@ -419,7 +434,15 @@ describe("the 'in progress' claims still hold", () => {
     expect(read(path.join(REPO_ROOT, "vercel.json"))).not.toContain("reconcile");
   });
 
-  it("every worker activity is still a stub", () => {
+  it("the real activities exist as a library and the worker still registers the stubs", () => {
+    expect(exists("src/lib/execution/activities.ts")).toBe(true);
+    const worker = read(path.join(REPO_ROOT, "workers", "execution", "worker.ts"));
+    expect(worker).toContain("createActivities(");
+    expect(worker).not.toContain("createExecutionActivities");
+    expect(callers(/createExecutionActivities\s*\(/, ["src/app", "workers", "src/lib/capabilities", "src/lib/runners", "src/lib/workflows"])).toEqual([]);
+  });
+
+  it("every activity the worker registers is still a stub", () => {
     const activities = read(path.join(REPO_ROOT, "src", "lib", "workflows", "activities", "index.ts"));
     const body = activities.slice(activities.indexOf("const activities:"), activities.indexOf("return withFailureMapping"));
     const entries = [...body.matchAll(/^\s+(\w+): (.+),$/gm)];

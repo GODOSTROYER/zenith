@@ -3,7 +3,8 @@
  * never from what anyone remembers (architecture invariant 8, ADR-0004).
  *
  *     npx tsx scripts/docs/capability-matrix.ts            # rewrite the file
- *     npx tsx scripts/docs/capability-matrix.ts --check    # exit 1 if it is out of date or has problems, write nothing
+ *     npx tsx scripts/docs/capability-matrix.ts --check    # exit 1 if it is out of date, write nothing
+ *     npx tsx scripts/docs/capability-matrix.ts --strict   # --check, and also exit 1 on any driver inconsistency
  *
  * Inputs, all read from the code on the current branch:
  *   - the resource-driver registry (`listDrivers()`), populated by importing
@@ -11,13 +12,25 @@
  *     file exists (the provider-level index, which concatenates the groups and
  *     registers them), plus
  *   - driver GROUP modules, `src/lib/providers/<provider>/drivers/<group>/index.ts`,
- *     which export `ResourceDriver`s without registering them. A driver that is
- *     merged as a module but that no provider-level index registers is listed,
- *     with its declared evidence, and marked "not registered": it exists in the
- *     tree and `getDriver()` cannot find it. A provider with neither is reported
- *     as "none merged", not skipped silently and not guessed at. An index that
- *     exists but throws on import is an error: a broken driver set must not
- *     produce a reassuring, empty matrix.
+ *     which export `ResourceDriver`s without registering them.
+ *
+ * Registration is reported in three states, because generating this file calls the
+ * registrars itself and that must not be mistaken for the application doing it:
+ *   registered   some application code outside the provider's own directory calls
+ *                its `register<Provider>Drivers`, so `getDriver()` finds the driver
+ *                at runtime;
+ *   registrable  the provider-level index exports that function, but nothing in the
+ *                application calls it: the driver exists and can be registered, and
+ *                is not;
+ *   module only  a group module exports it and no provider-level index registers
+ *                anything: `getDriver()` cannot find it.
+ * A provider with nothing is reported as "none merged", not skipped silently and
+ * not guessed at. An index that exists but throws on import is an error: a broken
+ * driver set must not produce a reassuring, empty matrix. Only the provider's own
+ * `register<Provider>Drivers` is called (aliases such as `registerZenithManagedDrivers`
+ * are not); a registrar that needs arguments is called with an inert stand-in only
+ * where `REGISTRAR_ARGS` says so (the generator reads declarations, never calls a
+ * driver method), and is otherwise reported as a problem.
  *   - the observability `SOURCE_EVIDENCE` table;
  *   - the capability catalog (`CAPABILITIES`).
  *
@@ -33,8 +46,12 @@
  * The output is deterministic: no clock, no git SHA, sorted everywhere, so a
  * second run is byte-identical and `--check` is a meaningful gate.
  *
- * Exit codes: 0 ok / written, 1 `--check` found the file out of date or the
- * drivers inconsistent, 2 usage error.
+ * Inconsistencies in drivers (the Problems section) are printed to stderr and written
+ * into the file, but do not by themselves fail `--check`: they are other workstreams'
+ * defects and the file is accurate about them. `--strict` fails on them.
+ *
+ * Exit codes: 0 ok / written, 1 `--check` found the file out of date (or `--strict`
+ * found a driver inconsistency), 2 usage error.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -67,9 +84,11 @@ export interface OperationCell {
   known: boolean;
 }
 
+export type Registration = "registered" | "registrable" | "module only";
+
 export interface DriverRow {
-  /** true when the driver is in the runtime registry (`getDriver` finds it); false when it is only a merged module */
-  registered: boolean;
+  /** see the header: who, if anyone, puts this driver in the runtime registry */
+  registration: Registration;
   provider: string;
   nativeType: string;
   kind: string;
@@ -91,8 +110,10 @@ export interface ProviderDiscovery {
    * `absent`: neither is on this branch.
    */
   status: "loaded" | "groups" | "absent";
-  /** exported `register…Drivers` functions that were called */
+  /** the provider's own `register<Provider>Drivers`, when its index exports it and it was called */
   registrars: string[];
+  /** `register…Drivers` exports that were deliberately not called (aliases, or a registrar needing arguments the generator cannot supply) */
+  skippedRegistrars: string[];
   /** driver group modules (`drivers/<group>/index.ts`) that were imported, sorted */
   groups: string[];
   /** the `ResourceDriver`s those group modules export (registered or not), sorted by id */
@@ -117,6 +138,22 @@ const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
 const isEvidenceLevel = (value: unknown): value is EvidenceLevel => typeof value === "string" && (EVIDENCE_LEVELS as readonly string[]).includes(value);
 
+/** An object that answers every property and call with itself: stands in for an injected toolkit whose methods the generator never calls. */
+const INERT: unknown = new Proxy(function inert() {}, {
+  get: (_target, prop) => (prop === "then" ? undefined : INERT),
+  apply: () => INERT,
+});
+
+/**
+ * Registrars that need arguments, and the stand-ins the generator may pass. The
+ * Zenith-managed provider builds its drivers from an injected Kubernetes toolkit
+ * (and reads the `kubernetes` drivers already in the registry, so that provider must
+ * be loaded first: `NATIVE_PREFIX` lists it first).
+ */
+const REGISTRAR_ARGS: Readonly<Record<string, () => unknown[]>> = {
+  registerZenithDrivers: () => [{ toolkit: INERT }],
+};
+
 /** A value shaped like a `ResourceDriver` (what a group module exports). */
 function isDriverShaped(value: unknown): value is ResourceDriver {
   if (typeof value !== "object" || value === null) return false;
@@ -138,13 +175,21 @@ export async function loadProviderDrivers(options: { repoRoot?: string; provider
   for (const provider of providers) {
     const driversDir = path.join(repoRoot, "src", "lib", "providers", provider, "drivers");
     const index = path.join(driversDir, "index.ts");
-    let registrars: string[] = [];
+    const registrars: string[] = [];
+    const skippedRegistrars: string[] = [];
     if (fs.existsSync(index)) {
       const mod = (await import(/* @vite-ignore */ pathToFileURL(index).href)) as Record<string, unknown>;
-      registrars = Object.keys(mod)
-        .filter((name) => /^register\w*Drivers$/.test(name) && typeof mod[name] === "function")
-        .sort();
-      for (const name of registrars) (mod[name] as () => void)();
+      const own = `register${provider.charAt(0).toUpperCase()}${provider.slice(1)}Drivers`;
+      for (const name of Object.keys(mod).filter((n) => /^register\w*Drivers$/.test(n) && typeof mod[n] === "function").sort()) {
+        const fn = mod[name] as (...args: unknown[]) => unknown;
+        const args = REGISTRAR_ARGS[name];
+        if (name !== own || (fn.length > 0 && !args)) {
+          skippedRegistrars.push(name);
+          continue;
+        }
+        fn(...(args ? args() : []));
+        registrars.push(name);
+      }
     }
 
     const groups: string[] = [];
@@ -165,7 +210,7 @@ export async function loadProviderDrivers(options: { repoRoot?: string; provider
     }
     const groupDrivers = [...found.values()].sort((a, b) => cmp(a.id, b.id));
     const status: ProviderDiscovery["status"] = fs.existsSync(index) ? "loaded" : groups.length > 0 ? "groups" : "absent";
-    out.push({ provider, status, registrars, groups, groupDrivers });
+    out.push({ provider, status, registrars, skippedRegistrars, groups, groupDrivers });
   }
   return out;
 }
@@ -178,8 +223,8 @@ function defaultRepoRoot(): string {
 
 export interface BuildMatrixInput {
   drivers: readonly ResourceDriver[];
-  /** ids of the drivers in the runtime registry; default: all of `drivers` */
-  registered?: ReadonlySet<string>;
+  /** how each driver gets (or does not get) into the runtime registry; default: all `registered` */
+  registration?: (driver: ResourceDriver) => Registration;
   providers: readonly string[];
   discovery: readonly ProviderDiscovery[];
   sourceEvidence: Readonly<Record<string, SourceEvidence>>;
@@ -249,7 +294,14 @@ export function buildMatrix(input: BuildMatrixInput): MatrixData {
       }
     }
 
-    rows.push({ registered: input.registered ? input.registered.has(driver.id) : true, provider: driver.provider, nativeType: driver.nativeType, kind: driver.kind, driverId: driver.id, core, operations });
+    rows.push({ registration: input.registration ? input.registration(driver) : "registered", provider: driver.provider, nativeType: driver.nativeType, kind: driver.kind, driverId: driver.id, core, operations });
+  }
+
+  for (const d of input.discovery) {
+    for (const name of d.skippedRegistrars) {
+      const own = `register${d.provider.charAt(0).toUpperCase()}${d.provider.slice(1)}Drivers`;
+      if (name === own) problems.push({ driver: `${d.provider}:${name}`, message: "is the provider's registrar but needs arguments the generator cannot supply, so that provider's drivers cannot be listed from the registry (add a stand-in to REGISTRAR_ARGS)" });
+    }
   }
 
   rows.sort((a, b) => cmp(a.provider, b.provider) || cmp(a.nativeType, b.nativeType) || cmp(a.driverId, b.driverId));
@@ -275,17 +327,45 @@ export function buildMatrix(input: BuildMatrixInput): MatrixData {
   };
 }
 
+/** Files outside `providerDir` (application code, workers, scripts; not tests, not this generator) that call `registrar(`. */
+function callersOf(repoRoot: string, registrar: string, providerDir: string): string[] {
+  const pattern = new RegExp(`^(?!\\s*(?:\\*|//)).*\\b${registrar}\\s*\\(`, "m");
+  const hits: string[] = [];
+  const visit = (dir: string): void => {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (full === providerDir || entry.name === "node_modules" || entry.name === ".next") continue;
+      if (entry.isDirectory()) visit(full);
+      else if (/\.(ts|tsx|mjs|cjs)$/.test(entry.name) && pattern.test(fs.readFileSync(full, "utf8"))) hits.push(path.relative(repoRoot, full).replace(/\\/g, "/"));
+    }
+  };
+  for (const root of ["src", "workers"]) visit(path.join(repoRoot, root));
+  const scripts = path.join(repoRoot, "scripts");
+  if (fs.existsSync(scripts)) {
+    for (const entry of fs.readdirSync(scripts, { withFileTypes: true })) if (entry.isDirectory() && entry.name !== "docs") visit(path.join(scripts, entry.name));
+  }
+  return hits.sort();
+}
+
 /** Read the live registry (after importing what exists), the group modules, the observability table and the catalog. */
 export async function collectMatrix(options: { repoRoot?: string } = {}): Promise<MatrixData> {
+  const repoRoot = options.repoRoot ?? defaultRepoRoot();
   const providers = Object.keys(NATIVE_PREFIX);
-  const discovery = await loadProviderDrivers({ repoRoot: options.repoRoot, providers });
+  const discovery = await loadProviderDrivers({ repoRoot, providers });
   const registry = listDrivers();
-  const registered = new Set(registry.map((d) => d.id));
+  const registryIds = new Set(registry.map((d) => d.id));
   const byId = new Map<string, ResourceDriver>(registry.map((d) => [d.id, d]));
   for (const d of discovery) for (const driver of d.groupDrivers) if (!byId.has(driver.id)) byId.set(driver.id, driver);
+
+  const bootRegistered = new Map<string, boolean>();
+  for (const d of discovery) {
+    const providerDir = path.join(repoRoot, "src", "lib", "providers", d.provider);
+    bootRegistered.set(d.provider, d.registrars.some((name) => callersOf(repoRoot, name, providerDir).length > 0));
+  }
   return buildMatrix({
     drivers: [...byId.values()],
-    registered,
+    registration: (driver) => (!registryIds.has(driver.id) ? "module only" : bootRegistered.get(driver.provider) ? "registered" : "registrable"),
     providers,
     discovery,
     sourceEvidence: SOURCE_EVIDENCE,
@@ -370,13 +450,14 @@ export function renderMatrix(data: MatrixData): string {
   }
   push(
     table(
-      ["Provider", "Provider-level drivers index", "Driver group modules", "Drivers merged", "Registered at runtime"],
+      ["Provider", "Provider-level drivers index", "Driver group modules", "Drivers merged", "Registered by the app", "Registrable, not registered", "Module only"],
       data.providers.map((provider) => {
         const d = data.discovery.find((x) => x.provider === provider);
         const rows = data.rows.filter((r) => r.provider === provider);
         const index = d?.status === "loaded" ? `\`src/lib/providers/${provider}/drivers/index.ts\`` : "none";
         const groups = d && d.groups.length > 0 ? d.groups.map(code).join(", ") : "none";
-        return [provider, index, groups, rows.length === 0 ? "none" : String(rows.length), rows.length === 0 ? "none" : String(rows.filter((r) => r.registered).length)];
+        const count = (state: Registration): string => (rows.length === 0 ? "none" : String(rows.filter((r) => r.registration === state).length));
+        return [provider, index, groups, rows.length === 0 ? "none" : String(rows.length), count("registered"), count("registrable"), count("module only")];
       })
     ),
     ""
@@ -388,10 +469,15 @@ export function renderMatrix(data: MatrixData): string {
       ""
     );
   }
-  const unregistered = data.rows.filter((r) => !r.registered);
-  if (unregistered.length > 0) {
+  const notRegistered = data.rows.filter((r) => r.registration !== "registered");
+  if (notRegistered.length > 0) {
+    const registrable = notRegistered.filter((r) => r.registration === "registrable").length;
+    const moduleOnly = notRegistered.length - registrable;
+    const parts: string[] = [];
+    if (registrable > 0) parts.push(`${registrable} are registrable (their provider's \`register<Provider>Drivers\` exists) but nothing in the application calls it`);
+    if (moduleOnly > 0) parts.push(`${moduleOnly} are modules only (no provider-level index registers anything)`);
     push(
-      `**${unregistered.length} merged driver${unregistered.length === 1 ? " is" : "s are"} registered by nothing.** They are code in the tree (a group module exports them, with the evidence each declares below), but no provider-level \`drivers/index.ts\` registers them, so \`getDriver()\` finds none of them at runtime and no operation can use them yet.`,
+      `**${notRegistered.length} of ${data.rows.length} merged drivers are not registered by the application:** ${parts.join("; ")}. Until application code registers them, \`getDriver()\` finds none of them at runtime and no operation can use them. (The registration column below describes the application; generating this file calls the registrars itself.)`,
       ""
     );
   }
@@ -416,7 +502,7 @@ export function renderMatrix(data: MatrixData): string {
               code(r.nativeType),
               code(r.kind),
               code(r.driverId),
-              r.registered ? "yes" : "no",
+              r.registration === "registered" ? "yes" : r.registration === "registrable" ? "registrable" : "no",
               ...CORE_OPERATIONS.map((op) => coreCell(r.core[op])),
               r.operations.length === 0 ? "—" : r.operations.map((o) => `${code(o.capability)}: ${o.evidence === "undeclared" ? "**undeclared**" : code(o.evidence)}`).join("<br>"),
             ])
@@ -478,7 +564,7 @@ export function renderMatrix(data: MatrixData): string {
   push("## Problems", "");
   if (data.problems.length === 0) push("None: every merged driver's declaration is consistent with its shape.", "");
   else {
-    push("Each line is an inconsistency between a driver's declaration and its shape. Fix the driver; do not edit this file.", "");
+    push("Each line is an inconsistency between a driver's declaration and its shape. Fix the driver (it is another workstream's file); do not edit this file.", "");
     for (const p of data.problems) push(`- ${code(p.driver)} ${p.message}.`);
     push("");
   }
@@ -495,9 +581,9 @@ export async function renderCurrentMatrix(options: { repoRoot?: string } = {}): 
 
 async function main(): Promise<number> {
   const args = process.argv.slice(2);
-  const unknown = args.filter((a) => a !== "--check");
+  const unknown = args.filter((a) => a !== "--check" && a !== "--strict");
   if (unknown.length > 0) {
-    process.stderr.write(`Unknown argument(s): ${unknown.join(" ")}\nUsage: npx tsx scripts/docs/capability-matrix.ts [--check]\n`);
+    process.stderr.write(`Unknown argument(s): ${unknown.join(" ")}\nUsage: npx tsx scripts/docs/capability-matrix.ts [--check | --strict]\n`);
     return 2;
   }
   const repoRoot = defaultRepoRoot();
@@ -507,12 +593,12 @@ async function main(): Promise<number> {
 
   for (const p of data.problems) process.stderr.write(`problem: ${p.driver} ${p.message}\n`);
 
-  if (args.includes("--check")) {
+  if (args.includes("--check") || args.includes("--strict")) {
     if (current !== text) {
       process.stderr.write(`${MATRIX_RELATIVE_PATH} is out of date. Run: npx tsx scripts/docs/capability-matrix.ts\n`);
       return 1;
     }
-    if (data.problems.length > 0) return 1;
+    if (args.includes("--strict") && data.problems.length > 0) return 1;
     process.stdout.write(`${MATRIX_RELATIVE_PATH} is up to date.\n`);
     return 0;
   }

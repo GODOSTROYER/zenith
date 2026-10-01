@@ -4,7 +4,7 @@ How the pieces of the platform control plane fit together, what each one needs
 in its environment, and how to run them. This is for whoever operates a Zenith
 install; the design is in [ARCHITECTURE.md](../ARCHITECTURE.md) and the ADRs.
 
-Written against branch `ws/docs`, merged with `platform/integration` at `bb5052a` (2026-10-01). Everything
+Written against branch `ws/docs`, merged with `platform/integration` at `e5c1518` (2026-10-01). Everything
 here is checked against the code on that branch; anything that is not verified
 live says so, and the last section collects them.
 
@@ -21,19 +21,20 @@ doing work yet.
 | OpenTofu engine (`src/lib/tofu`) | Built and tested with the real `tofu` binary; only builtin `terraform_data` and `hashicorp/random` have been applied. No cloud provider has been run against a cloud. Not called by the worker yet. |
 | Policy engine (`policy/`, `src/lib/policy`) | Built and tested; the bundle is committed and reproducible. **Called by the capability broker** (`loadPolicyEngine()`) for every proposal, check, approval and execution; the worker's `evaluatePolicy` activity is still a stub. See the bundle-tracing gap in section 2.7. |
 | Capability broker and REST `/api/platform/v1` (`src/lib/capabilities`, `src/app/api/platform/v1`) | Merged and tested. Routes: `capabilities/check` and `propose`; `operations` (list, get, events, approve, reject, cancel); `environments/[id]/autonomy`; `workspace/policy`. Approve, reject and the two admin settings are **browser-only**: any `Authorization` header is refused, the identity is verified live and the `Origin` must match (section 2.8). Integrations call with a `za_` bearer. **Not wired:** nothing starts a Temporal workflow from an approved operation (no code outside the workflows module imports the workflow client), so an approved operation waits; and over REST an `infrastructure.apply` or `infrastructure.destroy` proposal is always denied `plan_required`, because the reviewed plan can only come from the execution side. **Gap:** these routes are not in the session middleware's allow list (`src/middleware.ts`), so with Supabase configured a request without a browser session, which is every integration bearer call and every agent call, is answered `401 Sign in to use the API` before it reaches the route (section 7). |
-| Runner and `zenithd` control-plane side (`src/lib/runners`, routes under `runners/*` and `machines/*`) | Merged and tested against the in-memory store and the store contract. Registration tokens, signed-request authentication with replay protection, poll, heartbeat, results sealed at rest, logs, revoke, and `dispatch.ts` for enqueueing and awaiting jobs. **Gaps:** the `platform.machine_requests` table is not part of the applied migrations (see section 3.2), so the `zenithd` half cannot work on a real database; nothing calls `reapExpiredJobs` on a timer; no activity enqueues jobs; and the middleware gap above applies to every agent route. |
+| Runner and `zenithd` control-plane side (`src/lib/runners`, routes under `runners/*` and `machines/*`) | Merged and tested against the in-memory store and the store contract. Registration tokens, signed-request authentication with replay protection, poll, heartbeat, results sealed at rest, logs, revoke, and `dispatch.ts` for enqueueing and awaiting jobs. The `zenithd` queue's table (`platform.machine_requests`) is migration 3. **Gaps:** nothing calls `reapExpiredJobs` on a timer; no activity enqueues jobs; and the middleware gap above applies to every agent route. |
 | Resource model, placement and cost, observability | Built as pure libraries (no environment, no I/O except the observability sources' own clients). Not wired into any route. |
 | Incident engine (`src/lib/incidents`), repository analysis (`src/lib/analysis`), platform UI components (`src/components/platform`) | Merged and tested. The incident engine and the analysis module are libraries that read no environment variables and are called by nothing yet; the UI components are presentational (data and callbacks come in as props) and no page or route renders them. Nothing here needs deploying. |
-| Temporal workflows, client and execution worker | The workflows, client, worker process and image recipe are built and tested against real Temporal servers. **Every activity is a stub** that fails with `not_implemented` ("nothing was changed"): the worker boots, polls and runs workflows, and no operation can do real work. |
+| Temporal workflows, client and execution worker | The workflows, client, worker process and image recipe are built and tested against real Temporal servers. **Every activity the worker registers is a stub** that fails with `not_implemented` ("nothing was changed"): the worker boots, polls and runs workflows, and no operation can do real work. Real implementations now exist as a library, `createExecutionActivities(deps)` in `src/lib/execution`, written against ports (platform store, broker, credential broker, drivers, cost, observability); **`workers/execution/worker.ts` still registers the stubs** and nothing builds the ports, so none of it runs. |
 | Reconciliation controller (`src/lib/reconcile`, migration 2 `platform.reconcile_state`, `POST /api/internal/tick/reconcile`) | Built and tested. It observes and files `drift.repair` *proposals*; it never executes one. The route is gated by `CRON_SECRET` and answers `503 platform_store_unavailable` until production ports are registered with `wireReconcilePorts()`, which nothing on this branch does; `.github/workflows/tick.yml` does not call it either. It needs registered drivers to observe anything real, and nothing registers them yet. See section 2.9. |
-| `zenith-runner` and `zenithd` (Go, `go/`, Helm chart, Dockerfiles) | Built by another workstream, with their own operator guides: [RUNNER.md](../RUNNER.md) and [ZENITHD.md](../ZENITHD.md). The control-plane side is the row above, with the gaps listed there; `src/lib/machines` still holds only types. I did not run or verify the agents. |
-| AWS network and edge resource drivers (`src/lib/providers/aws/drivers/network`: VPC, subnet, security-group rule, ALB, Route 53 zone and record, ACM certificate) | Merged as modules and tested with mocked SDKs (plus `tofu validate` against the real provider schema when `ZENITH_TEST_TOFU_NETWORK=1`). **Nothing registers them**: the provider-level `drivers/index.ts` that would is not merged, so `getDriver()` finds none and the worker cannot use them. Every operation they declare is `contract` evidence ([CAPABILITY-MATRIX.md](../CAPABILITY-MATRIX.md)). |
-| The remaining resource drivers (every other AWS group, and the Kubernetes, GCP, Azure, OCI and managed `zenith` providers), the provider-level registration of drivers, MCP v3, the TypeScript machine plane, and the platform screens and pages | **In progress in other workstreams. Not documented here.** When they merge they get their own sections. |
+| `zenith-runner` and `zenithd` (Go, `go/`, Helm chart, Dockerfiles) | Built by another workstream, with their own operator guides: [RUNNER.md](../RUNNER.md) and [ZENITHD.md](../ZENITHD.md). The control-plane side is the row above, with the gaps listed there. I did not run or verify the agents. |
+| Machine plane (`src/lib/machines`) | Merged and tested: `executeMachineOperation` and a transport table (AWS SSM with fixed documents, Kubernetes exec, `zenithd` through an injected dispatcher, and an all-simulated one for sandbox environments). Azure Run Command and GCP OS management are declared in the contract but have **no driver**, and a target using them is refused. Called by nothing outside the module. The AWS SSM documents it needs are in `deploy/aws/ssm-documents/`; the shipped bootstrap template grants no `ssm:SendCommand` ([AWS-SETUP.md](AWS-SETUP.md)). |
+| Resource drivers for AWS (network, compute and data groups), GCP, Azure, OCI, Kubernetes and the Zenith-managed provider (`src/lib/providers/*/drivers`) | Merged and tested with mocked SDKs and fake HTTP (plus `tofu validate` against the real provider schema where `ZENITH_TEST_TOFU_NETWORK=1`). The [capability matrix](../CAPABILITY-MATRIX.md) lists every driver and every operation, **all `contract`**. **None is registered by the application**: GCP, Azure, OCI, Kubernetes and the managed provider have a provider-level `register<Provider>Drivers` that nothing calls, and AWS has group modules and no provider-level index at all, so `getDriver()` finds no driver at runtime. The managed provider's own guide says nobody operates a hosted cluster ([MANAGED-PLATFORM.md](../MANAGED-PLATFORM.md)); its configuration is section 2.13. |
+| MCP v3, starting a workflow from an approved operation and wiring the real activities into the worker, the REST connections route, application-level registration of the drivers, and the platform screens and pages | **In progress or unwired. Not documented here beyond what the rows above say.** When they land they get their own sections. |
 
 The honest summary: today you can stand up the store, the OIDC issuer, the
 broker with its REST surface, and the worker; you can propose, approve and cancel an
 operation and read the decision and the ledger. Nothing then executes it: no workflow
-is started, the activities are stubs and no driver is registered. You cannot yet run
+is started, the worker's activities are stubs and no driver is registered. You cannot yet run
 a deploy to a cloud through the platform.
 
 ## 1. Topology
@@ -110,6 +111,7 @@ refuses a bad value at start-up naming the variable (never the value):
 | Broker store selection | `defaultStore` and `isMemoryStoreEnabled` in `src/lib/capabilities/platform.ts` | No |
 | Browser origin for approvals | `src/app/api/platform/v1/_lib/browser.ts` | No |
 | Runner result sealing key | `createResultSealerFromEnv` in `src/lib/runners/seal.ts` | No |
+| Zenith-managed provider substrate | `readSubstrateConfig` in `src/lib/providers/zenith/substrate.ts` | No |
 
 A variable that `env()` validates makes the **product** refuse to start when it
 is malformed, even on an install that never uses the platform. Conversely, the
@@ -322,6 +324,29 @@ broker session; the price catalog is a bundled JSON file.
 | `ZENITH_PLATFORM_ORIGIN` | yes (browser approvals) | no | no |
 | `ZENITH_RUNNER_RESULT_KEY` | yes (seals results) | yes, when an activity awaits runner jobs (opens them; must match) | no |
 
+### 2.13 Zenith-managed provider substrate
+
+The `zenith` provider (`src/lib/providers/zenith`) reads **25 `ZENITH_MANAGED_*`
+variables** in one function, `readSubstrateConfig`, and nothing else in that provider
+reads the environment. They describe the platform's own cluster and services, not a
+customer's. The authoritative table, with which are required and what each default is,
+is [MANAGED-PLATFORM.md](../MANAGED-PLATFORM.md#configuration-zenith_managed_). Credentials
+are `vault:` references, resolved at call time; an inline value (a PEM block, a kubeconfig
+document) is refused by name. A missing required value makes the substrate
+`configured: false` naming every missing variable, and a malformed one names the variable and
+the problem; it never starts half-configured.
+
+| Group | Variables |
+|---|---|
+| Cluster (required: server, kubeconfig reference, app domain) | `ZENITH_MANAGED_CLUSTER_SERVER`, `ZENITH_MANAGED_KUBECONFIG_REF`, `ZENITH_MANAGED_APP_DOMAIN`, `ZENITH_MANAGED_CLUSTER_CA_DATA`, `ZENITH_MANAGED_REGION` |
+| Gateway and TLS | `ZENITH_MANAGED_GATEWAY_MODE`, `ZENITH_MANAGED_GATEWAY_CLASS`, `ZENITH_MANAGED_GATEWAY_NAMESPACE`, `ZENITH_MANAGED_GATEWAY_NAME`, `ZENITH_MANAGED_GATEWAY_LISTENER`, `ZENITH_MANAGED_INGRESS_CLASS`, `ZENITH_MANAGED_CLUSTER_ISSUER`, `ZENITH_MANAGED_INTERNAL_CIDRS` |
+| Registry and object storage (optional) | `ZENITH_MANAGED_REGISTRY`, `ZENITH_MANAGED_OBJECT_STORAGE_ENDPOINT`, `ZENITH_MANAGED_OBJECT_STORAGE_BUCKET`, `ZENITH_MANAGED_OBJECT_STORAGE_PREFIX`, `ZENITH_MANAGED_OBJECT_STORAGE_REGION`, `ZENITH_MANAGED_OBJECT_STORAGE_CREDENTIAL_REF` |
+| Managed database (optional) | `ZENITH_MANAGED_DB_PROVIDER`, `ZENITH_MANAGED_DB_API_BASE`, `ZENITH_MANAGED_DB_API_KEY_REF`, `ZENITH_MANAGED_DB_REGION`, `ZENITH_MANAGED_DB_ORG_ID`, `ZENITH_MANAGED_DB_EGRESS` |
+
+Nothing reads these in a running deployment on this branch: the provider's drivers are not
+registered by the application, and the managed provider's guide says no hosted cluster
+exists.
+
 ## 3. The platform database
 
 ### 3.1 Choosing
@@ -361,24 +386,18 @@ applied), turns row level security on for every table with no policies, and
 revokes `anon` and `authenticated`. **`platform` must never be added to the Data
 API's exposed schemas.**
 
-**A migration is missing from the applied set.** `src/lib/runners/db/machine-requests-migration.ts`
-defines `platform.machine_requests` (the `zenithd` request queue) and its log table, and
-asks to be appended to `PLATFORM_MIGRATIONS` "as version 2". Version 2 is already
-`reconcile`, and the file has not been appended, so neither
-`npm run migrate:platform` nor the emitted SQL creates the table: the `zenithd` routes
-fail on a real database with "relation platform.machine_requests does not exist" while
-the runner half works. The orchestrator must append it as the next version (3) and
-re-run `npm run platform:emit-sql`. (From reading the two files; the failure itself was
-not reproduced.)
+Three migrations exist today: `core` (1), `reconcile` (2) and `machine_requests` (3,
+the `zenithd` request queue). A database that applied the emitted SQL before a later
+migration landed is behind and the application refuses to use it until you re-apply
+the file or run `npm run migrate:platform`.
 
 The emitted file keeps one name as migrations are added; it grows. If you apply
 migrations through the Supabase CLI's migration history, which records an applied
 file by its version number and will not re-run a changed file, use
 `npm run migrate:platform` (ledger-based) or apply the file by hand for any
-schema version after the first. Two migrations exist today (`core` and
-`reconcile`) and the emitted file already holds both, so a database that applied
-the file before migration 2 landed is exactly this case. I did not exercise it
-through the Supabase CLI.
+schema version after the first. The emitted file already holds all three
+migrations, so a database that applied it before migration 2 or 3 landed is exactly
+this case. I did not exercise it through the Supabase CLI.
 
 ### 3.3 What the application does about the schema
 
@@ -499,6 +518,12 @@ were run; `docker build`, the `apt` and OpenTofu downloads inside it, the Linux
 - Replicas: the worker is stateless; run several against the same task queue.
   Scale on Temporal's schedule-to-start latency for the task queue, not on CPU.
   One task queue serves every tenant.
+- **The product store.** The real activities (`src/lib/execution`, not wired yet) read an
+  operation's context from the product store and write the deployment projection back
+  (`createProductPort`). So a worker that runs them needs the product store as the web app
+  does: `ZENITH_STORE=postgres` with the Supabase keys ([RUNNING.md](../../RUNNING.md#running-on-vercel-with-postgres)).
+  The file store is single-writer and cannot be shared between the web app and a worker.
+  (From the port's header; not exercised.)
 - Memory: `tofu` plans and applies are memory-hungry. The worker doc's rule of
   thumb of about 1 GiB per concurrent activity is an unmeasured guess.
 - Health: read the JSON `health` log line and the pollers in Temporal's UI. There
@@ -560,7 +585,8 @@ What happens when a worker dies mid-operation is in
 Run on this machine (Windows 11, Node 24.19) while writing this page:
 
 - `npm run migrate:platform` and `-- --status` against an empty PGlite directory
-  (both migrations, `core` and `reconcile`, applied; status current) and
+  (migrations 1 and 2 applied; migration 3 landed afterwards and was exercised only by the
+  repository's own suites; status current) and
   `npm run platform:emit-sql -- --check`.
 - `npm run policy:check`: OPA 1.19.1, 205 of 205 Rego tests pass and the committed
   bundle matches a fresh build.
@@ -572,8 +598,8 @@ Run on this machine (Windows 11, Node 24.19) while writing this page:
   real PostgreSQL 16.15 (see [RECOVERY.md](RECOVERY.md#8-what-was-rehearsed)).
 - By reading the code, not by running it: the broker's store selection and
   production guard, its guards (`plan_required`, `agent_autonomy_too_low`), the
-  browser-only routes, the middleware gap, the missing `machine_requests` migration
-  and the absence of any workflow start. `tests/docs` pins the checkable ones, so a
+  browser-only routes, the middleware gap, the unwired real activities and the
+  absence of any workflow start and any application-level driver registration. `tests/docs` pins the checkable ones, so a
   change that fixes one of them fails a test and sends you back to this page.
 
 Written but **not run by me**: the platform CI lanes in `.github/workflows/ci.yml`

@@ -80,10 +80,10 @@ export function headingAnchors(markdown: string): Set<string> {
     if (!heading) continue;
     const text = heading[1]
       .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-      .replace(/[*_~`]/g, "")
+      .replace(/[*~`]/g, "")
       .toLowerCase();
     const base = text
-      .replace(/[^\p{L}\p{N}\s-]/gu, "")
+      .replace(/[^\p{L}\p{M}\p{N}\s_-]/gu, "")
       .trim()
       .replace(/\s/g, "-");
     const n = seen.get(base) ?? 0;

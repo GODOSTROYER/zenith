@@ -7,7 +7,7 @@ have merged. The modules still being built are listed below and **deliberately n
 documented**: a page written before the code exists is a promise, and this
 documentation does not make promises.
 
-Written against branch `ws/docs`, merged with `platform/integration` at `bb5052a` (2026-10-01).
+Written against branch `ws/docs`, merged with `platform/integration` at `e5c1518` (2026-10-01).
 
 ## Read this first: what is real
 
@@ -15,13 +15,13 @@ The pieces below are built and tested, and the web half is joined: the capabilit
 broker calls the policy engine and writes the ledger behind `/api/platform/v1`. The
 path from an approved operation to a cloud is not: nothing starts a workflow from
 one, the execution worker's activities are stubs that fail with `not_implemented`,
-the merged AWS drivers are registered by nothing, and nothing has run against a real
+no merged driver is registered by the application, and nothing has run against a real
 AWS account, Temporal Cloud or a Docker build. Two integration gaps are recorded in
 [DEPLOYING.md](DEPLOYING.md#status-what-actually-runs-on-this-branch): the session
-middleware does not let the agent and bearer routes through, and a migration is
-missing from the applied set. Each page says which of its statements were verified and
+middleware does not let the agent and bearer routes through, and the policy bundle is not
+traced into serverless builds. Each page says which of its statements were verified and
 which were not, and the capability matrix says, per driver operation, what evidence
-stands behind it (today: contract at best, and no entry claims `real`).
+stands behind it (today: every operation is `contract`, and no entry claims `real`).
 
 ## The guides
 
@@ -53,7 +53,7 @@ Reference material these guides lean on (not duplicated here):
 | Module | Code | Documented in |
 |---|---|---|
 | Capability broker and REST | `src/lib/capabilities/**`, `src/app/api/platform/v1/**` | [DEPLOYING.md](DEPLOYING.md#28-capability-broker-approvals-and-the-agent-routes), [POLICY.md](POLICY.md), [RECOVERY.md](RECOVERY.md#4-what-happens-to-an-operation-when-something-crashes). Joined to the store and the policy engine; not joined to the worker. No standalone guide (planned) |
-| Runner and `zenithd` control-plane side | `src/lib/runners/**`, `src/app/api/platform/v1/runners/**`, `.../machines/**` | [DEPLOYING.md](DEPLOYING.md#status-what-actually-runs-on-this-branch), [RECOVERY.md](RECOVERY.md#44-runner-jobs). Two gaps: a missing migration and the middleware allow list |
+| Runner and `zenithd` control-plane side | `src/lib/runners/**`, `src/app/api/platform/v1/runners/**`, `.../machines/**` | [DEPLOYING.md](DEPLOYING.md#status-what-actually-runs-on-this-branch), [RECOVERY.md](RECOVERY.md#44-runner-jobs). Gaps: the middleware allow list, no reaper timer, no activity enqueues |
 | Control store | `src/lib/controlplane/**`, `scripts/platform/**`, `supabase/migrations/0014_platform_core.sql` | [DEPLOYING.md](DEPLOYING.md#3-the-platform-database), [RECOVERY.md](RECOVERY.md) |
 | Credential broker and OIDC issuer | `src/lib/credentials/**`, `src/app/api/oidc/**`, `deploy/aws/**` | [`OPERATIONS.md`](../../../src/lib/credentials/OPERATIONS.md), [DEPLOYING.md](DEPLOYING.md#23-workload-identity-and-control-plane-signing), [AWS-SETUP.md](AWS-SETUP.md), [RECOVERY.md](RECOVERY.md#6-key-rotation) |
 | OpenTofu engine | `src/lib/tofu/**` | [DEPLOYING.md](DEPLOYING.md#26-opentofu-engine), [ADR-0005](../../adr/0005-opentofu-hybrid.md) |
@@ -64,7 +64,9 @@ Reference material these guides lean on (not duplicated here):
 | Temporal workflows and worker | `src/lib/workflows/**`, `workers/execution/**`, `docker/worker.Dockerfile` | [EXECUTION-WORKER.md](../EXECUTION-WORKER.md), [DEPLOYING.md](DEPLOYING.md#5-temporal) |
 | Reconciliation controller | `src/lib/reconcile/**`, `src/app/api/internal/tick/reconcile/route.ts`, migration 2 | [DEPLOYING.md](DEPLOYING.md#29-reconciliation-tick), [RECOVERY.md](RECOVERY.md#45-what-to-do-with-an-uncertain-operation). Merged but not driven: no production ports are wired and no schedule calls the route |
 | Go agents | `go/**`, `deploy/helm/zenith-runner/**`, `deploy/zenithd/**`, `docker/runner.Dockerfile`, `docker/zenithd.Dockerfile` | [RUNNER.md](../RUNNER.md), [ZENITHD.md](../ZENITHD.md). Their control-plane side is the row above |
-| AWS network and edge drivers | `src/lib/providers/aws/drivers/network/**`, `src/lib/providers/aws/drivers/shared/**` | [CAPABILITY-MATRIX.md](../CAPABILITY-MATRIX.md) (generated; all `contract`). Merged as modules that nothing registers; no operator guide (planned with the driver sets) |
+| Resource drivers (AWS, GCP, Azure, OCI, Kubernetes, Zenith-managed) | `src/lib/providers/*/drivers/**` | [CAPABILITY-MATRIX.md](../CAPABILITY-MATRIX.md) (generated; every operation `contract`), [MANAGED-PLATFORM.md](../MANAGED-PLATFORM.md) for the managed provider. Merged; **registered by nothing** in the application; no operator guide of ours (planned) |
+| Machine plane | `src/lib/machines/**`, `deploy/aws/ssm-documents/**` | [DEPLOYING.md](DEPLOYING.md#status-what-actually-runs-on-this-branch). Called by nothing outside the module; Azure Run Command and GCP OS management have no driver |
+| Real execution activities | `src/lib/execution/**` | [DEPLOYING.md](DEPLOYING.md#status-what-actually-runs-on-this-branch), [EXECUTION-WORKER.md](../EXECUTION-WORKER.md). Written against ports; **the worker still registers the stubs** |
 | Incident engine | `src/lib/incidents/**` | [ADR-0014](../../adr/0014-incident-engine.md). A library that reads no environment, takes its probes as injected ports and is called by nothing yet; no operator guide (planned) |
 | Repository analysis | `src/lib/analysis/**` | Not part of the control plane's operation: it turns a repository snapshot into a proposed manifest. Reads no environment; nothing to operate |
 | Platform UI components | `src/components/platform/**` | [README](../../../src/components/platform/README.md) in that folder. Presentational only (data and callbacks arrive as props); no page renders them yet |
@@ -78,8 +80,9 @@ branch behaves the way a guide could describe, so there is no guide:
 - the provider-level driver registration (nothing registers the merged AWS network
   drivers), the remaining AWS driver groups, and the Kubernetes, GCP, Azure, OCI and
   managed `zenith` provider sets
-- the TypeScript machine plane (`src/lib/machines` holds only types)
-- starting a workflow from an approved operation, and the activities that execute it
+- starting a workflow from an approved operation, and wiring the real activities
+  (`src/lib/execution`) and their ports into the worker
+- application-level registration of the drivers (nothing calls any `register<Provider>Drivers`)
 - repair: the reconcile workflow and the controller observe, diff and *propose*;
   nothing executes a repair, and the controller's production ports are not wired
 - the REST connections route (the rest of `/api/platform/v1` has merged) and MCP v3
@@ -95,11 +98,11 @@ placeholders.
 
 | Planned guide | Waits for |
 |---|---|
-| `MACHINES.md` | The TypeScript machine plane and its routes (the agent's own guide exists: ZENITHD.md) |
+| `MACHINES.md` | The machine plane once something calls it, and its AWS SSM and Kubernetes transports (the agent's own guide exists: ZENITHD.md) |
 | `INCIDENTS.md` | The incident engine being wired to real probes, the broker and a route |
 | `OBSERVABILITY.md` | Source configuration, partial answers and redaction, once sources are wired to a route |
 | `CAPABILITY-BROKER.md` | A standalone guide to proposing, approving and executing once a workflow starts from an approved operation (today POLICY.md and DEPLOYING.md cover what exists), and MCP v3 |
-| `GCP-SETUP.md`, `AZURE-SETUP.md`, `OCI-SETUP.md`, `KUBERNETES.md` | Their providers and credential exchanges |
+| `GCP-SETUP.md`, `AZURE-SETUP.md`, `OCI-SETUP.md`, `KUBERNETES.md` | Their drivers being registered and a credential exchange verified against a real account (`deploy/gcp`, `deploy/azure`, `deploy/oci` hold the customer-side bootstrap, unreviewed here) |
 
 ## Commands these guides use
 

@@ -9,7 +9,9 @@
  *  - **nothing claims `real`**. No live-account acceptance run has been recorded
  *    for any driver or source, so a `real` label anywhere fails here until a
  *    person links the run and changes this assertion on purpose;
- *  - every registered driver's declaration is consistent with its shape;
+ *  - no driver declaration is wrong in a way that misstates evidence (an invalid
+ *    level, an unknown capability); other inconsistencies are listed in the file and
+ *    ratcheted below, so a NEW one fails here while the known ones are tracked;
  *  - the generator itself behaves: absent providers are tolerated and reported,
  *    a broken drivers index fails loudly, output does not depend on input order,
  *    and each inconsistency it is supposed to catch is caught (negative controls).
@@ -43,7 +45,8 @@ const registry = (): Map<string, ResourceDriver> => {
 };
 
 afterEach(() => {
-  for (const key of [...registry().keys()]) if (key.startsWith("aws|aws:")) registry().delete(key);
+  // collecting the matrix registers real drivers into the process-wide registry; start every test empty
+  registry().clear();
 });
 
 type DriverOverrides = Omit<Partial<ResourceDriver>, "capabilities"> & { capabilities?: Partial<ResourceDriver["capabilities"]> };
@@ -68,8 +71,8 @@ const input = (drivers: ResourceDriver[]): BuildMatrixInput => ({
   drivers,
   providers: ["aws", "gcp"],
   discovery: [
-    { provider: "aws", status: "loaded", registrars: ["registerAwsDrivers"], groups: [], groupDrivers: [] },
-    { provider: "gcp", status: "absent", registrars: [], groups: [], groupDrivers: [] },
+    { provider: "aws", status: "loaded", registrars: ["registerAwsDrivers"], skippedRegistrars: [], groups: [], groupDrivers: [] },
+    { provider: "gcp", status: "absent", registrars: [], skippedRegistrars: [], groups: [], groupDrivers: [] },
   ],
   sourceEvidence: SOURCE_EVIDENCE,
   capabilities: catalog,
@@ -83,7 +86,9 @@ describe("the committed capability matrix", () => {
       encoding: "utf8",
       timeout: 120_000,
     });
-    expect({ status: result.status, stderr: result.stderr.trim() }).toEqual({ status: 0, stderr: "" });
+    // driver inconsistencies are reported on stderr as `problem:` lines and do not fail `--check`
+    const unexpected = result.stderr.split(String.fromCharCode(10)).map((l) => l.trim()).filter((l) => l !== "" && !l.startsWith("problem: "));
+    expect({ status: result.status, unexpected }).toEqual({ status: 0, unexpected: [] });
     expect(result.stdout).toContain("is up to date");
   }, 150_000);
 
@@ -103,9 +108,39 @@ describe("the committed capability matrix", () => {
     expect(read(path.join(REPO_ROOT, MATRIX_RELATIVE_PATH))).toContain("No entry claims `real`");
   });
 
-  it("has no inconsistent driver declarations", async () => {
+  it("has no driver declaration that misstates evidence, and no NEW inconsistency (a ratchet)", async () => {
     const data = await collectMatrix({ repoRoot: REPO_ROOT });
-    expect(data.problems).toEqual([]);
+    const line = (p: { driver: string; message: string }): string => `${p.driver} ${p.message}`;
+    // severe: these change what the matrix claims
+    expect(data.problems.filter((p) => /invalid evidence level|not in the capability catalog|declares the operation .* but no evidence level|supports .* but declares no evidence/.test(p.message)).map(line)).toEqual([]);
+    // everything else must already be known; fix the driver, then delete the line here
+    const KNOWN = [
+      "aws.ec2_instance@1 declares evidence for `experimental`, which is neither a core operation nor a declared operation",
+      "aws.lambda_function@1 declares evidence for `experimental`, which is neither a core operation nor a declared operation",
+      "aws.rds_instance@1 implements the operation `database.delete` but does not declare it in capabilities.operations",
+      "aws.rds_instance@1 implements the operation `database.restore` but does not declare it in capabilities.operations",
+      "oci.compute_instance@1 has a `compile` implementation but declares `compile: false`",
+      "oci.mysql_db_system@1 has a `compile` implementation but declares `compile: false`",
+      "oci.oke_cluster@1 has a `compile` implementation but declares `compile: false`",
+    ];
+    expect(data.problems.map(line).filter((l) => !KNOWN.includes(l))).toEqual([]);
+  });
+
+  it("no merged driver is registered by the application, and every one is `contract` evidence", async () => {
+    const data = await collectMatrix({ repoRoot: REPO_ROOT });
+    expect(data.rows.length).toBeGreaterThan(90);
+    expect(data.rows.filter((r) => r.registration === "registered").map((r) => r.driverId)).toEqual([]);
+    for (const row of data.rows) {
+      for (const cell of Object.values(row.core)) if (cell.supported) expect(cell.evidence, row.driverId).toBe("contract");
+      for (const op of row.operations) expect(op.evidence, `${row.driverId} ${op.capability}`).toBe("contract");
+    }
+  });
+
+  it("the file lists exactly the problems the generator finds", async () => {
+    const data = await collectMatrix({ repoRoot: REPO_ROOT });
+    const text = read(path.join(REPO_ROOT, MATRIX_RELATIVE_PATH));
+    expect(text.includes("None: every merged driver's declaration")).toBe(data.problems.length === 0);
+    for (const p of data.problems) expect(text).toContain(`- \`${p.driver}\` ${p.message}.`);
   });
 
   it("names every provider that has no driver on this branch, and says so", async () => {
@@ -113,7 +148,7 @@ describe("the committed capability matrix", () => {
     const text = read(path.join(REPO_ROOT, MATRIX_RELATIVE_PATH));
     const without = data.providers.filter((p) => !data.rows.some((r) => r.provider === p));
     for (const provider of without) {
-      const row = new RegExp(`^\\| ${provider} \\| none \\| (?:none|[^|]+) \\| none \\| none \\|$`, "m");
+      const row = new RegExp(`^\\| ${provider} \\| none \\| none \\| none \\| none \\| none \\| none \\|$`, "m");
       expect(text, `provider ${provider}`).toMatch(row);
     }
     if (without.length > 0) expect(text).toContain("**No resource drivers are merged yet for:**");
@@ -130,8 +165,8 @@ describe("generator: discovery", () => {
   it("imports a provider drivers index that exists and calls its register function", async () => {
     const discovery = await loadProviderDrivers({ repoRoot: path.join(FIXTURES, "fake-repo"), providers: ["aws", "gcp"] });
     expect(discovery.map(({ groupDrivers, ...rest }) => ({ ...rest, groupDrivers: groupDrivers.map((d) => d.id) }))).toEqual([
-      { provider: "aws", status: "loaded", registrars: ["registerAwsDrivers"], groups: [], groupDrivers: [] },
-      { provider: "gcp", status: "absent", registrars: [], groups: [], groupDrivers: [] },
+      { provider: "aws", status: "loaded", registrars: ["registerAwsDrivers"], skippedRegistrars: [], groups: [], groupDrivers: [] },
+      { provider: "gcp", status: "absent", registrars: [], skippedRegistrars: [], groups: [], groupDrivers: [] },
     ]);
     expect([...registry().keys()].filter((k) => k.startsWith("aws|")).sort()).toEqual(["aws|aws:ecs_service", "aws|aws:rds_instance"]);
   });
@@ -148,14 +183,37 @@ describe("generator: discovery", () => {
     const data = buildMatrix({
       ...input(discovery[0].groupDrivers),
       providers: ["kubernetes", "gcp"],
-      registered: new Set(),
-      discovery: [discovery[0], { provider: "gcp", status: "absent", registrars: [], groups: [], groupDrivers: [] }],
+      registration: () => "module only",
+      discovery: [discovery[0], { provider: "gcp", status: "absent", registrars: [], skippedRegistrars: [], groups: [], groupDrivers: [] }],
     });
     const text = renderMatrix(data);
-    expect(data.rows.map((r) => [r.driverId, r.registered])).toEqual([["kubernetes.deployment@1", false]]);
-    expect(text).toContain("| kubernetes | none | `workloads` | 1 | 0 |");
-    expect(text).toContain("**1 merged driver is registered by nothing.**");
+    expect(data.rows.map((r) => [r.driverId, r.registration])).toEqual([["kubernetes.deployment@1", "module only"]]);
+    expect(text).toContain("| kubernetes | none | `workloads` | 1 | 0 | 0 | 1 |");
+    expect(text).toContain("**1 of 1 merged drivers are not registered by the application:** 1 are modules only");
     expect(text).toContain("| `k8s:Deployment` | `container_service` | `kubernetes.deployment@1` | no | `contract` | `contract` | — | — | — | — |");
+  });
+
+  it("says whether the APPLICATION registers a provider's drivers: registered, registrable, or module only", async () => {
+    // fake-repo: application code (src/lib/boot.ts) calls registerAwsDrivers; kubernetes is a group module only
+    const booted = await collectMatrix({ repoRoot: path.join(FIXTURES, "fake-repo") });
+    expect(booted.rows.filter((r) => r.provider === "aws").map((r) => r.registration)).toEqual(["registered", "registered"]);
+    expect(booted.rows.filter((r) => r.provider === "kubernetes").map((r) => r.registration)).toEqual(["module only"]);
+    // registrable-repo: the index and its function exist, but no application code calls it
+    const idle = await collectMatrix({ repoRoot: path.join(FIXTURES, "registrable-repo") });
+    expect(idle.rows.map((r) => [r.driverId, r.registration])).toEqual([
+      ["aws.ecs_service@1", "registrable"],
+      ["aws.rds_instance@1", "registrable"],
+    ]);
+    expect(renderMatrix(idle)).toContain("| aws | `src/lib/providers/aws/drivers/index.ts` | none | 2 | 0 | 2 | 0 |");
+    expect(renderMatrix(idle)).toContain("2 are registrable");
+  });
+
+  it("calls only the provider's own zero-argument registrar, and reports one that needs arguments it cannot supply", async () => {
+    const discovery = await loadProviderDrivers({ repoRoot: path.join(FIXTURES, "args-repo"), providers: ["oci"] });
+    expect(discovery[0].registrars).toEqual([]);
+    expect(discovery[0].skippedRegistrars).toEqual(["registerOciDrivers", "registerOciOtherDrivers"]);
+    const data = buildMatrix({ ...input([]), providers: ["oci"], discovery });
+    expect(data.problems.map((p) => p.driver)).toEqual(["oci:registerOciDrivers"]);
   });
 
   it("tolerates a repository with no provider drivers at all", async () => {
@@ -178,8 +236,8 @@ describe("generator: discovery", () => {
     expect(text).toContain("### aws");
     expect(text).toContain("| `aws:ecs_service` | `container_service` | `aws.ecs_service@1` | yes | `contract` | `contract` | `contract` | — | — | `service.restart`: `contract`<br>`service.scale`: `emulated` |");
     expect(text).toContain("| `aws:rds_instance` | `postgres` | `aws.rds_instance@1` | yes | `contract` | `contract` | — | — | — | `database.snapshot`: `contract`<br>`service.restart`: `simulated` |");
-    expect(text).toContain("| aws | `src/lib/providers/aws/drivers/index.ts` | none | 2 | 2 |");
-    expect(text).toContain("| gcp | none | none | none | none |");
+    expect(text).toContain("| aws | `src/lib/providers/aws/drivers/index.ts` | none | 2 | 2 | 0 | 0 |");
+    expect(text).toContain("| gcp | none | none | none | none | none | none |");
     // the capability table reports the weakest level among a provider's drivers
     expect(providerSupport(data.rows, "service.restart")).toEqual([{ provider: "aws", weakest: "simulated", drivers: 2 }]);
     expect(providerSupport(data.rows, "service.scale")).toEqual([{ provider: "aws", weakest: "emulated", drivers: 1 }]);

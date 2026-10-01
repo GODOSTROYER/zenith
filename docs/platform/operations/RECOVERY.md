@@ -5,14 +5,14 @@ an operation when something crashes, how leases and fence tokens behave, and how
 to rotate keys and migrate the schema. For where each component runs, see
 [DEPLOYING.md](DEPLOYING.md).
 
-Written against branch `ws/docs`, merged with `platform/integration` at `bb5052a` (2026-10-01).
+Written against branch `ws/docs`, merged with `platform/integration` at `e5c1518` (2026-10-01).
 
 **Read this first.** The recovery machinery in the store (leases, fence tokens,
 `uncertain`, the reconciler) is built and was exercised against a real PostgreSQL
 (see [What was rehearsed](#8-what-was-rehearsed)). The capability broker now opens
 the platform store behind `/api/platform/v1`, so proposals, approvals and
-cancellations are written for real; but the activities that would execute an
-approved operation are stubs, nothing starts a workflow from one, and nothing calls
+cancellations are written for real; but the activities the worker registers are stubs (real ones exist in `src/lib/execution`
+and are not wired), nothing starts a workflow from an approved operation, and nothing calls
 `reconcileOperations` or the runner-job reaper on a timer. So this page describes the
 contract the code enforces, plus the operator steps around it; it is not a record of
 a production recovery. The places where a statement is reasoning from the code
@@ -240,10 +240,9 @@ the reaper for both the runner queue and the `zenithd` queue, and
 `awaitRunnerJob` (`dispatch.ts`) never re-dispatches: a job it stops waiting for is
 cancelled, so a late result from the agent gets `409 already_settled` and is
 discarded, and the operation is reconciled by observing reality. Gaps on this branch:
-**no timer calls `reapExpiredJobs`** (like `reconcileOperations`), no activity
-enqueues a job, and the `zenithd` queue's table, `platform.machine_requests`, is not
-in the applied migrations ([DEPLOYING.md](DEPLOYING.md#32-migrating)), so that half
-cannot work on a real database. Results are sealed at rest; a result that cannot be
+**no timer calls `reapExpiredJobs`** (like `reconcileOperations`) and no activity
+enqueues a job. The `zenithd` queue's table, `platform.machine_requests`, is migration 3
+([DEPLOYING.md](DEPLOYING.md#32-migrating)). Results are sealed at rest; a result that cannot be
 opened (lost or rotated sealing key) leaves its operation `uncertain`.
 
 ### 4.5 What to do with an `uncertain` operation

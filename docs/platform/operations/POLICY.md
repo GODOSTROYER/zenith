@@ -7,7 +7,7 @@ mean, how to change a rule and rebuild the bundle, and what a decision record is
 Design: [ADR-0007](../../adr/0007-capability-broker-and-autonomy.md) and
 [ADR-0008](../../adr/0008-policy-opa-wasm.md).
 
-Written against branch `ws/docs`, merged with `platform/integration` at `bb5052a` (2026-10-01).
+Written against branch `ws/docs`, merged with `platform/integration` at `e5c1518` (2026-10-01).
 
 **Status.** The engine, the Rego rules, the plan-fact extraction, the workspace
 parameter resolver, the decision-record store and the capability broker that calls
@@ -15,8 +15,8 @@ the engine are built and tested. The broker (`src/lib/capabilities`, behind
 `/api/platform/v1`) builds the policy input from authoritative state (the catalog,
 the caller's role, the environment's autonomy, the stored workspace policy) and
 evaluates on every proposal, check, approval and execution. What is **not** joined:
-the worker's `evaluatePolicy` activity is still a stub, nothing starts a workflow from
-an approved operation, and plan facts and costs reach the broker only in-process from
+the worker still registers a stub for `evaluatePolicy` (a real one exists in
+`src/lib/execution` but is not wired), nothing starts a workflow from an approved operation, and plan facts and costs reach the broker only in-process from
 the execution side (`ProposeContext`), never from a request body, so over REST the
 plan- and cost-based rules cannot fire today. Every statement here is about the
 contract verified by tests, not about a decision made on a production request, and

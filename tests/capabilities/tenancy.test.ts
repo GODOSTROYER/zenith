@@ -6,7 +6,7 @@
  * persisted or logged on either side by those attempts.
  */
 import { describe, expect, it } from "vitest";
-import { STORE_KINDS, closeSharedPgliteAfterAll, integrationOf, makeHarness, proposeOk, requestFor, sessionFor, user, type Harness } from "./support";
+import { STORE_KINDS, closeSharedPgliteAfterAll, integrationOf, makeHarness, proposeOk, requestFor, sessionFor, user, type Harness, type StoreKind } from "./support";
 
 closeSharedPgliteAfterAll();
 
@@ -49,7 +49,7 @@ interface World2 {
   b: { id: string; digest: string };
 }
 
-async function setup(kind: "memory" | "pglite"): Promise<World2> {
+async function setup(kind: StoreKind): Promise<World2> {
   const h = await makeHarness({ kind });
   const a = await proposeOk(h, requestFor(h, "service.restart", "prod"), user("bob"));
   const b = await h.broker.propose(

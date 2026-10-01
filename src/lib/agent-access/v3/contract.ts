@@ -52,6 +52,7 @@ export const TOOL_NAMES = [
   "zenith_scale_service",
   "zenith_compare_revisions",
   "zenith_estimate_cost",
+  "zenith_recommend_placement",
   "zenith_get_operation",
   "zenith_get_operation_events",
 ] as const;

@@ -38,6 +38,7 @@ import {
   PrepareDeployInput,
   QueryLogsInput,
   QueryMetricsInput,
+  RecommendPlacementInput,
   RestartServiceInput,
   ScaleServiceInput,
 } from "./schemas";
@@ -229,6 +230,18 @@ const SOURCES: Record<ToolName, Source> = {
     schemaVersion: 1,
     annotations: READ,
     schema: EstimateCostInput,
+  },
+  zenith_recommend_placement: {
+    title: "Recommend placement",
+    description:
+      "Compare deterministic placement options for the project's working manifest, restricted to stored verified workspace connections. Costs and latency are estimates. " +
+      "Optional unconnected discovery options are separate and require connection verification. A person explicitly applies a recommendation in Zenith; this tool never saves a manifest or switches an environment's cloud.",
+    access: "read",
+    capability: "placement.solve",
+    requiredScope: "plan",
+    schemaVersion: 1,
+    annotations: READ,
+    schema: RecommendPlacementInput,
   },
   zenith_get_operation: {
     title: "Get an operation",

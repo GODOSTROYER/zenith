@@ -1,6 +1,6 @@
 # MCP v3 and the platform REST SDK
 
-Zenith exposes fourteen semantic infrastructure tools at
+Zenith exposes fifteen semantic infrastructure tools at
 `<origin>/api/agent/v3/mcp`. Every read, proposal and execution uses the same
 capability broker as UI and REST. There is no unrestricted shell, cloud CLI,
 OpenTofu, kubectl, database administration or approval tool.
@@ -33,6 +33,7 @@ also require `read`. Hints describe a tool, and never confer authorization.
 | `zenith_scale_service` | `service.scale` | propose | `write` | F/F/T/F |
 | `zenith_compare_revisions` | `topology.read` | read | `read` | T/F/T/F |
 | `zenith_estimate_cost` | `cost.estimate` | read | `read` | T/F/T/F |
+| `zenith_recommend_placement` | `placement.solve` | read | `plan` | T/F/T/F |
 | `zenith_get_operation` | `events.read` | read | `read` | T/F/T/T |
 | `zenith_get_operation_events` | `events.read` | read | `read` | T/F/T/F |
 <!-- catalog:end -->
@@ -42,9 +43,21 @@ reads, all three ids for environment tools, and `{ workspaceId, operationId }`
 for operation tools. Revision and service ids come from topology. Every proposal
 requires an `idempotencyKey` (8–100 characters); retry the identical intent with
 the identical key. Unknown input members, including `approved`, `approval` and
-`approvedBy`, are rejected. `plan` lists the planning tool; `logs` lists log
+`approvedBy`, are rejected. `plan` lists change planning and placement recommendations; `logs` lists log
 queries; `write` lists deploy/restart/scale proposals and approved execution.
 Missing scopes are also checked at call time, after reauthentication.
+
+`zenith_recommend_placement` compares the current working manifest using the
+workspace's stored verified connections. Its strict input accepts a project
+target, optional `constraints` (budget, residency, user regions, latency,
+availability, provider preferences and usage) and `includeUnconnected`.
+Costs and latency are estimates; connection verification is stored metadata,
+not a fresh cloud permission check. Unconnected discovery candidates are
+separate, labelled `requiresConnection: true`, and never displace a connected
+recommendation. Explanations, cost lines and rejection reasons are returned
+under `untrusted_data`. The tool saves nothing and never switches a cloud.
+Applying is a human-reviewed manifest edit; V2-only fields are explicitly
+refused until the product manifest editor supports them.
 
 ## Approval and execution
 

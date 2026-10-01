@@ -1,11 +1,26 @@
 /** Policy precedes product/cloud reads, and the returned read-grant claims
  * are the only authority passed to the session port. */
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { placementReads } from "@/lib/placement/recommend";
 import { argsFor, allowDecision, denyDecision, makeHarness, proposeDeploy, READ_TOOLS, ids } from "./support";
+
+afterEach(() => vi.restoreAllMocks());
 
 describe.each(READ_TOOLS)("%s read authorization", (name) => {
   it("authorizes before product/cloud/events reads", async () => {
     const h = await makeHarness(); const p = await proposeDeploy(h); h.trace.length = 0;
+    // Placement also reads stored connection verification and environment
+    // policies, which the older MCP project-read fixtures do not contain.
+    if (name === "zenith_recommend_placement") {
+      vi.spyOn(placementReads, "project").mockImplementation(h.ports.reads.project);
+      vi.spyOn(placementReads, "environment").mockImplementation(async (ws, project, env) => {
+        const row = await h.ports.reads.environment(ws, project, env);
+        return row ? { ...row, createdAt: h.clock.now().toISOString(), policies: { approvalRequired: false, allowStatefulDeletion: false } } : null;
+      });
+      vi.spyOn(placementReads, "connections").mockImplementation(async (ws) => {
+        h.trace.push("connections"); return [{ workspaceId: ws, provider: "aws", verified: true }];
+      });
+    }
     const result = await h.invoke(name, argsFor(name, p.id));
     expect(result.ok).toBe(true); expect(h.authorizeRead).toHaveBeenCalledTimes(1);
     // Operation metadata is loaded membership/grant-scoped to discover its

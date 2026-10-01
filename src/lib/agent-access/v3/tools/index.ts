@@ -26,6 +26,7 @@ import { getOperation, getOperationEvents } from "./operations";
 import { investigateIncident, queryLogs, queryMetrics } from "./observe";
 import { compareRevisions, estimateCost, getCapabilities, getTopology } from "./project";
 import { planChange, prepareDeploy, restartService, scaleService } from "./propose";
+import { recommendPlacementTool } from "./placement";
 
 type Handler = (args: never, ctx: ToolContext) => Promise<ToolOutput>;
 
@@ -42,6 +43,7 @@ const HANDLERS: Record<ToolName, Handler> = {
   zenith_scale_service: scaleService as Handler,
   zenith_compare_revisions: compareRevisions as Handler,
   zenith_estimate_cost: estimateCost as Handler,
+  zenith_recommend_placement: recommendPlacementTool as Handler,
   zenith_get_operation: getOperation as Handler,
   zenith_get_operation_events: getOperationEvents as Handler,
 };
@@ -58,7 +60,7 @@ export async function invokeTool(name: string, rawArgs: unknown, options: Invoke
   if (!tool || !(TOOL_NAMES as readonly string[]).includes(name)) throw new McpToolError("unknown_tool", "There is no such tool.", 404);
   requireScope(options.principal, tool.name, tool.requiredScope);
 
-  // All fourteen strict schemas have one of these two explicit scope shapes.
+  // All fifteen strict schemas have one of these two explicit scope shapes.
   const args = TOOL_SCHEMAS[tool.name].parse(rawArgs ?? {}) as { target: TargetLike } | { workspaceId: string };
   // Check the explicit target before even resolving the broker or entering a
   // product-store snapshot. Grant-restricted ids must never touch tenant data.

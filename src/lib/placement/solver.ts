@@ -115,6 +115,8 @@ export class PlacementInputError extends Error {
 }
 
 export interface SolveOptions {
+  /** Minimum AZs from manifest placement or expansion's provider requirements. */
+  minimumAvailabilityZones?: number;
   /** consider the zenith managed tier (prices are internal assumptions); it is also considered when pinned or preferred */
   includeZenithManagedTier?: boolean;
   /** ISO timestamp for `computedAt`; defaults to the catalog snapshot time */
@@ -200,6 +202,9 @@ export function solvePlacement(input: SolveInput): PlacementResult {
   const book = toPriceBook(input.catalog);
   const catalogVersion = book.catalog.version;
   const options = input.options ?? {};
+  if (options.minimumAvailabilityZones !== undefined && (!Number.isInteger(options.minimumAvailabilityZones) || options.minimumAvailabilityZones < 1 || options.minimumAvailabilityZones > 3)) {
+    throw new PlacementInputError("options.minimumAvailabilityZones must be an integer from 1 to 3.");
+  }
   const constraints = input.constraints;
   validateConstraints(constraints);
   const usage = resolveUsage(constraints.usage);
@@ -238,10 +243,15 @@ export function solvePlacement(input: SolveInput): PlacementResult {
       backupRetentionDays: options.backupRetentionDays ?? null,
       maxAlternatives: options.maxAlternatives ?? DEFAULT_MAX_ALTERNATIVES,
       now: options.now ?? null,
+      ...(options.minimumAvailabilityZones !== undefined ? { minimumAvailabilityZones: options.minimumAvailabilityZones } : {}),
     },
   });
 
   const req = deriveRequirements(constraints);
+  if (options.minimumAvailabilityZones !== undefined) {
+    req.azCount = Math.max(req.azCount, options.minimumAvailabilityZones);
+    req.reasons.push(`minimumAvailabilityZones: at least ${options.minimumAvailabilityZones} availability zone(s) from manifest placement or provider requirements`);
+  }
   const assumptions: string[] = [];
   const weak = weakSummary(book);
   assumptions.push(

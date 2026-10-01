@@ -9,12 +9,13 @@
  *
  *   ZENITH_TEST_TOFU_NETWORK=1 npx vitest run tests/providers/oci/validate.test.ts
  */
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { TofuRunner } from "@/lib/tofu/runner";
-import { assembleWorkspace, configDigestOf, lockDigestOf } from "@/lib/tofu/workspace";
-import type { TofuWorkspace } from "@/lib/tofu/types";
+import { assembleWorkspace } from "@/lib/tofu/workspace";
 import { tofuOnPath, tempDir } from "../../tofu/_helpers";
 import { compileGraph, compiledNodes, expandOci, OCI_PROD, webStack, type CompiledGraph } from "./_support";
 
@@ -130,18 +131,31 @@ describe.skipIf(!enabled)("the customer bootstrap module (deploy/oci) validates 
   it(
     "tofu validate accepts deploy/oci with its shipped lockfile",
     async () => {
-      const dir = path.join(process.cwd(), "deploy", "oci");
-      const lf = (text: string) => text.split("\r\n").join("\n"); // the working tree may be CRLF on Windows
-      const files = ["main.tf", "outputs.tf", "variables.tf", "versions.tf"].map((f) => ({ path: f, content: lf(fs.readFileSync(path.join(dir, f), "utf8")) }));
-      const lockfile = lf(fs.readFileSync(path.join(dir, ".terraform.lock.hcl"), "utf8"));
-      const ws: TofuWorkspace = { files, lockfile, configDigest: configDigestOf(files), lockDigest: lockDigestOf(lockfile), addressMap: {}, backend: "local" };
-      const runner = new TofuRunner({ limits: { timeoutMs: 600_000 } });
-      await runner.run(ws, {}, async (run) => {
-        await run.init({ backend: false });
-        const v = await run.validate();
-        expect(v.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
-        expect(v.valid).toBe(true);
-      });
+      // deploy/oci is customer-run native HCL, not a Zenith-assembled workspace (the runner
+      // refuses native .tf files by design, SEC-F5), so validate it with tofu directly in a copy.
+      const src = path.join(process.cwd(), "deploy", "oci");
+      const tmp = tempDir("zenith-oci-bootstrap-");
+      const dir = tmp.dir;
+      try {
+      for (const f of fs.readdirSync(src)) if (/\.tf$|^\.terraform\.lock\.hcl$/.test(f)) fs.copyFileSync(path.join(src, f), path.join(dir, f));
+      const bin = process.env.ZENITH_TOFU_BIN ?? "tofu";
+      const env = {
+        PATH: process.env.PATH ?? "",
+        ...(process.platform === "win32" ? { SystemRoot: process.env.SystemRoot ?? "C:\Windows", USERPROFILE: dir, APPDATA: path.join(dir, "AppData") } : { HOME: dir }),
+        TF_IN_AUTOMATION: "1",
+        TF_INPUT: "0",
+        CHECKPOINT_DISABLE: "1",
+        TF_PLUGIN_CACHE_DIR: process.env.ZENITH_TOFU_PLUGIN_CACHE ?? path.join(os.tmpdir(), "zenith-tofu-plugin-cache"),
+      } as unknown as NodeJS.ProcessEnv;
+      const init = spawnSync(bin, ["init", "-input=false", "-backend=false", "-lockfile=readonly", "-no-color"], { cwd: dir, env, encoding: "utf8", timeout: 600_000 });
+      expect(init.status, init.stdout + init.stderr).toBe(0);
+      const v = spawnSync(bin, ["validate", "-json", "-no-color"], { cwd: dir, env, encoding: "utf8", timeout: 120_000 });
+      const out = JSON.parse(v.stdout) as { valid: boolean; diagnostics: { severity: string }[] };
+      expect(out.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+      expect(out.valid).toBe(true);
+      } finally {
+        tmp.cleanup();
+      }
     },
     900_000
   );

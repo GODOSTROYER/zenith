@@ -169,7 +169,9 @@ export function analyzeBindings(ctx: Ctx): FirewallCandidate[] {
     else if (bd.capability === "queue_publish" && canGrant(ctx, from, toRes!)) grant(from, to.address, ["publish"], "binding:queue_publish", to.managed);
     else if (bd.capability === "queue_consume" && canGrant(ctx, from, toRes!)) grant(from, to.address, ["consume"], "binding:queue_consume", to.managed);
     else if (bd.capability === "sql" && to.managed) grant(from, to.address, ["read_credentials"], "binding:sql", true);
-    else if (bd.capability === "cache" && to.managed) grant(from, to.address, ["connect"], "binding:cache", true);
+    // AWS ElastiCache authenticates with IAM (elasticache:Connect); other providers' caches use
+    // network reachability + their own auth, and their identity drivers refuse an unmapped grant.
+    else if (bd.capability === "cache" && to.managed && toRes?.place.provider === "aws") grant(from, to.address, ["connect"], "binding:cache", true);
 
     // Firewall: only capabilities that travel over the network.
     if (bd.capability !== "sql" && bd.capability !== "cache" && bd.capability !== "http") continue;

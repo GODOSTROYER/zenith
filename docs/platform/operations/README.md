@@ -124,8 +124,9 @@ against a real provider account, and the only path to one in the repository is
 `.github/workflows/live-acceptance.yml`: dispatch-only, gated by a protected GitHub
 environment named `live-sandbox`, authenticating to AWS with GitHub's OIDC token and
 no stored credential. It has **never been executed**: there is no sandbox AWS account
-(ledger blocker B-AWS-LIVE), and the harness it calls, `scripts/acceptance/aws-live.ts`,
-is not present on this branch. Until a run is recorded and linked, the capability
+(ledger blocker B-AWS-LIVE). The harness it calls, `scripts/acceptance/aws-live.ts`
+(scenarios A–J, see [ACCEPTANCE.md](../ACCEPTANCE.md)), has run only locally: Demo J's
+planning chain and dry runs of A–I, never against a cloud. Until a run is recorded and linked, the capability
 matrix has no `real` entry and `tests/docs/` fails if one appears.
 
 ## How these docs are kept honest

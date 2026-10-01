@@ -314,11 +314,15 @@ describe("injection", () => {
     expect(env.find((e) => e.name === "GREETING")!.value).toBe("hello $${not_a_template} %%{if}");
   });
 
-  it("the workspace assembler still refuses a literal that looks like a file read", () => {
+  it("a manifest value that looks like a file read stays an inert, escaped literal through the assembler", () => {
+    // The driver escapes manifest text (`$${`), so OpenTofu sees literal characters, not an
+    // interpolation. The assembler's HCL template scanner (SEC-F5) therefore accepts it as data;
+    // an UNescaped file() call in a fragment is refused (tests/tofu/workspace-expressions.test.ts).
     const nodes = replaceSpec("service/web", { env: [{ key: "X", value: '${file("/proc/self/environ")}' }] });
-    expect(() =>
-      assembleWorkspace({ graph: graphOf(nodes), fragments: compileContext(nodes).compileAll(), providerSet: "gcp", region: REGION, backend: { kind: "local" }, tags: TAGS })
-    ).toThrow(/forbidden|filesystem/i);
+    const ws = assembleWorkspace({ graph: graphOf(nodes), fragments: compileContext(nodes).compileAll(), providerSet: "gcp", region: REGION, backend: { kind: "local" }, tags: TAGS });
+    const main = ws.files.find((f) => f.path === "main.tf.json")!.content;
+    expect(main).toContain('$${file(\\"/proc/self/environ\\")}');
+    expect(main).not.toMatch(/(^|[^$])\$\{file\(/);
   });
 
   it("sanitizes hostile addresses into valid labels and names", () => {

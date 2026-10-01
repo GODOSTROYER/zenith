@@ -340,7 +340,7 @@ describe.skipIf(!hasTofu)("what the assembler ACCEPTS, real OpenTofu must not tu
    * replaced by something that cannot be argued out of a comment. When it
    * starts failing, the fix landed: change `it.fails` to `it`.
    */
-  it.fails("SEC-F5 (HIGH): a comment between a filesystem function and its parenthesis does not get past the assembler", async () => {
+  it("SEC-F5 (HIGH): a comment between a filesystem function and its parenthesis does not get past the assembler", async () => {
     const leaks: string[] = [];
     for (const [fn, args, marker] of READERS) {
       for (const [style, build] of STYLES) {
@@ -354,7 +354,7 @@ describe.skipIf(!hasTofu)("what the assembler ACCEPTS, real OpenTofu must not tu
     expect(leaks, `tofu evaluated filesystem functions hidden from the assembler's regex:\n  ${leaks.join("\n  ")}`).toEqual([]);
   }, 600_000);
 
-  it.fails("SEC-F5 (LOW part): `path . cwd` and `path/**/.cwd` leak the runner's working directory", async () => {
+  it("SEC-F5 (LOW part): `path . cwd` and `path/**/.cwd` leak the runner's working directory", async () => {
     const leaked: string[] = [];
     for (const payload of ["${path . cwd}", "${path/**/.cwd}", "${path . module}", "${path\n.cwd}"]) {
       const result = await plannedInput(payload);
@@ -367,7 +367,7 @@ describe.skipIf(!hasTofu)("what the assembler ACCEPTS, real OpenTofu must not tu
 /* ---------------------------------- part 4 ---------------------------------- */
 
 describe("assembleWorkspace: known gaps (each test is it.fails until the assembler is fixed; flip it to `it` then)", () => {
-  it.fails("SEC-F4 (MEDIUM): nonsensitive() is refused, so a fragment cannot unmask a value tofu marked sensitive", () => {
+  it("SEC-F4 (MEDIUM): nonsensitive() is refused, so a fragment cannot unmask a value tofu marked sensitive", () => {
     for (const expression of ['${nonsensitive(aws_secretsmanager_secret_version.s.secret_string)}', "${nonsensitive/**/(local.x)}", '${try(nonsensitive(local.x), "")}']) {
       const code = refusedBy(() => builtinWorkspace(STATE, { "resource/a": dataFragment("a", expression) }));
       expect(code, `${expression} must be refused`).toBe("forbidden_construct");

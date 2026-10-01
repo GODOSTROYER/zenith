@@ -40,7 +40,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { checkTofuVersion, resolveTofuBinary, type TofuVersionInfo } from "@/lib/tofu/binary";
-import { buildChildEnv, validateExtraEnv, type HostEnv } from "@/lib/tofu/env";
+import { buildChildEnv, validateExtraEnv, type HostEnv, type SessionEnvProvider } from "@/lib/tofu/env";
 import { generateLockfile } from "@/lib/tofu/lockgen";
 import { runProcess, type RunProcessResult } from "@/lib/tofu/process";
 import { normalizePlan, parseShowJson, type NormalizePlanOptions, type PlanDiagnostic, type ShowJson } from "@/lib/tofu/plan";
@@ -59,6 +59,7 @@ export const DEFAULT_LIMITS: TofuRunLimits = { timeoutMs: 30 * 60_000, maxOutput
 
 /** Anything with `childProcessEnv()` — every provider session that can drive tofu. */
 export interface TofuSessionEnv {
+  readonly provider?: SessionEnvProvider;
   childProcessEnv?(): Record<string, string>;
 }
 
@@ -258,6 +259,7 @@ export class TofuRun {
       cliConfigFile: this.i.cli,
       pluginCacheDir: this.i.pluginCacheDir,
       sessionEnv,
+      sessionProvider: this.i.session?.provider,
       extraEnv: this.i.extraEnv,
       hostEnv: this.i.hostEnv,
     });

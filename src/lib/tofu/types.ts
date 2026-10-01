@@ -35,7 +35,7 @@ export interface TofuWorkspace {
   /** node address → tofu addresses it owns */
   addressMap: Record<string, string[]>;
   /** backend kind; config values live in files, credentials never do */
-  backend: "local" | "s3" | "http";
+  backend: "local" | "s3" | "http" | "gcs" | "azurerm";
 }
 
 export type TofuAction = "create" | "update" | "delete" | "replace" | "read" | "no-op";

@@ -80,9 +80,19 @@ account / log bucket metadata reads).
   sufficiency (the exact permission set a first deploy needs) is unverified; expect
   to adjust on the first real apply. This is recorded as `contract`-level
   evidence, like every other GCP piece.
-* **State backend:** this module creates the bucket. Zenith's workspace
-  assembler currently supports `local`, `s3` and `http` backends only, so a
-  `gcs` backend needs an additive change there (see the WS-GCP handoff).
+* **State backend:** record this module's bucket as `stateBucket` on the GCP
+  connection. `src/lib/tofu/backends.ts` derives a `gcs` block with prefix
+  `zenith/<workspace>/<environment>`; the default OpenTofu workspace stores
+  the object at `<prefix>/default.tfstate`. Authentication comes only from
+  the session's short-lived `GOOGLE_OAUTH_ACCESS_TOKEN`; no credential file or
+  inline token is emitted. Optional `stateKmsKey` is a Cloud KMS resource name
+  (`projects/<project>/locations/<location>/keyRings/<ring>/cryptoKeys/<key>`)
+  emitted as `kms_encryption_key`: server-side state encryption, not plan
+  encryption. Grant the GCS service agent the necessary KMS permissions.
+  Backend blocks/refusals have unit coverage and gated real
+  `tofu init -backend=false` / `tofu validate` checks; actual state access,
+  KMS permissions and locking remain unverified against Google. The
+  orchestrator still needs to wire the execution compiler to this helper.
 * **Org policies** (domain-restricted sharing, required bucket settings,
   disabled service-account key creation) are not managed here. The `allUsers`
   `run.invoker` binding Zenith compiles for a public web service behind the load

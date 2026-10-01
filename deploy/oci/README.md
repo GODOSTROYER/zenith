@@ -135,9 +135,27 @@ part of the OCI story:
   key, and give it to the runner's environment (a secret that stays in your
   tenancy; Zenith never receives it). Whether the compatibility layer supports
   the conditional writes `use_lockfile` relies on is **unverified**, so state
-  locking is not guaranteed. The workspace assembler's `s3` backend block
-  (`src/lib/tofu/workspace.ts`) does not emit the endpoint flags yet: that is a
-  contract change for the orchestrator, described in the WS-OCI handoff.
+  locking is not guaranteed. Record `stateBucket` and `stateNamespace` on the
+  connection; `src/lib/tofu/backends.ts` derives
+  `https://<namespace>.compat.objectstorage.<region>.oraclecloud.com` and
+  `zenith/<workspace>/<environment>/terraform.tfstate`. The assembler emits
+  `endpoints.s3`, `use_path_style`, `skip_region_validation`,
+  `skip_credentials_validation`, `skip_requesting_account_id`,
+  `skip_s3_checksum`, and `skip_metadata_api_check`, plus `use_lockfile = true`.
+  Only that Oracle endpoint shape in the configured region is accepted.
+  These backend options do not permit provider API endpoint overrides.
+  S3 authentication uses `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` from
+  the customer runner's scoped environment only; no secret enters connection
+  config, generated files or control-plane responses. The backend omits AWS
+  server-side encryption headers (`encrypt = false`); OCI's bucket encryption
+  remains responsible for state encryption. AWS KMS settings are refused here.
+  The bootstrap creates neither the service user/key nor object-access grants
+  for it: grant that user least-privilege read/write/delete access to state and
+  lock objects separately. Backend assembly/refusals have unit coverage and
+  gated real `tofu init -backend=false` / `tofu validate` checks; these do not
+  prove OCI conditional writes or live authorization. The orchestrator still
+  needs to wire the execution compiler to the helper and the Go runner to its
+  local secret-key environment.
 - **HTTP backend** (`kind: "http"`), served by a state endpoint you trust.
 - **Local state on the runner** is possible for a trial and is not durable.
 

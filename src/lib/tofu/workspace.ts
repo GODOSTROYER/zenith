@@ -24,7 +24,7 @@
  *   - no `provisioner`/`connection` blocks (they run arbitrary commands on the
  *     runner), no `terraform_remote_state`; HCL templates use a closed set of
  *     pure functions and known variable roots (no filesystem/process access,
- *     namespaces, nondeterminism or `nonsensitive`), no credential-shaped
+ *     namespaces, nondeterminism or `nonsensitive`), allowlisted non-secret, non-routing
  *     provider config; templates are rechecked before runner materialization;
  *   - credentials never appear in any file: providers read the environment the
  *     runner builds from the broker session.
@@ -34,6 +34,9 @@
  * `random` provider blocks have been exercised by real `tofu validate` runs;
  * the google/azurerm/oci/kubernetes blocks are minimal and unverified.
  */
+import { assertBackendBlock, backendFile, type BackendConfig } from "@/lib/tofu/backend-config";
+import { assertProviderConfig } from "@/lib/tofu/provider-config";
+import { TofuWorkspaceError } from "@/lib/tofu/workspace-error";
 import type { TofuFragment } from "@/lib/drivers/types";
 import type { ResourceGraph } from "@/lib/resources/types";
 import { configDigestOf, isSafeRelativePath, lockDigestOf, MAX_WORKSPACE_FILE_BYTES } from "@/lib/tofu/config-digest";
@@ -54,43 +57,10 @@ import { TOFU_VERSION, type TofuFile, type TofuWorkspace } from "@/lib/tofu/type
 
 export { configDigestOf, lockDigestOf } from "@/lib/tofu/config-digest";
 
-export class TofuWorkspaceError extends Error {
-  readonly code: "invalid_input" | "invalid_fragment" | "duplicate_address" | "unknown_node" | "forbidden_construct" | "digest_mismatch" | "unknown_provider_set";
-  constructor(code: TofuWorkspaceError["code"], message: string) {
-    super(message);
-    this.name = "TofuWorkspaceError";
-    this.code = code;
-  }
-}
+export { TofuWorkspaceError } from "@/lib/tofu/workspace-error";
+export type { BackendConfig } from "@/lib/tofu/backend-config";
 
 /* --------------------------------- inputs --------------------------------- */
-
-export type BackendConfig =
-  | {
-      kind: "local";
-      /** state file path; relative paths resolve inside the (throw-away) run dir */
-      path?: string;
-    }
-  | {
-      kind: "s3";
-      bucket: string;
-      /** defaults to the workspace region */
-      region?: string;
-      /**
-       * KMS key for CLIENT-SIDE state and plan encryption (OpenTofu
-       * `encryption` block, `aws_kms` key provider + `aes_gcm`, enforced).
-       * The runner's brokered role needs kms:GenerateDataKey and kms:Decrypt.
-       */
-      encryptionKmsKeyArn?: string;
-      /** KMS key for S3 server-side encryption of the state object */
-      sseKmsKeyId?: string;
-    }
-  | {
-      kind: "http";
-      address: string;
-      lockAddress?: string;
-      unlockAddress?: string;
-    };
 
 export interface AssembleWorkspaceInput {
   graph: ResourceGraph;
@@ -99,13 +69,13 @@ export interface AssembleWorkspaceInput {
   providerSet: ProviderSetName | ProviderSetSpec;
   region: string;
   backend: BackendConfig;
-  /** state object key for the S3 backend, e.g. `zenith/<workspace>/<environment>/terraform.tfstate` */
+  /** state object key (GCS fallback prefix), e.g. `zenith/<workspace>/<environment>/terraform.tfstate` */
   stateKey?: string;
   /** provider default tags (AWS `default_tags`) */
   tags: Record<string, string>;
   /**
-   * Extra non-secret provider arguments, e.g. `{ google: { project } }`,
-   * `{ azurerm: { subscription_id } }`. Credential-shaped keys are refused.
+   * Allowlisted non-secret, non-routing provider arguments, e.g. `{ google: { project } }`,
+   * `{ azurerm: { subscription_id } }`. Unknown keys and nested settings are refused.
    */
   providerConfig?: Partial<Record<ProviderLocalName, Record<string, unknown>>>;
 }
@@ -124,14 +94,10 @@ export function resolveProviderSet(set: ProviderSetName | ProviderSetSpec): Prov
 
 /* ------------------------------- validation ------------------------------- */
 
-const LABEL = /^[A-Za-z_][A-Za-z0-9_-]*$/;
+const LABEL = /^(?!__proto__$)[A-Za-z_][A-Za-z0-9_-]*$/;
 const TYPE_NAME = /^[a-z][a-z0-9_]*$/;
-const OUTPUT_NAME = /^[A-Za-z_][A-Za-z0-9_-]*$/;
-const BUCKET = /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/;
-const STATE_KEY = /^[A-Za-z0-9!_.*'()/=+@:-]+$/;
+const OUTPUT_NAME = LABEL;
 const REGION = /^[a-z0-9-]{3,40}$/;
-const ARN = /^arn:[a-z-]+:kms:[a-z0-9-]+:\d{12}:(?:key|alias)\/[A-Za-z0-9/_-]+$/;
-const KEY_ID = /^(?:[0-9a-f-]{36}|mrk-[0-9a-f]{32}|alias\/[A-Za-z0-9/_-]+|arn:[a-z-]+:kms:[a-z0-9-]+:\d{12}:(?:key|alias)\/[A-Za-z0-9/_-]+)$/;
 
 const FRAGMENT_KEYS = new Set(["resource", "data", "output", "locals", "addresses"]);
 const FORBIDDEN_RESOURCE_KEYS = ["provisioner", "connection"];
@@ -262,7 +228,7 @@ function mergeFragments(checked: CheckedFragment[]): { main: Record<string, unkn
   const output: Record<string, unknown> = {};
   const locals: Record<string, unknown> = {};
   const owner = new Map<string, string>(); // tofu address / output / local → node address
-  const addressMap: Record<string, string[]> = {};
+  const addressMap: Record<string, string[]> = Object.create(null) as Record<string, string[]>;
 
   const claim = (key: string, nodeAddress: string, what: string) => {
     const prior = owner.get(key);
@@ -350,57 +316,6 @@ function providersFile(providers: readonly ProviderLocalName[], region: string, 
   return Object.keys(provider).length ? { provider } : {};
 }
 
-function backendFile(backend: BackendConfig, region: string, stateKey: string | undefined): { file: Record<string, unknown>; kind: TofuWorkspace["backend"] } {
-  if (backend.kind === "local") {
-    return { file: { terraform: { backend: { local: { path: backend.path ?? "terraform.tfstate" } } } }, kind: "local" };
-  }
-  if (backend.kind === "http") {
-    let url: URL;
-    try {
-      url = new URL(backend.address);
-    } catch {
-      return fail("invalid_input", "http backend address is not a URL.");
-    }
-    if (url.username || url.password) fail("invalid_input", "http backend URLs must not embed credentials; pass them in the runner environment.");
-    if (url.protocol !== "https:") fail("invalid_input", "http backend address must be https.");
-    const block: Record<string, unknown> = { address: backend.address };
-    if (backend.lockAddress) block.lock_address = backend.lockAddress;
-    if (backend.unlockAddress) block.unlock_address = backend.unlockAddress;
-    return { file: { terraform: { backend: { http: block } } }, kind: "http" };
-  }
-
-  if (!BUCKET.test(backend.bucket)) fail("invalid_input", `Invalid S3 state bucket name "${backend.bucket}".`);
-  if (!stateKey || !STATE_KEY.test(stateKey) || stateKey.includes("..") || stateKey.startsWith("/")) {
-    fail("invalid_input", "The s3 backend needs a stateKey of safe characters, without \"..\" or a leading slash.");
-  }
-  const bucketRegion = backend.region ?? region;
-  if (!REGION.test(bucketRegion)) fail("invalid_input", `Invalid backend region "${bucketRegion}".`);
-  const s3: Record<string, unknown> = {
-    bucket: backend.bucket,
-    key: stateKey,
-    region: bucketRegion,
-    encrypt: true,
-    use_lockfile: true,
-  };
-  if (backend.sseKmsKeyId) {
-    if (!KEY_ID.test(backend.sseKmsKeyId)) fail("invalid_input", "sseKmsKeyId is not a KMS key id, alias or ARN.");
-    s3.kms_key_id = backend.sseKmsKeyId;
-  }
-  const terraform: Record<string, unknown> = { backend: { s3 } };
-  if (backend.encryptionKmsKeyArn) {
-    if (!ARN.test(backend.encryptionKmsKeyArn)) fail("invalid_input", "encryptionKmsKeyArn is not a KMS key or alias ARN.");
-    // Static references are plain traversal strings here: OpenTofu rejects
-    // `${…}` templates inside the encryption block.
-    terraform.encryption = {
-      key_provider: { aws_kms: { zenith: { kms_key_id: backend.encryptionKmsKeyArn, region: bucketRegion, key_spec: "AES_256" } } },
-      method: { aes_gcm: { zenith: { keys: "key_provider.aws_kms.zenith" } } },
-      state: { method: "method.aes_gcm.zenith", enforced: true },
-      plan: { method: "method.aes_gcm.zenith", enforced: true },
-    };
-  }
-  return { file: { terraform }, kind: "s3" };
-}
-
 /* -------------------------------- assembly -------------------------------- */
 
 export function assembleWorkspace(input: AssembleWorkspaceInput): TofuWorkspace {
@@ -416,6 +331,7 @@ export function assembleWorkspace(input: AssembleWorkspaceInput): TofuWorkspace 
   }
   scanExpressions(input.tags, "tags", resourceTypes);
   scanExpressions(input.providerConfig, "providerConfig", resourceTypes);
+  assertProviderConfig(input.providerConfig);
 
   const set = resolveProviderSet(input.providerSet);
   for (const p of set.providers) if (!(p in PROVIDER_PINS)) fail("unknown_provider_set", `Provider "${p}" has no pin.`);
@@ -486,5 +402,9 @@ export function assertWorkspaceIntact(ws: TofuWorkspace): void {
   if (config !== ws.configDigest) fail("digest_mismatch", `Workspace files do not match configDigest (${ws.configDigest.slice(0, 12)} ≠ ${config.slice(0, 12)}).`);
   const lock = lockDigestOf(ws.lockfile);
   if (lock !== ws.lockDigest) fail("digest_mismatch", `Workspace lockfile does not match lockDigest (${ws.lockDigest.slice(0, 12)} ≠ ${lock.slice(0, 12)}).`);
-  for (const config of configs) scanExpressions(config.value, config.where, resourceTypes);
+  for (const config of configs) {
+    scanExpressions(config.value, config.where, resourceTypes);
+    if (isPlainObject(config.value) && config.value.provider !== undefined) assertProviderConfig(config.value.provider);
+    if (isPlainObject(config.value) && isPlainObject(config.value.terraform) && config.value.terraform.backend !== undefined) assertBackendBlock(config.value.terraform.backend);
+  }
 }

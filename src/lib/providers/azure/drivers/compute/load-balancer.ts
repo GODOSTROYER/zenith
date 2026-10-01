@@ -60,7 +60,7 @@ interface AppView {
   bound: string[];
 }
 
-async function locateRoutedApps(ctx: AzureCtx, node: ResourceNode, externalId?: string): Promise<Located> {
+async function locateRoutedApps(ctx: AzureCtx, node: ResourceNode): Promise<Located> {
   const targets = [...new Set(routesOf(node).map((r) => r.target))].sort().slice(0, 20);
   if (targets.length === 0) return { state: "missing" };
   const apps: AppView[] = [];
@@ -83,7 +83,6 @@ async function locateRoutedApps(ctx: AzureCtx, node: ResourceNode, externalId?: 
   }
   const first = apps.find((a) => a.found);
   if (!first) return { state: "missing" };
-  void externalId;
   return { state: "found", resource: { id: first.id!, name: "container-apps-ingress", type: "zenith/container-apps-ingress", properties: { apps } as unknown as Json } satisfies ArmResource };
 }
 
@@ -101,7 +100,7 @@ export const loadBalancerDriver = defineAzureDriver({
   id: "azure.application_gateway@1",
   kind: "load_balancer",
   nativeType: "azure:application_gateway",
-  locate: locateRoutedApps,
+  locate: (ctx, node) => locateRoutedApps(ctx, node),
   compile: compileLoadBalancer,
   expected: expectedLb,
   read: (res, node) => {

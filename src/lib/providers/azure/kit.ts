@@ -108,7 +108,7 @@ export async function findTagged(ctx: AzureCtx, address: string, arm: ArmClient,
     const { items } = await arm.list<ArmResource>(`/subscriptions/${ctx.session.subscriptionId}/resources`, { apiVersion: RESOURCES_API, query: { $filter: filter } }, 5);
     const env = expectedEnvironment(ctx);
     const matches = items.filter(
-      (i) => typeof i.id === "string" && typeof i.type === "string" && sameArmType(i.type, type) && i.tags?.["zenith:resource"] === address && (i.tags?.["zenith:environment"] ?? env) === env
+      (i) => typeof i.id === "string" && typeof i.type === "string" && sameArmType(i.type, type) && i.tags?.["zenith:resource"] === address && i.tags?.["zenith:environment"] === env
     );
     return { matches };
   } catch (e) {

@@ -252,7 +252,7 @@ const scale: NativeOperation<AzureSession> = async (ctx, node, input) => {
     if (outcome.state === "failed") return opFailure(`Scaling ${node.address} failed: ${outcome.detail ?? "the operation reported failure"}.`, { requestIds });
     return {
       ok: true,
-      summary: `${outcome.state === "pending" ? "Accepted scaling" : "Scaled"} ${node.address} to ${replicas}–${maxReplicas} replicas${currentMin === replicas ? " (unchanged)" : ""}.`,
+      summary: `${outcome.state === "succeeded" ? "Scaled" : "Accepted scaling of"} ${node.address} to ${replicas}–${maxReplicas} replicas${currentMin === replicas ? " (unchanged)" : ""}${outcome.state === "succeeded" ? "" : "; completion not confirmed yet"}.`,
       data: { minReplicas: replicas, maxReplicas, previousMinReplicas: currentMin ?? null, operation: outcome.state },
       requestIds,
       simulated: false,

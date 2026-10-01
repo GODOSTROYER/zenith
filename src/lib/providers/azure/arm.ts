@@ -241,7 +241,7 @@ export async function sendJson<T = Json>(
 }
 
 export function armClient(session: AzureSession, signal?: AbortSignal): ArmClient {
-  const call = <T,>(method: string, path: string, o: ArmRequestOptions, absoluteUrl?: string): Promise<ArmResponse<T>> =>
+  const call = async <T,>(method: string, path: string, o: ArmRequestOptions, absoluteUrl?: string): Promise<ArmResponse<T>> =>
     sendJson<T>(session, signal, method, absoluteUrl ?? buildUrl(path, o), { body: o.body, headers: o.headers });
 
   return {

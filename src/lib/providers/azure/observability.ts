@@ -57,7 +57,11 @@ const LOG_QUERY_HOST = "https://api.loganalytics.io";
  * compiles against either version of the contract; the shapes are identical.
  */
 export type AzureQueryResult<T> = QueryResult<T> & { notes?: string[] };
-export type AzureObservabilitySource = ObservabilitySource & { covers?(scope: SignalScope): boolean };
+export type AzureObservabilitySource = Omit<ObservabilitySource, "searchLogs" | "queryMetrics"> & {
+  covers?(scope: SignalScope): boolean;
+  searchLogs?(q: LogQuery, signal: AbortSignal): Promise<AzureQueryResult<NormalizedLog>>;
+  queryMetrics?(q: MetricQuery, signal: AbortSignal): Promise<AzureQueryResult<MetricSeries>>;
+};
 
 export interface AzureObservabilityConfig {
   session: AzureSession;

@@ -74,7 +74,9 @@ function fail(e: unknown): never {
   if (e instanceof SecretSyncError) throw e;
   if (e instanceof ArmError) {
     if (e.kind === "forbidden") {
-      const firewall = /firewall|ip address|network/i.test(`${e.armCode ?? ""} ${e.message}`) && !/rbac|not authorized to perform|does not have/i.test(e.message);
+      // Key Vault names the cause in the error code; the message wording is only a fallback
+      const code = (e.armCode ?? "").toLowerCase();
+      const firewall = code === "forbiddenbyfirewall" || (code !== "forbiddenbyrbac" && /firewall|client address is not authorized|not a trusted service/i.test(e.message));
       throw new SecretSyncError(firewall ? "forbidden_by_firewall" : "forbidden_by_rbac", firewall ? "The Key Vault firewall refused this caller." : "The deploy identity has no data-plane permission on this vault.", e.requestId);
     }
     if (e.kind === "throttled") throw new SecretSyncError("throttled", "Key Vault throttled the request.", e.requestId, e.retryAfterSec);

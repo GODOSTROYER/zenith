@@ -55,14 +55,18 @@ import type {
 interface Registry {
   credentialBroker?: CredentialBroker;
   investigator?: Investigator;
+  observability?: ObservabilityPort;
 }
 
 type G = typeof globalThis & { __zenithMcpV3?: Registry };
 const registry = (): Registry => ((globalThis as G).__zenithMcpV3 ??= {});
 
 /** The orchestrator's plug-in point for cloud reads: the credential broker that opens scoped, short-lived sessions. */
-export function registerCredentialBroker(broker: CredentialBroker | undefined): void {
+export function registerCredentialBroker(broker: CredentialBroker | undefined, observability?: ObservabilityPort): void {
   registry().credentialBroker = broker;
+  // Composition may supply a port that resolves product connection ids and
+  // supports every brokered provider. Clearing the broker clears this seam too.
+  registry().observability = broker ? observability : undefined;
 }
 
 /** The orchestrator's plug-in point for the incident engine (WS-INC). */
@@ -265,7 +269,9 @@ export function defaultPorts(): McpPorts {
       return oauthConfigured ? withOAuthGrants(base, journalGrantDirectory) : base;
     },
     reads: productReads(),
-    observability: observabilityPort(),
+    get observability() {
+      return registry().observability ?? observabilityPort();
+    },
     get investigator() {
       return registry().investigator ?? unavailableInvestigator;
     },

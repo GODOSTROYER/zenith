@@ -37,4 +37,10 @@ export const SOURCE_EVIDENCE: Readonly<Record<string, SourceEvidence>> = {
   kubernetes: { level: "contract", basis: "fake CoreV1Api and KubeConfig; method names checked against the installed @kubernetes/client-node v2" },
   prometheus: { level: "contract", basis: "local fake HTTP server implementing /api/v1/query_range" },
   loki: { level: "contract", basis: "local fake HTTP server implementing /loki/api/v1/query_range" },
+  "gcp.cloud-logging+monitoring": { level: "contract", basis: "provider fake-HTTP contracts and scoped factory tests; no live Google project" },
+  "azure.log-analytics": { level: "contract", basis: "provider fake-HTTP contracts and scoped factory tests; no live Log Analytics workspace" },
+  "azure.monitor-metrics": { level: "contract", basis: "provider fake-HTTP contracts and scoped factory tests; no live Azure Monitor" },
+  "zenith.kubernetes": { level: "contract", basis: "fake CoreV1Api with tenant namespace restrictions; no live managed cluster" },
+  "oci.logging": { level: "contract", basis: "unavailability contract only; runner Logging Search reads are not implemented" },
+  "oci.monitoring": { level: "contract", basis: "unavailability contract only; runner Monitoring reads are not implemented" },
 };

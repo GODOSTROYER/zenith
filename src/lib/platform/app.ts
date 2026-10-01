@@ -18,6 +18,8 @@ import { platformCredentialBroker } from "./credentials";
 import { composeReconcilePorts } from "./reconcile";
 import { registerAllDrivers } from "./drivers";
 import { platformScopeResolver } from "./scopes";
+import { composeAgentPorts } from "./agent-ports";
+import { registerCredentialBroker, registerInvestigator } from "@/lib/agent-access/v3/adapters";
 
 type State = { boot?: Promise<boolean>; db?: Sql };
 type G = typeof globalThis & { __zenithPlatformApp?: State };
@@ -38,7 +40,11 @@ export function ensurePlatformApp(db?: Sql): Promise<boolean> {
       registerPlatformBrokerStore(new PlatformBrokerStore(sql));
       registerPlatformBrokerPorts({ scopes: platformScopeResolver(sql) });
       configureRunnerRuntime(runnerPorts(sql));
-      wireReconcilePorts(() => composeReconcilePorts(sql, platformCredentialBroker(sql)));
+      const credentials = platformCredentialBroker(sql);
+      wireReconcilePorts(() => composeReconcilePorts(sql, credentials));
+      const agentPorts = composeAgentPorts(sql, credentials);
+      registerCredentialBroker(credentials, agentPorts.observability);
+      registerInvestigator(agentPorts.investigator);
       s.db = sql;
       return true;
     } catch {
@@ -64,4 +70,8 @@ export async function platformRunnerReaperPass(): Promise<{ ran: boolean; jobs: 
 }
 
 /** Test isolation; does not close caller-owned stores. */
-export function resetPlatformAppForTests(): void { delete (globalThis as G).__zenithPlatformApp; }
+export function resetPlatformAppForTests(): void {
+  delete (globalThis as G).__zenithPlatformApp;
+  registerCredentialBroker(undefined);
+  registerInvestigator(undefined);
+}

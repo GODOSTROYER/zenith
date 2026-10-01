@@ -992,10 +992,12 @@
       "title": "Azure VM, managed disk, MySQL, Static Web Apps, Functions, AKS drivers",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [],
       "paths": [],
-      "branch": "ws/azure-more"
+      "branch": "ws/azure-more",
+      "tests": "azure 366 passed incl. real tofu validate (azurerm 5.7.0) outside sandbox",
+      "review": "orchestrator: fixed VM NSG inline security_rule attributes (caught only by real tofu validate); MySQL create refused pending ephemeral resources; Function/SWA/AKS via ARM template deployments"
     },
     {
       "id": "WS-AWS-MORE",

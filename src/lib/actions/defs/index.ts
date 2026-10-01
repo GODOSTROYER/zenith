@@ -12,6 +12,7 @@ import "./project-manifest";
 import "./placement";
 import "./system";
 import "./env";
+import "./env-teardown";
 import "./deploy";
 import "./promote";
 import "./ops";

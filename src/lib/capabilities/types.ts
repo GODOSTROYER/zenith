@@ -49,6 +49,10 @@ export interface BrowserSessionProof {
  * `request.input` is ever read as a policy fact.
  */
 export interface ProposeContext {
+  /** Server-side reference only; the broker reloads the recorded destroy facts. */
+  destroyPlan?: { operationId: string; planDigest: string };
+  /** Required when a human proposes teardown. Never read from request.input. */
+  session?: BrowserSessionProof;
   /** the normalized OpenTofu plan; facts are derived here with `extractPlanFacts` */
   plan?: NormalizedPlan;
   /** authoritative cost numbers from the cost engine */
@@ -86,6 +90,7 @@ export interface BrokerProposalExt {
   risk: CapabilityRisk;
   /** facts (plan + cost) evaluated at proposal time; re-evaluated verbatim at execution */
   plan?: PlanFactsWithCost;
+  destroyPlan?: { operationId: string; evidenceId: string; retained: string[] };
 }
 
 export type PlanFactsWithCost = NonNullable<import("@/lib/policy").PolicyInput["plan"]>;

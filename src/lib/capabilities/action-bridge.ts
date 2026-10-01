@@ -67,6 +67,7 @@ export const ACTION_CAPABILITY_MAP: Readonly<Record<string, ActionMapping>> = {
   "ops.scaleService": cap("service.scale", ["serviceId", "replicas", "size"], "serviceId"),
   "ops.investigate": cap("incident.investigate", []),
   /* environments and projects */
+  "env.teardown": cap("infrastructure.destroy", ["environmentId"]),
   "env.delete": cap("infrastructure.destroy", []),
   "env.create": local("Creates an environment record; provisioning happens at deploy."),
   "env.update": local("Edits environment settings inside Zenith."),
@@ -182,6 +183,7 @@ export async function checkActionThroughBroker(
 ): Promise<BridgeResult> {
   const principal = principalFromAction(ctx);
   if (principal.kind === "user") return { kind: "not_brokered", why: "Human actors are authorized by their workspace role in runAction." };
+  if (actionId === "env.teardown") return { kind: "deny", code: "teardown_human_only", message: "Only a person in the signed-in web app may propose teardown." };
 
   const mapping = mappingFor(actionId);
   if (!mapping) {

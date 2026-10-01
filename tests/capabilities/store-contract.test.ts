@@ -118,6 +118,24 @@ describe.each(STORE_KINDS)("BrokerStore contract [%s]", (kind) => {
   });
 
   describe("conditional transitions", () => {
+    it("denies once using only this operation's persisted denial and revokes grants atomically", async () => {
+      const h = await makeHarness({ kind });
+      const allowed = { policyVersion: "v1", inputDigest: "d".repeat(64), outcome: "allow" as const, reasons: [{ code: "ok", message: "ok" }] };
+      const { operation } = await h.store.createOperation(newOperation(h, { decision: allowed }));
+      const other = await h.store.createOperation(newOperation(h, { decision: allowed }));
+      const foreignDecision = await h.store.recordPolicyDecision({ workspaceId: h.ids.wsA, operationId: other.operation.id, ...allowed, outcome: "deny" });
+      expect(await h.store.denyOperation({ workspaceId: h.ids.wsA, id: operation.id, decisionId: foreignDecision.id })).toBeNull();
+      expect(await h.store.denyOperation({ workspaceId: h.ids.wsA, id: operation.id, decisionId: operation.policyDecisionId! })).toBeNull();
+      const denial = await h.store.recordPolicyDecision({ workspaceId: h.ids.wsA, operationId: operation.id, ...allowed, outcome: "deny" });
+      expect(await h.store.denyOperation({ workspaceId: h.ids.wsB, id: operation.id, decisionId: denial.id })).toBeNull();
+      await h.store.insertGrant({ jti: `denial_${operation.id}`, workspaceId: h.ids.wsA, operationId: operation.id, capability: operation.capability, audience: "worker", issuedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 60_000).toISOString() });
+      const attempts = await Promise.all([h.store.denyOperation({ workspaceId: h.ids.wsA, id: operation.id, decisionId: denial.id }), h.store.denyOperation({ workspaceId: h.ids.wsA, id: operation.id, decisionId: denial.id })]);
+      expect(attempts.filter(Boolean)).toHaveLength(1);
+      expect(attempts.find(Boolean)).toMatchObject({ status: "denied", policyDecisionId: denial.id });
+      expect(await h.store.consumeGrant({ workspaceId: h.ids.wsA, jti: `denial_${operation.id}` })).toBe(false);
+      expect((await h.store.listEvents(h.ids.wsA, { operationId: operation.id })).filter((e) => e.type === "operation.denied")).toHaveLength(1);
+    });
+
     it("cancels a pre-execution operation once", async () => {
       const h = await makeHarness({ kind });
       const { operation } = await h.store.createOperation(newOperation(h));

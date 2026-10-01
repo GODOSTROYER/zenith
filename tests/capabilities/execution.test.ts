@@ -240,10 +240,12 @@ describe.each(STORE_KINDS)("re-evaluation at execution [%s]", (kind) => {
     const error = await expectBrokerError(begin(h, op.id), "policy_denied");
     expect(error.details).toMatchObject({ reasons: ["frozen"] });
     const after = await h.broker.getOperationDetail({ workspaceId: h.ids.wsA, operationId: op.id, principal: user("bob") });
-    expect(after.operation.status).toBe("cancelled");
-    expect(after.operation.error).toContain("frozen");
+    expect(after.operation.status).toBe("denied");
+    const denial = await h.store.getPolicyDecision(h.ids.wsA, after.operation.policyDecisionId!);
+    expect(denial?.reasons).toEqual(expect.arrayContaining([expect.objectContaining({ code: "frozen" })]));
     const events = (await h.broker.listOperationEvents({ workspaceId: h.ids.wsA, operationId: op.id, principal: user("bob") })).items;
-    expect(events.map((e) => e.type)).toEqual(expect.arrayContaining(["operation.denied", "operation.cancelled"]));
+    expect(events.filter((e) => e.type === "operation.denied")).toHaveLength(1);
+    expect(events.map((e) => e.type)).not.toContain("operation.cancelled");
     expect(events.find((e) => (e.data as { kind?: string }).kind === "execution_refused")?.data).toMatchObject({ outcome: "deny", reasons: ["frozen"] });
     // and it stays ended
     h.setEngine(scriptedEngine("v3", () => allowDecision()));

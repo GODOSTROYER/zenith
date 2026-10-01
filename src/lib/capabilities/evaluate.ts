@@ -148,6 +148,9 @@ export function applyGuards(args: {
   planDigest?: string;
 }): PolicyReason[] {
   const reasons: PolicyReason[] = [];
+  if (args.def.name === "infrastructure.destroy" && args.principal.kind !== "user") {
+    reasons.push(guardReason("teardown_human_only", "Only a signed-in person may propose teardown. Agents and Navigator cannot."));
+  }
   if ((args.def.name === "infrastructure.apply" || args.def.name === "infrastructure.destroy") && (!args.plan || !args.planDigest)) {
     reasons.push(
       guardReason("plan_required", `${args.def.name} must be proposed with the reviewed OpenTofu plan produced by Zenith's execution side; there is nothing exact to approve without it.`)
@@ -249,7 +252,13 @@ export async function evaluate(deps: BrokerDeps, req: EvaluationRequest): Promis
   const evaluated = await engine.evaluate(input);
 
   const guard = applyGuards({ def, principal, autonomyLevel: autonomy?.level, plan: req.plan, planDigest: req.planDigest });
-  const decision: PolicyDecision = guard.length > 0 ? { outcome: "deny", reasons: [...guard, ...evaluated.decision.reasons] } : evaluated.decision;
+  let decision: PolicyDecision = guard.length > 0 ? { outcome: "deny", reasons: [...guard, ...evaluated.decision.reasons] } : evaluated.decision;
+  if (def.name === "infrastructure.destroy" && decision.outcome !== "deny") {
+    decision = { ...decision, outcome: "require_approval", approval: {
+      count: Math.max(1, decision.approval?.count ?? 1), minRole: "admin",
+      separationOfDuties: decision.approval?.separationOfDuties ?? false,
+    } };
+  }
 
   return { def, access, resolved, autonomy, input, evaluated, decision, risk: req.risk };
 }

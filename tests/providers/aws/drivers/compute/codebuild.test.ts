@@ -47,7 +47,7 @@ describe("compile: registry output", () => {
     expect(p.artifacts).toEqual([{ type: "NO_ARTIFACTS" }]);
     expect(p.source).toMatchObject([{ type: "S3" }]);
     const source = (p.source as Body[])[0];
-    expect(source.location).toBe("${aws_s3_bucket.build_pipeline_web_src.bucket}/source/bootstrap.zip");
+    expect(source.location).toBe("${aws_s3_bucket.build_pipeline_web_src.bucket}/zenith/env_1/bootstrap.zip");
   });
 
   it("passes the repository and Dockerfile as plain environment variables and never a credential", () => {
@@ -92,7 +92,7 @@ describe("compile: registry output", () => {
     expect(res(docker, "aws_s3_bucket_ownership_controls", bucket).rule).toEqual([{ object_ownership: "BucketOwnerEnforced" }]);
     expect(res(docker, "aws_s3_bucket_server_side_encryption_configuration", bucket).rule).toEqual([{ apply_server_side_encryption_by_default: [{ sse_algorithm: "AES256" }] }]);
     const rule = (res(docker, "aws_s3_bucket_lifecycle_configuration", bucket).rule as Body[])[0];
-    expect(rule).toMatchObject({ status: "Enabled", filter: [{ prefix: "source/" }], expiration: [{ days: 14 }] });
+    expect(rule).toMatchObject({ status: "Enabled", filter: [{ prefix: "zenith/env_1/" }], expiration: [{ days: 14 }] });
     expect(res(docker, "random_id", "build_pipeline_web_src_suffix")).toEqual({ byte_length: 4 });
     // no bucket policy that could open it up
     expect(docker.resource).not.toHaveProperty("aws_s3_bucket_policy");
@@ -105,7 +105,7 @@ describe("compile: registry output", () => {
     expect(push.Resource).toBe(`\${local.${refLocalName("container_registry/web", "arn")}}`);
     expect(asList(push.Action).sort()).toEqual(["ecr:BatchCheckLayerAvailability", "ecr:BatchGetImage", "ecr:CompleteLayerUpload", "ecr:DescribeImages", "ecr:GetDownloadUrlForLayer", "ecr:InitiateLayerUpload", "ecr:PutImage", "ecr:UploadLayerPart"]);
     const read = statements.find((s) => s.Sid === "ReadSourceBundle")!;
-    expect(read.Resource).toBe("${aws_s3_bucket.build_pipeline_web_src.arn}/source/*");
+    expect(read.Resource).toBe("${aws_s3_bucket.build_pipeline_web_src.arn}/zenith/env_1/*");
     expect(asList(read.Action)).toEqual(["s3:GetObject", "s3:GetObjectVersion"]);
   });
 
@@ -126,7 +126,7 @@ describe("compile: registry output", () => {
       }
       expect(bare).toEqual(f === docker ? ["ecr:GetAuthorizationToken"] : []); // the static-site build has no ECR access at all
       expect(suffix.length).toBeGreaterThan(0);
-      expect(suffix.every((s) => /:log-stream:build\/\*$|\/source\/\*$|\/\*$/.test(s))).toBe(true);
+      expect(suffix.every((s) => /:log-stream:build\/\*$|\/zenith\/env_1\/\*$|\/\*$/.test(s))).toBe(true);
     }
   });
 
@@ -147,6 +147,17 @@ describe("compile: registry output", () => {
   it("is deterministic and tags the project", () => {
     expect(JSON.stringify(driver.compile!(fx.pipeline, ctx()))).toBe(JSON.stringify(docker));
     expect(res(docker, "aws_codebuild_project", "build_pipeline_web").tags).toMatchObject({ "zenith:resource": "build_pipeline/web", "zenith:managed": "true" });
+  });
+
+  it("binds IAM reads, expiry and bootstrap location to a different environment", () => {
+    const other = driver.compile!(fx.pipeline, mkCompileContext(fx.byAddress, { environmentId: "env-other" }));
+    expect(policy(other, "build_pipeline_web").find((s) => s.Sid === "ReadSourceBundle")!.Resource).toBe("${aws_s3_bucket.build_pipeline_web_src.arn}/zenith/env-other/*");
+    expect(res(other, "aws_s3_bucket_lifecycle_configuration", "build_pipeline_web_src").rule).toMatchObject([{ filter: [{ prefix: "zenith/env-other/" }] }]);
+    expect(res(other, "aws_codebuild_project", "build_pipeline_web").source).toMatchObject([{ location: "${aws_s3_bucket.build_pipeline_web_src.bucket}/zenith/env-other/bootstrap.zip" }]);
+  });
+
+  it.each(["", "../env", "env/*", "env?", "env\n", "x".repeat(129)])("refuses unsafe environment scope %j at compile", (environmentId) => {
+    expect(() => driver.compile!(fx.pipeline, mkCompileContext(fx.byAddress, { environmentId }))).toThrow(DriverCompileError);
   });
 
   it("declares contract evidence, and whether a node's successful build yields an image", () => {
@@ -191,7 +202,7 @@ const project = (over: Body = {}) => ({
   name: "zn-acme-web",
   arn: PROJECT_ARN,
   serviceRole: `arn:aws:iam::${ACCOUNT}:role/zn-acme-web-build`,
-  source: { type: "S3" as const, location: "zn-acme-web-src-1a2b3c4d/source/bootstrap.zip" },
+  source: { type: "S3" as const, location: "zn-acme-web-src-1a2b3c4d/zenith/env_1/bootstrap.zip" },
   environment: { type: "LINUX_CONTAINER" as const, image: CODEBUILD_IMAGE, computeType: "BUILD_GENERAL1_MEDIUM" as const, privilegedMode: true },
   timeoutInMinutes: 30,
   logsConfig: { cloudWatchLogs: { status: "ENABLED" as const, groupName: "/aws/codebuild/zn-acme-web" } },
@@ -275,7 +286,7 @@ const build = (over: Partial<Build> = {}): Build => ({
 });
 
 describe("startBuild", () => {
-  const input = { sourceS3Key: `source/${SOURCE_DIGEST}.zip`, sourceDigest: `sha256:${SOURCE_DIGEST}` };
+  const input = { sourceS3Key: `zenith/env_1/web/${SOURCE_DIGEST}.zip`, sourceDigest: `sha256:${SOURCE_DIGEST}` };
   const ctxOp = (op = "op_build_1") => mkDriverContext({ operationId: op });
 
   it("starts the build from the uploaded bundle with the source digest as an override and an idempotency token", async () => {
@@ -285,7 +296,7 @@ describe("startBuild", () => {
     expect(r).toEqual({ buildId: BUILD_ID, status: "IN_PROGRESS", buildNumber: 4, requestIds: ["req-sb"] });
     expect(cb.commandCalls(StartBuildCommand)[0].args[0].input).toEqual({
       projectName: "zn-acme-web",
-      sourceLocationOverride: `zn-acme-web-src-1a2b3c4d/source/${SOURCE_DIGEST}.zip`,
+      sourceLocationOverride: `zn-acme-web-src-1a2b3c4d/zenith/env_1/web/${SOURCE_DIGEST}.zip`,
       environmentVariablesOverride: [{ name: "ZENITH_SOURCE_DIGEST", value: SOURCE_DIGEST, type: "PLAINTEXT" }],
       idempotencyToken: `zn-op_build_1-${hash6("build_pipeline/web")}`,
     });
@@ -313,11 +324,19 @@ describe("startBuild", () => {
   });
 
   it.each([
-    ["a key outside source/", { ...input, sourceS3Key: `other/${SOURCE_DIGEST}.zip` }, /must be under source\//],
-    ["a key that walks up", { ...input, sourceS3Key: "source/../secrets.zip" }, /not a valid object key/],
-    ["an absolute key", { ...input, sourceS3Key: "/source/x.zip" }, /not a valid object key/],
-    ["a key with shell characters", { ...input, sourceS3Key: "source/x;rm -rf.zip" }, /not a valid object key/],
-    ["an empty key", { ...input, sourceS3Key: "" }, /not a valid object key/],
+    ["a legacy source/ key", { ...input, sourceS3Key: `source/${SOURCE_DIGEST}.zip` }, /environment/],
+    ["another environment's key", { ...input, sourceS3Key: `zenith/foreign/web/${SOURCE_DIGEST}.zip` }, /environment/],
+    ["an environment prefix collision", { ...input, sourceS3Key: `zenith/env_10/web/${SOURCE_DIGEST}.zip` }, /environment/],
+    ["a key that walks up", { ...input, sourceS3Key: `zenith/env_1/../${SOURCE_DIGEST}.zip` }, /valid.*object key/],
+    ["an absolute key", { ...input, sourceS3Key: `/zenith/env_1/web/${SOURCE_DIGEST}.zip` }, /environment/],
+    ["a key with shell characters", { ...input, sourceS3Key: `zenith/env_1/web;id/${SOURCE_DIGEST}.zip` }, /valid.*object key/],
+    ["an empty key", { ...input, sourceS3Key: "" }, /environment/],
+    ["a tar.gz bundle", { ...input, sourceS3Key: `zenith/env_1/web/${SOURCE_DIGEST}.tar.gz` }, /ZIP/],
+    ["a folder source", { ...input, sourceS3Key: "zenith/env_1/web/" }, /ZIP/],
+    ["an arbitrary object name", { ...input, sourceS3Key: "zenith/env_1/web/bootstrap.zip" }, /ZIP/],
+    ["a mismatched bundle digest", { ...input, sourceS3Key: `zenith/env_1/web/${"f".repeat(64)}.zip` }, /match sourceDigest/],
+    ["a newline in the key", { ...input, sourceS3Key: `${input.sourceS3Key}\n` }, /ZIP/],
+    ["a newline in the digest", { ...input, sourceDigest: `${SOURCE_DIGEST}\n` }, /sha256/],
     ["a short digest", { ...input, sourceDigest: "abc123" }, /sha256/],
     ["a non-hex digest", { ...input, sourceDigest: "g".repeat(64) }, /sha256/],
     ["a digest with a command in it", { ...input, sourceDigest: `${SOURCE_DIGEST}; id` }, /sha256/],
@@ -326,6 +345,11 @@ describe("startBuild", () => {
     await expect(startBuild(ctxOp(), node, bad as typeof input)).rejects.toMatchObject({ name: "OperationRefused", message: expect.stringMatching(message) });
     expect(cb.commandCalls(StartBuildCommand)).toHaveLength(0);
     expect(cb.commandCalls(BatchGetProjectsCommand)).toHaveLength(0);
+  });
+
+  it.each(["*", "../env", "env/other", "env\n", ""])("refuses unsafe environment scope %j before AWS", async (environmentId) => {
+    await expect(startBuild(mkDriverContext({ environmentId }), node, input)).rejects.toMatchObject({ name: "OperationRefused" });
+    expect(cb.calls()).toHaveLength(0); expect(tagging.calls()).toHaveLength(0);
   });
 
   it("refuses a project that does not carry this node's tags, and a missing project", async () => {
@@ -341,6 +365,12 @@ describe("startBuild", () => {
   it("refuses a project that names no source bucket", async () => {
     installProject({ source: { type: "NO_SOURCE" } });
     await expect(startBuild(ctxOp(), node, input)).rejects.toMatchObject({ message: expect.stringMatching(/names a source bucket|source bucket/) });
+  });
+
+  it("refuses non-S3 projects even when their location resembles a source bucket", async () => {
+    installProject({ source: { type: "GITHUB", location: "zn-acme-web-src-1a2b3c4d/zenith/env_1/bootstrap.zip" } });
+    await expect(startBuild(ctxOp(), node, input)).rejects.toMatchObject({ name: "OperationRefused" });
+    expect(cb.commandCalls(StartBuildCommand)).toHaveLength(0);
   });
 
   it("lets provider errors propagate for the activity to classify and retry", async () => {

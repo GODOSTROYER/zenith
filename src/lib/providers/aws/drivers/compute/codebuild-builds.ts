@@ -35,17 +35,17 @@ import type { DriverContext } from "@/lib/drivers/types";
 import type { ResourceNode } from "@/lib/resources/types";
 import { hash6 } from "@/lib/providers/aws/drivers/shared";
 import { OperationRefused, assertNodeTags, lowerTagMap, sleep } from "./support/sdk";
-import { SOURCE_PREFIX, loadProject, sourceBucketOf } from "./codebuild-project";
+import { sourcePrefixFor, loadProject, sourceBucketOf } from "./codebuild-project";
 
 type Ctx = DriverContext<AwsSession>;
 
-const SOURCE_KEY = /^[A-Za-z0-9!_.*'()/=+@:-]{1,900}$/;
+const SOURCE_KEY = /^([A-Za-z0-9_.-]{1,128})\/([0-9a-f]{64})\.zip$/;
 const HEX64 = /^(?:sha256:)?([0-9a-f]{64})$/;
 const BUILD_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,254}:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const IMAGE_DIGEST = /^sha256:[0-9a-f]{64}$/;
 
 export interface StartBuildInput {
-  /** key of the uploaded source bundle in the project's bucket; must start with `source/` */
+  /** `zenith/<environment>/<service>/<digest>.zip` in the project's source bucket */
   sourceS3Key: string;
   /** sha256 of the source bundle (with or without the `sha256:` prefix); becomes the image tag `src-<hex>` */
   sourceDigest: string;
@@ -62,17 +62,22 @@ export interface StartBuildResult {
 
 export async function startBuild(ctx: Ctx, node: ResourceNode, input: StartBuildInput): Promise<StartBuildResult> {
   const key = input.sourceS3Key;
-  if (typeof key !== "string" || !SOURCE_KEY.test(key) || key.includes("..") || key.startsWith("/")) throw new OperationRefused("sourceS3Key is not a valid object key.");
-  if (!key.startsWith(SOURCE_PREFIX)) throw new OperationRefused(`sourceS3Key must be under ${SOURCE_PREFIX} (the only prefix the build role can read).`);
-  const digest = typeof input.sourceDigest === "string" ? HEX64.exec(input.sourceDigest)?.[1] : undefined;
+  const prefix = sourcePrefixFor(ctx.environmentId);
+  if (!prefix) throw new OperationRefused("source environment must be a safe identifier without path or wildcard characters.");
+  if (typeof key !== "string" || !key.startsWith(prefix)) throw new OperationRefused("sourceS3Key must be under this environment's zenith/ source prefix.");
+  const parts = SOURCE_KEY.exec(key.slice(prefix.length));
+  if (!parts || parts[0] !== key.slice(prefix.length) || [".", ".."].includes(parts[1])) throw new OperationRefused("sourceS3Key is not a valid digest-addressed ZIP object key.");
+  const digestMatch = typeof input.sourceDigest === "string" ? HEX64.exec(input.sourceDigest) : null;
+  const digest = digestMatch?.[0] === input.sourceDigest ? digestMatch?.[1] : undefined;
   if (!digest) throw new OperationRefused("sourceDigest must be a sha256 (64 hex characters).");
+  if (parts[2] !== digest) throw new OperationRefused("sourceS3Key does not match sourceDigest.");
 
   const loaded = await loadProject(ctx, node, input.externalId);
   if (!loaded.project) throw new OperationRefused(`cannot find the build project of ${node.address}: ${loaded.failure?.summary ?? "unknown"}`);
   const project = loaded.project;
   assertNodeTags(ctx, node, lowerTagMap(project.tags), "the CodeBuild project");
   const bucket = sourceBucketOf(project);
-  if (!bucket || !project.name) throw new OperationRefused("the project does not name a source bucket.");
+  if (!bucket || !project.name || project.source?.type !== "S3") throw new OperationRefused("the project does not name an S3 source bucket.");
 
   const cb = ctx.session.client(CodeBuildClient);
   const token = ctx.operationId ? `zn-${ctx.operationId.replace(/[^A-Za-z0-9_-]/g, "-").slice(0, 100)}-${hash6(node.address)}` : undefined;

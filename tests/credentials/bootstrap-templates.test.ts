@@ -131,6 +131,23 @@ describe("template structure", () => {
 describe.each(Object.keys(SCENARIOS))("IAM policies (%s)", (scenario) => {
   const ev = evaluatorFor(scenario);
   const docs = allPolicyDocuments(ev);
+  it("uploads and reads C3 source objects only in the configured environment and customer account", () => {
+    const source = statementsOf(policyDoc(ev, "DeployDataPolicy")).find((s) => s.Sid === "S3SourceBundleObjects")!;
+    const environment = scenario === "everything" ? "env_prod1" : "*";
+    expect(source.Effect).toBe("Allow");
+    expect(asList(source.Action).sort()).toEqual(["s3:GetObject", "s3:GetObjectVersion", "s3:PutObject"]);
+    expect(source.Resource).toBe(`arn:aws:s3:::zenith-*/zenith/${environment}/*`);
+    expect(source.Condition).toEqual({ StringEquals: { "s3:ResourceAccount": ACCOUNT } });
+    const arn = `arn:aws:s3:::zenith-env-prod-web-src/zenith/env_prod1/web/${"a".repeat(64)}.zip`;
+    expect(iamGlob(asList(source.Resource)[0], arn)).toBe(true);
+    for (const foreign of [arn.replace("zenith-env-prod", "foreign-env-prod"), arn.replace("/zenith/", "/source/"), arn.replace("/zenith/", "/artifacts/")]) {
+      expect(iamGlob(asList(source.Resource)[0], foreign)).toBe(false);
+    }
+    if (scenario === "everything") {
+      expect(iamGlob(asList(source.Resource)[0], arn.replace("/env_prod1/", "/env_prod10/"))).toBe(false);
+      expect(iamGlob(asList(source.Resource)[0], arn.replace("/env_prod1/", "/foreign/"))).toBe(false);
+    }
+  });
   it("SNS/EBS/EKS mutations require creation or resource tags and account/environment ARN scopes", () => {
     const statement = (policy: string, sid: string) => statementsOf(policyDoc(ev, policy)).find((s) => s.Sid === sid)!;
     for (const [policy, sid, tag] of [

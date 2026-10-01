@@ -10,13 +10,13 @@
  *
  * What compile creates (kind `build_pipeline`):
  *   - a private S3 bucket for the source bundle (the deploy workflow uploads
- *     `source/<digest>.zip`; objects expire after 14 days). One per project
+ *     `zenith/<environment>/<service>/<digest>.zip`; objects expire after 14 days). One per project
  *     rather than a shared "artifact bucket": nothing in the contracts names
  *     such a bucket and a per-project one keeps the role's S3 access to one
  *     prefix of one bucket the project owns;
  *   - a log group `/aws/codebuild/<project>` (30 days);
  *   - a service role (trust: codebuild.amazonaws.com; `ZenithWorkloadBoundary`)
- *     limited to: GetObject on `source/*` of its bucket, stream writes to its
+ *     limited to: GetObject on `zenith/<environment>/*` of its bucket, stream writes to its
  *     log group, and — registry output — ECR push to exactly its repository or
  *     — static-site output — object writes to exactly the site's bucket plus a
  *     CloudFront invalidation on exactly its distribution. The only wildcard
@@ -80,8 +80,13 @@ export const CODEBUILD_IMAGE = "aws/codebuild/standard:7.0";
 export const CODEBUILD_COMPUTE = "BUILD_GENERAL1_MEDIUM";
 export const BUILD_TIMEOUT_MINUTES = 30;
 /** Key prefix of source bundles in the project's bucket; the role can read only this prefix. */
-export const SOURCE_PREFIX = "source/";
+export const SOURCE_PREFIX = "zenith/";
 export const SOURCE_EXPIRY_DAYS = 14;
+
+/** A single environment path segment; never allow IAM glob characters. */
+export function sourcePrefixFor(environmentId: string): string | undefined {
+  return typeof environmentId === "string" && /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.exec(environmentId)?.[0] === environmentId ? `${SOURCE_PREFIX}${environmentId}/` : undefined;
+}
 
 const DOCKERFILE = /^(?!\/)(?!.*\.\.)[A-Za-z0-9._/-]{1,200}$/;
 
@@ -157,6 +162,8 @@ const compile = (node: ResourceNode, ctx: CompileContext) =>
     const dockerfile = spec.source?.dockerfile ?? "Dockerfile";
     if (!DOCKERFILE.test(dockerfile)) throw new ComputeCompileError("invalid_spec", "source.dockerfile must be a relative path inside the repository (letters, digits, . _ - /).");
     const label = tfLabel(node.address);
+    const sourcePrefix = sourcePrefixFor(ctx.environmentId);
+    if (!sourcePrefix) throw new ComputeCompileError("invalid_spec", "source environment must be a safe identifier without path or wildcard characters.");
     const name = nodeName(node.address);
     const b = new Frag(node.address);
     const env = environmentData(b, label, ctx.region);
@@ -168,7 +175,7 @@ const compile = (node: ResourceNode, ctx: CompileContext) =>
     if (output.staticSite !== undefined && site?.kind !== "static_site") throw new ComputeCompileError("missing_neighbour", `output static site ${output.staticSite} is not a static_site node.`);
     if (!registry && !site) throw new ComputeCompileError("invalid_spec", "the pipeline has no output (a registry or a static site).");
 
-    const src = emitPrivateBucket(b, node, ctx, { label: `${label}_src`, nameBase: `${name}-src`, expireAfterDays: SOURCE_EXPIRY_DAYS, expirePrefix: SOURCE_PREFIX });
+    const src = emitPrivateBucket(b, node, ctx, { label: `${label}_src`, nameBase: `${name}-src`, expireAfterDays: SOURCE_EXPIRY_DAYS, expirePrefix: sourcePrefix });
     const projectName = cloudName(ctx.namePrefix, name, 255);
     const logs = b.resource("aws_cloudwatch_log_group", `${label}_logs`, { name: `/aws/codebuild/${projectName}`, retention_in_days: 30, tags: tagsFor(ctx, node) });
 
@@ -181,7 +188,7 @@ const compile = (node: ResourceNode, ctx: CompileContext) =>
     });
     const statements: PolicyStatement[] = [
       { Sid: "WriteBuildLogs", Effect: "Allow", Action: ["logs:CreateLogStream", "logs:PutLogEvents"], Resource: [arnOf(env, "logs", ["log-group:", attr(logs, "name"), ":log-stream:build/*"])], wildcard: "log_stream" },
-      { Sid: "ReadSourceBundle", Effect: "Allow", Action: ["s3:GetObject", "s3:GetObjectVersion"], Resource: [cat(src.arn, `/${SOURCE_PREFIX}*`)], wildcard: "object_keys" },
+      { Sid: "ReadSourceBundle", Effect: "Allow", Action: ["s3:GetObject", "s3:GetObjectVersion"], Resource: [cat(src.arn, `/${sourcePrefix}*`)], wildcard: "object_keys" },
       { Sid: "LocateSourceBucket", Effect: "Allow", Action: ["s3:GetBucketLocation"], Resource: [src.arn] },
     ];
     const envVars: { name: string; value: string | TfRef | TfCat }[] = [{ name: "ZENITH_DOCKERFILE", value: dockerfile }];
@@ -214,7 +221,7 @@ const compile = (node: ResourceNode, ctx: CompileContext) =>
       service_role: attr(role, "arn"),
       build_timeout: BUILD_TIMEOUT_MINUTES,
       queued_timeout: 30,
-      source: [{ type: "S3", location: cat(src.name, `/${SOURCE_PREFIX}bootstrap.zip`), buildspec: registry ? dockerBuildspec() : staticBuildspec() }],
+      source: [{ type: "S3", location: cat(src.name, `/${sourcePrefix}bootstrap.zip`), buildspec: registry ? dockerBuildspec() : staticBuildspec() }],
       artifacts: [{ type: "NO_ARTIFACTS" }],
       environment: [
         {

@@ -1,8 +1,8 @@
 /** Synthetic GitHub archives and cloud sessions: contract evidence only. */
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createHash } from "node:crypto";
-import { gunzipSync, gzipSync } from "node:zlib";
-import { BatchGetProjectsCommand, CodeBuildClient } from "@aws-sdk/client-codebuild";
+import { gunzipSync, gzipSync, inflateRawSync } from "node:zlib";
+import { BatchGetProjectsCommand, CodeBuildClient, StartBuildCommand } from "@aws-sdk/client-codebuild";
 import { GetBucketTaggingCommand, HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { mockClient } from "aws-sdk-client-mock";
 import type { AwsSession, GcpSession } from "@/lib/credentials/types";
@@ -12,6 +12,7 @@ import type { StoredResource } from "@/lib/execution/ports";
 import { sha256Hex } from "@/lib/controlplane/digest";
 import { createSourceBundles, SOURCE_BUNDLE_LIMITS, type SourceBundleDeps } from "@/lib/platform/source-bundle";
 import { pipelineNames, labels } from "@/lib/providers/gcp/release/support";
+import { startBuild } from "@/lib/providers/aws/drivers/compute/codebuild-builds";
 import { writeTar, paxRecord, type TarEntry } from "../_support/tar";
 
 const source = { repo: "https://github.com/acme/app.git", ref: "feature/exact-ref", dockerfile: "Dockerfile" };
@@ -42,6 +43,35 @@ function inspect(archive: Uint8Array) {
     offset += 512 + Math.ceil(size / 512) * 512;
   }
   return records;
+}
+
+/** Read the central directory as a ZIP consumer, then inflate the file bodies. */
+function inspectZip(archive: Uint8Array) {
+  const zip = Buffer.from(archive); const end = zip.length - 22;
+  expect(zip.readUInt32LE(end)).toBe(0x06054b50);
+  const count = zip.readUInt16LE(end + 10); let offset = zip.readUInt32LE(end + 16);
+  const records: { name: string; bytes: Buffer; mode: number; directory: boolean }[] = [];
+  for (let i = 0; i < count; i++) {
+    expect(zip.readUInt32LE(offset)).toBe(0x02014b50);
+    expect(zip.readUInt16LE(offset + 4)).toBe(0x314); // Unix creator, ZIP 2.0
+    expect(zip.readUInt16LE(offset + 8)).toBe(0x800); // UTF-8, no encryption/data descriptor
+    expect(zip.readUInt32LE(offset + 12)).toBe(0x00210000); // DOS epoch
+    expect(zip.readUInt16LE(offset + 30)).toBe(0); expect(zip.readUInt16LE(offset + 32)).toBe(0);
+    const length = zip.readUInt16LE(offset + 28);
+    const name = zip.subarray(offset + 46, offset + 46 + length).toString("utf8");
+    const local = zip.readUInt32LE(offset + 42);
+    expect(zip.readUInt32LE(local)).toBe(0x04034b50);
+    expect(zip.readUInt16LE(local + 28)).toBe(0);
+    expect(zip.subarray(local + 30, local + 30 + zip.readUInt16LE(local + 26)).toString("utf8")).toBe(name);
+    const payload = zip.subarray(local + 30 + length, local + 30 + length + zip.readUInt32LE(offset + 20));
+    const method = zip.readUInt16LE(offset + 10);
+    const bytes = method === 8 ? inflateRawSync(payload) : payload;
+    expect(bytes.length).toBe(zip.readUInt32LE(offset + 24));
+    const attributes = zip.readUInt32LE(offset + 38);
+    records.push({ name, bytes, mode: (attributes >>> 16) & 0o7777, directory: Boolean(attributes & 0x10) });
+    offset += 46 + length;
+  }
+  expect(offset).toBe(end); return records;
 }
 
 describe("source acquisition and canonical archives", () => {
@@ -207,7 +237,7 @@ function fixture(provider: "aws" | "gcp" = "aws") {
   const session: AwsSession = { provider: "aws", accountId, region, transport: "direct", expiresAt: "2099-01-01T00:00:00Z", client: (ctor) => new ctor({ region }), childProcessEnv: () => { throw new Error("Unused credential accessor."); } };
   const ctx: DriverContext = { provider, region, workspaceId: "ws-1", environmentId: "env-1", session, signal: new AbortController().signal, log: vi.fn(), tags: {}, now: () => new Date() };
   const tags = { "zenith:workspace": ctx.workspaceId, "zenith:environment": ctx.environmentId, "zenith:managed": "true", "zenith:resource": pipeline.address };
-  cb.on(BatchGetProjectsCommand).resolves({ projects: [{ name: "zenith-env-1-web", arn: pipeline.externalRef, source: { type: "S3", location: `${bucket}/source/initial.zip` }, tags: Object.entries(tags).map(([key, value]) => ({ key, value })) }] });
+  cb.on(BatchGetProjectsCommand).resolves({ projects: [{ name: "zenith-env-1-web", arn: pipeline.externalRef, source: { type: "S3", location: `${bucket}/zenith/env-1/bootstrap.zip` }, tags: Object.entries(tags).map(([key, value]) => ({ key, value })) }] });
   s3.on(GetBucketTaggingCommand).resolves({ TagSet: Object.entries(tags).map(([Key, Value]) => ({ Key, Value })) }); s3.on(PutObjectCommand).resolves({});
   return { ctx, service, pipeline, rows, resources, fetchImpl, tags, port: createSourceBundles({ resources, fetchImpl }).port };
 }
@@ -215,21 +245,73 @@ function fixture(provider: "aws" | "gcp" = "aws") {
 describe("customer source bucket uploads", () => {
   it("uploads through the brokered AWS session with a verified owner, checksum and pinned C3 fields", async () => {
     const w = fixture(); const result = await w.port.prepare(w.ctx, { service: w.service, source });
-    const key = `zenith/env-1/web/${result.digest}.tar.gz`;
+    const key = `zenith/env-1/web/${result.digest}.zip`;
     expect(result).toEqual({ s3Key: key, objectKey: key, digest: expect.stringMatching(/^[a-f0-9]{64}$/), bucket, uri: `s3://${bucket}/${key}` });
     expect(w.resources.list).toHaveBeenCalledWith("ws-1", "env-1");
     expect(s3.commandCalls(GetBucketTaggingCommand)[0].args[0].input.ExpectedBucketOwner).toBe(accountId);
     const put = s3.commandCalls(PutObjectCommand)[0].args[0].input;
-    expect(put).toMatchObject({ Bucket: bucket, Key: key, ExpectedBucketOwner: accountId, IfNoneMatch: "*", ContentType: "application/gzip", ChecksumSHA256: Buffer.from(result.digest, "hex").toString("base64") });
+    expect(put).toMatchObject({ Bucket: bucket, Key: key, ExpectedBucketOwner: accountId, IfNoneMatch: "*", ContentType: "application/zip", ChecksumSHA256: Buffer.from(result.digest, "hex").toString("base64") });
     expect(sha256Hex(put.Body as Uint8Array)).toBe(result.digest); expect(w.ctx.log).not.toHaveBeenCalled();
+    const files = inspectZip(put.Body as Uint8Array);
+    expect(files.map((f) => f.name)).toEqual(["Dockerfile", "package-lock.json", "scripts/", "scripts/start.sh", "z.png"]);
+    expect(files.find((f) => f.name === "z.png")?.bytes).toEqual(binary);
+    expect(files.find((f) => f.name === "package-lock.json")?.bytes).toEqual(entries[2].bytes);
+    expect(files.find((f) => f.name === "scripts/")).toMatchObject({ directory: true, mode: 0o755, bytes: Buffer.alloc(0) });
+    expect(files.filter((f) => !f.directory).every((f) => f.mode === 0o644)).toBe(true);
+  });
+  it("normalizes ZIP ordering, wrapper, timestamps and modes while preserving long UTF-8 paths and executable intent", async () => {
+    const w = fixture(); const path = `root/${"x".repeat(150)}/日本語.txt`;
+    w.rows[1].spec = { ...w.rows[1].spec, source: { ...source, dockerfile: undefined } };
+    const tar = changeHeader(writeTar([
+      { path: "root/run.sh", bytes: Buffer.from("#!/bin/sh\n") },
+      { path: "long", type: "gnuLongName", bytes: Buffer.from(`${path}\0`) },
+      { path: "stub", bytes: binary },
+    ]), (h) => h.write("0004751\0", 100));
+    w.fetchImpl.mockImplementation(async () => response(tar));
+    const a = await w.port.prepare(w.ctx, { service: w.service, source: { ...source, dockerfile: undefined } });
+    const files = inspectZip(s3.commandCalls(PutObjectCommand)[0].args[0].input.Body as Uint8Array);
+    expect(files.find((f) => f.name === "run.sh")).toMatchObject({ mode: 0o755, bytes: Buffer.from("#!/bin/sh\n") });
+    expect(files.find((f) => f.name === path.slice(5))?.bytes).toEqual(binary);
+    const reordered = writeTar([
+      { path: "long", type: "gnuLongName", bytes: Buffer.from(`${path.replace("root/", "wrapper/")}\0`) },
+      { path: "stub", bytes: binary },
+      { path: "wrapper/run.sh", bytes: Buffer.from("#!/bin/sh\n") },
+    ]);
+    const at = reordered.length - 2048; const h = reordered.subarray(at, at + 512);
+    h.write("0000755\0", 100); h.write("0000123\0", 108); h.write("0000456\0", 116); h.write("01234567012\0", 136); checksum(h);
+    w.fetchImpl.mockImplementation(async () => response(reordered));
+    expect(await w.port.prepare(w.ctx, { service: w.service, source: { ...source, dockerfile: undefined } })).toEqual(a);
+    expect(s3.commandCalls(PutObjectCommand)[1].args[0].input.Body).toEqual(s3.commandCalls(PutObjectCommand)[0].args[0].input.Body);
+  });
+  it("starts CodeBuild with exactly the ZIP key and digest uploaded by C3", async () => {
+    const w = fixture(); const prepared = await w.port.prepare(w.ctx, { service: w.service, source });
+    const id = "zenith-env-1-web:11111111-2222-3333-4444-555555555555";
+    cb.on(StartBuildCommand).resolves({ build: { id } });
+    await startBuild(w.ctx as DriverContext<AwsSession>, w.pipeline, { sourceS3Key: prepared.s3Key, sourceDigest: prepared.digest, externalId: w.pipeline.externalRef });
+    const upload = s3.commandCalls(PutObjectCommand)[0].args[0].input;
+    expect(cb.commandCalls(StartBuildCommand)[0].args[0].input).toMatchObject({ sourceLocationOverride: `${upload.Bucket}/${upload.Key}`, environmentVariablesOverride: [{ name: "ZENITH_SOURCE_DIGEST", value: sha256Hex(upload.Body as Uint8Array), type: "PLAINTEXT" }] });
+  });
+  it("bounds ZIP output before uploading and keeps rejecting hostile source archives", async () => {
+    const w = fixture(); const tar = writeTar(entries);
+    const port = createSourceBundles({ resources: w.resources, fetchImpl: w.fetchImpl, limits: { maxArchiveBytes: gzipSync(tar).length } }).port;
+    await expect(port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow("ZIP exceeds");
+    for (const hostile of [[{ path: "root/link", type: "symlink" as const }], [{ path: "root/../outside" }]]) {
+      w.fetchImpl.mockImplementation(async () => response(writeTar(hostile)));
+      await expect(w.port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow();
+    }
+    expect(s3.commandCalls(PutObjectCommand)).toHaveLength(0);
   });
   it("handles duplicate/concurrent AWS prepares only when the existing object checksum and size match", async () => {
-    const w = fixture(); const bundle = await createSourceBundles({ fetchImpl: transport() }).read(source);
+    const w = fixture(); const first = await w.port.prepare(w.ctx, { service: w.service, source });
+    const upload = s3.commandCalls(PutObjectCommand)[0].args[0].input;
     s3.on(PutObjectCommand).rejects({ $metadata: { httpStatusCode: 412 } });
-    s3.on(HeadObjectCommand).resolves({ ContentLength: bundle.bytes, ChecksumSHA256: Buffer.from(bundle.sha256, "hex").toString("base64") });
+    s3.on(HeadObjectCommand).resolves({ ContentLength: upload.ContentLength, ChecksumSHA256: upload.ChecksumSHA256 });
     const [a, b] = await Promise.all([w.port.prepare(w.ctx, { service: w.service, source }), w.port.prepare(w.ctx, { service: w.service, source })]);
-    expect(a).toEqual(b); expect(s3.commandCalls(HeadObjectCommand)).toHaveLength(2);
-    s3.on(HeadObjectCommand).resolves({ ContentLength: bundle.bytes, ChecksumSHA256: "wrong" });
+    expect(a).toEqual(b); expect(a).toEqual(first); expect(s3.commandCalls(HeadObjectCommand)).toHaveLength(2);
+    expect(s3.commandCalls(HeadObjectCommand)[0].args[0].input).toMatchObject({ Bucket: bucket, Key: first.s3Key, ExpectedBucketOwner: accountId, ChecksumMode: "ENABLED" });
+    s3.on(HeadObjectCommand).resolves({ ContentLength: upload.ContentLength, ChecksumSHA256: "wrong" });
+    await expect(w.port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow("refusing to replace");
+    s3.on(HeadObjectCommand).resolves({ ContentLength: upload.ContentLength! + 1, ChecksumSHA256: upload.ChecksumSHA256 });
     await expect(w.port.prepare(w.ctx, { service: w.service, source })).rejects.toThrow("refusing to replace");
   });
   it.each(["workspace", "environment", "source", "ownership", "deleted", "digest", "duplicate"])("refuses a mismatched stored %s before cloud writes", async (mismatch) => {
@@ -299,6 +381,9 @@ describe("GCS source upload through authorizedFetch", () => {
     const url = new URL(upload[0]); expect(url.origin).toBe("https://storage.googleapis.com"); expect(url.pathname).toBe(`/upload/storage/v1/b/${result.bucket}/o`);
     expect(url.searchParams.get("name")).toBe(result.s3Key); expect(url.searchParams.get("ifGenerationMatch")).toBe("0"); expect(url.searchParams.get("uploadType")).toBe("media");
     expect(upload[1]?.headers).not.toHaveProperty("Authorization"); expect(upload[1]?.redirect).toBe("error"); expect(sha256Hex(upload[1]?.body as Uint8Array)).toBe(result.digest);
+    expect(result.s3Key).toBe(`zenith/env-1/web/${result.digest}.tar.gz`);
+    expect(upload[1]?.headers).toMatchObject({ "Content-Type": "application/gzip" });
+    expect(inspect(upload[1]?.body as Uint8Array).find((f) => f.name === "z.png")?.bytes).toEqual(binary);
   });
   it("pins and hashes an existing generation before reusing it, and rejects conflicting bytes", async () => {
     const w = googleFixture(); const a = await w.port.prepare(w.ctx, { service: w.service, source }); w.state.uploadStatus = 412;

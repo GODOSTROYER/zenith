@@ -89,9 +89,16 @@ no anonymous access, blob versioning and 30-day soft delete, a `CanNotDelete` lo
 deploy identity can read or write the `tfstate` container (role scoped to that container). The endpoint is public
 unless you set `state_allowed_ip_ranges`.
 
-**Integration gap:** Zenith's workspace assembler currently supports `local`, `s3` and `http` backends. An `azurerm`
-backend (`storage_account_name`, `container_name`, `key`, `use_azuread_auth = true`) is a requested contract change
-(see the WS-AZURE handoff); this module creates the account so it is ready when that lands.
+Record the bootstrap outputs as `stateStorageAccount` and `stateContainer` on the Azure connection.
+`src/lib/tofu/backends.ts` derives an `azurerm` backend with `storage_account_name`, `container_name`, and
+key `zenith/<workspace>/<environment>/terraform.tfstate`. It forces `use_azuread_auth = true` and
+`use_cli = false`; federated connections also emit `use_oidc = true`. Runner connections let the scoped
+`ARM_USE_OIDC` environment select OIDC. `ARM_OIDC_TOKEN`, `ARM_CLIENT_ID`, `ARM_TENANT_ID`, and
+`ARM_SUBSCRIPTION_ID` come from the session only. No access key, SAS, client secret or credential file is accepted.
+Keep separate observe/deploy connection identities as described above; there is no `deployClientId` override.
+Backend assembly/refusals have unit coverage and gated real `tofu init -backend=false` / `tofu validate`
+checks. Actual state access and lease locking remain unverified against Azure. The orchestrator still needs
+to wire the execution compiler to this helper.
 
 ## Honest limits
 

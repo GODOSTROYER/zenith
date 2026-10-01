@@ -11,3 +11,4 @@ export { TofuCommandError, TofuRun, TofuRunner, type TofuRunContext, type TofuRu
 export { TofuBinaryError, checkTofuVersion, resolveTofuBinary } from "@/lib/tofu/binary";
 export { applyVerifiedPlan, planWorkspace, type ApplyVerifiedResult, type EngineOptions, type PlanWorkspaceOptions, type PlanWorkspaceResult } from "@/lib/tofu/engine";
 export { redactOutput } from "@/lib/tofu/redact";
+export { backendForConnection } from "@/lib/tofu/backends";

@@ -227,7 +227,7 @@ describe("part 2: the session and extras validator", () => {
    * validator accepts every one of them today. When a session allowlist lands
    * this starts failing: flip it to `it`.
    */
-  it.fails("SEC-F6 (LOW, hardening): a session may carry only the variables its contract names", () => {
+  it("SEC-F6 (LOW, hardening): a session may carry only the variables its contract names", () => {
     const dangerous = [
       "LD_PRELOAD",
       "LD_LIBRARY_PATH",

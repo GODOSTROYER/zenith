@@ -374,7 +374,7 @@ describe("assembleWorkspace: known gaps (each test is it.fails until the assembl
     }
   });
 
-  it.fails("SEC-F3 (MEDIUM, latent): providerConfig cannot redirect, proxy, weaken or re-identify the provider's API calls", () => {
+  it("SEC-F3 (MEDIUM, latent): providerConfig cannot redirect, proxy, weaken or re-identify the provider's API calls", () => {
     const dangerous: Record<string, unknown>[] = [
       { endpoints: [{ sts: "https://sts.exfil.invalid" }] },
       { http_proxy: "https://proxy.exfil.invalid" },
@@ -404,7 +404,7 @@ describe("assembleWorkspace: known gaps (each test is it.fails until the assembl
     expect(accepted.map((c) => Object.keys(c)[0]), "providerConfig keys that would redirect or weaken the credentialed API traffic were accepted").toEqual([]);
   });
 
-  it.fails("SEC-F2 (LOW): a resource, output or local named __proto__ is refused or kept — never silently dropped", () => {
+  it("SEC-F2 (LOW): a resource, output or local named __proto__ is refused or kept — never silently dropped", () => {
     const dropped: string[] = [];
     for (const build of [
       (): TofuFragment => ({ resource: { terraform_data: JSON.parse('{"__proto__": {"input": "x"}}') as never }, addresses: ["terraform_data.__proto__"] }),

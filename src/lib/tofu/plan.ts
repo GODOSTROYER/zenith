@@ -564,8 +564,11 @@ const VIEW_MAX_STRING = 200;
 const SECRETISH_PATH = /(secret|passw(or)?d|passwd|token|private[_-]?key|access[_-]?key|credential|api[_-]?key|auth|certificate[_-]?key|connection[_-]?string)/i;
 
 function viewText(s: string): string {
-  // control characters (incl. newlines) make injected instructions harder to hide
-  return redactOutput(s.replace(/[\u0000-\u001f\u007f]/g, " ")).slice(0, 400);
+  // Expose format controls as visible code points. Also cover invisible marks
+  // that Unicode categorizes outside Cf (e.g. variation selectors).
+  const visible = s.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/[\u0080-\u009f\p{Cf}\u034f\u115f\u1160\u17b4\u17b5\u180b-\u180f\ufe00-\ufe0f\u3164\uffa0\u{e0100}-\u{e01ef}]/gu,
+    (ch) => `\\u{${ch.codePointAt(0)!.toString(16).toUpperCase()}}`);
+  return redactOutput(visible).slice(0, 400);
 }
 
 function viewScalar(v: unknown): string | number | boolean | null | undefined {
@@ -605,7 +608,7 @@ export function planView(plan: NormalizedPlan): PlanView {
     return {
       address: viewText(r.address),
       ...(r.nodeAddress ? { nodeAddress: viewText(r.nodeAddress) } : {}),
-      type: r.type,
+      type: viewText(r.type),
       action: r.action,
       destroysData: r.destroysData,
       changes,
@@ -618,7 +621,7 @@ export function planView(plan: NormalizedPlan): PlanView {
     empty: plan.empty,
     summary: plan.summary,
     resources,
-    outputs: plan.outputChanges,
+    outputs: plan.outputChanges.map((o) => ({ ...o, name: viewText(o.name) })),
     diagnostics: plan.diagnostics.map((d) => ({ severity: d.severity, summary: viewText(d.summary), ...(d.detail ? { detail: viewText(d.detail) } : {}) })),
     truncated,
     untrustedValues: true,

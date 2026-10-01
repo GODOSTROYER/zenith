@@ -77,6 +77,10 @@ export interface GcpConnectionConfig {
   workloadIdentityProvider: string;
   observeServiceAccount: string;
   deployServiceAccount: string;
+  /** Customer GCS bucket for OpenTofu state. */
+  stateBucket?: string;
+  /** Cloud KMS resource name for server-side state encryption. */
+  stateKmsKey?: string;
   region: string;
   runnerId?: string;
 }
@@ -87,6 +91,9 @@ export interface AzureConnectionConfig {
   tenantId: string;
   clientId: string;
   subscriptionId: string;
+  /** Customer Entra-only OpenTofu state account and container. */
+  stateStorageAccount?: string;
+  stateContainer?: string;
   region: string;
   runnerId?: string;
 }
@@ -96,6 +103,9 @@ export interface OciConnectionConfig {
   mode: "runner";
   tenancyOcid: string;
   compartmentOcid: string;
+  /** Customer Object Storage state bucket and namespace (not credentials). */
+  stateBucket?: string;
+  stateNamespace?: string;
   region: string;
   runnerId: string;
 }

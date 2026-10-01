@@ -15,12 +15,11 @@
  *   TF_PLUGIN_CACHE_DIR  shared provider-plugin cache
  *   SystemRoot           Windows only (required by the Go runtime's network stack)
  *   …session env        `session.childProcessEnv()` — brokered cloud credentials
- *   …operator extras    explicit runner configuration (e.g. proxy settings)
+ *   …operator extras    explicit runner proxy configuration only
  *
- * `TF_CLI_ARGS*`, `TF_LOG*`, `TF_VAR_*`, `TF_REATTACH_PROVIDERS`, `TF_DATA_DIR`
- * and `ZENITH_*` are refused from the session/extras: they change what tofu
- * does (extra flags, provider re-attachment, trace logs that print
- * credentials) or would leak control-plane configuration to plugins.
+ * Session names are allowlisted per provider's current session contract;
+ * ambiguous untyped sessions must fit one complete provider contract. Operator
+ * extras cannot inject credentials, loader settings, or tofu arguments.
  */
 import path from "node:path";
 
@@ -35,6 +34,8 @@ export interface ChildEnvInput {
   pluginCacheDir: string;
   /** brokered credentials for this operation (never persisted or logged) */
   sessionEnv?: Record<string, string>;
+  /** Known provider identity; omitted for legacy structural session adapters. */
+  sessionProvider?: SessionEnvProvider;
   /** operator-supplied non-secret runner config */
   extraEnv?: Record<string, string>;
   /** override for tests */
@@ -48,6 +49,19 @@ export class TofuEnvError extends Error {
 }
 
 const NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+export type SessionEnvProvider = "aws" | "gcp" | "azure" | "oci" | "kubernetes";
+const AWS_ENV = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "AWS_REGION", "AWS_DEFAULT_REGION"];
+const SESSION_ENV: Record<SessionEnvProvider, readonly string[]> = {
+  aws: AWS_ENV,
+  gcp: ["GOOGLE_OAUTH_ACCESS_TOKEN", "GOOGLE_PROJECT", "GOOGLE_REGION"],
+  azure: ["ARM_USE_OIDC", "ARM_OIDC_TOKEN", "ARM_CLIENT_ID", "ARM_TENANT_ID", "ARM_SUBSCRIPTION_ID", "ARM_STORAGE_USE_AZUREAD", "ARM_RESOURCE_PROVIDER_REGISTRATIONS"],
+  // OCI's S3 backend still needs a customer secret key, confined to the
+  // customer runner. There is no control-plane OCI credential broker session.
+  oci: [...AWS_ENV, "OCI_RESOURCE_PRINCIPAL_VERSION", "OCI_RESOURCE_PRINCIPAL_RPST", "OCI_RESOURCE_PRINCIPAL_PRIVATE_PEM", "OCI_RESOURCE_PRINCIPAL_REGION"],
+  kubernetes: [],
+};
+const OPERATOR_ENV = new Set(["HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"]);
 
 /** Names the runner owns; a session may not set them. */
 const RESERVED = new Set([
@@ -87,8 +101,8 @@ function reservedReason(name: string): string | undefined {
 }
 
 /** Validate a caller-supplied env map (session or operator extras). */
-export function validateExtraEnv(env: Record<string, string> | undefined, label: string): Record<string, string> {
-  const out: Record<string, string> = {};
+export function validateExtraEnv(env: Record<string, string> | undefined, label: string, provider?: SessionEnvProvider): Record<string, string> {
+  const out: Record<string, string> = Object.create(null) as Record<string, string>;
   for (const [k, v] of Object.entries(env ?? {})) {
     if (!NAME_RE.test(k)) throw new TofuEnvError(`${label} environment name "${k}" is not a valid identifier.`);
     const why = reservedReason(k);
@@ -96,6 +110,20 @@ export function validateExtraEnv(env: Record<string, string> | undefined, label:
     if (typeof v !== "string") throw new TofuEnvError(`${label} environment value for ${k} must be a string.`);
     if (v.includes("\0")) throw new TofuEnvError(`${label} environment value for ${k} contains a NUL byte.`);
     out[k] = v;
+  }
+  const names = Object.keys(out);
+  if (label === "Runner") {
+    if (names.some((name) => !OPERATOR_ENV.has(name))) throw new TofuEnvError("Runner environment is outside the operator proxy allowlist.");
+  } else {
+    const contracts = provider === undefined ? Object.values(SESSION_ENV) : Object.hasOwn(SESSION_ENV, provider) ? [SESSION_ENV[provider]] : [];
+    if (!contracts.some((keys) => names.every((name) => keys.includes(name)))) {
+      throw new TofuEnvError("Session environment is outside its provider allowlist.");
+    }
+    if ((out.ARM_USE_OIDC !== undefined && out.ARM_USE_OIDC !== "true") ||
+        (out.ARM_STORAGE_USE_AZUREAD !== undefined && out.ARM_STORAGE_USE_AZUREAD !== "true") ||
+        (out.ARM_RESOURCE_PROVIDER_REGISTRATIONS !== undefined && out.ARM_RESOURCE_PROVIDER_REGISTRATIONS !== "none")) {
+      throw new TofuEnvError("Session environment would disable the Azure authentication contract.");
+    }
   }
   return out;
 }
@@ -111,7 +139,7 @@ export function minimalPath(platform: NodeJS.Platform, hostEnv: HostEnv): string
 export function buildChildEnv(input: ChildEnvInput): Record<string, string> {
   const platform = input.platform ?? process.platform;
   const host = input.hostEnv ?? process.env;
-  const session = validateExtraEnv(input.sessionEnv, "Session");
+  const session = validateExtraEnv(input.sessionEnv, "Session", input.sessionProvider);
   const extras = validateExtraEnv(input.extraEnv, "Runner");
 
   const env: Record<string, string> = {

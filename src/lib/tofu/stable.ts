@@ -10,7 +10,8 @@
 export function sortKeysDeep(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sortKeysDeep);
   if (value !== null && typeof value === "object") {
-    const out: Record<string, unknown> = {};
+    // Preserve every JSON key, including __proto__ in ordinary data objects.
+    const out: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
     for (const key of Object.keys(value as Record<string, unknown>).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))) {
       const v = (value as Record<string, unknown>)[key];
       if (v !== undefined) out[key] = sortKeysDeep(v);

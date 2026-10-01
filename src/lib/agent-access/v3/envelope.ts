@@ -30,8 +30,13 @@
  */
 import { scrubSecrets } from "@/lib/capabilities/secret-guard";
 import { CONTRACT_VERSION, UNTRUSTED_NOTE } from "./contract";
-import type { ToolDescriptor } from "./catalog";
 import { McpToolError, type ErrorBody } from "./errors";
+
+/** The part of a tool descriptor an envelope needs; a plain name is enough for an unknown tool. */
+export interface ToolRef {
+  name: string;
+  schemaVersion: number;
+}
 
 /** Upper bound on one tool result, serialized. */
 export const MAX_RESULT_BYTES = 256 * 1024;
@@ -69,7 +74,7 @@ export interface Envelope {
 
 const bytes = (value: unknown): number => Buffer.byteLength(JSON.stringify(value), "utf8");
 
-function baseEnvelope(tool: Pick<ToolDescriptor, "name" | "schemaVersion">): Omit<Envelope, "ok" | "data"> {
+function baseEnvelope(tool: ToolRef): Omit<Envelope, "ok" | "data"> {
   return {
     contractVersion: CONTRACT_VERSION,
     tool: tool.name,
@@ -116,7 +121,7 @@ function fitToBudget(envelope: Envelope, limit: number): boolean {
 }
 
 /** Wrap a handler's output in the contract. Scrubs, bounds and labels; never throws for size alone unless nothing can be cut. */
-export function buildEnvelope(tool: Pick<ToolDescriptor, "name" | "schemaVersion">, output: ToolOutput, limit = MAX_RESULT_BYTES): Envelope {
+export function buildEnvelope(tool: ToolRef, output: ToolOutput, limit = MAX_RESULT_BYTES): Envelope {
   const scrubbed = scrubSecrets({ data: output.data, untrusted: output.untrusted });
   const envelope: Envelope = {
     ...baseEnvelope(tool),
@@ -141,7 +146,7 @@ export function buildEnvelope(tool: Pick<ToolDescriptor, "name" | "schemaVersion
 }
 
 /** An error envelope: same contract, `ok: false`, no data. */
-export function buildErrorEnvelope(tool: Pick<ToolDescriptor, "name" | "schemaVersion">, error: ErrorBody): Envelope {
+export function buildErrorEnvelope(tool: ToolRef, error: ErrorBody): Envelope {
   return { ...baseEnvelope(tool), ok: false, data: {}, error };
 }
 

@@ -63,6 +63,14 @@ describe("Azure durable launch journal", () => {
     for (const bad of ["https://blob.example/source?sig=opaque-secret", `${reference}?token=opaque-secret`, JSON.stringify({ session: "opaque-secret" }), JSON.stringify({ version: 1, scope: digest("secret"), registryId: "opaque-secret" })]) await expect(j.record(s, bad)).rejects.toThrow("reference");
     expect(await j.read(s)).toBeUndefined();
   });
+  it("persists documented UUID ACR run receipts and rejects non-object receipt JSON", async () => {
+    const w = world(); const handle = await createReleasePorts({ db, azure: w.options }).build.startBuild(w.ctx, { service, pipeline, registry, source: bundle, idempotencyKey: "uuid-receipt" });
+    const receipt = JSON.stringify({ ...JSON.parse(handle.buildId), runId: "0accec26-d6de-4757-8e74-d080f38eaaab" });
+    const s = scope("uuid-receipt"); const j = createAzureReleaseLaunchJournal(db); await j.claim(s);
+    await j.record(s, receipt); expect(await j.read(s)).toBe(receipt);
+    for (const invalid of ["null", "[]", "42"]) await expect(j.record(s, invalid)).rejects.toThrow("reference");
+    expect(await j.read(s)).toBe(receipt);
+  });
   it("refuses unclaimed receipts and invalid tenant/key scope", async () => {
     const j = createAzureReleaseLaunchJournal(db);
     await expect(j.record(scope("unclaimed"), reference)).rejects.toThrow("persisted");

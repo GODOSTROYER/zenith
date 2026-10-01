@@ -46,6 +46,16 @@ async function validate(nodes: ResourceNode[]) {
 const errorsOf = (v: Awaited<ReturnType<typeof validate>>) => v.diagnostics.filter((d) => d.severity === "error").map((d) => `${d.summary}${d.detail ? `: ${d.detail}` : ""}`);
 
 describe.skipIf(!enabled)("compiled Azure OpenTofu validates against the real azurerm 5.7.0 schema (network)", () => {
+  it("built apps and jobs use a digest bootstrap and ignore release image/argv changes", async () => {
+    const nodes = sampleGraph(); const job = nodes.find((n) => n.address === "scheduled_job/report")!;
+    job.spec.artifact = { type: "built", pipeline: "build_pipeline/web", registry: "container_registry/web" };
+    job.dependsOn.push("identity/report", "container_registry/web", "build_pipeline/web");
+    nodes.push(mkNode("identity/report", "identity", "azure:user_assigned_identity", {
+      principal: "workload", workload: job.address, grants: [{ target: "container_registry/web", access: ["pull"], via: ["image_pull"] }],
+    }, { dependsOn: ["container_registry/web"] }));
+    const v = await validate(nodes);
+    expect(errorsOf(v)).toEqual([]); expect(v.valid).toBe(true);
+  }, 900_000);
   it("additional drivers, delegated subnets, ARM deployments, custom domains and Function host endpoints", async () => {
     const v = await validate(moreGraph());
     expect(errorsOf(v)).toEqual([]);

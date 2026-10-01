@@ -27,6 +27,9 @@ import { defineAzureDriver, getById, locatedFromError, pick, props, type AzureCt
 import { armClient, type ArmResource } from "@/lib/providers/azure/arm";
 import { azureTags, tfLabel } from "@/lib/providers/azure/naming";
 import { API } from "@/lib/providers/azure/platform";
+import { STATIC_WEB_APP } from "@/lib/providers/azure/drivers/compute/static-web-app";
+import { locateByTags } from "@/lib/providers/azure/kit";
+import { nodeKindOf } from "@/lib/providers/azure/naming";
 
 export const DNS_TTL = 300;
 
@@ -45,6 +48,15 @@ export function compileDnsRecord(node: ResourceNode, ctx: CompileContext): TofuF
   const zone = requireNode(ctx, spec.zone, "the record's zone", a);
   const zoneName = specOf<DnsZoneSpec>(zone).name;
   const lb = requireNode(ctx, spec.target, "the record's target", a);
+  if (lb.provider === "azure" && lb.kind === "static_site") {
+    const rel = relativeName(spec.name, zoneName, a);
+    if (rel === "@") throw new AzureCompileError("Static Web Apps apex domains require asynchronous TXT validation and an ALIAS provider; only subdomain CNAME binding is supported.", a);
+    const label = tfLabel(a, "cname");
+    return fragment({ resource: mergeBlocks(
+      block("azurerm_dns_cname_record", label, { name: rel, zone_name: exportRef(spec.zone, "zone_name"), resource_group_name: exportRef(spec.zone, "zone_rg"), ttl: DNS_TTL, record: exportRef(spec.target, "fqdn"), tags: azureTags(ctx, node) }),
+      block("azurerm_static_web_app_custom_domain", tfLabel(a, "binding"), { static_web_app_id: exportRef(spec.target, "id"), domain_name: spec.name.toLowerCase(), validation_type: "cname-delegation", depends_on: [`azurerm_dns_cname_record.${label}`] })
+    ), locals: exportLocals(a, { fqdn: `\${azurerm_dns_cname_record.${label}.fqdn}` }) });
+  }
   if (lb.kind !== "load_balancer" || lb.provider !== "azure") throw new AzureCompileError(`target ${spec.target} is not an Azure load balancer.`, a);
   const route = (specOf<LoadBalancerSpec>(lb).routes ?? []).find((r) => r.host.toLowerCase() === spec.name.toLowerCase());
   if (!route) throw new AzureCompileError(`no route of ${spec.target} serves ${spec.name}.`, a);
@@ -98,6 +110,13 @@ export const dnsRecordDriver = defineAzureDriver({
   read: (res) => ({ ttl: pick<number>(props(res), "TTL") }),
   native: (res) => ({ fqdn: props(res).fqdn, cname: pick(props(res), "CNAMERecord", "cname"), aRecords: pick(props(res), "ARecords") }),
   checks: async (ctx, node) => {
+    if (nodeKindOf(String(node.spec.target)) === "static_site") {
+      const site = await locateByTags(ctx, { ...node, address: String(node.spec.target) }, STATIC_WEB_APP);
+      if (site.state !== "found") return [{ id: "domain_binding", description: "the SWA custom domain is validated", passed: "unknown" as const }];
+      const got = await getById(armClient(ctx.session, ctx.signal), `${site.resource.id}/customDomains/${encodeURIComponent(String(node.spec.name))}`, STATIC_WEB_APP.apiVersion);
+      const status = got.state === "found" ? props(got.resource).status : undefined;
+      return [{ id: "domain_binding", description: "the SWA custom domain is validated", passed: got.state === "missing" ? false : status === "Ready" ? true : status === "Failed" ? false : "unknown" as const }];
+    }
     // the ownership TXT record next to the address record
     const host = specOf<DnsRecordSpec>(node).name;
     const z = await zoneFor(ctx, host);

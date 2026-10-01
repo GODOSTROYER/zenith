@@ -19,7 +19,7 @@ export interface PrivateEndpointInput {
   targetId: string;
   /** e.g. `redisCache`, `blob` */
   subresource: string;
-  zone: "dns_redis_id" | "dns_blob_id";
+  zone: "dns_redis_id" | "dns_blob_id" | "dns_queue_id" | "dns_web_id";
 }
 
 export function privateEndpoint(i: PrivateEndpointInput): Record<string, Record<string, Record<string, unknown>>> {

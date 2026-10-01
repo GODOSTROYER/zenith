@@ -26,6 +26,17 @@ const code = (text: string) =>
 const all = code(readdirSync(MODULE).filter((f) => f.endsWith(".tf")).map(read).join("\n"));
 
 describe("deploy/azure bootstrap module (static)", () => {
+  it("additional providers have explicit lifecycle actions and never add credential listing or broad roles", () => {
+    for (const provider of ["Microsoft.Compute", "Microsoft.Web", "Microsoft.ContainerService", "Microsoft.DBforMySQL"]) expect(main).toContain(`"${provider}",`);
+    for (const type of ["Microsoft.Compute/virtualMachines", "Microsoft.Compute/disks", "Microsoft.ContainerService/managedClusters", "Microsoft.Web/sites", "Microsoft.Web/staticSites", "Microsoft.DBforMySQL/flexibleServers", "Microsoft.Resources/deployments"]) {
+      for (const verb of ["read", "write", "delete"]) expect(main).toContain(`"${type}/${verb}"`);
+      expect(main).not.toContain(`"${type}/*"`);
+    }
+    const actions = main.slice(main.indexOf("actions = ["), main.indexOf("not_actions"));
+    expect(actions).not.toMatch(/listSecrets|listClusterUserCredential|listClusterAdminCredential|sites\/(publishingCredentials|publishxml)\/action|config\/list\/action|runCommand\/action/i);
+    expect(main).toContain('"b7e6dc6d-f1e8-4753-8033-0f276bb0955b"');
+    expect(main).toContain('"974c5e8b-45b9-4653-ba55-5f855dd0fb88"');
+  });
   it("trusts exactly Zenith's issuer, the exchange audience and an exact per-connection subject", () => {
     expect(main).toContain(`token_audience     = "${FEDERATION_AUDIENCE}"`);
     expect(main).toContain('observe_subject = "zenith:ws:${var.workspace_id}:conn:${var.observe_connection_id}"');

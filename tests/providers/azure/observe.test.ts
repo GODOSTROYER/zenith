@@ -81,7 +81,7 @@ describe("every driver reads a consistent subscription cleanly", () => {
       expect(d.provider).toBe("azure");
     }
     expect(AZURE_DRIVERS.filter((d) => d.runtime).map((d) => d.nativeType).sort()).toEqual([
-      "azure:application_gateway", "azure:container_app", "azure:container_app_job", "azure:postgresql_flexible_server", "azure:redis_cache", "azure:service_bus_queue", "azure:service_bus_topic",
+      "azure:aks_cluster", "azure:application_gateway", "azure:container_app", "azure:container_app_job", "azure:function_app", "azure:mysql_flexible_server", "azure:postgresql_flexible_server", "azure:redis_cache", "azure:service_bus_queue", "azure:service_bus_topic", "azure:static_web_app", "azure:virtual_machine",
     ]);
   });
 });
@@ -200,8 +200,8 @@ describe("partial and malformed data is unknown, not guessed", () => {
     expect(obs.attributes.maxReplicas).toMatchObject({ state: "unknown", reason: "not_inspected" });
     expect(obs.attributes.vcpu).toMatchObject({ state: "known", value: 0.5 });
     const v = await driverOf(web).verify!(ctx, web, obs, undefined);
-    // unread attributes are not "matches": the configuration check compares only what was read
-    expect(v.checks.find((c) => c.id === "configuration")!.passed).toBe(true);
+    // unread attributes are not "matches": a partial comparison remains unknown
+    expect(v.checks.find((c) => c.id === "configuration")!.passed).toBe("unknown");
     expect(v.status).not.toBe("passed");
   });
 

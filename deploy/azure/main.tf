@@ -23,6 +23,9 @@ locals {
     "Microsoft.Cache",
     "Microsoft.ContainerRegistry",
     "Microsoft.DBforPostgreSQL",
+    "Microsoft.DBforMySQL",
+    "Microsoft.Compute",
+    "Microsoft.ContainerService",
     "Microsoft.Insights",
     "Microsoft.KeyVault",
     "Microsoft.ManagedIdentity",
@@ -31,6 +34,7 @@ locals {
     "Microsoft.Resources",
     "Microsoft.ServiceBus",
     "Microsoft.Storage",
+    "Microsoft.Web",
   ]) : toset([])
 
   # The ONLY roles the deploy identity may hand out (see the conditioned role-assignment administrator below).
@@ -39,6 +43,8 @@ locals {
     "7f951dda-4ed3-4680-a7ca-43fe172d538d", # AcrPull
     "2a2b9908-6ea1-4ae2-8e65-a410df84e7d1", # Storage Blob Data Reader
     "ba92f5b4-2d11-453d-a403-e96b0029c9fe", # Storage Blob Data Contributor
+    "b7e6dc6d-f1e8-4753-8033-0f276bb0955b", # Storage Blob Data Owner (Function host account only)
+    "974c5e8b-45b9-4653-ba55-5f855dd0fb88", # Storage Queue Data Contributor (Function host account only)
     "69a216fc-b8fb-44d8-bc22-1f3c2cd27a39", # Azure Service Bus Data Sender
     "4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0", # Azure Service Bus Data Receiver
     "4633458b-17de-408a-b874-0445c86b69e6", # Key Vault Secrets User
@@ -153,6 +159,11 @@ resource "azurerm_role_definition" "deployer" {
       "Microsoft.Resources/subscriptions/resourceGroups/write",
       "Microsoft.Resources/subscriptions/resourceGroups/delete",
       "Microsoft.Resources/subscriptions/resources/read",
+      "Microsoft.Resources/deployments/read",
+      "Microsoft.Resources/deployments/write",
+      "Microsoft.Resources/deployments/delete",
+      "Microsoft.Resources/deployments/validate/action",
+      "Microsoft.Resources/deployments/operations/read",
       "Microsoft.Authorization/*/read",
       "Microsoft.Authorization/locks/*",
       "Microsoft.Network/virtualNetworks/*",
@@ -165,6 +176,51 @@ resource "azurerm_role_definition" "deployer" {
       "Microsoft.App/*",
       "Microsoft.DBforPostgreSQL/flexibleServers/*",
       "Microsoft.DBforPostgreSQL/locations/*/read",
+      "Microsoft.DBforMySQL/flexibleServers/read",
+      "Microsoft.DBforMySQL/flexibleServers/write",
+      "Microsoft.DBforMySQL/flexibleServers/delete",
+      "Microsoft.DBforMySQL/flexibleServers/administrators/read",
+      "Microsoft.DBforMySQL/flexibleServers/administrators/write",
+      "Microsoft.DBforMySQL/flexibleServers/administrators/delete",
+      "Microsoft.DBforMySQL/flexibleServers/configurations/read",
+      "Microsoft.DBforMySQL/flexibleServers/configurations/write",
+      "Microsoft.DBforMySQL/flexibleServers/configurations/delete",
+      "Microsoft.DBforMySQL/locations/*/read",
+      "Microsoft.Compute/virtualMachines/read",
+      "Microsoft.Compute/virtualMachines/write",
+      "Microsoft.Compute/virtualMachines/delete",
+      "Microsoft.Compute/virtualMachines/instanceView/read",
+      "Microsoft.Compute/disks/read",
+      "Microsoft.Compute/disks/write",
+      "Microsoft.Compute/disks/delete",
+      "Microsoft.Compute/locations/*/read",
+      "Microsoft.ContainerService/managedClusters/read",
+      "Microsoft.ContainerService/managedClusters/write",
+      "Microsoft.ContainerService/managedClusters/delete",
+      "Microsoft.ContainerService/managedClusters/agentPools/read",
+      "Microsoft.ContainerService/managedClusters/agentPools/write",
+      "Microsoft.ContainerService/managedClusters/agentPools/delete",
+      "Microsoft.ContainerService/locations/*/read",
+      "Microsoft.Web/serverFarms/read",
+      "Microsoft.Web/serverFarms/write",
+      "Microsoft.Web/serverFarms/delete",
+      "Microsoft.Web/serverFarms/join/action",
+      "Microsoft.Web/sites/read",
+      "Microsoft.Web/sites/write",
+      "Microsoft.Web/sites/delete",
+      "Microsoft.Web/sites/config/read",
+      "Microsoft.Web/sites/config/write",
+      "Microsoft.Web/sites/basicPublishingCredentialsPolicies/read",
+      "Microsoft.Web/sites/basicPublishingCredentialsPolicies/write",
+      "Microsoft.Web/staticSites/read",
+      "Microsoft.Web/staticSites/write",
+      "Microsoft.Web/staticSites/delete",
+      "Microsoft.Web/staticSites/customDomains/read",
+      "Microsoft.Web/staticSites/customDomains/write",
+      "Microsoft.Web/staticSites/customDomains/delete",
+      "Microsoft.Web/staticSites/privateEndpointConnections/read",
+      "Microsoft.Web/staticSites/privateEndpointConnections/write",
+      "Microsoft.Web/staticSites/privateEndpointConnections/delete",
       "Microsoft.Cache/redis/*",
       "Microsoft.Storage/storageAccounts/*",
       "Microsoft.ServiceBus/namespaces/*",
@@ -210,7 +266,7 @@ resource "azurerm_role_assignment" "deployer" {
 
 # Zenith grants each workload identity its data roles (AcrPull, Key Vault Secrets User, ...). Writing role
 # assignments is how privilege escalates, so this is the built-in administrator role CONSTRAINED by a condition to the
-# seven data roles above and to service principals. The deploy identity cannot assign Owner, Contributor, itself
+# nine data roles above and to service principals. The deploy identity cannot assign Owner, Contributor, itself
 # a broader role, or anything to a user.
 resource "azurerm_role_assignment" "deployer_assigns_data_roles" {
   count                = local.has_deployer ? 1 : 0

@@ -69,6 +69,13 @@ export const OCI_ALLOWLIST: Readonly<Record<string, readonly OciAllowRule[]>> = 
   "logs.read": [LOG_READ_RULE],
   "metrics.read": [METRIC_READ_RULE],
   "firewall.inspect": FIREWALL_INSPECT,
+  // Images are immutable; only the migration launch needs a write. Workload
+  // replacement stays in the reviewed OpenTofu plan, never a fabricated PUT.
+  "deployment.deploy": [
+    ...get("containerinstances", "containerInstances", "containerInstances/{}", "containers/{}"),
+    ...get("core", "vnics/{}"),
+    { service: "containerinstances", method: "POST", pattern: "containerInstances" },
+  ],
   "service.restart": [...get("containerinstances", "containerInstances"), { service: "containerinstances", method: "POST", pattern: "containerInstances/{}/actions/restart" }],
   "database.snapshot": [...get("postgresql", "dbSystems", "dbSystems/{}"), { service: "postgresql", method: "POST", pattern: "backups" }],
   "secret.write": [...get("vault", "secrets", "secrets/{}"), { service: "vault", method: "PUT", pattern: "secrets/{}" }],

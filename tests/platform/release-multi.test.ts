@@ -20,7 +20,7 @@ describe("release provider composition", () => {
   it("rejects mismatched broker session and unsupported providers before cloud calls", async () => {
     const w = gcpWorld(); const ports = createReleasePorts();
     await expect(ports.workloads.waitSteady({ ...w.ctx, provider: "azure" }, gcpService, { timeoutMs: 1000 })).rejects.toThrow("broker session");
-    await expect(ports.workloads.waitSteady({ ...w.ctx, provider: "oci" }, gcpService, { timeoutMs: 1000 })).rejects.toThrow("unavailable"); expect(w.fetcher).not.toHaveBeenCalled();
+    await expect(ports.workloads.waitSteady({ ...w.ctx, provider: "kubernetes" }, gcpService, { timeoutMs: 1000 })).rejects.toThrow("unavailable"); expect(w.fetcher).not.toHaveBeenCalled();
   });
   it("forwards explicit Azure build/source dependencies and migration launch receipts", async () => {
     const w = azureWorld(); const ports = createReleasePorts({ azure: w.options });

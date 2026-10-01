@@ -30,7 +30,7 @@ const NEXT = PLATFORM_MIGRATIONS.length + 1;
 
 const EXPECTED_TABLES = [
   "agent_nonces", "approvals", "capability_grants", "cost_estimates", "drift_reports", "environment_settings", "events", "evidence",
-  "idempotency_keys", "incidents", "investigations", "leases", "machines", "operations", "policy_decisions", "provider_connections",
+  "idempotency_keys", "incidents", "investigations", "leases", "machine_request_logs", "machine_requests", "machines", "operations", "policy_decisions", "provider_connections",
   "reconcile_state", "resource_observations", "resource_runtime", "resources", "runner_job_logs", "runner_jobs", "runner_registration_tokens", "runners",
   "schema_migrations", "workspace_policy",
 ];

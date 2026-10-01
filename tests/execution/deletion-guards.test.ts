@@ -37,6 +37,8 @@ function world() {
   w.activities = createExecutionActivities({ ...w.deps, tofu: {
     async planWorkspace(ws, session, opts = {}) {
       const result = await w.tofu.planWorkspace(ws, session, opts);
+      // a final re-plan that moved is refused by the caller as plan_changed; its guards are not run
+      if (opts.expectedDigest !== undefined && result.plan.planDigest !== opts.expectedDigest) return result;
       await opts.inspectPlan?.(result.plan, {});
       assertDeletionAllowed(result.plan, opts.deletionNodes ?? []);
       return result;
@@ -201,6 +203,18 @@ describe("normal deploy deletion guards", () => {
     vi.spyOn(w.resources, "list").mockResolvedValue([{ ...row, workspaceId: "foreign" }]);
     await expect(plan(w)).rejects.toThrow(/outside.*scope/);
     expect(w.tofu.planCalls).toHaveLength(0);
+  });
+
+  it("reports a final re-plan that moved onto a guarded deletion as plan_changed, keeping its evidence", async () => {
+    const { w } = world(); drop(w, policyManifest(bucketManifest(), "deny"), policyManifest(bucketManifest(), "deny")); scripted(w, []);
+    const args = await plan(w);
+    scripted(w, [bucketDelete("replace")]);
+    const err = await w.activities.finalPlan({ ...args, approvedPlanDigest: args.planDigest }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(TofuPlanChangedError);
+    expect(w.tofu.planCalls.at(-1)!.opts).toMatchObject({ expectedDigest: args.planDigest });
+    const moved = w.evidence.rows.find((e) => e.summary.stage === "final_plan")!;
+    expect(moved.summary).toMatchObject({ matchesApproved: false, statefulDeletes: [bucketDelete().address] });
+    expect(w.tofu.applyCalls).toHaveLength(0);
   });
 
   it("refuses unmapped native stateful deletions", async () => {

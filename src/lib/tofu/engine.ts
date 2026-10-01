@@ -54,6 +54,14 @@ export interface PlanWorkspaceOptions extends EngineOptions {
    * `TofuRun.plan`.
    */
   lock?: boolean;
+  /**
+   * The approved digest a final re-plan must match. A plan that moved is
+   * refused by the caller as `plan_changed` and never applied (verified apply
+   * re-plans and re-runs the digest check and every guard), so its deletion
+   * guards are skipped: the refusal names what actually happened, and no
+   * provider is read on behalf of an unapproved plan.
+   */
+  expectedDigest?: string;
 }
 
 export interface PlanWorkspaceResult {
@@ -76,8 +84,9 @@ function defaultRunner(): TofuRunner {
   return shared;
 }
 
-function inspector(opts: EngineOptions): PlanInspector {
+function inspector(opts: EngineOptions & Pick<PlanWorkspaceOptions, "expectedDigest">): PlanInspector {
   return async (plan, raw) => {
+    if (opts.expectedDigest !== undefined && plan.planDigest !== opts.expectedDigest) return;
     // Harness ownership checks may resolve unmapped state to trusted nodes here.
     await opts.inspectPlan?.(plan, raw);
     if (opts.destroy && plan.resourceChanges.some((c) => !["delete", "no-op", "read"].includes(c.action))) {

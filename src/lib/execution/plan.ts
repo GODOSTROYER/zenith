@@ -182,7 +182,7 @@ export async function assertDeployDeletionApproval(rt: Runtime, ec: ExecContext,
 }
 
 /** Plan or re-plan under the operation's lease and return the normalized plan with what was derived from it. */
-async function runPlanStage(rt: Runtime, ec: ExecContext, lease: Parameters<ExecutionActivities["planInfrastructure"]>[0]["lease"], detail: string): Promise<PlanStage> {
+async function runPlanStage(rt: Runtime, ec: ExecContext, lease: Parameters<ExecutionActivities["planInfrastructure"]>[0]["lease"], detail: string, expectedDigest?: string): Promise<PlanStage> {
   assertLeaseFor(ec, lease);
   const { graph } = requireExecutable(rt, ec);
   const connection = await resolveConnection(rt, ec);
@@ -193,7 +193,7 @@ async function runPlanStage(rt: Runtime, ec: ExecContext, lease: Parameters<Exec
     withProviderSession(rt, ec, { purpose: "observe", capability: PLAN_CAPABILITY, fence: lease, connection, durationSec: LONG_SESSION_SEC }, (session) =>
       // lock: false — the read-only observe role cannot write the S3 state-lock object; the fenced env lease
       // (held, renewed and asserted around this call) is what serialises work on the environment. Apply always locks.
-      rt.tofu.planWorkspace(ws, tofuSession(session), { signal, planDir: rt.d.planDir, lock: false, deletionNodes, inspectPlan: inspectDeployDeletions(rt, ec, deletionNodes, dnsNodes, session, signal, lease), normalize: { fingerprintKey: rt.d.fingerprintKey } })
+      rt.tofu.planWorkspace(ws, tofuSession(session), { signal, planDir: rt.d.planDir, lock: false, expectedDigest, deletionNodes, inspectPlan: inspectDeployDeletions(rt, ec, deletionNodes, dnsNodes, session, signal, lease), normalize: { fingerprintKey: rt.d.fingerprintKey } })
     )
   );
   await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
@@ -283,7 +283,7 @@ export function createPlanActivities(rt: Runtime): PlanActivities {
 
     async finalPlan({ operationId, approvedPlanDigest, lease }) {
       const ec = await loadExecContext(rt, operationId);
-      const stage = await runPlanStage(rt, ec, lease, "tofu plan (final)");
+      const stage = await runPlanStage(rt, ec, lease, "tofu plan (final)", approvedPlanDigest);
       const evidence = planEvidence({ plan: stage.plan, facts: stage.facts, cost: stage.cost, graphDigest: stage.graphDigest, stage: "final_plan", approvedDigest: approvedPlanDigest });
       await rt.evidence(ec.scope, { kind: "tofu_plan", digest: evidence.digest, summary: { ...evidence.summary, ...stage.deletions }, simulated: false, key: evidence.key }, { critical: false });
       if (stage.plan.planDigest !== approvedPlanDigest) {

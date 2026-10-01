@@ -11,13 +11,17 @@
  *    HTTP layer answers `409 already_settled`.
  *  - **Nothing is re-dispatched.** A job whose lease lapses becomes
  *    `timed_out` and an unclaimed one past its expiry becomes `expired`;
- *    callers reconcile the owning operation to `uncertain` and never re-queue.
+ *    callers reconcile an owning operation to `uncertain` and never re-queue.
+ *  - Reads may have no operation, ONLY for catalogued non-mutating capabilities
+ *    (repository guard + SQL CHECK). The broker's reserved `read:<grant jti>`
+ *    reference is carried in the signed envelope, never used as an operation FK.
  *  - The `envelope` is the compact JWS the control plane signed (it embeds a
  *    capability grant, deliberately, for the runner to verify); it is stored as
  *    opaque text, never logged and never returned to a model. Results, errors
  *    and log lines are scanned for literal secret shapes (defence in depth; the
  *    runner redacts first).
  */
+import { capability, isCapability } from "@/lib/capabilities/catalog";
 import type { Sql } from "@/lib/controlplane/types";
 import { ControlStoreError, requireText } from "../errors";
 import { assertNoSecretValues } from "../secrets";
@@ -33,6 +37,7 @@ export interface RunnerJob {
   id: string;
   runnerId: string;
   workspaceId: string;
+  /** Empty for an operation-less read; preserves the existing runner queue port. */
   operationId: string;
   kind: string;
   capability: string;
@@ -53,7 +58,7 @@ interface JobRow {
   id: string;
   runner_id: string;
   workspace_id: string;
-  operation_id: string;
+  operation_id: string | null;
   kind: string;
   capability: string;
   envelope: string;
@@ -75,7 +80,7 @@ const toJob = (row: JobRow): RunnerJob => ({
   id: row.id,
   runnerId: row.runner_id,
   workspaceId: row.workspace_id,
-  operationId: row.operation_id,
+  operationId: row.operation_id ?? "",
   kind: row.kind,
   capability: row.capability,
   envelope: row.envelope,
@@ -95,7 +100,8 @@ export interface EnqueueJobInput {
   id: string;
   workspaceId: string;
   runnerId: string;
-  operationId: string;
+  /** Omitted/null for a read, or the broker's reserved `read:<grant jti>` reference. */
+  operationId?: string | null;
   kind: string;
   capability: string;
   envelope: string;
@@ -105,31 +111,39 @@ export interface EnqueueJobInput {
 
 /**
  * Queue a job. The runner must exist in this workspace, be active, and the
- * operation must belong to it (composite foreign keys + an `active` check).
+ * operation, when present, must belong to it (composite foreign keys + an
+ * `active` check). Operation-less reads expire independently of operations.
  */
 export async function enqueue(sql: Sql, input: EnqueueJobInput): Promise<RunnerJob> {
   if (input.envelope.length === 0 || input.envelope.length > MAX_ENVELOPE_BYTES)
     throw new ControlStoreError("invalid_input", "envelope must be a non-empty compact JWS of at most 256 KiB.", { field: "envelope" });
   const ttl = boundedMs("ttlMs", input.ttlMs ?? 5 * 60 * 1000, 1000, 60 * 60 * 1000);
+  const readReference = typeof input.operationId === "string" && input.operationId.startsWith("read:");
+  const operationId = input.operationId == null || readReference
+    ? null
+    : requireText("operationId", input.operationId);
+  if (operationId === null && (!isCapability(input.capability) || capability(input.capability).mutates))
+    throw new ControlStoreError("invalid_input", "An operation-less runner job requires a catalogued non-mutating capability.", { field: "capability" });
+  if (readReference) requireText("readReference", input.operationId, 128);
   const rows = await sql.query<JobRow>(
     `insert into platform.runner_jobs (id, runner_id, workspace_id, operation_id, kind, capability, envelope, expires_at)
      select $1, r.id, r.workspace_id, $4, $5, $6, $7, clock_timestamp() + ($8::bigint * interval '1 millisecond')
        from platform.runners r
       where r.workspace_id = $2 and r.id = $3 and r.status = 'active'
-        and exists (select 1 from platform.operations o where o.workspace_id = $2 and o.id = $4)
+        and ($4::text is null or exists (select 1 from platform.operations o where o.workspace_id = $2 and o.id = $4))
      returning ${COLUMNS}`,
     [
       requireText("id", input.id, 128),
       requireText("workspaceId", input.workspaceId),
       requireText("runnerId", input.runnerId),
-      requireText("operationId", input.operationId),
+      operationId,
       requireText("kind", input.kind, 64),
       requireText("capability", input.capability, 128),
       input.envelope,
       ttl,
     ]
   );
-  if (rows.length === 0) throw new ControlStoreError("not_found", "No active runner and operation with those ids in this workspace.", { runnerId: input.runnerId, operationId: input.operationId });
+  if (rows.length === 0) throw new ControlStoreError("not_found", "No active runner or required operation with those ids in this workspace.", { runnerId: input.runnerId });
   return toJob(rows[0]);
 }
 

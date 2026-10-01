@@ -1,0 +1,696 @@
+{
+  "infrastructure.observe": [
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "vcns"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "vcns/{}"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "subnets"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "subnets/{}"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "internetGateways"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "natGateways"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "networkSecurityGroups"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "networkSecurityGroups/{}/securityRules"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "volumes"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "volumes/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}/health"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}/backendSets/{}/health"
+    },
+    {
+      "service": "certificates",
+      "method": "GET",
+      "pattern": "certificates"
+    },
+    {
+      "service": "certificates",
+      "method": "GET",
+      "pattern": "certificates/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}/records/{}/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containerInstances"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containerInstances/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containers/{}"
+    },
+    {
+      "service": "artifacts",
+      "method": "GET",
+      "pattern": "container/repositories"
+    },
+    {
+      "service": "artifacts",
+      "method": "GET",
+      "pattern": "container/repositories/{}"
+    },
+    {
+      "service": "postgresql",
+      "method": "GET",
+      "pattern": "dbSystems"
+    },
+    {
+      "service": "postgresql",
+      "method": "GET",
+      "pattern": "dbSystems/{}"
+    },
+    {
+      "service": "objectstorage",
+      "method": "GET",
+      "pattern": "n"
+    },
+    {
+      "service": "objectstorage",
+      "method": "GET",
+      "pattern": "n/{}/b"
+    },
+    {
+      "service": "objectstorage",
+      "method": "GET",
+      "pattern": "n/{}/b/{}"
+    },
+    {
+      "service": "queue",
+      "method": "GET",
+      "pattern": "queues"
+    },
+    {
+      "service": "queue",
+      "method": "GET",
+      "pattern": "queues/{}"
+    },
+    {
+      "service": "queue-data",
+      "method": "GET",
+      "pattern": "queues/{}/stats"
+    },
+    {
+      "service": "vault",
+      "method": "GET",
+      "pattern": "secrets"
+    },
+    {
+      "service": "vault",
+      "method": "GET",
+      "pattern": "secrets/{}"
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "pattern": "dynamicGroups"
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "pattern": "dynamicGroups/{}"
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "pattern": "policies"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "logGroups"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "logGroups/{}"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "logGroups/{}/logs"
+    },
+    {
+      "service": "redis",
+      "method": "GET",
+      "pattern": "redisClusters"
+    },
+    {
+      "service": "redis",
+      "method": "GET",
+      "pattern": "redisClusters/{}"
+    }
+  ],
+  "topology.read": [
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "vcns"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "vcns/{}"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "subnets"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "subnets/{}"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "internetGateways"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "natGateways"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "networkSecurityGroups"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "networkSecurityGroups/{}/securityRules"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "volumes"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "volumes/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}/health"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}/backendSets/{}/health"
+    },
+    {
+      "service": "certificates",
+      "method": "GET",
+      "pattern": "certificates"
+    },
+    {
+      "service": "certificates",
+      "method": "GET",
+      "pattern": "certificates/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}/records/{}/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containerInstances"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containerInstances/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containers/{}"
+    },
+    {
+      "service": "artifacts",
+      "method": "GET",
+      "pattern": "container/repositories"
+    },
+    {
+      "service": "artifacts",
+      "method": "GET",
+      "pattern": "container/repositories/{}"
+    },
+    {
+      "service": "postgresql",
+      "method": "GET",
+      "pattern": "dbSystems"
+    },
+    {
+      "service": "postgresql",
+      "method": "GET",
+      "pattern": "dbSystems/{}"
+    },
+    {
+      "service": "objectstorage",
+      "method": "GET",
+      "pattern": "n"
+    },
+    {
+      "service": "objectstorage",
+      "method": "GET",
+      "pattern": "n/{}/b"
+    },
+    {
+      "service": "objectstorage",
+      "method": "GET",
+      "pattern": "n/{}/b/{}"
+    },
+    {
+      "service": "queue",
+      "method": "GET",
+      "pattern": "queues"
+    },
+    {
+      "service": "queue",
+      "method": "GET",
+      "pattern": "queues/{}"
+    },
+    {
+      "service": "queue-data",
+      "method": "GET",
+      "pattern": "queues/{}/stats"
+    },
+    {
+      "service": "vault",
+      "method": "GET",
+      "pattern": "secrets"
+    },
+    {
+      "service": "vault",
+      "method": "GET",
+      "pattern": "secrets/{}"
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "pattern": "dynamicGroups"
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "pattern": "dynamicGroups/{}"
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "pattern": "policies"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "logGroups"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "logGroups/{}"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "logGroups/{}/logs"
+    },
+    {
+      "service": "redis",
+      "method": "GET",
+      "pattern": "redisClusters"
+    },
+    {
+      "service": "redis",
+      "method": "GET",
+      "pattern": "redisClusters/{}"
+    }
+  ],
+  "incident.investigate": [
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "vcns"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "vcns/{}"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "subnets"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "subnets/{}"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "internetGateways"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "natGateways"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "networkSecurityGroups"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "networkSecurityGroups/{}/securityRules"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "volumes"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "volumes/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}/health"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}/backendSets/{}/health"
+    },
+    {
+      "service": "certificates",
+      "method": "GET",
+      "pattern": "certificates"
+    },
+    {
+      "service": "certificates",
+      "method": "GET",
+      "pattern": "certificates/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}/records/{}/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containerInstances"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containerInstances/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containers/{}"
+    },
+    {
+      "service": "artifacts",
+      "method": "GET",
+      "pattern": "container/repositories"
+    },
+    {
+      "service": "artifacts",
+      "method": "GET",
+      "pattern": "container/repositories/{}"
+    },
+    {
+      "service": "postgresql",
+      "method": "GET",
+      "pattern": "dbSystems"
+    },
+    {
+      "service": "postgresql",
+      "method": "GET",
+      "pattern": "dbSystems/{}"
+    },
+    {
+      "service": "objectstorage",
+      "method": "GET",
+      "pattern": "n"
+    },
+    {
+      "service": "objectstorage",
+      "method": "GET",
+      "pattern": "n/{}/b"
+    },
+    {
+      "service": "objectstorage",
+      "method": "GET",
+      "pattern": "n/{}/b/{}"
+    },
+    {
+      "service": "queue",
+      "method": "GET",
+      "pattern": "queues"
+    },
+    {
+      "service": "queue",
+      "method": "GET",
+      "pattern": "queues/{}"
+    },
+    {
+      "service": "queue-data",
+      "method": "GET",
+      "pattern": "queues/{}/stats"
+    },
+    {
+      "service": "vault",
+      "method": "GET",
+      "pattern": "secrets"
+    },
+    {
+      "service": "vault",
+      "method": "GET",
+      "pattern": "secrets/{}"
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "pattern": "dynamicGroups"
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "pattern": "dynamicGroups/{}"
+    },
+    {
+      "service": "identity",
+      "method": "GET",
+      "pattern": "policies"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "logGroups"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "logGroups/{}"
+    },
+    {
+      "service": "logging",
+      "method": "GET",
+      "pattern": "logGroups/{}/logs"
+    },
+    {
+      "service": "redis",
+      "method": "GET",
+      "pattern": "redisClusters"
+    },
+    {
+      "service": "redis",
+      "method": "GET",
+      "pattern": "redisClusters/{}"
+    }
+  ],
+  "firewall.inspect": [
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "networkSecurityGroups"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "networkSecurityGroups/{}/securityRules"
+    }
+  ],
+  "service.restart": [
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containerInstances"
+    },
+    {
+      "service": "containerinstances",
+      "method": "POST",
+      "pattern": "containerInstances/{}/actions/restart"
+    }
+  ],
+  "database.snapshot": [
+    {
+      "service": "postgresql",
+      "method": "GET",
+      "pattern": "dbSystems"
+    },
+    {
+      "service": "postgresql",
+      "method": "GET",
+      "pattern": "dbSystems/{}"
+    },
+    {
+      "service": "postgresql",
+      "method": "POST",
+      "pattern": "backups"
+    }
+  ],
+  "secret.write": [
+    {
+      "service": "vault",
+      "method": "GET",
+      "pattern": "secrets"
+    },
+    {
+      "service": "vault",
+      "method": "GET",
+      "pattern": "secrets/{}"
+    },
+    {
+      "service": "vault",
+      "method": "PUT",
+      "pattern": "secrets/{}"
+    }
+  ]
+}

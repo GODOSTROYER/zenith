@@ -1,0 +1,61 @@
+{
+  "core": {
+    "host": "iaas.{region}.oraclecloud.com",
+    "version": "20160918"
+  },
+  "loadbalancer": {
+    "host": "iaas.{region}.oraclecloud.com",
+    "version": "20170115"
+  },
+  "certificates": {
+    "host": "certificates.{region}.oci.oraclecloud.com",
+    "version": "20210224"
+  },
+  "dns": {
+    "host": "dns.{region}.oraclecloud.com",
+    "version": "20180115"
+  },
+  "containerinstances": {
+    "host": "compute-containers.{region}.oci.oraclecloud.com",
+    "version": "20210415"
+  },
+  "artifacts": {
+    "host": "artifacts.{region}.oci.oraclecloud.com",
+    "version": "20160918"
+  },
+  "postgresql": {
+    "host": "postgresql.{region}.oci.oraclecloud.com",
+    "version": "20220915"
+  },
+  "objectstorage": {
+    "host": "objectstorage.{region}.oraclecloud.com"
+  },
+  "queue": {
+    "host": "messaging.{region}.oci.oraclecloud.com",
+    "version": "20210201"
+  },
+  "queue-data": {
+    "host": "{messagesEndpoint}",
+    "version": "20210201"
+  },
+  "vault": {
+    "host": "vaults.{region}.oci.oraclecloud.com",
+    "version": "20180608"
+  },
+  "identity": {
+    "host": "identity.{region}.oci.oraclecloud.com",
+    "version": "20160918"
+  },
+  "logging": {
+    "host": "logging.{region}.oci.oraclecloud.com",
+    "version": "20200531"
+  },
+  "redis": {
+    "host": "redis.{region}.oci.oraclecloud.com",
+    "version": "20220315"
+  },
+  "containerengine": {
+    "host": "containerengine.{region}.oraclecloud.com",
+    "version": "20180222"
+  }
+}

@@ -98,7 +98,7 @@ export const STORE_LOG_BATCH_LINES = 500;
 
 /* -------------------------------- job kinds -------------------------------- */
 
-export const RUNNER_JOB_KINDS = ["tofu.run", "aws.http", "k8s.http", "probe.http", "probe.tcp", "probe.dns"] as const;
+export const RUNNER_JOB_KINDS = ["tofu.run", "aws.http", "oci.http", "k8s.http", "probe.http", "probe.tcp", "probe.dns"] as const;
 export type RunnerJobKind = (typeof RUNNER_JOB_KINDS)[number];
 
 /* -------------------------------- envelopes -------------------------------- */

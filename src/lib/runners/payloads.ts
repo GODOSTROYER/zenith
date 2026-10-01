@@ -16,6 +16,7 @@ import { z } from "zod";
 import { isSafeRelativePath } from "@/lib/tofu/config-digest";
 import { MACHINE_OPERATIONS, type MachineOperation } from "@/lib/machines/types";
 import type { RunnerJobKind } from "@/lib/runners/types";
+import { OCI_SERVICE_HOSTS, type OciServiceId } from "@/lib/providers/oci/services";
 
 const hex64 = z.string().regex(/^[0-9a-f]{64}$/, "must be 64 lowercase hex characters");
 /** Strict standard base64 (padded); what `Buffer.from(x, "base64").toString("base64")` round-trips. */
@@ -72,6 +73,52 @@ export const K8sHttpPayloadSchema = z
   })
   .strict();
 
+const ociControls = /[\u0000-\u001f\u007f]/;
+const ociRequestHeaders = new Set(["opc-retry-token", "if-match", "if-none-match", "opc-request-id"]);
+const ociWirePath = (path: string): boolean => {
+  if (Buffer.byteLength(path, "utf8") > 2048 || !path.startsWith("/") || /[\s\u007f-\uffff\\?#]/.test(path) || ociControls.test(path)) return false;
+  return path.slice(1).split("/").every((segment) => {
+    try {
+      const decoded = decodeURIComponent(segment);
+      return decoded !== "" && !/^\.+$/.test(decoded) && !/[/\\]/.test(decoded) && !ociControls.test(decoded);
+    } catch { return false; }
+  });
+};
+
+/** OCI jobs never contain credentials. Vault writes are disabled until sealing exists. */
+export const OciHttpPayloadSchema = z.object({
+  service: z.enum(Object.keys(OCI_SERVICE_HOSTS) as [OciServiceId, ...OciServiceId[]]),
+  region: z.string().regex(/^[a-z]{2}-[a-z0-9-]{3,30}-\d$/),
+  method: z.enum(["GET", "HEAD", "POST", "PUT"]),
+  path: z.string().refine(ociWirePath, "must be a percent-encoded absolute OCI path"),
+  query: z.array(z.tuple([z.string().min(1).max(128), z.string().max(2048)])).max(128).default([]),
+  headers: z.record(z.string().max(256)).default({}),
+  bodyB64: base64.max(Math.ceil((1 << 20) / 3) * 4).optional(),
+  endpointHost: z.string().max(253).regex(/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+oraclecloud\.com$/).optional(),
+}).strict().superRefine((p, ctx) => {
+  const issue = (path: string, message: string) => ctx.addIssue({ code: "custom", path: [path], message });
+  if ((p.service === "queue-data") !== (p.endpointHost !== undefined)) issue("endpointHost", "required only for queue-data");
+  const seen = new Set<string>();
+  for (const [name, value] of Object.entries(p.headers)) {
+    const lower = name.toLowerCase();
+    if (!ociRequestHeaders.has(lower) || seen.has(lower) || ociControls.test(value) || Buffer.byteLength(value, "utf8") > 256) issue("headers", "header is forbidden, duplicated or malformed");
+    seen.add(lower);
+  }
+  let last = "";
+  for (const [name, value] of p.query) {
+    if (name < last || ociControls.test(name) || ociControls.test(value) || Buffer.byteLength(name, "utf8") > 128 || Buffer.byteLength(value, "utf8") > 2048) issue("query", "query must be bounded and sorted by name");
+    last = name;
+  }
+  if (p.bodyB64 !== undefined) {
+    if (p.method === "GET" || p.method === "HEAD") issue("bodyB64", "GET and HEAD carry no body");
+    const bytes = Buffer.from(p.bodyB64, "base64");
+    if (bytes.length > 1 << 20 || bytes.toString("base64") !== p.bodyB64) issue("bodyB64", "body exceeds 1 MiB or is not canonical base64");
+    try { JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)); } catch { issue("bodyB64", "body must be UTF-8 JSON"); }
+  }
+  if (p.service === "vault" && p.method === "PUT") issue("method", "secret.write is disabled until sealed-body support exists");
+  if (p.method === "POST" && !Object.entries(p.headers).some(([name, value]) => name.toLowerCase() === "opc-retry-token" && value.trim() !== "")) issue("headers", "POST operations require opc-retry-token");
+});
+
 const timeoutMs = z.number().int().min(1).max(120_000);
 
 export const ProbeHttpPayloadSchema = z
@@ -95,6 +142,7 @@ export const ProbeDnsPayloadSchema = z.object({ name: z.string().min(1).max(253)
 export const RUNNER_PAYLOAD_SCHEMAS: { [K in RunnerJobKind]: z.ZodType<unknown> } = {
   "tofu.run": TofuRunPayloadSchema,
   "aws.http": AwsHttpPayloadSchema,
+  "oci.http": OciHttpPayloadSchema,
   "k8s.http": K8sHttpPayloadSchema,
   "probe.http": ProbeHttpPayloadSchema,
   "probe.tcp": ProbeTcpPayloadSchema,
@@ -103,6 +151,7 @@ export const RUNNER_PAYLOAD_SCHEMAS: { [K in RunnerJobKind]: z.ZodType<unknown> 
 
 export type TofuRunPayload = z.infer<typeof TofuRunPayloadSchema>;
 export type AwsHttpPayload = z.infer<typeof AwsHttpPayloadSchema>;
+export type OciHttpPayload = z.infer<typeof OciHttpPayloadSchema>;
 
 export class PayloadError extends Error {
   readonly code = "invalid_payload";

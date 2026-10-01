@@ -17,7 +17,7 @@ import { platformCredentialBroker } from "./credentials";
 import { createExecutionBroker } from "./broker";
 import { registerAllDrivers } from "./drivers";
 import { platformDriverLookup } from "./driver-lookup";
-import { createAwsBuildPort, createAwsWorkloadsPort, createAwsMigrationsPort } from "./release";
+import { createReleasePorts } from "./release";
 import { composeReconcilePorts } from "./reconcile";
 
 export interface ComposeExecutionOptions {
@@ -44,7 +44,7 @@ export function composeExecutionActivities(opts: ComposeExecutionOptions): Worke
     product: createProductPort(), broker: createExecutionBroker(opts.db), credentials,
     tofu: { planWorkspace, applyVerifiedPlan }, cost: defaultCostPort(),
     observability: ({ session, ...input }) => createObservabilityFabric(sourcesForEnvironment({ ...input, sessions: session.provider === "aws" ? { aws: session } : session.provider === "kubernetes" ? { kubernetes: session } : {} })),
-    prober: createSafeProber(), build: createAwsBuildPort(), workloads: createAwsWorkloadsPort(), migrations: createAwsMigrationsPort(),
+    prober: createSafeProber(), ...createReleasePorts({ db: opts.db }),
     ...opts.ports,
     fingerprintKey, workerId: opts.workerIdentity, planDir: opts.planDir,
   };

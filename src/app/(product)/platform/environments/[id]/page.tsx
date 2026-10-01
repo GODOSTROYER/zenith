@@ -4,6 +4,7 @@ import { loadEnvironment, one, type Search } from "../../_lib/loaders";
 import { EvidenceNote, PageState } from "../../_components/page-state";
 import { EnvironmentState } from "./environment-state";
 import { EnvironmentAutonomy } from "./environment-autonomy";
+import { EnvironmentTeardown } from "./environment-teardown";
 export const dynamic = "force-dynamic";
 export default async function EnvironmentPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Search> }) {
   const [{ id }, search] = await Promise.all([params, searchParams]);
@@ -17,5 +18,6 @@ export default async function EnvironmentPage({ params, searchParams }: { params
     {data.resources.nextCursor && <Link className="text-signal hover:underline" href={`/platform/environments/${encodeURIComponent(id)}?cursor=${encodeURIComponent(data.resources.nextCursor)}`}>Next resources</Link>}
     {one(search, "cursor") && <Link className="text-signal hover:underline" href={`/platform/environments/${encodeURIComponent(id)}`}>First resources</Link>}
     <EnvironmentAutonomy key={data.autonomy.version} initial={data.autonomy} workspaceId={context.workspaceId} viewerRole={context.role} environmentName={name} />
+    <EnvironmentTeardown workspaceId={context.workspaceId} environmentId={id} viewerRole={context.role} environmentName={context.environments.find((e) => e.id === id)?.name} />
   </div>;
 }

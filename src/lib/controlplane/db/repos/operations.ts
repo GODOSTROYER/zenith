@@ -111,14 +111,16 @@ export function toOperation(row: OperationRow): OperationRecord {
 /**
  * Legal edges. `running` is reachable only through `claimForExecution`;
  * `approved` from `awaiting_approval` only through `approvals.record`; both are
- * enforced below. Terminal statuses have no outgoing edge.
+ * enforced below. Running suspension is owned by `operations-execution` so it
+ * cannot omit the new approval round or claim cleanup. Terminal statuses have
+ * no outgoing edge.
  */
 export const ALLOWED_TRANSITIONS: Readonly<Record<OperationStatus, readonly OperationStatus[]>> = {
   proposed: ["awaiting_approval", "approved", "denied", "cancelled", "expired"],
   awaiting_approval: ["approved", "rejected", "cancelled", "expired"],
-  approved: ["queued", "running", "cancelled", "expired"],
+  approved: ["queued", "running", "denied", "cancelled", "expired"],
   queued: ["running", "cancelled", "expired"],
-  running: ["succeeded", "failed", "uncertain"],
+  running: ["awaiting_approval", "succeeded", "failed", "uncertain", "cancelled"],
   rejected: [],
   denied: [],
   succeeded: [],
@@ -238,6 +240,20 @@ export async function get(sql: Sql, workspaceId: string, id: string): Promise<Op
   return rows.length ? toOperation(rows[0]) : null;
 }
 
+/**
+ * Trusted worker/system lookup only. Never expose this on a tenant request
+ * path: unlike `get`, it deliberately crosses workspaces because workflow
+ * activities receive only an operation id. All subsequent calls must use the
+ * returned record's workspaceId.
+ */
+export async function getForSystem(sql: Sql, id: string): Promise<OperationRecord | null> {
+  const rows = await sql.query<OperationRow>(
+    `select ${OPERATION_COLUMNS} from platform.operations where id = $1`,
+    [requireText("id", id)]
+  );
+  return rows.length ? toOperation(rows[0]) : null;
+}
+
 export interface OperationFilters {
   status?: OperationStatus | readonly OperationStatus[];
   projectId?: string;
@@ -337,13 +353,18 @@ export async function transition(sql: Sql, input: TransitionInput): Promise<Oper
       throw new ControlStoreError("invalid_state", `Illegal operation transition ${f} to ${input.to}.`, { from: f, to: input.to });
   if (input.to === "running")
     throw new ControlStoreError("invalid_state", "An operation becomes running only through claimForExecution (it verifies the digest and consumes the approval).");
+  if (input.to === "awaiting_approval" && input.from.includes("running"))
+    throw new ControlStoreError("invalid_state", "A running operation is suspended only through suspendForApproval (it opens a fresh approval round and clears the claim).");
   if (input.to === "approved" && input.from.includes("awaiting_approval"))
     throw new ControlStoreError("invalid_state", "An operation awaiting approval is approved only by approvals.record.");
   const patch = input.patch ?? {};
   if ((patch.policyDecisionId !== undefined || patch.approvalRequired !== undefined) && input.from.some((f) => f !== "proposed"))
     throw new ControlStoreError("invalid_input", "policyDecisionId and approvalRequired may only be set while leaving `proposed`.");
   if (patch.result !== undefined) assertNoSecretValues(patch.result, "result");
-  if (patch.error !== undefined && patch.error.length > 4000) throw new ControlStoreError("invalid_input", "error is too long (max 4000 characters).");
+  if (patch.error !== undefined) {
+    if (patch.error.length > 4000) throw new ControlStoreError("invalid_input", "error is too long (max 4000 characters).");
+    assertNoSecretValues(patch.error, "error");
+  }
   if (patch.planDigest !== undefined) requireDigest("planDigest", patch.planDigest);
 
   const run = async (tx: Sql): Promise<OperationRecord | null> => {

@@ -21,6 +21,9 @@ import {
 import { EMITTED_FILE, EMITTED_RELATIVE_PATH, renderSupabaseMigration } from "@/lib/controlplane/db/migrations/emit";
 import { BOOTSTRAP_SQL } from "@/lib/controlplane/db/migrations/bootstrap";
 import { PG_URL, withScratchDatabase } from "./_support/harness";
+import * as repos from "@/lib/controlplane/db/repos";
+import { claimOperation, suspendForApproval } from "@/lib/controlplane/operations";
+import { proposalFor, uid, user } from "./_support/harness";
 
 const core = PLATFORM_MIGRATIONS[0];
 /** Every shipped version; the suite must not assume how many migrations exist. */
@@ -110,6 +113,30 @@ describe("migration set", () => {
 });
 
 describe.each(lanes)("migrator [$name]", (lane) => {
+  it("upgrades existing approvals without dropping their audit history, permitting a fresh plan round", async () => {
+    await lane.withFresh(async (open) => {
+      const db = await open(false);
+      const legacy = PLATFORM_MIGRATIONS.filter((m) => m.version < 4);
+      await migratePlatformDb(db, legacy);
+      const workspaceId = uid("ws");
+      const approver = user();
+      const { operation: op } = await repos.operations.create(db, { workspaceId, principal: user(), proposal: proposalFor(workspaceId), status: "awaiting_approval" });
+      const approvalId = uid("approval");
+      await db.query(`insert into platform.approvals
+        (id, workspace_id, operation_id, proposal_digest, decision, approver, approver_id, approver_role, policy_version, expires_at)
+        values ($1,$2,$3,$4,'approve',$5::text::jsonb,$6,'editor','legacy',clock_timestamp() + interval '1 hour')`,
+      [approvalId, workspaceId, op.id, op.proposalDigest, JSON.stringify(approver), approver.id]);
+      await db.query("update platform.operations set status = 'approved' where workspace_id = $1 and id = $2", [workspaceId, op.id]);
+      expect((await migratePlatformDb(db)).applied).toEqual(PLATFORM_MIGRATIONS.filter((m) => m.version >= 4).map((m) => m.version));
+      expect(await db.query("select approval_round from platform.approvals where workspace_id = $1 and id = $2", [workspaceId, approvalId])).toEqual([{ approval_round: 0 }]);
+      await claimOperation(db, { workspaceId, id: op.id, expectedDigest: op.proposalDigest, holder: "worker" });
+      await suspendForApproval(db, { workspaceId, id: op.id });
+      await repos.approvals.record(db, { workspaceId, operationId: op.id, approver, approverRole: "editor", decision: "approve", proposalDigest: op.proposalDigest, policyVersion: "plan" });
+      expect(await db.query("select approval_round from platform.approvals where workspace_id = $1 and operation_id = $2 order by approval_round", [workspaceId, op.id])).toEqual([{ approval_round: 0 }, { approval_round: 1 }]);
+      expect((await repos.approvals.listForOperation(db, workspaceId, op.id))[0].id).toBe(approvalId);
+    });
+  }, 60_000);
+
   it("applies on a fresh database, records the ledger with checksums, and re-running is a no-op", async () => {
     await lane.withFresh(async (open) => {
       const db = await open(false);

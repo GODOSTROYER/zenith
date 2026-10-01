@@ -1,7 +1,7 @@
 /**
  * Approvals service: `decide` records a human decision and appends the matching
  * event in the same transaction. The rules (human-only, digest-bound, role,
- * separation of duties, single decision per approver, expiry, single-use
+ * separation of duties, single decision per approver per round, expiry, single-use
  * consumption at claim time) live in `db/repos/approvals.ts`; this is only the
  * event-emitting wrapper other subsystems import.
  */

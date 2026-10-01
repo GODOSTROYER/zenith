@@ -8,25 +8,10 @@
  *     createExecutionActivities({ ...ports, product: createProductPort(), … });
  *
  * The adapters add no authority of their own: every call is a repository call,
- * workspace-scoped in SQL. Three places go beyond what the repositories expose,
- * and they are listed here because each is a request to the store's owner:
- *
- *  1. `OperationsPort.get(id)` looks an operation up by id alone (the workflow
- *     hands activities only an id). The repository's `get` needs the workspace.
- *  2. The workflow's plan-level approval gate needs `running → awaiting_approval`
- *     (release the claim, require approval) and then `approved → running` again.
- *     The ledger's state machine has no such edge (`running` leads only to a
- *     terminal status), and `approvals.record` only accepts an operation that is
- *     `awaiting_approval`. `suspendForApproval` below performs exactly that one
- *     edge with a conditional UPDATE (`where status = 'running'`), clears the
- *     execution claim and sets `approval_required`; it can only make an
- *     operation MORE restricted. The proper fix is a repository function
- *     (`operations.suspendForApproval`) and then this SQL goes away.
- *  3. `setPlanDigest` and `setPolicyDecision` are standalone column writes; the
- *     repository only sets them as part of a status transition (and
- *     `policyDecisionId` only when leaving `proposed`). Approvers' requirements
- *     are read from the operation's `policy_decision_id`, so a plan-level
- *     re-evaluation must be able to link its decision. Same remedy.
+ * workspace-scoped in SQL. `getForSystem` is the explicit exception: this
+ * trusted worker lookup receives only an id and must never be exposed on a
+ * tenant request path. Plan metadata and suspension use store services, with
+ * audit events in the same transaction; no SQL is issued by this adapter.
  *
  * Status mapping (the workflow's statuses onto the ledger's state machine):
  *
@@ -35,9 +20,8 @@
  *   awaiting_approval  running → `suspendForApproval`; otherwise no-op
  *   succeeded|failed   running → `completeOperation`
  *   uncertain          running → `uncertain` (+ `operation.uncertain`)
- *   cancelled          pre-execution → `cancelOperation`; RUNNING has no ledger edge to `cancelled`, so it
- *                      ends `uncertain` if a mutating call had begun (a `resource.applying` event exists),
- *                      else `failed` with the cancellation text
+ *   cancelled          pre-execution → `cancelOperation`; running → `cancelRunningOperation`
+ *                      (a requested stop, with no claim of cloud rollback)
  *   expired            pre-execution → `expired` (+ event)
  *
  * A request that finds the operation already terminal changes nothing and returns
@@ -48,10 +32,9 @@
  * The execution heartbeat holder is `workflow:<operationId>`, not a worker id, so
  * any worker's activity can extend the claim.
  */
-import { claimOperation, cancelOperation, completeOperation } from "@/lib/controlplane/operations";
+import { claimOperation, cancelOperation, cancelRunningOperation, completeOperation, suspendForApproval, setPlanDigest, setPolicyDecision } from "@/lib/controlplane/operations";
 import { emitForOperation } from "@/lib/controlplane/events";
 import * as repos from "@/lib/controlplane/db/repos";
-import { OPERATION_COLUMNS, toOperation, type OperationRow } from "@/lib/controlplane/db/repos/operations";
 import { HEX64 } from "@/lib/controlplane/db/sql";
 import { TERMINAL_OPERATION_STATUSES, type OperationRecord, type Sql } from "@/lib/controlplane/types";
 import type { ConnectionsPort, EventsPort, EvidencePort, LeasesPort, OperationsPort, ResourcesPort } from "./ports";
@@ -70,23 +53,6 @@ const isTerminal = (status: OperationRecord["status"]): boolean => TERMINAL_OPER
 export function createOperationsPort(sql: Sql): OperationsPort {
   const current = async (workspaceId: string, id: string): Promise<OperationRecord | null> => repos.operations.get(sql, workspaceId, id);
 
-  const suspendForApproval = async (workspaceId: string, id: string): Promise<OperationRecord | null> => {
-    const rows = await sql.query<OperationRow>(
-      `update platform.operations
-          set status = 'awaiting_approval', approval_required = true, updated_at = clock_timestamp(),
-              lease_holder = null, lease_until = null, lease_scope = null, fence_token = null
-        where workspace_id = $1 and id = $2 and status = 'running'
-        returning ${OPERATION_COLUMNS}`,
-      [workspaceId, id]
-    );
-    return rows.length ? toOperation(rows[0]) : current(workspaceId, id);
-  };
-
-  const mutationBegan = async (workspaceId: string, id: string): Promise<boolean> => {
-    const rows = await sql.query<{ n: number }>("select 1 as n from platform.events where workspace_id = $1 and operation_id = $2 and type = 'resource.applying' limit 1", [workspaceId, id]);
-    return rows.length > 0;
-  };
-
   const markUncertain = async (workspaceId: string, id: string, reason: string): Promise<OperationRecord | null> =>
     sql.tx(async (tx) => {
       const op = await repos.operations.transition(tx, { workspaceId, id, from: ["running"], to: "uncertain", patch: { error: reason.slice(0, 1000) } });
@@ -97,8 +63,7 @@ export function createOperationsPort(sql: Sql): OperationsPort {
 
   return {
     async get(operationId) {
-      const rows = await sql.query<OperationRow>(`select ${OPERATION_COLUMNS} from platform.operations where id = $1`, [operationId]);
-      return rows.length ? toOperation(rows[0]) : null;
+      return repos.operations.getForSystem(sql, operationId);
     },
 
     async transition({ workspaceId, operationId, to, error }) {
@@ -109,11 +74,15 @@ export function createOperationsPort(sql: Sql): OperationsPort {
         switch (to) {
           case "running":
             if (op.status === "approved" || op.status === "queued") {
-              return await claimOperation(sql, { workspaceId, id: operationId, expectedDigest: op.proposalDigest, holder: executionHolder(operationId), leaseMs: CLAIM_LEASE_MS });
+              const decision = op.policyDecisionId ? await repos.policyDecisions.get(sql, workspaceId, op.policyDecisionId) : null;
+              return await claimOperation(sql, { workspaceId, id: operationId, expectedDigest: op.proposalDigest, holder: executionHolder(operationId), leaseMs: CLAIM_LEASE_MS, expectedPolicyVersion: decision?.policyVersion });
             }
             return op;
           case "awaiting_approval":
-            return op.status === "running" ? await suspendForApproval(workspaceId, operationId) : op;
+            // The workflow releases its environment lease before this gate.
+            // Suspension only removes authority; callers that still hold a
+            // lease can use the store service's optional live-fence check.
+            return op.status === "running" ? ((await suspendForApproval(sql, { workspaceId, id: operationId })) ?? (await current(workspaceId, operationId))) : op;
           case "succeeded":
           case "failed":
             return op.status === "running" ? ((await completeOperation(sql, { workspaceId, id: operationId, outcome: to, error })) ?? (await current(workspaceId, operationId))) : op;
@@ -121,8 +90,7 @@ export function createOperationsPort(sql: Sql): OperationsPort {
             return op.status === "running" ? await markUncertain(workspaceId, operationId, error ?? "The outcome could not be proven.") : op;
           case "cancelled":
             if (op.status === "running") {
-              if (await mutationBegan(workspaceId, operationId)) return await markUncertain(workspaceId, operationId, error ?? "Cancelled after changes had begun; the outcome could not be proven.");
-              return (await completeOperation(sql, { workspaceId, id: operationId, outcome: "failed", error: error ?? "Cancelled by request before any change was made." })) ?? (await current(workspaceId, operationId));
+              return (await cancelRunningOperation(sql, { workspaceId, id: operationId, reason: error, fence: recordedFence(op) })) ?? (await current(workspaceId, operationId));
             }
             return (await cancelOperation(sql, { workspaceId, id: operationId, reason: error })) ?? (await current(workspaceId, operationId));
           case "expired":
@@ -148,18 +116,25 @@ export function createOperationsPort(sql: Sql): OperationsPort {
 
     async setPlanDigest({ workspaceId, operationId, planDigest }) {
       if (!HEX64.test(planDigest)) throw new StepFailedError("The plan digest is not a SHA-256 hex digest.");
-      await sql.query("update platform.operations set plan_digest = coalesce(plan_digest, $3), updated_at = clock_timestamp() where workspace_id = $1 and id = $2", [workspaceId, operationId, planDigest]);
+      await setPlanDigest(sql, { workspaceId, id: operationId, planDigest });
     },
 
     async setPolicyDecision({ workspaceId, operationId, decisionId }) {
-      await sql.query(
-        `update platform.operations set policy_decision_id = $3, updated_at = clock_timestamp()
-          where workspace_id = $1 and id = $2 and status in ('running','awaiting_approval')
-            and exists (select 1 from platform.policy_decisions d where d.workspace_id = $1 and d.id = $3)`,
-        [workspaceId, operationId, decisionId]
-      );
+      const linked = await setPolicyDecision(sql, { workspaceId, id: operationId, decisionId });
+      if (linked) return;
+      const op = await current(workspaceId, operationId);
+      if (!op || op.policyDecisionId === decisionId || (op.status !== "running" && op.status !== "awaiting_approval")) return;
+      const decision = await repos.policyDecisions.get(sql, workspaceId, decisionId);
+      if (!decision || (decision.operationId !== undefined && decision.operationId !== operationId)) return;
+      // A real replacement refused after review began must stop the activity:
+      // silently retaining older requirements could authorize a changed policy.
+      throw new StepFailedError("The policy decision could not be linked to the operation's current approval round. Review a fresh operation before continuing.");
     },
   };
+}
+
+function recordedFence(op: OperationRecord): { scope: string; fenceToken: number } | undefined {
+  return op.leaseScope !== undefined && op.fenceToken !== undefined ? { scope: op.leaseScope, fenceToken: op.fenceToken } : undefined;
 }
 
 export function createLeasesPort(sql: Sql): LeasesPort {

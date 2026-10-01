@@ -31,6 +31,7 @@ import * as machines from "./machines";
 import * as nonces from "./nonces";
 import * as observations from "./observations";
 import * as operations from "./operations";
+import * as operationExecution from "./operations-execution";
 import * as policyDecisions from "./policy-decisions";
 import * as resources from "./resources";
 import * as runners from "./runners";
@@ -52,6 +53,7 @@ export {
   nonces,
   observations,
   operations,
+  operationExecution,
   policyDecisions,
   resources,
   runners,
@@ -93,6 +95,7 @@ export function bindRepos(sql: Sql) {
     nonces: bind(nonces, sql),
     observations: bind(observations, sql),
     operations: bind(operations, sql),
+    operationExecution: bind(operationExecution, sql),
     policyDecisions: bind(policyDecisions, sql),
     resources: bind(resources, sql),
     runners: bind(runners, sql),

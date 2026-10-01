@@ -134,6 +134,10 @@ async function decide(deps: BrokerDeps, input: DecideInput, decision: "approve" 
     }
     const round = approvalRoundOf(op);
     const review = operationPlanReview(op);
+    const teardownReview = (op.proposal as import("./types").BrokerProposal).broker?.teardownReview;
+    if (decision === "approve" && teardownReview && (!review || input.planDigest !== op.planDigest)) {
+      throw new BrokerError("digest_mismatch", "Review the recorded destroy PlanView and supply its exact plan digest before approving teardown.");
+    }
     if ((input.planDigest !== undefined && input.planDigest !== op.planDigest) ||
         (decision === "approve" && round > 0 && op.planDigest && input.planDigest !== op.planDigest)) {
       throw new BrokerError("digest_mismatch", "The reviewed plan digest does not match the gated plan.", "Reload and review the current plan.");

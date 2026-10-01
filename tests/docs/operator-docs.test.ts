@@ -93,7 +93,15 @@ describe("wave 7 operator claims retain their implementation wiring", () => {
     expect(approve).toContain("await deliverPlanApproval(outcome.operation)");
     expect(source("src/lib/bridge/lifecycle.ts")).toContain('import("./destroy")).startApprovedDestroy(op)');
     expect(teardown).toContain("requires an **admin**");
-    expect(teardown).toContain("there is no public UI, REST or MCP trigger");
+    expect(teardown).toContain("env.reviewTeardown");
+    expect(teardown).toContain("POST /api/platform/v1/environments/<id>/teardown-review");
+    expect(teardown).toContain("zenith_review_teardown");
+    expect(teardown).toContain("Agents need the integration `plan` scope");
+    expect(action).toContain('id: "env.reviewTeardown"');
+    const firstReview = source("src/lib/capabilities/destroy-review.ts");
+    expect(firstReview).toContain('expectedStatus: "awaiting_approval"');
+    expect(firstReview).toContain("await planDestroy(lease)");
+    expect(firstReview).toContain("ensureReviewEvidence(rt, broker, stored)");
     expect(source("src/app/(product)/platform/environments/[id]/page.tsx")).toContain("<EnvironmentTeardown");
     const ui = source("src/app/(product)/platform/environments/[id]/environment-teardown.tsx");
     expect(ui).toContain('planAction("env.teardown"');
@@ -830,7 +838,7 @@ describe("operator claims match current wiring", () => {
     expect(squash(source("docs/platform/operations/README.md"))).toContain("Azure managed Run Command and GCP Compute/OS Inventory drivers exist");
   });
 
-  it("CLI entry points and all fifteen MCP tools are documented", () => {
+  it("CLI entry points and all sixteen MCP tools are documented", () => {
     const pkg = JSON.parse(source("package.json")) as { scripts: Record<string, string>; bin: Record<string, string> };
     expect(pkg.scripts.cli).toBe("tsx src/cli/bin.ts");
     expect(pkg.bin.zenith).toBe("src/cli/bin.ts");
@@ -839,9 +847,9 @@ describe("operator claims match current wiring", () => {
     const names = [...new Set([...catalog.matchAll(/\bzenith_[a-z_]+\b/g)].map((m) => m[0]))].sort();
     const mcp = source("docs/platform/MCP.md");
     const listed = [...mcp.matchAll(/^\| `(zenith_[a-z_]+)` \|/gm)].map((m) => m[1]).sort();
-    expect(names).toHaveLength(15);
+    expect(names).toHaveLength(16);
     expect(listed).toEqual(names);
-    expect(mcp).toContain("fifteen");
+    expect(mcp).toContain("sixteen");
     expect(guide("README.md")).toContain("CLI.md");
   });
 

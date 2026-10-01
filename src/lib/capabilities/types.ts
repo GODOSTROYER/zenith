@@ -49,6 +49,8 @@ export interface BrowserSessionProof {
  * `request.input` is ever read as a policy fact.
  */
 export interface ProposeContext {
+  /** Trusted worker review only. The requester needs plan access; an admin must still approve destruction. */
+  teardownReview?: true;
   /** Server-side reference only; the broker reloads the recorded destroy facts. */
   destroyPlan?: { operationId: string; planDigest: string };
   /** Required when a human proposes teardown. Never read from request.input. */
@@ -91,6 +93,8 @@ export interface BrokerProposalExt {
   /** facts (plan + cost) evaluated at proposal time; re-evaluated verbatim at execution */
   plan?: PlanFactsWithCost;
   destroyPlan?: { operationId: string; evidenceId: string; retained: string[] };
+  /** Server-created, read-only review request delegated to deterministic execution after human approval. */
+  teardownReview?: true;
 }
 
 export type PlanFactsWithCost = NonNullable<import("@/lib/policy").PolicyInput["plan"]>;

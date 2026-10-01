@@ -33,6 +33,7 @@ export function requestFromOperation(op: OperationRecord): EvaluationRequest {
     constraints: proposal.broker?.requestedConstraints,
     plan: proposal.broker?.plan,
     planDigest: proposal.planDigest,
+    ...(proposal.broker?.teardownReview ? { teardownReview: true as const } : {}),
     origin: proposal.broker?.via === "reconciler" && op.principal.kind === "system" ? "reconciler" : undefined,
   };
 }

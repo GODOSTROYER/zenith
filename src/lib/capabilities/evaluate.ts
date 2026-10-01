@@ -124,6 +124,8 @@ export interface EvaluationRequest {
   /** digest of the reviewed OpenTofu plan those facts came from */
   planDigest?: string;
   origin?: "reconciler";
+  /** Recorded worker review, never accepted from a public request. */
+  teardownReview?: true;
 }
 
 export interface Evaluation {
@@ -146,9 +148,10 @@ export function applyGuards(args: {
   autonomyLevel?: number;
   plan?: PlanFactsWithCost;
   planDigest?: string;
+  teardownReview?: boolean;
 }): PolicyReason[] {
   const reasons: PolicyReason[] = [];
-  if (args.def.name === "infrastructure.destroy" && args.principal.kind !== "user") {
+  if (args.def.name === "infrastructure.destroy" && args.principal.kind !== "user" && !args.teardownReview) {
     reasons.push(guardReason("teardown_human_only", "Only a signed-in person may propose teardown. Agents and Navigator cannot."));
   }
   if ((args.def.name === "infrastructure.apply" || args.def.name === "infrastructure.destroy") && (!args.plan || !args.planDigest)) {
@@ -158,6 +161,7 @@ export function applyGuards(args: {
   }
   if (
     args.def.mutates &&
+    !args.teardownReview &&
     (args.principal.kind === "integration" || args.principal.kind === "navigator") &&
     args.autonomyLevel !== undefined &&
     args.autonomyLevel < 2
@@ -176,6 +180,16 @@ export function applyGuards(args: {
 export async function evaluate(deps: BrokerDeps, req: EvaluationRequest): Promise<Evaluation> {
   const { def, principal } = req;
   const workspaceId = req.scope.workspaceId;
+
+  const delegatedReview = req.teardownReview === true && def.name === "infrastructure.destroy";
+  if (delegatedReview) {
+    if (!req.plan || !req.planDigest) throw new BrokerError("invalid_state", "A teardown review requires recorded plan facts and a digest.");
+    // A review requester supplies no mutation authority. Recheck their current
+    // plan access at approval and every worker grant; the deterministic service
+    // supplies execution authority only through the existing admin approval gate.
+    const planning = await evaluate(deps, { def: CAPABILITIES["infrastructure.plan"], scope: req.scope, principal, risk: "low" });
+    if (planning.decision.outcome !== "allow") throw new BrokerError("policy_denied", "Current policy does not authorize this teardown review.");
+  }
 
   assertScopeComplete(def, req.scope);
 
@@ -219,7 +233,7 @@ export async function evaluate(deps: BrokerDeps, req: EvaluationRequest): Promis
       ...(req.requestedDurationSec !== undefined ? { requestedDurationSec: req.requestedDurationSec } : {}),
       ...(req.constraints ? { constraints: { ...req.constraints } } : {}),
     },
-    principal: {
+    principal: delegatedReview ? { kind: "system", id: "teardown-review", role: "none" } : {
       kind: principal.kind,
       id: principal.id,
       role: access.role,
@@ -239,7 +253,7 @@ export async function evaluate(deps: BrokerDeps, req: EvaluationRequest): Promis
     ...(resolved.resource ? { resource: resolved.resource } : {}),
     ...(req.plan ? { plan: req.plan } : {}),
     workspacePolicy,
-    context: { now: deps.clock.now().toISOString(), origin: originFor(principal, req.origin) },
+    context: { now: deps.clock.now().toISOString(), origin: delegatedReview ? "system" : originFor(principal, req.origin) },
   };
 
   let engine;
@@ -251,7 +265,8 @@ export async function evaluate(deps: BrokerDeps, req: EvaluationRequest): Promis
   }
   const evaluated = await engine.evaluate(input);
 
-  const guard = applyGuards({ def, principal, autonomyLevel: autonomy?.level, plan: req.plan, planDigest: req.planDigest });
+  const guard = applyGuards({ def, principal, teardownReview: delegatedReview,
+    autonomyLevel: autonomy?.level, plan: req.plan, planDigest: req.planDigest });
   let decision: PolicyDecision = guard.length > 0 ? { outcome: "deny", reasons: [...guard, ...evaluated.decision.reasons] } : evaluated.decision;
   if (def.name === "infrastructure.destroy" && decision.outcome !== "deny") {
     decision = { ...decision, outcome: "require_approval", approval: {

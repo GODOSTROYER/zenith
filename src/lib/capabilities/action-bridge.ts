@@ -68,6 +68,7 @@ export const ACTION_CAPABILITY_MAP: Readonly<Record<string, ActionMapping>> = {
   "ops.investigate": cap("incident.investigate", []),
   /* environments and projects */
   "env.teardown": cap("infrastructure.destroy", ["environmentId"]),
+  "env.reviewTeardown": cap("infrastructure.plan", ["environmentId", "idempotencyKey", "refresh"]),
   "env.delete": cap("infrastructure.destroy", []),
   "env.create": local("Creates an environment record; provisioning happens at deploy."),
   "env.update": local("Edits environment settings inside Zenith."),

@@ -19,6 +19,7 @@ const bearerRoutes = [
   ["GET", "/operations"], ["GET", "/operations/op_1"],
   ["GET", "/operations/op_1/events"], ["POST", "/operations/op_1/cancel"],
   ["GET", "/environments/env_1/autonomy"], ["GET", "/workspace/policy"],
+  ["GET", "/environments/env_1/teardown-review"], ["POST", "/environments/env_1/teardown-review"],
 ];
 const browserRoutes = [
   ["POST", "/operations/op_1/approve"], ["POST", "/operations/op_1/reject"],
@@ -127,7 +128,7 @@ describe("platform route inventory", () => {
         expect(isAgentSignedPath(normalized), normalized).toBe(access === "agent-signed");
       }
     }
-    expect(seen.size).toBe(33);
+    expect(seen.size).toBe(35);
     for (const entry of PLATFORM_PATHS) {
       expect(entry.path.source.startsWith("^")).toBe(true);
       expect(entry.path.source.endsWith("$")).toBe(true);

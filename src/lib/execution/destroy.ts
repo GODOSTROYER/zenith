@@ -26,6 +26,8 @@ import { driverContext, LONG_SESSION_SEC, OBSERVE_CAPABILITY, PLAN_CAPABILITY, w
 import { safeText } from "./text";
 import { buildDesiredState } from "./graph";
 import { z } from "zod";
+import { platformBroker, type Broker } from "@/lib/capabilities/platform";
+import { runDestroyReview, type DestroyReviewResult } from "@/lib/capabilities/destroy-review";
 
 const HEX64 = /^[0-9a-f]{64}$/;
 
@@ -36,6 +38,8 @@ export interface TeardownInput {
 }
 export interface TeardownResult { deleted: string[]; retained: string[]; skipped: string[]; uncertain: string[] }
 export interface DestroyProviderPorts {
+  /** Scoped broker override for worker contract tests. */
+  reviewBroker?: () => Promise<Broker>;
   teardownKubernetesEnvironment?: (input: TeardownInput) => Promise<TeardownResult>;
   teardownZenithEnvironment?: (input: TeardownInput) => Promise<TeardownResult>;
   /** Managed sessions need a platform opener: the customer credential broker has no zenith config. */
@@ -211,8 +215,14 @@ export async function checkDestroyApproval(rt: Runtime, operationId: string): Pr
   return { approved: status.approved === true && !!approvalId && !status.rejected, rejected: status.rejected === true, ...(approvalId ? { approvalId } : {}) };
 }
 
-export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts = (rt.d as typeof rt.d & { destroyProviders?: DestroyProviderPorts }).destroyProviders ?? {}): DestroyActivities {
+export function createDestroyActivities(rt: Runtime, ports: DestroyProviderPorts = (rt.d as typeof rt.d & { destroyProviders?: DestroyProviderPorts }).destroyProviders ?? {}): DestroyActivities & {
+  reviewTeardown(input: { workspaceId: string; operationId: string }): Promise<DestroyReviewResult>;
+} {
   return {
+    async reviewTeardown(input) {
+      return runDestroyReview(rt, await (ports.reviewBroker ?? platformBroker)(), input,
+        (lease) => planStage(rt, input.operationId, lease, ports));
+    },
     planDestroyInfrastructure: ({ operationId, lease }) => planStage(rt, operationId, lease, ports),
     finalDestroyPlan: ({ operationId, approvedPlanDigest, lease }) => planStage(rt, operationId, lease, ports, approvedPlanDigest),
     async applyDestroyInfrastructure({ operationId, planDigest, lease }) {

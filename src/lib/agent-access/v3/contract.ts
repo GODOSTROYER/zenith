@@ -43,6 +43,7 @@ export const TOOL_NAMES = [
   "zenith_get_topology",
   "zenith_get_capabilities",
   "zenith_plan_change",
+  "zenith_review_teardown",
   "zenith_prepare_deploy",
   "zenith_execute_approved_operation",
   "zenith_query_logs",

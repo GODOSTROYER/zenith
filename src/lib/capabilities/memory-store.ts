@@ -284,9 +284,10 @@ export class MemoryBrokerStore implements BrokerStore {
     return { items: items.map((s) => clone(s.record)), nextCursor };
   }
 
-  async cancelOperation(input: { workspaceId: string; id: string; reason?: string; actor?: Principal }): Promise<OperationRecord | null> {
+  async cancelOperation(input: Parameters<BrokerStore["cancelOperation"]>[0]): Promise<OperationRecord | null> {
     const stored = this.operations.get(opKey(input.workspaceId, input.id));
     if (!stored || !PRE_EXECUTION.includes(stored.record.status)) return null;
+    if (input.expectedStatus && stored.record.status !== input.expectedStatus) return null;
     const op = stored.record;
     op.status = "cancelled";
     op.updatedAt = this.nowIso();

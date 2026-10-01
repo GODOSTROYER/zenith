@@ -12,13 +12,13 @@
  * and has no store hook to delegate, so moving them to Postgres is a change to
  * that module, not a new entry here.
  */
-import type { AuditEvent, DeploymentEvent, Manifest } from "@/lib/domain/types";
+import type { AuditEvent, DeploymentEvent, AnyManifest } from "@/lib/domain/types";
 import { FileStore } from "../file-store";
 import type { AuditCountResult, AuditFilter, AuditPage } from "../types";
 
 /** Cold-storage manifests, reachable by revision id. */
 export interface ManifestDelegate {
-  revisionManifest(id: string): Manifest | undefined;
+  revisionManifest(id: string): AnyManifest | undefined;
 }
 
 /** The deployment event log. */

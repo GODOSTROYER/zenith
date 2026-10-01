@@ -1,4 +1,5 @@
 "use client";
+import { v1View } from "@/lib/resources/upgrade";
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -56,7 +57,7 @@ function InspectorBody({
   onClose: () => void;
 }) {
   const { project, changesets, selectedEnvId } = useProjectData();
-  const m = project.workingManifest;
+  const m = v1View(project.workingManifest);
   const onCreated = (nodeId: string) => onSelect({ kind: "node", nodeId });
   const onOpenBinding = (bindingId: string) => onSelect({ kind: "binding", bindingId });
 
@@ -164,7 +165,7 @@ export function Inspector({ target, onClose, onSelect }: InspectorProps) {
 
   if (!target) return null;
 
-  const m = project.workingManifest;
+  const m = v1View(project.workingManifest);
   const node =
     target.kind === "node"
       ? (m.services.find((s) => s.id === target.nodeId) ??

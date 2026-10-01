@@ -99,7 +99,7 @@ describe("MCP v3 HTTP", () => {
   it.each([{}, { cookie: "session=browser-only" }] as Record<string, string>[])("requires a bearer even with cookie headers %j", async (extra) => {
     const { verify } = await setup(); const req = request("tools/list", undefined, extra); req.headers.delete("authorization");
     const res = await route.POST(req); expect(res.status).toBe(401);
-    expect(res.headers.get("www-authenticate")).toBe(`Bearer resource_metadata="${ORIGIN}/api/agent/v3/mcp?metadata=oauth-protected-resource", scope="zenith:read"`);
+    expect(res.headers.get("www-authenticate")).toBe(`Bearer resource_metadata="${ORIGIN}/.well-known/oauth-protected-resource/api/agent/v3/mcp", scope="zenith:read"`);
     expect((await res.json()).error.code).toBe("authentication_required"); expect(verify).not.toHaveBeenCalled();
   });
   it("revocation takes effect on the next request", async () => {

@@ -65,6 +65,8 @@ const PlanFactsSchema = z
     replace: nonNegativeInt,
     destroysData: z.boolean(),
     destroyedStatefulAddresses: addressList,
+    statefulDeletes: addressList.optional(),
+    dnsDeletes: addressList.optional(),
     regions: z.array(RegionSchema).max(200),
     publicDatabases: addressList,
     openIngress: z

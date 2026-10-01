@@ -551,7 +551,7 @@ jobs:
       - name: OpenTofu and all provider suites
         # Serial: every test shares one plugin cache directory and a first-time
         # provider install is not something two processes should race on.
-        run: npx vitest run tests/tofu tests/providers/aws/drivers tests/providers/gcp tests/providers/azure tests/providers/oci tests/execution/compile-refs-providers.test.ts tests/execution/journey.test.ts tests/security/tofu-secrets.test.ts tests/security/tofu-runner-env.test.ts tests/security/tofu-workspace-injection.test.ts --maxWorkers=2 --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/tofu-lane.json
+        run: npx vitest run tests/tofu tests/providers/aws/drivers tests/providers/aws/identity tests/providers/gcp tests/providers/azure tests/providers/oci tests/execution/compile-refs-providers.test.ts tests/execution/journey.test.ts tests/security/tofu-secrets.test.ts tests/security/tofu-runner-env.test.ts tests/security/tofu-workspace-injection.test.ts --maxWorkers=2 --no-file-parallelism --reporter=default --reporter=json --outputFile.json=.data-ci-lane/tofu-lane.json
 
       - name: Lane report - fail if a required suite ran zero tests
         if: always()

@@ -14,6 +14,7 @@ import { useJson } from "@/lib/client/api";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { cx, fmtUsd } from "@/lib/format";
 import type { Deployment, Output, Revision } from "@/lib/domain/types";
+import { v1View } from "@/lib/resources/upgrade";
 import { copyTarget, isSimulated, openLabel } from "./output-link";
 
 interface HealthPayload {
@@ -141,7 +142,7 @@ export function SuccessPanel({
 
   const urls = deployment.outputs.filter((o) => o.kind === "url");
   const others = deployment.outputs.filter((o) => o.kind !== "url");
-  const liveCost = deployed ? monthlyCostUsd(deployed.revision.manifest) : undefined;
+  const liveCost = deployed ? monthlyCostUsd(v1View(deployed.revision.manifest)) : undefined;
   const pending = changesets[deployment.environmentId];
   // Only once the project payload agrees this revision is the live one; until
   // then its changeset still counts the changes this deployment just applied.

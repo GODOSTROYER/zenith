@@ -72,7 +72,7 @@ import {
   type OciContext,
 } from "../../observe-kit";
 import { isOcid, ociPath } from "../../services";
-import type { OciSession } from "../../transport";
+import { ociCall, type OciSession } from "../../transport";
 import { addressList, isManaged, readOnlyFragment, res, specOf } from "../shared";
 
 export const DYNAMIC_GROUP_NATIVE_TYPE = "oci:dynamic_group";
@@ -104,6 +104,7 @@ const ALLOWED: Record<string, readonly string[]> = {
 export function shapesOf(grant: IdentityGrant): Shape[] {
   if (grant.target.includes("*")) throw new OciCompileError(`identity grant target "${grant.target}" contains a wildcard; grants must name one exact target.`);
   const kind = kindOfAddress(grant.target);
+  if (kind === "mysql") throw new OciUnsupportedError("MySQL has no managed Vault password reference; read_credentials cannot be granted.");
   const allowed = ALLOWED[kind];
   if (!allowed) throw new OciUnsupportedError(`identity grant target "${grant.target}" (${kind || "unknown kind"}) has no OCI policy mapping; refusing to guess a wider policy.`);
   const verbs = [...new Set(grant.access)].sort();
@@ -164,6 +165,14 @@ export function compileIdentity(node: ResourceNode, ctx: CompileContext): TofuFr
   const tenancy = tenancyOf(ctx);
   const workload = assertSafe("workload address", spec.workload);
   const environment = assertSafe("environment id", ctx.environmentId);
+  const workloadNode = ctx.node(spec.workload);
+  if (workloadNode?.provider !== "oci" || !["oci:container_instance", "oci:compute_instance"].includes(workloadNode.nativeType)) throw new OciUnsupportedError(`${node.address}: dynamic groups require an OCI container instance or compute instance workload.`);
+  if (workloadNode.nativeType === "oci:compute_instance" && workloadNode.ownership !== "managed") throw new OciUnsupportedError(`${node.address}: VM workload identities require a managed instance.`);
+  // OCI IAM does not support free-form tags in matching rules. Bind new VM
+  // principals to the exact instance OCID; no defined-tag bootstrap is needed.
+  const matchingRule = workloadNode.nativeType === "oci:compute_instance"
+    ? `ALL {instance.compartment.id='${compartment}', instance.id='${ctx.ref(workload, "id")}'}`
+    : `ALL {resource.type='computecontainerinstance', resource.compartment.id='${compartment}', tag.${TAG_ENV}.value='${environment}', tag.${TAG_RESOURCE}.value='${workload}'}`;
 
   const dg = res("oci_identity_dynamic_group", node);
   const policy = res("oci_identity_policy", node, "_policy");
@@ -190,7 +199,7 @@ export function compileIdentity(node: ResourceNode, ctx: CompileContext): TofuFr
         compartment_id: tenancy,
         name: dgName,
         description: `Zenith workload identity for ${workload} (${environment})`,
-        matching_rule: `ALL {resource.type='computecontainerinstance', resource.compartment.id='${compartment}', tag.${TAG_ENV}.value='${environment}', tag.${TAG_RESOURCE}.value='${workload}'}`,
+        matching_rule: matchingRule,
         freeform_tags: tags,
       },
     },
@@ -231,6 +240,7 @@ const dgLocate: LocateDef = {
 };
 
 const WORKLOAD_IN_RULE = new RegExp(`tag\\.${TAG_RESOURCE}\\.value\\s*=\\s*'([^']+)'`);
+const INSTANCE_IN_RULE = /instance\.id\s*=\s*'([^']+)'/;
 const MANAGE_ALL = /\bmanage\s+all-resources\b/i;
 const ANY_ALL_RESOURCES = /\bto\s+\w+\s+all-resources\b/i;
 
@@ -240,7 +250,15 @@ export async function observeIdentity(ctx: OciContext, node: ResourceNode, exter
   if (located.presence !== "present" || !located.item) return observationOf(ctx, node, ID, located);
   const at = ctx.now().toISOString();
   const rule = asString(located.item.matchingRule);
-  const workload = rule ? WORKLOAD_IN_RULE.exec(rule)?.[1] : undefined;
+  let workload = rule ? WORKLOAD_IN_RULE.exec(rule)?.[1] : undefined;
+  const instanceId = rule ? INSTANCE_IN_RULE.exec(rule)?.[1] : undefined;
+  if (instanceId && isOcid(instanceId)) {
+    const r = await ociCall(ctx, { service: "core", region: node.region || ctx.region, method: "GET", path: ociPath("core", "instances", instanceId) });
+    if (r.requestId) located.requestIds.push(r.requestId);
+    // The address is observed on the exact instance, never inferred from spec.
+    const tags = r.ok && !isGone(r.body) ? tagsOf(r.body) : {};
+    workload = tags[TAG_ENV] === ctx.environmentId ? tags[TAG_RESOURCE] : undefined;
+  }
 
   // the policy that carries the statements (found by this node's tags in the compartment)
   let count: number | undefined;

@@ -198,8 +198,14 @@ describe("AKS and MySQL mapping", () => {
     expect(body(compile("mysql/db", { backup: "hourly" }), "azurerm_mysql_flexible_server")).toMatchObject({ backup_retention_days: 35, geo_redundant_backup_enabled: true });
   });
 
-  it("fresh MySQL creation is explicitly blocked by the fixed ephemeral contract; replicas never claim HA", () => {
-    expect(() => compile("mysql/db", { createMode: "Default" })).toThrow(/TofuFragment cannot express ephemeral/);
+  it("fresh MySQL creation uses an ephemeral admin password on write-only arguments; replicas never claim HA", () => {
+    // the shared fixture is a point-in-time restore; a fresh server carries no restore source
+    const fresh = compile("mysql/db", { createMode: "Default", restoreTime: undefined, sourceServerId: undefined });
+    const server = body(fresh, "azurerm_mysql_flexible_server");
+    expect(server.administrator_password).toBeUndefined();
+    expect(String(server.administrator_password_wo)).toMatch(/^\$\{ephemeral\./);
+    expect(fresh.ephemeral).toBeDefined();
+    expect(JSON.stringify(fresh.resource)).not.toMatch(/"administrator_password"\s*:/);
     expect(() => compile("mysql/db", { createMode: "Replica" })).toThrow(/replicas do not support HA/);
     expect(body(compile("mysql/db", { createMode: "Replica", highAvailability: false, deletionPolicy: "allow" }), "azurerm_mysql_flexible_server").create_mode).toBe("Replica");
   });

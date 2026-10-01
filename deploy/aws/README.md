@@ -129,7 +129,92 @@ below.
 | `ZenithDeployEdge` | deploy | log groups and alarms named `zenith-*`, ACM certificates tagged `zenith:managed`, DNS record changes **only in zones you list** |
 | `ZenithDeployState` | deploy | read/write objects in the state bucket; **denies** deleting or reconfiguring the bucket and deleting object versions |
 | `ZenithDeployIam` | deploy | `iam:CreateRole` / `Put|Attach|Detach|DeleteRolePolicy` / `DeleteRole` on `role/zenith-*` **only with the boundary attached**; attach only `zenith-*` policies plus three AWS task/lambda execution policies; `iam:PassRole` only to `zenith-*` roles for `ecs-tasks`, `codebuild`, `lambda`; service-linked roles for ecs/elbv2/autoscaling/rds/elasticache. **Denies**: changing `ZenithDeploy*`/`ZenithObserve*`/`zenith-codebuild*` roles and policies or the boundary, removing any permission boundary, creating users/access keys/login profiles, touching OIDC/SAML providers, Organizations, Account. |
-| `ZenithWorkloadBoundary` | roles Zenith creates | logs, ECR pull, `zenith-*` buckets and queues, secret **reads** for injection into the workload's own secrets, KMS via those services, VPC ENIs. Denies `iam:*`, `organizations:*`, `account:*` and the state bucket. |
+| `ZenithWorkloadBoundary` | roles Zenith creates | logs, ECR pull, `zenith-*` buckets and queues, secret **reads**, KMS via those services, VPC ENIs. Build roles: ECR push, source-version reads, tagged CloudFront invalidations. Events roles: scoped `RunTask`/`PassRole`. EC2 roles: SSM agent core. Denies IAM administration, Organizations, Account and the state bucket. |
+
+Build-only statements require `aws:PrincipalArn` to match
+`arn:<partition>:iam::<account>:role/zenith-*-build`. The CodeBuild driver
+reserves the `-build` suffix after shortening/hashing the name to 64 characters;
+application roles use other suffixes and do not match. The shared naming
+constant in `src/lib/credentials/aws/naming.ts` is checked by the policy
+generator and bootstrap tests. Long or rewritten build-role names can change
+from earlier compiler output; review the resulting role replacement plan.
+
+ECR writes are limited to this account's `repository/zenith-*`; S3
+`GetObjectVersion` is limited to `zenith-*/*` objects in this account.
+CloudFront invalidations require this account's distribution ARN and
+`zenith:managed=true` ([supported by AWS for CreateInvalidation](https://docs.aws.amazon.com/service-authorization/latest/reference/list_cloudfront.html)).
+The build role's own policy further restricts each grant to its exact repository,
+source prefix and site distribution. CodeBuild project names must start with
+`zenith-`, keeping `/aws/codebuild/<project>` inside the existing log boundary.
+The deploy role still cannot modify the boundary, and state-bucket access
+remains explicitly denied to every boundary-carrying role.
+
+Scheduled-job roles require `aws:PrincipalArn` matching this account's
+`role/zenith-*-events`. [RunTask](https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonelasticcontainerservice.html)
+is limited to `task-definition/zenith-*` and requires `ecs:cluster` matching
+this account's `cluster/zenith-*`. `PassRole` is limited to `role/zenith-*` with
+`iam:PassedToService=ecs-tasks.amazonaws.com`. The driver further restricts
+these to the job's exact task revision, cluster and execution/task roles.
+The explicit IAM denies exempt only this invocation path: other principals,
+missing/wrong destination services and all IAM administration remain denied.
+
+EC2 agent grants require this account's `role/zenith-*-ec2` principal.
+Both drivers append their reserved suffix **after** shortening/hashing the
+base name; short names remain stable, while previously truncated roles can
+be replaced. Application identities, execution/function/build roles and
+services named `web-events` or `web-ec2` cannot acquire these grants.
+The generator checks all three role-family patterns against `naming.ts`.
+
+The [SSM Service Authorization Reference](https://docs.aws.amazon.com/service-authorization/latest/reference/list_awssystemsmanager.html)
+defines the following resource/condition support for the
+[managed core policy v2](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AmazonSSMManagedInstanceCore.html).
+Instance types inherit resource-tag conditions; source-instance keys are
+available for selected reporting calls, but are not required by this boundary.
+
+| Core actions | AWS support; boundary scope |
+|---|---|
+| `UpdateInstanceInformation`, `PutComplianceItems` | Instance/managed-instance; source-instance keys. This account's EC2 `instance/*`, `zenith:managed=true`. |
+| `ListInstanceAssociations` | Instance/managed-instance, resource tags. Same tagged EC2 scope. |
+| `DescribeAssociation` | Association/document/instance/managed-instance, resource tags. This account's associations, allowed documents and tagged EC2 instances. |
+| `GetDocument`, `DescribeDocument` | Document, document type/categories and resource tags. AWS-owned documents (empty account), this account's `document/Zenith-*`. |
+| `UpdateAssociationStatus` | Document required; instance/managed-instance optional; source-instance and tag keys. Allowed documents and tagged EC2 instances. |
+| `UpdateInstanceAssociationStatus` | Association required; instance/managed-instance optional; source-instance and tag keys. This account's associations and tagged EC2 instances. |
+| `ListAssociations`, `GetManifest`, `PutConfigurePackageResult`, `GetDeployablePatchSnapshotForInstance` | No resource scope or service condition; `Resource: "*"`, EC2 principal required. |
+| `PutInventory` | No resource scope; optional `ssm:InventoryTypeName`. `Resource: "*"`, EC2 principal required. |
+| `GetParameter`, `GetParameters` | Parameter/resource tags. Existing `parameter/zenith/*` scope only. |
+
+All four [ssmmessages channel actions](https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonmessagegatewayservice.html)
+and six [ec2messages agent actions](https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonmessagedeliveryservice.html)
+require `Resource: "*"`. Source-instance conditions apply to
+`CreateControlChannel`, `GetMessages` and `SendReply`; these grants instead
+require the EC2 principal. `ssm:SourceInstanceARN` is absent for EC2 instance
+profile authentication. Hybrid managed-instance resources are excluded.
+Parameter reads outside `/zenith/` are unnecessary for Zenith's core command
+transport and remain blocked. The AMI parameter lookup is performed by the
+deploy session, not the EC2 agent. This does not enable `ssm:SendCommand` or
+`ecs:ExecuteCommand` on the control-plane roles.
+
+Compatible statements are consolidated and optional Sids omitted to fit
+IAM's 6,144-character limit. Service-specific ARN types preserve the common
+resource scopes; scoped agent statements keep their own principal/tag fences.
+Compact action patterns cover the four channel methods, three singular
+message methods and two association-status reports in the published policy.
+With default parameters and `eu-west-1`, sizes are 5,724 (`aws`), 5,835
+(`aws-cn`) and 5,983 (`aws-us-gov`): GovCloud has 161 characters of headroom.
+Long environment-tag values or connection suffixes increase the rendered size;
+check that rendered policy before deployment. Tests also check configured
+bootstrap scenarios in all three partitions.
+
+These intersections are evaluated locally, not exercised against live AWS.
+Every scheduled inline action and all 25 managed EC2 core actions have local
+coverage. Other gaps remain deliberately unchanged: identity grants for S3
+multipart operations, log reads, RDS/ElastiCache IAM connections and RDS-managed
+credential secrets are blocked. EKS cluster roles still lose autoscaling,
+load-balancer and several EC2 permissions plus service-linked-role creation
+from [AmazonEKSClusterPolicy](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AmazonEKSClusterPolicy.html).
+EKS node registry metadata reads are also restricted by the boundary; image
+pull is covered. This is a representative sweep, not live acceptance or an
+exhaustive review of every AWS-managed attachment.
 
 ### Known limits (not hidden)
 

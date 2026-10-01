@@ -4,7 +4,7 @@ import type { ResourceNode } from "@/lib/resources/types";
 import { AzureCompileError } from "@/lib/providers/azure/compile-util";
 import { AZURE_DRIVERS } from "@/lib/providers/azure/drivers";
 import { acaSize, isPrivateCidr, landingZoneCidrs, parseCidr } from "@/lib/providers/azure/platform";
-import { memoryToMb } from "@/lib/providers/azure/drivers/compute/workload";
+import { BOOTSTRAP_IMAGE, memoryToMb } from "@/lib/providers/azure/drivers/compute/workload";
 import { relativeName } from "@/lib/providers/azure/drivers/dns/dns-record";
 import { kvSecretName } from "@/lib/providers/azure/drivers/identity/key-vault-secret";
 import { assertCron } from "@/lib/providers/azure/drivers/compute/container-app-job";
@@ -92,6 +92,21 @@ describe("landing zone (network)", () => {
 });
 
 describe("container app sizing, replicas and ingress", () => {
+  it("bootstraps built jobs by digest and keeps literal job images under OpenTofu ownership", () => {
+    const literal = body(compile("scheduled_job/report"), "azurerm_container_app_job");
+    expect(literal).not.toHaveProperty("lifecycle");
+    const built = body(compile("scheduled_job/report", (nodes) => {
+      const job = nodes.find((n) => n.address === "scheduled_job/report")!;
+      job.spec.artifact = { type: "built", pipeline: "build_pipeline/web", registry: "container_registry/web" };
+      job.dependsOn.push("identity/web", "container_registry/web", "build_pipeline/web");
+      nodes.find((n) => n.address === "identity/web")!.spec.workload = job.address;
+    }), "azurerm_container_app_job");
+    expect(((built.template as Body).container as Body[])[0].image).toBe(BOOTSTRAP_IMAGE);
+    expect(BOOTSTRAP_IMAGE).toMatch(/@sha256:[a-f0-9]{64}$/);
+    expect(built.lifecycle).toEqual({ ignore_changes: ["template[0].container[0].image", "template[0].container[0].args"] });
+    expect(built.registry).toEqual([{ server: "${local.container_registry_web__login_server}", identity: "${local.identity_web__id}" }]);
+  });
+
   it("rounds the portable size UP to a valid Consumption pair (memory = 2 Gi per vCPU)", () => {
     expect(acaSize(0.25, 256)).toMatchObject({ cpu: 0.25, memoryGi: 0.5, memoryMb: 512, adjusted: true });
     expect(acaSize(0.5, 512)).toMatchObject({ cpu: 0.5, memoryGi: 1 });
@@ -114,7 +129,9 @@ describe("container app sizing, replicas and ingress", () => {
     const c = (tpl.container as Body[])[0];
     expect(c).toMatchObject({ cpu: 0.5, memory: "1Gi", name: "web" });
     expect(tpl).toMatchObject({ min_replicas: 2, max_replicas: 2 });
-    expect(c.image).toBe("${local.container_registry_web__login_server}/web:latest");
+    expect(c.image).toBe(BOOTSTRAP_IMAGE);
+    expect(app.lifecycle).toEqual({ ignore_changes: ["template[0].container[0].image", "template[0].container[0].args"] });
+    expect(c.args).toEqual(["-listen", ":8080", "-text", "Zenith awaiting built release"]);
     expect(c.liveness_probe).toEqual([{ transport: "HTTP", port: 8080, path: "/healthz", interval_seconds: 10, failure_count_threshold: 3, initial_delay: 5, timeout: 3 }]);
     expect(app).toMatchObject({ revision_mode: "Single", workload_profile_name: "Consumption" });
   });
@@ -123,6 +140,7 @@ describe("container app sizing, replicas and ingress", () => {
     const plain = body(compile("container_service/web", setSpec("container_service/web", { artifact: { type: "image", ref: "ghcr.io/acme/web:1.2.3" } })), "azurerm_container_app");
     expect(((plain.template as Body).container as Body[])[0].image).toBe("ghcr.io/acme/web:1.2.3");
     expect(plain).not.toHaveProperty("registry");
+    expect(plain).not.toHaveProperty("lifecycle");
     const acr = body(compile("container_service/web", setSpec("container_service/web", { artifact: { type: "image", ref: "acme.azurecr.io/web:1" } })), "azurerm_container_app");
     expect(acr.registry).toEqual([{ server: "acme.azurecr.io", identity: "${local.identity_web__id}" }]);
     expect(() => compile("container_service/web", setSpec("container_service/web", { artifact: { type: "blueprint", blueprint: "hello" } }))).toThrow(/sandbox/);

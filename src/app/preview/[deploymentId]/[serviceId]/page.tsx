@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { q } from "@/lib/db/store";
 import { env } from "@/lib/env";
+import { v1View } from "@/lib/resources/upgrade";
 import type {
   Deployment,
   Environment,
@@ -47,7 +48,7 @@ async function readPreview(deploymentId: string): Promise<PreviewRead> {
     return {
       deployment,
       revision,
-      manifest: revision?.manifest,
+      manifest: revision ? v1View(revision.manifest) : undefined,
       project: q.project(deployment.projectId),
       environment: q.environment(deployment.environmentId),
     };
@@ -70,7 +71,7 @@ async function readPreview(deploymentId: string): Promise<PreviewRead> {
   return {
     deployment,
     revision: revisions[0],
-    manifest,
+    manifest: manifest ? v1View(manifest) : undefined,
     project: projects[0],
     environment: environments[0],
   };

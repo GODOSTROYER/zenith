@@ -119,6 +119,8 @@ export const OCI_PRIMARY_TYPE: Readonly<Record<string, string>> = {
   "oci:log_group": "oci_logging_log_group",
   "oci:block_volume": "oci_core_volume",
   "oci:redis_cluster": "oci_redis_redis_cluster",
+  "oci:compute_instance": "oci_core_instance",
+  "oci:oke_cluster": "oci_containerengine_cluster",
 };
 
 export function ociPrimaryAddress(node: Pick<ResourceNode, "address" | "nativeType">): string | undefined {
@@ -153,4 +155,4 @@ export function networkOf(ctx: CompileContext, node: ResourceNode, tier: "public
 }
 
 /** Nodes that own a Network Security Group the firewall driver may attach rules to. */
-export const NSG_OWNER_TYPES: readonly string[] = ["oci:load_balancer", "oci:container_instance", "oci:postgresql_db_system", "oci:redis_cluster"];
+export const NSG_OWNER_TYPES: readonly string[] = ["oci:load_balancer", "oci:container_instance", "oci:postgresql_db_system", "oci:redis_cluster", "oci:compute_instance", "oci:oke_cluster"];

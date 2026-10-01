@@ -26,6 +26,7 @@
 import { DescribeInstanceStatusCommand, DescribeInstancesCommand, EC2Client, type Instance } from "@aws-sdk/client-ec2";
 import { DescribeInstanceInformationCommand, SSMClient } from "@aws-sdk/client-ssm";
 import type { AwsSession } from "@/lib/credentials/types";
+import { EC2_ROLE_SUFFIX } from "@/lib/credentials/aws/naming";
 import type { CompileContext, DiscoveredResource, ResourceDriver } from "@/lib/drivers/types";
 import type { HealthState, Observation, ResourceNode, RuntimeState } from "@/lib/resources/types";
 import {
@@ -81,7 +82,8 @@ const compile = (node: ResourceNode, ctx: CompileContext) =>
     const env = environmentData(b, label, ctx.region);
 
     const ami = b.data("aws_ssm_parameter", `${label}_ami`, { name: AL2023_PARAMETER(architecture) });
-    const roleName = cloudName(ctx.namePrefix, `${name}-ec2`, 64);
+    // Preserve the boundary's principal discriminator after shortening/hashing.
+    const roleName = `${cloudName(ctx.namePrefix, name, 64 - EC2_ROLE_SUFFIX.length)}${EC2_ROLE_SUFFIX}`;
     const role = b.resource("aws_iam_role", label, {
       name: roleName,
       assume_role_policy: assumeRoleJson("ec2.amazonaws.com"),

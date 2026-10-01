@@ -15,8 +15,10 @@ import { createRunnerOciTransport, type OciHttpJobPayload, type OciHttpJobResult
 import { OCI_SERVICE_HOSTS } from "@/lib/providers/oci/services";
 import type { OciApiRequest, OciApiResponse, OciApiTransport } from "@/lib/providers/oci/transport";
 import type { Observation, ResourceNode } from "@/lib/resources";
+import { capability } from "@/lib/capabilities/catalog";
 import { driverContext, driverFor, expandOci, nodeOf, REGION, webStack, type FakeOci } from "./_support";
 import { healthyWorld } from "./_world";
+import { moreGraph } from "./_more";
 
 const graph = expandOci();
 const observable = (n: { nativeType: string; ownership: string }) => !n.nativeType.startsWith("unsupported:") && !(n.nativeType === "oci:vault_secret" && n.ownership !== "managed");
@@ -28,7 +30,7 @@ function richGraphs() {
   m.services[1] = { ...m.services[1], source: { type: "git", repo: "github.com/acme/worker", ref: "main" } };
   const withRepo = expandOci(m);
   const volume = { ...nodeOf(graph, "object_store/assets"), address: "volume/data", kind: "volume", nativeType: "oci:block_volume", spec: { sizeGb: 100, deletionPolicy: "deny" } } as ResourceNode;
-  return [graph, { ...withRepo, nodes: [...withRepo.nodes, volume] }];
+  return [graph, moreGraph({ ...withRepo, nodes: [...withRepo.nodes, volume] })];
 }
 
 class Recording implements OciApiTransport {
@@ -74,13 +76,18 @@ describe("what is never allowed", () => {
     expect(all.filter((r) => r.method === ("DELETE" as string))).toEqual([]);
     expect(all.map(describeRule).join("\n")).not.toMatch(/secretbundles|\/o\/|changeCompartment/);
     expect(all.filter((r) => r.service === "identity" && r.method !== "GET")).toEqual([]);
-    for (const cap of ["infrastructure.observe", "topology.read", "incident.investigate", "firewall.inspect"]) {
+    for (const cap of ["topology.read", "firewall.inspect"]) {
       expect(OCI_ALLOWLIST[cap].every((r) => r.method === "GET"), cap).toBe(true);
     }
+    expect(OCI_ALLOWLIST["infrastructure.observe"].filter((r) => r.method !== "GET").map(describeRule)).toEqual([
+      "loggingsearch POST /20190909/search",
+      "monitoring POST /20180401/metrics/actions/summarizeMetricsData",
+    ]);
   });
 
   it("each mutating rule belongs to exactly the capability that needs it", () => {
-    const mutating = Object.entries(OCI_ALLOWLIST).flatMap(([cap, rules]) => rules.filter((r) => r.method !== "GET").map((r) => `${cap}: ${describeRule(r)}`));
+    // Capability metadata distinguishes fixed read POSTs from mutations.
+    const mutating = Object.entries(OCI_ALLOWLIST).filter(([cap]) => capability(cap).mutates).flatMap(([cap, rules]) => rules.filter((r) => r.method !== "GET").map((r) => `${cap}: ${describeRule(r)}`));
     expect(mutating.sort()).toEqual([
       "database.snapshot: postgresql POST /20220915/backups",
       "secret.write: vault PUT /20180608/secrets/{}",
@@ -226,7 +233,9 @@ describe("end to end through the runner-backed transport", () => {
 });
 
 describe("the protocol document and the code agree", () => {
-  const doc = fs.readFileSync(path.join(process.cwd(), "docs", "platform", "RUNNER-PROTOCOL-OCI.md"), "utf8");
+  // The scoped workstream documents additive rules in deploy/oci; the shared
+  // protocol remains owned by the orchestrator. Both must describe every rule.
+  const doc = ["docs/platform/RUNNER-PROTOCOL-OCI.md", "deploy/oci/DRIVERS-MORE.md"].map((file) => fs.readFileSync(path.join(process.cwd(), file), "utf8")).join("\n");
 
   it("lists every allowlist rule of every capability", () => {
     for (const [cap, rules] of Object.entries(OCI_ALLOWLIST)) {
@@ -237,7 +246,6 @@ describe("the protocol document and the code agree", () => {
 
   it("lists every service with its host and API version", () => {
     for (const [id, h] of Object.entries(OCI_SERVICE_HOSTS)) {
-      if (id === "containerengine") continue; // reserved: no driver calls it
       expect(doc, id).toContain(`| \`${id}\` |`);
       if (id !== "queue-data") expect(doc, id).toContain(h.host);
       if (h.version) expect(doc, id).toContain(`\`${h.version}\``);

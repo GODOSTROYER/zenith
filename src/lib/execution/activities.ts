@@ -40,6 +40,9 @@
  */
 import type { ExecutionActivities, LeaseRef } from "@/lib/workflows/types";
 import { createApplyActivities } from "./apply";
+import { createDestroyActivities, checkDestroyApproval } from "./destroy";
+import { loadOperation } from "./context";
+import type { DestroyActivities } from "@/lib/workflows/definitions/destroy";
 import { createCapabilityActivities } from "./capability";
 import { createPlanActivities } from "./plan";
 import { createReleaseActivities } from "./release";
@@ -49,17 +52,23 @@ import { createStepActivities } from "./steps";
 import { createVerifyActivities } from "./verify";
 
 /** Structurally identical to `WorkerActivities` (`ExecutionActivities & ReconcileActivities`) in workflows/types.ts. */
-export interface ExecutionWorkerActivities extends ExecutionActivities {
+export interface ExecutionWorkerActivities extends ExecutionActivities, DestroyActivities {
   reconcileObserve(input: { passId: string; workspaceId: string; environmentId: string; lease: LeaseRef }): Promise<{ drift: number; unknown: number }>;
 }
 
 export function createExecutionActivities(deps: ExecutionDeps): ExecutionWorkerActivities {
   const rt = createRuntime(deps);
   const verify = createVerifyActivities(rt);
+  const planning = createPlanActivities(rt);
   return {
     ...createStepActivities(rt),
-    ...createPlanActivities(rt),
+    ...planning,
+    async checkApproval(input) {
+      const op = await loadOperation(rt, input.operationId);
+      return op.capability === "infrastructure.destroy" ? checkDestroyApproval(rt, input.operationId) : planning.checkApproval(input);
+    },
     ...createApplyActivities(rt),
+    ...createDestroyActivities(rt),
     ...createReleaseActivities(rt),
     ...createCapabilityActivities(rt),
     verifyInfrastructure: verify.verifyInfrastructure,

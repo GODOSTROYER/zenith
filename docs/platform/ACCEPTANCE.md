@@ -29,7 +29,7 @@ npx tsx scripts/acceptance/aws-live.ts --scenario J
 | Demo | Real-run command suffix after `npx tsx scripts/acceptance/aws-live.ts` | Status / external blockers |
 |---|---|---|
 | A autonomous AWS deploy | `--scenario A --confirm-billable` | No sandbox credentials; REST, execution activities and AWS drivers are composed, but the harness fixture source-upload/build/binding path is not live-verified; requires DNS zone for complete DNS/TLS evidence |
-| B incident diagnosis | `--scenario "A,B" --confirm-billable` | A first; incident library exists, MCP investigator registration remains unavailable; breaks only run-tagged DB ingress |
+| B incident diagnosis | `--scenario "A,B" --confirm-billable` | A first; app composition registers the MCP investigator, but no live diagnosis is verified; breaks only run-tagged DB ingress |
 | C approved remediation | `--scenario "A,B,C" --confirm-billable` | A/B first; live remediation/approval acceptance and a human approver; composed execution does not prove this journey |
 | D external drift | `--scenario "A,D" --confirm-billable` | A first; observer/reconcile composition and tick exist, but live observation remains unverified; simulated drift fails |
 | E crash recovery | `--scenario "A,E" --confirm-billable` | A first; configured Temporal and composed worker, dedicated controlled crash test; live lease/fence recovery unverified |
@@ -190,11 +190,13 @@ deletion. Tagging is eventually
 consistent: repeat a sweep after index lag settles. Untagged resources are not
 discoverable by this harness; use sandbox inventory/billing as a cross-check.
 
-Integration gaps: WS-ACT should allowlist extra run tags at resource creation
-instead of relying on after-the-fact adoption; WS-TOFU should expose destroy;
-the source-upload/build path must resolve the analysed fixture repository;
-G needs namespace labels/UID-safe teardown; I needs Node support, a managed
-session/substrate and cleanup API. Driver registration has landed. These harness
+Integration gaps: the harness still needs safe run-tag creation instead of
+after-the-fact adoption and live fixture-source/build verification. OpenTofu
+destroy and provider ownership-safe teardown exist; they do not supply the
+harness's complete run-labelled namespace or managed cleanup journey.
+I needs Node support, a managed session/substrate and cleanup API. See
+[TEARDOWN.md](operations/TEARDOWN.md) and [BUILDS.md](operations/BUILDS.md).
+Driver registration has landed. These harness
 limits are separate from composition (`src/lib/platform`) and are not a claim
 that its worker, driver registry, MCP or reconcile tick is absent.
 

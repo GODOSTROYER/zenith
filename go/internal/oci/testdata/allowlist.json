@@ -51,6 +51,16 @@
       "pattern": "volumes/{}"
     },
     {
+      "service": "core",
+      "method": "GET",
+      "pattern": "instances"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "instances/{}"
+    },
+    {
       "service": "loadbalancer",
       "method": "GET",
       "pattern": "loadBalancers"
@@ -209,6 +219,46 @@
       "service": "redis",
       "method": "GET",
       "pattern": "redisClusters/{}"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "clusters"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "clusters/{}"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "nodePools"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "nodePools/{}"
+    },
+    {
+      "service": "mysql",
+      "method": "GET",
+      "pattern": "dbSystems"
+    },
+    {
+      "service": "mysql",
+      "method": "GET",
+      "pattern": "dbSystems/{}"
+    },
+    {
+      "service": "loggingsearch",
+      "method": "POST",
+      "pattern": "search"
+    },
+    {
+      "service": "monitoring",
+      "method": "POST",
+      "pattern": "metrics/actions/summarizeMetricsData"
     }
   ],
   "topology.read": [
@@ -263,6 +313,16 @@
       "pattern": "volumes/{}"
     },
     {
+      "service": "core",
+      "method": "GET",
+      "pattern": "instances"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "instances/{}"
+    },
+    {
       "service": "loadbalancer",
       "method": "GET",
       "pattern": "loadBalancers"
@@ -421,6 +481,36 @@
       "service": "redis",
       "method": "GET",
       "pattern": "redisClusters/{}"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "clusters"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "clusters/{}"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "nodePools"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "nodePools/{}"
+    },
+    {
+      "service": "mysql",
+      "method": "GET",
+      "pattern": "dbSystems"
+    },
+    {
+      "service": "mysql",
+      "method": "GET",
+      "pattern": "dbSystems/{}"
     }
   ],
   "incident.investigate": [
@@ -475,6 +565,16 @@
       "pattern": "volumes/{}"
     },
     {
+      "service": "core",
+      "method": "GET",
+      "pattern": "instances"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "instances/{}"
+    },
+    {
       "service": "loadbalancer",
       "method": "GET",
       "pattern": "loadBalancers"
@@ -633,6 +733,60 @@
       "service": "redis",
       "method": "GET",
       "pattern": "redisClusters/{}"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "clusters"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "clusters/{}"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "nodePools"
+    },
+    {
+      "service": "containerengine",
+      "method": "GET",
+      "pattern": "nodePools/{}"
+    },
+    {
+      "service": "mysql",
+      "method": "GET",
+      "pattern": "dbSystems"
+    },
+    {
+      "service": "mysql",
+      "method": "GET",
+      "pattern": "dbSystems/{}"
+    },
+    {
+      "service": "loggingsearch",
+      "method": "POST",
+      "pattern": "search"
+    },
+    {
+      "service": "monitoring",
+      "method": "POST",
+      "pattern": "metrics/actions/summarizeMetricsData"
+    }
+  ],
+  "logs.read": [
+    {
+      "service": "loggingsearch",
+      "method": "POST",
+      "pattern": "search"
+    }
+  ],
+  "metrics.read": [
+    {
+      "service": "monitoring",
+      "method": "POST",
+      "pattern": "metrics/actions/summarizeMetricsData"
     }
   ],
   "firewall.inspect": [

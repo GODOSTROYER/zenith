@@ -16,6 +16,28 @@ import rego.v1
 
 import data.zenith.lib
 
+# Deleting or replacing stateful resources always needs a person, even at
+# maximum autonomy or with unrestricted auto-remediation. Deny still wins.
+stateful_deletes_require_approval := {
+	"code": "stateful_deletes_require_approval",
+	"message": "Deleting or replacing stateful resources requires human approval in every environment.",
+	"requirement": {"count": 1, "minRole": "editor", "separationOfDuties": false},
+} if {
+	lib.mutating
+	lib.plan_count("statefulDeletes") > 0
+}
+
+# DNS record deletion is distinct from an ordinary DNS create/update. Reads
+# remain available so a person or agent can inspect a destructive plan.
+dns_deletes_require_approval := {
+	"code": "dns_deletes_require_approval",
+	"message": "Deleting or replacing DNS records requires human approval in every environment.",
+	"requirement": {"count": 1, "minRole": "editor", "separationOfDuties": false},
+} if {
+	lib.mutating
+	lib.plan_count("dnsDeletes") > 0
+}
+
 # A mutation runs unattended only when the environment's autonomy level (0-5,
 # ADR-0007) reaches the capability's catalog `defaultAutonomy` (6 = never).
 autonomy_below_capability := {

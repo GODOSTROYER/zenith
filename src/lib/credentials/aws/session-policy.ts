@@ -63,6 +63,9 @@ const READ_ACTIONS = [
   "sqs:GetQueueUrl",
   "sqs:ListQueues",
   "sqs:ListQueueTags",
+  "sns:ListTopics",
+  "eks:ListClusters",
+  "eks:DescribeAddonVersions",
   "route53:Get*",
   "route53:List*",
   "acm:Describe*",
@@ -113,6 +116,12 @@ function observePolicy(ctx: SessionPolicyContext): SessionPolicyDocument {
   const p = partitionOf(ctx);
   return doc([
     { Effect: "Allow", Action: READ_ACTIONS, Resource: "*" },
+    {
+      Effect: "Allow",
+      Action: ["sns:GetTopicAttributes", "sns:GetSubscriptionAttributes", "sns:ListTagsForResource", "sns:ListSubscriptionsByTopic", "eks:Describe*", "eks:List*", "eks:DescribeCluster", "eks:ListNodegroups", "eks:DescribeNodegroup", "eks:ListTagsForResource"],
+      Resource: [`arn:${p}:sns:*:${ctx.accountId}:zenith-*`, `arn:${p}:eks:*:${ctx.accountId}:cluster/zenith-*`,
+        `arn:${p}:eks:*:${ctx.accountId}:nodegroup/zenith-*/*/*`, `arn:${p}:eks:*:${ctx.accountId}:addon/zenith-*/*/*`],
+    },
     {
       Effect: "Allow",
       Action: ["s3:GetBucket*", "s3:ListBucket", "s3:GetEncryptionConfiguration"],

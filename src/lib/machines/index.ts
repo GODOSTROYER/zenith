@@ -2,16 +2,17 @@
  * Machine / workload control plane (spec §18, §19, ADR-0012).
  *
  * `executeMachineOperation` is the entry point; `createMachineDrivers` builds
- * the transport table (AWS SSM, Kubernetes, zenithd, or all-simulated for
+ * the transport table (AWS SSM, Kubernetes, Azure, GCP, zenithd, or all-simulated for
  * sandbox environments); `machineTransportFor` resolves a target to its driver.
- * Azure Run Command and GCP OS management are declared in the contract but have
- * no driver yet: a target using them is refused with `unsupported_transport`.
+ * GCP exposes inventory inspection only; other guest operations are refused.
  */
 import { MachineOperationError } from "./errors";
 import { createAwsSsmMachineDriver, type AwsSsmDriverOptions } from "./transports/aws-ssm";
 import { createKubernetesMachineDriver, type KubernetesDriverOptions } from "./transports/kubernetes";
 import { createSimulatedMachineDriver } from "./transports/simulated";
 import { createZenithdMachineDriver } from "./transports/zenithd";
+import { createAzureRunCommandMachineDriver, type AzureRunCommandDriverOptions } from "./transports/azure-run-command";
+import { createGcpOsManagementMachineDriver, type GcpOsManagementDriverOptions } from "./transports/gcp-os-management";
 import type { MachineDriver, MachineDrivers, MachineRequestDispatcher, MachineTarget, MachineTransport } from "./types";
 
 export * from "./types";
@@ -37,6 +38,9 @@ export {
 export { createKubernetesMachineDriver, defaultK8sClientFactory, type K8sClients, type KubernetesDriverOptions } from "./transports/kubernetes";
 export { createZenithdMachineDriver, type ZenithdDriverOptions } from "./transports/zenithd";
 export { createSimulatedMachineDriver } from "./transports/simulated";
+export { createAzureRunCommandMachineDriver, type AzureRunCommandDriverOptions } from "./transports/azure-run-command";
+export { createGcpOsManagementMachineDriver, type GcpOsManagementDriverOptions } from "./transports/gcp-os-management";
+export { parseAzureVmTargetId, parseGcpInstanceTargetId } from "./transports/cloud-targets";
 export { createRunnerMachineDispatcher } from "./dispatcher";
 export { createMachineSessionProvider, type MachineSessionOptions } from "./sessions";
 
@@ -47,6 +51,8 @@ export interface MachineDriverOptions {
   dispatcher?: MachineRequestDispatcher;
   ssm?: AwsSsmDriverOptions;
   kubernetes?: KubernetesDriverOptions;
+  azure?: AzureRunCommandDriverOptions;
+  gcp?: GcpOsManagementDriverOptions;
   queueGraceSec?: number;
 }
 
@@ -60,6 +66,8 @@ export function createMachineDrivers(options: MachineDriverOptions = {}): Machin
   return {
     aws_ssm: createAwsSsmMachineDriver(options.ssm),
     kubernetes: createKubernetesMachineDriver(options.kubernetes),
+    azure_run_command: createAzureRunCommandMachineDriver(options.azure),
+    gcp_os_management: createGcpOsManagementMachineDriver(options.gcp),
     ...(options.dispatcher ? { zenithd: createZenithdMachineDriver({ dispatcher: options.dispatcher, queueGraceSec: options.queueGraceSec }) } : {}),
   };
 }

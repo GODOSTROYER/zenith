@@ -30,7 +30,7 @@
  * `./postgres-store.ts`.
  */
 import { env } from "@/lib/env";
-import type { AuditEvent, DeploymentEvent, Manifest } from "@/lib/domain/types";
+import type { AuditEvent, DeploymentEvent, AnyManifest } from "@/lib/domain/types";
 import { FileStore } from "./file-store";
 import { PostgresStore } from "./postgres-store";
 import type {
@@ -231,7 +231,7 @@ export async function readEventsAsync(
 }
 
 /** Awaitable cold manifest read for API and provider verification paths. */
-export async function revisionManifestAsync(id: string): Promise<Manifest | undefined> {
+export async function revisionManifestAsync(id: string): Promise<AnyManifest | undefined> {
   if (!isPostgres()) return q.revisionManifest(id);
   const { revisionManifestAsync: read } = await import("./pg/history");
   return read(id);
@@ -270,7 +270,7 @@ export const q = {
    * serialisation (an API response body, a structuredClone), because the
    * property is non-enumerable and `JSON.stringify` drops it.
    */
-  revisionManifest: (id: string): Manifest | undefined => currentStore().revisionManifest(id),
+  revisionManifest: (id: string): AnyManifest | undefined => currentStore().revisionManifest(id),
   revisionsOf: (projectId: string) =>
     db()
       .revisions.filter((r) => r.projectId === projectId)

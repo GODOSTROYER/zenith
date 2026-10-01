@@ -2,8 +2,9 @@
  * `gcp:cloud_run_service` — a Cloud Run v2 service for `container_service`.
  *
  * Compile (google_cloud_run_v2_service):
- *   - image from `artifact` (must be an immutable `{type:"image"}` reference;
- *     built/blueprint artifacts are resolved upstream — see run-common.ts);
+ *   - literal image artifacts are declarative; built artifacts use a pinned
+ *     bootstrap image until release patches the digest. OpenTofu ignores only
+ *     their image and digest annotation, retaining the released image on apply;
  *   - cpu/memory from `vcpu`/`memoryMb` (clamped to Cloud Run's lattice);
  *   - instances: `replicas` is the always-warm minimum, the maximum is
  *     `max(10, 4 × replicas)` (Cloud Run has no fixed replica count; this is
@@ -51,13 +52,13 @@ import {
   cpuString,
   directVpcEgress,
   envBlocks,
-  imageOf,
   parseCpu,
   parseMemoryMb,
   runCpu,
   runMemoryMb,
   runtimeIdentity,
 } from "./run-common";
+import { imageOf, ignoredImageChanges } from "./run-image";
 
 export const DRIVER_ID = "gcp.cloud_run_service@1";
 const INGRESS = { all: "INGRESS_TRAFFIC_ALL", internal: "INGRESS_TRAFFIC_INTERNAL_ONLY", lb: "INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER" } as const;
@@ -121,7 +122,7 @@ function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
     : { tcp_socket: [{ port }] };
   const container: Record<string, unknown> = {
     name: "app",
-    image: imageOf(s.artifact, node.address),
+    image: imageOf(node, ctx),
     ports: [{ container_port: port }],
     resources: [{ limits: { cpu: cpuString(cpu), memory: `${memoryMb}Mi` }, cpu_idle: isWeb, startup_cpu_boost: true }],
     startup_probe: [{ ...probe, initial_delay_seconds: 0, period_seconds: 5, timeout_seconds: 3, failure_threshold: 24 }],
@@ -151,7 +152,7 @@ function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
         // Stateless: teardown must be possible. The provider defaults this to true.
         deletion_protection: false,
         template: [template],
-        lifecycle: { ignore_changes: IGNORED_OPERATION_ANNOTATIONS },
+        lifecycle: { ignore_changes: [...IGNORED_OPERATION_ANNOTATIONS, ...ignoredImageChanges(node)] },
       },
     },
   };

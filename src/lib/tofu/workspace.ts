@@ -1,7 +1,7 @@
 /**
  * Workspace assembly: `TofuFragment`s → a pinned, deterministic `TofuWorkspace`.
  *
- * Drivers emit fragments (`resource`/`data`/`output`/`locals` + the tofu
+ * Drivers emit fragments (`resource`/`data`/`ephemeral`/`output`/`locals` + the tofu
  * addresses they own). Only this module writes the parts of a workspace that
  * are about the *environment* rather than a node: `versions.tf.json`
  * (`required_version` + exact `required_providers`), `providers.tf.json`
@@ -20,6 +20,8 @@
  *   - every claimed address is actually defined by its fragment;
  *   - a fragment belongs to a node of the graph; a node Zenith does not
  *     manage (`referenced`/`external`) may only contribute `data`/`output`/`locals`;
+ *   - ephemeral blocks share provider/label/expression checks and duplicate
+ *     detection, but their temporary addresses never join state-backed plans;
  *   - resource types must belong to the provider set (or be `terraform_data`);
  *   - no `provisioner`/`connection` blocks (they run arbitrary commands on the
  *     runner), no `terraform_remote_state`; HCL templates use a closed set of
@@ -99,7 +101,7 @@ const TYPE_NAME = /^[a-z][a-z0-9_]*$/;
 const OUTPUT_NAME = LABEL;
 const REGION = /^[a-z0-9-]{3,40}$/;
 
-const FRAGMENT_KEYS = new Set(["resource", "data", "output", "locals", "addresses"]);
+const FRAGMENT_KEYS = new Set(["resource", "data", "ephemeral", "output", "locals", "addresses"]);
 const FORBIDDEN_RESOURCE_KEYS = ["provisioner", "connection"];
 const FORBIDDEN_DATA_TYPES = new Set(["terraform_remote_state"]);
 const BUILTIN_TYPE_PREFIX = "terraform";
@@ -165,44 +167,53 @@ interface CheckedFragment {
   fragment: TofuFragment;
 }
 
-function checkFragment(nodeAddress: string, fragment: TofuFragment, graph: ResourceGraph, prefixes: Set<string>, setName: string, resourceTypes: ReadonlySet<string>): void {
+function checkBlocks(kind: "resource" | "data" | "ephemeral", blocks: unknown, prefixes: ReadonlySet<string>, where: string): void {
+  if (blocks === undefined) return;
+  if (!isPlainObject(blocks)) fail("invalid_fragment", `${where}: ${kind} must be an object.`);
+  let typeIndex = 0;
+  for (const [type, named] of Object.entries(blocks)) {
+    const location = `${where}.${kind}.entry[${typeIndex++}]`;
+    if (!TYPE_NAME.test(type)) fail("invalid_fragment", `${location}: invalid block type.`);
+    const prefix = providerOfType(type);
+    if (!prefixes.has(prefix) || (kind === "ephemeral" && prefix === BUILTIN_TYPE_PREFIX)) {
+      fail("invalid_fragment", `${location}: block type needs a provider in the pinned provider set.`);
+    }
+    if (kind === "data" && FORBIDDEN_DATA_TYPES.has(type)) fail("forbidden_construct", `${location}: remote state data sources are not allowed.`);
+    if (!isPlainObject(named)) fail("invalid_fragment", `${location}: named blocks must be an object.`);
+    let nameIndex = 0;
+    for (const [name, body] of Object.entries(named)) {
+      const bodyLocation = `${location}.entry[${nameIndex++}]`;
+      if (!LABEL.test(name)) fail("invalid_fragment", `${bodyLocation}: invalid block name.`);
+      if (!isPlainObject(body)) fail("invalid_fragment", `${bodyLocation}: block body must be an object.`);
+      for (const forbidden of FORBIDDEN_RESOURCE_KEYS) {
+        if (forbidden in body) fail("forbidden_construct", `${bodyLocation}: ${forbidden} blocks run commands on the runner and are not allowed.`);
+      }
+    }
+  }
+}
+
+function checkFragment(nodeAddress: string, fragment: TofuFragment, graph: ResourceGraph, prefixes: Set<string>, resourceTypes: ReadonlySet<string>): void {
   const node = graph.nodes.find((n) => n.address === nodeAddress);
   if (!node) fail("unknown_node", `Fragment for "${nodeAddress}" does not belong to any node of the graph.`);
   if (!isPlainObject(fragment)) fail("invalid_fragment", `Fragment for "${nodeAddress}" is not an object.`);
   // Check template-bearing labels before structural diagnostics can quote a
   // hostile key. The expression walker uses indexed, redaction-safe locations.
-  scanExpressions({ resource: fragment.resource, data: fragment.data, output: fragment.output, locals: fragment.locals }, "fragment", resourceTypes);
+  scanExpressions({ resource: fragment.resource, data: fragment.data, ephemeral: fragment.ephemeral, output: fragment.output, locals: fragment.locals }, "fragment", resourceTypes);
   for (const k of Object.keys(fragment)) {
-    if (!FRAGMENT_KEYS.has(k)) fail("invalid_fragment", `Fragment for "${nodeAddress}" has unsupported key "${k}" (drivers emit only resource, data, output, locals, addresses).`);
+    if (!FRAGMENT_KEYS.has(k)) fail("invalid_fragment", `Fragment for "${nodeAddress}" has unsupported key "${k}" (drivers emit only resource, data, ephemeral, output, locals, addresses).`);
   }
   if (!Array.isArray(fragment.addresses) || fragment.addresses.some((a) => typeof a !== "string")) {
     fail("invalid_fragment", `Fragment for "${nodeAddress}" must list the tofu addresses it owns.`);
   }
-  if (node.ownership !== "managed" && fragment.resource && Object.keys(fragment.resource).length > 0) {
+  if (node.ownership !== "managed" && [fragment.resource, fragment.ephemeral].some((blocks) => blocks && Object.keys(blocks).length > 0)) {
     fail("invalid_fragment", `Node "${nodeAddress}" is ${node.ownership}, not managed: its fragment may read data but must not declare resources.`);
   }
   for (const [kind, blocks] of [
     ["resource", fragment.resource],
     ["data", fragment.data],
+    ["ephemeral", fragment.ephemeral],
   ] as const) {
-    if (blocks === undefined) continue;
-    if (!isPlainObject(blocks)) fail("invalid_fragment", `Fragment for "${nodeAddress}": ${kind} must be an object.`);
-    for (const [type, named] of Object.entries(blocks)) {
-      if (!TYPE_NAME.test(type)) fail("invalid_fragment", `Fragment for "${nodeAddress}": invalid ${kind} type "${type}".`);
-      const prefix = providerOfType(type);
-      if (!prefixes.has(prefix)) {
-        fail("invalid_fragment", `Fragment for "${nodeAddress}": ${kind} type "${type}" needs provider "${prefix}", which is not in provider set "${setName}".`);
-      }
-      if (kind === "data" && FORBIDDEN_DATA_TYPES.has(type)) fail("forbidden_construct", `Fragment for "${nodeAddress}": data source ${type} is not allowed.`);
-      if (!isPlainObject(named)) fail("invalid_fragment", `Fragment for "${nodeAddress}": ${kind}.${type} must be an object.`);
-      for (const [name, body] of Object.entries(named)) {
-        if (!LABEL.test(name)) fail("invalid_fragment", `Fragment for "${nodeAddress}": invalid ${kind} name "${name}".`);
-        if (!isPlainObject(body)) fail("invalid_fragment", `Fragment for "${nodeAddress}": ${kind}.${type}.${name} must be an object.`);
-        for (const forbidden of FORBIDDEN_RESOURCE_KEYS) {
-          if (forbidden in body) fail("forbidden_construct", `Fragment for "${nodeAddress}": ${type}.${name} declares a ${forbidden} block, which runs commands on the runner.`);
-        }
-      }
-    }
+    checkBlocks(kind, blocks, prefixes, `Fragment for "${nodeAddress}"`);
   }
   for (const name of Object.keys(fragment.output ?? {})) {
     if (!OUTPUT_NAME.test(name)) fail("invalid_fragment", `Fragment for "${nodeAddress}": invalid output name "${name}".`);
@@ -217,6 +228,7 @@ function definedAddresses(fragment: TofuFragment): Set<string> {
   const out = new Set<string>();
   for (const [type, named] of Object.entries(fragment.resource ?? {})) for (const name of Object.keys(named)) out.add(`${type}.${name}`);
   for (const [type, named] of Object.entries(fragment.data ?? {})) for (const name of Object.keys(named)) out.add(`data.${type}.${name}`);
+  for (const [type, named] of Object.entries(fragment.ephemeral ?? {})) for (const name of Object.keys(named)) out.add(`ephemeral.${type}.${name}`);
   return out;
 }
 
@@ -225,6 +237,7 @@ function definedAddresses(fragment: TofuFragment): Set<string> {
 function mergeFragments(checked: CheckedFragment[]): { main: Record<string, unknown>; addressMap: Record<string, string[]> } {
   const resource: Record<string, Record<string, unknown>> = {};
   const data: Record<string, Record<string, unknown>> = {};
+  const ephemeral: Record<string, Record<string, unknown>> = {};
   const output: Record<string, unknown> = {};
   const locals: Record<string, unknown> = {};
   const owner = new Map<string, string>(); // tofu address / output / local → node address
@@ -255,6 +268,12 @@ function mergeFragments(checked: CheckedFragment[]): { main: Record<string, unkn
         (data[type] ??= {})[name] = body;
       }
     }
+    for (const [type, named] of Object.entries(fragment.ephemeral ?? {})) {
+      for (const [name, body] of Object.entries(named)) {
+        claim(`ephemeral.${type}.${name}`, nodeAddress, "Ephemeral address");
+        (ephemeral[type] ??= {})[name] = body;
+      }
+    }
     for (const [name, body] of Object.entries(fragment.output ?? {})) {
       claim(`output.${name}`, nodeAddress, "Output");
       output[name] = body;
@@ -266,12 +285,13 @@ function mergeFragments(checked: CheckedFragment[]): { main: Record<string, unkn
     // claimed addresses must also be unique across fragments; already covered
     // by the definition check above, since a claim needs a definition.
     const list = (addressMap[nodeAddress] ??= []);
-    for (const a of fragment.addresses) if (!list.includes(a)) list.push(a);
+    for (const a of fragment.addresses) if (!a.startsWith("ephemeral.") && !list.includes(a)) list.push(a);
   }
   for (const list of Object.values(addressMap)) list.sort();
 
   const main: Record<string, unknown> = {};
   if (Object.keys(data).length) main.data = data;
+  if (Object.keys(ephemeral).length) main.ephemeral = ephemeral;
   if (Object.keys(locals).length) main.locals = locals;
   if (Object.keys(output).length) main.output = output;
   if (Object.keys(resource).length) main.resource = resource;
@@ -328,6 +348,7 @@ export function assembleWorkspace(input: AssembleWorkspaceInput): TofuWorkspace 
     if (isPlainObject(fragment) && isPlainObject(fragment.resource)) {
       for (const type of Object.keys(fragment.resource)) resourceTypes.add(type);
     }
+    if (isPlainObject(fragment) && isPlainObject(fragment.ephemeral) && Object.keys(fragment.ephemeral).length) resourceTypes.add("ephemeral");
   }
   scanExpressions(input.tags, "tags", resourceTypes);
   scanExpressions(input.providerConfig, "providerConfig", resourceTypes);
@@ -341,7 +362,7 @@ export function assembleWorkspace(input: AssembleWorkspaceInput): TofuWorkspace 
   const entries = [...input.fragments.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
   const checked: CheckedFragment[] = [];
   for (const [nodeAddress, fragment] of entries) {
-    checkFragment(nodeAddress, fragment, input.graph, prefixes, set.name, resourceTypes);
+    checkFragment(nodeAddress, fragment, input.graph, prefixes, resourceTypes);
     checked.push({ nodeAddress, fragment });
   }
   const { main, addressMap } = mergeFragments(checked);
@@ -396,14 +417,39 @@ export function assertWorkspaceIntact(ws: TofuWorkspace): void {
       if (!isPlainObject(value)) fail("forbidden_construct", `${f.path}: workspace JSON must be an object.`);
       configs.push({ value, where: f.path });
       if (isPlainObject(value.resource)) for (const type of Object.keys(value.resource)) resourceTypes.add(type);
+      if (isPlainObject(value.ephemeral) && Object.keys(value.ephemeral).length) resourceTypes.add("ephemeral");
     }
   }
   const config = configDigestOf(ws.files);
   if (config !== ws.configDigest) fail("digest_mismatch", `Workspace files do not match configDigest (${ws.configDigest.slice(0, 12)} ≠ ${config.slice(0, 12)}).`);
   const lock = lockDigestOf(ws.lockfile);
   if (lock !== ws.lockDigest) fail("digest_mismatch", `Workspace lockfile does not match lockDigest (${ws.lockDigest.slice(0, 12)} ≠ ${lock.slice(0, 12)}).`);
+  // A re-digested queue payload cannot add ephemeral providers implicitly.
+  // Recover their exact pins from the workspace's required_providers blocks.
+  const ephemeralPrefixes = new Set<string>();
+  if (resourceTypes.has("ephemeral")) {
+    for (const { value } of configs) {
+      if (!isPlainObject(value) || !isPlainObject(value.terraform) || !isPlainObject(value.terraform.required_providers)) continue;
+      for (const [name, requirement] of Object.entries(value.terraform.required_providers)) {
+        if (!Object.hasOwn(PROVIDER_PINS, name) || !isPlainObject(requirement)) continue;
+        const pin = PROVIDER_PINS[name as ProviderLocalName];
+        if (requirement.source === pin.source && requirement.version === `= ${pin.version}`) ephemeralPrefixes.add(name);
+      }
+    }
+  }
+  const ephemeralAddresses = new Set<string>();
   for (const config of configs) {
     scanExpressions(config.value, config.where, resourceTypes);
+    if (isPlainObject(config.value) && config.value.ephemeral !== undefined) {
+      checkBlocks("ephemeral", config.value.ephemeral, ephemeralPrefixes, config.where);
+      for (const [type, named] of Object.entries(config.value.ephemeral as Record<string, Record<string, unknown>>)) {
+        for (const name of Object.keys(named)) {
+          const address = `ephemeral.${type}.${name}`;
+          if (ephemeralAddresses.has(address)) fail("duplicate_address", `${config.where}: duplicate ephemeral address.`);
+          ephemeralAddresses.add(address);
+        }
+      }
+    }
     if (isPlainObject(config.value) && config.value.provider !== undefined) assertProviderConfig(config.value.provider);
     if (isPlainObject(config.value) && isPlainObject(config.value.terraform) && config.value.terraform.backend !== undefined) assertBackendBlock(config.value.terraform.backend);
   }

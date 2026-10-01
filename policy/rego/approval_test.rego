@@ -6,10 +6,101 @@ import rego.v1
 
 import data.zenith.fixtures_test as fx
 import data.zenith.rules.approval
+import data.zenith.decision
 
 editor := {"count": 1, "minRole": "editor", "separationOfDuties": false}
 
 admin := {"count": 1, "minRole": "admin", "separationOfDuties": false}
+
+# -------------------------------------- deletion approval never unattended
+
+test_stateful_deletes_need_a_human_at_every_class_and_autonomy if {
+	every class in ["sandbox", "development", "staging", "production"] {
+		every level in [0, 1, 2, 3, 4, 5] {
+			every origin in ["human", "agent", "navigator", "system", "reconciler"] {
+				r := approval.stateful_deletes_require_approval with input as fx.with_patch({
+					"environment": {"class": class, "autonomyLevel": level},
+					"context": {"origin": origin},
+					"workspacePolicy": {"autoRemediation": {class: "any"}},
+					"plan": fx.plan({"statefulDeletes": ["aws_s3_bucket.assets"]}),
+				})
+				r.code == "stateful_deletes_require_approval"
+				r.requirement == editor
+			}
+		}
+	}
+}
+
+test_dns_deletes_need_a_human_at_every_class_and_autonomy if {
+	every class in ["sandbox", "development", "staging", "production"] {
+		every level in [0, 1, 2, 3, 4, 5] {
+			every origin in ["human", "agent", "navigator", "system", "reconciler"] {
+				r := approval.dns_deletes_require_approval with input as fx.with_patch({
+					"environment": {"class": class, "autonomyLevel": level},
+					"context": {"origin": origin},
+					"workspacePolicy": {"autoRemediation": {class: "any"}},
+					"plan": fx.plan({"dnsDeletes": ["aws_route53_record.www"]}),
+				})
+				r.code == "dns_deletes_require_approval"
+				r.requirement == editor
+			}
+		}
+	}
+}
+
+test_deletion_rules_ignore_absent_empty_lists_and_dns_updates if {
+	every plan in [fx.plan({}), fx.plan({"statefulDeletes": [], "dnsDeletes": []}), fx.plan({"dnsChanges": ["aws_route53_record.www"]})] {
+		not approval.stateful_deletes_require_approval with input as fx.with_patch({"plan": plan})
+		not approval.dns_deletes_require_approval with input as fx.with_patch({"plan": plan})
+	}
+	not approval.stateful_deletes_require_approval with input as fx.base
+	not approval.dns_deletes_require_approval with input as fx.base
+}
+
+test_deletion_rules_do_not_gate_plan_reads if {
+	patch := {
+		"request": {"capability": "infrastructure.plan", "mutates": false},
+		"plan": fx.plan({"statefulDeletes": ["aws_s3_bucket.assets"], "dnsDeletes": ["aws_route53_record.www"]}),
+	}
+	not approval.stateful_deletes_require_approval with input as fx.with_patch(patch)
+	not approval.dns_deletes_require_approval with input as fx.with_patch(patch)
+}
+
+test_deletion_decisions_require_approval_at_every_class_and_autonomy if {
+	every class in ["sandbox", "development", "staging", "production"] {
+		every level in [0, 1, 2, 3, 4, 5] {
+			# Explicit destroy preserves the existing production data-loss denial
+			# for apply while exercising the stateful approval path in production.
+			stateful := decision.result with input as fx.with_patch({
+				"request": fx.catalog["infrastructure.destroy"],
+				"environment": {"class": class, "autonomyLevel": level},
+				"plan": fx.plan({"destroysData": true, "statefulDeletes": ["aws_s3_bucket.assets"]}),
+			})
+			stateful.outcome == "require_approval"
+			"stateful_deletes_require_approval" in fx.codes(stateful)
+			stateful.approval.count >= 1
+			dns := decision.result with input as fx.with_patch({
+				"request": fx.catalog["infrastructure.apply"],
+				"environment": {"class": class, "autonomyLevel": level},
+				"plan": fx.plan({"dnsDeletes": ["aws_route53_record.www"], "dnsChanges": ["aws_route53_record.www"]}),
+			})
+			dns.outcome == "require_approval"
+			"dns_deletes_require_approval" in fx.codes(dns)
+			dns.approval.count >= 1
+		}
+	}
+}
+
+test_deletion_approval_does_not_override_production_denial if {
+	r := decision.result with input as fx.with_patch({
+		"request": fx.catalog["infrastructure.apply"],
+		"environment": {"class": "production", "autonomyLevel": 5},
+		"plan": fx.plan({"destroysData": true, "statefulDeletes": ["aws_s3_bucket.assets"], "dnsDeletes": ["aws_route53_record.www"]}),
+	})
+	r.outcome == "deny"
+	"production_destroys_data" in fx.codes(r)
+	not r.approval
+}
 
 # ---------------------------------------------------------------- baseline
 

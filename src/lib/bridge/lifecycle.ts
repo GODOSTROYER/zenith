@@ -8,6 +8,7 @@ import type { ActionContext, ActionPlan, ActionResult } from "@/lib/actions/core
 import { principalFromAction } from "@/lib/capabilities/action-bridge";
 import { isBrokerError } from "@/lib/capabilities/errors";
 import type { OperationView } from "@/lib/capabilities/types";
+import { approvalRoundOf } from "@/lib/controlplane/db/repos/operation-review";
 import { q, revisionManifestAsync, save } from "@/lib/db/store";
 import type { Deployment } from "@/lib/domain/types";
 import { bridgeDeps } from "@/lib/bridge/deps";
@@ -97,15 +98,20 @@ const browserFix = "Workflow approval requires a browser session. Use the web ap
 export async function workflowApprovalPlan(ctx: ActionContext, d: Deployment): Promise<ActionPlan> {
   const plan: ActionPlan = { summary: "Approve the platform operation and apply this deployment.", details: ["Approval is routed through the platform operation; approve starts a real change in the customer's cloud.", d.changeSummary], costDeltaUsd: d.estCostDeltaUsd, risk: "high", warnings: [], requiresApproval: false };
   if (ctx.actor.type !== "user" || ctx.integration || !(await bridgeDeps().browserSession(ctx))) plan.blocked = browserFix;
+  let awaiting = d.status === "awaiting_approval";
   try {
     const { op } = await detailFor(ctx, d);
     plan.details.push(`Operation: ${op.id}. Proposal digest: ${op.proposalDigest}. Review: /api/platform/v1/operations/${op.id}`);
+    if (d.workflowStartedAt && op.approvalRound && op.status === "awaiting_approval") {
+      awaiting = true;
+      plan.details.push(`Review and approve the concrete plan at /platform/operations/${op.id}. Plan digest: ${op.planDigest ?? "unavailable"}.`);
+    }
   } catch (error) { plan.blocked = bridgeFailure(error).error; }
-  if (d.status !== "awaiting_approval") plan.blocked = `This deployment is ${d.status}; only a deployment awaiting approval can be approved.`;
+  if (!awaiting) plan.blocked = `This deployment is ${d.status}; only a deployment awaiting approval can be approved.`;
   return plan;
 }
 
-export async function approveWorkflowDeployment(ctx: ActionContext, d: Deployment): Promise<ActionResult> {
+export async function approveWorkflowDeployment(ctx: ActionContext, d: Deployment, reviewedPlanDigest?: string): Promise<ActionResult> {
   if (ctx.actor.type !== "user" || ctx.integration) return { ok: false, summary: "Approval refused.", error: browserFix };
   const session = await bridgeDeps().browserSession(ctx);
   if (!session) return { ok: false, summary: "Approval refused.", error: browserFix };
@@ -113,9 +119,10 @@ export async function approveWorkflowDeployment(ctx: ActionContext, d: Deploymen
     const { broker, op: initial } = await detailFor(ctx, d);
     let op = initial;
     if (op.status === "running" && d.workflowStartedAt) return { ok: true, summary: "Deployment is already underway.", data: deploymentData(d, op) };
-    if (d.status !== "awaiting_approval") return { ok: false, summary: "Approval refused.", error: `This deployment is ${d.status}; only a deployment awaiting approval can be approved.` };
+    const planGate = d.workflowStartedAt && op.approvalRound && ["awaiting_approval", "approved", "queued"].includes(op.status);
+    if (d.status !== "awaiting_approval" && !planGate) return { ok: false, summary: "Approval refused.", error: `This deployment is ${d.status}; only a deployment awaiting approval can be approved.` };
     if (op.status === "awaiting_approval") {
-      const approved = await broker.approve({ workspaceId: ctx.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, approver: { kind: "user", id: ctx.actor.id, name: ctx.actor.name }, session });
+      const approved = await broker.approve({ workspaceId: ctx.workspaceId, operationId: op.id, proposalDigest: op.proposalDigest, planDigest: reviewedPlanDigest, approver: { kind: "user", id: ctx.actor.id, name: ctx.actor.name }, session });
       op = approved.operation;
       if (!approved.finalized) return { ok: true, summary: `Approval recorded (${approved.approvals.have}/${approved.approvals.need}); waiting for other approvers.`, data: deploymentData(d, op) };
     }
@@ -127,6 +134,16 @@ export async function approveWorkflowDeployment(ctx: ActionContext, d: Deploymen
     const result = await bridgeDeps().workflows.signalApproval(op.id);
     return { ok: result.delivered, summary: result.delivered ? "Approval recorded and delivered to the workflow." : "Approval recorded, but no active workflow was found. Inspect the platform operation.", data: { ...deploymentData(d, op), ...result } };
   } catch (error) { return bridgeFailure(error); }
+}
+
+/** Signalling only wakes the workflow; a failed delivery does not undo the decision. */
+export async function deliverPlanApproval(op: OperationView): Promise<{ delivered: boolean; reason?: "not_found" | "unavailable" } | undefined> {
+  if (op.capability === "infrastructure.destroy" && !approvalRoundOf(op) && ["approved", "queued"].includes(op.status)) {
+    return (await import("./destroy")).startApprovedDestroy(op);
+  }
+  if (!op.planDigest || !approvalRoundOf(op) || !["approved", "rejected"].includes(op.status)) return undefined;
+  try { return await bridgeDeps().workflows.signalApproval(op.id); }
+  catch { return { delivered: false, reason: "unavailable" }; }
 }
 
 export async function cancelWorkflowDeployment(ctx: ActionContext, d: Deployment): Promise<ActionResult> {

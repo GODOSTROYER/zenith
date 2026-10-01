@@ -370,10 +370,13 @@ the exact env/file rules are in
 to allowed compartments for requests lacking an explicit compartment; refresh
 bindings after resource moves. The default audit file is
 `<stateDir>/oci-audit.jsonl`; an audit write failure refuses successful completion.
-`secretWrite: true` is rejected until sealed-body support exists; `logs.read` is
-unsupported. OCI S3 state needs a separate customer S3 secret key, and the
-platform credential broker still refuses OCI ProviderSession creation. This
-HTTP configuration alone does not enable a platform OCI deployment.
+`secretWrite: true` is rejected until sealed-body support exists. `logs.read`
+permits Logging Search, `metrics.read` Monitoring, and `incident.investigate`
+both queries plus metadata reads. OCI S3 state needs a separate customer S3
+secret key. Platform OCI sessions require this active registered runner;
+verification checks registration/labels, not cloud permissions. HTTP configuration
+alone does not prove deploy readiness. See
+[OCI-SIGNALS.md](operations/OCI-SIGNALS.md) for signal setup and coverage limits.
 
 ### `k8s.http`
 

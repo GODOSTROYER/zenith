@@ -4,7 +4,7 @@ How the pieces of the platform control plane fit together, what each one needs
 in its environment, and how to run them. This is for whoever operates a Zenith
 install; the design is in [ARCHITECTURE.md](../ARCHITECTURE.md) and the ADRs.
 
-Written against branch `ws/docs-sync`, based on `platform/integration` at `e3ea61a` (2026-10-01). Everything
+Written against branch `ws/docs-sync-2`, based on `ws/integrate-w6` at `3c1fa66` (2026-10-01). Everything
 here is checked against the code on that branch; anything that is not verified
 live says so, and the last section collects them.
 
@@ -20,15 +20,17 @@ doing work yet.
 | Credential broker and OIDC issuer | Built with contract tests using mocks. The Next app serves the two public routes (`/api/oidc/jwks`, `/api/oidc/.well-known/openid-configuration`), and the control signing key signs capability grants. No live AWS STS or KMS verification is recorded. |
 | OpenTofu engine (`src/lib/tofu`) | Worker composition supplies `planWorkspace` and `applyVerifiedPlan` in `src/lib/platform/execution.ts`. State backend selection is provider-specific (section 2.14). No live-cloud backend/apply was verified in this sync. |
 | Policy engine (`policy/`, `src/lib/policy`) | Broker and worker execution broker load the committed bundle. `src/lib/platform/broker.ts` supplies plan facts/cost to worker policy evaluation. `next.config.ts` traces the bundle and the worker Dockerfile copies it (section 2.7); neither deployment was built here. |
-| Capability broker and REST `/api/platform/v1` (`src/lib/capabilities`, `src/app/api/platform/v1`) | Merged and tested. Routes: `capabilities/check` and `propose`; `operations` (list, get, events, approve, reject, cancel); `environments/[id]/autonomy`; `workspace/policy`. Approve, reject and the two admin settings are **browser-only**: any `Authorization` header is refused, the identity is verified live and the `Origin` must match (section 2.8). Integrations call with a `za_` bearer. **Over REST** (workflows are started by the product deploy bridge and MCP v3, not by these routes) an `infrastructure.apply` or `infrastructure.destroy` proposal is always denied `plan_required`, because the reviewed plan can only come from the execution side. Integration bearer calls and runner/`zenithd` calls pass the session middleware only on their classified paths (section 2.8). |
+| Capability broker and REST `/api/platform/v1` (`src/lib/capabilities`, `src/app/api/platform/v1`) | Merged and tested. Routes: `capabilities/check` and `propose`; `operations` (list, get, events, approve, reject, cancel); `environments/[id]/autonomy`; `workspace/policy`. Approve, reject and the two admin settings are **browser-only**: any `Authorization` header is refused, the identity is verified live and the `Origin` must match (section 2.8). Integrations call with a `za_` bearer. **Over REST** an `infrastructure.apply` or `infrastructure.destroy` capability proposal is always denied `plan_required`, because the reviewed plan can only come from the execution side. The browser approval route can deliver approval through the deploy/destroy bridge and start an approved destroy workflow. Integration bearer calls and runner/`zenithd` calls pass the session middleware only on their classified paths (section 2.8). |
 | Runner and `zenithd` control-plane side (`src/lib/runners`, routes under `runners/*` and `machines/*`) | Signed authentication, replay protection, queues and sealed results are wired. AWS runner sessions use `src/lib/runners/aws-runner-transport.ts`; machine execution uses `src/lib/execution/capability.ts`. Cron passes call `platformRunnerReaperPass` in `src/lib/platform/app.ts`. `oci.http` is wired in dispatch and the Go executor; no live transport acceptance is claimed. |
-| Resource model, placement and cost, observability | Worker composition supplies cost and observability ports. Placement is exposed by REST, actions, MCP and `/platform/placement` (COST.md). Legacy cost screens keep the older pricing table. MCP cloud reads still need its separately registered credential hook. |
-| Incident engine, repository analysis and platform UI | Incident/analysis engines remain libraries; the MCP investigator hook has no application caller. Platform pages under `src/app/(product)/platform` render stored resources, drift and incidents, operations, policy, AWS setup and placement. Stored incidents do not prove fresh investigation. |
+| Resource model, placement and cost, observability | Worker composition supplies cost and observability ports. Placement is exposed by REST, actions, MCP and `/platform/placement` (COST.md). Legacy cost screens keep the older pricing table. App composition registers the MCP cloud-read hook through `src/lib/platform/agent-ports.ts`; OCI signals use the registered runner (OCI-SIGNALS.md). |
+| Incident engine, repository analysis and platform UI | App composition registers the MCP investigator with tenant-scoped read ports (`src/lib/platform/agent-ports.ts`). Repository analysis remains a library. Platform pages render stored resources, drift/incidents, operations, policy, AWS setup, placement and teardown. Stored incidents do not prove fresh investigation. |
 | Temporal workflows, client and execution worker | `workers/execution/worker.ts` opens the store and calls `createActivities`, which delegates to `composeExecutionActivities` in `src/lib/platform/execution.ts`. Product deploy bridge and MCP v3 start workflows. `createStubActivities` is an explicit test factory, never a production fallback. Startup requirements are section 6.2; this wiring has not been live-cloud verified. |
 | Reconciliation controller (`src/lib/reconcile`, migration 2, `POST /api/internal/tick/reconcile`) | `ensurePlatformApp` registers `wireReconcilePorts`; the route boots composition after cron authentication. `.github/workflows/tick.yml` includes reconcile every five minutes. The controller observes and proposes repairs; allowed proposals dispatch day-two workflows through `src/lib/platform/reconcile.ts`. Unsupported execution can still fail. See section 2.9. |
 | `zenith-runner` and `zenithd` (Go, `go/`, Helm chart, Dockerfiles) | Built by another workstream, with their own operator guides: [RUNNER.md](../RUNNER.md) and [ZENITHD.md](../ZENITHD.md). The control-plane side is the row above, with the gaps listed there. I did not run or verify the agents. |
-| Machine plane (`src/lib/machines`) | Execution activities contain the `executeMachineOperation` path, but default composition supplies no `machines` port and refuses it. Injecting a machine port can use AWS SSM fixed documents, Kubernetes exec or `zenithd` dispatch. Azure Run Command/GCP OS management have no transport driver. The bootstrap grants no `ssm:SendCommand`; extend permissions deliberately ([AWS-SETUP.md](AWS-SETUP.md)). |
-| Provider drivers | `src/lib/platform/drivers.ts` calls all six provider registrars; the AWS index composes network, compute and data. Evidence remains contract-only. Registration is not provider readiness: `src/lib/platform/credentials.ts` refuses non-AWS identity verification, OCI ProviderSession and non-AWS runner modes. A hosted managed substrate is not verified ([MANAGED-PLATFORM.md](../MANAGED-PLATFORM.md)). |
+| Machine plane (`src/lib/machines`) | Execution activities contain the `executeMachineOperation` path, but default composition supplies no `machines` port and refuses it. Injected ports can use AWS SSM fixed documents, Kubernetes exec, `zenithd`, Azure Run Command or read-only GCP Compute/OS Inventory (`src/lib/machines/transports/azure-run-command.ts`, `src/lib/machines/transports/gcp-os-management.ts`). GCP guest mutations require `zenithd`. No live transport was verified. See [AWS-SETUP.md](AWS-SETUP.md) for customer permissions. |
+| Provider drivers | `src/lib/platform/drivers.ts` calls all six provider registrars; evidence remains contract-only. `src/lib/platform/credentials.ts` verifies GCP, Azure and Kubernetes connections; OCI verification checks runner registration only, and OCI sessions require that runner. Runner modes for other non-AWS providers remain refused. A hosted managed substrate is not verified ([MANAGED-PLATFORM.md](../MANAGED-PLATFORM.md)). |
+| Environment teardown | Browser admin action `env.teardown` consumes trusted recorded destroy evidence, proposes for approval and starts the destroy workflow after browser approval. The first destroy-review trigger and matching readable approval artifact remain entry-point gaps; see [TEARDOWN.md](TEARDOWN.md). |
+| Builds from source | Default source preparation uploads canonical ZIP to customer S3 for AWS CodeBuild, or tar.gz to GCS for GCP Cloud Build. Azure ACR adapters require injected source wiring; default composition refuses. See [BUILDS.md](BUILDS.md). |
 | Connections and approvals | `/platform/connections/aws` saves/verifies via its browser action adapter. No standalone `/api/platform/v1/connections` route exists. `/platform/operations/[id]` renders review; plan-bound approval stays disabled without a readable matching PlanView artifact. See `src/app/(product)/platform/README.md`. |
 
 The execution path is composed, but no live-cloud success is recorded. Configure
@@ -67,7 +69,7 @@ and preserve `unknown`, `unavailable` and `uncertain` outcomes.
 |---|---|---|---|
 | Web / API control plane | Vercel or any Node host | Reads the product store; reads and writes the platform store | platform Postgres; Temporal start, signal and query via the deploy bridge and MCP adapters |
 | Execution worker | A long-running container built from `docker/worker.Dockerfile` | Private local binary plans in `ZENITH_WORKER_PLAN_DIR`; ledger state is in Postgres | Temporal, platform/product stores, cloud APIs, provider downloads and customer state storage |
-| Temporal | Temporal Cloud, self-hosted, or `temporal server start-dev` locally | Workflow history intended to carry ids, digests, counts and redacted messages; no payload encryption | The web app and the worker |
+| Temporal | Temporal Cloud, self-hosted, or `temporal server start-dev` locally | Payloads encrypted by the client/worker codec; ids, visibility and default failure text are outside that encryption | The web app and the worker |
 | Platform Postgres | Supabase (Supavisor transaction pooler) or any Postgres 16 | Schema `platform`: operations, leases, approvals, decisions, resources, connections | Web and worker |
 | `zenith-runner`, `zenithd` (optional) | Customer VPC / VMs | Identity, replay cache, local saved plans/audit; see [RUNNER.md](../RUNNER.md) and [ZENITHD.md](../ZENITHD.md) | Outbound to the control plane and locally authorized cloud APIs |
 
@@ -192,6 +194,11 @@ Read by `temporalConfigFromEnv`, for **both** the web app's client and the worke
 | `ZENITH_TEMPORAL_API_KEY` | unset | **yes** | Temporal Cloud API key. Setting it forces TLS. Never logged; `describeTemporalConfig` reports only "set" or "unset". |
 | `ZENITH_TEMPORAL_TLS` | `false` | no | `true` or `1` forces TLS without an API key, with the SDK's default TLS settings. There is no option for a custom CA or for client certificates (mTLS is not wired). |
 
+Payload encryption uses the shared `ZENITH_SECRET_KEY` and decrypt-only
+`ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS`, documented in the worker table below.
+Both the web client and worker configure the codec in `src/lib/workflows/codec.ts`;
+production client creation refuses a missing key. See section 5.3 for rotation.
+
 ### 2.5 Execution worker
 
 Read by `executionWorkerConfigFromEnv`. Details and defaults:
@@ -211,9 +218,16 @@ Read by `executionWorkerConfigFromEnv`. Details and defaults:
 | `ZENITH_WORKER_HEALTH_PORT` | `9464` | Loopback port for `/healthz` (process up) and `/readyz` (Temporal, platform store, policy bundle, drivers). |
 | `ZENITH_WORKER_PLAN_MAX_AGE_HOURS` | `24` | The plan janitor deletes binary plans of terminal operations older than this; plans of active operations are never touched. |
 | `ZENITH_WORKER_PLAN_DIR` | `<ZENITH_DATA or .data>/platform-plans` | Worker-local binary plan directory, resolved to an absolute path and created with mode `0700`. Keep it private; binary plans may contain secrets. Cross-replica filesystem access and Windows ACL equivalence are not verified. |
-| `ZENITH_SECRET_KEY` | unset | **Secret**, required: 64 hex characters. `derivePlanFingerprintKey` uses HKDF-SHA256 with `zenith.tofu.plan.fingerprint.v1`; there is no public default. The key also protects product vault secrets; give cooperating workers the same key and back it up separately. |
+| `ZENITH_SECRET_KEY` | unset | **Secret**, required: 64 hex characters. `derivePlanFingerprintKey` uses HKDF-SHA256 with `zenith.tofu.plan.fingerprint.v1`; there is no public default. The key also protects product vault secrets and encrypts Temporal workflow payloads (AES-256-GCM, HKDF info `zenith.temporal.payload.v1`); give the web app and cooperating workers the same key and back it up separately. |
+| `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS` | unset | **Secret**, optional: a JSON array of earlier 64-hex `ZENITH_SECRET_KEY` values. Payloads carry a key id; after rotating `ZENITH_SECRET_KEY`, list the old keys here (on the web app and every worker) so workflow histories written under them still decode. A malformed value is refused at startup. |
 
 ### 2.6 OpenTofu engine
+
+The Azure machine transport supplies `ZENITH_ARGV_B64` (protected, base64 JSON
+argv), `ZENITH_CWD` (protected working directory) and `ZENITH_TIMEOUT_SEC`
+(bounded execution time) as per-command guest parameters. They are internal
+inputs to the fixed collector, not operator configuration on the control plane
+or worker. Request values remain data; they are never interpolated into a script.
 
 | Variable | Default | Meaning |
 |---|---|---|
@@ -237,6 +251,34 @@ The runner's own default wall-clock limit per command is 30 minutes
 activity 60 minutes. The composed apply activity (`src/lib/execution/apply.ts`)
 does not override that limit: long applies can be cut at 30 minutes and must
 retain an uncertain outcome.
+
+#### Ephemeral database credentials
+
+`TofuFragment.ephemeral` is assembled as an `ephemeral` block in
+`src/lib/tofu/workspace.ts`; temporary addresses never join state-backed resource
+plans. A sensitive attribute alone is not a safe password sink. Azure MySQL
+fresh creation uses ephemeral `random_password`, Key Vault `value_wo` and an
+ephemeral Key Vault read feeding `administrator_password_wo`. The stored secret
+is reused on retries/replacement and only its reference/version is exported
+(`src/lib/providers/azure/drivers/data/mysql-bootstrap.ts`). Password values
+are designed to stay out of OpenTofu plans/state; no live database apply was
+verified in this sync.
+
+AWS RDS uses service-managed master credentials (`manage_master_user_password`)
+and exports only the Secrets Manager reference
+(`src/lib/providers/aws/drivers/data/rds-compile.ts`). GCP Cloud SQL and Azure
+Postgres use IAM/Entra authentication without a configured password
+(`src/lib/providers/gcp/drivers/data/cloud-sql-instance.ts`,
+`src/lib/providers/azure/drivers/data/postgres.ts`). Do not replace these paths
+with literal password attributes or read a secret into a persistent data block.
+
+OCI MySQL **creation remains disabled**: pinned `oracle/oci` 9.7.1 accepts
+`admin_password` but has no proven `admin_password_wo` or provider-side Vault
+reference. Fetching a Vault bundle into that attribute would persist the secret.
+The driver has observe/runtime/verify/discover only and no compile method
+(`src/lib/providers/oci/drivers/data/mysql.ts`). Gated provider-schema and
+plan/state checks, rather than a suffix or mocked fixture alone, must prove a
+safe path before creation can be enabled.
 
 ### 2.7 Policy engine
 
@@ -349,7 +391,8 @@ broker session; the price catalog is a bundled JSON file.
 | `ZENITH_PLATFORM_BROKER_MEMORY` | development only | no | no |
 | `ZENITH_PLATFORM_ORIGIN` | yes (browser approvals) | no | no |
 | `ZENITH_RUNNER_RESULT_KEY` | yes (seals results) | yes, when an activity awaits runner jobs (opens them; must match) | no |
-| `ZENITH_SECRET_KEY` | yes (product vault) | yes (plan fingerprints and vault) | no |
+| `ZENITH_SECRET_KEY` | yes (product vault and Temporal payloads) | yes (plan fingerprints, vault and Temporal payloads) | no |
+| `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS` | when decrypting retained Temporal histories | same key set as the client | no |
 
 ### 2.13 Zenith-managed provider substrate
 
@@ -387,7 +430,7 @@ environment and must never be written in backend configuration.
 | AWS | `s3`: `stateBucket`, connection `region`; optional `stateKmsKeyArn` | Existing key remains `zenith/<workspace>/<environment>/terraform.tfstate`. Uses state locking; the optional KMS ARN configures OpenTofu state/plan encryption. |
 | GCP | `gcs`: `stateBucket`; optional `stateKmsKey` | Prefix `zenith/<workspace>/<environment>`; the default workspace object is `default.tfstate`, not `terraform.tfstate`. |
 | Azure | `azurerm`: `stateStorageAccount`, `stateContainer` | Key `zenith/<workspace>/<environment>/terraform.tfstate`; Entra auth, CLI auth disabled, OIDC enabled for OIDC connections. |
-| OCI | S3-compatible: `stateBucket`, `stateNamespace`, connection `region` | Oracle-only endpoint `https://<namespace>.compat.objectstorage.<region>.oraclecloud.com`, path style and compatibility flags; no AWS KMS. Customer S3 secret key stays on the runner. Native principals used by `oci.http` cannot authenticate this backend. Platform OCI sessions remain refused. |
+| OCI | S3-compatible: `stateBucket`, `stateNamespace`, connection `region` | Oracle-only endpoint `https://<namespace>.compat.objectstorage.<region>.oraclecloud.com`, path style and compatibility flags; no AWS KMS. Customer S3 secret key stays on the runner. Native principals used by `oci.http` cannot authenticate this backend. Platform OCI sessions go through the runner (`oci.http`), never through control-plane credentials. |
 | Kubernetes | No automatic durable backend | An explicit execution backend override is required; no local fallback is silently selected. |
 
 Unsafe scope segments, foreign-workspace connections, missing fields and
@@ -449,10 +492,12 @@ applied), turns row level security on for every table with no policies, and
 revokes `anon` and `authenticated`. **`platform` must never be added to the Data
 API's exposed schemas.**
 
-Four migrations exist today: `core` (1), `reconcile` (2), `machine_requests` (3,
-the `zenithd` request queue) and `approval_rounds` (4: a plan-level approval after
+Five migrations exist today: `core` (1), `reconcile` (2), `machine_requests` (3,
+the `zenithd` request queue), `approval_rounds` (4: a plan-level approval after
 execution starts opens a new approval round, so the same human can review again once
-per round while earlier decisions stay as immutable history). A database that applied the emitted SQL before a later
+per round while earlier decisions stay as immutable history) and `read_jobs` (5:
+runner read jobs, such as OCI log and metric reads, that belong to no operation and
+store a NULL operation). A database that applied the emitted SQL before a later
 migration landed is behind and the application refuses to use it until you re-apply
 the file or run `npm run migrate:platform`.
 
@@ -460,8 +505,8 @@ The emitted file keeps one name as migrations are added; it grows. If you apply
 migrations through the Supabase CLI's migration history, which records an applied
 file by its version number and will not re-run a changed file, use
 `npm run migrate:platform` (ledger-based) or apply the file by hand for any
-schema version after the first. The emitted file holds all four
-migrations, so a database that applied it before migration 2, 3 or 4 landed is exactly
+schema version after the first. The emitted file holds all five
+migrations, so a database that applied it before migration 2, 3, 4 or 5 landed is exactly
 this case. I did not exercise it through the Supabase CLI.
 
 ### 3.3 What the application does about the schema
@@ -477,14 +522,18 @@ additive; there are no down migrations.
 
 ### 3.4 Retention
 
-Two things bound themselves as they are written: resource observations (the
-latest 100 per resource are kept, pruned on every append) and drift reports (the
-latest 50 per environment). Functions exist to prune idempotency keys
-(`idempotency.prune`) and agent request nonces (`nonces.prune`), but **no process
-calls them yet**. Nothing deletes events, evidence, operations, approvals, policy
-decisions, grants or runner jobs. Plan capacity for those tables to grow without
-bound until a retention job exists, and treat pruning of operations and events as
-a product decision, not a clean-up: they are the audit trail.
+Resource observations keep the latest 100 per resource; drift reports keep the
+latest 50 per environment. The leased housekeeping pass
+(`src/lib/platform/housekeeping.ts`) prunes expired idempotency keys and old
+request nonces and runs `reconcileOperations`. The jobs tick with
+`?housekeeping=1` and the in-process slow scheduler call it
+(`src/lib/server/cron.ts`, `.github/workflows/tick.yml`). Repository pruning uses
+`FOR UPDATE SKIP LOCKED` and rechecks expiry before deletion, so a refreshed
+replay record is not removed (`src/lib/controlplane/db/repos/idempotency.ts`,
+`src/lib/controlplane/db/repos/nonces.ts`). The worker's separate plan janitor
+removes eligible old local binary plans (section 6.2). Nothing prunes events,
+evidence, operations, approvals, policy decisions, grants or runner jobs; capacity
+and audit retention for those tables remain operator responsibilities.
 
 ## 4. Signing keys
 
@@ -543,10 +592,32 @@ worker/cloud run is claimed by this docs sync.
 | What was verified | Nothing live. There is no Cloud account on the build machine; the option shapes follow the SDK's documented API-key and TLS options. | The dev server, locally. No production-shaped cluster. |
 | Cost of operating | A subscription. | A cluster and its database to run, patch and back up. ADR-0009 names a Postgres-native engine as the fallback if this proves disproportionate. |
 
-Workflow history is durable and replicated and is **not encrypted by Zenith** (no
-payload codec is configured). It holds ids, digests, counts and short redacted
-messages by contract, never credentials, secret values, plan files or provider
-responses.
+### 5.3 Payload encryption and rotation
+
+`src/lib/workflows/codec.ts` encrypts complete protobuf payloads and their
+original metadata with **AES-256-GCM**, a fresh nonce and an HKDF-derived key.
+Both `src/lib/workflows/client.ts` and `workers/execution/worker.ts` configure
+`temporalDataConverterFromEnv`. Use the same 64-hex `ZENITH_SECRET_KEY` and
+previous-key set on clients and workers. Production refuses missing/invalid
+keys; development clients without a key can read/write plaintext, but worker
+startup still requires the key. Legacy plaintext histories remain readable.
+
+Set `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS` to a private JSON array of previous
+64-hex keys. New writes use only the current key; previous keys decrypt retained
+histories. Coordinate clients and workers during a key change, retaining all
+keys needed for active workflows, retries, replay and archives. Removing a key
+makes its payloads unreadable; histories are not automatically re-encrypted.
+Changing this shared key also affects the product vault and plan fingerprints;
+the Temporal previous-key option does not migrate either. See
+[RECOVERY.md](RECOVERY.md#6-key-rotation) before rotating.
+
+Workflow ids, task queues, visibility/search attributes and default failure
+messages/stack traces are outside payload encryption. Keep the ids-only and
+redaction contracts: no credentials, secret values, plan files or raw provider
+responses in workflow history. No UI/CLI codec server is supplied. Live Temporal
+Cloud acceptance and encrypted production recovery were not run here; the
+implementation and local replay gate are described in
+[EXECUTION-WORKER.md](../EXECUTION-WORKER.md#payload-encryption).
 
 ## 6. The execution worker
 
@@ -558,8 +629,9 @@ docker build -f docker/worker.Dockerfile -t zenith-execution-worker .
 
 Node 22.16 (base image pinned by tag and digest), OpenTofu 1.12.5 (pinned by
 version and SHA-256; the build fails on an empty or wrong checksum), the bundled
-worker and a prebuilt workflow bundle. It runs as a non-root user and listens on
-**no port**: it only dials Temporal, the database, and the clouds. It uses `tini`
+worker and a prebuilt workflow bundle. It runs as a non-root user and exposes
+loopback health probes (section 6.2); external connections are to Temporal, the
+database and the clouds. It uses `tini`
 as PID 1 so SIGTERM reaches the worker and orphaned provider processes are
 reaped.
 
@@ -603,8 +675,21 @@ were run; `docker build`, the `apt` and OpenTofu downloads inside it, the Linux
   (From the port's header; not exercised.)
 - Memory: `tofu` plans and applies are memory-hungry. The worker doc's rule of
   thumb of about 1 GiB per concurrent activity is an unmeasured guess.
-- Health: read the JSON `health` log line and the pollers in Temporal's UI. There
-  is no HTTP endpoint.
+- Health: `workers/execution/health.ts` listens on `127.0.0.1`, default port
+  `9464` (`ZENITH_WORKER_HEALTH_PORT`). `/healthz` returns 200 for process
+  liveness; `/readyz` returns 200 only when Temporal and the store are reachable,
+  policy is loaded and all six providers have registered drivers, otherwise 503.
+  Checks are bounded to two seconds and return only `ok`, `unavailable` or
+  `unknown`, never configuration or raw errors. Readiness does not verify cloud
+  permissions. Probe from inside the container; a remote pod probe cannot reach
+  this loopback listener. JSON health logs and Temporal pollers remain useful.
+- Plans: `src/lib/execution/plan-janitor.ts` runs immediately and every five
+  minutes, scanning at most 100 entries per pass. Only regular digest-named
+  `.tfplan` files older than `ZENITH_WORKER_PLAN_MAX_AGE_HOURS` (default 24) whose
+  **every** known owner is terminal can be removed. Unowned/active plans and
+  symlinks are retained; store failures cannot authorize deletion. Ownership
+  and file metadata are rechecked, but plan producers do not take the janitor
+  lease, so the last writer/unlink race and replica sharing remain unverified.
 
 What happens when a worker dies mid-operation is in
 [RECOVERY.md](RECOVERY.md#4-what-happens-to-an-operation-when-something-crashes).

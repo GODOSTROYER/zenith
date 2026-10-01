@@ -101,19 +101,22 @@ function postProcess(req: MachineRequest, driver: MachineDriver, result: Machine
 
   const max = req.maxOutputBytes;
   const state = { changed: false };
-  let data = result.data;
+  // Redact complete strings first: truncating a credential can defeat its pattern,
+  // and replacement markers can be longer than the original secret.
+  let data = redactDeep(result.data, state);
   const content = data[CONTENT_FIELD];
   if (typeof content === "string") {
     const cut = truncateUtf8(content, max);
     if (cut.truncated) data = { ...data, [CONTENT_FIELD]: cut.text, truncated: true };
   }
-  data = redactDeep(data, state);
 
   let output = result.output;
   if (output) {
+    const exceeded = Buffer.byteLength(output.stdout) + Buffer.byteLength(output.stderr) > max;
+    output = redactDeep(output, state);
     const out = truncateUtf8(output.stdout, max);
-    const err = truncateUtf8(output.stderr, max);
-    output = redactDeep({ ...output, stdout: out.text, stderr: err.text, truncated: output.truncated || out.truncated || err.truncated }, state);
+    const err = truncateUtf8(output.stderr, Math.max(0, max - Buffer.byteLength(out.text)));
+    output = { ...output, stdout: out.text, stderr: err.text, truncated: output.truncated || exceeded || out.truncated || err.truncated };
   }
   if (state.changed && REDACTABLE_OPS.has(req.operation)) data = { ...data, redacted: true };
   return { ...result, data, ...(output ? { output } : {}) };

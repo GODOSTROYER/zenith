@@ -24,6 +24,8 @@
  */
 
 import { createHash } from "node:crypto";
+import { temporalDataConverterFromEnv } from "@/lib/workflows/codec";
+import type { DestroyWorkflowInput } from "./definitions/destroy";
 import { credentialPatternsIn } from "@/lib/credentials/redact";
 import {
   Client,
@@ -86,12 +88,13 @@ function scrub(message: string, config: TemporalConnectionConfig): string {
  * A failed connect is not cached, so the next call retries.
  */
 export async function workflowClient(config: TemporalConnectionConfig = temporalConfigFromEnv()): Promise<Client> {
-  const key = cacheKey(config);
+  const dataConverter = temporalDataConverterFromEnv();
+  const key = `${cacheKey(config)}|${dataConverter.payloadCodecs[0]?.cacheKey ?? "plaintext"}`;
   let pending = clients.get(key);
   if (!pending) {
     pending = Connection.connect({ ...connectionOptionsFor(config), connectTimeout: CONNECT_TIMEOUT_MS }).then((connection) => ({
       connection,
-      client: new Client({ connection, namespace: config.namespace }),
+      client: new Client({ connection, namespace: config.namespace, dataConverter }),
     }));
     clients.set(key, pending);
     pending.catch(() => clients.delete(key));
@@ -213,6 +216,12 @@ export async function startDeploy(input: DeployWorkflowInput, opts?: CallOptions
     revisionId: "id", deploymentId: "id", connectionId: "id", preApproved: "boolean", build: "boolean",
   });
   return startOnce(WORKFLOW_TYPES.deploy, WORKFLOW_ID(payload.operationId), [payload], WorkflowIdReusePolicy.REJECT_DUPLICATE, opts);
+}
+
+/** Start an explicit teardown once; proposals/approvals remain the broker's responsibility. */
+export async function startDestroy(input: DestroyWorkflowInput, opts?: CallOptions): Promise<StartedWorkflow> {
+  const payload = workflowPayload(input, { operationId: "id", workspaceId: "id", environmentId: "id" });
+  return startOnce("infrastructureDestroyWorkflow", WORKFLOW_ID(payload.operationId), [payload], WorkflowIdReusePolicy.REJECT_DUPLICATE, opts);
 }
 
 export async function startDayTwo(input: DayTwoWorkflowInput, opts?: CallOptions): Promise<StartedWorkflow> {

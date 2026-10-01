@@ -888,7 +888,7 @@
       "title": "Plan-level approval gate end to end; reviewable gated plan",
       "wave": 5,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "paths": [],
       "branch": "ws/approval-flow",
@@ -899,7 +899,7 @@
       "title": "Product store accepts Manifest V2 (placement, release, provider tuning)",
       "wave": 5,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "paths": [],
       "branch": "ws/manifest-v2",
@@ -934,7 +934,7 @@
       "title": "Environment teardown: tofu destroy, destroy workflow, stateful guards, harness run tags",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "paths": [],
       "branch": "ws/destroy",
@@ -945,7 +945,7 @@
       "title": "Secret values delivered to cloud secret stores under brokered secret.write; vault:generated",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "paths": [],
       "branch": "ws/secret-sync",
@@ -1004,7 +1004,7 @@
       "title": "AWS SNS topic, EBS volume, EKS cluster drivers",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "paths": [],
       "branch": "ws/aws-more",
@@ -1027,7 +1027,7 @@
       "title": "Azure Run Command and GCP OS management machine transports",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "paths": [],
       "branch": "ws/mach-clouds",
@@ -1038,7 +1038,7 @@
       "title": "GCP Cloud Build and Azure ACR release ports (digest-pinned rollout)",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "paths": [],
       "branch": "ws/build-multi",
@@ -1061,7 +1061,7 @@
       "title": "OCI OKE, MySQL DB system and compute instance drivers",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "staged",
+      "state": "integrated",
       "deps": [
         "WS-DRIVER-FIX"
       ],
@@ -1074,11 +1074,11 @@
       "title": "Wave-6 staging green: V2 consumers, seams (plan digest, secret.write grants, AWS perms, OCI golden)",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "staged",
+      "state": "integrated",
       "deps": [],
       "paths": [],
       "branch": "ws/integrate-w6",
-      "review": "staging verified outside sandbox: tsc 1 error (credentials purpose), journey real-tofu 3 failures (immutable plan binding), CI coverage 1; 14078 tests passed; Go, policy, SQL, matrix green -> fixes in WS-FIX-*"
+      "review": "2026-10-01 20:40 IST: staging merged into platform/integration after the final gate (tsc, eslint, gofmt/vet/test, policy 213, emit-sql, matrix --strict, AWS policy templates, full vitest with real OpenTofu + Temporal time-skipping: 15219 passed, 1 flaky test fixed and re-run 8/8)"
     },
     {
       "id": "WS-TRUST-WIRE",
@@ -1096,243 +1096,475 @@
     },
     {
       "id": "WS-FIX-JOURNEY",
-      "title": "batch 4 (see handoff WS-FIX-JOURNEY.md)",
+      "title": "Staging fix: the real-OpenTofu deploy journey test vs immutable plan binding",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
-      "deps": [
-        "WS-INTEGRATE-W6"
-      ],
+      "state": "integrated",
+      "deps": [],
       "paths": [],
-      "branch": "ws/fix-journey"
+      "branch": "ws/fix-journey",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: re-ran the real-OpenTofu journey outside the sandbox"
     },
     {
       "id": "WS-FIX-CREDS",
-      "title": "batch 4 (see handoff WS-FIX-CREDS.md)",
+      "title": "Staging fix: credential purpose type after secret.write",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
-      "deps": [
-        "WS-INTEGRATE-W6"
-      ],
+      "state": "integrated",
+      "deps": [],
       "paths": [],
-      "branch": "ws/fix-creds"
+      "branch": "ws/fix-creds",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
     },
     {
       "id": "WS-FIX-CI",
-      "title": "batch 4 (see handoff WS-FIX-CI.md)",
+      "title": "Staging fix: CI coverage of network-gated suites",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
-      "deps": [
-        "WS-INTEGRATE-W6"
-      ],
+      "state": "integrated",
+      "deps": [],
       "paths": [],
-      "branch": "ws/fix-ci"
+      "branch": "ws/fix-ci",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
     },
     {
       "id": "WS-DESTROY-PROPOSE",
-      "title": "batch 4 (see handoff WS-DESTROY-PROPOSE.md)",
+      "title": "Teardown from the product: action, trusted destroy proposal, workflow start",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
-      "deps": [
-        "WS-INTEGRATE-W6"
-      ],
+      "state": "integrated",
+      "deps": [],
       "paths": [],
-      "branch": "ws/destroy-propose"
+      "branch": "ws/destroy-propose",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: removed the interim C1 ambient .d.ts stubs that shadowed the real teardown modules (tsc 5 -> 0)"
     },
     {
       "id": "WS-DESTROY-GUARDS",
-      "title": "batch 4 (see handoff WS-DESTROY-GUARDS.md)",
+      "title": "Deletion guards when a deploy drops resources from the manifest",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
-      "deps": [
-        "WS-INTEGRATE-W6"
-      ],
+      "state": "integrated",
+      "deps": [],
       "paths": [],
-      "branch": "ws/destroy-guards"
+      "branch": "ws/destroy-guards",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: a moved final re-plan now reports plan_changed before deletion guards run (caught by the real-OpenTofu journey)"
     },
     {
       "id": "WS-DESTROY-K8S",
-      "title": "batch 4 (see handoff WS-DESTROY-K8S.md)",
+      "title": "Kubernetes environment teardown (C1)",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
-      "deps": [
-        "WS-INTEGRATE-W6"
-      ],
+      "state": "integrated",
+      "deps": [],
       "paths": [],
-      "branch": "ws/destroy-k8s"
+      "branch": "ws/destroy-k8s",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
     },
     {
       "id": "WS-DESTROY-UI",
-      "title": "batch 4 (see handoff WS-DESTROY-UI.md)",
+      "title": "Teardown control on the platform environment pages",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
-      "deps": [
-        "WS-INTEGRATE-W6"
-      ],
+      "state": "integrated",
+      "deps": [],
       "paths": [],
-      "branch": "ws/destroy-ui"
+      "branch": "ws/destroy-ui",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
     },
     {
       "id": "WS-BUILD-SOURCE",
-      "title": "batch 4 (see handoff WS-BUILD-SOURCE.md)",
+      "title": "Source bundles from the product's git source (C3)",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
-      "deps": [
-        "WS-INTEGRATE-W6"
-      ],
+      "state": "integrated",
+      "deps": [],
       "paths": [],
-      "branch": "ws/build-source"
+      "branch": "ws/build-source",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
     },
     {
       "id": "WS-BUILD-GCP",
-      "title": "batch 4 (see handoff WS-BUILD-GCP.md)",
+      "title": "GCP: built workloads deploy by digest; no compile-time digest needed",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
-      "deps": [
-        "WS-INTEGRATE-W6"
-      ],
+      "state": "integrated",
+      "deps": [],
       "paths": [],
-      "branch": "ws/build-gcp"
+      "branch": "ws/build-gcp",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
     },
     {
       "id": "WS-BUILD-AZURE",
-      "title": "batch 4 (see handoff WS-BUILD-AZURE.md)",
+      "title": "Azure: built workloads deploy by digest; no :latest",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
-      "deps": [
-        "WS-INTEGRATE-W6"
-      ],
+      "state": "integrated",
+      "deps": [],
       "paths": [],
-      "branch": "ws/build-azure"
+      "branch": "ws/build-azure",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
     },
     {
       "id": "WS-ZM-TEARDOWN",
-      "title": "batch 4 (see handoff WS-ZM-TEARDOWN.md)",
+      "title": "Zenith-managed environment teardown (C1)",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
-      "deps": [
-        "WS-INTEGRATE-W6"
-      ],
+      "state": "integrated",
+      "deps": [],
       "paths": [],
-      "branch": "ws/zm-teardown"
+      "branch": "ws/zm-teardown",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
     },
     {
       "id": "WS-ZM-WIRE",
-      "title": "batch 4 (see handoff WS-ZM-WIRE.md)",
+      "title": "Zenith-managed: Neon credential sink and full-graph identity trust",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
-      "deps": [
-        "WS-INTEGRATE-W6"
-      ],
+      "state": "integrated",
+      "deps": [],
       "paths": [],
-      "branch": "ws/zm-wire"
+      "branch": "ws/zm-wire",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
     },
     {
       "id": "WS-OCI-READJOBS",
-      "title": "batch 4 (see handoff WS-OCI-READJOBS.md)",
+      "title": "Runner read jobs without an operation (C4)",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
-      "deps": [
-        "WS-INTEGRATE-W6"
-      ],
+      "state": "integrated",
+      "deps": [],
       "paths": [],
-      "branch": "ws/oci-readjobs"
+      "branch": "ws/oci-readjobs",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: read-job events carry no operation id; the reaper skips operation-less jobs"
     },
     {
       "id": "WS-OCI-SESSIONS",
-      "title": "batch 4 (see handoff WS-OCI-SESSIONS.md)",
+      "title": "OCI platform sessions and real OCI log/metric reads",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
-      "deps": [
-        "WS-INTEGRATE-W6"
-      ],
+      "state": "integrated",
+      "deps": [],
       "paths": [],
-      "branch": "ws/oci-sessions"
+      "branch": "ws/oci-sessions",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: wired the OCI session into agent reads; aligned the loggingsearch service id; LQL suffix, capability split and MQL binding handed to WS-OCI-SIGNALS-WIRE"
     },
     {
       "id": "WS-OCI-GO",
-      "title": "batch 4 (see handoff WS-OCI-GO.md)",
+      "title": "OCI allowlist + Go runner rules for Logging Search and Monitoring",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
-      "deps": [
-        "WS-INTEGRATE-W6"
-      ],
+      "state": "integrated",
+      "deps": [],
       "paths": [],
-      "branch": "ws/oci-go"
+      "branch": "ws/oci-go",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: read-only POSTs (Logging Search, summarizeMetricsData) exempt from the retry-token rule; go test run outside the sandbox"
     },
     {
       "id": "WS-EPHEMERAL",
-      "title": "batch 4 (see handoff WS-EPHEMERAL.md)",
+      "title": "Ephemeral values: passwords never in state; enable MySQL create (C5)",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
-      "deps": [
-        "WS-INTEGRATE-W6"
-      ],
+      "state": "integrated",
+      "deps": [],
       "paths": [],
-      "branch": "ws/ephemeral"
+      "branch": "ws/ephemeral",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: real OpenTofu found two test mismatches, handed to WS-FIX-EPHEMERAL-REAL / WS-FIX-OCI-MYSQL-REAL"
     },
     {
       "id": "WS-TEMPORAL-CODEC",
-      "title": "batch 4 (see handoff WS-TEMPORAL-CODEC.md)",
+      "title": "Encrypt Temporal workflow payloads",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
-      "deps": [
-        "WS-INTEGRATE-W6"
-      ],
+      "state": "integrated",
+      "deps": [],
       "paths": [],
-      "branch": "ws/temporal-codec"
+      "branch": "ws/temporal-codec",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
     },
     {
       "id": "WS-MCP-OAUTH",
-      "title": "batch 4 (see handoff WS-MCP-OAUTH.md)",
+      "title": "OAuth protected-resource discovery for MCP v3",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
-      "deps": [
-        "WS-INTEGRATE-W6"
-      ],
+      "state": "integrated",
+      "deps": [],
       "paths": [],
-      "branch": "ws/mcp-oauth"
+      "branch": "ws/mcp-oauth",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: restored the resourceFor import (MCP 500); route test expects the path-scoped protected-resource URL"
     },
     {
       "id": "WS-AWS-EKS-READS",
-      "title": "batch 4 (see handoff WS-AWS-EKS-READS.md)",
+      "title": "AWS EKS observe/verify/runtime with @aws-sdk/client-eks",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
-      "deps": [
-        "WS-INTEGRATE-W6"
-      ],
+      "state": "integrated",
+      "deps": [],
       "paths": [],
-      "branch": "ws/aws-eks-reads"
+      "branch": "ws/aws-eks-reads",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
     },
     {
       "id": "WS-AWS-SNS-READS",
-      "title": "batch 4 (see handoff WS-AWS-SNS-READS.md)",
+      "title": "AWS SNS observe/verify with @aws-sdk/client-sns",
       "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/aws-sns-reads",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
+    },
+    {
+      "id": "WS-POLICY-DELETE",
+      "title": "destructive plan facts reach policy; deletions always need a human",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/policy-delete",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: rebuilt the OPA bundle (opa 1.19.1, 213/213 Rego tests); dropped an obsolete comment"
+    },
+    {
+      "id": "WS-FIX-EPHEMERAL-REAL",
+      "title": "make the real-OpenTofu ephemeral test agree with OpenTofu 1.12.5",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/fix-ephemeral-real",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: real OpenTofu 49/49 after allowing the dependency address in raw state"
+    },
+    {
+      "id": "WS-FIX-OCI-MYSQL-REAL",
+      "title": "OCI MySQL write-only password vs the real oracle/oci 9.7.1 schema",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/fix-oci-mysql-real",
+      "tests": "job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant",
+      "review": "orchestrator: real OpenTofu 9/9 after initializing the backend for providers schema"
+    },
+    {
+      "id": "WS-BUILD-AWS-SOURCE",
+      "title": "AWS CodeBuild consumes the C3 source bundles",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/build-aws-source",
+      "tests": "source-bundle/codebuild/credentials 736 passed (job); staging re-run green",
+      "review": "orchestrator: resumed after a model-capacity error; IAM boundary gap handed to WS-AWS-BUILD-BOUNDARY"
+    },
+    {
+      "id": "WS-OCI-SIGNALS-WIRE",
+      "title": "make OCI log/metric reads work end to end through the runner",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/oci-signals-wire",
+      "tests": "OCI/runner/observability/docs 1473 passed; go vet/test all packages passed (outside sandbox)",
+      "review": "orchestrator: gofmt; golden allowlist sizes for logs.read/metrics.read; reviewed the Monitoring and LQL guards"
+    },
+    {
+      "id": "WS-AWS-BUILD-BOUNDARY",
+      "title": "Workload permissions boundary lets build roles (only) push images and publish sites",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/aws-build-boundary",
+      "tests": "AWS + credentials 1631 passed with real OpenTofu (orchestrator)",
+      "review": "orchestrator: reviewed principal-conditioned statements; fixture name prefix aligned with production zenith-; scheduled-job and EC2 SSM gaps handed to WS-AWS-BOUNDARY-MORE"
+    },
+    {
+      "id": "WS-DOCS-SYNC-2",
+      "title": "Operator docs tell the truth about wave 7",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/docs-sync-2",
+      "tests": "tests/docs 106 passed (job); staging docs+ci 330 passed",
+      "review": "orchestrator: merged; its open-gap list seeded wave 8"
+    },
+    {
+      "id": "WS-AWS-BOUNDARY-MORE",
+      "title": "Scheduled jobs and EC2 machines (SSM agent) work under the workload boundary",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "integrated",
+      "deps": [
+        "WS-AWS-BUILD-BOUNDARY"
+      ],
+      "paths": [],
+      "branch": "ws/aws-boundary-more",
+      "tests": "credentials + AWS 1691 passed with real OpenTofu; tsc 0 (orchestrator)",
+      "review": "orchestrator: merged; size headroom 161 chars (GovCloud) and remaining blocked families handed to WS-AWS-BOUNDARY-SPLIT"
+    },
+    {
+      "id": "WS-DESTROY-REVIEW",
+      "title": "a first, read-only destroy review anyone authorized can start",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/destroy-review",
+      "tests": "running",
+      "review": ""
+    },
+    {
+      "id": "WS-AZURE-SOURCE-WIRE",
+      "title": "default composition builds Azure workloads from C3 source bundles",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/azure-source-wire",
+      "tests": "running",
+      "review": ""
+    },
+    {
+      "id": "WS-RELEASE-K8S",
+      "title": "release ports for Kubernetes environments (image rollout + migration jobs)",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/release-k8s",
+      "tests": "running",
+      "review": ""
+    },
+    {
+      "id": "WS-RELEASE-OCI",
+      "title": "release ports for OCI environments (container image rollout + migrations through the runner)",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/release-oci",
+      "tests": "running",
+      "review": ""
+    },
+    {
+      "id": "WS-DNS-GUARDS-CLOUDS",
+      "title": "DNS deletion target-ownership guards for GCP, Azure and OCI",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/dns-guards-clouds",
+      "tests": "running",
+      "review": ""
+    },
+    {
+      "id": "WS-IMAGE-PINS",
+      "title": "every build/tool image Zenith runs is digest-pinned, with a guard",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/image-pins",
+      "tests": "running",
+      "review": ""
+    },
+    {
+      "id": "WS-VAULT-REWRAP",
+      "title": "product-vault key rotation: re-wrap tooling and runbook",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/vault-rewrap",
+      "tests": "running",
+      "review": ""
+    },
+    {
+      "id": "WS-TEMPORAL-MTLS",
+      "title": "Temporal client/worker mTLS configuration",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/temporal-mtls",
+      "tests": "running",
+      "review": ""
+    },
+    {
+      "id": "WS-MACHINE-PORT",
+      "title": "default composition supplies the machine port",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/machine-port",
+      "tests": "running",
+      "review": ""
+    },
+    {
+      "id": "WS-GITHUB-SOURCE",
+      "title": "tenant-scoped GitHub App connector for private source repositories",
+      "wave": 8,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/github-source",
+      "tests": "running",
+      "review": ""
+    },
+    {
+      "id": "WS-AWS-BOUNDARY-SPLIT",
+      "title": "One permissions boundary per AWS role family, so every Zenith role can do its job",
+      "wave": 8,
       "owner": "codex gpt-6.1-sol xhigh",
       "state": "in_progress",
       "deps": [
-        "WS-INTEGRATE-W6"
+        "WS-AWS-BOUNDARY-MORE"
       ],
       "paths": [],
-      "branch": "ws/aws-sns-reads"
+      "branch": "ws/aws-boundary-split",
+      "tests": "running",
+      "review": ""
     }
   ],
   "blockers": [

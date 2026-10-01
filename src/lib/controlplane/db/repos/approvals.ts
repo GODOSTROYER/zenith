@@ -45,12 +45,13 @@ interface ApprovalRow {
   created_at: string;
   expires_at: string;
   consumed_at: string | null;
+  approval_round: number;
 }
 
 const APPROVAL_COLUMNS =
-  "id, operation_id, workspace_id, proposal_digest, decision, approver, approver_role, reason, policy_version, created_at, expires_at, consumed_at";
+  "id, operation_id, workspace_id, proposal_digest, decision, approver, approver_role, reason, policy_version, created_at, expires_at, consumed_at, approval_round";
 
-const toApproval = (row: ApprovalRow): ApprovalRecord => ({
+const toApproval = (row: ApprovalRow): ApprovalRecord & { approvalRound: number } => ({
   id: row.id,
   operationId: row.operation_id,
   workspaceId: row.workspace_id,
@@ -63,6 +64,7 @@ const toApproval = (row: ApprovalRow): ApprovalRecord => ({
   createdAt: row.created_at,
   expiresAt: row.expires_at,
   consumedAt: opt(row.consumed_at),
+  approvalRound: row.approval_round,
 });
 
 const ROLE_RANK = { viewer: 0, editor: 1, admin: 2 } as const;
@@ -81,6 +83,9 @@ export interface RecordApprovalInput {
   reason?: string;
   /** approval validity, capped at the operation's own expiry (default 1 h) */
   ttlMs?: number;
+  /** Compare under the operation lock, alongside the immutable proposal digest. */
+  planDigest?: string;
+  expectedApprovalRound?: number;
 }
 
 export interface RecordApprovalResult {
@@ -116,8 +121,8 @@ export async function record(sql: Sql, input: RecordApprovalInput): Promise<Reco
   const ttl = boundedMs("ttlMs", input.ttlMs ?? 60 * 60 * 1000, 1000, 7 * 24 * 60 * 60 * 1000);
 
   return sql.tx(async (tx) => {
-    const locked = await tx.query<{ status: OperationStatus; proposal_digest: string; principal: Principal; policy_decision_id: string | null; approval_round: number; is_expired: boolean }>(
-      `select status, proposal_digest, principal, policy_decision_id, approval_round, (expires_at <= clock_timestamp()) as is_expired
+    const locked = await tx.query<{ status: OperationStatus; proposal_digest: string; plan_digest: string | null; principal: Principal; policy_decision_id: string | null; approval_round: number; is_expired: boolean }>(
+      `select status, proposal_digest, plan_digest, principal, policy_decision_id, approval_round, (expires_at <= clock_timestamp()) as is_expired
          from platform.operations where workspace_id = $1 and id = $2 for update`,
       [workspaceId, operationId]
     );
@@ -128,6 +133,12 @@ export async function record(sql: Sql, input: RecordApprovalInput): Promise<Reco
     if (op.is_expired) throw new ControlStoreError("operation_expired", "The operation expired before it was reviewed.", { id: operationId });
     if (op.proposal_digest !== proposalDigest)
       throw new ControlStoreError("digest_mismatch", "The digest you reviewed does not match the operation's current proposal. Reload and review the exact proposal.", { id: operationId });
+    if (input.expectedApprovalRound !== undefined && input.expectedApprovalRound !== op.approval_round)
+      throw new ControlStoreError("digest_mismatch", "The approval round changed. Reload and review this round.");
+    if (input.decision === "approve" && op.approval_round > 0 && op.plan_digest && input.planDigest !== op.plan_digest)
+      throw new ControlStoreError("digest_mismatch", "The reviewed plan digest does not match the gated plan. Reload and review its changes.");
+    if (input.planDigest !== undefined && input.planDigest !== op.plan_digest)
+      throw new ControlStoreError("digest_mismatch", "The reviewed plan digest does not match this operation's plan.");
 
     let requirement: ApprovalRequirement | null = null;
     if (op.policy_decision_id) {

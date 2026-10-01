@@ -2,74 +2,123 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "WorkloadLogs",
       "Effect": "Allow",
       "Action": [
-        "logs:CreateLogGroup",
-        "logs:CreateLogStream",
-        "logs:PutLogEvents",
-        "logs:DescribeLogStreams"
+        "ecr:InitiateLayerUpload",
+        "ecr:UploadLayerPart",
+        "ecr:CompleteLayerUpload",
+        "ecr:PutImage",
+        "ecr:DescribeImages"
       ],
-      "Resource": [
-        "arn:${partition}:logs:*:${account_id}:log-group:/zenith/*",
-        "arn:${partition}:logs:*:${account_id}:log-group:/aws/*/zenith-*"
-      ]
+      "Resource": "arn:${partition}:ecr:*:${account_id}:repository/zenith-*",
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": "arn:${partition}:iam::${account_id}:role/zenith-*-build"
+        }
+      }
     },
     {
-      "Sid": "WorkloadImagePull",
+      "Effect": "Allow",
+      "Action": "s3:GetObjectVersion",
+      "Resource": "arn:${partition}:s3:::zenith-*/*",
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": "arn:${partition}:iam::${account_id}:role/zenith-*-build"
+        },
+        "StringEquals": {
+          "s3:ResourceAccount": "${account_id}"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "cloudfront:CreateInvalidation",
+      "Resource": "arn:${partition}:cloudfront::${account_id}:distribution/*",
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": "arn:${partition}:iam::${account_id}:role/zenith-*-build"
+        },
+        "StringEquals": {
+          "aws:ResourceTag/zenith:managed": "true"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ecs:RunTask",
+      "Resource": "arn:${partition}:ecs:*:${account_id}:task-definition/zenith-*",
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": "arn:${partition}:iam::${account_id}:role/zenith-*-events",
+          "ecs:cluster": "arn:${partition}:ecs:*:${account_id}:cluster/zenith-*"
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "iam:PassRole",
+      "Resource": "arn:${partition}:iam::${account_id}:role/zenith-*",
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": "arn:${partition}:iam::${account_id}:role/zenith-*-events"
+        },
+        "StringEquals": {
+          "iam:PassedToService": "ecs-tasks.amazonaws.com"
+        }
+      }
+    },
+    {
       "Effect": "Allow",
       "Action": [
-        "ecr:BatchCheckLayerAvailability",
-        "ecr:GetDownloadUrlForLayer",
-        "ecr:BatchGetImage"
+        "ssm:UpdateInstanceInformation",
+        "ssm:ListInstanceAssociations",
+        "ssm:PutComplianceItems",
+        "ssm:DescribeAssociation",
+        "ssm:Update*AssociationStatus"
       ],
-      "Resource": "arn:${partition}:ecr:*:${account_id}:repository/zenith-*"
+      "Resource": "arn:${partition}:ec2:*:${account_id}:instance/*",
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": "arn:${partition}:iam::${account_id}:role/zenith-*-ec2"
+        },
+        "StringEquals": {
+          "aws:ResourceTag/zenith:managed": "true"
+        }
+      }
     },
     {
-      "Sid": "WorkloadEcrAuth",
-      "Effect": "Allow",
-      "Action": "ecr:GetAuthorizationToken",
-      "Resource": "*"
-    },
-    {
-      "Sid": "WorkloadObjectsAndQueues",
-      "Effect": "Allow",
-      "Action": [
-        "s3:GetObject",
-        "s3:PutObject",
-        "s3:DeleteObject",
-        "s3:ListBucket",
-        "s3:GetBucketLocation",
-        "sqs:SendMessage",
-        "sqs:ReceiveMessage",
-        "sqs:DeleteMessage",
-        "sqs:ChangeMessageVisibility",
-        "sqs:GetQueueAttributes",
-        "sqs:GetQueueUrl"
-      ],
-      "Resource": [
-        "arn:${partition}:s3:::zenith-*",
-        "arn:${partition}:s3:::zenith-*/*",
-        "arn:${partition}:sqs:*:${account_id}:zenith-*"
-      ]
-    },
-    {
-      "Sid": "WorkloadReadItsOwnSecrets",
       "Effect": "Allow",
       "Action": [
-        "secretsmanager:GetSecretValue",
-        "secretsmanager:DescribeSecret",
-        "ssm:GetParameter",
-        "ssm:GetParameters",
-        "ssm:GetParametersByPath"
+        "ec2:AttachNetworkInterface",
+        "ec2:DetachNetworkInterface",
+        "ec2:ModifyNetworkInterfaceAttribute"
       ],
-      "Resource": [
-        "arn:${partition}:secretsmanager:*:${account_id}:secret:zenith/*",
-        "arn:${partition}:ssm:*:${account_id}:parameter/zenith/*"
-      ]
+      "Resource": "arn:${partition}:ec2:*:${account_id}:instance/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:ResourceTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
     },
     {
-      "Sid": "WorkloadKmsViaServices",
+      "Effect": "Allow",
+      "Action": "ec2:CreateTags",
+      "Resource": "arn:${partition}:ec2:*:${account_id}:network-interface/*",
+      "Condition": {
+        "ForAllValues:StringEquals": {
+          "aws:TagKeys": [
+            "node.k8s.amazonaws.com/instance_id",
+            "node.k8s.amazonaws.com/createdAt",
+            "cluster.k8s.amazonaws.com/name",
+            "eks:eni:owner"
+          ]
+        }
+      }
+    },
+    {
       "Effect": "Allow",
       "Action": [
         "kms:Decrypt",
@@ -86,15 +135,111 @@
             "secretsmanager.*.amazonaws.com",
             "ssm.*.amazonaws.com",
             "s3.*.amazonaws.com",
-            "sqs.*.amazonaws.com"
+            "sqs.*.amazonaws.com",
+            "sns.*.amazonaws.com",
+            "ec2.*.amazonaws.com",
+            "eks.*.amazonaws.com"
           ]
         }
       }
     },
     {
-      "Sid": "WorkloadVpcNetworkInterfaces",
+      "Effect": "Deny",
+      "Action": "iam:*",
+      "Resource": "*",
+      "Condition": {
+        "ArnNotLike": {
+          "aws:PrincipalArn": "arn:${partition}:iam::${account_id}:role/zenith-*-events"
+        }
+      }
+    },
+    {
+      "Effect": "Deny",
+      "Action": [
+        "organizations:*",
+        "account:*",
+        "iam:*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringNotEqualsIfExists": {
+          "iam:PassedToService": "ecs-tasks.amazonaws.com"
+        }
+      }
+    },
+    {
+      "Effect": "Deny",
+      "Action": "s3:*",
+      "Resource": [
+        "${state_bucket_arn}",
+        "${state_bucket_arn}/*"
+      ]
+    },
+    {
       "Effect": "Allow",
       "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "logs:DescribeLogStreams",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage",
+        "eks:DescribeCluster",
+        "eks-auth:AssumeRoleForPodIdentity",
+        "ec2:AttachNetworkInterface",
+        "ec2:DetachNetworkInterface",
+        "ec2:ModifyNetworkInterfaceAttribute",
+        "kms:DescribeKey",
+        "sns:Publish",
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:ListBucket",
+        "s3:GetBucketLocation",
+        "sqs:SendMessage",
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:ChangeMessageVisibility",
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl",
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:DescribeSecret",
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+        "ssm:GetParametersByPath"
+      ],
+      "Resource": [
+        "arn:${partition}:logs:*:${account_id}:log-group:/zenith/*",
+        "arn:${partition}:logs:*:${account_id}:log-group:/aws/*/zenith-*",
+        "arn:${partition}:ecr:*:${account_id}:repository/zenith-*",
+        "arn:${partition}:ecr:*:*:repository/eks/*",
+        "arn:${partition}:ecr:*:*:repository/amazon-k8s-cni",
+        "arn:${partition}:eks:*:${account_id}:cluster/zenith-${environment_tag_value}-*",
+        "arn:${partition}:ec2:*:${account_id}:network-interface/*",
+        "arn:${partition}:kms:*:${account_id}:key/*",
+        "arn:${partition}:sns:*:${account_id}:zenith-${environment_tag_value}-*",
+        "arn:${partition}:s3:::zenith-*",
+        "arn:${partition}:s3:::zenith-*/*",
+        "arn:${partition}:sqs:*:${account_id}:zenith-*",
+        "arn:${partition}:secretsmanager:*:${account_id}:secret:zenith/*",
+        "arn:${partition}:ssm:*:${account_id}:parameter/zenith/*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ecr:GetAuthorizationToken",
+        "ec2:DescribeInstances",
+        "ec2:DescribeInstanceTypes",
+        "ec2:DescribeRouteTables",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeVolumes",
+        "ec2:DescribeVolumesModifications",
+        "ec2:DescribeVpcs",
+        "ec2:DescribeTags",
+        "ec2:DescribeAvailabilityZones",
         "ec2:CreateNetworkInterface",
         "ec2:DescribeNetworkInterfaces",
         "ec2:DeleteNetworkInterface",
@@ -104,23 +249,44 @@
       "Resource": "*"
     },
     {
-      "Sid": "DenyIdentityOrgAndAccountAdministration",
-      "Effect": "Deny",
+      "Effect": "Allow",
       "Action": [
-        "iam:*",
-        "organizations:*",
-        "account:*"
+        "ssm:ListAssociations",
+        "ssm:GetManifest",
+        "ssm:PutInventory",
+        "ssm:PutConfigurePackageResult",
+        "ssm:GetDeployablePatchSnapshotForInstance",
+        "ec2messages:GetEndpoint",
+        "ec2messages:GetMessages",
+        "ec2messages:SendReply",
+        "ssmmessages:*Channel",
+        "ec2messages:*Message"
       ],
-      "Resource": "*"
+      "Resource": "*",
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": "arn:${partition}:iam::${account_id}:role/zenith-*-ec2"
+        }
+      }
     },
     {
-      "Sid": "DenyStateBucket",
-      "Effect": "Deny",
-      "Action": "s3:*",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:DescribeAssociation",
+        "ssm:Update*AssociationStatus",
+        "ssm:GetDocument",
+        "ssm:DescribeDocument"
+      ],
       "Resource": [
-        "${state_bucket_arn}",
-        "${state_bucket_arn}/*"
-      ]
+        "arn:${partition}:ssm:*:${account_id}:association/*",
+        "arn:${partition}:ssm:*::document/*",
+        "arn:${partition}:ssm:*:${account_id}:document/Zenith-*"
+      ],
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": "arn:${partition}:iam::${account_id}:role/zenith-*-ec2"
+        }
+      }
     }
   ]
 }

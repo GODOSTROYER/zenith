@@ -70,6 +70,12 @@ const isId = (x: string | null | undefined): x is string => typeof x === "string
 /** The OAuth resource identifier for this endpoint. */
 export const resourceFor = (origin: string): string => `${origin}${MCP_PATH}`;
 
+/** RFC 9728 discovery URL. The caller must supply the checked, trusted origin. */
+export const resourceMetadataFor = (origin: string): string => `${origin}/.well-known/oauth-protected-resource${MCP_PATH}`;
+
+/** Canonical v3 401 challenge; transport wiring belongs in server.ts. */
+export const authenticationChallengeFor = (origin: string): string => `Bearer resource_metadata="${resourceMetadataFor(origin)}", scope="zenith:read"`;
+
 /**
  * An optional header/query selection, validated against the grant. Tools carry
  * explicit ids; this exists so a client that sets the v2 headers is held to the

@@ -8,6 +8,7 @@
  * workspace-scoped in the store, so an id from another tenant is `null`.
  */
 import type { OperationRecord, Principal } from "@/lib/controlplane/types";
+import { approvalRoundOf, operationPlanReview, type ApprovalRoundMetadata, type OperationPlanReview } from "@/lib/controlplane/db/repos/operation-review";
 import { BrokerError, notFound } from "./errors";
 import { memberAccess, requesterOf } from "./internal";
 import { ROLE_RANK, type BrokerDeps, type OperationFilters, type ResolvedAccess } from "./ports";
@@ -21,9 +22,11 @@ const visible = (access: ResolvedAccess, op: OperationRecord): boolean =>
   (!access.allowedEnvironmentIds || (op.environmentId !== undefined && access.allowedEnvironmentIds.includes(op.environmentId)));
 
 export interface OperationDetail {
-  operation: OperationView;
-  /** the decision the operation was created under */
+  operation: OperationView & Partial<ApprovalRoundMetadata>;
+  /** The decision linked to the current approval round. */
   decision?: DecisionView;
+  /** Original planning evidence; absent means unavailable, never an empty plan. */
+  planReview?: Pick<OperationPlanReview, "planDigest" | "view" | "cost"> & { decision?: DecisionView };
   approvals: {
     id: string;
     decision: "approve" | "reject";
@@ -35,6 +38,7 @@ export interface OperationDetail {
     createdAt: string;
     expiresAt: string;
     consumed: boolean;
+    approvalRound: number;
   }[];
 }
 
@@ -44,9 +48,12 @@ export async function getOperationDetail(deps: BrokerDeps, input: { workspaceId:
   if (!op || !visible(access, op)) throw notFound();
   const decision = op.policyDecisionId ? await deps.store.getPolicyDecision(input.workspaceId, op.policyDecisionId) : null;
   const approvals = await deps.store.listApprovals(input.workspaceId, op.id);
+  const review = operationPlanReview(op);
+  const policy = decision ? decisionView(decision, { risk: (op.proposal as BrokerProposal).risk }) : undefined;
   return {
-    operation: operationView(op),
-    ...(decision ? { decision: decisionView(decision, { risk: (op.proposal as BrokerProposal).risk }) } : {}),
+    operation: { ...operationView(op), approvalRound: approvalRoundOf(op) },
+    ...(policy ? { decision: policy } : {}),
+    ...(review ? { planReview: { planDigest: review.planDigest, view: review.view, cost: review.cost, ...(policy ? { decision: policy } : {}) } } : {}),
     approvals: approvals.map((a) => ({
       id: a.id,
       decision: a.decision,
@@ -58,6 +65,7 @@ export async function getOperationDetail(deps: BrokerDeps, input: { workspaceId:
       createdAt: a.createdAt,
       expiresAt: a.expiresAt,
       consumed: a.consumedAt !== undefined,
+      approvalRound: approvalRoundOf(a),
     })),
   };
 }

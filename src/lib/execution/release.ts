@@ -15,7 +15,9 @@
  *   A build creates content-addressed images and changes nothing in the
  *   environment, so it may be retried and its failures are clean failures.
  *
- * deployWorkloads — for every service with a pinned image, point the service at
+ * deployWorkloads — first sync current vault values under a separate exact-resource
+ * secret.write grant. A refused or partial sync stops the rollout. Then, for
+ * every service with a pinned image, point the service at
  *   `repo@sha256:…` (`WorkloadsPort.deployImage`, idempotent on an operation +
  *   service + digest key), then wait for ECS steady state. Unpinned images are
  *   NOT rolled here (OpenTofu already deployed the reference); they are only
@@ -40,6 +42,7 @@ import { withKeepAlive } from "./keepalive";
 import type { Runtime } from "./runtime";
 import { driverContext, LONG_SESSION_SEC, withProviderSession } from "./session";
 import { safeText } from "./text";
+import { syncEnvironmentSecrets } from "./secrets";
 
 type ReleaseActivities = Pick<ExecutionActivities, "buildArtifacts" | "deployWorkloads" | "runMigrations">;
 
@@ -89,26 +92,29 @@ export function createReleaseActivities(rt: Runtime): ReleaseActivities {
       assertLeaseFor(ec, lease);
       const { graph } = requireExecutable(rt, ec);
       const targets = graph.nodes.filter(isWorkload).sort((a, b) => (a.address < b.address ? -1 : 1));
-      if (targets.length === 0) return { services: 0 };
       const byService = validateImages(graph, images);
       const workloads = rt.d.workloads;
-      if (!workloads) throw new StepFailedError("This worker has no workload deployer configured; it cannot roll out services.");
+      if (targets.length > 0 && !workloads) throw new StepFailedError("This worker has no workload deployer configured; it cannot roll out services.");
+      const needsSecrets = graph.nodes.some((n) => (n.kind === "secret" && typeof n.spec.secretRef === "string" && n.spec.secretRef.startsWith("vault:")) || (n.ownership === "managed" && ["kubernetes", "zenith"].includes(n.provider) && ["postgres", "redis"].includes(n.kind)));
+      if (targets.length === 0 && !needsSecrets) return { services: 0 };
       const connection = await resolveConnection(rt, ec);
 
       await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
-      const rolled = await withKeepAlive(rt, { lease, detail: "deploy workloads", operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, (signal) =>
-        withProviderSession(rt, ec, { purpose: "deploy", fence: lease, connection, durationSec: LONG_SESSION_SEC }, async (session) => {
+      const rolled = await withKeepAlive(rt, { lease, detail: "deploy workloads", operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, async (signal) => {
+        await syncEnvironmentSecrets(rt, ec, graph, connection, lease, signal);
+        if (!targets.length) return { done: 0, pinned: 0 };
+        return withProviderSession(rt, ec, { purpose: "deploy", fence: lease, connection, durationSec: LONG_SESSION_SEC }, async (session) => {
           let done = 0;
           let pinned = 0;
           for (const node of targets) {
             const ctx = driverContext(rt, ec, session, signal, { node, fence: lease });
             const image = byService.get(node.address);
             if (image?.digest) {
-              await workloads.deployImage(ctx, node, { uri: image.imageUri, digest: image.digest }, { idempotencyKey: keyOf(ec.op.id, "deploy", node.address, image.digest) });
+              await workloads!.deployImage(ctx, node, { uri: image.imageUri, digest: image.digest }, { idempotencyKey: keyOf(ec.op.id, "deploy", node.address, image.digest) });
               pinned++;
             }
             if (node.kind === "container_service") {
-              const steady = await workloads.waitSteady(ctx, node, { timeoutMs: rt.limits.steadyTimeoutMs });
+              const steady = await workloads!.waitSteady(ctx, node, { timeoutMs: rt.limits.steadyTimeoutMs });
               if (!steady.steady) {
                 throw new StepFailedError(
                   `${node.address} did not reach steady state (${safeText(steady.detail ?? "no detail", 200)}); it may be partially rolled out and reconcile will observe the environment.`
@@ -118,7 +124,8 @@ export function createReleaseActivities(rt: Runtime): ReleaseActivities {
             done++;
           }
           return { done, pinned };
-        })
+        });
+      }
       );
       await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
       await rt.emit(ec.scope, "resource.applied", `deploy:${ec.op.id}`, { step: "deploy", services: rolled.done, rolledWithPinnedImage: rolled.pinned });

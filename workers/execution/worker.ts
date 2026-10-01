@@ -20,7 +20,7 @@
  * (default 24); unowned/active plans are retained conservatively.
  */
 
-import { DefaultLogger, NativeConnection, Runtime } from "@temporalio/worker";
+import { DefaultLogger, NativeConnection, Runtime, Worker } from "@temporalio/worker";
 import { Context } from "@temporalio/activity";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
@@ -31,9 +31,10 @@ import { loadPolicyEngine } from "@/lib/policy";
 import { planMaxAgeFromEnv, startPlanJanitor } from "@/lib/execution/plan-janitor";
 import { createActivities } from "@/lib/workflows/activities";
 import { connectionOptionsFor, describeTemporalConfig } from "@/lib/workflows/config";
+import { temporalDataConverterFromEnv } from "@/lib/workflows/codec";
 import { executionWorkerConfigFromEnv } from "./config";
 import { installShutdownHandlers } from "./lifecycle";
-import { createExecutionWorker, workflowSource } from "./run";
+import { workerOptions, workflowSource } from "./run";
 import { ExecutionStartupError, validateExecutionConfiguration, openExecutionStore } from "./startup";
 import { HEALTH_CHECK_TIMEOUT_MS, healthPortFromEnv, startHealthServer } from "./health";
 
@@ -43,9 +44,10 @@ function log(level: "info" | "warn" | "error", msg: string, fields: Record<strin
 
 async function main(): Promise<void> {
   const config = executionWorkerConfigFromEnv();
+  const dataConverter = temporalDataConverterFromEnv();
   let db: Sql | undefined;
   let connection: NativeConnection | undefined;
-  let worker: Awaited<ReturnType<typeof createExecutionWorker>> | undefined;
+  let worker: Worker | undefined;
   let policyLoaded = false;
   let stopping = () => false;
   let janitor: ReturnType<typeof startPlanJanitor> | undefined;
@@ -77,11 +79,14 @@ async function main(): Promise<void> {
     const workflows = await workflowSource(config);
     if (workflows.fallbackReason) log("warn", "swc could not compile the workflows; used the esbuild fallback", { reason: workflows.fallbackReason });
     connection = await NativeConnection.connect(connectionOptionsFor(config.temporal));
-    worker = await createExecutionWorker({
-      config,
-      connection,
-      activities,
-      workflows,
+    worker = await Worker.create({
+      ...workerOptions({
+        config,
+        connection,
+        activities,
+        workflows,
+      }),
+      dataConverter,
     });
 
     stopping = installShutdownHandlers({ worker, graceMs: config.shutdownGraceMs, log, signals: process, exit: (code) => process.exit(code) });

@@ -26,6 +26,12 @@ import { ApiException } from "@kubernetes/client-node";
 import { RUNNER_PROTOCOL } from "@/lib/runners/types";
 import { createRunnerAwsTransportFactory } from "@/lib/runners/aws-runner-transport";
 import { isVaultRef, readSecretValueAsync } from "@/lib/secrets";
+import { signCapabilityGrant } from "@/lib/credentials/grants";
+import { createRunnerOciTransport, type OciHttpJobResult } from "@/lib/providers/oci/runner-transport";
+import { isOcid, isRegionId } from "@/lib/providers/oci/services";
+import { awaitRunnerJob, enqueueRunnerJob } from "@/lib/runners/dispatch";
+import { getRunnerRuntime } from "@/lib/runners/runtime";
+import type { OciSession } from "@/lib/credentials/types";
 
 export interface PlatformCredentialOptions {
   aws?: Pick<AwsBrokerOptions, "stsClient" | "oidc">;
@@ -95,6 +101,65 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
   };
   const aws = new AwsCredentialBroker({ ...options.aws, now, resolveConnection, emit, runnerTransport: createRunnerAwsTransportFactory() });
 
+  // One capability per session. Only unsigned REST payloads leave this callback;
+  // the runner authenticates locally. C4 is supplied by the read-jobs workstream.
+  const withOciSession = async <T>(connection: ProviderConnection, req: CredentialRequest, ttlSec: number, assumed: () => Promise<void>, fn: (session: ProviderSession) => Promise<T>): Promise<T> => {
+    const config = connection.config;
+    if (config.provider !== "oci" || config.mode !== "runner" || !isRegionId(config.region) || !isOcid(config.tenancyOcid) || !isOcid(config.compartmentOcid)) throw new CredentialDeniedError("OCI runner configuration is invalid.", { reason: "runner_unavailable" });
+    const runner = await repos.runners.getRunner(db, connection.workspaceId, config.runnerId);
+    if (!runner || runner.status === "revoked" || runner.stale || runner.protocol !== RUNNER_PROTOCOL || !runner.capabilities.includes("oci.http")) throw new CredentialDeniedError("An active OCI runner is unavailable in this workspace.", { reason: "runner_unavailable" });
+    const grant = Object.freeze({ ...req.grant });
+    const rt = await getRunnerRuntime();
+    const expires = Math.min(now().getTime() + ttlSec * 1000, grant.exp * 1000);
+    const iat = Math.floor(now().getTime() / 1000);
+    const runnerGrant = await signCapabilityGrant({ ...grant, aud: `runner:${config.runnerId}`, jti: `grt_${randomUUID()}`, iat, exp: Math.floor(expires / 1000) }, { signer: rt.signer });
+    const resources: OciSession["scope"]["resources"][number][] = [];
+    if (grant.env) {
+      const rows = await repos.resources.listByEnvironment(db, grant.ws, grant.env);
+      const observations = await repos.observations.latestObservationsByEnvironment(db, grant.ws, grant.env);
+      const observed = new Map(observations.map((o) => [o.resourceId, o]));
+      for (const row of rows) {
+        const observation = observed.get(row.id);
+        const externalId = observation ? observation.presence === "present" && !observation.simulated ? observation.externalId : undefined : row.externalId;
+        if (row.provider === "oci" && row.ownership !== "external" && row.status !== "deleted" && (!grant.proj || row.projectId === grant.proj) && (!row.region || row.region === config.region) && (!grant.res || row.id === grant.res) && isOcid(externalId)) resources.push(Object.freeze({ address: row.address, nativeType: row.nativeType, externalId }));
+      }
+    }
+    const lifecycle = new AbortController();
+    const active = () => !lifecycle.signal.aborted && now().getTime() < expires;
+    const transport = createRunnerOciTransport(async (payload, opts) => {
+      if (!active()) throw new CredentialDeniedError("The OCI session has ended.", { reason: "session_ended" });
+      if (payload.region !== config.region || payload.query.some(([name, value]) => name.toLowerCase() === "compartmentid" && value !== config.compartmentOcid)) throw new CredentialDeniedError("The OCI request is outside the session's region or compartment.", { reason: "grant_invalid" });
+      const signal = AbortSignal.any([lifecycle.signal, AbortSignal.timeout(Math.max(1, expires - now().getTime())), ...(opts.signal ? [opts.signal] : [])]);
+      signal.throwIfAborted();
+      try {
+        // Signing is asynchronous: check the connection again before each job.
+        const current = await repos.connections.get(db, grant.ws, connection.id);
+        if (!current || current.status !== "verified" || canonical(current.config) !== canonical(config)) throw new CredentialDeniedError("The OCI connection changed or was revoked.", { reason: "session_ended" });
+        signal.throwIfAborted();
+        const timeoutSec = Math.max(1, Math.min(60, Math.floor((expires - now().getTime()) / 1000)));
+        const common = { workspaceId: grant.ws, runnerId: config.runnerId, capability: grant.cap, kind: "oci.http" as const, payload, grant: runnerGrant, timeoutSec, maxOutputBytes: 1024 * 1024 };
+        let jobId: string;
+        if (capability(grant.cap).mutates) jobId = await enqueueRunnerJob({ ...common, operationId: grant.op }, rt);
+        else {
+          if (!grant.env) throw new CredentialDeniedError("OCI read jobs require an environment grant.", { reason: "grant_invalid" });
+          const { enqueueReadJob } = await import("@/lib/runners/read-jobs");
+          signal.throwIfAborted();
+          jobId = await enqueueReadJob({ ...common, environmentId: grant.env });
+        }
+        const done = await awaitRunnerJob<OciHttpJobResult>(jobId, { workspaceId: grant.ws, signal, deadlineMs: Math.min(expires, now().getTime() + 90_000) }, rt);
+        signal.throwIfAborted();
+        if (done.status !== "succeeded" || done.uncertain || !done.result || typeof done.result !== "object" || !Number.isInteger(done.result.status) || done.result.status < 100 || done.result.status > 599 || done.result.truncated || (done.result.bodyB64 !== undefined && (typeof done.result.bodyB64 !== "string" || done.result.bodyB64.length > Math.ceil(1024 * 1024 / 3) * 4 || Buffer.from(done.result.bodyB64, "base64").toString("base64") !== done.result.bodyB64)) || !done.result.headers || typeof done.result.headers !== "object" || Array.isArray(done.result.headers)) throw new CredentialDeniedError("The OCI runner did not return a complete successful job result.", { reason: "runner_unavailable" });
+        return done.result;
+      } catch (error) {
+        // Never echo runner/provider error text: it can include a request body.
+        if (error instanceof CredentialDeniedError) throw error;
+        throw new CredentialDeniedError(signal.aborted ? "The OCI runner request was cancelled or expired." : "The OCI runner request is unavailable.", { reason: signal.aborted ? "session_ended" : "runner_unavailable" });
+      }
+    }, { capability: grant.cap, maxRequestBytes: 1024 * 1024, maxResponseBytes: 1024 * 1024 });
+    const session: OciSession = Object.freeze({ provider: "oci", region: config.region, tenancyOcid: config.tenancyOcid, compartmentOcid: config.compartmentOcid, expiresAt: new Date(expires).toISOString(), capability: grant.cap, scope: Object.freeze({ workspaceId: grant.ws, projectId: grant.proj, environmentId: grant.env, resources: Object.freeze(resources) }), transport: Object.freeze(transport) });
+    try { await assumed(); return await fn(session); } finally { lifecycle.abort(); }
+  };
+
   // One private callback lifecycle for regular operations and onboarding.
   // The public broker still refuses pending connections for general use.
   const withProviderSession = async <T>(connection: ProviderConnection, purpose: "observe" | "deploy", ttlSec: number, operationId: string, cap: string, assumed: () => void | Promise<void>, fn: (session: ProviderSession) => Promise<T>): Promise<T> => {
@@ -147,9 +212,12 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
       if (!connection) return deny("connection_not_found", "Connection not found in this workspace.");
       if (connection.status === "revoked") return deny("connection_revoked", "Connection revoked.");
       if (connection.status !== "verified") return deny("connection_not_verified", "Connection has not been verified.");
+      // Only AWS has a separate, scoped value-writer session today. Never use
+      // another provider's observe/deploy identity for a secret-write request.
+      if (req.purpose === "secret.write") return deny("provider_unsupported", "Secret-write sessions are currently supported only for AWS connections.");
+      if (grant.cap === "secret.write") return deny("purpose_capability_mismatch", "secret.write requires its separate writer purpose and role.");
       if ((req.purpose === "deploy") !== capability(grant.cap).mutates) return deny("purpose_capability_mismatch", "Credential purpose does not match capability.");
-      if (connection.config.provider === "oci") return deny("provider_unsupported", "OCI is runner-only; oci.http does not yet implement ProviderSession. No direct credentials can be issued.");
-      if (connection.config.mode === "runner") return deny("mode_unsupported", "This provider's runner transport is not configured.");
+      if (connection.config.provider !== "oci" && connection.config.mode === "runner") return deny("mode_unsupported", "This provider's runner transport is not configured.");
       const remaining = grant.exp - Math.floor(now().getTime() / 1000);
       const duration = req.durationSec ?? 900;
       if (!Number.isInteger(duration) || duration < 1) return deny("duration_invalid", "Session duration must be positive integer seconds.");
@@ -158,12 +226,18 @@ export function platformCredentialBroker(db: Sql, options: PlatformCredentialOpt
       if (ttlSec < minimum) return deny("grant_expired", "Grant has too little lifetime for this provider session.");
       let created = false;
       try {
+        if (connection.config.provider === "oci") return await withOciSession(connection, req, ttlSec, async () => {
+          created = true;
+          try { await emit({ ...base, type: "credential.assumed", data: { connectionId: connection.id, provider: "oci", purpose: req.purpose } }); }
+          catch { return deny("audit_failed", "Credential audit could not be recorded; session refused."); }
+        }, fn);
         return await withProviderSession(connection, req.purpose, ttlSec, grant.op, grant.cap, async () => {
           created = true;
           try { await emit({ ...base, type: "credential.assumed", data: { connectionId: connection.id, provider: connection.config.provider, purpose: req.purpose } }); }
           catch { return deny("audit_failed", "Credential audit could not be recorded; session refused."); }
         }, fn);
       } catch (error) {
+        if (!created && connection.config.provider === "oci" && error instanceof CredentialDeniedError) return deny(error.reason ?? "runner_unavailable", error.message);
         if (!created) return deny("not_supported", "Provider session could not be created; check federation or vault configuration.");
         throw error;
       }

@@ -1,9 +1,9 @@
 /**
- * Private, Entra-only MySQL Flexible Server, without storing a password.
- * AzureRM 5.7.0 Default creation requires a bootstrap password. The fixed
- * TofuFragment cannot express ephemeral resources, so fresh creation is
- * REFUSED. This driver supports secret-free PointInTimeRestore and Replica
- * creation from an existing server. Replicas cannot have HA. A customer UAI
+ * Private, Entra-only MySQL Flexible Server; passwords never enter tofu state.
+ * Default creation generates an ephemeral bootstrap password, stores it in
+ * a dedicated Key Vault via value_wo, and reads it ephemerally for MySQL's
+ * administrator_password_wo. Restore/Replica paths remain password-free.
+ * Real cloud apply is unverified. Replicas cannot have HA. A customer UAI
  * with Graph directory-reading permissions must be prepared outside Zenith;
  * no directory-wide permissions are granted by the deployer.
  * Backups map like PostgreSQL (Azure PITR, not a scheduled snapshot promise).
@@ -18,6 +18,7 @@ import { defineAzureDriver, locateByTags, props, pick, unknownRead, locatedFromE
 import { armClient, type ArmResource } from "@/lib/providers/azure/arm";
 import { deletionLock, protectFromDestroy } from "@/lib/providers/azure/drivers/data/private-endpoint";
 import { armIdSpec, boolSpec, integerSpec, invalid, privateSubnet, readNumber, readString, rejectCredentials, textSpec } from "@/lib/providers/azure/drivers/more-util";
+import { mysqlBootstrap } from "@/lib/providers/azure/drivers/data/mysql-bootstrap";
 
 export const MYSQL = { type: "Microsoft.DBforMySQL/flexibleServers", apiVersion: "2023-12-30" } as const;
 const SKUS: Record<string, string> = { nano: "B_Standard_B1ms", small: "B_Standard_B2s", standard: "GP_Standard_D2ds_v4", performance: "GP_Standard_D4ds_v4" };
@@ -25,7 +26,7 @@ const STORAGE: Record<string, number> = { nano: 32, small: 32, standard: 64, per
 
 function settings(node: ResourceNode) {
   const size = textSpec(node, "size", "small");
-  if (!(size in SKUS)) invalid(node, "unsupported MySQL size.");
+  if (!Object.hasOwn(SKUS, size)) invalid(node, "unsupported MySQL size.");
   const sku = textSpec(node, "instanceClass", SKUS[size]);
   if (!/^(B|GP|MO)_Standard_[A-Za-z0-9_]+$/.test(sku)) invalid(node, "invalid MySQL instanceClass.");
   const version = textSpec(node, "version", "8.0.21");
@@ -42,13 +43,16 @@ function settings(node: ResourceNode) {
 export const mysqlDriver = defineAzureDriver({
   id: "azure.mysql_flexible_server@1", kind: "mysql", nativeType: "azure:mysql_flexible_server", arm: MYSQL,
   compile: (node, ctx) => {
+    if (node.ownership !== "managed") return fragment({});
     rejectCredentials(node);
     if (node.spec.engine !== undefined && node.spec.engine !== "mysql") invalid(node, "engine must be mysql.");
     const spec = settings(node);
     const mode = textSpec(node, "createMode", "Default");
-    if (!["PointInTimeRestore", "Replica"].includes(mode)) invalid(node, "fresh MySQL creation requires an ephemeral bootstrap password; TofuFragment cannot express ephemeral resources. Use PointInTimeRestore or Replica from a customer-prepared server.");
+    if (!["Default", "PointInTimeRestore", "Replica"].includes(mode)) invalid(node, "invalid MySQL createMode.");
+    if (node.spec.credentials !== undefined && node.spec.credentials !== "generated") invalid(node, "MySQL credentials must be generated.");
+    if (mode === "Default" && (node.spec.sourceServerId !== undefined || node.spec.restoreTime !== undefined)) invalid(node, "Default MySQL creation cannot use sourceServerId or restoreTime.");
     if (mode === "Replica" && spec.highAvailability) invalid(node, "MySQL read replicas do not support HA.");
-    const source = armIdSpec(node, "sourceServerId", MYSQL.type);
+    const source = mode === "Default" ? undefined : armIdSpec(node, "sourceServerId", MYSQL.type);
     const identity = armIdSpec(node, "entraIdentityId", "Microsoft.ManagedIdentity/userAssignedIdentities");
     const admin = textSpec(node, "entraAdministratorId");
     if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(admin)) invalid(node, "entraAdministratorId must be a principal UUID.");
@@ -63,12 +67,15 @@ export const mysqlDriver = defineAzureDriver({
     const dns = `azurerm_private_dns_zone.${L("dns")}`;
     const tags = azureTags(ctx, node);
     const common = { resource_group_name: exportRef(net, "rg_name"), tags };
-    return fragment({ resource: mergeBlocks(
+    const bootstrap = mode === "Default" ? mysqlBootstrap(node, ctx) : undefined;
+    const result = fragment({ resource: mergeBlocks(
+      bootstrap?.resource ?? {},
       block("azurerm_private_dns_zone", L("dns"), { ...common, name: `${cloudName(ctx, node.address, { max: 50, suffix: "private" })}.mysql.database.azure.com` }),
       block("azurerm_private_dns_zone_virtual_network_link", L("dns_link"), { name: "mysql", private_dns_zone_id: `\${${dns}.id}`, virtual_network_id: exportRef(net, "vnet_id"), registration_enabled: false, tags }),
       block("azurerm_mysql_flexible_server", L("srv"), {
         ...common, location: node.region, name: cloudName(ctx, node.address, { max: 63, suffix: "mysql" }),
-        create_mode: mode, source_server_id: source, ...(restore ? { point_in_time_restore_time_in_utc: restore } : {}),
+        create_mode: mode, ...(source ? { source_server_id: source } : {}), ...(restore ? { point_in_time_restore_time_in_utc: restore } : {}),
+        ...bootstrap?.server,
         sku_name: spec.sku, version: spec.version, storage: { size_gb: spec.storageGb, auto_grow_enabled: true },
         public_network_access: "Disabled", delegated_subnet_id: exportRef(subnet.address, "id"), private_dns_zone_id: `\${${dns}.id}`,
         backup_retention_days: spec.retentionDays, geo_redundant_backup_enabled: spec.geo,
@@ -80,7 +87,9 @@ export const mysqlDriver = defineAzureDriver({
       block("azurerm_mysql_flexible_server_active_directory_administrator", L("aad"), { server_id: `\${${srv}.id}`, identity_id: identity, login, object_id: admin, tenant_id: exportRef(net, "tenant_id") }),
       ...[{ name: "aad_auth_only", value: "ON" }, { name: "require_secure_transport", value: "ON" }].map((c) => block("azurerm_mysql_flexible_server_configuration", L(c.name), { name: c.name, resource_group_name: exportRef(net, "rg_name"), server_name: `\${${srv}.name}`, value: c.value, depends_on: [`azurerm_mysql_flexible_server_active_directory_administrator.${L("aad")}`] })),
       deletionLock(node, `\${${srv}.id}`, spec.deletionPolicy)
-    ), locals: exportLocals(node.address, { id: `\${${srv}.id}`, name: `\${${srv}.name}`, fqdn: `\${${srv}.fqdn}` }) });
+    ), locals: { ...bootstrap?.locals, ...exportLocals(node.address, { id: `\${${srv}.id}`, name: `\${${srv}.name}`, fqdn: `\${${srv}.fqdn}` }) } });
+    if (bootstrap) result.ephemeral = bootstrap.ephemeral;
+    return result;
   },
   locate: async (ctx, node, externalId) => {
     const found = await locateByTags(ctx, node, MYSQL, externalId);

@@ -13,7 +13,7 @@ import {
   id,
   type Changeset,
   type Environment,
-  type Manifest,
+  type AnyManifest,
   type Project,
   type Revision,
 } from "@/lib/domain/types";
@@ -50,12 +50,12 @@ async function deployBlock(env: Environment, project: Project, cs: Changeset): P
  * The manifest currently live in an environment (empty if never deployed).
  * Loaded from cold storage on demand — see `q.revisionManifest`.
  */
-export function deployedManifest(env: Environment): Manifest {
+export function deployedManifest(env: Environment): AnyManifest {
   const id = env.deployedRevisionId;
   return (id ? q.revisionManifest(id) : undefined) ?? emptyManifest();
 }
 
-export async function deployedManifestAsync(env: Environment): Promise<Manifest> {
+export async function deployedManifestAsync(env: Environment): Promise<AnyManifest> {
   const revisionId = env.deployedRevisionId;
   return (revisionId ? await revisionManifestAsync(revisionId) : undefined) ?? emptyManifest();
 }
@@ -86,7 +86,7 @@ function budgetWarnings(env: Environment, cs: Changeset): string[] {
   ];
 }
 
-function blockingIssues(m: Manifest): string[] {
+function blockingIssues(m: AnyManifest): string[] {
   return validateManifest(m)
     .filter((i) => i.level === "error")
     .map((i) => `${i.message}${i.fix ? ` ${i.fix}` : ""}`);
@@ -284,6 +284,8 @@ defineAction<ApplyInput>({
 
 const DeploymentRef = z.object({ deploymentId: z.string().min(1) });
 type DeploymentRef = z.infer<typeof DeploymentRef>;
+const DeploymentApproval = DeploymentRef.extend({ planDigest: z.string().regex(/^[a-f0-9]{64}$/).optional() });
+type DeploymentApproval = z.infer<typeof DeploymentApproval>;
 
 /*
  * These three take an id and nothing else, which is exactly the shape that used
@@ -297,14 +299,14 @@ type DeploymentRef = z.infer<typeof DeploymentRef>;
  * refuses, and an execute that runs is the whole estate.
  */
 
-defineAction<DeploymentRef>({
+defineAction<DeploymentApproval>({
   id: "deploy.approve",
   title: "Approve deployment",
   category: "deploy",
   risk: "high",
   requiredRole: "admin",
   mutates: true,
-  input: DeploymentRef,
+  input: DeploymentApproval,
   async plan(ctx, input) {
     const d = requireDeployment(ctx, input.deploymentId);
     const env = q.environment(d.environmentId);
@@ -351,7 +353,7 @@ defineAction<DeploymentRef>({
         error: separation.blocked,
       };
     if (deployment.executor === "workflow") {
-      const result = await approveWorkflowDeployment(ctx, deployment);
+      const result = await approveWorkflowDeployment(ctx, deployment, input.planDigest);
       if (result.ok && separation.selfApproved) result.summary += " Self-approved (sole admin).";
       return result;
     }

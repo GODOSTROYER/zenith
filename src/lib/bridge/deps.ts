@@ -11,10 +11,12 @@ import type { BrowserSessionProof } from "@/lib/capabilities/types";
 import type { Sql } from "@/lib/controlplane/types";
 import type { ConnectionResolver, ProviderConnection } from "@/lib/credentials/types";
 import type { DeployWorkflowInput } from "@/lib/workflows/types";
+import type { DestroyWorkflowInput } from "@/lib/workflows/definitions/destroy";
 import { executionPlaneReadiness, type ExecutionReadiness } from "@/lib/bridge/readiness";
 
 export interface WorkflowGateway {
   startDeploy(input: DeployWorkflowInput): Promise<unknown>;
+  startDestroy?(input: DestroyWorkflowInput): Promise<unknown>;
   signalApproval(operationId: string): Promise<{ delivered: true } | { delivered: false; reason: "not_found" }>;
   cancelOperation(operationId: string): Promise<{ delivered: true } | { delivered: false; reason: "not_found" }>;
 }
@@ -25,6 +27,7 @@ export interface BridgeDeps {
   readiness(provider: string): Promise<ExecutionReadiness>;
   platformConnection(workspaceId: string, id: string): Promise<Pick<ProviderConnection, "status"> | null>;
   browserSession(ctx: ActionContext): Promise<BrowserSessionProof | undefined>;
+  teardownSession(ctx: ActionContext): Promise<BrowserSessionProof | undefined>;
   connectionSql(): Promise<Sql>;
   credentialBroker(resolveConnection: ConnectionResolver): Promise<{
     verifyConnection(id: string, opts: { workspaceId: string }): Promise<{ ok: boolean; detail: string }>;
@@ -35,10 +38,12 @@ const defaults: BridgeDeps = {
   broker: async () => (await import("@/lib/capabilities/platform")).platformBroker(),
   workflows: {
     startDeploy: async (input) => (await import("@/lib/workflows/client")).startDeploy(input),
+    startDestroy: async (input) => (await import("@/lib/workflows/client")).startDestroy(input),
     signalApproval: async (id) => (await import("@/lib/workflows/client")).signalApproval(id),
     cancelOperation: async (id) => (await import("@/lib/workflows/client")).cancelOperation(id),
   },
   readiness: executionPlaneReadiness,
+  teardownSession: async (ctx) => (await import("./teardown-session")).teardownBrowserSession(ctx),
   platformConnection: async (workspaceId, id) => {
     const { platformDb, repos } = await import("@/lib/controlplane/db");
     return repos.connections.get(await platformDb(), workspaceId, id);

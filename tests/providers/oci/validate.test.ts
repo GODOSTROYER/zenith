@@ -18,6 +18,7 @@ import { TofuRunner } from "@/lib/tofu/runner";
 import { assembleWorkspace } from "@/lib/tofu/workspace";
 import { tofuOnPath, tempDir } from "../../tofu/_helpers";
 import { compileGraph, compiledNodes, expandOci, OCI_PROD, webStack, type CompiledGraph } from "./_support";
+import { moreGraph } from "./_more";
 
 const enabled = process.env.ZENITH_TEST_TOFU_NETWORK === "1" && tofuOnPath();
 
@@ -47,6 +48,24 @@ describe("assembly (no network)", () => {
 });
 
 describe.skipIf(!enabled)("tofu validate against oracle/oci 9.7.1 (network)", () => {
+  it("the private VM and enhanced OKE cluster/node pool validate", async () => {
+    const t = tempDir();
+    try {
+      const graph = moreGraph();
+      // MySQL deliberately has no compiler: never manufacture a password.
+      graph.nodes = graph.nodes.filter((n) => n.nativeType !== "oci:mysql_db_system");
+      const c = compileGraph(graph);
+      expect([...c.refused]).toEqual([]);
+      const ws = assemble(c, path.join(t.dir, "state", "terraform.tfstate"));
+      const runner = new TofuRunner({ limits: { timeoutMs: 600_000 } });
+      await runner.run(ws, {}, async (run) => {
+        await run.init({ backend: false });
+        const v = await run.validate();
+        expect(v.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+        expect(v.valid).toBe(true);
+      });
+    } finally { t.cleanup(); }
+  }, 900_000);
   it(
     "the whole web stack (network, LB, container instances, postgres, redis, bucket, queue, vault, identity, logs, dns) validates",
     async () => {

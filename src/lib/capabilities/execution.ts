@@ -11,9 +11,7 @@
  *     and the broker refuses to let a different plan ride on an old approval.
  *  4. Re-evaluate policy with the CURRENT bundle and current facts (roles,
  *     scope, autonomy, workspace policy data). Deny → the operation is ended
- *     (`cancelled`, event `operation.denied`, a deny decision recorded) and
- *     nothing is issued. A denial cannot be recorded as `denied` because the
- *     ledger's state machine reaches `denied` only from `proposed`.
+ *     (`denied`, tied to a persisted denial) and nothing is issued.
  *  5. If the current decision requires approval, the UNCONSUMED, UNEXPIRED
  *     approvals for this digest must satisfy the CURRENT requirement — count of
  *     distinct approvers, each still holding at least `minRole`, and separation
@@ -36,6 +34,7 @@
  * and revokes any grant still live. `uncertain` is terminal for automation.
  */
 import { digest } from "@/lib/controlplane/digest";
+import { approvalRoundOf } from "@/lib/controlplane/db/repos/operation-review";
 import type { ApprovalRecord, CapabilityGrantClaims, OperationRecord, PolicyDecisionRecord } from "@/lib/controlplane/types";
 import type { NormalizedPlan } from "@/lib/tofu/types";
 import { BrokerError, isBrokerError, notFound } from "./errors";
@@ -116,7 +115,7 @@ async function checkApprovals(
   }
   const now = deps.clock.now().getTime();
   const all: ApprovalRecord[] = await deps.store.listApprovals(op.workspaceId, op.id);
-  const live = all.filter((a) => a.decision === "approve" && a.proposalDigest === op.proposalDigest && !a.consumedAt && Date.parse(a.expiresAt) > now);
+  const live = all.filter((a) => approvalRoundOf(a) === approvalRoundOf(op) && a.approver.kind === "user" && a.decision === "approve" && a.proposalDigest === op.proposalDigest && !a.consumedAt && Date.parse(a.expiresAt) > now);
   if (live.length === 0) {
     throw new BrokerError("approval_required", "No unconsumed, unexpired approval covers this operation.", "Have an editor or admin approve the exact proposal.");
   }
@@ -169,26 +168,18 @@ export async function beginExecution(deps: BrokerDeps, input: BeginExecutionInpu
     const reasons = re.gone
       ? [{ code: "access_or_scope_gone", message: "The requester no longer has access, or the target no longer exists." }]
       : re.evaluation.decision.reasons;
-    if (!re.gone) {
-      await deps.store.recordPolicyDecision({
+    const denial = await deps.store.recordPolicyDecision({
         workspaceId,
         operationId: op.id,
-        policyVersion: re.evaluation.evaluated.policyVersion,
-        inputDigest: re.evaluation.evaluated.inputDigest,
+        policyVersion: re.gone ? "broker:access_or_scope_gone" : re.evaluation.evaluated.policyVersion,
+        inputDigest: re.gone ? digest({ operationId: op.id, proposalDigest: op.proposalDigest, reasons }) : re.evaluation.evaluated.inputDigest,
         outcome: "deny",
-        reasons: re.evaluation.decision.reasons,
+        reasons,
       });
-    }
-    // `denied` is reachable only from `proposed`; an approved operation that policy now denies is cancelled
-    // (which also revokes its grants) and the denial is recorded as a decision and an event.
-    await deps.store.cancelOperation({
-      workspaceId,
-      id: op.id,
-      reason: `Denied at execution by current policy: ${codes(reasons).join(", ")}. Nothing was executed.`,
-    });
+    const ended = await deps.store.denyOperation({ workspaceId, id: op.id, decisionId: denial.id });
+    if (!ended) throw new BrokerError("invalid_state", "The operation changed before its execution denial could be recorded.");
     const base = eventBase(op);
     await tryAppend(deps, { ...base, type: "policy.evaluated", data: { kind: "execution_refused", outcome: "deny", reasons: codes(reasons) } });
-    await tryAppend(deps, { ...base, type: "operation.denied", data: { at: "execution", reasons: codes(reasons) } });
     throw new BrokerError("policy_denied", "Current policy denies this operation; it was not executed.", "Review the reasons and propose again if the change is still wanted.", { reasons: codes(reasons) });
   }
 

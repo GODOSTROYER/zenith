@@ -10,7 +10,7 @@ import { BrokerError } from "@/lib/capabilities/errors";
 import type { Broker } from "@/lib/capabilities/platform";
 import type { CapabilityGrantClaims } from "@/lib/controlplane/types";
 import { expandManifest, ManifestExpansionError } from "@/lib/resources/expand";
-import type { Manifest } from "@/lib/domain/types";
+import type { AnyManifest } from "@/lib/domain/types";
 import type { ResourceGraph } from "@/lib/resources/types";
 import type { ToolDescriptor } from "./catalog";
 import { McpToolError, notFound } from "./errors";
@@ -93,7 +93,7 @@ export type ManifestSource =
 export async function pickManifest(
   ctx: ToolContext,
   args: { workspaceId: string; project: ProjectInfo; environment?: EnvironmentInfo; revisionId?: string }
-): Promise<{ manifest: Manifest; source: ManifestSource }> {
+): Promise<{ manifest: AnyManifest; source: ManifestSource }> {
   if (args.revisionId) {
     const revision = await requireRevision(ctx, args.workspaceId, args.project.id, args.revisionId);
     return { manifest: revision.manifest, source: { kind: "revision", revisionId: revision.id, revisionNumber: revision.number } };
@@ -106,7 +106,7 @@ export async function pickManifest(
 }
 
 /** Expand a manifest for an environment. A manifest that cannot be expanded is a 422, not a crash. */
-export function graphFor(manifest: Manifest, environment: EnvironmentInfo): ResourceGraph {
+export function graphFor(manifest: AnyManifest, environment: EnvironmentInfo): ResourceGraph {
   try {
     return expandManifest(manifest, {
       id: environment.id,

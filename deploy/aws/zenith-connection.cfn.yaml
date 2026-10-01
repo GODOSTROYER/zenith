@@ -221,32 +221,182 @@ Resources:
   # permissions of such a role = its own policies INTERSECT this list, so even a
   # role Zenith attaches AdministratorAccess to cannot exceed it. It grants
   # workload-level access (logs, image pull, zenith-* buckets/queues, secret
-  # READS for injection) and denies IAM, Organizations and the state bucket.
+  # READS for injection). IAM is denied except events roles passing ECS task
+  # roles; Organizations, Account and the state bucket are always denied.
+  # Build/events/EC2 grants use reserved suffixes defined in naming.ts;
+  # generate-tofu-policies.ts checks the principal patterns for drift.
   WorkloadBoundary:
     Type: AWS::IAM::ManagedPolicy
     Properties:
       ManagedPolicyName: !Sub "ZenithWorkloadBoundary${NameSuffix}"
       Description: Permission boundary for roles created by Zenith. Do not edit; Zenith cannot.
+      # Statements share conditions only when their service/resource types are
+      # disjoint; action/resource unions preserve AWS authorization scopes.
+      # Optional Sids are omitted to stay under IAM's 6,144-character limit.
+      # *Channel = four ssmmessages APIs; *Message = Acknowledge/Delete/FailMessage.
+      # Update*AssociationStatus = the two core association-status reports.
+      # Resource support and condition keys for every core agent action:
+      # https://docs.aws.amazon.com/service-authorization/latest/reference/list_awssystemsmanager.html
+      # https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonmessagegatewayservice.html
+      # https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonmessagedeliveryservice.html
+      # RunTask supports task-definition ARNs plus ecs:cluster:
+      # https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonelasticcontainerservice.html
+      # Only PassRole supplies iam:PassedToService; negated IfExists denies missing keys:
+      # https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_condition_operators.html
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
-          - Sid: WorkloadLogs
-            Effect: Allow
-            Action: [logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents, logs:DescribeLogStreams]
-            Resource:
-              - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/zenith/*"
-              - !Sub "arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/*/zenith-*"
-          - Sid: WorkloadImagePull
-            Effect: Allow
-            Action: [ecr:BatchCheckLayerAvailability, ecr:GetDownloadUrlForLayer, ecr:BatchGetImage]
-            Resource: !Sub "arn:${AWS::Partition}:ecr:*:${AWS::AccountId}:repository/zenith-*"
-          - Sid: WorkloadEcrAuth
-            Effect: Allow
-            Action: ecr:GetAuthorizationToken
-            Resource: "*"
-          - Sid: WorkloadObjectsAndQueues
-            Effect: Allow
+          - Effect: Allow
             Action:
+              - ecr:InitiateLayerUpload
+              - ecr:UploadLayerPart
+              - ecr:CompleteLayerUpload
+              - ecr:PutImage
+              - ecr:DescribeImages
+            Resource:
+              Fn::Sub: arn:${AWS::Partition}:ecr:*:${AWS::AccountId}:repository/zenith-*
+            Condition:
+              ArnLike:
+                aws:PrincipalArn:
+                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-build
+          - Effect: Allow
+            Action: s3:GetObjectVersion
+            Resource:
+              Fn::Sub: arn:${AWS::Partition}:s3:::zenith-*/*
+            Condition:
+              ArnLike:
+                aws:PrincipalArn:
+                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-build
+              StringEquals:
+                s3:ResourceAccount:
+                  Ref: AWS::AccountId
+          - Effect: Allow
+            Action: cloudfront:CreateInvalidation
+            Resource:
+              Fn::Sub: arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/*
+            Condition:
+              ArnLike:
+                aws:PrincipalArn:
+                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-build
+              StringEquals:
+                aws:ResourceTag/zenith:managed: "true"
+          - Effect: Allow
+            Action: ecs:RunTask
+            Resource:
+              Fn::Sub: arn:${AWS::Partition}:ecs:*:${AWS::AccountId}:task-definition/zenith-*
+            Condition:
+              ArnLike:
+                aws:PrincipalArn:
+                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-events
+                ecs:cluster:
+                  Fn::Sub: arn:${AWS::Partition}:ecs:*:${AWS::AccountId}:cluster/zenith-*
+          - Effect: Allow
+            Action: iam:PassRole
+            Resource:
+              Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*
+            Condition:
+              ArnLike:
+                aws:PrincipalArn:
+                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-events
+              StringEquals:
+                iam:PassedToService: ecs-tasks.amazonaws.com
+          - Effect: Allow
+            Action:
+              - ssm:UpdateInstanceInformation
+              - ssm:ListInstanceAssociations
+              - ssm:PutComplianceItems
+              - ssm:DescribeAssociation
+              - ssm:Update*AssociationStatus
+            Resource:
+              Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:instance/*
+            Condition:
+              ArnLike:
+                aws:PrincipalArn:
+                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-ec2
+              StringEquals:
+                aws:ResourceTag/zenith:managed: "true"
+          - Effect: Allow
+            Action:
+              - ec2:AttachNetworkInterface
+              - ec2:DetachNetworkInterface
+              - ec2:ModifyNetworkInterfaceAttribute
+            Resource:
+              Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:instance/*
+            Condition:
+              StringEquals:
+                aws:ResourceTag/zenith:managed: "true"
+              StringLike:
+                aws:ResourceTag/zenith:environment:
+                  Ref: EnvironmentTagValue
+          - Effect: Allow
+            Action: ec2:CreateTags
+            Resource:
+              Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:network-interface/*
+            Condition:
+              ForAllValues:StringEquals:
+                aws:TagKeys:
+                  - node.k8s.amazonaws.com/instance_id
+                  - node.k8s.amazonaws.com/createdAt
+                  - cluster.k8s.amazonaws.com/name
+                  - eks:eni:owner
+          - Effect: Allow
+            Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey
+              - kms:DescribeKey
+            Resource: "*"
+            Condition:
+              StringEquals:
+                kms:CallerAccount:
+                  Ref: AWS::AccountId
+              StringLike:
+                kms:ViaService:
+                  - secretsmanager.*.amazonaws.com
+                  - ssm.*.amazonaws.com
+                  - s3.*.amazonaws.com
+                  - sqs.*.amazonaws.com
+                  - sns.*.amazonaws.com
+                  - ec2.*.amazonaws.com
+                  - eks.*.amazonaws.com
+          - Effect: Deny
+            Action: iam:*
+            Resource: "*"
+            Condition:
+              ArnNotLike:
+                aws:PrincipalArn:
+                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-events
+          - Effect: Deny
+            Action:
+              - organizations:*
+              - account:*
+              - iam:*
+            Resource: "*"
+            Condition:
+              StringNotEqualsIfExists:
+                iam:PassedToService: ecs-tasks.amazonaws.com
+          - Effect: Deny
+            Action: s3:*
+            Resource:
+              - Fn::GetAtt:
+                  - StateBucket
+                  - Arn
+              - Fn::Sub: ${StateBucket.Arn}/*
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - logs:DescribeLogStreams
+              - ecr:BatchCheckLayerAvailability
+              - ecr:GetDownloadUrlForLayer
+              - ecr:BatchGetImage
+              - eks:DescribeCluster
+              - eks-auth:AssumeRoleForPodIdentity
+              - ec2:AttachNetworkInterface
+              - ec2:DetachNetworkInterface
+              - ec2:ModifyNetworkInterfaceAttribute
+              - kms:DescribeKey
+              - sns:Publish
               - s3:GetObject
               - s3:PutObject
               - s3:DeleteObject
@@ -258,47 +408,76 @@ Resources:
               - sqs:ChangeMessageVisibility
               - sqs:GetQueueAttributes
               - sqs:GetQueueUrl
+              - secretsmanager:GetSecretValue
+              - secretsmanager:DescribeSecret
+              - ssm:GetParameter
+              - ssm:GetParameters
+              - ssm:GetParametersByPath
             Resource:
-              - !Sub "arn:${AWS::Partition}:s3:::zenith-*"
-              - !Sub "arn:${AWS::Partition}:s3:::zenith-*/*"
-              - !Sub "arn:${AWS::Partition}:sqs:*:${AWS::AccountId}:zenith-*"
-          - Sid: WorkloadReadItsOwnSecrets
-            Effect: Allow
-            Action: [secretsmanager:GetSecretValue, secretsmanager:DescribeSecret, ssm:GetParameter, ssm:GetParameters, ssm:GetParametersByPath]
-            Resource:
-              - !Sub "arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:zenith/*"
-              - !Sub "arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:parameter/zenith/*"
-          - Sid: WorkloadKmsViaServices
-            Effect: Allow
-            Action: [kms:Decrypt, kms:GenerateDataKey, kms:DescribeKey]
-            Resource: "*"
-            Condition:
-              StringEquals: { "kms:CallerAccount": !Ref "AWS::AccountId" }
-              StringLike:
-                "kms:ViaService":
-                  - "secretsmanager.*.amazonaws.com"
-                  - "ssm.*.amazonaws.com"
-                  - "s3.*.amazonaws.com"
-                  - "sqs.*.amazonaws.com"
-          - Sid: WorkloadVpcNetworkInterfaces
-            Effect: Allow
+              - Fn::Sub: arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/zenith/*
+              - Fn::Sub: arn:${AWS::Partition}:logs:*:${AWS::AccountId}:log-group:/aws/*/zenith-*
+              - Fn::Sub: arn:${AWS::Partition}:ecr:*:${AWS::AccountId}:repository/zenith-*
+              - Fn::Sub: arn:${AWS::Partition}:ecr:*:*:repository/eks/*
+              - Fn::Sub: arn:${AWS::Partition}:ecr:*:*:repository/amazon-k8s-cni
+              - Fn::Sub: arn:${AWS::Partition}:eks:*:${AWS::AccountId}:cluster/zenith-${EnvironmentTagValue}-*
+              - Fn::Sub: arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:network-interface/*
+              - Fn::Sub: arn:${AWS::Partition}:kms:*:${AWS::AccountId}:key/*
+              - Fn::Sub: arn:${AWS::Partition}:sns:*:${AWS::AccountId}:zenith-${EnvironmentTagValue}-*
+              - Fn::Sub: arn:${AWS::Partition}:s3:::zenith-*
+              - Fn::Sub: arn:${AWS::Partition}:s3:::zenith-*/*
+              - Fn::Sub: arn:${AWS::Partition}:sqs:*:${AWS::AccountId}:zenith-*
+              - Fn::Sub: arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:zenith/*
+              - Fn::Sub: arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:parameter/zenith/*
+          - Effect: Allow
             Action:
+              - ecr:GetAuthorizationToken
+              - ec2:DescribeInstances
+              - ec2:DescribeInstanceTypes
+              - ec2:DescribeRouteTables
+              - ec2:DescribeSecurityGroups
+              - ec2:DescribeSubnets
+              - ec2:DescribeVolumes
+              - ec2:DescribeVolumesModifications
+              - ec2:DescribeVpcs
+              - ec2:DescribeTags
+              - ec2:DescribeAvailabilityZones
               - ec2:CreateNetworkInterface
               - ec2:DescribeNetworkInterfaces
               - ec2:DeleteNetworkInterface
               - ec2:AssignPrivateIpAddresses
               - ec2:UnassignPrivateIpAddresses
             Resource: "*"
-          - Sid: DenyIdentityOrgAndAccountAdministration
-            Effect: Deny
-            Action: ["iam:*", "organizations:*", "account:*"]
+          - Effect: Allow
+            Action:
+              - ssm:ListAssociations
+              - ssm:GetManifest
+              - ssm:PutInventory
+              - ssm:PutConfigurePackageResult
+              - ssm:GetDeployablePatchSnapshotForInstance
+              - ec2messages:GetEndpoint
+              - ec2messages:GetMessages
+              - ec2messages:SendReply
+              - ssmmessages:*Channel
+              - ec2messages:*Message
             Resource: "*"
-          - Sid: DenyStateBucket
-            Effect: Deny
-            Action: "s3:*"
+            Condition:
+              ArnLike:
+                aws:PrincipalArn:
+                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-ec2
+          - Effect: Allow
+            Action:
+              - ssm:DescribeAssociation
+              - ssm:Update*AssociationStatus
+              - ssm:GetDocument
+              - ssm:DescribeDocument
             Resource:
-              - !GetAtt StateBucket.Arn
-              - !Sub "${StateBucket.Arn}/*"
+              - Fn::Sub: arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:association/*
+              - Fn::Sub: arn:${AWS::Partition}:ssm:*::document/*
+              - Fn::Sub: arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:document/Zenith-*
+            Condition:
+              ArnLike:
+                aws:PrincipalArn:
+                  Fn::Sub: arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*-ec2
 
   # ---------------------------------------------------------- observe policy
   # Read-only. Attached to BOTH roles: OpenTofu needs to read the world to plan
@@ -330,6 +509,10 @@ Resources:
               - sqs:GetQueueUrl
               - sqs:ListQueues
               - sqs:ListQueueTags
+              - sns:ListTopics
+              - eks:ListClusters
+              - eks:DescribeAddonVersions
+              - kms:ListAliases
               - route53:Get*
               - route53:List*
               - acm:Describe*
@@ -358,6 +541,18 @@ Resources:
               - tag:GetResources
               - s3:ListAllMyBuckets
             Resource: "*"
+          - Sid: ReadZenithMessagingAndClusters
+            Effect: Allow
+            Action: [sns:GetTopicAttributes, sns:GetSubscriptionAttributes, sns:ListTagsForResource, sns:ListSubscriptionsByTopic, eks:Describe*, eks:List*, eks:DescribeCluster, eks:ListNodegroups, eks:DescribeNodegroup, eks:ListTagsForResource]
+            Resource:
+              - !Sub "arn:${AWS::Partition}:sns:*:${AWS::AccountId}:zenith-*"
+              - !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:cluster/zenith-*"
+              - !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:nodegroup/zenith-*/*/*"
+              - !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:addon/zenith-*/*/*"
+          - Sid: ReadKeyMetadata
+            Effect: Allow
+            Action: [kms:DescribeKey, kms:GetKeyPolicy, kms:GetKeyRotationStatus, kms:ListResourceTags]
+            Resource: !Sub "arn:${AWS::Partition}:kms:*:${AWS::AccountId}:key/*"
           - Sid: ReadZenithLogs
             Effect: Allow
             Action: [logs:FilterLogEvents, logs:GetLogEvents, logs:StartQuery]
@@ -459,6 +654,7 @@ Resources:
                   - CreateNatGateway
                   - CreateVpcEndpoint
                   - CreateLaunchTemplate
+                  - CreateVolume
                   - AllocateAddress
                   - RunInstances
           - Sid: Ec2ModifyTaggedResources
@@ -508,6 +704,22 @@ Resources:
               - ec2:TerminateInstances
               - ec2:ModifyInstanceAttribute
             Resource: !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:*/*"
+            Condition:
+              StringEquals: { "aws:ResourceTag/zenith:managed": "true" }
+              StringLike: { "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: EbsCreateTaggedVolumes
+            Effect: Allow
+            Action: ec2:CreateVolume
+            Resource: !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:volume/*"
+            Condition:
+              StringEquals: { "aws:RequestTag/zenith:managed": "true", "ec2:Encrypted": "true" }
+              StringLike: { "aws:RequestTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: EbsManageTaggedVolumesAndInstances
+            Effect: Allow
+            Action: [ec2:ModifyVolume, ec2:DeleteVolume, ec2:AttachVolume, ec2:DetachVolume]
+            Resource:
+              - !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:volume/*"
+              - !Sub "arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:instance/*"
             Condition:
               StringEquals: { "aws:ResourceTag/zenith:managed": "true" }
               StringLike: { "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue }
@@ -636,6 +848,42 @@ Resources:
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
+          - Sid: EksCreateTaggedCluster
+            # CreateCluster has no resource-level IAM support; require both tags.
+            Effect: Allow
+            Action: eks:CreateCluster
+            Resource: "*"
+            Condition:
+              StringEquals: { "aws:RequestTag/zenith:managed": "true", "eks:authenticationMode": "API" }
+              Bool: { "eks:bootstrapClusterCreatorAdminPermissions": "false" }
+              StringLike: { "aws:RequestTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: EksCreateTaggedChildren
+            Effect: Allow
+            Action: [eks:CreateNodegroup, eks:CreateAddon]
+            Resource: !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:cluster/zenith-${EnvironmentTagValue}-*"
+            Condition:
+              StringEquals: { "aws:RequestTag/zenith:managed": "true", "aws:ResourceTag/zenith:managed": "true" }
+              StringLike: { "aws:RequestTag/zenith:environment": !Ref EnvironmentTagValue, "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: EksTagOnCreate
+            Effect: Allow
+            Action: eks:TagResource
+            Resource:
+              - !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:cluster/zenith-${EnvironmentTagValue}-*"
+              - !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:nodegroup/zenith-${EnvironmentTagValue}-*/*/*"
+              - !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:addon/zenith-${EnvironmentTagValue}-*/*/*"
+            Condition:
+              StringEquals: { "aws:RequestTag/zenith:managed": "true" }
+              StringLike: { "aws:RequestTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: EksManageTaggedResources
+            Effect: Allow
+            Action: [eks:DeleteCluster, eks:UpdateClusterConfig, eks:UpdateClusterVersion, eks:AssociateEncryptionConfig, eks:DeleteNodegroup, eks:UpdateNodegroupConfig, eks:UpdateNodegroupVersion, eks:DeleteAddon, eks:UpdateAddon, eks:TagResource, eks:UntagResource]
+            Resource:
+              - !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:cluster/zenith-${EnvironmentTagValue}-*"
+              - !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:nodegroup/zenith-${EnvironmentTagValue}-*/*/*"
+              - !Sub "arn:${AWS::Partition}:eks:*:${AWS::AccountId}:addon/zenith-${EnvironmentTagValue}-*/*/*"
+            Condition:
+              StringEquals: { "aws:ResourceTag/zenith:managed": "true" }
+              StringLike: { "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue }
           - Sid: EcsCreateTaggedClustersAndServices
             Effect: Allow
             Action: [ecs:CreateCluster, ecs:CreateService, ecs:CreateCapacityProvider]
@@ -859,10 +1107,32 @@ Resources:
               - s3:PutBucketCORS
               - s3:PutBucketOwnershipControls
             Resource: !Sub "arn:${AWS::Partition}:s3:::zenith-*"
+          # C3 uploads immutable ZIPs into the customer project's source bucket.
+          # HeadObject on duplicate upload uses GetObject; no list/delete grant.
+          - Sid: S3SourceBundleObjects
+            Effect: Allow
+            Action: [s3:PutObject, s3:GetObject, s3:GetObjectVersion]
+            Resource: !Sub "arn:${AWS::Partition}:s3:::zenith-*/zenith/${EnvironmentTagValue}/*"
+            Condition:
+              StringEquals: { "s3:ResourceAccount": !Ref "AWS::AccountId" }
           - Sid: SqsManageZenithQueues
             Effect: Allow
             Action: [sqs:CreateQueue, sqs:DeleteQueue, sqs:SetQueueAttributes, sqs:TagQueue, sqs:UntagQueue]
             Resource: !Sub "arn:${AWS::Partition}:sqs:*:${AWS::AccountId}:zenith-*"
+          - Sid: SnsCreateTaggedTopics
+            Effect: Allow
+            Action: [sns:CreateTopic, sns:TagResource]
+            Resource: !Sub "arn:${AWS::Partition}:sns:*:${AWS::AccountId}:zenith-${EnvironmentTagValue}-*"
+            Condition:
+              StringEquals: { "aws:RequestTag/zenith:managed": "true" }
+              StringLike: { "aws:RequestTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: SnsManageTaggedTopics
+            Effect: Allow
+            Action: [sns:DeleteTopic, sns:SetTopicAttributes, sns:Subscribe, sns:Unsubscribe, sns:SetSubscriptionAttributes, sns:TagResource, sns:UntagResource]
+            Resource: !Sub "arn:${AWS::Partition}:sns:*:${AWS::AccountId}:zenith-${EnvironmentTagValue}-*"
+            Condition:
+              StringEquals: { "aws:ResourceTag/zenith:managed": "true" }
+              StringLike: { "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue }
           - Sid: SecretContainersOnly
             Effect: Allow
             Action:
@@ -882,6 +1152,36 @@ Resources:
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
+          - Sid: KmsCreateTaggedKeys
+            Effect: Allow
+            Action: kms:CreateKey
+            Resource: "*"
+            Condition:
+              StringEquals: { "aws:RequestTag/zenith:managed": "true" }
+              StringLike: { "aws:RequestTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: KmsManageTaggedKeys
+            Effect: Allow
+            Action: [kms:EnableKeyRotation, kms:DisableKeyRotation, kms:UpdateKeyDescription, kms:TagResource, kms:UntagResource]
+            Resource: !Sub "arn:${AWS::Partition}:kms:*:${AWS::AccountId}:key/*"
+            Condition:
+              StringEquals: { "aws:ResourceTag/zenith:managed": "true" }
+              StringLike: { "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue }
+          # CreateKey with Tags also authorizes TagResource on the new key.
+          - Sid: KmsTagOnCreate
+            Effect: Allow
+            Action: kms:TagResource
+            Resource: !Sub "arn:${AWS::Partition}:kms:*:${AWS::AccountId}:key/*"
+            Condition:
+              StringEquals: { "aws:RequestTag/zenith:managed": "true" }
+              StringLike: { "aws:RequestTag/zenith:environment": !Ref EnvironmentTagValue }
+          - Sid: KmsGrantToAwsResources
+            Effect: Allow
+            Action: kms:CreateGrant
+            Resource: !Sub "arn:${AWS::Partition}:kms:*:${AWS::AccountId}:key/*"
+            Condition:
+              Bool: { "kms:GrantIsForAWSResource": "true" }
+              StringEquals: { "aws:ResourceTag/zenith:managed": "true" }
+              StringLike: { "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue }
           - Sid: LogsManageZenithGroups
             Effect: Allow
             Action:
@@ -1009,6 +1309,10 @@ Resources:
                   - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
                   - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
                   - !Sub "arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+                  - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonEKSClusterPolicy"
+                  - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+                  - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonEKS_CNI_Policy"
+                  - !Sub "arn:${AWS::Partition}:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
           - Sid: IamTagRolesOnCreation
             Effect: Allow
             Action: iam:TagRole
@@ -1038,7 +1342,7 @@ Resources:
             Resource: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/zenith-*"
             Condition:
               StringEquals:
-                "iam:PassedToService": [ecs-tasks.amazonaws.com, codebuild.amazonaws.com, lambda.amazonaws.com]
+                "iam:PassedToService": [ecs-tasks.amazonaws.com, codebuild.amazonaws.com, lambda.amazonaws.com, eks.amazonaws.com, ec2.amazonaws.com]
           - Sid: IamServiceLinkedRolesForSupportedServices
             Effect: Allow
             Action: iam:CreateServiceLinkedRole
@@ -1051,6 +1355,8 @@ Resources:
                   - autoscaling.amazonaws.com
                   - rds.amazonaws.com
                   - elasticache.amazonaws.com
+                  - eks.amazonaws.com
+                  - eks-nodegroup.amazonaws.com
           - Sid: DenyModifyingZenithBootstrapRolesAndPolicies
             Effect: Deny
             Action:
@@ -1168,6 +1474,54 @@ Resources:
       Tags:
         - { Key: "zenith:bootstrap", Value: "true" }
 
+  # Separate from deploy: no GetSecretValue, infrastructure or IAM permissions.
+  # Both name shapes are required: current drivers use zenith/zenith-<env>-<node>.
+  SecretWriterRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "ZenithSecretWriterRole${NameSuffix}"
+      Description: Brokered secret.write only; exact per-node session policy required by Zenith.
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument: !Sub
+        - '{"Version":"2012-10-17","Statement":[${Statements}]}'
+        - Statements: !Join
+            - ","
+            - - !If
+                - HasOidc
+                - !Sub '{"Sid":"ZenithOidc","Effect":"Allow","Principal":{"Federated":"arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/${ZenithIssuerHost}"},"Action":"sts:AssumeRoleWithWebIdentity","Condition":{"StringEquals":{"${ZenithIssuerHost}:aud":"sts.amazonaws.com","${ZenithIssuerHost}:sub":"${ZenithOidcSubject}"},"StringLike":{"sts:RoleSessionName":"zenith-*"}}}'
+                - !Ref "AWS::NoValue"
+              - !If
+                - HasOidc
+                - !Sub '{"Sid":"ZenithOidcTagSession","Effect":"Allow","Principal":{"Federated":"arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/${ZenithIssuerHost}"},"Action":"sts:TagSession","Condition":{"StringEquals":{"${ZenithIssuerHost}:aud":"sts.amazonaws.com","${ZenithIssuerHost}:sub":"${ZenithOidcSubject}"}}}'
+                - !Ref "AWS::NoValue"
+              - !If
+                - HasAssumeRole
+                - !Sub '{"Sid":"ZenithAssumeRole","Effect":"Allow","Principal":{"AWS":"${ZenithPrincipalArn}"},"Action":"sts:AssumeRole","Condition":{"StringEquals":{"sts:ExternalId":"${ExternalId}"},"StringLike":{"sts:RoleSessionName":"zenith-*"}}}'
+                - !Ref "AWS::NoValue"
+              - !If
+                - HasAssumeRole
+                - !Sub '{"Sid":"ZenithTagSession","Effect":"Allow","Principal":{"AWS":"${ZenithPrincipalArn}"},"Action":"sts:TagSession"}'
+                - !Ref "AWS::NoValue"
+      Policies:
+        - PolicyName: ZenithSecretWriter
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: WriteEnvironmentSecretValues
+                Effect: Allow
+                Action: [secretsmanager:DescribeSecret, secretsmanager:PutSecretValue, secretsmanager:UpdateSecretVersionStage]
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:zenith/${EnvironmentTagValue}/*"
+                  - !Sub "arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:zenith/zenith-${EnvironmentTagValue}-*"
+                Condition:
+                  StringEquals:
+                    "aws:ResourceTag/zenith:managed": "true"
+                    "aws:PrincipalTag/zenith:capability": "secret.write"
+                  StringLike:
+                    "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue
+      Tags:
+        - { Key: "zenith:bootstrap", Value: "true" }
+
   # ---------------------------------------------------- CodeBuild service role
   # Builds run in YOUR account (ADR-0016). Lower-case name so the deploy role
   # may pass it to zenith-* CodeBuild projects; the deploy role is explicitly
@@ -1239,6 +1593,9 @@ Outputs:
   DeployRoleArn:
     Description: Give this to Zenith as the deploy role ARN.
     Value: !GetAtt DeployRole.Arn
+  SecretWriterRoleArn:
+    Description: Give this to Zenith as secretWriterRoleArn, separate from deployRoleArn.
+    Value: !GetAtt SecretWriterRole.Arn
   StateBucketName:
     Description: Bucket for OpenTofu state and build artifacts.
     Value: !Ref StateBucket

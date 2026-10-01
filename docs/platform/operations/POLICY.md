@@ -7,7 +7,7 @@ mean, how to change a rule and rebuild the bundle, and what a decision record is
 Design: [ADR-0007](../../adr/0007-capability-broker-and-autonomy.md) and
 [ADR-0008](../../adr/0008-policy-opa-wasm.md).
 
-Written against branch `ws/docs-sync`, based on `platform/integration` at `e3ea61a` (2026-10-01).
+Written against branch `ws/docs-sync-2`, based on `ws/integrate-w6` at `3c1fa66` (2026-10-01).
 
 **Status.** The engine, the Rego rules, the plan-fact extraction, the workspace
 parameter resolver, the decision-record store and the capability broker that calls
@@ -20,8 +20,9 @@ cost from authoritative plan evidence (`src/lib/execution/plan-evidence.ts`).
 Product deploys and MCP v3 start workflows. Plan facts never come from a REST
 request body: a REST apply/destroy proposal without an execution-supplied plan
 is still denied `plan_required`. A revision approval cannot approve a new
-concrete plan that changes its authority; the execution broker can return
-`reapproval_required`. Every statement here is about the
+concrete plan that changes its authority; the execution broker requires human
+approval of the exact proposal and plan in the current approval round. Proposal
+round zero cannot authorize a subsequently gated plan. Every statement here is about the
 contract verified by tests, not about a decision made on a production request, and
 nothing has been evaluated against a plan from a real AWS account (see
 [Plan facts](#plan-facts-and-what-they-cannot-see)).
@@ -61,7 +62,7 @@ stateful or publicly exposed resource, or one whose plan destroys data.
 ## The rules, in summary
 
 Each rule is one named complete rule in a Rego package and is reported as
-`zenith.rules.<kind>.<name>` in every reason. There are **14 deny rules, 12
+`zenith.rules.<kind>.<name>` in every reason. There are **14 deny rules, 14
 approval rules and 3 constraint rules**. For the exact condition of each, read
 [policy/README.md](../../../policy/README.md#decision-semantics).
 
@@ -72,7 +73,7 @@ approval rules and 3 constraint rules**. For the exact condition of each, read
 `region_not_approved`, `unowned_resource_mutation`,
 `mutation_environment_unresolved`, `malformed_input`.
 
-**Require approval** (12), with who may approve:
+**Require approval** (14), with who may approve:
 
 | Rule | Approver at least | In one line |
 |---|---|---|
@@ -88,6 +89,8 @@ approval rules and 3 constraint rules**. For the exact condition of each, read
 | `two_person_production` | editor, separation of duties | The workspace asked for it, production, mutating |
 | `agent_high_risk_requires_approval` | editor | An agent or the Navigator wants a high or critical effective-risk change |
 | `production_destructive_requires_admin` | admin, separation of duties | Production destructive change (the path for production `infrastructure.destroy`) |
+| `stateful_deletes_require_approval` | editor | The plan deletes or replaces a stateful resource, in every environment and at any autonomy level (agents never auto-apply a deletion) |
+| `dns_deletes_require_approval` | editor | The plan deletes or replaces a DNS record, in every environment and at any autonomy level |
 
 **Constraints** (3): `log_read_limits` (at most 1000 lines and a 24 hour window),
 `exec_limits` (300 seconds and 1 MiB of output), `grant_duration` (at most one hour;
@@ -98,6 +101,33 @@ Approvals are **human-only**: a browser session, never a bearer token. A model's
 "yes" is never an approval. An approval is bound to exactly one proposal digest, is
 single-use, expires, and is re-checked against the current policy version when the
 operation is claimed ([RECOVERY.md](RECOVERY.md#4-what-happens-to-an-operation-when-something-crashes)).
+
+## Deletion approvals
+
+Deleting or replacing a **stateful resource or DNS record always requires a
+human**, in every environment and at every autonomy level. The rules
+`stateful_deletes_require_approval` and `dns_deletes_require_approval` in
+`policy/rego/approval.rego` are independent of production and autonomy. The
+minimum is an editor; other rules can raise the role/count or require a
+different approver. A denial takes precedence. `infrastructure.destroy` itself
+has default autonomy 6 and is never unattended; production destructive work
+requires an admin other than the requester. The product `env.teardown` action
+requires an admin to request it ([TEARDOWN.md](TEARDOWN.md)).
+
+`src/lib/execution/plan.ts` maps both delete and replace actions to trusted
+current/deployed resource nodes, preserving historical ownership and deletion
+policy. It records `statefulDeletes` and `dnsDeletes` as plan evidence;
+`src/lib/platform/broker.ts` passes those facts to policy. Removing a node from
+the working manifest does not remove its deployed deletion protection.
+
+Before destructive deploy apply, `assertDeployDeletionApproval` requires the
+same operation's reviewed digest, non-simulated evidence covering the exact
+deletion lists and a current human approval id. A policy-only allow or ordinary
+mutation grant is insufficient. The final OpenTofu plan uses `expectedDigest`
+in `src/lib/tofu/engine.ts`: a moved plan is refused as `plan_changed` **before
+deletion guards run**. Approval cannot bypass `deletionPolicy`, unmapped state,
+foreign ownership or the AWS Route53 target check; non-AWS cloud DNS deletion
+still refuses without an equivalent ownership guard.
 
 ## Workspace parameters
 

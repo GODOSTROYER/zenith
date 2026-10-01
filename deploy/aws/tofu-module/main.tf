@@ -249,6 +249,11 @@ resource "aws_s3_bucket_policy" "state" {
 # ------------------------------------------------- permission boundary
 # Every IAM role Zenith creates must carry this boundary; effective permissions
 # are the role's own policies INTERSECT this list.
+# The generated policy mirrors CFN byte-for-byte: build-only ECR push, S3
+# version reads and tagged CloudFront invalidations require role/zenith-*-build.
+# Scheduled RunTask/PassRole require role/zenith-*-events; core SSM agent
+# actions require role/zenith-*-ec2. IAM administration remains explicitly denied.
+# naming.ts defines reserved suffixes; the generator checks them for drift.
 resource "aws_iam_policy" "workload_boundary" {
   name        = local.boundary_name
   description = "Permission boundary for roles created by Zenith. Do not edit; Zenith cannot."
@@ -300,6 +305,22 @@ resource "aws_iam_role" "deploy" {
   tags                 = local.bootstrap_tags
 
   depends_on = [aws_iam_openid_connect_provider.zenith]
+}
+
+resource "aws_iam_role" "secret_writer" {
+  name                 = "ZenithSecretWriterRole${var.name_suffix}"
+  description          = "Brokered secret.write only; exact per-node session policy required by Zenith."
+  max_session_duration = 3600
+  assume_role_policy   = local.trust_policy
+  tags                 = local.bootstrap_tags
+
+  depends_on = [aws_iam_openid_connect_provider.zenith]
+}
+
+resource "aws_iam_role_policy" "secret_writer" {
+  name   = "ZenithSecretWriter"
+  role   = aws_iam_role.secret_writer.id
+  policy = templatefile("${path.module}/policies/secret-writer.json.tftpl", local.policy_vars)
 }
 
 resource "aws_iam_role_policy_attachment" "observe" {

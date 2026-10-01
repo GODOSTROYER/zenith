@@ -33,6 +33,7 @@ import type {
   ApprovalRecord,
   ApprovalRequirement,
   CapabilityGrantClaims,
+  EvidenceRecord,
   OperationProposal,
   OperationRecord,
   OperationStatus,
@@ -284,6 +285,10 @@ export interface BrokerStore {
    */
   createOperation(input: NewOperation): Promise<CreateOperationResult>;
   getOperation(workspaceId: string, id: string): Promise<OperationRecord | null>;
+  /** Original planning evidence only; tenant-scoped and never supplied by a client. */
+  getPlanEvidence(workspaceId: string, operationId: string, planDigest: string): Promise<EvidenceRecord | null>;
+  /** Conditional approved -> denied, with the persisted denial and grant revocation. */
+  denyOperation(input: { workspaceId: string; id: string; decisionId: string; actor?: Principal }): Promise<OperationRecord | null>;
   listOperations(workspaceId: string, filters?: OperationFilters, page?: PageRequest): Promise<OperationPage>;
   /**
    * Cancel an operation that has not started (`proposed`, `awaiting_approval`,

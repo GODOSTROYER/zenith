@@ -164,6 +164,19 @@ export const PostgresSecretsAsync: AsyncSecretsBackend = {
     });
   },
 
+  async putIfAbsent(workspaceId, record) {
+    const { rows } = await restAsync({
+      method: "POST", table: TABLE, op: "write",
+      path: `${TABLE}?on_conflict=workspace_id,ref`,
+      body: [toRow(workspaceId, record)],
+      prefer: "resolution=ignore-duplicates,return=representation",
+    });
+    if (rows.length) return fromRow(rows[0]);
+    const prior = await PostgresSecretsAsync.get(workspaceId, record.ref);
+    if (!prior) throw new Error("The generated secret disappeared during creation.");
+    return prior;
+  },
+
   async remove(workspaceId, ref) {
     const { rows } = await restAsync({
       method: "DELETE",

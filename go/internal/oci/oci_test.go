@@ -85,7 +85,7 @@ func TestSignerRefusesMissingKeyAndHeaderInjection(t *testing.T) {
 }
 
 func TestGoldenAllowlistEveryRule(t *testing.T) {
-	if len(rules) != 7 || len(services) != 15 || len(rules["infrastructure.observe"]) != 42 {
+	if len(rules) != 9 || len(services) != 18 || len(rules["infrastructure.observe"]) != 52 || len(rules["topology.read"]) != 50 || len(rules["incident.investigate"]) != 52 || len(rules["logs.read"]) != 1 || len(rules["metrics.read"]) != 1 {
 		t.Fatalf("unexpected contract sizes: %d %d %d", len(rules), len(services), len(rules["infrastructure.observe"]))
 	}
 	for capability, entries := range rules {

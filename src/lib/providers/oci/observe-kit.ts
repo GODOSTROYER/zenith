@@ -135,7 +135,10 @@ export async function listAll(
     const r = await ociCall(ctx, { ...base, query: { ...base.query, ...(page ? { page } : {}) } });
     if (r.requestId) requestIds.push(r.requestId);
     if (!r.ok) return { ok: false, failure: r, requestIds };
-    all.push(...items(r.body));
+    try { all.push(...items(r.body)); }
+    catch {
+      return { ok: false, failure: { ok: false, outcome: "error", message: "OCI returned an invalid collection response; absence cannot be concluded." }, requestIds };
+    }
     page = r.headers["opc-next-page"];
     if (!page) return { ok: true, items: all, truncated: false, requestIds };
   }
@@ -330,3 +333,10 @@ export async function discoverWith(ctx: OciContext, def: DiscoverDef): Promise<D
 
 /** Collection bodies: a bare array (Core, Load Balancer, Identity) or `{ items: [...] }`. */
 export const arrayOrItems = (body: unknown): unknown[] => (Array.isArray(body) ? body : asArray(asRecord(body)?.items));
+
+/** A malformed successful read is not an empty listing or positive absence evidence. */
+export function strictArrayOrItems(body: unknown): unknown[] {
+  const items = Array.isArray(body) ? body : asRecord(body)?.items;
+  if (!Array.isArray(items) || items.some((item) => !isOcid(asRecord(item)?.id))) throw new Error("Invalid OCI collection response.");
+  return items;
+}

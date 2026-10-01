@@ -10,6 +10,8 @@
  * See `ports.ts` for every dependency and which implementation backs it.
  */
 export { createExecutionActivities, type ExecutionWorkerActivities } from "./activities";
+export { createDestroyActivities } from "./destroy";
+export type { DestroyActivities, DestroyWorkflowInput } from "@/lib/workflows/definitions/destroy";
 export { defaultCostPort } from "./cost";
 export { createPlatformPorts, createOperationsPort, createLeasesPort, createEventsPort, createEvidencePort, createResourcesPort, createConnectionsPort, executionHolder, CLAIM_LEASE_MS, type PlatformPorts } from "./platform";
 export { createProductPort, workerStoreScope, ProductNotFoundError, type StoreScope } from "./product-port";

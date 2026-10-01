@@ -9,6 +9,15 @@ describe("oci.http payload schema", () => {
     const serialized = toJobPayload({ service: "core", region: "us-ashburn-1", method: "GET", path: payload.path, query: { compartmentId: "ocid1.compartment.oc1..fixture" } });
     expect(validateRunnerPayload("oci.http", serialized)).toEqual(serialized);
   });
+  it.each([
+    { service: "loggingsearch", path: "/20190909/search", body: { searchQuery: 'search "ocid1.compartment.oc1..fixture/ocid1.loggroup.oc1.iad.fixture" | sort by datetime desc', timeStart: "2026-10-01T00:00:00Z", timeEnd: "2026-10-01T00:01:00Z", isReturnFieldInfo: false } },
+    { service: "monitoring", path: "/20180401/metrics/actions/summarizeMetricsData", body: { namespace: "oci_computeagent", query: 'CpuUtilization[1m]{resourceId = "ocid1.instance.oc1.iad.fixture"}.mean()', resolution: "1m", startTime: "2026-10-01T00:00:00Z", endTime: "2026-10-01T00:01:00Z" } },
+  ] as const)("accepts $service from the production service table", (request) => {
+    const serialized = toJobPayload({ ...request, region: payload.region, method: "POST", headers: { "opc-retry-token": "synthetic" },
+      query: request.service === "monitoring" ? { compartmentId: payload.query[0][1], compartmentIdInSubtree: false } : { limit: 200 } });
+    expect(validateRunnerPayload("oci.http", serialized)).toEqual(serialized);
+    expect(JSON.parse(Buffer.from(serialized.bodyB64!, "base64").toString("utf8"))).toEqual(request.body);
+  });
   it("defaults omitted query and headers without introducing credentials", () => {
     expect(OciHttpPayloadSchema.parse({ service: "core", region: payload.region, method: "GET", path: payload.path })).toEqual({ ...payload, query: [] });
   });

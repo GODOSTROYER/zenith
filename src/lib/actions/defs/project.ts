@@ -8,6 +8,7 @@
 import { z } from "zod";
 import { defineAction, type ActionContext } from "@/lib/actions/core";
 import { getBlueprint, blueprints } from "@/lib/blueprints";
+import { v1View } from "@/lib/resources/upgrade";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { db, q, save } from "@/lib/db/store";
 import {
@@ -15,6 +16,7 @@ import {
   emptyManifest,
   id,
   type Manifest,
+  type AnyManifest,
   type Project,
 } from "@/lib/domain/types";
 import { importCompose } from "@/lib/importers/compose";
@@ -24,7 +26,7 @@ import { providerRegistry } from "@/lib/providers/types";
 import { buildEnvironment, envPlanDetails, inFlight, liveRevision } from "./env";
 import { getEngine } from "./_engine";
 import { fmtUsd } from "@/lib/format";
-import { clone, commit, planFromDiff, requireConnection, requireProject } from "./_shared";
+import { clone, commit, manifestLossNote, planFromDiff, requireConnection, requireProject } from "./_shared";
 
 /**
  * Both create-a-project-from-something actions build their first environment
@@ -79,7 +81,7 @@ function scopedProject(ctx: ActionContext, projectId?: string): Project | undefi
   return pid ? requireProject(ctx, pid) : undefined;
 }
 
-function manifestSummary(m: Manifest): string {
+function manifestSummary(m: AnyManifest): string {
   const bits = [
     m.services.length && `${m.services.length} service${m.services.length === 1 ? "" : "s"}`,
     m.resources.length && `${m.resources.length} resource${m.resources.length === 1 ? "" : "s"}`,
@@ -197,11 +199,12 @@ defineAction<ApplyBlueprint>({
     const existing = scopedProject(ctx, input.projectId);
     if (existing) {
       const next = bp.manifestFactory(existing.slug);
+      const loss = manifestLossNote(existing.workingManifest, next);
       existing.origin = { type: "blueprint", blueprint: bp.id };
       commit(existing, next);
       return {
         ok: true,
-        summary: `Applied the "${bp.name}" blueprint to ${existing.name}: ${manifestSummary(next)}, ${fmtUsd(monthlyCostUsd(next))}/month estimated. Deploy to apply it.`,
+        summary: `Applied the "${bp.name}" blueprint to ${existing.name}: ${manifestSummary(next)}, ${fmtUsd(monthlyCostUsd(next))}/month estimated. Deploy to apply it.${loss}`,
         data: { projectId: existing.id, blueprint: bp.id },
       };
     }
@@ -214,7 +217,7 @@ defineAction<ApplyBlueprint>({
     save();
     return {
       ok: true,
-      summary: `Created "${project.name}" from the "${bp.name}" blueprint: ${manifestSummary(project.workingManifest)}, ${fmtUsd(monthlyCostUsd(project.workingManifest))}/month estimated. Nothing is deployed yet.`,
+      summary: `Created "${project.name}" from the "${bp.name}" blueprint: ${manifestSummary(project.workingManifest)}, ${fmtUsd(monthlyCostUsd(v1View(project.workingManifest)))}/month estimated. Nothing is deployed yet.`,
       data: { projectId: project.id, slug: project.slug, environmentId: env.id, blueprint: bp.id },
     };
   },
@@ -244,7 +247,7 @@ function reportDetails(report: ImportReport, m: Manifest): string[] {
 }
 
 /** Keep references that may already own values when compose is re-imported. */
-function preserveSecretRefs(before: Manifest, incoming: Manifest): void {
+function preserveSecretRefs(before: AnyManifest, incoming: Manifest): void {
   for (const service of incoming.services) {
     const previous = before.services.find((s) => s.name === service.name);
     if (!previous) continue;
@@ -293,11 +296,12 @@ defineAction<ImportCompose>({
       // Keep the exact existing reference when the same service/key is still
       // secret-looking; the importer has no authority to migrate the store.
       preserveSecretRefs(existing.workingManifest, manifest);
+      const loss = manifestLossNote(existing.workingManifest, manifest);
       existing.origin = origin;
       commit(existing, manifest);
       return {
         ok: true,
-        summary: `Imported into ${existing.name}: ${manifestSummary(manifest)} — ${tally}. Deploy to apply it.`,
+        summary: `Imported into ${existing.name}: ${manifestSummary(manifest)} — ${tally}. Deploy to apply it.${loss}`,
         data: { projectId: existing.id, report },
       };
     }

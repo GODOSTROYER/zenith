@@ -6,8 +6,9 @@
  */
 import { useMemo, useState } from "react";
 import { api } from "@/lib/client/api";
+import { v1View } from "@/lib/resources/upgrade";
 import { monthlyCostUsd, nodeMonthlyCostUsd } from "@/lib/cost/pricing";
-import type { Manifest, Revision } from "@/lib/domain/types";
+import type { AnyManifest, Revision } from "@/lib/domain/types";
 import { fmtUsd } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -20,7 +21,7 @@ import { ErrorNote } from "@/components/screens/shared";
 import { useAsync } from "@/components/screens/use-async";
 
 export interface CostCardProps {
-  working: Manifest;
+  working: AnyManifest;
   running: Revision | undefined;
   revisions: RevisionMeta[];
   budget: number | undefined;
@@ -40,17 +41,18 @@ export function CostCard({
   runningLoading,
   runningError,
 }: CostCardProps) {
-  const total = monthlyCostUsd(working);
-  const deployedTotal = running ? monthlyCostUsd(running.manifest) : undefined;
+  const total = monthlyCostUsd(v1View(working));
+  const deployedTotal = running ? monthlyCostUsd(v1View(running.manifest)) : undefined;
   const delta = deployedTotal === undefined ? 0 : Math.round((total - deployedTotal) * 100) / 100;
 
   const top = useMemo(() => {
+    const costView = v1View(working);
     const nodes = [
       ...working.services.map((s) => ({ id: s.id, name: s.name, kind: s.kind })),
       ...working.resources.map((r) => ({ id: r.id, name: r.name, kind: r.kind })),
     ];
     return nodes
-      .map((n) => ({ ...n, usd: nodeMonthlyCostUsd(working, n.id) }))
+      .map((n) => ({ ...n, usd: nodeMonthlyCostUsd(costView, n.id) }))
       .sort((a, b) => b.usd - a.usd)
       .slice(0, 5);
   }, [working]);
@@ -170,7 +172,7 @@ function RevisionCostTrend({ revisions }: { revisions: RevisionMeta[] }) {
       setSeries(
         loaded.map((l) => ({
           number: l.revision.number,
-          usd: monthlyCostUsd(l.revision.manifest),
+          usd: monthlyCostUsd(v1View(l.revision.manifest)),
         }))
       );
     });

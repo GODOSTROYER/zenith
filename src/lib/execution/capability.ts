@@ -30,7 +30,7 @@ import type { NativeOperation } from "@/lib/drivers/types";
 import type { PortableKind, ProviderKey, ResourceNode } from "@/lib/resources/types";
 import type { ExecutionActivities } from "@/lib/workflows/types";
 import { ApplicationFailure } from "@temporalio/activity";
-import { MACHINE_OPERATIONS, createMachineDrivers, createMachineSessionProvider, executeMachineOperation, MachineOperationError, DEFAULT_TIMEOUT_SEC, DEFAULT_MAX_OUTPUT_BYTES, type MachineOperation, type MachineTarget } from "@/lib/machines";
+import { MACHINE_OPERATIONS, createMachineDrivers, createMachineSessionProvider, executeMachineOperation, MachineOperationError, DEFAULT_TIMEOUT_SEC, DEFAULT_MAX_OUTPUT_BYTES, parseAzureVmTargetId, parseGcpInstanceTargetId, type MachineOperation, type MachineTarget } from "@/lib/machines";
 import { loadExecContext, resolveConnection, type ExecContext } from "./context";
 import { assertLeaseFor } from "./desired";
 import { StepFailedError } from "./errors";
@@ -62,6 +62,13 @@ async function machineTarget(rt: Runtime, ec: ExecContext, row: StoredResource):
   }
   if (row.provider === "aws" && ["aws:ec2_instance", "ec2_instance"].includes(row.nativeType) && /^(i|mi)-[a-f0-9]{8,17}$/.test(observation.externalId ?? "")) {
     return { ...base, transport: "aws_ssm", targetId: observation.externalId! };
+  }
+  if (row.provider === "azure" && ["azure:virtual_machine", "virtual_machine"].includes(row.nativeType) && parseAzureVmTargetId(observation.externalId ?? "")) {
+    return { ...base, transport: "azure_run_command", targetId: observation.externalId! };
+  }
+  if (row.provider === "gcp" && ["gcp:compute_instance", "compute_instance"].includes(row.nativeType)) {
+    const id = parseGcpInstanceTargetId(observation.externalId ?? "");
+    if (id) return { ...base, transport: "gcp_os_management", targetId: id.path };
   }
   if (row.provider === "kubernetes") {
     // Only a Pod can be addressed for pod operations. A namespace can be

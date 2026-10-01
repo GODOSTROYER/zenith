@@ -33,6 +33,7 @@
  *     workspace matches the connection's workspace.
  */
 import type { CapabilityGrantClaims } from "@/lib/controlplane/types";
+import type { OciSession as NativeOciSession } from "@/lib/providers/oci/transport";
 
 /* --------------------------- connection configs --------------------------- */
 
@@ -46,6 +47,8 @@ export interface AwsConnectionConfig {
   observeRoleArn: string;
   /** role for mutating capabilities; may equal observeRoleArn in dev */
   deployRoleArn: string;
+  /** Separate value writer; never fall back to the infrastructure deploy role. */
+  secretWriterRoleArn?: string;
   /** per-connection, Zenith-generated; required for aws_assume_role */
   externalId?: string;
   region: string;
@@ -199,11 +202,30 @@ export interface KubernetesSession {
   kubeConfig(): unknown;
 }
 
-export type ProviderSession = AwsSession | GcpSession | AzureSession | KubernetesSession;
+/** Non-secret, authoritative resource bindings for one OCI environment. */
+export interface OciResourceBinding {
+  readonly address: string;
+  readonly nativeType: string;
+  readonly externalId: string;
+}
+
+/** Runner-only OCI session. The runner's principal never enters the control plane. */
+export interface OciSession extends NativeOciSession {
+  readonly expiresAt: string;
+  readonly capability: string;
+  readonly scope: {
+    readonly workspaceId: string;
+    readonly projectId?: string;
+    readonly environmentId?: string;
+    readonly resources: readonly OciResourceBinding[];
+  };
+}
+
+export type ProviderSession = AwsSession | GcpSession | AzureSession | KubernetesSession | OciSession;
 
 /* --------------------------------- broker --------------------------------- */
 
-export type CredentialPurpose = "observe" | "deploy";
+export type CredentialPurpose = "observe" | "deploy" | "secret.write";
 
 export interface CredentialRequest {
   connectionId: string;
@@ -212,6 +234,8 @@ export interface CredentialRequest {
   purpose: CredentialPurpose;
   /** optional AWS inline session policy narrowing (JSON policy document) */
   sessionPolicy?: Record<string, unknown>;
+  /** Narrow a secret.write session to a subset of the grant's exact secretResources. */
+  secretResources?: readonly string[];
   /** ≤ grant lifetime; default 900 */
   durationSec?: number;
 }

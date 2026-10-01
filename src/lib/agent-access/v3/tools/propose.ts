@@ -21,7 +21,7 @@
  */
 import { digest } from "@/lib/controlplane/digest";
 import type { ProposeResult } from "@/lib/capabilities/types";
-import type { Manifest } from "@/lib/domain/types";
+import type { AnyManifest } from "@/lib/domain/types";
 import { graphFor, requireEnvironment, requireRevision, type ToolContext } from "../context";
 import type { ToolOutput } from "../envelope";
 import { assertInGrant } from "../principal";
@@ -38,7 +38,7 @@ interface Submission {
 }
 
 /** Does deploying this manifest need a build? Managed services sourced from git do; pinned images do not. */
-export function manifestNeedsBuild(manifest: Manifest): boolean {
+export function manifestNeedsBuild(manifest: AnyManifest): boolean {
   return manifest.services.some((s) => s.ownership === "managed" && s.source.type === "git");
 }
 

@@ -31,6 +31,7 @@
 import { digest } from "@/lib/controlplane/digest";
 import {
   type ApprovalRecord,
+  type EvidenceRecord,
   type ApprovalRequirement,
   type OperationRecord,
   type OperationStatus,
@@ -237,6 +238,26 @@ export class MemoryBrokerStore implements BrokerStore {
   async getOperation(workspaceId: string, id: string): Promise<OperationRecord | null> {
     const stored = this.operations.get(opKey(workspaceId, id));
     return stored ? clone(stored.record) : null;
+  }
+
+  /** The development memory ledger has no execution evidence store. */
+  async getPlanEvidence(): Promise<EvidenceRecord | null> { return null; }
+
+  async denyOperation(input: Parameters<BrokerStore["denyOperation"]>[0]): Promise<OperationRecord | null> {
+    const stored = this.operations.get(opKey(input.workspaceId, input.id));
+    const decision = this.decisions.get(input.decisionId);
+    if (!stored || stored.record.status !== "approved" || !decision || decision.workspaceId !== input.workspaceId || decision.outcome !== "deny" ||
+        (decision.operationId && decision.operationId !== input.id)) return null;
+    const op = stored.record;
+    op.status = "denied";
+    op.policyDecisionId = decision.id;
+    op.updatedAt = this.nowIso();
+    op.finishedAt = op.updatedAt;
+    stored.leaseHolder = undefined;
+    stored.leaseUntilMs = undefined;
+    this.revokeLiveGrants(input.workspaceId, op.id);
+    this.emitFor(op, "operation.denied", { actor: input.actor, data: { policyDecisionId: decision.id } });
+    return clone(op);
   }
 
   async listOperations(workspaceId: string, filters: OperationFilters = {}, page: PageRequest = {}): Promise<OperationPage> {

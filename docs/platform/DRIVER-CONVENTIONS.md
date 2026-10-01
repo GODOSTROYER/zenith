@@ -22,7 +22,8 @@ OCI and `zenith` stay interchangeable behind `src/lib/drivers/types.ts`.
 ## Compile (OpenTofu JSON)
 
 - Pure and deterministic; no I/O, no clock, no randomness (use tofu
-  `random_*` resources when a random value is needed).
+  ephemeral `random_*` blocks with a provider-supported write-only sink when a
+  password is needed; ordinary random-password resources persist their result).
 - Core capability flags agree with method presence. A driver that cannot
   compile declares `compile: false` and omits `compile`, including the
   unsupported OCI compute instance, MySQL and OKE registrations. A supported
@@ -36,7 +37,11 @@ OCI and `zenith` stay interchangeable behind `src/lib/drivers/types.ts`.
 - tofu resource names: `ctx.namePrefix`-free *labels* derived from the node
   address, sanitized to `[a-z0-9_]` (`service/web` → `service_web`); suffixes
   for multiple resources per node (`service_web_task`, `service_web_svc`).
-  Every label is listed in `TofuFragment.addresses` as `<type>.<label>`.
+  State-backed labels are listed in `TofuFragment.addresses` as `<type>.<label>`.
+  `TofuFragment.ephemeral` is assembled separately; its temporary addresses do
+  not join state-backed plans (`src/lib/tofu/workspace.ts`). A sensitive flag
+  alone does not make a password safe; see
+  [ephemeral database credentials](operations/DEPLOYING.md#ephemeral-database-credentials).
 - Cloud-side names: `${ctx.namePrefix}-<node-name>` truncated to the
   provider's limit with a deterministic 6-hex fnv1a suffix when truncated.
 - Every taggable resource carries `ctx.tags` (AWS `tags`, GCP `labels`
@@ -50,7 +55,14 @@ OCI and `zenith` stay interchangeable behind `src/lib/drivers/types.ts`.
 - IAM: least privilege from `IdentitySpec.grants` only — exact resource
   ARNs/ids via `ctx.ref`, explicit actions, never `"*"` actions or resources
   (policy will deny wildcard IAM). Roles Zenith creates carry the
-  `ZenithWorkloadBoundary` permission boundary (AWS).
+  `ZenithWorkloadBoundary` permission boundary (AWS). CodeBuild roles alone
+  reserve the `-build` suffix **after** name truncation/hashing (64-character
+  IAM limit). The boundary's `ArnLike aws:PrincipalArn` uses the shared
+  `BUILD_ROLE_NAME_PATTERN` from `credentials/aws/naming.ts`, checked by the
+  bootstrap policy generator. Application identities must never use this
+  suffix. Build policies remain scoped to the exact source prefix, repository
+  and distribution; boundary grants do not replace that scoping. Build log
+  groups use `/aws/codebuild/zenith-*`, inside the existing workload log grant.
 - Secrets: compile references only (Secrets Manager/SSM ARN, Secret Manager
   resource name, Key Vault secret id). No secret value is ever in a
   fragment. Generated credentials (DB master password) use the provider's

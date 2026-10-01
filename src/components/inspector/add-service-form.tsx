@@ -9,6 +9,7 @@ import { PlanFirst } from "./plan-first";
 import { KIND_OPTIONS, SizeField } from "./editor-parts";
 import { nodeMonthlyCostUsd } from "@/lib/cost/pricing";
 import type { Service, ServiceSize } from "@/lib/domain/types";
+import { v1View } from "@/lib/resources/upgrade";
 
 export interface AddServiceFormProps {
   onCreated: (nodeId: string) => void;
@@ -37,7 +38,7 @@ export function AddServiceForm({ onCreated }: AddServiceFormProps) {
   // shows afterwards, priced through the same function.
   const monthlyUsd = nodeMonthlyCostUsd(
     {
-      ...project.workingManifest,
+      ...v1View(project.workingManifest),
       services: [
         {
           id: "draft",

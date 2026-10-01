@@ -6,12 +6,12 @@ activities, and the small client the control plane uses to start, signal and
 query them. Decision record: `docs/adr/0009-temporal-workflows.md`. Contract:
 `src/lib/workflows/types.ts`.
 
-**Honest status (source snapshot `e3ea61a`, 2026-10-01).** The worker opens an
+**Honest status (source snapshot `3c1fa66`, 2026-10-01).** The worker opens an
 explicitly configured platform store, validates startup requirements and calls
 `createActivities`, which delegates to `composeExecutionActivities` in
 `src/lib/platform/execution.ts`. That composition supplies the stores, broker,
-credential sessions, driver registry, OpenTofu, cost, observability and AWS
-release ports. `createStubActivities` remains an explicit test factory; it is
+credential sessions, driver registry, OpenTofu, cost, observability and AWS/GCP
+release ports. Azure builds require source wiring. `createStubActivities` remains an explicit test factory; it is
 never the worker's fallback. Product deploys and MCP v3 start workflows.
 This wiring is not live-cloud acceptance. No Temporal Cloud, cloud or Docker
 run is claimed by this sync. See
@@ -22,7 +22,7 @@ run is claimed by this sync. See
 ```
  control plane (Next / Vercel / any Node host)            Temporal (Cloud or self-hosted)
    src/lib/workflows/client.ts                              namespace, task queue "zenith-execution"
-     startDeploy / startDayTwo / startRemediation ───────▶  workflow history (ids, digests, counts only)
+     startDeploy / startDestroy / startDayTwo / startRemediation ─▶  encrypted payloads (ids, digests, counts)
      signalApproval / cancelOperation / getProgress ─────▶          │
                                                                     │ polls
  execution worker (long-running container; private local plans) ◀┘
@@ -44,7 +44,7 @@ run is claimed by this sync. See
 
 ## Workflows
 
-All four live in `src/lib/workflows/definitions/` and are exported by name from
+All five live in `src/lib/workflows/definitions/` and are exported by name from
 `definitions/index.ts` (the worker registers every exported function as a
 workflow type, so nothing else is exported there).
 
@@ -76,6 +76,18 @@ validate → lease → plan → policy → [approval] → final_plan
 `input.preApproved` is informational. Policy is re-evaluated against the
 concrete plan and is authoritative: a "pre-approved" proposal whose policy now
 says `require_approval` still waits for an approval.
+
+### `infrastructureDestroyWorkflow(DestroyWorkflowInput) -> WorkflowResult`
+
+`lease → destroy plan → policy → human approval → final destroy plan → destroy apply → verify absence → finalize → release`
+
+`src/lib/workflows/definitions/destroy.ts` uses the destruction activities from
+`src/lib/execution/destroy.ts`. Human approval is required even when policy
+returns allow. The final plan must match the reviewed digest; mutation runs
+once, and unknown absence ends `uncertain`. The browser admin action and its
+evidence/retention/ownership guards are in
+[TEARDOWN.md](operations/TEARDOWN.md); default managed session and first-review
+entry-point limits still apply. Teardown never runs as compensation.
 
 ### `dayTwoOperationWorkflow(DayTwoWorkflowInput)` and `remediationWorkflow(RemediationWorkflowInput)`
 
@@ -241,7 +253,9 @@ the SDK throttles to 80 % of the heartbeat timeout (48 s).
    `uncertain`, which is the honest answer when a crash or timeout hides what
    happened. `withFailureMapping` converts `LeaseLostError` and
    `TofuPlanChangedError` automatically.
-5. **Never destroy** from an activity the workflows call.
+5. **Never destroy as compensation** from deploy/day-two activities. Explicit
+   teardown belongs only to the reviewed, human-approved destroy workflow
+   (`src/lib/execution/destroy.ts`).
 6. `reconcileObserve` (a new activity, see `ReconcileActivities` in `types.ts`)
    takes `{ passId, workspaceId, environmentId, lease }`; `passId` is the
    workflow id and the lease holder. `acquireLease.operationId` is used as the
@@ -263,11 +277,10 @@ Before polling, `workers/execution/startup.ts` requires:
   URL, including its Supabase fallback), opened with current schema. Postgres
   migrations must be applied with `npm run migrate:platform` before startup.
 
-Set `ZENITH_WORKER_IDENTITY` to 1–64 letters, digits, dots, underscores or
-hyphens. The Temporal config default contains colons, while
-`src/lib/execution/runtime.ts` rejects them in lease-holder identities.
-An explicit `zenith-exec-01` works with both contracts; the default mismatch
-needs a source-owner fix. The policy bundle, product store and OIDC signer
+`ZENITH_WORKER_IDENTITY` is optional. An explicit value must contain 1–64
+letters, digits, dots, underscores or hyphens. The sanitized default
+`zenith-exec-<host>-<pid>` satisfies both the Temporal config and runtime
+lease-holder rules. The policy bundle, product store and OIDC signer
 must also be configured for the activities that use them. Startup does not
 prove deploy permissions or live cloud readiness.
 
@@ -290,9 +303,12 @@ fail fast with a message that never contains a secret.
 | `ZENITH_WORKER_WORKFLOW_BUNDLE` | unset | worker | path to a prebuilt workflow bundle (production); unset bundles the TypeScript at start-up |
 | `ZENITH_WORKER_LOG_LEVEL` | `INFO` | worker | `TRACE`…`ERROR` |
 | `ZENITH_WORKER_HEALTH_LOG_INTERVAL_MS` | `60000` | worker | periodic health log line; `0` disables |
-| `ZENITH_WORKER_IDENTITY` | `zenith-exec:<host>:<pid>` | worker | worker identity in Temporal |
+| `ZENITH_WORKER_IDENTITY` | `zenith-exec-<host>-<pid>` | worker | lease-holder identity, 1–64 letters/digits/dots/underscores/hyphens; invalid values refuse startup |
 | `ZENITH_WORKER_PLAN_DIR` | `<ZENITH_DATA or .data>/platform-plans` | worker | private binary-plan directory, created with mode `0700`; plans may contain secrets |
-| `ZENITH_SECRET_KEY` | unset | worker | required 64-hex secret; no public plan fingerprint default |
+| `ZENITH_WORKER_HEALTH_PORT` | `9464` | worker | loopback `/healthz` and `/readyz`; 1–65535 |
+| `ZENITH_WORKER_PLAN_MAX_AGE_HOURS` | `24` | worker | retention threshold for terminal-owner binary plans; 1–8760 |
+| `ZENITH_SECRET_KEY` | unset | client, worker | 64-hex secret for payload encryption; required in production; worker also requires it for plan fingerprints |
+| `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS` | unset | client, worker | private JSON array of previous 64-hex keys for decrypting retained histories; see payload encryption below |
 
 Tests never read the real environment and never use `localhost:7233`.
 
@@ -321,8 +337,8 @@ The integrated `package.json` script reads `.env.local` when present:
 The worker can invoke provider APIs through composed activities. Startup
 failure is an operator configuration/schema error, never a silent selection of
 stubs. Non-AWS connections are verified (GCP, Azure, Kubernetes; OCI by runner
-registration only), but OCI platform sessions are still refused
-(`src/lib/platform/credentials.ts`); use the provider limits and
+registration only), and OCI platform sessions run only through an active
+registered runner (`src/lib/platform/credentials.ts`); use the provider limits and
 [state backend reference](operations/DEPLOYING.md#214-customer-state-backends).
 
 **Bundling.** The worker bundles `src/lib/workflows/definitions/index.ts` with
@@ -355,9 +371,51 @@ are operator choices; the worker only needs the key in its environment. Keep the
 key in a secret store and out of images and logs (`describeTemporalConfig`
 reports only whether one is set).
 
-History payloads are not encrypted (no data converter / codec is configured).
-They hold ids, digests, counts and redacted messages by contract; if that ever
-stops being enough, add a payload codec on both the client and the worker.
+### Payload encryption
+
+`src/lib/workflows/codec.ts` configures the same Temporal `PayloadCodec` on the
+control-plane client and execution-worker process, following the SDK's
+[client/worker codec wiring](https://docs.temporal.io/develop/typescript/best-practices/data-handling/data-encryption).
+Set `ZENITH_SECRET_KEY` to the same 64-hex secret on both processes. Production
+workflow-client creation and worker startup refuse a missing or invalid key
+before connecting. Without a key, development/test clients use the SDK's
+plaintext converter; the execution worker's existing startup checks still
+require its plan fingerprint key in every environment. A supplied invalid key
+is always an error, including in development.
+
+The codec derives a separate 32-byte encryption key with HKDF-SHA256, empty
+salt and info `zenith.temporal.payload.v1`. Each complete protobuf payload,
+including its original metadata, is encrypted with AES-256-GCM and a fresh
+12-byte nonce. Wire metadata contains only `encoding=binary/zenith.temporal.v1`
+and `zenith.temporal.key-id`, the first 32 hex characters of SHA-256 of the
+derived key. Both values are authenticated as associated data. The wire data
+is nonce (12 bytes), authentication tag (16 bytes), then ciphertext. Unknown
+keys, invalid envelopes and failed authentication raise fixed errors without
+including payloads, key ids or secrets.
+
+For rotation, set `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS` on **both** processes
+to a private JSON array of previous 64-hex secret keys. New payloads use only
+the current `ZENITH_SECRET_KEY`; the retained keys are decrypt-only and retain
+their original fingerprint ids. Restart clients/workers together after a
+rotation; client caching also distinguishes the active and retained key set.
+Keep old keys as long as their histories, retries, queries or archived histories
+must be readable. Removing a key makes those encrypted payloads unreadable;
+there is no automatic history re-encryption. This config rotates Temporal
+payloads only; other stores using `ZENITH_SECRET_KEY` have their own migration
+requirements.
+
+Legacy plaintext histories remain readable, including by encrypted workers.
+Encryption/decryption runs outside the deterministic workflow sandbox and
+does not change workflow definitions or their command sequence. Replay of an
+encrypted history must pass `dataConverter: temporalDataConverterFromEnv()`
+to `Worker.runReplayHistory`; the existing plaintext replay suites remain
+valid. Workflow ids, task queues, visibility/search attributes and default
+failure messages/stack traces are **not encrypted** by a payload codec.
+The existing ids-only and redaction contracts still apply: cloud credentials
+must never enter workflow payloads. No codec server for UI/CLI decryption is
+provided, and live Temporal Cloud acceptance has not been run. The gated
+`tests/workflows/codec-replay.test.ts` covers encrypted execution and replay
+against a local Temporal server with scripted activities.
 
 ## Scaling and operations
 
@@ -383,7 +441,18 @@ stops being enough, add a payload codec on both the client and the worker.
 - Health: the process logs one JSON line at start-up (`execution worker ready`,
   with the config minus secrets) and a `health` line every
   `ZENITH_WORKER_HEALTH_LOG_INTERVAL_MS`. Pollers are visible in the Temporal UI
-  (task queue → workers). There is no HTTP health endpoint.
+  (task queue → workers). Loopback probes at `127.0.0.1:9464` are implemented in
+  `workers/execution/health.ts`: `/healthz` reports process liveness (200), while
+  `/readyz` requires reachable Temporal/store, loaded policy and six registered
+  providers (200 or 503). Checks are bounded to two seconds and return only
+  `ok`/`unavailable`/`unknown`; readiness does not prove cloud permissions. Use an
+  in-container probe; remote pod probes cannot reach the loopback listener.
+- Plan retention: `src/lib/execution/plan-janitor.ts` starts immediately and runs
+  every five minutes. It scans at most 100 entries per pass and removes only
+  regular digest-named `.tfplan` files older than the configured threshold with
+  known, exclusively terminal owners. Active/unowned plans and symlinks stay;
+  ownership and metadata are rechecked before unlink. The producer does not take
+  the maintenance lease, so the final writer/unlink race remains a limit.
 - Run the container with an init (`tini` is in the image entrypoint) so orphaned
   provider processes are reaped; use a read-only root filesystem with `/tmp` and
   `/var/lib/zenith` writable.
@@ -459,7 +528,7 @@ time-skipping server's fidelity to a production server (it is used only for the
 - `proposeRepair` and auto-repair in the reconcile workflow.
 - Search attributes (workspace, environment, capability) for listing operations
   in Temporal visibility.
-- Payload encryption and frozen golden replay histories.
+- Frozen golden replay histories.
 - Live acceptance of composed execution, provider sessions/state backends and
   replica failover. The HTTP reconcile controller is already scheduled by
   `.github/workflows/tick.yml`; this does not schedule the observe-only Temporal

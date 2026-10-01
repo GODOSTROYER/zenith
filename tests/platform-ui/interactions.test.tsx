@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AutonomyView } from "@/lib/capabilities/autonomy";
 import type { WorkspacePolicyView } from "@/lib/capabilities/policy-settings";
 import { DEFAULT_WORKSPACE_POLICY } from "@/lib/policy/types";
-import { operation, decision, node, observation, runtime, planView, DIGEST } from "../screens/platform/fixtures";
+import { operation, decision, approval, node, observation, runtime, planView, DIGEST } from "../screens/platform/fixtures";
 import { button, click, flush, mount, text, type } from "../screens/platform/render";
 import { OperationActions } from "@/app/(product)/platform/operations/[id]/operation-actions";
 import { EnvironmentAutonomy } from "@/app/(product)/platform/environments/[id]/environment-autonomy";
@@ -28,6 +28,24 @@ const autonomy: AutonomyView = { workspaceId: "ws_1", environmentId: "env_prod",
 const policy: WorkspacePolicyView = { workspaceId: "ws_1", overrides: {}, effective: DEFAULT_WORKSPACE_POLICY, version: 3, isDefault: true };
 
 describe("session-only operation controls", () => {
+  it("sends the concrete plan digest that was shown and lets the same human decide in a new round", async () => {
+    fetchMock.mockResolvedValueOnce(jsonReply({}));
+    const op = { ...operation({ expiresAt: new Date(Date.now() + 3600000).toISOString() }), approvalRound: 1 };
+    const old = { ...approval(), approvalRound: 0, consumedAt: new Date().toISOString() };
+    const el = mount(<OperationActions workspaceId="ws_1" operation={op} decision={decision()} approvals={[old]} viewer={{ id: old.approver.id, role: "admin" }} plan={planView()} planCostDeltaUsd={null} />);
+    expect(button(el, "Approve").disabled).toBe(false);
+    expect(text(el)).toContain("0 of 1"); expect(text(el)).toContain("Not estimated");
+    click(button(el, "Approve")); await flush();
+    expect(request().body).toEqual({ proposalDigest: DIGEST, planDigest: planView().planDigest });
+  });
+  it("keeps a decision in the current round disabled and never sends a stale shown plan", () => {
+    const op = { ...operation({ expiresAt: new Date(Date.now() + 3600000).toISOString() }), approvalRound: 1 };
+    const current = { ...approval(), approvalRound: 1, expiresAt: new Date(Date.now() + 3600000).toISOString() };
+    const el = mount(<OperationActions workspaceId="ws_1" operation={op} decision={decision()} approvals={[current]} viewer={{ id: current.approver.id, role: "admin" }} plan={planView()} />);
+    expect(button(el, "Approve").disabled).toBe(true);
+    const stale = mount(<OperationActions workspaceId="ws_1" operation={op} decision={decision()} approvals={[]} viewer={{ id: "other", role: "admin" }} plan={{ ...planView(), planDigest: "f".repeat(64) }} />);
+    expect(button(stale, "Approve").disabled).toBe(true); expect(fetchMock).not.toHaveBeenCalled();
+  });
   it("requires the readable bound plan for approval while leaving rejection possible", () => {
     const op = operation({ expiresAt: new Date(Date.now() + 3600000).toISOString() });
     const unavailable = mount(<OperationActions workspaceId="ws_1" operation={op} decision={decision()} approvals={[]} viewer={{ id: "other", role: "admin" }} />);

@@ -29,7 +29,7 @@ import { importDockerfile } from "@/lib/importers/dockerfile";
 import { importTerraform } from "@/lib/importers/terraform";
 import { uniqueName, type ImportReport } from "@/lib/importers/types";
 import { ImportReportView } from "@/components/screens/import-report";
-import type { Manifest } from "@/lib/domain/types";
+import type { AnyManifest, Manifest } from "@/lib/domain/types";
 import type { DiscoveredResource } from "@/lib/providers/types";
 import { cx } from "@/lib/format";
 
@@ -176,9 +176,9 @@ CMD ["node", "server.js"]`,
  * map — the plan preview shows the whole diff before any of it is applied.
  */
 export function mergeImport(
-  current: Manifest,
+  current: AnyManifest,
   incoming: Manifest
-): { manifest: Manifest; renamed: string[] } {
+): { manifest: AnyManifest; renamed: string[] } {
   const taken = [
     ...current.services.map((s) => s.name),
     ...current.resources.map((r) => r.name),

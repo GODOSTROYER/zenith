@@ -120,8 +120,9 @@ describe("upgradeManifest / downgradeToV1", () => {
       nodePlacement: { db: { provider: "gcp", region: "europe-west1" } },
       providerConfig: { aws: { natGateways: "single" } },
       native: [{ id: "topic", provider: "aws", type: "aws:sns_topic", config: {} }],
+      release: { migrate: { service: "api", command: ["node", "migrate.js"] } },
     });
-    expect(v2OnlySections(rich)).toEqual(["placement", "constraints", "policies", "nodePlacement", "providerConfig", "native"]);
+    expect(v2OnlySections(rich)).toEqual(["placement", "constraints", "policies", "nodePlacement", "providerConfig", "native", "release"]);
     expect(downgradeToV1(rich)).toStrictEqual(fullManifest());
   });
 

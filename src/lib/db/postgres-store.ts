@@ -74,7 +74,7 @@
  * atomicity (see `./pg/audit.ts` and docs/ARCHITECTURE.md, ADR 1).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AuditEvent, DeploymentEvent, Manifest } from "@/lib/domain/types";
+import type { AuditEvent, DeploymentEvent, AnyManifest } from "@/lib/domain/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { FileStore } from "./file-store";
 import "./pg/all"; // registers every collection and delegate group, in FK order
@@ -898,7 +898,7 @@ export const PostgresStore: Store & {
   readAuditPage: (filter?: AuditFilter): AuditPage => delegates.audit.readAuditPage(filter),
   readAudit: (filter?: AuditFilter): AuditEvent[] => delegates.audit.readAudit(filter),
   countAudit: (filter?: AuditFilter): AuditCountResult => delegates.audit.countAudit(filter),
-  revisionManifest: (id: string): Manifest | undefined => delegates.manifests.revisionManifest(id),
+  revisionManifest: (id: string): AnyManifest | undefined => delegates.manifests.revisionManifest(id),
 
   onChange,
   changed: (c: StoreChange, projectId: string): boolean =>

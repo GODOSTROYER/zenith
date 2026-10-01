@@ -7,7 +7,7 @@ Zenith, what it does not, and how to take it back. **The commands and the
 parameter tables are in [`deploy/aws/README.md`](../../../deploy/aws/README.md);
 this page does not repeat them.**
 
-Written against branch `ws/docs-sync`, based on `platform/integration` at `e3ea61a` (2026-10-01).
+Written against branch `ws/docs-sync-2`, based on `ws/integrate-w6` at `3c1fa66` (2026-10-01).
 
 **Status, stated up front.** The bootstrap template and module, the broker and the
 issuer are built and tested without an AWS account. **Nothing has been applied to
@@ -32,7 +32,7 @@ parameters: [deploy/aws/README.md, Option A and B](../../../deploy/aws/README.md
 | An IAM OIDC provider | Lets AWS verify Zenith's tokens (client id `sts.amazonaws.com`). One exists per issuer URL per account. |
 | `ZenithObserveRole` | Read-only inspection. |
 | `ZenithDeployRole` | The only role that changes things, and only things it is allowed to see as Zenith's. |
-| `ZenithWorkloadBoundary` | A permission boundary every IAM role Zenith creates must carry. |
+| `ZenithWorkloadBoundary` | A permission boundary every IAM role Zenith creates must carry; build roles alone can push images, read source object versions and invalidate managed sites. |
 | A state bucket, `zenith-state-<account>-<region>` | OpenTofu state and build artifacts. Yours, and kept if you delete the stack. |
 | `zenith-codebuild` role | Lets image builds run in **your** account, pushing only to `zenith-*` ECR repositories. |
 
@@ -122,6 +122,59 @@ As written in the template's explicit denies and its absence of grants:
   `container.exec`) are a separate, critical-risk class that policy denies in
   production by default ([POLICY.md](POLICY.md)).
 
+The workload boundary distinguishes CodeBuild roles through
+`aws:PrincipalArn = arn:<partition>:iam::<account>:role/zenith-*-build` with
+`ArnLike`. The driver reserves `-build` after shortening the role name, and
+the generator checks the pattern against the shared naming constant.
+Application role names do not match this pattern. Build-only grants cover
+this account's `zenith-*` ECR repositories, `zenith-*/*` S3 object versions
+(with `s3:ResourceAccount`), and this account's CloudFront distributions tagged
+`zenith:managed=true`. The build's own policy narrows those grants to its exact
+output resources and source prefix. CloudFront supports that resource-tag
+condition for [CreateInvalidation](https://docs.aws.amazon.com/service-authorization/latest/reference/list_cloudfront.html).
+CodeBuild project names must start with `zenith-`, so their logs fit the existing
+`/aws/*/zenith-*` boundary. The deploy role cannot modify this boundary.
+Scheduled-job invocation roles use the reserved `-events` suffix and EC2
+agent roles use `-ec2`, both appended after truncation/hashing. Their grants
+require this account's matching `aws:PrincipalArn`; application, execution,
+function and build roles cannot acquire them, including workloads named
+`web-events` or `web-ec2`. Short role names stay stable; review replacements
+when upgrading previously truncated names.
+
+Events roles can run only this account's `task-definition/zenith-*`, with
+`ecs:cluster` restricted to `cluster/zenith-*` ([AWS authorization support](https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonelasticcontainerservice.html)).
+They can pass only this account's `role/zenith-*` to
+`ecs-tasks.amazonaws.com`; their inline policy narrows this further to the
+job's task revision, cluster and exact roles. IAM administration remains
+explicitly denied, as do other role families' PassRole requests, missing or
+wrong destination services, Organizations, Account and state-bucket access.
+
+EC2's [SSM managed core v2](https://docs.aws.amazon.com/aws-managed-policy/latest/reference/AmazonSSMManagedInstanceCore.html)
+actions intersect the boundary at tagged, same-account EC2 instances,
+same-account associations, AWS-owned documents and this account's
+`document/Zenith-*`. Unscoped core inventory/manifest/list/package/patch calls
+and agent message channels require the EC2 principal. Resource/condition
+support for each action is recorded in the
+[bootstrap boundary matrix](../../../deploy/aws/README.md#what-each-permission-is-for)
+and [AWS's SSM authorization reference](https://docs.aws.amazon.com/service-authorization/latest/reference/list_awssystemsmanager.html).
+`GetParameter(s)` remain confined to `parameter/zenith/*`; the agent needs no
+additional parameter path for Zenith's command transport. This does not grant
+the control plane `ssm:SendCommand` or `ecs:ExecuteCommand`.
+
+Compatible statements share action/resource lists, while service ARN types
+preserve scopes. Optional Sids and repeated core action names are compacted
+to fit IAM's 6,144-character limit. Default `aws`/`aws-cn`/`aws-us-gov` sizes
+are 5,724/5,835/5,983 characters (`eu-west-1`); GovCloud has 161 characters
+of headroom. Longer environment-tag values or name suffixes consume this
+space: inspect the fully rendered policy before deploying custom values.
+
+Coverage tests evaluate every scheduled-job inline action, all 25 EC2 core
+actions and other-role denials in all three partitions. No live AWS acceptance
+was run. Remaining blocked families include identity grants for S3 multipart,
+log reads, database/cache IAM authentication and RDS-managed credential
+secrets; EKS cluster service permissions and node ECR metadata remain partly
+blocked. The boundary was not widened for those families.
+
 Known limits of what IAM can express, from the template (not hidden): task
 definition registration accepts only `Resource: "*"` in IAM, so Zenith can add
 revisions to task definition families it can name but cannot change a running
@@ -199,7 +252,7 @@ applyable IaC if you want to carry on without Zenith.
   clients cannot infer a `/api/platform/v1/connections` API from that page.
 - **Non-AWS connections.** Six providers' drivers are registered, and
   `src/lib/platform/credentials.ts` performs connection verification for GCP (STS exchange + projects.get), Azure (ARM token + subscription read), Kubernetes (namespaced read) and OCI (runner registration only; cloud permissions unverified).
-  OCI and non-AWS runner ProviderSession modes are still refused.
+  OCI ProviderSessions run only through an active registered runner (`oci.http`); runner-mode sessions for the other non-AWS providers are still refused.
 - **Live deploy acceptance.** The worker registers execution implementations
   and the AWS registrar composes all driver groups (`src/lib/platform/drivers.ts`).
   They carry contract evidence, not a live-account run. An approved dispatch

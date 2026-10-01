@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { Deployment, Output } from "@/lib/domain/types";
+import { v2 } from "../actions/manifest-v2-fixture";
 
 const db = vi.hoisted(() => ({
   deployment: vi.fn(), revision: vi.fn(), project: vi.fn(), environment: vi.fn(),
@@ -71,6 +72,19 @@ describe("simulated preview outcomes", () => {
     expect(html).toContain("does not check live service health");
     expect(html).not.toContain("is running");
     expect(html).not.toContain("verified it answered");
+  });
+
+  it("renders a saved V2 revision without dropping or changing its sections", async () => {
+    const manifest = v2();
+    manifest.services[0].id = "web";
+    manifest.nodePlacement = { web: manifest.nodePlacement!["svc-web"] };
+    const before = JSON.stringify(manifest);
+    db.revision.mockReturnValue({ number: 2, manifest });
+    const html = await render();
+    expect(html).toContain("web · simulated preview");
+    expect(html).toContain("completed successfully");
+    expect(html).toContain("does not check live service health");
+    expect(JSON.stringify(manifest)).toBe(before);
   });
 
   it("supports LocalStack's recorded preview without inventing a hostname", async () => {

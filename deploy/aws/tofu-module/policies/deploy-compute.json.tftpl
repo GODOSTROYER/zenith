@@ -2,6 +2,91 @@
   "Version": "2012-10-17",
   "Statement": [
     {
+      "Sid": "EksCreateTaggedCluster",
+      "Effect": "Allow",
+      "Action": "eks:CreateCluster",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/zenith:managed": "true",
+          "eks:authenticationMode": "API"
+        },
+        "Bool": {
+          "eks:bootstrapClusterCreatorAdminPermissions": "false"
+        },
+        "StringLike": {
+          "aws:RequestTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
+    },
+    {
+      "Sid": "EksCreateTaggedChildren",
+      "Effect": "Allow",
+      "Action": [
+        "eks:CreateNodegroup",
+        "eks:CreateAddon"
+      ],
+      "Resource": "arn:${partition}:eks:*:${account_id}:cluster/zenith-${environment_tag_value}-*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/zenith:managed": "true",
+          "aws:ResourceTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:RequestTag/zenith:environment": "${environment_tag_value}",
+          "aws:ResourceTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
+    },
+    {
+      "Sid": "EksTagOnCreate",
+      "Effect": "Allow",
+      "Action": "eks:TagResource",
+      "Resource": [
+        "arn:${partition}:eks:*:${account_id}:cluster/zenith-${environment_tag_value}-*",
+        "arn:${partition}:eks:*:${account_id}:nodegroup/zenith-${environment_tag_value}-*/*/*",
+        "arn:${partition}:eks:*:${account_id}:addon/zenith-${environment_tag_value}-*/*/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:RequestTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
+    },
+    {
+      "Sid": "EksManageTaggedResources",
+      "Effect": "Allow",
+      "Action": [
+        "eks:DeleteCluster",
+        "eks:UpdateClusterConfig",
+        "eks:UpdateClusterVersion",
+        "eks:AssociateEncryptionConfig",
+        "eks:DeleteNodegroup",
+        "eks:UpdateNodegroupConfig",
+        "eks:UpdateNodegroupVersion",
+        "eks:DeleteAddon",
+        "eks:UpdateAddon",
+        "eks:TagResource",
+        "eks:UntagResource"
+      ],
+      "Resource": [
+        "arn:${partition}:eks:*:${account_id}:cluster/zenith-${environment_tag_value}-*",
+        "arn:${partition}:eks:*:${account_id}:nodegroup/zenith-${environment_tag_value}-*/*/*",
+        "arn:${partition}:eks:*:${account_id}:addon/zenith-${environment_tag_value}-*/*/*"
+      ],
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:ResourceTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
+    },
+    {
       "Sid": "EcsCreateTaggedClustersAndServices",
       "Effect": "Allow",
       "Action": [

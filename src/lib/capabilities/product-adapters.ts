@@ -21,6 +21,7 @@
 import { membershipPolicy } from "@/lib/auth/policy";
 import { db, q, revisionManifestAsync } from "@/lib/db/store";
 import type { Manifest, Service, Resource } from "@/lib/domain/types";
+import { v1View } from "@/lib/resources/upgrade";
 import type { Principal, Scope } from "@/lib/controlplane/types";
 import { STATEFUL_KINDS } from "@/lib/resources/types";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -76,7 +77,7 @@ export function productScopeResolver(): ScopeResolver {
         const owner = d.projects.find((p) => p.id === projectId);
         // The deployed revision is what exists in the environment; the working copy is what the project is editing.
         const manifest = (env.deployedRevisionId ? await revisionManifestAsync(env.deployedRevisionId) : undefined) ?? owner?.workingManifest;
-        const facts = manifest ? resourceFacts(manifest, scope.resourceId) : undefined;
+        const facts = manifest ? resourceFacts(v1View(manifest), scope.resourceId) : undefined;
         if (!facts) return null;
         resolved.scope.resourceId = scope.resourceId;
         resolved.resource = facts;

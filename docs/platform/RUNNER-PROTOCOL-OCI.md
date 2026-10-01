@@ -111,6 +111,35 @@ Resource bindings intentionally narrow the proposal: resource OCIDs do not encod
 their owning compartment, so comparing resource IDs directly with compartment
 OCIDs would either deny all resources or allow callers to forge the binding.
 
+For Monitoring, `compartmentId` must be an allowed, unique URL query parameter;
+placing it only in the JSON body cannot authorize `summarizeMetricsData`.
+`compartmentIdInSubtree` must be absent or exactly `false`; duplicate selectors,
+case variants and other URL parameters are refused. The JSON body has exactly
+`namespace`, `query`, `resolution`, `startTime` and `endTime`. Only namespace
+`oci_computeagent` and this byte-exact query shape are accepted:
+
+```
+<CpuUtilization|MemoryUtilization>[<1m|5m|1h|1d>]{resourceId = "<instanceOCID>"}.mean()
+```
+
+`resolution` must equal the query interval. Both timestamps must be RFC 3339,
+with `endTime` after `startTime`. The instance OCID must have a trusted local
+`resourceCompartments` binding to the **exact URL compartment**, even if several
+compartments are allowed. Other namespaces, metrics, aggregations, dimensions,
+fields, unbound/foreign instances and query-language injection are refused.
+Logging Search instead selects scope inside the JSON `searchQuery`. The runner
+accepts the minimal query `search "<compartmentOCID>[/<logGroupOCID>[/<logOCID>]]"`:
+one explicit compartment from local `allowedCompartments`, with every optional
+log-group/log OCID locally bound to that same compartment. The sole accepted
+suffix is exactly ` | sort by datetime desc`, as emitted by the TS log reader.
+Whitespace is not normalized: double spaces, altered sorting, another pipe,
+trailing text and controls are refused. Names, wildcards, multiple scopes,
+other pipelines and comments are refused rather than interpreted.
+Only `limit` and `page` URL parameters are accepted for Logging Search. A caller's
+URL/body `compartmentId` assertion never authorizes a foreign search scope.
+This is a deliberately limited subset of Oracle's
+[Logging Query Language](https://docs.oracle.com/en-us/iaas/Content/Logging/Reference/query_language_specification.htm).
+
 ## 4. Signing
 
 The runner uses standard-library RSA PKCS#1 v1.5 with SHA-256 and the wire rules
@@ -191,6 +220,8 @@ endpoint resolution over copying it.
 | `vault` | `vaults.{region}.oci.oraclecloud.com` | `20180608` |
 | `identity` | `identity.{region}.oci.oraclecloud.com` | `20160918` |
 | `logging` | `logging.{region}.oci.oraclecloud.com` | `20200531` |
+| `loggingsearch` | `logging.{region}.oci.oraclecloud.com` | `20190909` |
+| `monitoring` | `telemetry.{region}.oraclecloud.com` | `20180401` |
 | `redis` | `redis.{region}.oci.oraclecloud.com` | `20220315` |
 | `containerengine` | `containerengine.{region}.oraclecloud.com` | `20180222` |
 
@@ -248,6 +279,38 @@ redis GET /20220315/redisClusters
 redis GET /20220315/redisClusters/{}
 ```
 
+**Signal reads:** `infrastructure.observe` and `incident.investigate`
+additionally allow both fixed read-only POST queries below. `logs.read` allows
+only Logging Search; `metrics.read` allows only Monitoring, without metadata
+GETs. `topology.read`, `firewall.inspect` and every mutating capability gain no
+signal POST access:
+
+```
+loggingsearch POST /20190909/search
+monitoring POST /20180401/metrics/actions/summarizeMetricsData
+```
+
+These are the exact methods/paths in Oracle's
+[SearchLogs API reference](https://docs.oracle.com/en-us/iaas/api/#/en/logging-search/20190909/SearchResult/SearchLogs)
+and [SummarizeMetricsData API reference](https://docs.oracle.com/en-us/iaas/api/#/en/monitoring/20180401/MetricData/SummarizeMetricsData),
+cross-checked against the [Oracle Logging Search client](https://github.com/oracle/oci-dotnet-sdk/blob/master/Loggingsearch/LogSearchClient.cs)
+and [Oracle Monitoring client](https://github.com/oracle/oci-go-sdk/blob/master/monitoring/monitoring_client.go).
+Monitoring uses the read endpoint `telemetry`, never `telemetry-ingestion`.
+No log ingestion, metric publication, alarm mutation or broader path wildcard is
+allowed. The embedded contracts contain 9 capabilities and 18 services;
+`infrastructure.observe` and `incident.investigate` each have 52 rules,
+`topology.read` retains 50 driver-read rules, and `logs.read` / `metrics.read`
+each have one signal rule. Regenerate both golden
+files with `npx tsx scripts/generate-oci-allowlist.ts`; TS/Go parity is tested.
+
+The Go executor exempts exactly these two read POSTs from its retry-token
+requirement (`go/internal/runner/kinds/ocihttp.go`, `readOnlyPost`); other POSTs
+still require a token. The control-plane payload schema currently requires
+`opc-retry-token` on every POST, so the TS readers supply it. Neither signal
+POST is automatically retried by the current executor (§8). Offline reader
+tests exercise the production tables, runner serialization and payload schema
+with synthetic responses; this does not establish live tenancy access.
+
 **`firewall.inspect`**
 
 ```
@@ -283,7 +346,9 @@ retrieval (`/20190301/secretbundles/…`: Zenith and the runner never read a
 secret value back), object-level Object Storage (`/n/{ns}/b/{bucket}/o/…`:
 customer data), any IAM write, `…/actions/changeCompartment`, secret deletion,
 and every `DELETE`. Infrastructure changes go through `tofu.run`, not this
-kind. `logs.read` (Logging search) is reserved and **not implemented**.
+kind. Signal reads use the capability split above: `logs.read` permits only
+Logging Search, `metrics.read` only Monitoring, and `incident.investigate`
+both signal queries plus driver metadata reads.
 
 ## 7. Secret writes carry a secret
 
@@ -350,11 +415,20 @@ These are source-verified wiring claims, not a live OCI run. See the runnable
 configuration in [RUNNER.md](RUNNER.md#ocihttp--the-oci-signing-proxy).
 
 - The service table and API paths remain unverified against a live tenancy.
+- Logging Search and Monitoring method/path contracts and compartment checks
+  are implemented and covered by synthetic tests. Logging query syntax is
+  limited to the single OCID scope described in §3. The Go executor's exact
+  read-only POST exemption is implemented (§6); current TypeScript readers
+  still supply retry tokens to satisfy the payload schema. Observability source
+  adapters in `src/lib/observability/sources/oci-{logging,monitoring}.ts` are
+  wired through runner sessions. No live service acceptance is established.
 - `secret.write` remains disabled (`oci.secretWrite: false`): `sealedBodyB64`
   is the required sensitive-payload contract, not implemented sealed-body
-  transport. `logs.read` remains unsupported.
-- `src/lib/platform/credentials.ts` still refuses OCI ProviderSession creation;
-  wiring the HTTP executor does not complete platform deploy/observe sessions.
+  transport. Logging Search and Monitoring reads are implemented through
+  runner-backed sessions; neither query is a secret-write transport.
+- `src/lib/platform/credentials.ts` creates OCI platform sessions only through
+  an active registered runner. Verification checks runner registration/labels,
+  not OCI permissions; platform deploy/observe sessions remain unverified live.
 - The state assembler now emits OCI S3-compatible endpoint/compatibility flags
   (`src/lib/tofu/backends.ts`, `src/lib/tofu/backend-config.ts`). Authentication
   still requires a customer S3 secret key kept on the runner; native principals

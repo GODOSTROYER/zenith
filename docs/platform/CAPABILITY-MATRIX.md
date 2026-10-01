@@ -30,7 +30,7 @@ No entry claims `real`: there is no live-account acceptance evidence yet.
 
 | Provider | Provider-level drivers index | Driver group modules | Drivers merged | Registered by the app | Registrable, not registered | Module only |
 |---|---|---|---|---|---|---|
-| aws | `src/lib/providers/aws/drivers/index.ts` | `compute`, `data`, `network` | 21 | 21 | 0 | 0 |
+| aws | `src/lib/providers/aws/drivers/index.ts` | `compute`, `data`, `network` | 24 | 24 | 0 | 0 |
 | gcp | `src/lib/providers/gcp/drivers/index.ts` | `build`, `compute`, `data`, `edge`, `identity`, `network`, `observability` | 18 | 18 | 0 | 0 |
 | azure | `src/lib/providers/azure/drivers/index.ts` | `compute`, `data`, `dns`, `identity`, `network`, `platform` | 25 | 25 | 0 | 0 |
 | oci | `src/lib/providers/oci/drivers/index.ts` | `compute`, `data`, `edge`, `network`, `platform` | 20 | 20 | 0 | 0 |
@@ -53,10 +53,12 @@ This matrix covers the **resource-driver** path (`src/lib/drivers`). The product
 | `aws:alb` | `load_balancer` | `aws.alb@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
 | `aws:cloudwatch_log_group` | `log_group` | `aws.cloudwatch_log_group@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
 | `aws:codebuild_project` | `build_pipeline` | `aws.codebuild_project@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:ebs_volume` | `volume` | `aws.ebs_volume@1` | yes | `contract` | `contract` | — | `contract` | — | — |
 | `aws:ec2_instance` | `compute_instance` | `aws.ec2_instance@1` (experimental) | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
 | `aws:ecr_repository` | `container_registry` | `aws.ecr_repository@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
 | `aws:ecs_scheduled_task` | `scheduled_job` | `aws.ecs_scheduled_task@1` | yes | `contract` | `contract` | `contract` | `contract` | — | — |
 | `aws:ecs_service` | `container_service` | `aws.ecs_service@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | `deployment.deploy`: `contract`<br>`service.restart`: `contract`<br>`service.scale`: `contract` |
+| `aws:eks_cluster` | `kubernetes_cluster` | `aws.eks_cluster@1` | yes | `contract` | `contract` | `contract` | `contract` | — | — |
 | `aws:elasticache_replication_group` | `redis` | `aws.elasticache_replication_group@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
 | `aws:iam_role` | `identity` | `aws.iam_role@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
 | `aws:lambda_function` | `function` | `aws.lambda_function@1` (experimental) | yes | `contract` | `contract` | `contract` | `contract` | `contract` | `function.invoke`: `contract` |
@@ -67,6 +69,7 @@ This matrix covers the **resource-driver** path (`src/lib/drivers`). The product
 | `aws:s3_static_site` | `static_site` | `aws.s3_static_site@1` | yes | `contract` | `contract` | — | `contract` | — | — |
 | `aws:secretsmanager_secret` | `secret` | `aws.secretsmanager_secret@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
 | `aws:security_group_rule` | `firewall` | `aws.security_group_rule@1` | yes | `contract` | `contract` | — | `contract` | `contract` | `firewall.inspect`: `contract` |
+| `aws:sns_topic` | `pubsub` | `aws.sns_topic@1` | yes | `contract` | `contract` | — | `contract` | — | — |
 | `aws:sqs_queue` | `queue` | `aws.sqs_queue@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
 | `aws:subnet` | `subnet` | `aws.subnet@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
 | `aws:vpc` | `network` | `aws.vpc@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
@@ -130,7 +133,7 @@ This matrix covers the **resource-driver** path (`src/lib/drivers`). The product
 |---|---|---|---|---|---|---|---|---|---|
 | `oci:block_volume` | `volume` | `oci.block_volume@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
 | `oci:certificate` | `tls_certificate` | `oci.certificate@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
-| `oci:compute_instance` | `compute_instance` | `oci.compute_instance@1` | yes | — | — | — | — | — | — |
+| `oci:compute_instance` | `compute_instance` | `oci.compute_instance@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
 | `oci:container_instance` | `container_service` | `oci.container_instance@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | `service.restart`: `contract` |
 | `oci:container_repository` | `container_registry` | `oci.container_repository@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
 | `oci:dns_rrset` | `dns_record` | `oci.dns_rrset@1` | yes | `contract` | `contract` | — | `contract` | — | — |
@@ -138,9 +141,9 @@ This matrix covers the **resource-driver** path (`src/lib/drivers`). The product
 | `oci:dynamic_group` | `identity` | `oci.dynamic_group@1` | yes | `contract` | `contract` | — | `contract` | — | — |
 | `oci:load_balancer` | `load_balancer` | `oci.load_balancer@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
 | `oci:log_group` | `log_group` | `oci.log_group@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
-| `oci:mysql_db_system` | `mysql` | `oci.mysql_db_system@1` | yes | — | — | — | — | — | — |
+| `oci:mysql_db_system` | `mysql` | `oci.mysql_db_system@1` | yes | — | `contract` | `contract` | `contract` | `contract` | — |
 | `oci:object_storage_bucket` | `object_store` | `oci.object_storage_bucket@1` | yes | `contract` | `contract` | — | `contract` | `contract` | — |
-| `oci:oke_cluster` | `kubernetes_cluster` | `oci.oke_cluster@1` | yes | — | — | — | — | — | — |
+| `oci:oke_cluster` | `kubernetes_cluster` | `oci.oke_cluster@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
 | `oci:postgresql_db_system` | `postgres` | `oci.postgresql_db_system@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | `database.snapshot`: `contract` |
 | `oci:queue` | `queue` | `oci.queue@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |
 | `oci:redis_cluster` | `redis` | `oci.redis_cluster@1` | yes | `contract` | `contract` | `contract` | `contract` | `contract` | — |

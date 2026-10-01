@@ -18,7 +18,7 @@
  */
 import type { Broker } from "@/lib/capabilities/platform";
 import type { CapabilityGrantClaims } from "@/lib/controlplane/types";
-import type { Manifest } from "@/lib/domain/types";
+import type { AnyManifest } from "@/lib/domain/types";
 import type { Investigation } from "@/lib/incidents/types";
 import type { ObservabilityFabric } from "@/lib/observability/types";
 import type { ProviderKey, ResourceGraph } from "@/lib/resources/types";
@@ -32,7 +32,7 @@ export interface ProjectInfo {
   workspaceId: string;
   name: string;
   slug: string;
-  workingManifest: Manifest;
+  workingManifest: AnyManifest;
 }
 
 export interface EnvironmentInfo {
@@ -58,7 +58,7 @@ export interface RevisionSummary {
 }
 
 export interface RevisionInfo extends RevisionSummary {
-  manifest: Manifest;
+  manifest: AnyManifest;
 }
 
 /**

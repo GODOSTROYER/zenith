@@ -14,10 +14,11 @@
  *     registry block pulling with the workload identity (which needs AcrPull:
  *     granted only for registries in the graph). Private non-ACR registries
  *     would need a password secret and are not supported.
- *   - `built` artifacts deploy `<registry login server>/<service name>:latest`:
- *     the build helper pushes that tag. Digest pinning would need a spec
- *     extension (`ArtifactSpec.built.digest`); until then a rebuild reaches the
- *     app via a revision restart, not a new tofu revision.
+ *   - `built` artifacts start with a fixed public bootstrap image. Release
+ *     builds in ACR and replaces it with the verified digest. The app/job
+ *     compiler ignores that image and the responder's bootstrap argv, so later
+ *     infrastructure applies preserve the deployed digest and entrypoint.
+ *     Bootstrap is not release readiness.
  *   - `blueprint` artifacts only exist on the sandbox provider: compile error.
  */
 import type { CompileContext } from "@/lib/drivers/types";
@@ -30,6 +31,22 @@ import { acaMemory, acaSize, type AcaSize } from "@/lib/providers/azure/platform
 
 export const CONTAINER_APP_NAME_MAX = 32;
 
+/** Fixed linux/amd64 HashiCorp HTTP responder; never evidence of a built release.
+ * https://hub.docker.com/layers/hashicorp/http-echo/1.0.0/images/sha256-2c213d6c05a0f68adfe9c7fe1a78a314e5c4fee783e2ee8592d49f10d0c4513f
+ * Public image pull and Azure execution have not been live-verified here.
+ */
+export const BOOTSTRAP_IMAGE = "docker.io/hashicorp/http-echo@sha256:2c213d6c05a0f68adfe9c7fe1a78a314e5c4fee783e2ee8592d49f10d0c4513f";
+export const RELEASE_IMAGE_PATH = "template[0].container[0].image";
+export const RELEASE_ARGS_PATH = "template[0].container[0].args";
+
+/** Match the app's declared probe port/path during infrastructure creation.
+ * argv is passed literally, never through a shell, and removed on digest rollout.
+ */
+export function bootstrapArgs(port?: number): string[] {
+  if (port !== undefined && (!Number.isInteger(port) || port < 1 || port > 65535)) throw new AzureCompileError("the workload port must be an integer from 1 to 65535.");
+  return ["-listen", `:${port ?? 5678}`, "-text", "Zenith awaiting built release"];
+}
+
 /** Container App / job name: lowercase alnum and hyphens, ≤ 32, deterministic. */
 export const workloadName = (ctx: Pick<CompileContext, "namePrefix">, address: string): string => cloudName(ctx, address, { max: CONTAINER_APP_NAME_MAX });
 
@@ -41,7 +58,7 @@ export const acaSecretName = (envKey: string): string => `${slug(envKey).slice(0
 export interface WorkloadParts {
   name: string;
   containerName: string;
-  /** image as a tofu string (may contain a `${local…}` for built images); undefined only for blueprint errors */
+  /** Literal artifact image or the fixed built-workload bootstrap image. */
   image: string;
   /** the literal image reference when it is known at compile time (image artifacts) */
   literalImage?: string;
@@ -112,10 +129,11 @@ export function buildWorkload(node: ResourceNode, ctx: CompileContext, spec: Wor
     }
   } else {
     if (!artifact.registry) throw new AzureCompileError("a built artifact needs a container registry.", a);
-    requireNode(ctx, artifact.registry, "the image registry", a);
+    const registryNode = requireNode(ctx, artifact.registry, "the image registry", a);
+    if (registryNode.kind !== "container_registry" || registryNode.provider !== "azure" || registryNode.region !== node.region) throw new AzureCompileError("a built artifact needs an Azure container registry in this region.", a);
     if (!identityId) throw new AzureCompileError("a built artifact is pulled from ACR with the workload identity, but the workload has no identity node.", a);
     const login = exportRef(artifact.registry, "login_server");
-    image = `${login}/${nodeNameOf(a)}:latest`;
+    image = BOOTSTRAP_IMAGE;
     registry.push({ server: login, identity: identityId });
   }
 

@@ -4,7 +4,7 @@ What Zenith's cost engine produces, what it does not, where its numbers come fro
 and how to refresh them. Design: [ADR-0013](../../adr/0013-placement-and-cost.md).
 Code: `src/lib/placement/`.
 
-Written against branch `ws/docs-sync`, based on `platform/integration` at `e3ea61a` (2026-10-01).
+Written against branch `ws/docs-sync-2`, based on `ws/integrate-w6` at `3c1fa66` (2026-10-01).
 
 **Status.** The price catalog, the cost engine and the placement solver are built as
 pure libraries with contract tests. They are exposed by MCP v3, placement REST

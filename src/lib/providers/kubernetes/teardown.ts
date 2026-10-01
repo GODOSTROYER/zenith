@@ -1,0 +1,203 @@
+/**
+ * Explicit environment teardown, using pruneOrphans' empty-desired-set plan.
+ * Automatic prune's protections stay intact: only this entry point may delete
+ * retained PVCs and StatefulSets when retainStateful is false. Every deletion
+ * rechecks live environment ownership and carries UID and resourceVersion
+ * preconditions (the latter also protects against an ownership-mark change).
+ *
+ * Namespaces are always retained: deleting one would cascade into foreign
+ * objects, including kinds Zenith cannot inventory. Only allowlisted or
+ * live, environment-owned namespaces are scanned. The caller must supply a
+ * brokered session authorized for workspaceId and hold the environment lease;
+ * Kubernetes ownership marks identify the globally unique environment, not
+ * its workspace. This function does not authorize callers or acquire leases.
+ *
+ * deleted means a subsequent GET confirmed absence; in dryRun it means would
+ * delete. Acceptance, termination, interrupted scans and incomplete listings
+ * are uncertain. Wildcard refs (Kind/namespace/*, Namespace//*) denote coverage
+ * gaps or unavailable kinds. Results contain refs only, never API bodies or
+ * error messages. Confirmation is bounded to one read, with no delete retries
+ * or finalizer removal. Evidence is contract-only against fake-api.ts; no live
+ * cluster teardown has been verified.
+ */
+import type { KubernetesSession } from "@/lib/credentials/types";
+import { createK8sClient, listObjects, ownedBy, readObject, toK8sError, type K8sClient } from "./client";
+import { defaultNamespace, isDnsLabel } from "./naming";
+import { pruneOrphans } from "./prune";
+import { sessionNamespaces } from "./session";
+import { APPLY_ORDER, K8sError, KIND_INFO, LABEL, MANAGED_BY_VALUE, refOf, type ObjectRef } from "./types";
+import { dig, isRecord, sortedUnique } from "./util";
+
+export interface KubernetesTeardownInput {
+  workspaceId: string;
+  environmentId: string;
+  session: unknown;
+  retainStateful: boolean;
+  dryRun?: boolean;
+  signal?: AbortSignal;
+}
+
+export interface KubernetesTeardownReport {
+  deleted: string[];
+  retained: string[];
+  skipped: string[];
+  uncertain: string[];
+}
+
+type Outcome = keyof KubernetesTeardownReport;
+const SELECTOR = `${LABEL.managedBy}=${MANAGED_BY_VALUE}`;
+const key = (ref: ObjectRef): string => `${ref.kind}/${ref.namespace ?? ""}/${ref.name}`;
+const namespaceRef = (name: string): ObjectRef => ({ apiVersion: "v1", kind: "Namespace", name });
+const stateful = (ref: ObjectRef): boolean => ref.kind === "PersistentVolumeClaim" || ref.kind === "StatefulSet";
+
+function checkedSession(input: KubernetesTeardownInput): KubernetesSession {
+  if (!input || typeof input.workspaceId !== "string" || !input.workspaceId.trim() ||
+      typeof input.environmentId !== "string" || !input.environmentId.trim() ||
+      typeof input.retainStateful !== "boolean" ||
+      (input.dryRun !== undefined && typeof input.dryRun !== "boolean")) {
+    throw new K8sError("bad_input", "Teardown requires workspace and environment IDs and a boolean retainStateful flag.");
+  }
+  const session = input.session;
+  if (!isRecord(session) || session.provider !== "kubernetes" || typeof session.kubeConfig !== "function" ||
+      typeof session.server !== "string" || typeof session.expiresAt !== "string" || !Number.isFinite(Date.parse(session.expiresAt))) {
+    throw new K8sError("session_invalid", "Teardown requires a brokered Kubernetes session.");
+  }
+  if (Date.parse(session.expiresAt) <= Date.now()) throw new K8sError("session_expired", "The Kubernetes session has expired.");
+  if (session.namespaces !== undefined && (!Array.isArray(session.namespaces) ||
+      !session.namespaces.every((ns: unknown) => typeof ns === "string" && isDnsLabel(ns)))) {
+    throw new K8sError("session_invalid", "The Kubernetes session has an invalid namespace allowlist.");
+  }
+  return session as unknown as KubernetesSession;
+}
+
+/** Read, guard, delete once, then confirm absence. Never return provider text. */
+async function deleteCandidate(client: K8sClient, ref: ObjectRef, environmentId: string, dryRun: boolean): Promise<Outcome> {
+  let live;
+  try {
+    if (ref.namespace) await client.guard.assert(ref.namespace);
+    live = await readObject(client, ref);
+  } catch {
+    return "uncertain";
+  }
+  if (!live) return dryRun ? "skipped" : "deleted";
+  if (!ownedBy(live, environmentId).owned) return "skipped";
+  if (dig(live, "metadata", "deletionTimestamp")) return "uncertain";
+  const uid = dig(live, "metadata", "uid");
+  const resourceVersion = dig(live, "metadata", "resourceVersion");
+  if (typeof uid !== "string" || !uid || typeof resourceVersion !== "string" || !resourceVersion) return "skipped";
+  if (dryRun) return "deleted";
+  // The caller may have cancelled after the last read. Do not start a write.
+  if (client.signal?.aborted) return "skipped";
+  try {
+    await client.objects.delete(
+      { apiVersion: ref.apiVersion, kind: ref.kind, metadata: { name: ref.name, ...(ref.namespace ? { namespace: ref.namespace } : {}) } },
+      undefined, undefined, undefined, undefined, "Background", { preconditions: { uid, resourceVersion } }
+    );
+  } catch (error) {
+    const code = toK8sError(error).code;
+    if (["field_conflict", "forbidden", "unauthorized", "invalid", "unsupported"].includes(code)) return "skipped";
+    // A 404 is also checked below: absence, rather than acceptance, is proof.
+    if (code !== "not_found") return "uncertain";
+  }
+  try {
+    return await readObject(client, ref) ? "uncertain" : "deleted";
+  } catch {
+    return "uncertain";
+  }
+}
+
+export async function teardownKubernetesEnvironment(input: KubernetesTeardownInput): Promise<KubernetesTeardownReport> {
+  const session = checkedSession(input);
+  if (input.signal?.aborted) throw new K8sError("aborted", "The operation was aborted.");
+  let client: K8sClient;
+  try {
+    client = createK8sClient(session, { environmentId: input.environmentId, signal: input.signal });
+  } catch (error) {
+    const code = error instanceof K8sError ? error.code : "session_invalid";
+    throw new K8sError(code, "The Kubernetes teardown client could not be initialized.");
+  }
+  const outcomes = new Map<string, Outcome>();
+  const record = (ref: ObjectRef, outcome: Outcome) => outcomes.set(key(ref), outcome);
+  const namespaces = new Set([...sessionNamespaces(session), defaultNamespace(input.environmentId)]);
+  // Discover custom Zenith-created namespaces even when the allowlist is empty.
+  try {
+    const listing = await listObjects(client, "Namespace", undefined, { labelSelector: SELECTOR });
+    if (listing.truncated || listing.unavailable) record(namespaceRef("*"), "uncertain");
+    for (const item of listing.items) {
+      if (!ownedBy(item, input.environmentId).owned) continue;
+      const ref = refOf(item);
+      if (isDnsLabel(ref.name)) {
+        namespaces.add(ref.name);
+        record(ref, dig(item, "metadata", "deletionTimestamp") ? "uncertain" : "retained");
+      }
+    }
+  } catch {
+    record(namespaceRef("*"), "uncertain");
+  }
+  const scan = sortedUnique([...namespaces]);
+  const dryRun = input.dryRun === true;
+  const candidates = new Map<string, ObjectRef>();
+  try {
+    // Planning preserves automatic prune's NEVER_AUTO_PRUNE policy unchanged.
+    const plan = await pruneOrphans({ desired: [], environmentId: input.environmentId, namespaces: scan, dryRun: true }, session, { signal: input.signal });
+    for (const ref of plan.deleted) candidates.set(key(ref), ref);
+    for (const { ref } of plan.retained) {
+      if (ref.kind === "Namespace" || input.retainStateful) {
+        if (outcomes.get(key(ref)) !== "uncertain") record(ref, "retained");
+      }
+      else candidates.set(key(ref), ref);
+    }
+    for (const failure of plan.failed) record(failure.ref, "uncertain");
+    if (plan.truncated) record(namespaceRef("*"), "uncertain");
+  } catch {
+    record(namespaceRef("*"), "uncertain");
+  }
+
+  // Include deliberate stateful deletions in the existing children-first order.
+  const order: readonly string[] = [...APPLY_ORDER].reverse();
+  const ordered = [...candidates.values()].sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind) || key(a).localeCompare(key(b)));
+  for (const ref of ordered) {
+    record(ref, input.signal?.aborted ? "skipped" : await deleteCandidate(client, ref, input.environmentId, dryRun));
+  }
+
+  // Prune omits already-terminating objects. Reconcile its plan with what remains
+  // so retries, new objects and partial scans cannot look like complete teardown.
+  for (const namespace of scan) {
+    if (input.signal?.aborted) {
+      record({ ...namespaceRef("*"), namespace }, "uncertain");
+      continue;
+    }
+    try {
+      await client.guard.assert(namespace);
+    } catch (error) {
+      if (toK8sError(error).code !== "not_found") record(namespaceRef(namespace), "uncertain");
+      continue;
+    }
+    for (const kind of APPLY_ORDER) {
+      if (kind === "Namespace") continue;
+      const gap: ObjectRef = { apiVersion: KIND_INFO[kind].apiVersion, kind, namespace, name: "*" };
+      if (input.signal?.aborted) {
+        record({ ...namespaceRef("*"), namespace }, "uncertain");
+        break;
+      }
+      try {
+        const listing = await listObjects(client, kind, namespace, { labelSelector: SELECTOR });
+        if (listing.unavailable) record(gap, "skipped");
+        if (listing.truncated) record(gap, "uncertain");
+        for (const item of listing.items) {
+          if (!ownedBy(item, input.environmentId).owned) continue;
+          const ref = refOf(item);
+          if (dig(item, "metadata", "deletionTimestamp")) record(ref, "uncertain");
+          else if (stateful(ref) && input.retainStateful) record(ref, "retained");
+          else if (!outcomes.has(key(ref)) || (!dryRun && outcomes.get(key(ref)) === "deleted")) record(ref, "uncertain");
+        }
+      } catch {
+        record(gap, "uncertain");
+      }
+    }
+  }
+  const report: KubernetesTeardownReport = { deleted: [], retained: [], skipped: [], uncertain: [] };
+  for (const [ref, outcome] of outcomes) report[outcome].push(ref);
+  for (const refs of Object.values(report)) refs.sort();
+  return report;
+}

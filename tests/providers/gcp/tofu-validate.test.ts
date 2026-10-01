@@ -15,7 +15,7 @@
  * normalized plan be joined back to nodes. It is still `contract` evidence:
  * nothing is applied and nothing is read from a cloud.
  *
- *   ZENITH_TEST_TOFU_NETWORK=1 npx vitest run tests/providers/gcp/tofu-validate.test.ts
+ *   ZENITH_TEST_TOFU_NETWORK=1 npx vitest run --maxWorkers=1 tests/providers/gcp/tofu-validate.test.ts
  */
 import { spawnSync } from "node:child_process";
 import os from "node:os";
@@ -62,6 +62,17 @@ async function validate(ws: TofuWorkspace) {
 }
 
 describe.skipIf(!enabled)("tofu validate against hashicorp/google 8.5.0 (network)", () => {
+  it(
+    "accepts built services and jobs with digest bootstrap and narrow image/annotation ignore_changes paths",
+    async () => {
+      const nodes = environmentNodes().map((n) => ["container_service", "scheduled_job"].includes(n.kind) ? { ...n, spec: { ...n.spec, artifact: { type: "built", pipeline: "resource/pipeline", registry: "resource/registry" } } } : n);
+      const r = await validate(workspace(nodes));
+      expect(r.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+      expect(r.valid).toBe(true);
+    },
+    600_000
+  );
+
   it(
     "accepts the full environment: network, data stores, identity, services, load balancer, dns, build",
     async () => {

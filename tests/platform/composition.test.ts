@@ -136,14 +136,14 @@ describe("provider credential router", () => {
     if (held?.provider === "kubernetes") { const kubernetes = held; expect(() => kubernetes.kubeConfig()).toThrow("session has ended"); }
     expect(JSON.stringify(await repos.events.list(db, "ws-contract", { limit: 50 }))).not.toContain("kubernetes-contract-canary");
   });
-  it("refuses foreign tenants, purpose mismatch, expired grants and runner-only OCI before exchange", async () => {
+  it("refuses foreign tenants, purpose mismatch, expired grants, and OCI without an active registered runner, before any exchange", async () => {
     const id = await connection(gcp); const fetchImpl = vi.fn<typeof fetch>();
     const credentials = platformCredentialBroker(db, { fetchImpl });
     await expect(credentials.withSession({ connectionId: id, grant: grant({ ws: "other" }), purpose: "observe" }, async () => undefined)).rejects.toThrow("not found");
     await expect(credentials.withSession({ connectionId: id, grant: grant(), purpose: "deploy" }, async () => undefined)).rejects.toThrow("purpose");
     await expect(credentials.withSession({ connectionId: id, grant: grant({ exp: 0 }), purpose: "observe" }, async () => undefined)).rejects.toThrow("expired");
     const oci = await connection({ provider: "oci", mode: "runner", tenancyOcid: "ocid1.tenancy.oc1..fixture", compartmentOcid: "ocid1.compartment.oc1..fixture", region: "us-ashburn-1", runnerId: "runner-contract" });
-    await expect(credentials.withSession({ connectionId: oci, grant: grant(), purpose: "observe" }, async () => undefined)).rejects.toThrow("OCI is runner-only");
+    await expect(credentials.withSession({ connectionId: oci, grant: grant(), purpose: "observe" }, async () => undefined)).rejects.toThrow("An active OCI runner is unavailable"); // OCI sessions exist only through a runner
     expect(fetchImpl).not.toHaveBeenCalled();
   });
   it("never treats session creation as provider identity verification", async () => {

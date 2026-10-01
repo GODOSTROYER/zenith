@@ -17,6 +17,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { BUILD_ROLE_NAME_PATTERN, EC2_ROLE_NAME_PATTERN, EVENTS_ROLE_NAME_PATTERN } from "../../../src/lib/credentials/aws/naming";
 import { loadTemplate, makeEvaluator, resolveResource, statementsOf, type Statement } from "../../../tests/credentials/cfn";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -73,10 +74,26 @@ export function generate(): Record<string, string> {
 
   for (const [logicalId, file] of Object.entries(POLICY_RESOURCES)) {
     const props = resolveResource(base.template, base.evaluator, logicalId)!;
+    if (logicalId === "WorkloadBoundary") {
+      // YAML cannot import TS; verify every reserved service-role discriminator.
+      for (const statement of statementsOf(props.PolicyDocument)) {
+        const actions = Array.isArray(statement.Action) ? statement.Action : [statement.Action];
+        const pattern = actions.some((a) => a && ["ecr:PutImage", "s3:GetObjectVersion", "cloudfront:CreateInvalidation"].includes(a)) ? BUILD_ROLE_NAME_PATTERN
+          : actions.some((a) => a && ["ecs:RunTask", "iam:PassRole"].includes(a)) || statement.Condition?.ArnNotLike ? EVENTS_ROLE_NAME_PATTERN
+          : actions.some((a) => a === "ssm:UpdateInstanceInformation" || a === "ssm:GetManifest" || a === "ssm:GetDocument") ? EC2_ROLE_NAME_PATTERN : undefined;
+        if (!pattern) continue;
+        const operator = statement.Effect === "Deny" ? "ArnNotLike" : "ArnLike";
+        if (statement.Condition?.[operator]?.["aws:PrincipalArn"] !== `arn:\${partition}:iam::\${account_id}:role/${pattern}`) {
+          throw new Error(`Service-role principal naming drift for ${actions.join(", ")}`);
+        }
+      }
+    }
     files[`${file}.json.tftpl`] = render(props.PolicyDocument);
   }
   const cb = resolveResource(base.template, base.evaluator, "CodeBuildRole")!;
   files["codebuild.json.tftpl"] = render((cb.Policies as { PolicyDocument: unknown }[])[0].PolicyDocument);
+  const writer = resolveResource(base.template, base.evaluator, "SecretWriterRole")!;
+  files["secret-writer.json.tftpl"] = render((writer.Policies as { PolicyDocument: unknown }[])[0].PolicyDocument);
 
   // The CodeBuild role's optional KMS statement.
   const cbFull = resolveResource(full.template, full.evaluator, "CodeBuildRole")!;
@@ -102,4 +119,19 @@ function write(): void {
   console.log(`wrote ${Object.keys(generate()).length} policy templates to ${POLICIES_DIR}`);
 }
 
+/** Byte-for-byte drift check; missing files are failures too. */
+export function checkPolicies(directory = POLICIES_DIR): string[] {
+  return Object.entries(generate()).filter(([name, expected]) => {
+    const file = path.join(directory, name);
+    return !fs.existsSync(file) || fs.readFileSync(file, "utf8") !== expected;
+  }).map(([name]) => name);
+}
+
 if (process.argv.includes("--write")) write();
+if (process.argv.includes("--check")) {
+  const mismatches = checkPolicies();
+  if (mismatches.length) {
+    console.error(`Policy template drift: ${mismatches.join(", ")}`);
+    process.exitCode = 1;
+  } else console.log(`checked ${Object.keys(generate()).length} policy templates; no drift`);
+}

@@ -2,6 +2,71 @@
   "Version": "2012-10-17",
   "Statement": [
     {
+      "Sid": "KmsCreateTaggedKeys",
+      "Effect": "Allow",
+      "Action": "kms:CreateKey",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:RequestTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
+    },
+    {
+      "Sid": "KmsManageTaggedKeys",
+      "Effect": "Allow",
+      "Action": [
+        "kms:EnableKeyRotation",
+        "kms:DisableKeyRotation",
+        "kms:UpdateKeyDescription",
+        "kms:TagResource",
+        "kms:UntagResource"
+      ],
+      "Resource": "arn:${partition}:kms:*:${account_id}:key/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:ResourceTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
+    },
+    {
+      "Sid": "KmsTagOnCreate",
+      "Effect": "Allow",
+      "Action": "kms:TagResource",
+      "Resource": "arn:${partition}:kms:*:${account_id}:key/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:RequestTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
+    },
+    {
+      "Sid": "KmsGrantToAwsResources",
+      "Effect": "Allow",
+      "Action": "kms:CreateGrant",
+      "Resource": "arn:${partition}:kms:*:${account_id}:key/*",
+      "Condition": {
+        "Bool": {
+          "kms:GrantIsForAWSResource": "true"
+        },
+        "StringEquals": {
+          "aws:ResourceTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:ResourceTag/zenith:environment": "${environment_tag_value}"
+        }
+      }
+    },
+    {
       "Sid": "LogsManageZenithGroups",
       "Effect": "Allow",
       "Action": [

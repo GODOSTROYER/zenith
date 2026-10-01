@@ -133,8 +133,9 @@ describe("determinism", () => {
 
   it("handles a large plan without exhausting wasm memory", async () => {
     const addresses = Array.from({ length: 4000 }, (_, i) => `aws_db_instance.instance_${i}_${"x".repeat(150)}`);
-    const result = await engine.evaluate(policyInput("infrastructure.apply", { environment: { autonomyLevel: 5 }, plan: planFacts({ delete: 4000, destroysData: true, destroyedStatefulAddresses: addresses }) }));
-    expect(result.decision.outcome).toBe("allow");
+    const result = await engine.evaluate(policyInput("infrastructure.apply", { environment: { autonomyLevel: 5 }, plan: planFacts({ delete: 4000, destroysData: true, destroyedStatefulAddresses: addresses, statefulDeletes: addresses }) }));
+    expect(result.decision.outcome).toBe("require_approval");
+    expect(result.decision.reasons.map((r) => r.code)).toContain("stateful_deletes_require_approval");
     const again = await engine.evaluate(policyInput("service.restart"));
     expect(again.decision.outcome).toBe("allow");
   });

@@ -184,7 +184,7 @@ func (k *OCI) Prepare(req *Request) (Runnable, error) {
 	for name, value := range pl.Headers {
 		headers.Set(name, value)
 	}
-	if pl.Method == "POST" && strings.TrimSpace(headers.Get("opc-retry-token")) == "" {
+	if pl.Method == "POST" && !readOnlyPost(pl.Service, template) && strings.TrimSpace(headers.Get("opc-retry-token")) == "" {
 		return nil, invalid("OCI operations require opc-retry-token")
 	}
 	maxOutput := req.MaxOutputBytes
@@ -295,3 +295,14 @@ func ociResponseHeaders(header http.Header) map[string]string {
 }
 
 var _ Kind = (*OCI)(nil)
+
+// readOnlyPost lists the allowlisted POST endpoints that only read (query APIs).
+// They are not idempotent operations and OCI does not accept a retry token for
+// them; every other POST still requires one.
+func readOnlyPost(service, template string) bool {
+	switch service + " " + template {
+	case "loggingsearch /20190909/search", "monitoring /20180401/metrics/actions/summarizeMetricsData":
+		return true
+	}
+	return false
+}

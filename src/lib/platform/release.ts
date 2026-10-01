@@ -1,7 +1,8 @@
-/** AWS release ports over the native compute helpers. Sessions never leave a call. */
+/** Provider-selected release ports. AWS behavior is unchanged; sessions never leave a call. */
 import { ECRClient, DescribeRepositoriesCommand } from "@aws-sdk/client-ecr";
 import { ECSClient, DescribeTaskDefinitionCommand, DescribeTasksCommand, RunTaskCommand } from "@aws-sdk/client-ecs";
 import type { AwsSession } from "@/lib/credentials/types";
+import type { Sql } from "@/lib/controlplane/types";
 import type { DriverContext } from "@/lib/drivers/types";
 import type { ArtifactSpec } from "@/lib/resources/specs";
 import { digest } from "@/lib/controlplane/digest";
@@ -10,6 +11,28 @@ import { startBuild, waitForBuild, deployImage, waitForServiceSteady } from "@/l
 import { describeService, locateService } from "@/lib/providers/aws/drivers/compute/ecs-read";
 import { assertNodeTags, lowerTagMap, sleep } from "@/lib/providers/aws/drivers/compute/support/sdk";
 import { nodeName } from "@/lib/providers/aws/drivers/shared";
+import { createGcpBuildPort, createGcpWorkloadsPort, createGcpMigrationsPort } from "./release-gcp";
+import { createAzureBuildPort, createAzureWorkloadsPort, createAzureMigrationsPort, createAzureReleaseLaunchJournal, type AzureBuildOptions } from "./release-azure";
+
+/** Dispatch on the environment's driver context, then each adapter verifies its broker session. */
+export function createReleasePorts(options: { db?: Sql; azure?: AzureBuildOptions } = {}): { build: BuildPort; workloads: WorkloadsPort; migrations: MigrationsPort } {
+  const azure = { ...options.azure, launches: options.azure?.launches ?? (options.db ? createAzureReleaseLaunchJournal(options.db) : undefined) };
+  const ports = {
+    aws: { build: createAwsBuildPort(), workloads: createAwsWorkloadsPort(), migrations: createAwsMigrationsPort() },
+    gcp: { build: createGcpBuildPort(), workloads: createGcpWorkloadsPort(), migrations: createGcpMigrationsPort() },
+    azure: { build: createAzureBuildPort(azure), workloads: createAzureWorkloadsPort(), migrations: createAzureMigrationsPort(azure.launches) },
+  };
+  const select = (ctx: DriverContext) => {
+    if (ctx.provider !== "aws" && ctx.provider !== "gcp" && ctx.provider !== "azure") throw new StepFailedError("Release ports are unavailable for this provider.");
+    if ((ctx.session as { provider?: string } | undefined)?.provider !== ctx.provider) throw new StepFailedError("Release provider does not match the broker session.");
+    return ports[ctx.provider];
+  };
+  return {
+    build: { startBuild: async (ctx, input) => select(ctx).build.startBuild(ctx, input), waitForBuild: async (ctx, handle, opts) => select(ctx).build.waitForBuild(ctx, handle, opts) },
+    workloads: { deployImage: async (ctx, node, image, opts) => select(ctx).workloads.deployImage(ctx, node, image, opts), waitSteady: async (ctx, node, opts) => select(ctx).workloads.waitSteady(ctx, node, opts) },
+    migrations: { runOneOffTask: async (ctx, node, command, opts) => select(ctx).migrations.runOneOffTask(ctx, node, command, opts) },
+  };
+}
 
 const awsContext = (ctx: DriverContext): DriverContext<AwsSession> => {
   const session = ctx.session as Partial<AwsSession> | undefined;

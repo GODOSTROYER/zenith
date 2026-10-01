@@ -164,7 +164,7 @@ describe("operations port", () => {
   it("records the plan digest once, and refuses a malformed one", async () => {
     const { ws, op } = await seed();
     await ports.ops.setPlanDigest({ workspaceId: ws, operationId: op.id, planDigest: "c".repeat(64) });
-    await ports.ops.setPlanDigest({ workspaceId: ws, operationId: op.id, planDigest: "d".repeat(64) });
+    await expect(ports.ops.setPlanDigest({ workspaceId: ws, operationId: op.id, planDigest: "d".repeat(64) })).rejects.toThrow("plan_changed");
     expect((await repos.operations.get(db, ws, op.id))?.planDigest).toBe("c".repeat(64));
     await expect(ports.ops.setPlanDigest({ workspaceId: ws, operationId: op.id, planDigest: "../etc" })).rejects.toBeInstanceOf(StepFailedError);
   });

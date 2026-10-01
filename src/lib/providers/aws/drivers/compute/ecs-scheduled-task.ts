@@ -33,6 +33,7 @@
 import { DescribeTaskDefinitionCommand, ECSClient, ListTasksCommand, type TaskDefinition } from "@aws-sdk/client-ecs";
 import { DescribeRuleCommand, EventBridgeClient, ListTargetsByRuleCommand, type Target } from "@aws-sdk/client-eventbridge";
 import type { AwsSession } from "@/lib/credentials/types";
+import { EVENTS_ROLE_SUFFIX } from "@/lib/credentials/aws/naming";
 import type { CompileContext, ResourceDriver, TofuFragment } from "@/lib/drivers/types";
 import type { HealthState, Observation, ResourceNode, RuntimeState } from "@/lib/resources/types";
 import type { ScheduledJobSpec } from "@/lib/resources/specs";
@@ -63,7 +64,8 @@ const compile = (node: ResourceNode, ctx: CompileContext): TofuFragment =>
 
     const schedule = toEventBridgeCron(spec.schedule);
     const identity = dependencies(ctx, node, "identity")[0];
-    const eventsName = cloudName(ctx.namePrefix, `${name}-events`, 64);
+    // Preserve the boundary's principal discriminator after shortening/hashing.
+    const eventsName = `${cloudName(ctx.namePrefix, name, 64 - EVENTS_ROLE_SUFFIX.length)}${EVENTS_ROLE_SUFFIX}`;
     const eventsRole = b.resource("aws_iam_role", `${label}_events`, {
       name: eventsName,
       assume_role_policy: assumeRoleJson("events.amazonaws.com"),

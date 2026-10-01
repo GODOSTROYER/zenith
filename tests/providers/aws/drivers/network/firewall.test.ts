@@ -32,6 +32,14 @@ const compile = (spec: Record<string, unknown> = {}, over: Partial<ResourceNode>
 };
 
 describe("aws:security_group_rule compile", () => {
+  it.each(["kubernetes_cluster", "provider_native"] as const)("allows an EKS %s owner through the same SG reference contract", (kind) => {
+    const { graph, node } = withRule({});
+    const target = graph.nodes.find((n) => n.address === (node.spec.target as string))!;
+    target.kind = kind; target.nativeType = "aws:eks_cluster";
+    expect(driver.compile!(node, compileCtx(graph)).addresses).toHaveLength(2);
+    target.kind = "provider_native"; target.nativeType = "aws:sns_topic";
+    expect(() => driver.compile!(node, compileCtx(graph))).toThrow(DriverCompileError);
+  });
   it("node source: ingress on the target's group from the source's group, plus the source's egress to the target", () => {
     const f = compile();
     expect(f.addresses).toEqual(["aws_vpc_security_group_ingress_rule.firewall_web_to_db", "aws_vpc_security_group_egress_rule.firewall_web_to_db_egress"]);

@@ -136,5 +136,6 @@ export function v2OnlySections(m: ManifestV2): string[] {
   if (m.nodePlacement && Object.keys(m.nodePlacement).length) out.push("nodePlacement");
   if (m.providerConfig && Object.keys(m.providerConfig).length) out.push("providerConfig");
   if (m.native?.length) out.push("native");
+  if (m.release) out.push("release");
   return out;
 }

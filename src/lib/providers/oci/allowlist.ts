@@ -8,7 +8,8 @@
  * the drivers actually call; `tests/providers/oci/allowlist.test.ts` runs every
  * driver read and operation against a recording transport and fails if a call
  * falls outside its capability's rules, and checks the protocol document
- * lists every pattern here.
+ * lists every pattern here. Signal read capabilities permit two fixed read-only
+ * POST queries from the OCI API reference, tested separately from driver GETs.
  *
  * Pattern syntax: `/`-separated segments after the API version; `{}` matches
  * exactly one non-empty, already-encoded segment. There is deliberately NO
@@ -34,7 +35,7 @@ const get = (service: OciServiceId, ...patterns: string[]): OciAllowRule[] => pa
 
 /** Read-only calls behind observe / runtime / verify / discover. */
 export const OBSERVE_RULES: readonly OciAllowRule[] = [
-  ...get("core", "vcns", "vcns/{}", "subnets", "subnets/{}", "internetGateways", "natGateways", "networkSecurityGroups", "networkSecurityGroups/{}/securityRules", "volumes", "volumes/{}"),
+  ...get("core", "vcns", "vcns/{}", "subnets", "subnets/{}", "internetGateways", "natGateways", "networkSecurityGroups", "networkSecurityGroups/{}/securityRules", "volumes", "volumes/{}", "instances", "instances/{}"),
   ...get("loadbalancer", "loadBalancers", "loadBalancers/{}", "loadBalancers/{}/health", "loadBalancers/{}/backendSets/{}/health"),
   ...get("certificates", "certificates", "certificates/{}"),
   ...get("dns", "zones", "zones/{}", "zones/{}/records/{}/{}"),
@@ -48,14 +49,25 @@ export const OBSERVE_RULES: readonly OciAllowRule[] = [
   ...get("identity", "dynamicGroups", "dynamicGroups/{}", "policies"),
   ...get("logging", "logGroups", "logGroups/{}", "logGroups/{}/logs"),
   ...get("redis", "redisClusters", "redisClusters/{}"),
+  ...get("containerengine", "clusters", "clusters/{}", "nodePools", "nodePools/{}"),
+  ...get("mysql", "dbSystems", "dbSystems/{}"),
 ];
 
 const FIREWALL_INSPECT: readonly OciAllowRule[] = get("core", "networkSecurityGroups", "networkSecurityGroups/{}/securityRules");
+const LOG_READ_RULE: OciAllowRule = { service: "loggingsearch", method: "POST", pattern: "search" };
+const METRIC_READ_RULE: OciAllowRule = { service: "monitoring", method: "POST", pattern: "metrics/actions/summarizeMetricsData" };
 
 export const OCI_ALLOWLIST: Readonly<Record<string, readonly OciAllowRule[]>> = {
-  "infrastructure.observe": OBSERVE_RULES,
+  "infrastructure.observe": [
+    ...OBSERVE_RULES,
+    // Read-only query APIs; POST does not imply a mutation.
+    LOG_READ_RULE,
+    METRIC_READ_RULE,
+  ],
   "topology.read": OBSERVE_RULES,
-  "incident.investigate": OBSERVE_RULES,
+  "incident.investigate": [...OBSERVE_RULES, LOG_READ_RULE, METRIC_READ_RULE],
+  "logs.read": [LOG_READ_RULE],
+  "metrics.read": [METRIC_READ_RULE],
   "firewall.inspect": FIREWALL_INSPECT,
   "service.restart": [...get("containerinstances", "containerInstances"), { service: "containerinstances", method: "POST", pattern: "containerInstances/{}/actions/restart" }],
   "database.snapshot": [...get("postgresql", "dbSystems", "dbSystems/{}"), { service: "postgresql", method: "POST", pattern: "backups" }],

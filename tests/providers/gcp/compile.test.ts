@@ -411,10 +411,10 @@ describe("cloud run service", () => {
     expect(() => tpl({ vcpu: 0 })).toThrow(GcpCompileError);
   });
 
-  it("refuses artifacts without an immutable image reference (built/blueprint)", () => {
+  it("refuses built artifacts without a registry and unsupported blueprint artifacts", () => {
     for (const artifact of [{ type: "built", pipeline: "resource/pipeline" }, { type: "blueprint", blueprint: "next" }]) {
       const nodes = replaceSpec("service/web", { artifact });
-      expect(() => fragmentFor("service/web", nodes)).toThrow(/image reference|resolved/);
+      expect(() => fragmentFor("service/web", nodes)).toThrow(/image reference|pipeline and registry/);
     }
   });
 

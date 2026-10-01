@@ -41,6 +41,20 @@ export const EVENTS_ROLE_NAME_PATTERN = `${NAME_PREFIX}*${EVENTS_ROLE_SUFFIX}`;
 export const EC2_ROLE_SUFFIX = "-ec2";
 export const EC2_ROLE_NAME_PATTERN = `${NAME_PREFIX}*${EC2_ROLE_SUFFIX}`;
 
+/** Bootstrap owns these immutable policies. Drivers select only from this map. */
+export const AWS_ROLE_BOUNDARIES = {
+  app: { logicalId: "AppBoundary", policyName: "ZenithAppBoundary", template: "app-boundary", suffixes: ["-role", "-exec", "-fn", "-flow"] },
+  build: { logicalId: "BuildBoundary", policyName: "ZenithBuildBoundary", template: "build-boundary", suffixes: [BUILD_ROLE_SUFFIX] },
+  machine: { logicalId: "MachineBoundary", policyName: "ZenithMachineBoundary", template: "machine-boundary", suffixes: [EC2_ROLE_SUFFIX] },
+  scheduler: { logicalId: "SchedulerBoundary", policyName: "ZenithSchedulerBoundary", template: "scheduler-boundary", suffixes: [EVENTS_ROLE_SUFFIX] },
+  eksCluster: { logicalId: "EksClusterBoundary", policyName: "ZenithEksClusterBoundary", template: "eks-cluster-boundary", suffixes: ["-cluster"] },
+  eksNode: { logicalId: "EksNodeBoundary", policyName: "ZenithEksNodeBoundary", template: "eks-node-boundary", suffixes: ["-nodes"] },
+} as const;
+export type AwsRoleFamily = keyof typeof AWS_ROLE_BOUNDARIES;
+export const roleFamilyPatterns = (family: AwsRoleFamily): string[] => AWS_ROLE_BOUNDARIES[family].suffixes.map((suffix) => `${NAME_PREFIX}*${suffix}`);
+export const awsBoundaryArn = (family: AwsRoleFamily, partition: string, accountId: string): string =>
+  `arn:${partition}:iam::${accountId}:policy/${AWS_ROLE_BOUNDARIES[family].policyName}`;
+
 /** Environment ids embedded in ARN patterns: no wildcards, no policy variables, no separators. */
 export const ENVIRONMENT_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 

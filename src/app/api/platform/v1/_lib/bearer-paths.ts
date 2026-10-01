@@ -24,7 +24,10 @@ export const PLATFORM_PATHS: readonly {
   // reads authorised by the broker (authorizeRead); placement is a POST only to carry constraints
   { path: new RegExp(`^${ROOT}/environments/${ID}/(?:resources|drift|incidents)$`), methods: { GET: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/environments/${ID}/placement$`), methods: { POST: "bearer-capable" } },
+  { path: new RegExp(`^${ROOT}/environments/${ID}/teardown-review$`), methods: { GET: "bearer-capable", POST: "bearer-capable" } },
   { path: new RegExp(`^${ROOT}/workspace/policy$`), methods: { GET: "bearer-capable", PUT: "browser-only" } },
+  // Installation and repository binding require the human admin's browser session.
+  { path: new RegExp(`^${ROOT}/github/callback$`), methods: { GET: "browser-only", POST: "browser-only" } },
   { path: new RegExp(`^${ROOT}/(?:runners|machines)$`), methods: { GET: "admin" } },
   { path: new RegExp(`^${ROOT}/runners/tokens$`), methods: { POST: "admin" } },
   { path: new RegExp(`^${ROOT}/(?:runners|machines)/${AGENT_ID}/revoke$`), methods: { POST: "admin" } },

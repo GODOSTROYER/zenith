@@ -24,6 +24,7 @@
  * its value.
  */
 import type { CompileContext, TofuFragment } from "@/lib/drivers/types";
+import { AWS_ROLE_BOUNDARIES, type AwsRoleFamily } from "@/lib/credentials/aws/naming";
 import type { ResourceNode } from "@/lib/resources/types";
 import { bareExpr, tfLiteral, FragmentBuilder as SharedFragmentBuilder } from "@/lib/providers/aws/drivers/shared";
 
@@ -280,9 +281,7 @@ export function environmentData(b: Frag, label: string, region: string): Env {
 }
 
 /** The permissions boundary every role Zenith creates carries (DRIVER-CONVENTIONS.md, IAM). */
-export const WORKLOAD_BOUNDARY_NAME = "ZenithWorkloadBoundary";
-
-export const boundaryArn = (env: Env): TfCat => cat("arn:", env.partition, ":iam::", env.account, `:policy/${WORKLOAD_BOUNDARY_NAME}`);
+export const boundaryArn = (env: Env, family: AwsRoleFamily = "app"): TfCat => cat("arn:", env.partition, ":iam::", env.account, `:policy/${AWS_ROLE_BOUNDARIES[family].policyName}`);
 
 /** `arn:<partition>:<service>:<region>:<account>:<resource>` */
 export const arnOf = (env: Env, service: string, resource: string | (string | TfRef)[], opts: { region?: boolean } = {}): TfCat =>

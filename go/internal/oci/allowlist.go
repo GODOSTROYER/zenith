@@ -43,7 +43,7 @@ func loadContract[T any](name string) T {
 // Match returns a trusted path template, never the external resource names.
 // secret.write remains in the shared contract but is refused by Prepare.
 func Match(capability, service, method, path string) (string, bool) {
-	if !PlainPath(path) || method == "DELETE" {
+	if !PlainPath(path) {
 		return "", false
 	}
 	for _, rule := range rules[capability] {

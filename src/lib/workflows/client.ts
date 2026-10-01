@@ -20,7 +20,8 @@
  * accessors and serialization hooks never enter workflow arguments.
  *
  * Connection settings come from `config.ts` (ZENITH_TEMPORAL_* env vars, read
- * in one function). The API key is never logged or put in an error.
+ * in one function). API keys and TLS certificate/key material never enter logs
+ * or errors; custom TLS failures expose fixed guidance only.
  */
 
 import { createHash } from "node:crypto";
@@ -73,12 +74,21 @@ const CALL_TIMEOUT_MS = 10_000;
 const clients = new Map<string, Promise<{ client: Client; connection: Connection }>>();
 
 function cacheKey(config: TemporalConnectionConfig): string {
-  const keyDigest = config.apiKey ? createHash("sha256").update(config.apiKey).digest("hex").slice(0, 16) : "-";
-  return [config.address, config.namespace, config.tls ? "tls" : "plain", keyDigest].join("|");
+  const hash = createHash("sha256");
+  // Length-delimit every field: different credentials/trust/identity must never
+  // share a connection or availability answer. Cache keys hold digests only.
+  for (const value of [config.apiKey, config.tlsOptions?.serverRootCACertificate,
+    config.tlsOptions?.clientCertPair?.crt, config.tlsOptions?.clientCertPair?.key,
+    config.tlsOptions?.serverNameOverride]) {
+    const bytes = value === undefined ? Buffer.alloc(0) : Buffer.from(value);
+    hash.update(`${bytes.length}:`).update(bytes);
+  }
+  return [config.address, config.namespace, config.tls ? "tls" : "plain", hash.digest("hex")].join("|");
 }
 
-/** Remove the API key from any text that is about to leave this module. */
+/** Custom TLS errors may echo arbitrary encodings of key bytes; keep them private. */
 function scrub(message: string, config: TemporalConnectionConfig): string {
+  if (config.tlsOptions) return "Temporal TLS request failed; check certificates, server identity and authentication.";
   const clean = config.apiKey ? message.split(config.apiKey).join("[redacted]") : message;
   return clean.slice(0, 300);
 }
@@ -350,12 +360,13 @@ export async function temporalAvailable(opts: ProbeOptions = {}): Promise<Tempor
     result = { available: true, address, namespace, latencyMs: Date.now() - started };
   } catch (err) {
     const code = (err as { code?: unknown } | null)?.code;
-    const message = scrub(err instanceof Error ? err.message : String(err), config);
+    const rawMessage = err instanceof Error ? err.message : String(err);
+    const message = scrub(rawMessage, config);
     const base = { available: false as const, address, namespace, message };
     if (err instanceof TemporalUnavailableError) result = { ...base, reason: "timeout" };
     else if (code === GRPC_NOT_FOUND) result = { ...base, reason: "namespace_not_found" };
     else if (code === GRPC_UNAUTHENTICATED || code === GRPC_PERMISSION_DENIED) result = { ...base, reason: "unauthenticated" };
-    else if (/timed? ?out|deadline|connect|unavailable|ECONNREFUSED/i.test(message)) result = { ...base, reason: "unreachable" };
+    else if (/timed? ?out|deadline|connect|unavailable|ECONNREFUSED/i.test(rawMessage)) result = { ...base, reason: "unreachable" };
     else result = { ...base, reason: "error" };
   } finally {
     await connection?.close().catch(() => undefined);

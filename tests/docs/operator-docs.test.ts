@@ -93,7 +93,15 @@ describe("wave 7 operator claims retain their implementation wiring", () => {
     expect(approve).toContain("await deliverPlanApproval(outcome.operation)");
     expect(source("src/lib/bridge/lifecycle.ts")).toContain('import("./destroy")).startApprovedDestroy(op)');
     expect(teardown).toContain("requires an **admin**");
-    expect(teardown).toContain("there is no public UI, REST or MCP trigger");
+    expect(teardown).toContain("env.reviewTeardown");
+    expect(teardown).toContain("POST /api/platform/v1/environments/<id>/teardown-review");
+    expect(teardown).toContain("zenith_review_teardown");
+    expect(teardown).toContain("Agents need the integration `plan` scope");
+    expect(action).toContain('id: "env.reviewTeardown"');
+    const firstReview = source("src/lib/capabilities/destroy-review.ts");
+    expect(firstReview).toContain('expectedStatus: "awaiting_approval"');
+    expect(firstReview).toContain("await planDestroy(lease)");
+    expect(firstReview).toContain("ensureReviewEvidence(rt, broker, stored)");
     expect(source("src/app/(product)/platform/environments/[id]/page.tsx")).toContain("<EnvironmentTeardown");
     const ui = source("src/app/(product)/platform/environments/[id]/environment-teardown.tsx");
     expect(ui).toContain('planAction("env.teardown"');
@@ -185,9 +193,9 @@ describe("wave 7 operator claims retain their implementation wiring", () => {
     expect(deploying).toContain("administrator_password_wo");
   });
 
-  it("default source preparation dispatches canonical ZIP to AWS and tar.gz to GCP", () => {
+  it("default source preparation dispatches canonical ZIP to AWS and tar.gz to GCP/Azure", () => {
     const bundle = source("src/lib/platform/source-bundle.ts");
-    for (const value of ['ctx.provider === "aws" ? "zip" : "tar.gz"', "packZip(entries, limits, signal)", "sha256Hex(archive)", 'ContentType: "application/zip"', 'IfNoneMatch: "*"', 'ifGenerationMatch: "0"', "ChecksumSHA256: checksum", "ExpectedBucketOwner: ctx.session.accountId", "deps.withGithubAccess", 'refuse("Source preparation requires a matching AWS or GCP brokered session.")']) expect(bundle).toContain(value);
+    for (const value of ['ctx.provider === "aws" ? "zip" : "tar.gz"', "packZip(entries, limits, signal)", "sha256Hex(archive)", 'ContentType: "application/zip"', 'IfNoneMatch: "*"', 'ifGenerationMatch: "0"', "ChecksumSHA256: checksum", "ExpectedBucketOwner: ctx.session.accountId", "deps.withGithubAccess", 'refuse("Source preparation requires a matching AWS, GCP or Azure brokered session.")']) expect(bundle).toContain(value);
     expect(source("src/lib/platform/execution.ts")).toContain("createSourceBundles({ ...opts.sourceBundles");
     expect(source("src/lib/providers/aws/drivers/compute/codebuild-project.ts")).toContain('type: "S3"');
     expect(source("src/lib/providers/gcp/drivers/build/build-api.ts")).toContain("source: { storageSource:");
@@ -196,14 +204,21 @@ describe("wave 7 operator claims retain their implementation wiring", () => {
     expect(builds).toContain("Private repositories require");
   });
 
-  it("Azure builds require explicit source wiring, scoped launch receipts and SAS upload", () => {
+  it("Azure builds compose trusted stored-source reads, scoped launch receipts and SAS upload", () => {
     const build = source("src/lib/providers/azure/release/build.ts");
     for (const value of ["(!options.sourceBundles && !options.readSource) || !options.launches", "options.launches.claim(journalScope)", "readArchive(options.sourceBundles, spec.source, ctx.signal)", "sha256Hex(source) !== input.source.digest", "options.launches.record(journalScope, encoded)"]) expect(build).toContain(value);
     const acr = source("src/lib/providers/azure/release/acr-task.ts");
     for (const value of ["/listBuildSourceUploadUrl", "assertUploadUrl(up.body.uploadUrl)", 'redirect: "error"', 'type: "DockerBuildRequest"', "imageNames: [`${input.repository}:${input.tag}`]"]) expect(acr).toContain(value);
     expect(source("src/lib/providers/azure/release/source.ts")).toContain("await readArchive(reader, input.source, ctx.signal)");
-    expect(source("src/lib/platform/execution.ts")).toContain("createReleasePorts({ db: opts.db })");
-    expect(builds).toContain("default worker composition supplies neither the Azure source reader");
+    expect(source("src/lib/platform/execution.ts")).toContain("createReleasePorts({ db: opts.db, azure })");
+    const execution = source("src/lib/platform/execution.ts");
+    expect(execution).toContain("opts.sourceBundles?.azureStorage ?? createAzureSourceStorageResolver(opts.db)");
+    expect(execution).toContain("readSource: sourceBundles?.readAzureSource");
+    expect(source("workers/execution/worker.ts")).toContain("azureStorage: createAzureSourceStorageResolver(db)");
+    expect(source("src/lib/providers/azure/credentials.ts")).toContain('storage: "https://storage.azure.com/.default"');
+    expect(builds).toContain("Default composition supplies preparation, stored-source reading");
+    expect(source("docs/LIMITATIONS.md")).toContain("Azure source preparation and stored-bundle reading are composed");
+    expect(source("docs/LIMITATIONS.md")).not.toContain("default composition supplies neither");
   });
 
   it("GCP and Azure workload bootstrap images stay pinned and AWS avoids latest", () => {
@@ -242,6 +257,26 @@ describe("wave 7 operator claims retain their implementation wiring", () => {
     expect(source("src/lib/controlplane/db/migrations/0005_read_jobs.ts")).toContain("operation_id");
     expect(signals).toContain("NULL operation foreign key");
     expect(deploying).toContain("`read_jobs` (5");
+  });
+
+  it("Temporal custom TLS variables, shared wiring and live limits stay documented", () => {
+    const config = source("src/lib/workflows/config.ts");
+    for (const variable of ["ZENITH_TEMPORAL_TLS_CA_FILE", "ZENITH_TEMPORAL_TLS_CERT_FILE", "ZENITH_TEMPORAL_TLS_KEY_FILE", "ZENITH_TEMPORAL_TLS_SERVER_NAME"]) {
+      expect(config).toContain(`env.${variable}`);
+      expect(deploying).toContain(`| \`${variable}\` |`);
+    }
+    expect(source("src/lib/workflows/client.ts")).toContain("connectionOptionsFor(config)");
+    expect(source("workers/execution/worker.ts")).toContain("NativeConnection.connect(connectionOptionsFor(config.temporal))");
+    expect(config).toContain("MAX_TEMPORAL_TLS_FILE_BYTES = 1024 * 1024");
+    expect(config).toContain("must be set together");
+    expect(deploying).toContain("1 MiB per file");
+    expect(deploying).toContain("Restart the web process and every worker");
+    expect(deploying).toContain("live mTLS authentication is unverified");
+    expect(deploying).not.toContain("mTLS is not wired");
+    expect(deploying).not.toContain("mTLS (not built)");
+    const limitations = source("docs/LIMITATIONS.md");
+    expect(limitations).not.toContain("Temporal mTLS configuration is absent");
+    expect(limitations).toContain("API-key and mTLS authentication");
   });
 
   it("Temporal codec and decrypt-only previous keys are configured on client and worker", () => {
@@ -383,6 +418,7 @@ describe("environment variables", () => {
   const MODULE_ROOTS = [
     "src/lib/controlplane",
     "src/lib/platform",
+    "src/lib/sources/github",
     "src/lib/bridge",
     "src/lib/sdk",
     "src/cli",
@@ -405,12 +441,14 @@ describe("environment variables", () => {
     "src/lib/providers/kubernetes",
     "src/lib/providers/zenith",
     "src/lib/execution",
+    "src/lib/secrets",
     "src/lib/machines",
     "src/lib/analysis",
     "src/lib/capabilities",
     "src/lib/drivers",
     "workers/execution",
     "scripts/platform",
+    "scripts/vault-rewrap.ts",
   ];
   const TOKEN = /\bZENITH_[A-Z][A-Z0-9_]*[A-Z0-9]\b/g;
 
@@ -695,7 +733,7 @@ describe("operator claims match current wiring", () => {
     expect(guide("POLICY.md")).toContain("current approval round");
   });
 
-  it("closed middleware/bundle gaps stay closed and five migrations are documented", () => {
+  it("closed middleware/bundle gaps stay closed and six migrations are documented", () => {
     const middleware = source("src/middleware.ts");
     expect(middleware).toContain("isPlatformBearerRequest");
     expect(middleware).toContain("isAgentSignedPath");
@@ -703,9 +741,30 @@ describe("operator claims match current wiring", () => {
     expect(next).toContain("outputFileTracingIncludes");
     expect(next).toContain("policy/dist");
     expect(source("docker/worker.Dockerfile")).toContain("policy/dist");
-    expect(source("src/lib/controlplane/db/migrations/index.ts")).toContain("[migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs]");
-    expect(deploying).toContain("Five migrations exist today");
-    expect(deploying).toContain("all five migrations");
+    expect(source("src/lib/controlplane/db/migrations/index.ts")).toContain("[migration0001Core, migration0002Reconcile, migration0003MachineRequests, migration0004ApprovalRounds, migration0005ReadJobs, migration0006GithubSources]");
+    expect(deploying).toContain("Six migrations exist today");
+    expect(deploying).toContain("all six migrations");
+    expect(deploying).toContain("`github_sources` (6:");
+  });
+
+  it("GitHub source setup uses the platform ledger and links the browser form", () => {
+    const builds = squash(guide("BUILDS.md"));
+    expect(builds).toContain("npm run migrate:platform");
+    expect(builds).toContain("Platform migration 6 (`github_sources`)");
+    expect(builds).toContain("No separate GitHub schema installer is required");
+    expect(builds).toContain("preserves tables and rows from earlier manual installations");
+    expect(builds).toContain("**GitHub source** in the Platform navigation");
+    expect(builds).not.toContain("separate from the platform migration ledger");
+    expect(builds).not.toContain("navigation link in the product settings is an orchestrator follow-up");
+    expect(source("src/lib/sources/github/migrate.ts")).toContain("await migratePlatformDb(db)");
+    expect(source("src/lib/sources/github/migrate.ts")).not.toContain("installGithubSourceSchema");
+    const layout = source("src/app/(product)/platform/layout.tsx");
+    expect(layout).toContain('<Link href="/api/platform/v1/github/callback">GitHub source</Link>');
+    const callback = source("src/app/api/platform/v1/github/callback/route.ts");
+    expect(callback).toContain('export const GET = route({ workspaceRole: "admin" }');
+    expect(callback).toContain("Install and bind repository");
+    const limitations = source("docs/LIMITATIONS.md");
+    expect(limitations).not.toContain("Platform migration-ledger integration and a product navigation link remain");
   });
 
   it("reconcile ports are composed after cron auth and its tick is scheduled", () => {
@@ -794,18 +853,34 @@ describe("operator claims match current wiring", () => {
     expect(source("docs/platform/RUNNER-PROTOCOL-OCI.md")).toContain("IMPLEMENTED AND WIRED; NOT LIVE-VERIFIED");
   });
 
-  it("machine execution has an activity call but no machine port in default composition", () => {
+  it("OCI migrations learn trusted bindings and retain durable completion across narrow cleanup", () => {
+    const protocol = squash(source("docs/platform/RUNNER-PROTOCOL-OCI.md"));
+    expect(protocol).toContain("Tags, local static bindings and caller completion assertions never authorize DELETE");
+    expect(protocol).toContain("completed receipt survives deletion and runner restart");
+    const builds = squash(guide("BUILDS.md"));
+    expect(builds).toContain("Lost create responses remain explicitly unknown and never trigger another launch");
+    expect(builds).toContain("delete request, not completed deletion");
+  });
+
+  it("default machine composition wires brokered transports and the signed machine queue", () => {
     expect(source("src/lib/execution/capability.ts")).toContain("executeMachineOperation(");
     expect(source("src/lib/execution/capability.ts")).toContain("if (!plane) throw new StepFailedError");
     const composition = source("src/lib/platform/execution.ts");
-    expect(composition).not.toMatch(/^\s*machines:/m);
-    expect(deploying).toContain("default composition supplies no `machines` port");
+    expect(composition).toContain("machines: opts.ports?.machines ?? createDefaultMachinePort(");
+    const machines = source("src/lib/machines/composition.ts");
+    for (const token of ["repos.observations.latestObservation(db, ws, resourceId)", "store.machines.list(ws)", "createRunnerMachineDispatcher", "createMachineEvidenceSink"]) expect(machines).toContain(token);
+    expect(deploying).toContain("Default composition supplies the `machines` port");
     expect(source("src/lib/machines/transports/azure-run-command.ts")).toContain("export function createAzureRunCommandMachineDriver(");
     expect(source("src/lib/machines/transports/gcp-os-management.ts")).toContain('const supports = ["machine.inspect"] as const');
-    expect(squash(source("docs/platform/operations/README.md"))).toContain("Azure managed Run Command and GCP Compute/OS Inventory drivers exist");
+    const readme = squash(source("docs/platform/operations/README.md"));
+    for (const token of ["Default composition supplies the `machines` port", "AWS SSM fixed documents", "Azure managed Run Command", "read-only GCP Compute/OS Inventory", "active registered `zenithd` machines", "guest mutations require `zenithd`", "Kubernetes guest execution requires an injected credential resolver", "No live transport evidence"]) expect(readme).toContain(token);
+    expect(readme).not.toContain("default composition supplies none");
+    const awsSetup = squash(source("docs/platform/operations/AWS-SETUP.md"));
+    for (const token of ["Default composition supplies the `machines` port", "AWS SSM fixed documents for observed EC2 targets", "operation's credential-broker session and existing policy/approval gates", "shipped bootstrap grants no `ssm:SendCommand`", "no live transport evidence"]) expect(awsSetup).toContain(token);
+    expect(awsSetup).not.toContain("absent from default composition");
   });
 
-  it("CLI entry points and all fifteen MCP tools are documented", () => {
+  it("CLI entry points and all sixteen MCP tools are documented", () => {
     const pkg = JSON.parse(source("package.json")) as { scripts: Record<string, string>; bin: Record<string, string> };
     expect(pkg.scripts.cli).toBe("tsx src/cli/bin.ts");
     expect(pkg.bin.zenith).toBe("src/cli/bin.ts");
@@ -814,9 +889,9 @@ describe("operator claims match current wiring", () => {
     const names = [...new Set([...catalog.matchAll(/\bzenith_[a-z_]+\b/g)].map((m) => m[0]))].sort();
     const mcp = source("docs/platform/MCP.md");
     const listed = [...mcp.matchAll(/^\| `(zenith_[a-z_]+)` \|/gm)].map((m) => m[1]).sort();
-    expect(names).toHaveLength(15);
+    expect(names).toHaveLength(16);
     expect(listed).toEqual(names);
-    expect(mcp).toContain("fifteen");
+    expect(mcp).toContain("sixteen");
     expect(guide("README.md")).toContain("CLI.md");
   });
 

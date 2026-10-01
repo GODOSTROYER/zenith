@@ -44,7 +44,7 @@ function ssmRequests(partition: string) {
   return statementsOf(ssmPolicy).flatMap((s) => asList(s.Action).map((action) => ({ action, resource: resources[action] ?? "*" })));
 }
 
-describe.each(partitions)("compute roles under the %s workload boundary", (partition) => {
+describe.each(partitions)("legacy migration boundary in %s", (partition) => {
   const boundary = workloadBoundary(partition);
   const refs = refsFor(partition);
   const job = ecsScheduledTaskDriver.compile!(fixture.job, ctx);
@@ -162,7 +162,7 @@ describe.each(partitions)("compute roles under the %s workload boundary", (parti
     }
   });
 
-  it("records other blocked identity and EKS grants without widening for them", () => {
+  it("keeps the legacy identity and EKS gaps explicit during migration", () => {
     const identity = { "aws:PrincipalArn": `arn:${partition}:iam::${ACCOUNT}:role/${roleNameFor(ctx, "identity/web")}` };
     const blockedIdentity = [
       ...GRANT_RULES.object_store.write.flatMap((r) => r.actions).filter((a) => a !== "s3:PutObject").map((action) => ({ action, resource: `arn:${partition}:s3:::${PREFIX}-web/file` })),
@@ -203,7 +203,7 @@ describe("reserved principal names", () => {
       const role = fragment.resource!.aws_iam_role[label];
       expect(role.name).toBe(`${cloudName(PREFIX, name, 64 - suffix.length)}${suffix}`);
       expect(String(role.name).length).toBeLessThanOrEqual(64);
-      expect(role.permissions_boundary).toContain("ZenithWorkloadBoundary");
+      expect(role.permissions_boundary).toContain(driver === ecsScheduledTaskDriver ? "ZenithSchedulerBoundary" : "ZenithMachineBoundary");
       expect(role.tags).toMatchObject({ Name: role.name, "zenith:managed": "true" });
       expect(driver.compile!(renamed, ctx)).toEqual(fragment);
     }

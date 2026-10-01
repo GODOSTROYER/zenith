@@ -10,13 +10,16 @@ const fake = vi.hoisted(() => ({
   temporalCheck: vi.fn(async () => ({})), connectionClose: vi.fn(async () => undefined),
   policy: vi.fn(async () => ({})), createWorker: vi.fn(), run: vi.fn(),
   validate: vi.fn(async () => undefined),
+  createActivities: vi.fn(() => ({})),
+  azureResolver: vi.fn(async () => null),
   dataConverter: { payloadCodecs: [{ synthetic: "codec" }] },
 }));
 vi.mock("@temporalio/worker", () => ({ DefaultLogger: class {}, Runtime: { install: vi.fn() }, Worker: { create: fake.createWorker }, NativeConnection: { connect: async () => ({ workflowService: { getSystemInfo: fake.temporalCheck }, withDeadline: (_: unknown, fn: () => unknown) => fn(), close: fake.connectionClose }) } }));
 vi.mock("@temporalio/activity", () => ({ Context: { current: vi.fn() } }));
 vi.mock("node:fs/promises", () => ({ mkdir: async () => undefined }));
 vi.mock("@/lib/platform/app", () => ({ ensurePlatformApp: async () => true }));
-vi.mock("@/lib/workflows/activities", () => ({ createActivities: () => ({}) }));
+vi.mock("@/lib/workflows/activities", () => ({ createActivities: fake.createActivities }));
+vi.mock("@/lib/providers/azure/release/source-binding", () => ({ createAzureSourceStorageResolver: (db: unknown) => { expect(db).toBe(fake.store); return fake.azureResolver; } }));
 vi.mock("@/lib/drivers/types", () => ({ listDrivers: () => ["aws", "kubernetes", "zenith", "gcp", "azure", "oci"].map((provider) => ({ provider })) }));
 vi.mock("@/lib/policy", () => ({ loadPolicyEngine: fake.policy }));
 vi.mock("@/lib/execution/plan-janitor", () => ({ planMaxAgeFromEnv: () => 86400_000, startPlanJanitor: () => ({ stop: fake.janitorStop }) }));
@@ -51,6 +54,7 @@ describe("worker health lifecycle wiring", () => {
     const probe = readinessProbe(fake.checks!);
     expect(await probe()).toMatchObject({ ready: false, checks: { temporal: "unknown", policy: "unavailable" } });
     loaded.resolve({}); await vi.waitFor(() => expect(fake.run).toHaveBeenCalledOnce());
+    expect(fake.createActivities).toHaveBeenCalledWith(expect.objectContaining({ sourceBundles: { azureStorage: fake.azureResolver } }));
     expect(fake.createWorker).toHaveBeenCalledWith(expect.objectContaining({ dataConverter: fake.dataConverter })); // payloads are encrypted
     expect(await probe()).toMatchObject({ ready: true }); expect(fake.temporalCheck).toHaveBeenCalledOnce();
     fake.temporalCheck.mockRejectedValue(new Error("synthetic-temporal-secret"));

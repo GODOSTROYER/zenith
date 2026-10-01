@@ -87,7 +87,7 @@ describe("describeTemporalConfig / connectionOptionsFor", () => {
 
   it("hides the key: it only says whether one is set", () => {
     const described = describeTemporalConfig(config);
-    expect(described).toEqual({ address: "ns.acct.tmprl.cloud:7233", namespace: "ns.acct", tls: true, apiKey: "set" });
+    expect(described).toEqual({ address: "ns.acct.tmprl.cloud:7233", namespace: "ns.acct", tls: true, apiKey: "set", tlsCa: "unset", tlsCert: "unset", tlsKey: "unset", tlsServerName: "unset" });
     expect(JSON.stringify(described)).not.toContain(KEY);
     expect(describeTemporalConfig(temporalConfigFromEnv({})).apiKey).toBe("unset");
   });

@@ -158,6 +158,7 @@ export function buildProposal(args: { parsed: ParsedRequest; evaluation: Evaluat
       ...(parsed.constraints ? { requestedConstraints: parsed.constraints } : {}),
       ...(parsed.request.requestedDurationSec !== undefined ? { requestedDurationSec: parsed.request.requestedDurationSec } : {}),
       risk: evaluation.risk,
+      ...(ctx.teardownReview && args.destroyPlan ? { teardownReview: true as const } : {}),
       ...(plan ? { plan } : {}),
       ...(args.destroyPlan ? { destroyPlan: { operationId: args.destroyPlan.operationId, evidenceId: args.destroyPlan.evidenceId, retained: args.destroyPlan.retained } } : {}),
     },
@@ -169,8 +170,8 @@ async function trustedEvaluationRequest(deps: BrokerDeps, parsed: ParsedRequest,
   if (parsed.def.name !== "infrastructure.destroy") return { ...evaluationRequest(parsed, principal, ctx), destroyPlan: undefined };
   // A normalized caller context cannot stand in for recorded destroy evidence.
   const base = evaluationRequest(parsed, principal, { ...ctx, plan: undefined, cost: undefined });
-  if (!ctx.destroyPlan || principal.kind !== "user") return { ...base, destroyPlan: undefined };
-  requireHumanSession(principal, ctx.session, "propose teardown");
+  if (!ctx.destroyPlan || (principal.kind !== "user" && !ctx.teardownReview)) return { ...base, destroyPlan: undefined };
+  if (!ctx.teardownReview) requireHumanSession(principal, ctx.session, "propose teardown");
   const access = await deps.roles.resolve(principal, parsed.request.scope.workspaceId);
   const resolved = await deps.scopes.resolve(parsed.request.scope);
   if (access.role === "none" || !resolved ||
@@ -179,7 +180,7 @@ async function trustedEvaluationRequest(deps: BrokerDeps, parsed: ParsedRequest,
   const destroyPlan = await loadDestroyPlan(deps, parsed.request.scope, ctx.destroyPlan);
   const facts: PlanFactsWithCost = destroyPlan.facts;
   return { facts, planDigest: destroyPlan.planDigest,
-    req: { ...base.req, plan: destroyPlan.facts, planDigest: destroyPlan.planDigest }, destroyPlan };
+    req: { ...base.req, plan: destroyPlan.facts, planDigest: destroyPlan.planDigest, ...(ctx.teardownReview ? { teardownReview: true as const } : {}) }, destroyPlan };
 }
 
 const cleanPrincipal = (p: Principal): Principal => ({
@@ -247,6 +248,7 @@ export async function propose(deps: BrokerDeps, rawRequest: unknown, principalIn
     ...(destroyPlan ? { destroyPlan: { operationId: destroyPlan.operationId, evidenceId: destroyPlan.evidenceId } } : {}),
     cost: facts ? { d: facts.costDeltaUsdMonthly ?? null, p: facts.projectedMonthlyUsd ?? null } : null,
     risk: ctx.risk ?? null,
+    teardownReview: ctx.teardownReview === true,
   });
 
   const created = await deps.store.createOperation({

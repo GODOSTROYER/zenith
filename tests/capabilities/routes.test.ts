@@ -9,7 +9,8 @@
  * reject / autonomy / policy, tenant isolation over HTTP, and that nothing
  * secret-shaped ever appears in a response.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { setDestroyReviewDispatcherForTests } from "@/lib/capabilities/destroy-review-dispatch";
 import type { NextRequest as RequestType } from "next/server";
 import type { SessionUser } from "@/lib/auth/session";
 import type { CloudConnection, Environment, Manifest, Member, Project, Workspace } from "@/lib/domain/types";
@@ -65,7 +66,7 @@ vi.mock("@/lib/agent-access/authority", async () => {
 const { resetDb } = await import("@/lib/db/store");
 const { WORKSPACE_COOKIE } = await import("@/lib/server/workspace");
 const { NextRequest } = await import("next/server");
-const { platformBroker, resetPlatformBrokerForTests, setPlatformBrokerForTests } = await import("@/lib/capabilities/platform");
+const { createBroker, platformBroker, resetPlatformBrokerForTests, setPlatformBrokerForTests } = await import("@/lib/capabilities/platform");
 const propose = await import("@/app/api/platform/v1/capabilities/propose/route");
 const check = await import("@/app/api/platform/v1/capabilities/check/route");
 const operations = await import("@/app/api/platform/v1/operations/route");
@@ -76,6 +77,8 @@ const reject = await import("@/app/api/platform/v1/operations/[id]/reject/route"
 const cancel = await import("@/app/api/platform/v1/operations/[id]/cancel/route");
 const autonomy = await import("@/app/api/platform/v1/environments/[id]/autonomy/route");
 const policy = await import("@/app/api/platform/v1/workspace/policy/route");
+const teardownReview = await import("@/app/api/platform/v1/environments/[id]/teardown-review/route");
+afterEach(() => setDestroyReviewDispatcherForTests(undefined));
 
 const CANARY = "AKIAIOSFODNN7EXAMPLE";
 const ORIGIN = "https://zenith.test";
@@ -164,6 +167,44 @@ beforeEach(async () => {
   seed();
   resetPlatformBrokerForTests();
   signIn("eve");
+});
+
+describe("environment teardown-review REST", () => {
+  beforeEach(async () => {
+    const broker = await platformBroker();
+    setPlatformBrokerForTests(createBroker({ ...broker.deps, signer: { ready: async () => undefined, sign: async () => "contract-test-read-grant" } }));
+  });
+  it("a viewer starts only a read-only review and polls it without approval", async () => {
+    const dispatch = vi.fn(async () => undefined); setDestroyReviewDispatcherForTests(dispatch);
+    signIn("vic");
+    const result = await call(teardownReview.POST as Handler, "POST", "environments/env-sbx/teardown-review", { id: "env-sbx", body: { idempotencyKey: "rest-review-001" } });
+    expect(result.status).toBe(202); expect(result.body).toMatchObject({ status: "approved", replayed: false });
+    expect(dispatch).toHaveBeenCalledExactlyOnceWith({ workspaceId: "ws-a", operationId: result.body.reviewOperationId });
+    const poll = await call(teardownReview.GET as Handler, "GET", "environments/env-sbx/teardown-review", { id: "env-sbx", query: `?reviewId=${result.body.reviewOperationId}` });
+    expect(poll.status).toBe(200); expect(poll.body.review).toMatchObject({ reviewOperationId: result.body.reviewOperationId, status: "approved" });
+    expect(result.text).not.toMatch(/eyJ[A-Za-z0-9_-]+\./);
+  });
+  it("accepts plan-only bearer access, rejects write-only access and hides foreign ids", async () => {
+    const dispatch = vi.fn(async () => undefined); setDestroyReviewDispatcherForTests(dispatch);
+    signIn(null); state.credentials[0].scopes = ["plan"];
+    const headers = { authorization: `Bearer ${state.token}` };
+    const accepted = await call(teardownReview.POST as Handler, "POST", "environments/env-sbx/teardown-review", { id: "env-sbx", headers, body: { idempotencyKey: "bearer-review-001" } });
+    expect(accepted.status).toBe(202);
+    const foreign = await call(teardownReview.POST as Handler, "POST", "environments/env-b/teardown-review", { id: "env-b", headers, body: { idempotencyKey: "foreign-review-001" } });
+    const absent = await call(teardownReview.POST as Handler, "POST", "environments/missing/teardown-review", { id: "missing", headers, body: { idempotencyKey: "missing-review-001" } });
+    expect(foreign.status).toBe(404); expect(foreign.body).toEqual(absent.body);
+    state.credentials[0].scopes = ["write"];
+    const denied = await call(teardownReview.POST as Handler, "POST", "environments/env-sbx/teardown-review", { id: "env-sbx", headers, body: { idempotencyKey: "write-review-001" } });
+    expect(denied.status).toBe(403); expect(dispatch).toHaveBeenCalledTimes(1);
+  });
+  it("rejects approval/facts injection and reports unconfirmed dispatch without leaking transport text", async () => {
+    const dispatch = vi.fn(async () => { throw new Error("Bearer transport-canary"); }); setDestroyReviewDispatcherForTests(dispatch);
+    const injected = await call(teardownReview.POST as Handler, "POST", "environments/env-sbx/teardown-review", { id: "env-sbx", body: { idempotencyKey: "injected-review", approved: true } });
+    expect(injected.status).toBe(400); expect(dispatch).not.toHaveBeenCalled();
+    const unknown = await call(teardownReview.POST as Handler, "POST", "environments/env-sbx/teardown-review", { id: "env-sbx", body: { idempotencyKey: "unknown-review" } });
+    expect(unknown.status).toBe(503); expect(unknown.body.error.details.reviewOperationId).toEqual(expect.any(String));
+    expect(unknown.text).not.toContain("transport-canary");
+  });
 });
 
 /* ---------------------------------- propose -------------------------------- */

@@ -146,6 +146,39 @@ describe.each(STORE_KINDS)("BrokerStore contract [%s]", (kind) => {
       expect((await h.store.listEvents(h.ids.wsA, { operationId: operation.id })).map((e) => e.type)).toContain("operation.cancelled");
     });
 
+    it("supersedes an awaiting teardown only while its expected status still matches", async () => {
+      const h = await makeHarness({ kind });
+      const waiting = (await h.store.createOperation(newOperation(h, { proposal: { capability: "infrastructure.destroy" } }))).operation;
+      expect(await h.store.cancelOperation({ workspaceId: h.ids.wsB, id: waiting.id, expectedStatus: "awaiting_approval" })).toBeNull();
+      expect(await h.store.cancelOperation({ workspaceId: h.ids.wsA, id: waiting.id, expectedStatus: "awaiting_approval", reason: "Superseded by a new teardown review." })).toMatchObject({ status: "cancelled" });
+      const approved = (await h.store.createOperation(newOperation(h, { proposal: { capability: "infrastructure.destroy" } }))).operation;
+      await h.store.recordApproval({ workspaceId: h.ids.wsA, operationId: approved.id, approver: user("erin"), approverRole: "admin", decision: "approve", proposalDigest: approved.proposalDigest, policyVersion: "v1" });
+      expect(await h.store.cancelOperation({ workspaceId: h.ids.wsA, id: approved.id, expectedStatus: "awaiting_approval" })).toBeNull();
+      expect((await h.store.getOperation(h.ids.wsA, approved.id))?.status).toBe("approved");
+      expect((await h.store.listEvents(h.ids.wsA, { operationId: approved.id })).some((e) => e.type === "operation.cancelled")).toBe(false);
+    });
+
+    it("keeps the operation, approvals, grants and events when approval wins a supersession race", async () => {
+      const h = await makeHarness({ kind });
+      const { operation } = await h.store.createOperation(newOperation(h, { proposal: { capability: "infrastructure.destroy" } }));
+      // The review worker read this pending row before the browser approved it.
+      const stale = (await h.store.getOperation(h.ids.wsA, operation.id))!;
+      expect(stale.status).toBe("awaiting_approval");
+      await h.store.recordApproval({ workspaceId: h.ids.wsA, operationId: operation.id, approver: user("erin"), approverRole: "admin",
+        decision: "approve", proposalDigest: operation.proposalDigest, policyVersion: "v1" });
+      const approved = await h.store.getOperation(h.ids.wsA, operation.id);
+      const approvals = await h.store.listApprovals(h.ids.wsA, operation.id);
+      const events = await h.store.listEvents(h.ids.wsA, { operationId: operation.id });
+      const jti = `approval_race_${operation.id}`;
+      await h.store.insertGrant({ jti, workspaceId: h.ids.wsA, operationId: operation.id, capability: "infrastructure.destroy", audience: "worker",
+        issuedAt: h.clock.now().toISOString(), expiresAt: new Date(h.clock.now().getTime() + 60_000).toISOString() });
+      expect(await h.store.cancelOperation({ workspaceId: h.ids.wsA, id: stale.id, expectedStatus: "awaiting_approval", reason: "Superseded" })).toBeNull();
+      expect(await h.store.getOperation(h.ids.wsA, operation.id)).toEqual(approved);
+      expect(await h.store.listApprovals(h.ids.wsA, operation.id)).toEqual(approvals);
+      expect(await h.store.listEvents(h.ids.wsA, { operationId: operation.id })).toEqual(events);
+      expect(await h.store.consumeGrant({ workspaceId: h.ids.wsA, jti })).toBe(true);
+    });
+
     it("revokes live grants when cancelling", async () => {
       const h = await makeHarness({ kind });
       const { operation } = await h.store.createOperation(newOperation(h, { decision: { policyVersion: "v1", inputDigest: "d".repeat(64), outcome: "allow", reasons: [{ code: "ok", message: "ok" }] } }));

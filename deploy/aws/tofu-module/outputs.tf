@@ -24,7 +24,7 @@ output "codebuild_role_arn" {
 }
 
 output "workload_boundary_arn" {
-  description = "Permission boundary every Zenith-created role must carry."
+  description = "Legacy permission boundary retained for existing roles during migration."
   value       = aws_iam_policy.workload_boundary.arn
 }
 
@@ -41,4 +41,9 @@ output "account_id" {
 output "region" {
   description = "The region of the state bucket."
   value       = local.region
+}
+
+output "family_boundary_arns" {
+  description = "Permission boundary ARN by role family."
+  value       = { for key, policy in aws_iam_policy.family_boundary : key => policy.arn }
 }

@@ -110,6 +110,14 @@ describe("redactText: shapes", () => {
     expect(mask("user=admin password=hunter2 retries=3").text).toBe(`user=admin password=${REDACTED} retries=3`);
   });
 
+  it("preserves ODBC separators and whitespace while masking repeated Pwd fields", () => {
+    const line = `Server=db; \tPwd = ${CANARY.password};Pwd=${CANARY.password};Encrypt=true`;
+    const expected = `Server=db; \tPwd = ${REDACTED};Pwd=${REDACTED};Encrypt=true`;
+    expect(mask(line)).toEqual({ text: expected, redacted: true });
+    expect(mask(expected)).toEqual({ text: expected, redacted: false });
+    expect(mask("PWD=/home/app")).toEqual({ text: "PWD=/home/app", redacted: false });
+  });
+
   it("masks well-known vendor token shapes", () => {
     for (const tok of [CANARY.githubToken, "xoxb-1234567890-abcdefghijkl", "sk_live_abcdefghijklmnop1234", "AIzaSyA1234567890abcdefghijklmnopqrstuv"]) {
       expect(mask(`leaked ${tok} here`).text).toBe(`leaked ${REDACTED} here`);

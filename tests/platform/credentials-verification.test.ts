@@ -341,3 +341,39 @@ describe("OCI registration-only verification", () => {
     expect(await broker().verifyConnection(c.id, { workspaceId: ws })).toMatchObject({ ok: false, detail: expect.stringContaining("not registered") });
   });
 });
+
+
+describe("Azure trusted source broker composition", () => {
+  const bindingFor = (subscription: string) => ({ accountResourceId: `/subscriptions/${subscription}/resourceGroups/source/providers/Microsoft.Storage/storageAccounts/zenithsource`, container: "source-bundles", resourceAddress: "object_store/source" });
+  let sourceSequence = 0;
+  async function setup(recordResource = true) {
+    const environmentId = `env-source-broker-${++sourceSequence}`, binding = bindingFor(azure.subscriptionId);
+    const c = await connection({ ...azure, sourceStorage: { [environmentId]: binding } });
+    await repos.connections.recordVerification(db, { workspaceId: ws, id: c.id, ok: true });
+    const { registerEnvironment } = await import("@/lib/reconcile/platform");
+    await registerEnvironment(db, { environment: { workspaceId: ws, environmentId, class: "production", provider: "azure", region: azure.region, connection: { id: c.id, status: "verified" } } });
+    if (recordResource) await repos.resources.upsertDesired(db, { workspaceId: ws, environmentId, node: { address: binding.resourceAddress, kind: "object_store", provider: "azure", region: azure.region, nativeType: "azure:storage_container", ownership: "managed", externalRef: binding.accountResourceId, spec: {}, specDigest: "a".repeat(64), dependsOn: [], origin: [], labels: {} }, status: "active" });
+    return { c, environmentId, binding };
+  }
+  it("enables only the trusted environment account with the Storage audience", async () => {
+    const { c, environmentId } = await setup(); const fetchImpl = cloudFetch("azure", async () => new Response(null, { status: 200 }));
+    await broker(fetchImpl).withSession({ connectionId: c.id, purpose: "deploy", grant: credentialGrant({ ws, env: environmentId, cap: "infrastructure.apply" }) }, async (session) => {
+      if (session.provider !== "azure") throw new Error("wrong provider");
+      await session.authorizedFetch("https://zenithsource.blob.core.windows.net/source-bundles/source", { redirect: "error" });
+      await expect(session.authorizedFetch("https://foreign.blob.core.windows.net/source-bundles/source", { redirect: "error" })).rejects.toThrow("not an Azure endpoint");
+    });
+    expect(new URLSearchParams(String(fetchImpl.mock.calls[0][1]?.body)).get("scope")).toBe("https://storage.azure.com/.default");
+    expect(fetchImpl).toHaveBeenCalledTimes(2); await assertNoSecret({});
+  });
+  it.each(["observe", "foreign-environment", "foreign-resource", "uncreated-resource"])("leaves Blob disabled for %s while ordinary ARM remains usable", async (mode) => {
+    const { c, environmentId } = await setup(mode !== "uncreated-resource"); const fetchImpl = cloudFetch("azure", async () => new Response(null, { status: 200 }));
+    const purpose = mode === "observe" ? "observe" : "deploy";
+    await broker(fetchImpl).withSession({ connectionId: c.id, purpose, grant: credentialGrant({ ws, env: mode === "foreign-environment" ? "foreign" : environmentId, cap: purpose === "observe" ? "infrastructure.observe" : "infrastructure.apply", ...(mode === "foreign-resource" ? { res: "foreign" } : {}) }) }, async (session) => {
+      if (session.provider !== "azure") throw new Error("wrong provider");
+      await expect(session.authorizedFetch("https://zenithsource.blob.core.windows.net/source-bundles/source", { redirect: "error" })).rejects.toThrow("not an Azure endpoint");
+      await session.authorizedFetch("https://management.azure.com/subscriptions");
+    });
+    expect(new URLSearchParams(String(fetchImpl.mock.calls[0][1]?.body)).get("scope")).toBe("https://management.azure.com/.default");
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+});

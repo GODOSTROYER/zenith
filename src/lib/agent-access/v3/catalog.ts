@@ -42,6 +42,7 @@ import {
   RestartServiceInput,
   ScaleServiceInput,
 } from "./schemas";
+import { ReviewTeardownInput } from "./teardown-review-schema";
 
 /** MCP `ToolAnnotations` (2025-06-18 and later). */
 export interface ToolHints {
@@ -124,6 +125,13 @@ const SOURCES: Record<ToolName, Source> = {
     schemaVersion: 1,
     annotations: PROPOSE,
     schema: PlanChangeInput,
+  },
+  zenith_review_teardown: {
+    title: "Review teardown",
+    description: "Request a read-only destroy review for an environment under observe credentials and the environment lease. The execution worker records the exact destroy PlanView and a pending admin-approval proposal. It never applies, approves or deletes. Poll the returned review operation; only a signed-in person may approve in the browser. Reuses a current review and records why a stale review is superseded.",
+    access: "propose", capability: "infrastructure.plan", requiredScope: "plan", schemaVersion: 1,
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    schema: ReviewTeardownInput,
   },
   zenith_prepare_deploy: {
     title: "Prepare a deployment",

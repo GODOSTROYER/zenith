@@ -27,11 +27,25 @@ doing work yet.
 | Temporal workflows, client and execution worker | `workers/execution/worker.ts` opens the store and calls `createActivities`, which delegates to `composeExecutionActivities` in `src/lib/platform/execution.ts`. Product deploy bridge and MCP v3 start workflows. `createStubActivities` is an explicit test factory, never a production fallback. Startup requirements are section 6.2; this wiring has not been live-cloud verified. |
 | Reconciliation controller (`src/lib/reconcile`, migration 2, `POST /api/internal/tick/reconcile`) | `ensurePlatformApp` registers `wireReconcilePorts`; the route boots composition after cron authentication. `.github/workflows/tick.yml` includes reconcile every five minutes. The controller observes and proposes repairs; allowed proposals dispatch day-two workflows through `src/lib/platform/reconcile.ts`. Unsupported execution can still fail. See section 2.9. |
 | `zenith-runner` and `zenithd` (Go, `go/`, Helm chart, Dockerfiles) | Built by another workstream, with their own operator guides: [RUNNER.md](../RUNNER.md) and [ZENITHD.md](../ZENITHD.md). The control-plane side is the row above, with the gaps listed there. I did not run or verify the agents. |
-| Machine plane (`src/lib/machines`) | Execution activities contain the `executeMachineOperation` path, but default composition supplies no `machines` port and refuses it. Injected ports can use AWS SSM fixed documents, Kubernetes exec, `zenithd`, Azure Run Command or read-only GCP Compute/OS Inventory (`src/lib/machines/transports/azure-run-command.ts`, `src/lib/machines/transports/gcp-os-management.ts`). GCP guest mutations require `zenithd`. No live transport was verified. See [AWS-SETUP.md](AWS-SETUP.md) for customer permissions. |
+| Machine plane (`src/lib/machines`) | Default composition supplies the `machines` port: workspace-scoped observations select AWS SSM fixed documents, Azure managed Run Command or read-only GCP Compute/OS Inventory; a uniquely bound, active registered machine selects the signed `zenithd` queue. Cloud calls use the operation's credential-broker session and existing policy/approval gates; `machine.exec` remains an admin-approved escape hatch. GCP guest mutations require `zenithd`. Kubernetes guest execution still requires an injected credential resolver. No live transport was verified. See [AWS-SETUP.md](AWS-SETUP.md) for customer permissions. |
 | Provider drivers | `src/lib/platform/drivers.ts` calls all six provider registrars; evidence remains contract-only. `src/lib/platform/credentials.ts` verifies GCP, Azure and Kubernetes connections; OCI verification checks runner registration only, and OCI sessions require that runner. Runner modes for other non-AWS providers remain refused. A hosted managed substrate is not verified ([MANAGED-PLATFORM.md](../MANAGED-PLATFORM.md)). |
 | Environment teardown | Browser admin action `env.teardown` consumes trusted recorded destroy evidence, proposes for approval and starts the destroy workflow after browser approval. The first destroy-review trigger and matching readable approval artifact remain entry-point gaps; see [TEARDOWN.md](TEARDOWN.md). |
 | Builds from source | Default source preparation uploads canonical ZIP to customer S3 for AWS CodeBuild, or tar.gz to GCS for GCP Cloud Build. Azure ACR adapters require injected source wiring; default composition refuses. See [BUILDS.md](BUILDS.md). |
 | Connections and approvals | `/platform/connections/aws` saves/verifies via its browser action adapter. No standalone `/api/platform/v1/connections` route exists. `/platform/operations/[id]` renders review; plan-bound approval stays disabled without a readable matching PlanView artifact. See `src/app/(product)/platform/README.md`. |
+
+Machine dispatch stores an immutable, tenant-scoped evidence marker before contacting
+the transport. Repeated completed requests replay a sealed result; a competing,
+interrupted or unreadable request is uncertain and is never dispatched again. An
+operation id cannot be reused with changed arguments, target, simulation mode or
+budgets. Local grant, constraint and argument checks still run on every retry.
+Outputs are bounded and redacted; evidence summaries exclude file contents, log
+lines and DNS answers. Escape-hatch output is retained as a sealed artifact in the
+existing idempotency store, referenced by `blobRef`, rather than placed in summaries
+or workflow history. Replay results and artifacts use a separate HKDF domain of
+`ZENITH_SECRET_KEY`; rotating that key makes older artifacts unreadable. The cache
+may be pruned after 30 days; the dispatch marker remains and prevents re-execution.
+An operator must reconcile an uncertain operation and submit a newly authorized
+operation to try again. Sandbox transports remain explicitly simulated.
 
 The execution path is composed, but no live-cloud success is recorded. Configure
 the worker and a verified connection before dispatching; a started workflow is
@@ -114,6 +128,7 @@ guidance rather than secret values; it does not verify live provider readiness:
 | Broker store selection | `defaultStore` and `isMemoryStoreEnabled` in `src/lib/capabilities/platform.ts` | No |
 | Browser origin for approvals | `src/app/api/platform/v1/_lib/browser.ts` | No |
 | Runner result sealing key | `createResultSealerFromEnv` in `src/lib/runners/seal.ts` | No |
+| Product vault previous keys | `vaultCipherFromEnv` in `src/lib/secrets/index.ts` | No; validated when a vault value is read or the re-wrap command starts |
 | Zenith-managed provider substrate | `readSubstrateConfig` in `src/lib/providers/zenith/substrate.ts` | No |
 
 A variable that `env()` validates makes the **product** refuse to start when it
@@ -192,7 +207,40 @@ Read by `temporalConfigFromEnv`, for **both** the web app's client and the worke
 | `ZENITH_TEMPORAL_ADDRESS` | `localhost:7233` | no | Frontend `host:port`. |
 | `ZENITH_TEMPORAL_NAMESPACE` | `default` | no | Namespace. Must already exist. |
 | `ZENITH_TEMPORAL_API_KEY` | unset | **yes** | Temporal Cloud API key. Setting it forces TLS. Never logged; `describeTemporalConfig` reports only "set" or "unset". |
-| `ZENITH_TEMPORAL_TLS` | `false` | no | `true` or `1` forces TLS without an API key, with the SDK's default TLS settings. There is no option for a custom CA or for client certificates (mTLS is not wired). |
+| `ZENITH_TEMPORAL_TLS` | `false` | no | `true` or `1` forces TLS without an API key. Without custom settings, the SDK's default TLS settings apply. API keys and any custom TLS setting force TLS even when this flag is `false` or `0`. |
+| `ZENITH_TEMPORAL_TLS_CA_FILE` | unset | path only; contents kept private | Path to a PEM server CA bundle, passed as `serverRootCACertificate`. Optional for certificates trusted by the SDK defaults. |
+| `ZENITH_TEMPORAL_TLS_CERT_FILE` | unset | path only; contents kept private | Path to a PEM client certificate chain for mTLS. Requires `ZENITH_TEMPORAL_TLS_KEY_FILE`. |
+| `ZENITH_TEMPORAL_TLS_KEY_FILE` | unset | **private-key contents** | Path to the PEM client private key for mTLS. Requires `ZENITH_TEMPORAL_TLS_CERT_FILE`; keep the file readable only by the process account. |
+| `ZENITH_TEMPORAL_TLS_SERVER_NAME` | unset | no; presence only in logs | Optional DNS hostname for TLS server identity/SNI (`serverNameOverride`), without a scheme, port or path. Defaults to the address host when unset; certificate verification remains enabled. |
+
+Both `Connection.connect` (web client and availability probe) and
+`NativeConnection.connect` (worker) receive these settings through
+`connectionOptionsFor`. Cert and key must be configured together; a custom CA
+can be used without a client identity, and mTLS can use the SDK's default trust
+without a custom CA. API-key authentication may also be configured with these
+TLS settings.
+
+Files are read on the first configuration load (worker startup or the web
+client's first use), must be readable regular files with nonblank contents, and
+are bounded to **1 MiB per file**, including a bounded read if the file grows.
+Successful reads are cached by absolute path for the process lifetime; neither
+connection creation nor a status probe re-reads a cached file. **Restart the web
+process and every worker after certificate/key rotation**. Mount files at
+runtime on each host; the web process needs access to its own TLS files too.
+The SDK checks PEM format, key/certificate compatibility and server trust when
+connecting; successful file loading does not prove a working TLS handshake.
+
+`describeTemporalConfig` reports only **set/unset** for API keys, CA, certificate,
+key and server-name overrides. It never reports file paths or PEM. File-loading
+errors identify only the variable, and custom TLS transport errors exposed by
+the web client/probe use fixed guidance to avoid leaking SDK error contents.
+Local file tests and mocked SDK wiring cover this configuration; **live mTLS
+authentication is unverified**.
+`tests/workflows/mtls-live.test.ts` is opt-in via
+`ZENITH_TEST_TEMPORAL_MTLS=1`; it requires explicit address, namespace and client
+cert/key file variables, then checks both SDK transports against that endpoint.
+Leave the gate unset for offline runs. The target server must require client
+certificates to establish that the handshake enforced mTLS authentication.
 
 Payload encryption uses the shared `ZENITH_SECRET_KEY` and decrypt-only
 `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS`, documented in the worker table below.
@@ -220,6 +268,7 @@ Read by `executionWorkerConfigFromEnv`. Details and defaults:
 | `ZENITH_WORKER_PLAN_DIR` | `<ZENITH_DATA or .data>/platform-plans` | Worker-local binary plan directory, resolved to an absolute path and created with mode `0700`. Keep it private; binary plans may contain secrets. Cross-replica filesystem access and Windows ACL equivalence are not verified. |
 | `ZENITH_SECRET_KEY` | unset | **Secret**, required: 64 hex characters. `derivePlanFingerprintKey` uses HKDF-SHA256 with `zenith.tofu.plan.fingerprint.v1`; there is no public default. The key also protects product vault secrets and encrypts Temporal workflow payloads (AES-256-GCM, HKDF info `zenith.temporal.payload.v1`); give the web app and cooperating workers the same key and back it up separately. |
 | `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS` | unset | **Secret**, optional: a JSON array of earlier 64-hex `ZENITH_SECRET_KEY` values. Payloads carry a key id; after rotating `ZENITH_SECRET_KEY`, list the old keys here (on the web app and every worker) so workflow histories written under them still decode. A malformed value is refused at startup. |
+| `ZENITH_VAULT_PREVIOUS_SECRET_KEYS` | unset | **Secret**, optional: a private JSON array of previous product-vault keys, each 32 bytes encoded as hex or base64. Vault reads try the current key and then these decrypt-only keys; writes use only `ZENITH_SECRET_KEY`. Invalid JSON or keys fail closed on vault reads and command startup, without echoing values. This is separate from Temporal history keys. The operator command uses `ZENITH_STORE` (`file` by default; `postgres` for `public.secrets` via `SUPABASE_DB_URL`), requires an explicit workspace, and never uses `ZENITH_PLATFORM_DB_URL` to select the product database. See [vault key re-wrap](RECOVERY.md#product-vault-key-re-wrap). |
 
 ### 2.6 OpenTofu engine
 
@@ -305,6 +354,11 @@ How the bundle ships:
 | `ZENITH_PLATFORM_BROKER_MEMORY` | unset | no | `1` makes the broker use a per-process in-memory store. Tests and local development **only**: state is lost on restart and two instances share nothing. Never set it in production. Without it the broker uses the platform store and answers `platform_store_unavailable` when it cannot open it; it never falls back to memory silently. |
 | `ZENITH_PLATFORM_ORIGIN` | `ZENITH_AGENT_ORIGIN`, then the request's own origin | no | The exact origin a browser approval, rejection or admin-setting request must come from: the `Origin` header must equal it (no prefix, no subdomain, not `null`) and `Sec-Fetch-Site`, when the browser sends it, must be `same-origin`. Set it to your public origin in production. |
 | `ZENITH_RUNNER_RESULT_KEY` | derived from `ZENITH_CONTROL_SIGNING_JWK` | **yes** | base64url, 32 bytes. Seals runner and `zenithd` job results at rest (AES-256-GCM, bound to the workspace and job id), because a result can carry exactly what must never be stored in the clear (an AWS response body, a plan with sensitive values). Unset, the key is derived (HKDF-SHA256) from the private scalar of the local control signing JWK; with a KMS-backed control signer it **must** be set. Whoever opens results, an activity in the worker, needs the same key as the routes that seal them. Rotating it, or the signing key it was derived from, makes results still in flight unreadable; their operations end `uncertain`. |
+| `ZENITH_GITHUB_APP_ID` | unset | no | Numeric GitHub App id, on web and worker. Together with the private-key file enables C3's tenant-scoped source binding. Unset keeps public reads anonymous. Register the App and apply platform migration 6 as described in [BUILDS.md](BUILDS.md#github-app-registration-and-workspace-binding). |
+| `ZENITH_GITHUB_APP_PRIVATE_KEY_FILE` | unset | path only; file contents are **secret** | Absolute server path to the RSA App PEM, on web and worker. Read on demand to sign bounded RS256 JWTs. Never copy the PEM into an environment value or diagnostics. Partial/invalid configuration refuses access. |
+| `ZENITH_GITHUB_APP_CLIENT_ID` | unset | no | GitHub App OAuth client id, web host only. Required by the browser install/bind flow to verify that the initiating GitHub user can access the installation repository. |
+| `ZENITH_GITHUB_APP_CLIENT_SECRET_FILE` | unset | path only; file contents are **secret** | Absolute server path to the GitHub App OAuth client secret, web host only. Codes exchange server-side with PKCE; user tokens are discarded after verification and never stored or sent to the browser. |
+| `ZENITH_TEST_SOURCE_GITHUB_APP`, `ZENITH_TEST_SOURCE_GITHUB_BINDING`, `ZENITH_TEST_SOURCE_REF` | private gate unset | no; identifiers only | Tests only: set the gate to `1` to authorize the opt-in private GitHub archive check, a strict JSON binding of non-secret identifiers, and a pinned 40-hex commit. Live private access was not run here. The existing public gate is `ZENITH_TEST_SOURCE_GITHUB` with `ZENITH_TEST_SOURCE_REPO` and the same ref variable. |
 
 Identity is not new configuration: browsers use the product's Supabase setup
 ([RUNNING.md](../../RUNNING.md#supabase-auth-and-test-accounts)), and integration
@@ -393,6 +447,9 @@ broker session; the price catalog is a bundled JSON file.
 | `ZENITH_RUNNER_RESULT_KEY` | yes (seals results) | yes, when an activity awaits runner jobs (opens them; must match) | no |
 | `ZENITH_SECRET_KEY` | yes (product vault and Temporal payloads) | yes (plan fingerprints, vault and Temporal payloads) | no |
 | `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS` | when decrypting retained Temporal histories | same key set as the client | no |
+| `ZENITH_VAULT_PREVIOUS_SECRET_KEYS` | when reading vault rows during rotation | when resolving vault references during rotation | no |
+| GitHub App id/private-key file | yes (install verification) | yes (private source acquisition) | no |
+| GitHub App OAuth client id/client-secret file | yes (browser binding only) | no | no |
 
 ### 2.13 Zenith-managed provider substrate
 
@@ -492,12 +549,16 @@ applied), turns row level security on for every table with no policies, and
 revokes `anon` and `authenticated`. **`platform` must never be added to the Data
 API's exposed schemas.**
 
-Five migrations exist today: `core` (1), `reconcile` (2), `machine_requests` (3,
+Six migrations exist today: `core` (1), `reconcile` (2), `machine_requests` (3,
 the `zenithd` request queue), `approval_rounds` (4: a plan-level approval after
 execution starts opens a new approval round, so the same human can review again once
-per round while earlier decisions stay as immutable history) and `read_jobs` (5:
+per round while earlier decisions stay as immutable history), `read_jobs` (5:
 runner read jobs, such as OCI log and metric reads, that belong to no operation and
-store a NULL operation). A database that applied the emitted SQL before a later
+store a NULL operation) and `github_sources` (6: tenant-scoped GitHub App source
+bindings and expiring install intents, storing identifiers and proof digests only).
+Migration 6 also accepts tables installed by the former explicit GitHub schema
+installer, preserving bindings and intents while recording the platform ledger.
+A database that applied the emitted SQL before a later
 migration landed is behind and the application refuses to use it until you re-apply
 the file or run `npm run migrate:platform`.
 
@@ -505,8 +566,8 @@ The emitted file keeps one name as migrations are added; it grows. If you apply
 migrations through the Supabase CLI's migration history, which records an applied
 file by its version number and will not re-run a changed file, use
 `npm run migrate:platform` (ledger-based) or apply the file by hand for any
-schema version after the first. The emitted file holds all five
-migrations, so a database that applied it before migration 2, 3, 4 or 5 landed is exactly
+schema version after the first. The emitted file holds all six
+migrations, so a database that applied it before migration 2, 3, 4, 5 or 6 landed is exactly
 this case. I did not exercise it through the Supabase CLI.
 
 ### 3.3 What the application does about the schema
@@ -586,8 +647,8 @@ worker/cloud run is claimed by this docs sync.
 
 | | Temporal Cloud | Self-hosted |
 |---|---|---|
-| What you set | `ZENITH_TEMPORAL_ADDRESS=<namespace>.<account>.tmprl.cloud:7233`, `ZENITH_TEMPORAL_NAMESPACE=<namespace>.<account>`, `ZENITH_TEMPORAL_API_KEY` | `ZENITH_TEMPORAL_ADDRESS` (and `ZENITH_TEMPORAL_TLS=true` if the frontend serves TLS with a publicly trusted certificate) |
-| Authentication | API key only; it forces TLS. mTLS is not wired. | None in this configuration: no API key and no client certificates. Put it on a private network. |
+| What you set | `ZENITH_TEMPORAL_ADDRESS=<namespace>.<account>.tmprl.cloud:7233`, `ZENITH_TEMPORAL_NAMESPACE=<namespace>.<account>`, plus API key or client cert/key files (section 2.4) | `ZENITH_TEMPORAL_ADDRESS`, namespace, and TLS settings from section 2.4: TLS flag for default trust, custom CA for private trust, cert/key files for mTLS. |
+| Authentication | API key and/or mTLS client identity; either forces TLS. Configure the namespace's authentication requirements in Temporal Cloud. | Configure client-certificate authentication on the server and supply the cert/key pair here. Without an API key or client identity, TLS encrypts transport only; restrict access to the private network. |
 | History | Held by Temporal; retention is a namespace setting. | Held in the database you run under it. Backing that up is yours. |
 | What was verified | Nothing live. There is no Cloud account on the build machine; the option shapes follow the SDK's documented API-key and TLS options. | The dev server, locally. No production-shaped cluster. |
 | Cost of operating | A subscription. | A cluster and its database to run, patch and back up. ADR-0009 names a Postgres-native engine as the fallback if this proves disproportionate. |
@@ -627,7 +688,7 @@ implementation and local replay gate are described in
 docker build -f docker/worker.Dockerfile -t zenith-execution-worker .
 ```
 
-Node 22.16 (base image pinned by tag and digest), OpenTofu 1.12.5 (pinned by
+Node 22.23.3 (base image pinned by tag and digest), OpenTofu 1.12.5 (pinned by
 version and SHA-256; the build fails on an empty or wrong checksum), the bundled
 worker and a prebuilt workflow bundle. It runs as a non-root user and exposes
 loopback health probes (section 6.2); external connections are to Temporal, the
@@ -635,11 +696,15 @@ database and the clouds. It uses `tini`
 as PID 1 so SIGTERM reaches the worker and orphaned provider processes are
 reaped.
 
-**Status: written and command-checked, never built.** Docker is not available on
-the machine it was authored on. The esbuild bundle command, the workflow-bundle
-build and `node dist/execution/worker.cjs` booting against a Temporal dev server
-were run; `docker build`, the `apt` and OpenTofu downloads inside it, the Linux
-`@swc/core` binding and `npm ci --omit=dev` from the Dockerfile were not.
+**Status: local `linux/arm64` image built successfully on 2026-10-02.** The image
+ID is `sha256:ce29c543b82224ffd4db107351b33d671a16ce70754d1b478fc0493480e6b1ac`.
+CLI probes with networking disabled and a read-only root filesystem verified
+Node `v22.23.3`, non-root UID `10001`, OpenTofu `1.12.5` for `linux_arm64`, and
+the packaged policy WASM SHA-256
+`a1712c084ff7e492f187044cec5cb7ba86da32b76259f5d62e92df9e4cff0d57`
+matching its manifest. No Zenith worker or server was started. The AMD64 image
+build, actual worker startup and Temporal polling, cloud transports, and
+production operation remain unverified for this image.
 
 ### 6.2 Running it
 
@@ -783,7 +848,7 @@ executed (no sandbox AWS account exists); until it has, nothing is `real`.
 - Anything against a real AWS account: STS `AssumeRoleWithWebIdentity`, KMS
   `Sign` and `GetPublicKey` (Ed25519 in particular), IAM accepting Zenith's
   tokens, the bootstrap template applied for real.
-- Temporal Cloud and API-key authentication; mTLS (not built); a production-shaped
+- Temporal Cloud, API-key and mTLS authentication; a production-shaped
   self-hosted cluster.
 - `docker build` of the worker image; SIGTERM handling on Linux; behaviour of the
   worker under load.

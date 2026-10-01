@@ -170,10 +170,7 @@
     {
       "Effect": "Deny",
       "Action": "s3:*",
-      "Resource": [
-        "${state_bucket_arn}",
-        "${state_bucket_arn}/*"
-      ]
+      "Resource": "${state_bucket_arn}*"
     },
     {
       "Effect": "Allow",

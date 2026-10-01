@@ -29,6 +29,7 @@ import type { Sql } from "@/lib/controlplane/types";
 import { listDrivers } from "@/lib/drivers/types";
 import { loadPolicyEngine } from "@/lib/policy";
 import { planMaxAgeFromEnv, startPlanJanitor } from "@/lib/execution/plan-janitor";
+import { createAzureSourceStorageResolver } from "@/lib/providers/azure/release/source-binding";
 import { createActivities } from "@/lib/workflows/activities";
 import { connectionOptionsFor, describeTemporalConfig } from "@/lib/workflows/config";
 import { temporalDataConverterFromEnv } from "@/lib/workflows/codec";
@@ -73,7 +74,7 @@ async function main(): Promise<void> {
     policyLoaded = true;
     const planDir = path.resolve(process.env.ZENITH_WORKER_PLAN_DIR ?? path.join(process.env.ZENITH_DATA ?? ".data", "platform-plans"));
     await mkdir(planDir, { recursive: true, mode: 0o700 });
-    const activities = createActivities({ db, workerIdentity: config.identity, planDir, ports: { heartbeat: (detail) => Context.current().heartbeat(detail), activitySignal: () => Context.current().cancellationSignal } });
+    const activities = createActivities({ db, workerIdentity: config.identity, planDir, sourceBundles: { azureStorage: createAzureSourceStorageResolver(db) }, ports: { heartbeat: (detail) => Context.current().heartbeat(detail), activitySignal: () => Context.current().cancellationSignal } });
     Runtime.install({ logger: new DefaultLogger(config.logLevel) });
 
     const workflows = await workflowSource(config);

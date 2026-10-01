@@ -35,7 +35,7 @@ export const DEFAULT_LLM_MODEL = "claude-opus-5";
  * every refused write and the inspector's banner all say the same thing.
  */
 export const SECRET_KEY_FIX =
-  "Set ZENITH_SECRET_KEY in .env.local to a 32-byte key and restart the server — generate one with `openssl rand -base64 32` (hex is accepted too). Keep the same key: values written under an old one cannot be read back.";
+  "Set ZENITH_SECRET_KEY in .env.local to a 32-byte key and restart the server — generate one with `openssl rand -base64 32` (hex is accepted too). Keep the same key; to rotate it, put the old key in ZENITH_VAULT_PREVIOUS_SECRET_KEYS (a JSON array) and run `npm run vault:rewrap` (docs/platform/operations/RECOVERY.md).";
 
 /**
  * How to make email alert delivery work. One string, so the env validation

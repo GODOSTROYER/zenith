@@ -48,7 +48,7 @@ import type { HealthState, Observation, ResourceNode, RuntimeState } from "@/lib
 import { compartmentOf } from "../../context";
 import { OciCompileError, OciUnsupportedError } from "../../errors";
 import { ociCapabilities, ociDriverId } from "../../evidence";
-import { auxName, auxRef, interp, networkOf, nodeCloudName, zenithTags } from "../../naming";
+import { auxName, auxRef, interp, MIGRATION_TAG, networkOf, nodeCloudName, zenithTags } from "../../naming";
 import {
   arrayOrItems,
   asArray,
@@ -62,6 +62,7 @@ import {
   listAll,
   observationOf,
   runtimeOf,
+  tagsOf,
   unknownValue,
   unreadableObservation,
   verifyWith,
@@ -259,7 +260,7 @@ async function findInstances(ctx: OciContext, node: ResourceNode): Promise<Found
     const presence = f.outcome === "denied" || f.outcome === "not_found" ? "inaccessible" : "unknown";
     return { ok: false, located: { presence, requestIds: listed.requestIds, error: f.message } };
   }
-  const instances = listed.items.filter((i): i is Instance => asRecord(i) !== undefined && !isGone(i) && isZenithObject(i, ctx.environmentId, node.address)).sort((a, b) => ((asString(a.id) ?? "") < (asString(b.id) ?? "") ? -1 : 1));
+  const instances = listed.items.filter((i): i is Instance => asRecord(i) !== undefined && !isGone(i) && !tagsOf(i)[MIGRATION_TAG] && isZenithObject(i, ctx.environmentId, node.address)).sort((a, b) => ((asString(a.id) ?? "") < (asString(b.id) ?? "") ? -1 : 1));
   return { ok: true, instances, requestIds: listed.requestIds, truncated: listed.truncated };
 }
 
@@ -380,6 +381,7 @@ export const containerInstanceDriver: ResourceDriver<OciSession> = {
   discover: (ctx) =>
     discoverWith(ctx, {
       ...locateDef,
+      items: (body) => arrayOrItems(body).filter((item) => !tagsOf(item)[MIGRATION_TAG]),
       kind: "container_service",
       nativeType: CONTAINER_INSTANCE_NATIVE_TYPE,
       nameOf: (i) => asString(i.displayName) ?? asString(i.id) ?? "container instance",
@@ -387,4 +389,3 @@ export const containerInstanceDriver: ResourceDriver<OciSession> = {
     }),
   operations: { "service.restart": async (ctx, node) => restart(ctx, node) },
 };
-

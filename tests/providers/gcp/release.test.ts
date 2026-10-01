@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { createGcpBuildPort, createGcpWorkloadsPort, createGcpMigrationsPort } from "@/lib/platform/release-gcp";
 import { IMAGE_DIGEST_ANNOTATION } from "@/lib/providers/gcp/drivers/compute/run-image";
+import { CLOUD_BUILD_DOCKER_IMAGE } from "@/lib/providers/gcp/drivers/build/build-api";
 import { world, node, tagged, service, registry, pipeline, bundle, bucket, sa, DIGEST, IMAGE, PROJECT, REGION, WS, ENV, serviceName, revisionName } from "./release-fixtures";
 
 const buildInput = () => ({ service, registry, pipeline, source: { ...bundle, bucket }, idempotencyKey: "op-1:build:web" });
@@ -14,7 +15,7 @@ describe("GCP customer-account build", () => {
     const w = world(); const h = await createGcpBuildPort().startBuild(w.ctx, buildInput());
     const started = w.fetcher.mock.calls.find(([u, i]) => u.includes("cloudbuild") && i?.method === "POST")!;
     const body = JSON.parse(String(started[1]?.body));
-    expect(body).toMatchObject({ source: { storageSource: { bucket, object: bundle.s3Key, generation: "7" } }, serviceAccount: `projects/${PROJECT}/serviceAccounts/${sa}`, options: { logging: "CLOUD_LOGGING_ONLY" }, steps: [{ name: "gcr.io/cloud-builders/docker", args: ["build", "--file=docker/Dockerfile", expect.stringMatching(/^--tag=.*:zn-[a-f0-9]{64}$/), "."] }] });
+    expect(body).toMatchObject({ source: { storageSource: { bucket, object: bundle.s3Key, generation: "7" } }, serviceAccount: `projects/${PROJECT}/serviceAccounts/${sa}`, options: { logging: "CLOUD_LOGGING_ONLY" }, steps: [{ name: CLOUD_BUILD_DOCKER_IMAGE, args: ["build", "--file=docker/Dockerfile", expect.stringMatching(/^--tag=.*:zn-[a-f0-9]{64}$/), "."] }] });
     // Another port/worker instance has no process-local build cache.
     expect(await createGcpBuildPort().waitForBuild(w.ctx, h, { timeoutMs: 1000 })).toEqual({ status: "succeeded", digest: DIGEST, imageUri: IMAGE });
     expect(h.buildId).not.toContain("https://example.com");

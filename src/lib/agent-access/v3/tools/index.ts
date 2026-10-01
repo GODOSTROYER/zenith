@@ -27,6 +27,7 @@ import { investigateIncident, queryLogs, queryMetrics } from "./observe";
 import { compareRevisions, estimateCost, getCapabilities, getTopology } from "./project";
 import { planChange, prepareDeploy, restartService, scaleService } from "./propose";
 import { recommendPlacementTool } from "./placement";
+import { reviewTeardown } from "./teardown-review";
 
 type Handler = (args: never, ctx: ToolContext) => Promise<ToolOutput>;
 
@@ -34,6 +35,7 @@ const HANDLERS: Record<ToolName, Handler> = {
   zenith_get_topology: getTopology as Handler,
   zenith_get_capabilities: getCapabilities as Handler,
   zenith_plan_change: planChange as Handler,
+  zenith_review_teardown: reviewTeardown as Handler,
   zenith_prepare_deploy: prepareDeploy as Handler,
   zenith_execute_approved_operation: executeApprovedOperation as Handler,
   zenith_query_logs: queryLogs as Handler,

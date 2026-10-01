@@ -1,0 +1,182 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeInstances",
+        "ec2:DescribeInstanceTypes",
+        "ec2:DescribeRouteTables",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeVolumes",
+        "ec2:DescribeVolumesModifications",
+        "ec2:DescribeVpcs",
+        "ec2:DescribeTags",
+        "ec2:DescribeNetworkInterfaces"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-nodes"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "eks:DescribeCluster",
+        "eks-auth:AssumeRoleForPodIdentity"
+      ],
+      "Resource": "arn:${partition}:eks:*:${account_id}:cluster/zenith-${environment_tag_value}-*",
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-nodes"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:AssignPrivateIpAddresses",
+        "ec2:AttachNetworkInterface",
+        "ec2:CreateNetworkInterface",
+        "ec2:DeleteNetworkInterface",
+        "ec2:DetachNetworkInterface",
+        "ec2:ModifyNetworkInterfaceAttribute",
+        "ec2:UnassignPrivateIpAddresses"
+      ],
+      "Resource": [
+        "arn:${partition}:ec2:*:${account_id}:network-interface/*",
+        "arn:${partition}:ec2:*:${account_id}:subnet/*",
+        "arn:${partition}:ec2:*:${account_id}:security-group/*"
+      ],
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-nodes"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:AttachNetworkInterface",
+        "ec2:DetachNetworkInterface",
+        "ec2:ModifyNetworkInterfaceAttribute"
+      ],
+      "Resource": "arn:${partition}:ec2:*:${account_id}:instance/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/zenith:managed": "true"
+        },
+        "StringLike": {
+          "aws:ResourceTag/zenith:environment": "${environment_tag_value}"
+        },
+        "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-nodes"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ec2:CreateTags",
+      "Resource": "arn:${partition}:ec2:*:${account_id}:network-interface/*",
+      "Condition": {
+        "ForAllValues:StringEquals": {
+          "aws:TagKeys": [
+            "node.k8s.amazonaws.com/instance_id",
+            "node.k8s.amazonaws.com/createdAt",
+            "cluster.k8s.amazonaws.com/name",
+            "eks:eni:owner"
+          ]
+        },
+        "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-nodes"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*",
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-nodes"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage",
+        "ecr:GetRepositoryPolicy",
+        "ecr:DescribeRepositories",
+        "ecr:ListImages",
+        "ecr:DescribeImages",
+        "ecr:GetLifecyclePolicy",
+        "ecr:GetLifecyclePolicyPreview",
+        "ecr:ListTagsForResource",
+        "ecr:DescribeImageScanFindings"
+      ],
+      "Resource": [
+        "arn:${partition}:ecr:*:${account_id}:repository/zenith-*",
+        "arn:${partition}:ecr:*:*:repository/eks/*",
+        "arn:${partition}:ecr:*:*:repository/amazon-k8s-cni"
+      ],
+      "Condition": {
+        "ArnLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-nodes"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Deny",
+      "Action": "*",
+      "Resource": "*",
+      "Condition": {
+        "ArnNotLike": {
+          "aws:PrincipalArn": [
+            "arn:${partition}:iam::${account_id}:role/zenith-*-nodes"
+          ]
+        }
+      }
+    },
+    {
+      "Effect": "Deny",
+      "Action": [
+        "organizations:*",
+        "account:*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Deny",
+      "Action": "iam:*",
+      "Resource": "*"
+    },
+    {
+      "Effect": "Deny",
+      "Action": "s3:*",
+      "Resource": [
+        "${state_bucket_arn}",
+        "${state_bucket_arn}/*"
+      ]
+    }
+  ]
+}

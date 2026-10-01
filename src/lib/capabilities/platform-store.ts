@@ -52,7 +52,7 @@ import * as settingsRepo from "@/lib/controlplane/db/repos/settings";
 import { decide } from "@/lib/controlplane/approvals";
 import { cancelOperation as cancelOperationService, denyOperation as denyOperationService, claimOperation, completeOperation as completeOperationService, proposeOperation, recordPolicyOutcome } from "@/lib/controlplane/operations";
 import { emitForOperation } from "@/lib/controlplane/events";
-import { LeaseLostError, type ApprovalRecord, type OperationRecord, type PlatformEvent, type PolicyDecisionRecord, type Principal, type Sql } from "@/lib/controlplane/types";
+import { LeaseLostError, type ApprovalRecord, type OperationRecord, type PlatformEvent, type PolicyDecisionRecord, type Sql } from "@/lib/controlplane/types";
 import type { AutonomyLevel } from "@/lib/policy";
 import { BrokerError, notFound } from "./errors";
 import type {
@@ -198,7 +198,7 @@ export class PlatformBrokerStore implements BrokerStore {
     return this.run(() => operationRepo.list(this.db, workspaceId, filters, page));
   }
 
-  cancelOperation(input: { workspaceId: string; id: string; reason?: string; actor?: Principal }): Promise<OperationRecord | null> {
+  cancelOperation(input: Parameters<BrokerStore["cancelOperation"]>[0]): Promise<OperationRecord | null> {
     return this.run(() => cancelOperationService(this.db, input));
   }
 

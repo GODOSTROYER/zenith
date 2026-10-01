@@ -20,3 +20,5 @@ export { infrastructureDestroyWorkflow } from "./destroy";
 export { dayTwoOperationWorkflow } from "./dayTwo";
 export { remediationWorkflow } from "./remediation";
 export { reconcileEnvironmentWorkflow } from "./reconcile";
+
+export { teardownReviewWorkflow } from "./destroy-review";

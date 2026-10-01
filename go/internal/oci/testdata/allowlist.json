@@ -1,4 +1,70 @@
 {
+  "infrastructure.plan": [
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}/records/{}/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}"
+    }
+  ],
+  "infrastructure.apply": [
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}/records/{}/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}"
+    }
+  ],
+  "deployment.rollback": [
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}/records/{}/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}"
+    }
+  ],
   "infrastructure.observe": [
     {
       "service": "core",
@@ -799,6 +865,58 @@
       "service": "core",
       "method": "GET",
       "pattern": "networkSecurityGroups/{}/securityRules"
+    }
+  ],
+  "deployment.deploy": [
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}"
+    },
+    {
+      "service": "dns",
+      "method": "GET",
+      "pattern": "zones/{}/records/{}/{}"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers"
+    },
+    {
+      "service": "loadbalancer",
+      "method": "GET",
+      "pattern": "loadBalancers/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containerInstances"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containerInstances/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "GET",
+      "pattern": "containers/{}"
+    },
+    {
+      "service": "core",
+      "method": "GET",
+      "pattern": "vnics/{}"
+    },
+    {
+      "service": "containerinstances",
+      "method": "POST",
+      "pattern": "containerInstances"
+    },
+    {
+      "service": "containerinstances",
+      "method": "DELETE",
+      "pattern": "containerInstances/{}"
     }
   ],
   "service.restart": [

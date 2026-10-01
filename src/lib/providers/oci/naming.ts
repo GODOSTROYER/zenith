@@ -70,6 +70,8 @@ export const zenithTagKey = (ociKey: string): string => (ociKey.startsWith("zeni
 export const TAG_ENV = ociTagKey("zenith:environment");
 export const TAG_RESOURCE = ociTagKey("zenith:resource");
 export const TAG_MANAGED = ociTagKey("zenith:managed");
+/** One-off releases share workload identity tags but are excluded from workload discovery/counts. */
+export const MIGRATION_TAG = "zenith_release";
 export const MAX_FREEFORM_TAGS = 10;
 const MAX_TAG_VALUE = 256;
 

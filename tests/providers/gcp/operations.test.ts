@@ -5,7 +5,7 @@
  */
 import { afterEach, describe, expect, it } from "vitest";
 import { gcpDrivers } from "@/lib/providers/gcp/drivers";
-import { getBuild, startBuild, validateBuildInput, type StartBuildInput } from "@/lib/providers/gcp/drivers/build/build-api";
+import { CLOUD_BUILD_DOCKER_IMAGE, getBuild, startBuild, validateBuildInput, type StartBuildInput } from "@/lib/providers/gcp/drivers/build/build-api";
 import { crc32c, syncSecretValue, SYNC_ANNOTATION } from "@/lib/providers/gcp/drivers/data/secret-manager-secret";
 import { ACCESS_TOKEN, FakeGoogle, fakeGoogle } from "./_fake-google";
 import { PROJECT, REGION } from "./_fixtures";
@@ -349,7 +349,8 @@ describe("build helpers (ADR-0016)", () => {
     expect(r).toMatchObject({ ok: true, buildId: BUILD_ID });
     const body = f.requestsTo("POST", buildsPath)[0].body as Json;
     expect(body.source).toEqual({ storageSource: { bucket: input.sourceBucket, object: input.sourceObject } });
-    expect(body.steps).toEqual([{ name: "gcr.io/cloud-builders/docker", args: ["build", "--file=docker/Dockerfile.prod", `--tag=${image}`, "."] }]);
+    expect(CLOUD_BUILD_DOCKER_IMAGE).toBe("gcr.io/cloud-builders/docker@sha256:40c2fb4fcd0ad51376eef166c2e7b2b40a3508d5776e2bf33db3783ab39d0f2e");
+    expect(body.steps).toEqual([{ name: CLOUD_BUILD_DOCKER_IMAGE, args: ["build", "--file=docker/Dockerfile.prod", `--tag=${image}`, "."] }]);
     expect(body.images).toEqual([image]);
     expect(body.serviceAccount).toBe(`projects/${PROJECT}/serviceAccounts/${sa}`);
     expect(body.options).toEqual({ logging: "CLOUD_LOGGING_ONLY" });

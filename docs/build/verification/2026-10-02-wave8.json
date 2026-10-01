@@ -1,0 +1,451 @@
+{
+  "date": "2026-10-02",
+  "sourceCheckpoint": "6d1359a9a78dd9b6313308b072a69eaed371d9a6",
+  "verifiedCodeHead": "b9e1b2fc54a77b2346e0ff6a9f7589267a6afb2e",
+  "host": "Saivedants-MacBook-Air.local",
+  "user": "saivedanthava",
+  "githubAccount": "saivedant169",
+  "commitIdentity": "Saivedant Hava <saivedant169@gmail.com>",
+  "newCodeCommitsAudited": 34,
+  "publicationBranch": "codex/wave8-integration-2026-10-02",
+  "tools": {
+    "Node": "22.23.3",
+    "OpenTofu": "1.12.5",
+    "OPA": "1.19.1",
+    "Go": "1.27.1",
+    "Docker": "29.1.3",
+    "kind": "0.33.0",
+    "kubectl": "1.34.1"
+  },
+  "fullVitest": {
+    "passed": 15854,
+    "failed": 0,
+    "skipped": 194,
+    "todo": 0,
+    "files": 788
+  },
+  "skippedSuites": [
+    {
+      "path": "tests/agent-control-journal-fixes.test.ts",
+      "skipped": 6
+    },
+    {
+      "path": "tests/agent-control-journal.test.ts",
+      "skipped": 7
+    },
+    {
+      "path": "tests/agent-control/pg-contract.test.ts",
+      "skipped": 16
+    },
+    {
+      "path": "tests/acceptance/sample-app.test.ts",
+      "skipped": 1
+    },
+    {
+      "path": "tests/agent-link/pg-contract.test.ts",
+      "skipped": 14
+    },
+    {
+      "path": "tests/cli/config.test.ts",
+      "skipped": 1
+    },
+    {
+      "path": "tests/controlplane/executor.test.ts",
+      "skipped": 1
+    },
+    {
+      "path": "tests/controlplane/migrations.test.ts",
+      "skipped": 3
+    },
+    {
+      "path": "tests/controlplane/open.test.ts",
+      "skipped": 2
+    },
+    {
+      "path": "tests/bridge/steps.test.ts",
+      "skipped": 1
+    },
+    {
+      "path": "tests/execution/deletion-guards-real.test.ts",
+      "skipped": 1
+    },
+    {
+      "path": "tests/execution/destroy-review.test.ts",
+      "skipped": 1
+    },
+    {
+      "path": "tests/machines/azure-scripts.test.ts",
+      "skipped": 6
+    },
+    {
+      "path": "tests/machines/ssm-documents.test.ts",
+      "skipped": 13
+    },
+    {
+      "path": "tests/platform/source-bundle.test.ts",
+      "skipped": 1
+    },
+    {
+      "path": "tests/scripts/migrate-hosted-to-postgres.test.ts",
+      "skipped": 3
+    },
+    {
+      "path": "tests/secrets/rewrap.test.ts",
+      "skipped": 1
+    },
+    {
+      "path": "tests/sources/github-live.test.ts",
+      "skipped": 1
+    },
+    {
+      "path": "tests/sources/github-store.test.ts",
+      "skipped": 10
+    },
+    {
+      "path": "tests/waitlist/pg-contract.test.ts",
+      "skipped": 38
+    },
+    {
+      "path": "tests/workflows/codec-replay.test.ts",
+      "skipped": 2
+    },
+    {
+      "path": "tests/workflows/destroy-replay.test.ts",
+      "skipped": 6
+    },
+    {
+      "path": "tests/workflows/mtls-live.test.ts",
+      "skipped": 2
+    },
+    {
+      "path": "tests/db/contract/alerts.test.ts",
+      "skipped": 7
+    },
+    {
+      "path": "tests/db/contract/audit.test.ts",
+      "skipped": 1
+    },
+    {
+      "path": "tests/db/contract/history.test.ts",
+      "skipped": 7
+    },
+    {
+      "path": "tests/db/contract/workspace-sharing.test.ts",
+      "skipped": 22
+    },
+    {
+      "path": "tests/hosted/artifacts/storage-store.test.ts",
+      "skipped": 2
+    },
+    {
+      "path": "tests/hosted/data/pg-contract.live.test.ts",
+      "skipped": 11
+    },
+    {
+      "path": "tests/providers/kubernetes/kind.test.ts",
+      "skipped": 6
+    },
+    {
+      "path": "tests/providers/kubernetes/release-kind.test.ts",
+      "skipped": 1
+    }
+  ],
+  "fullGo": {
+    "topLevelPassed": 226,
+    "subtestsPassed": 539,
+    "testsSkipped": 3,
+    "testsFailed": 0,
+    "packagesPassed": 11,
+    "packagesWithoutTests": 6,
+    "cachedPackages": 11,
+    "skippedTests": [
+      "TestRealSystemctlAndJournalctl",
+      "TestDisksComeFromRealFilesystemsOnly",
+      "TestProcfsAgainstTheRealHost"
+    ]
+  },
+  "freshGoBeforeLastMerge": {
+    "topLevelPassed": 226,
+    "subtestsPassed": 539,
+    "testsSkipped": 3,
+    "testsFailed": 0,
+    "packagesPassed": 11,
+    "packagesWithoutTests": 6,
+    "cachedPackages": 0,
+    "skippedTests": [
+      "TestRealSystemctlAndJournalctl",
+      "TestDisksComeFromRealFilesystemsOnly",
+      "TestProcfsAgainstTheRealHost"
+    ]
+  },
+  "opa": {
+    "passed": 213,
+    "failed": 0,
+    "policyWasmSHA256": "a1712c084ff7e492f187044cec5cb7ba86da32b76259f5d62e92df9e4cff0d57"
+  },
+  "fullGate": [
+    {
+      "name": "tsc",
+      "command": "npx tsc --noEmit",
+      "exitCode": 0,
+      "seconds": 10.1,
+      "log": "final-clean-tsc.log"
+    },
+    {
+      "name": "eslint",
+      "command": "npx eslint .",
+      "exitCode": 0,
+      "seconds": 21.8,
+      "log": "final-clean-eslint.log"
+    },
+    {
+      "name": "gofmt",
+      "command": "cd go && gofmt -l .",
+      "exitCode": 0,
+      "seconds": 0.0,
+      "log": "final-clean-gofmt.log"
+    },
+    {
+      "name": "go-vet",
+      "command": "cd go && go vet ./...",
+      "exitCode": 0,
+      "seconds": 0.4,
+      "log": "final-clean-go-vet.log"
+    },
+    {
+      "name": "go-test",
+      "command": "cd go && go test -json ./...",
+      "exitCode": 0,
+      "seconds": 0.2,
+      "log": "final-clean-go-test.log"
+    },
+    {
+      "name": "policy",
+      "command": "npm run policy:check",
+      "exitCode": 0,
+      "seconds": 0.6,
+      "log": "final-clean-policy.log"
+    },
+    {
+      "name": "emit-sql",
+      "command": "npm run platform:emit-sql -- --check",
+      "exitCode": 0,
+      "seconds": 0.4,
+      "log": "final-clean-emit-sql.log"
+    },
+    {
+      "name": "matrix",
+      "command": "npx tsx scripts/docs/capability-matrix.ts --strict",
+      "exitCode": 0,
+      "seconds": 4.1,
+      "log": "final-clean-matrix.log"
+    },
+    {
+      "name": "aws-templates",
+      "command": "npx tsx deploy/aws/tools/generate-tofu-policies.ts --check",
+      "exitCode": 0,
+      "seconds": 0.4,
+      "log": "final-clean-aws-templates.log"
+    },
+    {
+      "name": "vitest",
+      "command": "npx vitest run --maxWorkers=1 --reporter=default --reporter=json --outputFile.json=/Users/saivedanthava/.codex/zenith-w8/logs/final-clean-vitest.json",
+      "exitCode": 0,
+      "seconds": 1050.8,
+      "log": "final-clean-vitest.log"
+    }
+  ],
+  "freshKind": {
+    "cluster": "zenith-w8-final",
+    "context": "kind-zenith-w8-final",
+    "provider": {
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "files": 1
+    },
+    "release": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "files": 1
+    },
+    "releaseImage": "busybox@sha256:d82c2ab94640ded77cf76514ce6a84870761105058a4a9e51b05a8a79be97a6c",
+    "classification": "local kind cluster",
+    "deleted": true
+  },
+  "focusedVitest": [
+    {
+      "name": "Checkpoint repairs",
+      "label": "gate-fixes",
+      "passed": 104,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "files": 3
+    },
+    {
+      "name": "Runner membership assertion",
+      "label": "runner-contract",
+      "passed": 44,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "files": 1
+    },
+    {
+      "name": "Kubernetes apply/release fixes",
+      "label": "kind-gates",
+      "passed": 386,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "files": 13
+    },
+    {
+      "name": "AWS role-family boundaries",
+      "label": "aws-boundary-split",
+      "passed": 1728,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "files": 52
+    },
+    {
+      "name": "GitHub migration/source/docs final lane",
+      "label": "github-migration-final",
+      "passed": 148,
+      "failed": 0,
+      "skipped": 14,
+      "todo": 0,
+      "files": 9
+    },
+    {
+      "name": "Machine transport documentation",
+      "label": "machine-docs",
+      "passed": 56,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "files": 1
+    },
+    {
+      "name": "OCI trusted bindings/cleanup",
+      "label": "oci-cleanup",
+      "passed": 693,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "files": 17
+    },
+    {
+      "name": "Azure trusted source wiring",
+      "label": "azure-source-wire",
+      "passed": 904,
+      "failed": 0,
+      "skipped": 1,
+      "todo": 0,
+      "files": 36
+    },
+    {
+      "name": "Teardown review primary lane",
+      "label": "destroy-review",
+      "passed": 451,
+      "failed": 0,
+      "skipped": 1,
+      "todo": 0,
+      "files": 24
+    },
+    {
+      "name": "Teardown review additional lane",
+      "label": "destroy-review-extra",
+      "passed": 532,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "files": 18
+    },
+    {
+      "name": "Composed deploy and setup gate fixes",
+      "label": "final-deploy-root",
+      "passed": 115,
+      "failed": 0,
+      "skipped": 1,
+      "todo": 0,
+      "files": 7
+    },
+    {
+      "name": "Rollout polling assertion",
+      "label": "final-rollout-root",
+      "passed": 22,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "files": 1
+    },
+    {
+      "name": "Node/runtime/image packaging",
+      "label": "node-runtime-packaging-root",
+      "passed": 127,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "files": 4
+    },
+    {
+      "name": "OpenTofu network retry",
+      "label": "network-retry-root",
+      "passed": 78,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "files": 2
+    },
+    {
+      "name": "Teardown page wiring",
+      "label": "final-ui-root",
+      "passed": 53,
+      "failed": 0,
+      "skipped": 0,
+      "todo": 0,
+      "files": 3
+    }
+  ],
+  "earlierCompleteAttempts": {
+    "checkpoint": {
+      "passed": 15636,
+      "failed": 2,
+      "skipped": 208,
+      "todo": 0,
+      "files": 779
+    },
+    "finalSerialBeforeUiRepair": {
+      "passed": 15851,
+      "failed": 3,
+      "skipped": 194,
+      "todo": 0,
+      "files": 788
+    }
+  },
+  "workerImage": {
+    "platform": "linux/arm64",
+    "id": "sha256:ce29c543b82224ffd4db107351b33d671a16ce70754d1b478fc0493480e6b1ac",
+    "buildExitCode": 0,
+    "nodeProbe": "22.23.3",
+    "uidProbe": 10001,
+    "tofuProbe": "1.12.5/linux_arm64",
+    "policyHashMatchesManifest": true,
+    "workerStarted": false
+  },
+  "localLogDirectory": "/Users/saivedanthava/.codex/zenith-w8/logs",
+  "finalDocumentation": {
+    "passed": 109,
+    "failed": 0,
+    "skipped": 0,
+    "files": 4,
+    "ledgerCheckExitCode": 0,
+    "diffCheckExitCode": 0
+  }
+}

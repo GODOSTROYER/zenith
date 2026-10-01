@@ -5,23 +5,28 @@ import type { MachineExecutionPort, StoredResource } from "@/lib/execution/ports
 import { StepFailedError } from "@/lib/execution/errors";
 import { MachineOperationError, type MachineOperation, type MachineRequest, type MachineTransport, type KubernetesMachineSession } from "@/lib/machines";
 import type { AgentRecord } from "@/lib/runners/ports";
+import type { AzureSession, CredentialRequest, GcpSession } from "@/lib/credentials/types";
 import { MemoryEvidence } from "../machines/_helpers";
 import { createWorld, NOW, type World } from "./fakes/world";
 import { CANARY_GRANT, ENV, OP, WS } from "./fakes/fixtures";
 
 const worlds: World[] = [];
+const AZURE_VM = "/subscriptions/11111111-2222-3333-4444-555555555555/resourceGroups/app/providers/Microsoft.Compute/virtualMachines/host";
+const GCP_VM = "projects/demo-project/zones/us-central1-a/instances/host";
 afterEach(() => { worlds.splice(0).forEach((w) => w.dispose()); });
 
 async function machineWorld(transport: MachineTransport, operation: MachineOperation = "machine.inspect", args: Record<string, unknown> = {}) {
   const w = createWorld({ op: { capability: operation, resourceId: "res-machine", status: "running", proposal: { capability: operation, scope: { workspaceId: WS, environmentId: ENV, resourceId: "res-machine" }, input: args, summary: "machine test", details: [], risk: "low" } } });
   worlds.push(w);
-  const row: StoredResource = { id: "res-machine", workspaceId: WS, environmentId: ENV, address: "compute_instance/host", provider: transport === "kubernetes" ? "kubernetes" : "aws", nativeType: transport === "kubernetes" ? "k8s:Pod" : "aws:ec2_instance", kind: "compute_instance", ownership: "managed", spec: {}, specDigest: "a".repeat(64), status: "active", dependsOn: [], origin: [], labels: {} };
+  const provider = transport === "kubernetes" ? "kubernetes" : transport === "azure_run_command" ? "azure" : transport === "gcp_os_management" ? "gcp" : "aws";
+  const nativeType = provider === "kubernetes" ? "k8s:Pod" : provider === "azure" ? "azure:virtual_machine" : provider === "gcp" ? "gcp:compute_instance" : "aws:ec2_instance";
+  const row: StoredResource = { id: "res-machine", workspaceId: WS, environmentId: ENV, address: "compute_instance/host", provider, nativeType, kind: "compute_instance", ownership: "managed", spec: {}, specDigest: "a".repeat(64), status: "active", dependsOn: [], origin: [], labels: {} };
   w.resources.rows.set(row.id, row);
   const evidence = new MemoryEvidence();
   const calls: { req: MachineRequest; session: unknown }[] = [];
   const binding: AgentRecord = { kind: "machine", id: "mac_fixture", workspaceId: WS, environmentId: ENV, address: row.address, status: "active", stale: false, name: "fake host", protocol: "zenith.machine/v1", publicKey: "public", capabilities: [operation], labels: {}, host: {}, registeredAt: NOW };
   const plane: MachineExecutionPort = {
-    latestObservation: vi.fn(async () => ({ address: row.address, externalId: transport === "kubernetes" ? "app/pod-1" : "i-0123456789abcdef0", presence: "present" as const, attributes: {}, observedAt: NOW, source: "fake", simulated: false })),
+    latestObservation: vi.fn(async () => ({ address: row.address, externalId: provider === "kubernetes" ? "app/pod-1" : provider === "azure" ? AZURE_VM : provider === "gcp" ? GCP_VM : "i-0123456789abcdef0", presence: "present" as const, attributes: {}, observedAt: NOW, source: "fake", simulated: false })),
     boundMachine: vi.fn(async () => transport === "zenithd" ? binding : null),
     evidence,
     drivers: { [transport]: { transport, supports: [operation], execute: async (req: MachineRequest, session: unknown) => {
@@ -37,6 +42,23 @@ async function machineWorld(transport: MachineTransport, operation: MachineOpera
 }
 
 describe("machine capability activities", () => {
+  it.each(["azure_run_command", "gcp_os_management"] as const)("resolves %s observations and uses the matching brokered session", async (transport) => {
+    const { w, calls, lease } = await machineWorld(transport);
+    const provider = transport === "azure_run_command" ? "azure" : "gcp";
+    w.product.base.environment.provider = provider;
+    w.connections.connections[0].config = provider === "azure"
+      ? { provider, mode: "oidc_web_identity", tenantId: "tenant", subscriptionId: "11111111-2222-3333-4444-555555555555", clientId: "client", region: "eastus" }
+      : { provider, mode: "oidc_web_identity", projectId: "demo-project", region: "us-central1", workloadIdentityProvider: "projects/123/locations/global/workloadIdentityPools/test/providers/test", observeServiceAccount: "observe@demo-project.iam.gserviceaccount.com", deployServiceAccount: "deploy@demo-project.iam.gserviceaccount.com" };
+    const requests: CredentialRequest[] = [];
+    const session: AzureSession | GcpSession = provider === "azure"
+      ? { provider, subscriptionId: "11111111-2222-3333-4444-555555555555", region: "eastus", expiresAt: "2099-01-01T00:00:00Z", authorizedFetch: vi.fn(), childProcessEnv: () => ({}) }
+      : { provider, projectId: "demo-project", region: "us-central1", expiresAt: "2099-01-01T00:00:00Z", authorizedFetch: vi.fn(), childProcessEnv: () => ({}) };
+    w.deps.credentials = { verifyConnection: vi.fn(), async withSession(req, fn) { requests.push(req); return fn(session); } };
+    expect(await w.activities.executeCapability({ operationId: OP, lease })).toEqual({ ok: true, summary: "machine.inspect succeeded" });
+    expect(calls[0].req.target).toMatchObject({ transport, targetId: provider === "azure" ? AZURE_VM : GCP_VM });
+    expect(calls[0].session).toBe(session);
+    expect(requests[0]).toMatchObject({ purpose: "observe", grant: { cap: "machine.inspect", ws: WS, res: "res-machine" } });
+  });
   it("uses an observed EC2 id with an observe broker session and resource-scoped grant", async () => {
     const { w, calls, plane, lease, row } = await machineWorld("aws_ssm");
     expect(await w.activities.executeCapability({ operationId: OP, lease })).toEqual({ ok: true, summary: "machine.inspect succeeded" });

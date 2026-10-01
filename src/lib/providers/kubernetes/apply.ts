@@ -26,8 +26,8 @@
  * Honest limits: apply is sequential and not transactional across objects; an
  * abort or API failure midway leaves earlier objects applied (they are
  * reported as such). Field-manager conflict detection and the `unchanged`
- * determination are as good as the API server's answers; exercised here
- * against a fake API server, not a real cluster.
+ * determination depend on the API server's answers. Contract suites and gated
+ * disposable-kind acceptance cover them; managed cloud acceptance is separate.
  */
 import { PatchStrategy, type KubernetesObject } from "@kubernetes/client-node";
 import type { KubernetesSession } from "@/lib/credentials/types";
@@ -211,14 +211,15 @@ async function applyOne(client: K8sClient, p: Prepared, opts: ApplyOptions, secr
     );
     const meta = isRecord(got.metadata) ? got.metadata : {};
     const secretChanged = p.obj.kind === "Secret" && secretValueChanged(p.live, p.secretValue);
-    const liveMeta = isRecord(p.live?.metadata) ? (p.live?.metadata as Record<string, unknown>) : undefined;
     let status: ApplyItemResult["status"];
     if (!p.live) status = "created";
-    else if (opts.dryRun) {
+    else {
+      // Controllers can update status, revisions or managedFields between the
+      // preflight read and apply. resourceVersion then changes even for a no-op.
+      // Compare the defaulted server objects, just as the dry-run diff does.
       const changed = diffPaths(normalizeForDiff(p.live), normalizeForDiff(got)).length > 0 || secretChanged;
       status = changed ? "configured" : "unchanged";
-    } else if (secretChanged) status = "configured";
-    else status = liveMeta?.resourceVersion === meta.resourceVersion ? "unchanged" : "configured";
+    }
     return {
       result: {
         ref: p.ref,

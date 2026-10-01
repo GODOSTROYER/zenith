@@ -66,7 +66,9 @@ const RULES: Rule[] = [
     replace: (_m, key, sep) => `${key}${sep}${REDACTED}`,
   },
   // ODBC-style `;Pwd=…` (bare `pwd=` is too common as a shell variable to mask)
-  { re: /(?<=;[ \t]*)(pwd)([ \t]*=[ \t]*)(?!\[REDACTED)[^\s;"']+/gi, replace: (_m, key, sep) => `${key}${sep}${REDACTED}` },
+  // Consume the prefix forwards: a variable-length whitespace lookbehind here
+  // scans backwards at every input position, making all-space input quadratic.
+  { re: /(;[ \t]*pwd)([ \t]*=[ \t]*)(?!\[REDACTED)[^\s;"']+/gi, replace: (_m, key, sep) => `${key}${sep}${REDACTED}` },
   { re: /\b(Bearer)([ \t]+)(?!\[REDACTED)[A-Za-z0-9._~+/=-]{8,}/gi, replace: (_m, scheme, ws) => `${scheme}${ws}${REDACTED}` },
   // AWS access key IDs (long-term AKIA, temporary ASIA, and the rarer ABIA/ACCA)
   { re: /\b(?:AKIA|ASIA|ABIA|ACCA)[A-Z0-9]{16}\b/g, replace: REDACTED },

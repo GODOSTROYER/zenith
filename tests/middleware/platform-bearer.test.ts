@@ -19,10 +19,12 @@ const bearerRoutes = [
   ["GET", "/operations"], ["GET", "/operations/op_1"],
   ["GET", "/operations/op_1/events"], ["POST", "/operations/op_1/cancel"],
   ["GET", "/environments/env_1/autonomy"], ["GET", "/workspace/policy"],
+  ["GET", "/environments/env_1/teardown-review"], ["POST", "/environments/env_1/teardown-review"],
 ];
 const browserRoutes = [
   ["POST", "/operations/op_1/approve"], ["POST", "/operations/op_1/reject"],
   ["PUT", "/environments/env_1/autonomy"], ["PUT", "/workspace/policy"],
+  ["GET", "/github/callback"], ["POST", "/github/callback"],
   ["GET", "/runners"], ["GET", "/machines"], ["POST", "/runners/tokens"],
   ["POST", "/runners/run_1/revoke"], ["POST", "/machines/mac_1/revoke"],
 ];
@@ -49,6 +51,11 @@ describe("platform bearer cookie-gate bypass", () => {
   it.each(browserRoutes)("keeps %s %s on the cookie gate even with a bearer", async (method, suffix) => {
     expect((await middleware(new NextRequest(`https://zenith.test${ROOT}${suffix}`, { method, headers: { authorization: TOKEN } }))).status).toBe(401);
     expect(gate.session).toHaveBeenCalledOnce();
+  });
+
+  it.each(["GET", "POST"])("classifies GitHub installation and binding %s as browser-only", (method) => {
+    expect(platformAccess(`${ROOT}/github/callback`, method)).toBe("browser-only");
+    expect(isPlatformBearerRequest(`${ROOT}/github/callback`, method, TOKEN)).toBe(false);
   });
 
   it.each(["", "Basic abcdefgh", "Bearer", "Bearer ", "Bearer abc def", "Bearer\tabc", "BearerX abc"])("does not bypass with header %j", (authorization) => {
@@ -121,7 +128,7 @@ describe("platform route inventory", () => {
         expect(isAgentSignedPath(normalized), normalized).toBe(access === "agent-signed");
       }
     }
-    expect(seen.size).toBe(31);
+    expect(seen.size).toBe(35);
     for (const entry of PLATFORM_PATHS) {
       expect(entry.path.source.startsWith("^")).toBe(true);
       expect(entry.path.source.endsWith("$")).toBe(true);

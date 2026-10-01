@@ -88,7 +88,7 @@ const GROUPS: Record<string, ResourceDef[]> = {
     { name: "statefulsets", kind: "StatefulSet", namespaced: true },
     { name: "replicasets", kind: "ReplicaSet", namespaced: true },
   ],
-  "batch/v1": [{ name: "cronjobs", kind: "CronJob", namespaced: true }],
+  "batch/v1": [{ name: "cronjobs", kind: "CronJob", namespaced: true }, { name: "jobs", kind: "Job", namespaced: true }],
   "rbac.authorization.k8s.io/v1": [
     { name: "roles", kind: "Role", namespaced: true },
     { name: "rolebindings", kind: "RoleBinding", namespaced: true },
@@ -463,6 +463,12 @@ export async function startFakeK8s(options: FakeK8sOptions = {}): Promise<FakeK8
   ): { code: number; body: Plain } {
     const key = keyOf(apiVersion, def.kind, ns, name);
     const existing = store.get(key);
+    if (body.metadata?.resourceVersion !== undefined && (!existing || String(existing.resourceVersion) !== String(body.metadata.resourceVersion))) {
+      return status(409, "Resource version precondition failed", "Conflict");
+    }
+    if (body.metadata?.uid !== undefined && (!existing || existing.base.metadata.uid !== body.metadata.uid)) {
+      return status(409, "UID precondition failed", "Conflict");
+    }
     if (q.apply) {
       if (!q.manager) return status(400, "PatchOptions.meta.k8s.io \"\" is invalid: fieldManager: Required value: is required for apply patch", "BadRequest");
       if (body.kind !== def.kind || body.apiVersion !== apiVersion) return status(400, `the API version in the data (${body.apiVersion}) does not match the expected API version (${apiVersion})`, "BadRequest");
@@ -474,6 +480,7 @@ export async function startFakeK8s(options: FakeK8sOptions = {}): Promise<FakeK8
       : s;
     const manager = q.manager ?? "unknown";
     const config = clone(body);
+    if (config.metadata) { delete config.metadata.resourceVersion; delete config.metadata.uid; }
     if (q.apply) {
       const conflicts = conflictsFor(working, manager, config);
       if (conflicts.length > 0 && !q.force) {
@@ -564,6 +571,9 @@ export async function startFakeK8s(options: FakeK8sOptions = {}): Promise<FakeK8
       const sendStatus = (s: { code: number; body: Plain }) => send(s.code, s.body);
 
       if (!recorded.authorized) return sendStatus(status(401, "Unauthorized", "Unauthorized"));
+      if (recorded.method === "PATCH" && !(recorded.contentType ?? "").startsWith("application/apply-patch") && query.force !== undefined) {
+        return sendStatus(status(422, "force may not be specified for non-apply patch", "Invalid"));
+      }
 
       const rule = rules.find((r) => r.times !== 0 && r.match(recorded));
       if (rule) {
@@ -585,7 +595,7 @@ export async function startFakeK8s(options: FakeK8sOptions = {}): Promise<FakeK8
           kind: "APIResourceList",
           apiVersion: "v1",
           groupVersion: apiVersion,
-          resources: defs.map((d) => ({ name: d.name, singularName: "", namespaced: d.namespaced, kind: d.kind, verbs: ["get", "list", "patch", "delete"] })),
+          resources: defs.map((d) => ({ name: d.name, singularName: "", namespaced: d.namespaced, kind: d.kind, verbs: ["get", "list", "create", "patch", "delete"] })),
         });
       }
       if (!GROUPS[apiVersion] || (CRD_GROUPS.has(apiVersion) && !crdsEnabled)) return sendStatus(status(404, "the server could not find the requested resource", "NotFound"));
@@ -610,6 +620,16 @@ export async function startFakeK8s(options: FakeK8sOptions = {}): Promise<FakeK8
       const method = recorded.method;
       // collection
       if (name === undefined) {
+        if (method === "POST") {
+          const createdName = body?.metadata?.name;
+          if (typeof createdName !== "string" || body.kind !== def.kind || body.apiVersion !== apiVersion) return sendStatus(status(400, "Invalid create object", "BadRequest"));
+          if (store.has(keyOf(apiVersion, def.kind, ns, createdName))) return sendStatus(status(409, "Object already exists", "AlreadyExists"));
+          const created = newStored(apiVersion, def.kind, ns, createdName);
+          created.managers.set(query.fieldManager ?? "unknown", { operation: "Update", config: clone(body) });
+          store.set(keyOf(apiVersion, def.kind, ns, createdName), created);
+          persist(created);
+          return send(201, compose(created));
+        }
         if (method !== "GET") return sendStatus(status(405, "method not allowed", "MethodNotAllowed"));
         const all = [...store.values()]
           .filter((s) => s.apiVersion === apiVersion && s.kind === def.kind && (!ns || s.namespace === ns))

@@ -139,7 +139,7 @@ describe("oci.http job payload (control-plane half)", () => {
     [{ service: "evil.example.com" }, /Unknown OCI service/],
     [{ region: "us-ashburn-1.evil.com" }, /not an OCI region/],
     [{ region: "" }, /not an OCI region/],
-    [{ method: "DELETE" }, /not allowed/],
+    [{ method: "DELETE" }, /receipt/],
     [{ method: "PATCH" }, /not allowed/],
     [{ path: "20160918/vcns" }, /plain absolute path/],
     [{ path: "/20160918/../identity" }, /plain absolute path/],
@@ -251,3 +251,19 @@ describe("a fake that behaves like OCI for the helper", () => {
     expect(json({ a: 1 })).toEqual({ status: 200, headers: { "opc-request-id": "req-1" }, body: { a: 1 } });
   });
 });
+
+ describe("migration receipt wire selector", () => {
+ const key = "a".repeat(48);
+ const req = { service: "containerinstances", region: REGION, method: "DELETE", path: "/20210415/containerInstances/id", migrationKey: key } as const;
+ it("refuses receipt reads through an observe capability", async () => {
+  const transport = createRunnerOciTransport(async () => { throw new Error("unexpected dispatch"); }, { capability: "infrastructure.observe" });
+  await expect(transport.request({ ...req, method: "GET", path: "/20210415/containerInstances", query: { compartmentId: COMPARTMENT } })).rejects.toThrow("deployment.deploy");
+ });
+ it("serializes the local selector without inserting cloud headers", () => { expect(toJobPayload(req)).toMatchObject({ method: "DELETE", migrationKey: key, headers: {}, query: [] }); });
+ it.each(["", "A".repeat(48), "a".repeat(47), "other"])("refuses invalid key %s", (migrationKey) => { expect(() => toJobPayload({ ...req, migrationKey })).toThrow(OciTransportRefused); });
+ it("refuses deletion query/body and foreign services", () => {
+  expect(() => toJobPayload({ ...req, body: {} })).toThrow(OciTransportRefused);
+  expect(() => toJobPayload({ ...req, query: { compartmentId: COMPARTMENT } })).toThrow(OciTransportRefused);
+  expect(() => toJobPayload({ ...req, service: "core" })).toThrow(OciTransportRefused);
+ });
+ });

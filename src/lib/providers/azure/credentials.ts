@@ -35,6 +35,7 @@
  *   <vault>.vault.azure.net                 Key Vault data plane (secret sync)
  *   api.loganalytics.io / .azure.com        Log Analytics query API
  *   <region>.monitor.azure.com etc.         Azure Monitor data plane
+ *   exact trusted C3 account Blob host      Storage data plane (no redirects)
  * Redirects are never followed to a host outside the list (a 3xx to elsewhere
  * is an error, not a hop that carries the token).
  *
@@ -52,10 +53,11 @@ export const FEDERATION_AUDIENCE = "api://AzureADTokenExchange" as const;
 export const CLIENT_ASSERTION_TYPE = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer";
 export const AUTHORITY_HOST = "https://login.microsoftonline.com";
 
-export type TokenAudience = "arm" | "keyvault" | "loganalytics" | "monitor";
+export type TokenAudience = "arm" | "keyvault" | "loganalytics" | "monitor" | "storage";
 
 export const TOKEN_SCOPES: Readonly<Record<TokenAudience, string>> = {
   arm: "https://management.azure.com/.default",
+  storage: "https://storage.azure.com/.default",
   keyvault: "https://vault.azure.net/.default",
   loganalytics: "https://api.loganalytics.io/.default",
   monitor: "https://monitor.azure.com/.default",
@@ -106,13 +108,25 @@ export class AzureRequestRefusedError extends CredentialDeniedError {
 /* --------------------------------- host policy ------------------------------ */
 
 /** Which token audience a URL's host is entitled to, or `undefined` when the host is not allowed. */
-export function audienceForHost(hostname: string): TokenAudience | undefined {
+export function audienceForHost(hostname: string, trustedSourceHost?: string): TokenAudience | undefined {
   const h = hostname.toLowerCase();
+  if (trustedSourceHost && h === trustedSourceHost) return "storage";
   if (h === "management.azure.com") return "arm";
   if (h === "api.loganalytics.io" || h === "api.loganalytics.azure.com") return "loganalytics";
   if (isSubdomainOf(h, "vault.azure.net", 1, 1)) return "keyvault";
   if (isSubdomainOf(h, "monitor.azure.com", 1, 3)) return "monitor";
   return undefined;
+}
+
+/** Validates trusted source identifiers before any token is minted or host permitted. */
+export function sourceStorageHost(binding: NonNullable<AzureConnectionConfig["sourceStorage"]>[string], subscriptionId: string): string {
+  const match = typeof binding.accountResourceId === "string" ? /^\/subscriptions\/([a-f0-9-]{36})\/resourceGroups\/([A-Za-z0-9_.()-]{1,90})\/providers\/Microsoft\.Storage\/storageAccounts\/([a-z0-9]{3,24})$/i.exec(binding.accountResourceId) : null;
+  const suffixes = { public: "blob.core.windows.net", usgov: "blob.core.usgovcloudapi.net", china: "blob.core.chinacloudapi.cn" } as const;
+  const cloud = binding.cloud ?? "public";
+  if (!match || !GUID.test(subscriptionId) || match[1].toLowerCase() !== subscriptionId.toLowerCase() || !/^[a-z0-9]{3,24}$/.test(match[3]) || typeof binding.container !== "string" || !/^[a-z0-9](?:[a-z0-9]|-(?!-)){1,61}[a-z0-9]$/.test(binding.container) || typeof binding.resourceAddress !== "string" || !/^object_store\/[A-Za-z0-9_.-]{1,128}$/.test(binding.resourceAddress) || [".", ".."].includes(binding.resourceAddress.split("/")[1]) || !Object.hasOwn(suffixes, cloud)) {
+    throw new AzureRequestRefusedError("invalid_request", "Trusted Azure source storage binding is invalid or outside this subscription.");
+  }
+  return `${match[3]}.${suffixes[cloud]}`;
 }
 
 /** `<labels>.<suffix>` with 1..max DNS-safe labels (no empty labels, no odd characters). */
@@ -124,7 +138,7 @@ function isSubdomainOf(host: string, suffix: string, minLabels: number, maxLabel
 }
 
 /** Validate a URL for an authorized call; returns the parsed URL and the audience it gets. */
-export function checkAuthorizedUrl(raw: string): { url: URL; audience: TokenAudience } {
+export function checkAuthorizedUrl(raw: string, trustedSourceHost?: string): { url: URL; audience: TokenAudience } {
   let url: URL;
   try {
     url = new URL(raw);
@@ -134,7 +148,7 @@ export function checkAuthorizedUrl(raw: string): { url: URL; audience: TokenAudi
   if (url.protocol !== "https:") throw new AzureRequestRefusedError("insecure_url", "authorizedFetch only calls https URLs.");
   if (url.username || url.password) throw new AzureRequestRefusedError("invalid_request", "URLs with embedded credentials are refused.");
   if (url.port && url.port !== "443") throw new AzureRequestRefusedError("host_not_allowed", "Only the default https port is allowed.");
-  const audience = audienceForHost(url.hostname);
+  const audience = audienceForHost(url.hostname, trustedSourceHost);
   if (!audience) {
     throw new AzureRequestRefusedError("host_not_allowed", `Host "${safeHost(url.hostname)}" is not an Azure endpoint this session may call.`);
   }
@@ -167,6 +181,8 @@ function jwtExpiryMs(jwt: string): number | undefined {
 
 export interface CreateAzureSessionOptions {
   connection: AzureConnectionConfig;
+  /** One trusted environment binding supplied by the broker, never request input. */
+  sourceStorage?: NonNullable<AzureConnectionConfig["sourceStorage"]>[string];
   /** mints the ≤5-minute Zenith-signed assertion for the given audience */
   mintClientAssertion: (audience: typeof FEDERATION_AUDIENCE) => Promise<string>;
   purpose: CredentialPurpose;
@@ -212,6 +228,7 @@ export async function createAzureSession(opts: CreateAzureSessionOptions): Promi
   const durationSec = Math.min(Math.max(Math.trunc(opts.durationSec ?? DEFAULT_SESSION_SEC), 60), MAX_SESSION_SEC);
 
   const { tenantId, clientId, subscriptionId, region } = connection;
+  const sourceHost = opts.sourceStorage ? sourceStorageHost(opts.sourceStorage, subscriptionId) : undefined;
   const startedMs = now().getTime();
   const expiresAtMs = startedMs + durationSec * 1000;
   let revoked = false;
@@ -262,6 +279,10 @@ export async function createAzureSession(opts: CreateAzureSessionOptions): Promi
     } finally {
       clearTimeout(timer);
     }
+    if (res.redirected || (res.url && res.url !== `${AUTHORITY_HOST}/${tenantId}/oauth2/v2.0/token`)) {
+      await res.body?.cancel().catch(() => undefined);
+      throw new AzureTokenError("Entra token exchange returned a redirected or foreign response.", res.status);
+    }
     const text = (await res.text().catch(() => "")).slice(0, 16_384);
     let json: Record<string, unknown> = {};
     try {
@@ -305,7 +326,8 @@ export async function createAzureSession(opts: CreateAzureSessionOptions): Promi
 
   async function authorizedFetch(input: string, init: RequestInit = {}): Promise<Response> {
     assertLive();
-    let target = checkAuthorizedUrl(input);
+    let target = checkAuthorizedUrl(input, sourceHost);
+    if (target.audience === "storage" && init.redirect !== "error") throw new AzureRequestRefusedError("invalid_request", "Source Blob requests require redirect refusal.");
     const headers = new Headers(init.headers);
     // the caller can never choose the credential
     headers.delete("authorization");
@@ -317,11 +339,22 @@ export async function createAzureSession(opts: CreateAzureSessionOptions): Promi
       assertLive();
       const h = new Headers(headers);
       h.set("authorization", `Bearer ${token}`);
-      const res = await doFetch(target.url.toString(), { ...init, method, body, headers: h, redirect: "manual" });
+      const noRedirect = init.redirect === "error" || target.audience === "storage";
+      let res: Response;
+      try {
+        res = await doFetch(target.url.toString(), { ...init, method, body, headers: h, redirect: noRedirect ? "error" : "manual" });
+      } catch (error) {
+        if (!noRedirect) throw error;
+        throw new AzureRequestRefusedError("invalid_request", "Azure authorized request failed or a redirect was refused.");
+      }
+      if (noRedirect && (res.redirected || (res.url && res.url !== target.url.toString()))) {
+        await res.body?.cancel().catch(() => undefined);
+        throw new AzureRequestRefusedError("redirect_refused", "Azure authorized request returned a redirected or foreign response.");
+      }
       if (res.status < 300 || res.status >= 400 || res.status === 304) return res;
       const location = res.headers.get("location");
       await res.body?.cancel().catch(() => undefined);
-      if (!location || hop >= MAX_REDIRECTS) throw new AzureRequestRefusedError("redirect_refused", "The Azure endpoint redirected in a way this session will not follow.");
+      if (noRedirect || !location || hop >= MAX_REDIRECTS) throw new AzureRequestRefusedError("redirect_refused", "The Azure endpoint redirected in a way this session will not follow.");
       let next: { url: URL; audience: TokenAudience };
       try {
         next = checkAuthorizedUrl(new URL(location, target.url).toString());

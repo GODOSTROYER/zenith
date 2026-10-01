@@ -18,6 +18,7 @@ import {
   PatchStrategy,
   ServerConfiguration,
   createConfiguration,
+  type Configuration,
   type KubeConfig,
   type KubernetesObject,
   type ResponseContext,
@@ -123,6 +124,19 @@ export function toK8sError(e: unknown, secrets: readonly string[] = []): K8sErro
  * bytes on the wire equal the rendered objects for every kind.
  */
 export class RawObjectApi extends KubernetesObjectApi {
+  /** Release Jobs retain the exact pod template JSON, including admission extensions. */
+  override async create<T extends KubernetesObject>(spec: T, pretty?: string, dryRun?: string, fieldManager?: string, options?: Configuration): Promise<T> {
+    const path = await this.specUriPath(spec, "create");
+    const request = (options ?? this.configuration).baseServer.makeRequestContext(path, HttpMethod.POST);
+    request.setHeaderParam("Accept", "application/json, */*;q=0.8");
+    request.setHeaderParam("Content-Type", "application/json");
+    if (pretty !== undefined) request.setQueryParam("pretty", pretty);
+    if (dryRun !== undefined) request.setQueryParam("dryRun", dryRun);
+    if (fieldManager !== undefined) request.setQueryParam("fieldManager", fieldManager);
+    request.setBody(JSON.stringify(spec));
+    return this.requestPromise<T>(request);
+  }
+
   /** Same request as the base class, with the body sent as rendered (no model conversion). */
   override async patch<T extends KubernetesObject>(
     spec: T,

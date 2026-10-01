@@ -50,6 +50,26 @@ describe("serverSideApply", () => {
     expect(r.results.find((x) => x.ref.kind === "Namespace")?.status).toBe("unchanged");
   });
 
+  it("reports a no-op when controller status advances after preflight, while still reporting desired changes", async () => {
+    const session = await sessionFor(fake, []);
+    await serverSideApply(small(), session, { environmentId: ENV_ID });
+    const previousVersion = fake.get("Deployment", NS, "web")!.metadata.resourceVersion;
+    fake.inject({
+      match: (request) => {
+        if (request.method !== "PATCH" || !request.path.endsWith("/deployments/web")) return false;
+        fake.setStatus("Deployment", NS, "web", { readyReplicas: 1 });
+        return true;
+      },
+      status: 200, message: "", times: 1,
+    });
+    const again = await serverSideApply(small(), session, { environmentId: ENV_ID });
+    const deployment = again.results.find((result) => result.ref.kind === "Deployment")!;
+    expect(deployment.resourceVersion).not.toBe(previousVersion);
+    expect(deployment.status).toBe("unchanged");
+    const changed = await serverSideApply(small({ replicas: 4 }), session, { environmentId: ENV_ID });
+    expect(changed.results.find((result) => result.ref.kind === "Deployment")!.status).toBe("configured");
+  });
+
   it("sends every rendered kind to the API exactly as rendered (no field lost in serialization)", async () => {
     const session = await sessionFor(fake, []);
     const { objects } = renderGraph(fullGraph(), ctx);

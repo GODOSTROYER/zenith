@@ -72,8 +72,8 @@ describe("matcher", () => {
 describe("what is never allowed", () => {
   const all = Object.values(OCI_ALLOWLIST).flat();
 
-  it("no DELETE anywhere, no secret-bundle retrieval, no object-level Object Storage, no IAM writes", () => {
-    expect(all.filter((r) => r.method === ("DELETE" as string))).toEqual([]);
+  it("only migration DELETE, no secret-bundle retrieval, no object-level Object Storage, no IAM writes", () => {
+    expect(all.filter((r) => r.method === "DELETE")).toEqual([{ service: "containerinstances", method: "DELETE", pattern: "containerInstances/{}" }]);
     expect(all.map(describeRule).join("\n")).not.toMatch(/secretbundles|\/o\/|changeCompartment/);
     expect(all.filter((r) => r.service === "identity" && r.method !== "GET")).toEqual([]);
     for (const cap of ["topology.read", "firewall.inspect"]) {
@@ -90,6 +90,8 @@ describe("what is never allowed", () => {
     const mutating = Object.entries(OCI_ALLOWLIST).filter(([cap]) => capability(cap).mutates).flatMap(([cap, rules]) => rules.filter((r) => r.method !== "GET").map((r) => `${cap}: ${describeRule(r)}`));
     expect(mutating.sort()).toEqual([
       "database.snapshot: postgresql POST /20220915/backups",
+      "deployment.deploy: containerinstances DELETE /20210415/containerInstances/{}",
+      "deployment.deploy: containerinstances POST /20210415/containerInstances",
       "secret.write: vault PUT /20180608/secrets/{}",
       "service.restart: containerinstances POST /20210415/containerInstances/{}/actions/restart",
     ]);
@@ -233,9 +235,9 @@ describe("end to end through the runner-backed transport", () => {
 });
 
 describe("the protocol document and the code agree", () => {
-  // The scoped workstream documents additive rules in deploy/oci; the shared
-  // protocol remains owned by the orchestrator. Both must describe every rule.
-  const doc = ["docs/platform/RUNNER-PROTOCOL-OCI.md", "deploy/oci/DRIVERS-MORE.md"].map((file) => fs.readFileSync(path.join(process.cwd(), file), "utf8")).join("\n");
+  // Scoped workstreams document additive rules in their owned operator guides;
+  // the shared protocol stays orchestrator-owned. Every rule remains checked.
+  const doc = ["docs/platform/RUNNER-PROTOCOL-OCI.md", "deploy/oci/DRIVERS-MORE.md", "docs/platform/operations/TEARDOWN.md"].map((file) => fs.readFileSync(path.join(process.cwd(), file), "utf8")).join("\n");
 
   it("lists every allowlist rule of every capability", () => {
     for (const [cap, rules] of Object.entries(OCI_ALLOWLIST)) {

@@ -1,7 +1,7 @@
 import { inspect } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
 import { audienceForHost, AzureRequestRefusedError, AzureTokenError, checkAuthorizedUrl, createAzureSession, FEDERATION_AUDIENCE, TOKEN_SCOPES } from "@/lib/providers/azure/credentials";
-import { CredentialDeniedError } from "@/lib/credentials/types";
+import { CredentialDeniedError, type AzureConnectionConfig } from "@/lib/credentials/types";
 import { validateExtraEnv } from "@/lib/tofu/env";
 import { secretValuesOf } from "@/lib/tofu/redact";
 import { CLIENT, connection, fakeArm, fakeAssertion, fakeEntra, SUB, TENANT, type FakeArm } from "./_helpers";
@@ -321,5 +321,71 @@ describe("session lifetime and canaries", () => {
 
   it("fails session creation when the minter returns nothing usable", async () => {
     await expect(createAzureSession({ connection, purpose: "observe", fetchImpl: fakeEntra().fetchImpl, mintClientAssertion: async () => "" })).rejects.toBeInstanceOf(CredentialDeniedError);
+  });
+});
+
+describe("trusted C3 Blob session policy", () => {
+  const binding = { accountResourceId: `/subscriptions/${SUB}/resourceGroups/source/providers/Microsoft.Storage/storageAccounts/zenithsource`, container: "source-bundles", resourceAddress: "object_store/source" };
+  const host = "zenithsource.blob.core.windows.net";
+  async function storageSession(sourceStorage: NonNullable<AzureConnectionConfig["sourceStorage"]>[string] = binding, reply = () => new Response(null, { status: 200 })) {
+    const entra = fakeEntra(); const requests: { url: string; init?: RequestInit }[] = [];
+    const fetchImpl: typeof fetch = async (url, init) => {
+      if (String(url).startsWith("https://login.microsoftonline.com/")) return entra.fetchImpl(url, init);
+      requests.push({ url: String(url), init }); return reply();
+    };
+    const session = await createAzureSession({ connection, sourceStorage, purpose: "deploy", fetchImpl, mintClientAssertion: minter() });
+    return { session, entra, requests };
+  }
+  it.each([
+    ["public", "blob.core.windows.net"], ["usgov", "blob.core.usgovcloudapi.net"], ["china", "blob.core.chinacloudapi.cn"],
+  ] as const)("uses the Storage audience for the exact trusted %s Blob account", async (cloud, suffix) => {
+    const { session, entra, requests } = await storageSession({ ...binding, cloud });
+    await session.authorizedFetch(`https://zenithsource.${suffix}/source-bundles/source`, { redirect: "error", headers: { Authorization: "caller-credential", "Proxy-Authorization": "caller-credential" } });
+    expect(entra.requests[0].body.get("scope")).toBe("https://storage.azure.com/.default");
+    expect(requests[0].init?.redirect).toBe("error");
+    expect(new Headers(requests[0].init?.headers).get("authorization")).toBe(`Bearer ${entra.tokens[0]}`);
+    expect(new Headers(requests[0].init?.headers).has("proxy-authorization")).toBe(false);
+    expect(JSON.stringify(session)).not.toContain(entra.tokens[0]);
+  });
+  it.each([
+    `http://${host}/c/b`, `https://other.blob.core.windows.net/c/b`, `https://${host}.evil.example/c/b`,
+    `https://a.${host}/c/b`, `https://${host}:8443/c/b`, `https://${host}./c/b`, `https://zenithsource.blob.core.usgovcloudapi.net/c/b`,
+    `https://user:pass@${host}/c/b`,
+  ])("refuses untrusted or insecure Blob URL %s before exchanging a token", async (url) => {
+    const { session, entra, requests } = await storageSession();
+    await expect(session.authorizedFetch(url, { redirect: "error" })).rejects.toBeInstanceOf(AzureRequestRefusedError);
+    expect(entra.requests).toHaveLength(0); expect(requests).toHaveLength(0);
+  });
+  it("requires redirect refusal for every source Blob call", async () => {
+    const { session, entra, requests } = await storageSession();
+    await expect(session.authorizedFetch(`https://${host}/c/b`)).rejects.toThrow("redirect refusal");
+    expect(entra.requests).toHaveLength(0); expect(requests).toHaveLength(0);
+  });
+  it.each([`https://${host}/another`, "https://management.azure.com/subscriptions", "https://evil.example/steal"])("never follows a Blob redirect to %s", async (location) => {
+    const { session, entra, requests } = await storageSession(binding, () => new Response(null, { status: 307, headers: { location } }));
+    await expect(session.authorizedFetch(`https://${host}/c/b`, { redirect: "error" })).rejects.toMatchObject({ refusal: "redirect_refused" });
+    expect(requests).toHaveLength(1); expect(entra.requests).toHaveLength(1);
+  });
+  it("honors caller redirect refusal for ARM too", async () => {
+    const { session, requests } = await storageSession(binding, () => new Response(null, { status: 302, headers: { location: "https://myvault.vault.azure.net/secrets/x" } }));
+    await expect(session.authorizedFetch("https://management.azure.com/subscriptions", { redirect: "error" })).rejects.toMatchObject({ refusal: "redirect_refused" });
+    expect(requests).toHaveLength(1);
+  });
+  it("refuses foreign source subscriptions before assertion minting", async () => {
+    const mint = () => { throw new Error("must not mint"); };
+    await expect(createAzureSession({ connection, sourceStorage: { ...binding, accountResourceId: binding.accountResourceId.replace(SUB, "99999999-2222-3333-4444-555555555555") }, purpose: "deploy", mintClientAssertion: mint })).rejects.toThrow("outside this subscription");
+  });
+  it("does not expose a bearer or source URL from transport errors", async () => {
+    const { session, requests, entra } = await storageSession(binding, () => { throw new Error(`Bearer synthetic-sensitive-data https://${host}/c/b`); });
+    const error = await session.authorizedFetch(`https://${host}/c/b`, { redirect: "error" }).catch((e: unknown) => e);
+    expect(String(error)).not.toContain("synthetic-sensitive-data"); expect(String(error)).not.toContain(host);
+    expect(String(error)).not.toContain(entra.tokens[0]); expect(requests).toHaveLength(1);
+  });
+  it("refuses token-endpoint redirects without forwarding the assertion", async () => {
+    const calls: RequestInit[] = [];
+    const fetchImpl: typeof fetch = async (_url, init) => { calls.push(init!); return new Response(null, { status: 307, headers: { location: "https://evil.example/token" } }); };
+    const session = await createAzureSession({ connection, sourceStorage: binding, purpose: "deploy", fetchImpl, mintClientAssertion: minter() });
+    await expect(session.authorizedFetch(`https://${host}/c/b`, { redirect: "error" })).rejects.toBeInstanceOf(AzureTokenError);
+    expect(calls).toHaveLength(1); expect(calls[0].redirect).toBe("error");
   });
 });

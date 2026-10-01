@@ -1,0 +1,74 @@
+{
+  "schemaVersion": "2.2",
+  "description": "Zenith network.dnsCheck: resolve one name from the machine. Refuses cloud metadata names. Read-only. Output format zenith.dns.check/v1.",
+  "parameters": {
+    "name": {
+      "type": "String",
+      "description": "DNS name.",
+      "allowedPattern": "^[A-Za-z0-9._-]{1,253}$",
+      "maxChars": 253,
+      "interpolationType": "ENV_VAR"
+    },
+    "recordType": {
+      "type": "String",
+      "description": "A, AAAA, CNAME, MX, NS, SRV or TXT.",
+      "allowedPattern": "^(A|AAAA|CNAME|MX|NS|SRV|TXT)$",
+      "maxChars": 5,
+      "interpolationType": "ENV_VAR"
+    },
+    "executionTimeout": {
+      "type": "String",
+      "description": "Seconds before the command is considered failed (1-999).",
+      "default": "60",
+      "allowedPattern": "^[1-9][0-9]{0,2}$",
+      "maxChars": 3
+    }
+  },
+  "mainSteps": [
+    {
+      "action": "aws:runShellScript",
+      "name": "zenith",
+      "precondition": {
+        "StringEquals": [
+          "platformType",
+          "Linux"
+        ]
+      },
+      "inputs": {
+        "timeoutSeconds": "{{ executionTimeout }}",
+        "runCommand": [
+          "#!/bin/sh",
+          "set -u",
+          "set -f",
+          "LC_ALL=C",
+          "export LC_ALL",
+          "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+          "export PATH",
+          "die() { printf '%s\\n' \"$2\" >&2; exit \"$1\"; }",
+          "name=\"${SSM_name-}\"",
+          "rtype=\"${SSM_recordType-}\"",
+          "case \"$name\" in ''|-*|*[!A-Za-z0-9._-]*) die 64 'invalid name (SSM Agent >= 3.3.2746.0 is required for ENV_VAR parameters)' ;; esac",
+          "[ \"${#name}\" -le 253 ] || die 64 'invalid name'",
+          "case \"$rtype\" in A|AAAA|CNAME|MX|NS|SRV|TXT) ;; *) die 64 'invalid recordType' ;; esac",
+          "ln=$(printf '%s' \"$name\" | tr 'A-Z' 'a-z')",
+          "ln=\"${ln%.}\"",
+          "case \"$ln\" in metadata|metadata.google.internal|metadata.goog|instance-data|instance-data.ec2.internal|metadata.tencentyun.com|*.metadata.google.internal|*.metadata.goog) die 65 'refused: cloud metadata service name' ;; esac",
+          "if command -v dig >/dev/null 2>&1; then",
+          "  out=$(dig +short +time=3 +tries=1 -t \"$rtype\" \"$name\" 2>&1) || die 69 \"dig failed: $(printf '%s' \"$out\" | head -c 300)\"",
+          "elif command -v getent >/dev/null 2>&1 && [ \"$rtype\" = A ]; then",
+          "  out=$(getent ahostsv4 \"$name\" 2>/dev/null | awk '{print $1}' | sort -u)",
+          "elif command -v getent >/dev/null 2>&1 && [ \"$rtype\" = AAAA ]; then",
+          "  out=$(getent ahostsv6 \"$name\" 2>/dev/null | awk '{print $1}' | sort -u)",
+          "else",
+          "  die 69 'dig is required for this record type and is not available on this machine'",
+          "fi",
+          "echo 'zenith.dns.check/v1'",
+          "printf 'name=%s\\n' \"$name\"",
+          "printf 'type=%s\\n' \"$rtype\"",
+          "printf '%s\\n' \"$out\" | grep -v '^;' | grep . | head -n 64 | sed 's/^/answer=/'",
+          "exit 0"
+        ]
+      }
+    }
+  ]
+}

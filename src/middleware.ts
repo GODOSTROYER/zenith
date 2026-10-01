@@ -11,7 +11,7 @@ export async function middleware(request: NextRequest) {
   // Never let the browser-cookie gate turn it into a login redirect or demo admin.
   // `/agent/link` is deliberately absent — the page must keep getting the
   // `/login?next=…` redirect (src/lib/supabase/middleware.ts:57-70).
-  if (["/api/agent/v1/mcp", "/api/agent/v2/mcp", "/api/agent/v2/tools", "/api/agent/v2/source",
+  if (["/api/agent/v1/mcp", "/api/agent/v2/mcp", "/api/agent/v3/mcp", "/api/agent/v2/tools", "/api/agent/v2/source",
     "/api/agent/link/start", "/api/agent/link/token",
     "/.well-known/oauth-protected-resource/api/agent/v2/mcp",
     // The workload-identity OIDC issuer (ADR-0006): cloud STS services fetch

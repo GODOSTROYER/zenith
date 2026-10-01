@@ -35,6 +35,7 @@ import { applyOrder } from "./render";
 import { conflictsFrom, createK8sClient, ownedBy, readObject, toK8sError, type K8sClient } from "./client";
 import { diffPaths, normalizeForDiff } from "./diff";
 import { isDnsLabel } from "./naming";
+import { validateRbac, validateRbacCompanions } from "./rbac";
 import {
   ANNOTATION,
   FIELD_MANAGER,
@@ -102,6 +103,7 @@ function validate(obj: K8sObject, expectEnv: string | undefined): { ref: ObjectR
   if (expectEnv !== undefined && environment !== expectEnv) throw new K8sError("invalid_object", `${obj.kind}/${obj.metadata.name} belongs to a different environment than this apply.`);
   if (typeof obj.metadata.annotations?.[ANNOTATION.resource] !== "string") throw new K8sError("invalid_object", `${obj.kind}/${obj.metadata.name} is missing ${ANNOTATION.resource}.`);
   if (obj.kind === "Secret" && ("data" in obj || "stringData" in obj)) throw new K8sError("invalid_object", "A Secret must be rendered without data; values are merged at apply time.");
+  validateRbac(obj, "invalid_object");
   return { ref: refOf(obj), environment };
 }
 
@@ -137,6 +139,7 @@ async function preflight(client: K8sClient, objects: readonly K8sObject[], opts:
     let v: { ref: ObjectRef; environment: string };
     try {
       v = validate(obj, environmentId);
+      validateRbacCompanions(obj, objects);
     } catch (e) {
       const err = toK8sError(e);
       failures.push({ ref: refOf(obj ?? {}), status: "error", errorCode: err.code, message: err.message });
@@ -312,6 +315,10 @@ async function run(objects: readonly K8sObject[], session: KubernetesSession, op
     }
     const one = await applyOne(client, p, opts, pre.secretValues);
     results.push(one.result);
+    // A binding must never activate stale rules after its Role failed to apply.
+    if (p.obj.kind === "Role" && !["created", "configured", "unchanged"].includes(one.result.status)) {
+      stopped = "Stopped because a Role failed to apply; dependent bindings were not activated.";
+    }
     if (one.applied) applied.set(refKey(p.ref), one.applied);
     if (one.secretChanged) secretChanged.add(refKey(p.ref));
     opts.log?.(`kubernetes ${dryRun ? "dry-run " : ""}apply ${short(p.ref)}: ${one.result.status}`);

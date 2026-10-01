@@ -189,11 +189,12 @@ describe("static_site, scheduled_job, identity, secret, volume", () => {
     expect(() => render(cronNode({ schedule: "every tuesday" }))).toThrow(/not a cron expression/);
   });
 
-  it("renders a ServiceAccount that does not mount a token, and notes that grants are not translated", () => {
+  it("renders a ServiceAccount without a token for data-plane grants, and notes their API limitation", () => {
     const r = render(identityNode());
     const sa = of(r.objects, "ServiceAccount");
     expect(sa.automountServiceAccountToken).toBe(false);
-    expect(r.notes.join("\n")).toMatch(/does not translate grants/);
+    expect(r.objects.filter((o) => o.kind !== "ServiceAccount")).toEqual([]);
+    expect(r.notes.join("\n")).toMatch(/data-plane verbs; no Kubernetes API permission/);
   });
 
   it("renders a Secret with a reference and NO data; the name matches the env secretKeyRef", () => {

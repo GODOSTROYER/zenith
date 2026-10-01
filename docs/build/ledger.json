@@ -1084,12 +1084,14 @@
       "title": "Cloud-side workload identity trust (IRSA/GKE WI/AKS federated) + non-AWS connection verification",
       "wave": 6,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-K8S-IDENTITY"
       ],
       "paths": [],
-      "branch": "ws/trust-wire"
+      "branch": "ws/trust-wire",
+      "tests": "azure+aws/gcp identity+credentials 431 passed incl. real tofu validate; kubernetes/platform/docs 586+89 passed",
+      "review": "orchestrator: fixed AKS federated credential for azurerm 5.x (caught by real tofu validate); docs claims updated; zenith callers must forward full graph to trust (follow-up)"
     }
   ],
   "blockers": [

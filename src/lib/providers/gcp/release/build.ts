@@ -1,7 +1,7 @@
 /**
  * Cloud Build → Artifact Registry. Contract evidence only; no live GCP account.
- * SourceBundlePort supplies an object key (the historical `s3Key` field) and
- * bucket. The object generation is pinned so it cannot change during build.
+ * C3 SourceBundlePort supplies a GCS object (`s3Key` and optional `objectKey`,
+ * `uri` aliases) and bucket. The object generation is pinned during build.
  * Handles contain identifiers only and can be recovered by another worker.
  * Cloud Build's tag lookup prevents sequential duplicates, not concurrent
  * creates; duplicate builds are harmless content-addressed artifact work.
@@ -46,7 +46,7 @@ async function registry(ctx: Ctx, node: ResourceNode): Promise<{ name: string; u
 
 function decode(ctx: Ctx, raw: string): Handle {
   let h: Handle;
-  try { if (raw.length > 6000) throw new Error(); h = JSON.parse(raw) as Handle; } catch { throw new StepFailedError("Invalid GCP build handle."); }
+  try { if (typeof raw !== "string" || raw.length > 6000) throw new Error(); h = JSON.parse(raw) as Handle; if (!h || typeof h !== "object" || Array.isArray(h)) throw new Error(); } catch { throw new StepFailedError("Invalid GCP build handle."); }
   const base = `projects/${ctx.session.projectId}/locations/${ctx.region}/repositories/`;
   if (h.version !== 1 || h.scope !== scope(ctx) || typeof h.id !== "string" || !/^[a-f0-9-]{8,64}$/.test(h.id) || typeof h.tag !== "string" || !/^zenith-op-[a-f0-9]{12}$/.test(h.tag) || typeof h.registry !== "string" || !h.registry.startsWith(base) || !/^[a-z][a-z0-9-]{0,62}$/.test(h.registry.slice(base.length)) || typeof h.registryAddress !== "string" || !/^[a-z_]+\/[A-Za-z0-9_.-]+$/.test(h.registryAddress) || typeof h.bucket !== "string" || !/^[a-z0-9][a-z0-9._-]{1,61}[a-z0-9]$/.test(h.bucket) || typeof h.object !== "string" || !/^[A-Za-z0-9][A-Za-z0-9._=+@/-]{0,1023}$/.test(h.object) || h.object.split("/").some((p) => p === ".." || p === ".") || !/^\d{1,20}$/.test(h.generation) || typeof h.serviceAccount !== "string" || !h.serviceAccount.endsWith(`@${ctx.session.projectId}.iam.gserviceaccount.com`)) throw new StepFailedError("GCP build handle is outside this environment or malformed.");
   const uri = `${ctx.region}-docker.pkg.dev/${ctx.session.projectId}/${h.registry.slice(base.length)}/`;
@@ -59,6 +59,7 @@ export function createBuildPort(): BuildPort {
     async startBuild(raw, input) {
       const ctx = context(raw);
       managed(ctx, input.service); managed(ctx, input.pipeline, "build_pipeline");
+      if (!["container_service", "scheduled_job"].includes(input.service.kind)) throw new StepFailedError("Build target must be a managed GCP workload.");
       const spec = input.pipeline.spec as unknown as BuildPipelineSpec;
       const artifact = rec(input.service.spec.artifact);
       if (!input.registry || spec.location !== "customer_account" || !("registry" in (spec.output ?? {})) || (spec.output as { registry: string }).registry !== input.registry.address || artifact.type !== "built" || artifact.pipeline !== input.pipeline.address || artifact.registry !== input.registry.address || !input.idempotencyKey || !SOURCE_DIGEST.test(input.source.digest)) throw new StepFailedError("Build inputs do not identify this workload's customer-account pipeline and registry.");
@@ -68,7 +69,10 @@ export function createBuildPort(): BuildPort {
       const bucketObj = await get(ctx, `https://storage.googleapis.com/storage/v1/b/${bucket}`);
       if (bucketObj.name !== bucket) throw new StepFailedError("Source bucket identity does not match the pipeline.");
       assertLabels(ctx, input.pipeline, bucketObj);
-      const object = input.source.s3Key;
+      // Additive C3 fields do not change the shared BuildPort contract.
+      const source = input.source as typeof input.source & { objectKey?: string; uri?: string };
+      const object = source.objectKey ?? source.s3Key;
+      if ((source.objectKey !== undefined && source.objectKey !== source.s3Key) || (source.uri !== undefined && source.uri !== `gs://${bucket}/${object}`)) throw new StepFailedError("Source bundle GCS identifiers do not match.");
       if (!/^[A-Za-z0-9][A-Za-z0-9._=+@/-]{0,1023}$/.test(object) || object.split("/").some((p) => p === ".." || p === ".")) throw new StepFailedError("Source bundle object key is invalid.");
       const metadata = await get(ctx, `https://storage.googleapis.com/storage/v1/b/${bucket}/o/${encodeURIComponent(object)}`);
       if (metadata.bucket !== bucket || metadata.name !== object || typeof metadata.generation !== "string" || !/^\d{1,20}$/.test(metadata.generation)) throw new StepFailedError("Source bundle generation could not be verified.");

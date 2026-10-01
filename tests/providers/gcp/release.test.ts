@@ -1,6 +1,7 @@
 /** GCP release contract tests: synthetic REST and broker sessions, never a live account. */
 import { describe, expect, it } from "vitest";
 import { createGcpBuildPort, createGcpWorkloadsPort, createGcpMigrationsPort } from "@/lib/platform/release-gcp";
+import { IMAGE_DIGEST_ANNOTATION } from "@/lib/providers/gcp/drivers/compute/run-image";
 import { world, node, tagged, service, registry, pipeline, bundle, bucket, sa, DIGEST, IMAGE, PROJECT, REGION, WS, ENV, serviceName, revisionName } from "./release-fixtures";
 
 const buildInput = () => ({ service, registry, pipeline, source: { ...bundle, bucket }, idempotencyKey: "op-1:build:web" });
@@ -81,7 +82,7 @@ describe("GCP digest revision rollout", () => {
     const patch = w.fetcher.mock.calls.find(([, i]) => i?.method === "PATCH")!;
     expect(patch[0]).toBe(`https://run.googleapis.com/v2/${serviceName}?updateMask=template,traffic`);
     const body = JSON.parse(String(patch[1]?.body));
-    expect(body.etag).toBe("etag-1"); expect(body.template).toMatchObject({ ...(prior as object), containers: [expect.objectContaining({ image, env: expect.any(Array), resources: expect.any(Object) })] });
+    expect(body.etag).toBe("etag-1"); expect(body.template).toMatchObject({ ...(prior as object), annotations: { [IMAGE_DIGEST_ANNOTATION]: `sha256:${"b".repeat(64)}` }, containers: [expect.objectContaining({ image, env: expect.any(Array), resources: expect.any(Object) })] });
     expect(body.traffic).toEqual([{ type: "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST", percent: 100 }]);
     await port.deployImage(w.ctx, service, { uri: image, digest: `sha256:${"b".repeat(64)}` }, deploy);
     expect(w.fetcher.mock.calls.filter(([, i]) => i?.method === "PATCH")).toHaveLength(1);

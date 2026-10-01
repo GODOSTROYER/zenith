@@ -7,7 +7,7 @@ Zenith, what it does not, and how to take it back. **The commands and the
 parameter tables are in [`deploy/aws/README.md`](../../../deploy/aws/README.md);
 this page does not repeat them.**
 
-Written against branch `ws/docs` at commit `fd2ce9f` (2026-09-30).
+Written against branch `ws/docs`, merged with `platform/integration` at `6354117` (2026-10-01).
 
 **Status, stated up front.** The bootstrap template and module, the broker and the
 issuer are built and tested without an AWS account. **Nothing has been applied to
@@ -196,6 +196,10 @@ applyable IaC if you want to carry on without Zenith.
 - **Anything beyond AWS.** GCP, Azure, OCI and Kubernetes connections are in
   progress; `ProviderConnection` has types for them, but nothing is documented or
   verified.
+- **Drivers that can act on the account.** The AWS network and edge drivers (VPC,
+  subnet, security-group rule, ALB, Route 53, ACM) are merged but registered by
+  nothing, and carry `contract` evidence only ([CAPABILITY-MATRIX.md](../CAPABILITY-MATRIX.md)).
+  The other AWS groups (compute, data and so on) are not merged.
 - **Real deploys.** The worker's activities are stubs
   ([DEPLOYING.md](DEPLOYING.md#status-what-actually-runs-on-this-branch)), so a
   connected account cannot yet be changed by Zenith through the platform path.

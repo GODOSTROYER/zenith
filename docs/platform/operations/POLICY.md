@@ -7,7 +7,7 @@ mean, how to change a rule and rebuild the bundle, and what a decision record is
 Design: [ADR-0007](../../adr/0007-capability-broker-and-autonomy.md) and
 [ADR-0008](../../adr/0008-policy-opa-wasm.md).
 
-Written against branch `ws/docs` at commit `fd2ce9f` (2026-09-30).
+Written against branch `ws/docs`, merged with `platform/integration` at `6354117` (2026-10-01).
 
 **Status.** The engine, the Rego rules, the plan-fact extraction, the workspace
 parameter resolver and the decision-record store are built and tested. **Nothing

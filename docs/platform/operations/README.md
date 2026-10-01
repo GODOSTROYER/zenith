@@ -7,7 +7,7 @@ have merged. The modules still being built are listed below and **deliberately n
 documented**: a page written before the code exists is a promise, and this
 documentation does not make promises.
 
-Written against branch `ws/docs` at commit `fd2ce9f` (2026-09-30).
+Written against branch `ws/docs`, merged with `platform/integration` at `6354117` (2026-10-01).
 
 ## Read this first: what is real
 
@@ -58,6 +58,7 @@ Reference material these guides lean on (not duplicated here):
 | Temporal workflows and worker | `src/lib/workflows/**`, `workers/execution/**`, `docker/worker.Dockerfile` | [EXECUTION-WORKER.md](../EXECUTION-WORKER.md), [DEPLOYING.md](DEPLOYING.md#5-temporal) |
 | Reconciliation controller | `src/lib/reconcile/**`, `src/app/api/internal/tick/reconcile/route.ts`, migration 2 | [DEPLOYING.md](DEPLOYING.md#28-reconciliation-tick), [RECOVERY.md](RECOVERY.md#45-what-to-do-with-an-uncertain-operation). Merged but not driven: no production ports are wired and no schedule calls the route |
 | Go agents | `go/**`, `deploy/helm/zenith-runner/**`, `deploy/zenithd/**`, `docker/runner.Dockerfile`, `docker/zenithd.Dockerfile` | [RUNNER.md](../RUNNER.md), [ZENITHD.md](../ZENITHD.md). The control-plane routes they talk to are not merged |
+| AWS network and edge drivers | `src/lib/providers/aws/drivers/network/**`, `src/lib/providers/aws/drivers/shared/**` | [CAPABILITY-MATRIX.md](../CAPABILITY-MATRIX.md) (generated; all `contract`). Merged as modules that nothing registers; no operator guide (planned with the driver sets) |
 | Incident engine | `src/lib/incidents/**` | [ADR-0014](../../adr/0014-incident-engine.md). A library that reads no environment, takes its probes as injected ports and is called by nothing yet; no operator guide (planned) |
 | Repository analysis | `src/lib/analysis/**` | Not part of the control plane's operation: it turns a repository snapshot into a proposed manifest. Reads no environment; nothing to operate |
 | Platform UI components | `src/components/platform/**` | [README](../../../src/components/platform/README.md) in that folder. Presentational only (data and callbacks arrive as props); no page renders them yet |
@@ -68,8 +69,9 @@ Reference material these guides lean on (not duplicated here):
 These are being built in other workstreams. Until they merge, nothing on this
 branch behaves the way a guide could describe, so there is no guide:
 
-- resource drivers, including the AWS, Kubernetes, GCP, Azure, OCI and managed
-  `zenith` provider sets
+- the provider-level driver registration (nothing registers the merged AWS network
+  drivers), the remaining AWS driver groups, and the Kubernetes, GCP, Azure, OCI and
+  managed `zenith` provider sets
 - the capability broker, approvals and autonomy enforcement
 - the control-plane side of the runner and machine protocols: the registration and
   job routes, `src/lib/runners`, and the TypeScript machine plane (`src/lib/machines`

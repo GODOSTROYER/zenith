@@ -4,7 +4,7 @@ How the pieces of the platform control plane fit together, what each one needs
 in its environment, and how to run them. This is for whoever operates a Zenith
 install; the design is in [ARCHITECTURE.md](../ARCHITECTURE.md) and the ADRs.
 
-Written against branch `ws/docs` at commit `fd2ce9f` (2026-09-30). Everything
+Written against branch `ws/docs`, merged with `platform/integration` at `6354117` (2026-10-01). Everything
 here is checked against the code on that branch; anything that is not verified
 live says so, and the last section collects them.
 
@@ -25,7 +25,8 @@ doing work yet.
 | Temporal workflows, client and execution worker | The workflows, client, worker process and image recipe are built and tested against real Temporal servers. **Every activity is a stub** that fails with `not_implemented` ("nothing was changed"): the worker boots, polls and runs workflows, and no operation can do real work. |
 | Reconciliation controller (`src/lib/reconcile`, migration 2 `platform.reconcile_state`, `POST /api/internal/tick/reconcile`) | Built and tested. It observes and files `drift.repair` *proposals*; it never executes one. The route is gated by `CRON_SECRET` and answers `503 platform_store_unavailable` until production ports are registered with `wireReconcilePorts()`, which nothing on this branch does; `.github/workflows/tick.yml` does not call it either. It needs drivers to observe anything real, and none has merged. See section 2.8. |
 | `zenith-runner` and `zenithd` (Go, `go/`, Helm chart, Dockerfiles) | Built by another workstream, with their own operator guides: [RUNNER.md](../RUNNER.md) and [ZENITHD.md](../ZENITHD.md). Their control-plane side (the runner and machine routes, `src/lib/runners`, `src/lib/machines` beyond its types) is **not merged**, so nothing on this branch can register or feed an agent. I did not run or verify the agents. |
-| Resource drivers, capability broker, the control-plane side of the runner and machine protocols, REST `/api/platform/v1`, MCP v3, the platform screens and routes, and the Kubernetes, GCP, Azure, OCI and managed `zenith` providers | **In progress in other workstreams. Not documented here.** When they merge they get their own sections. |
+| AWS network and edge resource drivers (`src/lib/providers/aws/drivers/network`: VPC, subnet, security-group rule, ALB, Route 53 zone and record, ACM certificate) | Merged as modules and tested with mocked SDKs (plus `tofu validate` against the real provider schema when `ZENITH_TEST_TOFU_NETWORK=1`). **Nothing registers them**: the provider-level `drivers/index.ts` that would is not merged, so `getDriver()` finds none and the worker cannot use them. Every operation they declare is `contract` evidence ([CAPABILITY-MATRIX.md](../CAPABILITY-MATRIX.md)). |
+| The remaining resource drivers (every other AWS group, and the Kubernetes, GCP, Azure, OCI and managed `zenith` providers), the capability broker, the control-plane side of the runner and machine protocols, REST `/api/platform/v1`, MCP v3, and the platform screens and routes | **In progress in other workstreams. Not documented here.** When they merge they get their own sections. |
 
 The honest summary: today you can stand up the store, the OIDC issuer and the
 worker, and you can see the pieces connect. You cannot yet run a deploy to a
@@ -262,8 +263,8 @@ against a fleet.
 
 The resource model (`src/lib/resources`), placement and cost (`src/lib/placement`),
 the observability fabric (`src/lib/observability`), the incident engine
-(`src/lib/incidents`) and repository analysis (`src/lib/analysis`) read no
-environment variables. Observability sources receive their clients and endpoints as
+(`src/lib/incidents`), repository analysis (`src/lib/analysis`) and the merged AWS
+network drivers (`src/lib/providers/aws/drivers`) read no environment variables. Observability sources receive their clients and endpoints as
 arguments from the broker session; the price catalog is a bundled JSON file.
 
 ### 2.11 Which component needs what

@@ -8,10 +8,16 @@
  * Inputs, all read from the code on the current branch:
  *   - the resource-driver registry (`listDrivers()`), populated by importing
  *     `src/lib/providers/<provider>/drivers/index.ts` for every provider whose
- *     file exists. A provider without that file is reported as "no drivers
- *     merged", not skipped silently and not guessed at. An index that exists but
- *     throws on import is an error: a broken driver set must not produce a
- *     reassuring, empty matrix.
+ *     file exists (the provider-level index, which concatenates the groups and
+ *     registers them), plus
+ *   - driver GROUP modules, `src/lib/providers/<provider>/drivers/<group>/index.ts`,
+ *     which export `ResourceDriver`s without registering them. A driver that is
+ *     merged as a module but that no provider-level index registers is listed,
+ *     with its declared evidence, and marked "not registered": it exists in the
+ *     tree and `getDriver()` cannot find it. A provider with neither is reported
+ *     as "none merged", not skipped silently and not guessed at. An index that
+ *     exists but throws on import is an error: a broken driver set must not
+ *     produce a reassuring, empty matrix.
  *   - the observability `SOURCE_EVIDENCE` table;
  *   - the capability catalog (`CAPABILITIES`).
  *
@@ -62,6 +68,8 @@ export interface OperationCell {
 }
 
 export interface DriverRow {
+  /** true when the driver is in the runtime registry (`getDriver` finds it); false when it is only a merged module */
+  registered: boolean;
   provider: string;
   nativeType: string;
   kind: string;
@@ -77,10 +85,18 @@ export interface MatrixProblem {
 
 export interface ProviderDiscovery {
   provider: string;
-  /** `loaded`: a drivers index exists and was imported. `absent`: no `drivers/index.ts` on this branch. */
-  status: "loaded" | "absent";
+  /**
+   * `loaded`: the provider-level `drivers/index.ts` exists and was imported.
+   * `groups`: there is no provider-level index, but driver group modules exist.
+   * `absent`: neither is on this branch.
+   */
+  status: "loaded" | "groups" | "absent";
   /** exported `register…Drivers` functions that were called */
   registrars: string[];
+  /** driver group modules (`drivers/<group>/index.ts`) that were imported, sorted */
+  groups: string[];
+  /** the `ResourceDriver`s those group modules export (registered or not), sorted by id */
+  groupDrivers: ResourceDriver[];
 }
 
 export interface MatrixData {
@@ -97,29 +113,59 @@ export interface MatrixData {
 
 /* -------------------------------- discovery ------------------------------- */
 
+const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+
 const isEvidenceLevel = (value: unknown): value is EvidenceLevel => typeof value === "string" && (EVIDENCE_LEVELS as readonly string[]).includes(value);
+
+/** A value shaped like a `ResourceDriver` (what a group module exports). */
+function isDriverShaped(value: unknown): value is ResourceDriver {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return typeof v.id === "string" && typeof v.provider === "string" && typeof v.nativeType === "string" && typeof v.capabilities === "object" && v.capabilities !== null;
+}
 
 /**
  * Import every provider's drivers index that exists under `providersRoot`
- * (default `src/lib/providers`) and call its `register…Drivers` exports. Absence
- * is tolerated and reported; a failing import is not.
+ * (default `src/lib/providers`) and call its `register...Drivers` exports; then
+ * import every driver group module (`drivers/<group>/index.ts`, excluding
+ * `shared`) and collect the drivers it exports. Absence is tolerated and
+ * reported; a failing import is not.
  */
 export async function loadProviderDrivers(options: { repoRoot?: string; providers?: readonly string[] } = {}): Promise<ProviderDiscovery[]> {
   const repoRoot = options.repoRoot ?? defaultRepoRoot();
   const providers = options.providers ?? Object.keys(NATIVE_PREFIX);
   const out: ProviderDiscovery[] = [];
   for (const provider of providers) {
-    const index = path.join(repoRoot, "src", "lib", "providers", provider, "drivers", "index.ts");
-    if (!fs.existsSync(index)) {
-      out.push({ provider, status: "absent", registrars: [] });
-      continue;
+    const driversDir = path.join(repoRoot, "src", "lib", "providers", provider, "drivers");
+    const index = path.join(driversDir, "index.ts");
+    let registrars: string[] = [];
+    if (fs.existsSync(index)) {
+      const mod = (await import(/* @vite-ignore */ pathToFileURL(index).href)) as Record<string, unknown>;
+      registrars = Object.keys(mod)
+        .filter((name) => /^register\w*Drivers$/.test(name) && typeof mod[name] === "function")
+        .sort();
+      for (const name of registrars) (mod[name] as () => void)();
     }
-    const mod = (await import(/* @vite-ignore */ pathToFileURL(index).href)) as Record<string, unknown>;
-    const registrars = Object.keys(mod)
-      .filter((name) => /^register\w*Drivers$/.test(name) && typeof mod[name] === "function")
-      .sort();
-    for (const name of registrars) (mod[name] as () => void)();
-    out.push({ provider, status: "loaded", registrars });
+
+    const groups: string[] = [];
+    const found = new Map<string, ResourceDriver>();
+    if (fs.existsSync(driversDir)) {
+      const dirs = fs
+        .readdirSync(driversDir, { withFileTypes: true })
+        .filter((d) => d.isDirectory() && d.name !== "shared" && !d.name.startsWith("_") && fs.existsSync(path.join(driversDir, d.name, "index.ts")))
+        .map((d) => d.name)
+        .sort();
+      for (const group of dirs) {
+        const mod = (await import(/* @vite-ignore */ pathToFileURL(path.join(driversDir, group, "index.ts")).href)) as Record<string, unknown>;
+        groups.push(group);
+        for (const value of Object.values(mod)) {
+          for (const candidate of Array.isArray(value) ? value : [value]) if (isDriverShaped(candidate)) found.set(candidate.id, candidate);
+        }
+      }
+    }
+    const groupDrivers = [...found.values()].sort((a, b) => cmp(a.id, b.id));
+    const status: ProviderDiscovery["status"] = fs.existsSync(index) ? "loaded" : groups.length > 0 ? "groups" : "absent";
+    out.push({ provider, status, registrars, groups, groupDrivers });
   }
   return out;
 }
@@ -130,10 +176,10 @@ function defaultRepoRoot(): string {
 
 /* ------------------------------ data assembly ----------------------------- */
 
-const cmp = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
-
 export interface BuildMatrixInput {
   drivers: readonly ResourceDriver[];
+  /** ids of the drivers in the runtime registry; default: all of `drivers` */
+  registered?: ReadonlySet<string>;
   providers: readonly string[];
   discovery: readonly ProviderDiscovery[];
   sourceEvidence: Readonly<Record<string, SourceEvidence>>;
@@ -203,7 +249,7 @@ export function buildMatrix(input: BuildMatrixInput): MatrixData {
       }
     }
 
-    rows.push({ provider: driver.provider, nativeType: driver.nativeType, kind: driver.kind, driverId: driver.id, core, operations });
+    rows.push({ registered: input.registered ? input.registered.has(driver.id) : true, provider: driver.provider, nativeType: driver.nativeType, kind: driver.kind, driverId: driver.id, core, operations });
   }
 
   rows.sort((a, b) => cmp(a.provider, b.provider) || cmp(a.nativeType, b.nativeType) || cmp(a.driverId, b.driverId));
@@ -229,12 +275,17 @@ export function buildMatrix(input: BuildMatrixInput): MatrixData {
   };
 }
 
-/** Read the live registry, the observability table and the catalog. */
+/** Read the live registry (after importing what exists), the group modules, the observability table and the catalog. */
 export async function collectMatrix(options: { repoRoot?: string } = {}): Promise<MatrixData> {
   const providers = Object.keys(NATIVE_PREFIX);
   const discovery = await loadProviderDrivers({ repoRoot: options.repoRoot, providers });
+  const registry = listDrivers();
+  const registered = new Set(registry.map((d) => d.id));
+  const byId = new Map<string, ResourceDriver>(registry.map((d) => [d.id, d]));
+  for (const d of discovery) for (const driver of d.groupDrivers) if (!byId.has(driver.id)) byId.set(driver.id, driver);
   return buildMatrix({
-    drivers: listDrivers(),
+    drivers: [...byId.values()],
+    registered,
     providers,
     discovery,
     sourceEvidence: SOURCE_EVIDENCE,
@@ -279,8 +330,9 @@ export function renderMatrix(data: MatrixData): string {
     "",
     "<!-- GENERATED FILE: DO NOT EDIT. Source: scripts/docs/capability-matrix.ts. Regenerate: npx tsx scripts/docs/capability-matrix.ts -->",
     "",
-    "This file is generated from the code: the resource-driver registry, the",
-    "observability evidence table and the capability catalog. It is never written by",
+    "This file is generated from the code: the resource drivers (the runtime registry",
+    "and the driver group modules), the observability evidence table and the capability",
+    "catalog. It is never written by",
     "hand. To refresh it after a driver merges or an evidence level changes, run",
     "`npx tsx scripts/docs/capability-matrix.ts`; `--check` exits non-zero when the",
     "committed file is out of date, and `tests/docs/capability-matrix.test.ts` runs it.",
@@ -318,12 +370,13 @@ export function renderMatrix(data: MatrixData): string {
   }
   push(
     table(
-      ["Provider", "Drivers index", "Drivers registered"],
+      ["Provider", "Provider-level drivers index", "Driver group modules", "Drivers merged", "Registered at runtime"],
       data.providers.map((provider) => {
         const d = data.discovery.find((x) => x.provider === provider);
-        const count = data.rows.filter((r) => r.provider === provider).length;
-        const index = d?.status === "loaded" ? `\`src/lib/providers/${provider}/drivers/index.ts\`` : "none merged";
-        return [provider, index, count === 0 ? "none" : String(count)];
+        const rows = data.rows.filter((r) => r.provider === provider);
+        const index = d?.status === "loaded" ? `\`src/lib/providers/${provider}/drivers/index.ts\`` : "none";
+        const groups = d && d.groups.length > 0 ? d.groups.map(code).join(", ") : "none";
+        return [provider, index, groups, rows.length === 0 ? "none" : String(rows.length), rows.length === 0 ? "none" : String(rows.filter((r) => r.registered).length)];
       })
     ),
     ""
@@ -335,6 +388,13 @@ export function renderMatrix(data: MatrixData): string {
       ""
     );
   }
+  const unregistered = data.rows.filter((r) => !r.registered);
+  if (unregistered.length > 0) {
+    push(
+      `**${unregistered.length} merged driver${unregistered.length === 1 ? " is" : "s are"} registered by nothing.** They are code in the tree (a group module exports them, with the evidence each declares below), but no provider-level \`drivers/index.ts\` registers them, so \`getDriver()\` finds none of them at runtime and no operation can use them yet.`,
+      ""
+    );
+  }
   push(
     "This matrix covers the **resource-driver** path (`src/lib/drivers`). The product engine's sandbox, LocalStack and AWS Preview providers use the older `ProviderAdapter` interface and have no per-operation evidence table; their honest status is in [`docs/LIMITATIONS.md`](../LIMITATIONS.md#providers).",
     ""
@@ -343,19 +403,20 @@ export function renderMatrix(data: MatrixData): string {
   /* ------------------------------- driver matrix ----------------------------- */
   push("## Resource drivers: provider × native type × operation", "");
   if (data.rows.length === 0) {
-    push("No resource driver is registered on this branch, so there are no rows. (The generator imports every `src/lib/providers/<provider>/drivers/index.ts` that exists; none does.)", "");
+    push("No resource driver is merged on this branch, so there are no rows. (The generator imports every `src/lib/providers/<provider>/drivers/index.ts` and every driver group module `drivers/<group>/index.ts` that exists; none does.)", "");
   } else {
     for (const provider of data.providers.filter((p) => withDrivers.has(p))) {
       push(`### ${provider}`, "");
       push(
         table(
-          ["Native type", "Kind", "Driver", ...CORE_OPERATIONS, "Day-two operations"],
+          ["Native type", "Kind", "Driver", "Registered", ...CORE_OPERATIONS, "Day-two operations"],
           data.rows
             .filter((r) => r.provider === provider)
             .map((r) => [
               code(r.nativeType),
               code(r.kind),
               code(r.driverId),
+              r.registered ? "yes" : "no",
               ...CORE_OPERATIONS.map((op) => coreCell(r.core[op])),
               r.operations.length === 0 ? "—" : r.operations.map((o) => `${code(o.capability)}: ${o.evidence === "undeclared" ? "**undeclared**" : code(o.evidence)}`).join("<br>"),
             ])
@@ -382,7 +443,7 @@ export function renderMatrix(data: MatrixData): string {
   push(
     "## Capability catalog",
     "",
-    "From `CAPABILITIES` (`src/lib/capabilities/catalog.ts`): every name authorization can act on. **Default autonomy** is the minimum environment autonomy level at which the capability may run without a human approval, before policy ([ADR-0007](../adr/0007-capability-broker-and-autonomy.md), [POLICY.md](operations/POLICY.md)); `6` means never unattended. **Driver support** lists the providers whose registered drivers declare the capability as a native operation, at the *weakest* level among that provider's drivers. Many capabilities (planning, cost, placement, incident investigation) are not driver operations at all and will always read \"no driver\".",
+    "From `CAPABILITIES` (`src/lib/capabilities/catalog.ts`): every name authorization can act on. **Default autonomy** is the minimum environment autonomy level at which the capability may run without a human approval, before policy ([ADR-0007](../adr/0007-capability-broker-and-autonomy.md), [POLICY.md](operations/POLICY.md)); `6` means never unattended. **Driver support** lists the providers whose merged drivers (registered or not) declare the capability as a native operation, at the *weakest* level among that provider's drivers. Many capabilities (planning, cost, placement, incident investigation) are not driver operations at all and will always read \"no driver\".",
     "",
     table(
       ["Capability", "Risk floor", "Mutates", "Flags", "Default autonomy", "Scope", "Driver support"],
@@ -415,7 +476,7 @@ export function renderMatrix(data: MatrixData): string {
 
   /* --------------------------------- problems -------------------------------- */
   push("## Problems", "");
-  if (data.problems.length === 0) push("None: every registered driver's declaration is consistent with its shape.", "");
+  if (data.problems.length === 0) push("None: every merged driver's declaration is consistent with its shape.", "");
   else {
     push("Each line is an inconsistency between a driver's declaration and its shape. Fix the driver; do not edit this file.", "");
     for (const p of data.problems) push(`- ${code(p.driver)} ${p.message}.`);

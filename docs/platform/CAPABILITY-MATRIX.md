@@ -2,8 +2,9 @@
 
 <!-- GENERATED FILE: DO NOT EDIT. Source: scripts/docs/capability-matrix.ts. Regenerate: npx tsx scripts/docs/capability-matrix.ts -->
 
-This file is generated from the code: the resource-driver registry, the
-observability evidence table and the capability catalog. It is never written by
+This file is generated from the code: the resource drivers (the runtime registry
+and the driver group modules), the observability evidence table and the capability
+catalog. It is never written by
 hand. To refresh it after a driver merges or an evidence level changes, run
 `npx tsx scripts/docs/capability-matrix.ts`; `--check` exits non-zero when the
 committed file is out of date, and `tests/docs/capability-matrix.test.ts` runs it.
@@ -27,24 +28,36 @@ A cell reading **undeclared** means the driver supports the operation but declar
 
 No entry claims `real`: there is no live-account acceptance evidence yet.
 
-| Provider | Drivers index | Drivers registered |
-|---|---|---|
-| aws | none merged | none |
-| gcp | none merged | none |
-| azure | none merged | none |
-| oci | none merged | none |
-| kubernetes | none merged | none |
-| zenith | none merged | none |
-| sandbox | none merged | none |
-| localstack | none merged | none |
+| Provider | Provider-level drivers index | Driver group modules | Drivers merged | Registered at runtime |
+|---|---|---|---|---|
+| aws | none | `network` | 7 | 0 |
+| gcp | none | none | none | none |
+| azure | none | none | none | none |
+| oci | none | none | none | none |
+| kubernetes | none | none | none | none |
+| zenith | none | none | none | none |
+| sandbox | none | none | none | none |
+| localstack | none | none | none | none |
 
-**No resource drivers are merged yet for:** aws, gcp, azure, oci, kubernetes, zenith, sandbox, localstack. Driver sets are delivered by separate workstreams and appear here once they are merged and this file is regenerated.
+**No resource drivers are merged yet for:** gcp, azure, oci, kubernetes, zenith, sandbox, localstack. Driver sets are delivered by separate workstreams and appear here once they are merged and this file is regenerated.
+
+**7 merged drivers are registered by nothing.** They are code in the tree (a group module exports them, with the evidence each declares below), but no provider-level `drivers/index.ts` registers them, so `getDriver()` finds none of them at runtime and no operation can use them yet.
 
 This matrix covers the **resource-driver** path (`src/lib/drivers`). The product engine's sandbox, LocalStack and AWS Preview providers use the older `ProviderAdapter` interface and have no per-operation evidence table; their honest status is in [`docs/LIMITATIONS.md`](../LIMITATIONS.md#providers).
 
 ## Resource drivers: provider × native type × operation
 
-No resource driver is registered on this branch, so there are no rows. (The generator imports every `src/lib/providers/<provider>/drivers/index.ts` that exists; none does.)
+### aws
+
+| Native type | Kind | Driver | Registered | compile | observe | runtime | verify | discover | Day-two operations |
+|---|---|---|---|---|---|---|---|---|---|
+| `aws:acm_certificate` | `tls_certificate` | `aws.acm_certificate@1` | no | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:alb` | `load_balancer` | `aws.alb@1` | no | `contract` | `contract` | `contract` | `contract` | `contract` | — |
+| `aws:route53_record` | `dns_record` | `aws.route53_record@1` | no | `contract` | `contract` | — | `contract` | — | — |
+| `aws:route53_zone` | `dns_zone` | `aws.route53_zone@1` | no | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:security_group_rule` | `firewall` | `aws.security_group_rule@1` | no | `contract` | `contract` | — | `contract` | `contract` | `firewall.inspect`: `contract` |
+| `aws:subnet` | `subnet` | `aws.subnet@1` | no | `contract` | `contract` | — | `contract` | `contract` | — |
+| `aws:vpc` | `network` | `aws.vpc@1` | no | `contract` | `contract` | — | `contract` | `contract` | — |
 
 ## Observability sources
 
@@ -63,7 +76,7 @@ From `SOURCE_EVIDENCE` (`src/lib/observability/evidence.ts`). Sources are read-o
 
 ## Capability catalog
 
-From `CAPABILITIES` (`src/lib/capabilities/catalog.ts`): every name authorization can act on. **Default autonomy** is the minimum environment autonomy level at which the capability may run without a human approval, before policy ([ADR-0007](../adr/0007-capability-broker-and-autonomy.md), [POLICY.md](operations/POLICY.md)); `6` means never unattended. **Driver support** lists the providers whose registered drivers declare the capability as a native operation, at the *weakest* level among that provider's drivers. Many capabilities (planning, cost, placement, incident investigation) are not driver operations at all and will always read "no driver".
+From `CAPABILITIES` (`src/lib/capabilities/catalog.ts`): every name authorization can act on. **Default autonomy** is the minimum environment autonomy level at which the capability may run without a human approval, before policy ([ADR-0007](../adr/0007-capability-broker-and-autonomy.md), [POLICY.md](operations/POLICY.md)); `6` means never unattended. **Driver support** lists the providers whose merged drivers (registered or not) declare the capability as a native operation, at the *weakest* level among that provider's drivers. Many capabilities (planning, cost, placement, incident investigation) are not driver operations at all and will always read "no driver".
 
 | Capability | Risk floor | Mutates | Flags | Default autonomy | Scope | Driver support |
 |---|---|---|---|---|---|---|
@@ -72,7 +85,7 @@ From `CAPABILITIES` (`src/lib/capabilities/catalog.ts`): every name authorizatio
 | `container.logs` | low | no | — | 0 | resource | no driver |
 | `cost.estimate` | low | no | — | 0 | project | no driver |
 | `events.read` | low | no | — | 0 | environment | no driver |
-| `firewall.inspect` | low | no | — | 0 | environment | no driver |
+| `firewall.inspect` | low | no | — | 0 | environment | aws: `contract` (1 driver) |
 | `incident.investigate` | low | no | — | 0 | environment | no driver |
 | `infrastructure.observe` | low | no | — | 0 | environment | no driver |
 | `logs.read` | low | no | — | 0 | environment | no driver |
@@ -131,4 +144,4 @@ Non-mutating capabilities are not gated by autonomy: the policy rule `autonomy_b
 
 ## Problems
 
-None: every registered driver's declaration is consistent with its shape.
+None: every merged driver's declaration is consistent with its shape.

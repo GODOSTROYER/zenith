@@ -136,6 +136,7 @@ describe("environment variables", () => {
     "src/lib/observability",
     "src/lib/incidents",
     "src/lib/reconcile",
+    "src/lib/providers/aws/drivers",
     "src/lib/analysis",
     "src/lib/capabilities",
     "src/lib/drivers",
@@ -330,10 +331,18 @@ describe("the 'in progress' claims still hold", () => {
     return hits;
   };
 
-  it("no resource driver index has merged", () => {
+  it("no provider-level drivers index has merged, and the only driver group is the AWS network one", () => {
     const providers = path.join(REPO_ROOT, "src", "lib", "providers");
-    const indexes = fs.readdirSync(providers, { withFileTypes: true }).filter((d) => d.isDirectory() && fs.existsSync(path.join(providers, d.name, "drivers", "index.ts")));
+    const dirs = fs.readdirSync(providers, { withFileTypes: true }).filter((d) => d.isDirectory());
+    const indexes = dirs.filter((d) => fs.existsSync(path.join(providers, d.name, "drivers", "index.ts")));
     expect(indexes.map((d) => d.name)).toEqual([]);
+    const groups: string[] = [];
+    for (const d of dirs) {
+      const drivers = path.join(providers, d.name, "drivers");
+      if (!fs.existsSync(drivers)) continue;
+      for (const g of fs.readdirSync(drivers, { withFileTypes: true })) if (g.isDirectory() && g.name !== "shared") groups.push(`${d.name}/${g.name}`);
+    }
+    expect(groups).toEqual(["aws/network"]);
   });
 
   it("the capability broker, the control-plane side of the runner and machine protocols, REST and MCP v3 have not merged", () => {

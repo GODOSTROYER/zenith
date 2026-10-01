@@ -68,8 +68,8 @@ const input = (drivers: ResourceDriver[]): BuildMatrixInput => ({
   drivers,
   providers: ["aws", "gcp"],
   discovery: [
-    { provider: "aws", status: "loaded", registrars: ["registerAwsDrivers"] },
-    { provider: "gcp", status: "absent", registrars: [] },
+    { provider: "aws", status: "loaded", registrars: ["registerAwsDrivers"], groups: [], groupDrivers: [] },
+    { provider: "gcp", status: "absent", registrars: [], groups: [], groupDrivers: [] },
   ],
   sourceEvidence: SOURCE_EVIDENCE,
   capabilities: catalog,
@@ -113,7 +113,7 @@ describe("the committed capability matrix", () => {
     const text = read(path.join(REPO_ROOT, MATRIX_RELATIVE_PATH));
     const without = data.providers.filter((p) => !data.rows.some((r) => r.provider === p));
     for (const provider of without) {
-      const row = new RegExp(`^\\| ${provider} \\| none merged \\| none \\|$`, "m");
+      const row = new RegExp(`^\\| ${provider} \\| none \\| (?:none|[^|]+) \\| none \\| none \\|$`, "m");
       expect(text, `provider ${provider}`).toMatch(row);
     }
     if (without.length > 0) expect(text).toContain("**No resource drivers are merged yet for:**");
@@ -129,11 +129,33 @@ describe("the committed capability matrix", () => {
 describe("generator: discovery", () => {
   it("imports a provider drivers index that exists and calls its register function", async () => {
     const discovery = await loadProviderDrivers({ repoRoot: path.join(FIXTURES, "fake-repo"), providers: ["aws", "gcp"] });
-    expect(discovery).toEqual([
-      { provider: "aws", status: "loaded", registrars: ["registerAwsDrivers"] },
-      { provider: "gcp", status: "absent", registrars: [] },
+    expect(discovery.map(({ groupDrivers, ...rest }) => ({ ...rest, groupDrivers: groupDrivers.map((d) => d.id) }))).toEqual([
+      { provider: "aws", status: "loaded", registrars: ["registerAwsDrivers"], groups: [], groupDrivers: [] },
+      { provider: "gcp", status: "absent", registrars: [], groups: [], groupDrivers: [] },
     ]);
     expect([...registry().keys()].filter((k) => k.startsWith("aws|")).sort()).toEqual(["aws|aws:ecs_service", "aws|aws:rds_instance"]);
+  });
+
+  it("finds driver group modules that no provider index registers, skips `shared`, and registers nothing", async () => {
+    const before = registry().size;
+    const discovery = await loadProviderDrivers({ repoRoot: path.join(FIXTURES, "fake-repo"), providers: ["kubernetes"] });
+    expect(registry().size).toBe(before);
+    expect(discovery).toHaveLength(1);
+    expect(discovery[0].status).toBe("groups");
+    expect(discovery[0].groups).toEqual(["workloads"]);
+    expect(discovery[0].groupDrivers.map((d) => d.id)).toEqual(["kubernetes.deployment@1"]);
+
+    const data = buildMatrix({
+      ...input(discovery[0].groupDrivers),
+      providers: ["kubernetes", "gcp"],
+      registered: new Set(),
+      discovery: [discovery[0], { provider: "gcp", status: "absent", registrars: [], groups: [], groupDrivers: [] }],
+    });
+    const text = renderMatrix(data);
+    expect(data.rows.map((r) => [r.driverId, r.registered])).toEqual([["kubernetes.deployment@1", false]]);
+    expect(text).toContain("| kubernetes | none | `workloads` | 1 | 0 |");
+    expect(text).toContain("**1 merged driver is registered by nothing.**");
+    expect(text).toContain("| `k8s:Deployment` | `container_service` | `kubernetes.deployment@1` | no | `contract` | `contract` | — | — | — | — |");
   });
 
   it("tolerates a repository with no provider drivers at all", async () => {
@@ -154,10 +176,10 @@ describe("generator: discovery", () => {
     expect(data.problems).toEqual([]);
     expect(data.realClaims).toEqual([]);
     expect(text).toContain("### aws");
-    expect(text).toContain("| `aws:ecs_service` | `container_service` | `aws.ecs_service@1` | `contract` | `contract` | `contract` | — | — | `service.restart`: `contract`<br>`service.scale`: `emulated` |");
-    expect(text).toContain("| `aws:rds_instance` | `postgres` | `aws.rds_instance@1` | `contract` | `contract` | — | — | — | `database.snapshot`: `contract`<br>`service.restart`: `simulated` |");
-    expect(text).toContain("| aws | `src/lib/providers/aws/drivers/index.ts` | 2 |");
-    expect(text).toContain("| gcp | none merged | none |");
+    expect(text).toContain("| `aws:ecs_service` | `container_service` | `aws.ecs_service@1` | yes | `contract` | `contract` | `contract` | — | — | `service.restart`: `contract`<br>`service.scale`: `emulated` |");
+    expect(text).toContain("| `aws:rds_instance` | `postgres` | `aws.rds_instance@1` | yes | `contract` | `contract` | — | — | — | `database.snapshot`: `contract`<br>`service.restart`: `simulated` |");
+    expect(text).toContain("| aws | `src/lib/providers/aws/drivers/index.ts` | none | 2 | 2 |");
+    expect(text).toContain("| gcp | none | none | none | none |");
     // the capability table reports the weakest level among a provider's drivers
     expect(providerSupport(data.rows, "service.restart")).toEqual([{ provider: "aws", weakest: "simulated", drivers: 2 }]);
     expect(providerSupport(data.rows, "service.scale")).toEqual([{ provider: "aws", weakest: "emulated", drivers: 1 }]);

@@ -1034,6 +1034,18 @@
       "deps": [],
       "paths": [],
       "branch": "ws/zm-tls"
+    },
+    {
+      "id": "WS-OCI-MORE",
+      "title": "OCI OKE, MySQL DB system and compute instance drivers",
+      "wave": 6,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-DRIVER-FIX"
+      ],
+      "paths": [],
+      "branch": "ws/oci-more"
     }
   ],
   "blockers": [

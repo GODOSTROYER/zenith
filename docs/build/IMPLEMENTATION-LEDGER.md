@@ -74,6 +74,7 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-MACH-CLOUDS | Azure Run Command and GCP OS management machine transports | 6 | in_progress |  | ws/mach-clouds |  |  |  |  |
 | WS-BUILD-MULTI | GCP Cloud Build and Azure ACR release ports (digest-pinned rollout) | 6 | in_progress |  | ws/build-multi |  |  |  |  |
 | WS-ZM-TLS | Managed hosting TLS: per-environment certificates and Gateway listeners | 6 | in_progress |  | ws/zm-tls |  |  |  |  |
+| WS-OCI-MORE | OCI OKE, MySQL DB system and compute instance drivers | 6 | in_progress | WS-DRIVER-FIX | ws/oci-more |  |  |  |  |
 
 ## External blockers
 

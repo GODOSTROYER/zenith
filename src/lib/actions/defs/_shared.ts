@@ -8,6 +8,7 @@
  */
 import type { ActionContext, ActionPlan, Risk } from "@/lib/actions/core";
 import { channelsOf, maskTarget } from "@/lib/alerts";
+import { v1View, v2OnlySections } from "@/lib/resources/upgrade";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { db, q, save } from "@/lib/db/store";
 import { diffManifests } from "@/lib/domain/graph";
@@ -17,7 +18,7 @@ import type {
   CloudConnection,
   Deployment,
   Environment,
-  Manifest,
+  AnyManifest,
   Project,
   Resource,
   Revision,
@@ -149,13 +150,13 @@ export function requireConnection(ctx: ActionContext, connectionId: string): Clo
 }
 
 /*
- * The helpers below take a Manifest, not an id, and a Manifest only ever
+ * The helpers below take a AnyManifest, not an id, and a AnyManifest only ever
  * reaches them from a Project or Revision that the resolvers above already
  * scoped. There is no store lookup to constrain, so a service or node id is
  * meaningful inside that one system and nowhere else. They stay as they are.
  */
 
-export function requireService(m: Manifest, serviceId: string): Service {
+export function requireService(m: AnyManifest, serviceId: string): Service {
   const s = m.services.find((x) => x.id === serviceId || x.name === serviceId);
   if (!s)
     throw new Error(
@@ -164,7 +165,7 @@ export function requireService(m: Manifest, serviceId: string): Service {
   return s;
 }
 
-export function requireResource(m: Manifest, resourceId: string): Resource {
+export function requireResource(m: AnyManifest, resourceId: string): Resource {
   const r = m.resources.find((x) => x.id === resourceId || x.name === resourceId);
   if (!r)
     throw new Error(
@@ -174,7 +175,7 @@ export function requireResource(m: Manifest, resourceId: string): Resource {
 }
 
 /** Resolve a node id from an id OR a name — the Navigator speaks in names. */
-export function resolveNodeId(m: Manifest, ref: string): string {
+export function resolveNodeId(m: AnyManifest, ref: string): string {
   const hit =
     m.services.find((s) => s.id === ref || s.name === ref) ??
     m.resources.find((r) => r.id === ref || r.name === ref) ??
@@ -195,10 +196,17 @@ export function resolveNodeId(m: Manifest, ref: string): string {
 export const WORKING_COPY_NOTE =
   "Applies to the working copy. Nothing changes in a running environment until you deploy.";
 
+/** The execute result must report V2 loss even when called without a preview. */
+export function manifestLossNote(before: AnyManifest, after: AnyManifest): string {
+  if (before.version !== 2 || after.version !== 1) return "";
+  const sections = v2OnlySections(before);
+  return sections.length ? ` V1 replacement drops V2-only sections: ${sections.join(", ")}.` : "";
+}
+
 /** Build an ActionPlan from a real changeset between two manifests. */
 export function planFromDiff(
-  before: Manifest,
-  after: Manifest,
+  before: AnyManifest,
+  after: AnyManifest,
   summary: string,
   extra: { details?: string[]; warnings?: string[] } = {}
 ): ActionPlan {
@@ -219,17 +227,17 @@ export function planFromDiff(
 }
 
 /** Persist a new working manifest. runAction also saves; this keeps direct callers safe. */
-export function commit(project: Project, next: Manifest): void {
+export function commit(project: Project, next: AnyManifest): void {
   project.workingManifest = next;
   save();
 }
 
 /** One-line human summary of a manifest edit, for ActionResult.summary. */
-export function editSummary(before: Manifest, after: Manifest, what: string): string {
+export function editSummary(before: AnyManifest, after: AnyManifest, what: string): string {
   const cs = diffManifests(before, after);
   const delta = cs.totalCostDeltaUsd;
   const money = delta === 0 ? "no cost change" : `${fmtUsd(delta, { sign: true })}/mo`;
-  return `${what} — ${money}, projected ${fmtUsd(monthlyCostUsd(after))}/mo (estimate). Deploy to apply it.`;
+  return `${what} — ${money}, projected ${fmtUsd(monthlyCostUsd(v1View(after)))}/mo (estimate). Deploy to apply it.${manifestLossNote(before, after)}`;
 }
 
 /* ------------------------------ alert presenters --------------------------- */

@@ -10,7 +10,8 @@ import { AlertTriangle, Check, Info } from "lucide-react";
 import type { ActionPlan } from "@/lib/actions/core";
 import { planAction } from "@/lib/client/api";
 import { diffManifests, validateManifest, type ValidationIssue } from "@/lib/domain/graph";
-import { Manifest } from "@/lib/domain/types";
+import type { AnyManifest } from "@/lib/domain/types";
+import { parseEditableManifest } from "@/lib/actions/defs/_manifest";
 import { fmtUsd } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/callout";
@@ -42,7 +43,7 @@ type ParseState =
   | { kind: "idle" }
   | { kind: "checking" }
   | { kind: "error"; message: string; site?: JsonErrorSite }
-  | { kind: "ok"; manifest: Manifest; issues: ValidationIssue[] };
+  | { kind: "ok"; manifest: AnyManifest; issues: ValidationIssue[] };
 
 /** One pass, no array of N strings — this runs on every keystroke. */
 function countLines(s: string): number {
@@ -65,7 +66,7 @@ export function WorkingTab({
 }: {
   active: boolean;
   json: string;
-  manifest: Manifest;
+  manifest: AnyManifest;
   /** concurrency token for `json` — travels with it, never apart from it */
   manifestHash: string;
   projectId: string;
@@ -124,19 +125,19 @@ export function WorkingTab({
       setParse({ kind: "error", ...describeJsonError(source, e) });
       return;
     }
-    const parsed = Manifest.safeParse(raw);
-    if (!parsed.success) {
-      const first = parsed.error.issues[0];
+    const parsed = parseEditableManifest(raw);
+    if (!parsed.ok) {
+      const first = parsed.errors[0];
       setParse({
         kind: "error",
-        message: `${first.path.join(".") || "manifest"}: ${first.message}. ${parsed.error.issues.length - 1} other schema problem(s).`,
+        message: `${first.path || "manifest"}: ${first.message}. ${parsed.errors.length - 1} other schema problem(s).`,
       });
       return;
     }
     setParse({
       kind: "ok",
-      manifest: parsed.data,
-      issues: validateManifest(parsed.data),
+      manifest: parsed.manifest,
+      issues: validateManifest(parsed.manifest),
     });
   }, []);
 

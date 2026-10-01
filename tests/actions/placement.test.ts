@@ -49,16 +49,23 @@ describe("placement actions", () => {
     expect(r.result?.ok).toBe(true); expect(r.result?.data).toHaveProperty("result.chosen.cost.lines");
     expect(JSON.stringify(db().projects[0].workingManifest)).toBe(before);
   });
-  it("plans through the existing editor and honestly refuses its V1-only contract", async () => {
+  it("reviews through the existing editor, saves V2 placement and exposes it in the next plan", async () => {
     const input = await applyInput();
     const before = JSON.stringify({ projects: db().projects, environments: db().environments });
     const planSpy = vi.spyOn(getAction("project.updateManifest"), "plan");
     const r = await runAction("placement.apply", ctx, input, { mode: "plan" });
     expect(planSpy).toHaveBeenCalledWith(ctx, expect.objectContaining({ manifest: expect.objectContaining({ version: 2, placement: expect.objectContaining({ regions: expect.any(Array) }) }) }));
-    expect(r.plan?.blocked).toMatch(/accepts V1 only/);
-    const execution = await runAction("placement.apply", ctx, input, { mode: "execute" });
-    expect(execution.result?.ok).toBe(false); expect(execution.result?.error).toMatch(/V2 manifest editing/);
+    expect(r.plan?.blocked).toBeUndefined();
     expect(JSON.stringify({ projects: db().projects, environments: db().environments })).toBe(before);
+    const execution = await runAction("placement.apply", ctx, input, { mode: "execute" });
+    expect(execution.result?.ok).toBe(true);
+    const manifest = db().projects[0].workingManifest;
+    expect(manifest.version).toBe(2);
+    if (manifest.version !== 2) throw new Error("Expected V2 placement");
+    expect(manifest.placement).toMatchObject({ provider: "aws", regions: expect.any(Array), zones: expect.any(Number) });
+    expect(db().environments[0].connectionId).toBe("conn-a");
+    const next = await runAction("deploy.plan", ctx, {}, { mode: "plan" });
+    expect(next.plan?.details.join(" ")).toContain("placement");
   });
   it("writes exact provider and region pins into the proposed V2 manifest", async () => {
     const recommendation = await recommendPlacement({ workspaceId: ids.ws, projectId: ids.project, environmentId: ids.env, constraints });

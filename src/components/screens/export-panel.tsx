@@ -7,7 +7,7 @@
 import { useMemo, useState } from "react";
 import { Download, FileCode2 } from "lucide-react";
 import { useJson } from "@/lib/client/api";
-import type { Manifest } from "@/lib/domain/types";
+import type { AnyManifest } from "@/lib/domain/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
@@ -68,7 +68,7 @@ export interface ExportPanelProps {
   environmentId: string | undefined;
   environmentName?: string;
   /** offered as an extra download alongside the provider bundle */
-  workingManifest?: Manifest;
+  workingManifest?: AnyManifest;
 }
 
 export function ExportPanel({

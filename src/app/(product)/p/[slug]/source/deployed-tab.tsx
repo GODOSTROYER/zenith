@@ -7,7 +7,7 @@ import { useMemo, useState } from "react";
 import { FileJson } from "lucide-react";
 import { useJson } from "@/lib/client/api";
 import { diffManifests } from "@/lib/domain/graph";
-import type { Manifest, Revision } from "@/lib/domain/types";
+import type { AnyManifest, Revision } from "@/lib/domain/types";
 import { fmtUsd } from "@/lib/format";
 import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
@@ -30,7 +30,7 @@ export function DeployedTab({
   revisions: RevisionMeta[];
   deployedRevisionId: string | undefined;
   envName: string | undefined;
-  working: Manifest;
+  working: AnyManifest;
 }) {
   const [chosen, setChosen] = useState(deployedRevisionId ?? revisions[0]?.id ?? "");
   const loaded = useJson<{ revision: Revision }>(chosen ? `/api/revisions/${chosen}` : null);

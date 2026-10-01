@@ -17,6 +17,8 @@ export {
   Constraints,
   ManifestV2,
   ManifestV2Object,
+  MigrateHook,
+  Release,
   NativeNode,
   NodePlacementEntry,
   Placement,

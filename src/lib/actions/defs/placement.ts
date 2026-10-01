@@ -1,7 +1,6 @@
 /** Placement is explicit: recommendation is a read, application delegates to
  * project.updateManifest's reviewed edit path. Neither changes connections.
- * The current V1-only editor refuses V2; that refusal remains visible until
- * the orchestrator integrates V2 editing support. No parallel store writer. */
+ * V2 placement is saved through that same editor and concurrency check. */
 import { z } from "zod";
 import { defineAction, getAction, type ActionContext, type ActionPlan } from "@/lib/actions/core";
 import { platformBroker } from "@/lib/capabilities/platform";
@@ -89,12 +88,11 @@ async function application(ctx: ActionContext, input: Apply) {
   const edit = getAction("project.updateManifest");
   const editInput = { projectId: project.id, manifest, expectedHash: input.expectedHash };
   const editPlan = await edit.plan(ctx, editInput);
-  // The existing editor is the authority. Never write around its V1 refusal.
+  // The editor owns validation, concurrency and saving for both versions.
   const plan: ActionPlan = { ...editPlan, summary: `Stage ${candidate.id} in the working manifest.`,
     details: [`Provider ${manifest.placement?.provider}; regions ${manifest.placement?.regions.join(", ")}; ${candidate.availabilityZones ?? 1} zones.`,
       `Candidate estimate $${candidate.cost.monthlyUsd.toFixed(2)}/month; catalog ${candidate.cost.catalogVersion}.`,
-      "The environment keeps its current connection. Review and change that separately before any deployment.", ...editPlan.details],
-    ...(editPlan.blocked && editPlan.blocked.includes("version") ? { blocked: "The existing manifest editor accepts V1 only. V2 manifest editing must be integrated before placement can be saved." } : {}) };
+      "The environment keeps its current connection. Review and change that separately before any deployment.", ...editPlan.details] };
   return { plan, edit, editInput };
 }
 

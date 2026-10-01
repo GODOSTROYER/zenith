@@ -13,7 +13,7 @@ import {
   id,
   type Changeset,
   type Environment,
-  type Manifest,
+  type AnyManifest,
   type Project,
   type Revision,
 } from "@/lib/domain/types";
@@ -50,12 +50,12 @@ async function deployBlock(env: Environment, project: Project, cs: Changeset): P
  * The manifest currently live in an environment (empty if never deployed).
  * Loaded from cold storage on demand — see `q.revisionManifest`.
  */
-export function deployedManifest(env: Environment): Manifest {
+export function deployedManifest(env: Environment): AnyManifest {
   const id = env.deployedRevisionId;
   return (id ? q.revisionManifest(id) : undefined) ?? emptyManifest();
 }
 
-export async function deployedManifestAsync(env: Environment): Promise<Manifest> {
+export async function deployedManifestAsync(env: Environment): Promise<AnyManifest> {
   const revisionId = env.deployedRevisionId;
   return (revisionId ? await revisionManifestAsync(revisionId) : undefined) ?? emptyManifest();
 }
@@ -86,7 +86,7 @@ function budgetWarnings(env: Environment, cs: Changeset): string[] {
   ];
 }
 
-function blockingIssues(m: Manifest): string[] {
+function blockingIssues(m: AnyManifest): string[] {
   return validateManifest(m)
     .filter((i) => i.level === "error")
     .map((i) => `${i.message}${i.fix ? ` ${i.fix}` : ""}`);

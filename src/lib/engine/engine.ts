@@ -43,6 +43,7 @@ import {
   type ProviderId,
   type StepStatus,
 } from "@/lib/domain/types";
+import { v1View, v2OnlySections } from "@/lib/resources/upgrade";
 import { monthlyCostUsd } from "@/lib/cost/pricing";
 import { env } from "@/lib/env";
 import { isServerless } from "@/lib/serverless";
@@ -604,7 +605,7 @@ async function runStep(d: StoredDeployment, step: DeploymentStep): Promise<void>
 
     const runtime: StepRuntime & { signal: AbortSignal } = {
       env,
-      revision,
+      revision: { ...revision, manifest: v1View(revision.manifest) },
       deployment: d,
       step,
       signal: abort.signal,
@@ -776,7 +777,7 @@ async function start(input: StartDeploymentInput): Promise<Deployment> {
   // names the provider and the way out.
   let plan: ProviderPlanStep[];
   try {
-    plan = provider.planSteps(env, revision.manifest, previous?.manifest);
+    plan = provider.planSteps(env, v1View(revision.manifest), previous ? v1View(previous.manifest) : undefined);
   } catch (err) {
     throw new Error(
       `${provider.displayName} could not plan a deployment for ${env.name}: ${err instanceof Error ? err.message : String(err)} ` +
@@ -821,6 +822,12 @@ async function start(input: StartDeploymentInput): Promise<Deployment> {
   pruneDeployments(env.id);
   save(d.projectId);
   emit(d.id, { type: "status", status: "planning" });
+  if (revision.manifest.version === 2) {
+    const sections = v2OnlySections(revision.manifest);
+    if (sections.length) emit(d.id, { type: "log", stepId: "", stream: "info",
+      line: `This legacy adapter executes the V1 view only. V2 sections remain in the revision but are not executed here: ${sections.join(", ")}.`,
+    });
+  }
 
   if (!input.approved && env.policies.approvalRequired) {
     // Nothing is in flight yet, so it takes no lease: a deployment parked at
@@ -908,8 +915,8 @@ async function rollback(
     : undefined;
   const costDelta =
     Math.round(
-      (monthlyCostUsd(target.manifest) -
-        (current ? monthlyCostUsd(current.manifest) : 0)) *
+      (monthlyCostUsd(v1View(target.manifest)) -
+        (current ? monthlyCostUsd(v1View(current.manifest)) : 0)) *
         100
     ) / 100;
 

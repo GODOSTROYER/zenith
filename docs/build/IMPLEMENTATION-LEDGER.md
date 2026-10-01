@@ -34,7 +34,7 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-INC | Incident engine and remediation workflow | 3 | integrated | WS-OBS, WS-AWS-NET, WS-CAP | ws/inc | a5489f0 | 262 | orchestrator: merged; obs signals image_pull_failed/task_exit_code added ce789a2 | rule weights are judgement; live providers unverified |
 | WS-REC | Reconciliation controller and persisted drift | 3 | in_progress | WS-DB, WS-AWS-NET | ws/rec |  |  |  |  |
 | WS-MCP | MCP v3 semantic tools, CLI, SDK, connectors | 3 | in_progress | WS-CAP | ws/mcp |  |  |  | branched from ws/cap WIP |
-| WS-UI | UI components: plans/approvals, operations, resources, drift, incidents, cost, autonomy, connections | 3 | in_progress | WS-CAP, WS-DB | ws/ui |  |  |  |  |
+| WS-UI | UI components: plans/approvals, operations, resources, drift, incidents, cost, autonomy, connections | 3 | integrated | WS-CAP, WS-DB | ws/ui | 854fd53 | 574 | orchestrator: merged; storage label + sensitive flag | presentational only; pages not wired yet |
 | WS-GCP | GCP drivers (Cloud Run, GKE, Cloud SQL, GCS, Pub/Sub, LB, DNS, Secret Manager, Logging/Monitoring) | 4 | in_progress | WS-ACT | ws/gcp |  |  |  |  |
 | WS-AZURE | Azure drivers (Container Apps, AKS, Postgres Flexible, Blob, Service Bus, DNS, Key Vault, Monitor) | 4 | in_progress | WS-ACT | ws/azure |  |  |  |  |
 | WS-OCI | OCI drivers through the same contracts | 4 | in_progress | WS-ACT | ws/oci |  |  |  |  |

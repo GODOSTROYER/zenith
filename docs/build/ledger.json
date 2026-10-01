@@ -431,7 +431,7 @@
       "title": "UI components: plans/approvals, operations, resources, drift, incidents, cost, autonomy, connections",
       "wave": 3,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-CAP",
         "WS-DB"
@@ -440,7 +440,11 @@
         "src/app/(product)/platform/**",
         "src/components/platform/**"
       ],
-      "branch": "ws/ui"
+      "branch": "ws/ui",
+      "commit": "854fd53",
+      "tests": "574",
+      "review": "orchestrator: merged; storage label + sensitive flag",
+      "notes": "presentational only; pages not wired yet"
     },
     {
       "id": "WS-GCP",
@@ -606,6 +610,10 @@
     {
       "date": "2026-09-30",
       "decision": "LocalStack on hold per user; no new LocalStack code/tests; existing provider untouched"
+    },
+    {
+      "date": "2026-10-01",
+      "decision": "Claude session limit interrupted all Sonnet workers (reset 00:20 IST); all 19 resumed from partial worktree state at 13:01 IST. A peer session proposed Codex CLI as the build lane; kept Sonnet per the user instruction, Codex held as fallback if the limit recurs."
     }
   ]
 }

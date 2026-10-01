@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -361,10 +362,11 @@ func (t *Tofu) execute(ctx context.Context, j *tofuJob, logs agent.LogSink) Outc
 	if err := writeWorkspace(dir, j.files, j.lockfile); err != nil {
 		return failed("could not write the workspace: %v", err)
 	}
-	env, err := t.buildEnv(dir)
+	env, cleanupTemp, err := t.buildEnv(dir)
 	if err != nil {
 		return failed("%v", err)
 	}
+	defer cleanupTemp()
 
 	out := newCollector(j.req.MaxOutputBytes)
 	planFile := filepath.Join(dir, "zenith.tfplan")
@@ -469,10 +471,11 @@ func (t *Tofu) checkVersion(ctx context.Context) error {
 		return fmt.Errorf("could not create a working directory: %v", err)
 	}
 	defer os.RemoveAll(tmp)
-	env, err := t.buildEnv(tmp)
+	env, cleanupTemp, err := t.buildEnv(tmp)
 	if err != nil {
 		return err
 	}
+	defer cleanupTemp()
 	var stdout bytes.Buffer
 	c := newCollector(4096)
 	code, raw, err := t.exec(ctx, tmp, env, []string{"version", "-json"}, c, agent.DiscardSink{}, true)
@@ -510,16 +513,34 @@ func (t *Tofu) showJSON(ctx context.Context, dir string, env []string, planFile 
 }
 
 // buildEnv builds the child environment from scratch: fixed variables plus an
-// explicit allowlist read from the runner's own environment.
-func (t *Tofu) buildEnv(dir string) ([]string, error) {
+// explicit allowlist read from the runner's own environment. The caller must
+// clean up the private temporary directory after all child processes finish.
+func (t *Tofu) buildEnv(dir string) ([]string, func(), error) {
 	home := filepath.Join(dir, ".home")
 	if err := os.MkdirAll(home, 0o700); err != nil {
-		return nil, fmt.Errorf("could not create the home directory: %v", err)
+		return nil, nil, fmt.Errorf("could not create the home directory: %v", err)
 	}
+	// Providers create Unix sockets under TMPDIR. A nested workspace can exceed
+	// the OS socket-path limit (104 bytes on macOS, 108 on Linux). MkdirTemp
+	// creates an exclusive 0700 directory; never share the public temp root itself.
+	tmp, err := os.MkdirTemp("", "zt-")
+	if err != nil {
+		return nil, nil, fmt.Errorf("could not create the temporary directory: %v", err)
+	}
+	if runtime.GOOS != "windows" && len(tmp) > 80 {
+		if err := os.Remove(tmp); err != nil {
+			return nil, nil, fmt.Errorf("could not remove the oversized temporary directory: %v", err)
+		}
+		tmp, err = os.MkdirTemp("/tmp", "zt-")
+		if err != nil {
+			return nil, nil, fmt.Errorf("could not create a short temporary directory: %v", err)
+		}
+	}
+	cleanup := func() { _ = os.RemoveAll(tmp) }
 	env := []string{
 		"PATH=/usr/local/bin:/usr/bin:/bin",
 		"HOME=" + home,
-		"TMPDIR=" + dir,
+		"TMPDIR=" + tmp,
 		"TF_IN_AUTOMATION=1",
 		"TF_INPUT=0",
 		"CHECKPOINT_DISABLE=1",
@@ -532,6 +553,11 @@ func (t *Tofu) buildEnv(dir string) ([]string, error) {
 		env = append(env, "TF_CLI_CONFIG_FILE="+t.cfg.CLIConfigFile)
 	}
 	seen := map[string]bool{}
+	// PassEnv cannot override the fixed isolation and automation settings.
+	for _, entry := range env {
+		name, _, _ := strings.Cut(entry, "=")
+		seen[name] = true
+	}
 	for _, name := range append(slices.Clone(builtinPassEnv), t.cfg.PassEnv...) {
 		if seen[name] {
 			continue
@@ -541,7 +567,7 @@ func (t *Tofu) buildEnv(dir string) ([]string, error) {
 			env = append(env, name+"="+v)
 		}
 	}
-	return env, nil
+	return env, cleanup, nil
 }
 
 // exec runs the pinned binary with argv (never a shell). Output lines are

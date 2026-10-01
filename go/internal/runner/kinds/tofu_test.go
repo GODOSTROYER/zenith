@@ -42,6 +42,7 @@ func (m *memSink) String() string {
 const fakeTofuScript = `#!/bin/sh
 cmd="$1"
 log() { [ -n "$FAKE_TOFU_LOG" ] && echo "$*" >> "$FAKE_TOFU_LOG"; return 0; }
+log "scratch $TMPDIR"
 behavior=""
 [ -f behavior.txt ] && behavior=$(cat behavior.txt)
 case "$cmd" in

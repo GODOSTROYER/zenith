@@ -39,7 +39,7 @@ interface ErrorLike {
 }
 
 const ACCESS_DENIED = /^(AccessDenied(Exception)?|UnauthorizedOperation|UnauthorizedAccess(Exception)?|AuthFailure|InvalidClientTokenId|Forbidden|UnrecognizedClientException|OptInRequired|AccessDeniedFault)$/i;
-const NOT_FOUND = /(\.NotFound|NotFound(Exception|Fault)?|NoSuch[A-Za-z]+|DoesNotExist|ResourceNotFound(Exception)?)$/i;
+const NOT_FOUND = /(\.NotFound|NotFound(Exception|Fault)?|NoSuch[A-Za-z]+|DoesNotExist|ResourceNotFound(Exception)?|AWS\.SimpleQueueService\.NonExistentQueue|QueueDoesNotExist)$/i;
 const THROTTLED = /^(Throttling(Exception)?|ThrottledException|RequestLimitExceeded|RequestThrottled(Exception)?|TooManyRequestsException|SlowDown|PriorRequestNotComplete|LimitExceededException|BandwidthLimitExceeded)$/i;
 const ABORTED = /^(AbortError|TimeoutError|CanceledError)$/i;
 

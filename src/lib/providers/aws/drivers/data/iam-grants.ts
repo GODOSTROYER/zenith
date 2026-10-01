@@ -31,7 +31,7 @@
 import type { CompileContext } from "@/lib/drivers/types";
 import type { IdentityGrant } from "@/lib/resources/specs";
 import type { ResourceNode } from "@/lib/resources/types";
-import { bareExpr, DriverCompileError, isArnOf, nodeKindPrefix, parseArn, refExpr, REF } from "./_shared";
+import { bareExpr, DriverCompileError, isArnOf, nodeKindPrefix, parseArn, refExpr, REF } from "@/lib/providers/aws/drivers/shared";
 import { configOf, interp } from "./support";
 
 export type GrantTargetKind = "object_store" | "queue" | "secret" | "log_group" | "container_registry" | "postgres" | "mysql" | "redis";

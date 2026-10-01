@@ -127,17 +127,19 @@ describe("expandManifest: web + postgres", () => {
 describe("zones and availability", () => {
   const zones = (g: ResourceGraph) => kinds(g, "subnet").filter((a) => a.includes("private")).length;
 
-  it("defaults: production 2 zones, staging 1", () => {
-    expect(zones(expandManifest(webDb(), PROD))).toBe(2);
-    expect(zones(expandManifest(webDb(), STAGING))).toBe(1);
-    expect(notes(expandManifest(webDb(), STAGING), "topology").some((n) => /1 zone \(staging default\)/.test(n))).toBe(true);
+  const workloadOnly = () => manifest({ services: [svc({ id: "web", name: "web", kind: "web", port: 3000 })] });
+
+  it("defaults without an AWS data-store minimum: production 2 zones, staging 1", () => {
+    expect(zones(expandManifest(workloadOnly(), PROD))).toBe(2);
+    expect(zones(expandManifest(workloadOnly(), STAGING))).toBe(1);
+    expect(notes(expandManifest(workloadOnly(), STAGING), "topology").some((n) => /1 zone \(staging default\)/.test(n))).toBe(true);
   });
 
   it("availabilityTarget >= 99.9 forces 2 zones in staging, with a note; 99.89 does not", () => {
     const g = expandManifest(v2(webDb(), { constraints: { availabilityTarget: 99.9 } }), STAGING);
     expect(zones(g)).toBe(2);
     expect(notes(g, "topology").some((n) => /2 zones because availabilityTarget is 99\.9/.test(n))).toBe(true);
-    expect(zones(expandManifest(v2(webDb(), { constraints: { availabilityTarget: 99.89 } }), STAGING))).toBe(1);
+    expect(zones(expandManifest(v2(workloadOnly(), { constraints: { availabilityTarget: 99.89 } }), STAGING))).toBe(1);
   });
 
   it("tolerateSingleFailure forces 2 zones, HA on data stores and one NAT per zone", () => {
@@ -160,7 +162,7 @@ describe("zones and availability", () => {
     const raised = expandManifest(v2(webDb(), { placement: { provider: "aws", regions: ["us-east-1"], zones: 1 }, constraints: { availabilityTarget: 99.95 } }), PROD);
     expect(zones(raised)).toBe(2);
     expect(notes(raised, "topology").some((n) => /placement\.zones=1 raised to 2/.test(n))).toBe(true);
-    expect(zones(expandManifest(v2(webDb(), { placement: { provider: "aws", regions: ["us-east-1"], zones: 1 } }), PROD))).toBe(1);
+    expect(zones(expandManifest(v2(workloadOnly(), { placement: { provider: "aws", regions: ["us-east-1"], zones: 1 } }), PROD))).toBe(1);
   });
 
   it("derives no network at all when nothing needs one", () => {

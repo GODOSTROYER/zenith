@@ -47,7 +47,7 @@ import type { NativeOperation, NativeOperationResult } from "@/lib/drivers/types
 import type { AwsSession } from "@/lib/credentials/types";
 import type { ContainerServiceSpec } from "@/lib/resources/specs";
 import type { ResourceNode } from "@/lib/resources/types";
-import { nodeName, parseArn } from "./support/aws-shared";
+import { nodeName, parseArn } from "@/lib/providers/aws/drivers/shared";
 import { ecrCoordinates, parseImageRef, ImageRefError } from "./support/image";
 import { OperationRefused, assertNodeTags, failureOf, findByTags, lowerTagMap, sleep, type AwsCtx } from "./support/sdk";
 import { describeService, ecsRuntime, locateService, type ServiceLocation } from "./ecs-read";

@@ -3,7 +3,7 @@ import { GetResourcesCommand, ResourceGroupsTaggingAPIClient } from "@aws-sdk/cl
 import { mockClient } from "aws-sdk-client-mock";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { sqsQueueDriver as driver } from "@/lib/providers/aws/drivers/data";
-import { DriverCompileError } from "@/lib/providers/aws/drivers/data/_shared";
+import { DriverCompileError } from "@/lib/providers/aws/drivers/shared";
 import { queueRefOf, readSqsConfig } from "@/lib/providers/aws/drivers/data/sqs-queue";
 import { driftOf } from "./_drift";
 import { awsError, compileCtx, driverCtx, mkNode, queueSpec, tagList, tagRecord } from "./_helpers";

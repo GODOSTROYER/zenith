@@ -61,7 +61,7 @@ import {
   REF,
   resourceTags,
   tfLabel,
-} from "./_shared";
+} from "@/lib/providers/aws/drivers/shared";
 import {
   classifyAwsError,
   attrCheck,
@@ -78,7 +78,6 @@ import {
   isManaged,
   matchesExpectedCheck,
   MAX_TAG_READS,
-  safeTags,
   scalars,
   specBool,
   specEnum,
@@ -121,7 +120,7 @@ export function compileS3Bucket(node: ResourceNode, ctx: CompileContext): TofuFr
   const label = tfLabel(node.address);
   // 63 - "-" - 8 hex of the random suffix
   const stem = cloudName(ctx.namePrefix, nodeName(node.address), 54);
-  const tags = safeTags(resourceTags(ctx.tags, node.address));
+  const tags = resourceTags(ctx.tags, node.address);
   const bucketRef = `\${aws_s3_bucket.${label}.id}`;
   const b = new FragmentBuilder(node.address);
 

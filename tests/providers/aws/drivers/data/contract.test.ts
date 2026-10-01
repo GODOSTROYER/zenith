@@ -67,7 +67,8 @@ describe("the AWS data drivers", () => {
       expect(c.discover).toBe(typeof d.discover === "function");
       expect(typeof d.expectedAttributes).toBe("function");
       const claimed = [c.compile && "compile", c.observe && "observe", c.runtime && "runtime", c.verify && "verify", c.discover && "discover", ...c.operations].filter(Boolean).sort();
-      expect(Object.keys(c.evidence).sort(), d.id).toEqual(claimed);
+      const refusals = d.nativeType === "aws:rds_instance" ? ["database.delete", "database.restore"] : [];
+      expect(Object.keys(c.evidence).sort(), d.id).toEqual([...claimed, ...refusals].sort());
       for (const op of c.operations) {
         expect(isCapability(op), op).toBe(true);
         expect(typeof d.operations?.[op], op).toBe("function");

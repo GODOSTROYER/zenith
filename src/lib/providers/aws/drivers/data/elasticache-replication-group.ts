@@ -66,7 +66,7 @@ import {
   securityGroupExpr,
   subnetsOf,
   tfLabel,
-} from "./_shared";
+} from "@/lib/providers/aws/drivers/shared";
 import {
   classifyAwsError,
   attrCheck,
@@ -84,7 +84,6 @@ import {
   isManaged,
   matchesExpectedCheck,
   MAX_TAG_READS,
-  safeTags,
   scalars,
   sizeOf,
   specBool,
@@ -169,7 +168,7 @@ export function compileElasticacheGroup(node: ResourceNode, ctx: CompileContext)
     );
   }
 
-  const tags = safeTags(resourceTags(ctx.tags, node.address, base));
+  const tags = resourceTags(ctx.tags, node.address, base);
   const finalSnapshot = spec.deletionPolicy !== "allow" || spec.backup !== "none";
   const b = new FragmentBuilder(node.address);
 

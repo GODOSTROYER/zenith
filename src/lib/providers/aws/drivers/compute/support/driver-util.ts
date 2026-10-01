@@ -3,7 +3,7 @@
  */
 import type { TofuFragment } from "@/lib/drivers/types";
 import type { ResourceNode } from "@/lib/resources/types";
-import { DriverCompileError } from "./aws-shared";
+import { DriverCompileError } from "@/lib/providers/aws/drivers/shared";
 import { CronError } from "./cron";
 import { ImageRefError } from "./image";
 import { ComputeCompileError } from "./tf";

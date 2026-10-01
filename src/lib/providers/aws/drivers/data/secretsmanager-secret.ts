@@ -34,7 +34,7 @@ import { DescribeSecretCommand, ListSecretsCommand, SecretsManagerClient, type D
 import type { CompileContext, DiscoveredResource, ResourceDriver, TofuFragment } from "@/lib/drivers/types";
 import type { AwsSession } from "@/lib/credentials/types";
 import type { Observation, ResourceNode } from "@/lib/resources/types";
-import { cloudName, FragmentBuilder, isArnOf, nodeName, paginate, parseArn, REF, resourceTags, tfLabel } from "./_shared";
+import { cloudName, FragmentBuilder, isArnOf, nodeName, paginate, parseArn, REF, resourceTags, tfLabel } from "@/lib/providers/aws/drivers/shared";
 import {
   attrCheck,
   Attributes,
@@ -46,7 +46,6 @@ import {
   guardObserve,
   isManaged,
   matchesExpectedCheck,
-  safeTags,
   scalars,
   tagMap,
   verificationOf,
@@ -74,7 +73,7 @@ export function compileSecretContainer(node: ResourceNode, ctx: CompileContext):
     name,
     description: "Zenith managed secret container. The value is synced from the Zenith vault and is never part of OpenTofu state.",
     recovery_window_in_days: RECOVERY_WINDOW_DAYS,
-    tags: safeTags(resourceTags(ctx.tags, node.address)),
+    tags: resourceTags(ctx.tags, node.address),
   });
   b.expose(REF.arn, `aws_secretsmanager_secret.${label}.arn`);
   b.expose(REF.id, `aws_secretsmanager_secret.${label}.id`);

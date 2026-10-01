@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import type { TofuFragment } from "@/lib/drivers/types";
 import type { ResourceNode } from "@/lib/resources/types";
-import { DriverCompileError, refLocalName } from "@/lib/providers/aws/drivers/compute/support/aws-shared";
+import { DriverCompileError, refLocalName } from "@/lib/providers/aws/drivers/shared";
 import { ecsScheduledTaskDriver } from "@/lib/providers/aws/drivers/compute/ecs-scheduled-task";
 import { ecsServiceDriver } from "@/lib/providers/aws/drivers/compute/ecs-service";
 import { BOOTSTRAP_TAG, imagePointerName } from "@/lib/providers/aws/drivers/compute/ecs-task";

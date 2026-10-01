@@ -8,7 +8,7 @@ import type { CompileContext, DriverContext, TofuFragment } from "@/lib/drivers/
 import type { AwsClientCtor, AwsSession } from "@/lib/credentials/types";
 import { nativeTypeFor } from "@/lib/resources/native-types";
 import type { PortableKind, ResourceGraph, ResourceNode } from "@/lib/resources/types";
-import { FragmentBuilder, refLocalName } from "@/lib/providers/aws/drivers/data/_shared";
+import { FragmentBuilder, refLocalName } from "@/lib/providers/aws/drivers/shared";
 import { awsDataDrivers } from "@/lib/providers/aws/drivers/data";
 
 export const REGION = "ap-south-1";

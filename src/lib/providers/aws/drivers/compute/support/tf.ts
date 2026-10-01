@@ -25,7 +25,7 @@
  */
 import type { CompileContext, TofuFragment } from "@/lib/drivers/types";
 import type { ResourceNode } from "@/lib/resources/types";
-import { bareExpr, FragmentBuilder as SharedFragmentBuilder } from "./aws-shared";
+import { bareExpr, tfLiteral, FragmentBuilder as SharedFragmentBuilder } from "@/lib/providers/aws/drivers/shared";
 
 export class ComputeCompileError extends Error {
   readonly code: "invalid_spec" | "missing_neighbour" | "unsupported" | "invalid_reference";
@@ -41,7 +41,7 @@ export class ComputeCompileError extends Error {
 /** Escape text so HCL renders it literally. */
 // Replacer FUNCTIONS, not strings: in a replacement string `$$` means one literal `$`,
 // so `"$${"` would silently turn `${` into `${` again and escape nothing.
-export const escapeTemplate = (s: string): string => s.replace(/\$\{/g, () => "$${").replace(/%\{/g, () => "%%{");
+export const escapeTemplate = tfLiteral;
 
 /**
  * Template text that has ALREADY been rendered (a JSON document with its
@@ -138,7 +138,7 @@ export function tagsFor(ctx: CompileContext, node: ResourceNode, name?: string):
 /* ----------------------------- fragment builder --------------------------- */
 
 /**
- * Wraps the shared `FragmentBuilder` (aws-shared/fragment.ts: primary address
+ * Wraps the shared `FragmentBuilder` (shared/fragment.ts: primary address
  * first, locals for published attributes) with the rendering layer above:
  * bodies are escaped and refs interpolated exactly once, here.
  */
@@ -169,7 +169,7 @@ export class Frag {
 
   /**
    * `primary` is moved to the front of `addresses`: the orchestrator may
-   * resolve a native attribute (`id`, `arn`) on `addresses[0]` (aws-shared/refs.ts).
+   * resolve a native attribute (`id`, `arn`) on `addresses[0]` (shared/refs.ts).
    */
   build(primary: TfRef): TofuFragment {
     const fragment = this.inner.build();

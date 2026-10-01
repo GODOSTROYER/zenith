@@ -21,7 +21,7 @@ import type { DiscoveredResource, ResourceDriver } from "@/lib/drivers/types";
 import type { Observation, ResourceNode } from "@/lib/resources/types";
 import type { ContainerRegistrySpec } from "@/lib/resources/specs";
 import type { AwsSession } from "@/lib/credentials/types";
-import { attributesOf, boundNative, cloudName, failedObservation, hasZenithManagedTag, nodeName, paginate, parseArn, standardVerification, tfLabel, unknownValue } from "./support/aws-shared";
+import { attributesOf, boundNative, cloudName, failedObservation, hasZenithManagedTag, nodeName, paginate, parseArn, standardVerification, tfLabel, unknownValue } from "@/lib/providers/aws/drivers/shared";
 import { compileNode, specOf } from "./support/driver-util";
 import { failureOf, findByTags, listByType, tagsOf, type AwsCtx } from "./support/sdk";
 import { Frag, attr, renderJsonText, tagsFor, type TfText } from "./support/tf";

@@ -11,7 +11,7 @@
  */
 import type { CompileContext } from "@/lib/drivers/types";
 import type { ResourceNode } from "@/lib/resources/types";
-import { cloudName } from "./aws-shared";
+import { cloudName } from "@/lib/providers/aws/drivers/shared";
 import { Frag, TfRef, attr, cat, tagsFor, type TfCat } from "./tf";
 
 export interface PrivateBucket {

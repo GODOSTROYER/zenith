@@ -29,7 +29,7 @@ import { GetFunctionCommand, InvokeCommand, LambdaClient, ListFunctionsCommand, 
 import type { AwsSession } from "@/lib/credentials/types";
 import type { CompileContext, DiscoveredResource, NativeOperation, ResourceDriver } from "@/lib/drivers/types";
 import type { HealthState, Observation, ResourceNode, RuntimeState } from "@/lib/resources/types";
-import { attributesOf, boundNative, cloudName, failedObservation, hasZenithManagedTag, nodeName, paginate, parseArn, runtimeState, standardVerification, tfLabel } from "./support/aws-shared";
+import { attributesOf, boundNative, cloudName, failedObservation, hasZenithManagedTag, nodeName, paginate, parseArn, runtimeState, standardVerification, tfLabel } from "@/lib/providers/aws/drivers/shared";
 import { compileNode, intField, specOf } from "./support/driver-util";
 import { ComputeCompileError, Frag, arnOf, assumeRoleJson, attr, boundaryArn, environmentData, policyJson, tagsFor } from "./support/tf";
 import { OperationRefused, assertNodeTags, failureOf, findByTags, type AwsCtx } from "./support/sdk";

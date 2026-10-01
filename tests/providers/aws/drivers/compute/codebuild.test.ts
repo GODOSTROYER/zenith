@@ -10,7 +10,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { TofuFragment } from "@/lib/drivers/types";
 import { BUILD_TIMEOUT_MINUTES, CODEBUILD_IMAGE, buildExpectsImage, codebuildProjectDriver as driver, dockerBuildspec, staticBuildspec } from "@/lib/providers/aws/drivers/compute/codebuild-project";
 import { startBuild, stopBuild, waitForBuild } from "@/lib/providers/aws/drivers/compute/codebuild-builds";
-import { DriverCompileError, hash6, refLocalName } from "@/lib/providers/aws/drivers/compute/support/aws-shared";
+import { DriverCompileError, hash6, refLocalName } from "@/lib/providers/aws/drivers/shared";
 import { buildFullFixture, mkCompileContext, mkDriverContext, zenithTagList } from "./fixtures";
 import { ACCOUNT } from "./ecs-mocks";
 

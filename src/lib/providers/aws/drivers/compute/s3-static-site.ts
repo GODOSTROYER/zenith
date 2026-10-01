@@ -41,7 +41,7 @@ import type { AwsSession } from "@/lib/credentials/types";
 import type { CompileContext, ResourceDriver } from "@/lib/drivers/types";
 import type { Observation, ResourceNode } from "@/lib/resources/types";
 import type { TlsCertificateSpec } from "@/lib/resources/specs";
-import { attempt, attributesOf, boundNative, cloudName, failedObservation, knownValue, nodeName, parseArn, standardVerification, tfLabel, unknownReasonOf, unknownValue } from "./support/aws-shared";
+import { attempt, attributesOf, boundNative, cloudName, failedObservation, knownValue, nodeName, parseArn, standardVerification, tfLabel, unknownReasonOf, unknownValue } from "@/lib/providers/aws/drivers/shared";
 import { emitPrivateBucket } from "./support/bucket";
 import { compileNode } from "./support/driver-util";
 import { dependencies } from "./support/refs";

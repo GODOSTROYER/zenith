@@ -1,7 +1,7 @@
 /**
  * Helpers private to the AWS data drivers (RDS, ElastiCache, S3, SQS, Secrets
  * Manager, IAM roles, CloudWatch log groups). Everything generic lives in
- * `./_shared` (a snapshot of WS-AWS-NET's shared helpers); what is here is what
+ * `@/lib/providers/aws/drivers/shared`; what is here is what
  * the data group needs on top:
  *
  *   - `call`            abort-aware SDK send (`ctx.signal` → `abortSignal`);
@@ -26,9 +26,14 @@ import type { DiscoveredResource, VerificationCheck, VerificationResult } from "
 import type { HealthState, Observation, ObservedValue, ResourceNode, RuntimeState } from "@/lib/resources/types";
 import {
   boundNative,
-  classifyAwsError as classifyAwsErrorBase,
+  classifyAwsError,
+  existsCheck,
+  isZenithTagged,
+  matchesNodeTags,
+  verificationResult,
   DriverCompileError,
   failedObservation,
+  fromAwsTagList,
   knownValue,
   nowIso,
   paginate,
@@ -43,22 +48,11 @@ import {
   unknownValue,
   type AwsDriverContext,
   type AwsFailure,
-} from "./_shared";
+} from "@/lib/providers/aws/drivers/shared";
 
-export type { AwsDriverContext } from "./_shared";
+export type { AwsDriverContext } from "@/lib/providers/aws/drivers/shared";
 
-/* ----------------------------- error classification ------------------------ */
-
-/**
- * The shared classifier plus the names this group meets that it does not know:
- * SQS's legacy `AWS.SimpleQueueService.NonExistentQueue` is "not found", not a
- * generic error. (Proposed for the shared NOT_FOUND pattern; kept here until then.)
- */
-export function classifyAwsError(error: unknown, signal?: AbortSignal): AwsFailure {
-  const f = classifyAwsErrorBase(error, signal);
-  if (f.kind === "error" && /NonExistentQueue$/.test(f.code)) return { ...f, kind: "missing" };
-  return f;
-}
+export { classifyAwsError, safeTags, tfLiteral as escapeTemplate } from "@/lib/providers/aws/drivers/shared";
 
 /* ------------------------------ abort-aware send --------------------------- */
 
@@ -69,23 +63,6 @@ export async function call<T>(ctx: AwsDriverContext, fn: (options: { abortSignal
 }
 
 /* ----------------------------- template safety ----------------------------- */
-
-/**
- * Escape text so HCL renders it literally (`${` becomes `$${`, `%{` becomes `%%{`).
- * The replacements are functions on purpose: in a replacement STRING `$$` means a
- * single `$`, so `"$${"` would silently turn `${` back into `${`.
- */
-export const escapeTemplate = (s: string): string => s.replace(/\$\{/g, () => "$${").replace(/%\{/g, () => "%%{");
-
-/**
- * Tags for a compiled resource with every key and value escaped. `tags` comes
- * from `resourceTags`; values originate in the orchestrator (workspace and
- * environment ids) and the node address, none of which is trusted to be free
- * of template openers.
- */
-export function safeTags(tags: Record<string, string>): Record<string, string> {
-  return Object.fromEntries(Object.entries(tags).map(([k, v]) => [escapeTemplate(k), escapeTemplate(v)]));
-}
 
 /** `${expr}` for a bare traversal. The expression must be generator-owned, never manifest text. */
 export const interp = (expr: string): string => `\${${expr}}`;
@@ -172,10 +149,9 @@ export interface KeyValue {
 
 /** `[{Key,Value}]` or `{k:v}` → sorted `{k:v}`. */
 export function tagMap(input: KeyValue[] | Record<string, string | undefined> | undefined): Record<string, string> {
+  if (Array.isArray(input)) return fromAwsTagList(input);
   const out: Record<string, string> = {};
-  if (Array.isArray(input)) {
-    for (const t of input) if (typeof t.Key === "string") out[t.Key] = t.Value ?? "";
-  } else if (input) {
+  if (input) {
     for (const [k, v] of Object.entries(input)) out[k] = v ?? "";
   }
   return Object.fromEntries(Object.entries(out).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
@@ -183,8 +159,7 @@ export function tagMap(input: KeyValue[] | Record<string, string | undefined> | 
 
 /** Tags identify exactly this node in this workspace and environment. */
 export function tagsMatchNode(tags: Record<string, string>, ctx: AwsDriverContext, node: ResourceNode): boolean {
-  const want = scopeTagValues(ctx);
-  return tags[TAG_RESOURCE] === node.address && tags[TAG_ENVIRONMENT] === want.environment && tags[TAG_WORKSPACE] === want.workspace;
+  return matchesNodeTags(tags, ctx, node.address);
 }
 
 /** What discovery reports in `attributes`: only scalars, bounded. */
@@ -400,19 +375,8 @@ export function matchesExpectedCheck(expected: Record<string, unknown>, obs: Obs
 
 export function verificationOf(ctx: { now(): Date }, node: ResourceNode, obs: Observation, optionalChecks: (VerificationCheck | undefined)[]): VerificationResult {
   const checks = optionalChecks.filter((c): c is VerificationCheck => c !== undefined);
-  const base = { address: node.address, checkedAt: nowIso(ctx), simulated: false };
-  const exists: VerificationCheck = {
-    id: "exists",
-    description: "the object exists and was readable",
-    passed: obs.presence === "present" ? true : obs.presence === "missing" ? false : "unknown",
-    detail: `presence = ${obs.presence}`,
-  };
-  if (obs.presence !== "present") {
-    return { ...base, status: obs.presence === "missing" ? "failed" : "unknown", checks: [exists] };
-  }
-  const all = [exists, ...checks];
-  const status = all.some((c) => c.passed === false) ? "failed" : all.some((c) => c.passed === "unknown") ? "unknown" : "passed";
-  return { ...base, status, checks: all };
+  const exists = existsCheck(obs, "the object");
+  return verificationResult(ctx, node, obs.presence === "present" ? [exists, ...checks] : [exists]);
 }
 
 /* -------------------------------- discovery -------------------------------- */
@@ -422,11 +386,9 @@ export function candidate(
   c: Omit<DiscoveredResource, "provider" | "region" | "zenithTagged"> & { tags?: Record<string, string>; region?: string }
 ): DiscoveredResource {
   const { tags, region, ...rest } = c;
-  const want = scopeTagValues(ctx);
-  const zenithTagged = tags !== undefined && tags["zenith:managed"] === "true" && tags[TAG_ENVIRONMENT] === want.environment && tags[TAG_WORKSPACE] === want.workspace;
+  const zenithTagged = tags !== undefined && isZenithTagged(tags, ctx);
   return { provider: "aws", region: region ?? ctx.region, zenithTagged, ...rest };
 }
 
 /** Upper bound on per-candidate tag reads in `discover`; beyond it `zenithTagged` is false (unread), not guessed. */
 export const MAX_TAG_READS = 50;
-

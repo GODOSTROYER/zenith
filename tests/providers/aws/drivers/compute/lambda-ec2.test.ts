@@ -11,7 +11,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { TofuFragment } from "@/lib/drivers/types";
 import { MAX_PAYLOAD_BYTES, MAX_RESPONSE_BYTES, boundResponse, lambdaFunctionDriver as lambda } from "@/lib/providers/aws/drivers/compute/lambda-function";
 import { AL2023_PARAMETER, ec2InstanceDriver as ec2 } from "@/lib/providers/aws/drivers/compute/ec2-instance";
-import { DriverCompileError, refLocalName } from "@/lib/providers/aws/drivers/compute/support/aws-shared";
+import { DriverCompileError, refLocalName } from "@/lib/providers/aws/drivers/shared";
 import { SECRET_CANARY, buildFullFixture, mkCompileContext, mkDriverContext, zenithTagList, zenithTagMap } from "./fixtures";
 
 const lambdaMock = mockClient(LambdaClient);

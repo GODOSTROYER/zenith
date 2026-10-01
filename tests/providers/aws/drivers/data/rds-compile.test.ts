@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { rdsInstanceDriver } from "@/lib/providers/aws/drivers/data";
-import { DriverCompileError } from "@/lib/providers/aws/drivers/data/_shared";
+import { DriverCompileError } from "@/lib/providers/aws/drivers/shared";
 import {
   backupRetentionFor,
   databaseNameFor,

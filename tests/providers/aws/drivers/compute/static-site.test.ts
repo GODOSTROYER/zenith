@@ -8,7 +8,7 @@ import { mockClient } from "aws-sdk-client-mock";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import type { TofuFragment } from "@/lib/drivers/types";
 import { CACHING_OPTIMIZED_POLICY_ID, distributionIdOf, s3StaticSiteDriver as driver } from "@/lib/providers/aws/drivers/compute/s3-static-site";
-import { DriverCompileError, refLocalName } from "@/lib/providers/aws/drivers/compute/support/aws-shared";
+import { DriverCompileError, refLocalName } from "@/lib/providers/aws/drivers/shared";
 import { TLS_ADDRESS, buildFullFixture, mkCompileContext, mkDriverContext, zenithTagList } from "./fixtures";
 
 const s3 = mockClient(S3Client);

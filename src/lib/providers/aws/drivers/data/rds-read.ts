@@ -4,7 +4,7 @@
  * tags on the instance's own `TagList` (never by name alone).
  */
 import { DescribeDBInstancesCommand, RDSClient, type DBInstance } from "@aws-sdk/client-rds";
-import { isArnOf, paginate, parseArn } from "./_shared";
+import { isArnOf, paginate, parseArn } from "@/lib/providers/aws/drivers/shared";
 import { call, tagMap, tagsMatchNode, validId, type AwsDriverContext } from "./support";
 import type { ResourceNode } from "@/lib/resources/types";
 

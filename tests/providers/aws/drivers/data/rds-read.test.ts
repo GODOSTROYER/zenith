@@ -261,7 +261,7 @@ describe("aws:rds_instance day-two operations", () => {
   it("declares only database.snapshot as executable; restore and delete are refusing stubs", () => {
     expect(driver.capabilities.operations).toEqual(["database.snapshot"]);
     expect(Object.keys(driver.operations!).sort()).toEqual(["database.delete", "database.restore", "database.snapshot"]);
-    expect(Object.keys(driver.capabilities.evidence).sort()).toEqual(["compile", "database.snapshot", "discover", "observe", "runtime", "verify"]);
+    expect(Object.keys(driver.capabilities.evidence).sort()).toEqual(["compile", "database.delete", "database.restore", "database.snapshot", "discover", "observe", "runtime", "verify"]);
   });
 
   it("derives a deterministic, valid snapshot id from the operation id", () => {

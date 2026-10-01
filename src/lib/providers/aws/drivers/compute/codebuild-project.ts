@@ -67,7 +67,7 @@ import {
   parseArn,
   standardVerification,
   tfLabel,
-} from "./support/aws-shared";
+} from "@/lib/providers/aws/drivers/shared";
 import { emitPrivateBucket } from "./support/bucket";
 import { compileNode, specOf } from "./support/driver-util";
 import { ComputeCompileError, Frag, TfCat, TfRef, arnOf, assumeRoleJson, attr, boundaryArn, cat, environmentData, policyJson, refOf, tagsFor, type PolicyStatement } from "./support/tf";

@@ -244,6 +244,26 @@ describe("wave 7 operator claims retain their implementation wiring", () => {
     expect(deploying).toContain("`read_jobs` (5");
   });
 
+  it("Temporal custom TLS variables, shared wiring and live limits stay documented", () => {
+    const config = source("src/lib/workflows/config.ts");
+    for (const variable of ["ZENITH_TEMPORAL_TLS_CA_FILE", "ZENITH_TEMPORAL_TLS_CERT_FILE", "ZENITH_TEMPORAL_TLS_KEY_FILE", "ZENITH_TEMPORAL_TLS_SERVER_NAME"]) {
+      expect(config).toContain(`env.${variable}`);
+      expect(deploying).toContain(`| \`${variable}\` |`);
+    }
+    expect(source("src/lib/workflows/client.ts")).toContain("connectionOptionsFor(config)");
+    expect(source("workers/execution/worker.ts")).toContain("NativeConnection.connect(connectionOptionsFor(config.temporal))");
+    expect(config).toContain("MAX_TEMPORAL_TLS_FILE_BYTES = 1024 * 1024");
+    expect(config).toContain("must be set together");
+    expect(deploying).toContain("1 MiB per file");
+    expect(deploying).toContain("Restart the web process and every worker");
+    expect(deploying).toContain("live mTLS authentication is unverified");
+    expect(deploying).not.toContain("mTLS is not wired");
+    expect(deploying).not.toContain("mTLS (not built)");
+    const limitations = source("docs/LIMITATIONS.md");
+    expect(limitations).not.toContain("Temporal mTLS configuration is absent");
+    expect(limitations).toContain("API-key and mTLS authentication");
+  });
+
   it("Temporal codec and decrypt-only previous keys are configured on client and worker", () => {
     const codec = source("src/lib/workflows/codec.ts");
     for (const value of ['createCipheriv("aes-256-gcm"', "WirePayload.encode(payload)", "randomBytes(NONCE_BYTES)", "cipher.setAAD(aad(this.keyId))", "env.ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS", "new TemporalPayloadCodec(secretKey, previousKeys)", 'env.NODE_ENV === "production"']) expect(codec).toContain(value);

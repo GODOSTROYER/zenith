@@ -33,8 +33,9 @@ import type { Observation, ResourceNode } from "@/lib/resources/types";
 import { GcpCompileError } from "../../errors";
 import { cloudName, networkTag, parseTagDescription, tagDescription, tfLabel } from "../../naming";
 import { COMPUTE, computeGlobal, contractCapabilities, managedOnly, specOf } from "../../driver-util";
-import { depsOfKind, lit, ref } from "../../hcl";
+import { lit, ref } from "../../hcl";
 import { arr, computePath, makeReaders, rec, str, tail, type ReadSpec } from "../../read-kit";
+import { networkOf } from "./network-of";
 
 export const DRIVER_ID = "gcp.firewall_rule@1";
 
@@ -61,8 +62,7 @@ function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
 
   const target = ctx.node(s.target);
   if (!target) throw new GcpCompileError("unknown_target", `${node.address}: target ${lit(s.target)} is not in the graph.`);
-  const network = depsOfKind(node, ctx, "network")[0] ?? depsOfKind(target, ctx, "network")[0];
-  if (!network) throw new GcpCompileError("missing_network", `${node.address}: no network node among its dependencies or its target's.`);
+  const network = networkOf(node, ctx, target);
 
   const L = tfLabel(node.address);
   const base: Record<string, unknown> = {

@@ -51,10 +51,15 @@ OCI and `zenith` stay interchangeable behind `src/lib/drivers/types.ts`.
 
 ## Cross-node references
 
-The execution compiler implements `ctx.ref(target, attribute)` with one rule:
+The execution compiler resolves `ctx.ref(target, attribute)` in two phases.
+First, it compiles every eligible node once. `ctx.ref` validates that the target
+is a graph node and the attribute is a valid reference key, then returns a
+unique provisional interpolation (`${__zenith_ref_<n>__}`). It records the
+source, target and attribute without compiling the target recursively.
 
-1. Compile the target on demand. A reference cycle is an error, even when the
-   target would publish a local. An external node contributes no fragment.
+Once all fragments exist, it resolves every recorded request with one rule:
+
+1. The target must have compiled. External/uncompilable targets fail closed.
 2. If its fragment declares the own local `refLocalName(target, attribute)`,
    return `${local.<that name>}`. Published locals take precedence even for
    native attributes such as `id` or `arn` (e.g. an ACM validated ARN).
@@ -65,6 +70,19 @@ The execution compiler implements `ctx.ref(target, attribute)` with one rule:
 4. Refuse invalid keys, unpublished semantic keys, or a target without an
    address. Errors name the source node, target and attribute with bounded,
    sanitized text; arbitrary manifest text never becomes an expression.
+
+The second pass substitutes tokens in every fragment string, including keys,
+arrays, nested values, outputs and locals. A driver may strip `${...}` to
+embed a reference in an HCL expression; its bare token is resolved there too.
+The shared HCL grammar scanner preserves escaped `$${...}` and literal text,
+even when they contain the same identifier as a live token. Unresolved active
+tokens, malformed token templates and key collisions after substitution are
+errors. Token numbering never enters the assembled workspace/configDigest.
+
+Reciprocal node references (e.g. VPC NAT gateway → subnet and subnet → VPC)
+require no compile order: dependencies are between individual OpenTofu
+resources. No driver in this path needs another fragment during compilation;
+true resource dependency cycles are left to OpenTofu validation/planning.
 
 Published reference keys use ASCII letters, digits, `_`, `-`, `.`, `/`, `:`,
 `[` and `]`, start with a letter or `_`, and are at most 512 characters.
@@ -89,15 +107,12 @@ Azure has no live `ctx.ref` call. Kubernetes and `zenith` do not compile via
 this path. Provider-schema validation is separate from reference resolution;
 the opt-in OpenTofu tests do not prove a cloud deploy succeeds.
 
-Current integration limits exposed by `tests/execution/compile-refs-providers.test.ts`:
-the full AWS staging/production graphs have a compile-reference cycle between
-the VPC NAT gateway's subnet lookup (`network/vpc-compile.ts:137`) and the
-subnet's VPC lookup (`network/subnet.ts:83`). The cycle guard deliberately
-refuses these graphs. OCI's expanded fixture is refused by its identity
-driver's missing Redis grant mapping (`oci/drivers/platform/identity.ts:108`);
-expanded GCP database grants include `read_credentials`, which is refused by
-`gcp/iam-roles.ts:81`. Those driver/expansion changes remain outside WS-REF;
-the full-graph acceptance tests stay strict and expose the refusals.
+Execution-path acceptance tests cover the full AWS and OCI staging/production
+graphs and both GCP provider fixtures and expanded manifests. GCP's portable
+Postgres `read_credentials` grant maps to its existing Cloud SQL IAM login
+class (instance-conditioned client/instanceUser roles and an IAM database
+user). GCP creates no database password secret, so this verb adds no secret
+access or broad role; SQL table privileges still require database migrations.
 
 ## Observe / runtime / verify / discover
 

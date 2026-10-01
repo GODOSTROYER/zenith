@@ -15,10 +15,14 @@
  *   queue, pubsub       publish, send → pubsub.publisher (on the topic)
  *   queue               consume, receive, subscribe, read → pubsub.subscriber (on the subscription)
  *   secret              read, get, access → secretmanager.secretAccessor
- *   postgres            connect, read, write, query, login → cloudsql.client + cloudsql.instanceUser
+ *   postgres            connect, read, write, query, login, read_credentials
+ *                       → cloudsql.client + cloudsql.instanceUser
  *                       (conditioned on the instance) and an IAM database user.
  *                       DB-level privileges (GRANT) are NOT created here; they
  *                       need SQL run inside the database.
+ *                       read_credentials is the portable SQL-binding verb:
+ *                       this driver uses IAM database authentication, so it
+ *                       grants the same login access, never secret access.
  *   redis               connect, read, write → no IAM binding exists (Memorystore
  *                       for Redis has no IAM data-plane auth); access is the
  *                       network path (`gcp:firewall_rule`)
@@ -53,7 +57,7 @@ export const VERBS: Record<string, { kind: GrantKind; verbs: Set<string>; role?:
   ],
   pubsub: [{ kind: "topic_publish", verbs: V("publish", "send"), role: "roles/pubsub.publisher" }],
   secret: [{ kind: "secret", verbs: V("read", "get", "access"), role: "roles/secretmanager.secretAccessor" }],
-  postgres: [{ kind: "cloudsql", verbs: V("connect", "read", "write", "query", "login") }],
+  postgres: [{ kind: "cloudsql", verbs: V("connect", "read", "write", "query", "login", "read_credentials") }],
   redis: [{ kind: "redis", verbs: V("connect", "read", "write") }],
   container_registry: [
     { kind: "registry", verbs: V("pull", "read"), role: "roles/artifactregistry.reader" },

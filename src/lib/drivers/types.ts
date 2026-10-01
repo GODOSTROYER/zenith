@@ -100,8 +100,10 @@ export interface CompileContext {
   region: string;
   tags: Record<string, string>;
   /**
-   * Compile the target on demand (cycles fail), then return a single `${...}`
-   * interpolation. Its declared `refLocalName(address, attribute)` local wins;
+   * Record a cross-node reference as a single provisional `${...}`
+   * interpolation; execution resolves it after every node has compiled,
+   * including within longer expressions. Reciprocal node references need no
+   * compile order. The declared `refLocalName(address, attribute)` local wins;
    * otherwise a plain identifier path with optional numeric indexes resolves
    * on its primary resource/data address. Semantic keys such as
    * `target_group_arn:container_service/web:3000` require a published local;

@@ -15,11 +15,11 @@ import { registerGcpDrivers } from "@/lib/providers/gcp/drivers";
 import { ociCompileContext } from "@/lib/providers/oci/context";
 import { registerOciDrivers } from "@/lib/providers/oci/drivers";
 import { ociPrimaryAddress } from "@/lib/providers/oci/naming";
-import { expandManifest, upgradeManifest, type ProviderKey, type ResourceGraph } from "@/lib/resources";
+import { expandManifest, upgradeManifest, graphDigestOf, specDigestOf, type ProviderKey, type ResourceGraph } from "@/lib/resources";
 import { TofuRunner } from "@/lib/tofu/runner";
 import type { TofuWorkspace } from "@/lib/tofu/types";
 import { expanded, realisticManifest, REGION as AWS_REGION, SECRET_CANARY } from "../providers/aws/drivers/_integration";
-import { environmentNodes, graphOf, REGION as GCP_REGION } from "../providers/gcp/_fixtures";
+import { environmentNodes, graphOf, IMAGE as GCP_IMAGE, PROJECT as GCP_PROJECT, REGION as GCP_REGION } from "../providers/gcp/_fixtures";
 import { COMPARTMENT, TENANCY, expandOci, webStack, OCI_ENV, OCI_PROD } from "../providers/oci/_support";
 import { providerConnection } from "./fakes/fixtures";
 import { FakeProduct } from "./fakes/product";
@@ -65,6 +65,21 @@ function gcp(envClass?: "production" | "staging") {
   const graph = envClass
     ? expandManifest(upgradeManifest(realisticManifest(), { provider: "gcp", region: GCP_REGION }), { id: "env-gcp-ref", name: envClass, class: envClass, provider: "gcp", region: GCP_REGION, baseDomain: "acme.io" })
     : graphOf(environmentNodes());
+  if (envClass) {
+    // GCP intentionally refuses unresolved build artifacts. Supply the test
+    // fixture's synthetic post-build image digest, keeping the real expanded
+    // registry/pipeline graph intact. No build or registry lookup is claimed.
+    graph.nodes = graph.nodes.map((node) => {
+      // Referenced zones need the connection's explicit Cloud DNS identifier;
+      // the AWS fixture's inferred domain alone is not a GCP resource name.
+      if (node.kind === "dns_zone" && node.ownership === "referenced") return { ...node, externalRef: `projects/${GCP_PROJECT}/managedZones/acme-io` };
+      const artifact = node.spec.artifact as { type?: string } | undefined;
+      if (artifact?.type !== "built") return node;
+      const resolved = { ...node, spec: { ...node.spec, artifact: { type: "image", ref: GCP_IMAGE } } };
+      return { ...resolved, specDigest: specDigestOf(resolved) };
+    });
+    graph.graphDigest = graphDigestOf(graph.nodes, graph.edges);
+  }
   return { graph, ...executionWorkspace(graph, "gcp", GCP_REGION, envClass ?? "staging") };
 }
 
@@ -92,6 +107,7 @@ function assertReferences(ws: TofuWorkspace, fragments: Map<string, TofuFragment
   // Scan all generated files, including nested expressions and output/locals
   // bodies. Escaped $${...} is literal manifest text, not a reference.
   for (const file of ws.files) {
+    expect(file.content).not.toMatch(/(?<!\$)\$\{__zenith_ref_/);
     for (const text of stringsIn(JSON.parse(file.content))) {
       for (const [, expression] of text.matchAll(/(?<!\$)\$\{([\s\S]*?)\}/g)) {
         for (const [reference] of expression.matchAll(/\b(?:local\.[A-Za-z0-9_]+|data\.[A-Za-z0-9_]+\.[A-Za-z0-9_]+|(?:aws|google|oci|azurerm|random|terraform)_[A-Za-z0-9_]+\.[A-Za-z0-9_]+)/g)) {
@@ -119,6 +135,13 @@ describe.each(["production", "staging"] as const)("AWS %s through the execution 
   it("has a deterministic configDigest over two independent expansion/compile/assembly runs", () => {
     expect(aws(envClass).ws).toEqual(aws(envClass).ws);
   });
+
+  it("keeps configDigest unchanged when node order changes provisional token numbering", () => {
+    const { graph, ws } = aws(envClass);
+    const reordered = executionWorkspace({ ...graph, nodes: [...graph.nodes].reverse() }, "aws", AWS_REGION, envClass).ws;
+    expect(reordered.configDigest).toBe(ws.configDigest);
+    expect(reordered).toEqual(ws);
+  });
 });
 
 describe.each(["production", "staging"] as const)("OCI %s through the execution compiler", (envClass) => {
@@ -128,7 +151,11 @@ describe.each(["production", "staging"] as const)("OCI %s through the execution 
     expect(assertReferences(ws, fragments).locals).toBeGreaterThan(0);
     for (const node of graph.nodes) {
       const primary = ociPrimaryAddress(node);
-      if (primary) expect(fragments.get(node.address)!.addresses[0], node.address).toBe(primary);
+      const fragment = fragments.get(node.address)!;
+      if (primary && (node.ownership === "managed" || fragment.addresses.length > 0)) expect(fragment.addresses[0], node.address).toBe(primary);
+      // OCI deliberately contributes no tofu object for a foreign secret
+      // (e.g. an AWS ARN). It must not invent an OCI Vault address for it.
+      if (node.kind === "secret" && node.ownership !== "managed") expect(fragment.addresses, node.address).toEqual([]);
     }
   });
 

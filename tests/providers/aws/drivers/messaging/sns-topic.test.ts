@@ -1,5 +1,6 @@
 /** SDK contract/compile tests only; no calls to an AWS account. */
 import { GetResourcesCommand, ResourceGroupsTaggingAPIClient } from "@aws-sdk/client-resource-groups-tagging-api";
+import { GetTopicAttributesCommand, ListSubscriptionsByTopicCommand, SNSClient } from "@aws-sdk/client-sns";
 import { mockClient } from "aws-sdk-client-mock";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { snsTopicDriver as driver } from "@/lib/providers/aws/drivers/messaging/sns-topic";
@@ -8,8 +9,13 @@ import { awsError, compileCtx, driverCtx, mkNode, tagList } from "../data/_helpe
 import { DriverCompileError, refLocalName } from "@/lib/providers/aws/drivers/shared";
 
 const tagging = mockClient(ResourceGroupsTaggingAPIClient);
-beforeEach(() => tagging.reset());
-afterAll(() => tagging.restore());
+const sns = mockClient(SNSClient);
+beforeEach(() => {
+  tagging.reset(); sns.reset();
+  sns.on(GetTopicAttributesCommand).resolves({ Attributes: { TopicArn: arn, KmsMasterKeyId: kmsArn } });
+  sns.on(ListSubscriptionsByTopicCommand).resolves({ Subscriptions: [] });
+});
+afterAll(() => { tagging.restore(); sns.restore(); });
 const arn = "arn:aws:sns:ap-south-1:123456789012:events";
 const kmsArn = "arn:aws:kms:ap-south-1:123456789012:key/12345678-1234-1234-1234-123456789012";
 const topic = (spec: Record<string, unknown> = {}) => mkNode("pubsub/events", "pubsub", spec);
@@ -95,16 +101,17 @@ describe("SNS lifecycle and grants", () => {
   });
 });
 
-describe("SNS honest tag-based observation", () => {
-  it("reports scoped tags/presence and leaves every uninspected configuration attribute unknown", async () => {
+describe("SNS scoped SDK observation", () => {
+  it("reads encryption after resolving scoped tags and keeps an unread policy unknown", async () => {
     tagging.on(GetResourcesCommand).resolves({ ResourceTagMappingList: [found()] });
     const obs = await driver.observe!(driverCtx(), topic());
     expect(obs).toMatchObject({ presence: "present", externalId: arn, simulated: false });
-    expect(Object.values(obs.attributes).every((a) => a.state === "unknown")).toBe(true);
-    expect((await driver.verify!(driverCtx(), topic(), obs)).status).toBe("unknown");
+    expect(obs.attributes).toMatchObject({ encrypted: { state: "known", value: true }, kmsKeyArn: { state: "known", value: kmsArn }, subscriptions: { state: "known", value: [] }, policySummary: { state: "unknown" } });
+    expect((await driver.verify!(driverCtx(), topic(), obs)).status).toBe("passed");
     const request = tagging.commandCalls(GetResourcesCommand)[0].args;
     expect(request[0].input).toMatchObject({ ResourceTypeFilters: ["sns:topic"], TagFilters: expect.arrayContaining([{ Key: "zenith:workspace", Values: ["ws_test"] }]) });
     expect((request as unknown[])[1]).toHaveProperty("abortSignal");
+    for (const request of sns.calls()) expect((request.args as unknown[])[1]).toHaveProperty("abortSignal");
   });
   it.each([
     [], [found(), found(topic().address, arn + "-second")],
@@ -125,6 +132,7 @@ describe("SNS honest tag-based observation", () => {
   it.each(["not-an-arn", arn.replace("123456789012", "999999999999"), arn + "*"])("refuses unsafe explicit identifier %s without any SDK call", async (id) => {
     expect((await driver.observe!(driverCtx(), topic(), id)).presence).toBe("unknown");
     expect(tagging.calls()).toHaveLength(0);
+    expect(sns.calls()).toHaveLength(0);
   });
   it("does not silently replace an explicit ARN with another tagged topic", async () => {
     tagging.on(GetResourcesCommand).resolves({ ResourceTagMappingList: [found()] });

@@ -15,6 +15,7 @@ export async function middleware(request: NextRequest) {
   if (["/api/agent/v1/mcp", "/api/agent/v2/mcp", "/api/agent/v3/mcp", "/api/agent/v2/tools", "/api/agent/v2/source",
     "/api/agent/link/start", "/api/agent/link/token",
     "/.well-known/oauth-protected-resource/api/agent/v2/mcp",
+    "/.well-known/oauth-protected-resource/api/agent/v3/mcp",
     // The workload-identity OIDC issuer (ADR-0006): cloud STS services fetch
     // discovery and JWKS anonymously. Public keys only; see src/lib/credentials/oidc.
     "/api/oidc/.well-known/openid-configuration", "/api/oidc/jwks",

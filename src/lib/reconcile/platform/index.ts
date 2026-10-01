@@ -24,7 +24,7 @@ import { createPlatformState } from "./state";
 import { createPlatformStore, loadGraphFromStore } from "./store";
 
 export { createPlatformGuard, createPlatformSignals, type PlatformGuardOptions } from "./guard";
-export { createPlatformState, loadPlatformEnvironment, registerEnvironment, type RegisterEnvironmentInput } from "./state";
+export { createPlatformState, loadPlatformEnvironment, registerEnvironment, requestReconcileNow, type RegisterEnvironmentInput } from "./state";
 export { createPlatformStore, loadGraphFromStore } from "./store";
 
 export interface PlatformReconcileDeps extends Pick<ReconcilePorts, "broker" | "withObserveSession" | "startRepair"> {

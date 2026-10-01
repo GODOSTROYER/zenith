@@ -253,12 +253,38 @@ export async function registerEnvironment(db: Sql, input: RegisterEnvironmentInp
       where not exists (select 1 from platform.reconcile_state x where x.environment_id = $1 and x.workspace_id <> $2)
      on conflict (environment_id) do update
         set project_id = excluded.project_id, env_class = excluded.env_class, provider = excluded.provider,
-            region = excluded.region, connection_id = excluded.connection_id, updated_at = excluded.updated_at
+            region = excluded.region, connection_id = excluded.connection_id, updated_at = excluded.updated_at,
+            -- a new connection, class or provider is a reason to look again soon (a parked environment is not stuck at 3 hours)
+            next_run_at = case when platform.reconcile_state.connection_id is distinct from excluded.connection_id
+                                 or platform.reconcile_state.env_class <> excluded.env_class
+                                 or platform.reconcile_state.provider <> excluded.provider
+                               then least(platform.reconcile_state.next_run_at, excluded.next_run_at) else platform.reconcile_state.next_run_at end,
+            step_index = case when platform.reconcile_state.connection_id is distinct from excluded.connection_id
+                                or platform.reconcile_state.env_class <> excluded.env_class
+                                or platform.reconcile_state.provider <> excluded.provider
+                              then 0 else platform.reconcile_state.step_index end
       where platform.reconcile_state.workspace_id = excluded.workspace_id
      returning environment_id`,
     [e.environmentId, e.workspaceId, e.projectId ?? null, e.class, e.provider, e.region, e.connection?.id ?? null, nowIso]
   );
   if (rows.length === 0) throw new ReconcileError("tenant_mismatch", "Environment not found in this workspace.");
+}
+
+/**
+ * "Look at this environment soon": a person asked, or its connection was just
+ * verified. Pulls the next run to `now` (never later than it already is), resets
+ * the backoff ladder and raises its priority one point. Returns false when the
+ * environment is not registered in this workspace.
+ */
+export async function requestReconcileNow(db: Sql, input: { workspaceId: string; environmentId: string; now?: Date }): Promise<boolean> {
+  const rows = await db.query<{ environment_id: string }>(
+    `update platform.reconcile_state
+        set next_run_at = least(next_run_at, $3::timestamptz), step_index = 0, priority = greatest(priority, 1), updated_at = $3::timestamptz
+      where workspace_id = $1 and environment_id = $2
+      returning environment_id`,
+    [input.workspaceId, input.environmentId, (input.now ?? new Date()).toISOString()]
+  );
+  return rows.length > 0;
 }
 
 /** The descriptor the controller holds for an environment, joined with its connection and autonomy; null when not registered. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { describeError, isAccessDenied, redactText, scrubValue } from "@/lib/reconcile";
-import { fnv1a, mapPool, raceTimeout, TimeoutError } from "@/lib/reconcile/util";
+import { abortable, fnv1a, mapPool, raceTimeout, TimeoutError } from "@/lib/reconcile/util";
 
 const PEM = "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA\n-----END RSA PRIVATE KEY-----";
 
@@ -125,6 +125,33 @@ describe("raceTimeout", () => {
     parent.abort(new Error("lease lost"));
     await expect(pending).rejects.toThrow("lease lost");
     await expect(raceTimeout(async () => 1, 100, parent.signal)).rejects.toThrow("lease lost");
+  });
+});
+
+describe("abortable", () => {
+  it("settles like the work, or as soon as the signal aborts, and swallows the abandoned work's failure", async () => {
+    expect(await abortable(Promise.resolve(1), new AbortController().signal)).toBe(1);
+    await expect(abortable(Promise.reject(new Error("boom")), new AbortController().signal)).rejects.toThrow("boom");
+    const c = new AbortController();
+    const hung = abortable(new Promise<never>(() => undefined), c.signal);
+    c.abort(new Error("deadline"));
+    await expect(hung).rejects.toThrow("deadline");
+    const c2 = new AbortController();
+    c2.abort();
+    await expect(abortable(Promise.resolve(1), c2.signal)).rejects.toBeInstanceOf(Error);
+    const unhandled: unknown[] = [];
+    const on = (e: unknown): void => void unhandled.push(e);
+    process.on("unhandledRejection", on);
+    try {
+      const c3 = new AbortController();
+      const late = abortable(new Promise((_, reject) => setTimeout(() => reject(new Error("late")), 30)), c3.signal);
+      c3.abort(new Error("first"));
+      await expect(late).rejects.toThrow("first");
+      await new Promise((r) => setTimeout(r, 60));
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", on);
+    }
   });
 });
 

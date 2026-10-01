@@ -79,6 +79,30 @@ export function raceTimeout<T>(run: (signal: AbortSignal) => Promise<T>, ms: num
   });
 }
 
+/**
+ * Reject as soon as `signal` aborts, without waiting for `work` (a hung
+ * credential exchange must not hold a pass past its deadline). The abandoned
+ * promise's late result or failure is swallowed, never an unhandled rejection.
+ */
+export function abortable<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  work.catch(() => undefined);
+  if (signal.aborted) return Promise.reject(signal.reason ?? new TimeoutError(0));
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = (): void => reject(signal.reason ?? new TimeoutError(0));
+    signal.addEventListener("abort", onAbort, { once: true });
+    work.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (err: unknown) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(err);
+      }
+    );
+  });
+}
+
 /** FNV-1a, 32 bit. Deterministic, dependency-free; used for jitter and ids, never for security. */
 export function fnv1a(text: string): number {
   let h = 0x811c9dc5;

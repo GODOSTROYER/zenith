@@ -271,6 +271,34 @@ describe("reconcileEnvironment: what could not be read is reported, never skippe
     expect(r2.counts.inaccessible).toBe(0);
   });
 
+  it("a credential exchange that hangs is cut off at the environment deadline, and every node is reported unread", async () => {
+    const h = harness();
+    const n = graph().nodes.filter((x) => x.ownership !== "external").length;
+    const started = Date.now();
+    const r = await reconcileEnvironment({
+      environment: ENV,
+      graph: graph(),
+      ports: { ...h.ports, withObserveSession: () => new Promise<never>(() => undefined) },
+      options: { environmentTimeoutMs: 60 },
+    });
+    expect(Date.now() - started).toBeLessThan(5_000);
+    expect(r.unread).toBe(n);
+    expect(r.counts.unknown).toBe(n);
+    expect(r.report?.findings[0].explanation).toMatch(/timed out/);
+    expect(h.world.observed).toEqual([]);
+  });
+
+  it("a lost lease (the outer signal) stops the reads and reports the rest unread", async () => {
+    const lost = new AbortController();
+    const slow = harness();
+    for (const node of graph().nodes) if (node.ownership !== "external") slow.world.patch(node.address, { delayMs: 40 });
+    setTimeout(() => lost.abort(new Error("lease lost")), 60);
+    const r = await reconcileEnvironment({ environment: ENV, graph: graph(), ports: slow.ports, options: { nodeConcurrency: 1 }, signal: lost.signal });
+    expect(r.unread).toBeGreaterThan(0);
+    expect(r.observed).toBeLessThan(graph().nodes.length);
+    expect(r.report?.findings.some((f) => f.class === "unknown")).toBe(true);
+  });
+
   it("a pass deadline that has already passed reports every node as unread, for that reason", async () => {
     const h = harness();
     const r = await reconcileEnvironment({ environment: ENV, graph: graph(), ports: h.ports, options: { deadlineAt: Date.now() - 1 } });

@@ -21,7 +21,7 @@ import {
   type ReconcileEnvironment,
   type SchedulableEnvironment,
 } from "@/lib/reconcile";
-import { createPlatformReconcilePorts, createPlatformState, createPlatformStore, loadGraphFromStore, loadPlatformEnvironment, registerEnvironment } from "@/lib/reconcile/platform";
+import { createPlatformReconcilePorts, createPlatformState, createPlatformStore, loadGraphFromStore, loadPlatformEnvironment, registerEnvironment, requestReconcileNow } from "@/lib/reconcile/platform";
 import { LANES, openLane, seedApprovedOperation, uid, type Lane } from "../controlplane/_support/harness";
 import { FakeBroker, HOUR, MIN, SESSION_CANARY, World, graph } from "./_support";
 
@@ -222,6 +222,29 @@ describe.each(LANES)("reconcile platform adapter [$name]", (lane: Lane) => {
       expect(await loadPlatformEnvironment(db, env.workspaceId, env.environmentId)).toMatchObject({ region: "eu-west-1", class: "production", provider: "aws", autonomyLevel: 1 /* store default */, connection: { status: "verified" } });
       await expect(registerEnvironment(db, { environment: { ...env, workspaceId: uid("ws") } })).rejects.toMatchObject({ code: "tenant_mismatch" });
       expect(await loadPlatformEnvironment(db, uid("ws"), env.environmentId)).toBeNull();
+    });
+
+    it("a changed connection (or class/provider) brings a parked environment forward; an unchanged registration touches nothing; reconcile-now works and is tenant-scoped", async () => {
+      const { env } = await seed();
+      const later = new Date(Date.now() + 3 * HOUR);
+      await db.query("update platform.reconcile_state set next_run_at = $2::timestamptz, step_index = 3 where environment_id = $1", [env.environmentId, later.toISOString()]);
+      const row = async () => (await db.query<{ next_run_at: string; step_index: number }>("select next_run_at, step_index from platform.reconcile_state where environment_id = $1", [env.environmentId]))[0];
+
+      await registerEnvironment(db, { environment: env }); // same descriptor
+      expect(await row()).toMatchObject({ step_index: 3 });
+      expect(Date.parse((await row()).next_run_at)).toBe(later.getTime());
+
+      const conn2 = await repos.connections.create(db, { workspaceId: env.workspaceId, config: AWS, createdBy: "user_1" });
+      await registerEnvironment(db, { environment: { ...env, connection: { id: conn2.id, status: "pending_verification" } } });
+      expect(await row()).toMatchObject({ step_index: 0 });
+      expect(Date.parse((await row()).next_run_at)).toBeLessThan(later.getTime());
+
+      await db.query("update platform.reconcile_state set next_run_at = $2::timestamptz, step_index = 3 where environment_id = $1", [env.environmentId, later.toISOString()]);
+      expect(await requestReconcileNow(db, { workspaceId: uid("ws"), environmentId: env.environmentId })).toBe(false);
+      expect(await row()).toMatchObject({ step_index: 3 });
+      expect(await requestReconcileNow(db, { workspaceId: env.workspaceId, environmentId: env.environmentId })).toBe(true);
+      expect(await row()).toMatchObject({ step_index: 0 });
+      expect(Date.parse((await row()).next_run_at)).toBeLessThan(later.getTime());
     });
 
     it("claims due environments best-first, atomically, and a claim expires", async () => {

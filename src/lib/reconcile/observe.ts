@@ -21,8 +21,8 @@
 import type { DriverContext, ResourceDriver } from "@/lib/drivers/types";
 import type { Observation, Presence, ProviderKey, ResourceNode, RuntimeState } from "@/lib/resources/types";
 import { describeError, isAccessDenied, redactText, scrubValue } from "./redact";
-import type { ReconcileEnvironment, ReconcilePorts, ResolvedReconcileOptions, StoredResourceRef } from "./types";
-import { cmp, mapPool, raceTimeout, TimeoutError } from "./util";
+import type { ObserveSessionRequest, ReconcileEnvironment, ReconcilePorts, ResolvedReconcileOptions, StoredResourceRef } from "./types";
+import { abortable, cmp, mapPool, raceTimeout, TimeoutError } from "./util";
 
 export interface ObservableNode {
   node: ResourceNode;
@@ -157,26 +157,26 @@ export async function observeNodes(args: ObserveArgs): Promise<ObservedNode[]> {
     if (outer?.aborted) onOuterAbort();
     else outer?.addEventListener("abort", onOuterAbort, { once: true });
     try {
-      await ports.withObserveSession(
-        {
-          workspaceId: environment.workspaceId,
-          ...(environment.projectId ? { projectId: environment.projectId } : {}),
-          environmentId: environment.environmentId,
-          provider,
-          region: environment.region,
-          ...(environment.connection ? { connectionId: environment.connection.id } : {}),
-          correlationId,
-          signal: groupAbort.signal,
-        },
-        async (session) => {
-          await mapPool(group, options.nodeConcurrency, async (item) => {
-            results.set(item.node.address, await observeOne({ item, session, args, signal: groupAbort.signal }));
-          });
-        }
-      );
+      const request: ObserveSessionRequest = {
+        workspaceId: environment.workspaceId,
+        ...(environment.projectId ? { projectId: environment.projectId } : {}),
+        environmentId: environment.environmentId,
+        provider,
+        region: environment.region,
+        ...(environment.connection ? { connectionId: environment.connection.id } : {}),
+        correlationId,
+        signal: groupAbort.signal,
+      };
+      const reading = ports.withObserveSession(request, async (session) => {
+        await mapPool(group, options.nodeConcurrency, async (item) => {
+          results.set(item.node.address, await observeOne({ item, session, args, signal: groupAbort.signal }));
+        });
+      });
+      await abortable(reading, groupAbort.signal);
     } catch (err) {
-      // The session could not be opened (or was torn down badly): every node of
-      // this provider that has no answer yet is unread, for THIS reason.
+      // The session could not be opened, hung past the deadline, or was torn
+      // down badly: every node of this provider that has no answer yet is
+      // unread, for THIS reason.
       for (const item of group)
         if (!results.has(item.node.address)) results.set(item.node.address, { ...item, observation: failureObservation(item, err, ports.now()) });
     } finally {

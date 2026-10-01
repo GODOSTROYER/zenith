@@ -44,6 +44,9 @@ import { fnv1a, nodeKindOf, scopedName, tfLabel } from "@/lib/providers/azure/na
 import { API, isPrivateCidr } from "@/lib/providers/azure/platform";
 import { findLandingZoneTagged } from "@/lib/providers/azure/drivers/network/landing";
 import { PLATFORM } from "@/lib/providers/azure/drivers/network/network";
+import { privateSubnet } from "@/lib/providers/azure/drivers/more-util";
+import { locateByTags } from "@/lib/providers/azure/kit";
+import { MYSQL } from "@/lib/providers/azure/drivers/data/mysql";
 
 export type PlatformSubnetKey = "aca" | "pg" | "pe";
 
@@ -51,9 +54,7 @@ const TARGET_SUBNET: Readonly<Record<string, PlatformSubnetKey>> = {
   container_service: "aca",
   scheduled_job: "aca",
   load_balancer: "aca",
-  static_site: "aca",
   postgres: "pg",
-  mysql: "pg",
   redis: "pe",
   queue: "pe",
   pubsub: "pe",
@@ -89,7 +90,8 @@ export function compileFirewall(node: ResourceNode, ctx: CompileContext): TofuFr
   const target = requireNode(ctx, spec.target, "the firewall target", a);
   if (target.provider !== "azure") throw new AzureCompileError(`target ${spec.target} is on ${target.provider}, not Azure.`, a);
   const targetKey = subnetKeyForKind(target.kind);
-  if (!targetKey) throw new AzureCompileError(`no network security group placement for target kind "${target.kind}".`, a);
+  const mysqlSubnet = target.kind === "mysql" ? privateSubnet(target, ctx, "mysql") : undefined;
+  if (!targetKey && !mysqlSubnet) throw new AzureCompileError(`no network security group placement for target kind "${target.kind}".`, a);
   const network = resolveNetwork(node, ctx);
 
   let sourcePrefix: string;
@@ -104,13 +106,18 @@ export function compileFirewall(node: ResourceNode, ctx: CompileContext): TofuFr
     if (source.provider !== "azure") {
       throw new AzureCompileError(`source ${spec.source.address} is on ${source.provider}; its address is unknown here, so no Azure rule can name it. Express cross-cloud access with an explicit CIDR.`, a);
     }
-    if (!SOURCE_IN_ACA.has(source.kind)) throw new AzureCompileError(`source kind "${source.kind}" has no subnet to name in a rule.`, a);
-    sourcePrefix = exportRef(network, "cidr_aca");
+    if (source.kind === "function" || source.kind === "compute_instance" || source.kind === "kubernetes_cluster") {
+      const sourceSubnet = privateSubnet(source, ctx, source.kind === "function" ? "functions" : undefined);
+      sourcePrefix = exportRef(sourceSubnet.address, "cidr");
+    } else {
+      if (!SOURCE_IN_ACA.has(source.kind)) throw new AzureCompileError(`source kind "${source.kind}" has no subnet to name in a rule.`, a);
+      sourcePrefix = exportRef(network, "cidr_aca");
+    }
   }
 
   const L = (part: string) => tfLabel(a, part);
-  const nsgName = exportRef(network, targetKey === "aca" ? "nsg_aca_name" : targetKey === "pg" ? "nsg_pg_name" : "nsg_pe_name");
-  const destPrefix = exportRef(network, targetKey === "aca" ? "cidr_aca" : targetKey === "pg" ? "cidr_pg" : "cidr_pe");
+  const nsgName = mysqlSubnet ? exportRef(mysqlSubnet.address, "nsg_name") : exportRef(network, targetKey === "aca" ? "nsg_aca_name" : targetKey === "pg" ? "nsg_pg_name" : "nsg_pe_name");
+  const destPrefix = mysqlSubnet ? exportRef(mysqlSubnet.address, "cidr") : exportRef(network, targetKey === "aca" ? "cidr_aca" : targetKey === "pg" ? "cidr_pg" : "cidr_pe");
   return fragment({
     resource: block("azurerm_network_security_rule", L("rule"), {
       name: ruleName(a),
@@ -154,6 +161,17 @@ const expectedSource = (spec: FirewallSpec): string => ("cidr" in spec.source ? 
 async function locateRule(ctx: AzureCtx, node: ResourceNode): Promise<Located> {
   const arm = armClient(ctx.session, ctx.signal);
   const spec = specOf<FirewallSpec>(node);
+  if (nodeKindOf(spec.target) === "mysql") {
+    const server = await locateByTags(ctx, { ...node, address: spec.target }, MYSQL);
+    if (server.state !== "found") return server;
+    const subnetId = pick<string>(props(server.resource), "network", "delegatedSubnetResourceId");
+    if (!subnetId) return { state: "unknown", detail: "MySQL delegated subnet was not inspected" };
+    const subnet = await getById(arm, subnetId, API.network);
+    if (subnet.state !== "found") return subnet;
+    const nsgId = pick<string>(props(subnet.resource), "networkSecurityGroup", "id");
+    if (!nsgId) return { state: "unknown", detail: "MySQL subnet NSG was not inspected" };
+    return getById(arm, `${nsgId}/securityRules/${ruleName(node.address)}`, API.network);
+  }
   const key = subnetKeyForKind(nodeKindOf(spec.target));
   if (!key) return { state: "unknown", detail: `no NSG placement for target kind "${nodeKindOf(spec.target)}"` };
   const found = await findLandingZoneTagged(ctx, node, arm, "Microsoft.Network/networkSecurityGroups");

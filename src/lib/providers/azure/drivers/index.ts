@@ -5,10 +5,10 @@
  * exactly as `src/lib/resources/native-types.ts` names them. Registering twice
  * is harmless (the registry replaces the entry with the same driver).
  *
- * Not registered, because the native-type table names them but no driver
- * exists: `azure:mysql_flexible_server`, `azure:virtual_machine`,
- * `azure:function_app`, `azure:static_web_app`, `azure:aks_cluster`,
- * `azure:managed_disk`. Nodes of those kinds stay `unsupported` until built.
+ * All native table entries are registered. Additional kinds require explicit
+ * graph specs; see README.md for compile restrictions and external prerequisites.
+ * Fresh MySQL creation is refused until the shared fragment contract supports
+ * ephemeral credentials; SWA artifact deployment is not implemented.
  */
 import type { ResourceDriver } from "@/lib/drivers/types";
 import { registerDriver } from "@/lib/drivers/types";

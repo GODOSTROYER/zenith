@@ -16,10 +16,11 @@ describe("driver registration", () => {
     }
   });
 
-  it("native types the table names but no driver implements stay unregistered (visibly unsupported, not faked)", () => {
+  it("registers the additional native types with contract evidence", () => {
     registerAzureDrivers();
     for (const t of ["azure:mysql_flexible_server", "azure:virtual_machine", "azure:function_app", "azure:static_web_app", "azure:aks_cluster", "azure:managed_disk"]) {
-      expect(findDriver("azure", t), t).toBeUndefined();
+      expect(findDriver("azure", t), t).toBeDefined();
+      expect(Object.values(findDriver("azure", t)!.capabilities.evidence)).toEqual(expect.arrayContaining(["contract"]));
     }
   });
 

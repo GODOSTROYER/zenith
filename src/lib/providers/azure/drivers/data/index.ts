@@ -4,6 +4,8 @@ import { postgresDriver } from "@/lib/providers/azure/drivers/data/postgres";
 import { redisDriver } from "@/lib/providers/azure/drivers/data/redis";
 import { serviceBusQueueDriver, serviceBusTopicDriver } from "@/lib/providers/azure/drivers/data/service-bus";
 import { storageDriver } from "@/lib/providers/azure/drivers/data/storage";
+import { mysqlDriver } from "@/lib/providers/azure/drivers/data/mysql";
+import { managedDiskDriver } from "@/lib/providers/azure/drivers/data/managed-disk";
 
 /** Data group: PostgreSQL, Redis, Blob storage, Service Bus. */
-export const dataDrivers: ResourceDriver<AzureSession>[] = [postgresDriver, redisDriver, storageDriver, serviceBusQueueDriver, serviceBusTopicDriver];
+export const dataDrivers: ResourceDriver<AzureSession>[] = [postgresDriver, redisDriver, storageDriver, serviceBusQueueDriver, serviceBusTopicDriver, mysqlDriver, managedDiskDriver];

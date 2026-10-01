@@ -302,13 +302,14 @@ describe("load balancer, DNS and certificates", () => {
 });
 
 describe("registry of drivers", () => {
-  it("covers every native type of the azure row except the ones that are explicitly not implemented", () => {
+  it("covers every native type of the Azure row, with documented compile restrictions", () => {
     const registered = new Set(AZURE_DRIVERS.map((d) => d.nativeType));
     expect([...registered].sort()).toEqual([
       "azure:acr_task", "azure:application_gateway", "azure:container_app", "azure:container_app_job", "azure:container_registry", "azure:dns_record_set", "azure:dns_zone", "azure:key_vault_secret",
       "azure:log_analytics_workspace", "azure:managed_certificate", "azure:network_security_rule", "azure:postgresql_flexible_server", "azure:redis_cache", "azure:service_bus_queue",
       "azure:service_bus_topic", "azure:storage_container", "azure:subnet", "azure:user_assigned_identity", "azure:virtual_network",
-    ]);
+      "azure:mysql_flexible_server", "azure:virtual_machine", "azure:function_app", "azure:static_web_app", "azure:aks_cluster", "azure:managed_disk",
+    ].sort());
   });
 
   it("compiles the whole sample graph in one pass without exceptions", () => {

@@ -22,19 +22,33 @@
 import type { CompileContext, TofuFragment } from "@/lib/drivers/types";
 import type { ResourceNode } from "@/lib/resources/types";
 import type { SubnetSpec } from "@/lib/resources/specs";
-import { block, fragment, mergeBlocks, requireNode, specOf } from "@/lib/providers/azure/compile-util";
+import { AzureCompileError, block, fragment, mergeBlocks, requireNode, specOf } from "@/lib/providers/azure/compile-util";
 import { exportLocals, exportRef } from "@/lib/providers/azure/exports";
 import { defineAzureDriver, findTagged, getById, pick, props, unknownRead, type AzureCtx, type Located } from "@/lib/providers/azure/kit";
 import { armClient } from "@/lib/providers/azure/arm";
 import { azureTags, scopedName, tfLabel } from "@/lib/providers/azure/naming";
-import { API } from "@/lib/providers/azure/platform";
+import { API, parseCidr, landingZoneCidrs, isPrivateCidr } from "@/lib/providers/azure/platform";
 
 export const SUBNET_NAME_MAX = 80;
 
 export function compileSubnet(node: ResourceNode, ctx: CompileContext): TofuFragment {
-  const spec = specOf<SubnetSpec>(node);
+  const spec = specOf<SubnetSpec & { role?: "mysql" | "functions" }>(node);
   const a = node.address;
-  requireNode(ctx, spec.network, "the subnet's network", a);
+  const network = requireNode(ctx, spec.network, "the subnet's network", a);
+  if (spec.role !== undefined) {
+    if (network.provider !== "azure" || network.kind !== "network" || network.region !== node.region) throw new AzureCompileError("delegated subnets need an Azure VNet in this region.", a);
+    const cidr = parseCidr(spec.cidr, a);
+    const vnet = parseCidr(String(network.spec.cidr), a);
+    const end = cidr.base + 2 ** (32 - cidr.bits);
+    if (!isPrivateCidr(spec.cidr) || cidr.base < vnet.base || end > vnet.base + 2 ** (32 - vnet.bits)) throw new AzureCompileError("the delegated subnet must be private and entirely within its VNet.", a);
+    if (cidr.bits > (spec.role === "functions" ? 26 : 28)) throw new AzureCompileError("the delegated subnet is too small for its service.", a);
+    for (const reserved of Object.values(landingZoneCidrs(String(network.spec.cidr), a))) {
+      const r = parseCidr(reserved);
+      if (cidr.base < r.base + 2 ** (32 - r.bits) && r.base < end) throw new AzureCompileError("the delegated subnet overlaps a landing-zone subnet.", a);
+    }
+  }
+  if (spec.role !== undefined && (!["mysql", "functions"].includes(spec.role) || spec.tier !== "private")) throw new AzureCompileError("a delegated subnet must be private with role mysql or functions.", a);
+  const delegation = spec.role === "mysql" ? "Microsoft.DBforMySQL/flexibleServers" : spec.role === "functions" ? "Microsoft.Web/serverFarms" : undefined;
   const L = (part: string) => tfLabel(a, part);
   const name = scopedName(a, { max: SUBNET_NAME_MAX });
   const rg = exportRef(spec.network, "rg_name");
@@ -44,6 +58,7 @@ export function compileSubnet(node: ResourceNode, ctx: CompileContext): TofuFrag
       resource_group_name: rg,
       virtual_network_name: exportRef(spec.network, "vnet_name"),
       address_prefixes: [spec.cidr],
+      ...(delegation ? { delegation: [{ name: spec.role, service_delegation: { name: delegation, actions: ["Microsoft.Network/virtualNetworks/subnets/join/action"] } }] } : {}),
     }),
     block("azurerm_network_security_group", L("nsg"), {
       name: scopedName(a, { max: SUBNET_NAME_MAX, suffix: "nsg" }),
@@ -54,9 +69,13 @@ export function compileSubnet(node: ResourceNode, ctx: CompileContext): TofuFrag
     block("azurerm_subnet_network_security_group_association", L("assoc"), {
       subnet_id: `\${azurerm_subnet.${L("snet")}.id}`,
       network_security_group_id: `\${azurerm_network_security_group.${L("nsg")}.id}`,
-    })
+    }),
+    ...(spec.role === "mysql" ? [
+      block("azurerm_network_security_rule", L("allow_mysql_replication"), { name: "allow-intra-subnet", resource_group_name: rg, network_security_group_name: `\${azurerm_network_security_group.${L("nsg")}.name}`, priority: 100, direction: "Inbound", access: "Allow", protocol: "*", source_port_range: "*", destination_port_range: "*", source_address_prefix: spec.cidr, destination_address_prefix: spec.cidr }),
+      block("azurerm_network_security_rule", L("deny_mysql_inbound"), { name: "deny-inbound", resource_group_name: rg, network_security_group_name: `\${azurerm_network_security_group.${L("nsg")}.name}`, priority: 4096, direction: "Inbound", access: "Deny", protocol: "*", source_port_range: "*", destination_port_range: "*", source_address_prefix: "*", destination_address_prefix: "*" }),
+    ] : [])
   );
-  return fragment({ resource, locals: exportLocals(a, { id: `\${azurerm_subnet.${L("snet")}.id}`, name: `\${azurerm_subnet.${L("snet")}.name}` }) });
+  return fragment({ resource, locals: exportLocals(a, { id: `\${azurerm_subnet.${L("snet")}.id}`, name: `\${azurerm_subnet.${L("snet")}.name}`, nsg_name: `\${azurerm_network_security_group.${L("nsg")}.name}`, cidr: spec.cidr }) });
 }
 
 /** Find the subnet under its tagged VNet. */

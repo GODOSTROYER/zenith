@@ -46,6 +46,8 @@ export type ExportKey =
   | "dns_pg_id"
   | "dns_redis_id"
   | "dns_blob_id"
+  | "dns_queue_id"
+  | "dns_web_id"
   | "cae_id"
   | "cae_name"
   | "cae_default_domain"
@@ -68,7 +70,9 @@ export type ExportKey =
   | "resource_manager_id"
   | "zone_name"
   | "zone_rg"
-  | "app_id";
+  | "app_id"
+  | "nsg_name"
+  | "cidr";
 
 /** The local's name; deterministic from the node address and the key. */
 export const exportName = (address: string, key: ExportKey): string => `${tfLabel(address)}__${key}`;

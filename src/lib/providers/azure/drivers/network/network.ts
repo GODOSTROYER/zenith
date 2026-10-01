@@ -24,7 +24,8 @@
  *                         deny-by-default (intra-subnet + load-balancer probes
  *                         allowed; everything else needs a firewall node). The
  *                         ACA and PE subnets keep Azure's default rules.
- *   private DNS           PostgreSQL (delegated-subnet zone), Redis and Blob
+ *   private DNS           PostgreSQL (delegated-subnet zone), Redis, Blob,
+ *                         Queue and Linux Functions
  *                         `privatelink` zones, each linked to the VNet.
  *   log analytics         the environment's workspace (Container Apps allows one).
  *   container apps env    workload-profile environment, Consumption profile,
@@ -64,6 +65,8 @@ const JOIN_ACTION = "Microsoft.Network/virtualNetworks/subnets/join/action";
 const PRIVATE_DNS = {
   redis: "privatelink.redis.cache.windows.net",
   blob: "privatelink.blob.core.windows.net",
+  queue: "privatelink.queue.core.windows.net",
+  web: "privatelink.azurewebsites.net",
 } as const;
 
 export function compileNetwork(node: ResourceNode, ctx: CompileContext): TofuFragment {
@@ -108,7 +111,7 @@ export function compileNetwork(node: ResourceNode, ctx: CompileContext): TofuFra
       destination_address_prefix: dst,
       description,
     });
-  const zone = (key: "pg" | "redis" | "blob", name: string) =>
+  const zone = (key: "pg" | "redis" | "blob" | "queue" | "web", name: string) =>
     mergeBlocks(
       block("azurerm_private_dns_zone", L(`dns_${key}`), { name, resource_group_name: rg, tags }),
       block("azurerm_private_dns_zone_virtual_network_link", L(`dns_${key}_link`), {
@@ -141,6 +144,8 @@ export function compileNetwork(node: ResourceNode, ctx: CompileContext): TofuFra
     zone("pg", pgZoneName),
     zone("redis", PRIVATE_DNS.redis),
     zone("blob", PRIVATE_DNS.blob),
+    zone("queue", PRIVATE_DNS.queue),
+    zone("web", PRIVATE_DNS.web),
     block("azurerm_log_analytics_workspace", L("logs"), {
       name: cloudName(ctx, a, { max: 63, suffix: "logs" }),
       location,
@@ -187,6 +192,8 @@ export function compileNetwork(node: ResourceNode, ctx: CompileContext): TofuFra
       dns_pg_id: ref("azurerm_private_dns_zone", "dns_pg", "id"),
       dns_redis_id: ref("azurerm_private_dns_zone", "dns_redis", "id"),
       dns_blob_id: ref("azurerm_private_dns_zone", "dns_blob", "id"),
+      dns_queue_id: ref("azurerm_private_dns_zone", "dns_queue", "id"),
+      dns_web_id: ref("azurerm_private_dns_zone", "dns_web", "id"),
       cae_id: ref("azurerm_container_app_environment", "cae", "id"),
       cae_name: ref("azurerm_container_app_environment", "cae", "name"),
       cae_default_domain: ref("azurerm_container_app_environment", "cae", "default_domain"),

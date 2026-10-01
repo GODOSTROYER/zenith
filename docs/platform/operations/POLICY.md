@@ -7,16 +7,20 @@ mean, how to change a rule and rebuild the bundle, and what a decision record is
 Design: [ADR-0007](../../adr/0007-capability-broker-and-autonomy.md) and
 [ADR-0008](../../adr/0008-policy-opa-wasm.md).
 
-Written against branch `ws/docs`, merged with `platform/integration` at `6354117` (2026-10-01).
+Written against branch `ws/docs`, merged with `platform/integration` at `bb5052a` (2026-10-01).
 
 **Status.** The engine, the Rego rules, the plan-fact extraction, the workspace
-parameter resolver and the decision-record store are built and tested. **Nothing
-calls the engine yet.** The capability broker that assembles the input from
-authoritative state (stores, the normalized OpenTofu plan, the environment's
-autonomy) is in progress, and the worker's `evaluatePolicy` activity is a stub. So
-every statement here is about the engine's contract, verified by its tests, and not
-about a decision ever made on a live request. Nothing in the policy has been
-evaluated against a plan from a real AWS account (see
+parameter resolver, the decision-record store and the capability broker that calls
+the engine are built and tested. The broker (`src/lib/capabilities`, behind
+`/api/platform/v1`) builds the policy input from authoritative state (the catalog,
+the caller's role, the environment's autonomy, the stored workspace policy) and
+evaluates on every proposal, check, approval and execution. What is **not** joined:
+the worker's `evaluatePolicy` activity is still a stub, nothing starts a workflow from
+an approved operation, and plan facts and costs reach the broker only in-process from
+the execution side (`ProposeContext`), never from a request body, so over REST the
+plan- and cost-based rules cannot fire today. Every statement here is about the
+contract verified by tests, not about a decision made on a production request, and
+nothing has been evaluated against a plan from a real AWS account (see
 [Plan facts](#plan-facts-and-what-they-cannot-see)).
 
 ## How a decision is made
@@ -114,39 +118,51 @@ nothing), or an empty region list throws `PolicyConfigError` instead of being
 corrected. Region and capability lists are de-duplicated and sorted so equal
 policies produce equal inputs and equal input digests.
 
-**Where they are stored.** `platform.workspace_policy` (`params`, `version`,
-`updated_by`) and, per environment, `platform.environment_settings.policy_params`,
-through `getWorkspacePolicy` / `putWorkspacePolicy` and `getEnvironmentSettings` /
-`putEnvironmentSettings` (`src/lib/controlplane/db/repos/settings.ts`). Writes use
-optimistic concurrency: pass the `expectedVersion` you read, and a stale writer gets
-`conflict` instead of overwriting.
+**Where they are stored and how to change them.** `platform.workspace_policy`
+(`params`, `version`, `updated_by`), through `GET` and `PUT /api/platform/v1/workspace/policy`
+(the broker's `getWorkspacePolicy` / `setWorkspacePolicy`). Members may read it, with the
+overrides and the complete effective parameters. **Writing is for a human admin in a
+browser session**: the route refuses any `Authorization` header, verifies the identity
+live and requires an exact `Origin` ([DEPLOYING.md](DEPLOYING.md#28-capability-broker-approvals-and-the-agent-routes)).
+Writes use optimistic concurrency: pass the `expectedVersion` you read, and a stale
+writer gets `conflict` instead of overwriting. Only the **overrides** are stored.
+(`platform.environment_settings.policy_params` also exists; see below.)
 
 **Two things to know before you write one.**
 
-1. **The store does not validate policy parameters.** It refuses secret-shaped
-   values and nothing else; validation is `resolveWorkspacePolicy`, which runs when
-   the broker resolves the policy. Run it on what you are about to store. An invalid
-   stored value is refused at evaluation time, which means that workspace's
-   operations fail until it is fixed.
-2. **There is no REST route or screen to change them on this branch.** They are
-   store functions today.
+1. **The write path validates; the store does not.** `setWorkspacePolicy` validates
+   with `resolveWorkspacePolicy` before saving, so an unknown key or capability name is
+   refused. The repository function underneath (`putWorkspacePolicy`) refuses only
+   secret-shaped values, so anything that writes there directly can store an invalid
+   policy. An invalid stored policy is `policy_unavailable`: **every request in that
+   workspace is refused** until an admin saves a valid one.
+2. **There is no page to change them on this branch.** The REST route exists; the
+   screens (`src/components/platform` has the presentational pieces) do not.
 
-How per-environment `policy_params` combine with the workspace policy is decided by
-the broker, which is in progress. Do not assume an order.
+**Per-environment `policy_params` are not read.** The column exists and the autonomy
+setting preserves it, but the broker builds its policy input from the workspace policy
+and the environment's autonomy level only. Do not rely on environment-level overrides.
 
 ## Autonomy levels
 
 Autonomy is **per environment**, 0 to 5 ([ADR-0007](../../adr/0007-capability-broker-and-autonomy.md)),
 stored in `platform.environment_settings.autonomy_level` (a check constraint keeps it
-between 0 and 5). An environment with no settings row reads as level **1**, the
-conservative store default (`DEFAULT_AUTONOMY_LEVEL`), with `isDefault: true` so
-"never configured" is distinguishable from "configured to 1".
+between 0 and 5) and read and written through `GET` and `PUT
+/api/platform/v1/environments/<id>/autonomy`. Any member may read it; **only a human admin
+in a browser session may change it**, so an agent cannot raise its own autonomy.
 
-| Level | Meaning (ADR-0007) | What policy does with it today |
+**When never configured** the broker applies a default by environment class
+(`DEFAULT_AUTONOMY_BY_CLASS`, `src/lib/capabilities/autonomy.ts`): **production 2, staging
+3, development 3, sandbox 4**; the view says `defaulted: true` so "never configured" is
+distinguishable from "configured to that level". (The store alone, with no broker above
+it, reads an unconfigured environment as 1, `DEFAULT_AUTONOMY_LEVEL`; the broker's
+class default is what a request sees.)
+
+| Level | Meaning (ADR-0007) | What happens |
 |---|---|---|
-| 0 | observe | Every mutating capability needs an approval. |
-| 1 | recommend | Same as 0 for mutations. |
-| 2 | plan: exact proposals that need approval | Same as 0 for mutations. |
+| 0 | observe | Every mutating capability needs an approval, and an agent cannot create a mutating proposal at all (`agent_autonomy_too_low`). |
+| 1 | recommend | Same as 0: agents recommend in prose but cannot create executable proposals. |
+| 2 | plan: exact proposals that need approval | Agents may propose; every mutation waits for a human approval. |
 | 3 | safe execution: low-risk changes run automatically | `service.restart`, `service.scale` and `database.snapshot` need no approval for autonomy reasons. |
 | 4 | bounded SRE operations automatic under policy | Adds `deployment.deploy`, `deployment.rollback`, `drift.repair`, `database.migrate`, `function.invoke` and `machine.service.restart`. |
 | 5 | broad autonomy within configured limits | Adds `infrastructure.apply`, `firewall.modify`, `dns.modify`, `secret.write`, `file.write`, `file.upload` and `package.install`. |
@@ -165,13 +181,20 @@ applies at level 5: a cost increase over the threshold, a budget overrun, a regi
 outside the approved list, open ingress, a production two-person rule, a destructive
 production change. Levels 3 to 5 are not levels at which policy stops looking.
 
-What is **not** built: levels 1 and 2 differ in meaning (recommend versus plan) but
-policy treats them identically for mutations. The difference belongs to the broker
-gating non-mutating capabilities such as `infrastructure.plan` (default autonomy 1)
-and `file.read` (2), and that is in progress. The Navigator's install-wide setting
-maps onto these levels as observe to 0, plan to 1, approve to 2, bounded to 3,
-autonomous to 5 (ADR-0007); that mapping is a design statement here, since the
-broker is what would apply it.
+Two layers decide this. The Rego rule is mutation-only and applies to every principal.
+The **broker adds one guard** the Rego cannot see (`applyGuards`, which only tightens):
+an `integration` or `navigator` principal proposing a mutating capability in an
+environment below level 2 is denied with `agent_autonomy_too_low`. That is what makes
+levels 1 and 2 differ: at 1 agents recommend, at 2 they may propose. The broker does not
+gate non-mutating capabilities by autonomy (`infrastructure.plan` has default autonomy 1
+and `file.read` 2, but reads are decided by role and integration scope, not by level).
+
+The Navigator's install-wide setting maps onto these levels as observe to 0, plan to 1,
+approve to 2, bounded to 3, autonomous to 5 (`levelFromNavigator`); the inverse reads 3
+and 4 as "bounded". The broker implements the mapping; **nothing calls the broker from
+`runAction` yet** (`checkActionThroughBroker` is "not wired into runAction" in its own
+header), so the product's existing Navigator dial and the platform's per-environment
+level are two settings that are not yet connected.
 
 ## Decision records
 
@@ -188,9 +211,14 @@ answer after the fact. A row in `platform.policy_decisions` holds:
 | `constraints` | Restrictions the executor must enforce |
 | `evaluated_at` | Database time |
 
-`recordPolicyOutcome` (`src/lib/controlplane/operations/index.ts`) writes the decision
-and moves the operation in one transaction: `allow` to `approved`, `require_approval`
-to `awaiting_approval`, `deny` to `denied`, with a `policy.evaluated` event.
+The broker's `propose` writes the decision and the operation together
+(`recordPolicyOutcome`, `src/lib/controlplane/operations/index.ts`, through the platform
+store adapter): `allow` to `approved`, `require_approval` to `awaiting_approval`, `deny`
+to `denied`, with a `policy.evaluated` event. `check` makes the same decision as a dry
+run and persists nothing. `authorizeRead` decides read-only capabilities without creating
+an operation and logs at most one decision a minute per principal, capability, scope and
+outcome. Approving and executing **re-evaluate** against current policy, roles and
+autonomy and record a fresh decision.
 
 What a record does **not** hold: the input itself, only its digest. To replay a
 decision you rebuild the input from the operation's proposal, the requester's role,
@@ -227,11 +255,17 @@ expression undefined instead of true, so `not input.x in {...}` does **not** fir
 `input.x` is missing. Bind a defaulted value first, or use `not input.x == ...`.
 
 **What a new bundle does to work in flight.** `policyVersion` is the wasm's hash, so
-any rebuild changes it. An approval records the version it was granted under, and
-`claimForExecution` (given an `expectedPolicyVersion`) refuses to consume it under a
-different bundle with `policy_changed`: the operation must be **re-approved**.
-Decision records already written keep the version that made them. Expect a policy
-deploy to invalidate every approval that has not been used yet.
+any rebuild changes it, and an approval records the version it was granted under. The
+broker does **not** invalidate approvals on a version change by itself: it omits
+`expectedPolicyVersion` and instead re-evaluates under the **current** bundle and checks
+that the unconsumed, unexpired approvals satisfy the **current** requirement (count of
+distinct approvers, each still holding the minimum role, separation of duties). If the
+requirement is unchanged or looser the approval stands; if it is stricter the operation
+needs `reapproval_required`; if the new bundle denies it, approving is refused
+(`policy_denied`) and execution ends the operation (`cancelled`, `operation.denied`).
+Decision records already written keep the version that made them. (The store's own
+`claimForExecution` can still be given an `expectedPolicyVersion` and then refuses with
+`policy_changed`; the broker does not use that mode.)
 
 **Build reproducibility.** The build compiles LF-normalised copies of the sources under
 bare names in a temp directory so the wasm does not depend on the working directory
@@ -270,12 +304,18 @@ deterministic. The honest limits (from the code's own comments):
 ## What to check when something is denied or held
 
 1. Read the decision's `reasons`: the `code` names the rule and the `message` says
-   what it saw (field paths, never values).
+   what it saw (field paths, never values). Besides the Rego rules, the **broker** can
+   add `plan_required` (an `infrastructure.apply` or `destroy` without the reviewed
+   OpenTofu plan; over REST this is always the case today), `agent_autonomy_too_low`
+   (see above) and `policy_unavailable` (the bundle cannot load, or the stored
+   workspace policy is invalid: refuse everything, never allow).
 2. `policy_error` is the engine refusing, not a rule: look at the `rule` field for
    the stage. `zenith.engine.catalog` means the broker's input disagrees with the
    capability catalog, which is a bug in the broker, not a policy choice.
+   `policy_unavailable` on a serverless host usually means the bundle was not shipped
+   with the build ([DEPLOYING.md](DEPLOYING.md#27-policy-engine)).
 3. `workspace_denied_capability`, `region_not_approved`: a workspace parameter, in
    `platform.workspace_policy`.
 4. `autonomy_below_capability`: the environment's autonomy level, in
-   `platform.environment_settings`.
+   `platform.environment_settings`, or the class default if never configured.
 5. Anything else: the rule table above and [policy/README.md](../../../policy/README.md).

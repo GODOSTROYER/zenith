@@ -4,7 +4,7 @@ What Zenith's cost engine produces, what it does not, where its numbers come fro
 and how to refresh them. Design: [ADR-0013](../../adr/0013-placement-and-cost.md).
 Code: `src/lib/placement/`.
 
-Written against branch `ws/docs`, merged with `platform/integration` at `6354117` (2026-10-01).
+Written against branch `ws/docs`, merged with `platform/integration` at `bb5052a` (2026-10-01).
 
 **Status.** The price catalog, the cost engine and the placement solver are built as
 pure libraries and tested. **They are not wired into anything a user sees.** The
@@ -227,7 +227,10 @@ directly), change the import in `pricebook.ts` in the same commit.
   rules `cost_threshold_exceeded` and `budget_exceeded` compare against the
   workspace's `costApprovalThresholdUsd` and `budgetUsdMonthly`
   ([POLICY.md](POLICY.md#workspace-parameters)). Both inputs are estimates, so
-  both rules are only as accurate as the catalog and the usage assumptions.
+  both rules are only as accurate as the catalog and the usage assumptions. The
+  broker accepts costs only in-process from the execution side (`ProposeContext.cost`),
+  never from a request body, and nothing supplies them yet, so over REST these two
+  rules do not fire today.
 - **Store** (`platform.cost_estimates`): the estimate document, its catalog version
   and its monthly total, scoped by workspace.
 

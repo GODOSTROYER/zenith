@@ -122,6 +122,7 @@ describe("paths and commands named in the guides", () => {
 const NOT_ENVIRONMENT: Record<string, string> = {
   ZENITH_CHAOS: "a manifest env key for sandbox failure injection, not read from the process environment",
   ZENITH_SKUS: "a constant table in placement/capabilities.ts",
+  ZENITH_RUNNER_STORE: "named in a stale comment in runners/memory-store.ts; no code reads it",
 };
 
 describe("environment variables", () => {
@@ -136,6 +137,9 @@ describe("environment variables", () => {
     "src/lib/observability",
     "src/lib/incidents",
     "src/lib/reconcile",
+    "src/lib/capabilities",
+    "src/lib/runners",
+    "src/app/api/platform",
     "src/lib/providers/aws/drivers",
     "src/lib/analysis",
     "src/lib/capabilities",
@@ -234,6 +238,17 @@ describe("POLICY.md matches the Rego, the defaults and the catalog", () => {
       expect([...named].sort()).toEqual(expected.sort());
     }
     for (const c of Object.values(CAPABILITIES).filter((c) => c.mutates && c.defaultAutonomy === 6)) expect(policy).toContain(`\`${c.name}\``);
+  });
+
+  it("states the broker's autonomy defaults by environment class, and the level a never-configured store reads", () => {
+    const autonomy = read(path.join(REPO_ROOT, "src", "lib", "capabilities", "autonomy.ts"));
+    const body = /DEFAULT_AUTONOMY_BY_CLASS[^=]*=\s*\{([^}]*)\}/.exec(autonomy);
+    expect(body, "DEFAULT_AUTONOMY_BY_CLASS in autonomy.ts").not.toBeNull();
+    const levels = Object.fromEntries([...body![1].matchAll(/(\w+):\s*(\d)/g)].map((m) => [m[1], Number(m[2])]));
+    expect(Object.keys(levels).sort()).toEqual(["development", "production", "sandbox", "staging"]);
+    expect(squash(policy)).toContain(`production ${levels.production}, staging ${levels.staging}, development ${levels.development}, sandbox ${levels.sandbox}`);
+    expect(read(path.join(REPO_ROOT, "src", "lib", "controlplane", "db", "repos", "settings.ts"))).toContain("DEFAULT_AUTONOMY_LEVEL: AutonomyLevel = 1");
+    expect(squash(policy)).toContain("`DEFAULT_AUTONOMY_LEVEL`");
   });
 
   it("does not claim a level the store would refuse", () => {
@@ -345,12 +360,46 @@ describe("the 'in progress' claims still hold", () => {
     expect(groups).toEqual(["aws/network"]);
   });
 
-  it("the capability broker, the control-plane side of the runner and machine protocols, REST and MCP v3 have not merged", () => {
-    expect(fs.readdirSync(path.join(REPO_ROOT, "src", "lib", "capabilities"))).toEqual(["catalog.ts"]);
+  it("the broker, REST and the runner plane have merged; the machine plane, MCP v3 and the connections route have not", () => {
+    expect(exists("src/lib/capabilities/broker.ts")).toBe(true);
+    expect(exists("src/lib/runners/service.ts")).toBe(true);
+    for (const route of ["capabilities/propose", "operations/[id]/approve", "environments/[id]/autonomy", "workspace/policy", "runners/register", "machines/register"]) {
+      expect(exists(`src/app/api/platform/v1/${route}/route.ts`), route).toBe(true);
+    }
     expect(fs.readdirSync(path.join(REPO_ROOT, "src", "lib", "machines"))).toEqual(["types.ts"]);
-    expect(exists("src/lib/runners")).toBe(false);
-    expect(exists("src/app/api/platform")).toBe(false);
+    expect(exists("src/app/api/platform/v1/connections")).toBe(false);
     expect(exists("src/app/api/agent/v3")).toBe(false);
+  });
+
+  it("the broker is joined to the store and the policy engine, and to nothing that executes", () => {
+    const platform = read(path.join(REPO_ROOT, "src", "lib", "capabilities", "platform.ts"));
+    expect(platform).toContain("platformDb");
+    expect(platform).toContain("loadPolicyEngine");
+    expect(platform).toContain("ZENITH_PLATFORM_BROKER_MEMORY");
+    // nothing starts a workflow: only the workflows module and the worker import the client
+    expect(callers(/@\/lib\/workflows\/client/, ["src/app", "src/components", "src/lib/capabilities", "src/lib/runners", "src/lib/reconcile", "workers"])).toEqual([]);
+    expect(callers(/startDeploy|startDayTwo|startRemediation/, ["src/app", "src/lib/capabilities", "src/lib/runners"])).toEqual([]);
+    // over REST the plan never comes from the body
+    expect(read(path.join(REPO_ROOT, "src", "app", "api", "platform", "v1", "capabilities", "propose", "route.ts"))).toContain('via: "rest"');
+    expect(read(path.join(REPO_ROOT, "src", "lib", "capabilities", "evaluate.ts"))).toContain("plan_required");
+  });
+
+  it("the integration gaps the guides report are still there", () => {
+    // 1. the session middleware does not let the agent and bearer routes through
+    expect(read(path.join(REPO_ROOT, "src", "middleware.ts"))).not.toContain("/api/platform");
+    expect(read(path.join(REPO_ROOT, "src", "lib", "supabase", "env.ts"))).not.toContain("/api/platform");
+    // 2. the policy bundle is not traced into serverless builds
+    expect(read(path.join(REPO_ROOT, "next.config.ts"))).not.toContain("outputFileTracingIncludes");
+    // 3. machine_requests is not among the applied migrations, and its file claims a version `reconcile` already holds
+    const index = read(path.join(REPO_ROOT, "src", "lib", "controlplane", "db", "migrations", "index.ts"));
+    expect(index).not.toContain("machine");
+    expect(index).toContain("migration0002Reconcile");
+    const pending = read(path.join(REPO_ROOT, "src", "lib", "runners", "db", "machine-requests-migration.ts"));
+    expect(pending).toMatch(/version: 2,/);
+    expect(pending).toContain("machine_requests");
+    // the docs say so
+    expect(guide("DEPLOYING.md")).toContain("platform.machine_requests");
+    expect(guide("DEPLOYING.md")).toContain("src/middleware.ts");
   });
 
   it("the Go agents have merged and have operator guides of their own (the guides link them rather than describe them)", () => {
@@ -379,13 +428,12 @@ describe("the 'in progress' claims still hold", () => {
     expect(activities).toContain("notImplemented");
   });
 
-  it("nothing outside the modules calls the platform store, the policy engine, the workflow client or the incident engine", () => {
+  it("the worker and the workflows open neither the platform store nor the policy engine, and nothing calls the incident engine", () => {
     // `import type` is a contract, not a call: the UI components take control-plane types as props
     const runtimeImport = (module: string): RegExp => new RegExp(`^import\\s+(?!type\\b)[^;]*?from\\s+["']${module}`, "m");
-    expect(callers(runtimeImport("@/lib/controlplane"), ["src/app", "src/components", "workers"])).toEqual([]);
-    expect(callers(/loadPolicyEngine/, ["src/app", "src/components", "workers", "src/lib/workflows"])).toEqual([]);
-    expect(callers(/@\/lib\/workflows\/client/, ["src/app", "src/components"])).toEqual([]);
-    expect(callers(runtimeImport("@/lib/incidents"), ["src/app", "workers", "src/lib/workflows", "src/lib/controlplane"])).toEqual([]);
+    expect(callers(runtimeImport("@/lib/controlplane/db"), ["workers", "src/lib/workflows", "src/components"])).toEqual([]);
+    expect(callers(/loadPolicyEngine/, ["src/components", "workers", "src/lib/workflows"])).toEqual([]);
+    expect(callers(runtimeImport("@/lib/incidents"), ["src/app", "workers", "src/lib/workflows", "src/lib/controlplane", "src/lib/capabilities", "src/lib/runners"])).toEqual([]);
   });
 
   it("no page or route renders the platform UI components", () => {
@@ -393,7 +441,7 @@ describe("the 'in progress' claims still hold", () => {
   });
 
   it("nothing calls the reconciler or the job reaper on a timer", () => {
-    expect(callers(/reconcileOperations|expireStale/, ["src/app", "workers", "scripts"])).toEqual([]);
+    expect(callers(/reconcileOperations|expireStale|reapExpiredJobs/, ["src/app", "workers", "scripts"])).toEqual([]);
   });
 
   it("the live-acceptance harness statement in README.md matches the filesystem", () => {

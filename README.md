@@ -511,12 +511,13 @@ Beside the product described above, a deterministic infrastructure control plane
 is being built: a platform database with leases and fence tokens, a keyless
 credential broker, an OpenTofu engine, a policy engine, durable Temporal
 workflows and cost, placement, observability and incident libraries. **It is not a
-shipped feature.** Several modules have merged and are tested, but the path that
-joins them is not built: the worker's activities are stubs, no route opens the
-platform store or calls the policy engine, the only resource drivers merged (AWS
-network and edge) are registered by nothing, and nothing has run against a real
-cloud account. The product's AWS provider is still
-Preview, exactly as the ceilings below say.
+shipped feature.** Several modules have merged and are tested, and the web half is
+joined (a capability broker behind `/api/platform/v1` calls the policy engine and
+writes the platform store), but the path from an approved operation to a cloud is not
+built: the worker's activities are stubs, nothing starts a workflow, the only resource
+drivers merged (AWS network and edge) are registered by nothing, and nothing has run
+against a real cloud account. The product's AWS provider is still Preview, exactly as
+the ceilings below say.
 
 Where to read: [docs/platform/ARCHITECTURE.md](docs/platform/ARCHITECTURE.md) (the
 design), [docs/platform/operations/](docs/platform/operations/README.md) (operator

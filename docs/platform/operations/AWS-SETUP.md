@@ -7,7 +7,7 @@ Zenith, what it does not, and how to take it back. **The commands and the
 parameter tables are in [`deploy/aws/README.md`](../../../deploy/aws/README.md);
 this page does not repeat them.**
 
-Written against branch `ws/docs`, merged with `platform/integration` at `6354117` (2026-10-01).
+Written against branch `ws/docs`, merged with `platform/integration` at `bb5052a` (2026-10-01).
 
 **Status, stated up front.** The bootstrap template and module, the broker and the
 issuer are built and tested without an AWS account. **Nothing has been applied to
@@ -15,8 +15,9 @@ a real account and no real token has been exchanged with real STS.** The IAM
 policies are written from the AWS documentation; expect that a first real
 deployment may hit an `AccessDenied` that needs one more statement. The
 deny-by-default posture makes that the safe direction. The Zenith-side step of
-entering your role ARNs has no screen or route on this branch yet; see
-[What is not built](#what-is-not-built).
+entering your role ARNs has no screen and no route on this branch yet (the REST
+surface covers operations, approvals, autonomy and workspace policy, but has no
+connections route); see [What is not built](#what-is-not-built).
 
 ## What you run, and what it creates
 
@@ -187,8 +188,8 @@ applyable IaC if you want to carry on without Zenith.
 
 - **The Zenith side of "Finish in Zenith".** Entering the outputs, seeing
   `pending_verification` turn to `verified`, and choosing which environments use
-  the connection need the REST surface (`/api/platform/v1`) and a page, which are
-  in progress. The building blocks exist: `platform.provider_connections`,
+  the connection need a connections route in the REST surface (`/api/platform/v1`
+  has none) and a page. The building blocks exist: `platform.provider_connections`,
   `AwsCredentialBroker.verifyConnection`, the OIDC endpoints, and a presentational
   component for the form (`AwsConnectionSetup` in `src/components/platform`, which
   takes the verify callback as a prop, refuses a pasted access key, and calls
@@ -207,5 +208,8 @@ applyable IaC if you want to carry on without Zenith.
   (credentials never leave your network) are specified in
   [RUNNER-PROTOCOL.md](../RUNNER-PROTOCOL.md), and the Go runner is built
   ([RUNNER.md](../RUNNER.md), including an EKS IRSA example). The control-plane side
-  that would register it and send it jobs is not merged, so nothing connects an
+  that registers it and queues jobs for it is merged (`src/lib/runners`, routes under
+  `/api/platform/v1/runners`), but no activity enqueues a job and the session
+  middleware does not yet let a runner's cookie-less calls through
+  ([DEPLOYING.md](DEPLOYING.md#7-the-web--api-control-plane)), so nothing connects an
   account in runner mode yet.

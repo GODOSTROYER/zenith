@@ -5,15 +5,17 @@ an operation when something crashes, how leases and fence tokens behave, and how
 to rotate keys and migrate the schema. For where each component runs, see
 [DEPLOYING.md](DEPLOYING.md).
 
-Written against branch `ws/docs`, merged with `platform/integration` at `6354117` (2026-10-01).
+Written against branch `ws/docs`, merged with `platform/integration` at `bb5052a` (2026-10-01).
 
 **Read this first.** The recovery machinery in the store (leases, fence tokens,
 `uncertain`, the reconciler) is built and was exercised against a real PostgreSQL
-(see [What was rehearsed](#8-what-was-rehearsed)). The activities that would drive
-it in production are stubs, nothing calls `reconcileOperations` on a timer, and
-no route opens the platform store yet. So this page describes the contract the
-code enforces, plus the operator steps around it; it is not a record of a
-production recovery. The places where a statement is reasoning from the code
+(see [What was rehearsed](#8-what-was-rehearsed)). The capability broker now opens
+the platform store behind `/api/platform/v1`, so proposals, approvals and
+cancellations are written for real; but the activities that would execute an
+approved operation are stubs, nothing starts a workflow from one, and nothing calls
+`reconcileOperations` or the runner-job reaper on a timer. So this page describes the
+contract the code enforces, plus the operator steps around it; it is not a record of
+a production recovery. The places where a statement is reasoning from the code
 rather than something observed are marked **reasoned**.
 
 ## 1. What state exists, and what can rebuild it
@@ -25,7 +27,7 @@ rather than something observed are marked **reasoned**.
 | **Product secret store** | `<ZENITH_DATA>/secrets.json`, encrypted under `ZENITH_SECRET_KEY` | Secret values behind `vault:` references | **No, and the key cannot be recovered**: values written under a lost key cannot be read back; there is no re-wrap tool ([LIMITATIONS.md](../../LIMITATIONS.md#secrets)) | Back up the file and the key **separately** |
 | **Temporal history** | Temporal Cloud or your cluster | In-flight workflow state: ids, digests, counts, redacted messages | No, but nothing permanent lives only here; the ledger holds the operation record | Temporal's own; Cloud retention is a namespace setting (section 2.3) |
 | **Customer OpenTofu state** | The customer's S3 bucket `zenith-state-<account>-<region>` | What Zenith applied in that account | No | The customer's bucket (versioned); Zenith does not back it up (section 2.4) |
-| **Signing keys** | Secret manager or KMS | Zenith's OIDC identity and grant signatures | Replaceable, not recoverable (section 6) | Your secret manager's backup; KMS keys have their own deletion protection |
+| **Signing keys and the result-sealing key** | Secret manager or KMS | Zenith's OIDC identity, grant signatures, and the key that seals runner and `zenithd` results at rest (`ZENITH_RUNNER_RESULT_KEY`, or derived from the control signing key) | Replaceable, not recoverable (section 6); results sealed under a lost sealing key are unreadable | Your secret manager's backup; KMS keys have their own deletion protection |
 | **Policy bundle, price catalog** | The repository (`policy/dist`, `src/lib/placement/catalog`) | Rules and prices | Yes: `npm run policy:check` reproduces the bundle | Git |
 | **Execution worker** | Nowhere: stateless | | Yes | None needed |
 | **Cloud credentials** | Nowhere: never stored | | Not applicable: minted per operation inside `withSession` | None |
@@ -112,7 +114,8 @@ design property is from the template and the OpenTofu backend settings
 ### 2.5 Keys and configuration
 
 Back up nothing from the worker. Back up the **secret manager entries** for the
-signing keys and the database URL, and the list of variables in
+signing keys, `ZENITH_RUNNER_RESULT_KEY` (if you set it) and the database URL, and the
+list of variables in
 [DEPLOYING.md section 2](DEPLOYING.md#2-environment-variables). A KMS signing key
 is recovered by your KMS account's controls, not by Zenith.
 
@@ -197,6 +200,18 @@ Both paths end in the same place. The full workflow table (what each failure
 becomes, which steps "may have acted") is in
 [EXECUTION-WORKER.md](../EXECUTION-WORKER.md#final-statuses).
 
+The broker owns the **single-use gate** to execution (`beginExecution`,
+`src/lib/capabilities/execution.ts`): it re-loads the operation, optionally compares a
+regenerated plan with the approved one (`plan_changed`), **re-evaluates policy under the
+current bundle**, requires that unconsumed, unexpired approvals satisfy the *current*
+requirement (`approval_required` or `reapproval_required`), checks the signer works
+before anything is consumed, then atomically verifies the digest, consumes the
+approvals and moves the operation to `running` (`already_claimed` for every concurrent
+caller but one), and issues a single-use grant. `completeExecution` ends a running
+operation and revokes any grant still live; `markUncertain` ends it `uncertain`. Nothing
+calls `beginExecution` yet (the activities are stubs), so on this branch operations stop
+at `approved`.
+
 ### 4.3 Moment by moment
 
 | When it stops | What happens | Status |
@@ -217,11 +232,19 @@ A job queued for a customer-network runner is claimed by poll and settled once.
 `jobs.expireStale` (`src/lib/controlplane/db/repos/jobs.ts`) is the reaper: an
 unclaimed job past its expiry becomes `expired`, a claimed or running job whose
 lease ended becomes `timed_out`, and **nothing is re-queued**. It returns the jobs
-so the caller can reconcile each owning operation to `uncertain`. The Go agents
-that would claim and settle jobs exist ([RUNNER.md](../RUNNER.md),
-[ZENITHD.md](../ZENITHD.md)); the control-plane routes they talk to do not, so on
-this branch only this repository layer and its tests exercise it. Like
-`reconcileOperations`, no timer calls the reaper yet.
+so the caller can reconcile each owning operation to `uncertain`. The control-plane
+side now exists (`src/lib/runners`, routes under `/api/platform/v1/runners` and
+`/machines`), and so do the Go agents ([RUNNER.md](../RUNNER.md),
+[ZENITHD.md](../ZENITHD.md)). `reapExpiredJobs` (`src/lib/runners/service.ts`) runs
+the reaper for both the runner queue and the `zenithd` queue, and
+`awaitRunnerJob` (`dispatch.ts`) never re-dispatches: a job it stops waiting for is
+cancelled, so a late result from the agent gets `409 already_settled` and is
+discarded, and the operation is reconciled by observing reality. Gaps on this branch:
+**no timer calls `reapExpiredJobs`** (like `reconcileOperations`), no activity
+enqueues a job, and the `zenithd` queue's table, `platform.machine_requests`, is not
+in the applied migrations ([DEPLOYING.md](DEPLOYING.md#32-migrating)), so that half
+cannot work on a real database. Results are sealed at rest; a result that cannot be
+opened (lost or rotated sealing key) leaves its operation `uncertain`.
 
 ### 4.5 What to do with an `uncertain` operation
 
@@ -232,7 +255,7 @@ observes an environment, diffs it against its desired graph, records drift and f
 `drift.repair` *proposals* through the broker; it never changes an operation's
 status and it never repairs anything itself. The controller is merged but not
 driven: production ports are not wired and no schedule calls its route
-([DEPLOYING.md](DEPLOYING.md#28-reconciliation-tick)).
+([DEPLOYING.md](DEPLOYING.md#29-reconciliation-tick)).
 
 1. Read its events (`operation.uncertain`, `lease.lost`, step events) and its
    `error` text: "whether the change was applied is unknown".
@@ -250,13 +273,21 @@ driven: production ports are not wired and no schedule calls its route
 that would exercise it do not exist yet. A restore to time T rewinds everything
 written after T, including state that exists only to be single-use or monotonic:
 
-- **Approvals and grants.** An approval is consumed when an operation is claimed,
-  and a grant is consumed (`capability_grants.consumed_at`) or revoked in the
-  ledger. After a restore, an approval or grant used after T looks unused, and an
-  operation that ran after T can look `approved` again. A grant lives at most one
-  hour (`MAX_GRANT_LIFETIME_SEC`), so outstanding grants expire on their own after
-  an hour; rotating the control signing key **without** keeping the old public key
-  in `ZENITH_CONTROL_EXTRA_PUBLIC_JWKS` invalidates all of them at once.
+- **Approvals and grants.** An approval is consumed when an operation is claimed
+  (the broker's `beginExecution` calls `claimForExecution`), and a grant is consumed
+  (`capability_grants.consumed_at`) or revoked in the ledger. After a restore, an
+  approval or grant used after T looks unused, and an operation that ran after T can
+  look `approved` again. A grant verifies for at most one hour
+  (`MAX_GRANT_LIFETIME_SEC`); the ones `beginExecution` issues live at most 15 minutes
+  (900 s, less if policy or the operation's own expiry says so), so outstanding grants
+  expire on their own quickly; rotating the control signing key **without** keeping
+  the old public key in `ZENITH_CONTROL_EXTRA_PUBLIC_JWKS` invalidates all of them at
+  once.
+- **Revocations and registrations.** A runner or `zenithd` revoked after T is
+  `active` again in the restored database until someone revokes it again, and an agent
+  registered after T is unknown to it and must re-register with a new token. The
+  signed-request nonce window (10 minutes) loses its recent entries, so a request
+  replayed inside that window after the restore is not recognised as a replay.
 - **Fence tokens.** The counter per scope is monotonic for the life of the
   database, not across a restore. `assertFence` checks the token against the live
   lease but not the holder, so a worker that survived the restore holding fence N
@@ -322,7 +353,7 @@ the summary and the parts that depend on where each variable lives:
 | Key | Who needs what during a rotation | Overlap to keep |
 |---|---|---|
 | **OIDC issuer key** (RS256) | The JWKS endpoint (web app) publishes current plus extra public keys. AWS IAM caches the JWKS and that cache is not under your control. | Publish the **next** public key in `ZENITH_OIDC_EXTRA_PUBLIC_JWKS` and deploy; wait at least 24 hours; make it the signer and move the old public key into `EXTRA`; after at least one more hour (tokens live up to 5 minutes, sessions up to an hour) remove the old one. |
-| **Control signing key** (Ed25519) | Verifiers pin public keys: the worker, and the runner and `zenithd` agents. The signer is the broker. | Give every **verifier** the next public key in `ZENITH_CONTROL_EXTRA_PUBLIC_JWKS` first; then swap the signer; keep the old public key at least one hour (`MAX_GRANT_LIFETIME_SEC`) after the swap so outstanding grants still verify. (**Reasoned** ordering: a signer that starts signing before verifiers trust its key makes every new grant fail.) Runners learn new keys from heartbeats at least 24 hours ahead ([RUNNER-PROTOCOL.md](../RUNNER-PROTOCOL.md)); the Go agents accept and pin announced `nextKeys` per [RUNNER.md](../RUNNER.md), and the control-plane side that would announce them is not merged. |
+| **Control signing key** (Ed25519) | Verifiers pin public keys: the worker, and the runner and `zenithd` agents. The signer is the broker. | Give every **verifier** the next public key in `ZENITH_CONTROL_EXTRA_PUBLIC_JWKS` first; then swap the signer; keep the old public key at least one hour (`MAX_GRANT_LIFETIME_SEC`) after the swap so outstanding grants still verify. (**Reasoned** ordering: a signer that starts signing before verifiers trust its key makes every new grant fail.) Runners learn new keys from heartbeats at least 24 hours ahead ([RUNNER-PROTOCOL.md](../RUNNER-PROTOCOL.md)); the Go agents accept and pin announced `nextKeys` per [RUNNER.md](../RUNNER.md), and the control-plane side that announces them is `announcedNextKeys` in `src/lib/runners/runtime.ts` (from `ZENITH_CONTROL_EXTRA_PUBLIC_JWKS`), which has not run against the agents. |
 
 Also:
 
@@ -338,6 +369,14 @@ Also:
   OPERATIONS.md.
 - **KMS-backed keys** rotate the same way: change `ZENITH_OIDC_KMS_KEY_ID` and
   publish the old key's public half in `EXTRA`. Not verified against real KMS.
+- **The result-sealing key.** Runner and `zenithd` results are sealed at rest under
+  `ZENITH_RUNNER_RESULT_KEY`, or, when that is unset, under a key **derived from the
+  control signing JWK's private scalar**. Swapping the control signing key therefore
+  changes the sealing key too, and results still in flight become unreadable (their
+  operations end `uncertain`). Set `ZENITH_RUNNER_RESULT_KEY` explicitly to decouple
+  the two, and keep the same value on the web app (which seals) and the worker (which
+  opens). With a KMS-backed control signer it must be set (there is no private scalar
+  to derive from). Source: `src/lib/runners/seal.ts`.
 - **`ZENITH_SECRET_KEY`** (the product secret store) has no rotation tooling:
   nothing re-wraps existing values. Do not rotate it casually.
 - **The Temporal API key and the database password** are plain secrets: rotate in

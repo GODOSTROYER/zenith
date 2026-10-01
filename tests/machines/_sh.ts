@@ -44,7 +44,7 @@ function attempt(cmd: string, pre: string[]): ShRunner | null {
 
 /** a working POSIX `sh` runner, or null (tests then skip) */
 export function findSh(): ShRunner | null {
-  if (process.platform === "win32") return attempt("wsl", ["-e"]) ?? attempt("sh", []);
+  if (process.platform === "win32") return (process.env.ZENITH_MACHINE_TEST_WSL === "1" ? attempt("wsl", ["-e"]) : null) ?? attempt("sh", []);
   return attempt("sh", []);
 }
 

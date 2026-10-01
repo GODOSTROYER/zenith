@@ -1,6 +1,6 @@
 /** Transport scope, credential purpose, namespace guards and callback lifetime. */
 import { describe, expect, it } from "vitest";
-import type { CredentialBroker, CredentialRequest, ProviderConnection } from "@/lib/credentials/types";
+import type { AzureSession, CredentialBroker, CredentialRequest, GcpSession, ProviderConnection } from "@/lib/credentials/types";
 import { createMachineSessionProvider, redactText, type KubernetesMachineSession, type MachineSessionRequest } from "@/lib/machines";
 import { awsSession, grantFor, requestFor, T0 } from "./_helpers";
 
@@ -75,5 +75,35 @@ describe("machine sessions", () => {
       expect(r.text).not.toEqual(text);
     }
     expect(redactText("vault:cluster-credential").text).toBe("vault:cluster-credential");
+  });
+
+  it.each(["azure", "gcp"] as const)("%s sessions stay inside the broker callback with catalog purpose and original grant", async (provider) => {
+    const s = setup();
+    const transport = provider === "azure" ? "azure_run_command" : "gcp_os_management";
+    const connection: ProviderConnection = { ...s.connection, config: provider === "azure" ? { provider, mode: "oidc_web_identity", tenantId: "tenant", clientId: "client", subscriptionId: "subscription", region: "eastus" } : { provider, mode: "oidc_web_identity", projectId: "project", workloadIdentityProvider: "pool", observeServiceAccount: "observe", deployServiceAccount: "deploy", region: "us-central1" } };
+    let active = false;
+    const fetch = async () => { if (!active) throw new Error("session ended"); return new Response("{}"); };
+    const session: AzureSession | GcpSession = provider === "azure" ? { provider, subscriptionId: "subscription", region: "eastus", expiresAt: "2099-01-01T00:00:00Z", authorizedFetch: fetch, childProcessEnv: () => ({}) } : { provider, projectId: "project", region: "us-central1", expiresAt: "2099-01-01T00:00:00Z", authorizedFetch: fetch, childProcessEnv: () => ({}) };
+    const credentials: CredentialBroker = { verifyConnection: s.credentials.verifyConnection, withSession: async (r, fn) => { s.requests.push(r); active = true; try { return await fn(session); } finally { active = false; } } };
+    const p = createMachineSessionProvider({ credentials, connection, grantJws: "compact" });
+    for (const op of ["machine.inspect", "machine.service.restart"] as const) {
+      const req = s.req(op, transport);
+      expect(await p.withSession(req, async (x) => { expect(x).toBe(session); await session.authorizedFetch("https://example.test"); return 7; })).toBe(7);
+      expect(s.requests.at(-1)).toEqual({ connectionId: connection.id, grant: req.grant, purpose: op === "machine.inspect" ? "observe" : "deploy" });
+      await expect(session.authorizedFetch("https://example.test")).rejects.toThrow(/ended/);
+    }
+  });
+
+  it.each(["azure_run_command", "gcp_os_management"] as const)("%s rejects wrong-provider sessions, foreign/revoked connections and avoids broker calls for invalid connections", async (transport) => {
+    const s = setup(); const req = s.req("machine.inspect", transport);
+    const provider = transport === "azure_run_command" ? "azure" : "gcp";
+    const config: ProviderConnection["config"] = provider === "azure" ? { provider, mode: "runner", tenantId: "tenant", clientId: "client", subscriptionId: "sub", region: "eastus" } : { provider, mode: "runner", projectId: "project", workloadIdentityProvider: "pool", observeServiceAccount: "observe", deployServiceAccount: "deploy", region: "us-central1" };
+    const connection = { ...s.connection, config };
+    for (const c of [undefined, s.connection, { ...connection, workspaceId: "foreign" }, { ...connection, status: "revoked" as const }]) {
+      await expect(createMachineSessionProvider({ credentials: s.credentials, connection: c, grantJws: "compact" }).withSession(req, async () => true)).rejects.toMatchObject({ code: "denied" });
+    }
+    expect(s.requests).toHaveLength(0);
+    await expect(createMachineSessionProvider({ credentials: s.credentials, connection, grantJws: "compact" }).withSession(req, async () => true)).rejects.toMatchObject({ code: "denied" });
+    expect(s.requests).toHaveLength(1);
   });
 });

@@ -282,6 +282,14 @@ describe("redaction and output limits on the way out", () => {
     expect(f.data.redacted).toBeUndefined();
   });
 
+  it("redacts complete tokens before applying a combined stdout/stderr budget", async () => {
+    const h = harness({ execute: async (req) => okResult(req, { transport: "aws_ssm" }, { exitCode: 0 }, { output: { stdout: "Bearer abcdefghijklmnopqrstuvwxyz0123456789", stderr: "password=x", exitCode: 0, truncated: false } }) });
+    const r = await h.run(requestFor("machine.exec", { argv: ["echo"], timeoutSec: 1 }, { maxOutputBytes: 11 }));
+    expect(r.output!.stdout).not.toContain("abcdef");
+    expect(Buffer.byteLength(r.output!.stdout) + Buffer.byteLength(r.output!.stderr)).toBeLessThanOrEqual(11);
+    expect(r.output!.truncated).toBe(true);
+  });
+
   it("re-enforces maxOutputBytes even when a driver over-returns", async () => {
     const h = harness({
       execute: async (req) =>
@@ -386,16 +394,16 @@ describe("driver table", () => {
     const sandbox = createMachineDrivers({ sandbox: true });
     expect(Object.keys(sandbox).sort()).toEqual(["aws_ssm", "azure_run_command", "gcp_os_management", "kubernetes", "zenithd"]);
     const prod = createMachineDrivers({});
-    expect(Object.keys(prod).sort()).toEqual(["aws_ssm", "kubernetes"]);
+    expect(Object.keys(prod).sort()).toEqual(["aws_ssm", "azure_run_command", "gcp_os_management", "kubernetes"]);
     const withAgent = createMachineDrivers({ dispatcher: { enqueue: async () => "m", await: async () => ({ status: "succeeded" }) } });
-    expect(Object.keys(withAgent).sort()).toEqual(["aws_ssm", "kubernetes", "zenithd"]);
+    expect(Object.keys(withAgent).sort()).toEqual(["aws_ssm", "azure_run_command", "gcp_os_management", "kubernetes", "zenithd"]);
   });
 
   it("machineTransportFor resolves by target transport or refuses", () => {
     const prod = createMachineDrivers({});
     expect(machineTransportFor(requestFor("machine.inspect").target, prod).transport).toBe("aws_ssm");
     expect(() => machineTransportFor(requestFor("machine.inspect", {}, { transport: "zenithd" }).target, prod)).toThrowError(expect.objectContaining({ code: "unsupported_transport" }));
-    expect(() => machineTransportFor(requestFor("machine.inspect", {}, { transport: "gcp_os_management" }).target, prod)).toThrow(MachineOperationError);
+    expect(machineTransportFor(requestFor("machine.inspect", {}, { transport: "gcp_os_management" }).target, prod).transport).toBe("gcp_os_management");
   });
 });
 

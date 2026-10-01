@@ -1,5 +1,5 @@
 /**
- * Per-request transport sessions. AWS identity stays inside the broker callback;
+ * Per-request transport sessions. Cloud identity stays inside the broker callback;
  * Kubernetes uses the provider's credential builder and the connection's namespace
  * allowlist. The compact grant travels only to zenithd, never into evidence.
  * Sandbox requests obtain no credentials. Connection lookups must be tenant-scoped.
@@ -38,7 +38,16 @@ export function createMachineSessionProvider(options: MachineSessionOptions): Ma
           return fn(session);
         });
       }
+      if (req.target.transport === "azure_run_command" || req.target.transport === "gcp_os_management") {
+        const provider = req.target.transport === "azure_run_command" ? "azure" : "gcp";
+        if (c.config.provider !== provider) throw new MachineOperationError("denied", "the cloud machine transport requires a matching provider connection");
+        return options.credentials.withSession({ connectionId: c.id, grant: req.grant, purpose }, async (session) => {
+          if (session.provider !== provider) throw new MachineOperationError("denied", "the broker supplied a session for a different cloud provider");
+          return fn(session);
+        });
+      }
       if (req.target.transport === "kubernetes") {
+        // Kubernetes credentials have a separate builder and local namespace guards.
         if (c.config.provider !== "kubernetes" || !options.kubernetes) throw new MachineOperationError("denied", "Kubernetes requires a connection and credential resolver");
         const now = options.now ?? (() => new Date());
         const remaining = Math.floor((req.grant.exp * 1000 - now().getTime()) / 1000);

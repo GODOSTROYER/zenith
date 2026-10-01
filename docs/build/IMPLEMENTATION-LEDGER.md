@@ -41,11 +41,12 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-ZM | Zenith-managed provider (provider=zenith) | 4 | integrated | WS-K8S | ws/zm | 9439d15 | part of 588 | orchestrator: merged | not operated anywhere; managed Postgres adapter contract-only |
 | WS-SEC | Threat model, tenant-isolation matrix, secret-leak and chaos tests | 4 | in_progress | WS-CAP, WS-ACT | ws/sec |  |  |  | handed to Codex gpt-6.1-sol xhigh (Sonnet session limit; user switched all agents to Codex) |
 | WS-CI | CI gates: policy, tofu, Go, Temporal, platform Postgres, provider contracts | 4 | integrated | WS-ACT | ws/ci | 2e430af | 133 passed (+14 bash tests pass under Git Bash) | orchestrator: merged | no job has run on GitHub yet; live-acceptance needs live-sandbox environment + OIDC role |
-| WS-DOCS | Operator docs, runbooks, capability matrix, acceptance evidence | 4 | in_progress | WS-ACT | ws/docs |  |  |  |  |
+| WS-DOCS | Operator docs, runbooks, capability matrix, acceptance evidence | 4 | integrated | WS-ACT | ws/docs | 4ed62c1 | tests/docs 67 passed; capability matrix --check up to date | orchestrator: merged; tsc + eslint clean |  |
 | WS-LIVE | Live-cloud acceptance harness, scenarios A-J, cleanup, evidence | 3 | in_progress | WS-CRED, WS-TOFU | ws/live |  |  |  | handed to Codex gpt-6.1-sol xhigh (Sonnet session limit; user switched all agents to Codex) |
 | WS-BRIDGE | Bridge existing deploy/connection actions and engine to the control plane (workflow-executed deployments) | 3 | in_progress | WS-CAP, WS-WF, WS-DB, WS-CRED | ws/bridge |  |  |  | handed to Codex gpt-6.1-sol xhigh (Sonnet session limit; user switched all agents to Codex) |
 | WS-AWS-INTEGRATE | Consolidate AWS driver groups, provider registry, expansion gaps, end-to-end compile test | 3 | in_progress | WS-AWS-NET, WS-AWS-CMP, WS-AWS-DATA | ws/aws-integrate |  |  |  | Codex job |
 | WS-COMPOSE | Composition roots: real activities in the worker, app-side wiring, deploy e2e test | 3 | in_progress | WS-ACT, WS-CAP, WS-RUNSRV, WS-REC | ws/compose |  |  |  | Codex job |
+| WS-TOFU-SEC | Fix SEC-F5: HCL template scanner + function allowlist replaces the regex expression guard | 4 | in_progress | WS-TOFU | ws/tofu-sec |  |  |  | SEC-F5 HIGH: comment between file and ( bypassed the regex; real tofu read the file. Allowlist also closes SEC-F4 (nonsensitive). |
 
 ## External blockers
 

@@ -598,14 +598,17 @@
       "title": "Operator docs, runbooks, capability matrix, acceptance evidence",
       "wave": 4,
       "owner": "worker",
-      "state": "in_progress",
+      "state": "integrated",
       "deps": [
         "WS-ACT"
       ],
       "paths": [
         "docs/platform/**"
       ],
-      "branch": "ws/docs"
+      "branch": "ws/docs",
+      "commit": "4ed62c1",
+      "tests": "tests/docs 67 passed; capability matrix --check up to date",
+      "review": "orchestrator: merged; tsc + eslint clean"
     },
     {
       "id": "WS-LIVE",
@@ -679,6 +682,22 @@
       "state": "in_progress",
       "branch": "ws/compose",
       "notes": "Codex job"
+    },
+    {
+      "id": "WS-TOFU-SEC",
+      "title": "Fix SEC-F5: HCL template scanner + function allowlist replaces the regex expression guard",
+      "wave": 4,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-TOFU"
+      ],
+      "paths": [
+        "src/lib/tofu/**",
+        "tests/tofu/**"
+      ],
+      "branch": "ws/tofu-sec",
+      "notes": "SEC-F5 HIGH: comment between file and ( bypassed the regex; real tofu read the file. Allowlist also closes SEC-F4 (nonsensitive)."
     }
   ],
   "blockers": [

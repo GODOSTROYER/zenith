@@ -23,7 +23,9 @@ doing work yet.
 | Resource model, placement and cost, observability | Built as pure libraries (no environment, no I/O except the observability sources' own clients). Not wired into any route. |
 | Incident engine (`src/lib/incidents`), repository analysis (`src/lib/analysis`), platform UI components (`src/components/platform`) | Merged and tested. The incident engine and the analysis module are libraries that read no environment variables and are called by nothing yet; the UI components are presentational (data and callbacks come in as props) and no page or route renders them. Nothing here needs deploying. |
 | Temporal workflows, client and execution worker | The workflows, client, worker process and image recipe are built and tested against real Temporal servers. **Every activity is a stub** that fails with `not_implemented` ("nothing was changed"): the worker boots, polls and runs workflows, and no operation can do real work. |
-| Resource drivers, capability broker, runners (`zenith-runner`), machines and `zenithd`, reconciliation, REST `/api/platform/v1`, MCP v3, the platform screens and routes, Go agents, and the Kubernetes, GCP, Azure, OCI and managed `zenith` providers | **In progress in other workstreams. Not documented here.** When they merge they get their own sections. |
+| Reconciliation controller (`src/lib/reconcile`, migration 2 `platform.reconcile_state`, `POST /api/internal/tick/reconcile`) | Built and tested. It observes and files `drift.repair` *proposals*; it never executes one. The route is gated by `CRON_SECRET` and answers `503 platform_store_unavailable` until production ports are registered with `wireReconcilePorts()`, which nothing on this branch does; `.github/workflows/tick.yml` does not call it either. It needs drivers to observe anything real, and none has merged. See section 2.8. |
+| `zenith-runner` and `zenithd` (Go, `go/`, Helm chart, Dockerfiles) | Built by another workstream, with their own operator guides: [RUNNER.md](../RUNNER.md) and [ZENITHD.md](../ZENITHD.md). Their control-plane side (the runner and machine routes, `src/lib/runners`, `src/lib/machines` beyond its types) is **not merged**, so nothing on this branch can register or feed an agent. I did not run or verify the agents. |
+| Resource drivers, capability broker, the control-plane side of the runner and machine protocols, REST `/api/platform/v1`, MCP v3, the platform screens and routes, and the Kubernetes, GCP, Azure, OCI and managed `zenith` providers | **In progress in other workstreams. Not documented here.** When they merge they get their own sections. |
 
 The honest summary: today you can stand up the store, the OIDC issuer and the
 worker, and you can see the pieces connect. You cannot yet run a deploy to a
@@ -62,7 +64,7 @@ cloud through them.
 | Execution worker | A long-running container built from `docker/worker.Dockerfile` | None; stateless | Temporal, platform Postgres, cloud APIs, `registry.opentofu.org` for providers, the customer's state bucket |
 | Temporal | Temporal Cloud, self-hosted, or `temporal server start-dev` locally | Workflow history: ids, digests, counts and redacted messages only | The web app and the worker |
 | Platform Postgres | Supabase (Supavisor transaction pooler) or any Postgres 16 | Schema `platform`: operations, leases, approvals, decisions, resources, connections | Web and worker |
-| `zenith-runner`, `zenithd` (optional) | Customer VPC / VMs | In progress; see [RUNNER-PROTOCOL.md](../RUNNER-PROTOCOL.md) | Outbound to the control plane only |
+| `zenith-runner`, `zenithd` (optional) | Customer VPC / VMs | See [RUNNER.md](../RUNNER.md) and [ZENITHD.md](../ZENITHD.md); the control-plane side is not merged | Outbound to the control plane only |
 
 ### What must never run on Vercel
 
@@ -230,20 +232,41 @@ Two gaps to close when the broker and the `evaluatePolicy` activity are wired:
   **worker image does not contain the policy bundle** either. Either copy
   `policy/dist/` into the image and set `ZENITH_POLICY_WASM`, or mount it.
 
-### 2.8 Tooling only (not runtime)
+### 2.8 Reconciliation tick
+
+The controller itself reads no environment except one development switch; the route
+that drives it is gated like every other tick route.
+
+| Variable | Default | Secret | Meaning |
+|---|---|---|---|
+| `CRON_SECRET` | unset | **yes** | Bearer token for `/api/internal/tick/*` (the product's name for it; see [RUNNING.md](../../RUNNING.md#environment-variables)). Unset, the route answers 503 and runs nothing; a wrong bearer is 401. |
+| `ZENITH_RECONCILE_MEMORY` | unset | no | `1` runs the pass against an in-memory backend that is empty unless something seeded it. Local development and route smoke tests only: nothing is durable. |
+
+With neither production ports wired nor that switch set, the route fails with
+`platform_store_unavailable` rather than reporting "0 drift" for a fleet nobody
+looked at. Reconciliation is paced by a backoff ladder (5, 15, 60, then 180
+minutes while nothing changes; open drift never backs off past 60 minutes and an
+open incident never past 15), with deterministic jitter and a per-pass budget of
+about 20 seconds and at most a bounded number of environments; sandbox
+environments and environments with no verified connection are not reconciled.
+That is from `src/lib/reconcile/scheduler.ts` and `pass.ts`; none of it has run
+against a fleet.
+
+### 2.9 Tooling only (not runtime)
 
 | Variable | Used by | Meaning |
 |---|---|---|
 | `ZENITH_OPA_BIN` | `npm run policy:build`, `policy:check` | Path to the OPA binary. Must be exactly 1.19.1. Default: `opa` on `PATH`. |
 
-### 2.9 Modules that read no environment
+### 2.10 Modules that read no environment
 
-The resource model (`src/lib/resources`), placement and cost (`src/lib/placement`)
-and the observability fabric (`src/lib/observability`) read no environment
-variables. Observability sources receive their clients and endpoints as
+The resource model (`src/lib/resources`), placement and cost (`src/lib/placement`),
+the observability fabric (`src/lib/observability`), the incident engine
+(`src/lib/incidents`) and repository analysis (`src/lib/analysis`) read no
+environment variables. Observability sources receive their clients and endpoints as
 arguments from the broker session; the price catalog is a bundled JSON file.
 
-### 2.10 Which component needs what
+### 2.11 Which component needs what
 
 | Variable group | Web / API | Worker | Migration script |
 |---|---|---|---|
@@ -253,6 +276,7 @@ arguments from the broker session; the price catalog is a bundled JSON file.
 | Temporal connection | yes (client) | yes | no |
 | `ZENITH_WORKER_*` | no | yes | no |
 | Tofu variables | no | yes | no |
+| Reconciliation tick (`CRON_SECRET`, `ZENITH_RECONCILE_MEMORY`) | yes (the route) | no | no |
 | Policy bundle | yes, when the broker is wired | yes, when the activity is wired | no |
 
 ## 3. The platform database
@@ -298,8 +322,10 @@ The emitted file keeps one name as migrations are added; it grows. If you apply
 migrations through the Supabase CLI's migration history, which records an applied
 file by its version number and will not re-run a changed file, use
 `npm run migrate:platform` (ledger-based) or apply the file by hand for any
-schema version after the first. Only one migration exists today, so this is
-forward-looking and was not exercised.
+schema version after the first. Two migrations exist today (`core` and
+`reconcile`) and the emitted file already holds both, so a database that applied
+the file before migration 2 landed is exactly this case. I did not exercise it
+through the Supabase CLI.
 
 ### 3.3 What the application does about the schema
 
@@ -446,7 +472,7 @@ What happens when a worker dies mid-operation is in
    or the emitted SQL). Check with `-- --status`.
 2. Generate the OIDC and control keys; store them as secrets (KMS for OIDC in
    production).
-3. Deploy the web app with the variables in section 2.10; verify the two OIDC
+3. Deploy the web app with the variables in section 2.11; verify the two OIDC
    URLs from outside.
 4. Stand up Temporal (Cloud namespace, or your cluster) and confirm the namespace
    exists.
@@ -462,7 +488,8 @@ What happens when a worker dies mid-operation is in
 
 Run on this machine (Windows 11, Node 24.19) while writing this page:
 
-- `npm run migrate:platform -- --dry-run` (PGlite, empty data directory) and
+- `npm run migrate:platform` and `-- --status` against an empty PGlite directory
+  (both migrations, `core` and `reconcile`, applied; status current) and
   `npm run platform:emit-sql -- --check`.
 - `npm run policy:check`: OPA 1.19.1, 205 of 205 Rego tests pass and the committed
   bundle matches a fresh build.

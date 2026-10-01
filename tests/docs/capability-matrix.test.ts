@@ -46,7 +46,9 @@ afterEach(() => {
   for (const key of [...registry().keys()]) if (key.startsWith("aws|aws:")) registry().delete(key);
 });
 
-function driver(overrides: Partial<ResourceDriver> & { capabilities?: Partial<ResourceDriver["capabilities"]> } = {}): ResourceDriver {
+type DriverOverrides = Omit<Partial<ResourceDriver>, "capabilities"> & { capabilities?: Partial<ResourceDriver["capabilities"]> };
+
+function driver(overrides: DriverOverrides = {}): ResourceDriver {
   const { capabilities, ...rest } = overrides;
   return {
     id: "aws.ecs_service@1",
@@ -185,7 +187,7 @@ describe("generator: output", () => {
 
 describe("generator: negative controls (what it must catch)", () => {
   it("records a `real` claim and prints the warning, so the gate above would fail", () => {
-    const data = buildMatrix(input([driver({ capabilities: { evidence: { compile: "real", observe: "contract" } } as ResourceDriver["capabilities"] })]));
+    const data = buildMatrix(input([driver({ capabilities: { evidence: { compile: "real", observe: "contract" } } })]));
     expect(data.realClaims).toEqual(["aws.ecs_service@1 compile"]);
     expect(renderMatrix(data)).toContain("claims `real`");
   });
@@ -196,18 +198,18 @@ describe("generator: negative controls (what it must catch)", () => {
   });
 
   it("reports an operation a driver supports but declares no evidence for", () => {
-    const data = buildMatrix(input([driver({ capabilities: { evidence: { compile: "contract" } } as ResourceDriver["capabilities"] })]));
+    const data = buildMatrix(input([driver({ capabilities: { evidence: { compile: "contract" } } })]));
     expect(data.problems.map((p) => p.message)).toEqual(["supports `observe` but declares no evidence level for it"]);
     expect(renderMatrix(data)).toContain("**undeclared**");
   });
 
   it("reports an invalid evidence level", () => {
-    const data = buildMatrix(input([driver({ capabilities: { evidence: { compile: "verified", observe: "contract" } } as unknown as ResourceDriver["capabilities"] })]));
+    const data = buildMatrix(input([driver({ capabilities: { evidence: { compile: "verified", observe: "contract" } } as unknown as DriverOverrides["capabilities"] })]));
     expect(data.problems.map((p) => p.message)).toEqual(['declares the invalid evidence level "verified" for `compile`']);
   });
 
   it("reports evidence for an operation the driver does not support, and unknown evidence keys", () => {
-    const data = buildMatrix(input([driver({ capabilities: { evidence: { compile: "contract", observe: "contract", verify: "contract", bogus: "contract" } } as unknown as ResourceDriver["capabilities"] })]));
+    const data = buildMatrix(input([driver({ capabilities: { evidence: { compile: "contract", observe: "contract", verify: "contract", bogus: "contract" } } })]));
     expect(data.problems.map((p) => p.message).sort()).toEqual([
       "declares evidence for `bogus`, which is neither a core operation nor a declared operation",
       "declares evidence for `verify` but does not support it",
@@ -217,7 +219,7 @@ describe("generator: negative controls (what it must catch)", () => {
   it("reports a flag with no implementation and an implementation with no flag", () => {
     const noImpl = buildMatrix(input([driver({ observe: undefined })]));
     expect(noImpl.problems.map((p) => p.message)).toEqual(["declares `observe` but has no `observe` implementation"]);
-    const noFlag = buildMatrix(input([driver({ capabilities: { verify: false } as ResourceDriver["capabilities"], verify: async () => { throw new Error("x"); } })]));
+    const noFlag = buildMatrix(input([driver({ capabilities: { verify: false }, verify: async () => { throw new Error("x"); } })]));
     expect(noFlag.problems.map((p) => p.message)).toEqual(["has a `verify` implementation but declares `verify: false`"]);
   });
 
@@ -225,7 +227,7 @@ describe("generator: negative controls (what it must catch)", () => {
     const data = buildMatrix(
       input([
         driver({
-          capabilities: { operations: ["service.restart", "service.teleport", "service.scale"], evidence: { compile: "contract", observe: "contract", "service.restart": "contract", "service.teleport": "contract" } } as ResourceDriver["capabilities"],
+          capabilities: { operations: ["service.restart", "service.teleport", "service.scale"], evidence: { compile: "contract", observe: "contract", "service.restart": "contract", "service.teleport": "contract" } },
           operations: { "service.restart": async () => ({ ok: true, summary: "", simulated: false }), "service.status": async () => ({ ok: true, summary: "", simulated: false }) },
         }),
       ])

@@ -72,7 +72,7 @@ describe("the guide set", () => {
 /* ------------------------------ paths & scripts ---------------------------- */
 
 /** Paths a guide names precisely because they do NOT exist; their absence is asserted elsewhere. */
-const ABSENT_ON_PURPOSE = new Set(["scripts/acceptance/aws-live.ts"]);
+const ABSENT_ON_PURPOSE = new Set(["scripts/acceptance/aws-live.ts", "src/lib/runners"]);
 
 const PATH_PREFIX = /^(?:src|docs|scripts|tests|deploy|policy|workers|docker|supabase|\.github)\//;
 
@@ -135,6 +135,7 @@ describe("environment variables", () => {
     "src/lib/resources",
     "src/lib/observability",
     "src/lib/incidents",
+    "src/lib/reconcile",
     "src/lib/analysis",
     "src/lib/capabilities",
     "src/lib/drivers",
@@ -335,13 +336,29 @@ describe("the 'in progress' claims still hold", () => {
     expect(indexes.map((d) => d.name)).toEqual([]);
   });
 
-  it("the capability broker, runners, machine plane, REST and MCP v3 have not merged", () => {
+  it("the capability broker, the control-plane side of the runner and machine protocols, REST and MCP v3 have not merged", () => {
     expect(fs.readdirSync(path.join(REPO_ROOT, "src", "lib", "capabilities"))).toEqual(["catalog.ts"]);
     expect(fs.readdirSync(path.join(REPO_ROOT, "src", "lib", "machines"))).toEqual(["types.ts"]);
     expect(exists("src/lib/runners")).toBe(false);
-    expect(exists("go")).toBe(false);
     expect(exists("src/app/api/platform")).toBe(false);
     expect(exists("src/app/api/agent/v3")).toBe(false);
+  });
+
+  it("the Go agents have merged and have operator guides of their own (the guides link them rather than describe them)", () => {
+    expect(exists("go/cmd/zenith-runner/main.go")).toBe(true);
+    expect(exists("go/cmd/zenithd/main.go")).toBe(true);
+    expect(exists("docs/platform/RUNNER.md")).toBe(true);
+    expect(exists("docs/platform/ZENITHD.md")).toBe(true);
+    for (const name of ["DEPLOYING.md", "README.md"]) expect(guide(name), name).toContain("RUNNER.md");
+  });
+
+  it("the reconciliation controller is merged but not driven: no wiring, no schedule", () => {
+    expect(exists("src/lib/reconcile/index.ts")).toBe(true);
+    expect(exists("src/app/api/internal/tick/reconcile/route.ts")).toBe(true);
+    expect(callers(/^(?!\s*\*|\s*\/\/).*\bwireReconcilePorts\(/m, ["src/app", "src/components", "workers", "scripts"])).toEqual([]);
+    const tick = read(path.join(REPO_ROOT, ".github", "workflows", "tick.yml"));
+    expect(/for pass in [^\n]*reconcile/.test(tick)).toBe(false);
+    expect(read(path.join(REPO_ROOT, "vercel.json"))).not.toContain("reconcile");
   });
 
   it("every worker activity is still a stub", () => {

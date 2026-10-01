@@ -200,5 +200,8 @@ applyable IaC if you want to carry on without Zenith.
   ([DEPLOYING.md](DEPLOYING.md#status-what-actually-runs-on-this-branch)), so a
   connected account cannot yet be changed by Zenith through the platform path.
 - **Runner mode.** Jobs executed by a customer-side runner with local identity
-  (credentials never leave your network) are designed
-  ([RUNNER-PROTOCOL.md](../RUNNER-PROTOCOL.md)) and in progress.
+  (credentials never leave your network) are specified in
+  [RUNNER-PROTOCOL.md](../RUNNER-PROTOCOL.md), and the Go runner is built
+  ([RUNNER.md](../RUNNER.md), including an EKS IRSA example). The control-plane side
+  that would register it and send it jobs is not merged, so nothing connects an
+  account in runner mode yet.

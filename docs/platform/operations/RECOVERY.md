@@ -20,7 +20,7 @@ rather than something observed are marked **reasoned**.
 
 | State | Where it lives | Authoritative for | Rebuildable? | How it is backed up |
 |---|---|---|---|---|
-| **Platform store** | Postgres schema `platform` (PGlite locally) | Operations, approvals, policy decisions, capability grants, leases and fence counters, events, evidence, environment autonomy, workspace policy, provider connections, resources, runners, machines, incidents, cost estimates | **No** for the ledger tables (operations, approvals, decisions, grants, events, evidence, settings, connections). Observations, runtime state and drift reports are re-observable. | `pg_dump --schema=platform`, or your provider's backups / point-in-time recovery (section 2.1) |
+| **Platform store** | Postgres schema `platform` (PGlite locally) | Operations, approvals, policy decisions, capability grants, leases and fence counters, events, evidence, environment autonomy, workspace policy, provider connections, resources, runners, machines, incidents, cost estimates, reconciliation schedules | **No** for the ledger tables (operations, approvals, decisions, grants, events, evidence, settings, connections). Observations, runtime state, drift reports and reconciliation schedules are re-observable or re-registered. | `pg_dump --schema=platform`, or your provider's backups / point-in-time recovery (section 2.1) |
 | **Product store** | `<ZENITH_DATA>` (file) or Supabase Postgres via PostgREST | Workspaces, projects, revisions, deployments, the product's audit log | No | Out of scope here; see [RUNNING.md](../../RUNNING.md) and [HOSTED-POSTGRES.md](../../HOSTED-POSTGRES.md) |
 | **Product secret store** | `<ZENITH_DATA>/secrets.json`, encrypted under `ZENITH_SECRET_KEY` | Secret values behind `vault:` references | **No, and the key cannot be recovered**: values written under a lost key cannot be read back; there is no re-wrap tool ([LIMITATIONS.md](../../LIMITATIONS.md#secrets)) | Back up the file and the key **separately** |
 | **Temporal history** | Temporal Cloud or your cluster | In-flight workflow state: ids, digests, counts, redacted messages | No, but nothing permanent lives only here; the ledger holds the operation record | Temporal's own; Cloud retention is a namespace setting (section 2.3) |
@@ -217,11 +217,22 @@ A job queued for a customer-network runner is claimed by poll and settled once.
 `jobs.expireStale` (`src/lib/controlplane/db/repos/jobs.ts`) is the reaper: an
 unclaimed job past its expiry becomes `expired`, a claimed or running job whose
 lease ended becomes `timed_out`, and **nothing is re-queued**. It returns the jobs
-so the caller can reconcile each owning operation to `uncertain`. The runner
-itself is in progress; only this repository layer and its tests exist. Like
+so the caller can reconcile each owning operation to `uncertain`. The Go agents
+that would claim and settle jobs exist ([RUNNER.md](../RUNNER.md),
+[ZENITHD.md](../ZENITHD.md)); the control-plane routes they talk to do not, so on
+this branch only this repository layer and its tests exercise it. Like
 `reconcileOperations`, no timer calls the reaper yet.
 
 ### 4.5 What to do with an `uncertain` operation
+
+Do not confuse two things both called reconciliation. `reconcileOperations` (the
+store function above) moves stale **operations** to `uncertain` or `expired`. The
+**reconciliation controller** (`src/lib/reconcile`, `POST /api/internal/tick/reconcile`)
+observes an environment, diffs it against its desired graph, records drift and files
+`drift.repair` *proposals* through the broker; it never changes an operation's
+status and it never repairs anything itself. The controller is merged but not
+driven: production ports are not wired and no schedule calls its route
+([DEPLOYING.md](DEPLOYING.md#28-reconciliation-tick)).
 
 1. Read its events (`operation.uncertain`, `lease.lost`, step events) and its
    `error` text: "whether the change was applied is unknown".
@@ -311,7 +322,7 @@ the summary and the parts that depend on where each variable lives:
 | Key | Who needs what during a rotation | Overlap to keep |
 |---|---|---|
 | **OIDC issuer key** (RS256) | The JWKS endpoint (web app) publishes current plus extra public keys. AWS IAM caches the JWKS and that cache is not under your control. | Publish the **next** public key in `ZENITH_OIDC_EXTRA_PUBLIC_JWKS` and deploy; wait at least 24 hours; make it the signer and move the old public key into `EXTRA`; after at least one more hour (tokens live up to 5 minutes, sessions up to an hour) remove the old one. |
-| **Control signing key** (Ed25519) | Verifiers pin public keys: the worker now, runners later. The signer is the broker. | Give every **verifier** the next public key in `ZENITH_CONTROL_EXTRA_PUBLIC_JWKS` first; then swap the signer; keep the old public key at least one hour (`MAX_GRANT_LIFETIME_SEC`) after the swap so outstanding grants still verify. (**Reasoned** ordering: a signer that starts signing before verifiers trust its key makes every new grant fail.) Runners learn new keys from heartbeats at least 24 hours ahead ([RUNNER-PROTOCOL.md](../RUNNER-PROTOCOL.md)); the runner side is in progress. |
+| **Control signing key** (Ed25519) | Verifiers pin public keys: the worker, and the runner and `zenithd` agents. The signer is the broker. | Give every **verifier** the next public key in `ZENITH_CONTROL_EXTRA_PUBLIC_JWKS` first; then swap the signer; keep the old public key at least one hour (`MAX_GRANT_LIFETIME_SEC`) after the swap so outstanding grants still verify. (**Reasoned** ordering: a signer that starts signing before verifiers trust its key makes every new grant fail.) Runners learn new keys from heartbeats at least 24 hours ahead ([RUNNER-PROTOCOL.md](../RUNNER-PROTOCOL.md)); the Go agents accept and pin announced `nextKeys` per [RUNNER.md](../RUNNER.md), and the control-plane side that would announce them is not merged. |
 
 Also:
 
@@ -381,7 +392,14 @@ scratch databases, dropped afterwards), using the store's own functions:
 | `pg_dump --no-owner --no-privileges` and restore, then re-apply the emitted SQL | All 25 tables have row level security on; status current |
 | `temporal workflow terminate --query` with `STARTS_WITH` on a dev server | Terminated `op-` and `reconcile-` workflows, left others |
 
+That rehearsal ran against migration 1 (`core`), before migration 2 (`reconcile`) merged
+into this branch, and could not be repeated afterwards because the Docker engine was
+not running. Migration 2 was applied and checked on PGlite
+(`npm run migrate:platform`, then `-- --status`: both applied, current) and is
+covered by the repository's own suites; its dump and restore, and the table counts
+above, were not re-observed on Postgres.
+
 **Not rehearsed:** a restore to an earlier point in time with live workers and
 workflows (section 4.6); Supabase's own backup and restore; Temporal Cloud; any
-recovery with real activities, because none exist; a runner reaping jobs in
-production; a load of realistic size (the drill wrote a handful of rows).
+recovery with real activities, because none exist; a runner reaping jobs against a
+live control plane; a load of realistic size (the drill wrote a handful of rows).

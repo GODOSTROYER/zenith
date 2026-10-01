@@ -38,7 +38,8 @@ Reference material these guides lean on (not duplicated here):
 | [CURRENT-STATE.md](../CURRENT-STATE.md) | The baseline audit the build started from |
 | [EXECUTION-WORKER.md](../EXECUTION-WORKER.md) | Workflows, retries, leases, approval, cancellation, worker configuration |
 | [DRIVER-CONVENTIONS.md](../DRIVER-CONVENTIONS.md) | How every provider's resource drivers must behave |
-| [RUNNER-PROTOCOL.md](../RUNNER-PROTOCOL.md) | The wire protocol for `zenith-runner` and `zenithd` (the agents are in progress) |
+| [RUNNER-PROTOCOL.md](../RUNNER-PROTOCOL.md) | The wire protocol for `zenith-runner` and `zenithd` |
+| [RUNNER.md](../RUNNER.md), [ZENITHD.md](../ZENITHD.md) | Operator guides for the two Go agents, written by the workstream that built them (not reviewed or verified here) |
 | [`src/lib/credentials/OPERATIONS.md`](../../../src/lib/credentials/OPERATIONS.md) | The credential broker's environment, key generation, KMS and rotation |
 | [`policy/README.md`](../../../policy/README.md) | Every policy rule, its condition and its reason code |
 | [`docs/adr/`](../../adr/README.md) | The decisions, ADR-0001 to ADR-0016 |
@@ -55,6 +56,8 @@ Reference material these guides lean on (not duplicated here):
 | Placement and cost | `src/lib/placement/**` | [COST.md](COST.md) |
 | Observability fabric | `src/lib/observability/**` | [CAPABILITY-MATRIX.md](../CAPABILITY-MATRIX.md#observability-sources), [ADR-0011](../../adr/0011-observability-federated.md). Reads no environment variables; no operator guide yet (planned) |
 | Temporal workflows and worker | `src/lib/workflows/**`, `workers/execution/**`, `docker/worker.Dockerfile` | [EXECUTION-WORKER.md](../EXECUTION-WORKER.md), [DEPLOYING.md](DEPLOYING.md#5-temporal) |
+| Reconciliation controller | `src/lib/reconcile/**`, `src/app/api/internal/tick/reconcile/route.ts`, migration 2 | [DEPLOYING.md](DEPLOYING.md#28-reconciliation-tick), [RECOVERY.md](RECOVERY.md#45-what-to-do-with-an-uncertain-operation). Merged but not driven: no production ports are wired and no schedule calls the route |
+| Go agents | `go/**`, `deploy/helm/zenith-runner/**`, `deploy/zenithd/**`, `docker/runner.Dockerfile`, `docker/zenithd.Dockerfile` | [RUNNER.md](../RUNNER.md), [ZENITHD.md](../ZENITHD.md). The control-plane routes they talk to are not merged |
 | Incident engine | `src/lib/incidents/**` | [ADR-0014](../../adr/0014-incident-engine.md). A library that reads no environment, takes its probes as injected ports and is called by nothing yet; no operator guide (planned) |
 | Repository analysis | `src/lib/analysis/**` | Not part of the control plane's operation: it turns a repository snapshot into a proposed manifest. Reads no environment; nothing to operate |
 | Platform UI components | `src/components/platform/**` | [README](../../../src/components/platform/README.md) in that folder. Presentational only (data and callbacks arrive as props); no page renders them yet |
@@ -68,9 +71,11 @@ branch behaves the way a guide could describe, so there is no guide:
 - resource drivers, including the AWS, Kubernetes, GCP, Azure, OCI and managed
   `zenith` provider sets
 - the capability broker, approvals and autonomy enforcement
-- `zenith-runner`, `zenithd` and the Go agents
-- the machine plane
-- reconciliation (the reconcile workflow observes only; repair is not built)
+- the control-plane side of the runner and machine protocols: the registration and
+  job routes, `src/lib/runners`, and the TypeScript machine plane (`src/lib/machines`
+  holds only types)
+- repair: the reconcile workflow and the controller observe, diff and *propose*;
+  nothing executes a repair, and the controller's production ports are not wired
 - the REST surface `/api/platform/v1` and MCP v3
 - the platform screens and routes (the presentational components have merged;
   nothing renders them)
@@ -84,8 +89,7 @@ placeholders.
 
 | Planned guide | Waits for |
 |---|---|
-| `RUNNERS.md` | `zenith-runner` and the runner routes |
-| `MACHINES.md` | The machine plane and `zenithd` |
+| `MACHINES.md` | The TypeScript machine plane and its routes (the agent's own guide exists: ZENITHD.md) |
 | `INCIDENTS.md` | The incident engine being wired to real probes, the broker and a route |
 | `OBSERVABILITY.md` | Source configuration, partial answers and redaction, once sources are wired to a route |
 | `CAPABILITY-BROKER.md` | The broker, approvals and the REST and MCP surfaces |

@@ -66,7 +66,7 @@ jobs:
           printf 'Authorization: Bearer %s\n' "$CRON_SECRET" > "$header_file"
 
           failed=0
-          for pass in engine alerts outbox jobs agent; do
+          for pass in engine alerts outbox jobs agent reconcile; do
             url="${BASE_URL}/api/internal/tick/${pass}"
             echo "--- ${pass}"
             status=0

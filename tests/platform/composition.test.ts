@@ -1,0 +1,153 @@
+/** Composition contracts; all federation responses and vault credentials are synthetic. */
+import { beforeAll, beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { decodeJwt } from "jose";
+import type { CapabilityGrantClaims } from "@/lib/controlplane/types";
+import type { ConnectionConfig, ProviderSession } from "@/lib/credentials/types";
+import { tempDataDir } from "../_support/data-dir";
+tempDataDir("zenith-compose-contract-", { fast: true });
+const { openPlatformDb, repos } = await import("@/lib/controlplane/db");
+const { listDrivers } = await import("@/lib/drivers/types");
+const { registerAllDrivers } = await import("@/lib/platform/drivers");
+const { derivePlanFingerprintKey, composeExecutionActivities } = await import("@/lib/platform/execution");
+const { platformCredentialBroker } = await import("@/lib/platform/credentials");
+const { ensurePlatformApp, resetPlatformAppForTests, platformRunnerReaperPass } = await import("@/lib/platform/app");
+const { resetPlatformBrokerForTests } = await import("@/lib/capabilities/platform");
+const { resetRunnerRuntime } = await import("@/lib/runners/runtime");
+const { reconcileWired, wireReconcilePorts } = await import("@/lib/reconcile/ports");
+const { generateSigningJwk, LocalJwkSigner } = await import("@/lib/credentials/signing");
+const { validateExecutionConfiguration, openExecutionStore } = await import("../../workers/execution/startup");
+const { putSecretAsync } = await import("@/lib/secrets");
+const { CONNECTION: gcp } = await import("../providers/gcp/_fake-google");
+const { connection: azure } = await import("../providers/azure/_helpers");
+let db: Awaited<ReturnType<typeof openPlatformDb>>;
+let signer: ReturnType<typeof LocalJwkSigner.fromJwk>;
+beforeAll(async () => { signer = LocalJwkSigner.fromJwk("test", (await generateSigningJwk("RS256")).privateJwk, { alg: "RS256" }); });
+beforeEach(async () => { db = await openPlatformDb({ kind: "pglite" }); resetPlatformAppForTests(); });
+afterEach(async () => { await db.close(); resetPlatformAppForTests(); resetPlatformBrokerForTests(); resetRunnerRuntime(); wireReconcilePorts(null); vi.unstubAllEnvs(); });
+const grant = (over: Partial<CapabilityGrantClaims> = {}): CapabilityGrantClaims => ({ jti: "grant-contract", iss: "zenith-control", aud: "worker", sub: "operator", iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 900, cap: "infrastructure.observe", ws: "ws-contract", op: "read-contract", env: "env-contract", digest: "0".repeat(64), ...over });
+async function connection(config: ConnectionConfig) {
+  const row = await repos.connections.create(db, { workspaceId: "ws-contract", config, createdBy: "operator" });
+  await repos.connections.recordVerification(db, { workspaceId: row.workspaceId, id: row.id, ok: true, detail: "Seeded contract fixture, not live verification." });
+  return row.id;
+}
+
+describe("platform composition", () => {
+  it("registers one driver per provider/nativeType and uses only Zenith's own managed driver set", () => {
+    registerAllDrivers(); const once = listDrivers(); registerAllDrivers(); const twice = listDrivers();
+    const keys = twice.map((d) => `${d.provider}|${d.nativeType}`);
+    expect(new Set(keys).size).toBe(keys.length); expect(twice.length).toBe(once.length);
+    expect(new Set(twice.map((d) => d.provider))).toEqual(new Set(["aws", "kubernetes", "zenith", "gcp", "azure", "oci"]));
+    expect(twice.filter((d) => d.provider === "zenith").every((d) => d.id.startsWith("zenith."))).toBe(true);
+    for (const driver of twice) for (const level of Object.values(driver.capabilities.evidence)) expect(level).toBe("contract");
+  });
+  it("derives stable domain-separated fingerprints and refuses missing/malformed secrets even with fake tofu", () => {
+    expect(derivePlanFingerprintKey("1".repeat(64))).toBe(derivePlanFingerprintKey("1".repeat(64)));
+    expect(derivePlanFingerprintKey("1".repeat(64))).not.toBe(derivePlanFingerprintKey("2".repeat(64)));
+    expect(derivePlanFingerprintKey("1".repeat(64))).not.toBe("1".repeat(64));
+    vi.stubEnv("ZENITH_SECRET_KEY", "");
+    expect(() => composeExecutionActivities({ db, workerIdentity: "test", planDir: "unused" })).toThrow("ZENITH_SECRET_KEY");
+    expect(() => derivePlanFingerprintKey("invalid")).toThrow("64 hex");
+  });
+  it("leaves the legacy app and reconcile 503 behavior alone without platform configuration", async () => {
+    vi.stubEnv("ZENITH_PLATFORM_DB", ""); vi.stubEnv("ZENITH_PLATFORM_DB_URL", "");
+    expect(await ensurePlatformApp()).toBe(false);
+    expect(reconcileWired()).toBe(false);
+    expect(await platformRunnerReaperPass()).toEqual({ ran: false, jobs: 0 });
+  });
+  it("wires the configured schema exactly once without requiring a signer to reap queues", async () => {
+    vi.stubEnv("ZENITH_CONTROL_SIGNING_JWK", "");
+    const first = ensurePlatformApp(db); const second = ensurePlatformApp(db);
+    expect(first).toBe(second); expect(await first).toBe(true); expect(reconcileWired()).toBe(true);
+    expect(await platformRunnerReaperPass()).toEqual({ ran: true, jobs: 0 });
+  });
+  it("fails tolerantly when schema is behind instead of silently migrating production", async () => {
+    await db.query("delete from platform.schema_migrations where version=(select max(version) from platform.schema_migrations)");
+    expect(await ensurePlatformApp(db)).toBe(false); expect(reconcileWired()).toBe(false);
+  });
+  it("fails worker startup on missing secret/signing/store configuration without exposing error input", async () => {
+    const base = { ZENITH_TEMPORAL_ADDRESS: "127.0.0.1:17233", ZENITH_SECRET_KEY: "1".repeat(64), ZENITH_PLATFORM_DB: "pglite" };
+    await expect(validateExecutionConfiguration({ ...base, ZENITH_TEMPORAL_ADDRESS: "" })).rejects.toThrow("TEMPORAL_ADDRESS");
+    await expect(validateExecutionConfiguration({ ...base, ZENITH_SECRET_KEY: "" })).rejects.toThrow("SECRET_KEY");
+    await expect(validateExecutionConfiguration({ ...base, ZENITH_CONTROL_SIGNING_JWK: "PRIVATE-CONTRACT-CANARY" })).rejects.toThrow("usable ZENITH_CONTROL_SIGNING_JWK");
+    await expect(openExecutionStore(async () => { throw new Error("DATABASE-CONTRACT-CANARY"); })).rejects.toThrow("Platform store could not open");
+    expect(await openExecutionStore(async () => db)).toBe(db);
+    await db.query("delete from platform.schema_migrations where version=(select max(version) from platform.schema_migrations)");
+    await expect(openExecutionStore(async () => db)).rejects.toThrow("Platform schema is behind");
+  });
+});
+
+describe("provider credential router", () => {
+  it("mints a scoped subject, exchanges Google federation, audits and ends the session", async () => {
+    const id = await connection(gcp);
+    const subjects: Record<string, unknown>[] = [];
+    const fetchImpl: typeof fetch = vi.fn(async (input, init) => {
+      const url = String(input);
+      if (url === "https://sts.googleapis.com/v1/token") {
+        const body = JSON.parse(String(init?.body)) as { subjectToken: string };
+        subjects.push(decodeJwt(body.subjectToken));
+        return Response.json({ access_token: "google-contract-sts", token_type: "Bearer", expires_in: 900 });
+      }
+      if (url.includes("iamcredentials.googleapis.com")) return Response.json({ accessToken: "google-contract-canary", expireTime: new Date(Date.now() + 900_000).toISOString() });
+      return Response.json({ ok: true });
+    });
+    const credentials = platformCredentialBroker(db, { oidc: { signer, issuer: "https://zenith.test/api/oidc" }, fetchImpl });
+    let held: ProviderSession | undefined;
+    await credentials.withSession({ connectionId: id, grant: grant(), purpose: "observe" }, async (session) => {
+      held = session; expect(session.provider).toBe("gcp");
+      if (session.provider === "gcp") expect((await session.authorizedFetch("https://compute.googleapis.com/compute/v1/projects")).status).toBe(200);
+      expect(JSON.stringify(session)).not.toContain("google-contract-canary");
+    });
+    expect(subjects[0]).toMatchObject({ sub: `zenith:ws:ws-contract:conn:${id}`, aud: `https://iam.googleapis.com/${gcp.workloadIdentityProvider}` });
+    if (held?.provider === "gcp") await expect(held.authorizedFetch("https://compute.googleapis.com/compute/v1/projects")).rejects.toThrow();
+    const events = await repos.events.list(db, "ws-contract", { limit: 50 });
+    expect(events.map((e) => e.type)).toContain("credential.assumed");
+    expect(events[0].operationId).toBeUndefined(); expect(JSON.stringify(events)).not.toContain("google-contract-canary");
+  });
+  it("mints Azure assertions for the exchange audience and revokes access after callback failure", async () => {
+    const id = await connection(azure); const subjects: Record<string, unknown>[] = [];
+    const fetchImpl: typeof fetch = vi.fn(async (input, init) => {
+      if (String(input).startsWith("https://login.microsoftonline.com/")) {
+        const body = new URLSearchParams(String(init?.body)); subjects.push(decodeJwt(body.get("client_assertion")!));
+        return Response.json({ access_token: "azure-contract-canary", token_type: "Bearer", expires_in: 900 });
+      }
+      return Response.json({ value: [] });
+    });
+    const credentials = platformCredentialBroker(db, { oidc: { signer, issuer: "https://zenith.test/api/oidc" }, fetchImpl });
+    let held: ProviderSession | undefined;
+    await expect(credentials.withSession({ connectionId: id, grant: grant(), purpose: "observe" }, async (session) => {
+      held = session;
+      if (session.provider === "azure") await session.authorizedFetch("https://management.azure.com/subscriptions?api-version=2022-12-01");
+      throw new Error("callback failed");
+    })).rejects.toThrow("callback failed");
+    expect(subjects[0]).toMatchObject({ sub: `zenith:ws:ws-contract:conn:${id}`, aud: "api://AzureADTokenExchange" });
+    if (held?.provider === "azure") await expect(held.authorizedFetch("https://management.azure.com/subscriptions")).rejects.toThrow();
+  });
+  it("resolves a Kubernetes vault reference only in memory and refuses reuse", async () => {
+    vi.stubEnv("ZENITH_SECRET_KEY", "1".repeat(64));
+    const ref = "vault:project/service/KUBE_TOKEN";
+    await putSecretAsync("ws-contract", ref, "kubernetes-contract-canary", "operator");
+    const id = await connection({ provider: "kubernetes", mode: "kubeconfig_ref", server: "https://cluster.example.test", namespaces: ["app"], credentialRef: ref });
+    let held: ProviderSession | undefined;
+    await platformCredentialBroker(db).withSession({ connectionId: id, grant: grant(), purpose: "observe" }, async (session) => {
+      held = session; expect(session.provider).toBe("kubernetes");
+      if (session.provider === "kubernetes") expect(session.kubeConfig()).toBeDefined();
+      expect(JSON.stringify(session)).not.toContain("kubernetes-contract-canary");
+    });
+    if (held?.provider === "kubernetes") { const kubernetes = held; expect(() => kubernetes.kubeConfig()).toThrow("session has ended"); }
+    expect(JSON.stringify(await repos.events.list(db, "ws-contract", { limit: 50 }))).not.toContain("kubernetes-contract-canary");
+  });
+  it("refuses foreign tenants, purpose mismatch, expired grants and runner-only OCI before exchange", async () => {
+    const id = await connection(gcp); const fetchImpl = vi.fn<typeof fetch>();
+    const credentials = platformCredentialBroker(db, { fetchImpl });
+    await expect(credentials.withSession({ connectionId: id, grant: grant({ ws: "other" }), purpose: "observe" }, async () => undefined)).rejects.toThrow("not found");
+    await expect(credentials.withSession({ connectionId: id, grant: grant(), purpose: "deploy" }, async () => undefined)).rejects.toThrow("purpose");
+    await expect(credentials.withSession({ connectionId: id, grant: grant({ exp: 0 }), purpose: "observe" }, async () => undefined)).rejects.toThrow("expired");
+    const oci = await connection({ provider: "oci", mode: "runner", tenancyOcid: "ocid1.tenancy.oc1..fixture", compartmentOcid: "ocid1.compartment.oc1..fixture", region: "us-ashburn-1", runnerId: "runner-contract" });
+    await expect(credentials.withSession({ connectionId: oci, grant: grant(), purpose: "observe" }, async () => undefined)).rejects.toThrow("OCI is runner-only");
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+  it("never treats session creation as provider identity verification", async () => {
+    const id = await connection(gcp);
+    expect(await platformCredentialBroker(db).verifyConnection(id, { workspaceId: "ws-contract" })).toMatchObject({ ok: false });
+  });
+});

@@ -69,6 +69,21 @@ import { evaluateAll, replayOutbox } from "@/lib/alerts";
 import { log, withRequestId } from "@/lib/log";
 import { isServerless } from "@/lib/serverless";
 
+/** Platform-only boot after cron authentication; unconfigured hosts do no platform work. */
+export async function ensurePlatformCron(): Promise<boolean> {
+  if (!process.env.ZENITH_PLATFORM_DB?.trim()
+    && !process.env.ZENITH_PLATFORM_DB_URL?.trim()
+    && !process.env.SUPABASE_DB_URL?.trim()) return false;
+  const { ensurePlatformApp } = await import("@/lib/platform/app");
+  return ensurePlatformApp();
+}
+
+async function reapPlatformJobs(): Promise<void> {
+  if (!(await ensurePlatformCron())) return;
+  const { platformRunnerReaperPass } = await import("@/lib/platform/app");
+  await platformRunnerReaperPass();
+}
+
 /* ------------------------------ authorisation ----------------------------- */
 
 /** The environment variable Vercel itself names, and sends as a bearer token. */
@@ -268,6 +283,7 @@ export interface JobTickResult {
  * pretending to have finished anything.
  */
 export async function jobTickPass(): Promise<JobTickResult> {
+  await reapPlatformJobs();
   const { authorityOpen } = await import("@/lib/hosted/authority");
   if (!authorityOpen()) return { ran: false, queued: 0, remaining: 0 };
   const { queuedJobs, tickJobs } = await import("@/lib/hosted/release");
@@ -364,6 +380,7 @@ export async function runScheduledPass(): Promise<SchedulerPassResult | null> {
         if (slow) {
           result.alerts = await scheduledPasses.alerts();
           result.outbox = await scheduledPasses.outbox();
+          await reapPlatformJobs();
         }
         result.ms = Date.now() - started;
         return result;

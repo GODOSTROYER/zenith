@@ -16,7 +16,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { ApplicationFailure, CancelledFailure } from "@temporalio/common";
 import { bundleWorkflowCode } from "@temporalio/worker";
-import { createActivities } from "@/lib/workflows/activities";
+import { createStubActivities as createActivities } from "@/lib/workflows/activities";
 import { createFakeActivities } from "@/lib/workflows/activities/fake";
 import { toTemporalFailure, withFailureMapping } from "@/lib/workflows/activities/failures";
 import { ACTIVITY_OPTIONS } from "@/lib/workflows/definitions/policies";

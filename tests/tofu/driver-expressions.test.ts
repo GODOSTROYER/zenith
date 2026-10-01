@@ -14,6 +14,7 @@ import { compileGraph as awsNetwork } from "../providers/aws/drivers/fixtures/en
 import { fixtureGraph } from "../providers/aws/drivers/fixtures/graph";
 import { standardFragments } from "../providers/aws/drivers/data/_helpers";
 import { buildFullFixture, mkCompileContext, stubFragments } from "../providers/aws/drivers/compute/fixtures";
+import { BOUNDARY_PREFIX } from "../providers/aws/drivers/compute/boundary-fixtures";
 import { compileAll as azureCompile, sampleGraph } from "../providers/azure/_helpers";
 import { compileContext as gcpCompile, environmentNodes } from "../providers/gcp/_fixtures";
 import { compileGraph as ociCompile, expandOci, OCI_PROD, webStack } from "../providers/oci/_support";
@@ -29,7 +30,8 @@ function strings(value: unknown, out: string[] = []): string[] {
 
 function awsCompute(opts: Parameters<typeof buildFullFixture>[0] = {}): Map<string, TofuFragment> {
   const fixture = buildFullFixture(opts);
-  const context = mkCompileContext(fixture.byAddress);
+  // production names always start with zenith- (the workload boundary relies on it)
+  const context = mkCompileContext(fixture.byAddress, { namePrefix: BOUNDARY_PREFIX });
   const fragments = stubFragments(fixture);
   for (const node of fixture.nodes) {
     const driver = COMPUTE_DRIVERS.find((d) => d.nativeType === node.nativeType);

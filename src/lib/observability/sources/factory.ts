@@ -10,7 +10,7 @@
  *   kubernetes         → `kubernetes` (pod logs and events)
  *   gcp / azure        → Cloud Logging/Monitoring / Log Analytics/Monitor
  *   zenith             → tenant namespace pod logs and events (Kubernetes session)
- *   oci                → explicit gaps: runner lacks Logging Search/Monitoring
+ *   oci                → Logging Search / Monitoring through the runner (`oci`)
  *   endpoints.prometheus → `prometheus`;  endpoints.loki → `loki`
  *
  * A provider whose prerequisite is missing (no AWS session, no kube session)

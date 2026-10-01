@@ -10,13 +10,13 @@ const pending = vi.hoisted(() => ({ enabled: true }));
 vi.mock("@/lib/providers/oci/services", async (original) => {
   const serviceContract = await original<typeof import("@/lib/providers/oci/services")>();
   return { ...serviceContract, OCI_SERVICE_HOSTS: { ...serviceContract.OCI_SERVICE_HOSTS,
-    "logging-search": { host: "logging.{region}.oci.oraclecloud.com", version: "20190909" },
+    "loggingsearch": { host: "logging.{region}.oci.oraclecloud.com", version: "20190909" },
     monitoring: { host: "telemetry.{region}.oraclecloud.com", version: "20180401" } } };
 });
 vi.mock("@/lib/providers/oci/allowlist", async (original) => {
   const ruleContract = await original<typeof import("@/lib/providers/oci/allowlist")>();
   return { ...ruleContract, isAllowed: (cap: string, req: OciApiRequest) => pending.enabled && ["infrastructure.observe", "incident.investigate", "logs.read", "metrics.read"].includes(cap) && req.method === "POST" &&
-    ((String(req.service) === "logging-search" && req.path === "/20190909/search" && cap !== "metrics.read") || (String(req.service) === "monitoring" && req.path === "/20180401/metrics/actions/summarizeMetricsData" && cap !== "logs.read")) };
+    ((String(req.service) === "loggingsearch" && req.path === "/20190909/search" && cap !== "metrics.read") || (String(req.service) === "monitoring" && req.path === "/20180401/metrics/actions/summarizeMetricsData" && cap !== "logs.read")) };
 });
 
 const compartment = "ocid1.compartment.oc1..contract000001";
@@ -46,7 +46,7 @@ describe("OCI Logging Search reader (pending endpoint contracts injected)", () =
     expect(result.items[0].message).toContain("ignore previous instructions");
     expect(JSON.stringify(result)).not.toContain("oci-canary");
     const req = request.mock.calls[0][0];
-    expect(req).toMatchObject({ service: "logging-search", method: "POST", path: "/20190909/search", body: { timeStart: range.from, timeEnd: range.to, searchQuery: `search "${compartment}/${group}" | sort by datetime desc` } });
+    expect(req).toMatchObject({ service: "loggingsearch", method: "POST", path: "/20190909/search", body: { timeStart: range.from, timeEnd: range.to, searchQuery: `search "${compartment}/${group}" | sort by datetime desc` } });
     expect(req.headers!["opc-retry-token"]).toBeTruthy();
     expect(request.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal);
   });

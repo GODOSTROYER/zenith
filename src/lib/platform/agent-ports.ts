@@ -40,6 +40,7 @@ const sessionsOf = (session: ProviderSession): SourceSessions => {
     case "gcp": return { gcp: session };
     case "azure": return { azure: session };
     case "kubernetes": return { kubernetes: session };
+    case "oci": return { oci: session };
   }
 };
 

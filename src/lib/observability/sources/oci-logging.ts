@@ -40,7 +40,7 @@ export function createOciLoggingSource(session?: OciSignalSession): Observabilit
       signal.throwIfAborted();
       const unavailable = (reason: string) => unavailableResult<NormalizedLog>(OCI_LOGGING_SOURCE_ID, reason);
       if (!session) return unavailable("no OCI runner session: logs require a credential-broker observe session");
-      const request = signalRequest(session, "logging-search", "/20190909/search");
+      const request = signalRequest(session, "loggingsearch", "/20190909/search");
       if (!request) return unavailable("OCI Logging Search service or capability allowlist is unavailable.");
       const resources = boundResources(session, q.scope);
       if (!resources) return unavailable("OCI environment resource bindings are unavailable for this scope.");

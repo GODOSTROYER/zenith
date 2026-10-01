@@ -5,7 +5,7 @@ an operation when something crashes, how leases and fence tokens behave, and how
 to rotate keys and migrate the schema. For where each component runs, see
 [DEPLOYING.md](DEPLOYING.md).
 
-Written against branch `ws/docs-sync`, based on `platform/integration` at `e3ea61a` (2026-10-01).
+Written against branch `ws/docs-sync-2`, based on `ws/integrate-w6` at `3c1fa66` (2026-10-01).
 
 **Read this first.** The recovery machinery in the store (leases, fence tokens,
 `uncertain`, the reconciler) is built and was exercised against a real PostgreSQL
@@ -15,7 +15,9 @@ cancellations use the ledger. The worker registers composed execution activities
 product deploys and MCP v3 start workflows. Environment reconciliation and runner
 job reaping are driven by ticks (`src/lib/platform/app.ts`,
 `src/lib/server/cron.ts`, `.github/workflows/tick.yml`). The standalone ledger
-backstop `reconcileOperations` still has no timer caller. This page describes the
+backstop `reconcileOperations` runs in the leased housekeeping pass, called by
+the jobs tick with `?housekeeping=1` and the in-process slow scheduler
+(`src/lib/platform/housekeeping.ts`). This page describes the
 contract the code enforces, plus the operator steps around it; it is not a record of
 a production recovery. The places where a statement is reasoning from the code
 rather than something observed are marked **reasoned**.
@@ -88,10 +90,14 @@ not die with the host, because losing it loses every stored secret value.
 - **`temporal server start-dev`:** history is **in memory** unless you pass
   `--db-filename`; it is for development only.
 
-Workflow payloads are intended to hold ids, digests and redacted summaries;
-history has no configured payload encryption. Runtime serialization and
-arbitrary secret redaction are not a blanket guarantee. Restrict history access
-and retention; this sync does not run the opt-in history security checks.
+Workflow payloads hold ids, digests and redacted summaries and use the shared
+AES-256-GCM codec (`src/lib/workflows/codec.ts`). Preserve the current and
+decrypt-only previous keys separately from Temporal backups: losing a required
+key loses access to those payloads. Legacy plaintext remains readable; ids,
+visibility/search attributes and default failure messages are not encrypted.
+Runtime serialization and heuristic redaction are not a blanket guarantee.
+Restrict history access/retention; this sync did not run the opt-in encrypted
+replay/history checks. Rotation is in [section 6](#6-key-rotation).
 
 ### 2.4 Customer OpenTofu state
 
@@ -259,7 +265,7 @@ owning operations uncertain in the same transaction. AWS runner credential
 sessions enqueue/await through `src/lib/runners/aws-runner-transport.ts`;
 the machine activity path requires an injected port absent from default worker
 composition. The separate
-`reconcileOperations` ledger backstop remains unscheduled. The `zenithd` queue's table, `platform.machine_requests`, is migration 3
+`reconcileOperations` ledger backstop runs in the leased housekeeping pass. The `zenithd` queue's table, `platform.machine_requests`, is migration 3
 ([DEPLOYING.md](DEPLOYING.md#32-migrating)). Results are sealed at rest; a result that cannot be
 opened (lost or rotated sealing key) leaves its operation `uncertain`.
 
@@ -374,6 +380,7 @@ the summary and the parts that depend on where each variable lives:
 |---|---|---|
 | **OIDC issuer key** (RS256) | The JWKS endpoint (web app) publishes current plus extra public keys. AWS IAM caches the JWKS and that cache is not under your control. | Publish the **next** public key in `ZENITH_OIDC_EXTRA_PUBLIC_JWKS` and deploy; wait at least 24 hours; make it the signer and move the old public key into `EXTRA`; after at least one more hour (tokens live up to 5 minutes, sessions up to an hour) remove the old one. |
 | **Control signing key** (Ed25519) | Verifiers pin public keys: the worker, and the runner and `zenithd` agents. The signer is the broker. | Give every **verifier** the next public key in `ZENITH_CONTROL_EXTRA_PUBLIC_JWKS` first; then swap the signer; keep the old public key at least one hour (`MAX_GRANT_LIFETIME_SEC`) after the swap so outstanding grants still verify. (**Reasoned** ordering: a signer that starts signing before verifiers trust its key makes every new grant fail.) Runners learn new keys from heartbeats at least 24 hours ahead ([RUNNER-PROTOCOL.md](../RUNNER-PROTOCOL.md)); the Go agents accept and pin announced `nextKeys` per [RUNNER.md](../RUNNER.md), and the control-plane side that announces them is `announcedNextKeys` in `src/lib/runners/runtime.ts` (from `ZENITH_CONTROL_EXTRA_PUBLIC_JWKS`), which has not run against the agents. |
+| **Temporal payload key** (derived from `ZENITH_SECRET_KEY`) | Web clients and workers encrypt with the current key and decrypt with it plus `ZENITH_TEMPORAL_PREVIOUS_SECRET_KEYS`, a private JSON array. | Keep every prior key needed for active and retained/archived histories; there is no automatic re-encryption. This overlap does not re-wrap the product vault or preserve plan fingerprints. |
 
 Also:
 
@@ -397,8 +404,17 @@ Also:
   the two, and keep the same value on the web app (which seals) and the worker (which
   opens). With a KMS-backed control signer it must be set (there is no private scalar
   to derive from). Source: `src/lib/runners/seal.ts`.
-- **`ZENITH_SECRET_KEY`** (the product secret store) has no rotation tooling:
-  nothing re-wraps existing values. Do not rotate it casually.
+- **`ZENITH_SECRET_KEY`** also encrypts the product secret store and derives plan
+  fingerprints; nothing re-wraps existing vault values. The Temporal previous-key
+  option covers Temporal only. Arrange vault migration and fresh review of plans
+  before changing this shared key. For a coordinated payload rotation, first give
+  all clients/workers both old and next keys as decrypt-capable keys, then switch
+  the current key while retaining the old one. Keep keys outside histories,
+  logs and tickets; test replay in the isolated environment before rolling out.
+  Removing a required key makes histories unreadable. Source:
+  `src/lib/workflows/codec.ts`; details in
+  [EXECUTION-WORKER.md](../EXECUTION-WORKER.md#payload-encryption). Production
+  rotation/recovery was not rehearsed here.
 - **The Temporal API key and the database password** are plain secrets: rotate in
   the secret manager and restart the processes that read them. Both are read at
   start-up; the worker does not hot-reload.

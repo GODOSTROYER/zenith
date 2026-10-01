@@ -5,7 +5,7 @@ Operator documentation for the control plane described in
 customer cloud, run its policy and read its costs. It describes current wiring
 and records the remaining limits separately from live verification.
 
-Written against branch `ws/docs-sync`, based on `platform/integration` at `e3ea61a` (2026-10-01).
+Written against branch `ws/docs-sync-2`, based on `ws/integrate-w6` at `3c1fa66` (2026-10-01).
 
 ## Read this first: what is real
 
@@ -14,12 +14,15 @@ reconciliation. `src/lib/platform/execution.ts` composes the activities the work
 registers; product deploys and MCP v3 dispatch workflows. Platform pages render
 the components, bearer/signed-agent middleware paths are classified, and the
 policy bundle is traced into serverless builds. The reconcile route is included
-in the five-minute tick and cron passes run the runner-job reaper.
+in the five-minute tick; cron passes run the runner-job reaper and leased
+housekeeping. The worker supplies loopback health probes, a plan janitor and
+the same encrypted Temporal payload converter as the client.
 
 These are source-verified wiring claims, not a live-cloud acceptance run. No
-driver or source has `real` evidence. A non-AWS verified connection, OCI platform
-session, hosted Zenith substrate, readable plan approval artifact, or MCP cloud
-read hook must not be inferred from driver registration alone. See the status
+driver or source has `real` evidence. Connection verification and MCP read/incident
+hooks are wired; OCI sessions and signal reads require an active registered runner.
+A hosted Zenith substrate, cloud permission or readable plan approval artifact
+must not be inferred from driver registration alone. See the status
 and limits in [DEPLOYING.md](DEPLOYING.md#status-what-actually-runs-on-this-branch).
 
 ## The guides
@@ -31,14 +34,18 @@ and limits in [DEPLOYING.md](DEPLOYING.md#status-what-actually-runs-on-this-bran
 | [AWS-SETUP.md](AWS-SETUP.md) | The owner of a customer AWS account | What connecting an account creates, what Zenith can and cannot do in it, how narrow a session is, and how to revoke. Commands live in [`deploy/aws/README.md`](../../../deploy/aws/README.md) |
 | [POLICY.md](POLICY.md) | Whoever tunes authorization | How a decision is made, the rules in summary, workspace parameters, autonomy levels 0 to 5, decision records, changing a rule and rebuilding the bundle |
 | [COST.md](COST.md) | Whoever shows a number to a user | Estimates versus forecasts versus actuals (only estimates exist), what an estimate includes and excludes, the price catalog, its evidence classes and how to refresh it |
+| [TEARDOWN.md](TEARDOWN.md) | Whoever deletes an environment's infrastructure | Browser admin request, trusted destroy review, human approval, deletion/retention guards, kept evidence and unresolved outcomes |
+| [BUILDS.md](BUILDS.md) | Whoever deploys customer source | Canonical GitHub archives, ZIP versus tar.gz, provider uploads/builds, digest release and required Azure integration |
+| [OCI-SIGNALS.md](OCI-SIGNALS.md) | Whoever reads OCI logs, metrics or incidents | Registered runner setup, migration 5 read jobs, capability split, resource/compartment scope and partial coverage |
 | [CAPABILITY-MATRIX.md](../CAPABILITY-MATRIX.md) | Anyone deciding what to trust | **Generated.** Provider by native type by operation, with the evidence level each driver declares, the observability sources and the capability catalog |
 
-At this snapshot the committed matrix predates application driver registration
-and fails its generation check. WS-DRIVER-FIX owns its regeneration and the stale
-registration assertion in `tests/docs/capability-matrix.test.ts`. Until that sync
-lands, use `src/lib/platform/drivers.ts` for registration wiring; the matrix's
-old registration column does not describe the composed app. Evidence remains
-`contract`, never live verification.
+The committed matrix reflects the registry and is checked by
+`npx tsx scripts/docs/capability-matrix.ts --check`. Registration and evidence
+are separate: SDK reads for EKS, SNS, EventBridge and CloudFront are implemented
+at contract evidence, not live verification. EKS health describes managed node
+groups, not Kubernetes node readiness; SNS has no native runtime/discovery
+claim. See `src/lib/providers/aws/drivers/eks/eks-cluster.ts`,
+`src/lib/providers/aws/drivers/messaging/sns-topic.ts` and the generated matrix.
 
 Reference material these guides lean on (not duplicated here):
 
@@ -73,9 +80,9 @@ Reference material these guides lean on (not duplicated here):
 | Reconciliation controller | `src/lib/reconcile/**`, `src/lib/platform/reconcile.ts`, `src/app/api/internal/tick/reconcile/route.ts`, migration 2 | [DEPLOYING.md](DEPLOYING.md#29-reconciliation-tick), [RECOVERY.md](RECOVERY.md#45-what-to-do-with-an-uncertain-operation). Ports wired, tick scheduled; allowed repair proposals dispatch day-two workflows |
 | Go agents | `go/**`, `deploy/helm/zenith-runner/**`, `deploy/zenithd/**`, `docker/runner.Dockerfile`, `docker/zenithd.Dockerfile` | [RUNNER.md](../RUNNER.md), [ZENITHD.md](../ZENITHD.md). Their control-plane side is the row above |
 | Resource drivers (AWS, GCP, Azure, OCI, Kubernetes, Zenith-managed) | `src/lib/providers/*/drivers/**`, `src/lib/platform/drivers.ts` | [CAPABILITY-MATRIX.md](../CAPABILITY-MATRIX.md) (generated; contract evidence), [MANAGED-PLATFORM.md](../MANAGED-PLATFORM.md). Registered by `registerAllDrivers`; sessions still have provider-specific limits |
-| Machine plane | `src/lib/machines/**`, `src/lib/execution/capability.ts`, `deploy/aws/ssm-documents/**` | [DEPLOYING.md](DEPLOYING.md#status-what-actually-runs-on-this-branch). Activity path exists but requires an injected machine port; default composition supplies none. Azure Run Command and GCP OS management have no transport driver |
+| Machine plane | `src/lib/machines/**`, `src/lib/execution/capability.ts`, `deploy/aws/ssm-documents/**` | [DEPLOYING.md](DEPLOYING.md#status-what-actually-runs-on-this-branch). Activity path exists but requires an injected machine port; default composition supplies none. Azure managed Run Command and GCP Compute/OS Inventory drivers exist; GCP supports only `machine.inspect`, with guest operations requiring `zenithd`. No live transport evidence |
 | Execution activities | `src/lib/execution/**`, `src/lib/platform/execution.ts` | [DEPLOYING.md](DEPLOYING.md#6-the-execution-worker), [EXECUTION-WORKER.md](../EXECUTION-WORKER.md). Worker delegates to composed implementations; stubs are an explicit test factory |
-| Incident engine | `src/lib/incidents/**` | [ADR-0014](../../adr/0014-incident-engine.md). A library that reads no environment, takes its probes as injected ports and is called by nothing yet; no operator guide (planned) |
+| Incident engine | `src/lib/incidents/**`, `src/lib/platform/agent-ports.ts` | [ADR-0014](../../adr/0014-incident-engine.md), [MCP.md](../MCP.md). App composition registers deterministic read-only investigation; missing probes remain unknown; no live diagnosis verified |
 | Repository analysis | `src/lib/analysis/**` | Not part of the control plane's operation: it turns a repository snapshot into a proposed manifest. Reads no environment; nothing to operate |
 | Platform UI components | `src/components/platform/**`, `src/app/(product)/platform/**` | [Page wiring](../../../src/app/%28product%29/platform/README.md). Pages read broker-authorized stored state; missing observations and plan artifacts stay missing |
 | CI gates | `.github/workflows/ci.yml`, `.github/workflows/live-acceptance.yml`, `scripts/ci/**` | [DEPLOYING.md](DEPLOYING.md#9-what-was-and-was-not-verified); see "Where `real` evidence will come from" below |
@@ -84,14 +91,17 @@ Reference material these guides lean on (not duplicated here):
 
 These limits are present in code; they are not promises about delivery dates:
 
-- OCI platform ProviderSession integration and non-AWS runner sessions
-  (`src/lib/platform/credentials.ts`); non-AWS connection verification is wired.
+- Runner-mode sessions for non-AWS providers other than OCI remain unsupported
+  (`src/lib/platform/credentials.ts`); OCI sessions are runner-backed.
 - The standalone REST connections route; AWS setup already uses the product's
   browser action adapter and page.
 - A readable matching PlanView artifact for plan-bound UI approvals.
-- MCP cloud-read and incident-investigator registration hooks.
-- A timer for the standalone `reconcileOperations` ledger backstop. Runner-job
-  reaping and environment reconciliation are already scheduled.
+- The first read-only destroy-review trigger and default Zenith session opener
+  ([TEARDOWN.md](TEARDOWN.md)).
+- Azure source-reader/preparation wiring and default source-build release ports
+  for OCI, Kubernetes and managed Zenith ([BUILDS.md](BUILDS.md)).
+- OCI MySQL creation: the pinned provider lacks a proven write-only password
+  sink ([DEPLOYING.md](DEPLOYING.md#ephemeral-database-credentials)).
 - Live provider/session/backend acceptance and a hosted Zenith substrate.
 
 ## Planned guides
@@ -102,10 +112,10 @@ guide does not imply its implementation is absent.
 | Planned guide | Waits for |
 |---|---|
 | `MACHINES.md` | A consolidated guide to the wired machine plane and its transport permission limits (the agent's guide exists: ZENITHD.md) |
-| `INCIDENTS.md` | The incident engine being wired to real probes, the broker and a route |
-| `OBSERVABILITY.md` | Consolidated source configuration, partial answers and redaction; MCP registration remains unavailable |
+| `INCIDENTS.md` | Consolidated investigation/coverage guidance and live probe acceptance; MCP investigator registration exists |
+| `OBSERVABILITY.md` | Consolidated source configuration, partial answers and redaction; MCP registration exists and OCI signal coverage is in OCI-SIGNALS.md |
 | `CAPABILITY-BROKER.md` | Standalone coverage; POLICY.md, DEPLOYING.md and MCP.md already describe the wired path |
-| `GCP-SETUP.md`, `AZURE-SETUP.md`, `OCI-SETUP.md`, `KUBERNETES.md` | Non-AWS identity verification and live acceptance (`deploy/gcp`, `deploy/azure`, `deploy/oci` hold customer-side bootstrap); drivers are registered |
+| `GCP-SETUP.md`, `AZURE-SETUP.md`, `OCI-SETUP.md`, `KUBERNETES.md` | Consolidated connection/bootstrap guides and live acceptance (`deploy/gcp`, `deploy/azure`, `deploy/oci` hold customer-side bootstrap); verification is wired, OCI verification is runner registration only |
 
 ## Commands these guides use
 
@@ -118,7 +128,7 @@ guide does not imply its implementation is absent.
 | `npm run policy:build`, `npm run policy:check` | Build, or verify, the policy bundle | [POLICY.md](POLICY.md#changing-a-rule) |
 | `npx tsx scripts/docs/capability-matrix.ts` (`--check`) | Regenerate or check the capability matrix | [CAPABILITY-MATRIX.md](../CAPABILITY-MATRIX.md) |
 | `npm run cli -- --help` | Run the CLI; commands and credential handling in [CLI.md](../CLI.md) | CLI.md |
-| `npx vitest run --maxWorkers=2 tests/docs` | Check these docs against the code (see below) | this page |
+| `npx vitest run --maxWorkers=1 tests/docs` | Check these docs against the code (see below) | this page |
 
 ## Where `real` evidence will come from
 

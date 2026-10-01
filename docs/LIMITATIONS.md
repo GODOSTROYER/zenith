@@ -62,14 +62,43 @@ Status legend: ✅ implemented · 🟡 partial · ⬜ not yet built
 The composed control plane (`docs/platform/`) is separate from the legacy provider path above. Operator guides: [docs/platform/operations](platform/operations/README.md); per-driver evidence: [capability matrix](platform/CAPABILITY-MATRIX.md).
 
 - ✅ **Composition is wired in code.** `src/lib/platform/app.ts` configures the store, driver registration, broker scopes, runner queues and reconciliation ports. Product deploys and MCP v3 start workflows; `workers/execution/worker.ts` registers execution activities through `src/lib/platform/execution.ts`. Classified bearer/signed agent paths pass middleware, and `next.config.ts` traces the policy bundle. This is not live deployment evidence.
-- 🟡 **Platform pages and AWS setup exist.** `src/app/(product)/platform` renders operations, environments, stored drift/incidents, workspace policy, placement and AWS setup. AWS save/verify uses its browser-only action adapter, not a `/api/platform/v1/connections` route (still absent). Plan-bound approval is disabled without a readable matching PlanView artifact; a digest alone is insufficient.
+- 🟡 **Platform pages and AWS setup exist.** `src/app/(product)/platform` renders operations, environments, stored drift/incidents, workspace policy, placement, teardown and AWS setup. AWS save/verify uses its browser-only action adapter.
 - 🟡 **Provider availability is narrower than driver registration.** `src/lib/platform/drivers.ts` registers six providers with contract evidence. `src/lib/platform/credentials.ts` now performs connection verification for GCP (STS exchange + projects.get), Azure (ARM token + subscription read), Kubernetes (namespaced read) and OCI (runner registration only; cloud permissions unverified); OCI platform sessions run only through an active registered runner (`oci.http`; contract-tested, not live-verified); runner-mode sessions for the other non-AWS providers are still refused. No hosted Zenith substrate is verified. State selection supports S3, GCS, azurerm and OCI S3-compatible configuration, but Kubernetes needs an explicit durable backend override. Backend support alone does not establish executable provider sessions.
 - 🟡 **The agents and runner-job reaper are wired, without live transport acceptance.** AWS runner sessions use `src/lib/runners/aws-runner-transport.ts`; the machine activity path requires an injected `machines` port, absent from default worker composition. `oci.http` is opt-in and wired in the Go executor and TypeScript dispatch defaults. Cron passes call `platformRunnerReaperPass`, which expires jobs and marks owning operations uncertain without re-dispatch. Go, Docker and cloud end-to-end operation were not verified in this docs sync.
-- 🟡 **Recovery remains bounded.** The scheduled reconcile tick observes drift and proposes repairs; allowed repairs start a day-two workflow through `src/lib/platform/reconcile.ts`. Execution can still refuse an unsupported repair. The standalone `reconcileOperations` ledger backstop has no scheduled caller. Nothing prunes events, operations or approvals.
+- ✅ **Maintenance is wired.** Leased housekeeping (`src/lib/platform/housekeeping.ts`) prunes expired idempotency keys/nonces with skip-locked expiry rechecks and runs the operation-ledger backstop. The worker has loopback liveness/readiness and terminal-owner binary-plan cleanup. None establishes provider readiness or production recovery.
+- ✅ **Destruction requires human review.** `env.teardown` consumes trusted recorded evidence; stateful/DNS delete or replace always needs a human at every autonomy and environment. A moved final plan fails `plan_changed` before deletion guards; ownership/deletion-policy refusals still apply ([TEARDOWN.md](platform/operations/TEARDOWN.md), [POLICY.md](platform/operations/POLICY.md#deletion-approvals)).
+- ✅ **Source and secret boundaries are implemented.** AWS source uploads are canonical ZIP, GCP tar.gz; Azure adapters use tar.gz with injected readers. Database credentials use service-managed/passwordless paths or ephemeral write-only sinks; Temporal client/worker payloads use AES-256-GCM with decrypt-only previous keys. These are code/contract claims, not live evidence ([BUILDS.md](platform/operations/BUILDS.md), [DEPLOYING.md](platform/operations/DEPLOYING.md)).
 - 🟡 **Cost and placement are estimates.** `2026-09-30.1` is a static list-price snapshot, partly remembered, derived or internally assumed. Placement is exposed by REST, actions, MCP and `/platform/placement`; staging edits the working manifest, not cloud infrastructure. Legacy cost screens still use their older table. No forecast or billing actual is produced.
-- 🟡 **MCP reads have remaining hooks.** MCP v3 has fifteen tools, but cloud reads need `registerCredentialBroker` and investigations need `registerInvestigator`; neither hook has an application caller. Missing evidence stays unavailable. See [MCP.md](platform/MCP.md) and [CLI.md](platform/CLI.md).
-- 🟡 **No live cloud evidence.** Bootstrap, STS/KMS, provider state locking/encryption, Temporal Cloud and production recovery are not verified by these docs. No driver/source is labelled `real` without a linked acceptance run.
-- ⬜ Azure Run Command and GCP OS-management machine transports, non-AWS identity verification, OCI platform ProviderSession integration, an authorized readable plan artifact, and the standalone REST connections route.
+- ✅ **MCP registration and OAuth discovery are wired.** App composition registers cloud-read and investigator ports; OCI Logging Search/Monitoring use scoped runner read jobs without operations. Protected-resource metadata and the 401 challenge advertise the exact v3 resource. Missing evidence stays unavailable ([MCP.md](platform/MCP.md), [OCI-SIGNALS.md](platform/operations/OCI-SIGNALS.md)).
+
+Still-open gaps at source snapshot `3c1fa66` (2026-10-01), one line per gap:
+
+- 🟡 Live clouds, customer builds/registry pushes, STS/KMS, IAM and state locking/encryption/restore are unverified; nothing here is labelled `real` without live acceptance.
+- 🟡 The real Postgres lane (`ZENITH_TEST_PLATFORM_PG_URL`) was not run in this sync; historical rehearsals do not verify the current migrations, pooler/TLS or production recovery.
+- 🟡 Kind/real Kubernetes was not run here; WSL/Docker are unavailable in this worker sandbox.
+- 🟡 The Go runner/daemon transport was not run here; source assertions do not prove executor or customer-network behavior.
+- 🟡 Temporal Cloud, API-key authentication, encrypted production replay/rotation/recovery and a production self-hosted cluster were not run here.
+- ⬜ OCI MySQL creation is disabled: pinned `oracle/oci` 9.7.1 lacks a proven write-only password or Vault-reference sink (`src/lib/providers/oci/drivers/data/mysql.ts`).
+- ⬜ Teardown has no public first read-only destroy-review trigger; the browser requires current execution evidence and an authorized readable matching PlanView artifact for plan approval.
+- ⬜ Default managed Zenith execution has no session opener/substrate integration; managed teardown needs injected `withZenithSession` plus a trusted database inventory and current approval flags.
+- ⬜ Azure source builds require a source reader and provider-dispatched preparation port; default composition supplies neither.
+- ⬜ Private GitHub source access needs a tenant-scoped connector; default composition supplies none.
+- ⬜ Default source-build release ports for OCI, Kubernetes and managed Zenith are absent; registered drivers and the separate hosted builder do not supply them.
+- ⬜ Non-AWS runner-mode sessions other than OCI are unsupported; OCI verification checks registered runner labels, not OCI permission or reachability.
+- 🟡 OCI signal readers supply retry tokens required by the TypeScript payload schema, while the Go executor permits token-free read POSTs; live service acceptance is unverified.
+- ⬜ Non-AWS cloud DNS deletion lacks a provider target ownership guard and refuses; approval cannot override it.
+- ⬜ Default composition has no machine port; Azure Run Command and read-only GCP OS Inventory drivers exist, but GCP guest mutations require `zenithd` and live machine transport is unverified.
+- ⬜ Standalone REST connections administration remains absent; AWS setup uses browser actions instead.
+- 🟡 Worker Docker/Vercel deployment and Linux shutdown/load remain unverified.
+- 🟡 Plan sharing/failover and the janitor's final writer/unlink race remain unverified.
+- ⬜ GCP's build-tool image is not digest-pinned.
+- ⬜ Events, evidence, operations, approvals, decisions, grants and runner jobs have no pruning.
+- ⬜ Product-vault key re-wrap tooling is absent; Temporal previous keys do not migrate vault data.
+- ⬜ Temporal mTLS configuration is absent.
+- ⬜ A UI/CLI Temporal payload codec server is absent.
+- ⬜ Managed database export is absent.
+- ⬜ Managed FQDN-aware egress isolation is absent.
+- 🟡 Live managed tenant serving, Neon and managed DNS/TLS are unverified ([MANAGED-PLATFORM.md](platform/MANAGED-PLATFORM.md)).
 
 ## Testing
 - ✅ Engine state-machine tests, action/importer/deploy/navigator/role/provider/store unit tests (1,216 across 119 files at `ffb2753`; hosted R3 adds its own suites under `tests/hosted/`), e2e smoke (happy + failure/rollback), `npm run lint` clean

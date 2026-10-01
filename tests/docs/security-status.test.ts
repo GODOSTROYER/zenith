@@ -42,6 +42,10 @@ describe("current security documentation", () => {
     expect(source("tests/security/runtime-sanity.test.ts")).not.toContain('it.fails("SEC-F9');
     const archived = source("docs/platform/THREAT-MODEL.md").split("## Archived WS-SEC audit")[1];
     expect(archived).toContain("verification count below is historical");
-    expect(current).toContain("no payload codec encrypts Temporal history");
+    expect(current).toContain("Temporal payload encryption is wired on client and worker");
+    expect(source("src/lib/workflows/client.ts")).toContain("temporalDataConverterFromEnv()");
+    expect(source("workers/execution/worker.ts")).toContain("temporalDataConverterFromEnv()");
+    expect(source("src/lib/workflows/codec.ts")).toContain('createCipheriv("aes-256-gcm"');
+    expect(current).toContain("default failure text remain outside");
   });
 });

@@ -46,6 +46,8 @@ export interface AwsConnectionConfig {
   observeRoleArn: string;
   /** role for mutating capabilities; may equal observeRoleArn in dev */
   deployRoleArn: string;
+  /** Separate value writer; never fall back to the infrastructure deploy role. */
+  secretWriterRoleArn?: string;
   /** per-connection, Zenith-generated; required for aws_assume_role */
   externalId?: string;
   region: string;
@@ -203,7 +205,7 @@ export type ProviderSession = AwsSession | GcpSession | AzureSession | Kubernete
 
 /* --------------------------------- broker --------------------------------- */
 
-export type CredentialPurpose = "observe" | "deploy";
+export type CredentialPurpose = "observe" | "deploy" | "secret.write";
 
 export interface CredentialRequest {
   connectionId: string;
@@ -212,6 +214,8 @@ export interface CredentialRequest {
   purpose: CredentialPurpose;
   /** optional AWS inline session policy narrowing (JSON policy document) */
   sessionPolicy?: Record<string, unknown>;
+  /** Narrow a secret.write session to a subset of the grant's exact secretResources. */
+  secretResources?: readonly string[];
   /** ≤ grant lifetime; default 900 */
   durationSec?: number;
 }

@@ -143,6 +143,21 @@ function write(data: StoreFile): void {
   }
 }
 
+/** Serialize every writer across processes. A busy/crashed writer fails closed. */
+function withWriteLock<T>(fn: () => T): T {
+  const file = storePath();
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const lock = `${file}.lock`;
+  const fd = fs.openSync(lock, "wx", 0o600);
+  try {
+    fileCache = undefined;
+    return fn();
+  } finally {
+    fs.closeSync(fd);
+    fs.unlinkSync(lock);
+  }
+}
+
 /* -------------------------------- the backend ------------------------------ */
 
 export const FileSecrets: SecretsBackend = {
@@ -158,18 +173,22 @@ export const FileSecrets: SecretsBackend = {
   },
 
   put(workspaceId, record) {
-    const data = read();
-    (data.workspaces[workspaceId] ??= {})[record.ref] = toStored(record);
-    write(data);
+    withWriteLock(() => {
+      const data = read();
+      (data.workspaces[workspaceId] ??= {})[record.ref] = toStored(record);
+      write(data);
+    });
   },
 
   remove(workspaceId, ref) {
-    const data = read();
-    const row = data.workspaces[workspaceId]?.[ref];
-    if (!row) return undefined;
-    delete data.workspaces[workspaceId][ref];
-    write(data);
-    return toRecord(row);
+    return withWriteLock(() => {
+      const data = read();
+      const row = data.workspaces[workspaceId]?.[ref];
+      if (!row) return undefined;
+      delete data.workspaces[workspaceId][ref];
+      write(data);
+      return toRecord(row);
+    });
   },
 };
 
@@ -179,5 +198,23 @@ export const FileSecretsAsync: AsyncSecretsBackend = {
   async get(workspaceId, ref) { return FileSecrets.get(workspaceId, ref); },
   async list(workspaceId) { return FileSecrets.list(workspaceId); },
   async put(workspaceId, record) { FileSecrets.put(workspaceId, record); },
+  async putIfAbsent(workspaceId, record) {
+    // No await between read and write while the cross-process lock is held.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return withWriteLock(() => {
+          const data = read();
+          const prior = data.workspaces[workspaceId]?.[record.ref];
+          if (prior) return toRecord(prior);
+          (data.workspaces[workspaceId] ??= {})[record.ref] = toStored(record);
+          write(data);
+          return record;
+        });
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== "EEXIST" || attempt >= 99) throw err;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+    }
+  },
   async remove(workspaceId, ref) { return FileSecrets.remove(workspaceId, ref); },
 };

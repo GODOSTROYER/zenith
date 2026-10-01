@@ -302,6 +302,22 @@ resource "aws_iam_role" "deploy" {
   depends_on = [aws_iam_openid_connect_provider.zenith]
 }
 
+resource "aws_iam_role" "secret_writer" {
+  name                 = "ZenithSecretWriterRole${var.name_suffix}"
+  description          = "Brokered secret.write only; exact per-node session policy required by Zenith."
+  max_session_duration = 3600
+  assume_role_policy   = local.trust_policy
+  tags                 = local.bootstrap_tags
+
+  depends_on = [aws_iam_openid_connect_provider.zenith]
+}
+
+resource "aws_iam_role_policy" "secret_writer" {
+  name   = "ZenithSecretWriter"
+  role   = aws_iam_role.secret_writer.id
+  policy = templatefile("${path.module}/policies/secret-writer.json.tftpl", local.policy_vars)
+}
+
 resource "aws_iam_role_policy_attachment" "observe" {
   role       = aws_iam_role.observe.name
   policy_arn = aws_iam_policy.zenith["observe"].arn

@@ -1167,6 +1167,54 @@ Resources:
       Tags:
         - { Key: "zenith:bootstrap", Value: "true" }
 
+  # Separate from deploy: no GetSecretValue, infrastructure or IAM permissions.
+  # Both name shapes are required: current drivers use zenith/zenith-<env>-<node>.
+  SecretWriterRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "ZenithSecretWriterRole${NameSuffix}"
+      Description: Brokered secret.write only; exact per-node session policy required by Zenith.
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument: !Sub
+        - '{"Version":"2012-10-17","Statement":[${Statements}]}'
+        - Statements: !Join
+            - ","
+            - - !If
+                - HasOidc
+                - !Sub '{"Sid":"ZenithOidc","Effect":"Allow","Principal":{"Federated":"arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/${ZenithIssuerHost}"},"Action":"sts:AssumeRoleWithWebIdentity","Condition":{"StringEquals":{"${ZenithIssuerHost}:aud":"sts.amazonaws.com","${ZenithIssuerHost}:sub":"${ZenithOidcSubject}"},"StringLike":{"sts:RoleSessionName":"zenith-*"}}}'
+                - !Ref "AWS::NoValue"
+              - !If
+                - HasOidc
+                - !Sub '{"Sid":"ZenithOidcTagSession","Effect":"Allow","Principal":{"Federated":"arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/${ZenithIssuerHost}"},"Action":"sts:TagSession","Condition":{"StringEquals":{"${ZenithIssuerHost}:aud":"sts.amazonaws.com","${ZenithIssuerHost}:sub":"${ZenithOidcSubject}"}}}'
+                - !Ref "AWS::NoValue"
+              - !If
+                - HasAssumeRole
+                - !Sub '{"Sid":"ZenithAssumeRole","Effect":"Allow","Principal":{"AWS":"${ZenithPrincipalArn}"},"Action":"sts:AssumeRole","Condition":{"StringEquals":{"sts:ExternalId":"${ExternalId}"},"StringLike":{"sts:RoleSessionName":"zenith-*"}}}'
+                - !Ref "AWS::NoValue"
+              - !If
+                - HasAssumeRole
+                - !Sub '{"Sid":"ZenithTagSession","Effect":"Allow","Principal":{"AWS":"${ZenithPrincipalArn}"},"Action":"sts:TagSession"}'
+                - !Ref "AWS::NoValue"
+      Policies:
+        - PolicyName: ZenithSecretWriter
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: WriteEnvironmentSecretValues
+                Effect: Allow
+                Action: [secretsmanager:DescribeSecret, secretsmanager:PutSecretValue, secretsmanager:UpdateSecretVersionStage]
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:zenith/${EnvironmentTagValue}/*"
+                  - !Sub "arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:zenith/zenith-${EnvironmentTagValue}-*"
+                Condition:
+                  StringEquals:
+                    "aws:ResourceTag/zenith:managed": "true"
+                    "aws:PrincipalTag/zenith:capability": "secret.write"
+                  StringLike:
+                    "aws:ResourceTag/zenith:environment": !Ref EnvironmentTagValue
+      Tags:
+        - { Key: "zenith:bootstrap", Value: "true" }
+
   # ---------------------------------------------------- CodeBuild service role
   # Builds run in YOUR account (ADR-0016). Lower-case name so the deploy role
   # may pass it to zenith-* CodeBuild projects; the deploy role is explicitly
@@ -1238,6 +1286,9 @@ Outputs:
   DeployRoleArn:
     Description: Give this to Zenith as the deploy role ARN.
     Value: !GetAtt DeployRole.Arn
+  SecretWriterRoleArn:
+    Description: Give this to Zenith as secretWriterRoleArn, separate from deployRoleArn.
+    Value: !GetAtt SecretWriterRole.Arn
   StateBucketName:
     Description: Bucket for OpenTofu state and build artifacts.
     Value: !Ref StateBucket

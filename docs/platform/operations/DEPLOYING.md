@@ -688,7 +688,7 @@ implementation and local replay gate are described in
 docker build -f docker/worker.Dockerfile -t zenith-execution-worker .
 ```
 
-Node 22.16 (base image pinned by tag and digest), OpenTofu 1.12.5 (pinned by
+Node 22.23.3 (base image pinned by tag and digest), OpenTofu 1.12.5 (pinned by
 version and SHA-256; the build fails on an empty or wrong checksum), the bundled
 worker and a prebuilt workflow bundle. It runs as a non-root user and exposes
 loopback health probes (section 6.2); external connections are to Temporal, the
@@ -696,11 +696,15 @@ database and the clouds. It uses `tini`
 as PID 1 so SIGTERM reaches the worker and orphaned provider processes are
 reaped.
 
-**Status: written and command-checked, never built.** Docker is not available on
-the machine it was authored on. The esbuild bundle command, the workflow-bundle
-build and `node dist/execution/worker.cjs` booting against a Temporal dev server
-were run; `docker build`, the `apt` and OpenTofu downloads inside it, the Linux
-`@swc/core` binding and `npm ci --omit=dev` from the Dockerfile were not.
+**Status: local `linux/arm64` image built successfully on 2026-10-02.** The image
+ID is `sha256:ce29c543b82224ffd4db107351b33d671a16ce70754d1b478fc0493480e6b1ac`.
+CLI probes with networking disabled and a read-only root filesystem verified
+Node `v22.23.3`, non-root UID `10001`, OpenTofu `1.12.5` for `linux_arm64`, and
+the packaged policy WASM SHA-256
+`a1712c084ff7e492f187044cec5cb7ba86da32b76259f5d62e92df9e4cff0d57`
+matching its manifest. No Zenith worker or server was started. The AMD64 image
+build, actual worker startup and Temporal polling, cloud transports, and
+production operation remain unverified for this image.
 
 ### 6.2 Running it
 

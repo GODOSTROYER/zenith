@@ -7,8 +7,8 @@
  * Files, binary assets and executable bits are preserved. Links/special entries and
  * malformed archives fail closed. No source is executed, materialized or logged.
  * Only identifiers leave prepare; sessions and optional GitHub tokens stay inside
- * callbacks. Anonymous GitHub access is the default; private access needs an injected,
- * workspace-scoped connector. HTTP/SDK tests are contract evidence, not live evidence.
+ * callbacks. Anonymous GitHub access remains available; configured workspace source
+ * bindings use the GitHub App connector. HTTP/SDK tests are not live evidence.
  * CodeBuild source consumption and bootstrap IAM are covered by contract tests;
  * no live customer build is claimed.
  */
@@ -23,6 +23,7 @@ import type { ResourcesPort, SourceBundlePort, StoredResource } from "@/lib/exec
 import { StepFailedError } from "@/lib/execution/errors";
 import { loadProject, sourceBucketOf } from "@/lib/providers/aws/drivers/compute/codebuild-project";
 import { assertLabels, context as gcpContext, get, pipelineNames } from "@/lib/providers/gcp/release/support";
+import { defaultGithubAccess } from "@/lib/sources/github/runtime";
 
 export interface BundleSource { repo: string; ref: string; dockerfile?: string }
 export interface SourceBundle { archive: Uint8Array; sha256: string; bytes: number }
@@ -361,7 +362,7 @@ export function createSourceBundles(deps: SourceBundleDeps = {}): {
       const archive = format === "zip" ? packZip(entries, limits, signal) : pack(entries, limits, signal);
       return { archive, sha256: sha256Hex(archive), bytes: archive.length };
     };
-    try { return await abortable(deps.withGithubAccess ? deps.withGithubAccess({ ...location, ...scope }, read) : read(), signal); }
+    try { return await abortable(deps.withGithubAccess ? deps.withGithubAccess({ ...location, ...scope }, read) : defaultGithubAccess({ ...location, ...scope, signal }, read), signal); }
     catch (err) { if (signal.aborted) throw interrupted(); if (err instanceof Refused) throw err; throw new Error("Source archive acquisition failed; no source bundle was prepared."); }
   };
   return {

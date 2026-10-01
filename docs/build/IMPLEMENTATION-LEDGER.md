@@ -102,8 +102,9 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-FIX-OCI-MYSQL-REAL | OCI MySQL write-only password vs the real oracle/oci 9.7.1 schema | 7 | staged |  | ws/fix-oci-mysql-real |  | job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant | orchestrator: real OpenTofu 9/9 after initializing the backend for providers schema |  |
 | WS-BUILD-AWS-SOURCE | AWS CodeBuild consumes the C3 source bundles | 7 | staged |  | ws/build-aws-source |  | source-bundle/codebuild/credentials 736 passed (job); staging re-run green | orchestrator: resumed after a model-capacity error; IAM boundary gap handed to WS-AWS-BUILD-BOUNDARY |  |
 | WS-OCI-SIGNALS-WIRE | make OCI log/metric reads work end to end through the runner | 7 | staged |  | ws/oci-signals-wire |  | OCI/runner/observability/docs 1473 passed; go vet/test all packages passed (outside sandbox) | orchestrator: gofmt; golden allowlist sizes for logs.read/metrics.read; reviewed the Monitoring and LQL guards |  |
-| WS-AWS-BUILD-BOUNDARY | Workload permissions boundary lets build roles (only) push images and publish sites | 7 | in_progress |  | ws/aws-build-boundary |  | running |  |  |
+| WS-AWS-BUILD-BOUNDARY | Workload permissions boundary lets build roles (only) push images and publish sites | 7 | staged |  | ws/aws-build-boundary |  | AWS + credentials 1631 passed with real OpenTofu (orchestrator) | orchestrator: reviewed principal-conditioned statements; fixture name prefix aligned with production zenith-; scheduled-job and EC2 SSM gaps handed to WS-AWS-BOUNDARY-MORE |  |
 | WS-DOCS-SYNC-2 | Operator docs tell the truth about wave 7 | 7 | in_progress |  | ws/docs-sync-2 |  | running |  |  |
+| WS-AWS-BOUNDARY-MORE | Scheduled jobs and EC2 machines (SSM agent) work under the workload boundary | 7 | in_progress | WS-AWS-BUILD-BOUNDARY | ws/aws-boundary-more |  | running |  |  |
 
 ## External blockers
 

@@ -1398,12 +1398,12 @@
       "title": "Workload permissions boundary lets build roles (only) push images and publish sites",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "staged",
       "deps": [],
       "paths": [],
       "branch": "ws/aws-build-boundary",
-      "tests": "running",
-      "review": ""
+      "tests": "AWS + credentials 1631 passed with real OpenTofu (orchestrator)",
+      "review": "orchestrator: reviewed principal-conditioned statements; fixture name prefix aligned with production zenith-; scheduled-job and EC2 SSM gaps handed to WS-AWS-BOUNDARY-MORE"
     },
     {
       "id": "WS-DOCS-SYNC-2",
@@ -1414,6 +1414,20 @@
       "deps": [],
       "paths": [],
       "branch": "ws/docs-sync-2",
+      "tests": "running",
+      "review": ""
+    },
+    {
+      "id": "WS-AWS-BOUNDARY-MORE",
+      "title": "Scheduled jobs and EC2 machines (SSM agent) work under the workload boundary",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [
+        "WS-AWS-BUILD-BOUNDARY"
+      ],
+      "paths": [],
+      "branch": "ws/aws-boundary-more",
       "tests": "running",
       "review": ""
     }

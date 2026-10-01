@@ -2,7 +2,7 @@ package ops_test
 
 import (
 	"context"
-	"encoding/base64"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -67,29 +67,36 @@ func TestFileReadReturnsBoundedRedactedContent(t *testing.T) {
 		t.Fatalf("%v", d)
 	}
 
-	// offset/length windows and the truncation flag
+	// maxBytes and request-level budgets both bound reads from the start.
 	writeFile(t, filepath.Join(f.root, "big.txt"), strings.Repeat("0123456789", 100))
-	res, err = f.read(t, map[string]any{"path": filepath.Join(f.root, "big.txt"), "offset": 5, "length": 20})
+	res, err = f.read(t, map[string]any{"path": filepath.Join(f.root, "big.txt"), "maxBytes": 20})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Data["content"] != "56789012345678901234" || res.Data["truncated"] != true || res.Data["length"] != 20 || res.Data["offset"] != int64(5) {
+	if res.Data["content"] != "01234567890123456789" || res.Data["truncated"] != true || res.Data["bytesRead"] != 20 {
 		t.Fatalf("%v", res.Data)
 	}
-	// request-level byte budget clamps a larger requested length
-	run, _ := f.env.Prepare(ops.OpFileRead, &ops.Request{Args: []byte(`{"path":"` + filepath.Join(f.root, "big.txt") + `","length":999999}`), MaxOutputBytes: 100})
-	res, _ = run(context.Background())
-	if res.Data["length"] != 100 || res.Data["truncated"] != true {
+	raw, _ := json.Marshal(map[string]any{"path": filepath.Join(f.root, "big.txt"), "maxBytes": 999999})
+	run, err := f.env.Prepare(ops.OpFileRead, &ops.Request{Args: raw, MaxOutputBytes: 100})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err = run(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Data["bytesRead"] != 100 || res.Data["truncated"] != true {
 		t.Fatalf("%v", res.Data)
 	}
-	// reading past the end is a failed result, not a crash
-	res, _ = f.read(t, map[string]any{"path": filepath.Join(f.root, "big.txt"), "offset": 99999})
-	if res.OK || res.Err != "offset_beyond_end" {
-		t.Fatalf("%+v", res)
+	for _, old := range []string{"offset", "length"} {
+		if _, err := f.read(t, map[string]any{"path": filepath.Join(f.root, "big.txt"), old: 20}); err == nil {
+			t.Fatalf("%s must be rejected", old)
+		}
 	}
+
 }
 
-func TestFileReadBinaryIsBase64(t *testing.T) {
+func TestFileReadBinaryIsFlaggedAndContentOmitted(t *testing.T) {
 	f := newFileEnv(t)
 	if err := os.WriteFile(filepath.Join(f.root, "blob.bin"), []byte{0, 1, 2, 255, 254}, 0o644); err != nil {
 		t.Fatal(err)
@@ -98,10 +105,10 @@ func TestFileReadBinaryIsBase64(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, _ := base64.StdEncoding.DecodeString(res.Data["content"].(string))
-	if res.Data["encoding"] != "base64" || len(raw) != 5 || raw[4] != 254 {
+	if res.Data["encoding"] != "utf8" || res.Data["binary"] != true || res.Data["content"] != "" || res.Data["bytesRead"] != 5 {
 		t.Fatalf("%v", res.Data)
 	}
+
 }
 
 func TestFileReadAllowlistAndTraversal(t *testing.T) {
@@ -186,7 +193,7 @@ func TestFileReadRefusesSymlinkEscapes(t *testing.T) {
 		t.Fatal(err)
 	}
 	res, err := f.read(t, map[string]any{"path": filepath.Join(f.root, "good-link")})
-	if err != nil || res.Data["content"] != "inside" || res.Data["path"] != filepath.Join(f.root, "real.txt") {
+	if err != nil || res.Data["content"] != "inside" || res.Data["path"] != filepath.Join(f.root, "good-link") {
 		t.Fatalf("%v %v", res.Data, err)
 	}
 }

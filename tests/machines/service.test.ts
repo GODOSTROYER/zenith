@@ -232,8 +232,9 @@ describe("evidence never contains content", () => {
       execute: async (req) =>
         okResult(req, { transport: "aws_ssm" }, { exitCode: 0 }, { output: { stdout: `out ${CANARY}\nAuthorization: Bearer abcdefghijklmnopqrstuvwxyz0123456789`, stderr: "err", exitCode: 0, truncated: false } }),
     });
-    await h.run(requestFor("machine.exec", { argv: ["curl", "-H", "X-Api-Key: hunter2hunter2", "--password=sup3rs3cret!", "https://u:pw123456@example.com/"], cwd: "/srv", timeoutSec: 10 }));
+    await h.run(requestFor("machine.exec", { argv: ["curl", "-H", "X-Api-Key: hunter2hunter2", "--password=sup3rs3cret!", "--token", "separate-credential-canary", "https://u:pw123456@example.com/"], cwd: "/srv", timeoutSec: 10 }));
     const rec = h.evidence.records[0];
+    expect(JSON.stringify(rec)).not.toContain("separate-credential-canary");
     const summary = JSON.stringify(rec.summary);
     expect(summary).not.toContain(CANARY); // stdout content is not in the summary
     expect(summary).not.toContain("hunter2hunter2");

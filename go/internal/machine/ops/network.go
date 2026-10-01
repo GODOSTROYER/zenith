@@ -8,6 +8,7 @@ import (
 	"net/netip"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/GODOSTROYER/zenith/go/internal/netguard"
@@ -56,9 +57,9 @@ func literalGuard(g *netguard.Guard, host string) error {
 }
 
 type portArgs struct {
-	Host      string `json:"host"`
-	Port      int    `json:"port"`
-	TimeoutMs int    `json:"timeoutMs"`
+	Host       string `json:"host"`
+	Port       int    `json:"port"`
+	TimeoutSec int    `json:"timeoutSec"`
 }
 
 func preparePortCheck(e *Env, req *Request) (Runnable, error) {
@@ -72,22 +73,25 @@ func preparePortCheck(e *Env, req *Request) (Runnable, error) {
 	if a.Port < 1 || a.Port > 65535 {
 		return nil, invalid("port must be between 1 and 65535")
 	}
+	if a.TimeoutSec < 0 || a.TimeoutSec > 30 {
+		return nil, invalid("timeoutSec must be at most 30")
+	}
 	g := e.networkGuard()
 	if err := literalGuard(g, a.Host); err != nil {
 		return nil, err
 	}
-	timeout := netTimeout(a.TimeoutMs, req.Timeout)
+	timeout := netTimeout(a.TimeoutSec*1000, req.Timeout)
 	return func(ctx context.Context) (Result, error) {
 		ctx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
-		start := time.Now()
+		start := e.now()
 		data := map[string]any{"host": a.Host, "port": a.Port}
 		addrs, err := g.Resolve(ctx, a.Host)
 		if err != nil {
 			if netguard.IsBlocked(err) {
 				return Result{}, protocol.Errorf(protocol.CodeGuardDenied, "%v", err)
 			}
-			data["open"], data["errorCode"] = false, classify(ctx, err)
+			data["open"], data["reason"] = false, classify(ctx, err)
 			return Result{OK: true, Data: data}, nil
 		}
 		var last error
@@ -95,7 +99,7 @@ func preparePortCheck(e *Env, req *Request) (Runnable, error) {
 			c, err := (&net.Dialer{}).DialContext(ctx, "tcp", net.JoinHostPort(ad.String(), fmt.Sprint(a.Port)))
 			if err == nil {
 				_ = c.Close()
-				data["open"], data["remoteAddr"], data["latencyMs"] = true, ad.String(), time.Since(start).Milliseconds()
+				data["open"], data["latencyMs"] = true, e.now().Sub(start).Milliseconds()
 				return Result{OK: true, Data: data}, nil
 			}
 			last = err
@@ -103,15 +107,14 @@ func preparePortCheck(e *Env, req *Request) (Runnable, error) {
 				break
 			}
 		}
-		data["open"], data["errorCode"], data["latencyMs"] = false, classify(ctx, last), time.Since(start).Milliseconds()
+		data["open"], data["reason"], data["latencyMs"] = false, classify(ctx, last), e.now().Sub(start).Milliseconds()
 		return Result{OK: true, Data: data}, nil
 	}, nil
 }
 
 type dnsArgs struct {
-	Name      string `json:"name"`
-	Type      string `json:"type"`
-	TimeoutMs int    `json:"timeoutMs"`
+	Name       string `json:"name"`
+	RecordType string `json:"recordType"`
 }
 
 func prepareDNSCheck(e *Env, req *Request) (Runnable, error) {
@@ -122,20 +125,20 @@ func prepareDNSCheck(e *Env, req *Request) (Runnable, error) {
 	if err := validHostArg(a.Name); err != nil {
 		return nil, err
 	}
-	typ := strings.ToUpper(a.Type)
+	typ := strings.ToUpper(a.RecordType)
 	if typ == "" {
 		typ = "A"
 	}
 	switch typ {
-	case "A", "AAAA", "CNAME", "TXT", "MX", "NS":
+	case "A", "AAAA", "CNAME", "TXT", "MX", "NS", "SRV":
 	default:
-		return nil, invalid("type must be one of A, AAAA, CNAME, TXT, MX, NS")
+		return nil, invalid("recordType must be one of A, AAAA, CNAME, TXT, MX, NS, SRV")
 	}
 	g := e.networkGuard()
 	if err := literalGuard(g, a.Name); err != nil {
 		return nil, err
 	}
-	timeout := netTimeout(a.TimeoutMs, req.Timeout)
+	timeout := netTimeout(0, req.Timeout)
 	var res netguard.Resolver = net.DefaultResolver
 	if e.Resolver != nil {
 		res = e.Resolver
@@ -143,9 +146,8 @@ func prepareDNSCheck(e *Env, req *Request) (Runnable, error) {
 	return func(ctx context.Context) (Result, error) {
 		ctx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
-		start := time.Now()
 		name := netguard.NormalizeHost(a.Name)
-		var answers []string
+		answers := []string{}
 		var err error
 		switch typ {
 		case "A", "AAAA":
@@ -175,6 +177,12 @@ func prepareDNSCheck(e *Env, req *Request) (Runnable, error) {
 			for _, m := range mx {
 				answers = append(answers, fmt.Sprintf("%d %s", m.Pref, strings.TrimSuffix(m.Host, ".")))
 			}
+		case "SRV":
+			var records []*net.SRV
+			_, records, err = net.DefaultResolver.LookupSRV(ctx, "", "", name)
+			for _, r := range records {
+				answers = append(answers, fmt.Sprintf("%d %d %d %s", r.Priority, r.Weight, r.Port, strings.TrimSuffix(r.Target, ".")))
+			}
 		case "NS":
 			var ns []*net.NS
 			ns, err = net.DefaultResolver.LookupNS(ctx, name)
@@ -183,12 +191,15 @@ func prepareDNSCheck(e *Env, req *Request) (Runnable, error) {
 			}
 		}
 		sort.Strings(answers)
+		if answers == nil {
+			answers = []string{}
+		}
 		if len(answers) > 64 {
 			answers = answers[:64]
 		}
-		data := map[string]any{"name": a.Name, "type": typ, "latencyMs": time.Since(start).Milliseconds()}
+		data := map[string]any{"name": a.Name, "recordType": typ, "answers": answers}
 		if err != nil {
-			data["resolved"], data["errorCode"] = false, classify(ctx, err)
+			data["resolved"] = false
 			return Result{OK: true, Data: data}, nil
 		}
 		data["resolved"], data["answers"] = len(answers) > 0, answers
@@ -212,6 +223,8 @@ func classify(ctx context.Context, err error) string {
 	switch {
 	case err == nil:
 		return "unknown"
+	case errors.Is(err, syscall.ECONNREFUSED), errors.Is(err, syscall.Errno(10061)):
+		return "connection_refused"
 	case errors.As(err, &dns) && dns.IsNotFound:
 		return "dns_not_found"
 	case errors.As(err, &dns):

@@ -138,7 +138,7 @@ func TestContainerListSanitizesAndPaginates(t *testing.T) {
 		t.Fatalf("query %q (limit+1 is requested to detect truncation)", d.listQ)
 	}
 	cs := res.Data["containers"].([]map[string]any)
-	if len(cs) != 1 || res.Data["truncated"] != true || cs[0]["id"] != "0123456789ab" || cs[0]["names"].([]string)[0] != "web" || cs[0]["imageId"] != "feedfacefeed" {
+	if len(cs) != 1 || res.Data["truncated"] != true || cs[0]["id"] != "0123456789abcdef0123456789abcdef" || cs[0]["name"] != "web" || cs[0]["image"] != "nginx:1.27" {
 		t.Fatalf("%v", res.Data)
 	}
 	raw, _ := json.Marshal(res.Data)
@@ -166,12 +166,13 @@ func TestContainerInspectNeverReturnsEnvironmentOrCommand(t *testing.T) {
 		}
 	}
 	dd := res.Data
-	state := dd["state"].(map[string]any)
-	if dd["name"] != "web" || dd["restartCount"] != 3 || state["running"] != true || state["health"] != "healthy" || state["pid"] != 4321 || dd["envOmitted"] != true || dd["memoryLimitBytes"] != int64(536870912) {
+	if dd["name"] != "web" || dd["restartCount"] != 3 || dd["state"] != "running" || dd["running"] != true || dd["health"] != "healthy" {
 		t.Fatalf("%v", dd)
 	}
-	if dd["networks"].(map[string]string)["bridge"] != "172.17.0.2" || dd["mounts"].([]map[string]any)[0]["destination"] != "/usr/share/nginx/html" {
-		t.Fatalf("%v", dd)
+	for _, key := range []string{"env", "command", "mounts", "networks", "memoryLimitBytes", "labels", "envOmitted"} {
+		if _, ok := dd[key]; ok {
+			t.Fatalf("non-contract field %s", key)
+		}
 	}
 	// unknown container: a failed result
 	run, _ := prep(t, d.env(), ops.OpContainerInspect, map[string]any{"container": "ghost"})
@@ -196,28 +197,27 @@ func TestContainerNamesAreValidatedBeforeTouchingTheSocket(t *testing.T) {
 
 func TestContainerLogsDemuxRedactAndTailLimit(t *testing.T) {
 	d := newFakeDaemon(t)
-	res := runOp(t, d.env(), ops.OpContainerLogs, map[string]any{"container": "web", "tail": 50, "since": "-1h"})
-	text := res.Data["text"].(string)
+	res := runOp(t, d.env(), ops.OpContainerLogs, map[string]any{"container": "web", "lines": 50, "since": "1h", "timestamps": true})
+	text := res.Data["content"].(string)
 	if !strings.Contains(text, "GET /health 200") || !strings.Contains(text, "upstream") || strings.Contains(text, "abcdef1234567890SECRET") || !strings.Contains(text, "REDACTED") {
 		t.Fatalf("frames must be reassembled across chunk boundaries and redacted: %q", text)
 	}
-	if res.Data["lineCount"] != 3 || res.Data["tty"] != false {
+	if res.Data["lines"] != 3 {
 		t.Fatalf("%v", res.Data)
 	}
 	if !strings.Contains(d.logsQ, "tail=50") || !strings.Contains(d.logsQ, "stdout=1") || !strings.Contains(d.logsQ, "stderr=1") || !strings.Contains(d.logsQ, "timestamps=1") || !strings.Contains(d.logsQ, "since=") {
 		t.Fatalf("query %q", d.logsQ)
 	}
-	// only stderr
-	runOp(t, d.env(), ops.OpContainerLogs, map[string]any{"container": "web", "stdout": false})
-	if strings.Contains(d.logsQ, "stdout=1") || !strings.Contains(d.logsQ, "stderr=1") {
-		t.Fatalf("query %q", d.logsQ)
+	// Stream selectors are outside the normalized TS schema and must fail closed.
+	if _, err := prep(t, d.env(), ops.OpContainerLogs, map[string]any{"container": "web", "stdout": false}); err == nil {
+		t.Fatal("legacy stdout selector must be rejected")
 	}
 	// TTY containers stream raw bytes
 	res = runOp(t, d.env(), ops.OpContainerLogs, map[string]any{"container": "tty"})
-	if res.Data["tty"] != true || !strings.Contains(res.Data["text"].(string), "raw tty line 2") {
+	if !strings.Contains(res.Data["content"].(string), "raw tty line 2") {
 		t.Fatalf("%v", res.Data)
 	}
-	for _, args := range []map[string]any{{"container": "web", "tail": 0, "stdout": false, "stderr": false}, {"container": "web", "tail": 99999}, {"container": "web", "since": "soon"}} {
+	for _, args := range []map[string]any{{"container": "web", "tail": 0, "stdout": false, "stderr": false}, {"container": "web", "lines": 99999}, {"container": "web", "since": "soon"}} {
 		if _, err := prep(t, d.env(), ops.OpContainerLogs, args); err == nil {
 			t.Errorf("%v must be rejected", args)
 		}
@@ -228,7 +228,7 @@ func TestContainerLogsDemuxRedactAndTailLimit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(r.Data["text"].(string)) > 60 || r.Data["truncated"] != true {
+	if len(r.Data["content"].(string)) > 60 || r.Data["truncated"] != true {
 		t.Fatalf("%v", r.Data)
 	}
 }
@@ -250,7 +250,7 @@ func TestContainerExecOverHijackedStream(t *testing.T) {
 	d := newFakeDaemon(t)
 	e := d.env()
 	e.Cfg.Exec.Enabled = true
-	res := runOp(t, e, ops.OpContainerExec, map[string]any{"container": "web", "argv": []string{"ls", "-la", "$(id)", "; reboot"}, "user": "www-data", "workdir": "/srv"})
+	res := runOp(t, e, ops.OpContainerExec, map[string]any{"container": "web", "argv": []string{"ls", "-la", "$(id)", "; reboot"}, "timeoutSec": 5})
 	if res.OK || *res.Output.ExitCode != 3 {
 		t.Fatalf("%+v", res)
 	}
@@ -258,7 +258,7 @@ func TestContainerExecOverHijackedStream(t *testing.T) {
 		t.Fatalf("stdout/stderr must be demultiplexed and redacted: %+v", res.Output)
 	}
 	cmd := d.execBody["Cmd"].([]any)
-	if len(cmd) != 4 || cmd[2] != "$(id)" || cmd[3] != "; reboot" || d.execBody["User"] != "www-data" || d.execBody["WorkingDir"] != "/srv" || d.execBody["Tty"] != false {
+	if len(cmd) != 4 || cmd[2] != "$(id)" || cmd[3] != "; reboot" || d.execBody["User"] != nil || d.execBody["WorkingDir"] != nil || d.execBody["Tty"] != false {
 		t.Fatalf("argv must be forwarded as an array, never a string: %v", d.execBody)
 	}
 	bad := []map[string]any{

@@ -1,0 +1,23 @@
+{
+  "args": {
+    "argv": [
+      "/bin/echo",
+      "hello"
+    ],
+    "container": "web",
+    "timeoutSec": 5
+  },
+  "operation": "container.exec",
+  "result": {
+    "ok": true,
+    "data": {
+      "exitCode": 0
+    },
+    "output": {
+      "stdout": "fixture exec\n",
+      "stderr": "",
+      "exitCode": 0,
+      "truncated": false
+    }
+  }
+}

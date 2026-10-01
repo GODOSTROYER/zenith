@@ -1,0 +1,23 @@
+{
+  "args": {
+    "all": false,
+    "limit": 100
+  },
+  "operation": "container.list",
+  "result": {
+    "ok": true,
+    "data": {
+      "containers": [
+        {
+          "createdAt": "2026-09-30T10:00:00Z",
+          "id": "0123456789abcdef",
+          "image": "nginx:1.27",
+          "name": "web",
+          "state": "running",
+          "status": "Up 2 hours"
+        }
+      ],
+      "truncated": false
+    }
+  }
+}

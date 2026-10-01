@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"os"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -109,6 +111,15 @@ func TestProbeTCPOpenAndClosed(t *testing.T) {
 	res = resultMap(t, o)
 	if o.Status != agent.StatusSucceeded || res["ok"] != false || res["errorCode"] != "connection_refused" {
 		t.Fatalf("a closed port is an observation, not a job failure: %+v", o)
+	}
+}
+
+func TestProbeWrappedConnectionRefusedErrnos(t *testing.T) {
+	for _, errno := range []syscall.Errno{syscall.ECONNREFUSED, syscall.Errno(10061)} {
+		err := &net.OpError{Op: "dial", Net: "tcp", Err: &os.SyscallError{Syscall: "connect", Err: errno}}
+		if got := classifyNetError(err); got != "connection_refused" {
+			t.Errorf("errno %d: got %s", errno, got)
+		}
 	}
 }
 

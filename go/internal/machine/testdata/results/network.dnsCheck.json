@@ -1,0 +1,18 @@
+{
+  "args": {
+    "name": "app.example",
+    "recordType": "A"
+  },
+  "operation": "network.dnsCheck",
+  "result": {
+    "ok": true,
+    "data": {
+      "answers": [
+        "10.0.0.4"
+      ],
+      "name": "app.example",
+      "recordType": "A",
+      "resolved": true
+    }
+  }
+}

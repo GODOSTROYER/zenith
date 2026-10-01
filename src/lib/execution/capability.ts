@@ -3,7 +3,8 @@
  *
  * The operation names a catalog capability (`service.restart`, `service.scale`,
  * `database.snapshot`, …) and a target resource. This activity finds that
- * resource in the platform store, finds the driver operation registered under the
+ * resource in the platform store, routes machine capabilities through the machine
+ * plane and otherwise finds the driver operation registered under the
  * capability's name (`ResourceDriver.operations[capability]`) and runs it inside a
  * brokered session — deploy role for a mutating capability, observe role for a
  * read-only one — with the operation's own grant, the environment lease's fence in
@@ -17,7 +18,8 @@
  * workflow finalizes `uncertain` because the call may have acted.
  *
  * The driver's result is bounded and recorded as evidence; `ok: false` is
- * returned, not thrown — the workflow turns it into a failed step. The grant's
+ * returned, not thrown — the workflow turns it into a failed step. Machine grant
+ * constraints are enforced by executeMachineOperation. For driver operations,
  * `constraints` (policy "restrict") are NOT enforced here: `NativeOperation`
  * receives only the operation's own input, so a constraint the driver does not
  * already apply is not applied. Stated as a limit, not hidden.
@@ -27,7 +29,9 @@ import { digest } from "@/lib/controlplane/digest";
 import type { NativeOperation } from "@/lib/drivers/types";
 import type { PortableKind, ProviderKey, ResourceNode } from "@/lib/resources/types";
 import type { ExecutionActivities } from "@/lib/workflows/types";
-import { loadExecContext, resolveConnection } from "./context";
+import { ApplicationFailure } from "@temporalio/activity";
+import { MACHINE_OPERATIONS, createMachineDrivers, createMachineSessionProvider, executeMachineOperation, MachineOperationError, DEFAULT_TIMEOUT_SEC, DEFAULT_MAX_OUTPUT_BYTES, type MachineOperation, type MachineTarget } from "@/lib/machines";
+import { loadExecContext, resolveConnection, type ExecContext } from "./context";
 import { assertLeaseFor } from "./desired";
 import { StepFailedError } from "./errors";
 import { withKeepAlive } from "./keepalive";
@@ -35,8 +39,82 @@ import type { StoredResource } from "./ports";
 import type { Runtime } from "./runtime";
 import { driverContext, purposeOf, withProviderSession } from "./session";
 import { safeText } from "./text";
+import type { LeaseRef } from "@/lib/workflows/types";
 
 const MAX_DATA_BYTES = 4_000;
+
+const isMachineCapability = (name: string): name is MachineOperation => (MACHINE_OPERATIONS as readonly string[]).includes(name);
+
+/** Resolve only registered bindings or observed ids; a missing identity stays unknown. */
+async function machineTarget(rt: Runtime, ec: ExecContext, row: StoredResource): Promise<MachineTarget> {
+  const plane = rt.d.machines!;
+  const base = { workspaceId: ec.workspaceId, environmentId: ec.environmentId, resourceId: row.id, address: row.address };
+  const machine = await plane.boundMachine(ec.workspaceId, ec.environmentId, row.address);
+  if (machine) {
+    if (machine.kind !== "machine" || machine.workspaceId !== ec.workspaceId || machine.environmentId !== ec.environmentId || machine.address !== row.address || machine.status !== "active" || machine.stale) {
+      throw new StepFailedError("The bound machine is unavailable or does not belong to this resource.");
+    }
+    return { ...base, transport: "zenithd", targetId: machine.id };
+  }
+  const observation = await plane.latestObservation(ec.workspaceId, row.id);
+  if (!observation || observation.address !== row.address || observation.presence !== "present" || (observation.simulated && ec.product.environment.class !== "sandbox")) {
+    throw new StepFailedError("The target has no present observation; its machine identity is unknown.");
+  }
+  if (row.provider === "aws" && ["aws:ec2_instance", "ec2_instance"].includes(row.nativeType) && /^(i|mi)-[a-f0-9]{8,17}$/.test(observation.externalId ?? "")) {
+    return { ...base, transport: "aws_ssm", targetId: observation.externalId! };
+  }
+  if (row.provider === "kubernetes") {
+    // Only a Pod can be addressed for pod operations. A namespace can be
+    // addressed for container.list; deployments are never guessed into pods.
+    const id = observation.externalId;
+    const podType = ["k8s:Pod", "Pod", "pod"].includes(row.nativeType);
+    const namespaceType = ["k8s:Namespace", "Namespace", "namespace"].includes(row.nativeType);
+    if (id && ((podType && /^[a-z0-9][a-z0-9-]{0,62}\/[a-z0-9][a-z0-9.-]{0,252}$/.test(id)) || (namespaceType && /^[a-z0-9][a-z0-9-]{0,62}$/.test(id)))) {
+      return { ...base, transport: "kubernetes", targetId: id };
+    }
+  }
+  throw new StepFailedError("No supported machine transport can resolve the observed resource identity.");
+}
+
+async function executeMachineCapability(rt: Runtime, ec: ExecContext, row: StoredResource, name: MachineOperation, lease: LeaseRef): Promise<{ ok: boolean; summary: string }> {
+  const plane = rt.d.machines;
+  if (!plane) throw new StepFailedError("This worker has no machine plane configured.");
+  const target = await machineTarget(rt, ec, row);
+  const connection = target.transport === "zenithd" ? undefined : await resolveConnection(rt, ec);
+  const { claims, jws } = await rt.d.broker.issueGrant(ec.op.id, target.transport === "zenithd" ? `machine:${target.targetId}` : "worker", { scope: lease.scope, fenceToken: lease.fenceToken });
+  const mutates = lookupCapability(name).mutates;
+  const input = ec.op.proposal.input;
+  if (input === null || typeof input !== "object" || Array.isArray(input)) throw new StepFailedError("Machine operation input must be an argument object.");
+  const args = input as Record<string, unknown>;
+  await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
+  if (mutates) await rt.emit(ec.scope, "resource.applying", `capability:${ec.op.id}`, { capability: name, address: row.address });
+  try {
+    const result = await withKeepAlive(rt, { lease, detail: `execute ${name}`, operation: { workspaceId: ec.workspaceId, operationId: ec.op.id } }, (signal) =>
+      executeMachineOperation({ operationId: ec.op.id, operation: name, target, args, timeoutSec: typeof args.timeoutSec === "number" ? args.timeoutSec : DEFAULT_TIMEOUT_SEC, maxOutputBytes: DEFAULT_MAX_OUTPUT_BYTES }, {
+        grant: claims,
+        drivers: plane.drivers ?? createMachineDrivers({ sandbox: ec.product.environment.class === "sandbox", dispatcher: plane.dispatcher }),
+        sessions: createMachineSessionProvider({ credentials: rt.d.credentials, grantJws: jws, connection, kubernetes: plane.kubernetes, sandbox: ec.product.environment.class === "sandbox", signal, now: rt.now }),
+        evidence: plane.evidence, signal, now: rt.now,
+      })
+    );
+    await rt.d.leases.assertFence(lease.scope, lease.fenceToken);
+    if (result.ok && mutates) await rt.emit(ec.scope, "resource.applied", `capability:${ec.op.id}`, { capability: name, address: row.address });
+    // No machine data (contents, logs, DNS answers) travels into workflow history.
+    return { ok: result.ok, summary: `${name} ${result.ok ? "succeeded" : "failed"}${result.simulated ? " (simulated)" : ""}` };
+  } catch (err) {
+    if (!(err instanceof MachineOperationError)) throw err;
+    if (err.code === "uncertain" || err.code === "evidence_failed" || (mutates && ["transport_error", "aborted", "protocol_violation"].includes(err.code))) {
+      try {
+        await rt.d.ops.markUncertain({ workspaceId: ec.workspaceId, operationId: ec.op.id, reason: "The machine request's outcome cannot be proven; reconcile must observe it." });
+      } catch {
+        // A ledger outage must never turn uncertainty into a retryable dispatch.
+        rt.log("error", "could not persist machine uncertainty", { operationId: ec.op.id });
+      }
+      throw ApplicationFailure.create({ message: "The machine request's outcome is uncertain; it must never be re-dispatched.", type: "MachineUncertain", nonRetryable: true });
+    }
+    throw new StepFailedError(`Machine operation refused (${err.code}).`);
+  }
+}
 
 export function nodeFromStored(row: StoredResource, fallbackRegion: string): ResourceNode {
   return {
@@ -72,11 +150,12 @@ export function createCapabilityActivities(rt: Runtime): Pick<ExecutionActivitie
       if (!ec.op.resourceId) throw new StepFailedError(`${name} names no target resource.`);
 
       const row = await rt.d.resources.get(ec.workspaceId, ec.op.resourceId);
-      if (!row || row.environmentId !== ec.environmentId) throw new StepFailedError("The target resource was not found in this environment.");
+      if (!row || row.workspaceId !== ec.workspaceId || row.environmentId !== ec.environmentId) throw new StepFailedError("The target resource was not found in this environment.");
       const node = nodeFromStored(row, ec.product.environment.region);
       if (def.mutates && node.ownership !== "managed") {
         throw new StepFailedError(`${node.address} is ${node.ownership}: Zenith reads it and never changes it, so ${name} cannot run on it.`);
       }
+      if (isMachineCapability(name)) return executeMachineCapability(rt, ec, row, name, lease);
       const driver = rt.drivers(node.provider, node.nativeType);
       const operation: NativeOperation | undefined = driver?.operations?.[name];
       if (!driver || !operation) throw new StepFailedError(`No driver operation "${name}" exists for ${node.provider} ${node.nativeType}, so ${node.address} cannot ${def.title.toLowerCase()} natively.`);

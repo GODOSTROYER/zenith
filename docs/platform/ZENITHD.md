@@ -32,7 +32,15 @@ specific to the machine.
 ## 2. Operations
 
 Results are `{ok, operation, data, output?}` in the `result` of the posted result
-(`status: succeeded`). Two kinds of non-success:
+(job status `succeeded`, `failed` or `timed_out`). The authoritative result schemas
+are [`src/lib/machines/results.ts`](../../src/lib/machines/results.ts), shared
+with the SSM and Kubernetes transports. Semantic failures carry
+`data: {error: <MachineFailureCode>, reason?}`; exec also carries `data.exitCode`
+and `output: {stdout, stderr, exitCode, truncated}`.
+Protocol/validation rejections from the shared agent loop carry the protocol
+reason; the machine queue adapter/driver maps them to a machine failure.
+
+Two kinds of non-success:
 
 * `rejected` — validation or a local guard said no; nothing ran. `error` is
   `"<code>: <message>"`: `invalid_payload`, `not_allowed`, `disabled_by_config`,
@@ -42,32 +50,34 @@ Results are `{ok, operation, data, output?}` in the `result` of the posted resul
 
 | Operation | Enabled when | Args | Notes |
 |---|---|---|---|
-| `machine.inspect` | always | none | hostname, OS (`/etc/os-release`), kernel, arch, CPU count, uptime, load, memory and swap, disks (real filesystems only, with `statfs` capacity), zenithd version |
-| `process.list` | always | `limit` (1–1000, default 100), `sortBy` (`rss`\|`cpu`\|`pid`) | `/proc` scan: pid, ppid, name, state, uid, RSS, CPU ticks, start ticks, threads, executable path. **Command lines are never returned** (they carry passwords) |
-| `service.status` | always | `unit` | `systemctl show --property=… -- <unit>` (fixed property list): load/active/sub state, unit-file state, main PID, restarts, timestamps, memory |
-| `machine.service.restart` | `services.restartAllow` non-empty | `unit` | `systemctl restart -- <unit>`; unit must match the allowlist; returns state before and after |
-| `container.list` | `containers.enabled` | `all`, `limit` (1–500) | Docker Engine API over the unix socket; no command lines, limited labels |
-| `container.inspect` | `containers.enabled` | `container` | state, health, restart policy, mounts, networks. **Environment variables, command and entrypoint are never decoded**, so they cannot leak |
-| `container.logs` | `containers.enabled` | `container`, `tail` (1–2000), `since`, `stdout`, `stderr`, `timestamps` | multiplexed or TTY stream, redacted, newest lines kept within the byte budget |
-| `container.exec` | `containers.enabled` **and** `exec.enabled` | `container`, `argv[]`, `user?`, `workdir?` | Docker exec, argv array only; result carries `output{stdout,stderr,exitCode,truncated}` |
-| `file.read` | `files.readAllow` non-empty | `path`, `offset?`, `length?` | see §3 |
-| `network.portCheck` | always | `host`, `port`, `timeoutMs?` | TCP connect; metadata/link-local refused; loopback allowed |
-| `network.dnsCheck` | always | `name`, `type?` (A, AAAA, CNAME, TXT, MX, NS) | system resolver |
+| `machine.inspect` | always | none | hostname, OS (`/etc/os-release`), kernel, arch, CPU count, uptime, load, memory and swap, disks (real filesystems only, with `statfs` capacity) |
+| `process.list` | always | `limit` (1–500, default 50), `sortBy` (`cpu`\|`memory`, default `cpu`) | `/proc` scan: `pid`, `ppid`, `command` (comm only), `user` (numeric UID string), `rssKb`. CPU sorting uses cumulative ticks; memory sorting uses RSS. **Command arguments are never returned** (they carry passwords) |
+| `service.status` | always | `unit` | `systemctl show --property=… -- <unit>` (fixed property list): load/active/sub state, unit-file state, main PID, `restarts`, `since` timestamp |
+| `machine.service.restart` | `services.restartAllow` non-empty | `unit` | `systemctl restart -- <unit>`; unit must match the allowlist; returns `unit`, `restarted`, `activeState`, optional `subState` and `mainPid` after restart |
+| `container.list` | `containers.enabled` | `all` (default false), `limit` (1–200, default 100) | Docker Engine API over the unix socket; `containers` with id, name, image, createdAt, state, status; `truncated`. `labelSelector` is Kubernetes-only and refused here |
+| `container.inspect` | `containers.enabled` | `container` | flat state, running, exitCode, startedAt, finishedAt, restartCount, health and oomKilled. **Environment variables, command and entrypoint are never decoded**, so they cannot leak |
+| `container.logs` | `containers.enabled` | `container`, `lines` (1–5000, default 200), `since?`, `timestamps` (default false) | multiplexed or TTY stream, redacted, newest lines kept within the byte budget |
+| `container.exec` | `containers.enabled` **and** `exec.enabled` | `container`, `argv[]`, `timeoutSec` | Docker exec, argv array only; result carries `output{stdout,stderr,exitCode,truncated}` |
+| `file.read` | `files.readAllow` non-empty | `path`, `maxBytes` (1–1048576, default 65536) | see §3 |
+| `network.portCheck` | always | `host`, `port`, `timeoutSec` (1–30, default 5) | TCP connect; metadata/link-local refused; loopback allowed |
+| `network.dnsCheck` | always | `name`, `recordType` (A, AAAA, CNAME, TXT, MX, NS, SRV; default A) | system resolver |
 | `system.metrics` | always | none | CPU usage (250 ms sample), load, memory, network counters, file descriptors, disks |
-| `system.logs` | always | `unit?`, `since?`, `until?`, `lines?` (1–2000), `priority?` | `journalctl` with an argv built only from validated fields; newest lines kept within the byte budget, redacted |
-| `machine.exec` | `exec.enabled` | `argv[]`, `cwd?` | see §4 |
+| `system.logs` | always | `unit?`, `since` (default `1h`), `lines` (1–5000, default 200) | `journalctl` with an argv built only from validated fields; newest lines kept within the byte budget, redacted |
+| `machine.exec` | `exec.enabled` | `argv[]`, `cwd?`, `timeoutSec` | see §4 |
 | `file.write`, `file.upload`, `package.install` | **never** | — | in the platform vocabulary, deliberately not implemented: answered with `unsupported_operation` |
 
 Unit names must match `^[A-Za-z0-9@._:-]{1,128}\.(service|socket|timer)$` and, in
 addition, must **not start with `-`** (a regex alone would let `--help.service`
 reach `systemctl` as an option; the name is also passed after `--`).
-`since`/`until` are an RFC 3339 timestamp or a relative `-15m`, `-2h`, `-1d`
-(converted to an absolute UTC time); free text never reaches `journalctl`.
+Arguments are the normalized `MachineArgsSchemas` shapes. `since` is a positive
+relative duration (`15m`, `2h`, `2d`, `900s`), bounded to 7d. Signed negative
+durations, absolute timestamps, `until`, `priority`, `tail`, `offset` and `length`
+are refused. Durations become absolute timestamps only inside the fixed transport code.
 
 Operations that cannot work on the host (no `/proc`, no systemd, no Docker socket)
 **fail with a clear error**, they do not guess. `process.list`, `machine.inspect`
 and `system.metrics` need Linux `/proc`; on other platforms the binary still
-builds and starts, and those operations report `unsupported_platform`.
+builds and starts, and those operations return `data.error: "unavailable"` with an explanatory reason.
 
 ### Output rules
 
@@ -95,14 +105,14 @@ refused). With the list empty the operation is off.
    window in which a local user could swap a directory for a link.
 4. Only regular files are read (a FIFO cannot hang the agent). Reads are bounded
    (`files.maxReadBytes`, default 1 MiB, and the request budget), with
-   `offset`/`length` windows and a `truncated` flag.
+   `maxBytes` bounding the read from byte zero and a `truncated` flag.
 5. zenithd's **own state directory and config file are never readable**, whatever
    the allowlist says (they hold the identity key).
 
 Text is returned as UTF-8 with credential shapes redacted (`redacted: true` says
-so); binary content is returned base64 (unredacted: choose the allowlist
-accordingly). The result carries the resolved path, size, offset, length, a
-SHA-256 of the returned bytes.
+so); binary content is omitted (`binary: true`, `content: ""`, `encoding: "utf8"`).
+The result carries the requested canonical path, `sizeBytes`, `bytesRead`, and a
+SHA-256 of the raw bounded read. The resolved path is used only for guard checks.
 
 ## 4. `machine.exec` (and `container.exec`)
 
@@ -143,7 +153,9 @@ Every request — accepted or rejected — leaves lines:
 It records the request id, operation, grant id, outcome, and the **SHA-256 and
 size of the output** — never the output, never file contents. `target` names what
 the operation was aimed at (unit, file path, container, host:port; for exec the
-full argv, because that is what auditing an escape hatch is for). `verified:false`
+argv with credential patterns and separate credential flag values redacted).
+Pattern redaction cannot recognize an arbitrary unmarked secret; pass secret
+references rather than secret values in argv. `verified:false`
 marks an entry for a token whose signature did not verify (its ids are only
 hints). **zenithd refuses to run an operation whose `start` line cannot be
 written**, so there is no unaudited execution.
@@ -208,12 +220,20 @@ their guard is opened.
 
 ## 8. Testing status
 
-Automated (`go test ./...`, also `-race`): every guard above including symlink
-escapes, unit-name injection attempts, argv passthrough with real processes,
-the Docker Engine client against a fake daemon speaking the real wire format
-over a unix socket (list, inspect, multiplexed and TTY logs, hijacked exec), `/proc`
-parsing against fixture trees **and the real host**, and the complete flow (register,
-poll, signed request, guard decisions, audit log, replay, revocation → exit 3).
-Gated (`ZENITH_TEST_SYSTEMD=1`, run here in WSL2 with systemd): real `systemctl show`
-and `journalctl`. **Not** exercised: a real Docker daemon, a real polkit setup, a
-multi-host fleet.
+The Go suite covers guards, argv passthrough, fixture `/proc` reads, the signed
+agent lifecycle and Docker wire parsing. Linux-only process, symlink and unix
+socket tests are skipped on Windows; real systemd remains gated behind
+`ZENITH_TEST_SYSTEMD=1`. These are fixture/fake-daemon tests, not real Docker,
+polkit or fleet verification. No live cloud or systemd verification was performed
+in this workstream on Windows.
+
+Cross-language goldens live in `go/internal/machine/testdata/results/*.json`.
+`TestResultGoldens` produces them using Go operations over deterministic fixtures
+(and the file-read mapper over bounded fixture bytes); TS validates their
+normalized args and result data without dropping unknown fields. Regenerate
+with `ZENITH_UPDATE_MACHINE_GOLDENS=1 go test ./internal/machine/ops -run TestResultGoldens`,
+then run `npx vitest run tests/machines/go-results.test.ts` from the repo root.
+Memory and disk fields ending in `Kb` mean KiB, uptime is whole seconds, `load`
+is a three-number tuple, and network metrics aggregate interface byte counters.
+Fields that were not measured are absent; a CPU sample with no tick delta does
+not invent a usage percentage.

@@ -146,9 +146,9 @@ describe("executeCapability", () => {
   });
 
   it("uses the observe role for a read-only capability and does not announce a mutation", async () => {
-    const { w, lease } = await dayTwo("service.status", {}, { "service.status": async () => ({ ok: true, summary: "running 3/3", simulated: false }) });
+    const { w, lease } = await dayTwo("logs.read", {}, { "logs.read": async () => ({ ok: true, summary: "running 3/3", simulated: false }) });
     await w.activities.executeCapability({ operationId: OP, lease });
-    expect(w.credentials.sessions.at(-1)).toMatchObject({ purpose: "observe", capability: "service.status" });
+    expect(w.credentials.sessions.at(-1)).toMatchObject({ purpose: "observe", capability: "logs.read" });
     expect(w.events.ofType("resource.applying")).toHaveLength(0);
   });
 

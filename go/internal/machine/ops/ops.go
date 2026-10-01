@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"time"
 
@@ -104,6 +105,11 @@ type Env struct {
 	Runner     CmdRunner
 	Docker     *Docker
 	Version    string
+	// Injectable host reads for deterministic contract fixtures; nil uses the host.
+	hostname func() (string, error)
+	cpuCount func() int
+	arch     string
+	statfs   func(string) (uint64, uint64, uint64, bool)
 }
 
 // Request is one validated request to run an operation.
@@ -294,11 +300,14 @@ func unsupportedf(format string, args ...any) error {
 
 // safeDir cleans a path and requires it to be absolute.
 func absClean(p string) (string, error) {
-	if p == "" || !filepath.IsAbs(p) {
+	if p == "" || (!filepath.IsAbs(p) && !path.IsAbs(p)) {
 		return "", invalid("path must be absolute")
 	}
 	if bytes.IndexByte([]byte(p), 0) >= 0 {
 		return "", invalid("path contains a NUL byte")
+	}
+	if path.IsAbs(p) {
+		return path.Clean(p), nil
 	}
 	return filepath.Clean(p), nil
 }

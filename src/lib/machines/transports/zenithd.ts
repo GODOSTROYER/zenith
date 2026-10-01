@@ -18,8 +18,9 @@
  *   timed_out → ok: false, `timeout` (the agent's own deadline; definitive)
  *   uncertain → throws `uncertain` (the control plane lost the agent past the
  *               deadline, RUNNER-PROTOCOL §6; never re-dispatched)
- * A local deadline or abort while waiting after a dispatch is `uncertain` for
- * mutating operations and `aborted` / an `ok: false` timeout for read-only ones.
+ * A local deadline or a failed wait after dispatch is uncertain for every
+ * operation. An explicit user abort of a read remains aborted; a mutating
+ * request is uncertain. None of these outcomes permits re-dispatch.
  */
 import { capability } from "@/lib/capabilities/catalog";
 import { isImplementedOperation, parseMachineArgs, type ImplementedOperation } from "../args";
@@ -104,25 +105,20 @@ export function createZenithdMachineDriver(options: ZenithdDriverOptions): Machi
     } catch (e) {
       if (signal.aborted || wait.aborted) {
         const userAbort = signal.aborted;
-        if (mutating) throw new MachineOperationError("uncertain", "the request was queued for the machine but waiting for its result ended; its outcome is unknown", { transportRef: id, cause: e });
+        if (mutating || !userAbort) throw new MachineOperationError("uncertain", "the request was queued for the machine but waiting for its result ended; its outcome is unknown", { transportRef: id, cause: e });
         if (userAbort) throw new MachineOperationError("aborted", "the machine request was aborted", { transportRef: id, cause: e });
-        return finish(req, startedAt, now, id, false, failure("timeout", "no result arrived within the request's time budget", { timedOut: true }));
       }
-      throw new MachineOperationError("transport_error", "waiting for the machine result failed", { transportRef: id, retryable: true, cause: e });
+      throw new MachineOperationError("uncertain", "waiting for the dispatched machine result failed; its outcome is unknown", { transportRef: id, cause: e });
     }
     return map(req, outcome, id, startedAt);
-  }
-
-  function finish(req: MachineRequest, startedAt: string, clock: () => number, id: string, ok: boolean, data: Record<string, unknown>, output?: MachineResult["output"]): MachineResult {
-    return { ok, operation: req.operation, data, ...(output ? { output } : {}), startedAt, finishedAt: new Date(clock()).toISOString(), transport: "zenithd", transportRef: id, simulated: false };
   }
 
   function map(req: MachineRequest, o: MachineDispatchOutcome, id: string, startedAt: string): MachineResult {
     const result = (ok: boolean, data: Record<string, unknown>, output?: MachineResult["output"]): MachineResult => ({
       ok,
       operation: req.operation,
-      data,
-      ...(output ? { output } : {}),
+      data: isExecOp(req.operation) ? { ...data, exitCode: typeof data.exitCode === "number" && Number.isInteger(data.exitCode) ? data.exitCode : null } : data,
+      ...(isExecOp(req.operation) ? { output: output ?? { stdout: "", stderr: "", exitCode: null, truncated: false } } : output ? { output } : {}),
       // agent-supplied timestamps are data: use them only when they parse
       startedAt: validIso(o.startedAt) ?? startedAt,
       finishedAt: validIso(o.finishedAt) ?? new Date(now()).toISOString(),
@@ -134,16 +130,22 @@ export function createZenithdMachineDriver(options: ZenithdDriverOptions): Machi
     if (o.status === "uncertain") {
       throw new MachineOperationError("uncertain", "the machine went silent past the request deadline; the request may or may not have run", { transportRef: id });
     }
-    if (o.status === "rejected") return result(false, failure("refused", o.error ?? "the machine's local policy refused the request"));
+    if (o.status === "rejected") {
+      const coded = MachineFailureDataSchema.safeParse(o.result);
+      return result(false, coded.success ? coded.data : failure("refused", o.error ?? "the machine's local policy refused the request"));
+    }
     if (o.status === "timed_out") return result(false, failure("timeout", o.error, { timedOut: true }));
 
     if (isExecOp(req.operation)) {
+      if (o.output && (typeof o.output.stdout !== "string" || typeof o.output.stderr !== "string")) return result(false, failure("malformed_result", "the agent returned malformed exec output"));
       const out = o.output ? { stdout: truncateUtf8(o.output.stdout, req.maxOutputBytes), stderr: truncateUtf8(o.output.stderr, req.maxOutputBytes), truncated: o.output.truncated === true } : undefined;
-      const exitCode = typeof o.exitCode === "number" ? o.exitCode : null;
+      const exitCode = typeof o.exitCode === "number" && Number.isInteger(o.exitCode) ? o.exitCode : null;
       const output = out
         ? { stdout: out.stdout.text, stderr: out.stderr.text, exitCode, truncated: out.truncated || out.stdout.truncated || out.stderr.truncated }
         : { stdout: "", stderr: "", exitCode, truncated: false };
-      return result(o.status === "succeeded" && exitCode === 0, { exitCode }, output);
+      const ok = o.status === "succeeded" && exitCode === 0;
+      const coded = MachineFailureDataSchema.safeParse(o.result);
+      return result(ok, ok ? { exitCode } : coded.success ? { ...coded.data, exitCode } : failure(exitCode === null ? "malformed_result" : "command_failed", o.error, { exitCode }), output);
     }
 
     if (o.status === "failed") {

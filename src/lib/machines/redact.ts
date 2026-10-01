@@ -6,13 +6,13 @@
  * `MachineResult` leaves the service, and before anything reaches the evidence
  * log, string values are passed through the shared credential-pattern redactor.
  *
- * This is a thin adapter: the pattern set lives in `@/lib/tofu/redact` today
- * and moves to `@/lib/credentials/redact` when that module lands; only the
- * import below changes. It is best-effort defence in depth, not a guarantee:
+ * The shared credential redactor runs first; the tofu redactor additionally
+ * masks certificate blocks and provider key-id shapes. This is best-effort defence in depth:
  * a secret in a shape no pattern matches is not caught, which is why
  * `file.read` and the exec capabilities are gated by policy as well.
  */
 import { redactOutput } from "@/lib/tofu/redact";
+import { redactCredentials } from "@/lib/credentials/redact";
 
 export interface Redacted {
   text: string;
@@ -21,8 +21,19 @@ export interface Redacted {
 }
 
 export function redactText(text: string): Redacted {
-  const out = redactOutput(text);
+  const out = redactOutput(redactCredentials(text));
   return { text: out, redacted: out !== text };
+}
+
+const secretFlag = /^--?[A-Za-z0-9_.-]*(?:password|passwd|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credential|authorization)[A-Za-z0-9_.-]*$/i;
+
+/** Retain argv structure for audit without leaking separate credential flag values. */
+export function redactArgv(argv: readonly string[], state: { changed: boolean } = { changed: false }): string[] {
+  return argv.map((item, i) => {
+    const r = i > 0 && secretFlag.test(argv[i - 1]) ? { text: "[REDACTED]", redacted: true } : redactText(item);
+    if (r.redacted) state.changed = true;
+    return r.text;
+  });
 }
 
 /** Redact every string leaf of a JSON-like value (depth-bounded); reports whether anything changed. */
@@ -35,7 +46,9 @@ export function redactDeep<T>(value: T, state: { changed: boolean } = { changed:
   if (depth > 12 || value === null || typeof value !== "object") return value;
   if (Array.isArray(value)) return value.map((v) => redactDeep(v, state, depth + 1)) as T;
   const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = redactDeep(v, state, depth + 1);
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    out[k] = k === "argv" && Array.isArray(v) && v.every((a) => typeof a === "string") ? redactArgv(v, state) : redactDeep(v, state, depth + 1);
+  }
   return out as T;
 }
 

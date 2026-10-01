@@ -124,6 +124,7 @@ export class FakeBroker implements BrokerPort {
       ws: op?.workspaceId ?? "ws",
       ...(op?.projectId ? { proj: op.projectId } : {}),
       ...(op?.environmentId ? { env: op.environmentId } : {}),
+      ...(op?.resourceId ? { res: op.resourceId } : {}),
       ...(fence ? { fence: fence.fenceToken } : {}),
     };
     return { jws: CANARY_GRANT, claims };

@@ -108,9 +108,13 @@ payload:
 The runner verifies, in order, and rejects (reporting `rejected` with a
 reason) on any failure: signature with a pinned key; `typ`; `runnerId` is
 itself; `iat`/`exp` (skew 60 s); `jti` unseen (persisted replay cache,
-retained ≥ 24 h); `kind` enabled in local config; the embedded grant's
+retained ≥ 24 h; an already accepted job id is dropped silently, without a
+second result that could race the original); `kind` enabled in local config; the embedded grant's
 signature, `exp`, `aud == "runner:<id>"`, `cap == capability`, `op ==
 operationId`; the payload schema; kind-specific allowlists (below).
+
+Grant ids are not single-use at the runner: the job id prevents replay, and
+one operation grant can authorize several bounded jobs for that operation.
 
 Results: `POST /api/platform/v1/runners/{id}/jobs/{jti}/result` (signed):
 
@@ -129,7 +133,7 @@ conditional update); a duplicate returns `409 already_settled`.
 ### Job kinds
 
 **`tofu.run`** — payload `{ "command": "plan|apply|show", "files": [{"path","contentB64"}],
-"lockfile": "…", "configDigest": "…", "planFileSha256": "…" }`. The runner
+"lockfile": "…", "configDigest": "…", "planFileSha256": "…", "destroy": true }` (`destroy` optional, `plan` only). The runner
 recomputes `configDigest` and refuses a mismatch. The rule, identical in
 `src/lib/tofu/workspace.ts` (`configDigestOf`) and Go: files sorted by path
 bytes (paths are ASCII), then
@@ -138,7 +142,8 @@ lockfile excluded; golden vector `tests/tofu/fixtures/config-digest-vector.json`
 It runs its pinned OpenTofu with `-lockfile=readonly` in a fresh temp dir.
 - `plan` keeps the binary plan file it produced (keyed by `configDigest` and
   the file's sha256, retained ≤ 24 h) and returns `{ exitCode, output,
-  planJson, planFileSha256 }`.
+  planJson, planFileSha256 }`. Optional `destroy: true` builds a destroy plan;
+  applying that retained plan requires `infrastructure.destroy`.
 - The **control plane** normalizes `planJson` (`normalizePlan`) and computes
   the plan digest; the runner never re-implements normalization.
 - `apply` requires a retained plan file the runner itself produced for the
@@ -146,6 +151,9 @@ It runs its pinned OpenTofu with `-lockfile=readonly` in a fresh temp dir.
   exactly that file. The control plane only issues an apply job after a
   fresh `plan` job whose normalized digest equals the approved digest.
 Result: `{ exitCode, output (redacted, truncated), planJson?, planFileSha256? }`.
+`planJson` has a separate `maxPlanJsonBytes` limit (default 3 MiB); exceeding it
+fails with `plan_json_too_large`, never truncates JSON. `maxOutputBytes` bounds
+the textual output, not the plan JSON.
 
 **`aws.http`** — the SigV4 signing proxy. Payload `{ "service", "region", "method",
 "url", "headers", "bodyB64" }` is an *unsigned* AWS API request serialized by
@@ -176,6 +184,19 @@ shapes, with `typ: zenith-machine+jwt` and payload:
   "operationId": "…", "operation": "service.status", "args": { "unit": "nginx.service" },
   "grant": "<JWS>", "iat": 0, "exp": 0, "timeoutSec": 30, "maxOutputBytes": 65536 }
 ```
+
+The machine grant's `cap` equals the envelope's `operation`, with audience
+`machine:<machineId>`. Results and logs use the same `jobs` segment as runners:
+`POST /api/platform/v1/machines/{id}/jobs/{jti}/result` and
+`POST /api/platform/v1/machines/{id}/jobs/{jti}/logs`. An already accepted
+request id is dropped silently, and grant ids are not consumed once per request.
+The posted `result` is `{ok, operation, data, output?}`; `data` follows
+[`MachineResultDataSchemas`](../../src/lib/machines/results.ts), or
+`{error: <MachineFailureCode>, reason?}` for a semantic failure. Exec data carries
+`exitCode`, and output carries `stdout`, `stderr`, `exitCode`, `truncated`.
+Arguments are normalized by the TS machine plane; `since` is a relative duration
+such as `15m` or `2d`, positive and bounded to 7d. Protocol rejections still
+carry the shared agent's protocol reason and are mapped by the machine driver.
 
 zenithd implements each operation as fixed code — no shell string is ever
 built from `args`:

@@ -182,6 +182,7 @@ describe("status mapping", () => {
     const { d, run } = setup();
     d.outcome = { status: "timed_out", error: "deadline exceeded" };
     expect(await run(req("system.logs"))).toMatchObject({ ok: false, data: { error: "timeout", timedOut: true } });
+    expect(await run(req("machine.exec", { argv: ["/bin/sleep", "10"], timeoutSec: 5 }))).toMatchObject({ ok: false, data: { error: "timeout", exitCode: null }, output: { stdout: "", stderr: "", exitCode: null, truncated: false } });
   });
 
   it("uncertain: the control plane lost the agent; surfaced as an error carrying the request id", async () => {
@@ -209,7 +210,7 @@ describe("status mapping", () => {
   it("machine.exec disabled on the machine (default) is a refusal, not a failure of the command", async () => {
     const { d, run } = setup();
     d.outcome = { status: "rejected", error: "exec.enabled is false on this machine" };
-    expect(await run(req("machine.exec", { argv: ["id"], timeoutSec: 5 }))).toMatchObject({ ok: false, data: { error: "refused" } });
+    expect(await run(req("machine.exec", { argv: ["id"], timeoutSec: 5 }))).toMatchObject({ ok: false, data: { error: "refused", exitCode: null }, output: { stdout: "", stderr: "", exitCode: null, truncated: false } });
   });
 
   it("exec without an exit code (agent omitted it) is never ok", async () => {
@@ -236,23 +237,22 @@ describe("waiting", () => {
     expect(await write).toMatchObject({ code: "uncertain", transportRef: "mreq_2" });
   });
 
-  it("no answer within the time budget: read-only is ok:false timeout, mutating is uncertain", async () => {
+  it("no answer within the time budget is uncertain for both reads and mutations", async () => {
     const { d, run } = setup(0);
     d.hang = true;
-    const read = await run(req("machine.inspect", {}, { timeoutSec: 1 }));
-    expect(read).toMatchObject({ ok: false, data: { error: "timeout", timedOut: true }, transportRef: "mreq_1" });
+    await expect(run(req("machine.inspect", {}, { timeoutSec: 1 }))).rejects.toMatchObject({ code: "uncertain", transportRef: "mreq_1" });
     const write = await run(req("machine.service.restart", { unit: "a.service" }, { timeoutSec: 1 })).catch((e: unknown) => e);
     expect(write).toMatchObject({ code: "uncertain", transportRef: "mreq_2" });
   });
 
-  it("a dispatcher failure while waiting is a retryable transport error with the request id", async () => {
+  it("a dispatcher failure after dispatch is uncertain and cannot be retried", async () => {
     const { d, driver } = setup();
     d.await = async () => {
       throw new Error("connection reset");
     };
     const err = await driver.execute(req("machine.inspect"), session, new AbortController().signal).catch((e: unknown) => e);
-    expect(err).toMatchObject({ code: "transport_error", transportRef: "mreq_1" });
-    expect((err as MachineOperationError).retryable).toBe(true);
+    expect(err).toMatchObject({ code: "uncertain", transportRef: "mreq_1" });
+    expect((err as MachineOperationError).retryable).toBe(false);
   });
 });
 

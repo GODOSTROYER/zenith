@@ -84,6 +84,41 @@ export interface ToolkitRenderBase {
   readOnlyRootFilesystem?: boolean;
   automountServiceAccountToken?: boolean;
   resolveDnsTarget?(targetAddress: string): string | undefined;
+  /** Explicit cloud cluster and identity mechanism; annotations never prove effective access. */
+  workloadIdentity?: { cluster: string; mechanism: "eks-irsa" | "eks-pod-identity" | "gke" | "aks" };
+  /** Pure lookup of resolved, non-secret cloud attributes; never a credential callback. */
+  resolveAttribute?(address: string, attribute: string): unknown;
+}
+
+/**
+ * The toolkit uses its input for both graph lookup and rendering. Preserve every
+ * node for identity matching, but make unselected Kubernetes/Zenith nodes
+ * lookup-only with a referenced ownership view. The source graph is untouched;
+ * this view never changes persisted ownership or permits applying those nodes.
+ */
+function toolkitGraphView(nodes: readonly ResourceNode[], views: readonly ResourceNode[]): ResourceNode[] {
+  const selected = new Map(views.map((node) => [node.address, node]));
+  return nodes.map((node) => selected.get(node.address) ?? (
+    (node.provider === "zenith" || node.provider === "kubernetes") && node.ownership === "managed"
+      ? { ...node, ownership: "referenced" as const }
+      : node
+  ));
+}
+
+/** Render a selected subset with the full graph available for neighbour/identity lookup. */
+export function renderToolkitGraph(
+  toolkit: Pick<KubernetesToolkit, "renderGraph">,
+  nodes: readonly ResourceNode[],
+  views: readonly ResourceNode[],
+  base: ToolkitRenderBase
+): ToolkitRenderResult {
+  if (views.length === 0) return { objects: [], notes: [] };
+  const graph = toolkitGraphView(nodes, views);
+  const rendered = toolkit.renderGraph(graph, base);
+  // Temporary lookup views must not become public claims about source ownership.
+  const lookupNotes = new Set(graph.flatMap((view, index) => view.ownership !== nodes[index].ownership
+    ? [`${view.address}: referenced node is never rendered or applied.`] : []));
+  return { objects: rendered.objects, notes: rendered.notes.filter((note) => !lookupNotes.has(note)) };
 }
 
 export interface ToolkitRenderResult {

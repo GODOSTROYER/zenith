@@ -37,12 +37,12 @@ import { dump } from "js-yaml";
 import { digest } from "@/lib/controlplane/digest";
 import type { ResourceNode } from "@/lib/resources/types";
 import { managedDatabaseConnectionRef } from "./database";
-import { OWNERSHIP, isRecord, type K8sObject, type KubernetesToolkit } from "./k8s-port";
+import { OWNERSHIP, isRecord, renderToolkitGraph, type K8sObject, type KubernetesToolkit, type ToolkitRenderBase } from "./k8s-port";
 import { NOT_OFFERED, UNSUPPORTED } from "./platform";
 import { dnsLabelOf } from "./tenancy";
 import { ZenithError } from "./types";
 
-export interface ExportInput {
+export interface ExportInput extends Pick<ToolkitRenderBase, "workloadIdentity" | "resolveAttribute"> {
   environmentId: string;
   /** names the bundle in its README; free text, never parsed */
   title: string;
@@ -251,17 +251,16 @@ export function exportKubernetesBundle(input: ExportInput): ExportBundle {
   const { render, excluded } = partition(input.nodes);
 
   const views = render.map((n) => ({ ...n, spec: { ...(isRecord(n.spec) ? n.spec : {}), namespace } }));
-  const rendered =
-    views.length === 0
-      ? { objects: [] as K8sObject[], notes: [] as string[] }
-      : input.toolkit.renderGraph(views, {
-          environmentId: input.environmentId,
-          namespace,
-          ingressControllerNamespace: "ingress-nginx",
-          clusterIssuers: { dns01: issuer, http01: issuer },
-          automountServiceAccountToken: false,
-          resolveImage: (_node, artifact) => (artifact.type === "built" ? input.builtImages?.[artifact.pipeline] : undefined),
-        });
+  const rendered = renderToolkitGraph(input.toolkit, input.nodes, views, {
+    environmentId: input.environmentId,
+    namespace,
+    ingressControllerNamespace: "ingress-nginx",
+    clusterIssuers: { dns01: issuer, http01: issuer },
+    automountServiceAccountToken: false,
+    workloadIdentity: input.workloadIdentity,
+    resolveAttribute: input.resolveAttribute,
+    resolveImage: (_node, artifact) => (artifact.type === "built" ? input.builtImages?.[artifact.pipeline] : undefined),
+  });
 
   const secrets = secretsOf(rendered.objects, input.environmentId, input.nodes.filter((n) => n.kind === "postgres").map((n) => n.address));
   const exportable = rendered.objects.filter((o) => o.kind !== "Secret").map(portable);

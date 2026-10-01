@@ -29,7 +29,7 @@
  * leaves the baseline in place (it is idempotent and safe to keep).
  */
 import type { ResourceNode } from "@/lib/resources/types";
-import type { KubernetesToolkit, ToolkitApplyReport } from "./k8s-port";
+import type { KubernetesToolkit, ToolkitApplyReport, ToolkitRenderBase } from "./k8s-port";
 import { ensureManagedDatabases, type EnsureDatabaseOutcome } from "./database-lifecycle";
 import { renderZenithEnvironment, type ZenithRenderResult } from "./render";
 import { assertSessionMatches, type ZenithSession } from "./session";
@@ -37,7 +37,7 @@ import type { HostMapping } from "./routing";
 import { ensureZenithTls, type ZenithTlsReport } from "./tls-lifecycle";
 import type { TlsObjectClient } from "./tls-client";
 
-export interface ZenithApplyInput {
+export interface ZenithApplyInput extends Pick<ToolkitRenderBase, "workloadIdentity" | "resolveAttribute"> {
   session: ZenithSession;
   /** the workspace and environment of the OPERATION; the session must belong to exactly these */
   expect: { workspaceId: string; environmentId: string };
@@ -82,6 +82,8 @@ export async function applyZenithEnvironment(input: ZenithApplyInput): Promise<Z
     nodes: input.nodes,
     toolkit,
     builtImages: input.builtImages,
+    workloadIdentity: input.workloadIdentity,
+    resolveAttribute: input.resolveAttribute,
   });
 
   const base = { dryRun, namespace: rendered.namespace, hostnames: rendered.hostnames, notes: rendered.notes };

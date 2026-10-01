@@ -252,6 +252,7 @@ export class FakeToolkit implements KubernetesToolkit {
       volumes: [{ name: "tmp", emptyDir: {} }, ...(h.hostPath ? [{ name: "host", hostPath: { path: "/" } }] : [])],
     });
     for (const node of [...nodes].sort((a, b) => (a.address < b.address ? -1 : 1))) {
+      if (node.ownership !== "managed" || (node.provider !== "zenith" && node.provider !== "kubernetes")) continue;
       const name = dnsName(leaf(node.address));
       const spec = node.spec as Record<string, unknown>;
       switch (node.kind) {

@@ -70,3 +70,13 @@ export function deletionGuard(spec: { deletionPolicy?: string } | undefined): { 
   const allow = spec?.deletionPolicy === "allow";
   return { protect: !allow, policy: allow ? "DELETE" : "PREVENT" };
 }
+
+/**
+ * `expectedAttributes` for managed nodes only. `referenced`/`external` nodes
+ * hold just the attributes declared about them (their spec is not the managed
+ * shape, and may be empty), and Zenith has no desired configuration to
+ * enforce on a resource it does not own, so nothing is compared.
+ */
+export function managedOnly(fn: (node: ResourceNode) => Record<string, unknown>): (node: ResourceNode) => Record<string, unknown> {
+  return (node) => (node.ownership === "managed" ? fn(node) : {});
+}

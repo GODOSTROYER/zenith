@@ -755,3 +755,15 @@ describe("referenced nodes compile to data sources only", () => {
     expect(() => assembleWorkspace({ graph: graphOf(nodes), fragments: frags, providerSet: "gcp", region: REGION, backend: { kind: "local" }, tags: TAGS })).not.toThrow();
   });
 });
+
+describe("foreign nodes", () => {
+  it("never demand configuration of a referenced or external node, even when its spec is empty", () => {
+    for (const ownership of ["referenced", "external"] as const) {
+      for (const d of gcpDrivers) {
+        const n = mk("x/foreign", "network", {}, [], { ownership, nativeType: d.nativeType, kind: d.kind as ResourceNode["kind"], externalRef: "projects/p/x/legacy" });
+        expect(() => d.expectedAttributes!(n), `${d.nativeType} ${ownership}`).not.toThrow();
+        expect(d.expectedAttributes!(n), `${d.nativeType} ${ownership}`).toEqual({});
+      }
+    }
+  });
+});

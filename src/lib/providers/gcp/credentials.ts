@@ -37,6 +37,7 @@ import { inspect } from "node:util";
 import type { CredentialPurpose, GcpConnectionConfig, GcpSession } from "@/lib/credentials/types";
 import { GcpAuthError, GcpSessionError, scrub } from "./errors";
 import type { GcpSessionHandle } from "./types";
+import { PROJECT_ID_RE, REGION_RE, SA_EMAIL_RE } from "./validate";
 
 export const STS_URL = "https://sts.googleapis.com/v1/token";
 export const IAM_CREDENTIALS_ORIGIN = "https://iamcredentials.googleapis.com";
@@ -44,10 +45,7 @@ export const CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platf
 /** Hard cap on impersonated token lifetime (seconds). */
 export const MAX_SESSION_LIFETIME_SEC = 900;
 
-const PROJECT_ID = /^[a-z][a-z0-9-]{4,28}[a-z0-9]$/;
-const REGION = /^[a-z]{2,}-[a-z]+[0-9]{1,2}$/;
 const PROVIDER_PATH = /^projects\/\d{1,20}\/locations\/global\/workloadIdentityPools\/[a-z0-9-]{4,32}\/providers\/[a-z0-9-]{4,32}$/;
-const SA_EMAIL = /^[a-z][a-z0-9-]{4,28}[a-z0-9]@[a-z][a-z0-9.-]{4,60}\.iam\.gserviceaccount\.com$/;
 const GOOGLEAPIS_HOST = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+googleapis\.com$/;
 const MAX_TOKEN_CHARS = 8192;
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
@@ -97,11 +95,11 @@ export function assertGoogleApisUrl(url: string): URL {
 function validateConnection(c: GcpConnectionConfig, purpose: CredentialPurpose, lifetimeSec: number): string {
   if (c.provider !== "gcp") throw new GcpAuthError("invalid_connection", "Connection is not a GCP connection.");
   if (c.mode !== "oidc_web_identity") throw new GcpAuthError("unsupported_mode", `GCP connection mode "${String(c.mode)}" is not brokered in-process; runner connections use the runner's own identity.`);
-  if (!PROJECT_ID.test(c.projectId)) throw new GcpAuthError("invalid_connection", "Connection projectId is not a valid GCP project id.");
-  if (!REGION.test(c.region)) throw new GcpAuthError("invalid_connection", "Connection region is not a valid GCP region.");
+  if (!PROJECT_ID_RE.test(c.projectId)) throw new GcpAuthError("invalid_connection", "Connection projectId is not a valid GCP project id.");
+  if (!REGION_RE.test(c.region)) throw new GcpAuthError("invalid_connection", "Connection region is not a valid GCP region.");
   if (!PROVIDER_PATH.test(c.workloadIdentityProvider)) throw new GcpAuthError("invalid_connection", "workloadIdentityProvider must be projects/<number>/locations/global/workloadIdentityPools/<pool>/providers/<provider>.");
   const sa = purpose === "deploy" ? c.deployServiceAccount : c.observeServiceAccount;
-  if (!SA_EMAIL.test(sa)) throw new GcpAuthError("invalid_connection", `The ${purpose} service account is not a service account email.`);
+  if (!SA_EMAIL_RE.test(sa)) throw new GcpAuthError("invalid_connection", `The ${purpose} service account is not a service account email.`);
   if (!Number.isInteger(lifetimeSec) || lifetimeSec < 60 || lifetimeSec > MAX_SESSION_LIFETIME_SEC) {
     throw new GcpAuthError("invalid_connection", `Session lifetime must be 60–${MAX_SESSION_LIFETIME_SEC} seconds.`);
   }

@@ -31,16 +31,19 @@ import type { ResourceNode } from "@/lib/resources/types";
 import { GcpCompileError } from "../../errors";
 import { mapGrant, assertPredefinedRole } from "../../iam-roles";
 import { cloudName, fnv6, tagDescription, tfLabel, tfSub, SUBSCRIPTION_SUFFIX } from "../../naming";
-import { contractCapabilities, specOf } from "../../driver-util";
+import { contractCapabilities, managedOnly, specOf } from "../../driver-util";
 import { dataFragment, expr, lastSegment, lit, ref } from "../../hcl";
 import { makeReaders, str, tail, type ReadSpec } from "../../read-kit";
 
 export const DRIVER_ID = "gcp.service_account@1";
 const IAM = "https://iam.googleapis.com/v1";
 
-function expectedAttributes(_node: ResourceNode): Record<string, unknown> {
+function desiredAttributes(_node: ResourceNode): Record<string, unknown> {
   return { disabled: false };
 }
+
+/** Foreign (`referenced`/`external`) nodes carry only declared attributes; Zenith demands no configuration of them. */
+const expectedAttributes = managedOnly(desiredAttributes);
 
 function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
   const L = tfLabel(node.address);

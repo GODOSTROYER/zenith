@@ -7,6 +7,14 @@
  * block the drivers emit exists in the provider schema with a valid shape,
  * which is the ground truth for "compiles" (evidence stays `contract`).
  *
+ * The plan test goes one step further and runs a real `tofu plan` with a
+ * FAKE access token and every outbound HTTP(S) request pointed at a dead local
+ * port: a plan that only creates resources needs no Google API call, so a
+ * successful plan proves the provider accepts every value (enums, nested
+ * blocks, `ignore_changes` paths, IAM conditions) at plan time and lets the
+ * normalized plan be joined back to nodes. It is still `contract` evidence:
+ * nothing is applied and nothing is read from a cloud.
+ *
  *   ZENITH_TEST_TOFU_NETWORK=1 npx vitest run tests/providers/gcp/tofu-validate.test.ts
  */
 import { spawnSync } from "node:child_process";
@@ -19,6 +27,7 @@ import { TofuRunner } from "@/lib/tofu/runner";
 import type { TofuWorkspace } from "@/lib/tofu/types";
 import { assembleWorkspace } from "@/lib/tofu/workspace";
 import { PROJECT, REGION, TAGS, compileContext, environmentNodes, graphOf, mk } from "./_fixtures";
+import type { ResourceNode } from "@/lib/resources/types";
 
 function tofuOnPath(): boolean {
   try {
@@ -119,5 +128,40 @@ describe.skipIf(!enabled)("tofu validate against hashicorp/google 8.5.0 (network
       expect(r.diagnostics.some((d) => /no_such_attribute|not expected|unsupported argument/i.test(`${d.summary} ${d.detail ?? ""}`))).toBe(true);
     },
     600_000
+  );
+
+  it(
+    "plans the whole environment offline with a fake token: every claimed resource is created, joined to its node, and no attribute is sensitive",
+    async () => {
+      // the queue reads a data source (`google_project`), which needs an API call; everything else does not
+      const nodes: ResourceNode[] = environmentNodes()
+        .filter((n) => n.address !== "resource/jobs")
+        .map((n) => (n.address === "identity/web" ? { ...n, spec: { ...n.spec, grants: (n.spec.grants as { target: string }[]).filter((g) => g.target !== "resource/jobs") } } : n));
+      const ws = workspace(nodes);
+      await validate(ws); // populate the plugin cache while the network is reachable
+      const dead = "http://127.0.0.1:9";
+      const runner = new TofuRunner({ limits: { timeoutMs: 600_000 }, extraEnv: { HTTPS_PROXY: dead, HTTP_PROXY: dead, https_proxy: dead, http_proxy: dead } });
+      const session = { childProcessEnv: () => ({ GOOGLE_OAUTH_ACCESS_TOKEN: "ya29.fake-token-for-an-offline-plan-only", GOOGLE_PROJECT: PROJECT, GOOGLE_REGION: REGION }) };
+      const plan = await runner.run(ws, { session }, async (run) => {
+        await run.init();
+        const p = await run.plan();
+        expect(p.diagnostics.filter((d) => d.severity === "error")).toEqual([]);
+        return run.normalizedPlan();
+      });
+
+      const claimed = Object.entries(ws.addressMap).flatMap(([node, addrs]) => addrs.filter((a) => !a.startsWith("data.")).map((a) => [a, node] as const));
+      expect(claimed.length).toBeGreaterThan(40);
+      expect(plan.resourceChanges.map((r) => r.address).sort()).toEqual(claimed.map(([a]) => a).sort());
+      for (const rc of plan.resourceChanges) {
+        expect(rc.action, rc.address).toBe("create");
+        expect(rc.destroysData, rc.address).toBe(false);
+        expect(rc.nodeAddress, rc.address).toBe(claimed.find(([a]) => a === rc.address)![1]);
+        expect(rc.changes.filter((c) => c.sensitive), rc.address).toEqual([]);
+        expect(rc.providerName).toBe("registry.opentofu.org/hashicorp/google");
+      }
+      expect(plan.summary).toMatchObject({ create: claimed.length, update: 0, delete: 0, replace: 0 });
+      expect(JSON.stringify(plan)).not.toContain("ya29.");
+    },
+    900_000
   );
 });

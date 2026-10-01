@@ -25,7 +25,7 @@ import type { CompileContext, ResourceDriver, TofuFragment } from "@/lib/drivers
 import type { GcpSession } from "@/lib/credentials/types";
 import type { LogGroupSpec } from "@/lib/resources/specs";
 import type { ResourceNode } from "@/lib/resources/types";
-import { contractCapabilities, nameResolver, specOf } from "../../driver-util";
+import { contractCapabilities, managedOnly, nameResolver, specOf } from "../../driver-util";
 import { makeReaders, num, str, tail, type ReadSpec } from "../../read-kit";
 import type { GcpDriverContext } from "../../types";
 
@@ -34,9 +34,12 @@ const LOGGING = "https://logging.googleapis.com/v2";
 
 const defaultBucket = (ctx: GcpDriverContext): string => `projects/${ctx.session.projectId}/locations/global/buckets/_Default`;
 
-function expectedAttributes(_node: ResourceNode): Record<string, unknown> {
+function desiredAttributes(_node: ResourceNode): Record<string, unknown> {
   return {};
 }
+
+/** Foreign (`referenced`/`external`) nodes carry only declared attributes; Zenith demands no configuration of them. */
+const expectedAttributes = managedOnly(desiredAttributes);
 
 function compile(_node: ResourceNode, _ctx: CompileContext): TofuFragment {
   return { addresses: [] };

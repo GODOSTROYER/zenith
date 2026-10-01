@@ -28,7 +28,7 @@ import type { ScheduledJobSpec } from "@/lib/resources/specs";
 import type { Observation, ObservedValue, ResourceNode } from "@/lib/resources/types";
 import { GcpCompileError } from "../../errors";
 import { cloudName, labelsMatch, nodeLabels, parseTagDescription, tagDescription, tfLabel, tfSub } from "../../naming";
-import { RUN, cloudRunJobName, contractCapabilities, specOf } from "../../driver-util";
+import { RUN, cloudRunJobName, contractCapabilities, managedOnly, specOf } from "../../driver-util";
 import { dataFragment, expr, lastSegment, safeRegion } from "../../hcl";
 import { arr, makeReaders, num, rec, str, tail, type ReadSpec } from "../../read-kit";
 import { gcpList } from "../../rest";
@@ -51,7 +51,7 @@ function sizing(s: ScheduledJobSpec) {
   return { cpu, memoryMb: runMemoryMb(s.memoryMb, cpu) };
 }
 
-function expectedAttributes(node: ResourceNode): Record<string, unknown> {
+function desiredAttributes(node: ResourceNode): Record<string, unknown> {
   const s = specOf<ScheduledJobSpec>(node);
   const { cpu, memoryMb } = sizing(s);
   const a = s.artifact as { type?: string; ref?: string };
@@ -63,6 +63,9 @@ function expectedAttributes(node: ResourceNode): Record<string, unknown> {
     ...(s.schedule ? { schedule: String(s.schedule).trim().split(/\s+/).join(" ") } : {}),
   };
 }
+
+/** Foreign (`referenced`/`external`) nodes carry only declared attributes; Zenith demands no configuration of them. */
+const expectedAttributes = managedOnly(desiredAttributes);
 
 function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
   const L = tfLabel(node.address);

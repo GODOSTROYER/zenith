@@ -34,7 +34,7 @@ import type { GcpSession } from "@/lib/credentials/types";
 import type { NetworkSpec } from "@/lib/resources/specs";
 import type { ResourceNode } from "@/lib/resources/types";
 import { cloudName, parseTagDescription, tagDescription, tfLabel, tfSub } from "../../naming";
-import { COMPUTE, computeGlobal, contractCapabilities, specOf } from "../../driver-util";
+import { COMPUTE, computeGlobal, contractCapabilities, managedOnly, specOf } from "../../driver-util";
 import { dataFragment, expr, lastSegment, safeRegion } from "../../hcl";
 import { makeReaders, rec, str, tail, computePath, type ReadSpec } from "../../read-kit";
 
@@ -43,9 +43,12 @@ export const DRIVER_ID = "gcp.vpc_network@1";
 /** tofu address of this network's Private Service Access connection (for `depends_on`). */
 export const psaConnectionAddress = (networkAddress: string): string => `google_service_networking_connection.${tfSub(networkAddress, "psa")}`;
 
-function expectedAttributes(_node: ResourceNode): Record<string, unknown> {
+function desiredAttributes(_node: ResourceNode): Record<string, unknown> {
   return { autoCreateSubnetworks: false, routingMode: "REGIONAL" };
 }
+
+/** Foreign (`referenced`/`external`) nodes carry only declared attributes; Zenith demands no configuration of them. */
+const expectedAttributes = managedOnly(desiredAttributes);
 
 function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
   const L = tfLabel(node.address);

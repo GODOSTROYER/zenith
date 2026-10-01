@@ -36,16 +36,19 @@ import type { BuildPipelineSpec } from "@/lib/resources/specs";
 import type { ResourceNode } from "@/lib/resources/types";
 import { GcpCompileError } from "../../errors";
 import { cloudName, nodeLabels, tagDescription, tfLabel, tfSub } from "../../naming";
-import { contractCapabilities, specOf } from "../../driver-util";
+import { contractCapabilities, managedOnly, specOf } from "../../driver-util";
 import { dataFragment, expr, lastSegment, lit, ref, safeRegion } from "../../hcl";
 import { makeReaders, type ReadSpec } from "../../read-kit";
 import { bucketReadSpec } from "../data/storage-bucket";
 
 export const DRIVER_ID = "gcp.cloud_build_trigger@1";
 
-function expectedAttributes(node: ResourceNode): Record<string, unknown> {
+function desiredAttributes(node: ResourceNode): Record<string, unknown> {
   return { uniformBucketLevelAccess: true, publicAccessPrevention: "enforced", location: node.region.toUpperCase() };
 }
+
+/** Foreign (`referenced`/`external`) nodes carry only declared attributes; Zenith demands no configuration of them. */
+const expectedAttributes = managedOnly(desiredAttributes);
 
 function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
   const L = tfLabel(node.address);

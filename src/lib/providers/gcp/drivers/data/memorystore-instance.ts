@@ -35,7 +35,7 @@ import type { RedisSpec } from "@/lib/resources/specs";
 import type { ResourceNode } from "@/lib/resources/types";
 import { GcpCompileError } from "../../errors";
 import { cloudName, nodeLabels, tfLabel } from "../../naming";
-import { contractCapabilities, deletionGuard, nameResolver, specOf } from "../../driver-util";
+import { contractCapabilities, deletionGuard, managedOnly, nameResolver, specOf } from "../../driver-util";
 import { dataFragment, depsOfKind, expr, lastSegment, lit, ref, safeRegion } from "../../hcl";
 import { makeReaders, num, rec, str, tail, type ReadSpec } from "../../read-kit";
 import { psaConnectionAddress } from "../network/vpc-network";
@@ -54,7 +54,7 @@ export function redisMemoryGb(s: Pick<RedisSpec, "size" | "instanceClass">, wher
   return MEMORY_GB[s.size] ?? MEMORY_GB.small;
 }
 
-function expectedAttributes(node: ResourceNode): Record<string, unknown> {
+function desiredAttributes(node: ResourceNode): Record<string, unknown> {
   const s = specOf<RedisSpec>(node);
   return {
     tier: s.highAvailability ? "STANDARD_HA" : "BASIC",
@@ -66,6 +66,9 @@ function expectedAttributes(node: ResourceNode): Record<string, unknown> {
     persistenceMode: s.backup === "none" ? "DISABLED" : "RDB",
   };
 }
+
+/** Foreign (`referenced`/`external`) nodes carry only declared attributes; Zenith demands no configuration of them. */
+const expectedAttributes = managedOnly(desiredAttributes);
 
 function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
   const L = tfLabel(node.address);

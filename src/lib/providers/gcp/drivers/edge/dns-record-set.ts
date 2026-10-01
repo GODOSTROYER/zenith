@@ -23,7 +23,7 @@ import type { DnsRecordSpec } from "@/lib/resources/specs";
 import type { Observation, ObservedValue, ResourceNode } from "@/lib/resources/types";
 import { GcpCompileError } from "../../errors";
 import { tfLabel } from "../../naming";
-import { contractCapabilities, specOf } from "../../driver-util";
+import { contractCapabilities, managedOnly, specOf } from "../../driver-util";
 import { dataFragment, lastSegment, lit, ref } from "../../hcl";
 import { gcpGet, gcpList } from "../../rest";
 import { arr, makeReaders, num, str, type ReadSpec } from "../../read-kit";
@@ -34,9 +34,12 @@ export const DRIVER_ID = "gcp.dns_record_set@1";
 const TTL = 300;
 const ATTRS = ["type", "ttl"] as const;
 
-function expectedAttributes(_node: ResourceNode): Record<string, unknown> {
+function desiredAttributes(_node: ResourceNode): Record<string, unknown> {
   return { type: "A", ttl: TTL };
 }
+
+/** Foreign (`referenced`/`external`) nodes carry only declared attributes; Zenith demands no configuration of them. */
+const expectedAttributes = managedOnly(desiredAttributes);
 
 function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
   const L = tfLabel(node.address);

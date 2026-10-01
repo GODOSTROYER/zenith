@@ -17,17 +17,20 @@ import type { GcpSession } from "@/lib/credentials/types";
 import type { ContainerRegistrySpec } from "@/lib/resources/specs";
 import type { ResourceNode } from "@/lib/resources/types";
 import { cloudName, nodeLabels, tfLabel } from "../../naming";
-import { contractCapabilities, nameResolver, specOf } from "../../driver-util";
+import { contractCapabilities, managedOnly, nameResolver, specOf } from "../../driver-util";
 import { dataFragment, lastSegment, safeRegion } from "../../hcl";
 import { makeReaders, rec, str, tail, type ReadSpec } from "../../read-kit";
 
 export const DRIVER_ID = "gcp.artifact_registry_repository@1";
 const AR = "https://artifactregistry.googleapis.com/v1";
 
-function expectedAttributes(node: ResourceNode): Record<string, unknown> {
+function desiredAttributes(node: ResourceNode): Record<string, unknown> {
   const s = specOf<ContainerRegistrySpec>(node);
   return { format: "DOCKER", immutableTags: Boolean(s?.immutableTags), vulnerabilityScanning: "INHERITED" };
 }
+
+/** Foreign (`referenced`/`external`) nodes carry only declared attributes; Zenith demands no configuration of them. */
+const expectedAttributes = managedOnly(desiredAttributes);
 
 function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
   const L = tfLabel(node.address);

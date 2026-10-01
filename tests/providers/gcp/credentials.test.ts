@@ -1,6 +1,6 @@
 import { inspect } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
-import { assertGoogleApisUrl, createGcpSession, stsAudience, subjectAudience } from "@/lib/providers/gcp/credentials";
+import { assertGoogleApisUrl, stsAudience, subjectAudience } from "@/lib/providers/gcp/credentials";
 import { GcpAuthError, GcpSessionError, scrub } from "@/lib/providers/gcp/errors";
 import { ACCESS_TOKEN, CONNECTION, FakeGoogle, STS_TOKEN, SUBJECT_TOKEN, fakeGoogle } from "./_fake-google";
 
@@ -136,14 +136,14 @@ describe("failures", () => {
       })
       .catch((e: unknown) => e as Error);
     expect(err).toMatchObject({ code: "impersonation_unavailable" });
-    expect(leaks(err.message)).toEqual([]);
+    expect(leaks((err as Error).message)).toEqual([]);
   });
 
   it("does not propagate token text from a failing mintSubjectToken", async () => {
     const f = await fake();
     const err = await f.session({ mintSubjectToken: async () => Promise.reject(new Error(`signer failed for ${SUBJECT_TOKEN}`)) }).catch((e: unknown) => e as GcpAuthError);
     expect(err).toMatchObject({ code: "subject_token_unavailable" });
-    expect(leaks(err.message)).toEqual([]);
+    expect(leaks((err as Error).message)).toEqual([]);
     expect(f.requests).toHaveLength(0); // nothing was sent
   });
 

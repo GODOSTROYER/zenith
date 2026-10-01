@@ -22,7 +22,7 @@ import type { TlsCertificateSpec } from "@/lib/resources/specs";
 import type { ResourceNode } from "@/lib/resources/types";
 import { GcpCompileError } from "../../errors";
 import { cloudName, fnv6, parseTagDescription, tagDescription, tfLabel } from "../../naming";
-import { COMPUTE, computeGlobal, contractCapabilities, specOf } from "../../driver-util";
+import { COMPUTE, computeGlobal, contractCapabilities, managedOnly, specOf } from "../../driver-util";
 import { dataFragment, lastSegment, lit } from "../../hcl";
 import { arr, computePath, makeReaders, rec, str, tail, type ReadSpec } from "../../read-kit";
 
@@ -36,9 +36,12 @@ export function normalizeDomain(d: string, where: string): string {
   return v;
 }
 
-function expectedAttributes(node: ResourceNode): Record<string, unknown> {
+function desiredAttributes(node: ResourceNode): Record<string, unknown> {
   return { domains: [normalizeDomain(specOf<TlsCertificateSpec>(node).domain, node.address)], type: "MANAGED" };
 }
+
+/** Foreign (`referenced`/`external`) nodes carry only declared attributes; Zenith demands no configuration of them. */
+const expectedAttributes = managedOnly(desiredAttributes);
 
 function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
   const L = tfLabel(node.address);

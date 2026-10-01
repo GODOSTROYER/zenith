@@ -37,7 +37,7 @@ import type { LoadBalancerRoute, LoadBalancerSpec } from "@/lib/resources/specs"
 import type { Observation, ObservedValue, ResourceNode, RuntimeState } from "@/lib/resources/types";
 import { GcpCompileError } from "../../errors";
 import { cloudName, fnv6, gcpLabels, nodeTags, nodeLabels, parseTagDescription, tagDescription, tfLabel, tfSub } from "../../naming";
-import { COMPUTE, computeGlobal, contractCapabilities, specOf } from "../../driver-util";
+import { COMPUTE, computeGlobal, contractCapabilities, managedOnly, specOf } from "../../driver-util";
 import { dataFragment, depsOfKind, expr, lastSegment, lit, ref, safeRegion } from "../../hcl";
 import { gcpGet } from "../../rest";
 import { arr, computePath, makeReaders, num, rec, str, tail, type ReadSpec } from "../../read-kit";
@@ -85,10 +85,13 @@ function plan(node: ResourceNode): Plan {
   return { listeners, routes, primary: { port: listeners[0].port, protocol: listeners[0].protocol } };
 }
 
-function expectedAttributes(node: ResourceNode): Record<string, unknown> {
+function desiredAttributes(node: ResourceNode): Record<string, unknown> {
   const p = plan(node);
   return { loadBalancingScheme: "EXTERNAL_MANAGED", portRange: String(p.primary.port), hosts: [...new Set(p.routes.map((r) => r.host))].sort() };
 }
+
+/** Foreign (`referenced`/`external`) nodes carry only declared attributes; Zenith demands no configuration of them. */
+const expectedAttributes = managedOnly(desiredAttributes);
 
 const slugOf = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24);
 

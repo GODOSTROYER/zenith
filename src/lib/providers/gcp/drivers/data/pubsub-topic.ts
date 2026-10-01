@@ -21,7 +21,7 @@ import type { CompileContext, ResourceDriver, TofuFragment } from "@/lib/drivers
 import type { GcpSession } from "@/lib/credentials/types";
 import type { ResourceNode } from "@/lib/resources/types";
 import { cloudName, nodeLabels, tfLabel, tfSub, SUBSCRIPTION_SUFFIX } from "../../naming";
-import { contractCapabilities, deletionGuard, nameResolver, specOf } from "../../driver-util";
+import { contractCapabilities, deletionGuard, managedOnly, nameResolver, specOf } from "../../driver-util";
 import { dataFragment, expr, lastSegment, safeRegion } from "../../hcl";
 import { makeReaders, rec, str, tail, type ReadSpec } from "../../read-kit";
 
@@ -29,9 +29,12 @@ export const DRIVER_ID = "gcp.pubsub_topic@1";
 const PUBSUB = "https://pubsub.googleapis.com/v1";
 const RETENTION = "604800s";
 
-function expectedAttributes(_node: ResourceNode): Record<string, unknown> {
+function desiredAttributes(_node: ResourceNode): Record<string, unknown> {
   return { encryption: "google-managed" };
 }
+
+/** Foreign (`referenced`/`external`) nodes carry only declared attributes; Zenith demands no configuration of them. */
+const expectedAttributes = managedOnly(desiredAttributes);
 
 function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
   const L = tfLabel(node.address);

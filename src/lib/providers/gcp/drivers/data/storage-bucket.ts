@@ -23,7 +23,7 @@ import type { GcpSession } from "@/lib/credentials/types";
 import type { ObjectStoreSpec } from "@/lib/resources/specs";
 import type { ResourceNode } from "@/lib/resources/types";
 import { cloudName, nodeLabels, tfLabel } from "../../naming";
-import { contractCapabilities, deletionGuard, specOf } from "../../driver-util";
+import { contractCapabilities, deletionGuard, managedOnly, specOf } from "../../driver-util";
 import { dataFragment, expr, lastSegment, safeRegion } from "../../hcl";
 import { makeReaders, num, rec, str, type ReadSpec } from "../../read-kit";
 
@@ -31,7 +31,7 @@ export const DRIVER_ID = "gcp.storage_bucket@1";
 const STORAGE = "https://storage.googleapis.com/storage/v1";
 const SOFT_DELETE_SEC = 604800;
 
-function expectedAttributes(node: ResourceNode): Record<string, unknown> {
+function desiredAttributes(node: ResourceNode): Record<string, unknown> {
   const s = specOf<ObjectStoreSpec>(node);
   return {
     uniformBucketLevelAccess: true,
@@ -41,6 +41,9 @@ function expectedAttributes(node: ResourceNode): Record<string, unknown> {
     softDeleteSeconds: SOFT_DELETE_SEC,
   };
 }
+
+/** Foreign (`referenced`/`external`) nodes carry only declared attributes; Zenith demands no configuration of them. */
+const expectedAttributes = managedOnly(desiredAttributes);
 
 function bucketName(ctx: CompileContext, node: ResourceNode): string {
   return cloudName(ctx.namePrefix, node.address, { max: 63, min: 3, unique: ctx.environmentId }).replace(/goog/g, "gog");

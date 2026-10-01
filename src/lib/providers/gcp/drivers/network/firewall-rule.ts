@@ -32,7 +32,7 @@ import type { FirewallSpec } from "@/lib/resources/specs";
 import type { Observation, ResourceNode } from "@/lib/resources/types";
 import { GcpCompileError } from "../../errors";
 import { cloudName, networkTag, parseTagDescription, tagDescription, tfLabel } from "../../naming";
-import { COMPUTE, computeGlobal, contractCapabilities, specOf } from "../../driver-util";
+import { COMPUTE, computeGlobal, contractCapabilities, managedOnly, specOf } from "../../driver-util";
 import { depsOfKind, lit, ref } from "../../hcl";
 import { arr, computePath, makeReaders, rec, str, tail, type ReadSpec } from "../../read-kit";
 
@@ -43,11 +43,14 @@ const CIDR4 = /^(?:\d{1,3}\.){3}\d{1,3}\/(?:\d|[12]\d|3[0-2])$/;
 /** `public_http` is served by the LB/serverless NEG path; VPC firewalls do not apply. */
 export const isVirtualRule = (node: ResourceNode): boolean => specOf<FirewallSpec>(node).capability === "public_http";
 
-function expectedAttributes(node: ResourceNode): Record<string, unknown> {
+function desiredAttributes(node: ResourceNode): Record<string, unknown> {
   if (isVirtualRule(node)) return { enforcedBy: "none" };
   const s = specOf<FirewallSpec>(node);
   return { protocol: s.protocol, port: s.port, disabled: false };
 }
+
+/** Foreign (`referenced`/`external`) nodes carry only declared attributes; Zenith demands no configuration of them. */
+const expectedAttributes = managedOnly(desiredAttributes);
 
 function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
   const s = specOf<FirewallSpec>(node);

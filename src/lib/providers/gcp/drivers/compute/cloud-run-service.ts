@@ -40,7 +40,7 @@ import type { ContainerServiceSpec } from "@/lib/resources/specs";
 import type { ResourceNode } from "@/lib/resources/types";
 import { GcpCompileError } from "../../errors";
 import { cloudName, labelsMatch, nodeLabels, tagDescription, tfLabel, tfSub } from "../../naming";
-import { RUN, cloudRunServiceName, contractCapabilities, specOf } from "../../driver-util";
+import { RUN, cloudRunServiceName, contractCapabilities, managedOnly, specOf } from "../../driver-util";
 import { dataFragment, expr, lastSegment, safeRegion } from "../../hcl";
 import { arr, fetchObject, makeReaders, num, rec, str, tail, type ReadSpec } from "../../read-kit";
 import { gcpCall, waitOperation } from "../../rest";
@@ -80,7 +80,7 @@ function sizing(s: ContainerServiceSpec): { cpu: number; memoryMb: number } {
   return { cpu, memoryMb: runMemoryMb(s.memoryMb, cpu) };
 }
 
-function expectedAttributes(node: ResourceNode): Record<string, unknown> {
+function desiredAttributes(node: ResourceNode): Record<string, unknown> {
   const s = specOf<ContainerServiceSpec>(node);
   const { cpu, memoryMb } = sizing(s);
   const { min, max } = instanceBounds(s.replicas);
@@ -96,6 +96,9 @@ function expectedAttributes(node: ResourceNode): Record<string, unknown> {
     envKeys: (s.env ?? []).map((e) => e.key).sort(),
   };
 }
+
+/** Foreign (`referenced`/`external`) nodes carry only declared attributes; Zenith demands no configuration of them. */
+const expectedAttributes = managedOnly(desiredAttributes);
 
 function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
   const L = tfLabel(node.address);

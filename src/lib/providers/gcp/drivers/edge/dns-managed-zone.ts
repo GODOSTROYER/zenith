@@ -14,7 +14,7 @@ import type { GcpSession } from "@/lib/credentials/types";
 import type { DnsZoneSpec } from "@/lib/resources/specs";
 import type { ResourceNode } from "@/lib/resources/types";
 import { cloudName, nodeLabels, tagDescription, tfLabel } from "../../naming";
-import { contractCapabilities, nameResolver, specOf } from "../../driver-util";
+import { contractCapabilities, managedOnly, nameResolver, specOf } from "../../driver-util";
 import { dataFragment, expr, lastSegment } from "../../hcl";
 import { makeReaders, rec, str, tail, type ReadSpec } from "../../read-kit";
 import { normalizeDomain } from "./managed-ssl-certificate";
@@ -22,9 +22,12 @@ import { normalizeDomain } from "./managed-ssl-certificate";
 export const DRIVER_ID = "gcp.dns_managed_zone@1";
 export const DNS = "https://dns.googleapis.com/dns/v1";
 
-function expectedAttributes(node: ResourceNode): Record<string, unknown> {
+function desiredAttributes(node: ResourceNode): Record<string, unknown> {
   return { dnsName: `${normalizeDomain(specOf<DnsZoneSpec>(node).name, node.address)}.`, visibility: "public" };
 }
+
+/** Foreign (`referenced`/`external`) nodes carry only declared attributes; Zenith demands no configuration of them. */
+const expectedAttributes = managedOnly(desiredAttributes);
 
 function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
   const L = tfLabel(node.address);

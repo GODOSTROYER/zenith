@@ -30,7 +30,7 @@ import type { CompileContext, ResourceDriver, TofuFragment } from "@/lib/drivers
 import type { GcpSession } from "@/lib/credentials/types";
 import type { ResourceNode } from "@/lib/resources/types";
 import { cloudName, labelsMatch, nodeLabels, tfLabel } from "../../naming";
-import { contractCapabilities, deletionGuard, nameResolver, specOf } from "../../driver-util";
+import { contractCapabilities, deletionGuard, managedOnly, nameResolver, specOf } from "../../driver-util";
 import { dataFragment, expr, lastSegment, safeRegion } from "../../hcl";
 import { arr, fetchObject, makeReaders, num, rec, str, tail, type ReadSpec } from "../../read-kit";
 import { gcpCall, gcpGet } from "../../rest";
@@ -42,9 +42,12 @@ const DESTROY_TTL_SEC = 2592000;
 export const SYNC_ANNOTATION = "zenith-sync-operation";
 const MAX_SECRET_BYTES = 65536;
 
-function expectedAttributes(node: ResourceNode): Record<string, unknown> {
+function desiredAttributes(node: ResourceNode): Record<string, unknown> {
   return { replication: `user_managed:${node.region}`, versionDestroyTtlSeconds: DESTROY_TTL_SEC };
 }
+
+/** Foreign (`referenced`/`external`) nodes carry only declared attributes; Zenith demands no configuration of them. */
+const expectedAttributes = managedOnly(desiredAttributes);
 
 function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
   const L = tfLabel(node.address);

@@ -17,7 +17,7 @@ import type { SubnetSpec } from "@/lib/resources/specs";
 import type { ResourceNode } from "@/lib/resources/types";
 import { GcpCompileError } from "../../errors";
 import { cloudName, parseTagDescription, tagDescription, tfLabel } from "../../naming";
-import { COMPUTE, computeRegional, contractCapabilities, specOf } from "../../driver-util";
+import { COMPUTE, computeRegional, contractCapabilities, managedOnly, specOf } from "../../driver-util";
 import { dataFragment, lastSegment, lit, ref, safeRegion } from "../../hcl";
 import { makeReaders, str, tail, computePath, type ReadSpec } from "../../read-kit";
 
@@ -25,10 +25,13 @@ export const DRIVER_ID = "gcp.subnetwork@1";
 
 const CIDR = /^(?:\d{1,3}\.){3}\d{1,3}\/(?:[89]|[12]\d|30)$/;
 
-function expectedAttributes(node: ResourceNode): Record<string, unknown> {
+function desiredAttributes(node: ResourceNode): Record<string, unknown> {
   const s = specOf<SubnetSpec>(node);
   return { ipCidrRange: s.cidr, privateIpGoogleAccess: s.tier === "private" };
 }
+
+/** Foreign (`referenced`/`external`) nodes carry only declared attributes; Zenith demands no configuration of them. */
+const expectedAttributes = managedOnly(desiredAttributes);
 
 function compile(node: ResourceNode, ctx: CompileContext): TofuFragment {
   const L = tfLabel(node.address);

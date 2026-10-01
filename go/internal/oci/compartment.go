@@ -57,6 +57,24 @@ func BindCompartments(r Request, body []byte, allowed []string, bindings map[str
 			return ErrCompartment
 		}
 	}
+	// Monitoring takes its authoritative compartment selector in the URL, not
+	// the JSON body. A body assertion must never authorize an unscoped query.
+	if r.Service == "monitoring" {
+		if !seenCompartment {
+			return ErrCompartment
+		}
+		for _, pair := range r.Query {
+			if strings.EqualFold(pair[0], "compartmentIdInSubtree") && (pair[0] != "compartmentIdInSubtree" || pair[1] != "false") {
+				return ErrCompartment
+			}
+		}
+	}
+	if r.Service == "loggingsearch" {
+		if bindLoggingSearch(r, body, permitted, bindings) != nil {
+			return ErrCompartment
+		}
+		bound = true
+	}
 	// Checking decoded segments prevents percent-encoding an unbound OCID.
 	pathParts, want := strings.Split(r.Path, "/"), strings.Split(template, "/")
 	firstResource := -1

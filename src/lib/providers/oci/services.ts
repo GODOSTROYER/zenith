@@ -32,6 +32,8 @@ export type OciServiceId =
   | "vault"
   | "identity"
   | "logging"
+  | "loggingsearch"
+  | "monitoring"
   | "redis"
   | "containerengine"
   | "mysql";
@@ -58,6 +60,8 @@ export const OCI_SERVICE_HOSTS: Readonly<Record<OciServiceId, OciServiceHost>> =
   vault: { host: "vaults.{region}.oci.oraclecloud.com", version: "20180608" },
   identity: { host: "identity.{region}.oci.oraclecloud.com", version: "20160918" },
   logging: { host: "logging.{region}.oci.oraclecloud.com", version: "20200531" },
+  loggingsearch: { host: "logging.{region}.oci.oraclecloud.com", version: "20190909" },
+  monitoring: { host: "telemetry.{region}.oraclecloud.com", version: "20180401" },
   redis: { host: "redis.{region}.oci.oraclecloud.com", version: "20220315" },
   containerengine: { host: "containerengine.{region}.oraclecloud.com", version: "20180222" },
   mysql: { host: "mysql.{region}.ocp.oraclecloud.com", version: "20190415" },

@@ -50,6 +50,14 @@
     "host": "logging.{region}.oci.oraclecloud.com",
     "version": "20200531"
   },
+  "loggingsearch": {
+    "host": "logging.{region}.oci.oraclecloud.com",
+    "version": "20190909"
+  },
+  "monitoring": {
+    "host": "telemetry.{region}.oraclecloud.com",
+    "version": "20180401"
+  },
   "redis": {
     "host": "redis.{region}.oci.oraclecloud.com",
     "version": "20220315"

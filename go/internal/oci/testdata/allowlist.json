@@ -249,6 +249,16 @@
       "service": "mysql",
       "method": "GET",
       "pattern": "dbSystems/{}"
+    },
+    {
+      "service": "loggingsearch",
+      "method": "POST",
+      "pattern": "search"
+    },
+    {
+      "service": "monitoring",
+      "method": "POST",
+      "pattern": "metrics/actions/summarizeMetricsData"
     }
   ],
   "topology.read": [

@@ -8,7 +8,8 @@
  * the drivers actually call; `tests/providers/oci/allowlist.test.ts` runs every
  * driver read and operation against a recording transport and fails if a call
  * falls outside its capability's rules, and checks the protocol document
- * lists every pattern here.
+ * lists every pattern here. Observe additionally permits two read-only POST
+ * queries from the OCI API reference, tested separately from driver GETs.
  *
  * Pattern syntax: `/`-separated segments after the API version; `{}` matches
  * exactly one non-empty, already-encoded segment. There is deliberately NO
@@ -55,7 +56,12 @@ export const OBSERVE_RULES: readonly OciAllowRule[] = [
 const FIREWALL_INSPECT: readonly OciAllowRule[] = get("core", "networkSecurityGroups", "networkSecurityGroups/{}/securityRules");
 
 export const OCI_ALLOWLIST: Readonly<Record<string, readonly OciAllowRule[]>> = {
-  "infrastructure.observe": OBSERVE_RULES,
+  "infrastructure.observe": [
+    ...OBSERVE_RULES,
+    // Read-only query APIs; POST does not imply a mutation. No broader capability gets these.
+    { service: "loggingsearch", method: "POST", pattern: "search" },
+    { service: "monitoring", method: "POST", pattern: "metrics/actions/summarizeMetricsData" },
+  ],
   "topology.read": OBSERVE_RULES,
   "incident.investigate": OBSERVE_RULES,
   "firewall.inspect": FIREWALL_INSPECT,

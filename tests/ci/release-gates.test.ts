@@ -101,7 +101,7 @@ const CHECKOUT_PREFIX = "actions/checkout@";
 const vitestLane = (paths: string, extra: string, lane: string): string =>
   `npx vitest run ${paths}${extra} --reporter=default --reporter=json --outputFile.json=.data-ci-lane/${lane}-lane.json`;
 const POLICY_VITEST = vitestLane("tests/policy", " --maxWorkers=2", "policy");
-const TOFU_VITEST = vitestLane("tests/tofu tests/providers/aws/drivers tests/providers/gcp tests/providers/azure tests/providers/oci tests/execution/compile-refs-providers.test.ts tests/execution/journey.test.ts tests/security/tofu-secrets.test.ts tests/security/tofu-runner-env.test.ts tests/security/tofu-workspace-injection.test.ts", " --maxWorkers=2 --no-file-parallelism", "tofu");
+const TOFU_VITEST = vitestLane("tests/tofu tests/providers/aws/drivers tests/providers/aws/identity tests/providers/gcp tests/providers/azure tests/providers/oci tests/execution/compile-refs-providers.test.ts tests/execution/journey.test.ts tests/security/tofu-secrets.test.ts tests/security/tofu-runner-env.test.ts tests/security/tofu-workspace-injection.test.ts", " --maxWorkers=2 --no-file-parallelism", "tofu");
 const WORKFLOWS_VITEST = vitestLane("tests/workflows tests/platform tests/security/workflow-history.test.ts", " --maxWorkers=2 --no-file-parallelism", "workflows");
 const PLATFORM_VITEST = vitestLane("tests/controlplane tests/capabilities tests/runners tests/reconcile/platform.test.ts", " --maxWorkers=2 --no-file-parallelism", "platform");
 
@@ -781,6 +781,7 @@ describe("the tofu job", () => {
   it("runs all provider suites and fails when no suites exist, serially", () => {
     const command = cmd(tofu().steps[indexOfCommand(tofu(), TOFU_VITEST)]);
     expect(command).toContain("tests/tofu tests/providers/aws/drivers");
+    expect(command).toContain("tests/providers/aws/identity");
     expect(command).not.toContain("--passWithNoTests");
     for (const provider of ["gcp", "azure", "oci"]) expect(command).toContain(`tests/providers/${provider}`);
     // One plugin cache shared by every test; a first install is not something to race on.

@@ -70,6 +70,16 @@ describe.each(["tofu", "workflows", "platform-postgres"])("%s real-engine report
 });
 
 describe("evidence boundaries", () => {
+  it.each(requirementsFor("tofu", root))("rejects skipped $file: $suite even when the other required suites and unit tests pass", (required) => {
+    const requirements = requirementsFor("tofu", root);
+    const report = evidence(requirements);
+    const file = report.testResults.find((entry) => entry.name === path.resolve(root, required.file))!;
+    const assertion = file.assertionResults.find((entry) => entry.ancestorTitles?.includes(required.suite!))!;
+    assertion.status = "skipped";
+    file.assertionResults.push({ fullName: "unrelated unit test", ancestorTitles: [required.file, "unit contracts"], status: "passed" });
+    expect(reportFailures(requirements, report, root)).toEqual([`${required.file}: ${required.suite}: required scenarios did not all pass`]);
+  });
+
   it.each([undefined, null, {}, { testResults: [] }, { success: false, testResults: [] }])("rejects malformed or unsuccessful reports: %j", (report) => {
     expect(reportFailures([{ file: "tests/platform/deploy-e2e.test.ts" }], report, root).length).toBeGreaterThan(0);
   });

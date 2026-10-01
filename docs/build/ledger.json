@@ -1374,24 +1374,48 @@
       "title": "AWS CodeBuild consumes the C3 source bundles",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "staged",
       "deps": [],
       "paths": [],
       "branch": "ws/build-aws-source",
-      "tests": "running",
-      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
+      "tests": "source-bundle/codebuild/credentials 736 passed (job); staging re-run green",
+      "review": "orchestrator: resumed after a model-capacity error; IAM boundary gap handed to WS-AWS-BUILD-BOUNDARY"
     },
     {
       "id": "WS-OCI-SIGNALS-WIRE",
       "title": "make OCI log/metric reads work end to end through the runner",
       "wave": 7,
       "owner": "codex gpt-6.1-sol xhigh",
-      "state": "in_progress",
+      "state": "staged",
       "deps": [],
       "paths": [],
       "branch": "ws/oci-signals-wire",
+      "tests": "OCI/runner/observability/docs 1473 passed; go vet/test all packages passed (outside sandbox)",
+      "review": "orchestrator: gofmt; golden allowlist sizes for logs.read/metrics.read; reviewed the Monitoring and LQL guards"
+    },
+    {
+      "id": "WS-AWS-BUILD-BOUNDARY",
+      "title": "Workload permissions boundary lets build roles (only) push images and publish sites",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/aws-build-boundary",
       "tests": "running",
-      "review": "orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks"
+      "review": ""
+    },
+    {
+      "id": "WS-DOCS-SYNC-2",
+      "title": "Operator docs tell the truth about wave 7",
+      "wave": 7,
+      "owner": "codex gpt-6.1-sol xhigh",
+      "state": "in_progress",
+      "deps": [],
+      "paths": [],
+      "branch": "ws/docs-sync-2",
+      "tests": "running",
+      "review": ""
     }
   ],
   "blockers": [

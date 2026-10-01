@@ -100,8 +100,10 @@ States: planned → in_progress → review → integrated (or blocked).
 | WS-POLICY-DELETE | destructive plan facts reach policy; deletions always need a human | 7 | staged |  | ws/policy-delete |  | job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant | orchestrator: rebuilt the OPA bundle (opa 1.19.1, 213/213 Rego tests); dropped an obsolete comment |  |
 | WS-FIX-EPHEMERAL-REAL | make the real-OpenTofu ephemeral test agree with OpenTofu 1.12.5 | 7 | staged |  | ws/fix-ephemeral-real |  | job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant | orchestrator: real OpenTofu 49/49 after allowing the dependency address in raw state |  |
 | WS-FIX-OCI-MYSQL-REAL | OCI MySQL write-only password vs the real oracle/oci 9.7.1 schema | 7 | staged |  | ws/fix-oci-mysql-real |  | job checks in its final report; orchestrator re-ran real tofu / opa / go outside the sandbox where relevant | orchestrator: real OpenTofu 9/9 after initializing the backend for providers schema |  |
-| WS-BUILD-AWS-SOURCE | AWS CodeBuild consumes the C3 source bundles | 7 | in_progress |  | ws/build-aws-source |  | running | orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks |  |
-| WS-OCI-SIGNALS-WIRE | make OCI log/metric reads work end to end through the runner | 7 | in_progress |  | ws/oci-signals-wire |  | running | orchestrator: merged into staging ws/integrate-w6 after outside-sandbox checks |  |
+| WS-BUILD-AWS-SOURCE | AWS CodeBuild consumes the C3 source bundles | 7 | staged |  | ws/build-aws-source |  | source-bundle/codebuild/credentials 736 passed (job); staging re-run green | orchestrator: resumed after a model-capacity error; IAM boundary gap handed to WS-AWS-BUILD-BOUNDARY |  |
+| WS-OCI-SIGNALS-WIRE | make OCI log/metric reads work end to end through the runner | 7 | staged |  | ws/oci-signals-wire |  | OCI/runner/observability/docs 1473 passed; go vet/test all packages passed (outside sandbox) | orchestrator: gofmt; golden allowlist sizes for logs.read/metrics.read; reviewed the Monitoring and LQL guards |  |
+| WS-AWS-BUILD-BOUNDARY | Workload permissions boundary lets build roles (only) push images and publish sites | 7 | in_progress |  | ws/aws-build-boundary |  | running |  |  |
+| WS-DOCS-SYNC-2 | Operator docs tell the truth about wave 7 | 7 | in_progress |  | ws/docs-sync-2 |  | running |  |  |
 
 ## External blockers
 

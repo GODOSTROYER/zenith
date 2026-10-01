@@ -14,6 +14,8 @@ import path from "node:path";
 export default defineConfig({
   test: {
     testTimeout: 20000,
+    // PGlite lifecycle hooks need a bounded setup budget under full-suite load.
+    hookTimeout: 60_000,
     projects: [
       {
         extends: true,

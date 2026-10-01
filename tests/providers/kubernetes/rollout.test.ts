@@ -62,11 +62,26 @@ describe("waitForRollout", () => {
   it("polls until replicas become available", async () => {
     fake.setRolloutMode("manual");
     await deploy();
-    setTimeout(() => fake.setStatus("Deployment", NS, "web", { replicas: 2, updatedReplicas: 1, availableReplicas: 1, readyReplicas: 1 }), 30);
-    setTimeout(() => fake.setStatus("Deployment", NS, "web", { replicas: 2, updatedReplicas: 2, availableReplicas: 2, readyReplicas: 2 }), 80);
+    const available: number[] = [];
+    fake.inject({
+      match: (request) => {
+        if (request.method === "GET" && request.path.endsWith("/deployments/web")) {
+          // Advance only when a poll reads the Deployment, regardless of how
+          // long session setup or discovery takes on a loaded machine.
+          const replicas = Math.min(available.length, 2);
+          fake.setStatus("Deployment", NS, "web", { replicas: 2, updatedReplicas: replicas, availableReplicas: replicas, readyReplicas: replicas });
+          available.push(replicas);
+        }
+        return false;
+      },
+      status: 200, message: "",
+    });
     const r = await waitForRollout(target, await sessionFor(fake, []), { ...fast, timeoutMs: 3000 });
     expect(r.state).toBe("complete");
     expect(r.polls).toBeGreaterThan(2);
+    expect(r.polls).toBe(available.length);
+    expect(available).toEqual([0, 1, 2]);
+    expect(r.snapshot).toMatchObject({ desiredReplicas: 2, replicas: 2, updatedReplicas: 2, availableReplicas: 2, readyReplicas: 2 });
   });
 
   it("times out with the last reason, without throwing", async () => {

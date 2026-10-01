@@ -520,7 +520,7 @@ describe("operator claims match current wiring", () => {
     for (const field of ["`stateBucket`", "`stateKmsKey`", "`stateStorageAccount`", "`stateContainer`", "`stateNamespace`", "`default.tfstate`", "`terraform.tfstate`", "zenith/<workspace>/<environment>/terraform.tfstate"]) expect(deploying).toContain(field);
   });
 
-  it("OCI HTTP is opt-in and constructed, while platform sessions/verification stay refused", () => {
+  it("OCI HTTP is opt-in and constructed; OCI platform sessions stay refused and verification is runner registration only", () => {
     const executor = source("go/internal/runner/executor.go");
     expect(executor).toContain("cfg.Kinds.OCIHTTP; k != nil && k.Enabled");
     expect(executor).toContain("kinds.NewOCI(");
@@ -530,7 +530,8 @@ describe("operator claims match current wiring", () => {
     const credentials = source("src/lib/platform/credentials.ts");
     expect(credentials).toContain('connection.config.provider === "oci"');
     expect(credentials).toContain("oci.http does not yet implement ProviderSession");
-    expect(credentials).toContain("Non-AWS identity verification is not wired");
+    // non-AWS verification is wired; OCI verification is runner registration only
+    expect(credentials).toContain("OCI verification checks runner registration only");
     const runner = source("docs/platform/RUNNER.md");
     expect(runner).toContain("enabled: true");
     expect(runner).toContain("secretWrite: false");

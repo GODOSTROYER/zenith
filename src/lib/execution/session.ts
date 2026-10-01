@@ -20,6 +20,7 @@
  */
 import { capability as lookupCapability } from "@/lib/capabilities/catalog";
 import type { CapabilityGrantClaims } from "@/lib/controlplane/types";
+import type { OperationRecord } from "@/lib/controlplane/types";
 import type { CredentialPurpose, ProviderConnection, ProviderSession } from "@/lib/credentials/types";
 import type { DriverContext } from "@/lib/drivers/types";
 import type { ResourceNode } from "@/lib/resources/types";
@@ -42,12 +43,26 @@ export const GRANT_AUDIENCE = "worker";
  * with the credential broker (credentials/aws/naming.ts): the customer's deploy
  * role and the per-capability session policies key off them.
  */
-export function baseTags(ec: Pick<ExecLike, "workspaceId" | "environmentId" | "product">): Record<string, string> {
+/** Creation-time tags from the proposal; only the live acceptance run tag is allowed. */
+export function executionExtraTags(value: unknown): Record<string, string> {
+  if (value === undefined) return {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Execution tags must be an object.");
+  const out: Record<string, string> = {};
+  for (const [key, tag] of Object.entries(value)) {
+    if (key !== "zenith:live-run" || typeof tag !== "string" || !/^zlive-\d{12}-[a-z0-9]{4}$/.test(tag)) throw new Error("Execution tags allow only a valid zenith:live-run id.");
+    out[key] = tag;
+  }
+  return out;
+}
+
+export function baseTags(ec: Pick<ExecLike, "workspaceId" | "environmentId" | "product"> & { op?: { id: string; proposal?: OperationRecord["proposal"] } }): Record<string, string> {
+  const input = ec.op?.proposal?.input;
   return {
     [TAG_MANAGED]: "true",
     [TAG_WORKSPACE]: ec.workspaceId,
     "zenith:project": ec.product.project.id,
     [TAG_ENVIRONMENT]: ec.environmentId,
+    ...executionExtraTags(input && typeof input === "object" && !Array.isArray(input) ? (input as Record<string, unknown>).executionTags : undefined),
   };
 }
 

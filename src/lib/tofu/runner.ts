@@ -230,6 +230,9 @@ interface ExecOutcome {
 
 export type PlanNormalizeBase = Pick<NormalizePlanOptions, "statefulTypes" | "fingerprintKey" | "now">;
 
+/** Server-side guard only. Raw show JSON contains secrets and must never escape this callback. */
+export type PlanInspector = (plan: NormalizedPlan, raw: ShowJson) => void | Promise<void>;
+
 export class TofuRun {
   private disposed = false;
   private lastDiagnostics: PlanDiagnostic[] = [];
@@ -342,9 +345,9 @@ export class TofuRun {
    * `env:<id>` lease, which is the lock that actually serialises mutations.
    * Apply always locks.
    */
-  async plan(opts: { lock?: boolean } = {}): Promise<{ result: TofuRunResult; hasChanges: boolean; diagnostics: PlanDiagnostic[] }> {
+  async plan(opts: { lock?: boolean; destroy?: boolean } = {}): Promise<{ result: TofuRunResult; hasChanges: boolean; diagnostics: PlanDiagnostic[] }> {
     const lockArgs = opts.lock === false ? ["-lock=false"] : ["-lock-timeout=60s"];
-    const out = await this.command("plan", ["plan", `-out=${PLAN_FILE}`, "-input=false", "-detailed-exitcode", ...lockArgs, "-no-color", "-json"], {
+    const out = await this.command("plan", ["plan", ...(opts.destroy ? ["-destroy"] : []), `-out=${PLAN_FILE}`, "-input=false", "-detailed-exitcode", ...lockArgs, "-no-color", "-json"], {
       okExitCodes: [0, 2],
       uiStream: true,
     });
@@ -360,10 +363,10 @@ export class TofuRun {
   }
 
   /** Read and normalize the current plan file with this workspace's context. */
-  async normalizedPlan(base: PlanNormalizeBase = {}): Promise<NormalizedPlan> {
+  async normalizedPlan(base: PlanNormalizeBase = {}, inspect?: PlanInspector): Promise<NormalizedPlan> {
     const { json } = await this.showJson();
     const sessionEnv = this.i.session?.childProcessEnv?.() ?? {};
-    return normalizePlan(json, {
+    const plan = normalizePlan(json, {
       configDigest: this.i.ws.configDigest,
       lockDigest: this.i.ws.lockDigest,
       addressMap: this.i.ws.addressMap,
@@ -371,6 +374,8 @@ export class TofuRun {
       secrets: secretValuesOf({ ...this.i.extraEnv, ...sessionEnv }),
       ...base,
     });
+    await inspect?.(plan, json);
+    return plan;
   }
 
   /**
@@ -394,9 +399,12 @@ export class TofuRun {
    * normalizes to `expectedPlanDigest`. A different digest throws
    * `TofuPlanChangedError` before anything is applied.
    */
-  async apply(args: { expectedPlanDigest: string; normalize?: PlanNormalizeBase }): Promise<{ result: TofuRunResult; plan: NormalizedPlan }> {
+  async apply(args: { expectedPlanDigest: string; normalize?: PlanNormalizeBase; inspectPlan?: PlanInspector }): Promise<{ result: TofuRunResult; plan: NormalizedPlan }> {
     const before = await this.planFileSha();
-    const plan = await this.normalizedPlan(args.normalize);
+    const plan = await this.normalizedPlan(args.normalize, async (current, raw) => {
+      if (current.planDigest !== args.expectedPlanDigest) throw new TofuPlanChangedError(args.expectedPlanDigest, current.planDigest);
+      await args.inspectPlan?.(current, raw);
+    });
     if (plan.planDigest !== args.expectedPlanDigest) throw new TofuPlanChangedError(args.expectedPlanDigest, plan.planDigest);
     if ((await this.planFileSha()) !== before) {
       throw new TofuCommandError("tofu_command_failed", "The saved plan file changed while it was being verified; refusing to apply.", {

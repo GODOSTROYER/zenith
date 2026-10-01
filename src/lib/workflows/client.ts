@@ -24,6 +24,7 @@
  */
 
 import { createHash } from "node:crypto";
+import type { DestroyWorkflowInput } from "./definitions/destroy";
 import { credentialPatternsIn } from "@/lib/credentials/redact";
 import {
   Client,
@@ -213,6 +214,12 @@ export async function startDeploy(input: DeployWorkflowInput, opts?: CallOptions
     revisionId: "id", deploymentId: "id", connectionId: "id", preApproved: "boolean", build: "boolean",
   });
   return startOnce(WORKFLOW_TYPES.deploy, WORKFLOW_ID(payload.operationId), [payload], WorkflowIdReusePolicy.REJECT_DUPLICATE, opts);
+}
+
+/** Start an explicit teardown once; proposals/approvals remain the broker's responsibility. */
+export async function startDestroy(input: DestroyWorkflowInput, opts?: CallOptions): Promise<StartedWorkflow> {
+  const payload = workflowPayload(input, { operationId: "id", workspaceId: "id", environmentId: "id" });
+  return startOnce("infrastructureDestroyWorkflow", WORKFLOW_ID(payload.operationId), [payload], WorkflowIdReusePolicy.REJECT_DUPLICATE, opts);
 }
 
 export async function startDayTwo(input: DayTwoWorkflowInput, opts?: CallOptions): Promise<StartedWorkflow> {

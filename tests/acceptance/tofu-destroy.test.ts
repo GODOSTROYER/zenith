@@ -10,6 +10,17 @@ import { access, RUN, temp } from "./_helpers";
 
 function show(type: string, before: unknown, actions = ["delete"]): ShowJson { return { resource_changes: [{ address: `${type}.test`, type, mode: "managed", change: { before, actions } }] }; }
 describe("destroy plan verification", () => {
+  it("does not echo a foreign run-tag value into refusal evidence", () => {
+    const canary = "sensitive-tag-canary-012345";
+    const result = verifyDestroyPlan(show("aws_db_instance", { tags: { "zenith:live-run": canary } }), RUN);
+    expect(result.ok).toBe(false);
+    expect(JSON.stringify(result)).not.toContain(canary);
+  });
+  it("does not label inaccessible state as absent", async () => {
+    const result = await destroyRunWorkspace({ access: access(), runId: RUN, workspaceId: "ws_test", environmentId: "env_test", region: "us-east-1", stateBucket: "unused", dryRun: false, stateExists: async () => { throw new Error("access denied"); } });
+    expect(result.status).toBe("failed");
+    expect(result.detail).toContain("Could not look for the state object");
+  });
   it.each([{ tags: {} }, { tags_all: { "zenith:live-run": "other" } }])("refuses missing/foreign tags %j", (before) => { expect(verifyDestroyPlan(show("aws_db_instance", before), RUN).ok).toBe(false); });
   it("refuses unknown untagged types; permits only allowlisted untagged types", () => { expect(verifyDestroyPlan(show("aws_unknown", {}), RUN).ok).toBe(false); expect(verifyDestroyPlan(show("terraform_data", { input: "local" }), RUN).ok).toBe(true); });
   it.each(["update", "create"])("refuses %s in a destroy plan", (action) => { expect(verifyDestroyPlan(show("aws_vpc", { tags: { "zenith:live-run": RUN } }, [action]), RUN).ok).toBe(false); });

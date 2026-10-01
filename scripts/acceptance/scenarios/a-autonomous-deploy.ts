@@ -119,7 +119,7 @@ export const demoA: ScenarioDefinition = {
       plan: () => ["POST /api/platform/v1/capabilities/propose { capability: infrastructure.plan, scope: environment }", "wait for the operation to finish; read its plan digest and cost", "check the plan's cost against the budget before anything is applied"],
       async run(ctx) {
         const scope = { workspaceId: ctx.config.workspaceId!, projectId: ctx.state.get("a.projectId") as string, environmentId: ctx.state.get("a.environmentId") as string };
-        const proposed = await cp(ctx).proposeCapability({ capability: "infrastructure.plan", scope, reason: `live acceptance ${ctx.runId}: plan the sample app`, idempotencyKey: `${ctx.runId}-plan` });
+        const proposed = await cp(ctx).proposeCapability({ capability: "infrastructure.plan", scope, input: { executionTags: { "zenith:live-run": ctx.runId } }, reason: `live acceptance ${ctx.runId}: plan the sample app`, idempotencyKey: `${ctx.runId}-plan` });
         if (proposed.decision.outcome === "deny") throw new Error(`Planning was denied: ${proposed.decision.reasons.map((r) => r.code).join(", ")}`);
         const op = await awaitTerminal(ctx, S, proposed.operation.id, 20 * 60_000);
         const planDigest = op.planDigest ?? op.proposal?.planDigest;
@@ -140,7 +140,7 @@ export const demoA: ScenarioDefinition = {
       async run(ctx) {
         const environmentId = ctx.state.get("a.environmentId") as string;
         const scope = { workspaceId: ctx.config.workspaceId!, projectId: ctx.state.get("a.projectId") as string, environmentId };
-        const proposed = await cp(ctx).proposeCapability({ capability: "deployment.deploy", scope, input: { planDigest: ctx.state.get("a.planDigest") }, reason: `live acceptance ${ctx.runId}: deploy the sample app`, idempotencyKey: `${ctx.runId}-deploy` });
+        const proposed = await cp(ctx).proposeCapability({ capability: "deployment.deploy", scope, input: { planDigest: ctx.state.get("a.planDigest"), executionTags: { "zenith:live-run": ctx.runId } }, reason: `live acceptance ${ctx.runId}: deploy the sample app`, idempotencyKey: `${ctx.runId}-deploy` });
         ctx.state.set("a.deployOp", proposed.operation.id);
         ctx.evidence.operation(S, { operationId: proposed.operation.id, capability: "deployment.deploy", status: proposed.operation.status, detail: `decision ${proposed.decision.outcome}` });
         if (proposed.decision.outcome === "require_approval") {
